@@ -1,0 +1,320 @@
+"""Risk engine helpers for ALCB."""
+
+from __future__ import annotations
+
+from math import floor, sqrt
+from statistics import fmean
+
+from .config import StrategySettings
+from .models import (
+    Campaign,
+    CandidateItem,
+    CompressionTier,
+    Direction,
+    EntryType,
+    PortfolioState,
+    PositionPlan,
+    Regime,
+)
+from .signals import atr_from_bars
+
+
+def is_volatile_name(item: CandidateItem) -> bool:
+    if item.median_spread_pct >= 0.0035:
+        return True
+    atr14 = atr_from_bars(item.daily_bars, 14)
+    return atr14 > 0 and item.price > 0 and (atr14 / item.price) >= 0.05
+
+
+def base_risk_fraction(item: CandidateItem, settings: StrategySettings) -> float:
+    return settings.volatile_base_risk_fraction if is_volatile_name(item) else settings.base_risk_fraction
+
+
+def regime_mult(direction: Direction, stock_regime: Regime, market_regime: Regime) -> float:
+    if direction == Direction.LONG:
+        if stock_regime == Regime.BULL and market_regime in (Regime.BULL, Regime.TRANSITIONAL):
+            return 1.00
+        if stock_regime in (Regime.BULL, Regime.TRANSITIONAL):
+            return 0.80
+        if stock_regime == Regime.CHOP:
+            return 0.60
+        return 0.0
+    if stock_regime == Regime.BEAR and market_regime in (Regime.BEAR, Regime.TRANSITIONAL):
+        return 1.00
+    if stock_regime in (Regime.BEAR, Regime.TRANSITIONAL):
+        return 0.80
+    if stock_regime == Regime.CHOP:
+        return 0.60
+    return 0.0
+
+
+def quality_mult(campaign: Campaign, intraday_score: int, settings: StrategySettings | None = None) -> float:
+    if campaign.box is None or campaign.breakout is None:
+        return 0.0
+    mult = 1.0
+    if campaign.box.tier == CompressionTier.GOOD:
+        mult *= 1.05
+    elif campaign.box.tier == CompressionTier.LOOSE:
+        mult *= 0.85
+    disp_ratio = campaign.breakout.disp_value / campaign.breakout.disp_threshold if campaign.breakout.disp_threshold > 0 else 0.0
+    if disp_ratio >= 1.25:
+        mult *= 1.05
+    elif disp_ratio < 1.0:
+        return 0.0
+    top_tier = settings.evidence_score_top_tier if settings else 6
+    top_mult = settings.quality_mult_top_score if settings else 1.10
+    if intraday_score >= top_tier:
+        mult *= top_mult
+    elif intraday_score >= 4:
+        mult *= 1.05
+    elif intraday_score == 3:
+        mult *= 0.95
+    elif intraday_score == 2:
+        mult *= 0.85
+    else:
+        return 0.0
+    return max(0.0, min(mult, 1.0))
+
+
+def _returns_from_candidate(item: CandidateItem, lookback: int) -> list[float]:
+    closes = [float(bar.close) for bar in item.daily_bars]
+    if len(closes) < lookback + 2:
+        return []
+    values: list[float] = []
+    for prev, current in zip(closes[-lookback - 1 : -1], closes[-lookback:]):
+        if prev <= 0:
+            values.append(0.0)
+        else:
+            values.append((current - prev) / prev)
+    return values
+
+
+def rolling_corr_daily(symbol_a: str, symbol_b: str, items: dict[str, CandidateItem], lookback: int) -> float:
+    left = items.get(symbol_a)
+    right = items.get(symbol_b)
+    if left is None or right is None:
+        return 0.0
+    xs = _returns_from_candidate(left, lookback)
+    ys = _returns_from_candidate(right, lookback)
+    size = min(len(xs), len(ys))
+    if size < 5:
+        return 0.0
+    xs = xs[-size:]
+    ys = ys[-size:]
+    mean_x = fmean(xs)
+    mean_y = fmean(ys)
+    cov = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys)) / size
+    std_x = sqrt(sum((x - mean_x) ** 2 for x in xs) / size)
+    std_y = sqrt(sum((y - mean_y) ** 2 for y in ys) / size)
+    if std_x <= 0 or std_y <= 0:
+        return 0.0
+    return cov / (std_x * std_y)
+
+
+def correlation_mult(symbol: str, direction: Direction, portfolio: PortfolioState, items: dict[str, CandidateItem], settings: StrategySettings) -> float:
+    if not portfolio.open_positions:
+        return 1.0
+    max_corr = 0.0
+    for other_symbol, position in portfolio.open_positions.items():
+        if position.direction != direction:
+            continue
+        max_corr = max(max_corr, rolling_corr_daily(symbol, other_symbol, items, settings.corr_lookback))
+    return 0.80 if max_corr > settings.corr_threshold else 1.0
+
+
+def high_ranked_name(item: CandidateItem) -> bool:
+    return item.selection_score >= 8
+
+
+def _regime_from_value(value: Regime | str | None) -> Regime:
+    if isinstance(value, Regime):
+        return value
+    if isinstance(value, str) and value in Regime._value2member_map_:
+        return Regime(value)
+    return Regime.TRANSITIONAL
+
+
+def breakout_quality_strong(campaign: Campaign) -> bool:
+    if campaign.breakout is None or campaign.breakout.disp_threshold <= 0:
+        return False
+    return (campaign.breakout.disp_value / campaign.breakout.disp_threshold) >= 1.10
+
+
+def choose_stop(
+    entry_type: EntryType,
+    direction: Direction,
+    item: CandidateItem,
+    campaign: Campaign,
+    settings: StrategySettings,
+    *,
+    stock_regime: Regime | str | None = None,
+    market_regime: Regime | str | None = None,
+) -> float:
+    if campaign.box is None:
+        return item.price
+    atr14 = atr_from_bars(item.daily_bars, 14)
+    stop_mult = settings.atr_stop_mult_volatile if is_volatile_name(item) else settings.atr_stop_mult_std
+    buffer = stop_mult * atr14
+    live_stock_regime = _regime_from_value(stock_regime or item.stock_regime)
+    live_market_regime = _regime_from_value(market_regime or item.market_regime)
+    stock_aligned = (
+        direction == Direction.LONG and live_stock_regime == Regime.BULL
+    ) or (
+        direction == Direction.SHORT and live_stock_regime == Regime.BEAR
+    )
+    market_not_opposing = not (
+        (direction == Direction.LONG and live_market_regime == Regime.BEAR)
+        or (direction == Direction.SHORT and live_market_regime == Regime.BULL)
+    )
+    midpoint_allowed = (
+        entry_type == EntryType.A_AVWAP_RETEST
+        and campaign.box.tier == CompressionTier.GOOD
+        and high_ranked_name(item)
+        and stock_aligned
+        and market_not_opposing
+        and breakout_quality_strong(campaign)
+    )
+    if midpoint_allowed:
+        return (campaign.box.mid - buffer) if direction == Direction.LONG else (campaign.box.mid + buffer)
+    return (campaign.box.low - buffer) if direction == Direction.LONG else (campaign.box.high + buffer)
+
+
+def choose_targets(direction: Direction, entry_price: float, stop_price: float, stock_regime: Regime, market_regime: Regime, settings: StrategySettings, *, quality_mult_value: float = 0.0) -> tuple[float, float]:
+    r = abs(entry_price - stop_price)
+    aligned = (
+        (direction == Direction.LONG and stock_regime == Regime.BULL and market_regime in (Regime.BULL, Regime.TRANSITIONAL))
+        or (direction == Direction.SHORT and stock_regime == Regime.BEAR and market_regime in (Regime.BEAR, Regime.TRANSITIONAL))
+    )
+    high_conviction = quality_mult_value >= settings.high_conviction_quality_mult_min
+    if aligned:
+        tp1_r = settings.tp1_aligned_r
+        tp2_r = settings.tp2_aligned_r_high_conviction if high_conviction else settings.tp2_aligned_r
+    else:
+        tp1_r = settings.tp1_neutral_r
+        tp2_r = settings.tp2_neutral_r_high_conviction if high_conviction else settings.tp2_neutral_r
+    if direction == Direction.LONG:
+        return entry_price + (tp1_r * r), entry_price + (tp2_r * r)
+    return entry_price - (tp1_r * r), entry_price - (tp2_r * r)
+
+
+def estimate_cost_buffer_per_share(item: CandidateItem, entry_price: float) -> float:
+    spread_cost = max(item.median_spread_pct * entry_price, item.tick_size)
+    if item.adv20_usd >= 50_000_000:
+        slippage = 0.01
+    elif item.adv20_usd >= 20_000_000:
+        slippage = 0.02
+    else:
+        slippage = 0.03
+    return spread_cost + slippage
+
+
+def position_size(
+    item: CandidateItem,
+    entry_price: float,
+    stop_price: float,
+    direction: Direction,
+    campaign: Campaign,
+    intraday_score: int,
+    portfolio: PortfolioState,
+    items: dict[str, CandidateItem],
+    settings: StrategySettings,
+    *,
+    entry_type: EntryType = EntryType.A_AVWAP_RETEST,
+    stock_regime: Regime | str | None = None,
+    market_regime: Regime | str | None = None,
+) -> PositionPlan | None:
+    live_stock_regime = _regime_from_value(stock_regime or item.stock_regime)
+    live_market_regime = _regime_from_value(market_regime or item.market_regime)
+    reg_mult = regime_mult(direction, live_stock_regime, live_market_regime)
+    if reg_mult <= 0:
+        return None
+    q_mult = quality_mult(campaign, intraday_score, settings)
+    if q_mult <= 0:
+        return None
+    c_mult = correlation_mult(item.symbol, direction, portfolio, items, settings)
+    base = base_risk_fraction(item, settings)
+    final_risk_fraction = base * reg_mult * q_mult * c_mult
+    final_risk_fraction = min(max(final_risk_fraction, settings.final_risk_min_mult * base), settings.final_risk_max_mult * base)
+    equity = portfolio.account_equity
+    risk_dollars = equity * final_risk_fraction
+    risk_per_share = abs(entry_price - stop_price) + estimate_cost_buffer_per_share(item, entry_price)
+    if risk_per_share <= 0:
+        return None
+    qty = int(floor(risk_dollars / risk_per_share))
+    if qty < 1:
+        return None
+    max_participation = settings.thin_participation_30m if item.adv20_usd < 50_000_000 else settings.max_participation_30m
+    max_qty = int(max(item.median_30m_volume, item.average_30m_volume, 1.0) * max_participation)
+    qty = min(qty, max_qty)
+    if qty < 1:
+        return None
+    risk_dollars = qty * risk_per_share
+    tp1, tp2 = choose_targets(direction, entry_price, stop_price, live_stock_regime, live_market_regime, settings, quality_mult_value=q_mult)
+    return PositionPlan(
+        symbol=item.symbol,
+        direction=direction,
+        entry_type=entry_type,
+        entry_price=entry_price,
+        stop_price=stop_price,
+        tp1_price=tp1,
+        tp2_price=tp2,
+        quantity=qty,
+        risk_per_share=risk_per_share,
+        risk_dollars=risk_dollars,
+        quality_mult=q_mult,
+        regime_mult=reg_mult,
+        corr_mult=c_mult,
+    )
+
+
+def add_position_quantity(
+    item: CandidateItem,
+    position: PositionPlan | None,
+    portfolio: PortfolioState,
+    entry_price: float,
+    stop_price: float,
+    settings: StrategySettings,
+) -> int:
+    if position is None:
+        return 0
+    base = portfolio.account_equity * base_risk_fraction(item, settings) * 0.5
+    risk_per_share = abs(entry_price - stop_price) + estimate_cost_buffer_per_share(item, entry_price)
+    if risk_per_share <= 0:
+        return 0
+    qty = int(base / risk_per_share)
+    max_qty = int(max(item.median_30m_volume, item.average_30m_volume, 1.0) * settings.max_participation_30m)
+    return max(0, min(qty, max_qty))
+
+
+def event_block(item: CandidateItem) -> bool:
+    return item.earnings_risk_flag
+
+
+def portfolio_heat_after(plan: PositionPlan, portfolio: PortfolioState) -> float:
+    current = portfolio.open_risk_dollars() + portfolio.pending_entry_risk_dollars()
+    proposed = current + plan.risk_dollars * portfolio.correlation_heat_penalty(plan.symbol, plan.direction)
+    if portfolio.account_equity <= 0:
+        return 0.0
+    return proposed / portfolio.account_equity
+
+
+def sector_limit_pass(item: CandidateItem, portfolio: PortfolioState, symbol_to_sector: dict[str, str], settings: StrategySettings) -> bool:
+    sector_symbols = {
+        symbol
+        for symbol in set(portfolio.open_positions) | set(portfolio.pending_entry_risk)
+        if symbol_to_sector.get(symbol) == item.sector
+    }
+    return len(sector_symbols) < settings.max_positions_per_sector
+
+
+def max_positions_pass(portfolio: PortfolioState, settings: StrategySettings) -> bool:
+    return portfolio.occupied_slots() < settings.max_positions
+
+
+def estimate_round_trip_friction(item: CandidateItem, quantity: int, entry_price: float) -> float:
+    return quantity * estimate_cost_buffer_per_share(item, entry_price)
+
+
+def friction_gate_pass(item: CandidateItem, plan: PositionPlan, settings: StrategySettings) -> bool:
+    friction = estimate_round_trip_friction(item, plan.quantity, plan.entry_price)
+    return friction <= settings.max_friction_to_risk * plan.risk_dollars

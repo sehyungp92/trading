@@ -1,0 +1,34 @@
+# Process quality scoring rules
+# US equities intraday strategies via IBKR
+
+global:
+  max_entry_latency_ms: 5000
+  max_slippage_multiplier: 2.0
+  min_signal_strength: 0.3
+  strong_signal_threshold: 0.7
+  expected_slippage_bps: 3
+
+strategies:
+  # IARIC v1 — intraday AVWAP pullback, US large-cap equities
+  iaric:
+    preferred_regimes:
+      - trending_up
+      - trending_down
+    adverse_regimes:
+      - ranging
+    max_hold_bars: 78              # Intraday 5-min bars: ~6.5h session
+    expected_slippage_bps: 3       # US large-cap equities, IBKR SMART routing
+    min_signal_strength: 0.40      # tier_b_min threshold
+    strong_signal_threshold: 0.65  # tier_a_min threshold
+
+  # US ORB v1 — opening range breakout, US equities
+  us_orb:
+    preferred_regimes:
+      - trending_up
+      - volatile
+    adverse_regimes:
+      - ranging
+    max_hold_bars: 72              # Intraday 5-min bars: entry 9:51 to flatten 15:45
+    expected_slippage_bps: 5       # First 15 min: wider spreads at open
+    min_signal_strength: 0.50      # minimum_quality_score / 100
+    strong_signal_threshold: 0.85  # top_quality_score / 100

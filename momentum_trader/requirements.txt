@@ -1,0 +1,7 @@
+numpy>=1.26
+pytz>=2024.1
+asyncpg>=0.29
+ib_async>=1.0
+PyYAML>=6.0
+pydantic>=2.0
+requests>=2.31

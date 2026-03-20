@@ -1,0 +1,73 @@
+{
+  "last_decision_code": "snapshot",
+  "meta": {
+    "active_symbols": [
+      "AAPL"
+    ]
+  },
+  "saved_at": "2026-03-19T23:04:35.477040+00:00",
+  "symbols": [
+    {
+      "acceptance_count": 0,
+      "active_order_id": null,
+      "average_30m_volume": 0.0,
+      "avg_price": null,
+      "avwap_live": null,
+      "confidence": null,
+      "entry_order": null,
+      "exit_order": {
+        "cancel_requested": false,
+        "limit_price": 100.8,
+        "oms_order_id": "9d13bc87-b767-4fa0-a09a-a212f0a253d4",
+        "requested_qty": 100,
+        "role": "EXIT",
+        "stop_price": null,
+        "submitted_at": "2026-03-19T23:04:35.167857+00:00"
+      },
+      "expected_volume_pct": 0.0,
+      "flowproxy_signal": "UNAVAILABLE",
+      "fsm_state": "IDLE",
+      "in_position": true,
+      "invalidated_at": null,
+      "last_1m_bar_time": null,
+      "last_5m_bar_time": null,
+      "last_transition_reason": "time_stop",
+      "location_grade": null,
+      "micropressure_mode": "PROXY",
+      "micropressure_signal": "NEUTRAL",
+      "pending_hard_exit": false,
+      "position": {
+        "current_stop": 99.5,
+        "entry_commission": 0.0,
+        "entry_price": 101.0,
+        "entry_time": "2026-03-12T13:35:00+00:00",
+        "final_stop": 99.5,
+        "initial_risk_per_share": 1.5,
+        "max_adverse_price": 100.8,
+        "max_favorable_price": 101.0,
+        "partial_taken": false,
+        "qty_entry": 100,
+        "qty_open": 100,
+        "realized_pnl_usd": 0.0,
+        "setup_tag": "UNCLASSIFIED",
+        "stop_order_id": "",
+        "time_stop_deadline": "2026-03-12T14:00:00+00:00",
+        "trade_id": ""
+      },
+      "position_qty": 0,
+      "reclaim_level": null,
+      "required_acceptance_count": 0,
+      "session_vwap": null,
+      "setup_low": null,
+      "setup_tag": "UNCLASSIFIED",
+      "setup_time": null,
+      "setup_type": null,
+      "sponsorship_signal": "STRONG",
+      "stop_level": null,
+      "symbol": "AAPL",
+      "tier": "HOT",
+      "time_stop_deadline": null
+    }
+  ],
+  "trade_date": "2026-03-12"
+}

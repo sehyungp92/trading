@@ -1,0 +1,51 @@
+# Simulation policies for missed opportunity backfill
+# Adapted for NQ/MNQ futures via IBKR
+
+simulation_policies:
+  # Helix v4.0 — 1H pullback trend-follow
+  helix:
+    entry_fill_model: next_trade
+    slippage_model: fixed_bps
+    slippage_bps: 2.0           # NQ has tight spreads (0.25-0.50 ticks)
+    fees_included: true
+    fee_bps: 1.0                # ~$4.12 RT on $20k notional NQ ≈ ~2bps, conservative
+    tp_sl_logic: atr_based
+    tp_value: 1.5               # TP1 at 1.5R (P2), trail handles the rest
+    sl_value: 1.0               # 1x initial R from setup
+    max_hold_bars: 200
+
+  # NQDTC v2.1 — 30m box-breakout
+  nqdtc:
+    entry_fill_model: next_trade
+    slippage_model: fixed_bps
+    slippage_bps: 2.0
+    fees_included: true
+    fee_bps: 1.0
+    tp_sl_logic: atr_based
+    tp_value: 1.5               # TP1 at 1.5R
+    sl_value: 1.0
+    max_hold_bars: 100
+
+  # VdubusNQ v4.2 — 15m VWAP pullback swing
+  vdubus:
+    entry_fill_model: next_trade
+    slippage_model: fixed_bps
+    slippage_bps: 2.0
+    fees_included: true
+    fee_bps: 1.0
+    tp_sl_logic: atr_based
+    tp_value: 1.0               # +1R partial trigger
+    sl_value: 1.0
+    max_hold_bars: 128
+
+  # Fallback
+  default:
+    entry_fill_model: mid
+    slippage_model: fixed_bps
+    slippage_bps: 3.0
+    fees_included: true
+    fee_bps: 1.5
+    tp_sl_logic: atr_based
+    tp_value: 1.5
+    sl_value: 1.0
+    max_hold_bars: 100

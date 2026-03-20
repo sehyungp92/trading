@@ -1,0 +1,44 @@
+MNQ:
+  root_symbol: MNQ
+  exchange: CME
+  trading_class: MNQ
+
+MYM:
+  root_symbol: MYM
+  exchange: CBOT
+  trading_class: MYM
+
+MCL:
+  root_symbol: MCL
+  exchange: NYMEX
+  trading_class: MCL
+
+MGC:
+  root_symbol: MGC
+  exchange: COMEX
+  trading_class: MGC
+
+MBT:
+  root_symbol: MBT
+  exchange: CME
+  trading_class: MBT
+
+NQ:
+  root_symbol: NQ
+  exchange: CME
+  trading_class: NQ
+
+CL:
+  root_symbol: CL
+  exchange: NYMEX
+  trading_class: CL
+
+GC:
+  root_symbol: GC
+  exchange: COMEX
+  trading_class: GC
+
+BT:
+  root_symbol: BT
+  exchange: CME
+  trading_class: BT

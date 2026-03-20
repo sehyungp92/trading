@@ -1,0 +1,17 @@
+.git
+.pytest_cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+.env
+venv
+
+data
+instrumentation/data
+
+_references
+docs
+
+infra/.env

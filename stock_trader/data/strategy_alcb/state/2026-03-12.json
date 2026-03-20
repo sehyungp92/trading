@@ -1,0 +1,631 @@
+{
+  "last_decision_code": "snapshot",
+  "markets": [
+    {
+      "ask": 0.0,
+      "avwap_live": null,
+      "bars_30m": [
+        {
+          "close": 100.5,
+          "end_time": "2026-03-12T14:00:00+00:00",
+          "high": 100.8,
+          "low": 100.0,
+          "open": 100.2,
+          "start_time": "2026-03-12T13:30:00+00:00",
+          "symbol": "AAPL",
+          "volume": 100000
+        },
+        {
+          "close": 101.0,
+          "end_time": "2026-03-12T14:30:00+00:00",
+          "high": 101.2,
+          "low": 99.9,
+          "open": 100.6,
+          "start_time": "2026-03-12T14:00:00+00:00",
+          "symbol": "AAPL",
+          "volume": 180000
+        }
+      ],
+      "bars_4h": [
+        {
+          "close": 91.0,
+          "end_time": "2026-03-03T18:30:00+00:00",
+          "high": 91.3,
+          "low": 89.5,
+          "open": 90.0,
+          "start_time": "2026-03-03T14:30:00+00:00",
+          "symbol": "AAPL",
+          "volume": 500000
+        },
+        {
+          "close": 91.8,
+          "end_time": "2026-03-03T22:30:00+00:00",
+          "high": 92.1,
+          "low": 90.3,
+          "open": 90.8,
+          "start_time": "2026-03-03T18:30:00+00:00",
+          "symbol": "AAPL",
+          "volume": 500000
+        },
+        {
+          "close": 92.6,
+          "end_time": "2026-03-04T02:30:00+00:00",
+          "high": 92.89999999999999,
+          "low": 91.1,
+          "open": 91.6,
+          "start_time": "2026-03-03T22:30:00+00:00",
+          "symbol": "AAPL",
+          "volume": 500000
+        },
+        {
+          "close": 93.4,
+          "end_time": "2026-03-04T06:30:00+00:00",
+          "high": 93.7,
+          "low": 91.9,
+          "open": 92.4,
+          "start_time": "2026-03-04T02:30:00+00:00",
+          "symbol": "AAPL",
+          "volume": 500000
+        },
+        {
+          "close": 94.2,
+          "end_time": "2026-03-04T10:30:00+00:00",
+          "high": 94.5,
+          "low": 92.7,
+          "open": 93.2,
+          "start_time": "2026-03-04T06:30:00+00:00",
+          "symbol": "AAPL",
+          "volume": 500000
+        },
+        {
+          "close": 95.0,
+          "end_time": "2026-03-04T14:30:00+00:00",
+          "high": 95.3,
+          "low": 93.5,
+          "open": 94.0,
+          "start_time": "2026-03-04T10:30:00+00:00",
+          "symbol": "AAPL",
+          "volume": 500000
+        },
+        {
+          "close": 95.8,
+          "end_time": "2026-03-04T18:30:00+00:00",
+          "high": 96.1,
+          "low": 94.3,
+          "open": 94.8,
+          "start_time": "2026-03-04T14:30:00+00:00",
+          "symbol": "AAPL",
+          "volume": 500000
+        },
+        {
+          "close": 96.6,
+          "end_time": "2026-03-04T22:30:00+00:00",
+          "high": 96.89999999999999,
+          "low": 95.1,
+          "open": 95.6,
+          "start_time": "2026-03-04T18:30:00+00:00",
+          "symbol": "AAPL",
+          "volume": 500000
+        },
+        {
+          "close": 97.4,
+          "end_time": "2026-03-05T02:30:00+00:00",
+          "high": 97.7,
+          "low": 95.9,
+          "open": 96.4,
+          "start_time": "2026-03-04T22:30:00+00:00",
+          "symbol": "AAPL",
+          "volume": 500000
+        },
+        {
+          "close": 98.2,
+          "end_time": "2026-03-05T06:30:00+00:00",
+          "high": 98.5,
+          "low": 96.7,
+          "open": 97.2,
+          "start_time": "2026-03-05T02:30:00+00:00",
+          "symbol": "AAPL",
+          "volume": 500000
+        },
+        {
+          "close": 99.0,
+          "end_time": "2026-03-05T10:30:00+00:00",
+          "high": 99.3,
+          "low": 97.5,
+          "open": 98.0,
+          "start_time": "2026-03-05T06:30:00+00:00",
+          "symbol": "AAPL",
+          "volume": 500000
+        },
+        {
+          "close": 99.8,
+          "end_time": "2026-03-05T14:30:00+00:00",
+          "high": 100.1,
+          "low": 98.3,
+          "open": 98.8,
+          "start_time": "2026-03-05T10:30:00+00:00",
+          "symbol": "AAPL",
+          "volume": 500000
+        }
+      ],
+      "bid": 0.0,
+      "daily_bars": [
+        {
+          "close": 90.0,
+          "event_tag": "",
+          "high": 91.1,
+          "low": 89.0,
+          "open": 89.6,
+          "trade_date": "2026-02-10",
+          "volume": 1000000
+        },
+        {
+          "close": 90.35,
+          "event_tag": "",
+          "high": 91.44999999999999,
+          "low": 89.35,
+          "open": 89.94999999999999,
+          "trade_date": "2026-02-11",
+          "volume": 1010000
+        },
+        {
+          "close": 90.7,
+          "event_tag": "",
+          "high": 91.8,
+          "low": 89.7,
+          "open": 90.3,
+          "trade_date": "2026-02-12",
+          "volume": 1020000
+        },
+        {
+          "close": 91.05,
+          "event_tag": "",
+          "high": 92.14999999999999,
+          "low": 90.05,
+          "open": 90.64999999999999,
+          "trade_date": "2026-02-13",
+          "volume": 1030000
+        },
+        {
+          "close": 91.4,
+          "event_tag": "",
+          "high": 92.5,
+          "low": 90.4,
+          "open": 91.0,
+          "trade_date": "2026-02-14",
+          "volume": 1040000
+        },
+        {
+          "close": 91.75,
+          "event_tag": "",
+          "high": 92.85,
+          "low": 90.75,
+          "open": 91.35,
+          "trade_date": "2026-02-15",
+          "volume": 1050000
+        },
+        {
+          "close": 92.1,
+          "event_tag": "",
+          "high": 93.19999999999999,
+          "low": 91.1,
+          "open": 91.69999999999999,
+          "trade_date": "2026-02-16",
+          "volume": 1060000
+        },
+        {
+          "close": 92.45,
+          "event_tag": "",
+          "high": 93.55,
+          "low": 91.45,
+          "open": 92.05,
+          "trade_date": "2026-02-17",
+          "volume": 1070000
+        },
+        {
+          "close": 92.8,
+          "event_tag": "",
+          "high": 93.89999999999999,
+          "low": 91.8,
+          "open": 92.39999999999999,
+          "trade_date": "2026-02-18",
+          "volume": 1080000
+        },
+        {
+          "close": 93.15,
+          "event_tag": "",
+          "high": 94.25,
+          "low": 92.15,
+          "open": 92.75,
+          "trade_date": "2026-02-19",
+          "volume": 1090000
+        },
+        {
+          "close": 93.5,
+          "event_tag": "",
+          "high": 94.6,
+          "low": 92.5,
+          "open": 93.1,
+          "trade_date": "2026-02-20",
+          "volume": 1100000
+        },
+        {
+          "close": 93.85,
+          "event_tag": "",
+          "high": 94.94999999999999,
+          "low": 92.85,
+          "open": 93.44999999999999,
+          "trade_date": "2026-02-21",
+          "volume": 1110000
+        },
+        {
+          "close": 94.2,
+          "event_tag": "",
+          "high": 95.3,
+          "low": 93.2,
+          "open": 93.8,
+          "trade_date": "2026-02-22",
+          "volume": 1120000
+        },
+        {
+          "close": 94.55,
+          "event_tag": "",
+          "high": 95.64999999999999,
+          "low": 93.55,
+          "open": 94.14999999999999,
+          "trade_date": "2026-02-23",
+          "volume": 1130000
+        },
+        {
+          "close": 94.9,
+          "event_tag": "",
+          "high": 96.0,
+          "low": 93.9,
+          "open": 94.5,
+          "trade_date": "2026-02-24",
+          "volume": 1140000
+        },
+        {
+          "close": 95.25,
+          "event_tag": "",
+          "high": 96.35,
+          "low": 94.25,
+          "open": 94.85,
+          "trade_date": "2026-02-25",
+          "volume": 1150000
+        },
+        {
+          "close": 95.6,
+          "event_tag": "",
+          "high": 96.69999999999999,
+          "low": 94.6,
+          "open": 95.19999999999999,
+          "trade_date": "2026-02-26",
+          "volume": 1160000
+        },
+        {
+          "close": 95.95,
+          "event_tag": "",
+          "high": 97.05,
+          "low": 94.95,
+          "open": 95.55,
+          "trade_date": "2026-02-27",
+          "volume": 1170000
+        },
+        {
+          "close": 96.3,
+          "event_tag": "",
+          "high": 97.39999999999999,
+          "low": 95.3,
+          "open": 95.89999999999999,
+          "trade_date": "2026-02-28",
+          "volume": 1180000
+        },
+        {
+          "close": 96.65,
+          "event_tag": "",
+          "high": 97.75,
+          "low": 95.65,
+          "open": 96.25,
+          "trade_date": "2026-03-01",
+          "volume": 1190000
+        },
+        {
+          "close": 97.0,
+          "event_tag": "",
+          "high": 98.1,
+          "low": 96.0,
+          "open": 96.6,
+          "trade_date": "2026-03-02",
+          "volume": 1200000
+        },
+        {
+          "close": 97.35,
+          "event_tag": "",
+          "high": 98.44999999999999,
+          "low": 96.35,
+          "open": 96.94999999999999,
+          "trade_date": "2026-03-03",
+          "volume": 1210000
+        },
+        {
+          "close": 97.7,
+          "event_tag": "",
+          "high": 98.8,
+          "low": 96.7,
+          "open": 97.3,
+          "trade_date": "2026-03-04",
+          "volume": 1220000
+        },
+        {
+          "close": 100.4,
+          "event_tag": "",
+          "high": 100.7,
+          "low": 99.2,
+          "open": 99.6,
+          "trade_date": "2026-03-05",
+          "volume": 1200000
+        },
+        {
+          "close": 101.3,
+          "event_tag": "",
+          "high": 102.0,
+          "low": 99.9,
+          "open": 100.2,
+          "trade_date": "2026-03-06",
+          "volume": 1800000
+        }
+      ],
+      "last_1m_bar": null,
+      "last_30m_bar": {
+        "close": 101.0,
+        "end_time": "2026-03-12T14:30:00+00:00",
+        "high": 101.2,
+        "low": 99.9,
+        "open": 100.6,
+        "start_time": "2026-03-12T14:00:00+00:00",
+        "symbol": "AAPL",
+        "volume": 180000
+      },
+      "last_4h_bar": null,
+      "last_price": 101.0,
+      "last_quote": {
+        "ask": 101.0,
+        "ask_size": 150.0,
+        "bid": 100.95,
+        "bid_size": 200.0,
+        "cumulative_value": 0.0,
+        "cumulative_volume": 0.0,
+        "is_halted": false,
+        "last": 100.98,
+        "spread_pct": 0.0005,
+        "ts": "2026-03-12T14:30:00+00:00",
+        "vwap": null
+      },
+      "minute_bars": [],
+      "session_vwap": null,
+      "spread_pct": 0.0,
+      "symbol": "AAPL",
+      "weekly_vwap": null
+    },
+    {
+      "ask": 0.0,
+      "avwap_live": null,
+      "bars_30m": [],
+      "bars_4h": [],
+      "bid": 0.0,
+      "daily_bars": [],
+      "last_1m_bar": null,
+      "last_30m_bar": null,
+      "last_4h_bar": null,
+      "last_price": null,
+      "last_quote": null,
+      "minute_bars": [],
+      "session_vwap": null,
+      "spread_pct": 0.0,
+      "symbol": "SPY",
+      "weekly_vwap": null
+    },
+    {
+      "ask": 0.0,
+      "avwap_live": null,
+      "bars_30m": [],
+      "bars_4h": [],
+      "bid": 0.0,
+      "daily_bars": [],
+      "last_1m_bar": null,
+      "last_30m_bar": null,
+      "last_4h_bar": null,
+      "last_price": null,
+      "last_quote": null,
+      "minute_bars": [],
+      "session_vwap": null,
+      "spread_pct": 0.0,
+      "symbol": "QQQ",
+      "weekly_vwap": null
+    },
+    {
+      "ask": 0.0,
+      "avwap_live": null,
+      "bars_30m": [],
+      "bars_4h": [],
+      "bid": 0.0,
+      "daily_bars": [],
+      "last_1m_bar": null,
+      "last_30m_bar": null,
+      "last_4h_bar": null,
+      "last_price": null,
+      "last_quote": null,
+      "minute_bars": [],
+      "session_vwap": null,
+      "spread_pct": 0.0,
+      "symbol": "IWM",
+      "weekly_vwap": null
+    }
+  ],
+  "meta": {
+    "hot_symbols": [
+      "AAPL"
+    ]
+  },
+  "saved_at": "2026-03-19T23:04:36.472259+00:00",
+  "symbols": [
+    {
+      "campaign": {
+        "add_count": 0,
+        "avwap_anchor_ts": "2026-03-03T09:30:00-05:00",
+        "box": {
+          "L_used": 8,
+          "containment": 0.9,
+          "end_date": "2026-03-11",
+          "height": 3.0,
+          "high": 100.0,
+          "low": 97.0,
+          "mid": 98.5,
+          "squeeze_metric": 0.7,
+          "start_date": "2026-03-03",
+          "tier": "GOOD"
+        },
+        "box_version": 0,
+        "breakout": {
+          "breakout_date": "2026-03-11",
+          "breakout_rejected": false,
+          "direction": "LONG",
+          "disp_threshold": 0.8,
+          "disp_value": 1.1,
+          "displacement_pass": true,
+          "rvol_d": 1.8,
+          "score_components": {},
+          "structural_pass": true
+        },
+        "campaign_id": 0,
+        "campaign_risk_used": 299.86227142857183,
+        "continuation_enabled": false,
+        "dirty_since": null,
+        "last_entry_type": "A_AVWAP_RETEST",
+        "position_open": true,
+        "profit_funded": false,
+        "reentry_block_opposite_enhanced": false,
+        "reentry_block_same_direction": false,
+        "state": "POSITION_OPEN",
+        "symbol": "AAPL"
+      },
+      "entry_order": null,
+      "exit_order": null,
+      "intraday_detail": {
+        "above_avwap": 1,
+        "early_session_strength": 1,
+        "rvol_30m": 1,
+        "sq_good": 1,
+        "strong_displacement": 1,
+        "two_closes": 1
+      },
+      "intraday_score": 6,
+      "last_30m_bar_time": null,
+      "last_market_regime": "BULL",
+      "last_signal_factors": {
+        "above_avwap": 1,
+        "disp_ratio": 1.375,
+        "early_session_strength": 1,
+        "intraday_score": 6,
+        "market_regime": "BULL",
+        "mode_threshold": 3,
+        "rvol_30m": 1,
+        "sq_good": 1,
+        "stock_regime": "CHOP",
+        "strong_displacement": 1,
+        "two_closes": 1
+      },
+      "last_stock_regime": "CHOP",
+      "last_transition_reason": "",
+      "mode": "DEGRADED",
+      "pending_add": false,
+      "pending_hard_exit": false,
+      "position": {
+        "current_stop": 94.83571428571429,
+        "direction": "LONG",
+        "entry_commission": 0.30000000000000004,
+        "entry_price": 100.0921568627451,
+        "entry_time": "2026-03-19T23:04:35.861938+00:00",
+        "exit_commission": 0.0,
+        "exit_oca_group": "ALCB-AAPL-EXIT-b6271d1b96b5",
+        "final_stop": 94.83571428571429,
+        "initial_risk_per_share": 5.164285714285711,
+        "max_adverse_price": 100.0,
+        "max_favorable_price": 100.1,
+        "opened_trade_date": "2026-03-19",
+        "partial_taken": false,
+        "profit_funded": false,
+        "qty_entry": 51,
+        "qty_open": 51,
+        "realized_pnl_usd": 0.0,
+        "setup_tag": "A_AVWAP_RETEST",
+        "stale_warning_emitted": false,
+        "stop_order_id": "ebfe254a-c332-4176-87c2-f909251cf4c6",
+        "stop_submitted_at": "2026-03-19T23:04:36.157419+00:00",
+        "tp1_order_id": "e77282bc-65d0-4464-8102-ae1a1ba41782",
+        "tp1_price": 106.37380952380954,
+        "tp2_order_id": "aa8ed23c-4ec8-45d2-92cd-7cf756f853a6",
+        "tp2_price": 115.02738095238098,
+        "tp2_taken": false,
+        "trade_id": ""
+      },
+      "stop_order": {
+        "cancel_requested": false,
+        "direction": null,
+        "entry_price": null,
+        "entry_type": null,
+        "filled_qty": 0,
+        "limit_price": null,
+        "oms_order_id": "ebfe254a-c332-4176-87c2-f909251cf4c6",
+        "planned_stop_price": null,
+        "planned_tp1_price": null,
+        "planned_tp2_price": null,
+        "requested_qty": 51,
+        "risk_dollars": null,
+        "risk_per_share": null,
+        "role": "STOP",
+        "stop_price": 94.83571428571429,
+        "submitted_at": "2026-03-19T23:04:36.157419+00:00"
+      },
+      "symbol": "AAPL",
+      "tp1_order": {
+        "cancel_requested": false,
+        "direction": null,
+        "entry_price": null,
+        "entry_type": null,
+        "filled_qty": 0,
+        "limit_price": 106.37380952380954,
+        "oms_order_id": "e77282bc-65d0-4464-8102-ae1a1ba41782",
+        "planned_stop_price": null,
+        "planned_tp1_price": null,
+        "planned_tp2_price": null,
+        "requested_qty": 15,
+        "risk_dollars": null,
+        "risk_per_share": null,
+        "role": "TP",
+        "stop_price": null,
+        "submitted_at": "2026-03-19T23:04:36.157419+00:00"
+      },
+      "tp2_order": {
+        "cancel_requested": false,
+        "direction": null,
+        "entry_price": null,
+        "entry_type": null,
+        "filled_qty": 0,
+        "limit_price": 115.02738095238098,
+        "oms_order_id": "aa8ed23c-4ec8-45d2-92cd-7cf756f853a6",
+        "planned_stop_price": null,
+        "planned_tp1_price": null,
+        "planned_tp2_price": null,
+        "requested_qty": 15,
+        "risk_dollars": null,
+        "risk_per_share": null,
+        "role": "TP",
+        "stop_price": null,
+        "submitted_at": "2026-03-19T23:04:36.157419+00:00"
+      }
+    }
+  ],
+  "trade_date": "2026-03-12"
+}

@@ -1,0 +1,4 @@
+"""Event system."""
+from .bus import EventBus
+
+__all__ = ["EventBus"]

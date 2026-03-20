@@ -1,0 +1,55 @@
+services:
+  helix:
+    profiles: ["helix"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: trading_helix
+    restart: unless-stopped
+    network_mode: host
+    command: ["python", "-m", "strategy"]
+    env_file:
+      - ../.env
+    environment:
+      IB_CLIENT_ID: ${IB_CLIENT_ID_HELIX:-11}
+    volumes:
+      - helix_instrumentation:/app/instrumentation/data
+
+  nqdtc:
+    profiles: ["nqdtc"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: trading_nqdtc
+    restart: unless-stopped
+    network_mode: host
+    command: ["python", "-m", "strategy_2"]
+    env_file:
+      - ../.env
+    environment:
+      IB_CLIENT_ID: ${IB_CLIENT_ID_NQDTC:-12}
+    volumes:
+      - nqdtc_instrumentation:/app/instrumentation/data
+      - nqdtc_state:/app/state
+
+  vdubus:
+    profiles: ["vdubus"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: trading_vdubus
+    restart: unless-stopped
+    network_mode: host
+    command: ["python", "-m", "strategy_3"]
+    env_file:
+      - ../.env
+    environment:
+      IB_CLIENT_ID: ${IB_CLIENT_ID_VDUBUS:-13}
+    volumes:
+      - vdubus_instrumentation:/app/instrumentation/data
+
+volumes:
+  helix_instrumentation:
+  nqdtc_instrumentation:
+  nqdtc_state:
+  vdubus_instrumentation:
