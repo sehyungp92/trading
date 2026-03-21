@@ -1,0 +1,525 @@
+=== Buy & Hold Baseline: 10 MNQ ===
+  Entry: 9,900.50  Exit: 25,382.00  Days: 812
+  P&L: $+309,630  CAGR: 54.9%  MaxDD: 29.9%
+
+=== Helix v3.1 Backtest: NQ (10 units fixed) ===
+Instrument:         MNQ (Micro E-mini Nasdaq-100)
+Point value:        $2.00
+Tick size:          0.25
+Fixed qty:          10
+Initial equity:     $100,000
+
+  Trades: 85  Setups detected: 656  Gates blocked: 556
+  Entries placed: 105  Entries filled: 85
+
+Trades=85  WR=42%  PF=1.46  E[R]=+0.121  CAGR=11.4%  Sharpe=1.30  MaxDD=11.5%  $/mo=33880
+
+=== Helix v3.1 Performance Report: NQ ===
+Total trades:       85
+Win rate:           42.4%
+Profit factor:      1.46
+Expectancy (R):     +0.121
+Expectancy ($):     +398.58
+Net profit:         $+33,879.50
+CAGR:               11.4%
+Sharpe:             1.30
+Sortino:            0.26
+Calmar:             0.99
+Max drawdown:       11.5% ($12,447.12)
+Avg hold (1H bars): 9.7
+Trades/month:       2.7
+Total commissions:  $33,142.72
+Tail loss (5%):     $-4,919.75  (-2.07R)
+
+=== Trade Frequency (class x direction x session) ===
+  Class  Dir    Session             Count    AvgR     WR
+  ------------------------------------------------------
+  M      LONG   ETH_EUROPE             32  -0.153    31%
+  M      LONG   ETH_QUALITY_AM         19  +0.137    47%
+  M      LONG   RTH_DEAD                8  +0.703    75%
+  M      LONG   RTH_PRIME1             19  +0.368    37%
+  M      LONG   RTH_PRIME2              3  -0.571    33%
+  M      SHORT  ETH_QUALITY_AM          2  -0.400    50%
+  M      SHORT  RTH_DEAD                2  +1.248   100%
+
+  Total trades: 85
+  Trades/week: 0.7
+
+=== R-Distribution by Class ===
+  Class   Count     WR    AvgR    MedR        P&L    MFE    MAE     PF
+  --------------------------------------------------------------------
+  M          85    42%  +0.121  -0.006    +33,880   0.97   0.54   1.29
+
+=== Gate Block Rates ===
+  Total gate decisions: 661
+  Placed: 105 (16%)
+  Blocked: 556 (84%)
+
+  Block reasons:
+    short_min_score_0<1                397 (71%)
+    high_vol_M_98                       63 (11%)
+    session_M_long_ETH_EUROPE_score0    23 (4%)
+    eth_europe_short_blocked            18 (3%)
+    eth_qam_short_blocked               14 (3%)
+    session_M_short_RTH_PRIME1          13 (2%)
+    session_no_entries_ETH_QUALITY_PM     7 (1%)
+    duplicate_class_direction            5 (1%)
+    chop_zone_vol_25                     4 (1%)
+    chop_zone_vol_35                     4 (1%)
+    chop_zone_vol_30                     4 (1%)
+    chop_zone_vol_28                     3 (1%)
+    chop_zone_vol_33                     2 (0%)
+    chop_zone_vol_43                     2 (0%)
+    spike_filter_86.8>78.5               1 (0%)
+    spike_filter_290.0>128.0             1 (0%)
+    spike_filter_156.8>139.1             1 (0%)
+    spike_filter_209.2>131.2             1 (0%)
+    spike_filter_144.5>138.2             1 (0%)
+    spike_filter_148.5>147.4             1 (0%)
+    chop_zone_vol_32                     1 (0%)
+    spike_filter_190.2>168.7             1 (0%)
+    chop_zone_vol_42                     1 (0%)
+    chop_zone_vol_38                     1 (0%)
+    chop_zone_vol_27                     1 (0%)
+    spike_filter_145.8>88.9              1 (0%)
+    spike_filter_206.5>198.1             1 (0%)
+    chop_zone_vol_40                     1 (0%)
+    spike_filter_237.5>193.5             1 (0%)
+    spike_filter_212.8>207.0             1 (0%)
+    spike_filter_303.2>189.5             1 (0%)
+    spike_filter_308.8>152.4             1 (0%)
+    spike_filter_299.8>209.0             1 (0%)
+    spike_filter_249.0>161.4             1 (0%)
+
+=== R-Multiple Distribution ===
+  Mean:   +0.121
+  Median: -0.006
+  Std:    1.336
+  Skew:   POSITIVE (mean > median --letting winners run)
+
+  Cumulative distribution:
+    >= -2R:     82 ( 96.5%)
+    >= -1R:     69 ( 81.2%)
+    >= +0R:     37 ( 43.5%)
+    >= +1R:     19 ( 22.4%)
+    >= +2R:      3 (  3.5%)
+    >= +3R:      3 (  3.5%)
+    >= +5R:      1 (  1.2%)
+
+=== Direction Breakdown ===
+  Direction      N   WinR    AvgR     PF   TotalPnL
+  -------------------------------------------------
+  Long          81    41%  +0.106   1.48 $   +33410
+  Short          4    75%  +0.424   1.10 $     +469
+
+=== Milestone Progression ===
+  Total trades: 85
+  +1R BE:    30 (35%)
+  Profit target exits:     0 (0%)
+
+=== Exit Reason Breakdown ===
+  Reason                  Count     WR    AvgR        P&L
+  -------------------------------------------------------
+  CATASTROPHIC_STOP           5     0%  -1.957    -14,400
+  EARLY_ADVERSE               4     0%  -1.234    -10,262
+  INITIAL_STOP               33     0%  -0.647    -49,196
+  TRAILING_STOP              43    84%  +1.079   +107,737
+
+=== Regime Slicing ===
+
+  By vol_pct bucket:
+    vol  0-20:   26 trades, avgR=+0.032, WR=31%
+    vol 20-50:    9 trades, avgR=-0.038, WR=44%
+    vol 50-80:   24 trades, avgR=-0.070, WR=38%
+    vol 80-95:   19 trades, avgR=+0.486, WR=58%
+    vol 95-101:    7 trades, avgR=+0.325, WR=57%
+
+  By alignment score:
+    score=0:   12 trades, avgR=+0.478, WR=58%
+    score=1:   14 trades, avgR=+0.224, WR=43%
+    score=2:   59 trades, avgR=+0.024, WR=39%
+
+  By session block:
+    ETH_EUROPE        :   32 trades, avgR=-0.153, WR=31%
+    ETH_QUALITY_AM    :   21 trades, avgR=+0.086, WR=48%
+    RTH_DEAD          :   10 trades, avgR=+0.812, WR=80%
+    RTH_PRIME1        :   19 trades, avgR=+0.368, WR=37%
+    RTH_PRIME2        :    3 trades, avgR=-0.571, WR=33%
+
+=== Monthly P&L ===
+  Month          N     WR    AvgR     NetPnL     CumPnL
+  -----------------------------------------------------
+  2023-12        5    20%  -0.486 $    -1295 $    -1295
+  2024-01        4    50%  +0.112 $    +1459 $     +164
+  2024-02        6    33%  -0.112 $    +1733 $    +1897
+  2024-03        2     0%  -0.301 $    -1089 $     +808
+  2024-04        4    25%  -0.050 $    -1851 $    -1043
+  2024-05        5    20%  -0.476 $    -3739 $    -4782
+  2024-07        4    50%  -0.160 $    -1238 $    -6020
+  2024-08        4    75%  +0.885 $    +8082 $    +2062
+  2024-09        5    40%  +0.141 $    +5133 $    +7194
+  2024-10        6    33%  -0.237 $    -4627 $    +2568
+  2024-11        3    33%  +0.289 $    +3391 $    +5958
+  2024-12        2    50%  +0.611 $    +4164 $   +10122
+  2025-01        3    33%  -0.449 $    -4255 $    +5867
+  2025-02        2    50%  +0.837 $    +4409 $   +10276
+  2025-04        2   100%  +0.649 $    +5563 $   +15839
+  2025-05        4    75%  +0.148 $    +1879 $   +17718
+  2025-06        2    50%  +0.192 $    +1170 $   +18888
+  2025-07        6    17%  -0.564 $    -5418 $   +13470
+  2025-08        1     0%  -1.136 $    -1412 $   +12058
+  2025-09        2    50%  +2.568 $    +5312 $   +17370
+  2025-10        4   100%  +2.044 $   +18145 $   +35514
+  2025-12        3    33%  -0.335 $    -4719 $   +30796
+  2026-01        1   100%  +1.776 $    +5126 $   +35922
+  2026-02        5    40%  -0.061 $    -2042 $   +33880
+
+  Winning months: 13/24 (54%)
+  Best month:  2025-10 ($+18,145)
+  Worst month: 2025-07 ($-5,418)
+
+=== Day-of-Week Analysis ===
+  Day            N     WR    AvgR   TotalPnL
+  ------------------------------------------
+  Monday        25    36%  -0.162 $    -3038
+  Tuesday       29    48%  +0.253 $   +17831
+  Thursday      18    33%  -0.251 $     -655
+  Friday        13    54%  +0.886 $   +19742
+
+=== Hourly Performance (ET) ===
+  Hour       N     WR    AvgR   TotalPnL
+  --------------------------------------
+  08:00     9    22%  -0.308 $    -7572
+  09:00    10    30%  -0.130 $    -1750
+  10:00     4    75%  +0.444 $    +6089
+  11:00     2    50%  +0.178 $    +2344
+  12:00     6    33%  +0.006 $     +228
+  13:00    12    50%  +0.337 $    +9427
+  14:00    12    33%  -0.090 $    -4160
+  15:00    11    36%  -0.021 $    +1306
+  16:00     8    50%  +0.522 $   +10884
+  17:00     7    71%  +0.742 $   +15199
+  18:00     3    33%  -0.221 $     -406
+  19:00     1   100%  +0.774 $    +2290
+
+=== Streak Analysis ===
+  Max consecutive wins:   5
+  Max consecutive losses: 9
+  Worst consecutive-loss P&L: $-9,382
+  Worst consecutive-loss R:   -6.01R
+  Avg win streak length:  1.8
+  Avg loss streak length: 2.5
+
+=== Rolling Expectancy (window=10) ===
+  Windows computed: 76
+  Rolling E[R]:  min=-0.571  max=+1.408  current=+0.184
+  Negative-expectancy windows: 30 (39%)
+  Trend: IMPROVING (1st half=-0.030, 2nd half=+0.312, delta=+0.342)
+  Worst window: E[R]=-0.571  (2025-05-29 to 2025-08-28)
+
+=== Trade Gap Analysis (frequency diagnostic) ===
+  Inter-trade gaps (exit → next entry):
+    Count:  84
+    Mean:   202.8h (8.5 days)
+    Median: 142.5h (5.9 days)
+    Min:    -29.0h
+    Max:    1250.1h (52.1 days)
+
+  Gap percentiles (hours):
+    P25:   31.3h (1.3 days)
+    P50:  142.5h (5.9 days)
+    P75:  259.5h (10.8 days)
+    P90:  515.7h (21.5 days)
+    P95:  825.4h (34.4 days)
+
+  Dry spells (>5 calendar days): 47
+     52.1d: 2025-02-18 14:30 → 2025-04-11 16:35
+     41.1d: 2025-10-29 13:20 → 2025-12-09 16:00
+     36.9d: 2024-05-28 10:20 → 2024-07-04 08:10
+     35.8d: 2025-12-22 15:35 → 2026-01-27 10:10
+     35.0d: 2025-09-15 13:10 → 2025-10-20 13:10
+     31.0d: 2025-07-28 19:10 → 2025-08-28 18:10
+     27.7d: 2024-02-27 14:35 → 2024-03-26 08:10
+     22.1d: 2023-12-28 09:05 → 2024-01-19 17:15
+
+  Weekly trade density:
+    Total weeks in sample: 116
+    Weeks with 0 trades:   57 (49%)
+    Trades/week: min=0, median=1, max=4, mean=0.7
+    Longest zero-trade streak: 6 consecutive weeks
+
+=== MFE Capture Efficiency ===
+  How much of the peak unrealized profit (MFE) is captured at exit?
+
+  Winners (n=36):
+    MFE capture ratio (exitR / mfeR):
+      Mean:   69.3%
+      Median: 75.0%
+      Min:    13.3%  (most MFE given back)
+      Max:    149.4%  (most MFE kept)
+      >= 25%: 33 (92%)
+      >= 50%: 25 (69%)
+      >= 75%: 18 (50%)
+    Avg MFE: +1.765R → Avg exit: +1.290R → Left on table: 0.475R
+
+  Losers (n=49):
+    Avg MFE before reversal: +0.386R
+    Median MFE before reversal: +0.254R
+    Reached +1R before losing: 1 (2%)
+    Reached +0.1R before losing: 40 (82%)
+
+  MFE distribution (all trades):
+    MFE >= +0.5R: 50 (59%)
+    MFE >= +1.0R: 29 (34%)
+    MFE >= +1.5R: 19 (22%)
+    MFE >= +2.0R: 9 (11%)
+    MFE >= +3.0R: 4 (5%)
+
+=== Hold Duration Analysis ===
+  Duration         N     WR    AvgR  AvgMFE  AvgMAE        P&L
+  ------------------------------------------------------------
+  1-3 bars        18    17%  -0.719  +0.394  +0.495    -21,976
+  4-6 bars        11    55%  +0.520  +1.191  +0.392    +11,778
+  7-10 bars       19    37%  -0.155  +0.856  +0.645     -5,939
+  11-15 bars      25    36%  +0.234  +0.958  +0.520     +7,272
+  16-20 bars       6   100%  +0.979  +1.624  +0.564    +16,458
+  21+ bars         5   100%  +2.050  +2.462  +0.480    +27,545
+
+  Best hold range: 21+ bars (avgR=+2.050)
+  Hold-time ↔ R correlation: +0.441
+
+=== Partial Exit Analysis ===
+  Total trades: 85
+  Partial1 triggered: 22 (26%)
+  Partial2 triggered: 8 (9%)
+  No partial:         63 (74%)
+
+  Performance by partial milestone:
+  Milestone            N     WR    AvgR    MedR        P&L
+  --------------------------------------------------------
+  No partial          63    22%  -0.468  -0.601    -51,384
+  Partial1 only       14   100%  +1.827  +1.361    +49,044
+  Both partials        8   100%  +1.780  +1.499    +36,220
+
+  Runner analysis (partial trades with exit qty data):
+    M 2023-12-26: entry=10 exit_runner=7 (70%) R=+1.515
+    M 2024-01-19: entry=6 exit_runner=5 (83%) R=+1.346
+    M 2024-02-01: entry=10 exit_runner=4 (40%) R=+1.822
+    M 2024-04-30: entry=5 exit_runner=3 (60%) R=+1.625
+    M 2024-05-27: entry=5 exit_runner=4 (80%) R=+0.902
+    M 2024-08-12: entry=5 exit_runner=3 (60%) R=+1.401
+    M 2024-08-13: entry=5 exit_runner=3 (60%) R=+1.377
+    M 2024-08-15: entry=10 exit_runner=4 (40%) R=+1.364
+    M 2024-09-03: entry=6 exit_runner=5 (83%) R=+0.872
+    M 2024-09-12: entry=6 exit_runner=4 (67%) R=+1.598
+    M 2024-10-14: entry=10 exit_runner=7 (70%) R=+0.906
+    M 2024-11-05: entry=10 exit_runner=4 (40%) R=+3.847
+    M 2024-12-24: entry=10 exit_runner=7 (70%) R=+1.225
+    M 2025-02-13: entry=6 exit_runner=5 (83%) R=+1.677
+    M 2025-04-22: entry=10 exit_runner=7 (70%) R=+1.095
+    M 2025-07-03: entry=10 exit_runner=7 (70%) R=+0.882
+    M 2025-09-12: entry=5 exit_runner=4 (80%) R=+5.738
+    M 2025-10-24: entry=10 exit_runner=7 (70%) R=+4.519
+    M 2025-10-27: entry=10 exit_runner=7 (70%) R=+1.743
+    M 2025-10-28: entry=10 exit_runner=7 (70%) R=+1.376
+    M 2026-01-27: entry=10 exit_runner=7 (70%) R=+1.776
+    M 2026-02-24: entry=6 exit_runner=4 (67%) R=+1.207
+
+=== Setup-to-Fill Funnel ===
+  Setups detected:    656
+  Gates passed:       105 (16%)
+  Gates blocked:      556 (85%)
+  Entries placed:     100
+  Entries filled:      85 (85% of placed)
+  Entries unfilled:    15 (15% of placed)
+  Overall conversion: 13.0% (detected → filled)
+
+  Funnel by class:
+    M: 550 detected → 98 placed → 85 filled (15% overall)
+    R: 106 detected → 2 placed → 0 filled (0% overall)
+
+  Funnel by direction:
+    LONG: 195 detected → 95 placed → 81 filled (42% overall)
+    SHORT: 461 detected → 5 placed → 4 filled (1% overall)
+
+=== Gate Block Detail (by class x reason) ===
+  Class  Dir    Gate                      Count
+  ---------------------------------------------
+  M      SHORT  short_min                   293
+  R      SHORT  short_min                   104
+  M      LONG   high_vol                     48
+  M      LONG   session                      29
+  M      LONG   chop_zone                    19
+  M      SHORT  eth_europe                   18
+  M      SHORT  high_vol                     15
+  M      SHORT  session                      14
+  M      SHORT  eth_qam                      14
+  M      SHORT  spike_filter                  8
+  M      LONG   spike_filter                  7
+  M      LONG   duplicate_class               5
+  M      SHORT  chop_zone                     5
+
+=== Gate Opportunity Cost ===
+  Which gates block the most setups and at what cost?
+
+  Gate                          Blocked % of all  Unique setups  Avg align
+  ------------------------------------------------------------------------
+  short_min_score_0<1               397      71%            397        0.0
+  high_vol                           63      11%             63        0.9
+  session                            43       8%             43        0.5
+  chop_zone                          24       4%             24        1.2
+  eth_europe_short_blocked           18       3%             18        1.4
+  spike_filter                       15       3%             15        1.1
+  eth_qam_short_blocked              14       3%             14        1.0
+  duplicate                           5       1%              5        2.0
+
+  Gates blocking high-alignment setups (score >= 1):
+    high_vol                     blocks 47 high-alignment setups
+    session                      blocks 19 high-alignment setups
+    chop_zone                    blocks 22 high-alignment setups
+    eth_europe_short_blocked     blocks 18 high-alignment setups
+    spike_filter                 blocks 13 high-alignment setups
+    eth_qam_short_blocked        blocks 14 high-alignment setups
+    duplicate                    blocks 5 high-alignment setups
+
+=== Setup Detection Density ===
+  Total setups detected: 656
+  Weeks in sample: 124
+  Detections/week: min=0, median=5, mean=5.2, max=21
+  Weeks with 0 detections: 8
+
+  Detection rate by vol regime:
+    vol  0- 20 (low    ):  196 detected,   38 placed (19% pass rate)
+    vol 20- 50 (chop   ):  138 detected,   12 placed (9% pass rate)
+    vol 50- 80 (normal ):  133 detected,   26 placed (20% pass rate)
+    vol 80- 95 (high   ):   67 detected,   22 placed (33% pass rate)
+    vol 95-101 (extreme):  122 detected,    7 placed (6% pass rate)
+
+  Detection rate by session:
+    ETH_EUROPE        :  185 detected,   37 placed (20% pass rate)
+    ETH_QUALITY_AM    :  147 detected,   26 placed (18% pass rate)
+    ETH_QUALITY_PM    :   31 detected,    0 placed (0% pass rate)
+    RTH_DEAD          :   84 detected,   11 placed (13% pass rate)
+    RTH_PRIME1        :  150 detected,   20 placed (13% pass rate)
+    RTH_PRIME2        :   59 detected,   11 placed (19% pass rate)
+
+  Detection rate by class:
+    M:  550 detected,  103 placed (19% pass rate)
+    R:  106 detected,    2 placed (2% pass rate)
+
+  Gate pass rate (class x direction):
+    M LONG: 193 detected → 98 placed (51%)
+    M SHORT: 357 detected → 5 placed (1%)
+    R LONG: 2 detected → 2 placed (100%)
+    R SHORT: 104 detected → 0 placed (0%)
+
+=== Heat Budget Analysis ===
+  Entries placed: 100
+  Risk-R per entry:  min=0.600  median=1.000  mean=0.896  max=1.000
+  Stop distance (pts): min=17.4  median=129.4  mean=140.5  max=596.8
+  Unit1 risk ($):  min=348  median=2282  mean=2618  max=11935
+  Contracts:       min=3  median=10  mean=8.2  max=10
+
+  Heat at arm time:
+    Total heat (R): min=0.600  median=1.000  max=3.676
+    Dir heat (R):   min=0.600  median=1.000  max=3.676
+
+  By class:
+    M: 98 placed, 85 filled (87%), avgRiskR=0.898, avgStop=135.3pts
+    R: 2 placed, 0 filled (0%), avgRiskR=0.800, avgStop=395.0pts
+
+  By direction:
+    LONG: 95 placed, 81 filled (85%), avgRiskR=0.903
+    SHORT: 5 placed, 4 filled (80%), avgRiskR=0.760
+
+=== Entry Fill-Rate Analysis ===
+  Total placed: 100  Filled: 85 (85.0%)  Unfilled: 15 (15.0%)
+
+  Distance to trigger at arm time (pts):
+    All:      min=-457.6  median=-19.0  mean=-43.5  max=+290.7
+    Filled:   min=-457.6  median=-40.1  mean=-65.2
+    Unfilled: min=-96.9  median=+41.9  mean=+78.9
+
+  Unfilled entry gap (pts remaining to trigger):
+    min=-101.9  median=+19.3  mean=+43.8  max=+238.5
+    Within   1.0pts:    1 (7%)
+    Within   5.0pts:    4 (27%)
+    Within  10.0pts:    5 (33%)
+    Within  25.0pts:    9 (60%)
+    Within  50.0pts:   10 (67%)
+    Price crossed trigger but no fill: 1 (7%)
+
+  Fill rate by class:
+    M: 85/98 (87%)
+    R: 0/2 (0%)
+
+  Fill rate by session:
+    ETH_EUROPE        : 32/36 (89%)
+    ETH_QUALITY_AM    : 21/24 (88%)
+    RTH_DEAD          : 10/11 (91%)
+    RTH_PRIME1        : 19/20 (95%)
+    RTH_PRIME2        : 3/9 (33%)
+
+=== Entry Trigger Distance Distribution ===
+  Bucket                          Count  Fill%
+  --------------------------------------------
+  Already past trigger (<=0)         62    98%
+  0 to 10 pts                         7   100%
+  10 to 25 pts                        5    80%
+  25 to 50 pts                       14    57%
+  50 to 100 pts                       5    60%
+  100 to 200 pts                      5    40%
+  200+ pts                            2     0%
+
+=== Drawdown Profile ===
+  Max drawdown: -11.52%
+    Peak:   bar 1117 (2024-02-05)
+    Trough: bar 2852 (2024-08-13)
+    Duration: 1735 bars (~1735 hours)
+
+  Drawdown episode counts:
+    Exceeding -0.5%: 11 episodes
+    Exceeding -1.0%: 11 episodes
+    Exceeding -2.0%: 9 episodes
+    Exceeding -5.0%: 7 episodes
+
+  Time underwater (below HWM): 79.7% of bars
+
+=== Helix Shadow Trade Summary ===
+  Gate                           Rej Filled    AvgR    MedR  Win%   1R%   Tgt%   Missed  Avoided
+  ----------------------------------------------------------------------------------------------
+  high_vol_M_98                   63     57  -0.010  +0.000   32%   61%    23%    +27.1     27.7
+  session_M_long_ETH_EUROPE_score0    23     15  +0.952  +2.000   60%   80%    60%    +18.0      3.7
+  session_M_short_RTH_PRIME1      13     11  +0.156  +0.000   27%   64%    27%     +6.0      4.3
+  session_no_entries_ETH_QUALITY_PM     7      5  +0.412  +0.244   60%   60%    40%     +4.2      2.2
+  chop_zone_vol_25                 4      4  +1.236  +2.000   75%   75%    75%     +6.0      1.1
+  chop_zone_vol_35                 4      4  -1.061  -1.336    0%   25%     0%     +0.0      4.2
+  chop_zone_vol_30                 4      4  -0.873  -0.929    0%    0%     0%     +0.0      3.5
+  chop_zone_vol_28                 3      3  -1.013  -1.000    0%    0%     0%     +0.0      3.0
+  chop_zone_vol_33                 2      2  +1.000  +1.000   50%  100%    50%     +2.0      0.0
+  chop_zone_vol_43                 2      2  -1.000  -1.000    0%    0%     0%     +0.0      2.0
+  spike_filter_86.8>78.5           1      1  -2.208  -2.208    0%    0%     0%     +0.0      2.2
+  spike_filter_290.0>128.0         1      1  +2.000  +2.000  100%    0%   100%     +2.0      0.0
+  spike_filter_156.8>139.1         1      1  +0.000  +0.000    0%  100%     0%     +0.0      0.0
+  spike_filter_209.2>131.2         1      1  -1.000  -1.000    0%    0%     0%     +0.0      1.0
+  spike_filter_144.5>138.2         1      0  +0.000  +0.000    0%    0%     0%     +0.0      0.0
+  spike_filter_148.5>147.4         1      0  +0.000  +0.000    0%    0%     0%     +0.0      0.0
+  chop_zone_vol_32                 1      0  +0.000  +0.000    0%    0%     0%     +0.0      0.0
+  spike_filter_190.2>168.7         1      1  +0.000  +0.000    0%  100%     0%     +0.0      0.0
+  chop_zone_vol_42                 1      1  +0.244  +0.244  100%  100%     0%     +0.2      0.0
+  chop_zone_vol_38                 1      0  +0.000  +0.000    0%    0%     0%     +0.0      0.0
+  chop_zone_vol_27                 1      0  +0.000  +0.000    0%    0%     0%     +0.0      0.0
+  spike_filter_145.8>88.9          1      1  +2.000  +2.000  100%  100%   100%     +2.0      0.0
+  spike_filter_206.5>198.1         1      1  +2.000  +2.000  100%  100%   100%     +2.0      0.0
+  chop_zone_vol_40                 1      1  +0.000  +0.000    0%  100%     0%     +0.0      0.0
+  spike_filter_237.5>193.5         1      1  -0.548  -0.548    0%    0%     0%     +0.0      0.5
+  spike_filter_212.8>207.0         1      1  -1.087  -1.087    0%    0%     0%     +0.0      1.1
+  spike_filter_303.2>189.5         1      1  +2.000  +2.000  100%  100%   100%     +2.0      0.0
+  spike_filter_308.8>152.4         1      1  +0.270  +0.270  100%    0%     0%     +0.3      0.0
+  spike_filter_299.8>209.0         1      1  +2.000  +2.000  100%  100%   100%     +2.0      0.0
+  spike_filter_249.0>161.4         1      1  +0.270  +0.270  100%    0%     0%     +0.3      0.0
+
+  Total rejections: 145  Filled in sim: 122
+
+  Per-class shadow breakdown:
+    Class M: 102 filled, avgR=+0.132, WR=37%

@@ -1,0 +1,956 @@
+=== NQDTC v2.0 Performance Report: NQ ===
+Total trades:       285
+Win rate:           50.9%
+Profit factor:      2.11
+Expectancy (R):     +0.646
+Expectancy ($):     +353.15
+Net profit:         $+100,647.75
+CAGR:               30.3%
+Sharpe:             2.30
+Sortino:            0.99
+Calmar:             6.09
+Max drawdown:       5.0% ($7,023.40)
+Avg hold (30m bars):7.1
+Trades/month:       9.0
+Total commissions:  $3,770.22
+Tail loss (5%):     $-1,491.43  (-1.95R)
+
+=== NQDTC Behavior Report ===
+
+Entry subtype breakdown:
+  C_standard          :  285 (100.0%)  avg R: +0.646  WR: 51%
+
+Exit reasons:
+  STOP                :  282 ( 98.9%)  avg R: +0.664
+  STALE               :    3 (  1.1%)  avg R: -1.010
+
+Long trades:  164
+  Avg R: +0.648  Win rate: 54.9%
+Short trades: 121
+  Avg R: +0.644  Win rate: 45.5%
+
+Session breakdown:
+  ETH   :  177  avg R: +0.531
+  RTH   :  108  avg R: +0.835
+
+TP hit rates:
+  TP1: 144 (51%)
+  TP2: 0 (0%)
+  TP3: 0 (0%)
+
+R-multiple distribution:
+  Mean:   +0.646
+  Median: +0.183
+  Std:    2.866
+  >= -2R: 282 (98.9%)
+  >= -1R: 152 (53.3%)
+  >= +0R: 145 (50.9%)
+  >= +1R: 69 (24.2%)
+  >= +2R: 44 (15.4%)
+  >= +3R: 35 (12.3%)
+  >= +5R: 17 (6.0%)
+
+MFE (R): mean=3.637  median=1.756
+MAE (R): mean=0.665  median=0.604
+
+Hold time (30m bars):
+  Mean: 7.1  Median: 3.0  Max: 88
+
+=== NQDTC Diagnostic Report: MNQ ===
+
+Signal pipeline:
+  Breakouts evaluated: 1517
+  Breakouts qualified: 675
+  Entries placed:      639
+  Entries filled:      292
+  Gates blocked:       842
+  Qualification rate:  44.5%
+  Entry fill rate:     45.7%
+
+Composite regime at entry:
+  Range: 124
+  Neutral: 119
+  Aligned: 40
+  Caution: 2
+
+Exit tier at entry:
+  Caution: 126
+  Neutral: 119
+  Aligned: 40
+
+Trades=285  WR=51%  PF=2.11  E[R]=+0.646  CAGR=30.3%  Sharpe=2.30  MaxDD=5.0%  $/mo=100648
+
+=== NQDTC Signal Funnel ===
+  30m breakout evaluations:  1517
+  Qualification passed:      675
+  Gates blocked:             842
+  Block reason distribution:
+    score                          351  ( 41.7%)
+    regime_hard_block              349  ( 41.4%)
+    displacement                    95  ( 11.3%)
+    reentry_loss_too_severe         19  (  2.3%)
+    daily_stop                      19  (  2.3%)
+    weekly_stop                      6  (  0.7%)
+    breakout_quality_reject          3  (  0.4%)
+  Trades completed:          285
+
+=== Entry Subtype Breakdown ===
+  Subtype                  N  WinR    AvgR    AvgPnL AvgBars
+  ----------------------------------------------------------
+  C_standard             285   51%  +0.646 $    +353    7.1
+
+=== Session Breakdown ===
+  Session        N  WinR    AvgR   TotalPnL
+  -----------------------------------------
+  ETH          177   50%  +0.531 $   +52034
+  RTH          108   53%  +0.835 $   +48614
+
+=== Composite Regime Breakdown ===
+  Regime           N  WinR    AvgR   TotalPnL  TP1%
+  -------------------------------------------------
+  Aligned         40   52%  +0.375 $   +10813   52%
+  Neutral        119   46%  +0.541 $   +39634   46%
+  Caution          2   50%  -0.003 $     +285   50%
+  Range          124   55%  +0.845 $   +49916   54%
+
+=== Chop Mode Breakdown ===
+  NORMAL        N= 243  WinR=  51%  AvgR=+0.615
+  DEGRADED      N=  42  WinR=  50%  AvgR=+0.824
+
+=== Box Analysis ===
+  Box width: mean=316.93  median=278.00  min=95.50  max=1397.75
+  Adaptive L usage:
+    L=18: 285 trades (100%)
+
+=== Exit Tier Analysis ===
+  Aligned     N=  40  AvgR=+0.375  TP1=52%  TP2=0%  TP3=0%
+  Neutral     N= 119  AvgR=+0.541  TP1=46%  TP2=0%  TP3=0%
+  Caution     N= 126  AvgR=+0.832  TP1=54%  TP2=0%  TP3=0%
+
+=== Exit Reason Breakdown ===
+  STOP                    282  AvgR=+0.664
+  STALE                     3  AvgR=-1.010
+
+=== MFE Capture Analysis ===
+  Trades reaching +1.0R MFE:  181/285 (64%)
+  Trades reaching +2.0R MFE:  128/285 (45%)
+  Trades reaching +3.0R MFE:   92/285 (32%)
+
+  Winner capture ratio (R/MFE): mean=0.32  median=0.28
+
+  Capture by entry subtype (winners):
+    Subtype                  N  Capture  AvgMFE    AvgR
+    C_standard             145     0.32    6.30  +2.311
+
+  Capture by exit reason (winners):
+    Reason                   N  Capture  AvgMFE
+    STOP                   145     0.32    6.30
+
+  Loser MFE profile:
+    Avg MFE:    0.88R
+    Median MFE: 0.60R
+
+=== Loser Classification ===
+  Total losers: 140
+  Right-then-stopped (MFE >= 0.5R)
+    Count: 78 (56%)  avgMFE=1.40  avgR=-1.070
+      C_standard           N= 78  avgR=-1.070
+  Immediately wrong  (MFE <  0.5R)
+    Count: 62 (44%)  avgMFE=0.22  avgR=-1.088
+      C_standard           N= 62  avgR=-1.088
+
+  Right-then-stopped sub-split:
+    TP1 hit (profit-funded):       2  avgR=-0.151
+    TP1 NOT hit:                  76  avgR=-1.094
+
+  ** Mixed profile — no single dominant drag
+
+=== BE Transition Analysis ===
+  TP1 hit rate: 144/285 (51%)
+
+  TP1 hit rate by exit tier:
+    Aligned    21/40 (52%)
+    Neutral    55/119 (46%)
+    Caution    68/126 (54%)
+
+  Post-TP1 outcomes (144 trades):
+    Avg final R:           +2.311
+    Stopped near BE (|R|<0.3): 7 (5%)
+    Reached TP2:           0 (0%)
+    Reached TP3:           0 (0%)
+
+    Exit reasons after TP1:
+      STOP                  144  avgR=+2.311
+
+  Non-TP1 trades (141):
+    Avg R:   -1.054
+    Avg MFE: 0.87R
+
+=== Quality Mult Calibration ===
+  quality_mult distribution: min=0.500  Q1=0.600  median=0.650  Q3=0.650  max=0.800
+  Quartile       Range                  N     WR    AvgR   TotalPnL  AvgMFE
+  -------------------------------------------------------------------------
+  Q1 (lowest)    [-inf, 0.600)         42    50%  +0.824 $   +15508    3.88
+  Q2             [0.600, 0.650)        96    49%  +0.620 $   +46716    3.48
+  Q4 (highest)   [0.650, max]         147    52%  +0.613 $   +38423    3.67
+
+  Component decomposition:
+    Component         Mean  Median  Corr(R)
+    regime_mult      0.648   0.650   -0.011
+    chop_mult        0.956   1.000   -0.026
+    disp_mult        1.000   1.000   +0.000
+
+  Weighted E[R] (sum(R*qm)/sum(qm)): +0.631
+  Equal-weight E[R]:                  +0.646
+  Delta:                              -0.015 (HURTS)
+
+=== Displacement Analysis ===
+  displacement distribution: min=1.25  Q25=2.38  median=2.85  Q75=3.75  max=8.60
+  Quartile       Range                  N     WR    AvgR   TotalPnL  AvgMFE
+  -------------------------------------------------------------------------
+  Q1 (weakest)   [-inf, 2.38)          71    52%  +1.008 $   +33820    4.57
+  Q2             [2.38, 2.85)          71    56%  +0.679 $   +20956    3.72
+  Q3             [2.85, 3.75)          71    49%  +0.419 $   +26154    3.16
+  Q4 (strongest) [3.75, max]           72    46%  +0.481 $   +19717    3.10
+
+  Correlation (displacement vs R): -0.078
+
+  Displacement quartile performance by regime:
+    Aligned       above-med N= 20 avgR=+0.263  below-med N= 20 avgR=+0.487
+    Neutral       above-med N= 60 avgR=+0.168  below-med N= 59 avgR=+0.920
+    Range         above-med N= 62 avgR=+0.562  below-med N= 62 avgR=+1.128
+
+=== Score Sensitivity ===
+
+  NORMAL mode (N=243):
+    Band             N     WR    AvgR   TotalPnL  AvgMFE
+    ----------------------------------------------------
+    [2.0,2.5)       20    35%  -0.039 $    +4194    2.36
+    [2.5,3.0)       75    56%  +0.782 $   +26799    3.78
+    [3.0,3.5)       12    50%  +1.705 $    +4380    7.49
+    [3.5,4.0)       80    55%  +0.556 $   +31392    3.63
+    [4.0+)          16    44%  +0.172 $     +421    2.52
+    Correlation (score vs R): -0.009
+    ** HINT: lowest band avgR is negative — consider raising threshold
+
+  DEGRADED mode (N=42):
+    Band             N     WR    AvgR   TotalPnL  AvgMFE
+    ----------------------------------------------------
+    [2.5,3.0)       22    45%  +0.298 $    +2850    2.46
+    [3.0,3.5)        3    67%  +1.544 $    +1727    4.72
+    [3.5,4.0)       11    55%  +1.335 $    +8609    5.96
+    [4.0+)           5    40%  +1.588 $    +1649    5.23
+    Correlation (score vs R): +0.182
+
+=== Regime x Subtype Cross-Tab ===
+  Subtype                          Aligned             Neutral             Caution               Range
+  ------------------------------------------------------------------------------------------------------
+  C_standard             40  52% +0.37  119  46% +0.54    2  50% -0.00  124  55% +0.85
+
+  Avg quality_mult per cell:
+  C_standard                         0.740               0.581               0.500               0.642
+
+  ** HIGH VALUE: C_standard x Aligned (N=40, avgR=+0.375)
+  ** HIGH VALUE: C_standard x Neutral (N=119, avgR=+0.541)
+  ** HIGH VALUE: C_standard x Range (N=124, avgR=+0.845)
+
+=== Rolling Expectancy (window=40) ===
+  Windows computed: 246
+  Rolling E[R]:  min=+0.080  max=+1.271  current=+0.378
+  Negative-expectancy windows: 0 (0%)
+  Trend: IMPROVING (1st half=+0.580, 2nd half=+0.801, delta=+0.221)
+  Worst window: E[R]=+0.080  (2024-11-27 to 2025-02-17)
+
+=== Monthly P&L ===
+  Month          N     WR    AvgR     NetPnL     CumPnL
+  -----------------------------------------------------
+  2023-11        2     0%  -0.589 $     -330 $     -330
+  2023-12        3     0%  -1.606 $    -1655 $    -1985
+  2024-01        5    60%  +0.705 $    +1228 $     -757
+  2024-02       12    33%  -0.111 $     -389 $    -1146
+  2024-03        6    50%  +0.947 $    +1959 $     +814
+  2024-04        9    33%  +0.626 $    +4035 $    +4849
+  2024-05       17    35%  -0.019 $     +686 $    +5535
+  2024-06        3    67%  +1.958 $    +3865 $    +9400
+  2024-07        4    75%  +3.622 $    +7156 $   +16556
+  2024-08        9    67%  +1.216 $    +6636 $   +23192
+  2024-09       11    27%  +0.701 $    -3244 $   +19947
+  2024-10       17    47%  +0.250 $    +2166 $   +22113
+  2024-11       13    46%  +0.549 $   +10280 $   +32393
+  2024-12       13    54%  +0.530 $    +4045 $   +36438
+  2025-01        9    67%  +0.168 $      -92 $   +36345
+  2025-02       15    40%  -0.098 $    -2711 $   +33634
+  2025-03        8    75%  +3.732 $   +11376 $   +45010
+  2025-04        4    50%  -0.184 $    -4674 $   +40337
+  2025-05       11    55%  +1.326 $    +5234 $   +45571
+  2025-06       14    50%  +0.262 $    +2556 $   +48126
+  2025-07        6    50%  +0.479 $    +1682 $   +49808
+  2025-08       13    54%  +0.404 $    +2742 $   +52551
+  2025-09       15    67%  +0.927 $    +8458 $   +61008
+  2025-10       13    77%  +2.044 $   +19044 $   +80052
+  2025-11       10    60%  +1.009 $   +10832 $   +90885
+  2025-12       17    47%  -0.304 $     +262 $   +91147
+  2026-01       17    53%  +0.047 $     -788 $   +90360
+  2026-02        9    56%  +1.995 $   +10288 $  +100648
+
+  Winning months: 20/28 (71%)
+  Best month:  2025-10 ($+19,044)
+  Worst month: 2025-04 ($-4,674)
+
+=== Hourly Performance (ET) ===
+  Hour       N     WR    AvgR   TotalPnL
+  --------------------------------------
+  05:00    60    48%  +0.478 $   +17361
+  06:00    37    41%  +0.482 $   +11030
+  07:00    31    58%  +0.635 $    +9272
+  08:00    41    54%  +0.360 $   +12842
+  09:00     8    50%  +1.631 $    +1529
+  10:00    39    56%  +0.721 $   +14683
+  11:00    63    54%  +0.958 $   +32343
+  12:00     6    17%  +0.278 $    +1588
+
+=== Day-of-Week Analysis ===
+  Day            N     WR    AvgR   TotalPnL
+  ------------------------------------------
+  Monday        43    56%  +0.692 $   +15566
+  Tuesday       53    57%  +1.252 $   +41297
+  Wednesday     67    51%  +0.548 $   +18824
+  Thursday      61    48%  +0.310 $   +10778
+  Friday        61    46%  +0.531 $   +14183
+
+=== Stale Exit Deep-Dive ===
+  Stale exits: 3/285 (1%)
+
+  Stale trade profile:
+    Avg R:        -1.010
+    Avg MFE:      1.54R
+    Avg MAE:      2.63R
+    Avg bars held: 20.0
+    Had MFE >= 0.5R: 2/3 (67%)
+
+  Stale exits by chop mode:
+    NORMAL       N=  3  avgR=-1.010  avgMFE=1.54  avgBars=20.0
+
+  Stale vs non-stale comparison:
+    Stale:     N=   3  avgR=-1.010  avgMFE=1.54
+    Non-stale: N= 282  avgR=+0.664  avgMFE=3.66
+
+=== Streak Analysis ===
+  Max win streak:  6
+  Max loss streak: 5
+  Worst consecutive-loss P&L: $-6,980
+
+=== Per-Breakout Attribution ===
+  Breakout events identified: 675
+  Breakout          Start     N    WR    AvgR   TotalPnL  AvgMFE  AvgMAE  Days
+  ----------------------------------------------------------------------------
+  BO-31       2023-11-07     1    0%  -0.958 $     -230    3.71    0.96     1
+  BO-37       2023-11-14     1    0%  -0.220 $     -100    0.18    2.79     1
+  BO-52       2023-12-08     1    0%  -1.852 $     -500    0.74    4.13     3
+  BO-57       2023-12-12     1    0%  -1.957 $     -675    0.28    1.26     0
+  BO-64       2023-12-19     1    0%  -1.011 $     -480    0.42    0.80     0
+  BO-71       2024-01-02     1  100%  +0.460 $     +159    1.83    0.16     0
+  BO-84       2024-01-10     2   50%  +0.276 $     +215    3.52    0.22     0
+  BO-88       2024-01-18     1  100%  +3.528 $    +1200   10.68    0.07     0
+  BO-97       2024-01-25     1    0%  -1.015 $     -345    1.09    0.01     0
+  BO-104       2024-02-01     2    0%  -1.314 $     -960    0.26    0.30     0
+  BO-112       2024-02-09     1  100%  +1.696 $     +696    4.33    0.16     3
+  BO-114       2024-02-12     1  100%  +2.426 $     +206   16.53    0.00     0
+  BO-115       2024-02-13     1    0%  -0.258 $     -107    1.81    0.14     0
+  BO-117       2024-02-15     2    0%  -1.093 $     -640    0.18    0.97     0
+  BO-122       2024-02-21     1  100%  +1.979 $     +861    6.83    0.17     0
+  BO-126       2024-02-23     1  100%  +1.079 $     +626    4.00    0.00     0
+  BO-128       2024-02-28     1    0%  -1.057 $     -370    0.00    0.99     0
+  BO-130       2024-02-29     2    0%  -1.190 $     -700    0.62    0.41     0
+  BO-132       2024-03-01     1  100%  +7.426 $    +3305   13.60    0.38     3
+  BO-139       2024-03-11     2   50%  -0.102 $     -230    1.34    0.50     0
+  BO-142       2024-03-13     1    0%  -1.006 $     -830    0.59    0.88     0
+  BO-148       2024-03-25     1  100%  +0.473 $     +220    2.67    0.47     0
+  BO-149       2024-03-26     1    0%  -1.010 $     -505    0.42    0.85     0
+  BO-151       2024-04-01     1    0%  -1.012 $     -405    0.51    0.89     0
+  BO-152       2024-04-02     1  100%  +4.558 $    +2256    9.99    0.55     0
+  BO-153       2024-04-04     1  100%  +1.066 $     +618    3.87    0.55     0
+  BO-155       2024-04-05     1    0%  -0.044 $      -34    2.07    0.93     0
+  BO-159       2024-04-10     2    0%  -1.025 $     -935    4.97    0.80     0
+  BO-170       2024-04-22     1    0%  -1.010 $     -515    0.25    0.21     0
+  BO-173       2024-04-29     1    0%  -1.006 $     -775    1.35    0.36     0
+  BO-175       2024-04-30     1  100%  +5.134 $    +3825   10.16    0.11     1
+  BO-178       2024-05-06     1  100%  +3.833 $    +2070    8.02    0.26     1
+  BO-185       2024-05-15     1  100%  +4.147 $    +1845    8.73    0.36     1
+  BO-191       2024-05-21     1    0%  -1.024 $     -215    0.48    0.98     0
+  BO-193       2024-05-22     2   50%  -0.353 $     -189    1.11    0.53     0
+  BO-194       2024-05-22     1    0%  -1.016 $     -315    0.50    0.44     0
+  BO-196       2024-05-23     1    0%  -1.010 $     -515    0.95    0.90     0
+  BO-197       2024-05-24     2    0%  -1.010 $     -970    0.27    0.59     0
+  BO-198       2024-05-27     1  100%  +0.722 $     +372    1.90    0.52     1
+  BO-200       2024-05-29     3   33%  -0.391 $     -523    1.41    0.58     0
+  BO-202       2024-05-30     1    0%  -1.011 $     -465    0.05    0.60     0
+  BO-203       2024-05-30     2    0%  -1.009 $    -1135    1.10    0.91     0
+  BO-205       2024-05-31     1  100%  +0.949 $     +726    3.91    0.35     0
+  BO-207       2024-06-05     1  100%  +6.426 $    +3952   11.67    0.10     1
+  BO-218       2024-06-20     1    0%  -1.017 $     -305    0.75    0.90     0
+  BO-222       2024-06-28     1  100%  +0.465 $     +218    2.63    0.04     0
+  BO-223       2024-07-01     1    0%  -1.007 $     -675    0.16    0.98     0
+  BO-224       2024-07-02     2  100%  +3.564 $    +5404    5.76    0.78     3
+  BO-229       2024-07-05     1  100%  +8.369 $    +2427   15.60    0.29     4
+  BO-251       2024-08-08     1    0%  -1.003 $    -1450    0.20    0.86     0
+  BO-252       2024-08-13     1    0%  -1.005 $    -1000    0.15    0.90     0
+  BO-253       2024-08-13     1  100%  +4.752 $    +4086    8.67    0.27     1
+  BO-258       2024-08-15     1  100%  +3.970 $    +3513    8.06    0.10     1
+  BO-263       2024-08-22     2  100%  +0.762 $     +535    4.26    0.32     0
+  BO-267       2024-08-27     1  100%  +1.452 $     +791    6.84    0.33     0
+  BO-268       2024-08-28     1  100%  +2.259 $     +870   11.19    0.06     0
+  BO-270       2024-08-29     1    0%  -1.007 $     -710    0.15    0.52     0
+  BO-271       2024-09-02     1    0%  -1.005 $    -1000    0.22    0.98     1
+  BO-272       2024-09-03     3   33%  +4.197 $    +1169    8.68    1.02     0
+  BO-274       2024-09-06     1    0%  -1.005 $    -1045    0.40    0.85     0
+  BO-276       2024-09-09     1    0%  -1.005 $     -980    0.90    0.61     0
+  BO-283       2024-09-17     2   50%  -0.286 $     -432    1.60    0.60     0
+  BO-286       2024-09-24     1    0%  -1.009 $     -555    0.06    0.99     0
+  BO-287       2024-09-24     1    0%  -1.006 $     -865    0.62    0.85     0
+  BO-289       2024-09-30     1  100%  +0.723 $     +463    2.34    0.77     0
+  BO-292       2024-10-02     2    0%  -1.007 $    -1350    0.75    0.76     0
+  BO-293       2024-10-04     1  100%  +1.439 $     +906    6.40    0.60     0
+  BO-294       2024-10-04     2    0%  -1.007 $    -1510    0.65    0.96     0
+  BO-297       2024-10-09     1  100%  +3.204 $    +1971    7.20    0.74     1
+  BO-300       2024-10-14     1  100%  +2.505 $    +1352    7.16    0.27     0
+  BO-301       2024-10-15     3   67%  +0.290 $     +478    2.48    0.60     1
+  BO-303       2024-10-17     1  100%  +0.487 $     +275    2.42    0.05     0
+  BO-304       2024-10-21     1    0%  -1.010 $     -525    1.49    0.93     0
+  BO-307       2024-10-23     1  100%  +3.038 $    +1960    8.02    0.76     0
+  BO-308       2024-10-28     1    0%  -1.011 $     -465    0.87    0.50     0
+  BO-310       2024-10-30     1    0%  -1.007 $     -700    0.22    0.99     0
+  BO-311       2024-10-31     1    0%  -1.006 $     -790    0.06    0.75     0
+  BO-312       2024-10-31     1  100%  +0.771 $     +563    2.96    0.35     0
+  BO-313       2024-11-01     1    0%  -1.007 $     -760    0.11    0.87     0
+  BO-314       2024-11-05     1  100% +12.670 $   +11783   19.94    0.98     3
+  BO-320       2024-11-08     1  100%  +0.312 $     +214    1.60    0.62     0
+  BO-321       2024-11-11     1  100%  +0.308 $     +158    1.99    0.40     0
+  BO-326       2024-11-15     2   50%  -0.113 $      +54    1.46    0.66     0
+  BO-328       2024-11-19     1    0%  -1.545 $     -340    5.98    1.80     0
+  BO-331       2024-11-21     1    0%  -1.008 $     -645    0.95    0.73     0
+  BO-333       2024-11-25     1  100%  +0.459 $     +356    1.99    0.66     0
+  BO-335       2024-11-27     2   50%  -0.398 $     +386    3.62    1.15     0
+  BO-336       2024-11-29     1    0%  -1.016 $     -315    1.45    0.58     0
+  BO-337       2024-11-29     1    0%  -1.008 $     -610    1.14    0.92     3
+  BO-338       2024-12-02     1  100%  +3.086 $    +1250    4.06    0.43     0
+  BO-340       2024-12-03     2    0%  -1.016 $     -665    0.69    0.87     0
+  BO-343       2024-12-04     1    0%  -1.008 $     -615    0.61    0.98     0
+  BO-344       2024-12-05     1  100%  +0.317 $     +152    1.58    0.56     0
+  BO-349       2024-12-11     1  100%  +0.812 $     +508    2.82    0.10     0
+  BO-350       2024-12-12     1    0%  -1.009 $     -555    0.24    0.91     0
+  BO-351       2024-12-13     1  100%  +0.620 $     +326    2.12    0.26     0
+  BO-357       2024-12-20     1    0%  -1.004 $    -1130    0.64    0.88     0
+  BO-358       2024-12-24     1  100%  +1.889 $    +2022    4.81    0.50     2
+  BO-360       2024-12-26     2   50%  -0.269 $     -500    1.43    0.51     0
+  BO-361       2024-12-30     1  100%  +5.759 $    +3254   13.89    0.28     0
+  BO-371       2025-01-15     1    0%  -1.005 $    -1020    0.79    0.88     0
+  BO-372       2025-01-16     1    0%  -1.004 $    -1155    0.17    0.97     0
+  BO-375       2025-01-20     2  100%  +0.827 $     +951    2.13    0.49     0
+  BO-377       2025-01-22     1  100%  +0.208 $     +168    4.91    0.36     1
+  BO-380       2025-01-24     3   67%  +0.189 $       -2    3.95    0.53     0
+  BO-386       2025-01-31     1  100%  +1.091 $     +965    4.11    0.77     0
+  BO-392       2025-02-07     2   50%  -0.012 $     -163    2.31    0.44     0
+  BO-393       2025-02-07     2   50%  +1.796 $     -130   22.26    0.88     0
+  BO-394       2025-02-11     2   50%  -0.423 $     -105    1.83    0.84     0
+  BO-395       2025-02-12     1    0%  -1.007 $     -730    1.28    0.23     0
+  BO-396       2025-02-13     1  100%  +0.476 $     +317    2.40    0.58     0
+  BO-397       2025-02-13     2    0%  -1.007 $    -1530    0.36    0.67     0
+  BO-400       2025-02-14     3   33%  -0.520 $     -266    1.26    0.77     0
+  BO-402       2025-02-17     1    0%  -1.008 $     -660    0.73    0.90     0
+  BO-403       2025-02-17     1  100%  +0.919 $     +556    2.83    0.33     1
+  BO-413       2025-03-04     1  100%  +0.702 $     +874    2.69    0.29     0
+  BO-415       2025-03-07     1  100%  +0.316 $     +325    1.99    0.30     0
+  BO-417       2025-03-10     1  100%  +6.868 $    +7520   13.41    0.33     1
+  BO-422       2025-03-17     1  100%  +0.979 $     +965    3.54    0.31     0
+  BO-427       2025-03-26     2   50%  -0.272 $     -356    1.20    0.51     0
+  BO-428       2025-03-26     1  100% +22.542 $    +2818   54.28    1.16     1
+  BO-432       2025-03-28     1    0%  -1.007 $     -770    0.78    0.69     0
+  BO-444       2025-04-10     1    0%  -1.001 $    -4015    0.63    0.99     0
+  BO-445       2025-04-14     1    0%  -1.002 $    -2195    1.41    0.97     0
+  BO-446       2025-04-16     1  100%  +0.467 $     +768    2.27    0.34     0
+  BO-455       2025-04-30     1  100%  +0.800 $     +768    3.85    0.40     0
+  BO-457       2025-05-02     1  100%  +0.958 $     +508    4.28    0.29     0
+  BO-459       2025-05-06     2   50%  -0.269 $     -485    1.26    0.86     0
+  BO-464       2025-05-13     1  100%  +4.519 $    +4000    9.15    0.95     2
+  BO-469       2025-05-16     1    0%  -1.007 $     -745    1.27    0.93     0
+  BO-472       2025-05-22     2   50%  +0.007 $     -270    3.41    0.51     0
+  BO-473       2025-05-23     1  100% +10.236 $    +2508   30.98    0.45     0
+  BO-474       2025-05-27     1    0%  -1.007 $     -755    0.23    0.96     0
+  BO-475       2025-05-27     1  100%  +2.416 $    +1389    6.97    0.09     1
+  BO-479       2025-05-30     1    0%  -1.005 $     -915    0.42    0.84     0
+  BO-482       2025-06-03     1  100%  +4.546 $    +3046    9.75    0.20     1
+  BO-487       2025-06-05     1  100%  +0.937 $     +694    3.36    0.16     0
+  BO-490       2025-06-11     3   67%  +0.275 $     +494    2.88    0.91     0
+  BO-491       2025-06-11     2    0%  -1.009 $    -1095    0.73    0.62     0
+  BO-492       2025-06-12     2   50%  -0.478 $     -788    0.90    0.85     0
+  BO-493       2025-06-13     1    0%  -1.005 $    -1000    0.39    0.88     0
+  BO-496       2025-06-19     1    0%  -1.007 $     -700    0.06    0.94     0
+  BO-501       2025-06-25     1  100%  +0.811 $     +673    2.77    0.48     0
+  BO-502       2025-06-26     1    0%  -1.009 $     -540    0.83    0.31     0
+  BO-503       2025-06-26     1  100%  +2.550 $    +1772    5.58    0.09     1
+  BO-508       2025-07-03     1  100%  +2.750 $    +1526    8.70    0.37     1
+  BO-510       2025-07-11     2    0%  -1.014 $     -810    0.83    0.97     0
+  BO-513       2025-07-17     1  100%  +2.239 $    +1209    5.65    0.12     1
+  BO-515       2025-07-24     1    0%  -1.008 $     -640    0.28    0.95     0
+  BO-519       2025-07-29     1  100%  +0.922 $     +396    3.06    0.66     0
+  BO-524       2025-08-05     1  100%  +0.463 $     +366    1.59    0.12     0
+  BO-530       2025-08-12     1  100%  +4.424 $    +2057   10.04    0.59     1
+  BO-532       2025-08-18     2    0%  -1.009 $    -1130    0.46    0.94     0
+  BO-533       2025-08-19     2  100%  +2.090 $    +2965    4.24    0.40     1
+  BO-535       2025-08-20     3    0%  -0.838 $    -1620    0.69    0.82     0
+  BO-541       2025-08-28     1  100%  +1.061 $     +462    4.60    0.57     0
+  BO-542       2025-08-28     3   67%  -0.116 $     -358    1.87    0.77     1
+  BO-543       2025-09-01     1  100%  +7.981 $    +4470   10.97    0.82     1
+  BO-545       2025-09-02     1  100%  +0.882 $     +794    2.76    0.63     0
+  BO-546       2025-09-04     1    0%  -1.007 $     -705    0.83    0.97     0
+  BO-547       2025-09-04     1  100%  +4.405 $    +3524    6.78    0.92     1
+  BO-549       2025-09-08     2    0%  -1.007 $    -1545    0.28    0.69     0
+  BO-550       2025-09-10     1  100%  +1.302 $     +631    2.36    0.15     0
+  BO-551       2025-09-11     1    0%  -1.007 $     -730    1.08    0.63     1
+  BO-552       2025-09-12     4   75%  +0.053 $       -6    3.12    0.99     0
+  BO-553       2025-09-12     1  100%  +0.851 $     +438    2.66    0.73     0
+  BO-555       2025-09-15     1  100%  +1.265 $     +962    3.76    0.45     1
+  BO-562       2025-09-22     1  100%  +1.034 $     +626    3.66    0.64     1
+  BO-566       2025-10-01     1  100%  +2.602 $    +2108    6.16    0.27     1
+  BO-569       2025-10-03     1    0%  -1.008 $     -635    0.51    0.89     0
+  BO-570       2025-10-03     1    0%  -1.008 $     -595    0.86    0.91     0
+  BO-571       2025-10-06     1  100%  +0.917 $     +440    3.35    0.21     0
+  BO-572       2025-10-07     1  100%  +1.683 $     +177    9.38    0.24     0
+  BO-573       2025-10-08     1  100%  +0.463 $     +257    1.54    0.69     0
+  BO-575       2025-10-09     1    0%  -1.009 $     -555    0.45    0.92     0
+  BO-578       2025-10-14     1  100%  +0.713 $     +798    2.68    0.35     0
+  BO-580       2025-10-16     1  100%  +0.470 $     +404    1.91    0.54     0
+  BO-582       2025-10-20     1  100%  +4.814 $    +1950   12.60    0.05     1
+  BO-585       2025-10-22     2  100%  +1.979 $    +2609    8.09    0.41     0
+  BO-587       2025-10-24     1  100% +13.973 $   +12086   21.82    0.90     5
+  BO-597       2025-11-05     2    0%  -1.004 $    -2305    0.18    0.90     0
+  BO-598       2025-11-06     3   67%  +0.130 $     +540    2.38    0.33     0
+  BO-599       2025-11-07     1  100%  +4.315 $    +4552   10.03    0.01     0
+  BO-603       2025-11-13     1  100%  +5.969 $    +6715   12.41    0.21     1
+  BO-606       2025-11-20     1  100%  +1.000 $    +1305    3.43    0.59     0
+  BO-610       2025-11-25     1    0%  -1.003 $    -1455    1.42    0.77     0
+  BO-611       2025-11-26     1  100%  +1.431 $    +1481    5.11    0.82     5
+  BO-614       2025-12-01     2    0%  -1.010 $    -1025    0.84    0.46     0
+  BO-615       2025-12-02     2  100%  +1.223 $    +1424    4.33    0.10     0
+  BO-616       2025-12-03     1    0%  -1.008 $     -620    1.39    0.97     0
+  BO-620       2025-12-08     2  100%  +0.471 $     +396    2.40    0.60     0
+  BO-621       2025-12-10     3    0%  -2.555 $    -1345    1.91    2.35     0
+  BO-627       2025-12-22     1  100%  +0.458 $     +396    1.69    0.36     0
+  BO-628       2025-12-23     1  100%  +5.994 $    +1858   12.65    0.08     3
+  BO-632       2025-12-26     1    0%  -1.011 $     -440    0.60    0.43     0
+  BO-636       2025-12-31     4   50%  -0.827 $     -382    2.30    1.50     0
+  BO-637       2026-01-02     4   50%  -0.182 $     -176    2.93    0.66     0
+  BO-638       2026-01-05     1    0%  -1.030 $     -345    0.31    0.99     0
+  BO-640       2026-01-07     1  100%  +4.137 $    +1862   10.54    0.27     0
+  BO-645       2026-01-14     2  100%  +0.972 $    +1470    3.68    0.25     0
+  BO-649       2026-01-21     2  100%  +0.741 $     +714    3.26    0.15     0
+  BO-650       2026-01-21     2    0%  -1.602 $    -2695    0.29    1.34     0
+  BO-652       2026-01-22     1  100%  +0.718 $     +693    1.76    0.26     0
+  BO-653       2026-01-23     1    0%  -1.005 $    -1065    1.26    0.33     0
+  BO-655       2026-01-26     1    0%  -1.006 $     -895    1.13    0.80     0
+  BO-657       2026-01-27     1    0%  -1.006 $     -865    0.60    0.72     0
+  BO-659       2026-01-29     1  100%  +0.490 $     +514    2.01    0.03     0
+  BO-662       2026-02-03     1    0%  -1.005 $     -985    0.61    0.94     0
+  BO-664       2026-02-04     1  100%  +5.757 $    +5699    9.87    0.22     0
+  BO-666       2026-02-05     1  100%  +1.524 $    +1768    6.58    0.54     0
+  BO-669       2026-02-12     1  100% +12.475 $    +4179   31.00    1.39     1
+  BO-672       2026-02-20     4   25%  -0.627 $    -2105    0.66    0.99     0
+  BO-675       2026-02-25     1  100%  +1.715 $    +1732    1.89    0.17     0
+
+  Concentration: largest breakout = 12% of total P&L
+
+  Subtype mix per breakout:
+    BO-31: C_standard=1
+    BO-37: C_standard=1
+    BO-52: C_standard=1
+    BO-57: C_standard=1
+    BO-64: C_standard=1
+    BO-71: C_standard=1
+    BO-84: C_standard=2
+    BO-88: C_standard=1
+    BO-97: C_standard=1
+    BO-104: C_standard=2
+    BO-112: C_standard=1
+    BO-114: C_standard=1
+    BO-115: C_standard=1
+    BO-117: C_standard=2
+    BO-122: C_standard=1
+    BO-126: C_standard=1
+    BO-128: C_standard=1
+    BO-130: C_standard=2
+    BO-132: C_standard=1
+    BO-139: C_standard=2
+    BO-142: C_standard=1
+    BO-148: C_standard=1
+    BO-149: C_standard=1
+    BO-151: C_standard=1
+    BO-152: C_standard=1
+    BO-153: C_standard=1
+    BO-155: C_standard=1
+    BO-159: C_standard=2
+    BO-170: C_standard=1
+    BO-173: C_standard=1
+    BO-175: C_standard=1
+    BO-178: C_standard=1
+    BO-185: C_standard=1
+    BO-191: C_standard=1
+    BO-193: C_standard=2
+    BO-194: C_standard=1
+    BO-196: C_standard=1
+    BO-197: C_standard=2
+    BO-198: C_standard=1
+    BO-200: C_standard=3
+    BO-202: C_standard=1
+    BO-203: C_standard=2
+    BO-205: C_standard=1
+    BO-207: C_standard=1
+    BO-218: C_standard=1
+    BO-222: C_standard=1
+    BO-223: C_standard=1
+    BO-224: C_standard=2
+    BO-229: C_standard=1
+    BO-251: C_standard=1
+    BO-252: C_standard=1
+    BO-253: C_standard=1
+    BO-258: C_standard=1
+    BO-263: C_standard=2
+    BO-267: C_standard=1
+    BO-268: C_standard=1
+    BO-270: C_standard=1
+    BO-271: C_standard=1
+    BO-272: C_standard=3
+    BO-274: C_standard=1
+    BO-276: C_standard=1
+    BO-283: C_standard=2
+    BO-286: C_standard=1
+    BO-287: C_standard=1
+    BO-289: C_standard=1
+    BO-292: C_standard=2
+    BO-293: C_standard=1
+    BO-294: C_standard=2
+    BO-297: C_standard=1
+    BO-300: C_standard=1
+    BO-301: C_standard=3
+    BO-303: C_standard=1
+    BO-304: C_standard=1
+    BO-307: C_standard=1
+    BO-308: C_standard=1
+    BO-310: C_standard=1
+    BO-311: C_standard=1
+    BO-312: C_standard=1
+    BO-313: C_standard=1
+    BO-314: C_standard=1
+    BO-320: C_standard=1
+    BO-321: C_standard=1
+    BO-326: C_standard=2
+    BO-328: C_standard=1
+    BO-331: C_standard=1
+    BO-333: C_standard=1
+    BO-335: C_standard=2
+    BO-336: C_standard=1
+    BO-337: C_standard=1
+    BO-338: C_standard=1
+    BO-340: C_standard=2
+    BO-343: C_standard=1
+    BO-344: C_standard=1
+    BO-349: C_standard=1
+    BO-350: C_standard=1
+    BO-351: C_standard=1
+    BO-357: C_standard=1
+    BO-358: C_standard=1
+    BO-360: C_standard=2
+    BO-361: C_standard=1
+    BO-371: C_standard=1
+    BO-372: C_standard=1
+    BO-375: C_standard=2
+    BO-377: C_standard=1
+    BO-380: C_standard=3
+    BO-386: C_standard=1
+    BO-392: C_standard=2
+    BO-393: C_standard=2
+    BO-394: C_standard=2
+    BO-395: C_standard=1
+    BO-396: C_standard=1
+    BO-397: C_standard=2
+    BO-400: C_standard=3
+    BO-402: C_standard=1
+    BO-403: C_standard=1
+    BO-413: C_standard=1
+    BO-415: C_standard=1
+    BO-417: C_standard=1
+    BO-422: C_standard=1
+    BO-427: C_standard=2
+    BO-428: C_standard=1
+    BO-432: C_standard=1
+    BO-444: C_standard=1
+    BO-445: C_standard=1
+    BO-446: C_standard=1
+    BO-455: C_standard=1
+    BO-457: C_standard=1
+    BO-459: C_standard=2
+    BO-464: C_standard=1
+    BO-469: C_standard=1
+    BO-472: C_standard=2
+    BO-473: C_standard=1
+    BO-474: C_standard=1
+    BO-475: C_standard=1
+    BO-479: C_standard=1
+    BO-482: C_standard=1
+    BO-487: C_standard=1
+    BO-490: C_standard=3
+    BO-491: C_standard=2
+    BO-492: C_standard=2
+    BO-493: C_standard=1
+    BO-496: C_standard=1
+    BO-501: C_standard=1
+    BO-502: C_standard=1
+    BO-503: C_standard=1
+    BO-508: C_standard=1
+    BO-510: C_standard=2
+    BO-513: C_standard=1
+    BO-515: C_standard=1
+    BO-519: C_standard=1
+    BO-524: C_standard=1
+    BO-530: C_standard=1
+    BO-532: C_standard=2
+    BO-533: C_standard=2
+    BO-535: C_standard=3
+    BO-541: C_standard=1
+    BO-542: C_standard=3
+    BO-543: C_standard=1
+    BO-545: C_standard=1
+    BO-546: C_standard=1
+    BO-547: C_standard=1
+    BO-549: C_standard=2
+    BO-550: C_standard=1
+    BO-551: C_standard=1
+    BO-552: C_standard=4
+    BO-553: C_standard=1
+    BO-555: C_standard=1
+    BO-562: C_standard=1
+    BO-566: C_standard=1
+    BO-569: C_standard=1
+    BO-570: C_standard=1
+    BO-571: C_standard=1
+    BO-572: C_standard=1
+    BO-573: C_standard=1
+    BO-575: C_standard=1
+    BO-578: C_standard=1
+    BO-580: C_standard=1
+    BO-582: C_standard=1
+    BO-585: C_standard=2
+    BO-587: C_standard=1
+    BO-597: C_standard=2
+    BO-598: C_standard=3
+    BO-599: C_standard=1
+    BO-603: C_standard=1
+    BO-606: C_standard=1
+    BO-610: C_standard=1
+    BO-611: C_standard=1
+    BO-614: C_standard=2
+    BO-615: C_standard=2
+    BO-616: C_standard=1
+    BO-620: C_standard=2
+    BO-621: C_standard=3
+    BO-627: C_standard=1
+    BO-628: C_standard=1
+    BO-632: C_standard=1
+    BO-636: C_standard=4
+    BO-637: C_standard=4
+    BO-638: C_standard=1
+    BO-640: C_standard=1
+    BO-645: C_standard=2
+    BO-649: C_standard=2
+    BO-650: C_standard=2
+    BO-652: C_standard=1
+    BO-653: C_standard=1
+    BO-655: C_standard=1
+    BO-657: C_standard=1
+    BO-659: C_standard=1
+    BO-662: C_standard=1
+    BO-664: C_standard=1
+    BO-666: C_standard=1
+    BO-669: C_standard=1
+    BO-672: C_standard=4
+    BO-675: C_standard=1
+
+=== Expiry Decay Analysis ===
+  expiry_mult: min=1.00  median=1.00  max=1.00
+  Band                   N    WR    AvgR   TotalPnL  AvgMFE AvgBars
+  -----------------------------------------------------------------
+  Hot [0.8-1.0]        285   51%  +0.646 $  +100648    3.64    7.1
+
+  Avg expiry_mult by subtype:
+    C_standard           N= 285  avg_exp=1.000
+
+=== Stop Distance Analysis ===
+  Stop distance (points): mean=31.44  median=29.50  min=3.25  max=200.50
+  Risk per trade ($): mean=$629  median=$590
+  Band                          Range     N    WR    AvgR   TotalPnL  AvgMFE
+  --------------------------------------------------------------------------
+  Tight (0-P20)              0.0-19.1    57   44%  +0.937 $   +11048    6.39
+  Narrow (P20-P40)          19.1-25.9    57   54%  +0.496 $   +12351    2.99
+  Medium (P40-P60)          25.9-32.8    56   55%  +0.596 $   +18933    3.15
+  Wide (P60-P80)            32.8-42.8    58   50%  +0.241 $   +10906    2.29
+  Very wide (P80+)              42.8+    57   51%  +0.968 $   +47408    3.39
+
+  Correlation (stop_dist vs R): -0.051
+
+  Stop distance by entry subtype:
+    C_standard           N= 285  mean_dist=  31.4pts  avgR=+0.646
+
+  Immediately stopped (MAE > 0.8R, loser): 85/285 (30%)
+
+=== Trade Autocorrelation ===
+  Lag-1 R autocorrelation: -0.027
+  Outcomes appear independent (|corr| < 0.15)
+
+  Transition matrix (N=284 transitions):
+                 Next Win    Next Loss
+    After Win:      68 (47%)      76 (53%)
+    After Loss:     77 (55%)      63 (45%)
+
+  Performance after consecutive losses:
+    After        NextN  NextWR  NextAvgR
+    1 losses:     140     55%    +0.619
+    2 losses:      63     63%    +0.626
+    3 losses:      23     74%    +1.358
+    5 losses:       2    100%    +2.797
+
+=== R/Bar Efficiency ===
+  R/bar: mean=-0.0214  median=+0.0664  std=0.7497
+  Winners:  R/bar mean=+0.3671  avg_hold=11.8 bars
+  Losers:   R/bar mean=-0.5407  avg_hold=3.6 bars
+
+  Hold             N    WR    AvgR   R/bar   TotalPnL
+  ---------------------------------------------------
+  1-2 bars        86   41%  -0.166 -0.1952 $   -21706
+  3-4 bars        45   40%  -0.036 -0.0012 $    -5432
+  5-8 bars        48   58%  +0.220 +0.0265 $    +2398
+  9-16 bars       23   87%  +1.577 +0.1498 $   +22149
+  17+ bars        41   93%  +4.739 +0.1691 $  +117702
+
+  Best cumulative R comes from trades held <= 48 bars (cumR=+192.2)
+
+=== Winner/Loser Entry Profile ===
+  Winners: 145  Losers: 140
+  Metric               Win mean  Loss mean    Delta   Signal
+  ----------------------------------------------------------
+  quality_mult            0.630      0.628   +0.002         
+  expiry_mult             1.000      1.000   +0.000         
+  score_at_entry          2.834      2.782   +0.052         
+  displacement            3.185      3.279   -0.095         
+  rvol_at_entry           2.588      2.891   -0.303         
+  disp_norm               0.882      0.897   -0.015         
+  box_width             318.888    314.896   +3.992         
+  bars_held_30m          11.331      2.650   +8.681   STRONG
+
+  Chop mode distribution:
+    NORMAL        Winners: 124 (  86%)  Losers: 119 (  85%)
+    DEGRADED      Winners:  21 (  14%)  Losers:  21 (  15%)
+    HALT          Winners:   0 (   0%)  Losers:   0 (   0%)
+
+  Entry hour (ET):
+    05:00  wins= 29  losses= 31  WR=48%
+    06:00  wins= 15  losses= 22  WR=41%
+    07:00  wins= 18  losses= 13  WR=58%
+    08:00  wins= 22  losses= 19  WR=54%
+    09:00  wins=  4  losses=  4  WR=50%
+    10:00  wins= 22  losses= 17  WR=56%
+    11:00  wins= 34  losses= 29  WR=54%
+    12:00  wins=  1  losses=  5  WR=17%
+
+=== Post-TP1 Runner Analysis ===
+  Total TP1 trades: 144
+
+  Outcome distribution after TP1:
+    Big winner (R >= +2.0)        :  44 (  31%)  avgR=+5.771
+    Small winner (+0.3 to +2.0)   :  93 (  65%)  avgR=+0.842
+    BE zone (|R| < 0.3)           :   7 (   5%)  avgR=+0.080
+    Net loser (R <= -0.3)         :   0 (   0%)  avgR=+0.000
+
+  BE-zone analysis (7 trades):
+    Avg final R:  +0.080
+    Avg MFE:      2.52R
+    Avg bars held: 6.3
+    Capture ratio: 0.02 (of MFE)
+    ** These trades saw +MFE then gave it all back to BE stop
+
+  TP1 -> TP2 conversion: 0/144 (0%)
+
+  Post-TP1 by exit tier:
+    Aligned   : N= 21  avgR=+1.591  BE-zone=0%
+    Neutral   : N= 55  avgR=+2.394  BE-zone=2%
+    Caution   : N= 68  avgR=+2.466  BE-zone=9%
+
+  Hypothetical BE buffer sensitivity (TP1 trades):
+    BE at +0.1R: 0 stopped early, 144 survive, net avgR=+2.311
+    BE at +0.2R: 0 stopped early, 144 survive, net avgR=+2.311
+    BE at +0.3R: 0 stopped early, 144 survive, net avgR=+2.311
+    BE at +0.5R: 0 stopped early, 144 survive, net avgR=+2.311
+
+=== Equity Reconciliation ===
+  Recorded trade P&L:     $+100,647.75
+  Recomputed (entry-exit): $+124,570.00
+
+  Record vs recomputed gap: $-23,922.25
+
+  R-multiple accuracy check:
+    R gap (recorded - true): mean=-0.174  median=+0.000  max_abs=9.018
+    Trades with |R gap| > 0.1: 132/285 (46%)
+    ** Recorded R < simple entry-exit R
+       Expected: TP partials exited early, missing additional upside
+       (R accounts for TP qty at TP prices, simple calc assumes all at final exit)
+
+  Trust hierarchy:
+    1. Equity curve (tracks actual fills) — GROUND TRUTH
+    2. Recorded P&L (uses initial_stop, includes TP partials)
+    3. Simple entry-exit P&L — ignores TP partial fills
+
+============================================================
+  NQDTC v2.0 GATING ATTRIBUTION REPORT
+============================================================
+
+  Total 30m evaluations:     1517
+  Passed all gates:          675
+  Blocked by gates:          842
+  Completed trades:          285
+
+  Per-Gate Rejection Counts:
+
+  Gate                     Blocked % of Total
+  -------------------------------------------
+  score                        351      41.7%
+  regime_hard_block            349      41.4%
+  displacement                  95      11.3%
+  reentry_loss_too_severe       19       2.3%
+  daily_stop                    19       2.3%
+  weekly_stop                    6       0.7%
+  breakout_quality_reject        3       0.4%
+
+  (Enable shadow tracking for full virtual R analysis)
+
+  Rejections by Session:
+    RTH: 428
+    ETH: 414
+
+  Rejections by Regime:
+    Counter: 336
+    Neutral: 300
+    Range: 130
+    Aligned: 72
+    Caution: 4
+
+=== NQDTC Shadow Trade Summary ===
+  Gate                       Rej Filled    AvgR  TP1%  TP2%  >1R%  MissedEV  Avoided
+  ----------------------------------------------------------------------------------
+  score                      351     86  +0.444   26%   17%    1%     +57.3     19.1
+  regime_hard_block          349     42  -0.347   45%   14%    0%      +1.8     16.3
+  displacement                95     55  -0.270   45%   18%    0%      +4.0     18.8
+  reentry_loss_too_severe     19      7  +1.701   57%   57%   14%     +12.9      1.0
+  daily_stop                  19      3  +0.536   67%   33%   33%      +1.6      0.0
+  weekly_stop                  6      0  +0.000    0%    0%    0%      +0.0      0.0
+  breakout_quality_reject      3      0  +0.000    0%    0%    0%      +0.0      0.0
+
+  Total rejections: 842  Filled in sim: 193

@@ -1,0 +1,50 @@
+risk:
+  heat_cap_R: 2.5
+  portfolio_daily_stop_R: 3.0
+  portfolio_weekly_stop_R: 5.0
+  global_standdown: false
+
+capital:
+  initial_equity: 100000.0
+  paper_initial_equity: 10000.0
+  family_allocations:
+    swing: 0.3334
+    stock: 0.3333
+    momentum: 0.3333
+  strategy_allocations:
+    IARIC_v1: 0.34
+    US_ORB_v1: 0.33
+    ALCB_v1: 0.33
+
+drawdown_tiers:
+  - [0.08, 1.00]
+  - [0.12, 0.50]
+  - [0.15, 0.25]
+  - [1.00, 0.00]
+
+coordination:
+  signals:
+    - trigger: {strategy: ATRSS, event: ENTRY_FILL}
+      target: {strategy: AKC_HELIX, action: TIGHTEN_STOP_BE}
+      condition: SAME_SYMBOL
+    - trigger: {strategy: ATRSS, event: POSITION_OPEN}
+      target: {strategy: AKC_HELIX, action: SIZE_BOOST}
+      condition: SAME_SYMBOL_SAME_DIRECTION
+      params: {size_mult: 1.25}
+  cooldown_pairs:
+    - strategies: [AKC_Helix_v40, "NQDTC_v2.1"]
+      minutes: 120
+      session_only: true
+      session_window: ["09:45", "11:30"]
+  direction_filter:
+    observer: VdubusNQ_v4
+    reference: "NQDTC_v2.1"
+    agree_mult: 1.50
+    oppose_mult: 0.0
+  directional_cap_R: 3.5
+  chop_throttle:
+    enabled: false
+    strategy: "NQDTC_v2.1"
+    score_threshold: 2
+    size_mult: 0.70
+

@@ -1,0 +1,947 @@
+================================================================================
+  THREE-STRATEGY COMPLEMENTARITY ANALYSIS
+  Helix v3.1 + NQDTC v2.1 + Vdubus v4.0
+================================================================================
+
+CONTEXT
+
+All three strategies trade the same instrument (NQ/MNQ) using momentum/trend
+signals on different timeframes. This analysis evaluates whether running them
+together under a single OMS produces net synergy or net drag.
+
+Data: Backtest period yielded Helix=33 trades, NQDTC=54 trades, Vdubus=47 trades.
+Note: NQDTC v2.1 now trades dual-session (ETH 04:30-09:15 + RTH 09:45-12:00).
+Prior analyses (sections 3-8) used NQDTC=32 trades (ETH-only era).
+
+
+================================================================================
+  1. BASELINE PERFORMANCE (ISOLATED)
+================================================================================
+
+  Strategy   Trades   WR     avgR    medR    totalR    Notes
+  ─────────────────────────────────────────────────────────────────────
+  Helix        33     64%   +0.59   +0.52    +19.4    v3.1
+  NQDTC        54     65%   +1.26   +0.31    +67.8    v2.1 (ETH+RTH)
+  Vdubus       47     68%   +0.42   +0.24    +19.7    v4.0
+  ─────────────────────────────────────────────────────────────────────
+  COMBINED    134             --      --     +106.9
+
+NQDTC v2.1 produces the highest R per trade (+1.26 avg) and the highest
+total R (+67.8) with dual-session coverage. The addition of RTH entries
+(09:45-12:00, NORMAL mode only) increased trades from 32 to 54 while
+maintaining near-parity session expectancy (ETH +1.257R, RTH +1.253R).
+This is the strongest standalone strategy.
+
+
+================================================================================
+  2. TIME-OF-DAY OVERLAP MAP
+================================================================================
+
+  ET Hour        Helix                  NQDTC                 Vdubus
+  ─────────────────────────────────────────────────────────────────────────────
+  03-04:30       ETH_EUROPE (0.60x)     --                    BLOCKED
+  04:30-08       ETH_EUROPE (0.60x)     ETH entries (active)  BLOCKED
+  08-09:15       ETH_QUALITY_AM (0.50x) ETH entries (active)  BLOCKED
+  09:15-09:30    ETH_QUALITY_AM (0.50x) --                    BLOCKED
+  09:30-09:40    RTH_PRIME1 (1.00x)     --                    BLOCKED
+  09:40-09:45    RTH_PRIME1 (1.00x)     --                    OPEN window (1.00x)
+  09:45-10:45    RTH_PRIME1 (1.00x)     RTH entries (active)  OPEN window (1.00x)
+  10:45-11:30    RTH_PRIME1 (1.00x)     RTH entries (active)  DEAD ZONE
+  11:30-12:00    RTH_DEAD (0.70x)       RTH entries (active)  DEAD ZONE
+  12:00-13:30    RTH_DEAD (0.70x)       CLOSED (12:00 cutoff) DEAD ZONE
+  13:30-15:00    RTH_PRIME2 (1.00x)     --                    DEAD ZONE
+  15:00-15:30    RTH_PRIME2 (1.00x)     --                    CORE/CLOSE (1.00x)
+  15:30-15:50    RTH_PRIME2 (1.00x)     --                    CLOSE window
+  15:50-17:00    ETH_QUALITY_PM (0.70x) --                    BLOCKED
+  17:00-18:00    DAILY_HALT             --                    BLOCKED
+  18:00-19:00    REOPEN_DEAD            --                    BLOCKED
+  19:00-20:00    REOPEN_DEAD            --                    EVENING (0.70x)
+  20:00-22:30    ETH_OVERNIGHT (0.50x)  --                    EVENING (0.70x)
+  22:30-03:00    ETH_OVERNIGHT (0.50x)  --                    BLOCKED
+
+  NQDTC v2.1 changes:
+  - ETH window extended: 04:30-09:15 (was 05:00-09:00)
+  - RTH entries enabled: 09:45-12:00 (was disabled, then cut from 15:30)
+  - RTH DEGRADED mode blocked (BLOCK_RTH_DEGRADED=True)
+  - Triple overlap: 09:45-10:45 (all three strategies active)
+  - NQDTC RTH closes at 12:00, freeing afternoon for Helix+Vdubus only
+
+
+================================================================================
+  3. EMPIRICAL OVERLAP: HELIX vs NQDTC
+================================================================================
+
+--- Overlap frequency ---
+
+  Window       Total pairs   Same dir   Opposing
+  ─────────────────────────────────────────────────
+  30 min           1            1          0
+  60 min           1            1          0
+  120 min          4            4          0
+  240 min          7            6          1
+
+The strategies almost never fire near each other. At the practical
+threshold of 60 minutes, there is exactly 1 overlapping pair in the entire
+backtest. They are naturally separated by time.
+
+--- The one opposing pair (240min window) ---
+
+  2025-10-08 10:10   Helix LONG +0.58R  vs  NQDTC SHORT -1.02R
+  Gap: 160 minutes.  Helix was right. Net: -0.44R.
+
+--- Critical finding: proximity degrades both strategies ---
+
+                             Solo avgR      Overlap avgR    Delta
+  ──────────────────────────────────────────────────────────────────
+  Helix (120min window)        +0.62           +0.38        -0.24
+  NQDTC (120min window)        +1.16           -0.24        -1.40
+
+  Helix (240min window)        +0.76           -0.04        -0.80
+  NQDTC (240min window)        +1.33           -0.50        -1.83
+
+When Helix and NQDTC fire within 4 hours of each other, BOTH perform
+substantially worse than when they fire in isolation. NQDTC's avgR drops
+from +1.33 to -0.50 -- a swing of nearly 2R per trade.
+
+IMPLICATION: The market conditions that simultaneously trigger a 1H pivot
+reclaim (Helix) AND a 30m box breakout (NQDTC) are unfavorable for both.
+This likely represents choppy, transitional days where the market creates
+structure on multiple timeframes but doesn't follow through on any of them.
+The signals aren't wrong -- the environment is. When both strategies see
+opportunity at the same time, it's a contrarian indicator that neither
+opportunity is real.
+
+This is important because the current Helix veto only blocks OPPOSING
+entries within 60 minutes. The data suggests that even SAME-DIRECTION
+entries within 4 hours perform poorly. The problem isn't conflicting
+signals -- it's simultaneous signals of any kind.
+
+
+================================================================================
+  4. EMPIRICAL OVERLAP: HELIX + VDUBUS
+================================================================================
+
+--- Same-direction overlaps (60min window): 4 pairs ---
+
+  Date              Gap   Dir    Helix R   Vdubus R   Outcome
+  ─────────────────────────────────────────────────────────────
+  2025-10-20 09:00  60m   LONG    +1.15     +0.79     BOTH WIN
+  2025-11-10 09:30  30m   LONG    +0.52     -1.05     SPLIT
+  2025-11-26 11:10  25m   LONG    +0.96     +0.43     BOTH WIN
+  2025-12-09 11:00  60m   LONG    -0.60     +0.90     SPLIT
+
+  Combined: Helix +2.0R (75% WR), Vdubus +1.1R (75% WR)
+  Joint: 50% both win, 0% both lose, 50% split
+  Net: +3.1R from 4 pairs
+
+Helix and Vdubus are mildly positive when they agree. No pair resulted in
+both losing. The splits go both ways -- when one fails, the other often
+catches the move at a better price. This is genuine diversification: same
+directional bet, different entry mechanics, different outcomes.
+
+IMPLICATION: Helix-Vdubus same-direction overlap is benign to slightly
+positive. No evidence of dissynergy. The complementarity theory holds:
+they enter the same move at different stages and their stop/target profiles
+are independent enough that one can survive while the other fails.
+
+
+================================================================================
+  5. EMPIRICAL OVERLAP: NQDTC + VDUBUS (SAME-DAY ANALYSIS)
+================================================================================
+
+NQDTC and Vdubus never fire within 30 minutes of each other (NQDTC's ETH
+entries are hours before Vdubus's RTH window). The relevant question is
+whether they trade the same day in the same direction.
+
+  Shared trading days: 14 out of ~100+ trading days
+
+--- NQDTC performance conditioned on Vdubus ---
+
+  Condition                     n    WR     avgR    totalR
+  ────────────────────────────────────────────────────────────
+  Vdubus same dir that day      9    56%   +2.02    +18.2
+  Vdubus opp dir that day       5    80%   +2.16    +10.8
+  No Vdubus that day           18    72%   +0.14     +2.5
+
+--- Vdubus performance conditioned on NQDTC ---
+
+  Condition                     n    WR     avgR    totalR
+  ────────────────────────────────────────────────────────────
+  NQDTC same dir that day      10   100%   +0.79     +7.9
+  NQDTC opp dir that day        7    43%   -0.16     -1.2
+  No NQDTC that day            30    63%   +0.43    +13.0
+
+THIS IS THE MOST IMPORTANT TABLE IN THE ANALYSIS. Several findings:
+
+--- Finding 1: NQDTC's edge is concentrated on "active" days ---
+
+NQDTC's total R is +31.5 from 32 trades. But:
+  - +18.2R from 9 trades on same-direction Vdubus days
+  - +10.8R from 5 trades on opposing Vdubus days
+  - +2.5R from 18 trades on non-Vdubus days
+
+29.0R of NQDTC's 31.5R total (+92%) comes from the 14 days when Vdubus was
+also active. On the other 18 days, NQDTC barely breaks even (avgR=+0.14).
+The days that are trending enough for Vdubus to trigger are the same days
+where NQDTC's box breakouts actually follow through. On quiet days, NQDTC's
+breakouts fail more often.
+
+IMPLICATION: NQDTC's edge is not really about box breakouts -- it's about
+catching the initiation of trending days. Vdubus activity is a proxy for
+"today is a trending day." NQDTC's standalone backtest overstates its
+reliability because it includes 18 quiet-day trades that contribute almost
+nothing (+2.5R total, avgR=+0.14). In a combined portfolio, the heat cap
+and daily stop should be calibrated knowing that NQDTC's non-trending-day
+trades are near-zero-expectancy ballast.
+
+--- Finding 2: Vdubus has 100% win rate when NQDTC agrees ---
+
+When NQDTC traded the same direction earlier that day, Vdubus went 10 for
+10 with avgR=+0.79. This is the strongest conditional edge in the data.
+By contrast, when NQDTC traded the opposing direction, Vdubus dropped to
+43% WR and negative expectancy (-0.16 avgR).
+
+IMPLICATION: NQDTC direction is a high-quality filter for Vdubus. This
+is a genuine cross-strategy synergy that currently goes unexploited. The
+portfolio rules constrain NQDTC (reversal-only, Helix veto) but don't
+use NQDTC's direction to boost or gate Vdubus entries.
+
+A potential rule: if NQDTC has already traded today, Vdubus should bias
+toward the same direction (or increase size) and be cautious about the
+opposing direction (or reduce size / skip). This would capture the 100%
+WR regime and avoid the 43% WR regime.
+
+--- Finding 3: NQDTC wins regardless of Vdubus direction ---
+
+NQDTC performs well whether Vdubus agrees (+2.02 avgR) or disagrees
+(+2.16 avgR). NQDTC's directional read is more robust -- when it
+conflicts with Vdubus, NQDTC tends to be right (it still wins 80% of the
+time on opposing days) while Vdubus struggles (43% WR).
+
+IMPLICATION: In the priority hierarchy, NQDTC's directional signal
+deserves more weight than the current configs give it. NQDTC is priority=2
+(lowest) in both account tiers, but its directional accuracy is the
+highest of the three. The priority system is designed for heat cap
+arbitration, not signal quality -- and it may be making the wrong choice
+when it blocks NQDTC in favor of Helix or Vdubus.
+
+
+================================================================================
+  6. REVISED SYNERGY/DISSYNERGY ASSESSMENT
+================================================================================
+
+--- Confirmed synergies ---
+
+  1. TIME SEPARATION IS REAL. Helix-NQDTC overlap at 60min: 1 pair.
+     Helix-Vdubus overlap at 60min: 5 pairs. NQDTC-Vdubus at 30min: 0.
+     The strategies naturally partition the trading day. Heat cap
+     competition at the moment of entry is a non-issue.
+
+  2. NQDTC-VDUBUS DIRECTIONAL AGREEMENT IS HIGHLY PREDICTIVE. When both
+     trade the same direction on the same day, Vdubus is 100% WR and
+     NQDTC avgR is +2.02. This is the strongest edge in the combined
+     system and represents a genuine multi-strategy synergy that exceeds
+     either strategy alone.
+
+  3. HELIX-VDUBUS SAME-DIRECTION IS BENIGN. No both-lose pairs. 50% both
+     win. Combined +3.1R. No evidence of interference.
+
+--- Confirmed dissynergies ---
+
+  1. HELIX-NQDTC PROXIMITY IS TOXIC. When both fire within 4 hours,
+     both strategies underperform dramatically. NQDTC avgR swings from
+     +1.33 to -0.50. This is worse than the opposing-direction problem
+     the Helix veto was designed for -- the veto only blocks opposing
+     entries within 60 minutes, but the real damage is same-direction
+     proximity at 2-4 hours.
+
+  2. NQDTC'S QUIET-DAY TRADES ARE NEAR-ZERO. 18 trades on non-Vdubus
+     days produced only +2.5R total. These trades consume heat cap
+     budget and daily-stop margin for almost no return. In a combined
+     portfolio, they are net negative after accounting for the option
+     value they destroy (blocking other strategies from entering).
+
+--- Previously assumed dissynergies that are NOT confirmed ---
+
+  1. OPPOSING SIGNALS: Only 1 opposing Helix-NQDTC pair exists in the
+     entire dataset. The Helix veto and reversal-only filter are solving
+     a problem that barely occurs. The constraints may be over-fitted to
+     a rare scenario.
+
+  2. HEAT CAP COMPETITION AT ENTRY: With so few simultaneous entries,
+     the heat cap almost never blocks one strategy in favor of another
+     at the moment of entry. The real heat cap issue is at the daily
+     level -- positions from different sessions coexisting.
+
+
+================================================================================
+  7. OMS IMPLICATIONS
+================================================================================
+
+--- What the single OMS gets right ---
+
+  - Per-strategy position tracking allows independent stop/target
+    management
+  - Heat cap prevents over-commitment across all three
+  - Daily stop limits portfolio-level damage on correlated-loss days
+
+--- What the single OMS misses ---
+
+  1. NO CROSS-STRATEGY SIGNAL SHARING. The OMS treats each strategy as
+     independent. It doesn't know that NQDTC's direction earlier today
+     is a 100% WR filter for Vdubus. This is the biggest missed synergy.
+
+  2. HELIX-NQDTC PROXIMITY COOLDOWN. The Helix veto only blocks opposing
+     NQDTC entries within 60 minutes. The data shows the problem is
+     same-direction proximity within 4 hours. A bidirectional proximity
+     cooldown (not just opposing-direction veto) would improve both
+     strategies' performance.
+
+  3. NQDTC QUIET-DAY GATING. On non-trending days, NQDTC's trades are
+     near-zero expectancy. The OMS has no mechanism to detect "today is
+     a quiet day" and reduce NQDTC's allocation accordingly.
+
+--- Live coordination gap ---
+
+The portfolio backtest applies cross-strategy rules (Helix veto, reversal-
+only filter) that exist only in backtest. In live trading, each strategy
+runs in a separate Docker container with its own OMS instance. The shared
+portfolio rules would need a centralized risk layer.
+
+The empirical findings make this gap more concerning: the most valuable
+interaction (NQDTC direction as Vdubus filter) requires cross-strategy
+communication that the current architecture cannot support.
+
+
+================================================================================
+  8. VERDICT
+================================================================================
+
+--- Are they complementary? ---
+
+YES, but not in the way originally assumed. The complementarity isn't just
+"different timeframes" -- it's that NQDTC's pre-market directional read
+identifies the trending days where Vdubus then achieves 100% win rate.
+They are sequential parts of the same market read, not independent signals.
+
+--- Do they get in each other's way? ---
+
+ONLY HELIX AND NQDTC, and only when they fire near each other (within 4
+hours). This is rare (7 instances at 240min) but damaging when it happens.
+Helix-Vdubus and NQDTC-Vdubus do not interfere.
+
+--- Net assessment ---
+
+The combined system is net positive. The naive sum is +70.6R from 112
+trades. The key question for the portfolio isn't whether to combine them
+-- it's how to:
+
+  1. Exploit the NQDTC -> Vdubus directional synergy (biggest alpha
+     opportunity, currently unused)
+  2. Implement a Helix-NQDTC proximity cooldown (prevent the 4-hour
+     proximity degradation)
+  3. Accept that NQDTC's quiet-day trades are ballast and size them
+     accordingly (or gate them with a trending-day filter)
+
+--- Actionable findings ---
+
+  FINDING                                       CURRENT STATE   RECOMMENDATION
+  ─────────────────────────────────────────────────────────────────────────────
+  NQDTC direction predicts Vdubus 100% WR       Unused          Use NQDTC dir as
+                                                                Vdubus size/gate
+  Helix-NQDTC 4hr proximity hurts both          60min opp veto  Extend to 4hr
+                                                                bidirectional
+  NQDTC quiet-day trades are +0.14 avgR         Full size       Reduce size or
+                                                                require trending
+                                                                day filter
+  Opposing signals are extremely rare (1 case)  Helix veto +    May be over-
+                                                reversal-only   constrained
+  Helix-Vdubus same-dir is benign               No rule         No change needed
+
+================================================================================
+  9. RECOMMENDED CONFIGURATION (IMPLEMENTED — v2 baseline)
+================================================================================
+
+Based on the empirical overlap analysis, the following configuration was
+implemented and validated via portfolio backtest.
+
+--- Core principles ---
+
+  1. NQDTC takes ALL breakouts (continuations at half-size, not blocked).
+     This provides directional signal on more days, enabling the direction
+     filter.  NQDTC's continuations have 68% WR — blocking them entirely
+     (reversal_only) sacrifices +13.9R of positive-expectancy trades.
+
+  2. NQDTC direction feeds Vdubus sizing.  When NQDTC traded same direction
+     earlier today, Vdubus is boosted 1.25x.  When NQDTC traded opposing
+     direction, Vdubus is blocked.  Empirical basis: 100% vs 43% WR.
+
+  3. Helix-NQDTC proximity cooldown replaces Helix veto.  Bidirectional
+     240-minute cooldown (any direction, not just opposing).  The veto
+     solved a problem that barely exists (1 opposing pair in entire
+     dataset).  Proximity of ANY kind degrades both strategies.
+
+  4. Wider daily stops to reduce cascade shutdowns.
+
+--- $10K Configuration (v2 baseline) ---
+
+  Strategy   Risk     Priority   Daily Stop   Flags
+  ──────────────────────────────────────────────────────────────────
+  Vdubus     0.80%    0 (high)   2.0R         —
+  NQDTC      0.80%    1 (mid)    2.5R         continuation_half_size
+  Helix      1.50%    2 (low)    2.0R         —
+
+  Portfolio:
+    Heat cap:              2.5R
+    Portfolio daily stop:  2.5R (raised from 2.0R)
+    Max positions:         3
+    Directional cap:       2.5R
+
+  Cross-strategy rules:
+    Helix/NQDTC proximity cooldown:  240 minutes (bidirectional)
+    NQDTC direction filter:          agree=1.25x, oppose=block
+
+--- $100K Configuration (v2 baseline) ---
+
+  Strategy   Risk     Priority   Daily Stop   Flags
+  ──────────────────────────────────────────────────────────────────
+  Vdubus     0.30%    0 (high)   2.0R         —
+  NQDTC      0.35%    1 (mid)    3.0R         continuation_half_size
+  Helix      0.50%    2 (low)    2.0R         —
+
+  Portfolio:
+    Heat cap:              3.0R
+    Portfolio daily stop:  3.5R (raised from 3.0R)
+    Max positions:         3
+    Directional cap:       2.5R
+
+  Cross-strategy rules:
+    Helix/NQDTC proximity cooldown:  240 minutes (bidirectional)
+    NQDTC direction filter:          agree=1.25x, oppose=block
+
+
+================================================================================
+  10. BACKTEST VALIDATION
+================================================================================
+
+--- $10K Account ---
+
+  Config                 Taken  Blocked  TotalR    PnL      R Captured
+  ──────────────────────────────────────────────────────────────────────
+  Isolated (naive sum)    112     —      +70.6     —           100%
+  Baseline (rev_only)      61    51      +41.4    $+3,590       59%
+  OPTIMIZED (half+dir)     74    38      +55.2    $+5,055       78%
+
+  Improvement: +33% total R, +41% PnL vs baseline.
+
+  Per-strategy breakdown (optimized):
+    Helix:   12 taken,  +7.7R   (isolated: 33 trades, +19.4R)
+    NQDTC:   27 taken, +30.3R   (isolated: 32 trades, +31.5R) — captures 96%
+    Vdubus:  35 taken, +17.2R   (isolated: 47 trades, +19.7R) — captures 87%
+
+  Cross-strategy effects:
+    Proximity cooldown:   2 trades blocked, saved +0.4R (1 Helix loser avoided)
+    NQDTC dir filter:     5 Vdubus blocked (40% WR, saved +0.3R losers)
+                          5 Vdubus boosted (+5.9R vs +4.7R unboosted)
+    Continuation half-size: 11 trades at 50% size (+2.2R portfolio R)
+
+--- $100K Account ---
+
+  Config                 Taken  Blocked  TotalR    PnL        R Captured
+  ──────────────────────────────────────────────────────────────────────
+  Isolated (naive sum)    112     —      +70.6       —           100%
+  Baseline (rev_only)      80    32      +52.6    $+14,311       74%
+  Half-sized (original)   101    11      +64.0    $+18,463       91%
+  OPTIMIZED (half+dir)     94    18      +64.2    $+18,490       91%
+
+  Improvement: +22% total R, +29% PnL vs baseline.
+
+  Per-strategy breakdown (optimized):
+    Helix:   25 taken, +17.2R   (isolated: 33 trades, +19.4R) — captures 89%
+    NQDTC:   27 taken, +29.5R   (isolated: 32 trades, +31.5R) — captures 94%
+    Vdubus:  42 taken, +17.6R   (isolated: 47 trades, +19.7R) — captures 89%
+
+  Cross-strategy effects:
+    Proximity cooldown:   5 trades blocked, saved +0.4R
+    NQDTC dir filter:     4 Vdubus blocked (25% WR, saved +0.4R losers)
+                          7 Vdubus boosted (+5.2R vs +4.2R unboosted)
+    Continuation half-size: 11 trades at 50% size (+2.7R portfolio R)
+
+--- Optimized vs half-sized (original) at $100K ---
+
+  The optimized config achieves the same total R (+64.2 vs +64.0) as the
+  original half-sized config, but with 7 fewer trades (94 vs 101).  This
+  means higher per-trade efficiency: 0.68R/trade vs 0.63R/trade.
+
+  The direction filter correctly identifies and blocks low-quality Vdubus
+  trades (25% WR when NQDTC opposes) and boosts high-quality ones.  The
+  proximity cooldown prevents 5 trades that would have averaged -0.08R.
+
+  The key difference is efficiency, not magnitude: the optimized config
+  takes fewer, better-quality trades to achieve the same result.
+
+--- Remaining R drain ---
+
+  At $10K, heat cap blocking remains the largest R drain:
+    30 trades blocked by heat_cap with +11.5R left on the table (mostly
+    Helix trades that can't fit under the 2.5R cap alongside NQDTC/Vdubus).
+
+  This is a structural constraint of the $10K account size — there isn't
+  enough equity to support all three strategies at full size simultaneously.
+  At $100K, heat cap is not a binding constraint.
+
+
+================================================================================
+  11. FURTHER OPTIMIZATION SWEEP (on optimized config)
+================================================================================
+
+A comprehensive parameter sweep was run across 13 dimensions on the
+optimized config to identify further improvements.
+
+Source: scripts/portfolio_backtest.py → run_optimized_sweep()
+Output: output/portfolio_sweep_optimized.txt
+
+--- $10K: Individual dimension results ---
+
+  Dimension                     Best Value    R Change    PnL Change
+  ──────────────────────────────────────────────────────────────────────
+  Vdubus daily_stop             2.5R          +3.6R       +$358         ** BIGGEST SINGLE LEVER **
+  Continuation mult             1.00          +2.2R       +$189
+  Continuation mult             0.70          +0.9R       +$0
+  Agree mult                    1.50          +1.2R       +$152
+  Heat cap                      4.0           +1.4R       +$526
+  Proximity cooldown            240m          BASELINE    (240m is optimal)
+  Oppose mult                   0.0           BASELINE    (blocking is optimal)
+  NQDTC risk                    1.2%          -1.0R       +$1,775 (PnL ↑, R ↓)
+  Dir cap                       2.0           +0.3R       +$601
+  Helix risk                    1.50%         BASELINE
+  Portfolio daily stop           —            NO EFFECT
+
+--- $10K: Best combinations ---
+
+  Config                                      Tkn  TotR     PnL       vs Baseline
+  ────────────────────────────────────────────────────────────────────────────────
+  OPT BASELINE                                 74  +55.2    $+5,055     —
+  heat=3.5 + ag=1.5 + vds=2.5 + cm=0.7         75  +60.9    $+5,519    +5.7R (+10%)
+  heat=4.0 + ag=1.5 + dc=3.5 + vds=2.5         87  +64.8    $+6,034    +9.6R (+17%)
+
+--- $100K: Individual dimension results ---
+
+  Dimension                     Best Value    R Change    PnL Change
+  ──────────────────────────────────────────────────────────────────────
+  Vdubus daily_stop             2.5R          +3.6R       +$312         ** BIGGEST SINGLE LEVER **
+  Continuation mult             1.00          +2.9R       +$932
+  Continuation mult             0.70          +2.0R       +$402
+  NQDTC risk                    0.50%         +2.3R       +$6,476       ** BIGGEST PNL LEVER **
+  Proximity cooldown            120m          +2.1R       +$386         ** 240m is suboptimal **
+  Helix risk                    0.70%         +1.8R       +$2,855
+  Agree mult                    1.50          +1.1R       +$587
+  Dir cap                       3.0           +0.8R       +$557
+  Helix max_concurrent          2             +1.2R       +$467
+  Oppose mult                   0.0           BASELINE
+  Vdubus risk                   0.50%         -0.1R       +$2,497 (PnL only)
+
+--- $100K: Best combinations ---
+
+  Config                                      Tkn  TotR     PnL       vs Baseline
+  ────────────────────────────────────────────────────────────────────────────────
+  OPT BASELINE                                 94  +64.2    $+18,490    —
+  agree=1.50 + cont=0.70                        93  +67.2    $+19,626   +3.0R (+5%)
+  MAX: dc=3 ag=1.5 nqr=.5 cm=.7 hmc=2          99  +70.8    $+25,907   +6.6R (+10%)
+
+  The MAX $100K config captures 100.3% of isolated R (+70.8 vs +70.6R)
+  because the NQDTC direction boost on Vdubus creates portfolio R that
+  exceeds the sum of individual isolated R.
+
+
+================================================================================
+  12. KEY FINDINGS FROM OPTIMIZATION SWEEP
+================================================================================
+
+--- Finding 1: Vdubus daily stop = 2.5R is the biggest free improvement ---
+
+  Both tiers gain +3.6R from raising Vdubus daily_stop from 2.0R to 2.5R.
+  This unblocks exactly 1 trade: a Vdubus entry that occurs after a -2.0R
+  loss day, which turns out to be a +3.6R winner.
+
+  Risk: On average, trading after a -2R day is risky (tilt/revenge). But
+  Vdubus's mechanical VWAP-reclaim entries are not subject to trader
+  psychology — the signal is either there or it isn't. A 2.5R daily stop
+  still provides protection while allowing recovery.
+
+  RECOMMENDATION: Raise Vdubus daily_stop to 2.5R at both tiers.
+
+--- Finding 2: Continuation multiplier 0.70 is better than 0.50 ---
+
+  Half-sizing NQDTC continuations at 0.50x sacrifices ~2-3R.  At 0.70x:
+  - $10K: +56.1R (+0.9R improvement)
+  - $100K: +66.2R (+2.0R improvement)
+
+  At 1.00x (full size), gains are larger (+2.2R/$10K, +2.9R/$100K) but the
+  half-sizing exists to manage risk on "crowded" continuation trades. 0.70x
+  is a compromise that captures most of the upside while retaining the
+  risk-management intent.
+
+  RECOMMENDATION: Raise continuation_size_mult from 0.50 to 0.70.
+
+--- Finding 3: Agree multiplier 1.50 is better than 1.25 ---
+
+  Stronger Vdubus boost when NQDTC agrees:
+  - $10K: +56.4R (+1.2R)
+  - $100K: +65.3R (+1.1R)
+
+  The NQDTC→Vdubus directional synergy (100% WR) supports more aggressive
+  boosting. The 1.50x multiplier overweights these high-conviction trades
+  without pushing size beyond 1.5x base (still reasonable).
+
+  RECOMMENDATION: Raise nqdtc_agree_size_mult from 1.25 to 1.50.
+
+--- Finding 4: Proximity cooldown should differ by tier ---
+
+  $10K optimal: 240 minutes (current). Shorter windows let through
+  mediocre trades; 240m filters correctly.
+
+  $100K optimal: 120 minutes. The 240m window blocks profitable trades
+  that only appear unprofitable in the $10K analysis (where heat cap
+  already blocks them). At $100K with no heat cap pressure, 120m
+  captures +2.1R vs 240m.
+
+  RECOMMENDATION: 240m at $10K, 120m at $100K.
+
+--- Finding 5: NQDTC risk = 0.50% at $100K is a major PnL lever ---
+
+  At 0.50% risk (vs 0.35%), NQDTC's R goes from +29.5 to +31.3 (+1.8R)
+  but PnL jumps from $10,296 to $24,966 (+$14,670). Each R point is
+  worth more dollars at higher risk. At 0.70%: +$21,859 more PnL.
+
+  This is a position-sizing decision, not a signal quality question.
+  The signal is the same; only the dollar exposure changes.
+
+  RECOMMENDATION: Consider 0.50% for higher dollar returns, but
+  understand this concentrates more capital in one strategy.
+
+--- Finding 6: Dir cap = 3.0R at $100K captures +0.8R ---
+
+  Two trades blocked by directional_cap=2.5R are unblocked at 3.0R.
+  Minor improvement with minimal added risk.
+
+  RECOMMENDATION: Raise directional_cap from 2.5 to 3.0R at $100K.
+
+--- Finding 7: Oppose multiplier doesn't matter ---
+
+  Testing 0.0 (block), 0.25, 0.50, and 1.0 (no filter) all produce
+  +55.0-55.2R at $10K and +64.0-64.2R at $100K. The opposing Vdubus
+  trades are near break-even. Blocking is marginally better and safer.
+
+  RECOMMENDATION: Keep oppose_mult = 0.0 (no change needed).
+
+--- Finding 8: Heat cap at $10K has diminishing returns ---
+
+  heat_cap=3.5 and 4.0 only help when combined with other changes
+  (agree mult, Vdubus daily stop). In isolation, raising heat cap
+  adds mediocre Helix trades that barely move total R.
+
+  RECOMMENDATION: Raise to 3.5R as part of the combined config
+  (creates headroom for other improvements to take effect).
+
+
+================================================================================
+  13. UPDATED RECOMMENDED CONFIGURATION
+================================================================================
+
+--- $10K Configuration (v4 — NQDTC dual-session) ---
+
+  Strategy   Risk     Priority   Daily Stop   Flags
+  ──────────────────────────────────────────────────────────────────
+  Vdubus     0.80%    0 (high)   2.5R         —
+  NQDTC      0.80%    1 (mid)    2.5R         cont_half_size=0.70
+  Helix      1.50%    2 (low)    2.0R         —
+
+  Portfolio:
+    Heat cap:              3.5R
+    Portfolio daily stop:  2.5R
+    Max positions:         3
+    Directional cap:       2.5R
+
+  Cross-strategy rules:
+    Proximity cooldown:    120 minutes  (reduced from 240 — see below)
+    NQDTC direction filter: agree=1.50x, oppose=block
+
+  VALIDATED: +90.4R ($+7,615) on 95 trades, 64% WR
+
+  NQDTC v2.1 changes driving v4:
+  - RTH entries enabled (09:45-12:00 ET, NORMAL mode only)
+  - ETH window extended (04:30-09:15 ET)
+  - BLOCK_RTH_DEGRADED = True (eliminates zero-edge RTH chop trades)
+  - Proximity cooldown reduced 240 -> 120 min because NQDTC RTH
+    (09:45-12:00) now overlaps Helix RTH_PRIME1 (09:35-11:30).
+    At 240 min, a Helix entry at 09:35 blocks NQDTC until 13:35 —
+    past the 12:00 RTH cutoff, effectively nullifying all RTH entries.
+    120 min allows NQDTC RTH entries ~2h after Helix.
+
+--- v3 $10K Configuration (prior, for reference) ---
+
+  Same strategy allocations as v4, but:
+    Proximity cooldown:    240 minutes (too long for RTH overlap)
+  VALIDATED: +89.8R ($+7,460) on 94 trades — v4 is +0.6R, +$155 better
+
+--- $100K Configuration (v3 — unchanged) ---
+
+  Strategy   Risk     Priority   Daily Stop   Flags
+  ──────────────────────────────────────────────────────────────────
+  Vdubus     0.30%    0 (high)   2.5R         —
+  NQDTC      0.35%    1 (mid)    3.0R         cont_half_size=0.70
+  Helix      0.50%    2 (low)    2.0R         —
+
+  Portfolio:
+    Heat cap:              3.0R
+    Portfolio daily stop:  3.5R
+    Directional cap:       3.0R
+
+  Cross-strategy rules:
+    Proximity cooldown:    120 minutes
+    NQDTC direction filter: agree=1.50x, oppose=block
+
+  VALIDATED: +99.9R ($+31,115) on 121 trades, 64% WR
+  (With NQDTC v2.1 dual-session: +99.9R vs prior +73.1R = +37%)
+
+--- Optional $100K high-PnL variant (v3 MAX) ---
+
+  Strategy   Risk     Priority   Daily Stop   Flags
+  ──────────────────────────────────────────────────────────────────
+  Vdubus     0.30%    0 (high)   2.5R         —
+  NQDTC      0.50%    1 (mid)    3.0R         cont_half_size=0.70  (risk raised from 0.35%)
+  Helix      0.50%    2 (low)    2.0R         max_concurrent=2
+
+  VALIDATED: +98.4R ($+44,278) — lower R than v3 but +42% more PnL
+  The higher NQDTC risk makes each R worth more dollars.
+  Helix max_concurrent=2 adds trades but also creates heat_cap blocks.
+  Tradeoff: R-efficiency vs dollar returns.
+
+
+================================================================================
+  14. V4 BACKTEST VALIDATION (NQDTC v2.1 dual-session)
+================================================================================
+
+NQDTC v2.1 added RTH entries (09:45-12:00, NORMAL mode only) and extended
+the ETH window (04:30-09:15). This increased NQDTC from 32 to 54 trades,
+raising the isolated sum from +70.6R to +106.9R. The v4 portfolio config
+adjusts the proximity cooldown (240 -> 120 min) for RTH session overlap.
+
+--- $10K v4 Results ---
+
+  Config                  Taken  Blocked  TotalR    PnL      R/Trade   WR   R Captured
+  ──────────────────────────────────────────────────────────────────────────────────────
+  Isolated (naive sum)     134     —     +106.9     —          —       66%     100%
+  V3 (240min cooldown)      94    40      +89.8    $+7,460   +0.96    64%      84%
+  V4 (120min cooldown)      95    39      +90.4    $+7,615   +0.95    64%      85%
+
+  Per-strategy breakdown (v4):
+    Strategy    Iso n  Iso totalR    v4 n   v4 totalR    Delta    Capture%
+    ───────────────────────────────────────────────────────────────────────
+    Helix         33       +19.4       13       +7.5     -11.9       39%   (heat cap limited at $10K)
+    NQDTC         54       +67.8       45      +68.2      +0.4      101%   (direction boost synergy)
+    Vdubus        47       +19.7       37      +14.7      -5.0       75%
+
+  Blocking breakdown (v4):
+    directional_cap:  20 blocked (removedR=+5.4)
+    heat_cap:         11 blocked (removedR=+3.8)
+    proximity_cooldown: 3 blocked (removedR=+3.7)
+    nqdtc_opposes:      3 blocked (removedR=+4.6)
+    max_per_strategy:   2 blocked (removedR=-1.0)
+
+  By strategy:
+    Helix:   20 blocked (biggest casualty — heat cap + proximity at $10K)
+    NQDTC:    9 blocked (all directional_cap, net -0.4R — near break-even)
+    Vdubus:  10 blocked (directional_cap + nqdtc_opposes + heat_cap)
+
+  v3 vs v4 delta: The reduced cooldown (240 -> 120 min) unblocked 1 Helix
+  trade on 2025-10-08 (+0.58R), producing +0.6R net improvement. NQDTC and
+  Vdubus results identical between v3 and v4.
+
+--- $100K v3 Results (with NQDTC v2.1) ---
+
+  Config                  Taken  Blocked  TotalR    PnL        R/Trade   WR   R Captured
+  ──────────────────────────────────────────────────────────────────────────────────────
+  Isolated (naive sum)     134     —     +106.9       —          —       66%     100%
+  V3 (120min cooldown)     121    13      +99.9    $+31,115   +0.83    64%      93%
+
+  Per-strategy breakdown:
+    Strategy    Iso totalR    v3 totalR    Delta    Capture%
+    ─────────────────────────────────────────────────────────
+    Helix          +19.4        +16.8       -2.6       87%
+    NQDTC          +67.8        +67.6       -0.2      100%
+    Vdubus         +19.7        +15.5       -4.2       79%
+
+  Cross-strategy effects:
+    Proximity cooldown (120m): 4 trades blocked, removedR=+3.9
+    NQDTC dir filter blocked:  3 Vdubus trades (removedR=+4.6)
+    NQDTC dir boost (1.50x):   6 Vdubus trades boosted (+1.2R vs +0.8R original)
+
+--- $100K v3 MAX Results (with NQDTC v2.1) ---
+
+  Config                  Taken  Blocked  TotalR    PnL        R/Trade   WR   R Captured
+  ──────────────────────────────────────────────────────────────────────────────────────
+  V3 MAX                   126     8      +98.4    $+44,278   +0.78    63%      92%
+
+  vs V3 standard: -1.5R but +$13,163 PnL (+42%). Higher NQDTC risk (0.50%)
+  makes each R worth significantly more dollars. Helix max_concurrent=2 adds
+  trades. Only 8 total blocks (4 proximity, 3 nqdtc_opposes, 1 heat_cap).
+
+--- Historical progression ---
+
+  Config evolution ($10K):
+    v1 Baseline (rev_only, NQDTC ETH-only):     61 taken,  +41.4R,  $+3,590
+    v2 Optimized (half-size + dir filter):       74 taken,  +55.2R,  $+5,055   (+33%)
+    v3 Sweep-validated (heat=3.5, agree=1.50):   75 taken,  +60.9R,  $+5,519   (+47%)
+    v4 NQDTC dual-session (RTH + 120m cool):     95 taken,  +90.4R,  $+7,615   (+118%)
+
+  The v4 jump is primarily driven by NQDTC v2.1's RTH entries (+22 trades)
+  and the ETH window extension (+7 trades), which nearly doubled NQDTC's
+  isolated R from +31.5 to +67.8. The portfolio captures 85% of this.
+
+
+================================================================================
+  APPENDIX A: RAW OVERLAP OUTCOMES DATA
+================================================================================
+
+Source: scripts/overlap_outcomes.py  |  Date: 2026-02-15
+
+--- Baseline Performance (all trades, current) ---
+
+  Helix (all)                           n= 33   WR=64%   avgR=+0.59   medR=+0.52   totalR=+19.4    v3.1
+  NQDTC (all)                           n= 54   WR=65%   avgR=+1.26   medR=+0.31   totalR=+67.8    v2.1 (ETH+RTH)
+  Vdubus (all)                          n= 47   WR=68%   avgR=+0.42   medR=+0.24   totalR=+19.7    v4.0
+  Combined isolated (naive sum)         n=134   WR=66%   avgR=+0.80   medR=+0.31   totalR=+106.9
+
+  NOTE: Overlap analysis below was conducted with NQDTC=32 trades (ETH-only era).
+  NQDTC v2.1 added 22 RTH trades (09:45-12:00 ET). The Helix-NQDTC overlap
+  counts at 120min+ windows would be higher with dual-session NQDTC, as both
+  strategies are now active during RTH_PRIME1 (09:35-11:30).
+
+--- Baseline Performance (ETH-only era, used for overlap analysis below) ---
+
+  Helix (all)                           n= 33   WR=64%   avgR=+0.59   medR=+0.52   avgMFE=1.48   avgMAE=0.60   totalR=+19.4
+  NQDTC (all)                           n= 32   WR=69%   avgR=+0.98   medR=+0.31   avgMFE=3.31   avgMAE=0.37   totalR=+31.5
+  Vdubus (all)                          n= 47   WR=68%   avgR=+0.42   medR=+0.24   avgMFE=1.17   avgMAE=0.57   totalR=+19.7
+
+--- Q1: Helix vs NQDTC — 30-minute window ---
+
+  Total overlapping trade pairs: 1
+    Opposing direction: 0
+    Same direction:     1
+
+  Helix (overlaps NQDTC <30m)           n=  1   WR=100%   avgR=+1.78   medR=+1.78   avgMFE=2.36   avgMAE=0.47   totalR=+1.8
+  Helix (solo, no NQDTC <30m)           n= 32   WR=62%   avgR=+0.55   medR=+0.47   avgMFE=1.46   avgMAE=0.61   totalR=+17.6
+  NQDTC (overlaps Helix <30m)           n=  1   WR=100%   avgR=+0.31   medR=+0.31   avgMFE=1.25   avgMAE=0.11   totalR=+0.3
+  NQDTC (solo, no Helix <30m)           n= 31   WR=68%   avgR=+1.01   medR=+0.31   avgMFE=3.38   avgMAE=0.38   totalR=+31.2
+
+--- Q1: Helix vs NQDTC — 60-minute window ---
+
+  Total overlapping trade pairs: 1
+    Opposing direction: 0
+    Same direction:     1
+
+  Helix (overlaps NQDTC <60m)           n=  1   WR=100%   avgR=+1.78   medR=+1.78   avgMFE=2.36   avgMAE=0.47   totalR=+1.8
+  Helix (solo, no NQDTC <60m)           n= 32   WR=62%   avgR=+0.55   medR=+0.47   avgMFE=1.46   avgMAE=0.61   totalR=+17.6
+  NQDTC (overlaps Helix <60m)           n=  1   WR=100%   avgR=+0.31   medR=+0.31   avgMFE=1.25   avgMAE=0.11   totalR=+0.3
+  NQDTC (solo, no Helix <60m)           n= 31   WR=68%   avgR=+1.01   medR=+0.31   avgMFE=3.38   avgMAE=0.38   totalR=+31.2
+
+--- Q1: Helix vs NQDTC — 120-minute window ---
+
+  Total overlapping trade pairs: 4
+    Opposing direction: 0
+    Same direction:     4
+
+  Helix (overlaps NQDTC <120m)          n=  4   WR=50%   avgR=+0.38   medR=+0.46   avgMFE=1.13   avgMAE=0.58   totalR=+1.5
+  Helix (solo, no NQDTC <120m)          n= 29   WR=66%   avgR=+0.62   medR=+0.52   avgMFE=1.53   avgMAE=0.61   totalR=+17.9
+  NQDTC (overlaps Helix <120m)          n=  4   WR=50%   avgR=-0.24   medR=-0.35   avgMFE=0.95   avgMAE=0.47   totalR=-1.0
+  NQDTC (solo, no Helix <120m)          n= 28   WR=71%   avgR=+1.16   medR=+0.31   avgMFE=3.65   avgMAE=0.36   totalR=+32.5
+
+--- Q1: Helix vs NQDTC — 240-minute window ---
+
+  Total overlapping trade pairs: 7
+    Opposing direction: 1
+    Same direction:     6
+
+  When opposing (1 pair):
+    Helix wins, NQDTC loses:    1 (100%)
+    NQDTC wins, Helix loses:    0 (0%)
+    Both win:                   0 (0%)
+    Both lose:                  0 (0%)
+
+  Helix (in opposing overlap)           n=  1   WR=100%   avgR=+0.58   medR=+0.58   avgMFE=1.30   avgMAE=0.46   totalR=+0.6
+  NQDTC (in opposing overlap)           n=  1   WR=0%   avgR=-1.02   medR=-1.02   avgMFE=0.00   avgMAE=0.34   totalR=-1.0
+
+  Combined P&L of opposing pairs:
+    Avg combined R:    -0.44
+    Total combined R:  -0.4
+    Net positive pairs: 0/1 (0%)
+
+  Individual opposing pair:
+    2025-10-08 10:10   160m   Helix LONG +0.58R   NQDTC SHORT -1.02R   Net -0.44R   Winner: Helix
+
+  Helix (overlaps NQDTC <240m)          n=  7   WR=43%   avgR=-0.04   medR=-0.00   avgMFE=0.86   avgMAE=0.79   totalR=-0.3
+  Helix (solo, no NQDTC <240m)          n= 26   WR=69%   avgR=+0.76   medR=+0.58   avgMFE=1.65   avgMAE=0.55   totalR=+19.7
+  NQDTC (overlaps Helix <240m)          n=  6   WR=33%   avgR=-0.50   medR=-1.01   avgMFE=0.67   avgMAE=0.50   totalR=-3.0
+  NQDTC (solo, no Helix <240m)          n= 26   WR=77%   avgR=+1.33   medR=+0.39   avgMFE=3.93   avgMAE=0.34   totalR=+34.5
+
+--- Q2: Helix + Vdubus same-direction — 30-minute window ---
+
+  Total overlapping trade pairs: 2
+    Same direction:     2
+    Opposing direction: 0
+
+  When agreeing (2 pairs):
+    Both win:    1 (50%)
+    Both lose:   0 (0%)
+    Split:       1 (50%)
+
+  Helix (same-dir overlap Vdubus)       n=  2   WR=100%   avgR=+0.74   medR=+0.74   avgMFE=1.31   avgMAE=0.55   totalR=+1.5
+  Vdubus (same-dir overlap Helix)       n=  2   WR=50%   avgR=-0.31   medR=-0.31   avgMFE=0.65   avgMAE=0.69   totalR=-0.6
+
+  Individual pairs:
+    2025-11-10 09:30   30m   LONG   Helix +0.52R   Vdubus -1.05R   SPLIT
+    2025-11-26 11:10   25m   LONG   Helix +0.96R   Vdubus +0.43R   BOTH WIN
+
+--- Q2: Helix + Vdubus same-direction — 60-minute window ---
+
+  Total overlapping trade pairs: 5
+    Same direction:     4
+    Opposing direction: 1
+
+  When agreeing (4 pairs):
+    Both win:    2 (50%)
+    Both lose:   0 (0%)
+    Split:       2 (50%)
+
+  Helix (same-dir overlap Vdubus)       n=  4   WR=75%   avgR=+0.51   medR=+0.74   avgMFE=1.19   avgMAE=0.43   totalR=+2.0
+  Vdubus (same-dir overlap Helix)       n=  4   WR=75%   avgR=+0.27   medR=+0.61   avgMFE=0.92   avgMAE=0.44   totalR=+1.1
+
+  Individual pairs:
+    2025-10-20 09:00   60m   LONG   Helix +1.15R   Vdubus +0.79R   BOTH WIN
+    2025-11-10 09:30   30m   LONG   Helix +0.52R   Vdubus -1.05R   SPLIT
+    2025-11-26 11:10   25m   LONG   Helix +0.96R   Vdubus +0.43R   BOTH WIN
+    2025-12-09 11:00   60m   LONG   Helix -0.60R   Vdubus +0.90R   SPLIT
+
+--- Q2: Helix + Vdubus same-direction — 120/240-minute windows ---
+
+  (Identical to 60min — no additional pairs found beyond 60min)
+
+--- Q3: NQDTC + Vdubus same-day same-direction ---
+
+  Shared trading days: 14
+    Same dominant direction: 9 days
+    Opposing direction:      5 days
+
+  NQDTC performance by Vdubus agreement:
+    NQDTC (Vdubus same dir day)           n=  9   WR=56%   avgR=+2.02   medR=+0.31   avgMFE=5.11   avgMAE=0.57   totalR=+18.2
+    NQDTC (Vdubus opp dir day)            n=  5   WR=80%   avgR=+2.16   medR=+1.05   avgMFE=5.00   avgMAE=0.29   totalR=+10.8
+    NQDTC (no Vdubus that day)            n= 18   WR=72%   avgR=+0.14   medR=+0.31   avgMFE=1.95   avgMAE=0.30   totalR=+2.5
+
+  Vdubus performance by NQDTC agreement:
+    Vdubus (NQDTC same dir day)           n= 10   WR=100%   avgR=+0.79   medR=+0.58   avgMFE=1.29   avgMAE=0.52   totalR=+7.9
+    Vdubus (NQDTC opp dir day)            n=  7   WR=43%   avgR=-0.16   medR=-0.13   avgMFE=1.02   avgMAE=0.68   totalR=-1.2
+    Vdubus (no NQDTC that day)            n= 30   WR=63%   avgR=+0.43   medR=+0.26   avgMFE=1.17   avgMAE=0.56   totalR=+13.0
+
+================================================================================

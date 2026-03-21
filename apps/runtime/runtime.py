@@ -1,0 +1,377 @@
+"""Runtime shell and preflight checks for the monorepo scaffold."""
+from __future__ import annotations
+
+import asyncio
+import logging
+import math
+import signal
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from libs.broker_ibkr.session import UnifiedIBSession
+from libs.config.capital_allocation import resolve_strategy_capital_allocation
+from libs.config.loader import (
+    load_contracts,
+    load_event_calendar,
+    load_portfolio_config,
+    load_routes,
+    load_strategy_registry,
+)
+from libs.config.registry import build_registry_artifact
+from strategies.contracts import RuntimeContext
+
+logger = logging.getLogger(__name__)
+
+# Family coordinator registry (lazy imports to avoid circular deps)
+_FAMILY_COORDINATORS: dict[str, str] = {
+    "swing": "strategies.swing.coordinator.SwingFamilyCoordinator",
+    "momentum": "strategies.momentum.coordinator.MomentumFamilyCoordinator",
+    "stock": "strategies.stock.coordinator.StockFamilyCoordinator",
+}
+
+
+def _import_coordinator(family: str) -> type:
+    """Dynamically import a family coordinator class."""
+    dotted = _FAMILY_COORDINATORS[family]
+    module_path, class_name = dotted.rsplit(".", 1)
+    import importlib
+    mod = importlib.import_module(module_path)
+    return getattr(mod, class_name)
+
+
+@dataclass(frozen=True)
+class PreflightCheck:
+    name: str
+    ok: bool
+    detail: str
+
+
+class RuntimeShell:
+    """Loads monorepo runtime metadata and optionally starts IB connectivity."""
+
+    def __init__(self, config_dir: str | Path):
+        self.config_dir = Path(config_dir)
+        self.registry = None
+        self.portfolio = None
+        self.contracts = None
+        self.routes = None
+        self.event_calendar = None
+        self.session: UnifiedIBSession | None = None
+
+    def load(self) -> None:
+        self.registry = load_strategy_registry(self.config_dir)
+        self.portfolio = load_portfolio_config(self.config_dir)
+        self.contracts = load_contracts(self.config_dir)
+        self.routes = load_routes(self.config_dir)
+        self.event_calendar = load_event_calendar(self.config_dir)
+
+    def _require_loaded(self) -> None:
+        """Verify config was loaded. Raises RuntimeError instead of assert."""
+        for attr in ("registry", "portfolio", "contracts", "routes", "event_calendar"):
+            if getattr(self, attr) is None:
+                raise RuntimeError(f"config not loaded — call load() first (missing: {attr})")
+
+    def run_preflight(self) -> list[PreflightCheck]:
+        self.load()
+        self._require_loaded()
+
+        checks: list[PreflightCheck] = []
+        enabled = self.registry.enabled_strategies()
+        checks.append(
+            PreflightCheck(
+                name="registry-load",
+                ok=True,
+                detail=f"Loaded {len(self.registry.strategies)} strategies across {len(self.registry.connection_groups)} groups",
+            )
+        )
+        checks.append(
+            PreflightCheck(
+                name="enabled-strategies",
+                ok=bool(enabled),
+                detail=f"{len(enabled)} strategies enabled",
+            )
+        )
+
+        missing_contracts: list[str] = []
+        missing_routes: list[str] = []
+        for manifest in enabled:
+            for symbol in manifest.symbols:
+                if symbol not in self.contracts:
+                    missing_contracts.append(f"{manifest.strategy_id}:{symbol}")
+                if symbol not in self.routes:
+                    missing_routes.append(f"{manifest.strategy_id}:{symbol}")
+        checks.append(
+            PreflightCheck(
+                name="contract-coverage",
+                ok=not missing_contracts,
+                detail="all manifest symbols resolved"
+                if not missing_contracts
+                else ", ".join(missing_contracts),
+            )
+        )
+        checks.append(
+            PreflightCheck(
+                name="route-coverage",
+                ok=not missing_routes,
+                detail="all manifest symbols routed"
+                if not missing_routes
+                else ", ".join(missing_routes),
+            )
+        )
+
+        family_total = sum(self.portfolio.capital.family_allocations.values())
+        checks.append(
+            PreflightCheck(
+                name="family-allocation-sum",
+                ok=math.isclose(family_total, 1.0, abs_tol=1e-9),
+                detail=f"family allocation total={family_total:.6f}",
+            )
+        )
+
+        # Dynamic per-family allocation check for families with explicit strategy_allocations
+        families_with_explicit: dict[str, list[str]] = {}
+        for manifest in enabled:
+            if manifest.strategy_id in self.portfolio.capital.strategy_allocations:
+                families_with_explicit.setdefault(manifest.family, []).append(manifest.strategy_id)
+        for family, strategy_ids in families_with_explicit.items():
+            family_total = sum(
+                self.portfolio.capital.strategy_allocations.get(sid, 0.0)
+                for sid in strategy_ids
+            )
+            checks.append(
+                PreflightCheck(
+                    name=f"family-allocation-sum:{family}",
+                    ok=math.isclose(family_total, 1.0, abs_tol=1e-9),
+                    detail=f"{family} enabled strategy allocation total={family_total:.6f} ({', '.join(strategy_ids)})",
+                )
+            )
+
+        for manifest in enabled:
+            allocation = resolve_strategy_capital_allocation(
+                manifest.strategy_id,
+                raw_nav=self.portfolio.capital.initial_equity,
+                registry=self.registry,
+                portfolio=self.portfolio,
+            )
+            checks.append(
+                PreflightCheck(
+                    name=f"allocation:{manifest.strategy_id}",
+                    ok=allocation.allocated_nav > 0,
+                    detail=f"allocated_nav={allocation.allocated_nav:.2f}",
+                )
+            )
+
+        artifact = build_registry_artifact(self.registry)
+        checks.append(
+            PreflightCheck(
+                name="registry-artifact",
+                ok=len(artifact["strategies"]) == len(self.registry.strategies),
+                detail=f"artifact strategies={len(artifact['strategies'])}",
+            )
+        )
+
+        # Family cross-validation: every enabled strategy's family must have a family_allocation entry
+        families_used = {m.family for m in enabled}
+        families_configured = set(self.portfolio.capital.family_allocations.keys())
+        missing_families = families_used - families_configured
+        extra_families = families_configured - families_used
+        family_detail_parts: list[str] = []
+        if missing_families:
+            family_detail_parts.append(f"missing allocations for: {sorted(missing_families)}")
+        if extra_families:
+            family_detail_parts.append(f"unreferenced families: {sorted(extra_families)}")
+        checks.append(
+            PreflightCheck(
+                name="family-allocation-coverage",
+                ok=not missing_families,
+                detail="; ".join(family_detail_parts) if family_detail_parts else "all families covered",
+            )
+        )
+
+        checks.append(
+            PreflightCheck(
+                name="event-calendar",
+                ok=True,
+                detail=f"{len(self.event_calendar.windows)} blackout windows configured",
+            )
+        )
+        return checks
+
+    async def run(
+        self,
+        shadow: bool = False,
+        connect_ib: bool = False,
+        once: bool = False,
+        family_filter: str | None = None,
+    ) -> None:
+        self.load()
+        self._require_loaded()
+
+        enabled = self.registry.enabled_strategies()
+        logger.info(
+            "Runtime shell loaded %d enabled strategies across %d connection groups%s",
+            len(enabled),
+            len(self.registry.connection_groups),
+            " in shadow mode" if shadow else "",
+        )
+
+        # ------------------------------------------------------------------
+        # 1. Filter by family if requested
+        # ------------------------------------------------------------------
+        if family_filter:
+            enabled = [m for m in enabled if m.family == family_filter]
+            if not enabled:
+                raise RuntimeError(f"No enabled strategies for family={family_filter!r}")
+            logger.info("Family filter active: running %d strategies for '%s'", len(enabled), family_filter)
+
+        # ------------------------------------------------------------------
+        # 2. Connect broker
+        # ------------------------------------------------------------------
+        if connect_ib:
+            strategy_group_map = {
+                manifest.strategy_id: manifest.connection_group for manifest in enabled
+            }
+            self.session = UnifiedIBSession(self.registry.connection_groups, strategy_group_map)
+            await self.session.start()
+            await self.session.wait_ready()
+            logger.info("Unified IB session connected for all configured groups")
+
+        if once:
+            return
+
+        # ------------------------------------------------------------------
+        # 3. Bootstrap database
+        # ------------------------------------------------------------------
+        db_pool = None
+        account_gate = None
+        try:
+            from libs.services.bootstrap import bootstrap_database
+            bootstrap_ctx = await bootstrap_database()
+            db_pool = bootstrap_ctx.pool
+            logger.info("Database bootstrapped")
+        except Exception as exc:
+            logger.warning("Database bootstrap failed (non-fatal): %s", exc)
+
+        if db_pool is not None:
+            try:
+                from libs.risk.account_risk_gate import AccountRiskGate
+                account_gate = AccountRiskGate(db_pool)
+            except Exception as exc:
+                logger.warning("AccountRiskGate init failed (non-fatal): %s", exc)
+
+        # ------------------------------------------------------------------
+        # 4. Group strategies by family and build coordinators
+        # ------------------------------------------------------------------
+        families: dict[str, list] = {}
+        for manifest in enabled:
+            families.setdefault(manifest.family, []).append(manifest)
+
+        coordinators: list[Any] = []
+        for family, manifests in families.items():
+            if family not in _FAMILY_COORDINATORS:
+                logger.error("No coordinator registered for family '%s', skipping", family)
+                continue
+
+            # Build RuntimeContext for this family
+            ctx = RuntimeContext(
+                manifest=manifests[0],  # primary manifest (coordinator reads all from registry)
+                registry=self.registry,
+                portfolio=self.portfolio,
+                session=self.session,
+                market_data=None,
+                oms=None,  # coordinators build their own OMS
+                state_store=None,
+                instrumentation=None,
+                contracts=self.contracts,
+                health={},
+                logger=logging.getLogger(f"runtime.{family}"),
+                clock=None,
+                db_pool=db_pool,
+                account_gate=account_gate,
+                family_coordinator=None,
+            )
+
+            try:
+                coordinator_cls = _import_coordinator(family)
+                coordinator = coordinator_cls(ctx)
+                coordinators.append(coordinator)
+                logger.info(
+                    "Coordinator created for family '%s' (%d strategies)",
+                    family, len(manifests),
+                )
+            except Exception as exc:
+                logger.error("Failed to create coordinator for '%s': %s", family, exc, exc_info=True)
+
+        # ------------------------------------------------------------------
+        # 5. Start all coordinators
+        # ------------------------------------------------------------------
+        started_coordinators: list[Any] = []
+        for coordinator in coordinators:
+            try:
+                await coordinator.start()
+                started_coordinators.append(coordinator)
+                logger.info("Family '%s' coordinator started", coordinator.family_id)
+            except Exception as exc:
+                logger.error(
+                    "Coordinator '%s' failed to start: %s",
+                    getattr(coordinator, "family_id", "?"), exc, exc_info=True,
+                )
+        coordinators = started_coordinators
+
+        if not coordinators:
+            logger.error("No coordinators started successfully — shutting down")
+            if db_pool is not None:
+                await db_pool.close()
+            if self.session is not None:
+                await self.session.stop()
+            return
+
+        # ------------------------------------------------------------------
+        # 6. Run until shutdown signal
+        # ------------------------------------------------------------------
+        stop_event = asyncio.Event()
+
+        def _signal_handler() -> None:
+            logger.info("Shutdown signal received")
+            stop_event.set()
+
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            try:
+                loop.add_signal_handler(sig, _signal_handler)
+            except NotImplementedError:
+                pass  # Windows
+
+        active_families = [getattr(c, "family_id", "?") for c in coordinators]
+        logger.info("Runtime active — families: %s — press Ctrl+C to stop", active_families)
+
+        try:
+            await stop_event.wait()
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            pass
+
+        # ------------------------------------------------------------------
+        # 7. Graceful shutdown (reverse order)
+        # ------------------------------------------------------------------
+        logger.info("Shutting down ...")
+
+        for coordinator in reversed(coordinators):
+            try:
+                await coordinator.stop()
+                logger.info("Family '%s' coordinator stopped", getattr(coordinator, "family_id", "?"))
+            except Exception as exc:
+                logger.warning("Coordinator stop error: %s", exc, exc_info=True)
+
+        if db_pool is not None:
+            try:
+                await db_pool.close()
+                logger.info("Database pool closed")
+            except Exception as exc:
+                logger.warning("DB pool close error: %s", exc)
+
+        if self.session is not None:
+            await self.session.stop()
+            logger.info("IB session disconnected")
+
+        logger.info("Runtime shutdown complete")

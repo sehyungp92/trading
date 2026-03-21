@@ -1,0 +1,10 @@
+# Auto-generated from pyproject.toml [project.dependencies]
+# Regenerate via: pip-compile pyproject.toml -o requirements.txt
+aiohttp>=3.9
+asyncpg>=0.31
+ib_async>=2.1
+numpy>=1.26
+pandas>=2.3
+pydantic>=2.12
+PyYAML>=6.0
+requests>=2.31

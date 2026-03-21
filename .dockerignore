@@ -1,0 +1,77 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+.github
+
+# Python artifacts
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.egg-info
+.eggs
+dist
+build
+
+# Virtual environments
+.venv
+venv
+env
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov
+.tox
+.hypothesis
+.mypy_cache
+
+# Node.js / Next.js
+node_modules
+.next
+out
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE & editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# Documentation & research (not needed in runtime image)
+research/
+docs/
+*.md
+
+# Tests (not needed in runtime image)
+tests/
+**/tests/
+
+# Market data & backtest output
+**/backtest/
+**/data/raw/
+
+# Legacy per-family directories (removed after migration)
+swing_trader/
+momentum_trader/
+stock_trader/
+
+# Claude Code
+.claude
+.agents
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+_references/
+*.bak
+*.tmp
+*.optbak
+*.log

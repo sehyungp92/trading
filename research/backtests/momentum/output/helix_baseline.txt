@@ -1,0 +1,298 @@
+=== Buy & Hold Baseline: 10 MNQ ===
+  Entry: 19,642.00  Exit: 25,163.25  Days: 500
+  P&L: $+110,425  CAGR: 45.5%  MaxDD: 64.0%
+
+=== Helix v3.1 Backtest: NQ ===
+  Trades: 14  Setups detected: 111  Gates blocked: 44
+  Entries placed: 72  Entries filled: 14
+
+Trades=14  WR=57%  PF=3.04  E[R]=+0.376  CAGR=4.0%  Sharpe=2.59  MaxDD=0.5%  $/mo=2381
+
+=== Helix v3.1 Performance Report: NQ ===
+Total trades:       14
+Win rate:           57.1%
+Profit factor:      3.04
+Expectancy (R):     +0.376
+Expectancy ($):     +183.64
+Net profit:         $+2,571.00
+CAGR:               4.0%
+Sharpe:             2.59
+Sortino:            0.97
+Calmar:             7.57
+Max drawdown:       0.5% ($550.62)
+Avg hold (1H bars): 15.8
+Trades/month:       1.3
+Total commissions:  $288.92
+Tail loss (5%):     $-550.00  (-1.00R)
+
+=== Trade Frequency (class x direction x session) ===
+  Class  Dir    Session             Count    AvgR     WR
+  ------------------------------------------------------
+  M      LONG   ETH_EUROPE              5  +0.537    60%
+  M      LONG   ETH_QUALITY_AM          2  -0.167    50%
+  M      LONG   RTH_PRIME1              3  +0.285    33%
+  M      SHORT  ETH_EUROPE              3  +0.664   100%
+  M      SHORT  RTH_PRIME1              1  -0.476     0%
+
+  Total trades: 14
+  Trades/week: 0.7
+
+=== R-Distribution by Class ===
+  Class   Count     WR    AvgR    MedR        P&L    MFE    MAE     PF
+  --------------------------------------------------------------------
+  M          14    57%  +0.337  +0.377     +2,571   0.75   0.23   2.98
+
+=== Gate Block Rates ===
+  Total gate decisions: 116
+  Placed: 72 (62%)
+  Blocked: 44 (38%)
+
+  Block reasons:
+    high_vol_M_92                       11 (25%)
+    heat_dir_2.80>2.50                   6 (14%)
+    duplicate_class_direction            5 (11%)
+    high_vol_M_97                        5 (11%)
+    high_vol_M_90                        3 (7%)
+    high_vol_M_98                        3 (7%)
+    spike_filter_190.8>57.5              1 (2%)
+    corridor_cap_592.5>521.3             1 (2%)
+    corridor_cap_593.4>521.3             1 (2%)
+    corridor_cap_596.7>521.3             1 (2%)
+    corridor_cap_591.9>521.3             1 (2%)
+    spike_filter_216.0>126.7             1 (2%)
+    spike_filter_208.5>182.3             1 (2%)
+    spike_filter_298.8>192.8             1 (2%)
+    spike_filter_312.2>233.5             1 (2%)
+    spike_filter_291.5>268.0             1 (2%)
+    spike_filter_289.0>229.5             1 (2%)
+    high_vol_M_93                        1 (2%)
+    spike_filter_225.0>133.8             1 (2%)
+    spike_filter_144.5>136.4             1 (2%)
+    spike_filter_208.2>168.7             1 (2%)
+
+=== R-Multiple Distribution ===
+  Mean:   +0.337
+  Median: +0.377
+  Std:    0.741
+  Skew:   NEGATIVE (mean < median --fat left tail)
+
+  Cumulative distribution:
+    >= -2R:     14 (100.0%)
+    >= -1R:     13 ( 92.9%)
+    >= +0R:      8 ( 57.1%)
+    >= +1R:      4 ( 28.6%)
+    >= +2R:      0 (  0.0%)
+    >= +3R:      0 (  0.0%)
+    >= +5R:      0 (  0.0%)
+
+=== Direction Breakdown ===
+  Direction      N   WinR    AvgR     PF   TotalPnL
+  -------------------------------------------------
+  Long          10    50%  +0.321   2.79 $    +1818
+  Short          4    75%  +0.379   4.10 $     +753
+
+=== Milestone Progression ===
+  Total trades: 14
+  +1R BE:          7 (50%)
+  +2R ratchet:     0 (0%)
+  +3R partial:     0 (0%)
+  +6R partial:     0 (0%)
+  +8R partial:     0 (0%)
+
+=== Add Effectiveness ===
+  No adds :   14 trades, avgR=+0.337, WR=57%, hold=16bars
+  Add1: 0 trades
+  Add2: 0 trades
+
+=== Exit Reason Breakdown ===
+  Reason                  Count     WR    AvgR        P&L
+  -------------------------------------------------------
+  EARLY_STALE                 3     0%  -0.142       -224
+  STALE                       1   100%  +0.089        +48
+  STOP                       10    70%  +0.506     +2,746
+
+=== Regime Slicing ===
+
+  By vol_pct bucket:
+    vol  0-20:    6 trades, avgR=+0.117, WR=50%
+    vol 20-50:    3 trades, avgR=+0.062, WR=33%
+    vol 50-80:    5 trades, avgR=+0.767, WR=80%
+
+  By alignment score:
+    score=0:    4 trades, avgR=+0.379, WR=75%
+    score=1:    1 trades, avgR=+1.085, WR=100%
+    score=2:    9 trades, avgR=+0.236, WR=44%
+
+  By session block:
+    ETH_EUROPE        :    8 trades, avgR=+0.585, WR=75%
+    ETH_QUALITY_AM    :    2 trades, avgR=-0.167, WR=50%
+    RTH_PRIME1        :    4 trades, avgR=+0.095, WR=25%
+
+=== Monthly P&L ===
+  Month          N     WR    AvgR     NetPnL     CumPnL
+  -----------------------------------------------------
+  2025-09        3   100%  +0.664 $     +996 $     +996
+  2025-10        8    50%  +0.363 $    +1580 $    +2576
+  2025-12        1     0%  -0.196 $      -96 $    +2480
+  2026-01        2    50%  +0.012 $      +91 $    +2571
+
+  Winning months: 3/4 (75%)
+  Best month:  2025-10 ($+1,580)
+  Worst month: 2025-12 ($-96)
+
+=== Day-of-Week Analysis ===
+  Day            N     WR    AvgR   TotalPnL
+  ------------------------------------------
+  Monday         4   100%  +1.008 $    +2193
+  Tuesday        2     0%  -0.336 $     -340
+  Wednesday      6    50%  +0.117 $     +319
+  Friday         2    50%  +0.330 $     +398
+
+=== Hourly Performance (ET) ===
+  Hour       N     WR    AvgR   TotalPnL
+  --------------------------------------
+  09:00     1     0%  -1.062 $     -550
+  12:00     4    75%  +0.880 $    +1902
+  13:00     1   100%  +0.089 $      +48
+  14:00     2     0%  -0.309 $     -322
+  15:00     1     0%  -0.086 $      -48
+  16:00     2    50%  +0.444 $     +544
+  17:00     3   100%  +0.664 $     +996
+
+=== Streak Analysis ===
+  Max consecutive wins:   4
+  Max consecutive losses: 3
+  Worst consecutive-loss P&L: $-550
+  Worst consecutive-loss R:   -1.06R
+  Avg win streak length:  2.7
+  Avg loss streak length: 2.0
+
+=== Rolling Expectancy (window=10) ===
+  Windows computed: 5
+  Rolling E[R]:  min=+0.287  max=+0.532  current=+0.287
+  Negative-expectancy windows: 0 (0%)
+  Trend: DEGRADING (1st half=+0.478, 2nd half=+0.335, delta=-0.143)
+  Worst window: E[R]=+0.287  (2025-10-08 to 2026-01-28)
+
+=== Setup-to-Fill Funnel ===
+  Setups detected:    111
+  Gates passed:        72 (65%)
+  Gates blocked:       44 (40%)
+  Entries placed:      18
+  Entries filled:      15 (83% of placed)
+  Entries unfilled:     3 (17% of placed)
+  Overall conversion: 13.5% (detected → filled)
+
+  Funnel by class:
+    M: 91 detected → 18 placed → 15 filled (16% overall)
+    R: 20 detected → 0 placed → 0 filled (0% overall)
+
+  Funnel by direction:
+    LONG: 38 detected → 11 placed → 11 filled (29% overall)
+    SHORT: 73 detected → 7 placed → 4 filled (5% overall)
+
+=== Gate Block Detail (by class x reason) ===
+  Class  Dir    Gate                      Count
+  ---------------------------------------------
+  M      SHORT  high_vol                     16
+  M      SHORT  spike_filter                 10
+  M      LONG   high_vol                      7
+  M      LONG   heat_dir                      6
+  R      SHORT  corridor_cap                  4
+  M      LONG   duplicate_class               4
+  M      SHORT  duplicate_class               1
+
+=== Heat Budget Analysis ===
+  Entries placed: 18
+  Risk-R per entry:  min=0.202  median=0.381  mean=0.379  max=0.659
+  Stop distance (pts): min=12.7  median=91.3  mean=81.3  max=156.1
+  Unit1 risk ($):  min=492  median=528  mean=530  max=591
+  Contracts:       min=1  median=1  mean=1.7  max=4
+
+  Heat at arm time:
+    Total heat (R): min=0.202  median=0.792  max=2.320
+    Dir heat (R):   min=0.202  median=0.567  max=2.320
+
+  By class:
+    M: 18 placed, 15 filled (83%), avgRiskR=0.379, avgStop=81.3pts
+
+  By direction:
+    LONG: 11 placed, 11 filled (100%), avgRiskR=0.466
+    SHORT: 7 placed, 4 filled (57%), avgRiskR=0.243
+
+=== Entry Fill-Rate Analysis ===
+  Total placed: 18  Filled: 15 (83.3%)  Unfilled: 3 (16.7%)
+
+  Distance to trigger at arm time (pts):
+    All:      min=-282.0  median=-9.7  mean=-72.6  max=+59.3
+    Filled:   min=-282.0  median=-69.0  mean=-96.2
+    Unfilled: min=+29.6  median=+46.6  mean=+45.2
+
+  Unfilled entry gap (pts remaining to trigger):
+    min=-29.4  median=+29.5  mean=+9.9  max=+29.6
+    Within   1.0pts:    1 (33%)
+    Within   5.0pts:    1 (33%)
+    Within  10.0pts:    1 (33%)
+    Within  25.0pts:    1 (33%)
+    Within  50.0pts:    3 (100%)
+    Price crossed trigger but no fill: 1 (33%)
+
+  Fill rate by class:
+    M: 15/18 (83%)
+
+  Fill rate by session:
+    ETH_EUROPE        : 8/9 (89%)
+    ETH_QUALITY_AM    : 2/3 (67%)
+    RTH_DEAD          : 1/1 (100%)
+    RTH_PRIME1        : 4/4 (100%)
+    RTH_PRIME2        : 0/1 (0%)
+
+=== Entry Trigger Distance Distribution ===
+  Bucket                          Count  Fill%
+  --------------------------------------------
+  Already past trigger (<=0)         13   100%
+  25 to 50 pts                        4    50%
+  50 to 100 pts                       1     0%
+
+=== Drawdown Profile ===
+  Max drawdown: -0.53%
+    Peak:   bar 1622 (2026-01-28)
+    Trough: bar 1626 (2026-01-28)
+    Duration: 4 bars (~4 hours)
+
+  Drawdown episode counts:
+    Exceeding -0.5%: 1 episodes
+    Exceeding -1.0%: 0 episodes
+    Exceeding -2.0%: 0 episodes
+    Exceeding -5.0%: 0 episodes
+
+  Time underwater (below HWM): 61.6% of bars
+
+=== Helix Shadow Trade Summary ===
+  Gate                           Rej Filled    AvgR    MedR  Win%   1R%  Part%   Missed  Avoided
+  ----------------------------------------------------------------------------------------------
+  high_vol_M_92                   11     11  +0.180  +0.000   36%  100%     9%     +2.0      0.0
+  heat_dir_2.80>2.50               6      6  -1.690  -1.515    0%   50%     0%     +0.0     10.1
+  high_vol_M_97                    5      5  -1.339  -2.093    0%   40%     0%     +0.0      6.7
+  high_vol_M_90                    3      3  -1.090  -1.456    0%   33%     0%     +0.0      3.3
+  high_vol_M_98                    3      3  -1.513  -1.158    0%    0%     0%     +0.0      4.5
+  spike_filter_190.8>57.5          1      1  -6.761  -6.761    0%    0%     0%     +0.0      6.8
+  corridor_cap_592.5>521.3         1      0  +0.000  +0.000    0%    0%     0%     +0.0      0.0
+  corridor_cap_593.4>521.3         1      0  +0.000  +0.000    0%    0%     0%     +0.0      0.0
+  corridor_cap_596.7>521.3         1      0  +0.000  +0.000    0%    0%     0%     +0.0      0.0
+  corridor_cap_591.9>521.3         1      0  +0.000  +0.000    0%    0%     0%     +0.0      0.0
+  spike_filter_216.0>126.7         1      1  +0.896  +0.896  100%  100%   100%     +0.9      0.0
+  spike_filter_208.5>182.3         1      1  +0.000  +0.000    0%  100%     0%     +0.0      0.0
+  spike_filter_298.8>192.8         1      1  +0.481  +0.481  100%  100%   100%     +0.5      0.0
+  spike_filter_312.2>233.5         1      1  -2.250  -2.250    0%    0%     0%     +0.0      2.2
+  spike_filter_291.5>268.0         1      1  -2.383  -2.383    0%    0%     0%     +0.0      2.4
+  spike_filter_289.0>229.5         1      1  -1.000  -1.000    0%    0%     0%     +0.0      1.0
+  high_vol_M_93                    1      1  +0.000  +0.000    0%  100%     0%     +0.0      0.0
+  spike_filter_225.0>133.8         1      0  +0.000  +0.000    0%    0%     0%     +0.0      0.0
+  spike_filter_144.5>136.4         1      1  -1.467  -1.467    0%    0%     0%     +0.0      1.5
+  spike_filter_208.2>168.7         1      1  +0.000  +0.000    0%  100%     0%     +0.0      0.0
+
+  Total rejections: 43  Filled in sim: 38
+
+  Per-class shadow breakdown:
+    Class M: 34 filled, avgR=-0.882, WR=15%

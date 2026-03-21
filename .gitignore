@@ -18,6 +18,7 @@ env/
 .env
 .env.local
 .env.*.local
+!.env.example
 
 # Node.js
 node_modules/
@@ -26,15 +27,20 @@ node_modules/
 .next/
 out/
 
-# IDE
+# IDE & editor
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
+# Claude Code / agent settings
+.claude/
+.agents/
+
 # OS
 Thumbs.db
+ehthumbs.db
 Desktop.ini
 .DS_Store
 
@@ -48,4 +54,37 @@ logs/
 # Misc
 *.bak
 *.tmp
+*.optbak
 .cache/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+.mypy_cache/
+MagicMock/
+mock.*/
+tmp_cache.jsonl
+
+# IBC config (contains secrets)
+**/infra/ibc/config.ini
+
+# Runtime state artifacts
+*/data/*/state/*.json
+paper_capital_state.json
+overlay_state.json
+
+# Market data (large binary files — download via scripts)
+**/backtest/data/raw/**/*.parquet
+**/backtest/data/raw/**/*_chunks/
+
+# Backtest output (regenerated per run)
+**/backtest/output/
+
+# Local references & scratch
+_references/
+
+# Documentation (generated / internal)
+docs/

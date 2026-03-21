@@ -1,6 +1,0 @@
-asyncpg
-ib_async
-pydantic
-PyYAML
-pytest
-requests

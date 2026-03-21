@@ -1,0 +1,912 @@
+=== Performance Report: QQQ ===
+Total trades:       102
+Win rate:           75.5%
+Profit factor:      2.91
+Expectancy (R):     +0.783
+Expectancy ($):     +22.42
+Net profit:         $+2,286.40
+CAGR:               0.46%
+Sharpe:             3.06
+Sortino:            0.30
+Calmar:             1.28
+Max drawdown:       0.36% ($358.33)
+Avg hold (hours):   66.0
+Trades/month:       1.7
+Total commissions:  $14.70
+Tail loss (5%):     $-121.99  (-1.16R)
+
+=== Behavior Report ===
+
+Entry types:
+  PULLBACK    :  102 (100.0%)  avg R: +0.762
+
+Exit reasons:
+  STOP                :   45 ( 44.1%)  avg R: +0.401
+  TP1                 :   28 ( 27.5%)  avg R: +1.009
+  TP2                 :   16 ( 15.7%)  avg R: +2.030
+  EARLY_STALL_PARTIAL :   12 ( 11.8%)  avg R: -0.101
+  FLATTEN_STALL       :    1 (  1.0%)  avg R: +0.174
+
+Long trades:  102
+  Avg R: +0.762  Win rate: 75.5%
+Short trades: 0
+
+Hold time (bars):
+  Mean:   66.0
+  Median: 42.5
+  Min:    6
+  Max:    334
+
+MFE (R-multiples):
+  Mean: 1.390  Median: 1.108
+MAE (R-multiples):
+  Mean: 0.373  Median: 0.256
+
+Trades with Add-on A: 6
+Trades with Add-on B: 0
+
+=== Diagnostic Report: QQQ ===
+
+Daily confirmed-bias distribution:
+  LONG:   568 ( 47.5%)
+  SHORT:  215 ( 18.0%)
+  FLAT:   412 ( 34.5%)
+  LONG:SHORT ratio: 2.6:1
+
+Trade direction breakdown:
+  Total:  102
+  Long:   102 (100.0%)
+  Short:  0 (0.0%)
+
+  Long WR:    75.5%
+  Long avg R: +0.762
+
+Trades=102  WR=75%  PF=2.91  E[R]=+0.783  CAGR=0.46%  Sharpe=3.06  MaxDD=0.36%  $/mo=2286
+
+=== Buy & Hold vs Strategy: QQQ (qty=10, mult=1.0) ===
+                         Buy & Hold       Strategy
+--------------------------------------------------
+Net Profit ($)            +2,760.70      +2,286.40
+CAGR                          0.5%          0.46%
+Max Drawdown %                1.4%          0.36%
+Max Drawdown ($)           1,438.90         358.33
+Price Return                 +82.8%               
+Start Price                  333.58               
+End Price                    609.65               
+
+=== ATRSS Signal Funnel ===
+
+  Total hourly bars processed:              8,792
+
+  --- Filtered out (no signal possible) ---
+  NaN / gap-filled bars...................       0  (  0.0%)
+  Warmup (indicators not ready)...........     427  (  4.9%)
+  Already in position.....................   4,264  ( 48.5%)
+  Entry time restricted...................     593  (  6.7%)
+
+  Eligible bars (flat, in-window):          3,508
+
+  --- Eligible bar bias/regime breakdown ---
+  Bias = FLAT (no direction)..............   1,740  ( 49.6%)
+  Regime = RANGE..........................       0  (  0.0%)
+  Regime = TREND..........................   1,094  ( 31.2%)
+  Regime = STRONG_TREND...................     674  ( 19.2%)
+
+  Bars with confirmed bias (non-FLAT):      1,768
+  (of which shorts disabled).........    1290
+
+  --- Signals generated ---
+  Pullback signals........................      81  (  4.6%)
+  Breakout signals........................       0  (  0.0%)
+  Reverse signals.........................       0  (  0.0%)
+  Total signals:                               81
+
+  --- Post-signal rejections ---
+  Momentum filter.........................       0  (  0.0%)
+  Re-entry cooldown.......................       0  (  0.0%)
+  Sizing (qty=0)..........................       0  (  0.0%)
+  Shadow rejections (post-signal).........     974  (1202.5%)
+
+  --- Orders ---
+  Orders submitted:                            81
+  Orders filled:                               56
+  Orders expired:                              25
+  Orders limit-rejected:                        0
+  Completed trades:                           102
+
+  --- Conservation check ---
+  OK: filter categories sum to total_bars (8,792)
+
+=== ATRSS Regime & Time Report ===
+
+  Eligible bars: 3,508
+
+  Regime distribution (of eligible bars):
+  Regime...................    Bars     Pct  Allows
+  -----------------------------------------------------------------
+  FLAT bias................   1,740   49.6%  nothing (no confirmed direction)
+  RANGE....................       0    0.0%  breakout only (if armed)
+  TREND....................   1,094   31.2%  pullback + breakout
+  STRONG_TREND.............     674   19.2%  pullback + breakout
+
+  Daily bias distribution (1,195 trading days):
+    LONG       568 days ( 47.5%)
+    SHORT      215 days ( 18.0%)
+    FLAT       412 days ( 34.5%)
+
+  Trade suppressor analysis:
+  ** FLAT bias on 50% of eligible bars -- primary trade suppressor
+
+=== ATRSS Position Occupancy ===
+
+  Bars in position:     4,264 / 8,365 (51.0%)
+
+  Hold time (bars):
+    Mean:     66.0
+    Median:   42.5
+    Max:       334
+    Min:         6
+
+  Gap between trades (hours):
+    Mean:       20.9
+    Median:    -47.0
+    Max:      2882.0
+    Longest dry spell: 2022-04-07 to 2022-08-05 (2882h)
+
+  Trade frequency:
+    102 trades over 1643 days
+    1.9 trades/month
+    0.43 trades/week
+
+=== ATRSS Filter Rejection Detail ===
+
+  Filter                    Rejected  Filled    AvgR  > 1R  > 2R Verdict     
+  --------------------------------------------------------------------------------
+  no_ema_pull_recovery           644     574  +0.817   37%   25% RESTRICTIVE 
+  no_pullback_touch              316     283  +0.537   24%   19% RESTRICTIVE 
+  no_retrace_recovery              8       6  -1.004    0%    0% PROTECTIVE  
+  not_bullish_bar                  5       3  -1.008    0%    0% PROTECTIVE  
+  reentry_gate                     1       0  +0.000    0%    0% NEUTRAL     
+
+  Over-restrictive filters (blocking profitable signals):
+  ** no_ema_pull_recovery: blocking 644 entries with avg shadow R = +0.817 -- consider relaxing this filter
+  ** no_pullback_touch: blocking 316 entries with avg shadow R = +0.537 -- consider relaxing this filter
+
+  Total shadow rejections: 974
+  Mean shadow R across all filters: -0.131
+
+=== ATRSS Entry Type Drilldown ===
+  Type        Count     WR    AvgR        P&L    MFE    MAE   Hold  Long Short                 Exit
+  -------------------------------------------------------------------------------------------------
+  PULLBACK      102    75%  +0.762     +2,301   1.39   0.37   66.0   102     0             STOP(45)
+  -------------------------------------------------------------------------------------------------
+  ALL           102    75%  +0.762     +2,301
+
+=== ATRSS Exit Reason Analysis ===
+
+  Reason                     Count     WR    AvgR        P&L AvgHold    MFE    MAE
+  --------------------------------------------------------------------------------
+  EARLY_STALL_PARTIAL           12    58%  -0.101         -8    12.0   0.20   0.47
+  FLATTEN_STALL                  1   100%  +0.174         +8    36.0   0.20   0.73
+  STOP                          45    56%  +0.401       +693    87.2   1.69   0.48
+  TP1                           28   100%  +1.009       +902    46.0   1.06   0.24
+  TP2                           16   100%  +2.030       +706    83.7   2.09   0.20
+
+  Exit reason by entry type:
+  Reason                   
+  Reason                        PULLBACK
+  EARLY_STALL_PARTIAL                 12
+  FLATTEN_STALL                        1
+  STOP                                45
+  TP1                                 28
+  TP2                                 16
+
+=== ATRSS Bias Alignment ===
+
+  Dir    Type          Count    AvgR     WR        P&L
+  ----------------------------------------------------
+  LONG   PULLBACK        102  +0.762    75%     +2,301
+  SHORT  PULLBACK          0
+
+  Bias time vs trade allocation:
+  Bias       Time%  Trade%   Delta
+  LONG       47.5%  100.0%  +52.5%
+  SHORT      18.0%    0.0%  -18.0%
+  FLAT       34.5%    N/A
+
+=== ATRSS Stop Efficiency ===
+
+Stop distance (points):
+  Mean: 11.27  Median: 10.66
+  Min:  4.94  Max: 22.69
+
+Stop distance (% of price):
+  Mean: 2.71%  Median: 2.50%
+
+MFE capture ratio (winners, n=77):
+  Mean:   77.7%
+  Median: 90.9%
+  Captures < 50% of MFE: 14 (18%)
+
+Loser classification (n=25):
+  Right-then-stopped (MFE >= 0.5R): 10 (40%)
+    Avg MFE: 1.03R  Avg final R: -0.54
+  Immediately wrong (MFE < 0.5R):   15 (60%)
+    Avg MFE: 0.23R  Avg final R: -0.85
+
+  Loser MAE: mean=0.70R  median=0.77R  max=1.27R
+  Stopped at ~1R: 12 (48%)
+
+=== ATRSS Time Analysis ===
+
+Entries by hour (ET):
+  Hour  Count    AvgR     WR
+    11     47  +0.985    81%
+    12     15  +0.605    73%
+    13     13  +0.484    69%
+    14     10  +0.791    70%
+    15     17  +0.480    71%
+
+Entries by day of week:
+   Day  Count    AvgR     WR
+   Mon     12  +0.740    75%
+   Tue     31  +0.917    81%
+   Wed     23  +0.675    74%
+   Thu     19  +0.873    79%
+   Fri     17  +0.488    65%
+
+Entries by month:
+   Mon  Count    AvgR     WR
+   Jan     11  +1.107    82%
+   Feb      6  +0.343    83%
+   Mar      8  +0.215    62%
+   Apr      2  -0.023    50%
+   May     14  +1.209    86%
+   Jun      9  +1.532   100%
+   Jul      8  +0.771    75%
+   Aug      5  -0.042    60%
+   Sep     10  +0.835    80%
+   Oct      6  +1.427   100%
+   Nov     17  +0.637    71%
+   Dec      6  -0.434    17%
+
+Entries by year:
+  Year  Count    AvgR     WR   TotalR
+  2021     24  +0.477    62%   +11.46
+  2022      5  -0.203    40%    -1.02
+  2023     26  +1.009    85%   +26.24
+  2024     24  +0.946    83%   +22.69
+  2025     23  +0.797    78%   +18.33
+
+=== ATRSS Losing Trade Detail ===
+
+Total losers: 25 / 102 (25%)
+Total loss: -1,207
+
+    # Entry               Exit                Type       Dir   StopDist       R    MFE    MAE Reason                    Bars
+  -------------------------------------------------------------------------------------------------------------------
+    1 2021-09-15 18:00    2021-09-20 13:00    PULLBACK   LONG      6.66  -1.497   0.24   0.68 STOP                        14
+    2 2025-11-11 17:00    2025-11-14 14:00    PULLBACK   LONG     16.03  -1.298   0.32   0.88 STOP                        16
+    3 2024-12-24 16:00    2024-12-30 14:00    PULLBACK   LONG     13.22  -1.014   0.23   0.79 STOP                        17
+    4 2023-07-25 16:00    2023-08-08 13:00    PULLBACK   LONG      9.14  -1.001   0.61   0.85 STOP                        58
+    5 2024-05-23 15:00    2024-05-31 14:00    PULLBACK   LONG      9.36  -1.001   0.08   0.96 STOP                        29
+    6 2024-03-06 16:00    2024-04-16 13:00    PULLBACK   LONG      9.82  -1.001   0.96   0.98 STOP                       167
+    7 2021-11-24 20:00    2021-12-01 20:00    PULLBACK   LONG     10.37  -1.001   0.28   0.82 STOP                        24
+    8 2023-03-07 17:00    2023-03-10 18:00    PULLBACK   LONG     10.58  -1.001   0.22   0.90 STOP                        19
+    9 2025-08-25 15:00    2025-09-02 13:00    PULLBACK   LONG     11.40  -1.001   0.50   0.33 STOP                        29
+   10 2021-12-10 20:00    2021-12-14 15:00    PULLBACK   LONG     12.05  -1.001   0.15   0.92 STOP                         7
+   11 2021-12-31 18:00    2022-01-05 19:00    PULLBACK   LONG     12.10  -1.001   0.29   0.72 STOP                        19
+   12 2023-02-13 16:00    2023-02-24 15:00    PULLBACK   LONG     13.58  -1.001   0.41   0.95 STOP                        47
+   13 2022-03-31 19:00    2022-04-07 15:00    PULLBACK   LONG     15.88  -1.001   0.21   0.97 STOP                        26
+   14 2022-08-05 17:00    2022-08-26 19:00    PULLBACK   LONG     13.89  -0.955   0.95   0.85 STOP                        92
+   15 2021-11-22 18:00    2021-11-23 14:00    PULLBACK   LONG      5.98  -0.706   1.64   1.27 STOP                        37
+   16 2021-09-15 18:00    2021-09-17 17:00    PULLBACK   LONG      6.66  -0.610   0.24   0.68 EARLY_STALL_PARTIAL         12
+   17 2024-12-24 16:00    2024-12-27 15:00    PULLBACK   LONG     13.22  -0.604   0.23   0.77 EARLY_STALL_PARTIAL         12
+   18 2021-12-31 18:00    2022-01-04 17:00    PULLBACK   LONG     12.10  -0.405   0.29   0.45 EARLY_STALL_PARTIAL         12
+   19 2025-01-16 20:00    2025-01-27 14:00    PULLBACK   LONG     15.10  -0.298   1.16   0.22 STOP                        31
+   20 2023-04-28 18:00    2023-05-02 17:00    PULLBACK   LONG      9.33  -0.219   0.19   0.46 EARLY_STALL_PARTIAL         12
+   21 2021-05-28 15:00    2021-06-02 14:00    PULLBACK   LONG      9.70  -0.122   0.10   0.35 EARLY_STALL_PARTIAL         12
+   22 2021-07-08 16:00    2021-07-16 19:00    PULLBACK   LONG      6.82  -0.101   1.10   0.10 STOP                        39
+   23 2022-11-22 16:00    2022-12-15 14:00    PULLBACK   LONG     13.75  -0.100   1.02   0.35 STOP                        95
+   24 2025-01-29 20:00    2025-02-24 15:00    PULLBACK   LONG     15.75  -0.100   1.22   0.69 STOP                        97
+   25 2025-11-26 16:00    2026-02-03 18:00    PULLBACK   LONG     20.44  -0.100   1.12   0.66 STOP                       272
+
+Loss clustering:
+  No significant loss clusters detected (3+ losses within 48h)
+
+=== ATRSS Cumulative R Curve ===
+
+Total R: +77.71 over 102 trades
+Peak R:  +77.86
+Max R drawdown: -5.76 (after trade #27)
+Longest drawdown: 13 trades
+
+Month-by-month R:
+    Month Trades        R     CumR
+  2021-06      3    +2.87    +2.87
+  2021-07      5    +4.39    +7.25
+  2021-08      2    +3.21   +10.46
+  2021-09      3    -0.39   +10.07
+  2021-11      7    +4.80   +14.86
+  2021-12      2    -2.00   +12.86
+  2022-01      2    -1.41   +11.46
+  2022-04      2    -0.85   +10.61
+  2022-08      1    -0.95    +9.65
+  2022-12      2    +0.79   +10.44
+  2023-01      1    +0.99   +11.43
+  2023-02      5    +4.01   +15.44
+  2023-03      4    +2.12   +17.56
+  2023-04      1    +1.45   +19.01
+  2023-05      5    +2.95   +21.96
+  2023-06      2    +4.57   +26.53
+  2023-07      3    +4.49   +31.02
+  2023-08      1    -1.00   +30.02
+  2023-11      1    +0.87   +30.89
+  2023-12      1    +2.01   +32.90
+  2024-01      5    +8.41   +41.31
+  2024-02      2    +1.42   +42.73
+  2024-03      2    +1.54   +44.27
+  2024-04      1    -1.00   +43.27
+  2024-05      2    -0.97   +42.29
+  2024-06      3    +5.41   +47.71
+  2024-07      3    +3.88   +51.59
+  2024-10      1    +1.01   +52.60
+  2024-11      2    +3.34   +55.93
+  2024-12      5    +3.44   +59.38
+  2025-01      2    +0.73   +60.11
+  2025-02      2    +0.91   +61.02
+  2025-06      2    +2.94   +63.97
+  2025-08      4    +4.13   +68.10
+  2025-09      4    +3.76   +71.86
+  2025-10      4    +4.47   +76.33
+  2025-11      2    +0.23   +76.56
+  2025-12      1    +0.18   +76.75
+  2026-01      1    +1.06   +77.81
+  2026-02      1    -0.10   +77.71
+
+  Positive months: 31/40 (78%)
+  Best month:  +8.41R
+  Worst month: -2.00R
+
+=== ATRSS Streak Analysis ===
+
+Win streaks:
+  Max: 12  Avg: 4.3  Count: 18
+  Distribution: {1: 7, 2: 1, 3: 1, 4: 1, 5: 3, 6: 1, 8: 1, 9: 1, 11: 1, 12: 1}
+
+Loss streaks:
+  Max: 4  Avg: 1.3  Count: 19
+  Distribution: {1: 15, 2: 3, 4: 1}
+
+Post-loss-streak recovery (after 3+ consecutive losses):
+  Recovery trades: 1
+  Win rate after 3+ loss streak: 100%
+  Avg R of recovery trade: +0.152
+
+Sequence summary:
+  Wins: 77  Losses: 25
+  Transitions: 36 (expected ~38 if random)
+
+=== ATRSS Add-on Analysis ===
+
+  Group            Count     WR    AvgR        P&L AvgHold
+  -------------------------------------------------------
+  No add-on           96    75%  +0.748     +2,053    63.8
+  Add-on A             6    83%  +0.989       +248   101.3
+  Add-on B             0
+
+  Add-on as quality signal:
+    With any add-on: avg R = +0.989, WR = 83%
+    Without add-on:  avg R = +0.748, WR = 75%
+    ** Add-on trades outperform by +0.241R -- add-ons confirm good entries
+
+  Per-leg breakdown:
+  Leg Type         Count     WR    AvgR        P&L  AvgMFE
+  -------------------------------------------------------
+  ADDON_A              3    67%  +0.524        +18    2.66
+  BASE                99    76%  +0.769     +2,283    1.35
+
+=== ATRSS MFE Cohort Segmentation ===
+
+  Cohort           Count     WR    AvgR  AvgMFE AvgHold
+  -------------------------------------------------------
+  Developed           75    92%  +1.247    1.78    79.8
+  Undeveloped         27    30%  -0.586    0.30    27.6
+
+  Entry feature comparison:
+  Feature               Developed  Undeveloped    Delta
+  -------------------------------------------------------
+  ADX                        24.6         23.9     +0.6
+  Score                      37.0         39.1     -2.1
+  Touch dist (ATR)          1.008        0.940   +0.068
+  Quality score              0.00         0.00    +0.00
+  DI agrees %                 73%          78%      -4%
+
+  Regime distribution:
+  Regime           Developed  Undeveloped
+  STRONG_TREND            9%          15%
+  TREND                  91%          85%
+
+=== ATRSS Breakout Arm Diagnostic ===
+
+  Arms created:      243
+  Arms expired:       59
+  Arms converted:      0
+
+  Conversion rate: 0.0%
+  Expiry rate:     24.3%
+  ** Zero conversions: breakout pullback condition may be too strict
+
+=== ATRSS Order Fill Rate ===
+
+  Total orders:        81
+  Filled:              56  ( 69.1%)
+  Expired:             25  ( 30.9%)
+  Rejected:             0  (  0.0%)
+
+  Trigger distance (ATR units):
+  Status      Count    Mean  Median     Max
+  ------------------------------------------
+  Filled         56   0.294   0.151   1.773
+  Expired        25   0.641   0.464   1.978
+
+  Expired orders by submit hour (ET):
+    10:00     9
+    11:00     5
+    12:00     1
+    13:00     4
+    14:00     1
+    15:00     5
+
+=== Performance Report: GLD ===
+Total trades:       82
+Win rate:           65.9%
+Profit factor:      3.41
+Expectancy (R):     +0.856
+Expectancy ($):     +12.64
+Net profit:         $+1,036.65
+CAGR:               0.21%
+Sharpe:             2.04
+Sortino:            0.35
+Calmar:             1.48
+Max drawdown:       0.14% ($141.40)
+Avg hold (hours):   44.4
+Trades/month:       1.4
+Total commissions:  $9.80
+Tail loss (5%):     $-58.60  (-1.17R)
+
+=== Behavior Report ===
+
+Entry types:
+  PULLBACK    :   82 (100.0%)  avg R: +0.843
+
+Exit reasons:
+  STOP                :   33 ( 40.2%)  avg R: +0.819
+  TP1                 :   20 ( 24.4%)  avg R: +1.059
+  EARLY_STALL_PARTIAL :   12 ( 14.6%)  avg R: -0.181
+  TP2                 :   12 ( 14.6%)  avg R: +2.052
+  FLATTEN_STALL       :    5 (  6.1%)  avg R: -0.303
+
+Long trades:  82
+  Avg R: +0.843  Win rate: 65.9%
+Short trades: 0
+
+Hold time (bars):
+  Mean:   44.4
+  Median: 34.5
+  Min:    3
+  Max:    262
+
+MFE (R-multiples):
+  Mean: 1.738  Median: 1.251
+MAE (R-multiples):
+  Mean: 0.398  Median: 0.272
+
+Trades with Add-on A: 10
+Trades with Add-on B: 0
+
+=== Diagnostic Report: GLD ===
+
+Daily confirmed-bias distribution:
+  LONG:   468 ( 39.2%)
+  SHORT:  137 ( 11.5%)
+  FLAT:   590 ( 49.4%)
+  LONG:SHORT ratio: 3.4:1
+
+Trade direction breakdown:
+  Total:  82
+  Long:   82 (100.0%)
+  Short:  0 (0.0%)
+
+  Long WR:    65.9%
+  Long avg R: +0.843
+
+Trades=82  WR=66%  PF=3.41  E[R]=+0.856  CAGR=0.21%  Sharpe=2.04  MaxDD=0.14%  $/mo=1037
+
+=== Buy & Hold vs Strategy: GLD (qty=10, mult=1.0) ===
+                         Buy & Hold       Strategy
+--------------------------------------------------
+Net Profit ($)            +2,839.40      +1,036.65
+CAGR                          0.6%          0.21%
+Max Drawdown %                0.7%          0.14%
+Max Drawdown ($)             687.70         141.40
+Price Return                +165.5%               
+Start Price                  171.52               
+End Price                    455.46               
+
+=== ATRSS Signal Funnel ===
+
+  Total hourly bars processed:              8,792
+
+  --- Filtered out (no signal possible) ---
+  NaN / gap-filled bars...................       0  (  0.0%)
+  Warmup (indicators not ready)...........     427  (  4.9%)
+  Already in position.....................   2,540  ( 28.9%)
+  Entry time restricted...................     840  (  9.6%)
+
+  Eligible bars (flat, in-window):          4,985
+
+  --- Eligible bar bias/regime breakdown ---
+  Bias = FLAT (no direction)..............   3,516  ( 70.5%)
+  Regime = RANGE..........................       0  (  0.0%)
+  Regime = TREND..........................   1,264  ( 25.4%)
+  Regime = STRONG_TREND...................     205  (  4.1%)
+
+  Bars with confirmed bias (non-FLAT):      1,469
+  (of which shorts disabled).........     822
+
+  --- Signals generated ---
+  Pullback signals........................      84  (  5.7%)
+  Breakout signals........................       0  (  0.0%)
+  Reverse signals.........................       0  (  0.0%)
+  Total signals:                               84
+
+  --- Post-signal rejections ---
+  Momentum filter.........................       0  (  0.0%)
+  Re-entry cooldown.......................       1  (  1.2%)
+  Sizing (qty=0)..........................       0  (  0.0%)
+  Shadow rejections (post-signal).........     974  (1159.5%)
+
+  --- Orders ---
+  Orders submitted:                            83
+  Orders filled:                               42
+  Orders expired:                              41
+  Orders limit-rejected:                        0
+  Completed trades:                            82
+
+  --- Conservation check ---
+  OK: filter categories sum to total_bars (8,792)
+
+=== ATRSS Regime & Time Report ===
+
+  Eligible bars: 4,985
+
+  Regime distribution (of eligible bars):
+  Regime...................    Bars     Pct  Allows
+  -----------------------------------------------------------------
+  FLAT bias................   3,516   70.5%  nothing (no confirmed direction)
+  RANGE....................       0    0.0%  breakout only (if armed)
+  TREND....................   1,264   25.4%  pullback + breakout
+  STRONG_TREND.............     205    4.1%  pullback + breakout
+
+  Daily bias distribution (1,195 trading days):
+    LONG       468 days ( 39.2%)
+    SHORT      137 days ( 11.5%)
+    FLAT       590 days ( 49.4%)
+
+  Trade suppressor analysis:
+  ** FLAT bias on 71% of eligible bars -- primary trade suppressor
+
+=== ATRSS Position Occupancy ===
+
+  Bars in position:     2,540 / 8,365 (30.4%)
+
+  Hold time (bars):
+    Mean:     44.4
+    Median:   34.5
+    Max:       262
+    Min:         3
+
+  Gap between trades (hours):
+    Mean:      247.8
+    Median:    -47.0
+    Max:      5020.0
+    Longest dry spell: 2022-04-22 to 2022-11-17 (5020h)
+
+  Trade frequency:
+    82 trades over 1691 days
+    1.5 trades/month
+    0.34 trades/week
+
+=== ATRSS Filter Rejection Detail ===
+
+  Filter                    Rejected  Filled    AvgR  > 1R  > 2R Verdict     
+  --------------------------------------------------------------------------------
+  no_ema_pull_recovery           644     574  +0.817   37%   25% RESTRICTIVE 
+  no_pullback_touch              316     283  +0.537   24%   19% RESTRICTIVE 
+  no_retrace_recovery              8       6  -1.004    0%    0% PROTECTIVE  
+  not_bullish_bar                  5       3  -1.008    0%    0% PROTECTIVE  
+  reentry_gate                     1       0  +0.000    0%    0% NEUTRAL     
+
+  Over-restrictive filters (blocking profitable signals):
+  ** no_ema_pull_recovery: blocking 644 entries with avg shadow R = +0.817 -- consider relaxing this filter
+  ** no_pullback_touch: blocking 316 entries with avg shadow R = +0.537 -- consider relaxing this filter
+
+  Total shadow rejections: 974
+  Mean shadow R across all filters: -0.131
+
+=== ATRSS Entry Type Drilldown ===
+  Type        Count     WR    AvgR        P&L    MFE    MAE   Hold  Long Short                 Exit
+  -------------------------------------------------------------------------------------------------
+  PULLBACK       82    66%  +0.843     +1,046   1.74   0.40   44.4    82     0             STOP(33)
+  -------------------------------------------------------------------------------------------------
+  ALL            82    66%  +0.843     +1,046
+
+=== ATRSS Exit Reason Analysis ===
+
+  Reason                     Count     WR    AvgR        P&L AvgHold    MFE    MAE
+  --------------------------------------------------------------------------------
+  EARLY_STALL_PARTIAL           12    17%  -0.181        -43    12.0   0.13   0.50
+  FLATTEN_STALL                  5    20%  -0.303        -32    36.0   0.20   0.69
+  STOP                          33    58%  +0.819       +599    69.3   2.73   0.49
+  TP1                           20   100%  +1.059       +263    25.6   1.21   0.24
+  TP2                           12   100%  +2.052       +260    43.4   2.14   0.18
+
+  Exit reason by entry type:
+  Reason                   
+  Reason                        PULLBACK
+  EARLY_STALL_PARTIAL                 12
+  FLATTEN_STALL                        5
+  STOP                                33
+  TP1                                 20
+  TP2                                 12
+
+=== ATRSS Bias Alignment ===
+
+  Dir    Type          Count    AvgR     WR        P&L
+  ----------------------------------------------------
+  LONG   PULLBACK         82  +0.843    66%     +1,046
+  SHORT  PULLBACK          0
+
+  Bias time vs trade allocation:
+  Bias       Time%  Trade%   Delta
+  LONG       39.2%  100.0%  +60.8%
+  SHORT      11.5%    0.0%  -11.5%
+  FLAT       49.4%    N/A
+
+=== ATRSS Stop Efficiency ===
+
+Stop distance (points):
+  Mean: 4.76  Median: 4.47
+  Min:  2.12  Max: 10.63
+
+Stop distance (% of price):
+  Mean: 2.07%  Median: 2.02%
+
+MFE capture ratio (winners, n=54):
+  Mean:   70.0%
+  Median: 79.8%
+  Captures < 50% of MFE: 13 (24%)
+
+Loser classification (n=28):
+  Right-then-stopped (MFE >= 0.5R): 10 (36%)
+    Avg MFE: 1.19R  Avg final R: -0.57
+  Immediately wrong (MFE < 0.5R):   18 (64%)
+    Avg MFE: 0.14R  Avg final R: -0.48
+
+  Loser MAE: mean=0.66R  median=0.60R  max=1.49R
+  Stopped at ~1R: 8 (29%)
+
+=== ATRSS Time Analysis ===
+
+Entries by hour (ET):
+  Hour  Count    AvgR     WR
+    10      2  -0.581     0%
+    11     28  +0.704    61%
+    12     19  +0.371    42%
+    13     10  +1.014    90%
+    14      9  +2.038   100%
+    15     14  +1.076    79%
+
+Entries by day of week:
+   Day  Count    AvgR     WR
+   Mon     12  +1.202    67%
+   Tue     16  +0.550    69%
+   Wed     23  +0.523    61%
+   Thu     22  +1.063    68%
+   Fri      9  +1.168    67%
+
+Entries by month:
+   Mon  Count    AvgR     WR
+   Jan      4  +1.952    75%
+   Feb      5  +1.231    80%
+   Mar     21  +0.737    71%
+   Apr     12  +0.457    50%
+   May      7  +0.110    57%
+   Aug      2  -0.402     0%
+   Sep      7  +2.370    86%
+   Oct      2  +0.474    50%
+   Nov     11  +0.735    64%
+   Dec     11  +0.784    73%
+
+Entries by year:
+  Year  Count    AvgR     WR   TotalR
+  2021      4  -0.565    25%    -2.26
+  2022     18  +0.791    61%   +14.24
+  2023     21  +0.415    62%    +8.71
+  2024     17  +0.872    65%   +14.82
+  2025     19  +1.310    79%   +24.89
+  2026      3  +2.913   100%    +8.74
+
+=== ATRSS Losing Trade Detail ===
+
+Total losers: 28 / 82 (34%)
+Total loss: -435
+
+    # Entry               Exit                Type       Dir   StopDist       R    MFE    MAE Reason                    Bars
+  -------------------------------------------------------------------------------------------------------------------
+    1 2022-03-09 16:00    2022-03-15 13:00    PULLBACK   LONG      4.58  -1.579   0.19   1.00 STOP                        23
+    2 2023-05-05 15:00    2023-05-18 13:00    PULLBACK   LONG      3.87  -1.065   0.81   0.87 STOP                        53
+    3 2021-05-20 16:00    2021-06-14 13:00    PULLBACK   LONG      3.02  -1.040   0.96   0.49 STOP                        94
+    4 2021-11-17 17:00    2021-11-22 14:00    PULLBACK   LONG      2.83  -1.004   0.05   0.78 STOP                        16
+    5 2023-12-06 18:00    2023-12-08 17:00    PULLBACK   LONG      3.26  -1.003   0.17   0.87 STOP                        11
+    6 2024-04-15 15:00    2024-04-30 14:00    PULLBACK   LONG      5.37  -1.002   0.85   0.87 STOP                        65
+    7 2025-05-05 19:00    2025-05-12 13:00    PULLBACK   LONG      8.81  -1.001   0.99   0.43 STOP                        25
+    8 2025-04-24 16:00    2025-05-01 13:00    PULLBACK   LONG     10.23  -1.001   0.21   0.58 STOP                        28
+    9 2024-01-02 15:00    2024-01-03 14:00    PULLBACK   LONG      3.16  -0.932   1.37   1.49 STOP                        67
+   10 2024-08-23 15:00    2024-09-03 14:00    PULLBACK   LONG      4.93  -0.748   0.18   0.85 FLATTEN_STALL               36
+   11 2022-11-17 17:00    2022-11-21 16:00    PULLBACK   LONG      3.48  -0.733   0.05   0.75 EARLY_STALL_PARTIAL         12
+   12 2022-11-17 17:00    2022-11-28 16:00    PULLBACK   LONG      3.48  -0.425   0.05   0.75 FLATTEN_STALL               36
+   13 2022-03-09 16:00    2022-03-11 15:00    PULLBACK   LONG      4.58  -0.354   0.19   0.78 EARLY_STALL_PARTIAL         12
+   14 2021-11-17 17:00    2021-11-19 16:00    PULLBACK   LONG      2.83  -0.336   0.05   0.48 EARLY_STALL_PARTIAL         12
+   15 2023-04-18 15:00    2023-04-26 14:00    PULLBACK   LONG      4.74  -0.257   0.02   0.78 FLATTEN_STALL               36
+   16 2024-03-12 16:00    2024-03-20 15:00    PULLBACK   LONG      3.45  -0.255   0.40   0.45 FLATTEN_STALL               36
+   17 2022-12-07 15:00    2022-12-15 14:00    PULLBACK   LONG      2.12  -0.229   2.19   1.17 STOP                        68
+   18 2024-09-05 16:00    2024-09-09 15:00    PULLBACK   LONG      4.69  -0.228   0.20   0.51 EARLY_STALL_PARTIAL         12
+   19 2023-12-14 20:00    2023-12-18 19:00    PULLBACK   LONG      3.40  -0.209   0.13   0.50 EARLY_STALL_PARTIAL         12
+   20 2023-04-18 15:00    2023-04-20 14:00    PULLBACK   LONG      4.74  -0.154   0.02   0.62 EARLY_STALL_PARTIAL         12
+   21 2022-03-21 16:00    2022-03-23 15:00    PULLBACK   LONG      4.43  -0.149   0.12   0.55 EARLY_STALL_PARTIAL         12
+   22 2023-03-22 15:00    2023-03-27 13:00    PULLBACK   LONG      4.51  -0.102   1.06   0.14 STOP                        17
+   23 2025-02-12 16:00    2025-02-25 16:00    PULLBACK   LONG      4.52  -0.102   1.23   0.39 STOP                        48
+   24 2022-03-21 16:00    2022-04-22 13:00    PULLBACK   LONG      4.43  -0.102   1.24   0.93 STOP                       136
+   25 2023-10-24 15:00    2023-11-07 14:00    PULLBACK   LONG      3.46  -0.101   1.16   0.13 STOP                        59
+   26 2023-04-26 19:00    2023-04-28 18:00    PULLBACK   LONG      3.83  -0.068   0.09   0.43 EARLY_STALL_PARTIAL         12
+   27 2024-08-23 15:00    2024-08-27 14:00    PULLBACK   LONG      4.93  -0.055   0.16   0.31 EARLY_STALL_PARTIAL         12
+   28 2025-04-24 16:00    2025-04-28 15:00    PULLBACK   LONG     10.23  -0.039   0.15   0.58 EARLY_STALL_PARTIAL         12
+
+Loss clustering:
+  No significant loss clusters detected (3+ losses within 48h)
+
+=== ATRSS Cumulative R Curve ===
+
+Total R: +69.14 over 82 trades
+Peak R:  +69.14
+Max R drawdown: -2.38 (after trade #4)
+Longest drawdown: 8 trades
+
+Month-by-month R:
+    Month Trades        R     CumR
+  2021-05      1    +0.12    +0.12
+  2021-06      1    -1.04    -0.92
+  2021-11      2    -1.34    -2.26
+  2022-03      7    +4.96    +2.70
+  2022-04      2    +1.07    +3.77
+  2022-11      2    -1.16    +2.61
+  2022-12      5    +4.95    +7.56
+  2023-01      1    +1.99    +9.55
+  2023-02      1    +2.43   +11.99
+  2023-03      3    +0.79   +12.77
+  2023-04      5    +0.66   +13.44
+  2023-05      3    +0.25   +13.68
+  2023-10      1    +1.05   +14.73
+  2023-11      3    +3.14   +17.88
+  2023-12      5    +2.77   +20.64
+  2024-01      2    -0.88   +19.77
+  2024-03      4    +1.74   +21.51
+  2024-04      3    +5.09   +26.60
+  2024-05      3    +3.76   +30.36
+  2024-08      1    -0.05   +30.30
+  2024-09      4    +2.23   +32.53
+  2024-11      1    +2.99   +35.52
+  2025-02      2    +0.79   +36.30
+  2025-03      3    +3.11   +39.42
+  2025-04      6    +8.60   +48.01
+  2025-05      2    -2.00   +46.01
+  2025-09      2    +3.24   +49.25
+  2025-10      1    +7.39   +56.64
+  2025-12      3    +3.77   +60.41
+  2026-01      3    +8.74   +69.14
+
+  Positive months: 24/30 (80%)
+  Best month:  +8.74R
+  Worst month: -2.00R
+
+=== ATRSS Streak Analysis ===
+
+Win streaks:
+  Max: 9  Avg: 3.6  Count: 15
+  Distribution: {1: 3, 2: 2, 3: 3, 4: 4, 5: 1, 8: 1, 9: 1}
+
+Loss streaks:
+  Max: 3  Avg: 2.0  Count: 14
+  Distribution: {1: 6, 2: 2, 3: 6}
+
+Post-loss-streak recovery (after 3+ consecutive losses):
+  Recovery trades: 6
+  Win rate after 3+ loss streak: 100%
+  Avg R of recovery trade: +1.195
+
+Sequence summary:
+  Wins: 54  Losses: 28
+  Transitions: 28 (expected ~37 if random)
+
+=== ATRSS Add-on Analysis ===
+
+  Group            Count     WR    AvgR        P&L AvgHold
+  -------------------------------------------------------
+  No add-on           72    64%  +0.817       +879    42.6
+  Add-on A            10    80%  +1.033       +168    57.6
+  Add-on B             0
+
+  Add-on as quality signal:
+    With any add-on: avg R = +1.033, WR = 80%
+    Without add-on:  avg R = +0.817, WR = 64%
+    ** Add-on trades outperform by +0.216R -- add-ons confirm good entries
+
+  Per-leg breakdown:
+  Leg Type         Count     WR    AvgR        P&L  AvgMFE
+  -------------------------------------------------------
+  ADDON_A              5    60%  +0.588        +14    3.20
+  BASE                77    66%  +0.860     +1,033    1.64
+
+=== ATRSS MFE Cohort Segmentation ===
+
+  Cohort           Count     WR    AvgR  AvgMFE AvgHold
+  -------------------------------------------------------
+  Developed           57    89%  +1.430    2.38    52.7
+  Undeveloped         25    12%  -0.495    0.27    25.6
+
+  Entry feature comparison:
+  Feature               Developed  Undeveloped    Delta
+  -------------------------------------------------------
+  ADX                        29.3         30.8     -1.4
+  Score                      55.8         60.3     -4.5
+  Touch dist (ATR)          1.266        1.027   +0.239
+  Quality score              0.00         0.00    +0.00
+  DI agrees %                100%          96%      +4%
+
+  Regime distribution:
+  Regime           Developed  Undeveloped
+  STRONG_TREND           25%          36%
+  TREND                  75%          64%
+
+=== ATRSS Breakout Arm Diagnostic ===
+
+  Arms created:      230
+  Arms expired:       46
+  Arms converted:      0
+
+  Conversion rate: 0.0%
+  Expiry rate:     20.0%
+  ** Zero conversions: breakout pullback condition may be too strict
+
+=== ATRSS Order Fill Rate ===
+
+  Total orders:        83
+  Filled:              42  ( 50.6%)
+  Expired:             41  ( 49.4%)
+  Rejected:             0  (  0.0%)
+
+  Trigger distance (ATR units):
+  Status      Count    Mean  Median     Max
+  ------------------------------------------
+  Filled         42   0.256   0.176   0.933
+  Expired        41   0.587   0.473   1.346
+
+  Expired orders by submit hour (ET):
+    10:00    15
+    11:00    10
+    12:00     7
+    13:00     3
+    14:00     2
+    15:00     4

@@ -1,0 +1,1520 @@
+=== Breakout Performance Report: QQQ ===
+Total trades:       21
+Win rate:           81.0%
+Profit factor:      13.15
+Expectancy (R):     +0.148
+Expectancy ($):     +40.49
+Net profit:         $+850.33
+CAGR:               0.17%
+Sharpe:             1.56
+Sortino:            0.44
+Calmar:             0.69
+Max drawdown:       0.25% ($246.30)
+Avg hold (hours):   29.1
+Trades/month:       0.4
+Total commissions:  $400.00
+Tail loss (5%):     $-90.80  (-0.40R)
+
+=== Breakout Behavior Report ===
+
+Entry type breakdown:
+  A                 :    0 (  0.0%)  avg R: +0.000  WR: 0%
+  B                 :    0 (  0.0%)  avg R: +0.000  WR: 0%
+  C_standard        :   21 (100.0%)  avg R: +0.148  WR: 81%
+  C_continuation    :    0 (  0.0%)  avg R: +0.000  WR: 0%
+  ADD               :    0 (  0.0%)  avg R: +0.000  WR: 0%
+
+Exit reasons:
+  STOP                :   19 ( 90.5%)  avg R: +0.185
+  STALE               :    2 (  9.5%)  avg R: -0.203
+
+Long trades:  11
+  Avg R: +0.125  Win rate: 72.7%
+Short trades: 10
+  Avg R: +0.174  Win rate: 90.0%
+
+Partial exits:
+  TP1 hit: 12 (57.1%)
+  TP2 hit: 12 (57.1%)
+  Runner:  12 (57.1%)
+
+Trades with adds: 0 (0.0%)
+
+R-multiple distribution:
+  Mean:   +0.148
+  Median: +0.133
+  Std:    0.208
+  >= -2R: 21 (100.0%)
+  >= -1R: 21 (100.0%)
+  >= +0R: 17 (81.0%)
+  >= +1R: 0 (0.0%)
+  >= +2R: 0 (0.0%)
+  >= +3R: 0 (0.0%)
+  >= +5R: 0 (0.0%)
+
+MFE (R): mean=0.349  median=0.270
+MAE (R): mean=0.128  median=0.065
+
+Hold time (1H bars):
+  Mean: 29.1  Median: 13.0  Max: 96
+
+=== Breakout Diagnostic Report: QQQ ===
+
+4H regime distribution (hourly bars):
+  BULL_TREND:   881 ( 35.8%)
+  BEAR_TREND:   502 ( 20.4%)
+  RANGE_CHOP:  1076 ( 43.8%)
+
+Campaign pipeline:
+  Campaigns activated:   11
+  Breakouts qualified:   26
+  Dirty episodes:        5
+  Continuations entered:  0
+
+Entry pipeline:
+  Entries placed:  21
+  Entries filled:  21
+  Entries expired: 0
+  Entries rejected:0
+  Entries blocked: 11
+  Adds placed:     0
+  Adds filled:     0
+  Fill rate:       100.0%
+
+Trades=21  WR=81%  PF=13.15  E[R]=+0.148  CAGR=0.17%  Sharpe=1.56  MaxDD=0.25%  $/mo=850
+
+=== Buy & Hold vs Strategy: QQQ ===
+                         Buy & Hold       Strategy
+--------------------------------------------------
+Total Return                 +82.8%       +850.33$
+CAGR                         12.8%          0.17%
+Max Drawdown                 35.6%          0.25%
+Start Price                  333.58               
+End Price                    609.65               
+
+=== Breakout Entry Type Drilldown ===
+  Type                Count     WR    AvgR        P&L    MFE    MAE   Hold  Long Short
+  ------------------------------------------------------------------------------------
+  A                       0
+  B                       0
+  C_standard             21    81%  +0.148     +1,250   0.35   0.13   29.1    11    10
+  C_continuation          0
+  ADD                     0
+  ------------------------------------------------------------------------------------
+  ALL                    21    81%  +0.148     +1,250
+
+=== Breakout Exit Tier Drilldown ===
+  Tier        Count     WR    AvgR        P&L   TP1%   TP2%  Runner%
+  ------------------------------------------------------------------
+  ALIGNED        19    84%  +0.171     +1,162    58%    58%      58%
+  NEUTRAL         2    50%  -0.068        +88    50%    50%      50%
+  CAUTION         0
+
+=== Breakout Regime Breakdown ===
+  Regime        Count     WR    AvgR        P&L  Long Short
+  ---------------------------------------------------------
+  BULL_TREND       10    80%  +0.178       +702    10     0
+  BEAR_TREND        9    89%  +0.164       +461     0     9
+  RANGE_CHOP        2    50%  -0.068        +88     1     1
+
+=== Breakout Exit Reason Breakdown ===
+  Reason              Count     WR    AvgR        P&L
+  ---------------------------------------------------
+  STALE                   2     0%  -0.203        -93
+  STOP                   19    89%  +0.185     +1,344
+
+=== Breakout Partial Fill Analysis ===
+  Total trades: 21
+  Reached TP1:     12 (57%)
+  Reached TP2:     12 (57%)
+  Runner active:   12 (57%)
+
+  TP1 trades avg R:    +0.276
+  TP2 trades avg R:    +0.276
+  Runner trades avg R: +0.276
+
+  No-TP1 trades:      9 avg R = -0.022
+
+=== Gap-Through-Stop Report ===
+  No gap stop events.
+
+=== Breakout Add Contribution ===
+  Trades with adds:    0
+  Trades without adds: 21
+  Without-add avg R:   +0.148
+
+=== Breakout Chop Mode Impact ===
+  NORMAL    :    12 trades  WR=   75%  avgR=+0.099  P&L=+488
+  DEGRADED  :     9 trades  WR=   89%  avgR=+0.214  P&L=+762
+  HALT      : 0 trades
+
+=== Stale Exit Analysis ===
+  Count: 2
+  Avg R: -0.203
+  Avg bars held: 49
+  Avg days held: 8
+  Total P&L: -93
+
+=== Breakout Streak Analysis ===
+  Max win streak:  10
+  Max loss streak: 1
+
+=== Breakout Continuation Analysis ===
+  Continuation:        14 trades  avgR=+0.161
+  Non-continuation:     7 trades  avgR=+0.123
+
+=== Breakout Loser Classification ===
+  Total losers: 4
+
+  Right-then-stopped (MFE >= 0.5R): 0 trades
+  Immediately wrong  (MFE <  0.5R)
+    Count: 4 (100%)  avgMFE=0.10  avgR=-0.109  avgMAE=0.24  avgHold=29
+    Entry types: C_standard=4
+
+  Winner MFE capture ratio: 0.48 (R / MFE)
+
+  ** ENTRY TIMING is the primary drag (>60% immediately wrong)
+
+=== Exit Reason x Entry Type Cross-Tab ===
+  Exit Reason             C_standard
+  ------------------------------------
+  STALE                 2 -0.20   0%
+  STOP                 19 +0.19  89%
+
+=== Regime x Direction Grid ===
+  Regime       Dir    Align     Count     WR    AvgR        P&L  QMult    MFE
+  ---------------------------------------------------------------------------
+  BULL_TREND   LONG   ALIGNED      10    80%  +0.178       +702   0.82   0.31
+  BEAR_TREND   SHORT  ALIGNED       9    89%  +0.164       +461   0.77   0.37
+  RANGE_CHOP   LONG   NEUTRAL       1     0%  -0.403        -91   0.68   0.10
+  RANGE_CHOP   SHORT  NEUTRAL       1   100%  +0.267       +179   0.76   0.79
+
+  Aligned  trades:    19  avgR=+0.171
+
+=== MFE Cohort Segmentation ===
+  Developed   (MFE >= 1.0R):     0
+  Undeveloped (MFE <  1.0R):    21
+  (Need both cohorts for comparison)
+
+=== Position Occupancy ===
+  Hold time (bars): mean=29.1  median=13  min=2  max=96
+  Hold time (days): mean=4.7  median=3  min=1  max=14
+
+  Gap between trades (hours): mean=1728.7  median=1729.0  max=5207
+  Gap between trades (days):  mean=72.0  median=72.0  max=217
+  Longest dry spell: 2024-08-05 15:00:00 to 2025-03-10 14:00:00
+
+  Trades/month: 0.4
+  Trades/week:  0.09
+
+=== Score Component Analysis ===
+
+  Mean contribution by outcome:
+    Component         Winners   Losers    Delta
+    -------------------------------------------
+    volume              +0.47    +0.75    -0.28
+    squeeze             -0.59    -0.25    -0.34
+    regime              +0.00    +0.00    +0.00
+    consec_closes       +1.00    +1.00    +0.00
+    atr_expanding       +0.82    +0.75    +0.07
+
+  Value frequency distribution:
+    Component            +1      0     -1
+    -------------------------------------
+    volume              62%    29%    10%
+    squeeze              0%    48%    52%
+    regime               0%   100%     0%
+    consec_closes      100%     0%     0%
+    atr_expanding       81%    19%     0%
+
+  Avg R by component value:
+    Component            R|+1   n|+1     R|-1   n|-1  Pred?
+    -------------------------------------------------------
+    volume             +0.130     13   +0.197      2     no
+    squeeze            +0.000      0   +0.172     11     no
+    regime             +0.000      0   +0.000      0    n/a
+    consec_closes      +0.148     21   +0.000      0     no
+    atr_expanding      +0.142     17   +0.000      0     no
+
+=== Quality Mult Decomposition ===
+
+  Sub-component stats (all trades):
+    Component         Mean  Median     Min     Max
+    ----------------------------------------------
+    regime_mult      0.986   1.000   0.850   1.000
+    disp_mult        0.796   0.777   0.700   1.000
+    squeeze_mult     0.924   0.850   0.850   1.050
+    corr_mult        1.000   1.000   1.000   1.000
+
+  Binding constraint (lowest mean): disp_mult = 0.796
+
+  Winners vs Losers:
+    Component       Winners   Losers    Delta
+    -----------------------------------------
+    regime_mult       0.991    0.963   +0.029
+    disp_mult         0.794    0.803   -0.009
+    squeeze_mult      0.915    0.963   -0.048
+    corr_mult         1.000    1.000   +0.000
+
+  By entry type:
+    Entry       regime_mult    disp_mult squeeze_mult    corr_mult
+    --------------------------------------------------------------
+    C_standard        0.986        0.796        0.924        1.000
+
+=== Partial Fill Timing ===
+  TP1 reached: 12 trades
+    Bars to TP1: mean=24.2  median=12  min=4  max=83
+
+  TP2 reached: 12 trades
+    Bars to TP2: mean=24.2  median=12  min=4  max=83
+
+  BE stop moved: 12 trades
+    Bars to BE: mean=24.2  median=12
+
+  TP1 timing by exit tier:
+    ALIGNED   : n=  11  meanBars=26.0
+    NEUTRAL   : n=   1  meanBars=5.0
+
+=== Stop Evolution ===
+  Stop tighten counts:
+    All     : mean=5.0  median=3  max=20
+    Winners : mean=6.1  median=4  max=20
+    Losers  : mean=0.5  median=0  max=1
+
+  Stop movement (initial→final, in R-units):
+    Winners : mean=+1.22R  median=+1.21R
+    Losers  : mean=+0.52R  median=+0.52R
+
+  Losers stopped at initial level: 2
+  Losers stopped at adjusted level: 2
+    Initial-stop losers avgR: -0.203
+    Adjusted-stop losers avgR: -0.015
+
+  Runners (12 trades):
+    Mean tightens: 7.9
+    Exit-to-final-stop distance: mean=0.01R
+
+=== Regime Transition Matrix ===
+  Entry\Exit       BULL_TREND   BEAR_TREND   RANGE_CHOP
+  -----------------------------------------------------
+  BULL_TREND         10 +0.18           --           --
+  BEAR_TREND               --      9 +0.16           --
+  RANGE_CHOP               --      2 -0.07           --
+
+  Regime stable:     19 trades  avgR=+0.171
+  Regime shifted:     2 trades  avgR=-0.068
+
+=== Breakout Signal Funnel ===
+  Hourly evaluations:      32
+  No entry available:       0 (0%)
+  Entry type selected:     32 (100%)
+    Allowed:               21 (66%)
+    Blocked:               11 (34%)
+  Orders filled:           21
+
+  C_standard        :    32 selected,    21 allowed,    11 blocked
+
+=== Breakout Blocked Reason Table ===
+  Reason                  Count      %  AvgScore  AvgQMult AvgRVOL_H
+  ------------------------------------------------------------------
+  outside_entry_window       11   100%       1.5     0.729      1.80
+
+  Total blocked: 11
+
+=== Breakout First-Fail Attribution ===
+  Gate                    Count      %
+  ------------------------------------
+  outside_entry_window       11   100%
+
+=== Breakout Pending Effectiveness ===
+  No pending-blocked signals found.
+
+=== Breakout Chop Gate Analysis ===
+  ChopMode    Total  Allowed  Blocked  Block%
+  -------------------------------------------
+  NORMAL         20       12        8     40%
+  DEGRADED       12        9        3     25%
+  HALT            0
+
+=== Breakout Regime Gate Analysis ===
+  Regime          Total  Allowed  AvgScore
+  ----------------------------------------
+  BEAR_TREND         13        9       1.8
+  BULL_TREND         17       10       1.5
+  RANGE_CHOP          2        2       3.0
+
+=== Breakout Multiplier Summary ===
+  Quality       : mean=0.768  med=0.759  min=0.625  max=1.050
+  Expiry        : mean=0.985  med=1.000  min=0.760  max=1.000
+  Displacement  : mean=0.781  med=0.700  min=0.700  max=1.000
+
+=== Breakout Score Distribution ===
+  Mean:   1.7
+  Median: 2
+  Min:    1
+  Max:    3
+
+   Score  Total  Allowed  Blocked
+  -------------------------------
+       1     11        6        5
+       2     19       13        6
+       3      2        2        0
+
+=== Breakout Performance Report: USO ===
+Total trades:       8
+Win rate:           75.0%
+Profit factor:      1.17
+Expectancy (R):     +0.152
+Expectancy ($):     -15.15
+Net profit:         $-121.20
+CAGR:               -0.024%
+Sharpe:             -0.96
+Sortino:            -0.14
+Calmar:             -0.18
+Max drawdown:       0.13% ($133.35)
+Avg hold (hours):   27.6
+Trades/month:       0.1
+Total commissions:  $140.00
+Tail loss (5%):     $-94.40  (-0.34R)
+
+=== Breakout Behavior Report ===
+
+Entry type breakdown:
+  A                 :    0 (  0.0%)  avg R: +0.000  WR: 0%
+  B                 :    0 (  0.0%)  avg R: +0.000  WR: 0%
+  C_standard        :    8 (100.0%)  avg R: +0.152  WR: 75%
+  C_continuation    :    0 (  0.0%)  avg R: +0.000  WR: 0%
+  ADD               :    0 (  0.0%)  avg R: +0.000  WR: 0%
+
+Exit reasons:
+  STOP                :    6 ( 75.0%)  avg R: +0.296
+  STALE               :    2 ( 25.0%)  avg R: -0.280
+
+Long trades:  8
+  Avg R: +0.152  Win rate: 75.0%
+Short trades: 0
+
+Partial exits:
+  TP1 hit: 4 (50.0%)
+  TP2 hit: 4 (50.0%)
+  Runner:  4 (50.0%)
+
+Trades with adds: 0 (0.0%)
+
+R-multiple distribution:
+  Mean:   +0.152
+  Median: +0.118
+  Std:    0.327
+  >= -2R: 8 (100.0%)
+  >= -1R: 8 (100.0%)
+  >= +0R: 6 (75.0%)
+  >= +1R: 0 (0.0%)
+  >= +2R: 0 (0.0%)
+  >= +3R: 0 (0.0%)
+  >= +5R: 0 (0.0%)
+
+MFE (R): mean=0.458  median=0.263
+MAE (R): mean=0.121  median=0.052
+
+Hold time (1H bars):
+  Mean: 27.6  Median: 20.0  Max: 62
+
+=== Breakout Diagnostic Report: USO ===
+
+4H regime distribution (hourly bars):
+  BULL_TREND:   550 ( 22.4%)
+  BEAR_TREND:   435 ( 17.7%)
+  RANGE_CHOP:  1474 ( 59.9%)
+
+Campaign pipeline:
+  Campaigns activated:   5
+  Breakouts qualified:   8
+  Dirty episodes:        0
+  Continuations entered:  0
+
+Entry pipeline:
+  Entries placed:  9
+  Entries filled:  8
+  Entries expired: 1
+  Entries rejected:0
+  Entries blocked: 7
+  Adds placed:     0
+  Adds filled:     0
+  Fill rate:       88.9%
+
+Trades=8  WR=75%  PF=1.17  E[R]=+0.152  CAGR=-0.024%  Sharpe=-0.96  MaxDD=0.13%  $/mo=-121
+
+=== Buy & Hold vs Strategy: USO ===
+                         Buy & Hold       Strategy
+--------------------------------------------------
+Total Return                 +97.7%       -121.20$
+CAGR                         14.6%        -0.024%
+Max Drawdown                 36.2%          0.13%
+Start Price                   38.94               
+End Price                     76.99               
+
+=== Breakout Entry Type Drilldown ===
+  Type                Count     WR    AvgR        P&L    MFE    MAE   Hold  Long Short
+  ------------------------------------------------------------------------------------
+  A                       0
+  B                       0
+  C_standard              8    75%  +0.152        +19   0.46   0.12   27.6     8     0
+  C_continuation          0
+  ADD                     0
+  ------------------------------------------------------------------------------------
+  ALL                     8    75%  +0.152        +19
+
+=== Breakout Exit Tier Drilldown ===
+  Tier        Count     WR    AvgR        P&L   TP1%   TP2%  Runner%
+  ------------------------------------------------------------------
+  ALIGNED         8    75%  +0.152        +19    50%    50%      50%
+  NEUTRAL         0
+  CAUTION         0
+
+=== Breakout Regime Breakdown ===
+  Regime        Count     WR    AvgR        P&L  Long Short
+  ---------------------------------------------------------
+  BULL_TREND        8    75%  +0.152        +19     8     0
+  BEAR_TREND        0
+  RANGE_CHOP        0
+
+=== Breakout Exit Reason Breakdown ===
+  Reason              Count     WR    AvgR        P&L
+  ---------------------------------------------------
+  STALE                   2     0%  -0.280       -111
+  STOP                    6   100%  +0.296       +129
+
+=== Breakout Partial Fill Analysis ===
+  Total trades: 8
+  Reached TP1:      4 (50%)
+  Reached TP2:      4 (50%)
+  Runner active:    4 (50%)
+
+  TP1 trades avg R:    +0.423
+  TP2 trades avg R:    +0.423
+  Runner trades avg R: +0.423
+
+  No-TP1 trades:      4 avg R = -0.119
+
+=== Gap-Through-Stop Report ===
+  No gap stop events.
+
+=== Breakout Add Contribution ===
+  Trades with adds:    0
+  Trades without adds: 8
+  Without-add avg R:   +0.152
+
+=== Breakout Chop Mode Impact ===
+  NORMAL    :     6 trades  WR=   67%  avgR=+0.037  P&L=-73
+  DEGRADED  :     2 trades  WR=  100%  avgR=+0.498  P&L=+92
+  HALT      : 0 trades
+
+=== Stale Exit Analysis ===
+  Count: 2
+  Avg R: -0.280
+  Avg bars held: 59
+  Avg days held: 10
+  Total P&L: -111
+
+=== Breakout Streak Analysis ===
+  Max win streak:  5
+  Max loss streak: 1
+
+=== Breakout Continuation Analysis ===
+  Continuation:         6 trades  avgR=+0.109
+  Non-continuation:     2 trades  avgR=+0.280
+
+=== Breakout Loser Classification ===
+  Total losers: 2
+
+  Right-then-stopped (MFE >= 0.5R): 0 trades
+  Immediately wrong  (MFE <  0.5R)
+    Count: 2 (100%)  avgMFE=0.09  avgR=-0.280  avgMAE=0.36  avgHold=59
+    Entry types: C_standard=2
+
+  Winner MFE capture ratio: 0.45 (R / MFE)
+
+  ** ENTRY TIMING is the primary drag (>60% immediately wrong)
+
+=== Exit Reason x Entry Type Cross-Tab ===
+  Exit Reason             C_standard
+  ------------------------------------
+  STALE                 2 -0.28   0%
+  STOP                  6 +0.30 100%
+
+=== Regime x Direction Grid ===
+  Regime       Dir    Align     Count     WR    AvgR        P&L  QMult    MFE
+  ---------------------------------------------------------------------------
+  BULL_TREND   LONG   ALIGNED       8    75%  +0.152        +19   0.94   0.46
+
+  Aligned  trades:     8  avgR=+0.152
+
+=== MFE Cohort Segmentation ===
+  Developed   (MFE >= 1.0R):     1
+  Undeveloped (MFE <  1.0R):     7
+
+  Developed   : n=1  WR=100%  avgR=+0.701  avgMFE=1.41  avgHold=29
+  Undeveloped : n=7  WR=71%  avgR=+0.073  avgMFE=0.32  avgHold=27
+
+  Feature comparison (Developed vs Undeveloped):
+    Feature                 Developed  Undeveloped    Delta  Flag
+    -------------------------------------------------------------
+    score_at_entry              2.000        1.429     +40% ***
+    quality_mult_at_entry       0.654        0.978     -33% ***
+    disp_at_entry               3.326        4.286     -22% ***
+    rvol_d_at_entry             2.835        1.491     +90% ***
+    sq_good_at_entry               0%          14%     -14%
+    continuation_at_entry        100%          71%     +29% ***
+
+  Regime distribution:
+    Developed   : BULL_TREND=100%, BEAR_TREND=0%, RANGE_CHOP=0%
+    Undeveloped : BULL_TREND=100%, BEAR_TREND=0%, RANGE_CHOP=0%
+
+  Entry type distribution:
+    Developed   : C_standard=100%
+    Undeveloped : C_standard=100%
+
+=== Position Occupancy ===
+  Hold time (bars): mean=27.6  median=20  min=2  max=62
+  Hold time (days): mean=4.5  median=3  min=1  max=10
+
+  Gap between trades (hours): mean=1084.0  median=530.0  max=2500
+  Gap between trades (days):  mean=45.2  median=22.1  max=104
+  Longest dry spell: 2021-10-12 13:00:00 to 2022-01-24 17:00:00
+
+  Trades/month: 0.7
+  Trades/week:  0.15
+
+=== Score Component Analysis ===
+
+  Mean contribution by outcome:
+    Component         Winners   Losers    Delta
+    -------------------------------------------
+    volume              +0.17    +0.50    -0.33
+    squeeze             -0.17    -0.50    +0.33
+    regime              +0.00    +0.00    +0.00
+    consec_closes       +1.00    +1.00    +0.00
+    atr_expanding       +0.50    +0.50    +0.00
+
+  Value frequency distribution:
+    Component            +1      0     -1
+    -------------------------------------
+    volume              38%    50%    12%
+    squeeze              0%    75%    25%
+    regime               0%   100%     0%
+    consec_closes      100%     0%     0%
+    atr_expanding       50%    50%     0%
+
+  Avg R by component value:
+    Component            R|+1   n|+1     R|-1   n|-1  Pred?
+    -------------------------------------------------------
+    volume             +0.175      3   +0.510      1     no
+    squeeze            +0.000      0   +0.238      2     no
+    regime             +0.000      0   +0.000      0    n/a
+    consec_closes      +0.152      8   +0.000      0     no
+    atr_expanding      +0.320      4   +0.000      0     no
+
+=== Quality Mult Decomposition ===
+
+  Sub-component stats (all trades):
+    Component         Mean  Median     Min     Max
+    ----------------------------------------------
+    regime_mult      1.000   1.000   1.000   1.000
+    disp_mult        0.900   0.957   0.700   1.000
+    squeeze_mult     0.969   1.000   0.850   1.050
+    corr_mult        1.000   1.000   1.000   1.000
+
+  Binding constraint (lowest mean): disp_mult = 0.900
+
+  Winners vs Losers:
+    Component       Winners   Losers    Delta
+    -----------------------------------------
+    regime_mult       1.000    1.000   +0.000
+    disp_mult         0.932    0.807   +0.125
+    squeeze_mult      0.983    0.925   +0.058
+    corr_mult         1.000    1.000   +0.000
+
+  By entry type:
+    Entry       regime_mult    disp_mult squeeze_mult    corr_mult
+    --------------------------------------------------------------
+    C_standard        1.000        0.900        0.969        1.000
+
+  Developed vs Undeveloped:
+    Component       Developed  Undeveloped
+    --------------------------------------
+    regime_mult         1.000        1.000
+    disp_mult           0.700        0.929
+    squeeze_mult        0.850        0.986
+    corr_mult           1.000        1.000
+
+=== Partial Fill Timing ===
+  TP1 reached: 4 trades
+    Bars to TP1: mean=4.8  median=5  min=2  max=7
+
+  TP2 reached: 4 trades
+    Bars to TP2: mean=4.8  median=5  min=2  max=7
+
+  BE stop moved: 4 trades
+    Bars to BE: mean=4.8  median=5
+
+  TP1 timing by exit tier:
+    ALIGNED   : n=   4  meanBars=4.8
+
+=== Stop Evolution ===
+  Stop tighten counts:
+    All     : mean=4.1  median=4  max=10
+    Winners : mean=5.5  median=6  max=10
+    Losers  : mean=0.0  median=0  max=0
+
+  Stop movement (initial→final, in R-units):
+    Winners : mean=+1.37R  median=+1.27R
+    Losers  : mean=+0.00R  median=+0.00R
+
+  Losers stopped at initial level: 2
+  Losers stopped at adjusted level: 0
+    Initial-stop losers avgR: -0.280
+
+  Runners (4 trades):
+    Mean tightens: 7.2
+    Exit-to-final-stop distance: mean=0.01R
+
+=== Regime Transition Matrix ===
+  Entry\Exit       BULL_TREND   BEAR_TREND   RANGE_CHOP
+  -----------------------------------------------------
+  BULL_TREND          6 +0.30      1 -0.33      1 -0.23
+  BEAR_TREND               --           --           --
+  RANGE_CHOP               --           --           --
+
+  Regime stable:      6 trades  avgR=+0.296
+  Regime shifted:     2 trades  avgR=-0.280
+  Aligned→Counter shifts: 1 trades  avgR=-0.335
+
+=== Breakout Signal Funnel ===
+  Hourly evaluations:      16
+  No entry available:       0 (0%)
+  Entry type selected:     16 (100%)
+    Allowed:                9 (56%)
+    Blocked:                7 (44%)
+  Orders filled:            8
+
+  C_standard        :    16 selected,     9 allowed,     7 blocked
+
+=== Breakout Blocked Reason Table ===
+  Reason                  Count      %  AvgScore  AvgQMult AvgRVOL_H
+  ------------------------------------------------------------------
+  outside_entry_window        5    71%       2.0     1.100      3.16
+  friction_gate               2    29%       2.0     1.100      2.06
+
+  Total blocked: 7
+
+=== Breakout First-Fail Attribution ===
+  Gate                    Count      %
+  ------------------------------------
+  friction_gate               2    29%
+  outside_entry_window        5    71%
+
+=== Breakout Pending Effectiveness ===
+  No pending-blocked signals found.
+
+=== Breakout Chop Gate Analysis ===
+  ChopMode    Total  Allowed  Blocked  Block%
+  -------------------------------------------
+  NORMAL         12        7        5     42%
+  DEGRADED        4        2        2     50%
+  HALT            0
+
+=== Breakout Regime Gate Analysis ===
+  Regime          Total  Allowed  AvgScore
+  ----------------------------------------
+  BULL_TREND         16        9       1.7
+
+=== Breakout Multiplier Summary ===
+  Quality       : mean=1.015  med=1.075  min=0.654  max=1.100
+  Expiry        : mean=0.866  med=1.000  min=0.300  max=1.000
+  Displacement  : mean=0.950  med=1.000  min=0.700  max=1.000
+
+=== Breakout Score Distribution ===
+  Mean:   1.7
+  Median: 2
+  Min:    1
+  Max:    2
+
+   Score  Total  Allowed  Blocked
+  -------------------------------
+       1      5        5        0
+       2     11        4        7
+
+=== Breakout Performance Report: GLD ===
+Total trades:       7
+Win rate:           71.4%
+Profit factor:      0.80
+Expectancy (R):     +0.240
+Expectancy ($):     -24.80
+Net profit:         $-173.60
+CAGR:               -0.035%
+Sharpe:             -0.71
+Sortino:            -0.08
+Calmar:             -0.12
+Max drawdown:       0.30% ($300.50)
+Avg hold (hours):   22.6
+Trades/month:       0.1
+Total commissions:  $135.00
+Tail loss (5%):     $-165.60  (-0.16R)
+
+=== Breakout Behavior Report ===
+
+Entry type breakdown:
+  A                 :    0 (  0.0%)  avg R: +0.000  WR: 0%
+  B                 :    0 (  0.0%)  avg R: +0.000  WR: 0%
+  C_standard        :    7 (100.0%)  avg R: +0.240  WR: 71%
+  C_continuation    :    0 (  0.0%)  avg R: +0.000  WR: 0%
+  ADD               :    0 (  0.0%)  avg R: +0.000  WR: 0%
+
+Exit reasons:
+  STOP                :    6 ( 85.7%)  avg R: +0.306
+  STALE               :    1 ( 14.3%)  avg R: -0.157
+
+Long trades:  7
+  Avg R: +0.240  Win rate: 71.4%
+Short trades: 0
+
+Partial exits:
+  TP1 hit: 4 (57.1%)
+  TP2 hit: 4 (57.1%)
+  Runner:  4 (57.1%)
+
+Trades with adds: 0 (0.0%)
+
+R-multiple distribution:
+  Mean:   +0.240
+  Median: +0.268
+  Std:    0.326
+  >= -2R: 7 (100.0%)
+  >= -1R: 7 (100.0%)
+  >= +0R: 5 (71.4%)
+  >= +1R: 0 (0.0%)
+  >= +2R: 0 (0.0%)
+  >= +3R: 0 (0.0%)
+  >= +5R: 0 (0.0%)
+
+MFE (R): mean=0.608  median=0.490
+MAE (R): mean=0.198  median=0.130
+
+Hold time (1H bars):
+  Mean: 22.6  Median: 13.0  Max: 49
+
+=== Breakout Diagnostic Report: GLD ===
+
+4H regime distribution (hourly bars):
+  BULL_TREND:   946 ( 38.5%)
+  BEAR_TREND:   318 ( 12.9%)
+  RANGE_CHOP:  1195 ( 48.6%)
+
+Campaign pipeline:
+  Campaigns activated:   5
+  Breakouts qualified:   72
+  Dirty episodes:        3
+  Continuations entered:  0
+
+Entry pipeline:
+  Entries placed:  7
+  Entries filled:  7
+  Entries expired: 0
+  Entries rejected:0
+  Entries blocked: 11
+  Adds placed:     0
+  Adds filled:     0
+  Fill rate:       100.0%
+
+Trades=7  WR=71%  PF=0.80  E[R]=+0.240  CAGR=-0.035%  Sharpe=-0.71  MaxDD=0.30%  $/mo=-174
+
+=== Buy & Hold vs Strategy: GLD ===
+                         Buy & Hold       Strategy
+--------------------------------------------------
+Total Return                +165.5%       -173.60$
+CAGR                         21.6%        -0.035%
+Max Drawdown                 21.0%          0.30%
+Start Price                  171.52               
+End Price                    455.46               
+
+=== Breakout Entry Type Drilldown ===
+  Type                Count     WR    AvgR        P&L    MFE    MAE   Hold  Long Short
+  ------------------------------------------------------------------------------------
+  A                       0
+  B                       0
+  C_standard              7    71%  +0.240        -39   0.61   0.20   22.6     7     0
+  C_continuation          0
+  ADD                     0
+  ------------------------------------------------------------------------------------
+  ALL                     7    71%  +0.240        -39
+
+=== Breakout Exit Tier Drilldown ===
+  Tier        Count     WR    AvgR        P&L   TP1%   TP2%  Runner%
+  ------------------------------------------------------------------
+  ALIGNED         7    71%  +0.240        -39    57%    57%      57%
+  NEUTRAL         0
+  CAUTION         0
+
+=== Breakout Regime Breakdown ===
+  Regime        Count     WR    AvgR        P&L  Long Short
+  ---------------------------------------------------------
+  BULL_TREND        7    71%  +0.240        -39     7     0
+  BEAR_TREND        0
+  RANGE_CHOP        0
+
+=== Breakout Exit Reason Breakdown ===
+  Reason              Count     WR    AvgR        P&L
+  ---------------------------------------------------
+  STALE                   1     0%  -0.157       -166
+  STOP                    6    83%  +0.306       +127
+
+=== Breakout Partial Fill Analysis ===
+  Total trades: 7
+  Reached TP1:      4 (57%)
+  Reached TP2:      4 (57%)
+  Runner active:    4 (57%)
+
+  TP1 trades avg R:    +0.491
+  TP2 trades avg R:    +0.491
+  Runner trades avg R: +0.491
+
+  No-TP1 trades:      3 avg R = -0.096
+
+=== Gap-Through-Stop Report ===
+  No gap stop events.
+
+=== Breakout Add Contribution ===
+  Trades with adds:    0
+  Trades without adds: 7
+  Without-add avg R:   +0.240
+
+=== Breakout Chop Mode Impact ===
+  NORMAL    :     3 trades  WR=  100%  avgR=+0.277  P&L=+75
+  DEGRADED  :     4 trades  WR=   50%  avgR=+0.212  P&L=-114
+  HALT      : 0 trades
+
+=== Stale Exit Analysis ===
+  Count: 1
+  Avg R: -0.157
+  Avg bars held: 49
+  Avg days held: 8
+  Total P&L: -166
+
+=== Breakout Streak Analysis ===
+  Max win streak:  3
+  Max loss streak: 1
+
+=== Breakout Continuation Analysis ===
+  Continuation:         4 trades  avgR=-0.005
+  Non-continuation:     3 trades  avgR=+0.566
+
+=== Breakout Loser Classification ===
+  Total losers: 2
+
+  Right-then-stopped (MFE >= 0.5R): 0 trades
+  Immediately wrong  (MFE <  0.5R)
+    Count: 2 (100%)  avgMFE=0.07  avgR=-0.159  avgMAE=0.14  avgHold=31
+    Entry types: C_standard=2
+
+  Winner MFE capture ratio: 0.46 (R / MFE)
+
+  ** ENTRY TIMING is the primary drag (>60% immediately wrong)
+
+=== Exit Reason x Entry Type Cross-Tab ===
+  Exit Reason             C_standard
+  ------------------------------------
+  STALE                 1 -0.16   0%
+  STOP                  6 +0.31  83%
+
+=== Regime x Direction Grid ===
+  Regime       Dir    Align     Count     WR    AvgR        P&L  QMult    MFE
+  ---------------------------------------------------------------------------
+  BULL_TREND   LONG   ALIGNED       7    71%  +0.240        -39   0.78   0.61
+
+  Aligned  trades:     7  avgR=+0.240
+
+=== MFE Cohort Segmentation ===
+  Developed   (MFE >= 1.0R):     2
+  Undeveloped (MFE <  1.0R):     5
+
+  Developed   : n=2  WR=100%  avgR=+0.645  avgMFE=1.31  avgHold=32
+  Undeveloped : n=5  WR=60%  avgR=+0.077  avgMFE=0.33  avgHold=19
+
+  Feature comparison (Developed vs Undeveloped):
+    Feature                 Developed  Undeveloped    Delta  Flag
+    -------------------------------------------------------------
+    score_at_entry              1.500        1.800     -17% ***
+    quality_mult_at_entry       0.761        0.794      -4%
+    disp_at_entry               3.385        4.048     -16% ***
+    rvol_d_at_entry             1.055        1.851     -43% ***
+    sq_good_at_entry               0%          20%     -20% ***
+    continuation_at_entry          0%          80%     -80% ***
+
+  Regime distribution:
+    Developed   : BULL_TREND=100%, BEAR_TREND=0%, RANGE_CHOP=0%
+    Undeveloped : BULL_TREND=100%, BEAR_TREND=0%, RANGE_CHOP=0%
+
+  Entry type distribution:
+    Developed   : C_standard=100%
+    Undeveloped : C_standard=100%
+
+=== Position Occupancy ===
+  Hold time (bars): mean=22.6  median=13  min=8  max=49
+  Hold time (days): mean=3.7  median=2  min=2  max=8
+
+  Gap between trades (hours): mean=5399.5  median=3443.0  max=16488
+  Gap between trades (days):  mean=225.0  median=143.5  max=687
+  Longest dry spell: 2023-12-04 14:00:00 to 2025-10-21 14:00:00
+
+  Trades/month: 0.2
+  Trades/week:  0.04
+
+=== Score Component Analysis ===
+
+  Mean contribution by outcome:
+    Component         Winners   Losers    Delta
+    -------------------------------------------
+    volume              +0.20    +1.00    -0.80
+    squeeze             -0.40    -1.00    +0.60
+    regime              +0.00    +0.00    +0.00
+    consec_closes       +1.00    +1.00    +0.00
+    atr_expanding       +0.80    +1.00    -0.20
+
+  Value frequency distribution:
+    Component            +1      0     -1
+    -------------------------------------
+    volume              57%    29%    14%
+    squeeze              0%    43%    57%
+    regime               0%   100%     0%
+    consec_closes      100%     0%     0%
+    atr_expanding       86%    14%     0%
+
+  Avg R by component value:
+    Component            R|+1   n|+1     R|-1   n|-1  Pred?
+    -------------------------------------------------------
+    volume             +0.212      4   +0.533      1     no
+    squeeze            +0.000      0   +0.212      4     no
+    regime             +0.000      0   +0.000      0    n/a
+    consec_closes      +0.240      7   +0.000      0     no
+    atr_expanding      +0.275      6   +0.000      0     no
+
+=== Quality Mult Decomposition ===
+
+  Sub-component stats (all trades):
+    Component         Mean  Median     Min     Max
+    ----------------------------------------------
+    regime_mult      1.000   1.000   1.000   1.000
+    disp_mult        0.784   0.720   0.700   1.000
+    squeeze_mult     0.921   0.850   0.850   1.050
+    corr_mult        1.000   1.000   1.000   1.000
+
+  Binding constraint (lowest mean): disp_mult = 0.784
+
+  Winners vs Losers:
+    Component       Winners   Losers    Delta
+    -----------------------------------------
+    regime_mult       1.000    1.000   +0.000
+    disp_mult         0.813    0.710   +0.103
+    squeeze_mult      0.950    0.850   +0.100
+    corr_mult         1.000    1.000   +0.000
+
+  By entry type:
+    Entry       regime_mult    disp_mult squeeze_mult    corr_mult
+    --------------------------------------------------------------
+    C_standard        1.000        0.784        0.921        1.000
+
+  Developed vs Undeveloped:
+    Component       Developed  Undeveloped
+    --------------------------------------
+    regime_mult         1.000        1.000
+    disp_mult           0.771        0.789
+    squeeze_mult        0.925        0.920
+    corr_mult           1.000        1.000
+
+=== Partial Fill Timing ===
+  TP1 reached: 4 trades
+    Bars to TP1: mean=12.0  median=12  min=9  max=14
+
+  TP2 reached: 4 trades
+    Bars to TP2: mean=12.0  median=12  min=9  max=14
+
+  BE stop moved: 4 trades
+    Bars to BE: mean=12.0  median=12
+
+  TP1 timing by exit tier:
+    ALIGNED   : n=   4  meanBars=12.0
+
+=== Stop Evolution ===
+  Stop tighten counts:
+    All     : mean=2.4  median=1  max=6
+    Winners : mean=3.2  median=3  max=6
+    Losers  : mean=0.5  median=0  max=1
+
+  Stop movement (initial→final, in R-units):
+    Winners : mean=+1.48R  median=+1.26R
+    Losers  : mean=+0.52R  median=+0.52R
+
+  Losers stopped at initial level: 1
+  Losers stopped at adjusted level: 1
+    Initial-stop losers avgR: -0.157
+    Adjusted-stop losers avgR: -0.160
+
+  Runners (4 trades):
+    Mean tightens: 3.8
+    Exit-to-final-stop distance: mean=0.00R
+
+=== Regime Transition Matrix ===
+  Entry\Exit       BULL_TREND   BEAR_TREND   RANGE_CHOP
+  -----------------------------------------------------
+  BULL_TREND          6 +0.31           --      1 -0.16
+  BEAR_TREND               --           --           --
+  RANGE_CHOP               --           --           --
+
+  Regime stable:      6 trades  avgR=+0.306
+  Regime shifted:     1 trades  avgR=-0.157
+
+=== Breakout Signal Funnel ===
+  Hourly evaluations:      18
+  No entry available:       0 (0%)
+  Entry type selected:     18 (100%)
+    Allowed:                7 (39%)
+    Blocked:               11 (61%)
+  Orders filled:            7
+
+  C_standard        :    18 selected,     7 allowed,    11 blocked
+
+=== Breakout Blocked Reason Table ===
+  Reason                  Count      %  AvgScore  AvgQMult AvgRVOL_H
+  ------------------------------------------------------------------
+  outside_entry_window       11   100%       2.3     0.793      1.58
+
+  Total blocked: 11
+
+=== Breakout First-Fail Attribution ===
+  Gate                    Count      %
+  ------------------------------------
+  outside_entry_window       11   100%
+
+=== Breakout Pending Effectiveness ===
+  No pending-blocked signals found.
+
+=== Breakout Chop Gate Analysis ===
+  ChopMode    Total  Allowed  Blocked  Block%
+  -------------------------------------------
+  NORMAL          3        3        0      0%
+  DEGRADED       15        4       11     73%
+  HALT            0
+
+=== Breakout Regime Gate Analysis ===
+  Regime          Total  Allowed  AvgScore
+  ----------------------------------------
+  BULL_TREND         15        7       1.9
+  RANGE_CHOP          3        0       3.0
+
+=== Breakout Multiplier Summary ===
+  Quality       : mean=0.790  med=0.797  min=0.654  max=1.100
+  Expiry        : mean=0.960  med=1.000  min=0.400  max=1.000
+  Displacement  : mean=0.742  med=0.701  min=0.700  max=1.000
+
+=== Breakout Score Distribution ===
+  Mean:   2.1
+  Median: 2
+  Min:    1
+  Max:    3
+
+   Score  Total  Allowed  Blocked
+  -------------------------------
+       1      2        2        0
+       2     13        5        8
+       3      3        0        3
+
+=== Breakout Performance Report: IBIT ===
+Total trades:       15
+Win rate:           66.7%
+Profit factor:      3.85
+Expectancy (R):     +0.164
+Expectancy ($):     -9.83
+Net profit:         $-147.41
+CAGR:               -0.071%
+Sharpe:             -1.91
+Sortino:            -0.53
+Calmar:             -0.36
+Max drawdown:       0.20% ($199.42)
+Avg hold (hours):   20.5
+Trades/month:       0.6
+Total commissions:  $290.00
+Tail loss (5%):     $-36.60  (-0.33R)
+
+=== Breakout Behavior Report ===
+
+Entry type breakdown:
+  A                 :    2 ( 13.3%)  avg R: +0.075  WR: 100%
+  B                 :    0 (  0.0%)  avg R: +0.000  WR: 0%
+  C_standard        :   13 ( 86.7%)  avg R: +0.179  WR: 62%
+  C_continuation    :    0 (  0.0%)  avg R: +0.000  WR: 0%
+  ADD               :    0 (  0.0%)  avg R: +0.000  WR: 0%
+
+Exit reasons:
+  STOP                :   14 ( 93.3%)  avg R: +0.201
+  STALE               :    1 (  6.7%)  avg R: -0.333
+
+Long trades:  9
+  Avg R: +0.073  Win rate: 66.7%
+Short trades: 6
+  Avg R: +0.305  Win rate: 66.7%
+
+Partial exits:
+  TP1 hit: 7 (46.7%)
+  TP2 hit: 7 (46.7%)
+  Runner:  7 (46.7%)
+
+Trades with adds: 0 (0.0%)
+
+R-multiple distribution:
+  Mean:   +0.165
+  Median: +0.050
+  Std:    0.333
+  >= -2R: 15 (100.0%)
+  >= -1R: 15 (100.0%)
+  >= +0R: 10 (66.7%)
+  >= +1R: 0 (0.0%)
+  >= +2R: 0 (0.0%)
+  >= +3R: 0 (0.0%)
+  >= +5R: 0 (0.0%)
+
+MFE (R): mean=0.509  median=0.279
+MAE (R): mean=0.107  median=0.048
+
+Hold time (1H bars):
+  Mean: 20.5  Median: 17.0  Max: 62
+
+=== Breakout Diagnostic Report: IBIT ===
+
+4H regime distribution (hourly bars):
+  BULL_TREND:   299 ( 30.3%)
+  BEAR_TREND:   169 ( 17.1%)
+  RANGE_CHOP:   519 ( 52.6%)
+
+Campaign pipeline:
+  Campaigns activated:   11
+  Breakouts qualified:   11
+  Dirty episodes:        0
+  Continuations entered:  0
+
+Entry pipeline:
+  Entries placed:  15
+  Entries filled:  15
+  Entries expired: 0
+  Entries rejected:0
+  Entries blocked: 3
+  Adds placed:     0
+  Adds filled:     0
+  Fill rate:       100.0%
+
+Trades=15  WR=67%  PF=3.85  E[R]=+0.164  CAGR=-0.071%  Sharpe=-1.91  MaxDD=0.20%  $/mo=-147
+
+=== Buy & Hold vs Strategy: IBIT ===
+                         Buy & Hold       Strategy
+--------------------------------------------------
+Total Return                 +49.0%       -147.41$
+CAGR                         21.2%        -0.071%
+Max Drawdown                 49.4%          0.20%
+Start Price                   26.63               
+End Price                     39.68               
+
+=== Breakout Entry Type Drilldown ===
+  Type                Count     WR    AvgR        P&L    MFE    MAE   Hold  Long Short
+  ------------------------------------------------------------------------------------
+  A                       2   100%  +0.075         +6   0.38   0.08   13.0     2     0
+  B                       0
+  C_standard             13    62%  +0.179       +137   0.53   0.11   21.6     7     6
+  C_continuation          0
+  ADD                     0
+  ------------------------------------------------------------------------------------
+  ALL                    15    67%  +0.165       +143
+
+=== Breakout Exit Tier Drilldown ===
+  Tier        Count     WR    AvgR        P&L   TP1%   TP2%  Runner%
+  ------------------------------------------------------------------
+  ALIGNED        14    64%  +0.165       +130    43%    43%      43%
+  NEUTRAL         1   100%  +0.175        +13   100%   100%     100%
+  CAUTION         0
+
+=== Breakout Regime Breakdown ===
+  Regime        Count     WR    AvgR        P&L  Long Short
+  ---------------------------------------------------------
+  BULL_TREND        9    67%  +0.073        +37     9     0
+  BEAR_TREND        5    60%  +0.330        +93     0     5
+  RANGE_CHOP        1   100%  +0.175        +13     0     1
+
+=== Breakout Exit Reason Breakdown ===
+  Reason              Count     WR    AvgR        P&L
+  ---------------------------------------------------
+  STALE                   1     0%  -0.333        -37
+  STOP                   14    71%  +0.201       +179
+
+=== Breakout Partial Fill Analysis ===
+  Total trades: 15
+  Reached TP1:      7 (47%)
+  Reached TP2:      7 (47%)
+  Runner active:    7 (47%)
+
+  TP1 trades avg R:    +0.416
+  TP2 trades avg R:    +0.416
+  Runner trades avg R: +0.416
+
+  No-TP1 trades:      8 avg R = -0.054
+
+=== Gap-Through-Stop Report ===
+  No gap stop events.
+
+=== Breakout Add Contribution ===
+  Trades with adds:    0
+  Trades without adds: 15
+  Without-add avg R:   +0.165
+
+=== Breakout Chop Mode Impact ===
+  NORMAL    :    12 trades  WR=   58%  avgR=+0.110  P&L=+73
+  DEGRADED  :     3 trades  WR=  100%  avgR=+0.389  P&L=+69
+  HALT      : 0 trades
+
+=== Stale Exit Analysis ===
+  Count: 1
+  Avg R: -0.333
+  Avg bars held: 62
+  Avg days held: 10
+  Total P&L: -37
+
+=== Breakout Streak Analysis ===
+  Max win streak:  4
+  Max loss streak: 2
+
+=== Breakout Continuation Analysis ===
+  Continuation:         5 trades  avgR=+0.116
+  Non-continuation:    10 trades  avgR=+0.190
+
+=== Breakout Loser Classification ===
+  Total losers: 5
+
+  Right-then-stopped (MFE >= 0.5R): 0 trades
+  Immediately wrong  (MFE <  0.5R)
+    Count: 5 (100%)  avgMFE=0.14  avgR=-0.115  avgMAE=0.12  avgHold=23
+    Entry types: C_standard=5
+
+  Winner MFE capture ratio: 0.36 (R / MFE)
+
+  ** ENTRY TIMING is the primary drag (>60% immediately wrong)
+
+=== Exit Reason x Entry Type Cross-Tab ===
+  Exit Reason                      A      C_standard
+  ----------------------------------------------------
+  STALE                           --    1 -0.33   0%
+  STOP                  2 +0.08 100%   12 +0.22  67%
+
+=== Regime x Direction Grid ===
+  Regime       Dir    Align     Count     WR    AvgR        P&L  QMult    MFE
+  ---------------------------------------------------------------------------
+  BULL_TREND   LONG   ALIGNED       9    67%  +0.073        +37   0.78   0.34
+  BEAR_TREND   SHORT  ALIGNED       5    60%  +0.330        +93   0.78   0.83
+  RANGE_CHOP   SHORT  NEUTRAL       1   100%  +0.175        +13   0.98   0.41
+
+  Aligned  trades:    14  avgR=+0.165
+
+=== MFE Cohort Segmentation ===
+  Developed   (MFE >= 1.0R):     3
+  Undeveloped (MFE <  1.0R):    12
+
+  Developed   : n=3  WR=100%  avgR=+0.775  avgMFE=1.44  avgHold=30
+  Undeveloped : n=12  WR=58%  avgR=+0.013  avgMFE=0.28  avgHold=18
+
+  Feature comparison (Developed vs Undeveloped):
+    Feature                 Developed  Undeveloped    Delta  Flag
+    -------------------------------------------------------------
+    score_at_entry              1.333        1.500     -11%
+    quality_mult_at_entry       0.761        0.802      -5%
+    disp_at_entry               2.170        2.070      +5%
+    rvol_d_at_entry             1.384        1.894     -27% ***
+    sq_good_at_entry               0%           8%      -8%
+    continuation_at_entry         33%          33%      +0%
+
+  Regime distribution:
+    Developed   : BULL_TREND=33%, BEAR_TREND=67%, RANGE_CHOP=0%
+    Undeveloped : BULL_TREND=67%, BEAR_TREND=25%, RANGE_CHOP=8%
+
+  Entry type distribution:
+    Developed   : A=0%, C_standard=100%
+    Undeveloped : A=17%, C_standard=83%
+
+=== Position Occupancy ===
+  Hold time (bars): mean=20.5  median=17  min=6  max=62
+  Hold time (days): mean=3.3  median=3  min=1  max=10
+
+  Gap between trades (hours): mean=933.4  median=647.0  max=2516
+  Gap between trades (days):  mean=38.9  median=27.0  max=105
+  Longest dry spell: 2024-11-13 19:00:00 to 2025-02-26 15:00:00
+
+  Trades/month: 0.7
+  Trades/week:  0.17
+
+=== Score Component Analysis ===
+
+  Mean contribution by outcome:
+    Component         Winners   Losers    Delta
+    -------------------------------------------
+    volume              +0.70    +0.60    +0.10
+    squeeze             -0.60    -1.00    +0.40
+    regime              +0.00    +0.00    +0.00
+    consec_closes       +0.80    +1.00    -0.20
+    atr_expanding       +0.80    +0.40    +0.40
+
+  Value frequency distribution:
+    Component            +1      0     -1
+    -------------------------------------
+    volume              67%    33%     0%
+    squeeze              0%    27%    73%
+    regime               0%   100%     0%
+    consec_closes       87%    13%     0%
+    atr_expanding       67%    33%     0%
+
+  Avg R by component value:
+    Component            R|+1   n|+1     R|-1   n|-1  Pred?
+    -------------------------------------------------------
+    volume             +0.120     10   +0.000      0     no
+    squeeze            +0.000      0   +0.116     11     no
+    regime             +0.000      0   +0.000      0    n/a
+    consec_closes      +0.175     13   +0.000      0     no
+    atr_expanding      +0.206     10   +0.000      0     no
+
+=== Quality Mult Decomposition ===
+
+  Sub-component stats (all trades):
+    Component         Mean  Median     Min     Max
+    ----------------------------------------------
+    regime_mult      0.990   1.000   0.850   1.000
+    disp_mult        0.837   0.846   0.700   1.000
+    squeeze_mult     0.893   0.850   0.850   1.050
+    corr_mult        1.000   1.000   1.000   1.000
+
+  Binding constraint (lowest mean): disp_mult = 0.837
+
+  Winners vs Losers:
+    Component       Winners   Losers    Delta
+    -----------------------------------------
+    regime_mult       0.985    1.000   -0.015
+    disp_mult         0.840    0.831   +0.009
+    squeeze_mult      0.915    0.850   +0.065
+    corr_mult         1.000    1.000   +0.000
+
+  By entry type:
+    Entry       regime_mult    disp_mult squeeze_mult    corr_mult
+    --------------------------------------------------------------
+    A                 1.000        0.700        0.850        1.000
+    C_standard        0.988        0.858        0.900        1.000
+
+  Developed vs Undeveloped:
+    Component       Developed  Undeveloped
+    --------------------------------------
+    regime_mult         1.000        0.987
+    disp_mult           0.800        0.846
+    squeeze_mult        0.900        0.892
+    corr_mult           1.000        1.000
+
+=== Partial Fill Timing ===
+  TP1 reached: 7 trades
+    Bars to TP1: mean=4.1  median=4  min=2  max=7
+
+  TP2 reached: 7 trades
+    Bars to TP2: mean=4.1  median=4  min=2  max=7
+
+  BE stop moved: 7 trades
+    Bars to BE: mean=4.1  median=4
+
+  TP1 timing by exit tier:
+    ALIGNED   : n=   6  meanBars=4.2
+    NEUTRAL   : n=   1  meanBars=4.0
+
+=== Stop Evolution ===
+  Stop tighten counts:
+    All     : mean=2.9  median=2  max=14
+    Winners : mean=3.8  median=2  max=14
+    Losers  : mean=1.0  median=1  max=2
+
+  Stop movement (initial→final, in R-units):
+    Winners : mean=+1.38R  median=+1.08R
+    Losers  : mean=+0.83R  median=+1.03R
+
+  Losers stopped at initial level: 1
+  Losers stopped at adjusted level: 4
+    Initial-stop losers avgR: -0.333
+    Adjusted-stop losers avgR: -0.060
+
+  Runners (7 trades):
+    Mean tightens: 4.3
+    Exit-to-final-stop distance: mean=0.00R
+
+=== Regime Transition Matrix ===
+  Entry\Exit       BULL_TREND   BEAR_TREND   RANGE_CHOP
+  -----------------------------------------------------
+  BULL_TREND          8 +0.12           --      1 -0.33
+  BEAR_TREND               --      5 +0.33           --
+  RANGE_CHOP               --      1 +0.18           --
+
+  Regime stable:     13 trades  avgR=+0.203
+  Regime shifted:     2 trades  avgR=-0.079
+
+=== Breakout Signal Funnel ===
+  Hourly evaluations:      18
+  No entry available:       0 (0%)
+  Entry type selected:     18 (100%)
+    Allowed:               15 (83%)
+    Blocked:                3 (17%)
+  Orders filled:           15
+
+  A                 :     2 selected,     2 allowed,     0 blocked
+  C_standard        :    16 selected,    13 allowed,     3 blocked
+
+=== Breakout Blocked Reason Table ===
+  Reason                  Count      %  AvgScore  AvgQMult AvgRVOL_H
+  ------------------------------------------------------------------
+  outside_entry_window        3   100%       1.7     0.835      1.99
+
+  Total blocked: 3
+
+=== Breakout First-Fail Attribution ===
+  Gate                    Count      %
+  ------------------------------------
+  outside_entry_window        3   100%
+
+=== Breakout Pending Effectiveness ===
+  No pending-blocked signals found.
+
+=== Breakout Chop Gate Analysis ===
+  ChopMode    Total  Allowed  Blocked  Block%
+  -------------------------------------------
+  NORMAL         13       12        1      8%
+  DEGRADED        5        3        2     40%
+  HALT            0
+
+=== Breakout Regime Gate Analysis ===
+  Regime          Total  Allowed  AvgScore
+  ----------------------------------------
+  BEAR_TREND          7        5       1.7
+  BULL_TREND         10        9       1.2
+  RANGE_CHOP          1        1       3.0
+
+=== Breakout Multiplier Summary ===
+  Quality       : mean=0.801  med=0.846  min=0.625  max=0.977
+  Expiry        : mean=0.980  med=1.000  min=0.760  max=1.000
+  Displacement  : mean=0.849  med=0.848  min=0.700  max=1.000
+
+=== Breakout Score Distribution ===
+  Mean:   1.5
+  Median: 1
+  Min:    1
+  Max:    3
+
+   Score  Total  Allowed  Blocked
+  -------------------------------
+       1     11       10        1
+       2      5        3        2
+       3      2        2        0

@@ -1,0 +1,107 @@
+# =============================================================================
+# Unified Single-VPS Trading Deployment (Phase 2)
+# =============================================================================
+# Single runtime process manages all three families (swing, momentum, stock).
+# IB Gateway remains systemd-managed on the host.
+#
+# Usage:
+#   docker-compose up -d                    # start all
+#   docker-compose up -d runtime            # start runtime only
+#   docker-compose logs -f runtime          # tail runtime logs
+#   docker-compose run runtime python -m apps.runtime preflight  # validate config
+#
+# Family-selective startup:
+#   Modify RUNTIME_FAMILY env var or override command:
+#   docker-compose run runtime python -m apps.runtime run --connect-ib --family swing
+# =============================================================================
+
+services:
+  # --- Infrastructure ---
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/init-db.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
+      - ./infra/migrations:/docker-entrypoint-initdb.d/migrations:ro
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: trading_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: trading
+      POSTGRES_READER_PASSWORD: ${POSTGRES_READER_PASSWORD}
+      POSTGRES_WRITER_PASSWORD: ${POSTGRES_WRITER_PASSWORD:-changeme}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trading_admin -d trading"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- Unified Runtime (all families in one process) ---
+
+  runtime:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.runtime
+    network_mode: host
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      TRADING_ENV: ${TRADING_ENV:-live}
+      CONFIG_DIR: /app/config
+      # network_mode:host means DNS name 'postgres' won't resolve;
+      # runtime must reach postgres via loopback on the published port.
+      DB_HOST: ${DB_HOST:-127.0.0.1}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: trading
+      DB_USER: trading_writer
+      DB_PASSWORD: ${POSTGRES_WRITER_PASSWORD:-changeme}
+    volumes:
+      - runtime_instrumentation:/app/instrumentation/data
+      - runtime_data:/app/data
+    # NOTE: depends_on is ignored with network_mode:host in some compose
+    # versions. The runtime's DB bootstrap retries handle this gracefully.
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  # --- Relay (webhook receiver for TradingView / alerting) ---
+
+  relay:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.relay
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      RELAY_DB_PATH: /app/data/relay.db
+      RELAY_SHARED_SECRETS: ${RELAY_SHARED_SECRETS:-{}}
+    volumes:
+      - relay_data:/app/data
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  # --- Dashboard (Next.js portfolio viewer) ---
+
+  dashboard:
+    build: { context: ./apps/dashboard }
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DB_HOST: postgres
+      DB_USER: trading_reader
+      DB_PASSWORD: ${POSTGRES_READER_PASSWORD}
+      DB_NAME: trading
+      HEAT_CAP: "2.5"
+      PORTFOLIO_STOP: "3.0"
+    depends_on:
+      postgres: { condition: service_healthy }
+
+volumes:
+  postgres_data:
+  runtime_instrumentation:
+  runtime_data:
+  relay_data:

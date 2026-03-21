@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trading-monorepo"
+version = "0.1.0"
+description = "Monorepo scaffold for the unified trading runtime."
+requires-python = ">=3.12"
+dependencies = [
+  "aiohttp>=3.9",
+  "asyncpg>=0.31",
+  "ib_async>=2.1",
+  "numpy>=1.26",
+  "pandas>=2.3",
+  "pydantic>=2.12",
+  "PyYAML>=6.0",
+  "requests>=2.31",
+]
+
+[project.optional-dependencies]
+relay = [
+  "fastapi>=0.110",
+  "uvicorn>=0.27",
+]
+research = [
+  "matplotlib>=3.10",
+  "pyarrow>=15.0",
+  "pytz>=2024.1",
+]
+test = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.23",
+]
+
+[tool.setuptools.packages.find]
+include = ["apps*", "libs*", "strategies*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+

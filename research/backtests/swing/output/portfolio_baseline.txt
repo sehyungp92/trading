@@ -1,0 +1,40 @@
+2026-02-15 17:18:00 [INFO] backtest.engine.unified_portfolio_engine: Loaded data for 3 symbols: ['GLD', 'IBIT', 'QQQ']
+2026-02-15 17:18:00 [INFO] backtest.engine.unified_portfolio_engine: Unified timeline: 20066 bars
+
+Running preset 'baseline' at $10,000...
+  baseline               $    10,000   271 trades  PnL=$   +15,500  (350.7s)
+
+======================================================================
+UNIFIED 3-STRATEGY PORTFOLIO BACKTEST RESULTS
+======================================================================
+Initial Equity:  $10,000.00
+Final Equity:    $25,210.19
+Total Return:    +152.10%
+Total PnL:       $+15,499.70
+Max Drawdown:    -16.88% ($-2,156.34)
+Sharpe Ratio:    1.06
+Total Trades:    271
+Timeline:        20,066 bars
+
+Heat Statistics
+  Avg Heat (R):        0.339
+  Max Heat (R):        2.771
+  % Time at Cap:       0.6%
+
+Cross-Strategy Coordination
+  Helix Stop Tightens: 3
+  Helix Size Boosts:   19
+  Portfolio Daily Stops: 0
+
+Idle-Capital Overlay (EMA 13/48)
+  Overlay PnL:         $+11,896.18 (+119.0%)
+  Active Strategy PnL: $+3,603.52 (+36.0%)
+  Overlay Max Pct:     85%
+
+Per-Strategy Breakdown
+Strategy                Trades   Win%        PnL  Total R  Blocked
+-----------------------------------------------------------------
+ATRSS                      168  67.3% $ 1,683.96   110.4R      440
+AKC_HELIX                  100  36.0% $ 1,888.11    38.7R      612
+SWING_BREAKOUT_V3            3  66.7% $    31.45     1.0R        2
+======================================================================

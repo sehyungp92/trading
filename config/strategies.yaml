@@ -1,0 +1,357 @@
+connection_groups:
+  swing:
+    host: "127.0.0.1"
+    port: 4002
+    client_id: 7
+    account_id: "${IBKR_ACCOUNT_ID}"
+    readonly: false
+  stock:
+    host: "127.0.0.1"
+    port: 4002
+    client_id: 31
+    account_id: "${IBKR_ACCOUNT_ID}"
+    readonly: false
+  momentum:
+    host: "127.0.0.1"
+    port: 4002
+    client_id: 11
+    account_id: "${IBKR_ACCOUNT_ID}"
+    readonly: false
+
+strategies:
+  ATRSS:
+    strategy_id: ATRSS
+    system_id: swing_trader
+    family: swing
+    connection_group: swing
+    display_name: "ATR Swing Strategy"
+    module_path: "strategies.swing.atrss.plugin"
+    engine_module: "swing_trader.strategy.engine"
+    engine_class: "ATRSSEngine"
+    legacy_config_module: "swing_trader.strategy.config"
+    enabled: true
+    paper_mode: false
+    asset_class: mixed
+    symbols: [QQQ, GLD]
+    risk:
+      unit_risk_dollars: 200.0
+      daily_stop_R: 2.0
+      max_working_orders: 4
+      max_heat_R: 1.00
+      priority: 0
+    allocation:
+      base_risk_pct: 0.012
+      equity_offset: 0.0
+    dashboard_metadata:
+      system_label: "Swing Trader"
+      short_label: "SWING"
+      color_key: "blue"
+    deployment_tags: [live, paper, swing]
+
+  AKC_HELIX:
+    strategy_id: AKC_HELIX
+    system_id: swing_trader
+    family: swing
+    connection_group: swing
+    display_name: "AKC Helix"
+    module_path: "strategies.swing.akc_helix.plugin"
+    engine_module: "swing_trader.strategy_2.engine"
+    engine_class: "HelixEngine"
+    legacy_config_module: "swing_trader.strategy_2.config"
+    enabled: true
+    paper_mode: false
+    asset_class: mixed
+    symbols: [QQQ, GLD, IBIT]
+    risk:
+      unit_risk_dollars: 200.0
+      daily_stop_R: 2.5
+      max_working_orders: 4
+      max_heat_R: 0.85
+      priority: 4
+    allocation:
+      base_risk_pct: 0.005
+    dashboard_metadata:
+      system_label: "Swing Trader"
+      short_label: "SWING"
+      color_key: "blue"
+    deployment_tags: [live, paper, swing]
+
+  SWING_BREAKOUT_V3:
+    strategy_id: SWING_BREAKOUT_V3
+    system_id: swing_trader
+    family: swing
+    connection_group: swing
+    display_name: "Swing Breakout v3"
+    module_path: "strategies.swing.breakout.plugin"
+    engine_module: "swing_trader.strategy_3.engine"
+    engine_class: "BreakoutEngine"
+    legacy_config_module: "swing_trader.strategy_3.config"
+    enabled: true
+    paper_mode: false
+    asset_class: mixed
+    symbols: [QQQ, GLD]
+    risk:
+      unit_risk_dollars: 200.0
+      daily_stop_R: 2.0
+      max_working_orders: 2
+      max_heat_R: 0.65
+      priority: 3
+    allocation:
+      base_risk_pct: 0.005
+    dashboard_metadata:
+      system_label: "Swing Trader"
+      short_label: "SWING"
+      color_key: "blue"
+    deployment_tags: [live, paper, swing]
+
+  S5_PB:
+    strategy_id: S5_PB
+    system_id: swing_trader
+    family: swing
+    connection_group: swing
+    display_name: "S5 Pullback"
+    module_path: "strategies.swing.keltner.plugin"
+    engine_module: "swing_trader.strategy_4.engine"
+    engine_class: "KeltnerEngine"
+    legacy_config_module: "swing_trader.strategy_4.config"
+    enabled: true
+    paper_mode: false
+    asset_class: mixed
+    symbols: [IBIT]
+    engine_config:
+      strategy_id_override: S5_PB
+    risk:
+      unit_risk_dollars: 200.0
+      daily_stop_R: 2.0
+      max_working_orders: 2
+      max_heat_R: 1.50
+      priority: 1
+    allocation:
+      base_risk_pct: 0.008
+    dashboard_metadata:
+      system_label: "Swing Trader"
+      short_label: "SWING"
+      color_key: "blue"
+    deployment_tags: [live, paper, swing]
+
+  S5_DUAL:
+    strategy_id: S5_DUAL
+    system_id: swing_trader
+    family: swing
+    connection_group: swing
+    display_name: "S5 Dual"
+    module_path: "strategies.swing.keltner.plugin"
+    engine_module: "swing_trader.strategy_4.engine"
+    engine_class: "KeltnerEngine"
+    legacy_config_module: "swing_trader.strategy_4.config"
+    enabled: true
+    paper_mode: false
+    asset_class: mixed
+    symbols: [GLD, IBIT]
+    engine_config:
+      strategy_id_override: S5_DUAL
+    risk:
+      unit_risk_dollars: 200.0
+      daily_stop_R: 2.0
+      max_working_orders: 2
+      max_heat_R: 1.50
+      priority: 2
+    allocation:
+      base_risk_pct: 0.008
+    dashboard_metadata:
+      system_label: "Swing Trader"
+      short_label: "SWING"
+      color_key: "blue"
+    deployment_tags: [live, paper, swing]
+
+  IARIC_v1:
+    strategy_id: IARIC_v1
+    system_id: stock_trader
+    family: stock
+    connection_group: stock
+    display_name: "IARIC v1"
+    module_path: "strategies.stock.iaric.plugin"
+    engine_module: "stock_trader.strategy_iaric.engine"
+    engine_class: "IARICEngine"
+    legacy_config_module: "stock_trader.strategy_iaric.config"
+    enabled: true
+    paper_mode: false
+    asset_class: equity
+    symbols: [SPY, QQQ, IWM]
+    artifact_config:
+      type: watchlist
+      source: stock_trader/data/iaric_v1
+    engine_config:
+      universe: sp500
+    risk:
+      unit_risk_dollars: 100.0
+      daily_stop_R: 2.0
+      max_working_orders: 1
+      max_heat_R: 1.25
+      portfolio_daily_stop_R: 3.0
+    allocation:
+      base_risk_pct: 0.0025
+      continuation_half_size: false
+      continuation_size_mult: 0.50
+    dashboard_metadata:
+      system_label: "Stock Trader"
+      short_label: "STOCK"
+      color_key: "green"
+    deployment_tags: [live, paper, stock]
+
+  US_ORB_v1:
+    strategy_id: US_ORB_v1
+    system_id: stock_trader
+    family: stock
+    connection_group: stock
+    display_name: "US ORB v1"
+    module_path: "strategies.stock.us_orb.plugin"
+    engine_module: "stock_trader.strategy_orb.engine"
+    engine_class: "USORBEngine"
+    legacy_config_module: "stock_trader.strategy_orb.config"
+    enabled: true
+    paper_mode: false
+    asset_class: equity
+    symbols: [SPY, QQQ, IWM]
+    artifact_config:
+      type: cache
+      source: stock_trader/data/strategy_orb
+    engine_config:
+      universe: scanner
+    risk:
+      unit_risk_dollars: 100.0
+      daily_stop_R: 2.0
+      max_working_orders: 1
+      max_heat_R: 4.0
+      portfolio_daily_stop_R: 3.0
+    allocation:
+      base_risk_pct: 0.0035
+    dashboard_metadata:
+      system_label: "Stock Trader"
+      short_label: "STOCK"
+      color_key: "green"
+    deployment_tags: [live, paper, stock]
+
+  ALCB_v1:
+    strategy_id: ALCB_v1
+    system_id: stock_trader
+    family: stock
+    connection_group: stock
+    display_name: "ALCB v1"
+    module_path: "strategies.stock.alcb.plugin"
+    engine_module: "stock_trader.strategy_alcb.engine"
+    engine_class: "ALCBEngine"
+    legacy_config_module: "stock_trader.strategy_alcb.config"
+    enabled: true
+    paper_mode: false
+    asset_class: equity
+    symbols: [SPY, QQQ, IWM]
+    artifact_config:
+      type: candidate
+      source: stock_trader/data/strategy_alcb
+    engine_config:
+      universe: sp500
+    risk:
+      unit_risk_dollars: 100.0
+      daily_stop_R: 2.0
+      max_working_orders: 1
+      max_heat_R: 6.0
+      portfolio_daily_stop_R: 5.0
+    allocation:
+      base_risk_pct: 0.005
+    dashboard_metadata:
+      system_label: "Stock Trader"
+      short_label: "STOCK"
+      color_key: "green"
+    deployment_tags: [live, paper, stock]
+
+  AKC_Helix_v40:
+    strategy_id: AKC_Helix_v40
+    system_id: momentum_trader
+    family: momentum
+    connection_group: momentum
+    display_name: "AKC Helix v40"
+    module_path: "strategies.momentum.helix4.plugin"
+    engine_module: "momentum_trader.strategy.engine"
+    engine_class: "Helix4Engine"
+    legacy_config_module: "momentum_trader.strategy.config"
+    enabled: true
+    paper_mode: false
+    asset_class: futures
+    symbols: [NQ]
+    risk:
+      unit_risk_dollars: 50.0
+      daily_stop_R: 2.0
+      max_working_orders: 2
+      max_heat_R: 3.00
+      portfolio_daily_stop_R: 1.5
+      priority: 2
+    allocation:
+      base_risk_pct: 0.0125
+    dashboard_metadata:
+      system_label: "Momentum Trader"
+      short_label: "MOMO"
+      color_key: "orange"
+    deployment_tags: [live, paper, momentum]
+
+  NQDTC_v2.1:
+    strategy_id: "NQDTC_v2.1"
+    system_id: momentum_trader
+    family: momentum
+    connection_group: momentum
+    display_name: "NQDTC v2.1"
+    module_path: "strategies.momentum.nqdtc.plugin"
+    engine_module: "momentum_trader.strategy_2.engine"
+    engine_class: "NQDTCEngine"
+    legacy_config_module: "momentum_trader.strategy_2.config"
+    enabled: true
+    paper_mode: false
+    asset_class: futures
+    symbols: [MNQ]
+    engine_config:
+      symbol: MNQ
+      state_dir: data/nqdtc_state
+    risk:
+      unit_risk_dollars: 50.0
+      daily_stop_R: 2.5
+      max_working_orders: 2
+      portfolio_daily_stop_R: 1.5
+      priority: 1
+    allocation:
+      base_risk_pct: 0.008
+      continuation_half_size: true
+      continuation_size_mult: 0.70
+    dashboard_metadata:
+      system_label: "Momentum Trader"
+      short_label: "MOMO"
+      color_key: "orange"
+    deployment_tags: [live, paper, momentum]
+
+  VdubusNQ_v4:
+    strategy_id: VdubusNQ_v4
+    system_id: momentum_trader
+    family: momentum
+    connection_group: momentum
+    display_name: "Vdubus NQ v4"
+    module_path: "strategies.momentum.vdub.plugin"
+    engine_module: "momentum_trader.strategy_3.engine"
+    engine_class: "VdubNQv4Engine"
+    legacy_config_module: "momentum_trader.strategy_3.config"
+    enabled: true
+    paper_mode: false
+    asset_class: futures
+    symbols: [MNQ]
+    risk:
+      unit_risk_dollars: 50.0
+      daily_stop_R: 2.5
+      max_working_orders: 2
+      max_heat_R: 3.50
+      portfolio_daily_stop_R: 1.5
+      priority: 0
+    allocation:
+      base_risk_pct: 0.008
+    dashboard_metadata:
+      system_label: "Momentum Trader"
+      short_label: "MOMO"
+      color_key: "orange"
+    deployment_tags: [live, paper, momentum]
