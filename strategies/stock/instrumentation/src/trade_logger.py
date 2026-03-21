@@ -6,10 +6,36 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
+import yaml
+
 from .event_metadata import EventMetadata, create_event_metadata
 from .market_snapshot import MarketSnapshot, MarketSnapshotService
+from libs.oms.instrumentation.correlation_snapshot import (
+    capture_concurrent_positions,
+    run_async_safely,
+)
 
 logger = logging.getLogger("instrumentation.trade_logger")
+
+_sector_map_cache: dict | None = None
+
+
+def _load_sector_map() -> dict:
+    """Load and cache the sector map from config/sector_map.yaml."""
+    global _sector_map_cache
+    if _sector_map_cache is not None:
+        return _sector_map_cache
+    try:
+        path = Path(__file__).resolve().parents[4] / "config" / "sector_map.yaml"
+        if path.exists():
+            with open(path, "r", encoding="utf-8") as f:
+                _sector_map_cache = yaml.safe_load(f) or {}
+        else:
+            _sector_map_cache = {}
+    except Exception as e:
+        logger.warning("Failed to load sector_map.yaml: %s", e)
+        _sector_map_cache = {}
+    return _sector_map_cache
 
 
 @dataclass
@@ -96,6 +122,11 @@ class TradeEvent:
 
     # Concurrent position tracking (critical gap #4)
     concurrent_positions_at_entry: Optional[int] = None
+    correlated_pairs_detail: Optional[list] = None
+
+    # Sector metadata (for TA portfolio-level sector exposure analysis)
+    sector: str = ""
+    industry: str = ""
 
     # Drawdown state at entry (critical gap #3)
     drawdown_pct: Optional[float] = None
@@ -159,7 +190,10 @@ class TradeEvent:
     stage: str = "entry"
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        # Add TA-compatible signal_id alias (TA expects signal_id, we emit entry_signal_id)
+        d["signal_id"] = d.get("entry_signal_id", "")
+        return d
 
 
 class TradeLogger:
@@ -173,7 +207,8 @@ class TradeLogger:
     """
 
     def __init__(self, config: dict, snapshot_service: MarketSnapshotService,
-                 process_scorer=None, strategy_type: str = "", error_logger=None):
+                 process_scorer=None, strategy_type: str = "", error_logger=None,
+                 pg_store=None, family_strategy_ids: list[str] | None = None):
         self.bot_id = config["bot_id"]
         self.strategy_id = config.get("strategy_id", "")
         self.data_dir = Path(config["data_dir"]) / "trades"
@@ -185,6 +220,9 @@ class TradeLogger:
         self.experiment_id = config.get("experiment_id")
         self.experiment_variant = config.get("experiment_variant")
         self._error_logger = error_logger
+        self._pg_store = pg_store
+        self._family_strategy_ids = family_strategy_ids or []
+        self._sector_map = _load_sector_map()
         self._open_trades: Dict[str, TradeEvent] = {}
         self._pending_exit_backfills: list[dict] = []
 
@@ -308,6 +346,30 @@ class TradeLogger:
             if strategy_params:
                 params_str = json.dumps(strategy_params, sort_keys=True, default=str)
                 trade.param_set_id = hashlib.sha256(params_str.encode()).hexdigest()[:16]
+
+            # Populate sector metadata from static map
+            try:
+                sector_info = self._sector_map.get(pair, {})
+                if sector_info:
+                    trade.sector = sector_info.get("sector", "")
+                    trade.industry = sector_info.get("industry", "")
+            except Exception as e:
+                logger.warning("Failed to look up sector for %s: %s", pair, e)
+
+            # Populate correlated_pairs_detail via DB query (separate OMSs)
+            try:
+                if self._pg_store and self._family_strategy_ids:
+                    corr = run_async_safely(
+                        capture_concurrent_positions(
+                            self._pg_store, "stock",
+                            self.strategy_id,
+                            pair, self._family_strategy_ids,
+                        )
+                    )
+                    if corr:
+                        trade.correlated_pairs_detail = corr
+            except Exception as e:
+                logger.warning("Failed to capture concurrent positions: %s", e)
 
             self._open_trades[trade_id] = trade
             self._write_event(trade)
@@ -438,8 +500,8 @@ class TradeLogger:
                     trade.root_causes = list(score.root_causes)
                     trade.evidence_refs = list(score.evidence_refs)
                     self._write_score(score)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("Process scoring failed for %s: %s", trade_id, e)
 
             trade.event_metadata = create_event_metadata(
                 bot_id=self.bot_id,

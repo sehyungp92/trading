@@ -6,6 +6,7 @@ engines silently skip all instrumentation calls.
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -32,13 +33,16 @@ class InstrumentationContext:
     orderbook_logger: object = None       # OrderBookLogger
     experiment_registry: object = None    # ExperimentRegistry
     overlay_state_provider: object = None  # Callable[[], dict[str, bool]]
+    post_exit_tracker: object = None      # PostExitTracker
     bot_id: str = ""
     data_dir: str = "instrumentation/data"
 
     _started: bool = field(default=False, repr=False)
+    _backfill_stop: threading.Event = field(default_factory=threading.Event, repr=False)
+    _backfill_thread: Optional[threading.Thread] = field(default=None, repr=False)
 
     def start(self) -> None:
-        """Start background services (sidecar thread)."""
+        """Start background services (sidecar thread, post-exit backfill)."""
         if self._started:
             return
         try:
@@ -46,6 +50,17 @@ class InstrumentationContext:
                 self.sidecar.start()
         except Exception as e:
             logger.warning("Sidecar start failed: %s", e)
+        try:
+            if self.post_exit_tracker is not None:
+                self._backfill_stop.clear()
+                self._backfill_thread = threading.Thread(
+                    target=self._backfill_loop, daemon=True,
+                    name="post-exit-backfill",
+                )
+                self._backfill_thread.start()
+                logger.info("Post-exit backfill thread started")
+        except Exception as e:
+            logger.warning("Post-exit backfill thread start failed: %s", e)
         self._started = True
         logger.info("InstrumentationContext started")
 
@@ -54,9 +69,25 @@ class InstrumentationContext:
         if not self._started:
             return
         try:
+            if self._backfill_thread is not None:
+                self._backfill_stop.set()
+                self._backfill_thread.join(timeout=10)
+                self._backfill_thread = None
+                logger.info("Post-exit backfill thread stopped")
+        except Exception as e:
+            logger.warning("Post-exit backfill thread stop failed: %s", e)
+        try:
             if self.sidecar is not None:
                 self.sidecar.stop()
         except Exception as e:
             logger.warning("Sidecar stop failed: %s", e)
         self._started = False
         logger.info("InstrumentationContext stopped")
+
+    def _backfill_loop(self) -> None:
+        """Periodically run post-exit backfill (every 30 min)."""
+        while not self._backfill_stop.wait(timeout=1800):
+            try:
+                self.post_exit_tracker.run_backfill()  # type: ignore[union-attr]
+            except Exception as e:
+                logger.warning("Post-exit backfill error: %s", e)

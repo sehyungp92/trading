@@ -133,7 +133,7 @@ def test_periodic_loop_checkpoints_daily_snapshot():
 
 def test_start_requires_sidecar_auth_in_paper(monkeypatch):
     async def _run():
-        monkeypatch.setenv("ALGO_TRADER_ENV", "paper")
+        monkeypatch.setenv("TRADING_ENV", "paper")
         monkeypatch.delenv("INSTRUMENTATION_HMAC_SECRET", raising=False)
 
         manager = InstrumentationManager(

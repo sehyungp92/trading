@@ -59,8 +59,8 @@ async def main() -> None:
     logger.info("Registered %d instruments", len(instruments))
 
     # 6. Fetch equity (paper mode uses DB-tracked equity)
-    import os
-    paper_mode = os.getenv("ALGO_TRADER_ENV", "").lower() == "paper"
+    from libs.oms.persistence.db_config import get_environment
+    paper_mode = get_environment() == "paper"
     paper_equity_pool = None
 
     if paper_mode:

@@ -27,45 +27,45 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 _RISK_PARAMS: dict[str, dict[str, Any]] = {
     "ATRSS": {
-        "unit_risk_pct": 0.012,   # 1.2% base risk (optimized_v1)
+        "unit_risk_pct": 0.018,   # 1.8% base risk (P1 heat-unlock optimized)
         "daily_stop_R": 2.0,
         "priority": 0,            # highest expectancy
-        "max_heat_R": 1.00,
+        "max_heat_R": 1.50,
         "max_working_orders": 4,
     },
     "S5_PB": {
-        "unit_risk_pct": 0.008,   # 0.80% base risk per S5_PB spec
+        "unit_risk_pct": 0.012,   # 1.2% base risk (P1 heat-unlock optimized)
         "daily_stop_R": 2.0,
         "priority": 1,            # 80% WR on IBIT (optimized_v2)
         "max_heat_R": 1.50,
         "max_working_orders": 2,
     },
     "S5_DUAL": {
-        "unit_risk_pct": 0.008,   # 0.80% base risk per S5_DUAL spec
+        "unit_risk_pct": 0.012,   # 1.2% base risk (P1 heat-unlock optimized)
         "daily_stop_R": 2.0,
         "priority": 2,            # 70.7% WR on GLD+IBIT (optimized_v2)
         "max_heat_R": 1.50,
         "max_working_orders": 2,
     },
     "SWING_BREAKOUT_V3": {
-        "unit_risk_pct": 0.005,   # 0.50% base risk per Breakout spec
+        "unit_risk_pct": 0.008,   # 0.8% base risk (P1 heat-unlock optimized)
         "daily_stop_R": 2.0,
         "priority": 3,            # rare signals, priority barely matters
-        "max_heat_R": 0.65,
+        "max_heat_R": 1.00,
         "max_working_orders": 2,
     },
     "AKC_HELIX": {
-        "unit_risk_pct": 0.005,   # 0.50% base risk per Helix spec
+        "unit_risk_pct": 0.008,   # 0.8% base risk (P1 heat-unlock optimized)
         "daily_stop_R": 2.5,
         "priority": 4,            # 34% WR, high stale-exit rate — lowest priority
-        "max_heat_R": 0.85,
+        "max_heat_R": 1.20,
         "max_working_orders": 4,
     },
 }
 
-# Portfolio-level risk caps
-_HEAT_CAP_R = 2.0               # expanded (optimized_v2)
-_PORTFOLIO_DAILY_STOP_R = 3.0
+# Portfolio-level risk caps (P1 heat-unlock optimized)
+_HEAT_CAP_R = 3.0
+_PORTFOLIO_DAILY_STOP_R = 4.0
 
 
 class SwingFamilyCoordinator:
@@ -186,6 +186,17 @@ class SwingFamilyCoordinator:
         # -- Build shared multi-strategy OMS -------------------------------
         account_gate = AccountRiskGate(db_pool) if db_pool else None
 
+        # Portfolio rules: directional cap + symbol collision for swing family
+        from libs.oms.risk.portfolio_rules import PortfolioRulesConfig
+        portfolio_rules = PortfolioRulesConfig(
+            directional_cap_R=6.0,
+            initial_equity=equity,
+            family_strategy_ids=tuple(strategy_ids),
+            symbol_collision_action="half_size",
+            helix_nqdtc_cooldown_minutes=0,  # disable momentum-specific rules
+            nqdtc_direction_filter_enabled=False,
+        )
+
         self._oms, self._coordinator = await build_multi_strategy_oms(
             adapter=adapter,
             strategies=[
@@ -205,6 +216,8 @@ class SwingFamilyCoordinator:
             market_calendar=market_cal,
             family_id=self.family_id,
             account_gate=account_gate,
+            portfolio_rules_config=portfolio_rules,
+            get_current_equity=lambda: equity,
         )
 
         # -- Wire coordinator action logger --------------------------------
@@ -226,6 +239,22 @@ class SwingFamilyCoordinator:
             logger.info("Post-reconnect reconciliation callback wired")
 
         # -- Bootstrap instrumentation kits --------------------------------
+        _data_provider = None
+        try:
+            import asyncio as _asyncio
+            from .instrumentation.src.ibkr_provider import IBKRHistoricalProvider
+            _ib = getattr(session, "ib", None)
+            _loop = _asyncio.get_running_loop()
+            if _ib is not None:
+                _data_provider = IBKRHistoricalProvider(
+                    ib=_ib,
+                    contract_factory=getattr(adapter, "contract_factory", None),
+                    loop=_loop,
+                )
+                logger.info("IBKRHistoricalProvider created for post-exit backfill")
+        except Exception:
+            logger.debug("IBKRHistoricalProvider creation skipped", exc_info=True)
+
         self._kits = self._bootstrap_instrumentation_kits(
             strategy_ids,
             {
@@ -235,6 +264,7 @@ class SwingFamilyCoordinator:
                 S5_PB_STRATEGY_ID: S5_PB_CONFIGS,
                 S5_DUAL_STRATEGY_ID: S5_DUAL_CONFIGS,
             },
+            data_provider=_data_provider,
         )
 
         # -- Build instruments per strategy --------------------------------
@@ -430,6 +460,7 @@ class SwingFamilyCoordinator:
         self,
         strategy_ids: list[str],
         config_maps: dict[str, dict],
+        data_provider=None,
     ) -> dict[str, Any]:
         """Create per-strategy InstrumentationKits (graceful degradation)."""
         kits: dict[str, Any] = {}
@@ -442,7 +473,9 @@ class SwingFamilyCoordinator:
             all_symbols = sorted({
                 sym for configs in config_maps.values() for sym in configs
             })
-            self._instrumentation_ctx = bootstrap_instrumentation(symbols=all_symbols)
+            self._instrumentation_ctx = bootstrap_instrumentation(
+                symbols=all_symbols, data_provider=data_provider,
+            )
             logger.info("Instrumentation bootstrapped for %s", all_symbols)
 
             for sid in strategy_ids:

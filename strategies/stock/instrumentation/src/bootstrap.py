@@ -133,6 +133,8 @@ class InstrumentationManager:
         strategy_id: str,
         strategy_type: str,
         data_provider=None,
+        pg_store=None,
+        family_strategy_ids: list[str] | None = None,
     ) -> None:
         self._oms = oms
         self._strategy_id = strategy_id
@@ -150,6 +152,8 @@ class InstrumentationManager:
             process_scorer=self.process_scorer,
             strategy_type=self._strategy_type,
             error_logger=self.error_logger,
+            pg_store=pg_store,
+            family_strategy_ids=family_strategy_ids,
         )
         self.missed_logger = MissedOpportunityLogger(
             self._config,

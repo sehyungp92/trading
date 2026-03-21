@@ -3,19 +3,19 @@ connection_groups:
     host: "127.0.0.1"
     port: 4002
     client_id: 7
-    account_id: "${IBKR_ACCOUNT_ID}"
+    account_id: "${IB_ACCOUNT_ID}"
     readonly: false
   stock:
     host: "127.0.0.1"
     port: 4002
     client_id: 31
-    account_id: "${IBKR_ACCOUNT_ID}"
+    account_id: "${IB_ACCOUNT_ID}"
     readonly: false
   momentum:
     host: "127.0.0.1"
     port: 4002
     client_id: 11
-    account_id: "${IBKR_ACCOUNT_ID}"
+    account_id: "${IB_ACCOUNT_ID}"
     readonly: false
 
 strategies:
@@ -37,10 +37,10 @@ strategies:
       unit_risk_dollars: 200.0
       daily_stop_R: 2.0
       max_working_orders: 4
-      max_heat_R: 1.00
+      max_heat_R: 1.50
       priority: 0
     allocation:
-      base_risk_pct: 0.012
+      base_risk_pct: 0.018
       equity_offset: 0.0
     dashboard_metadata:
       system_label: "Swing Trader"
@@ -66,10 +66,10 @@ strategies:
       unit_risk_dollars: 200.0
       daily_stop_R: 2.5
       max_working_orders: 4
-      max_heat_R: 0.85
+      max_heat_R: 1.20
       priority: 4
     allocation:
-      base_risk_pct: 0.005
+      base_risk_pct: 0.008
     dashboard_metadata:
       system_label: "Swing Trader"
       short_label: "SWING"
@@ -94,10 +94,10 @@ strategies:
       unit_risk_dollars: 200.0
       daily_stop_R: 2.0
       max_working_orders: 2
-      max_heat_R: 0.65
+      max_heat_R: 1.00
       priority: 3
     allocation:
-      base_risk_pct: 0.005
+      base_risk_pct: 0.008
     dashboard_metadata:
       system_label: "Swing Trader"
       short_label: "SWING"
@@ -127,7 +127,7 @@ strategies:
       max_heat_R: 1.50
       priority: 1
     allocation:
-      base_risk_pct: 0.008
+      base_risk_pct: 0.012
     dashboard_metadata:
       system_label: "Swing Trader"
       short_label: "SWING"
@@ -157,7 +157,7 @@ strategies:
       max_heat_R: 1.50
       priority: 2
     allocation:
-      base_risk_pct: 0.008
+      base_risk_pct: 0.012
     dashboard_metadata:
       system_label: "Swing Trader"
       short_label: "SWING"

@@ -10,6 +10,8 @@ Usage:
 """
 from __future__ import annotations
 
+from research.backtests.momentum._aliases import install; install()
+
 import argparse
 import asyncio
 import logging
@@ -1091,7 +1093,7 @@ def _cmd_run_portfolio(args):
     from backtest.engine.portfolio_engine import PortfolioBacktester
 
     data_dir = Path(args.data_dir)
-    preset_name = getattr(args, 'preset', '10k_v4')
+    preset_name = getattr(args, 'preset', '10k_v6')
 
     if preset_name not in PRESETS:
         logger.error(
@@ -1260,7 +1262,7 @@ def _cmd_sweep_portfolio(args):
     )
 
     data_dir = Path(args.data_dir)
-    preset_name = getattr(args, 'preset', '10k_v4')
+    preset_name = getattr(args, 'preset', '10k_v6')
 
     if preset_name not in PRESETS:
         logger.error(
@@ -1606,8 +1608,8 @@ def main():
                      help="Directory for chart output (default: backtest/output/charts)")
     run.add_argument("--report-file", default=None,
                      help="Write all report output to this file")
-    run.add_argument("--preset", default="10k_v4",
-                     help="Portfolio preset name (default: 10k_v4). Use with --strategy portfolio.")
+    run.add_argument("--preset", default="10k_v6",
+                     help="Portfolio preset name (default: 10k_v6). Use with --strategy portfolio.")
 
     # ablation
     ab = sub.add_parser("ablation", help="Run ablation test")
@@ -1634,8 +1636,8 @@ def main():
 
     # sweep (portfolio parameter sweep)
     sw = sub.add_parser("sweep", help="Run portfolio parameter sweep")
-    sw.add_argument("--preset", default="10k_v4",
-                    help="Portfolio preset name (default: 10k_v4)")
+    sw.add_argument("--preset", default="10k_v6",
+                    help="Portfolio preset name (default: 10k_v6)")
     sw.add_argument("--start", default=None, help="Start date (YYYY-MM-DD)")
     sw.add_argument("--end", default=None, help="End date (YYYY-MM-DD)")
     sw.add_argument("--data-dir", default="backtest/data/raw")

@@ -32,7 +32,7 @@ export async function GET() {
       tradeRows,
       orderRows,
     ] = await Promise.all([
-      // Portfolio realized
+      // Portfolio realized (aggregated view handles multi-family)
       query<{
         daily_realized_r: number;
         daily_realized_usd: number;
@@ -41,7 +41,7 @@ export async function GET() {
         halt_reason: string | null;
       }>(
         `SELECT daily_realized_r, daily_realized_usd, portfolio_open_risk_r, halted, halt_reason
-         FROM risk_daily_portfolio
+         FROM v_portfolio_daily_summary
          WHERE trade_date = CURRENT_DATE`
       ),
       // Portfolio unrealized + heat
@@ -173,7 +173,10 @@ export async function GET() {
       headers: { 'Cache-Control': 'no-store' },
     });
   } catch (err) {
-    console.error('[api/live]', err);
-    return NextResponse.json({ error: 'Database error' }, { status: 500 });
+    console.error('[api/live] SQL error:', err instanceof Error ? err.message : err);
+    return NextResponse.json(
+      { error: 'database_query_failed', detail: err instanceof Error ? err.message : 'unknown' },
+      { status: 500 },
+    );
   }
 }

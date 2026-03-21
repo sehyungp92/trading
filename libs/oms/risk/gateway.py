@@ -240,13 +240,14 @@ class RiskGateway:
         if not strat_cfg.is_order_type_allowed(order.role, order.order_type):
             return f"Order type {order.order_type} not allowed for role {order.role}"
 
-        # 11. Cross-strategy portfolio rules (momentum family)
+        # 11. Cross-strategy portfolio rules (momentum / stock family)
         if self._portfolio_checker:
             direction = "LONG" if order.side.value == "BUY" else "SHORT"
             port_result = await self._portfolio_checker.check_entry(
                 strategy_id=order.strategy_id,
                 direction=direction,
                 new_risk_R=new_risk_R,
+                symbol=order.instrument.symbol if order.instrument else None,
             )
             if not port_result.approved:
                 return f"Portfolio rule: {port_result.denial_reason}"

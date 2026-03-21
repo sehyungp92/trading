@@ -12,13 +12,13 @@ export async function GET() {
            trade_date,
            daily_realized_r,
            SUM(daily_realized_r) OVER (ORDER BY trade_date) AS cumulative_r
-         FROM risk_daily_portfolio
+         FROM v_portfolio_daily_summary
          WHERE trade_date >= CURRENT_DATE - INTERVAL '90 days'
          ORDER BY trade_date`
       ),
       query<DailyPnlPoint>(
         `SELECT trade_date, daily_realized_r
-         FROM risk_daily_portfolio
+         FROM v_portfolio_daily_summary
          WHERE trade_date >= CURRENT_DATE - INTERVAL '30 days'
          ORDER BY trade_date`
       ),
@@ -34,7 +34,10 @@ export async function GET() {
       headers: { 'Cache-Control': 'no-store' },
     });
   } catch (err) {
-    console.error('[api/charts]', err);
-    return NextResponse.json({ error: 'Database error' }, { status: 500 });
+    console.error('[api/charts] SQL error:', err instanceof Error ? err.message : err);
+    return NextResponse.json(
+      { error: 'database_query_failed', detail: err instanceof Error ? err.message : 'unknown' },
+      { status: 500 },
+    );
   }
 }

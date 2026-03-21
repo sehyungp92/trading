@@ -34,7 +34,7 @@ test = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["apps*", "libs*", "strategies*"]
+include = ["apps*", "libs*", "strategies*", "research*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

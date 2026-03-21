@@ -3,11 +3,14 @@
 Implements the rules from PortfolioConfig v6:
   1. Proximity cooldown (Helix <-> NQDTC, session-only during 09:45-11:30 ET)
   2. NQDTC direction filter (affects Vdubus sizing)
-  3. Directional cap (max same-direction risk)
+  3. Directional cap (max same-direction risk; family-scoped for stock)
+  3b. Symbol collision guard (stock family: block/reduce when sibling holds same ticker)
   4. Drawdown tiers (size reduction as DD increases)
+  5. NQDTC chop throttle (affects Helix sizing)
 
 These rules query the shared `strategy_signals` and `positions` tables
 to coordinate across independently-running strategy containers.
+Used by momentum family (rules 1-5) and stock family (rules 3, 3b, 4).
 """
 from __future__ import annotations
 
@@ -56,6 +59,19 @@ class PortfolioRulesConfig:
     )
     initial_equity: float = 10_000.0
 
+    # Family-scoped rules (stock family)
+    family_strategy_ids: tuple[str, ...] = ()  # if set, scope directional cap to these IDs
+    symbol_collision_action: str = "none"       # "none", "block", "half_size"
+
+    _VALID_COLLISION_ACTIONS = frozenset({"none", "block", "half_size"})
+
+    def __post_init__(self):
+        if self.symbol_collision_action not in self._VALID_COLLISION_ACTIONS:
+            raise ValueError(
+                f"Invalid symbol_collision_action {self.symbol_collision_action!r}, "
+                f"must be one of {sorted(self._VALID_COLLISION_ACTIONS)}"
+            )
+
 
 # ── Result ────────────────────────────────────────────────────────────
 
@@ -83,12 +99,27 @@ class PortfolioRuleChecker:
         get_directional_risk_R: Callable[[str], Awaitable[float]],
         get_current_equity: Callable[[], float],
         on_rule_event: Optional[Callable[[dict], None]] = None,
+        get_directional_risk_R_for_strategies: Optional[
+            Callable[[str, list[str]], Awaitable[float]]
+        ] = None,
+        get_sibling_positions_for_symbol: Optional[
+            Callable[[list[str], str], Awaitable[bool]]
+        ] = None,
     ):
         self._cfg = config
         self._get_signal = get_strategy_signal
-        self._get_dir_risk = get_directional_risk_R
         self._get_equity = get_current_equity
         self._on_rule_event = on_rule_event
+        self._get_sibling = get_sibling_positions_for_symbol
+
+        # Family-scoped directional risk: wrap callback if strategy IDs provided
+        family_ids = config.family_strategy_ids
+        if family_ids and get_directional_risk_R_for_strategies is not None:
+            ids_list = list(family_ids)
+            self._get_dir_risk = lambda d: get_directional_risk_R_for_strategies(d, ids_list)
+            logger.info("Directional cap scoped to strategies: %s", family_ids)
+        else:
+            self._get_dir_risk = get_directional_risk_R
 
     def _emit(self, event: dict) -> None:
         if self._on_rule_event:
@@ -109,6 +140,7 @@ class PortfolioRuleChecker:
         strategy_id: str,
         direction: str,  # "LONG" or "SHORT"
         new_risk_R: float = 1.0,
+        symbol: Optional[str] = None,
     ) -> PortfolioRuleResult:
         """Run all portfolio rules. Returns result with approval and size multiplier."""
         result = PortfolioRuleResult()
@@ -138,6 +170,18 @@ class PortfolioRuleChecker:
             self._emit({"rule": "directional_cap", "strategy_id": strategy_id,
                          "direction": direction, "approved": False, "denial_reason": denial})
             return PortfolioRuleResult(approved=False, denial_reason=denial)
+
+        # 3b. Symbol collision (stock family — block/reduce when sibling holds same ticker)
+        collision_result = await self._check_symbol_collision(strategy_id, symbol)
+        if collision_result is not None:
+            if collision_result == 0.0:
+                reason = f"symbol_collision: sibling strategy holds {symbol}"
+                self._emit({"rule": "symbol_collision", "strategy_id": strategy_id,
+                             "symbol": symbol, "approved": False, "denial_reason": reason})
+                return PortfolioRuleResult(approved=False, denial_reason=reason)
+            self._emit({"rule": "symbol_collision", "strategy_id": strategy_id,
+                         "symbol": symbol, "approved": True, "size_multiplier": collision_result})
+            result.size_multiplier *= collision_result
 
         # 4. Drawdown tiers
         dd_mult = self._check_drawdown_tier()
@@ -262,6 +306,39 @@ class PortfolioRuleChecker:
             )
             return self._cfg.nqdtc_chop_throttle_mult
         return 1.0
+
+    async def _check_symbol_collision(
+        self, strategy_id: str, symbol: Optional[str],
+    ) -> Optional[float]:
+        """Check if a sibling strategy already holds the same symbol.
+
+        Returns None if check not applicable, 0.0 to block, or a multiplier to reduce size.
+        """
+        action = self._cfg.symbol_collision_action
+        if action == "none" or not symbol:
+            return None
+        family_ids = self._cfg.family_strategy_ids
+        if not family_ids or self._get_sibling is None:
+            return None
+
+        # Exclude the requesting strategy from sibling check
+        sibling_ids = [sid for sid in family_ids if sid != strategy_id]
+        if not sibling_ids:
+            return None
+
+        has_collision = await self._get_sibling(sibling_ids, symbol)
+        if not has_collision:
+            return None
+
+        if action == "block":
+            return 0.0
+        if action == "half_size":
+            logger.info(
+                "Symbol collision: sibling holds %s → half size for %s",
+                symbol, strategy_id,
+            )
+            return 0.5
+        return None
 
     def _check_drawdown_tier(self) -> float:
         """Drawdown-based size multiplier."""

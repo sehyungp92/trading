@@ -15,6 +15,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from libs.oms.persistence.db_config import get_environment
+
 from strategies.contracts import RuntimeContext
 
 logger = logging.getLogger(__name__)
@@ -63,7 +65,7 @@ class MomentumFamilyCoordinator:
         )
 
         # ── Resolve equity ───────────────────────────────────────────
-        paper_mode = os.getenv("ALGO_TRADER_ENV", "").lower() == "paper"
+        paper_mode = get_environment() == "paper"
         paper_equity_pool: Any = None
         equity: float
 
@@ -103,6 +105,9 @@ class MomentumFamilyCoordinator:
         # ── Strategy descriptors ─────────────────────────────────────
         descriptors = self._build_strategy_descriptors()
 
+        # Pre-compute all strategy IDs for family-scoped portfolio rules
+        all_strategy_ids = tuple(d["strategy_id"] for d in descriptors)
+
         for desc in descriptors:
             sid = desc["strategy_id"]
             self._strategy_ids.append(sid)
@@ -133,7 +138,12 @@ class MomentumFamilyCoordinator:
             )
             _live_equity = [allocated_nav]
 
-            portfolio_rules = PortfolioRulesConfig(initial_equity=allocated_nav)
+            portfolio_rules = PortfolioRulesConfig(
+                initial_equity=allocated_nav,
+                directional_cap_R=6.0,  # family-wide cap (vs 3.5 per-strategy default)
+                family_strategy_ids=all_strategy_ids,
+                symbol_collision_action="half_size",
+            )
 
             # Build per-strategy OMS
             oms = await build_oms_service(

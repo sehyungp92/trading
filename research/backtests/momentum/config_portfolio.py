@@ -44,7 +44,7 @@ PRESETS: dict[str, callable] = {
 class PortfolioBacktestConfig:
     """Portfolio-level backtest configuration."""
 
-    portfolio: PortfolioConfig = field(default_factory=make_10k_v4_config)
+    portfolio: PortfolioConfig = field(default_factory=make_10k_v6_config)
     data_dir: Path = field(default_factory=lambda: Path("backtest/data/raw"))
 
     # Which strategies to include

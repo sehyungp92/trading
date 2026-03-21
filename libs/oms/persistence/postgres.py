@@ -597,6 +597,41 @@ class PgStore:
         )
         return float(r["total_risk"]) if r else 0.0
 
+    async def get_directional_risk_R_for_strategies(
+        self, direction: str, strategy_ids: list[str],
+    ) -> float:
+        """Sum open risk R for positions in a given direction, filtered by strategy IDs."""
+        r = await self._pool.fetchrow(
+            """
+            SELECT COALESCE(SUM(open_risk_R), 0) AS total_risk
+            FROM positions
+            WHERE strategy_id = ANY($2)
+            AND net_qty != 0
+            AND CASE WHEN $1 = 'LONG' THEN net_qty > 0 ELSE net_qty < 0 END
+            """,
+            direction,
+            strategy_ids,
+        )
+        return float(r["total_risk"]) if r else 0.0
+
+    async def get_sibling_positions_for_symbol(
+        self, strategy_ids: list[str], symbol: str,
+    ) -> bool:
+        """Check if any sibling strategy holds an open position in the given symbol."""
+        r = await self._pool.fetchval(
+            """
+            SELECT EXISTS(
+                SELECT 1 FROM positions
+                WHERE strategy_id = ANY($1)
+                AND instrument_symbol = $2
+                AND net_qty != 0
+            )
+            """,
+            strategy_ids,
+            symbol,
+        )
+        return bool(r)
+
     # ------------------------------------------------------------------
     # Risk Daily Strategy
     # ------------------------------------------------------------------

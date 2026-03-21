@@ -76,6 +76,12 @@ class MissedOpportunityEvent:
     strategy_params_at_signal: Optional[dict] = None
     market_regime: str = ""
 
+    # Structured filter context
+    filter_decisions: List[dict] = field(default_factory=list)
+
+    # How close the blocking filter was to passing (percentage margin)
+    margin_pct: Optional[float] = None
+
     def to_dict(self) -> dict:
         d = asdict(self)
         # Add trading_assistant-compatible alias fields.
@@ -161,6 +167,7 @@ class MissedOpportunityLogger:
         market_regime: str = "",
         exchange_timestamp: Optional[datetime] = None,
         bar_id: Optional[str] = None,
+        filter_decisions: Optional[List[dict]] = None,
     ) -> MissedOpportunityEvent:
         """Call when a signal fires but is blocked."""
         try:
@@ -215,6 +222,19 @@ class MissedOpportunityLogger:
                 market_regime=market_regime,
                 backfill_status="pending",
             )
+
+            if filter_decisions:
+                event.filter_decisions = filter_decisions
+                # Compute margin_pct from the blocking filter's threshold vs actual
+                for fd in filter_decisions:
+                    if fd.get("filter_name") == blocked_by and not fd.get("passed", True):
+                        threshold = fd.get("threshold")
+                        actual = fd.get("actual_value")
+                        if threshold and actual and threshold != 0:
+                            event.margin_pct = round(
+                                ((actual - threshold) / abs(threshold)) * 100, 2
+                            )
+                        break
 
             self._write_event(event)
 

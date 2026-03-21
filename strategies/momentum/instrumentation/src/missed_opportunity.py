@@ -95,8 +95,15 @@ class MissedOpportunityEvent:
     experiment_id: Optional[str] = None
     experiment_variant: Optional[str] = None
 
+    # How close the blocking filter was to passing (percentage margin)
+    margin_pct: Optional[float] = None
+
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        # Add trading_assistant-compatible alias fields.
+        d["hypothetical_entry"] = d.get("hypothetical_entry_price", 0.0)
+        d["confidence"] = d.get("simulation_confidence", 0.0)
+        return d
 
 
 class MissedOpportunityLogger:
@@ -186,6 +193,7 @@ class MissedOpportunityLogger:
         exchange_timestamp: Optional[datetime] = None,
         bar_id: Optional[str] = None,
         signal_evolution: Optional[List[dict]] = None,
+        filter_decisions: Optional[List[dict]] = None,
     ) -> MissedOpportunityEvent:
         """Call this when a signal fires but is blocked."""
         try:
@@ -244,6 +252,19 @@ class MissedOpportunityLogger:
             )
 
             event.signal_evolution = signal_evolution
+
+            if filter_decisions:
+                event.filter_decisions = filter_decisions
+                # Compute margin_pct from the blocking filter's threshold vs actual
+                for fd in filter_decisions:
+                    if fd.get("filter_name") == blocked_by and not fd.get("passed", True):
+                        threshold = fd.get("threshold")
+                        actual = fd.get("actual_value")
+                        if threshold and actual and threshold != 0:
+                            event.margin_pct = round(
+                                ((actual - threshold) / abs(threshold)) * 100, 2
+                            )
+                        break
 
             self._write_event(event)
 

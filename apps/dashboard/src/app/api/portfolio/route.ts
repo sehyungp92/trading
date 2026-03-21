@@ -15,7 +15,7 @@ export async function GET() {
         halt_reason: string | null;
       }>(
         `SELECT daily_realized_r, daily_realized_usd, portfolio_open_risk_r, halted, halt_reason
-         FROM risk_daily_portfolio
+         FROM v_portfolio_daily_summary
          WHERE trade_date = CURRENT_DATE`
       ),
       query<{ unrealized_pnl: number; heat_r: number }>(
@@ -51,7 +51,10 @@ export async function GET() {
       headers: { 'Cache-Control': 'no-store' },
     });
   } catch (err) {
-    console.error('[api/portfolio]', err);
-    return NextResponse.json({ error: 'Database error' }, { status: 500 });
+    console.error('[api/portfolio] SQL error:', err instanceof Error ? err.message : err);
+    return NextResponse.json(
+      { error: 'database_query_failed', detail: err instanceof Error ? err.message : 'unknown' },
+      { status: 500 },
+    );
   }
 }

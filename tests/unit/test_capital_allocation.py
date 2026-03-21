@@ -14,9 +14,9 @@ def test_family_default_split_for_swing_strategy() -> None:
     allocation = resolve_strategy_capital_allocation("ATRSS", 100_000.0, registry, portfolio)
 
     assert allocation.family == "swing"
-    assert allocation.family_fraction == 0.40
+    assert allocation.family_fraction == 0.3334
     assert allocation.strategy_fraction_within_family == 0.20
-    assert allocation.allocated_nav == 8_000.0
+    assert allocation.allocated_nav == 6_668.0
 
 
 def test_explicit_stock_strategy_allocation_is_used() -> None:
@@ -26,7 +26,7 @@ def test_explicit_stock_strategy_allocation_is_used() -> None:
     allocation = resolve_strategy_capital_allocation("IARIC_v1", 100_000.0, registry, portfolio)
 
     assert allocation.family == "stock"
-    assert allocation.family_fraction == 0.35
+    assert allocation.family_fraction == 0.3333
     assert allocation.strategy_fraction_within_family == 0.34
-    assert allocation.allocated_nav == 11_900.0
+    assert allocation.allocated_nav == 11_332.2
 

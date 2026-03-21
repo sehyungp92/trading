@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import os
 import sqlite3
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -25,6 +26,9 @@ class EventStore:
     def _init_db(self):
         conn = sqlite3.connect(self.db_path)
         conn.executescript(SCHEMA_PATH.read_text())
+        # Enable WAL mode for concurrent read/write performance
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
         # Migration: add priority column to existing DBs
         try:
             conn.execute("ALTER TABLE events ADD COLUMN priority INTEGER NOT NULL DEFAULT 3")
@@ -37,6 +41,7 @@ class EventStore:
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA busy_timeout=5000")
         return conn
 
     def insert_events(self, events: list[dict]) -> dict[str, int]:
@@ -194,6 +199,35 @@ class EventStore:
             return deleted
         finally:
             conn.close()
+
+    def start_periodic_purge(self, interval_hours: float = 6.0) -> None:
+        """Schedule periodic purge of acked and stale unacked events."""
+        self._purge_stop = threading.Event()
+
+        def _run_purge():
+            try:
+                acked = self.purge_acked(days=7, vacuum=False)
+                stale = self.purge_stale_unacked(days=3, vacuum=False)
+                if acked > 0 or stale > 0:
+                    self.vacuum()
+            except Exception:
+                logger.warning("Periodic purge failed", exc_info=True)
+
+        def _purge_loop():
+            _run_purge()  # immediate first run
+            while not self._purge_stop.wait(timeout=interval_hours * 3600):
+                _run_purge()
+
+        self._purge_thread = threading.Thread(
+            target=_purge_loop, daemon=True, name="relay-purge",
+        )
+        self._purge_thread.start()
+        logger.info("Periodic purge scheduled every %.1fh", interval_hours)
+
+    def stop_periodic_purge(self) -> None:
+        """Stop the periodic purge thread."""
+        if hasattr(self, "_purge_stop"):
+            self._purge_stop.set()
 
     def purge_stale_unacked(self, days: int = 3, vacuum: bool = True) -> int:
         """Delete unacked events older than N days (no consumer draining them)."""

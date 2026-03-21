@@ -15,6 +15,9 @@ from typing import Optional, List, Dict, Any
 
 from .event_metadata import EventMetadata, create_event_metadata
 from .market_snapshot import MarketSnapshot, MarketSnapshotService
+from libs.oms.instrumentation.correlation_snapshot import (
+    capture_concurrent_positions_from_coordinator,
+)
 
 logger = logging.getLogger("instrumentation.trade_logger")
 
@@ -122,6 +125,11 @@ class TradeEvent:
     concurrent_positions_strategy: Optional[int] = None
     correlated_pairs_detail: Optional[list] = None
 
+    # Signal evolution and fill details (for SignalHealthAnalyzer / FillQualityAnalyzer)
+    signal_evolution: Optional[List[dict]] = None
+    entry_fill_details: Optional[dict] = None
+    exit_fill_details: Optional[dict] = None
+
     # Process quality (merged from scorer for TA compatibility)
     process_quality_score: Optional[int] = None
     root_causes: List[str] = field(default_factory=list)
@@ -140,13 +148,7 @@ class TradeEvent:
         d["volume_24h"] = d.get("volume_24h_at_entry") or 0.0
         d["funding_rate"] = d.get("funding_rate_at_entry") or 0.0
         d["open_interest_delta"] = d.get("open_interest_at_entry") or 0.0
-
-        # TA expects post_exit_1h_price / post_exit_4h_price (absolute prices).
-        # Prefer the price fields; fall back to None (TA handles None gracefully).
-        if d.get("post_exit_1h_price") is None:
-            d["post_exit_1h_price"] = None
-        if d.get("post_exit_4h_price") is None:
-            d["post_exit_4h_price"] = None
+        d["signal_id"] = d.get("entry_signal_id", "")
 
         # TA expects process_quality_score as int (default 100 when absent).
         # Emit 100 when None to prevent Pydantic validation failures.
@@ -165,12 +167,15 @@ class TradeLogger:
         logger.log_exit(trade_id="abc", exit_price=510.0, ...)
     """
 
-    def __init__(self, config: dict, snapshot_service: MarketSnapshotService):
+    def __init__(self, config: dict, snapshot_service: MarketSnapshotService,
+                 coordinator=None):
         self.bot_id = config["bot_id"]
+        self.strategy_id = config.get("strategy_id", "")
         self.data_dir = Path(config["data_dir"]) / "trades"
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.snapshot_service = snapshot_service
         self.data_source_id = config.get("data_source_id", "ibkr_execution")
+        self._coordinator = coordinator
         self._open_trades: Dict[str, TradeEvent] = {}
 
     def log_entry(
@@ -197,6 +202,7 @@ class TradeLogger:
         filter_decisions: Optional[List[dict]] = None,
         sizing_inputs: Optional[dict] = None,
         portfolio_state_at_entry: Optional[dict] = None,
+        signal_evolution: Optional[List[dict]] = None,
         **kwargs,
     ) -> TradeEvent:
         """Call immediately after a trade entry is confirmed (fill received)."""
@@ -254,6 +260,27 @@ class TradeLogger:
                 **kwargs,
             )
 
+            # Assemble entry fill details for FillQualityAnalyzer
+            trade.entry_fill_details = {
+                "slippage_bps": round(entry_slippage_bps, 2) if entry_slippage_bps is not None else None,
+                "fill_latency_ms": entry_latency_ms,
+                "fill_type": "limit",
+            }
+            if signal_evolution is not None:
+                trade.signal_evolution = signal_evolution
+
+            # Populate correlated_pairs_detail from coordinator (shared OMS)
+            try:
+                corr = capture_concurrent_positions_from_coordinator(
+                    self._coordinator,
+                    current_strategy_id=strategy_id or self.strategy_id,
+                    current_symbol=pair,
+                )
+                if corr:
+                    trade.correlated_pairs_detail = corr
+            except Exception as e:
+                logger.warning("Failed to capture concurrent positions: %s", e)
+
             self._open_trades[trade_id] = trade
             self._write_event(trade)
             return trade
@@ -307,6 +334,14 @@ class TradeLogger:
             trade.expected_exit_price = expected_exit_price
             trade.exit_slippage_bps = round(exit_slippage_bps, 2) if exit_slippage_bps else None
             trade.exit_latency_ms = exit_latency_ms
+
+            # Assemble exit fill details for FillQualityAnalyzer
+            trade.exit_fill_details = {
+                "slippage_bps": round(exit_slippage_bps, 2) if exit_slippage_bps is not None else None,
+                "fill_latency_ms": exit_latency_ms,
+                "fill_type": "stop" if exit_reason in ("STOP_LOSS", "STOP") else "market",
+            }
+
             trade.stage = "exit"
 
             trade.event_metadata = create_event_metadata(

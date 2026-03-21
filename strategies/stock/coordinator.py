@@ -7,7 +7,7 @@ Three strategies:
   - ALCB_v1    (ALCBEngine)    — CandidateArtifact
 
 Stock-specific differences from momentum:
-  - portfolio_rules_config=None (no portfolio rules)
+  - portfolio_rules with family-scoped directional cap + symbol collision guard
   - Paper equity NAV tracking via resolve_paper_nav / capital_bootstrap
   - Artifacts or cache dicts instead of instrument dicts
   - No ib_session passed to engines; engines receive oms, artifact/cache,
@@ -20,6 +20,8 @@ import os
 from datetime import date
 from pathlib import Path
 from typing import Any
+
+from libs.oms.persistence.db_config import get_environment
 
 from strategies.contracts import RuntimeContext
 
@@ -48,6 +50,7 @@ class StockFamilyCoordinator:
         """Import, build OMS, and start all three stock engines."""
         from libs.oms.services.factory import build_oms_service
         from libs.oms.risk.calculator import RiskCalculator
+        from libs.oms.risk.portfolio_rules import PortfolioRulesConfig
         from libs.config.capital_bootstrap import bootstrap_capital
 
         ctx = self._ctx
@@ -56,7 +59,7 @@ class StockFamilyCoordinator:
         account_gate = ctx.account_gate
 
         # Resolve paper-mode equity
-        paper_mode = os.getenv("ALGO_TRADER_ENV", "").lower() == "paper"
+        paper_mode = get_environment() == "paper"
         equity: float
 
         if paper_mode:
@@ -98,6 +101,13 @@ class StockFamilyCoordinator:
         # ── Strategy descriptors ─────────────────────────────────────
         _strategies = self._build_strategy_descriptors(artifacts)
 
+        # Portfolio rules: drawdown tiers + family-scoped directional cap + symbol collision
+        all_strategy_ids = tuple(d["strategy_id"] for d in _strategies)
+        logger.info(
+            "Stock portfolio rules: directional_cap=%.1fR, collision=%s, strategies=%s",
+            8.0, "half_size", all_strategy_ids,
+        )
+
         for desc in _strategies:
             sid = desc["strategy_id"]
             self._strategy_ids.append(sid)
@@ -105,6 +115,16 @@ class StockFamilyCoordinator:
             # Resolve allocated NAV
             alloc = allocs.get(sid)
             allocated_nav = alloc.allocated_nav if alloc else equity
+
+            # Per-strategy portfolio rules — initial_equity must match the
+            # get_current_equity callback (allocated_nav), otherwise drawdown
+            # tiers see a phantom 67% DD and halt every entry.
+            portfolio_rules = PortfolioRulesConfig(
+                directional_cap_R=8.0,
+                initial_equity=allocated_nav,
+                family_strategy_ids=all_strategy_ids,
+                symbol_collision_action="half_size",
+            )
             if alloc:
                 logger.info(
                     "Capital allocation: %s -> $%.2f (%.1f%% of $%.2f)",
@@ -121,7 +141,7 @@ class StockFamilyCoordinator:
             )
             _live_equity = [allocated_nav]
 
-            # Build per-strategy OMS (no portfolio rules for stock)
+            # Build per-strategy OMS with portfolio rules
             oms = await build_oms_service(
                 adapter=desc["adapter"](session),
                 strategy_id=sid,
@@ -130,8 +150,9 @@ class StockFamilyCoordinator:
                 heat_cap_R=desc["heat_cap_R"],
                 portfolio_daily_stop_R=desc["portfolio_daily_stop_R"],
                 db_pool=db_pool,
-                portfolio_rules_config=None,
+                portfolio_rules_config=portfolio_rules,
                 get_current_equity=lambda eq=_live_equity: eq[0],
+                paper_equity_pool=db_pool if paper_mode else None,
                 family_id=self.family_id,
                 account_gate=account_gate,
             )

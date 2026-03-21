@@ -2,6 +2,7 @@
 import asyncio
 import uuid
 import logging
+from collections import OrderedDict
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
@@ -16,6 +17,9 @@ if TYPE_CHECKING:
     from ..events.bus import EventBus
 
 logger = logging.getLogger(__name__)
+
+_MAX_IDEMP_CACHE = 5000
+_IDEMP_PRUNE_BATCH = 1000
 
 
 class IntentHandler:
@@ -32,9 +36,24 @@ class IntentHandler:
         self._router = router
         self._repo = repo
         self._bus = bus
-        self._idempotency: dict[str, str] = {}  # client_order_id -> oms_order_id
+        self._idempotency: OrderedDict[str, str] = OrderedDict()  # client_order_id -> oms_order_id
         # C1: per-client_order_id locks to prevent duplicate orders across concurrent tasks
         self._idemp_locks: dict[str, asyncio.Lock] = {}
+        # 1C: serialize entry risk-check → persist to prevent concurrent race in shared OMS
+        self._entry_lock = asyncio.Lock()
+
+    def _prune_idemp_cache(self) -> None:
+        """Evict oldest entries when cache exceeds max size.
+
+        DB fallback at get_order_id_by_client_order_id handles cache misses.
+        """
+        if len(self._idempotency) <= _MAX_IDEMP_CACHE:
+            return
+        for _ in range(_IDEMP_PRUNE_BATCH):
+            if not self._idempotency:
+                break
+            key, _ = self._idempotency.popitem(last=False)
+            self._idemp_locks.pop(key, None)
 
     async def submit(self, intent: Intent) -> IntentReceipt:
         intent_id = str(uuid.uuid4())
@@ -100,32 +119,49 @@ class IntentHandler:
                     )
                 # Register idempotency early (inside lock) to block concurrent duplicates
                 self._idempotency[order.client_order_id] = order.oms_order_id
+                self._prune_idemp_cache()
 
         # Set timestamps
         order.created_at = datetime.now(timezone.utc)
         order.remaining_qty = order.qty
 
-        # Risk check
-        denial = await self._risk.check_entry(order)
-        if denial:
-            # Roll back idempotency registration on denial so order can be retried
-            if order.client_order_id:
-                self._idempotency.pop(order.client_order_id, None)
-            await self._repo.save_event(
-                order.oms_order_id, "RISK_DENIED", {"reason": denial}
-            )
-            self._bus.emit_risk_denial(order.strategy_id, order.oms_order_id, denial)
-            return IntentReceipt(
-                IntentResult.DENIED, intent_id, denial_reason=denial
-            )
+        # 1C: Serialize ENTRY risk-check → persist to prevent concurrent entries
+        # from both passing heat cap before either persists (swing shared OMS).
+        # Exits/stops skip the lock since RiskGateway auto-approves non-ENTRY orders.
+        use_entry_lock = order.role == OrderRole.ENTRY
 
-        # Approve and persist
-        order.status = OrderStatus.RISK_APPROVED
-        await self._repo.save_order(order)
-        await self._repo.save_event(order.oms_order_id, "RISK_APPROVED", {})
+        async def _risk_check_and_route():
+            denial = await self._risk.check_entry(order)
+            if denial:
+                # Roll back idempotency registration on denial so order can be retried
+                if order.client_order_id:
+                    self._idempotency.pop(order.client_order_id, None)
+                    self._idemp_locks.pop(order.client_order_id, None)
+                await self._repo.save_event(
+                    order.oms_order_id, "RISK_DENIED", {"reason": denial}
+                )
+                self._bus.emit_risk_denial(order.strategy_id, order.oms_order_id, denial)
+                return IntentReceipt(
+                    IntentResult.DENIED, intent_id, denial_reason=denial
+                )
 
-        # Route to execution
-        await self._router.route(order)
+            # Approve and persist
+            order.status = OrderStatus.RISK_APPROVED
+            await self._repo.save_order(order)
+            await self._repo.save_event(order.oms_order_id, "RISK_APPROVED", {})
+
+            # Route to execution
+            await self._router.route(order)
+            return None  # success
+
+        if use_entry_lock:
+            async with self._entry_lock:
+                receipt = await _risk_check_and_route()
+        else:
+            receipt = await _risk_check_and_route()
+
+        if receipt is not None:
+            return receipt
 
         self._bus.emit_order_event(order)
         return IntentReceipt(

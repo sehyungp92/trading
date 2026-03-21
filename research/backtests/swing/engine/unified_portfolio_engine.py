@@ -1021,6 +1021,33 @@ def run_unified(
     unified_ts = sorted(all_times_set)
     logger.info("Unified timeline: %d bars", len(unified_ts))
 
+    # --- Pre-cache _to_datetime conversions for engine hot-paths ---
+    # The Helix and Breakout engines convert numpy datetime64 → Python
+    # datetime thousands of times per bar (lookback-window scans).
+    # Pre-converting all unique timestamps into a cache and monkey-patching
+    # the engines' _to_datetime eliminates redundant pd.Timestamp() calls.
+    from datetime import timezone as _tz
+    _dt_cache: dict = {}
+    def _fast_to_datetime(ts, _c=_dt_cache) -> datetime:
+        r = _c.get(ts)
+        if r is not None:
+            return r
+        if isinstance(ts, datetime):
+            r = ts if ts.tzinfo else ts.replace(tzinfo=_tz.utc)
+        else:
+            r = pd.Timestamp(ts).to_pydatetime()
+        _c[ts] = r
+        return r
+    # Pre-populate from all timestamp arrays
+    for _bars in (*data.hourly.values(), *data.atrss_hourly.values(),
+                  *data.breakout_hourly.values(), *data.four_hour.values(),
+                  *data.breakout_four_hour.values(), *data.daily.values()):
+        for _t in _bars.times:
+            _fast_to_datetime(_t)
+    # Patch engine static methods to use the cache
+    HelixEngine._to_datetime = staticmethod(_fast_to_datetime)
+    BreakoutEngine._to_datetime = staticmethod(_fast_to_datetime)
+
     # --- Initialize trackers ---
     init_eq = config.initial_equity
     portfolio_equity = init_eq

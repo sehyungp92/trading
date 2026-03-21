@@ -8,6 +8,10 @@ from typing import Optional, List, Dict, Any
 
 from .event_metadata import EventMetadata, create_event_metadata
 from .market_snapshot import MarketSnapshot, MarketSnapshotService
+from libs.oms.instrumentation.correlation_snapshot import (
+    capture_concurrent_positions,
+    run_async_safely,
+)
 
 logger = logging.getLogger("instrumentation.trade_logger")
 
@@ -22,6 +26,7 @@ class TradeEvent:
     event_metadata: dict
     entry_snapshot: dict
     exit_snapshot: Optional[dict] = None
+    bot_id: str = ""
 
     pair: str = ""
     side: str = ""                          # "LONG" or "SHORT"
@@ -85,6 +90,7 @@ class TradeEvent:
 
     # Concurrent position tracking (critical gap #4)
     concurrent_positions_at_entry: Optional[int] = None
+    correlated_pairs_detail: Optional[list] = None
 
     # Drawdown state at entry (critical gap #3)
     drawdown_pct: Optional[float] = None
@@ -125,6 +131,11 @@ class TradeEvent:
     entry_latency_ms: Optional[int] = None
     exit_latency_ms: Optional[int] = None
 
+    # Process quality (merged from scorer for TA compatibility)
+    process_quality_score: Optional[int] = None
+    root_causes: List[str] = field(default_factory=list)
+    evidence_refs: List[str] = field(default_factory=list)
+
     # Experiment tracking (G5, B11)
     experiment_id: Optional[str] = None
     experiment_variant: Optional[str] = None
@@ -145,7 +156,21 @@ class TradeEvent:
     stage: str = "entry"
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        # Add trading_assistant-compatible alias fields.
+        # TA's TradeEvent Pydantic model expects these exact names; without them
+        # the event silently fails validation and is dropped from analysis.
+        d["market_snapshot"] = d.get("entry_snapshot")
+        d["spread_at_entry"] = d.get("spread_at_entry_bps") or 0.0
+        d["volume_24h"] = d.get("volume_24h_at_entry") or 0.0
+        d["funding_rate"] = d.get("funding_rate_at_entry") or 0.0
+        d["open_interest_delta"] = d.get("open_interest_at_entry") or 0.0
+        d["signal_id"] = d.get("entry_signal_id", "")
+
+        # TA expects process_quality_score as int (default 100 when absent).
+        if d.get("process_quality_score") is None:
+            d["process_quality_score"] = 100
+        return d
 
 
 class TradeLogger:
@@ -159,8 +184,10 @@ class TradeLogger:
     """
 
     def __init__(self, config: dict, snapshot_service: MarketSnapshotService,
-                 process_scorer=None, strategy_type: str = ""):
+                 process_scorer=None, strategy_type: str = "",
+                 pg_store=None, family_strategy_ids: list[str] | None = None):
         self.bot_id = config["bot_id"]
+        self.strategy_id = config.get("strategy_id", "")
         self.data_dir = Path(config["data_dir"]) / "trades"
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.snapshot_service = snapshot_service
@@ -169,6 +196,8 @@ class TradeLogger:
         self.strategy_type = strategy_type or config.get("strategy_type", "unknown")
         self.experiment_id = config.get("experiment_id")
         self.experiment_variant = config.get("experiment_variant")
+        self._pg_store = pg_store
+        self._family_strategy_ids = family_strategy_ids or []
         self._open_trades: Dict[str, TradeEvent] = {}
         self._pending_exit_backfills: list[dict] = []
 
@@ -217,6 +246,7 @@ class TradeLogger:
                 trade_id=trade_id,
                 event_metadata=metadata.to_dict(),
                 entry_snapshot=entry_snapshot.to_dict(),
+                bot_id=self.bot_id,
                 pair=pair,
                 side=side,
                 entry_time=exch_ts.isoformat(),
@@ -245,10 +275,32 @@ class TradeLogger:
                 stage="entry",
             )
 
+            # Assemble entry fill details for FillQualityAnalyzer
+            trade.entry_fill_details = {
+                "slippage_bps": round(entry_slippage_bps, 2) if entry_slippage_bps is not None else None,
+                "fill_latency_ms": entry_latency_ms,
+                "fill_type": "limit",
+            }
+
             # Compute param_set_id hash for efficient grouping
             if strategy_params:
                 params_str = json.dumps(strategy_params, sort_keys=True, default=str)
                 trade.param_set_id = hashlib.sha256(params_str.encode()).hexdigest()[:16]
+
+            # Populate correlated_pairs_detail via DB query (separate OMSs)
+            try:
+                if self._pg_store and self._family_strategy_ids:
+                    corr = run_async_safely(
+                        capture_concurrent_positions(
+                            self._pg_store, "momentum",
+                            self.strategy_id or self.strategy_type,
+                            pair, self._family_strategy_ids,
+                        )
+                    )
+                    if corr:
+                        trade.correlated_pairs_detail = corr
+            except Exception as e:
+                logger.warning("Failed to capture concurrent positions: %s", e)
 
             self._open_trades[trade_id] = trade
             self._write_event(trade)
@@ -308,6 +360,13 @@ class TradeLogger:
             trade.exit_slippage_bps = round(exit_slippage_bps, 2) if exit_slippage_bps else None
             trade.exit_latency_ms = exit_latency_ms
 
+            # Assemble exit fill details for FillQualityAnalyzer
+            trade.exit_fill_details = {
+                "slippage_bps": round(exit_slippage_bps, 2) if exit_slippage_bps is not None else None,
+                "fill_latency_ms": exit_latency_ms,
+                "fill_type": "stop" if exit_reason in ("STOP_LOSS", "STOP") else "market",
+            }
+
             # MFE/MAE fields (Gap G1, B5)
             trade.mfe_r = round(mfe_r, 4) if mfe_r is not None else None
             trade.mae_r = round(mae_r, 4) if mae_r is not None else None
@@ -338,6 +397,19 @@ class TradeLogger:
                 data_source_id=self.data_source_id,
             ).to_dict()
 
+            # Score process quality before writing so TA sees real quality data
+            if self.process_scorer:
+                try:
+                    score = self.process_scorer.score_trade(
+                        trade.to_dict(), strategy_type=self.strategy_type
+                    )
+                    trade.process_quality_score = score.process_quality_score
+                    trade.root_causes = list(score.root_causes)
+                    trade.evidence_refs = list(score.evidence_refs)
+                    self._write_score(score)
+                except Exception as e:
+                    logger.warning("Process scoring failed for %s: %s", trade_id, e)
+
             self._write_event(trade)
 
             # Queue post-exit price backfill
@@ -349,16 +421,6 @@ class TradeLogger:
                 "exit_time": exch_ts,
                 "file_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             })
-
-            # Score process quality if scorer is available
-            if self.process_scorer:
-                try:
-                    score = self.process_scorer.score_trade(
-                        trade.to_dict(), strategy_type=self.strategy_type
-                    )
-                    self._write_score(score)
-                except Exception:
-                    pass
 
             return trade
 

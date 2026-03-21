@@ -29,6 +29,7 @@ def bootstrap_instrumentation(
     data_provider=None,
     strategy_id: str | None = None,
     initial_equity: float = 100_000,
+    coordinator=None,
 ) -> "InstrumentationContext":
     """Create an InstrumentationContext with all services wired up.
 
@@ -60,7 +61,7 @@ def bootstrap_instrumentation(
         config.setdefault("market_snapshots", {})["symbols"] = list(symbols)
 
     snapshot_service = MarketSnapshotService(config, data_provider=data_provider)
-    trade_logger = TradeLogger(config, snapshot_service)
+    trade_logger = TradeLogger(config, snapshot_service, coordinator=coordinator)
     missed_logger = MissedOpportunityLogger(config, snapshot_service)
     process_scorer = ProcessScorer()
     regime_classifier = RegimeClassifier(data_provider=data_provider)
@@ -86,6 +87,17 @@ def bootstrap_instrumentation(
     experiment_registry = ExperimentRegistry(config_path=experiments_path)
     daily_builder = DailySnapshotBuilder(config, experiment_registry=experiment_registry)
 
+    post_exit_tracker = None
+    if data_provider is not None:
+        try:
+            from .post_exit_tracker import PostExitTracker
+            post_exit_tracker = PostExitTracker(
+                data_dir=config.get("data_dir", "instrumentation/data"),
+                data_provider=data_provider,
+            )
+        except Exception as e:
+            logger.warning("PostExitTracker creation failed: %s", e)
+
     ctx = InstrumentationContext(
         snapshot_service=snapshot_service,
         trade_logger=trade_logger,
@@ -102,6 +114,7 @@ def bootstrap_instrumentation(
         filter_logger=filter_logger,
         orderbook_logger=orderbook_logger,
         experiment_registry=experiment_registry,
+        post_exit_tracker=post_exit_tracker,
         bot_id=config.get("bot_id", "swing_multi_01"),
         data_dir=config.get("data_dir", "instrumentation/data"),
     )
@@ -119,6 +132,7 @@ def bootstrap_kit(
     data_provider=None,
     initial_equity: float = 100_000,
     shared_ctx: "InstrumentationContext | None" = None,
+    coordinator=None,
 ) -> "InstrumentationKit":
     """Create an InstrumentationKit with all services wired up.
 
@@ -144,13 +158,14 @@ def bootstrap_kit(
     from .kit import InstrumentationKit
 
     if shared_ctx is not None:
-        ctx = _bootstrap_kit_from_shared(strategy_id, shared_ctx)
+        ctx = _bootstrap_kit_from_shared(strategy_id, shared_ctx, coordinator=coordinator)
     else:
         ctx = bootstrap_instrumentation(
             symbols=symbols,
             data_provider=data_provider,
             strategy_id=strategy_id,
             initial_equity=initial_equity,
+            coordinator=coordinator,
         )
     return InstrumentationKit(ctx, strategy_id=strategy_id)
 
@@ -158,6 +173,7 @@ def bootstrap_kit(
 def _bootstrap_kit_from_shared(
     strategy_id: str,
     shared_ctx: "InstrumentationContext",
+    coordinator=None,
 ) -> "InstrumentationContext":
     """Create a lightweight per-strategy context that reuses shared services.
 
@@ -173,7 +189,7 @@ def _bootstrap_kit_from_shared(
     config["bot_id"] = strategy_id
 
     # Own loggers with strategy-specific bot_id
-    trade_logger = TradeLogger(config, shared_ctx.snapshot_service)
+    trade_logger = TradeLogger(config, shared_ctx.snapshot_service, coordinator=coordinator)
     missed_logger = MissedOpportunityLogger(config, shared_ctx.snapshot_service)
 
     return InstrumentationContext(
@@ -184,6 +200,7 @@ def _bootstrap_kit_from_shared(
         daily_builder=shared_ctx.daily_builder,
         regime_classifier=shared_ctx.regime_classifier,
         sidecar=None,  # shared context owns the single sidecar
+        post_exit_tracker=None,  # shared context owns the backfill thread
         drawdown_tracker=shared_ctx.drawdown_tracker,
         overnight_gap_tracker=shared_ctx.overnight_gap_tracker,
         coordination_logger=shared_ctx.coordination_logger,

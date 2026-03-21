@@ -66,6 +66,8 @@ class InstrumentationManager:
         strategy_id: str,
         strategy_type: str,
         data_provider=None,
+        pg_store=None,
+        family_strategy_ids: list[str] | None = None,
     ):
         self._oms = oms
         self._strategy_id = strategy_id
@@ -77,6 +79,8 @@ class InstrumentationManager:
             self._config, self.snapshot_service,
             process_scorer=self.process_scorer,
             strategy_type=strategy_type,
+            pg_store=pg_store,
+            family_strategy_ids=family_strategy_ids,
         )
         self.missed_logger = MissedOpportunityLogger(self._config, self.snapshot_service)
         self.order_logger = OrderLogger(self._config, strategy_type=strategy_type)

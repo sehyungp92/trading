@@ -16,7 +16,10 @@ export async function GET() {
       headers: { 'Cache-Control': 'no-store' },
     });
   } catch (err) {
-    console.error('[api/trades]', err);
-    return NextResponse.json({ error: 'Database error' }, { status: 500 });
+    console.error('[api/trades] SQL error:', err instanceof Error ? err.message : err);
+    return NextResponse.json(
+      { error: 'database_query_failed', detail: err instanceof Error ? err.message : 'unknown' },
+      { status: 500 },
+    );
   }
 }

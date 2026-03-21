@@ -447,6 +447,8 @@ async def build_oms_service(
             get_directional_risk_R=pg_store.get_directional_risk_R,
             get_current_equity=get_current_equity or (lambda: 10_000.0),
             on_rule_event=_make_portfolio_rule_logger(),
+            get_directional_risk_R_for_strategies=pg_store.get_directional_risk_R_for_strategies,
+            get_sibling_positions_for_symbol=pg_store.get_sibling_positions_for_symbol,
         )
         logger.info("Portfolio rules enabled for %s", strategy_id)
 
@@ -534,6 +536,8 @@ async def build_multi_strategy_oms(
     family_id: str = "unknown",
     account_gate: Optional[object] = None,
     halt_trading: Optional[Callable] = None,
+    portfolio_rules_config=None,
+    get_current_equity: Optional[Callable[[], float]] = None,
 ) -> tuple["OMSService", "StrategyCoordinator"]:
     """Build a shared OMS service for multiple strategies.
 
@@ -764,6 +768,22 @@ async def build_multi_strategy_oms(
     # Fill processor (shared)
     fill_proc = FillProcessor(repo)
 
+    # Portfolio rules checker (cross-strategy coordination via shared DB)
+    portfolio_checker = None
+    if portfolio_rules_config is not None and db_pool is not None:
+        from ..risk.portfolio_rules import PortfolioRuleChecker
+
+        portfolio_checker = PortfolioRuleChecker(
+            config=portfolio_rules_config,
+            get_strategy_signal=pg_store.get_strategy_signal,
+            get_directional_risk_R=pg_store.get_directional_risk_R,
+            get_current_equity=get_current_equity or (lambda: 10_000.0),
+            on_rule_event=_make_portfolio_rule_logger(),
+            get_directional_risk_R_for_strategies=pg_store.get_directional_risk_R_for_strategies,
+            get_sibling_positions_for_symbol=pg_store.get_sibling_positions_for_symbol,
+        )
+        logger.info("Portfolio rules enabled for multi-strategy OMS (%s)", family_id)
+
     # Risk gateway (shared, now with multiple strategy configs + priorities)
     risk_gateway = RiskGateway(
         config=risk_config,
@@ -772,6 +792,7 @@ async def build_multi_strategy_oms(
         get_portfolio_risk=get_portfolio_risk,
         get_working_order_count=get_working_order_count,
         market_calendar=market_calendar,
+        portfolio_checker=portfolio_checker,
         account_gate=account_gate,
         family_id=family_id,
     )

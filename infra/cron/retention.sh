@@ -1,6 +1,6 @@
 #!/bin/bash
 # Daily data retention job
-# Install: crontab -e → 5 0 * * * /opt/trading/swing_trader/infra/cron/retention.sh
+# Install: crontab -e → 5 0 * * * /opt/trading/infra/cron/retention.sh
 #
 # Requires: POSTGRES_PASSWORD set in environment or loaded from .env
 
