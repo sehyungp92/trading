@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from .config import ET, StrategySettings
-from .models import PortfolioState, SymbolIntradayState, WatchlistItem
+from .models import PortfolioState, WatchlistItem
 
 
 def timing_gate_allows_entry(now: datetime, settings: StrategySettings) -> bool:
@@ -27,16 +27,8 @@ def timing_multiplier(now: datetime, settings: StrategySettings) -> float:
     return 0.0
 
 
-def compute_final_risk_unit(item: WatchlistItem, sym: SymbolIntradayState, now: datetime, settings: StrategySettings) -> float:
-    conviction = item.conviction_multiplier
-    confidence = settings.confidence_green_mult if sym.confidence == "GREEN" else settings.confidence_yellow_mult
-    regime = item.regime_risk_multiplier
-    timing = timing_multiplier(now, settings)
-    location = {"A": 1.0, "B": 0.90, "C": 0.70}.get(sym.location_grade or "B", 0.90)
-    stale_penalty = 1.0
-    if item.sponsorship_state == "STALE" or sym.flowproxy_signal == "STALE":
-        stale_penalty *= settings.stale_penalty
-    return conviction * confidence * regime * timing * location * stale_penalty
+def compute_final_risk_unit(item: WatchlistItem) -> float:
+    return item.conviction_multiplier * item.regime_risk_multiplier
 
 
 def compute_order_quantity(

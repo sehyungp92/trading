@@ -140,9 +140,10 @@ class MomentumFamilyCoordinator:
 
             portfolio_rules = PortfolioRulesConfig(
                 initial_equity=allocated_nav,
-                directional_cap_R=6.0,  # family-wide cap (vs 3.5 per-strategy default)
+                directional_cap_R=3.5,  # v7: aligned with backtest (was 6.0)
                 family_strategy_ids=all_strategy_ids,
                 symbol_collision_action="half_size",
+                nqdtc_direction_filter_enabled=False,  # v7: optimizer found disabling improves net returns
             )
 
             # Build per-strategy OMS

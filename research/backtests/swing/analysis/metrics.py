@@ -270,11 +270,15 @@ def compute_metrics(
     # Time span in years
     if len(timestamps) >= 2:
         delta = timestamps[-1] - timestamps[0]
-        # Handle both numpy timedelta64 and Python timedelta
-        if hasattr(delta, 'astype'):
+        # Handle numpy timedelta64, Python timedelta, and raw int/float (epoch nanos or seconds)
+        if isinstance(delta, np.timedelta64):
             span_s = float(delta / np.timedelta64(1, 's'))
-        else:
+        elif hasattr(delta, 'total_seconds'):
             span_s = delta.total_seconds()
+        else:
+            # Raw numeric delta — assume nanoseconds if large, seconds otherwise
+            d = float(delta)
+            span_s = d / 1e9 if abs(d) > 1e15 else d
         years = span_s / (365.25 * 24 * 3600)
     else:
         years = 1.0

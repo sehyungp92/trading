@@ -214,6 +214,7 @@ class WatchlistItem:
     recommended_risk_r: float
     average_30m_volume: float = 0.0
     expected_5m_volume: float = 0.0
+    flow_proxy_gate_pass: bool = True   # True = flow positive (or unavailable), safe default
     overflow_rank: int | None = None
 
 

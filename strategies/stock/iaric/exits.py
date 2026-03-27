@@ -65,29 +65,42 @@ def carry_eligible(
     market: MarketSnapshot,
     position: PositionState,
     flow_reversal_flag: bool = False,
+    *,
+    settings: StrategySettings | None = None,
 ) -> tuple[bool, str]:
-    if item.regime_tier != "A":
-        return False, "regime_not_a"
+    if item.regime_tier == "A":
+        pass  # always allowed
+    elif item.regime_tier == "B" and settings is not None and settings.regime_b_carry_mult > 0:
+        pass  # Regime B carry enabled
+    else:
+        return False, "regime_not_eligible"
     if flow_reversal_flag:
         return False, "flow_reversal_flag"
-    if position.setup_tag not in {"MOMENTUM_CONTINUATION", "FLOW_DRIVEN_GRIND"}:
-        return False, "setup_not_carry"
-    if market.last_30m_bar is None or market.avwap_live is None or market.last_price is None:
-        return False, "missing_close_context"
-    if market.last_price <= position.entry_price:
-        return False, "not_in_profit"
-    if market.last_30m_bar.close < market.avwap_live:
-        return False, "close_below_avwap"
-    session_high = market.session_high if market.session_high is not None else market.last_30m_bar.high
-    session_low = market.session_low if market.session_low is not None else market.last_30m_bar.low
-    daily_range = max(session_high - session_low, 1e-9)
-    close_pct = (market.last_price - session_low) / daily_range
-    if close_pct < 0.75:
-        return False, "close_not_in_top_quartile"
+    if settings is not None and settings.max_carry_days > 0:
+        days_held = (datetime.now(ET).date() - position.entry_time.astimezone(ET).date()).days
+        if days_held >= settings.max_carry_days:
+            return False, "max_carry_days"
     if item.sponsorship_state != "STRONG":
         return False, "sponsorship_not_strong"
     if item.earnings_risk_flag or item.blacklist_flag:
         return False, "event_risk"
+    if market.last_price is None:
+        return False, "missing_market_data"
+    if market.last_price <= position.entry_price:
+        return False, "not_in_profit"
+    if settings is not None and settings.min_carry_r > 0:
+        one_r = position.initial_risk_per_share
+        if one_r > 0:
+            cur_r = (market.last_price - position.entry_price) / one_r
+            if cur_r <= settings.min_carry_r:
+                return False, "below_min_carry_r"
+    if settings is not None and settings.carry_top_quartile:
+        session_high = market.session_high if market.session_high is not None else market.last_price
+        session_low = market.session_low if market.session_low is not None else market.last_price
+        daily_range = max(session_high - session_low, 1e-9)
+        close_pct = (market.last_price - session_low) / daily_range
+        if close_pct < 0.75:
+            return False, "close_not_in_top_quartile"
     return True, "eligible"
 
 

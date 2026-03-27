@@ -43,6 +43,7 @@ from .config import (
     ORDER_EXPIRY_HOURS,
     QUALITY_GATE_THRESHOLD,
     STALL_CHECK_HOURS,
+    STALL_EXIT_ENABLED,
     STALL_MFE_THRESHOLD,
     STRATEGY_ID,
     SYMBOL_CONFIGS,
@@ -901,7 +902,7 @@ class ATRSSEngine:
             pos.early_partial_done = True
 
         # --- Stall exit (full flatten for non-developing trade) ---
-        if pos.bars_held >= STALL_CHECK_HOURS:
+        if STALL_EXIT_ENABLED and pos.bars_held >= STALL_CHECK_HOURS:
             if pos.mfe < STALL_MFE_THRESHOLD and cur_r <= 0.2:
                 logger.info(
                     "%s stall exit: %d bars held, MFE %.2fR, cur_r %.2fR",

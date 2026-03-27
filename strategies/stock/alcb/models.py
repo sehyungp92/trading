@@ -156,9 +156,15 @@ class Direction(str, Enum):
 
 
 class EntryType(str, Enum):
+    # Legacy (compression breakout)
     A_AVWAP_RETEST = "A_AVWAP_RETEST"
     B_SWEEP_RECLAIM = "B_SWEEP_RECLAIM"
     C_CONTINUATION = "C_CONTINUATION"
+    D_DIRECT_BREAKOUT = "D_DIRECT_BREAKOUT"
+    # Momentum continuation (T1)
+    OR_BREAKOUT = "OR_BREAKOUT"
+    PDH_BREAKOUT = "PDH_BREAKOUT"
+    COMBINED_BREAKOUT = "COMBINED_BREAKOUT"
 
 
 class Regime(str, Enum):
@@ -172,6 +178,30 @@ class CompressionTier(str, Enum):
     GOOD = "GOOD"
     NEUTRAL = "NEUTRAL"
     LOOSE = "LOOSE"
+
+
+class MomentumTradeClass(str, Enum):
+    MOMENTUM_CONTINUATION = "MOMENTUM_CONTINUATION"
+    GRINDING_HIGHER = "GRINDING_HIGHER"
+    STALLING = "STALLING"
+    FAILED = "FAILED"
+
+
+@dataclass(slots=True)
+class MomentumSetup:
+    symbol: str
+    or_high: float
+    or_low: float
+    or_volume: float
+    prior_day_high: float
+    prior_day_low: float
+    prior_day_close: float
+    breakout_level: float
+    entry_type: str
+    rvol_at_entry: float
+    momentum_score: int
+    score_detail: dict
+    avwap_at_entry: float
 
 
 @dataclass(slots=True)
@@ -456,6 +486,59 @@ class IntradayStateSnapshot:
     markets: list[MarketSnapshot]
     last_decision_code: str = ""
     meta: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class T2PositionState:
+    """Live position state for the T2 momentum engine."""
+
+    symbol: str
+    direction: Direction
+    entry_price: float
+    stop_price: float
+    current_stop: float
+    quantity: int
+    qty_original: int
+    risk_per_share: float
+    entry_time: datetime
+    entry_type: str  # OR_BREAKOUT / COMBINED_BREAKOUT / PDH_BREAKOUT
+    sector: str
+    regime_tier: str
+    momentum_score: int
+    avwap_at_entry: float
+    or_high: float
+    or_low: float
+    hold_bars: int = 0
+    mfe_r: float = 0.0
+    max_favorable: float = 0.0
+    max_adverse: float = 0.0
+    partial_taken: bool = False
+    partial_qty_exited: int = 0
+    realized_partial_pnl: float = 0.0
+    carry_days: int = 0
+    setup_tag: str = ""
+    stop_order_id: str = ""
+    trade_id: str = ""
+
+    def unrealized_r(self, price: float) -> float:
+        if self.risk_per_share <= 0:
+            return 0.0
+        if self.direction == Direction.LONG:
+            return (price - self.entry_price) / self.risk_per_share
+        return (self.entry_price - price) / self.risk_per_share
+
+    def update_mfe_mae(self, high: float, low: float) -> None:
+        if self.direction == Direction.LONG:
+            self.max_favorable = max(self.max_favorable, high)
+            self.max_adverse = min(self.max_adverse, low)
+        else:
+            self.max_favorable = min(self.max_favorable, low)
+            self.max_adverse = max(self.max_adverse, high)
+        if self.risk_per_share > 0:
+            if self.direction == Direction.LONG:
+                self.mfe_r = max(self.mfe_r, (self.max_favorable - self.entry_price) / self.risk_per_share)
+            else:
+                self.mfe_r = max(self.mfe_r, (self.entry_price - self.max_favorable) / self.risk_per_share)
 
 
 @dataclass(slots=True)

@@ -1,7 +1,7 @@
 """Unified multi-strategy backtest configuration."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Callable
 
@@ -37,17 +37,17 @@ ATRSS_SLOT = StrategySlot(
 )
 S5_PB_SLOT = StrategySlot(
     strategy_id="S5_PB", priority=1,
-    unit_risk_pct=0.012, max_heat_R=1.50, daily_stop_R=2.0,
+    unit_risk_pct=0.012, max_heat_R=2.00, daily_stop_R=2.0,  # greedy v4: was 1.50
     max_working_orders=2,
 )
 S5_DUAL_SLOT = StrategySlot(
     strategy_id="S5_DUAL", priority=2,
-    unit_risk_pct=0.012, max_heat_R=1.50, daily_stop_R=2.0,
+    unit_risk_pct=0.012, max_heat_R=2.00, daily_stop_R=2.0,  # greedy v4: was 1.50
     max_working_orders=2,
 )
 BREAKOUT_SLOT = StrategySlot(
     strategy_id="SWING_BREAKOUT_V3", priority=3,
-    unit_risk_pct=0.008, max_heat_R=1.00, daily_stop_R=2.0,
+    unit_risk_pct=0.008, max_heat_R=1.50, daily_stop_R=2.0,  # greedy v4: was 1.00
     max_working_orders=2,
 )
 HELIX_SLOT = StrategySlot(
@@ -63,6 +63,8 @@ class UnifiedBacktestConfig:
 
     initial_equity: float = 10_000.0
     data_dir: Path = field(default_factory=lambda: Path("backtest/data/raw"))
+    start_date: str | None = None  # "YYYY-MM-DD" — trim data before this date
+    end_date: str | None = None    # "YYYY-MM-DD" — trim data after this date
     slippage: SlippageConfig = field(default_factory=SlippageConfig)
 
     # Symbol lists per strategy (defaults match production)
@@ -149,11 +151,20 @@ class UnifiedBacktestConfig:
     helix_flags: HelixAblationFlags = field(default_factory=HelixAblationFlags)
     breakout_flags: BreakoutAblationFlags = field(default_factory=BreakoutAblationFlags)
 
+    # Per-strategy engine param overrides (applied by build_*_config methods)
+    # These allow greedy optimizers to route strategy-specific params through
+    # the unified config without modifying per-strategy config classes.
+    atrss_param_overrides: dict = field(default_factory=dict)
+    helix_param_overrides: dict = field(default_factory=dict)
+    breakout_param_overrides: dict = field(default_factory=dict)
+    s5_pb_param_overrides: dict = field(default_factory=dict)
+    s5_dual_param_overrides: dict = field(default_factory=dict)
+
     def build_atrss_config(self) -> BacktestConfig:
         slippage = self.slippage
         if self.fixed_qty is not None:
             slippage = SlippageConfig(commission_per_contract=1.00)
-        return BacktestConfig(
+        cfg = BacktestConfig(
             symbols=self.atrss_symbols,
             initial_equity=self.initial_equity,
             slippage=slippage,
@@ -164,12 +175,16 @@ class UnifiedBacktestConfig:
             warmup_hourly=self.warmup_hourly,
             fixed_qty=self.fixed_qty,
         )
+        if self.atrss_param_overrides:
+            merged = {**cfg.param_overrides, **self.atrss_param_overrides}
+            cfg = replace(cfg, param_overrides=merged)
+        return cfg
 
     def build_helix_config(self) -> HelixBacktestConfig:
         slippage = self.slippage
         if self.fixed_qty is not None:
             slippage = SlippageConfig(commission_per_contract=1.00)
-        return HelixBacktestConfig(
+        cfg = HelixBacktestConfig(
             symbols=self.helix_symbols,
             initial_equity=self.initial_equity,
             slippage=slippage,
@@ -181,12 +196,16 @@ class UnifiedBacktestConfig:
             warmup_4h=self.warmup_4h,
             fixed_qty=self.fixed_qty,
         )
+        if self.helix_param_overrides:
+            merged = {**cfg.param_overrides, **self.helix_param_overrides}
+            cfg = replace(cfg, param_overrides=merged)
+        return cfg
 
     def build_breakout_config(self) -> BreakoutBacktestConfig:
         slippage = self.slippage
         if self.fixed_qty is not None:
             slippage = SlippageConfig(commission_per_contract=1.00)
-        return BreakoutBacktestConfig(
+        cfg = BreakoutBacktestConfig(
             symbols=self.breakout_symbols,
             initial_equity=self.initial_equity,
             slippage=slippage,
@@ -198,10 +217,14 @@ class UnifiedBacktestConfig:
             warmup_4h=self.warmup_4h,
             fixed_qty=self.fixed_qty,
         )
+        if self.breakout_param_overrides:
+            merged = {**getattr(cfg, 'param_overrides', {}), **self.breakout_param_overrides}
+            cfg = replace(cfg, param_overrides=merged)
+        return cfg
 
     def build_s5_pb_config(self) -> "S5BacktestConfig":
         from backtest.config_s5 import S5BacktestConfig
-        return S5BacktestConfig(
+        cfg = S5BacktestConfig(
             symbols=self.s5_pb_symbols,
             initial_equity=self.initial_equity,
             slippage=self.slippage,
@@ -210,10 +233,13 @@ class UnifiedBacktestConfig:
             roc_period=5, atr_stop_mult=1.5,
             risk_pct=self.s5_pb.unit_risk_pct,
         )
+        if self.s5_pb_param_overrides:
+            cfg = replace(cfg, **self.s5_pb_param_overrides)
+        return cfg
 
     def build_s5_dual_config(self) -> "S5BacktestConfig":
         from backtest.config_s5 import S5BacktestConfig
-        return S5BacktestConfig(
+        cfg = S5BacktestConfig(
             symbols=self.s5_dual_symbols,
             initial_equity=self.initial_equity,
             slippage=self.slippage,
@@ -222,6 +248,9 @@ class UnifiedBacktestConfig:
             shorts_enabled=False, rsi_entry_long=45.0,
             risk_pct=self.s5_dual.unit_risk_pct,
         )
+        if self.s5_dual_param_overrides:
+            cfg = replace(cfg, **self.s5_dual_param_overrides)
+        return cfg
 
 
 # ---------------------------------------------------------------------------
@@ -408,17 +437,26 @@ def make_f1_breakout_expansion(equity: float) -> UnifiedBacktestConfig:
 
 
 def make_live_parity(equity: float) -> UnifiedBacktestConfig:
-    """Live parity: P1 heat-unlock optimized defaults (Mar 14).
+    """Live parity: greedy v4 optimized defaults (Mar 25).
 
     Uses default StrategySlot values:
       ATRSS(0)  URD 1.8%  max_heat 1.50R  daily_stop 2.0R
-      S5_PB(1)  URD 1.2%  max_heat 1.50R  daily_stop 2.0R
-      S5_DUAL(2) URD 1.2% max_heat 1.50R  daily_stop 2.0R
-      Breakout(3) URD 0.8% max_heat 1.00R daily_stop 2.0R  (+IBIT)
+      S5_PB(1)  URD 1.2%  max_heat 2.00R  daily_stop 2.0R
+      S5_DUAL(2) URD 1.2% max_heat 2.00R  daily_stop 2.0R
+      Breakout(3) URD 0.8% max_heat 1.50R daily_stop 2.0R  (+IBIT)
       Helix(4)  URD 0.8%  max_heat 1.20R  daily_stop 2.5R
       heat_cap_R=3.0, portfolio_daily_stop_R=4.0
+    Greedy v4 mutations: stall_exit disabled, S5_DUAL trail/stop,
+    breakout score_threshold=0, regime_chop_block=False.
     """
-    return UnifiedBacktestConfig(initial_equity=equity)
+    return UnifiedBacktestConfig(
+        initial_equity=equity,
+        atrss_flags=AblationFlags(stall_exit=False),  # greedy v4
+        s5_dual_param_overrides={                      # greedy v4
+            "trail_atr_mult": 2.0,
+            "atr_stop_mult": 1.5,
+        },
+    )
 
 
 def make_live_r_simulation(equity: float) -> UnifiedBacktestConfig:

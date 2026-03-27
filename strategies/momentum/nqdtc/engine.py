@@ -976,6 +976,10 @@ class NQDTCEngine:
                 else:
                     final_risk_pct *= C.REVERSAL_SIZE_MULT
 
+        # v7: portfolio-level continuation sizing — reduce size on box continuation breakouts
+        if engine.breakout.continuation_mode and C.CONTINUATION_BREAKOUT_SIZE_MULT < 1.0:
+            final_risk_pct *= C.CONTINUATION_BREAKOUT_SIZE_MULT
+
         exit_tier = stops.determine_exit_tier(composite.value, quality_mult)
 
         # Friction gate + TP1 viability
@@ -1593,7 +1597,18 @@ class NQDTCEngine:
                     await self._update_stop(pos.stop_price)
                     logger.info("News blackout: tightened stop to BE±1tick=%.2f", pos.stop_price)
 
-        # Max loss cap removed — superseded by min_stop_distance entry gate
+        # v7: Max loss cap — force exit if unrealized loss exceeds threshold (complements min_stop_distance)
+        if pos.open:
+            init_r_points = abs(pos.entry_price - pos.initial_stop_price)
+            if init_r_points > 0:
+                if pos.direction == Direction.LONG:
+                    init_open_r = (close - pos.entry_price) / init_r_points
+                else:
+                    init_open_r = (pos.entry_price - close) / init_r_points
+                if init_open_r <= C.MAX_LOSS_CAP_R:
+                    logger.info("Max loss cap: R=%.2f <= %.1f, force exit", init_open_r, C.MAX_LOSS_CAP_R)
+                    await self._flatten(engine, open_r)
+                    return
 
     async def _exit_partial(self, pos: PositionState, tp: TPLevel, close: float, engine: SessionEngineState) -> None:
         """Exit partial qty at TP level."""
@@ -1851,6 +1866,15 @@ class NQDTCEngine:
             "margin_pct": round((r_points - MIN_STOP_DISTANCE) / abs(MIN_STOP_DISTANCE) * 100, 1),
         })
 
+        # v7: Max stop width
+        decisions.append({
+            "filter_name": "MAX_STOP_WIDTH",
+            "threshold": C.MAX_STOP_WIDTH_PTS,
+            "actual_value": round(r_points, 2),
+            "passed": r_points <= C.MAX_STOP_WIDTH_PTS,
+            "margin_pct": round((C.MAX_STOP_WIDTH_PTS - r_points) / C.MAX_STOP_WIDTH_PTS * 100, 1),
+        })
+
         # Hour blocks
         hour = now_ny.hour
         decisions.append({
@@ -2026,6 +2050,13 @@ class NQDTCEngine:
             logger.info("Min stop gate: stop_dist=%.2f < %.1f, rejecting fill", r_points, MIN_STOP_DISTANCE)
             self._log_missed(wo.direction, wo.subtype.value, oms_id, "MIN_STOP_DISTANCE", f"r={r_points:.2f}", signal_strength=wo.quality_mult,
                             filter_decisions=[{"filter_name": "MIN_STOP_DISTANCE", "threshold": MIN_STOP_DISTANCE, "actual_value": r_points, "passed": False}])
+            return
+
+        # v7: Max stop width gate: reject excessively wide stops
+        if r_points > C.MAX_STOP_WIDTH_PTS:
+            logger.info("Max stop width: stop_dist=%.2f > %.1f, rejecting", r_points, C.MAX_STOP_WIDTH_PTS)
+            self._log_missed(wo.direction, wo.subtype.value, oms_id, "MAX_STOP_WIDTH", f"r={r_points:.2f}", signal_strength=wo.quality_mult,
+                            filter_decisions=[{"filter_name": "MAX_STOP_WIDTH", "threshold": C.MAX_STOP_WIDTH_PTS, "actual_value": r_points, "passed": False}])
             return
 
         # Block fills during 06:00 ET hour (pre-European-open, WR=39%)

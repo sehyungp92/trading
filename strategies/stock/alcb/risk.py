@@ -318,3 +318,114 @@ def estimate_round_trip_friction(item: CandidateItem, quantity: int, entry_price
 def friction_gate_pass(item: CandidateItem, plan: PositionPlan, settings: StrategySettings) -> bool:
     friction = estimate_round_trip_friction(item, plan.quantity, plan.entry_price)
     return friction <= settings.max_friction_to_risk * plan.risk_dollars
+
+
+# ---------------------------------------------------------------------------
+# Momentum continuation (T1) risk helpers
+# ---------------------------------------------------------------------------
+
+def momentum_regime_mult(regime_tier: str, settings: StrategySettings) -> float:
+    """Sizing multiplier based on market regime tier."""
+    if regime_tier == "A":
+        return settings.regime_mult_a
+    if regime_tier == "B":
+        return settings.regime_mult_b
+    return settings.regime_mult_c
+
+
+def sector_sizing_mult(sector: str, settings: StrategySettings) -> float:
+    """Sector-weighted sizing multiplier from P10b optimization."""
+    if sector == "Financials":
+        return settings.sector_mult_financials
+    if sector == "Communication Services":
+        return settings.sector_mult_communication
+    if sector == "Industrials":
+        return settings.sector_mult_industrials
+    if sector == "Consumer Discretionary":
+        return settings.sector_mult_consumer_disc
+    return 1.0
+
+
+def momentum_stop_price(
+    entry_price: float,
+    or_low: float,
+    entry_bar_low: float,
+    atr: float,
+    settings: StrategySettings,
+) -> float:
+    """Compute stop price for a long momentum entry.
+
+    Uses the lower of OR low and entry bar low, bounded by ATR.
+    """
+    if settings.use_or_low_stop:
+        structural_stop = min(or_low, entry_bar_low)
+    else:
+        structural_stop = entry_bar_low
+
+    atr_stop = entry_price - (settings.stop_atr_multiple * atr)
+    # Use the tighter of structural and ATR stop (higher = tighter for longs)
+    stop = max(structural_stop, atr_stop)
+    # Never let stop be above entry
+    return min(stop, entry_price - 0.01)
+
+
+def momentum_size_mult(momentum_score: int, settings: StrategySettings) -> float:
+    """Bonus sizing per point above minimum momentum score."""
+    excess = momentum_score - settings.momentum_score_min
+    if excess <= 0:
+        return 1.0
+    return 1.0 + (0.05 * min(excess, 4))
+
+
+def momentum_position_size(
+    item: CandidateItem,
+    entry_price: float,
+    stop_price: float,
+    regime_tier: str,
+    momentum_score: int,
+    portfolio: PortfolioState,
+    settings: StrategySettings,
+    *,
+    entry_type: EntryType = EntryType.OR_BREAKOUT,
+) -> PositionPlan | None:
+    """Compute position size for a momentum entry."""
+    reg_mult = momentum_regime_mult(regime_tier, settings)
+    if reg_mult <= 0:
+        return None
+
+    size_mult = momentum_size_mult(momentum_score, settings)
+    base = base_risk_fraction(item, settings)
+    final_risk_fraction = base * reg_mult * size_mult
+
+    equity = portfolio.account_equity
+    risk_dollars = equity * final_risk_fraction
+    risk_per_share = abs(entry_price - stop_price) + estimate_cost_buffer_per_share(item, entry_price)
+    if risk_per_share <= 0:
+        return None
+
+    qty = int(floor(risk_dollars / risk_per_share))
+    if qty < 1:
+        return None
+
+    max_participation = settings.thin_participation_30m if item.adv20_usd < 50_000_000 else settings.max_participation_30m
+    max_qty = int(max(item.median_30m_volume, item.average_30m_volume, 1.0) * max_participation)
+    qty = min(qty, max_qty)
+    if qty < 1:
+        return None
+
+    risk_dollars = qty * risk_per_share
+    return PositionPlan(
+        symbol=item.symbol,
+        direction=Direction.LONG,
+        entry_type=entry_type,
+        entry_price=entry_price,
+        stop_price=stop_price,
+        tp1_price=0.0,
+        tp2_price=0.0,
+        quantity=qty,
+        risk_per_share=risk_per_share,
+        risk_dollars=risk_dollars,
+        quality_mult=1.0,
+        regime_mult=reg_mult,
+        corr_mult=1.0,
+    )

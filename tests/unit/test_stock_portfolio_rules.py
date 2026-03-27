@@ -266,3 +266,106 @@ def test_invalid_collision_action_raises():
     """Invalid symbol_collision_action raises ValueError at config init."""
     with pytest.raises(ValueError, match="Invalid symbol_collision_action"):
         PortfolioRulesConfig(symbol_collision_action="quarter_size")
+
+
+# ── Priority-based directional cap reservation ────────────────────
+
+
+PRIORITY_KWARGS = dict(
+    strategy_priorities=(("IARIC_v1", 0), ("ALCB_v1", 1), ("US_ORB_v1", 2)),
+    priority_headroom_R=3.0,
+    priority_reserve_threshold=1,
+)
+
+
+def _make_priority_checker(
+    *,
+    dir_risk_family: float = 0.0,
+    **extra,
+) -> PortfolioRuleChecker:
+    kw = {**PRIORITY_KWARGS, **extra}
+    config = PortfolioRulesConfig(
+        directional_cap_R=8.0,
+        initial_equity=10_000.0,
+        family_strategy_ids=STOCK_IDS,
+        symbol_collision_action="none",
+        **kw,
+    )
+    return PortfolioRuleChecker(
+        config=config,
+        get_strategy_signal=AsyncMock(return_value=None),
+        get_directional_risk_R=AsyncMock(return_value=0.0),
+        get_current_equity=lambda: 10_000.0,
+        get_directional_risk_R_for_strategies=AsyncMock(return_value=dir_risk_family),
+        get_sibling_positions_for_symbol=AsyncMock(return_value=False),
+    )
+
+
+@pytest.mark.asyncio
+async def test_priority_disabled_when_headroom_zero():
+    """headroom_R=0 → backward compatible, no priority enforcement."""
+    checker = _make_priority_checker(
+        dir_risk_family=6.0,
+        priority_headroom_R=0.0,
+    )
+    # 6R + 1R = 7R < 8R cap, remaining=2R < 3R headroom, but headroom disabled
+    result = await checker.check_entry("US_ORB_v1", "LONG", 1.0)
+    assert result.approved
+
+
+@pytest.mark.asyncio
+async def test_priority_iaric_passes_in_reserved_headroom():
+    """Priority 0 (IARIC) passes even when remaining <= headroom_R."""
+    checker = _make_priority_checker(dir_risk_family=6.0)
+    # remaining = 8-6 = 2R <= 3R headroom, but IARIC priority 0 <= threshold 1
+    result = await checker.check_entry("IARIC_v1", "LONG", 1.0)
+    assert result.approved
+
+
+@pytest.mark.asyncio
+async def test_priority_alcb_passes_in_reserved_headroom():
+    """Priority 1 (ALCB) passes even when remaining <= headroom_R."""
+    checker = _make_priority_checker(dir_risk_family=6.0)
+    # remaining = 2R <= 3R headroom, ALCB priority 1 <= threshold 1
+    result = await checker.check_entry("ALCB_v1", "LONG", 1.0)
+    assert result.approved
+
+
+@pytest.mark.asyncio
+async def test_priority_orb_blocked_in_reserved_headroom():
+    """Priority 2 (ORB) blocked when remaining <= headroom_R but total < hard cap."""
+    checker = _make_priority_checker(dir_risk_family=6.0)
+    # remaining = 2R <= 3R headroom, ORB priority 2 > threshold 1 → blocked
+    result = await checker.check_entry("US_ORB_v1", "LONG", 1.0)
+    assert not result.approved
+    assert "directional_cap_reserved" in result.denial_reason
+    assert "priority 2" in result.denial_reason
+
+
+@pytest.mark.asyncio
+async def test_priority_hard_cap_blocks_all_regardless_of_priority():
+    """All strategies blocked when total > hard cap, priority irrelevant."""
+    checker = _make_priority_checker(dir_risk_family=7.5)
+    # 7.5R + 1R = 8.5R > 8R → hard cap blocks even IARIC
+    result = await checker.check_entry("IARIC_v1", "LONG", 1.0)
+    assert not result.approved
+    assert "directional_cap:" in result.denial_reason
+    assert "directional_cap_reserved" not in result.denial_reason
+
+
+@pytest.mark.asyncio
+async def test_priority_unknown_strategy_gets_default_99():
+    """Strategy not in strategy_priorities gets default priority 99 (blocked when headroom active)."""
+    checker = _make_priority_checker(dir_risk_family=6.0)
+    result = await checker.check_entry("UNKNOWN_v1", "LONG", 1.0)
+    assert not result.approved
+    assert "priority 99" in result.denial_reason
+
+
+@pytest.mark.asyncio
+async def test_priority_orb_passes_when_headroom_sufficient():
+    """ORB passes when remaining > headroom_R (plenty of capacity)."""
+    checker = _make_priority_checker(dir_risk_family=3.0)
+    # remaining = 8-3 = 5R > 3R headroom → reservation not triggered
+    result = await checker.check_entry("US_ORB_v1", "LONG", 1.0)
+    assert result.approved

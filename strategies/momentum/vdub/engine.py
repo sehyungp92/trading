@@ -958,7 +958,9 @@ class VdubNQv4Engine:
                 continue
 
             # +1R free-ride (Section 16.1)
-            if not pos.partial_done:
+            # v7: PLUS_1R_PARTIAL_ENABLED=False skips entire +1R block (no BE, no ACTIVE_FREE)
+            # — positions stay in ACTIVE_RISK, managed by protective stop + VWAP fail + stale exit
+            if C.PLUS_1R_PARTIAL_ENABLED and not pos.partial_done:
                 # v4.2: CLOSE entries skip partial — move to BE, keep full position running
                 _is_close_entry = (
                     C.CLOSE_SKIP_PARTIAL
@@ -971,7 +973,7 @@ class VdubNQv4Engine:
                         await self._update_stop(pos, pos.entry_price)
                         pos.partial_done = True
                         pos.stage = PositionStage.ACTIVE_FREE
-                        logger.info("+1R BE (CLOSE skip-partial): %s", pos.trade_id)
+                        logger.info("+1R BE (skip-partial): %s", pos.trade_id)
                 else:
                     qty_close = exits.check_partial(pos, price)
                     if qty_close > 0:

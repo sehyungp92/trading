@@ -271,11 +271,14 @@ MACD_SIGNAL = 5
 SLOPE_LOOKBACK = 3
 CONT_SIZE_MULT = 0.50       # sizing multiplier for continuation breakouts
 REVERSAL_SIZE_MULT = 1.15   # sizing bonus for reversal breakouts (slope opposes direction)
+CONTINUATION_BREAKOUT_SIZE_MULT = 0.70  # v7: portfolio-level continuation sizing (box continuation_mode)
 
 # ---------------------------------------------------------------------------
 # Stop distance cap (Phase 3.1)
 # ---------------------------------------------------------------------------
 MAX_STOP_ATR_MULT = 0.65    # cap stop distance at 0.65 * ATR14_30m (tightened from 0.80)
+MAX_STOP_WIDTH_PTS = 200.0  # v7: reject entries with stop > 200 points (absolute cap)
+MAX_LOSS_CAP_R = -3.0       # v7: force exit if unrealized loss exceeds -3R (initial risk basis)
 
 # ---------------------------------------------------------------------------
 # Helix veto (Phase 3.4)

@@ -699,3 +699,139 @@ def standard_deviation(values: list[float]) -> float:
         return 0.0
     mean = fmean(values)
     return sqrt(sum((value - mean) ** 2 for value in values) / (len(values) - 1))
+
+
+# ---------------------------------------------------------------------------
+# Momentum continuation (T1) signals
+# ---------------------------------------------------------------------------
+
+def compute_opening_range(bars_5m: list, n_bars: int) -> tuple[float, float, float]:
+    """Compute opening range high/low/volume from first N bars of the day.
+
+    Returns (or_high, or_low, or_volume) — returns (0, 0, 0) if insufficient bars.
+    """
+    if len(bars_5m) < n_bars:
+        return 0.0, 0.0, 0.0
+    window = bars_5m[:n_bars]
+    or_high = max(b.high for b in window)
+    or_low = min(b.low for b in window)
+    or_volume = sum(b.volume for b in window)
+    return or_high, or_low, or_volume
+
+
+def compute_session_avwap(bars_5m: list, up_to_idx: int) -> float:
+    """Cumulative VWAP from session open up to (including) bar index."""
+    cum_pv = 0.0
+    cum_vol = 0.0
+    for bar in bars_5m[: up_to_idx + 1]:
+        tp = (bar.high + bar.low + bar.close) / 3.0
+        cum_pv += tp * bar.volume
+        cum_vol += bar.volume
+    return (cum_pv / cum_vol) if cum_vol > 0 else 0.0
+
+
+def is_momentum_breakout(
+    bar,
+    prior_day_high: float,
+    or_high: float,
+    rvol: float,
+    cpr: float,
+    settings: StrategySettings,
+    *,
+    use_rvol_filter: bool = True,
+    use_cpr_filter: bool = True,
+    use_pdh_breakout: bool = True,
+) -> tuple[bool, EntryType | None]:
+    """Check if bar triggers a momentum breakout.
+
+    Returns (triggered, entry_type) or (False, None).
+    """
+    if use_rvol_filter and rvol < settings.rvol_threshold:
+        return False, None
+    if use_cpr_filter and cpr < settings.cpr_threshold:
+        return False, None
+
+    above_or = bar.close > or_high
+    above_pdh = bar.close > prior_day_high if use_pdh_breakout else False
+
+    if above_or and above_pdh:
+        return True, EntryType.COMBINED_BREAKOUT
+    if above_or:
+        return True, EntryType.OR_BREAKOUT
+    if above_pdh:
+        return True, EntryType.PDH_BREAKOUT
+    return False, None
+
+
+def compute_momentum_score(
+    bar,
+    bars_today: list,
+    prior_day_high: float,
+    prior_day_close: float,
+    or_high: float,
+    avwap: float,
+    adx_val: float,
+    sector_flow: float,
+    settings: StrategySettings,
+    *,
+    use_avwap_filter: bool = True,
+) -> tuple[int, dict[str, int]]:
+    """8-factor momentum scoring. Each factor contributes 0 or 1."""
+    score = 0
+    detail: dict[str, int] = {}
+
+    # 1. Price > prior day high
+    if bar.close > prior_day_high:
+        score += 1
+        detail["above_pdh"] = 1
+
+    # 2. Price > opening range high
+    if bar.close > or_high:
+        score += 1
+        detail["above_or"] = 1
+
+    # 3. Bar volume surge vs session average
+    if len(bars_today) >= 2:
+        avg_vol = fmean([b.volume for b in bars_today[:-1]])
+        if avg_vol > 0 and bar.volume / avg_vol >= 1.3:
+            score += 1
+            detail["bar_vol_surge"] = 1
+
+    # 4. CPR ≥ threshold on breakout bar
+    bar_range = max(bar.high - bar.low, 1e-9)
+    bar_cpr = (bar.close - bar.low) / bar_range
+    if bar_cpr >= settings.cpr_threshold:
+        score += 1
+        detail["strong_cpr"] = 1
+
+    # 5. Price > session AVWAP
+    if use_avwap_filter and avwap > 0 and bar.close > avwap:
+        score += 1
+        detail["above_avwap"] = 1
+    elif not use_avwap_filter:
+        score += 1
+        detail["above_avwap"] = 1
+
+    # 6. ADX > threshold (trending)
+    if adx_val >= settings.adx_threshold:
+        score += 1
+        detail["adx_trending"] = 1
+
+    # 7. Sector flow positive
+    if sector_flow > 0:
+        score += 1
+        detail["sector_flow_pos"] = 1
+
+    # 8. Gap up from prior close
+    if bars_today and bars_today[0].open > prior_day_close:
+        score += 1
+        detail["gap_up"] = 1
+
+    return score, detail
+
+
+def compute_bar_rvol(bar_volume: float, expected_5m_volume: float) -> float:
+    """Relative volume vs expected 5m baseline from ResearchSymbol."""
+    if expected_5m_volume <= 0:
+        return 0.0
+    return bar_volume / expected_5m_volume

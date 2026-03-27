@@ -859,7 +859,7 @@ class USORBEngine:
             self._log_missed(
                 ctx=ctx,
                 blocked_by="oms_submit",
-                block_reason="entry_denied",
+                block_reason=receipt.denial_reason or "entry_denied",
                 exchange_timestamp=now,
             )
 

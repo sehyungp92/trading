@@ -53,7 +53,7 @@ from strategy.config import (
     CATCHUP_OVERSHOOT_ATR_FRAC, CATCHUP_OFFSET_PTS, TTL_CATCHUP_S,
     EARLY_ADVERSE_BARS, EARLY_ADVERSE_R,
     MOMENTUM_STALL_BAR, MOMENTUM_STALL_MIN_R, MOMENTUM_STALL_MIN_MFE,
-    DOW_BLOCKED, HOUR_SIZE_MULT,
+    DOW_BLOCKED, HOUR_SIZE_MULT, DOW_SIZE_MULT,
     CLASS_T_MIN_BARS_SINCE_M,
 )
 from strategy.gates import check_gates, GateResult
@@ -203,6 +203,7 @@ class Helix4SymbolResult:
     entries_filled: int = 0
     gates_blocked: int = 0
     shadow_summary: str = ""
+    shadow_tracker: HelixShadowTracker | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -457,6 +458,7 @@ class Helix4Engine:
             entries_filled=len(self._trades),
             gates_blocked=sum(1 for g in self._gate_log if g.decision == "blocked"),
             shadow_summary=shadow_summary,
+            shadow_tracker=self._shadow if self._shadow and self._shadow.rejections else None,
         )
 
     # ------------------------------------------------------------------
@@ -810,6 +812,9 @@ class Helix4Engine:
             if self.flags.use_hour_sizing:
                 hour_mult = HOUR_SIZE_MULT.get(now_et.hour, 1.0)
 
+            # Day-of-week sizing (Thursday halving etc.)
+            dow_mult = DOW_SIZE_MULT.get(now_et.weekday(), 1.0) if DOW_SIZE_MULT else 1.0
+
             stop_dist = abs(setup.entry_stop - setup.stop0)
             if stop_dist <= 0:
                 self._gate_log.append(Helix4GateDecision(
@@ -818,9 +823,11 @@ class Helix4Engine:
                 ))
                 continue
 
-            risk_based = int(unit1 * sm * sess_mult * hour_mult / (stop_dist * self.pv))
+            risk_based = int(unit1 * sm * sess_mult * hour_mult * dow_mult / (stop_dist * self.pv))
             if self.cfg.fixed_qty is not None:
                 contracts = self.cfg.fixed_qty
+                if dow_mult < 1.0:
+                    contracts = max(1, int(contracts * dow_mult))
                 unit1 = stop_dist * self.pv * contracts
             else:
                 contracts = risk_based

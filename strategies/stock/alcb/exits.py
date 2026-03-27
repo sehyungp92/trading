@@ -1,4 +1,8 @@
-"""Trade management helpers for ALCB."""
+"""Trade management helpers for ALCB.
+
+Contains both legacy compression-breakout exits and new momentum
+continuation (T1) exit logic.
+"""
 
 from __future__ import annotations
 
@@ -7,8 +11,27 @@ from statistics import fmean
 
 from .config import StrategySettings
 from .data import StrategyDataStore
-from .models import Bar, Campaign, CampaignState, CandidateItem, Direction, PositionState, ResearchDailyBar
-from .signals import adx_from_bars, atr_from_bars, close_location_value, compute_campaign_avwap, compute_weekly_vwap, detect_compression_box, ema
+from .models import (
+    Bar,
+    Campaign,
+    CampaignState,
+    CandidateItem,
+    CompressionTier,
+    Direction,
+    MomentumTradeClass,
+    PositionState,
+    ResearchDailyBar,
+)
+from .signals import (
+    adx_from_bars,
+    atr_from_bars,
+    close_location_value,
+    compute_campaign_avwap,
+    compute_session_avwap,
+    compute_weekly_vwap,
+    detect_compression_box,
+    ema,
+)
 
 
 def business_days_between(start: date, end: date) -> int:
@@ -22,6 +45,10 @@ def business_days_between(start: date, end: date) -> int:
         current += timedelta(days=1)
     return max(0, days - 1)
 
+
+# ---------------------------------------------------------------------------
+# Legacy compression-breakout exit functions
+# ---------------------------------------------------------------------------
 
 def _directional_progress(direction: Direction, reference: float, price: float) -> float:
     return (price - reference) if direction == Direction.LONG else (reference - price)
@@ -66,7 +93,6 @@ def ratchet_runner_stop(position: PositionState, bars_4h: list[Bar], settings: S
     bar_range = latest.high - latest.low
     bar_rvol = latest.volume / avg_vol if avg_vol > 0 else 0.0
     clv = close_location_value(latest)
-    # Adaptive trend strength detection
     atr_ratio = atr14 / atr50 if atr50 > 0 else 1.0
     strong_trend = adx_val >= settings.runner_adx_strong_threshold and atr_ratio >= settings.runner_atr_expansion_threshold
     if strong_trend:
@@ -222,3 +248,224 @@ def can_add(item: CandidateItem, campaign: Campaign, state_position: PositionSta
     if extension > 2.0:
         return False
     return add_trigger_price(item, campaign, store) is not None
+
+
+# ---------------------------------------------------------------------------
+# Momentum continuation (T1) exit functions
+# ---------------------------------------------------------------------------
+
+def classify_momentum_trade(
+    bars_recent_5m: list,
+    entry_price: float,
+    avwap: float,
+) -> MomentumTradeClass:
+    """Classify current trade state based on recent 5m bar action.
+
+    Adapted from IARIC's classify_trade() — uses price action and
+    volume patterns to determine if momentum is continuing, grinding,
+    stalling, or failed.
+    """
+    if len(bars_recent_5m) < 4:
+        return MomentumTradeClass.GRINDING_HIGHER
+
+    last = bars_recent_5m[-1]
+    prior_3 = bars_recent_5m[-4:-1]
+    prior_high = max(b.high for b in prior_3)
+    prior_vol = fmean([b.volume for b in prior_3]) if prior_3 else 0.0
+
+    bar_range = max(last.high - last.low, 1e-9)
+    cpr = (last.close - last.low) / bar_range
+
+    # FAILED: below entry or below AVWAP with confirming volume
+    if last.close < entry_price and avwap > 0 and last.close < avwap:
+        return MomentumTradeClass.FAILED
+    if avwap > 0 and last.close < avwap and prior_vol > 0 and last.volume > 1.3 * prior_vol:
+        return MomentumTradeClass.FAILED
+
+    # MOMENTUM_CONTINUATION: making new highs with strong close and volume
+    if last.close > prior_high and cpr >= 0.6:
+        if prior_vol <= 0 or last.volume >= 0.8 * prior_vol:
+            return MomentumTradeClass.MOMENTUM_CONTINUATION
+
+    # STALLING: close near entry, volume declining
+    risk_proxy = max(abs(last.close - entry_price), 1e-9)
+    if avwap > 0 and abs(last.close - entry_price) / max(abs(avwap - entry_price), risk_proxy) < 0.3:
+        if prior_vol > 0 and last.volume < 0.7 * prior_vol:
+            return MomentumTradeClass.STALLING
+
+    # GRINDING_HIGHER: above entry and AVWAP but not making new highs
+    if last.close > entry_price and (avwap <= 0 or last.close > avwap):
+        return MomentumTradeClass.GRINDING_HIGHER
+
+    return MomentumTradeClass.STALLING
+
+
+def should_quick_exit_stage1(
+    hold_bars: int,
+    unrealized_r: float,
+    settings: StrategySettings,
+) -> bool:
+    """Stage 1 quick exit: cut deeply underwater trades after qe_stage1_bars.
+
+    Returns True if the position should be exited.
+    """
+    if settings.qe_stage1_bars <= 0:
+        return False
+    if hold_bars != settings.qe_stage1_bars:
+        return False
+    return unrealized_r < settings.qe_stage1_min_r
+
+
+def should_quick_exit(
+    hold_bars: int,
+    unrealized_r: float,
+    settings: StrategySettings,
+) -> bool:
+    """Standard quick exit: cut short-hold losers before they bleed.
+
+    Returns True if the position should be exited.
+    """
+    if settings.quick_exit_max_bars <= 0:
+        return False
+    if hold_bars != settings.quick_exit_max_bars:
+        return False
+    return unrealized_r < settings.quick_exit_min_r
+
+
+def should_fr_exit(
+    bar,
+    session_bars: list,
+    entry_price: float,
+    hold_bars: int,
+    mfe_r: float,
+    settings: StrategySettings,
+) -> bool:
+    """Check flow reversal exit with MFE grace and max_hold gating.
+
+    Consolidates the backtest's inline FR logic into one callable.
+    """
+    # MFE grace: skip FR for positions that have reached significant profit
+    if settings.fr_mfe_grace_r > 0 and mfe_r >= settings.fr_mfe_grace_r:
+        return False
+    # Max hold bars: disable FR after too many bars (let trailing handle it)
+    if settings.fr_max_hold_bars > 0 and hold_bars > settings.fr_max_hold_bars:
+        return False
+    # CPR check: skip FR if bar still closing strong
+    if settings.fr_cpr_threshold > 0 and bar is not None:
+        bar_range = max(bar.high - bar.low, 1e-9)
+        bar_cpr = (bar.close - bar.low) / bar_range
+        if bar_cpr >= settings.fr_cpr_threshold:
+            return False
+    recent = session_bars[-8:] if session_bars else []
+    avwap = compute_session_avwap(session_bars, len(session_bars) - 1) if session_bars else 0.0
+    return should_exit_for_reversal(
+        recent, entry_price, avwap,
+        hold_bars=hold_bars,
+        min_hold_bars=settings.flow_reversal_min_hold_bars,
+        require_below_entry=settings.flow_reversal_require_below_entry,
+    )
+
+
+def update_fr_trailing_stop(
+    current_stop: float,
+    entry_price: float,
+    risk_per_share: float,
+    mfe_r: float,
+    direction: str,
+    settings: StrategySettings,
+) -> float:
+    """Compute and return updated stop after MFE-activated trailing.
+
+    Returns the new stop price (only ratchets tighter, never loosens).
+    """
+    if settings.fr_trailing_activate_r <= 0 or risk_per_share <= 0:
+        return current_stop
+    if mfe_r < settings.fr_trailing_activate_r:
+        return current_stop
+    trail_r = mfe_r - settings.fr_trailing_distance_r
+    if trail_r <= 0:
+        return current_stop
+    if direction == "LONG":
+        trail_price = entry_price + trail_r * risk_per_share
+        return max(current_stop, trail_price)
+    else:
+        trail_price = entry_price - trail_r * risk_per_share
+        return min(current_stop, trail_price)
+
+
+def should_take_partial(
+    unrealized_r: float,
+    partial_taken: bool,
+    settings: StrategySettings,
+) -> tuple[bool, float]:
+    """Check if partial profit should be taken.
+
+    Returns (should_take, fraction_to_exit).
+    """
+    if partial_taken:
+        return False, 0.0
+    if unrealized_r >= settings.partial_r_trigger:
+        return True, settings.partial_fraction
+    return False, 0.0
+
+
+def carry_eligible_momentum(
+    trade_class: MomentumTradeClass,
+    unrealized_r: float,
+    eod_cpr: float,
+    regime_tier: str,
+    settings: StrategySettings,
+    *,
+    use_carry_logic: bool = True,
+) -> tuple[bool, str]:
+    """Determine if a momentum position should carry overnight.
+
+    Returns (eligible, reason).
+    """
+    if not use_carry_logic:
+        return False, "carry_disabled"
+
+    if regime_tier not in settings.carry_regime_required:
+        return False, "regime_not_qualified"
+
+    if unrealized_r < settings.carry_min_r:
+        return False, "insufficient_r"
+
+    if trade_class in (MomentumTradeClass.FAILED, MomentumTradeClass.STALLING):
+        return False, f"trade_class_{trade_class.value}"
+
+    if eod_cpr < settings.carry_min_cpr:
+        return False, "weak_eod_close"
+
+    return True, "carry_approved"
+
+
+def should_exit_for_reversal(
+    bars_recent: list,
+    entry_price: float,
+    avwap: float,
+    *,
+    hold_bars: int = 0,
+    min_hold_bars: int = 0,
+    require_below_entry: bool = False,
+) -> bool:
+    """Check for momentum exhaustion / flow reversal.
+
+    True when price drops below AVWAP with a bearish bar confirmation.
+    Configurable grace period and entry-price requirement reduce
+    false positives on 5m bars.
+    """
+    if not bars_recent or avwap <= 0:
+        return False
+    if hold_bars < min_hold_bars:
+        return False
+    last = bars_recent[-1]
+    if last.close >= avwap:
+        return False
+    if require_below_entry and last.close >= entry_price:
+        return False
+    if last.close >= last.open:
+        return False
+    bar_range = max(last.high - last.low, 1e-9)
+    cpr = (last.close - last.low) / bar_range
+    return cpr < 0.4

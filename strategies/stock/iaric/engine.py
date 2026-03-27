@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import suppress
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timezone
 from decimal import Decimal
 from statistics import fmean
 from typing import Any
@@ -19,7 +19,7 @@ from .config import ET, PROXY_SYMBOLS, STRATEGY_ID, StrategySettings, build_prox
 from .data import CanonicalBarBuilder
 from .diagnostics import JsonlDiagnostics
 from .execution import build_entry_order, build_market_exit, build_position_from_fill, build_stock_instrument, build_stop_order
-from .exits import carry_eligible, classify_trade, flow_reversal_exit_due, should_exit_for_avwap_breakdown, should_exit_for_time_stop, should_take_partial
+from .exits import carry_eligible, classify_trade, flow_reversal_exit_due
 from .models import AVWAPLedger, Bar, MarketSnapshot, PendingOrderState, PortfolioState, PositionState, QuoteSnapshot, SymbolIntradayState, VWAPLedger, WatchlistArtifact
 from .risk import adjust_qty_for_portfolio_constraints, compute_final_risk_unit, compute_order_quantity, timing_gate_allows_entry
 from .signals import alpha_step, compute_flowproxy_signal, compute_location_grade, compute_micropressure_from_ticks, compute_micropressure_proxy, resolve_confidence, update_symbol_tier
@@ -573,6 +573,20 @@ class IARICEngine:
         self._rebalance_tiers()
         for symbol in self._symbols:
             self._manage_position(symbol, now)
+        # Data staleness watchdog — warn if bars stop arriving for open positions
+        _STALE_THRESHOLD_S = 150.0  # >2× the 1m bar interval
+        now_et = now.astimezone(ET)
+        if now_et.time() >= time(9, 30):
+            for symbol, state in self._symbols.items():
+                if not state.in_position:
+                    continue
+                if state.last_1m_bar_time is not None:
+                    gap = (now - state.last_1m_bar_time).total_seconds()
+                    if gap > _STALE_THRESHOLD_S:
+                        logger.warning(
+                            "IARIC STALE DATA: %s — no bar for %.0fs (last: %s)",
+                            symbol, gap, state.last_1m_bar_time.isoformat(),
+                        )
         if self._last_save_ts is None or (now - self._last_save_ts).total_seconds() >= 60:
             await self._save_state("interval")
 
@@ -730,6 +744,37 @@ class IARICEngine:
             if state.active_order_id == "SUBMITTING_ENTRY":
                 state.active_order_id = None
             return
+        if item.conviction_multiplier <= self._settings.min_conviction_multiplier:
+            self._log_missed(
+                symbol=symbol, blocked_by="entry_gate", block_reason="below_min_conviction",
+                signal=state.setup_type or "iaric_entry", exchange_timestamp=now, filter_decisions=filter_decisions,
+            )
+            if state.active_order_id == "SUBMITTING_ENTRY":
+                state.active_order_id = None
+            return
+        if self._settings.carry_only_entry:
+            can_carry = (
+                item.sponsorship_state == "STRONG"
+                and (item.regime_tier == "A"
+                     or (item.regime_tier == "B" and self._settings.regime_b_carry_mult > 0))
+            )
+            if not can_carry:
+                self._log_missed(
+                    symbol=symbol, blocked_by="entry_gate", block_reason="carry_only_blocked",
+                    signal=state.setup_type or "iaric_entry", exchange_timestamp=now, filter_decisions=filter_decisions,
+                )
+                if state.active_order_id == "SUBMITTING_ENTRY":
+                    state.active_order_id = None
+                return
+        if self._settings.t1_entry_flow_gate and not item.flow_proxy_gate_pass:
+            self._log_missed(
+                symbol=symbol, blocked_by="entry_gate", block_reason="flow_gate_negative",
+                signal=state.setup_type or "iaric_entry", exchange_timestamp=now,
+                filter_decisions=filter_decisions,
+            )
+            if state.active_order_id == "SUBMITTING_ENTRY":
+                state.active_order_id = None
+            return
         if market.last_price is None or state.stop_level is None:
             if state.active_order_id == "SUBMITTING_ENTRY":
                 state.active_order_id = None
@@ -749,7 +794,13 @@ class IARICEngine:
             if state.active_order_id == "SUBMITTING_ENTRY":
                 state.active_order_id = None
             return
-        final_risk_unit = compute_final_risk_unit(item, state, now, self._settings)
+        final_risk_unit = compute_final_risk_unit(item)
+        # Day-of-week sizing adjustment
+        dow = now.astimezone(ET).weekday()
+        if dow == 1 and self._settings.dow_tuesday_mult != 1.0:
+            final_risk_unit *= self._settings.dow_tuesday_mult
+        elif dow == 4 and self._settings.dow_friday_mult != 1.0:
+            final_risk_unit *= self._settings.dow_friday_mult
         qty = compute_order_quantity(
             account_equity=self._portfolio.account_equity,
             base_risk_fraction=self._portfolio.base_risk_fraction,
@@ -987,12 +1038,6 @@ class IARICEngine:
         )
         await self._oms.submit_intent(Intent(intent_type=IntentType.CANCEL_ORDER, strategy_id=STRATEGY_ID, target_oms_order_id=oms_order_id))
 
-    def _request_partial_exit(self, symbol: str, qty: int) -> None:
-        state = self._symbols[symbol]
-        if state.position is None or qty <= 0 or state.exit_order is not None or state.pending_hard_exit:
-            return
-        asyncio.create_task(self._submit_market_exit(symbol, qty, OrderRole.TP)).add_done_callback(self._log_task_exception)
-
     def _request_full_exit(self, symbol: str, reason: str) -> None:
         state = self._symbols[symbol]
         position = state.position
@@ -1040,35 +1085,13 @@ class IARICEngine:
             self._request_full_exit(symbol, "flow_reversal")
             return
 
-        if should_exit_for_time_stop(position, now, market.last_price):
-            if state.exit_order is None or state.exit_order.role != OrderRole.EXIT.value:
-                self._diagnostics.log_exit(symbol, "TIME_STOP", {"last_price": market.last_price})
-            self._request_full_exit(symbol, "time_stop")
-            return
-
-        partial_triggered, partial_fraction = should_take_partial(
-            position, market.last_price, self._settings, regime_multiplier=item.regime_risk_multiplier,
-        )
-        if partial_triggered and state.exit_order is None and not state.pending_hard_exit:
-            qty = max(1, int(position.qty_open * partial_fraction))
-            self._diagnostics.log_exit(symbol, "PARTIAL", {"qty": qty, "last_price": market.last_price})
-            self._request_partial_exit(symbol, qty)
-
-        if market.last_30m_bar and market.avwap_live is not None:
-            if should_exit_for_avwap_breakdown(market.last_30m_bar, market.avwap_live, max(state.average_30m_volume, 1.0), self._settings):
-                if state.exit_order is None or state.exit_order.role != OrderRole.EXIT.value:
-                    self._diagnostics.log_exit(symbol, "AVWAP_BREAKDOWN", {"last_price": market.last_price})
-                self._request_full_exit(symbol, "avwap_breakdown")
-                return
-
-        if state.micropressure_signal == "DISTRIBUTE":
-            tightened = max(position.current_stop, position.entry_price - item.tick_size)
-            if tightened > position.current_stop and not state.pending_hard_exit and state.exit_order is None:
-                position.current_stop = tightened
-                asyncio.create_task(self._replace_stop(symbol)).add_done_callback(self._log_task_exception)
-
         if now.astimezone(ET).time() >= self._settings.forced_flatten:
-            eligible, reason = carry_eligible(item, market, position, self._flow_reversal_flags.get(symbol, False))
+            if self._settings.use_close_stop and market.last_price < position.entry_price:
+                if state.exit_order is None or state.exit_order.role != OrderRole.EXIT.value:
+                    self._diagnostics.log_exit(symbol, "CLOSE_STOP", {"last_price": market.last_price})
+                self._request_full_exit(symbol, "close_stop")
+                return
+            eligible, reason = carry_eligible(item, market, position, self._flow_reversal_flags.get(symbol, False), settings=self._settings)
             if state.exit_order is None or state.exit_order.role != OrderRole.EXIT.value:
                 self._diagnostics.log_carry(symbol, eligible, reason)
             if not eligible:
@@ -1121,13 +1144,11 @@ class IARICEngine:
                 fill_time=event.timestamp,
                 setup_tag=state.setup_tag or "UNCLASSIFIED",
             )
-            position.time_stop_deadline = event.timestamp + timedelta(minutes=self._settings.time_stop_minutes)
             state.position = position
             state.in_position = True
             state.position_qty = fill_qty
             state.avg_price = fill_price
             state.fsm_state = "IN_POSITION"
-            state.time_stop_deadline = position.time_stop_deadline
             self._portfolio.open_positions[symbol] = position
             if self._trade_recorder:
                 position.trade_id = await self._trade_recorder.record_entry(

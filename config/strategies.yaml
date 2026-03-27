@@ -94,7 +94,7 @@ strategies:
       unit_risk_dollars: 200.0
       daily_stop_R: 2.0
       max_working_orders: 2
-      max_heat_R: 1.00
+      max_heat_R: 1.50
       priority: 3
     allocation:
       base_risk_pct: 0.008
@@ -124,7 +124,7 @@ strategies:
       unit_risk_dollars: 200.0
       daily_stop_R: 2.0
       max_working_orders: 2
-      max_heat_R: 1.50
+      max_heat_R: 2.00
       priority: 1
     allocation:
       base_risk_pct: 0.012
@@ -154,7 +154,7 @@ strategies:
       unit_risk_dollars: 200.0
       daily_stop_R: 2.0
       max_working_orders: 2
-      max_heat_R: 1.50
+      max_heat_R: 2.00
       priority: 2
     allocation:
       base_risk_pct: 0.012
@@ -190,7 +190,7 @@ strategies:
       max_heat_R: 1.25
       portfolio_daily_stop_R: 3.0
     allocation:
-      base_risk_pct: 0.0025
+      base_risk_pct: 0.005
       continuation_half_size: false
       continuation_size_mult: 0.50
     dashboard_metadata:
@@ -287,7 +287,7 @@ strategies:
       portfolio_daily_stop_R: 1.5
       priority: 2
     allocation:
-      base_risk_pct: 0.0125
+      base_risk_pct: 0.02
     dashboard_metadata:
       system_label: "Momentum Trader"
       short_label: "MOMO"
@@ -349,7 +349,7 @@ strategies:
       portfolio_daily_stop_R: 1.5
       priority: 0
     allocation:
-      base_risk_pct: 0.008
+      base_risk_pct: 0.01
     dashboard_metadata:
       system_label: "Momentum Trader"
       short_label: "MOMO"

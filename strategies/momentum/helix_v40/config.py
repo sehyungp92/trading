@@ -29,8 +29,8 @@ MAX_CONCURRENT_POSITIONS = 3
 DUPLICATE_OVERRIDE_MIN_R = 0.25
 
 # ── Risk ────────────────────────────────────────────────────────────
-BASE_RISK_PCT = 0.0125              # 1.25% equity (was 1.50%)
-DAILY_STOP_R = 1.5                  # was 2.0
+BASE_RISK_PCT = 0.02                # v7: 2.0% equity (was 1.25%)
+DAILY_STOP_R = 2.0                  # v7: aligned with backtest (was 1.5 in live)
 HEAT_CAP_R = 3.00                   # single tier (was 3.50/4.00/2.00)
 HEAT_CAP_DIR_R = 2.50               # single tier (was 3.00)
 PORTFOLIO_DAILY_STOP_R = 1.5  # v6: tightened from 2.5 (clips tail-loss days, +0.18 Sharpe)
@@ -185,16 +185,17 @@ RTH_DEAD_ENHANCED_MIN_TREND = 0.50   # moderate trend strength required
 RTH_DEAD_ENHANCED_MAX_VOL = 70       # below high vol
 
 # ── Sizing modifiers ───────────────────────────────────────────────
-VOL_50_80_SIZING_MULT: float = 0.60
+VOL_50_80_SIZING_MULT: float = 0.85  # v7: was 0.60 — less aggressive reduction in 50-80 vol regime
 
 # ── Day-of-week ────────────────────────────────────────────────────
 DOW_BLOCKED = {0, 2}                # Monday=0, Wednesday=2
-DOW_SIZE_MULT = {3: 0.50}           # Thursday=3: 33% WR, avgR=-0.003 — halved (live only)
+DOW_SIZE_MULT = {}                   # v7: removed Thursday halving — optimizer validated without it
 
 # ── Hour-of-day sizing ─────────────────────────────────────────────
 HOUR_SIZE_MULT = {13: 1.10, 17: 1.10, 12: 0.70}
 
 # ── Drawdown throttle (earlier, more aggressive) ───────────────────
+DRAWDOWN_THROTTLE_ENABLED = False  # v7: disabled — optimizer found throttle hurts net returns
 DRAWDOWN_THROTTLE_LEVELS = [
     (0.05, 0.75),    # at 5% DD: 75% sizing (was 8%/75%)
     (0.08, 0.50),    # at 8% DD: 50% sizing (was 12%/50%)

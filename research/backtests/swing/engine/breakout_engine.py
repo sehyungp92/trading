@@ -21,6 +21,7 @@ from libs.broker_ibkr.risk_support.tick_rules import round_to_tick
 from strategy_3 import allocator, gates, signals, stops
 from strategy_3.config import (
     ADD_RISK_MULT,
+    ADX_PERIOD,
     ATR_DAILY_LONG_PERIOD,
     ATR_DAILY_PERIOD,
     ATR_HOURLY_PERIOD,
@@ -53,6 +54,7 @@ from strategy_3.config import (
     SymbolConfig,
 )
 from strategy_3.indicators import (
+    adx,
     atr,
     compute_avwap,
     compute_daily_slope,
@@ -107,6 +109,49 @@ try:
     _ET = zoneinfo.ZoneInfo("America/New_York")
 except Exception:
     _ET = timezone(timedelta(hours=-5))
+
+
+# ---------------------------------------------------------------------------
+# Param override patching (matches ATRSS _AblationPatch pattern)
+# ---------------------------------------------------------------------------
+
+class _AblationPatch:
+    """Temporarily patch strategy_3 module constants for param_overrides.
+
+    Monkeypatches constants in strategy_3.config (and this engine module's
+    own top-level bindings) within a context manager. Restores originals
+    on exit. Safe in single-threaded / per-process execution.
+    """
+
+    def __init__(self, flags: BreakoutAblationFlags, param_overrides: dict[str, float] | None = None):
+        self.flags = flags
+        self.overrides = param_overrides or {}
+        self._patches: list[tuple[object, str, object]] = []
+
+    def __enter__(self):
+        import sys
+        import strategy_3.config as scfg
+
+        engine_mod = sys.modules[__name__]
+
+        for key, val in self.overrides.items():
+            upper_key = key.upper()
+            # Patch source module
+            if hasattr(scfg, upper_key):
+                self._patch(scfg, upper_key, val)
+            # Patch engine module's own top-level imported binding
+            if hasattr(engine_mod, upper_key):
+                self._patch(engine_mod, upper_key, val)
+        return self
+
+    def __exit__(self, *exc):
+        for obj, attr, orig in reversed(self._patches):
+            setattr(obj, attr, orig)
+        self._patches.clear()
+
+    def _patch(self, obj, attr: str, value):
+        self._patches.append((obj, attr, getattr(obj, attr)))
+        setattr(obj, attr, value)
 
 
 # ---------------------------------------------------------------------------
@@ -436,27 +481,32 @@ class BreakoutEngine:
         warmup_h = self.bt_config.warmup_hourly
         warmup_4h = self.bt_config.warmup_4h
 
-        # Initialize rolling histories from daily warmup period
-        self._init_histories(daily, warmup_d)
+        with _AblationPatch(self.flags, self.bt_config.param_overrides):
+            # Precompute full indicator arrays once (avoids recomputing
+            # bounded windows on every bar)
+            self._precompute_indicators(daily, hourly, four_hour)
 
-        # Initialize slot medians from hourly warmup period
-        self._init_slot_medians(hourly, warmup_h)
+            # Initialize rolling histories from daily warmup period
+            self._init_histories(daily, warmup_d)
 
-        for t in range(len(hourly)):
-            self._step_bar(
-                daily, hourly, four_hour,
-                daily_idx_map, four_hour_idx_map, t,
-                warmup_d, warmup_h, warmup_4h,
-            )
+            # Initialize slot medians from hourly warmup period
+            self._init_slot_medians(hourly, warmup_h)
 
-        # Close any remaining position at last bar's close
-        if self.active_position is not None:
-            self._flatten_position(
-                self.active_position,
-                hourly.closes[-1],
-                self._to_datetime(hourly.times[-1]),
-                "END_OF_DATA",
-            )
+            for t in range(len(hourly)):
+                self._step_bar(
+                    daily, hourly, four_hour,
+                    daily_idx_map, four_hour_idx_map, t,
+                    warmup_d, warmup_h, warmup_4h,
+                )
+
+            # Close any remaining position at last bar's close
+            if self.active_position is not None:
+                self._flatten_position(
+                    self.active_position,
+                    hourly.closes[-1],
+                    self._to_datetime(hourly.times[-1]),
+                    "END_OF_DATA",
+                )
 
         return BreakoutSymbolResult(
             symbol=self.symbol,
@@ -482,6 +532,45 @@ class BreakoutEngine:
         )
 
     # ------------------------------------------------------------------
+    # Indicator precomputation
+    # ------------------------------------------------------------------
+
+    def _precompute_indicators(
+        self,
+        daily: NumpyBars,
+        hourly: NumpyBars,
+        four_hour: NumpyBars,
+    ) -> None:
+        """Precompute full-length indicator arrays once before the main loop.
+
+        Avoids recomputing bounded-window ATR/EMA on every bar.
+        """
+        # Daily indicators
+        self._pre_d_atr14 = atr(daily.highs, daily.lows, daily.closes, ATR_DAILY_PERIOD)
+        self._pre_d_atr50 = atr(daily.highs, daily.lows, daily.closes, ATR_DAILY_LONG_PERIOD)
+        self._pre_d_ema20 = ema(daily.closes, 20)
+
+        # Daily datetime conversions
+        self._pre_d_datetimes = [self._to_datetime(daily.times[i]) for i in range(len(daily.times))]
+
+        # Hourly indicators
+        self._pre_h_atr14 = atr(hourly.highs, hourly.lows, hourly.closes, ATR_HOURLY_PERIOD)
+        self._pre_h_ema20 = ema(hourly.closes, EMA_1H_PERIOD)
+
+        # Hourly datetime conversions (biggest bottleneck: 4ms/bar)
+        self._pre_h_datetimes = [self._to_datetime(hourly.times[i]) for i in range(len(hourly.times))]
+
+        # 4H indicators
+        if len(four_hour.closes) > 0:
+            self._pre_4h_atr14 = atr(four_hour.highs, four_hour.lows, four_hour.closes, ATR_HOURLY_PERIOD)
+            self._pre_4h_ema50 = ema(four_hour.closes, EMA_4H_PERIOD)
+            self._pre_4h_adx = adx(four_hour.highs, four_hour.lows, four_hour.closes, ADX_PERIOD)
+        else:
+            self._pre_4h_atr14 = np.array([])
+            self._pre_4h_ema50 = np.array([])
+            self._pre_4h_adx = np.array([])
+
+    # ------------------------------------------------------------------
     # History initialization
     # ------------------------------------------------------------------
 
@@ -494,8 +583,13 @@ class BreakoutEngine:
         highs = daily.highs[:warmup_d]
         lows = daily.lows[:warmup_d]
 
-        atr14 = atr(highs, lows, closes, ATR_DAILY_PERIOD)
-        atr50 = atr(highs, lows, closes, ATR_DAILY_LONG_PERIOD)
+        # Use precomputed arrays if available, otherwise compute (called externally before run())
+        if hasattr(self, '_pre_d_atr14'):
+            atr14 = self._pre_d_atr14[:warmup_d]
+            atr50 = self._pre_d_atr50[:warmup_d]
+        else:
+            atr14 = atr(highs, lows, closes, ATR_DAILY_PERIOD)
+            atr50 = atr(highs, lows, closes, ATR_DAILY_LONG_PERIOD)
 
         for i in range(max(ATR_DAILY_LONG_PERIOD, 50), len(closes)):
             L = 12
@@ -514,7 +608,7 @@ class BreakoutEngine:
         """Initialize slot volume medians from hourly warmup bars."""
         n = min(warmup_h, len(hourly))
         for i in range(n):
-            dt = self._to_datetime(hourly.times[i])
+            dt = self._pre_h_datetimes[i] if hasattr(self, '_pre_h_datetimes') else self._to_datetime(hourly.times[i])
             key = get_slot_key(dt)
             self._slot_volumes.setdefault(key, []).append(float(hourly.volumes[i]))
         self.histories.slot_medians = update_slot_medians(self._slot_volumes)
@@ -536,7 +630,7 @@ class BreakoutEngine:
         warmup_4h: int,
     ) -> None:
         """Process one hourly bar."""
-        bar_time = self._to_datetime(hourly.times[t])
+        bar_time = self._pre_h_datetimes[t] if hasattr(self, '_pre_h_datetimes') else self._to_datetime(hourly.times[t])
         O = hourly.opens[t]
         H = hourly.highs[t]
         L = hourly.lows[t]
@@ -660,12 +754,12 @@ class BreakoutEngine:
         if len(closes) < ATR_DAILY_LONG_PERIOD + 10:
             return
 
-        # --- 1) Compute daily indicators ---
-        atr14_d_arr = atr(highs, lows, closes, ATR_DAILY_PERIOD)
-        atr50_d_arr = atr(highs, lows, closes, ATR_DAILY_LONG_PERIOD)
-        atr14_d = float(atr14_d_arr[-1])
-        atr50_d = float(atr50_d_arr[-1])
-        sma_atr = float(np.mean(atr14_d_arr[-50:])) if len(atr14_d_arr) >= 50 else atr14_d
+        # --- 1) Compute daily indicators on bounded slice (preserves EMA seed parity) ---
+        atr14_arr = atr(highs, lows, closes, ATR_DAILY_PERIOD)
+        atr50_arr = atr(highs, lows, closes, ATR_DAILY_LONG_PERIOD)
+        atr14_d = float(atr14_arr[-1])
+        atr50_d = float(atr50_arr[-1])
+        sma_atr = float(np.mean(atr14_arr[-50:]))
         risk_regime = atr14_d / sma_atr if sma_atr > 0 else 1.0
         atr_expanding = atr14_d > sma_atr
 
@@ -732,7 +826,7 @@ class BreakoutEngine:
         self._daily_close_d = close_today
 
         # --- 3) AVWAP_D ---
-        bar_times = [self._to_datetime(daily.times[start + i]) for i in range(len(closes))]
+        bar_times = self._pre_d_datetimes[start:end] if hasattr(self, '_pre_d_datetimes') else [self._to_datetime(daily.times[start + i]) for i in range(len(closes))]
         avwap_d_arr = compute_avwap(highs, lows, closes, volumes, bar_times, campaign.anchor_time)
         avwap_d = float(avwap_d_arr[-1]) if not np.isnan(avwap_d_arr[-1]) else close_today
 
@@ -1031,7 +1125,24 @@ class BreakoutEngine:
         if len(closes) < EMA_4H_PERIOD + 4:
             return
 
-        regime_4h, slope_4h, adx_4h = compute_regime_4h(closes, highs_arr, lows_arr)
+        # Inline regime classification using precomputed arrays (saves ~31s from ADX)
+        ema_val = float(self._pre_4h_ema50[fh_idx])
+        atr_val = float(self._pre_4h_atr14[fh_idx])
+        adx_val = float(self._pre_4h_adx[fh_idx])
+        ema_prev3 = float(self._pre_4h_ema50[fh_idx - 3]) if fh_idx >= 3 else ema_val
+        slope_4h = ema_val - ema_prev3
+        slope_th = 0.10 * atr_val
+        price = float(four_hour.closes[fh_idx])
+
+        if adx_val < 20:
+            regime_4h = Regime4H.RANGE_CHOP
+        elif slope_4h > slope_th and price > ema_val:
+            regime_4h = Regime4H.BULL_TREND
+        elif slope_4h < -slope_th and price < ema_val:
+            regime_4h = Regime4H.BEAR_TREND
+        else:
+            regime_4h = Regime4H.RANGE_CHOP
+
         self._cached_regime_4h = regime_4h
         self._regime_history.append(regime_4h)
         if len(self._regime_history) > 10:
@@ -1045,11 +1156,9 @@ class BreakoutEngine:
         else:
             self.regime_bars_chop += 1
 
-        # Cache for trailing stop computation
-        atr14_4h_arr = atr(highs_arr, lows_arr, closes, ATR_HOURLY_PERIOD)
-        self._cached_atr14_4h = float(atr14_4h_arr[-1])
-        ema50_4h_arr = ema(closes, EMA_4H_PERIOD)
-        self._cached_ema50_4h = float(ema50_4h_arr[-1])
+        # Use precomputed arrays for trailing stop cache
+        self._cached_atr14_4h = float(self._pre_4h_atr14[fh_idx])
+        self._cached_ema50_4h = float(self._pre_4h_ema50[fh_idx])
         self._cached_4h_highs = [float(h) for h in highs_arr[-20:]]
         self._cached_4h_lows = [float(l) for l in lows_arr[-20:]]
 
@@ -1074,18 +1183,17 @@ class BreakoutEngine:
         h_lows = hourly.lows[start:t + 1]
         h_volumes = hourly.volumes[start:t + 1]
 
-        # ATR14_H
-        if len(h_closes) >= ATR_HOURLY_PERIOD:
-            atr14_h_arr = atr(h_highs, h_lows, h_closes, ATR_HOURLY_PERIOD)
-            hs.atr14_h = float(atr14_h_arr[-1])
+        # ATR14_H — use precomputed
+        if t >= ATR_HOURLY_PERIOD:
+            hs.atr14_h = float(self._pre_h_atr14[t])
 
-        # EMA20_H
-        if len(h_closes) >= EMA_1H_PERIOD:
-            hs.ema20_h = float(ema(h_closes, EMA_1H_PERIOD)[-1])
+        # EMA20_H — use precomputed
+        if t >= EMA_1H_PERIOD:
+            hs.ema20_h = float(self._pre_h_ema20[t])
 
-        # AVWAP_H (campaign-anchored)
+        # AVWAP_H (campaign-anchored) — cannot precompute, depends on anchor_time
         if self.campaign.anchor_time:
-            h_times = [self._to_datetime(hourly.times[start + i]) for i in range(lookback)]
+            h_times = self._pre_h_datetimes[start:t + 1] if hasattr(self, '_pre_h_datetimes') else [self._to_datetime(hourly.times[start + i]) for i in range(lookback)]
             avwap_arr = compute_avwap(h_highs, h_lows, h_closes, h_volumes,
                                        h_times, self.campaign.anchor_time)
             val = float(avwap_arr[-1])

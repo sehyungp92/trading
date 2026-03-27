@@ -626,6 +626,71 @@ def make_10k_v6_config() -> PortfolioConfig:
     )
 
 
+def make_10k_v7_config() -> PortfolioConfig:
+    """$10K account v7: greedy-optimized from v6 baseline.
+
+    12 mutations from hierarchical optimization pipeline:
+    - Net profit: $79,919 vs $35,392 (+126%)
+    - Max DD: 8.78% vs 13.5% (-35%)
+    - PF: 2.60 vs 2.11 (+23%)
+    - Composite score: 0.896 vs 0.822 (+9%)
+
+    Strategy-level changes (applied in live config.py files):
+    - Helix: use_momentum_stall=True, use_drawdown_throttle=False, VOL_50_80_SIZING_MULT=0.85
+    - NQDTC: max_loss_cap_R=-3.0, MAX_STOP_WIDTH_PTS=200.0
+    - Vdubus: PLUS_1R_PARTIAL_ENABLED=False, CHOP_THRESHOLD=40
+
+    Portfolio-level changes (below):
+    - Vdubus risk: 0.008 -> 0.01
+    - Helix risk: 0.015 -> 0.02
+    - nqdtc_direction_filter: disabled (no effect in live — already absent)
+    - helix_veto: enabled with 120min window (backtest-only until live implementation)
+    """
+    return PortfolioConfig(
+        tier=AccountTier.SMALL,
+        initial_equity=10_000.0,
+        heat_cap_R=3.5,
+        portfolio_daily_stop_R=1.5,
+        max_total_positions=3,
+        directional_cap_R=3.5,
+        strategies=(
+            StrategyAllocation(
+                strategy_id="Vdubus",
+                enabled=True,
+                base_risk_pct=0.01,               # v7: was 0.008
+                daily_stop_R=2.5,
+                max_concurrent=1,
+                priority=0,
+            ),
+            StrategyAllocation(
+                strategy_id="NQDTC",
+                enabled=True,
+                base_risk_pct=0.008,
+                daily_stop_R=2.5,
+                max_concurrent=1,
+                priority=1,
+                continuation_half_size=True,
+                continuation_size_mult=0.70,
+                helix_veto_enabled=True,           # v7: enabled
+                helix_veto_window_minutes=120,     # v7: 120min window
+            ),
+            StrategyAllocation(
+                strategy_id="Helix",
+                enabled=True,
+                base_risk_pct=0.02,               # v7: was 0.015
+                daily_stop_R=2.0,
+                max_concurrent=2,
+                priority=2,
+            ),
+        ),
+        helix_nqdtc_cooldown_minutes=120,
+        cooldown_session_only=True,
+        nqdtc_direction_filter_enabled=False,      # v7: disabled
+        nqdtc_agree_size_mult=1.50,
+        nqdtc_oppose_size_mult=0.0,
+    )
+
+
 def make_100k_halfsized_config() -> PortfolioConfig:
     """$100K account: All 3 strategies, NQDTC continuation half-sized (original)."""
     return PortfolioConfig(

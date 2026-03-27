@@ -24,7 +24,7 @@ from .config import (
     SessionBlock, SUNDAY_GAP_ATR_FRAC, SPREAD_RECHECK_BARS,
     MAX_CONCURRENT_POSITIONS, DUPLICATE_OVERRIDE_MIN_R,
     VOL_50_80_SIZING_MULT, DOW_BLOCKED, HOUR_SIZE_MULT,
-    CLASS_T_MIN_BARS_SINCE_M,
+    CLASS_T_MIN_BARS_SINCE_M, DRAWDOWN_THROTTLE_ENABLED,
 )
 from strategies.momentum.instrumentation.src.config_snapshot import snapshot_config_module
 from strategy import config as strategy_config
@@ -33,7 +33,7 @@ from .pivots import PivotDetector
 from .signals import SignalEngine, alignment_score, trend_strength
 from .gates import check_gates, GateResult
 from .risk import RiskEngine
-from libs.risk.risk_throttle import DrawdownThrottle
+from libs.risk.drawdown_throttle import DrawdownThrottle
 from .execution import ExecutionEngine
 
 from libs.oms.models.intent import Intent, IntentType
@@ -462,7 +462,7 @@ class Helix4Engine:
 
     async def _detect_and_arm(self, now_et: datetime, last_price: float) -> None:
         # Drawdown throttle: daily loss cap halt (matches backtest helix_engine.py:667)
-        if self._throttle.daily_halted:
+        if DRAWDOWN_THROTTLE_ENABLED and self._throttle.daily_halted:
             return
 
         # DOW block: Monday + Wednesday
@@ -622,13 +622,14 @@ class Helix4Engine:
             contracts = self.risk.size_contracts(
                 setup, sess_mult, hour_mult=hour_mult, dow_mult=dow_mult)
 
-            # Drawdown throttle
-            dd_mult = self._throttle.dd_size_mult
-            if dd_mult <= 0.0:
-                self._log_missed(setup, "drawdown_throttle", f"dd_mult={dd_mult:.2f}")
-                continue
-            if dd_mult < 1.0:
-                contracts = max(1, int(contracts * dd_mult))
+            # Drawdown throttle (v7: disabled by default)
+            if DRAWDOWN_THROTTLE_ENABLED:
+                dd_mult = self._throttle.dd_size_mult
+                if dd_mult <= 0.0:
+                    self._log_missed(setup, "drawdown_throttle", f"dd_mult={dd_mult:.2f}")
+                    continue
+                if dd_mult < 1.0:
+                    contracts = max(1, int(contracts * dd_mult))
 
             # Vol 50-80 sizing penalty
             if VOL_50_80_SIZING_MULT < 1.0 and 50 < self.vol.vol_pct < 80 and contracts > 1:
@@ -716,11 +717,12 @@ class Helix4Engine:
                 dow_mult = self.risk.dow_size_mult(now_et.weekday())
                 contracts = self.risk.size_contracts(
                     setup, sess_mult, hour_mult=hour_mult, dow_mult=dow_mult)
-                dd_m = self._throttle.dd_size_mult
-                if dd_m <= 0.0:
-                    contracts = 0
-                elif dd_m < 1.0:
-                    contracts = max(1, int(contracts * dd_m))
+                if DRAWDOWN_THROTTLE_ENABLED:
+                    dd_m = self._throttle.dd_size_mult
+                    if dd_m <= 0.0:
+                        contracts = 0
+                    elif dd_m < 1.0:
+                        contracts = max(1, int(contracts * dd_m))
                 if contracts >= 1:
                     risk_r = self.risk.compute_risk_r(
                         setup.entry_stop, setup.stop0, contracts, setup.unit1_risk_usd)

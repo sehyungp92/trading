@@ -94,6 +94,49 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Param override patching (matches ATRSS _AblationPatch pattern)
+# ---------------------------------------------------------------------------
+
+class _AblationPatch:
+    """Temporarily patch strategy_2 module constants for param_overrides.
+
+    Monkeypatches constants in strategy_2.config (and this engine module's
+    own top-level bindings) within a context manager. Restores originals
+    on exit. Safe in single-threaded / per-process execution.
+    """
+
+    def __init__(self, flags: HelixAblationFlags, param_overrides: dict[str, float] | None = None):
+        self.flags = flags
+        self.overrides = param_overrides or {}
+        self._patches: list[tuple[object, str, object]] = []
+
+    def __enter__(self):
+        import sys
+        import strategy_2.config as scfg
+
+        engine_mod = sys.modules[__name__]
+
+        for key, val in self.overrides.items():
+            upper_key = key.upper()
+            # Patch source module
+            if hasattr(scfg, upper_key):
+                self._patch(scfg, upper_key, val)
+            # Patch engine module's own top-level imported binding
+            if hasattr(engine_mod, upper_key):
+                self._patch(engine_mod, upper_key, val)
+        return self
+
+    def __exit__(self, *exc):
+        for obj, attr, orig in reversed(self._patches):
+            setattr(obj, attr, orig)
+        self._patches.clear()
+
+    def _patch(self, obj, attr: str, value):
+        self._patches.append((obj, attr, getattr(obj, attr)))
+        setattr(obj, attr, value)
+
+
+# ---------------------------------------------------------------------------
 # Trade record for post-hoc analysis (Helix-specific fields)
 # ---------------------------------------------------------------------------
 
@@ -260,6 +303,9 @@ class HelixEngine:
         # Daily state index cache for shadow tracker
         self._daily_state_by_idx: dict[int, DailyState] = {}
 
+        # Shadow tracker callback for filter attribution
+        self.on_rejection: callable | None = None
+
         # Bar index tracking for 4H detection
         self._prev_4h_idx: int = -1
 
@@ -275,21 +321,26 @@ class HelixEngine:
         warmup_d = self.bt_config.warmup_daily
         warmup_h = self.bt_config.warmup_hourly
 
-        for t in range(len(hourly)):
-            self._step_bar(
-                daily, hourly, four_hour,
-                daily_idx_map, four_hour_idx_map, t,
-                warmup_d, warmup_h,
-            )
+        with _AblationPatch(self.flags, self.bt_config.param_overrides):
+            # Precompute full indicator arrays once (avoids recomputing
+            # 200-bar windows on every bar)
+            self._precompute_indicators(hourly, four_hour)
 
-        # Close any remaining position at last bar's close
-        if self.active_position is not None:
-            self._flatten_position(
-                self.active_position,
-                hourly.closes[-1],
-                self._to_datetime(hourly.times[-1]),
-                "END_OF_DATA",
-            )
+            for t in range(len(hourly)):
+                self._step_bar(
+                    daily, hourly, four_hour,
+                    daily_idx_map, four_hour_idx_map, t,
+                    warmup_d, warmup_h,
+                )
+
+            # Close any remaining position at last bar's close
+            if self.active_position is not None:
+                self._flatten_position(
+                    self.active_position,
+                    hourly.closes[-1],
+                    self._to_datetime(hourly.times[-1]),
+                    "END_OF_DATA",
+                )
 
         return HelixSymbolResult(
             symbol=self.symbol,
@@ -307,6 +358,57 @@ class HelixEngine:
         )
 
     # ------------------------------------------------------------------
+    # Indicator precomputation
+    # ------------------------------------------------------------------
+
+    def _precompute_indicators(
+        self,
+        hourly: NumpyBars,
+        four_hour: NumpyBars,
+    ) -> None:
+        """Precompute full-length indicator arrays for 1H and 4H.
+
+        Avoids recomputing 200-bar ATR/MACD windows on every bar.
+        Also precomputes datetime conversions (biggest bottleneck: 4ms/bar).
+        """
+        from strategy_2.config import ATR_DAILY_PERIOD
+
+        # 1H full arrays
+        self._pre_1h_atr = atr(hourly.highs, hourly.lows, hourly.closes, ATR_DAILY_PERIOD)
+        line, sig, hist = macd(hourly.closes)
+        self._pre_1h_macd_line = line
+        self._pre_1h_macd_sig = sig
+        self._pre_1h_macd_hist = hist
+
+        # 1H datetime conversions (eliminates 4ms/bar numpy→datetime overhead)
+        self._pre_1h_datetimes = [self._to_datetime(hourly.times[i]) for i in range(len(hourly.times))]
+
+        # 4H full arrays
+        if len(four_hour.closes) > 0:
+            self._pre_4h_atr = atr(four_hour.highs, four_hour.lows, four_hour.closes, ATR_DAILY_PERIOD)
+            line4, sig4, hist4 = macd(four_hour.closes)
+            self._pre_4h_macd_line = line4
+            self._pre_4h_macd_sig = sig4
+            self._pre_4h_macd_hist = hist4
+            # EMA for regime
+            if len(four_hour.closes) >= EMA_4H_SLOW:
+                self._pre_4h_ema_fast = ema(four_hour.closes, EMA_4H_FAST)
+                self._pre_4h_ema_slow = ema(four_hour.closes, EMA_4H_SLOW)
+            else:
+                self._pre_4h_ema_fast = None
+                self._pre_4h_ema_slow = None
+            # 4H datetime conversions
+            self._pre_4h_datetimes = [self._to_datetime(four_hour.times[i]) for i in range(len(four_hour.times))]
+        else:
+            self._pre_4h_atr = np.array([])
+            self._pre_4h_macd_line = np.array([])
+            self._pre_4h_macd_sig = np.array([])
+            self._pre_4h_macd_hist = np.array([])
+            self._pre_4h_ema_fast = None
+            self._pre_4h_ema_slow = None
+            self._pre_4h_datetimes = []
+
+    # ------------------------------------------------------------------
     # Bar processing
     # ------------------------------------------------------------------
 
@@ -322,7 +424,8 @@ class HelixEngine:
         warmup_h: int,
     ) -> None:
         """Process one hourly bar."""
-        bar_time = self._to_datetime(hourly.times[t])
+        # Use precomputed datetime if available (avoids 0.02ms numpy→datetime per call)
+        bar_time = self._pre_1h_datetimes[t] if hasattr(self, '_pre_1h_datetimes') else self._to_datetime(hourly.times[t])
         O = hourly.opens[t]
         H = hourly.highs[t]
         L = hourly.lows[t]
@@ -408,92 +511,115 @@ class HelixEngine:
     # ------------------------------------------------------------------
 
     def _update_tf_state_1h(self, hourly: NumpyBars, t: int) -> None:
-        """Update 1H TFState and scan pivots."""
+        """Update 1H TFState and scan pivots using precomputed arrays."""
         lookback = min(t + 1, 200)
         start = t + 1 - lookback
 
-        closes = hourly.closes[start:t + 1]
         highs = hourly.highs[start:t + 1]
         lows = hourly.lows[start:t + 1]
 
-        from strategy_2.config import ATR_DAILY_PERIOD
-        atr_arr = atr(highs, lows, closes, ATR_DAILY_PERIOD)
-        line, sig, hist = macd(closes)
+        # Slice precomputed arrays instead of recomputing
+        atr_slice = self._pre_1h_atr[start:t + 1]
+        line_slice = self._pre_1h_macd_line[start:t + 1]
+        hist_slice = self._pre_1h_macd_hist[start:t + 1]
 
-        self.tf_1h.atr = float(atr_arr[-1])
-        self.tf_1h.macd_line = float(line[-1])
-        self.tf_1h.macd_signal = float(sig[-1])
-        self.tf_1h.macd_hist = float(hist[-1])
-        self.tf_1h.close = float(closes[-1])
-        self.tf_1h.bar_time = self._to_datetime(hourly.times[t])
-        self.tf_1h.macd_line_history = [float(v) for v in line[-50:]]
-        self.tf_1h.macd_hist_history = [float(v) for v in hist[-50:]]
+        self.tf_1h.atr = float(atr_slice[-1])
+        self.tf_1h.macd_line = float(line_slice[-1])
+        self.tf_1h.macd_signal = float(self._pre_1h_macd_sig[t])
+        self.tf_1h.macd_hist = float(hist_slice[-1])
+        self.tf_1h.close = float(hourly.closes[t])
+        self.tf_1h.bar_time = self._pre_1h_datetimes[t]
+        self.tf_1h.macd_line_history = [float(v) for v in line_slice[-50:]]
+        self.tf_1h.macd_hist_history = [float(v) for v in hist_slice[-50:]]
 
         chandelier_lb = max(self.cfg.chandelier_lookback, 30)
         self.tf_1h.highs = [float(v) for v in highs[-chandelier_lb:]]
         self.tf_1h.lows = [float(v) for v in lows[-chandelier_lb:]]
 
-        # Scan pivots
-        bar_times = [self._to_datetime(hourly.times[start + i]) for i in range(lookback)]
-        new_pivots = scan_pivots(highs, lows, line, hist, atr_arr, bar_times)
-
-        last_h_ts = self.pivots_1h.highs[-1].ts if self.pivots_1h.highs else datetime.min
-        last_l_ts = self.pivots_1h.lows[-1].ts if self.pivots_1h.lows else datetime.min
-        for p in new_pivots:
-            if p.kind.value == "H" and p.ts > last_h_ts:
-                self.pivots_1h.add(p)
-            elif p.kind.value == "L" and p.ts > last_l_ts:
-                self.pivots_1h.add(p)
+        # Check for pivot at current bar only (O(1) instead of scanning 200 bars)
+        from strategy_2.indicators import confirmed_pivot
+        bar_times = self._pre_1h_datetimes[start:t + 1]
+        local_idx = lookback - 1  # current bar index within the slice
+        p = confirmed_pivot(highs, lows, local_idx, line_slice, hist_slice, atr_slice, bar_times)
+        if p is not None:
+            if p.kind.value == "H":
+                last_ts = self.pivots_1h.highs[-1].ts if self.pivots_1h.highs else datetime.min
+                if p.ts > last_ts:
+                    self.pivots_1h.add(p)
+            elif p.kind.value == "L":
+                last_ts = self.pivots_1h.lows[-1].ts if self.pivots_1h.lows else datetime.min
+                if p.ts > last_ts:
+                    self.pivots_1h.add(p)
 
     def _update_tf_state_4h(self, four_hour: NumpyBars, fh_idx: int) -> None:
         """Update 4H TFState, scan pivots, and compute 4H regime (v2.0)."""
         lookback = min(fh_idx + 1, 200)
         start = fh_idx + 1 - lookback
 
-        closes = four_hour.closes[start:fh_idx + 1]
         highs = four_hour.highs[start:fh_idx + 1]
         lows = four_hour.lows[start:fh_idx + 1]
 
-        from strategy_2.config import ATR_DAILY_PERIOD
-        atr_arr = atr(highs, lows, closes, ATR_DAILY_PERIOD)
-        line, sig, hist = macd(closes)
+        # Slice precomputed arrays instead of recomputing
+        atr_slice = self._pre_4h_atr[start:fh_idx + 1]
+        line_slice = self._pre_4h_macd_line[start:fh_idx + 1]
+        sig_slice = self._pre_4h_macd_sig[start:fh_idx + 1]
+        hist_slice = self._pre_4h_macd_hist[start:fh_idx + 1]
 
-        self.tf_4h.atr = float(atr_arr[-1])
-        self.tf_4h.macd_line = float(line[-1])
-        self.tf_4h.macd_signal = float(sig[-1])
-        self.tf_4h.macd_hist = float(hist[-1])
-        self.tf_4h.close = float(closes[-1])
-        self.tf_4h.bar_time = self._to_datetime(four_hour.times[fh_idx])
-        self.tf_4h.macd_line_history = [float(v) for v in line[-50:]]
-        self.tf_4h.macd_hist_history = [float(v) for v in hist[-50:]]
+        self.tf_4h.atr = float(atr_slice[-1])
+        self.tf_4h.macd_line = float(line_slice[-1])
+        self.tf_4h.macd_signal = float(self._pre_4h_macd_sig[fh_idx])
+        self.tf_4h.macd_hist = float(hist_slice[-1])
+        self.tf_4h.close = float(four_hour.closes[fh_idx])
+        self.tf_4h.bar_time = self._pre_4h_datetimes[fh_idx]
+        self.tf_4h.macd_line_history = [float(v) for v in line_slice[-50:]]
+        self.tf_4h.macd_hist_history = [float(v) for v in hist_slice[-50:]]
 
         chandelier_lb = max(self.cfg.chandelier_lookback, 30)
         self.tf_4h.highs = [float(v) for v in highs[-chandelier_lb:]]
         self.tf_4h.lows = [float(v) for v in lows[-chandelier_lb:]]
 
-        # Compute 4H regime (v2.0)
-        if len(closes) >= EMA_4H_SLOW:
-            ema_f = ema(closes, EMA_4H_FAST)
-            ema_s = ema(closes, EMA_4H_SLOW)
+        # Compute 4H regime using precomputed EMAs
+        if self._pre_4h_ema_fast is not None and fh_idx < len(self._pre_4h_ema_fast):
             self.regime_4h = compute_regime_4h(
-                float(closes[-1]), float(ema_f[-1]), float(ema_s[-1]),
+                float(four_hour.closes[fh_idx]),
+                float(self._pre_4h_ema_fast[fh_idx]),
+                float(self._pre_4h_ema_slow[fh_idx]),
             )
 
-        # Scan pivots
-        bar_times = [self._to_datetime(four_hour.times[start + i]) for i in range(lookback)]
-        new_pivots = scan_pivots(highs, lows, line, hist, atr_arr, bar_times)
-
-        last_h_ts = self.pivots_4h.highs[-1].ts if self.pivots_4h.highs else datetime.min
-        last_l_ts = self.pivots_4h.lows[-1].ts if self.pivots_4h.lows else datetime.min
-        for p in new_pivots:
-            if p.kind.value == "H" and p.ts > last_h_ts:
-                self.pivots_4h.add(p)
-            elif p.kind.value == "L" and p.ts > last_l_ts:
-                self.pivots_4h.add(p)
+        # Check for pivot at current bar only (O(1) instead of scanning 200 bars)
+        from strategy_2.indicators import confirmed_pivot
+        bar_times = self._pre_4h_datetimes[start:fh_idx + 1]
+        local_idx = lookback - 1
+        p = confirmed_pivot(highs, lows, local_idx, line_slice, hist_slice, atr_slice, bar_times)
+        if p is not None:
+            if p.kind.value == "H":
+                last_ts = self.pivots_4h.highs[-1].ts if self.pivots_4h.highs else datetime.min
+                if p.ts > last_ts:
+                    self.pivots_4h.add(p)
+            elif p.kind.value == "L":
+                last_ts = self.pivots_4h.lows[-1].ts if self.pivots_4h.lows else datetime.min
+                if p.ts > last_ts:
+                    self.pivots_4h.add(p)
 
     # ------------------------------------------------------------------
     # Setup detection & arming
     # ------------------------------------------------------------------
+
+    def _record_rejection(self, setup, filter_name: str, bar_time: datetime) -> None:
+        """Record a gate rejection for shadow tracking."""
+        if self.on_rejection is not None:
+            cls = setup.setup_class
+            cls_str = cls.name if hasattr(cls, 'name') else str(cls)
+            self.on_rejection(
+                symbol=self.symbol,
+                direction=int(setup.direction),
+                filter_names=[filter_name],
+                time=bar_time,
+                entry_price=setup.bos_level,
+                stop_price=setup.stop0,
+                origin_tf=setup.origin_tf,
+                setup_class=cls_str,
+            )
 
     def _detect_and_arm(self, bar_time: datetime, is_4h_boundary: bool) -> None:
         """Detect new setups and arm the highest-priority one (A > C > B > D)."""
@@ -574,6 +700,25 @@ class HelixEngine:
                         _b_rejected = True
 
                 if _b_rejected:
+                    if self.on_rejection is not None:
+                        cls = setup_b.setup_class
+                        cls_str = cls.name if hasattr(cls, 'name') else str(cls)
+                        reasons = []
+                        if daily.regime == Regime.CHOP:
+                            reasons.append("class_b_chop")
+                        elif (setup_b.direction == Direction.LONG and daily.regime == Regime.BEAR) or \
+                             (setup_b.direction == Direction.SHORT and daily.regime == Regime.BULL):
+                            reasons.append("class_b_counter_trend")
+                        elif daily.adx < CLASS_B_MIN_ADX:
+                            reasons.append("class_b_low_adx")
+                        else:
+                            reasons.append("class_b_momentum_gate")
+                        self.on_rejection(
+                            symbol=self.symbol, direction=int(setup_b.direction),
+                            filter_names=reasons, time=bar_time,
+                            entry_price=setup_b.bos_level, stop_price=setup_b.stop0,
+                            origin_tf=setup_b.origin_tf, setup_class=cls_str,
+                        )
                     setup_b = None
             if setup_b is not None:
                 # Pivot dedup: skip if same L2/H2 as last B detection
@@ -619,9 +764,11 @@ class HelixEngine:
                 or (setup.direction == Direction.SHORT and daily.regime == Regime.BULL)
             )
             if is_counter:
+                self._record_rejection(setup, "uso_counter_regime", bar_time)
                 return
         # (b) Disable Class C on USO (4 trades, 0% WR, -0.682 avg R)
         if self.symbol == "USO" and setup.setup_class == SetupClass.CLASS_C:
+            self._record_rejection(setup, "uso_class_c", bar_time)
             return
         # (c) Regime stability gate: require 3+ consecutive regime days for
         #     counter-regime Class A entries (blocks whipsaw clusters)
@@ -632,6 +779,7 @@ class HelixEngine:
                 or (setup.direction == Direction.SHORT and daily.regime == Regime.BULL)
             )
             if is_counter_a:
+                self._record_rejection(setup, "regime_stability_class_a", bar_time)
                 return
 
         self.setups_detected += 1
@@ -656,6 +804,7 @@ class HelixEngine:
             )
 
         if setup.qty_planned <= 0:
+            self._record_rejection(setup, "qty_zero", bar_time)
             return
 
         # Circuit breaker halving
@@ -670,17 +819,20 @@ class HelixEngine:
             cap_mult = signals._corridor_cap_mult(daily, setup.direction)
             corridor_cap = cap_mult * daily.atr_d
             if corridor_cap > 0 and entry_to_stop > corridor_cap:
+                self._record_rejection(setup, "corridor_cap", bar_time)
                 return
 
         # R price
         setup.r_price = abs(setup.bos_level - setup.stop0)
         if setup.r_price <= 0:
+            self._record_rejection(setup, "r_price_zero", bar_time)
             return
 
         # Minimum stop distance: 0.3% of entry price.
         # Prevents tiny stops that create massive position sizes and gap risk.
         min_r_price = 0.003 * setup.bos_level
         if setup.r_price < min_r_price:
+            self._record_rejection(setup, "min_stop_distance", bar_time)
             return
 
         # TTL

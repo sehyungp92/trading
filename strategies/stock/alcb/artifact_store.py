@@ -470,3 +470,27 @@ def load_latest_intraday_state(reference_date: date, root: Path | None = None, s
         return load_intraday_state(date.fromisoformat(latest.stem), root=base, settings=cfg)
     except Exception:
         return None
+
+
+# ── T2 engine state persistence ───────────────────────────────────────
+
+def _t2_state_path(trade_date: date, settings: StrategySettings | None = None) -> Path:
+    cfg = settings or StrategySettings()
+    base = Path(cfg.state_dir) / "t2"
+    return base / f"{trade_date.isoformat()}.json"
+
+
+def persist_intraday_state_t2(snapshot: dict, settings: StrategySettings | None = None) -> Path:
+    path = _t2_state_path(date.fromisoformat(snapshot["trade_date"]), settings=settings)
+    _write_json(path, snapshot)
+    return path
+
+
+def load_intraday_state_t2(trade_date: date, settings: StrategySettings | None = None) -> dict | None:
+    path = _t2_state_path(trade_date, settings=settings)
+    if not path.exists():
+        return None
+    try:
+        return _read_json(path)
+    except Exception:
+        return None

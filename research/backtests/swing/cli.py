@@ -1283,14 +1283,160 @@ def cmd_chand_sweep(args):
 # Command dispatchers
 # ---------------------------------------------------------------------------
 
+def _cmd_weakness_report(args):
+    """Generate unified swing weakness report by running the portfolio engine."""
+    from backtest.engine.unified_portfolio_engine import run_unified, load_unified_data
+    from backtest.config_unified import UnifiedBacktestConfig
+    from backtest.analysis.weakness_report import swing_weakness_report
+    from backtest.analysis.portfolio_diagnostics import portfolio_diagnostic_report
+    from backtest.analysis.drawdown_attribution import drawdown_attribution_report
+
+    logger.info("Running unified portfolio for weakness report...")
+
+    # Run the full portfolio
+    config = UnifiedBacktestConfig(
+        initial_equity=args.equity,
+        data_dir=Path(args.data_dir),
+        start_date=getattr(args, 'start', None),
+        end_date=getattr(args, 'end', None),
+    )
+    data = load_unified_data(config)
+    result = run_unified(data, config)
+
+    # Build trade dicts for portfolio diagnostics
+    all_trades = {
+        "ATRSS": result.atrss_trades,
+        "Helix": result.helix_trades,
+        "Breakout": result.breakout_trades,
+        "S5_PB": result.s5_pb_trades,
+        "S5_DUAL": result.s5_dual_trades,
+    }
+
+    report_sections = []
+
+    # 1. Weakness report
+    report_sections.append(swing_weakness_report(
+        atrss_result=type('R', (), {'trades': result.atrss_trades})(),
+        helix_result=type('R', (), {'trades': result.helix_trades})(),
+        breakout_result=type('R', (), {'trades': result.breakout_trades})(),
+        s5pb_result=type('R', (), {'trades': result.s5_pb_trades})(),
+        s5dual_result=type('R', (), {'trades': result.s5_dual_trades})(),
+        portfolio_result=result,
+    ))
+
+    # 2. Portfolio diagnostics
+    report_sections.append(portfolio_diagnostic_report(
+        result,
+        all_trades=all_trades,
+        heat_rejections=result.heat_rejections,
+        coordination_events=result.coordination_events,
+    ))
+
+    # 3. Drawdown attribution
+    report_sections.append(drawdown_attribution_report(
+        [t for trades in all_trades.values() for t in trades],
+        result.combined_equity,
+        result.combined_timestamps,
+        strategy_labels=list(all_trades.keys()),
+    ))
+
+    output = "\n\n".join(s for s in report_sections if s)
+    print(output)
+
+    if getattr(args, 'report_file', None):
+        Path(args.report_file).write_text(output)
+        logger.info("Weakness report written to %s", args.report_file)
+
+
+def cmd_auto(args):
+    """Run automated experiment harness."""
+    from research.backtests.swing.auto.harness import SwingAutoHarness
+
+    harness = SwingAutoHarness(
+        data_dir=Path(args.data_dir),
+        output_dir=Path(args.output_dir),
+        initial_equity=args.equity,
+    )
+    harness.run_all(
+        strategy_filter=args.strategy,
+        experiment_ids=args.experiments,
+        skip_robustness=args.skip_robustness,
+        resume=args.resume,
+    )
+
+
+def _cmd_run_s5(args):
+    """Run S5_PB or S5_DUAL backtest with optional diagnostics."""
+    from backtest.config_s5 import S5BacktestConfig
+    from backtest.engine.s5_engine import S5Engine
+    from backtest.data.preprocessing import NumpyBars, build_numpy_arrays
+    from strategy_4.config import SYMBOL_CONFIGS
+    from dataclasses import replace as _replace
+    import pandas as pd
+
+    strategy = args.strategy  # "s5_pb" or "s5_dual"
+    cfg = S5BacktestConfig(initial_equity=args.equity)
+    if strategy == "s5_dual":
+        cfg = _replace(cfg, entry_mode="dual")
+
+    symbols = [s.strip() for s in args.symbols.split(",")]
+    data_dir = Path(args.data_dir)
+
+    report_sections = []
+    all_trades = []
+
+    for sym in symbols:
+        sym_cfg = SYMBOL_CONFIGS.get(sym)
+        if sym_cfg is None:
+            logger.warning("No config for %s, skipping", sym)
+            continue
+
+        # Load daily parquet → NumpyBars (same as run_s5.load_daily_data)
+        path = data_dir / f"{sym}_1d.parquet"
+        if not path.exists():
+            logger.warning("Missing daily data for %s at %s", sym, path)
+            continue
+        df = pd.read_parquet(path)
+        if not isinstance(df.index, pd.DatetimeIndex):
+            df.index = pd.DatetimeIndex(df.index)
+        df.columns = df.columns.str.lower()
+        daily = build_numpy_arrays(df)
+
+        engine = S5Engine(sym, sym_cfg, cfg, point_value=sym_cfg.multiplier)
+        engine.run(daily)
+        all_trades.extend(engine.trades)
+
+        n = len(engine.trades)
+        pnl = sum(t.pnl_dollars for t in engine.trades)
+        wr = sum(1 for t in engine.trades if t.pnl_dollars > 0) / n * 100 if n else 0
+        avg_r = sum(t.r_multiple for t in engine.trades) / n if n else 0
+        report_sections.append(
+            f"\n{'='*60}\n  {sym} — {strategy.upper()}\n{'='*60}\n"
+            f"  Trades: {n}  |  WR: {wr:.1f}%  |  Avg R: {avg_r:+.3f}  |  PnL: ${pnl:+,.0f}"
+        )
+
+    if getattr(args, 'diagnostics', False) and all_trades:
+        from backtest.analysis.s5_diagnostics import s5_full_diagnostic
+        report_sections.append(s5_full_diagnostic(all_trades, strategy))
+
+    output = "\n\n".join(s for s in report_sections if s)
+    print(output)
+
+    if getattr(args, 'report_file', None):
+        Path(args.report_file).write_text(output)
+        logger.info("Report written to %s", args.report_file)
+
+
 def cmd_run(args):
-    """Route to ATRSS, Helix, Breakout, or Regime run."""
+    """Route to ATRSS, Helix, Breakout, Regime, or S5 run."""
     if args.strategy == "helix":
         _cmd_run_helix(args)
     elif args.strategy == "breakout":
         _cmd_run_breakout(args)
     elif args.strategy == "regime":
         _cmd_run_regime(args)
+    elif args.strategy in ("s5_pb", "s5_dual"):
+        _cmd_run_s5(args)
     else:
         _cmd_run_atrss(args)
 
@@ -1384,7 +1530,7 @@ def main():
     )
     parser.add_argument(
         "--strategy", "-s",
-        choices=["atrss", "helix", "breakout", "regime"],
+        choices=["atrss", "helix", "breakout", "regime", "s5_pb", "s5_dual"],
         default="atrss",
         help="Strategy to backtest (default: atrss)",
     )
@@ -1426,6 +1572,8 @@ def main():
                      help="Enable short trades (regime strategy, default: disabled)")
     run.add_argument("--breakout-day-entry", action="store_true", default=False,
                      help="Breakout strategy: enter at box boundary on breakout day instead of hourly AVWAP")
+    run.add_argument("--weakness-report", action="store_true", default=False,
+                     help="Generate unified weakness report across all strategies")
 
     # ablation
     ab = sub.add_parser("ablation", help="Run ablation test")
@@ -1476,6 +1624,33 @@ def main():
     cs.add_argument("--mults", default="1.0,1.2,1.5,1.8,2.2,2.5,3.0,3.2",
                     help="Comma-separated chandelier multipliers to test")
 
+    # auto (automated experiment harness)
+    auto = sub.add_parser("auto", help="Run automated experiment harness")
+    auto.add_argument("--strategy", default="all",
+                      choices=["all", "atrss", "helix", "breakout", "s5_pb", "s5_dual", "portfolio"],
+                      help="Strategy filter (default: all)")
+    auto.add_argument("--experiments", nargs="*", default=None,
+                      help="Specific experiment IDs to run")
+    auto.add_argument("--skip-robustness", action="store_true", default=False,
+                      help="Skip robustness checks for faster ablation scan")
+    auto.add_argument("--resume", action="store_true", default=False,
+                      help="Resume from previous run (skip completed experiments)")
+    auto.add_argument("--equity", type=float, default=100_000,
+                      help="Initial equity (default: 100000)")
+    auto.add_argument("--data-dir", default="research/backtests/swing/data/raw",
+                      help="Data directory")
+    auto.add_argument("--output-dir", default="research/backtests/swing/auto/output",
+                      help="Output directory for results and report")
+
+    # weakness-report subcommand
+    wr = sub.add_parser("weakness-report", help="Generate unified weakness report across all strategies")
+    wr.add_argument("--symbols", default=None)
+    wr.add_argument("--start", default=None, help="Start date (YYYY-MM-DD) to limit backtest range")
+    wr.add_argument("--end", default=None, help="End date (YYYY-MM-DD) to limit backtest range")
+    wr.add_argument("--equity", type=float, default=100_000)
+    wr.add_argument("--data-dir", default="backtest/data/raw")
+    wr.add_argument("--report-file", default=None)
+
     args = parser.parse_args()
 
     # Resolve default symbols if not specified
@@ -1500,6 +1675,10 @@ def main():
         cmd_regime_bh(args)
     elif args.command == "chand-sweep":
         cmd_chand_sweep(args)
+    elif args.command == "auto":
+        cmd_auto(args)
+    elif args.command == "weakness-report":
+        _cmd_weakness_report(args)
     else:
         parser.print_help()
 

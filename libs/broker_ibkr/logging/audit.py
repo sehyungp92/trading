@@ -3,7 +3,7 @@ import json
 import logging
 from datetime import datetime, timezone
 
-logger = logging.getLogger("ibkr_core.audit")
+logger = logging.getLogger("broker_ibkr.audit")
 
 
 def log_broker_command(

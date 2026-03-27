@@ -256,6 +256,7 @@ def build_watchlist_item(
     acceptance_pass: bool,
     conviction_multiplier: float,
     conviction_bucket: str,
+    flow_proxy_gate_pass: bool = True,
 ) -> WatchlistItem:
     band_pct = settings.avwap_band_pct
     avwap_proximity = 1.0 / (1.0 + abs(symbol.price - avwap_ref))
@@ -304,12 +305,13 @@ def build_watchlist_item(
         recommended_risk_r=conviction_multiplier,
         average_30m_volume=max(symbol.average_30m_volume, 0.0),
         expected_5m_volume=max(symbol.expected_5m_volume, 0.0),
+        flow_proxy_gate_pass=flow_proxy_gate_pass,
     )
 
 
-def _flow_reversal_flag(symbol: ResearchSymbol) -> bool:
-    window = symbol.flow_proxy_history[-2:]
-    return len(window) == 2 and all(value < 0 for value in window)
+def _flow_reversal_flag(symbol: ResearchSymbol, lookback: int = 1) -> bool:
+    window = symbol.flow_proxy_history[-lookback:]
+    return len(window) == lookback and all(value < 0 for value in window)
 
 
 def build_held_position_directives(snapshot: ResearchSnapshot, settings: StrategySettings) -> list[HeldPositionDirective]:
@@ -327,7 +329,7 @@ def build_held_position_directives(snapshot: ResearchSnapshot, settings: Strateg
                 setup_tag=held.setup_tag,
                 time_stop_deadline=held.entry_time + timedelta(minutes=settings.time_stop_minutes),
                 carry_eligible_flag=held.carry_eligible_flag,
-                flow_reversal_flag=_flow_reversal_flag(symbol) if symbol else False,
+                flow_reversal_flag=_flow_reversal_flag(symbol, lookback=settings.flow_reversal_lookback) if symbol else False,
             )
         )
     return directives
@@ -419,6 +421,13 @@ def daily_selection_from_snapshot(
             diag.log_filter(symbol_name, "conviction", False, "skip")
             continue
 
+        # Entry flow gate: check if recent flow proxy is positive
+        flow_gate_pass = True
+        if cfg.t1_entry_flow_gate and symbol.flow_proxy_history:
+            last_n = symbol.flow_proxy_history[-cfg.t1_entry_flow_lookback:]
+            if last_n and any(v < 0 for v in last_n):
+                flow_gate_pass = False
+
         items.append(
             build_watchlist_item(
                 symbol=symbol,
@@ -441,6 +450,7 @@ def daily_selection_from_snapshot(
                 acceptance_pass=acceptance_pass,
                 conviction_multiplier=conviction_multiplier,
                 conviction_bucket=conviction_bucket,
+                flow_proxy_gate_pass=flow_gate_pass,
             )
         )
 

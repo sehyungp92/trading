@@ -243,8 +243,10 @@ def compute_metrics(
     # Time span in years
     if len(timestamps) >= 2:
         delta = timestamps[-1] - timestamps[0]
-        # Handle both numpy timedelta64 and Python timedelta
-        if hasattr(delta, 'astype'):
+        # Handle numpy timedelta64, Python timedelta, or float (unix seconds)
+        if isinstance(delta, (int, float)) or (hasattr(delta, 'dtype') and np.issubdtype(type(delta), np.floating)):
+            span_s = float(delta)
+        elif hasattr(delta, 'astype'):
             span_s = float(delta / np.timedelta64(1, 's'))
         else:
             span_s = delta.total_seconds()

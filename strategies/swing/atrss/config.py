@@ -255,6 +255,7 @@ TP2_FRAC: float = 0.33   # Close 33% of remaining at TP2
 # Time decay
 # ---------------------------------------------------------------------------
 MAX_HOLD_HOURS: int = 480  # Max hold period in hourly bars
+STALL_EXIT_ENABLED: bool = False  # greedy v4: disable full stall flatten (positions run to stop/TP)
 STALL_CHECK_HOURS: int = 36     # Check for stall after this many bars
 STALL_MFE_THRESHOLD: float = 0.4  # MFE_R below this = stall
 EARLY_STALL_CHECK_HOURS: int = 12        # Early non-development check after 12 RTH bars

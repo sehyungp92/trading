@@ -4,20 +4,21 @@ Like momentum (per-strategy OMS), unlike swing (shared OMS).
 Three strategies:
   - IARIC_v1   (IARICEngine)   — WatchlistArtifact
   - US_ORB_v1  (USORBEngine)   — cache dict
-  - ALCB_v1    (ALCBEngine)    — CandidateArtifact
+  - ALCB_v1    (ALCBT2Engine)  — CandidateArtifact
 
 Stock-specific differences from momentum:
   - portfolio_rules with family-scoped directional cap + symbol collision guard
   - Paper equity NAV tracking via resolve_paper_nav / capital_bootstrap
   - Artifacts or cache dicts instead of instrument dicts
-  - No ib_session passed to engines; engines receive oms, artifact/cache,
-    account_id, nav, settings, trade_recorder, diagnostics, instrumentation
+  - IBMarketDataSource per engine, wired via on_bar/on_quote callbacks
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
-from datetime import date
+from contextlib import suppress
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -43,6 +44,9 @@ class StockFamilyCoordinator:
         self._oms_services: list = []
         self._instrumentations: list = []
         self._strategy_ids: list[str] = []
+        self._market_data_sources: list = []
+        self._market_data_task: asyncio.Task | None = None
+        self._contract_factory = None
 
     # ── lifecycle ────────────────────────────────────────────────────
 
@@ -124,6 +128,13 @@ class StockFamilyCoordinator:
                 initial_equity=allocated_nav,
                 family_strategy_ids=all_strategy_ids,
                 symbol_collision_action="half_size",
+                strategy_priorities=(
+                    ("IARIC_v1", 0),    # highest: daily alpha, tiny footprint (1.25R)
+                    ("ALCB_v1", 1),     # second: proven backtest edge, broader alpha
+                    ("US_ORB_v1", 2),   # lowest: unproven, pure OR overlap with ALCB
+                ),
+                priority_headroom_R=3.0,       # reserve last 3R for IARIC + ALCB
+                priority_reserve_threshold=1,  # priority 0-1 can use reserved headroom
             )
             if alloc:
                 logger.info(
@@ -215,14 +226,75 @@ class StockFamilyCoordinator:
             logger.info("Engine started for %s", sid)
             self._engines.append(engine)
 
+            # ── Market data source per engine ──────────────────────────
+            md_source = None
+            if self._contract_factory is not None:
+                try:
+                    MarketDataCls = desc["market_data_cls"]()
+                    md_source = MarketDataCls(
+                        ib=session.ib,
+                        contract_factory=self._contract_factory,
+                        on_quote=engine.on_quote,
+                        on_bar=engine.on_bar,
+                    )
+                    await md_source.start()
+                    # Initial subscription setup
+                    if hasattr(engine, "subscription_instruments"):
+                        await md_source.ensure_hot_symbols(engine.subscription_instruments())
+                    if hasattr(engine, "polling_instruments"):
+                        await md_source.poll_due_bars(engine.polling_instruments())
+                    logger.info("Market data started for %s", sid)
+                except Exception as exc:
+                    logger.error("Market data init failed for %s: %s", sid, exc, exc_info=exc)
+            else:
+                logger.warning("No contract factory — market data NOT wired for %s", sid)
+            self._market_data_sources.append(md_source)
+
+        # ── Reconnect callback ─────────────────────────────────────
+        async def _on_reconnect() -> None:
+            for i, eng in enumerate(self._engines):
+                if hasattr(eng, "_reconcile_after_reconnect"):
+                    try:
+                        await eng._reconcile_after_reconnect()
+                    except Exception as exc:
+                        logger.error("Reconnect reconciliation failed for %s: %s",
+                                     self._strategy_ids[i], exc)
+                md = self._market_data_sources[i] if i < len(self._market_data_sources) else None
+                if md is not None and hasattr(md, "invalidate_subscriptions"):
+                    md.invalidate_subscriptions()
+            logger.info("Post-reconnect: reconciliation + subscription invalidation complete")
+
+        if hasattr(session, "set_reconnect_callback"):
+            session.set_reconnect_callback(_on_reconnect)
+
+        # ── Background market data refresh loop ────────────────────
+        self._market_data_task = asyncio.create_task(self._market_data_loop())
+
         logger.info(
-            "StockFamilyCoordinator started %d strategies", len(self._engines),
+            "StockFamilyCoordinator started %d strategies with market data", len(self._engines),
         )
 
     async def stop(self) -> None:
-        """Stop engines and OMS instances in reverse order."""
+        """Stop market data, engines, and OMS instances in reverse order."""
+        # Stop background market data loop
+        if self._market_data_task is not None:
+            self._market_data_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._market_data_task
+            self._market_data_task = None
+
         for i in reversed(range(len(self._engines))):
             sid = self._strategy_ids[i]
+
+            # Stop market data source
+            if i < len(self._market_data_sources):
+                md = self._market_data_sources[i]
+                if md is not None:
+                    try:
+                        await md.stop()
+                        logger.info("Market data stopped for %s", sid)
+                    except Exception as exc:
+                        logger.warning("Error stopping market data %s: %s", sid, exc)
 
             # Stop engine
             try:
@@ -250,6 +322,7 @@ class StockFamilyCoordinator:
         self._oms_services.clear()
         self._instrumentations.clear()
         self._strategy_ids.clear()
+        self._market_data_sources.clear()
         logger.info("StockFamilyCoordinator stopped")
 
     def health_status(self) -> dict[str, Any]:
@@ -262,6 +335,34 @@ class StockFamilyCoordinator:
             except Exception as exc:
                 result["strategies"][sid] = {"error": str(exc)}
         return result
+
+    async def _market_data_loop(self) -> None:
+        """Periodically refresh market data subscriptions for all engines."""
+        while True:
+            try:
+                for i, engine in enumerate(self._engines):
+                    md = self._market_data_sources[i] if i < len(self._market_data_sources) else None
+                    if md is None:
+                        continue
+                    try:
+                        if hasattr(engine, "subscription_instruments"):
+                            await md.ensure_hot_symbols(engine.subscription_instruments())
+                        if hasattr(engine, "polling_instruments"):
+                            polling = engine.polling_instruments()
+                            if polling:
+                                await md.poll_due_bars(
+                                    polling, now=datetime.now(timezone.utc),
+                                )
+                    except Exception as exc:
+                        logger.warning(
+                            "Market data refresh failed for %s: %s",
+                            self._strategy_ids[i], exc,
+                        )
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.error("Market data loop error: %s", exc, exc_info=exc)
+            await asyncio.sleep(5.0)
 
     # ── internal ─────────────────────────────────────────────────────
 
@@ -320,18 +421,22 @@ class StockFamilyCoordinator:
             ibkr_config = None
             account_id = ""
 
-        def _make_adapter(session: Any) -> Any:
-            """Build an IBKRExecutionAdapter from the IB session."""
-            if ibkr_config is None:
-                raise RuntimeError("IBKRConfig not available")
-            contract_factory = ContractFactory(
+        # Build ContractFactory once, reuse for adapters and market data sources
+        session = ctx.session
+        if ibkr_config is not None:
+            self._contract_factory = ContractFactory(
                 ib=session.ib,
                 templates=ibkr_config.contracts,
                 routes=ibkr_config.routes,
             )
+
+        def _make_adapter(session: Any) -> Any:
+            """Build an IBKRExecutionAdapter from the IB session."""
+            if self._contract_factory is None:
+                raise RuntimeError("IBKRConfig not available")
             return IBKRExecutionAdapter(
                 session=session,
-                contract_factory=contract_factory,
+                contract_factory=self._contract_factory,
                 account=account_id,
             )
 
@@ -369,6 +474,7 @@ class StockFamilyCoordinator:
                 "portfolio_daily_stop_R": iaric_settings.portfolio_daily_stop_r,
                 "adapter": _make_adapter,
                 "engine_cls": lambda: _import_iaric_engine(),
+                "market_data_cls": lambda: _import_iaric_market_data(),
                 "instr_type": "strategy_iaric",
                 "trade_recorder": trade_recorder,
                 "account_id": account_id,
@@ -388,6 +494,7 @@ class StockFamilyCoordinator:
                 "portfolio_daily_stop_R": orb_settings.portfolio_daily_stop_r,
                 "adapter": _make_adapter,
                 "engine_cls": lambda: _import_orb_engine(),
+                "market_data_cls": lambda: _import_orb_market_data(),
                 "instr_type": "strategy_orb",
                 "trade_recorder": trade_recorder,
                 "account_id": account_id,
@@ -407,6 +514,7 @@ class StockFamilyCoordinator:
                 "portfolio_daily_stop_R": alcb_settings.portfolio_daily_stop_r,
                 "adapter": _make_adapter,
                 "engine_cls": lambda: _import_alcb_engine(),
+                "market_data_cls": lambda: _import_alcb_market_data(),
                 "instr_type": "strategy_alcb",
                 "trade_recorder": trade_recorder,
                 "account_id": account_id,
@@ -433,8 +541,23 @@ def _import_orb_engine():
 
 
 def _import_alcb_engine():
-    from strategies.stock.alcb.engine import ALCBEngine
-    return ALCBEngine
+    from strategies.stock.alcb.engine import ALCBT2Engine
+    return ALCBT2Engine
+
+
+def _import_iaric_market_data():
+    from strategies.stock.iaric.data import IBMarketDataSource
+    return IBMarketDataSource
+
+
+def _import_orb_market_data():
+    from strategies.stock.us_orb.data import IBMarketDataSource
+    return IBMarketDataSource
+
+
+def _import_alcb_market_data():
+    from strategies.stock.alcb.data import IBMarketDataSource
+    return IBMarketDataSource
 
 
 def _make_diagnostics(module_path: str, diagnostics_dir: Path) -> Any:

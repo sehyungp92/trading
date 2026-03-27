@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Callable
 from ib_async import Trade
 
 from ..error_map import classify_error
-from ..session import IBSession
+from ..session import UnifiedIBSession
 from ..throttler import PacingChannel
 from ..logging.audit import log_broker_command, log_broker_response
 from ..logging.trace_ids import generate_trace_id
@@ -52,7 +52,7 @@ class IBKRExecutionAdapter:
     """
 
     def __init__(
-        self, session: IBSession, contract_factory: ContractFactory, account: str
+        self, session: UnifiedIBSession, contract_factory: ContractFactory, account: str
     ):
         self._session = session
         self._factory = contract_factory

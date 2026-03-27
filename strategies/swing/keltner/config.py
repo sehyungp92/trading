@@ -83,10 +83,12 @@ S5_DUAL_CONFIGS: dict[str, SymbolConfig] = {
     "GLD": SymbolConfig(
         symbol="GLD", entry_mode="dual", kelt_ema_period=15,
         shorts_enabled=False, rsi_entry_long=45.0, base_risk_pct=0.008,
+        trail_atr_mult=2.0, atr_stop_mult=1.5,  # greedy v4: trail wider, stop tighter
     ),
     "IBIT": SymbolConfig(
         symbol="IBIT", entry_mode="dual", kelt_ema_period=15,
         shorts_enabled=False, rsi_entry_long=45.0, base_risk_pct=0.008,
+        trail_atr_mult=2.0, atr_stop_mult=1.5,  # greedy v4: trail wider, stop tighter
     ),
 }
 

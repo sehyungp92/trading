@@ -8,7 +8,7 @@ from typing import Any
 from strategies.contracts import RuntimeContext
 from .config import StrategySettings
 from .diagnostics import JsonlDiagnostics
-from .engine import ALCBEngine
+from .engine import ALCBT2Engine
 
 logger = logging.getLogger(__name__)
 
@@ -44,17 +44,17 @@ class ALCBPlugin:
         self._trade_recorder = trade_recorder
         self._diagnostics = diagnostics
         self._instrumentation = ctx.instrumentation
-        self._engine: ALCBEngine | None = None
+        self._engine: ALCBT2Engine | None = None
 
     # -- lifecycle --------------------------------------------------------
 
-    def _build_engine(self) -> ALCBEngine:
+    def _build_engine(self) -> ALCBT2Engine:
         if self._artifact is None:
             raise RuntimeError(
                 f"{self.strategy_id}: artifact must be set before start(). "
                 "The family coordinator should call plugin._artifact = artifact."
             )
-        return ALCBEngine(
+        return ALCBT2Engine(
             oms_service=self._ctx.oms,
             artifact=self._artifact,
             account_id=self._account_id,

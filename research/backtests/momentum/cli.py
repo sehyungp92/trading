@@ -991,6 +991,20 @@ def _cmd_run_helix(args):
     if result.shadow_summary:
         report_sections.append(result.shadow_summary)
 
+    # Helix filter attribution with formal verdicts
+    if getattr(args, 'diagnostics', False) and hasattr(result, 'gate_log'):
+        try:
+            from backtest.analysis.helix_filter_attribution import helix_filter_attribution_report
+            shadow_tracker = getattr(result, 'shadow_tracker', None)
+            report_sections.append(helix_filter_attribution_report(
+                gate_log=result.gate_log,
+                setup_log=getattr(result, 'setup_log', []),
+                trades=result.trades,
+                shadow_tracker=shadow_tracker,
+            ))
+        except Exception as e:
+            logger.warning("Helix filter attribution failed: %s", e)
+
     for section in report_sections:
         print(f"\n{section}")
 
@@ -1463,6 +1477,129 @@ def _cmd_sweep_portfolio(args):
 # Command dispatchers
 # ---------------------------------------------------------------------------
 
+def _cmd_weakness_report(args):
+    """Generate unified momentum weakness report by running all 3 strategies."""
+    from backtest.analysis.weakness_report import momentum_weakness_report
+    from backtest.analysis.drawdown_attribution import drawdown_attribution_report
+
+    logger.info("Running all 3 strategies for weakness report...")
+
+    # Run each strategy and collect results
+    results = {}
+    all_trades = {}
+
+    data_dir = Path(args.data_dir)
+
+    # Helix
+    try:
+        from backtest.engine.helix_engine import Helix4Engine
+        from backtest.config_helix import Helix4BacktestConfig
+        helix_data = _load_helix_data("NQ", data_dir)
+        h_cfg = Helix4BacktestConfig(
+            symbols=["NQ"], initial_equity=args.equity, data_dir=data_dir, fixed_qty=10,
+        )
+        h_eng = Helix4Engine("NQ", h_cfg)
+        h_result = h_eng.run(
+            helix_data["minute_bars"], helix_data["hourly"],
+            helix_data["four_hour"], helix_data["daily"],
+            helix_data["hourly_idx_map"], helix_data["four_hour_idx_map"],
+            helix_data["daily_idx_map"],
+        )
+        results["helix"] = h_result
+        all_trades["Helix"] = h_result.trades
+    except Exception as e:
+        logger.warning("Helix run failed: %s", e)
+
+    # NQDTC
+    try:
+        from backtest.config_nqdtc import NQDTCBacktestConfig
+        from backtest.engine.nqdtc_engine import NQDTCEngine
+        nqdtc_data = _load_nqdtc_data("NQ", data_dir)
+        n_cfg = NQDTCBacktestConfig(
+            symbols=["MNQ"], initial_equity=args.equity, data_dir=data_dir, fixed_qty=10,
+        )
+        n_eng = NQDTCEngine("MNQ", n_cfg)
+        n_result = n_eng.run(
+            nqdtc_data["five_min_bars"], nqdtc_data["thirty_min"],
+            nqdtc_data["hourly"], nqdtc_data["four_hour"], nqdtc_data["daily"],
+            nqdtc_data["thirty_min_idx_map"], nqdtc_data["hourly_idx_map"],
+            nqdtc_data["four_hour_idx_map"], nqdtc_data["daily_idx_map"],
+            daily_es=nqdtc_data.get("daily_es"),
+            daily_es_idx_map=nqdtc_data.get("daily_es_idx_map"),
+        )
+        results["nqdtc"] = n_result
+        all_trades["NQDTC"] = n_result.trades
+    except Exception as e:
+        logger.warning("NQDTC run failed: %s", e)
+
+    # Vdubus
+    try:
+        from backtest.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
+        from backtest.engine.vdubus_engine import VdubusEngine
+        from strategy_3 import config as C
+        vdubus_data = _load_vdubus_data("NQ", data_dir)
+        orig_nq_spec = dict(C.NQ_SPEC)
+        orig_rt_comm = C.RT_COMM_FEES
+        C.NQ_SPEC["tick_value"] = 0.50
+        C.NQ_SPEC["point_value"] = 2.0
+        C.RT_COMM_FEES = 1.24
+        v_cfg = VdubusBacktestConfig(
+            symbols=["NQ"], initial_equity=args.equity, data_dir=data_dir, fixed_qty=10,
+            flags=VdubusAblationFlags(heat_cap=False, viability_filter=False),
+        )
+        try:
+            v_eng = VdubusEngine("NQ", v_cfg)
+            v_result = v_eng.run(
+                vdubus_data["bars_15m"], vdubus_data.get("bars_5m"),
+                vdubus_data["hourly"], vdubus_data["daily_es"],
+                vdubus_data["hourly_idx_map"], vdubus_data["daily_es_idx_map"],
+                vdubus_data.get("five_to_15_idx_map"),
+            )
+            results["vdubus"] = v_result
+            all_trades["Vdubus"] = v_result.trades
+        finally:
+            C.NQ_SPEC.update(orig_nq_spec)
+            C.RT_COMM_FEES = orig_rt_comm
+    except Exception as e:
+        logger.warning("Vdubus run failed: %s", e)
+
+    report_sections = []
+
+    # Weakness report
+    report_sections.append(momentum_weakness_report(
+        helix_result=results.get("helix"),
+        nqdtc_result=results.get("nqdtc"),
+        vdubus_result=results.get("vdubus"),
+    ))
+
+    # Drawdown attribution (combined)
+    combined_trades = [t for trades in all_trades.values() for t in trades]
+    if combined_trades:
+        # Build combined equity curve from individual results
+        combined_eq = []
+        for name, result in results.items():
+            if hasattr(result, 'equity_curve'):
+                eq = getattr(result, 'equity_curve', [])
+                if isinstance(eq, np.ndarray):
+                    combined_eq.append(eq)
+                elif isinstance(eq, list) and eq:
+                    combined_eq.append(np.array(eq))
+
+        if combined_eq:
+            # Use the longest equity curve as proxy
+            longest = max(combined_eq, key=len)
+            report_sections.append(drawdown_attribution_report(
+                combined_trades, longest, list(range(len(longest))),
+            ))
+
+    output = "\n\n".join(s for s in report_sections if s)
+    print(output)
+
+    if getattr(args, 'report_file', None):
+        Path(args.report_file).write_text(output)
+        logger.info("Weakness report written to %s", args.report_file)
+
+
 def cmd_run(args):
     """Route to strategy-specific run."""
     if args.strategy == "nqdtc":
@@ -1570,6 +1707,26 @@ def _print_walk_forward_results(result):
 
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Auto research pipeline
+# ---------------------------------------------------------------------------
+
+def _cmd_auto(args):
+    """Run the automated research pipeline."""
+    from research.backtests.momentum.auto.runners.run_full_pipeline import main as pipeline_main
+
+    pipeline_main(
+        phase=args.phase,
+        strategy_filter=args.auto_strategy,
+        resume=not args.no_resume,
+        max_workers=args.max_workers,
+        equity=args.equity,
+        data_dir=args.data_dir,
+        experiment_ids=args.experiment_ids,
+        skip_robustness=args.skip_robustness,
+    )
+
+
 # Main parser
 # ---------------------------------------------------------------------------
 
@@ -1644,6 +1801,27 @@ def main():
     sw.add_argument("--report-file", default=None,
                     help="Write sweep report to this file")
 
+    # weakness-report subcommand
+    wr = sub.add_parser("weakness-report", help="Generate unified weakness report across all strategies")
+    wr.add_argument("--equity", type=float, default=100_000)
+    wr.add_argument("--data-dir", default="backtest/data/raw")
+    wr.add_argument("--report-file", default=None)
+    wr.add_argument("--preset", default="10k_v6")
+
+    # Auto research pipeline
+    auto = sub.add_parser("auto", help="Automated research pipeline")
+    auto.add_argument("--phase", choices=["experiments", "greedy", "diagnostics", "comparison", "full"],
+                       default="full", help="Pipeline phase to run")
+    auto.add_argument("--strategy", choices=["helix", "nqdtc", "vdubus", "portfolio", "all"],
+                       default="all", dest="auto_strategy", help="Strategy filter")
+    auto.add_argument("--experiment-ids", nargs="*", help="Specific experiment IDs to run")
+    auto.add_argument("--skip-robustness", action="store_true", help="Skip robustness checks")
+    auto.add_argument("--no-resume", action="store_true", help="Start fresh (ignore previous results)")
+    auto.add_argument("--equity", type=float, default=10_000.0, help="Initial equity")
+    auto.add_argument("--max-workers", type=int, default=None,
+                       help="Parallel workers for experiments and greedy phases")
+    auto.add_argument("--data-dir", default=None, help="Path to raw data dir (default: auto-detected)")
+
     args = parser.parse_args()
 
     # Resolve default symbols if not specified
@@ -1662,6 +1840,10 @@ def main():
         cmd_walk_forward(args)
     elif args.command == "sweep":
         cmd_sweep(args)
+    elif args.command == "weakness-report":
+        _cmd_weakness_report(args)
+    elif args.command == "auto":
+        _cmd_auto(args)
     else:
         parser.print_help()
 

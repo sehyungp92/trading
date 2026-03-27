@@ -63,6 +63,18 @@ class UnifiedIBSession:
         return self._groups
 
     @property
+    def ib(self) -> IB:
+        """First group's IB instance — all coordinators assume single group."""
+        first = next(iter(self._groups.values()), None)
+        if first is None:
+            raise RuntimeError("No connection groups configured")
+        return first.conn.ib
+
+    @property
+    def is_ready(self) -> bool:
+        return all(g.ready.is_set() for g in self._groups.values())
+
+    @property
     def is_congested(self) -> bool:
         return self._throttler.is_congested
 
@@ -161,8 +173,18 @@ class UnifiedIBSession:
     def register_farm_recovery_callback(self, group_id: str, cb: Callable[[str], None]) -> None:
         self._get_group(group_id).farm_recovery_callbacks.append(cb)
 
-    def set_reconnect_callback(self, group_id: str, callback: Callable) -> None:
-        self._get_group(group_id).conn.set_reconnect_callback(callback)
+    def set_reconnect_callback(self, group_id_or_callback, callback: Callable | None = None) -> None:
+        """Register a reconnect callback.
+
+        Supports two calling conventions:
+          - set_reconnect_callback(group_id, callback)  — target specific group
+          - set_reconnect_callback(callback)             — broadcast to all groups
+        """
+        if callback is None and callable(group_id_or_callback):
+            for group in self._groups.values():
+                group.conn.set_reconnect_callback(group_id_or_callback)
+        else:
+            self._get_group(group_id_or_callback).conn.set_reconnect_callback(callback)
 
     def _dispatch_farm_recovery(self, group_id: str, farm_name: str) -> None:
         for callback in self._groups[group_id].farm_recovery_callbacks:
@@ -170,4 +192,7 @@ class UnifiedIBSession:
                 callback(farm_name)
             except Exception:
                 logger.exception("Farm recovery callback failed for %s", group_id)
+
+
+IBSession = UnifiedIBSession
 

@@ -37,21 +37,21 @@ _RISK_PARAMS: dict[str, dict[str, Any]] = {
         "unit_risk_pct": 0.012,   # 1.2% base risk (P1 heat-unlock optimized)
         "daily_stop_R": 2.0,
         "priority": 1,            # 80% WR on IBIT (optimized_v2)
-        "max_heat_R": 1.50,
+        "max_heat_R": 2.00,       # greedy v4: was 1.50
         "max_working_orders": 2,
     },
     "S5_DUAL": {
         "unit_risk_pct": 0.012,   # 1.2% base risk (P1 heat-unlock optimized)
         "daily_stop_R": 2.0,
         "priority": 2,            # 70.7% WR on GLD+IBIT (optimized_v2)
-        "max_heat_R": 1.50,
+        "max_heat_R": 2.00,       # greedy v4: was 1.50
         "max_working_orders": 2,
     },
     "SWING_BREAKOUT_V3": {
         "unit_risk_pct": 0.008,   # 0.8% base risk (P1 heat-unlock optimized)
         "daily_stop_R": 2.0,
         "priority": 3,            # rare signals, priority barely matters
-        "max_heat_R": 1.00,
+        "max_heat_R": 1.50,       # greedy v4: was 1.00
         "max_working_orders": 2,
     },
     "AKC_HELIX": {

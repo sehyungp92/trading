@@ -51,6 +51,13 @@ class S5TradeRecord:
     mae_r: float = 0.0
     bars_held: int = 0
     commission: float = 0.0
+    # Entry-context metadata for diagnostics
+    entry_mode: str = ""           # "pullback", "breakout", "momentum", "dual_breakout", "dual_pullback"
+    rsi_at_entry: float = 0.0
+    kelt_position: float = 0.0    # (close - kelt_lower) / (kelt_upper - kelt_lower)
+    volume_ratio: float = 0.0     # volume / volume_sma at entry
+    atr_at_entry: float = 0.0
+    roc_at_entry: float = 0.0
 
 
 @dataclass
@@ -140,6 +147,9 @@ class S5Engine:
         """Run full backtest over daily bars."""
         warmup = self.bt_config.warmup_daily
 
+        # Precompute all indicator arrays once (O(n) instead of O(n²))
+        self._precompute_indicators(daily)
+
         for t in range(len(daily.times)):
             self._step_bar(daily, t, warmup)
 
@@ -150,6 +160,28 @@ class S5Engine:
                 self._to_datetime(daily.times[-1]),
                 "END_OF_DATA",
             )
+
+    def _precompute_indicators(self, daily: NumpyBars) -> None:
+        """Precompute full indicator arrays once before the main loop.
+
+        Converts O(n²) per-bar recomputation to O(n) total.
+        """
+        cfg = self.cfg
+        closes = daily.closes
+        highs = daily.highs
+        lows = daily.lows
+        volumes = daily.volumes
+
+        # Full-length arrays — index by [t] during the loop
+        self._pre_kelt_upper, self._pre_kelt_middle, self._pre_kelt_lower = \
+            indicators.keltner_channel(
+                closes, highs, lows,
+                cfg.kelt_ema_period, cfg.kelt_atr_period, cfg.kelt_atr_mult,
+            )
+        self._pre_rsi = indicators.rsi(closes, cfg.rsi_period)
+        self._pre_roc = indicators.roc(closes, cfg.roc_period)
+        self._pre_vol_sma = indicators.volume_sma(volumes, cfg.vol_sma_period)
+        self._pre_atr = indicators.atr(highs, lows, closes, cfg.atr_period)
 
     def _step_bar(self, daily: NumpyBars, t: int, warmup: int) -> None:
         bar_time = self._to_datetime(daily.times[t])
@@ -195,49 +227,24 @@ class S5Engine:
         self.timestamps.append(daily.times[t])
 
     def _compute_state(self, daily: NumpyBars, t: int) -> DailyState:
-        end = t + 1
-        closes = daily.closes[:end]
-        highs = daily.highs[:end]
-        lows = daily.lows[:end]
-        volumes = daily.volumes[:end]
-        cfg = self.cfg
-
-        # Keltner Channel
-        kelt_upper, kelt_middle, kelt_lower = indicators.keltner_channel(
-            closes, highs, lows,
-            cfg.kelt_ema_period, cfg.kelt_atr_period, cfg.kelt_atr_mult,
-        )
-
-        # RSI
-        rsi_arr = indicators.rsi(closes, cfg.rsi_period)
-
-        # ROC
-        roc_arr = indicators.roc(closes, cfg.roc_period)
-
-        # Volume SMA
-        vol_sma_arr = indicators.volume_sma(volumes, cfg.vol_sma_period)
-
-        # ATR for stops
-        atr_arr = indicators.atr(highs, lows, closes, cfg.atr_period)
-
-        # Previous values
-        close_prev = float(closes[-2]) if len(closes) >= 2 else float(closes[-1])
-        kelt_mid_prev = float(kelt_middle[-2]) if len(kelt_middle) >= 2 else float(kelt_middle[-1])
-        rsi_prev = float(rsi_arr[-2]) if len(rsi_arr) >= 2 else float(rsi_arr[-1])
+        # Index into precomputed arrays (O(1) per bar)
+        close_prev = float(daily.closes[t - 1]) if t >= 1 else float(daily.closes[t])
+        kelt_mid_prev = float(self._pre_kelt_middle[t - 1]) if t >= 1 else float(self._pre_kelt_middle[t])
+        rsi_prev = float(self._pre_rsi[t - 1]) if t >= 1 else float(self._pre_rsi[t])
 
         return DailyState(
-            close=float(closes[-1]),
+            close=float(daily.closes[t]),
             close_prev=close_prev,
-            kelt_upper=float(kelt_upper[-1]),
-            kelt_middle=float(kelt_middle[-1]),
-            kelt_lower=float(kelt_lower[-1]),
+            kelt_upper=float(self._pre_kelt_upper[t]),
+            kelt_middle=float(self._pre_kelt_middle[t]),
+            kelt_lower=float(self._pre_kelt_lower[t]),
             kelt_middle_prev=kelt_mid_prev,
-            rsi=float(rsi_arr[-1]),
+            rsi=float(self._pre_rsi[t]),
             rsi_prev=rsi_prev,
-            roc=float(roc_arr[-1]),
-            volume=float(volumes[-1]),
-            volume_sma=float(vol_sma_arr[-1]),
-            atr=float(atr_arr[-1]),
+            roc=float(self._pre_roc[t]),
+            volume=float(daily.volumes[t]),
+            volume_sma=float(self._pre_vol_sma[t]),
+            atr=float(self._pre_atr[t]),
         )
 
     def _submit_entry(self, state, direction, daily, t, bar_time):
@@ -271,8 +278,18 @@ class S5Engine:
             ttl_hours=48, tag="entry",
         )
         self.broker.submit_order(order)
+        # Capture entry context for diagnostics
+        kelt_range = state.kelt_upper - state.kelt_lower
+        kelt_pos = (state.close - state.kelt_lower) / kelt_range if kelt_range > 0 else 0.5
+        vol_ratio = state.volume / state.volume_sma if state.volume_sma > 0 else 1.0
         self._pending_entry_context = {
             "direction": direction, "stop_dist": stop_dist,
+            "entry_mode": cfg.entry_mode,
+            "rsi_at_entry": state.rsi,
+            "kelt_position": kelt_pos,
+            "volume_ratio": vol_ratio,
+            "atr_at_entry": atr_val,
+            "roc_at_entry": state.roc,
         }
 
     def _submit_exit_order(self, bar_time, reason):
@@ -320,13 +337,21 @@ class S5Engine:
         stop_price = round_to_tick(stop_price, self.cfg.tick_size, "nearest")
         r_price = abs(fill.fill_price - stop_price)
 
-        self.active_position = _ActivePosition(
+        pos = _ActivePosition(
             direction=direction, fill_price=fill.fill_price,
             qty=fill.order.qty, initial_stop=stop_price, current_stop=stop_price,
             r_price=r_price, entry_time=bar_time,
             mfe_price=fill.fill_price, mae_price=fill.fill_price,
             commission=fill.commission,
         )
+        # Attach entry-context metadata for diagnostics
+        pos._entry_mode = ctx.get("entry_mode", "")
+        pos._rsi_at_entry = ctx.get("rsi_at_entry", 0.0)
+        pos._kelt_position = ctx.get("kelt_position", 0.0)
+        pos._volume_ratio = ctx.get("volume_ratio", 0.0)
+        pos._atr_at_entry = ctx.get("atr_at_entry", 0.0)
+        pos._roc_at_entry = ctx.get("roc_at_entry", 0.0)
+        self.active_position = pos
         self.equity -= fill.commission
         self.total_commission += fill.commission
         self._submit_protective_stop(stop_price, fill.order.qty, bar_time)
@@ -375,6 +400,12 @@ class S5Engine:
             pnl_points=pnl_points, pnl_dollars=pnl_dollars,
             r_multiple=r_mult, mfe_r=mfe_r, mae_r=mae_r,
             bars_held=pos.bars_held, commission=pos.commission + exit_commission,
+            entry_mode=getattr(pos, '_entry_mode', ''),
+            rsi_at_entry=getattr(pos, '_rsi_at_entry', 0.0),
+            kelt_position=getattr(pos, '_kelt_position', 0.0),
+            volume_ratio=getattr(pos, '_volume_ratio', 0.0),
+            atr_at_entry=getattr(pos, '_atr_at_entry', 0.0),
+            roc_at_entry=getattr(pos, '_roc_at_entry', 0.0),
         )
         self.trades.append(trade)
         self.broker.cancel_all(self.symbol)
@@ -411,14 +442,9 @@ class S5Engine:
             if H > pos.mae_price:
                 pos.mae_price = H
 
-        end = t + 1
-        if end < self.cfg.atr_period + 1:
+        if t < self.cfg.atr_period:
             return
-        atr_arr = indicators.atr(
-            daily.highs[:end], daily.lows[:end], daily.closes[:end],
-            self.cfg.atr_period,
-        )
-        cur_atr = float(atr_arr[-1])
+        cur_atr = float(self._pre_atr[t])
 
         if pos.r_price > 0:
             if pos.direction == Direction.LONG:

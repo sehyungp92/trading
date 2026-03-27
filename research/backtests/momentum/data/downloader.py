@@ -40,6 +40,7 @@ def _timeframe_to_ibkr(timeframe: str) -> str:
         "1m": "1 min",
         "5m": "5 mins",
         "15m": "15 mins",
+        "30m": "30 mins",
         "1h": "1 hour",
         "1d": "1 day",
     }
@@ -289,31 +290,89 @@ async def download_historical(
                     symbol, timeframe, len(df), df.index[0], df.index[-1],
                 )
         else:
-            years_needed = (total_days // 365) + 1
-            for yr in range(1, years_needed + 1):
-                chunk_dur = f"{yr} Y"
+            # Intraday STK: IBKR hard-limits how much data a single request
+            # returns regardless of the duration string you send:
+            #   30m → ~1 year    5m → ~65 days    1m → ~1-2 days
+            # To get longer history we backward-walk with explicit endDateTime.
+            _STK_INITIAL_DURATION: dict[str, str] = {
+                "1m": "1 D",
+                "5m": "1 M",
+                "15m": "2 M",
+                "30m": "1 Y",
+            }
+            _STK_CHUNK_DURATION: dict[str, str] = {
+                "1m": "1 D",
+                "5m": "1 W",
+                "15m": "2 W",
+                "30m": "6 M",
+            }
+            initial_dur = _STK_INITIAL_DURATION.get(timeframe, "1 M")
+            chunk_dur = _STK_CHUNK_DURATION.get(timeframe, "1 W")
+            cutoff = datetime.now(timezone.utc) - timedelta(days=total_days)
+
+            # Phase 1: most recent data via endDateTime=''
+            logger.info(
+                "Downloading %s %s via Stock (initial=%s, target=%dd)...",
+                symbol, timeframe, initial_dur, total_days,
+            )
+            bars = await _request_with_retry(
+                ib, stock, "", initial_dur, bar_size, rth_only,
+            )
+            if bars:
+                df = _bars_to_df(bars)
+                all_chunks.append(df)
+                earliest_so_far = _ensure_utc(df.index[0].to_pydatetime())
                 logger.info(
-                    "Downloading %s %s via Stock (duration=%s)...",
+                    "[ok] %s %s phase 1: %d bars (%s -> %s)",
+                    symbol, timeframe, len(df), df.index[0], df.index[-1],
+                )
+            else:
+                earliest_so_far = datetime.now(timezone.utc)
+
+            await asyncio.sleep(_PACING_DELAY)
+
+            # Phase 2: walk backward with explicit endDateTime
+            if earliest_so_far > cutoff:
+                end_dt = earliest_so_far - timedelta(seconds=1)
+                empty_streak = 0
+                max_empty = 5
+                chunk_num = 0
+
+                logger.info(
+                    "Walking backward %s %s in %s chunks (to %s)...",
                     symbol, timeframe, chunk_dur,
+                    cutoff.strftime("%Y-%m-%d"),
                 )
-                bars = await _request_with_retry(
-                    ib, stock, "", chunk_dur, bar_size, rth_only,
-                )
-                if bars:
-                    df = _bars_to_df(bars)
-                    all_chunks.append(df)
-                    logger.info(
-                        "[ok] %s %s: %d bars (%s -> %s)",
-                        symbol, timeframe, len(df), df.index[0], df.index[-1],
+
+                while end_dt > cutoff and empty_streak < max_empty:
+                    chunk_num += 1
+                    end_str = end_dt.strftime("%Y%m%d-%H:%M:%S")
+                    bars = await _request_with_retry(
+                        ib, stock, end_str, chunk_dur, bar_size, rth_only,
                     )
-                    earliest = _ensure_utc(df.index[0].to_pydatetime())
-                    now = datetime.now(timezone.utc)
-                    if (now - earliest).days >= total_days:
-                        break
-                else:
-                    logger.info("[empty] %s %s duration=%s", symbol, timeframe, chunk_dur)
-                    break
-                await asyncio.sleep(_PACING_DELAY)
+                    if bars:
+                        df = _bars_to_df(bars)
+                        all_chunks.append(df)
+                        empty_streak = 0
+                        earliest = _ensure_utc(df.index[0].to_pydatetime())
+                        if chunk_num % 10 == 0:
+                            logger.info(
+                                "[ok] %s %s chunk %d: %d bars (back to %s)",
+                                symbol, timeframe, chunk_num, len(df),
+                                earliest.strftime("%Y-%m-%d"),
+                            )
+                        end_dt = earliest - timedelta(seconds=1)
+                    else:
+                        empty_streak += 1
+                        end_dt -= _chunk_step(chunk_dur)
+
+                    await asyncio.sleep(_PACING_DELAY)
+
+                if chunk_num > 0:
+                    logger.info(
+                        "Completed %s %s backward walk: %d chunks",
+                        symbol, timeframe, chunk_num,
+                    )
 
         if not all_chunks:
             raise ValueError(f"No data returned for {symbol} {timeframe}")

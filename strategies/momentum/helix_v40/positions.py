@@ -162,8 +162,14 @@ class PositionManager:
                 self._close_position(pos, "EARLY_ADVERSE", last_price, now_et)
                 continue
 
-            # 2) Momentum stall — DISABLED (backtest use_momentum_stall=False, -$9.9k drag)
-            # Ablation confirmed this exit kills trades that would trail to profit.
+            # 2) Momentum stall — v7: re-enabled (greedy optimizer found net positive)
+            if (pos.bars_held_1h >= MOMENTUM_STALL_BAR
+                    and R_total < MOMENTUM_STALL_MIN_R
+                    and pos.peak_mfe_r < MOMENTUM_STALL_MIN_MFE
+                    and not pos.trailing_active):
+                await self.exec.flatten(pos, "MOMENTUM_STALL")
+                self._close_position(pos, "MOMENTUM_STALL", last_price, now_et)
+                continue
 
             # 3) Trail activation at TRAIL_ACTIVATION_R + BE stop
             if not pos.trailing_active and R_total >= TRAIL_ACTIVATION_R:

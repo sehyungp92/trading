@@ -63,6 +63,13 @@ class PortfolioRulesConfig:
     family_strategy_ids: tuple[str, ...] = ()  # if set, scope directional cap to these IDs
     symbol_collision_action: str = "none"       # "none", "block", "half_size"
 
+    # Strategy priority for directional cap (lower number = higher priority)
+    strategy_priorities: tuple[tuple[str, int], ...] = ()
+    # When remaining directional cap <= this value, only strategies with
+    # priority <= priority_reserve_threshold may enter
+    priority_headroom_R: float = 0.0       # 0 = disabled (backward compatible)
+    priority_reserve_threshold: int = 0
+
     _VALID_COLLISION_ACTIONS = frozenset({"none", "block", "half_size"})
 
     def __post_init__(self):
@@ -165,7 +172,7 @@ class PortfolioRuleChecker:
         result.size_multiplier *= size_mult
 
         # 3. Directional cap
-        denial = await self._check_directional_cap(direction, new_risk_R)
+        denial = await self._check_directional_cap(strategy_id, direction, new_risk_R)
         if denial:
             self._emit({"rule": "directional_cap", "strategy_id": strategy_id,
                          "direction": direction, "approved": False, "denial_reason": denial})
@@ -268,8 +275,10 @@ class PortfolioRuleChecker:
         else:
             return self._cfg.nqdtc_oppose_size_mult
 
-    async def _check_directional_cap(self, direction: str, new_risk_R: float) -> Optional[str]:
-        """Max same-direction risk."""
+    async def _check_directional_cap(
+        self, strategy_id: str, direction: str, new_risk_R: float,
+    ) -> Optional[str]:
+        """Max same-direction risk, with optional priority-based reservation."""
         cap = self._cfg.directional_cap_R
         if cap <= 0:
             return None
@@ -277,11 +286,30 @@ class PortfolioRuleChecker:
         current_dir_risk = await self._get_dir_risk(direction)
         total = current_dir_risk + new_risk_R
 
+        # Hard cap: no strategy can exceed the absolute cap
         if total > cap:
             return (
                 f"directional_cap: {direction} risk {current_dir_risk:.2f}R + "
                 f"new {new_risk_R:.2f}R = {total:.2f}R > cap {cap}R"
             )
+
+        # Soft reservation: when headroom is tight, reserve for higher-priority strategies
+        headroom_R = self._cfg.priority_headroom_R
+        if headroom_R <= 0 or not self._cfg.strategy_priorities:
+            return None
+
+        remaining = cap - current_dir_risk
+        priority_map = dict(self._cfg.strategy_priorities)
+        my_priority = priority_map.get(strategy_id, 99)
+
+        if remaining <= headroom_R and my_priority > self._cfg.priority_reserve_threshold:
+            return (
+                f"directional_cap_reserved: {direction} remaining "
+                f"{remaining:.2f}R <= headroom {headroom_R:.1f}R, "
+                f"strategy {strategy_id} priority {my_priority} "
+                f"> threshold {self._cfg.priority_reserve_threshold}"
+            )
+
         return None
 
     async def _check_chop_throttle(self, strategy_id: str) -> float:

@@ -46,7 +46,7 @@ CLOSE_RANGE = ((15, 30), (15, 50))
 EVENING_RANGE = ((19, 0), (21, 0))
 
 # ── Risk ─────────────────────────────────────────────────────────────
-BASE_RISK_PCT = 0.0080  # portfolio v4
+BASE_RISK_PCT = 0.01    # v7: was 0.008 — +25% increase
 RISK_PCT = BASE_RISK_PCT
 VOL_FACTOR = {"Normal": 1.0, "High": 0.65, "Shock": 0.0}
 HEAT_CAP_MULT = 3.50   # portfolio v4 shared heat cap
@@ -116,6 +116,7 @@ RT_COMM_FEES = 4.12
 SLIP_TICKS_BY_WINDOW = {"OPEN": 2, "EVENING": 2, "CORE": 1, "CLOSE": 1}
 
 # ── +1R Partial ──────────────────────────────────────────────────────
+PLUS_1R_PARTIAL_ENABLED = False  # v7: disable partial close at +1R, use BE-only for all entries
 PARTIAL_PCT = 0.33
 
 # ── ACTIVE_FREE exit management ─────────────────────────────────────
@@ -188,7 +189,7 @@ HIGH_PCTL = 85
 
 # ── Choppiness ──────────────────────────────────────────────────────
 CHOP_PERIOD = 20        # 1H bars for choppiness index
-CHOP_THRESHOLD = 62     # CI > threshold = choppy (reduce entries)
+CHOP_THRESHOLD = 40     # v7: was 62 — more aggressive chop filtering (CI > 40 = choppy)
 CHOP_MAX_LONGS = 1      # max longs/day when choppy (vs normal 2)
 CHOP_MAX_SHORTS = 1     # max shorts/day when choppy
 

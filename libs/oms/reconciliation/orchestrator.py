@@ -3,8 +3,8 @@ import logging
 from collections import defaultdict
 from typing import TYPE_CHECKING, Awaitable, Callable, Optional
 
-from ...ibkr_core.reconciler.sync import ReconcilerSync, Discrepancy
-from ...ibkr_core.reconciler.discrepancy_policy import DiscrepancyAction, DiscrepancyPolicy
+from libs.broker_ibkr.reconciler.sync import ReconcilerSync, Discrepancy
+from libs.broker_ibkr.reconciler.discrepancy_policy import DiscrepancyAction, DiscrepancyPolicy
 
 if TYPE_CHECKING:
     from ..persistence.repository import OMSRepository
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class ReconciliationOrchestrator:
     """Startup + periodic reconciliation.
-    Calls ibkr_core reconciler and applies results to OMS state.
+    Calls broker_ibkr reconciler and applies results to OMS state.
     """
 
     def __init__(

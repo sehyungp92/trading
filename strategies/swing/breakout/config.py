@@ -288,10 +288,10 @@ CHOP_DEGRADED_STALE_ADJ: int = -2
 # ---------------------------------------------------------------------------
 # Score thresholds (spec §9)
 # ---------------------------------------------------------------------------
-SCORE_THRESHOLD_NORMAL: int = 1 if TUNE_SCORE else 2                    # baseline: 2
+SCORE_THRESHOLD_NORMAL: int = 0 if TUNE_SCORE else 2                    # baseline: 2, greedy v4: 0
 SCORE_THRESHOLD_DEGRADED: int = 2
 SCORE_THRESHOLD_RANGE: int = 2
-REGIME_CHOP_BLOCK: bool = True
+REGIME_CHOP_BLOCK: bool = False                                          # greedy v4: was True
 REGIME_CHOP_SCORE_OVERRIDE: int = 3   # allow very high-conviction through
 
 # Hard block slope threshold (spec §7.3)

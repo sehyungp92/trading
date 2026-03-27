@@ -119,6 +119,14 @@ def load_unified_data(config: UnifiedBacktestConfig) -> UnifiedPortfolioData:
         if not isinstance(daily_df.index, pd.DatetimeIndex):
             daily_df.index = pd.DatetimeIndex(daily_df.index)
 
+        # Date range filtering (reduces bar count → faster engine run)
+        if config.start_date:
+            hourly_df = hourly_df[hourly_df.index >= config.start_date]
+            daily_df = daily_df[daily_df.index >= config.start_date]
+        if config.end_date:
+            hourly_df = hourly_df[hourly_df.index <= config.end_date]
+            daily_df = daily_df[daily_df.index <= config.end_date]
+
         # Standardize column names
         hourly_df.columns = hourly_df.columns.str.lower()
         daily_df.columns = daily_df.columns.str.lower()
@@ -409,6 +417,9 @@ class UnifiedPortfolioResult:
     breakout_trades: list = field(default_factory=list)
     s5_pb_trades: list = field(default_factory=list)
     s5_dual_trades: list = field(default_factory=list)
+    # Diagnostic event logs for portfolio diagnostics
+    heat_rejections: list = field(default_factory=list)
+    coordination_events: list = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -923,10 +934,13 @@ def run_unified(
         mult = config.symbol_risk_multipliers.get(f"AKC_HELIX:{sym}", 1.0)
         if mult != 1.0:
             cfg = _dc_replace(cfg, base_risk_pct=cfg.base_risk_pct * mult)
-        helix_engines[sym] = HelixEngine(
+        eng = HelixEngine(
             symbol=sym, cfg=cfg, bt_config=helix_bt,
             point_value=cfg.multiplier,
         )
+        # Precompute indicator arrays once (avoids per-bar recomputation)
+        eng._precompute_indicators(data.hourly[sym], data.four_hour[sym])
+        helix_engines[sym] = eng
 
     # Breakout engines: run isolated in fixed_qty mode (matches run_breakout_independent),
     # share state in risk-based mode (matches run_breakout_synchronized / production).
@@ -946,6 +960,8 @@ def run_unified(
             kw["external_positions"] = shared_breakout_positions
             kw["external_circuit_breaker"] = shared_breakout_cb
         eng = BreakoutEngine(**kw)
+        # Precompute indicator arrays once (avoids per-bar recomputation)
+        eng._precompute_indicators(data.daily[sym], data.breakout_hourly[sym], data.breakout_four_hour[sym])
         # Initialize rolling histories and slot medians (matching BreakoutEngine.run())
         eng._init_histories(data.daily[sym], config.warmup_daily)
         eng._init_slot_medians(data.breakout_hourly[sym], config.warmup_hourly)
@@ -960,20 +976,24 @@ def run_unified(
         s5cfg = S5_SYMBOL_CONFIGS.get(sym)
         if s5cfg is None or sym not in data.daily:
             continue
-        s5_pb_engines[sym] = S5Engine(
+        eng = S5Engine(
             symbol=sym, cfg=s5cfg, bt_config=s5_pb_bt,
             point_value=s5cfg.multiplier,
         )
+        eng._precompute_indicators(data.daily[sym])
+        s5_pb_engines[sym] = eng
 
     s5_dual_engines: dict[str, S5Engine] = {}
     for sym in config.s5_dual_symbols:
         s5cfg = S5_SYMBOL_CONFIGS.get(sym)
         if s5cfg is None or sym not in data.daily:
             continue
-        s5_dual_engines[sym] = S5Engine(
+        eng = S5Engine(
             symbol=sym, cfg=s5cfg, bt_config=s5_dual_bt,
             point_value=s5cfg.multiplier,
         )
+        eng._precompute_indicators(data.daily[sym])
+        s5_dual_engines[sym] = eng
 
     if not atrss_engines and not helix_engines and not breakout_engines:
         logger.warning("No engines created — check symbols and data")
@@ -1113,6 +1133,8 @@ def run_unified(
     heat_samples: list[float] = []
     prev_date: date | None = None
     blocked_entries: dict[str, int] = {"ATRSS": 0, "AKC_HELIX": 0, "SWING_BREAKOUT_V3": 0, "S5_PB": 0, "S5_DUAL": 0}
+    heat_rejection_log: list[dict] = []
+    coordination_event_log: list[dict] = []
     daily_stop_activations = 0
 
     warmup_d = config.warmup_daily
@@ -1239,6 +1261,7 @@ def run_unified(
                             engine.submit_candidate(cand, bar_time)
                         else:
                             blocked_entries["ATRSS"] += 1
+                            heat_rejection_log.append({"time": bar_time, "strategy": "ATRSS", "reason": reason})
                             if "daily stop" in reason.lower():
                                 daily_stop_activations += 1
 
@@ -1264,10 +1287,12 @@ def run_unified(
                         if be_price > pos.current_stop:
                             pos.current_stop = be_price
                             coordinator.tighten_count += 1
+                            coordination_event_log.append({"time": _to_datetime(ts), "type": "tighten", "trigger_strategy": "ATRSS", "target_strategy": "AKC_HELIX", "symbol": tighten_sym})
                     elif pos.setup.direction == HelixDirection.SHORT:
                         if be_price < pos.current_stop:
                             pos.current_stop = be_price
                             coordinator.tighten_count += 1
+                            coordination_event_log.append({"time": _to_datetime(ts), "type": "tighten", "trigger_strategy": "ATRSS", "target_strategy": "AKC_HELIX", "symbol": tighten_sym})
 
         # === Step 3: Helix engines (priority 1) ===
         for sym, engine in helix_engines.items():
@@ -1302,6 +1327,7 @@ def run_unified(
                 if not ok:
                     # Force flatten: reverse the entry
                     blocked_entries["AKC_HELIX"] += 1
+                    heat_rejection_log.append({"time": _to_datetime(ts), "strategy": "AKC_HELIX", "reason": reason})
                     _force_flatten_helix(engine, pos)
                     if "daily stop" in reason.lower():
                         daily_stop_activations += 1
@@ -1311,6 +1337,7 @@ def run_unified(
                         direction = pos.setup.direction
                         if coordinator.has_atrss_position(sym, direction):
                             coordinator.boost_count += 1
+                            coordination_event_log.append({"time": _to_datetime(ts), "type": "boost", "trigger_strategy": "ATRSS", "target_strategy": "AKC_HELIX", "symbol": sym})
 
         # === Step 4: Breakout engines (priority 2) ===
         for sym, engine in breakout_engines.items():
@@ -1357,6 +1384,7 @@ def run_unified(
                     ok, reason = heat_tracker.can_enter("SWING_BREAKOUT_V3", risk_dollars)
                 if not ok:
                     blocked_entries["SWING_BREAKOUT_V3"] += 1
+                    heat_rejection_log.append({"time": _to_datetime(ts), "strategy": "SWING_BREAKOUT_V3", "reason": reason})
                     _force_flatten_breakout(engine, pos)
                     if "daily stop" in reason.lower():
                         daily_stop_activations += 1
@@ -1505,6 +1533,8 @@ def run_unified(
         breakout_trades=all_breakout_trades,
         s5_pb_trades=all_s5_pb_trades,
         s5_dual_trades=all_s5_dual_trades,
+        heat_rejections=heat_rejection_log,
+        coordination_events=coordination_event_log,
     )
 
 

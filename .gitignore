@@ -78,10 +78,14 @@ overlay_state.json
 
 # Market data (large binary files — download via scripts)
 **/backtest/data/raw/**/*.parquet
+**/backtests/**/data/raw/**/*.parquet
 **/backtest/data/raw/**/*_chunks/
 
 # Backtest output (regenerated per run)
 **/backtest/output/
+
+# Output directories (regenerated per run)
+**/output/
 
 # Local references & scratch
 _references/
