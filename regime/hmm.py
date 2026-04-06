@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import dataclasses
 import itertools
 import logging
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
-from hmmlearn.hmm import GaussianHMM
+try:
+    from hmmlearn.hmm import GaussianHMM
+except ModuleNotFoundError:  # pragma: no cover - optional dependency in test envs
+    class GaussianHMM:  # type: ignore[override]
+        pass
 
 logger = logging.getLogger(__name__)
 
@@ -68,9 +73,24 @@ def solve_assignment(C: np.ndarray) -> np.ndarray:
 
 
 def align_hmm_inplace(
-    hmm: GaussianHMM, growth_idx: int, infl_idx: int
+    hmm: GaussianHMM,
+    growth_idx: int,
+    infl_idx: int,
+    prev_means: Optional[np.ndarray] = None,
+    continuity_weight: float = 0.0,
 ) -> dict:
     C = build_cost_matrix(hmm.means_, growth_idx, infl_idx)
+
+    if prev_means is not None and continuity_weight > 0:
+        C_cont = np.zeros_like(C)
+        for i in range(C.shape[0]):
+            for j in range(C.shape[1]):
+                C_cont[i, j] = np.linalg.norm(hmm.means_[i] - prev_means[j])
+        scale = abs(C).max()
+        if C_cont.max() > 0 and scale > 0:
+            C_cont = C_cont / C_cont.max() * scale
+        C = C + continuity_weight * C_cont
+
     order = solve_assignment(C)
     hmm.means_ = hmm.means_[order]
     hmm.covars_ = hmm.covars_[order]
@@ -124,6 +144,7 @@ def fit_or_refit_hmm(
     infl_idx: int,
     prev_model: Optional[GaussianHMM],
     first_fit: bool,
+    prev_means: Optional[np.ndarray] = None,
 ) -> Tuple[GaussianHMM, dict]:
     n_iter = cfg.n_iter_first_fit if first_fit else cfg.n_iter_refit
     model = init_hmm(cfg, n_iter)
@@ -145,7 +166,11 @@ def fit_or_refit_hmm(
             return prev_model, {"refit_rejected": True, "fit_error": str(exc)}
         raise  # first fit — no fallback available
 
-    align_hmm_inplace(model, growth_idx, infl_idx)
+    align_hmm_inplace(
+        model, growth_idx, infl_idx,
+        prev_means=prev_means,
+        continuity_weight=cfg.label_continuity_weight,
+    )
 
     # -- OOS refit guard --
     if prev_model is not None and not first_fit:
@@ -163,3 +188,54 @@ def fit_or_refit_hmm(
             }
 
     return model, {"refit_rejected": False}
+
+
+# ---------------------------------------------------------------------------
+# Ensemble fitting
+# ---------------------------------------------------------------------------
+
+def fit_ensemble_hmm(
+    X_train: np.ndarray,
+    cfg: MetaConfig,
+    growth_idx: int,
+    infl_idx: int,
+    prev_model: Optional[GaussianHMM] = None,
+    first_fit: bool = True,
+    prev_means: Optional[np.ndarray] = None,
+) -> List[Tuple[GaussianHMM, dict]]:
+    """Fit N HMMs with different seeds. Returns list of (model, diag).
+
+    Individual models that fail (e.g. degenerate covariance) are skipped.
+    Raises only if ALL models fail. Uses thread-parallel fitting since
+    numpy/scipy release the GIL during BLAS operations.
+    """
+    if cfg.n_ensemble_models <= 1:
+        return [fit_or_refit_hmm(X_train, cfg, growth_idx, infl_idx,
+                                 prev_model, first_fit, prev_means)]
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _fit_one(offset):
+        seed_cfg = dataclasses.replace(cfg, random_state=cfg.random_state + offset)
+        return fit_or_refit_hmm(X_train, seed_cfg, growth_idx, infl_idx,
+                                prev_model, first_fit, prev_means)
+
+    results = []
+    errors = []
+    n_threads = min(cfg.n_ensemble_models, 4)
+    with ThreadPoolExecutor(max_workers=n_threads) as executor:
+        futures = {executor.submit(_fit_one, offset): offset
+                   for offset in range(cfg.n_ensemble_models)}
+        for future in as_completed(futures):
+            offset = futures[future]
+            try:
+                results.append(future.result())
+            except Exception as exc:
+                errors.append((offset, str(exc)))
+                logger.warning("Ensemble member seed=%d failed: %s",
+                               cfg.random_state + offset, exc)
+    if not results:
+        raise RuntimeError(f"All {cfg.n_ensemble_models} ensemble models failed: {errors}")
+    if errors:
+        logger.info("Ensemble: %d/%d models succeeded", len(results), cfg.n_ensemble_models)
+    return results

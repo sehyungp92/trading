@@ -272,6 +272,8 @@ class USORBEngine:
         ]
 
     def _entry_signal_factors(self, ctx: SymbolContext) -> list[dict[str, Any]]:
+        vwap = ctx.vwap or 0.0
+        price = ctx.last_price or 0.0
         return [
             {
                 "factor_name": "pre_score",
@@ -302,6 +304,30 @@ class USORBEngine:
                 "factor_value": float(ctx.relative_strength_5m or 0.0),
                 "threshold": 0.0,
                 "contribution": float(ctx.relative_strength_5m or 0.0),
+            },
+            {
+                "factor_name": "vwap_distance",
+                "factor_value": (price - vwap) / vwap if vwap > 0 else 0.0,
+                "threshold": 0.0,
+                "contribution": 0.0,
+            },
+            {
+                "factor_name": "imbalance_90s",
+                "factor_value": float(ctx.imbalance_90s or 0.0),
+                "threshold": 0.0,
+                "contribution": float(ctx.imbalance_90s or 0.0),
+            },
+            {
+                "factor_name": "gap_pct",
+                "factor_value": float(ctx.gap_pct or 0.0),
+                "threshold": 0.0,
+                "contribution": float(ctx.gap_pct or 0.0),
+            },
+            {
+                "factor_name": "or_pct",
+                "factor_value": float(ctx.or_pct or 0.0),
+                "threshold": float(self._settings.min_or_pct),
+                "contribution": float(ctx.or_pct or 0.0),
             },
         ]
 
@@ -409,6 +435,8 @@ class USORBEngine:
                     "planned_entry": ctx.planned_entry,
                     "planned_limit": ctx.planned_limit,
                     "final_stop": ctx.final_stop,
+                    "rearms_used": ctx.rearms_used,
+                    "size_penalty": ctx.size_penalty,
                     **(strategy_params or {}),
                 },
                 filter_decisions=filter_decisions,

@@ -94,6 +94,7 @@ class InstrumentationManager:
             "helix": ["strategy.config"],
             "nqdtc": ["strategy_2.config"],
             "vdubus": ["strategy_3.config"],
+            "downturn": ["strategies.momentum.downturn.config"],
         }
         config_modules = _strategy_config_map.get(strategy_type, [])
         try:

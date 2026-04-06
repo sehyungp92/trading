@@ -73,6 +73,29 @@ def build_observation_matrix(
         else:
             logger.warning("use_real_rates_feature=True but 'REAL_RATE_10Y' not in market_df; run download first")
 
+    # 9: VIX level (captures vol regime — currently only in crisis overlay)
+    if cfg.use_vix_feature:
+        if "VIX" in market_df.columns:
+            vix = market_df["VIX"].rename("vix_level")
+            features.append(vix)
+        else:
+            logger.warning("use_vix_feature=True but 'VIX' not in market_df")
+
+    # 10: Realized equity volatility (different from implied VIX)
+    if cfg.use_realized_vol_feature:
+        if "SPY" in strat_ret_df.columns:
+            realized_vol = strat_ret_df["SPY"].rolling(21).std().rename("realized_vol")
+            features.append(realized_vol)
+        else:
+            logger.warning("use_realized_vol_feature=True but 'SPY' not in strat_ret_df")
+
+    # 11: Cross-asset momentum divergence (trend regime indicator)
+    if cfg.use_trend_divergence_feature:
+        non_cash = strat_ret_df.drop(columns=[cfg.cash_col], errors="ignore")
+        mom_21 = non_cash.rolling(21).sum()
+        trend_div = mom_21.std(axis=1).rename("trend_divergence")
+        features.append(trend_div)
+
     raw = pd.concat(features, axis=1)
     Xz = rolling_zscore(raw, cfg.z_window, cfg.z_minp).dropna()
 

@@ -14,6 +14,7 @@ from .models import (
     HeldPositionResearch,
     IntradayStateSnapshot,
     MarketResearch,
+    PBSymbolState,
     PendingOrderState,
     PositionState,
     RegimeSnapshot,
@@ -212,6 +213,15 @@ def _watchlist_item_from_dict(data: dict[str, Any]) -> WatchlistItem:
         expected_5m_volume=float(data.get("expected_5m_volume", 0.0)),
         flow_proxy_gate_pass=bool(data.get("flow_proxy_gate_pass", True)),
         overflow_rank=int(data["overflow_rank"]) if data.get("overflow_rank") is not None else None,
+        # Pullback V2 fields
+        daily_signal_score=float(data.get("daily_signal_score", 0.0)),
+        trigger_types=list(data.get("trigger_types", [])),
+        trigger_tier=str(data.get("trigger_tier", "STANDARD")),
+        trend_tier=str(data.get("trend_tier", "STRONG")),
+        rescue_flow_candidate=bool(data.get("rescue_flow_candidate", False)),
+        sizing_mult=float(data.get("sizing_mult", 1.0)),
+        ema10_daily=float(data.get("ema10_daily", 0.0)),
+        rsi14_daily=float(data.get("rsi14_daily", 0.0)),
     )
 
 
@@ -310,58 +320,116 @@ def load_intraday_state(trade_date: date, root: Path | None = None, settings: St
             ),
         )
 
+    def _pb_symbol(data: dict[str, Any]) -> PBSymbolState:
+        return PBSymbolState(
+            symbol=str(data["symbol"]),
+            stage=str(data.get("stage", "WATCHING")),
+            route_family=str(data.get("route_family", "")),
+            setup_low=float(data.get("setup_low", 0.0)),
+            reclaim_level=float(data.get("reclaim_level", 0.0)),
+            stop_level=float(data.get("stop_level", 0.0)),
+            acceptance_count=int(data.get("acceptance_count", 0)),
+            required_acceptance=int(data.get("required_acceptance", 1)),
+            intraday_score=float(data.get("intraday_score", 0.0)),
+            score_components=dict(data.get("score_components", {})),
+            bars_seen_today=int(data.get("bars_seen_today", 0)),
+            session_low=float(data.get("session_low", 0.0)),
+            session_high=float(data.get("session_high", 0.0)),
+            in_position=bool(data.get("in_position", False)),
+            position=_position(data.get("position")),
+            entry_order=_pending(data.get("entry_order")),
+            exit_order=_pending(data.get("exit_order")),
+            pending_hard_exit=bool(data.get("pending_hard_exit", False)),
+            daily_signal_score=float(data.get("daily_signal_score", 0.0)),
+            trigger_types=list(data.get("trigger_types", [])),
+            trigger_tier=str(data.get("trigger_tier", "STANDARD")),
+            trend_tier=str(data.get("trend_tier", "STRONG")),
+            rescue_flow_candidate=bool(data.get("rescue_flow_candidate", False)),
+            sizing_mult=float(data.get("sizing_mult", 1.0)),
+            daily_atr=float(data.get("daily_atr", 0.0)),
+            entry_atr=float(data.get("entry_atr", 0.0)),
+            last_1m_bar_time=(
+                datetime.fromisoformat(data["last_1m_bar_time"])
+                if data.get("last_1m_bar_time")
+                else None
+            ),
+            last_5m_bar_time=(
+                datetime.fromisoformat(data["last_5m_bar_time"])
+                if data.get("last_5m_bar_time")
+                else None
+            ),
+            active_order_id=str(data["active_order_id"]) if data.get("active_order_id") else None,
+            last_transition_reason=str(data.get("last_transition_reason", "")),
+            mfe_stage=int(data.get("mfe_stage", 0)),
+            breakeven_activated=bool(data.get("breakeven_activated", False)),
+            trail_active=bool(data.get("trail_active", False)),
+            hold_bars=int(data.get("hold_bars", 0)),
+            risk_per_share=float(data.get("risk_per_share", 0.0)),
+            v2_partial_taken=bool(data.get("v2_partial_taken", False)),
+            carry_decision_path=str(data.get("carry_decision_path", "")),
+            consecutive_bars_below_vwap=int(data.get("consecutive_bars_below_vwap", 0)),
+            ema10_daily=float(data.get("ema10_daily", 0.0)),
+            rsi14_daily=float(data.get("rsi14_daily", 0.0)),
+            stopped_out_today=bool(data.get("stopped_out_today", False)),
+            flush_bar_idx=int(data.get("flush_bar_idx", 0)),
+        )
+
     symbols = []
     for data in payload.get("symbols", []):
-        symbols.append(
-            SymbolIntradayState(
-                symbol=str(data["symbol"]),
-                tier=str(data.get("tier", "COLD")),
-                fsm_state=str(data.get("fsm_state", "IDLE")),
-                in_position=bool(data.get("in_position", False)),
-                position_qty=int(data.get("position_qty", 0)),
-                avg_price=float(data["avg_price"]) if data.get("avg_price") is not None else None,
-                setup_type=str(data["setup_type"]) if data.get("setup_type") else None,
-                setup_low=float(data["setup_low"]) if data.get("setup_low") is not None else None,
-                reclaim_level=float(data["reclaim_level"]) if data.get("reclaim_level") is not None else None,
-                stop_level=float(data["stop_level"]) if data.get("stop_level") is not None else None,
-                setup_time=datetime.fromisoformat(data["setup_time"]) if data.get("setup_time") else None,
-                invalidated_at=datetime.fromisoformat(data["invalidated_at"]) if data.get("invalidated_at") else None,
-                acceptance_count=int(data.get("acceptance_count", 0)),
-                required_acceptance_count=int(data.get("required_acceptance_count", 0)),
-                location_grade=str(data["location_grade"]) if data.get("location_grade") else None,
-                session_vwap=float(data["session_vwap"]) if data.get("session_vwap") is not None else None,
-                avwap_live=float(data["avwap_live"]) if data.get("avwap_live") is not None else None,
-                sponsorship_signal=str(data.get("sponsorship_signal", "NEUTRAL")),
-                micropressure_signal=str(data.get("micropressure_signal", "NEUTRAL")),
-                micropressure_mode=str(data.get("micropressure_mode", "PROXY")),
-                flowproxy_signal=str(data.get("flowproxy_signal", "UNAVAILABLE")),
-                confidence=str(data["confidence"]) if data.get("confidence") else None,
-                last_1m_bar_time=(
-                    datetime.fromisoformat(data["last_1m_bar_time"])
-                    if data.get("last_1m_bar_time")
-                    else None
-                ),
-                last_5m_bar_time=(
-                    datetime.fromisoformat(data["last_5m_bar_time"])
-                    if data.get("last_5m_bar_time")
-                    else None
-                ),
-                active_order_id=str(data["active_order_id"]) if data.get("active_order_id") else None,
-                time_stop_deadline=(
-                    datetime.fromisoformat(data["time_stop_deadline"])
-                    if data.get("time_stop_deadline")
-                    else None
-                ),
-                setup_tag=str(data["setup_tag"]) if data.get("setup_tag") else None,
-                expected_volume_pct=float(data.get("expected_volume_pct", 0.0)),
-                average_30m_volume=float(data.get("average_30m_volume", 0.0)),
-                last_transition_reason=str(data.get("last_transition_reason", "")),
-                entry_order=_pending(data.get("entry_order")),
-                position=_position(data.get("position")),
-                exit_order=_pending(data.get("exit_order")),
-                pending_hard_exit=bool(data.get("pending_hard_exit", False)),
+        # Detect PBSymbolState by presence of 'stage' key (only PB state has it)
+        if "stage" in data:
+            symbols.append(_pb_symbol(data))
+        else:
+            symbols.append(
+                SymbolIntradayState(
+                    symbol=str(data["symbol"]),
+                    tier=str(data.get("tier", "COLD")),
+                    fsm_state=str(data.get("fsm_state", "IDLE")),
+                    in_position=bool(data.get("in_position", False)),
+                    position_qty=int(data.get("position_qty", 0)),
+                    avg_price=float(data["avg_price"]) if data.get("avg_price") is not None else None,
+                    setup_type=str(data["setup_type"]) if data.get("setup_type") else None,
+                    setup_low=float(data["setup_low"]) if data.get("setup_low") is not None else None,
+                    reclaim_level=float(data["reclaim_level"]) if data.get("reclaim_level") is not None else None,
+                    stop_level=float(data["stop_level"]) if data.get("stop_level") is not None else None,
+                    setup_time=datetime.fromisoformat(data["setup_time"]) if data.get("setup_time") else None,
+                    invalidated_at=datetime.fromisoformat(data["invalidated_at"]) if data.get("invalidated_at") else None,
+                    acceptance_count=int(data.get("acceptance_count", 0)),
+                    required_acceptance_count=int(data.get("required_acceptance_count", 0)),
+                    location_grade=str(data["location_grade"]) if data.get("location_grade") else None,
+                    session_vwap=float(data["session_vwap"]) if data.get("session_vwap") is not None else None,
+                    avwap_live=float(data["avwap_live"]) if data.get("avwap_live") is not None else None,
+                    sponsorship_signal=str(data.get("sponsorship_signal", "NEUTRAL")),
+                    micropressure_signal=str(data.get("micropressure_signal", "NEUTRAL")),
+                    micropressure_mode=str(data.get("micropressure_mode", "PROXY")),
+                    flowproxy_signal=str(data.get("flowproxy_signal", "UNAVAILABLE")),
+                    confidence=str(data["confidence"]) if data.get("confidence") else None,
+                    last_1m_bar_time=(
+                        datetime.fromisoformat(data["last_1m_bar_time"])
+                        if data.get("last_1m_bar_time")
+                        else None
+                    ),
+                    last_5m_bar_time=(
+                        datetime.fromisoformat(data["last_5m_bar_time"])
+                        if data.get("last_5m_bar_time")
+                        else None
+                    ),
+                    active_order_id=str(data["active_order_id"]) if data.get("active_order_id") else None,
+                    time_stop_deadline=(
+                        datetime.fromisoformat(data["time_stop_deadline"])
+                        if data.get("time_stop_deadline")
+                        else None
+                    ),
+                    setup_tag=str(data["setup_tag"]) if data.get("setup_tag") else None,
+                    expected_volume_pct=float(data.get("expected_volume_pct", 0.0)),
+                    average_30m_volume=float(data.get("average_30m_volume", 0.0)),
+                    last_transition_reason=str(data.get("last_transition_reason", "")),
+                    entry_order=_pending(data.get("entry_order")),
+                    position=_position(data.get("position")),
+                    exit_order=_pending(data.get("exit_order")),
+                    pending_hard_exit=bool(data.get("pending_hard_exit", False)),
+                )
             )
-        )
     return IntradayStateSnapshot(
         trade_date=date.fromisoformat(payload["trade_date"]),
         saved_at=datetime.fromisoformat(payload["saved_at"]),

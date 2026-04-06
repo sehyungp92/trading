@@ -334,7 +334,7 @@ def momentum_regime_mult(regime_tier: str, settings: StrategySettings) -> float:
 
 
 def sector_sizing_mult(sector: str, settings: StrategySettings) -> float:
-    """Sector-weighted sizing multiplier from P10b optimization."""
+    """Sector-weighted sizing multiplier from P14 optimization."""
     if sector == "Financials":
         return settings.sector_mult_financials
     if sector == "Communication Services":
@@ -343,6 +343,8 @@ def sector_sizing_mult(sector: str, settings: StrategySettings) -> float:
         return settings.sector_mult_industrials
     if sector == "Consumer Discretionary":
         return settings.sector_mult_consumer_disc
+    if sector == "Healthcare":
+        return settings.sector_mult_healthcare
     return 1.0
 
 

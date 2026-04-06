@@ -1,7 +1,13 @@
-"""Daily selection logic for IARIC v1."""
+"""Daily selection logic for IARIC v1 (pullback V2 mode).
+
+When ``pb_v2_enabled`` is True, the selection uses 7-trigger pullback
+scoring instead of T1 sponsorship/conviction.  Legacy path preserved
+for ``pb_v2_enabled=False``.
+"""
 
 from __future__ import annotations
 
+import numpy as np
 from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from statistics import fmean, median
@@ -9,6 +15,7 @@ from statistics import fmean, median
 from .artifact_store import load_research_snapshot, persist_watchlist_artifact
 from .config import StrategySettings
 from .diagnostics import JsonlDiagnostics
+from .indicators import rolling_sma
 from .models import (
     HeldPositionDirective,
     RegimeSnapshot,
@@ -16,6 +23,13 @@ from .models import (
     ResearchSymbol,
     WatchlistArtifact,
     WatchlistItem,
+)
+from .signals import (
+    build_daily_watchlist,
+    compute_indicator_cache,
+    compute_trend_tier,
+    compute_trigger_tier,
+    score_daily_candidate,
 )
 
 
@@ -335,29 +349,168 @@ def build_held_position_directives(snapshot: ResearchSnapshot, settings: Strateg
     return directives
 
 
-def daily_selection_from_snapshot(
+def _pullback_daily_selection(
     snapshot: ResearchSnapshot,
-    settings: StrategySettings | None = None,
-    diagnostics: JsonlDiagnostics | None = None,
-) -> WatchlistArtifact:
-    cfg = settings or StrategySettings()
-    diag = diagnostics or JsonlDiagnostics(cfg.diagnostics_dir, enabled=False)
-    regime = compute_market_regime(snapshot, cfg)
-    diag.log_regime({"score": regime.score, "tier": regime.tier, "risk_multiplier": regime.risk_multiplier})
-    if regime.tier == "C":
-        return WatchlistArtifact(
-            trade_date=snapshot.trade_date,
-            generated_at=datetime.now(timezone.utc),
-            regime=regime,
-            items=[],
-            tradable=[],
-            overflow=[],
-            market_wide_institutional_selling=snapshot.market.market_wide_institutional_selling,
-            held_positions=build_held_position_directives(snapshot, cfg),
-        )
+    cfg: StrategySettings,
+    diag: JsonlDiagnostics,
+    regime: RegimeSnapshot,
+    universe: dict[str, ResearchSymbol],
+    sector_scores: dict[str, float],
+    sector_weights: dict[str, float],
+) -> list[WatchlistItem]:
+    """Pullback V2 daily selection using 7-trigger scoring."""
+    # Build SPY benchmark closes for relative strength
+    spy = snapshot.symbols.get("SPY")
+    benchmark_closes: np.ndarray | None = None
+    if spy and spy.daily_bars:
+        benchmark_closes = np.array([b.close for b in spy.daily_bars], dtype=np.float64)
 
-    universe = filter_liquid_common_stocks(snapshot.symbols, cfg)
-    sector_scores, sector_weights = compute_sector_scores(universe, snapshot)
+    # Compute indicators for all universe symbols
+    indicators_cache: dict[str, dict[str, np.ndarray]] = {}
+    for sym_name, sym in universe.items():
+        ind = compute_indicator_cache(sym, benchmark_closes)
+        if ind:
+            indicators_cache[sym_name] = ind
+
+    # Score and rank candidates
+    candidates = build_daily_watchlist(universe, indicators_cache, cfg)
+
+    # Build watchlist items for candidates
+    peers_by_sector: dict[str, list[ResearchSymbol]] = {}
+    for sym in universe.values():
+        peers_by_sector.setdefault(sym.sector, []).append(sym)
+
+    items: list[WatchlistItem] = []
+    for sym_name, score, triggers in candidates:
+        symbol = universe[sym_name]
+        ind = indicators_cache.get(sym_name, {})
+
+        # Trend tier
+        trend_tier_val = compute_trend_tier(symbol, ind, cfg)
+        if trend_tier_val == "EXCLUDED":
+            diag.log_filter(sym_name, "trend_tier", False, "excluded")
+            continue
+
+        # CDD hard filter (research parity)
+        cdd_value = 0
+        if "cdd" in ind and len(ind["cdd"]) > 0:
+            v = ind["cdd"][-1]
+            if not np.isnan(v):
+                cdd_value = int(v)
+        if cdd_value > cfg.pb_cdd_max:
+            diag.log_filter(sym_name, "cdd_max", False, f"cdd_{cdd_value}_exceeds_{cfg.pb_cdd_max}")
+            continue
+
+        # Trigger tier and sizing
+        trigger_tier_val, sizing_mult = compute_trigger_tier(score, cfg)
+        if sizing_mult <= 0:
+            continue
+
+        # Secular discount
+        if trend_tier_val == "SECULAR":
+            sizing_mult *= cfg.pb_v2_secular_sizing_mult
+
+        # Flow policy: rescue candidates
+        rescue_candidate = False
+        if cfg.pb_flow_policy == "soft_penalty_rescue":
+            if symbol.flow_proxy_history:
+                last_flow = symbol.flow_proxy_history[-1:]
+                if last_flow and last_flow[0] < 0:
+                    if score >= cfg.pb_daily_rescue_min_score:
+                        rescue_candidate = True
+                        sizing_mult *= cfg.pb_rescue_size_mult
+                    else:
+                        diag.log_filter(sym_name, "flow", False, "negative_flow_below_rescue")
+                        continue
+
+        # Extract daily EMA10 and RSI14 for intraday exit chain
+        ema10_val = 0.0
+        rsi14_val = 0.0
+        if "ema10" in ind and len(ind["ema10"]) > 0:
+            v = float(ind["ema10"][-1])
+            if not np.isnan(v):
+                ema10_val = v
+        if "rsi14" in ind and len(ind["rsi14"]) > 0:
+            v = float(ind["rsi14"][-1])
+            if not np.isnan(v):
+                rsi14_val = v
+
+        # Compute T1-compat fields for backward compatibility
+        rs_percentile = _leader_percentile(symbol, peers_by_sector.get(symbol.sector, [symbol]))
+        trend_strength = _trend_strength(symbol)
+        persistence = _persistence(symbol)
+
+        # Anchor (fallback for backward compat)
+        anchor_index, anchor_type = select_anchor(symbol, cfg)
+        avwap_ref = compute_daily_avwap_approx(symbol, anchor_index)
+        band_pct = cfg.avwap_band_pct
+
+        item = WatchlistItem(
+            symbol=symbol.symbol,
+            exchange=symbol.exchange,
+            primary_exchange=symbol.primary_exchange,
+            currency=symbol.currency,
+            tick_size=symbol.tick_size,
+            point_value=symbol.point_value,
+            sector=symbol.sector,
+            regime_score=regime.score,
+            regime_tier=regime.tier,
+            regime_risk_multiplier=regime.risk_multiplier,
+            sector_score=sector_scores.get(symbol.sector, 0.0),
+            sector_rank_weight=sector_weights.get(symbol.sector, 0.3),
+            sponsorship_score=0.0,
+            sponsorship_state="NEUTRAL",
+            persistence=persistence,
+            intensity_z=0.0,
+            accel_z=0.0,
+            rs_percentile=rs_percentile,
+            leader_pass=True,
+            trend_pass=trend_tier_val == "STRONG",
+            trend_strength=trend_strength,
+            earnings_risk_flag=(symbol.earnings_within_sessions or 99) <= 3,
+            blacklist_flag=symbol.blacklist_flag,
+            anchor_date=symbol.daily_bars[anchor_index].trade_date if symbol.daily_bars else snapshot.trade_date,
+            anchor_type=anchor_type,
+            acceptance_pass=True,
+            avwap_ref=avwap_ref,
+            avwap_band_lower=avwap_ref * (1.0 - band_pct),
+            avwap_band_upper=avwap_ref * (1.0 + band_pct),
+            daily_atr_estimate=symbol.daily_atr_estimate,
+            intraday_atr_seed=max(symbol.intraday_atr_seed, symbol.daily_atr_estimate / max(symbol.price, 1e-9)),
+            daily_rank=score / 100.0,
+            tradable_flag=False,
+            conviction_bucket=trigger_tier_val,
+            conviction_multiplier=sizing_mult,
+            recommended_risk_r=sizing_mult,
+            average_30m_volume=max(symbol.average_30m_volume, 0.0),
+            expected_5m_volume=max(symbol.expected_5m_volume, 0.0),
+            flow_proxy_gate_pass=not rescue_candidate,
+            # Pullback V2 fields
+            daily_signal_score=score,
+            trigger_types=triggers,
+            trigger_tier=trigger_tier_val,
+            trend_tier=trend_tier_val,
+            rescue_flow_candidate=rescue_candidate,
+            sizing_mult=sizing_mult,
+            cdd_value=cdd_value,
+            ema10_daily=ema10_val,
+            rsi14_daily=rsi14_val,
+        )
+        items.append(item)
+
+    return items
+
+
+def _legacy_daily_selection(
+    snapshot: ResearchSnapshot,
+    cfg: StrategySettings,
+    diag: JsonlDiagnostics,
+    regime: RegimeSnapshot,
+    universe: dict[str, ResearchSymbol],
+    sector_scores: dict[str, float],
+    sector_weights: dict[str, float],
+) -> list[WatchlistItem]:
+    """Legacy T1 sponsorship/conviction selection (pb_v2_enabled=False)."""
     peers_by_sector: dict[str, list[ResearchSymbol]] = {}
     for symbol in universe.values():
         peers_by_sector.setdefault(symbol.sector, []).append(symbol)
@@ -421,7 +574,6 @@ def daily_selection_from_snapshot(
             diag.log_filter(symbol_name, "conviction", False, "skip")
             continue
 
-        # Entry flow gate: check if recent flow proxy is positive
         flow_gate_pass = True
         if cfg.t1_entry_flow_gate and symbol.flow_proxy_history:
             last_n = symbol.flow_proxy_history[-cfg.t1_entry_flow_lookback:]
@@ -453,6 +605,38 @@ def daily_selection_from_snapshot(
                 flow_proxy_gate_pass=flow_gate_pass,
             )
         )
+    return items
+
+
+def daily_selection_from_snapshot(
+    snapshot: ResearchSnapshot,
+    settings: StrategySettings | None = None,
+    diagnostics: JsonlDiagnostics | None = None,
+) -> WatchlistArtifact:
+    cfg = settings or StrategySettings()
+    diag = diagnostics or JsonlDiagnostics(cfg.diagnostics_dir, enabled=False)
+    regime = compute_market_regime(snapshot, cfg)
+    diag.log_regime({"score": regime.score, "tier": regime.tier, "risk_multiplier": regime.risk_multiplier})
+    if regime.tier == "C":
+        return WatchlistArtifact(
+            trade_date=snapshot.trade_date,
+            generated_at=datetime.now(timezone.utc),
+            regime=regime,
+            items=[],
+            tradable=[],
+            overflow=[],
+            market_wide_institutional_selling=snapshot.market.market_wide_institutional_selling,
+            held_positions=build_held_position_directives(snapshot, cfg),
+        )
+
+    universe = filter_liquid_common_stocks(snapshot.symbols, cfg)
+    sector_scores, sector_weights = compute_sector_scores(universe, snapshot)
+
+    # Branch: V2 pullback vs legacy T1
+    if cfg.pb_v2_enabled:
+        items = _pullback_daily_selection(snapshot, cfg, diag, regime, universe, sector_scores, sector_weights)
+    else:
+        items = _legacy_daily_selection(snapshot, cfg, diag, regime, universe, sector_scores, sector_weights)
 
     ranked = sorted(items, key=lambda item: item.daily_rank, reverse=True)
     tradable_ratio = 0.30 if regime.tier == "A" else 0.20

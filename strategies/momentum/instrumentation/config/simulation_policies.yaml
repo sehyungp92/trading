@@ -38,6 +38,18 @@ simulation_policies:
     sl_value: 1.0
     max_hold_bars: 128
 
+  # Downturn Dominator v1 -- short-only regime scalper
+  downturn:
+    entry_fill_model: next_trade
+    slippage_model: fixed_bps
+    slippage_bps: 2.0
+    fees_included: true
+    fee_bps: 1.0
+    tp_sl_logic: atr_based
+    tp_value: 1.5
+    sl_value: 1.0
+    max_hold_bars: 150
+
   # Fallback
   default:
     entry_fill_model: mid

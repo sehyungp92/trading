@@ -103,10 +103,10 @@ class StrategySettings:
     intraday_rvol_strong: float = 2.0
     evidence_disp_bonus_threshold: float = 1.30
 
-    base_risk_fraction: float = 0.0050
+    base_risk_fraction: float = 0.0065
     volatile_base_risk_fraction: float = 0.0035
     daily_stop_r: float = 2.0
-    heat_cap_r: float = 6.0
+    heat_cap_r: float = 7.0
     portfolio_daily_stop_r: float = 5.0
     max_portfolio_heat_fraction: float = 0.03
     final_risk_min_mult: float = 0.20
@@ -116,7 +116,7 @@ class StrategySettings:
     max_participation_30m: float = 0.01
     thin_participation_30m: float = 0.005
 
-    max_positions: int = 10
+    max_positions: int = 8
     max_positions_per_sector: int = 3
     max_adds: int = 2
     max_campaign_risk_mult: float = 1.5
@@ -160,7 +160,7 @@ class StrategySettings:
     opening_range_bars: int = 12            # 12 × 5m = 60 min
     entry_window_start: time = time(10, 0)
     entry_window_end: time = time(12, 0)
-    rvol_threshold: float = 1.5
+    rvol_threshold: float = 2.0
     cpr_threshold: float = 0.6
     momentum_score_min: int = 2
     adx_threshold: float = 20.0
@@ -169,22 +169,25 @@ class StrategySettings:
     partial_r_trigger: float = 1.25
     partial_fraction: float = 0.33
     move_stop_to_be: bool = True
+    use_partial_takes: bool = False           # P14: partials disabled
     eod_flatten_time: time = time(15, 55)
     carry_min_r: float = 0.5
-    carry_min_cpr: float = 0.4
+    carry_min_cpr: float = 0.6
     carry_regime_required: tuple[str, ...] = ("A", "B")
     max_carry_days: int = 2
     regime_mult_a: float = 1.0
-    regime_mult_b: float = 0.0
+    regime_mult_b: float = 0.5
     regime_mult_c: float = 0.6
+    block_combined_regime_b: bool = True           # Block COMBINED_BREAKOUT in Tier B
     # Flow reversal tuning
-    flow_reversal_min_hold_bars: int = 0       # grace period before checking
+    flow_reversal_min_hold_bars: int = 12      # grace period before checking
     flow_reversal_require_below_entry: bool = False  # also require close < entry
 
     # --- Diagnostic-driven experiment params (Phase 6) ---
     rvol_max: float = 5.0                        # Max RVOL at entry; reject above
-    fr_mfe_grace_r: float = 0.3                  # Skip FR if position MFE (R) exceeds this (0=disabled)
+    fr_mfe_grace_r: float = 0.15                 # Skip FR if position MFE (R) exceeds this (0=disabled)
     thursday_sizing_mult: float = 1.0            # Sizing multiplier for Thursday (1.0=identity)
+    tuesday_sizing_mult: float = 1.0             # Sizing multiplier for Tuesday (1.0=identity)
     fr_trailing_activate_r: float = 0.3          # Activate trailing stop at this MFE R (0=disabled)
     fr_trailing_distance_r: float = 0.3          # Trail distance in R once activated
     close_stop_be_after_r: float = 0.0           # Move stop to breakeven after this MFE R (0=disabled)
@@ -199,33 +202,51 @@ class StrategySettings:
 
     # --- Phase 8: Exit & Signal Diagnostics ---
     # A. Time-based quick exit (cut short-hold losers)
-    quick_exit_max_bars: int = 12              # Exit if < min_r after N bars (0=disabled)
+    quick_exit_max_bars: int = 0               # Exit if < min_r after N bars (0=disabled)
     quick_exit_min_r: float = 0.2              # Min R to survive quick exit check
 
     # B. COMBINED_BREAKOUT quality gate (separate thresholds)
-    combined_breakout_score_min: int = 6       # Min momentum score for COMBINED entries (0=use global)
-    combined_breakout_min_rvol: float = 0.0    # Min RVOL for COMBINED entries (0=use global)
+    combined_breakout_score_min: int = 5       # Min momentum score for COMBINED entries (0=use global)
+    combined_breakout_min_rvol: float = 2.5    # Min RVOL for COMBINED entries (0=use global)
 
     # C. Signal filters
     avwap_distance_cap_pct: float = 0.0        # Max % above AVWAP at entry (0=disabled)
-    or_width_min_pct: float = 0.0              # Min OR width as % of price (0=disabled)
-    breakout_distance_cap_r: float = 1.5       # Max breakout distance from OR high in R
+    or_width_min_pct: float = 0.0015           # Min OR width as % of price (0=disabled)
+    breakout_distance_cap_r: float = 0.0       # Max breakout distance from OR high in R (0=disabled; P14 ablation OFF)
 
     # D. Sector-weighted sizing
-    sector_mult_financials: float = 0.8        # Sizing mult for Financials
+    sector_mult_financials: float = 0.5        # Sizing mult for Financials
     sector_mult_communication: float = 0.8     # Sizing mult for Communication Services
-    sector_mult_industrials: float = 1.0       # Sizing mult for Industrials
-    sector_mult_consumer_disc: float = 1.0     # Sizing mult for Consumer Discretionary
+    sector_mult_industrials: float = 0.5       # Sizing mult for Industrials
+    sector_mult_consumer_disc: float = 1.2     # Sizing mult for Consumer Discretionary
+    sector_mult_healthcare: float = 1.0       # Sizing mult for Healthcare
 
     # E. FR conditional gating (only trigger FR under specific conditions)
     fr_max_hold_bars: int = 48                 # Disable FR after this many bars (0=disabled, distinct from min_hold)
-    fr_cpr_threshold: float = 0.0              # Only allow FR when CPR < this (0=disabled)
+    fr_cpr_threshold: float = 0.3              # Only allow FR when CPR < this (0=disabled)
 
     # --- Phase 9: Quick Exit Refinement & OR Quality Gate ---
-    qe_stage1_bars: int = 2                    # Stage 1 early quick exit bar count (0=disabled)
+    qe_stage1_bars: int = 0                    # Stage 1 early quick exit bar count (0=disabled)
     qe_stage1_min_r: float = -0.5             # Stage 1 R threshold (exit if below)
-    or_breakout_score_min: int = 4             # Min momentum score for OR_BREAKOUT (0=use global)
+    or_breakout_score_min: int = 0             # Min momentum score for OR_BREAKOUT (0=disabled; P14 ablation OFF)
     or_breakout_min_rvol: float = 0.0          # Min RVOL for OR_BREAKOUT (0=use global)
+
+    # --- Phase 10: MFE Conviction Exit ---
+    mfe_conviction_check_bars: int = 12        # Bar at which to check MFE (0=disabled)
+    mfe_conviction_min_r: float = 0.15         # Min MFE in R to survive check
+    mfe_conviction_floor_r: float = 0.0        # Compound mode: also require current R < this (0=MFE-only)
+
+    # --- Phase 10: Adaptive Trailing Stop ---
+    adaptive_trail_start_bars: int = 25        # Bar at which mid-phase trail begins (0=disabled)
+    adaptive_trail_tighten_bars: int = 25      # Bar at which late-phase tight trail begins
+    adaptive_trail_mid_activate_r: float = 0.20  # MFE activation for mid phase
+    adaptive_trail_mid_distance_r: float = 0.40  # Trail distance in mid phase (wider)
+    adaptive_trail_late_activate_r: float = 0.25 # MFE activation for late phase
+    adaptive_trail_late_distance_r: float = 0.20 # Trail distance in late phase (tighter)
+
+    # --- Phase 10: COMBINED-Specific Entry Filters ---
+    combined_avwap_cap_pct: float = 0.003     # Max AVWAP distance for COMBINED entries (0=disabled)
+    combined_breakout_cap_r: float = 0.0      # Max breakout distance for COMBINED entries in R (0=disabled)
 
     # --- Position Sizing: Buying Power ---
     intraday_leverage: float = 2.0             # Max leverage (2.0 = Reg T, 4.0 = PDT intraday)

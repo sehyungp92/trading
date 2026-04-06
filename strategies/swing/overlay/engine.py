@@ -84,6 +84,13 @@ class OverlayEngine:
         self._daily_task: asyncio.Task | None = None
         self._running = False
 
+        # BRS bear regime check (wired by coordinator)
+        self._bear_regime_check: Any = None
+
+    def set_bear_regime_check(self, fn) -> None:
+        """Register callable returning True when BRS detects BEAR_STRONG."""
+        self._bear_regime_check = fn
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
@@ -268,6 +275,21 @@ class OverlayEngine:
                 target_shares[sym] = int(alloc / price)  # floor to whole shares
             else:
                 target_shares[sym] = 0
+
+        # BRS bear regime: block new overlay entries, allow exits of existing
+        if self._bear_regime_check:
+            try:
+                bear_active = self._bear_regime_check()
+            except Exception:
+                logger.warning("Overlay: bear regime check failed, proceeding without guard")
+                bear_active = False
+            if bear_active:
+                for sym in self._config.symbols:
+                    if self._shares.get(sym, 0) == 0 and target_shares.get(sym, 0) > 0:
+                        target_shares[sym] = 0
+                        logger.info(
+                            "Overlay: BRS BEAR_STRONG -- blocking new entry for %s", sym,
+                        )
 
         # 6-8. Compute deltas and place orders
         for sym in self._config.symbols:

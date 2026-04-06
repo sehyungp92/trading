@@ -519,6 +519,8 @@ class T2PositionState:
     setup_tag: str = ""
     stop_order_id: str = ""
     trade_id: str = ""
+    fr_trailing_active: bool = False  # True if any trailing mechanism ratcheted the stop
+    trade_class: str = ""  # MomentumTradeClass value (set at exit)
 
     def unrealized_r(self, price: float) -> float:
         if self.risk_per_share <= 0:

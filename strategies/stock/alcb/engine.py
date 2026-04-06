@@ -1,6 +1,6 @@
 """ALCB T2 momentum continuation live engine.
 
-Implements the P10b-optimized momentum breakout strategy on 5m bars
+Implements the P14 final-optimized momentum breakout strategy on 5m bars
 using ib_async real-time data and the unified OMS infrastructure.
 
 Strategy logic ported from: research/backtests/stock/engine/alcb_engine.py
@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
+from collections import deque
 from contextlib import suppress
 from datetime import datetime, time, timezone
 from decimal import Decimal
@@ -64,7 +65,7 @@ logger = logging.getLogger(__name__)
 
 
 class ALCBT2Engine:
-    """Live T2 momentum engine for ALCB (P10b config).
+    """Live T2 momentum engine for ALCB (P14 final config).
 
     Per trading day:
     1. Initialize from CandidateArtifact (nightly research)
@@ -96,6 +97,8 @@ class ALCBT2Engine:
             self._settings.diagnostics_dir, enabled=False
         )
         self._instrumentation = instrumentation
+        self._kit_cache = None
+        self._signal_evolution: dict[str, deque] = {}
 
         # Position tracking (T2-specific)
         self._positions: dict[str, T2PositionState] = {}
@@ -133,6 +136,17 @@ class ALCBT2Engine:
         self._running = False
 
         self._initialize_from_artifact()
+
+    @property
+    def _instr_kit(self):
+        """Lazy InstrumentationKit for direct facade calls."""
+        if self._kit_cache is None and self._instrumentation is not None:
+            try:
+                from strategies.stock.instrumentation.src.facade import InstrumentationKit
+                self._kit_cache = InstrumentationKit(self._instrumentation, strategy_type="strategy_alcb")
+            except Exception:
+                pass
+        return self._kit_cache
 
     # ------------------------------------------------------------------
     # Initialization
@@ -240,6 +254,11 @@ class ALCBT2Engine:
                     "avwap_at_entry": pos.avwap_at_entry,
                     "or_high": pos.or_high,
                     "or_low": pos.or_low,
+                    "mfe_r": pos.mfe_r,
+                    "partial_qty_exited": pos.partial_qty_exited,
+                    "realized_partial_pnl": pos.realized_partial_pnl,
+                    "fr_trailing_active": pos.fr_trailing_active,
+                    "trade_class": pos.trade_class,
                 }
                 for sym, pos in self._positions.items()
             },
@@ -279,6 +298,11 @@ class ALCBT2Engine:
                 partial_taken=pdata.get("partial_taken", False),
                 stop_order_id=pdata.get("stop_order_id", ""),
                 carry_days=pdata.get("carry_days", 0),
+                mfe_r=pdata.get("mfe_r", 0.0),
+                partial_qty_exited=pdata.get("partial_qty_exited", 0),
+                realized_partial_pnl=pdata.get("realized_partial_pnl", 0.0),
+                fr_trailing_active=pdata.get("fr_trailing_active", False),
+                trade_class=pdata.get("trade_class", ""),
             )
             self._positions[sym] = pos
         # Restore OR state
@@ -381,6 +405,61 @@ class ALCBT2Engine:
                         if be_price < pos.current_stop:
                             pos.current_stop = be_price
 
+            # Adaptive trailing stop (time-phased: late-only per P14)
+            if settings.adaptive_trail_start_bars > 0 and pos.hold_bars >= settings.adaptive_trail_start_bars:
+                if pos.hold_bars >= settings.adaptive_trail_tighten_bars:
+                    at_activate = settings.adaptive_trail_late_activate_r
+                    at_distance = settings.adaptive_trail_late_distance_r
+                else:
+                    at_activate = settings.adaptive_trail_mid_activate_r
+                    at_distance = settings.adaptive_trail_mid_distance_r
+                if pos.mfe_r >= at_activate and pos.risk_per_share > 0:
+                    at_trail_r = pos.mfe_r - at_distance
+                    if at_trail_r > 0:
+                        if pos.direction == Direction.LONG:
+                            at_price = pos.entry_price + at_trail_r * pos.risk_per_share
+                            if at_price > pos.current_stop:
+                                pos.current_stop = at_price
+                        else:
+                            at_price = pos.entry_price - at_trail_r * pos.risk_per_share
+                            if at_price < pos.current_stop:
+                                pos.current_stop = at_price
+
+            # Track whether any trailing mechanism ratcheted the stop
+            if pos.current_stop > prev_stop:
+                pos.fr_trailing_active = True
+
+            # Periodic indicator snapshot while in position (every 6th bar = ~30 min)
+            if pos.hold_bars % 6 == 0:
+                kit = self._instr_kit
+                if kit:
+                    try:
+                        sb = self._session_bars_5m.get(symbol, [])
+                        avwap = compute_session_avwap(sb, len(sb) - 1) if sb else 0.0
+                        kit.on_indicator_snapshot(
+                            pair=symbol,
+                            indicators={
+                                "hold_bars": float(pos.hold_bars),
+                                "unrealized_r": float(pos.unrealized_r(bar.close)),
+                                "mfe_r": float(pos.mfe_r),
+                                "current_stop": float(pos.current_stop),
+                                "avwap": float(avwap),
+                                "bar_close": float(bar.close),
+                                "mae_r": float((pos.max_adverse - pos.entry_price) / max(pos.risk_per_share, 1e-9)),
+                                "partial_taken": pos.partial_taken,
+                                "fr_trailing_active": pos.fr_trailing_active,
+                                "trade_class": pos.trade_class or "",
+                            },
+                            signal_name="alcb_position_monitor",
+                            signal_strength=float(pos.unrealized_r(bar.close)),
+                            decision="in_position",
+                            strategy_type="strategy_alcb",
+                            exchange_timestamp=bar.start_time,
+                            bar_id=bar.start_time.isoformat() if bar.start_time else None,
+                        )
+                    except Exception:
+                        pass
+
             # Sync updated stop to broker if it changed
             if pos.current_stop != prev_stop and pos.stop_order_id:
                 task = asyncio.create_task(self._replace_stop(symbol))
@@ -449,17 +528,19 @@ class ALCBT2Engine:
             return
 
         # 5. PARTIAL_TAKE
-        take, frac = should_take_partial(ur, pos.partial_taken, settings)
-        if take:
-            partial_qty = max(1, int(pos.quantity * frac))
-            if partial_qty < pos.quantity:
-                self._fire_partial(symbol, partial_qty)
+        if settings.use_partial_takes:
+            take, frac = should_take_partial(ur, pos.partial_taken, settings)
+            if take:
+                partial_qty = max(1, int(pos.quantity * frac))
+                if partial_qty < pos.quantity:
+                    self._fire_partial(symbol, partial_qty)
 
         # 6. EOD check
         bar_time_et = bar.start_time.astimezone(ET).time()
         if bar_time_et >= settings.eod_flatten_time:
             avwap = compute_session_avwap(sb, len(sb) - 1) if sb else 0.0
             trade_class = classify_momentum_trade(sb[-8:], pos.entry_price, avwap)
+            pos.trade_class = trade_class.value if hasattr(trade_class, 'value') else str(trade_class)
             eod_cpr = close_location_value(bar)
             regime_tier = pos.regime_tier
             eligible, _ = carry_eligible_momentum(
@@ -552,6 +633,17 @@ class ALCBT2Engine:
         )
         entry_type_str = entry_type.value if entry_type else "OR_BREAKOUT"
 
+        # Track signal evolution for signal_decay hypothesis
+        if symbol not in self._signal_evolution:
+            self._signal_evolution[symbol] = deque(maxlen=15)
+        self._signal_evolution[symbol].append({
+            "bar_time": bar.start_time.isoformat(),
+            "momentum_score": float(m_score),
+            "bar_rvol": float(bar_rvol),
+            "avwap": float(avwap),
+            "adx": float(adx_val),
+        })
+
         self._emit_indicator_snapshot(
             symbol, m_score, bar_rvol, avwap, adx_val, daily_atr,
             or_high, or_low, entry_type_str, score_detail, bar.start_time,
@@ -586,6 +678,18 @@ class ALCBT2Engine:
             )
             return
 
+        # Block COMBINED_BREAKOUT in Tier B
+        regime_tier_check = self._artifact.regime.tier if self._artifact.regime else "A"
+        if (entry_type_str == "COMBINED_BREAKOUT"
+                and settings.block_combined_regime_b
+                and regime_tier_check == "B"):
+            self._log_missed(
+                symbol=symbol, blocked_by="block_combined_regime_b",
+                block_reason="combined_blocked_in_tier_b",
+                signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+            )
+            return
+
         # COMBINED_BREAKOUT quality gate
         if entry_type_str == "COMBINED_BREAKOUT":
             if settings.combined_breakout_score_min > 0 and m_score < settings.combined_breakout_score_min:
@@ -600,6 +704,26 @@ class ALCBT2Engine:
                     signal_strength=float(m_score), exchange_timestamp=bar.start_time,
                 )
                 return
+            # COMBINED-specific AVWAP distance cap
+            if settings.combined_avwap_cap_pct > 0 and avwap > 0:
+                avwap_dist_pct = (bar.close - avwap) / avwap
+                if avwap_dist_pct > settings.combined_avwap_cap_pct:
+                    self._log_missed(
+                        symbol=symbol, blocked_by="combined_quality",
+                        block_reason="avwap_distance_exceeded",
+                        signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    )
+                    return
+            # COMBINED-specific breakout distance cap
+            if settings.combined_breakout_cap_r > 0 and risk_per_share > 0:
+                breakout_dist_r = (bar.close - or_high) / risk_per_share
+                if breakout_dist_r > settings.combined_breakout_cap_r:
+                    self._log_missed(
+                        symbol=symbol, blocked_by="combined_quality",
+                        block_reason="breakout_distance_exceeded",
+                        signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    )
+                    return
 
         # OR_BREAKOUT quality gate
         if entry_type_str == "OR_BREAKOUT":
@@ -693,7 +817,8 @@ class ALCBT2Engine:
 
         size_mult = momentum_size_mult(m_score, settings)
         sec_mult = sector_sizing_mult(item.sector, settings)
-        dow_mult = settings.thursday_sizing_mult if bar.start_time.astimezone(ET).weekday() == 3 else 1.0
+        weekday = bar.start_time.astimezone(ET).weekday()
+        dow_mult = settings.thursday_sizing_mult if weekday == 3 else settings.tuesday_sizing_mult if weekday == 1 else 1.0
         risk_budget = self._equity * settings.base_risk_fraction * reg_mult * size_mult * sec_mult * dow_mult
         qty = int(risk_budget / risk_per_share)
         if qty <= 0:
@@ -749,8 +874,16 @@ class ALCBT2Engine:
             "bar_rvol": bar_rvol,
             "adx_val": adx_val,
             "daily_atr": daily_atr,
+            "cpr": cpr,
+            "selection_score": item.selection_score,
+            "rs_percentile": item.relative_strength_percentile,
+            "accumulation_score": item.accumulation_score,
+            "stock_regime": item.stock_regime,
+            "sector_regime": item.sector_regime,
+            "daily_trend_sign": item.daily_trend_sign,
             "signal_ts": bar.start_time,
             "signal_factors": self._entry_signal_factors(m_score, bar_rvol, avwap, adx_val, bar.close),
+            "signal_evolution": list(self._signal_evolution.get(symbol, [])),
             "filter_decisions": [
                 {"filter_name": "avwap_filter", "threshold": float(avwap), "actual_value": float(bar.close), "passed": True},
                 {"filter_name": "rvol_cap", "threshold": float(settings.rvol_max), "actual_value": float(bar_rvol), "passed": True},
@@ -1208,7 +1341,7 @@ class ALCBT2Engine:
                     meta={
                         "entry_signal": "alcb_momentum_breakout",
                         "entry_signal_id": oms_order_id or symbol,
-                        "entry_signal_strength": float(meta.get("momentum_score", 0)),
+                        "entry_signal_strength": float(meta.get("momentum_score", 0)) / 8.0,
                         "strategy_params": {
                             "momentum_score": meta.get("momentum_score", 0),
                             "entry_type": meta.get("entry_type", ""),
@@ -1217,21 +1350,36 @@ class ALCBT2Engine:
                             "or_low": meta.get("or_low", 0.0),
                             "regime_tier": meta.get("regime_tier", "A"),
                             "bar_rvol": meta.get("bar_rvol", 0.0),
+                            "adx_val": meta.get("adx_val", 0.0),
+                            "daily_atr": meta.get("daily_atr", 0.0),
+                            "cpr": meta.get("cpr", 0.0),
+                            "sector": meta.get("sector", ""),
+                            "selection_score": meta.get("selection_score", 0),
+                            "rs_percentile": meta.get("rs_percentile", 0.0),
+                            "accumulation_score": meta.get("accumulation_score", 0.0),
+                            "stock_regime": meta.get("stock_regime", ""),
+                            "sector_regime": meta.get("sector_regime", ""),
+                            "daily_trend_sign": meta.get("daily_trend_sign", 0),
                         },
                         "signal_factors": meta.get("signal_factors", []),
                         "filter_decisions": meta.get("filter_decisions", []),
+                        "signal_evolution": meta.get("signal_evolution", []),
                         "sizing_inputs": {
                             "qty": fill_qty,
                             "entry_price": float(plan.entry_price) if plan else fill_price,
                             "stop_price": float(plan.stop_price) if plan else pos.current_stop,
                             "risk_per_share": pos.risk_per_share,
                             "risk_dollars": pos.risk_per_share * fill_qty,
+                            "base_risk_fraction": self._settings.base_risk_fraction,
+                            "account_equity": self._equity,
+                            "regime_mult": float(plan.regime_mult) if plan else 1.0,
                         },
                         "portfolio_state": self._portfolio_state_snapshot(),
                         "session_type": self._session_type(fill_time),
                         "exchange_timestamp": fill_time.isoformat(),
                         "expected_entry_price": float(plan.entry_price) if plan else fill_price,
                         "concurrent_positions": len(self._positions),
+                        "drawdown_pct": round(1.0 - self._equity / max(getattr(self._settings, 'starting_equity', self._equity) or self._equity, 1e-9), 4),
                         "bar_id": f"{symbol}:{fill_time.strftime('%Y%m%dT%H%M%S')}",
                         "entry_latency_ms": (
                             int((fill_time - meta["submitted_at"]).total_seconds() * 1000)
@@ -1282,6 +1430,14 @@ class ALCBT2Engine:
                 "mfe_r": round(pos.mfe_r, 4),
             })
 
+            # Compute trade_class if not already set (EOD path sets it in _check_exits)
+            if not pos.trade_class:
+                sb = self._session_bars_5m.get(symbol, [])
+                if sb:
+                    avwap = compute_session_avwap(sb, len(sb) - 1)
+                    tc = classify_momentum_trade(sb[-8:], pos.entry_price, avwap)
+                    pos.trade_class = tc.value if hasattr(tc, 'value') else str(tc)
+
             # Record trade exit for instrumentation
             if self._trade_recorder is not None:
                 try:
@@ -1308,6 +1464,23 @@ class ALCBT2Engine:
                             "fees_paid": float(payload.get("commission", 0.0) or 0.0) if payload else 0.0,
                             "session_transitions": [],
                             "exit_latency_ms": None,
+                            # Position lifecycle (flows to DB recorder for diagnostics)
+                            "hold_bars": pos.hold_bars,
+                            "hold_days": max(0, (exit_time.date() - pos.entry_time.date()).days) if pos.entry_time else 0,
+                            "mfe_r": round(mfe_r, 4),
+                            "mae_r": round(mae_r, 4),
+                            "exit_efficiency": round(realized_r / max(mfe_r, 0.01), 4) if mfe_r > 0 else 0.0,
+                            "partial_taken": pos.partial_taken,
+                            "partial_qty_exited": pos.partial_qty_exited,
+                            "fr_trailing_active": pos.fr_trailing_active,
+                            "trade_class": pos.trade_class,
+                            "carry_days": pos.carry_days,
+                            "entry_type": pos.entry_type,
+                            "regime_tier": pos.regime_tier,
+                            "momentum_score_at_entry": pos.momentum_score,
+                            "sector": pos.sector,
+                            "or_high": pos.or_high,
+                            "or_low": pos.or_low,
                         },
                     )
                 except Exception as exc:
@@ -1394,6 +1567,7 @@ class ALCBT2Engine:
         self._or_built.clear()
         self._or_data.clear()
         self._session_bars_5m.clear()
+        self._signal_evolution.clear()
         self._bar_builder = CanonicalBarBuilder()
 
         for item in artifact.tradable:
@@ -1490,6 +1664,17 @@ class ALCBT2Engine:
             "nav": self._equity,
             "sectors_in_use": sorted({p.sector for p in self._positions.values() if p.sector}),
             "regime_tier": self._artifact.regime.tier if self._artifact.regime else "A",
+            "correlated_pairs_detail": [
+                {"symbol": sym, "sector": p.sector, "direction": p.direction.value,
+                 "unrealized_r": round(p.unrealized_r(
+                     self._markets[sym].last_price
+                     if self._markets[sym].last_price is not None
+                     else p.entry_price), 3)}
+                if sym in self._markets
+                else {"symbol": sym, "sector": p.sector, "direction": p.direction.value,
+                      "unrealized_r": 0.0}
+                for sym, p in self._positions.items()
+            ],
         }
 
     def _entry_signal_factors(self, m_score, bar_rvol, avwap, adx_val, bar_close) -> list[dict[str, Any]]:
@@ -1505,28 +1690,57 @@ class ALCBT2Engine:
              "threshold": 0.0, "contribution": float(adx_val) / 100.0},
         ]
 
+    def _entry_filter_decisions(self, symbol: str) -> list[dict]:
+        """Build filter_decisions snapshot for missed opportunity analysis."""
+        settings = self._settings
+        n_open = len(self._positions) + len(self._pending_entries)
+        item = self._items.get(symbol)
+        sector = item.sector if item else ""
+        sector_count = sum(1 for p in self._positions.values() if p.sector == sector) if sector else 0
+        open_risk = sum(p.risk_per_share * p.quantity for p in self._positions.values())
+        heat_ratio = open_risk / max(self._equity * settings.base_risk_fraction, 1e-9)
+        regime_tier = self._artifact.regime.tier if self._artifact.regime else "A"
+        reg_mult = momentum_regime_mult(regime_tier, settings)
+        return [
+            {"filter_name": "max_positions", "threshold": float(settings.max_positions),
+             "actual_value": float(n_open), "passed": n_open < settings.max_positions},
+            {"filter_name": "sector_limit", "threshold": float(settings.max_positions_per_sector),
+             "actual_value": float(sector_count), "passed": sector_count < settings.max_positions_per_sector},
+            {"filter_name": "heat_cap", "threshold": float(settings.heat_cap_r),
+             "actual_value": round(heat_ratio, 4), "passed": heat_ratio < settings.heat_cap_r},
+            {"filter_name": "regime_gate", "threshold": 0.0,
+             "actual_value": float(reg_mult), "passed": reg_mult > 0},
+        ]
+
     def _log_missed(self, *, symbol, blocked_by, block_reason, signal_strength=0.0,
                     exchange_timestamp, strategy_params=None, filter_decisions=None) -> None:
-        if self._instrumentation is None:
+        kit = self._instr_kit
+        if kit is None:
             return
         try:
-            self._instrumentation.log_missed(
+            item = self._items.get(symbol)
+            kit.log_missed(
                 pair=symbol, side="LONG", signal="alcb_momentum_breakout",
                 signal_id=f"{symbol}:{blocked_by}:{int(exchange_timestamp.timestamp())}",
                 signal_strength=float(signal_strength),
                 blocked_by=blocked_by, block_reason=block_reason,
-                strategy_params=strategy_params or {},
-                filter_decisions=filter_decisions,
+                strategy_params=strategy_params or {
+                    "regime_tier": self._artifact.regime.tier if self._artifact.regime else "A",
+                    "sector": item.sector if item else "",
+                },
+                filter_decisions=filter_decisions or self._entry_filter_decisions(symbol),
                 session_type=self._session_type(exchange_timestamp),
                 concurrent_positions=len(self._positions),
                 exchange_timestamp=exchange_timestamp,
+                signal_evolution=list(self._signal_evolution.get(symbol, [])),
             )
         except Exception:
             pass
 
     def _log_orderbook_context(self, *, symbol, trade_context, related_trade_id="",
                                exchange_timestamp=None) -> None:
-        if self._instrumentation is None:
+        kit = self._instr_kit
+        if kit is None:
             return
         market = self._markets.get(symbol)
         if market is None:
@@ -1540,7 +1754,7 @@ class ALCBT2Engine:
         bid_levels = [{"price": best_bid, "size": bid_depth}] if bid_depth > 0 else None
         ask_levels = [{"price": best_ask, "size": ask_depth}] if ask_depth > 0 else None
         try:
-            self._instrumentation.on_orderbook_context(
+            kit.on_orderbook_context(
                 pair=symbol, best_bid=best_bid, best_ask=best_ask,
                 trade_context=trade_context, related_trade_id=related_trade_id or None,
                 bid_depth_10bps=bid_depth, ask_depth_10bps=ask_depth,
@@ -1553,11 +1767,12 @@ class ALCBT2Engine:
     def _emit_indicator_snapshot(self, symbol, m_score, bar_rvol, avwap, adx_val,
                                 daily_atr, or_high, or_low, entry_type_str,
                                 score_detail, bar_time) -> None:
-        if self._instrumentation is None:
+        kit = self._instr_kit
+        if kit is None:
             return
         market = self._markets.get(symbol)
         try:
-            self._instrumentation.on_indicator_snapshot(
+            kit.on_indicator_snapshot(
                 pair=symbol,
                 indicators={
                     "momentum_score": float(m_score),

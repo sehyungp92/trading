@@ -27,7 +27,28 @@ def timing_multiplier(now: datetime, settings: StrategySettings) -> float:
     return 0.0
 
 
+def weekday_sizing_multiplier(now: datetime, settings: StrategySettings) -> float:
+    """Day-of-week risk budget multiplier (research parity)."""
+    wd = now.astimezone(ET).weekday()  # Mon=0 ... Fri=4
+    if wd == 1:
+        return float(settings.pb_tuesday_mult)
+    if wd == 2:
+        return float(settings.pb_wednesday_mult)
+    if wd == 3:
+        return float(settings.pb_thursday_mult)
+    if wd == 4:
+        return float(settings.pb_friday_mult)
+    return 1.0
+
+
 def compute_final_risk_unit(item: WatchlistItem) -> float:
+    """Compute sizing risk unit.
+
+    For pullback V2 (sizing_mult > 0): uses pullback tier-based sizing_mult.
+    For legacy T1: uses conviction_multiplier.
+    """
+    if item.sizing_mult > 0 and item.daily_signal_score > 0:
+        return item.sizing_mult * item.regime_risk_multiplier
     return item.conviction_multiplier * item.regime_risk_multiplier
 
 

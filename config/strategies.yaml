@@ -187,10 +187,10 @@ strategies:
       unit_risk_dollars: 100.0
       daily_stop_R: 2.0
       max_working_orders: 1
-      max_heat_R: 1.25
-      portfolio_daily_stop_R: 3.0
+      max_heat_R: 5.0
+      portfolio_daily_stop_R: 4.0
     allocation:
-      base_risk_pct: 0.005
+      base_risk_pct: 0.012
       continuation_half_size: false
       continuation_size_mult: 0.50
     dashboard_metadata:
@@ -255,10 +255,10 @@ strategies:
       unit_risk_dollars: 100.0
       daily_stop_R: 2.0
       max_working_orders: 1
-      max_heat_R: 6.0
+      max_heat_R: 7.0
       portfolio_daily_stop_R: 5.0
     allocation:
-      base_risk_pct: 0.005
+      base_risk_pct: 0.0065
     dashboard_metadata:
       system_label: "Stock Trader"
       short_label: "STOCK"
@@ -355,3 +355,61 @@ strategies:
       short_label: "MOMO"
       color_key: "orange"
     deployment_tags: [live, paper, momentum]
+
+  DownturnDominator_v1:
+    strategy_id: "DownturnDominator_v1"
+    system_id: momentum_trader
+    family: momentum
+    connection_group: momentum
+    display_name: "Downturn Dominator v1"
+    module_path: "strategies.momentum.downturn.plugin"
+    engine_module: "strategies.momentum.downturn.engine"
+    engine_class: "DownturnEngine"
+    enabled: true
+    paper_mode: true
+    asset_class: futures
+    symbols: [MNQ]
+    engine_config:
+      symbol: MNQ
+      state_dir: data/downturn_state
+    risk:
+      unit_risk_dollars: 50.0
+      daily_stop_R: 2.5
+      max_working_orders: 2
+      max_heat_R: 3.50
+      portfolio_daily_stop_R: 1.5
+      priority: 3
+    allocation:
+      base_risk_pct: 0.024
+    dashboard_metadata:
+      system_label: "Momentum Trader"
+      short_label: "MOMO"
+      color_key: "orange"
+    deployment_tags: [paper, momentum]
+
+  BRS_R9:
+    strategy_id: BRS_R9
+    system_id: swing_trader
+    family: swing
+    connection_group: swing
+    display_name: "BRS R9 Bear Regime Swing"
+    module_path: "strategies.swing.brs.plugin"
+    engine_module: "strategies.swing.brs.engine"
+    engine_class: "BRSLiveEngine"
+    enabled: true
+    paper_mode: false
+    asset_class: equity
+    symbols: [QQQ, GLD]
+    risk:
+      unit_risk_dollars: 30.0
+      daily_stop_R: 2.0
+      max_working_orders: 2
+      max_heat_R: 1.25
+      priority: 5
+    allocation:
+      base_risk_pct: 0.003
+    dashboard_metadata:
+      system_label: "Swing Trader"
+      short_label: "SWING"
+      color_key: "red"
+    deployment_tags: [live, swing]

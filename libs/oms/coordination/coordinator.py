@@ -1,8 +1,9 @@
 """Cross-strategy coordinator — monitors fills and positions across strategies.
 
 Implements:
-  Rule 1: ATRSS entry fill on symbol X → tighten Helix stop to breakeven on X
+  Rule 1: ATRSS entry fill on symbol X -> tighten Helix stop to breakeven on X
   Rule 2: has_atrss_position() for Helix size boost (1.25x when ATRSS active same direction)
+  Rule 3: BRS_R9 SHORT entry on symbol X -> tighten all LONG stops on X to breakeven
 """
 from __future__ import annotations
 
@@ -89,6 +90,27 @@ class StrategyCoordinator:
                     details={"fill_price": price, "direction": side},
                     outcome="emitted",
                 )
+
+        # Rule 3: BRS_R9 SHORT entry -> tighten all LONG stops on same symbol
+        if strategy_id == "BRS_R9" and role == "ENTRY" and side == "SELL":
+            for (sid, sym), pos in list(self._position_book.items()):
+                if sym == symbol and sid != "BRS_R9" and pos.direction == "LONG" and pos.qty > 0:
+                    logger.info(
+                        "Rule 3: BRS_R9 SHORT entry on %s -- emitting TIGHTEN_STOP_BE to %s",
+                        symbol, sid,
+                    )
+                    self._bus.emit_coordination_event(
+                        target_strategy=sid,
+                        event_type="TIGHTEN_STOP_BE",
+                        symbol=symbol,
+                    )
+                    self.log_action(
+                        action="tighten_stop_be",
+                        trigger_strategy="BRS_R9",
+                        target_strategy=sid,
+                        symbol=symbol,
+                        rule="brs_bear_entry",
+                    )
 
     def on_position_update(
         self,

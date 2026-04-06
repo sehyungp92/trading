@@ -248,6 +248,7 @@ class RiskGateway:
                 direction=direction,
                 new_risk_R=new_risk_R,
                 symbol=order.instrument.symbol if order.instrument else None,
+                new_qty=order.qty,
             )
             if not port_result.approved:
                 return f"Portfolio rule: {port_result.denial_reason}"

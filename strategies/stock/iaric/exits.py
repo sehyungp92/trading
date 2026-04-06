@@ -1,110 +1,382 @@
-"""Exit helpers for IARIC."""
+"""Pullback exit logic for IARIC V2 (hybrid intraday engine).
 
+Exit priority chain (matching research engine order):
+  1. Stop hit (low <= stop)
+  2. Quick exit (early cut for losers, 2-bar window)
+  3. EMA reversion (profitable mean-reversion exit)
+  4. RSI exit (route-specific thresholds)
+  5. Time stop (max hold exceeded)
+  6. VWAP fail (structural: descending highs + CPR gate)
+  7. EOD flatten (15:55 forced close)
+
+Also: V2 partial profit (on mfe_r), MFE stage management (3->2->1),
+stale tighten (tightens stop, does NOT exit), overnight carry.
+"""
 from __future__ import annotations
 
 from datetime import datetime, time
 
 from .config import ET, StrategySettings
-from .models import Bar, MarketSnapshot, PositionState, WatchlistItem
+from .models import Bar, PBSymbolState
 
 
-def classify_trade(market: MarketSnapshot, position: PositionState) -> str:
-    if market.last_price is None or not market.bars_5m:
-        return position.setup_tag
-    last_bar = market.bars_5m[-1]
-    prior_high = max((bar.high for bar in list(market.bars_5m)[-4:-1]), default=position.entry_price)
-    if last_bar.close > prior_high and last_bar.cpr >= 0.6:
-        return "MOMENTUM_CONTINUATION"
-    if last_bar.close > position.entry_price and last_bar.high < prior_high:
-        return "MEAN_REVERSION_BOUNCE"
-    if market.avwap_live is not None and market.last_price >= market.avwap_live:
-        return "FLOW_DRIVEN_GRIND"
-    return "FAILED"
+# ---------------------------------------------------------------------------
+# Exit chain checks (pure functions, return (should_exit, exit_reason))
+# ---------------------------------------------------------------------------
+
+def check_stop_hit(bar_low: float, current_stop: float) -> tuple[bool, str]:
+    """Exit if bar low breached the stop."""
+    if bar_low <= current_stop:
+        return True, "STOP_HIT"
+    return False, ""
 
 
-def regime_adjusted_partial(regime_multiplier: float, settings: StrategySettings) -> tuple[float, float]:
-    t = min(1.0, max(0.0, (regime_multiplier - 0.35) / 0.65))
-    r_trigger = settings.partial_r_min + t * (settings.partial_r_max - settings.partial_r_min)
-    fraction = settings.partial_frac_max - t * (settings.partial_frac_max - settings.partial_frac_min)
-    return round(r_trigger, 3), round(fraction, 3)
-
-
-def should_take_partial(
-    position: PositionState,
-    market_price: float,
-    settings: StrategySettings,
-    regime_multiplier: float | None = None,
-) -> tuple[bool, float]:
-    if position.partial_taken:
-        return False, settings.partial_exit_fraction
-    if regime_multiplier is not None:
-        r_trigger, fraction = regime_adjusted_partial(regime_multiplier, settings)
-    else:
-        r_trigger = settings.partial_r_multiple
-        fraction = settings.partial_exit_fraction
-    one_r = position.initial_risk_per_share
-    triggered = market_price >= position.entry_price + (r_trigger * one_r)
-    return triggered, fraction
-
-
-def should_exit_for_time_stop(position: PositionState, now: datetime, market_price: float) -> bool:
-    if position.time_stop_deadline is None:
-        return False
-    return now >= position.time_stop_deadline and market_price <= position.entry_price
-
-
-def should_exit_for_avwap_breakdown(bar_30m: Bar, avwap_live: float, avg_30m_volume: float, settings: StrategySettings) -> bool:
-    return (
-        bar_30m.close < avwap_live * (1 - settings.avwap_breakdown_pct)
-        and bar_30m.volume > settings.avwap_breakdown_volume_mult * max(avg_30m_volume, 1.0)
-    )
-
-
-def carry_eligible(
-    item: WatchlistItem,
-    market: MarketSnapshot,
-    position: PositionState,
-    flow_reversal_flag: bool = False,
-    *,
-    settings: StrategySettings | None = None,
+def check_quick_exit(
+    hold_bars: int,
+    unrealized_r: float,
+    close_below_vwap: bool,
+    threshold_bars: int = 2,
+    loss_r: float = 0.0,
 ) -> tuple[bool, str]:
-    if item.regime_tier == "A":
-        pass  # always allowed
-    elif item.regime_tier == "B" and settings is not None and settings.regime_b_carry_mult > 0:
-        pass  # Regime B carry enabled
-    else:
-        return False, "regime_not_eligible"
-    if flow_reversal_flag:
-        return False, "flow_reversal_flag"
-    if settings is not None and settings.max_carry_days > 0:
-        days_held = (datetime.now(ET).date() - position.entry_time.astimezone(ET).date()).days
-        if days_held >= settings.max_carry_days:
-            return False, "max_carry_days"
-    if item.sponsorship_state != "STRONG":
-        return False, "sponsorship_not_strong"
-    if item.earnings_risk_flag or item.blacklist_flag:
-        return False, "event_risk"
-    if market.last_price is None:
-        return False, "missing_market_data"
-    if market.last_price <= position.entry_price:
-        return False, "not_in_profit"
-    if settings is not None and settings.min_carry_r > 0:
-        one_r = position.initial_risk_per_share
-        if one_r > 0:
-            cur_r = (market.last_price - position.entry_price) / one_r
-            if cur_r <= settings.min_carry_r:
-                return False, "below_min_carry_r"
-    if settings is not None and settings.carry_top_quartile:
-        session_high = market.session_high if market.session_high is not None else market.last_price
-        session_low = market.session_low if market.session_low is not None else market.last_price
-        daily_range = max(session_high - session_low, 1e-9)
-        close_pct = (market.last_price - session_low) / daily_range
-        if close_pct < 0.75:
-            return False, "close_not_in_top_quartile"
-    return True, "eligible"
+    """Early cut for positions losing quickly (2-bar window, route-specific loss_r)."""
+    if loss_r <= 0:
+        return False, ""
+    if hold_bars <= threshold_bars and unrealized_r <= -loss_r and close_below_vwap:
+        return True, "QUICK_EXIT"
+    return False, ""
 
 
-def flow_reversal_exit_due(flow_reversal_flag: bool, now: datetime, opened_today: bool) -> bool:
-    if not flow_reversal_flag or opened_today:
+def check_ema_reversion(
+    bar_close: float,
+    ema10_value: float | None,
+    unrealized_r: float,
+    min_r: float = 0.03,
+) -> tuple[bool, str]:
+    """Profitable mean-reversion exit: close above EMA10 with positive R."""
+    if ema10_value is None:
+        return False, ""
+    if bar_close >= ema10_value and unrealized_r > min_r:
+        return True, "EMA_REVERSION"
+    return False, ""
+
+
+def check_rsi_exit(
+    rsi_value: float | None,
+    route_family: str,
+    config: StrategySettings,
+) -> tuple[bool, str]:
+    """Route-specific RSI exit thresholds."""
+    if rsi_value is None:
+        return False, ""
+    thresholds = {
+        "OPEN_SCORED_ENTRY": config.pb_v2_rsi_exit_open_scored,
+        "DELAYED_CONFIRM": config.pb_v2_rsi_exit_delayed,
+        "VWAP_BOUNCE": config.pb_v2_rsi_exit_vwap_bounce,
+        "AFTERNOON_RETEST": config.pb_v2_rsi_exit_afternoon,
+        "OPENING_RECLAIM": 58.0,
+    }
+    threshold = thresholds.get(route_family, 60.0)
+    if rsi_value > threshold:
+        return True, "RSI_EXIT"
+    return False, ""
+
+
+def check_time_stop(hold_days: int, max_hold: int) -> tuple[bool, str]:
+    """Exit if max hold duration exceeded."""
+    if max_hold > 0 and hold_days >= max_hold:
+        return True, "TIME_STOP"
+    return False, ""
+
+
+def check_vwap_fail(
+    recent_bars: list[Bar],
+    session_vwap: float | None,
+    lookback: int = 3,
+    cpr_max: float = -1.0,
+) -> tuple[bool, str]:
+    """Structural VWAP failure: descending highs + close below VWAP + CPR gate.
+
+    Research parity: requires N bars with descending highs, last bar close < VWAP,
+    and last bar CPR <= cpr_max. cpr_max < 0 disables the exit.
+    """
+    if lookback <= 1 or cpr_max < 0:
+        return False, ""
+    lookback = max(2, lookback)
+    if len(recent_bars) < lookback:
+        return False, ""
+    window = recent_bars[-lookback:]
+    if session_vwap is None or window[-1].close >= session_vwap:
+        return False, ""
+    if window[-1].cpr > cpr_max:
+        return False, ""
+    # Check descending highs (lower highs pattern)
+    highs = [b.high for b in window]
+    if not all(highs[i] <= highs[i - 1] + 1e-9 for i in range(1, len(highs))):
+        return False, ""
+    return True, "VWAP_FAIL"
+
+
+def check_eod_flatten(now: datetime, config: StrategySettings) -> tuple[bool, str]:
+    """Forced flatten at EOD (15:55 ET)."""
+    et_time = now.astimezone(ET).time()
+    if et_time >= config.pb_intraday_force_exit:
+        return True, "EOD_FLATTEN"
+    return False, ""
+
+
+# ---------------------------------------------------------------------------
+# Stale position tighten (NOT an exit -- tightens stop only)
+# ---------------------------------------------------------------------------
+
+def compute_stale_tighten(
+    hold_bars: int,
+    max_mfe_r: float,
+    entry_price: float,
+    risk_per_share: float,
+    current_stop: float,
+    stale_bars: int,
+    stale_mfe_thresh: float,
+    stale_tighten_pct: float,
+) -> float | None:
+    """Tighten stop for stale positions (research parity: does NOT exit).
+
+    Returns new stop level if tightened, None otherwise.
+    """
+    if stale_bars <= 0 or hold_bars < stale_bars:
+        return None
+    if max_mfe_r >= stale_mfe_thresh:
+        return None
+    tighten_stop = entry_price - (1.0 - stale_tighten_pct) * risk_per_share
+    if tighten_stop > current_stop:
+        return tighten_stop
+    return None
+
+
+# ---------------------------------------------------------------------------
+# V2 partial profit (triggers on MFE, not unrealized)
+# ---------------------------------------------------------------------------
+
+def check_v2_partial(
+    mfe_r: float,
+    already_taken: bool,
+    trigger_r: float = 0.50,
+) -> bool:
+    """Check if partial profit trigger is met (based on MFE, not current price)."""
+    if already_taken:
         return False
-    return now.astimezone(ET).time() >= time(9, 31)
+    return mfe_r >= trigger_r
+
+
+# ---------------------------------------------------------------------------
+# MFE stage management (check 3->2->1 descending, use entry_atr for trail)
+# ---------------------------------------------------------------------------
+
+def update_mfe_stages(
+    state: PBSymbolState,
+    bar_high: float,
+    entry_price: float,
+    risk_per_share: float,
+    entry_atr: float,
+    config: StrategySettings,
+) -> float:
+    """Advance MFE protection stages (3->2->1 order), return updated stop level.
+
+    Research parity: checks stage 3 first so large single-bar moves jump
+    directly to the correct stage. Uses entry_atr (session ATR at entry time)
+    for trailing stop, not daily_atr.
+    """
+    if risk_per_share <= 0 or state.position is None:
+        return state.stop_level
+
+    mfe_price = max(state.position.max_favorable_price, bar_high)
+    mfe_r = (mfe_price - entry_price) / risk_per_share
+    current_stop = state.stop_level
+
+    # Stage 3: Trailing (checked first -- research parity)
+    if mfe_r >= config.pb_v2_mfe_stage3_trigger and state.mfe_stage < 3:
+        state.mfe_stage = 3
+        state.trail_active = True
+        trail_stop = bar_high - config.pb_v2_mfe_stage3_trail_atr * max(entry_atr, 0.01)
+        current_stop = max(current_stop, trail_stop)
+
+    # Stage 2: Breakeven
+    elif mfe_r >= config.pb_v2_mfe_stage2_trigger and state.mfe_stage < 2:
+        state.mfe_stage = 2
+        state.breakeven_activated = True
+        current_stop = max(current_stop, entry_price)
+
+    # Stage 1: Tighten stop
+    elif mfe_r >= config.pb_v2_mfe_stage1_trigger and state.mfe_stage < 1:
+        state.mfe_stage = 1
+        stage1_stop = entry_price + config.pb_v2_mfe_stage1_stop_r * risk_per_share
+        current_stop = max(current_stop, stage1_stop)
+
+    # Stage 3 trailing update each bar (always runs when trail active)
+    if state.mfe_stage >= 3:
+        trail_stop = bar_high - config.pb_v2_mfe_stage3_trail_atr * max(entry_atr, 0.01)
+        current_stop = max(current_stop, trail_stop)
+
+    # Stage 1 stop protection each bar
+    if state.mfe_stage >= 1:
+        protect_stop = entry_price + config.pb_v2_mfe_stage1_stop_r * risk_per_share
+        current_stop = max(current_stop, protect_stop)
+
+    return current_stop
+
+
+# ---------------------------------------------------------------------------
+# Overnight carry decision
+# ---------------------------------------------------------------------------
+
+def should_carry_overnight(
+    state: PBSymbolState,
+    unrealized_r: float,
+    close_in_range_pct: float,
+    regime_tier: str,
+    flow_history: list[float] | None,
+    hold_days: int,
+    config: StrategySettings,
+) -> tuple[bool, str]:
+    """Inverted carry logic: default = carry, flatten only when conditions met.
+
+    Returns (should_carry, decision_path).
+    """
+    # Hard flatten: deep loss
+    if unrealized_r < config.pb_v2_flatten_loss_r:
+        return False, "flatten_loss"
+
+    # Regime C with insufficient profit
+    if regime_tier == "C" and unrealized_r < config.pb_v2_flatten_regime_c_min_r:
+        return False, "flatten_regime_c"
+
+    # Flow reversal (past grace period)
+    if hold_days > config.pb_v2_flow_grace_days:
+        if flow_history is not None and len(flow_history) >= 2:
+            if all(v < 0 for v in flow_history[-2:]):
+                return False, "flatten_flow_reversal"
+
+    # Time stop (research parity: backtest _should_flatten_v2 checks this)
+    if hold_days >= config.pb_max_hold_days:
+        return False, "flatten_time_stop"
+
+    return True, "carry"
+
+
+def _route_carry_param(route_family: str, suffix: str, config: StrategySettings) -> float:
+    """Look up per-route carry parameter, fall back to global."""
+    prefix_map = {
+        "OPEN_SCORED_ENTRY": "pb_open_scored",
+        "DELAYED_CONFIRM": "pb_delayed_confirm",
+        "OPENING_RECLAIM": "pb_opening_reclaim",
+    }
+    prefix = prefix_map.get(route_family, "pb")
+    val = getattr(config, f"{prefix}_carry_{suffix}", None)
+    if val is not None:
+        return float(val)
+    return float(getattr(config, f"pb_carry_{suffix}", 0.0))
+
+
+def carry_quality_gate(
+    route_family: str,
+    close_in_range_pct: float,
+    max_mfe_r: float,
+    config: StrategySettings,
+) -> bool:
+    """Per-route carry quality gate (research parity)."""
+    close_min = _route_carry_param(route_family, "close_pct_min", config)
+    mfe_min = _route_carry_param(route_family, "mfe_gate_r", config)
+    return close_in_range_pct >= close_min and max_mfe_r >= mfe_min
+
+
+def compute_overnight_stop(
+    entry_price: float,
+    current_stop: float,
+    risk_per_share: float,
+    unrealized_r: float,
+    config: StrategySettings,
+) -> float:
+    """Compute profit-lock overnight stop (research parity).
+
+    Locks in profit above close_r - profit_lock_r threshold, ratcheting
+    the stop up for profitable positions.
+    """
+    profit_lock_r = config.pb_v2_carry_profit_lock_r
+    overnight_stop = entry_price + max(0.0, unrealized_r - profit_lock_r) * risk_per_share
+    return max(current_stop, overnight_stop)
+
+
+# ---------------------------------------------------------------------------
+# Full exit chain runner
+# ---------------------------------------------------------------------------
+
+def run_exit_chain(
+    state: PBSymbolState,
+    bar: Bar,
+    now: datetime,
+    unrealized_r: float,
+    max_mfe_r: float,
+    ema10_value: float | None,
+    rsi_value: float | None,
+    session_vwap: float | None,
+    hold_days: int,
+    flow_history: list[float] | None,
+    recent_5m_bars: list[Bar],
+    quick_exit_loss_r: float,
+    config: StrategySettings,
+) -> tuple[bool, str]:
+    """Run the complete exit priority chain (research engine order).
+
+    Returns (should_exit, reason).
+    """
+    # 1. Stop hit
+    hit, reason = check_stop_hit(bar.low, state.stop_level)
+    if hit:
+        return True, reason
+
+    # 2. Quick exit (2-bar window, route-specific loss_r)
+    close_below_vwap = session_vwap is not None and bar.close < session_vwap
+    hit, reason = check_quick_exit(
+        state.hold_bars, unrealized_r, close_below_vwap,
+        threshold_bars=2, loss_r=quick_exit_loss_r,
+    )
+    if hit:
+        return True, reason
+
+    # 3. EMA reversion
+    if config.pb_v2_ema_reversion_exit:
+        hit, reason = check_ema_reversion(
+            bar.close, ema10_value, unrealized_r,
+            min_r=config.pb_v2_ema_reversion_min_r,
+        )
+        if hit:
+            return True, reason
+
+    # 4. RSI exit
+    hit, reason = check_rsi_exit(rsi_value, state.route_family, config)
+    if hit:
+        return True, reason
+
+    # 5. Time stop
+    max_hold = config.pb_max_hold_days
+    if state.route_family == "OPEN_SCORED_ENTRY":
+        max_hold = config.pb_open_scored_max_hold_days
+    hit, reason = check_time_stop(hold_days, max_hold)
+    if hit:
+        return True, reason
+
+    # 6. VWAP fail (structural: descending highs + CPR gate)
+    hit, reason = check_vwap_fail(
+        recent_5m_bars,
+        session_vwap,
+        lookback=config.pb_vwap_fail_lookback_bars,
+        cpr_max=config.pb_vwap_fail_cpr_max,
+    )
+    if hit:
+        return True, reason
+
+    # 7. EOD flatten
+    hit, reason = check_eod_flatten(now, config)
+    if hit:
+        return True, reason
+
+    return False, ""

@@ -216,6 +216,16 @@ class WatchlistItem:
     expected_5m_volume: float = 0.0
     flow_proxy_gate_pass: bool = True   # True = flow positive (or unavailable), safe default
     overflow_rank: int | None = None
+    # Pullback V2 fields
+    daily_signal_score: float = 0.0
+    trigger_types: list[str] = field(default_factory=list)
+    trigger_tier: str = "STANDARD"       # PREMIUM/STANDARD/REDUCED/MINIMUM
+    trend_tier: str = "STRONG"           # STRONG/SECULAR/EXCLUDED
+    rescue_flow_candidate: bool = False
+    sizing_mult: float = 1.0
+    cdd_value: int = 0                    # consecutive down days at selection time
+    ema10_daily: float = 0.0              # latest daily EMA(10) for exit chain
+    rsi14_daily: float = 0.0              # latest daily RSI(14) for exit chain
 
 
 @dataclass(slots=True)
@@ -247,10 +257,10 @@ class Bar:
     low: float
     close: float
     volume: float
+    typical_price: float = field(init=False)
 
-    @property
-    def typical_price(self) -> float:
-        return (self.high + self.low + self.close) / 3.0
+    def __post_init__(self) -> None:
+        self.typical_price = (self.high + self.low + self.close) / 3.0
 
     @property
     def cpr(self) -> float:
@@ -357,6 +367,9 @@ class MarketSnapshot:
     bars_5m: deque[Bar] = field(default_factory=lambda: deque(maxlen=120))
     bars_30m: deque[Bar] = field(default_factory=lambda: deque(maxlen=40))
     tick_pressure_window: deque[tuple[datetime, float]] = field(default_factory=lambda: deque(maxlen=512))
+    # Incremental VWAP accumulators (avoids O(N) re-sum every bar)
+    _cum_pv: float = 0.0
+    _cum_vol: float = 0.0
 
     @property
     def minutes_since_hod(self) -> int:
@@ -410,6 +423,59 @@ class SymbolIntradayState:
     position: PositionState | None = None
     exit_order: PendingOrderState | None = None
     pending_hard_exit: bool = False
+
+
+@dataclass(slots=True)
+class PBSymbolState:
+    """Per-symbol intraday state for the pullback hybrid engine."""
+    symbol: str
+    stage: str = "WATCHING"  # WATCHING|FLUSH_LOCKED|RECLAIMING|READY|IN_POSITION|INVALIDATED
+    route_family: str = ""   # OPENING_RECLAIM|DELAYED_CONFIRM|VWAP_BOUNCE|AFTERNOON_RETEST|OPEN_SCORED_ENTRY
+    setup_low: float = 0.0
+    reclaim_level: float = 0.0
+    stop_level: float = 0.0
+    acceptance_count: int = 0
+    required_acceptance: int = 1
+    intraday_score: float = 0.0
+    score_components: dict = field(default_factory=dict)
+    bars_seen_today: int = 0
+    session_low: float = 0.0
+    session_high: float = 0.0
+    in_position: bool = False
+    position: PositionState | None = None
+    entry_order: PendingOrderState | None = None
+    exit_order: PendingOrderState | None = None
+    pending_hard_exit: bool = False
+    # Daily context from watchlist
+    daily_signal_score: float = 0.0
+    trigger_types: list[str] = field(default_factory=list)
+    trigger_tier: str = "STANDARD"
+    trend_tier: str = "STRONG"
+    rescue_flow_candidate: bool = False
+    sizing_mult: float = 1.0
+    daily_atr: float = 0.0
+    entry_atr: float = 0.0
+    last_1m_bar_time: datetime | None = None
+    last_5m_bar_time: datetime | None = None
+    active_order_id: str | None = None
+    last_transition_reason: str = ""
+    # V2 position tracking
+    mfe_stage: int = 0
+    breakeven_activated: bool = False
+    trail_active: bool = False
+    hold_bars: int = 0
+    risk_per_share: float = 0.0
+    v2_partial_taken: bool = False
+    carry_decision_path: str = ""
+    # Bars below VWAP counter for VWAP fail exit
+    consecutive_bars_below_vwap: int = 0
+    cdd_value: int = 0
+    # Daily indicator snapshots for exit chain
+    ema10_daily: float = 0.0
+    rsi14_daily: float = 0.0
+    # Intraday tracking (research parity)
+    stopped_out_today: bool = False
+    flush_bar_idx: int = 0
 
 
 @dataclass(slots=True)

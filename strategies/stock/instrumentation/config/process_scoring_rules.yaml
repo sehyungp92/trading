@@ -9,17 +9,30 @@ global:
   expected_slippage_bps: 3
 
 strategies:
-  # IARIC v1 — intraday AVWAP pullback, US large-cap equities
+  # IARIC v2 — pullback hybrid engine, US large-cap equities
   iaric:
     preferred_regimes:
       - trending_up
       - trending_down
     adverse_regimes:
       - ranging
-    max_hold_bars: 78              # Intraday 5-min bars: ~6.5h session
+    max_hold_bars: 156             # V2R4: 2 trading days x 78 bars/day
     expected_slippage_bps: 3       # US large-cap equities, IBKR SMART routing
-    min_signal_strength: 0.40      # tier_b_min threshold
-    strong_signal_threshold: 0.65  # tier_a_min threshold
+    min_signal_strength: 0.45      # V2R4: 45.0/100 min entry score
+    strong_signal_threshold: 0.75  # V2R4: 75.0/100 PREMIUM tier
+
+  # ALCB v1 — adaptive limit/continuation breakout, US equities
+  alcb:
+    preferred_regimes:
+      - trending_up
+      - mean_reverting
+    adverse_regimes:
+      - choppy
+      - breakdown
+    max_hold_bars: 156             # 2 trading days (5-min bars)
+    expected_slippage_bps: 3       # US large-cap equities, IBKR SMART routing
+    min_signal_strength: 0.25      # 2/8 = minimum passing momentum_score
+    strong_signal_threshold: 0.625  # 5/8 = 5+ of 8 factors
 
   # US ORB v1 — opening range breakout, US equities
   us_orb:

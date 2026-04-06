@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import bisect
 from datetime import datetime, time
 from math import sqrt
 from statistics import fmean
@@ -136,6 +137,11 @@ def adx_from_bars(bars: list[Bar], period: int = 14) -> float:
 
 
 def rs_percentile(symbol: str, universe: dict[str, list[ResearchDailyBar]]) -> float:
+    return rs_percentiles(universe).get(symbol, 0.0)
+
+
+def rs_percentiles(universe: dict[str, list[ResearchDailyBar]]) -> dict[str, float]:
+    """Compute RS percentiles for the full universe in one pass."""
     scores: dict[str, float] = {}
     spy = universe.get("SPY") or []
     spy_close = _close_values(spy)
@@ -149,10 +155,12 @@ def rs_percentile(symbol: str, universe: dict[str, list[ResearchDailyBar]]) -> f
         scores[name] = (pct_change(closes, 20) - spy20) + (pct_change(closes, 60) - spy60)
     ordered = sorted(scores.values())
     if not ordered:
-        return 0.0
-    value = scores.get(symbol, 0.0)
-    count = sum(1 for sample in ordered if sample <= value)
-    return count / len(ordered)
+        return {}
+    total = len(ordered)
+    return {
+        name: bisect.bisect_right(ordered, score) / total
+        for name, score in scores.items()
+    }
 
 
 def accumulation_score(bars: list[ResearchDailyBar], settings: StrategySettings | None = None) -> float:

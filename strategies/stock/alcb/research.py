@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from dataclasses import replace
 from datetime import date, datetime, timezone
 from statistics import fmean
@@ -18,7 +19,7 @@ from .signals import (
     detect_compression_box,
     distribution_score,
     qualify_breakout,
-    rs_percentile,
+    rs_percentiles,
 )
 
 
@@ -93,12 +94,21 @@ def filter_liquid_common_stocks(symbols: dict[str, ResearchSymbol], settings: St
     return accepted
 
 
+@dataclass(slots=True)
+class _PreparedSelectionFeatures:
+    trend: int
+    trend_avg20: float
+    box: object | None
+    accumulation: float
+    distribution: float
+    stock_regime: Regime
+    sector_regime: str
+
+
 def _selection_score_long(
-    symbol: str,
     item: ResearchSymbol,
-    snapshot: ResearchSnapshot,
+    prepared: _PreparedSelectionFeatures,
     rs_rank: float,
-    settings: StrategySettings,
 ) -> tuple[int, dict[str, int]]:
     score = 0
     detail: dict[str, int] = {}
@@ -113,35 +123,31 @@ def _selection_score_long(
         detail["rs"] = 1
     else:
         detail["rs"] = 0
-    trend = daily_trend_sign(item.daily_bars)
-    if trend > 0:
+    if prepared.trend > 0:
         score += 2
         detail["trend"] = 2
-    elif trend == 0 and item.daily_bars and item.daily_bars[-1].close >= fmean(bar.close for bar in item.daily_bars[-20:]):
+    elif prepared.trend == 0 and item.daily_bars and item.daily_bars[-1].close >= prepared.trend_avg20:
         score += 1
         detail["trend"] = 1
     else:
         detail["trend"] = 0
-    box = detect_compression_box(item.daily_bars, settings)
-    if box is not None and box.tier.value == "GOOD":
+    if prepared.box is not None and prepared.box.tier.value == "GOOD":
         score += 2
         detail["compression"] = 2
-    elif box is not None:
+    elif prepared.box is not None:
         score += 1
         detail["compression"] = 1
     else:
         detail["compression"] = 0
-    acc = accumulation_score(item.daily_bars, settings=settings)
-    if acc >= 0.8:
+    if prepared.accumulation >= 0.8:
         score += 2
         detail["accumulation"] = 2
-    elif acc >= 0.55:
+    elif prepared.accumulation >= 0.55:
         score += 1
         detail["accumulation"] = 1
     else:
         detail["accumulation"] = 0
-    sector_regime = _sector_regime_name(snapshot, item.sector)
-    if sector_regime == Regime.BULL.value:
+    if prepared.sector_regime == Regime.BULL.value:
         score += 1
         detail["sector"] = 1
     else:
@@ -149,7 +155,10 @@ def _selection_score_long(
     return score, detail
 
 
-def _selection_score_short(item: ResearchSymbol, snapshot: ResearchSnapshot, rs_rank: float, settings: StrategySettings) -> tuple[int, dict[str, int]]:
+def _selection_score_short(
+    prepared: _PreparedSelectionFeatures,
+    rs_rank: float,
+) -> tuple[int, dict[str, int]]:
     score = 0
     detail: dict[str, int] = {}
     if rs_rank <= 0.10:
@@ -163,35 +172,31 @@ def _selection_score_short(item: ResearchSymbol, snapshot: ResearchSnapshot, rs_
         detail["rs"] = 1
     else:
         detail["rs"] = 0
-    trend = daily_trend_sign(item.daily_bars)
-    if trend < 0:
+    if prepared.trend < 0:
         score += 2
         detail["trend"] = 2
-    elif trend == 0:
+    elif prepared.trend == 0:
         score += 1
         detail["trend"] = 1
     else:
         detail["trend"] = 0
-    box = detect_compression_box(item.daily_bars, settings)
-    if box is not None and box.tier.value == "GOOD":
+    if prepared.box is not None and prepared.box.tier.value == "GOOD":
         score += 2
         detail["compression"] = 2
-    elif box is not None:
+    elif prepared.box is not None:
         score += 1
         detail["compression"] = 1
     else:
         detail["compression"] = 0
-    dist = distribution_score(item.daily_bars, settings=settings)
-    if dist >= 0.8:
+    if prepared.distribution >= 0.8:
         score += 2
         detail["distribution"] = 2
-    elif dist >= 0.55:
+    elif prepared.distribution >= 0.55:
         score += 1
         detail["distribution"] = 1
     else:
         detail["distribution"] = 0
-    sector_regime = _sector_regime_name(snapshot, item.sector)
-    if sector_regime == Regime.BEAR.value:
+    if prepared.sector_regime == Regime.BEAR.value:
         score += 1
         detail["sector"] = 1
     else:
@@ -210,17 +215,16 @@ def _direction_bias(long_score: int, short_score: int) -> str:
 def build_candidate_item(
     symbol: str,
     item: ResearchSymbol,
-    snapshot: ResearchSnapshot,
     regime: RegimeSnapshot,
+    prepared: _PreparedSelectionFeatures,
     rs_rank: float,
     settings: StrategySettings,
 ) -> tuple[CandidateItem, int, int]:
-    long_score, long_detail = _selection_score_long(symbol, item, snapshot, rs_rank, settings)
-    short_score, short_detail = _selection_score_short(item, snapshot, rs_rank, settings)
+    long_score, long_detail = _selection_score_long(item, prepared, rs_rank)
+    short_score, short_detail = _selection_score_short(prepared, rs_rank)
     score = max(long_score, short_score)
     detail = long_detail if long_score >= short_score else short_detail
-    box = detect_compression_box(item.daily_bars, settings)
-    stock_regime = classify_4h_regime(aggregate_bars(item.bars_30m, 8)) if item.bars_30m else Regime.TRANSITIONAL
+    box = prepared.box
     campaign = Campaign(symbol=symbol)
     if box is not None:
         campaign.state = CampaignState.COMPRESSION
@@ -244,12 +248,12 @@ def build_candidate_item(
             median_spread_pct=item.median_spread_pct,
             selection_score=score,
             selection_detail=detail,
-            stock_regime=stock_regime.value,
+            stock_regime=prepared.stock_regime.value,
             market_regime=regime.market_regime,
-            sector_regime=_sector_regime_name(snapshot, item.sector),
-            daily_trend_sign=daily_trend_sign(item.daily_bars),
+            sector_regime=prepared.sector_regime,
+            daily_trend_sign=prepared.trend,
             relative_strength_percentile=rs_rank,
-            accumulation_score=accumulation_score(item.daily_bars, settings=settings),
+            accumulation_score=prepared.accumulation,
             ttm_squeeze_bonus=0,
             average_30m_volume=item.average_30m_volume,
             median_30m_volume=item.median_30m_volume or item.average_30m_volume,
@@ -263,7 +267,33 @@ def build_candidate_item(
         ),
         long_score,
         short_score,
-    )
+        )
+
+
+def _prepare_selection_features(
+    universe: dict[str, ResearchSymbol],
+    snapshot: ResearchSnapshot,
+    settings: StrategySettings,
+) -> dict[str, _PreparedSelectionFeatures]:
+    sectors = {item.sector for item in universe.values()}
+    sector_regimes = {
+        sector: _sector_regime_name(snapshot, sector)
+        for sector in sectors
+    }
+    prepared: dict[str, _PreparedSelectionFeatures] = {}
+    for symbol, item in universe.items():
+        trend = daily_trend_sign(item.daily_bars)
+        box = detect_compression_box(item.daily_bars, settings)
+        prepared[symbol] = _PreparedSelectionFeatures(
+            trend=trend,
+            trend_avg20=fmean(bar.close for bar in item.daily_bars[-20:]) if item.daily_bars else 0.0,
+            box=box,
+            accumulation=accumulation_score(item.daily_bars, settings=settings),
+            distribution=distribution_score(item.daily_bars, settings=settings),
+            stock_regime=classify_4h_regime(aggregate_bars(item.bars_30m, 8)) if item.bars_30m else Regime.TRANSITIONAL,
+            sector_regime=sector_regimes.get(item.sector, Regime.TRANSITIONAL.value),
+        )
+    return prepared
 
 
 def daily_selection_from_snapshot(
@@ -288,12 +318,16 @@ def daily_selection_from_snapshot(
         )
     universe = filter_liquid_common_stocks(snapshot.symbols, cfg)
     universe_daily = {name: item.daily_bars for name, item in universe.items()}
+    rs_ranks = rs_percentiles(universe_daily)
+    prepared = _prepare_selection_features(universe, snapshot, cfg)
     long_ranked: list[tuple[int, CandidateItem]] = []
     short_ranked: list[tuple[int, CandidateItem]] = []
     all_items: list[CandidateItem] = []
     for symbol, item in universe.items():
-        rs_rank = rs_percentile(symbol, universe_daily)
-        candidate, long_score, short_score = build_candidate_item(symbol, item, snapshot, regime, rs_rank, cfg)
+        rs_rank = rs_ranks.get(symbol, 0.0)
+        candidate, long_score, short_score = build_candidate_item(
+            symbol, item, regime, prepared[symbol], rs_rank, cfg,
+        )
         if candidate.campaign.box is not None:
             all_items.append(candidate)
         if long_score > 0:

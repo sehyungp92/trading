@@ -1,9 +1,10 @@
 """Momentum family coordinator — each strategy gets its own OMS instance.
 
 Unlike swing (shared OMS), momentum strategies are independent:
-  - AKC_Helix_v40   (Helix4Engine)
-  - NQDTC_v2.1      (NQDTCEngine)
-  - VdubusNQ_v4     (VdubNQv4Engine)
+  - AKC_Helix_v40        (Helix4Engine)     — NQ/MNQ futures trend-following
+  - NQDTC_v2.1           (NQDTCEngine)      — MNQ day-trade continuation
+  - VdubusNQ_v4          (VdubNQv4Engine)   — MNQ Vdubus signals
+  - DownturnDominator_v1 (DownturnEngine)   — MNQ short-only regime scalping
 
 Cross-strategy coordination is config-driven via PortfolioRulesConfig
 (cooldown pairs, direction filter), NOT via in-process signaling.
@@ -23,10 +24,10 @@ logger = logging.getLogger(__name__)
 
 
 class MomentumFamilyCoordinator:
-    """Lifecycle manager for the three momentum strategies.
+    """Lifecycle manager for four momentum strategies.
 
     Each strategy receives its own OMS built via ``build_oms_service``.
-    Shared across all three: *db_pool*, *AccountRiskGate*, *family_id*.
+    Shared across all four: *db_pool*, *AccountRiskGate*, *family_id*.
     """
 
     family_id = "momentum"
@@ -37,11 +38,15 @@ class MomentumFamilyCoordinator:
         self._oms_services: list = []
         self._instrumentations: list = []
         self._strategy_ids: list[str] = []
+        self._portfolio_checkers: list = []
+        self._base_portfolio_rules: Any = None
+        self._base_max_family_contracts: int = 0
+        self._regime_ctx: Any = None
 
     # ── lifecycle ────────────────────────────────────────────────────
 
     async def start(self) -> None:  # noqa: C901 — wiring is inherently sequential
-        """Import, build OMS, and start all three momentum engines."""
+        """Import, build OMS, and start all four momentum engines."""
         from libs.broker_ibkr.config.loader import IBKRConfig
         from libs.broker_ibkr.mapping.contract_factory import ContractFactory
         from libs.broker_ibkr.adapters.execution_adapter import IBKRExecutionAdapter
@@ -102,6 +107,28 @@ class MomentumFamilyCoordinator:
             logger.warning("bootstrap_capital failed (%s), using full equity", exc)
             allocs = {}
 
+        # ── Dynamic MNQ contract cap ──────────────────────────────────
+        target_leverage = 12.0
+        try:
+            from ib_async import ContFuture
+            mnq_cont = ContFuture("MNQ", "CME")
+            await session.ib.qualifyContractsAsync(mnq_cont)
+            bars = await session.ib.reqHistoricalDataAsync(
+                mnq_cont, "", "1 D", "1 day", "TRADES", False,
+            )
+            mnq_price = bars[-1].close if bars else 21000.0
+        except Exception:
+            mnq_price = 21000.0
+            logger.warning("MNQ price fetch failed, using default %.0f", mnq_price)
+
+        mnq_notional = mnq_price * 2.0  # MNQ point_value
+        max_family_contracts = max(2, int(equity * target_leverage / mnq_notional))
+        self._base_max_family_contracts = max_family_contracts
+        logger.info(
+            "Dynamic MNQ cap: %d contracts (equity=$%.0f, %.0fx leverage, MNQ=%.0f)",
+            max_family_contracts, equity, target_leverage, mnq_price,
+        )
+
         # ── Strategy descriptors ─────────────────────────────────────
         descriptors = self._build_strategy_descriptors()
 
@@ -140,11 +167,25 @@ class MomentumFamilyCoordinator:
 
             portfolio_rules = PortfolioRulesConfig(
                 initial_equity=allocated_nav,
-                directional_cap_R=3.5,  # v7: aligned with backtest (was 6.0)
+                directional_cap_R=3.5,
+                directional_cap_long_R=3.5,
+                directional_cap_short_R=5.0,
+                max_family_contracts_mnq_eq=max_family_contracts,
                 family_strategy_ids=all_strategy_ids,
-                symbol_collision_action="half_size",
-                nqdtc_direction_filter_enabled=False,  # v7: optimizer found disabling improves net returns
+                symbol_collision_action="none",
+                nqdtc_direction_filter_enabled=False,
+                strategy_priorities=(
+                    ("VdubusNQ_v4", 0),
+                    ("NQDTC_v2.1", 1),
+                    ("DownturnDominator_v1", 1),
+                    ("AKC_Helix_v40", 2),
+                ),
+                priority_headroom_R=1.0,
+                priority_reserve_threshold=1,
             )
+
+            if self._base_portfolio_rules is None:
+                self._base_portfolio_rules = portfolio_rules
 
             # Build per-strategy OMS
             oms = await build_oms_service(
@@ -164,6 +205,7 @@ class MomentumFamilyCoordinator:
             await oms.start()
             logger.info("OMS started for %s", sid)
             self._oms_services.append(oms)
+            self._portfolio_checkers.append(getattr(oms, '_portfolio_checker', None))
 
             # Instrumentation (non-fatal)
             instr = None
@@ -171,6 +213,7 @@ class MomentumFamilyCoordinator:
                 from .instrumentation.src.bootstrap import InstrumentationManager
                 instr = InstrumentationManager(
                     oms, sid, strategy_type=desc["instr_type"],
+                    family_strategy_ids=list(all_strategy_ids),
                 )
                 await instr.start()
             except Exception as exc:
@@ -234,7 +277,7 @@ class MomentumFamilyCoordinator:
         logger.info("MomentumFamilyCoordinator stopped")
 
     def health_status(self) -> dict[str, Any]:
-        """Return health of all three momentum engines."""
+        """Return health of all four momentum engines."""
         result: dict[str, Any] = {"family": self.family_id, "strategies": {}}
         for i, engine in enumerate(self._engines):
             sid = self._strategy_ids[i]
@@ -243,6 +286,34 @@ class MomentumFamilyCoordinator:
             except Exception as exc:
                 result["strategies"][sid] = {"error": str(exc)}
         return result
+
+    def apply_regime(self, ctx: "RegimeContext") -> None:
+        """Apply regime context to all momentum portfolio rules."""
+        import dataclasses
+        from regime.integration import build_momentum_rules
+
+        if self._base_portfolio_rules is None:
+            logger.warning("apply_regime called before start() — skipping")
+            return
+
+        prev_regime = getattr(self._regime_ctx, "regime", None)
+        self._regime_ctx = ctx
+        new_rules = build_momentum_rules(ctx, self._base_portfolio_rules, self._base_max_family_contracts)
+
+        for checker in self._portfolio_checkers:
+            if checker is not None:
+                checker.update_config(dataclasses.replace(
+                    new_rules, initial_equity=checker._cfg.initial_equity,
+                ))
+
+        r = new_rules
+        changed = f" (was {prev_regime})" if prev_regime and prev_regime != ctx.regime else ""
+        logger.info("Momentum regime applied: %s%s (cap=%.1fR, long=%.1fR, short=%.1fR, "
+                    "risk=%.2fx, contracts=%d, oppose=%.1f, disabled=%s)",
+                    ctx.regime, changed, r.directional_cap_R, r.directional_cap_long_R,
+                    r.directional_cap_short_R, r.regime_unit_risk_mult,
+                    r.max_family_contracts_mnq_eq, r.nqdtc_oppose_size_mult,
+                    r.disabled_strategies or "none")
 
     # ── internal ─────────────────────────────────────────────────────
 
@@ -286,6 +357,17 @@ class MomentumFamilyCoordinator:
         )
         from strategies.momentum.vdub.engine import VdubNQv4Engine
 
+        # ── Downturn Dominator v1 ──────────────────────────────────
+        from strategies.momentum.downturn.config import (
+            STRATEGY_ID as DOWNTURN_ID,
+            BASE_RISK_PCT as DOWNTURN_RISK_PCT,
+            DAILY_STOP_R as DOWNTURN_DAILY_STOP_R,
+            HEAT_CAP_R as DOWNTURN_HEAT_CAP_R,
+            PORTFOLIO_DAILY_STOP_R as DOWNTURN_PORTFOLIO_DAILY_STOP_R,
+            build_instruments as downturn_build_instruments,
+        )
+        from strategies.momentum.downturn.engine import DownturnEngine
+
         return [
             # ── AKC_Helix_v40 ───────────────────────────────────────
             {
@@ -327,5 +409,20 @@ class MomentumFamilyCoordinator:
                 "instr_type": "vdubus",
                 "trade_recorder": trade_recorder,
                 "engine_extra_kwargs": {},
+            },
+            # ── DownturnDominator_v1 ──────────────────────────────
+            {
+                "strategy_id": DOWNTURN_ID,
+                "base_risk_pct": DOWNTURN_RISK_PCT,
+                "daily_stop_R": DOWNTURN_DAILY_STOP_R,
+                "heat_cap_R": DOWNTURN_HEAT_CAP_R,
+                "portfolio_daily_stop_R": DOWNTURN_PORTFOLIO_DAILY_STOP_R,
+                "build_instruments": downturn_build_instruments,
+                "engine_cls": DownturnEngine,
+                "instr_type": "downturn",
+                "trade_recorder": trade_recorder,
+                "engine_extra_kwargs": {
+                    "state_dir": Path("/app/state"),
+                },
             },
         ]

@@ -5,7 +5,9 @@ import asyncio
 import logging
 import math
 import signal
+from contextlib import suppress
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -261,6 +263,23 @@ class RuntimeShell:
                 logger.warning("AccountRiskGate init failed (non-fatal): %s", exc)
 
         # ------------------------------------------------------------------
+        # 3.5  Regime service (non-fatal)
+        # ------------------------------------------------------------------
+        regime_service = None
+        if connect_ib and self.session:
+            try:
+                from regime.live import RegimeService
+                from libs.config.market_calendar import MarketCalendar
+                regime_service = RegimeService(
+                    ib_session=self.session,
+                    market_calendar=MarketCalendar(),
+                )
+                await regime_service.start()
+                logger.info("Regime service started: %s", regime_service.get_context())
+            except Exception as exc:
+                logger.warning("Regime service init failed (non-fatal): %s", exc)
+
+        # ------------------------------------------------------------------
         # 4. Group strategies by family and build coordinators
         # ------------------------------------------------------------------
         families: dict[str, list] = {}
@@ -290,6 +309,7 @@ class RuntimeShell:
                 db_pool=db_pool,
                 account_gate=account_gate,
                 family_coordinator=None,
+                regime_service=regime_service,
             )
 
             try:
@@ -328,6 +348,30 @@ class RuntimeShell:
             return
 
         # ------------------------------------------------------------------
+        # 5b. Load and apply initial regime context
+        # ------------------------------------------------------------------
+        regime_task: asyncio.Task | None = None
+        try:
+            # Prefer live service context (computed at step 3.5) over disk
+            regime_ctx = None
+            if regime_service is not None:
+                regime_ctx = regime_service.get_context()
+            if regime_ctx is None:
+                from regime.persistence import load_regime_context
+                regime_ctx = load_regime_context()
+            for coordinator in coordinators:
+                if hasattr(coordinator, "apply_regime"):
+                    try:
+                        coordinator.apply_regime(regime_ctx)
+                    except Exception as exc:
+                        logger.error("Initial regime apply failed for %s: %s",
+                                    getattr(coordinator, "family_id", "?"), exc)
+            logger.info("Regime context applied: regime=%s, confidence=%.3f, computed_at=%s",
+                        regime_ctx.regime, regime_ctx.regime_confidence, regime_ctx.computed_at or "unknown")
+        except Exception as exc:
+            logger.warning("Regime context load failed (non-fatal): %s", exc)
+
+        # ------------------------------------------------------------------
         # 6. Run until shutdown signal
         # ------------------------------------------------------------------
         stop_event = asyncio.Event()
@@ -346,6 +390,60 @@ class RuntimeShell:
         active_families = [getattr(c, "family_id", "?") for c in coordinators]
         logger.info("Runtime active — families: %s — press Ctrl+C to stop", active_families)
 
+        # 6b. Start weekly regime refresh task
+        async def _regime_refresh_loop() -> None:
+            """Reload regime context weekly. Checks hourly, refreshes Friday 17:00+ ET."""
+            from zoneinfo import ZoneInfo
+            ET = ZoneInfo("America/New_York")
+            last_refresh_date = None
+            while True:
+                await asyncio.sleep(3600)
+                if stop_event.is_set():
+                    break
+                now_et = datetime.now(ET)
+                today = now_et.date()
+                if now_et.weekday() != 4 or now_et.hour < 17:
+                    continue
+                if last_refresh_date == today:
+                    continue
+                last_refresh_date = today
+                try:
+                    # Prefer live service context over disk
+                    ctx = None
+                    if regime_service is not None:
+                        ctx = regime_service.get_context()
+                    if ctx is None:
+                        from regime.persistence import load_regime_context
+                        ctx = load_regime_context()
+
+                    # Staleness circuit breaker: escalate to ERROR if >14 days old
+                    if ctx.computed_at:
+                        try:
+                            from datetime import timezone as _tz
+                            age = datetime.now(_tz.utc) - datetime.fromisoformat(ctx.computed_at)
+                            if age.days > 14:
+                                logger.error(
+                                    "Regime context is %d days stale (computed_at=%s) -- "
+                                    "check RegimeService or data pipeline",
+                                    age.days, ctx.computed_at,
+                                )
+                        except (ValueError, TypeError):
+                            pass
+
+                    for coordinator in coordinators:
+                        if hasattr(coordinator, "apply_regime"):
+                            try:
+                                coordinator.apply_regime(ctx)
+                            except Exception as exc:
+                                logger.error("Regime refresh failed for %s: %s",
+                                            getattr(coordinator, "family_id", "?"), exc)
+                    logger.info("Weekly regime refresh: %s (confidence=%.3f, computed_at=%s)",
+                                ctx.regime, ctx.regime_confidence, ctx.computed_at or "unknown")
+                except Exception as exc:
+                    logger.error("Regime refresh loop error: %s", exc)
+
+        regime_task = asyncio.create_task(_regime_refresh_loop(), name="regime_refresh")
+
         try:
             await stop_event.wait()
         except (KeyboardInterrupt, asyncio.CancelledError):
@@ -355,6 +453,18 @@ class RuntimeShell:
         # 7. Graceful shutdown (reverse order)
         # ------------------------------------------------------------------
         logger.info("Shutting down ...")
+
+        if regime_task is not None:
+            regime_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await regime_task
+
+        if regime_service is not None:
+            try:
+                await regime_service.stop()
+                logger.info("Regime service stopped")
+            except Exception as exc:
+                logger.warning("Regime service stop error: %s", exc)
 
         for coordinator in reversed(coordinators):
             try:

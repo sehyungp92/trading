@@ -592,7 +592,7 @@ async def _fetch_daily_bars_cached(
     """Fetch daily bars with incremental caching."""
     cached_bars, last_updated = _load_cached_bars(cache_dir, symbol)
 
-    if last_updated == today_str and len(cached_bars) >= 60:
+    if last_updated == today_str and len(cached_bars) >= 200:
         return cached_bars
 
     async with sem:
@@ -606,7 +606,7 @@ async def _fetch_daily_bars_cached(
         if cached_bars and last_updated:
             duration = "5 D"
         else:
-            duration = "120 D"
+            duration = "1 Y"  # 252 trading days for SMA200 + warmup
 
         bars = await ib.reqHistoricalDataAsync(
             contract, endDateTime="", durationStr=duration,

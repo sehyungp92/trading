@@ -632,6 +632,20 @@ class PgStore:
         )
         return bool(r)
 
+    async def get_family_aggregate_mnq_eq(self, strategy_ids: list[str]) -> int:
+        """Sum abs(net_qty) across family strategies, converting NQ to 10x MNQ-eq."""
+        rows = await self._pool.fetch(
+            "SELECT instrument_symbol, COALESCE(SUM(ABS(net_qty)), 0)::int AS total_qty "
+            "FROM positions WHERE strategy_id = ANY($1) AND net_qty != 0 "
+            "GROUP BY instrument_symbol",
+            strategy_ids,
+        )
+        total = 0
+        for row in rows:
+            qty = int(row["total_qty"])
+            total += qty * 10 if row["instrument_symbol"] == "NQ" else qty
+        return total
+
     # ------------------------------------------------------------------
     # Risk Daily Strategy
     # ------------------------------------------------------------------

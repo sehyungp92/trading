@@ -15,14 +15,32 @@ from .utils import budget, clip_and_renorm
 # Section 4: Default regime budgets
 # ---------------------------------------------------------------------------
 
-def default_regime_budgets(cols) -> Tuple[dict, pd.Series]:
-    regime_budgets = {
-        "G": budget(cols, SPY=0.45, EFA=0.15, IBIT=0.15, TLT=0.05, GLD=0.05, CASH=0.15),
-        "R": budget(cols, SPY=0.35, EFA=0.15, GLD=0.30, IBIT=0.10, TLT=0.00, CASH=0.10),
-        "S": budget(cols, GLD=0.50, CASH=0.30, SPY=0.10, EFA=0.05, TLT=0.05, IBIT=0.00),
-        "D": budget(cols, TLT=0.50, CASH=0.30, GLD=0.10, SPY=0.05, EFA=0.05, IBIT=0.00),
-    }
-    w_neutral = budget(cols, SPY=0.20, EFA=0.10, TLT=0.25, GLD=0.25, IBIT=0.05, CASH=0.15)
+def default_regime_budgets(
+    cols,
+    cfg: "MetaConfig | None" = None,
+) -> Tuple[dict, pd.Series]:
+    if cfg is not None:
+        regime_budgets = {
+            "G": budget(cols, SPY=cfg.budget_G_spy, EFA=cfg.budget_G_efa, IBIT=cfg.budget_G_ibit,
+                        TLT=cfg.budget_G_tlt, GLD=cfg.budget_G_gld, CASH=cfg.budget_G_cash),
+            "R": budget(cols, SPY=cfg.budget_R_spy, EFA=cfg.budget_R_efa, GLD=cfg.budget_R_gld,
+                        IBIT=cfg.budget_R_ibit, TLT=cfg.budget_R_tlt, CASH=cfg.budget_R_cash),
+            "S": budget(cols, GLD=cfg.budget_S_gld, CASH=cfg.budget_S_cash, SPY=cfg.budget_S_spy,
+                        EFA=cfg.budget_S_efa, TLT=cfg.budget_S_tlt, IBIT=cfg.budget_S_ibit),
+            "D": budget(cols, TLT=cfg.budget_D_tlt, CASH=cfg.budget_D_cash, GLD=cfg.budget_D_gld,
+                        SPY=cfg.budget_D_spy, EFA=cfg.budget_D_efa, IBIT=cfg.budget_D_ibit),
+        }
+        w_neutral = budget(cols, SPY=cfg.budget_neutral_spy, EFA=cfg.budget_neutral_efa,
+                           TLT=cfg.budget_neutral_tlt, GLD=cfg.budget_neutral_gld,
+                           IBIT=cfg.budget_neutral_ibit, CASH=cfg.budget_neutral_cash)
+    else:
+        regime_budgets = {
+            "G": budget(cols, SPY=0.45, EFA=0.15, IBIT=0.15, TLT=0.05, GLD=0.05, CASH=0.15),
+            "R": budget(cols, SPY=0.35, EFA=0.15, GLD=0.30, IBIT=0.10, TLT=0.00, CASH=0.10),
+            "S": budget(cols, GLD=0.50, CASH=0.30, SPY=0.10, EFA=0.05, TLT=0.05, IBIT=0.00),
+            "D": budget(cols, TLT=0.50, CASH=0.30, GLD=0.10, SPY=0.05, EFA=0.05, IBIT=0.00),
+        }
+        w_neutral = budget(cols, SPY=0.20, EFA=0.10, TLT=0.25, GLD=0.25, IBIT=0.05, CASH=0.15)
     return regime_budgets, w_neutral
 
 
@@ -110,6 +128,22 @@ def confidence_fallback(
 ) -> pd.Series:
     w = conf * w_active + (1.0 - conf) * w_neutral
     w = w.clip(lower=0.0)
+    return w / w.sum()
+
+
+def smooth_weights(
+    w_new: pd.Series,
+    w_prev: Optional[pd.Series],
+    alpha: float = 1.0,
+) -> pd.Series:
+    """EMA blend for allocation signal stability.
+    alpha=1.0 = no smoothing (backward-compatible).
+    alpha=0.3 = 30% new, 70% previous (strong smoothing).
+    """
+    if w_prev is None or alpha >= 1.0:
+        return w_new
+    w = alpha * w_new + (1.0 - alpha) * w_prev
+    w = w.clip(lower=0)
     return w / w.sum()
 
 

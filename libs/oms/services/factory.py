@@ -449,6 +449,7 @@ async def build_oms_service(
             on_rule_event=_make_portfolio_rule_logger(),
             get_directional_risk_R_for_strategies=pg_store.get_directional_risk_R_for_strategies,
             get_sibling_positions_for_symbol=pg_store.get_sibling_positions_for_symbol,
+            get_family_aggregate_mnq_eq=pg_store.get_family_aggregate_mnq_eq,
         )
         logger.info("Portfolio rules enabled for %s", strategy_id)
 
@@ -502,6 +503,7 @@ async def build_oms_service(
         get_portfolio_risk=get_portfolio_risk,
         get_strategy_risk=get_strategy_risk,
     )
+    oms._portfolio_checker = portfolio_checker  # for coordinator regime updates
 
     if pg_store is not None:
         seed_state = strategy_risk_states.setdefault(
@@ -781,6 +783,7 @@ async def build_multi_strategy_oms(
             on_rule_event=_make_portfolio_rule_logger(),
             get_directional_risk_R_for_strategies=pg_store.get_directional_risk_R_for_strategies,
             get_sibling_positions_for_symbol=pg_store.get_sibling_positions_for_symbol,
+            get_family_aggregate_mnq_eq=pg_store.get_family_aggregate_mnq_eq,
         )
         logger.info("Portfolio rules enabled for multi-strategy OMS (%s)", family_id)
 
@@ -834,6 +837,7 @@ async def build_multi_strategy_oms(
         get_portfolio_risk=get_portfolio_risk,
         get_strategy_risk=get_strategy_risk,
     )
+    oms._portfolio_checker = portfolio_checker  # for coordinator regime updates
 
     # Seed risk state from DB on startup
     if pg_store is not None:

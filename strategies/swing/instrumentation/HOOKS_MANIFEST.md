@@ -74,6 +74,22 @@ Two instances run via `main_multi.py` with distinct strategy IDs.
 | Exit (signal) | `engine.py:712` | Signal-based exit |
 | Snapshot | `engine.py:199` | All symbols each cycle |
 
+### BRS_R9 (`brs/engine.py`) — bot_id: `BRS_R9`
+
+| Event | Location | Details |
+|-------|----------|---------|
+| Daily regime snapshot | `engine.py:~490` | Full daily context: regime, bias path, conviction, vol, EMAs, ATR ratio. Flags regime transitions. |
+| Entry | `engine.py:~922` | Signals: LH_REJECTION, BD_CONTINUATION, S1_PULLBACK, S2_BREAKDOWN, S3_IMPULSE, L1_GLD_LONG. Signal strength = quality_score. |
+| Exit | `engine.py:~1097` | Exit reasons: STOP, CATASTROPHIC, BREAK_EVEN, CHANDELIER, STALE_EARLY, STALE, TIME_DECAY, REGIME_TIGHTEN. MFE/MAE from position state. |
+| Missed (sizing) | `engine.py:~814` | Signal found but sizing returned 0 (heat cap, max concurrent) |
+| Missed (OMS) | `engine.py:~864` | OMS rejected entry intent |
+| Pyramid | `engine.py:~1048` | Signal-confirmed add: current_R, blended entry, qty |
+| Scale-out | `engine.py:~1150` | Tranche B 33% partial exit at 3.6R |
+| Stop update | `engine.py:~1139` | Trailing stop ratchet (old vs new stop, BE/chandelier) |
+| Arm events | `engine.py:~628-745` | LH, BD, S2, S3 arm + expiry with trigger prices |
+| S2 daily arm | `engine.py:~472` | Campaign box detection on daily bar |
+| Order events | Multiple | Entry fill, exit fill, scale-out fill, pyramid fill |
+
 ## Coverage Gaps
 
 | Strategy | Missing Hooks | Impact |

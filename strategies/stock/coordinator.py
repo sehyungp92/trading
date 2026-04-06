@@ -47,6 +47,10 @@ class StockFamilyCoordinator:
         self._market_data_sources: list = []
         self._market_data_task: asyncio.Task | None = None
         self._contract_factory = None
+        self._portfolio_checkers: list = []
+        self._engine_map: dict[str, Any] = {}
+        self._base_portfolio_rules: Any = None
+        self._regime_ctx: Any = None
 
     # ── lifecycle ────────────────────────────────────────────────────
 
@@ -109,8 +113,19 @@ class StockFamilyCoordinator:
         all_strategy_ids = tuple(d["strategy_id"] for d in _strategies)
         logger.info(
             "Stock portfolio rules: directional_cap=%.1fR, collision=%s, strategies=%s",
-            8.0, "half_size", all_strategy_ids,
+            12.0, "half_size", all_strategy_ids,
         )
+
+        # Log dollar-equivalent directional cap per strategy for monitoring
+        for desc in _strategies:
+            _alloc = allocs.get(desc["strategy_id"])
+            _nav = _alloc.allocated_nav if _alloc else equity
+            _unit = RiskCalculator.compute_unit_risk_dollars(nav=_nav, unit_risk_pct=desc["base_risk_pct"])
+            logger.info(
+                "Directional cap dollar-equiv for %s: 1R=$%.0f, cap=12R=$%.0f, heat=%sR=$%.0f",
+                desc["strategy_id"], _unit, 12.0 * _unit,
+                desc["heat_cap_R"], desc["heat_cap_R"] * _unit,
+            )
 
         for desc in _strategies:
             sid = desc["strategy_id"]
@@ -124,18 +139,22 @@ class StockFamilyCoordinator:
             # get_current_equity callback (allocated_nav), otherwise drawdown
             # tiers see a phantom 67% DD and halt every entry.
             portfolio_rules = PortfolioRulesConfig(
-                directional_cap_R=8.0,
+                directional_cap_R=12.0,
                 initial_equity=allocated_nav,
                 family_strategy_ids=all_strategy_ids,
                 symbol_collision_action="half_size",
                 strategy_priorities=(
-                    ("IARIC_v1", 0),    # highest: daily alpha, tiny footprint (1.25R)
+                    ("IARIC_v1", 0),    # highest: daily alpha, multi-position (5R heat)
                     ("ALCB_v1", 1),     # second: proven backtest edge, broader alpha
                     ("US_ORB_v1", 2),   # lowest: unproven, pure OR overlap with ALCB
                 ),
-                priority_headroom_R=3.0,       # reserve last 3R for IARIC + ALCB
+                priority_headroom_R=4.0,       # reserve last 4R for IARIC + ALCB
                 priority_reserve_threshold=1,  # priority 0-1 can use reserved headroom
             )
+            # Save first portfolio_rules as base template for regime updates
+            if self._base_portfolio_rules is None:
+                self._base_portfolio_rules = portfolio_rules
+
             if alloc:
                 logger.info(
                     "Capital allocation: %s -> $%.2f (%.1f%% of $%.2f)",
@@ -170,6 +189,7 @@ class StockFamilyCoordinator:
             await oms.start()
             logger.info("OMS started for %s", sid)
             self._oms_services.append(oms)
+            self._portfolio_checkers.append(getattr(oms, '_portfolio_checker', None))
 
             # Instrumentation (non-fatal)
             instr = None
@@ -225,6 +245,7 @@ class StockFamilyCoordinator:
             await engine.start()
             logger.info("Engine started for %s", sid)
             self._engines.append(engine)
+            self._engine_map[sid] = engine
 
             # ── Market data source per engine ──────────────────────────
             md_source = None
@@ -335,6 +356,44 @@ class StockFamilyCoordinator:
             except Exception as exc:
                 result["strategies"][sid] = {"error": str(exc)}
         return result
+
+    def apply_regime(self, ctx: "RegimeContext") -> None:
+        """Apply regime context to all stock portfolio rules and engine configs."""
+        import dataclasses
+        from regime.integration import build_stock_rules, STOCK_PROFILES
+
+        if self._base_portfolio_rules is None:
+            logger.warning("apply_regime called before start() — skipping")
+            return
+
+        prev_regime = getattr(self._regime_ctx, "regime", None)
+        self._regime_ctx = ctx
+        new_rules = build_stock_rules(ctx, self._base_portfolio_rules)
+
+        # Tier 1: update PortfolioRulesConfig on each checker
+        for checker in self._portfolio_checkers:
+            if checker is not None:
+                checker.update_config(dataclasses.replace(
+                    new_rules, initial_equity=checker._cfg.initial_equity,
+                ))
+
+        # Tier 2: engine position limit updates
+        from regime.integration import _validated_regime
+        regime = _validated_regime(ctx.regime)
+        profile = STOCK_PROFILES[regime]
+        for sid, engine in self._engine_map.items():
+            settings = getattr(engine, '_settings', None)
+            if settings is None:
+                continue
+            if sid == "ALCB_v1" and hasattr(settings, 'max_positions'):
+                object.__setattr__(settings, 'max_positions', profile["alcb_max_positions"])
+            elif sid == "IARIC_v1" and hasattr(settings, 'pb_max_positions'):
+                object.__setattr__(settings, 'pb_max_positions', profile["iaric_pb_max_positions"])
+
+        changed = f" (was {prev_regime})" if prev_regime and prev_regime != ctx.regime else ""
+        logger.info("Stock regime applied: %s%s (cap=%.1fR, risk=%.2fx, disabled=%s)",
+                    ctx.regime, changed, new_rules.directional_cap_R,
+                    new_rules.regime_unit_risk_mult, new_rules.disabled_strategies or "none")
 
     async def _market_data_loop(self) -> None:
         """Periodically refresh market data subscriptions for all engines."""
