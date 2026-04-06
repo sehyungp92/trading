@@ -102,6 +102,9 @@ class TradeEvent:
     # Each dict: {factor_name: str, factor_value: float, threshold: float, contribution: float}
     signal_factors: List[dict] = field(default_factory=list)
 
+    # IARIC conviction factor decomposition (raw component scores)
+    conviction_factors: Optional[dict] = None
+
     # Filter threshold context (highest-impact #2)
     # Each dict: {filter_name: str, threshold: float, actual_value: float, passed: bool, margin_pct: float}
     filter_decisions: List[dict] = field(default_factory=list)
@@ -248,6 +251,7 @@ class TradeLogger:
         portfolio_state: Optional[dict] = None,
         signal_factors: Optional[List[dict]] = None,
         filter_decisions: Optional[List[dict]] = None,
+        conviction_factors: Optional[dict] = None,
         sizing_inputs: Optional[dict] = None,
         session_type: str = "",
         contract_month: str = "",
@@ -313,6 +317,7 @@ class TradeLogger:
                 evidence_refs=[],
                 strategy_params_at_entry=strategy_params,
                 signal_factors=signal_factors or [],
+                conviction_factors=conviction_factors,
                 filter_decisions=filter_decisions or [],
                 sizing_inputs=sizing_inputs,
                 expected_entry_price=expected_entry_price,

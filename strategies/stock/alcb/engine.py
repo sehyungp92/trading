@@ -1395,6 +1395,44 @@ class ALCBT2Engine:
                 )
             except Exception as exc:
                 logger.debug("T2 trade_recorder.record_entry failed: %s", exc)
+        # Wire JSONL/sidecar emission for TA pipeline
+        kit = self._instr_kit
+        if kit:
+            try:
+                kit.log_entry(
+                    trade_id=pos.trade_id or f"ALCB-{symbol}",
+                    pair=symbol,
+                    side="LONG",
+                    entry_price=fill_price,
+                    position_size=float(fill_qty),
+                    position_size_quote=float(fill_price * fill_qty),
+                    entry_signal="alcb_momentum_breakout",
+                    entry_signal_id=oms_order_id or symbol,
+                    entry_signal_strength=float(meta.get("momentum_score", 0)) / 8.0,
+                    signal_factors=meta.get("signal_factors", []),
+                    filter_decisions=meta.get("filter_decisions", []),
+                    sizing_inputs={
+                        "qty": fill_qty,
+                        "entry_price": float(plan.entry_price) if plan else fill_price,
+                        "stop_price": float(plan.stop_price) if plan else pos.current_stop,
+                        "risk_per_share": pos.risk_per_share,
+                        "risk_dollars": pos.risk_per_share * fill_qty,
+                        "base_risk_fraction": self._settings.base_risk_fraction,
+                        "account_equity": self._equity,
+                        "regime_mult": float(plan.regime_mult) if plan else 1.0,
+                    },
+                    exchange_timestamp=fill_time,
+                    strategy_params={
+                        "momentum_score": meta.get("momentum_score", 0),
+                        "entry_type": meta.get("entry_type", ""),
+                        "regime_tier": meta.get("regime_tier", "A"),
+                        "sector": meta.get("sector", ""),
+                    },
+                    concurrent_positions=len(self._positions),
+                    session_type=self._session_type(fill_time),
+                )
+            except Exception:
+                pass
         self._log_orderbook_context(
             symbol=symbol, trade_context="entry",
             related_trade_id=pos.trade_id,
@@ -1485,6 +1523,22 @@ class ALCBT2Engine:
                     )
                 except Exception as exc:
                     logger.debug("T2 trade_recorder.record_exit failed: %s", exc)
+            # Wire JSONL/sidecar exit emission for TA pipeline
+            kit = self._instr_kit
+            if kit and pos.trade_id:
+                try:
+                    kit.log_exit(
+                        trade_id=pos.trade_id,
+                        exit_price=fill_price,
+                        exit_reason=reason,
+                        exchange_timestamp=datetime.now(timezone.utc),
+                        mfe_r=round(mfe_r, 4),
+                        mae_r=round(mae_r, 4),
+                        mfe_price=pos.max_favorable,
+                        mae_price=pos.max_adverse,
+                    )
+                except Exception:
+                    pass
             self._log_orderbook_context(
                 symbol=symbol, trade_context="exit",
                 related_trade_id=pos.trade_id,

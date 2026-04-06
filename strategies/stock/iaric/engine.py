@@ -1426,6 +1426,44 @@ class IARICEngine:
                     },
                     account_id=self._account_id,
                 )
+            # Wire JSONL/sidecar emission for TA pipeline
+            kit = self._instr_kit
+            if kit:
+                try:
+                    kit.log_entry(
+                        trade_id=position.trade_id or f"IARIC-{symbol}",
+                        pair=symbol,
+                        side="LONG",
+                        entry_price=fill_price,
+                        position_size=float(fill_qty),
+                        position_size_quote=float(fill_price * fill_qty),
+                        entry_signal=f"PB_{state.route_family}",
+                        entry_signal_id=event.oms_order_id or symbol,
+                        entry_signal_strength=state.intraday_score / 100.0,
+                        signal_factors=self._entry_signal_factors(symbol),
+                        filter_decisions=self._entry_filter_decisions(symbol),
+                        conviction_factors=dict(state.score_components) if getattr(state, 'score_components', None) else None,
+                        sizing_inputs={
+                            "entry_price": fill_price,
+                            "stop_level": state.stop_level,
+                            "qty": fill_qty,
+                            "risk_per_share": state.risk_per_share,
+                            "sizing_mult": state.sizing_mult,
+                            "base_risk_fraction": self._portfolio.base_risk_fraction,
+                            "account_equity": self._portfolio.account_equity,
+                        },
+                        exchange_timestamp=event.timestamp,
+                        strategy_params={
+                            "route_family": state.route_family,
+                            "daily_signal_score": state.daily_signal_score,
+                            "trigger_tier": state.trigger_tier,
+                            "trend_tier": state.trend_tier,
+                        },
+                        concurrent_positions=len(self._portfolio.open_positions),
+                        session_type=self._current_session_type(event.timestamp),
+                    )
+                except Exception:
+                    pass
             position.entry_commission = float(payload.get("commission", 0.0) or 0.0)
             await self._submit_stop(symbol)
             return
@@ -1492,6 +1530,26 @@ class IARICEngine:
                         "trend_tier": state.trend_tier,
                     },
                 )
+            # Wire JSONL/sidecar exit emission for TA pipeline
+            kit = self._instr_kit
+            if kit and position.trade_id:
+                try:
+                    kit.log_exit(
+                        trade_id=position.trade_id,
+                        exit_price=fill_price,
+                        exit_reason=state.last_transition_reason or role or "EXIT",
+                        exchange_timestamp=event.timestamp,
+                        mfe_r=round(
+                            (position.max_favorable_price - position.entry_price)
+                            / max(position.initial_risk_per_share, 1e-9), 4),
+                        mae_r=round(
+                            (position.max_adverse_price - position.entry_price)
+                            / max(position.initial_risk_per_share, 1e-9), 4),
+                        mfe_price=position.max_favorable_price,
+                        mae_price=position.max_adverse_price,
+                    )
+                except Exception:
+                    pass
             self._portfolio.open_positions.pop(symbol, None)
             state.position = None
             state.in_position = False

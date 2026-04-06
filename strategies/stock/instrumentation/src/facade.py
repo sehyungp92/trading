@@ -98,6 +98,7 @@ class InstrumentationKit:
         # Enriched fields
         signal_factors: Optional[List[dict]] = None,
         filter_decisions: Optional[List[dict]] = None,
+        conviction_factors: Optional[dict] = None,
         sizing_inputs: Optional[dict] = None,
         portfolio_state: Optional[dict] = None,
         session_type: str = "",
@@ -153,6 +154,7 @@ class InstrumentationKit:
                 portfolio_state=portfolio_state,
                 signal_factors=signal_factors,
                 filter_decisions=filter_decisions,
+                conviction_factors=conviction_factors,
                 sizing_inputs=sizing_inputs,
                 session_type=session_type,
                 contract_month=contract_month,

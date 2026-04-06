@@ -386,6 +386,7 @@ class InstrumentationKit:
         block_reason: str = "",
         strategy_params: Optional[dict] = None,
         market_regime: str = "",
+        filter_decisions: Optional[List[dict]] = None,
         exchange_timestamp: Optional[datetime] = None,
         bar_id: Optional[str] = None,
     ) -> Any:
@@ -409,6 +410,7 @@ class InstrumentationKit:
             block_reason: More detailed reason
             strategy_params: Strategy config at time of signal
             market_regime: Market regime classification
+            filter_decisions: List of filter gate snapshots
             exchange_timestamp: Signal timestamp
             bar_id: Bar/candle identifier
 
@@ -432,6 +434,7 @@ class InstrumentationKit:
                 strategy_type=self.strategy_id,
                 strategy_id=self.strategy_id,
                 market_regime=market_regime,
+                filter_decisions=filter_decisions,
                 exchange_timestamp=exchange_timestamp,
                 bar_id=bar_id,
             )

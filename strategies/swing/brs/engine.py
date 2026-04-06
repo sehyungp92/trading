@@ -812,6 +812,7 @@ class BRSLiveEngine:
         )
         if qty <= 0:
             if self._instrumentation:
+                _hcap = cfg.crisis_heat_cap_r if d.vol.extreme_vol else cfg.heat_cap_r
                 self._instrumentation.log_missed(
                     pair=symbol,
                     side="SHORT" if signal.direction == Direction.SHORT else "LONG",
@@ -822,6 +823,14 @@ class BRSLiveEngine:
                     block_reason=f"qty=0 heat={current_heat_r:.2f} concurrent={concurrent} max={cfg.max_concurrent}",
                     strategy_params={"regime": d.regime.value, "vol_factor": d.vol.vol_factor},
                     market_regime=d.regime.value,
+                    filter_decisions=[
+                        {"filter_name": "heat_cap", "threshold": _hcap,
+                         "actual_value": round(current_heat_r, 4), "passed": current_heat_r < _hcap},
+                        {"filter_name": "max_concurrent", "threshold": float(cfg.max_concurrent),
+                         "actual_value": float(concurrent), "passed": concurrent < cfg.max_concurrent},
+                        {"filter_name": "position_sizing", "threshold": 1,
+                         "actual_value": 0, "passed": False},
+                    ],
                 )
             return
 
@@ -862,6 +871,7 @@ class BRSLiveEngine:
 
         if oms_id is None:
             if self._instrumentation:
+                _hcap = cfg.crisis_heat_cap_r if d.vol.extreme_vol else cfg.heat_cap_r
                 self._instrumentation.log_missed(
                     pair=symbol,
                     side="SHORT" if signal.direction == Direction.SHORT else "LONG",
@@ -871,6 +881,16 @@ class BRSLiveEngine:
                     blocked_by="oms_rejection",
                     block_reason="OMS denied entry intent",
                     market_regime=d.regime.value,
+                    filter_decisions=[
+                        {"filter_name": "heat_cap", "threshold": _hcap,
+                         "actual_value": round(current_heat_r, 4), "passed": True},
+                        {"filter_name": "max_concurrent", "threshold": float(cfg.max_concurrent),
+                         "actual_value": float(concurrent), "passed": True},
+                        {"filter_name": "position_sizing", "threshold": 1,
+                         "actual_value": float(qty), "passed": True},
+                        {"filter_name": "oms_gate", "threshold": 1.0,
+                         "actual_value": 0.0, "passed": False},
+                    ],
                 )
             return
 

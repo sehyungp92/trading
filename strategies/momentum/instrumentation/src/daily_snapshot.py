@@ -52,6 +52,8 @@ class DailySnapshot:
 
     per_strategy_summary: Dict[str, dict] = field(default_factory=dict)
 
+    per_engine_stats: Dict[str, dict] = field(default_factory=dict)
+
     experiment_breakdown: Dict[str, dict] = field(default_factory=dict)
     active_experiments: Dict[str, dict] = field(default_factory=dict)
 
@@ -154,6 +156,23 @@ class DailySnapshotBuilder:
                     "best_trade_pnl": s["best_trade_pnl"],
                     "worst_trade_pnl": s["worst_trade_pnl"],
                     "avg_entry_slippage_bps": s["avg_entry_slippage_bps"],
+                }
+
+            # --- PER-ENGINE STATS (Downturn engine_tag breakdown) ---
+            by_engine: dict[str, list] = {}
+            for t in completed:
+                tag = (t.get("strategy_params_at_entry") or {}).get("engine_tag", "")
+                if not tag:
+                    sig = t.get("entry_signal", "")
+                    tag = sig.split("_")[0] if sig else ""
+                if tag:
+                    by_engine.setdefault(tag, []).append(t)
+            for tag, trades in by_engine.items():
+                s = self._compute_trade_stats(trades)
+                snapshot.per_engine_stats[tag] = {
+                    "trades": len(trades),
+                    "pnl": s["net_pnl"],
+                    "win_rate": s["win_rate"],
                 }
 
         # --- MISSED OPPORTUNITIES ---

@@ -373,7 +373,9 @@ class DownturnEngine:
 
     def _log_missed(self, signal_name: str, signal_id: str,
                     signal_strength: float, blocked_by: str,
-                    block_reason: str, **extra) -> None:
+                    block_reason: str, *,
+                    filter_decisions: list[dict] | None = None,
+                    **extra) -> None:
         """Log missed opportunity (matches Helix pattern)."""
         if not self._kit or not self._kit.active:
             return
@@ -386,6 +388,7 @@ class DownturnEngine:
                 signal_strength=signal_strength,
                 blocked_by=blocked_by,
                 block_reason=block_reason,
+                filter_decisions=filter_decisions,
                 strategy_params={
                     "composite_regime": self._regime.composite_regime.value,
                     "bear_conviction": round(self._bear_conviction, 2),
@@ -485,6 +488,7 @@ class DownturnEngine:
                     signal_strength=0.0,
                     blocked_by=gate_block,
                     block_reason=f"Entry gate: {gate_block}",
+                    filter_decisions=self._entry_gate_decisions(),
                 )
 
         self._persist_state()
@@ -1108,6 +1112,43 @@ class DownturnEngine:
                 if not (flags.allow_reversal_in_correction and self._in_correction_now):
                     return "counter_regime"
         return None
+
+    def _entry_gate_decisions(self) -> list[dict]:
+        """Snapshot all entry gate states for filter_decisions."""
+        flags = self._flags
+        po = self._po
+        now_ny = datetime.now(NY_TZ)
+        mins = now_ny.hour * 60 + now_ny.minute
+        max_daily = int(po.get("max_daily_entries", 3))
+        min_pctl = po.get("friction_min_atr_pctl", 0.10)
+        is_counter = self._regime.composite_regime == CompositeRegime.COUNTER
+        allow_rev = flags.allow_reversal_in_correction and self._in_correction_now
+        return [
+            {"filter_name": "circuit_breaker",
+             "passed": not (flags.daily_circuit_breaker and self._circuit_breaker_tripped),
+             "threshold": 1.0, "actual_value": float(self._circuit_breaker_tripped)},
+            {"filter_name": "vol_shock",
+             "passed": not (flags.use_shock_block and self._regime.vol_state == VolState.SHOCK),
+             "threshold": 1.0, "actual_value": float(self._regime.vol_state == VolState.SHOCK)},
+            {"filter_name": "dead_zone",
+             "passed": not (flags.use_dead_zones and (565 <= mins < 575 or 950 <= mins < 960)),
+             "threshold": 1.0, "actual_value": float(565 <= mins < 575 or 950 <= mins < 960)},
+            {"filter_name": "session_window",
+             "passed": not flags.use_entry_windows or (575 <= mins < 950) or (240 <= mins < 565) or (1080 <= mins < 1200),
+             "threshold": 1.0, "actual_value": float(mins)},
+            {"filter_name": "daily_cap",
+             "passed": not flags.directional_entry_caps or self._daily_trades < max_daily,
+             "threshold": float(max_daily), "actual_value": float(self._daily_trades)},
+            {"filter_name": "news_blackout",
+             "passed": not (flags.use_news_blackout and (570 <= mins < 575 or 955 <= mins < 960)),
+             "threshold": 1.0, "actual_value": float(570 <= mins < 575 or 955 <= mins < 960)},
+            {"filter_name": "friction_gate",
+             "passed": not flags.friction_gate or self._atr_d <= 0 or self._atr_d_pctl >= min_pctl,
+             "threshold": float(min_pctl), "actual_value": round(self._atr_d_pctl, 4)},
+            {"filter_name": "counter_regime",
+             "passed": not (flags.block_counter_regime and is_counter and not allow_rev),
+             "threshold": 1.0, "actual_value": float(is_counter)},
+        ]
 
     def _can_enter(self) -> bool:
         """Boolean wrapper for backward compat."""
@@ -1796,6 +1837,7 @@ class DownturnEngine:
                 signal_strength=we.signal_strength,
                 blocked_by="ttl_expiry",
                 block_reason=f"Working entry expired after {we.ttl_bars} bars without fill",
+                filter_decisions=self._entry_gate_decisions(),
                 entry_price=we.entry_price,
                 stop0=we.stop0,
             )
