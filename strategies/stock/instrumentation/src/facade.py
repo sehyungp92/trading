@@ -119,6 +119,18 @@ class InstrumentationKit:
         try:
             regime = self._mgr.regime_classifier.current_regime(pair)
 
+            _macro = ""
+            _stress = 0.0
+            _getter = getattr(self._mgr, '_get_regime_ctx', None)
+            if _getter is not None:
+                try:
+                    _rctx = _getter()
+                    if _rctx is not None:
+                        _macro = _rctx.regime
+                        _stress = _rctx.stress_level
+                except Exception:
+                    pass
+
             exp_id = self._experiment_id or ""
             exp_var = self._experiment_variant or ""
             if self._mgr and hasattr(self._mgr, 'experiment_registry') and self._mgr.experiment_registry:
@@ -148,6 +160,8 @@ class InstrumentationKit:
                 strategy_params=strategy_params or {},
                 expected_entry_price=expected_entry_price,
                 market_regime=regime,
+                macro_regime=_macro,
+                stress_level_at_entry=_stress,
                 bar_id=bar_id,
                 exchange_timestamp=exchange_timestamp,
                 entry_latency_ms=entry_latency_ms,

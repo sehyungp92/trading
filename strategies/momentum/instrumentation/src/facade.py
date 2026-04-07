@@ -99,6 +99,18 @@ class InstrumentationKit:
         try:
             regime = self._mgr.regime_classifier.current_regime(pair)
 
+            _macro = ""
+            _stress = 0.0
+            _getter = getattr(self._mgr, '_get_regime_ctx', None)
+            if _getter is not None:
+                try:
+                    _rctx = _getter()
+                    if _rctx is not None:
+                        _macro = _rctx.regime
+                        _stress = _rctx.stress_level
+                except Exception:
+                    pass
+
             self._mgr.trade_logger.log_entry(
                 trade_id=trade_id,
                 pair=pair,
@@ -138,6 +150,8 @@ class InstrumentationKit:
             # Patch enriched fields onto the TradeEvent stored in _open_trades
             trade = self._mgr.trade_logger._open_trades.get(trade_id)
             if trade:
+                trade.macro_regime = _macro
+                trade.stress_level_at_entry = _stress
                 trade.signal_factors = signal_factors or []
                 trade.filter_decisions = filter_decisions or []
                 trade.sizing_inputs = sizing_inputs

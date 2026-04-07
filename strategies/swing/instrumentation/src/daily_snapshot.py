@@ -86,6 +86,10 @@ class DailySnapshot:
     experiment_breakdown: Optional[dict] = field(default=None)
     active_experiments: Dict[str, dict] = field(default_factory=dict)
 
+    # Regime
+    regime_context: Optional[dict] = None
+    applied_regime_config: Optional[dict] = None
+
     # Health
     error_count: int = 0
     uptime_pct: float = 100.0
@@ -105,11 +109,13 @@ class DailySnapshotBuilder:
         builder.save(snapshot)
     """
 
-    def __init__(self, config: dict, experiment_registry=None):
+    def __init__(self, config: dict, experiment_registry=None, get_regime_ctx=None, get_applied_config=None):
         self.bot_id = config["bot_id"]
         self.strategy_type = config.get("strategy_type", "multi_strategy")
         self.data_dir = Path(config["data_dir"])
         self.experiment_registry = experiment_registry
+        self._get_regime_ctx = get_regime_ctx
+        self._get_applied_config = get_applied_config
 
     def build(self, date_str: str = None) -> DailySnapshot:
         if date_str is None:
@@ -330,6 +336,21 @@ class DailySnapshotBuilder:
                 snapshot.active_experiments = self._load_active_experiments()
         else:
             snapshot.active_experiments = self._load_active_experiments()
+
+        # --- REGIME CONTEXT ---
+        if self._get_regime_ctx is not None:
+            try:
+                rctx = self._get_regime_ctx()
+                if rctx is not None:
+                    snapshot.regime_context = rctx.to_snapshot_dict()
+            except Exception:
+                pass
+        if self._get_applied_config is not None:
+            try:
+                from regime.context import serialize_applied_config
+                snapshot.applied_regime_config = serialize_applied_config(self._get_applied_config())
+            except Exception:
+                pass
 
         return snapshot
 

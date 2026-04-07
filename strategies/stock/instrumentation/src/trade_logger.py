@@ -69,6 +69,8 @@ class TradeEvent:
     entry_signal_strength: float = 0.0
     exit_reason: str = ""
     market_regime: str = ""
+    macro_regime: str = ""                    # G/R/S/D from RegimeService
+    stress_level_at_entry: float = 0.0        # 0-1 from RegimeService
 
     # Filters
     active_filters: List[str] = field(default_factory=list)
@@ -247,6 +249,8 @@ class TradeLogger:
         expected_entry_price: Optional[float] = None,
         entry_latency_ms: Optional[int] = None,
         market_regime: str = "",
+        macro_regime: str = "",
+        stress_level_at_entry: float = 0.0,
         bar_id: Optional[str] = None,
         portfolio_state: Optional[dict] = None,
         signal_factors: Optional[List[dict]] = None,
@@ -301,6 +305,8 @@ class TradeLogger:
                 entry_signal_id=entry_signal_id,
                 entry_signal_strength=entry_signal_strength,
                 market_regime=market_regime,
+                macro_regime=macro_regime,
+                stress_level_at_entry=stress_level_at_entry,
                 active_filters=active_filters,
                 passed_filters=passed_filters,
                 atr_at_entry=entry_snapshot.atr_14,

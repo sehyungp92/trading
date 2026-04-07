@@ -36,6 +36,8 @@ class InstrumentationContext:
     post_exit_tracker: object = None      # PostExitTracker
     bot_id: str = ""
     data_dir: str = "instrumentation/data"
+    get_regime_ctx: object = None       # Callable[[], RegimeContext | None]
+    get_applied_config: object = None   # Callable[[], PortfolioRulesConfig | None]
 
     _started: bool = field(default=False, repr=False)
     _backfill_stop: threading.Event = field(default_factory=threading.Event, repr=False)

@@ -551,6 +551,8 @@ class SwingFamilyCoordinator:
             })
             self._instrumentation_ctx = bootstrap_instrumentation(
                 symbols=all_symbols, data_provider=data_provider,
+                get_regime_ctx=lambda: self._regime_ctx,
+                get_applied_config=lambda: self._portfolio_checker._cfg if self._portfolio_checker else None,
             )
             logger.info("Instrumentation bootstrapped for %s", all_symbols)
 

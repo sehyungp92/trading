@@ -57,6 +57,8 @@ class TradeEvent:
     entry_signal_strength: float = 0.0      # 0.0-1.0
     exit_reason: str = ""                   # SIGNAL | STOP_LOSS | TAKE_PROFIT | TRAILING | TIMEOUT | MANUAL | STALL | CATASTROPHIC | BIAS_FLIP
     market_regime: str = ""
+    macro_regime: str = ""                    # G/R/S/D from RegimeService
+    stress_level_at_entry: float = 0.0        # 0-1 from RegimeService
 
     # Filters
     active_filters: List[str] = field(default_factory=list)

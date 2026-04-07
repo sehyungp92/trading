@@ -214,6 +214,8 @@ class MomentumFamilyCoordinator:
                 instr = InstrumentationManager(
                     oms, sid, strategy_type=desc["instr_type"],
                     family_strategy_ids=list(all_strategy_ids),
+                    get_regime_ctx=lambda: self._regime_ctx,
+                    get_applied_config=lambda: self._portfolio_checkers[0]._cfg if self._portfolio_checkers and self._portfolio_checkers[0] else None,
                 )
                 await instr.start()
             except Exception as exc:

@@ -68,10 +68,14 @@ class InstrumentationManager:
         data_provider=None,
         pg_store=None,
         family_strategy_ids: list[str] | None = None,
+        get_regime_ctx=None,
+        get_applied_config=None,
     ):
         self._oms = oms
         self._strategy_id = strategy_id
         self._config = _load_config(strategy_id, strategy_type)
+        self._get_regime_ctx = get_regime_ctx
+        self._get_applied_config = get_applied_config
 
         self.snapshot_service = MarketSnapshotService(self._config, data_provider)
         self.process_scorer = ProcessScorer()
@@ -85,7 +89,7 @@ class InstrumentationManager:
         self.missed_logger = MissedOpportunityLogger(self._config, self.snapshot_service)
         self.order_logger = OrderLogger(self._config, strategy_type=strategy_type)
         self.experiment_registry = ExperimentRegistry()
-        self.daily_builder = DailySnapshotBuilder(self._config, experiment_registry=self.experiment_registry)
+        self.daily_builder = DailySnapshotBuilder(self._config, experiment_registry=self.experiment_registry, get_regime_ctx=get_regime_ctx, get_applied_config=get_applied_config)
         self.regime_classifier = RegimeClassifier(data_provider=data_provider)
         self.sidecar = Sidecar(self._config)
 

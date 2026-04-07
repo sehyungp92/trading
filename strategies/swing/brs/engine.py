@@ -755,6 +755,22 @@ class BRSLiveEngine:
 
         # Cooldown check
         if now < self._cooldown_until[symbol]:
+            if self._instrumentation:
+                try:
+                    self._instrumentation.log_missed(
+                        pair=symbol, side="UNKNOWN", signal="cooldown_blocked",
+                        signal_id=f"BRS_{symbol}_cooldown_{bar_idx}",
+                        signal_strength=0.0, blocked_by="cooldown",
+                        block_reason=f"cooldown until {self._cooldown_until[symbol]}",
+                        strategy_params={"regime": d.regime.value},
+                        market_regime=d.regime.value,
+                        filter_decisions=[
+                            {"filter_name": "cooldown", "threshold": self._cooldown_until[symbol].isoformat(),
+                             "actual_value": now.isoformat(), "passed": False},
+                        ],
+                    )
+                except Exception:
+                    pass
             return
 
         # Check concurrent positions
@@ -824,6 +840,10 @@ class BRSLiveEngine:
                     strategy_params={"regime": d.regime.value, "vol_factor": d.vol.vol_factor},
                     market_regime=d.regime.value,
                     filter_decisions=[
+                        {"filter_name": "cooldown", "threshold": self._cooldown_until[symbol].isoformat(),
+                         "actual_value": now.isoformat(), "passed": True},
+                        {"filter_name": "regime_gate", "threshold": d.regime.value,
+                         "actual_value": d.regime.value, "passed": True},
                         {"filter_name": "heat_cap", "threshold": _hcap,
                          "actual_value": round(current_heat_r, 4), "passed": current_heat_r < _hcap},
                         {"filter_name": "max_concurrent", "threshold": float(cfg.max_concurrent),
@@ -882,6 +902,10 @@ class BRSLiveEngine:
                     block_reason="OMS denied entry intent",
                     market_regime=d.regime.value,
                     filter_decisions=[
+                        {"filter_name": "cooldown", "threshold": self._cooldown_until[symbol].isoformat(),
+                         "actual_value": now.isoformat(), "passed": True},
+                        {"filter_name": "regime_gate", "threshold": d.regime.value,
+                         "actual_value": d.regime.value, "passed": True},
                         {"filter_name": "heat_cap", "threshold": _hcap,
                          "actual_value": round(current_heat_r, 4), "passed": True},
                         {"filter_name": "max_concurrent", "threshold": float(cfg.max_concurrent),
@@ -985,9 +1009,13 @@ class BRSLiveEngine:
                     {"factor": "persistence_active", "value": float(d.persistence_active)},
                 ],
                 filter_decisions=[
-                    {"filter": "heat_cap", "threshold": _heat_cap,
+                    {"filter_name": "cooldown", "threshold": self._cooldown_until[symbol].isoformat(),
+                     "actual_value": now.isoformat(), "passed": True},
+                    {"filter_name": "regime_gate", "threshold": d.regime.value,
+                     "actual_value": d.regime.value, "passed": True},
+                    {"filter_name": "heat_cap", "threshold": _heat_cap,
                      "actual_value": current_heat_r, "passed": True},
-                    {"filter": "max_concurrent", "threshold": float(cfg.max_concurrent),
+                    {"filter_name": "max_concurrent", "threshold": float(cfg.max_concurrent),
                      "actual_value": float(concurrent), "passed": True},
                 ],
                 sizing_inputs={

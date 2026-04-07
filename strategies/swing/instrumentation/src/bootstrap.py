@@ -30,6 +30,8 @@ def bootstrap_instrumentation(
     strategy_id: str | None = None,
     initial_equity: float = 100_000,
     coordinator=None,
+    get_regime_ctx=None,
+    get_applied_config=None,
 ) -> "InstrumentationContext":
     """Create an InstrumentationContext with all services wired up.
 
@@ -85,7 +87,7 @@ def bootstrap_instrumentation(
 
     experiments_path = Path(config.get("data_dir", "instrumentation/data")).parent / "config" / "experiments.yaml"
     experiment_registry = ExperimentRegistry(config_path=experiments_path)
-    daily_builder = DailySnapshotBuilder(config, experiment_registry=experiment_registry)
+    daily_builder = DailySnapshotBuilder(config, experiment_registry=experiment_registry, get_regime_ctx=get_regime_ctx, get_applied_config=get_applied_config)
 
     post_exit_tracker = None
     if data_provider is not None:
@@ -117,6 +119,8 @@ def bootstrap_instrumentation(
         post_exit_tracker=post_exit_tracker,
         bot_id=config.get("bot_id", "swing_multi_01"),
         data_dir=config.get("data_dir", "instrumentation/data"),
+        get_regime_ctx=get_regime_ctx,
+        get_applied_config=get_applied_config,
     )
 
     logger.info(
@@ -211,6 +215,8 @@ def _bootstrap_kit_from_shared(
         experiment_registry=shared_ctx.experiment_registry,
         bot_id=strategy_id,
         data_dir=shared_ctx.data_dir,
+        get_regime_ctx=shared_ctx.get_regime_ctx,
+        get_applied_config=shared_ctx.get_applied_config,
     )
 
 

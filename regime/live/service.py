@@ -23,7 +23,7 @@ try:
 except Exception:
     _ET = timezone(timedelta(hours=-5))
 
-_DEFAULT_DATA_DIR = Path("research/backtests/regime/data/raw")
+_DEFAULT_DATA_DIR = Path("data/regime/raw")
 
 
 def _next_friday_1630(now_et: datetime, market_cal: Any | None) -> datetime:
@@ -189,6 +189,7 @@ class RegimeService:
 
         self._signals_df = signals_df
         now = datetime.now(timezone.utc)
+        _prev_ctx = self._context
         self._context = _row_to_context(signals_df.iloc[-1], computed_at=now.isoformat())
         self._last_compute = now
         logger.info(
@@ -205,6 +206,33 @@ class RegimeService:
             save_regime_context(self._context)
         except Exception:
             logger.warning("Regime: failed to persist context to disk", exc_info=True)
+
+        # 5. Detect regime transition
+        if _prev_ctx is not None and _prev_ctx.regime != self._context.regime:
+            self._emit_transition(_prev_ctx, self._context)
+
+    def _emit_transition(self, prev: RegimeContext, curr: RegimeContext) -> None:
+        """Write RegimeTransitionEvent to JSONL when macro regime changes."""
+        try:
+            import json
+            from dataclasses import asdict
+            from regime.events import RegimeTransitionEvent
+            event = RegimeTransitionEvent(
+                from_regime=prev.regime,
+                to_regime=curr.regime,
+                regime_confidence=curr.regime_confidence,
+                stress_level=curr.stress_level,
+                stress_onset=curr.stress_onset,
+                shift_velocity=curr.shift_velocity,
+                timestamp=curr.computed_at,
+            )
+            out_dir = Path("data/regime")
+            out_dir.mkdir(parents=True, exist_ok=True)
+            with open(out_dir / "transitions.jsonl", "a", encoding="utf-8") as f:
+                f.write(json.dumps(asdict(event), default=str) + "\n")
+            logger.info("Regime transition: %s -> %s", prev.regime, curr.regime)
+        except Exception:
+            logger.warning("Failed to emit RegimeTransitionEvent", exc_info=True)
 
     def __repr__(self) -> str:
         ctx = self._context

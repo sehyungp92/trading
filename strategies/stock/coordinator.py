@@ -197,6 +197,8 @@ class StockFamilyCoordinator:
                 from .instrumentation.src.bootstrap import InstrumentationManager
                 instr = InstrumentationManager(
                     oms, sid, strategy_type=desc["instr_type"],
+                    get_regime_ctx=lambda: self._regime_ctx,
+                    get_applied_config=lambda: self._portfolio_checkers[0]._cfg if self._portfolio_checkers and self._portfolio_checkers[0] else None,
                 )
                 await instr.start()
             except Exception as exc:

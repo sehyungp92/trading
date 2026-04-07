@@ -200,6 +200,18 @@ class InstrumentationKit:
                 except Exception:
                     pass
 
+            # Macro regime from RegimeService (global, distinct from technical market_regime)
+            _macro = ""
+            _stress = 0.0
+            if self.ctx.get_regime_ctx is not None:
+                try:
+                    _rctx = self.ctx.get_regime_ctx()
+                    if _rctx is not None:
+                        _macro = _rctx.regime
+                        _stress = _rctx.stress_level
+                except Exception:
+                    pass
+
             # Log the entry with all parameters including enriched ones
             trade_event = self.ctx.trade_logger.log_entry(
                 trade_id=trade_id,
@@ -219,6 +231,8 @@ class InstrumentationKit:
                 expected_entry_price=expected_entry_price,
                 entry_latency_ms=entry_latency_ms,
                 market_regime=regime,
+                macro_regime=_macro,
+                stress_level_at_entry=_stress,
                 bar_id=bar_id,
                 # Enriched fields passed as kwargs (Task 3 will add them to signature)
                 signal_factors=signal_factors or [],

@@ -135,6 +135,8 @@ class InstrumentationManager:
         data_provider=None,
         pg_store=None,
         family_strategy_ids: list[str] | None = None,
+        get_regime_ctx=None,
+        get_applied_config=None,
     ) -> None:
         self._oms = oms
         self._strategy_id = strategy_id
@@ -142,6 +144,8 @@ class InstrumentationManager:
         self._config = _load_config(strategy_id, self._strategy_type)
         self.bot_id = self._config["bot_id"]
         self._data_provider = None
+        self._get_regime_ctx = get_regime_ctx
+        self._get_applied_config = get_applied_config
 
         self.error_logger = ErrorLogger(self._config)
         self.snapshot_service = MarketSnapshotService(self._config, None)
@@ -165,6 +169,8 @@ class InstrumentationManager:
         self.daily_builder = DailySnapshotBuilder(
             self._config,
             experiment_registry=self.experiment_registry,
+            get_regime_ctx=get_regime_ctx,
+            get_applied_config=get_applied_config,
         )
         self.regime_classifier = RegimeClassifier(data_provider=None)
         self.sidecar = Sidecar(self._config)

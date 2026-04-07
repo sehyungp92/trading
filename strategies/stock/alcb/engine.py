@@ -584,12 +584,18 @@ class ALCBT2Engine:
         if item is None:
             return
 
+        # Gate collector for full filter_decisions breakdown
+        _gates: list[dict] = []
+
         # Entry window
         bar_time_et = bar.start_time.astimezone(ET).time()
-        if bar_time_et < settings.entry_window_start or bar_time_et > settings.entry_window_end:
+        _ew_passed = settings.entry_window_start <= bar_time_et <= settings.entry_window_end
+        _gates.append({"filter_name": "entry_window", "threshold": f"{settings.entry_window_start}-{settings.entry_window_end}", "actual_value": str(bar_time_et), "passed": _ew_passed})
+        if not _ew_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="entry_window", block_reason="outside_entry_window",
                 signal_strength=0.0, exchange_timestamp=bar.start_time,
+                filter_decisions=_gates,
             )
             return
 
@@ -620,10 +626,12 @@ class ALCBT2Engine:
         is_breakout, entry_type = is_momentum_breakout(
             bar, pdh, or_high, bar_rvol, cpr, settings,
         )
+        _gates.append({"filter_name": "breakout_detection", "threshold": "true", "actual_value": str(is_breakout), "passed": is_breakout})
         if not is_breakout:
             self._log_missed(
                 symbol=symbol, blocked_by="breakout_detection", block_reason="no_breakout",
                 signal_strength=0.0, exchange_timestamp=bar.start_time,
+                filter_decisions=_gates,
             )
             return
 
@@ -652,18 +660,24 @@ class ALCBT2Engine:
         # --- Gate checks (matching backtest exactly) ---
 
         # AVWAP filter
-        if avwap > 0 and bar.close < avwap:
+        _avwap_passed = not (avwap > 0 and bar.close < avwap)
+        _gates.append({"filter_name": "avwap_filter", "threshold": float(avwap), "actual_value": float(bar.close), "passed": _avwap_passed})
+        if not _avwap_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="avwap_filter", block_reason="below_avwap",
                 signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                filter_decisions=_gates,
             )
             return
 
         # RVOL cap
-        if settings.rvol_max < 999 and bar_rvol > settings.rvol_max:
+        _rvol_passed = not (settings.rvol_max < 999 and bar_rvol > settings.rvol_max)
+        _gates.append({"filter_name": "rvol_cap", "threshold": float(settings.rvol_max), "actual_value": float(bar_rvol), "passed": _rvol_passed})
+        if not _rvol_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="rvol_cap", block_reason="rvol_exceeded",
                 signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                filter_decisions=_gates,
             )
             return
 
@@ -671,147 +685,196 @@ class ALCBT2Engine:
         effective_score_min = settings.momentum_score_min
         if settings.late_entry_score_min > 0 and bar_time_et >= settings.late_entry_cutoff:
             effective_score_min = max(effective_score_min, settings.late_entry_score_min)
-        if m_score < effective_score_min:
+        _mscore_passed = m_score >= effective_score_min
+        _gates.append({"filter_name": "momentum_score_gate", "threshold": float(effective_score_min), "actual_value": float(m_score), "passed": _mscore_passed})
+        if not _mscore_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="momentum_score_gate", block_reason="below_minimum",
                 signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                filter_decisions=_gates,
             )
             return
 
         # Block COMBINED_BREAKOUT in Tier B
         regime_tier_check = self._artifact.regime.tier if self._artifact.regime else "A"
-        if (entry_type_str == "COMBINED_BREAKOUT"
-                and settings.block_combined_regime_b
-                and regime_tier_check == "B"):
-            self._log_missed(
-                symbol=symbol, blocked_by="block_combined_regime_b",
-                block_reason="combined_blocked_in_tier_b",
-                signal_strength=float(m_score), exchange_timestamp=bar.start_time,
-            )
-            return
+        if entry_type_str == "COMBINED_BREAKOUT":
+            _crb_passed = not (settings.block_combined_regime_b and regime_tier_check == "B")
+            _gates.append({"filter_name": "combined_regime_block", "threshold": "not_B", "actual_value": regime_tier_check, "passed": _crb_passed, "applicable": True})
+            if not _crb_passed:
+                self._log_missed(
+                    symbol=symbol, blocked_by="block_combined_regime_b",
+                    block_reason="combined_blocked_in_tier_b",
+                    signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    filter_decisions=_gates,
+                )
+                return
 
         # COMBINED_BREAKOUT quality gate
         if entry_type_str == "COMBINED_BREAKOUT":
-            if settings.combined_breakout_score_min > 0 and m_score < settings.combined_breakout_score_min:
+            _cs_passed = not (settings.combined_breakout_score_min > 0 and m_score < settings.combined_breakout_score_min)
+            _gates.append({"filter_name": "combined_score", "threshold": float(settings.combined_breakout_score_min), "actual_value": float(m_score), "passed": _cs_passed, "applicable": True})
+            if not _cs_passed:
                 self._log_missed(
                     symbol=symbol, blocked_by="combined_quality", block_reason="score_too_low",
                     signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    filter_decisions=_gates,
                 )
                 return
-            if settings.combined_breakout_min_rvol > 0 and bar_rvol < settings.combined_breakout_min_rvol:
+            _cr_passed = not (settings.combined_breakout_min_rvol > 0 and bar_rvol < settings.combined_breakout_min_rvol)
+            _gates.append({"filter_name": "combined_rvol", "threshold": float(settings.combined_breakout_min_rvol), "actual_value": float(bar_rvol), "passed": _cr_passed, "applicable": True})
+            if not _cr_passed:
                 self._log_missed(
                     symbol=symbol, blocked_by="combined_quality", block_reason="rvol_too_low",
                     signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    filter_decisions=_gates,
                 )
                 return
             # COMBINED-specific AVWAP distance cap
             if settings.combined_avwap_cap_pct > 0 and avwap > 0:
                 avwap_dist_pct = (bar.close - avwap) / avwap
-                if avwap_dist_pct > settings.combined_avwap_cap_pct:
+                _ca_passed = avwap_dist_pct <= settings.combined_avwap_cap_pct
+                _gates.append({"filter_name": "combined_avwap_cap", "threshold": float(settings.combined_avwap_cap_pct), "actual_value": float(avwap_dist_pct), "passed": _ca_passed, "applicable": True})
+                if not _ca_passed:
                     self._log_missed(
                         symbol=symbol, blocked_by="combined_quality",
                         block_reason="avwap_distance_exceeded",
                         signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                        filter_decisions=_gates,
                     )
                     return
             # COMBINED-specific breakout distance cap
             if settings.combined_breakout_cap_r > 0 and risk_per_share > 0:
                 breakout_dist_r = (bar.close - or_high) / risk_per_share
-                if breakout_dist_r > settings.combined_breakout_cap_r:
+                _cb_passed = breakout_dist_r <= settings.combined_breakout_cap_r
+                _gates.append({"filter_name": "combined_breakout_cap", "threshold": float(settings.combined_breakout_cap_r), "actual_value": float(breakout_dist_r), "passed": _cb_passed, "applicable": True})
+                if not _cb_passed:
                     self._log_missed(
                         symbol=symbol, blocked_by="combined_quality",
                         block_reason="breakout_distance_exceeded",
                         signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                        filter_decisions=_gates,
                     )
                     return
 
         # OR_BREAKOUT quality gate
         if entry_type_str == "OR_BREAKOUT":
-            if settings.or_breakout_score_min > 0 and m_score < settings.or_breakout_score_min:
+            _os_passed = not (settings.or_breakout_score_min > 0 and m_score < settings.or_breakout_score_min)
+            _gates.append({"filter_name": "or_score", "threshold": float(settings.or_breakout_score_min), "actual_value": float(m_score), "passed": _os_passed, "applicable": True})
+            if not _os_passed:
                 self._log_missed(
                     symbol=symbol, blocked_by="or_quality", block_reason="score_too_low",
                     signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    filter_decisions=_gates,
                 )
                 return
-            if settings.or_breakout_min_rvol > 0 and bar_rvol < settings.or_breakout_min_rvol:
+            _or_passed = not (settings.or_breakout_min_rvol > 0 and bar_rvol < settings.or_breakout_min_rvol)
+            _gates.append({"filter_name": "or_rvol", "threshold": float(settings.or_breakout_min_rvol), "actual_value": float(bar_rvol), "passed": _or_passed, "applicable": True})
+            if not _or_passed:
                 self._log_missed(
                     symbol=symbol, blocked_by="or_quality", block_reason="rvol_too_low",
                     signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    filter_decisions=_gates,
                 )
                 return
 
         # AVWAP distance cap
         if settings.avwap_distance_cap_pct > 0 and avwap > 0:
             avwap_dist_pct = (bar.close - avwap) / avwap
-            if avwap_dist_pct > settings.avwap_distance_cap_pct:
+            _ad_passed = avwap_dist_pct <= settings.avwap_distance_cap_pct
+            _gates.append({"filter_name": "avwap_distance_cap", "threshold": float(settings.avwap_distance_cap_pct), "actual_value": float(avwap_dist_pct), "passed": _ad_passed})
+            if not _ad_passed:
                 self._log_missed(
                     symbol=symbol, blocked_by="avwap_distance", block_reason="exceeded_cap",
                     signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    filter_decisions=_gates,
                 )
                 return
 
         # OR width minimum
         if settings.or_width_min_pct > 0 and or_high > 0:
             or_width_pct = (or_high - or_low) / or_high
-            if or_width_pct < settings.or_width_min_pct:
+            _ow_passed = or_width_pct >= settings.or_width_min_pct
+            _gates.append({"filter_name": "or_width_min", "threshold": float(settings.or_width_min_pct), "actual_value": float(or_width_pct), "passed": _ow_passed})
+            if not _ow_passed:
                 self._log_missed(
                     symbol=symbol, blocked_by="or_width", block_reason="too_narrow",
                     signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    filter_decisions=_gates,
                 )
                 return
 
         # Breakout distance cap
         if settings.breakout_distance_cap_r > 0 and risk_per_share > 0:
             breakout_dist_r = (bar.close - or_high) / risk_per_share
-            if breakout_dist_r > settings.breakout_distance_cap_r:
+            _bd_passed = breakout_dist_r <= settings.breakout_distance_cap_r
+            _gates.append({"filter_name": "breakout_distance_cap", "threshold": float(settings.breakout_distance_cap_r), "actual_value": float(breakout_dist_r), "passed": _bd_passed})
+            if not _bd_passed:
                 self._log_missed(
                     symbol=symbol, blocked_by="breakout_distance", block_reason="exceeded_cap",
                     signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    filter_decisions=_gates,
                 )
                 return
 
         # Portfolio limits
         n_open = len(self._positions) + len(self._pending_entries)
-        if n_open >= settings.max_positions:
+        _mp_passed = n_open < settings.max_positions
+        _gates.append({"filter_name": "max_positions", "threshold": float(settings.max_positions), "actual_value": float(n_open), "passed": _mp_passed})
+        if not _mp_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="portfolio_constraint", block_reason="max_positions",
                 signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                filter_decisions=_gates,
             )
             return
 
         # Sector limit
         sector_count = sum(1 for p in self._positions.values() if p.sector == item.sector)
-        if sector_count >= settings.max_positions_per_sector:
+        _sl_passed = sector_count < settings.max_positions_per_sector
+        _gates.append({"filter_name": "sector_limit", "threshold": float(settings.max_positions_per_sector), "actual_value": float(sector_count), "passed": _sl_passed})
+        if not _sl_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="portfolio_constraint", block_reason="sector_limit",
                 signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                filter_decisions=_gates,
             )
             return
 
         # Heat cap
         open_risk = sum(p.risk_per_share * p.quantity for p in self._positions.values())
-        if open_risk >= settings.heat_cap_r * (self._equity * settings.base_risk_fraction):
+        _risk_budget = max(self._equity * settings.base_risk_fraction, 1e-9)
+        _hc_passed = open_risk < settings.heat_cap_r * _risk_budget
+        _open_risk_ratio = float(open_risk / _risk_budget)
+        _gates.append({"filter_name": "heat_cap", "threshold": float(settings.heat_cap_r), "actual_value": _open_risk_ratio, "passed": _hc_passed})
+        if not _hc_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="portfolio_constraint", block_reason="heat_cap_exceeded",
                 signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                filter_decisions=_gates,
             )
             return
 
         # Regime gate
         regime_tier = self._artifact.regime.tier if self._artifact.regime else "A"
         reg_mult = momentum_regime_mult(regime_tier, settings)
-        if reg_mult <= 0:
+        _rg_passed = reg_mult > 0
+        _gates.append({"filter_name": "regime_gate", "threshold": 0.0, "actual_value": float(reg_mult), "passed": _rg_passed})
+        if not _rg_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="regime_gate", block_reason="regime_blocked",
                 signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                filter_decisions=_gates,
             )
             return
 
         # --- Sizing (matches backtest _try_entry exactly) ---
-        if risk_per_share <= 0:
+        _rps_passed = risk_per_share > 0
+        _gates.append({"filter_name": "risk_per_share", "threshold": 0.0, "actual_value": float(risk_per_share), "passed": _rps_passed})
+        if not _rps_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="sizing", block_reason="zero_risk_per_share",
                 signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                filter_decisions=_gates,
             )
             return
 
@@ -821,10 +884,13 @@ class ALCBT2Engine:
         dow_mult = settings.thursday_sizing_mult if weekday == 3 else settings.tuesday_sizing_mult if weekday == 1 else 1.0
         risk_budget = self._equity * settings.base_risk_fraction * reg_mult * size_mult * sec_mult * dow_mult
         qty = int(risk_budget / risk_per_share)
-        if qty <= 0:
+        _qty_passed = qty > 0
+        _gates.append({"filter_name": "qty_sizing", "threshold": 1.0, "actual_value": float(qty), "passed": _qty_passed})
+        if not _qty_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="sizing", block_reason="qty_zero",
                 signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                filter_decisions=_gates,
             )
             return
 
@@ -834,16 +900,21 @@ class ALCBT2Engine:
             available_bp = self._equity * settings.intraday_leverage - total_notional
             max_qty_bp = int(available_bp / entry_price)
             qty = min(qty, max_qty_bp)
-            if qty <= 0:
+            _bp_passed = qty > 0
+            _gates.append({"filter_name": "buying_power", "threshold": float(available_bp), "actual_value": float(entry_price * qty if qty > 0 else entry_price), "passed": _bp_passed})
+            if not _bp_passed:
                 self._log_missed(
                     symbol=symbol, blocked_by="sizing", block_reason="buying_power",
                     signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    filter_decisions=_gates,
                 )
                 return
 
         # Participation limit
         if item.average_30m_volume > 0:
             max_qty = int(item.average_30m_volume * settings.max_participation_30m)
+            _pl_clamped = qty > max_qty
+            _gates.append({"filter_name": "participation_limit", "threshold": float(max_qty), "actual_value": float(qty), "passed": True, "clamped": _pl_clamped})
             qty = min(qty, max(1, max_qty))
 
         # --- Build plan and submit ---
@@ -884,15 +955,8 @@ class ALCBT2Engine:
             "signal_ts": bar.start_time,
             "signal_factors": self._entry_signal_factors(m_score, bar_rvol, avwap, adx_val, bar.close),
             "signal_evolution": list(self._signal_evolution.get(symbol, [])),
-            "filter_decisions": [
-                {"filter_name": "avwap_filter", "threshold": float(avwap), "actual_value": float(bar.close), "passed": True},
-                {"filter_name": "rvol_cap", "threshold": float(settings.rvol_max), "actual_value": float(bar_rvol), "passed": True},
-                {"filter_name": "momentum_score_gate", "threshold": float(effective_score_min), "actual_value": float(m_score), "passed": True},
-                {"filter_name": "max_positions", "threshold": float(settings.max_positions), "actual_value": float(n_open), "passed": True},
-                {"filter_name": "sector_limit", "threshold": float(settings.max_positions_per_sector), "actual_value": float(sector_count), "passed": True},
-                {"filter_name": "heat_cap", "threshold": float(settings.heat_cap_r), "actual_value": float(open_risk / max(self._equity * settings.base_risk_fraction, 1e-9)), "passed": True},
-                {"filter_name": "regime_gate", "threshold": 0.0, "actual_value": float(reg_mult), "passed": True},
-            ],
+            "filter_decisions": _gates,
+            "gate_decisions": {g["filter_name"]: g["passed"] for g in _gates},
         }
         # Register synchronously BEFORE creating async task to prevent
         # concurrent entries from bypassing max_positions check (H1 fix).

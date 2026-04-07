@@ -11,7 +11,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-# Reuse constants from research downloader
+# FRED series and ETF symbols for live data overlay
 _FRED_SERIES = {
     "VIX": "VIXCLS",
     "SPREAD": "BAMLH0A0HYM2",
@@ -108,16 +108,20 @@ class LiveDataProvider:
     # ------------------------------------------------------------------
 
     def _load_cached(self) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-        """Load cached parquets. Raises FileNotFoundError with instructions if missing."""
-        from research.backtests.regime.data.downloader import load_cached_data
-
-        try:
-            return load_cached_data(self._data_dir)
-        except FileNotFoundError:
-            raise FileNotFoundError(
-                f"Regime cached parquets not found in {self._data_dir}. "
-                "Run `python -m research.backtests.regime.cli download` first to populate baseline data."
-            )
+        """Load cached parquets from data_dir. Raises FileNotFoundError if missing."""
+        names = ("macro_df.parquet", "market_df.parquet", "strat_ret_df.parquet")
+        for name in names:
+            if not (self._data_dir / name).exists():
+                raise FileNotFoundError(
+                    f"Regime cached parquet '{name}' not found in {self._data_dir}. "
+                    "Seed data via Dockerfile COPY or run "
+                    "`FRED_API_KEY=<key> python -m backtests.regime.cli download --data-dir data/regime/raw`."
+                )
+        return (
+            pd.read_parquet(self._data_dir / "macro_df.parquet"),
+            pd.read_parquet(self._data_dir / "market_df.parquet"),
+            pd.read_parquet(self._data_dir / "strat_ret_df.parquet"),
+        )
 
     async def _fetch_ibkr_bars(self) -> pd.DataFrame | None:
         """Fetch 1Y daily bars for all qualified ETF contracts."""
