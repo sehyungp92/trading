@@ -7,7 +7,7 @@ from pandas.testing import assert_frame_equal
 from regime.config import MetaConfig
 from regime.scanner import ShiftSignal
 import regime.engine as regime_engine
-import research.backtests.regime.engine.cached_engine as cached_engine
+import backtests.regime.engine.cached_engine as cached_engine
 
 
 class DummyHMM:

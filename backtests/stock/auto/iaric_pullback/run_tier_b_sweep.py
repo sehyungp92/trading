@@ -11,7 +11,7 @@ Levers:
   5. pb_delayed_confirm_enabled: False (default True)
 
 Usage::
-    python -m research.backtests.stock.auto.iaric_pullback.run_tier_b_sweep
+    python -m backtests.stock.auto.iaric_pullback.run_tier_b_sweep
 """
 from __future__ import annotations
 
@@ -24,20 +24,20 @@ from pathlib import Path
 if sys.stdout.encoding != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True)
 
-from research.backtests.stock._aliases import install
+from backtests.stock._aliases import install
 
 install()
 
-from research.backtests.stock.analysis.iaric_pullback_diagnostics import pullback_full_diagnostic
-from research.backtests.stock.auto.config_mutator import mutate_iaric_config
-from research.backtests.stock.config_iaric import IARICBacktestConfig
-from research.backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
-from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+from backtests.stock.analysis.iaric_pullback_diagnostics import pullback_full_diagnostic
+from backtests.stock.auto.config_mutator import mutate_iaric_config
+from backtests.stock.config_iaric import IARICBacktestConfig
+from backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
+from backtests.stock.engine.research_replay import ResearchReplayEngine
 
 # ── Constants ──────────────────────────────────────────────────────────────────
-PHASE_STATE_PATH = Path("research/backtests/stock/auto/iaric_pullback/output_multiphase/phase_state.json")
-DATA_DIR = Path("research/backtests/stock/data/raw")
-OUTPUT_DIR = Path("research/backtests/stock/auto/iaric_pullback/output_tier_b_sweep")
+PHASE_STATE_PATH = Path("backtests/stock/auto/iaric_pullback/output_multiphase/phase_state.json")
+DATA_DIR = Path("backtests/stock/data/raw")
+OUTPUT_DIR = Path("backtests/stock/auto/iaric_pullback/output_tier_b_sweep")
 START_DATE = "2024-01-01"
 END_DATE = "2026-03-01"
 INITIAL_EQUITY = 10_000.0

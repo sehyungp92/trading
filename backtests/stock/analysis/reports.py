@@ -5,8 +5,8 @@ from datetime import date
 
 import numpy as np
 
-from research.backtests.stock.analysis.metrics import PerformanceMetrics, compute_metrics
-from research.backtests.stock.models import TradeRecord
+from backtests.stock.analysis.metrics import PerformanceMetrics, compute_metrics
+from backtests.stock.models import TradeRecord
 
 
 def format_summary(metrics: PerformanceMetrics, title: str = "Performance Summary") -> str:

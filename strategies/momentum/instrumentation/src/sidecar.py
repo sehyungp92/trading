@@ -176,6 +176,7 @@ class Sidecar:
         return events
 
     def _wrap_event(self, raw_event: dict, event_type: str) -> dict:
+        forwarded_event_type = self._forward_event_type(raw_event, event_type)
         metadata = raw_event.get("event_metadata", {})
         event_id = metadata.get("event_id", "")
 
@@ -189,17 +190,26 @@ class Sidecar:
 
         if not event_id:
             key = raw_event.get("trade_id", raw_event.get("date", raw_event.get("snapshot_id", "")))
-            raw_str = f"{self.bot_id}|{exchange_ts}|{event_type}|{key}"
+            raw_str = f"{self.bot_id}|{exchange_ts}|{forwarded_event_type}|{key}"
             event_id = hashlib.sha256(raw_str.encode()).hexdigest()[:16]
 
         return {
             "event_id": event_id,
             "bot_id": self.bot_id,
-            "event_type": event_type,
-            "priority": _EVENT_PRIORITY.get(event_type, 99),
+            "event_type": forwarded_event_type,
+            "priority": _EVENT_PRIORITY.get(forwarded_event_type, _EVENT_PRIORITY.get(event_type, 99)),
             "payload": json.dumps(raw_event, default=str),
             "exchange_timestamp": exchange_ts,
         }
+
+    @staticmethod
+    def _forward_event_type(raw_event: dict, event_type: str) -> str:
+        """Keep the assistant's canonical trade feed limited to completed trades."""
+        if event_type == "trade":
+            stage = str(raw_event.get("stage", "")).strip().lower()
+            if stage and stage != "exit":
+                return f"trade_{stage}"
+        return event_type
 
     def _sign_payload(self, canonical_json: str) -> str:
         """HMAC-SHA256 signature of the canonicalized JSON payload.

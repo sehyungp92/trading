@@ -2,9 +2,9 @@
 import sys, os, time
 sys.path.insert(0, r"C:\Users\sehyu\Documents\Other\Projects\trading")
 
-from research.backtests.stock.engine.iaric_pullback_engine import IARICPullbackDailyEngine
-from research.backtests.stock.engine.iaric_pullback_intraday_hybrid_engine import IARICPullbackIntradayHybridEngine
-from research.backtests.stock.engine.research_replay import ResearchReplay
+from backtests.stock.engine.iaric_pullback_engine import IARICPullbackDailyEngine
+from backtests.stock.engine.iaric_pullback_intraday_hybrid_engine import IARICPullbackIntradayHybridEngine
+from backtests.stock.engine.research_replay import ResearchReplay
 from strategies.stock.iaric.config import StrategySettings
 
 V2_COMMON = dict(

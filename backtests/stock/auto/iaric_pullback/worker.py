@@ -7,8 +7,8 @@ from pathlib import Path
 
 import numpy as np
 
-from research.backtests.stock.auto.scoring import extract_metrics
-from research.backtests.shared.auto.types import ScoredCandidate
+from backtests.stock.auto.scoring import extract_metrics
+from backtests.shared.auto.types import ScoredCandidate
 
 from .phase_scoring import merge_pullback_metrics, score_pullback_phase, score_v2r1_pullback_phase, score_v2r2_pullback_phase, score_v2r3_pullback_phase, score_v2r4_pullback_phase, score_v3r1_pullback_phase, score_v4r1_pullback_phase
 
@@ -37,12 +37,12 @@ def init_worker(
     if sys.stdout.encoding != "utf-8":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-    from research.backtests.stock._aliases import install
+    from backtests.stock._aliases import install
 
     install()
 
-    from research.backtests.stock.config_iaric import IARICBacktestConfig
-    from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+    from backtests.stock.config_iaric import IARICBacktestConfig
+    from backtests.stock.engine.research_replay import ResearchReplayEngine
 
     data_dir = Path(data_dir_str)
     replay = ResearchReplayEngine(data_dir=data_dir)
@@ -67,8 +67,8 @@ def score_candidate(args: tuple[str, dict, dict]) -> ScoredCandidate:
     name, candidate_muts, base_muts = args
 
     try:
-        from research.backtests.stock.auto.config_mutator import mutate_iaric_config
-        from research.backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
+        from backtests.stock.auto.config_mutator import mutate_iaric_config
+        from backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
 
         all_muts = dict(base_muts)
         all_muts.update(candidate_muts)

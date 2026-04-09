@@ -26,9 +26,11 @@ from .config_watcher import ConfigWatcher
 
 logger = logging.getLogger("instrumentation.bootstrap")
 
+_BOT_ID = "momentum_trader"
+
 
 def _load_config(strategy_id: str, strategy_type: str) -> dict:
-    """Load instrumentation_config.yaml and override bot_id with strategy_id."""
+    """Load instrumentation_config.yaml with family bot_id and per-strategy strategy_id."""
     config_path = Path("instrumentation/config/instrumentation_config.yaml")
     if config_path.exists():
         with open(config_path) as f:
@@ -36,7 +38,8 @@ def _load_config(strategy_id: str, strategy_type: str) -> dict:
     else:
         config = {}
 
-    config["bot_id"] = strategy_id
+    config["bot_id"] = _BOT_ID
+    config["strategy_id"] = strategy_id
     config["strategy_type"] = strategy_type
     config.setdefault("data_dir", "instrumentation/data")
     config.setdefault("data_source_id", "ibkr_cme_nq")

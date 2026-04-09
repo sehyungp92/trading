@@ -37,7 +37,7 @@ BASE_RISK_PCT = 0.024          # R7c: 2.4% per trade
 DAILY_STOP_R = 2.5             # halt after -2.5R daily realized
 HEAT_CAP_R = 3.5               # max simultaneous heat
 PORTFOLIO_DAILY_STOP_R = 1.5   # portfolio-level daily stop
-MAX_LEVERAGE_MULT = 12.0       # per-strategy leverage ceiling (family default was 20x)
+MAX_LEVERAGE_MULT = 20.0       # R7c research-validated leverage ceiling for MNQ
 
 # ---------------------------------------------------------------------------
 # R7c ablation flags (16 changes from defaults)

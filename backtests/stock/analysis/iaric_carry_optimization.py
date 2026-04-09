@@ -9,7 +9,7 @@ from collections import defaultdict
 
 import numpy as np
 
-from research.backtests.stock.models import TradeRecord
+from backtests.stock.models import TradeRecord
 
 
 def _hdr(title: str) -> str:

@@ -14,8 +14,11 @@ that receives its dependencies via RuntimeContext.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
+from contextlib import suppress
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -99,6 +102,7 @@ class SwingFamilyCoordinator:
         self._portfolio_checker: Any = None
         self._base_portfolio_rules: Any = None
         self._regime_ctx: Any = None
+        self._heartbeat_task: asyncio.Task | None = None
 
     # ------------------------------------------------------------------
     # Start
@@ -152,8 +156,38 @@ class SwingFamilyCoordinator:
 
         ctx = self._ctx
         session = ctx.session
-        adapter = getattr(ctx, "adapter", None) or getattr(ctx, "execution_adapter", None)
         db_pool = getattr(ctx, "db_pool", None)
+
+        # -- Config dir (needed for adapter + capital bootstrap) -----------
+        config_dir = Path(
+            os.environ.get(
+                "CONFIG_DIR",
+                str(Path(__file__).resolve().parent.parent.parent / "config"),
+            )
+        )
+
+        # -- Build execution adapter (same pattern as momentum/stock) ------
+        adapter = None
+        contract_factory = None
+        if session is not None:
+            from libs.broker_ibkr.config.loader import IBKRConfig
+            from libs.broker_ibkr.mapping.contract_factory import ContractFactory
+            from libs.broker_ibkr.adapters.execution_adapter import IBKRExecutionAdapter
+
+            ibkr_config = IBKRConfig(config_dir)
+            contract_factory = ContractFactory(
+                ib=session.ib,
+                templates=ibkr_config.contracts,
+                routes=ibkr_config.routes,
+            )
+            adapter = IBKRExecutionAdapter(
+                session=session,
+                contract_factory=contract_factory,
+                account=ibkr_config.profile.account_id,
+            )
+            logger.info("Swing execution adapter created (account=%s)", ibkr_config.profile.account_id)
+        else:
+            logger.warning("No IB session -- swing adapter is None (shadow/test mode)")
 
         # -- Market calendar -----------------------------------------------
         from libs.config.market_calendar import MarketCalendar
@@ -166,12 +200,6 @@ class SwingFamilyCoordinator:
         paper_equity_offset: float = getattr(ctx, "paper_equity_offset", 0.0)
 
         # -- Capital allocation per strategy -------------------------------
-        config_dir = Path(
-            os.environ.get(
-                "CONFIG_DIR",
-                str(Path(__file__).resolve().parent.parent.parent / "config"),
-            )
-        )
         allocs: dict[str, Any] | None = None
         try:
             allocs = bootstrap_capital(equity, config_dir)
@@ -216,6 +244,7 @@ class SwingFamilyCoordinator:
             nqdtc_direction_filter_enabled=False,
         )
 
+        self._live_equity = [equity]
         self._oms, self._coordinator = await build_multi_strategy_oms(
             adapter=adapter,
             strategies=[
@@ -236,7 +265,8 @@ class SwingFamilyCoordinator:
             family_id=self.family_id,
             account_gate=account_gate,
             portfolio_rules_config=portfolio_rules,
-            get_current_equity=lambda: equity,
+            get_current_equity=lambda: self._live_equity[0],
+            live_equity=self._live_equity,
         )
         self._portfolio_checker = getattr(self._oms, '_portfolio_checker', None)
         self._base_portfolio_rules = portfolio_rules
@@ -269,7 +299,7 @@ class SwingFamilyCoordinator:
             if _ib is not None:
                 _data_provider = IBKRHistoricalProvider(
                     ib=_ib,
-                    contract_factory=getattr(adapter, "contract_factory", None),
+                    contract_factory=contract_factory,
                     loop=_loop,
                 )
                 logger.info("IBKRHistoricalProvider created for post-exit backfill")
@@ -429,8 +459,11 @@ class SwingFamilyCoordinator:
             await self._overlay_engine.start()
             logger.info("Overlay engine started")
 
+        # -- Heartbeat background task --------------------------------------
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+
         logger.info(
-            "Swing family coordinator active — %d engines + overlay",
+            "Swing family coordinator active -- %d engines + overlay",
             len(self._engines),
         )
 
@@ -440,6 +473,13 @@ class SwingFamilyCoordinator:
 
     async def stop(self) -> None:
         """Graceful shutdown: overlay -> engines (reverse priority) -> OMS."""
+        # 0. Stop heartbeat loop
+        if self._heartbeat_task is not None:
+            self._heartbeat_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._heartbeat_task
+            self._heartbeat_task = None
+
         # 1. Stop overlay engine first (independent of OMS)
         if self._overlay_engine is not None:
             try:
@@ -529,6 +569,37 @@ class SwingFamilyCoordinator:
                     OVERLAY_WEIGHTS[regime])
 
     # ------------------------------------------------------------------
+    # Heartbeat
+    # ------------------------------------------------------------------
+
+    async def _heartbeat_loop(self) -> None:
+        heartbeat = getattr(self._ctx, "heartbeat", None)
+        if heartbeat is None:
+            return
+        session = self._ctx.session
+        while True:
+            try:
+                await asyncio.sleep(15)
+            except asyncio.CancelledError:
+                return
+            rs = getattr(self._oms, "_portfolio_risk_state", None)
+            for sid, _engine in self._engines:
+                try:
+                    await heartbeat.strategy_heartbeat(
+                        strategy_id=sid,
+                        heat_r=Decimal(str(rs.open_risk_R)) if rs else Decimal("0"),
+                        daily_pnl_r=Decimal(str(rs.daily_realized_R)) if rs else Decimal("0"),
+                        mode="HALTED" if (rs and rs.halted) else "RUNNING",
+                    )
+                except Exception:
+                    logger.debug("Heartbeat failed for %s", sid, exc_info=True)
+            try:
+                connected = session.ib.isConnected() if session else False
+                await heartbeat.adapter_heartbeat(self.family_id, connected=connected)
+            except Exception:
+                logger.debug("Adapter heartbeat failed", exc_info=True)
+
+    # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
@@ -576,8 +647,20 @@ class SwingFamilyCoordinator:
 
         return kits
 
-    @staticmethod
+    def _get_swing_deployed_capital(self) -> float:
+        """Return approximate notional capital deployed by swing strategies."""
+        if not hasattr(self, "_oms") or self._oms is None:
+            return 0.0
+        try:
+            risk_state = getattr(self._oms, "_portfolio_risk_state", None)
+            if risk_state is not None:
+                return risk_state.open_risk_dollars
+        except Exception:
+            pass
+        return 0.0
+
     def _create_overlay_engine(
+        self,
         session: Any,
         equity: float,
         market_cal: Any,
@@ -599,6 +682,7 @@ class SwingFamilyCoordinator:
                 config=overlay_config,
                 market_calendar=market_cal,
                 equity_offset=paper_equity_offset,
+                get_deployed_capital=self._get_swing_deployed_capital,
             )
             return engine
 

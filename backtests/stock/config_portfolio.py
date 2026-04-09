@@ -8,16 +8,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from research.backtests.stock.config import SlippageConfig
-from research.backtests.stock.config_alcb import ALCBBacktestConfig
-from research.backtests.stock.config_iaric import IARICBacktestConfig
+from backtests.stock.config import SlippageConfig
+from backtests.stock.config_alcb import ALCBBacktestConfig
+from backtests.stock.config_iaric import IARICBacktestConfig
 
 
 @dataclass
 class PortfolioBacktestConfig:
     """Portfolio-level backtest configuration for stock family."""
 
-    data_dir: Path = field(default_factory=lambda: Path("research/backtests/stock/data/raw"))
+    data_dir: Path = field(default_factory=lambda: Path("backtests/stock/data/raw"))
 
     # Which strategies to include
     run_alcb: bool = True

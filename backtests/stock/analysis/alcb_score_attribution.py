@@ -5,7 +5,7 @@ each component's predictive power for trade outcome (R-multiple).
 Answers: why is score 5 the best bucket, not 7?
 
 Usage:
-    from research.backtests.stock.analysis.alcb_score_attribution import (
+    from backtests.stock.analysis.alcb_score_attribution import (
         score_component_attribution,
     )
     report = score_component_attribution(trades)
@@ -17,7 +17,7 @@ from collections import defaultdict
 
 import numpy as np
 
-from research.backtests.stock.models import TradeRecord
+from backtests.stock.models import TradeRecord
 
 
 def _meta(t: TradeRecord, key: str, default=None):

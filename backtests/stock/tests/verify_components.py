@@ -9,7 +9,7 @@ Plan verification steps covered:
 - Metrics computation (Sharpe, drawdown, profit factor)
 - Report generation (format_summary, breakdowns)
 
-Run: python -m research.backtests.stock.tests.verify_components
+Run: python -m backtests.stock.tests.verify_components
 """
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ def section(name: str):
 # ── 1. Models ────────────────────────────────────────────────────────
 def test_models():
     section("1. Models — TradeRecord + Direction")
-    from research.backtests.stock.models import Direction, TradeRecord
+    from backtests.stock.models import Direction, TradeRecord
 
     t = TradeRecord(
         strategy="ALCB",
@@ -95,10 +95,10 @@ def test_models():
 # ── 2. Configs ───────────────────────────────────────────────────────
 def test_configs():
     section("2. Configs — ALCB, IARIC, Portfolio")
-    from research.backtests.stock.config import SlippageConfig, UniverseConfig
-    from research.backtests.stock.config_alcb import ALCBBacktestConfig
-    from research.backtests.stock.config_iaric import IARICBacktestConfig
-    from research.backtests.stock.config_portfolio import PortfolioBacktestConfig
+    from backtests.stock.config import SlippageConfig, UniverseConfig
+    from backtests.stock.config_alcb import ALCBBacktestConfig
+    from backtests.stock.config_iaric import IARICBacktestConfig
+    from backtests.stock.config_portfolio import PortfolioBacktestConfig
 
     slip = SlippageConfig()
     check("SlippageConfig defaults", slip.commission_per_share == 0.005)
@@ -126,8 +126,8 @@ def test_configs():
 # ── 3. SimBroker ─────────────────────────────────────────────────────
 def test_sim_broker():
     section("3. SimBroker — Order execution + slippage")
-    from research.backtests.stock.config import SlippageConfig
-    from research.backtests.stock.engine.sim_broker import (
+    from backtests.stock.config import SlippageConfig
+    from backtests.stock.engine.sim_broker import (
         FillResult,
         OrderSide,
         OrderType,
@@ -183,9 +183,9 @@ def test_sim_broker():
 # ── 4. Portfolio Engine ──────────────────────────────────────────────
 def test_portfolio_engine():
     section("4. Portfolio Engine — Merge + family rules")
-    from research.backtests.stock.config_portfolio import PortfolioBacktestConfig
-    from research.backtests.stock.engine.portfolio_engine import StockPortfolioEngine
-    from research.backtests.stock.models import Direction, TradeRecord
+    from backtests.stock.config_portfolio import PortfolioBacktestConfig
+    from backtests.stock.engine.portfolio_engine import StockPortfolioEngine
+    from backtests.stock.models import Direction, TradeRecord
 
     cfg = PortfolioBacktestConfig(
         initial_equity=10_000.0,
@@ -309,7 +309,7 @@ def test_portfolio_engine():
 # ── 5. Metrics ───────────────────────────────────────────────────────
 def test_metrics():
     section("5. Metrics — PerformanceMetrics computation")
-    from research.backtests.stock.analysis.metrics import PerformanceMetrics, compute_metrics
+    from backtests.stock.analysis.metrics import PerformanceMetrics, compute_metrics
 
     # 10 trades: 6 winners, 4 losers
     pnls = np.array([200, 300, -150, 100, -200, 250, -100, 400, 150, -180], dtype=float)
@@ -363,7 +363,7 @@ def test_metrics():
 # ── 6. Reports ───────────────────────────────────────────────────────
 def test_reports():
     section("6. Reports — format_summary + breakdowns")
-    from research.backtests.stock.analysis.reports import (
+    from backtests.stock.analysis.reports import (
         compute_and_format,
         entry_type_breakdown,
         exit_reason_breakdown,
@@ -372,7 +372,7 @@ def test_reports():
         regime_breakdown,
         sector_breakdown,
     )
-    from research.backtests.stock.models import Direction, TradeRecord
+    from backtests.stock.models import Direction, TradeRecord
 
     trades = []
     base = datetime(2024, 3, 1, 10, 0)
@@ -438,7 +438,7 @@ def test_reports():
 # ── 7. Research Replay Instantiation ─────────────────────────────────
 def test_research_replay_init():
     section("7. Research Replay — Instantiation (no data)")
-    from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+    from backtests.stock.engine.research_replay import ResearchReplayEngine
 
     engine = ResearchReplayEngine.__new__(ResearchReplayEngine)
     check("ResearchReplayEngine class exists", engine is not None)
@@ -450,9 +450,9 @@ def test_research_replay_init():
 # ── 8. Engine Instantiation ──────────────────────────────────────────
 def test_engine_instantiation():
     section("8. Engine Instantiation — ALCB engines")
-    from research.backtests.stock.config_alcb import ALCBBacktestConfig
-    from research.backtests.stock.config_iaric import IARICBacktestConfig
-    from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+    from backtests.stock.config_alcb import ALCBBacktestConfig
+    from backtests.stock.config_iaric import IARICBacktestConfig
+    from backtests.stock.engine.research_replay import ResearchReplayEngine
 
     cfg_alcb = ALCBBacktestConfig(start_date="2024-01-01", end_date="2024-06-01")
     cfg_iaric = IARICBacktestConfig(start_date="2024-01-01", end_date="2024-06-01")
@@ -461,7 +461,7 @@ def test_engine_instantiation():
     replay = ResearchReplayEngine()
 
     # ALCB Intraday
-    from research.backtests.stock.engine.alcb_engine import ALCBIntradayEngine
+    from backtests.stock.engine.alcb_engine import ALCBIntradayEngine
     e3 = ALCBIntradayEngine(cfg_alcb, replay)
     check("ALCBIntradayEngine instantiates", e3 is not None)
     check("ALCBIntradayEngine has run()", hasattr(e3, "run"))

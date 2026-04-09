@@ -5,7 +5,7 @@ bot_name: "Multi-Strategy Swing Trader"
 strategy_type: "multi_strategy"     # ATRSS, Helix, Breakout, Keltner
 data_source_id: "ibkr_execution"
 
-data_dir: "instrumentation/data"
+data_dir: "instrumentation/data/swing"
 rotation:
   max_file_age_days: 30
   max_disk_mb: 500
@@ -21,10 +21,10 @@ sidecar:
   retry_max: 5
   retry_backoff_base_seconds: 10
   poll_interval_seconds: 60
-  buffer_dir: "instrumentation/data/.sidecar_buffer"
+  buffer_dir: "instrumentation/data/swing/.sidecar_buffer"
 
 logging:
   level: "INFO"
-  file: "instrumentation/data/instrumentation.log"
+  file: "instrumentation/data/swing/instrumentation.log"
   max_size_mb: 50
   backup_count: 3

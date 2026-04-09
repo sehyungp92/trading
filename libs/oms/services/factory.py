@@ -168,6 +168,7 @@ async def build_oms_service(
     paper_equity_pool: Optional[asyncpg.Pool] = None,
     halt_trading=None,  # Optional async callback
     recon_interval_s: float = 120.0,
+    live_equity: Optional[list] = None,  # mutable [float] ref for live equity updates
 ) -> OMSService:
     """Build a fully wired OMS service.
 
@@ -224,7 +225,7 @@ async def build_oms_service(
     # Paper equity tracker (paper mode only)
     _paper_equity: list[Optional[float]] = [None]  # mutable container for closure
     if paper_equity_pool is not None:
-        from ..paper_equity import load_paper_equity
+        from libs.persistence.paper_equity import load_paper_equity
         _paper_equity[0] = await load_paper_equity(paper_equity_pool)
         get_current_equity = lambda: _paper_equity[0]
         # Derive actual risk pct from caller's unit_risk_dollars / current equity
@@ -504,6 +505,7 @@ async def build_oms_service(
         get_strategy_risk=get_strategy_risk,
     )
     oms._portfolio_checker = portfolio_checker  # for coordinator regime updates
+    oms._portfolio_risk_state = portfolio_risk_state  # for coordinator heartbeat queries
 
     if pg_store is not None:
         seed_state = strategy_risk_states.setdefault(
@@ -540,6 +542,7 @@ async def build_multi_strategy_oms(
     halt_trading: Optional[Callable] = None,
     portfolio_rules_config=None,
     get_current_equity: Optional[Callable[[], float]] = None,
+    live_equity: Optional[list] = None,  # mutable [float] ref for live equity updates
 ) -> tuple["OMSService", "StrategyCoordinator"]:
     """Build a shared OMS service for multiple strategies.
 
@@ -591,11 +594,16 @@ async def build_multi_strategy_oms(
         strategy_configs[sid] = cfg
         unit_risk_map[sid] = urd
 
+    # Use highest-priority strategy's URD as portfolio normalization base.
+    _sorted_cfgs = sorted(strategy_configs.values(), key=lambda c: c.priority)
+    portfolio_urd = _sorted_cfgs[0].unit_risk_dollars if _sorted_cfgs else 1.0
+
     risk_config = RiskConfig(
         heat_cap_R=heat_cap_R,
         portfolio_daily_stop_R=portfolio_daily_stop_R,
         portfolio_weekly_stop_R=portfolio_weekly_stop_R,
         strategy_configs=strategy_configs,
+        portfolio_urd=portfolio_urd,
     )
 
     if calendar is None:
@@ -606,10 +614,6 @@ async def build_multi_strategy_oms(
     portfolio_risk_state = PortfolioRiskState(trade_date=_trade_date_for())
     # Track positions by (strategy_id, symbol) for correct multi-strategy P&L
     open_positions: dict[tuple[str, str], dict] = {}
-
-    # Use highest-priority strategy's URD as portfolio normalization base.
-    _sorted_cfgs = sorted(strategy_configs.values(), key=lambda c: c.priority)
-    portfolio_urd = _sorted_cfgs[0].unit_risk_dollars if _sorted_cfgs else 1.0
 
     # -- DB-backed risk state helpers (mirroring build_oms_service) ----------
 
@@ -838,6 +842,7 @@ async def build_multi_strategy_oms(
         get_strategy_risk=get_strategy_risk,
     )
     oms._portfolio_checker = portfolio_checker  # for coordinator regime updates
+    oms._portfolio_risk_state = portfolio_risk_state  # for coordinator deployed-capital queries
 
     # Seed risk state from DB on startup
     if pg_store is not None:
@@ -1094,7 +1099,7 @@ def _wire_adapter_callbacks(
                 # Paper equity: deduct entry commission
                 if paper_equity is not None and paper_equity[0] is not None and paper_equity_pool is not None and commission > 0:
                     try:
-                        from ..paper_equity import apply_paper_pnl
+                        from libs.persistence.paper_equity import apply_paper_pnl
                         new_eq = await apply_paper_pnl(paper_equity_pool, 0.0, commission)
                         paper_equity[0] = new_eq
                     except Exception as e:
@@ -1147,7 +1152,7 @@ def _wire_adapter_callbacks(
                     # Paper equity: apply realized P&L + exit commission
                     if paper_equity is not None and paper_equity[0] is not None and paper_equity_pool is not None:
                         try:
-                            from ..paper_equity import apply_paper_pnl
+                            from libs.persistence.paper_equity import apply_paper_pnl
                             new_eq = await apply_paper_pnl(paper_equity_pool, pnl, commission)
                             paper_equity[0] = new_eq
                             if strat_cfg is not None and new_eq > 0:
@@ -1155,6 +1160,12 @@ def _wire_adapter_callbacks(
                             logger.info("Paper equity: $%.2f (pnl=$%.2f, comm=$%.2f)", new_eq, pnl, commission)
                         except Exception as e:
                             logger.warning("Paper equity update failed (non-fatal): %s", e)
+
+                    # Live equity: update mutable ref so DD tiers see current equity
+                    if live_equity is not None and live_equity[0] is not None:
+                        live_equity[0] += pnl - commission
+                        if strat_cfg is not None and live_equity[0] > 0:
+                            strat_cfg.unit_risk_dollars = live_equity[0] * strat_cfg.unit_risk_pct
 
                     pos["open_qty"] = max(0, pos["open_qty"] - qty)
                     if pos["open_qty"] <= 0:
@@ -1280,8 +1291,9 @@ def _wire_adapter_callbacks_multi(
     MAX_PACING_RETRIES = 3
     PACING_RETRY_BASE_DELAY_S = 2.0
 
-    # Use highest-priority strategy's URD as portfolio normalization base
-    portfolio_urd = max(unit_risk_map.values()) if unit_risk_map else 1.0
+    # portfolio_urd is already computed at the top of build_multi_strategy_oms
+    # (from _sorted_cfgs[0].unit_risk_dollars — highest-priority strategy's URD).
+    # The on_fill closure below captures it via lexical scope.
 
     def on_ack(oms_order_id: str, broker_ref) -> None:
         loop = _get_running_loop()
@@ -1370,6 +1382,11 @@ def _wire_adapter_callbacks_multi(
                 "timestamp": timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp),
                 "commission": commission,
                 "client_order_id": getattr(order, 'client_order_id', ""),
+                "symbol": order.instrument.symbol if order.instrument else "",
+                "side": order.side.value if order.side else "",
+                "order_type": order.order_type.value if order.order_type else "",
+                "role": order.role.value if order.role else "",
+                "requested_qty": order.qty,
             }
             bus.emit_fill_event(order.strategy_id, oms_order_id, fill_data)
 
@@ -1451,6 +1468,10 @@ def _wire_adapter_callbacks_multi(
                     strat_risk.daily_realized_R += pnl_R
                     portfolio_risk_state.daily_realized_pnl += pnl
                     portfolio_risk_state.daily_realized_R += pnl_portfolio_R
+
+                    # Live equity: update mutable ref so DD tiers see current equity
+                    if live_equity is not None and live_equity[0] is not None:
+                        live_equity[0] += pnl - commission
 
                     pos["open_qty"] = max(0, pos["open_qty"] - qty)
                     remaining = int(pos["open_qty"])

@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from research.backtests.stock.config import SlippageConfig, UniverseConfig
+from backtests.stock.config import SlippageConfig, UniverseConfig
 
 
 @dataclass(frozen=True)
@@ -56,7 +56,7 @@ class ALCBBacktestConfig:
     end_date: str = "2026-03-01"
     initial_equity: float = 10_000.0
     tier: int = 1
-    data_dir: Path = field(default_factory=lambda: Path("research/backtests/stock/data/raw"))
+    data_dir: Path = field(default_factory=lambda: Path("backtests/stock/data/raw"))
     warmup_days: int = 250
     slippage: SlippageConfig = field(default_factory=SlippageConfig)
     universe: UniverseConfig = field(default_factory=UniverseConfig)

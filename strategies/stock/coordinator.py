@@ -19,6 +19,7 @@ import logging
 import os
 from contextlib import suppress
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +52,7 @@ class StockFamilyCoordinator:
         self._engine_map: dict[str, Any] = {}
         self._base_portfolio_rules: Any = None
         self._regime_ctx: Any = None
+        self._heartbeat_task: asyncio.Task | None = None
 
     # ── lifecycle ────────────────────────────────────────────────────
 
@@ -183,6 +185,7 @@ class StockFamilyCoordinator:
                 portfolio_rules_config=portfolio_rules,
                 get_current_equity=lambda eq=_live_equity: eq[0],
                 paper_equity_pool=db_pool if paper_mode else None,
+                live_equity=_live_equity if not paper_mode else None,
                 family_id=self.family_id,
                 account_gate=account_gate,
             )
@@ -293,12 +296,22 @@ class StockFamilyCoordinator:
         # ── Background market data refresh loop ────────────────────
         self._market_data_task = asyncio.create_task(self._market_data_loop())
 
+        # ── Heartbeat background task ──────────────────────────────────
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+
         logger.info(
             "StockFamilyCoordinator started %d strategies with market data", len(self._engines),
         )
 
     async def stop(self) -> None:
         """Stop market data, engines, and OMS instances in reverse order."""
+        # Stop heartbeat loop
+        if self._heartbeat_task is not None:
+            self._heartbeat_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._heartbeat_task
+            self._heartbeat_task = None
+
         # Stop background market data loop
         if self._market_data_task is not None:
             self._market_data_task.cancel()
@@ -397,6 +410,33 @@ class StockFamilyCoordinator:
                     ctx.regime, changed, new_rules.directional_cap_R,
                     new_rules.regime_unit_risk_mult, new_rules.disabled_strategies or "none")
 
+    async def _heartbeat_loop(self) -> None:
+        heartbeat = getattr(self._ctx, "heartbeat", None)
+        if heartbeat is None:
+            return
+        session = self._ctx.session
+        while True:
+            try:
+                await asyncio.sleep(15)
+            except asyncio.CancelledError:
+                return
+            for i, sid in enumerate(self._strategy_ids):
+                try:
+                    rs = getattr(self._oms_services[i], "_portfolio_risk_state", None)
+                    await heartbeat.strategy_heartbeat(
+                        strategy_id=sid,
+                        heat_r=Decimal(str(rs.open_risk_R)) if rs else Decimal("0"),
+                        daily_pnl_r=Decimal(str(rs.daily_realized_R)) if rs else Decimal("0"),
+                        mode="HALTED" if (rs and rs.halted) else "RUNNING",
+                    )
+                except Exception:
+                    logger.debug("Heartbeat failed for %s", sid, exc_info=True)
+            try:
+                connected = session.ib.isConnected() if session else False
+                await heartbeat.adapter_heartbeat(self.family_id, connected=connected)
+            except Exception:
+                logger.debug("Adapter heartbeat failed", exc_info=True)
+
     async def _market_data_loop(self) -> None:
         """Periodically refresh market data subscriptions for all engines."""
         while True:
@@ -434,7 +474,9 @@ class StockFamilyCoordinator:
         (e.g. research hasn't run yet) the value is ``None``; engines handle
         missing artifacts gracefully.
         """
-        today = date.today()
+        # Use ET-aware date to avoid timezone drift on non-US hosts
+        from zoneinfo import ZoneInfo
+        today = datetime.now(ZoneInfo("America/New_York")).date()
         artifacts: dict[str, Any] = {}
 
         # IARIC — WatchlistArtifact

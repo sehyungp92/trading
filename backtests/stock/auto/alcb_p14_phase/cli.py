@@ -2,9 +2,9 @@
 
 Usage::
 
-    python -m research.backtests.stock.auto.alcb_p14_phase --max-workers 2 -v
-    python -m research.backtests.stock.auto.alcb_p14_phase --phase 1
-    python -m research.backtests.stock.auto.alcb_p14_phase --experiments p14_mfe_12bar_015r
+    python -m backtests.stock.auto.alcb_p14_phase --max-workers 2 -v
+    python -m backtests.stock.auto.alcb_p14_phase --phase 1
+    python -m backtests.stock.auto.alcb_p14_phase --experiments p14_mfe_12bar_015r
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def _setup_logging(verbose: bool = False) -> None:
 
 
 def _build_runner(args: argparse.Namespace):
-    from research.backtests.shared.auto.phase_runner import PhaseRunner
+    from backtests.shared.auto.phase_runner import PhaseRunner
 
     from .plugin import ALCBP14Plugin
 
@@ -57,8 +57,8 @@ def main() -> None:
         description="ALCB P14 phased auto-optimization (3 phases, 28 candidates)",
     )
     parser.add_argument("-v", "--verbose", action="store_true")
-    parser.add_argument("--data-dir", default="research/backtests/stock/data/raw")
-    parser.add_argument("--output-dir", default="research/backtests/stock/auto/alcb_p14_phase/output")
+    parser.add_argument("--data-dir", default="backtests/stock/data/raw")
+    parser.add_argument("--output-dir", default="backtests/stock/auto/alcb_p14_phase/output")
     parser.add_argument("--start", default="2024-01-01")
     parser.add_argument("--end", default="2026-03-01")
     parser.add_argument("--equity", type=float, default=10_000.0)

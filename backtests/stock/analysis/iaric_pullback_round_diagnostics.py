@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from research.backtests.stock.analysis.iaric_pullback_diagnostics import compute_pullback_diagnostic_snapshot
+from backtests.stock.analysis.iaric_pullback_diagnostics import compute_pullback_diagnostic_snapshot
 
 
 def _hdr(title: str) -> str:

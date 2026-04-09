@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from research.backtests.stock.models import TradeRecord
+from backtests.stock.models import TradeRecord
 
 
 def plot_equity_curve(

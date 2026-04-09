@@ -2,14 +2,14 @@
 
 Usage::
 
-    python -m research.backtests.stock download --timeframes 1d
-    python -m research.backtests.stock run --strategy alcb --start 2024-01-01
-    python -m research.backtests.stock run --strategy iaric --tier 3
-    python -m research.backtests.stock portfolio
-    python -m research.backtests.stock auto --strategy all
-    python -m research.backtests.stock auto --strategy alcb --skip-robustness
-    python -m research.backtests.stock auto --experiments abl_alcb_stale_exit abl_alcb_regime_gate
-    python -m research.backtests.stock auto --resume
+    python -m backtests.stock download --timeframes 1d
+    python -m backtests.stock run --strategy alcb --start 2024-01-01
+    python -m backtests.stock run --strategy iaric --tier 3
+    python -m backtests.stock portfolio
+    python -m backtests.stock auto --strategy all
+    python -m backtests.stock auto --strategy alcb --skip-robustness
+    python -m backtests.stock auto --experiments abl_alcb_stale_exit abl_alcb_regime_gate
+    python -m backtests.stock auto --resume
 """
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ def _setup_logging(verbose: bool = False) -> None:
 
 def cmd_download(args: argparse.Namespace) -> None:
     """Download historical bar data."""
-    from research.backtests.stock.data.downloader import download_stock_universe
+    from backtests.stock.data.downloader import download_stock_universe
 
     timeframes = args.timeframes.split(",") if args.timeframes else ["1d"]
     output_dir = Path(args.data_dir)
@@ -65,7 +65,7 @@ def cmd_download(args: argparse.Namespace) -> None:
 
 def cmd_run(args: argparse.Namespace) -> None:
     """Run a single-strategy backtest."""
-    from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+    from backtests.stock.engine.research_replay import ResearchReplayEngine
 
     data_dir = Path(args.data_dir)
     replay = ResearchReplayEngine(data_dir=data_dir)
@@ -82,8 +82,8 @@ def cmd_run(args: argparse.Namespace) -> None:
 
 
 def _run_alcb(args: argparse.Namespace, replay) -> None:
-    from research.backtests.stock.analysis.reports import full_report
-    from research.backtests.stock.config_alcb import ALCBBacktestConfig
+    from backtests.stock.analysis.reports import full_report
+    from backtests.stock.config_alcb import ALCBBacktestConfig
 
     # Parse --param key=value overrides
     param_overrides: dict = {}
@@ -115,10 +115,10 @@ def _run_alcb(args: argparse.Namespace, replay) -> None:
     # Shadow tracker (Tier 2 only)
     shadow_tracker = None
     if getattr(args, "shadow", False) and args.tier == 2:
-        from research.backtests.stock.analysis.alcb_shadow_tracker import ALCBShadowTracker
+        from backtests.stock.analysis.alcb_shadow_tracker import ALCBShadowTracker
         shadow_tracker = ALCBShadowTracker()
 
-    from research.backtests.stock.engine.alcb_engine import ALCBIntradayEngine
+    from backtests.stock.engine.alcb_engine import ALCBIntradayEngine
 
     engine = ALCBIntradayEngine(config, replay)
     if shadow_tracker:
@@ -133,7 +133,7 @@ def _run_alcb(args: argparse.Namespace, replay) -> None:
 
     # Deep diagnostics
     if getattr(args, "diagnostics", False):
-        from research.backtests.stock.analysis.alcb_diagnostics import alcb_full_diagnostic
+        from backtests.stock.analysis.alcb_diagnostics import alcb_full_diagnostic
 
         diag = alcb_full_diagnostic(
             result.trades,
@@ -150,8 +150,8 @@ def _run_alcb(args: argparse.Namespace, replay) -> None:
 
 
 def _run_iaric(args: argparse.Namespace, replay) -> None:
-    from research.backtests.stock.analysis.reports import full_report
-    from research.backtests.stock.config_iaric import IARICBacktestConfig
+    from backtests.stock.analysis.reports import full_report
+    from backtests.stock.config_iaric import IARICBacktestConfig
 
     # Parse --param key=value overrides
     param_overrides: dict = {}
@@ -179,7 +179,7 @@ def _run_iaric(args: argparse.Namespace, replay) -> None:
         param_overrides=param_overrides,
     )
 
-    from research.backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
+    from backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
 
     engine = IARICPullbackEngine(config, replay)
     result = engine.run()
@@ -192,7 +192,7 @@ def _run_iaric(args: argparse.Namespace, replay) -> None:
 
     # Deep diagnostics
     if getattr(args, "diagnostics", False):
-        from research.backtests.stock.analysis.iaric_pullback_diagnostics import (
+        from backtests.stock.analysis.iaric_pullback_diagnostics import (
             pullback_full_diagnostic,
         )
 
@@ -217,7 +217,7 @@ def _run_iaric(args: argparse.Namespace, replay) -> None:
 
 
 def _save_charts(result, prefix: str, output_dir: str) -> None:
-    from research.backtests.stock.analysis.charts import (
+    from backtests.stock.analysis.charts import (
         plot_equity_curve,
         plot_monthly_returns,
         plot_sector_attribution,
@@ -234,10 +234,10 @@ def _save_charts(result, prefix: str, output_dir: str) -> None:
 
 def cmd_portfolio(args: argparse.Namespace) -> None:
     """Run portfolio backtest (both strategies)."""
-    from research.backtests.stock.analysis.reports import full_report
-    from research.backtests.stock.config_portfolio import PortfolioBacktestConfig
-    from research.backtests.stock.engine.portfolio_engine import StockPortfolioEngine
-    from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+    from backtests.stock.analysis.reports import full_report
+    from backtests.stock.config_portfolio import PortfolioBacktestConfig
+    from backtests.stock.engine.portfolio_engine import StockPortfolioEngine
+    from backtests.stock.engine.research_replay import ResearchReplayEngine
 
     data_dir = Path(args.data_dir)
     replay = ResearchReplayEngine(data_dir=data_dir)
@@ -256,11 +256,11 @@ def cmd_portfolio(args: argparse.Namespace) -> None:
 
     # Run individual strategies
     print("Running ALCB...")
-    from research.backtests.stock.engine.alcb_engine import ALCBIntradayEngine
+    from backtests.stock.engine.alcb_engine import ALCBIntradayEngine
     alcb_result = ALCBIntradayEngine(alcb_config, replay).run()
 
     print("Running IARIC...")
-    from research.backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
+    from backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
     iaric_result = IARICPullbackEngine(iaric_config, replay).run()
 
     # Portfolio merge
@@ -292,7 +292,7 @@ def cmd_portfolio(args: argparse.Namespace) -> None:
 
 def cmd_auto(args: argparse.Namespace) -> None:
     """Run automated experiment harness."""
-    from research.backtests.stock.auto.harness import AutoBacktestHarness
+    from backtests.stock.auto.harness import AutoBacktestHarness
 
     harness = AutoBacktestHarness(
         data_dir=Path(args.data_dir),
@@ -313,11 +313,11 @@ def cmd_auto(args: argparse.Namespace) -> None:
 
 def cmd_greedy(args: argparse.Namespace) -> None:
     """Run greedy forward selection for optimal config."""
-    from research.backtests.stock.auto.greedy_optimize import (
+    from backtests.stock.auto.greedy_optimize import (
         run_greedy,
         save_result,
     )
-    from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+    from backtests.stock.engine.research_replay import ResearchReplayEngine
 
     data_dir = Path(args.data_dir)
     replay = ResearchReplayEngine(data_dir=data_dir)
@@ -325,7 +325,7 @@ def cmd_greedy(args: argparse.Namespace) -> None:
     replay.load_all_data()
 
     if args.strategy == "iaric":
-        from research.backtests.stock.auto.greedy_optimize import (
+        from backtests.stock.auto.greedy_optimize import (
             IARIC_T3_P7_BASE_MUTATIONS,
             IARIC_T3_P7_CANDIDATES,
         )
@@ -359,8 +359,8 @@ def _build_pullback_phase_runner(
     profile: str | None = None,
     output_dir: Path | None = None,
 ):
-    from research.backtests.shared.auto.phase_runner import PhaseRunner
-    from research.backtests.stock.auto.iaric_pullback.plugin import IARICPullbackPlugin
+    from backtests.shared.auto.phase_runner import PhaseRunner
+    from backtests.stock.auto.iaric_pullback.plugin import IARICPullbackPlugin
 
     resolved_profile = str(profile or getattr(args, "profile", "mainline")).lower()
     plugin = IARICPullbackPlugin(
@@ -402,7 +402,7 @@ def _phase_auto_command(
     command = [
         sys.executable,
         "-m",
-        "research.backtests.stock.cli",
+        "backtests.stock.cli",
         "phase-auto",
         "--data-dir",
         str(args.data_dir),
@@ -474,8 +474,8 @@ def cmd_phase_auto(args: argparse.Namespace) -> None:
 
 
 def _build_p11_phase_runner(args: argparse.Namespace):
-    from research.backtests.shared.auto.phase_runner import PhaseRunner
-    from research.backtests.stock.auto.alcb_p11_phase.plugin import ALCBP11Plugin
+    from backtests.shared.auto.phase_runner import PhaseRunner
+    from backtests.stock.auto.alcb_p11_phase.plugin import ALCBP11Plugin
 
     experiment_names = set(args.experiments) if getattr(args, "experiments", None) else None
     plugin = ALCBP11Plugin(
@@ -524,7 +524,7 @@ def cmd_phase_auto_p11(args: argparse.Namespace) -> None:
 
 
 def cmd_phase_auto_dual(args: argparse.Namespace) -> None:
-    from research.backtests.stock.auto.iaric_pullback.plugin import select_pullback_branch
+    from backtests.stock.auto.iaric_pullback.plugin import select_pullback_branch
 
     output_root = Path(args.output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
@@ -626,8 +626,8 @@ def cmd_phase_auto_dual(args: argparse.Namespace) -> None:
 
 
 def cmd_phase_gate(args: argparse.Namespace) -> None:
-    from research.backtests.shared.auto.phase_gates import evaluate_gate
-    from research.backtests.shared.auto.phase_state import save_phase_state
+    from backtests.shared.auto.phase_gates import evaluate_gate
+    from backtests.shared.auto.phase_state import save_phase_state
 
     runner = _build_pullback_phase_runner(args)
     state = runner.load_state()
@@ -682,7 +682,7 @@ def build_parser() -> argparse.ArgumentParser:
     dl = sub.add_parser("download", help="Download historical bar data")
     dl.add_argument("--timeframes", default="1d", help="Comma-separated timeframes (default: 1d)")
     dl.add_argument("--duration", default="5 Y", help="IBKR duration string")
-    dl.add_argument("--data-dir", default="research/backtests/stock/data/raw")
+    dl.add_argument("--data-dir", default="backtests/stock/data/raw")
     dl.add_argument("--host", default="127.0.0.1")
     dl.add_argument("--port", type=int, default=7496)
     dl.add_argument("--force", action="store_true", help="Re-download existing files")
@@ -694,9 +694,9 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--start", default="2024-01-01", help="Start date (YYYY-MM-DD)")
     run.add_argument("--end", default="2026-03-01", help="End date (YYYY-MM-DD)")
     run.add_argument("--equity", type=float, default=10_000.0)
-    run.add_argument("--data-dir", default="research/backtests/stock/data/raw")
+    run.add_argument("--data-dir", default="backtests/stock/data/raw")
     run.add_argument("--save-charts", action="store_true", help="Save chart PNGs")
-    run.add_argument("--output-dir", default="research/backtests/stock/output")
+    run.add_argument("--output-dir", default="backtests/stock/output")
     run.add_argument("--diagnostics", action="store_true",
                      help="Run deep 27-section diagnostics report")
     run.add_argument("--shadow", action="store_true",
@@ -712,7 +712,7 @@ def build_parser() -> argparse.ArgumentParser:
     pf.add_argument("--start", default="2024-01-01")
     pf.add_argument("--end", default="2026-03-01")
     pf.add_argument("--equity", type=float, default=10_000.0)
-    pf.add_argument("--data-dir", default="research/backtests/stock/data/raw")
+    pf.add_argument("--data-dir", default="backtests/stock/data/raw")
 
     # auto
     auto = sub.add_parser("auto", help="Run automated experiment harness")
@@ -721,25 +721,25 @@ def build_parser() -> argparse.ArgumentParser:
     auto.add_argument("--skip-robustness", action="store_true",
                        help="Skip robustness checks for fast ablation scan")
     auto.add_argument("--resume", action="store_true", help="Skip completed experiments")
-    auto.add_argument("--output-dir", default="research/backtests/stock/auto/output")
+    auto.add_argument("--output-dir", default="backtests/stock/auto/output")
     auto.add_argument("--start", default="2024-01-01")
     auto.add_argument("--end", default="2026-03-01")
     auto.add_argument("--equity", type=float, default=10_000.0)
-    auto.add_argument("--data-dir", default="research/backtests/stock/data/raw")
+    auto.add_argument("--data-dir", default="backtests/stock/data/raw")
 
     # greedy
     gr = sub.add_parser("greedy", help="Greedy forward selection for optimal config")
     gr.add_argument("--strategy", choices=["alcb", "iaric"], required=True)
     gr.add_argument("--tier", type=int, default=3, choices=[2, 3])
-    gr.add_argument("--data-dir", default="research/backtests/stock/data/raw")
-    gr.add_argument("--output-dir", default="research/backtests/stock/auto/output")
+    gr.add_argument("--data-dir", default="backtests/stock/data/raw")
+    gr.add_argument("--output-dir", default="backtests/stock/auto/output")
     gr.add_argument("--start", default="2024-01-01")
     gr.add_argument("--end", default="2026-03-01")
     gr.add_argument("--equity", type=float, default=10_000.0)
 
     def add_phase_common(command: argparse.ArgumentParser) -> None:
-        command.add_argument("--data-dir", default="research/backtests/stock/data/raw")
-        command.add_argument("--output-dir", default="research/backtests/stock/auto/iaric_pullback/output")
+        command.add_argument("--data-dir", default="backtests/stock/data/raw")
+        command.add_argument("--output-dir", default="backtests/stock/auto/iaric_pullback/output")
         command.add_argument("--start", default="2024-01-01")
         command.add_argument("--end", default="2026-03-01")
         command.add_argument("--equity", type=float, default=10_000.0)
@@ -760,8 +760,8 @@ def build_parser() -> argparse.ArgumentParser:
     phase_auto.add_argument("--max-retries", type=int, default=0)
 
     phase_auto_dual = sub.add_parser("phase-auto-dual", help="Run mainline and aggressive pullback branches")
-    phase_auto_dual.add_argument("--data-dir", default="research/backtests/stock/data/raw")
-    phase_auto_dual.add_argument("--output-dir", default="research/backtests/stock/auto/iaric_pullback/output_dual")
+    phase_auto_dual.add_argument("--data-dir", default="backtests/stock/data/raw")
+    phase_auto_dual.add_argument("--output-dir", default="backtests/stock/auto/iaric_pullback/output_dual")
     phase_auto_dual.add_argument("--start", default="2024-01-01")
     phase_auto_dual.add_argument("--end", default="2026-03-01")
     phase_auto_dual.add_argument("--equity", type=float, default=10_000.0)
@@ -776,12 +776,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     phase_diag = sub.add_parser("phase-diagnostics", help="Print saved IARIC pullback phase diagnostics")
     phase_diag.add_argument("--phase", type=int, required=True, choices=[1, 2, 3, 4, 5, 6])
-    phase_diag.add_argument("--output-dir", default="research/backtests/stock/auto/iaric_pullback/output")
+    phase_diag.add_argument("--output-dir", default="backtests/stock/auto/iaric_pullback/output")
 
     # ALCB P11 phase commands
     def add_p11_common(command: argparse.ArgumentParser) -> None:
-        command.add_argument("--data-dir", default="research/backtests/stock/data/raw")
-        command.add_argument("--output-dir", default="research/backtests/stock/auto/alcb_p11_phase/output_multiphase")
+        command.add_argument("--data-dir", default="backtests/stock/data/raw")
+        command.add_argument("--output-dir", default="backtests/stock/auto/alcb_p11_phase/output_multiphase")
         command.add_argument("--start", default="2024-01-01")
         command.add_argument("--end", default="2026-03-01")
         command.add_argument("--equity", type=float, default=10_000.0)

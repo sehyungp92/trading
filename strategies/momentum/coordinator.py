@@ -11,8 +11,11 @@ Cross-strategy coordination is config-driven via PortfolioRulesConfig
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
+from contextlib import suppress
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +45,7 @@ class MomentumFamilyCoordinator:
         self._base_portfolio_rules: Any = None
         self._base_max_family_contracts: int = 0
         self._regime_ctx: Any = None
+        self._heartbeat_task: asyncio.Task | None = None
 
     # ── lifecycle ────────────────────────────────────────────────────
 
@@ -59,6 +63,11 @@ class MomentumFamilyCoordinator:
         session = ctx.session
         db_pool = ctx.db_pool
         account_gate = ctx.account_gate
+
+        if session is None:
+            raise RuntimeError(
+                "Momentum family requires an IB session (connect_ib=True)"
+            )
 
         # ── Execution adapter (shared IB session, one adapter instance) ──
         config_dir = Path(os.environ.get("CONFIG_DIR", str(Path(__file__).resolve().parent.parent.parent / "config")))
@@ -199,6 +208,7 @@ class MomentumFamilyCoordinator:
                 portfolio_rules_config=portfolio_rules,
                 get_current_equity=lambda eq=_live_equity: eq[0],
                 paper_equity_pool=paper_equity_pool,
+                live_equity=_live_equity if not paper_equity_pool else None,
                 family_id=self.family_id,
                 account_gate=account_gate,
             )
@@ -241,12 +251,21 @@ class MomentumFamilyCoordinator:
             logger.info("Engine started for %s", sid)
             self._engines.append(engine)
 
+        # ── Heartbeat background task ──────────────────────────────────
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+
         logger.info(
             "MomentumFamilyCoordinator started %d strategies", len(self._engines),
         )
 
     async def stop(self) -> None:
         """Stop engines, instrumentation, and OMS instances in reverse order."""
+        if self._heartbeat_task is not None:
+            self._heartbeat_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._heartbeat_task
+            self._heartbeat_task = None
+
         for i in reversed(range(len(self._engines))):
             sid = self._strategy_ids[i]
 
@@ -316,6 +335,35 @@ class MomentumFamilyCoordinator:
                     r.directional_cap_short_R, r.regime_unit_risk_mult,
                     r.max_family_contracts_mnq_eq, r.nqdtc_oppose_size_mult,
                     r.disabled_strategies or "none")
+
+    # ── heartbeat ──────────────────────────────────────────────────
+
+    async def _heartbeat_loop(self) -> None:
+        heartbeat = getattr(self._ctx, "heartbeat", None)
+        if heartbeat is None:
+            return
+        session = self._ctx.session
+        while True:
+            try:
+                await asyncio.sleep(15)
+            except asyncio.CancelledError:
+                return
+            for i, sid in enumerate(self._strategy_ids):
+                try:
+                    rs = getattr(self._oms_services[i], "_portfolio_risk_state", None)
+                    await heartbeat.strategy_heartbeat(
+                        strategy_id=sid,
+                        heat_r=Decimal(str(rs.open_risk_R)) if rs else Decimal("0"),
+                        daily_pnl_r=Decimal(str(rs.daily_realized_R)) if rs else Decimal("0"),
+                        mode="HALTED" if (rs and rs.halted) else "RUNNING",
+                    )
+                except Exception:
+                    logger.debug("Heartbeat failed for %s", sid, exc_info=True)
+            try:
+                connected = session.ib.isConnected() if session else False
+                await heartbeat.adapter_heartbeat(self.family_id, connected=connected)
+            except Exception:
+                logger.debug("Adapter heartbeat failed", exc_info=True)
 
     # ── internal ─────────────────────────────────────────────────────
 

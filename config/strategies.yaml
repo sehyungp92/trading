@@ -26,9 +26,7 @@ strategies:
     connection_group: swing
     display_name: "ATR Swing Strategy"
     module_path: "strategies.swing.atrss.plugin"
-    engine_module: "swing_trader.strategy.engine"
-    engine_class: "ATRSSEngine"
-    legacy_config_module: "swing_trader.strategy.config"
+
     enabled: true
     paper_mode: false
     asset_class: mixed
@@ -55,9 +53,7 @@ strategies:
     connection_group: swing
     display_name: "AKC Helix"
     module_path: "strategies.swing.akc_helix.plugin"
-    engine_module: "swing_trader.strategy_2.engine"
-    engine_class: "HelixEngine"
-    legacy_config_module: "swing_trader.strategy_2.config"
+
     enabled: true
     paper_mode: false
     asset_class: mixed
@@ -83,9 +79,7 @@ strategies:
     connection_group: swing
     display_name: "Swing Breakout v3"
     module_path: "strategies.swing.breakout.plugin"
-    engine_module: "swing_trader.strategy_3.engine"
-    engine_class: "BreakoutEngine"
-    legacy_config_module: "swing_trader.strategy_3.config"
+
     enabled: true
     paper_mode: false
     asset_class: mixed
@@ -111,9 +105,7 @@ strategies:
     connection_group: swing
     display_name: "S5 Pullback"
     module_path: "strategies.swing.keltner.plugin"
-    engine_module: "swing_trader.strategy_4.engine"
-    engine_class: "KeltnerEngine"
-    legacy_config_module: "swing_trader.strategy_4.config"
+
     enabled: true
     paper_mode: false
     asset_class: mixed
@@ -141,9 +133,7 @@ strategies:
     connection_group: swing
     display_name: "S5 Dual"
     module_path: "strategies.swing.keltner.plugin"
-    engine_module: "swing_trader.strategy_4.engine"
-    engine_class: "KeltnerEngine"
-    legacy_config_module: "swing_trader.strategy_4.config"
+
     enabled: true
     paper_mode: false
     asset_class: mixed
@@ -171,9 +161,7 @@ strategies:
     connection_group: stock
     display_name: "IARIC v1"
     module_path: "strategies.stock.iaric.plugin"
-    engine_module: "stock_trader.strategy_iaric.engine"
-    engine_class: "IARICEngine"
-    legacy_config_module: "stock_trader.strategy_iaric.config"
+
     enabled: true
     paper_mode: false
     asset_class: equity
@@ -206,9 +194,7 @@ strategies:
     connection_group: stock
     display_name: "US ORB v1"
     module_path: "strategies.stock.us_orb.plugin"
-    engine_module: "stock_trader.strategy_orb.engine"
-    engine_class: "USORBEngine"
-    legacy_config_module: "stock_trader.strategy_orb.config"
+
     enabled: true
     paper_mode: false
     asset_class: equity
@@ -239,9 +225,7 @@ strategies:
     connection_group: stock
     display_name: "ALCB v1"
     module_path: "strategies.stock.alcb.plugin"
-    engine_module: "stock_trader.strategy_alcb.engine"
-    engine_class: "ALCBEngine"
-    legacy_config_module: "stock_trader.strategy_alcb.config"
+
     enabled: true
     paper_mode: false
     asset_class: equity
@@ -271,10 +255,8 @@ strategies:
     family: momentum
     connection_group: momentum
     display_name: "AKC Helix v40"
-    module_path: "strategies.momentum.helix4.plugin"
-    engine_module: "momentum_trader.strategy.engine"
-    engine_class: "Helix4Engine"
-    legacy_config_module: "momentum_trader.strategy.config"
+    module_path: "strategies.momentum.helix_v40.plugin"
+
     enabled: true
     paper_mode: false
     asset_class: futures
@@ -301,9 +283,7 @@ strategies:
     connection_group: momentum
     display_name: "NQDTC v2.1"
     module_path: "strategies.momentum.nqdtc.plugin"
-    engine_module: "momentum_trader.strategy_2.engine"
-    engine_class: "NQDTCEngine"
-    legacy_config_module: "momentum_trader.strategy_2.config"
+
     enabled: true
     paper_mode: false
     asset_class: futures
@@ -334,9 +314,7 @@ strategies:
     connection_group: momentum
     display_name: "Vdubus NQ v4"
     module_path: "strategies.momentum.vdub.plugin"
-    engine_module: "momentum_trader.strategy_3.engine"
-    engine_class: "VdubNQv4Engine"
-    legacy_config_module: "momentum_trader.strategy_3.config"
+
     enabled: true
     paper_mode: false
     asset_class: futures
@@ -363,8 +341,7 @@ strategies:
     connection_group: momentum
     display_name: "Downturn Dominator v1"
     module_path: "strategies.momentum.downturn.plugin"
-    engine_module: "strategies.momentum.downturn.engine"
-    engine_class: "DownturnEngine"
+
     enabled: true
     paper_mode: true
     asset_class: futures
@@ -394,8 +371,7 @@ strategies:
     connection_group: swing
     display_name: "BRS R9 Bear Regime Swing"
     module_path: "strategies.swing.brs.plugin"
-    engine_module: "strategies.swing.brs.engine"
-    engine_class: "BRSLiveEngine"
+
     enabled: true
     paper_mode: false
     asset_class: equity

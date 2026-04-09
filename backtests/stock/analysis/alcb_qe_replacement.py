@@ -8,7 +8,7 @@ slot while positions were at max capacity.
 Each QE-freed slot can enable exactly one replacement trade (FIFO).
 
 Usage:
-    from research.backtests.stock.analysis.alcb_qe_replacement import (
+    from backtests.stock.analysis.alcb_qe_replacement import (
         qe_replacement_analysis,
     )
     report = qe_replacement_analysis(trades, max_positions=8)
@@ -22,7 +22,7 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
-from research.backtests.stock.models import TradeRecord
+from backtests.stock.models import TradeRecord
 
 
 _ET = ZoneInfo("America/New_York")

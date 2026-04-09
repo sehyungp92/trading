@@ -23,9 +23,9 @@ from statistics import fmean
 import numpy as np
 import pandas as pd
 
-from research.backtests.stock.config import UniverseConfig
-from research.backtests.stock.data.cache import bar_path, load_bars
-from research.backtests.stock.data.downloader import REFERENCE_SYMBOLS, SECTOR_ETFS
+from backtests.stock.config import UniverseConfig
+from backtests.stock.data.cache import bar_path, load_bars
+from backtests.stock.data.downloader import REFERENCE_SYMBOLS, SECTOR_ETFS
 
 from strategies.stock.alcb.universe_constituents import KNOWN_ETFS, SP500_CONSTITUENTS
 
@@ -302,7 +302,7 @@ class ResearchReplayEngine:
 
     Usage::
 
-        engine = ResearchReplayEngine(data_dir="research/backtests/stock/data/raw")
+        engine = ResearchReplayEngine(data_dir="backtests/stock/data/raw")
         engine.load_all_data()
 
         # For each trading day:
@@ -311,7 +311,7 @@ class ResearchReplayEngine:
 
     def __init__(
         self,
-        data_dir: str | Path = "research/backtests/stock/data/raw",
+        data_dir: str | Path = "backtests/stock/data/raw",
         universe_config: UniverseConfig | None = None,
     ):
         self._data_dir = Path(data_dir)
@@ -341,7 +341,13 @@ class ResearchReplayEngine:
         #   scoring/containment/quality gates on top of the cached snapshot.
         self._alcb_snapshot_cache: dict[tuple[date, date, float, float], alcb_models.ResearchSnapshot] = {}
         self._alcb_selection_cache: dict[tuple[date, date, str], alcb_models.CandidateArtifact] = {}
-        self._iaric_selection_cache: dict[date, iaric_models.WatchlistArtifact] = {}
+        # Two-tier IARIC cache (mirrors ALCB pattern above):
+        # Tier 1 (snapshot): keyed on (date, min_price, min_adv) — only params
+        #   that affect build_iaric_snapshot.
+        # Tier 2 (selection): keyed on (date, full_settings_sig) — applies
+        #   scoring/filtering gates on top of the cached snapshot.
+        self._iaric_snapshot_cache: dict[tuple[date, float, float], iaric_models.ResearchSnapshot] = {}
+        self._iaric_selection_cache: dict[tuple[date, str], iaric_models.WatchlistArtifact] = {}
 
         # Sector return cache: (sector, date, lookback) → float
         self._sector_return_cache: dict[tuple[str, date, int], float] = {}
@@ -526,10 +532,18 @@ class ResearchReplayEngine:
         cfg = settings or alcb_config.StrategySettings()
         return _json_signature(asdict(cfg))
 
+    def _iaric_settings_signature(
+        self,
+        settings: iaric_config.StrategySettings | None,
+    ) -> str:
+        cfg = settings or iaric_config.StrategySettings()
+        return _json_signature(asdict(cfg))
+
     def clear_selection_cache(self) -> None:
         """Clear cached selection and derived research results."""
         self._alcb_snapshot_cache.clear()
         self._alcb_selection_cache.clear()
+        self._iaric_snapshot_cache.clear()
         self._iaric_selection_cache.clear()
         self._sector_return_cache.clear()
         self._market_research_cache.clear()
@@ -1117,17 +1131,35 @@ class ResearchReplayEngine:
     ) -> iaric_models.WatchlistArtifact:
         """Build snapshot + run IARIC selection in one call.
 
-        Results are cached by date.
+        Uses a two-tier cache for auto-optimization efficiency:
+          Tier 1 -- snapshot cache keyed on (date, min_price, min_adv).
+            build_iaric_snapshot only depends on these values, so candidates
+            that differ only in downstream params (scoring, exits) reuse
+            the same snapshot without rebuilding per-symbol research.
+          Tier 2 -- selection cache keyed on (date, full_settings_sig).
+            run_iaric_selection applies filtering/scoring gates that
+            depend on the full StrategySettings.
         """
-        cached = self._iaric_selection_cache.get(trade_date)
+        s = settings or iaric_config.StrategySettings()
+
+        # Tier 2: full selection cache (cheapest check first)
+        settings_sig = self._iaric_settings_signature(s)
+        selection_key = (trade_date, settings_sig)
+        cached = self._iaric_selection_cache.get(selection_key)
         if cached is not None:
             return cached
-        s = settings or iaric_config.StrategySettings()
-        snapshot = self.build_iaric_snapshot(
-            trade_date, min_price=s.min_price, min_adv_usd=s.min_adv_usd,
-        )
+
+        # Tier 1: snapshot cache (expensive build_iaric_snapshot)
+        snapshot_key = (trade_date, s.min_price, s.min_adv_usd)
+        snapshot = self._iaric_snapshot_cache.get(snapshot_key)
+        if snapshot is None:
+            snapshot = self.build_iaric_snapshot(
+                trade_date, min_price=s.min_price, min_adv_usd=s.min_adv_usd,
+            )
+            self._iaric_snapshot_cache[snapshot_key] = snapshot
+
         result = self.run_iaric_selection(snapshot, settings)
-        self._iaric_selection_cache[trade_date] = result
+        self._iaric_selection_cache[selection_key] = result
         return result
 
     # ------------------------------------------------------------------

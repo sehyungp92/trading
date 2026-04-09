@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 
-from research.backtests.stock.models import TradeRecord
+from backtests.stock.models import TradeRecord
 
 
 def _meta(trade: TradeRecord, key: str, default=None):

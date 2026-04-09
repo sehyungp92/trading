@@ -3,6 +3,7 @@
 Exit priority chain (matching research engine order):
   1. Stop hit (low <= stop)
   2. Quick exit (early cut for losers, 2-bar window)
+  2.5. Stale exit (force-close stale positions, distinct from stale tighten)
   3. EMA reversion (profitable mean-reversion exit)
   4. RSI exit (route-specific thresholds)
   5. Time stop (max hold exceeded)
@@ -14,7 +15,7 @@ stale tighten (tightens stop, does NOT exit), overnight carry.
 """
 from __future__ import annotations
 
-from datetime import datetime, time
+from datetime import datetime
 
 from .config import ET, StrategySettings
 from .models import Bar, PBSymbolState
@@ -121,6 +122,42 @@ def check_eod_flatten(now: datetime, config: StrategySettings) -> tuple[bool, st
     et_time = now.astimezone(ET).time()
     if et_time >= config.pb_intraday_force_exit:
         return True, "EOD_FLATTEN"
+    return False, ""
+
+
+# ---------------------------------------------------------------------------
+# Per-route parameter lookup (general, covers all per-route settings)
+# ---------------------------------------------------------------------------
+
+def _route_param(route_family: str, suffix: str, config: StrategySettings, default: float = 0.0) -> float:
+    """Look up per-route parameter, fall back to global pb_ prefix."""
+    prefix_map = {
+        "OPEN_SCORED_ENTRY": "pb_open_scored",
+        "DELAYED_CONFIRM": "pb_delayed_confirm",
+        "OPENING_RECLAIM": "pb_opening_reclaim",
+    }
+    prefix = prefix_map.get(route_family, "pb")
+    val = getattr(config, f"{prefix}_{suffix}", None)
+    if val is not None:
+        return float(val)
+    return float(getattr(config, f"pb_{suffix}", default))
+
+
+# ---------------------------------------------------------------------------
+# Stale exit (force-close, distinct from stale tighten)
+# ---------------------------------------------------------------------------
+
+def check_stale_exit(
+    hold_bars: int,
+    max_mfe_r: float,
+    stale_exit_bars: int,
+    stale_exit_min_r: float,
+) -> tuple[bool, str]:
+    """Force-close stale positions (research parity: backtest STALE_EXIT)."""
+    if stale_exit_bars <= 0:
+        return False, ""
+    if hold_bars >= stale_exit_bars and max_mfe_r < stale_exit_min_r:
+        return True, "STALE_EXIT"
     return False, ""
 
 
@@ -264,16 +301,7 @@ def should_carry_overnight(
 
 def _route_carry_param(route_family: str, suffix: str, config: StrategySettings) -> float:
     """Look up per-route carry parameter, fall back to global."""
-    prefix_map = {
-        "OPEN_SCORED_ENTRY": "pb_open_scored",
-        "DELAYED_CONFIRM": "pb_delayed_confirm",
-        "OPENING_RECLAIM": "pb_opening_reclaim",
-    }
-    prefix = prefix_map.get(route_family, "pb")
-    val = getattr(config, f"{prefix}_carry_{suffix}", None)
-    if val is not None:
-        return float(val)
-    return float(getattr(config, f"pb_carry_{suffix}", 0.0))
+    return _route_param(route_family, f"carry_{suffix}", config)
 
 
 def carry_quality_gate(
@@ -323,6 +351,8 @@ def run_exit_chain(
     recent_5m_bars: list[Bar],
     quick_exit_loss_r: float,
     config: StrategySettings,
+    stale_exit_bars: int = 0,
+    stale_exit_min_r: float = 0.0,
 ) -> tuple[bool, str]:
     """Run the complete exit priority chain (research engine order).
 
@@ -342,6 +372,13 @@ def run_exit_chain(
     if hit:
         return True, reason
 
+    # 2.5. Stale exit (force-close, distinct from stale tighten)
+    hit, reason = check_stale_exit(
+        state.hold_bars, max_mfe_r, stale_exit_bars, stale_exit_min_r,
+    )
+    if hit:
+        return True, reason
+
     # 3. EMA reversion
     if config.pb_v2_ema_reversion_exit:
         hit, reason = check_ema_reversion(
@@ -356,20 +393,18 @@ def run_exit_chain(
     if hit:
         return True, reason
 
-    # 5. Time stop
-    max_hold = config.pb_max_hold_days
-    if state.route_family == "OPEN_SCORED_ENTRY":
-        max_hold = config.pb_open_scored_max_hold_days
+    # 5. Time stop (per-route max_hold_days)
+    max_hold = int(_route_param(state.route_family, "max_hold_days", config))
     hit, reason = check_time_stop(hold_days, max_hold)
     if hit:
         return True, reason
 
-    # 6. VWAP fail (structural: descending highs + CPR gate)
+    # 6. VWAP fail (structural: descending highs + CPR gate, per-route)
     hit, reason = check_vwap_fail(
         recent_5m_bars,
         session_vwap,
-        lookback=config.pb_vwap_fail_lookback_bars,
-        cpr_max=config.pb_vwap_fail_cpr_max,
+        lookback=int(_route_param(state.route_family, "vwap_fail_lookback_bars", config)),
+        cpr_max=_route_param(state.route_family, "vwap_fail_cpr_max", config, default=-1.0),
     )
     if hit:
         return True, reason

@@ -15,18 +15,20 @@ logger = logging.getLogger(__name__)
 REGIME_CONTEXT_PATH = Path("data/regime/latest_context.json")
 
 RECOVERY_DEFAULT = RegimeContext(
-    regime="G",
+    regime="S",
     regime_confidence=0.5,
     stress_level=0.0,
     stress_onset=False,
     shift_velocity=0.0,
-    suggested_leverage_mult=1.0,
+    suggested_leverage_mult=0.75,
     regime_allocations={
-        "SPY": 0.278, "TLT": 0.024, "GLD": 0.031,
-        "IBIT": 0.25, "EFA": 0.10, "CASH": 0.144,
+        "SPY": 0.15, "TLT": 0.10, "GLD": 0.10,
+        "IBIT": 0.10, "EFA": 0.05, "CASH": 0.50,
     },
     computed_at="",
 )
+
+_STALENESS_DOWNGRADE_DAYS = 7  # downgrade to S if context older than this
 
 
 def load_regime_context(path: Path = REGIME_CONTEXT_PATH) -> RegimeContext:
@@ -35,17 +37,19 @@ def load_regime_context(path: Path = REGIME_CONTEXT_PATH) -> RegimeContext:
         data = json.loads(path.read_text(encoding="utf-8"))
         ctx = RegimeContext(**data)
 
-        # Staleness check: warn if >10 days old but still use
+        # Staleness check: downgrade to S if context too old
         computed_at = ctx.computed_at
         if computed_at:
             try:
                 ts = datetime.fromisoformat(computed_at)
                 age = datetime.now(timezone.utc) - ts
-                if age.days > 10:
+                if age.days > _STALENESS_DOWNGRADE_DAYS:
                     logger.warning(
-                        "Regime context is %d days old (computed_at=%s)",
+                        "Regime context is %d days old (computed_at=%s), "
+                        "downgrading to defensive regime S",
                         age.days, computed_at,
                     )
+                    ctx = dataclasses.replace(ctx, regime="S")
             except (ValueError, TypeError):
                 logger.warning("Cannot parse computed_at=%r for staleness check", computed_at)
 

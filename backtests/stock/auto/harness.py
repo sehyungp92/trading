@@ -12,22 +12,22 @@ from pathlib import Path
 
 import numpy as np
 
-from research.backtests.stock.auto.config_mutator import (
+from backtests.stock.auto.config_mutator import (
     mutate_alcb_config,
     mutate_iaric_config,
     mutate_portfolio_config,
 )
-from research.backtests.stock.auto.experiments import Experiment, build_experiment_queue
-from research.backtests.stock.auto.report import generate_report
-from research.backtests.stock.auto.results_tracker import ExperimentResult, ResultsTracker
-from research.backtests.stock.auto.robustness import run_robustness
-from research.backtests.stock.auto.scoring import (
+from backtests.stock.auto.experiments import Experiment, build_experiment_queue
+from backtests.stock.auto.report import generate_report
+from backtests.stock.auto.results_tracker import ExperimentResult, ResultsTracker
+from backtests.stock.auto.robustness import run_robustness
+from backtests.stock.auto.scoring import (
     CompositeScore, composite_score, compute_r_multiples, extract_metrics,
 )
-from research.backtests.stock.config_alcb import ALCBBacktestConfig
-from research.backtests.stock.config_iaric import IARICBacktestConfig
-from research.backtests.stock.config_portfolio import PortfolioBacktestConfig
-from research.backtests.stock.models import TradeRecord
+from backtests.stock.config_alcb import ALCBBacktestConfig
+from backtests.stock.config_iaric import IARICBacktestConfig
+from backtests.stock.config_portfolio import PortfolioBacktestConfig
+from backtests.stock.models import TradeRecord
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ class AutoBacktestHarness:
             skip_robustness: Skip robustness checks for faster ablation scan
             resume: Skip experiments already in results.tsv
         """
-        from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+        from backtests.stock.engine.research_replay import ResearchReplayEngine
 
         # 1. Load data ONCE
         print("Loading bar data (this may take a moment)...")
@@ -277,7 +277,7 @@ class AutoBacktestHarness:
 
     def _run_portfolio_experiment(self, experiment: Experiment) -> None:
         """Run a portfolio-level experiment."""
-        from research.backtests.stock.engine.portfolio_engine import StockPortfolioEngine
+        from backtests.stock.engine.portfolio_engine import StockPortfolioEngine
 
         # Get baseline individual trades
         alcb_trades = self._baseline_trades.get(("alcb", experiment.tier), [])
@@ -356,7 +356,7 @@ class AutoBacktestHarness:
 
     def _portfolio_integration(self) -> None:
         """Merge all APPROVED changes and test via StockPortfolioEngine."""
-        from research.backtests.stock.engine.portfolio_engine import StockPortfolioEngine
+        from backtests.stock.engine.portfolio_engine import StockPortfolioEngine
 
         results = self.tracker.load_all()
         approved = [r for r in results if r.status == "APPROVE"]
@@ -498,7 +498,7 @@ class AutoBacktestHarness:
     ) -> tuple[list[TradeRecord], np.ndarray, np.ndarray]:
         """Run the correct engine and return (trades, equity_curve, timestamps)."""
         if strategy == "alcb":
-            from research.backtests.stock.engine.alcb_engine import ALCBIntradayEngine
+            from backtests.stock.engine.alcb_engine import ALCBIntradayEngine
             engine = ALCBIntradayEngine(config, self.replay)
         else:
             raise ValueError(f"Unknown strategy: {strategy}")

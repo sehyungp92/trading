@@ -5,7 +5,7 @@ import sys
 import traceback
 from pathlib import Path
 
-from research.backtests.shared.auto.types import ScoredCandidate
+from backtests.shared.auto.types import ScoredCandidate
 
 from .phase_scoring import merge_alcb_metrics, score_alcb_phase
 from .time_utils import hydrate_time_mutations
@@ -33,12 +33,12 @@ def init_worker(
     if sys.stdout.encoding != "utf-8":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-    from research.backtests.stock._aliases import install
+    from backtests.stock._aliases import install
 
     install()
 
-    from research.backtests.stock.config_alcb import ALCBBacktestConfig
-    from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+    from backtests.stock.config_alcb import ALCBBacktestConfig
+    from backtests.stock.engine.research_replay import ResearchReplayEngine
 
     data_dir = Path(data_dir_str)
     replay = ResearchReplayEngine(data_dir=data_dir)
@@ -98,9 +98,9 @@ def score_candidate(args: tuple) -> ScoredCandidate:
         scoring_weights = _worker_scoring_weights
 
     try:
-        from research.backtests.stock.auto.config_mutator import mutate_alcb_config
-        from research.backtests.stock.auto.scoring import extract_metrics
-        from research.backtests.stock.engine.alcb_engine import ALCBIntradayEngine
+        from backtests.stock.auto.config_mutator import mutate_alcb_config
+        from backtests.stock.auto.scoring import extract_metrics
+        from backtests.stock.engine.alcb_engine import ALCBIntradayEngine
 
         all_muts = hydrate_time_mutations(dict(base_muts))
         all_muts.update(candidate_muts)

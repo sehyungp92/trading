@@ -16,15 +16,15 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
-from research.backtests.stock.analysis.alcb_shadow_tracker import (
+from backtests.stock.analysis.alcb_shadow_tracker import (
     ALCBShadowTracker,
     ShadowSetup,
 )
-from research.backtests.stock.config import SlippageConfig
-from research.backtests.stock.config_alcb import ALCBBacktestConfig
-from research.backtests.stock.engine.research_replay import ResearchReplayEngine
-from research.backtests.stock.engine.sim_broker import SimBroker
-from research.backtests.stock.models import Direction as BTDirection, TradeRecord
+from backtests.stock.config import SlippageConfig
+from backtests.stock.config_alcb import ALCBBacktestConfig
+from backtests.stock.engine.research_replay import ResearchReplayEngine
+from backtests.stock.engine.sim_broker import SimBroker
+from backtests.stock.models import Direction as BTDirection, TradeRecord
 
 from strategies.stock.alcb.config import StrategySettings
 from strategies.stock.alcb.exits import (

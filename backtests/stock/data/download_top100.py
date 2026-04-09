@@ -4,9 +4,9 @@ Uses backward-walking stitching for intraday timeframes to get full 2Y history.
 Processes each symbol with a fresh IBKR connection to avoid session timeouts.
 
 Usage:
-    python -m research.backtests.stock.data.download_top100
-    python -m research.backtests.stock.data.download_top100 --force
-    python -m research.backtests.stock.data.download_top100 --phase 5m   # only 5m
+    python -m backtests.stock.data.download_top100
+    python -m backtests.stock.data.download_top100 --force
+    python -m backtests.stock.data.download_top100 --phase 5m   # only 5m
 """
 from __future__ import annotations
 
@@ -15,10 +15,10 @@ import logging
 import sys
 from pathlib import Path
 
-from research.backtests.stock._aliases import install
+from backtests.stock._aliases import install
 install()
 
-from research.backtests.momentum.data.downloader import (
+from backtests.momentum.data.downloader import (
     _CLIENT_ID,
     _PACING_DELAY,
     bar_path,
@@ -35,7 +35,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 _ALL_TOP_100 = [sym for sym, _, _ in SP500_CONSTITUENTS[:100]]
-OUTPUT_DIR = Path("research/backtests/stock/data/raw")
+OUTPUT_DIR = Path("backtests/stock/data/raw")
 
 # Symbols that failed 30m download (IBKR ticker resolution issues).
 # Deprioritised: processed last so working symbols finish first.

@@ -9,10 +9,10 @@ Full diagnostics saved to output directory.
 
 Usage::
 
-    python -m research.backtests.stock.auto.runners.run_v2_baseline
-    python -m research.backtests.stock.auto.runners.run_v2_baseline --mode daily
-    python -m research.backtests.stock.auto.runners.run_v2_baseline --mode hybrid
-    python -m research.backtests.stock.auto.runners.run_v2_baseline --start-date 2024-01-01 --end-date 2026-03-01
+    python -m backtests.stock.auto.runners.run_v2_baseline
+    python -m backtests.stock.auto.runners.run_v2_baseline --mode daily
+    python -m backtests.stock.auto.runners.run_v2_baseline --mode hybrid
+    python -m backtests.stock.auto.runners.run_v2_baseline --start-date 2024-01-01 --end-date 2026-03-01
 """
 from __future__ import annotations
 
@@ -35,8 +35,8 @@ if sys.stdout.encoding != "utf-8":
 
 # ── Defaults ──────────────────────────────────────────────────���───────────────
 
-DATA_DIR = Path("research/backtests/stock/data/raw")
-DEFAULT_OUTPUT_DIR = Path("research/backtests/stock/auto/iaric_pullback/output_v2_baseline")
+DATA_DIR = Path("backtests/stock/data/raw")
+DEFAULT_OUTPUT_DIR = Path("backtests/stock/auto/iaric_pullback/output_v2_baseline")
 START_DATE = "2024-01-01"
 END_DATE = "2026-03-01"
 INITIAL_EQUITY = 10_000.0
@@ -83,20 +83,20 @@ def _run_baseline(
     end_date: str,
 ) -> dict[str, object]:
     """Run a single baseline and return metrics + diagnostics."""
-    from research.backtests.stock._aliases import install
-    from research.backtests.stock.analysis.iaric_pullback_diagnostics import (
+    from backtests.stock._aliases import install
+    from backtests.stock.analysis.iaric_pullback_diagnostics import (
         compute_pullback_diagnostic_snapshot,
         pullback_full_diagnostic,
     )
-    from research.backtests.stock.auto.config_mutator import mutate_iaric_config
-    from research.backtests.stock.auto.iaric_pullback.phase_scoring import (
+    from backtests.stock.auto.config_mutator import mutate_iaric_config
+    from backtests.stock.auto.iaric_pullback.phase_scoring import (
         enrich_phase_score_metrics,
         merge_pullback_metrics,
     )
-    from research.backtests.stock.auto.scoring import extract_metrics
-    from research.backtests.stock.config_iaric import IARICBacktestConfig
-    from research.backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
-    from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+    from backtests.stock.auto.scoring import extract_metrics
+    from backtests.stock.config_iaric import IARICBacktestConfig
+    from backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
+    from backtests.stock.engine.research_replay import ResearchReplayEngine
 
     install()
 

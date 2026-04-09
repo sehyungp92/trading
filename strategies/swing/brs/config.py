@@ -17,7 +17,7 @@ from libs.oms.models.instrument import Instrument
 # ---------------------------------------------------------------------------
 
 STRATEGY_ID = "BRS_R9"
-COMMISSION_PER_SHARE = 0.005
+COMMISSION_PER_SHARE = 0.0035  # match backtest (IBKR tiered US equities)
 BASE_RISK_PCT = 0.003          # GLD rate (higher of the two; per-symbol handled internally)
 DAILY_STOP_R = 2.0
 HEAT_CAP_R = 1.80

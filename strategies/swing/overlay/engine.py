@@ -60,6 +60,7 @@ class OverlayEngine:
         instrumentation: Any | None = None,
         equity_offset: float = 0.0,
         db_pool: Any | None = None,
+        get_deployed_capital: Any | None = None,
     ) -> None:
         self._ib = ib_session
         self._equity = equity
@@ -68,6 +69,7 @@ class OverlayEngine:
         self._instr = instrumentation
         self._equity_offset = equity_offset  # paper capital offset applied on refresh
         self._db_pool = db_pool
+        self._get_deployed_capital = get_deployed_capital  # callback: () -> float (swing OMS notional)
 
         # Resolved IB contracts: symbol -> Contract
         self._contracts: dict[str, Any] = {}
@@ -178,7 +180,18 @@ class OverlayEngine:
         # 1. Refresh equity from IB
         await self._refresh_equity()
 
-        available = max(self._equity * self._config.max_equity_pct, 0.0)
+        # Subtract capital deployed by swing strategies to avoid double-counting
+        deployed = 0.0
+        if self._get_deployed_capital:
+            try:
+                deployed = self._get_deployed_capital()
+            except Exception:
+                logger.warning("Overlay: could not query deployed capital, assuming $0")
+        net_equity = max(self._equity - deployed, 0.0)
+        available = max(net_equity * self._config.max_equity_pct, 0.0)
+        if deployed > 0:
+            logger.info("Overlay: equity=$%.2f deployed=$%.2f net=$%.2f available=$%.2f",
+                        self._equity, deployed, net_equity, available)
 
         # 2-3. Fetch bars and compute EMAs per symbol
         signals: dict[str, bool] = {}

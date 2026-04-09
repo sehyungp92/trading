@@ -8,7 +8,7 @@ Algorithm:
   5. Output the final optimal mutations and comparison table
 
 Usage:
-    from research.backtests.stock.auto.greedy_optimize import run_greedy
+    from backtests.stock.auto.greedy_optimize import run_greedy
     result = run_greedy(replay, "iaric", 1, base_mutations, candidates)
 """
 from __future__ import annotations
@@ -24,15 +24,15 @@ from pathlib import Path
 
 import numpy as np
 
-from research.backtests.stock.auto.config_mutator import (
+from backtests.stock.auto.config_mutator import (
     mutate_alcb_config,
     mutate_iaric_config,
 )
-from research.backtests.stock.auto.scoring import (
+from backtests.stock.auto.scoring import (
     CompositeScore, IARIC_NORM, composite_score, compute_r_multiples,
     extract_metrics,
 )
-from research.backtests.stock.models import TradeRecord
+from backtests.stock.models import TradeRecord
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ _mp_cfg_kwargs = None  # Worker-local config kwargs
 def _init_eval_worker(data_dir_str: str, cfg_kwargs: dict) -> None:
     """Initialize a multiprocessing worker: load data once per process."""
     global _mp_replay, _mp_cfg_kwargs
-    from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+    from backtests.stock.engine.research_replay import ResearchReplayEngine
     _mp_replay = ResearchReplayEngine(data_dir=Path(data_dir_str))
     _mp_replay.load_all_data()
     cfg_kwargs["data_dir"] = Path(cfg_kwargs["data_dir"])
@@ -230,7 +230,7 @@ def run_greedy(
     initial_equity: float = 10_000.0,
     start_date: str = "2024-01-01",
     end_date: str = "2026-03-01",
-    data_dir: str = "research/backtests/stock/data/raw",
+    data_dir: str = "backtests/stock/data/raw",
     verbose: bool = True,
     max_workers: int = 1,
     checkpoint_path: Path | None = None,
@@ -625,7 +625,7 @@ def _make_config(mutations: dict, cfg_kwargs: dict):
     """Build a config with mutations applied."""
     strategy = cfg_kwargs["strategy"]
     if strategy == "iaric":
-        from research.backtests.stock.config_iaric import IARICBacktestConfig
+        from backtests.stock.config_iaric import IARICBacktestConfig
         base = IARICBacktestConfig(
             start_date=cfg_kwargs["start_date"],
             end_date=cfg_kwargs["end_date"],
@@ -635,7 +635,7 @@ def _make_config(mutations: dict, cfg_kwargs: dict):
         )
         return mutate_iaric_config(base, mutations)
     elif strategy == "alcb":
-        from research.backtests.stock.config_alcb import ALCBBacktestConfig
+        from backtests.stock.config_alcb import ALCBBacktestConfig
         base = ALCBBacktestConfig(
             start_date=cfg_kwargs["start_date"],
             end_date=cfg_kwargs["end_date"],
@@ -656,10 +656,10 @@ def _run_engine(
 ) -> tuple[list[TradeRecord], np.ndarray, np.ndarray]:
     """Run the correct engine and return (trades, equity_curve, timestamps)."""
     if strategy == "iaric":
-        from research.backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
+        from backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
         engine = IARICPullbackEngine(config, replay)
     elif strategy == "alcb":
-        from research.backtests.stock.engine.alcb_engine import ALCBIntradayEngine
+        from backtests.stock.engine.alcb_engine import ALCBIntradayEngine
         engine = ALCBIntradayEngine(config, replay)
     else:
         raise ValueError(f"Unknown strategy: {strategy}")

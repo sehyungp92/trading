@@ -2,8 +2,8 @@
 
 Usage::
 
-    python -m research.backtests.stock.auto.iaric_pullback.run_optimized_diagnostics
-    python -m research.backtests.stock.auto.iaric_pullback.run_optimized_diagnostics --phase-state path/to/phase_state.json
+    python -m backtests.stock.auto.iaric_pullback.run_optimized_diagnostics
+    python -m backtests.stock.auto.iaric_pullback.run_optimized_diagnostics --phase-state path/to/phase_state.json
 """
 from __future__ import annotations
 
@@ -17,9 +17,9 @@ if sys.stdout.encoding != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 
-DEFAULT_PHASE_STATE = Path("research/backtests/stock/auto/iaric_pullback/output_multiphase/phase_state.json")
-DEFAULT_OUTPUT = Path("research/backtests/stock/auto/iaric_pullback/output_multiphase/r4_hybrid_full_diagnostics.txt")
-DATA_DIR = Path("research/backtests/stock/data/raw")
+DEFAULT_PHASE_STATE = Path("backtests/stock/auto/iaric_pullback/output_multiphase/phase_state.json")
+DEFAULT_OUTPUT = Path("backtests/stock/auto/iaric_pullback/output_multiphase/r4_hybrid_full_diagnostics.txt")
+DATA_DIR = Path("backtests/stock/data/raw")
 START_DATE = "2024-01-01"
 END_DATE = "2026-03-01"
 INITIAL_EQUITY = 10_000.0
@@ -34,14 +34,14 @@ def main() -> None:
     parser.add_argument("--equity", type=float, default=INITIAL_EQUITY)
     args = parser.parse_args()
 
-    from research.backtests.stock._aliases import install
+    from backtests.stock._aliases import install
     install()
 
-    from research.backtests.stock.analysis.iaric_pullback_diagnostics import pullback_full_diagnostic
-    from research.backtests.stock.auto.config_mutator import mutate_iaric_config
-    from research.backtests.stock.config_iaric import IARICBacktestConfig
-    from research.backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
-    from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+    from backtests.stock.analysis.iaric_pullback_diagnostics import pullback_full_diagnostic
+    from backtests.stock.auto.config_mutator import mutate_iaric_config
+    from backtests.stock.config_iaric import IARICBacktestConfig
+    from backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
+    from backtests.stock.engine.research_replay import ResearchReplayEngine
 
     # Load optimized mutations
     phase_state = json.loads(Path(args.phase_state).read_text(encoding="utf-8"))

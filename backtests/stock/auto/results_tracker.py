@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from research.backtests.stock.auto.robustness import RobustnessReport
-from research.backtests.stock.auto.scoring import CompositeScore
+from backtests.stock.auto.robustness import RobustnessReport
+from backtests.stock.auto.scoring import CompositeScore
 
 logger = logging.getLogger(__name__)
 

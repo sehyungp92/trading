@@ -13,8 +13,8 @@ from pathlib import Path
 from statistics import mean
 from zoneinfo import ZoneInfo
 
-from research.backtests.stock.config_iaric import IARICBacktestConfig
-from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+from backtests.stock.config_iaric import IARICBacktestConfig
+from backtests.stock.engine.research_replay import ResearchReplayEngine
 from strategies.stock.iaric.config import StrategySettings
 
 logging.basicConfig(level=logging.WARNING)
@@ -67,7 +67,10 @@ def main():
     sample_every = max(1, len(trading_dates) // 50)
 
     for day_idx, trade_date in enumerate(trading_dates):
-        artifact = replay.iaric_selection_for_date(trade_date, settings)
+        if day_idx == 0:
+            continue
+        prev_date = trading_dates[day_idx - 1]
+        artifact = replay.iaric_selection_for_date(prev_date, settings)
         total_dates += 1
 
         if artifact.regime.tier == "C":
@@ -174,14 +177,18 @@ def main():
         # Dig into a single date with most tradable to understand
         best_date = None
         best_count = 0
-        for td in trading_dates[:100]:
-            art = replay.iaric_selection_for_date(td, settings)
+        for i, td in enumerate(trading_dates[:100]):
+            if i == 0:
+                continue
+            prev_td = trading_dates[i - 1]
+            art = replay.iaric_selection_for_date(prev_td, settings)
             if art.regime.tier != "C" and len(art.tradable) > best_count:
                 best_count = len(art.tradable)
                 best_date = td
+                best_prev = prev_td
         if best_date:
             print(f"\nDeep dive: {best_date} ({best_count} tradable)")
-            art = replay.iaric_selection_for_date(best_date, settings)
+            art = replay.iaric_selection_for_date(best_prev, settings)
             for item in art.tradable[:3]:
                 sym = item.symbol
                 print(f"\n  Symbol: {sym}")

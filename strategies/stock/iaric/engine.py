@@ -31,6 +31,7 @@ from .data import CanonicalBarBuilder
 from .diagnostics import JsonlDiagnostics
 from .execution import build_entry_order, build_market_exit, build_position_from_fill, build_stock_instrument, build_stop_order
 from .exits import (
+    _route_param,
     carry_quality_gate,
     check_v2_partial,
     compute_overnight_stop,
@@ -482,6 +483,8 @@ class IARICEngine:
 
         # Check max positions
         max_pos = cfg.pb_max_positions
+        if self._artifact.regime.tier == "B":
+            max_pos = min(max_pos, cfg.max_positions_tier_b)
         if len(self._portfolio.open_positions) + len(self._portfolio.pending_entry_risk) >= max_pos:
             self._log_missed(symbol=symbol, blocked_by="max_positions",
                              block_reason="at_max_positions", exchange_timestamp=now,
@@ -512,7 +515,7 @@ class IARICEngine:
 
         # Route 2: OPEN_SCORED_ENTRY (bars 1+)
         if cfg.pb_open_scored_enabled and bars >= 1:
-            if self._open_scored_count < cfg.pb_v2_open_scored_max_slots:
+            if cfg.pb_v2_enabled or self._open_scored_count < cfg.pb_v2_open_scored_max_slots:
                 if self._try_open_scored_entry(symbol, bar_5m, now):
                     return
 
@@ -1038,8 +1041,10 @@ class IARICEngine:
             if not item.flow_proxy_gate_pass:
                 flow_hist = [-1.0, -1.0]
 
-        # Route-specific quick exit loss_r
-        quick_exit_loss_r = getattr(self._settings, 'pb_opening_reclaim_quick_exit_loss_r', 0.0)
+        # Route-specific exit params via _route_param
+        quick_exit_loss_r = abs(_route_param(state.route_family, "quick_exit_loss_r", self._settings))
+        stale_exit_bars = int(_route_param(state.route_family, "stale_exit_bars", self._settings))
+        stale_exit_min_r = _route_param(state.route_family, "stale_exit_min_r", self._settings)
 
         should_exit, reason = run_exit_chain(
             state=state,
@@ -1055,6 +1060,8 @@ class IARICEngine:
             recent_5m_bars=list(market.bars_5m),
             quick_exit_loss_r=quick_exit_loss_r,
             config=self._settings,
+            stale_exit_bars=stale_exit_bars,
+            stale_exit_min_r=stale_exit_min_r,
         )
 
         if should_exit:
@@ -1478,6 +1485,8 @@ class IARICEngine:
         position.max_favorable_price = max(position.max_favorable_price, fill_price)
         position.max_adverse_price = min(position.max_adverse_price, fill_price)
         exit_qty = min(fill_qty, position.qty_open)
+        exit_comm = float(payload.get("commission", 0.0) or 0.0)
+        position.exit_commission += exit_comm
         position.realized_pnl_usd += (fill_price - position.entry_price) * exit_qty
         position.qty_open = max(0, position.qty_open - exit_qty)
 
@@ -1497,14 +1506,16 @@ class IARICEngine:
 
         if position.qty_open <= 0:
             if self._trade_recorder and position.trade_id:
-                realized_r = position.realized_pnl_usd / max(position.total_initial_risk_usd, 1e-9)
+                total_fees = position.entry_commission + position.exit_commission
+                net_pnl = position.realized_pnl_usd - total_fees
+                realized_r = net_pnl / max(position.total_initial_risk_usd, 1e-9)
                 await self._trade_recorder.record_exit(
                     trade_id=position.trade_id,
                     exit_price=Decimal(str(fill_price)),
                     exit_ts=event.timestamp,
                     exit_reason=state.last_transition_reason or role or "EXIT",
                     realized_r=Decimal(str(round(realized_r, 4))),
-                    realized_usd=Decimal(str(round(position.realized_pnl_usd, 2))),
+                    realized_usd=Decimal(str(round(net_pnl, 2))),
                     mfe_r=Decimal(str(round(
                         (position.max_favorable_price - position.entry_price) / max(position.initial_risk_per_share, 1e-9), 4,
                     ))),
@@ -1519,7 +1530,7 @@ class IARICEngine:
                         "mfe_stage": state.mfe_stage,
                         "hold_bars": state.hold_bars,
                         "exit_reason_detail": state.last_transition_reason,
-                        "fees_paid": float(payload.get("commission", 0.0) or 0.0) + getattr(position, "entry_commission", 0.0),
+                        "fees_paid": position.entry_commission + position.exit_commission,
                         "hold_days": (event.timestamp.astimezone(ET).date() - position.entry_time.astimezone(ET).date()).days if position.entry_time else 0,
                         "carry_decision_path": state.carry_decision_path,
                         "v2_partial_taken": state.v2_partial_taken,

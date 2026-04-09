@@ -7,7 +7,7 @@ Tests ~12 experiments targeting:
 4. Best combinations
 
 Usage::
-    python -m research.backtests.stock.auto.alcb_p14_phase.test_alpha_recovery
+    python -m backtests.stock.auto.alcb_p14_phase.test_alpha_recovery
 """
 from __future__ import annotations
 
@@ -19,17 +19,17 @@ from pathlib import Path
 if sys.stdout.encoding != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True)
 
-from research.backtests.stock._aliases import install
+from backtests.stock._aliases import install
 
 install()
 
 import numpy as np
 
-from research.backtests.stock.auto.config_mutator import mutate_alcb_config
-from research.backtests.stock.auto.scoring import extract_metrics
-from research.backtests.stock.config_alcb import ALCBBacktestConfig
-from research.backtests.stock.engine.alcb_engine import ALCBIntradayEngine
-from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+from backtests.stock.auto.config_mutator import mutate_alcb_config
+from backtests.stock.auto.scoring import extract_metrics
+from backtests.stock.config_alcb import ALCBBacktestConfig
+from backtests.stock.engine.alcb_engine import ALCBIntradayEngine
+from backtests.stock.engine.research_replay import ResearchReplayEngine
 
 from .time_utils import hydrate_time_mutations
 
@@ -147,7 +147,7 @@ def run_experiment(
 
 
 def main() -> None:
-    data_dir = Path("research/backtests/stock/data/raw")
+    data_dir = Path("backtests/stock/data/raw")
     replay = ResearchReplayEngine(data_dir=data_dir)
     replay.load_all_data()
 

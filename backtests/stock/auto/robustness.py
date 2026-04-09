@@ -12,12 +12,12 @@ from typing import TYPE_CHECKING, Callable
 
 import numpy as np
 
-from research.backtests.stock.auto.scoring import CompositeScore, composite_score, extract_metrics
-from research.backtests.stock.config import SlippageConfig
-from research.backtests.stock.models import TradeRecord
+from backtests.stock.auto.scoring import CompositeScore, composite_score, extract_metrics
+from backtests.stock.config import SlippageConfig
+from backtests.stock.models import TradeRecord
 
 if TYPE_CHECKING:
-    from research.backtests.stock.auto.experiments import Experiment
+    from backtests.stock.auto.experiments import Experiment
 
 logger = logging.getLogger(__name__)
 

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from research.backtests.stock.analysis.alcb_shadow_tracker import ALCBShadowTracker
+from backtests.stock.analysis.alcb_shadow_tracker import ALCBShadowTracker
 
 
 @dataclass

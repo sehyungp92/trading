@@ -64,9 +64,6 @@ class StrategyManifest(BaseModel):
     connection_group: str
     display_name: str
     module_path: str | None = None
-    engine_module: str | None = None
-    engine_class: str | None = None
-    legacy_config_module: str | None = None
     enabled: bool = True
     paper_mode: bool = False
     asset_class: str = "unknown"
@@ -189,6 +186,10 @@ class StrategyRegistryConfig(BaseModel):
                 )
         return self
 
-    def enabled_strategies(self) -> list[StrategyManifest]:
-        return [manifest for manifest in self.strategies.values() if manifest.enabled]
+    def enabled_strategies(self, *, live: bool = False) -> list[StrategyManifest]:
+        """Return enabled strategies, optionally filtering out paper_mode in live."""
+        return [
+            manifest for manifest in self.strategies.values()
+            if manifest.enabled and (not live or not manifest.paper_mode)
+        ]
 

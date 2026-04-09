@@ -38,6 +38,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["swing", "momentum", "stock"],
         help="Run only strategies for the specified family",
     )
+    run.add_argument(
+        "--allow-no-db",
+        action="store_true",
+        help="Start without DB (no portfolio rules). Use for debugging only.",
+    )
 
     return parser
 
@@ -84,6 +89,7 @@ def main(argv: list[str] | None = None) -> int:
                 connect_ib=args.connect_ib,
                 once=args.once,
                 family_filter=args.family,
+                allow_no_db=args.allow_no_db,
             ))
             return 0
         except KeyboardInterrupt:

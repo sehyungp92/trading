@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from research.backtests.stock.auto.results_tracker import ExperimentResult
-from research.backtests.stock.auto.scoring import CompositeScore
+from backtests.stock.auto.results_tracker import ExperimentResult
+from backtests.stock.auto.scoring import CompositeScore
 
 
 def generate_report(

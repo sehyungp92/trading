@@ -7,7 +7,7 @@ stop/hold duration, profit targets, position limits, regime gates, carry, etc.
 
 Usage:
     cd C:/Users/sehyu/Documents/Other/Projects/trading
-    PYTHONUNBUFFERED=1 python -u -m research.backtests.stock.auto.runners.run_greedy_iaric_t3_p7
+    PYTHONUNBUFFERED=1 python -u -m backtests.stock.auto.runners.run_greedy_iaric_t3_p7
 """
 from __future__ import annotations
 
@@ -19,16 +19,16 @@ from pathlib import Path
 if sys.stdout.encoding != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-from research.backtests.stock.auto.greedy_optimize import (
+from backtests.stock.auto.greedy_optimize import (
     IARIC_T3_P7_BASE_MUTATIONS,
     IARIC_T3_P7_CANDIDATES,
     run_greedy,
     save_result,
 )
-from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+from backtests.stock.engine.research_replay import ResearchReplayEngine
 
-DATA_DIR = Path("research/backtests/stock/data/raw")
-OUTPUT_DIR = Path("research/backtests/stock/auto/output")
+DATA_DIR = Path("backtests/stock/data/raw")
+OUTPUT_DIR = Path("backtests/stock/auto/output")
 
 
 def main():

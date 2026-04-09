@@ -1613,24 +1613,26 @@ class DownturnEngine:
         payload = getattr(event, "payload", {})
         fill_price = payload.get("price", 0.0)
         fill_qty = payload.get("qty", 0)
+        fill_commission = float(payload.get("commission", 0.0) or 0.0)
 
         # Check if this is an entry fill
         for we in list(self._working_entries):
             if we.oms_order_id == oms_order_id:
                 self._working_entries.remove(we)
-                await self._on_entry_fill(we, fill_price, fill_qty)
+                await self._on_entry_fill(we, fill_price, fill_qty, fill_commission)
                 return
 
         # Check if this is an exit fill (protective stop or flatten)
         if self._position is not None:
             if oms_order_id == self._position.stop_oms_order_id:
-                await self._on_exit_fill(fill_price, fill_qty, "stop")
+                await self._on_exit_fill(fill_price, fill_qty, "stop", fill_commission)
             else:
                 # Flatten or other exit — treat as market exit
-                await self._on_exit_fill(fill_price, fill_qty, "market_exit")
+                await self._on_exit_fill(fill_price, fill_qty, "market_exit", fill_commission)
 
     async def _on_entry_fill(
         self, we: WorkingEntry, fill_price: float, fill_qty: int,
+        fill_commission: float = 0.0,
     ) -> None:
         """Create ActivePosition from filled entry order."""
         self._bars_since_last_entry = 0
@@ -1655,6 +1657,7 @@ class DownturnEngine:
             in_correction=we.in_correction,
             predator=we.predator,
         )
+        self._position.commission = fill_commission
 
         # Place protective stop
         await self._place_protective_stop(we.stop0, qty)
@@ -1728,20 +1731,23 @@ class DownturnEngine:
 
     async def _on_exit_fill(
         self, fill_price: float, fill_qty: int, exit_type: str,
+        fill_commission: float = 0.0,
     ) -> None:
         """Process exit fill: record trade, update risk, clear position."""
         pos = self._position
         if pos is None:
             return
 
+        pos.commission += fill_commission
+
         # Substitute exit_trigger (profit_floor, chandelier, etc.) for generic "stop"
         if exit_type == "stop" and pos.exit_trigger:
             exit_type = pos.exit_trigger
 
-        # PnL calculation (short: entry - exit = profit)
+        # PnL calculation (short: entry - exit = profit), net of fees
         close_qty = fill_qty if fill_qty > 0 else pos.qty
-        pnl = (pos.entry_price - fill_price) * close_qty * self._point_value
-        r_mult = pos.r_state(fill_price)
+        pnl = (pos.entry_price - fill_price) * close_qty * self._point_value - pos.commission
+        r_mult = pos.r_state(fill_price)  # gross R (matches backtest pattern)
 
         # Daily risk tracking
         self._daily_loss += min(0, pnl)
@@ -1792,23 +1798,27 @@ class DownturnEngine:
         # Trade recorder
         if self._trade_recorder:
             try:
-                await self._trade_recorder.record_trade(
-                    strategy_id=C.STRATEGY_ID,
-                    symbol=self._symbol,
-                    direction="SHORT",
-                    entry_price=pos.entry_price,
-                    exit_price=fill_price,
-                    qty=pos.qty,
-                    pnl=pnl,
-                    r_multiple=r_mult,
-                    entry_type=pos.signal_class,
-                    exit_type=exit_type,
-                    hold_bars=pos.hold_bars_5m,
-                    engine_tag=pos.engine_tag.value,
-                    regime=pos.composite_regime.value,
-                )
+                await self._trade_recorder.record({
+                    "strategy_id": C.STRATEGY_ID,
+                    "symbol": self._symbol,
+                    "direction": "SHORT",
+                    "entry_price": pos.entry_price,
+                    "exit_price": fill_price,
+                    "shares": pos.qty,
+                    "realized_pnl": pnl,
+                    "r_multiple": r_mult,
+                    "entry_type": pos.signal_class,
+                    "exit_reason": exit_type,
+                    "entry_ts": pos.entry_time,
+                    "exit_ts": datetime.now(timezone.utc),
+                    "trade_id": pos.trade_id,
+                    "hold_bars_5m": pos.hold_bars_5m,
+                    "engine_tag": pos.engine_tag.value,
+                    "regime": pos.composite_regime.value,
+                    "commission": pos.commission,
+                })
             except Exception:
-                logger.debug("Trade recorder failed", exc_info=True)
+                logger.warning("Trade recorder failed", exc_info=True)
 
         # Clear position
         self._position = None

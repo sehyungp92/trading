@@ -206,11 +206,12 @@ class RuntimeShell:
         connect_ib: bool = False,
         once: bool = False,
         family_filter: str | None = None,
+        allow_no_db: bool = False,
     ) -> None:
         self.load()
         self._require_loaded()
 
-        enabled = self.registry.enabled_strategies()
+        enabled = self.registry.enabled_strategies(live=connect_ib)
         logger.info(
             "Runtime shell loaded %d enabled strategies across %d connection groups%s",
             len(enabled),
@@ -247,13 +248,23 @@ class RuntimeShell:
         # ------------------------------------------------------------------
         db_pool = None
         account_gate = None
+        trade_recorder = None
+        heartbeat = None
         try:
             from libs.services.bootstrap import bootstrap_database
             bootstrap_ctx = await bootstrap_database()
             db_pool = bootstrap_ctx.pool
+            trade_recorder = bootstrap_ctx.trade_recorder
+            heartbeat = bootstrap_ctx.heartbeat
             logger.info("Database bootstrapped")
         except Exception as exc:
-            logger.warning("Database bootstrap failed (non-fatal): %s", exc)
+            if allow_no_db:
+                logger.warning("Database bootstrap failed (--allow-no-db): %s", exc)
+            else:
+                raise RuntimeError(
+                    f"Database bootstrap failed (portfolio rules require DB). "
+                    f"Use --allow-no-db to start without DB. Error: {exc}"
+                ) from exc
 
         if db_pool is not None:
             try:
@@ -310,6 +321,8 @@ class RuntimeShell:
                 account_gate=account_gate,
                 family_coordinator=None,
                 regime_service=regime_service,
+                trade_recorder=trade_recorder,
+                heartbeat=heartbeat,
             )
 
             try:
@@ -324,31 +337,7 @@ class RuntimeShell:
                 logger.error("Failed to create coordinator for '%s': %s", family, exc, exc_info=True)
 
         # ------------------------------------------------------------------
-        # 5. Start all coordinators
-        # ------------------------------------------------------------------
-        started_coordinators: list[Any] = []
-        for coordinator in coordinators:
-            try:
-                await coordinator.start()
-                started_coordinators.append(coordinator)
-                logger.info("Family '%s' coordinator started", coordinator.family_id)
-            except Exception as exc:
-                logger.error(
-                    "Coordinator '%s' failed to start: %s",
-                    getattr(coordinator, "family_id", "?"), exc, exc_info=True,
-                )
-        coordinators = started_coordinators
-
-        if not coordinators:
-            logger.error("No coordinators started successfully — shutting down")
-            if db_pool is not None:
-                await db_pool.close()
-            if self.session is not None:
-                await self.session.stop()
-            return
-
-        # ------------------------------------------------------------------
-        # 5b. Load and apply initial regime context
+        # 5. Load and apply initial regime context BEFORE starting engines
         # ------------------------------------------------------------------
         regime_task: asyncio.Task | None = None
         try:
@@ -370,6 +359,30 @@ class RuntimeShell:
                         regime_ctx.regime, regime_ctx.regime_confidence, regime_ctx.computed_at or "unknown")
         except Exception as exc:
             logger.warning("Regime context load failed (non-fatal): %s", exc)
+
+        # ------------------------------------------------------------------
+        # 5b. Start all coordinators (regime already applied)
+        # ------------------------------------------------------------------
+        started_coordinators: list[Any] = []
+        for coordinator in coordinators:
+            try:
+                await coordinator.start()
+                started_coordinators.append(coordinator)
+                logger.info("Family '%s' coordinator started", coordinator.family_id)
+            except Exception as exc:
+                logger.error(
+                    "Coordinator '%s' failed to start: %s",
+                    getattr(coordinator, "family_id", "?"), exc, exc_info=True,
+                )
+        coordinators = started_coordinators
+
+        if not coordinators:
+            logger.error("No coordinators started successfully — shutting down")
+            if db_pool is not None:
+                await db_pool.close()
+            if self.session is not None:
+                await self.session.stop()
+            return
 
         # ------------------------------------------------------------------
         # 6. Run until shutdown signal

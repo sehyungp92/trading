@@ -13,7 +13,7 @@ Experiment ordering:
 
 Usage:
     cd C:/Users/sehyu/Documents/Other/Projects/trading
-    PYTHONUNBUFFERED=1 python -u -m research.backtests.stock.auto.output.incremental_optimize
+    PYTHONUNBUFFERED=1 python -u -m backtests.stock.auto.output.incremental_optimize
 """
 from __future__ import annotations
 
@@ -23,18 +23,18 @@ import sys
 import time
 from pathlib import Path
 
-from research.backtests.stock.auto.config_mutator import mutate_alcb_config
-from research.backtests.stock.auto.scoring import composite_score, extract_metrics
-from research.backtests.stock.config_alcb import ALCBBacktestConfig
-from research.backtests.stock.engine.alcb_engine import ALCBIntradayEngine
-from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+from backtests.stock.auto.config_mutator import mutate_alcb_config
+from backtests.stock.auto.scoring import composite_score, extract_metrics
+from backtests.stock.config_alcb import ALCBBacktestConfig
+from backtests.stock.engine.alcb_engine import ALCBIntradayEngine
+from backtests.stock.engine.research_replay import ResearchReplayEngine
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-DATA_DIR = Path("research/backtests/stock/data/raw")
-OUTPUT_DIR = Path("research/backtests/stock/auto/output")
+DATA_DIR = Path("backtests/stock/data/raw")
+OUTPUT_DIR = Path("backtests/stock/auto/output")
 INITIAL_EQUITY = 10_000.0
 START_DATE = "2024-01-01"
 END_DATE = "2026-03-01"

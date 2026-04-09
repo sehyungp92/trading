@@ -7,10 +7,10 @@ from __future__ import annotations
 
 from dataclasses import fields, replace
 
-from research.backtests.stock.config import SlippageConfig
-from research.backtests.stock.config_alcb import ALCBAblationFlags, ALCBBacktestConfig
-from research.backtests.stock.config_iaric import IARICAblationFlags, IARICBacktestConfig
-from research.backtests.stock.config_portfolio import PortfolioBacktestConfig
+from backtests.stock.config import SlippageConfig
+from backtests.stock.config_alcb import ALCBAblationFlags, ALCBBacktestConfig
+from backtests.stock.config_iaric import IARICAblationFlags, IARICBacktestConfig
+from backtests.stock.config_portfolio import PortfolioBacktestConfig
 
 
 def mutate_alcb_config(

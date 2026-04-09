@@ -5,7 +5,7 @@ Removed: healthcare=0.3, communication=0.5, industrials->0.3, tuesday=0.5, entry
 
 Usage::
 
-    python -m research.backtests.stock.auto.alcb_p12_phase.run_conservative_diagnostics
+    python -m backtests.stock.auto.alcb_p12_phase.run_conservative_diagnostics
 """
 from __future__ import annotations
 
@@ -16,8 +16,8 @@ from pathlib import Path
 if sys.stdout.encoding != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-DEFAULT_OUTPUT = Path("research/backtests/stock/auto/alcb_p12_phase/output_multiphase/p12_conservative_full_diagnostics.txt")
-DATA_DIR = Path("research/backtests/stock/data/raw")
+DEFAULT_OUTPUT = Path("backtests/stock/auto/alcb_p12_phase/output_multiphase/p12_conservative_full_diagnostics.txt")
+DATA_DIR = Path("backtests/stock/data/raw")
 START_DATE = "2024-01-01"
 END_DATE = "2026-03-01"
 INITIAL_EQUITY = 10_000.0
@@ -38,13 +38,13 @@ CONSERVATIVE_MUTATIONS = {
 
 
 def main() -> None:
-    from research.backtests.stock.analysis.alcb_diagnostics import alcb_full_diagnostic
-    from research.backtests.stock.analysis.alcb_shadow_tracker import ALCBShadowTracker
-    from research.backtests.stock.analysis.reports import full_report
-    from research.backtests.stock.auto.config_mutator import mutate_alcb_config
-    from research.backtests.stock.config_alcb import ALCBBacktestConfig
-    from research.backtests.stock.engine.alcb_engine import ALCBIntradayEngine
-    from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+    from backtests.stock.analysis.alcb_diagnostics import alcb_full_diagnostic
+    from backtests.stock.analysis.alcb_shadow_tracker import ALCBShadowTracker
+    from backtests.stock.analysis.reports import full_report
+    from backtests.stock.auto.config_mutator import mutate_alcb_config
+    from backtests.stock.config_alcb import ALCBBacktestConfig
+    from backtests.stock.engine.alcb_engine import ALCBIntradayEngine
+    from backtests.stock.engine.research_replay import ResearchReplayEngine
 
     print(f"Conservative P12: {len(CONSERVATIVE_MUTATIONS)} mutations")
     for k, v in CONSERVATIVE_MUTATIONS.items():

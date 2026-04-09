@@ -2,9 +2,9 @@
 
 Usage::
 
-    python -m research.backtests.stock.auto.alcb_p12_phase.cli --data-dir research/backtests/stock/data/raw --max-workers 2
-    python -m research.backtests.stock.auto.alcb_p12_phase.cli --phase 1
-    python -m research.backtests.stock.auto.alcb_p12_phase.cli --experiments p12_rvol_200 p12_no_combined_direct
+    python -m backtests.stock.auto.alcb_p12_phase.cli --data-dir backtests/stock/data/raw --max-workers 2
+    python -m backtests.stock.auto.alcb_p12_phase.cli --phase 1
+    python -m backtests.stock.auto.alcb_p12_phase.cli --experiments p12_rvol_200 p12_no_combined_direct
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def _setup_logging(verbose: bool = False) -> None:
 
 
 def _build_runner(args: argparse.Namespace):
-    from research.backtests.shared.auto.phase_runner import PhaseRunner
+    from backtests.shared.auto.phase_runner import PhaseRunner
 
     from .plugin import ALCBP12Plugin
 
@@ -57,8 +57,8 @@ def main() -> None:
         description="ALCB P12 phased auto-optimization (5 phases, 80 candidates)",
     )
     parser.add_argument("-v", "--verbose", action="store_true")
-    parser.add_argument("--data-dir", default="research/backtests/stock/data/raw")
-    parser.add_argument("--output-dir", default="research/backtests/stock/auto/alcb_p12_phase/output_multiphase")
+    parser.add_argument("--data-dir", default="backtests/stock/data/raw")
+    parser.add_argument("--output-dir", default="backtests/stock/auto/alcb_p12_phase/output_multiphase")
     parser.add_argument("--start", default="2024-01-01")
     parser.add_argument("--end", default="2026-03-01")
     parser.add_argument("--equity", type=float, default=10_000.0)

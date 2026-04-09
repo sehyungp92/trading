@@ -3,7 +3,7 @@
 Requires IBKR Gateway/TWS running on 127.0.0.1:7496.
 
 Usage:
-    python -m research.backtests.stock.data.redownload_5m
+    python -m backtests.stock.data.redownload_5m
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import asyncio
 import logging
 from pathlib import Path
 
-from research.backtests.stock.data.downloader import download_stock_universe
+from backtests.stock.data.downloader import download_stock_universe
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 SYMBOLS = ["CAT", "HD", "GS", "WMT", "BLK"]
 TIMEFRAMES = ["5m", "30m"]
 
-OUTPUT_DIR = Path("research/backtests/stock/data/raw")
+OUTPUT_DIR = Path("backtests/stock/data/raw")
 
 
 async def main() -> None:

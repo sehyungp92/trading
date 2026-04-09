@@ -5,7 +5,7 @@ AVWAP distance, sector, entry time) to predict win/loss. If AUC > 0.65,
 there's untapped discrimination potential.
 
 Usage:
-    from research.backtests.stock.analysis.alcb_winner_prediction import (
+    from backtests.stock.analysis.alcb_winner_prediction import (
         winner_prediction_analysis,
     )
     report = winner_prediction_analysis(trades)
@@ -17,7 +17,7 @@ from collections import defaultdict
 
 import numpy as np
 
-from research.backtests.stock.models import TradeRecord
+from backtests.stock.models import TradeRecord
 
 
 def _meta(t: TradeRecord, key: str, default=None):

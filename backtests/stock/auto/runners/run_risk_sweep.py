@@ -13,8 +13,8 @@ Total: ~20 runs on $10K, 2024-01-01 to 2026-03-01.
 
 Usage::
 
-    python -m research.backtests.stock.auto.runners.run_risk_sweep
-    python -m research.backtests.stock.auto.runners.run_risk_sweep --quick   # layers 1+2 only
+    python -m backtests.stock.auto.runners.run_risk_sweep
+    python -m backtests.stock.auto.runners.run_risk_sweep --quick   # layers 1+2 only
 """
 from __future__ import annotations
 
@@ -37,8 +37,8 @@ if sys.stdout.encoding != "utf-8":
 
 import numpy as np
 
-DATA_DIR = Path("research/backtests/stock/data/raw")
-OUTPUT_DIR = Path("research/backtests/stock/auto/iaric_pullback/output_risk_sweep")
+DATA_DIR = Path("backtests/stock/data/raw")
+OUTPUT_DIR = Path("backtests/stock/auto/iaric_pullback/output_risk_sweep")
 START_DATE = "2024-01-01"
 END_DATE = "2026-03-01"
 INITIAL_EQUITY = 10_000.0
@@ -180,10 +180,10 @@ def build_sweep_cases(*, quick: bool = False) -> list[SweepCase]:
 
 def run_single(replay, mutations: dict) -> dict:
     """Run one backtest, return metrics dict."""
-    from research.backtests.stock.auto.config_mutator import mutate_iaric_config
-    from research.backtests.stock.auto.scoring import extract_metrics, composite_score, compute_r_multiples, IARIC_NORM
-    from research.backtests.stock.config_iaric import IARICBacktestConfig
-    from research.backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
+    from backtests.stock.auto.config_mutator import mutate_iaric_config
+    from backtests.stock.auto.scoring import extract_metrics, composite_score, compute_r_multiples, IARIC_NORM
+    from backtests.stock.config_iaric import IARICBacktestConfig
+    from backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
 
     config = mutate_iaric_config(
         IARICBacktestConfig(
@@ -269,10 +269,10 @@ def main():
     parser.add_argument("--quick", action="store_true", help="Run layers 1+2 only (~8 runs)")
     args = parser.parse_args()
 
-    from research.backtests.stock._aliases import install
+    from backtests.stock._aliases import install
     install()
 
-    from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+    from backtests.stock.engine.research_replay import ResearchReplayEngine
 
     print("=" * 80)
     print("IARIC V4R1 Risk Parameter Sweep")

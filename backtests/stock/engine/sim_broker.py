@@ -13,8 +13,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum, auto
 
-from research.backtests.stock.config import SlippageConfig
-from research.backtests.stock.models import Direction
+from backtests.stock.config import SlippageConfig
+from backtests.stock.models import Direction
 
 logger = logging.getLogger(__name__)
 

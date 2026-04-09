@@ -270,7 +270,7 @@ class StrategySettings:
     pb_v2_delayed_confirm_allow_rescue: bool = False    # allow rescue-flow candidates into DELAYED_CONFIRM route
 
     # V2 Exits
-    pb_v2_mfe_stage1_trigger: float = 0.30
+    pb_v2_mfe_stage1_trigger: float = 0.50
     pb_v2_mfe_stage1_stop_r: float = -0.10
     pb_v2_mfe_stage2_trigger: float = 0.60
     pb_v2_mfe_stage3_trigger: float = 1.25
@@ -285,7 +285,7 @@ class StrategySettings:
     pb_v2_rsi_exit_afternoon: float = 50.0
     pb_v2_vwap_fail_bars: int = 3
     pb_v2_vwap_fail_close_pct: float = 0.35
-    pb_v2_stale_bars: int = 4
+    pb_v2_stale_bars: int = 6
     pb_v2_stale_mfe_thresh: float = 0.05
     pb_v2_stale_tighten_pct: float = 0.30
 

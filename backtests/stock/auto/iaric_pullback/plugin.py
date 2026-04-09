@@ -8,9 +8,9 @@ from typing import Any
 
 import numpy as np
 
-from research.backtests.shared.auto.phase_state import PhaseState
-from research.backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
-from research.backtests.shared.auto.plugin_utils import (
+from backtests.shared.auto.phase_state import PhaseState
+from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
     deserialize_experiments,
@@ -18,7 +18,7 @@ from research.backtests.shared.auto.plugin_utils import (
     mutation_signature,
     resolve_worker_processes,
 )
-from research.backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion
+from backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion
 
 from .phase_candidates import (
     BASE_MUTATIONS,
@@ -524,7 +524,7 @@ class IARICPullbackPlugin:
         return _build_phase_snapshot(phase, phase_focus[phase][0], metrics, greedy_result, round_label=self._round_name.upper())
 
     def run_enhanced_diagnostics(self, phase: int, state: PhaseState, metrics: dict[str, float], greedy_result) -> str:
-        from research.backtests.stock.analysis.iaric_pullback_diagnostics import pullback_full_diagnostic
+        from backtests.stock.analysis.iaric_pullback_diagnostics import pullback_full_diagnostic
 
         snapshot = self.run_phase_diagnostics(phase, state, metrics, greedy_result)
         trades = self._last_context.get("trades")
@@ -545,8 +545,8 @@ class IARICPullbackPlugin:
         )
 
     def build_end_of_round_artifacts(self, state: PhaseState) -> EndOfRoundArtifacts:
-        from research.backtests.stock.analysis.iaric_pullback_diagnostics import compute_pullback_diagnostic_snapshot
-        from research.backtests.stock.analysis.iaric_pullback_round_diagnostics import build_pullback_round_comparison_report
+        from backtests.stock.analysis.iaric_pullback_diagnostics import compute_pullback_diagnostic_snapshot
+        from backtests.stock.analysis.iaric_pullback_round_diagnostics import build_pullback_round_comparison_report
 
         final_ctx = self._run_config(state.cumulative_mutations, store_context=True, collect_diagnostics=True)
         base_ctx = self._run_config(self.initial_mutations, store_context=False, collect_diagnostics=True)
@@ -862,7 +862,7 @@ class IARICPullbackPlugin:
 
     def _ensure_replay(self):
         if self._cached_replay is None:
-            from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+            from backtests.stock.engine.research_replay import ResearchReplayEngine
 
             replay = ResearchReplayEngine(data_dir=self.data_dir)
             replay.load_all_data()
@@ -878,12 +878,12 @@ class IARICPullbackPlugin:
         store_context: bool = False,
         collect_diagnostics: bool = False,
     ) -> dict[str, Any]:
-        from research.backtests.stock._aliases import install
-        from research.backtests.stock.analysis.iaric_pullback_diagnostics import compute_pullback_diagnostic_snapshot
-        from research.backtests.stock.auto.config_mutator import mutate_iaric_config
-        from research.backtests.stock.auto.scoring import extract_metrics
-        from research.backtests.stock.config_iaric import IARICBacktestConfig
-        from research.backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
+        from backtests.stock._aliases import install
+        from backtests.stock.analysis.iaric_pullback_diagnostics import compute_pullback_diagnostic_snapshot
+        from backtests.stock.auto.config_mutator import mutate_iaric_config
+        from backtests.stock.auto.scoring import extract_metrics
+        from backtests.stock.config_iaric import IARICBacktestConfig
+        from backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
 
         install()
         effective_start = start_date or self.start_date

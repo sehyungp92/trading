@@ -257,6 +257,8 @@ class ALCBT2Engine:
                     "mfe_r": pos.mfe_r,
                     "partial_qty_exited": pos.partial_qty_exited,
                     "realized_partial_pnl": pos.realized_partial_pnl,
+                    "entry_commission": pos.entry_commission,
+                    "exit_commission": pos.exit_commission,
                     "fr_trailing_active": pos.fr_trailing_active,
                     "trade_class": pos.trade_class,
                 }
@@ -301,6 +303,8 @@ class ALCBT2Engine:
                 mfe_r=pdata.get("mfe_r", 0.0),
                 partial_qty_exited=pdata.get("partial_qty_exited", 0),
                 realized_partial_pnl=pdata.get("realized_partial_pnl", 0.0),
+                entry_commission=pdata.get("entry_commission", 0.0),
+                exit_commission=pdata.get("exit_commission", 0.0),
                 fr_trailing_active=pdata.get("fr_trailing_active", False),
                 trade_class=pdata.get("trade_class", ""),
             )
@@ -1318,7 +1322,7 @@ class ALCBT2Engine:
         fill_time = datetime.now(timezone.utc)
 
         if role == "ENTRY":
-            await self._handle_entry_fill(symbol, oms_order_id, fill_qty, fill_price, fill_time)
+            await self._handle_entry_fill(symbol, oms_order_id, fill_qty, fill_price, fill_time, payload)
         elif role == "EXIT":
             await self._handle_exit_fill(symbol, oms_order_id, fill_qty, fill_price, "EXIT", payload)
         elif role == "PARTIAL":
@@ -1329,6 +1333,7 @@ class ALCBT2Engine:
     async def _handle_entry_fill(
         self, symbol: str, oms_order_id: str,
         fill_qty: int, fill_price: float, fill_time: datetime,
+        payload: dict | None = None,
     ) -> None:
         self._pending_entries.pop(symbol, None)
         plan = self._pending_plans.pop(oms_order_id, None)
@@ -1377,6 +1382,7 @@ class ALCBT2Engine:
             trade_id=f"T2-{symbol}-{uuid.uuid4().hex[:8]}",
         )
         self._positions[symbol] = pos
+        pos.entry_commission = float((payload or {}).get("commission", 0.0) or 0.0)
 
         # Submit protective stop
         await self._submit_stop(symbol)
@@ -1515,6 +1521,8 @@ class ALCBT2Engine:
 
         pos.quantity -= fill_qty
         reason = self._exit_reasons.pop(oms_order_id, exit_type)
+        exit_comm = float((payload or {}).get("commission", 0.0) or 0.0)
+        pos.exit_commission += exit_comm
 
         if pos.quantity <= 0:
             # Position fully closed — cancel any orphaned orders for this symbol
@@ -1544,8 +1552,9 @@ class ALCBT2Engine:
             if self._trade_recorder is not None:
                 try:
                     exit_time = datetime.now(timezone.utc)
-                    realized_usd = (fill_price - pos.entry_price) * fill_qty + pos.realized_partial_pnl
-                    realized_r = realized_usd / max(pos.risk_per_share * pos.qty_original, 1e-9)
+                    total_fees = pos.entry_commission + pos.exit_commission
+                    net_pnl = (fill_price - pos.entry_price) * fill_qty + pos.realized_partial_pnl - total_fees
+                    realized_r = net_pnl / max(pos.risk_per_share * pos.qty_original, 1e-9)
                     mfe_r = (pos.max_favorable - pos.entry_price) / max(pos.risk_per_share, 1e-9)
                     mae_r = (pos.max_adverse - pos.entry_price) / max(pos.risk_per_share, 1e-9)
                     await self._trade_recorder.record_exit(
@@ -1554,7 +1563,7 @@ class ALCBT2Engine:
                         exit_ts=exit_time,
                         exit_reason=reason,
                         realized_r=Decimal(str(round(realized_r, 4))),
-                        realized_usd=Decimal(str(round(realized_usd, 2))),
+                        realized_usd=Decimal(str(round(net_pnl, 2))),
                         mfe_r=Decimal(str(round(mfe_r, 4))),
                         mae_r=Decimal(str(round(mae_r, 4))),
                         max_adverse_price=Decimal(str(pos.max_adverse)),
@@ -1563,7 +1572,7 @@ class ALCBT2Engine:
                         meta={
                             "exchange_timestamp": exit_time.isoformat(),
                             "expected_exit_price": fill_price,
-                            "fees_paid": float(payload.get("commission", 0.0) or 0.0) if payload else 0.0,
+                            "fees_paid": pos.entry_commission + pos.exit_commission,
                             "session_transitions": [],
                             "exit_latency_ms": None,
                             # Position lifecycle (flows to DB recorder for diagnostics)

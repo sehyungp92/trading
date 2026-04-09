@@ -151,6 +151,7 @@ class TradeEvent:
     session_transitions: Optional[List[dict]] = None
 
     # Strategy identification
+    strategy_id: str = ""                # "AKC_Helix_v40" / "NQDTC_v2.1" / ...
     strategy_type: str = ""              # "helix" / "nqdtc" / "vdubus"
     param_set_id: Optional[str] = None   # sha256[:16] of strategy_params for grouping
 
@@ -273,6 +274,7 @@ class TradeLogger:
                 portfolio_state_at_entry=portfolio_state,
                 experiment_id=self.experiment_id,
                 experiment_variant=self.experiment_variant,
+                strategy_id=self.strategy_id,
                 strategy_type=self.strategy_type,
                 stage="entry",
             )

@@ -1,7 +1,7 @@
 """Run full diagnostics on P14 final config + fr_mfe_grace_r=0.15.
 
 Usage::
-    python -m research.backtests.stock.auto.alcb_p14_phase.run_p14_final_diagnostics
+    python -m backtests.stock.auto.alcb_p14_phase.run_p14_final_diagnostics
 """
 from __future__ import annotations
 
@@ -13,16 +13,16 @@ from pathlib import Path
 if sys.stdout.encoding != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True)
 
-from research.backtests.stock._aliases import install
+from backtests.stock._aliases import install
 
 install()
 
-from research.backtests.stock.analysis.alcb_diagnostics import alcb_full_diagnostic
-from research.backtests.stock.analysis.alcb_shadow_tracker import ALCBShadowTracker
-from research.backtests.stock.auto.config_mutator import mutate_alcb_config
-from research.backtests.stock.config_alcb import ALCBBacktestConfig
-from research.backtests.stock.engine.alcb_engine import ALCBIntradayEngine
-from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+from backtests.stock.analysis.alcb_diagnostics import alcb_full_diagnostic
+from backtests.stock.analysis.alcb_shadow_tracker import ALCBShadowTracker
+from backtests.stock.auto.config_mutator import mutate_alcb_config
+from backtests.stock.config_alcb import ALCBBacktestConfig
+from backtests.stock.engine.alcb_engine import ALCBIntradayEngine
+from backtests.stock.engine.research_replay import ResearchReplayEngine
 
 from .time_utils import hydrate_time_mutations
 
@@ -56,8 +56,8 @@ P14_FINAL_PLUS: dict = {
 
 
 def main() -> None:
-    data_dir = Path("research/backtests/stock/data/raw")
-    output_dir = Path("research/backtests/stock/auto/alcb_p14_phase/output")
+    data_dir = Path("backtests/stock/data/raw")
+    output_dir = Path("backtests/stock/auto/alcb_p14_phase/output")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     replay = ResearchReplayEngine(data_dir=data_dir)

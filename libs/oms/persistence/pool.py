@@ -45,6 +45,7 @@ class DatabasePool:
                     max_size=config.pool_max,
                     command_timeout=30,
                     statement_cache_size=100,
+                    server_settings={"timezone": "America/New_York"},
                 )
                 logger.info(
                     f"Database pool created: {config.host}:{config.port}/{config.database} "

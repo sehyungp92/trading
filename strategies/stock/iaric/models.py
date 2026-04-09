@@ -340,6 +340,7 @@ class PositionState:
     trade_id: str = ""
     realized_pnl_usd: float = 0.0
     entry_commission: float = 0.0
+    exit_commission: float = 0.0
     setup_tag: str = "UNCLASSIFIED"
     time_stop_deadline: datetime | None = None
 

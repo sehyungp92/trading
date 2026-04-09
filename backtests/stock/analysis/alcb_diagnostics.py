@@ -12,12 +12,12 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
-from research.backtests.stock.analysis.alcb_filter_attribution import (
+from backtests.stock.analysis.alcb_filter_attribution import (
     alcb_filter_attribution_report,
 )
-from research.backtests.stock.analysis.alcb_shadow_tracker import ALCBShadowTracker
-from research.backtests.stock.analysis.metrics import PerformanceMetrics, compute_metrics
-from research.backtests.stock.models import TradeRecord
+from backtests.stock.analysis.alcb_shadow_tracker import ALCBShadowTracker
+from backtests.stock.analysis.metrics import PerformanceMetrics, compute_metrics
+from backtests.stock.models import TradeRecord
 
 
 _ET = ZoneInfo("America/New_York")

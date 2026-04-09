@@ -2,8 +2,8 @@
 
 Usage::
 
-    python -m research.backtests.stock.analysis.run_pullback_diagnostics
-    python -m research.backtests.stock.analysis.run_pullback_diagnostics --report-file output.txt
+    python -m backtests.stock.analysis.run_pullback_diagnostics
+    python -m backtests.stock.analysis.run_pullback_diagnostics --report-file output.txt
 """
 from __future__ import annotations
 
@@ -21,17 +21,17 @@ def main() -> None:
     parser.add_argument("--start", default="2024-01-01")
     parser.add_argument("--end", default="2026-03-01")
     parser.add_argument("--equity", type=float, default=10_000.0)
-    parser.add_argument("--data-dir", default="research/backtests/stock/data/raw")
+    parser.add_argument("--data-dir", default="backtests/stock/data/raw")
     parser.add_argument("--execution-mode", default="intraday_hybrid", choices=["daily", "intraday_hybrid"])
     parser.add_argument("--report-file", type=str, default=None)
     args = parser.parse_args()
 
-    from research.backtests.stock.analysis.iaric_pullback_diagnostics import (
+    from backtests.stock.analysis.iaric_pullback_diagnostics import (
         pullback_full_diagnostic,
     )
-    from research.backtests.stock.config_iaric import IARICBacktestConfig
-    from research.backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
-    from research.backtests.stock.engine.research_replay import ResearchReplayEngine
+    from backtests.stock.config_iaric import IARICBacktestConfig
+    from backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
+    from backtests.stock.engine.research_replay import ResearchReplayEngine
 
     data_dir = Path(args.data_dir)
     replay = ResearchReplayEngine(data_dir=data_dir)

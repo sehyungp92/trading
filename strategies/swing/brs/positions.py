@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -43,6 +43,18 @@ class ActionResult:
 
 
 @dataclass
+class PendingOrder:
+    """Tracks a submitted order awaiting broker fill."""
+    oms_order_id: str
+    symbol: str
+    role: str              # "entry" | "pyramid" | "scale_out"
+    qty: int
+    signal: Optional[EntrySignal] = None   # for entry/pyramid
+    pos_id: str = ""                        # for entry
+    submitted_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass
 class BRSPositionState:
     """Full state for a single BRS position."""
     symbol: str
@@ -67,6 +79,9 @@ class BRSPositionState:
     chand_bonus: float = 0.0
     quality_score: float = 0.0
     vol_factor: float = 1.0
+
+    # Commission tracking
+    commission: float = 0.0
 
     # Scale-out state
     tranche_b_open: bool = False

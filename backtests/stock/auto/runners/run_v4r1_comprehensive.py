@@ -13,9 +13,9 @@ multiphase, tier B), and re-evaluates tier B options on the clean V2 base.
 
 Usage::
 
-    python -m research.backtests.stock.auto.runners.run_v4r1_comprehensive
-    python -m research.backtests.stock.auto.runners.run_v4r1_comprehensive --max-workers 2
-    python -m research.backtests.stock.auto.runners.run_v4r1_comprehensive --num-phases 1
+    python -m backtests.stock.auto.runners.run_v4r1_comprehensive
+    python -m backtests.stock.auto.runners.run_v4r1_comprehensive --max-workers 2
+    python -m backtests.stock.auto.runners.run_v4r1_comprehensive --num-phases 1
 """
 from __future__ import annotations
 
@@ -34,16 +34,16 @@ os.environ.setdefault("OPENBLAS_NUM_THREADS", "4")
 if sys.stdout.encoding != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-from research.backtests.shared.auto.phase_runner import PhaseRunner
-from research.backtests.stock.auto.iaric_pullback.phase_candidates import (
+from backtests.shared.auto.phase_runner import PhaseRunner
+from backtests.stock.auto.iaric_pullback.phase_candidates import (
     V4R1_BASE_MUTATIONS,
     V4R1_PHASE_CANDIDATES,
     V4R1_PHASE_FOCUS,
 )
-from research.backtests.stock.auto.iaric_pullback.plugin import IARICPullbackPlugin
+from backtests.stock.auto.iaric_pullback.plugin import IARICPullbackPlugin
 
-DATA_DIR = Path("research/backtests/stock/data/raw")
-DEFAULT_OUTPUT_DIR = Path("research/backtests/stock/auto/iaric_pullback/output_v4r1")
+DATA_DIR = Path("backtests/stock/data/raw")
+DEFAULT_OUTPUT_DIR = Path("backtests/stock/auto/iaric_pullback/output_v4r1")
 START_DATE = "2024-01-01"
 END_DATE = "2026-03-01"
 INITIAL_EQUITY = 10_000.0
@@ -82,7 +82,7 @@ def _write_manifest(
     }
     manifest = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "framework": "research/backtests/shared/auto",
+        "framework": "backtests/shared/auto",
         "plugin": "IARICPullbackPlugin",
         "round": "V4R1",
         "profile": profile,

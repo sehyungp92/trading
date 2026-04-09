@@ -13,8 +13,8 @@ from datetime import datetime, timezone
 
 import numpy as np
 
-from research.backtests.stock.config_portfolio import PortfolioBacktestConfig
-from research.backtests.stock.models import Direction, TradeRecord
+from backtests.stock.config_portfolio import PortfolioBacktestConfig
+from backtests.stock.models import Direction, TradeRecord
 
 logger = logging.getLogger(__name__)
 

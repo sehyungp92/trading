@@ -11,9 +11,9 @@ Baseline (post-V2R3): 832 trades, PF 1.58, avg_r +0.054, DD 2.1%, Sharpe 2.33.
 
 Usage::
 
-    python -m research.backtests.stock.auto.runners.run_v2r4_multiphase
-    python -m research.backtests.stock.auto.runners.run_v2r4_multiphase --max-workers 2
-    python -m research.backtests.stock.auto.runners.run_v2r4_multiphase --num-phases 1
+    python -m backtests.stock.auto.runners.run_v2r4_multiphase
+    python -m backtests.stock.auto.runners.run_v2r4_multiphase --max-workers 2
+    python -m backtests.stock.auto.runners.run_v2r4_multiphase --num-phases 1
 """
 from __future__ import annotations
 
@@ -32,16 +32,16 @@ os.environ.setdefault("OPENBLAS_NUM_THREADS", "4")
 if sys.stdout.encoding != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-from research.backtests.shared.auto.phase_runner import PhaseRunner
-from research.backtests.stock.auto.iaric_pullback.phase_candidates import (
+from backtests.shared.auto.phase_runner import PhaseRunner
+from backtests.stock.auto.iaric_pullback.phase_candidates import (
     V2R4_BASE_MUTATIONS,
     V2R4_PHASE_CANDIDATES,
     V2R4_PHASE_FOCUS,
 )
-from research.backtests.stock.auto.iaric_pullback.plugin import IARICPullbackPlugin
+from backtests.stock.auto.iaric_pullback.plugin import IARICPullbackPlugin
 
-DATA_DIR = Path("research/backtests/stock/data/raw")
-DEFAULT_OUTPUT_DIR = Path("research/backtests/stock/auto/iaric_pullback/output_v2r4")
+DATA_DIR = Path("backtests/stock/data/raw")
+DEFAULT_OUTPUT_DIR = Path("backtests/stock/auto/iaric_pullback/output_v2r4")
 START_DATE = "2024-01-01"
 END_DATE = "2026-03-01"
 INITIAL_EQUITY = 10_000.0
@@ -80,7 +80,7 @@ def _write_manifest(
     }
     manifest = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "framework": "research/backtests/shared/auto",
+        "framework": "backtests/shared/auto",
         "plugin": "IARICPullbackPlugin",
         "round": "V2R4",
         "profile": profile,

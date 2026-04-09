@@ -9,7 +9,7 @@ from typing import Any
 
 import numpy as np
 
-from research.backtests.stock.engine.iaric_pullback_engine import (
+from backtests.stock.engine.iaric_pullback_engine import (
     IARICPullbackDailyEngine,
     IARICPullbackResult,
     _build_selection_attribution,
@@ -27,7 +27,7 @@ from research.backtests.stock.engine.iaric_pullback_engine import (
     _v2_rsi_exit_threshold,
     _v2_score_sizing_mult,
 )
-from research.backtests.stock.models import Direction as BTDirection, TradeRecord
+from backtests.stock.models import Direction as BTDirection, TradeRecord
 
 from strategies.stock.iaric.config import ET
 from strategies.stock.iaric.models import Bar, MarketSnapshot, WatchlistArtifact, WatchlistItem

@@ -20,8 +20,8 @@ from typing import Any
 
 import numpy as np
 
-from research.backtests.stock.config_iaric import IARICBacktestConfig
-from research.backtests.stock.engine.iaric_pullback_indicators import (
+from backtests.stock.config_iaric import IARICBacktestConfig
+from backtests.stock.engine.iaric_pullback_indicators import (
     adx_suite,
     atr,
     bollinger_pctb,
@@ -35,11 +35,11 @@ from research.backtests.stock.engine.iaric_pullback_indicators import (
     sma_slope_positive,
     volume_climax_ratio,
 )
-from research.backtests.stock.engine.research_replay import (
+from backtests.stock.engine.research_replay import (
     ResearchReplayEngine,
     _iloc_upto,
 )
-from research.backtests.stock.models import Direction as BTDirection, TradeRecord
+from backtests.stock.models import Direction as BTDirection, TradeRecord
 
 from strategies.stock.iaric.config import StrategySettings
 from strategies.stock.iaric.models import WatchlistArtifact, WatchlistItem
@@ -2311,7 +2311,7 @@ class IARICPullbackEngine:
             )
             return engine.run()
         if mode == "intraday_hybrid":
-            from research.backtests.stock.engine.iaric_pullback_intraday_hybrid_engine import (
+            from backtests.stock.engine.iaric_pullback_intraday_hybrid_engine import (
                 IARICPullbackIntradayHybridEngine,
             )
 

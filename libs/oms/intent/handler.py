@@ -145,6 +145,19 @@ class IntentHandler:
                     IntentResult.DENIED, intent_id, denial_reason=denial
                 )
 
+            # Apply portfolio size multiplier to order qty (C2 fix: was write-only)
+            if order.risk_context and order.risk_context.portfolio_size_mult != 1.0:
+                mult = order.risk_context.portfolio_size_mult
+                original_qty = order.qty
+                order.qty = max(1, int(order.qty * mult))
+                order.remaining_qty = order.qty
+                if original_qty > 0:
+                    order.risk_context.risk_dollars *= order.qty / original_qty
+                logger.info(
+                    "Portfolio size mult %.2fx: qty %d -> %d for %s",
+                    mult, original_qty, order.qty, order.strategy_id,
+                )
+
             # Approve and persist
             order.status = OrderStatus.RISK_APPROVED
             await self._repo.save_order(order)

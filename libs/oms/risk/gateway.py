@@ -203,12 +203,20 @@ class RiskGateway:
             else float("inf")
         )
 
-        total_risk_R = port_risk.open_risk_R + port_risk.pending_entry_risk_R + new_risk_R
+        # Normalize to portfolio_urd basis for portfolio-level heat cap (C1c fix:
+        # prevents mixed R-unit bases when strategies have different URDs in shared OMS)
+        portfolio_urd = self._config.portfolio_urd
+        if portfolio_urd > 0 and strat_cfg.unit_risk_dollars > 0:
+            new_risk_portfolio_R = new_risk_dollars / portfolio_urd
+        else:
+            new_risk_portfolio_R = new_risk_R
+
+        total_risk_R = port_risk.open_risk_R + port_risk.pending_entry_risk_R + new_risk_portfolio_R
         if total_risk_R > self._config.heat_cap_R:
             return (
                 f"Heat cap breach: open {port_risk.open_risk_R:.2f}R + "
                 f"pending {port_risk.pending_entry_risk_R:.2f}R + "
-                f"new {new_risk_R:.2f}R > cap {self._config.heat_cap_R}R"
+                f"new {new_risk_portfolio_R:.2f}R > cap {self._config.heat_cap_R}R"
             )
 
         # 9b. Per-strategy heat ceiling (swing family): prevent one strategy
@@ -226,7 +234,7 @@ class RiskGateway:
         # heat is tight, reserve capacity for higher-priority strategies
         # that are IDLE (no open exposure).
         remaining_R = self._config.heat_cap_R - (port_risk.open_risk_R + port_risk.pending_entry_risk_R)
-        if remaining_R < 2 * new_risk_R:
+        if remaining_R < 2 * new_risk_portfolio_R:
             for other_cfg in self._config.strategy_configs.values():
                 if other_cfg.priority < strat_cfg.priority:
                     other_risk = await self._get_strat_risk(other_cfg.strategy_id)

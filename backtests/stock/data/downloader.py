@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from research.backtests.momentum.data.downloader import (
+from backtests.momentum.data.downloader import (
     _CLIENT_ID,
     _PACING_DELAY,
     bar_path,
@@ -74,7 +74,7 @@ async def download_stock_universe(
     timeframes: list[str] | None = None,
     symbols: list[str] | None = None,
     duration: str = "5 Y",
-    output_dir: Path = Path("research/backtests/stock/data/raw"),
+    output_dir: Path = Path("backtests/stock/data/raw"),
     host: str = "127.0.0.1",
     port: int = 7496,
     skip_existing: bool = True,
@@ -168,7 +168,7 @@ async def download_stock_universe(
 async def download_intraday_for_tradable(
     tradable_alcb: list[str],
     tradable_iaric: list[str],
-    output_dir: Path = Path("research/backtests/stock/data/raw"),
+    output_dir: Path = Path("backtests/stock/data/raw"),
     host: str = "127.0.0.1",
     port: int = 7496,
 ) -> dict[str, list[str]]:

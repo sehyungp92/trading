@@ -33,3 +33,4 @@ class RiskConfig:
     portfolio_weekly_stop_R: float = 12.0  # halt ALL strategies if weekly loss exceeds this
     global_standdown: bool = False
     strategy_configs: dict[str, StrategyRiskConfig] = field(default_factory=dict)
+    portfolio_urd: float = 0.0  # shared portfolio unit_risk_dollars for normalized heat cap

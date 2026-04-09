@@ -515,6 +515,8 @@ class T2PositionState:
     partial_taken: bool = False
     partial_qty_exited: int = 0
     realized_partial_pnl: float = 0.0
+    entry_commission: float = 0.0
+    exit_commission: float = 0.0
     carry_days: int = 0
     setup_tag: str = ""
     stop_order_id: str = ""

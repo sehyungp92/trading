@@ -5,7 +5,7 @@ The losses must be very large — this script dissects the 132 losers in
 that bucket for common patterns and suggests mitigation.
 
 Usage:
-    from research.backtests.stock.analysis.alcb_short_hold_analysis import (
+    from backtests.stock.analysis.alcb_short_hold_analysis import (
         short_hold_deep_dive,
     )
     report = short_hold_deep_dive(trades)
@@ -17,7 +17,7 @@ from collections import defaultdict
 
 import numpy as np
 
-from research.backtests.stock.models import TradeRecord
+from backtests.stock.models import TradeRecord
 
 
 def _meta(t: TradeRecord, key: str, default=None):
