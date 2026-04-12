@@ -1009,10 +1009,18 @@ class IARICEngine:
             new_stop = max(new_stop, stale_stop)
 
         if new_stop > state.stop_level:
+            old_stop = state.stop_level
             state.stop_level = new_stop
             if position.stop_order_id:
                 position.current_stop = new_stop
                 asyncio.create_task(self._replace_stop(symbol)).add_done_callback(self._log_task_exception)
+            kit = self._kit_cache
+            if kit:
+                kit.log_stop_adjustment(
+                    trade_id=position.trade_id or f"IARIC-{symbol}",
+                    symbol=symbol, old_stop=old_stop, new_stop=new_stop,
+                    adjustment_type="trailing", trigger="mfe_stage_trail",
+                )
 
         # V2 partial profit (triggers on MFE, not unrealized -- research parity)
         if check_v2_partial(max_mfe_r, state.v2_partial_taken, self._settings.pb_v2_partial_profit_trigger_r):
@@ -1024,8 +1032,16 @@ class IARICEngine:
             })
             partial_stop = entry_price + self._settings.pb_v2_partial_profit_remainder_stop_r * risk_per_share
             if partial_stop > state.stop_level:
+                old_sl = state.stop_level
                 state.stop_level = partial_stop
                 position.current_stop = partial_stop
+                kit = self._kit_cache
+                if kit:
+                    kit.log_stop_adjustment(
+                        trade_id=position.trade_id or f"IARIC-{symbol}",
+                        symbol=symbol, old_stop=old_sl, new_stop=partial_stop,
+                        adjustment_type="partial_trail", trigger="v2_partial_profit",
+                    )
             asyncio.create_task(
                 self._submit_market_exit(symbol, partial_qty, OrderRole.TP)
             ).add_done_callback(self._log_task_exception)
@@ -1106,10 +1122,18 @@ class IARICEngine:
                     entry_price, state.stop_level, risk_per_share, unrealized_r, self._settings,
                 )
                 if overnight_stop > state.stop_level:
+                    old_sl = state.stop_level
                     state.stop_level = overnight_stop
                     position.current_stop = overnight_stop
                     if position.stop_order_id:
                         asyncio.create_task(self._replace_stop(symbol)).add_done_callback(self._log_task_exception)
+                    kit = self._kit_cache
+                    if kit:
+                        kit.log_stop_adjustment(
+                            trade_id=position.trade_id or f"IARIC-{symbol}",
+                            symbol=symbol, old_stop=old_sl, new_stop=overnight_stop,
+                            adjustment_type="time_decay", trigger="overnight_tighten",
+                        )
 
     # ── Order execution ─────────────────────────────────────────────
 
@@ -1465,6 +1489,14 @@ class IARICEngine:
                             "daily_signal_score": state.daily_signal_score,
                             "trigger_tier": state.trigger_tier,
                             "trend_tier": state.trend_tier,
+                        },
+                        portfolio_state={
+                            "account_equity": self._portfolio.account_equity,
+                            "open_positions": len(self._portfolio.open_positions),
+                            "pending_entry_risk": sum(self._portfolio.pending_entry_risk.values()),
+                            "base_risk_fraction": self._portfolio.base_risk_fraction,
+                            "regime_allows_no_new_entries": self._portfolio.regime_allows_no_new_entries,
+                            "symbols_held": sorted(self._portfolio.open_positions.keys()),
                         },
                         concurrent_positions=len(self._portfolio.open_positions),
                         session_type=self._current_session_type(event.timestamp),

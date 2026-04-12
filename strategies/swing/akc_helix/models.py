@@ -37,6 +37,7 @@ class SetupState(str, Enum):
     TRIGGERED = "TRIGGERED"
     FILLED = "FILLED"
     ACTIVE = "ACTIVE"
+    CLOSING = "CLOSING"      # flatten/partial submitted, awaiting fill
     CANCELLED = "CANCELLED"
     EXPIRED = "EXPIRED"
     CLOSED = "CLOSED"

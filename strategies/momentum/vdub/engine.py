@@ -225,6 +225,9 @@ class VdubNQv4Engine:
         # Session transition tracking (#17)
         self._last_session_window: str = ""
 
+        # Flatten-order tracking (Rec 1/3: fill-authoritative flatten)
+        self._last_flatten_oms_id: str | None = None
+
         # Async
         self._event_task: asyncio.Task | None = None
         self._cycle_task: asyncio.Task | None = None
@@ -489,8 +492,9 @@ class VdubNQv4Engine:
                 new_stop = exits.compute_overnight_trail(
                     pos, self._h1h, self._l1h, atr1h)
                 if new_stop != pos.stop_price:
+                    _old = pos.stop_price
                     pos.stop_price = new_stop
-                    await self._update_stop(pos, new_stop)
+                    await self._update_stop(pos, new_stop, trigger="overnight_trail", old_stop=_old)
 
         # 5) VWAP-A failure (Section 18.3) — after decision gate
         for pos in list(self.positions):
@@ -974,8 +978,9 @@ class VdubNQv4Engine:
                 )
                 if _is_close_entry:
                     if self._unrealized_r(pos, price) >= 1.0:
+                        _old = pos.stop_price
                         pos.stop_price = pos.entry_price
-                        await self._update_stop(pos, pos.entry_price)
+                        await self._update_stop(pos, pos.entry_price, adjustment_type="breakeven", trigger="plus1r_be_skip_partial", old_stop=_old)
                         pos.partial_done = True
                         pos.stage = PositionStage.ACTIVE_FREE
                         logger.info("+1R BE (skip-partial): %s", pos.trade_id)
@@ -984,15 +989,17 @@ class VdubNQv4Engine:
                     if qty_close > 0:
                         await self._submit_partial_exit(pos, qty_close)
                         pos.qty_open -= qty_close
+                        _old = pos.stop_price
                         pos.stop_price = pos.entry_price
-                        await self._update_stop(pos, pos.entry_price)
+                        await self._update_stop(pos, pos.entry_price, adjustment_type="breakeven", trigger="plus1r_partial_be", old_stop=_old)
                         pos.partial_done = True
                         pos.stage = PositionStage.ACTIVE_FREE
                         logger.info("+1R partial: %s closed=%d", pos.trade_id, qty_close)
                     elif self._unrealized_r(pos, price) >= 1.0:
                         # 1-lot: just move stop to BE
+                        _old = pos.stop_price
                         pos.stop_price = pos.entry_price
-                        await self._update_stop(pos, pos.entry_price)
+                        await self._update_stop(pos, pos.entry_price, adjustment_type="breakeven", trigger="plus1r_be", old_stop=_old)
                         pos.partial_done = True
                         pos.stage = PositionStage.ACTIVE_FREE
                         logger.info("+1R BE: %s", pos.trade_id)
@@ -1006,8 +1013,9 @@ class VdubNQv4Engine:
                 # Profit lock: tighten stop to lock +0.25R once peak >= 0.50R
                 lock_stop = exits.compute_free_profit_lock(pos, price)
                 if lock_stop != pos.stop_price:
+                    _old = pos.stop_price
                     pos.stop_price = lock_stop
-                    await self._update_stop(pos, lock_stop)
+                    await self._update_stop(pos, lock_stop, trigger="free_profit_lock", old_stop=_old)
 
                 # v4.2: CLOSE-specific MFE ratchet (applied after BE move)
                 if C.CLOSE_SKIP_PARTIAL and pos.entry_time is not None:
@@ -1019,8 +1027,9 @@ class VdubNQv4Engine:
                             else:
                                 new_floor = min(pos.stop_price, ratchet)
                             if new_floor != pos.stop_price:
+                                _old = pos.stop_price
                                 pos.stop_price = new_floor
-                                await self._update_stop(pos, new_floor)
+                                await self._update_stop(pos, new_floor, trigger="close_mfe_ratchet", old_stop=_old)
                                 logger.debug("CLOSE ratchet: %s stop=%.2f (MFE=%.2fR)",
                                              pos.trade_id, new_floor, pos.peak_mfe_r)
 
@@ -1045,8 +1054,9 @@ class VdubNQv4Engine:
                     pos, self._h15, self._l15, atr15, price, tighten_factor=tf,
                     stage=pos.stage)
                 if new_stop != pos.stop_price:
+                    _old = pos.stop_price
                     pos.stop_price = new_stop
-                    await self._update_stop(pos, new_stop)
+                    await self._update_stop(pos, new_stop, trigger="intraday_trail", old_stop=_old)
 
             # VWAP failure exit (Section 16.3) — pre +1R, skip evening (stale VWAP)
             vwap_fail_ok = C.VWAP_FAIL_EVENING or pos.entry_session != SessionWindow.EVENING
@@ -1082,8 +1092,9 @@ class VdubNQv4Engine:
 
             if action == "HOLD":
                 if new_stop != pos.stop_price:
+                    _old = pos.stop_price
                     pos.stop_price = new_stop
-                    await self._update_stop(pos, new_stop)
+                    await self._update_stop(pos, new_stop, trigger="gate_hold", old_stop=_old)
                 pos.stage = PositionStage.SWING_HOLD
                 logger.info("Gate HOLD: %s (%.2fR)",
                             pos.trade_id, self._unrealized_r(pos, price))
@@ -1101,8 +1112,9 @@ class VdubNQv4Engine:
             if pos.qty_open > 0:
                 new_stop = exits.shock_stop_tighten(pos)
                 if new_stop != pos.stop_price:
+                    _old = pos.stop_price
                     pos.stop_price = new_stop
-                    await self._update_stop(pos, new_stop)
+                    await self._update_stop(pos, new_stop, trigger="shock_tighten", old_stop=_old)
 
     # ------------------------------------------------------------------
     # Event safety (Section 6)
@@ -1290,7 +1302,9 @@ class VdubNQv4Engine:
         if receipt.oms_order_id:
             pos.stop_oms_order_id = receipt.oms_order_id
 
-    async def _update_stop(self, pos: PositionState, new_stop: float) -> None:
+    async def _update_stop(self, pos: PositionState, new_stop: float,
+                           adjustment_type: str = "trailing", trigger: str = "vdub_trail",
+                           old_stop: float = 0.0) -> None:
         if not pos.stop_oms_order_id:
             return
         tick = C.NQ_SPEC["tick"]
@@ -1301,6 +1315,12 @@ class VdubNQv4Engine:
             target_oms_order_id=pos.stop_oms_order_id,
             new_stop_price=new_stop,
         ))
+        if self._kit and old_stop != new_stop:
+            self._kit.log_stop_adjustment(
+                trade_id=pos.trade_id or f"VDUB-{self._symbol}",
+                symbol=self._symbol, old_stop=old_stop, new_stop=new_stop,
+                adjustment_type=adjustment_type, trigger=trigger,
+            )
 
     def _dd_tier_name(self) -> str:
         mult = getattr(self._throttle, 'dd_size_mult', 1.0)
@@ -1319,11 +1339,12 @@ class VdubNQv4Engine:
         if pos.stop_oms_order_id:
             await self._cancel_order(pos.stop_oms_order_id)
 
-        # Flatten via OMS
-        await self._oms.submit_intent(Intent(
+        # Flatten via OMS — capture order ID for terminal-event detection
+        receipt = await self._oms.submit_intent(Intent(
             intent_type=IntentType.FLATTEN,
             strategy_id=C.STRATEGY_ID, instrument_symbol=self._symbol,
         ))
+        self._last_flatten_oms_id = receipt.oms_order_id if receipt and receipt.oms_order_id else None
 
         # Record exit
         price = float(self._c15[-1]) if len(self._c15) > 0 else pos.entry_price
@@ -1356,6 +1377,7 @@ class VdubNQv4Engine:
                     trade_id=pos.trade_id,
                     exit_price=price,
                     exit_reason=reason,
+                    expected_exit_price=pos.stop_price if reason == "STOP" else price,
                     mfe_r=pos.peak_mfe_r,
                     mae_r=pos.peak_mae_r,
                     mfe_price=pos.highest_since_entry if pos.direction == Direction.LONG else pos.lowest_since_entry,
@@ -1569,6 +1591,11 @@ class VdubNQv4Engine:
                 pass
 
     async def _on_stop_fill(self, oms_id: str, payload: dict) -> None:
+        # Flatten fill confirmation -- broker executed the pre-booked exit
+        if self._last_flatten_oms_id and oms_id == self._last_flatten_oms_id:
+            self._last_flatten_oms_id = None
+            return
+
         for pos in list(self.positions):
             if pos.stop_oms_order_id == oms_id:
                 fill_price = payload.get("price", pos.stop_price)
@@ -1603,6 +1630,7 @@ class VdubNQv4Engine:
                             trade_id=pos.trade_id,
                             exit_price=fill_price,
                             exit_reason="STOP",
+                            expected_exit_price=pos.stop_price,
                             mfe_r=pos.peak_mfe_r,
                             mae_r=pos.peak_mae_r,
                             mfe_price=pos.highest_since_entry if pos.direction == Direction.LONG else pos.lowest_since_entry,
@@ -1621,6 +1649,7 @@ class VdubNQv4Engine:
                         pass
                 pos.qty_open = 0
                 self.positions = [p for p in self.positions if p.qty_open > 0]
+                self._last_flatten_oms_id = None
                 break
 
     async def _on_terminal(self, oms_id: str | None) -> None:
@@ -1630,10 +1659,27 @@ class VdubNQv4Engine:
         if we:
             logger.info("Order terminal: %s", oms_id)
             return
+
+        # Flatten order failed — resubmit emergency flatten
+        if self._last_flatten_oms_id and oms_id == self._last_flatten_oms_id:
+            self._last_flatten_oms_id = None
+            if not self.positions:
+                return  # Position already closed (e.g. stop filled first)
+            logger.critical(
+                "FLATTEN ORDER %s CANCELLED/REJECTED -- resubmitting emergency flatten",
+                oms_id,
+            )
+            receipt = await self._oms.submit_intent(Intent(
+                intent_type=IntentType.FLATTEN,
+                strategy_id=C.STRATEGY_ID, instrument_symbol=self._symbol,
+            ))
+            self._last_flatten_oms_id = receipt.oms_order_id if receipt and receipt.oms_order_id else None
+            return
+
         # Check if this is a stop order — position left unprotected
         for pos in self.positions:
             if pos.stop_oms_order_id == oms_id and pos.qty_open > 0:
-                logger.error("STOP ORDER LOST for %s — flattening position", pos.trade_id)
+                logger.error("STOP ORDER LOST for %s -- flattening position", pos.trade_id)
                 await self._flatten_position(pos, "STOP_LOST")
                 break
 

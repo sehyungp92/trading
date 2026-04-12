@@ -224,6 +224,13 @@ class TradeLogger:
         market_regime: str = "",
         bar_id: Optional[str] = None,
         portfolio_state: Optional[dict] = None,
+        signal_factors: Optional[List[dict]] = None,
+        filter_decisions: Optional[List[dict]] = None,
+        sizing_inputs: Optional[dict] = None,
+        signal_evolution: Optional[List[dict]] = None,
+        execution_timestamps: Optional[dict] = None,
+        market_conditions_at_entry: Optional[dict] = None,
+        **kwargs,
     ) -> TradeEvent:
         """Call this immediately after a trade entry is confirmed."""
         try:
@@ -279,11 +286,28 @@ class TradeLogger:
                 stage="entry",
             )
 
+            # Patch enriched fields onto TradeEvent before writing
+            trade.signal_factors = signal_factors or []
+            trade.filter_decisions = filter_decisions or []
+            trade.sizing_inputs = sizing_inputs
+            trade.signal_evolution = signal_evolution
+            trade.execution_timestamps = execution_timestamps
+            trade.market_conditions_at_entry = market_conditions_at_entry
+            # Derive entry_latency_ms from execution_timestamps if not explicit
+            if not entry_latency_ms and execution_timestamps:
+                entry_latency_ms = execution_timestamps.get("cascade_duration_ms")
+                trade.entry_latency_ms = entry_latency_ms
+            for k, v in kwargs.items():
+                if hasattr(trade, k):
+                    setattr(trade, k, v)
+
             # Assemble entry fill details for FillQualityAnalyzer
             trade.entry_fill_details = {
+                "fill_price": entry_price,
+                "fill_qty": position_size,
                 "slippage_bps": round(entry_slippage_bps, 2) if entry_slippage_bps is not None else None,
                 "fill_latency_ms": entry_latency_ms,
-                "fill_type": "limit",
+                "fill_type": kwargs.get("fill_type", "stop"),
             }
 
             # Compute param_set_id hash for efficient grouping
@@ -366,9 +390,11 @@ class TradeLogger:
 
             # Assemble exit fill details for FillQualityAnalyzer
             trade.exit_fill_details = {
+                "fill_price": exit_price,
+                "fill_qty": trade.position_size,
                 "slippage_bps": round(exit_slippage_bps, 2) if exit_slippage_bps is not None else None,
                 "fill_latency_ms": exit_latency_ms,
-                "fill_type": "stop" if exit_reason in ("STOP_LOSS", "STOP") else "market",
+                "fill_type": "stop" if exit_reason.startswith("STOP") else "market",
             }
 
             # MFE/MAE fields (Gap G1, B5)

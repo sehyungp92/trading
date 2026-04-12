@@ -430,8 +430,15 @@ class ALCBT2Engine:
                                 pos.current_stop = at_price
 
             # Track whether any trailing mechanism ratcheted the stop
-            if pos.current_stop > prev_stop:
+            if pos.current_stop != prev_stop:
                 pos.fr_trailing_active = True
+                kit = self._instr_kit
+                if kit:
+                    kit.log_stop_adjustment(
+                        trade_id=pos.trade_id or f"ALCB-{symbol}",
+                        symbol=symbol, old_stop=prev_stop, new_stop=pos.current_stop,
+                        adjustment_type="trailing", trigger="alcb_composite_trail",
+                    )
 
             # Periodic indicator snapshot while in position (every 6th bar = ~30 min)
             if pos.hold_bars % 6 == 0:
@@ -567,7 +574,15 @@ class ALCBT2Engine:
             return
         pos.partial_taken = True
         if self._settings.move_stop_to_be:
+            old_stop = pos.current_stop
             pos.current_stop = pos.entry_price
+            kit = self._instr_kit
+            if kit and old_stop != pos.entry_price:
+                kit.log_stop_adjustment(
+                    trade_id=pos.trade_id or f"ALCB-{symbol}",
+                    symbol=symbol, old_stop=old_stop, new_stop=pos.entry_price,
+                    adjustment_type="breakeven", trigger="partial_be",
+                )
         task = asyncio.create_task(self._submit_partial_exit(symbol, qty))
         task.add_done_callback(self._log_task_exception)
 
@@ -1498,6 +1513,7 @@ class ALCBT2Engine:
                         "regime_tier": meta.get("regime_tier", "A"),
                         "sector": meta.get("sector", ""),
                     },
+                    portfolio_state=self._portfolio_state_snapshot(),
                     concurrent_positions=len(self._positions),
                     session_type=self._session_type(fill_time),
                 )

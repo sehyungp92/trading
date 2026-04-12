@@ -27,13 +27,13 @@ PHASE_FOCUS: dict[int, tuple[str, list[str]]] = {
 }
 
 ULTIMATE_TARGETS = {
-    "total_r": 200.0,
-    "profit_factor": 6.0,
-    "max_dd_pct": 0.03,
-    "calmar_r": 50.0,
-    "total_trades": 250,
-    "mfe_capture": 0.60,
-    "win_rate": 0.75,
+    "total_r": 300.0,
+    "profit_factor": 8.0,
+    "max_dd_pct": 0.015,
+    "calmar_r": 70.0,
+    "total_trades": 300,
+    "mfe_capture": 0.80,
+    "win_rate": 0.80,
     "trades_per_month": 5.0,
 }
 

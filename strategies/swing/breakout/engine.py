@@ -1616,8 +1616,15 @@ class BreakoutEngine:
                 elif setup.direction == Direction.SHORT and new_stop < setup.current_stop:
                     safe = True
                 if safe:
+                    old_stop = setup.current_stop
                     setup.current_stop = new_stop
                     pos.current_stop = new_stop
+                    if self._kit:
+                        self._kit.log_stop_adjustment(
+                            trade_id=setup.trade_id or f"BKOUT-{symbol}",
+                            symbol=symbol, old_stop=old_stop, new_stop=new_stop,
+                            adjustment_type="trailing", trigger="atr_trail",
+                        )
 
             # Stop hit check — covers pre-runner trail and any stop ratchets
             # Skip if broker owns the stop (stop_order_id is set)
@@ -1722,14 +1729,28 @@ class BreakoutEngine:
 
         if setup.direction == Direction.LONG:
             if new_stop > setup.current_stop:
+                old_stop = setup.current_stop
                 setup.current_stop = new_stop
                 pos.current_stop = new_stop
                 logger.info("%s: Runner trail ratcheted stop → %.2f", symbol, new_stop)
+                if self._kit:
+                    self._kit.log_stop_adjustment(
+                        trade_id=setup.trade_id or f"BKOUT-{symbol}",
+                        symbol=symbol, old_stop=old_stop, new_stop=new_stop,
+                        adjustment_type="trailing", trigger="runner_4h_trail",
+                    )
         else:
             if new_stop < setup.current_stop:
+                old_stop = setup.current_stop
                 setup.current_stop = new_stop
                 pos.current_stop = new_stop
                 logger.info("%s: Runner trail ratcheted stop → %.2f", symbol, new_stop)
+                if self._kit:
+                    self._kit.log_stop_adjustment(
+                        trade_id=setup.trade_id or f"BKOUT-{symbol}",
+                        symbol=symbol, old_stop=old_stop, new_stop=new_stop,
+                        adjustment_type="trailing", trigger="runner_4h_trail",
+                    )
 
         # Check if current price hit the trailing stop
         current_price = self.hourly_states[symbol].close if symbol in self.hourly_states else 0.0

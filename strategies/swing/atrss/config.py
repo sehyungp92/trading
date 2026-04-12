@@ -139,7 +139,7 @@ _ETF_CONFIGS: dict[str, SymbolConfig] = {
         tick_size=0.01, multiplier=1.0,
         exchange="SMART", sec_type="STK", primary_exchange="NASDAQ",
         limit_pct=0.0015,
-        base_risk_pct=0.006,  # 0.60% per combo analysis
+        base_risk_pct=0.01,  # 1.0% — match futures default, justified by 84% WR / PF=7 edge
         shorts_enabled=False,
         size_reduction_months=((12, 0.5),),
     ),
@@ -149,7 +149,7 @@ _ETF_CONFIGS: dict[str, SymbolConfig] = {
         adx_on=15, adx_off=18,
         tick_size=0.01, multiplier=1.0,
         exchange="SMART", sec_type="STK", primary_exchange="ARCA",
-        base_risk_pct=0.0065,  # 0.65% per combo analysis
+        base_risk_pct=0.01,  # 1.0% — match futures default, justified by 84% WR / PF=7 edge
         shorts_enabled=False,
     ),
 }
@@ -191,7 +191,7 @@ PULLBACK_LOOKBACK: int = 8                # bars to look back for EMA_pull touch
 PULLBACK_TOUCH_TOLERANCE_ATR: float = 0.55  # fraction of ATR_hourly for near-touch
 PULLBACK_TOUCH_TOLERANCE_PCT: float = 0.003  # min tolerance as fraction of price (30bps)
 RECOVERY_TOLERANCE_ATR: float = 0.40       # EMA pull recovery tolerance (fraction of ATRh)
-RECOVERY_TOLERANCE_ATR_TREND: float = 0.45     # regime-adaptive: TREND (conservative bump)
+RECOVERY_TOLERANCE_ATR_TREND: float = 0.315    # regime-adaptive: TREND (tightened per rescaled optimizer)
 RECOVERY_TOLERANCE_ATR_STRONG: float = 0.85    # regime-adaptive: STRONG_TREND
 MOMENTUM_TOLERANCE_ATR: float = 0.10      # Momentum filter tolerance (fraction of ATRh)
 SCORE_REVERSE_MIN: int = 60
@@ -227,7 +227,7 @@ COOLDOWN_HOURS: dict[str, int] = {
 # ---------------------------------------------------------------------------
 # Pyramiding
 # ---------------------------------------------------------------------------
-ADDON_A_R: float = 1.25     # MFE threshold for add-on A
+ADDON_A_R: float = 1.5      # MFE threshold for add-on A (raised per rescaled optimizer)
 ADDON_B_R: float = 2.0      # MFE threshold for add-on B
 ADDON_A_SIZE_MULT: float = 0.25  # Add-on A qty = 0.25 * base qty
 ADDON_B_SIZE_MULT: float = 0.5  # Add-on B qty cap = 0.5 * base qty
@@ -236,7 +236,7 @@ ADDON_B_SIZE_MULT: float = 0.5  # Add-on B qty cap = 0.5 * base qty
 # BE offset
 # ---------------------------------------------------------------------------
 BE_ATR_OFFSET: float = 0.1  # BE + 0.1 * daily_ATR20
-BE_TRIGGER_R: float = 1.5  # Move to BE at +1.5R MFE
+BE_TRIGGER_R: float = 0.75  # Move to BE at +0.75R MFE (tightened per rescaled optimizer)
 
 # ---------------------------------------------------------------------------
 # Chandelier trailing activation
@@ -255,9 +255,10 @@ TP2_FRAC: float = 0.33   # Close 33% of remaining at TP2
 # Time decay
 # ---------------------------------------------------------------------------
 MAX_HOLD_HOURS: int = 480  # Max hold period in hourly bars
-STALL_EXIT_ENABLED: bool = False  # greedy v4: disable full stall flatten (positions run to stop/TP)
+STALL_EXIT_ENABLED: bool = True   # enable full stall flatten (rescaled optimizer: flatten at 36h if MFE<0.4R)
 STALL_CHECK_HOURS: int = 36     # Check for stall after this many bars
 STALL_MFE_THRESHOLD: float = 0.4  # MFE_R below this = stall
+EARLY_STALL_ENABLED: bool = False        # disabled per rescaled optimizer (let trades develop, use full stall instead)
 EARLY_STALL_CHECK_HOURS: int = 8        # Early non-development check after 8 RTH bars
 EARLY_STALL_MFE_THRESHOLD: float = 0.3  # MFE_R below this = non-developing
 EARLY_STALL_PARTIAL_FRAC: float = 0.5   # Exit 50% of base position
@@ -265,7 +266,7 @@ EARLY_STALL_PARTIAL_FRAC: float = 0.5   # Exit 50% of base position
 # ---------------------------------------------------------------------------
 # Profit floor (spec Section 10.4): MFE_R → min_stop_R
 # ---------------------------------------------------------------------------
-PROFIT_FLOOR: dict[float, float] = {1.0: -0.25, 1.5: 0.15, 2.0: 0.60, 3.0: 1.3, 4.0: 2.3}
+PROFIT_FLOOR: dict[float, float] = {1.0: 0.2, 1.5: 0.5, 2.0: 1.0, 3.0: 1.8, 4.0: 2.8}
 PROFIT_FLOOR_SHORT: dict[float, float] = {0.75: 0.10, 1.0: 0.50, 1.5: 1.0, 2.0: 1.25}
 
 # ---------------------------------------------------------------------------

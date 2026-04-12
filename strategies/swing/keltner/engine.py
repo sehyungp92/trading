@@ -570,6 +570,12 @@ class KeltnerEngine:
                 old_stop = pos.current_stop
                 pos.current_stop = new_stop
                 self._schedule_stop_replace(pos.symbol, pos, old_stop)
+                if self._kit:
+                    self._kit.log_stop_adjustment(
+                        trade_id=pos.trade_id or f"KELT-{pos.symbol}",
+                        symbol=pos.symbol, old_stop=old_stop, new_stop=new_stop,
+                        adjustment_type="trailing", trigger="atr_mfe_trail",
+                    )
         else:
             new_stop = pos.mfe_price + trail_dist
             new_stop = round_to_tick(new_stop, cfg.tick_size, "up")
@@ -577,6 +583,12 @@ class KeltnerEngine:
                 old_stop = pos.current_stop
                 pos.current_stop = new_stop
                 self._schedule_stop_replace(pos.symbol, pos, old_stop)
+                if self._kit:
+                    self._kit.log_stop_adjustment(
+                        trade_id=pos.trade_id or f"KELT-{pos.symbol}",
+                        symbol=pos.symbol, old_stop=old_stop, new_stop=new_stop,
+                        adjustment_type="trailing", trigger="atr_mfe_trail",
+                    )
 
     def _schedule_stop_replace(
         self, symbol: str, pos: _LivePosition, old_stop: float,

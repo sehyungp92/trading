@@ -12,9 +12,11 @@ Cross-strategy coordination is config-driven via PortfolioRulesConfig
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 from contextlib import suppress
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -337,6 +339,39 @@ class MomentumFamilyCoordinator:
                     r.directional_cap_short_R, r.regime_unit_risk_mult,
                     r.max_family_contracts_mnq_eq, r.nqdtc_oppose_size_mult,
                     r.disabled_strategies or "none")
+
+        # Emit structured regime→rules event for TA pipeline
+        self._emit_regime_event({
+            "family": "momentum",
+            "regime": str(ctx.regime),
+            "prev_regime": str(prev_regime) if prev_regime else None,
+            "rules_applied": {
+                "directional_cap_R": r.directional_cap_R,
+                "directional_cap_long_R": r.directional_cap_long_R,
+                "directional_cap_short_R": r.directional_cap_short_R,
+                "regime_unit_risk_mult": r.regime_unit_risk_mult,
+                "max_family_contracts_mnq_eq": r.max_family_contracts_mnq_eq,
+                "nqdtc_oppose_size_mult": getattr(r, "nqdtc_oppose_size_mult", 1.0),
+                "disabled_strategies": r.disabled_strategies or [],
+            },
+        })
+
+    def _emit_regime_event(self, payload: dict) -> None:
+        """Write a regime→rules event to each strategy's data_dir for TA pipeline."""
+        now = datetime.now(timezone.utc)
+        record = {"timestamp": now.isoformat(), "event_type": "regime_rules_change", **payload}
+        for instr in self._instrumentations:
+            try:
+                data_dir = getattr(instr, "_data_dir", None)
+                if not data_dir:
+                    continue
+                out_dir = Path(data_dir) / "coordination_events"
+                out_dir.mkdir(parents=True, exist_ok=True)
+                date_str = now.strftime("%Y-%m-%d")
+                with open(out_dir / f"{date_str}.jsonl", "a") as f:
+                    f.write(json.dumps(record, default=str) + "\n")
+            except Exception:
+                pass
 
     # ── heartbeat ──────────────────────────────────────────────────
 

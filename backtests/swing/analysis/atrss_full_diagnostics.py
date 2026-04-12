@@ -1,13 +1,14 @@
 """ATRSS Full Diagnostics -- comprehensive analysis with optimized config.
 
-Runs the ATRSS backtest with the greedy-optimized config (stall_exit=False)
-and generates a complete diagnostic report using all 22 analysis functions.
+Runs the ATRSS backtest with the phased-auto-optimized config and generates
+a complete diagnostic report using all 22 analysis functions.
 
 Usage:
     python -m backtests.swing.analysis.atrss_full_diagnostics
 """
 from __future__ import annotations
 
+import json
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -56,6 +57,7 @@ from backtest.analysis.reports import (
 )
 from backtest.config import AblationFlags, BacktestConfig, SlippageConfig
 from backtest.engine.portfolio_engine import PortfolioResult, run_independent
+from backtests.swing.auto.config_mutator import mutate_atrss_config
 
 import numpy as np
 
@@ -101,29 +103,32 @@ def main():
                    / "auto" / "output" / "atrss_full_diagnostics.txt")
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Optimized config: stall_exit disabled per greedy optimization
-    flags = AblationFlags(stall_exit=False)
+    # Load optimized mutations from phased auto-optimization
+    phase_state_path = (Path(__file__).resolve().parent.parent
+                        / "auto" / "atrss" / "output" / "phase_state.json")
+    if phase_state_path.exists():
+        with open(phase_state_path) as fp:
+            phase_state = json.load(fp)
+        mutations = phase_state.get("cumulative_mutations", {})
+    else:
+        mutations = {}
+    print(f"Optimized mutations ({len(mutations)}): {mutations}")
 
-    from strategy.config import SYMBOL_CONFIGS, SYMBOLS
-    all_etf = all(
-        SYMBOL_CONFIGS.get(s) is not None and SYMBOL_CONFIGS[s].sec_type == "STK"
-        for s in SYMBOLS
-    )
-    fixed_qty = 10 if all_etf else None
-    slippage = SlippageConfig(commission_per_contract=1.00) if all_etf else SlippageConfig()
-
-    config = BacktestConfig(
-        symbols=list(SYMBOLS),
+    # Base config (matches plugin.py baseline)
+    base_config = BacktestConfig(
+        symbols=["QQQ", "GLD"],
         initial_equity=INITIAL_EQUITY,
         data_dir=DATA_DIR,
-        flags=flags,
-        slippage=slippage,
-        fixed_qty=fixed_qty,
+        flags=AblationFlags(stall_exit=False),
+        slippage=SlippageConfig(commission_per_contract=1.00),
+        fixed_qty=10,
     )
+
+    # Apply phased-auto mutations
+    config = mutate_atrss_config(base_config, mutations) if mutations else base_config
 
     print(f"Running ATRSS backtest: symbols={config.symbols}, "
           f"equity=${config.initial_equity:,.0f}, fixed_qty={config.fixed_qty}")
-    print(f"Optimized flags: stall_exit={flags.stall_exit}")
     print(f"Loading data from {DATA_DIR}...")
     data = _load_data(config.symbols, DATA_DIR)
     print("Running backtest...")
@@ -141,11 +146,13 @@ def main():
 
     with open(output_path, "w", encoding="utf-8") as f:
         _out("=" * 80, f)
-        _out("ATRSS FULL DIAGNOSTICS (GREEDY OPTIMIZED)", f)
+        _out("ATRSS FULL DIAGNOSTICS (PHASED AUTO-OPTIMIZED)", f)
         _out(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", f)
         _out(f"Initial Equity: ${INITIAL_EQUITY:,.0f}", f)
         _out(f"Symbols: {', '.join(config.symbols)}", f)
-        _out(f"Optimized mutations: stall_exit=False", f)
+        _out(f"Base: stall_exit=False, commission=$1.00/contract", f)
+        for mk, mv in sorted(mutations.items()):
+            _out(f"  {mk}: {mv}", f)
         _out("=" * 80, f)
         _out("", f)
 
@@ -226,9 +233,9 @@ def main():
             _out(f"DETAILED REPORT: {sym}", f)
             _out("=" * 80, f)
 
-            cfg = SYMBOL_CONFIGS[sym]
+            multiplier = 1.0  # ETFs
             pnls = np.array([t.pnl_dollars for t in sr.trades])
-            risks = np.array([abs(t.entry_price - t.initial_stop) * cfg.multiplier * t.qty
+            risks = np.array([abs(t.entry_price - t.initial_stop) * multiplier * t.qty
                               for t in sr.trades])
             holds = np.array([t.bars_held for t in sr.trades])
             comms = np.array([t.commission for t in sr.trades])
@@ -257,7 +264,7 @@ def main():
                     bh = compute_buy_and_hold(
                         sym, daily_closes, years,
                         qty=qty,
-                        multiplier=cfg.multiplier,
+                        multiplier=multiplier,
                         initial_equity=config.initial_equity,
                     )
                     _out(buy_and_hold_report(bh, metrics), f)

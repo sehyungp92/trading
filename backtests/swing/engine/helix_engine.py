@@ -1599,6 +1599,11 @@ class HelixEngine:
         else:
             pnl_points = pos.fill_price - exit_price
 
+        # Compute exit commission for remaining open qty
+        exit_commission = self.broker._compute_commission(pos.qty_open)
+        self.total_commission += exit_commission
+        pos.commission += exit_commission
+
         pnl_dollars = pnl_points * pv * pos.qty_open + pos.realized_pnl
         r_multiple = pnl_dollars / setup.unit1_risk_dollars if setup.unit1_risk_dollars > 0 else 0.0
 
@@ -1613,7 +1618,7 @@ class HelixEngine:
         else:
             mfe_r = mae_r = 0.0
 
-        self.equity += pnl_points * pv * pos.qty_open
+        self.equity += pnl_points * pv * pos.qty_open - exit_commission
 
         trade = HelixTradeRecord(
             symbol=self.symbol,

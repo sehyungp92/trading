@@ -196,6 +196,7 @@ class OverlayEngine:
         # 2-3. Fetch bars and compute EMAs per symbol
         signals: dict[str, bool] = {}
         prices: dict[str, float] = {}
+        ema_cache: dict[str, tuple[float, float, int, int]] = {}  # sym → (fast_val, slow_val, fast_p, slow_p)
 
         for sym in self._config.symbols:
             contract = self._contracts.get(sym)
@@ -238,6 +239,7 @@ class OverlayEngine:
                 signals[sym] = False
             else:
                 signals[sym] = bool(ema_fast[-1] > ema_slow[-1])
+                ema_cache[sym] = (float(ema_fast[-1]), float(ema_slow[-1]), fast, slow)
 
             logger.info(
                 "Overlay: %s EMA(%d)=%.2f EMA(%d)=%.2f → %s",
@@ -359,6 +361,7 @@ class OverlayEngine:
                         regime = self._instr.regime_classifier.current_regime(sym)
                         tid = f"overlay_{sym}_{datetime.now(timezone.utc).isoformat()}"
                         self._entry_trade_ids[sym] = tid
+                        ema_vals = ema_cache.get(sym, (0.0, 0.0, self._config.ema_fast, self._config.ema_slow))
                         safe_instrument(
                             self._instr.trade_logger.log_entry,
                             trade_id=tid,
@@ -370,9 +373,40 @@ class OverlayEngine:
                             entry_signal="ema_crossover_overlay",
                             entry_signal_id=f"overlay_{sym}",
                             entry_signal_strength=0.5,
+                            signal_factors=[
+                                {"factor_name": "ema_fast", "factor_value": ema_vals[0],
+                                 "threshold": ema_vals[1], "contribution": 0.5},
+                                {"factor_name": "ema_slow", "factor_value": ema_vals[1],
+                                 "threshold": 0, "contribution": 0.5},
+                                {"factor_name": "crossover_direction", "factor_value": "BULLISH",
+                                 "threshold": "BULLISH", "contribution": 1.0},
+                            ],
+                            sizing_inputs={
+                                "equity": self._equity,
+                                "deployed_capital": deployed,
+                                "net_equity": net_equity,
+                                "available_capital": available,
+                                "allocation_pct": self._config.max_equity_pct,
+                                "weight": bullish_w.get(sym, 0.0),
+                                "total_weight": total_w,
+                                "target_shares": target,
+                                "price": prices.get(sym, 0),
+                            },
+                            portfolio_state={
+                                "equity": self._equity,
+                                "deployed_capital": deployed,
+                                "overlay_positions": {s: sh for s, sh in self._shares.items() if sh > 0},
+                                "bullish_count": sum(1 for v in signals.values() if v),
+                                "total_symbols": len(self._config.symbols),
+                            },
+                            filter_decisions=[],
                             active_filters=[],
                             passed_filters=[],
-                            strategy_params={"ema_overrides": str(self._config.ema_overrides.get(sym))},
+                            strategy_params={
+                                "ema_fast_period": ema_vals[2],
+                                "ema_slow_period": ema_vals[3],
+                                "ema_overrides": str(self._config.ema_overrides.get(sym)),
+                            },
                             strategy_id="OVERLAY",
                             expected_entry_price=prices.get(sym, 0),
                             market_regime=regime,
@@ -385,11 +419,17 @@ class OverlayEngine:
                     try:
                         from strategies.swing.instrumentation.src.hooks import safe_instrument
                         tid = self._entry_trade_ids.pop(sym, f"overlay_{sym}")
+                        entry_price_est = prices.get(sym, fill_price)
+                        pnl_pct = ((fill_price - entry_price_est) / entry_price_est * 100) if entry_price_est > 0 else 0.0
                         trade_event = safe_instrument(
                             self._instr.trade_logger.log_exit,
                             trade_id=tid,
                             exit_price=fill_price,
                             exit_reason="EMA_BEARISH",
+                            pnl_pct=round(pnl_pct, 4),
+                            position_size=float(current),
+                            position_size_quote=float(current) * fill_price,
+                            expected_exit_price=prices.get(sym, 0),
                         )
                         if trade_event:
                             safe_instrument(

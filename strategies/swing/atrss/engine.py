@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 import math
+from collections import deque
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
@@ -34,6 +35,7 @@ from .config import (
     ARM_WINDOW_HOURS,
     BE_TRIGGER_R,
     CHANDELIER_TRIGGER_R,
+    EARLY_STALL_ENABLED,
     EARLY_STALL_CHECK_HOURS,
     EARLY_STALL_MFE_THRESHOLD,
     EARLY_STALL_PARTIAL_FRAC,
@@ -161,12 +163,39 @@ class ATRSSEngine:
         self.breakout_arm_states: dict[str, BreakoutArmState] = {}
         self._risk_halted = False
         self._risk_halt_reason = ""
+        # Signal evolution ring buffer for TA alpha decay detector
+        self._signal_ring: dict[str, deque] = {}  # sym → deque of snapshots
 
         # Async tasks
         self._event_task: asyncio.Task | None = None
         self._cycle_task: asyncio.Task | None = None
         self._event_queue: asyncio.Queue | None = None
         self._running = False
+
+    # ------------------------------------------------------------------
+    # Signal evolution tracking (for TA alpha decay detector)
+    # ------------------------------------------------------------------
+
+    def _snapshot_signal_state(self, sym: str, quality_score: float,
+                               daily: Any, hourly: Any, regime: str) -> None:
+        """Capture signal components for evolution tracking."""
+        ring = self._signal_ring.setdefault(sym, deque(maxlen=10))
+        ring.append({
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "quality_score": quality_score,
+            "daily_adx": getattr(daily, "adx", None),
+            "daily_ema_sep": getattr(daily, "ema_sep_pct", None),
+            "regime": regime,
+            "hourly_ema_mom": getattr(hourly, "ema_mom", None),
+        })
+
+    def _build_signal_evolution(self, sym: str, n: int = 5) -> list[dict]:
+        """Return last N signal snapshots with bars_ago index."""
+        ring = self._signal_ring.get(sym)
+        if not ring:
+            return []
+        items = list(ring)[-n:]
+        return [{"bars_ago": n - 1 - i, **s} for i, s in enumerate(items)]
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -543,6 +572,7 @@ class ATRSSEngine:
 
                 if pb_dir != Direction.FLAT:
                     quality_score = signals.compute_entry_quality(hourly, daily, pb_dir)
+                    self._snapshot_signal_state(sym, quality_score, daily, hourly, getattr(daily, 'regime', 'unknown'))
 
                     # Emit quality gate filter decision
                     if self._kit:
@@ -893,7 +923,8 @@ class ATRSSEngine:
 
         # --- Early stall partial exit (non-developing trade) ---
         if (
-            not pos.early_partial_done
+            EARLY_STALL_ENABLED
+            and not pos.early_partial_done
             and pos.bars_held >= EARLY_STALL_CHECK_HOURS
             and pos.mfe < EARLY_STALL_MFE_THRESHOLD
             and cur_r <= 0.2
@@ -968,8 +999,15 @@ class ATRSSEngine:
 
         # --- Submit stop update if changed ---
         if new_stop != pos.current_stop:
+            old_stop = pos.current_stop
             pos.current_stop = new_stop
             await self._update_stop(sym, new_stop)
+            if self._kit:
+                self._kit.log_stop_adjustment(
+                    trade_id=pos.trade_id or f"ATRSS-{sym}",
+                    symbol=sym, old_stop=old_stop, new_stop=new_stop,
+                    adjustment_type="trailing", trigger="atr_chandelier",
+                )
 
         # --- Bias flip exit + stop-and-reverse (spec Section 7.4) ---
         prev_dir = self._prev_trend_dirs.get(sym, Direction.FLAT)
@@ -1749,7 +1787,11 @@ class ATRSSEngine:
                         "short_positions": sum(1 for p in active_pos.values() if p.direction == Direction.SHORT),
                         "symbols_held": list(active_pos.keys()),
                     },
+                    signal_evolution=self._build_signal_evolution(sym),
                     concurrent_positions_strategy=len(self.positions),
+                    fill_order_id=oms_order_id,
+                    fill_qty=float(fill_qty),
+                    fill_time_ms=int(fill_time.timestamp() * 1000),
                 )
 
                 self._kit.on_order_event(
@@ -1891,6 +1933,7 @@ class ATRSSEngine:
                             trade_id=tid,
                             exit_price=fill_price,
                             exit_reason=_exit_reason,
+                            expected_exit_price=pos.current_stop,
                             mfe_price=pos.mfe_price,
                             mae_price=pos.mae_price,
                             mfe_r=pos.mfe,
@@ -1898,6 +1941,8 @@ class ATRSSEngine:
                             mfe_pct=_mfe_pct,
                             mae_pct=_mae_pct,
                             pnl_pct=_pnl_pct,
+                            fill_order_id=oms_order_id,
+                            fill_qty=float(pos.total_qty),
                         )
 
                     self._kit.on_order_event(
@@ -1991,6 +2036,7 @@ class ATRSSEngine:
                     trade_id=tid,
                     exit_price=fill_price,
                     exit_reason=reason,
+                    expected_exit_price=fill_price,
                     mfe_price=pos.mfe_price,
                     mae_price=pos.mae_price,
                     mfe_r=pos.mfe,
@@ -1998,6 +2044,8 @@ class ATRSSEngine:
                     mfe_pct=_mfe_pct,
                     mae_pct=_mae_pct,
                     pnl_pct=_pnl_pct,
+                    fill_order_id=oms_order_id,
+                    fill_qty=float(pos.total_qty),
                 )
 
         # M8: Remove position entirely instead of resetting to empty book
@@ -2158,6 +2206,14 @@ class ATRSSEngine:
             )
             if not bars:
                 return None, None, None, None
+
+            # Drop incomplete intraday bar if market is currently open
+            from datetime import time as _time
+            from zoneinfo import ZoneInfo
+            now_et = datetime.now(ZoneInfo("America/New_York"))
+            t = now_et.time()
+            if now_et.weekday() < 5 and _time(9, 30) <= t < _time(16, 0) and len(bars) > 1:
+                bars = bars[:-1]
 
             closes = np.array([b.close for b in bars], dtype=float)
             highs = np.array([b.high for b in bars], dtype=float)

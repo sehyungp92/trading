@@ -514,7 +514,7 @@ class VdubusEngine:
         if self._active and self._active.pos.qty_open > 0:
             last_close = float(bars_15m.closes[-1])
             last_time = self._bar_time(bars_15m.times[-1])
-            self._close_position(last_close, last_time, "END_OF_DATA")
+            self._close_position(last_close, last_time, "END_OF_DATA", market_exit=True)
 
         # Shadow simulation
         shadow_summary = ""
@@ -899,12 +899,12 @@ class VdubusEngine:
 
         # Early kill: fast-dying trades
         if self.flags.early_kill and exits.check_early_kill(pos, price):
-            self._close_position(price, bar_time, "EARLY_KILL")
+            self._close_position(price, bar_time, "EARLY_KILL", market_exit=True)
             return
 
         # Max duration hard stop
         if self.flags.max_duration and exits.check_max_duration(pos):
-            self._close_position(price, bar_time, "MAX_DURATION")
+            self._close_position(price, bar_time, "MAX_DURATION", market_exit=True)
             return
 
         # +1R free-ride (Section 16.1)
@@ -960,7 +960,7 @@ class VdubusEngine:
 
             # Free-ride stale exit
             if self.flags.free_ride_stale and exits.check_free_ride_stale(pos, price):
-                self._close_position(price, bar_time, "FREE_STALE")
+                self._close_position(price, bar_time, "FREE_STALE", market_exit=True)
                 return
 
         # Late Trail (v4.4) -- independent trail, no partial, late activation
@@ -1019,7 +1019,7 @@ class VdubusEngine:
         if vwap_fail_ok and self.flags.vwap_failure_exit and not pos.partial_done and pos.vwap_used_at_entry != 0.0:
             c_slice = bars_15m.closes[:t + 1]
             if exits.check_vwap_failure(pos, c_slice, pos.vwap_used_at_entry):
-                self._close_position(price, bar_time, "VWAP_FAIL")
+                self._close_position(price, bar_time, "VWAP_FAIL", market_exit=True)
                 return
 
         # Stale exit (Section 16.4) — pre +1R
@@ -1030,7 +1030,7 @@ class VdubusEngine:
             else:
                 _cur_sub_win = classify_session(bar_time)[1].value if self.flags.adaptive_stale else "CORE"
                 if exits.check_stale_exit(pos, price, sub_window=_cur_sub_win):
-                    self._close_position(price, bar_time, "STALE")
+                    self._close_position(price, bar_time, "STALE", market_exit=True)
                     return
 
     def _execute_partial(
@@ -1038,6 +1038,13 @@ class VdubusEngine:
         price: float, bar_time: datetime,
     ) -> None:
         """Execute +1R partial close."""
+        # Market-exit slippage on partial
+        slip = self.cfg.slippage.slip_ticks_normal * self.tick
+        if pos.direction == Direction.LONG:
+            price -= slip   # selling partial: adverse = lower fill
+        else:
+            price += slip   # covering partial: adverse = higher fill
+
         # Partial PnL
         if pos.direction == Direction.LONG:
             partial_pnl = (price - pos.entry_price) * self.pv * qty_close
@@ -1098,7 +1105,7 @@ class VdubusEngine:
         atr1h = self._safe_atr1h()
 
         if exits.check_vwap_a_failure(pos, close_1h, self._vwap_a_val, price, atr1h=atr1h):
-            self._close_position(price, bar_time, "VWAP_A_FAIL")
+            self._close_position(price, bar_time, "VWAP_A_FAIL", market_exit=True)
 
     # ------------------------------------------------------------------
     # Decision gate (Section 17)
@@ -1138,7 +1145,7 @@ class VdubusEngine:
                 self._update_stop_price(new_stop, bar_time)
             pos.stage = PositionStage.SWING_HOLD
         else:
-            self._close_position(price, bar_time, "GATE_FLATTEN")
+            self._close_position(price, bar_time, "GATE_FLATTEN", market_exit=True)
 
     # ------------------------------------------------------------------
     # Shock mid-position
@@ -1832,12 +1839,23 @@ class VdubusEngine:
     # Close position
     # ------------------------------------------------------------------
 
-    def _close_position(self, exit_price: float, bar_time: datetime, reason: str) -> None:
+    def _close_position(
+        self, exit_price: float, bar_time: datetime, reason: str,
+        market_exit: bool = False,
+    ) -> None:
         if self._active is None:
             return
         pos = self._active.pos
         if pos.qty_open <= 0:
             return
+
+        # Market-exit slippage (discretionary exits at bar close)
+        if market_exit:
+            slip = self.cfg.slippage.slip_ticks_normal * self.tick
+            if pos.direction == Direction.LONG:
+                exit_price -= slip   # selling: adverse = lower fill
+            else:
+                exit_price += slip   # covering: adverse = higher fill
 
         # PnL on remaining qty
         if pos.direction == Direction.LONG:

@@ -15,6 +15,7 @@ Stock-specific differences from momentum:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 from contextlib import suppress
@@ -411,6 +412,37 @@ class StockFamilyCoordinator:
         logger.info("Stock regime applied: %s%s (cap=%.1fR, risk=%.2fx, disabled=%s)",
                     ctx.regime, changed, new_rules.directional_cap_R,
                     new_rules.regime_unit_risk_mult, new_rules.disabled_strategies or "none")
+
+        # Emit structured regime→rules event for TA pipeline
+        self._emit_regime_event({
+            "family": "stock",
+            "regime": str(ctx.regime),
+            "prev_regime": str(prev_regime) if prev_regime else None,
+            "rules_applied": {
+                "directional_cap_R": new_rules.directional_cap_R,
+                "regime_unit_risk_mult": new_rules.regime_unit_risk_mult,
+                "disabled_strategies": new_rules.disabled_strategies or [],
+                "alcb_max_positions": profile.get("alcb_max_positions"),
+                "iaric_pb_max_positions": profile.get("iaric_pb_max_positions"),
+            },
+        })
+
+    def _emit_regime_event(self, payload: dict) -> None:
+        """Write a regime→rules event to each strategy's data_dir for TA pipeline."""
+        now = datetime.now(timezone.utc)
+        record = {"timestamp": now.isoformat(), "event_type": "regime_rules_change", **payload}
+        for instr in self._instrumentations:
+            try:
+                data_dir = getattr(instr, "_data_dir", None)
+                if not data_dir:
+                    continue
+                out_dir = Path(data_dir) / "coordination_events"
+                out_dir.mkdir(parents=True, exist_ok=True)
+                date_str = now.strftime("%Y-%m-%d")
+                with open(out_dir / f"{date_str}.jsonl", "a") as f:
+                    f.write(json.dumps(record, default=str) + "\n")
+            except Exception:
+                pass
 
     async def _heartbeat_loop(self) -> None:
         heartbeat = getattr(self._ctx, "heartbeat", None)

@@ -111,6 +111,21 @@ class InstrumentationKit:
                 except Exception:
                     pass
 
+            # Phase 2C: dynamic experiment variant assignment via registry
+            exp_id = self._experiment_id or ""
+            exp_var = self._experiment_variant or ""
+            if self._mgr and hasattr(self._mgr, 'experiment_registry') and self._mgr.experiment_registry:
+                try:
+                    registry = self._mgr.experiment_registry
+                    for exp in registry.active_experiments():
+                        if exp.strategy_type and exp.strategy_type != self._strategy_type:
+                            continue
+                        exp_id = exp.experiment_id
+                        exp_var = registry.assign_variant(exp.experiment_id, trade_id)
+                        break
+                except Exception:
+                    pass
+
             self._mgr.trade_logger.log_entry(
                 trade_id=trade_id,
                 pair=pair,
@@ -130,24 +145,35 @@ class InstrumentationKit:
                 exchange_timestamp=exchange_timestamp,
                 entry_latency_ms=entry_latency_ms,
                 portfolio_state=portfolio_state,
+                signal_factors=signal_factors,
+                filter_decisions=filter_decisions,
+                sizing_inputs=sizing_inputs,
+                signal_evolution=signal_evolution,
+                execution_timestamps=execution_timestamps,
+                market_conditions_at_entry={
+                    "regime": regime,
+                    "macro_regime": _macro,
+                    "stress_level": _stress,
+                    "session_type": session_type,
+                    "drawdown_pct": drawdown_pct,
+                    "drawdown_tier": drawdown_tier,
+                    "concurrent_positions": concurrent_positions,
+                },
+                session_type=session_type,
+                contract_month=contract_month,
+                margin_used_pct=margin_used_pct,
+                concurrent_positions_at_entry=concurrent_positions,
+                drawdown_pct=drawdown_pct,
+                drawdown_tier=drawdown_tier,
+                drawdown_size_mult=drawdown_size_mult,
+                macro_regime=_macro,
+                stress_level_at_entry=_stress,
+                experiment_id=exp_id,
+                experiment_variant=exp_var,
             )
 
-            # Phase 2C: dynamic experiment variant assignment via registry
-            exp_id = self._experiment_id or ""
-            exp_var = self._experiment_variant or ""
-            if self._mgr and hasattr(self._mgr, 'experiment_registry') and self._mgr.experiment_registry:
-                try:
-                    registry = self._mgr.experiment_registry
-                    for exp in registry.active_experiments():
-                        if exp.strategy_type and exp.strategy_type != self._strategy_type:
-                            continue
-                        exp_id = exp.experiment_id
-                        exp_var = registry.assign_variant(exp.experiment_id, trade_id)
-                        break
-                except Exception:
-                    pass
-
-            # Patch enriched fields onto the TradeEvent stored in _open_trades
+            # Safety net: patch enriched fields onto in-memory TradeEvent
+            # (ensures exit records also carry this data)
             trade = self._mgr.trade_logger._open_trades.get(trade_id)
             if trade:
                 trade.macro_regime = _macro
@@ -458,5 +484,43 @@ class InstrumentationKit:
                     bid_levels=bid_levels, ask_levels=ask_levels,
                     exchange_timestamp=exchange_timestamp,
                 )
+        except Exception:
+            pass
+
+    def log_stop_adjustment(
+        self,
+        trade_id: str,
+        symbol: str,
+        old_stop: float,
+        new_stop: float,
+        adjustment_type: str,
+        trigger: str,
+        metadata: dict | None = None,
+    ) -> None:
+        """Log a stop-loss adjustment event to JSONL for TA analysis. Fire-and-forget."""
+        try:
+            if old_stop == new_stop:
+                return
+            data_dir = self._data_dir
+            if not data_dir:
+                return
+            now = datetime.now(timezone.utc)
+            record = {
+                "timestamp": now.isoformat(),
+                "strategy_id": self._strategy_type,
+                "trade_id": trade_id,
+                "symbol": symbol,
+                "old_stop": old_stop,
+                "new_stop": new_stop,
+                "adjustment_type": adjustment_type,
+                "trigger": trigger,
+                "tightening_distance": round(abs(new_stop - old_stop), 6),
+                "metadata": metadata or {},
+            }
+            date_str = now.strftime("%Y-%m-%d")
+            out_dir = Path(data_dir) / "stop_adjustments"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            with open(out_dir / f"{date_str}.jsonl", "a") as f:
+                f.write(json.dumps(record, default=str) + "\n")
         except Exception:
             pass

@@ -787,6 +787,56 @@ class InstrumentationKit:
             except Exception:
                 pass
 
+    def log_stop_adjustment(
+        self,
+        trade_id: str,
+        symbol: str,
+        old_stop: float,
+        new_stop: float,
+        adjustment_type: str,
+        trigger: str,
+        metadata: dict | None = None,
+    ) -> None:
+        """Log a stop-loss adjustment event to JSONL for TA analysis.
+
+        Fire-and-forget — never raises.
+
+        Args:
+            trade_id: Trade being adjusted
+            symbol: Instrument symbol
+            old_stop: Previous stop price
+            new_stop: New stop price
+            adjustment_type: trailing | breakeven | coordination_tighten | partial_trail | time_decay
+            trigger: What caused it (atr_trail, mfe_threshold, coord_rule, etc.)
+            metadata: Optional extra context
+        """
+        try:
+            if old_stop == new_stop:
+                return
+            data_dir = self.ctx.data_dir if self.ctx else None
+            if not data_dir:
+                return
+            now = datetime.now(timezone.utc)
+            record = {
+                "timestamp": now.isoformat(),
+                "strategy_id": self.strategy_id,
+                "trade_id": trade_id,
+                "symbol": symbol,
+                "old_stop": old_stop,
+                "new_stop": new_stop,
+                "adjustment_type": adjustment_type,
+                "trigger": trigger,
+                "tightening_distance": round(abs(new_stop - old_stop), 6),
+                "metadata": metadata or {},
+            }
+            date_str = now.strftime("%Y-%m-%d")
+            out_dir = Path(data_dir) / "stop_adjustments"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            with open(out_dir / f"{date_str}.jsonl", "a") as f:
+                f.write(json.dumps(record, default=str) + "\n")
+        except Exception:
+            pass
+
     def _build_position_snapshot(self) -> tuple[list[dict], dict]:
         """Build position list and portfolio exposure from current state."""
         raw_positions = self.ctx.portfolio_tracker.get_open_positions()

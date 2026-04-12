@@ -646,7 +646,7 @@ class NQDTCEngine:
         if self._active and self._active.pos.open:
             last_close = float(five_min_bars.closes[-1])
             last_time = self._bar_time(five_min_bars.times[-1])
-            self._close_position(last_close, last_time, "END_OF_DATA")
+            self._close_position_market(last_close, last_time, "END_OF_DATA")
 
         # Shadow simulation
         shadow_summary = ""
@@ -829,7 +829,7 @@ class NQDTCEngine:
                 and _news_flatten_imminent(bar_time, self._news_event_times)):
             pos = self._active.pos
             if not pos.profit_funded:
-                self._close_position(Cl, bar_time, "NEWS_FLATTEN")
+                self._close_position_market(Cl, bar_time, "NEWS_FLATTEN")
             else:
                 if pos.direction == Direction.LONG:
                     be_tick = pos.entry_price + self.tick
@@ -2125,7 +2125,7 @@ class NQDTCEngine:
                 pos.bars_since_entry_30m, open_r, stale_mode, bridge_extra,
                 tp1_filled=pos.profit_funded,
             ):
-                self._close_position(price, bar_time, "STALE")
+                self._close_position_market(price, bar_time, "STALE")
                 return
 
         # Max loss cap: force exit if unrealized loss exceeds -3R (initial risk basis)
@@ -2137,7 +2137,7 @@ class NQDTCEngine:
                 else:
                     init_open_r = (pos.entry_price - price) / init_r_points
                 if init_open_r <= -3.0:
-                    self._close_position(price, bar_time, "MAX_LOSS_CAP")
+                    self._close_position_market(price, bar_time, "MAX_LOSS_CAP")
                     return
 
         # Overnight bridge
@@ -2275,6 +2275,27 @@ class NQDTCEngine:
 
         pos.open = False
         self._active = None
+
+    def _close_position_market(
+        self, price: float, bar_time: datetime, reason: str,
+    ) -> None:
+        """Close via market exit -- adds slippage + exit commission."""
+        if self._active is None:
+            return
+        pos = self._active.pos
+        if not pos.open:
+            return
+        # Market-exit slippage
+        slip = self.cfg.slippage.slip_ticks_normal * self.tick
+        if pos.direction == Direction.LONG:
+            exit_price = price - slip   # selling: adverse = lower
+        else:
+            exit_price = price + slip   # covering: adverse = higher
+        # Exit commission (matches _on_stop_fill pattern)
+        commission = self.cfg.slippage.commission_per_contract * pos.qty_open
+        self._total_commission += commission
+        self.equity -= commission
+        self._close_position(exit_price, bar_time, reason)
 
     # ------------------------------------------------------------------
     # Position helpers

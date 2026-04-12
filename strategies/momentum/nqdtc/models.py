@@ -308,6 +308,8 @@ class WorkingOrder:
     quality_mult: float = 1.0
     # Stop price for risk (needed at fill for position setup)
     stop_for_risk: float = 0.0
+    # Expected fill price for slippage calculation (planned_entry, not stop_for_risk)
+    expected_fill_price: float = 0.0
     # Normalized displacement at entry for diagnostic decomposition
     disp_norm: float = 0.0
 

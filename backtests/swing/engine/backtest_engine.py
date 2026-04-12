@@ -474,6 +474,11 @@ class BacktestEngine:
         # Signal funnel counters
         self._funnel = SignalFunnelStats()
 
+        # Deferred exit tracking (broker-mediated discretionary exits)
+        self._flatten_pending: bool = False
+        self._pending_flatten_info: dict | None = None  # {reason, reverse_entry?}
+        self._pending_partial_info: dict | None = None   # {reason}
+
     def run(
         self,
         daily: NumpyBars,
@@ -773,7 +778,10 @@ class BacktestEngine:
 
         # FILLED
         order = fr.order
-        self.total_commission += fr.commission
+        # Commission tracked here for entry/stop/addon fills.
+        # flatten/partial commission is tracked by _close_position/_partial_close_base.
+        if order.tag not in ("flatten", "partial"):
+            self.total_commission += fr.commission
 
         if order.tag == "protective_stop":
             self._handle_stop_fill(fr, bar_time)
@@ -781,6 +789,10 @@ class BacktestEngine:
             self._handle_entry_fill(fr, bar_time)
         elif order.tag == "addon_a":
             self._handle_addon_fill(fr, bar_time, LegType.ADDON_A)
+        elif order.tag == "flatten":
+            self._handle_flatten_fill(fr, bar_time)
+        elif order.tag == "partial":
+            self._handle_partial_fill(fr, bar_time)
 
     def _handle_entry_fill(self, fr: FillResult, bar_time: datetime) -> None:
         """Process entry fill: create position, check bad fill, place stop."""
@@ -888,8 +900,91 @@ class BacktestEngine:
         )
         self.position.legs.append(leg)
         self.position.addon_a_done = True
-        self.total_commission += fr.commission
+        # NOTE: commission already tracked in _handle_fill() — do NOT double-count
         self._update_protective_stop()
+
+    # ------------------------------------------------------------------
+    # Broker-mediated discretionary exits (Rec 2)
+    # ------------------------------------------------------------------
+
+    def _submit_flatten(
+        self, reason: str, bar_time: datetime,
+        reverse_entry_info: tuple | None = None,
+    ) -> None:
+        """Submit a MARKET order to flatten the position (fills next bar)."""
+        pos = self.position
+        if pos.direction == Direction.FLAT or self._flatten_pending:
+            return
+        total_qty = sum(leg.qty for leg in pos.legs)
+        side = OrderSide.SELL if pos.direction == Direction.LONG else OrderSide.BUY
+        order = SimOrder(
+            order_id=self.broker.next_order_id(),
+            symbol=self.symbol,
+            side=side,
+            order_type=OrderType.MARKET,
+            qty=total_qty,
+            tick_size=self.cfg.tick_size,
+            submit_time=bar_time,
+            tag="flatten",
+        )
+        self.broker.submit_order(order)
+        self._flatten_pending = True
+        self._pending_flatten_info = {
+            "reason": reason,
+            "reverse_entry_info": reverse_entry_info,
+        }
+
+    def _submit_partial_exit(
+        self, frac: float, reason: str, bar_time: datetime,
+    ) -> None:
+        """Submit a MARKET order for a partial exit (fills next bar)."""
+        pos = self.position
+        base = pos.base_leg
+        if base is None or base.qty < 1 or self._flatten_pending:
+            return
+        # qty=1: fall back to flatten
+        if base.qty == 1:
+            self._submit_flatten(reason, bar_time)
+            return
+        partial_qty = max(1, int(base.qty * frac))
+        if partial_qty >= base.qty:
+            partial_qty = base.qty - 1  # Keep at least 1
+        side = OrderSide.SELL if pos.direction == Direction.LONG else OrderSide.BUY
+        order = SimOrder(
+            order_id=self.broker.next_order_id(),
+            symbol=self.symbol,
+            side=side,
+            order_type=OrderType.MARKET,
+            qty=partial_qty,
+            tick_size=self.cfg.tick_size,
+            submit_time=bar_time,
+            tag="partial",
+        )
+        self.broker.submit_order(order)
+        self._pending_partial_info = {"reason": reason}
+
+    def _handle_flatten_fill(self, fr: FillResult, bar_time: datetime) -> None:
+        """Process fill from a broker-mediated flatten order."""
+        info = self._pending_flatten_info or {}
+        reason = info.get("reason", "FLATTEN")
+        self._close_position(fr.fill_price, bar_time, reason, exit_commission=fr.commission)
+        self._flatten_pending = False
+        self._pending_flatten_info = None
+        # Submit deferred reverse entry (bias flip)
+        reverse = info.get("reverse_entry_info")
+        if reverse:
+            ctype, direction, h_snap, d_snap = reverse
+            self._submit_entry(ctype, direction, h_snap, d_snap, bar_time)
+
+    def _handle_partial_fill(self, fr: FillResult, bar_time: datetime) -> None:
+        """Process fill from a broker-mediated partial exit order."""
+        info = self._pending_partial_info or {}
+        reason = info.get("reason", "PARTIAL")
+        self._pending_partial_info = None
+        self._partial_close_base(
+            fr.fill_price, bar_time, frac=0.0, reason=reason,
+            exit_commission=fr.commission, override_qty=fr.order.qty,
+        )
 
     def _handle_stop_fill(self, fr: FillResult, bar_time: datetime) -> None:
         """Process protective stop fill — close the position."""
@@ -899,6 +994,8 @@ class BacktestEngine:
         pos = self.position
         fill_price = fr.fill_price
         risk_per_unit = pos.base_risk_per_unit
+        n_legs = max(len(pos.legs), 1)
+        leg_commission = fr.commission / n_legs
 
         # Cancel all pending entry orders for this symbol
         self.broker.cancel_all(self.symbol)
@@ -940,7 +1037,7 @@ class BacktestEngine:
                 mfe_r=pos.mfe,
                 mae_r=mae_r,
                 bars_held=pos.bars_held,
-                commission=fr.commission / max(len(pos.legs), 1),
+                commission=leg_commission,
                 addon_a_qty=addon_a,
                 addon_b_qty=addon_b,
                 leg_type=leg.leg_type.value,
@@ -952,7 +1049,7 @@ class BacktestEngine:
                 regime_entry=self._last_entry_context.get("regime_entry", ""),
             )
             self.trades.append(trade)
-            self.equity += pnl_dollars
+            self.equity += pnl_dollars - leg_commission
             if not self._defer_submissions:
                 self.sizing_equity = self.equity
 
@@ -976,7 +1073,10 @@ class BacktestEngine:
         self.position = PositionBook(symbol=self.symbol)
         self._mae_price = 0.0
 
-    def _close_position(self, exit_price: float, bar_time: datetime, reason: str) -> None:
+    def _close_position(
+        self, exit_price: float, bar_time: datetime, reason: str,
+        exit_commission: float | None = None,
+    ) -> None:
         """Flatten the position at a given price (bias flip, time decay, etc)."""
         pos = self.position
         if pos.direction == Direction.FLAT:
@@ -986,6 +1086,14 @@ class BacktestEngine:
 
         # Cancel all pending orders
         self.broker.cancel_all(self.symbol)
+
+        # Compute exit commission if not provided (e.g. BAD_FILL_FLATTEN)
+        total_qty = sum(leg.qty for leg in pos.legs)
+        if exit_commission is None:
+            exit_commission = self.broker._compute_commission(total_qty)
+        self.total_commission += exit_commission
+        n_legs = max(len(pos.legs), 1)
+        leg_commission = exit_commission / n_legs
 
         for leg in pos.legs:
             if pos.direction == Direction.LONG:
@@ -1022,7 +1130,7 @@ class BacktestEngine:
                 mfe_r=pos.mfe,
                 mae_r=mae_r,
                 bars_held=pos.bars_held,
-                commission=0.0,
+                commission=leg_commission,
                 addon_a_qty=addon_a,
                 addon_b_qty=addon_b,
                 leg_type=leg.leg_type.value,
@@ -1034,7 +1142,7 @@ class BacktestEngine:
                 regime_entry=self._last_entry_context.get("regime_entry", ""),
             )
             self.trades.append(trade)
-            self.equity += pnl_dollars
+            self.equity += pnl_dollars - leg_commission
             if not self._defer_submissions:
                 self.sizing_equity = self.equity
 
@@ -1052,10 +1160,14 @@ class BacktestEngine:
     def _partial_close_base(
         self, exit_price: float, bar_time: datetime, frac: float,
         reason: str = "EARLY_STALL_PARTIAL",
+        exit_commission: float | None = None,
+        override_qty: int | None = None,
     ) -> None:
         """Exit a fraction of the base leg to reduce exposure.
 
         When qty=1, falls back to full close (can't split a single contract).
+        override_qty: if set, use this qty instead of computing from frac.
+        exit_commission: if set, use this instead of computing from broker.
         """
         pos = self.position
         base = pos.base_leg
@@ -1064,12 +1176,20 @@ class BacktestEngine:
 
         # qty=1: fall back to full close
         if base.qty == 1:
-            self._close_position(exit_price, bar_time, reason)
+            self._close_position(exit_price, bar_time, reason, exit_commission=exit_commission)
             return
 
-        partial_qty = max(1, int(base.qty * frac))
+        if override_qty is not None:
+            partial_qty = override_qty
+        else:
+            partial_qty = max(1, int(base.qty * frac))
         if partial_qty >= base.qty:
             partial_qty = base.qty - 1  # Keep at least 1
+
+        # Compute exit commission if not provided
+        if exit_commission is None:
+            exit_commission = self.broker._compute_commission(partial_qty)
+        self.total_commission += exit_commission
 
         risk_per_unit = pos.base_risk_per_unit
         if pos.direction == Direction.LONG:
@@ -1100,7 +1220,7 @@ class BacktestEngine:
             mfe_r=pos.mfe,
             mae_r=mae_r,
             bars_held=pos.bars_held,
-            commission=0.0,
+            commission=exit_commission,
             addon_a_qty=0,
             addon_b_qty=0,
             leg_type="BASE",
@@ -1112,7 +1232,7 @@ class BacktestEngine:
             regime_entry=self._last_entry_context.get("regime_entry", ""),
         )
         self.trades.append(trade)
-        self.equity += pnl_dollars
+        self.equity += pnl_dollars - exit_commission
         if not self._defer_submissions:
             self.sizing_equity = self.equity
 
@@ -1129,6 +1249,13 @@ class BacktestEngine:
     def _manage_position(self, h: HourlyState, d: DailyState, bar_time: datetime) -> None:
         """Update MFE/MAE, stops, add-ons, bias flip, time decay."""
         pos = self.position
+
+        # Skip management while waiting for a deferred flatten to fill
+        if self._flatten_pending:
+            if self._is_rth(bar_time):
+                pos.bars_held += 1
+            return
+
         if self._is_rth(bar_time):
             pos.bars_held += 1
 
@@ -1166,17 +1293,17 @@ class BacktestEngine:
 
         # --- Catastrophic loss cap (spec §13.1a) ---
         if cur_r < -2.0:
-            self._close_position(h.close, bar_time, "FLATTEN_CATASTROPHIC_CAP")
+            self._submit_flatten("FLATTEN_CATASTROPHIC_CAP", bar_time)
             return
 
         # --- Partial profit-taking at fixed R targets (only when qty > 1) ---
         base_qty = base.qty if base else 0
         if base_qty > 1 and not pos.tp1_done and pos.mfe >= TP1_R and cur_r >= TP1_R * 0.8:
-            self._partial_close_base(h.close, bar_time, TP1_FRAC, reason="TP1")
+            self._submit_partial_exit(TP1_FRAC, "TP1", bar_time)
             pos.tp1_done = True
 
         if base_qty > 1 and not pos.tp2_done and pos.tp1_done and pos.mfe >= TP2_R and cur_r >= TP2_R * 0.8:
-            self._partial_close_base(h.close, bar_time, TP2_FRAC, reason="TP2")
+            self._submit_partial_exit(TP2_FRAC, "TP2", bar_time)
             pos.tp2_done = True
 
         # --- Early stall partial exit (non-developing trade, partial risk reduction) ---
@@ -1187,19 +1314,19 @@ class BacktestEngine:
             and pos.mfe < EARLY_STALL_MFE_THRESHOLD
             and cur_r <= 0.2
         ):
-            self._partial_close_base(h.close, bar_time, EARLY_STALL_PARTIAL_FRAC)
+            self._submit_partial_exit(EARLY_STALL_PARTIAL_FRAC, "EARLY_STALL_PARTIAL", bar_time)
             pos.early_partial_done = True
 
         # --- Stall exit (non-developing trade) ---
         if self.flags.stall_exit and pos.bars_held >= STALL_CHECK_HOURS:
             if pos.mfe < STALL_MFE_THRESHOLD and cur_r <= 0.2:
-                self._close_position(h.close, bar_time, "FLATTEN_STALL")
+                self._submit_flatten("FLATTEN_STALL", bar_time)
                 return
 
         # --- Time decay exit ---
         if self.flags.time_decay and pos.bars_held >= MAX_HOLD_HOURS:
             if cur_r < 1.0:
-                self._close_position(h.close, bar_time, "FLATTEN_TIME_DECAY")
+                self._submit_flatten("FLATTEN_TIME_DECAY", bar_time)
                 return
 
         new_stop = pos.current_stop
@@ -1259,12 +1386,11 @@ class BacktestEngine:
 
         # --- Bias flip exit + reverse ---
         if d.trend_dir != Direction.FLAT and d.trend_dir != pos.direction and d.trend_dir != self.prev_trend_dir:
-            saved_dir = pos.direction
-            self._close_position(h.close, bar_time, "FLATTEN_BIAS_FLIP")
-            # Check for reverse entry (spec Section 9: no extra signal check)
+            reverse_entry_info = None
             if signals.reverse_entry_ok(h, d):
                 self._funnel.reverse_signals += 1
-                self._submit_entry(CandidateType.REVERSE, d.trend_dir, h, d, bar_time)
+                reverse_entry_info = (CandidateType.REVERSE, d.trend_dir, h, d)
+            self._submit_flatten("FLATTEN_BIAS_FLIP", bar_time, reverse_entry_info=reverse_entry_info)
 
     # ------------------------------------------------------------------
     # Add-on A submission (market fill at current close)

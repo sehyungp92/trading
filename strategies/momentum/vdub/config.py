@@ -86,7 +86,7 @@ RETEST_TOL_ATR = 0.35
 EXTENSION_SKIP_ATR = 1.2
 
 # ── Momentum ─────────────────────────────────────────────────────────
-MOM_N = 65              # R1-opt: was 50 -- stricter momentum confirmation (16h lookback)
+MOM_N = 50              # default: 12.5h momentum lookback
 FLOOR_PCT = 0.25
 SLOPE_LB = 3
 
@@ -125,7 +125,7 @@ FREE_STALE_R_THRESHOLD = 0.30     # unrealized R below this = stale
 FREE_PROFIT_LOCK_R = 0.25         # lock at +0.25R once peak >= 0.50R
 
 # ── Max position duration ────────────────────────────────────────────
-MAX_POSITION_BARS_15M = 64        # R1-opt: was 128 -- 16h cap (reduces DD without killing runners)
+MAX_POSITION_BARS_15M = 128       # default: 32h position duration cap
 MAX_POSITION_BARS_FREE = 96       # 24 hrs: hard cap for ACTIVE_FREE
 
 
@@ -209,7 +209,7 @@ CHOP_MAX_SHORTS = 1     # max shorts/day when choppy
 
 # ── Early Kill ─────────────────────────────────────────────────────
 EARLY_KILL_BARS = 4               # first 4 bars (60 minutes)
-EARLY_KILL_R = -0.40              # R1-opt: was -0.25 -- give trades more room to develop
+EARLY_KILL_R = -0.25              # default: exit if down 0.25R in first 4 bars
 EARLY_KILL_MFE_FLOOR = 0.25      # AND peak MFE never reached this
 
 # ── v4.1 Improvements ──────────────────────────────────────────────

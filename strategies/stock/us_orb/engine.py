@@ -849,8 +849,15 @@ class USORBEngine:
             elif action == "exit" and ctx.position:
                 await self._request_full_exit(ctx)
             elif action == "trail" and ctx.position and level is not None and not ctx.pending_hard_exit and ctx.exit_order is None:
+                old_stop = ctx.position.current_stop
                 ctx.position.current_stop = max(ctx.position.current_stop, level)
                 await self._replace_stop(ctx)
+                if self._instrumentation and old_stop != ctx.position.current_stop:
+                    self._instrumentation.log_stop_adjustment(
+                        trade_id=ctx.position.trade_id or f"ORB-{ctx.symbol}",
+                        symbol=ctx.symbol, old_stop=old_stop, new_stop=ctx.position.current_stop,
+                        adjustment_type="trailing", trigger="orb_trail",
+                    )
 
     async def _submit_entry(self, ctx: SymbolContext, now: datetime) -> None:
         order = build_entry_order(ctx, self._account_id, self._settings)
@@ -1188,6 +1195,50 @@ class USORBEngine:
                         exchange_timestamp=event.timestamp,
                     )
                 ctx.position.entry_commission = float(payload.get("commission", 0.0) or 0.0)
+                # TA pipeline JSONL emission
+                kit = self._instrumentation
+                if kit:
+                    try:
+                        kit.log_entry(
+                            trade_id=ctx.position.trade_id or f"ORB-{symbol}",
+                            pair=symbol,
+                            side="LONG",
+                            entry_price=fill_price,
+                            position_size=float(fill_qty),
+                            position_size_quote=float(fill_price * fill_qty),
+                            entry_signal="us_orb_breakout",
+                            entry_signal_id=event.oms_order_id or symbol,
+                            entry_signal_strength=float(ctx.quality_score or ctx.pre_score or 0.0),
+                            signal_factors=self._entry_signal_factors(ctx),
+                            filter_decisions=self._entry_filter_decisions(ctx),
+                            sizing_inputs={
+                                "qty": fill_qty,
+                                "planned_entry": ctx.planned_entry,
+                                "planned_limit": ctx.planned_limit,
+                                "final_stop": ctx.final_stop,
+                                "risk_per_share": risk_per_share,
+                                "risk_dollars": risk_per_share * fill_qty,
+                            },
+                            portfolio_state=self._portfolio_state_snapshot(),
+                            expected_entry_price=(
+                                entry_order.limit_price
+                                if entry_order and entry_order.limit_price is not None
+                                else (ctx.planned_limit or ctx.planned_entry)
+                            ),
+                            exchange_timestamp=event.timestamp,
+                            strategy_params={
+                                "pre_score": ctx.pre_score,
+                                "quality_score": ctx.quality_score,
+                                "surge": ctx.surge,
+                                "rvol_1m": ctx.rvol_1m,
+                                "relative_strength_5m": ctx.relative_strength_5m,
+                                "stop0": ctx.final_stop,
+                            },
+                            concurrent_positions=self._portfolio.open_positions,
+                            session_type=self._session_type(event.timestamp),
+                        )
+                    except Exception:
+                        pass
             else:
                 total_cost = (ctx.position.entry_price * ctx.position.qty_open) + (fill_price * fill_qty)
                 ctx.position.qty_entry += fill_qty
@@ -1275,6 +1326,31 @@ class USORBEngine:
                 related_trade_id=ctx.position.trade_id,
                 exchange_timestamp=event.timestamp,
             )
+            # TA pipeline JSONL emission
+            kit = self._instrumentation
+            if kit:
+                try:
+                    mfe_r = (ctx.position.max_favorable_price - ctx.position.entry_price) / max(ctx.position.initial_risk_per_share, 1e-9)
+                    mae_r = (ctx.position.max_adverse_price - ctx.position.entry_price) / max(ctx.position.initial_risk_per_share, 1e-9)
+                    kit.log_exit(
+                        trade_id=ctx.position.trade_id or f"ORB-{symbol}",
+                        exit_price=fill_price,
+                        exit_reason=role or "EXIT",
+                        mfe_price=ctx.position.max_favorable_price,
+                        mae_price=ctx.position.max_adverse_price,
+                        mfe_r=round(mfe_r, 4),
+                        mae_r=round(mae_r, 4),
+                        expected_exit_price=expected_exit_price or fill_price,
+                        fill_qty=exit_qty,
+                        pnl_r=round(
+                            ctx.position.realized_pnl_usd / ctx.position.total_initial_risk_usd
+                            if ctx.position.total_initial_risk_usd > 0 else 0.0,
+                            4,
+                        ),
+                        exchange_timestamp=event.timestamp,
+                    )
+                except Exception:
+                    pass
             ctx.position = None
             ctx.exit_order = None
             ctx.pending_hard_exit = False

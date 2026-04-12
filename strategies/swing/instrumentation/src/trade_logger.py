@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict, field, fields
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Any
@@ -259,14 +259,19 @@ class TradeLogger:
                 entry_slippage_bps=round(entry_slippage_bps, 2) if entry_slippage_bps else None,
                 entry_latency_ms=entry_latency_ms,
                 stage="entry",
-                **kwargs,
+                **{k: v for k, v in kwargs.items()
+                   if k in {f.name for f in fields(TradeEvent)}},
             )
 
             # Assemble entry fill details for FillQualityAnalyzer
             trade.entry_fill_details = {
+                "order_id": kwargs.get("fill_order_id"),
+                "fill_qty": kwargs.get("fill_qty") or position_size,
+                "fill_price": entry_price,
+                "fill_time_ms": kwargs.get("fill_time_ms"),
                 "slippage_bps": round(entry_slippage_bps, 2) if entry_slippage_bps is not None else None,
                 "fill_latency_ms": entry_latency_ms,
-                "fill_type": "limit",
+                "fill_type": kwargs.get("fill_type", "limit"),
             }
             if signal_evolution is not None:
                 trade.signal_evolution = signal_evolution
@@ -339,9 +344,13 @@ class TradeLogger:
 
             # Assemble exit fill details for FillQualityAnalyzer
             trade.exit_fill_details = {
+                "order_id": kwargs.get("fill_order_id"),
+                "fill_qty": kwargs.get("fill_qty") or trade.position_size,
+                "fill_price": exit_price,
+                "fill_time_ms": kwargs.get("fill_time_ms"),
                 "slippage_bps": round(exit_slippage_bps, 2) if exit_slippage_bps is not None else None,
                 "fill_latency_ms": exit_latency_ms,
-                "fill_type": "stop" if exit_reason in ("STOP_LOSS", "STOP") else "market",
+                "fill_type": "stop" if exit_reason.startswith("STOP") else "market",
             }
 
             trade.stage = "exit"

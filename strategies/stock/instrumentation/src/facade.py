@@ -508,3 +508,41 @@ class InstrumentationKit:
                 )
         except Exception:
             pass
+
+    def log_stop_adjustment(
+        self,
+        trade_id: str,
+        symbol: str,
+        old_stop: float,
+        new_stop: float,
+        adjustment_type: str,
+        trigger: str,
+        metadata: dict | None = None,
+    ) -> None:
+        """Log a stop-loss adjustment event to JSONL for TA analysis. Fire-and-forget."""
+        try:
+            if old_stop == new_stop:
+                return
+            data_dir = self._data_dir
+            if not data_dir:
+                return
+            now = datetime.now(timezone.utc)
+            record = {
+                "timestamp": now.isoformat(),
+                "strategy_id": self._strategy_type,
+                "trade_id": trade_id,
+                "symbol": symbol,
+                "old_stop": old_stop,
+                "new_stop": new_stop,
+                "adjustment_type": adjustment_type,
+                "trigger": trigger,
+                "tightening_distance": round(abs(new_stop - old_stop), 6),
+                "metadata": metadata or {},
+            }
+            date_str = now.strftime("%Y-%m-%d")
+            out_dir = Path(data_dir) / "stop_adjustments"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            with open(out_dir / f"{date_str}.jsonl", "a") as f:
+                f.write(json.dumps(record, default=str) + "\n")
+        except Exception:
+            pass

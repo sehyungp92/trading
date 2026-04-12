@@ -6,6 +6,7 @@ import dataclasses
 import hashlib
 import json
 import logging
+from collections import deque
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
@@ -214,6 +215,8 @@ class HelixEngine:
         self._tickers: dict[str, Any] = {}
         self._risk_halted = False
         self._risk_halt_reason = ""
+        # Signal evolution ring buffer for TA alpha decay detector
+        self._signal_ring: dict[str, deque] = {}  # sym → deque of snapshots
 
         # Async tasks
         self._event_task: asyncio.Task | None = None
@@ -223,6 +226,32 @@ class HelixEngine:
         self._event_queue: asyncio.Queue | None = None
         self._running = False
         self._resubscribing = False
+
+    # ------------------------------------------------------------------
+    # Signal evolution tracking (for TA alpha decay detector)
+    # ------------------------------------------------------------------
+
+    def _snapshot_signal_state(self, sym: str, daily: Any,
+                               regime_4h: str, setup_class: str = "",
+                               div_mag_norm: float = 0.0, vol_factor: float = 1.0) -> None:
+        """Capture signal components for evolution tracking."""
+        ring = self._signal_ring.setdefault(sym, deque(maxlen=10))
+        ring.append({
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "adx": getattr(daily, "adx", None),
+            "regime_4h": regime_4h,
+            "setup_class": setup_class,
+            "div_mag_norm": div_mag_norm,
+            "vol_factor": vol_factor,
+        })
+
+    def _build_signal_evolution(self, sym: str, n: int = 5) -> list[dict]:
+        """Return last N signal snapshots with bars_ago index."""
+        ring = self._signal_ring.get(sym)
+        if not ring:
+            return []
+        items = list(ring)[-n:]
+        return [{"bars_ago": n - 1 - i, **s} for i, s in enumerate(items)]
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -829,6 +858,12 @@ class HelixEngine:
                 continue
 
             # ADX upper gate: skip all setups when ADX overextended
+            # Snapshot signal state for evolution tracking
+            self._snapshot_signal_state(
+                sym, daily,
+                regime_4h=str(self.regime_4h.get(sym, "unknown")),
+            )
+
             if ADX_UPPER_GATE < 999 and daily.adx > ADX_UPPER_GATE:
                 continue
 
@@ -1458,12 +1493,26 @@ class HelixEngine:
         for setup_id in list(self.active_setups):
             setup = self.active_setups[setup_id]
             try:
+                # Timeout safety: force-close CLOSING setups after 120s
+                if setup.state == SetupState.CLOSING:
+                    flatten_reason = getattr(setup, '_flatten_reason', 'FLATTEN')
+                    closing_since = getattr(setup, '_closing_since', None)
+                    if closing_since and (now - closing_since).total_seconds() > 120:
+                        logger.warning(
+                            "CLOSING timeout %s %s -- forcing CLOSED after 120s",
+                            setup.symbol, setup.setup_id[:8])
+                        setup.state = SetupState.CLOSED
+                        self.active_setups.pop(setup_id, None)
+                    continue
                 await self._manage_active(setup, now)
             except Exception:
                 logger.exception("Error managing active setup %s", setup_id)
 
     async def _manage_active(self, setup: SetupInstance, now: datetime) -> None:
         """Per-setup management: R calc, BE, partials, trailing, stale."""
+        # Skip management for setups awaiting flatten fill
+        if setup.state == SetupState.CLOSING:
+            return
         cfg = self._config.get(setup.symbol)
         if cfg is None:
             return
@@ -1872,7 +1921,11 @@ class HelixEngine:
             )
         )
         if receipt.oms_order_id:
-            # Estimate realized PnL from partial (use current close as proxy)
+            # Track order for fill reconciliation
+            self._order_to_setup[receipt.oms_order_id] = setup.setup_id
+
+            # Estimate realized PnL from partial (use current close as proxy;
+            # will be corrected on actual fill in _on_fill)
             tf1h = self.tf_states.get(setup.symbol, {}).get("1H")
             if tf1h and inst:
                 if setup.direction == Direction.LONG:
@@ -1880,7 +1933,9 @@ class HelixEngine:
                 else:
                     partial_pnl = (setup.fill_price - tf1h.close) * inst.point_value * qty
                 setup.realized_pnl += partial_pnl
+                setup._partial_pnl_estimate = partial_pnl  # store for correction on fill
             setup.qty_open -= qty
+            setup._pending_partial_qty = qty  # track for fill reconciliation
             logger.info("Partial exit %s qty=%d, remaining=%d", setup.symbol, qty, setup.qty_open)
 
             # Update stop qty
@@ -1895,12 +1950,20 @@ class HelixEngine:
                     )
                 )
 
-    async def _update_stop(self, setup: SetupInstance, new_stop: float) -> None:
+    async def _update_stop(self, setup: SetupInstance, new_stop: float,
+                           adjustment_type: str = "trailing", trigger: str = "helix_trail") -> None:
         """Replace stop via OMS, never loosen."""
         if not setup.stop_order_id:
             return
 
+        old_stop = setup.current_stop
         setup.current_stop = new_stop
+        if self._kit and old_stop != new_stop:
+            self._kit.log_stop_adjustment(
+                trade_id=setup.trade_id or f"HELIX-{setup.symbol}",
+                symbol=setup.symbol, old_stop=old_stop, new_stop=new_stop,
+                adjustment_type=adjustment_type, trigger=trigger,
+            )
         try:
             await self._oms.submit_intent(
                 Intent(
@@ -1963,6 +2026,7 @@ class HelixEngine:
                 trade_id=tid,
                 exit_price=exit_price,
                 exit_reason=reason,
+                expected_exit_price=exit_price,
                 mfe_price=_mfe_price,
                 mae_price=_mae_price,
                 mfe_r=setup.mfe_r_peak,
@@ -1970,11 +2034,23 @@ class HelixEngine:
                 mfe_pct=_mfe_pct,
                 mae_pct=_mae_pct,
                 pnl_pct=_pnl_pct,
+                fill_qty=float(setup.qty_open),
             )
 
-        setup.state = SetupState.CLOSED
-        self.active_setups.pop(setup.setup_id, None)
-        logger.info("Flatten %s %s → %s", setup.symbol, setup.setup_id[:8], receipt.result)
+        # Track flatten order for fill reconciliation
+        if receipt.oms_order_id:
+            self._order_to_setup[receipt.oms_order_id] = setup.setup_id
+            setup.state = SetupState.CLOSING
+            setup._flatten_reason = reason
+            setup._closing_since = datetime.now(timezone.utc)
+            logger.info("Flatten %s %s → %s (awaiting fill)",
+                        setup.symbol, setup.setup_id[:8], receipt.result)
+        else:
+            # No order ID means immediate (e.g. position already flat at broker)
+            setup.state = SetupState.CLOSED
+            self.active_setups.pop(setup.setup_id, None)
+            logger.info("Flatten %s %s → %s (immediate)",
+                        setup.symbol, setup.setup_id[:8], receipt.result)
 
     # ------------------------------------------------------------------
     # Event processing
@@ -2084,7 +2160,8 @@ class HelixEngine:
                         "COORD Rule 1: Tightening Helix %s stop to BE %.4f (was %.4f)",
                         symbol, be_level, old_stop,
                     )
-                    await self._update_stop(setup, be_level)
+                    await self._update_stop(setup, be_level,
+                                            adjustment_type="coordination_tighten", trigger="coord_rule_1_be")
                     if self._coordinator:
                         self._coordinator.log_action(
                             action="tighten_stop_be",
@@ -2116,7 +2193,8 @@ class HelixEngine:
                         "COORD Rule 1: Tightening Helix %s stop to BE %.4f (was %.4f)",
                         symbol, be_level, old_stop,
                     )
-                    await self._update_stop(setup, be_level)
+                    await self._update_stop(setup, be_level,
+                                            adjustment_type="coordination_tighten", trigger="coord_rule_1_be")
                     if self._coordinator:
                         self._coordinator.log_action(
                             action="tighten_stop_be",
@@ -2155,10 +2233,41 @@ class HelixEngine:
         # Find the setup
         setup = self.pending_setups.pop(setup_id, None)
         if setup is None:
-            # Might be an add fill on an active setup
+            # Might be an add fill, partial fill, or flatten fill on an active setup
             setup = self.active_setups.get(setup_id)
             if setup is None:
                 return
+
+            # --- Handle flatten fill (CLOSING state) ---
+            if setup.state == SetupState.CLOSING:
+                fill_price = payload.get("price", 0.0)
+                reason = getattr(setup, '_flatten_reason', 'FLATTEN')
+                logger.info("FLATTEN FILL %s @ %.4f (%s)",
+                            setup.symbol, fill_price, reason)
+                setup.state = SetupState.CLOSED
+                self.active_setups.pop(setup.setup_id, None)
+                return
+
+            # --- Handle partial exit fill (correct PnL estimate) ---
+            pending_qty = getattr(setup, '_pending_partial_qty', 0)
+            if pending_qty > 0:
+                fill_price = payload.get("price", 0.0)
+                inst = self._instruments.get(setup.symbol)
+                pv = inst.point_value if inst else 1.0
+                # Correct the estimated PnL with actual fill price
+                estimate = getattr(setup, '_partial_pnl_estimate', 0.0)
+                if setup.direction == Direction.LONG:
+                    actual_pnl = (fill_price - setup.fill_price) * pv * pending_qty
+                else:
+                    actual_pnl = (setup.fill_price - fill_price) * pv * pending_qty
+                correction = actual_pnl - estimate
+                setup.realized_pnl += correction
+                setup._pending_partial_qty = 0
+                setup._partial_pnl_estimate = 0.0
+                logger.info("PARTIAL FILL %s qty=%d @ %.4f (correction=%.2f)",
+                            setup.symbol, pending_qty, fill_price, correction)
+                return
+
             # Handle add fill
             fill_price = payload.get("price", 0.0)
             fill_qty = int(payload.get("qty", 0))
@@ -2179,7 +2288,8 @@ class HelixEngine:
                 if new_stop != setup.current_stop:
                     logger.info("ADD BE tighten %s: stop %.4f → %.4f",
                                 setup.symbol, setup.current_stop, new_stop)
-                    await self._update_stop(setup, new_stop)
+                    await self._update_stop(setup, new_stop,
+                                            adjustment_type="breakeven", trigger="add_on_be")
             return
 
         fill_price = payload.get("price", setup.bos_level)
@@ -2361,8 +2471,12 @@ class HelixEngine:
                     "num_positions": len(active),
                     "symbols_held": [s.symbol for s in active.values()],
                 },
+                signal_evolution=self._build_signal_evolution(setup.symbol),
                 correlated_pairs_detail=correlated if correlated else None,
                 concurrent_positions_strategy=len(self.active_setups),
+                fill_order_id=oms_order_id,
+                fill_qty=float(fill_qty),
+                fill_time_ms=int(fill_time.timestamp() * 1000),
             )
 
             self._kit.on_order_event(
@@ -2466,6 +2580,7 @@ class HelixEngine:
                         trade_id=tid,
                         exit_price=fill_price,
                         exit_reason=stop_reason,
+                        expected_exit_price=setup.current_stop,
                         mfe_price=_mfe_price,
                         mae_price=_mae_price,
                         mfe_r=setup.mfe_r_peak,
@@ -2473,6 +2588,8 @@ class HelixEngine:
                         mfe_pct=_mfe_pct,
                         mae_pct=_mae_pct,
                         pnl_pct=_pnl_pct,
+                        fill_order_id=oms_order_id,
+                        fill_qty=float(setup.qty_open),
                     )
 
                     self._kit.on_order_event(

@@ -232,6 +232,9 @@ class NQDTCEngine:
         # Session transition tracking (#17)
         self._session_transitions: list[dict] = []
 
+        # Flatten-order tracking (Rec 1/3: fill-authoritative flatten)
+        self._last_flatten_oms_id: str | None = None
+
         # Async tasks
         self._event_task: Optional[asyncio.Task] = None
         self._cycle_task: Optional[asyncio.Task] = None
@@ -1435,6 +1438,7 @@ class NQDTCEngine:
                 is_limit=is_limit,
                 quality_mult=quality_mult,
                 stop_for_risk=stop_for_risk,
+                expected_fill_price=planned_entry,
             ))
             return receipt.oms_order_id
         return None
@@ -1505,13 +1509,15 @@ class NQDTCEngine:
                 ratchet_stop = pos.entry_price - C.RATCHET_LOCK_PCT * pos.peak_r_initial * init_r_points
             ratchet_stop = round_to_tick(ratchet_stop, tick)
             if pos.direction == Direction.LONG and ratchet_stop > pos.stop_price:
+                _old = pos.stop_price
                 pos.stop_price = ratchet_stop
                 pos.stop_source = "RATCHET"
-                await self._update_stop(ratchet_stop)
+                await self._update_stop(ratchet_stop, old_stop=_old, source="RATCHET")
             elif pos.direction == Direction.SHORT and ratchet_stop < pos.stop_price:
+                _old = pos.stop_price
                 pos.stop_price = ratchet_stop
                 pos.stop_source = "RATCHET"
-                await self._update_stop(ratchet_stop)
+                await self._update_stop(ratchet_stop, old_stop=_old, source="RATCHET")
 
         # TP targets (use initial stop distance, not migrated stop)
         tp_r_points = init_r_points if init_r_points > 0 else r_points
@@ -1536,13 +1542,15 @@ class NQDTCEngine:
             atr5 = float(atr14_5m[-1]) if not np.isnan(atr14_5m[-1]) else 0.0
             be_stop = stops.compute_be_stop(pos.direction, pos.entry_price, atr5, C.NQ_SPECS[self._symbol]["tick"])
             if pos.direction == Direction.LONG and be_stop > pos.stop_price:
+                _old = pos.stop_price
                 pos.stop_price = be_stop
                 pos.stop_source = "BE"
-                await self._update_stop(pos.stop_price)
+                await self._update_stop(pos.stop_price, old_stop=_old, source="BE")
             elif pos.direction == Direction.SHORT and be_stop < pos.stop_price:
+                _old = pos.stop_price
                 pos.stop_price = be_stop
                 pos.stop_source = "BE"
-                await self._update_stop(pos.stop_price)
+                await self._update_stop(pos.stop_price, old_stop=_old, source="BE")
 
         # Measured move check
         if not pos.mm_reached:
@@ -1565,18 +1573,20 @@ class NQDTCEngine:
                     if trail > pos.chandelier_trail:
                         pos.chandelier_trail = trail
                         if trail > pos.stop_price:
+                            _old = pos.stop_price
                             pos.stop_price = trail
                             pos.stop_source = "CHANDELIER"
-                            await self._update_stop(trail)
+                            await self._update_stop(trail, old_stop=_old, source="CHANDELIER")
                 else:
                     trail = ind.chandelier_short(l1, atr14_1h, lookback, mult)
                     trail = round_to_tick(trail, C.NQ_SPECS[self._symbol]["tick"], "up")
                     if trail < pos.chandelier_trail or pos.chandelier_trail == 0:
                         pos.chandelier_trail = trail
                         if trail < pos.stop_price:
+                            _old = pos.stop_price
                             pos.stop_price = trail
                             pos.stop_source = "CHANDELIER"
-                            await self._update_stop(trail)
+                            await self._update_stop(trail, old_stop=_old, source="CHANDELIER")
 
         # Overnight bridge check (fix #9)
         t_ny = ts_ny.hour * 60 + ts_ny.minute
@@ -1609,9 +1619,10 @@ class NQDTCEngine:
                     be_tick = pos.entry_price - tick
                 if (pos.direction == Direction.LONG and be_tick > pos.stop_price) or \
                    (pos.direction == Direction.SHORT and be_tick < pos.stop_price):
+                    _old = pos.stop_price
                     pos.stop_price = round_to_tick(be_tick, tick)
                     pos.stop_source = "NEWS_BE"
-                    await self._update_stop(pos.stop_price)
+                    await self._update_stop(pos.stop_price, old_stop=_old, source="NEWS_BE")
                     logger.info("News blackout: tightened stop to BE±1tick=%.2f", pos.stop_price)
 
         # v7: Max loss cap — force exit if unrealized loss exceeds threshold (complements min_stop_distance)
@@ -1769,7 +1780,7 @@ class NQDTCEngine:
         except Exception as e:
             logger.warning("Cancel failed for %s: %s", oms_order_id, e)
 
-    async def _update_stop(self, new_stop: float) -> None:
+    async def _update_stop(self, new_stop: float, old_stop: float = 0.0, source: str = "") -> None:
         """Update protective stop order."""
         if self._position.stop_oms_order_id:
             await self._oms.submit_intent(Intent(
@@ -1778,17 +1789,27 @@ class NQDTCEngine:
                 target_oms_order_id=self._position.stop_oms_order_id,
                 new_stop_price=new_stop,
             ))
+        if self._kit and old_stop > 0 and old_stop != new_stop:
+            adj_type = {"RATCHET": "trailing", "BE": "breakeven", "CHANDELIER": "trailing",
+                        "NEWS_BE": "breakeven"}.get(source, "trailing")
+            self._kit.log_stop_adjustment(
+                trade_id=self._position.trade_id or f"NQDTC-{self._symbol}",
+                symbol=self._symbol, old_stop=old_stop, new_stop=new_stop,
+                adjustment_type=adj_type, trigger=source.lower() or "nqdtc_trail",
+            )
 
     async def _flatten(self, engine: Optional[SessionEngineState] = None, open_r: float = 0.0, reason: str = "FLATTEN") -> None:
         """Flatten entire position."""
         pos = self._position
         direction = pos.direction
 
-        await self._oms.submit_intent(Intent(
+        # Capture order ID for terminal-event detection (Rec 1/3)
+        receipt = await self._oms.submit_intent(Intent(
             intent_type=IntentType.FLATTEN,
             strategy_id=C.STRATEGY_ID,
             instrument_symbol=self._symbol,
         ))
+        self._last_flatten_oms_id = receipt.oms_order_id if receipt and receipt.oms_order_id else None
 
         # Record peak MFE R on breakout state for C_continuation gating
         if engine is not None and engine.breakout.active:
@@ -1827,6 +1848,7 @@ class NQDTCEngine:
                     trade_id=self._instr_trade_id,
                     exit_price=est_exit,
                     exit_reason=reason,
+                    expected_exit_price=est_exit,
                     mfe_r=pos.peak_mfe_r,
                     mae_r=pos.peak_mae_r,
                     mfe_price=pos.highest_since_entry if pos.direction == Direction.LONG else pos.lowest_since_entry,
@@ -1975,7 +1997,7 @@ class NQDTCEngine:
             await self._on_fill(event)
         elif etype in (OMSEventType.ORDER_CANCELLED, OMSEventType.ORDER_EXPIRED,
                        OMSEventType.ORDER_REJECTED):
-            self._on_order_update(event)
+            await self._on_order_update(event)
 
     async def _on_fill(self, event: Any) -> None:
         """Handle fill event."""
@@ -1983,6 +2005,11 @@ class NQDTCEngine:
         payload = event.payload or {}
         price = payload.get("price", 0.0)
         qty = payload.get("qty", 0)
+
+        # Flatten fill confirmation -- broker executed the pre-booked exit
+        if self._last_flatten_oms_id and oms_id == self._last_flatten_oms_id:
+            self._last_flatten_oms_id = None
+            return
 
         # Find matching working order
         wo = None
@@ -2017,6 +2044,7 @@ class NQDTCEngine:
                             trade_id=self._instr_trade_id,
                             exit_price=price,
                             exit_reason=stop_reason,
+                            expected_exit_price=self._position.stop_price,
                             mfe_r=self._position.peak_mfe_r,
                             mae_r=self._position.peak_mae_r,
                             mfe_price=self._position.highest_since_entry if self._position.direction == Direction.LONG else self._position.lowest_since_entry,
@@ -2036,6 +2064,7 @@ class NQDTCEngine:
                         pass
                 self._accumulate_realized_pnl(stop_r)
                 self._clear_position()
+                self._last_flatten_oms_id = None
             return
 
         # Cancel OCO sibling
@@ -2205,7 +2234,7 @@ class NQDTCEngine:
                     entry_signal=wo.subtype.value,
                     entry_signal_id=oms_id,
                     entry_signal_strength=wo.quality_mult,
-                    expected_entry_price=wo.stop_for_risk,
+                    expected_entry_price=wo.expected_fill_price or wo.price,
                     strategy_params={
                         "stop": stop_price,
                         "subtype": wo.subtype.value,
@@ -2276,7 +2305,7 @@ class NQDTCEngine:
         if receipt.oms_order_id:
             self._position.stop_oms_order_id = receipt.oms_order_id
 
-    def _on_order_update(self, event: Any) -> None:
+    async def _on_order_update(self, event: Any) -> None:
         """Handle terminal order events (cancel, reject, expire)."""
         oms_id = event.oms_order_id or ""
         etype = event.event_type
@@ -2285,9 +2314,26 @@ class NQDTCEngine:
         self._working_orders = [
             wo for wo in self._working_orders if wo.oms_order_id != oms_id
         ]
+
+        # Flatten order failed — resubmit emergency flatten (Rec 1/3)
+        if self._last_flatten_oms_id and oms_id == self._last_flatten_oms_id:
+            self._last_flatten_oms_id = None
+            if not self._position.open:
+                return  # Position already closed (e.g. stop filled first)
+            logger.critical(
+                "FLATTEN ORDER %s CANCELLED/REJECTED -- resubmitting emergency flatten",
+                oms_id,
+            )
+            receipt = await self._oms.submit_intent(Intent(
+                intent_type=IntentType.FLATTEN,
+                strategy_id=C.STRATEGY_ID, instrument_symbol=self._symbol,
+            ))
+            self._last_flatten_oms_id = receipt.oms_order_id if receipt and receipt.oms_order_id else None
+            return
+
         # If stop order was cancelled/rejected for open position
         if self._position.stop_oms_order_id == oms_id:
-            logger.warning("Protective stop %s → %s!", oms_id, etype.value)
+            logger.warning("Protective stop %s -> %s!", oms_id, etype.value)
             self._position.stop_oms_order_id = ""
 
     # ------------------------------------------------------------------
@@ -2591,7 +2637,7 @@ class NQDTCEngine:
                     "submitted_bar_idx": wo.submitted_bar_idx, "ttl_bars": wo.ttl_bars,
                     "oca_group": wo.oca_group, "is_limit": wo.is_limit,
                     "rescue_attempted": wo.rescue_attempted, "quality_mult": wo.quality_mult,
-                    "stop_for_risk": wo.stop_for_risk,
+                    "stop_for_risk": wo.stop_for_risk, "expected_fill_price": wo.expected_fill_price,
                 }
                 for wo in self._working_orders
             ]
@@ -2695,6 +2741,7 @@ class NQDTCEngine:
                     rescue_attempted=wo_data.get("rescue_attempted", False),
                     quality_mult=wo_data.get("quality_mult", 1.0),
                     stop_for_risk=wo_data.get("stop_for_risk", 0.0),
+                    expected_fill_price=wo_data.get("expected_fill_price", wo_data.get("price", 0.0)),
                 ))
             except Exception:
                 logger.warning("Skipped invalid working order in state file")

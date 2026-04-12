@@ -1,13 +1,17 @@
 """ATRSS composite scoring -- 7-component score, immutable across all 4 phases.
 
 Components (sum to 1.0):
-  - net_r (0.20): log(1 + total_r/100) / log(3)
-  - profit_factor (0.14): (pf - 1) / 5
-  - calmar_r (0.14): calmar_r / 40
-  - inv_dd (0.10): (1/dd - 10) / 40
-  - frequency (0.18): tpm / 6 (critical weakness; overfitting resistance)
-  - mfe_capture (0.12): capture / 0.80
-  - win_rate (0.12): wr / 0.80
+  - net_r (0.20): log(1 + total_r/100) / log(5)   -- 400R maps to ~1.0
+  - profit_factor (0.14): (pf - 1) / 8             -- PF=9 maps to 1.0
+  - calmar_r (0.14): calmar_r / 80                  -- 80 maps to 1.0
+  - inv_dd (0.10): (1/dd - 10) / 90                 -- dd=1.1% maps to 1.0
+  - frequency (0.18): tpm / 6                       -- 6 TPM maps to 1.0
+  - mfe_capture (0.12): capture / 0.90              -- 90% maps to 1.0
+  - win_rate (0.12): wr / 0.85                      -- 85% maps to 1.0
+
+Scales calibrated for the corrected backtest engine (broker-mediated exits,
+full commission accounting). Baseline scores ~0.65, giving the optimizer
+headroom to discriminate mutations.
 
 Hard rejects are phase-specific (see phase_scoring.py).
 """
@@ -120,27 +124,27 @@ def composite_score(
     w_capture = W_MFE_CAPTURE
     w_wr = W_WIN_RATE
 
-    # net_r: log(1 + total_r/100) / log(3)  -- 200R maps to ~1.0
-    net_r_raw = _clip01(math.log(1.0 + max(metrics.total_r, 0.0) / 100.0) / math.log(3.0))
+    # net_r: log(1 + total_r/100) / log(5)  -- 400R maps to ~1.0
+    net_r_raw = _clip01(math.log(1.0 + max(metrics.total_r, 0.0) / 100.0) / math.log(5.0))
 
-    # profit_factor: (pf - 1) / 5  -- PF=6 maps to 1.0
-    pf_raw = _clip01((metrics.profit_factor - 1.0) / 5.0)
+    # profit_factor: (pf - 1) / 8  -- PF=9 maps to 1.0
+    pf_raw = _clip01((metrics.profit_factor - 1.0) / 8.0)
 
-    # calmar_r: calmar_r / 40  -- calmar_r=40 maps to 1.0
-    calmar_r_raw = _clip01(metrics.calmar_r / 40.0)
+    # calmar_r: calmar_r / 80  -- calmar_r=80 maps to 1.0
+    calmar_r_raw = _clip01(metrics.calmar_r / 80.0)
 
-    # inv_dd: (1/dd - 10) / 40  -- dd=2% → (50-10)/40 = 1.0
+    # inv_dd: (1/dd - 10) / 90  -- dd=1.1% → (91-10)/90 = 1.0
     dd_frac = max(metrics.max_dd_pct, 0.001)
-    inv_dd_raw = _clip01(((1.0 / dd_frac) - 10.0) / 40.0)
+    inv_dd_raw = _clip01(((1.0 / dd_frac) - 10.0) / 90.0)
 
     # frequency: tpm / 6  -- 6 trades/month maps to 1.0
     freq_raw = _clip01(metrics.trades_per_month / 6.0)
 
-    # mfe_capture: capture / 0.80  -- 80% capture maps to 1.0
-    capture_raw = _clip01(metrics.mfe_capture / 0.80)
+    # mfe_capture: capture / 0.90  -- 90% capture maps to 1.0
+    capture_raw = _clip01(metrics.mfe_capture / 0.90)
 
-    # win_rate: wr / 0.80  -- 80% WR maps to 1.0
-    wr_raw = _clip01(metrics.win_rate / 0.80)
+    # win_rate: wr / 0.85  -- 85% WR maps to 1.0
+    wr_raw = _clip01(metrics.win_rate / 0.85)
 
     total = (
         w_net_r * net_r_raw
