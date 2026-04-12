@@ -5,7 +5,7 @@ import logging
 import re
 from datetime import datetime
 
-from research.backtests.momentum.auto.scoring import CompositeScore
+from backtests.momentum.auto.scoring import CompositeScore
 
 logger = logging.getLogger(__name__)
 

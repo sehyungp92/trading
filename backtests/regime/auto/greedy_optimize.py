@@ -56,11 +56,11 @@ def _init_worker(
     global _worker_sim_cfg, _worker_growth_feature, _worker_inflation_feature
     global _worker_phase
 
-    from research.backtests.regime._aliases import install
+    from backtests.regime._aliases import install
     install()
 
-    from research.backtests.regime.config import RegimeBacktestConfig
-    from research.backtests.regime.data.downloader import load_cached_data
+    from backtests.regime.config import RegimeBacktestConfig
+    from backtests.regime.data.downloader import load_cached_data
 
     data_dir = Path(data_dir_str)
     _worker_macro_df, _worker_market_df, _worker_strat_ret_df = load_cached_data(data_dir)
@@ -84,8 +84,8 @@ def _worker_score(mutations: dict) -> tuple[float, bool, str]:
         from regime.config import MetaConfig
         from regime.engine import run_signal_engine
 
-        from research.backtests.regime.auto.config_mutator import mutate_meta_config
-        from research.backtests.regime.engine.portfolio_sim import simulate_portfolio
+        from backtests.regime.auto.config_mutator import mutate_meta_config
+        from backtests.regime.engine.portfolio_sim import simulate_portfolio
 
         cfg = mutate_meta_config(MetaConfig(), mutations)
 
@@ -101,7 +101,7 @@ def _worker_score(mutations: dict) -> tuple[float, bool, str]:
         result = simulate_portfolio(signals, _worker_strat_ret_df, _worker_sim_cfg)
 
         if _worker_phase is not None:
-            from research.backtests.regime.auto.phase_scoring import (
+            from backtests.regime.auto.phase_scoring import (
                 compute_regime_stats,
                 get_phase_scorer,
             )
@@ -109,7 +109,7 @@ def _worker_score(mutations: dict) -> tuple[float, bool, str]:
             regime_stats = compute_regime_stats(signals, L_max=cfg.L_max)
             score = scorer(result.metrics, regime_stats)
         else:
-            from research.backtests.regime.auto.scoring import composite_score
+            from backtests.regime.auto.scoring import composite_score
             score = composite_score(result.metrics)
 
         return score.total, score.rejected, score.reject_reason
@@ -135,15 +135,15 @@ def _worker_score_cached(args: tuple) -> tuple[float, bool, str]:
     try:
         from regime.config import MetaConfig
 
-        from research.backtests.regime.auto.config_mutator import mutate_meta_config
-        from research.backtests.regime.engine.cached_engine import (
+        from backtests.regime.auto.config_mutator import mutate_meta_config
+        from backtests.regime.engine.cached_engine import (
             build_hmm_cache,
             build_signal_cache,
             hmm_cache_key,
             run_from_cache,
             signal_cache_key,
         )
-        from research.backtests.regime.engine.portfolio_sim import simulate_portfolio
+        from backtests.regime.engine.portfolio_sim import simulate_portfolio
 
         base_cfg = mutate_meta_config(MetaConfig(), base_muts)
 
@@ -174,7 +174,7 @@ def _worker_score_cached(args: tuple) -> tuple[float, bool, str]:
         result = simulate_portfolio(signals, _worker_strat_ret_df, _worker_sim_cfg)
 
         if _worker_phase is not None:
-            from research.backtests.regime.auto.phase_scoring import (
+            from backtests.regime.auto.phase_scoring import (
                 compute_regime_stats,
                 get_phase_scorer,
             )
@@ -182,7 +182,7 @@ def _worker_score_cached(args: tuple) -> tuple[float, bool, str]:
             regime_stats = compute_regime_stats(signals, L_max=cfg.L_max)
             score = scorer(result.metrics, regime_stats)
         else:
-            from research.backtests.regime.auto.scoring import composite_score
+            from backtests.regime.auto.scoring import composite_score
             score = composite_score(result.metrics)
 
         return score.total, score.rejected, score.reject_reason
@@ -200,8 +200,8 @@ def _worker_final_metrics(mutations: dict) -> dict:
         from regime.config import MetaConfig
         from regime.engine import run_signal_engine
 
-        from research.backtests.regime.auto.config_mutator import mutate_meta_config
-        from research.backtests.regime.engine.portfolio_sim import simulate_portfolio
+        from backtests.regime.auto.config_mutator import mutate_meta_config
+        from backtests.regime.engine.portfolio_sim import simulate_portfolio
 
         cfg = mutate_meta_config(MetaConfig(), mutations)
         signals = run_signal_engine(
@@ -483,10 +483,10 @@ def run_greedy(
     Returns:
         GreedyResult with optimal mutations and round-by-round history.
     """
-    from research.backtests.regime.engine.cached_engine import mutations_affect_hmm
+    from backtests.regime.engine.cached_engine import mutations_affect_hmm
 
     if data_dir is None:
-        data_dir = Path("research/backtests/regime/data/raw")
+        data_dir = Path("backtests/regime/data/raw")
 
     t0 = time.time()
     n_workers = max_workers or _default_workers()

@@ -12,9 +12,9 @@ from __future__ import annotations
 import logging
 from io import StringIO
 
-from research.backtests.swing.analysis.brs_diagnostics import CRISIS_WINDOWS
-from research.backtests.swing.auto.brs.phase_gates import check_phase_gate
-from research.backtests.swing.auto.brs.scoring import BRSMetrics
+from backtests.swing.analysis.brs_diagnostics import CRISIS_WINDOWS
+from backtests.swing.auto.brs.phase_gates import check_phase_gate
+from backtests.swing.auto.brs.scoring import BRSMetrics
 
 logger = logging.getLogger(__name__)
 

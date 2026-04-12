@@ -27,7 +27,7 @@ export async function GET() {
          rds.halt_reason
        FROM v_strategy_health sh
        LEFT JOIN risk_daily_strategy rds
-         ON sh.strategy_id = rds.strategy_id AND rds.trade_date = CURRENT_DATE
+         ON sh.strategy_id = rds.strategy_id AND rds.trade_date = (now() AT TIME ZONE 'America/New_York')::date
        ORDER BY sh.strategy_id`
     );
 

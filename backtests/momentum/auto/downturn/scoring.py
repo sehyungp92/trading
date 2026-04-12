@@ -15,7 +15,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from research.backtests.momentum.analysis.downturn_diagnostics import DownturnMetrics
+from backtests.momentum.analysis.downturn_diagnostics import DownturnMetrics
 
 
 @dataclass(frozen=True)

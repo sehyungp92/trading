@@ -68,6 +68,7 @@ class EventBus:
             strategy_id=order.strategy_id,
             oms_order_id=order.oms_order_id,
             payload={
+                "symbol": order.instrument.symbol if order.instrument else "",
                 "status": order.status.value,
                 "qty": order.qty,
                 "filled_qty": order.filled_qty,

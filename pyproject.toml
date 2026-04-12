@@ -44,4 +44,6 @@ include = ["apps*", "libs*", "strategies*", "regime*", "research*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+asyncio_mode = "auto"
+norecursedirs = ["venv", ".venv", "node_modules", "_references", "research", "backtests", ".git"]
 

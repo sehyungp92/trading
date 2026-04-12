@@ -5,7 +5,7 @@ with COVID removed from CRISIS_WINDOWS. Includes crisis state log
 analysis to show why Path G cumulative return didn't fire.
 
 Run from project root:
-    python research/backtests/swing/analysis/round7_1_full_diagnostics.py
+    python backtests/swing/analysis/round7_1_full_diagnostics.py
 """
 from __future__ import annotations
 import json, sys, datetime as dt
@@ -13,21 +13,21 @@ from pathlib import Path
 from collections import Counter, defaultdict
 
 # --- bootstrap aliases -------------------------------------------------------
-sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
-from research.backtests.swing._aliases import install; install()
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from backtests.swing._aliases import install; install()
 
-from research.backtests.swing.config_brs import BRSConfig
-from research.backtests.swing.engine.brs_portfolio_engine import (
+from backtests.swing.config_brs import BRSConfig
+from backtests.swing.engine.brs_portfolio_engine import (
     load_brs_data, run_brs_independent,
 )
-from research.backtests.swing.analysis.brs_diagnostics import (
+from backtests.swing.analysis.brs_diagnostics import (
     compute_brs_diagnostics, CRISIS_WINDOWS,
 )
-from research.backtests.swing.auto.brs.scoring import extract_brs_metrics
+from backtests.swing.auto.brs.scoring import extract_brs_metrics
 import numpy as np
 
-DATA_DIR = Path("research/backtests/swing/data/raw")
-OUTPUT_DIR = Path("research/backtests/swing/auto/brs/output")
+DATA_DIR = Path("backtests/swing/data/raw")
+OUTPUT_DIR = Path("backtests/swing/auto/brs/output")
 
 
 # ---------------------------------------------------------------------------

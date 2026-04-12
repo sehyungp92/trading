@@ -4,7 +4,7 @@ Produces the same report format as portfolio_10k_v6.txt for like-for-like compar
 
 Usage:
     cd trading
-    python -u research/backtests/momentum/auto/run_v7_report.py
+    python -u backtests/momentum/auto/run_v7_report.py
 """
 from __future__ import annotations
 
@@ -12,10 +12,10 @@ import json
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[5]
+ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT))
 
-from research.backtests.momentum._aliases import install
+from backtests.momentum._aliases import install
 install()
 
 from backtest.analysis.portfolio_reports import portfolio_full_report
@@ -37,9 +37,9 @@ from backtest.engine.portfolio_engine import PortfolioBacktester
 from backtest.engine.vdubus_engine import VdubusEngine
 
 EQUITY = 10_000.0
-DATA_DIR = ROOT / "research" / "backtests" / "momentum" / "data" / "raw"
-OUTPUT_DIR = ROOT / "research" / "backtests" / "momentum" / "output"
-AUTO_OUTPUT = ROOT / "research" / "backtests" / "momentum" / "auto" / "output"
+DATA_DIR = ROOT / "backtests" / "momentum" / "data" / "raw"
+OUTPUT_DIR = ROOT / "backtests" / "momentum" / "output"
+AUTO_OUTPUT = ROOT / "backtests" / "momentum" / "auto" / "output"
 
 
 def main():

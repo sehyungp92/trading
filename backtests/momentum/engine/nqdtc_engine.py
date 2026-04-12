@@ -32,6 +32,8 @@ from backtest.engine.sim_broker import (
     SimOrder,
 )
 
+import copy as _copy
+
 from strategy_2 import box as box_mod
 from strategy_2 import config as C
 from strategy_2 import indicators as ind
@@ -60,6 +62,63 @@ from strategy_2.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Snapshot of patchable C module values -- captured lazily on first use.
+# _apply_param_overrides resets C to these originals before each patch to
+# prevent state leakage between sequential engine instantiations.
+# ---------------------------------------------------------------------------
+_C_ORIGINALS: dict | None = None
+
+_PATCHABLE_SCALAR_KEYS = [
+    'SCORE_NORMAL', 'SCORE_DEGRADED', 'Q_DISP', 'Q_DISP_TIGHT_BOX',
+    'Q_DISP_ALIGNED', 'STALE_BARS_NORMAL', 'STALE_BARS_DEGRADED',
+    'STALE_R_THRESHOLD', 'DAILY_STOP_R', 'WEEKLY_STOP_R', 'MONTHLY_STOP_R',
+    'BASE_RISK_PCT', 'RISK_PCT', 'CHOP_SIZE_MULT', 'FRICTION_CAP',
+    'A_ENTRY_ENABLED', 'C_CONT_ENTRY_ENABLED',
+    'LOSS_STREAK_THRESHOLD', 'LOSS_STREAK_SKIP_BARS',
+    'PROFIT_BE_R', 'MIN_INTER_TRADE_GAP_MINUTES',
+    'ETH_SHORT_SIZE_MULT', 'MIN_BOX_WIDTH', 'MAX_BOX_WIDTH',
+    'EARLY_BE_MFE_R', 'CONT_SIZE_MULT', 'REVERSAL_SIZE_MULT',
+    'CONTINUATION_BREAKOUT_SIZE_MULT', 'MAX_STOP_ATR_MULT',
+    'MAX_STOP_WIDTH_PTS', 'MAX_LOSS_CAP_R',
+    'REENTRY_MIN_LOSS_R', 'REENTRY_COOLDOWN_MIN',
+    'BLOCK_CONT_ALIGNED', 'BLOCK_STD_NEUTRAL_LOW_DISP',
+    'CHANDELIER_TIER0_MULT', 'CHANDELIER_TIER1_MULT', 'CHANDELIER_TIER2_MULT',
+    'CHANDELIER_TIER3_MULT', 'CHANDELIER_TIER4_MULT',
+    'CHANDELIER_GRACE_BARS_30M',
+    'CHANDELIER_POST_TP1_MULT_DECAY', 'CHANDELIER_POST_TP1_FLOOR_MULT',
+    'RATCHET_LOCK_PCT', 'RATCHET_THRESHOLD_R',
+    'BE_BUFFER_ATR_5M',
+]
+
+
+def _ensure_c_snapshot() -> dict:
+    """Lazily capture original C values for all patchable keys."""
+    global _C_ORIGINALS
+    if _C_ORIGINALS is not None:
+        return _C_ORIGINALS
+    snap: dict = {}
+    for key in _PATCHABLE_SCALAR_KEYS:
+        if hasattr(C, key):
+            snap[key] = getattr(C, key)
+    snap['REGIME_MULT'] = dict(C.REGIME_MULT)
+    snap['EXIT_TIERS'] = _copy.deepcopy(C.EXIT_TIERS)
+    snap['CHANDELIER_TIERS'] = list(C.CHANDELIER_TIERS)
+    _C_ORIGINALS = snap
+    return _C_ORIGINALS
+
+
+def _reset_c_to_originals() -> None:
+    """Reset all patchable C module attributes to their original values."""
+    snap = _ensure_c_snapshot()
+    for key in _PATCHABLE_SCALAR_KEYS:
+        if key in snap:
+            setattr(C, key, snap[key])
+    C.REGIME_MULT = dict(snap['REGIME_MULT'])
+    C.EXIT_TIERS = _copy.deepcopy(snap['EXIT_TIERS'])
+    C.CHANDELIER_TIERS = list(snap['CHANDELIER_TIERS'])
+
 
 _ET = None
 
@@ -430,12 +489,68 @@ class NQDTCEngine:
         self._equity_history: list[float] = []
         self._time_history: list = []
 
+        # Inter-trade cooldown (Prereq 1)
+        self._last_fill_time: datetime | None = None
+
         # Counters
         self._breakouts_evaluated = 0
         self._breakouts_qualified = 0
         self._entries_placed = 0
         self._entries_filled = 0
         self._gates_blocked = 0
+
+        # Prereq 0: patch C module constants from param_overrides
+        self._apply_param_overrides()
+
+    # ------------------------------------------------------------------
+    # Prereq 0: param_overrides -> C module patching
+    # ------------------------------------------------------------------
+
+    def _apply_param_overrides(self) -> None:
+        """Patch C module constants from config.param_overrides.
+
+        Always resets C to original defaults first to prevent state leakage
+        between sequential engine instantiations in the same process.
+        """
+        _reset_c_to_originals()
+        po = self.cfg.param_overrides
+        if not po:
+            return
+        # Scalar constants
+        for key in _PATCHABLE_SCALAR_KEYS:
+            if key in po:
+                setattr(C, key, po[key])
+        # REGIME_MULT dict entries
+        for regime in ['Aligned', 'Neutral', 'Caution', 'Range', 'Counter']:
+            k = f'regime_mult_{regime.lower()}'
+            if k in po:
+                C.REGIME_MULT[regime] = po[k]
+        # EXIT_TIERS (TP structure) -- rebuild schedule from individual params
+        if 'TP1_R' in po:
+            schedule = [(po['TP1_R'], po.get('TP1_PARTIAL_PCT', 0.25))]
+            if 'TP2_R' in po:
+                schedule.append((po['TP2_R'], po.get('TP2_PARTIAL_PCT', 0.25)))
+            C.EXIT_TIERS = {tier: list(schedule) for tier in C.EXIT_TIERS}
+        # CHANDELIER_TIERS -- per-tier or flat override of mult and lookback
+        _tier_keys = ['CHANDELIER_TIER0_MULT', 'CHANDELIER_TIER1_MULT',
+                      'CHANDELIER_TIER2_MULT', 'CHANDELIER_TIER3_MULT',
+                      'CHANDELIER_TIER4_MULT']
+        has_per_tier = any(po.get(k, 0.0) > 0 for k in _tier_keys)
+        has_flat = 'CHANDELIER_ATR_MULT' in po
+        has_lb = 'CHANDELIER_LOOKBACK' in po
+        if has_per_tier or has_flat or has_lb:
+            per_mults = [po.get(k, 0.0) for k in _tier_keys]
+            new_tiers = []
+            for i, (min_r, max_r, mm_req, lb, mult) in enumerate(C.CHANDELIER_TIERS):
+                new_lb = int(po.get('CHANDELIER_LOOKBACK', lb))
+                if i < len(per_mults) and per_mults[i] > 0:
+                    new_mult = per_mults[i]
+                elif has_flat:
+                    new_mult = po['CHANDELIER_ATR_MULT']
+                else:
+                    new_mult = mult
+                new_tiers.append((min_r, max_r, mm_req, new_lb, new_mult))
+            C.CHANDELIER_TIERS = new_tiers
 
     # ------------------------------------------------------------------
     # Main entry point
@@ -1079,6 +1194,14 @@ class NQDTCEngine:
             self._record_signal_event(evt, sess, direction, bar_time)
             return
 
+        # 5b. Box width filter (Prereq 3)
+        min_bw = getattr(C, 'MIN_BOX_WIDTH', 0)
+        max_bw = getattr(C, 'MAX_BOX_WIDTH', 99999)
+        if sess.box.box_width < min_bw or sess.box.box_width > max_bw:
+            evt.first_block_reason = "box_width_filter"
+            self._record_signal_event(evt, sess, direction, bar_time)
+            return
+
         # 6. News blackout
         if self.flags.news_blackout and _in_news_blackout(bar_time, self._news_windows):
             evt.news_pass = False
@@ -1223,6 +1346,13 @@ class NQDTCEngine:
         if self.flags.loss_streak_cooldown and self._cooldown_bars > 0:
             return
 
+        # Prereq 1: inter-trade cooldown timer
+        gap_min = getattr(C, 'MIN_INTER_TRADE_GAP_MINUTES', 0)
+        if gap_min > 0 and self._last_fill_time is not None:
+            elapsed = (bar_time - self._last_fill_time).total_seconds() / 60
+            if elapsed < gap_min:
+                return
+
         # Block entries during 05:00 ET hour
         if self.flags.block_05_et and _to_ny(bar_time).hour == 5 and _to_ny(bar_time).minute < 30:
             return
@@ -1241,6 +1371,10 @@ class NQDTCEngine:
 
         # Block entries on Thursday (DOW=3)
         if self.flags.block_thursday and _to_ny(bar_time).weekday() == 3:
+            return
+
+        # Prereq 2: block ETH shorts (session-direction filter)
+        if self.flags.block_eth_shorts and sess.session == Session.ETH and sess.breakout.direction == Direction.SHORT:
             return
 
         # Block DEGRADED-mode entries during RTH
@@ -1290,6 +1424,11 @@ class NQDTCEngine:
             is_continuation = sig.slope_supports_breakout(np.array(self._closes_15m), direction)
             slope_mult = C.CONT_SIZE_MULT if is_continuation else C.REVERSAL_SIZE_MULT
 
+        # Prereq 2: ETH short size reduction
+        eth_short_mult = 1.0
+        _eth_sm = getattr(C, 'ETH_SHORT_SIZE_MULT', 1.0)
+        if _eth_sm < 1.0 and sess.session == Session.ETH and direction == Direction.SHORT:
+            eth_short_mult = _eth_sm
 
         # --- Entry A: limit (A1 retest) + stop_limit (A2 latch) ---
         # Phase 1.2: gated by A_ENTRY_ENABLED
@@ -1401,7 +1540,7 @@ class NQDTCEngine:
                 )
                 quality_mult = sizing.compute_quality_mult(self.regime.composite, sess.mode, disp_norm, es_opposing=es_opp)
                 final_risk_pct, _ = sizing.compute_final_risk_pct(quality_mult)
-                final_risk_pct *= slope_mult
+                final_risk_pct *= slope_mult * eth_short_mult
                 qty = sizing.compute_contracts(self.symbol, Cl, stop_price, self.equity, final_risk_pct)
                 if self.cfg.fixed_qty is not None:
                     qty = self.cfg.fixed_qty
@@ -1472,7 +1611,7 @@ class NQDTCEngine:
                         )
                         quality_mult = sizing.compute_quality_mult(self.regime.composite, sess.mode, disp_norm, es_opposing=es_opp)
                         final_risk_pct, _ = sizing.compute_final_risk_pct(quality_mult)
-                        final_risk_pct *= slope_mult
+                        final_risk_pct *= slope_mult * eth_short_mult
 
                         # C entry price: limit at hold reference + offset (differentiated by subtype)
                         if subtype == EntrySubtype.C_STANDARD:
@@ -1522,7 +1661,7 @@ class NQDTCEngine:
                 )
                 quality_mult = sizing.compute_quality_mult(self.regime.composite, sess.mode, disp_norm, es_opposing=es_opp)
                 final_risk_pct, _ = sizing.compute_final_risk_pct(quality_mult)
-                final_risk_pct *= slope_mult
+                final_risk_pct *= slope_mult * eth_short_mult
                 qty = sizing.compute_contracts(self.symbol, Cl, stop_price, self.equity, final_risk_pct)
                 if self.cfg.fixed_qty is not None:
                     qty = self.cfg.fixed_qty
@@ -1668,6 +1807,7 @@ class NQDTCEngine:
         self.equity -= commission
         self._throttle.update_equity(self.equity)
         self._entries_filled += 1
+        self._last_fill_time = bar_time  # Prereq 1: track for cooldown
 
         # Cancel OCA siblings
         if wo.oca_group:
@@ -1941,8 +2081,13 @@ class NQDTCEngine:
                 self._update_stop_price(ratchet_stop, bar_time)
 
         # Chandelier trailing stop (use initial-stop R for tier selection)
-        if self.flags.chandelier_trailing and pos.runner_active and len(self._atr14_1h) > 0:
+        _grace_ok = pos.bars_since_entry_30m >= getattr(C, 'CHANDELIER_GRACE_BARS_30M', 0)
+        if self.flags.chandelier_trailing and pos.runner_active and _grace_ok and len(self._atr14_1h) > 0:
             lookback, mult = stops.chandelier_params(open_r_initial, pos.mm_reached)
+            # Post-TP1 mult decay: progressively tighten trail after TP1
+            if pos.profit_funded and C.CHANDELIER_POST_TP1_MULT_DECAY > 0 and pos.bars_since_tp1 >= 0:
+                decay = C.CHANDELIER_POST_TP1_MULT_DECAY * pos.bars_since_tp1
+                mult = max(mult - decay, C.CHANDELIER_POST_TP1_FLOOR_MULT)
             if pos.direction == Direction.LONG:
                 trail = ind.chandelier_long(self._highs_1h_cache, self._atr14_1h, lookback, mult)
                 if trail > pos.chandelier_trail:
@@ -2084,11 +2229,13 @@ class NQDTCEngine:
         if self.daily_risk.monthly_realized_R <= C.MONTHLY_STOP_R:
             self.daily_risk.monthly_halted = True
 
-        # Consecutive-loss cooldown tracking
+        # Consecutive-loss cooldown tracking (parameterized via param_overrides)
+        _streak_threshold = getattr(C, 'LOSS_STREAK_THRESHOLD', 3)
+        _streak_skip = getattr(C, 'LOSS_STREAK_SKIP_BARS', 6)
         if r_mult <= 0:
             self._consec_losses += 1
-            if self._consec_losses >= 3:
-                self._cooldown_bars = 6  # block entries for 30 min (6 x 5m bars)
+            if self._consec_losses >= _streak_threshold:
+                self._cooldown_bars = _streak_skip
         else:
             self._consec_losses = 0
 

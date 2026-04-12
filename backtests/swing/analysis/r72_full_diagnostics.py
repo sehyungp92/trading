@@ -4,7 +4,7 @@ Runs both R6 baseline and R7.2 optimized configs side-by-side.
 Includes crisis state log analysis, trade timeline, and scoring breakdown.
 
 Run from project root:
-    python research/backtests/swing/analysis/r72_full_diagnostics.py
+    python backtests/swing/analysis/r72_full_diagnostics.py
 """
 from __future__ import annotations
 import json, sys, math, datetime as dt
@@ -13,25 +13,25 @@ from collections import Counter, defaultdict
 from dataclasses import asdict
 
 # --- bootstrap aliases -------------------------------------------------------
-sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
-from research.backtests.swing._aliases import install; install()
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from backtests.swing._aliases import install; install()
 
-from research.backtests.swing.config_brs import BRSConfig
-from research.backtests.swing.engine.brs_portfolio_engine import (
+from backtests.swing.config_brs import BRSConfig
+from backtests.swing.engine.brs_portfolio_engine import (
     load_brs_data, run_brs_independent,
 )
-from research.backtests.swing.analysis.brs_diagnostics import (
+from backtests.swing.analysis.brs_diagnostics import (
     compute_brs_diagnostics, CRISIS_WINDOWS,
 )
-from research.backtests.swing.auto.brs.scoring import (
+from backtests.swing.auto.brs.scoring import (
     extract_brs_metrics, composite_score, BRSMetrics,
     W_NET_PROFIT, W_PF, W_CALMAR, W_INV_DD, W_BEAR_ALPHA, W_FREQUENCY, W_DETECTION,
 )
-from research.backtests.swing.auto.brs.config_mutator import mutate_brs_config
+from backtests.swing.auto.brs.config_mutator import mutate_brs_config
 import numpy as np
 
-DATA_DIR = Path("research/backtests/swing/data/raw")
-OUTPUT_DIR = Path("research/backtests/swing/auto/brs/output")
+DATA_DIR = Path("backtests/swing/data/raw")
+OUTPUT_DIR = Path("backtests/swing/auto/brs/output")
 
 # R6 baseline mutations
 R6_MUTATIONS = {

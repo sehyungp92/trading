@@ -5,7 +5,7 @@ import logging
 import sys
 from pathlib import Path
 
-from research.backtests.shared.auto.types import ScoredCandidate
+from backtests.shared.auto.types import ScoredCandidate
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ def init_worker(
     if sys.stdout.encoding != "utf-8":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-    from research.backtests.momentum._aliases import install
+    from backtests.momentum._aliases import install
 
     install()
 
@@ -105,9 +105,9 @@ def score_candidate(args: tuple[str, dict, dict]) -> ScoredCandidate:
 
     try:
         from backtest.engine.downturn_engine import DownturnEngine
-        from research.backtests.momentum.analysis.downturn_diagnostics import compute_downturn_metrics
-        from research.backtests.momentum.auto.downturn.config_mutator import mutate_downturn_config
-        from research.backtests.momentum.auto.downturn.plugin import score_phase_metrics
+        from backtests.momentum.analysis.downturn_diagnostics import compute_downturn_metrics
+        from backtests.momentum.auto.downturn.config_mutator import mutate_downturn_config
+        from backtests.momentum.auto.downturn.plugin import score_phase_metrics
 
         all_muts = dict(base_muts)
         all_muts.update(candidate_muts)

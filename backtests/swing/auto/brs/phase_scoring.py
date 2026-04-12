@@ -1,5 +1,5 @@
 """Compatibility shim for BRS phase scoring."""
-from research.backtests.swing.auto.brs.plugin import PHASE_HARD_REJECTS, PHASE_WEIGHTS, score_phase_metrics
+from backtests.swing.auto.brs.plugin import PHASE_HARD_REJECTS, PHASE_WEIGHTS, score_phase_metrics
 
 score_phase = score_phase_metrics
 

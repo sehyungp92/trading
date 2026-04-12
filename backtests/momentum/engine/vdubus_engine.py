@@ -963,6 +963,37 @@ class VdubusEngine:
                 self._close_position(price, bar_time, "FREE_STALE")
                 return
 
+        # Late Trail (v4.4) -- independent trail, no partial, late activation
+        if self.flags.late_trail and not pos.partial_done:
+            # BE move -- once peak_mfe_r crosses BE_R
+            if (not pos.late_trail_be_done
+                    and C.LATE_TRAIL_BE_R > 0
+                    and pos.peak_mfe_r >= C.LATE_TRAIL_BE_R):
+                if pos.direction == Direction.LONG:
+                    new_be = max(pos.stop_price, pos.entry_price)
+                else:
+                    new_be = min(pos.stop_price, pos.entry_price)
+                if new_be != pos.stop_price:
+                    pos.stop_price = new_be
+                    self._update_stop_price(new_be, bar_time)
+                pos.late_trail_be_done = True
+
+            # Activate trailing once MFE crosses activation threshold
+            if not pos.late_trail_active and pos.peak_mfe_r >= C.LATE_TRAIL_ACTIVATE_R:
+                pos.late_trail_active = True
+
+            # Trail computation (only when active, not overnight)
+            if pos.late_trail_active and not _is_overnight(bar_time) and t > 0:
+                _, sub_window = classify_session(bar_time)
+                h_slice = bars_15m.highs[:t + 1]
+                l_slice = bars_15m.lows[:t + 1]
+                new_stop = exits.compute_late_trail_stop(
+                    pos, h_slice, l_slice, atr15, price,
+                    sub_window=sub_window.value)
+                if new_stop != pos.stop_price:
+                    pos.stop_price = new_stop
+                    self._update_stop_price(new_stop, bar_time)
+
         # Intraday trailing (Section 16.2) — post +1R, not overnight
         if pos.partial_done and not _is_overnight(bar_time) and t > 0:
             _, sub_window = classify_session(bar_time)
@@ -993,10 +1024,14 @@ class VdubusEngine:
 
         # Stale exit (Section 16.4) — pre +1R
         if self.flags.stale_exit and not pos.partial_done:
-            _cur_sub_win = classify_session(bar_time)[1].value if self.flags.adaptive_stale else "CORE"
-            if exits.check_stale_exit(pos, price, sub_window=_cur_sub_win):
-                self._close_position(price, bar_time, "STALE")
-                return
+            # v4.3: exempt trades showing significant directional MFE
+            if self.flags.stale_mfe_exempt and pos.peak_mfe_r >= C.STALE_MFE_EXEMPT_R:
+                pass  # let trail/VWAP_A/gate handle exit instead
+            else:
+                _cur_sub_win = classify_session(bar_time)[1].value if self.flags.adaptive_stale else "CORE"
+                if exits.check_stale_exit(pos, price, sub_window=_cur_sub_win):
+                    self._close_position(price, bar_time, "STALE")
+                    return
 
     def _execute_partial(
         self, pos: PositionState, qty_close: int,

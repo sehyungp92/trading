@@ -9,7 +9,7 @@ import numpy as np
 from collections import defaultdict
 from datetime import datetime
 
-from research.backtests.momentum.analysis._utils import (
+from backtests.momentum.analysis._utils import (
     SESSION_ORDER,
     classify_session as _classify_session,
     utc_to_et as _utc_to_et,

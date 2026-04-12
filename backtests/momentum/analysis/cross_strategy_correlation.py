@@ -9,7 +9,7 @@ import numpy as np
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from research.backtests.momentum.analysis._utils import trade_date
+from backtests.momentum.analysis._utils import trade_date
 
 
 def _trade_date(trade) -> str | None:

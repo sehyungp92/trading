@@ -202,6 +202,7 @@ def _vdubus_ablation() -> list[Experiment]:
         ("evening_vwap_cap", "Enable evening VWAP cap", "Evening VWAP cap may reduce late-session risk"),
         ("mfe_ratchet", "Enable MFE ratchet", "MFE ratchet may lock profits more effectively"),
         ("bar_quality_gate", "Enable bar quality gate", "Bar quality gate may filter noisy entries"),
+        ("stale_mfe_exempt", "Enable stale MFE exemption", "Exempt high-MFE trades from stale exit may preserve winners"),
     ]
     for flag, desc, hyp in false_flags:
         exps.append(E(

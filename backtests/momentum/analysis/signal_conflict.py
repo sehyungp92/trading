@@ -10,7 +10,7 @@ import numpy as np
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from research.backtests.momentum.analysis._utils import parse_dt as _parse_dt
+from backtests.momentum.analysis._utils import parse_dt as _parse_dt
 
 
 def _direction_str(d: int) -> str:

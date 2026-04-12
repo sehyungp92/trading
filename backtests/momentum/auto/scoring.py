@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from research.backtests.momentum.analysis.metrics import PerformanceMetrics, compute_metrics
+from backtests.momentum.analysis.metrics import PerformanceMetrics, compute_metrics
 
 
 # ---------------------------------------------------------------------------

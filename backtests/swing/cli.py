@@ -16,7 +16,7 @@ Or override per-command: --symbols QQQ,GLD
 """
 from __future__ import annotations
 
-from research.backtests.swing._aliases import install; install()
+from backtests.swing._aliases import install; install()
 
 import argparse
 import asyncio
@@ -1350,7 +1350,7 @@ def _cmd_weakness_report(args):
 
 def cmd_auto(args):
     """Run automated experiment harness."""
-    from research.backtests.swing.auto.harness import SwingAutoHarness
+    from backtests.swing.auto.harness import SwingAutoHarness
 
     harness = SwingAutoHarness(
         data_dir=Path(args.data_dir),
@@ -1694,9 +1694,9 @@ def main():
                       help="Resume from previous run (skip completed experiments)")
     auto.add_argument("--equity", type=float, default=100_000,
                       help="Initial equity (default: 100000)")
-    auto.add_argument("--data-dir", default="research/backtests/swing/data/raw",
+    auto.add_argument("--data-dir", default="backtests/swing/data/raw",
                       help="Data directory")
-    auto.add_argument("--output-dir", default="research/backtests/swing/auto/output",
+    auto.add_argument("--output-dir", default="backtests/swing/auto/output",
                       help="Output directory for results and report")
 
     # weakness-report subcommand

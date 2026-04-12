@@ -20,13 +20,13 @@ from backtest.config_brs import BRSConfig, BRSSymbolConfig
 from backtest.data.preprocessing import NumpyBars
 from backtest.engine.backtest_engine import SymbolResult, TradeRecord
 
-from research.backtests.swing.engine.brs_exits import (
+from backtests.swing.engine.brs_exits import (
     check_exits,
     check_scale_out,
     compute_initial_stop,
     update_trailing_stop,
 )
-from research.backtests.swing.engine.brs_indicators import (
+from backtests.swing.engine.brs_indicators import (
     adx_suite,
     atr,
     compute_4h_structure,
@@ -39,7 +39,7 @@ from research.backtests.swing.engine.brs_indicators import (
     swing_high_confirmed,
     volume_sma,
 )
-from research.backtests.swing.engine.brs_models import (
+from backtests.swing.engine.brs_models import (
     BDArmState,
     BRSRegime,
     BiasState,
@@ -55,13 +55,13 @@ from research.backtests.swing.engine.brs_models import (
     S3ArmState,
     VolState,
 )
-from research.backtests.swing.engine.brs_regime import (
+from backtests.swing.engine.brs_regime import (
     classify_regime,
     compute_raw_bias,
     compute_regime_on,
     update_bias,
 )
-from research.backtests.swing.engine.brs_signals import (
+from backtests.swing.engine.brs_signals import (
     check_bd_arm,
     check_bd_continuation,
     check_l1,
@@ -72,7 +72,7 @@ from research.backtests.swing.engine.brs_signals import (
     check_s3,
     check_s3_arm,
 )
-from research.backtests.swing.engine.brs_sizing import compute_position_size
+from backtests.swing.engine.brs_sizing import compute_position_size
 
 logger = logging.getLogger(__name__)
 
@@ -515,7 +515,7 @@ class BRSEngine:
         )
 
         # Crisis state logging — only during crisis windows (memory-efficient)
-        from research.backtests.swing.analysis.brs_diagnostics import CRISIS_WINDOWS
+        from backtests.swing.analysis.brs_diagnostics import CRISIS_WINDOWS
         bar_dt = self._to_datetime(self._daily_times[d_idx])
         bar_dt_naive = bar_dt.replace(tzinfo=None) if bar_dt.tzinfo else bar_dt
         for cname, cstart, cend in CRISIS_WINDOWS:

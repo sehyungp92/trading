@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import fields, replace
 
-from research.backtests.momentum.config_downturn import (
+from backtests.momentum.config_downturn import (
     DownturnAblationFlags,
     DownturnBacktestConfig,
 )

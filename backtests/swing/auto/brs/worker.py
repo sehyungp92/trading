@@ -5,7 +5,7 @@ import sys
 import traceback
 from pathlib import Path
 
-from research.backtests.shared.auto.types import ScoredCandidate
+from backtests.shared.auto.types import ScoredCandidate
 
 _worker_data = None
 _worker_config = None
@@ -27,7 +27,7 @@ def init_worker(
     if sys.stdout.encoding != "utf-8":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-    from research.backtests.swing._aliases import install
+    from backtests.swing._aliases import install
 
     install()
 
@@ -50,9 +50,9 @@ def score_candidate(args: tuple[str, dict, dict]) -> ScoredCandidate:
 
     try:
         from backtest.engine.brs_portfolio_engine import run_brs_independent
-        from research.backtests.swing.auto.brs.config_mutator import mutate_brs_config
-        from research.backtests.swing.auto.brs.plugin import score_phase_metrics
-        from research.backtests.swing.auto.brs.scoring import composite_score, extract_brs_metrics
+        from backtests.swing.auto.brs.config_mutator import mutate_brs_config
+        from backtests.swing.auto.brs.plugin import score_phase_metrics
+        from backtests.swing.auto.brs.scoring import composite_score, extract_brs_metrics
 
         all_muts = dict(base_muts)
         all_muts.update(candidate_muts)

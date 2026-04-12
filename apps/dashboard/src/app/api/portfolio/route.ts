@@ -16,7 +16,7 @@ export async function GET() {
       }>(
         `SELECT daily_realized_r, daily_realized_usd, portfolio_open_risk_r, halted, halt_reason
          FROM v_portfolio_daily_summary
-         WHERE trade_date = CURRENT_DATE`
+         WHERE trade_date = (now() AT TIME ZONE 'America/New_York')::date`
       ),
       query<{ unrealized_pnl: number; heat_r: number }>(
         `SELECT

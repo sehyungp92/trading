@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from research.backtests.swing.auto.brs.scoring import BRSMetrics
+from backtests.swing.auto.brs.scoring import BRSMetrics
 
 
 @dataclass(frozen=True)

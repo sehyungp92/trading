@@ -1,19 +1,19 @@
 """CLI for regime backtesting and optimization.
 
 Usage:
-    python -m research.backtests.regime.cli download
-    python -m research.backtests.regime.cli run [--diagnostics]
-    python -m research.backtests.regime.cli optimize [--max-rounds N] [--max-workers N]
-    python -m research.backtests.regime.cli walk-forward [--test-years 2]
-    python -m research.backtests.regime.cli phase-run --phase N [--preset recommended_full_stack]
-    python -m research.backtests.regime.cli phase-auto [--preset recommended_full_stack]
-    python -m research.backtests.regime.cli phase-gate --phase N
-    python -m research.backtests.regime.cli phase-diagnostics --phase N
-    python -m research.backtests.regime.cli historical-validate [--preset recommended_full_stack]
-    python -m research.backtests.regime.cli scanner-validate [--preset recommended_full_stack] [--diagnostics]
-    python -m research.backtests.regime.cli calibration-sweep [--preset r3_reference]
-    python -m research.backtests.regime.cli validate-2022 [--preset recommended_full_stack]
-    python -m research.backtests.regime.cli step9-optimize [--max-workers 3]
+    python -m backtests.regime.cli download
+    python -m backtests.regime.cli run [--diagnostics]
+    python -m backtests.regime.cli optimize [--max-rounds N] [--max-workers N]
+    python -m backtests.regime.cli walk-forward [--test-years 2]
+    python -m backtests.regime.cli phase-run --phase N [--preset recommended_full_stack]
+    python -m backtests.regime.cli phase-auto [--preset recommended_full_stack]
+    python -m backtests.regime.cli phase-gate --phase N
+    python -m backtests.regime.cli phase-diagnostics --phase N
+    python -m backtests.regime.cli historical-validate [--preset recommended_full_stack]
+    python -m backtests.regime.cli scanner-validate [--preset recommended_full_stack] [--diagnostics]
+    python -m backtests.regime.cli calibration-sweep [--preset r3_reference]
+    python -m backtests.regime.cli validate-2022 [--preset recommended_full_stack]
+    python -m backtests.regime.cli step9-optimize [--max-workers 3]
 """
 from __future__ import annotations
 
@@ -28,11 +28,11 @@ from pathlib import Path
 import pandas as pd
 
 # Ensure project root on path
-_root = Path(__file__).resolve().parents[3]
+_root = Path(__file__).resolve().parents[2]
 if str(_root) not in sys.path:
     sys.path.insert(0, str(_root))
 
-from research.backtests.regime.auto.presets import (
+from backtests.regime.auto.presets import (
     DEFAULT_REFERENCE_PRESET,
     DEFAULT_RESEARCH_PRESET,
     R7_RESEARCH_PRESET,
@@ -44,7 +44,7 @@ from research.backtests.regime.auto.presets import (
 )
 
 logger = logging.getLogger(__name__)
-DEFAULT_PHASE_OUTPUT_DIR = Path("research/backtests/regime/auto/output")
+DEFAULT_PHASE_OUTPUT_DIR = Path("backtests/regime/auto/output")
 DEFAULT_STEP9_OUTPUT_DIR = DEFAULT_PHASE_OUTPUT_DIR / "step9_r6"
 DEFAULT_R7_OUTPUT_DIR = DEFAULT_PHASE_OUTPUT_DIR / "r7_overlay_recal"
 DEFAULT_R8_OUTPUT_DIR = DEFAULT_PHASE_OUTPUT_DIR / "r8_two_model"
@@ -58,7 +58,7 @@ def _setup_phase_logging(phase: int, output_dir: Path) -> Path:
     Returns the log file path.
     """
     log_path = output_dir / f"phase_{phase}.log"
-    regime_logger = logging.getLogger("research.backtests.regime")
+    regime_logger = logging.getLogger("backtests.regime")
     regime_logger.setLevel(logging.DEBUG)
 
     # Remove stale file handlers from previous invocations
@@ -156,7 +156,7 @@ def _resolve_phase_max_rounds(args: argparse.Namespace, phase: int) -> int:
 
 def add_candidate_profile_arg(parser: argparse.ArgumentParser, default: str = "default") -> None:
     """Add a candidate-profile selector to a phase-oriented parser."""
-    from research.backtests.regime.auto.phase_candidates import candidate_profile_choices
+    from backtests.regime.auto.phase_candidates import candidate_profile_choices
 
     parser.add_argument(
         "--candidate-profile",
@@ -172,7 +172,7 @@ def add_candidate_profile_arg(parser: argparse.ArgumentParser, default: str = "d
 
 def cmd_download(args: argparse.Namespace) -> None:
     """Download and cache all data from FRED + yfinance."""
-    from research.backtests.regime.data.downloader import build_all_data
+    from backtests.regime.data.downloader import build_all_data
 
     data_dir = Path(args.data_dir)
     print(f"Downloading data to {data_dir}...")
@@ -209,10 +209,10 @@ def cmd_run(args: argparse.Namespace) -> None:
     from regime.config import MetaConfig
     from regime.engine import run_signal_engine
 
-    from research.backtests.regime.auto.scoring import composite_score
-    from research.backtests.regime.config import RegimeBacktestConfig
-    from research.backtests.regime.data.downloader import load_cached_data
-    from research.backtests.regime.engine.portfolio_sim import (
+    from backtests.regime.auto.scoring import composite_score
+    from backtests.regime.config import RegimeBacktestConfig
+    from backtests.regime.data.downloader import load_cached_data
+    from backtests.regime.engine.portfolio_sim import (
         simulate_benchmark_60_40,
         simulate_portfolio,
     )
@@ -232,7 +232,7 @@ def cmd_run(args: argparse.Namespace) -> None:
         print(f"Loaded {len(mutations)} mutations from {args.mutations_json}")
 
     # Build config
-    from research.backtests.regime.auto.config_mutator import mutate_meta_config
+    from backtests.regime.auto.config_mutator import mutate_meta_config
     cfg = mutate_meta_config(MetaConfig(), mutations) if mutations else MetaConfig()
 
     sim_cfg = RegimeBacktestConfig(
@@ -282,7 +282,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     _print_metrics(result, score)
 
     if args.diagnostics:
-        from research.backtests.regime.analysis.diagnostics import (
+        from backtests.regime.analysis.diagnostics import (
             generate_regime_diagnostics_report,
         )
 
@@ -296,7 +296,7 @@ def cmd_run(args: argparse.Namespace) -> None:
         )
         print(report.encode("ascii", errors="replace").decode("ascii"))
 
-        output_dir = Path("research/backtests/regime/auto/output")
+        output_dir = Path("backtests/regime/auto/output")
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / "diagnostics_latest.txt"
         output_path.write_text(report, encoding="utf-8")
@@ -336,14 +336,14 @@ def cmd_optimize(args: argparse.Namespace) -> None:
     """Run greedy forward selection."""
     import json as _json
 
-    from research.backtests.regime.auto.candidates import get_all_candidates
-    from research.backtests.regime.auto.greedy_optimize import (
+    from backtests.regime.auto.candidates import get_all_candidates
+    from backtests.regime.auto.greedy_optimize import (
         run_greedy,
         save_greedy_result,
     )
 
     data_dir = Path(args.data_dir)
-    output_dir = Path("research/backtests/regime/auto/output")
+    output_dir = Path("backtests/regime/auto/output")
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "greedy_optimal.json"
 
@@ -404,11 +404,11 @@ def cmd_walk_forward(args: argparse.Namespace) -> None:
     from regime.config import MetaConfig
     from regime.engine import run_signal_engine
 
-    from research.backtests.regime.auto.config_mutator import mutate_meta_config
-    from research.backtests.regime.auto.scoring import composite_score
-    from research.backtests.regime.config import RegimeBacktestConfig
-    from research.backtests.regime.data.downloader import load_cached_data
-    from research.backtests.regime.engine.portfolio_sim import simulate_portfolio
+    from backtests.regime.auto.config_mutator import mutate_meta_config
+    from backtests.regime.auto.scoring import composite_score
+    from backtests.regime.config import RegimeBacktestConfig
+    from backtests.regime.data.downloader import load_cached_data
+    from backtests.regime.engine.portfolio_sim import simulate_portfolio
 
     data_dir = Path(args.data_dir)
     macro_df, market_df, strat_ret_df = load_cached_data(data_dir)
@@ -475,7 +475,7 @@ def cmd_walk_forward(args: argparse.Namespace) -> None:
     _print_walk_forward_summary(fold_results, fixed_mode)
 
     # Save results
-    output_dir = Path("research/backtests/regime/auto/output")
+    output_dir = Path("backtests/regime/auto/output")
     output_dir.mkdir(parents=True, exist_ok=True)
     suffix = "_fixed" if fixed_mode else ""
     output_path = output_dir / f"walk_forward_results{suffix}.json"
@@ -485,10 +485,10 @@ def cmd_walk_forward(args: argparse.Namespace) -> None:
 
     # Full diagnostics if requested
     if getattr(args, "diagnostics", False) and fold_results and signals is not None:
-        from research.backtests.regime.analysis.diagnostics import (
+        from backtests.regime.analysis.diagnostics import (
             generate_regime_diagnostics_report,
         )
-        from research.backtests.regime.engine.portfolio_sim import (
+        from backtests.regime.engine.portfolio_sim import (
             simulate_benchmark_60_40,
         )
 
@@ -527,9 +527,9 @@ def _walk_forward_fixed(
     from regime.config import MetaConfig
     from regime.engine import run_signal_engine
 
-    from research.backtests.regime.auto.config_mutator import mutate_meta_config
-    from research.backtests.regime.auto.scoring import composite_score
-    from research.backtests.regime.engine.portfolio_sim import simulate_portfolio
+    from backtests.regime.auto.config_mutator import mutate_meta_config
+    from backtests.regime.auto.scoring import composite_score
+    from backtests.regime.engine.portfolio_sim import simulate_portfolio
 
     cfg = mutate_meta_config(MetaConfig(), mutations)
 
@@ -652,11 +652,11 @@ def _walk_forward_reoptimize(
     from regime.config import MetaConfig
     from regime.engine import run_signal_engine
 
-    from research.backtests.regime.auto.candidates import get_all_candidates
-    from research.backtests.regime.auto.config_mutator import mutate_meta_config
-    from research.backtests.regime.auto.greedy_optimize import run_greedy
-    from research.backtests.regime.auto.scoring import composite_score
-    from research.backtests.regime.engine.portfolio_sim import simulate_portfolio
+    from backtests.regime.auto.candidates import get_all_candidates
+    from backtests.regime.auto.config_mutator import mutate_meta_config
+    from backtests.regime.auto.greedy_optimize import run_greedy
+    from backtests.regime.auto.scoring import composite_score
+    from backtests.regime.engine.portfolio_sim import simulate_portfolio
 
     fold_results = []
     candidates = get_all_candidates()
@@ -756,7 +756,7 @@ def _compute_yearly_metrics(
     """Compute per-year return and max drawdown within an OOS window."""
     import pandas as pd
 
-    from research.backtests.regime.engine.portfolio_sim import simulate_portfolio
+    from backtests.regime.engine.portfolio_sim import simulate_portfolio
 
     results = []
     year = start.year
@@ -791,7 +791,7 @@ def _analyze_crisis_periods(
     import numpy as np
     import pandas as pd
 
-    from research.backtests.regime.engine.portfolio_sim import simulate_portfolio
+    from backtests.regime.engine.portfolio_sim import simulate_portfolio
 
     crisis_periods = {
         "GFC": ("2008-09-01", "2009-03-01", "D"),
@@ -978,27 +978,27 @@ def _run_phase_core(args: argparse.Namespace, phase: int,
     from regime.config import MetaConfig
     from regime.engine import run_signal_engine
 
-    from research.backtests.regime.auto.config_mutator import mutate_meta_config
-    from research.backtests.regime.auto.greedy_optimize import (
+    from backtests.regime.auto.config_mutator import mutate_meta_config
+    from backtests.regime.auto.greedy_optimize import (
         run_greedy,
         save_greedy_result,
     )
-    from research.backtests.regime.auto.phase_analyzer import (
+    from backtests.regime.auto.phase_analyzer import (
         analyze_phase,
         save_phase_analysis,
     )
-    from research.backtests.regime.auto.phase_candidates import get_phase_candidates
-    from research.backtests.regime.auto.phase_gates import check_phase_gate
-    from research.backtests.regime.auto.phase_scoring import compute_regime_stats
-    from research.backtests.regime.auto.phase_state import (
+    from backtests.regime.auto.phase_candidates import get_phase_candidates
+    from backtests.regime.auto.phase_gates import check_phase_gate
+    from backtests.regime.auto.phase_scoring import compute_regime_stats
+    from backtests.regime.auto.phase_state import (
         PhaseState,
         load_phase_state,
         save_phase_state,
     )
-    from research.backtests.regime.auto.scoring import composite_score
-    from research.backtests.regime.config import RegimeBacktestConfig
-    from research.backtests.regime.data.downloader import load_cached_data
-    from research.backtests.regime.engine.portfolio_sim import (
+    from backtests.regime.auto.scoring import composite_score
+    from backtests.regime.config import RegimeBacktestConfig
+    from backtests.regime.data.downloader import load_cached_data
+    from backtests.regime.engine.portfolio_sim import (
         simulate_benchmark_60_40,
         simulate_portfolio,
     )
@@ -1132,7 +1132,7 @@ def _run_phase_core(args: argparse.Namespace, phase: int,
         regime_stats = compute_regime_stats(signals, L_max=cfg.L_max)
 
         # Full diagnostics report
-        from research.backtests.regime.analysis.diagnostics import (
+        from backtests.regime.analysis.diagnostics import (
             generate_regime_diagnostics_report,
         )
         benchmark = simulate_benchmark_60_40(strat_ret_df, sim_cfg)
@@ -1142,7 +1142,7 @@ def _run_phase_core(args: argparse.Namespace, phase: int,
         )
 
         # Phase-specific diagnostics
-        from research.backtests.regime.auto.phase_diagnostics import (
+        from backtests.regime.auto.phase_diagnostics import (
             generate_phase_diagnostics,
         )
         phase_report = generate_phase_diagnostics(
@@ -1207,7 +1207,7 @@ def _run_phase_core(args: argparse.Namespace, phase: int,
         logger.exception("Phase %d diagnostics/analysis CRASHED "
                          "(greedy result already saved to %s)", phase, result_path)
         # Return a minimal analysis so phase-auto can still proceed
-        from research.backtests.regime.auto.phase_analyzer import PhaseAnalysis
+        from backtests.regime.auto.phase_analyzer import PhaseAnalysis
         analysis = PhaseAnalysis(
             phase=phase, goal_progress={}, strengths=[], weaknesses=[],
             scoring_assessment="UNKNOWN (diagnostics crashed)",
@@ -1244,7 +1244,7 @@ def cmd_phase_auto(args: argparse.Namespace) -> None:
 
     All decisions and their reasoning are logged to the phase log files.
     """
-    from research.backtests.regime.auto.phase_state import (
+    from backtests.regime.auto.phase_state import (
         PhaseState,
         load_phase_state,
     )
@@ -1462,16 +1462,16 @@ def cmd_phase_gate(args: argparse.Namespace) -> None:
     from regime.config import MetaConfig
     from regime.engine import run_signal_engine
 
-    from research.backtests.regime.auto.config_mutator import mutate_meta_config
-    from research.backtests.regime.auto.phase_gates import check_phase_gate
-    from research.backtests.regime.auto.phase_scoring import compute_regime_stats
-    from research.backtests.regime.auto.phase_state import (
+    from backtests.regime.auto.config_mutator import mutate_meta_config
+    from backtests.regime.auto.phase_gates import check_phase_gate
+    from backtests.regime.auto.phase_scoring import compute_regime_stats
+    from backtests.regime.auto.phase_state import (
         load_phase_state,
         save_phase_state,
     )
-    from research.backtests.regime.config import RegimeBacktestConfig
-    from research.backtests.regime.data.downloader import load_cached_data
-    from research.backtests.regime.engine.portfolio_sim import simulate_portfolio
+    from backtests.regime.config import RegimeBacktestConfig
+    from backtests.regime.data.downloader import load_cached_data
+    from backtests.regime.engine.portfolio_sim import simulate_portfolio
 
     phase = args.phase
     data_dir = Path(args.data_dir)
@@ -1561,12 +1561,12 @@ def cmd_historical_validate(args: argparse.Namespace) -> None:
     from regime.config import MetaConfig
     from regime.engine import run_signal_engine
 
-    from research.backtests.regime.auto.config_mutator import mutate_meta_config
-    from research.backtests.regime.auto.historical_validation import (
+    from backtests.regime.auto.config_mutator import mutate_meta_config
+    from backtests.regime.auto.historical_validation import (
         compute_historical_alignment,
         compute_transition_latency,
     )
-    from research.backtests.regime.data.downloader import load_cached_data
+    from backtests.regime.data.downloader import load_cached_data
 
     data_dir = Path(args.data_dir)
     macro_df, market_df, strat_ret_df = load_cached_data(data_dir)
@@ -1614,9 +1614,9 @@ def cmd_scanner_validate(args: argparse.Namespace) -> None:
     from regime.config import MetaConfig
     from regime.engine import run_signal_engine
 
-    from research.backtests.regime.analysis.scanner_validation import validate_scanner
-    from research.backtests.regime.auto.config_mutator import mutate_meta_config
-    from research.backtests.regime.data.downloader import load_cached_data
+    from backtests.regime.analysis.scanner_validation import validate_scanner
+    from backtests.regime.auto.config_mutator import mutate_meta_config
+    from backtests.regime.data.downloader import load_cached_data
 
     data_dir = Path(args.data_dir)
     macro_df, market_df, strat_ret_df = load_cached_data(data_dir)
@@ -1669,12 +1669,12 @@ def cmd_scanner_validate(args: argparse.Namespace) -> None:
 
     # Full diagnostics if requested
     if args.diagnostics:
-        from research.backtests.regime.analysis.diagnostics import (
+        from backtests.regime.analysis.diagnostics import (
             generate_regime_diagnostics_report,
         )
-        from research.backtests.regime.auto.scoring import composite_score
-        from research.backtests.regime.config import RegimeBacktestConfig
-        from research.backtests.regime.engine.portfolio_sim import (
+        from backtests.regime.auto.scoring import composite_score
+        from backtests.regime.config import RegimeBacktestConfig
+        from backtests.regime.engine.portfolio_sim import (
             simulate_benchmark_60_40,
             simulate_portfolio,
         )
@@ -1697,7 +1697,7 @@ def cmd_scanner_validate(args: argparse.Namespace) -> None:
         )
         print(report.encode("ascii", errors="replace").decode("ascii"))
 
-        output_dir = Path("research/backtests/regime/auto/output")
+        output_dir = Path("backtests/regime/auto/output")
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / "scanner_diagnostics.txt"
         output_path.write_text(report, encoding="utf-8")
@@ -1714,14 +1714,14 @@ def cmd_calibration_sweep(args: argparse.Namespace) -> None:
     from regime.config import MetaConfig
     from regime.engine import run_signal_engine
 
-    from research.backtests.regime.analysis.assessment_validation import (
+    from backtests.regime.analysis.assessment_validation import (
         calibration_candidate_passes,
         summarize_calibration_candidate,
     )
-    from research.backtests.regime.auto.config_mutator import mutate_meta_config
-    from research.backtests.regime.config import RegimeBacktestConfig
-    from research.backtests.regime.data.downloader import load_cached_data
-    from research.backtests.regime.engine.portfolio_sim import simulate_portfolio
+    from backtests.regime.auto.config_mutator import mutate_meta_config
+    from backtests.regime.config import RegimeBacktestConfig
+    from backtests.regime.data.downloader import load_cached_data
+    from backtests.regime.engine.portfolio_sim import simulate_portfolio
 
     data_dir = Path(args.data_dir)
     macro_df, market_df, strat_ret_df = load_cached_data(data_dir)
@@ -1809,7 +1809,7 @@ def cmd_calibration_sweep(args: argparse.Namespace) -> None:
             f"{summary['regime_2022']:>6s} {str(summary['passed']):>6s}"
         )
 
-    output_dir = Path("research/backtests/regime/auto/output")
+    output_dir = Path("backtests/regime/auto/output")
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "calibration_sweep.json"
     output = {
@@ -1834,14 +1834,14 @@ def cmd_validate_2022(args: argparse.Namespace) -> None:
     from regime.config import MetaConfig
     from regime.engine import run_signal_engine
 
-    from research.backtests.regime.analysis.assessment_validation import (
+    from backtests.regime.analysis.assessment_validation import (
         summarize_2022_validation,
         validate_step7_outcome,
     )
-    from research.backtests.regime.auto.config_mutator import mutate_meta_config
-    from research.backtests.regime.config import RegimeBacktestConfig
-    from research.backtests.regime.data.downloader import load_cached_data
-    from research.backtests.regime.engine.portfolio_sim import simulate_portfolio
+    from backtests.regime.auto.config_mutator import mutate_meta_config
+    from backtests.regime.config import RegimeBacktestConfig
+    from backtests.regime.data.downloader import load_cached_data
+    from backtests.regime.engine.portfolio_sim import simulate_portfolio
 
     data_dir = Path(args.data_dir)
     macro_df, market_df, strat_ret_df = load_cached_data(data_dir)
@@ -1959,7 +1959,7 @@ def cmd_validate_2022(args: argparse.Namespace) -> None:
         f"Ret2022 {summaries['full_stack']['return_2022'] - summaries['r3_reference']['return_2022']:+.2%}"
     )
 
-    output_dir = Path("research/backtests/regime/auto/output")
+    output_dir = Path("backtests/regime/auto/output")
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "validate_2022.json"
     with open(output_path, "w") as f:
@@ -2017,7 +2017,7 @@ def main():
 
     # Shared args
     def add_common(p):
-        p.add_argument("--data-dir", default="research/backtests/regime/data/raw",
+        p.add_argument("--data-dir", default="backtests/regime/data/raw",
                        help="Path to data directory")
         p.add_argument("--equity", type=float, default=100_000.0,
                        help="Initial equity (default: 100,000)")

@@ -1,5 +1,5 @@
-"""Allow running as: python -m research.backtests.momentum"""
-from research.backtests.momentum._aliases import install; install()
+"""Allow running as: python -m backtests.momentum"""
+from backtests.momentum._aliases import install; install()
 
 from backtest.cli import main
 

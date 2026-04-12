@@ -185,6 +185,8 @@ class StockFamilyCoordinator:
                 portfolio_rules_config=portfolio_rules,
                 get_current_equity=lambda eq=_live_equity: eq[0],
                 paper_equity_pool=db_pool if paper_mode else None,
+                paper_equity_scope=sid,
+                paper_initial_equity=allocated_nav,
                 live_equity=_live_equity if not paper_mode else None,
                 family_id=self.family_id,
                 account_gate=account_gate,

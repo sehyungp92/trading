@@ -7,7 +7,7 @@ Phase 4: SIZING + FINETUNE (~30 candidates)
 """
 from __future__ import annotations
 
-from research.backtests.swing.auto.brs.experiment_categories import (
+from backtests.swing.auto.brs.experiment_categories import (
     get_category_experiments,
 )
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import fields, replace
 
-from research.backtests.swing.config_brs import BRSConfig, BRSSymbolConfig
+from backtests.swing.config_brs import BRSConfig, BRSSymbolConfig
 
 
 def mutate_brs_config(base: BRSConfig, mutations: dict) -> BRSConfig:

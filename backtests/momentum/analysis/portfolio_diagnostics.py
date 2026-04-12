@@ -10,7 +10,7 @@ import numpy as np
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from research.backtests.momentum.analysis._utils import parse_dt as _parse_dt, trade_date
+from backtests.momentum.analysis._utils import parse_dt as _parse_dt, trade_date
 
 
 POINT_VALUE_MNQ = 2.0

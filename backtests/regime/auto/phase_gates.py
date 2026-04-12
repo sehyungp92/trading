@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from research.backtests.regime.analysis.metrics import PortfolioMetrics
-from research.backtests.regime.auto.phase_scoring import ALLOC_DIFF_FLOOR
+from backtests.regime.analysis.metrics import PortfolioMetrics
+from backtests.regime.auto.phase_scoring import ALLOC_DIFF_FLOOR
 
 
 @dataclass(frozen=True)

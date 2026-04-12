@@ -6,11 +6,11 @@ ALIASES: dict[str, str] = {
     "strategy_2": "strategies.swing.akc_helix",
     "strategy_3": "strategies.swing.breakout",
     "strategy_4": "strategies.swing.keltner",
-    "backtest": "research.backtests.swing",
+    "backtest": "backtests.swing",
 }
 
 
 def install() -> None:
     """Install the swing alias redirector."""
-    from research.backtests._import_hook import install as _install
+    from backtests._import_hook import install as _install
     _install(ALIASES)

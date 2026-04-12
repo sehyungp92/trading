@@ -134,7 +134,7 @@ _ETF_CONFIGS: dict[str, SymbolConfig] = {
     "QQQ": SymbolConfig(
         symbol="QQQ",
         daily_mult=2.1, hourly_mult=2.7, chand_mult=2.2,
-        adx_on=18, adx_off=16,
+        adx_on=15, adx_off=16,
         ema_pull_normal=40, donchian_period=20,
         tick_size=0.01, multiplier=1.0,
         exchange="SMART", sec_type="STK", primary_exchange="NASDAQ",
@@ -146,7 +146,7 @@ _ETF_CONFIGS: dict[str, SymbolConfig] = {
     "GLD": SymbolConfig(
         symbol="GLD",
         daily_mult=2.0, hourly_mult=2.6, chand_mult=3.0,
-        adx_on=20, adx_off=18,
+        adx_on=15, adx_off=18,
         tick_size=0.01, multiplier=1.0,
         exchange="SMART", sec_type="STK", primary_exchange="ARCA",
         base_risk_pct=0.0065,  # 0.65% per combo analysis
@@ -236,7 +236,7 @@ ADDON_B_SIZE_MULT: float = 0.5  # Add-on B qty cap = 0.5 * base qty
 # BE offset
 # ---------------------------------------------------------------------------
 BE_ATR_OFFSET: float = 0.1  # BE + 0.1 * daily_ATR20
-BE_TRIGGER_R: float = 1.25  # Move to BE at +1.25R MFE
+BE_TRIGGER_R: float = 1.5  # Move to BE at +1.5R MFE
 
 # ---------------------------------------------------------------------------
 # Chandelier trailing activation
@@ -248,7 +248,7 @@ CHANDELIER_TRIGGER_R: float = 1.25  # Activate chandelier at +1.25R MFE
 # ---------------------------------------------------------------------------
 TP1_R: float = 1.0       # Take partial profit at +1.0R
 TP1_FRAC: float = 0.33   # Close 33% of position at TP1
-TP2_R: float = 2.0       # Take partial profit at +2.0R
+TP2_R: float = 1.5       # Take partial profit at +1.5R
 TP2_FRAC: float = 0.33   # Close 33% of remaining at TP2
 
 # ---------------------------------------------------------------------------
@@ -258,14 +258,14 @@ MAX_HOLD_HOURS: int = 480  # Max hold period in hourly bars
 STALL_EXIT_ENABLED: bool = False  # greedy v4: disable full stall flatten (positions run to stop/TP)
 STALL_CHECK_HOURS: int = 36     # Check for stall after this many bars
 STALL_MFE_THRESHOLD: float = 0.4  # MFE_R below this = stall
-EARLY_STALL_CHECK_HOURS: int = 12        # Early non-development check after 12 RTH bars
+EARLY_STALL_CHECK_HOURS: int = 8        # Early non-development check after 8 RTH bars
 EARLY_STALL_MFE_THRESHOLD: float = 0.3  # MFE_R below this = non-developing
 EARLY_STALL_PARTIAL_FRAC: float = 0.5   # Exit 50% of base position
 
 # ---------------------------------------------------------------------------
 # Profit floor (spec Section 10.4): MFE_R → min_stop_R
 # ---------------------------------------------------------------------------
-PROFIT_FLOOR: dict[float, float] = {1.0: -0.1, 1.5: 0.25, 2.0: 0.75, 3.0: 1.5, 4.0: 2.5}
+PROFIT_FLOOR: dict[float, float] = {1.0: -0.25, 1.5: 0.15, 2.0: 0.60, 3.0: 1.3, 4.0: 2.3}
 PROFIT_FLOOR_SHORT: dict[float, float] = {0.75: 0.10, 1.0: 0.50, 1.5: 1.0, 2.0: 1.25}
 
 # ---------------------------------------------------------------------------
@@ -276,7 +276,7 @@ ARM_WINDOW_HOURS: int = 24
 # ---------------------------------------------------------------------------
 # Stop tightening for non-STRONG_TREND regimes (spec Section 5.6)
 # ---------------------------------------------------------------------------
-TREND_STOP_TIGHTENING: float = 0.85   # Scale ATR stop mults by this in TREND regime
+TREND_STOP_TIGHTENING: float = 0.60   # Scale ATR stop mults by this in TREND regime
 
 # ---------------------------------------------------------------------------
 # Builder helpers — create Instrument / template / route dicts

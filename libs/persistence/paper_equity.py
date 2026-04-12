@@ -102,3 +102,33 @@ class PaperEquityManager:
         )
         logger.info("Reset paper equity scope %s to %.2f", self._scope, equity)
 
+
+async def load_paper_equity(
+    pool: asyncpg.Pool,
+    account_scope: str = "paper",
+    initial_equity: float = 10_000.0,
+) -> float:
+    """Compatibility helper used by OMS factories."""
+    manager = PaperEquityManager(
+        pool,
+        account_scope=account_scope,
+        initial_equity=initial_equity,
+    )
+    return await manager.load()
+
+
+async def apply_paper_pnl(
+    pool: asyncpg.Pool,
+    pnl: float,
+    commission: float = 0.0,
+    account_scope: str = "paper",
+    initial_equity: float = 10_000.0,
+) -> float:
+    """Compatibility helper used by OMS factories."""
+    manager = PaperEquityManager(
+        pool,
+        account_scope=account_scope,
+        initial_equity=initial_equity,
+    )
+    await manager.load()
+    return await manager.apply_pnl(pnl, commission)

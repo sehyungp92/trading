@@ -7,8 +7,8 @@ import math
 import numpy as np
 import pandas as pd
 
-from research.backtests.regime.analysis.metrics import PortfolioMetrics
-from research.backtests.regime.auto.scoring import CompositeScore
+from backtests.regime.analysis.metrics import PortfolioMetrics
+from backtests.regime.auto.scoring import CompositeScore
 
 CRISIS_PERIODS = {
     "GFC": ("2008-09-01", "2009-03-01", "D"),

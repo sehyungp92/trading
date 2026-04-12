@@ -7,11 +7,11 @@ from __future__ import annotations
 
 from dataclasses import fields, replace
 
-from research.backtests.swing.config import AblationFlags, BacktestConfig, SlippageConfig
-from research.backtests.swing.config_helix import HelixAblationFlags, HelixBacktestConfig
-from research.backtests.swing.config_breakout import BreakoutAblationFlags, BreakoutBacktestConfig
-from research.backtests.swing.config_s5 import S5BacktestConfig
-from research.backtests.swing.config_unified import StrategySlot, UnifiedBacktestConfig
+from backtests.swing.config import AblationFlags, BacktestConfig, SlippageConfig
+from backtests.swing.config_helix import HelixAblationFlags, HelixBacktestConfig
+from backtests.swing.config_breakout import BreakoutAblationFlags, BreakoutBacktestConfig
+from backtests.swing.config_s5 import S5BacktestConfig
+from backtests.swing.config_unified import StrategySlot, UnifiedBacktestConfig
 
 
 def mutate_atrss_config(

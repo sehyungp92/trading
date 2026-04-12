@@ -10,10 +10,10 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 
-from research.backtests.momentum.analysis.downturn_diagnostics import DownturnMetrics
-from research.backtests.momentum.auto.downturn.phase_diagnostics import get_diagnostic_gaps
-from research.backtests.momentum.auto.downturn.phase_gates import GateResult, check_phase_gate
-from research.backtests.momentum.engine.downturn_models import EngineTag
+from backtests.momentum.analysis.downturn_diagnostics import DownturnMetrics
+from backtests.momentum.auto.downturn.phase_diagnostics import get_diagnostic_gaps
+from backtests.momentum.auto.downturn.phase_gates import GateResult, check_phase_gate
+from backtests.momentum.engine.downturn_models import EngineTag
 
 logger = logging.getLogger(__name__)
 
@@ -464,8 +464,8 @@ def _recommend_action(
 def _compute_weight_adjustment(analysis: PhaseAnalysis) -> dict[str, float]:
     """Compute adjusted weights based on weaknesses."""
     # Start from current phase weights
-    from research.backtests.momentum.auto.downturn.phase_scoring import PHASE_WEIGHTS
-    from research.backtests.momentum.auto.downturn.scoring import BASE_WEIGHTS
+    from backtests.momentum.auto.downturn.phase_scoring import PHASE_WEIGHTS
+    from backtests.momentum.auto.downturn.scoring import BASE_WEIGHTS
     base = PHASE_WEIGHTS.get(analysis.phase) or dict(BASE_WEIGHTS)
     adjusted = dict(base)
 

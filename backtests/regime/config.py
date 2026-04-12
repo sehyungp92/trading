@@ -11,4 +11,4 @@ class RegimeBacktestConfig:
     rebalance_cost_bps: float = 5.0
     growth_feature: str = "GROWTH"
     inflation_feature: str = "INFLATION"
-    data_dir: Path = Path("research/backtests/regime/data/raw")
+    data_dir: Path = Path("backtests/regime/data/raw")

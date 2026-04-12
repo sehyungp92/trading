@@ -7,13 +7,13 @@ from datetime import datetime
 from collections import defaultdict
 
 # Setup path and aliases
-sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
-from research.backtests.swing._aliases import install
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from backtests.swing._aliases import install
 install()
 
 from backtest.config_brs import BRSConfig
 from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_independent
-from research.backtests.swing.auto.brs.config_mutator import mutate_brs_config
+from backtests.swing.auto.brs.config_mutator import mutate_brs_config
 
 # ---------------------------------------------------------------------------
 # R8 cumulative mutations
@@ -43,7 +43,7 @@ R8_MUTATIONS = {
     "symbol_configs.QQQ.stop_buffer_atr": 0.3,
 }
 
-DATA_DIR = Path("research/backtests/swing/data/raw")
+DATA_DIR = Path("backtests/swing/data/raw")
 INITIAL_EQUITY = 100_000.0
 
 CRISIS_WINDOWS = [

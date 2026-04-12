@@ -7,8 +7,8 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from research.backtests.regime.analysis.metrics import PortfolioMetrics, compute_metrics
-from research.backtests.regime.config import RegimeBacktestConfig
+from backtests.regime.analysis.metrics import PortfolioMetrics, compute_metrics
+from backtests.regime.config import RegimeBacktestConfig
 
 
 @dataclass

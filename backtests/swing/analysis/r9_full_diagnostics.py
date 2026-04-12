@@ -7,13 +7,13 @@ from datetime import datetime
 from collections import defaultdict
 
 # Setup path and aliases
-sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
-from research.backtests.swing._aliases import install
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from backtests.swing._aliases import install
 install()
 
 from backtest.config_brs import BRSConfig
 from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_independent
-from research.backtests.swing.auto.brs.config_mutator import mutate_brs_config
+from backtests.swing.auto.brs.config_mutator import mutate_brs_config
 
 # ---------------------------------------------------------------------------
 # R9 cumulative mutations
@@ -22,7 +22,7 @@ from research.backtests.swing.auto.brs.config_mutator import mutate_brs_config
 # No mutations needed — BRSConfig() produces the recommended profile.
 R9_MUTATIONS = {}
 
-DATA_DIR = Path("research/backtests/swing/data/raw")
+DATA_DIR = Path("backtests/swing/data/raw")
 INITIAL_EQUITY = 10_000.0
 
 CRISIS_WINDOWS = [
@@ -365,7 +365,7 @@ def main():
         _out("=" * 80, f)
         _out("K) R8 vs R9 COMPARISON", f)
         _out("=" * 80, f)
-        from research.backtests.swing.auto.brs.scoring import extract_brs_metrics
+        from backtests.swing.auto.brs.scoring import extract_brs_metrics
         from dataclasses import asdict
 
         # R8 baseline: override current R9 defaults back to R8 values

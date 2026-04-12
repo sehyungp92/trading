@@ -4,7 +4,7 @@ Spec §2.2-2.6: Asymmetric speed — bear regimes confirm faster than bull.
 """
 from __future__ import annotations
 
-from research.backtests.swing.engine.brs_models import (
+from backtests.swing.engine.brs_models import (
     BRSRegime,
     BiasState,
     Direction,

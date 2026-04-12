@@ -9,7 +9,7 @@ import numpy as np
 from collections import defaultdict
 from datetime import datetime, time
 
-from research.backtests.momentum.analysis._utils import utc_to_et as _utc_to_et
+from backtests.momentum.analysis._utils import utc_to_et as _utc_to_et
 
 
 def _is_rth(et_time: time) -> bool:

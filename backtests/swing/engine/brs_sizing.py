@@ -6,13 +6,13 @@ from __future__ import annotations
 
 import math
 
-from research.backtests.swing.engine.brs_models import (
+from backtests.swing.engine.brs_models import (
     BRSRegime,
     DailyContext,
     Direction,
     EntrySignal,
 )
-from research.backtests.swing.config_brs import BRSConfig, BRSSymbolConfig
+from backtests.swing.config_brs import BRSConfig, BRSSymbolConfig
 
 
 def compute_position_size(

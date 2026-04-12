@@ -158,6 +158,13 @@ class VdubNQv4Engine:
         self._symbol = C.DEFAULT_SYMBOL
         self._instr = instrumentation
 
+        # Sync NQ_SPEC for MNQ trading (matches backtest engine L318-321).
+        # TRADING_SYMBOL defaults to NQ (price data) but we trade MNQ contracts.
+        # All shared modules (risk, exits) read C.NQ_SPEC for point_value.
+        if C.DEFAULT_SYMBOL == "NQ":
+            C.NQ_SPEC["point_value"] = 2.0    # MNQ
+            C.NQ_SPEC["tick_value"] = 0.50     # MNQ
+
         from strategies.momentum.instrumentation.src.facade import InstrumentationKit
         self._kit = InstrumentationKit(self._instr, strategy_type="vdubus")
 
@@ -360,8 +367,6 @@ class VdubNQv4Engine:
     def get_position_snapshot(self) -> list[dict]:
         """Return current position state for heartbeat emission."""
         result = []
-        inst = self._instruments.get(self._symbol)
-        pv = inst.point_value if inst else 5.0
         for pos in self.positions:
             if pos.qty_open <= 0:
                 continue
@@ -1520,6 +1525,16 @@ class VdubNQv4Engine:
                     signal_factors=[
                         {"factor_name": "class_mult", "factor_value": we.class_mult,
                          "threshold": 0.0, "contribution": we.class_mult},
+                        {"factor_name": "entry_type", "factor_value": we.entry_type.value,
+                         "threshold": "TYPE_A", "contribution": "entry_quality"},
+                        {"factor_name": "session", "factor_value": we.session.value if hasattr(we.session, 'value') else str(we.session),
+                         "threshold": "CORE", "contribution": "session_quality"},
+                        {"factor_name": "daily_trend", "factor_value": self.regime.daily_trend,
+                         "threshold": 0, "contribution": "trend_alignment"},
+                        {"factor_name": "vol_state", "factor_value": self.regime.vol_state.value if hasattr(self.regime.vol_state, 'value') else str(self.regime.vol_state),
+                         "threshold": "NORMAL", "contribution": "volatility_regime"},
+                        {"factor_name": "chop_value", "factor_value": self.regime.choppiness,
+                         "threshold": C.CHOP_THRESHOLD, "contribution": "trend_clarity"},
                     ],
                     sizing_inputs={
                         "unit_risk": risk.compute_unit_risk(self._equity, self.regime.vol_state),

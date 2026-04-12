@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from research.backtests.swing.analysis.metrics import PerformanceMetrics, compute_metrics
+from backtests.swing.analysis.metrics import PerformanceMetrics, compute_metrics
 
 
 # ---------------------------------------------------------------------------

@@ -6,7 +6,7 @@ milliseconds since it just walks pre-computed trade lists.
 """
 from __future__ import annotations
 
-from research.backtests.momentum._aliases import install; install()
+from backtests.momentum._aliases import install; install()
 
 from dataclasses import dataclass, replace
 from typing import Callable

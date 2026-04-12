@@ -3,7 +3,7 @@ from __future__ import annotations
 
 ALIASES: dict[str, str] = {
     "regime": "regime",
-    "backtest": "research.backtests.regime",
+    "backtest": "backtests.regime",
 }
 
 
@@ -13,7 +13,7 @@ def install() -> None:
     from pathlib import Path
 
     # Add project root to sys.path if not already present
-    root = Path(__file__).resolve().parents[3]
+    root = Path(__file__).resolve().parents[2]
     root_str = str(root)
     if root_str not in sys.path:
         sys.path.insert(0, root_str)

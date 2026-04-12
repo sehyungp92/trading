@@ -13,18 +13,18 @@ from pathlib import Path
 
 import numpy as np
 
-from research.backtests.swing.auto.config_mutator import (
+from backtests.swing.auto.config_mutator import (
     mutate_atrss_config,
     mutate_breakout_config,
     mutate_helix_config,
     mutate_s5_config,
     mutate_unified_config,
 )
-from research.backtests.swing.auto.experiments import Experiment, build_experiment_queue
-from research.backtests.swing.auto.report import generate_report
-from research.backtests.swing.auto.results_tracker import ExperimentResult, ResultsTracker
-from research.backtests.swing.auto.robustness import run_robustness
-from research.backtests.swing.auto.scoring import CompositeScore, composite_score, extract_metrics
+from backtests.swing.auto.experiments import Experiment, build_experiment_queue
+from backtests.swing.auto.report import generate_report
+from backtests.swing.auto.results_tracker import ExperimentResult, ResultsTracker
+from backtests.swing.auto.robustness import run_robustness
+from backtests.swing.auto.scoring import CompositeScore, composite_score, extract_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -178,9 +178,9 @@ class SwingAutoHarness:
 
     def _load_data(self, strategy_filter: str) -> None:
         """Load bar data for needed strategies."""
-        from research.backtests.swing.cli import _load_data, _load_helix_data, _load_breakout_data
-        from research.backtests.swing.data.preprocessing import build_numpy_arrays, normalize_timezone
-        from research.backtests.swing.data.cache import load_bars
+        from backtests.swing.cli import _load_data, _load_helix_data, _load_breakout_data
+        from backtests.swing.data.preprocessing import build_numpy_arrays, normalize_timezone
+        from backtests.swing.data.cache import load_bars
 
         _all = strategy_filter == "all"
 
@@ -245,8 +245,8 @@ class SwingAutoHarness:
 
     def _load_unified_data(self) -> None:
         """Load UnifiedPortfolioData for portfolio-level experiments."""
-        from research.backtests.swing.config_unified import UnifiedBacktestConfig
-        from research.backtests.swing.engine.unified_portfolio_engine import (
+        from backtests.swing.config_unified import UnifiedBacktestConfig
+        from backtests.swing.engine.unified_portfolio_engine import (
             UnifiedPortfolioData,
             load_unified_data,
         )
@@ -404,8 +404,8 @@ class SwingAutoHarness:
 
     def _run_portfolio_experiment(self, experiment: Experiment, skip_robustness: bool) -> None:
         """Run a portfolio-level experiment using run_unified."""
-        from research.backtests.swing.config_unified import UnifiedBacktestConfig
-        from research.backtests.swing.engine.unified_portfolio_engine import run_unified
+        from backtests.swing.config_unified import UnifiedBacktestConfig
+        from backtests.swing.engine.unified_portfolio_engine import run_unified
 
         if self._unified_data is None:
             logger.warning("No unified data — skipping %s", experiment.id)
@@ -502,11 +502,11 @@ class SwingAutoHarness:
 
     def _run_atrss(self, config) -> tuple[list, np.ndarray, np.ndarray]:
         """Run ATRSS per symbol, merge results."""
-        from research.backtests.swing.engine.backtest_engine import BacktestEngine
+        from backtests.swing.engine.backtest_engine import BacktestEngine
         try:
             from strategy.config import SYMBOL_CONFIGS
         except ImportError:
-            from research.backtests.swing.config import _default_atrss_symbols
+            from backtests.swing.config import _default_atrss_symbols
             SYMBOL_CONFIGS = {}
 
         all_trades = []
@@ -541,7 +541,7 @@ class SwingAutoHarness:
 
     def _run_helix(self, config) -> tuple[list, np.ndarray, np.ndarray]:
         """Run Helix per symbol, merge results."""
-        from research.backtests.swing.engine.helix_engine import HelixEngine
+        from backtests.swing.engine.helix_engine import HelixEngine
         try:
             from strategy_2.config import SYMBOL_CONFIGS
         except ImportError:
@@ -581,7 +581,7 @@ class SwingAutoHarness:
 
     def _run_breakout(self, config) -> tuple[list, np.ndarray, np.ndarray]:
         """Run Breakout per symbol, merge results."""
-        from research.backtests.swing.engine.breakout_engine import BreakoutEngine
+        from backtests.swing.engine.breakout_engine import BreakoutEngine
         try:
             from strategy_3.config import SYMBOL_CONFIGS as BRK_CONFIGS
         except ImportError:
@@ -621,7 +621,7 @@ class SwingAutoHarness:
 
     def _run_s5(self, config, symbols: list[str]) -> tuple[list, np.ndarray, np.ndarray]:
         """Run S5Engine per symbol, merge results."""
-        from research.backtests.swing.engine.s5_engine import S5Engine
+        from backtests.swing.engine.s5_engine import S5Engine
         try:
             from strategy_4.config import SYMBOL_CONFIGS as S5_CONFIGS
         except ImportError:
@@ -658,28 +658,28 @@ class SwingAutoHarness:
     def _make_default_config(self, strategy: str):
         """Build the default (baseline) config for a strategy."""
         if strategy == "atrss":
-            from research.backtests.swing.config import BacktestConfig
+            from backtests.swing.config import BacktestConfig
             return BacktestConfig(
                 initial_equity=self.initial_equity,
                 data_dir=self.data_dir,
                 symbols=self._get_atrss_symbols(),
             )
         elif strategy == "helix":
-            from research.backtests.swing.config_helix import HelixBacktestConfig
+            from backtests.swing.config_helix import HelixBacktestConfig
             return HelixBacktestConfig(
                 initial_equity=self.initial_equity,
                 data_dir=self.data_dir,
                 symbols=self._get_helix_symbols(),
             )
         elif strategy == "breakout":
-            from research.backtests.swing.config_breakout import BreakoutBacktestConfig
+            from backtests.swing.config_breakout import BreakoutBacktestConfig
             return BreakoutBacktestConfig(
                 initial_equity=self.initial_equity,
                 data_dir=self.data_dir,
                 symbols=self._get_breakout_symbols(),
             )
         elif strategy == "s5_pb":
-            from research.backtests.swing.config_s5 import S5BacktestConfig
+            from backtests.swing.config_s5 import S5BacktestConfig
             return S5BacktestConfig(
                 initial_equity=self.initial_equity,
                 data_dir=self.data_dir,
@@ -688,7 +688,7 @@ class SwingAutoHarness:
                 shorts_enabled=False,
             )
         elif strategy == "s5_dual":
-            from research.backtests.swing.config_s5 import S5BacktestConfig
+            from backtests.swing.config_s5 import S5BacktestConfig
             return S5BacktestConfig(
                 initial_equity=self.initial_equity,
                 data_dir=self.data_dir,

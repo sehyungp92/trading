@@ -16,7 +16,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from research.backtests.regime.analysis.metrics import PortfolioMetrics
+from backtests.regime.analysis.metrics import PortfolioMetrics
 
 
 @dataclass(frozen=True)

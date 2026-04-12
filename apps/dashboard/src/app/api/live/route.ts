@@ -3,6 +3,7 @@ import { query } from '@/lib/db';
 import {
   SYSTEM_ORDER,
   getSystem,
+  setRegistryCache,
   type PortfolioData,
   type StrategyData,
   type PositionRow,
@@ -31,6 +32,7 @@ export async function GET() {
       positionRows,
       tradeRows,
       orderRows,
+      registryRows,
     ] = await Promise.all([
       // Portfolio realized (aggregated view handles multi-family)
       query<{
@@ -42,7 +44,7 @@ export async function GET() {
       }>(
         `SELECT daily_realized_r, daily_realized_usd, portfolio_open_risk_r, halted, halt_reason
          FROM v_portfolio_daily_summary
-         WHERE trade_date = CURRENT_DATE`
+         WHERE trade_date = (now() AT TIME ZONE 'America/New_York')::date`
       ),
       // Portfolio unrealized + heat
       query<{ unrealized_pnl: number; heat_r: number }>(
@@ -72,7 +74,7 @@ export async function GET() {
            rds.halt_reason
          FROM v_strategy_health sh
          LEFT JOIN risk_daily_strategy rds
-           ON sh.strategy_id = rds.strategy_id AND rds.trade_date = CURRENT_DATE
+           ON sh.strategy_id = rds.strategy_id AND rds.trade_date = (now() AT TIME ZONE 'America/New_York')::date
          ORDER BY sh.strategy_id`
       ),
       // Adapter health
@@ -103,6 +105,12 @@ export async function GET() {
       // Orders
       query<OrderRow>(
         `SELECT * FROM v_working_orders ORDER BY created_at DESC`
+      ),
+      // Registry: strategy→family mapping from DB (drives getSystem())
+      query<{ strategy_id: string; family_id: string }>(
+        `SELECT DISTINCT strategy_id, family_id
+         FROM risk_daily_strategy
+         WHERE family_id IS NOT NULL`
       ),
     ]);
 
@@ -143,6 +151,13 @@ export async function GET() {
       adapters: adapterRows,
       halts: haltRows,
     };
+
+    // Populate registry cache from DB so getSystem() uses live family mappings
+    if (registryRows.length > 0) {
+      const familyMap: Record<string, string> = {};
+      for (const r of registryRows) familyMap[r.strategy_id] = r.family_id;
+      setRegistryCache(familyMap);
+    }
 
     // Compute per-system P&L summaries
     const systemPnl: SystemPnlSummary[] = SYSTEM_ORDER.map(sys => {

@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING, Callable
 
 import numpy as np
 
-from research.backtests.momentum.auto.scoring import CompositeScore, composite_score, extract_metrics
-from research.backtests.momentum.config import SlippageConfig
+from backtests.momentum.auto.scoring import CompositeScore, composite_score, extract_metrics
+from backtests.momentum.config import SlippageConfig
 
 if TYPE_CHECKING:
-    from research.backtests.momentum.auto.experiments import Experiment
+    from backtests.momentum.auto.experiments import Experiment
 
 logger = logging.getLogger(__name__)
 

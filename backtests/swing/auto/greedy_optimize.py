@@ -12,7 +12,7 @@ Each worker loads data independently (6s one-time cost), then reuses it.
 With 12 cores and 10 candidates, round 1 runs in ~350s instead of ~3500s.
 
 Usage:
-    from research.backtests.swing.auto.greedy_optimize import run_greedy
+    from backtests.swing.auto.greedy_optimize import run_greedy
     result = run_greedy(data_dir, candidates, initial_equity=10_000)
 """
 from __future__ import annotations
@@ -42,10 +42,10 @@ def _init_worker(data_dir_str: str, equity: float) -> None:
     """Initialize a worker process: install aliases, load data."""
     global _worker_data, _worker_equity
 
-    from research.backtests.swing._aliases import install
+    from backtests.swing._aliases import install
     install()
-    from research.backtests.swing.config_unified import UnifiedBacktestConfig
-    from research.backtests.swing.engine.unified_portfolio_engine import load_unified_data
+    from backtests.swing.config_unified import UnifiedBacktestConfig
+    from backtests.swing.engine.unified_portfolio_engine import load_unified_data
 
     _worker_equity = equity
     config = UnifiedBacktestConfig(initial_equity=equity, data_dir=Path(data_dir_str))
@@ -56,10 +56,10 @@ def _worker_score(mutations: dict) -> tuple[float, bool, str]:
     """Score a config in a worker process. Returns (score, rejected, reject_reason)."""
     global _worker_data, _worker_equity
 
-    from research.backtests.swing.auto.config_mutator import mutate_unified_config
-    from research.backtests.swing.auto.scoring import composite_score, extract_metrics
-    from research.backtests.swing.config_unified import UnifiedBacktestConfig
-    from research.backtests.swing.engine.unified_portfolio_engine import run_unified
+    from backtests.swing.auto.config_mutator import mutate_unified_config
+    from backtests.swing.auto.scoring import composite_score, extract_metrics
+    from backtests.swing.config_unified import UnifiedBacktestConfig
+    from backtests.swing.engine.unified_portfolio_engine import run_unified
 
     try:
         config = UnifiedBacktestConfig(initial_equity=_worker_equity)
@@ -137,10 +137,10 @@ def _score_config(
     initial_equity: float,
 ):
     """Build config, run unified engine, return (score, metrics)."""
-    from research.backtests.swing.auto.config_mutator import mutate_unified_config
-    from research.backtests.swing.auto.scoring import composite_score, extract_metrics
-    from research.backtests.swing.config_unified import UnifiedBacktestConfig
-    from research.backtests.swing.engine.unified_portfolio_engine import run_unified
+    from backtests.swing.auto.config_mutator import mutate_unified_config
+    from backtests.swing.auto.scoring import composite_score, extract_metrics
+    from backtests.swing.config_unified import UnifiedBacktestConfig
+    from backtests.swing.engine.unified_portfolio_engine import run_unified
 
     config = UnifiedBacktestConfig(initial_equity=initial_equity)
     if mutations:
@@ -217,7 +217,7 @@ def run_greedy(
 
     # Initialize worker pool (workers load data once, reuse for all rounds)
     if data_dir is None:
-        data_dir = Path("research/backtests/swing/data/raw")
+        data_dir = Path("backtests/swing/data/raw")
 
     print(f"Spawning {max_workers} worker processes (each loads data ~6s)...")
     t_pool = time.time()

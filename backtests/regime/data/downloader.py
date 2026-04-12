@@ -236,7 +236,7 @@ def build_all_data(
         strat_ret_df: columns [SPY, EFA, TLT, GLD, IBIT, CASH]
     """
     if data_dir is None:
-        data_dir = Path("research/backtests/regime/data/raw")
+        data_dir = Path("backtests/regime/data/raw")
     data_dir.mkdir(parents=True, exist_ok=True)
 
     # Download raw data
@@ -320,7 +320,7 @@ def load_cached_data(
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Load cached parquet files. Raises FileNotFoundError if not cached."""
     if data_dir is None:
-        data_dir = Path("research/backtests/regime/data/raw")
+        data_dir = Path("backtests/regime/data/raw")
 
     macro_df = pd.read_parquet(data_dir / "macro_df.parquet")
     market_df = pd.read_parquet(data_dir / "market_df.parquet")

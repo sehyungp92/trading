@@ -10,7 +10,7 @@ Starts from R8 locked baseline and lets the optimizer decide which
 features improve the composite score.
 
 Usage:
-    python research/backtests/swing/auto/brs/run_r9_phased.py
+    python backtests/swing/auto/brs/run_r9_phased.py
 """
 from __future__ import annotations
 
@@ -23,18 +23,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # Aliases must be installed before any backtest imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[5]))
-from research.backtests.swing._aliases import install
+sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+from backtests.swing._aliases import install
 install()
 
-from research.backtests.swing.auto.brs.greedy_optimize import run_greedy, save_greedy_result
-from research.backtests.swing.auto.brs.phase_candidates import get_phase_candidates
-from research.backtests.swing.auto.brs.phase_gates import check_phase_gate
-from research.backtests.swing.auto.brs.phase_scoring import PHASE_WEIGHTS
-from research.backtests.swing.auto.brs.phase_state import (
+from backtests.swing.auto.brs.greedy_optimize import run_greedy, save_greedy_result
+from backtests.swing.auto.brs.phase_candidates import get_phase_candidates
+from backtests.swing.auto.brs.phase_gates import check_phase_gate
+from backtests.swing.auto.brs.phase_scoring import PHASE_WEIGHTS
+from backtests.swing.auto.brs.phase_state import (
     PhaseState, save_phase_state, load_phase_state,
 )
-from research.backtests.swing.auto.brs.scoring import extract_brs_metrics
+from backtests.swing.auto.brs.scoring import extract_brs_metrics
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "output"
 PHASE_STATE_PATH = OUTPUT_DIR / "phase_state.json"
@@ -74,7 +74,7 @@ def run_backtest_metrics(mutations: dict) -> dict:
     """Run backtest and return metrics dict."""
     from backtest.config_brs import BRSConfig
     from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_independent
-    from research.backtests.swing.auto.brs.config_mutator import mutate_brs_config
+    from backtests.swing.auto.brs.config_mutator import mutate_brs_config
 
     config = BRSConfig(initial_equity=INITIAL_EQUITY, data_dir=DATA_DIR)
     config = mutate_brs_config(config, mutations)
@@ -149,7 +149,7 @@ def main():
         metrics_dict = asdict(extract_brs_metrics.__wrapped__(greedy_result, INITIAL_EQUITY)) if hasattr(extract_brs_metrics, '__wrapped__') else run_backtest_metrics(cumulative)
 
         # Reconstruct BRSMetrics for gate check
-        from research.backtests.swing.auto.brs.scoring import BRSMetrics
+        from backtests.swing.auto.brs.scoring import BRSMetrics
         gate_metrics = BRSMetrics(**{
             k: v for k, v in greedy_result.final_metrics.items()
             if k in BRSMetrics.__dataclass_fields__

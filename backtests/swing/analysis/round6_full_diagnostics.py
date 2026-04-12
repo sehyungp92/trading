@@ -1,21 +1,21 @@
 """Round 6 Optimized BRS — Full Diagnostics + Recent No-Trade Analysis.
 
 Run from project root:
-    python research/backtests/swing/analysis/round6_full_diagnostics.py
+    python backtests/swing/analysis/round6_full_diagnostics.py
 """
 from __future__ import annotations
 import sys, datetime as dt
 from pathlib import Path
 
 # --- bootstrap aliases -------------------------------------------------------
-sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
-from research.backtests.swing._aliases import install; install()
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from backtests.swing._aliases import install; install()
 
-from research.backtests.swing.config_brs import BRSConfig
-from research.backtests.swing.engine.brs_portfolio_engine import (
+from backtests.swing.config_brs import BRSConfig
+from backtests.swing.engine.brs_portfolio_engine import (
     load_brs_data, run_brs_independent,
 )
-from research.backtests.swing.analysis.brs_diagnostics import compute_brs_diagnostics
+from backtests.swing.analysis.brs_diagnostics import compute_brs_diagnostics
 import numpy as np
 import pandas as pd
 
@@ -24,7 +24,7 @@ import pandas as pd
 # 1. Build Round 6 optimised config
 # ---------------------------------------------------------------------------
 def build_round6_config() -> BRSConfig:
-    cfg = BRSConfig(data_dir=Path("research/backtests/swing/data/raw"))
+    cfg = BRSConfig(data_dir=Path("backtests/swing/data/raw"))
     # Cumulative mutations from phase_state.json
     cfg.disable_s1 = False
     cfg.scale_out_enabled = True
@@ -372,7 +372,7 @@ if __name__ == "__main__":
     full_report = "\n".join(report_lines)
 
     # Save to file
-    out_path = Path("research/backtests/swing/auto/brs/output/round6_diagnostics.txt")
+    out_path = Path("backtests/swing/auto/brs/output/round6_diagnostics.txt")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(full_report, encoding="utf-8")
 

@@ -12,9 +12,9 @@ from __future__ import annotations
 from io import StringIO
 from typing import Any
 
-from research.backtests.regime.analysis.metrics import PortfolioMetrics
-from research.backtests.regime.auto.phase_gates import check_phase_gate
-from research.backtests.regime.auto.phase_scoring import CRISIS_PERIODS, REGIME_COLS
+from backtests.regime.analysis.metrics import PortfolioMetrics
+from backtests.regime.auto.phase_gates import check_phase_gate
+from backtests.regime.auto.phase_scoring import CRISIS_PERIODS, REGIME_COLS
 
 
 def generate_phase_diagnostics(

@@ -9,7 +9,7 @@ import numpy as np
 from collections import defaultdict
 from datetime import datetime
 
-from research.backtests.momentum.analysis._utils import utc_to_et as _utc_to_et
+from backtests.momentum.analysis._utils import utc_to_et as _utc_to_et
 
 
 def _hours_held(trade) -> float:

@@ -12,7 +12,7 @@ Phase 5: Exit management optimization -- profit floor, adaptive lock, chandelier
 """
 from __future__ import annotations
 
-from research.backtests.momentum.auto.downturn.experiment_categories import (
+from backtests.momentum.auto.downturn.experiment_categories import (
     get_category_experiments,
 )
 

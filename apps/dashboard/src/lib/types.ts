@@ -45,23 +45,49 @@ export interface StrategyConfig {
   maxHeatR: number;
   riskPct: number;
   priority: number;
+  dailyStopR: number;
 }
 
 export const STRATEGY_CONFIG: Record<string, StrategyConfig> = {
-  ATRSS:               { system: 'swing_trader',    maxHeatR: 1.00, riskPct: 1.2, priority: 0 },
-  S5_PB:               { system: 'swing_trader',    maxHeatR: 1.50, riskPct: 0.8, priority: 1 },
-  S5_DUAL:             { system: 'swing_trader',    maxHeatR: 1.50, riskPct: 0.8, priority: 2 },
-  SWING_BREAKOUT_V3:   { system: 'swing_trader',    maxHeatR: 0.65, riskPct: 0.5, priority: 3 },
-  AKC_HELIX:           { system: 'swing_trader',    maxHeatR: 0.85, riskPct: 0.5, priority: 4 },
-  'AKC_Helix_v40':     { system: 'momentum_trader', maxHeatR: 3.00, riskPct: 0.8, priority: 0 },
-  'NQDTC_v2.1':        { system: 'momentum_trader', maxHeatR: 1.00, riskPct: 0.8, priority: 1 },
-  VdubusNQ_v4:         { system: 'momentum_trader', maxHeatR: 3.50, riskPct: 0.8, priority: 2 },
-  IARIC_v1:            { system: 'stock_trader',    maxHeatR: 1.50, riskPct: 0.5, priority: 0 },
-  US_ORB_v1:           { system: 'stock_trader',    maxHeatR: 1.00, riskPct: 0.35, priority: 1 },
+  ATRSS:                { system: 'swing_trader',    maxHeatR: 1.50, riskPct: 1.8,  priority: 0, dailyStopR: 2.0 },
+  S5_PB:                { system: 'swing_trader',    maxHeatR: 2.00, riskPct: 1.2,  priority: 1, dailyStopR: 2.0 },
+  S5_DUAL:              { system: 'swing_trader',    maxHeatR: 2.00, riskPct: 1.2,  priority: 2, dailyStopR: 2.0 },
+  SWING_BREAKOUT_V3:    { system: 'swing_trader',    maxHeatR: 1.50, riskPct: 0.8,  priority: 3, dailyStopR: 2.0 },
+  AKC_HELIX:            { system: 'swing_trader',    maxHeatR: 1.20, riskPct: 0.8,  priority: 4, dailyStopR: 2.5 },
+  BRS_R9:               { system: 'swing_trader',    maxHeatR: 1.25, riskPct: 0.3,  priority: 5, dailyStopR: 2.0 },
+  AKC_Helix_v40:        { system: 'momentum_trader', maxHeatR: 3.00, riskPct: 2.0,  priority: 2, dailyStopR: 2.0 },
+  'NQDTC_v2.1':         { system: 'momentum_trader', maxHeatR: 3.50, riskPct: 0.8,  priority: 1, dailyStopR: 2.5 },
+  VdubusNQ_v4:          { system: 'momentum_trader', maxHeatR: 3.50, riskPct: 1.0,  priority: 0, dailyStopR: 2.5 },
+  DownturnDominator_v1: { system: 'momentum_trader', maxHeatR: 3.50, riskPct: 2.4,  priority: 3, dailyStopR: 2.5 },
+  IARIC_v1:             { system: 'stock_trader',    maxHeatR: 5.00, riskPct: 1.2,  priority: 0, dailyStopR: 2.0 },
+  ALCB_v1:              { system: 'stock_trader',    maxHeatR: 7.00, riskPct: 0.65, priority: 1, dailyStopR: 2.0 },
+  US_ORB_v1:            { system: 'stock_trader',    maxHeatR: 4.00, riskPct: 0.35, priority: 2, dailyStopR: 2.0 },
 };
 
-/** Get the system a strategy belongs to (defaults to swing_trader for unknown IDs) */
+/** Map family_id from DB to SystemId */
+const FAMILY_TO_SYSTEM: Record<string, SystemId> = {
+  swing: 'swing_trader',
+  momentum: 'momentum_trader',
+  stock: 'stock_trader',
+};
+
+/** Runtime registry cache — populated by fetchRegistry() */
+let _registryCache: Record<string, SystemId> | null = null;
+
+/** Update the registry cache with strategy→family mappings from the DB */
+export function setRegistryCache(familyMap: Record<string, string>): void {
+  _registryCache = {};
+  for (const [strategyId, familyId] of Object.entries(familyMap)) {
+    _registryCache[strategyId] = FAMILY_TO_SYSTEM[familyId] ?? 'swing_trader';
+  }
+}
+
+/** Get the system a strategy belongs to.
+ *  Priority: 1) DB registry cache, 2) hardcoded STRATEGY_CONFIG, 3) 'swing_trader' fallback */
 export function getSystem(strategyId: string): SystemId {
+  if (_registryCache && strategyId in _registryCache) {
+    return _registryCache[strategyId];
+  }
   return STRATEGY_CONFIG[strategyId]?.system ?? 'swing_trader';
 }
 
@@ -91,7 +117,7 @@ export function groupBySystem<T extends { strategy_id: string }>(items: T[]): Ma
   return grouped;
 }
 
-export const PORTFOLIO_HEAT_CAP = 2.0;
+export const PORTFOLIO_HEAT_CAP = 2.5;
 export const PORTFOLIO_DAILY_STOP = 3.0;
 
 // ── API Response Types ──────────────────────────────────────────────────────

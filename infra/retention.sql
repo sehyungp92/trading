@@ -15,7 +15,7 @@ WHERE fill_ts < now() - INTERVAL '90 days';
 
 -- 3. Strategy state older than 30 days
 DELETE FROM strategy_state
-WHERE updated_at < now() - INTERVAL '30 days';
+WHERE last_heartbeat_ts < now() - INTERVAL '30 days';
 
 -- 4. Reset daily disconnect counters (adapter_state.disconnect_count_24h)
 UPDATE adapter_state SET disconnect_count_24h = 0;

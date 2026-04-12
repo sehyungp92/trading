@@ -2,7 +2,7 @@
 
 Usage:
     cd trading
-    python -u research/backtests/momentum/auto/run_baseline_diagnostics.py
+    python -u backtests/momentum/auto/run_baseline_diagnostics.py
 """
 from __future__ import annotations
 
@@ -14,30 +14,30 @@ from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[5]
+ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT))
 
-from research.backtests.momentum._aliases import install
+from backtests.momentum._aliases import install
 install()
 
-from research.backtests.momentum.cli import (
+from backtests.momentum.cli import (
     _load_helix_data,
     _load_nqdtc_data,
     _load_vdubus_data,
 )
-from research.backtests.momentum.config_helix import Helix4BacktestConfig
-from research.backtests.momentum.config_nqdtc import NQDTCBacktestConfig
-from research.backtests.momentum.config_portfolio import PortfolioBacktestConfig
-from research.backtests.momentum.config_vdubus import VdubusBacktestConfig
-from research.backtests.momentum.engine.helix_engine import Helix4Engine
-from research.backtests.momentum.engine.nqdtc_engine import NQDTCEngine
-from research.backtests.momentum.engine.portfolio_engine import PortfolioBacktester
-from research.backtests.momentum.engine.vdubus_engine import VdubusEngine
-from research.backtests.momentum.auto.scoring import composite_score, extract_metrics
+from backtests.momentum.config_helix import Helix4BacktestConfig
+from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
+from backtests.momentum.config_portfolio import PortfolioBacktestConfig
+from backtests.momentum.config_vdubus import VdubusBacktestConfig
+from backtests.momentum.engine.helix_engine import Helix4Engine
+from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
+from backtests.momentum.engine.portfolio_engine import PortfolioBacktester
+from backtests.momentum.engine.vdubus_engine import VdubusEngine
+from backtests.momentum.auto.scoring import composite_score, extract_metrics
 
 EQUITY = 10_000.0
-DATA_DIR = ROOT / "research" / "backtests" / "momentum" / "data" / "raw"
-OUTPUT_DIR = ROOT / "research" / "backtests" / "momentum" / "auto" / "output"
+DATA_DIR = ROOT / "backtests" / "momentum" / "data" / "raw"
+OUTPUT_DIR = ROOT / "backtests" / "momentum" / "auto" / "output"
 
 
 def main():
@@ -83,7 +83,7 @@ def main():
 
     print("  Running Vdubus engine...")
     t1 = time.time()
-    from research.backtests.momentum.config_vdubus import VdubusAblationFlags
+    from backtests.momentum.config_vdubus import VdubusAblationFlags
     vdubus_cfg = VdubusBacktestConfig(
         initial_equity=EQUITY, fixed_qty=10,
         flags=VdubusAblationFlags(heat_cap=False, viability_filter=False),
@@ -337,7 +337,7 @@ def main():
 
     # 1. Entry timing
     try:
-        from research.backtests.momentum.analysis.entry_timing_optimization import generate_entry_timing_report
+        from backtests.momentum.analysis.entry_timing_optimization import generate_entry_timing_report
         r = generate_entry_timing_report(all_trades)
         analysis_reports["entry_timing"] = r
         print("  [OK] Entry timing optimization")
@@ -346,7 +346,7 @@ def main():
 
     # 2. Loss streak
     try:
-        from research.backtests.momentum.analysis.loss_streak_analysis import generate_loss_streak_report
+        from backtests.momentum.analysis.loss_streak_analysis import generate_loss_streak_report
         r = generate_loss_streak_report(all_trades, strategies=strategies_dict)
         analysis_reports["loss_streak"] = r
         print("  [OK] Loss streak analysis")
@@ -355,7 +355,7 @@ def main():
 
     # 3. Session profitability
     try:
-        from research.backtests.momentum.analysis.session_profitability import generate_session_profitability_report
+        from backtests.momentum.analysis.session_profitability import generate_session_profitability_report
         r = generate_session_profitability_report(all_trades)
         analysis_reports["session_profitability"] = r
         print("  [OK] Session profitability")
@@ -364,7 +364,7 @@ def main():
 
     # 4. Drawdown attribution
     try:
-        from research.backtests.momentum.analysis.drawdown_attribution import generate_drawdown_report
+        from backtests.momentum.analysis.drawdown_attribution import generate_drawdown_report
         r = generate_drawdown_report(all_trades, portfolio_result.equity_curve)
         analysis_reports["drawdown_attribution"] = r
         print("  [OK] Drawdown attribution")
@@ -373,7 +373,7 @@ def main():
 
     # 5. Cross-strategy correlation
     try:
-        from research.backtests.momentum.analysis.cross_strategy_correlation import generate_correlation_report
+        from backtests.momentum.analysis.cross_strategy_correlation import generate_correlation_report
         r = generate_correlation_report(strategies_dict)
         analysis_reports["cross_strategy_correlation"] = r
         print("  [OK] Cross-strategy correlation")
@@ -382,7 +382,7 @@ def main():
 
     # 6. Capital efficiency
     try:
-        from research.backtests.momentum.analysis.capital_efficiency import generate_capital_efficiency_report
+        from backtests.momentum.analysis.capital_efficiency import generate_capital_efficiency_report
         r = generate_capital_efficiency_report(all_trades, EQUITY)
         analysis_reports["capital_efficiency"] = r
         print("  [OK] Capital efficiency")
@@ -391,7 +391,7 @@ def main():
 
     # 7. Seasonality
     try:
-        from research.backtests.momentum.analysis.seasonality_calendar import generate_seasonality_report
+        from backtests.momentum.analysis.seasonality_calendar import generate_seasonality_report
         r = generate_seasonality_report(all_trades)
         analysis_reports["seasonality"] = r
         print("  [OK] Seasonality calendar")
@@ -400,7 +400,7 @@ def main():
 
     # 8. Weakness report
     try:
-        from research.backtests.momentum.analysis.weakness_report import generate_weakness_report
+        from backtests.momentum.analysis.weakness_report import generate_weakness_report
         r = generate_weakness_report(all_trades, strategies=strategies_dict)
         analysis_reports["weakness_report"] = r
         print("  [OK] Weakness report")
@@ -409,7 +409,7 @@ def main():
 
     # 9. Portfolio diagnostics
     try:
-        from research.backtests.momentum.analysis.portfolio_diagnostics import generate_portfolio_diagnostics
+        from backtests.momentum.analysis.portfolio_diagnostics import generate_portfolio_diagnostics
         r = generate_portfolio_diagnostics(
             portfolio_result, helix_result, nqdtc_result, vdubus_result,
             initial_equity=EQUITY,
@@ -421,7 +421,7 @@ def main():
 
     # 10. Signal conflict
     try:
-        from research.backtests.momentum.analysis.signal_conflict import generate_signal_conflict_report
+        from backtests.momentum.analysis.signal_conflict import generate_signal_conflict_report
         r = generate_signal_conflict_report(strategies_dict)
         analysis_reports["signal_conflict"] = r
         print("  [OK] Signal conflict")
@@ -430,7 +430,7 @@ def main():
 
     # 11. Overnight gap
     try:
-        from research.backtests.momentum.analysis.overnight_gap import generate_overnight_gap_report
+        from backtests.momentum.analysis.overnight_gap import generate_overnight_gap_report
         r = generate_overnight_gap_report(all_trades)
         analysis_reports["overnight_gap"] = r
         print("  [OK] Overnight gap")

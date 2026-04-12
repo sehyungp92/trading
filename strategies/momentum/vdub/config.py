@@ -46,7 +46,7 @@ CLOSE_RANGE = ((15, 30), (15, 50))
 EVENING_RANGE = ((19, 0), (21, 0))
 
 # ── Risk ─────────────────────────────────────────────────────────────
-BASE_RISK_PCT = 0.01    # v7: was 0.008 — +25% increase
+BASE_RISK_PCT = 0.02    # R1-opt: was 0.01 -- 2% base risk for MNQ (aggressive-moderate)
 RISK_PCT = BASE_RISK_PCT
 VOL_FACTOR = {"Normal": 1.0, "High": 0.65, "Shock": 0.0}
 HEAT_CAP_MULT = 3.50   # portfolio v4 shared heat cap
@@ -86,7 +86,7 @@ RETEST_TOL_ATR = 0.35
 EXTENSION_SKIP_ATR = 1.2
 
 # ── Momentum ─────────────────────────────────────────────────────────
-MOM_N = 50
+MOM_N = 65              # R1-opt: was 50 -- stricter momentum confirmation (16h lookback)
 FLOOR_PCT = 0.25
 SLOPE_LB = 3
 
@@ -125,7 +125,7 @@ FREE_STALE_R_THRESHOLD = 0.30     # unrealized R below this = stale
 FREE_PROFIT_LOCK_R = 0.25         # lock at +0.25R once peak >= 0.50R
 
 # ── Max position duration ────────────────────────────────────────────
-MAX_POSITION_BARS_15M = 128       # 32 hrs: hard cap for any position
+MAX_POSITION_BARS_15M = 64        # R1-opt: was 128 -- 16h cap (reduces DD without killing runners)
 MAX_POSITION_BARS_FREE = 96       # 24 hrs: hard cap for ACTIVE_FREE
 
 
@@ -146,6 +146,20 @@ STALE_BARS_BY_WINDOW = {      # v4.2: adaptive stale timer per sub-window
     "EVENING": 5,             # 1.25H — cut faster (evening stales are -$5,755 drag)
 }
 STALE_R = 0.30
+STALE_MFE_EXEMPT_R = 0.50             # v4.3: min peak MFE to exempt from stale exit
+
+# -- Late Trail (v4.4) -------------------------------------------------------
+# Independent trail: no partial close, late activation, wide multiplier.
+# Operates on full position in ACTIVE_RISK. Does NOT touch plus_1r_partial.
+LATE_TRAIL_ACTIVATE_R = 1.5       # peak MFE threshold to activate trailing
+LATE_TRAIL_BE_R = 1.0             # peak MFE threshold to move stop to BE (0 = never)
+LATE_TRAIL_MULT = 4.0             # ATR multiplier for trail distance
+LATE_TRAIL_MULT_MIN = 2.0         # minimum trail mult at high R
+LATE_TRAIL_LOOKBACK = 20          # bars lookback for swing high/low
+LATE_TRAIL_TIGHTEN_R = 2.5        # R above which trail starts tightening toward MULT_MIN
+LATE_TRAIL_TIGHTEN_DIVISOR = 8.0  # divisor for progressive tightening
+LATE_TRAIL_WINDOW_MULT = {"OPEN": 1.0, "CORE": 1.0, "CLOSE": 1.0, "EVENING": 1.0}
+
 TRAIL_LOOKBACK_15M = 12
 TRAIL_MULT_MIN = 1.5
 TRAIL_MULT_BASE = 2.5
@@ -195,7 +209,7 @@ CHOP_MAX_SHORTS = 1     # max shorts/day when choppy
 
 # ── Early Kill ─────────────────────────────────────────────────────
 EARLY_KILL_BARS = 4               # first 4 bars (60 minutes)
-EARLY_KILL_R = -0.25              # if unrealized R below this threshold
+EARLY_KILL_R = -0.40              # R1-opt: was -0.25 -- give trades more room to develop
 EARLY_KILL_MFE_FLOOR = 0.25      # AND peak MFE never reached this
 
 # ── v4.1 Improvements ──────────────────────────────────────────────
@@ -235,12 +249,15 @@ MICRO_WINDOW_BARS = 3
 
 
 def build_instruments() -> list[Instrument]:
+    # Always use MNQ contract specs (traded contract), even though
+    # DEFAULT_SYMBOL="NQ" is used for price data routing.
+    mnq = NQ_SPECS["MNQ"]
     instruments = [
         Instrument(
             symbol=DEFAULT_SYMBOL, root=DEFAULT_SYMBOL, venue="CME",
-            tick_size=NQ_SPEC["tick"], tick_value=NQ_SPEC["tick_value"],
-            multiplier=NQ_SPEC["point_value"], currency="USD",
-            point_value=NQ_SPEC["point_value"], contract_expiry="",
+            tick_size=mnq["tick"], tick_value=mnq["tick_value"],
+            multiplier=mnq["point_value"], currency="USD",
+            point_value=mnq["point_value"], contract_expiry="",
         ),
     ]
     for inst in instruments:

@@ -14,6 +14,9 @@ READER_PW="${POSTGRES_READER_PASSWORD:-changeme}"
 WRITER_PW="${POSTGRES_WRITER_PASSWORD:-changeme}"
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<EOSQL
+-- Pin timezone to ET so CURRENT_DATE matches OMS trade-date semantics
+ALTER DATABASE ${POSTGRES_DB} SET timezone = 'America/New_York';
+
 -- Create read-only user for the trading dashboard
 CREATE USER trading_reader WITH PASSWORD '${READER_PW}';
 GRANT CONNECT ON DATABASE ${POSTGRES_DB} TO trading_reader;

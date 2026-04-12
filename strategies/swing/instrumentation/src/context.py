@@ -6,6 +6,7 @@ engines silently skip all instrumentation calls.
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from dataclasses import dataclass, field
 from typing import Optional
@@ -47,6 +48,17 @@ class InstrumentationContext:
         """Start background services (sidecar thread, post-exit backfill)."""
         if self._started:
             return
+
+        # Enforce HMAC auth in paper/live — match stock bootstrap behavior
+        env = os.environ.get("TRADING_ENV", "dev")
+        if env in ("paper", "live") and self.sidecar is not None:
+            hmac_secret = getattr(self.sidecar, "hmac_secret", b"")
+            if not hmac_secret:
+                raise RuntimeError(
+                    f"HMAC secret is required in {env} mode. "
+                    f"Set INSTRUMENTATION_HMAC_SECRET environment variable."
+                )
+
         try:
             if self.sidecar is not None:
                 self.sidecar.start()

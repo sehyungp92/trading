@@ -285,11 +285,11 @@ CREATE TABLE IF NOT EXISTS overlay_positions (
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS paper_equity (
-    id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-    equity NUMERIC NOT NULL DEFAULT 10000.0,
-    initial_equity NUMERIC NOT NULL DEFAULT 10000.0,
-    total_pnl NUMERIC NOT NULL DEFAULT 0.0,
-    total_commission NUMERIC NOT NULL DEFAULT 0.0,
+    account_scope TEXT PRIMARY KEY,
+    equity DOUBLE PRECISION NOT NULL DEFAULT 10000.0,
+    initial_equity DOUBLE PRECISION NOT NULL DEFAULT 10000.0,
+    total_pnl DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    total_commission DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     trade_count INT NOT NULL DEFAULT 0,
     last_update_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -704,16 +704,24 @@ class PgStore:
     async def get_risk_daily_strategies_for_date(
         self,
         trade_date: date,
+        strategy_ids: list[str] | None = None,
     ) -> list[RiskDailyStrategyRow]:
-        """Get all strategy risk rows for a given date."""
-        rows = await self._pool.fetch(
-            """
-            SELECT * FROM risk_daily_strategy
-            WHERE trade_date = $1
-            ORDER BY strategy_id
-            """,
-            trade_date,
-        )
+        """Get strategy risk rows for a given date, optionally filtered by strategy IDs."""
+        if strategy_ids:
+            placeholders = ", ".join(f"${i+2}" for i in range(len(strategy_ids)))
+            rows = await self._pool.fetch(
+                f"SELECT * FROM risk_daily_strategy WHERE trade_date = $1 AND strategy_id IN ({placeholders}) ORDER BY strategy_id",
+                trade_date, *strategy_ids,
+            )
+        else:
+            rows = await self._pool.fetch(
+                """
+                SELECT * FROM risk_daily_strategy
+                WHERE trade_date = $1
+                ORDER BY strategy_id
+                """,
+                trade_date,
+            )
         return [
             RiskDailyStrategyRow(
                 trade_date=r["trade_date"],
@@ -733,19 +741,34 @@ class PgStore:
         self,
         start_date: date,
         end_date: date,
+        strategy_ids: list[str] | None = None,
     ) -> dict[str, Decimal]:
-        """Aggregate realized R and USD over a date range."""
-        row = await self._pool.fetchrow(
-            """
-            SELECT
-                COALESCE(SUM(daily_realized_r), 0) AS total_r,
-                COALESCE(SUM(daily_realized_usd), 0) AS total_usd
-            FROM risk_daily_strategy
-            WHERE trade_date BETWEEN $1 AND $2
-            """,
-            start_date,
-            end_date,
-        )
+        """Aggregate realized R and USD over a date range, optionally filtered by strategy IDs."""
+        if strategy_ids:
+            placeholders = ", ".join(f"${i+3}" for i in range(len(strategy_ids)))
+            row = await self._pool.fetchrow(
+                f"""
+                SELECT
+                    COALESCE(SUM(daily_realized_r), 0) AS total_r,
+                    COALESCE(SUM(daily_realized_usd), 0) AS total_usd
+                FROM risk_daily_strategy
+                WHERE trade_date BETWEEN $1 AND $2
+                    AND strategy_id IN ({placeholders})
+                """,
+                start_date, end_date, *strategy_ids,
+            )
+        else:
+            row = await self._pool.fetchrow(
+                """
+                SELECT
+                    COALESCE(SUM(daily_realized_r), 0) AS total_r,
+                    COALESCE(SUM(daily_realized_usd), 0) AS total_usd
+                FROM risk_daily_strategy
+                WHERE trade_date BETWEEN $1 AND $2
+                """,
+                start_date,
+                end_date,
+            )
         return {
             "total_r": row["total_r"] if row else Decimal("0"),
             "total_usd": row["total_usd"] if row else Decimal("0"),

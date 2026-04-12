@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from research.backtests.swing.engine.brs_models import (
+from backtests.swing.engine.brs_models import (
     BDArmState,
     BRSRegime,
     DailyContext,
@@ -20,7 +20,7 @@ from research.backtests.swing.engine.brs_models import (
     S2ArmState,
     S3ArmState,
 )
-from research.backtests.swing.config_brs import BRSConfig, BRSSymbolConfig
+from backtests.swing.config_brs import BRSConfig, BRSSymbolConfig
 
 
 # ---------------------------------------------------------------------------
@@ -637,7 +637,7 @@ def check_s2_arm(
 
     Returns S2ArmState if armed, None otherwise.
     """
-    from research.backtests.swing.engine.brs_indicators import (
+    from backtests.swing.engine.brs_indicators import (
         compute_avwap,
         compute_box_length,
         containment_ratio,

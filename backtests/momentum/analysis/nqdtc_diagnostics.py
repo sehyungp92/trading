@@ -46,6 +46,11 @@ def nqdtc_full_diagnostic(
     sections.append(_winner_loser_entry_profile(trades))
     sections.append(_post_tp1_runner_deep_dive(trades))
     sections.append(_equity_reconciliation(trades, equity_curve, initial_equity, point_value))
+    # --- Structural diagnostics ---
+    sections.append(_drawdown_episode_anatomy(trades, initial_equity, point_value))
+    sections.append(_direction_asymmetry(trades))
+    sections.append(_volatility_bucketed_performance(trades))
+    sections.append(_trade_clustering(trades))
     return "\n\n".join(s for s in sections if s)
 
 
@@ -1562,8 +1567,565 @@ def _equity_reconciliation(
 
     # Trust hierarchy
     lines.append(f"\n  Trust hierarchy:")
-    lines.append(f"    1. Equity curve (tracks actual fills) — GROUND TRUTH")
+    lines.append(f"    1. Equity curve (tracks actual fills) -- GROUND TRUTH")
     lines.append(f"    2. Recorded P&L (uses initial_stop, includes TP partials)")
-    lines.append(f"    3. Simple entry-exit P&L — ignores TP partial fills")
+    lines.append(f"    3. Simple entry-exit P&L -- ignores TP partial fills")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Structural diagnostics (added for optimized-config deep analysis)
+# ---------------------------------------------------------------------------
+
+
+def _drawdown_episode_anatomy(
+    trades: list,
+    initial_equity: float = 100_000.0,
+    point_value: float = 2.0,
+) -> str:
+    """Decompose the top 5 drawdown episodes into contributing trades.
+
+    For each episode: date range, contributing trades count, regime/session
+    mix, entry subtypes involved, worst single trade, and recovery time.
+    Critical for live deployment confidence -- answers "what caused the DDs?"
+    """
+    if len(trades) < 5:
+        return "=== Drawdown Episode Anatomy ===\n  Insufficient trades."
+
+    dated = sorted(
+        [t for t in trades if t.entry_time and t.exit_time],
+        key=lambda t: t.entry_time,
+    )
+    if len(dated) < 5:
+        return "=== Drawdown Episode Anatomy ===\n  Insufficient dated trades."
+
+    lines = ["=== Drawdown Episode Anatomy ==="]
+
+    # Build cumulative P&L curve from trade sequence
+    cum_pnl = np.zeros(len(dated) + 1)
+    for i, t in enumerate(dated):
+        cum_pnl[i + 1] = cum_pnl[i] + t.pnl_dollars
+
+    # Identify drawdown episodes: peak -> trough -> recovery
+    episodes = []
+    peak_idx = 0
+    peak_val = cum_pnl[0]
+    in_dd = False
+    trough_idx = 0
+    trough_val = peak_val
+
+    for i in range(1, len(cum_pnl)):
+        if cum_pnl[i] > peak_val:
+            if in_dd:
+                # Recovery -- record episode
+                episodes.append({
+                    "peak_idx": peak_idx,
+                    "trough_idx": trough_idx,
+                    "recovery_idx": i,
+                    "dd_dollars": trough_val - peak_val,
+                    "dd_pct": (trough_val - peak_val) / (initial_equity + peak_val) * 100
+                    if (initial_equity + peak_val) > 0 else 0,
+                })
+                in_dd = False
+            peak_idx = i
+            peak_val = cum_pnl[i]
+            trough_idx = i
+            trough_val = peak_val
+        elif cum_pnl[i] < trough_val:
+            in_dd = True
+            trough_idx = i
+            trough_val = cum_pnl[i]
+
+    # Capture any still-open drawdown at end of data
+    if in_dd:
+        episodes.append({
+            "peak_idx": peak_idx,
+            "trough_idx": trough_idx,
+            "recovery_idx": None,
+            "dd_dollars": trough_val - peak_val,
+            "dd_pct": (trough_val - peak_val) / (initial_equity + peak_val) * 100
+            if (initial_equity + peak_val) > 0 else 0,
+        })
+
+    if not episodes:
+        lines.append("  No drawdown episodes detected (monotonically increasing equity).")
+        return "\n".join(lines)
+
+    # Sort by severity
+    episodes.sort(key=lambda e: e["dd_dollars"])
+    top = episodes[:5]
+
+    lines.append(f"  Total DD episodes: {len(episodes)}")
+    lines.append(f"  Analyzing top {len(top)} by severity:\n")
+
+    for rank, ep in enumerate(top, 1):
+        pi = ep["peak_idx"]
+        ti = ep["trough_idx"]
+        ri = ep["recovery_idx"]
+
+        # Trades in the drawdown phase (peak -> trough)
+        dd_trades = dated[pi:ti]
+        if not dd_trades:
+            continue
+
+        start_date = dd_trades[0].entry_time.strftime("%Y-%m-%d %H:%M") if dd_trades[0].entry_time else "?"
+        end_date = dd_trades[-1].exit_time.strftime("%Y-%m-%d %H:%M") if dd_trades[-1].exit_time else "?"
+
+        lines.append(f"  --- Episode #{rank}: ${ep['dd_dollars']:+,.0f} ({ep['dd_pct']:.2f}%) ---")
+        lines.append(f"    Period: {start_date} to {end_date}")
+        lines.append(f"    Trades in DD: {len(dd_trades)}")
+
+        # Recovery info
+        if ri is not None:
+            recovery_trades = dated[ti:ri]
+            if recovery_trades and dd_trades:
+                rec_start = dd_trades[-1].exit_time
+                rec_end = recovery_trades[-1].exit_time
+                if rec_start and rec_end:
+                    rec_days = (rec_end - rec_start).total_seconds() / 86400
+                    lines.append(f"    Recovery: {len(recovery_trades)} trades, {rec_days:.1f} calendar days")
+        else:
+            lines.append(f"    Recovery: STILL OPEN (has not recovered)")
+
+        # Worst single trade
+        worst = min(dd_trades, key=lambda t: t.pnl_dollars)
+        lines.append(f"    Worst trade: ${worst.pnl_dollars:+,.0f} (R={worst.r_multiple:+.2f}, "
+                     f"{worst.entry_subtype}, {worst.session})")
+
+        # Regime mix
+        regimes = Counter(t.composite_regime for t in dd_trades)
+        regime_str = ", ".join(f"{r}={c}" for r, c in regimes.most_common(3))
+        lines.append(f"    Regimes: {regime_str}")
+
+        # Session mix
+        sessions = Counter(t.session for t in dd_trades)
+        sess_str = ", ".join(f"{s}={c}" for s, c in sessions.most_common(3))
+        lines.append(f"    Sessions: {sess_str}")
+
+        # Entry subtype mix
+        subtypes = Counter(t.entry_subtype for t in dd_trades)
+        sub_str = ", ".join(f"{s}={c}" for s, c in subtypes.most_common())
+        lines.append(f"    Entry subtypes: {sub_str}")
+
+        # Direction mix
+        longs = sum(1 for t in dd_trades if t.direction == 1)
+        shorts = len(dd_trades) - longs
+        lines.append(f"    Direction: {longs}L / {shorts}S")
+
+        # Win rate during DD
+        wr = sum(1 for t in dd_trades if t.r_multiple > 0) / len(dd_trades) * 100
+        avg_r = np.mean([t.r_multiple for t in dd_trades])
+        lines.append(f"    WR during DD: {wr:.0f}%  Avg R: {avg_r:+.3f}")
+        lines.append("")
+
+    # Cross-episode patterns
+    all_dd_trades = []
+    for ep in top:
+        all_dd_trades.extend(dated[ep["peak_idx"]:ep["trough_idx"]])
+
+    if all_dd_trades:
+        lines.append("  Cross-Episode Patterns (top 5 DDs):")
+        # Most dangerous regime
+        regime_pnl: dict[str, float] = {}
+        for t in all_dd_trades:
+            regime_pnl.setdefault(t.composite_regime, 0.0)
+            regime_pnl[t.composite_regime] += t.pnl_dollars
+        worst_regime = min(regime_pnl, key=regime_pnl.get)
+        lines.append(f"    Most dangerous regime: {worst_regime} "
+                     f"(${regime_pnl[worst_regime]:+,.0f} across DD episodes)")
+
+        # Most dangerous session
+        sess_pnl: dict[str, float] = {}
+        for t in all_dd_trades:
+            sess_pnl.setdefault(t.session, 0.0)
+            sess_pnl[t.session] += t.pnl_dollars
+        worst_sess = min(sess_pnl, key=sess_pnl.get)
+        lines.append(f"    Most dangerous session: {worst_sess} "
+                     f"(${sess_pnl[worst_sess]:+,.0f} across DD episodes)")
+
+        # Most dangerous subtype
+        sub_pnl: dict[str, float] = {}
+        for t in all_dd_trades:
+            sub_pnl.setdefault(t.entry_subtype, 0.0)
+            sub_pnl[t.entry_subtype] += t.pnl_dollars
+        worst_sub = min(sub_pnl, key=sub_pnl.get)
+        lines.append(f"    Most dangerous subtype: {worst_sub} "
+                     f"(${sub_pnl[worst_sub]:+,.0f} across DD episodes)")
+
+    return "\n".join(lines)
+
+
+def _direction_asymmetry(trades: list) -> str:
+    """Comprehensive Long vs Short breakdown across all dimensions.
+
+    Reveals structural directional edge. For a box breakout strategy,
+    asymmetry could indicate trend bias, mean-reversion tendency,
+    or session-specific directional patterns.
+    """
+    if not trades:
+        return "=== Direction Asymmetry ===\n  No trades."
+
+    longs = [t for t in trades if t.direction == 1]
+    shorts = [t for t in trades if t.direction != 1]
+
+    if not longs or not shorts:
+        return "=== Direction Asymmetry ===\n  Need both long and short trades."
+
+    lines = ["=== Direction Asymmetry ==="]
+
+    # Overall comparison
+    def _dir_stats(label: str, group: list) -> list[str]:
+        n = len(group)
+        wr = sum(1 for t in group if t.r_multiple > 0) / n * 100
+        avg_r = np.mean([t.r_multiple for t in group])
+        total_pnl = sum(t.pnl_dollars for t in group)
+        pf_w = sum(t.pnl_dollars for t in group if t.pnl_dollars > 0)
+        pf_l = abs(sum(t.pnl_dollars for t in group if t.pnl_dollars < 0))
+        pf = pf_w / pf_l if pf_l > 0 else float("inf")
+        avg_mfe = np.mean([t.mfe_r for t in group])
+        avg_mae = np.mean([t.mae_r for t in group])
+        avg_hold = np.mean([t.bars_held_30m for t in group])
+        return [
+            f"  {label}:",
+            f"    N={n}  WR={wr:.1f}%  AvgR={avg_r:+.3f}  PnL=${total_pnl:+,.0f}  PF={pf:.2f}",
+            f"    AvgMFE={avg_mfe:.2f}R  AvgMAE={avg_mae:.2f}R  AvgHold={avg_hold:.1f} bars",
+        ]
+
+    lines.extend(_dir_stats("LONG", longs))
+    lines.extend(_dir_stats("SHORT", shorts))
+
+    # Edge delta
+    l_avg = np.mean([t.r_multiple for t in longs])
+    s_avg = np.mean([t.r_multiple for t in shorts])
+    edge = l_avg - s_avg
+    lines.append(f"\n  Directional edge (L - S): {edge:+.3f}R")
+    if abs(edge) > 0.15:
+        stronger = "LONG" if edge > 0 else "SHORT"
+        lines.append(f"  ** Significant {stronger} bias detected")
+
+    # By regime
+    lines.append(f"\n  Direction x Regime:")
+    regimes = sorted(set(t.composite_regime for t in trades))
+    header = f"    {'Regime':20s} {'L_N':>5s} {'L_WR':>5s} {'L_AvgR':>7s} {'S_N':>5s} {'S_WR':>5s} {'S_AvgR':>7s} {'Edge':>7s}"
+    lines.append(header)
+    lines.append("    " + "-" * (len(header) - 4))
+    for reg in regimes:
+        rl = [t for t in longs if t.composite_regime == reg]
+        rs = [t for t in shorts if t.composite_regime == reg]
+        if not rl and not rs:
+            continue
+        l_wr = sum(1 for t in rl if t.r_multiple > 0) / len(rl) * 100 if rl else 0
+        s_wr = sum(1 for t in rs if t.r_multiple > 0) / len(rs) * 100 if rs else 0
+        l_r = np.mean([t.r_multiple for t in rl]) if rl else 0
+        s_r = np.mean([t.r_multiple for t in rs]) if rs else 0
+        lines.append(
+            f"    {reg:20s} {len(rl):5d} {l_wr:4.0f}% {l_r:+7.3f} "
+            f"{len(rs):5d} {s_wr:4.0f}% {s_r:+7.3f} {l_r - s_r:+7.3f}"
+        )
+
+    # By session
+    lines.append(f"\n  Direction x Session:")
+    sessions = sorted(set(t.session for t in trades))
+    header = f"    {'Session':20s} {'L_N':>5s} {'L_WR':>5s} {'L_AvgR':>7s} {'S_N':>5s} {'S_WR':>5s} {'S_AvgR':>7s} {'Edge':>7s}"
+    lines.append(header)
+    lines.append("    " + "-" * (len(header) - 4))
+    for sess in sessions:
+        sl = [t for t in longs if t.session == sess]
+        ss_trades = [t for t in shorts if t.session == sess]
+        if not sl and not ss_trades:
+            continue
+        l_wr = sum(1 for t in sl if t.r_multiple > 0) / len(sl) * 100 if sl else 0
+        s_wr = sum(1 for t in ss_trades if t.r_multiple > 0) / len(ss_trades) * 100 if ss_trades else 0
+        l_r = np.mean([t.r_multiple for t in sl]) if sl else 0
+        s_r = np.mean([t.r_multiple for t in ss_trades]) if ss_trades else 0
+        lines.append(
+            f"    {sess:20s} {len(sl):5d} {l_wr:4.0f}% {l_r:+7.3f} "
+            f"{len(ss_trades):5d} {s_wr:4.0f}% {s_r:+7.3f} {l_r - s_r:+7.3f}"
+        )
+
+    # By entry subtype
+    lines.append(f"\n  Direction x Entry Subtype:")
+    subtypes = sorted(set(t.entry_subtype for t in trades))
+    header = f"    {'Subtype':20s} {'L_N':>5s} {'L_AvgR':>7s} {'L_PnL':>9s} {'S_N':>5s} {'S_AvgR':>7s} {'S_PnL':>9s}"
+    lines.append(header)
+    lines.append("    " + "-" * (len(header) - 4))
+    for st in subtypes:
+        stl = [t for t in longs if t.entry_subtype == st]
+        sts = [t for t in shorts if t.entry_subtype == st]
+        l_r = np.mean([t.r_multiple for t in stl]) if stl else 0
+        s_r = np.mean([t.r_multiple for t in sts]) if sts else 0
+        l_pnl = sum(t.pnl_dollars for t in stl)
+        s_pnl = sum(t.pnl_dollars for t in sts)
+        lines.append(
+            f"    {st:20s} {len(stl):5d} {l_r:+7.3f} ${l_pnl:+8,.0f} "
+            f"{len(sts):5d} {s_r:+7.3f} ${s_pnl:+8,.0f}"
+        )
+
+    # TP hit rates by direction
+    lines.append(f"\n  TP Hit Rates by Direction:")
+    for label, group in [("LONG", longs), ("SHORT", shorts)]:
+        tp1 = sum(1 for t in group if t.tp1_hit) / len(group) * 100
+        tp2 = sum(1 for t in group if t.tp2_hit) / len(group) * 100
+        tp3 = sum(1 for t in group if t.tp3_hit) / len(group) * 100
+        lines.append(f"    {label}: TP1={tp1:.0f}%  TP2={tp2:.0f}%  TP3={tp3:.0f}%")
+
+    return "\n".join(lines)
+
+
+def _volatility_bucketed_performance(trades: list) -> str:
+    """Performance by box_width quintiles (volatility proxy).
+
+    Box width is the primary indicator of market volatility context at
+    entry. Reveals whether the strategy works better in tight consolidation
+    (small boxes) or volatile expansion (wide boxes). Actionable: could
+    filter or resize by box width bucket.
+    """
+    if not trades:
+        return "=== Volatility-Bucketed Performance ===\n  No trades."
+
+    valid = [t for t in trades if t.box_width > 0]
+    if len(valid) < 10:
+        return "=== Volatility-Bucketed Performance ===\n  Insufficient trades with box_width."
+
+    lines = ["=== Volatility-Bucketed Performance ==="]
+
+    widths = np.array([t.box_width for t in valid])
+    lines.append(f"  Box width (points): mean={np.mean(widths):.2f}  "
+                 f"median={np.median(widths):.2f}  min={np.min(widths):.2f}  "
+                 f"max={np.max(widths):.2f}")
+
+    # Quintile boundaries
+    pcts = [0, 20, 40, 60, 80, 100]
+    boundaries = np.percentile(widths, pcts)
+
+    lines.append(f"\n  Quintile Performance:")
+    header = (
+        f"  {'Bucket':22s} {'Range':>14s} {'N':>5s} {'WR':>5s} "
+        f"{'AvgR':>7s} {'PF':>6s} {'PnL':>10s} {'AvgMFE':>7s} {'AvgMAE':>7s}"
+    )
+    lines.append(header)
+    lines.append("  " + "-" * (len(header) - 2))
+
+    bucket_labels = ["Q1 Tightest", "Q2 Narrow", "Q3 Medium", "Q4 Wide", "Q5 Widest"]
+    for i in range(5):
+        lo = boundaries[i]
+        hi = boundaries[i + 1]
+        if i < 4:
+            bucket = [t for t in valid if lo <= t.box_width < hi]
+        else:
+            bucket = [t for t in valid if lo <= t.box_width <= hi]
+
+        if not bucket:
+            continue
+
+        n = len(bucket)
+        wr = sum(1 for t in bucket if t.r_multiple > 0) / n * 100
+        avg_r = np.mean([t.r_multiple for t in bucket])
+        gross_w = sum(t.pnl_dollars for t in bucket if t.pnl_dollars > 0)
+        gross_l = abs(sum(t.pnl_dollars for t in bucket if t.pnl_dollars < 0))
+        pf = gross_w / gross_l if gross_l > 0 else float("inf")
+        total_pnl = sum(t.pnl_dollars for t in bucket)
+        avg_mfe = np.mean([t.mfe_r for t in bucket])
+        avg_mae = np.mean([t.mae_r for t in bucket])
+        rng = f"{lo:.1f}-{hi:.1f}"
+
+        lines.append(
+            f"  {bucket_labels[i]:22s} {rng:>14s} {n:5d} {wr:4.0f}% "
+            f"{avg_r:+7.3f} {pf:6.2f} ${total_pnl:+9,.0f} {avg_mfe:7.2f} {avg_mae:7.2f}"
+        )
+
+    # Correlation: box_width vs R
+    rs = np.array([t.r_multiple for t in valid])
+    if len(set(widths)) > 1:
+        corr = np.corrcoef(widths, rs)[0, 1]
+        lines.append(f"\n  Correlation (box_width vs R): {corr:+.3f}")
+        if corr > 0.1:
+            lines.append("  ** Wider boxes correlate with better R -- strategy likes volatility")
+        elif corr < -0.1:
+            lines.append("  ** Tighter boxes correlate with better R -- strategy prefers consolidation")
+        else:
+            lines.append("  No significant correlation -- performance is volatility-neutral")
+
+    # Best/worst quintile impact
+    lines.append(f"\n  Box Width Impact Analysis:")
+    q_results = []
+    for i in range(5):
+        lo = boundaries[i]
+        hi = boundaries[i + 1]
+        if i < 4:
+            bucket = [t for t in valid if lo <= t.box_width < hi]
+        else:
+            bucket = [t for t in valid if lo <= t.box_width <= hi]
+        if bucket:
+            q_results.append((bucket_labels[i], sum(t.pnl_dollars for t in bucket), len(bucket)))
+
+    if q_results:
+        best = max(q_results, key=lambda x: x[1])
+        worst = min(q_results, key=lambda x: x[1])
+        lines.append(f"    Best quintile:  {best[0]} (${best[1]:+,.0f}, N={best[2]})")
+        lines.append(f"    Worst quintile: {worst[0]} (${worst[1]:+,.0f}, N={worst[2]})")
+        if worst[1] < 0:
+            lines.append(f"    Filtering out {worst[0]} would remove "
+                         f"${worst[1]:,.0f} drag ({worst[2]} trades)")
+
+    # Entry subtype distribution per quintile
+    lines.append(f"\n  Entry Subtype Mix by Volatility:")
+    subtypes = sorted(set(t.entry_subtype for t in valid))
+    header = f"  {'Bucket':22s} " + " ".join(f"{st:>12s}" for st in subtypes)
+    lines.append(header)
+    lines.append("  " + "-" * (len(header) - 2))
+    for i in range(5):
+        lo = boundaries[i]
+        hi = boundaries[i + 1]
+        if i < 4:
+            bucket = [t for t in valid if lo <= t.box_width < hi]
+        else:
+            bucket = [t for t in valid if lo <= t.box_width <= hi]
+        if not bucket:
+            continue
+        row = f"  {bucket_labels[i]:22s} "
+        for st in subtypes:
+            cnt = sum(1 for t in bucket if t.entry_subtype == st)
+            pct = cnt / len(bucket) * 100
+            row += f"{pct:11.0f}% "
+        lines.append(row)
+
+    return "\n".join(lines)
+
+
+def _trade_clustering(trades: list) -> str:
+    """Inter-trade gap analysis, burst detection, and opportunity density.
+
+    Reveals capital utilization patterns: long droughts vs bursts of
+    activity. Important for portfolio allocation and psychological
+    preparation. Also identifies whether clustered trades perform
+    differently from isolated ones.
+    """
+    if not trades:
+        return "=== Trade Clustering ===\n  No trades."
+
+    dated = sorted(
+        [t for t in trades if t.entry_time],
+        key=lambda t: t.entry_time,
+    )
+    if len(dated) < 10:
+        return "=== Trade Clustering ===\n  Insufficient dated trades."
+
+    lines = ["=== Trade Clustering ==="]
+
+    # Inter-trade gaps (hours between consecutive entries)
+    gaps_hours = []
+    for i in range(1, len(dated)):
+        delta = (dated[i].entry_time - dated[i - 1].entry_time).total_seconds() / 3600
+        gaps_hours.append(delta)
+
+    gaps = np.array(gaps_hours)
+    lines.append(f"  Inter-trade gaps (hours):")
+    lines.append(f"    mean={np.mean(gaps):.1f}  median={np.median(gaps):.1f}  "
+                 f"min={np.min(gaps):.1f}  max={np.max(gaps):.1f}")
+
+    # Gap distribution
+    gap_buckets = [
+        (0, 2, "Same session (<2h)"),
+        (2, 8, "Same day (2-8h)"),
+        (8, 24, "Next session (8-24h)"),
+        (24, 72, "1-3 days"),
+        (72, 168, "3-7 days"),
+        (168, float("inf"), "1+ week drought"),
+    ]
+
+    lines.append(f"\n  Gap Distribution:")
+    header = f"    {'Bucket':24s} {'N':>5s} {'%':>6s} {'NextR':>7s}"
+    lines.append(header)
+    lines.append("    " + "-" * (len(header) - 4))
+
+    for lo, hi, label in gap_buckets:
+        indices = [i for i, g in enumerate(gaps_hours) if lo <= g < hi]
+        if not indices:
+            continue
+        pct = len(indices) / len(gaps_hours) * 100
+        # Performance of trades AFTER each gap type
+        next_trades = [dated[i + 1] for i in indices if i + 1 < len(dated)]
+        avg_r = np.mean([t.r_multiple for t in next_trades]) if next_trades else 0
+        lines.append(f"    {label:24s} {len(indices):5d} {pct:5.1f}% {avg_r:+7.3f}")
+
+    # Burst detection: 3+ trades within 4 hours
+    burst_threshold_hours = 4.0
+    min_burst_size = 3
+    bursts = []
+    current_burst = [dated[0]]
+
+    for i in range(1, len(dated)):
+        delta_h = (dated[i].entry_time - current_burst[-1].entry_time).total_seconds() / 3600
+        if delta_h <= burst_threshold_hours:
+            current_burst.append(dated[i])
+        else:
+            if len(current_burst) >= min_burst_size:
+                bursts.append(list(current_burst))
+            current_burst = [dated[i]]
+    if len(current_burst) >= min_burst_size:
+        bursts.append(list(current_burst))
+
+    lines.append(f"\n  Burst Detection ({min_burst_size}+ trades within {burst_threshold_hours:.0f}h):")
+    lines.append(f"    Total bursts: {len(bursts)}")
+    burst_trades = [t for b in bursts for t in b]
+    isolated = [t for t in dated if t not in burst_trades]
+
+    if burst_trades:
+        b_wr = sum(1 for t in burst_trades if t.r_multiple > 0) / len(burst_trades) * 100
+        b_avg = np.mean([t.r_multiple for t in burst_trades])
+        b_pnl = sum(t.pnl_dollars for t in burst_trades)
+        lines.append(f"    Burst trades: {len(burst_trades)} "
+                     f"(WR={b_wr:.0f}%, AvgR={b_avg:+.3f}, PnL=${b_pnl:+,.0f})")
+
+    if isolated:
+        i_wr = sum(1 for t in isolated if t.r_multiple > 0) / len(isolated) * 100
+        i_avg = np.mean([t.r_multiple for t in isolated])
+        i_pnl = sum(t.pnl_dollars for t in isolated)
+        lines.append(f"    Isolated trades: {len(isolated)} "
+                     f"(WR={i_wr:.0f}%, AvgR={i_avg:+.3f}, PnL=${i_pnl:+,.0f})")
+
+    if burst_trades and isolated:
+        edge = np.mean([t.r_multiple for t in burst_trades]) - np.mean([t.r_multiple for t in isolated])
+        lines.append(f"    Burst vs isolated edge: {edge:+.3f}R")
+        if edge < -0.1:
+            lines.append("    ** Clustered trades underperform -- consider cooldown between entries")
+        elif edge > 0.1:
+            lines.append("    ** Clustered trades outperform -- momentum carries through bursts")
+
+    # Biggest bursts detail
+    if bursts:
+        bursts.sort(key=lambda b: -len(b))
+        lines.append(f"\n  Largest Bursts:")
+        for i, burst in enumerate(bursts[:5], 1):
+            start = burst[0].entry_time.strftime("%Y-%m-%d %H:%M") if burst[0].entry_time else "?"
+            pnl = sum(t.pnl_dollars for t in burst)
+            wr = sum(1 for t in burst if t.r_multiple > 0) / len(burst) * 100
+            lines.append(f"    #{i}: {start}  {len(burst)} trades  "
+                         f"WR={wr:.0f}%  PnL=${pnl:+,.0f}")
+
+    # Opportunity density by month
+    if dated[0].entry_time and dated[-1].entry_time:
+        lines.append(f"\n  Monthly Opportunity Density:")
+        from collections import defaultdict
+        monthly: dict[str, list] = defaultdict(list)
+        for t in dated:
+            key = t.entry_time.strftime("%Y-%m")
+            monthly[key].append(t)
+
+        header = f"    {'Month':>8s} {'Trades':>6s} {'AvgR':>7s} {'PnL':>10s}"
+        lines.append(header)
+        lines.append("    " + "-" * (len(header) - 4))
+        for month in sorted(monthly):
+            mt = monthly[month]
+            avg_r = np.mean([t.r_multiple for t in mt])
+            pnl = sum(t.pnl_dollars for t in mt)
+            lines.append(f"    {month:>8s} {len(mt):6d} {avg_r:+7.3f} ${pnl:+9,.0f}")
+
+        # Trades per month stats
+        counts = [len(v) for v in monthly.values()]
+        lines.append(f"\n    Trades/month: mean={np.mean(counts):.1f}  "
+                     f"min={min(counts)}  max={max(counts)}  std={np.std(counts):.1f}")
 
     return "\n".join(lines)

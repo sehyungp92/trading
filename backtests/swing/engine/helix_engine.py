@@ -29,16 +29,22 @@ from strategy_2.config import (
     ADD_4H_R,
     ADD_OVERNIGHT_R,
     ADD_RISK_FRAC,
+    ADX_UPPER_GATE,
     BE_ATR1H_OFFSET,
     CLASS_B_BAIL_BARS,
     CLASS_B_BAIL_R_THRESH,
     CLASS_B_MIN_ADX,
     CLASS_B_MIN_PIVOT_SEP_BARS,
     CLASS_B_MOM_LOOKBACK,
+    CLASS_C_MIN_HOLD_BARS,
+    CLASS_D_BAIL_BARS,
+    CLASS_D_BAIL_R_THRESH,
     CONSEC_STOPS_HALVE,
     DAILY_STOP_R,
+    EARLY_STALE_BARS,
     EMA_4H_FAST,
     EMA_4H_SLOW,
+    EMERGENCY_STOP_R,
     PARTIAL_2P5_FRAC,
     PARTIAL_5_FRAC,
     PARTIAL_5_TRAIL_BONUS,
@@ -51,7 +57,35 @@ from strategy_2.config import (
     STALE_FLATTEN_R_FLOOR,
     STALE_R_THRESH,
     STOP_4H_MULT,
+    R_BAND_HIGH,
+    R_BAND_MID,
+    TRAIL_BASE_CLASS_B,
+    TRAIL_BASE_CLASS_D,
+    TRAIL_BASE_HIGH_R,
+    TRAIL_BASE_LOW_R,
+    TRAIL_BASE_MID_R,
+    TRAIL_FADE_FLOOR,
+    TRAIL_FADE_MIN_R,
+    TRAIL_FADE_MIN_R_CLASS_D,
+    TRAIL_FADE_ONSET_BARS,
+    TRAIL_FADE_PENALTY,
+    TRAIL_FADE_PENALTY_CLASS_D,
     TRAIL_PROFIT_DELAY_BARS,
+    TRAIL_R_DIV,
+    TRAIL_R_DIV_CLASS_B,
+    TRAIL_R_DIV_CLASS_D,
+    TRAIL_R_DIV_HIGH_R,
+    TRAIL_R_DIV_LOW_R,
+    TRAIL_R_DIV_MID_R,
+    TRAIL_MIN,
+    TRAIL_STALL_FLOOR,
+    TRAIL_STALL_ONSET,
+    TRAIL_STALL_ONSET_CLASS_B,
+    TRAIL_STALL_ONSET_CLASS_D,
+    TRAIL_STALL_RATE,
+    TRAIL_TIMEDECAY_FLOOR,
+    TRAIL_TIMEDECAY_ONSET,
+    TRAIL_TIMEDECAY_RATE,
     TTL_1H_HOURS,
     TTL_4H_HOURS,
     WEEKLY_STOP_R,
@@ -113,6 +147,7 @@ class _AblationPatch:
     def __enter__(self):
         import sys
         import strategy_2.config as scfg
+        import strategy_2.stops as sstops
 
         engine_mod = sys.modules[__name__]
 
@@ -124,6 +159,9 @@ class _AblationPatch:
             # Patch engine module's own top-level imported binding
             if hasattr(engine_mod, upper_key):
                 self._patch(engine_mod, upper_key, val)
+            # Patch stops module's cached bindings (TRAIL_BASE, R_BE, etc.)
+            if hasattr(sstops, upper_key):
+                self._patch(sstops, upper_key, val)
         return self
 
     def __exit__(self, *exc):
@@ -639,6 +677,10 @@ class HelixEngine:
             cap_dollars = 1.4 * daily.atr_d * self.point_value
             if self.cfg.min_stop_floor_dollars > cap_dollars:
                 _4h_disabled = True
+
+        # ADX upper gate: skip all setups when ADX overextended (999 = disabled)
+        if ADX_UPPER_GATE < 999 and daily.adx > ADX_UPPER_GATE:
+            return
 
         # Extreme vol: disable 1H-origin classes (B, D) when vol_pct > 95th
         from strategy_2.config import EXTREME_VOL_PCT
@@ -1200,11 +1242,8 @@ class HelixEngine:
         r_state = (pos.realized_pnl + unrealized) / setup.unit1_risk_dollars \
             if setup.unit1_risk_dollars > 0 else r_now
 
-        # Catastrophic loss protection: flatten if loss exceeds -2R
-        # No trade with a planned -1R stop should ever lose more than -2R.
-        # Catches overnight/weekend gap events early while giving normal
-        # volatility room.  Trades that recover from -2R are rare.
-        if r_now < -2.0:
+        # Catastrophic loss protection: flatten if loss exceeds emergency stop
+        if r_now < EMERGENCY_STOP_R:
             self._flatten_position(pos, C, bar_time, "STOP")
             return
 
@@ -1212,6 +1251,15 @@ class HelixEngine:
         if (setup.setup_class == SetupClass.CLASS_B
                 and pos.bars_held_1h >= CLASS_B_BAIL_BARS
                 and r_now < CLASS_B_BAIL_R_THRESH
+                and not pos.trail_active):
+            self._flatten_position(pos, C, bar_time, "STALE")
+            return
+
+        # Class D bail trigger: exit early if momentum reverses (0 = disabled)
+        if (CLASS_D_BAIL_BARS > 0
+                and setup.setup_class == SetupClass.CLASS_D
+                and pos.bars_held_1h >= CLASS_D_BAIL_BARS
+                and r_now < CLASS_D_BAIL_R_THRESH
                 and not pos.trail_active):
             self._flatten_position(pos, C, bar_time, "STALE")
             return
@@ -1303,18 +1351,50 @@ class HelixEngine:
                 r_state, momentum_strong, regime_deteriorated, regime_flipped,
                 pos.trailing_mult_bonus,
             )
-            # Momentum fade tightening: if momentum dying and R > 1.0, tighten aggressively
-            if pos.bars_neg_fading_hist >= 2 and r_state > 1.0:
-                trail_mult = max(1.5, trail_mult - 0.75)
-            # Time-decay trailing (change #8): after 20 bars at +1R, tighten 0.05/bar
-            if pos.bars_at_r1 > 20:
-                decay = (pos.bars_at_r1 - 20) * 0.05
-                trail_mult = max(2.5, trail_mult - decay)
-            # Stalled winner decay: profitable but no new MFE for 8+ bars
+
+            # R-band trailing profile override (spec s14.R)
+            # Order: check HIGH first so unconfigured MID band keeps global defaults
+            if R_BAND_MID > 0 and R_BAND_HIGH > 0:
+                if r_state >= R_BAND_HIGH and TRAIL_BASE_HIGH_R > 0:
+                    trail_mult = max(TRAIL_MIN, TRAIL_BASE_HIGH_R - r_state / (TRAIL_R_DIV_HIGH_R or TRAIL_R_DIV))
+                elif r_state < R_BAND_MID and TRAIL_BASE_LOW_R > 0:
+                    trail_mult = max(TRAIL_MIN, TRAIL_BASE_LOW_R - r_state / (TRAIL_R_DIV_LOW_R or TRAIL_R_DIV))
+                elif TRAIL_BASE_MID_R > 0:
+                    trail_mult = max(TRAIL_MIN, TRAIL_BASE_MID_R - r_state / (TRAIL_R_DIV_MID_R or TRAIL_R_DIV))
+
+            # Class-specific trailing base/div override (narrower than R-band)
+            cls_name = setup.setup_class.name if hasattr(setup.setup_class, 'name') else str(setup.setup_class)
+            if cls_name == "D" and TRAIL_BASE_CLASS_D > 0:
+                trail_mult = max(TRAIL_MIN, TRAIL_BASE_CLASS_D - r_state / (TRAIL_R_DIV_CLASS_D or TRAIL_R_DIV))
+            elif cls_name == "B" and TRAIL_BASE_CLASS_B > 0:
+                trail_mult = max(TRAIL_MIN, TRAIL_BASE_CLASS_B - r_state / (TRAIL_R_DIV_CLASS_B or TRAIL_R_DIV))
+
+            # Select class-specific inline layer params
+            if cls_name == "D" and TRAIL_STALL_ONSET_CLASS_D > 0:
+                _fade_penalty = TRAIL_FADE_PENALTY_CLASS_D or TRAIL_FADE_PENALTY
+                _fade_min_r = TRAIL_FADE_MIN_R_CLASS_D or TRAIL_FADE_MIN_R
+                _stall_onset = TRAIL_STALL_ONSET_CLASS_D
+            elif cls_name == "B" and TRAIL_STALL_ONSET_CLASS_B > 0:
+                _fade_penalty = TRAIL_FADE_PENALTY
+                _fade_min_r = TRAIL_FADE_MIN_R
+                _stall_onset = TRAIL_STALL_ONSET_CLASS_B
+            else:
+                _fade_penalty = TRAIL_FADE_PENALTY
+                _fade_min_r = TRAIL_FADE_MIN_R
+                _stall_onset = TRAIL_STALL_ONSET
+
+            # Momentum fade tightening: if momentum dying and R > threshold, tighten
+            if pos.bars_neg_fading_hist >= TRAIL_FADE_ONSET_BARS and r_state > _fade_min_r:
+                trail_mult = max(TRAIL_FADE_FLOOR, trail_mult - _fade_penalty)
+            # Time-decay trailing: after onset bars at +1R, tighten per bar
+            if pos.bars_at_r1 > TRAIL_TIMEDECAY_ONSET:
+                decay = (pos.bars_at_r1 - TRAIL_TIMEDECAY_ONSET) * TRAIL_TIMEDECAY_RATE
+                trail_mult = max(TRAIL_TIMEDECAY_FLOOR, trail_mult - decay)
+            # Stalled winner decay: profitable but no new MFE for onset+ bars
             bars_since_peak = pos.bars_held_1h - pos.bar_of_max_mfe
-            if r_state > 0.5 and bars_since_peak >= 8:
-                stall_decay = min(1.0, bars_since_peak * 0.08)
-                trail_mult = max(1.5, trail_mult - stall_decay)
+            if r_state > 0.5 and bars_since_peak >= _stall_onset:
+                stall_decay = min(1.0, bars_since_peak * TRAIL_STALL_RATE)
+                trail_mult = max(TRAIL_STALL_FLOOR, trail_mult - stall_decay)
             chandelier = stops.compute_chandelier_stop(
                 setup.direction, self.tf_1h.highs, self.tf_1h.lows,
                 self.cfg.chandelier_lookback, self.tf_1h.atr,
@@ -1326,7 +1406,7 @@ class HelixEngine:
                 new_stop = chandelier
 
         # Class C min hold: prevent early exits before reversal develops
-        class_c_min_hold = setup.setup_class == SetupClass.CLASS_C and pos.bars_held_1h < 12
+        class_c_min_hold = setup.setup_class == SetupClass.CLASS_C and pos.bars_held_1h < CLASS_C_MIN_HOLD_BARS
 
         # Regime flip exit: daily regime opposes position direction
         daily = self.daily_state
@@ -1338,10 +1418,8 @@ class HelixEngine:
                 self._flatten_position(pos, C, bar_time, "REGIME_FLIP")
                 return
 
-        # Early stale: if 20+ bars and trail never activated, flatten losers.
-        # These are trades stuck in no-man's land — never profitable enough
-        # to activate trailing, but not stopped out either.
-        if pos.bars_held_1h >= 20 and not pos.trail_active and r_state < 0 and not class_c_min_hold:
+        # Early stale: if N+ bars and trail never activated, flatten losers.
+        if pos.bars_held_1h >= EARLY_STALE_BARS and not pos.trail_active and r_state < 0 and not class_c_min_hold:
             self._flatten_position(pos, C, bar_time, "STALE")
             return
 

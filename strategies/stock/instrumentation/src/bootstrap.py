@@ -437,7 +437,7 @@ class InstrumentationManager:
                 order_type=payload.get("order_type", ""),
                 status=status_label,
                 requested_qty=payload.get("qty", 0),
-                reject_reason=payload.get("rejection_reason", ""),
+                reject_reason=payload.get("reject_reason", ""),
                 strategy_type=self._strategy_type,
                 exchange_timestamp=event.timestamp,
             )

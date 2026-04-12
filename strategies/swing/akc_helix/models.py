@@ -226,6 +226,7 @@ class SetupInstance:
     realized_pnl: float = 0.0
     qty_open: int = 0
     current_stop: float = 0.0
+    stop_source: str = "INITIAL"  # tracks last stop update source for exit reason
 
     # Recording
     trade_id: str = ""

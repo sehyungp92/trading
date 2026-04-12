@@ -21,11 +21,11 @@ from __future__ import annotations
 import re
 from dataclasses import fields, replace
 
-from research.backtests.momentum.config import SlippageConfig
-from research.backtests.momentum.config_helix import Helix4AblationFlags, Helix4BacktestConfig
-from research.backtests.momentum.config_nqdtc import NQDTCAblationFlags, NQDTCBacktestConfig
-from research.backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
-from research.backtests.momentum.config_portfolio import PortfolioBacktestConfig
+from backtests.momentum.config import SlippageConfig
+from backtests.momentum.config_helix import Helix4AblationFlags, Helix4BacktestConfig
+from backtests.momentum.config_nqdtc import NQDTCAblationFlags, NQDTCBacktestConfig
+from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
+from backtests.momentum.config_portfolio import PortfolioBacktestConfig
 from libs.oms.config.portfolio_config import PortfolioConfig, StrategyAllocation
 
 

@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING, Callable
 
 import numpy as np
 
-from research.backtests.swing.auto.scoring import CompositeScore, composite_score, extract_metrics
-from research.backtests.swing.config import SlippageConfig
+from backtests.swing.auto.scoring import CompositeScore, composite_score, extract_metrics
+from backtests.swing.config import SlippageConfig
 
 if TYPE_CHECKING:
-    from research.backtests.swing.auto.experiments import Experiment
+    from backtests.swing.auto.experiments import Experiment
 
 logger = logging.getLogger(__name__)
 

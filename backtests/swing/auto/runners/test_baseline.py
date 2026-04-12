@@ -12,18 +12,18 @@ logging.basicConfig(
 
 
 def main():
-    from research.backtests.swing._aliases import install; install()
+    from backtests.swing._aliases import install; install()
 
     print("=" * 60, flush=True)
     print("BASELINE TEST: Swing Strategies", flush=True)
     print("=" * 60, flush=True)
 
     from pathlib import Path
-    from research.backtests.swing.auto.harness import SwingAutoHarness
-    from research.backtests.swing.auto.scoring import composite_score, extract_metrics
+    from backtests.swing.auto.harness import SwingAutoHarness
+    from backtests.swing.auto.scoring import composite_score, extract_metrics
 
-    data_dir = Path("research/backtests/swing/data/raw")
-    output_dir = Path("research/backtests/swing/auto/output")
+    data_dir = Path("backtests/swing/data/raw")
+    output_dir = Path("backtests/swing/auto/output")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     harness = SwingAutoHarness(

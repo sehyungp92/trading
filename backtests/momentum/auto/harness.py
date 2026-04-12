@@ -15,18 +15,18 @@ from pathlib import Path
 
 import numpy as np
 
-from research.backtests.momentum.auto.config_mutator import (
+from backtests.momentum.auto.config_mutator import (
     extract_passthrough_mutations,
     mutate_helix_config,
     mutate_nqdtc_config,
     mutate_portfolio_config,
     mutate_vdubus_config,
 )
-from research.backtests.momentum.auto.experiments import Experiment, build_experiment_queue
-from research.backtests.momentum.auto.report import generate_report
-from research.backtests.momentum.auto.results_tracker import ExperimentResult, ResultsTracker
-from research.backtests.momentum.auto.robustness import run_robustness
-from research.backtests.momentum.auto.scoring import CompositeScore, composite_score, extract_metrics
+from backtests.momentum.auto.experiments import Experiment, build_experiment_queue
+from backtests.momentum.auto.report import generate_report
+from backtests.momentum.auto.results_tracker import ExperimentResult, ResultsTracker
+from backtests.momentum.auto.robustness import run_robustness
+from backtests.momentum.auto.scoring import CompositeScore, composite_score, extract_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +44,9 @@ _p1: dict = {}  # Populated by _init_phase1_worker in each child process
 
 def _init_phase1_worker(data_dir_str: str, equity: float) -> None:
     """Initialize a Phase 1 worker. Loads all bar data once per process."""
-    from research.backtests.momentum._aliases import install
+    from backtests.momentum._aliases import install
     install()
-    from research.backtests.momentum.cli import (
+    from backtests.momentum.cli import (
         _load_helix_data, _load_nqdtc_data, _load_vdubus_data,
     )
     data_dir = Path(data_dir_str)
@@ -65,15 +65,15 @@ def _p1_default_config(strategy: str):
     eq = _p1["equity"]
     dd = Path(_p1["data_dir"])
     if strategy == "helix":
-        from research.backtests.momentum.config_helix import Helix4BacktestConfig
+        from backtests.momentum.config_helix import Helix4BacktestConfig
         return Helix4BacktestConfig(initial_equity=eq, data_dir=dd, fixed_qty=10)
     elif strategy == "nqdtc":
-        from research.backtests.momentum.config_nqdtc import NQDTCBacktestConfig
+        from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
         return NQDTCBacktestConfig(
             symbols=["MNQ"], initial_equity=eq, data_dir=dd, fixed_qty=10,
         )
     elif strategy == "vdubus":
-        from research.backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
+        from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
         return VdubusBacktestConfig(
             initial_equity=eq, data_dir=dd, fixed_qty=10,
             flags=VdubusAblationFlags(heat_cap=False, viability_filter=False),
@@ -83,7 +83,7 @@ def _p1_default_config(strategy: str):
 
 def _p1_apply_mutations(strategy: str, config, mutations: dict):
     """Apply config mutations in worker."""
-    from research.backtests.momentum.auto.config_mutator import (
+    from backtests.momentum.auto.config_mutator import (
         mutate_helix_config, mutate_nqdtc_config, mutate_vdubus_config,
     )
     if strategy == "helix":
@@ -99,13 +99,13 @@ def _p1_run_engine(strategy: str, config) -> tuple[list, np.ndarray, np.ndarray]
     """Run backtest engine in worker process using worker-local data."""
     d = _p1[strategy]
     if strategy == "helix":
-        from research.backtests.momentum.engine.helix_engine import Helix4Engine
+        from backtests.momentum.engine.helix_engine import Helix4Engine
         engine = Helix4Engine(symbol="NQ", bt_config=config)
         r = engine.run(d["minute_bars"], d["hourly"], d["four_hour"], d["daily"],
                        d["hourly_idx_map"], d["four_hour_idx_map"], d["daily_idx_map"])
         return r.trades, r.equity_curve, r.timestamps
     elif strategy == "nqdtc":
-        from research.backtests.momentum.engine.nqdtc_engine import NQDTCEngine
+        from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
         engine = NQDTCEngine(symbol="MNQ", bt_config=config)
         r = engine.run(d["five_min_bars"], d["thirty_min"], d["hourly"], d["four_hour"],
                        d["daily"], d["thirty_min_idx_map"], d["hourly_idx_map"],
@@ -113,7 +113,7 @@ def _p1_run_engine(strategy: str, config) -> tuple[list, np.ndarray, np.ndarray]
                        daily_es=d.get("daily_es"), daily_es_idx_map=d.get("daily_es_idx_map"))
         return r.trades, r.equity_curve, r.timestamps
     elif strategy == "vdubus":
-        from research.backtests.momentum.engine.vdubus_engine import VdubusEngine
+        from backtests.momentum.engine.vdubus_engine import VdubusEngine
         engine = VdubusEngine(symbol="NQ", bt_config=config)
         r = engine.run(d["bars_15m"], d.get("bars_5m"), d["hourly"], d["daily_es"],
                        d["hourly_idx_map"], d["daily_es_idx_map"], d.get("five_to_15_idx_map"))
@@ -160,7 +160,7 @@ def _run_experiment_worker(task: dict) -> dict:
     Returns:
         Dict matching ExperimentResult fields plus an 'error' key.
     """
-    from research.backtests.momentum.auto.scoring import composite_score, extract_metrics
+    from backtests.momentum.auto.scoring import composite_score, extract_metrics
 
     exp_id = task["id"]
     strategy = task["strategy"]
@@ -185,7 +185,7 @@ def _run_experiment_worker(task: dict) -> dict:
         # Robustness (when enabled and experiment looks promising)
         robust = False
         if not task["skip_robustness"] and not score.rejected and delta_pct >= 0.02:
-            from research.backtests.momentum.auto.robustness import run_robustness as _run_rob
+            from backtests.momentum.auto.robustness import run_robustness as _run_rob
 
             exp_obj = Experiment(
                 id=exp_id, type=task["type"], strategy=strategy,
@@ -225,19 +225,19 @@ def _run_portfolio_in_worker(task: dict) -> dict:
     Reuses per-worker cached default engine trades when no per-strategy
     passthrough mutations are present — avoids redundant engine runs.
     """
-    from research.backtests.momentum.auto.config_mutator import (
+    from backtests.momentum.auto.config_mutator import (
         extract_passthrough_mutations, mutate_portfolio_config,
     )
-    from research.backtests.momentum.auto.scoring import composite_score, extract_metrics
-    from research.backtests.momentum.config_portfolio import PortfolioBacktestConfig
-    from research.backtests.momentum.engine.portfolio_engine import PortfolioBacktester
+    from backtests.momentum.auto.scoring import composite_score, extract_metrics
+    from backtests.momentum.config_portfolio import PortfolioBacktestConfig
+    from backtests.momentum.engine.portfolio_engine import PortfolioBacktester
 
     mutations = task["mutations"]
     baseline_total = task["baseline_total"]
 
     # Build portfolio config
     if "preset" in mutations:
-        from research.backtests.momentum.config_portfolio import PRESETS
+        from backtests.momentum.config_portfolio import PRESETS
         preset_name = mutations["preset"]
         if preset_name not in PRESETS:
             return {
@@ -537,7 +537,7 @@ class MomentumAutoHarness:
 
     def _load_data(self, strategy_filter: str) -> None:
         """Load bar data using existing CLI data loaders."""
-        from research.backtests.momentum.cli import (
+        from backtests.momentum.cli import (
             _load_helix_data,
             _load_nqdtc_data,
             _load_vdubus_data,
@@ -659,12 +659,12 @@ class MomentumAutoHarness:
         Reuses cached baseline trades when no per-strategy passthrough
         mutations are present — avoids re-running engines needlessly.
         """
-        from research.backtests.momentum.config_portfolio import PortfolioBacktestConfig
-        from research.backtests.momentum.engine.portfolio_engine import PortfolioBacktester
+        from backtests.momentum.config_portfolio import PortfolioBacktestConfig
+        from backtests.momentum.engine.portfolio_engine import PortfolioBacktester
 
         # Check for preset experiments
         if "preset" in experiment.mutations:
-            from research.backtests.momentum.config_portfolio import PRESETS
+            from backtests.momentum.config_portfolio import PRESETS
             preset_name = experiment.mutations["preset"]
             if preset_name in PRESETS:
                 portfolio_cfg = PortfolioBacktestConfig(portfolio=PRESETS[preset_name]())
@@ -762,8 +762,8 @@ class MomentumAutoHarness:
 
     def _run_portfolio_baseline(self) -> None:
         """Compute portfolio baseline using default configs."""
-        from research.backtests.momentum.config_portfolio import PortfolioBacktestConfig
-        from research.backtests.momentum.engine.portfolio_engine import PortfolioBacktester
+        from backtests.momentum.config_portfolio import PortfolioBacktestConfig
+        from backtests.momentum.engine.portfolio_engine import PortfolioBacktester
 
         portfolio_cfg = PortfolioBacktestConfig(
             portfolio=self._get_default_portfolio_config(),
@@ -807,7 +807,7 @@ class MomentumAutoHarness:
             raise ValueError(f"Unknown strategy: {strategy}")
 
     def _run_helix(self, config) -> tuple[list, np.ndarray, np.ndarray]:
-        from research.backtests.momentum.engine.helix_engine import Helix4Engine
+        from backtests.momentum.engine.helix_engine import Helix4Engine
 
         d = self._helix_data
         engine = Helix4Engine(symbol="NQ", bt_config=config)
@@ -818,7 +818,7 @@ class MomentumAutoHarness:
         return result.trades, result.equity_curve, result.timestamps
 
     def _run_nqdtc(self, config) -> tuple[list, np.ndarray, np.ndarray]:
-        from research.backtests.momentum.engine.nqdtc_engine import NQDTCEngine
+        from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
 
         d = self._nqdtc_data
         engine = NQDTCEngine(symbol="MNQ", bt_config=config)
@@ -830,7 +830,7 @@ class MomentumAutoHarness:
         return result.trades, result.equity_curve, result.timestamps
 
     def _run_vdubus(self, config) -> tuple[list, np.ndarray, np.ndarray]:
-        from research.backtests.momentum.engine.vdubus_engine import VdubusEngine
+        from backtests.momentum.engine.vdubus_engine import VdubusEngine
 
         d = self._vdubus_data
         engine = VdubusEngine(symbol="NQ", bt_config=config)
@@ -849,14 +849,14 @@ class MomentumAutoHarness:
         """Get or create the default config for a strategy."""
         if strategy not in self._default_configs:
             if strategy == "helix":
-                from research.backtests.momentum.config_helix import Helix4BacktestConfig
+                from backtests.momentum.config_helix import Helix4BacktestConfig
                 self._default_configs[strategy] = Helix4BacktestConfig(
                     initial_equity=self.initial_equity,
                     data_dir=self.data_dir,
                     fixed_qty=10,
                 )
             elif strategy == "nqdtc":
-                from research.backtests.momentum.config_nqdtc import NQDTCBacktestConfig
+                from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
                 self._default_configs[strategy] = NQDTCBacktestConfig(
                     symbols=["MNQ"],
                     initial_equity=self.initial_equity,
@@ -864,7 +864,7 @@ class MomentumAutoHarness:
                     fixed_qty=10,
                 )
             elif strategy == "vdubus":
-                from research.backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
+                from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
                 self._default_configs[strategy] = VdubusBacktestConfig(
                     initial_equity=self.initial_equity,
                     data_dir=self.data_dir,

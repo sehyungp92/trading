@@ -1,0 +1,595 @@
+"""NQDTC phased auto-optimization plugin.
+
+Implements the StrategyPlugin protocol for the shared PhaseRunner framework.
+4 phases targeting exit optimization, signal discrimination, timing/clustering,
+and fine-tuning with no-regression protection.
+"""
+from __future__ import annotations
+
+import multiprocessing as mp
+from dataclasses import MISSING, asdict
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .scoring import NQDTCCompositeScore, NQDTCMetrics
+
+from backtests.shared.auto.phase_state import PhaseState
+from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.plugin_utils import (
+    CachedBatchEvaluator,
+    ResilientBatchEvaluator,
+    deserialize_experiments,
+    greedy_result_from_state,
+    greedy_result_to_dict,
+    mutation_signature,
+    resolve_worker_processes,
+    seen_experiment_names,
+)
+from backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion, PhaseDecision
+
+from .phase_candidates import get_phase_candidates
+from .phase_gates import gate_criteria_for_phase
+
+# ---------------------------------------------------------------------------
+# Phase-specific scoring weights (7-component)
+# ---------------------------------------------------------------------------
+
+PHASE_WEIGHTS: dict[int, dict[str, float] | None] = {
+    1: {  # Exit optimization: heavy capture, preserve returns
+        "net_profit": 0.18, "pf": 0.15, "calmar": 0.08,
+        "inv_dd": 0.08, "frequency": 0.08,
+        "capture": 0.20, "sortino": 0.13, "entry_quality": 0.10,
+    },
+    2: {  # Signal discrimination: heavy frequency + entry_quality
+        "net_profit": 0.15, "pf": 0.12, "calmar": 0.10,
+        "inv_dd": 0.08, "frequency": 0.18,
+        "capture": 0.05, "sortino": 0.12, "entry_quality": 0.20,
+    },
+    3: {  # Timing & clustering: heavy calmar + inv_dd + sortino
+        "net_profit": 0.15, "pf": 0.12, "calmar": 0.15,
+        "inv_dd": 0.13, "frequency": 0.10,
+        "capture": 0.05, "sortino": 0.15, "entry_quality": 0.15,
+    },
+    4: {  # Fine-tune: balanced (base weights)
+        "net_profit": 0.20, "pf": 0.15, "calmar": 0.15,
+        "inv_dd": 0.10, "frequency": 0.10,
+        "capture": 0.10, "sortino": 0.10, "entry_quality": 0.10,
+    },
+    6: {  # Exit alpha: heavy capture, tight no-regression
+        "net_profit": 0.15, "pf": 0.10, "calmar": 0.15,
+        "inv_dd": 0.10, "frequency": 0.05,
+        "capture": 0.25, "sortino": 0.10, "entry_quality": 0.10,
+    },
+}
+
+PHASE_HARD_REJECTS: dict[int, dict[str, float]] = {
+    1: {"max_dd_pct": 0.35, "min_trades": 15, "min_pf": 0.80},
+    2: {"max_dd_pct": 0.30, "min_trades": 20, "min_pf": 0.90},
+    3: {"max_dd_pct": 0.25, "min_trades": 20, "min_pf": 1.0},
+    4: {"max_dd_pct": 0.22, "min_trades": 25, "min_pf": 1.0, "min_sortino": 1.0},
+    6: {"max_dd_pct": 0.20, "min_trades": 150, "min_pf": 2.0, "min_sortino": 5.0},
+}
+
+PHASE_FOCUS = {
+    1: ("Exit Optimization", ["capture_ratio", "profit_factor", "net_return_pct", "sortino"]),
+    2: ("Signal Discrimination", ["total_trades", "win_rate", "entry_quality", "sortino"]),
+    3: ("Timing & Clustering", ["calmar", "max_dd_pct", "burst_trade_pct", "sortino"]),
+    4: ("Fine-tune", ["calmar", "net_return_pct", "sortino"]),
+    6: ("Exit Alpha", ["capture_ratio", "net_return_pct", "sortino", "max_dd_pct"]),
+}
+
+ULTIMATE_TARGETS = {
+    "net_return_pct": 700.0,
+    "profit_factor": 2.5,
+    "max_dd_pct": 0.08,
+    "calmar": 15.0,
+    "total_trades": 300.0,
+    "capture_ratio": 0.45,
+    "win_rate": 0.55,
+    "sharpe": 2.5,
+}
+
+
+def score_phase_metrics(
+    phase: int,
+    metrics: NQDTCMetrics,
+    weight_overrides: dict[str, float] | None = None,
+    hard_rejects: dict[str, float] | None = None,
+) -> NQDTCCompositeScore:
+    from .scoring import NQDTCCompositeScore, composite_score
+
+    rejects = hard_rejects or PHASE_HARD_REJECTS.get(phase, {})
+    if metrics.total_trades < rejects.get("min_trades", 15):
+        return NQDTCCompositeScore(rejected=True, reject_reason=f"phase{phase}_too_few_trades ({metrics.total_trades})")
+    if metrics.max_dd_pct > rejects.get("max_dd_pct", 0.35):
+        return NQDTCCompositeScore(rejected=True, reject_reason=f"phase{phase}_max_dd ({metrics.max_dd_pct:.2%})")
+    if "min_pf" in rejects and metrics.profit_factor < rejects["min_pf"]:
+        return NQDTCCompositeScore(rejected=True, reject_reason=f"phase{phase}_low_pf ({metrics.profit_factor:.2f})")
+    if "min_sharpe" in rejects and metrics.sharpe < rejects["min_sharpe"]:
+        return NQDTCCompositeScore(rejected=True, reject_reason=f"phase{phase}_low_sharpe ({metrics.sharpe:.2f})")
+    if "min_sortino" in rejects and metrics.sortino < rejects["min_sortino"]:
+        return NQDTCCompositeScore(rejected=True, reject_reason=f"phase{phase}_low_sortino ({metrics.sortino:.2f})")
+
+    weights = PHASE_WEIGHTS.get(phase)
+    if weight_overrides:
+        base = dict(weights or {})
+        base.update(weight_overrides)
+        total = sum(base.values())
+        weights = {k: v / total for k, v in base.items()} if total > 0 else base
+    return composite_score(metrics, weights)
+
+
+# ---------------------------------------------------------------------------
+# Batch evaluators
+# ---------------------------------------------------------------------------
+
+class _SharedPoolBatchEvaluator:
+    """Pool evaluator that keeps the pool alive across close() calls.
+
+    The pool is managed by the plugin -- close() is a no-op so the pool
+    survives between greedy runs / phases.  terminate() signals the plugin
+    to destroy and recreate the pool on next use.
+    """
+
+    def __init__(
+        self,
+        pool: mp.Pool,
+        phase: int,
+        scoring_weights: dict[str, float] | None,
+        hard_rejects: dict[str, float] | None,
+        on_terminate,
+    ):
+        self._pool = pool
+        self._phase = phase
+        self._scoring_weights = scoring_weights
+        self._hard_rejects = hard_rejects
+        self._on_terminate = on_terminate
+
+    def __call__(self, candidates: list[Experiment], current_mutations: dict[str, Any]):
+        from .worker import score_candidate
+
+        args = [
+            (c.name, c.mutations, current_mutations, self._phase, self._scoring_weights, self._hard_rejects)
+            for c in candidates
+        ]
+        return self._pool.map(score_candidate, args)
+
+    def close(self) -> None:
+        pass  # Pool stays alive for reuse across phases
+
+    def terminate(self) -> None:
+        self._on_terminate()
+
+
+class _SequentialBatchEvaluator:
+    def __init__(
+        self,
+        data_dir: Path,
+        initial_equity: float,
+        phase: int,
+        scoring_weights: dict[str, float] | None,
+        hard_rejects: dict[str, float] | None,
+    ):
+        self._data_dir = data_dir
+        self._initial_equity = initial_equity
+        self._phase = phase
+        self._scoring_weights = scoring_weights
+        self._hard_rejects = hard_rejects
+        self._initialised = False
+
+    def _ensure_init(self) -> None:
+        if self._initialised:
+            return
+        from .worker import init_worker
+        init_worker(str(self._data_dir), self._initial_equity)
+        self._initialised = True
+
+    def __call__(self, candidates: list[Experiment], current_mutations: dict[str, Any]):
+        self._ensure_init()
+        from .worker import score_candidate
+        return [
+            score_candidate((c.name, c.mutations, current_mutations, self._phase, self._scoring_weights, self._hard_rejects))
+            for c in candidates
+        ]
+
+    def close(self) -> None:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Plugin
+# ---------------------------------------------------------------------------
+
+_INITIAL_MUTATIONS = {"flags.max_loss_cap": True, "flags.max_stop_width": True}
+
+
+class NQDTCPlugin:
+    name = "nqdtc"
+    num_phases = 4
+    ultimate_targets = ULTIMATE_TARGETS
+    initial_mutations = _INITIAL_MUTATIONS
+
+    def __init__(
+        self,
+        data_dir: Path,
+        initial_equity: float = 10_000.0,
+        max_workers: int | None = 3,
+        *,
+        num_phases: int = 4,
+    ):
+        if not 1 <= num_phases <= max(PHASE_FOCUS):
+            raise ValueError(f"NQDTCPlugin supports 1-{max(PHASE_FOCUS)} phases, got {num_phases}.")
+        self.data_dir = Path(data_dir)
+        self.initial_equity = initial_equity
+        self.max_workers = max_workers
+        self.num_phases = num_phases
+        self._cached_data: dict[str, Any] | None = None
+        self._last_context: dict[str, Any] = {}
+        self._pool: mp.Pool | None = None
+        self._last_metrics_sig: str = ""
+        self._last_metrics_result: dict[str, float] | None = None
+
+    def get_phase_spec(self, phase: int, state: PhaseState) -> PhaseSpec:
+        focus, focus_metrics = PHASE_FOCUS[phase]
+        prior_phase = state.phase_results.get(phase - 1, {}) if phase > 1 else {}
+        suggested = deserialize_experiments(prior_phase.get("suggested_experiments", []))
+        candidates = [
+            Experiment(name=name, mutations=mutations)
+            for name, mutations in get_phase_candidates(
+                phase,
+                state.cumulative_mutations,
+                suggested_experiments=[(e.name, e.mutations) for e in suggested] or None,
+            )
+        ]
+        return PhaseSpec(
+            focus=focus,
+            candidates=candidates,
+            gate_criteria_fn=lambda metrics: self._gate_criteria(phase, metrics, state),
+            scoring_weights=PHASE_WEIGHTS.get(phase),
+            hard_rejects=PHASE_HARD_REJECTS.get(phase, {}),
+            analysis_policy=PhaseAnalysisPolicy(
+                focus_metrics=focus_metrics,
+                min_effective_score_delta_pct=0.005,
+                diagnostic_gap_fn=self.get_diagnostic_gaps,
+                suggest_experiments_fn=self.suggest_experiments,
+                redesign_scoring_weights_fn=self.redesign_scoring_weights,
+                build_extra_analysis_fn=self.build_analysis_extra,
+                format_extra_analysis_fn=self.format_analysis_extra,
+                decide_action_fn=self.decide_phase_action,
+            ),
+            max_rounds=50,
+            prune_threshold=0.05,
+        )
+
+    def create_evaluate_batch(
+        self,
+        phase: int,
+        cumulative_mutations: dict[str, Any],
+        *,
+        scoring_weights: dict[str, float] | None = None,
+        hard_rejects: dict[str, float] | None = None,
+    ):
+        def make_parallel():
+            self._ensure_pool()
+            return _SharedPoolBatchEvaluator(
+                self._pool, phase, scoring_weights, hard_rejects, self._destroy_pool,
+            )
+
+        def make_sequential():
+            return _SequentialBatchEvaluator(
+                self.data_dir, self.initial_equity, phase,
+                scoring_weights, hard_rejects,
+            )
+
+        raw = ResilientBatchEvaluator(make_parallel, make_sequential, description=f"nqdtc phase {phase}")
+        return CachedBatchEvaluator(raw)
+
+    # -- Pool lifecycle --------------------------------------------------------
+
+    def _ensure_pool(self) -> None:
+        """Create the worker pool lazily; reuse across phases."""
+        if self._pool is not None:
+            return
+        from .worker import init_worker
+
+        processes = resolve_worker_processes(self.max_workers)
+        self._pool = mp.Pool(
+            processes=processes,
+            initializer=init_worker,
+            initargs=(str(self.data_dir), self.initial_equity),
+        )
+
+    def _destroy_pool(self) -> None:
+        """Force-kill the pool (called on worker errors via terminate())."""
+        if self._pool is not None:
+            try:
+                self._pool.terminate()
+                self._pool.join()
+            except Exception:
+                pass
+            self._pool = None
+
+    def close_pool(self) -> None:
+        """Gracefully shut down the persistent worker pool.
+
+        Called by PhaseRunner.run_all_phases() at the end of all phases.
+        """
+        if self._pool is not None:
+            try:
+                self._pool.close()
+                self._pool.join()
+            except Exception:
+                pass
+            self._pool = None
+
+    # -- Metrics ---------------------------------------------------------------
+
+    def compute_final_metrics(self, mutations: dict[str, Any]) -> dict[str, float]:
+        sig = mutation_signature(mutations)
+        if sig == self._last_metrics_sig and self._last_metrics_result is not None:
+            return self._last_metrics_result
+
+        from backtests.momentum._aliases import install
+
+        install()
+
+        from backtest.config_nqdtc import NQDTCBacktestConfig
+        from backtest.engine.nqdtc_engine import NQDTCEngine
+        from backtests.momentum.auto.config_mutator import mutate_nqdtc_config
+        from backtests.momentum.auto.nqdtc.scoring import extract_nqdtc_metrics
+        from backtests.momentum.auto.nqdtc.worker import load_worker_data
+
+        if self._cached_data is None:
+            self._cached_data = load_worker_data("NQ", self.data_dir)
+
+        config = mutate_nqdtc_config(
+            NQDTCBacktestConfig(initial_equity=self.initial_equity, data_dir=self.data_dir, fixed_qty=10),
+            mutations,
+        )
+        engine = NQDTCEngine("MNQ", config)
+        result = engine.run(**self._cached_data)
+        metrics = extract_nqdtc_metrics(
+            result.trades,
+            list(result.equity_curve),
+            list(result.timestamps),
+            self.initial_equity,
+        )
+        self._last_context = {
+            "mutations": dict(mutations),
+            "config": config,
+            "result": result,
+            "metrics": metrics,
+            "trades": result.trades,
+        }
+        metrics_dict = asdict(metrics)
+        self._last_metrics_sig = sig
+        self._last_metrics_result = metrics_dict
+        return metrics_dict
+
+    def run_phase_diagnostics(self, phase: int, state: PhaseState, metrics: dict[str, float], greedy_result) -> str:
+        from .phase_diagnostics import generate_phase_diagnostics
+
+        return generate_phase_diagnostics(
+            phase,
+            _metrics_from_dict(metrics),
+            greedy_result_to_dict(greedy_result),
+            None,
+            self._last_context.get("trades"),
+        )
+
+    def run_enhanced_diagnostics(self, phase: int, state: PhaseState, metrics: dict[str, float], greedy_result) -> str:
+        from .phase_diagnostics import generate_phase_diagnostics
+
+        return generate_phase_diagnostics(
+            phase,
+            _metrics_from_dict(metrics),
+            greedy_result_to_dict(greedy_result),
+            None,
+            self._last_context.get("trades"),
+            force_all_modules=True,
+        )
+
+    def build_end_of_round_artifacts(self, state: PhaseState) -> EndOfRoundArtifacts:
+        metrics = self.compute_final_metrics(state.cumulative_mutations)
+        m = _metrics_from_dict(metrics)
+        final_greedy = greedy_result_from_state(state, phase=self.num_phases, final_metrics=metrics)
+        final_diagnostics_text = self.run_enhanced_diagnostics(self.num_phases, state, metrics, final_greedy)
+
+        extraction = (
+            f"Net return {m.net_return_pct:.1f}% with {m.total_trades} trades, "
+            f"PF={m.profit_factor:.2f}, DD={m.max_dd_pct:.1%}."
+        )
+        discrimination = (
+            f"Win rate {m.win_rate:.1%}, avg R={m.avg_r:.3f}, "
+            f"capture ratio {m.capture_ratio:.2f}."
+        )
+        management = (
+            f"Calmar={m.calmar:.2f}, Sharpe={m.sharpe:.2f}, Sortino={m.sortino:.2f}."
+        )
+        exits = (
+            f"TP1 hit rate {m.tp1_hit_rate:.1%}, TP2 hit rate {m.tp2_hit_rate:.1%}, "
+            f"avg hold {m.avg_hold_hours:.1f}h."
+        )
+        timing = (
+            f"Burst trade pct {m.burst_trade_pct:.1%}, "
+            f"ETH short WR {m.eth_short_wr:.1%} ({m.eth_short_trades} trades), "
+            f"Range regime {m.range_regime_pct:.1%} of trades."
+        )
+        overall = (
+            f"NQDTC optimized to {m.net_return_pct:.1f}% return, PF={m.profit_factor:.2f}, "
+            f"DD={m.max_dd_pct:.1%}, {m.total_trades} trades. "
+            f"Capture ratio {'improved to' if m.capture_ratio > 0.33 else 'at'} {m.capture_ratio:.2f}."
+        )
+        return EndOfRoundArtifacts(
+            final_diagnostics_text=final_diagnostics_text,
+            dimension_reports={
+                "performance": extraction,
+                "signal_quality": discrimination,
+                "risk_management": management,
+                "exit_mechanism": exits,
+                "timing": timing,
+            },
+            overall_verdict=overall,
+        )
+
+    def get_diagnostic_gaps(self, phase: int, metrics: dict[str, float]) -> list[str]:
+        from .phase_diagnostics import get_diagnostic_gaps
+
+        return get_diagnostic_gaps(phase, _metrics_from_dict(metrics))
+
+    def suggest_experiments(
+        self,
+        phase: int,
+        metrics: dict[str, float],
+        weaknesses: list[str],
+        state: PhaseState,
+    ) -> list[Experiment]:
+        m = _metrics_from_dict(metrics)
+        seen = seen_experiment_names(state)
+        suggestions: list[Experiment] = []
+
+        def add(name: str, mutations: dict[str, Any]) -> None:
+            if name in seen:
+                return
+            seen.add(name)
+            suggestions.append(Experiment(name=name, mutations=mutations))
+
+        weakness_text = " ".join(weaknesses).lower()
+
+        # Capture ratio low
+        if m.capture_ratio < 0.35:
+            add("suggest_tp1_r_1.0", {"param_overrides.TP1_R": 1.0})
+            add("suggest_chandelier_2.0", {"param_overrides.CHANDELIER_ATR_MULT": 2.0})
+            add("suggest_tp2_3.0R", {"param_overrides.TP2_R": 3.0, "param_overrides.TP2_PARTIAL_PCT": 0.25})
+
+        # Low trade count
+        if m.total_trades < 200 or "trade count" in weakness_text:
+            add("suggest_loosen_disp", {"flags.displacement_threshold": False})
+            add("suggest_loosen_score", {"flags.score_threshold": False})
+            add("suggest_lower_score_0.5", {"param_overrides.SCORE_NORMAL": 0.5})
+
+        # High drawdown
+        if m.max_dd_pct > 0.12 or "drawdown" in weakness_text:
+            add("suggest_lower_risk_0.006", {"param_overrides.BASE_RISK_PCT": 0.006})
+            add("suggest_neutral_cut_0.35", {"param_overrides.regime_mult_neutral": 0.35})
+
+        # Burst clustering
+        if m.burst_trade_pct > 0.15 or "burst" in weakness_text:
+            add("suggest_cooldown_60m", {"param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 60})
+            add("suggest_cooldown_120m", {"param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 120})
+
+        # ETH shorts
+        if m.eth_short_wr < 0.40 and m.eth_short_trades > 30:
+            add("suggest_block_eth_shorts", {"flags.block_eth_shorts": True})
+            add("suggest_eth_short_half", {"param_overrides.ETH_SHORT_SIZE_MULT": 0.50})
+
+        return suggestions
+
+    def redesign_scoring_weights(
+        self,
+        phase: int,
+        current_weights: dict[str, float] | None,
+        analysis,
+        gate_result,
+    ) -> dict[str, float] | None:
+        weights = dict(current_weights or PHASE_WEIGHTS.get(phase) or {})
+        if not weights:
+            return None
+
+        for criterion in gate_result.criteria:
+            if criterion.passed:
+                continue
+            name = criterion.name.removeprefix("hard_").removeprefix("no_regress_")
+            if name in {"total_trades", "win_rate"}:
+                weights["frequency"] = weights.get("frequency", 0.15) * 1.20
+                weights["entry_quality"] = weights.get("entry_quality", 0.10) * 1.15
+            if name in {"capture_ratio"}:
+                weights["capture"] = weights.get("capture", 0.10) * 1.25
+            if name in {"profit_factor"}:
+                weights["pf"] = weights.get("pf", 0.15) * 1.25
+            if name in {"net_return_pct"}:
+                weights["net_profit"] = weights.get("net_profit", 0.25) * 1.20
+            if name in {"max_dd_pct", "calmar", "sharpe", "sortino"}:
+                weights["inv_dd"] = weights.get("inv_dd", 0.10) * 1.25
+                weights["calmar"] = weights.get("calmar", 0.15) * 1.20
+                weights["sortino"] = weights.get("sortino", 0.10) * 1.20
+
+        total = sum(weights.values())
+        return {k: v / total for k, v in weights.items()} if total > 0 else weights
+
+    def build_analysis_extra(self, phase: int, metrics: dict[str, float], state: PhaseState, greedy_result) -> dict[str, Any]:
+        m = _metrics_from_dict(metrics)
+        return {
+            "session_direction": {
+                "eth_short_wr": m.eth_short_wr,
+                "eth_short_trades": m.eth_short_trades,
+                "range_regime_pct": m.range_regime_pct,
+            },
+            "exit_efficiency": {
+                "capture_ratio": m.capture_ratio,
+                "tp1_hit_rate": m.tp1_hit_rate,
+                "tp2_hit_rate": m.tp2_hit_rate,
+            },
+            "clustering": {
+                "burst_trade_pct": m.burst_trade_pct,
+            },
+        }
+
+    def format_analysis_extra(self, extra: dict[str, Any]) -> list[str]:
+        lines: list[str] = []
+        sd = extra.get("session_direction", {})
+        if sd:
+            lines.append(
+                f"Session/direction: ETH short WR={sd.get('eth_short_wr', 0):.1%} "
+                f"({sd.get('eth_short_trades', 0)} trades), "
+                f"Range regime={sd.get('range_regime_pct', 0):.1%}"
+            )
+        ee = extra.get("exit_efficiency", {})
+        if ee:
+            lines.append(
+                f"Exit efficiency: capture={ee.get('capture_ratio', 0):.2f}, "
+                f"TP1={ee.get('tp1_hit_rate', 0):.1%}, TP2={ee.get('tp2_hit_rate', 0):.1%}"
+            )
+        cl = extra.get("clustering", {})
+        if cl:
+            lines.append(f"Clustering: burst_trade_pct={cl.get('burst_trade_pct', 0):.1%}")
+        return lines
+
+    def decide_phase_action(
+        self,
+        phase: int,
+        metrics: dict[str, float],
+        state: PhaseState,
+        greedy_result,
+        gate_result,
+        current_weights: dict[str, float] | None,
+        analysis,
+        max_scoring_retries: int,
+        max_diagnostic_retries: int,
+    ) -> PhaseDecision | None:
+        return None  # Use default framework logic
+
+    def _gate_criteria(self, phase: int, metrics: dict[str, float], state: PhaseState) -> list[GateCriterion]:
+        m = _metrics_from_dict(metrics)
+        prior = state.get_phase_metrics(phase - 1) if phase > 1 else None
+        return gate_criteria_for_phase(phase, m, prior)
+
+
+def _metrics_from_dict(metrics: dict[str, float]) -> NQDTCMetrics:
+    from .scoring import NQDTCMetrics
+
+    fields = NQDTCMetrics.__dataclass_fields__
+    payload = {}
+    for key, field_info in fields.items():
+        if key in metrics:
+            val = metrics[key]
+            # Ensure int fields get ints
+            if field_info.type == "int" or (hasattr(field_info, 'default') and isinstance(field_info.default, int)):
+                val = int(val)
+            payload[key] = val
+        elif field_info.default is not MISSING:
+            payload[key] = field_info.default
+        elif field_info.default_factory is not MISSING:
+            payload[key] = field_info.default_factory()
+    return NQDTCMetrics(**payload)

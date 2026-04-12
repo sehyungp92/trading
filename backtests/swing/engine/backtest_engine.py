@@ -249,6 +249,109 @@ class _AblationPatch:
             self._patch(scfg, "CHANDELIER_TRIGGER_R", float(ov["chandelier_trigger_r"]))
         if "be_atr_offset" in ov:
             self._patch(scfg, "BE_ATR_OFFSET", float(ov["be_atr_offset"]))
+
+        # --- Module-level constants used by backtest_engine itself ---
+        import sys
+        _self_mod = sys.modules[__name__]
+
+        if "tp1_r" in ov:
+            val = float(ov["tp1_r"])
+            self._patch(scfg, "TP1_R", val)
+            self._patch(_self_mod, "TP1_R", val)
+        if "tp1_frac" in ov:
+            val = float(ov["tp1_frac"])
+            self._patch(scfg, "TP1_FRAC", val)
+            self._patch(_self_mod, "TP1_FRAC", val)
+        if "tp2_r" in ov:
+            val = float(ov["tp2_r"])
+            self._patch(scfg, "TP2_R", val)
+            self._patch(_self_mod, "TP2_R", val)
+        if "tp2_frac" in ov:
+            val = float(ov["tp2_frac"])
+            self._patch(scfg, "TP2_FRAC", val)
+            self._patch(_self_mod, "TP2_FRAC", val)
+        if "max_hold_hours" in ov:
+            val = int(ov["max_hold_hours"])
+            self._patch(scfg, "MAX_HOLD_HOURS", val)
+            self._patch(_self_mod, "MAX_HOLD_HOURS", val)
+        if "early_stall_check_hours" in ov:
+            val = int(ov["early_stall_check_hours"])
+            self._patch(scfg, "EARLY_STALL_CHECK_HOURS", val)
+            self._patch(_self_mod, "EARLY_STALL_CHECK_HOURS", val)
+        if "early_stall_mfe_threshold" in ov:
+            val = float(ov["early_stall_mfe_threshold"])
+            self._patch(scfg, "EARLY_STALL_MFE_THRESHOLD", val)
+            self._patch(_self_mod, "EARLY_STALL_MFE_THRESHOLD", val)
+        if "early_stall_partial_frac" in ov:
+            val = float(ov["early_stall_partial_frac"])
+            self._patch(scfg, "EARLY_STALL_PARTIAL_FRAC", val)
+            self._patch(_self_mod, "EARLY_STALL_PARTIAL_FRAC", val)
+        if "order_expiry_hours" in ov:
+            val = int(ov["order_expiry_hours"])
+            self._patch(scfg, "ORDER_EXPIRY_HOURS", val)
+            self._patch(_self_mod, "ORDER_EXPIRY_HOURS", val)
+        if "max_entry_slip_atr" in ov:
+            val = float(ov["max_entry_slip_atr"])
+            self._patch(scfg, "MAX_ENTRY_SLIP_ATR", val)
+            self._patch(_self_mod, "MAX_ENTRY_SLIP_ATR", val)
+        if "trend_stop_tightening" in ov:
+            val = float(ov["trend_stop_tightening"])
+            self._patch(scfg, "TREND_STOP_TIGHTENING", val)
+            self._patch(_self_mod, "TREND_STOP_TIGHTENING", val)
+        if "quality_gate_threshold" in ov:
+            val = float(ov["quality_gate_threshold"])
+            self._patch(scfg, "QUALITY_GATE_THRESHOLD", val)
+            self._patch(_self_mod, "QUALITY_GATE_THRESHOLD", val)
+
+        # --- Constants used by signals module ---
+        if "momentum_tolerance_atr" in ov:
+            val = float(ov["momentum_tolerance_atr"])
+            self._patch(scfg, "MOMENTUM_TOLERANCE_ATR", val)
+            self._patch(_self_mod, "MOMENTUM_TOLERANCE_ATR", val)
+            self._patch(ssig, "MOMENTUM_TOLERANCE_ATR", val)
+        if "recovery_tolerance_atr" in ov:
+            val = float(ov["recovery_tolerance_atr"])
+            self._patch(scfg, "RECOVERY_TOLERANCE_ATR", val)
+            self._patch(_self_mod, "RECOVERY_TOLERANCE_ATR", val)
+            self._patch(ssig, "RECOVERY_TOLERANCE_ATR", val)
+        if "recovery_tolerance_atr_trend" in ov:
+            val = float(ov["recovery_tolerance_atr_trend"])
+            self._patch(scfg, "RECOVERY_TOLERANCE_ATR_TREND", val)
+            self._patch(_self_mod, "RECOVERY_TOLERANCE_ATR_TREND", val)
+            self._patch(ssig, "RECOVERY_TOLERANCE_ATR_TREND", val)
+        if "recovery_tolerance_atr_strong" in ov:
+            val = float(ov["recovery_tolerance_atr_strong"])
+            self._patch(scfg, "RECOVERY_TOLERANCE_ATR_STRONG", val)
+            self._patch(_self_mod, "RECOVERY_TOLERANCE_ATR_STRONG", val)
+            self._patch(ssig, "RECOVERY_TOLERANCE_ATR_STRONG", val)
+        if "addon_a_r" in ov:
+            val = float(ov["addon_a_r"])
+            self._patch(scfg, "ADDON_A_R", val)
+            self._patch(ssig, "ADDON_A_R", val)
+        if "addon_b_r" in ov:
+            val = float(ov["addon_b_r"])
+            self._patch(scfg, "ADDON_B_R", val)
+            self._patch(ssig, "ADDON_B_R", val)
+        if "addon_a_size_mult" in ov:
+            val = float(ov["addon_a_size_mult"])
+            self._patch(scfg, "ADDON_A_SIZE_MULT", val)
+            self._patch(_self_mod, "ADDON_A_SIZE_MULT", val)
+        if "addon_b_size_mult" in ov:
+            val = float(ov["addon_b_size_mult"])
+            self._patch(scfg, "ADDON_B_SIZE_MULT", val)
+            self._patch(_self_mod, "ADDON_B_SIZE_MULT", val)
+
+        # --- Dict-type constants used by stops module ---
+        import strategy.stops as ssto
+        if "profit_floor" in ov:
+            val = {float(k): float(v) for k, v in ov["profit_floor"].items()}
+            self._patch(scfg, "PROFIT_FLOOR", val)
+            self._patch(ssto, "PROFIT_FLOOR", val)
+        if "profit_floor_short" in ov:
+            val = {float(k): float(v) for k, v in ov["profit_floor_short"].items()}
+            self._patch(scfg, "PROFIT_FLOOR_SHORT", val)
+            self._patch(ssto, "PROFIT_FLOOR_SHORT", val)
+
         return self
 
     def __exit__(self, *exc):

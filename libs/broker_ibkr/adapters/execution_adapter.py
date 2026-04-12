@@ -280,7 +280,7 @@ class IBKRExecutionAdapter:
                 self.on_ack(oms_id, ref)
             self.on_status(oms_id, status, trade.orderStatus.remaining)
         elif status == "Cancelled":
-            self.on_status(oms_id, "CANCELLED", trade.orderStatus.remaining)
+            self.on_status(oms_id, "Cancelled", trade.orderStatus.remaining)
         elif status == "Inactive":
             self.on_reject(oms_id, "Order inactive", 0, False)
         elif status == "Filled":

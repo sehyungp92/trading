@@ -35,10 +35,10 @@ def _init_worker(data_dir_str: str, equity: float) -> None:
     """Initialize worker process with shared data."""
     global _worker_helix_data, _worker_nqdtc_data, _worker_vdubus_data, _worker_equity
 
-    from research.backtests.momentum._aliases import install
+    from backtests.momentum._aliases import install
     install()
 
-    from research.backtests.momentum.cli import (
+    from backtests.momentum.cli import (
         _load_helix_data,
         _load_nqdtc_data,
         _load_vdubus_data,
@@ -60,22 +60,22 @@ def _worker_score(mutations: dict) -> tuple[float, bool, str]:
     Returns:
         (score, rejected, reject_reason)
     """
-    from research.backtests.momentum.auto.config_mutator import (
+    from backtests.momentum.auto.config_mutator import (
         extract_passthrough_mutations,
         mutate_helix_config,
         mutate_nqdtc_config,
         mutate_portfolio_config,
         mutate_vdubus_config,
     )
-    from research.backtests.momentum.auto.scoring import composite_score, extract_metrics
-    from research.backtests.momentum.config_helix import Helix4BacktestConfig
-    from research.backtests.momentum.config_nqdtc import NQDTCBacktestConfig
-    from research.backtests.momentum.config_portfolio import PortfolioBacktestConfig
-    from research.backtests.momentum.config_vdubus import VdubusBacktestConfig
-    from research.backtests.momentum.engine.helix_engine import Helix4Engine
-    from research.backtests.momentum.engine.nqdtc_engine import NQDTCEngine
-    from research.backtests.momentum.engine.portfolio_engine import PortfolioBacktester
-    from research.backtests.momentum.engine.vdubus_engine import VdubusEngine
+    from backtests.momentum.auto.scoring import composite_score, extract_metrics
+    from backtests.momentum.config_helix import Helix4BacktestConfig
+    from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
+    from backtests.momentum.config_portfolio import PortfolioBacktestConfig
+    from backtests.momentum.config_vdubus import VdubusBacktestConfig
+    from backtests.momentum.engine.helix_engine import Helix4Engine
+    from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
+    from backtests.momentum.engine.portfolio_engine import PortfolioBacktester
+    from backtests.momentum.engine.vdubus_engine import VdubusEngine
 
     try:
         # Build portfolio config
@@ -119,7 +119,7 @@ def _worker_score(mutations: dict) -> tuple[float, bool, str]:
         # Run Vdubus
         vdubus_trades = []
         if portfolio_cfg.run_vdubus and _worker_vdubus_data:
-            from research.backtests.momentum.config_vdubus import VdubusAblationFlags
+            from backtests.momentum.config_vdubus import VdubusAblationFlags
             cfg = VdubusBacktestConfig(
                 initial_equity=_worker_equity, fixed_qty=10,
                 flags=VdubusAblationFlags(heat_cap=False, viability_filter=False),
@@ -165,10 +165,10 @@ def _init_strategy_worker(strategy: str, data_dir_str: str, equity: float) -> No
     """Initialize worker for single-strategy greedy (loads only 1 dataset)."""
     global _strat_worker_data, _strat_worker_strategy, _strat_worker_equity
 
-    from research.backtests.momentum._aliases import install
+    from backtests.momentum._aliases import install
     install()
 
-    from research.backtests.momentum.cli import (
+    from backtests.momentum.cli import (
         _load_helix_data,
         _load_nqdtc_data,
         _load_vdubus_data,
@@ -188,18 +188,18 @@ def _init_strategy_worker(strategy: str, data_dir_str: str, equity: float) -> No
 
 def _strategy_worker_score(mutations: dict) -> tuple[float, bool, str]:
     """Score a single-strategy config. Runs only 1 engine."""
-    from research.backtests.momentum.auto.config_mutator import (
+    from backtests.momentum.auto.config_mutator import (
         mutate_helix_config,
         mutate_nqdtc_config,
         mutate_vdubus_config,
     )
-    from research.backtests.momentum.auto.scoring import composite_score, extract_metrics
-    from research.backtests.momentum.config_helix import Helix4BacktestConfig
-    from research.backtests.momentum.config_nqdtc import NQDTCBacktestConfig
-    from research.backtests.momentum.config_vdubus import VdubusBacktestConfig
-    from research.backtests.momentum.engine.helix_engine import Helix4Engine
-    from research.backtests.momentum.engine.nqdtc_engine import NQDTCEngine
-    from research.backtests.momentum.engine.vdubus_engine import VdubusEngine
+    from backtests.momentum.auto.scoring import composite_score, extract_metrics
+    from backtests.momentum.config_helix import Helix4BacktestConfig
+    from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
+    from backtests.momentum.config_vdubus import VdubusBacktestConfig
+    from backtests.momentum.engine.helix_engine import Helix4Engine
+    from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
+    from backtests.momentum.engine.vdubus_engine import VdubusEngine
 
     strategy = _strat_worker_strategy
     eq = _strat_worker_equity
@@ -231,7 +231,7 @@ def _strategy_worker_score(mutations: dict) -> tuple[float, bool, str]:
             trades, ecurve, ts = r.trades, r.equity_curve, r.timestamps
 
         elif strategy == "vdubus":
-            from research.backtests.momentum.config_vdubus import VdubusAblationFlags
+            from backtests.momentum.config_vdubus import VdubusAblationFlags
             cfg = VdubusBacktestConfig(
                 initial_equity=eq, fixed_qty=10,
                 flags=VdubusAblationFlags(heat_cap=False, viability_filter=False),
@@ -314,7 +314,7 @@ def run_greedy(
         GreedyResult with optimal mutations and round-by-round history.
     """
     if data_dir is None:
-        data_dir = Path("research/backtests/momentum/data/raw")
+        data_dir = Path("backtests/momentum/data/raw")
 
     t0 = time.time()
     n_workers = max_workers or max(1, mp.cpu_count() - 1)
@@ -471,7 +471,7 @@ def run_strategy_greedy(
     Much faster than portfolio greedy since each candidate only runs 1 engine.
     """
     if data_dir is None:
-        data_dir = Path("research/backtests/momentum/data/raw")
+        data_dir = Path("backtests/momentum/data/raw")
 
     t0 = time.time()
     n_workers = max_workers or max(1, mp.cpu_count() - 1)

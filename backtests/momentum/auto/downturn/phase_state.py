@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from pathlib import Path
 
-from research.backtests.shared.auto.phase_state import (
+from backtests.shared.auto.phase_state import (
     PhaseState as _SharedPhaseState,
     _NumpySafeEncoder,
     _atomic_write_json,

@@ -118,6 +118,8 @@ class PositionState:
     peak_mfe_r: float = 0.0        # max favorable R excursion (for early kill)
     peak_mae_r: float = 0.0        # worst adverse excursion in R-multiples (always >= 0)
     early_warning_bar: int = -1    # bar when early kill warning first triggered (-1 = none)
+    late_trail_active: bool = False    # True once peak_mfe_r crossed LATE_TRAIL_ACTIVATE_R
+    late_trail_be_done: bool = False   # True once stop moved to BE via late trail
     session_transitions_log: list = field(default_factory=list)
 
 

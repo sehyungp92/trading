@@ -320,14 +320,14 @@ strategies:
     asset_class: futures
     symbols: [MNQ]
     risk:
-      unit_risk_dollars: 50.0
+      unit_risk_dollars: 200.0
       daily_stop_R: 2.5
       max_working_orders: 2
       max_heat_R: 3.50
       portfolio_daily_stop_R: 1.5
       priority: 0
     allocation:
-      base_risk_pct: 0.01
+      base_risk_pct: 0.02
     dashboard_metadata:
       system_label: "Momentum Trader"
       short_label: "MOMO"
@@ -343,7 +343,7 @@ strategies:
     module_path: "strategies.momentum.downturn.plugin"
 
     enabled: true
-    paper_mode: true
+    paper_mode: false
     asset_class: futures
     symbols: [MNQ]
     engine_config:
@@ -362,7 +362,7 @@ strategies:
       system_label: "Momentum Trader"
       short_label: "MOMO"
       color_key: "orange"
-    deployment_tags: [paper, momentum]
+    deployment_tags: [live, paper, momentum]
 
   BRS_R9:
     strategy_id: BRS_R9

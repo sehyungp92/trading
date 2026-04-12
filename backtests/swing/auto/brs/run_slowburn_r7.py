@@ -5,7 +5,7 @@ Goal: reduce detection_latency_days and increase crisis_coverage
 without breaching R6 performance thresholds.
 
 Usage:
-    python research/backtests/swing/auto/brs/run_slowburn_r7.py
+    python backtests/swing/auto/brs/run_slowburn_r7.py
 """
 from __future__ import annotations
 
@@ -18,13 +18,13 @@ from dataclasses import asdict
 from pathlib import Path
 
 # Aliases must be installed before any backtest imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[5]))
-from research.backtests.swing._aliases import install
+sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+from backtests.swing._aliases import install
 install()
 
-from research.backtests.swing.auto.brs.experiment_categories import get_category_experiments
-from research.backtests.swing.auto.brs.greedy_optimize import run_greedy, save_greedy_result
-from research.backtests.swing.auto.brs.scoring import extract_brs_metrics
+from backtests.swing.auto.brs.experiment_categories import get_category_experiments
+from backtests.swing.auto.brs.greedy_optimize import run_greedy, save_greedy_result
+from backtests.swing.auto.brs.scoring import extract_brs_metrics
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "output"
 PHASE_STATE_PATH = OUTPUT_DIR / "phase_state.json"
@@ -80,7 +80,7 @@ def run_final_diagnostics(mutations: dict, label: str) -> dict:
     """Run backtest with given mutations and return metrics dict."""
     from backtest.config_brs import BRSConfig
     from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_independent
-    from research.backtests.swing.auto.brs.config_mutator import mutate_brs_config
+    from backtests.swing.auto.brs.config_mutator import mutate_brs_config
 
     equity = 100_000.0
     config = BRSConfig(initial_equity=equity, data_dir=DATA_DIR)

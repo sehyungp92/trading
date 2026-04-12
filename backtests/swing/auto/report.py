@@ -5,9 +5,9 @@ import re
 from collections import defaultdict
 from datetime import datetime
 
-from research.backtests.swing.auto.experiments import Experiment
-from research.backtests.swing.auto.results_tracker import ExperimentResult
-from research.backtests.swing.auto.scoring import CompositeScore
+from backtests.swing.auto.experiments import Experiment
+from backtests.swing.auto.results_tracker import ExperimentResult
+from backtests.swing.auto.scoring import CompositeScore
 
 
 def generate_report(

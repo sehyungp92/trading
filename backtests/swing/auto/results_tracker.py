@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from research.backtests.swing.auto.robustness import RobustnessReport
-    from research.backtests.swing.auto.scoring import CompositeScore
+    from backtests.swing.auto.robustness import RobustnessReport
+    from backtests.swing.auto.scoring import CompositeScore
 
 logger = logging.getLogger(__name__)
 

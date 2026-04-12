@@ -149,6 +149,16 @@ class InstrumentationManager:
         """Subscribe to OMS events and start background tasks."""
         if self._running:
             return
+
+        # Enforce HMAC auth in paper/live — match stock bootstrap behavior
+        from libs.oms.persistence.db_config import get_environment
+        env = get_environment()
+        if env in ("paper", "live") and not self.sidecar.hmac_secret:
+            raise RuntimeError(
+                f"HMAC secret is required in {env} mode. "
+                f"Set INSTRUMENTATION_HMAC_SECRET environment variable."
+            )
+
         self._running = True
 
         try:
@@ -278,7 +288,7 @@ class InstrumentationManager:
                 order_type=payload.get("order_type", ""),
                 status=status_label,
                 requested_qty=payload.get("qty", 0),
-                reject_reason=payload.get("rejection_reason", ""),
+                reject_reason=payload.get("reject_reason", ""),
                 strategy_type=self._config.get("strategy_type", ""),
                 exchange_timestamp=event.timestamp,
             )

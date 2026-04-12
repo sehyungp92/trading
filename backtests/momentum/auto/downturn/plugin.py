@@ -6,12 +6,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from research.backtests.momentum.analysis.downturn_diagnostics import DownturnMetrics
+    from backtests.momentum.analysis.downturn_diagnostics import DownturnMetrics
     from .scoring import DownturnCompositeScore
 
-from research.backtests.shared.auto.phase_state import PhaseState
-from research.backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
-from research.backtests.shared.auto.plugin_utils import (
+from backtests.shared.auto.phase_state import PhaseState
+from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
     deserialize_experiments,
@@ -20,7 +20,7 @@ from research.backtests.shared.auto.plugin_utils import (
     resolve_worker_processes,
     seen_experiment_names,
 )
-from research.backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion, PhaseDecision
+from backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion, PhaseDecision
 
 from .phase_candidates import get_phase_candidates
 
@@ -270,15 +270,15 @@ class DownturnPlugin:
         return CachedBatchEvaluator(raw)
 
     def compute_final_metrics(self, mutations: dict[str, Any]) -> dict[str, float]:
-        from research.backtests.momentum._aliases import install
+        from backtests.momentum._aliases import install
 
         install()
 
         from backtest.config_downturn import DownturnBacktestConfig
         from backtest.engine.downturn_engine import DownturnEngine
-        from research.backtests.momentum.analysis.downturn_diagnostics import compute_downturn_metrics
-        from research.backtests.momentum.auto.downturn.config_mutator import mutate_downturn_config
-        from research.backtests.momentum.auto.downturn.worker import load_worker_data
+        from backtests.momentum.analysis.downturn_diagnostics import compute_downturn_metrics
+        from backtests.momentum.auto.downturn.config_mutator import mutate_downturn_config
+        from backtests.momentum.auto.downturn.worker import load_worker_data
 
         if self._cached_data is None:
             self._cached_data = load_worker_data("NQ", self.data_dir)
@@ -595,7 +595,7 @@ class DownturnPlugin:
 
 
 def _metrics_from_dict(metrics: dict[str, float]) -> DownturnMetrics:
-    from research.backtests.momentum.analysis.downturn_diagnostics import DownturnMetrics
+    from backtests.momentum.analysis.downturn_diagnostics import DownturnMetrics
 
     fields = DownturnMetrics.__dataclass_fields__
     payload = {}

@@ -2,9 +2,9 @@
 
 Usage:
     cd trading
-    python -u research/backtests/momentum/auto/run_full_pipeline.py
-    python -u research/backtests/momentum/auto/run_full_pipeline.py --phase strategy-greedy
-    python -u research/backtests/momentum/auto/run_full_pipeline.py --phase portfolio-greedy
+    python -u backtests/momentum/auto/run_full_pipeline.py
+    python -u backtests/momentum/auto/run_full_pipeline.py --phase strategy-greedy
+    python -u backtests/momentum/auto/run_full_pipeline.py --phase portfolio-greedy
 
 Five phases (hierarchical — strategies first, then portfolio):
   Phase 1: Run all ~420 experiments (strategy-level + portfolio-level)
@@ -23,27 +23,27 @@ from pathlib import Path
 import numpy as np
 
 # Project root
-ROOT = Path(__file__).resolve().parents[5]
+ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT))
 
 # Install momentum aliases before any backtest imports
-from research.backtests.momentum._aliases import install
+from backtests.momentum._aliases import install
 install()
 
-from research.backtests.momentum.auto.harness import MomentumAutoHarness
-from research.backtests.momentum.auto.experiments import build_experiment_queue
-from research.backtests.momentum.auto.greedy_optimize import (
+from backtests.momentum.auto.harness import MomentumAutoHarness
+from backtests.momentum.auto.experiments import build_experiment_queue
+from backtests.momentum.auto.greedy_optimize import (
     PORTFOLIO_CANDIDATES,
     convert_experiment_to_portfolio_mutation,
     run_greedy,
     run_strategy_greedy,
     save_result,
 )
-from research.backtests.momentum.auto.scoring import composite_score, extract_metrics
+from backtests.momentum.auto.scoring import composite_score, extract_metrics
 
 _DEFAULT_EQUITY = 10_000.0
-_DEFAULT_DATA_DIR = ROOT / "research" / "backtests" / "momentum" / "data" / "raw"
-OUTPUT_DIR = ROOT / "research" / "backtests" / "momentum" / "auto" / "output"
+_DEFAULT_DATA_DIR = ROOT / "backtests" / "momentum" / "data" / "raw"
+OUTPUT_DIR = ROOT / "backtests" / "momentum" / "auto" / "output"
 
 # Module-level state set by main() for use by phase functions
 EQUITY = _DEFAULT_EQUITY
@@ -155,7 +155,7 @@ def _phase_2_strategy_greedy(max_workers: int | None) -> None:
     print("PHASE 2: Per-strategy greedy optimization")
     print("=" * 70)
 
-    from research.backtests.momentum.auto.results_tracker import ResultsTracker
+    from backtests.momentum.auto.results_tracker import ResultsTracker
 
     tracker = ResultsTracker(OUTPUT_DIR)
     results = tracker.load_all()
@@ -249,7 +249,7 @@ def _phase_3_portfolio_greedy(max_workers: int | None) -> None:
             print(f"    {key}: {val}")
 
     # Build portfolio candidates: default PORTFOLIO_CANDIDATES + positive portfolio experiments
-    from research.backtests.momentum.auto.results_tracker import ResultsTracker
+    from backtests.momentum.auto.results_tracker import ResultsTracker
 
     tracker = ResultsTracker(OUTPUT_DIR)
     results = tracker.load_all()
@@ -334,26 +334,26 @@ def _phase_4_diagnostics() -> None:
 
 def _run_optimal_diagnostics(mutations: dict) -> None:
     """Run the optimal portfolio config and generate full diagnostics."""
-    from research.backtests.momentum.auto.config_mutator import (
+    from backtests.momentum.auto.config_mutator import (
         extract_passthrough_mutations,
         mutate_helix_config,
         mutate_nqdtc_config,
         mutate_portfolio_config,
         mutate_vdubus_config,
     )
-    from research.backtests.momentum.cli import (
+    from backtests.momentum.cli import (
         _load_helix_data,
         _load_nqdtc_data,
         _load_vdubus_data,
     )
-    from research.backtests.momentum.config_helix import Helix4BacktestConfig
-    from research.backtests.momentum.config_nqdtc import NQDTCBacktestConfig
-    from research.backtests.momentum.config_portfolio import PortfolioBacktestConfig
-    from research.backtests.momentum.config_vdubus import VdubusBacktestConfig
-    from research.backtests.momentum.engine.helix_engine import Helix4Engine
-    from research.backtests.momentum.engine.nqdtc_engine import NQDTCEngine
-    from research.backtests.momentum.engine.portfolio_engine import PortfolioBacktester
-    from research.backtests.momentum.engine.vdubus_engine import VdubusEngine
+    from backtests.momentum.config_helix import Helix4BacktestConfig
+    from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
+    from backtests.momentum.config_portfolio import PortfolioBacktestConfig
+    from backtests.momentum.config_vdubus import VdubusBacktestConfig
+    from backtests.momentum.engine.helix_engine import Helix4Engine
+    from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
+    from backtests.momentum.engine.portfolio_engine import PortfolioBacktester
+    from backtests.momentum.engine.vdubus_engine import VdubusEngine
 
     print("  Loading data for diagnostics...")
     helix_data = _load_helix_data("NQ", DATA_DIR)
@@ -392,7 +392,7 @@ def _run_optimal_diagnostics(mutations: dict) -> None:
         daily_es_idx_map=nqdtc_data.get("daily_es_idx_map"),
     )
 
-    from research.backtests.momentum.config_vdubus import VdubusAblationFlags
+    from backtests.momentum.config_vdubus import VdubusAblationFlags
     vdubus_cfg = VdubusBacktestConfig(
         initial_equity=EQUITY, fixed_qty=10,
         flags=VdubusAblationFlags(heat_cap=False, viability_filter=False),
@@ -457,7 +457,7 @@ def _run_optimal_diagnostics(mutations: dict) -> None:
 
 def _save_experiment_summary() -> None:
     """Save a summary of all experiment results as JSON."""
-    from research.backtests.momentum.auto.results_tracker import ResultsTracker
+    from backtests.momentum.auto.results_tracker import ResultsTracker
 
     tracker = ResultsTracker(OUTPUT_DIR)
     results = tracker.load_all()

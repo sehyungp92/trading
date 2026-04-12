@@ -69,13 +69,14 @@ class AccountRiskGate:
                     await conn.execute("SELECT pg_advisory_xact_lock($1)", _LOCK_KEY)
 
                     # 2. Read aggregate open risk across ALL families
+                    # Use explicit ET trade date — not CURRENT_DATE which depends on DB timezone setting
                     row = await conn.fetchrow(
                         """
                         SELECT
                             COALESCE(SUM(portfolio_open_risk_r), 0) AS total_open_risk_r,
                             COALESCE(SUM(daily_realized_r), 0) AS total_daily_realized_r
                         FROM risk_daily_portfolio
-                        WHERE trade_date = CURRENT_DATE
+                        WHERE trade_date = (now() AT TIME ZONE 'America/New_York')::date
                         """
                     )
                     total_open_risk = float(row["total_open_risk_r"])

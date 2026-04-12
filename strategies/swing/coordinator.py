@@ -583,12 +583,14 @@ class SwingFamilyCoordinator:
             except asyncio.CancelledError:
                 return
             rs = getattr(self._oms, "_portfolio_risk_state", None)
+            srs = getattr(self._oms, "_strategy_risk_states", {})
             for sid, _engine in self._engines:
                 try:
+                    sr = srs.get(sid)
                     await heartbeat.strategy_heartbeat(
                         strategy_id=sid,
-                        heat_r=Decimal(str(rs.open_risk_R)) if rs else Decimal("0"),
-                        daily_pnl_r=Decimal(str(rs.daily_realized_R)) if rs else Decimal("0"),
+                        heat_r=Decimal(str(sr.open_risk_R)) if sr else Decimal("0"),
+                        daily_pnl_r=Decimal(str(sr.daily_realized_R)) if sr else Decimal("0"),
                         mode="HALTED" if (rs and rs.halted) else "RUNNING",
                     )
                 except Exception:

@@ -5,12 +5,12 @@ catastrophic cap, break-even, profit floor, stale, time decay.
 """
 from __future__ import annotations
 
-from research.backtests.swing.engine.brs_models import (
+from backtests.swing.engine.brs_models import (
     BRSRegime,
     Direction,
     ExitReason,
 )
-from research.backtests.swing.config_brs import BRSSymbolConfig
+from backtests.swing.config_brs import BRSSymbolConfig
 
 
 # ---------------------------------------------------------------------------

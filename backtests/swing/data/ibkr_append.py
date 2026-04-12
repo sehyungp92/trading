@@ -2,7 +2,7 @@
 
 Requires IB Gateway or TWS running on localhost:7496.
 
-Usage: python -m research.backtests.swing.data.ibkr_append [--port 7496]
+Usage: python -m backtests.swing.data.ibkr_append [--port 7496]
 
 Loads existing parquet files, determines the last timestamp, downloads
 incremental data from IBKR, and appends. Uses the same download
@@ -19,8 +19,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from research.backtests.swing.data.cache import bar_path, load_bars, save_bars
-from research.backtests.swing.data.downloader import (
+from backtests.swing.data.cache import bar_path, load_bars, save_bars
+from backtests.swing.data.downloader import (
     _bars_to_df,
     _build_stock,
     _request_with_retry,

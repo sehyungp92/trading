@@ -375,3 +375,46 @@ def shock_stop_tighten(pos: PositionState) -> float:
     if pos.direction == Direction.LONG:
         return max(pos.stop_price, pos.entry_price)
     return min(pos.stop_price, pos.entry_price)
+
+
+# ---------------------------------------------------------------------------
+# Late Trail (v4.4) -- independent late-activation trailing stop
+# ---------------------------------------------------------------------------
+
+def compute_late_trail_stop(
+    pos: PositionState, highs_15m: np.ndarray, lows_15m: np.ndarray,
+    atr15: float, current_price: float, sub_window: str = "CORE",
+) -> float:
+    """Late-activation trailing stop (tighten-only, wide multiplier).
+
+    Independent of plus_1r_partial. Activated once peak_mfe_r crosses
+    LATE_TRAIL_ACTIVATE_R. Uses staged tightening: wide until TIGHTEN_R,
+    then progressively tighter toward MULT_MIN.
+    """
+    if pos.r_points <= 0 or pos.qty_open <= 0:
+        return pos.stop_price
+
+    if pos.direction == Direction.LONG:
+        unreal_pts = current_price - pos.entry_price
+    else:
+        unreal_pts = pos.entry_price - current_price
+    r_now = unreal_pts / pos.r_points
+
+    # Staged: wide until TIGHTEN_R, then progressively tighter
+    if r_now < C.LATE_TRAIL_TIGHTEN_R:
+        trail_mult = C.LATE_TRAIL_MULT
+    else:
+        trail_mult = max(
+            C.LATE_TRAIL_MULT_MIN,
+            C.LATE_TRAIL_MULT - (r_now - C.LATE_TRAIL_TIGHTEN_R) / C.LATE_TRAIL_TIGHTEN_DIVISOR,
+        )
+
+    trail_mult *= C.LATE_TRAIL_WINDOW_MULT.get(sub_window, 1.0)
+    lb = min(C.LATE_TRAIL_LOOKBACK, len(highs_15m))
+
+    if pos.direction == Direction.LONG:
+        hh = float(np.nanmax(highs_15m[-lb:]))
+        return max(pos.stop_price, hh - trail_mult * atr15)
+    else:
+        ll = float(np.nanmin(lows_15m[-lb:]))
+        return min(pos.stop_price, ll + trail_mult * atr15)

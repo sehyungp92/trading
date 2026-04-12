@@ -45,12 +45,13 @@ BLOCK_06_ET = True   # P5: block all entries during the 06:00 ET hour (pre-Europ
 BLOCK_09_ET = True   # block all entries during the 09:00 ET hour (RTH open whipsaw)
 BLOCK_12_ET = True   # block all entries during the 12:00 ET hour (17% WR, outlier-dependent)
 BLOCK_THURSDAY = False  # tested: blocks 54 trades, -$11.6k PnL, Sharpe -0.03
+BLOCK_ETH_SHORTS = True   # exit-opt: ETH short entries have negative expectancy
 
 # ---------------------------------------------------------------------------
 # Risk (Section 3)
 # ---------------------------------------------------------------------------
-RISK_PCT = 0.0080           # 1R = 0.80% of equity (portfolio v4)
-BASE_RISK_PCT = 0.0080
+RISK_PCT = 0.015            # exit-opt: 1.5% risk yields 2-4 contracts on $10K (was 0.80%)
+BASE_RISK_PCT = 0.015
 
 # Costs (Section 3.2)
 COMMISSION_RT = {"NQ": 4.12, "MNQ": 1.64}
@@ -134,7 +135,7 @@ INVALIDATION_CONSEC_INSIDE = 3
 # ---------------------------------------------------------------------------
 # Evidence scorecard (Section 13)
 # ---------------------------------------------------------------------------
-SCORE_NORMAL = 1.5   # nqdtc_v4 step 3: was 2.0 — +0.011 correlation, shadow shows 132.8 EV missed
+SCORE_NORMAL = 0.5   # exit-opt: lowered from 1.5 — allows more entries previously filtered
 SCORE_DEGRADED = 2.5
 RVOL_SCORE_THRESH = 1.2
 
@@ -196,9 +197,9 @@ MM_DURATION_MAX = 1.4
 # nqdtc_v4 step 6: collapse TP2/TP3 — chandelier runner captures post-TP1 at +1.928 avg R
 # Caution (TP1+runner) was +0.847R; Neutral/Aligned had TP2 diluting runner gains
 EXIT_TIERS = {
-    "Aligned": [(1.5, 0.25)],   # unchanged
-    "Neutral":  [(1.5, 0.25)],   # TP1 frac 0.30→0.25, runner 75% (keep more on runner)
-    "Caution":  [(1.5, 0.25)],   # TP1 frac 0.30→0.25, runner 75%
+    "Aligned": [(1.056, 0.25), (5.0, 0.25)],   # exit-opt: early TP1 + distant TP2 lottery
+    "Neutral":  [(1.056, 0.25), (5.0, 0.25)],   # remaining 50% trails with chandelier
+    "Caution":  [(1.056, 0.25), (5.0, 0.25)],   # TP1 locks 25%, TP2 captures massive runs
 }
 
 # Profit-funded
@@ -209,8 +210,8 @@ BE_BUFFER_ATR_5M = 0.05
 EARLY_BE_MFE_R = 0.8             # disabled via flag — clips winners that retrace before running
 
 # Post-TP1 ratchet floor (Section 17.4b)
-RATCHET_LOCK_PCT = 0.25          # lock 25% of peak R once threshold reached
-RATCHET_THRESHOLD_R = 1.5        # start ratcheting when peak_r_initial >= this
+RATCHET_LOCK_PCT = 0.35          # exit-opt: lock 35% of peak R (was 25%)
+RATCHET_THRESHOLD_R = 1.0        # exit-opt: ratchet activates earlier (was 1.5R)
 
 # Post-TP1 chandelier tightening (Improvement 4 — REVERTED: cut winners too aggressively)
 CHANDELIER_POST_TP1_MULT_DECAY = 0.0    # disabled
@@ -219,12 +220,21 @@ CHANDELIER_POST_TP1_FLOOR_MULT = 1.2    # minimum chandelier mult after decay
 # Runner chandelier (Section 17.5, Phase 3.3: tightened early tiers)
 CHANDELIER_TIERS = [
     # (min_R, max_R, mm_reached, lookback, mult)
-    (0.0, 1.5, False, 10, 2.5),    # tightened from (0,2,12,3.0)
-    (1.5, 3.0, False,  8, 2.0),    # new intermediate tier
-    (3.0, 4.0, False,  8, 1.8),    # adjusted from (2,4,10,2.2)
-    (4.0, 999, False,  8, 1.8),
-    (4.0, 999, True,   6, 1.2),
+    (0.0, 1.5, False, 10, 3.0),    # exit-opt: wider early trail (was 2.5)
+    (1.5, 3.0, False,  8, 2.2),    # exit-opt: slightly wider mid (was 2.0)
+    (3.0, 4.0, False,  8, 1.6),    # exit-opt: tighter high-R (was 1.8)
+    (4.0, 999, False,  8, 1.3),    # exit-opt: tighter 4R+ (was 1.8)
+    (4.0, 999, True,   6, 1.0),    # exit-opt: very tight MM capture (was 1.2)
 ]
+
+# Per-tier chandelier multiplier overrides (adaptive exit)
+# 0 = use flat CHANDELIER_ATR_MULT or tier default
+CHANDELIER_TIER0_MULT = 0.0   # R < 1.5 (default 3.0)
+CHANDELIER_TIER1_MULT = 0.0   # 1.5-3R (default 2.2)
+CHANDELIER_TIER2_MULT = 0.0   # 3-4R (default 1.6)
+CHANDELIER_TIER3_MULT = 0.0   # 4R+ (default 1.3)
+CHANDELIER_TIER4_MULT = 0.0   # 4R+ MM (default 1.0)
+CHANDELIER_GRACE_BARS_30M = 0  # min bars before chandelier activates (0=immediate)
 
 # Stale exit (Section 17.6)
 STALE_BARS_NORMAL = 20       # 30m bars (10h)
@@ -302,6 +312,17 @@ EMA50_PERIOD = 50
 ADX_PERIOD = 14
 ATR14_1H_PERIOD = 14
 ATR14_5M_PERIOD = 14
+
+# ---------------------------------------------------------------------------
+# Auto-optimization param_overrides defaults (Prereq 4)
+# ---------------------------------------------------------------------------
+MIN_INTER_TRADE_GAP_MINUTES = 0      # disabled by default (minutes between entries)
+ETH_SHORT_SIZE_MULT = 1.0            # no reduction by default (ETH short sizing)
+MIN_BOX_WIDTH = 180                  # exit-opt: reject narrow boxes < 180 pts (noise)
+MAX_BOX_WIDTH = 99999                # no filter by default (box width gate)
+LOSS_STREAK_THRESHOLD = 3            # consecutive losses before cooldown
+LOSS_STREAK_SKIP_BARS = 6            # 5m bars to skip after streak (6 = 30 min)
+PROFIT_BE_R = 0.0                    # BE trigger R (0 = on TP1 fill, current behavior)
 
 # ---------------------------------------------------------------------------
 # Persistence (Section 20)

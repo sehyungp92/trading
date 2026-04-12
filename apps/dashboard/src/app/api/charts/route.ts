@@ -13,13 +13,13 @@ export async function GET() {
            daily_realized_r,
            SUM(daily_realized_r) OVER (ORDER BY trade_date) AS cumulative_r
          FROM v_portfolio_daily_summary
-         WHERE trade_date >= CURRENT_DATE - INTERVAL '90 days'
+         WHERE trade_date >= (now() AT TIME ZONE 'America/New_York')::date - INTERVAL '90 days'
          ORDER BY trade_date`
       ),
       query<DailyPnlPoint>(
         `SELECT trade_date, daily_realized_r
          FROM v_portfolio_daily_summary
-         WHERE trade_date >= CURRENT_DATE - INTERVAL '30 days'
+         WHERE trade_date >= (now() AT TIME ZONE 'America/New_York')::date - INTERVAL '30 days'
          ORDER BY trade_date`
       ),
     ]);

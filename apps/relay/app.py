@@ -5,6 +5,7 @@ import asyncio
 import gzip
 import json
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -80,11 +81,24 @@ def create_relay_app(
     import time as _time
     _start_mono = _time.monotonic()
 
-    if not api_key:
+    trading_env = os.environ.get("TRADING_ENV", "dev")
+    if not api_key and trading_env in ("paper", "live"):
+        logger.warning(
+            "RELAY_API_KEY not set in %s mode — read/admin endpoints are unauthenticated. "
+            "Set RELAY_API_KEY for production security.",
+            trading_env,
+        )
+    elif not api_key:
         logger.warning("No api_key configured — read/admin endpoints are unauthenticated")
 
     store = EventStore(db_path=db_path)
     auth = HMACAuth(shared_secrets=shared_secrets)
+    if not auth.enabled and trading_env in ("paper", "live"):
+        logger.warning(
+            "RELAY_SHARED_SECRETS empty in %s mode — ingest endpoint accepts unsigned events. "
+            "Set RELAY_SHARED_SECRETS for production security.",
+            trading_env,
+        )
     limiter = RateLimiter(max_requests=max_requests_per_minute)
 
     @asynccontextmanager
@@ -246,10 +260,9 @@ def create_relay_app(
 
 
 # Module-level instance for uvicorn (CMD: uvicorn apps.relay.app:app)
-import os as _os
 
 app = create_relay_app(
-    db_path=_os.environ.get("RELAY_DB_PATH", "data/relay.db"),
-    shared_secrets=json.loads(_os.environ.get("RELAY_SHARED_SECRETS", "{}")),
-    api_key=_os.environ.get("RELAY_API_KEY", ""),
+    db_path=os.environ.get("RELAY_DB_PATH", "data/relay.db"),
+    shared_secrets=json.loads(os.environ.get("RELAY_SHARED_SECRETS", "{}")),
+    api_key=os.environ.get("RELAY_API_KEY", ""),
 )

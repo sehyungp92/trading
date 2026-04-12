@@ -94,18 +94,13 @@ class _AliasLoader:
         # The recursion guard in find_spec() is sufficient to prevent loops.
         real_mod = importlib.import_module(self._real_name)
 
-        # Preserve alias identity before copying real module attributes
-        alias_spec = module.__spec__
-
-        # Copy all attributes from the real module into our alias module
-        module.__dict__.update(real_mod.__dict__)
-        module.__name__ = self._alias_name
-        module.__loader__ = self
-        module.__spec__ = alias_spec
-
-        # Ensure the real name also resolves
+        # Register both alias and real names to the SAME module object.
+        # This is critical: strategy code uses relative imports (from . import config)
+        # which resolve to the real module, while engine code uses aliased imports
+        # (from strategy_2 import config).  If these are different objects, setattr
+        # on one (e.g. param_overrides patching) won't affect the other.
         sys.modules[self._real_name] = real_mod
-        sys.modules[self._alias_name] = module
+        sys.modules[self._alias_name] = real_mod
 
         # Register ancestor aliases so "from strategy.config import X" works
         parts = self._alias_name.split(".")

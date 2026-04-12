@@ -5,9 +5,9 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from research.backtests.shared.auto.phase_state import PhaseState
-from research.backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
-from research.backtests.shared.auto.plugin_utils import (
+from backtests.shared.auto.phase_state import PhaseState
+from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
     deserialize_experiments,
@@ -16,7 +16,7 @@ from research.backtests.shared.auto.plugin_utils import (
     resolve_worker_processes,
     seen_experiment_names,
 )
-from research.backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion, PhaseDecision
+from backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion, PhaseDecision
 
 from .phase_candidates import get_phase_candidates
 from .scoring import BRSMetrics, BRSCompositeScore, composite_score
@@ -259,15 +259,15 @@ class BRSPlugin:
         return CachedBatchEvaluator(raw)
 
     def compute_final_metrics(self, mutations: dict[str, Any]) -> dict[str, float]:
-        from research.backtests.swing._aliases import install
+        from backtests.swing._aliases import install
 
         install()
 
         from backtest.config_brs import BRSConfig
         from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_independent
-        from research.backtests.swing.analysis.brs_diagnostics import compute_brs_diagnostics
-        from research.backtests.swing.auto.brs.config_mutator import mutate_brs_config
-        from research.backtests.swing.auto.brs.scoring import extract_brs_metrics
+        from backtests.swing.analysis.brs_diagnostics import compute_brs_diagnostics
+        from backtests.swing.auto.brs.config_mutator import mutate_brs_config
+        from backtests.swing.auto.brs.scoring import extract_brs_metrics
 
         config = mutate_brs_config(
             BRSConfig(initial_equity=self.initial_equity, data_dir=self.data_dir),

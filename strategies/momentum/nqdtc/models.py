@@ -285,6 +285,7 @@ class PositionState:
     bars_since_tp1: int = -1  # -1 = TP1 not yet hit; 0+ = bars since TP1 fill
     peak_r_initial: float = 0.0   # peak R using initial_stop_price as denominator
     early_be_triggered: bool = False  # True once pre-TP1 BE has been applied
+    stop_source: str = "INITIAL"  # tracks last stop update source for exit reason
 
 
 # ---------------------------------------------------------------------------

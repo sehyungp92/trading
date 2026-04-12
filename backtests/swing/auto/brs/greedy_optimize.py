@@ -48,7 +48,7 @@ def _init_worker(
     if sys.stdout.encoding != "utf-8":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-    from research.backtests.swing._aliases import install
+    from backtests.swing._aliases import install
     install()
 
     from backtest.config_brs import BRSConfig
@@ -79,9 +79,9 @@ def _worker_score(args: tuple) -> tuple[str, float, bool, str]:
         from dataclasses import replace
         from backtest.config_brs import BRSConfig
         from backtest.engine.brs_portfolio_engine import run_brs_independent
-        from research.backtests.swing.auto.brs.config_mutator import mutate_brs_config
-        from research.backtests.swing.auto.brs.scoring import extract_brs_metrics
-        from research.backtests.swing.auto.brs.phase_scoring import score_phase
+        from backtests.swing.auto.brs.config_mutator import mutate_brs_config
+        from backtests.swing.auto.brs.scoring import extract_brs_metrics
+        from backtests.swing.auto.brs.phase_scoring import score_phase
 
         # Merge base + candidate mutations
         all_muts = dict(base_muts)
@@ -94,7 +94,7 @@ def _worker_score(args: tuple) -> tuple[str, float, bool, str]:
         if _worker_phase > 0:
             score = score_phase(_worker_phase, metrics, _worker_scoring_weights)
         else:
-            from research.backtests.swing.auto.brs.scoring import composite_score
+            from backtests.swing.auto.brs.scoring import composite_score
             score = composite_score(metrics)
 
         if score.rejected:
@@ -196,15 +196,15 @@ def run_greedy(
     if verbose:
         print("Scoring baseline...")
 
-    from research.backtests.swing._aliases import install
+    from backtests.swing._aliases import install
     install()
 
     from backtest.config_brs import BRSConfig
     from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_independent
-    from research.backtests.swing.auto.brs.config_mutator import mutate_brs_config
-    from research.backtests.swing.auto.brs.scoring import extract_brs_metrics
-    from research.backtests.swing.auto.brs.phase_scoring import score_phase
-    from research.backtests.swing.auto.brs.scoring import composite_score as base_composite
+    from backtests.swing.auto.brs.config_mutator import mutate_brs_config
+    from backtests.swing.auto.brs.scoring import extract_brs_metrics
+    from backtests.swing.auto.brs.phase_scoring import score_phase
+    from backtests.swing.auto.brs.scoring import composite_score as base_composite
 
     base_config = BRSConfig(initial_equity=initial_equity, data_dir=data_dir)
     base_config = mutate_brs_config(base_config, base_mutations)
@@ -440,7 +440,7 @@ class _NumpySafeEncoder(json.JSONEncoder):
 
 def save_greedy_result(result: GreedyResult, path: Path) -> None:
     """Save greedy result to JSON (atomic write)."""
-    from research.backtests.swing.auto.brs.phase_state import _atomic_write_json
+    from backtests.swing.auto.brs.phase_state import _atomic_write_json
     _atomic_write_json(asdict(result), path)
 
 

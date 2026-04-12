@@ -127,7 +127,7 @@ class DownturnBacktestConfig:
     )
     flags: DownturnAblationFlags = field(default_factory=DownturnAblationFlags)
     param_overrides: dict[str, float] = field(default_factory=dict)
-    data_dir: Path = field(default_factory=lambda: Path("research/backtests/momentum/data/raw"))
+    data_dir: Path = field(default_factory=lambda: Path("backtests/momentum/data/raw"))
     track_signals: bool = True
     warmup_days: int = 60
 

@@ -279,9 +279,10 @@ DAILY_STOP_R: float = -2.5
 CONSEC_STOPS_HALVE: int = 3
 
 # ---------------------------------------------------------------------------
-# ADX (kept for indicator computation, not used as gate)
+# ADX
 # ---------------------------------------------------------------------------
 ADX_PERIOD: int = 14
+ADX_UPPER_GATE: float = 40.0          # R1: block overextended trends (ADX > 40)
 
 # ---------------------------------------------------------------------------
 # 4H regime EMAs (kept for regime computation)
@@ -297,11 +298,22 @@ CLASS_D_MOM_LOOKBACK: int = 3
 # ---------------------------------------------------------------------------
 # Class B quality-filter parameters
 # ---------------------------------------------------------------------------
-CLASS_B_MOM_LOOKBACK: int = 3         # MACD line must trend in trade direction over N bars
+CLASS_B_MOM_LOOKBACK: int = 5         # R1: MACD line must trend in trade direction over N bars
 CLASS_B_MIN_ADX: float = 20.0         # ADX floor (unchanged)
 CLASS_B_MIN_PIVOT_SEP_BARS: int = 8   # reject micro-divergence (pivots < 8 bars apart)
-CLASS_B_BAIL_BARS: int = 8            # bail trigger: exit if R < threshold after N bars
+CLASS_B_BAIL_BARS: int = 10           # R1: bail trigger: exit if R < threshold after N bars
 CLASS_B_BAIL_R_THRESH: float = -0.5   # bail trigger: minimum R to avoid early exit
+
+# ---------------------------------------------------------------------------
+# Class C min hold (spec s10.4)
+# ---------------------------------------------------------------------------
+CLASS_C_MIN_HOLD_BARS: int = 12       # min bars before stale can trigger on Class C
+
+# ---------------------------------------------------------------------------
+# Class D bail (disabled by default; 0 = off)
+# ---------------------------------------------------------------------------
+CLASS_D_BAIL_BARS: int = 0            # set >0 to enable early bail for momentum trades
+CLASS_D_BAIL_R_THRESH: float = -0.5   # bail if R < threshold after N bars
 
 # ---------------------------------------------------------------------------
 # Size multipliers — Class A (spec s10.1) and Class D (spec s10.5)
@@ -317,6 +329,9 @@ CLASS_C_SIZE_COUNTER: float = 0.85 # 4H classic div reversal, countertrend (reve
 CLASS_C_SIZE_TREND: float = 0.40   # 4H classic div reversal, trend-aligned (fading trend)
 CLASS_D_SIZE_TREND: float = 0.80   # 1H no-div momentum, trend-only
 
+# R1: Class A (4H hidden div) disabled -- zero value in 8-phase optimization
+DISABLE_CLASS_A: bool = True
+
 # ---------------------------------------------------------------------------
 # Divergence magnitude filter (spec s9)
 # ---------------------------------------------------------------------------
@@ -331,6 +346,7 @@ DIV_MAG_PERCENTILE: int = 25
 STOP_4H_MULT: float = 0.75      # spec s10.2: L2 - 0.75*ATR4H
 STOP_1H_STD: float = 0.50      # spec s10.3/10.5: L2 - 0.50*ATR1H
 STOP_1H_HIGHVOL: float = 0.75  # spec s10.3: high-vol L2 - 0.75*ATR1H
+EMERGENCY_STOP_R: float = -2.0  # catastrophic stop at -2R
 # ---------------------------------------------------------------------------
 # Execution (spec s11)
 # ---------------------------------------------------------------------------
@@ -354,14 +370,15 @@ R_BE: float = 1.0               # spec s13.2: +1R transition (4H origin)
 R_BE_1H: float = 0.75           # faster BE for 1H-origin (B/D) setups
 R_PARTIAL_2P5: float = 2.5      # spec s13.3: +2.5R partial
 R_PARTIAL_5: float = 5.0
-BE_ATR1H_OFFSET: float = 0.15
-PARTIAL_2P5_FRAC: float = 0.50  # spec s13.3: sell 50% at +2.5R
+BE_ATR1H_OFFSET: float = 0.24
+PARTIAL_2P5_FRAC: float = 0.72  # R2: sell 72% at +2.5R
 PARTIAL_5_FRAC: float = 0.25    # spec s13.4: exit 25% at +5R
 PARTIAL_5_TRAIL_BONUS: float = 0.5
 
 # ---------------------------------------------------------------------------
 # Stale exit (spec s13)
 # ---------------------------------------------------------------------------
+EARLY_STALE_BARS: int = 20        # early stale exit threshold (bars)
 STALE_1H_BARS: int = 30           # reduced stale timeout for 1H-origin
 STALE_4H_BARS: int = 15           # spec s13.5: 4H-origin stale after 15 4H bars
 STALE_R_THRESH: float = 0.5       # spec s13.5: stale if R_state < +0.5
@@ -381,18 +398,54 @@ TRAIL_MOM_BONUS: float = 0.5
 TRAIL_CHOP_PENALTY: float = 0.25
 TRAIL_FLIP_PENALTY: float = 0.50
 TRAIL_PROFIT_DELAY_BARS: int = 4
-TRAIL_MOM_CONT_PENALTY: float = 0.5
-CONSEC_NEG_HIST_BARS: int = 3
-TRAIL_MOM_FADE_PENALTY: float = 0.75
-TRAIL_MOM_FADE_FLOOR: float = 1.5
-TRAIL_MOM_FADE_MIN_R: float = 1.0
+
+# ---------------------------------------------------------------------------
+# Inline trailing tightening (configurable versions of hardcoded engine values)
+# ---------------------------------------------------------------------------
+# Momentum fade layer
+TRAIL_FADE_ONSET_BARS: int = 2        # negative MACD hist bars before fade triggers
+TRAIL_FADE_PENALTY: float = 0.75      # ATR mult penalty on momentum fade
+TRAIL_FADE_FLOOR: float = 1.5         # floor after momentum fade
+TRAIL_FADE_MIN_R: float = 1.0         # min R before fade can trigger
+# Time-decay layer
+TRAIL_TIMEDECAY_ONSET: int = 20       # bars at R>=1 before time decay starts
+TRAIL_TIMEDECAY_RATE: float = 0.05    # decay rate per bar beyond onset
+TRAIL_TIMEDECAY_FLOOR: float = 2.5    # floor for time-decay trail mult
+# Stall layer
+TRAIL_STALL_ONSET: int = 6            # R1: bars since MFE peak before stall penalty
+TRAIL_STALL_RATE: float = 0.08        # stall decay rate per bar
+TRAIL_STALL_FLOOR: float = 1.5        # floor for stall-decay trail mult
+
+# ---------------------------------------------------------------------------
+# R-band trailing profiles (all 0 = disabled, uses global values)
+# ---------------------------------------------------------------------------
+R_BAND_MID: float = 0.0           # R threshold for mid band (e.g., 2.0)
+R_BAND_HIGH: float = 0.0          # R threshold for high band (e.g., 5.0)
+TRAIL_BASE_LOW_R: float = 0.0     # base mult for R < R_BAND_MID
+TRAIL_R_DIV_LOW_R: float = 0.0    # R divisor for low band
+TRAIL_BASE_MID_R: float = 0.0     # base mult for R_BAND_MID <= R < R_BAND_HIGH
+TRAIL_R_DIV_MID_R: float = 0.0    # R divisor for mid band
+TRAIL_BASE_HIGH_R: float = 0.0    # base mult for R >= R_BAND_HIGH
+TRAIL_R_DIV_HIGH_R: float = 0.0   # R divisor for high band
+
+# ---------------------------------------------------------------------------
+# Class-specific trailing (all 0 = disabled, uses global values)
+# ---------------------------------------------------------------------------
+TRAIL_BASE_CLASS_D: float = 0.0
+TRAIL_R_DIV_CLASS_D: float = 0.0
+TRAIL_STALL_ONSET_CLASS_D: int = 0
+TRAIL_FADE_PENALTY_CLASS_D: float = 0.0
+TRAIL_FADE_MIN_R_CLASS_D: float = 0.0
+TRAIL_BASE_CLASS_B: float = 0.0
+TRAIL_R_DIV_CLASS_B: float = 0.0
+TRAIL_STALL_ONSET_CLASS_B: int = 0
 
 # ---------------------------------------------------------------------------
 # Adds (spec s15)
 # ---------------------------------------------------------------------------
-ADD_4H_R: float = 0.60            # lowered add threshold for 4H origin
-ADD_1H_R: float = 1.5             # spec s15.1: 1H origin add after +1.5R
-ADD_RISK_FRAC: float = 0.50
+ADD_4H_R: float = 0.4             # R1: 4H-origin add after +0.4R
+ADD_1H_R: float = 0.9             # R1: 1H-origin add after +0.9R
+ADD_RISK_FRAC: float = 1.008
 ADD_MIN_BARS: int = 4              # earliest add after 4 bars
 ADD_MAX_BARS: int = 35             # extended window (avg hold ~30 bars)
 ADD_OVERNIGHT_R: float = 2.0

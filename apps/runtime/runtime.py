@@ -21,6 +21,7 @@ from libs.config.loader import (
     load_strategy_registry,
 )
 from libs.config.registry import build_registry_artifact
+from libs.oms.persistence.db_config import get_environment
 from strategies.contracts import RuntimeContext
 
 logger = logging.getLogger(__name__)
@@ -211,11 +212,13 @@ class RuntimeShell:
         self.load()
         self._require_loaded()
 
-        enabled = self.registry.enabled_strategies(live=connect_ib)
+        runtime_env = get_environment()
+        enabled = self.registry.enabled_strategies(live=runtime_env == "live")
         logger.info(
-            "Runtime shell loaded %d enabled strategies across %d connection groups%s",
+            "Runtime shell loaded %d enabled strategies across %d connection groups (env=%s)%s",
             len(enabled),
             len(self.registry.connection_groups),
+            runtime_env,
             " in shadow mode" if shadow else "",
         )
 

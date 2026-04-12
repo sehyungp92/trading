@@ -35,6 +35,7 @@ from .config import (
     ADD_OVERNIGHT_R,
     ADD_PRICE_GATE_ATR_MULT,
     ADD_RISK_FRAC,
+    ADX_UPPER_GATE,
     BE_ATR1H_OFFSET,
     CATCHUP_OVERSHOOT_FRAC,
     CATCHUP_OVERSHOOT_OPEN_FRAC,
@@ -45,6 +46,7 @@ from .config import (
     CLASS_B_MOM_LOOKBACK,
     CONSEC_STOPS_HALVE,
     DAILY_STOP_R,
+    DISABLE_CLASS_A,
     EMA_4H_FAST,
     EMA_4H_SLOW,
     HIGH_VOL_PCT,
@@ -65,7 +67,17 @@ from .config import (
     STOP_1H_STD,
     STRATEGY_ID,
     SYMBOL_CONFIGS,
+    TRAIL_FADE_FLOOR,
+    TRAIL_FADE_MIN_R,
+    TRAIL_FADE_ONSET_BARS,
+    TRAIL_FADE_PENALTY,
     TRAIL_PROFIT_DELAY_BARS,
+    TRAIL_STALL_FLOOR,
+    TRAIL_STALL_ONSET,
+    TRAIL_STALL_RATE,
+    TRAIL_TIMEDECAY_FLOOR,
+    TRAIL_TIMEDECAY_ONSET,
+    TRAIL_TIMEDECAY_RATE,
     TTL_1H_HOURS,
     TTL_4H_HOURS,
     TTL_ADD_HOURS,
@@ -571,6 +583,15 @@ class HelixEngine:
                             signal_strength=0.5,
                             blocked_by="allocator",
                             block_reason="rejected by portfolio allocator",
+                            strategy_params={
+                                "setup_class": setup.setup_class.value,
+                                "origin_tf": setup.origin_tf,
+                                "div_mag_norm": setup.div_mag_norm,
+                                "adx": setup.adx_at_entry,
+                                "regime_4h": setup.regime_4h_at_entry,
+                                "vol_factor": setup.vol_factor_at_placement,
+                                "size_mult": setup.setup_size_mult,
+                            },
                         )
 
             for setup in accepted:
@@ -807,10 +828,14 @@ class HelixEngine:
             if sym_busy:
                 continue
 
+            # ADX upper gate: skip all setups when ADX overextended
+            if ADX_UPPER_GATE < 999 and daily.adx > ADX_UPPER_GATE:
+                continue
+
             div_hist = self.div_mag_history.setdefault(sym, [])
 
             # Class A: 4H hidden divergence continuation (only on 4H boundary)
-            if is_4h_boundary and tf4h is not None and pivots_4h is not None and not _4h_disabled_by_corridor:
+            if is_4h_boundary and tf4h is not None and pivots_4h is not None and not _4h_disabled_by_corridor and not DISABLE_CLASS_A:
                 setup_4h = signals.detect_class_a(
                     sym, pivots_4h, daily, tf4h, cfg, div_hist, now,
                 )
@@ -1473,7 +1498,7 @@ class HelixEngine:
         # Catastrophic loss protection: flatten if loss exceeds -2R
         if r_now < -2.0:
             logger.warning("%s catastrophic cap: R=%.2f < -2.0, flattening", setup.symbol, r_now)
-            await self._flatten_setup(setup)
+            await self._flatten_setup(setup, reason="CATASTROPHIC")
             return
 
         # Class B bail trigger (2H): exit early if underwater after CLASS_B_BAIL_BARS
@@ -1483,7 +1508,7 @@ class HelixEngine:
                 and not setup.trail_active):
             logger.info("%s Class B bail: %d bars, R=%.2f < %.1f",
                         setup.symbol, setup.bars_held_1h, r_now, CLASS_B_BAIL_R_THRESH)
-            await self._flatten_setup(setup)
+            await self._flatten_setup(setup, reason="CLASS_B_BAIL")
             return
 
         new_stop = setup.current_stop
@@ -1507,9 +1532,11 @@ class HelixEngine:
             )
             if setup.direction == Direction.LONG and be_stop > new_stop:
                 new_stop = be_stop
+                setup.stop_source = "BE"
                 logger.info("%s BE triggered at %.2fR → stop %.4f", setup.symbol, r_now, be_stop)
             elif setup.direction == Direction.SHORT and be_stop < new_stop:
                 new_stop = be_stop
+                setup.stop_source = "BE"
                 logger.info("%s BE triggered at %.2fR → stop %.4f", setup.symbol, r_now, be_stop)
 
         # +2.5R → partial 50% (spec s13.3)
@@ -1581,29 +1608,35 @@ class HelixEngine:
                 setup.trailing_mult_bonus,
             )
 
-            # Momentum fade tightening (simplified to match backtest)
-            if setup.bars_neg_fading_hist >= 2 and r_state > 1.0:
-                trail_mult = max(1.5, trail_mult - 0.75)
+            # Momentum fade tightening
+            if setup.bars_neg_fading_hist >= TRAIL_FADE_ONSET_BARS and r_state > TRAIL_FADE_MIN_R:
+                trail_mult = max(TRAIL_FADE_FLOOR, trail_mult - TRAIL_FADE_PENALTY)
 
-            # Time-decay trailing (change #8): after 20 bars at +1R, tighten 0.05/bar
-            if setup.bars_at_r1 > 20:
-                decay = (setup.bars_at_r1 - 20) * 0.05
-                trail_mult = max(2.5, trail_mult - decay)
+            # Time-decay trailing: after onset bars at +1R, tighten per bar
+            if setup.bars_at_r1 > TRAIL_TIMEDECAY_ONSET:
+                decay = (setup.bars_at_r1 - TRAIL_TIMEDECAY_ONSET) * TRAIL_TIMEDECAY_RATE
+                trail_mult = max(TRAIL_TIMEDECAY_FLOOR, trail_mult - decay)
 
-            # Stalled winner decay: profitable but no new MFE for 8+ bars
+            # Stalled winner decay: profitable but no new MFE for onset+ bars
             bars_since_peak = setup.bars_held_1h - setup.bar_of_max_mfe
-            if r_state > 0.5 and bars_since_peak >= 8:
-                stall_decay = min(1.0, bars_since_peak * 0.08)
-                trail_mult = max(1.5, trail_mult - stall_decay)
+            if r_state > 0.5 and bars_since_peak >= TRAIL_STALL_ONSET:
+                stall_decay = min(1.0, bars_since_peak * TRAIL_STALL_RATE)
+                trail_mult = max(TRAIL_STALL_FLOOR, trail_mult - stall_decay)
 
             chandelier = stops.compute_chandelier_stop(
                 setup.direction, tf1h.highs, tf1h.lows,
                 cfg.chandelier_lookback, tf1h.atr, trail_mult, cfg.tick_size,
             )
+            # Determine trail source for exit reason granularity
+            _trail_source = "TRAIL"
+            if bars_since_peak >= TRAIL_STALL_ONSET and r_state > 0.5:
+                _trail_source = "TRAIL_STALL"
             if setup.direction == Direction.LONG and chandelier > new_stop:
                 new_stop = chandelier
+                setup.stop_source = _trail_source
             elif setup.direction == Direction.SHORT and chandelier < new_stop:
                 new_stop = chandelier
+                setup.stop_source = _trail_source
 
         # Class C min hold: prevent premature exits before reversal develops
         class_c_min_hold = setup.setup_class == SetupClass.CLASS_C and setup.bars_held_1h < 12
@@ -1612,14 +1645,14 @@ class HelixEngine:
         if daily and not class_c_min_hold:
             if ((setup.direction == Direction.LONG and daily.regime == Regime.BEAR)
                     or (setup.direction == Direction.SHORT and daily.regime == Regime.BULL)):
-                await self._flatten_setup(setup)
+                await self._flatten_setup(setup, reason="BIAS_FLIP")
                 return
 
         # Early stale: if 20+ bars and trail never activated, flatten losers
         if setup.bars_held_1h >= 20 and not setup.trail_active and r_state < 0 and not class_c_min_hold:
             logger.info("%s early stale flatten: %d bars, R_state=%.2f, trail never activated",
                         setup.symbol, setup.bars_held_1h, r_state)
-            await self._flatten_setup(setup)
+            await self._flatten_setup(setup, reason="EARLY_STALE")
             return
 
         # Stale management (simplified to match backtest)
@@ -1628,11 +1661,11 @@ class HelixEngine:
         if bars_held >= stale_bars and r_state < STALE_R_THRESH and not class_c_min_hold:
             if r_state >= STALE_FLATTEN_R_FLOOR:
                 if not setup.trail_active:
-                    await self._flatten_setup(setup)
+                    await self._flatten_setup(setup, reason="STALE")
                     return
                 # trail active: let it tighten naturally
             else:
-                await self._flatten_setup(setup)
+                await self._flatten_setup(setup, reason="STALE")
                 return
 
         # Update stop if changed (never loosen)
@@ -1881,7 +1914,7 @@ class HelixEngine:
         except Exception as e:
             logger.warning("Error updating stop for %s: %s", setup.symbol, e)
 
-    async def _flatten_setup(self, setup: SetupInstance) -> None:
+    async def _flatten_setup(self, setup: SetupInstance, reason: str = "FLATTEN") -> None:
         """Flatten entire position + cancel pending orders."""
         inst = self._instruments.get(setup.symbol)
         if inst is None:
@@ -1929,7 +1962,7 @@ class HelixEngine:
             self._kit.log_exit(
                 trade_id=tid,
                 exit_price=exit_price,
-                exit_reason="FLATTEN",
+                exit_reason=reason,
                 mfe_price=_mfe_price,
                 mae_price=_mae_price,
                 mfe_r=setup.mfe_r_peak,
@@ -2376,7 +2409,7 @@ class HelixEngine:
                             trade_id=setup.trade_id,
                             exit_price=Decimal(str(fill_price)),
                             exit_ts=fill_time,
-                            exit_reason="STOP",
+                            exit_reason=f"STOP_{setup.stop_source}",
                             realized_r=Decimal(str(round(realized_r, 4))),
                             realized_usd=Decimal(str(round(pnl_usd, 2))),
                             duration_bars=setup.bars_held_1h,
@@ -2428,10 +2461,11 @@ class HelixEngine:
                         _pnl_pct = (setup.fill_price - fill_price) / setup.fill_price if setup.fill_price > 0 else None
                     _mfe_pct = abs(setup.mfe_r_peak * setup.r_price / setup.fill_price) if setup.fill_price > 0 and setup.r_price > 0 else None
                     _mae_pct = abs(setup.mae_r_trough * setup.r_price / setup.fill_price) if setup.fill_price > 0 and setup.r_price > 0 else None
+                    stop_reason = f"STOP_{setup.stop_source}"
                     self._kit.log_exit(
                         trade_id=tid,
                         exit_price=fill_price,
-                        exit_reason="STOP_LOSS",
+                        exit_reason=stop_reason,
                         mfe_price=_mfe_price,
                         mae_price=_mae_price,
                         mfe_r=setup.mfe_r_peak,

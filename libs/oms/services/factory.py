@@ -166,6 +166,8 @@ async def build_oms_service(
     portfolio_rules_config=None,  # Optional[PortfolioRulesConfig]
     get_current_equity: Optional[callable] = None,
     paper_equity_pool: Optional[asyncpg.Pool] = None,
+    paper_equity_scope: str = "paper",
+    paper_initial_equity: float = 10_000.0,
     halt_trading=None,  # Optional async callback
     recon_interval_s: float = 120.0,
     live_equity: Optional[list] = None,  # mutable [float] ref for live equity updates
@@ -193,6 +195,8 @@ async def build_oms_service(
         portfolio_rules_config: Optional PortfolioRulesConfig for cross-strategy rules.
         get_current_equity: Callback returning current equity (for portfolio rules).
         paper_equity_pool: Optional asyncpg pool for paper-trading equity tracking.
+        paper_equity_scope: Scope key for paper-equity persistence.
+        paper_initial_equity: Seed equity for paper-equity persistence.
         halt_trading: Optional async callback to halt trading on critical errors.
         recon_interval_s: Reconciliation interval in seconds.
 
@@ -226,7 +230,11 @@ async def build_oms_service(
     _paper_equity: list[Optional[float]] = [None]  # mutable container for closure
     if paper_equity_pool is not None:
         from libs.persistence.paper_equity import load_paper_equity
-        _paper_equity[0] = await load_paper_equity(paper_equity_pool)
+        _paper_equity[0] = await load_paper_equity(
+            paper_equity_pool,
+            account_scope=paper_equity_scope,
+            initial_equity=paper_initial_equity,
+        )
         get_current_equity = lambda: _paper_equity[0]
         # Derive actual risk pct from caller's unit_risk_dollars / current equity
         if _paper_equity[0] > 0:
@@ -311,11 +319,13 @@ async def build_oms_service(
             pos.open_risk_R for pos in positions if pos.net_qty != 0
         )
 
+    _family_sids = [strategy_id]
+
     async def _load_portfolio_risk_from_store(trade_day: date) -> None:
         if pg_store is None:
             return
 
-        today_rows = await pg_store.get_risk_daily_strategies_for_date(trade_day)
+        today_rows = await pg_store.get_risk_daily_strategies_for_date(trade_day, strategy_ids=_family_sids)
         today_portfolio_row = await pg_store.get_risk_daily_portfolio(trade_day, family_id=family_id)
 
         if today_rows:
@@ -332,7 +342,7 @@ async def build_oms_service(
             portfolio_risk_state.daily_realized_pnl = 0.0
             portfolio_risk_state.strategy_daily_pnl = {}
 
-        totals = await pg_store.get_risk_daily_strategy_totals(_week_start(trade_day), trade_day)
+        totals = await pg_store.get_risk_daily_strategy_totals(_week_start(trade_day), trade_day, strategy_ids=_family_sids)
         portfolio_risk_state.weekly_realized_R = float(totals["total_r"])
         portfolio_risk_state.weekly_realized_pnl = float(totals["total_usd"])
         if (
@@ -352,7 +362,7 @@ async def build_oms_service(
             return
         await _sync_portfolio_open_risk_from_repo()
         trade_day = portfolio_risk_state.trade_date
-        daily_rows = await pg_store.get_risk_daily_strategies_for_date(trade_day)
+        daily_rows = await pg_store.get_risk_daily_strategies_for_date(trade_day, strategy_ids=_family_sids)
         existing_row = await pg_store.get_risk_daily_portfolio(trade_day, family_id=family_id)
         await pg_store.upsert_risk_daily_portfolio(
             _build_portfolio_daily_row(
@@ -491,6 +501,9 @@ async def build_oms_service(
         paper_equity_pool=paper_equity_pool,
         strat_cfg=strat_cfg,
         db_pool=db_pool,
+        live_equity=live_equity,
+        paper_equity_scope=paper_equity_scope,
+        paper_initial_equity=paper_initial_equity,
     )
 
     # Build OMS service
@@ -664,10 +677,12 @@ async def build_multi_strategy_oms(
             pos.open_risk_R for pos in positions if pos.net_qty != 0
         )
 
+    _family_sids = [s["id"] for s in strategies]
+
     async def _load_portfolio_risk_from_store(trade_day: date) -> None:
         if pg_store is None:
             return
-        today_rows = await pg_store.get_risk_daily_strategies_for_date(trade_day)
+        today_rows = await pg_store.get_risk_daily_strategies_for_date(trade_day, strategy_ids=_family_sids)
         today_portfolio_row = await pg_store.get_risk_daily_portfolio(trade_day, family_id=family_id)
 
         if today_rows:
@@ -678,12 +693,13 @@ async def build_multi_strategy_oms(
         elif today_portfolio_row is not None:
             portfolio_risk_state.daily_realized_R = float(today_portfolio_row.daily_realized_r)
             portfolio_risk_state.daily_realized_pnl = float(today_portfolio_row.daily_realized_usd or 0)
+            portfolio_risk_state.strategy_daily_pnl = {}
         else:
             portfolio_risk_state.daily_realized_R = 0.0
             portfolio_risk_state.daily_realized_pnl = 0.0
             portfolio_risk_state.strategy_daily_pnl = {}
 
-        totals = await pg_store.get_risk_daily_strategy_totals(_week_start(trade_day), trade_day)
+        totals = await pg_store.get_risk_daily_strategy_totals(_week_start(trade_day), trade_day, strategy_ids=_family_sids)
         portfolio_risk_state.weekly_realized_R = float(totals["total_r"])
         portfolio_risk_state.weekly_realized_pnl = float(totals["total_usd"])
         if today_portfolio_row is not None:
@@ -695,7 +711,7 @@ async def build_multi_strategy_oms(
             return
         await _sync_portfolio_open_risk_from_repo()
         trade_day = portfolio_risk_state.trade_date
-        daily_rows = await pg_store.get_risk_daily_strategies_for_date(trade_day)
+        daily_rows = await pg_store.get_risk_daily_strategies_for_date(trade_day, strategy_ids=_family_sids)
         existing_row = await pg_store.get_risk_daily_portfolio(trade_day, family_id=family_id)
         await pg_store.upsert_risk_daily_portfolio(
             _build_portfolio_daily_row(
@@ -828,6 +844,8 @@ async def build_multi_strategy_oms(
         unit_risk_map, open_positions, coordinator,
         persist_strategy_risk_state=_persist_strategy_risk_state,
         persist_portfolio_risk_state=_persist_portfolio_risk_state,
+        portfolio_urd=portfolio_urd,
+        live_equity=live_equity,
     )
 
     # Build OMS service
@@ -843,6 +861,7 @@ async def build_multi_strategy_oms(
     )
     oms._portfolio_checker = portfolio_checker  # for coordinator regime updates
     oms._portfolio_risk_state = portfolio_risk_state  # for coordinator deployed-capital queries
+    oms._strategy_risk_states = strategy_risk_states  # for per-strategy heartbeat metrics
 
     # Seed risk state from DB on startup
     if pg_store is not None:
@@ -901,6 +920,9 @@ def _wire_adapter_callbacks(
     paper_equity_pool=None,
     strat_cfg=None,
     db_pool=None,
+    live_equity=None,
+    paper_equity_scope="paper",
+    paper_initial_equity=10_000.0,
 ) -> None:
     """Wire IBKRExecutionAdapter callbacks to OMS event bus.
 
@@ -1100,7 +1122,13 @@ def _wire_adapter_callbacks(
                 if paper_equity is not None and paper_equity[0] is not None and paper_equity_pool is not None and commission > 0:
                     try:
                         from libs.persistence.paper_equity import apply_paper_pnl
-                        new_eq = await apply_paper_pnl(paper_equity_pool, 0.0, commission)
+                        new_eq = await apply_paper_pnl(
+                            paper_equity_pool,
+                            0.0,
+                            commission,
+                            account_scope=paper_equity_scope,
+                            initial_equity=paper_initial_equity,
+                        )
                         paper_equity[0] = new_eq
                     except Exception as e:
                         logger.warning("Paper equity entry commission failed (non-fatal): %s", e)
@@ -1153,7 +1181,13 @@ def _wire_adapter_callbacks(
                     if paper_equity is not None and paper_equity[0] is not None and paper_equity_pool is not None:
                         try:
                             from libs.persistence.paper_equity import apply_paper_pnl
-                            new_eq = await apply_paper_pnl(paper_equity_pool, pnl, commission)
+                            new_eq = await apply_paper_pnl(
+                                paper_equity_pool,
+                                pnl,
+                                commission,
+                                account_scope=paper_equity_scope,
+                                initial_equity=paper_initial_equity,
+                            )
                             paper_equity[0] = new_eq
                             if strat_cfg is not None and new_eq > 0:
                                 strat_cfg.unit_risk_dollars = new_eq * strat_cfg.unit_risk_pct
@@ -1258,6 +1292,8 @@ def _wire_adapter_callbacks_multi(
     coordinator: "StrategyCoordinator",
     persist_strategy_risk_state=None,
     persist_portfolio_risk_state=None,
+    portfolio_urd: float = 1.0,
+    live_equity=None,
 ) -> None:
     """Wire IBKRExecutionAdapter callbacks for multi-strategy OMS.
 
@@ -1291,9 +1327,8 @@ def _wire_adapter_callbacks_multi(
     MAX_PACING_RETRIES = 3
     PACING_RETRY_BASE_DELAY_S = 2.0
 
-    # portfolio_urd is already computed at the top of build_multi_strategy_oms
-    # (from _sorted_cfgs[0].unit_risk_dollars — highest-priority strategy's URD).
-    # The on_fill closure below captures it via lexical scope.
+    # portfolio_urd: portfolio-level unit risk dollars for normalizing R across strategies
+    # (highest-priority strategy's URD, passed from build_multi_strategy_oms).
 
     def on_ack(oms_order_id: str, broker_ref) -> None:
         loop = _get_running_loop()
@@ -1468,6 +1503,13 @@ def _wire_adapter_callbacks_multi(
                     strat_risk.daily_realized_R += pnl_R
                     portfolio_risk_state.daily_realized_pnl += pnl
                     portfolio_risk_state.daily_realized_R += pnl_portfolio_R
+                    portfolio_risk_state.weekly_realized_pnl += pnl
+                    portfolio_risk_state.weekly_realized_R += pnl_portfolio_R
+                    if portfolio_risk_state.strategy_daily_pnl is None:
+                        portfolio_risk_state.strategy_daily_pnl = {}
+                    portfolio_risk_state.strategy_daily_pnl[sid] = (
+                        portfolio_risk_state.strategy_daily_pnl.get(sid, 0.0) + pnl
+                    )
 
                     # Live equity: update mutable ref so DD tiers see current equity
                     if live_equity is not None and live_equity[0] is not None:

@@ -81,6 +81,12 @@ class VdubusAblationFlags:
     mfe_ratchet: bool = False              # progressive MFE floor stops — REVERTED: neutral (+$324, -0.01 Sharpe)
     bar_quality_gate: bool = False         # filter spike bars, weak closes, single-bar reclaims — REVERTED: Sharpe 0.64, trades 91, catastrophic
 
+    # v4.3 improvements
+    stale_mfe_exempt: bool = False         # exempt from stale exit if peak MFE > threshold
+
+    # v4.4 improvements
+    late_trail: bool = False               # independent late-activation trail (no partial)
+
 
 @dataclass
 class VdubusBacktestConfig:

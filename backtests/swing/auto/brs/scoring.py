@@ -240,7 +240,7 @@ def extract_brs_metrics(
     bias_latency = 999.0
     crisis_coverage = 0.0
     try:
-        from research.backtests.swing.analysis.brs_diagnostics import CRISIS_WINDOWS
+        from backtests.swing.analysis.brs_diagnostics import CRISIS_WINDOWS
         latency_days = []
         windows_with_trades = 0
         total_windows = len(CRISIS_WINDOWS)

@@ -63,8 +63,9 @@ class NQDTCAblationFlags:
     block_09_et: bool = True                # Block entries during 09:00 ET hour (RTH open whipsaw)
     block_12_et: bool = True                # Block entries during 12:00 ET hour (17% WR, outlier-dependent)
     block_thursday: bool = False             # Tested: -54 trades, -$11.6k, Sharpe -0.03
-    early_be: bool = False                   # Tested: 0.8R Sharpe→2.23, 1.0R→2.16 (both worse)
+    early_be: bool = False                   # Tested: 0.8R Sharpe->2.23, 1.0R->2.16 (both worse)
     es_daily_trend: bool = False             # ES SMA200 directional sizing: reduce size when opposing ES trend
+    block_eth_shorts: bool = False           # Block ETH short entries (37% WR, +0.176R)
 
 
 @dataclass

@@ -12,7 +12,7 @@ Usage:
 """
 from __future__ import annotations
 
-from research.backtests.swing._aliases import install; install()
+from backtests.swing._aliases import install; install()
 
 import argparse
 import logging

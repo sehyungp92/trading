@@ -14,9 +14,9 @@ from __future__ import annotations
 import logging
 from io import StringIO
 
-from research.backtests.momentum.analysis.downturn_diagnostics import DownturnMetrics
-from research.backtests.momentum.auto.downturn.phase_gates import check_phase_gate
-from research.backtests.momentum.engine.downturn_models import (
+from backtests.momentum.analysis.downturn_diagnostics import DownturnMetrics
+from backtests.momentum.auto.downturn.phase_gates import check_phase_gate
+from backtests.momentum.engine.downturn_models import (
     CompositeRegime,
     DownturnTradeRecord,
     EngineTag,

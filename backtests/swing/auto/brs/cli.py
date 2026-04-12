@@ -10,19 +10,19 @@ from pathlib import Path
 if sys.stdout.encoding != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-_root = Path(__file__).resolve().parents[5]
+_root = Path(__file__).resolve().parents[4]
 if str(_root) not in sys.path:
     sys.path.insert(0, str(_root))
 
-from research.backtests.shared.auto.phase_gates import evaluate_gate
-from research.backtests.shared.auto.phase_state import save_phase_state
-from research.backtests.shared.auto.phase_runner import PhaseRunner, _mutations_through_phase
-from research.backtests.swing.auto.brs.plugin import BRSPlugin
+from backtests.shared.auto.phase_gates import evaluate_gate
+from backtests.shared.auto.phase_state import save_phase_state
+from backtests.shared.auto.phase_runner import PhaseRunner, _mutations_through_phase
+from backtests.swing.auto.brs.plugin import BRSPlugin
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-OUTPUT_DIR = _root / "research/backtests/swing/auto/brs/output"
+OUTPUT_DIR = _root / "backtests/swing/auto/brs/output"
 
 
 def _build_runner(args: argparse.Namespace) -> PhaseRunner:
@@ -100,7 +100,7 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command")
 
     def add_common(command: argparse.ArgumentParser) -> None:
-        command.add_argument("--data-dir", default="research/backtests/swing/data/raw")
+        command.add_argument("--data-dir", default="backtests/swing/data/raw")
         command.add_argument("--equity", type=float, default=100_000.0)
 
     phase_run = sub.add_parser("phase-run", help="Run a single BRS phase")

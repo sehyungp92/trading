@@ -49,6 +49,12 @@ def vdubus_full_diagnostic(
     sections.append(_exit_reason_x_subwindow(trades))
     sections.append(_rolling_stability(trades))
     sections.append(_mae_recovery_analysis(trades))
+    # Tier 5 — Structural Deep-Dives
+    sections.append(_stale_exit_deep_dive(trades))
+    sections.append(_overnight_risk_analysis(trades))
+    sections.append(_early_kill_audit(trades))
+    sections.append(_r_per_bar_efficiency(trades))
+    sections.append(_class_mult_calibration(trades))
     return "\n\n".join(s for s in sections if s)
 
 
@@ -1440,5 +1446,405 @@ def _mae_recovery_analysis(trades: list) -> str:
             lines.append(f"       Average stop loss is only {abs(avg_stop_r):.1f}R (vs -1.0R max)")
         elif avg_stop_r < -0.9:
             lines.append(f"    ** Most stops hitting near -1.0R — initial stop too tight, no trail benefit")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Tier 5 — Structural Deep-Dives
+# ---------------------------------------------------------------------------
+
+
+def _stale_exit_deep_dive(trades: list) -> str:
+    """Analyse STALE exits: sub-window clustering, MFE before stale, R-at-exit
+    distribution, and comparison vs non-stale exits."""
+    stale = [t for t in trades if t.exit_reason == "STALE"]
+    non_stale = [t for t in trades if t.exit_reason != "STALE"]
+    if not stale:
+        return ""
+
+    lines = ["=== Stale Exit Deep Dive ==="]
+    pct = len(stale) / len(trades) * 100
+    lines.append(f"  Stale exits: {len(stale)}/{len(trades)} ({pct:.0f}% of all trades)")
+
+    # Sub-window distribution
+    sw_counts = Counter(t.sub_window for t in stale)
+    lines.append("\n  Sub-window clustering:")
+    for sw in ["OPEN", "CORE", "CLOSE", "EVENING"]:
+        n = sw_counts.get(sw, 0)
+        sw_all = [t for t in stale if t.sub_window == sw]
+        if n == 0:
+            continue
+        avg_r = np.mean([t.r_multiple for t in sw_all])
+        avg_mfe = np.mean([t.mfe_r for t in sw_all])
+        lines.append(f"    {sw:<10} {n:>3} trades  AvgR={avg_r:+.3f}  AvgMFE={avg_mfe:+.3f}")
+
+    # MFE before going stale
+    stale_mfes = np.array([t.mfe_r for t in stale])
+    lines.append(f"\n  MFE reached before stale exit:")
+    lines.append(f"    Mean={np.mean(stale_mfes):+.3f}R  Median={np.median(stale_mfes):+.3f}R  "
+                 f"P75={np.percentile(stale_mfes, 75):+.3f}R  P90={np.percentile(stale_mfes, 90):+.3f}R")
+
+    # How many stale trades reached meaningful MFE
+    reached_05 = sum(1 for m in stale_mfes if m >= 0.5)
+    reached_10 = sum(1 for m in stale_mfes if m >= 1.0)
+    lines.append(f"    Reached >=0.5R MFE: {reached_05}/{len(stale)} ({reached_05/len(stale)*100:.0f}%)")
+    lines.append(f"    Reached >=1.0R MFE: {reached_10}/{len(stale)} ({reached_10/len(stale)*100:.0f}%)")
+
+    # R-at-exit distribution
+    stale_rs = np.array([t.r_multiple for t in stale])
+    winners = sum(1 for r in stale_rs if r > 0)
+    losers = sum(1 for r in stale_rs if r <= 0)
+    lines.append(f"\n  R-at-exit distribution:")
+    lines.append(f"    Winners: {winners}  Losers: {losers}  WR: {winners/len(stale)*100:.0f}%")
+    lines.append(f"    Mean={np.mean(stale_rs):+.3f}R  Median={np.median(stale_rs):+.3f}R")
+
+    # Stale hold times
+    stale_holds = np.array([t.bars_held_15m for t in stale])
+    lines.append(f"\n  Hold time (15m bars):")
+    lines.append(f"    Mean={np.mean(stale_holds):.1f}  Median={np.median(stale_holds):.0f}  "
+                 f"P25={np.percentile(stale_holds, 25):.0f}  P75={np.percentile(stale_holds, 75):.0f}")
+
+    # Compare stale vs non-stale
+    if non_stale:
+        ns_avg_r = np.mean([t.r_multiple for t in non_stale])
+        ns_wr = sum(1 for t in non_stale if t.r_multiple > 0) / len(non_stale)
+        lines.append(f"\n  Stale vs non-stale comparison:")
+        lines.append(f"    {'':12} {'Stale':>10} {'Non-stale':>10}")
+        lines.append(f"    {'AvgR':12} {np.mean(stale_rs):>+10.3f} {ns_avg_r:>+10.3f}")
+        lines.append(f"    {'WinRate':12} {winners/len(stale)*100:>9.0f}% {ns_wr*100:>9.0f}%")
+        lines.append(f"    {'AvgMFE':12} {np.mean(stale_mfes):>+10.3f} "
+                     f"{np.mean([t.mfe_r for t in non_stale]):>+10.3f}")
+
+    # Direction breakdown for stale
+    long_stale = [t for t in stale if t.direction == 1]
+    short_stale = [t for t in stale if t.direction == -1]
+    if long_stale:
+        lr = np.mean([t.r_multiple for t in long_stale])
+        lines.append(f"\n  Stale by direction:")
+        lines.append(f"    Long:  {len(long_stale)} trades  AvgR={lr:+.3f}")
+    if short_stale:
+        sr = np.mean([t.r_multiple for t in short_stale])
+        lines.append(f"    Short: {len(short_stale)} trades  AvgR={sr:+.3f}")
+
+    # Interpretation
+    lines.append(f"\n  ** Interpretation:")
+    if pct > 40:
+        lines.append(f"     {pct:.0f}% stale rate is very high -- strategy enters many low-conviction trades")
+        lines.append(f"     that drift sideways. Consider tighter entry filters or adaptive stale timers.")
+    if len(stale) > 0 and reached_05 / len(stale) > 0.3:
+        lines.append(f"     {reached_05/len(stale)*100:.0f}% of stale trades reached 0.5R MFE -- partial-take")
+        lines.append(f"     or MFE-triggered floor stop could capture some of this dead alpha.")
+
+    return "\n".join(lines)
+
+
+def _overnight_risk_analysis(trades: list) -> str:
+    """Analyse overnight/multi-session hold risk for futures positions."""
+    if not trades or not hasattr(trades[0], 'overnight_sessions'):
+        return ""
+
+    single = [t for t in trades if t.overnight_sessions <= 1]
+    multi = [t for t in trades if t.overnight_sessions > 1]
+
+    if not multi:
+        lines = ["=== Overnight Risk Analysis ==="]
+        lines.append(f"  No multi-session trades detected ({len(single)} single-session only).")
+        return "\n".join(lines)
+
+    lines = ["=== Overnight Risk Analysis ==="]
+    lines.append(f"  Single-session: {len(single)} trades  Multi-session: {len(multi)} trades")
+
+    # Performance comparison
+    for label, group in [("Single-session", single), ("Multi-session", multi)]:
+        if not group:
+            continue
+        rs = np.array([t.r_multiple for t in group])
+        mfes = np.array([t.mfe_r for t in group])
+        maes = np.array([t.mae_r for t in group])
+        wr = sum(1 for r in rs if r > 0) / len(rs)
+        pnl = sum(t.pnl_dollars for t in group)
+        avg_r = np.mean(rs)
+        lines.append(f"\n  {label} ({len(group)} trades):")
+        lines.append(f"    WR={wr:.0%}  AvgR={avg_r:+.3f}  PnL=${pnl:+,.0f}")
+        lines.append(f"    AvgMFE={np.mean(mfes):+.3f}  AvgMAE={np.mean(maes):+.3f}")
+        lines.append(f"    AvgHold={np.mean([t.bars_held_15m for t in group]):.1f} bars")
+
+    # Session-count distribution for multi
+    sess_dist = Counter(t.overnight_sessions for t in multi)
+    lines.append(f"\n  Overnight sessions distribution:")
+    for sess_n in sorted(sess_dist):
+        grp = [t for t in multi if t.overnight_sessions == sess_n]
+        avg_r = np.mean([t.r_multiple for t in grp])
+        lines.append(f"    {sess_n} sessions: {sess_dist[sess_n]} trades  AvgR={avg_r:+.3f}")
+
+    # Gap risk: MAE of multi-session trades
+    multi_maes = np.array([t.mae_r for t in multi])
+    lines.append(f"\n  Overnight MAE (gap risk proxy):")
+    lines.append(f"    Mean={np.mean(multi_maes):+.3f}R  Max={np.max(multi_maes):+.3f}R")
+    heavy_mae = sum(1 for m in multi_maes if m > 0.7)
+    if heavy_mae:
+        lines.append(f"    Trades with MAE > 0.7R: {heavy_mae}/{len(multi)} "
+                     f"({heavy_mae/len(multi)*100:.0f}%)")
+
+    # Sub-window origin of multi-session trades
+    sw_counts = Counter(t.sub_window for t in multi)
+    lines.append(f"\n  Multi-session entry window:")
+    for sw, n in sw_counts.most_common():
+        grp = [t for t in multi if t.sub_window == sw]
+        avg_r = np.mean([t.r_multiple for t in grp])
+        lines.append(f"    {sw:<10} {n:>3} trades  AvgR={avg_r:+.3f}")
+
+    # Interpretation
+    multi_avg = np.mean([t.r_multiple for t in multi])
+    single_avg = np.mean([t.r_multiple for t in single]) if single else 0
+    lines.append(f"\n  ** Interpretation:")
+    if multi_avg > single_avg + 0.3:
+        lines.append(f"     Multi-session trades outperform by {multi_avg - single_avg:+.3f}R.")
+        lines.append(f"     Holding winners overnight is adding significant alpha.")
+    elif multi_avg < single_avg - 0.3:
+        lines.append(f"     Multi-session trades underperform by {single_avg - multi_avg:+.3f}R.")
+        lines.append(f"     Overnight holds are destroying value -- consider EOD flatten or tighter trail.")
+    else:
+        lines.append(f"     Overnight risk is neutral ({multi_avg - single_avg:+.3f}R delta).")
+
+    return "\n".join(lines)
+
+
+def _early_kill_audit(trades: list) -> str:
+    """Audit EARLY_KILL exits: are they protecting capital or cutting potential winners?"""
+    early_kills = [t for t in trades if t.exit_reason == "EARLY_KILL"]
+    if not early_kills:
+        return ""
+
+    lines = ["=== Early Kill Effectiveness Audit ==="]
+    lines.append(f"  Early kills: {len(early_kills)}/{len(trades)} "
+                 f"({len(early_kills)/len(trades)*100:.0f}% of trades)")
+
+    # Basic stats
+    rs = np.array([t.r_multiple for t in early_kills])
+    mfes = np.array([t.mfe_r for t in early_kills])
+    maes = np.array([t.mae_r for t in early_kills])
+    lines.append(f"\n  Performance:")
+    lines.append(f"    AvgR={np.mean(rs):+.3f}  MedianR={np.median(rs):+.3f}")
+    lines.append(f"    Total PnL: ${sum(t.pnl_dollars for t in early_kills):+,.0f}")
+
+    # MFE reached before early kill
+    lines.append(f"\n  MFE before kill:")
+    lines.append(f"    Mean={np.mean(mfes):+.3f}R  Median={np.median(mfes):+.3f}R  "
+                 f"Max={np.max(mfes):+.3f}R")
+    had_profit = sum(1 for m in mfes if m >= 0.3)
+    lines.append(f"    Reached >=0.3R MFE before kill: {had_profit}/{len(early_kills)} "
+                 f"({had_profit/len(early_kills)*100:.0f}%)")
+
+    # MAE at kill (how deep in the hole)
+    lines.append(f"\n  MAE at kill (drawdown absorbed):")
+    lines.append(f"    Mean={np.mean(maes):+.3f}R  Median={np.median(maes):+.3f}R")
+
+    # Sub-window breakdown
+    sw_counts = Counter(t.sub_window for t in early_kills)
+    lines.append(f"\n  Entry window of killed trades:")
+    for sw, n in sw_counts.most_common():
+        grp = [t for t in early_kills if t.sub_window == sw]
+        avg_r = np.mean([t.r_multiple for t in grp])
+        lines.append(f"    {sw:<10} {n:>3} trades  AvgR={avg_r:+.3f}")
+
+    # Hold time distribution (early kills should be very short)
+    holds = np.array([t.bars_held_15m for t in early_kills])
+    lines.append(f"\n  Hold time (15m bars):")
+    lines.append(f"    Mean={np.mean(holds):.1f}  Median={np.median(holds):.0f}  "
+                 f"Max={np.max(holds)}")
+
+    # Direction
+    long_ek = [t for t in early_kills if t.direction == 1]
+    short_ek = [t for t in early_kills if t.direction == -1]
+    lines.append(f"\n  Direction:")
+    if long_ek:
+        lines.append(f"    Long:  {len(long_ek)} kills  AvgR={np.mean([t.r_multiple for t in long_ek]):+.3f}")
+    if short_ek:
+        lines.append(f"    Short: {len(short_ek)} kills  AvgR={np.mean([t.r_multiple for t in short_ek]):+.3f}")
+
+    # Counterfactual: compare vs stale exit average
+    stale_trades = [t for t in trades if t.exit_reason == "STALE"]
+    if stale_trades:
+        avg_stale_r = np.mean([t.r_multiple for t in stale_trades])
+        avg_ek_r = np.mean(rs)
+        saved = avg_stale_r - avg_ek_r
+        lines.append(f"\n  Counterfactual vs stale exit:")
+        lines.append(f"    Avg R of stale exits: {avg_stale_r:+.3f}")
+        lines.append(f"    Avg R of early kills: {avg_ek_r:+.3f}")
+        lines.append(f"    Early kill {'saves' if avg_ek_r > avg_stale_r else 'costs'} "
+                     f"{abs(saved):.3f}R per trade vs letting them go stale")
+
+    # Interpretation
+    lines.append(f"\n  ** Interpretation:")
+    avg_r_val = np.mean(rs)
+    if avg_r_val < -0.3 and had_profit / len(early_kills) < 0.2:
+        lines.append(f"     Early kill is working: catching fast-dying trades that never showed profit.")
+        lines.append(f"     Only {had_profit/len(early_kills)*100:.0f}% even reached 0.3R MFE.")
+    elif had_profit / len(early_kills) > 0.3:
+        lines.append(f"     WARNING: {had_profit/len(early_kills)*100:.0f}% of killed trades reached 0.3R MFE.")
+        lines.append(f"     Early kill may be too aggressive -- some of these had potential.")
+    else:
+        lines.append(f"     Early kill is marginally effective (avg R={avg_r_val:+.3f}).")
+
+    return "\n".join(lines)
+
+
+def _r_per_bar_efficiency(trades: list) -> str:
+    """R earned per bar held -- identifies optimal holding duration and
+    marginal value of additional hold time."""
+    if not trades:
+        return ""
+
+    lines = ["=== R-per-Bar Efficiency ==="]
+
+    buckets = [
+        ("1-2", 1, 2),
+        ("3-4", 3, 4),
+        ("5-8", 5, 8),
+        ("9-16", 9, 16),
+        ("17-32", 17, 32),
+        ("33-64", 33, 64),
+        ("65+", 65, 9999),
+    ]
+
+    lines.append(f"  {'Bars':<8} {'N':>4} {'AvgR':>8} {'R/Bar':>8} {'TotalR':>9} {'CumR':>9}")
+    lines.append(f"  {'-'*52}")
+
+    cum_r = 0.0
+    bucket_data = []
+    for label, lo, hi in buckets:
+        grp = [t for t in trades if lo <= t.bars_held_15m <= hi]
+        if not grp:
+            continue
+        avg_r = np.mean([t.r_multiple for t in grp])
+        total_r = sum(t.r_multiple for t in grp)
+        avg_bars = np.mean([t.bars_held_15m for t in grp])
+        r_per_bar = avg_r / avg_bars if avg_bars > 0 else 0
+        cum_r += total_r
+        lines.append(f"  {label:<8} {len(grp):>4} {avg_r:>+8.3f} {r_per_bar:>+8.4f} "
+                     f"{total_r:>+9.1f} {cum_r:>+9.1f}")
+        bucket_data.append((label, len(grp), avg_r, r_per_bar, total_r))
+
+    # Best R/bar bucket
+    if bucket_data:
+        best = max(bucket_data, key=lambda x: x[3])
+        worst = min(bucket_data, key=lambda x: x[3])
+        lines.append(f"\n  Best R/bar:  {best[0]} ({best[3]:+.4f} R/bar)")
+        lines.append(f"  Worst R/bar: {worst[0]} ({worst[3]:+.4f} R/bar)")
+
+    # Marginal value: what does each additional hold bar add?
+    lines.append(f"\n  Marginal hold analysis:")
+    short_holds = [t for t in trades if t.bars_held_15m <= 4]
+    medium_holds = [t for t in trades if 5 <= t.bars_held_15m <= 16]
+    long_holds = [t for t in trades if t.bars_held_15m > 16]
+
+    for label, grp in [("Short (1-4)", short_holds), ("Medium (5-16)", medium_holds),
+                       ("Long (17+)", long_holds)]:
+        if not grp:
+            continue
+        avg_r = np.mean([t.r_multiple for t in grp])
+        total_pnl = sum(t.pnl_dollars for t in grp)
+        wr = sum(1 for t in grp if t.r_multiple > 0) / len(grp)
+        lines.append(f"    {label:<16} {len(grp):>3} trades  WR={wr:.0%}  AvgR={avg_r:+.3f}  "
+                     f"PnL=${total_pnl:+,.0f}")
+
+    # Total R from short holds (opportunity cost)
+    if short_holds:
+        short_total_r = sum(t.r_multiple for t in short_holds)
+        short_total_pnl = sum(t.pnl_dollars for t in short_holds)
+        lines.append(f"\n  Short-hold drag:")
+        lines.append(f"    1-4 bar trades contribute {short_total_r:+.1f}R (${short_total_pnl:+,.0f})")
+        if short_total_r < 0:
+            lines.append(f"    ** Eliminating these would improve net R by {abs(short_total_r):.1f}R")
+
+    # Interpretation
+    lines.append(f"\n  ** Interpretation:")
+    if short_holds and np.mean([t.r_multiple for t in short_holds]) < -0.3:
+        lines.append(f"     Short holds (1-4 bars) are a significant drag.")
+        lines.append(f"     Either the entry signal is wrong or the position needs more time to develop.")
+        lines.append(f"     Consider minimum hold time or entry filter tightening.")
+    if long_holds and np.mean([t.r_multiple for t in long_holds]) > 1.0:
+        lines.append(f"     Long holds (17+ bars) are where the alpha lives.")
+        lines.append(f"     Strategy's edge comes from holding winners -- protect this at all costs.")
+
+    return "\n".join(lines)
+
+
+def _class_mult_calibration(trades: list) -> str:
+    """Evaluate class_mult (quality/sizing multiplier) calibration -- do higher-class
+    trades actually outperform?"""
+    if not trades or not hasattr(trades[0], 'class_mult'):
+        return ""
+
+    # Group by class_mult value
+    mult_arr = np.array([t.class_mult for t in trades])
+    mults = sorted(set(mult_arr))
+    if len(mults) <= 1:
+        return ""  # no variation to analyse
+
+    lines = ["=== Class Multiplier Calibration ==="]
+    lines.append(f"  Distinct class_mult values: {len(mults)}")
+    lines.append(f"  Range: {min(mults):.2f} to {max(mults):.2f}")
+
+    # Performance by class_mult bucket
+    if len(mults) <= 5:
+        bucket_labels = [(f"{m:.2f}", m, m) for m in mults]
+    else:
+        p25, p50, p75 = np.percentile(mult_arr, [25, 50, 75])
+        bucket_labels = [
+            (f"Low (<={p25:.2f})", 0, p25),
+            (f"Mid ({p25:.2f}-{p75:.2f})", p25, p75),
+            (f"High (>{p75:.2f})", p75, 999),
+        ]
+
+    lines.append(f"\n  {'ClassMult':<22} {'N':>4} {'WR':>6} {'AvgR':>8} {'AvgMFE':>8} {'PnL':>10}")
+    lines.append(f"  {'-'*62}")
+
+    for label, lo, hi in bucket_labels:
+        if lo == hi:
+            grp = [t for t in trades if t.class_mult == lo]
+        else:
+            grp = [t for t in trades if lo < t.class_mult <= hi]
+            if lo == 0:
+                grp = [t for t in trades if t.class_mult <= hi]
+        if not grp:
+            continue
+        wr = sum(1 for t in grp if t.r_multiple > 0) / len(grp)
+        avg_r = np.mean([t.r_multiple for t in grp])
+        avg_mfe = np.mean([t.mfe_r for t in grp])
+        pnl = sum(t.pnl_dollars for t in grp)
+        lines.append(f"  {label:<22} {len(grp):>4} {wr:>5.0%} {avg_r:>+8.3f} "
+                     f"{avg_mfe:>+8.3f} ${pnl:>+9,.0f}")
+
+    # Correlation between class_mult and R
+    r_arr = np.array([t.r_multiple for t in trades])
+    if len(mult_arr) > 10 and np.std(mult_arr) > 0:
+        corr = np.corrcoef(mult_arr, r_arr)[0, 1]
+        lines.append(f"\n  Correlation (class_mult vs R): {corr:+.3f}")
+        if abs(corr) < 0.05:
+            lines.append(f"    ** Near-zero correlation -- class_mult is NOT predictive of trade quality")
+        elif corr > 0.1:
+            lines.append(f"    ** Positive correlation -- higher class trades do outperform")
+        elif corr < -0.1:
+            lines.append(f"    ** NEGATIVE correlation -- higher class trades underperform (!)")
+
+    # Interpretation
+    lines.append(f"\n  ** Interpretation:")
+    high_grp = [t for t in trades if t.class_mult >= np.percentile(mult_arr, 75)]
+    low_grp = [t for t in trades if t.class_mult <= np.percentile(mult_arr, 25)]
+    if high_grp and low_grp:
+        high_r = np.mean([t.r_multiple for t in high_grp])
+        low_r = np.mean([t.r_multiple for t in low_grp])
+        if high_r > low_r + 0.1:
+            lines.append(f"     Class multiplier is well-calibrated: high-class trades outperform by "
+                         f"{high_r - low_r:+.3f}R.")
+        elif low_r > high_r + 0.1:
+            lines.append(f"     Class multiplier is MIS-calibrated: low-class trades actually outperform by "
+                         f"{low_r - high_r:+.3f}R.")
+            lines.append(f"     Consider inverting or removing the class_mult sizing adjustment.")
+        else:
+            lines.append(f"     Class multiplier has minimal impact on outcomes ({high_r - low_r:+.3f}R delta).")
 
     return "\n".join(lines)

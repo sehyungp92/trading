@@ -8,7 +8,7 @@ by the engine pipeline.
 
 Requires IB Gateway or TWS running.
 
-Usage: python -m research.backtests.momentum.data.ibkr_append [--port 7496]
+Usage: python -m backtests.momentum.data.ibkr_append [--port 7496]
 """
 from __future__ import annotations
 

@@ -1815,6 +1815,10 @@ class ATRSSEngine:
                 fill_time = datetime.now(timezone.utc)
                 cfg = self._config.get(sym)
 
+                # Resolve exit reason: check if a flatten was pending (race condition)
+                _pending = self._pending_flattens.pop(sym, None)
+                _exit_reason = _pending.get("reason", "STOP") if _pending else "STOP"
+
                 # Record exits for all legs
                 if self._recorder:
                     for leg in pos.legs:
@@ -1835,7 +1839,7 @@ class ATRSSEngine:
                                     trade_id=leg.trade_id,
                                     exit_price=Decimal(str(fill_price)),
                                     exit_ts=fill_time,
-                                    exit_reason="STOP",
+                                    exit_reason=_exit_reason,
                                     realized_r=Decimal(str(round(realized_r, 4))),
                                     realized_usd=Decimal(str(round(realized_usd, 2))),
                                     mfe_r=Decimal(str(round(pos.mfe, 4))),
@@ -1852,7 +1856,7 @@ class ATRSSEngine:
                 reentry.last_exit_time = fill_time
                 reentry.last_exit_dir = pos.direction
                 reentry.last_exit_mfe = pos.mfe
-                reentry.last_exit_reason = "STOP"
+                reentry.last_exit_reason = _exit_reason
                 reentry.reset_seen_long = False
                 reentry.reset_seen_short = False
 
@@ -1886,7 +1890,7 @@ class ATRSSEngine:
                         self._kit.log_exit(
                             trade_id=tid,
                             exit_price=fill_price,
-                            exit_reason="STOP_LOSS",
+                            exit_reason=_exit_reason,
                             mfe_price=pos.mfe_price,
                             mae_price=pos.mae_price,
                             mfe_r=pos.mfe,
@@ -1923,7 +1927,7 @@ class ATRSSEngine:
     ) -> None:
         """Handle a flatten fill — clean up position state (no voucher granted)."""
         flatten_info = self._pending_flattens.pop(sym, None)
-        reason = flatten_info["reason"] if flatten_info else "FLATTEN"
+        reason = flatten_info.get("reason", "FLATTEN") if flatten_info else "FLATTEN"
         pos = self.positions.get(sym)
         if pos is None or pos.direction == Direction.FLAT:
             return

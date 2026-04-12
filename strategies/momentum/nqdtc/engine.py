@@ -739,6 +739,12 @@ class NQDTCEngine:
             self._log_telemetry("breakout_score_fail", engine, direction, score=score, threshold=min_score)
             return
 
+        # Exit-opt: reject narrow/wide boxes
+        if engine.box.box_width < C.MIN_BOX_WIDTH or engine.box.box_width > C.MAX_BOX_WIDTH:
+            self._log_telemetry("breakout_blocked", engine, direction,
+                               reason="box_width_filter", box_width=engine.box.box_width)
+            return
+
         # ATR percentile for expiry
         atr14 = ind.atr(h30, l30, c30, C.ATR14_PERIOD)
         atr_pctl = ind.percentile_rank(engine.atr14_30m, atr14[~np.isnan(atr14)])
@@ -893,6 +899,10 @@ class NQDTCEngine:
 
         # Block DEGRADED-mode entries during RTH
         if C.BLOCK_RTH_DEGRADED and engine.session == Session.RTH and engine.mode == ChopMode.DEGRADED:
+            return
+
+        # Exit-opt: block ETH short entries (negative expectancy)
+        if C.BLOCK_ETH_SHORTS and engine.session == Session.ETH and engine.breakout.direction == Direction.SHORT:
             return
 
         direction = engine.breakout.direction
@@ -1496,9 +1506,11 @@ class NQDTCEngine:
             ratchet_stop = round_to_tick(ratchet_stop, tick)
             if pos.direction == Direction.LONG and ratchet_stop > pos.stop_price:
                 pos.stop_price = ratchet_stop
+                pos.stop_source = "RATCHET"
                 await self._update_stop(ratchet_stop)
             elif pos.direction == Direction.SHORT and ratchet_stop < pos.stop_price:
                 pos.stop_price = ratchet_stop
+                pos.stop_source = "RATCHET"
                 await self._update_stop(ratchet_stop)
 
         # TP targets (use initial stop distance, not migrated stop)
@@ -1525,9 +1537,11 @@ class NQDTCEngine:
             be_stop = stops.compute_be_stop(pos.direction, pos.entry_price, atr5, C.NQ_SPECS[self._symbol]["tick"])
             if pos.direction == Direction.LONG and be_stop > pos.stop_price:
                 pos.stop_price = be_stop
+                pos.stop_source = "BE"
                 await self._update_stop(pos.stop_price)
             elif pos.direction == Direction.SHORT and be_stop < pos.stop_price:
                 pos.stop_price = be_stop
+                pos.stop_source = "BE"
                 await self._update_stop(pos.stop_price)
 
         # Measured move check
@@ -1552,6 +1566,7 @@ class NQDTCEngine:
                         pos.chandelier_trail = trail
                         if trail > pos.stop_price:
                             pos.stop_price = trail
+                            pos.stop_source = "CHANDELIER"
                             await self._update_stop(trail)
                 else:
                     trail = ind.chandelier_short(l1, atr14_1h, lookback, mult)
@@ -1560,6 +1575,7 @@ class NQDTCEngine:
                         pos.chandelier_trail = trail
                         if trail < pos.stop_price:
                             pos.stop_price = trail
+                            pos.stop_source = "CHANDELIER"
                             await self._update_stop(trail)
 
         # Overnight bridge check (fix #9)
@@ -1578,13 +1594,13 @@ class NQDTCEngine:
         mode_str = engine.mode.value
         if stops.stale_exit_check(pos.bars_since_entry_30m, open_r, mode_str, pos.stale_bridge_extra_bars, tp1_filled=pos.profit_funded):
             logger.info("Stale exit: bars=%d R=%.2f", pos.bars_since_entry_30m, open_r)
-            await self._flatten(engine, open_r)
+            await self._flatten(engine, open_r, reason="STALE")
 
         # News blackout management (Section 4)
         if pos.open and self._news_flatten_imminent(now):
             if not pos.profit_funded:
                 logger.info("News flatten: not profit-funded")
-                await self._flatten(engine, open_r)
+                await self._flatten(engine, open_r, reason="NEWS_BLACKOUT")
             else:
                 tick = C.NQ_SPECS[self._symbol]["tick"]
                 if pos.direction == Direction.LONG:
@@ -1594,6 +1610,7 @@ class NQDTCEngine:
                 if (pos.direction == Direction.LONG and be_tick > pos.stop_price) or \
                    (pos.direction == Direction.SHORT and be_tick < pos.stop_price):
                     pos.stop_price = round_to_tick(be_tick, tick)
+                    pos.stop_source = "NEWS_BE"
                     await self._update_stop(pos.stop_price)
                     logger.info("News blackout: tightened stop to BE±1tick=%.2f", pos.stop_price)
 
@@ -1607,7 +1624,7 @@ class NQDTCEngine:
                     init_open_r = (pos.entry_price - close) / init_r_points
                 if init_open_r <= C.MAX_LOSS_CAP_R:
                     logger.info("Max loss cap: R=%.2f <= %.1f, force exit", init_open_r, C.MAX_LOSS_CAP_R)
-                    await self._flatten(engine, open_r)
+                    await self._flatten(engine, open_r, reason="DAILY_LOSS_CAP")
                     return
 
     async def _exit_partial(self, pos: PositionState, tp: TPLevel, close: float, engine: SessionEngineState) -> None:
@@ -1762,7 +1779,7 @@ class NQDTCEngine:
                 new_stop_price=new_stop,
             ))
 
-    async def _flatten(self, engine: Optional[SessionEngineState] = None, open_r: float = 0.0) -> None:
+    async def _flatten(self, engine: Optional[SessionEngineState] = None, open_r: float = 0.0, reason: str = "FLATTEN") -> None:
         """Flatten entire position."""
         pos = self._position
         direction = pos.direction
@@ -1809,7 +1826,7 @@ class NQDTCEngine:
                 self._kit.log_exit(
                     trade_id=self._instr_trade_id,
                     exit_price=est_exit,
-                    exit_reason="FLATTEN",
+                    exit_reason=reason,
                     mfe_r=pos.peak_mfe_r,
                     mae_r=pos.peak_mae_r,
                     mfe_price=pos.highest_since_entry if pos.direction == Direction.LONG else pos.lowest_since_entry,
@@ -1995,10 +2012,11 @@ class NQDTCEngine:
                 logger.info("Stop fill: price=%.2f R=%.2f", price, stop_r)
                 if self._kit.active and self._instr_trade_id:
                     try:
+                        stop_reason = f"STOP_{self._position.stop_source}"
                         self._kit.log_exit(
                             trade_id=self._instr_trade_id,
                             exit_price=price,
-                            exit_reason="STOP",
+                            exit_reason=stop_reason,
                             mfe_r=self._position.peak_mfe_r,
                             mae_r=self._position.peak_mae_r,
                             mfe_price=self._position.highest_since_entry if self._position.direction == Direction.LONG else self._position.lowest_since_entry,
@@ -2198,6 +2216,14 @@ class NQDTCEngine:
                     signal_factors=[
                         {"factor_name": "quality_mult", "factor_value": wo.quality_mult,
                          "threshold": 0.0, "contribution": wo.quality_mult},
+                        {"factor_name": "subtype", "factor_value": wo.subtype.value,
+                         "threshold": "A", "contribution": "entry_type_quality"},
+                        {"factor_name": "session", "factor_value": session.value,
+                         "threshold": "RTH", "contribution": "session_quality"},
+                        {"factor_name": "box_width", "factor_value": engine.box.box_width,
+                         "threshold": C.MIN_BOX_WIDTH, "contribution": "setup_quality"},
+                        {"factor_name": "dd_mult", "factor_value": getattr(self._throttle, 'dd_size_mult', 1.0),
+                         "threshold": 1.0, "contribution": "drawdown_regime"},
                     ],
                     filter_decisions=self._build_gate_filter_decisions(now_ny, r_points),
                     sizing_inputs={"quality_mult": wo.quality_mult, "contracts": qty,

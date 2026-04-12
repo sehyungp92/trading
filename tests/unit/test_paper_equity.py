@@ -15,7 +15,11 @@ _fake_asyncpg = MagicMock()
 _fake_asyncpg.Pool = MagicMock  # type annotation reference
 sys.modules.setdefault("asyncpg", _fake_asyncpg)
 
-from libs.persistence.paper_equity import PaperEquityManager  # noqa: E402
+from libs.persistence.paper_equity import (  # noqa: E402
+    PaperEquityManager,
+    apply_paper_pnl,
+    load_paper_equity,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -100,3 +104,40 @@ class TestScope:
         pool = _make_pool()
         mgr = PaperEquityManager(pool, account_scope="my_scope", initial_equity=0.0)
         assert mgr.scope == "my_scope"
+
+
+class TestCompatibilityHelpers:
+    @pytest.mark.asyncio
+    async def test_load_paper_equity_uses_scope_and_initial(self) -> None:
+        pool = _make_pool()
+        pool.fetchrow.side_effect = [None, {"equity": 25_000.0}]
+
+        result = await load_paper_equity(
+            pool,
+            account_scope="family_scope",
+            initial_equity=25_000.0,
+        )
+
+        assert result == 25_000.0
+        assert pool.fetchrow.await_count == 2
+        assert pool.execute.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_apply_paper_pnl_seeds_then_updates_scope(self) -> None:
+        pool = _make_pool()
+        pool.fetchrow.side_effect = [
+            None,
+            {"equity": 10_000.0},
+            {"equity": 10_125.0},
+        ]
+
+        result = await apply_paper_pnl(
+            pool,
+            pnl=150.0,
+            commission=25.0,
+            account_scope="family_scope",
+            initial_equity=10_000.0,
+        )
+
+        assert result == 10_125.0
+        assert pool.execute.await_count == 1

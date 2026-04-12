@@ -10,7 +10,7 @@ Usage:
 """
 from __future__ import annotations
 
-from research.backtests.momentum._aliases import install; install()
+from backtests.momentum._aliases import install; install()
 
 import argparse
 import asyncio
@@ -1678,7 +1678,7 @@ def _cmd_run_downturn(args):
     """Run a single Downturn Dominator backtest."""
     from backtest.config_downturn import DownturnBacktestConfig
     from backtest.engine.downturn_engine import DownturnEngine
-    from research.backtests.momentum.analysis.downturn_diagnostics import (
+    from backtests.momentum.analysis.downturn_diagnostics import (
         compute_downturn_metrics,
         generate_downturn_report,
     )
@@ -1733,7 +1733,7 @@ def _cmd_ablation_downturn(args):
     from dataclasses import fields
     from backtest.config_downturn import DownturnAblationFlags, DownturnBacktestConfig
     from backtest.engine.downturn_engine import DownturnEngine
-    from research.backtests.momentum.analysis.downturn_diagnostics import compute_downturn_metrics
+    from backtests.momentum.analysis.downturn_diagnostics import compute_downturn_metrics
 
     symbol = args.symbols if isinstance(args.symbols, str) else "NQ"
     data_dir = Path(args.data_dir)
@@ -1777,12 +1777,12 @@ def _cmd_ablation_downturn(args):
 
 def _cmd_phase_run_downturn(args):
     """Run a single phase of downturn greedy optimization."""
-    from research.backtests.momentum.auto.downturn.plugin import DownturnPlugin
-    from research.backtests.shared.auto.phase_runner import PhaseRunner
+    from backtests.momentum.auto.downturn.plugin import DownturnPlugin
+    from backtests.shared.auto.phase_runner import PhaseRunner
 
     output_dir = Path(__file__).resolve().parent / "auto/downturn/output"
     plugin = DownturnPlugin(
-        data_dir=Path(getattr(args, "data_dir", None) or "research/backtests/momentum/data/raw"),
+        data_dir=Path(getattr(args, "data_dir", None) or "backtests/momentum/data/raw"),
         initial_equity=getattr(args, "equity", 100_000.0),
         max_workers=getattr(args, "max_workers", None),
     )
@@ -1801,12 +1801,12 @@ def _cmd_phase_run_downturn(args):
 
 def _cmd_phase_auto_downturn(args):
     """Auto-run phases 1-5 with the shared analyzer loop."""
-    from research.backtests.momentum.auto.downturn.plugin import DownturnPlugin
-    from research.backtests.shared.auto.phase_runner import PhaseRunner
+    from backtests.momentum.auto.downturn.plugin import DownturnPlugin
+    from backtests.shared.auto.phase_runner import PhaseRunner
 
     output_dir = Path(__file__).resolve().parent / "auto/downturn/output"
     plugin = DownturnPlugin(
-        data_dir=Path(getattr(args, "data_dir", None) or "research/backtests/momentum/data/raw"),
+        data_dir=Path(getattr(args, "data_dir", None) or "backtests/momentum/data/raw"),
         initial_equity=getattr(args, "equity", 100_000.0),
         max_workers=getattr(args, "max_workers", None),
     )
@@ -1937,7 +1937,7 @@ def _print_walk_forward_results(result):
 
 def _cmd_auto(args):
     """Run the automated research pipeline."""
-    from research.backtests.momentum.auto.runners.run_full_pipeline import main as pipeline_main
+    from backtests.momentum.auto.runners.run_full_pipeline import main as pipeline_main
 
     pipeline_main(
         phase=args.phase,
@@ -2052,13 +2052,13 @@ def main():
                            choices=[1, 2, 3, 4, 5], help="Phase number (1-5)")
     phase_run.add_argument("--equity", type=float, default=100_000.0)
     phase_run.add_argument("--max-workers", type=int, default=4)
-    phase_run.add_argument("--data-dir", default="research/backtests/momentum/data/raw")
+    phase_run.add_argument("--data-dir", default="backtests/momentum/data/raw")
 
     phase_auto = sub.add_parser("phase-auto", help="Auto-run phases 1-5 with shared analyzer loop")
     phase_auto.add_argument("--max-retries", type=int, default=2)
     phase_auto.add_argument("--equity", type=float, default=100_000.0)
     phase_auto.add_argument("--max-workers", type=int, default=4)
-    phase_auto.add_argument("--data-dir", default="research/backtests/momentum/data/raw")
+    phase_auto.add_argument("--data-dir", default="backtests/momentum/data/raw")
 
     args = parser.parse_args()
 

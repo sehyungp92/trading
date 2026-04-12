@@ -2,7 +2,7 @@
 
 Usage:
     cd trading
-    PYTHONUNBUFFERED=1 python -u research/backtests/swing/auto/run_greedy.py
+    PYTHONUNBUFFERED=1 python -u backtests/swing/auto/run_greedy.py
 """
 from __future__ import annotations
 
@@ -11,24 +11,24 @@ import time
 from pathlib import Path
 
 # Project root
-ROOT = Path(__file__).resolve().parents[5]
+ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT))
 
 # Install swing aliases before any backtest imports
-from research.backtests.swing._aliases import install
+from backtests.swing._aliases import install
 install()
 
-from research.backtests.swing.config_unified import UnifiedBacktestConfig
-from research.backtests.swing.engine.unified_portfolio_engine import load_unified_data
-from research.backtests.swing.auto.greedy_optimize import (
+from backtests.swing.config_unified import UnifiedBacktestConfig
+from backtests.swing.engine.unified_portfolio_engine import load_unified_data
+from backtests.swing.auto.greedy_optimize import (
     PORTFOLIO_CANDIDATES,
     run_greedy,
     save_result,
 )
 
 EQUITY = 10_000.0
-DATA_DIR = ROOT / "research" / "backtests" / "swing" / "data" / "raw"
-OUTPUT_DIR = ROOT / "research" / "backtests" / "swing" / "auto" / "output"
+DATA_DIR = ROOT / "backtests" / "swing" / "data" / "raw"
+OUTPUT_DIR = ROOT / "backtests" / "swing" / "auto" / "output"
 
 
 def main():
@@ -51,8 +51,8 @@ def main():
 
     # Also run the final config once more and print detailed output
     print("\n\nRunning final config for detailed output...")
-    from research.backtests.swing.auto.config_mutator import mutate_unified_config
-    from research.backtests.swing.engine.unified_portfolio_engine import run_unified
+    from backtests.swing.auto.config_mutator import mutate_unified_config
+    from backtests.swing.engine.unified_portfolio_engine import run_unified
 
     final_config = UnifiedBacktestConfig(initial_equity=EQUITY)
     if result.final_mutations:

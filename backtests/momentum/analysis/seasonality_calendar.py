@@ -9,7 +9,7 @@ import numpy as np
 from collections import defaultdict
 from datetime import datetime, date, timedelta
 
-from research.backtests.momentum.analysis._utils import parse_dt as _parse_dt, trade_date as _trade_date
+from backtests.momentum.analysis._utils import parse_dt as _parse_dt, trade_date as _trade_date
 
 
 WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]

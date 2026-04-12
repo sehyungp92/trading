@@ -1075,3 +1075,383 @@ def atrss_order_fill_rate(order_metadata: list[dict]) -> str:
             lines.append(f"    {hour:2d}:00  {hour_counts[hour]:4d}")
 
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 17. Crisis window performance
+# ---------------------------------------------------------------------------
+
+CRISIS_WINDOWS = [
+    ("2022 Bear", datetime(2022, 1, 3), datetime(2022, 10, 13)),
+    ("SVB Crisis", datetime(2023, 3, 8), datetime(2023, 3, 15)),
+    ("Aug 2024 Unwind", datetime(2024, 8, 1), datetime(2024, 8, 5)),
+    ("Tariff Shock", datetime(2025, 2, 21), datetime(2025, 4, 7)),
+    ("Mar 2026 Slow Burn", datetime(2026, 3, 5), datetime(2026, 3, 27)),
+]
+
+
+def _naive(dt: datetime | None) -> datetime | None:
+    """Strip timezone info for safe comparison with naive crisis window dates."""
+    if dt is None:
+        return None
+    return dt.replace(tzinfo=None) if dt.tzinfo is not None else dt
+
+
+def atrss_crisis_window_analysis(trades: list) -> str:
+    """Performance during known market stress periods vs normal conditions."""
+    if not trades:
+        return "=== ATRSS Crisis Window Analysis ===\nNo trades."
+
+    lines = ["=== ATRSS Crisis Window Analysis ==="]
+    lines.append(f"  {'Window':25s} {'Dates':25s} {'N':>4s} {'WR':>5s} "
+                 f"{'AvgR':>7s} {'TotR':>8s} {'PnL':>10s}")
+    lines.append("  " + "-" * 90)
+
+    total_crisis_n = 0
+    total_crisis_r = 0.0
+    for name, start, end in CRISIS_WINDOWS:
+        ct = [t for t in trades
+              if (et := _naive(t.entry_time)) is not None and start <= et <= end]
+        n = len(ct)
+        total_crisis_n += n
+        if n == 0:
+            lines.append(f"  {name:25s} {str(start.date()) + ' -> ' + str(end.date()):25s} "
+                         f"{'--':>4s}")
+            continue
+        wr = np.mean([t.r_multiple > 0 for t in ct]) * 100
+        avg_r = np.mean([t.r_multiple for t in ct])
+        tot_r = sum(t.r_multiple for t in ct)
+        pnl = sum(t.pnl_dollars for t in ct)
+        total_crisis_r += tot_r
+        lines.append(f"  {name:25s} {str(start.date()) + ' -> ' + str(end.date()):25s} "
+                     f"{n:4d} {wr:4.0f}% {avg_r:+7.3f} {tot_r:+8.2f} ${pnl:+10,.0f}")
+        for t in sorted(ct, key=lambda x: x.entry_time or datetime.min):
+            d = "L" if t.direction == 1 else "S"
+            lines.append(
+                f"    {t.symbol:5s} {d} {t.entry_type:10s} "
+                f"entry={t.entry_time.strftime('%m-%d %H:%M') if t.entry_time else 'N/A':11s} "
+                f"R={t.r_multiple:+.2f} MFE={t.mfe_r:.2f} exit={t.exit_reason}")
+
+    lines.append("")
+    non_crisis = [t for t in trades if not any(
+        (et := _naive(t.entry_time)) is not None and s <= et <= e
+        for _, s, e in CRISIS_WINDOWS)]
+    nc_n = len(non_crisis)
+    nc_r = np.mean([t.r_multiple for t in non_crisis]) if non_crisis else 0
+    lines.append(f"  Crisis:     {total_crisis_n:4d} trades, totR={total_crisis_r:+.2f}")
+    lines.append(f"  Non-crisis: {nc_n:4d} trades, avgR={nc_r:+.3f}, "
+                 f"totR={sum(t.r_multiple for t in non_crisis):+.2f}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 18. Rolling edge stability
+# ---------------------------------------------------------------------------
+
+def atrss_rolling_edge(trades: list, window: int = 30) -> str:
+    """Rolling N-trade window metrics to detect edge decay or regime shifts."""
+    if len(trades) < window:
+        return (f"=== ATRSS Rolling Edge (window={window}) ===\n"
+                f"  Insufficient trades ({len(trades)} < {window}).")
+
+    lines = [f"=== ATRSS Rolling Edge Stability (window={window}) ==="]
+    lines.append(f"  {'Window':>12s} {'WR':>5s} {'AvgR':>7s} {'PF':>6s} "
+                 f"{'TotR':>8s} {'MaxDD_R':>8s}")
+    lines.append("  " + "-" * 55)
+
+    roll_wrs: list[float] = []
+    roll_avgrs: list[float] = []
+
+    for i in range(0, len(trades) - window + 1, max(1, window // 3)):
+        chunk = trades[i:i + window]
+        wr = np.mean([t.r_multiple > 0 for t in chunk]) * 100
+        avg_r = np.mean([t.r_multiple for t in chunk])
+        tot_r = sum(t.r_multiple for t in chunk)
+        wins_r = sum(t.r_multiple for t in chunk if t.r_multiple > 0)
+        loss_r = abs(sum(t.r_multiple for t in chunk if t.r_multiple < 0))
+        pf = wins_r / loss_r if loss_r > 0 else float("inf")
+
+        cum = np.cumsum([t.r_multiple for t in chunk])
+        peak = np.maximum.accumulate(cum)
+        dd = peak - cum
+        max_dd = float(np.max(dd)) if len(dd) > 0 else 0.0
+
+        roll_wrs.append(wr)
+        roll_avgrs.append(avg_r)
+
+        label = f"#{i+1}-#{i+window}"
+        lines.append(f"  {label:>12s} {wr:4.0f}% {avg_r:+7.3f} {min(pf, 99.99):6.2f} "
+                     f"{tot_r:+8.2f} {max_dd:8.2f}")
+
+    lines.append("")
+    lines.append(f"  WR range:  {min(roll_wrs):.0f}% - {max(roll_wrs):.0f}%  "
+                 f"(std={np.std(roll_wrs):.1f}%)")
+    lines.append(f"  AvgR range: {min(roll_avgrs):+.3f} - {max(roll_avgrs):+.3f}  "
+                 f"(std={np.std(roll_avgrs):.3f})")
+
+    mid = len(trades) // 2
+    fh_avg = np.mean([t.r_multiple for t in trades[:mid]])
+    sh_avg = np.mean([t.r_multiple for t in trades[mid:]])
+    delta = sh_avg - fh_avg
+    verdict = "STABLE" if abs(delta) < 0.15 else ("IMPROVING" if delta > 0 else "DECAYING")
+    lines.append(f"\n  Edge trend: first-half avgR={fh_avg:+.3f}, "
+                 f"second-half avgR={sh_avg:+.3f}, delta={delta:+.3f} -> {verdict}")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 19. Profit concentration (Pareto analysis)
+# ---------------------------------------------------------------------------
+
+def atrss_profit_concentration(trades: list) -> str:
+    """Pareto analysis: what fraction of trades generates what fraction of profit."""
+    if not trades:
+        return "=== ATRSS Profit Concentration ===\nNo trades."
+
+    lines = ["=== ATRSS Profit Concentration (Pareto) ==="]
+
+    winners = [t for t in trades if t.r_multiple > 0]
+    losers = [t for t in trades if t.r_multiple <= 0]
+    total_gross_r = sum(t.r_multiple for t in winners)
+
+    if total_gross_r <= 0:
+        lines.append("  No gross R to analyze.")
+        return "\n".join(lines)
+
+    by_r_desc = sorted(winners, key=lambda t: t.r_multiple, reverse=True)
+    cum = 0.0
+    thresholds: dict[int, int | None] = {50: None, 75: None, 90: None}
+    for i, t in enumerate(by_r_desc, 1):
+        cum += t.r_multiple
+        pct = cum / total_gross_r * 100
+        for th in thresholds:
+            if thresholds[th] is None and pct >= th:
+                thresholds[th] = i
+
+    for th, count in thresholds.items():
+        if count is not None:
+            lines.append(f"  Top {count} trades ({count / len(trades) * 100:.0f}% of all) "
+                         f"generate {th}% of gross R")
+
+    big = [t for t in winners if t.r_multiple >= 3.0]
+    med = [t for t in winners if 1.0 <= t.r_multiple < 3.0]
+    small = [t for t in winners if 0 < t.r_multiple < 1.0]
+
+    lines.append(f"\n  Big winners   (>=3R):  {len(big):3d} trades, "
+                 f"totR={sum(t.r_multiple for t in big):+.2f} "
+                 f"({sum(t.r_multiple for t in big) / total_gross_r * 100:.0f}% of gross)")
+    lines.append(f"  Medium winners (1-3R): {len(med):3d} trades, "
+                 f"totR={sum(t.r_multiple for t in med):+.2f} "
+                 f"({sum(t.r_multiple for t in med) / total_gross_r * 100:.0f}% of gross)")
+    lines.append(f"  Small winners  (<1R):  {len(small):3d} trades, "
+                 f"totR={sum(t.r_multiple for t in small):+.2f} "
+                 f"({sum(t.r_multiple for t in small) / total_gross_r * 100:.0f}% of gross)")
+
+    total_loss_r = abs(sum(t.r_multiple for t in losers))
+    net_r = total_gross_r - total_loss_r
+    lines.append(f"\n  Gross win R:  {total_gross_r:+.2f}")
+    lines.append(f"  Gross loss R: {-total_loss_r:+.2f}")
+    lines.append(f"  Net R:        {net_r:+.2f}")
+    if total_loss_r > 0:
+        lines.append(f"  Win/Loss ratio: {total_gross_r / total_loss_r:.2f}x")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 20. Right-then-stopped deep dive (exit management failures)
+# ---------------------------------------------------------------------------
+
+def atrss_right_then_stopped(trades: list) -> str:
+    """Trades that reached good MFE then reversed to a loss -- exit timing failures."""
+    if not trades:
+        return "=== ATRSS Right-then-Stopped ===\nNo trades."
+
+    rts = [t for t in trades if t.r_multiple <= 0 and t.mfe_r >= 0.5]
+    if not rts:
+        return "=== ATRSS Right-then-Stopped ===\n  No trades went right then lost."
+
+    lines = ["=== ATRSS Right-then-Stopped Deep Dive ==="]
+    total_leaked = sum(t.mfe_r - t.r_multiple for t in rts)
+    lines.append(f"  {len(rts)} trades reached MFE >= 0.5R then finished at or below 0R")
+    lines.append(f"  Total R leaked (MFE - finalR): {total_leaked:+.2f}R")
+    lines.append(f"  Avg MFE before reversal: {np.mean([t.mfe_r for t in rts]):.2f}R")
+    lines.append(f"  Avg final R: {np.mean([t.r_multiple for t in rts]):+.3f}")
+
+    by_reason: dict[str, list] = defaultdict(list)
+    for t in rts:
+        by_reason[t.exit_reason].append(t)
+    lines.append(f"\n  By exit reason:")
+    lines.append(f"  {'Reason':20s} {'N':>4s} {'AvgMFE':>7s} {'AvgR':>7s} {'Leaked':>8s}")
+    lines.append("  " + "-" * 50)
+    for reason in sorted(by_reason, key=lambda r: -len(by_reason[r])):
+        rt = by_reason[reason]
+        leaked = sum(t.mfe_r - t.r_multiple for t in rt)
+        lines.append(f"  {reason:20s} {len(rt):4d} {np.mean([t.mfe_r for t in rt]):7.2f} "
+                     f"{np.mean([t.r_multiple for t in rt]):+7.3f} {leaked:+8.2f}")
+
+    lines.append(f"\n  By MFE reached:")
+    for lo, hi, label in [(0.5, 1.0, "0.5-1.0R"), (1.0, 2.0, "1.0-2.0R"),
+                           (2.0, 3.0, "2.0-3.0R"), (3.0, 99, "3.0R+")]:
+        bucket = [t for t in rts if lo <= t.mfe_r < hi]
+        if bucket:
+            leaked = sum(t.mfe_r - t.r_multiple for t in bucket)
+            lines.append(f"    MFE {label:8s}  n={len(bucket):3d}  "
+                         f"avgR={np.mean([t.r_multiple for t in bucket]):+.3f}  "
+                         f"leaked={leaked:+.2f}R")
+
+    lines.append(f"\n  By hold time:")
+    for lo, hi, label in [(1, 13, "1-12 bars"), (13, 37, "13-36 bars"),
+                           (37, 73, "37-72 bars"), (73, 999, "72+ bars")]:
+        bucket = [t for t in rts if lo <= t.bars_held < hi]
+        if bucket:
+            lines.append(f"    {label:12s}  n={len(bucket):3d}  "
+                         f"avgMFE={np.mean([t.mfe_r for t in bucket]):.2f}R  "
+                         f"avgR={np.mean([t.r_multiple for t in bucket]):+.3f}")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 21. Monthly returns calendar
+# ---------------------------------------------------------------------------
+
+def atrss_monthly_returns(trades: list) -> str:
+    """Month-by-month R returns grid for seasonality and consistency analysis."""
+    if not trades:
+        return "=== ATRSS Monthly Returns ===\nNo trades."
+
+    lines = ["=== ATRSS Monthly Returns Calendar ==="]
+
+    month_r: dict[str, float] = defaultdict(float)
+    month_n: dict[str, int] = defaultdict(int)
+    for t in trades:
+        if t.entry_time is None:
+            continue
+        key = t.entry_time.strftime("%Y-%m")
+        month_r[key] += t.r_multiple
+        month_n[key] += 1
+
+    if not month_r:
+        lines.append("  No timestamped trades.")
+        return "\n".join(lines)
+
+    lines.append(f"  {'Month':>7s} {'Trades':>6s} {'R':>8s} {'CumR':>8s} {'AvgR':>7s}")
+    lines.append("  " + "-" * 42)
+    cum = 0.0
+    pos_months = 0
+    neg_months = 0
+    for month in sorted(month_r):
+        r = month_r[month]
+        cum += r
+        avg = r / month_n[month] if month_n[month] > 0 else 0
+        marker = "+" if r > 0 else "-" if r < 0 else " "
+        lines.append(f"  {month:>7s} {month_n[month]:6d} {r:+8.2f} {cum:+8.2f} "
+                     f"{avg:+7.3f} {marker}")
+        if r > 0:
+            pos_months += 1
+        elif r < 0:
+            neg_months += 1
+
+    total_months = pos_months + neg_months
+    lines.append("")
+    if total_months > 0:
+        lines.append(f"  Positive months: {pos_months}/{total_months} "
+                     f"({pos_months / total_months * 100:.0f}%)")
+    lines.append(f"  Best month:  {max(month_r, key=month_r.get)} "  # type: ignore[arg-type]
+                 f"({max(month_r.values()):+.2f}R)")
+    lines.append(f"  Worst month: {min(month_r, key=month_r.get)} "  # type: ignore[arg-type]
+                 f"({min(month_r.values()):+.2f}R)")
+
+    year_r: dict[int, float] = defaultdict(float)
+    year_n: dict[int, int] = defaultdict(int)
+    for t in trades:
+        if t.entry_time is None:
+            continue
+        year_r[t.entry_time.year] += t.r_multiple
+        year_n[t.entry_time.year] += 1
+
+    lines.append(f"\n  Yearly summary:")
+    lines.append(f"  {'Year':>6s} {'Trades':>6s} {'TotR':>8s} {'AvgR':>7s} {'PF':>6s}")
+    lines.append("  " + "-" * 38)
+    for year in sorted(year_r):
+        yt = [t for t in trades if t.entry_time and t.entry_time.year == year]
+        tot = year_r[year]
+        avg = tot / year_n[year] if year_n[year] > 0 else 0
+        wins_r = sum(t.r_multiple for t in yt if t.r_multiple > 0)
+        loss_r = abs(sum(t.r_multiple for t in yt if t.r_multiple < 0))
+        pf = wins_r / loss_r if loss_r > 0 else float("inf")
+        lines.append(f"  {year:6d} {year_n[year]:6d} {tot:+8.2f} {avg:+7.3f} "
+                     f"{min(pf, 99.99):6.2f}")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 22. ADX edge analysis (ATRSS-specific)
+# ---------------------------------------------------------------------------
+
+def atrss_adx_edge_analysis(trades: list) -> str:
+    """ADX-at-entry analysis: optimal entry zones, correlation with outcomes."""
+    adx_trades = [t for t in trades if t.adx_entry > 0]
+    if not adx_trades:
+        return "=== ATRSS ADX Edge Analysis ===\nNo ADX data available."
+
+    lines = ["=== ATRSS ADX Edge Analysis ==="]
+    adx_vals = np.array([t.adx_entry for t in adx_trades])
+    r_vals = np.array([t.r_multiple for t in adx_trades])
+
+    lines.append(f"  ADX at entry: mean={np.mean(adx_vals):.1f}, "
+                 f"median={np.median(adx_vals):.1f}, "
+                 f"range=[{np.min(adx_vals):.1f}, {np.max(adx_vals):.1f}]")
+
+    if len(adx_vals) >= 5:
+        corr = np.corrcoef(adx_vals, r_vals)[0, 1]
+        lines.append(f"  Correlation(ADX, R): {corr:+.3f}")
+
+    lines.append(f"\n  {'ADX Range':>12s} {'N':>4s} {'WR':>5s} {'AvgR':>7s} "
+                 f"{'TotR':>8s} {'PF':>6s} {'AvgMFE':>7s}")
+    lines.append("  " + "-" * 55)
+    for lo, hi, label in [(15, 20, "15-20"), (20, 25, "20-25"), (25, 30, "25-30"),
+                           (30, 40, "30-40"), (40, 60, "40-60"), (60, 999, "60+")]:
+        bucket = [t for t in adx_trades if lo <= t.adx_entry < hi]
+        if not bucket:
+            continue
+        wr = np.mean([t.r_multiple > 0 for t in bucket]) * 100
+        avg_r = np.mean([t.r_multiple for t in bucket])
+        tot_r = sum(t.r_multiple for t in bucket)
+        wins = sum(t.r_multiple for t in bucket if t.r_multiple > 0)
+        loss = abs(sum(t.r_multiple for t in bucket if t.r_multiple < 0))
+        pf = wins / loss if loss > 0 else float("inf")
+        mfe = np.mean([t.mfe_r for t in bucket])
+        lines.append(f"  {label:>12s} {len(bucket):4d} {wr:4.0f}% {avg_r:+7.3f} "
+                     f"{tot_r:+8.2f} {min(pf, 99.99):6.2f} {mfe:7.2f}")
+
+    lines.append(f"\n  By regime:")
+    lines.append(f"  {'Regime':>14s} {'N':>4s} {'AvgADX':>7s} {'WR':>5s} "
+                 f"{'AvgR':>7s} {'TotR':>8s}")
+    lines.append("  " + "-" * 50)
+    regimes = sorted(set(t.regime_entry for t in adx_trades if t.regime_entry))
+    for regime in regimes:
+        rt = [t for t in adx_trades if t.regime_entry == regime]
+        if not rt:
+            continue
+        lines.append(f"  {regime:>14s} {len(rt):4d} {np.mean([t.adx_entry for t in rt]):7.1f} "
+                     f"{np.mean([t.r_multiple > 0 for t in rt]) * 100:4.0f}% "
+                     f"{np.mean([t.r_multiple for t in rt]):+7.3f} "
+                     f"{sum(t.r_multiple for t in rt):+8.2f}")
+
+    best_bucket = None
+    best_avg_r = -999.0
+    for lo, hi in [(15, 20), (20, 25), (25, 30), (30, 40), (40, 60)]:
+        bucket = [t for t in adx_trades if lo <= t.adx_entry < hi]
+        if len(bucket) >= 5:
+            avg = float(np.mean([t.r_multiple for t in bucket]))
+            if avg > best_avg_r:
+                best_avg_r = avg
+                best_bucket = f"{lo}-{hi}"
+    if best_bucket:
+        lines.append(f"\n  Optimal ADX entry zone: {best_bucket} (avgR={best_avg_r:+.3f})")
+
+    return "\n".join(lines)
