@@ -33,6 +33,7 @@ _DIR_TO_EVENT_TYPE = {
     "config_changes": "parameter_change",
     "snapshots": "market_snapshot",
     "post_exit": "post_exit",
+    "coordination_events": "coordinator_action",
 }
 
 _MUTABLE_JSONL_EVENT_TYPES = {"missed_opportunity"}

@@ -59,7 +59,7 @@ services:
       DB_NAME: trading
       DB_USER: trading_writer
       DB_PASSWORD: ${POSTGRES_WRITER_PASSWORD:-changeme}
-      INSTRUMENTATION_RELAY_URL: http://127.0.0.1:8000/ingest
+      INSTRUMENTATION_RELAY_URL: http://127.0.0.1:8000/events
     volumes:
       - runtime_instrumentation:/app/instrumentation/data
       - runtime_data:/app/data

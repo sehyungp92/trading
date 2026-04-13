@@ -50,7 +50,7 @@ _DIR_TO_EVENT_TYPE = {
     "daily": "daily_snapshot",
     "snapshots": "market_snapshot",
     "post_exit": "post_exit",
-    "coordination": "coordinator_action",
+    "coordination_events": "coordinator_action",
     "orders": "order",
     "heartbeat": "heartbeat",
     # Phase 2B enriched event types

@@ -47,10 +47,12 @@ _BOT_NAME_MAP = {
 # Single bot_id for all strategies; strategy_id distinguishes them in events
 _BOT_ID = "stock_trader"
 _HMAC_SECRET_ENV = "INSTRUMENTATION_HMAC_SECRET"
+# Pass strategy_ids through unchanged — must match registry keys
+# (IARIC_v1, US_ORB_v1, ALCB_v1) for the assistant pipeline.
 _STRATEGY_ID_MAP = {
-    "IARIC_v1": "iaric",
-    "US_ORB_v1": "us_orb",
-    "ALCB_v1": "alcb",
+    "IARIC_v1": "IARIC_v1",
+    "US_ORB_v1": "US_ORB_v1",
+    "ALCB_v1": "ALCB_v1",
 }
 
 
@@ -68,7 +70,7 @@ def _resolve_config_modules(strategy_id: str, strategy_type: str) -> list[str]:
 
 def _load_config(strategy_id: str, strategy_type: str) -> dict:
     """Load instrumentation config and adapt it to the target strategy."""
-    config_path = Path("instrumentation/config/instrumentation_config.yaml")
+    config_path = Path(__file__).resolve().parent.parent / "config" / "instrumentation_config.yaml"
     if config_path.exists():
         with open(config_path, encoding="utf-8") as handle:
             config = yaml.safe_load(handle) or {}
@@ -76,7 +78,8 @@ def _load_config(strategy_id: str, strategy_type: str) -> dict:
         config = {}
 
     normalized_strategy_type = _normalize_strategy_type(strategy_id, strategy_type)
-    data_dir = os.environ.get("INSTRUMENTATION_DATA_DIR") or config.get("data_dir") or "instrumentation/data"
+    _default_data_dir = str(Path(__file__).resolve().parent.parent / "data")
+    data_dir = os.environ.get("INSTRUMENTATION_DATA_DIR") or config.get("data_dir") or _default_data_dir
     sidecar_config = dict(config.get("sidecar") or {})
     market_snapshots = dict(config.get("market_snapshots") or {})
     logging_config = dict(config.get("logging") or {})
@@ -93,7 +96,7 @@ def _load_config(strategy_id: str, strategy_type: str) -> dict:
     market_snapshots.setdefault("interval_seconds", 60)
     config["market_snapshots"] = market_snapshots
 
-    sidecar_config.setdefault("relay_url", "http://127.0.0.1:8001/events")
+    sidecar_config.setdefault("relay_url", "http://127.0.0.1:8000/events")
     sidecar_config["hmac_secret_env"] = _HMAC_SECRET_ENV
     sidecar_config["buffer_dir"] = os.environ.get("INSTRUMENTATION_BUFFER_DIR") or str(Path(data_dir) / ".sidecar_buffer")
     config["sidecar"] = sidecar_config

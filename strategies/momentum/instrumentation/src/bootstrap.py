@@ -26,23 +26,26 @@ from .config_watcher import ConfigWatcher
 
 logger = logging.getLogger("instrumentation.bootstrap")
 
-_BOT_ID = "momentum_trader"
+_BOT_ID = "momentum_nq_01"
 
 
 def _load_config(strategy_id: str, strategy_type: str) -> dict:
     """Load instrumentation_config.yaml with family bot_id and per-strategy strategy_id."""
-    config_path = Path("instrumentation/config/instrumentation_config.yaml")
+    config_path = Path(__file__).resolve().parent.parent / "config" / "instrumentation_config.yaml"
     if config_path.exists():
         with open(config_path) as f:
             config = yaml.safe_load(f) or {}
     else:
         config = {}
 
+    _default_data_dir = str(Path(__file__).resolve().parent.parent / "data")
     config["bot_id"] = _BOT_ID
     config["strategy_id"] = strategy_id
     config["strategy_type"] = strategy_type
-    config.setdefault("data_dir", "instrumentation/data")
+    config.setdefault("data_dir", _default_data_dir)
     config.setdefault("data_source_id", "ibkr_cme_nq")
+    config.setdefault("sidecar", {})
+    config["sidecar"].setdefault("relay_url", "http://127.0.0.1:8000/events")
 
     # Experiment tracking from config or environment
     config["experiment_id"] = config.get("experiment_id") or os.environ.get("EXPERIMENT_ID")

@@ -340,11 +340,27 @@ class RuntimeShell:
                 logger.error("Failed to create coordinator for '%s': %s", family, exc, exc_info=True)
 
         # ------------------------------------------------------------------
-        # 5. Load and apply initial regime context BEFORE starting engines
+        # 5. Start all coordinators (must run before regime apply so that
+        #    _base_portfolio_rules is initialised inside start())
+        # ------------------------------------------------------------------
+        started_coordinators: list[Any] = []
+        for coordinator in coordinators:
+            try:
+                await coordinator.start()
+                started_coordinators.append(coordinator)
+                logger.info("Family '%s' coordinator started", coordinator.family_id)
+            except Exception as exc:
+                logger.error(
+                    "Coordinator '%s' failed to start: %s",
+                    getattr(coordinator, "family_id", "?"), exc, exc_info=True,
+                )
+        coordinators = started_coordinators
+
+        # ------------------------------------------------------------------
+        # 5b. Load and apply initial regime context AFTER coordinators started
         # ------------------------------------------------------------------
         regime_task: asyncio.Task | None = None
         try:
-            # Prefer live service context (computed at step 3.5) over disk
             regime_ctx = None
             if regime_service is not None:
                 regime_ctx = regime_service.get_context()
@@ -362,22 +378,6 @@ class RuntimeShell:
                         regime_ctx.regime, regime_ctx.regime_confidence, regime_ctx.computed_at or "unknown")
         except Exception as exc:
             logger.warning("Regime context load failed (non-fatal): %s", exc)
-
-        # ------------------------------------------------------------------
-        # 5b. Start all coordinators (regime already applied)
-        # ------------------------------------------------------------------
-        started_coordinators: list[Any] = []
-        for coordinator in coordinators:
-            try:
-                await coordinator.start()
-                started_coordinators.append(coordinator)
-                logger.info("Family '%s' coordinator started", coordinator.family_id)
-            except Exception as exc:
-                logger.error(
-                    "Coordinator '%s' failed to start: %s",
-                    getattr(coordinator, "family_id", "?"), exc, exc_info=True,
-                )
-        coordinators = started_coordinators
 
         if not coordinators:
             logger.error("No coordinators started successfully — shutting down")

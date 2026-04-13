@@ -174,18 +174,30 @@ class SwingFamilyCoordinator:
             from libs.broker_ibkr.mapping.contract_factory import ContractFactory
             from libs.broker_ibkr.adapters.execution_adapter import IBKRExecutionAdapter
 
-            ibkr_config = IBKRConfig(config_dir)
-            contract_factory = ContractFactory(
-                ib=session.ib,
-                templates=ibkr_config.contracts,
-                routes=ibkr_config.routes,
-            )
-            adapter = IBKRExecutionAdapter(
-                session=session,
-                contract_factory=contract_factory,
-                account=ibkr_config.profile.account_id,
-            )
-            logger.info("Swing execution adapter created (account=%s)", ibkr_config.profile.account_id)
+            try:
+                ibkr_config = IBKRConfig(config_dir)
+            except Exception as exc:
+                logger.error(
+                    "IBKRConfig load failed (%s) — swing adapter unavailable. "
+                    "Ensure config/ibkr_profiles.yaml exists.",
+                    exc,
+                )
+                ibkr_config = None
+
+            if ibkr_config is not None:
+                contract_factory = ContractFactory(
+                    ib=session.ib,
+                    templates=ibkr_config.contracts,
+                    routes=ibkr_config.routes,
+                )
+                adapter = IBKRExecutionAdapter(
+                    session=session,
+                    contract_factory=contract_factory,
+                    account=ibkr_config.profile.account_id,
+                )
+                logger.info("Swing execution adapter created (account=%s)", ibkr_config.profile.account_id)
+            else:
+                logger.warning("IBKRConfig unavailable — swing running without execution adapter")
         else:
             logger.warning("No IB session -- swing adapter is None (shadow/test mode)")
 

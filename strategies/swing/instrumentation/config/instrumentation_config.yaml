@@ -15,7 +15,7 @@ market_snapshots:
   symbols: []                       # auto-populated from bot's active symbols at startup
 
 sidecar:
-  relay_url: "http://127.0.0.1:8001/events"
+  relay_url: "http://127.0.0.1:8000/events"
   hmac_secret_env: "INSTRUMENTATION_HMAC_SECRET"
   batch_size: 50
   retry_max: 5

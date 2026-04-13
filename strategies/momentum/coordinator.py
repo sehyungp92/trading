@@ -73,7 +73,12 @@ class MomentumFamilyCoordinator:
 
         # ── Execution adapter (shared IB session, one adapter instance) ──
         config_dir = Path(os.environ.get("CONFIG_DIR", str(Path(__file__).resolve().parent.parent.parent / "config")))
-        ibkr_config = IBKRConfig(config_dir)
+        try:
+            ibkr_config = IBKRConfig(config_dir)
+        except Exception as exc:
+            raise RuntimeError(
+                f"IBKRConfig load failed — ensure config/ibkr_profiles.yaml exists: {exc}"
+            ) from exc
         contract_factory = ContractFactory(
             ib=session.ib,
             templates=ibkr_config.contracts,
@@ -362,7 +367,9 @@ class MomentumFamilyCoordinator:
         record = {"timestamp": now.isoformat(), "event_type": "regime_rules_change", **payload}
         for instr in self._instrumentations:
             try:
-                data_dir = getattr(instr, "_data_dir", None)
+                # InstrumentationManager stores config as self._config dict,
+                # NOT as self._data_dir attribute.
+                data_dir = getattr(instr, "_config", {}).get("data_dir")
                 if not data_dir:
                     continue
                 out_dir = Path(data_dir) / "coordination_events"
@@ -481,7 +488,7 @@ class MomentumFamilyCoordinator:
                 "instr_type": "nqdtc",
                 "trade_recorder": trade_recorder,
                 "engine_extra_kwargs": {
-                    "state_dir": Path("/app/state"),
+                    "state_dir": Path(os.environ.get("NQDTC_STATE_DIR", "data/nqdtc_state")),
                 },
             },
             # ── VdubusNQ_v4 ────────────────────────────────────────
@@ -509,7 +516,7 @@ class MomentumFamilyCoordinator:
                 "instr_type": "downturn",
                 "trade_recorder": trade_recorder,
                 "engine_extra_kwargs": {
-                    "state_dir": Path("/app/state"),
+                    "state_dir": Path(os.environ.get("DOWNTURN_STATE_DIR", "data/downturn_state")),
                 },
             },
         ]

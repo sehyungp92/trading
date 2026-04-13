@@ -132,6 +132,16 @@ class StockFamilyCoordinator:
 
         for desc in _strategies:
             sid = desc["strategy_id"]
+
+            # Skip engines whose required artifact failed to load
+            if desc.get("data_key") == "artifact" and desc.get("data_value") is None:
+                logger.warning(
+                    "Skipping %s — required artifact not available. "
+                    "Engine would crash on None artifact.",
+                    sid,
+                )
+                continue
+
             self._strategy_ids.append(sid)
 
             # Resolve allocated NAV
@@ -433,7 +443,9 @@ class StockFamilyCoordinator:
         record = {"timestamp": now.isoformat(), "event_type": "regime_rules_change", **payload}
         for instr in self._instrumentations:
             try:
-                data_dir = getattr(instr, "_data_dir", None)
+                # InstrumentationManager stores config as self._config dict,
+                # NOT as self._data_dir attribute.
+                data_dir = getattr(instr, "_config", {}).get("data_dir")
                 if not data_dir:
                     continue
                 out_dir = Path(data_dir) / "coordination_events"

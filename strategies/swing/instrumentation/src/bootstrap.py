@@ -21,7 +21,7 @@ from typing import Optional
 
 logger = logging.getLogger("instrumentation.bootstrap")
 
-_CONFIG_PATH = Path("instrumentation/config/instrumentation_config.yaml")
+_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "instrumentation_config.yaml"
 
 
 def bootstrap_instrumentation(
@@ -85,7 +85,7 @@ def bootstrap_instrumentation(
     filter_logger = FilterLogger(config)
     orderbook_logger = OrderBookLogger(config)
 
-    experiments_path = Path(config.get("data_dir", "instrumentation/data")).parent / "config" / "experiments.yaml"
+    experiments_path = Path(config["data_dir"]).parent / "config" / "experiments.yaml"
     experiment_registry = ExperimentRegistry(config_path=experiments_path)
     daily_builder = DailySnapshotBuilder(config, experiment_registry=experiment_registry, get_regime_ctx=get_regime_ctx, get_applied_config=get_applied_config)
 
@@ -94,7 +94,7 @@ def bootstrap_instrumentation(
         try:
             from .post_exit_tracker import PostExitTracker
             post_exit_tracker = PostExitTracker(
-                data_dir=config.get("data_dir", "instrumentation/data"),
+                data_dir=config["data_dir"],
                 data_provider=data_provider,
             )
         except Exception as e:
@@ -118,7 +118,7 @@ def bootstrap_instrumentation(
         experiment_registry=experiment_registry,
         post_exit_tracker=post_exit_tracker,
         bot_id=config.get("bot_id", "swing_multi_01"),
-        data_dir=config.get("data_dir", "instrumentation/data"),
+        data_dir=config["data_dir"],
         get_regime_ctx=get_regime_ctx,
         get_applied_config=get_applied_config,
     )
@@ -221,24 +221,28 @@ def _bootstrap_kit_from_shared(
 
 
 def _load_config() -> dict:
-    """Load instrumentation_config.yaml, falling back to defaults."""
+    """Load instrumentation_config.yaml, applying defaults for any missing keys."""
     if _CONFIG_PATH.exists():
         try:
             import yaml
             with open(_CONFIG_PATH) as f:
-                return yaml.safe_load(f) or {}
+                config = yaml.safe_load(f) or {}
         except Exception as e:
             logger.warning("Failed to load %s: %s — using defaults", _CONFIG_PATH, e)
+            config = {}
+    else:
+        config = {}
 
-    return {
-        "bot_id": "swing_multi_01",
-        "data_dir": "instrumentation/data",
-        "data_source_id": "ibkr_execution",
-        "market_snapshots": {"interval_seconds": 60, "symbols": []},
-        "sidecar": {
-            "relay_url": "",
-            "batch_size": 50,
-            "retry_max": 5,
-            "poll_interval_seconds": 60,
-        },
-    }
+    _default_data_dir = str(Path(__file__).resolve().parent.parent / "data")
+    config.setdefault("bot_id", "swing_multi_01")
+    config.setdefault("data_dir", _default_data_dir)
+    config.setdefault("data_source_id", "ibkr_execution")
+    config.setdefault("market_snapshots", {})
+    config["market_snapshots"].setdefault("interval_seconds", 60)
+    config["market_snapshots"].setdefault("symbols", [])
+    config.setdefault("sidecar", {})
+    config["sidecar"].setdefault("relay_url", "http://127.0.0.1:8000/events")
+    config["sidecar"].setdefault("batch_size", 50)
+    config["sidecar"].setdefault("retry_max", 5)
+    config["sidecar"].setdefault("poll_interval_seconds", 60)
+    return config

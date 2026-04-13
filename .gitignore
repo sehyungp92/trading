@@ -20,6 +20,9 @@ env/
 .env.*.local
 !.env.example
 
+# IBKR secrets (template checked in as .example)
+config/ibkr_profiles.yaml
+
 # Node.js
 node_modules/
 
