@@ -83,6 +83,7 @@ class BRSLiveEngine:
         equity: float = 10_000.0,
         instrumentation: Any = None,
         cfg: BRSConfig | None = None,
+        equity_alloc_pct: float = 1.0,
     ) -> None:
         self._cfg = cfg or BRSConfig()
         self._sym_cfgs: dict[str, BRSSymbolConfig] = {
@@ -96,6 +97,7 @@ class BRSLiveEngine:
         self._instruments_map: dict[str, Any] = {i.symbol: i for i in instruments}
         self._trade_recorder = trade_recorder
         self._equity = equity
+        self._equity_alloc_pct = equity_alloc_pct
         self._instrumentation = instrumentation
 
         # Per-symbol bar series (3 TF each)
@@ -824,7 +826,7 @@ class BRSLiveEngine:
                 summary = await self.ib.ib.accountSummaryAsync(accounts[0])
                 for item in summary:
                     if item.tag == "NetLiquidation" and item.currency == "USD":
-                        self._equity = float(item.value)
+                        self._equity = float(item.value) * self._equity_alloc_pct
                         logger.info("BRS equity refreshed: $%.2f", self._equity)
                         return
         except Exception:

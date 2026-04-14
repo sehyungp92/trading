@@ -108,9 +108,11 @@ export async function GET() {
       ),
       // Registry: strategy→family mapping from DB (drives getSystem())
       query<{ strategy_id: string; family_id: string }>(
-        `SELECT DISTINCT strategy_id, family_id
+        `SELECT DISTINCT ON (strategy_id) strategy_id, family_id
          FROM risk_daily_strategy
-         WHERE family_id IS NOT NULL`
+         WHERE family_id IS NOT NULL
+           AND family_id != 'unknown'
+         ORDER BY strategy_id, trade_date DESC`
       ),
     ]);
 

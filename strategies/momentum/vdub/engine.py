@@ -149,12 +149,14 @@ class VdubNQv4Engine:
         trade_recorder: TradeRecorder | None = None,
         equity: float = 100_000.0,
         instrumentation=None,
+        equity_alloc_pct: float = 1.0,
     ) -> None:
         self._ib = ib_session
         self._oms = oms_service
         self._instruments = {i.symbol: i for i in instruments}
         self._recorder = trade_recorder
         self._equity = equity
+        self._equity_alloc_pct = equity_alloc_pct
         self._symbol = C.DEFAULT_SYMBOL
         self._instr = instrumentation
 
@@ -1747,7 +1749,7 @@ class VdubNQv4Engine:
                 summary = await self._ib.ib.accountSummaryAsync(accounts[0])
                 for item in summary:
                     if item.tag == "NetLiquidation" and item.currency == "USD":
-                        self._equity = float(item.value)
+                        self._equity = float(item.value) * self._equity_alloc_pct
                         self._throttle.update_equity(self._equity)
                         return
         except Exception:

@@ -98,7 +98,7 @@ class EventStore:
                 query += " AND bot_id = ?"
                 params.append(bot_id)
 
-            query += " ORDER BY id ASC LIMIT ?"
+            query += " ORDER BY priority ASC, id ASC LIMIT ?"
             params.append(limit)
 
             rows = conn.execute(query, params).fetchall()

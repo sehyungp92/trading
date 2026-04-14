@@ -13,10 +13,10 @@ CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
 def test_strategy_registry_loads_expected_inventory() -> None:
     registry = load_strategy_registry(CONFIG_DIR)
 
-    assert len(registry.connection_groups) == 3
+    assert len(registry.connection_groups) == 1
     assert len(registry.strategies) == 13
-    assert registry.strategies["ATRSS"].connection_group == "swing"
-    assert registry.strategies["AKC_Helix_v40"].connection_group == "momentum"
+    assert registry.strategies["ATRSS"].connection_group == "default"
+    assert registry.strategies["AKC_Helix_v40"].connection_group == "default"
 
 
 def test_registry_artifact_contains_all_strategies() -> None:

@@ -25,7 +25,7 @@ _DIR_TO_EVENT_TYPE = {
     "daily": "daily_snapshot",
     "orders": "order",
     "heartbeats": "heartbeat",
-    "portfolio_rules": "portfolio_rule",
+    "portfolio_rules": "portfolio_rule_check",
     # Phase 2B event types
     "indicators": "indicator_snapshot",
     "filter_decisions": "filter_decision",
@@ -34,6 +34,7 @@ _DIR_TO_EVENT_TYPE = {
     "snapshots": "market_snapshot",
     "post_exit": "post_exit",
     "coordination_events": "coordinator_action",
+    "stop_adjustments": "stop_adjustment",
 }
 
 _MUTABLE_JSONL_EVENT_TYPES = {"missed_opportunity"}
@@ -45,7 +46,7 @@ _EVENT_PRIORITY = {
     "trade": 2,
     "missed_opportunity": 3,
     "order": 3,
-    "portfolio_rule": 3,
+    "portfolio_rule_check": 3,
     "parameter_change": 3,
     "process_quality": 4,
     "indicator_snapshot": 4,
@@ -53,6 +54,7 @@ _EVENT_PRIORITY = {
     "orderbook_context": 4,
     "market_snapshot": 4,
     "post_exit": 4,
+    "stop_adjustment": 3,
     "heartbeat": 5,
 }
 

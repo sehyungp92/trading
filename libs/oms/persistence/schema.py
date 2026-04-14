@@ -13,6 +13,7 @@ class RiskDailyStrategyRow:
 
     trade_date: date
     strategy_id: str
+    family_id: str = "unknown"
     daily_realized_r: Decimal = Decimal("0")
     daily_realized_usd: Optional[Decimal] = None
     open_risk_r: Decimal = Decimal("0")

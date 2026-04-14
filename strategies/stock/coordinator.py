@@ -130,6 +130,7 @@ class StockFamilyCoordinator:
                 desc["heat_cap_R"], desc["heat_cap_R"] * _unit,
             )
 
+        _shared_sidecar = None  # one sidecar per family (Finding 8)
         for desc in _strategies:
             sid = desc["strategy_id"]
 
@@ -207,7 +208,7 @@ class StockFamilyCoordinator:
             self._oms_services.append(oms)
             self._portfolio_checkers.append(getattr(oms, '_portfolio_checker', None))
 
-            # Instrumentation (non-fatal)
+            # Instrumentation (non-fatal) — share ONE sidecar across all strategies
             instr = None
             try:
                 from .instrumentation.src.bootstrap import InstrumentationManager
@@ -216,6 +217,10 @@ class StockFamilyCoordinator:
                     get_regime_ctx=lambda: self._regime_ctx,
                     get_applied_config=lambda: self._portfolio_checkers[0]._cfg if self._portfolio_checkers and self._portfolio_checkers[0] else None,
                 )
+                if _shared_sidecar is None:
+                    _shared_sidecar = instr.sidecar
+                else:
+                    instr.sidecar = _shared_sidecar
                 await instr.start()
             except Exception as exc:
                 logger.warning(
@@ -468,12 +473,16 @@ class StockFamilyCoordinator:
                 return
             for i, sid in enumerate(self._strategy_ids):
                 try:
-                    rs = getattr(self._oms_services[i], "_portfolio_risk_state", None)
+                    # Use per-strategy state (not portfolio state) for correct per-strategy metrics
+                    srs = getattr(self._oms_services[i], "_strategy_risk_states", {})
+                    sr = srs.get(sid)
+                    # Fall back to portfolio state for halted check
+                    prs = getattr(self._oms_services[i], "_portfolio_risk_state", None)
                     await heartbeat.strategy_heartbeat(
                         strategy_id=sid,
-                        heat_r=Decimal(str(rs.open_risk_R)) if rs else Decimal("0"),
-                        daily_pnl_r=Decimal(str(rs.daily_realized_R)) if rs else Decimal("0"),
-                        mode="HALTED" if (rs and rs.halted) else "RUNNING",
+                        heat_r=Decimal(str(sr.open_risk_R)) if sr else Decimal("0"),
+                        daily_pnl_r=Decimal(str(sr.daily_realized_R)) if sr else Decimal("0"),
+                        mode="HALTED" if (prs and prs.halted) else "RUNNING",
                     )
                 except Exception:
                     logger.debug("Heartbeat failed for %s", sid, exc_info=True)

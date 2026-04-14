@@ -61,6 +61,7 @@ class OverlayEngine:
         equity_offset: float = 0.0,
         db_pool: Any | None = None,
         get_deployed_capital: Any | None = None,
+        equity_alloc_pct: float = 1.0,
     ) -> None:
         self._ib = ib_session
         self._equity = equity
@@ -70,6 +71,7 @@ class OverlayEngine:
         self._equity_offset = equity_offset  # paper capital offset applied on refresh
         self._db_pool = db_pool
         self._get_deployed_capital = get_deployed_capital  # callback: () -> float (swing OMS notional)
+        self._equity_alloc_pct = equity_alloc_pct
 
         # Resolved IB contracts: symbol -> Contract
         self._contracts: dict[str, Any] = {}
@@ -559,7 +561,7 @@ class OverlayEngine:
                 for item in summary:
                     if item.tag == "NetLiquidation" and item.currency == "USD":
                         raw = float(item.value)
-                        self._equity = raw + self._equity_offset
+                        self._equity = raw * self._equity_alloc_pct + self._equity_offset
                         logger.info("Overlay: equity refreshed — $%.2f", self._equity)
                         return
         except Exception:

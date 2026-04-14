@@ -54,12 +54,14 @@ class Helix4Engine:
     """Event-driven engine for AKC-Helix NQ TrendWrap v4.0 Apex Trail."""
 
     def __init__(self, ib_session, oms_service, instruments, trade_recorder=None,
-                 equity: float = 100_000.0, instrumentation=None):
+                 equity: float = 100_000.0, instrumentation=None,
+                 equity_alloc_pct: float = 1.0):
         self.ib = ib_session
         self.oms = oms_service
         self.instruments = instruments
         self.trade_recorder = trade_recorder
         self.equity = equity
+        self._equity_alloc_pct = equity_alloc_pct
         self._instr = instrumentation
 
         from strategies.momentum.instrumentation.src.facade import InstrumentationKit
@@ -1001,7 +1003,7 @@ class Helix4Engine:
                 summary = await self.ib.ib.accountSummaryAsync(accounts[0])
                 for item in summary:
                     if item.tag == "NetLiquidation" and item.currency == "USD":
-                        self.equity = float(item.value)
+                        self.equity = float(item.value) * self._equity_alloc_pct
                         self.risk.update_equity(self.equity)
                         self._throttle.update_equity(self.equity)
                         break

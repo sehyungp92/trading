@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+import os
 import signal
 from contextlib import suppress
 from dataclasses import dataclass
@@ -272,7 +273,8 @@ class RuntimeShell:
         if db_pool is not None:
             try:
                 from libs.risk.account_risk_gate import AccountRiskGate
-                account_gate = AccountRiskGate(db_pool)
+                _account_urd = float(os.environ.get("ACCOUNT_UNIT_RISK_DOLLARS", "200"))
+                account_gate = AccountRiskGate(db_pool, account_urd=_account_urd)
             except Exception as exc:
                 logger.warning("AccountRiskGate init failed (non-fatal): %s", exc)
 

@@ -15,7 +15,7 @@ export function getPool(): pg.Pool {
       database: process.env.DB_NAME || 'trading',
       user: process.env.DB_USER || 'trading_reader',
       password: process.env.DB_PASSWORD || '',
-      max: 5,
+      max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
     });

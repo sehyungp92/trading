@@ -40,6 +40,8 @@ _PRIORITY_MAP = {
     "filter_decision": 5,
     "orderbook_context": 4,
     "parameter_change": 3,
+    "portfolio_rule_check": 3,
+    "stop_adjustment": 3,
 }
 
 _DIR_TO_EVENT_TYPE = {
@@ -58,6 +60,8 @@ _DIR_TO_EVENT_TYPE = {
     "filter_decisions": "filter_decision",
     "orderbook": "orderbook_context",
     "config_changes": "parameter_change",
+    "portfolio_rules": "portfolio_rule_check",
+    "stop_adjustments": "stop_adjustment",
 }
 
 

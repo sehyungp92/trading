@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from libs.config.capital_allocation import resolve_strategy_capital_allocation
 from libs.config.loader import load_portfolio_config, load_strategy_registry
 
@@ -15,8 +17,9 @@ def test_family_default_split_for_swing_strategy() -> None:
 
     assert allocation.family == "swing"
     assert allocation.family_fraction == 0.3334
-    assert allocation.strategy_fraction_within_family == 0.20
-    assert allocation.allocated_nav == 6_668.0
+    # Swing has 6 enabled strategies → default 1/6 split
+    assert allocation.strategy_fraction_within_family == pytest.approx(1 / 6, rel=1e-6)
+    assert allocation.allocated_nav == pytest.approx(100_000.0 * 0.3334 / 6, rel=1e-6)
 
 
 def test_explicit_stock_strategy_allocation_is_used() -> None:

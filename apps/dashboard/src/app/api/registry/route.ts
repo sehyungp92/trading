@@ -16,10 +16,11 @@ interface RegistryRow {
 export async function GET() {
   try {
     const rows = await query<RegistryRow>(
-      `SELECT DISTINCT strategy_id, family_id
+      `SELECT DISTINCT ON (strategy_id) strategy_id, family_id
        FROM risk_daily_strategy
        WHERE family_id IS NOT NULL
-       ORDER BY strategy_id`
+         AND family_id != 'unknown'
+       ORDER BY strategy_id, trade_date DESC`
     );
 
     // Build a strategy_id → family_id mapping

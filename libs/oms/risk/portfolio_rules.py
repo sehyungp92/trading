@@ -151,7 +151,21 @@ class PortfolioRuleChecker:
     def _emit(self, event: dict) -> None:
         if self._on_rule_event:
             try:
-                self._on_rule_event(event)
+                # Normalize to TA pipeline schema: rule_name, result, details
+                normalized = {
+                    "rule_name": event.get("rule", "unknown"),
+                    "result": "pass" if event.get("approved", True) else "block",
+                    "details": {},
+                }
+                details = normalized["details"]
+                if "denial_reason" in event:
+                    details["reason"] = event["denial_reason"]
+                if "symbol" in event:
+                    details["blocked_symbol"] = event["symbol"]
+                for k in ("strategy_id", "direction", "size_multiplier", "drawdown_pct"):
+                    if k in event:
+                        details[k] = event[k]
+                self._on_rule_event(normalized)
             except Exception:
                 pass
 

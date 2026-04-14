@@ -268,9 +268,9 @@ class RiskGateway:
                     port_result.size_multiplier, order.strategy_id, direction,
                 )
 
-        # 12. Account-level cross-family risk gate
+        # 12. Account-level cross-family risk gate (dollar-basis to avoid mixed R)
         if self._account_gate is not None:
-            decision = await self._account_gate.check_entry(self._family_id, new_risk_R)
+            decision = await self._account_gate.check_entry(self._family_id, new_risk_dollars)
             if not decision.approved:
                 return f"Account gate: {decision.reason}"
 

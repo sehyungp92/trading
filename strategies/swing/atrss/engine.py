@@ -127,6 +127,7 @@ class ATRSSEngine:
         market_calendar: Any | None = None,
         kit: Any | None = None,
         equity_offset: float = 0.0,
+        equity_alloc_pct: float = 1.0,
     ) -> None:
         self._ib = ib_session
         self._oms = oms_service
@@ -135,6 +136,7 @@ class ATRSSEngine:
         self._recorder = trade_recorder
         self._equity = equity
         self._equity_offset = equity_offset
+        self._equity_alloc_pct = equity_alloc_pct
         self._market_cal = market_calendar
         self._kit = kit
 
@@ -304,7 +306,7 @@ class ATRSSEngine:
                     if item.tag == "NetLiquidation" and item.currency == "USD":
                         raw = float(item.value)
                         if raw > 0:
-                            new_equity = raw + self._equity_offset
+                            new_equity = raw * self._equity_alloc_pct + self._equity_offset
                             self._equity = new_equity
                             if self._kit and self._kit.ctx and self._kit.ctx.drawdown_tracker:
                                 self._kit.ctx.drawdown_tracker.update_equity(new_equity)

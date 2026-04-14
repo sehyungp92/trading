@@ -132,6 +132,7 @@ CREATE INDEX IF NOT EXISTS idx_positions_strategy
 CREATE TABLE IF NOT EXISTS risk_daily_strategy (
     trade_date DATE NOT NULL,
     strategy_id TEXT NOT NULL,
+    family_id TEXT NOT NULL DEFAULT 'unknown',
     daily_realized_r NUMERIC NOT NULL DEFAULT 0,
     daily_realized_usd NUMERIC DEFAULT 0,
     open_risk_r NUMERIC DEFAULT 0,
@@ -141,6 +142,8 @@ CREATE TABLE IF NOT EXISTS risk_daily_strategy (
     last_update_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (trade_date, strategy_id)
 );
+CREATE INDEX IF NOT EXISTS idx_risk_daily_strategy_family
+    ON risk_daily_strategy(family_id);
 
 CREATE TABLE IF NOT EXISTS risk_daily_portfolio (
     trade_date DATE NOT NULL,
@@ -345,7 +348,8 @@ SELECT
     p.halted AS portfolio_halted,
     p.halt_reason AS portfolio_halt_reason
 FROM risk_daily_strategy s
-LEFT JOIN risk_daily_portfolio p ON s.trade_date = p.trade_date
+LEFT JOIN risk_daily_portfolio p
+    ON s.trade_date = p.trade_date AND s.family_id = p.family_id
 WHERE s.trade_date = CURRENT_DATE;
 
 
@@ -654,10 +658,11 @@ class PgStore:
         await self._pool.execute(
             """
             INSERT INTO risk_daily_strategy
-                (trade_date, strategy_id, daily_realized_r, daily_realized_usd,
+                (trade_date, strategy_id, family_id, daily_realized_r, daily_realized_usd,
                  open_risk_r, filled_entries, halted, halt_reason, last_update_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             ON CONFLICT (trade_date, strategy_id) DO UPDATE SET
+                family_id = EXCLUDED.family_id,
                 daily_realized_r = EXCLUDED.daily_realized_r,
                 daily_realized_usd = EXCLUDED.daily_realized_usd,
                 open_risk_r = EXCLUDED.open_risk_r,
@@ -668,6 +673,7 @@ class PgStore:
             """,
             row.trade_date,
             row.strategy_id,
+            row.family_id,
             row.daily_realized_r,
             row.daily_realized_usd,
             row.open_risk_r,
@@ -692,6 +698,7 @@ class PgStore:
         return RiskDailyStrategyRow(
             trade_date=r["trade_date"],
             strategy_id=r["strategy_id"],
+            family_id=r.get("family_id", "unknown"),
             daily_realized_r=r["daily_realized_r"],
             daily_realized_usd=r["daily_realized_usd"],
             open_risk_r=r["open_risk_r"],
@@ -726,6 +733,7 @@ class PgStore:
             RiskDailyStrategyRow(
                 trade_date=r["trade_date"],
                 strategy_id=r["strategy_id"],
+                family_id=r.get("family_id", "unknown"),
                 daily_realized_r=r["daily_realized_r"],
                 daily_realized_usd=r["daily_realized_usd"],
                 open_risk_r=r["open_risk_r"],

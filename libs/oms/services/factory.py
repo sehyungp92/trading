@@ -83,10 +83,12 @@ def _build_strategy_daily_row(
     state: StrategyRiskState,
     existing_row: RiskDailyStrategyRow | None,
     as_of: datetime,
+    family_id: str = "unknown",
 ) -> RiskDailyStrategyRow:
     return RiskDailyStrategyRow(
         trade_date=state.trade_date,
         strategy_id=state.strategy_id,
+        family_id=family_id,
         daily_realized_r=_to_decimal(state.daily_realized_R),
         daily_realized_usd=_to_decimal(state.daily_realized_pnl),
         open_risk_r=_to_decimal(state.open_risk_R),
@@ -128,9 +130,19 @@ def _build_portfolio_daily_row(
     )
 
 
-def _make_portfolio_rule_logger(data_dir: str = "instrumentation/data") -> Callable:
-    """Create a JSONL-writing callback for portfolio rule events."""
-    rule_dir = Path(data_dir) / "portfolio_rules"
+def _make_portfolio_rule_logger(data_dir: str = "", family_id: str = "") -> Callable:
+    """Create a JSONL-writing callback for portfolio rule events.
+
+    Args:
+        data_dir: Explicit data dir path. If empty, falls back to family-based path.
+        family_id: Family identifier used to construct the sidecar-watched data dir.
+    """
+    if data_dir:
+        rule_dir = Path(data_dir) / "portfolio_rules"
+    elif family_id:
+        rule_dir = Path(f"strategies/{family_id}/instrumentation/data/portfolio_rules")
+    else:
+        rule_dir = Path("instrumentation/data/portfolio_rules")
     rule_dir.mkdir(parents=True, exist_ok=True)
 
     def _log_rule(event: dict) -> None:
@@ -224,6 +236,7 @@ async def build_oms_service(
         heat_cap_R=heat_cap_R,
         portfolio_daily_stop_R=portfolio_daily_stop_R,
         strategy_configs={strategy_id: strat_cfg},
+        portfolio_urd=unit_risk_dollars,
     )
 
     # Paper equity tracker (paper mode only)
@@ -305,18 +318,20 @@ async def build_oms_service(
             return
         existing_row = await pg_store.get_risk_daily_strategy(state.strategy_id, state.trade_date)
         await pg_store.upsert_risk_daily_strategy(
-            _build_strategy_daily_row(state, existing_row, as_of)
+            _build_strategy_daily_row(state, existing_row, as_of, family_id=family_id)
         )
 
     async def _sync_portfolio_open_risk_from_repo() -> None:
         if db_pool is None:
             return
-        positions = await repo.get_all_positions()
+        positions = await repo.get_positions_for_strategies(_family_sids)
+        open_pos = [pos for pos in positions if pos.net_qty != 0]
         portfolio_risk_state.open_risk_dollars = sum(
-            pos.open_risk_dollars for pos in positions if pos.net_qty != 0
+            pos.open_risk_dollars for pos in open_pos
         )
-        portfolio_risk_state.open_risk_R = sum(
-            pos.open_risk_R for pos in positions if pos.net_qty != 0
+        portfolio_risk_state.open_risk_R = (
+            portfolio_risk_state.open_risk_dollars / unit_risk_dollars
+            if unit_risk_dollars > 0 else 0.0
         )
 
     _family_sids = [strategy_id]
@@ -436,8 +451,8 @@ async def build_oms_service(
             portfolio_risk_state.halt_reason = ""
         await _sync_portfolio_open_risk_from_repo()
         await _load_portfolio_risk_from_store(today)
-        portfolio_risk_state.pending_entry_risk_R = await repo.get_pending_entry_risk_R(
-            unit_risk_dollars
+        portfolio_risk_state.pending_entry_risk_R = await repo.get_pending_entry_risk_R_for_strategies(
+            _family_sids, unit_risk_dollars
         )
         return portfolio_risk_state
 
@@ -457,7 +472,7 @@ async def build_oms_service(
             get_strategy_signal=pg_store.get_strategy_signal,
             get_directional_risk_R=pg_store.get_directional_risk_R,
             get_current_equity=get_current_equity or (lambda: 10_000.0),
-            on_rule_event=_make_portfolio_rule_logger(),
+            on_rule_event=_make_portfolio_rule_logger(family_id=family_id),
             get_directional_risk_R_for_strategies=pg_store.get_directional_risk_R_for_strategies,
             get_sibling_positions_for_symbol=pg_store.get_sibling_positions_for_symbol,
             get_family_aggregate_mnq_eq=pg_store.get_family_aggregate_mnq_eq,
@@ -519,6 +534,7 @@ async def build_oms_service(
     )
     oms._portfolio_checker = portfolio_checker  # for coordinator regime updates
     oms._portfolio_risk_state = portfolio_risk_state  # for coordinator heartbeat queries
+    oms._strategy_risk_states = strategy_risk_states  # for per-strategy heartbeat metrics
 
     if pg_store is not None:
         seed_state = strategy_risk_states.setdefault(
@@ -663,18 +679,20 @@ async def build_multi_strategy_oms(
             return
         existing_row = await pg_store.get_risk_daily_strategy(state.strategy_id, state.trade_date)
         await pg_store.upsert_risk_daily_strategy(
-            _build_strategy_daily_row(state, existing_row, as_of)
+            _build_strategy_daily_row(state, existing_row, as_of, family_id=family_id)
         )
 
     async def _sync_portfolio_open_risk_from_repo() -> None:
         if db_pool is None:
             return
-        positions = await repo.get_all_positions()
+        positions = await repo.get_positions_for_strategies(_family_sids)
+        open_pos = [pos for pos in positions if pos.net_qty != 0]
         portfolio_risk_state.open_risk_dollars = sum(
-            pos.open_risk_dollars for pos in positions if pos.net_qty != 0
+            pos.open_risk_dollars for pos in open_pos
         )
-        portfolio_risk_state.open_risk_R = sum(
-            pos.open_risk_R for pos in positions if pos.net_qty != 0
+        portfolio_risk_state.open_risk_R = (
+            portfolio_risk_state.open_risk_dollars / portfolio_urd
+            if portfolio_urd > 0 else 0.0
         )
 
     _family_sids = [s["id"] for s in strategies]
@@ -779,8 +797,8 @@ async def build_multi_strategy_oms(
             portfolio_risk_state.halt_reason = ""
         await _sync_portfolio_open_risk_from_repo()
         await _load_portfolio_risk_from_store(today)
-        portfolio_risk_state.pending_entry_risk_R = await repo.get_pending_entry_risk_R(
-            portfolio_urd
+        portfolio_risk_state.pending_entry_risk_R = await repo.get_pending_entry_risk_R_for_strategies(
+            _family_sids, portfolio_urd
         )
         return portfolio_risk_state
 
@@ -800,7 +818,7 @@ async def build_multi_strategy_oms(
             get_strategy_signal=pg_store.get_strategy_signal,
             get_directional_risk_R=pg_store.get_directional_risk_R,
             get_current_equity=get_current_equity or (lambda: 10_000.0),
-            on_rule_event=_make_portfolio_rule_logger(),
+            on_rule_event=_make_portfolio_rule_logger(family_id=family_id),
             get_directional_risk_R_for_strategies=pg_store.get_directional_risk_R_for_strategies,
             get_sibling_positions_for_symbol=pg_store.get_sibling_positions_for_symbol,
             get_family_aggregate_mnq_eq=pg_store.get_family_aggregate_mnq_eq,

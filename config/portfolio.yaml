@@ -48,8 +48,7 @@ coordination:
     score_threshold: 2
     size_mult: 0.70
 
-stock_coordination:
-  directional_cap_R: 12.0      # combined max heat 16R; 12R gives 25% buffer
-  symbol_collision_action: half_size  # reduce size 50% when sibling holds same ticker
-  strategies: [IARIC_v1, US_ORB_v1, ALCB_v1]
+# stock_coordination: removed — stock coordinator hardcodes its PortfolioRulesConfig
+# directly (family-scoped 12R directional cap + half_size symbol collision + 4R priority headroom).
+# See strategies/stock/coordinator.py for the authoritative config.
 

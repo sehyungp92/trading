@@ -85,6 +85,7 @@ class KeltnerEngine:
         market_calendar: Any | None = None,
         kit: Any | None = None,
         equity_offset: float = 0.0,
+        equity_alloc_pct: float = 1.0,
     ) -> None:
         self._strategy_id = strategy_id
         self._ib = ib_session
@@ -94,6 +95,7 @@ class KeltnerEngine:
         self._recorder = trade_recorder
         self._equity = equity
         self._equity_offset = equity_offset
+        self._equity_alloc_pct = equity_alloc_pct
         self._market_cal = market_calendar
         self._kit = kit
 
@@ -1071,7 +1073,7 @@ class KeltnerEngine:
                 for item in summary:
                     if item.tag == "NetLiquidation" and item.currency == "USD":
                         raw = float(item.value)
-                        self._equity = raw + self._equity_offset
+                        self._equity = raw * self._equity_alloc_pct + self._equity_offset
                         if self._kit and self._kit.ctx and self._kit.ctx.drawdown_tracker:
                             self._kit.ctx.drawdown_tracker.update_equity(self._equity)
                         return

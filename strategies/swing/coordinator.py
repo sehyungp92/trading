@@ -15,9 +15,11 @@ that receives its dependencies via RuntimeContext.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 from contextlib import suppress
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -232,6 +234,9 @@ class SwingFamilyCoordinator:
                 return allocs[strategy_id].allocated_nav
             return equity
 
+        def _alloc_pct_for(strategy_id: str) -> float:
+            return _nav_for(strategy_id) / equity if equity > 0 else 1.0
+
         # -- Compute unit risk dollars per strategy ------------------------
         strategy_ids = [ATRSS_ID, S5_PB_STRATEGY_ID, S5_DUAL_STRATEGY_ID, BREAKOUT_ID, HELIX_ID, BRS_ID]
         urds: dict[str, float] = {}
@@ -243,7 +248,10 @@ class SwingFamilyCoordinator:
             )
 
         # -- Build shared multi-strategy OMS -------------------------------
-        account_gate = AccountRiskGate(db_pool) if db_pool else None
+        # account_urd: dollar value of 1 account-R for cross-family risk gate.
+        # Uses the smallest URD across swing strategies as a conservative basis.
+        _min_urd = min(urds.values()) if urds else 200.0
+        account_gate = AccountRiskGate(db_pool, account_urd=_min_urd) if db_pool else None
 
         # Portfolio rules: directional cap + symbol collision for swing family
         from libs.oms.risk.portfolio_rules import PortfolioRulesConfig
@@ -353,10 +361,11 @@ class SwingFamilyCoordinator:
             instruments=atrss_instruments,
             config=ATRSS_CONFIGS,
             trade_recorder=trade_recorder,
-            equity=equity,
+            equity=_nav_for(ATRSS_ID),
             market_calendar=market_cal,
             kit=self._kits.get(ATRSS_ID),
             equity_offset=paper_equity_offset,
+            equity_alloc_pct=_alloc_pct_for(ATRSS_ID),
         )
 
         helix_engine = HelixEngine(
@@ -365,11 +374,12 @@ class SwingFamilyCoordinator:
             instruments=helix_instruments,
             config=HELIX_CONFIGS,
             trade_recorder=trade_recorder,
-            equity=equity,
+            equity=_nav_for(HELIX_ID),
             coordinator=coordinator,  # enables ATRSS->Helix cross-strategy rules
             market_calendar=market_cal,
             instrumentation_kit=self._kits.get(HELIX_ID),
             equity_offset=paper_equity_offset,
+            equity_alloc_pct=_alloc_pct_for(HELIX_ID),
         )
 
         breakout_engine = BreakoutEngine(
@@ -378,10 +388,11 @@ class SwingFamilyCoordinator:
             instruments=breakout_instruments,
             config=BREAKOUT_CONFIGS,
             trade_recorder=trade_recorder,
-            equity=equity,
+            equity=_nav_for(BREAKOUT_ID),
             market_calendar=market_cal,
             instrumentation=self._kits.get(BREAKOUT_ID),
             equity_offset=paper_equity_offset,
+            equity_alloc_pct=_alloc_pct_for(BREAKOUT_ID),
         )
 
         s5_pb_engine = KeltnerEngine(
@@ -391,10 +402,11 @@ class SwingFamilyCoordinator:
             instruments=s5_pb_instruments,
             config=S5_PB_CONFIGS,
             trade_recorder=trade_recorder,
-            equity=equity,
+            equity=_nav_for(S5_PB_STRATEGY_ID),
             market_calendar=market_cal,
             kit=self._kits.get(S5_PB_STRATEGY_ID),
             equity_offset=paper_equity_offset,
+            equity_alloc_pct=_alloc_pct_for(S5_PB_STRATEGY_ID),
         )
 
         s5_dual_engine = KeltnerEngine(
@@ -404,10 +416,11 @@ class SwingFamilyCoordinator:
             instruments=s5_dual_instruments,
             config=S5_DUAL_CONFIGS,
             trade_recorder=trade_recorder,
-            equity=equity,
+            equity=_nav_for(S5_DUAL_STRATEGY_ID),
             market_calendar=market_cal,
             kit=self._kits.get(S5_DUAL_STRATEGY_ID),
             equity_offset=paper_equity_offset,
+            equity_alloc_pct=_alloc_pct_for(S5_DUAL_STRATEGY_ID),
         )
 
         brs_instruments = brs_build_instruments()
@@ -417,8 +430,9 @@ class SwingFamilyCoordinator:
             oms_service=oms,
             instruments=brs_instruments,
             trade_recorder=trade_recorder,
-            equity=equity,
+            equity=_nav_for(BRS_ID),
             instrumentation=self._kits.get(BRS_ID),
+            equity_alloc_pct=_alloc_pct_for(BRS_ID),
         )
 
         # Store engines in priority order (ATRSS first, BRS last)
@@ -432,11 +446,14 @@ class SwingFamilyCoordinator:
         ]
 
         # -- Create OverlayEngine (idle-capital EMA crossover) -------------
+        # Overlay operates on the swing family's total allocated NAV, not full account
+        swing_family_nav = sum(_nav_for(sid) for sid in strategy_ids)
         self._overlay_engine = self._create_overlay_engine(
             session=session,
-            equity=equity,
+            equity=swing_family_nav,
             market_cal=market_cal,
             paper_equity_offset=paper_equity_offset,
+            equity_alloc_pct=swing_family_nav / equity if equity > 0 else 1.0,
         )
 
         # -- Wire BRS bear regime check to overlay engine -------------------
@@ -580,6 +597,36 @@ class SwingFamilyCoordinator:
                     self._portfolio_checker._cfg.regime_unit_risk_mult if self._portfolio_checker else 1,
                     OVERLAY_WEIGHTS[regime])
 
+        self._emit_regime_event({
+            "family": "swing",
+            "regime": str(ctx.regime),
+            "prev_regime": str(prev_regime) if prev_regime else None,
+            "rules_applied": {
+                "directional_cap_R": self._portfolio_checker._cfg.directional_cap_R if self._portfolio_checker else None,
+                "regime_unit_risk_mult": self._portfolio_checker._cfg.regime_unit_risk_mult if self._portfolio_checker else None,
+                "overlay_weights": dict(OVERLAY_WEIGHTS[regime]),
+            },
+        })
+
+    def _emit_regime_event(self, payload: dict) -> None:
+        """Write a regime->rules event to the shared data_dir for TA pipeline."""
+        ctx = getattr(self, "_instrumentation_ctx", None)
+        if ctx is None:
+            return
+        data_dir = getattr(ctx, "data_dir", None)
+        if not data_dir:
+            return
+        now = datetime.now(timezone.utc)
+        record = {"timestamp": now.isoformat(), "event_type": "regime_rules_change", **payload}
+        try:
+            out_dir = Path(data_dir) / "coordination_events"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            date_str = now.strftime("%Y-%m-%d")
+            with open(out_dir / f"{date_str}.jsonl", "a") as f:
+                f.write(json.dumps(record, default=str) + "\n")
+        except Exception:
+            logger.debug("Failed to emit regime event", exc_info=True)
+
     # ------------------------------------------------------------------
     # Heartbeat
     # ------------------------------------------------------------------
@@ -662,16 +709,32 @@ class SwingFamilyCoordinator:
         return kits
 
     def _get_swing_deployed_capital(self) -> float:
-        """Return approximate notional capital deployed by swing strategies."""
+        """Return estimated notional capital deployed by swing strategies.
+
+        Uses per-strategy risk states and their actual unit_risk_pct to
+        convert open_risk_dollars into notional:
+            notional ≈ risk_dollars / unit_risk_pct
+        This is far more accurate than a fixed 3% divisor because strategies
+        range from 0.2% (BRS) to 1.8% (ATRSS).
+        """
         if not hasattr(self, "_oms") or self._oms is None:
             return 0.0
         try:
-            risk_state = getattr(self._oms, "_portfolio_risk_state", None)
-            if risk_state is not None:
-                return risk_state.open_risk_dollars
+            srs = getattr(self._oms, "_strategy_risk_states", {})
+            if not srs:
+                return 0.0
+            total_notional = 0.0
+            for sid, sr in srs.items():
+                if sr is None:
+                    continue
+                risk_dollars = getattr(sr, "open_risk_dollars", 0.0)
+                if risk_dollars <= 0:
+                    continue
+                risk_pct = _RISK_PARAMS.get(sid, {}).get("unit_risk_pct", 0.02)
+                total_notional += risk_dollars / risk_pct
+            return total_notional
         except Exception:
-            pass
-        return 0.0
+            return 0.0
 
     def _create_overlay_engine(
         self,
@@ -679,6 +742,7 @@ class SwingFamilyCoordinator:
         equity: float,
         market_cal: Any,
         paper_equity_offset: float,
+        equity_alloc_pct: float = 1.0,
     ) -> Any | None:
         """Create OverlayEngine for idle-capital EMA crossover (QQQ, GLD)."""
         try:
@@ -697,6 +761,8 @@ class SwingFamilyCoordinator:
                 market_calendar=market_cal,
                 equity_offset=paper_equity_offset,
                 get_deployed_capital=self._get_swing_deployed_capital,
+                instrumentation=self._kits.get("OVERLAY"),
+                equity_alloc_pct=equity_alloc_pct,
             )
             return engine
 

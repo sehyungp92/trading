@@ -163,20 +163,7 @@ class OMSRepository:
                 OrderRole.ENTRY.value,
                 *working_statuses,
             )
-        total_risk = 0.0
-        for row in rows:
-            rc = row.get("risk_context")
-            if rc:
-                import json
-                data = json.loads(rc) if isinstance(rc, str) else rc
-                risk = data.get("risk_dollars", 0.0)
-                # Scale by remaining qty for partially filled orders
-                if row["status"] == OrderStatus.PARTIALLY_FILLED.value:
-                    qty = row.get("qty") or 1
-                    remaining = row.get("remaining_qty") or 0
-                    risk = risk * (remaining / qty) if qty > 0 else 0.0
-                total_risk += risk
-        return total_risk / unit_risk_dollars if unit_risk_dollars > 0 else 0.0
+        return self._sum_pending_risk(rows) / unit_risk_dollars if unit_risk_dollars > 0 else 0.0
 
     async def get_working_orders(
         self, strategy_id: str, instrument_symbol: str = None
@@ -293,6 +280,61 @@ class OMSRepository:
         async with self._pool.acquire() as conn:
             rows = await conn.fetch("SELECT * FROM positions")
         return [self._row_to_position(dict(r)) for r in rows]
+
+    async def get_positions_for_strategies(
+        self, strategy_ids: list[str],
+    ) -> list[Position]:
+        """Get positions for specific strategies only (family-scoped)."""
+        if not strategy_ids:
+            return []
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT * FROM positions WHERE strategy_id = ANY($1::text[])",
+                strategy_ids,
+            )
+        return [self._row_to_position(dict(r)) for r in rows]
+
+    async def get_pending_entry_risk_R_for_strategies(
+        self, strategy_ids: list[str], unit_risk_dollars: float,
+    ) -> float:
+        """Sum risk_R of working ENTRY orders for specific strategies (family-scoped)."""
+        if not strategy_ids or unit_risk_dollars <= 0:
+            return 0.0
+        working_statuses = (
+            OrderStatus.RISK_APPROVED.value,
+            OrderStatus.ROUTED.value,
+            OrderStatus.ACKED.value,
+            OrderStatus.WORKING.value,
+            OrderStatus.PARTIALLY_FILLED.value,
+        )
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT risk_context, qty, remaining_qty, status FROM orders
+                   WHERE role = $1 AND status IN ($2, $3, $4, $5, $6)
+                   AND risk_context IS NOT NULL
+                   AND strategy_id = ANY($7::text[])""",
+                OrderRole.ENTRY.value,
+                *working_statuses,
+                strategy_ids,
+            )
+        return self._sum_pending_risk(rows) / unit_risk_dollars
+
+    @staticmethod
+    def _sum_pending_risk(rows) -> float:
+        """Sum risk_dollars from pending entry order rows."""
+        total = 0.0
+        for row in rows:
+            rc = row.get("risk_context")
+            if not rc:
+                continue
+            data = json.loads(rc) if isinstance(rc, str) else rc
+            risk = data.get("risk_dollars", 0.0)
+            if row["status"] == OrderStatus.PARTIALLY_FILLED.value:
+                qty = row.get("qty") or 1
+                remaining = row.get("remaining_qty") or 0
+                risk = risk * (remaining / qty) if qty > 0 else 0.0
+            total += risk
+        return total
 
     def _row_to_order(self, row: dict) -> OMSOrder:
         """Convert DB row to OMSOrder."""
