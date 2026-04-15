@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from backtests.momentum.analysis.downturn_diagnostics import DownturnMetrics
 from backtests.momentum.auto.downturn.phase_diagnostics import get_diagnostic_gaps
 from backtests.momentum.auto.downturn.phase_gates import GateResult, check_phase_gate
-from backtests.momentum.engine.downturn_models import EngineTag
+from strategies.momentum.downturn.bt_models import EngineTag
 
 logger = logging.getLogger(__name__)
 

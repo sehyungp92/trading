@@ -5,13 +5,7 @@ from typing import Optional
 
 import numpy as np
 
-from .indicators import (
-    compute_divergence_magnitude,
-    compute_displacement_metric,
-    compute_momentum_slope_ok,
-    highest,
-    lowest,
-)
+from .indicators import compute_divergence_magnitude
 from .config import DownturnAblationFlags
 from .bt_models import (
     BreakdownBoxState,

@@ -16,7 +16,7 @@ from io import StringIO
 
 from backtests.momentum.analysis.downturn_diagnostics import DownturnMetrics
 from backtests.momentum.auto.downturn.phase_gates import check_phase_gate
-from backtests.momentum.engine.downturn_models import (
+from strategies.momentum.downturn.bt_models import (
     CompositeRegime,
     DownturnTradeRecord,
     EngineTag,

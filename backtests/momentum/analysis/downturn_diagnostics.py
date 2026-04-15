@@ -8,7 +8,7 @@ from io import StringIO
 import numpy as np
 
 from backtest.data.preprocessing import NumpyBars
-from backtest.engine.downturn_models import (
+from strategies.momentum.downturn.bt_models import (
     CorrectionWindow,
     DownturnResult,
     DownturnTradeRecord,
@@ -170,7 +170,7 @@ def compute_downturn_metrics(
             m.correction_coverage = 0.0
 
     # Bear regime PnL
-    from backtest.engine.downturn_models import CompositeRegime
+    from strategies.momentum.downturn.bt_models import CompositeRegime
     bear_regimes = {CompositeRegime.ALIGNED_BEAR, CompositeRegime.EMERGING_BEAR}
     m.bear_regime_pnl = sum(t.pnl for t in trades if t.composite_regime_at_entry in bear_regimes)
 

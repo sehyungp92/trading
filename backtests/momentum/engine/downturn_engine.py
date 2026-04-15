@@ -15,7 +15,7 @@ import numpy as np
 
 from backtest.config_downturn import DownturnBacktestConfig
 from backtest.data.preprocessing import NumpyBars
-from backtest.engine.downturn_indicators import (
+from strategies.momentum.downturn.indicators import (
     IncrementalATR,
     IncrementalEMA,
     compute_adx,
@@ -37,7 +37,7 @@ from backtest.engine.downturn_indicators import (
     lowest,
     percentile_rank,
 )
-from backtest.engine.downturn_models import (
+from strategies.momentum.downturn.bt_models import (
     BreakdownBoxState,
     BreakdownSignal,
     CompositeRegime,
@@ -55,7 +55,7 @@ from backtest.engine.downturn_models import (
     ReversalState,
     VolState,
 )
-from backtest.engine.downturn_regime import (
+from strategies.momentum.downturn.regime import (
     check_bear_structure_override,
     check_drawdown_override,
     check_fast_crash_override,
@@ -69,7 +69,7 @@ from backtest.engine.downturn_regime import (
     compute_vol_state,
     regime_sizing_mult,
 )
-from backtest.engine.downturn_signals import (
+from strategies.momentum.downturn.signals import (
     compute_entry_subtype_stop,
     detect_breakdown_short,
     detect_fade_short,
@@ -77,7 +77,7 @@ from backtest.engine.downturn_signals import (
     detect_reversal_short,
     update_box_state,
 )
-from backtest.engine.downturn_stops import (
+from strategies.momentum.downturn.stops import (
     check_catastrophic_exit,
     check_climax_exit,
     check_stale_exit,

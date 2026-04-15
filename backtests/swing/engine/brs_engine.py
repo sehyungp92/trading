@@ -20,13 +20,13 @@ from backtest.config_brs import BRSConfig, BRSSymbolConfig
 from backtest.data.preprocessing import NumpyBars
 from backtest.engine.backtest_engine import SymbolResult, TradeRecord
 
-from backtests.swing.engine.brs_exits import (
+from strategies.swing.brs.exits import (
     check_exits,
     check_scale_out,
     compute_initial_stop,
     update_trailing_stop,
 )
-from backtests.swing.engine.brs_indicators import (
+from strategies.swing.brs.indicators import (
     adx_suite,
     atr,
     compute_4h_structure,
@@ -39,7 +39,7 @@ from backtests.swing.engine.brs_indicators import (
     swing_high_confirmed,
     volume_sma,
 )
-from backtests.swing.engine.brs_models import (
+from strategies.swing.brs.models import (
     BDArmState,
     BRSRegime,
     BiasState,
@@ -55,13 +55,13 @@ from backtests.swing.engine.brs_models import (
     S3ArmState,
     VolState,
 )
-from backtests.swing.engine.brs_regime import (
+from strategies.swing.brs.regime import (
     classify_regime,
     compute_raw_bias,
     compute_regime_on,
     update_bias,
 )
-from backtests.swing.engine.brs_signals import (
+from strategies.swing.brs.signals import (
     check_bd_arm,
     check_bd_continuation,
     check_l1,
@@ -72,7 +72,7 @@ from backtests.swing.engine.brs_signals import (
     check_s3,
     check_s3_arm,
 )
-from backtests.swing.engine.brs_sizing import compute_position_size
+from strategies.swing.brs.sizing import compute_position_size
 
 logger = logging.getLogger(__name__)
 

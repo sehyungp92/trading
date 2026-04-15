@@ -235,6 +235,11 @@ class BRSConfig:
         """Get per-symbol config, falling back to QQQ defaults."""
         return self.symbol_configs.get(symbol, BRS_SYMBOL_DEFAULTS.get("QQQ", BRSSymbolConfig()))
 
+    @property
+    def commission_per_share(self) -> float:
+        """Bridge for live sizing module which reads cfg.commission_per_share."""
+        return self.slippage.commission_per_share_etf
+
     def resolve_param(self, name: str, symbol: str | None = None) -> float:
         """Resolve a parameter with overrides: symbol-specific > global > default.
 
