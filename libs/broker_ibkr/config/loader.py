@@ -14,7 +14,16 @@ class IBKRConfig:
 
     def __init__(self, config_dir: Path):
         self._config_dir = Path(config_dir)
-        self.profile: IBKRProfile = self._load("ibkr_profiles.yaml", IBKRProfile)
+        profile_path = self._config_dir / "ibkr_profiles.yaml"
+        if profile_path.exists():
+            self.profile: IBKRProfile = self._load("ibkr_profiles.yaml", IBKRProfile)
+        else:
+            # Fall back to env-only profile when yaml file is absent (e.g. Docker)
+            self.profile = IBKRProfile(
+                account_id=os.environ.get("IB_ACCOUNT_ID", ""),
+                host=os.environ.get("IB_HOST", "127.0.0.1"),
+                port=int(os.environ.get("IB_PORT", "4002")),
+            )
         self.contracts: dict[str, ContractTemplate] = self._load_map(
             "contracts.yaml", ContractTemplate
         )

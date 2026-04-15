@@ -118,9 +118,9 @@ class LiveDataProvider:
                     "`FRED_API_KEY=<key> python -m backtests.regime.cli download --data-dir data/regime/raw`."
                 )
         return (
-            pd.read_parquet(self._data_dir / "macro_df.parquet"),
-            pd.read_parquet(self._data_dir / "market_df.parquet"),
-            pd.read_parquet(self._data_dir / "strat_ret_df.parquet"),
+            pd.read_parquet(self._data_dir / "macro_df.parquet").copy(),
+            pd.read_parquet(self._data_dir / "market_df.parquet").copy(),
+            pd.read_parquet(self._data_dir / "strat_ret_df.parquet").copy(),
         )
 
     async def _fetch_ibkr_bars(self) -> pd.DataFrame | None:

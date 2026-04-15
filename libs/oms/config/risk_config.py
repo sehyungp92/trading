@@ -12,6 +12,8 @@ class StrategyRiskConfig:
     vol_factor: float = 1.0
     unit_risk_dollars: float = 0.0  # computed at runtime from NAV
     max_working_orders: int = 4
+    priority: int = 99  # lower = higher priority for multi-strategy OMS sorting
+    max_heat_R: float = 0.0  # per-strategy heat cap in R-multiples (0 = no cap)
     allowed_order_types: dict[str, list[str]] = field(default_factory=dict)
     # e.g. {"ENTRY": ["STOP_LIMIT"], "EXIT": ["MARKET", "STOP"]}
     session_block_rules: dict = field(default_factory=dict)

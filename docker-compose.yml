@@ -52,6 +52,7 @@ services:
     environment:
       TRADING_ENV: ${TRADING_ENV:-paper}
       CONFIG_DIR: /app/config
+      IB_ACCOUNT_ID: ${IB_ACCOUNT_ID}
       # network_mode:host means DNS name 'postgres' won't resolve;
       # runtime must reach postgres via loopback on the published port.
       DB_HOST: ${DB_HOST:-127.0.0.1}
