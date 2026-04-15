@@ -13,6 +13,8 @@ class Instrument:
     currency: str = "USD"
     point_value: float = 0.0  # computed: multiplier
     contract_expiry: str = ""  # YYYYMM or YYYYMMDD for futures
+    primary_exchange: str = ""  # e.g. "ARCA", "NASDAQ" for stocks
+    sec_type: str = ""  # e.g. "STK", "FUT"
 
     def __post_init__(self):
         if self.point_value == 0.0:

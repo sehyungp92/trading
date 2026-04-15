@@ -21,7 +21,7 @@ from libs.oms.models.order import (
 from libs.oms.risk.calculator import RiskCalculator
 from libs.services.trade_recorder import TradeRecorder
 
-from libs.risk.risk_throttle import DrawdownThrottle, DrawdownThrottleConfig
+from libs.risk.drawdown_throttle import DrawdownThrottle, DrawdownThrottleConfig
 from . import box as box_mod
 from . import config as C
 from . import indicators as ind

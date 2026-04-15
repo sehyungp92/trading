@@ -251,7 +251,7 @@ class BRSConfig:
 
 def build_instruments() -> list[Instrument]:
     """Register QQQ and GLD as OMS instruments."""
-    from libs.oms.models.instrument import InstrumentRegistry
+    from libs.oms.models.instrument_registry import InstrumentRegistry
 
     instruments = []
     for sym in ("QQQ", "GLD"):
