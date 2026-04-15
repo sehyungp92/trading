@@ -13,8 +13,6 @@ COPY libs/ libs/
 COPY strategies/ strategies/
 COPY apps/runtime/ apps/runtime/
 COPY regime/ regime/
-COPY backtests/__init__.py backtests/__init__.py
-COPY backtests/momentum/ backtests/momentum/
 COPY backtests/regime/data/raw/ data/regime/raw/
 COPY config/ config/
 COPY data/ data/

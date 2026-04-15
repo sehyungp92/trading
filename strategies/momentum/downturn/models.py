@@ -9,8 +9,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
-# ── Re-exports from backtest models ──────────────────────────────────────
-from backtests.momentum.engine.downturn_models import (  # noqa: F401
+# ── Re-exports from bt_models ────────────────────────────────────────────
+from .bt_models import (  # noqa: F401
     CompositeRegime,
     CorrectionWindow,
     DownturnRegimeCtx,
