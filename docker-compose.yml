@@ -2,17 +2,17 @@
 # Unified Single-VPS Trading Deployment (Phase 2)
 # =============================================================================
 # Single runtime process manages all three families (swing, momentum, stock).
-# IB Gateway remains systemd-managed on the host.
+# IB Gateway runs in a Docker container (gnzsnz/ib-gateway-docker).
 #
 # Usage:
-#   docker-compose up -d                    # start all
-#   docker-compose up -d runtime            # start runtime only
-#   docker-compose logs -f runtime          # tail runtime logs
-#   docker-compose run runtime python -m apps.runtime preflight  # validate config
+#   docker compose up -d                    # start all
+#   docker compose up -d runtime            # start runtime only
+#   docker compose logs -f runtime          # tail runtime logs
+#   docker compose run runtime python -m apps.runtime preflight  # validate config
 #
 # Family-selective startup:
 #   Modify RUNTIME_FAMILY env var or override command:
-#   docker-compose run runtime python -m apps.runtime run --connect-ib --family swing
+#   docker compose run runtime python -m apps.runtime run --connect-ib --family swing
 # =============================================================================
 
 services:
@@ -40,6 +40,31 @@ services:
       timeout: 5s
       retries: 5
 
+  # --- IB Gateway (headless, Docker-managed) ---
+
+  ib-gateway:
+    image: ghcr.io/gnzsnz/ib-gateway:stable
+    restart: always
+    environment:
+      TWS_USERID: ${TWS_USERID}
+      TWS_PASSWORD: ${TWS_PASSWORD}
+      TRADING_MODE: ${TRADING_MODE:-paper}
+      TWS_PORT: 4002
+      READ_ONLY_API: "no"
+      TWOFA_TIMEOUT_ACTION: restart
+      RELOGIN_AFTER_TWOFA_TIMEOUT: "yes"
+      AUTO_RESTART_TIME: "11:59 PM"
+      TZ: America/New_York
+    ports:
+      - "127.0.0.1:4002:4004"   # host 4002 -> container 4004 (paper via socat)
+      - "127.0.0.1:4001:4003"   # host 4001 -> container 4003 (live via socat)
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 4004 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
   # --- Unified Runtime (all families in one process) ---
 
   runtime:
@@ -65,9 +90,10 @@ services:
       - runtime_instrumentation:/app/instrumentation/data
       - runtime_data:/app/data
     # NOTE: depends_on is ignored with network_mode:host in some compose
-    # versions. The runtime's DB bootstrap retries handle this gracefully.
+    # versions. The runtime's preflight TCP checks handle this gracefully.
     depends_on:
       postgres: { condition: service_healthy }
+      ib-gateway: { condition: service_healthy }
 
   # --- Relay (webhook receiver for TradingView / alerting) ---
 

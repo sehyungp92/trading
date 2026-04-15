@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -128,22 +129,30 @@ class UnifiedIBSession:
             raise
 
     async def verify_streaming_data(self, test_symbol: str = "SPY") -> None:
-        """Preflight: subscribe to a test symbol and fail fast if 10089 is received.
+        """Preflight: subscribe to a test symbol and verify market data flows.
 
-        Raises RuntimeError with actionable troubleshooting steps if streaming
-        market data is unavailable.
+        - Tries the configured market_data_type first (default: real-time).
+        - If real-time fails with 10089/10189, falls back to delayed (type 3).
+        - If delayed works, logs a WARNING but allows startup to proceed.
+        - If both fail, raises RuntimeError with troubleshooting steps.
+        - Set env SKIP_STREAMING_CHECK=1 to bypass entirely.
         """
+        if os.environ.get("SKIP_STREAMING_CHECK", "").lower() in ("1", "true", "yes"):
+            logger.warning("SKIP_STREAMING_CHECK set -- skipping market data verification")
+            return
+
         from ib_async import Stock
 
         ib = self.ib
         contract = Stock(test_symbol, "SMART", "USD")
         qualified = await ib.qualifyContractsAsync(contract)
-        if not qualified:
+        if not qualified or qualified[0] is None:
             raise RuntimeError(
                 f"Could not qualify test symbol {test_symbol} -- "
                 "check IB Gateway connectivity"
             )
 
+        test_contract = qualified[0]
         errors: list[tuple[int, str]] = []
 
         def _capture(reqId, errorCode, errorString, contract):
@@ -152,17 +161,43 @@ class UnifiedIBSession:
 
         ib.errorEvent += _capture
         try:
-            ib.reqMktData(qualified[0], "", False, False)
+            ib.reqMktData(test_contract, "", False, False)
             await asyncio.sleep(3.0)  # IBKR returns 10089 within ~1s
-            ib.cancelMktData(qualified[0])
+            ib.cancelMktData(test_contract)
         finally:
             ib.errorEvent -= _capture
 
+        if not errors:
+            logger.info(
+                "Streaming market data verified OK (test symbol: %s)", test_symbol,
+            )
+            return
+
+        # Real-time failed -- try delayed data as fallback
+        rt_code, rt_msg = errors[0]
+        logger.warning(
+            "Real-time streaming unavailable for %s (error %d), "
+            "trying delayed data fallback...",
+            test_symbol, rt_code,
+        )
+        errors.clear()
+        ib.reqMarketDataType(3)  # delayed
+        ib.errorEvent += _capture
+        try:
+            ib.reqMktData(test_contract, "", False, False)
+            await asyncio.sleep(3.0)
+            ib.cancelMktData(test_contract)
+        finally:
+            ib.errorEvent -= _capture
+            # Restore configured market data type
+            first_group = next(iter(self._groups.values()), None)
+            if first_group:
+                ib.reqMarketDataType(first_group.config.market_data_type)
+
         if errors:
-            code, msg = errors[0]
             raise RuntimeError(
-                f"Streaming market data unavailable for {test_symbol} "
-                f"(IBKR error {code}). "
+                f"No market data available for {test_symbol} "
+                f"(IBKR error {rt_code}). "
                 "Troubleshooting:\n"
                 "  1. IBKR Account Management -> Settings -> Market Data Connections\n"
                 "     Ensure 'Market data for use with the API' is enabled\n"
@@ -171,10 +206,13 @@ class UnifiedIBSession:
                 "  3. Paper account: confirm 'Share real-time market data "
                 "subscriptions with paper trading account' is Yes\n"
                 "  4. Restart IB Gateway after any subscription changes\n"
-                f"  Raw error: {msg}"
+                f"  Raw error: {rt_msg}"
             )
-        logger.info(
-            "Streaming market data verified OK (test symbol: %s)", test_symbol,
+        logger.warning(
+            "DEGRADED: Only delayed market data available for %s. "
+            "Real-time streaming requires API market data subscription. "
+            "Strategies will use delayed data until subscription is configured.",
+            test_symbol,
         )
 
     async def stop(self) -> None:
