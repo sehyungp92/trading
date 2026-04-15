@@ -278,7 +278,7 @@ class LiveDataProvider:
         # Overlay GROWTH in macro_df (negated ICSA, daily-reindexed with ffill onto extended index)
         if len(icsa_raw) > 0 and "GROWTH" in macro_df.columns:
             growth_fresh = -icsa_raw
-            growth_daily = growth_fresh.reindex(macro_df.index, method="ffill")
+            growth_daily = growth_fresh.reindex(macro_df.index, method="ffill").copy()
             valid = growth_daily.dropna()
             if len(valid) > 0:
                 macro_df.loc[valid.index, "GROWTH"] = valid

@@ -1768,7 +1768,7 @@ class VdubNQv4Engine:
         )
 
     async def _fetch_bars(self) -> None:
-        if not self._ib.is_connected:
+        if not self._ib.ib.isConnected():
             if not getattr(self, '_fetch_disconn_logged', False):
                 logger.warning("Skipping bar fetch — IB not connected")
                 self._fetch_disconn_logged = True

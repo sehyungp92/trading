@@ -2344,7 +2344,7 @@ class NQDTCEngine:
 
     async def _fetch_bars(self) -> None:
         """Fetch all timeframes from IB."""
-        if not self._ib.is_connected:
+        if not self._ib.ib.isConnected():
             if not getattr(self, '_fetch_disconn_logged', False):
                 logger.warning("Skipping bar fetch — IB not connected")
                 self._fetch_disconn_logged = True
