@@ -222,7 +222,7 @@ class BreakoutEngine:
         self._daily_task = asyncio.create_task(self._daily_scheduler())
 
         # Register farm-recovery handler for automatic market data resubscription
-        self._ib.register_farm_recovery_callback(self._on_farm_recovery)
+        self._ib.register_farm_recovery_callback("default", self._on_farm_recovery)
 
         logger.info("Breakout v3.3 engine started for %s", list(self._config.keys()))
 

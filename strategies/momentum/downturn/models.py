@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Optional
 
 # ── Re-exports from backtest models ──────────────────────────────────────
-from research.backtests.momentum.engine.downturn_models import (  # noqa: F401
+from backtests.momentum.engine.downturn_models import (  # noqa: F401
     CompositeRegime,
     CorrectionWindow,
     DownturnRegimeCtx,

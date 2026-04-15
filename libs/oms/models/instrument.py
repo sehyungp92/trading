@@ -16,6 +16,11 @@ class Instrument:
     primary_exchange: str = ""  # e.g. "ARCA", "NASDAQ" for stocks
     sec_type: str = ""  # e.g. "STK", "FUT"
 
+    @property
+    def exchange(self) -> str:
+        """Alias for venue — used by broker layer (contract_factory)."""
+        return self.venue
+
     def __post_init__(self):
         if self.point_value == 0.0:
             object.__setattr__(self, "point_value", self.multiplier)

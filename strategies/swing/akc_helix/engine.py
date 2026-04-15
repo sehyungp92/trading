@@ -308,7 +308,7 @@ class HelixEngine:
         self._ib.ib.pendingTickersEvent += self._on_ticker_update
 
         # Register farm-recovery handler for automatic market data resubscription
-        self._ib.register_farm_recovery_callback(self._on_farm_recovery)
+        self._ib.register_farm_recovery_callback("default", self._on_farm_recovery)
 
         # Start hourly cycle scheduler
         self._cycle_task = asyncio.create_task(self._hourly_scheduler())

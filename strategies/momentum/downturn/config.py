@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from libs.oms.models.instrument import Instrument
 from libs.oms.models.instrument_registry import InstrumentRegistry
-from research.backtests.momentum.config_downturn import DownturnAblationFlags
+from backtests.momentum.config_downturn import DownturnAblationFlags
 
 # ---------------------------------------------------------------------------
 # Strategy identity

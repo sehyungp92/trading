@@ -24,8 +24,8 @@ from libs.oms.models.order import (
 )
 from libs.oms.risk.calculator import RiskCalculator
 
-# Backtest pure-function modules (alias system installed via __init__.py)
-from research.backtests.momentum.engine.downturn_indicators import (
+# Backtest pure-function modules (shared with backtests)
+from backtests.momentum.engine.downturn_indicators import (
     IncrementalATR,
     IncrementalEMA,
     compute_atr,
@@ -41,7 +41,7 @@ from research.backtests.momentum.engine.downturn_indicators import (
     compute_trend_strength,
     percentile_rank,
 )
-from research.backtests.momentum.engine.downturn_regime import (
+from backtests.momentum.engine.downturn_regime import (
     check_bear_structure_override,
     check_drawdown_override,
     check_fast_crash_override,
@@ -55,14 +55,14 @@ from research.backtests.momentum.engine.downturn_regime import (
     compute_vol_state,
     regime_sizing_mult,
 )
-from research.backtests.momentum.engine.downturn_signals import (
+from backtests.momentum.engine.downturn_signals import (
     compute_entry_subtype_stop,
     detect_fade_short,
     detect_momentum_impulse,
     detect_reversal_short,
     update_box_state,
 )
-from research.backtests.momentum.engine.downturn_stops import (
+from backtests.momentum.engine.downturn_stops import (
     check_catastrophic_exit,
     check_climax_exit,
     check_stale_exit,
@@ -75,7 +75,7 @@ from research.backtests.momentum.engine.downturn_stops import (
     compute_tiered_tp_schedule,
     update_chandelier_trail,
 )
-from research.backtests.momentum.engine.downturn_models import BreakdownBoxState
+from backtests.momentum.engine.downturn_models import BreakdownBoxState
 
 # Local config & models
 from . import config as C
