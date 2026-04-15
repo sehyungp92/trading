@@ -1,5 +1,5 @@
-"""Allow running as: python -m strategy_3"""
-from strategy_3.main import _setup_logging, main
+"""Allow running as: python -m strategies.momentum.vdub"""
+from strategies.momentum.vdub.main import _setup_logging, main
 import asyncio
 
 _setup_logging()

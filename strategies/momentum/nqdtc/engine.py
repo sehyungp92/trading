@@ -36,7 +36,7 @@ from .models import (
     SessionEngineState, TPLevel, VWAPAccumulator, WorkingOrder,
 )
 from strategies.momentum.instrumentation.src.config_snapshot import snapshot_config_module
-from strategy_2 import config as strategy_config
+from strategies.momentum.nqdtc import config as strategy_config
 
 logger = logging.getLogger(__name__)
 

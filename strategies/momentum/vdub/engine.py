@@ -35,7 +35,7 @@ from .models import (
     VolState, WorkingEntry,
 )
 from strategies.momentum.instrumentation.src.config_snapshot import snapshot_config_module
-from strategy_3 import config as strategy_config
+from strategies.momentum.vdub import config as strategy_config
 
 logger = logging.getLogger(__name__)
 

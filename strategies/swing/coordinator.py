@@ -355,8 +355,8 @@ class SwingFamilyCoordinator:
         atrss_instruments = atrss_build_instruments()
         helix_instruments = helix_build_instruments()
         breakout_instruments = breakout_build_instruments()
-        s5_pb_instruments = s5_build_instruments(S5_PB_STRATEGY_ID)
-        s5_dual_instruments = s5_build_instruments(S5_DUAL_STRATEGY_ID)
+        s5_pb_instruments = s5_build_instruments(S5_PB_CONFIGS)
+        s5_dual_instruments = s5_build_instruments(S5_DUAL_CONFIGS)
 
         # -- Trade recorder (from bootstrap context) -----------------------
         trade_recorder = getattr(ctx, "trade_recorder", None)

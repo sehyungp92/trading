@@ -30,7 +30,7 @@ class ConfigWatcher:
     Usage:
         watcher = ConfigWatcher(
             bot_id="momentum_nq_01",
-            config_modules=["strategy.config", "strategy_2.config", "strategy_3.config"],
+            config_modules=["strategies.momentum.helix_v40.config", "strategies.momentum.nqdtc.config", "strategies.momentum.vdub.config"],
             data_dir="instrumentation/data",
         )
         # Call periodically (e.g., every heartbeat cycle):

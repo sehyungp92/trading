@@ -27,7 +27,7 @@ from .config import (
     CLASS_T_MIN_BARS_SINCE_M, DRAWDOWN_THROTTLE_ENABLED,
 )
 from strategies.momentum.instrumentation.src.config_snapshot import snapshot_config_module
-from strategy import config as strategy_config
+from strategies.momentum.helix_v40 import config as strategy_config
 from .indicators import BarSeries, VolEngine
 from .pivots import PivotDetector
 from .signals import SignalEngine, alignment_score, trend_strength

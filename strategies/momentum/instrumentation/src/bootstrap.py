@@ -101,9 +101,9 @@ class InstrumentationManager:
 
         # Phase 2B: config change detection — only monitor this strategy's config
         _strategy_config_map = {
-            "helix": ["strategy.config"],
-            "nqdtc": ["strategy_2.config"],
-            "vdubus": ["strategy_3.config"],
+            "helix": ["strategies.momentum.helix_v40.config"],
+            "nqdtc": ["strategies.momentum.nqdtc.config"],
+            "vdubus": ["strategies.momentum.vdub.config"],
             "downturn": ["strategies.momentum.downturn.config"],
         }
         config_modules = _strategy_config_map.get(strategy_type, [])

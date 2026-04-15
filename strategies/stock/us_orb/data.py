@@ -338,7 +338,7 @@ class IBMarketDataSource:
         self._remove_symbol(symbol)
         self._blacklisted[symbol] = datetime.now(timezone.utc) + self._BLACKLIST_DURATION
 
-    async def ensure_symbols(self, instruments: Iterable[Any]) -> None:
+    async def ensure_hot_symbols(self, instruments: Iterable[Any]) -> None:
         wanted = {instrument.symbol: instrument for instrument in instruments}
         for symbol in list(self._contracts):
             if symbol not in wanted and symbol not in PROXY_SYMBOLS:
