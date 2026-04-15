@@ -20,7 +20,8 @@ AutoRestartTime=00:00
 # Accept incoming connections (needed for strategies to connect)
 AcceptIncomingConnectionAction=accept
 
-# Allow API connections
+# Allow API connections (both must be 'no' for order placement)
+ReadOnlyLogin=no
 ReadOnlyApi=no
 
 # Dismiss various popups automatically

@@ -385,6 +385,7 @@ class RuntimeShell:
             await self.session.start()
             await self.session.wait_ready()
             logger.info("Unified IB session connected for all configured groups")
+            await self.session.verify_streaming_data()
 
         if once:
             return

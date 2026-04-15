@@ -35,6 +35,7 @@ class ConnectionGroupConfig(BaseModel):
     reconnect_max_retries: int = 10
     reconnect_base_delay_s: float = 1.0
     reconnect_max_delay_s: float = 60.0
+    market_data_type: int = 1  # 1=real-time, 2=frozen, 3=delayed, 4=delayed-frozen
     pacing_orders_per_sec: float = 5.0
     pacing_messages_per_sec: float = 45.0
 

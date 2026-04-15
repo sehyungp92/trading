@@ -89,9 +89,29 @@ class UnifiedIBSession:
                     group.config.port,
                     group.config.client_id,
                 )
+                # Capture 321 (Read-Only API) warnings during connect/sync
+                readonly_warnings: list[str] = []
+
+                def _capture_readonly(reqId, errorCode, errorString, contract):
+                    if errorCode == 321:
+                        readonly_warnings.append(errorString)
+
+                group.conn.ib.errorEvent += _capture_readonly
                 await group.conn.connect()
                 await group.conn.wait_until_ready()
-                group.conn.ib.reqMarketDataType(1)
+                group.conn.ib.errorEvent -= _capture_readonly
+
+                if readonly_warnings:
+                    logger.error(
+                        "IB Gateway API is in READ-ONLY mode -- order placement will fail. "
+                        "Fix: set ReadOnlyApi=no and ReadOnlyLogin=no in "
+                        "/opt/ibc/config/config.ini and restart IB Gateway."
+                    )
+
+                mdt = group.config.market_data_type
+                group.conn.ib.reqMarketDataType(mdt)
+                if mdt != 1:
+                    logger.info("Market data type set to %d for group %s", mdt, group.group_id)
                 await group.ids.set_next_valid_id(group.conn.ib.client.getReqId())
                 group.heartbeat = HeartbeatMonitor(group.conn.ib)
                 await group.heartbeat.start()
@@ -103,9 +123,59 @@ class UnifiedIBSession:
                 group.ready.set()
                 await asyncio.sleep(1.0)
         except Exception:
-            logger.error("Partial startup failure — cleaning up already-started groups")
+            logger.error("Partial startup failure -- cleaning up already-started groups")
             await self.stop()
             raise
+
+    async def verify_streaming_data(self, test_symbol: str = "SPY") -> None:
+        """Preflight: subscribe to a test symbol and fail fast if 10089 is received.
+
+        Raises RuntimeError with actionable troubleshooting steps if streaming
+        market data is unavailable.
+        """
+        from ib_async import Stock
+
+        ib = self.ib
+        contract = Stock(test_symbol, "SMART", "USD")
+        qualified = await ib.qualifyContractsAsync(contract)
+        if not qualified:
+            raise RuntimeError(
+                f"Could not qualify test symbol {test_symbol} -- "
+                "check IB Gateway connectivity"
+            )
+
+        errors: list[tuple[int, str]] = []
+
+        def _capture(reqId, errorCode, errorString, contract):
+            if errorCode in (10089, 10189):
+                errors.append((errorCode, errorString))
+
+        ib.errorEvent += _capture
+        try:
+            ib.reqMktData(qualified[0], "", False, False)
+            await asyncio.sleep(3.0)  # IBKR returns 10089 within ~1s
+            ib.cancelMktData(qualified[0])
+        finally:
+            ib.errorEvent -= _capture
+
+        if errors:
+            code, msg = errors[0]
+            raise RuntimeError(
+                f"Streaming market data unavailable for {test_symbol} "
+                f"(IBKR error {code}). "
+                "Troubleshooting:\n"
+                "  1. IBKR Account Management -> Settings -> Market Data Connections\n"
+                "     Ensure 'Market data for use with the API' is enabled\n"
+                "  2. Verify US exchange subscriptions (NASDAQ Network C, NYSE Arca)\n"
+                "     or 'US Securities Snapshot and Futures Value Bundle'\n"
+                "  3. Paper account: confirm 'Share real-time market data "
+                "subscriptions with paper trading account' is Yes\n"
+                "  4. Restart IB Gateway after any subscription changes\n"
+                f"  Raw error: {msg}"
+            )
+        logger.info(
+            "Streaming market data verified OK (test symbol: %s)", test_symbol,
+        )
 
     async def stop(self) -> None:
         """Disconnect all groups in reverse order. Continues on per-group errors."""

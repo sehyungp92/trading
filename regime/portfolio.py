@@ -72,7 +72,7 @@ def weights_from_risk_budget(
     Uses iterative proportional fitting on marginal contributions.
     Falls back to diagonal if covariance is degenerate."""
     sleeves = b.index.tolist()
-    cov = cov_annual.reindex(index=sleeves, columns=sleeves).fillna(0.0).values
+    cov = cov_annual.reindex(index=sleeves, columns=sleeves).fillna(0.0).values.copy()
     bv = b.values.copy()
 
     # Ensure sigma floor on diagonal

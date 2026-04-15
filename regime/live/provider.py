@@ -101,7 +101,7 @@ class LiveDataProvider:
             strat_ret_df.index.min().strftime("%Y-%m-%d") if len(strat_ret_df) else "N/A",
             strat_ret_df.index.max().strftime("%Y-%m-%d") if len(strat_ret_df) else "N/A",
         )
-        return macro_df, market_df, strat_ret_df
+        return macro_df.copy(), market_df.copy(), strat_ret_df.copy()
 
     # ------------------------------------------------------------------
     # Private helpers
