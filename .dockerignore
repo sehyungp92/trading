@@ -55,6 +55,7 @@ tests/
 # Market data & backtest output
 **/backtest/
 **/data/raw/
+!backtests/regime/data/raw/
 
 # Legacy per-family directories (removed after migration)
 swing_trader/
