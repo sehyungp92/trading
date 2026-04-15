@@ -91,15 +91,11 @@ class MomentumFamilyCoordinator:
         equity: float
 
         if paper_mode:
-            # Paper equity is stored in DB; query directly.
-            row = await db_pool.fetchrow(
-                "SELECT equity FROM paper_equity WHERE account_scope = $1",
-                self.family_id,
-            )
-            if row is not None:
-                equity = float(row["equity"])
-            else:
-                equity = float(os.getenv("PAPER_INITIAL_EQUITY", "10000"))
+            from libs.persistence.paper_equity import PaperEquityManager
+            _env = os.getenv("PAPER_INITIAL_EQUITY")
+            _paper_seed = float(_env) if _env else ctx.portfolio.capital.paper_initial_equity
+            _pem = PaperEquityManager(db_pool, account_scope=self.family_id, initial_equity=_paper_seed)
+            equity = await _pem.load()
             paper_equity_pool = db_pool
             logger.info("Paper mode equity: $%.2f", equity)
         else:

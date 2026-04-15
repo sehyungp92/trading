@@ -3,12 +3,12 @@ from __future__ import annotations
 import pytest
 import pandas as pd
 
-from research.backtests.regime.analysis.metrics import PortfolioMetrics
-from research.backtests.regime.analysis.assessment_validation import compute_spy_allocation_range_bp
-from research.backtests.regime.auto import greedy_optimize
-from research.backtests.regime.auto.phase_candidates import get_phase_candidates
-from research.backtests.regime.auto.presets import get_research_preset
-from research.backtests.regime.auto.phase_scoring import (
+from backtests.regime.analysis.metrics import PortfolioMetrics
+from backtests.regime.analysis.assessment_validation import compute_spy_allocation_range_bp
+from backtests.regime.auto import greedy_optimize
+from backtests.regime.auto.phase_candidates import get_phase_candidates
+from backtests.regime.auto.presets import get_research_preset
+from backtests.regime.auto.phase_scoring import (
     compute_regime_stats,
     phase_1_score,
     phase_2_score,

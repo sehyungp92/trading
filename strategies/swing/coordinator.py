@@ -208,9 +208,18 @@ class SwingFamilyCoordinator:
         market_cal = MarketCalendar()
 
         # -- Equity & paper capital ----------------------------------------
-        equity: float = getattr(ctx.portfolio, "allocated_nav", None) or getattr(
-            ctx.portfolio, "nav", 100_000.0
-        )
+        from libs.oms.persistence.db_config import get_environment
+        paper_mode = get_environment() == "paper"
+
+        _env = os.getenv("PAPER_INITIAL_EQUITY")
+        _paper_seed = float(_env) if _env else ctx.portfolio.capital.paper_initial_equity
+        equity: float = _paper_seed if paper_mode else 100_000.0
+        _seed_equity = equity  # preserve for paper equity seeding
+        if paper_mode and db_pool is not None:
+            from libs.persistence.paper_equity import PaperEquityManager
+            _pem = PaperEquityManager(db_pool, account_scope=self.family_id, initial_equity=_seed_equity)
+            equity = await _pem.load()
+            logger.info("Paper mode equity for swing family: $%.2f", equity)
         paper_equity_offset: float = getattr(ctx, "paper_equity_offset", 0.0)
 
         # -- Capital allocation per strategy -------------------------------
@@ -287,6 +296,9 @@ class SwingFamilyCoordinator:
             portfolio_rules_config=portfolio_rules,
             get_current_equity=lambda: self._live_equity[0],
             live_equity=self._live_equity,
+            paper_equity_pool=db_pool if paper_mode else None,
+            paper_equity_scope=self.family_id,
+            paper_initial_equity=_seed_equity,
         )
         self._portfolio_checker = getattr(self._oms, '_portfolio_checker', None)
         self._base_portfolio_rules = portfolio_rules

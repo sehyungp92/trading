@@ -67,6 +67,11 @@ class PortfolioRulesConfig:
     family_strategy_ids: tuple[str, ...] = ()  # if set, scope directional cap to these IDs
     symbol_collision_action: str = "none"       # "none", "block", "half_size"
 
+    # Per-pair symbol collision overrides: (holder_id, requester_id, action)
+    # When holder has position on symbol, apply action to requester instead of default.
+    # Checked before the generic symbol_collision_action fallback.
+    symbol_collision_pairs: tuple[tuple[str, str, str], ...] = ()
+
     # Dynamic family contract cap (0 = disabled)
     max_family_contracts_mnq_eq: int = 0
 
@@ -83,6 +88,7 @@ class PortfolioRulesConfig:
     disabled_strategies: frozenset[str] = frozenset()
 
     _VALID_COLLISION_ACTIONS = frozenset({"none", "block", "half_size"})
+    _VALID_PAIR_ACTIONS = frozenset({"block", "half_size"})
 
     def __post_init__(self):
         if self.symbol_collision_action not in self._VALID_COLLISION_ACTIONS:
@@ -90,6 +96,12 @@ class PortfolioRulesConfig:
                 f"Invalid symbol_collision_action {self.symbol_collision_action!r}, "
                 f"must be one of {sorted(self._VALID_COLLISION_ACTIONS)}"
             )
+        for holder, requester, action in self.symbol_collision_pairs:
+            if action not in self._VALID_PAIR_ACTIONS:
+                raise ValueError(
+                    f"Invalid pair action {action!r} for ({holder}, {requester}), "
+                    f"must be one of {sorted(self._VALID_PAIR_ACTIONS)}"
+                )
 
 
 # ── Result ────────────────────────────────────────────────────────────
@@ -405,15 +417,36 @@ class PortfolioRuleChecker:
         """Check if a sibling strategy already holds the same symbol.
 
         Returns None if check not applicable, 0.0 to block, or a multiplier to reduce size.
+        Per-pair overrides in symbol_collision_pairs are checked first; if none match,
+        falls through to the generic symbol_collision_action.
         """
-        action = self._cfg.symbol_collision_action
-        if action == "none" or not symbol:
+        if not symbol:
             return None
         family_ids = self._cfg.family_strategy_ids
         if not family_ids or self._get_sibling is None:
             return None
 
-        # Exclude the requesting strategy from sibling check
+        # --- Per-pair overrides (checked first) ---
+        for holder_id, requester_id, pair_action in self._cfg.symbol_collision_pairs:
+            if requester_id != strategy_id:
+                continue
+            holder_has = await self._get_sibling([holder_id], symbol)
+            if not holder_has:
+                continue
+            logger.info(
+                "Symbol collision pair: %s holds %s → %s for %s",
+                holder_id, symbol, pair_action, strategy_id,
+            )
+            # Actions validated in __post_init__
+            if pair_action == "block":
+                return 0.0
+            return 0.5  # half_size
+
+        # --- Generic fallback ---
+        action = self._cfg.symbol_collision_action
+        if action == "none":
+            return None
+
         sibling_ids = [sid for sid in family_ids if sid != strategy_id]
         if not sibling_ids:
             return None

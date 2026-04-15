@@ -6,9 +6,9 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from research.backtests.stock.config_iaric import IARICBacktestConfig
-from research.backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine, IARICPullbackResult, _daily_signal_bundle
-from research.backtests.stock.engine.iaric_pullback_intraday_hybrid_engine import IARICPullbackIntradayHybridEngine, _PBHybridState
+from backtests.stock.config_iaric import IARICBacktestConfig
+from backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine, IARICPullbackResult, _daily_signal_bundle
+from backtests.stock.engine.iaric_pullback_intraday_hybrid_engine import IARICPullbackIntradayHybridEngine, _PBHybridState
 from strategies.stock.iaric.config import StrategySettings
 from strategies.stock.iaric.models import Bar, MarketSnapshot, RegimeSnapshot, WatchlistArtifact
 
@@ -50,6 +50,7 @@ class _FakeReplay:
                 "high": highs,
                 "low": lows,
                 "close": closes,
+                "volume": np.full(len(self._dates), 1_000_000.0),
             }
         }
         self._daily_didx = {"AAA": (self._dates, list(range(len(self._dates))))}
@@ -152,6 +153,7 @@ class _FakeReplayCarryWindow(_FakeReplay):
             "high": 125.2,
             "low": 123.9,
             "close": 124.8,
+            "volume": 1_000_000.0,
         }.items():
             self._daily_arrs["AAA"][key] = np.append(self._daily_arrs["AAA"][key], value)
         self._daily_flow["AAA"] = np.append(self._daily_flow["AAA"], 1.0)
@@ -228,7 +230,7 @@ def test_dispatcher_uses_daily_engine_stub(monkeypatch):
         def run(self):
             return sentinel
 
-    from research.backtests.stock.engine import iaric_pullback_engine as engine_module
+    from backtests.stock.engine import iaric_pullback_engine as engine_module
 
     monkeypatch.setattr(engine_module, "IARICPullbackDailyEngine", _StubDaily)
     config = IARICBacktestConfig(
@@ -237,7 +239,9 @@ def test_dispatcher_uses_daily_engine_stub(monkeypatch):
         param_overrides={"pb_execution_mode": "daily"},
     )
 
-    result = IARICPullbackEngine(config, replay=object()).run()
+    result = IARICPullbackEngine(config, replay=SimpleNamespace(
+        _universe=[], tradable_dates=lambda s, e: [], _daily_arrs={}, _daily_flow={},
+    )).run()
 
     assert result is sentinel
 
@@ -250,6 +254,8 @@ def test_intraday_hybrid_engine_enters_and_logs_fsm():
         param_overrides={
             "pb_execution_mode": "intraday_hybrid",
             "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
             "pb_rsi_entry": 20.0,
             "pb_entry_score_min": 45.0,
             "pb_entry_score_family": "route_momentum_v1",
@@ -286,6 +292,8 @@ def test_intraday_hybrid_does_not_carry_when_carry_is_disabled():
         param_overrides={
             "pb_execution_mode": "intraday_hybrid",
             "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
             "pb_rsi_entry": 20.0,
             "pb_entry_score_min": 45.0,
             "pb_ready_min_volume_ratio": 0.5,
@@ -315,9 +323,13 @@ def test_intraday_hybrid_route_specific_open_scored_carry_can_hold_overnight():
         start_date=replay.trade_date.isoformat(),
         end_date=replay.get_next_trading_date(replay.trade_date).isoformat(),
         param_overrides={
+            "pb_max_hold_days": 10,
+            "pb_open_scored_max_hold_days": 10,
             "pb_execution_mode": "intraday_hybrid",
             "pb_carry_enabled": True,
             "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
             "pb_rsi_entry": 20.0,
             "pb_entry_score_min": 45.0,
             "pb_ready_min_volume_ratio": 0.5,
@@ -354,6 +366,8 @@ def test_intraday_hybrid_route_specific_carry_daily_signal_floor_blocks_daily_fa
             "pb_execution_mode": "intraday_hybrid",
             "pb_carry_enabled": True,
             "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
             "pb_rsi_entry": 20.0,
             "pb_entry_score_min": 45.0,
             "pb_ready_min_volume_ratio": 0.5,
@@ -389,9 +403,13 @@ def test_intraday_hybrid_route_specific_score_fallback_can_carry_daily_fallback_
         start_date=replay.trade_date.isoformat(),
         end_date=replay.get_next_trading_date(replay.trade_date).isoformat(),
         param_overrides={
+            "pb_max_hold_days": 10,
+            "pb_open_scored_max_hold_days": 10,
             "pb_execution_mode": "intraday_hybrid",
             "pb_carry_enabled": True,
             "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
             "pb_rsi_entry": 20.0,
             "pb_entry_score_min": 45.0,
             "pb_ready_min_volume_ratio": 0.5,
@@ -441,6 +459,8 @@ def test_intraday_hybrid_core_candidate_falls_back_to_daily_when_intraday_missin
         param_overrides={
             "pb_execution_mode": "intraday_hybrid",
             "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
             "pb_rsi_entry": 20.0,
             "pb_entry_score_min": 45.0,
             "pb_ready_min_volume_ratio": 0.5,
@@ -471,6 +491,8 @@ def test_intraday_hybrid_missing_5m_open_entry_still_requires_open_route_quality
         param_overrides={
             "pb_execution_mode": "intraday_hybrid",
             "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
             "pb_rsi_entry": 20.0,
             "pb_entry_score_min": 45.0,
             "pb_entry_strength_sizing": False,
@@ -496,6 +518,8 @@ def test_intraday_hybrid_daily_signal_floor_blocks_weak_candidates_before_routin
             "pb_entry_score_min": 45.0,
             "pb_entry_strength_sizing": False,
             "pb_daily_signal_min_score": 1000.0,
+            "pb_v2_signal_floor": 1000.0,
+            "pb_v2_enabled": False,
             "pb_open_scored_min_score": 0.0,
         },
     )
@@ -515,6 +539,8 @@ def test_intraday_hybrid_fallback_does_not_depend_on_diagnostics_mode():
         param_overrides={
             "pb_execution_mode": "intraday_hybrid",
             "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
             "pb_rsi_entry": 20.0,
             "pb_entry_score_min": 45.0,
             "pb_rescue_flow_enabled": False,
@@ -538,6 +564,8 @@ def test_intraday_hybrid_can_use_delayed_confirm_for_core_names():
         param_overrides={
             "pb_execution_mode": "intraday_hybrid",
             "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
             "pb_rsi_entry": 20.0,
             "pb_entry_score_min": 55.0,
             "pb_delayed_confirm_after_bar": 5,
@@ -564,6 +592,8 @@ def test_intraday_hybrid_intraday_scoring_does_not_depend_on_diagnostics_mode():
         param_overrides={
             "pb_execution_mode": "intraday_hybrid",
             "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
             "pb_rsi_entry": 20.0,
             "pb_entry_score_min": 45.0,
             "pb_entry_score_family": "route_momentum_v1",
@@ -658,6 +688,8 @@ def test_intraday_hybrid_reserves_capacity_for_5m_refinement():
         param_overrides={
             "pb_execution_mode": "intraday_hybrid",
             "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
             "pb_rsi_entry": 20.0,
             "pb_entry_score_min": 45.0,
             "pb_entry_score_family": "route_momentum_v1",
@@ -691,6 +723,8 @@ def test_daily_pullback_engine_can_restrict_backtest_to_5m_covered_universe():
             "pb_execution_mode": "daily",
             "pb_rsi_entry": 20.0,
             "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
             "pb_entry_rank_pct_max": 100.0,
             "pb_backtest_intraday_universe_only": True,
         },
@@ -710,6 +744,8 @@ def test_intraday_hybrid_can_disable_opening_reclaim_route():
         param_overrides={
             "pb_execution_mode": "intraday_hybrid",
             "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
             "pb_rsi_entry": 20.0,
             "pb_entry_score_min": 45.0,
             "pb_entry_strength_sizing": False,

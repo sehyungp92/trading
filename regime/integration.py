@@ -27,10 +27,10 @@ def _validated_regime(regime: str) -> str:
 # ── Tier 1: Portfolio rules per regime per family ──────────────────────
 
 STOCK_RULES: dict[str, dict] = {
-    "G": {"directional_cap_R": 8.0,  "regime_unit_risk_mult": 1.0, "priority_headroom_R": 3.0, "symbol_collision_action": "half_size"},
+    "G": {"directional_cap_R": 8.0,  "regime_unit_risk_mult": 1.0, "priority_headroom_R": 3.5, "symbol_collision_action": "half_size"},
     "R": {"directional_cap_R": 6.0,  "regime_unit_risk_mult": 0.9, "priority_headroom_R": 3.0, "symbol_collision_action": "half_size"},
-    "S": {"directional_cap_R": 5.0,  "regime_unit_risk_mult": 0.7, "priority_headroom_R": 2.0, "symbol_collision_action": "block"},
-    "D": {"directional_cap_R": 4.0,  "regime_unit_risk_mult": 0.5, "priority_headroom_R": 1.5, "symbol_collision_action": "block"},
+    "S": {"directional_cap_R": 5.0,  "regime_unit_risk_mult": 0.7, "priority_headroom_R": 2.5, "symbol_collision_action": "block"},
+    "D": {"directional_cap_R": 4.0,  "regime_unit_risk_mult": 0.5, "priority_headroom_R": 2.0, "symbol_collision_action": "block"},
 }
 
 MOMENTUM_RULES: dict[str, dict] = {

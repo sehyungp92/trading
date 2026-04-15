@@ -6,11 +6,11 @@ from types import SimpleNamespace
 
 import pandas as pd
 
-from research.backtests.regime.analysis import assessment_validation, scanner_validation
-from research.backtests.regime.analysis.diagnostics import generate_regime_diagnostics_report
-from research.backtests.regime.analysis.metrics import PortfolioMetrics
-from research.backtests.regime.auto.scoring import CompositeScore
-from research.backtests.regime import cli
+from backtests.regime.analysis import assessment_validation, scanner_validation
+from backtests.regime.analysis.diagnostics import generate_regime_diagnostics_report
+from backtests.regime.analysis.metrics import PortfolioMetrics
+from backtests.regime.auto.scoring import CompositeScore
+from backtests.regime import cli
 
 
 def _dummy_cached_data():
@@ -27,7 +27,7 @@ def _dummy_cached_data():
 def test_calibration_sweep_command_reports_winner(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
-        "research.backtests.regime.data.downloader.load_cached_data",
+        "backtests.regime.data.downloader.load_cached_data",
         lambda data_dir: _dummy_cached_data(),
     )
 
@@ -73,11 +73,11 @@ def test_calibration_sweep_command_reports_winner(monkeypatch, tmp_path, capsys)
 
     monkeypatch.setattr("regime.engine.run_signal_engine", fake_run_signal_engine)
     monkeypatch.setattr(
-        "research.backtests.regime.engine.portfolio_sim.simulate_portfolio",
+        "backtests.regime.engine.portfolio_sim.simulate_portfolio",
         lambda *args, **kwargs: SimpleNamespace(metrics=SimpleNamespace()),
     )
     monkeypatch.setattr(
-        "research.backtests.regime.analysis.assessment_validation.summarize_calibration_candidate",
+        "backtests.regime.analysis.assessment_validation.summarize_calibration_candidate",
         lambda signals, result: dict(signals.attrs["summary"]),
     )
 
@@ -95,7 +95,7 @@ def test_calibration_sweep_command_reports_winner(monkeypatch, tmp_path, capsys)
 
     assert "Recommendation: Adopt temp=1.2, ema=0.8" in captured
     assert "temp=1.2, ema=0.8" in captured
-    assert Path("research/backtests/regime/auto/output/calibration_sweep.json").exists()
+    assert Path("backtests/regime/auto/output/calibration_sweep.json").exists()
 
 
 def test_calibration_sweep_mutations_json_overrides_preset_and_records_source(
@@ -103,7 +103,7 @@ def test_calibration_sweep_mutations_json_overrides_preset_and_records_source(
 ):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
-        "research.backtests.regime.data.downloader.load_cached_data",
+        "backtests.regime.data.downloader.load_cached_data",
         lambda data_dir: _dummy_cached_data(),
     )
 
@@ -149,11 +149,11 @@ def test_calibration_sweep_mutations_json_overrides_preset_and_records_source(
 
     monkeypatch.setattr("regime.engine.run_signal_engine", fake_run_signal_engine)
     monkeypatch.setattr(
-        "research.backtests.regime.engine.portfolio_sim.simulate_portfolio",
+        "backtests.regime.engine.portfolio_sim.simulate_portfolio",
         lambda *args, **kwargs: SimpleNamespace(metrics=SimpleNamespace()),
     )
     monkeypatch.setattr(
-        "research.backtests.regime.analysis.assessment_validation.summarize_calibration_candidate",
+        "backtests.regime.analysis.assessment_validation.summarize_calibration_candidate",
         lambda signals, result: dict(signals.attrs["summary"]),
     )
 
@@ -170,7 +170,7 @@ def test_calibration_sweep_mutations_json_overrides_preset_and_records_source(
     cli.cmd_calibration_sweep(args)
     captured = capsys.readouterr().out
     output = json.loads(
-        Path("research/backtests/regime/auto/output/calibration_sweep.json").read_text()
+        Path("backtests/regime/auto/output/calibration_sweep.json").read_text()
     )
 
     assert "overrides preset 'recommended_full_stack'" in captured
@@ -181,7 +181,7 @@ def test_calibration_sweep_mutations_json_overrides_preset_and_records_source(
 def test_validate_2022_command_reports_deltas_and_pass(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
-        "research.backtests.regime.data.downloader.load_cached_data",
+        "backtests.regime.data.downloader.load_cached_data",
         lambda data_dir: _dummy_cached_data(),
     )
 
@@ -239,11 +239,11 @@ def test_validate_2022_command_reports_deltas_and_pass(monkeypatch, tmp_path, ca
 
     monkeypatch.setattr("regime.engine.run_signal_engine", fake_run_signal_engine)
     monkeypatch.setattr(
-        "research.backtests.regime.engine.portfolio_sim.simulate_portfolio",
+        "backtests.regime.engine.portfolio_sim.simulate_portfolio",
         lambda *args, **kwargs: SimpleNamespace(metrics=SimpleNamespace(max_drawdown_pct=0.1)),
     )
     monkeypatch.setattr(
-        "research.backtests.regime.analysis.assessment_validation.summarize_2022_validation",
+        "backtests.regime.analysis.assessment_validation.summarize_2022_validation",
         lambda signals, result, scanner_threshold=0.5: dict(
             scenario_summaries[signals.attrs["scenario"]]
         ),
@@ -267,13 +267,13 @@ def test_validate_2022_command_reports_deltas_and_pass(monkeypatch, tmp_path, ca
     assert "PASS: True" in captured
     assert "vs scanner_off" in captured
     assert "vs r3_reference" in captured
-    assert Path("research/backtests/regime/auto/output/validate_2022.json").exists()
+    assert Path("backtests/regime/auto/output/validate_2022.json").exists()
 
 
 def test_validate_2022_defaults_to_presets_and_records_sources(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
-        "research.backtests.regime.data.downloader.load_cached_data",
+        "backtests.regime.data.downloader.load_cached_data",
         lambda data_dir: _dummy_cached_data(),
     )
 
@@ -340,11 +340,11 @@ def test_validate_2022_defaults_to_presets_and_records_sources(monkeypatch, tmp_
 
     monkeypatch.setattr("regime.engine.run_signal_engine", fake_run_signal_engine)
     monkeypatch.setattr(
-        "research.backtests.regime.engine.portfolio_sim.simulate_portfolio",
+        "backtests.regime.engine.portfolio_sim.simulate_portfolio",
         lambda *args, **kwargs: SimpleNamespace(metrics=SimpleNamespace(max_drawdown_pct=0.1)),
     )
     monkeypatch.setattr(
-        "research.backtests.regime.analysis.assessment_validation.summarize_2022_validation",
+        "backtests.regime.analysis.assessment_validation.summarize_2022_validation",
         lambda signals, result, scanner_threshold=0.5: dict(
             scenario_summaries[signals.attrs["scenario"]]
         ),
@@ -363,7 +363,7 @@ def test_validate_2022_defaults_to_presets_and_records_sources(monkeypatch, tmp_
     cli.cmd_validate_2022(args)
     captured = capsys.readouterr().out
     output = json.loads(
-        Path("research/backtests/regime/auto/output/validate_2022.json").read_text()
+        Path("backtests/regime/auto/output/validate_2022.json").read_text()
     )
 
     assert "preset 'recommended_full_stack'" in captured
@@ -375,7 +375,7 @@ def test_validate_2022_defaults_to_presets_and_records_sources(monkeypatch, tmp_
 def test_scanner_validate_defaults_to_recommended_preset(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
-        "research.backtests.regime.data.downloader.load_cached_data",
+        "backtests.regime.data.downloader.load_cached_data",
         lambda data_dir: _dummy_cached_data(),
     )
 
@@ -401,7 +401,7 @@ def test_scanner_validate_defaults_to_recommended_preset(monkeypatch, tmp_path, 
 
     monkeypatch.setattr("regime.engine.run_signal_engine", fake_run_signal_engine)
     monkeypatch.setattr(
-        "research.backtests.regime.analysis.scanner_validation.validate_scanner",
+        "backtests.regime.analysis.scanner_validation.validate_scanner",
         lambda signals, threshold=0.5: {
             "transitions_analyzed": 1,
             "total_risk_off_alerts": 1,
@@ -471,7 +471,7 @@ def test_step9_optimize_command_uses_isolated_profile(monkeypatch, tmp_path, cap
     assert captured_args["allow_extra_experiments"] is False
     assert captured_args["phase_sequence"] == (1, 2, 3)
     assert captured_args["phase_max_rounds"] == {1: 20, 2: 1, 3: 1}
-    assert captured_args["output_dir"].endswith("research\\backtests\\regime\\auto\\output\\step9_r6")
+    assert captured_args["output_dir"].replace("\\", "/").endswith("backtests/regime/auto/output/step9_r6")
 
 
 def test_phase_auto_strict_mode_ignores_suggested_experiments_and_skips_phase4(

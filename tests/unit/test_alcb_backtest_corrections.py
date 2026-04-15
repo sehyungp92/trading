@@ -6,15 +6,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from research.backtests.stock.analysis.alcb_diagnostics import _entry_bar_number
-from research.backtests.stock.analysis.alcb_qe_replacement import _time_bucket
-from research.backtests.stock.analysis.alcb_shadow_tracker import ALCBShadowTracker
-from research.backtests.stock.auto.greedy_optimize import run_greedy
-from research.backtests.stock.auto.scoring import CompositeScore
-from research.backtests.stock.config_alcb import ALCBAblationFlags, ALCBBacktestConfig
-from research.backtests.stock.engine.alcb_engine import ALCBIntradayEngine
-from research.backtests.stock.engine.research_replay import ResearchReplayEngine
-from research.backtests.stock.models import Direction as BTDirection, TradeRecord
+from backtests.stock.analysis.alcb_diagnostics import _entry_bar_number
+from backtests.stock.analysis.alcb_qe_replacement import _time_bucket
+from backtests.stock.analysis.alcb_shadow_tracker import ALCBShadowTracker
+from backtests.stock.auto.greedy_optimize import run_greedy
+from backtests.stock.auto.scoring import CompositeScore
+from backtests.stock.config_alcb import ALCBAblationFlags, ALCBBacktestConfig
+from backtests.stock.engine.alcb_engine import ALCBIntradayEngine
+from backtests.stock.engine.research_replay import ResearchReplayEngine
+from backtests.stock.models import Direction as BTDirection, TradeRecord
 from strategies.stock.alcb.config import StrategySettings
 from strategies.stock.alcb.models import (
     Bar,
@@ -338,7 +338,7 @@ def test_alcb_greedy_optimizer_prefers_frequency_within_two_percent_of_best_expe
         )
         return score, metrics
 
-    monkeypatch.setattr("research.backtests.stock.auto.greedy_optimize._score_config", fake_score_config)
+    monkeypatch.setattr("backtests.stock.auto.greedy_optimize._score_config", fake_score_config)
 
     result = run_greedy(
         replay=object(),
@@ -378,7 +378,7 @@ def test_alcb_greedy_optimizer_ignores_stale_checkpoint_without_matching_metadat
         )
         return score, metrics
 
-    monkeypatch.setattr("research.backtests.stock.auto.greedy_optimize._score_config", fake_score_config)
+    monkeypatch.setattr("backtests.stock.auto.greedy_optimize._score_config", fake_score_config)
 
     checkpoint_path = tmp_path / "stale_checkpoint.json"
     checkpoint_path.write_text(

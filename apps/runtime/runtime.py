@@ -202,6 +202,128 @@ class RuntimeShell:
         )
         return checks
 
+    async def _run_async_preflight(
+        self,
+        connect_ib: bool,
+        families: set[str],
+    ) -> list[PreflightCheck]:
+        """Run async preflight checks before heavy startup.
+
+        Checks:
+          1a. Coordinator imports (CRITICAL)
+          1b. Database connectivity (CRITICAL in paper/live)
+          1c. IB Gateway reachability (CRITICAL when connect_ib=True)
+          1d. Instrumentation config parsability (WARNING only)
+        """
+        checks: list[PreflightCheck] = []
+
+        # 1a. Coordinator imports
+        for family in sorted(families):
+            if family not in _FAMILY_COORDINATORS:
+                checks.append(PreflightCheck(
+                    name=f"import:{family}",
+                    ok=False,
+                    detail=f"No coordinator registered for family '{family}'",
+                ))
+                continue
+            try:
+                _import_coordinator(family)
+                checks.append(PreflightCheck(
+                    name=f"import:{family}",
+                    ok=True,
+                    detail=f"Coordinator for '{family}' imported successfully",
+                ))
+            except Exception as exc:
+                checks.append(PreflightCheck(
+                    name=f"import:{family}",
+                    ok=False,
+                    detail=f"Coordinator import failed: {exc}",
+                ))
+
+        # 1b. Database connectivity
+        try:
+            from libs.oms.persistence.db_config import DBConfig
+            db_config = DBConfig.from_env()
+            if db_config is not None:
+                import asyncpg
+                conn = await asyncio.wait_for(
+                    asyncpg.connect(dsn=db_config.to_dsn()),
+                    timeout=5.0,
+                )
+                await conn.execute("SELECT 1")
+                await conn.close()
+                checks.append(PreflightCheck(
+                    name="database",
+                    ok=True,
+                    detail="Database reachable",
+                ))
+            else:
+                env = get_environment()
+                db_required = env in ("paper", "live")
+                checks.append(PreflightCheck(
+                    name="database",
+                    ok=not db_required,
+                    detail=f"No DB config (env={env})"
+                    + (" -- required for paper/live" if db_required else " -- OK for dev/backtest"),
+                ))
+        except Exception as exc:
+            checks.append(PreflightCheck(
+                name="database",
+                ok=False,
+                detail=f"Database unreachable: {exc}",
+            ))
+
+        # 1c. IB Gateway reachability (async to avoid blocking the event loop)
+        if connect_ib and self.registry is not None:
+            for group_name, group_cfg in self.registry.connection_groups.items():
+                host = getattr(group_cfg, "host", "127.0.0.1")
+                port = getattr(group_cfg, "port", 4002)
+                try:
+                    _reader, _writer = await asyncio.wait_for(
+                        asyncio.open_connection(host, port),
+                        timeout=5.0,
+                    )
+                    _writer.close()
+                    await _writer.wait_closed()
+                    checks.append(PreflightCheck(
+                        name=f"ib-gateway:{group_name}",
+                        ok=True,
+                        detail=f"IB Gateway reachable at {host}:{port}",
+                    ))
+                except Exception as exc:
+                    checks.append(PreflightCheck(
+                        name=f"ib-gateway:{group_name}",
+                        ok=False,
+                        detail=f"IB Gateway unreachable at {host}:{port}: {exc}",
+                    ))
+
+        # 1d. Instrumentation config parsability (WARNING only)
+        for family in sorted(families):
+            config_path = (
+                Path(__file__).resolve().parent.parent.parent
+                / "strategies" / family / "instrumentation" / "config" / "instrumentation_config.yaml"
+            )
+            if not config_path.exists():
+                continue  # missing is OK -- strategies use defaults
+            try:
+                import yaml
+                with open(config_path) as f:
+                    yaml.safe_load(f)
+                checks.append(PreflightCheck(
+                    name=f"instr-config:{family}",
+                    ok=True,
+                    detail="Instrumentation config parsed OK",
+                ))
+            except Exception as exc:
+                checks.append(PreflightCheck(
+                    name=f"instr-config:{family}",
+                    ok=True,  # WARNING only, don't block startup
+                    detail=f"Instrumentation config parse error (non-fatal): {exc}",
+                ))
+                logger.warning("Instrumentation config for %s unparseable: %s", family, exc)
+
+        return checks
+
     async def run(
         self,
         shadow: bool = False,
@@ -224,13 +346,33 @@ class RuntimeShell:
         )
 
         # ------------------------------------------------------------------
-        # 1. Filter by family if requested
+        # 0. Filter by family if requested (before preflight)
         # ------------------------------------------------------------------
         if family_filter:
             enabled = [m for m in enabled if m.family == family_filter]
             if not enabled:
                 raise RuntimeError(f"No enabled strategies for family={family_filter!r}")
             logger.info("Family filter active: running %d strategies for '%s'", len(enabled), family_filter)
+
+        # ------------------------------------------------------------------
+        # 1. Async preflight (fail-fast before heavy startup)
+        # ------------------------------------------------------------------
+        enabled_families = {m.family for m in enabled}
+        checks = await self._run_async_preflight(
+            connect_ib=connect_ib,
+            families=enabled_families,
+        )
+        for c in checks:
+            lvl = logging.INFO if c.ok else logging.WARNING
+            logger.log(lvl, "PREFLIGHT %s: %s -- %s", "OK" if c.ok else "FAIL", c.name, c.detail)
+        critical_failures = [
+            c for c in checks
+            if not c.ok and c.name.split(":")[0] in ("import", "database", "ib-gateway")
+        ]
+        if critical_failures:
+            for c in critical_failures:
+                logger.error("PREFLIGHT FAIL: %s -- %s", c.name, c.detail)
+            raise RuntimeError(f"Preflight failed: {len(critical_failures)} critical check(s)")
 
         # ------------------------------------------------------------------
         # 2. Connect broker

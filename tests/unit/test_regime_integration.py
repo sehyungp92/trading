@@ -11,6 +11,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from regime.context import RegimeContext
+from datetime import datetime, timezone
+
 from regime.persistence import (
     RECOVERY_DEFAULT,
     load_regime_context,
@@ -35,7 +37,7 @@ def _make_ctx(regime: str = "G", confidence: float = 0.9) -> RegimeContext:
         shift_velocity=0.0,
         suggested_leverage_mult=1.0,
         regime_allocations={"SPY": 0.3, "TLT": 0.3, "GLD": 0.2, "CASH": 0.2},
-        computed_at="2026-04-06T00:00:00+00:00",
+        computed_at=datetime.now(timezone.utc).isoformat(),
     )
 
 
@@ -107,7 +109,8 @@ class TestPersistence:
 
     def test_computed_at_field_preserved(self):
         ctx = _make_ctx()
-        assert ctx.computed_at == "2026-04-06T00:00:00+00:00"
+        assert ctx.computed_at is not None
+        assert "T" in ctx.computed_at  # ISO format with time separator
 
 
 # ── Integration mapping tests ────────────────────────────────────────

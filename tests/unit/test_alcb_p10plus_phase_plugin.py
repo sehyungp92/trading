@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import pytest
 
-from research.backtests.shared.auto.plugin_utils import mutation_signature
-from research.backtests.shared.auto.phase_state import PhaseState
-from research.backtests.stock.auto.alcb_p10plus_phase.phase_candidates import (
+from backtests.shared.auto.plugin_utils import mutation_signature
+from backtests.shared.auto.phase_state import PhaseState
+from backtests.stock.auto.alcb_p10plus_phase.phase_candidates import (
     EXTRA_CANDIDATES,
     PHASE_CANDIDATES,
     PHASE_FOCUS,
     get_phase_candidates,
 )
-from research.backtests.stock.auto.alcb_p10plus_phase.plugin import ALCBP10PlusPlugin
-from research.backtests.stock.auto.greedy_optimize import ALCB_T2_P10_CANDIDATES
+from backtests.stock.auto.alcb_p10plus_phase.plugin import ALCBP10PlusPlugin
+from backtests.stock.auto.greedy_optimize import ALCB_T2_P10_CANDIDATES
 
 
 def test_phase_candidates_cover_full_p10_union_and_all_extras_exactly_once():

@@ -75,7 +75,9 @@ class StockFamilyCoordinator:
 
         if paper_mode:
             from libs.persistence.paper_equity import PaperEquityManager
-            pem = PaperEquityManager(db_pool, account_scope=self.family_id, initial_equity=100_000.0)
+            _env = os.getenv("PAPER_INITIAL_EQUITY")
+            _paper_seed = float(_env) if _env else ctx.portfolio.capital.paper_initial_equity
+            pem = PaperEquityManager(db_pool, account_scope=self.family_id, initial_equity=_paper_seed)
             equity = await pem.load()
             logger.info("Paper mode equity for stock family: $%.2f", equity)
         else:
@@ -115,8 +117,11 @@ class StockFamilyCoordinator:
         # Portfolio rules: drawdown tiers + family-scoped directional cap + symbol collision
         all_strategy_ids = tuple(d["strategy_id"] for d in _strategies)
         logger.info(
-            "Stock portfolio rules: directional_cap=%.1fR, collision=%s, strategies=%s",
-            12.0, "half_size", all_strategy_ids,
+            "Stock portfolio rules: directional_cap=%.1fR, collision=%s, "
+            "collision_pairs=%s, headroom=%.1fR, strategies=%s",
+            12.0, "half_size",
+            [f"{h}→{r}:{a}" for h, r, a in (("ALCB_v1", "US_ORB_v1", "block"),)],
+            5.0, all_strategy_ids,
         )
 
         # Log dollar-equivalent directional cap per strategy for monitoring
@@ -157,12 +162,15 @@ class StockFamilyCoordinator:
                 initial_equity=allocated_nav,
                 family_strategy_ids=all_strategy_ids,
                 symbol_collision_action="half_size",
+                symbol_collision_pairs=(
+                    ("ALCB_v1", "US_ORB_v1", "block"),  # ALCB holds → US_ORB fully blocked on same symbol
+                ),
                 strategy_priorities=(
                     ("IARIC_v1", 0),    # highest: daily alpha, multi-position (5R heat)
                     ("ALCB_v1", 1),     # second: proven backtest edge, broader alpha
-                    ("US_ORB_v1", 2),   # lowest: unproven, pure OR overlap with ALCB
+                    ("US_ORB_v1", 2),   # lowest: supplementary, OR overlap with ALCB
                 ),
-                priority_headroom_R=4.0,       # reserve last 4R for IARIC + ALCB
+                priority_headroom_R=5.0,       # reserve last 5R for IARIC + ALCB
                 priority_reserve_threshold=1,  # priority 0-1 can use reserved headroom
             )
             # Save first portfolio_rules as base template for regime updates

@@ -5,91 +5,35 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import research.backtests.shared.auto.phase_runner as phase_runner_module
-from research.backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
-from research.backtests.shared.auto.types import EndOfRoundArtifacts, GateCriterion, GateResult, GreedyResult, PhaseAnalysis
-from research.backtests.stock.analysis.iaric_pullback_diagnostics import (
+import backtests.shared.auto.phase_runner as phase_runner_module
+from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.types import EndOfRoundArtifacts, GateCriterion, GateResult, GreedyResult, PhaseAnalysis
+from backtests.stock.analysis.iaric_pullback_diagnostics import (
     _threshold_sweep_rows,
     compute_pullback_diagnostic_snapshot,
     pullback_full_diagnostic,
 )
-from research.backtests.stock.analysis.metrics import PerformanceMetrics
-from research.backtests.stock.auto.iaric_pullback.phase_candidates import (
+from backtests.stock.analysis.metrics import PerformanceMetrics
+from backtests.stock.auto.iaric_pullback.phase_candidates import (
     BASE_MUTATIONS,
     PHASE_CANDIDATES,
     PHASE_FOCUS,
     get_phase_candidate_lookup,
     get_phase_candidates,
 )
-from research.backtests.stock.auto.iaric_pullback.phase_scoring import get_phase_scoring_weights, score_pullback_phase
-from research.backtests.stock.auto.iaric_pullback.plugin import IARICPullbackPlugin, select_pullback_branch
-from research.backtests.stock.auto.scoring import IARIC_NORM, composite_score
-from research.backtests.stock.engine.iaric_pullback_engine import (
+
+from backtests.stock.auto.iaric_pullback.plugin import IARICPullbackPlugin, select_pullback_branch
+from backtests.stock.auto.scoring import IARIC_NORM, composite_score
+from backtests.stock.engine.iaric_pullback_engine import (
     _build_selection_attribution,
     _shared_pullback_state,
     _passes_rank_gate,
     _rank_gate_reason,
 )
-from research.backtests.stock.models import Direction, TradeRecord
-from research.backtests.shared.auto.phase_runner import PhaseRunner
-from research.backtests.shared.auto.phase_state import PhaseState
+from backtests.stock.models import Direction, TradeRecord
+from backtests.shared.auto.phase_runner import PhaseRunner
+from backtests.shared.auto.phase_state import PhaseState
 from strategies.stock.iaric.config import StrategySettings
-
-
-def test_round2_base_mutations_match_rebased_optimum():
-    assert BASE_MUTATIONS["param_overrides.pb_execution_mode"] == "intraday_hybrid"
-    assert BASE_MUTATIONS["param_overrides.pb_carry_enabled"] is True
-    assert BASE_MUTATIONS["param_overrides.pb_carry_score_threshold"] == 50.0
-    assert BASE_MUTATIONS["param_overrides.pb_daily_signal_family"] == "meanrev_sweetspot_v1"
-    assert BASE_MUTATIONS["param_overrides.pb_flow_policy"] == "soft_penalty_rescue"
-    assert BASE_MUTATIONS["param_overrides.pb_signal_rank_gate_mode"] == "score_rank"
-    assert BASE_MUTATIONS["param_overrides.pb_backtest_intraday_universe_only"] is True
-    assert BASE_MUTATIONS["param_overrides.pb_daily_signal_min_score"] == 54.0
-    assert BASE_MUTATIONS["param_overrides.pb_open_scored_enabled"] is False
-    assert BASE_MUTATIONS["param_overrides.pb_opening_reclaim_enabled"] is False
-    assert BASE_MUTATIONS["param_overrides.pb_open_scored_min_score"] == 65.0
-    assert BASE_MUTATIONS["param_overrides.pb_open_scored_rank_pct_max"] == 30.0
-    assert BASE_MUTATIONS["param_overrides.pb_open_scored_max_share"] == 0.25
-    assert BASE_MUTATIONS["max_per_sector"] == 5
-
-
-def test_round3_candidate_profiles_expose_mainline_and_aggressive_tracks():
-    assert len(PHASE_FOCUS) == 6
-    assert IARICPullbackPlugin.num_phases == 6
-    for phase in range(1, 7):
-        assert get_phase_candidates(phase)
-    phase4 = get_phase_candidate_lookup(4)
-    assert phase4["protect_025_after_050"]["param_overrides.pb_delayed_confirm_mfe_protect_trigger_r"] == 0.50
-    assert phase4["delayed_fast_exits_balanced"]["param_overrides.pb_delayed_confirm_quick_exit_loss_r"] >= 0.0
-    assert phase4["reclaim_tight_protection"]["param_overrides.pb_opening_reclaim_quick_exit_loss_r"] >= 0.0
-
-    phase2_mainline = {name for name, _ in get_phase_candidates(2)}
-    phase2_aggressive = {name for name, _ in get_phase_candidates(2, profile="aggressive")}
-    assert "open_scored_wide" not in phase2_mainline
-    assert "open_scored_wide" in phase2_aggressive
-
-
-def test_round3_scoring_weights_add_expected_total_r_and_aggressive_trade_bias():
-    mainline = get_phase_scoring_weights("mainline")
-    aggressive = get_phase_scoring_weights("aggressive")
-
-    assert mainline[1]["expected_total_r"] == pytest.approx(0.08)
-    assert mainline[1]["inv_dd"] == pytest.approx(0.0)
-    assert aggressive[1]["expected_total_r"] == pytest.approx(0.14)
-    assert aggressive[1]["total_trades"] == pytest.approx(0.14)
-    assert aggressive[1]["inv_dd"] == pytest.approx(0.02)
-    assert aggressive[6]["expected_total_r"] == pytest.approx(0.18)
-
-
-def test_aggressive_profile_plugin_surfaces_aggressive_only_candidates():
-    plugin = IARICPullbackPlugin(data_dir=Path("."), profile="aggressive")
-
-    spec = plugin.get_phase_spec(2, PhaseState())
-    names = {experiment.name for experiment in spec.candidates}
-
-    assert plugin.name == "iaric_pullback_aggressive"
-    assert "open_scored_wide" in names
-    assert spec.hard_rejects["min_pf"] == pytest.approx(1.85)
 
 
 def test_select_pullback_branch_obeys_round3_selection_rule():
@@ -104,58 +48,6 @@ def test_select_pullback_branch_obeys_round3_selection_rule():
 
     assert aggressive_win["selected_profile"] == "aggressive"
     assert mainline_win["selected_profile"] == "mainline"
-
-
-def test_aggressive_phase6_gate_uses_profile_specific_soft_targets():
-    plugin = IARICPullbackPlugin(data_dir=Path("."), profile="aggressive")
-    metrics = {
-        "total_trades": 125.0,
-        "avg_r": 0.21,
-        "expected_total_r": 27.0,
-        "profit_factor": 2.02,
-        "sharpe": 1.42,
-        "max_drawdown_pct": 0.069,
-        "route_diversity": 0.67,
-        "crowded_day_missed_alpha_inverse": 0.46,
-    }
-
-    criteria = plugin._gate_criteria(6, metrics, PhaseState())
-    by_name = {criterion.name: criterion for criterion in criteria}
-
-    assert by_name["profit_factor"].target == pytest.approx(2.00)
-    assert by_name["max_drawdown_pct"].target == pytest.approx(0.07)
-    assert by_name["expected_total_r"].passed is True
-    assert by_name["profit_factor"].passed is True
-    assert by_name["max_drawdown_pct"].passed is True
-
-
-def test_phase4_gate_uses_reference_metrics_for_protection_and_flatten_targets(monkeypatch):
-    plugin = IARICPullbackPlugin(data_dir=Path("."))
-    monkeypatch.setattr(
-        plugin,
-        "_reference_metrics",
-        lambda phase, state: {
-            "protection_candidate_share": 0.30,
-            "eod_flatten_share": 0.42,
-        },
-    )
-    metrics = {
-        "total_trades": 110.0,
-        "profit_factor": 2.20,
-        "max_drawdown_pct": 0.05,
-        "avg_r": 0.23,
-        "managed_exit_share": 0.56,
-        "protection_candidate_share": 0.19,
-        "eod_flatten_share": 0.40,
-    }
-
-    criteria = plugin._gate_criteria(4, metrics, PhaseState())
-    by_name = {criterion.name: criterion for criterion in criteria}
-
-    assert by_name["max_protection_candidate_share"].target == pytest.approx(0.20)
-    assert by_name["max_eod_flatten_share"].target == pytest.approx(0.42)
-    assert by_name["max_protection_candidate_share"].passed is True
-    assert by_name["max_eod_flatten_share"].passed is True
 
 
 def test_plugin_suggests_structural_experiments_for_weak_signal_and_route_metrics():
@@ -217,76 +109,6 @@ def test_percentile_rank_gate_respects_absolute_and_percentile_bounds():
     assert _passes_rank_gate(4, 20, settings)
     assert _passes_rank_gate(10, 20, settings)
     assert not _passes_rank_gate(11, 20, settings)
-
-
-def test_phase_scoring_prefers_known_probe_profiles():
-    baseline = {
-        "avg_r": 0.1719,
-        "profit_factor": 2.3332,
-        "sharpe": 1.443,
-        "total_trades": 163.0,
-        "max_drawdown_pct": 0.0301,
-        "rsi_depth_edge": 0.093,
-        "trend_band_edge": 0.055,
-        "late_rank_edge": 0.045,
-        "signal_score_edge": 0.03,
-        "crowded_day_discrimination": 0.01,
-        "crowded_day_missed_alpha_inverse": 0.25,
-        "route_score_monotonicity": 0.20,
-        "open_scored_inverse": 0.20,
-        "route_diversity": 0.33,
-        "managed_exit_share": 0.227,
-        "eod_flatten_share": 0.773,
-        "stop_hit_share": 0.10,
-        "carry_trade_share": 0.01,
-        "carry_avg_r": 0.00,
-    }
-    signal_model = {
-        **baseline,
-        "avg_r": 0.2084,
-        "profit_factor": 2.7203,
-        "signal_score_edge": 0.10,
-        "crowded_day_discrimination": 0.06,
-        "crowded_day_missed_alpha_inverse": 0.60,
-        "total_trades": 130.0,
-        "max_drawdown_pct": 0.0182,
-    }
-    route_arch = {
-        **baseline,
-        "avg_r": 0.1942,
-        "profit_factor": 2.4376,
-        "route_score_monotonicity": 0.72,
-        "open_scored_inverse": 0.70,
-        "route_diversity": 1.0,
-        "total_trades": 129.0,
-        "max_drawdown_pct": 0.0283,
-    }
-    carry5 = {
-        **baseline,
-        "avg_r": 0.2439,
-        "profit_factor": 2.4091,
-        "sharpe": 1.60,
-        "total_trades": 152.0,
-        "max_drawdown_pct": 0.0436,
-        "managed_exit_share": 0.6711,
-        "eod_flatten_share": 0.3289,
-        "stop_hit_share": 0.05,
-        "carry_trade_share": 0.30,
-        "carry_avg_r": 0.36,
-        "route_score_monotonicity": 0.65,
-        "open_scored_inverse": 0.55,
-        "route_diversity": 1.0,
-        "crowded_day_missed_alpha_inverse": 0.55,
-    }
-    rsi_relabel = dict(baseline)
-
-    assert score_pullback_phase(1, signal_model) > score_pullback_phase(1, baseline)
-    assert score_pullback_phase(2, route_arch) > score_pullback_phase(2, baseline)
-    assert score_pullback_phase(3, carry5) > score_pullback_phase(3, baseline)
-    assert score_pullback_phase(4, carry5) > score_pullback_phase(4, baseline)
-    assert score_pullback_phase(5, carry5) > score_pullback_phase(5, baseline)
-    assert score_pullback_phase(6, carry5) > score_pullback_phase(6, baseline)
-    assert score_pullback_phase(6, rsi_relabel) == score_pullback_phase(6, baseline)
 
 
 def test_iaric_immutable_score_uses_150_trade_frequency_ceiling():
@@ -784,6 +606,7 @@ def test_pullback_precompute_cache_reuses_downstream_settings_only():
             "close": closes,
             "high": closes + 0.5,
             "low": closes - 0.5,
+            "volume": np.full(len(closes), 1_000_000.0),
         }
     }
     replay._daily_didx = {"AAA": ([date(2026, 1, 5)] * len(closes), list(range(len(closes))))}

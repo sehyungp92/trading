@@ -572,6 +572,9 @@ async def build_multi_strategy_oms(
     portfolio_rules_config=None,
     get_current_equity: Optional[Callable[[], float]] = None,
     live_equity: Optional[list] = None,  # mutable [float] ref for live equity updates
+    paper_equity_pool: Optional[asyncpg.Pool] = None,
+    paper_equity_scope: str = "paper",
+    paper_initial_equity: float = 10_000.0,
 ) -> tuple["OMSService", "StrategyCoordinator"]:
     """Build a shared OMS service for multiple strategies.
 
@@ -864,6 +867,9 @@ async def build_multi_strategy_oms(
         persist_portfolio_risk_state=_persist_portfolio_risk_state,
         portfolio_urd=portfolio_urd,
         live_equity=live_equity,
+        paper_equity_pool=paper_equity_pool,
+        paper_equity_scope=paper_equity_scope,
+        paper_initial_equity=paper_initial_equity,
     )
 
     # Build OMS service
@@ -1312,6 +1318,9 @@ def _wire_adapter_callbacks_multi(
     persist_portfolio_risk_state=None,
     portfolio_urd: float = 1.0,
     live_equity=None,
+    paper_equity_pool=None,
+    paper_equity_scope: str = "paper",
+    paper_initial_equity: float = 10_000.0,
 ) -> None:
     """Wire IBKRExecutionAdapter callbacks for multi-strategy OMS.
 
@@ -1497,6 +1506,18 @@ def _wire_adapter_callbacks_multi(
                     direction=direction, entry_price=open_positions[pos_key]["entry_price"],
                 )
 
+                # Paper equity: deduct entry commission
+                if paper_equity_pool is not None and commission > 0:
+                    try:
+                        from libs.persistence.paper_equity import apply_paper_pnl
+                        await apply_paper_pnl(
+                            paper_equity_pool, 0.0, commission,
+                            account_scope=paper_equity_scope,
+                            initial_equity=paper_initial_equity,
+                        )
+                    except Exception as _pe_exc:
+                        logger.warning("Paper equity entry commission failed: %s", _pe_exc)
+
             elif order.role in (OrderRole.EXIT, OrderRole.STOP, OrderRole.TP):
                 pos = open_positions.get(pos_key)
                 if pos:
@@ -1532,6 +1553,18 @@ def _wire_adapter_callbacks_multi(
                     # Live equity: update mutable ref so DD tiers see current equity
                     if live_equity is not None and live_equity[0] is not None:
                         live_equity[0] += pnl - commission
+
+                    # Paper equity: persist realized P&L + exit commission
+                    if paper_equity_pool is not None:
+                        try:
+                            from libs.persistence.paper_equity import apply_paper_pnl
+                            await apply_paper_pnl(
+                                paper_equity_pool, pnl, commission,
+                                account_scope=paper_equity_scope,
+                                initial_equity=paper_initial_equity,
+                            )
+                        except Exception as _pe_exc:
+                            logger.warning("Paper equity update failed: %s", _pe_exc)
 
                     pos["open_qty"] = max(0, pos["open_qty"] - qty)
                     remaining = int(pos["open_qty"])

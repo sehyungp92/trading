@@ -3,18 +3,18 @@ from types import SimpleNamespace
 
 import pytest
 
-import research.backtests.shared.auto.phase_runner as phase_runner_module
-import research.backtests.stock.analysis.iaric_pullback_diagnostics as pullback_diagnostics_module
-import research.backtests.stock.analysis.iaric_pullback_round_diagnostics as pullback_round_module
-import research.backtests.stock.auto.iaric_pullback.plugin as pullback_plugin_module
-import research.backtests.stock.cli as stock_cli_module
-from research.backtests.momentum.auto.downturn.plugin import DownturnPlugin
-from research.backtests.shared.auto.phase_analyzer import analyze_phase
-from research.backtests.shared.auto.plugin_utils import CachedBatchEvaluator, ResilientBatchEvaluator, mutation_signature
-from research.backtests.shared.auto.phase_runner import PhaseRunner
-from research.backtests.shared.auto.phase_state import PhaseState
-from research.backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
-from research.backtests.shared.auto.types import (
+import backtests.shared.auto.phase_runner as phase_runner_module
+import backtests.stock.analysis.iaric_pullback_diagnostics as pullback_diagnostics_module
+import backtests.stock.analysis.iaric_pullback_round_diagnostics as pullback_round_module
+import backtests.stock.auto.iaric_pullback.plugin as pullback_plugin_module
+import backtests.stock.cli as stock_cli_module
+from backtests.momentum.auto.downturn.plugin import DownturnPlugin
+from backtests.shared.auto.phase_analyzer import analyze_phase
+from backtests.shared.auto.plugin_utils import CachedBatchEvaluator, ResilientBatchEvaluator, mutation_signature
+from backtests.shared.auto.phase_runner import PhaseRunner
+from backtests.shared.auto.phase_state import PhaseState
+from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.types import (
     EndOfRoundArtifacts,
     Experiment,
     GateCriterion,
@@ -23,8 +23,8 @@ from research.backtests.shared.auto.types import (
     PhaseDecision,
     ScoredCandidate,
 )
-from research.backtests.stock.auto.iaric_pullback.plugin import IARICPullbackPlugin
-from research.backtests.swing.auto.brs.plugin import BRSPlugin
+from backtests.stock.auto.iaric_pullback.plugin import IARICPullbackPlugin
+from backtests.swing.auto.brs.plugin import BRSPlugin
 
 
 def _greedy_result(*, base_score: float, final_score: float, accepted_count: int = 1) -> GreedyResult:
@@ -277,7 +277,7 @@ def test_phase_runner_reruns_greedy_with_phase_specific_weights_and_candidates(t
         def get_phase_spec(self, phase, state):
             return PhaseSpec(
                 focus="test",
-                candidates=[Experiment("seed", {})],
+                candidates=[Experiment("seed", {"_seed": 0})],
                 gate_criteria_fn=lambda metrics: [GateCriterion("avg_r", 1.0, metrics["avg_r"], metrics["avg_r"] >= 1.0)],
                 scoring_weights={"quality": 0.5, "risk": 0.5},
                 hard_rejects={},
@@ -523,7 +523,7 @@ def test_iaric_pullback_builds_final_diagnostics_artifact(monkeypatch):
         "run_enhanced_diagnostics",
         lambda self, phase, state, metrics, greedy_result: "final full diagnostics",
     )
-    monkeypatch.setattr(IARICPullbackPlugin, "_run_ablation_suite", lambda self, state: ["  ablation line"])
+    monkeypatch.setattr(IARICPullbackPlugin, "_run_ablation_suite", lambda self, state, **kwargs: ["  ablation line"])
     monkeypatch.setattr(IARICPullbackPlugin, "_run_temporal_walkforward", lambda self, mutations: ["  wf line"])
 
     final_metrics = {

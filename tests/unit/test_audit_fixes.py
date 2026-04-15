@@ -13,13 +13,14 @@ Covers:
 """
 from __future__ import annotations
 
+import inspect
 import sqlite3
 import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -430,3 +431,110 @@ class TestTACuratedArtifacts:
         """write_curated() must accept process_quality_events parameter."""
         src = Path("_references/trading_assistant/skills/build_daily_metrics.py").read_text(encoding="utf-8")
         assert "process_quality_events" in src
+
+
+# ===========================================================================
+# Apr13RT-14 — Runtime async preflight checks
+# ===========================================================================
+
+
+class TestAsyncPreflight:
+    """Tests for RuntimeShell._run_async_preflight()."""
+
+    def _make_shell(self):
+        from apps.runtime.runtime import RuntimeShell
+        shell = RuntimeShell(config_dir="config")
+        shell.registry = MagicMock()
+        shell.registry.connection_groups = {}
+        return shell
+
+    @pytest.mark.asyncio
+    async def test_preflight_catches_bad_coordinator_import(self):
+        """Bad coordinator dotted path -> import check fails."""
+        from apps.runtime import runtime as rt_mod
+
+        shell = self._make_shell()
+        original = rt_mod._FAMILY_COORDINATORS.copy()
+        rt_mod._FAMILY_COORDINATORS["bad_family"] = "does.not.exist.BadCoordinator"
+        try:
+            checks = await shell._run_async_preflight(
+                connect_ib=False,
+                families={"bad_family"},
+            )
+            import_checks = [c for c in checks if c.name == "import:bad_family"]
+            assert len(import_checks) == 1
+            assert not import_checks[0].ok
+        finally:
+            rt_mod._FAMILY_COORDINATORS.clear()
+            rt_mod._FAMILY_COORDINATORS.update(original)
+
+    @pytest.mark.asyncio
+    async def test_preflight_db_unreachable(self):
+        """Mock asyncpg.connect to raise OSError -> database check fails."""
+        shell = self._make_shell()
+
+        mock_db_config = MagicMock()
+        mock_db_config.to_dsn.return_value = "postgresql://localhost/test"
+
+        with patch("libs.oms.persistence.db_config.DBConfig.from_env", return_value=mock_db_config), \
+             patch("asyncpg.connect", side_effect=OSError("Connection refused")):
+            checks = await shell._run_async_preflight(
+                connect_ib=False,
+                families=set(),
+            )
+            db_checks = [c for c in checks if c.name == "database"]
+            assert len(db_checks) == 1
+            assert not db_checks[0].ok
+
+    @pytest.mark.asyncio
+    async def test_preflight_ib_unreachable(self):
+        """Mock asyncio.open_connection to raise -> ib-gateway check fails."""
+        shell = self._make_shell()
+        group_cfg = MagicMock()
+        group_cfg.host = "127.0.0.1"
+        group_cfg.port = 4002
+        shell.registry.connection_groups = {"default": group_cfg}
+
+        with patch("asyncio.open_connection",
+                   side_effect=ConnectionRefusedError("refused")):
+            checks = await shell._run_async_preflight(
+                connect_ib=True,
+                families=set(),
+            )
+            gw_checks = [c for c in checks if c.name.startswith("ib-gateway:")]
+            assert len(gw_checks) == 1
+            assert not gw_checks[0].ok
+
+
+# ===========================================================================
+# Apr10-7 / Apr13RT-12 — Paper equity scoping
+# ===========================================================================
+
+
+class TestPaperEquityScoping:
+    """Tests for paper equity parameter wiring in multi-strategy OMS."""
+
+    def test_multi_oms_signature_has_paper_equity_params(self):
+        """build_multi_strategy_oms must accept paper_equity_pool, scope, initial."""
+        from libs.oms.services.factory import build_multi_strategy_oms
+        sig = inspect.signature(build_multi_strategy_oms)
+        params = sig.parameters
+        assert "paper_equity_pool" in params
+        assert "paper_equity_scope" in params
+        assert "paper_initial_equity" in params
+
+    def test_wire_callbacks_multi_signature_has_paper_equity_params(self):
+        """_wire_adapter_callbacks_multi must accept paper equity params."""
+        from libs.oms.services.factory import _wire_adapter_callbacks_multi
+        sig = inspect.signature(_wire_adapter_callbacks_multi)
+        params = sig.parameters
+        assert "paper_equity_pool" in params
+        assert "paper_equity_scope" in params
+        assert "paper_initial_equity" in params
+
+    def test_swing_coordinator_references_paper_equity(self):
+        """Swing coordinator source must reference PaperEquityManager and paper_equity_pool."""
+        src_path = Path("strategies/swing/coordinator.py")
+        text = src_path.read_text(encoding="utf-8")
+        assert "paper_equity_pool" in text
+        assert "PaperEquityManager" in text
