@@ -15,6 +15,7 @@ class Instrument:
     contract_expiry: str = ""  # YYYYMM or YYYYMMDD for futures
     primary_exchange: str = ""  # e.g. "ARCA", "NASDAQ" for stocks
     sec_type: str = ""  # e.g. "STK", "FUT"
+    trading_class: str = ""  # e.g. "NQ", "MNQ" for futures; ticker for stocks
 
     @property
     def exchange(self) -> str:
