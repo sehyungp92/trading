@@ -1,8 +1,8 @@
 """Bootstrap service for database and related services initialization.
 
 Unified bootstrap shared across all trading families (swing, momentum, stock).
-Environment detection uses TRADING_ENV with backward-compatible fallback
-to family-specific env vars (SWING_TRADER_ENV, ALGO_TRADER_ENV, STOCK_TRADER_ENV).
+Environment detection uses TRADING_MODE with backward-compatible fallback
+to legacy env vars (TRADING_ENV, SWING_TRADER_ENV, ALGO_TRADER_ENV, STOCK_TRADER_ENV).
 """
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ async def bootstrap_database(
 
     Environment is detected via get_environment() which checks env vars
     in priority order:
-        TRADING_ENV > SWING_TRADER_ENV > ALGO_TRADER_ENV > STOCK_TRADER_ENV
+        TRADING_MODE > TRADING_ENV > SWING_TRADER_ENV > ALGO_TRADER_ENV > STOCK_TRADER_ENV
 
     Args:
         require_db: Override automatic DB requirement detection.

@@ -50,7 +50,7 @@ class InstrumentationContext:
             return
 
         # Enforce HMAC auth in paper/live — match stock bootstrap behavior
-        env = os.environ.get("TRADING_ENV", "dev")
+        env = os.environ.get("TRADING_MODE", os.environ.get("TRADING_ENV", "dev"))
         if env in ("paper", "live") and self.sidecar is not None:
             hmac_secret = getattr(self.sidecar, "hmac_secret", b"")
             if not hmac_secret:

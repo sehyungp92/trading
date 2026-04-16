@@ -81,7 +81,7 @@ def create_relay_app(
     import time as _time
     _start_mono = _time.monotonic()
 
-    trading_env = os.environ.get("TRADING_ENV", "dev")
+    trading_env = os.environ.get("TRADING_MODE", os.environ.get("TRADING_ENV", "dev"))
     if not api_key and trading_env in ("paper", "live"):
         logger.warning(
             "RELAY_API_KEY not set in %s mode — read/admin endpoints are unauthenticated. "

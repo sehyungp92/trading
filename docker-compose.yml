@@ -75,7 +75,7 @@ services:
     restart: unless-stopped
     env_file: [.env]
     environment:
-      TRADING_ENV: ${TRADING_ENV:-paper}
+      TRADING_MODE: ${TRADING_MODE:-paper}
       CONFIG_DIR: /app/config
       IB_ACCOUNT_ID: ${IB_ACCOUNT_ID}
       # network_mode:host means DNS name 'postgres' won't resolve;

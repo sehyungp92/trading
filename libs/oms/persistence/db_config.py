@@ -83,9 +83,10 @@ class DBConfig:
         return f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
 
 
-# Legacy env-var names for backward compatibility
+# Env-var names checked in priority order (legacy fallbacks kept)
 _ENV_VAR_CANDIDATES = (
-    "TRADING_ENV",          # preferred (unified)
+    "TRADING_MODE",         # canonical (shared with IB Gateway)
+    "TRADING_ENV",          # legacy alias (deprecated)
     "SWING_TRADER_ENV",     # legacy swing_trader
     "ALGO_TRADER_ENV",      # legacy momentum_trader / stock_trader
     "STOCK_TRADER_ENV",     # legacy stock_trader alias
@@ -96,7 +97,7 @@ def get_environment() -> str:
     """Get current environment.
 
     Checks env vars in priority order:
-        TRADING_ENV > SWING_TRADER_ENV > ALGO_TRADER_ENV > STOCK_TRADER_ENV
+        TRADING_MODE > TRADING_ENV > SWING_TRADER_ENV > ALGO_TRADER_ENV > STOCK_TRADER_ENV
 
     Returns one of: dev, backtest, paper, live
     Default is 'dev'.
