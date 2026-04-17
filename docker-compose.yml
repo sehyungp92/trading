@@ -59,7 +59,7 @@ services:
       - "127.0.0.1:4002:4004"   # host 4002 -> container 4004 (paper via socat)
       - "127.0.0.1:4001:4003"   # host 4001 -> container 4003 (live via socat)
     healthcheck:
-      test: ["CMD-SHELL", "echo > /dev/tcp/127.0.0.1/4004 || exit 1"]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/4004'"]
       interval: 10s
       timeout: 5s
       retries: 10
