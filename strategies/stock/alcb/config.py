@@ -58,8 +58,8 @@ class StrategySettings:
     warm_poll_interval_s: int = 30
     cold_poll_interval_s: int = 120
 
-    min_price: float = 15.0
-    min_adv_usd: float = 20_000_000.0
+    min_price: float = 10.0
+    min_adv_usd: float = 10_000_000.0
     max_median_spread_pct: float = 0.0050
     max_friction_to_risk: float = 0.10
     earnings_block_days: int = 3

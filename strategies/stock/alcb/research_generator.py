@@ -228,14 +228,15 @@ async def generate_research_snapshot(
     settings: StrategySettings | None = None,
 ) -> ResearchSnapshot:
     cfg = settings or StrategySettings()
-    rate = _RateBudget()
+    rate = _RateBudget(rate_per_second=3.0, burst=6.0)
     universe: dict[str, tuple[str, str]] = {symbol: (sector, primary) for symbol, sector, primary in SP500_CONSTITUENTS}
     for symbol in await _fetch_scanner_symbols(ib, rate, cfg.scanner):
         if symbol in KNOWN_ETFS or symbol in universe:
             continue
         universe[symbol] = ("Unknown", "")
     all_symbols = list(universe.keys())[: cfg.universe_cap]
-    sem = asyncio.Semaphore(8)
+    sem = asyncio.Semaphore(12)
+    _progress = {"done": 0, "total": len(all_symbols)}
 
     async def _load_symbol(symbol: str) -> tuple[str, ResearchSymbol | None]:
         sector, primary = universe.get(symbol, ("Unknown", ""))
@@ -249,7 +250,12 @@ async def generate_research_snapshot(
                 await rate.wait_for()
                 bars_30m_rows = await _fetch_bars(ib, contract, "90 D", "30 mins")
             except Exception:
+                _progress["done"] += 1
                 return symbol, None
+        _progress["done"] += 1
+        n = _progress["done"]
+        if n % 50 == 0 or n == _progress["total"]:
+            logger.info("ALCB fetch progress: %d / %d symbols", n, _progress["total"])
         daily_bars = _bars_to_daily(symbol, daily_rows)
         bars_30m = _bars_to_30m(symbol, bars_30m_rows)
         if len(daily_bars) < 70:

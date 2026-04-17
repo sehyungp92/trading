@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
 from datetime import date
 from typing import AsyncIterator
@@ -70,9 +71,16 @@ async def ensure_artifacts(
 ) -> dict[str, bool]:
     """Generate artifacts for missing strategies. Returns {sid: success}."""
     results: dict[str, bool] = {}
+    t0 = time.monotonic()
     async with _research_ib(host=host, port=port) as ib:
         if "IARIC_v1" in missing:
+            logger.info("Starting IARIC artifact generation...")
             results["IARIC_v1"] = await generate_iaric(trade_date, ib)
+            logger.info("IARIC done in %.0fs", time.monotonic() - t0)
         if "ALCB_v1" in missing:
+            t1 = time.monotonic()
+            logger.info("Starting ALCB artifact generation...")
             results["ALCB_v1"] = await generate_alcb(trade_date, ib)
+            logger.info("ALCB done in %.0fs", time.monotonic() - t1)
+    logger.info("All artifact generation completed in %.0fs", time.monotonic() - t0)
     return results

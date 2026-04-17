@@ -246,8 +246,8 @@ async def generate_research_snapshot(
     cache_dir = cfg.cache_dir
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    rate = _RateBudget(rate_per_second=1.0, burst=2.0)
-    sem = asyncio.Semaphore(6)
+    rate = _RateBudget(rate_per_second=3.0, burst=6.0)
+    sem = asyncio.Semaphore(10)
 
     # -- Load universe -------------------------------------------------------
     from .universe_constituents import KNOWN_ETFS, SP500_CONSTITUENTS
