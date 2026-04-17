@@ -14,7 +14,7 @@ from datetime import datetime, time, timedelta, timezone
 from typing import Any, Optional
 
 import numpy as np
-import pytz
+from zoneinfo import ZoneInfo
 
 from .bar_series import Bar, BRSBarSeries
 from .config import (
@@ -64,7 +64,7 @@ from libs.oms.models.events import OMSEventType
 
 logger = logging.getLogger(__name__)
 
-ET = pytz.timezone("US/Eastern")
+ET = ZoneInfo("America/New_York")
 
 # RTH window
 RTH_START = time(9, 30)

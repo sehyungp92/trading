@@ -30,6 +30,6 @@ def test_explicit_stock_strategy_allocation_is_used() -> None:
 
     assert allocation.family == "stock"
     assert allocation.family_fraction == 0.3333
-    assert allocation.strategy_fraction_within_family == 0.34
-    assert allocation.allocated_nav == 11_332.2
+    assert allocation.strategy_fraction_within_family == 0.45
+    assert allocation.allocated_nav == pytest.approx(100_000.0 * 0.3333 * 0.45, rel=1e-6)
 

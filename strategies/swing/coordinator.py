@@ -116,7 +116,6 @@ class SwingFamilyCoordinator:
         from libs.oms.services.factory import build_multi_strategy_oms
         from libs.oms.risk.calculator import RiskCalculator
         from libs.config.capital_bootstrap import bootstrap_capital
-        from libs.risk import AccountRiskGate
 
         from strategies.swing.atrss.config import (
             STRATEGY_ID as ATRSS_ID,
@@ -257,10 +256,10 @@ class SwingFamilyCoordinator:
             )
 
         # -- Build shared multi-strategy OMS -------------------------------
-        # account_urd: dollar value of 1 account-R for cross-family risk gate.
-        # Uses the smallest URD across swing strategies as a conservative basis.
-        _min_urd = min(urds.values()) if urds else 200.0
-        account_gate = AccountRiskGate(db_pool, account_urd=_min_urd) if db_pool else None
+        # Use the runtime-provided account gate (shared across all families)
+        # instead of creating a local one with min(URDs) which was ~12x too
+        # restrictive for strategies like BRS_R9 with small URDs.
+        account_gate = self._ctx.account_gate
 
         # Portfolio rules: directional cap + symbol collision for swing family
         from libs.oms.risk.portfolio_rules import PortfolioRulesConfig
@@ -706,6 +705,13 @@ class SwingFamilyCoordinator:
                     shared_ctx=self._instrumentation_ctx,
                 )
                 logger.info("%s InstrumentationKit bootstrapped", sid)
+
+            # Register OVERLAY kit so overlay engine gets instrumentation
+            kits["OVERLAY"] = bootstrap_kit(
+                strategy_id="OVERLAY",
+                shared_ctx=self._instrumentation_ctx,
+            )
+            logger.info("OVERLAY InstrumentationKit bootstrapped")
 
             # Start instrumentation sidecar (background thread)
             try:

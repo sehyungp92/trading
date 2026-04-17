@@ -17,7 +17,7 @@ from collections import deque
 from datetime import date as date_type, datetime, time, timedelta, timezone
 from typing import Optional
 
-import pytz
+from zoneinfo import ZoneInfo
 
 from .config import (
     STRATEGY_ID, TF, SetupClass, SetupState, Setup, PositionState, Bar,
@@ -47,7 +47,7 @@ from .session import (
 )
 
 logger = logging.getLogger(__name__)
-ET = pytz.timezone("America/New_York")
+ET = ZoneInfo("America/New_York")
 
 
 class Helix4Engine:

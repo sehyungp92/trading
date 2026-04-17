@@ -195,6 +195,7 @@ class MomentumFamilyCoordinator:
                 ),
                 priority_headroom_R=1.0,
                 priority_reserve_threshold=1,
+                reference_unit_risk_dollars=50.0,  # normalize mixed URDs ($200 VdubusNQ vs $50 others)
             )
 
             if self._base_portfolio_rules is None:
@@ -217,6 +218,7 @@ class MomentumFamilyCoordinator:
                 live_equity=_live_equity if not paper_equity_pool else None,
                 family_id=self.family_id,
                 account_gate=account_gate,
+                family_strategy_ids=list(all_strategy_ids),
             )
             await oms.start()
             logger.info("OMS started for %s", sid)
@@ -226,9 +228,12 @@ class MomentumFamilyCoordinator:
             # Instrumentation (non-fatal) — share ONE sidecar across all strategies
             instr = None
             try:
+                from libs.oms.persistence.postgres import PgStore
                 from .instrumentation.src.bootstrap import InstrumentationManager
+                _pg_store = PgStore(db_pool) if db_pool is not None else None
                 instr = InstrumentationManager(
                     oms, sid, strategy_type=desc["instr_type"],
+                    pg_store=_pg_store,
                     family_strategy_ids=list(all_strategy_ids),
                     get_regime_ctx=lambda: self._regime_ctx,
                     get_applied_config=lambda: self._portfolio_checkers[0]._cfg if self._portfolio_checkers and self._portfolio_checkers[0] else None,

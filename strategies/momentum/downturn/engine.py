@@ -97,12 +97,9 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Timezone for session classification
 # ---------------------------------------------------------------------------
-try:
-    from zoneinfo import ZoneInfo
-    NY_TZ = ZoneInfo("America/New_York")
-except ImportError:
-    import pytz  # type: ignore[import-untyped]
-    NY_TZ = pytz.timezone("America/New_York")
+from zoneinfo import ZoneInfo
+
+ET = ZoneInfo("America/New_York")
 
 RTH_START = time(9, 30)
 RTH_END = time(16, 0)
@@ -1066,7 +1063,7 @@ class DownturnEngine:
         times = self._bars_15m.get("time", [])
         if not times:
             return
-        today = datetime.now(NY_TZ).date()
+        today = datetime.now(ET).date()
         # Walk backward to find first bar of today
         for i in range(len(times) - 1, -1, -1):
             try:
@@ -1090,7 +1087,7 @@ class DownturnEngine:
         if flags.use_shock_block and self._regime.vol_state == VolState.SHOCK:
             return "vol_shock"
 
-        now_ny = datetime.now(NY_TZ)
+        now_ny = datetime.now(ET)
         now_et = now_ny.time()
         mins = now_et.hour * 60 + now_et.minute
 
@@ -1119,7 +1116,7 @@ class DownturnEngine:
         """Snapshot all entry gate states for filter_decisions."""
         flags = self._flags
         po = self._po
-        now_ny = datetime.now(NY_TZ)
+        now_ny = datetime.now(ET)
         mins = now_ny.hour * 60 + now_ny.minute
         max_daily = int(po.get("max_daily_entries", 3))
         min_pctl = po.get("friction_min_atr_pctl", 0.10)
@@ -2071,7 +2068,7 @@ class DownturnEngine:
         Matches backtest _classify_session: core = 09:35-15:50 ET (mult 1.0),
         extended = ETH morning/evening (mult < 1.0).
         """
-        now_ny = datetime.now(NY_TZ)
+        now_ny = datetime.now(ET)
         mins = now_ny.hour * 60 + now_ny.minute
         if 575 <= mins < 950:
             return "core"
@@ -2079,7 +2076,7 @@ class DownturnEngine:
 
     def _check_daily_risk_reset(self) -> None:
         """Reset daily risk counters at start of new trading day (4 AM ET)."""
-        now_ny = datetime.now(NY_TZ)
+        now_ny = datetime.now(ET)
         date_str = now_ny.strftime("%Y-%m-%d")
         if date_str != self._last_risk_reset_date and now_ny.hour >= 4:
             self._daily_loss = 0.0

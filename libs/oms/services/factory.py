@@ -183,6 +183,7 @@ async def build_oms_service(
     halt_trading=None,  # Optional async callback
     recon_interval_s: float = 120.0,
     live_equity: Optional[list] = None,  # mutable [float] ref for live equity updates
+    family_strategy_ids: Optional[list[str]] = None,
 ) -> OMSService:
     """Build a fully wired OMS service.
 
@@ -334,7 +335,7 @@ async def build_oms_service(
             if unit_risk_dollars > 0 else 0.0
         )
 
-    _family_sids = [strategy_id]
+    _family_sids = list(family_strategy_ids) if family_strategy_ids else [strategy_id]
 
     async def _load_portfolio_risk_from_store(trade_day: date) -> None:
         if pg_store is None:
@@ -476,6 +477,7 @@ async def build_oms_service(
             get_directional_risk_R_for_strategies=pg_store.get_directional_risk_R_for_strategies,
             get_sibling_positions_for_symbol=pg_store.get_sibling_positions_for_symbol,
             get_family_aggregate_mnq_eq=pg_store.get_family_aggregate_mnq_eq,
+            get_directional_risk_dollars_for_strategies=pg_store.get_directional_risk_dollars_for_strategies,
         )
         logger.info("Portfolio rules enabled for %s", strategy_id)
 
@@ -825,6 +827,7 @@ async def build_multi_strategy_oms(
             get_directional_risk_R_for_strategies=pg_store.get_directional_risk_R_for_strategies,
             get_sibling_positions_for_symbol=pg_store.get_sibling_positions_for_symbol,
             get_family_aggregate_mnq_eq=pg_store.get_family_aggregate_mnq_eq,
+            get_directional_risk_dollars_for_strategies=pg_store.get_directional_risk_dollars_for_strategies,
         )
         logger.info("Portfolio rules enabled for multi-strategy OMS (%s)", family_id)
 
@@ -1586,6 +1589,9 @@ def _wire_adapter_callbacks_multi(
             pos_data = open_positions.get(pos_key)
             if pos_data:
                 net = pos_data["open_qty"] if pos_data["side"] == OrderSide.BUY else -pos_data["open_qty"]
+                # Per-position risk (not strategy total) to prevent SUM double-counting
+                symbol_open_risk_R = pos_data["risk_per_contract_R"] * pos_data["open_qty"]
+                symbol_open_risk_dollars = symbol_open_risk_R * urd
                 oms_pos = Position(
                     account_id=order.account_id,
                     instrument_symbol=instr_sym,
@@ -1593,8 +1599,8 @@ def _wire_adapter_callbacks_multi(
                     net_qty=net,
                     avg_price=pos_data["entry_price"],
                     realized_pnl=strat_risk.daily_realized_pnl,
-                    open_risk_dollars=strat_risk.open_risk_dollars,
-                    open_risk_R=strat_risk.open_risk_R,
+                    open_risk_dollars=symbol_open_risk_dollars,
+                    open_risk_R=symbol_open_risk_R,
                     last_update_at=fill_ts,
                 )
             else:

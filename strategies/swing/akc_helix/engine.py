@@ -109,17 +109,15 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
-try:
-    import zoneinfo
-    _ET = zoneinfo.ZoneInfo("America/New_York")
-except Exception:
-    _ET = timezone(timedelta(hours=-5))
+from zoneinfo import ZoneInfo
+
+ET = ZoneInfo("America/New_York")
 
 
 def _next_session_open_et(now_utc: datetime, start_hhmm: str = "03:00") -> datetime:
     """Compute the next session open time in ET, returned as UTC."""
     try:
-        et_now = now_utc.astimezone(_ET)
+        et_now = now_utc.astimezone(ET)
     except Exception:
         et_now = now_utc
     parts = start_hhmm.split(":")
@@ -136,7 +134,7 @@ def _next_session_open_et(now_utc: datetime, start_hhmm: str = "03:00") -> datet
 def _next_daily_close_et(now_utc: datetime) -> datetime:
     """Compute the next daily close (16:00 ET), returned as UTC."""
     try:
-        et_now = now_utc.astimezone(_ET)
+        et_now = now_utc.astimezone(ET)
     except Exception:
         et_now = now_utc
     candidate = et_now.replace(hour=16, minute=0, second=0, microsecond=0)
@@ -475,7 +473,7 @@ class HelixEngine:
         while self._running:
             now = datetime.now(timezone.utc)
             try:
-                et_now = now.astimezone(_ET)
+                et_now = now.astimezone(ET)
             except Exception:
                 et_now = now
             # Compute next 15:45 ET
@@ -630,7 +628,7 @@ class HelixEngine:
                 if cfg is None:
                     continue
                 try:
-                    now_et = now.astimezone(_ET)
+                    now_et = now.astimezone(ET)
                 except Exception:
                     now_et = now
                 if gates.is_entry_window_open(now_et, cfg):
@@ -770,7 +768,7 @@ class HelixEngine:
                 continue
 
             try:
-                now_et = now.astimezone(_ET)
+                now_et = now.astimezone(ET)
             except Exception:
                 now_et = now
 
@@ -1040,7 +1038,7 @@ class HelixEngine:
 
         # --- Run full eligibility gates before arming (spec s11.1) ---
         try:
-            now_et = now.astimezone(_ET)
+            now_et = now.astimezone(ET)
         except Exception:
             now_et = now
 
@@ -1341,7 +1339,7 @@ class HelixEngine:
 
             # Window close cancellation
             try:
-                et = now.astimezone(_ET)
+                et = now.astimezone(ET)
             except Exception:
                 et = now
             if not gates.is_entry_window_open(et, cfg):
@@ -1745,7 +1743,7 @@ class HelixEngine:
         # Futures: at 16:25 ET, flatten add if R < 2.0
         if setup.add_done and setup.qty_open > setup.fill_qty:
             try:
-                now_et = now.astimezone(_ET)
+                now_et = now.astimezone(ET)
             except Exception:
                 now_et = now
             if cfg.is_etf:
@@ -1778,7 +1776,7 @@ class HelixEngine:
 
         # Time gates (spec s15.1): entry window open + before 15:30/15:00 ET
         try:
-            now_et = now.astimezone(_ET)
+            now_et = now.astimezone(ET)
         except Exception:
             now_et = now
         if not gates.is_entry_window_open(now_et, cfg):
@@ -2700,7 +2698,7 @@ class HelixEngine:
         """pendingTickersEvent callback — primary trigger detector."""
         now = datetime.now(timezone.utc)
         try:
-            now_et = now.astimezone(_ET)
+            now_et = now.astimezone(ET)
         except Exception:
             now_et = now
         updated_syms: set[str] = set()
@@ -2727,7 +2725,7 @@ class HelixEngine:
                 break
             now = datetime.now(timezone.utc)
             try:
-                now_et = now.astimezone(_ET)
+                now_et = now.astimezone(ET)
             except Exception:
                 now_et = now
             for setup_id, setup in list(self.pending_setups.items()):

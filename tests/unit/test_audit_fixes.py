@@ -266,10 +266,11 @@ class TestFamilyScopedRiskAggregation:
         assert "strategy_ids" in sig.parameters
 
     def test_factory_single_oms_defines_family_sids(self):
-        """build_oms_service must define _family_sids for scoped queries."""
+        """build_oms_service must accept family_strategy_ids for scoped queries."""
         src = Path("libs/oms/services/factory.py").read_text(encoding="utf-8")
-        # Single-OMS builder should define _family_sids = [strategy_id]
-        assert "_family_sids = [strategy_id]" in src
+        # Single-OMS builder should use family_strategy_ids when provided, else [strategy_id]
+        assert "family_strategy_ids" in src
+        assert "_family_sids = list(family_strategy_ids) if family_strategy_ids else [strategy_id]" in src
 
     def test_factory_multi_oms_defines_family_sids(self):
         """build_multi_strategy_oms must define _family_sids for scoped queries."""

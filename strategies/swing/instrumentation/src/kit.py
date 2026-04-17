@@ -16,6 +16,9 @@ import json
 import logging
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+ET = ZoneInfo("America/New_York")
 from pathlib import Path
 
 from .context import InstrumentationContext
@@ -181,7 +184,7 @@ class InstrumentationKit:
 
             # Auto-capture session context
             from .session_classifier import SessionClassifier
-            session_ctx = SessionClassifier.classify(datetime.now())
+            session_ctx = SessionClassifier.classify(datetime.now(ET))
 
             # Auto-capture overnight gap
             gap_ctx = {}
@@ -535,7 +538,7 @@ class InstrumentationKit:
                 context["market_session"] = market_session
             else:
                 from .session_classifier import SessionClassifier
-                session_ctx = SessionClassifier.classify(datetime.now())
+                session_ctx = SessionClassifier.classify(datetime.now(ET))
                 context["market_session"] = session_ctx.get("market_session", "")
 
             self.ctx.indicator_logger.log_snapshot(
@@ -689,7 +692,7 @@ class InstrumentationKit:
 
             market_session = ""
             from .session_classifier import SessionClassifier
-            session_ctx = SessionClassifier.classify(datetime.now())
+            session_ctx = SessionClassifier.classify(datetime.now(ET))
             market_session = session_ctx.get("market_session", "")
 
             overlay = None
@@ -888,7 +891,7 @@ class InstrumentationKit:
             dd_ctx = self.ctx.drawdown_tracker.get_entry_context()
 
         from .session_classifier import SessionClassifier
-        session_ctx = SessionClassifier.classify(datetime.now())
+        session_ctx = SessionClassifier.classify(datetime.now(ET))
 
         overlay = {}
         if self.ctx.overlay_state_provider:

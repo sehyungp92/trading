@@ -111,6 +111,30 @@ class StockFamilyCoordinator:
         # Load artifacts for strategies that need them
         artifacts = self._load_artifacts()
 
+        # Generate missing artifacts via IB research pipeline
+        missing = [sid for sid, art in artifacts.items() if art is None]
+        if missing:
+            logger.info("Generating missing stock artifacts: %s", missing)
+            try:
+                from .artifact_generator import ensure_artifacts
+                from zoneinfo import ZoneInfo
+
+                today = datetime.now(ZoneInfo("America/New_York")).date()
+                ib_host = os.environ.get("IB_HOST", "127.0.0.1")
+                ib_port = int(os.environ.get("IB_PORT", "4002"))
+                results = await asyncio.wait_for(
+                    ensure_artifacts(today, missing, host=ib_host, port=ib_port),
+                    timeout=600,  # 10 min hard cap; prevents start() from hanging
+                )
+                artifacts = self._load_artifacts()  # reload from disk
+                for sid, ok in results.items():
+                    if ok:
+                        logger.info("Artifact generated successfully: %s", sid)
+                    else:
+                        logger.warning("Artifact generation failed: %s", sid)
+            except Exception as exc:
+                logger.error("Artifact generation failed, strategies will be skipped: %s", exc)
+
         # ── Strategy descriptors ─────────────────────────────────────
         _strategies = self._build_strategy_descriptors(artifacts)
 
@@ -172,6 +196,7 @@ class StockFamilyCoordinator:
                 ),
                 priority_headroom_R=5.0,       # reserve last 5R for IARIC + ALCB
                 priority_reserve_threshold=1,  # priority 0-1 can use reserved headroom
+                reference_unit_risk_dollars=100.0,  # all stock strategies use $100/R
             )
             # Save first portfolio_rules as base template for regime updates
             if self._base_portfolio_rules is None:
@@ -210,6 +235,7 @@ class StockFamilyCoordinator:
                 live_equity=_live_equity if not paper_mode else None,
                 family_id=self.family_id,
                 account_gate=account_gate,
+                family_strategy_ids=list(all_strategy_ids),
             )
             await oms.start()
             logger.info("OMS started for %s", sid)
@@ -219,9 +245,13 @@ class StockFamilyCoordinator:
             # Instrumentation (non-fatal) — share ONE sidecar across all strategies
             instr = None
             try:
+                from libs.oms.persistence.postgres import PgStore
                 from .instrumentation.src.bootstrap import InstrumentationManager
+                _pg_store = PgStore(db_pool) if db_pool is not None else None
                 instr = InstrumentationManager(
                     oms, sid, strategy_type=desc["instr_type"],
+                    pg_store=_pg_store,
+                    family_strategy_ids=list(all_strategy_ids),
                     get_regime_ctx=lambda: self._regime_ctx,
                     get_applied_config=lambda: self._portfolio_checkers[0]._cfg if self._portfolio_checkers and self._portfolio_checkers[0] else None,
                 )

@@ -37,11 +37,9 @@ from .models import DailyState, Direction
 
 logger = logging.getLogger(__name__)
 
-try:
-    import zoneinfo
-    _ET = zoneinfo.ZoneInfo("America/New_York")
-except Exception:
-    _ET = timezone(timedelta(hours=-5))
+from zoneinfo import ZoneInfo
+
+ET = ZoneInfo("America/New_York")
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +172,7 @@ class KeltnerEngine:
         while self._running:
             now = datetime.now(timezone.utc)
             try:
-                now_et = now.astimezone(_ET)
+                now_et = now.astimezone(ET)
             except Exception:
                 now_et = now
             target = now_et.replace(hour=16, minute=15, second=0, microsecond=0)

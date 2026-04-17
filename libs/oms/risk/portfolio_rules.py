@@ -82,6 +82,11 @@ class PortfolioRulesConfig:
     priority_headroom_R: float = 0.0       # 0 = disabled (backward compatible)
     priority_reserve_threshold: int = 0
 
+    # Dollar-based directional cap: when > 0, directional cap is checked in
+    # dollars (cap_R * reference_urd) instead of R units.  Fixes mixed-R-unit
+    # families where strategies have different URDs (e.g. momentum: $200 vs $50).
+    reference_unit_risk_dollars: float = 0.0
+
     # Regime-driven sizing scalar (applied as multiplier in check_entry)
     regime_unit_risk_mult: float = 1.0
     # Strategies blocked from new entries by regime (checked first in check_entry)
@@ -139,6 +144,9 @@ class PortfolioRuleChecker:
         get_family_aggregate_mnq_eq: Optional[
             Callable[[list[str]], Awaitable[int]]
         ] = None,
+        get_directional_risk_dollars_for_strategies: Optional[
+            Callable[[str, list[str]], Awaitable[float]]
+        ] = None,
     ):
         self._cfg = config
         self._get_signal = get_strategy_signal
@@ -155,6 +163,13 @@ class PortfolioRuleChecker:
             logger.info("Directional cap scoped to strategies: %s", family_ids)
         else:
             self._get_dir_risk = get_directional_risk_R
+
+        # Dollar-based directional risk (avoids mixed-R-unit problems)
+        if family_ids and get_directional_risk_dollars_for_strategies is not None:
+            ids_list = list(family_ids)
+            self._get_dir_risk_dollars = lambda d: get_directional_risk_dollars_for_strategies(d, ids_list)
+        else:
+            self._get_dir_risk_dollars = None
 
     def update_config(self, new_cfg: PortfolioRulesConfig) -> None:
         """Atomically replace config for regime updates. GIL-safe for single attr assign."""
@@ -195,6 +210,7 @@ class PortfolioRuleChecker:
         new_risk_R: float = 1.0,
         symbol: Optional[str] = None,
         new_qty: int = 0,
+        new_risk_dollars: float = 0.0,
     ) -> PortfolioRuleResult:
         """Run all portfolio rules. Returns result with approval and size multiplier."""
         result = PortfolioRuleResult()
@@ -227,7 +243,7 @@ class PortfolioRuleChecker:
         result.size_multiplier *= size_mult
 
         # 3. Directional cap
-        denial = await self._check_directional_cap(strategy_id, direction, new_risk_R)
+        denial = await self._check_directional_cap(strategy_id, direction, new_risk_R, new_risk_dollars)
         if denial:
             self._emit({"rule": "directional_cap", "strategy_id": strategy_id,
                          "direction": direction, "approved": False, "denial_reason": denial})
@@ -348,25 +364,66 @@ class PortfolioRuleChecker:
 
     async def _check_directional_cap(
         self, strategy_id: str, direction: str, new_risk_R: float,
+        new_risk_dollars: float = 0.0,
     ) -> Optional[str]:
-        """Max same-direction risk, with optional priority-based reservation."""
+        """Max same-direction risk, with optional priority-based reservation.
+
+        When ``reference_unit_risk_dollars > 0`` and a dollar callback is wired,
+        the cap is checked in dollar space to avoid mixing R units from
+        strategies with different URDs.
+        """
         # Resolve per-direction cap (asymmetric overrides symmetric fallback)
-        cap = self._cfg.directional_cap_R
+        cap_R = self._cfg.directional_cap_R
         if direction == "LONG" and self._cfg.directional_cap_long_R > 0:
-            cap = self._cfg.directional_cap_long_R
+            cap_R = self._cfg.directional_cap_long_R
         elif direction == "SHORT" and self._cfg.directional_cap_short_R > 0:
-            cap = self._cfg.directional_cap_short_R
-        if cap <= 0:
+            cap_R = self._cfg.directional_cap_short_R
+        if cap_R <= 0:
             return None
 
+        ref_urd = self._cfg.reference_unit_risk_dollars
+        use_dollars = ref_urd > 0 and self._get_dir_risk_dollars is not None
+
+        if use_dollars:
+            # Dollar-based path: avoids mixed R units across strategies
+            current_dollars = await self._get_dir_risk_dollars(direction)
+            cap_dollars = cap_R * ref_urd
+            total_dollars = current_dollars + new_risk_dollars
+
+            if total_dollars > cap_dollars:
+                return (
+                    f"directional_cap: {direction} risk ${current_dollars:.0f} + "
+                    f"new ${new_risk_dollars:.0f} = ${total_dollars:.0f} > "
+                    f"cap {cap_R}R * ${ref_urd:.0f} = ${cap_dollars:.0f}"
+                )
+
+            # Soft reservation in dollar space
+            headroom_R = self._cfg.priority_headroom_R
+            if headroom_R > 0 and self._cfg.strategy_priorities:
+                remaining_dollars = cap_dollars - current_dollars
+                headroom_dollars = headroom_R * ref_urd
+                priority_map = dict(self._cfg.strategy_priorities)
+                my_priority = priority_map.get(strategy_id, 99)
+
+                if remaining_dollars <= headroom_dollars and my_priority > self._cfg.priority_reserve_threshold:
+                    return (
+                        f"directional_cap_reserved: {direction} remaining "
+                        f"${remaining_dollars:.0f} <= headroom ${headroom_dollars:.0f}, "
+                        f"strategy {strategy_id} priority {my_priority} "
+                        f"> threshold {self._cfg.priority_reserve_threshold}"
+                    )
+
+            return None
+
+        # R-based path (original): safe when all strategies share the same URD
         current_dir_risk = await self._get_dir_risk(direction)
         total = current_dir_risk + new_risk_R
 
         # Hard cap: no strategy can exceed the absolute cap
-        if total > cap:
+        if total > cap_R:
             return (
                 f"directional_cap: {direction} risk {current_dir_risk:.2f}R + "
-                f"new {new_risk_R:.2f}R = {total:.2f}R > cap {cap}R"
+                f"new {new_risk_R:.2f}R = {total:.2f}R > cap {cap_R}R"
             )
 
         # Soft reservation: when headroom is tight, reserve for higher-priority strategies
@@ -374,7 +431,7 @@ class PortfolioRuleChecker:
         if headroom_R <= 0 or not self._cfg.strategy_priorities:
             return None
 
-        remaining = cap - current_dir_risk
+        remaining = cap_R - current_dir_risk
         priority_map = dict(self._cfg.strategy_priorities)
         my_priority = priority_map.get(strategy_id, 99)
 
