@@ -124,7 +124,7 @@ class StockFamilyCoordinator:
                 ib_port = int(os.environ.get("IB_PORT", "4002"))
                 results = await asyncio.wait_for(
                     ensure_artifacts(today, missing, host=ib_host, port=ib_port),
-                    timeout=600,  # 10 min hard cap; prevents start() from hanging
+                    timeout=1800,  # 30 min hard cap; daily+30m bars for ~450 symbols needs ~25 min
                 )
                 artifacts = self._load_artifacts()  # reload from disk
                 for sid, ok in results.items():
