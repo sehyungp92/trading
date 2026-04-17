@@ -823,9 +823,8 @@ class BRSLiveEngine:
         try:
             accounts = self.ib.ib.managedAccounts()
             if accounts:
-                summary = await self.ib.ib.accountSummaryAsync(accounts[0])
-                for item in summary:
-                    if item.tag == "NetLiquidation" and item.currency == "USD":
+                for item in self.ib.ib.accountValues():
+                    if item.tag == "NetLiquidation" and item.currency == "USD" and item.account == accounts[0]:
                         self._equity = float(item.value) * self._equity_alloc_pct
                         logger.info("BRS equity refreshed: $%.2f", self._equity)
                         return

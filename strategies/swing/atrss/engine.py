@@ -301,9 +301,8 @@ class ATRSSEngine:
             accounts = self._ib.ib.managedAccounts()
             if accounts:
                 account = accounts[0]
-                summary = await self._ib.ib.accountSummaryAsync(account)
-                for item in summary:
-                    if item.tag == "NetLiquidation" and item.currency == "USD":
+                for item in self._ib.ib.accountValues():
+                    if item.tag == "NetLiquidation" and item.currency == "USD" and item.account == account:
                         raw = float(item.value)
                         if raw > 0:
                             new_equity = raw * self._equity_alloc_pct + self._equity_offset

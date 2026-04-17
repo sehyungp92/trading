@@ -103,9 +103,8 @@ class MomentumFamilyCoordinator:
             try:
                 accounts = session.ib.managedAccounts()
                 if accounts:
-                    summary = await session.ib.accountSummaryAsync(accounts[0])
-                    for item in summary:
-                        if item.tag == "NetLiquidation" and item.currency == "USD":
+                    for item in session.ib.accountValues():
+                        if item.tag == "NetLiquidation" and item.currency == "USD" and item.account == accounts[0]:
                             equity = float(item.value)
                             logger.info("Account equity: $%.2f", equity)
                             break

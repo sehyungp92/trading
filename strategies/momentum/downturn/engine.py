@@ -2089,9 +2089,8 @@ class DownturnEngine:
         try:
             accounts = self._ib.ib.managedAccounts()
             if accounts:
-                summary = await self._ib.ib.accountSummaryAsync(accounts[0])
-                for item in summary:
-                    if item.tag == "NetLiquidation" and item.currency == "USD":
+                for item in self._ib.ib.accountValues():
+                    if item.tag == "NetLiquidation" and item.currency == "USD" and item.account == accounts[0]:
                         self._equity = float(item.value) * self._equity_alloc_pct
                         return
         except Exception:
