@@ -224,8 +224,8 @@ class LiveDataProvider:
                 s = fred.get_series(series_id, observation_start=start)
                 s.name = col
                 frames[col] = s
-            except Exception:
-                logger.warning("Regime: FRED fetch failed for %s (%s)", col, series_id)
+            except Exception as exc:
+                logger.warning("Regime: FRED fetch failed for %s (%s): %s", col, series_id, exc)
 
         fred_df = pd.DataFrame(frames)
         fred_df.index = pd.to_datetime(fred_df.index)
@@ -237,8 +237,8 @@ class LiveDataProvider:
             icsa = fred.get_series(_MACRO_GROWTH_SERIES, observation_start=start)
             icsa.index = pd.to_datetime(icsa.index)
             icsa_raw = icsa
-        except Exception:
-            logger.warning("Regime: FRED fetch failed for ICSA")
+        except Exception as exc:
+            logger.warning("Regime: FRED fetch failed for ICSA: %s", exc)
 
         return fred_df, icsa_raw
 
