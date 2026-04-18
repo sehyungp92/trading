@@ -2644,6 +2644,7 @@ class NQDTCEngine:
             ]
 
             path = self._state_dir / C.STATE_FILE
+            path.parent.mkdir(parents=True, exist_ok=True)
             with open(path, "w") as f:
                 json.dump(state, f, indent=2, default=str)
         except Exception:
