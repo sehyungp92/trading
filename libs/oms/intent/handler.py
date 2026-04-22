@@ -137,6 +137,8 @@ class IntentHandler:
                 if order.client_order_id:
                     self._idempotency.pop(order.client_order_id, None)
                     self._idemp_locks.pop(order.client_order_id, None)
+                order.status = OrderStatus.REJECTED
+                await self._repo.save_order(order)
                 await self._repo.save_event(
                     order.oms_order_id, "RISK_DENIED", {"reason": denial}
                 )

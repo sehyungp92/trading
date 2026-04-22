@@ -975,9 +975,9 @@ class NQDTCEngine:
             engine.last_disp_threshold * 1.3 if engine.last_disp_threshold > 0 else 1.0,
         )
         # ES SMA200 directional sizing — backtest-validated, live requires ES data feed
-        es_opp = (self.regime.es_daily_trend != 0
-                  and ((trade_dir == Direction.LONG and self.regime.es_daily_trend == -1)
-                       or (trade_dir == Direction.SHORT and self.regime.es_daily_trend == 1)))
+        es_opp = (self._regime.es_daily_trend != 0
+                  and ((trade_dir == Direction.LONG and self._regime.es_daily_trend == -1)
+                       or (trade_dir == Direction.SHORT and self._regime.es_daily_trend == 1)))
         quality_mult = sizing.compute_quality_mult(composite, engine.mode, disp_norm, es_opposing=es_opp)
         final_risk_pct, floored = sizing.compute_final_risk_pct(quality_mult)
 
@@ -2522,34 +2522,36 @@ class NQDTCEngine:
 
     def _log_telemetry(self, event: str, engine: SessionEngineState, direction: Direction, **kwargs: Any) -> None:
         """Write structured telemetry record."""
+        extra = {
+            "box_L": engine.box.L_used,
+            "box_height": engine.box.box_width,
+            "atr14_30m": engine.atr14_30m,
+            "disp_metric": engine.last_disp_metric,
+            "disp_threshold": engine.last_disp_threshold,
+            "score": engine.last_score,
+            "rvol": engine.last_rvol,
+            "chop_score": engine.chop_score,
+            "breakout_active": engine.breakout.active,
+            "continuation_mode": engine.breakout.continuation_mode,
+            "composite_regime": self._regime.composite.value,
+            "box_state": engine.box.state.value,
+            "equity": self._equity,
+            "vwap_session": engine.vwap_session.value,
+            "vwap_box": engine.vwap_box.value,
+            "daily_risk_R": self._daily_risk.realized_pnl_R,
+        }
+        extra.update(kwargs)  # caller overrides defaults
         record = _telemetry_entry(
             event=event,
             session=engine.session.value,
             mode=engine.mode.value,
             regime=self._regime.regime_4h.value,
             direction="LONG" if direction == Direction.LONG else "SHORT",
-            box_L=engine.box.L_used,
-            box_height=engine.box.box_width,
-            atr14_30m=engine.atr14_30m,
-            disp_metric=engine.last_disp_metric,
-            disp_threshold=engine.last_disp_threshold,
-            score=engine.last_score,
-            rvol=engine.last_rvol,
-            chop_score=engine.chop_score,
-            breakout_active=engine.breakout.active,
-            continuation_mode=engine.breakout.continuation_mode,
-            composite_regime=self._regime.composite.value,
-            box_state=engine.box.state.value,
-            equity=self._equity,
-            vwap_session=engine.vwap_session.value,
-            vwap_box=engine.vwap_box.value,
-            daily_risk_R=self._daily_risk.realized_pnl_R,
-            **kwargs,
+            **extra,
         )
         self._telemetry_log.append(record)
         logger.debug("TELEMETRY: %s", json.dumps(record, default=str))
 
-        # Periodic flush (every 20 records)
         if len(self._telemetry_log) >= 20:
             self._flush_telemetry()
 

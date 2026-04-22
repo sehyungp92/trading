@@ -1,0 +1,39 @@
+telegram:
+  bot_token: "${TELEGRAM_BOT_TOKEN}"
+  chat_id: "${TELEGRAM_CHAT_ID}"
+
+poll_interval_seconds: 120          # check every 2 min
+
+schedules:                          # heartbeat staleness only alerting during these windows (ET)
+  swing:     { asset_class: equity,       active_start: "09:25", active_end: "16:05" }
+  momentum:  { asset_class: cme_futures,  active_start: "03:00", active_end: "22:35" }
+  stock:     { asset_class: equity,       active_start: "09:25", active_end: "16:05" }
+
+checks:
+  heartbeat:
+    enabled: true
+    stale_threshold_sec: 180        # alert if heartbeat > 3 min old (view threshold is 2 min)
+  adapter:
+    enabled: true
+  halts:
+    enabled: true
+  ib_gateway:
+    enabled: true
+    host: "127.0.0.1"
+    port: 4002
+  daily_pnl:
+    enabled: true
+    strategy_drawdown_r: -3.0       # per-strategy alert threshold
+    portfolio_drawdown_r: -5.0      # family-level alert threshold
+  relay:
+    enabled: true
+    url: "http://127.0.0.1:8000/health"
+    backlog_threshold: 500
+    oldest_pending_age_sec: 600
+  errors:
+    enabled: true
+    max_age_minutes: 30
+
+cooldown:
+  alert_cooldown_sec: 900           # 15 min between repeated alerts for same issue
+  recovery_enabled: true            # send "RECOVERED" when issue resolves

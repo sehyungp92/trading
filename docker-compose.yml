@@ -130,6 +130,28 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
 
+  # --- Watchdog (Telegram alerter, independent of runtime) ---
+
+  watchdog:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.watchdog
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      DB_HOST: ${DB_HOST:-127.0.0.1}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: trading
+      DB_USER: trading_reader
+      DB_PASSWORD: ${POSTGRES_READER_PASSWORD}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      CONFIG_DIR: /app/config
+      PYTHONUNBUFFERED: "1"
+      TZ: America/New_York
+    depends_on:
+      postgres: { condition: service_healthy }
+
 volumes:
   postgres_data:
   runtime_instrumentation:

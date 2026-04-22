@@ -68,15 +68,18 @@ class OrderTimeoutMonitor:
             self._task = None
 
     async def _monitor_loop(self) -> None:
+        backoff = self._scan_interval_s
         while self._running:
             try:
                 await self._scan_stuck_orders()
+                backoff = self._scan_interval_s  # reset on success
                 await asyncio.sleep(self._scan_interval_s)
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.exception(f"Error in timeout monitor: {e}")
-                await asyncio.sleep(self._scan_interval_s)
+                logger.warning("Timeout monitor error (retry in %.0fs): %s", backoff, e)
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, 60.0)
 
     async def _scan_stuck_orders(self) -> None:
         now = datetime.now(timezone.utc)

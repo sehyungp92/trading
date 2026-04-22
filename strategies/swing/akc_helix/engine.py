@@ -414,7 +414,7 @@ class HelixEngine:
             return
         self._resubscribing = True
         try:
-            logger.info("Resubscribing market data for %d symbols", len(self._tickers))
+            logger.info("Resubscribing market data for %d symbols", len(self._config))
 
             try:
                 self._ib.ib.pendingTickersEvent -= self._on_ticker_update
@@ -436,6 +436,11 @@ class HelixEngine:
                 contract = self._get_contract(sym)
                 if contract:
                     try:
+                        qualified = await self._ib.ib.qualifyContractsAsync(contract)
+                        if not qualified:
+                            logger.warning("Resubscribe: could not qualify %s", sym)
+                            continue
+                        contract = qualified[0]
                         self._tickers[sym] = self._ib.ib.reqMktData(contract, '', False, False)
                     except Exception as e:
                         logger.warning("Resubscribe failed for %s: %s", sym, e)

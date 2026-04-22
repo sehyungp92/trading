@@ -1,0 +1,18 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends libpq-dev gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY libs/config/ libs/config/
+COPY libs/oms/persistence/db_config.py libs/oms/persistence/db_config.py
+COPY libs/oms/__init__.py libs/oms/__init__.py
+COPY libs/oms/persistence/__init__.py libs/oms/persistence/__init__.py
+COPY apps/watchdog/ apps/watchdog/
+COPY config/ config/
+
+CMD ["python", "-m", "apps.watchdog"]

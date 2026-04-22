@@ -4,6 +4,11 @@ import logging
 from datetime import datetime
 from typing import Optional, Any
 
+try:
+    import asyncpg.exceptions
+except ImportError:
+    asyncpg = None  # type: ignore
+
 from ..models.fill import Fill
 from ..models.instrument import Instrument
 from ..models.instrument_registry import InstrumentRegistry
@@ -79,30 +84,48 @@ class OMSRepository:
 
     async def save_event(self, oms_order_id: str, event_type: str, payload: dict) -> None:
         """Append to order_events (immutable audit log)."""
-        async with self._pool.acquire() as conn:
-            await conn.execute(
-                "INSERT INTO order_events (oms_order_id, event_type, payload) VALUES ($1, $2, $3::jsonb)",
-                oms_order_id,
-                event_type,
-                json.dumps(payload),
-            )
+        try:
+            async with self._pool.acquire() as conn:
+                await conn.execute(
+                    "INSERT INTO order_events (oms_order_id, event_type, payload) VALUES ($1, $2, $3::jsonb)",
+                    oms_order_id,
+                    event_type,
+                    json.dumps(payload),
+                )
+        except Exception as exc:
+            if asyncpg and isinstance(exc, asyncpg.exceptions.ForeignKeyViolationError):
+                logger.warning(
+                    "save_event skipped: order %s not found in orders table (event_type=%s)",
+                    oms_order_id, event_type,
+                )
+            else:
+                raise
 
     async def save_fill(self, fill: Fill) -> None:
-        async with self._pool.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO fills (fill_id, oms_order_id, broker_fill_id, price, qty, fill_ts, fees)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                ON CONFLICT (broker_fill_id) DO NOTHING
-                """,
-                fill.fill_id,
-                fill.oms_order_id,
-                fill.broker_fill_id,
-                fill.price,
-                fill.qty,
-                fill.timestamp,
-                fill.fees,
-            )
+        try:
+            async with self._pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO fills (fill_id, oms_order_id, broker_fill_id, price, qty, fill_ts, fees)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    ON CONFLICT (broker_fill_id) DO NOTHING
+                    """,
+                    fill.fill_id,
+                    fill.oms_order_id,
+                    fill.broker_fill_id,
+                    fill.price,
+                    fill.qty,
+                    fill.timestamp,
+                    fill.fees,
+                )
+        except Exception as exc:
+            if asyncpg and isinstance(exc, asyncpg.exceptions.ForeignKeyViolationError):
+                logger.warning(
+                    "save_fill skipped: order %s not found in orders table (fill_id=%s)",
+                    fill.oms_order_id, fill.fill_id,
+                )
+            else:
+                raise
 
     async def fill_exists(self, broker_fill_id: str) -> bool:
         async with self._pool.acquire() as conn:
