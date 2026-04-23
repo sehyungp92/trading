@@ -720,19 +720,19 @@ class TestLogMissedIntegration:
         assert call_kwargs["blocked_by"] == "hard_block"
 
     def test_log_missed_volume_filter(self):
-        """log_missed for S4 volume filter has correct signal_id and block_reason."""
+        """log_missed for a volume filter has correct signal_id and block_reason."""
         result = self.kit.log_missed(
-            pair="IBIT",
+            pair="QQQ",
             side="LONG",
-            signal="keltner_breakout",
-            signal_id="IBIT_vol_filter_2026-03-06",
+            signal="breakout",
+            signal_id="QQQ_vol_filter_2026-03-06",
             signal_strength=0.0,
             blocked_by="volume_filter",
             block_reason="volume 500000 < SMA 750000",
         )
         self.mock_missed.log_missed.assert_called_once()
         call_kwargs = self.mock_missed.log_missed.call_args[1]
-        assert call_kwargs["signal"] == "keltner_breakout"
+        assert call_kwargs["signal"] == "breakout"
         assert call_kwargs["blocked_by"] == "volume_filter"
         assert "volume" in call_kwargs["block_reason"]
         assert "SMA" in call_kwargs["block_reason"]

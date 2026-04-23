@@ -264,7 +264,13 @@ def candidate_pre_score(ctx: SymbolContext, market: RegimeSnapshot) -> float:
     score = 0.0
     score += min(28.0, max(0.0, (ctx.surge - 3.0) * 9.0))
     score += min(18.0, max(0.0, (ctx.rvol_1m - 2.2) * 8.0))
-    score += 18.0 if ctx.imbalance_90s >= 0.30 else 12.0 if ctx.imbalance_90s >= 0.15 else 6.0 if ctx.imbalance_90s >= 0 else 0.0
+    if ctx.tick_flow_available:
+        score += (
+            18.0 if ctx.imbalance_90s >= 0.30
+            else 12.0 if ctx.imbalance_90s >= 0.15
+            else 6.0 if ctx.imbalance_90s >= 0
+            else 0.0
+        )
     score += relative_strength_score(ctx.relative_strength_5m)
     score += spread_score(ctx.spread_pct)
     score += 6.0 if not market.risk_off else 0.0
@@ -288,12 +294,13 @@ def quality_score(ctx: SymbolContext, market: RegimeSnapshot, sector_penalty: bo
     score += min(18.0, max(0.0, (ctx.surge - 3.0) * 6.0))
     score += min(14.0, max(0.0, (ctx.rvol_1m - 2.2) * 7.0))
 
-    if ctx.imbalance_90s >= 0.30:
-        score += 20.0
-    elif ctx.imbalance_90s >= 0.15:
-        score += 15.0
-    elif ctx.imbalance_90s >= 0.0:
-        score += 8.0
+    if ctx.tick_flow_available:
+        if ctx.imbalance_90s >= 0.30:
+            score += 20.0
+        elif ctx.imbalance_90s >= 0.15:
+            score += 15.0
+        elif ctx.imbalance_90s >= 0.0:
+            score += 8.0
 
     score += 5.0 if ctx.acceptance.pulled_back else 0.0
     score += 5.0 if ctx.acceptance.held_support else 0.0
@@ -322,6 +329,8 @@ def live_gate_pass(ctx: SymbolContext, market: RegimeSnapshot, now: datetime, se
         ctx.resume_events, now, settings.recent_halt_window_s
     )
     return (
+        ctx.tick_flow_available
+        and
         ctx.cached.trend_ok
         and ctx.surge >= min_surge
         and ctx.or_pct is not None
@@ -369,6 +378,8 @@ def acceptance_passed(ctx: SymbolContext, now: datetime) -> bool:
     if ctx.acceptance.deadline is None or now > ctx.acceptance.deadline:
         return False
     return (
+        ctx.tick_flow_available
+        and
         ctx.vdm.state in (DangerState.SAFE, DangerState.CAUTION)
         and ctx.acceptance.pulled_back
         and ctx.acceptance.held_support

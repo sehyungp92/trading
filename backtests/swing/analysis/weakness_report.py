@@ -1,6 +1,6 @@
 """Swing unified weakness report — cross-strategy executive summary.
 
-Synthesizes diagnostics from all 5 swing strategies into a single
+Synthesizes diagnostics from the active unified swing strategies into a single
 actionable report with per-strategy scores and prioritized weaknesses.
 """
 from __future__ import annotations
@@ -108,8 +108,6 @@ def swing_weakness_report(
     atrss_result=None,
     helix_result=None,
     breakout_result=None,
-    s5pb_result=None,
-    s5dual_result=None,
     portfolio_result=None,
     overlay_result=None,
     filter_verdicts: dict[str, dict[str, str]] | None = None,
@@ -129,8 +127,7 @@ def swing_weakness_report(
     strategies = {}
     for name, result in [
         ("ATRSS", atrss_result), ("Helix", helix_result),
-        ("Breakout", breakout_result), ("S5_PB", s5pb_result),
-        ("S5_DUAL", s5dual_result),
+        ("Breakout", breakout_result),
     ]:
         if result is not None:
             trades = getattr(result, 'trades', [])

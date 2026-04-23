@@ -2,7 +2,7 @@
 
 bot_id: "swing_multi_01"
 bot_name: "Multi-Strategy Swing Trader"
-strategy_type: "multi_strategy"     # ATRSS, Helix, Breakout, Keltner
+strategy_type: "multi_strategy"     # ATRSS, Helix, Breakout, BRS
 data_source_id: "ibkr_execution"
 
 data_dir: "instrumentation/data/swing"

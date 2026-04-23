@@ -138,9 +138,10 @@ class IntentHandler:
                     self._idempotency.pop(order.client_order_id, None)
                     self._idemp_locks.pop(order.client_order_id, None)
                 order.status = OrderStatus.REJECTED
-                await self._repo.save_order(order)
-                await self._repo.save_event(
-                    order.oms_order_id, "RISK_DENIED", {"reason": denial}
+                await self._repo.save_order_and_event(
+                    order,
+                    "RISK_DENIED",
+                    {"reason": denial},
                 )
                 self._bus.emit_risk_denial(order.strategy_id, order.oms_order_id, denial)
                 return IntentReceipt(
@@ -162,8 +163,7 @@ class IntentHandler:
 
             # Approve and persist
             order.status = OrderStatus.RISK_APPROVED
-            await self._repo.save_order(order)
-            await self._repo.save_event(order.oms_order_id, "RISK_APPROVED", {})
+            await self._repo.save_order_and_event(order, "RISK_APPROVED", {})
 
             # Route to execution
             await self._router.route(order)

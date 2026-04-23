@@ -213,16 +213,19 @@ class ATRSSEngine:
         self._event_task = asyncio.create_task(self._process_events())
 
         # Resolve contracts for each symbol
+        cf = getattr(self._ib, "_contract_factory", None)
         for sym, cfg in self._config.items():
-            if cfg.contract_expiry:
-                try:
-                    from libs.broker_ibkr.mapping.contract_factory import ContractFactory
-                    cf: ContractFactory = getattr(self._ib, "_contract_factory", None)
-                    if cf:
-                        contract, spec = await cf.resolve(sym, cfg.contract_expiry)
-                        self.contracts[sym] = (contract, spec)
-                except Exception as e:
-                    logger.warning("Could not resolve contract for %s: %s", sym, e)
+            if cf is None:
+                break
+            try:
+                contract, spec = await cf.resolve(
+                    sym,
+                    cfg.contract_expiry,
+                    instrument=self._instruments.get(sym),
+                )
+                self.contracts[sym] = (contract, spec)
+            except Exception as e:
+                logger.warning("Could not resolve contract for %s: %s", sym, e)
 
         # Initialize re-entry states and breakout arm states
         for sym in self._config:
@@ -494,7 +497,7 @@ class ATRSSEngine:
 
                 _short_gate_passed = signals.short_symbol_gate(sym, daily, hourly)
                 if self._kit:
-                    _adx_thresholds = {"GLD": 22.0, "USO": 22.0, "IBIT": 25.0}
+                    _adx_thresholds = {"GLD": 22.0, "USO": 22.0}
                     self._kit.on_filter_decision(
                         pair=sym, filter_name="short_symbol_gate",
                         passed=_short_gate_passed,
@@ -2263,6 +2266,13 @@ class ATRSSEngine:
         # Fallback: build a minimal contract from config
         try:
             cfg = self._config[sym]
+            cf = getattr(self._ib, "_contract_factory", None)
+            if cf is not None:
+                return cf.build_contract(
+                    sym,
+                    cfg.contract_expiry,
+                    instrument=self._instruments.get(sym),
+                )
             if cfg.sec_type == "STK":
                 from ib_async import Stock
                 c = Stock(

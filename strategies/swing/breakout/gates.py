@@ -313,8 +313,6 @@ def is_news_blocked(
             continue
         if event_type == "CL_INVENTORY" and symbol not in ("USO",):
             continue
-        if event_type == "CRYPTO_EVENT" and symbol not in ("IBIT",):
-            continue
         before_min, after_min = windows
         window_start = event_dt + timedelta(minutes=before_min)
         window_end = event_dt + timedelta(minutes=after_min)

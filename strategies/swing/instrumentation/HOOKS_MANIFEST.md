@@ -63,17 +63,6 @@ All strategies pass these enriched fields on entry (where available):
 | Exit | `engine.py:1548` | Stop/TP/trail exit |
 | Snapshot | `engine.py:761` | All symbols each cycle |
 
-### KELTNER_MOMENTUM (`strategy_4/engine.py`) — bot_id: `KELTNER_MOMENTUM`
-
-Two instances run via `main_multi.py` with distinct strategy IDs.
-
-| Event | Location | Details |
-|-------|----------|---------|
-| Entry | `engine.py:663` | Signal: keltner_breakout. Signal strength 0.5. |
-| Exit (stop) | `engine.py:699` | Stop loss exit |
-| Exit (signal) | `engine.py:712` | Signal-based exit |
-| Snapshot | `engine.py:199` | All symbols each cycle |
-
 ### BRS_R9 (`brs/engine.py`) — bot_id: `BRS_R9`
 
 | Event | Location | Details |
@@ -97,6 +86,4 @@ Two instances run via `main_multi.py` with distinct strategy IDs.
 | AKC_HELIX | No filter_decisions populated | Cannot analyze gate threshold sensitivity |
 | SWING_BREAKOUT_V3 | No missed opportunity logging | Cannot quantify filtered-out signals |
 | SWING_BREAKOUT_V3 | No regime classification per cycle | Only captured at entry time |
-| KELTNER_MOMENTUM | No missed opportunity logging | Cannot quantify filtered-out signals |
-| KELTNER_MOMENTUM | No regime classification per cycle | Only captured at entry time |
 | All | portfolio_state_at_entry not yet wired | Requires position book access at entry time |

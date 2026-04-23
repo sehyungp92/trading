@@ -1,10 +1,6 @@
 """Experiment definitions and priority queue for auto backtesting.
 
-~197 experiments across 5 strategies:
-  - Priority 1: Ablation (54)
-  - Priority 2: Parameter sweeps (99)
-  - Priority 3: Interactions (18)
-  - Priority 4: Portfolio-level (26)
+Experiments across ATRSS, Helix, Breakout, and portfolio-level studies.
 """
 from __future__ import annotations
 
@@ -15,7 +11,7 @@ from dataclasses import dataclass, field
 class Experiment:
     id: str                       # e.g. "abl_atrss_stall_exit"
     type: str                     # ABLATION | PARAM_SWEEP | INTERACTION | PORTFOLIO
-    strategy: str                 # "atrss" | "helix" | "breakout" | "s5_pb" | "s5_dual" | "portfolio"
+    strategy: str                 # "atrss" | "helix" | "breakout" | "portfolio"
     description: str
     hypothesis: str
     priority: int                 # 1=highest
@@ -26,7 +22,7 @@ def build_experiment_queue(strategy_filter: str = "all") -> list[Experiment]:
     """Build priority-ordered experiment queue.
 
     Args:
-        strategy_filter: "atrss", "helix", "breakout", "s5_pb", "s5_dual", "portfolio", or "all"
+        strategy_filter: "atrss", "helix", "breakout", "portfolio", or "all"
     """
     experiments: list[Experiment] = []
     _all = strategy_filter == "all"
@@ -38,11 +34,6 @@ def build_experiment_queue(strategy_filter: str = "all") -> list[Experiment]:
         experiments.extend(_helix_ablation())
     if _all or strategy_filter == "breakout":
         experiments.extend(_breakout_ablation())
-    if _all or strategy_filter == "s5_pb":
-        experiments.extend(_s5_pb_ablation())
-    if _all or strategy_filter == "s5_dual":
-        experiments.extend(_s5_dual_ablation())
-
     # Priority 2: Param sweeps
     if _all or strategy_filter == "atrss":
         experiments.extend(_atrss_param_sweeps())
@@ -50,12 +41,6 @@ def build_experiment_queue(strategy_filter: str = "all") -> list[Experiment]:
         experiments.extend(_helix_param_sweeps())
     if _all or strategy_filter == "breakout":
         experiments.extend(_breakout_param_sweeps())
-    if _all or strategy_filter in ("s5_pb", "s5_dual"):
-        s5_sweeps = _s5_param_sweeps()
-        if not _all and strategy_filter in ("s5_pb", "s5_dual"):
-            s5_sweeps = [e for e in s5_sweeps if e.strategy == strategy_filter]
-        experiments.extend(s5_sweeps)
-
     # Priority 3: Interactions
     if _all or strategy_filter == "atrss":
         experiments.extend(_atrss_interactions())
@@ -258,41 +243,6 @@ def _breakout_ablation() -> list[Experiment]:
     ]
 
 
-def _s5_pb_ablation() -> list[Experiment]:
-    """S5_PB: 3 experiments via config field mutations."""
-    E = Experiment
-    return [
-        E("abl_s5pb_no_volume", "ABLATION", "s5_pb",
-          "Disable volume filter", "Volume SMA filter may reject valid pullback entries in IBIT",
-          1, {"volume_filter": False}),
-        E("abl_s5pb_enable_shorts", "ABLATION", "s5_pb",
-          "Enable shorts", "IBIT shorts during drawdowns — currently disabled",
-          1, {"shorts_enabled": True}),
-        E("abl_s5pb_exit_midline", "ABLATION", "s5_pb",
-          "Exit mode midline", "Faster midline exit vs trail_only",
-          1, {"exit_mode": "midline"}),
-    ]
-
-
-def _s5_dual_ablation() -> list[Experiment]:
-    """S5_DUAL: 4 experiments via config field mutations."""
-    E = Experiment
-    return [
-        E("abl_s5dual_no_volume", "ABLATION", "s5_dual",
-          "Disable volume filter", "Same volume filter concern",
-          1, {"volume_filter": False}),
-        E("abl_s5dual_enable_shorts", "ABLATION", "s5_dual",
-          "Enable shorts", "GLD/IBIT shorts — currently disabled",
-          1, {"shorts_enabled": True}),
-        E("abl_s5dual_pullback_only", "ABLATION", "s5_dual",
-          "Pullback only mode", "Is breakout mode adding value?",
-          1, {"entry_mode": "pullback"}),
-        E("abl_s5dual_exit_midline", "ABLATION", "s5_dual",
-          "Exit mode midline", "Faster exit for daily-cycle strategy",
-          1, {"exit_mode": "midline"}),
-    ]
-
-
 # ---------------------------------------------------------------------------
 # Priority 2: Parameter sweeps
 # ---------------------------------------------------------------------------
@@ -420,35 +370,6 @@ def _breakout_param_sweeps() -> list[Experiment]:
     return exps
 
 
-def _s5_param_sweeps() -> list[Experiment]:
-    """S5: 28 experiments applied to both S5_PB and S5_DUAL."""
-    E = Experiment
-    exps = []
-
-    for strategy, label in [("s5_pb", "pb"), ("s5_dual", "dual")]:
-        for val in [1.5, 2.0, 2.5, 3.0]:
-            exps.append(E(f"ps_s5{label}_kelt_{val}", "PARAM_SWEEP", strategy,
-                          f"Keltner ATR mult={val}", "Keltner channel width",
-                          2, {"kelt_atr_mult": val}))
-
-        for val in [40, 45, 50, 55]:
-            exps.append(E(f"ps_s5{label}_rsi_{val}", "PARAM_SWEEP", strategy,
-                          f"RSI entry long={val}", "RSI threshold for long entries",
-                          2, {"rsi_entry_long": float(val)}))
-
-        for val in [1.5, 2.0, 2.5]:
-            exps.append(E(f"ps_s5{label}_atr_stop_{val}", "PARAM_SWEEP", strategy,
-                          f"ATR stop mult={val}", "Initial stop distance",
-                          2, {"atr_stop_mult": val}))
-
-        for val in [1.0, 1.5, 2.0]:
-            exps.append(E(f"ps_s5{label}_trail_{val}", "PARAM_SWEEP", strategy,
-                          f"Trail ATR mult={val}", "Trailing stop multiplier",
-                          2, {"trail_atr_mult": val}))
-
-    return exps
-
-
 # ---------------------------------------------------------------------------
 # Priority 3: Interaction experiments
 # ---------------------------------------------------------------------------
@@ -563,7 +484,7 @@ def _breakout_interactions() -> list[Experiment]:
 # ---------------------------------------------------------------------------
 
 def _portfolio_experiments() -> list[Experiment]:
-    """Portfolio: 26 experiments using UnifiedBacktestConfig."""
+    """Portfolio: 23 experiments using UnifiedBacktestConfig."""
     E = Experiment
     exps = []
 
@@ -595,25 +516,20 @@ def _portfolio_experiments() -> list[Experiment]:
                       f"Portfolio daily stop R={val}", f"Daily loss limit at {val}R",
                       4, {"portfolio_daily_stop_R": val}))
 
-    # Priority ordering (4)
+    # Priority ordering (3)
     exps.extend([
         E("pf_helix_pri1", "PORTFOLIO", "portfolio",
           "Helix priority 1, Breakout 4", "Old ordering: Helix before Breakout",
           4, {"helix.priority": 1, "breakout.priority": 4}),
-        E("pf_s5pb_pri0", "PORTFOLIO", "portfolio",
-          "S5_PB priority 0, ATRSS 1", "S5_PB has 80% WR — first fill?",
-          4, {"s5_pb.priority": 0, "atrss.priority": 1}),
         E("pf_equal_pri", "PORTFOLIO", "portfolio",
           "Equal priority", "Pure time-of-signal ordering",
-          4, {"atrss.priority": 0, "s5_pb.priority": 0, "s5_dual.priority": 0,
-              "breakout.priority": 0, "helix.priority": 0}),
+          4, {"atrss.priority": 0, "breakout.priority": 0, "helix.priority": 0}),
         E("pf_expectancy", "PORTFOLIO", "portfolio",
           "Expectancy-ordered priority", "Re-order by estimated expectancy",
-          4, {"atrss.priority": 0, "s5_pb.priority": 1, "helix.priority": 2,
-              "breakout.priority": 3, "s5_dual.priority": 4}),
+          4, {"atrss.priority": 0, "helix.priority": 1, "breakout.priority": 2}),
     ])
 
-    # Risk allocation (6)
+    # Risk allocation (5)
     exps.extend([
         E("pf_atrss_risk_2.0", "PORTFOLIO", "portfolio",
           "ATRSS risk 2.0%", "ATRSS highest expectancy — more allocation",
@@ -630,12 +546,9 @@ def _portfolio_experiments() -> list[Experiment]:
         E("pf_brk_heat_1.5", "PORTFOLIO", "portfolio",
           "Breakout max heat 1.5R", "Expand Breakout ceiling",
           4, {"breakout.max_heat_R": 1.5}),
-        E("pf_s5_heat_2.0", "PORTFOLIO", "portfolio",
-          "S5 max heat 2.0R", "S5 strategies expand from 1.5R",
-          4, {"s5_pb.max_heat_R": 2.0, "s5_dual.max_heat_R": 2.0}),
     ])
 
-    # Overlay experiments (4)
+    # Overlay experiments (3)
     exps.extend([
         E("pf_overlay_off", "PORTFOLIO", "portfolio",
           "Disable overlay", "Critical: overlay is 28-42% of PnL",
@@ -646,9 +559,6 @@ def _portfolio_experiments() -> list[Experiment]:
         E("pf_overlay_multi", "PORTFOLIO", "portfolio",
           "Overlay multi mode", "Multi-indicator vs EMA-only",
           4, {"overlay_mode": "multi"}),
-        E("pf_overlay_3sym", "PORTFOLIO", "portfolio",
-          "Overlay 3 symbols", "Add IBIT to overlay universe",
-          4, {"overlay_symbols": ["QQQ", "GLD", "IBIT"]}),
     ])
 
     return exps

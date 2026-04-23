@@ -72,14 +72,15 @@ class IBKRHistoricalProvider:
         if symbol in self._contract_cache:
             return self._contract_cache[symbol]
         try:
-            contract = self._factory.create(symbol)
+            contract, _ = await self._factory.resolve(symbol)
             self._contract_cache[symbol] = contract
             return contract
         except Exception:
-            # Fallback: try direct Stock qualification
-            from ib_async import Stock
-            stock = Stock(symbol, "SMART", "USD")
-            qualified = await self._ib.qualifyContractsAsync(stock)
+            try:
+                contract = self._factory.build_contract(symbol)
+            except Exception:
+                return None
+            qualified = await self._ib.qualifyContractsAsync(contract)
             if qualified:
                 self._contract_cache[symbol] = qualified[0]
                 return qualified[0]

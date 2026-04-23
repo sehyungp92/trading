@@ -45,9 +45,34 @@ class InMemoryRepository:
             "timestamp": datetime.now(timezone.utc),
         })
 
-    async def save_fill(self, fill: Fill) -> None:
-        if fill.broker_fill_id not in self._fills:
-            self._fills[fill.broker_fill_id] = fill
+    async def save_fill(self, fill: Fill) -> bool:
+        if fill.broker_fill_id in self._fills:
+            return False
+        self._fills[fill.broker_fill_id] = fill
+        return True
+
+    async def save_order_and_event(
+        self,
+        order: OMSOrder,
+        event_type: str,
+        payload: dict,
+    ) -> None:
+        await self.save_order(order)
+        await self.save_event(order.oms_order_id, event_type, payload)
+
+    async def save_order_fill_and_event(
+        self,
+        order: OMSOrder,
+        fill: Fill,
+        event_type: str,
+        payload: dict,
+    ) -> bool:
+        inserted = await self.save_fill(fill)
+        if not inserted:
+            return False
+        await self.save_order(order)
+        await self.save_event(order.oms_order_id, event_type, payload)
+        return True
 
     async def fill_exists(self, broker_fill_id: str) -> bool:
         return broker_fill_id in self._fills

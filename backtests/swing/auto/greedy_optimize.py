@@ -115,8 +115,7 @@ class GreedyResult:
 def _collect_trades(result) -> list:
     """Collect trades from a UnifiedPortfolioResult."""
     all_trades = []
-    for attr in ('atrss_trades', 'helix_trades', 'breakout_trades',
-                 's5_pb_trades', 's5_dual_trades'):
+    for attr in ('atrss_trades', 'helix_trades', 'breakout_trades'):
         trades = getattr(result, attr, [])
         if isinstance(trades, list):
             all_trades.extend(trades)
@@ -402,11 +401,6 @@ def save_result(result: GreedyResult, output_path: Path) -> None:
 # Candidates ordered by individual delta (highest first).
 # Strategy-specific params are mapped to unified config routing keys.
 PORTFOLIO_CANDIDATES: list[tuple[str, dict]] = [
-    # S5_DUAL trail/stop/keltner improvements
-    ("s5dual_trail_2.0", {"s5_dual_param.trail_atr_mult": 2.0}),
-    ("s5dual_atr_stop_1.5", {"s5_dual_param.atr_stop_mult": 1.5}),
-    ("s5dual_trail_1.0", {"s5_dual_param.trail_atr_mult": 1.0}),
-    ("s5dual_kelt_2.5", {"s5_dual_param.kelt_atr_mult": 2.5}),
     # Breakout score threshold removal
     ("brk_no_score_threshold", {"breakout_flags.disable_score_threshold": True}),
     # Helix stale 4H detection
@@ -415,5 +409,4 @@ PORTFOLIO_CANDIDATES: list[tuple[str, dict]] = [
     ("helix_risk_1.2pct", {"helix.unit_risk_pct": 0.012}),
     ("helix_risk_1.0pct", {"helix.unit_risk_pct": 0.010}),
     ("overlay_max_70pct", {"overlay_max_pct": 0.70}),
-    ("s5_heat_2.0R", {"s5_pb.max_heat_R": 2.0, "s5_dual.max_heat_R": 2.0}),
 ]

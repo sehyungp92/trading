@@ -1,13 +1,14 @@
 """OMS persistence repository."""
 import json
 import logging
+from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Optional, Any
+from typing import Any, AsyncIterator, Optional
 
 try:
-    import asyncpg.exceptions
-except ImportError:
-    asyncpg = None  # type: ignore
+    import asyncpg.exceptions as asyncpg_exceptions
+except ImportError:  # pragma: no cover - asyncpg is installed in runtime
+    asyncpg_exceptions = None  # type: ignore[assignment]
 
 from ..models.fill import Fill
 from ..models.instrument import Instrument
@@ -26,6 +27,31 @@ from ..models.position import Position
 logger = logging.getLogger(__name__)
 
 
+class OMSPersistenceInvariantError(RuntimeError):
+    """Raised when persistence ordering breaks OMS invariants."""
+
+    def __init__(
+        self,
+        *,
+        operation: str,
+        oms_order_id: str,
+        detail: str,
+        event_type: str | None = None,
+        fill_id: str | None = None,
+    ) -> None:
+        parts = [f"{operation} failed for order {oms_order_id}", detail]
+        if event_type:
+            parts.append(f"event_type={event_type}")
+        if fill_id:
+            parts.append(f"fill_id={fill_id}")
+        super().__init__(" | ".join(parts))
+        self.operation = operation
+        self.oms_order_id = oms_order_id
+        self.detail = detail
+        self.event_type = event_type
+        self.fill_id = fill_id
+
+
 class OMSRepository:
     """Persistence layer for OMS state. Event-sourcing pattern:
     1. Insert into order_events (append-only)
@@ -35,10 +61,31 @@ class OMSRepository:
     def __init__(self, pool):  # asyncpg pool
         self._pool = pool
 
-    async def save_order(self, order: OMSOrder) -> None:
+    @asynccontextmanager
+    async def _connection(self, conn=None) -> AsyncIterator[Any]:
+        if conn is not None:
+            yield conn
+            return
+        async with self._pool.acquire() as acquired:
+            yield acquired
+
+    @asynccontextmanager
+    async def transaction(self, conn=None) -> AsyncIterator[Any]:
+        async with self._connection(conn) as active_conn:
+            async with active_conn.transaction():
+                yield active_conn
+
+    @staticmethod
+    def _is_fk_violation(exc: Exception) -> bool:
+        return bool(
+            asyncpg_exceptions
+            and isinstance(exc, asyncpg_exceptions.ForeignKeyViolationError)
+        )
+
+    async def save_order(self, order: OMSOrder, conn=None) -> None:
         """Upsert current order state."""
-        async with self._pool.acquire() as conn:
-            await conn.execute(
+        async with self._connection(conn) as active_conn:
+            await active_conn.execute(
                 """
                 INSERT INTO orders (
                     oms_order_id, client_order_id, strategy_id, account_id,
@@ -82,29 +129,36 @@ class OMSRepository:
                 order.last_update_at,
             )
 
-    async def save_event(self, oms_order_id: str, event_type: str, payload: dict) -> None:
+    async def save_event(
+        self,
+        oms_order_id: str,
+        event_type: str,
+        payload: dict,
+        conn=None,
+    ) -> None:
         """Append to order_events (immutable audit log)."""
         try:
-            async with self._pool.acquire() as conn:
-                await conn.execute(
+            async with self._connection(conn) as active_conn:
+                await active_conn.execute(
                     "INSERT INTO order_events (oms_order_id, event_type, payload) VALUES ($1, $2, $3::jsonb)",
                     oms_order_id,
                     event_type,
                     json.dumps(payload),
                 )
         except Exception as exc:
-            if asyncpg and isinstance(exc, asyncpg.exceptions.ForeignKeyViolationError):
-                logger.warning(
-                    "save_event skipped: order %s not found in orders table (event_type=%s)",
-                    oms_order_id, event_type,
-                )
-            else:
-                raise
+            if self._is_fk_violation(exc):
+                raise OMSPersistenceInvariantError(
+                    operation="save_event",
+                    oms_order_id=oms_order_id,
+                    event_type=event_type,
+                    detail="parent order row missing before event insert",
+                ) from exc
+            raise
 
-    async def save_fill(self, fill: Fill) -> None:
+    async def save_fill(self, fill: Fill, conn=None) -> bool:
         try:
-            async with self._pool.acquire() as conn:
-                await conn.execute(
+            async with self._connection(conn) as active_conn:
+                result = await active_conn.execute(
                     """
                     INSERT INTO fills (fill_id, oms_order_id, broker_fill_id, price, qty, fill_ts, fees)
                     VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -118,14 +172,41 @@ class OMSRepository:
                     fill.timestamp,
                     fill.fees,
                 )
+                return result.rsplit(" ", 1)[-1] == "1"
         except Exception as exc:
-            if asyncpg and isinstance(exc, asyncpg.exceptions.ForeignKeyViolationError):
-                logger.warning(
-                    "save_fill skipped: order %s not found in orders table (fill_id=%s)",
-                    fill.oms_order_id, fill.fill_id,
-                )
-            else:
-                raise
+            if self._is_fk_violation(exc):
+                raise OMSPersistenceInvariantError(
+                    operation="save_fill",
+                    oms_order_id=fill.oms_order_id,
+                    fill_id=fill.fill_id,
+                    detail="parent order row missing before fill insert",
+                ) from exc
+            raise
+
+    async def save_order_and_event(
+        self,
+        order: OMSOrder,
+        event_type: str,
+        payload: dict,
+    ) -> None:
+        async with self.transaction() as conn:
+            await self.save_order(order, conn=conn)
+            await self.save_event(order.oms_order_id, event_type, payload, conn=conn)
+
+    async def save_order_fill_and_event(
+        self,
+        order: OMSOrder,
+        fill: Fill,
+        event_type: str,
+        payload: dict,
+    ) -> bool:
+        async with self.transaction() as conn:
+            inserted = await self.save_fill(fill, conn=conn)
+            if not inserted:
+                return False
+            await self.save_order(order, conn=conn)
+            await self.save_event(order.oms_order_id, event_type, payload, conn=conn)
+            return True
 
     async def fill_exists(self, broker_fill_id: str) -> bool:
         async with self._pool.acquire() as conn:

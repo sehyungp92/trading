@@ -100,6 +100,7 @@ class QuoteSnapshot:
     bid: float
     ask: float
     last: float
+    tick_flow_available: bool = True
     bid_size: float = 0.0
     ask_size: float = 0.0
     cumulative_volume: float = 0.0
@@ -173,6 +174,7 @@ class SymbolContext:
     state: State = State.PRECHECK
     bars: deque[MinuteBar] = field(default_factory=lambda: deque(maxlen=240))
     quote: QuoteSnapshot | None = None
+    tick_flow_available: bool = True
 
     or_high: float | None = None
     or_low: float | None = None

@@ -190,9 +190,8 @@ class ExecutionRouter:
                 )
                 if transition(order, OrderStatus.EXPIRED):
                     order.last_update_at = now
-                    await self._repo.save_order(order)
-                    await self._repo.save_event(
-                        order.oms_order_id,
+                    await self._repo.save_order_and_event(
+                        order,
                         "QUEUE_EXPIRED",
                         {"queued_seconds": (now - queued_at).total_seconds()},
                     )

@@ -10,8 +10,8 @@ Usage:
     python -m backtest.cli walk-forward --test-months 12
 
 Symbol set is controlled via env vars:
-    ATRSS: ATRSS_SYMBOL_SET=etf (default) -> QQQ, USO, GLD, IBIT
-    Helix: AKCHELIX_SYMBOL_SET=etf (default) -> QQQ, USO, GLD, IBIT
+    ATRSS: ATRSS_SYMBOL_SET=etf (default) -> QQQ, GLD
+    Helix: AKCHELIX_SYMBOL_SET=etf (default) -> QQQ, GLD
 Or override per-command: --symbols QQQ,GLD
 """
 from __future__ import annotations
@@ -41,19 +41,19 @@ def _default_symbols(strategy: str) -> list[str]:
             from strategy_2.config import SYMBOLS
             return list(SYMBOLS)
         except ImportError:
-            return ["QQQ", "USO", "GLD", "IBIT"]
+            return ["QQQ", "GLD"]
     elif strategy == "breakout":
         try:
             from strategy_3.config import SYMBOLS
             return list(SYMBOLS)
         except ImportError:
-            return ["QQQ", "USO", "GLD", "IBIT"]
+            return ["QQQ", "GLD"]
     else:  # atrss and regime both use ATRSS symbols
         try:
             from strategy.config import SYMBOLS
             return list(SYMBOLS)
         except ImportError:
-            return ["QQQ", "USO", "GLD", "IBIT"]
+            return ["QQQ", "GLD"]
 
 
 def _get_symbol_configs(strategy: str):
@@ -1308,8 +1308,6 @@ def _cmd_weakness_report(args):
         "ATRSS": result.atrss_trades,
         "Helix": result.helix_trades,
         "Breakout": result.breakout_trades,
-        "S5_PB": result.s5_pb_trades,
-        "S5_DUAL": result.s5_dual_trades,
     }
 
     report_sections = []
@@ -1319,8 +1317,6 @@ def _cmd_weakness_report(args):
         atrss_result=type('R', (), {'trades': result.atrss_trades})(),
         helix_result=type('R', (), {'trades': result.helix_trades})(),
         breakout_result=type('R', (), {'trades': result.breakout_trades})(),
-        s5pb_result=type('R', (), {'trades': result.s5_pb_trades})(),
-        s5dual_result=type('R', (), {'trades': result.s5_dual_trades})(),
         portfolio_result=result,
     ))
 
@@ -1363,68 +1359,6 @@ def cmd_auto(args):
         skip_robustness=args.skip_robustness,
         resume=args.resume,
     )
-
-
-def _cmd_run_s5(args):
-    """Run S5_PB or S5_DUAL backtest with optional diagnostics."""
-    from backtest.config_s5 import S5BacktestConfig
-    from backtest.engine.s5_engine import S5Engine
-    from backtest.data.preprocessing import NumpyBars, build_numpy_arrays
-    from strategy_4.config import SYMBOL_CONFIGS
-    from dataclasses import replace as _replace
-    import pandas as pd
-
-    strategy = args.strategy  # "s5_pb" or "s5_dual"
-    cfg = S5BacktestConfig(initial_equity=args.equity)
-    if strategy == "s5_dual":
-        cfg = _replace(cfg, entry_mode="dual")
-
-    symbols = [s.strip() for s in args.symbols.split(",")]
-    data_dir = Path(args.data_dir)
-
-    report_sections = []
-    all_trades = []
-
-    for sym in symbols:
-        sym_cfg = SYMBOL_CONFIGS.get(sym)
-        if sym_cfg is None:
-            logger.warning("No config for %s, skipping", sym)
-            continue
-
-        # Load daily parquet → NumpyBars (same as run_s5.load_daily_data)
-        path = data_dir / f"{sym}_1d.parquet"
-        if not path.exists():
-            logger.warning("Missing daily data for %s at %s", sym, path)
-            continue
-        df = pd.read_parquet(path)
-        if not isinstance(df.index, pd.DatetimeIndex):
-            df.index = pd.DatetimeIndex(df.index)
-        df.columns = df.columns.str.lower()
-        daily = build_numpy_arrays(df)
-
-        engine = S5Engine(sym, sym_cfg, cfg, point_value=sym_cfg.multiplier)
-        engine.run(daily)
-        all_trades.extend(engine.trades)
-
-        n = len(engine.trades)
-        pnl = sum(t.pnl_dollars for t in engine.trades)
-        wr = sum(1 for t in engine.trades if t.pnl_dollars > 0) / n * 100 if n else 0
-        avg_r = sum(t.r_multiple for t in engine.trades) / n if n else 0
-        report_sections.append(
-            f"\n{'='*60}\n  {sym} — {strategy.upper()}\n{'='*60}\n"
-            f"  Trades: {n}  |  WR: {wr:.1f}%  |  Avg R: {avg_r:+.3f}  |  PnL: ${pnl:+,.0f}"
-        )
-
-    if getattr(args, 'diagnostics', False) and all_trades:
-        from backtest.analysis.s5_diagnostics import s5_full_diagnostic
-        report_sections.append(s5_full_diagnostic(all_trades, strategy))
-
-    output = "\n\n".join(s for s in report_sections if s)
-    print(output)
-
-    if getattr(args, 'report_file', None):
-        Path(args.report_file).write_text(output)
-        logger.info("Report written to %s", args.report_file)
 
 
 def _cmd_run_brs(args):
@@ -1483,15 +1417,13 @@ def _cmd_run_brs(args):
 
 
 def cmd_run(args):
-    """Route to ATRSS, Helix, Breakout, Regime, BRS, or S5 run."""
+    """Route to ATRSS, Helix, Breakout, Regime, or BRS run."""
     if args.strategy == "helix":
         _cmd_run_helix(args)
     elif args.strategy == "breakout":
         _cmd_run_breakout(args)
     elif args.strategy == "regime":
         _cmd_run_regime(args)
-    elif args.strategy in ("s5_pb", "s5_dual"):
-        _cmd_run_s5(args)
     elif args.strategy == "brs":
         _cmd_run_brs(args)
     else:
@@ -1587,7 +1519,7 @@ def main():
     )
     parser.add_argument(
         "--strategy", "-s",
-        choices=["atrss", "helix", "breakout", "regime", "s5_pb", "s5_dual", "brs"],
+        choices=["atrss", "helix", "breakout", "regime", "brs"],
         default="atrss",
         help="Strategy to backtest (default: atrss)",
     )
@@ -1684,7 +1616,7 @@ def main():
     # auto (automated experiment harness)
     auto = sub.add_parser("auto", help="Run automated experiment harness")
     auto.add_argument("--strategy", default="all",
-                      choices=["all", "atrss", "helix", "breakout", "s5_pb", "s5_dual", "portfolio"],
+                      choices=["all", "atrss", "helix", "breakout", "portfolio"],
                       help="Strategy filter (default: all)")
     auto.add_argument("--experiments", nargs="*", default=None,
                       help="Specific experiment IDs to run")

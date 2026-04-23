@@ -42,12 +42,6 @@ def convert_experiment_to_unified_mutation(strategy: str, mutations: dict) -> di
         if strategy == "portfolio":
             # Portfolio experiments already use unified-level keys
             unified[key] = value
-        elif strategy in ("s5_pb", "s5_dual"):
-            # S5 has no flags, only direct fields and slippage
-            if key.startswith("slippage."):
-                unified[f"{strategy}_{key}"] = value
-            else:
-                unified[f"{strategy}_param.{key}"] = value
         else:
             # atrss, helix, breakout: have flags, param_overrides, slippage
             if key.startswith("flags."):
@@ -88,7 +82,7 @@ def parse_v3(path: Path) -> dict:
     # Per-strategy from the breakdown table (regex handles $ sign + comma-separated numbers)
     v3["strategies"] = {}
     for line in text.splitlines():
-        for sname in ["ATRSS", "AKC_HELIX", "SWING_BREAKOUT_V3", "S5_PB", "S5_DUAL"]:
+        for sname in ["ATRSS", "AKC_HELIX", "SWING_BREAKOUT_V3"]:
             if line.strip().startswith(sname):
                 m = re.match(
                     rf"\s*{sname}\s+(\d+)\s+([\d.]+)%\s+\$\s*([\d,.]+)",
@@ -258,8 +252,6 @@ def main():
         ('atrss_trades', 'ATRSS'),
         ('helix_trades', 'AKC_HELIX'),
         ('breakout_trades', 'SWING_BREAKOUT_V3'),
-        ('s5_pb_trades', 'S5_PB'),
-        ('s5_dual_trades', 'S5_DUAL'),
     ]
     strategies_data = []
     for attr, name in strat_list:
@@ -306,7 +298,7 @@ def main():
     diag = []
     diag.append("")
     diag.append("=" * 70)
-    diag.append("UNIFIED 5-STRATEGY PORTFOLIO BACKTEST RESULTS (GREEDY OPTIMAL)")
+    diag.append("UNIFIED SWING PORTFOLIO BACKTEST RESULTS (GREEDY OPTIMAL)")
     diag.append("=" * 70)
     diag.append(f"Initial Equity:  ${EQUITY:,.2f}")
     diag.append(f"Final Equity:    ${final_eq:,.2f}")

@@ -1,6 +1,6 @@
-"""Swing family coordinator — orchestrates 6 strategies sharing one OMS.
+"""Swing family coordinator — orchestrates 4 strategies sharing one OMS.
 
-Strategies by priority: ATRSS(0), S5_PB(1), S5_DUAL(2), Breakout(3), Helix(4), BRS_R9(5).
+Strategies by priority: ATRSS(0), Breakout(3), Helix(4), BRS_R9(5).
 Shares a single IBKR adapter, multi-strategy OMS, StrategyCoordinator, and
 OverlayEngine across all engines.
 
@@ -39,20 +39,6 @@ _RISK_PARAMS: dict[str, dict[str, Any]] = {
         "max_heat_R": 1.50,
         "max_working_orders": 4,
     },
-    "S5_PB": {
-        "unit_risk_pct": 0.012,   # 1.2% base risk (P1 heat-unlock optimized)
-        "daily_stop_R": 2.0,
-        "priority": 1,            # 80% WR on IBIT (optimized_v2)
-        "max_heat_R": 2.00,       # greedy v4: was 1.50
-        "max_working_orders": 2,
-    },
-    "S5_DUAL": {
-        "unit_risk_pct": 0.012,   # 1.2% base risk (P1 heat-unlock optimized)
-        "daily_stop_R": 2.0,
-        "priority": 2,            # 70.7% WR on GLD+IBIT (optimized_v2)
-        "max_heat_R": 2.00,       # greedy v4: was 1.50
-        "max_working_orders": 2,
-    },
     "SWING_BREAKOUT_V3": {
         "unit_risk_pct": 0.008,   # 0.8% base risk (P1 heat-unlock optimized)
         "daily_stop_R": 2.0,
@@ -82,7 +68,7 @@ _PORTFOLIO_DAILY_STOP_R = 4.0
 
 
 class SwingFamilyCoordinator:
-    """Orchestrates 6 swing strategies sharing one OMS instance.
+    """Orchestrates 4 swing strategies sharing one OMS instance.
 
     Lifecycle:
         coordinator = SwingFamilyCoordinator(ctx)
@@ -138,15 +124,6 @@ class SwingFamilyCoordinator:
         )
         from strategies.swing.breakout.engine import BreakoutEngine
 
-        from strategies.swing.keltner.config import (
-            S5_PB_STRATEGY_ID,
-            S5_DUAL_STRATEGY_ID,
-            S5_PB_CONFIGS,
-            S5_DUAL_CONFIGS,
-            build_instruments as s5_build_instruments,
-        )
-        from strategies.swing.keltner.engine import KeltnerEngine
-
         from strategies.swing.brs.config import (
             STRATEGY_ID as BRS_ID,
             BRS_SYMBOL_DEFAULTS as BRS_CONFIGS,
@@ -191,6 +168,7 @@ class SwingFamilyCoordinator:
                     templates=ibkr_config.contracts,
                     routes=ibkr_config.routes,
                 )
+                setattr(session, "_contract_factory", contract_factory)
                 adapter = IBKRExecutionAdapter(
                     session=session,
                     contract_factory=contract_factory,
@@ -246,7 +224,7 @@ class SwingFamilyCoordinator:
             return _nav_for(strategy_id) / equity if equity > 0 else 1.0
 
         # -- Compute unit risk dollars per strategy ------------------------
-        strategy_ids = [ATRSS_ID, S5_PB_STRATEGY_ID, S5_DUAL_STRATEGY_ID, BREAKOUT_ID, HELIX_ID, BRS_ID]
+        strategy_ids = [ATRSS_ID, BREAKOUT_ID, HELIX_ID, BRS_ID]
         urds: dict[str, float] = {}
         for sid in strategy_ids:
             params = _RISK_PARAMS[sid]
@@ -343,8 +321,6 @@ class SwingFamilyCoordinator:
                 ATRSS_ID: ATRSS_CONFIGS,
                 HELIX_ID: HELIX_CONFIGS,
                 BREAKOUT_ID: BREAKOUT_CONFIGS,
-                S5_PB_STRATEGY_ID: S5_PB_CONFIGS,
-                S5_DUAL_STRATEGY_ID: S5_DUAL_CONFIGS,
                 BRS_ID: BRS_CONFIGS,
             },
             data_provider=_data_provider,
@@ -354,8 +330,6 @@ class SwingFamilyCoordinator:
         atrss_instruments = atrss_build_instruments()
         helix_instruments = helix_build_instruments()
         breakout_instruments = breakout_build_instruments()
-        s5_pb_instruments = s5_build_instruments(S5_PB_CONFIGS)
-        s5_dual_instruments = s5_build_instruments(S5_DUAL_CONFIGS)
 
         # -- Trade recorder (from bootstrap context) -----------------------
         trade_recorder = getattr(ctx, "trade_recorder", None)
@@ -406,34 +380,6 @@ class SwingFamilyCoordinator:
             equity_alloc_pct=_alloc_pct_for(BREAKOUT_ID),
         )
 
-        s5_pb_engine = KeltnerEngine(
-            strategy_id=S5_PB_STRATEGY_ID,
-            ib_session=session,
-            oms_service=oms,
-            instruments=s5_pb_instruments,
-            config=S5_PB_CONFIGS,
-            trade_recorder=trade_recorder,
-            equity=_nav_for(S5_PB_STRATEGY_ID),
-            market_calendar=market_cal,
-            kit=self._kits.get(S5_PB_STRATEGY_ID),
-            equity_offset=paper_equity_offset,
-            equity_alloc_pct=_alloc_pct_for(S5_PB_STRATEGY_ID),
-        )
-
-        s5_dual_engine = KeltnerEngine(
-            strategy_id=S5_DUAL_STRATEGY_ID,
-            ib_session=session,
-            oms_service=oms,
-            instruments=s5_dual_instruments,
-            config=S5_DUAL_CONFIGS,
-            trade_recorder=trade_recorder,
-            equity=_nav_for(S5_DUAL_STRATEGY_ID),
-            market_calendar=market_cal,
-            kit=self._kits.get(S5_DUAL_STRATEGY_ID),
-            equity_offset=paper_equity_offset,
-            equity_alloc_pct=_alloc_pct_for(S5_DUAL_STRATEGY_ID),
-        )
-
         brs_instruments = brs_build_instruments()
 
         brs_engine = BRSLiveEngine(
@@ -449,8 +395,6 @@ class SwingFamilyCoordinator:
         # Store engines in priority order (ATRSS first, BRS last)
         self._engines = [
             (ATRSS_ID, atrss_engine),
-            (S5_PB_STRATEGY_ID, s5_pb_engine),
-            (S5_DUAL_STRATEGY_ID, s5_dual_engine),
             (BREAKOUT_ID, breakout_engine),
             (HELIX_ID, helix_engine),
             (BRS_ID, brs_engine),

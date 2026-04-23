@@ -143,7 +143,7 @@ class USORBEngine:
         normalized = symbol.upper()
         if normalized in PROXY_SYMBOLS:
             self._proxies[normalized] = quote
-            if normalized in self._flow_ewma:
+            if normalized in self._flow_ewma and quote.tick_flow_available:
                 self._flow_ewma[normalized] = ewma(
                     self._flow_ewma[normalized],
                     imbalance_90s,
@@ -153,10 +153,13 @@ class USORBEngine:
 
         ctx = self._ensure_context(normalized)
         ctx.quote = quote
-        ctx.imbalance_90s = imbalance_90s
+        ctx.tick_flow_available = quote.tick_flow_available
+        ctx.imbalance_90s = imbalance_90s if quote.tick_flow_available else 0.0
         ctx.spread_pct = quote.spread_pct
         if quote.vwap is not None:
             ctx.vwap = quote.vwap
+        if quote.tick_flow_available and ctx.block_reason == "tick_flow_unavailable":
+            ctx.block_reason = ""
 
         if quote.past_limit:
             ctx.past_limit_events.append(quote.ts)
@@ -252,6 +255,12 @@ class USORBEngine:
         )
         return [
             {
+                "filter_name": "tick_flow_gate",
+                "threshold": 1.0,
+                "actual_value": 1.0 if ctx.tick_flow_available else 0.0,
+                "passed": ctx.tick_flow_available,
+            },
+            {
                 "filter_name": "quality_score_gate",
                 "threshold": float(self._settings.minimum_quality_score),
                 "actual_value": float(ctx.quality_score or 0.0),
@@ -315,7 +324,13 @@ class USORBEngine:
                 "factor_name": "imbalance_90s",
                 "factor_value": float(ctx.imbalance_90s or 0.0),
                 "threshold": 0.0,
-                "contribution": float(ctx.imbalance_90s or 0.0),
+                "contribution": float(ctx.imbalance_90s or 0.0) if ctx.tick_flow_available else 0.0,
+            },
+            {
+                "factor_name": "tick_flow_available",
+                "factor_value": 1.0 if ctx.tick_flow_available else 0.0,
+                "threshold": 1.0,
+                "contribution": 1.0 if ctx.tick_flow_available else 0.0,
             },
             {
                 "factor_name": "gap_pct",
@@ -526,6 +541,16 @@ class USORBEngine:
             ctx.state = State.COOLDOWN
             self._diagnostics.log_state(ctx.symbol, ctx.state.value, reason)
 
+    def _mark_tick_flow_blocked(
+        self,
+        ctx: SymbolContext,
+        now: datetime,
+    ) -> None:
+        was_blocked = ctx.block_reason == "tick_flow_unavailable"
+        ctx.block_reason = "tick_flow_unavailable"
+        if not was_blocked:
+            self._diagnostics.log_state(ctx.symbol, ctx.state.value, "tick_flow_unavailable")
+
     def _relative_strength(self, ctx: SymbolContext) -> float:
         stock_return = five_min_return(ctx.bars)
         spy_return = five_min_return(self._proxy_bars["SPY"]) if self._proxy_bars["SPY"] else 0.0
@@ -625,6 +650,7 @@ class USORBEngine:
                 ctx.cached.adv20 >= self._settings.secondary_adv_threshold
                 and ctx.cached.trend_ok
                 and allowed
+                and ctx.tick_flow_available
                 and ctx.last_price is not None
                 and ctx.last_price >= self._settings.min_price
                 and ctx.vwap is not None
@@ -644,7 +670,15 @@ class USORBEngine:
                 self._emit_indicator_snapshot(ctx, now, "candidate")
             else:
                 ctx.state = State.DONE
-                ctx.done_reason = reason if not allowed else ctx.vdm.reasons[0] if ctx.vdm.state == DangerState.BLOCKED and ctx.vdm.reasons else "precheck_fail"
+                ctx.done_reason = (
+                    "tick_flow_unavailable"
+                    if not ctx.tick_flow_available
+                    else reason
+                    if not allowed
+                    else ctx.vdm.reasons[0]
+                    if ctx.vdm.state == DangerState.BLOCKED and ctx.vdm.reasons
+                    else "precheck_fail"
+                )
 
         candidates.sort(
             key=lambda ctx: (
@@ -692,6 +726,9 @@ class USORBEngine:
         if ctx.state == State.CANDIDATE:
             if self._portfolio.halt_new_entries:
                 return
+            if not ctx.tick_flow_available:
+                self._mark_tick_flow_blocked(ctx, now)
+                return
             if self._portfolio.open_positions >= self._settings.max_positions:
                 return
             if ctx.sector and ctx.sector in self._portfolio.sectors_in_use:
@@ -724,6 +761,9 @@ class USORBEngine:
                 ctx.state = State.DONE
                 ctx.done_reason = "entry_window_closed"
                 return
+            if not ctx.tick_flow_available:
+                self._mark_tick_flow_blocked(ctx, now)
+                return
             if not live_gate_pass(ctx, self._regime, now, self._settings):
                 return
             if breakout_triggered(ctx):
@@ -744,6 +784,9 @@ class USORBEngine:
             return
 
         if ctx.state == State.WAIT_ACCEPTANCE:
+            if not ctx.tick_flow_available:
+                self._mark_tick_flow_blocked(ctx, now)
+                return
             update_acceptance(ctx)
             if ctx.vdm.state in (DangerState.DANGER, DangerState.BLOCKED):
                 self._apply_cooldown(
@@ -768,6 +811,9 @@ class USORBEngine:
 
         if ctx.state == State.READY:
             if self._portfolio.halt_new_entries or self._risk_halted:
+                return
+            if not ctx.tick_flow_available:
+                self._mark_tick_flow_blocked(ctx, now)
                 return
             sector_penalty = bool(ctx.sector and ctx.sector in self._portfolio.sectors_in_use)
             ctx.quality_score = quality_score(ctx, self._regime, sector_penalty)

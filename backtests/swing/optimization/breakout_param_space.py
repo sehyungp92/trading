@@ -12,7 +12,7 @@ def _breakout_symbols() -> list[str]:
         from strategy_3.config import SYMBOLS
         return list(SYMBOLS)
     except ImportError:
-        return ["QQQ", "USO", "GLD", "IBIT"]
+        return ["QQQ", "GLD"]
 
 
 def _build_per_symbol_atr_stop() -> list[ParamRange]:

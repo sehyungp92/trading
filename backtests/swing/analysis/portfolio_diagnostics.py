@@ -1,7 +1,7 @@
 """Swing portfolio diagnostics — cross-strategy analysis.
 
 Analyzes heat utilization, coordination impact, cross-strategy correlation,
-and portfolio-level drawdown for the unified 5-strategy swing portfolio.
+and portfolio-level drawdown for the unified swing portfolio.
 """
 from __future__ import annotations
 

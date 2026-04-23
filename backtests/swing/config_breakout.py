@@ -13,7 +13,7 @@ def _default_breakout_symbols() -> list[str]:
         from strategy_3.config import SYMBOLS
         return list(SYMBOLS)
     except ImportError:
-        return ["QQQ", "USO", "GLD", "IBIT"]
+        return ["QQQ", "GLD"]
 
 
 @dataclass

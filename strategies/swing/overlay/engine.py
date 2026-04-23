@@ -1,8 +1,8 @@
 """EMA crossover overlay engine — deploys idle capital into ETFs.
 
 Daily-rebalancing capital allocator that places market orders directly via the
-IB API, bypassing OMS entirely.  Runs on the same 16:15 ET daily schedule as
-KeltnerEngine.  State persisted to JSON for crash recovery.
+IB API, bypassing OMS entirely. Runs on a 16:15 ET daily schedule and persists
+state to JSON for crash recovery.
 
 Ported from backtest/engine/unified_portfolio_engine.py (legacy "ema" mode).
 """
@@ -102,9 +102,14 @@ class OverlayEngine:
         logger.info("Overlay engine starting …")
         self._running = True
 
-        # Resolve ETF contracts (same pattern as KeltnerEngine)
+        # Resolve ETF contracts through the shared contract factory when available.
+        cf = getattr(self._ib, "_contract_factory", None)
         for sym in self._config.symbols:
             try:
+                if cf is not None:
+                    contract, _ = await cf.resolve(sym)
+                    self._contracts[sym] = contract
+                    continue
                 from ib_async import Stock
                 contract = Stock(sym, "SMART", "USD")
                 qualified = await self._ib.ib.qualifyContractsAsync(contract)
@@ -140,7 +145,7 @@ class OverlayEngine:
         logger.info("Overlay engine stopped")
 
     # ------------------------------------------------------------------
-    # Daily scheduler (same pattern as KeltnerEngine)
+    # Daily scheduler
     # ------------------------------------------------------------------
 
     async def _daily_scheduler(self) -> None:

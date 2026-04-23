@@ -30,6 +30,8 @@ def _make_handler(*, db_lookup_result=None) -> IntentHandler:
     repo = MagicMock()
     repo.save_order = AsyncMock()
     repo.save_event = AsyncMock()
+    repo.save_order_and_event = AsyncMock()
+    repo.save_order_fill_and_event = AsyncMock()
     repo.get_order_id_by_client_order_id = AsyncMock(return_value=db_lookup_result)
     repo.get_positions = AsyncMock(return_value=[])
 

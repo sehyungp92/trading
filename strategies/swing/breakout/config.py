@@ -128,21 +128,6 @@ _ETF_CONFIGS: dict[str, SymbolConfig] = {
         fee_bps_est=0.0002,
         allowed_directions=("LONG",),
     ),
-    "IBIT": SymbolConfig(
-        symbol="IBIT",
-        tick_size=0.01,
-        multiplier=1.0,
-        exchange="SMART",
-        max_spread_dollars=0.10,
-        max_spread_bps=10.0,
-        min_stop_floor_dollars=0.10,
-        max_shares=1000,
-        atr_stop_mult=0.7,   # A1: halved from 1.3 to tighten R-unit
-        base_risk_pct=0.0035,
-        m_break=3,
-        fee_bps_est=0.0008,  # 8 bps
-        tp_scale=1.0,
-    ),
 }
 
 SYMBOL_CONFIGS = {s: _ETF_CONFIGS[s] for s in SYMBOLS if s in _ETF_CONFIGS}
@@ -373,7 +358,6 @@ NEWS_WINDOWS: dict[str, tuple[int, int]] = {
     "CL_INVENTORY": (-20, 20),
     "ECB": (-60, 60),
     "BOJ": (-60, 60),
-    "CRYPTO_EVENT": (-30, 30),
 }
 
 # ---------------------------------------------------------------------------

@@ -44,12 +44,6 @@ BRS_SYMBOL_DEFAULTS: dict[str, BRSSymbolConfig] = {
         base_risk_pct=0.003, limit_pct=0.0010,  # R9 leverage-capped
         allow_long=True, cooldown_bars=8,
     ),
-    "IBIT": BRSSymbolConfig(
-        adx_on=16, adx_off=14,
-        daily_mult=2.7, hourly_mult=3.2, chand_mult=3.5,
-        base_risk_pct=0.003, limit_pct=0.0020,
-        allow_long=False, cooldown_bars=8,
-    ),
 }
 
 

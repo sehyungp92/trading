@@ -9,7 +9,7 @@ Weights:
 Net profit is derived from the equity curve (final - initial), not from
 trade records, so overlay PnL is properly credited.
 
-Hard rejects: <30 trades (15 for S5, 20 for breakout), >35% max DD, PF < 0.8
+Hard rejects: <30 trades (20 for breakout), >35% max DD, PF < 0.8
 """
 from __future__ import annotations
 
@@ -43,11 +43,9 @@ _W_INV_DD = 0.15
 _W_NET_PROFIT = 0.35
 
 # Trade-count thresholds by strategy
-_LOW_TRADE_STRATEGIES = ("s5_pb", "s5_dual")
 _MEDIUM_TRADE_STRATEGIES = ("breakout",)
 _MIN_TRADES_DEFAULT = 30
 _MIN_TRADES_MEDIUM = 20
-_MIN_TRADES_S5 = 15
 
 
 def composite_score(
@@ -66,9 +64,7 @@ def composite_score(
             (final - initial) so overlay PnL is included. Falls back to
             metrics.net_profit if not provided.
     """
-    if strategy in _LOW_TRADE_STRATEGIES:
-        min_trades = _MIN_TRADES_S5
-    elif strategy in _MEDIUM_TRADE_STRATEGIES:
+    if strategy in _MEDIUM_TRADE_STRATEGIES:
         min_trades = _MIN_TRADES_MEDIUM
     else:
         min_trades = _MIN_TRADES_DEFAULT
@@ -127,8 +123,7 @@ def extract_metrics(
 ) -> PerformanceMetrics:
     """Standard metrics extraction from engine result.
 
-    Accepts trade records from any swing engine (TradeRecord, HelixTradeRecord,
-    BreakoutTradeRecord, S5TradeRecord). Each record must have pnl_dollars,
+    Accepts trade records from any active swing engine. Each record must have pnl_dollars,
     initial_stop, entry_price, qty (or equivalent), bars_held, commission, symbol.
     """
     if not trades:

@@ -66,6 +66,8 @@ async def test_concurrent_entries_serialized():
     repo = MagicMock()
     repo.save_order = AsyncMock()
     repo.save_event = AsyncMock()
+    repo.save_order_and_event = AsyncMock()
+    repo.save_order_fill_and_event = AsyncMock()
     repo.get_order_id_by_client_order_id = AsyncMock(return_value=None)
     repo.get_positions = AsyncMock(return_value=[])
 
@@ -76,10 +78,10 @@ async def test_concurrent_entries_serialized():
     handler = IntentHandler(risk, router, repo, bus)
 
     order1 = _make_order("ATRSS", "entry_1")
-    order2 = _make_order("S5_PB", "entry_2")
+    order2 = _make_order("AKC_HELIX", "entry_2")
 
     intent1 = Intent(intent_type=IntentType.NEW_ORDER, strategy_id="ATRSS", order=order1)
-    intent2 = Intent(intent_type=IntentType.NEW_ORDER, strategy_id="S5_PB", order=order2)
+    intent2 = Intent(intent_type=IntentType.NEW_ORDER, strategy_id="AKC_HELIX", order=order2)
 
     # Submit both concurrently
     results = await asyncio.gather(
@@ -109,6 +111,8 @@ async def test_entry_lock_does_not_block_exits():
     repo = MagicMock()
     repo.save_order = AsyncMock()
     repo.save_event = AsyncMock()
+    repo.save_order_and_event = AsyncMock()
+    repo.save_order_fill_and_event = AsyncMock()
     repo.get_order_id_by_client_order_id = AsyncMock(return_value=None)
     repo.get_positions = AsyncMock(return_value=[])
     repo.get_order = AsyncMock(return_value=MagicMock(

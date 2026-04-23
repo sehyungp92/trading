@@ -1,4 +1,6 @@
 """Fill processing logic."""
+import asyncio
+import copy
 import logging
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -18,9 +20,31 @@ class FillProcessor:
 
     def __init__(self, repo: "OMSRepository"):
         self._repo = repo
+        self._fill_locks: dict[str, asyncio.Lock] = {}
 
     async def process_fill(
         self,
+        oms_order_id: str,
+        broker_fill_id: str,
+        price: float,
+        qty: float,
+        timestamp: datetime,
+        fees: float = 0.0,
+    ) -> None:
+        lock = self._fill_locks.setdefault(oms_order_id, asyncio.Lock())
+        async with lock:
+            await self._process_fill_locked(
+                oms_order_id=oms_order_id,
+                broker_fill_id=broker_fill_id,
+                price=price,
+                qty=qty,
+                timestamp=timestamp,
+                fees=fees,
+            )
+
+    async def _process_fill_locked(
+        self,
+        *,
         oms_order_id: str,
         broker_fill_id: str,
         price: float,
@@ -48,24 +72,25 @@ class FillProcessor:
             timestamp=timestamp,
             fees=fees,
         )
-        await self._repo.save_fill(fill)
+
+        updated_order = copy.deepcopy(order)
 
         # Update order quantities
-        old_filled = order.filled_qty
-        order.filled_qty += qty
-        order.remaining_qty = max(0, order.qty - order.filled_qty)
-        order.avg_fill_price = self._compute_avg(old_filled, order.avg_fill_price, price, qty)
+        old_filled = updated_order.filled_qty
+        updated_order.filled_qty += qty
+        updated_order.remaining_qty = max(0, updated_order.qty - updated_order.filled_qty)
+        updated_order.avg_fill_price = self._compute_avg(old_filled, updated_order.avg_fill_price, price, qty)
 
         # Transition state
-        if order.remaining_qty <= 0:
-            transition(order, OrderStatus.FILLED)
+        if updated_order.remaining_qty <= 0:
+            transition(updated_order, OrderStatus.FILLED)
         else:
-            transition(order, OrderStatus.PARTIALLY_FILLED)
+            transition(updated_order, OrderStatus.PARTIALLY_FILLED)
 
-        order.last_update_at = timestamp
-        await self._repo.save_order(order)
-        await self._repo.save_event(
-            oms_order_id,
+        updated_order.last_update_at = timestamp
+        inserted = await self._repo.save_order_fill_and_event(
+            updated_order,
+            fill,
             "FILL",
             {
                 "broker_fill_id": broker_fill_id,
@@ -74,6 +99,8 @@ class FillProcessor:
                 "fees": fees,
             },
         )
+        if not inserted:
+            logger.info(f"Duplicate fill ignored after race: {broker_fill_id}")
 
     @staticmethod
     def _compute_avg(

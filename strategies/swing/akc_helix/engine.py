@@ -194,6 +194,7 @@ class HelixEngine:
         self.queued_setups: dict[str, SetupInstance] = {}       # setup_id → queued (outside window)
         self.circuit_breakers: dict[str, CircuitBreakerState] = {}
         self.contracts: dict[str, Any] = {}                     # symbol → (Contract, spec)
+        self._contract_symbol_by_conid: dict[int, str] = {}
 
         # Order tracking
         self._order_to_setup: dict[str, str] = {}   # oms_order_id → setup_id
@@ -266,17 +267,22 @@ class HelixEngine:
         self._event_queue = self._oms.stream_events(STRATEGY_ID)
         self._event_task = asyncio.create_task(self._process_events())
 
+        cf = getattr(self._ib, "_contract_factory", None)
+
         # Resolve contracts for each symbol
         for sym, cfg in self._config.items():
-            if cfg.contract_expiry:
-                try:
-                    from libs.broker_ibkr.mapping.contract_factory import ContractFactory
-                    cf: ContractFactory = getattr(self._ib, "_contract_factory", None)
-                    if cf:
-                        contract, spec = await cf.resolve(sym, cfg.contract_expiry)
-                        self.contracts[sym] = (contract, spec)
-                except Exception as e:
-                    logger.warning("Could not resolve contract for %s: %s", sym, e)
+            if cf is None:
+                break
+            try:
+                contract, spec = await cf.resolve(
+                    sym,
+                    cfg.contract_expiry,
+                    instrument=self._instruments.get(sym),
+                )
+                self.contracts[sym] = (contract, spec)
+                self._register_contract_symbol(sym, contract)
+            except Exception as e:
+                logger.warning("Could not resolve contract for %s: %s", sym, e)
 
         # Initialize per-symbol state containers
         for sym in self._config:
@@ -290,11 +296,13 @@ class HelixEngine:
             contract = self._get_contract(sym)
             if contract:
                 try:
-                    qualified = await self._ib.ib.qualifyContractsAsync(contract)
-                    if not qualified:
-                        logger.warning("Could not qualify contract for %s", sym)
-                        continue
-                    contract = qualified[0]
+                    if not getattr(contract, "conId", 0):
+                        qualified = await self._ib.ib.qualifyContractsAsync(contract)
+                        if not qualified:
+                            logger.warning("Could not qualify contract for %s", sym)
+                            continue
+                        contract = qualified[0]
+                        self._cache_contract(sym, contract)
                     self._tickers[sym] = self._ib.ib.reqMktData(contract, '', False, False)
                 except Exception as e:
                     logger.warning("Could not subscribe mkt data for %s: %s", sym, e)
@@ -436,11 +444,13 @@ class HelixEngine:
                 contract = self._get_contract(sym)
                 if contract:
                     try:
-                        qualified = await self._ib.ib.qualifyContractsAsync(contract)
-                        if not qualified:
-                            logger.warning("Resubscribe: could not qualify %s", sym)
-                            continue
-                        contract = qualified[0]
+                        if not getattr(contract, "conId", 0):
+                            qualified = await self._ib.ib.qualifyContractsAsync(contract)
+                            if not qualified:
+                                logger.warning("Resubscribe: could not qualify %s", sym)
+                                continue
+                            contract = qualified[0]
+                            self._cache_contract(sym, contract)
                         self._tickers[sym] = self._ib.ib.reqMktData(contract, '', False, False)
                     except Exception as e:
                         logger.warning("Resubscribe failed for %s: %s", sym, e)
@@ -2709,7 +2719,9 @@ class HelixEngine:
         for t in tickers:
             c = getattr(t, 'contract', None)
             if c:
-                updated_syms.add(getattr(c, 'symbol', ''))
+                logical_symbol = self._logical_symbol_for_contract(c)
+                if logical_symbol:
+                    updated_syms.add(logical_symbol)
         for setup_id, setup in list(self.pending_setups.items()):
             if setup.state != SetupState.ARMED or setup.symbol not in updated_syms:
                 continue
@@ -2926,6 +2938,13 @@ class HelixEngine:
 
         cfg = self._config[sym]
         try:
+            cf = getattr(self._ib, "_contract_factory", None)
+            if cf is not None:
+                return cf.build_contract(
+                    sym,
+                    cfg.contract_expiry,
+                    instrument=self._instruments.get(sym),
+                )
             if cfg.is_etf:
                 from ib_async import Stock
                 return Stock(symbol=sym, exchange=cfg.exchange, currency="USD")
@@ -2942,3 +2961,24 @@ class HelixEngine:
         except Exception:
             logger.warning("Cannot build contract for %s", sym)
             return None
+
+    def _cache_contract(self, sym: str, contract: Any) -> None:
+        existing = self.contracts.get(sym)
+        self.contracts[sym] = (contract, existing[1] if existing else None)
+        self._register_contract_symbol(sym, contract)
+
+    def _register_contract_symbol(self, sym: str, contract: Any) -> None:
+        con_id = int(getattr(contract, "conId", 0) or 0)
+        if con_id:
+            self._contract_symbol_by_conid[con_id] = sym
+
+    def _logical_symbol_for_contract(self, contract: Any) -> str:
+        cf = getattr(self._ib, "_contract_factory", None)
+        if cf is not None:
+            logical_symbol = cf.logical_symbol_for_contract(contract)
+            if logical_symbol:
+                return logical_symbol
+        con_id = int(getattr(contract, "conId", 0) or 0)
+        if con_id and con_id in self._contract_symbol_by_conid:
+            return self._contract_symbol_by_conid[con_id]
+        return str(getattr(contract, "symbol", "") or "").upper()

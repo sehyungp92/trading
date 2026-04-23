@@ -1,6 +1,6 @@
 """Config mutation for automated swing experiments.
 
-Generates mutated ATRSS/Helix/Breakout/S5/Unified configs from a base config
+Generates mutated ATRSS/Helix/Breakout/Unified configs from a base config
 and a mutation dictionary using dot-notation keys.
 """
 from __future__ import annotations
@@ -10,7 +10,6 @@ from dataclasses import fields, replace
 from backtests.swing.config import AblationFlags, BacktestConfig, SlippageConfig
 from backtests.swing.config_helix import HelixAblationFlags, HelixBacktestConfig
 from backtests.swing.config_breakout import BreakoutAblationFlags, BreakoutBacktestConfig
-from backtests.swing.config_s5 import S5BacktestConfig
 from backtests.swing.config_unified import StrategySlot, UnifiedBacktestConfig
 
 
@@ -152,37 +151,6 @@ def mutate_breakout_config(
     return config
 
 
-def mutate_s5_config(
-    base: S5BacktestConfig,
-    mutations: dict,
-) -> S5BacktestConfig:
-    """Apply mutations to an S5 config.
-
-    S5 has no ablation flags — all mutations are direct field replacements:
-      - "kelt_atr_mult": 2.5
-      - "volume_filter": False
-      - "entry_mode": "pullback"
-    """
-    config = base
-    slippage_changes: dict = {}
-    top_level: dict = {}
-
-    for key, value in mutations.items():
-        if key.startswith("slippage."):
-            slippage_changes[key.split(".", 1)[1]] = value
-        else:
-            top_level[key] = value
-
-    if slippage_changes:
-        new_slippage = _mutate_slippage(config.slippage, slippage_changes)
-        config = replace(config, slippage=new_slippage)
-
-    if top_level:
-        config = replace(config, **top_level)
-
-    return config
-
-
 def mutate_unified_config(
     base: UnifiedBacktestConfig,
     mutations: dict,
@@ -195,7 +163,6 @@ def mutate_unified_config(
       - "helix.max_heat_R": 1.5  → strategy slot mutation
       - "overlay_enabled": False  → top-level overlay toggle
       - "enable_atrss_helix_tighten": False  → coordination toggle
-      - "s5_dual_param.trail_atr_mult": 2.0  → per-strategy engine param
       - "helix_param.STALE_4H_BARS": 4  → per-strategy engine param
       - "breakout_flags.disable_score_threshold": True  → per-strategy flag
       - "helix_flags.disable_class_c": True  → per-strategy flag
@@ -206,10 +173,9 @@ def mutate_unified_config(
     flag_changes: dict[str, dict] = {}
     top_level: dict = {}
 
-    strategy_slot_names = {"atrss", "helix", "breakout", "s5_pb", "s5_dual"}
+    strategy_slot_names = {"atrss", "helix", "breakout"}
     param_override_prefixes = {
         "atrss_param", "helix_param", "breakout_param",
-        "s5_pb_param", "s5_dual_param",
     }
     flag_prefixes = {"atrss_flags", "helix_flags", "breakout_flags"}
 
@@ -235,7 +201,7 @@ def mutate_unified_config(
 
     # Apply per-strategy param overrides
     for prefix, changes in param_override_changes.items():
-        field_name = prefix + "_overrides"  # e.g. "s5_dual_param" → "s5_dual_param_overrides"
+        field_name = prefix + "_overrides"
         current = getattr(config, field_name, {})
         merged = {**current, **changes}
         config = replace(config, **{field_name: merged})

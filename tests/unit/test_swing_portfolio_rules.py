@@ -18,7 +18,7 @@ from libs.oms.risk.portfolio_rules import (
     PortfolioRulesConfig,
 )
 
-SWING_IDS = ("ATRSS", "S5_PB", "S5_DUAL", "SWING_BREAKOUT_V3", "AKC_HELIX")
+SWING_IDS = ("ATRSS", "SWING_BREAKOUT_V3", "AKC_HELIX", "BRS_R9")
 MOMENTUM_IDS = ("AKC_Helix_v40", "NQDTC_v2.1", "VdubusNQ_v4")
 
 
@@ -64,7 +64,7 @@ async def test_swing_directional_cap_approves_within_limit():
 async def test_swing_directional_cap_denies_above_limit():
     checker = _make_checker(dir_risk_family=5.5)
     # 5.5R + 1R = 6.5R > 6R cap
-    result = await checker.check_entry("S5_PB", "LONG", 1.0)
+    result = await checker.check_entry("SWING_BREAKOUT_V3", "LONG", 1.0)
     assert not result.approved
     assert "directional_cap" in result.denial_reason
 
@@ -83,7 +83,7 @@ async def test_swing_directional_cap_exact_boundary():
 @pytest.mark.asyncio
 async def test_swing_symbol_collision_half_size():
     checker = _make_checker(sibling_holds_symbol=True)
-    result = await checker.check_entry("ATRSS", "LONG", 1.0, symbol="IBIT")
+    result = await checker.check_entry("ATRSS", "LONG", 1.0, symbol="GLD")
     assert result.approved
     assert result.size_multiplier == 0.5
 
@@ -91,7 +91,7 @@ async def test_swing_symbol_collision_half_size():
 @pytest.mark.asyncio
 async def test_swing_no_collision():
     checker = _make_checker(sibling_holds_symbol=False)
-    result = await checker.check_entry("ATRSS", "LONG", 1.0, symbol="IBIT")
+    result = await checker.check_entry("ATRSS", "LONG", 1.0, symbol="GLD")
     assert result.approved
     assert result.size_multiplier == 1.0
 
@@ -111,7 +111,7 @@ async def test_swing_skips_proximity_cooldown():
 async def test_swing_skips_direction_filter():
     """Swing strategies should not trigger NQDTC direction filter."""
     checker = _make_checker()
-    result = await checker.check_entry("S5_DUAL", "SHORT", 1.0)
+    result = await checker.check_entry("BRS_R9", "SHORT", 1.0)
     assert result.approved
 
 

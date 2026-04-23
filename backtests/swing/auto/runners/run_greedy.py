@@ -68,8 +68,6 @@ def main():
         ('atrss_trades', 'ATRSS'),
         ('helix_trades', 'AKC_HELIX'),
         ('breakout_trades', 'BREAKOUT'),
-        ('s5_pb_trades', 'S5_PB'),
-        ('s5_dual_trades', 'S5_DUAL'),
     ]:
         trades = getattr(final_result, attr, [])
         if not trades:

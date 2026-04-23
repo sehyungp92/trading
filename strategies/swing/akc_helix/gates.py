@@ -71,7 +71,7 @@ def is_news_blocked(
         if event_type == "CL_INVENTORY" and symbol not in ("CL", "MCL", "USO"):
             continue
         # CRYPTO_EVENT only blocks crypto symbols
-        if event_type == "CRYPTO_EVENT" and symbol not in ("BT", "MBT", "IBIT"):
+        if event_type == "CRYPTO_EVENT" and symbol not in ("BT", "MBT"):
             continue
         before_min, after_min = windows
         window_start = event_dt + timedelta(minutes=before_min)
@@ -215,7 +215,7 @@ def apply_basket_adjustment(
 ) -> float:
     """Apply risk-on basket rule (spec s8.3).
 
-    Basket: QQQ + IBIT (and their futures equivalents NQ/MNQ + BT/MBT).
+    Basket: QQQ and its futures/crypto peers NQ/MNQ + BT/MBT.
     1H-class: if any basket peer already has a 1H setup armed/active,
         block (return 0.0) -- only one 1H-class at a time.
     4H-class: if any basket peer already has a 4H setup,

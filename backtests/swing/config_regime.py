@@ -13,7 +13,7 @@ def _default_atrss_symbols() -> list[str]:
         from strategy.config import SYMBOLS
         return list(SYMBOLS)
     except ImportError:
-        return ["QQQ", "USO", "GLD", "IBIT"]
+        return ["QQQ", "GLD"]
 
 
 @dataclass

@@ -17,7 +17,6 @@ from backtests.swing.auto.config_mutator import (
     mutate_atrss_config,
     mutate_breakout_config,
     mutate_helix_config,
-    mutate_s5_config,
     mutate_unified_config,
 )
 from backtests.swing.auto.experiments import Experiment, build_experiment_queue
@@ -30,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 class SwingAutoHarness:
-    """Orchestrates automated experiment runs for 5 swing strategies."""
+    """Orchestrates automated experiment runs for active swing strategies."""
 
     def __init__(
         self,
@@ -50,7 +49,6 @@ class SwingAutoHarness:
         self._atrss_data = None   # PortfolioData
         self._helix_data = None   # HelixPortfolioData
         self._breakout_data = None  # BreakoutPortfolioData
-        self._daily_data: dict[str, object] = {}  # symbol -> NumpyBars (for S5)
         self._unified_data = None  # UnifiedPortfolioData
 
         # Baseline scores keyed by strategy name
@@ -72,7 +70,7 @@ class SwingAutoHarness:
         """Run the full experiment pipeline.
 
         Args:
-            strategy_filter: "atrss", "helix", "breakout", "s5_pb", "s5_dual", or "all"
+            strategy_filter: "atrss", "helix", "breakout", "portfolio", or "all"
             experiment_ids: Specific experiment IDs to run (None = all)
             skip_robustness: Skip robustness checks for faster ablation scan
             resume: Skip experiments already in results.tsv
@@ -214,17 +212,6 @@ class SwingAutoHarness:
                 lambda: _load_breakout_data(breakout_symbols, self.data_dir),
             )
 
-        # S5 data (daily only)
-        if _all or strategy_filter in ("s5_pb", "s5_dual"):
-            t = time.time()
-            s5_symbols = list(set(["IBIT", "GLD"]))
-            for sym in s5_symbols:
-                daily_path = self.data_dir / f"{sym}_1d.parquet"
-                if daily_path.exists():
-                    d_df = normalize_timezone(load_bars(daily_path))
-                    self._daily_data[sym] = build_numpy_arrays(d_df)
-            print(f"  S5 ({','.join(s5_symbols)}): {time.time() - t:.1f}s")
-
         # Unified data (for portfolio experiments)
         if _all or strategy_filter == "portfolio":
             # Portfolio needs all per-strategy data loaded first
@@ -235,12 +222,6 @@ class SwingAutoHarness:
                     self._helix_data = _load_helix_data(self._get_helix_symbols(), self.data_dir)
                 if self._breakout_data is None:
                     self._breakout_data = _load_breakout_data(self._get_breakout_symbols(), self.data_dir)
-                if not self._daily_data:
-                    for sym in ["IBIT", "GLD"]:
-                        daily_path = self.data_dir / f"{sym}_1d.parquet"
-                        if daily_path.exists():
-                            d_df = normalize_timezone(load_bars(daily_path))
-                            self._daily_data[sym] = build_numpy_arrays(d_df)
             self._load_unified_data()
 
     def _load_unified_data(self) -> None:
@@ -275,7 +256,6 @@ class SwingAutoHarness:
             self._unified_data.daily = {
                 **getattr(self._atrss_data, 'daily', {}),
                 **getattr(self._helix_data, 'daily', {}),
-                **self._daily_data,
             }
 
     # ------------------------------------------------------------------
@@ -296,7 +276,7 @@ class SwingAutoHarness:
             from strategy_2.config import SYMBOLS
             return list(SYMBOLS)
         except ImportError:
-            return ["QQQ", "GLD", "IBIT"]
+            return ["QQQ", "GLD"]
 
     @staticmethod
     def _get_breakout_symbols() -> list[str]:
@@ -304,7 +284,7 @@ class SwingAutoHarness:
             from strategy_3.config import SYMBOLS
             return list(SYMBOLS)
         except ImportError:
-            return ["QQQ", "GLD", "IBIT"]
+            return ["QQQ", "GLD"]
 
     # ------------------------------------------------------------------
     # Baselines
@@ -493,10 +473,6 @@ class SwingAutoHarness:
             return self._run_helix(config)
         elif strategy == "breakout":
             return self._run_breakout(config)
-        elif strategy == "s5_pb":
-            return self._run_s5(config, ["IBIT"])
-        elif strategy == "s5_dual":
-            return self._run_s5(config, ["GLD", "IBIT"])
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 
@@ -619,38 +595,6 @@ class SwingAutoHarness:
         eq, ts = self._merge_equity(equity_curves, timestamps_all)
         return all_trades, eq, ts
 
-    def _run_s5(self, config, symbols: list[str]) -> tuple[list, np.ndarray, np.ndarray]:
-        """Run S5Engine per symbol, merge results."""
-        from backtests.swing.engine.s5_engine import S5Engine
-        try:
-            from strategy_4.config import SYMBOL_CONFIGS as S5_CONFIGS
-        except ImportError:
-            S5_CONFIGS = {}
-
-        all_trades = []
-        equity_curves = []
-        timestamps_all = []
-
-        for sym in symbols:
-            daily = self._daily_data.get(sym)
-            if daily is None:
-                continue
-
-            cfg = S5_CONFIGS.get(sym)
-            if cfg is None:
-                continue
-
-            engine = S5Engine(symbol=sym, cfg=cfg, bt_config=config)
-            engine.run(daily)
-
-            all_trades.extend(engine.trades)
-            if engine.equity_curve:
-                equity_curves.append(np.array(engine.equity_curve))
-                timestamps_all.append(np.array(engine.timestamps))
-
-        eq, ts = self._merge_equity(equity_curves, timestamps_all)
-        return all_trades, eq, ts
-
     # ------------------------------------------------------------------
     # Config factories
     # ------------------------------------------------------------------
@@ -678,24 +622,6 @@ class SwingAutoHarness:
                 data_dir=self.data_dir,
                 symbols=self._get_breakout_symbols(),
             )
-        elif strategy == "s5_pb":
-            from backtests.swing.config_s5 import S5BacktestConfig
-            return S5BacktestConfig(
-                initial_equity=self.initial_equity,
-                data_dir=self.data_dir,
-                symbols=["IBIT"],
-                entry_mode="pullback",
-                shorts_enabled=False,
-            )
-        elif strategy == "s5_dual":
-            from backtests.swing.config_s5 import S5BacktestConfig
-            return S5BacktestConfig(
-                initial_equity=self.initial_equity,
-                data_dir=self.data_dir,
-                symbols=["GLD", "IBIT"],
-                entry_mode="dual",
-                shorts_enabled=False,
-            )
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 
@@ -714,8 +640,6 @@ class SwingAutoHarness:
             return mutate_helix_config(base, mutations)
         elif strategy == "breakout":
             return mutate_breakout_config(base, mutations)
-        elif strategy in ("s5_pb", "s5_dual"):
-            return mutate_s5_config(base, mutations)
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 
@@ -828,8 +752,7 @@ class SwingAutoHarness:
         """Collect trades from a UnifiedPortfolioResult."""
         all_trades = []
         # Direct trade lists on the result object
-        for attr in ('atrss_trades', 'helix_trades', 'breakout_trades',
-                     's5_pb_trades', 's5_dual_trades'):
+        for attr in ('atrss_trades', 'helix_trades', 'breakout_trades'):
             trades = getattr(result, attr, [])
             if isinstance(trades, list):
                 all_trades.extend(trades)

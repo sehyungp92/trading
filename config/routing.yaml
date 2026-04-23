@@ -71,5 +71,4 @@ GLD:
 IBIT:
   root_symbol: IBIT
   exchange: SMART
-  primary_exchange: NASDAQ
-
+  primary_exchange: LSEETF

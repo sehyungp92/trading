@@ -29,7 +29,7 @@ class ParamRange:
         return value
 
 
-_BTC_SYMS = {"MBT", "BT", "IBIT", "BRR"}
+_BTC_SYMS = {"MBT", "BT", "BRR"}
 
 
 def _build_per_symbol_ranges() -> list[ParamRange]:

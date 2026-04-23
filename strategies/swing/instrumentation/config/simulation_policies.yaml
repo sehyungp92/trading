@@ -38,29 +38,6 @@ simulation_policies:
     sl_value: 1.0
     max_hold_bars: 100
 
-  # Keltner S5_PB and S5_DUAL
-  S5_PB:
-    entry_fill_model: next_trade
-    slippage_model: fixed_bps
-    slippage_bps: 3
-    fees_included: true
-    fee_bps: 2
-    tp_sl_logic: atr_based
-    tp_value: 1.5
-    sl_value: 1.0
-    max_hold_bars: 80
-
-  S5_DUAL:
-    entry_fill_model: next_trade
-    slippage_model: fixed_bps
-    slippage_bps: 3
-    fees_included: true
-    fee_bps: 2
-    tp_sl_logic: atr_based
-    tp_value: 1.5
-    sl_value: 1.0
-    max_hold_bars: 80
-
   # BRS: bear regime swing (short-biased)
   BRS_R9:
     entry_fill_model: next_trade

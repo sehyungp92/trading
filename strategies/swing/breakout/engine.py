@@ -197,8 +197,17 @@ class BreakoutEngine:
         self._event_task = asyncio.create_task(self._process_events(event_queue))
 
         # Resolve ETF contracts
+        cf = getattr(self._ib, "_contract_factory", None)
         for sym, cfg in self._config.items():
             try:
+                if cf is not None:
+                    contract, _ = await cf.resolve(
+                        sym,
+                        cfg.contract_expiry,
+                        instrument=self._instruments.get(sym),
+                    )
+                    self.contracts[sym] = contract
+                    continue
                 from ib_async import Stock
                 contract = Stock(sym, cfg.exchange, "USD")
                 qualified = await self._ib.ib.qualifyContractsAsync(contract)

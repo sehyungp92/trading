@@ -13,10 +13,10 @@ def _helix_symbols() -> list[str]:
         from strategy_2.config import SYMBOLS
         return list(SYMBOLS)
     except ImportError:
-        return ["QQQ", "USO", "GLD", "IBIT"]
+        return ["QQQ", "GLD"]
 
 
-_BTC_SYMS = {"MBT", "BT", "IBIT", "BRR"}
+_BTC_SYMS = {"MBT", "BT", "BRR"}
 
 
 def _build_per_symbol_chandelier() -> list[ParamRange]:

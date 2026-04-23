@@ -269,7 +269,7 @@ class IBMarketDataSource:
     """Lightweight streaming bridge with periodic historical refresh support."""
 
     _BLACKLIST_ERRORS = frozenset({10089})
-    _TICK_BY_TICK_ERRORS = frozenset({10189})
+    _TICK_BY_TICK_ERRORS = frozenset({10189, 10190})
     _BLACKLIST_DURATION = timedelta(hours=1)
 
     def __init__(
@@ -285,6 +285,9 @@ class IBMarketDataSource:
         self._on_bar = on_bar
         self._contracts: dict[str, Any] = {}
         self._builders: dict[str, _MinuteAccumulator] = {}
+        self._logical_symbol_by_conid: dict[int, str] = {}
+        self._logical_symbol_by_broker_symbol: dict[str, str] = {}
+        self._tick_by_tick_disabled: set[str] = set()
         self._poll_budget = RateBudget(rate_per_second=2.0, burst=4.0)
         self._snapshot_cache = SnapshotCache()
         self._last_history_end: dict[str, datetime] = {}
@@ -312,6 +315,9 @@ class IBMarketDataSource:
         self._builders.clear()
         self._last_history_end.clear()
         self._blacklisted.clear()
+        self._logical_symbol_by_conid.clear()
+        self._logical_symbol_by_broker_symbol.clear()
+        self._tick_by_tick_disabled.clear()
 
     def _remove_symbol(self, symbol: str) -> None:
         contract = self._contracts.pop(symbol, None)
@@ -320,10 +326,62 @@ class IBMarketDataSource:
             self._ib.cancelTickByTickData(contract, "BidAsk")
             self._ib.cancelMktData(contract)
         self._builders.pop(symbol, None)
+        for con_id, logical_symbol in list(self._logical_symbol_by_conid.items()):
+            if logical_symbol == symbol:
+                self._logical_symbol_by_conid.pop(con_id, None)
+        for broker_symbol, logical_symbol in list(self._logical_symbol_by_broker_symbol.items()):
+            if logical_symbol == symbol:
+                self._logical_symbol_by_broker_symbol.pop(broker_symbol, None)
+
+    def _register_contract_symbol(self, logical_symbol: str, contract) -> None:
+        con_id = int(getattr(contract, "conId", 0) or 0)
+        if con_id:
+            self._logical_symbol_by_conid[con_id] = logical_symbol
+        broker_symbol = str(getattr(contract, "symbol", "") or "").upper()
+        if broker_symbol:
+            self._logical_symbol_by_broker_symbol[broker_symbol] = logical_symbol
+
+    def _resolve_symbol(self, contract) -> str:
+        logical_symbol = self._factory.logical_symbol_for_contract(contract)
+        if logical_symbol:
+            return logical_symbol.upper()
+        con_id = int(getattr(contract, "conId", 0) or 0) if contract is not None else 0
+        if con_id and con_id in self._logical_symbol_by_conid:
+            return self._logical_symbol_by_conid[con_id]
+        broker_symbol = str(getattr(contract, "symbol", "") or "").upper() if contract else ""
+        if broker_symbol in self._logical_symbol_by_broker_symbol:
+            return self._logical_symbol_by_broker_symbol[broker_symbol]
+        return broker_symbol
+
+    def _disable_tick_by_tick(self, symbol: str, *, error_code: int, error_string: str, contract) -> None:
+        tracked_contract = self._contracts.get(symbol) or contract
+        self._tick_by_tick_disabled.add(symbol)
+        if tracked_contract is not None:
+            try:
+                self._ib.cancelTickByTickData(tracked_contract, "Last")
+            except Exception:
+                pass
+            try:
+                self._ib.cancelTickByTickData(tracked_contract, "BidAsk")
+            except Exception:
+                pass
+        logger.warning(
+            "Tick-by-tick unavailable for %s (code %d), continuing with reqMktData only: %s",
+            symbol,
+            error_code,
+            error_string,
+        )
 
     def _on_ib_error(self, reqId: int, errorCode: int, errorString: str, contract) -> None:
-        symbol = getattr(contract, "symbol", "").upper() if contract else ""
+        symbol = self._resolve_symbol(contract)
         if errorCode in self._TICK_BY_TICK_ERRORS:
+            if symbol and symbol in self._contracts and symbol not in self._tick_by_tick_disabled:
+                self._disable_tick_by_tick(
+                    symbol,
+                    error_code=errorCode,
+                    error_string=errorString,
+                    contract=contract,
+                )
             return
         if errorCode not in self._BLACKLIST_ERRORS or not symbol:
             return
@@ -346,10 +404,12 @@ class IBMarketDataSource:
                 del self._blacklisted[symbol]
             contract, _ = await self._factory.resolve(symbol=instrument.root or instrument.symbol, instrument=instrument)
             self._contracts[symbol] = contract
+            self._register_contract_symbol(symbol, contract)
             self._builders[symbol] = _MinuteAccumulator()
             self._ib.reqMktData(contract)
-            self._ib.reqTickByTickData(contract, "Last")
-            self._ib.reqTickByTickData(contract, "BidAsk")
+            if symbol not in self._tick_by_tick_disabled:
+                self._ib.reqTickByTickData(contract, "Last")
+                self._ib.reqTickByTickData(contract, "BidAsk")
 
     async def request_recent_bars(self, instrument: Instrument, duration: str = "1 D") -> list[Bar]:
         contract, _ = await self._factory.resolve(symbol=instrument.root or instrument.symbol, instrument=instrument)
@@ -408,7 +468,7 @@ class IBMarketDataSource:
         now = datetime.now(timezone.utc)
         for ticker in tickers:
             contract = getattr(ticker, "contract", None)
-            symbol = getattr(contract, "symbol", "").upper()
+            symbol = self._resolve_symbol(contract)
             if symbol not in self._contracts:
                 continue
             bid = float(getattr(ticker, "bid", 0.0) or 0.0)

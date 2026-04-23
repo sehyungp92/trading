@@ -105,8 +105,8 @@ def _make_active_configs(
         cfg.symbol_risk_multipliers = {f"ATRSS:GLD": m}
         configs.append((label, cfg))
 
-    # Helix: sweep one dimension at a time (QQQ, GLD, IBIT)
-    for sym in ["QQQ", "GLD", "IBIT"]:
+    # Helix: sweep one dimension at a time
+    for sym in ["QQQ", "GLD"]:
         for m in multipliers:
             if m == 1.0:
                 continue

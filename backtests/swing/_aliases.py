@@ -5,7 +5,6 @@ ALIASES: dict[str, str] = {
     "strategy": "strategies.swing.atrss",
     "strategy_2": "strategies.swing.akc_helix",
     "strategy_3": "strategies.swing.breakout",
-    "strategy_4": "strategies.swing.keltner",
     "backtest": "backtests.swing",
 }
 

@@ -217,7 +217,7 @@ def _volatility_experiments() -> list[tuple[str, dict]]:
 
 
 def _structural_experiments() -> list[tuple[str, dict]]:
-    """~10 STRUCTURAL experiments: regime relaxation, quality gates, IBIT add-back."""
+    """~10 STRUCTURAL experiments: regime relaxation, quality gates, stop logic."""
     exps = []
     # Regime bear min conditions (only 2 is meaningful; 3 is a no-op since
     # bear_conds==3 already returns BEAR_TREND before the BEAR_FORMING check)
@@ -231,9 +231,6 @@ def _structural_experiments() -> list[tuple[str, dict]]:
     exps.append(("struct_bear2_crash", {
         "regime_bear_min_conditions": 2,
     }))
-    # IBIT add-back experiment (test if new signals make IBIT viable)
-    exps.append(("struct_add_ibit", {"symbols": ["QQQ", "GLD", "IBIT"]}))
-
     # Minimum hold time sweep (Change #4)
     for val in [0, 2, 3, 4, 5]:
         exps.append((f"struct_min_hold_{val}", {"min_hold_bars": val}))

@@ -46,6 +46,8 @@ class OrderTimeoutMonitor:
         self._scan_interval_s = scan_interval_s
         self._task: asyncio.Task | None = None
         self._running = False
+        self._db_timeout_streak = 0
+        self._db_degraded = False
 
     async def start(self) -> None:
         if self._running:
@@ -72,14 +74,38 @@ class OrderTimeoutMonitor:
         while self._running:
             try:
                 await self._scan_stuck_orders()
+                if self._db_degraded:
+                    logger.info(
+                        "OMS timeout monitor database connectivity recovered after %d consecutive timeouts",
+                        self._db_timeout_streak,
+                    )
+                self._db_timeout_streak = 0
+                self._db_degraded = False
                 backoff = self._scan_interval_s  # reset on success
                 await asyncio.sleep(self._scan_interval_s)
             except asyncio.CancelledError:
                 break
             except Exception as e:
+                if self._is_db_timeout(e):
+                    self._db_timeout_streak += 1
+                    if self._db_timeout_streak >= 3 and not self._db_degraded:
+                        self._db_degraded = True
+                        logger.error(
+                            "OMS timeout monitor degraded: repeated database acquire timeouts (%d consecutive)",
+                            self._db_timeout_streak,
+                        )
                 logger.warning("Timeout monitor error (retry in %.0fs): %s", backoff, e)
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 60.0)
+
+    @staticmethod
+    def _is_db_timeout(exc: Exception) -> bool:
+        current: BaseException | None = exc
+        while current is not None:
+            if isinstance(current, TimeoutError):
+                return True
+            current = current.__cause__ or current.__context__
+        return False
 
     async def _scan_stuck_orders(self) -> None:
         now = datetime.now(timezone.utc)
@@ -95,9 +121,9 @@ class OrderTimeoutMonitor:
                     )
                     if transition(order, OrderStatus.CANCELLED):
                         order.last_update_at = now
-                        await self._repo.save_order(order)
-                        await self._repo.save_event(
-                            order.oms_order_id, "TIMEOUT_CANCELLED",
+                        await self._repo.save_order_and_event(
+                            order,
+                            "TIMEOUT_CANCELLED",
                             {"reason": "routed_timeout", "timeout_s": self._routed_timeout_s},
                         )
                         self._bus.emit_order_event(order)
@@ -111,9 +137,9 @@ class OrderTimeoutMonitor:
                     )
                     if transition(order, OrderStatus.CANCELLED):
                         order.last_update_at = now
-                        await self._repo.save_order(order)
-                        await self._repo.save_event(
-                            order.oms_order_id, "TIMEOUT_CANCELLED",
+                        await self._repo.save_order_and_event(
+                            order,
+                            "TIMEOUT_CANCELLED",
                             {"reason": "cancel_timeout", "timeout_s": self._cancel_timeout_s},
                         )
                         self._bus.emit_order_event(order)

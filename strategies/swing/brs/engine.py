@@ -162,15 +162,27 @@ class BRSLiveEngine:
         self._exec = BRSExecutionEngine(self._oms, self._instruments_map)
 
         # 1. Qualify ETF contracts
-        from ib_async import Stock
+        cf = getattr(self.ib, "_contract_factory", None)
         for sym in self._symbols:
-            contract = Stock(sym, "SMART", "USD")
-            qualified = await self.ib.ib.qualifyContractsAsync(contract)
-            if qualified:
-                self._contracts[sym] = qualified[0]
-                logger.info("Qualified contract: %s", sym)
-            else:
-                logger.error("Failed to qualify: %s", sym)
+            try:
+                if cf is not None:
+                    contract, _ = await cf.resolve(
+                        sym,
+                        instrument=self._instruments_map.get(sym),
+                    )
+                    self._contracts[sym] = contract
+                    logger.info("Qualified contract: %s", sym)
+                    continue
+                from ib_async import Stock
+                contract = Stock(sym, "SMART", "USD")
+                qualified = await self.ib.ib.qualifyContractsAsync(contract)
+                if qualified:
+                    self._contracts[sym] = qualified[0]
+                    logger.info("Qualified contract: %s", sym)
+                else:
+                    logger.error("Failed to qualify: %s", sym)
+            except Exception:
+                logger.exception("Failed to qualify: %s", sym)
 
         # 2. Subscribe to historical bars (6 streams: 3 TF x 2 symbols)
         bar_specs = [

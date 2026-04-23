@@ -48,7 +48,7 @@ strategies:
     enabled: true
     paper_mode: false
     asset_class: mixed
-    symbols: [QQQ, GLD, IBIT]
+    symbols: [QQQ, GLD]
     risk:
       unit_risk_dollars: 200.0
       daily_stop_R: 2.5
@@ -83,62 +83,6 @@ strategies:
       priority: 3
     allocation:
       base_risk_pct: 0.008
-    dashboard_metadata:
-      system_label: "Swing Trader"
-      short_label: "SWING"
-      color_key: "blue"
-    deployment_tags: [live, paper, swing]
-
-  S5_PB:
-    strategy_id: S5_PB
-    system_id: swing_trader
-    family: swing
-    connection_group: default
-    display_name: "S5 Pullback"
-    module_path: "strategies.swing.keltner.plugin"
-
-    enabled: true
-    paper_mode: false
-    asset_class: mixed
-    symbols: [IBIT]
-    engine_config:
-      strategy_id_override: S5_PB
-    risk:
-      unit_risk_dollars: 200.0
-      daily_stop_R: 2.0
-      max_working_orders: 2
-      max_heat_R: 2.00
-      priority: 1
-    allocation:
-      base_risk_pct: 0.012
-    dashboard_metadata:
-      system_label: "Swing Trader"
-      short_label: "SWING"
-      color_key: "blue"
-    deployment_tags: [live, paper, swing]
-
-  S5_DUAL:
-    strategy_id: S5_DUAL
-    system_id: swing_trader
-    family: swing
-    connection_group: default
-    display_name: "S5 Dual"
-    module_path: "strategies.swing.keltner.plugin"
-
-    enabled: true
-    paper_mode: false
-    asset_class: mixed
-    symbols: [GLD, IBIT]
-    engine_config:
-      strategy_id_override: S5_DUAL
-    risk:
-      unit_risk_dollars: 200.0
-      daily_stop_R: 2.0
-      max_working_orders: 2
-      max_heat_R: 2.00
-      priority: 2
-    allocation:
-      base_risk_pct: 0.012
     dashboard_metadata:
       system_label: "Swing Trader"
       short_label: "SWING"

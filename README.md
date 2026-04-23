@@ -1,24 +1,22 @@
 # Trading Monorepo
 
-Systematic trading system running **14 strategies** across **3 families** — swing (ETFs), momentum (NQ futures), and stock (US equities) — on a single-VPS deployment with unified OMS, risk gateway, and instrumentation pipeline.
+Systematic trading system running **11 strategies** across **3 families** — swing (ETFs), momentum (NQ futures), and stock (US equities) — on a single-VPS deployment with unified OMS, risk gateway, and instrumentation pipeline.
 
 ---
 
 ## Strategy Families
 
-### Swing Family (6 strategies + overlay)
+### Swing Family (4 strategies + overlay)
 
-Trades ETFs (QQQ, GLD, IBIT) on hourly/daily timeframes. All strategies share a single OMS instance with coordinated position management.
+Trades ETFs (QQQ, GLD) on hourly/daily timeframes. All strategies share a single OMS instance with coordinated position management.
 
-| Strategy | Instruments | Edge |
-|----------|-------------|------|
-| **AKC Helix** | QQQ, GLD, IBIT | Trend-following with regime filtering across three uncorrelated ETFs. EMA-based trend alignment with ATR stops. |
-| **ATRSS** | QQQ, GLD | ATR-calibrated multi-leg breakout/reentry with chandelier trailing and stall detection. Quality gate filters low-conviction setups. |
-| **Swing Breakout** | QQQ, GLD | Campaign-based entries scored by AVWAP + multi-timeframe EMA alignment + displacement quantile. Only high-momentum, low-chop breakouts are taken. |
-| **S5 Dual** | GLD, IBIT | Dual-mode Keltner (breakout + pullback) across two low-correlation assets. |
-| **S5 Pullback** | IBIT | Keltner Channel pullback-to-trend entries confirmed by RSI + ROC + volume. Mean-reversion within an established trend. |
-| **BRS** | QQQ, GLD | Regime-gated multi-arm entry with 4H structural classification and daily bias alignment. Pyramiding with signal-confirmed adds. |
-| **Overlay** | QQQ, GLD | Deploys idle cash via daily EMA crossover rebalancing. Zero additional margin cost — uses capital not committed to swing risk. |
+| Strategy | Edge |
+|----------|------|
+| **AKC Helix** | Trend-following with regime filtering across two ETFs. EMA-based trend alignment with ATR stops. |
+| **ATRSS** | ATR-calibrated multi-leg breakout/reentry with chandelier trailing and stall detection. Quality gate filters low-conviction setups. |
+| **Swing Breakout** | Campaign-based entries scored by AVWAP + multi-timeframe EMA alignment + displacement quantile. Only high-momentum, low-chop breakouts are taken. |
+| **BRS** | Regime-gated multi-arm entry with 4H structural classification and daily bias alignment. Pyramiding with signal-confirmed adds. |
+| **Overlay** | Deploys idle cash via daily EMA crossover rebalancing. Zero additional margin cost — uses capital not committed to swing risk. |
 
 ### Momentum Family (4 strategies)
 
@@ -172,7 +170,7 @@ apps/
   relay/          # Webhook event ingestion (HMAC auth, rate limiting)
   dashboard/      # Next.js portfolio viewer
 strategies/
-  swing/          # 6 strategies + overlay + coordinator + instrumentation
+  swing/          # 4 strategies + overlay + coordinator + instrumentation
   momentum/       # 4 strategies + coordinator + instrumentation
   stock/          # 3 strategies + coordinator + instrumentation
 libs/

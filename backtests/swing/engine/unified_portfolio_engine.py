@@ -1,11 +1,11 @@
-"""Unified 5-strategy portfolio backtesting engine.
+"""Unified swing portfolio backtesting engine.
 
-Runs ATRSS, AKC-Helix, Swing Breakout v3.3, S5-PB (Keltner Pullback),
-and S5-Dual (Keltner Dual) under a single shared OMS simulation with
-portfolio-level heat caps, priority-aware reservation, per-strategy
-ceilings, and cross-strategy coordination.
+Runs ATRSS, Swing Breakout v3.3, and AKC-Helix under a single shared OMS
+simulation with portfolio-level heat caps, priority-aware reservation,
+per-strategy ceilings, and cross-strategy coordination.
 
-Mirrors the production setup in main_multi.py.
+BRS has its own backtest path; this engine mirrors the production priority
+order for the three shared-portfolio engines it simulates.
 """
 from __future__ import annotations
 
@@ -29,9 +29,6 @@ from strategy_3.models import (
     Direction as BreakoutDirection,
     PositionState as BreakoutPositionState,
 )
-
-from strategy_4.config import SYMBOL_CONFIGS as S5_SYMBOL_CONFIGS
-from backtest.engine.s5_engine import S5Engine
 
 from backtest.config_unified import UnifiedBacktestConfig, StrategySlot
 from backtest.data.preprocessing import (
@@ -99,7 +96,6 @@ def load_unified_data(config: UnifiedBacktestConfig) -> UnifiedPortfolioData:
     overlay_syms = config.overlay_symbols if config.overlay_enabled else []
     all_symbols = sorted(set(
         config.atrss_symbols + config.helix_symbols + config.breakout_symbols
-        + config.s5_pb_symbols + config.s5_dual_symbols
         + overlay_syms
     ))
 
@@ -415,8 +411,6 @@ class UnifiedPortfolioResult:
     atrss_trades: list = field(default_factory=list)
     helix_trades: list = field(default_factory=list)
     breakout_trades: list = field(default_factory=list)
-    s5_pb_trades: list = field(default_factory=list)
-    s5_dual_trades: list = field(default_factory=list)
     # Diagnostic event logs for portfolio diagnostics
     heat_rejections: list = field(default_factory=list)
     coordination_events: list = field(default_factory=list)
@@ -443,13 +437,10 @@ def _compute_open_risk(
     atrss_engines: dict[str, BacktestEngine],
     helix_engines: dict[str, HelixEngine],
     breakout_engines: dict[str, BreakoutEngine],
-    s5_pb_engines: dict[str, S5Engine] | None = None,
-    s5_dual_engines: dict[str, S5Engine] | None = None,
 ) -> dict[str, float]:
     """Returns {strategy_id: total_risk_dollars}."""
     risk: dict[str, float] = {
         "ATRSS": 0.0, "AKC_HELIX": 0.0, "SWING_BREAKOUT_V3": 0.0,
-        "S5_PB": 0.0, "S5_DUAL": 0.0,
     }
 
     for sym, eng in atrss_engines.items():
@@ -469,15 +460,6 @@ def _compute_open_risk(
         if pos is not None and pos.qty_open > 0:
             r = abs(pos.fill_price - pos.current_stop) * eng.point_value * pos.qty_open
             risk["SWING_BREAKOUT_V3"] += r
-
-    for strat_id, s5_dict in [("S5_PB", s5_pb_engines), ("S5_DUAL", s5_dual_engines)]:
-        if s5_dict is None:
-            continue
-        for sym, eng in s5_dict.items():
-            pos = eng.active_position
-            if pos is not None:
-                r = abs(pos.fill_price - pos.current_stop) * eng.point_value * pos.qty
-                risk[strat_id] += r
 
     return risk
 
@@ -975,34 +957,6 @@ def run_unified(
         eng._init_slot_medians(data.breakout_hourly[sym], config.warmup_hourly)
         breakout_engines[sym] = eng
 
-    # --- S5 engines ---
-    s5_pb_bt = config.build_s5_pb_config()
-    s5_dual_bt = config.build_s5_dual_config()
-
-    s5_pb_engines: dict[str, S5Engine] = {}
-    for sym in config.s5_pb_symbols:
-        s5cfg = S5_SYMBOL_CONFIGS.get(sym)
-        if s5cfg is None or sym not in data.daily:
-            continue
-        eng = S5Engine(
-            symbol=sym, cfg=s5cfg, bt_config=s5_pb_bt,
-            point_value=s5cfg.multiplier,
-        )
-        eng._precompute_indicators(data.daily[sym])
-        s5_pb_engines[sym] = eng
-
-    s5_dual_engines: dict[str, S5Engine] = {}
-    for sym in config.s5_dual_symbols:
-        s5cfg = S5_SYMBOL_CONFIGS.get(sym)
-        if s5cfg is None or sym not in data.daily:
-            continue
-        eng = S5Engine(
-            symbol=sym, cfg=s5cfg, bt_config=s5_dual_bt,
-            point_value=s5cfg.multiplier,
-        )
-        eng._precompute_indicators(data.daily[sym])
-        s5_dual_engines[sym] = eng
-
     if not atrss_engines and not helix_engines and not breakout_engines:
         logger.warning("No engines created — check symbols and data")
         return UnifiedPortfolioResult()
@@ -1083,8 +1037,7 @@ def run_unified(
     heat_tracker = PortfolioHeatTracker(
         heat_cap_R=config.heat_cap_R,
         portfolio_daily_stop_R=config.portfolio_daily_stop_R,
-        strategy_slots=[config.atrss, config.helix, config.breakout,
-                        config.s5_pb, config.s5_dual],
+        strategy_slots=[config.atrss, config.breakout, config.helix],
         equity=init_eq,
         simulate_live_r_normalization=config.simulate_live_r_normalization,
     )
@@ -1103,11 +1056,7 @@ def run_unified(
     overlay_rsi: dict[str, np.ndarray] = {}
     overlay_macd: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
     overlay_in_position: dict[str, bool] = {}
-    # Always build daily_date_idx (needed for S5 and optionally for overlay)
-    s5_all_syms = sorted(set(config.s5_pb_symbols + config.s5_dual_symbols))
-    daily_date_idx_syms = list(set(
-        (config.overlay_symbols if config.overlay_enabled else []) + s5_all_syms
-    ))
+    daily_date_idx_syms = list(set(config.overlay_symbols if config.overlay_enabled else []))
     daily_date_idx: dict[str, dict[date, int]] = _build_daily_date_index(data.daily, daily_date_idx_syms)
     if config.overlay_enabled:
         overlay_emas = _precompute_overlay_emas(data.daily, config)
@@ -1124,15 +1073,13 @@ def run_unified(
     # ATRSS and Helix: engine.equity starts at initial_equity, modified only by fills
     # Breakout: engine.equity is NOT set to portfolio_equity (avoid double-counting)
     prev_equity: dict[str, float] = {}
-    for label, engines in [("atrss", atrss_engines), ("helix", helix_engines), ("breakout", breakout_engines),
-                           ("s5_pb", s5_pb_engines), ("s5_dual", s5_dual_engines)]:
+    for label, engines in [("atrss", atrss_engines), ("helix", helix_engines), ("breakout", breakout_engines)]:
         for sym in engines:
             prev_equity[f"{label}_{sym}"] = init_eq
 
     # Track previous trade counts to detect actual trade closes
     prev_trade_counts: dict[str, int] = {}
-    for label, engines in [("atrss", atrss_engines), ("helix", helix_engines), ("breakout", breakout_engines),
-                           ("s5_pb", s5_pb_engines), ("s5_dual", s5_dual_engines)]:
+    for label, engines in [("atrss", atrss_engines), ("helix", helix_engines), ("breakout", breakout_engines)]:
         for sym in engines:
             prev_trade_counts[f"{label}_{sym}"] = 0
 
@@ -1140,7 +1087,7 @@ def run_unified(
     timestamps: list = []
     heat_samples: list[float] = []
     prev_date: date | None = None
-    blocked_entries: dict[str, int] = {"ATRSS": 0, "AKC_HELIX": 0, "SWING_BREAKOUT_V3": 0, "S5_PB": 0, "S5_DUAL": 0}
+    blocked_entries: dict[str, int] = {"ATRSS": 0, "AKC_HELIX": 0, "SWING_BREAKOUT_V3": 0}
     heat_rejection_log: list[dict] = []
     coordination_event_log: list[dict] = []
     daily_stop_activations = 0
@@ -1169,8 +1116,8 @@ def run_unified(
             # Overlay PnL is tracked separately so active engines don't see it
             # in their sizing equity.  Use overlay_last_daily (most recent
             # trading day with a daily bar) for MTM/rebalance.  Skip weekends
-            # and holidays where the hourly data has bars (e.g. IBIT crypto)
-            # but daily ETF data does not.
+            # and holidays where the hourly data has bars but daily ETF data
+            # does not.
             if config.overlay_enabled and prev_date in daily_date_idx.get(config.overlay_symbols[0], {}):
                 new_value = _compute_overlay_value(
                     overlay_shares, data.daily, daily_date_idx, prev_date,
@@ -1214,32 +1161,6 @@ def run_unified(
                                 _sv = new_sh * data.daily[_osym].closes[_sidx]
                     overlay_prev_sym_value[_osym] = _sv
                     overlay_prev_value += _sv
-
-            # === S5 daily-bar engines (step on daily boundary) ===
-            for strat_id, s5_engines_dict in [("S5_PB", s5_pb_engines), ("S5_DUAL", s5_dual_engines)]:
-                for sym, engine in s5_engines_dict.items():
-                    d_idx = daily_date_idx.get(sym, {}).get(prev_date)
-                    if d_idx is None:
-                        continue
-                    engine.sizing_equity = portfolio_equity
-                    had_position = engine.active_position is not None
-                    try:
-                        engine._step_bar(data.daily[sym], d_idx, warmup_d)
-                    except (OverflowError, ValueError):
-                        continue
-                    has_position = engine.active_position is not None
-                    if has_position and not had_position:
-                        pos = engine.active_position
-                        if skip_heat:
-                            ok, reason = True, ""
-                        else:
-                            risk_dollars = abs(pos.fill_price - pos.current_stop) * engine.point_value * pos.qty
-                            ok, reason = heat_tracker.can_enter(strat_id, risk_dollars)
-                        if not ok:
-                            blocked_entries[strat_id] += 1
-                            engine.force_flatten()
-                            if "daily stop" in reason.lower():
-                                daily_stop_activations += 1
 
         prev_date = current_date
 
@@ -1307,7 +1228,57 @@ def run_unified(
                             coordinator.tighten_count += 1
                             coordination_event_log.append({"time": _to_datetime(ts), "type": "tighten", "trigger_strategy": "ATRSS", "target_strategy": "AKC_HELIX", "symbol": tighten_sym})
 
-        # === Step 3: Helix engines (priority 1) ===
+        # === Step 3: Breakout engines (priority 3) ===
+        for sym, engine in breakout_engines.items():
+            key = f"breakout_{sym}"
+            bar_idx = time_sets[key].get(ts)
+            if bar_idx is None:
+                continue
+
+            # Breakout uses self.equity for both sizing and PnL tracking
+            # (no separate sizing_equity like ATRSS/Helix). In risk-based
+            # mode we inject portfolio equity for sizing, then extract the
+            # fill-caused PnL delta and restore independent tracking.
+            if not skip_heat:
+                saved_equity = engine.equity
+                engine.equity = portfolio_equity
+
+            had_position = engine.active_position is not None and engine.active_position.qty_open > 0
+
+            try:
+                engine._step_bar(
+                    data.daily[sym], data.breakout_hourly[sym],
+                    data.breakout_four_hour[sym],
+                    data.breakout_daily_idx_maps[sym],
+                    data.breakout_four_hour_idx_maps[sym],
+                    bar_idx, warmup_d, warmup_h, warmup_4h,
+                )
+            except (OverflowError, ValueError):
+                if not skip_heat:
+                    engine.equity = saved_equity
+                continue
+
+            # Restore independent equity: saved + fill PnL from this bar
+            if not skip_heat:
+                fill_pnl = engine.equity - portfolio_equity
+                engine.equity = saved_equity + fill_pnl
+
+            has_position = engine.active_position is not None and engine.active_position.qty_open > 0
+            if has_position and not had_position:
+                pos = engine.active_position
+                if skip_heat:
+                    ok, reason = True, ""
+                else:
+                    risk_dollars = abs(pos.fill_price - pos.current_stop) * engine.point_value * pos.qty_open
+                    ok, reason = heat_tracker.can_enter("SWING_BREAKOUT_V3", risk_dollars)
+                if not ok:
+                    blocked_entries["SWING_BREAKOUT_V3"] += 1
+                    heat_rejection_log.append({"time": _to_datetime(ts), "strategy": "SWING_BREAKOUT_V3", "reason": reason})
+                    _force_flatten_breakout(engine, pos)
+                    if "daily stop" in reason.lower():
+                        daily_stop_activations += 1
+
+        # === Step 4: Helix engines (priority 4) ===
         for sym, engine in helix_engines.items():
             key = f"helix_{sym}"
             bar_idx = time_sets[key].get(ts)
@@ -1352,65 +1323,13 @@ def run_unified(
                             coordinator.boost_count += 1
                             coordination_event_log.append({"time": _to_datetime(ts), "type": "boost", "trigger_strategy": "ATRSS", "target_strategy": "AKC_HELIX", "symbol": sym})
 
-        # === Step 4: Breakout engines (priority 2) ===
-        for sym, engine in breakout_engines.items():
-            key = f"breakout_{sym}"
-            bar_idx = time_sets[key].get(ts)
-            if bar_idx is None:
-                continue
-
-            # Breakout uses self.equity for both sizing and PnL tracking
-            # (no separate sizing_equity like ATRSS/Helix).  In risk-based
-            # mode we inject portfolio equity for sizing, then extract the
-            # fill-caused PnL delta and restore independent tracking.
-            if not skip_heat:
-                saved_equity = engine.equity
-                engine.equity = portfolio_equity
-
-            had_position = engine.active_position is not None and engine.active_position.qty_open > 0
-
-            try:
-                engine._step_bar(
-                    data.daily[sym], data.breakout_hourly[sym],
-                    data.breakout_four_hour[sym],
-                    data.breakout_daily_idx_maps[sym],
-                    data.breakout_four_hour_idx_maps[sym],
-                    bar_idx, warmup_d, warmup_h, warmup_4h,
-                )
-            except (OverflowError, ValueError):
-                if not skip_heat:
-                    engine.equity = saved_equity
-                continue
-
-            # Restore independent equity: saved + fill PnL from this bar
-            if not skip_heat:
-                fill_pnl = engine.equity - portfolio_equity
-                engine.equity = saved_equity + fill_pnl
-
-            has_position = engine.active_position is not None and engine.active_position.qty_open > 0
-            if has_position and not had_position:
-                pos = engine.active_position
-                if skip_heat:
-                    ok, reason = True, ""
-                else:
-                    risk_dollars = abs(pos.fill_price - pos.current_stop) * engine.point_value * pos.qty_open
-                    ok, reason = heat_tracker.can_enter("SWING_BREAKOUT_V3", risk_dollars)
-                if not ok:
-                    blocked_entries["SWING_BREAKOUT_V3"] += 1
-                    heat_rejection_log.append({"time": _to_datetime(ts), "strategy": "SWING_BREAKOUT_V3", "reason": reason})
-                    _force_flatten_breakout(engine, pos)
-                    if "daily stop" in reason.lower():
-                        daily_stop_activations += 1
-
         # === Step 5: Update portfolio equity from per-engine PnL deltas ===
         # Each engine's equity = initial_equity + cumulative realized PnL
         # Portfolio equity = initial_equity + sum of all engines' realized PnL
         for label, engines, strat_id in [
             ("atrss", atrss_engines, "ATRSS"),
-            ("helix", helix_engines, "AKC_HELIX"),
             ("breakout", breakout_engines, "SWING_BREAKOUT_V3"),
-            ("s5_pb", s5_pb_engines, "S5_PB"),
-            ("s5_dual", s5_dual_engines, "S5_DUAL"),
+            ("helix", helix_engines, "AKC_HELIX"),
         ]:
             for sym, eng in engines.items():
                 key = f"{label}_{sym}"
@@ -1428,8 +1347,7 @@ def run_unified(
                     prev_trade_counts[key] = n_trades
 
         # === Step 6: Update heat tracker ===
-        risk_by_strat = _compute_open_risk(atrss_engines, helix_engines, breakout_engines,
-                                           s5_pb_engines, s5_dual_engines)
+        risk_by_strat = _compute_open_risk(atrss_engines, helix_engines, breakout_engines)
         heat_tracker.update_open_risk(risk_by_strat)
 
         equity_curve.append(portfolio_equity + overlay_cumulative_pnl)
@@ -1443,18 +1361,6 @@ def run_unified(
         heat_samples.append(heat_R)
 
     _patch.__exit__(None, None, None)
-
-    # --- Flatten open S5 positions at end of data ---
-    for strat_id, s5_dict in [("S5_PB", s5_pb_engines), ("S5_DUAL", s5_dual_engines)]:
-        for sym, engine in s5_dict.items():
-            if engine.active_position is not None:
-                bars = data.daily[sym]
-                engine._flatten_position(
-                    engine.active_position,
-                    bars.closes[-1],
-                    engine._to_datetime(bars.times[-1]),
-                    "END_OF_DATA",
-                )
 
     # --- Final overlay settlement: MTM the last day's positions ---
     if config.overlay_enabled and prev_date is not None:
@@ -1501,21 +1407,11 @@ def run_unified(
     for eng in breakout_engines.values():
         all_breakout_trades.extend(eng.trades)
 
-    all_s5_pb_trades = []
-    for eng in s5_pb_engines.values():
-        all_s5_pb_trades.extend(eng.trades)
-
-    all_s5_dual_trades = []
-    for eng in s5_dual_engines.values():
-        all_s5_dual_trades.extend(eng.trades)
-
     strategy_results = {}
     for sid, trades, blocked in [
         ("ATRSS", all_atrss_trades, blocked_entries["ATRSS"]),
-        ("AKC_HELIX", all_helix_trades, blocked_entries["AKC_HELIX"]),
         ("SWING_BREAKOUT_V3", all_breakout_trades, blocked_entries["SWING_BREAKOUT_V3"]),
-        ("S5_PB", all_s5_pb_trades, blocked_entries["S5_PB"]),
-        ("S5_DUAL", all_s5_dual_trades, blocked_entries["S5_DUAL"]),
+        ("AKC_HELIX", all_helix_trades, blocked_entries["AKC_HELIX"]),
     ]:
         total_pnl = sum(t.pnl_dollars for t in trades)
         wins = sum(1 for t in trades if t.pnl_dollars > 0)
@@ -1544,8 +1440,6 @@ def run_unified(
         atrss_trades=all_atrss_trades,
         helix_trades=all_helix_trades,
         breakout_trades=all_breakout_trades,
-        s5_pb_trades=all_s5_pb_trades,
-        s5_dual_trades=all_s5_dual_trades,
         heat_rejections=heat_rejection_log,
         coordination_events=coordination_event_log,
     )
@@ -1645,7 +1539,7 @@ def print_unified_report(result: UnifiedPortfolioResult, config: UnifiedBacktest
     total_pnl = active_pnl + result.overlay_pnl
 
     print("\n" + "=" * 70)
-    print("UNIFIED 5-STRATEGY PORTFOLIO BACKTEST RESULTS")
+    print("UNIFIED SWING PORTFOLIO BACKTEST RESULTS")
     print("=" * 70)
     print(f"Initial Equity:  ${init_eq:,.2f}")
     print(f"Final Equity:    ${final_eq:,.2f}")
@@ -1687,7 +1581,7 @@ def print_unified_report(result: UnifiedPortfolioResult, config: UnifiedBacktest
     print(f"\n{'Per-Strategy Breakdown':}")
     print(f"{'Strategy':<22} {'Trades':>7} {'Win%':>6} {'PnL':>10} {'Total R':>8} {'Blocked':>8}")
     print("-" * 65)
-    for sid in ["ATRSS", "AKC_HELIX", "SWING_BREAKOUT_V3", "S5_PB", "S5_DUAL"]:
+    for sid in ["ATRSS", "SWING_BREAKOUT_V3", "AKC_HELIX"]:
         sr = result.strategy_results.get(sid)
         if sr is None:
             continue

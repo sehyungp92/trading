@@ -241,10 +241,10 @@ def sweep_symbol_weights(
 ) -> dict[str, float]:
     """Sweep per-symbol overlay weight allocation."""
     weight_sets = [
-        {"QQQ": 0.45, "GLD": 0.35, "IBIT": 0.20},  # current
-        {"QQQ": 0.40, "GLD": 0.45, "IBIT": 0.15},
-        {"QQQ": 0.35, "GLD": 0.50, "IBIT": 0.15},
-        {"QQQ": 0.50, "GLD": 0.50},                  # no IBIT
+        {"QQQ": 0.50, "GLD": 0.50},  # current
+        {"QQQ": 0.55, "GLD": 0.45},
+        {"QQQ": 0.45, "GLD": 0.55},
+        {"QQQ": 0.60, "GLD": 0.40},
     ]
     configs = []
     for ws in weight_sets:
@@ -369,7 +369,7 @@ def main() -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    # Load data once — use multi_overlay config to include IBIT
+    # Load data once using the unified multi-overlay configuration
     cfg = _base_multi(args.equity)
     cfg.data_dir = Path(args.data_dir)
     print("Loading data...")
@@ -382,7 +382,7 @@ def main() -> None:
     best_rsi_bull_min = 40.0
     best_macd_scores = (1.0, 0.6, 0.0, 0.3)
     best_min_alloc = 0.30
-    best_sym_weights = {"QQQ": 0.45, "GLD": 0.35, "IBIT": 0.20}
+    best_sym_weights = {"QQQ": 0.50, "GLD": 0.50}
 
     if args.phase in ("weights", "all"):
         best_weights = sweep_score_weights(args.equity, data)

@@ -672,9 +672,9 @@ class ALCBIntradayEngine:
         return round(fill_price, 2), slip_per_share
 
     def _consume_arms(self, state: _BreakoutArmState, entry_type: str) -> None:
-        if entry_type in {"OR_BREAKOUT", "COMBINED_BREAKOUT"}:
+        if entry_type in {"OR_BREAKOUT", "COMBINED_BREAKOUT", "OR_RECLAIM", "COMBINED_RECLAIM"}:
             state.or_armed = False
-        if entry_type in {"PDH_BREAKOUT", "COMBINED_BREAKOUT"}:
+        if entry_type in {"PDH_BREAKOUT", "COMBINED_BREAKOUT", "PDH_RECLAIM", "COMBINED_RECLAIM"}:
             state.pdh_armed = False
 
     def _update_rearm_state(
@@ -708,6 +708,80 @@ class ALCBIntradayEngine:
             pdh = item.daily_bars[-1].high
         if pdh > 0 and bar.close <= pdh:
             state.pdh_armed = True
+
+    @staticmethod
+    def _touched_reclaim_level(bar, level: float, tolerance_pct: float) -> bool:
+        if level <= 0:
+            return False
+        tolerance = abs(level) * max(0.0, tolerance_pct)
+        return bar.low <= level + tolerance and bar.close > level
+
+    def _reclaim_entry_type(
+        self,
+        bar,
+        recent_before: list,
+        *,
+        or_high: float,
+        pdh: float,
+        avwap: float,
+        above_or: bool,
+        above_pdh: bool,
+        bar_rvol: float,
+        cpr: float,
+        settings: StrategySettings,
+        ablation,
+    ) -> str | None:
+        mode = str(settings.reclaim_entry_mode or "off").lower()
+        if mode == "off":
+            return None
+        if bar_rvol < settings.reclaim_min_rvol or cpr < settings.reclaim_cpr_threshold:
+            return None
+        if avwap > 0 and settings.reclaim_max_avwap_premium_pct > 0:
+            avwap_premium = (bar.close - avwap) / avwap
+            if avwap_premium > settings.reclaim_max_avwap_premium_pct:
+                return None
+
+        lookback = max(1, int(settings.reclaim_lookback_bars))
+        recent = recent_before[-lookback:]
+        allow_or = "or" in mode
+        allow_pdh = "pdh" in mode
+        allow_avwap_ref = "avwap" in mode
+        tolerance = settings.reclaim_touch_tolerance_pct
+
+        had_or_break = bool(recent) and any(prev.close > or_high for prev in recent)
+        had_pdh_break = pdh > 0 and bool(recent) and any(prev.close > pdh for prev in recent)
+
+        avwap_reclaim = (
+            allow_avwap_ref
+            and avwap > 0
+            and self._touched_reclaim_level(bar, avwap, tolerance)
+        )
+        or_reclaim = (
+            allow_or
+            and above_or
+            and had_or_break
+            and (
+                self._touched_reclaim_level(bar, or_high, tolerance)
+                or (avwap_reclaim and bar.close > or_high)
+            )
+        )
+        pdh_reclaim = (
+            allow_pdh
+            and above_pdh
+            and had_pdh_break
+            and (
+                self._touched_reclaim_level(bar, pdh, tolerance)
+                or (avwap_reclaim and bar.close > pdh)
+            )
+        )
+
+        if or_reclaim and pdh_reclaim and ablation.use_combined_breakout:
+            return "COMBINED_RECLAIM"
+        if or_reclaim:
+            return "OR_RECLAIM"
+        if pdh_reclaim:
+            return "PDH_RECLAIM"
+        return None
 
     def _fill_pending_entry(
         self,
@@ -924,7 +998,23 @@ class ALCBIntradayEngine:
             and arm_state.pdh_armed
             and bar.close > pdh
         )
-        if above_or and above_pdh and ablation.use_combined_breakout:
+        if settings.reclaim_entry_mode != "off":
+            entry_type_str = self._reclaim_entry_type(
+                bar,
+                sb[:-1],
+                or_high=or_high,
+                pdh=pdh,
+                avwap=avwap,
+                above_or=above_or,
+                above_pdh=above_pdh,
+                bar_rvol=bar_rvol,
+                cpr=cpr,
+                settings=settings,
+                ablation=ablation,
+            )
+            if entry_type_str is None:
+                return
+        elif above_or and above_pdh and ablation.use_combined_breakout:
             entry_type_str = "COMBINED_BREAKOUT"
         elif above_or:
             entry_type_str = "OR_BREAKOUT"
@@ -934,7 +1024,7 @@ class ALCBIntradayEngine:
             return
 
         # Block COMBINED_BREAKOUT in Tier B when configured
-        if (entry_type_str == "COMBINED_BREAKOUT"
+        if (entry_type_str.startswith("COMBINED")
                 and settings.block_combined_regime_b
                 and regime_tier == "B"):
             if shadow:
@@ -1001,7 +1091,7 @@ class ALCBIntradayEngine:
             return
 
         # COMBINED_BREAKOUT quality gate (require higher score / RVOL for weaker entry type)
-        if ablation.use_combined_quality_gate and entry_type_str == "COMBINED_BREAKOUT":
+        if ablation.use_combined_quality_gate and entry_type_str.startswith("COMBINED"):
             if settings.combined_breakout_score_min > 0 and m_score < settings.combined_breakout_score_min:
                 _reject("combined_quality_score")
                 return
@@ -1022,7 +1112,7 @@ class ALCBIntradayEngine:
                     return
 
         # OR_BREAKOUT quality gate (require higher score / RVOL for OR entries)
-        if ablation.use_or_quality_gate and entry_type_str == "OR_BREAKOUT":
+        if ablation.use_or_quality_gate and entry_type_str in {"OR_BREAKOUT", "OR_RECLAIM"}:
             if settings.or_breakout_score_min > 0 and m_score < settings.or_breakout_score_min:
                 _reject("or_quality_score")
                 return
@@ -1125,7 +1215,7 @@ class ALCBIntradayEngine:
             prior_day_high=pdh,
             prior_day_low=pdl,
             prior_day_close=pdc,
-            breakout_level=or_high if "OR" in entry_type_str else pdh,
+            breakout_level=or_high if ("OR" in entry_type_str or entry_type_str.startswith("COMBINED")) else pdh,
             entry_type=entry_type_str,
             rvol_at_entry=bar_rvol,
             momentum_score=m_score,

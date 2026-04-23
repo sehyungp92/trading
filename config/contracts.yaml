@@ -139,12 +139,11 @@ GLD:
   primary_exchange: ARCA
 
 IBIT:
-  symbol: IBIT
+  symbol: IB1T
   sec_type: STK
   exchange: SMART
-  currency: USD
+  currency: GBP
   multiplier: 1.0
   tick_size: 0.01
   tick_value: 0.01
-  primary_exchange: NASDAQ
-
+  primary_exchange: LSEETF

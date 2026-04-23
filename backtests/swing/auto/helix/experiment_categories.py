@@ -9,12 +9,11 @@ from __future__ import annotations
 
 
 def _class_pruning_experiments() -> list[tuple[str, dict]]:
-    """6 CLASS_PRUNING experiments (Phase 1)."""
+    """5 CLASS_PRUNING experiments (Phase 1)."""
     return [
         ("prune_no_class_a", {"flags.disable_class_a": True}),
         ("prune_no_class_c", {"flags.disable_class_c": True}),
         ("prune_no_4h", {"flags.disable_class_a": True, "flags.disable_class_c": True}),
-        ("prune_no_ibit", {"symbols": ["QQQ", "GLD"]}),
         ("prune_d_only", {"flags.disable_class_a": True, "flags.disable_class_b": True, "flags.disable_class_c": True}),
         ("prune_no_class_b", {"flags.disable_class_b": True}),
     ]

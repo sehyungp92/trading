@@ -323,8 +323,8 @@ class HelixPlugin:
         base_config = HelixBacktestConfig(initial_equity=self.initial_equity, data_dir=self.data_dir)
         config = mutate_helix_config(base_config, mutations)
         if self._cached_data is None:
-            # Always load ALL default symbols so cache isn't stale when
-            # symbol-pruning mutations (e.g. prune_no_ibit) run first.
+            # Always load all default symbols so cache stays valid when
+            # symbol-pruning mutations run first.
             self._cached_data = load_helix_worker_data(base_config.symbols, base_config.data_dir)
 
         result = run_helix_independent(self._cached_data, config)

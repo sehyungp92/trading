@@ -196,22 +196,6 @@ _ETF_CONFIGS: dict[str, SymbolConfig] = {
         slip_max_dollars=0.05,
         slip_max_bps=5,
     ),
-    "IBIT": SymbolConfig(
-        symbol="IBIT",
-        is_etf=True, sec_type="STK",
-        tick_size=0.01, multiplier=1.0,
-        exchange="SMART", trading_class="",
-        futures_pair="BT",
-        entry_window_start_et="09:35",
-        entry_window_end_et="15:45",
-        max_spread_dollars=0.10,
-        max_spread_bps=10,
-        min_stop_floor_dollars=0.10,
-        max_contracts=1000,
-        chandelier_lookback=20,
-        slip_max_dollars=0.15,
-        slip_max_bps=15,
-    ),
 }
 
 # ---------------------------------------------------------------------------
@@ -223,7 +207,7 @@ _ALL_CONFIGS: dict[str, SymbolConfig] = {**_FUTURES_CONFIGS, **_ETF_CONFIGS}
 _SETS: dict[str, list[str]] = {
     "micro_futures": ["MNQ", "MCL", "MGC", "MBT"],
     "full_futures": ["NQ", "CL", "GC", "BT"],
-    "etf": ["QQQ", "GLD", "IBIT"],
+    "etf": ["QQQ", "GLD"],
     "all": list(_ALL_CONFIGS),
 }
 
@@ -468,7 +452,7 @@ NEWS_WINDOWS: dict[str, tuple[int, int]] = {
 # ---------------------------------------------------------------------------
 # Basket rule (spec s8.3)
 # ---------------------------------------------------------------------------
-BASKET_SYMBOLS: set[str] = {"NQ", "MNQ", "QQQ", "BT", "MBT", "IBIT"}
+BASKET_SYMBOLS: set[str] = {"NQ", "MNQ", "QQQ", "BT", "MBT"}
 BASKET_4H_SECOND_MULT: float = 0.60
 
 

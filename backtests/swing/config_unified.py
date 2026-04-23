@@ -26,24 +26,12 @@ class StrategySlot:
 # Raised heat_cap 2.0→3.0 unlocked 682 blocked entries, +54% total PnL,
 # Sharpe 1.24→1.52, ratio 72:28→58:42 overlay:active.
 # ATRSS(0): highest expectancy, always gets first fill.
-# S5_PB(1): 80% WR on IBIT, rare signals.
-# S5_DUAL(2): 70.7% WR on GLD+IBIT, fills IBIT coverage gap.
-# Breakout(3): expanded to QQQ/GLD/IBIT.
+# Breakout(3): rare signals, priority mostly matters under shared heat.
 # Helix(4): biggest beneficiary of heat unlock (87→323 trades, $1.5k→$6.5k).
 ATRSS_SLOT = StrategySlot(
     strategy_id="ATRSS", priority=0,
     unit_risk_pct=0.018, max_heat_R=1.50, daily_stop_R=2.0,
     max_working_orders=4,
-)
-S5_PB_SLOT = StrategySlot(
-    strategy_id="S5_PB", priority=1,
-    unit_risk_pct=0.012, max_heat_R=2.00, daily_stop_R=2.0,  # greedy v4: was 1.50
-    max_working_orders=2,
-)
-S5_DUAL_SLOT = StrategySlot(
-    strategy_id="S5_DUAL", priority=2,
-    unit_risk_pct=0.012, max_heat_R=2.00, daily_stop_R=2.0,  # greedy v4: was 1.50
-    max_working_orders=2,
 )
 BREAKOUT_SLOT = StrategySlot(
     strategy_id="SWING_BREAKOUT_V3", priority=3,
@@ -59,7 +47,7 @@ HELIX_SLOT = StrategySlot(
 
 @dataclass
 class UnifiedBacktestConfig:
-    """Top-level config for unified 5-strategy portfolio backtest."""
+    """Top-level config for the active unified swing portfolio backtest."""
 
     initial_equity: float = 10_000.0
     data_dir: Path = field(default_factory=lambda: Path("backtest/data/raw"))
@@ -69,8 +57,8 @@ class UnifiedBacktestConfig:
 
     # Symbol lists per strategy (defaults match production)
     atrss_symbols: list[str] = field(default_factory=lambda: ["QQQ", "GLD"])
-    helix_symbols: list[str] = field(default_factory=lambda: ["QQQ", "GLD", "IBIT"])
-    breakout_symbols: list[str] = field(default_factory=lambda: ["QQQ", "GLD", "IBIT"])
+    helix_symbols: list[str] = field(default_factory=lambda: ["QQQ", "GLD"])
+    breakout_symbols: list[str] = field(default_factory=lambda: ["QQQ", "GLD"])
 
     # Portfolio-level risk rules
     heat_cap_R: float = 3.0
@@ -78,10 +66,6 @@ class UnifiedBacktestConfig:
     atrss: StrategySlot = field(default_factory=lambda: ATRSS_SLOT)
     helix: StrategySlot = field(default_factory=lambda: HELIX_SLOT)
     breakout: StrategySlot = field(default_factory=lambda: BREAKOUT_SLOT)
-    s5_pb: StrategySlot = field(default_factory=lambda: S5_PB_SLOT)
-    s5_dual: StrategySlot = field(default_factory=lambda: S5_DUAL_SLOT)
-    s5_pb_symbols: list[str] = field(default_factory=lambda: ["IBIT"])
-    s5_dual_symbols: list[str] = field(default_factory=lambda: ["GLD", "IBIT"])
 
     # Cross-strategy coordination
     enable_atrss_helix_tighten: bool = True
@@ -120,7 +104,7 @@ class UnifiedBacktestConfig:
     overlay_macd_slow: int = 26
     overlay_macd_signal: int = 9
     overlay_macd_overrides: dict[str, dict] = field(default_factory=dict)
-    # Per-symbol MACD overrides: {"IBIT": {"fast": 8, "slow": 21, "signal": 7}} etc.
+    # Per-symbol MACD overrides: {"QQQ": {"fast": 8, "slow": 21, "signal": 7}} etc.
 
     # Multi-overlay scoring and sizing
     overlay_entry_score_min: float = 0.6   # minimum composite score to enter
@@ -157,8 +141,6 @@ class UnifiedBacktestConfig:
     atrss_param_overrides: dict = field(default_factory=dict)
     helix_param_overrides: dict = field(default_factory=dict)
     breakout_param_overrides: dict = field(default_factory=dict)
-    s5_pb_param_overrides: dict = field(default_factory=dict)
-    s5_dual_param_overrides: dict = field(default_factory=dict)
 
     def build_atrss_config(self) -> BacktestConfig:
         slippage = self.slippage
@@ -222,35 +204,6 @@ class UnifiedBacktestConfig:
             cfg = replace(cfg, param_overrides=merged)
         return cfg
 
-    def build_s5_pb_config(self) -> "S5BacktestConfig":
-        from backtest.config_s5 import S5BacktestConfig
-        cfg = S5BacktestConfig(
-            symbols=self.s5_pb_symbols,
-            initial_equity=self.initial_equity,
-            slippage=self.slippage,
-            data_dir=self.data_dir,
-            entry_mode="pullback", kelt_ema_period=10,
-            roc_period=5, atr_stop_mult=1.5,
-            risk_pct=self.s5_pb.unit_risk_pct,
-        )
-        if self.s5_pb_param_overrides:
-            cfg = replace(cfg, **self.s5_pb_param_overrides)
-        return cfg
-
-    def build_s5_dual_config(self) -> "S5BacktestConfig":
-        from backtest.config_s5 import S5BacktestConfig
-        cfg = S5BacktestConfig(
-            symbols=self.s5_dual_symbols,
-            initial_equity=self.initial_equity,
-            slippage=self.slippage,
-            data_dir=self.data_dir,
-            entry_mode="dual", kelt_ema_period=15,
-            shorts_enabled=False, rsi_entry_long=45.0,
-            risk_pct=self.s5_dual.unit_risk_pct,
-        )
-        if self.s5_dual_param_overrides:
-            cfg = replace(cfg, **self.s5_dual_param_overrides)
-        return cfg
 
 
 # ---------------------------------------------------------------------------
@@ -384,10 +337,8 @@ def make_optimized_v1(equity: float) -> UnifiedBacktestConfig:
         heat_cap_R=2.0,
         portfolio_daily_stop_R=3.0,
         atrss=_slot("ATRSS", 0, 0.012, 1.0, 2.0),
-        s5_pb=_slot("S5_PB", 1, 0.008, 1.5, 2.0, mwo=2),
-        s5_dual=_slot("S5_DUAL", 2, 0.008, 1.5, 2.0, mwo=2),
-        breakout=_slot("SWING_BREAKOUT_V3", 3, 0.005, 0.65, 2.0, mwo=2),
-        helix=_slot("AKC_HELIX", 4, 0.005, 0.85, 2.5),
+        breakout=_slot("SWING_BREAKOUT_V3", 1, 0.005, 0.65, 2.0, mwo=2),
+        helix=_slot("AKC_HELIX", 2, 0.005, 0.85, 2.5),
         breakout_symbols=["QQQ", "GLD"],
     )
 
@@ -396,8 +347,7 @@ def make_multi_overlay(equity: float) -> UnifiedBacktestConfig:
     """Multi-overlay: EMA+RSI+MACD scoring with adaptive sizing on QQQ/GLD (optimized).
 
     Uses the optimized_v1 active strategy parameters with the enhanced
-    multi-indicator overlay for idle capital deployment. Parameter sweep
-    (Feb 19) found 50/50 QQQ/GLD allocation (no IBIT) achieves best Sharpe (1.22).
+    multi-indicator overlay for idle capital deployment.
     """
     return UnifiedBacktestConfig(
         initial_equity=equity,
@@ -422,40 +372,19 @@ def make_multi_overlay(equity: float) -> UnifiedBacktestConfig:
     )
 
 
-def make_f1_breakout_expansion(equity: float) -> UnifiedBacktestConfig:
-    """F1: Add IBIT to Breakout symbols."""
-    return UnifiedBacktestConfig(
-        initial_equity=equity,
-        heat_cap_R=1.5,
-        portfolio_daily_stop_R=3.0,
-        atrss=_slot("ATRSS", 0, 0.01, 1.0, 2.0),
-        helix=_slot("AKC_HELIX", 2, 0.005, 0.85, 2.5),
-        breakout=_slot("SWING_BREAKOUT_V3", 1, 0.005, 0.65, 2.0, mwo=2),
-        breakout_symbols=["QQQ", "GLD", "IBIT"],
-        overlay_ema_overrides={},
-    )
-
-
 def make_live_parity(equity: float) -> UnifiedBacktestConfig:
     """Live parity: greedy v4 optimized defaults (Mar 25).
 
     Uses default StrategySlot values:
       ATRSS(0)  URD 1.8%  max_heat 1.50R  daily_stop 2.0R
-      S5_PB(1)  URD 1.2%  max_heat 2.00R  daily_stop 2.0R
-      S5_DUAL(2) URD 1.2% max_heat 2.00R  daily_stop 2.0R
-      Breakout(3) URD 0.8% max_heat 1.50R daily_stop 2.0R  (+IBIT)
+      Breakout(3) URD 0.8% max_heat 1.50R daily_stop 2.0R
       Helix(4)  URD 0.8%  max_heat 1.20R  daily_stop 2.5R
       heat_cap_R=3.0, portfolio_daily_stop_R=4.0
-    Greedy v4 mutations: stall_exit disabled, S5_DUAL trail/stop,
-    breakout score_threshold=0, regime_chop_block=False.
+    Greedy v4 mutation retained here: ATRSS stall_exit disabled.
     """
     return UnifiedBacktestConfig(
         initial_equity=equity,
         atrss_flags=AblationFlags(stall_exit=False),  # greedy v4
-        s5_dual_param_overrides={                      # greedy v4
-            "trail_atr_mult": 2.0,
-            "atr_stop_mult": 1.5,
-        },
     )
 
 
@@ -485,18 +414,15 @@ def make_p2_aggressive_active(equity: float) -> UnifiedBacktestConfig:
     """P2: Maximum active push — highest risk on proven strategies.
 
     Pushes active allocation to the limit with aggressive sizing on
-    high-expectancy strategies (ATRSS, S5) and moderate Helix increase.
+    high-expectancy strategies and moderate Helix increase.
     """
     return UnifiedBacktestConfig(
         initial_equity=equity,
         heat_cap_R=3.5,
         portfolio_daily_stop_R=4.5,
         atrss=_slot("ATRSS", 0, 0.020, 1.8, 2.0),
-        s5_pb=_slot("S5_PB", 1, 0.015, 2.5, 2.0, mwo=2),
-        s5_dual=_slot("S5_DUAL", 2, 0.015, 2.5, 2.0, mwo=2),
-        breakout=_slot("SWING_BREAKOUT_V3", 3, 0.010, 1.2, 2.0, mwo=2),
-        helix=_slot("AKC_HELIX", 4, 0.006, 1.0, 2.5),
-        breakout_symbols=["QQQ", "GLD", "IBIT"],
+        breakout=_slot("SWING_BREAKOUT_V3", 1, 0.010, 1.2, 2.0, mwo=2),
+        helix=_slot("AKC_HELIX", 2, 0.006, 1.0, 2.5),
         symbol_risk_multipliers={
             "ATRSS:QQQ": 1.3,
             "ATRSS:GLD": 1.3,
@@ -515,10 +441,8 @@ def make_p3_balanced_split(equity: float) -> UnifiedBacktestConfig:
         heat_cap_R=2.5,
         portfolio_daily_stop_R=3.5,
         atrss=_slot("ATRSS", 0, 0.015, 1.2, 2.0),
-        s5_pb=_slot("S5_PB", 1, 0.010, 1.5, 2.0, mwo=2),
-        s5_dual=_slot("S5_DUAL", 2, 0.010, 1.5, 2.0, mwo=2),
-        breakout=_slot("SWING_BREAKOUT_V3", 3, 0.007, 0.65, 2.0, mwo=2),
-        helix=_slot("AKC_HELIX", 4, 0.007, 1.0, 2.5),
+        breakout=_slot("SWING_BREAKOUT_V3", 1, 0.007, 0.65, 2.0, mwo=2),
+        helix=_slot("AKC_HELIX", 2, 0.007, 1.0, 2.5),
         overlay_max_pct=0.65,
     )
 
@@ -534,11 +458,9 @@ def make_p4_multiplier_boost(equity: float) -> UnifiedBacktestConfig:
         heat_cap_R=3.0,
         portfolio_daily_stop_R=4.0,
         atrss=_slot("ATRSS", 0, 0.015, 1.5, 2.0),
-        breakout_symbols=["QQQ", "GLD", "IBIT"],
         symbol_risk_multipliers={
             "ATRSS:QQQ": 1.5,
             "ATRSS:GLD": 1.3,
-            "AKC_HELIX:IBIT": 1.4,
             "AKC_HELIX:GLD": 1.2,
         },
     )
@@ -555,7 +477,6 @@ PRESETS: dict[str, Callable[[float], UnifiedBacktestConfig]] = {
     "c1_old_priority": make_c1_old_priority,
     "d1_no_coordination": make_d1_no_coordination,
     "e1_tighter_daily_stops": make_e1_tighter_daily_stops,
-    "f1_breakout_expansion": make_f1_breakout_expansion,
     "optimized_v1": make_optimized_v1,
     "multi_overlay": make_multi_overlay,
     "p1_heat_unlock": make_p1_heat_unlock,

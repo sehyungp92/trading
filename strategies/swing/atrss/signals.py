@@ -53,7 +53,6 @@ def short_symbol_gate(symbol: str, d: DailyState, h: HourlyState) -> bool:
     QQQ: require close < EMA_slow (below higher-TF structure).
     GLD: require DI agrees + ADX >= 22.
     USO: require ADX >= 22 + DI agrees.
-    IBIT: require ADX >= 25 + STRONG_TREND only.
     """
     if symbol == "QQQ":
         return True  # Test: no per-symbol gate
@@ -61,8 +60,6 @@ def short_symbol_gate(symbol: str, d: DailyState, h: HourlyState) -> bool:
         return d.minus_di > d.plus_di and d.adx >= 22
     elif symbol == "USO":
         return d.adx >= 22 and d.minus_di > d.plus_di
-    elif symbol == "IBIT":
-        return True  # No extra gate; global short_safety_ok is sufficient
     # Default: no extra gate
     return True
 

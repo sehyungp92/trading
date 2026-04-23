@@ -248,6 +248,14 @@ class StrategySettings:
     combined_avwap_cap_pct: float = 0.003     # Max AVWAP distance for COMBINED entries (0=disabled)
     combined_breakout_cap_r: float = 0.0      # Max breakout distance for COMBINED entries in R (0=disabled)
 
+    # --- Phase 11: Reclaim / retest entry experiments ---
+    reclaim_entry_mode: str = "off"           # off, or, or_avwap, or_pdh, or_pdh_avwap
+    reclaim_lookback_bars: int = 24           # Prior bars allowed to establish first breakout
+    reclaim_touch_tolerance_pct: float = 0.001 # Reference touch tolerance for retest/reclaim
+    reclaim_min_rvol: float = 2.0             # Reclaim-specific RVOL floor
+    reclaim_cpr_threshold: float = 0.55       # Reclaim-specific close-location floor
+    reclaim_max_avwap_premium_pct: float = 0.0075 # Avoid reclaim entries too extended above AVWAP
+
     # --- Position Sizing: Buying Power ---
     intraday_leverage: float = 2.0             # Max leverage (2.0 = Reg T, 4.0 = PDT intraday)
 

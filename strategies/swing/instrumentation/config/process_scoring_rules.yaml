@@ -39,28 +39,6 @@ strategies:
     min_signal_strength: 0.3
     strong_signal_threshold: 0.7
 
-  S5_PB:
-    preferred_regimes:
-      - trending_up
-      - trending_down
-    adverse_regimes:
-      - ranging
-    max_hold_bars: 80
-    expected_slippage_bps: 3
-    min_signal_strength: 0.3
-    strong_signal_threshold: 0.7
-
-  S5_DUAL:
-    preferred_regimes:
-      - trending_up
-      - trending_down
-    adverse_regimes:
-      - ranging
-    max_hold_bars: 80
-    expected_slippage_bps: 3
-    min_signal_strength: 0.3
-    strong_signal_threshold: 0.7
-
   BRS_R9:
     preferred_regimes:
       - trending_down

@@ -2,10 +2,10 @@
 
 ## Bot Identity
 - Bot ID: `swing_multi_01`
-- Strategy type: Multi-strategy (ATRSS trend-follow, Helix divergence-swing, Breakout compression, Keltner momentum, EMA crossover overlay)
+- Strategy type: Multi-strategy (ATRSS trend-follow, Helix divergence-swing, Breakout compression, BRS bear-regime swing, EMA crossover overlay)
 - Exchange(s): Interactive Brokers (IBKR) — futures + equities
-- Default pairs: QQQ, GLD, IBIT (ETFs — default production config)
-- Available pairs: MNQ, MCL, MGC, MBT, NQ, CL, GC, BRR, BT, QQQ, GLD, IBIT, USO (configurable via `ATRSS_SYMBOL_SET`, `AKCHELIX_SYMBOL_SET` env vars)
+- Default pairs: QQQ, GLD (ETFs — default production config)
+- Available pairs: MNQ, MCL, MGC, MBT, NQ, CL, GC, BRR, BT, QQQ, GLD, USO (configurable via `ATRSS_SYMBOL_SET`, `AKCHELIX_SYMBOL_SET` env vars)
 - Architecture: Hybrid (async polling hourly cycle + event-driven OMS fills + daily overlay rebalance)
 
 ## Entry Logic
@@ -16,7 +16,6 @@
   - [strategy/signals.py:209] `reverse_entry_ok()` — stop-and-reverse eligibility
   - [strategy_2/signals.py] Helix: divergence, momentum, catchup signals (CLASS_A/B/C)
   - [strategy_3/signals.py] Breakout: squeeze breakout, displacement signal
-  - [strategy_4/signals.py] Keltner: channel breakout, pullback, RSI+ROC confirmation
   - [shared/overlay/engine.py] Overlay: EMA fast > slow crossover on daily closes (QQQ 10/21, GLD 13/21)
 - Signal strength available: YES — [strategy/signals.py:70] `compute_entry_quality()` scores 0-7 (ADX, DI alignment, EMA separation, touch distance, momentum)
 - Filters:
@@ -73,7 +72,7 @@
 ## Configuration
 - Config location: `strategy/config.py` (Python dataclasses), `config/contracts.yaml`, `config/ibkr_profiles.yaml`, `.env`
 - Configurable params: EMA periods, ATR multipliers, ADX thresholds, risk percentages, TP/SL R-multiples, symbol sets, time filters
-- Strategy profiles: YES — 5 active strategies + 1 overlay with per-strategy risk params defined in `main_multi.py`
+- Strategy profiles: YES — 4 active strategies + 1 overlay with per-strategy risk params defined in the swing coordinator
 
 ## State Management
 - Position tracking: In-memory dicts + PostgreSQL (graceful degradation to in-memory)
