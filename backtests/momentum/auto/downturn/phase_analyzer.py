@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 ULTIMATE_TARGETS = {
-    "correction_alpha_pct": 25.0,
+    "correction_pnl_pct": 25.0,
     "profit_factor": 2.0,
     "net_return_pct": 40.0,
     "max_dd_pct": 15.0,   # lower is better
@@ -35,10 +35,10 @@ ULTIMATE_TARGETS = {
 }
 
 PHASE_FOCUS: dict[int, tuple[str, list[str]]] = {
-    1: ("Signal Detection", ["signal_to_entry_ratio", "correction_alpha_pct", "total_trades"]),
-    2: ("Capture", ["exit_efficiency", "profit_factor", "correction_alpha_pct"]),
+    1: ("Signal Detection", ["signal_to_entry_ratio", "correction_pnl_pct", "total_trades"]),
+    2: ("Capture", ["exit_efficiency", "profit_factor", "correction_pnl_pct"]),
     3: ("Risk Control", ["calmar", "max_dd_pct", "sharpe"]),
-    4: ("Fine-tuning", ["calmar", "net_return_pct", "correction_alpha_pct"]),
+    4: ("Fine-tuning", ["calmar", "net_return_pct", "correction_pnl_pct"]),
 }
 
 
@@ -148,10 +148,10 @@ def _assess_strengths_weaknesses(
     elif metrics.profit_factor < 1.0:
         weaknesses.append(f"PF below breakeven ({metrics.profit_factor:.2f})")
 
-    if metrics.correction_alpha_pct >= 10:
-        strengths.append(f"Good correction alpha ({metrics.correction_alpha_pct:.1f}%)")
-    elif metrics.correction_alpha_pct < 2:
-        weaknesses.append(f"Low correction alpha ({metrics.correction_alpha_pct:.1f}%)")
+    if metrics.correction_pnl_pct >= 10:
+        strengths.append(f"Good correction PnL ({metrics.correction_pnl_pct:.1f}%)")
+    elif metrics.correction_pnl_pct < 2:
+        weaknesses.append(f"Low correction PnL ({metrics.correction_pnl_pct:.1f}%)")
 
     if metrics.max_dd_pct <= 0.15:
         strengths.append(f"Controlled drawdown ({metrics.max_dd_pct:.1%})")
@@ -320,8 +320,8 @@ def _suggest_experiments(
              {"param_overrides.regime_mult_neutral": 0.80}),
         ])
 
-    # Low correction alpha — regime detection too slow or misaligned
-    if metrics.correction_alpha_pct < 5.0:
+    # Low correction-window PnL — regime detection too slow or misaligned
+    if metrics.correction_pnl_pct < 5.0:
         suggestions.extend([
             ("regime_faster_ema_10",
              {"param_overrides.ema_fast_period": 10}),
@@ -433,8 +433,8 @@ def _recommend_action(
             return (
                 "improve_scoring",
                 "Strategy profits from general trends but loses during corrections — "
-                "boost correction_alpha weight",
-                {"correction_alpha": 0.40, "signal_quality": 0.20,
+                "boost correction_pnl weight",
+                {"correction_pnl": 0.40, "signal_quality": 0.20,
                  "net_profit": 0.15, "profit_factor": 0.10,
                  "calmar": 0.05, "inv_drawdown": 0.10},
             )
@@ -471,8 +471,8 @@ def _compute_weight_adjustment(analysis: PhaseAnalysis) -> dict[str, float]:
 
     # Boost underperforming components
     for weakness in analysis.weaknesses:
-        if "correction alpha" in weakness.lower():
-            adjusted["correction_alpha"] = min(adjusted.get("correction_alpha", 0.25) + 0.10, 0.45)
+        if "correction pnl" in weakness.lower():
+            adjusted["correction_pnl"] = min(adjusted.get("correction_pnl", 0.25) + 0.10, 0.45)
         if "pf" in weakness.lower() or "profit" in weakness.lower():
             adjusted["profit_factor"] = min(adjusted.get("profit_factor", 0.15) + 0.05, 0.30)
         if "drawdown" in weakness.lower():

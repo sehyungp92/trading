@@ -14,7 +14,7 @@ import logging
 import uuid
 from collections import deque
 from contextlib import suppress
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -127,7 +127,7 @@ class ALCBT2Engine:
         # Safety tracking
         self._expected_stop_cancels: set[str] = set()
         self._last_save_ts: datetime | None = None
-        self._last_bar_ts: dict[str, datetime] = {}  # symbol -> last bar time (staleness)
+        self._bar_ts_by_symbol: dict[str, datetime] = {}  # symbol -> last bar time (staleness)
 
         # Async infrastructure
         self._event_queue: asyncio.Queue | None = None
@@ -135,7 +135,48 @@ class ALCBT2Engine:
         self._pulse_task: asyncio.Task | None = None
         self._running = False
 
+        # Diagnostic pulse state
+        self._last_decision_code: str = "IDLE"
+        self._last_decision_details: dict = {}
+        self._last_bar_ts: datetime | None = None
+
         self._initialize_from_artifact()
+
+    def _record_decision(self, code: str, details: dict | None = None) -> None:
+        """Record the latest decision for diagnostic pulse reporting."""
+        self._last_decision_code = code
+        self._last_decision_details = details or {}
+
+    @staticmethod
+    def _signal_time(bar: Bar) -> datetime:
+        return bar.end_time or (bar.start_time + timedelta(minutes=5))
+
+    @staticmethod
+    def _entry_bar_index(signal_time: datetime) -> int:
+        signal_time_et = signal_time.astimezone(ET)
+        minutes_after_open = (signal_time_et.hour * 60 + signal_time_et.minute) - 570
+        return max(1, int(minutes_after_open // 5) + 1)
+
+    @staticmethod
+    def _targeted_entry_size_mult(
+        entry_type: str,
+        entry_bar_index: int,
+        signal_time: datetime | time,
+        settings: StrategySettings,
+    ) -> float:
+        if isinstance(signal_time, datetime):
+            signal_time_et = signal_time.astimezone(ET).time()
+        else:
+            signal_time_et = signal_time
+
+        mult = 1.0
+        if entry_type == "PDH_BREAKOUT":
+            mult *= max(0.0, settings.pdh_size_mult)
+        if entry_bar_index == 9:
+            mult *= max(0.0, settings.bar9_size_mult)
+        if signal_time_et >= settings.late_entry_cutoff:
+            mult *= max(0.0, settings.late_entry_size_mult)
+        return mult
 
     @property
     def _instr_kit(self):
@@ -364,7 +405,8 @@ class ALCBT2Engine:
         market.minute_bars.append(bar)
         market.last_1m_bar = bar
         market.last_price = bar.close
-        self._last_bar_ts[normalized] = datetime.now(timezone.utc)
+        self._bar_ts_by_symbol[normalized] = datetime.now(timezone.utc)
+        self._last_bar_ts = datetime.now(timezone.utc)
         self._bar_builder.ingest_bar(bar)
 
         for bar_5m in self._bar_builder.aggregate_new_bars(normalized, 5):
@@ -382,6 +424,7 @@ class ALCBT2Engine:
 
         # --- Position management ---
         if symbol in self._positions:
+            self._record_decision("MANAGING_POSITION", {"symbol": symbol})
             pos = self._positions[symbol]
             pos.hold_bars += 1
             pos.update_mfe_mae(bar.high, bar.low)
@@ -481,6 +524,7 @@ class ALCBT2Engine:
 
         # --- Opening Range Build ---
         if not self._or_built.get(symbol, False):
+            self._record_decision("AWAITING_DATA", {"symbol": symbol, "reason": "building_opening_range"})
             sb = self._session_bars_5m.get(symbol, [])
             if len(sb) >= settings.opening_range_bars:
                 oh, ol, ov = compute_opening_range(sb, settings.opening_range_bars)
@@ -533,12 +577,22 @@ class ALCBT2Engine:
             self._fire_exit(symbol, "QUICK_EXIT")
             return
 
-        # 4. FLOW_REVERSAL (with MFE grace + max_hold gating)
+        # 4. MFE conviction check (accepted P15 exit mutation)
+        if settings.mfe_conviction_check_bars > 0 and pos.hold_bars == settings.mfe_conviction_check_bars:
+            mfe_r = pos.unrealized_r(pos.max_favorable) if pos.risk_per_share > 0 else 0.0
+            if mfe_r < settings.mfe_conviction_min_r:
+                if settings.mfe_conviction_floor_r != 0.0 and ur >= settings.mfe_conviction_floor_r:
+                    pass
+                else:
+                    self._fire_exit(symbol, "MFE_CONVICTION")
+                    return
+
+        # 5. FLOW_REVERSAL (with MFE grace + max_hold gating)
         if should_fr_exit(bar, sb, pos.entry_price, pos.hold_bars, pos.mfe_r, settings):
             self._fire_exit(symbol, "FLOW_REVERSAL")
             return
 
-        # 5. PARTIAL_TAKE
+        # 6. PARTIAL_TAKE
         if settings.use_partial_takes:
             take, frac = should_take_partial(ur, pos.partial_taken, settings)
             if take:
@@ -546,7 +600,7 @@ class ALCBT2Engine:
                 if partial_qty < pos.quantity:
                     self._fire_partial(symbol, partial_qty)
 
-        # 6. EOD check
+        # 7. EOD check
         bar_time_et = bar.start_time.astimezone(ET).time()
         if bar_time_et >= settings.eod_flatten_time:
             avwap = compute_session_avwap(sb, len(sb) - 1) if sb else 0.0
@@ -605,15 +659,16 @@ class ALCBT2Engine:
 
         # Gate collector for full filter_decisions breakdown
         _gates: list[dict] = []
+        signal_time = self._signal_time(bar)
 
-        # Entry window
-        bar_time_et = bar.start_time.astimezone(ET).time()
+        # Entry window uses the closed signal bar timestamp, matching backtest semantics.
+        bar_time_et = signal_time.astimezone(ET).time()
         _ew_passed = settings.entry_window_start <= bar_time_et <= settings.entry_window_end
         _gates.append({"filter_name": "entry_window", "threshold": f"{settings.entry_window_start}-{settings.entry_window_end}", "actual_value": str(bar_time_et), "passed": _ew_passed})
         if not _ew_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="entry_window", block_reason="outside_entry_window",
-                signal_strength=0.0, exchange_timestamp=bar.start_time,
+                signal_strength=0.0, exchange_timestamp=signal_time,
                 filter_decisions=_gates,
             )
             return
@@ -647,9 +702,10 @@ class ALCBT2Engine:
         )
         _gates.append({"filter_name": "breakout_detection", "threshold": "true", "actual_value": str(is_breakout), "passed": is_breakout})
         if not is_breakout:
+            self._record_decision("NO_SIGNAL", {"symbol": symbol, "reason": "no_breakout"})
             self._log_missed(
                 symbol=symbol, blocked_by="breakout_detection", block_reason="no_breakout",
-                signal_strength=0.0, exchange_timestamp=bar.start_time,
+                signal_strength=0.0, exchange_timestamp=signal_time,
                 filter_decisions=_gates,
             )
             return
@@ -664,7 +720,7 @@ class ALCBT2Engine:
         if symbol not in self._signal_evolution:
             self._signal_evolution[symbol] = deque(maxlen=15)
         self._signal_evolution[symbol].append({
-            "bar_time": bar.start_time.isoformat(),
+            "bar_time": signal_time.isoformat(),
             "momentum_score": float(m_score),
             "bar_rvol": float(bar_rvol),
             "avwap": float(avwap),
@@ -673,7 +729,7 @@ class ALCBT2Engine:
 
         self._emit_indicator_snapshot(
             symbol, m_score, bar_rvol, avwap, adx_val, daily_atr,
-            or_high, or_low, entry_type_str, score_detail, bar.start_time,
+            or_high, or_low, entry_type_str, score_detail, signal_time,
         )
 
         # --- Gate checks (matching backtest exactly) ---
@@ -684,7 +740,7 @@ class ALCBT2Engine:
         if not _avwap_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="avwap_filter", block_reason="below_avwap",
-                signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                signal_strength=float(m_score), exchange_timestamp=signal_time,
                 filter_decisions=_gates,
             )
             return
@@ -695,7 +751,7 @@ class ALCBT2Engine:
         if not _rvol_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="rvol_cap", block_reason="rvol_exceeded",
-                signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                signal_strength=float(m_score), exchange_timestamp=signal_time,
                 filter_decisions=_gates,
             )
             return
@@ -709,10 +765,100 @@ class ALCBT2Engine:
         if not _mscore_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="momentum_score_gate", block_reason="below_minimum",
-                signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                signal_strength=float(m_score), exchange_timestamp=signal_time,
                 filter_decisions=_gates,
             )
             return
+
+        entry_bar_index = self._entry_bar_index(signal_time)
+        avwap_dist_pct = (bar.close - avwap) / avwap if avwap > 0 else 0.0
+        is_pdh_entry = entry_type_str == "PDH_BREAKOUT"
+        is_bar9_entry = entry_bar_index == 9
+        is_late_entry = bar_time_et >= settings.late_entry_cutoff
+
+        if is_late_entry and settings.late_avwap_cap_pct > 0:
+            _la_passed = avwap_dist_pct <= settings.late_avwap_cap_pct
+            _gates.append({"filter_name": "late_avwap_cap", "threshold": float(settings.late_avwap_cap_pct), "actual_value": float(avwap_dist_pct), "passed": _la_passed, "applicable": True})
+            if not _la_passed:
+                self._log_missed(
+                    symbol=symbol, blocked_by="late_entry_quality", block_reason="late_avwap_cap",
+                    signal_strength=float(m_score), exchange_timestamp=signal_time,
+                    filter_decisions=_gates,
+                )
+                return
+
+        if is_bar9_entry:
+            if settings.bar9_score_min > 0:
+                _b9s_passed = m_score >= settings.bar9_score_min
+                _gates.append({"filter_name": "bar9_score_gate", "threshold": float(settings.bar9_score_min), "actual_value": float(m_score), "passed": _b9s_passed, "applicable": True})
+                if not _b9s_passed:
+                    self._log_missed(
+                        symbol=symbol, blocked_by="bar9_quality", block_reason="score_too_low",
+                        signal_strength=float(m_score), exchange_timestamp=signal_time,
+                        filter_decisions=_gates,
+                    )
+                    return
+            if settings.bar9_rvol_min > 0:
+                _b9r_passed = bar_rvol >= settings.bar9_rvol_min
+                _gates.append({"filter_name": "bar9_rvol_gate", "threshold": float(settings.bar9_rvol_min), "actual_value": float(bar_rvol), "passed": _b9r_passed, "applicable": True})
+                if not _b9r_passed:
+                    self._log_missed(
+                        symbol=symbol, blocked_by="bar9_quality", block_reason="rvol_too_low",
+                        signal_strength=float(m_score), exchange_timestamp=signal_time,
+                        filter_decisions=_gates,
+                    )
+                    return
+            if settings.bar9_avwap_cap_pct > 0:
+                _b9a_passed = avwap_dist_pct <= settings.bar9_avwap_cap_pct
+                _gates.append({"filter_name": "bar9_avwap_cap", "threshold": float(settings.bar9_avwap_cap_pct), "actual_value": float(avwap_dist_pct), "passed": _b9a_passed, "applicable": True})
+                if not _b9a_passed:
+                    self._log_missed(
+                        symbol=symbol, blocked_by="bar9_quality", block_reason="avwap_distance_exceeded",
+                        signal_strength=float(m_score), exchange_timestamp=signal_time,
+                        filter_decisions=_gates,
+                    )
+                    return
+
+        if is_pdh_entry:
+            _pew_passed = bar_time_et <= settings.pdh_entry_window_end
+            _gates.append({"filter_name": "pdh_entry_window", "threshold": str(settings.pdh_entry_window_end), "actual_value": str(bar_time_et), "passed": _pew_passed, "applicable": True})
+            if not _pew_passed:
+                self._log_missed(
+                    symbol=symbol, blocked_by="pdh_quality", block_reason="outside_pdh_entry_window",
+                    signal_strength=float(m_score), exchange_timestamp=signal_time,
+                    filter_decisions=_gates,
+                )
+                return
+            if settings.pdh_breakout_score_min > 0:
+                _pds_passed = m_score >= settings.pdh_breakout_score_min
+                _gates.append({"filter_name": "pdh_quality_score", "threshold": float(settings.pdh_breakout_score_min), "actual_value": float(m_score), "passed": _pds_passed, "applicable": True})
+                if not _pds_passed:
+                    self._log_missed(
+                        symbol=symbol, blocked_by="pdh_quality", block_reason="score_too_low",
+                        signal_strength=float(m_score), exchange_timestamp=signal_time,
+                        filter_decisions=_gates,
+                    )
+                    return
+            if settings.pdh_breakout_min_rvol > 0:
+                _pdr_passed = bar_rvol >= settings.pdh_breakout_min_rvol
+                _gates.append({"filter_name": "pdh_quality_rvol", "threshold": float(settings.pdh_breakout_min_rvol), "actual_value": float(bar_rvol), "passed": _pdr_passed, "applicable": True})
+                if not _pdr_passed:
+                    self._log_missed(
+                        symbol=symbol, blocked_by="pdh_quality", block_reason="rvol_too_low",
+                        signal_strength=float(m_score), exchange_timestamp=signal_time,
+                        filter_decisions=_gates,
+                    )
+                    return
+            if settings.pdh_avwap_cap_pct > 0:
+                _pda_passed = avwap_dist_pct <= settings.pdh_avwap_cap_pct
+                _gates.append({"filter_name": "pdh_avwap_cap", "threshold": float(settings.pdh_avwap_cap_pct), "actual_value": float(avwap_dist_pct), "passed": _pda_passed, "applicable": True})
+                if not _pda_passed:
+                    self._log_missed(
+                        symbol=symbol, blocked_by="pdh_quality", block_reason="avwap_distance_exceeded",
+                        signal_strength=float(m_score), exchange_timestamp=signal_time,
+                        filter_decisions=_gates,
+                    )
+                    return
 
         # Block COMBINED_BREAKOUT in Tier B
         regime_tier_check = self._artifact.regime.tier if self._artifact.regime else "A"
@@ -723,7 +869,7 @@ class ALCBT2Engine:
                 self._log_missed(
                     symbol=symbol, blocked_by="block_combined_regime_b",
                     block_reason="combined_blocked_in_tier_b",
-                    signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    signal_strength=float(m_score), exchange_timestamp=signal_time,
                     filter_decisions=_gates,
                 )
                 return
@@ -735,7 +881,7 @@ class ALCBT2Engine:
             if not _cs_passed:
                 self._log_missed(
                     symbol=symbol, blocked_by="combined_quality", block_reason="score_too_low",
-                    signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    signal_strength=float(m_score), exchange_timestamp=signal_time,
                     filter_decisions=_gates,
                 )
                 return
@@ -744,20 +890,19 @@ class ALCBT2Engine:
             if not _cr_passed:
                 self._log_missed(
                     symbol=symbol, blocked_by="combined_quality", block_reason="rvol_too_low",
-                    signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    signal_strength=float(m_score), exchange_timestamp=signal_time,
                     filter_decisions=_gates,
                 )
                 return
             # COMBINED-specific AVWAP distance cap
             if settings.combined_avwap_cap_pct > 0 and avwap > 0:
-                avwap_dist_pct = (bar.close - avwap) / avwap
                 _ca_passed = avwap_dist_pct <= settings.combined_avwap_cap_pct
                 _gates.append({"filter_name": "combined_avwap_cap", "threshold": float(settings.combined_avwap_cap_pct), "actual_value": float(avwap_dist_pct), "passed": _ca_passed, "applicable": True})
                 if not _ca_passed:
                     self._log_missed(
                         symbol=symbol, blocked_by="combined_quality",
                         block_reason="avwap_distance_exceeded",
-                        signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                        signal_strength=float(m_score), exchange_timestamp=signal_time,
                         filter_decisions=_gates,
                     )
                     return
@@ -770,7 +915,7 @@ class ALCBT2Engine:
                     self._log_missed(
                         symbol=symbol, blocked_by="combined_quality",
                         block_reason="breakout_distance_exceeded",
-                        signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                        signal_strength=float(m_score), exchange_timestamp=signal_time,
                         filter_decisions=_gates,
                     )
                     return
@@ -782,7 +927,7 @@ class ALCBT2Engine:
             if not _os_passed:
                 self._log_missed(
                     symbol=symbol, blocked_by="or_quality", block_reason="score_too_low",
-                    signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    signal_strength=float(m_score), exchange_timestamp=signal_time,
                     filter_decisions=_gates,
                 )
                 return
@@ -791,20 +936,19 @@ class ALCBT2Engine:
             if not _or_passed:
                 self._log_missed(
                     symbol=symbol, blocked_by="or_quality", block_reason="rvol_too_low",
-                    signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    signal_strength=float(m_score), exchange_timestamp=signal_time,
                     filter_decisions=_gates,
                 )
                 return
 
         # AVWAP distance cap
         if settings.avwap_distance_cap_pct > 0 and avwap > 0:
-            avwap_dist_pct = (bar.close - avwap) / avwap
             _ad_passed = avwap_dist_pct <= settings.avwap_distance_cap_pct
             _gates.append({"filter_name": "avwap_distance_cap", "threshold": float(settings.avwap_distance_cap_pct), "actual_value": float(avwap_dist_pct), "passed": _ad_passed})
             if not _ad_passed:
                 self._log_missed(
                     symbol=symbol, blocked_by="avwap_distance", block_reason="exceeded_cap",
-                    signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    signal_strength=float(m_score), exchange_timestamp=signal_time,
                     filter_decisions=_gates,
                 )
                 return
@@ -817,7 +961,7 @@ class ALCBT2Engine:
             if not _ow_passed:
                 self._log_missed(
                     symbol=symbol, blocked_by="or_width", block_reason="too_narrow",
-                    signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    signal_strength=float(m_score), exchange_timestamp=signal_time,
                     filter_decisions=_gates,
                 )
                 return
@@ -830,7 +974,7 @@ class ALCBT2Engine:
             if not _bd_passed:
                 self._log_missed(
                     symbol=symbol, blocked_by="breakout_distance", block_reason="exceeded_cap",
-                    signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    signal_strength=float(m_score), exchange_timestamp=signal_time,
                     filter_decisions=_gates,
                 )
                 return
@@ -842,7 +986,7 @@ class ALCBT2Engine:
         if not _mp_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="portfolio_constraint", block_reason="max_positions",
-                signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                signal_strength=float(m_score), exchange_timestamp=signal_time,
                 filter_decisions=_gates,
             )
             return
@@ -854,7 +998,7 @@ class ALCBT2Engine:
         if not _sl_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="portfolio_constraint", block_reason="sector_limit",
-                signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                signal_strength=float(m_score), exchange_timestamp=signal_time,
                 filter_decisions=_gates,
             )
             return
@@ -868,7 +1012,7 @@ class ALCBT2Engine:
         if not _hc_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="portfolio_constraint", block_reason="heat_cap_exceeded",
-                signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                signal_strength=float(m_score), exchange_timestamp=signal_time,
                 filter_decisions=_gates,
             )
             return
@@ -881,7 +1025,7 @@ class ALCBT2Engine:
         if not _rg_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="regime_gate", block_reason="regime_blocked",
-                signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                signal_strength=float(m_score), exchange_timestamp=signal_time,
                 filter_decisions=_gates,
             )
             return
@@ -892,23 +1036,24 @@ class ALCBT2Engine:
         if not _rps_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="sizing", block_reason="zero_risk_per_share",
-                signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                signal_strength=float(m_score), exchange_timestamp=signal_time,
                 filter_decisions=_gates,
             )
             return
 
         size_mult = momentum_size_mult(m_score, settings)
+        targeted_size_mult = self._targeted_entry_size_mult(entry_type_str, entry_bar_index, signal_time, settings)
         sec_mult = sector_sizing_mult(item.sector, settings)
-        weekday = bar.start_time.astimezone(ET).weekday()
+        weekday = signal_time.astimezone(ET).weekday()
         dow_mult = settings.thursday_sizing_mult if weekday == 3 else settings.tuesday_sizing_mult if weekday == 1 else 1.0
-        risk_budget = self._equity * settings.base_risk_fraction * reg_mult * size_mult * sec_mult * dow_mult
+        risk_budget = self._equity * settings.base_risk_fraction * reg_mult * size_mult * sec_mult * dow_mult * targeted_size_mult
         qty = int(risk_budget / risk_per_share)
         _qty_passed = qty > 0
         _gates.append({"filter_name": "qty_sizing", "threshold": 1.0, "actual_value": float(qty), "passed": _qty_passed})
         if not _qty_passed:
             self._log_missed(
                 symbol=symbol, blocked_by="sizing", block_reason="qty_zero",
-                signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                signal_strength=float(m_score), exchange_timestamp=signal_time,
                 filter_decisions=_gates,
             )
             return
@@ -924,7 +1069,7 @@ class ALCBT2Engine:
             if not _bp_passed:
                 self._log_missed(
                     symbol=symbol, blocked_by="sizing", block_reason="buying_power",
-                    signal_strength=float(m_score), exchange_timestamp=bar.start_time,
+                    signal_strength=float(m_score), exchange_timestamp=signal_time,
                     filter_decisions=_gates,
                 )
                 return
@@ -971,7 +1116,8 @@ class ALCBT2Engine:
             "stock_regime": item.stock_regime,
             "sector_regime": item.sector_regime,
             "daily_trend_sign": item.daily_trend_sign,
-            "signal_ts": bar.start_time,
+            "signal_ts": signal_time,
+            "entry_bar_index": entry_bar_index,
             "signal_factors": self._entry_signal_factors(m_score, bar_rvol, avwap, adx_val, bar.close),
             "signal_evolution": list(self._signal_evolution.get(symbol, [])),
             "filter_decisions": _gates,
@@ -1007,6 +1153,7 @@ class ALCBT2Engine:
                 self._pending_plans[receipt.oms_order_id] = plan
                 self._entry_meta[receipt.oms_order_id] = meta
                 meta["submitted_at"] = now
+                self._record_decision("ENTRY_SUBMITTED", {"symbol": symbol, "qty": plan.quantity, "price": plan.entry_price})
                 self._diagnostics.log_order(symbol, "t2_submit_entry", {
                     "entry_type": meta["entry_type"],
                     "qty": plan.quantity,
@@ -1022,6 +1169,7 @@ class ALCBT2Engine:
                 )
             else:
                 self._pending_entries.pop(symbol, None)
+                self._record_decision("ENTRY_DENIED", {"symbol": symbol, "denial_reason": receipt.denial_reason or "unknown"})
                 logger.info(
                     "T2 entry denied for %s: %s", symbol,
                     receipt.denial_reason or "unknown",
@@ -1286,7 +1434,7 @@ class ALCBT2Engine:
             # Data staleness watchdog — warn if bars stop arriving for open positions
             if now_et.time() >= self._settings.entry_window_start:
                 for sym in list(self._positions):
-                    last_ts = self._last_bar_ts.get(sym)
+                    last_ts = self._bar_ts_by_symbol.get(sym)
                     if last_ts is not None:
                         gap = (now - last_ts).total_seconds()
                         if gap > _STALE_THRESHOLD_S:
@@ -1763,6 +1911,9 @@ class ALCBT2Engine:
             "total_symbols": len(self._items),
             "pending_entries": len(self._pending_entries),
             "pending_exits": len(self._pending_exits),
+            "last_decision_code": self._last_decision_code,
+            "last_decision_details": self._last_decision_details,
+            "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
         }
 
     def get_position_snapshot(self) -> list[dict[str, Any]]:

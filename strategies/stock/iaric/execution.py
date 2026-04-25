@@ -62,6 +62,7 @@ def build_stop_order(item: WatchlistItem, account_id: str, qty: int, stop_price:
         order_type=OrderType.STOP,
         stop_price=stop_price,
         role=OrderRole.STOP,
+        tif="GTC",
     )
 
 

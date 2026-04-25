@@ -105,7 +105,17 @@ class IARICEngine:
         self._pulse_task: asyncio.Task | None = None
         self._running = False
 
+        # Diagnostic pulse state
+        self._last_decision_code: str = "IDLE"
+        self._last_decision_details: dict = {}
+        self._last_bar_ts: datetime | None = None
+
         self._initialize_from_artifact()
+
+    def _record_decision(self, code: str, details: dict | None = None) -> None:
+        """Record the latest decision for diagnostic pulse reporting."""
+        self._last_decision_code = code
+        self._last_decision_details = details or {}
 
     @property
     def _instr_kit(self):
@@ -314,6 +324,9 @@ class IARICEngine:
             "open_positions": len(self._portfolio.open_positions),
             "pending_orders": len(self._order_index),
             "open_scored_count": self._open_scored_count,
+            "last_decision_code": self._last_decision_code,
+            "last_decision_details": self._last_decision_details,
+            "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
         }
 
     # ── Market data callbacks ───────────────────────────────────────
@@ -352,6 +365,7 @@ class IARICEngine:
         if market.last_1m_bar is not None and market.last_1m_bar.start_time >= bar.start_time:
             return
 
+        self._last_bar_ts = datetime.now(timezone.utc)
         self._bar_builder.ingest_bar(bar)
         market.minute_bars.append(bar)
         market.last_1m_bar = bar
@@ -449,6 +463,7 @@ class IARICEngine:
                     pass
 
         if state.in_position:
+            self._record_decision("MANAGING_POSITION", {"symbol": symbol})
             self._manage_position_intraday(symbol, bar_5m, now)
         else:
             self._check_entry_routes(symbol, bar_5m, now)
@@ -462,6 +477,7 @@ class IARICEngine:
 
         # Skip if not tradable or already has pending order
         if not item.tradable_flag and not item.daily_signal_score:
+            self._record_decision("NO_SIGNAL", {"symbol": symbol, "reason": "no_tradable_flag"})
             self._log_missed(symbol=symbol, blocked_by="not_tradable",
                              block_reason="no_signal_no_tradable_flag",
                              exchange_timestamp=now, route="ENTRY_CHECK")
@@ -1200,6 +1216,7 @@ class IARICEngine:
             state.active_order_id = receipt.oms_order_id
             self._portfolio.pending_entry_risk[symbol] = qty * state.risk_per_share
             self._order_index[receipt.oms_order_id] = (symbol, "ENTRY")
+            self._record_decision("ENTRY_SUBMITTED", {"symbol": symbol, "qty": qty, "price": entry_price, "route": route})
             self._diagnostics.log_order(symbol, "submit_entry", {
                 "qty": qty, "limit_price": entry_price, "route": route,
                 "sizing_mult": round(sizing_mult, 3), "daily_score": state.daily_signal_score,
@@ -1219,6 +1236,7 @@ class IARICEngine:
                 except Exception:
                     pass
         else:
+            self._record_decision("ENTRY_DENIED", {"symbol": symbol, "denial_reason": receipt.denial_reason or "unknown"})
             if state.active_order_id == "SUBMITTING_ENTRY":
                 state.active_order_id = None
 

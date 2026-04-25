@@ -196,6 +196,34 @@ def compute_avwap(
     return out
 
 
+def avwap_last(
+    highs: np.ndarray,
+    lows: np.ndarray,
+    closes: np.ndarray,
+    volumes: np.ndarray,
+    bar_times: list[datetime],
+    anchor_time: datetime,
+) -> float:
+    """Return only the final AVWAP value (no array allocation).
+
+    Vectorized: finds anchor index, then uses np.dot for cumulative VWAP.
+    """
+    n = len(closes)
+    start = 0
+    for i in range(n):
+        if bar_times[i] >= anchor_time:
+            start = i
+            break
+    else:
+        return float('nan')
+    tp = (highs[start:] + lows[start:] + closes[start:]) / 3.0
+    vol = volumes[start:]
+    cum_vol = float(vol.sum())
+    if cum_vol <= 0:
+        return float(closes[-1])
+    return float(np.dot(tp, vol) / cum_vol)
+
+
 # ---------------------------------------------------------------------------
 # WVWAP (spec §6.2) — weekly VWAP, resets Monday 09:30 ET
 # ---------------------------------------------------------------------------

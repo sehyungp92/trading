@@ -10,6 +10,10 @@ from datetime import datetime, timedelta
 import numpy as np
 
 
+def _trade_net_pnl(trade) -> float:
+    return float(trade.pnl_dollars) - float(getattr(trade, "commission", 0.0) or 0.0)
+
+
 # ---------------------------------------------------------------------------
 # 1. Class drill-down
 # ---------------------------------------------------------------------------
@@ -37,7 +41,7 @@ def helix_class_drilldown(trades: list) -> str:
         count = len(ct)
         wr = np.mean([t.r_multiple > 0 for t in ct]) * 100
         avg_r = np.mean([t.r_multiple for t in ct])
-        pnl = sum(t.pnl_dollars for t in ct)
+        pnl = sum(_trade_net_pnl(t) for t in ct)
         mfe = np.mean([t.mfe_r for t in ct])
         mae = np.mean([t.mae_r for t in ct])
         hold = np.mean([t.bars_held for t in ct])
@@ -61,7 +65,7 @@ def helix_class_drilldown(trades: list) -> str:
     count = len(trades)
     wr = np.mean([t.r_multiple > 0 for t in trades]) * 100
     avg_r = np.mean([t.r_multiple for t in trades])
-    pnl = sum(t.pnl_dollars for t in trades)
+    pnl = sum(_trade_net_pnl(t) for t in trades)
     lines.append("  " + "-" * (len(header) - 2))
     lines.append(
         f"  {'ALL':5s} {count:6d} {wr:5.0f}% {avg_r:+7.3f} {pnl:+10,.0f}"
@@ -227,7 +231,7 @@ def helix_regime_alignment(trades: list, result=None) -> str:
                 continue
             avg_r = np.mean([t.r_multiple for t in cell])
             wr = np.mean([t.r_multiple > 0 for t in cell]) * 100
-            pnl = sum(t.pnl_dollars for t in cell)
+            pnl = sum(_trade_net_pnl(t) for t in cell)
             lines.append(
                 f"  {regime:8s} {dir_label:6s} {len(cell):6d} {avg_r:+7.3f} {wr:5.0f}% {pnl:+10,.0f}"
             )
@@ -242,7 +246,7 @@ def helix_regime_alignment(trades: list, result=None) -> str:
 
     if counter_regime:
         avg_r = np.mean([t.r_multiple for t in counter_regime])
-        pnl = sum(t.pnl_dollars for t in counter_regime)
+        pnl = sum(_trade_net_pnl(t) for t in counter_regime)
         lines.append(f"\n  Counter-regime trades: {len(counter_regime)}")
         lines.append(f"    Avg R: {avg_r:+.3f}  Total P&L: {pnl:+,.0f}")
         if avg_r < -0.3:
@@ -453,7 +457,7 @@ def helix_losing_trade_detail(trades: list) -> str:
     lines = ["=== Helix Losing Trade Detail ==="]
     lines.append(f"\nTotal losers: {len(losers)} / {len(trades)}"
                   f" ({len(losers)/len(trades)*100:.0f}%)")
-    lines.append(f"Total loss: {sum(t.pnl_dollars for t in losers):+,.0f}")
+    lines.append(f"Total loss: {sum(_trade_net_pnl(t) for t in losers):+,.0f}")
 
     lines.append(f"\n  {'#':>3s} {'Entry':19s} {'Exit':19s} {'Cls':3s} {'Dir':5s} "
                   f"{'Regime':6s} {'ADX':>5s} {'StopDist':>8s} {'R':>7s} "

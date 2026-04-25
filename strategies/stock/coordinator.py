@@ -1,9 +1,8 @@
-"""Stock family coordinator — each strategy gets its own OMS instance.
+"""Stock family coordinator — each enabled stock strategy gets its own OMS instance.
 
 Like momentum (per-strategy OMS), unlike swing (shared OMS).
-Three strategies:
+Supported stock strategies:
   - IARIC_v1   (IARICEngine)   — WatchlistArtifact
-  - US_ORB_v1  (USORBEngine)   — cache dict
   - ALCB_v1    (ALCBT2Engine)  — CandidateArtifact
 
 Stock-specific differences from momentum:
@@ -25,17 +24,25 @@ from pathlib import Path
 from typing import Any
 
 from libs.oms.persistence.db_config import get_environment
+from libs.services.heartbeat import emit_family_heartbeats
 
 from strategies.contracts import RuntimeContext
+from strategies.stock.readiness import validate_stock_readiness
 
 logger = logging.getLogger(__name__)
 
+_STOCK_SYMBOL_COLLISION_PAIRS: tuple[tuple[str, str, str], ...] = ()
+_STOCK_STRATEGY_PRIORITIES: tuple[tuple[str, int], ...] = (
+    ("IARIC_v1", 0),
+    ("ALCB_v1", 1),
+)
+
 
 class StockFamilyCoordinator:
-    """Lifecycle manager for the three stock strategies.
+    """Lifecycle manager for the configured stock strategies.
 
     Each strategy receives its own OMS built via ``build_oms_service``.
-    Shared across all three: *db_pool*, *AccountRiskGate*, *family_id*.
+    Shared across the stock family: *db_pool*, *AccountRiskGate*, *family_id*.
     """
 
     family_id = "stock"
@@ -58,11 +65,27 @@ class StockFamilyCoordinator:
     # ── lifecycle ────────────────────────────────────────────────────
 
     async def start(self) -> None:
-        """Import, build OMS, and start all three stock engines."""
+        """Import, build OMS, and start all enabled stock engines."""
         from libs.oms.services.factory import build_oms_service
         from libs.oms.risk.calculator import RiskCalculator
         from libs.oms.risk.portfolio_rules import PortfolioRulesConfig
         from libs.config.capital_bootstrap import bootstrap_capital
+
+        active_strategy_ids = self._enabled_stock_strategy_ids()
+        if not active_strategy_ids:
+            logger.warning("No enabled stock strategies remain after registry filtering")
+            return
+
+        artifacts, readiness_failures = validate_stock_readiness(
+            self._ctx.registry,
+            live=get_environment() == "live",
+            strategy_ids=active_strategy_ids,
+        )
+        if readiness_failures:
+            detail = "; ".join(
+                f"{failure.check_name}={failure.detail}" for failure in readiness_failures
+            )
+            raise RuntimeError(f"Stock family readiness failed: {detail}")
 
         ctx = self._ctx
         session = ctx.session
@@ -107,43 +130,24 @@ class StockFamilyCoordinator:
             logger.warning("bootstrap_capital failed (%s), using equal split", exc)
             allocs = {}
 
-        # Load artifacts for strategies that need them
-        artifacts = self._load_artifacts()
-
-        # Generate missing artifacts via IB research pipeline
-        missing = [sid for sid, art in artifacts.items() if art is None]
-        if missing:
-            logger.info("Generating missing stock artifacts: %s", missing)
-            try:
-                from .artifact_generator import ensure_artifacts
-                from zoneinfo import ZoneInfo
-
-                today = datetime.now(ZoneInfo("America/New_York")).date()
-                ib_host = os.environ.get("IB_HOST", "127.0.0.1")
-                ib_port = int(os.environ.get("IB_PORT", "4002"))
-                results = await asyncio.wait_for(
-                    ensure_artifacts(today, missing, host=ib_host, port=ib_port),
-                    timeout=3600,  # 60 min hard cap; daily+30m bars for ~450 symbols
-                )
-                artifacts = self._load_artifacts()  # reload from disk
-                for sid, ok in results.items():
-                    if ok:
-                        logger.info("Artifact generated successfully: %s", sid)
-                    else:
-                        logger.warning("Artifact generation failed: %s", sid)
-            except Exception as exc:
-                logger.error("Artifact generation failed, strategies will be skipped: %s", exc)
-
         # ── Strategy descriptors ─────────────────────────────────────
-        _strategies = self._build_strategy_descriptors(artifacts)
+        _strategies = self._build_strategy_descriptors(artifacts, active_strategy_ids)
+        if not _strategies:
+            logger.warning("No enabled stock strategies remain after registry filtering")
+            return
 
         # Portfolio rules: drawdown tiers + family-scoped directional cap + symbol collision
-        all_strategy_ids = tuple(d["strategy_id"] for d in _strategies)
+        rule_inputs = self._portfolio_rule_inputs(
+            tuple(d["strategy_id"] for d in _strategies)
+        )
+        all_strategy_ids = rule_inputs["family_strategy_ids"]
+        collision_pairs = rule_inputs["symbol_collision_pairs"]
+        strategy_priorities = rule_inputs["strategy_priorities"]
         logger.info(
             "Stock portfolio rules: directional_cap=%.1fR, collision=%s, "
             "collision_pairs=%s, headroom=%.1fR, strategies=%s",
             12.0, "half_size",
-            [f"{h}→{r}:{a}" for h, r, a in (("ALCB_v1", "US_ORB_v1", "block"),)],
+            [f"{h}->{r}:{a}" for h, r, a in collision_pairs],
             5.0, all_strategy_ids,
         )
 
@@ -162,14 +166,10 @@ class StockFamilyCoordinator:
         for desc in _strategies:
             sid = desc["strategy_id"]
 
-            # Skip engines whose required artifact failed to load
             if desc.get("data_key") == "artifact" and desc.get("data_value") is None:
-                logger.warning(
-                    "Skipping %s — required artifact not available. "
-                    "Engine would crash on None artifact.",
-                    sid,
+                raise RuntimeError(
+                    f"Stock artifact missing after readiness validation for {sid}"
                 )
-                continue
 
             self._strategy_ids.append(sid)
 
@@ -185,14 +185,8 @@ class StockFamilyCoordinator:
                 initial_equity=allocated_nav,
                 family_strategy_ids=all_strategy_ids,
                 symbol_collision_action="half_size",
-                symbol_collision_pairs=(
-                    ("ALCB_v1", "US_ORB_v1", "block"),  # ALCB holds → US_ORB fully blocked on same symbol
-                ),
-                strategy_priorities=(
-                    ("IARIC_v1", 0),    # highest: daily alpha, multi-position (5R heat)
-                    ("ALCB_v1", 1),     # second: proven backtest edge, broader alpha
-                    ("US_ORB_v1", 2),   # lowest: supplementary, OR overlap with ALCB
-                ),
+                symbol_collision_pairs=collision_pairs,
+                strategy_priorities=strategy_priorities,
                 priority_headroom_R=5.0,       # reserve last 5R for IARIC + ALCB
                 priority_reserve_threshold=1,  # priority 0-1 can use reserved headroom
                 reference_unit_risk_dollars=100.0,  # all stock strategies use $100/R
@@ -317,6 +311,7 @@ class StockFamilyCoordinator:
                         contract_factory=self._contract_factory,
                         on_quote=engine.on_quote,
                         on_bar=engine.on_bar,
+                        historical_requester=getattr(session, "req_historical_data", None),
                     )
                     await md_source.start()
                     # Initial subscription setup
@@ -508,26 +503,42 @@ class StockFamilyCoordinator:
                 await asyncio.sleep(15)
             except asyncio.CancelledError:
                 return
+            payloads = []
             for i, sid in enumerate(self._strategy_ids):
-                try:
-                    # Use per-strategy state (not portfolio state) for correct per-strategy metrics
-                    srs = getattr(self._oms_services[i], "_strategy_risk_states", {})
-                    sr = srs.get(sid)
-                    # Fall back to portfolio state for halted check
-                    prs = getattr(self._oms_services[i], "_portfolio_risk_state", None)
-                    await heartbeat.strategy_heartbeat(
-                        strategy_id=sid,
-                        heat_r=Decimal(str(sr.open_risk_R)) if sr else Decimal("0"),
-                        daily_pnl_r=Decimal(str(sr.daily_realized_R)) if sr else Decimal("0"),
-                        mode="HALTED" if (prs and prs.halted) else "RUNNING",
-                    )
-                except Exception:
-                    logger.debug("Heartbeat failed for %s", sid, exc_info=True)
-            try:
-                connected = session.ib.isConnected() if session else False
-                await heartbeat.adapter_heartbeat(self.family_id, connected=connected)
-            except Exception:
-                logger.debug("Adapter heartbeat failed", exc_info=True)
+                # Use per-strategy state (not portfolio state) for correct per-strategy metrics
+                srs = getattr(self._oms_services[i], "_strategy_risk_states", {})
+                sr = srs.get(sid)
+                # Fall back to portfolio state for halted check
+                prs = getattr(self._oms_services[i], "_portfolio_risk_state", None)
+                payload = {
+                    "strategy_id": sid,
+                    "heat_r": Decimal(str(sr.open_risk_R)) if sr else Decimal("0"),
+                    "daily_pnl_r": Decimal(str(sr.daily_realized_R)) if sr else Decimal("0"),
+                    "mode": "HALTED" if (prs and prs.halted) else "RUNNING",
+                }
+                # Diagnostic pulse fields
+                engine = self._engines[i]
+                if hasattr(engine, "_last_decision_code"):
+                    payload["last_decision_code"] = engine._last_decision_code
+                    payload["last_decision_details"] = getattr(engine, "_last_decision_details", None)
+                    payload["last_seen_bar_ts"] = getattr(engine, "_last_bar_ts", None)
+                payloads.append(payload)
+            connected = session.ib.isConnected() if session else False
+            # Enrich with IB farm status for diagnostic context
+            if session:
+                farm_statuses = {}
+                for group in session.groups.values():
+                    if group.farm_monitor:
+                        farm_statuses.update(group.farm_monitor.all_statuses())
+                if farm_statuses:
+                    for p in payloads:
+                        details = p.get("last_decision_details") or {}
+                        if isinstance(details, dict):
+                            details["ib_farm_status"] = farm_statuses
+                            p["last_decision_details"] = details
+            await emit_family_heartbeats(
+                heartbeat, self.family_id, payloads, adapter_connected=connected,
+            )
 
     async def _market_data_loop(self) -> None:
         """Periodically refresh market data subscriptions for all engines."""
@@ -559,47 +570,44 @@ class StockFamilyCoordinator:
 
     # ── internal ─────────────────────────────────────────────────────
 
-    def _load_artifacts(self) -> dict[str, Any]:
-        """Attempt to load artifacts from disk for strategies that need them.
+    def _enabled_stock_strategy_ids(self) -> tuple[str, ...]:
+        """Return enabled stock strategy IDs for the current runtime environment."""
+        registry = getattr(self._ctx, "registry", None)
+        if registry is None:
+            return ()
+        live = get_environment() == "live"
+        return tuple(
+            manifest.strategy_id
+            for manifest in registry.enabled_strategies(live=live)
+            if manifest.family == self.family_id
+        )
 
-        Returns a dict keyed by strategy ID.  If an artifact cannot be loaded
-        (e.g. research hasn't run yet) the value is ``None``; engines handle
-        missing artifacts gracefully.
-        """
-        # Use ET-aware date to avoid timezone drift on non-US hosts
-        from zoneinfo import ZoneInfo
-        today = datetime.now(ZoneInfo("America/New_York")).date()
-        artifacts: dict[str, Any] = {}
-
-        # IARIC — WatchlistArtifact
-        try:
-            from strategies.stock.iaric.artifact_store import load_watchlist_artifact
-            from strategies.stock.iaric.config import StrategySettings as IARICSettings
-            artifacts["IARIC_v1"] = load_watchlist_artifact(today, settings=IARICSettings())
-            logger.info("Loaded IARIC watchlist artifact for %s", today)
-        except Exception as exc:
-            logger.warning("IARIC artifact not available (%s), engine will handle gracefully", exc)
-            artifacts["IARIC_v1"] = None
-
-        # ALCB — CandidateArtifact
-        try:
-            from strategies.stock.alcb.artifact_store import load_candidate_artifact
-            from strategies.stock.alcb.config import StrategySettings as ALCBSettings
-            artifacts["ALCB_v1"] = load_candidate_artifact(today, settings=ALCBSettings())
-            logger.info("Loaded ALCB candidate artifact for %s", today)
-        except Exception as exc:
-            logger.warning("ALCB artifact not available (%s), engine will handle gracefully", exc)
-            artifacts["ALCB_v1"] = None
-
-        return artifacts
+    def _portfolio_rule_inputs(self, strategy_ids: tuple[str, ...]) -> dict[str, Any]:
+        """Build stock-family rule inputs for the active strategy set."""
+        active_ids = set(strategy_ids)
+        return {
+            "family_strategy_ids": strategy_ids,
+            "symbol_collision_pairs": tuple(
+                (holder_id, requester_id, action)
+                for holder_id, requester_id, action in _STOCK_SYMBOL_COLLISION_PAIRS
+                if holder_id in active_ids and requester_id in active_ids
+            ),
+            "strategy_priorities": tuple(
+                (strategy_id, priority)
+                for strategy_id, priority in _STOCK_STRATEGY_PRIORITIES
+                if strategy_id in active_ids
+            ),
+        }
 
     def _build_strategy_descriptors(
-        self, artifacts: dict[str, Any],
+        self,
+        artifacts: dict[str, Any],
+        strategy_ids: tuple[str, ...],
     ) -> list[dict[str, Any]]:
         """Return per-strategy wiring descriptors.
 
-        Imports are deferred into lambdas / callables so that engine modules
-        are only loaded when ``start()`` actually runs.
+        Strategy modules are imported only for enabled stock strategies so a
+        removed disabled package cannot break coordinator startup.
         """
         ctx = self._ctx
 
@@ -638,38 +646,22 @@ class StockFamilyCoordinator:
         # Shared trade recorder from bootstrap
         trade_recorder = getattr(ctx, "trade_recorder", None)
 
-        # --- IARIC v1 --------------------------------------------------------
-        from strategies.stock.iaric.config import (
-            STRATEGY_ID as IARIC_ID,
-            StrategySettings as IARICSettings,
-        )
-        iaric_settings = IARICSettings()
+        def _build_iaric_descriptor() -> dict[str, Any]:
+            from strategies.stock.iaric.config import (
+                STRATEGY_ID as IARIC_ID,
+                StrategySettings as IARICSettings,
+            )
 
-        # --- US_ORB v1 -------------------------------------------------------
-        from strategies.stock.us_orb.config import (
-            STRATEGY_ID as ORB_ID,
-            StrategySettings as ORBSettings,
-        )
-        orb_settings = ORBSettings()
-
-        # --- ALCB v1 ---------------------------------------------------------
-        from strategies.stock.alcb.config import (
-            STRATEGY_ID as ALCB_ID,
-            StrategySettings as ALCBSettings,
-        )
-        alcb_settings = ALCBSettings()
-
-        return [
-            # ── IARIC_v1 ──────────────────────────────────────────────
-            {
+            iaric_settings = IARICSettings()
+            return {
                 "strategy_id": IARIC_ID,
                 "base_risk_pct": iaric_settings.base_risk_fraction,
                 "daily_stop_R": iaric_settings.daily_stop_r,
                 "heat_cap_R": iaric_settings.heat_cap_r,
                 "portfolio_daily_stop_R": iaric_settings.portfolio_daily_stop_r,
                 "adapter": _make_adapter,
-                "engine_cls": lambda: _import_iaric_engine(),
-                "market_data_cls": lambda: _import_iaric_market_data(),
+                "engine_cls": _import_iaric_engine,
+                "market_data_cls": _import_iaric_market_data,
                 "instr_type": "strategy_iaric",
                 "trade_recorder": trade_recorder,
                 "account_id": account_id,
@@ -679,37 +671,24 @@ class StockFamilyCoordinator:
                 "diagnostics_factory": lambda s=iaric_settings: _make_diagnostics(
                     "strategies.stock.iaric.diagnostics", s.diagnostics_dir,
                 ),
-            },
-            # ── US_ORB_v1 ─────────────────────────────────────────────
-            {
-                "strategy_id": ORB_ID,
-                "base_risk_pct": orb_settings.base_risk_pct,
-                "daily_stop_R": orb_settings.daily_stop_r,
-                "heat_cap_R": orb_settings.heat_cap_r,
-                "portfolio_daily_stop_R": orb_settings.portfolio_daily_stop_r,
-                "adapter": _make_adapter,
-                "engine_cls": lambda: _import_orb_engine(),
-                "market_data_cls": lambda: _import_orb_market_data(),
-                "instr_type": "strategy_orb",
-                "trade_recorder": trade_recorder,
-                "account_id": account_id,
-                "settings": orb_settings,
-                "data_key": "cache",
-                "data_value": {},
-                "diagnostics_factory": lambda s=orb_settings: _make_diagnostics(
-                    "strategies.stock.us_orb.diagnostics", s.diagnostics_dir,
-                ),
-            },
-            # ── ALCB_v1 ───────────────────────────────────────────────
-            {
+            }
+
+        def _build_alcb_descriptor() -> dict[str, Any]:
+            from strategies.stock.alcb.config import (
+                STRATEGY_ID as ALCB_ID,
+                StrategySettings as ALCBSettings,
+            )
+
+            alcb_settings = ALCBSettings()
+            return {
                 "strategy_id": ALCB_ID,
                 "base_risk_pct": alcb_settings.base_risk_fraction,
                 "daily_stop_R": alcb_settings.daily_stop_r,
                 "heat_cap_R": alcb_settings.heat_cap_r,
                 "portfolio_daily_stop_R": alcb_settings.portfolio_daily_stop_r,
                 "adapter": _make_adapter,
-                "engine_cls": lambda: _import_alcb_engine(),
-                "market_data_cls": lambda: _import_alcb_market_data(),
+                "engine_cls": _import_alcb_engine,
+                "market_data_cls": _import_alcb_market_data,
                 "instr_type": "strategy_alcb",
                 "trade_recorder": trade_recorder,
                 "account_id": account_id,
@@ -719,8 +698,26 @@ class StockFamilyCoordinator:
                 "diagnostics_factory": lambda s=alcb_settings: _make_diagnostics(
                     "strategies.stock.alcb.diagnostics", s.diagnostics_dir,
                 ),
-            },
-        ]
+            }
+
+        descriptor_builders = {
+            "IARIC_v1": _build_iaric_descriptor,
+            "ALCB_v1": _build_alcb_descriptor,
+        }
+        descriptors: list[dict[str, Any]] = []
+        unsupported: list[str] = []
+        for strategy_id in strategy_ids:
+            builder = descriptor_builders.get(strategy_id)
+            if builder is None:
+                unsupported.append(strategy_id)
+                continue
+            descriptors.append(builder())
+        if unsupported:
+            logger.warning(
+                "Skipping unsupported stock strategies with no wiring descriptor: %s",
+                unsupported,
+            )
+        return descriptors
 
 
 # ── Deferred engine imports ──────────────────────────────────────────
@@ -730,11 +727,6 @@ def _import_iaric_engine():
     return IARICEngine
 
 
-def _import_orb_engine():
-    from strategies.stock.us_orb.engine import USORBEngine
-    return USORBEngine
-
-
 def _import_alcb_engine():
     from strategies.stock.alcb.engine import ALCBT2Engine
     return ALCBT2Engine
@@ -742,11 +734,6 @@ def _import_alcb_engine():
 
 def _import_iaric_market_data():
     from strategies.stock.iaric.data import IBMarketDataSource
-    return IBMarketDataSource
-
-
-def _import_orb_market_data():
-    from strategies.stock.us_orb.data import IBMarketDataSource
     return IBMarketDataSource
 
 

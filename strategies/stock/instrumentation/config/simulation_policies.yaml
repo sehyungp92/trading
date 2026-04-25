@@ -14,18 +14,6 @@ simulation_policies:
     sl_value: 1.0                  # V4R1: pb_stop_daily_atr_cap=1.0
     max_hold_bars: 156             # V2R4: 2 trading days (5-min bars)
 
-  # US ORB — opening range breakout, US equities via IBKR
-  us_orb:
-    entry_fill_model: mid
-    slippage_model: fixed_bps
-    slippage_bps: 5.0              # ORB entries in first 15 min: wider spreads
-    fees_included: true
-    fee_bps: 1.0
-    tp_sl_logic: atr_based
-    tp_value: 1.5                  # ORB: tighter targets
-    sl_value: 1.0
-    max_hold_bars: 78              # Intraday
-
   # ALCB — adaptive limit/continuation breakout, US equities via IBKR
   alcb:
     entry_fill_model: mid

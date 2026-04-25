@@ -68,118 +68,262 @@ def percentile_rank(value: float, history: np.ndarray) -> float:
 
 
 class BarSeries:
-    """Maintains a rolling window of bars for a single timeframe with computed indicators."""
+    """Maintains a rolling window of bars with incrementally updated indicators.
+
+    Instead of recomputing all indicators from scratch on every bar (O(N) per
+    bar, ~6 full-array passes), this uses O(1) incremental EMA/ATR/MACD updates
+    after a one-time warmup period.
+    """
+
+    # Minimum bars needed before incremental mode activates.
+    # Must be >= max(EMA_SLOW_PERIOD, MACD_SLOW + MACD_SIGNAL - 1, ATR_PERIOD)
+    _WARMUP = max(EMA_SLOW_PERIOD, MACD_SLOW + MACD_SIGNAL - 1, ATR_PERIOD)
 
     def __init__(self, tf: TF, maxlen: int = 300):
         self.tf = tf
         self.bars: deque[Bar] = deque(maxlen=maxlen)
-        # Cached indicator arrays (recomputed on each bar add)
-        self._closes: Optional[np.ndarray] = None
-        self._highs: Optional[np.ndarray] = None
-        self._lows: Optional[np.ndarray] = None
-        self._ema_fast: Optional[np.ndarray] = None
-        self._ema_slow: Optional[np.ndarray] = None
-        self._atr: Optional[np.ndarray] = None
-        self._macd_line: Optional[np.ndarray] = None
-        self._macd_signal: Optional[np.ndarray] = None
-        self._macd_hist: Optional[np.ndarray] = None
-        self._dirty = True
+        self._maxlen = maxlen
+
+        # ── EMA multipliers (precomputed) ──
+        self._k_ema_fast = 2.0 / (EMA_FAST_PERIOD + 1)
+        self._k_ema_slow = 2.0 / (EMA_SLOW_PERIOD + 1)
+        self._k_atr = 1.0 / ATR_PERIOD
+        self._k_macd_fast = 2.0 / (MACD_FAST + 1)
+        self._k_macd_slow = 2.0 / (MACD_SLOW + 1)
+        self._k_macd_sig = 2.0 / (MACD_SIGNAL + 1)
+
+        # ── Running state for incremental updates ──
+        self._ema_fast_val: float = 0.0
+        self._ema_slow_val: float = 0.0
+        self._atr_val: float = 0.0
+        self._macd_fast_ema: float = 0.0
+        self._macd_slow_ema: float = 0.0
+        self._macd_sig_ema: float = 0.0
+        self._prev_close: float = 0.0
+        self._warmed_up: bool = False
+        self._bar_count: int = 0
+
+        # ── Indicator history deques ──
+        self._closes_d: deque[float] = deque(maxlen=maxlen)
+        self._highs_d: deque[float] = deque(maxlen=maxlen)
+        self._lows_d: deque[float] = deque(maxlen=maxlen)
+        self._ema_fast_d: deque[float] = deque(maxlen=maxlen)
+        self._ema_slow_d: deque[float] = deque(maxlen=maxlen)
+        self._atr_d: deque[float] = deque(maxlen=maxlen)
+        self._macd_line_d: deque[float] = deque(maxlen=maxlen)
+        self._macd_signal_d: deque[float] = deque(maxlen=maxlen)
+        self._macd_hist_d: deque[float] = deque(maxlen=maxlen)
 
     def add_bar(self, bar: Bar) -> None:
         self.bars.append(bar)
-        self._dirty = True
+        self._bar_count += 1
+        c, h, l = bar.close, bar.high, bar.low
 
-    def _recompute(self) -> None:
-        if not self._dirty or len(self.bars) < 2:
+        self._closes_d.append(c)
+        self._highs_d.append(h)
+        self._lows_d.append(l)
+
+        if not self._warmed_up:
+            if self._bar_count >= self._WARMUP:
+                self._full_seed()
+                self._warmed_up = True
+            else:
+                # Append NaN placeholders during warmup
+                self._ema_fast_d.append(float("nan"))
+                self._ema_slow_d.append(float("nan"))
+                self._atr_d.append(float("nan"))
+                self._macd_line_d.append(float("nan"))
+                self._macd_signal_d.append(float("nan"))
+                self._macd_hist_d.append(float("nan"))
+                self._prev_close = c
             return
-        self._closes = np.array([b.close for b in self.bars])
-        self._highs = np.array([b.high for b in self.bars])
-        self._lows = np.array([b.low for b in self.bars])
-        self._ema_fast = ema(self._closes, EMA_FAST_PERIOD)
-        self._ema_slow = ema(self._closes, EMA_SLOW_PERIOD)
-        self._atr = atr(self._highs, self._lows, self._closes, ATR_PERIOD)
-        self._macd_line, self._macd_signal, self._macd_hist = macd(self._closes)
-        self._dirty = False
+
+        # ── Incremental O(1) updates ──
+
+        # True Range
+        tr = max(h - l, abs(h - self._prev_close), abs(l - self._prev_close))
+
+        # ATR (Wilder smoothing: k = 1/period)
+        self._atr_val = tr * self._k_atr + self._atr_val * (1 - self._k_atr)
+
+        # EMA fast/slow
+        self._ema_fast_val = c * self._k_ema_fast + self._ema_fast_val * (1 - self._k_ema_fast)
+        self._ema_slow_val = c * self._k_ema_slow + self._ema_slow_val * (1 - self._k_ema_slow)
+
+        # MACD internal EMAs
+        self._macd_fast_ema = c * self._k_macd_fast + self._macd_fast_ema * (1 - self._k_macd_fast)
+        self._macd_slow_ema = c * self._k_macd_slow + self._macd_slow_ema * (1 - self._k_macd_slow)
+        macd_line_val = self._macd_fast_ema - self._macd_slow_ema
+        self._macd_sig_ema = macd_line_val * self._k_macd_sig + self._macd_sig_ema * (1 - self._k_macd_sig)
+        macd_hist_val = macd_line_val - self._macd_sig_ema
+
+        # Append to history deques
+        self._ema_fast_d.append(self._ema_fast_val)
+        self._ema_slow_d.append(self._ema_slow_val)
+        self._atr_d.append(self._atr_val)
+        self._macd_line_d.append(macd_line_val)
+        self._macd_signal_d.append(self._macd_sig_ema)
+        self._macd_hist_d.append(macd_hist_val)
+
+        self._prev_close = c
+
+    def _full_seed(self) -> None:
+        """Compute full indicator arrays from deque to seed running state.
+
+        Called once when bar_count reaches _WARMUP. After this, all updates
+        are incremental.
+        """
+        closes = np.array(self._closes_d)
+        highs = np.array(self._highs_d)
+        lows = np.array(self._lows_d)
+        n = len(closes)
+
+        # EMA fast/slow
+        ema_f = ema(closes, EMA_FAST_PERIOD)
+        ema_s = ema(closes, EMA_SLOW_PERIOD)
+
+        # ATR
+        atr_arr = atr(highs, lows, closes, ATR_PERIOD)
+
+        # MACD (with separate internal EMAs)
+        macd_f_ema = ema(closes, MACD_FAST)
+        macd_s_ema = ema(closes, MACD_SLOW)
+        macd_line_arr = macd_f_ema - macd_s_ema
+        # Signal EMA over valid MACD line values
+        valid_mask = ~np.isnan(macd_line_arr)
+        valid_line = macd_line_arr[valid_mask]
+        sig_arr = ema(valid_line, MACD_SIGNAL) if len(valid_line) >= MACD_SIGNAL else np.array([])
+        # Map signal back to full array
+        macd_signal_full = np.full(n, np.nan)
+        valid_start = np.argmax(valid_mask) if valid_mask.any() else 0
+        if len(sig_arr) > 0:
+            macd_signal_full[valid_start:valid_start + len(sig_arr)] = sig_arr
+        macd_hist_arr = macd_line_arr - macd_signal_full
+
+        # Populate history deques (replace NaN placeholders)
+        self._ema_fast_d.clear()
+        self._ema_slow_d.clear()
+        self._atr_d.clear()
+        self._macd_line_d.clear()
+        self._macd_signal_d.clear()
+        self._macd_hist_d.clear()
+        for i in range(n):
+            self._ema_fast_d.append(float(ema_f[i]))
+            self._ema_slow_d.append(float(ema_s[i]))
+            self._atr_d.append(float(atr_arr[i]))
+            self._macd_line_d.append(float(macd_line_arr[i]))
+            self._macd_signal_d.append(float(macd_signal_full[i]))
+            self._macd_hist_d.append(float(macd_hist_arr[i]))
+
+        # Seed running state from last valid values
+        self._ema_fast_val = float(ema_f[n - 1])
+        self._ema_slow_val = float(ema_s[n - 1])
+        self._atr_val = float(atr_arr[n - 1]) if not np.isnan(atr_arr[n - 1]) else 0.0
+        self._macd_fast_ema = float(macd_f_ema[n - 1])
+        self._macd_slow_ema = float(macd_s_ema[n - 1])
+        self._macd_sig_ema = float(macd_signal_full[n - 1]) if not np.isnan(macd_signal_full[n - 1]) else 0.0
+        self._prev_close = float(closes[n - 1])
 
     @property
     def last_close(self) -> float:
-        return self.bars[-1].close if self.bars else 0.0
+        return self._closes_d[-1] if self._closes_d else 0.0
 
     @property
     def last_high(self) -> float:
-        return self.bars[-1].high if self.bars else 0.0
+        return self._highs_d[-1] if self._highs_d else 0.0
 
     @property
     def last_low(self) -> float:
-        return self.bars[-1].low if self.bars else 0.0
+        return self._lows_d[-1] if self._lows_d else 0.0
 
     def close_n_ago(self, n: int) -> float:
-        idx = len(self.bars) - 1 - n
-        if 0 <= idx < len(self.bars):
-            return self.bars[idx].close
+        idx = len(self._closes_d) - 1 - n
+        if 0 <= idx < len(self._closes_d):
+            return self._closes_d[idx]
         return 0.0
 
     def ema_fast(self) -> float:
-        self._recompute()
-        return float(self._ema_fast[-1]) if self._ema_fast is not None and not np.isnan(self._ema_fast[-1]) else 0.0
+        if not self._ema_fast_d:
+            return 0.0
+        v = self._ema_fast_d[-1]
+        return v if not math.isnan(v) else 0.0
 
     def ema_slow(self) -> float:
-        self._recompute()
-        return float(self._ema_slow[-1]) if self._ema_slow is not None and not np.isnan(self._ema_slow[-1]) else 0.0
+        if not self._ema_slow_d:
+            return 0.0
+        v = self._ema_slow_d[-1]
+        return v if not math.isnan(v) else 0.0
 
     def current_atr(self) -> float:
-        self._recompute()
-        return float(self._atr[-1]) if self._atr is not None and not np.isnan(self._atr[-1]) else 0.0
+        if not self._atr_d:
+            return 0.0
+        v = self._atr_d[-1]
+        return v if not math.isnan(v) else 0.0
 
     def atr_at(self, idx: int) -> float:
-        self._recompute()
-        if self._atr is not None and 0 <= idx < len(self._atr) and not np.isnan(self._atr[idx]):
-            return float(self._atr[idx])
+        if 0 <= idx < len(self._atr_d):
+            v = self._atr_d[idx]
+            if not math.isnan(v):
+                return v
         return 0.0
 
     def macd_line_at(self, idx: int) -> float:
-        self._recompute()
-        if self._macd_line is not None and 0 <= idx < len(self._macd_line) and not np.isnan(self._macd_line[idx]):
-            return float(self._macd_line[idx])
+        if 0 <= idx < len(self._macd_line_d):
+            v = self._macd_line_d[idx]
+            if not math.isnan(v):
+                return v
         return 0.0
 
     def macd_line_now(self) -> float:
-        self._recompute()
-        if self._macd_line is not None and not np.isnan(self._macd_line[-1]):
-            return float(self._macd_line[-1])
-        return 0.0
+        if not self._macd_line_d:
+            return 0.0
+        v = self._macd_line_d[-1]
+        return v if not math.isnan(v) else 0.0
 
     def macd_hist_now(self) -> float:
-        self._recompute()
-        if self._macd_hist is not None and not np.isnan(self._macd_hist[-1]):
-            return float(self._macd_hist[-1])
-        return 0.0
+        if not self._macd_hist_d:
+            return 0.0
+        v = self._macd_hist_d[-1]
+        return v if not math.isnan(v) else 0.0
 
     def macd_line_n_ago(self, n: int) -> float:
-        self._recompute()
-        idx = len(self._macd_line) - 1 - n if self._macd_line is not None else -1
-        if self._macd_line is not None and 0 <= idx < len(self._macd_line) and not np.isnan(self._macd_line[idx]):
-            return float(self._macd_line[idx])
+        idx = len(self._macd_line_d) - 1 - n
+        if 0 <= idx < len(self._macd_line_d):
+            v = self._macd_line_d[idx]
+            if not math.isnan(v):
+                return v
         return 0.0
 
     def macd_hist_n_ago(self, n: int) -> float:
-        self._recompute()
-        idx = len(self._macd_hist) - 1 - n if self._macd_hist is not None else -1
-        if self._macd_hist is not None and 0 <= idx < len(self._macd_hist) and not np.isnan(self._macd_hist[idx]):
-            return float(self._macd_hist[idx])
+        idx = len(self._macd_hist_d) - 1 - n
+        if 0 <= idx < len(self._macd_hist_d):
+            v = self._macd_hist_d[idx]
+            if not math.isnan(v):
+                return v
         return 0.0
 
     def highest_high(self, lookback: int) -> float:
-        self._recompute()
-        if self._highs is None or len(self._highs) == 0:
+        if not self._highs_d:
             return 0.0
-        return float(np.max(self._highs[-lookback:]))
+        # Iterate last N elements of deque (faster than converting to array)
+        n = min(lookback, len(self._highs_d))
+        start = len(self._highs_d) - n
+        best = self._highs_d[start]
+        for i in range(start + 1, len(self._highs_d)):
+            if self._highs_d[i] > best:
+                best = self._highs_d[i]
+        return best
 
     def lowest_low(self, lookback: int) -> float:
-        self._recompute()
-        if self._lows is None or len(self._lows) == 0:
+        if not self._lows_d:
             return float("inf")
-        return float(np.min(self._lows[-lookback:]))
+        n = min(lookback, len(self._lows_d))
+        start = len(self._lows_d) - n
+        best = self._lows_d[start]
+        for i in range(start + 1, len(self._lows_d)):
+            if self._lows_d[i] < best:
+                best = self._lows_d[i]
+        return best
 
     def bar_range(self) -> float:
         if not self.bars:
@@ -188,37 +332,46 @@ class BarSeries:
         return b.high - b.low
 
     def trend_strength_at(self, idx: int) -> float:
-        """Return |ema_fast - ema_slow| / atr at array index `idx`."""
-        self._recompute()
-        if (self._ema_fast is None or self._ema_slow is None or self._atr is None
-                or not (0 <= idx < len(self._atr))):
+        """Return |ema_fast - ema_slow| / atr at deque index `idx`."""
+        if not (0 <= idx < len(self._atr_d)):
             return 0.0
-        a = float(self._atr[idx])
-        if a <= 0 or np.isnan(a):
+        a = self._atr_d[idx]
+        if a <= 0 or math.isnan(a):
             return 0.0
-        ef = float(self._ema_fast[idx])
-        es = float(self._ema_slow[idx])
-        if np.isnan(ef) or np.isnan(es):
+        ef = self._ema_fast_d[idx] if idx < len(self._ema_fast_d) else float("nan")
+        es = self._ema_slow_d[idx] if idx < len(self._ema_slow_d) else float("nan")
+        if math.isnan(ef) or math.isnan(es):
             return 0.0
         return abs(ef - es) / a
 
     def atr_rolling(self, period: int) -> float:
         """ATR computed over last `period` bars (for Class R vol signature)."""
-        self._recompute()
-        if self._atr is None or len(self._atr) < period:
+        if len(self._atr_d) < period:
             return 0.0
-        subset = self._atr[-period:]
-        valid = subset[~np.isnan(subset)]
-        return float(np.mean(valid)) if len(valid) > 0 else 0.0
+        total = 0.0
+        count = 0
+        start = len(self._atr_d) - period
+        for i in range(start, len(self._atr_d)):
+            v = self._atr_d[i]
+            if not math.isnan(v):
+                total += v
+                count += 1
+        return total / count if count > 0 else 0.0
 
     def atr_rolling_prev(self, period: int) -> float:
         """ATR rolling mean over `period` bars ending one bar before the latest."""
-        self._recompute()
-        if self._atr is None or len(self._atr) < period + 1:
+        if len(self._atr_d) < period + 1:
             return 0.0
-        subset = self._atr[-(period + 1):-1]
-        valid = subset[~np.isnan(subset)]
-        return float(np.mean(valid)) if len(valid) > 0 else 0.0
+        total = 0.0
+        count = 0
+        start = len(self._atr_d) - period - 1
+        end = len(self._atr_d) - 1
+        for i in range(start, end):
+            v = self._atr_d[i]
+            if not math.isnan(v):
+                total += v
+                count += 1
+        return total / count if count > 0 else 0.0
 
 
 class VolEngine:
@@ -231,19 +384,20 @@ class VolEngine:
         self.extreme_vol: bool = False
 
     def update(self, daily_series: BarSeries) -> None:
-        daily_series._recompute()
-        if daily_series._atr is None:
+        if len(daily_series._atr_d) < 10:
             return
-        atr_arr = daily_series._atr
-        valid = atr_arr[~np.isnan(atr_arr)]
+
+        # Collect valid (non-NaN) ATR values from deque
+        valid = [v for v in daily_series._atr_d if not math.isnan(v)]
         if len(valid) < 10:
             return
 
         window = valid[-VOL_PERCENTILE_WINDOW:] if len(valid) >= VOL_PERCENTILE_WINDOW else valid
-        self.atr_base = float(np.median(window))
-        atr_today = float(valid[-1])
+        window_arr = np.array(window)
+        self.atr_base = float(np.median(window_arr))
+        atr_today = valid[-1]
 
-        self.vol_pct = percentile_rank(atr_today, window)
+        self.vol_pct = percentile_rank(atr_today, window_arr)
         self.extreme_vol = self.vol_pct > 95
 
         if atr_today > 0:

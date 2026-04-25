@@ -4,8 +4,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import time
+from collections import deque
 from dataclasses import dataclass, field
-from typing import Callable
+from datetime import datetime, timedelta, timezone
+from typing import Any, Callable
 
 from ib_async import IB
 
@@ -18,6 +21,10 @@ from .request_ids import RequestIdAllocator
 from .throttler import GlobalThrottler, PacingChannel
 
 logger = logging.getLogger(__name__)
+
+_HISTORICAL_TIMEOUT_WINDOW_S = 180.0
+_HISTORICAL_BREAKER_OPEN_S = 120.0
+_HISTORICAL_SKIP_LOG_INTERVAL_S = 30.0
 
 
 @dataclass
@@ -58,6 +65,13 @@ class UnifiedIBSession:
             global_msg_per_sec=global_rate,
             orders_per_sec=order_rate,
         )
+        self._historical_recent: deque[float] = deque()
+        self._historical_timeouts: deque[float] = deque()
+        self._historical_timeout_count = 0
+        self._historical_skipped_count = 0
+        self._historical_breaker_open_until = 0.0
+        self._historical_breaker_open_until_wall: datetime | None = None
+        self._historical_last_skip_log_at = 0.0
 
     @property
     def groups(self) -> dict[str, ConnectionGroup]:
@@ -277,6 +291,136 @@ class UnifiedIBSession:
     async def throttled(self, channel: PacingChannel) -> None:
         """Acquire a pacing token. Raises CongestionError if queue is overloaded."""
         await self._throttler.acquire(channel)
+
+    async def req_historical_data(
+        self,
+        contract: Any,
+        endDateTime: Any = "",
+        durationStr: str = "",
+        barSizeSetting: str = "",
+        whatToShow: str = "TRADES",
+        useRTH: bool = False,
+        formatDate: int = 1,
+        keepUpToDate: bool = False,
+        chartOptions: list[Any] | None = None,
+        timeout: float | None = None,
+        request_kind: str = "recurring",
+    ) -> Any:
+        """Paced, bounded historical-data request with a short farm-hiccup breaker."""
+        timeout = self._historical_timeout(timeout, request_kind, keepUpToDate)
+        now = time.monotonic()
+        self._prune_historical_window(self._historical_recent, now)
+        self._historical_recent.append(now)
+
+        if not keepUpToDate and now < self._historical_breaker_open_until:
+            self._historical_skipped_count += 1
+            self._log_historical_skip(now, contract, durationStr, barSizeSetting)
+            return []
+
+        await self.throttled(PacingChannel.HISTORICAL)
+        start = time.monotonic()
+        try:
+            bars = await self.ib.reqHistoricalDataAsync(
+                contract,
+                endDateTime=endDateTime,
+                durationStr=durationStr,
+                barSizeSetting=barSizeSetting,
+                whatToShow=whatToShow,
+                useRTH=useRTH,
+                formatDate=formatDate,
+                keepUpToDate=keepUpToDate,
+                chartOptions=chartOptions or [],
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError:
+            self._record_historical_timeout(time.monotonic())
+            logger.warning(
+                "Historical data request timed out: %s %s %s",
+                getattr(contract, "symbol", contract),
+                durationStr,
+                barSizeSetting,
+            )
+            return []
+        elapsed = time.monotonic() - start
+        if (
+            timeout > 0
+            and not bars
+            and elapsed >= max(timeout * 0.9, timeout - 1.0)
+        ):
+            self._record_historical_timeout(time.monotonic())
+        return bars
+
+    def historical_health(self) -> dict[str, Any]:
+        now = time.monotonic()
+        self._prune_historical_window(self._historical_recent, now)
+        self._prune_historical_window(self._historical_timeouts, now)
+        return {
+            "recent_count": len(self._historical_recent),
+            "timeout_count": len(self._historical_timeouts),
+            "total_timeout_count": self._historical_timeout_count,
+            "breaker_open_until": (
+                self._historical_breaker_open_until_wall.isoformat()
+                if self._historical_breaker_open_until > now
+                and self._historical_breaker_open_until_wall is not None
+                else None
+            ),
+            "skipped_count": self._historical_skipped_count,
+        }
+
+    @staticmethod
+    def _historical_timeout(
+        timeout: float | None, request_kind: str, keep_up_to_date: bool
+    ) -> float:
+        if timeout is not None:
+            return timeout
+        if keep_up_to_date or request_kind in {"startup", "backfill", "subscription"}:
+            return 45.0
+        if request_kind == "quick":
+            return 15.0
+        return 20.0
+
+    @staticmethod
+    def _prune_historical_window(events: deque[float], now: float) -> None:
+        cutoff = now - _HISTORICAL_TIMEOUT_WINDOW_S
+        while events and events[0] < cutoff:
+            events.popleft()
+
+    def _log_historical_skip(
+        self, now: float, contract: Any, duration: str, bar_size: str
+    ) -> None:
+        if now - self._historical_last_skip_log_at < _HISTORICAL_SKIP_LOG_INTERVAL_S:
+            return
+        self._historical_last_skip_log_at = now
+        remaining = max(0, int(self._historical_breaker_open_until - now))
+        logger.warning(
+            "Skipping historical data request while breaker is open (%ss remaining): %s %s %s",
+            remaining,
+            getattr(contract, "symbol", contract),
+            duration,
+            bar_size,
+        )
+
+    def _record_historical_timeout(self, now: float) -> None:
+        self._prune_historical_window(self._historical_timeouts, now)
+        self._historical_timeouts.append(now)
+        self._historical_timeout_count += 1
+        if len(self._historical_timeouts) >= 3:
+            was_open = now < self._historical_breaker_open_until
+            self._historical_breaker_open_until = max(
+                self._historical_breaker_open_until,
+                now + _HISTORICAL_BREAKER_OPEN_S,
+            )
+            self._historical_breaker_open_until_wall = (
+                datetime.now(timezone.utc)
+                + timedelta(seconds=self._historical_breaker_open_until - now)
+            )
+            if not was_open:
+                logger.warning(
+                    "Historical data breaker opened for %ds after %d timeouts in %ds",
+                    int(_HISTORICAL_BREAKER_OPEN_S),
+                    len(self._historical_timeouts),
+                    int(_HISTORICAL_TIMEOUT_WINDOW_S),
+                )
 
     def register_farm_recovery_callback(self, group_id: str, cb: Callable[[str], None]) -> None:
         self._get_group(group_id).farm_recovery_callbacks.append(cb)

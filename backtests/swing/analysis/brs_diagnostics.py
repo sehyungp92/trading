@@ -1,29 +1,17 @@
-"""BRS diagnostics — downturn-alpha focused analysis.
-
-Focus: does BRS capture alpha during downturns?
-1. Regime-conditional metrics
-2. Crisis window returns
-3. Entry type attribution
-4. Bear alpha
-5. Conviction correlation
-"""
+"""BRS diagnostics centered on fee-net, campaign-level downturn alpha."""
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from io import StringIO
 
 import numpy as np
+import pandas as pd
 
-from backtest.engine.backtest_engine import SymbolResult, TradeRecord
+from backtest.engine.backtest_engine import SymbolResult
 
-logger = logging.getLogger(__name__)
+from .brs_trade_metrics import BEAR_REGIMES, NON_DOWNTURN_REGIMES, summarize_brs_campaigns
 
-
-# ---------------------------------------------------------------------------
-# Crisis windows (ground truth downturn periods)
-# ---------------------------------------------------------------------------
 
 CRISIS_WINDOWS = [
     ("2022 Bear", datetime(2022, 1, 3), datetime(2022, 10, 13)),
@@ -34,13 +22,8 @@ CRISIS_WINDOWS = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Per-regime metrics
-# ---------------------------------------------------------------------------
-
 @dataclass
 class RegimeMetrics:
-    """Performance breakdown for a single regime bucket."""
     regime: str
     trade_count: int = 0
     win_rate: float = 0.0
@@ -52,7 +35,6 @@ class RegimeMetrics:
 
 @dataclass
 class EntryTypeMetrics:
-    """Performance breakdown for a single entry type."""
     entry_type: str
     trade_count: int = 0
     win_rate: float = 0.0
@@ -63,7 +45,6 @@ class EntryTypeMetrics:
 
 @dataclass
 class ConvictionBucket:
-    """Trades bucketed by conviction score at entry."""
     bucket: str
     trade_count: int = 0
     win_rate: float = 0.0
@@ -72,8 +53,39 @@ class ConvictionBucket:
 
 
 @dataclass
+class ExitReasonMetrics:
+    exit_reason: str
+    trade_count: int = 0
+    win_rate: float = 0.0
+    avg_r: float = 0.0
+    total_r: float = 0.0
+    profit_factor: float = 0.0
+    fee_net_pnl_dollars: float = 0.0
+    avg_bars_held: float = 0.0
+
+
+@dataclass
+class ContributionMetrics:
+    downturn_net_pnl_dollars: float = 0.0
+    non_downturn_net_pnl_dollars: float = 0.0
+    downturn_positive_share: float = 0.0
+    non_downturn_positive_share: float = 0.0
+    range_chop_net_pnl_dollars: float = 0.0
+    bull_trend_net_pnl_dollars: float = 0.0
+
+
+@dataclass
+class ConcentrationMetrics:
+    top_1_positive_share: float = 0.0
+    top_5_positive_share: float = 0.0
+    campaigns_for_half_positive_pnl: int = 0
+    median_fee_net_r: float = 0.0
+    p25_fee_net_r: float = 0.0
+    p75_fee_net_r: float = 0.0
+
+
+@dataclass
 class CrisisResult:
-    """BRS vs benchmark during a crisis window."""
     name: str
     start: datetime
     end: datetime
@@ -85,20 +97,19 @@ class CrisisResult:
 
 @dataclass
 class BRSDiagnostics:
-    """Complete BRS diagnostics report."""
     regime_metrics: list[RegimeMetrics] = field(default_factory=list)
     entry_type_metrics: list[EntryTypeMetrics] = field(default_factory=list)
     conviction_buckets: list[ConvictionBucket] = field(default_factory=list)
+    exit_reason_metrics: list[ExitReasonMetrics] = field(default_factory=list)
     crisis_results: list[CrisisResult] = field(default_factory=list)
+    contribution_metrics: ContributionMetrics = field(default_factory=ContributionMetrics)
+    concentration_metrics: ConcentrationMetrics = field(default_factory=ConcentrationMetrics)
     bear_alpha_pct: float = 0.0
     total_trades: int = 0
+    realized_leg_count: int = 0
     bear_trades: int = 0
     report: str = ""
 
-
-# ---------------------------------------------------------------------------
-# Compute diagnostics
-# ---------------------------------------------------------------------------
 
 def compute_brs_diagnostics(
     results: dict[str, SymbolResult],
@@ -106,200 +117,339 @@ def compute_brs_diagnostics(
     combined_equity: np.ndarray | None = None,
     combined_timestamps: np.ndarray | None = None,
 ) -> BRSDiagnostics:
-    """Compute full BRS diagnostics from backtest results."""
-    all_trades: list[TradeRecord] = []
-    for sr in results.values():
-        all_trades.extend(sr.trades)
+    all_trades = []
+    for symbol_result in results.values():
+        all_trades.extend(symbol_result.trades)
 
-    diag = BRSDiagnostics(total_trades=len(all_trades))
+    campaigns = summarize_brs_campaigns(all_trades)
+    diagnostics = BRSDiagnostics(
+        total_trades=len(campaigns),
+        realized_leg_count=len(all_trades),
+    )
+    diagnostics.regime_metrics = _compute_regime_metrics(campaigns)
+    diagnostics.entry_type_metrics = _compute_entry_type_metrics(campaigns)
+    diagnostics.conviction_buckets = _compute_conviction_buckets(campaigns)
+    diagnostics.exit_reason_metrics = _compute_exit_reason_metrics(campaigns)
+    diagnostics.contribution_metrics = _compute_contribution_metrics(campaigns)
+    diagnostics.concentration_metrics = _compute_concentration_metrics(campaigns)
 
-    # 1. Regime-conditional metrics
-    diag.regime_metrics = _compute_regime_metrics(all_trades)
-
-    # 2. Entry type attribution
-    diag.entry_type_metrics = _compute_entry_type_metrics(all_trades)
-
-    # 3. Conviction correlation
-    diag.conviction_buckets = _compute_conviction_buckets(all_trades)
-
-    # 4. Crisis window returns
     if combined_equity is not None and combined_timestamps is not None:
-        diag.crisis_results = _compute_crisis_returns(
-            combined_equity, combined_timestamps, initial_equity,
-        )
+        diagnostics.crisis_results = _compute_crisis_returns(combined_equity, combined_timestamps)
+        for crisis_result in diagnostics.crisis_results:
+            crisis_result.brs_trades = sum(
+                1
+                for campaign in campaigns
+                if campaign.entry_time is not None
+                and crisis_result.start <= _naive_dt(campaign.entry_time) <= crisis_result.end
+            )
 
-    # 5. Bear alpha
-    bear_trades = [t for t in all_trades if t.regime_entry in ("BEAR_STRONG", "BEAR_TREND", "BEAR_FORMING")]
-    diag.bear_trades = len(bear_trades)
-    if bear_trades:
-        diag.bear_alpha_pct = sum(t.pnl_dollars for t in bear_trades) / initial_equity * 100
+    bear_campaigns = [campaign for campaign in campaigns if campaign.regime_entry in BEAR_REGIMES]
+    diagnostics.bear_trades = len(bear_campaigns)
+    diagnostics.bear_alpha_pct = (
+        sum(campaign.fee_net_pnl_dollars for campaign in bear_campaigns) / initial_equity * 100.0
+        if bear_campaigns
+        else 0.0
+    )
+    diagnostics.report = _build_report(diagnostics)
+    return diagnostics
 
-    # Build report
-    diag.report = _build_report(diag)
-    return diag
 
-
-def _compute_regime_metrics(trades: list[TradeRecord]) -> list[RegimeMetrics]:
-    """Split trades by regime_entry, compute metrics per regime."""
-    from collections import defaultdict
-    buckets: dict[str, list[TradeRecord]] = defaultdict(list)
-    for t in trades:
-        buckets[t.regime_entry or "UNKNOWN"].append(t)
+def _compute_regime_metrics(campaigns) -> list[RegimeMetrics]:
+    buckets: dict[str, list] = {}
+    for campaign in campaigns:
+        buckets.setdefault(campaign.regime_entry or "UNKNOWN", []).append(campaign)
 
     results = []
     for regime, bucket in sorted(buckets.items()):
-        n = len(bucket)
-        wins = [t for t in bucket if t.r_multiple > 0]
-        losses = [t for t in bucket if t.r_multiple <= 0]
-        gross_win = sum(t.r_multiple for t in wins) if wins else 0
-        gross_loss = abs(sum(t.r_multiple for t in losses)) if losses else 0
-
-        results.append(RegimeMetrics(
-            regime=regime,
-            trade_count=n,
-            win_rate=len(wins) / n * 100 if n > 0 else 0,
-            avg_r=sum(t.r_multiple for t in bucket) / n if n > 0 else 0,
-            total_r=sum(t.r_multiple for t in bucket),
-            profit_factor=gross_win / gross_loss if gross_loss > 0 else 999,
-            avg_bars_held=sum(t.bars_held for t in bucket) / n if n > 0 else 0,
-        ))
+        wins = [campaign for campaign in bucket if campaign.fee_net_pnl_dollars > 0]
+        losses = [campaign for campaign in bucket if campaign.fee_net_pnl_dollars <= 0]
+        gross_win = sum(campaign.fee_net_pnl_dollars for campaign in wins)
+        gross_loss = abs(sum(campaign.fee_net_pnl_dollars for campaign in losses))
+        count = len(bucket)
+        results.append(
+            RegimeMetrics(
+                regime=regime,
+                trade_count=count,
+                win_rate=len(wins) / count * 100.0 if count > 0 else 0.0,
+                avg_r=sum(campaign.fee_net_r_multiple for campaign in bucket) / count if count > 0 else 0.0,
+                total_r=sum(campaign.fee_net_r_multiple for campaign in bucket),
+                profit_factor=gross_win / gross_loss if gross_loss > 0 else 999.0,
+                avg_bars_held=sum(campaign.bars_held for campaign in bucket) / count if count > 0 else 0.0,
+            )
+        )
     return results
 
 
-def _compute_entry_type_metrics(trades: list[TradeRecord]) -> list[EntryTypeMetrics]:
-    """Per entry type metrics."""
-    from collections import defaultdict
-    buckets: dict[str, list[TradeRecord]] = defaultdict(list)
-    for t in trades:
-        buckets[t.entry_type or "UNKNOWN"].append(t)
+def _compute_entry_type_metrics(campaigns) -> list[EntryTypeMetrics]:
+    buckets: dict[str, list] = {}
+    for campaign in campaigns:
+        buckets.setdefault(campaign.entry_type or "UNKNOWN", []).append(campaign)
 
     results = []
-    for etype, bucket in sorted(buckets.items()):
-        n = len(bucket)
-        wins = [t for t in bucket if t.r_multiple > 0]
-        losses = [t for t in bucket if t.r_multiple <= 0]
-        gross_win = sum(t.r_multiple for t in wins) if wins else 0
-        gross_loss = abs(sum(t.r_multiple for t in losses)) if losses else 0
-
-        results.append(EntryTypeMetrics(
-            entry_type=etype,
-            trade_count=n,
-            win_rate=len(wins) / n * 100 if n > 0 else 0,
-            avg_r=sum(t.r_multiple for t in bucket) / n if n > 0 else 0,
-            total_r=sum(t.r_multiple for t in bucket),
-            profit_factor=gross_win / gross_loss if gross_loss > 0 else 999,
-        ))
+    for entry_type, bucket in sorted(buckets.items()):
+        wins = [campaign for campaign in bucket if campaign.fee_net_pnl_dollars > 0]
+        losses = [campaign for campaign in bucket if campaign.fee_net_pnl_dollars <= 0]
+        gross_win = sum(campaign.fee_net_pnl_dollars for campaign in wins)
+        gross_loss = abs(sum(campaign.fee_net_pnl_dollars for campaign in losses))
+        count = len(bucket)
+        results.append(
+            EntryTypeMetrics(
+                entry_type=entry_type,
+                trade_count=count,
+                win_rate=len(wins) / count * 100.0 if count > 0 else 0.0,
+                avg_r=sum(campaign.fee_net_r_multiple for campaign in bucket) / count if count > 0 else 0.0,
+                total_r=sum(campaign.fee_net_r_multiple for campaign in bucket),
+                profit_factor=gross_win / gross_loss if gross_loss > 0 else 999.0,
+            )
+        )
     return results
 
 
-def _compute_conviction_buckets(trades: list[TradeRecord]) -> list[ConvictionBucket]:
-    """Bucket trades by conviction score at entry."""
-    buckets_def = [
-        ("0-25", 0, 25),
-        ("25-50", 25, 50),
-        ("50-75", 50, 75),
-        ("75-100", 75, 100),
-    ]
+def _compute_conviction_buckets(campaigns) -> list[ConvictionBucket]:
+    bucket_defs = [("0-25", 0, 25), ("25-50", 25, 50), ("50-75", 50, 75), ("75-100", 75, 100)]
     results = []
-    for label, lo, hi in buckets_def:
-        bucket = [t for t in trades if lo <= t.score_entry < hi or (hi == 100 and t.score_entry == 100)]
-        n = len(bucket)
-        wins = [t for t in bucket if t.r_multiple > 0]
-        avg_r = sum(t.r_multiple for t in bucket) / n if n > 0 else 0
-        wr = len(wins) / n if n > 0 else 0
-        avg_win = sum(t.r_multiple for t in wins) / len(wins) if wins else 0
-        avg_loss = sum(t.r_multiple for t in bucket if t.r_multiple <= 0) / max(1, n - len(wins)) if n > len(wins) else 0
-        expectancy = wr * avg_win + (1 - wr) * avg_loss
-
-        results.append(ConvictionBucket(
-            bucket=label,
-            trade_count=n,
-            win_rate=wr * 100,
-            avg_r=avg_r,
-            expectancy=expectancy,
-        ))
+    for label, lo, hi in bucket_defs:
+        bucket = [
+            campaign
+            for campaign in campaigns
+            if lo <= campaign.score_entry < hi or (hi == 100 and campaign.score_entry == 100)
+        ]
+        count = len(bucket)
+        wins = [campaign for campaign in bucket if campaign.fee_net_pnl_dollars > 0]
+        win_rate = len(wins) / count if count > 0 else 0.0
+        avg_r = sum(campaign.fee_net_r_multiple for campaign in bucket) / count if count > 0 else 0.0
+        avg_win = sum(campaign.fee_net_r_multiple for campaign in wins) / len(wins) if wins else 0.0
+        losses = [campaign.fee_net_r_multiple for campaign in bucket if campaign.fee_net_pnl_dollars <= 0]
+        avg_loss = sum(losses) / len(losses) if losses else 0.0
+        results.append(
+            ConvictionBucket(
+                bucket=label,
+                trade_count=count,
+                win_rate=win_rate * 100.0,
+                avg_r=avg_r,
+                expectancy=win_rate * avg_win + (1 - win_rate) * avg_loss,
+            )
+        )
     return results
 
 
-def _compute_crisis_returns(
-    equity: np.ndarray,
-    timestamps: np.ndarray,
-    initial_equity: float,
-) -> list[CrisisResult]:
-    """Compare BRS equity vs buy-and-hold during crisis windows."""
+def _compute_exit_reason_metrics(campaigns) -> list[ExitReasonMetrics]:
+    buckets: dict[str, list] = {}
+    for campaign in campaigns:
+        buckets.setdefault(campaign.terminal_exit_reason or "UNKNOWN", []).append(campaign)
+
+    results = []
+    for exit_reason, bucket in sorted(buckets.items()):
+        wins = [campaign for campaign in bucket if campaign.fee_net_pnl_dollars > 0]
+        losses = [campaign for campaign in bucket if campaign.fee_net_pnl_dollars <= 0]
+        gross_win = sum(campaign.fee_net_pnl_dollars for campaign in wins)
+        gross_loss = abs(sum(campaign.fee_net_pnl_dollars for campaign in losses))
+        count = len(bucket)
+        results.append(
+            ExitReasonMetrics(
+                exit_reason=exit_reason,
+                trade_count=count,
+                win_rate=len(wins) / count * 100.0 if count > 0 else 0.0,
+                avg_r=sum(campaign.fee_net_r_multiple for campaign in bucket) / count if count > 0 else 0.0,
+                total_r=sum(campaign.fee_net_r_multiple for campaign in bucket),
+                profit_factor=gross_win / gross_loss if gross_loss > 0 else 999.0,
+                fee_net_pnl_dollars=sum(campaign.fee_net_pnl_dollars for campaign in bucket),
+                avg_bars_held=sum(campaign.bars_held for campaign in bucket) / count if count > 0 else 0.0,
+            )
+        )
+    return results
+
+
+def _compute_contribution_metrics(campaigns) -> ContributionMetrics:
+    downturn_net = sum(
+        campaign.fee_net_pnl_dollars for campaign in campaigns if campaign.regime_entry in BEAR_REGIMES
+    )
+    non_downturn_net = sum(
+        campaign.fee_net_pnl_dollars for campaign in campaigns if campaign.regime_entry in NON_DOWNTURN_REGIMES
+    )
+    positive_total = sum(max(0.0, campaign.fee_net_pnl_dollars) for campaign in campaigns)
+    positive_downturn = sum(
+        max(0.0, campaign.fee_net_pnl_dollars) for campaign in campaigns if campaign.regime_entry in BEAR_REGIMES
+    )
+    positive_non_downturn = sum(
+        max(0.0, campaign.fee_net_pnl_dollars)
+        for campaign in campaigns
+        if campaign.regime_entry in NON_DOWNTURN_REGIMES
+    )
+    return ContributionMetrics(
+        downturn_net_pnl_dollars=downturn_net,
+        non_downturn_net_pnl_dollars=non_downturn_net,
+        downturn_positive_share=positive_downturn / positive_total if positive_total > 0 else 0.0,
+        non_downturn_positive_share=positive_non_downturn / positive_total if positive_total > 0 else 0.0,
+        range_chop_net_pnl_dollars=sum(
+            campaign.fee_net_pnl_dollars for campaign in campaigns if campaign.regime_entry == "RANGE_CHOP"
+        ),
+        bull_trend_net_pnl_dollars=sum(
+            campaign.fee_net_pnl_dollars for campaign in campaigns if campaign.regime_entry == "BULL_TREND"
+        ),
+    )
+
+
+def _compute_concentration_metrics(campaigns) -> ConcentrationMetrics:
+    fee_net_rs = np.array([campaign.fee_net_r_multiple for campaign in campaigns], dtype=np.float64)
+    positive_pnls = sorted(
+        (campaign.fee_net_pnl_dollars for campaign in campaigns if campaign.fee_net_pnl_dollars > 0),
+        reverse=True,
+    )
+    positive_total = sum(positive_pnls)
+
+    campaigns_for_half = 0
+    running_positive = 0.0
+    if positive_total > 0:
+        for value in positive_pnls:
+            running_positive += value
+            campaigns_for_half += 1
+            if running_positive >= positive_total * 0.5:
+                break
+
+    return ConcentrationMetrics(
+        top_1_positive_share=(positive_pnls[0] / positive_total) if positive_total > 0 and positive_pnls else 0.0,
+        top_5_positive_share=(sum(positive_pnls[:5]) / positive_total) if positive_total > 0 else 0.0,
+        campaigns_for_half_positive_pnl=campaigns_for_half,
+        median_fee_net_r=float(np.median(fee_net_rs)) if len(fee_net_rs) > 0 else 0.0,
+        p25_fee_net_r=float(np.percentile(fee_net_rs, 25)) if len(fee_net_rs) > 0 else 0.0,
+        p75_fee_net_r=float(np.percentile(fee_net_rs, 75)) if len(fee_net_rs) > 0 else 0.0,
+    )
+
+
+def _compute_crisis_returns(equity: np.ndarray, timestamps: np.ndarray) -> list[CrisisResult]:
     results = []
     for name, start, end in CRISIS_WINDOWS:
-        # Find equity curve segment for this window
-        mask = np.zeros(len(timestamps), dtype=bool)
-        for i, ts in enumerate(timestamps):
-            try:
-                dt = ts.astype('datetime64[s]').astype(datetime) if hasattr(ts, 'astype') else ts
-                if isinstance(dt, (np.datetime64,)):
-                    dt = dt.astype('datetime64[s]').item()
-                if start <= dt <= end:
-                    mask[i] = True
-            except (ValueError, TypeError):
-                continue
+        indices = []
+        for idx, timestamp in enumerate(timestamps):
+            dt = _to_datetime(timestamp)
+            if dt is not None and start <= dt <= end:
+                indices.append(idx)
 
-        if not np.any(mask):
+        if not indices:
             results.append(CrisisResult(name=name, start=start, end=end))
             continue
 
-        indices = np.where(mask)[0]
-        start_eq = float(equity[indices[0]])
-        end_eq = float(equity[indices[-1]])
-        brs_ret = (end_eq - start_eq) / start_eq * 100 if start_eq > 0 else 0
-
-        results.append(CrisisResult(
-            name=name,
-            start=start,
-            end=end,
-            brs_return_pct=brs_ret,
-            brs_trades=0,  # populated by caller if needed
-        ))
+        start_equity = float(equity[indices[0]])
+        end_equity = float(equity[indices[-1]])
+        brs_return = (end_equity - start_equity) / start_equity * 100.0 if start_equity > 0 else 0.0
+        results.append(
+            CrisisResult(
+                name=name,
+                start=start,
+                end=end,
+                brs_return_pct=brs_return,
+            )
+        )
     return results
 
 
 def _build_report(diag: BRSDiagnostics) -> str:
-    """Build human-readable diagnostics report."""
     buf = StringIO()
     buf.write("=" * 70 + "\n")
     buf.write("BRS DIAGNOSTICS REPORT\n")
     buf.write("=" * 70 + "\n\n")
+    buf.write(f"Campaigns:      {diag.total_trades}\n")
+    buf.write(f"Realized legs:  {diag.realized_leg_count}\n")
+    buf.write(f"Bear campaigns: {diag.bear_trades}\n")
+    buf.write(f"Bear alpha:     {diag.bear_alpha_pct:.1f}% (fee-net)\n\n")
 
-    buf.write(f"Total trades: {diag.total_trades}\n")
-    buf.write(f"Bear trades:  {diag.bear_trades}\n")
-    buf.write(f"Bear alpha:   {diag.bear_alpha_pct:.1f}%\n\n")
-
-    # Regime metrics
-    buf.write("--- Regime-Conditional Metrics ---\n")
+    buf.write("--- Regime Metrics (campaign / fee-net) ---\n")
     buf.write(f"{'Regime':<15} {'Count':>6} {'WR%':>6} {'AvgR':>7} {'TotalR':>8} {'PF':>6} {'AvgBars':>8}\n")
-    for rm in diag.regime_metrics:
-        buf.write(f"{rm.regime:<15} {rm.trade_count:>6} {rm.win_rate:>5.1f}% {rm.avg_r:>7.2f} "
-                 f"{rm.total_r:>8.1f} {rm.profit_factor:>6.2f} {rm.avg_bars_held:>8.0f}\n")
+    for entry in diag.regime_metrics:
+        buf.write(
+            f"{entry.regime:<15} {entry.trade_count:>6} {entry.win_rate:>5.1f}% "
+            f"{entry.avg_r:>7.2f} {entry.total_r:>8.1f} {entry.profit_factor:>6.2f} {entry.avg_bars_held:>8.0f}\n"
+        )
     buf.write("\n")
 
-    # Entry type metrics
-    buf.write("--- Entry Type Attribution ---\n")
-    buf.write(f"{'Type':<15} {'Count':>6} {'WR%':>6} {'AvgR':>7} {'TotalR':>8} {'PF':>6}\n")
-    for em in diag.entry_type_metrics:
-        buf.write(f"{em.entry_type:<15} {em.trade_count:>6} {em.win_rate:>5.1f}% {em.avg_r:>7.2f} "
-                 f"{em.total_r:>8.1f} {em.profit_factor:>6.2f}\n")
+    buf.write("--- Entry Type Metrics (campaign / fee-net) ---\n")
+    buf.write(f"{'Type':<20} {'Count':>6} {'WR%':>6} {'AvgR':>7} {'TotalR':>8} {'PF':>6}\n")
+    for entry in diag.entry_type_metrics:
+        buf.write(
+            f"{entry.entry_type:<20} {entry.trade_count:>6} {entry.win_rate:>5.1f}% "
+            f"{entry.avg_r:>7.2f} {entry.total_r:>8.1f} {entry.profit_factor:>6.2f}\n"
+        )
     buf.write("\n")
 
-    # Conviction buckets
-    buf.write("--- Conviction Correlation ---\n")
+    buf.write("--- Conviction Buckets (campaign / fee-net) ---\n")
     buf.write(f"{'Bucket':<10} {'Count':>6} {'WR%':>6} {'AvgR':>7} {'Expect':>8}\n")
-    for cb in diag.conviction_buckets:
-        buf.write(f"{cb.bucket:<10} {cb.trade_count:>6} {cb.win_rate:>5.1f}% "
-                 f"{cb.avg_r:>7.2f} {cb.expectancy:>8.3f}\n")
+    for entry in diag.conviction_buckets:
+        buf.write(
+            f"{entry.bucket:<10} {entry.trade_count:>6} {entry.win_rate:>5.1f}% "
+            f"{entry.avg_r:>7.2f} {entry.expectancy:>8.3f}\n"
+        )
     buf.write("\n")
 
-    # Crisis results
+    buf.write("--- Terminal Exit Reason Metrics (campaign / fee-net) ---\n")
+    buf.write(f"{'Exit':<18} {'Count':>6} {'WR%':>6} {'AvgR':>7} {'TotalR':>8} {'PF':>6} {'FeeNet$':>10}\n")
+    for entry in diag.exit_reason_metrics:
+        buf.write(
+            f"{entry.exit_reason:<18} {entry.trade_count:>6} {entry.win_rate:>5.1f}% "
+            f"{entry.avg_r:>7.2f} {entry.total_r:>8.1f} {entry.profit_factor:>6.2f} "
+            f"{entry.fee_net_pnl_dollars:>+10.0f}\n"
+        )
+    buf.write("\n")
+
+    buf.write("--- Downturn Alignment Audit ---\n")
+    buf.write(
+        f"Downturn fee-net PnL:      ${diag.contribution_metrics.downturn_net_pnl_dollars:+,.0f}\n"
+    )
+    buf.write(
+        f"Non-downturn fee-net PnL:  ${diag.contribution_metrics.non_downturn_net_pnl_dollars:+,.0f}\n"
+    )
+    buf.write(
+        f"Downturn positive share:   {diag.contribution_metrics.downturn_positive_share:>7.1%}\n"
+    )
+    buf.write(
+        f"Non-downturn positive share:{diag.contribution_metrics.non_downturn_positive_share:>6.1%}\n"
+    )
+    buf.write(
+        f"RANGE_CHOP fee-net PnL:    ${diag.contribution_metrics.range_chop_net_pnl_dollars:+,.0f}\n"
+    )
+    buf.write(
+        f"BULL_TREND fee-net PnL:    ${diag.contribution_metrics.bull_trend_net_pnl_dollars:+,.0f}\n"
+    )
+    buf.write("\n")
+
+    buf.write("--- Robustness / Concentration ---\n")
+    buf.write(
+        f"Top 1 winner share of positive PnL: {diag.concentration_metrics.top_1_positive_share:>6.1%}\n"
+    )
+    buf.write(
+        f"Top 5 winners share of positive PnL: {diag.concentration_metrics.top_5_positive_share:>5.1%}\n"
+    )
+    buf.write(
+        f"Campaigns for 50% of positive PnL:   {diag.concentration_metrics.campaigns_for_half_positive_pnl}\n"
+    )
+    buf.write(
+        f"Fee-net R quartiles:                "
+        f"P25={diag.concentration_metrics.p25_fee_net_r:+.2f} "
+        f"Median={diag.concentration_metrics.median_fee_net_r:+.2f} "
+        f"P75={diag.concentration_metrics.p75_fee_net_r:+.2f}\n"
+    )
+    buf.write("\n")
+
     if diag.crisis_results:
         buf.write("--- Crisis Window Returns ---\n")
-        buf.write(f"{'Crisis':<20} {'BRS%':>8} {'Alpha%':>8}\n")
-        for cr in diag.crisis_results:
-            buf.write(f"{cr.name:<20} {cr.brs_return_pct:>7.1f}% {cr.alpha_pct:>7.1f}%\n")
+        buf.write(f"{'Crisis':<20} {'BRS%':>8} {'Campaigns':>10}\n")
+        for entry in diag.crisis_results:
+            buf.write(f"{entry.name:<20} {entry.brs_return_pct:>7.1f}% {entry.brs_trades:>10d}\n")
 
     return buf.getvalue()
+
+
+def _to_datetime(value) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return _naive_dt(value)
+    try:
+        return _naive_dt(pd.Timestamp(value).to_pydatetime())
+    except Exception:
+        pass
+    return None
+
+
+def _naive_dt(value: datetime) -> datetime:
+    return value.replace(tzinfo=None) if value.tzinfo else value

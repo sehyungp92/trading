@@ -12,6 +12,7 @@ Never crashes trading.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Optional, List, Dict, Any
@@ -88,6 +89,34 @@ class InstrumentationKit:
             self._config_watcher.take_baseline()
         except Exception:
             pass  # config watching is optional
+
+    def _record_strategy_decision(
+        self,
+        code: str,
+        details: dict,
+        exchange_timestamp: Optional[datetime] = None,
+    ) -> None:
+        if self.ctx is None or not code:
+            return
+        pg_store = getattr(self.ctx, "pg_store", None)
+        if pg_store is None:
+            return
+        async def _persist() -> None:
+            try:
+                await pg_store.record_strategy_decision(
+                    self.strategy_id,
+                    code,
+                    details=details,
+                    last_seen_bar_ts=exchange_timestamp,
+                )
+            except Exception:
+                logger.debug("Failed to persist strategy decision", exc_info=True)
+
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(_persist())
+        except RuntimeError:
+            logger.debug("No running loop for strategy decision persistence")
 
     def log_entry(
         self,
@@ -271,6 +300,19 @@ class InstrumentationKit:
             except Exception:
                 pass
 
+            self._record_strategy_decision(
+                f"ENTRY:{entry_signal}" if entry_signal else "ENTRY",
+                {
+                    "pair": pair,
+                    "side": side,
+                    "trade_id": trade_id,
+                    "signal_id": entry_signal_id,
+                    "signal_strength": entry_signal_strength,
+                    "bar_id": bar_id,
+                    "filter_decisions": filter_decisions or [],
+                },
+                exchange_timestamp,
+            )
             return trade_event.to_dict() if hasattr(trade_event, 'to_dict') else {}
 
         return safe_instrument(_log_entry_impl) or {}
@@ -456,6 +498,20 @@ class InstrumentationKit:
                 bar_id=bar_id,
             )
 
+            self._record_strategy_decision(
+                f"BLOCKED:{blocked_by}" if blocked_by else "BLOCKED",
+                {
+                    "pair": pair,
+                    "side": side,
+                    "signal": signal,
+                    "signal_id": signal_id,
+                    "signal_strength": signal_strength,
+                    "block_reason": block_reason,
+                    "bar_id": bar_id,
+                    "filter_decisions": filter_decisions or [],
+                },
+                exchange_timestamp,
+            )
             return event.to_dict() if hasattr(event, 'to_dict') else {}
 
         return safe_instrument(_log_missed_impl) or {}
@@ -552,6 +608,19 @@ class InstrumentationKit:
                 bar_id=bar_id,
                 context=context,
             )
+            if decision:
+                self._record_strategy_decision(
+                    f"{signal_name}:{decision}" if signal_name else decision,
+                    {
+                        "pair": pair,
+                        "signal_name": signal_name,
+                        "signal_strength": signal_strength,
+                        "strategy_id": strategy_id or self.strategy_id,
+                        "bar_id": bar_id,
+                        "context": context,
+                    },
+                    exchange_timestamp,
+                )
         except Exception:
             pass  # instrumentation must never affect trading
 
@@ -585,6 +654,21 @@ class InstrumentationKit:
                 coordinator_triggered=coordinator_triggered,
                 exchange_timestamp=exchange_timestamp,
                 bar_id=bar_id,
+            )
+            self._record_strategy_decision(
+                f"FILTER_BLOCKED:{filter_name}" if not passed else "FILTERS_PASSED",
+                {
+                    "pair": pair,
+                    "filter_name": filter_name,
+                    "passed": passed,
+                    "threshold": threshold,
+                    "actual_value": actual_value,
+                    "signal_name": signal_name,
+                    "signal_strength": signal_strength,
+                    "strategy_id": strategy_id or self.strategy_id,
+                    "bar_id": bar_id,
+                },
+                exchange_timestamp,
             )
         except Exception:
             pass

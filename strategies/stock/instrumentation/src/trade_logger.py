@@ -187,8 +187,8 @@ class TradeEvent:
     session_transitions: Optional[List[dict]] = None
 
     # Strategy identification
-    strategy_id: str = ""                # "iaric" / "us_orb"
-    strategy_type: str = ""              # "helix" / "nqdtc" / "vdubus"
+    strategy_id: str = ""                # "IARIC_v1" / "ALCB_v1"
+    strategy_type: str = ""
     param_set_id: Optional[str] = None   # sha256[:16] of strategy_params for grouping
 
     # Event stage

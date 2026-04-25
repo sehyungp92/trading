@@ -39,6 +39,20 @@ def _clip01(x: float) -> float:
     return min(max(x, 0.0), 1.0)
 
 
+def _span_seconds(timestamps) -> float:
+    if timestamps is None or len(timestamps) < 2:
+        return 0.0
+    delta = timestamps[-1] - timestamps[0]
+    if hasattr(delta, "total_seconds"):
+        return float(delta.total_seconds())
+    if isinstance(delta, np.timedelta64):
+        return float(delta / np.timedelta64(1, "s"))
+    if isinstance(delta, (int, float, np.integer, np.floating)):
+        # Some portfolio runners store epoch-second offsets as numeric arrays.
+        return float(delta)
+    return 0.0
+
+
 @dataclass(frozen=True)
 class ATRSSMetrics:
     """Metrics extracted from an ATRSS backtest run."""
@@ -226,8 +240,7 @@ def extract_atrss_metrics(
         # CAGR-based calmar
         ts = result.combined_timestamps
         if len(ts) > 1:
-            delta = ts[-1] - ts[0]
-            span_secs = delta.total_seconds() if hasattr(delta, 'total_seconds') else float(delta / np.timedelta64(1, 's'))
+            span_secs = _span_seconds(ts)
             span_years = span_secs / (365.25 * 86400)
             cagr = ((eq[-1] / initial_equity) ** (1 / max(span_years, 0.01)) - 1) if span_years > 0 else 0.0
             calmar = cagr / max_dd_pct if max_dd_pct > 0 else 0.0

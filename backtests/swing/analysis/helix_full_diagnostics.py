@@ -13,8 +13,9 @@ from backtests.swing._aliases import install
 install()
 
 from backtest.config_helix import HelixBacktestConfig
-from backtest.engine.helix_portfolio_engine import run_helix_independent, load_helix_data
+from backtest.engine.helix_portfolio_engine import load_helix_data, run_helix_synchronized
 from backtest.analysis.metrics import compute_metrics, compute_sharpe, compute_sortino, compute_max_drawdown
+from backtests.diagnostic_snapshot import build_group_snapshot
 
 import numpy as np
 
@@ -39,6 +40,10 @@ def _pf(wins_total: float, losses_total: float) -> float:
     return wins_total / abs(losses_total)
 
 
+def _trade_net_pnl(trade) -> float:
+    return float(trade.pnl_dollars) - float(getattr(trade, "commission", 0.0) or 0.0)
+
+
 def _wr(trades: list) -> float:
     if not trades:
         return 0.0
@@ -56,8 +61,8 @@ def _total_r(trades: list) -> float:
 
 
 def _compute_pf(trades: list) -> float:
-    wins = sum(t.r_multiple for t in trades if t.r_multiple > 0)
-    losses = sum(t.r_multiple for t in trades if t.r_multiple < 0)
+    wins = sum(_trade_net_pnl(t) for t in trades if _trade_net_pnl(t) > 0)
+    losses = sum(_trade_net_pnl(t) for t in trades if _trade_net_pnl(t) < 0)
     return _pf(wins, losses)
 
 
@@ -84,7 +89,7 @@ def _print_trade_table(trades: list, label: str, f=None) -> None:
         ar = _avg_r(trades)
         tr = _total_r(trades)
         pf = _compute_pf(trades)
-        pnl = sum(t.pnl_dollars for t in trades)
+        pnl = sum(_trade_net_pnl(t) for t in trades)
         line = (f"  {label:30s}  n={n:3d}  WR={wr:5.1f}%  avgR={ar:+.2f}  "
                 f"totR={tr:+.2f}  PF={pf:.2f}  PnL=${pnl:+,.0f}")
     print(line)
@@ -112,7 +117,7 @@ def main():
         data_dir=DATA_DIR,
     )
     data = load_helix_data(config.symbols, config.data_dir)
-    result = run_helix_independent(data, config)
+    result = run_helix_synchronized(data, config)
 
     all_trades = []
     for sym, sr in result.symbol_results.items():
@@ -121,6 +126,17 @@ def main():
             all_trades.append(t)
 
     all_trades.sort(key=lambda t: _trade_time(t, "entry_time") or datetime.min)
+    snapshot = build_group_snapshot(
+        "Swing Helix Strength / Weakness Snapshot",
+        all_trades,
+        [
+            ("symbol", lambda trade: getattr(trade, "symbol", None)),
+            ("setup class", lambda trade: getattr(trade, "setup_class", None)),
+            ("exit reason", lambda trade: getattr(trade, "exit_reason", None)),
+        ],
+        min_count=5,
+        width=80,
+    )
 
     with open(output_path, "w", encoding="utf-8") as f:
 
@@ -130,9 +146,11 @@ def main():
         _out(f"Initial Equity: ${INITIAL_EQUITY:,.0f}", f)
         _out("=" * 80, f)
         _out("", f)
+        _out(snapshot, f)
+        _out("", f)
 
         # -- SUMMARY --
-        total_pnl = sum(t.pnl_dollars for t in all_trades)
+        total_pnl = sum(_trade_net_pnl(t) for t in all_trades)
         total_r = _total_r(all_trades)
         _out(f"Total trades: {len(all_trades)}", f)
         _out(f"Total PnL: ${total_pnl:,.2f}", f)
@@ -236,7 +254,7 @@ def main():
         if counter:
             _out(f"\n  ** Counter-regime trades: {len(counter)}, "
                  f"avgR={_avg_r(counter):+.2f}, totR={_total_r(counter):+.2f}, "
-                 f"PnL=${sum(t.pnl_dollars for t in counter):+,.0f}", f)
+                 f"PnL=${sum(_trade_net_pnl(t) for t in counter):+,.0f}", f)
         _out("", f)
 
         # F) 4H Regime alignment
@@ -762,7 +780,7 @@ def main():
             losers_sorted = sorted(losers, key=lambda t: t.r_multiple)
             _out(f"  Total losers: {len(losers)}/{len(all_trades)} "
                  f"({len(losers)/len(all_trades)*100:.0f}%)", f)
-            _out(f"  Total loss: ${sum(t.pnl_dollars for t in losers):+,.0f}", f)
+            _out(f"  Total loss: ${sum(_trade_net_pnl(t) for t in losers):+,.0f}", f)
             _out(f"\n  {'#':>3s} {'Entry':12s} {'Sym':5s} {'Cls':3s} {'Dir':5s} "
                  f"{'Regime':6s} {'ADX':>5s} {'R':>7s} {'MFE':>6s} {'MAE':>6s} "
                  f"{'Reason':15s} {'Bars':>4s}", f)
@@ -894,7 +912,7 @@ def main():
                 avg_r = _avg_r(cell)
                 tot_r = _total_r(cell)
                 pf = _compute_pf(cell)
-                pnl = sum(t.pnl_dollars for t in cell)
+                pnl = sum(_trade_net_pnl(t) for t in cell)
                 _out(f"  {cls:5s} {sym:6s} {len(cell):6d} {wr:5.0f}% {avg_r:+7.3f} "
                      f"{tot_r:+8.2f} {pf:6.2f} {pnl:+10,.0f}", f)
             _out("", f)
@@ -918,7 +936,7 @@ def main():
             avg_r = _avg_r(yt)
             tot_r = _total_r(yt)
             pf = _compute_pf(yt)
-            pnl = sum(t.pnl_dollars for t in yt)
+            pnl = sum(_trade_net_pnl(t) for t in yt)
             # Year max drawdown in R
             yr_sorted = sorted(yt, key=lambda t: t.exit_time or datetime.min)
             yr_cum = np.cumsum([t.r_multiple for t in yr_sorted])

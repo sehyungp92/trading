@@ -17,6 +17,7 @@ from backtest.config_vdubus import VdubusBacktestConfig
 from backtest.data.preprocessing import (
     NumpyBars,
     align_5m_to_15m,
+    align_daily_to_15m,
     align_higher_tf_to_15m,
     build_numpy_arrays,
     resample_15m_to_1h,
@@ -262,7 +263,7 @@ class VdubusWalkForwardValidator:
             "close": daily_es.closes,
             "volume": daily_es.volumes,
         }, index=pd.DatetimeIndex(daily_es.times))
-        daily_es_idx_map = align_higher_tf_to_15m(m_df, daily_es_df)
+        daily_es_idx_map = align_daily_to_15m(m_df, daily_es_df)
 
         result = {
             "bars_15m": sliced_15m,

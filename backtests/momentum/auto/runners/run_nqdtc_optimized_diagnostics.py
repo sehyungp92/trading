@@ -10,6 +10,7 @@ Usage:
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import time
@@ -39,6 +40,7 @@ from backtests.momentum.auto.scoring import composite_score, extract_metrics
 from backtests.momentum.cli import _load_nqdtc_data
 from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
 from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
+from backtests.diagnostic_snapshot import build_group_snapshot
 
 EQUITY = 10_000.0
 POINT_VALUE = 2.0  # MNQ
@@ -48,6 +50,21 @@ AUTO_OUTPUT = ROOT / "backtests" / "momentum" / "auto" / "output"
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--phase-result",
+        help="Load mutations from backtests/momentum/auto/nqdtc/output/phase_state.json using this phase id.",
+    )
+    parser.add_argument(
+        "--mutation-kind",
+        choices=["base", "final", "current"],
+        default="final",
+        help="When --phase-result is set, choose base_mutations, final_mutations, or cumulative_mutations.",
+    )
+    parser.add_argument("--output", help="Optional output path override.")
+    parser.add_argument("--label", help="Optional report label override.")
+    args = parser.parse_args()
+
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
 
@@ -55,13 +72,36 @@ def main():
     print("  NQDTC OPTIMIZED CONFIG -- FULL DIAGNOSTICS")
     print("=" * 72)
 
-    # Load optimal mutations -- prefer exit-opt > ablation > greedy
+    # Load optimal mutations -- prefer explicit phase selection, otherwise exit-opt > ablation > greedy
     nqdtc_out = ROOT / "backtests" / "momentum" / "auto" / "nqdtc" / "output"
     exit_opt_path = nqdtc_out / "exit_opt_result.json"
     ablation_path = nqdtc_out / "ablation_greedy_result.json"
     greedy_path = AUTO_OUTPUT / "greedy_strategy_nqdtc.json"
+    phase_state_path = nqdtc_out / "phase_state.json"
 
-    if exit_opt_path.exists():
+    if args.phase_result:
+        if not phase_state_path.exists():
+            print(f"  ERROR: Missing phase state: {phase_state_path}")
+            return
+        phase_state = json.loads(phase_state_path.read_text())
+        if args.mutation_kind == "current":
+            mutations = phase_state.get("cumulative_mutations", {})
+            greedy_data = {"baseline_score": 0.0, "final_score": 0.0}
+            source_label = f"phase_{args.phase_result}_current"
+        else:
+            phase_result = phase_state.get("phase_results", {}).get(str(args.phase_result))
+            if not phase_result:
+                print(f"  ERROR: Phase {args.phase_result} not found in {phase_state_path}")
+                return
+            key = "base_mutations" if args.mutation_kind == "base" else "final_mutations"
+            mutations = phase_result.get(key, {})
+            greedy_data = {
+                "baseline_score": phase_result.get("base_score", 0.0),
+                "final_score": phase_result.get("final_score", 0.0),
+            }
+            source_label = f"phase_{args.phase_result}_{args.mutation_kind}"
+        print(f"\n  Source: phase_state.json ({source_label})")
+    elif exit_opt_path.exists():
         opt_data = json.loads(exit_opt_path.read_text())
         mutations = opt_data["final_mutations"]
         source_label = "exit-opt"
@@ -162,12 +202,23 @@ def main():
     print(f"\n  Composite Score: {score.total:.4f}")
     print(f"    Calmar={score.calmar_component:.4f}  PF={score.pf_component:.4f}  "
           f"InvDD={score.inv_dd_component:.4f}  Net={score.net_profit_component:.4f}")
+    snapshot = build_group_snapshot(
+        "NQDTC Strength / Weakness Snapshot",
+        result.trades,
+        [
+            ("entry subtype", lambda trade: getattr(trade, "entry_subtype", None)),
+            ("session", lambda trade: getattr(trade, "session", None)),
+            ("regime", lambda trade: getattr(trade, "composite_regime", None)),
+            ("exit reason", lambda trade: getattr(trade, "exit_reason", None)),
+        ],
+        min_count=5,
+    )
 
     # Build report sections
-    report_sections: list[str] = []
+    report_sections: list[str] = [snapshot]
 
     report_sections.append("=" * 72)
-    report_sections.append(f"  NQDTC OPTIMIZED CONFIG ({source_label})")
+    report_sections.append(f"  {args.label or f'NQDTC OPTIMIZED CONFIG ({source_label})'}")
     report_sections.append(f"  Equity: ${EQUITY:,.0f}  Fixed qty: 10 MNQ")
     report_sections.append(f"  Mutations: {json.dumps(mutations, default=str)}")
     report_sections.append(f"  Score: {score.total:.4f} (baseline: {greedy_data.get('baseline_score', greedy_data.get('base_score', 0)):.4f})")
@@ -202,7 +253,7 @@ def main():
     full_report = "\n\n".join(report_sections)
     nqdtc_output = ROOT / "backtests" / "momentum" / "auto" / "nqdtc" / "output"
     nqdtc_output.mkdir(parents=True, exist_ok=True)
-    output_path = nqdtc_output / f"{source_label}_full_diagnostics.txt"
+    output_path = Path(args.output) if args.output else nqdtc_output / f"{source_label}_full_diagnostics.txt"
     output_path.write_text(full_report, encoding="utf-8")
 
     try:

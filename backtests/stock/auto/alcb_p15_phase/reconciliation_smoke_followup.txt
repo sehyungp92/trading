@@ -1,0 +1,4 @@
+or6_end1130_blocktrue_frtrail0: trades=498 totalR=90.83 PF=1.68 pnl=7012.83 $/t=14.08 TPM=19.24 DD=3.88% MFEcap=0.768
+or6_end1200_blocktrue_frtrail0: trades=535 totalR=99.95 PF=1.73 pnl=7858.41 $/t=14.69 TPM=20.67 DD=3.57% MFEcap=0.766
+or6_end1230_blocktrue_frtrail0: trades=573 totalR=97.58 PF=1.67 pnl=7767.04 $/t=13.56 TPM=22.13 DD=3.56% MFEcap=0.763
+or6_end1200_blockfalse_frtrail0: trades=557 totalR=91.00 PF=1.65 pnl=7313.05 $/t=13.13 TPM=21.51 DD=3.87% MFEcap=0.763

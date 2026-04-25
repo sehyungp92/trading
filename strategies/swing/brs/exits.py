@@ -42,72 +42,53 @@ def compute_initial_stop(
 
 
 # ---------------------------------------------------------------------------
-# Exit checking -- returns (exit_reason, exit_price) or None
+# Exit checking -- returns a broker-routed exit decision or None
 # ---------------------------------------------------------------------------
 
 def check_exits(
-    direction: Direction,
-    entry_price: float,
-    current_stop: float,
     risk_per_unit: float,
-    bar_high: float,
-    bar_low: float,
-    bar_close: float,
-    atr14_h: float,
-    atr14_d: float,
     bars_held: int,
-    mfe_r: float,
     cur_r: float,
     be_triggered: bool,
     regime: BRSRegime,
-    sym_cfg: BRSSymbolConfig,
     catastrophic_cap_r: float = 2.0,
-    be_trigger_r: float = 0.75,
-    trail_trigger_r: float = 1.25,
     stale_bars: int = 50,
     stale_early_bars: int = 35,
     time_decay_hours: int = 360,
     is_long: bool = False,
-    hourly_highs: list[float] | None = None,
-    hourly_lows: list[float] | None = None,
     min_hold_bars: int = 0,
-) -> tuple[ExitReason, float] | None:
-    """Check all exit conditions in priority order."""
+) -> ExitReason | None:
+    """Check discretionary exit conditions in priority order.
+
+    Protective stop fills are handled separately by the broker simulation.
+    This helper only answers whether the strategy wants to route a market
+    exit on the next bar.
+    """
     # (1) Catastrophic cap
     if risk_per_unit > 0 and cur_r < -catastrophic_cap_r:
-        return (ExitReason.CATASTROPHIC, bar_close)
+        return ExitReason.CATASTROPHIC
 
     # (1b) Stop immunity during initial hold period
     if min_hold_bars > 0 and bars_held < min_hold_bars:
         return None
 
-    # (2) Stop hit
-    if direction == Direction.SHORT:
-        if bar_high >= current_stop:
-            fill = min(current_stop, bar_high)
-            return (ExitReason.STOP, fill)
-    else:
-        if bar_low <= current_stop:
-            fill = max(current_stop, bar_low)
-            return (ExitReason.STOP, fill)
-
-    # (3) Early stale
+    # (2) Early stale
     if bars_held >= stale_early_bars and not be_triggered and cur_r < 0:
-        return (ExitReason.STALE_EARLY, bar_close)
+        return ExitReason.STALE_EARLY
 
-    # (4) Standard stale
+    # (3) Standard stale
     stale_threshold = stale_bars
     if is_long:
         stale_threshold = min(stale_bars, 30)
     if bars_held >= stale_threshold and cur_r < 0.5:
-        return (ExitReason.STALE, bar_close)
+        return ExitReason.STALE
 
-    # (5) Time decay
+    # (4) Time decay
     max_hours = time_decay_hours
     if not is_long and regime in (BRSRegime.BEAR_STRONG, BRSRegime.BEAR_TREND):
         max_hours = 480
     if bars_held >= max_hours and cur_r < 1.0:
-        return (ExitReason.TIME_DECAY, bar_close)
+        return ExitReason.TIME_DECAY
 
     return None
 

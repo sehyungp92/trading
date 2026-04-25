@@ -6,6 +6,10 @@ from typing import Any
 from .scoring import VdubusMetrics
 
 
+def _net_trade_pnl(trade: Any) -> float:
+    return float(getattr(trade, "pnl_dollars", 0.0) or 0.0) - float(getattr(trade, "commission", 0.0) or 0.0)
+
+
 def generate_phase_diagnostics(
     phase: int,
     metrics: VdubusMetrics,
@@ -114,7 +118,7 @@ def _session_breakdown(lines: list[str], trades: list) -> None:
         wins = sum(1 for t in group if t.r_multiple > 0)
         wr = wins / count if count else 0
         avg_r = sum(t.r_multiple for t in group) / count if count else 0
-        total_pnl = sum(t.pnl_dollars for t in group)
+        total_pnl = sum(_net_trade_pnl(t) for t in group)
         lines.append(f"  {key:12s}: {count:3d} trades, WR={wr:.0%}, avgR={avg_r:+.3f}, PnL=${total_pnl:+,.0f}")
 
 
@@ -128,7 +132,7 @@ def _exit_reason_breakdown(lines: list[str], trades: list) -> None:
         group = buckets[reason]
         count = len(group)
         avg_r = sum(t.r_multiple for t in group) / count if count else 0
-        total_pnl = sum(t.pnl_dollars for t in group)
+        total_pnl = sum(_net_trade_pnl(t) for t in group)
         avg_mfe = sum(t.mfe_r for t in group) / count if count else 0
         lines.append(f"  {reason:18s}: {count:3d} trades, avgR={avg_r:+.3f}, avgMFE={avg_mfe:.3f}, PnL=${total_pnl:+,.0f}")
 
@@ -154,5 +158,5 @@ def _hold_duration_analysis(lines: list[str], trades: list) -> None:
         wins = sum(1 for t in group if t.r_multiple > 0)
         wr = wins / count if count else 0
         avg_r = sum(t.r_multiple for t in group) / count if count else 0
-        total_pnl = sum(t.pnl_dollars for t in group)
+        total_pnl = sum(_net_trade_pnl(t) for t in group)
         lines.append(f"  {label:12s}: {count:3d} trades, WR={wr:.0%}, avgR={avg_r:+.3f}, PnL=${total_pnl:+,.0f}")

@@ -45,7 +45,7 @@ def _base_stock_rules() -> PortfolioRulesConfig:
     return PortfolioRulesConfig(
         directional_cap_R=12.0,
         initial_equity=50_000.0,
-        family_strategy_ids=("IARIC_v1", "ALCB_v1", "US_ORB_v1"),
+        family_strategy_ids=("IARIC_v1", "ALCB_v1"),
         symbol_collision_action="half_size",
         priority_headroom_R=4.0,
         priority_reserve_threshold=1,
@@ -170,9 +170,9 @@ class TestMappingTables:
         assert OVERLAY_WEIGHTS["D"]["QQQ"] == 0.0
         assert OVERLAY_WEIGHTS["D"]["GLD"] == 1.0
 
-    def test_stock_profiles_disable_orb_in_stress(self):
-        assert "US_ORB_v1" in STOCK_PROFILES["S"]["disabled"]
-        assert "US_ORB_v1" in STOCK_PROFILES["D"]["disabled"]
+    def test_stock_profiles_leave_live_stock_strategies_enabled_in_stress(self):
+        assert len(STOCK_PROFILES["S"]["disabled"]) == 0
+        assert len(STOCK_PROFILES["D"]["disabled"]) == 0
         assert len(STOCK_PROFILES["G"]["disabled"]) == 0
 
     def test_momentum_profiles_disable_downturn_in_growth(self):
@@ -215,20 +215,20 @@ class TestPortfolioRulesRegime:
     def test_disabled_strategy_denied(self, checker: PortfolioRuleChecker):
         new_cfg = dataclasses.replace(
             checker._cfg,
-            disabled_strategies=frozenset({"US_ORB_v1"}),
+            disabled_strategies=frozenset({"ALCB_v1"}),
         )
         checker.update_config(new_cfg)
-        result = asyncio.run(checker.check_entry("US_ORB_v1", "LONG", 1.0))
+        result = asyncio.run(checker.check_entry("ALCB_v1", "LONG", 1.0))
         assert not result.approved
         assert "regime_disabled" in result.denial_reason
 
     def test_non_disabled_strategy_allowed(self, checker: PortfolioRuleChecker):
         new_cfg = dataclasses.replace(
             checker._cfg,
-            disabled_strategies=frozenset({"US_ORB_v1"}),
+            disabled_strategies=frozenset({"ALCB_v1"}),
         )
         checker.update_config(new_cfg)
-        result = asyncio.run(checker.check_entry("ALCB_v1", "LONG", 1.0))
+        result = asyncio.run(checker.check_entry("IARIC_v1", "LONG", 1.0))
         assert result.approved
 
     def test_regime_unit_risk_mult_applied(self, checker: PortfolioRuleChecker):

@@ -12,9 +12,8 @@ capital:
     stock: 0.3333
     momentum: 0.3333
   strategy_allocations:
-    IARIC_v1: 0.45
-    ALCB_v1: 0.35
-    US_ORB_v1: 0.20
+    IARIC_v1: 0.55
+    ALCB_v1: 0.45
 
 drawdown_tiers:
   - [0.08, 1.00]
@@ -49,6 +48,6 @@ coordination:
     size_mult: 0.70
 
 # stock_coordination: removed — stock coordinator hardcodes its PortfolioRulesConfig
-# directly (family-scoped 12R directional cap + half_size symbol collision + 5R priority headroom
-# + ALCB→US_ORB pair block).  See strategies/stock/coordinator.py for the authoritative config.
-
+# directly (family-scoped 12R directional cap + half_size symbol collision
+# + 5R priority headroom). See strategies/stock/coordinator.py for the
+# authoritative config.

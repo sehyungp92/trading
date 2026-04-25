@@ -33,6 +33,7 @@ class InstrumentationContext:
     filter_logger: object = None          # FilterLogger
     orderbook_logger: object = None       # OrderBookLogger
     experiment_registry: object = None    # ExperimentRegistry
+    pg_store: object = None               # PgStore
     overlay_state_provider: object = None  # Callable[[], dict[str, bool]]
     post_exit_tracker: object = None      # PostExitTracker
     bot_id: str = ""

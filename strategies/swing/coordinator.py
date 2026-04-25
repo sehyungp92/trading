@@ -24,6 +24,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from libs.services.heartbeat import emit_family_heartbeats
 from strategies.contracts import RuntimeContext
 
 logger = logging.getLogger(__name__)
@@ -310,6 +311,7 @@ class SwingFamilyCoordinator:
                     ib=_ib,
                     contract_factory=contract_factory,
                     loop=_loop,
+                    historical_requester=getattr(session, "req_historical_data", None),
                 )
                 logger.info("IBKRHistoricalProvider created for post-exit backfill")
         except Exception:
@@ -598,22 +600,37 @@ class SwingFamilyCoordinator:
                 return
             rs = getattr(self._oms, "_portfolio_risk_state", None)
             srs = getattr(self._oms, "_strategy_risk_states", {})
+            payloads = []
             for sid, _engine in self._engines:
-                try:
-                    sr = srs.get(sid)
-                    await heartbeat.strategy_heartbeat(
-                        strategy_id=sid,
-                        heat_r=Decimal(str(sr.open_risk_R)) if sr else Decimal("0"),
-                        daily_pnl_r=Decimal(str(sr.daily_realized_R)) if sr else Decimal("0"),
-                        mode="HALTED" if (rs and rs.halted) else "RUNNING",
-                    )
-                except Exception:
-                    logger.debug("Heartbeat failed for %s", sid, exc_info=True)
-            try:
-                connected = session.ib.isConnected() if session else False
-                await heartbeat.adapter_heartbeat(self.family_id, connected=connected)
-            except Exception:
-                logger.debug("Adapter heartbeat failed", exc_info=True)
+                sr = srs.get(sid)
+                payload = {
+                    "strategy_id": sid,
+                    "heat_r": Decimal(str(sr.open_risk_R)) if sr else Decimal("0"),
+                    "daily_pnl_r": Decimal(str(sr.daily_realized_R)) if sr else Decimal("0"),
+                    "mode": "HALTED" if (rs and rs.halted) else "RUNNING",
+                }
+                # Diagnostic pulse fields
+                if hasattr(_engine, "_last_decision_code"):
+                    payload["last_decision_code"] = _engine._last_decision_code
+                    payload["last_decision_details"] = getattr(_engine, "_last_decision_details", None)
+                    payload["last_seen_bar_ts"] = getattr(_engine, "_last_bar_ts", None)
+                payloads.append(payload)
+            connected = session.ib.isConnected() if session else False
+            # Enrich with IB farm status for diagnostic context
+            if session:
+                farm_statuses = {}
+                for group in session.groups.values():
+                    if group.farm_monitor:
+                        farm_statuses.update(group.farm_monitor.all_statuses())
+                if farm_statuses:
+                    for p in payloads:
+                        details = p.get("last_decision_details") or {}
+                        if isinstance(details, dict):
+                            details["ib_farm_status"] = farm_statuses
+                            p["last_decision_details"] = details
+            await emit_family_heartbeats(
+                heartbeat, self.family_id, payloads, adapter_connected=connected,
+            )
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -640,7 +657,12 @@ class SwingFamilyCoordinator:
                 symbols=all_symbols, data_provider=data_provider,
                 get_regime_ctx=lambda: self._regime_ctx,
                 get_applied_config=lambda: self._portfolio_checker._cfg if self._portfolio_checker else None,
+                pg_store=getattr(self._ctx, "pg_store", None),
             )
+            if self._instrumentation_ctx.pg_store is None and getattr(self._ctx, "db_pool", None) is not None:
+                from libs.oms.persistence.postgres import PgStore
+
+                self._instrumentation_ctx.pg_store = PgStore(self._ctx.db_pool)
             logger.info("Instrumentation bootstrapped for %s", all_symbols)
 
             for sid in strategy_ids:

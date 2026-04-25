@@ -64,6 +64,29 @@ def mark_invalid_blocks(df: pd.DataFrame, max_consecutive: int = 5) -> pd.DataFr
     return df
 
 
+def _vectorized_align(lower_times, higher_times) -> np.ndarray:
+    """Vectorized alignment: map each lower-TF timestamp to the most recent
+    *completed* higher-TF bar (strict less-than).
+
+    Uses np.searchsorted for O(N log M) instead of Python loop O(N).
+
+    For intraday HTF bars, use ``label="right"`` when resampling so that
+    bar labels represent the *end* of each window.  This way, a lower-TF
+    bar at 13:35 maps to the 30m bar labeled 13:30 (the window [13:00,13:30]
+    which is fully complete), not to the in-progress window [13:30,14:00].
+
+    For daily bars, use ``align_daily_to_5m`` / ``align_daily_to_15m``
+    (date-normalised alignment) instead of this function directly, because
+    daily resamples should NOT use ``label="right"`` (shifts to next day).
+    """
+    # searchsorted(side='right') returns i where higher[i-1] <= t < higher[i]
+    # We want strict less-than (completed bar), so use side='left':
+    # side='left' returns i where higher[i-1] < t <= higher[i]
+    # Then i-1 is the last completed bar (strictly before t).
+    idx = np.searchsorted(higher_times, lower_times, side='left').astype(np.int64) - 1
+    return np.clip(idx, 0, max(len(higher_times) - 1, 0))
+
+
 def align_daily_to_hourly(
     hourly_df: pd.DataFrame,
     daily_df: pd.DataFrame,
@@ -79,26 +102,40 @@ def align_daily_to_hourly(
     before ``t``'s date (i.e., yesterday's daily bar during the current day,
     switching to today's daily bar only on the first bar of the next day).
     """
-    daily_dates = daily_df.index.normalize()
-    hourly_dates = hourly_df.index.normalize()
+    daily_dates = daily_df.index.normalize().values
+    hourly_dates = hourly_df.index.normalize().values
+    return _vectorized_align(hourly_dates, daily_dates)
 
-    idx_map = np.empty(len(hourly_df), dtype=np.int64)
-    daily_pos = 0
 
-    for i in range(len(hourly_df)):
-        h_date = hourly_dates[i]
-        # Advance daily_pos to the last daily bar whose date < hourly bar's date
-        while daily_pos < len(daily_dates) - 1 and daily_dates[daily_pos + 1] < h_date:
-            daily_pos += 1
-        # Use daily bar only if its date is strictly before the hourly bar's date
-        if daily_dates[daily_pos] < h_date:
-            idx_map[i] = daily_pos
-        elif daily_pos > 0:
-            idx_map[i] = daily_pos - 1
-        else:
-            idx_map[i] = 0
+def align_daily_to_5m(
+    five_min_df: pd.DataFrame,
+    daily_df: pd.DataFrame,
+) -> np.ndarray:
+    """Map each 5-minute bar to the index of the most recent *completed* daily bar.
 
-    return idx_map
+    Uses date-normalised alignment (same pattern as ``align_daily_to_hourly``)
+    to avoid the look-ahead bias that occurs when ``align_higher_tf_to_5m``
+    is used with daily bars (whose left-edge label is today's date at 00:00 UTC,
+    making today's incomplete daily bar appear complete).
+    """
+    daily_dates = daily_df.index.normalize().values
+    five_min_dates = five_min_df.index.normalize().values
+    return _vectorized_align(five_min_dates, daily_dates)
+
+
+def align_daily_to_15m(
+    fifteen_min_df: pd.DataFrame,
+    daily_df: pd.DataFrame,
+) -> np.ndarray:
+    """Map each 15-minute bar to the index of the most recent *completed* daily bar.
+
+    Uses date-normalised alignment (same pattern as ``align_daily_to_hourly``)
+    to avoid the look-ahead bias that occurs when ``align_higher_tf_to_15m``
+    is used with daily bars.
+    """
+    daily_dates = daily_df.index.normalize().values
+    fifteen_min_dates = fifteen_min_df.index.normalize().values
+    return _vectorized_align(fifteen_min_dates, daily_dates)
 
 
 @dataclass
@@ -131,7 +168,7 @@ def resample_1h_to_4h(hourly_df: pd.DataFrame) -> pd.DataFrame:
     if "volume" in hourly_df.columns:
         agg["volume"] = "sum"
 
-    resampled = hourly_df.resample("4h", offset="0h").agg(agg)
+    resampled = hourly_df.resample("4h", offset="0h", label="right").agg(agg)
     # Drop rows where all OHLC are NaN (incomplete periods at boundaries)
     resampled = resampled.dropna(subset=["open", "close"])
     return resampled
@@ -150,26 +187,7 @@ def align_4h_to_hourly(
     closing at 04:00 is available starting from the 05:00 hourly bar.
     The hourly bars at 01:00-04:00 use the previous 4H bar (closing at 00:00).
     """
-    four_hour_times = four_hour_df.index
-    hourly_times = hourly_df.index
-
-    idx_map = np.empty(len(hourly_df), dtype=np.int64)
-    fh_pos = 0
-
-    for i in range(len(hourly_times)):
-        h_time = hourly_times[i]
-        # Advance fh_pos to the last 4H bar whose time < hourly bar's time
-        while fh_pos < len(four_hour_times) - 1 and four_hour_times[fh_pos + 1] < h_time:
-            fh_pos += 1
-        # Use 4H bar only if its time is strictly before the hourly bar's time
-        if four_hour_times[fh_pos] < h_time:
-            idx_map[i] = fh_pos
-        elif fh_pos > 0:
-            idx_map[i] = fh_pos - 1
-        else:
-            idx_map[i] = 0
-
-    return idx_map
+    return _vectorized_align(hourly_df.index.values, four_hour_df.index.values)
 
 
 def build_numpy_arrays(df: pd.DataFrame) -> NumpyBars:
@@ -217,7 +235,7 @@ def resample_1m_to_1h(minute_df: pd.DataFrame) -> pd.DataFrame:
     agg = {"open": "first", "high": "max", "low": "min", "close": "last"}
     if "volume" in minute_df.columns:
         agg["volume"] = "sum"
-    resampled = minute_df.resample("1h").agg(agg)
+    resampled = minute_df.resample("1h", label="right").agg(agg)
     return resampled.dropna(subset=["open", "close"])
 
 
@@ -226,7 +244,7 @@ def resample_1m_to_4h(minute_df: pd.DataFrame) -> pd.DataFrame:
     agg = {"open": "first", "high": "max", "low": "min", "close": "last"}
     if "volume" in minute_df.columns:
         agg["volume"] = "sum"
-    resampled = minute_df.resample("4h", offset="0h").agg(agg)
+    resampled = minute_df.resample("4h", offset="0h", label="right").agg(agg)
     return resampled.dropna(subset=["open", "close"])
 
 
@@ -261,24 +279,7 @@ def align_higher_tf_to_minute(
     is the positional index into ``higher_tf_df``.  No look-ahead: a higher-TF
     bar is only available after its close timestamp.
     """
-    htf_times = higher_tf_df.index
-    m_times = minute_df.index
-
-    idx_map = np.empty(len(minute_df), dtype=np.int64)
-    htf_pos = 0
-
-    for i in range(len(m_times)):
-        m_time = m_times[i]
-        while htf_pos < len(htf_times) - 1 and htf_times[htf_pos + 1] < m_time:
-            htf_pos += 1
-        if htf_times[htf_pos] < m_time:
-            idx_map[i] = htf_pos
-        elif htf_pos > 0:
-            idx_map[i] = htf_pos - 1
-        else:
-            idx_map[i] = 0
-
-    return idx_map
+    return _vectorized_align(minute_df.index.values, higher_tf_df.index.values)
 
 
 # ---------------------------------------------------------------------------
@@ -294,7 +295,7 @@ def resample_5m_to_30m(five_min_df: pd.DataFrame) -> pd.DataFrame:
     agg = {"open": "first", "high": "max", "low": "min", "close": "last"}
     if "volume" in five_min_df.columns:
         agg["volume"] = "sum"
-    resampled = five_min_df.resample("30min").agg(agg)
+    resampled = five_min_df.resample("30min", label="right").agg(agg)
     return resampled.dropna(subset=["open", "close"])
 
 
@@ -303,7 +304,7 @@ def resample_5m_to_1h(five_min_df: pd.DataFrame) -> pd.DataFrame:
     agg = {"open": "first", "high": "max", "low": "min", "close": "last"}
     if "volume" in five_min_df.columns:
         agg["volume"] = "sum"
-    resampled = five_min_df.resample("1h").agg(agg)
+    resampled = five_min_df.resample("1h", label="right").agg(agg)
     return resampled.dropna(subset=["open", "close"])
 
 
@@ -312,7 +313,7 @@ def resample_5m_to_4h(five_min_df: pd.DataFrame) -> pd.DataFrame:
     agg = {"open": "first", "high": "max", "low": "min", "close": "last"}
     if "volume" in five_min_df.columns:
         agg["volume"] = "sum"
-    resampled = five_min_df.resample("4h", offset="0h").agg(agg)
+    resampled = five_min_df.resample("4h", offset="0h", label="right").agg(agg)
     return resampled.dropna(subset=["open", "close"])
 
 
@@ -347,24 +348,7 @@ def align_higher_tf_to_5m(
     is the positional index into ``higher_tf_df``.  No look-ahead: a higher-TF
     bar is only available after its close timestamp.
     """
-    htf_times = higher_tf_df.index
-    m_times = five_min_df.index
-
-    idx_map = np.empty(len(five_min_df), dtype=np.int64)
-    htf_pos = 0
-
-    for i in range(len(m_times)):
-        m_time = m_times[i]
-        while htf_pos < len(htf_times) - 1 and htf_times[htf_pos + 1] < m_time:
-            htf_pos += 1
-        if htf_times[htf_pos] < m_time:
-            idx_map[i] = htf_pos
-        elif htf_pos > 0:
-            idx_map[i] = htf_pos - 1
-        else:
-            idx_map[i] = 0
-
-    return idx_map
+    return _vectorized_align(five_min_df.index.values, higher_tf_df.index.values)
 
 
 # ---------------------------------------------------------------------------
@@ -392,12 +376,13 @@ def filter_vdubus_session(df: pd.DataFrame) -> pd.DataFrame:
 def resample_15m_to_1h(fifteen_min_df: pd.DataFrame) -> pd.DataFrame:
     """Resample 15-minute bars to 1H using standard OHLCV aggregation.
 
-    Uses UTC-aligned hour boundaries. Drops incomplete bars.
+    Uses UTC-aligned hour boundaries with right-edge labeling to prevent
+    look-ahead bias. Drops incomplete bars.
     """
     agg = {"open": "first", "high": "max", "low": "min", "close": "last"}
     if "volume" in fifteen_min_df.columns:
         agg["volume"] = "sum"
-    resampled = fifteen_min_df.resample("1h").agg(agg)
+    resampled = fifteen_min_df.resample("1h", label="right").agg(agg)
     return resampled.dropna(subset=["open", "close"])
 
 
@@ -406,7 +391,7 @@ def resample_15m_to_4h(fifteen_min_df: pd.DataFrame) -> pd.DataFrame:
     agg = {"open": "first", "high": "max", "low": "min", "close": "last"}
     if "volume" in fifteen_min_df.columns:
         agg["volume"] = "sum"
-    resampled = fifteen_min_df.resample("4h", offset="0h").agg(agg)
+    resampled = fifteen_min_df.resample("4h", offset="0h", label="right").agg(agg)
     return resampled.dropna(subset=["open", "close"])
 
 
@@ -441,24 +426,7 @@ def align_higher_tf_to_15m(
     is the positional index into ``higher_tf_df``.  No look-ahead: a higher-TF
     bar is only available after its close timestamp.
     """
-    htf_times = higher_tf_df.index
-    m_times = fifteen_min_df.index
-
-    idx_map = np.empty(len(fifteen_min_df), dtype=np.int64)
-    htf_pos = 0
-
-    for i in range(len(m_times)):
-        m_time = m_times[i]
-        while htf_pos < len(htf_times) - 1 and htf_times[htf_pos + 1] < m_time:
-            htf_pos += 1
-        if htf_times[htf_pos] < m_time:
-            idx_map[i] = htf_pos
-        elif htf_pos > 0:
-            idx_map[i] = htf_pos - 1
-        else:
-            idx_map[i] = 0
-
-    return idx_map
+    return _vectorized_align(fifteen_min_df.index.values, higher_tf_df.index.values)
 
 
 def resample_5m_to_15m(five_min_df: pd.DataFrame) -> pd.DataFrame:
@@ -469,7 +437,7 @@ def resample_5m_to_15m(five_min_df: pd.DataFrame) -> pd.DataFrame:
     agg = {"open": "first", "high": "max", "low": "min", "close": "last"}
     if "volume" in five_min_df.columns:
         agg["volume"] = "sum"
-    resampled = five_min_df.resample("15min").agg(agg)
+    resampled = five_min_df.resample("15min", label="right").agg(agg)
     return resampled.dropna(subset=["open", "close"])
 
 
@@ -482,21 +450,4 @@ def align_5m_to_15m(
     Each 5m bar maps to the 15m bar whose close time encompasses it.
     Used for micro-trigger inner loop in VdubusNQ backtest.
     """
-    ftm_times = fifteen_min_df.index
-    m_times = five_min_df.index
-
-    idx_map = np.empty(len(five_min_df), dtype=np.int64)
-    ftm_pos = 0
-
-    for i in range(len(m_times)):
-        m_time = m_times[i]
-        while ftm_pos < len(ftm_times) - 1 and ftm_times[ftm_pos + 1] < m_time:
-            ftm_pos += 1
-        if ftm_times[ftm_pos] < m_time:
-            idx_map[i] = ftm_pos
-        elif ftm_pos > 0:
-            idx_map[i] = ftm_pos - 1
-        else:
-            idx_map[i] = 0
-
-    return idx_map
+    return _vectorized_align(five_min_df.index.values, fifteen_min_df.index.values)

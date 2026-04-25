@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, date, timedelta, timezone, time
 
@@ -56,6 +57,7 @@ from strategy_3.config import (
 from strategy_3.indicators import (
     adx,
     atr,
+    avwap_last,
     compute_avwap,
     compute_daily_slope,
     compute_regime_4h,
@@ -408,6 +410,7 @@ class BreakoutEngine:
                                 commission_per_contract=slippage.commission_per_share_etf)
         self.broker = SimBroker(slippage_config=slippage)
         self.equity = bt_config.initial_equity
+        self.sizing_equity = bt_config.initial_equity
 
         # Campaign state
         self.campaign = SymbolCampaign()
@@ -422,6 +425,7 @@ class BreakoutEngine:
         # Position tracking
         self.active_position: _ActivePosition | None = None
         self._entry_a_outstanding: bool = False
+        self._pending_flatten_reason: str | None = None
 
         # Daily context cache
         self._daily_ctx: dict | None = None
@@ -440,7 +444,7 @@ class BreakoutEngine:
         self._cached_ema50_4h: float = 0.0
         self._cached_4h_highs: list[float] = []
         self._cached_4h_lows: list[float] = []
-        self._regime_history: list[Regime4H] = []  # recent 4H regime labels for stability check
+        self._regime_history: deque = deque(maxlen=10)  # recent 4H regime labels for stability check
 
         # Pending setup (between order submission and fill)
         self._pending_setup: SetupInstance | None = None
@@ -468,6 +472,16 @@ class BreakoutEngine:
         self.regime_bars_bear: int = 0
         self.regime_bars_chop: int = 0
 
+    def _init_equity_arrays(self, n_bars: int, times_dtype) -> None:
+        """Pre-allocate equity and timestamp arrays for the bar loop."""
+        self._eq_arr = np.empty(n_bars, dtype=np.float64)
+        self._ts_arr = np.empty(n_bars, dtype=times_dtype)
+        self._bar_idx = 0
+
+    def _risk_equity(self) -> float:
+        """Portfolio equity used for sizing and admission checks."""
+        return self.sizing_equity if self.sizing_equity > 0 else self.equity
+
     def run(
         self,
         daily: NumpyBars,
@@ -482,6 +496,9 @@ class BreakoutEngine:
         warmup_4h = self.bt_config.warmup_4h
 
         with _AblationPatch(self.flags, self.bt_config.param_overrides):
+            # Pre-allocate equity/timestamp arrays
+            self._init_equity_arrays(len(hourly), hourly.times.dtype)
+
             # Precompute full indicator arrays once (avoids recomputing
             # bounded windows on every bar)
             self._precompute_indicators(daily, hourly, four_hour)
@@ -501,19 +518,17 @@ class BreakoutEngine:
 
             # Close any remaining position at last bar's close
             if self.active_position is not None:
-                self._flatten_position(
-                    self.active_position,
+                self._flatten_at_end_of_data(
                     hourly.closes[-1],
                     self._to_datetime(hourly.times[-1]),
-                    "END_OF_DATA",
                 )
 
         return BreakoutSymbolResult(
             symbol=self.symbol,
             trades=self.trades,
             signal_events=self.signal_events,
-            equity_curve=np.array(self.equity_curve),
-            timestamps=np.array(self.timestamps),
+            equity_curve=self._eq_arr[:self._bar_idx].copy(),
+            timestamps=self._ts_arr[:self._bar_idx].copy(),
             total_commission=self.total_commission,
             entries_placed=self.entries_placed,
             entries_filled=self.entries_filled,
@@ -550,15 +565,21 @@ class BreakoutEngine:
         self._pre_d_atr50 = atr(daily.highs, daily.lows, daily.closes, ATR_DAILY_LONG_PERIOD)
         self._pre_d_ema20 = ema(daily.closes, 20)
 
-        # Daily datetime conversions
-        self._pre_d_datetimes = [self._to_datetime(daily.times[i]) for i in range(len(daily.times))]
+        # Daily datetime conversions (vectorized)
+        self._pre_d_datetimes = pd.DatetimeIndex(daily.times).to_pydatetime().tolist()
 
         # Hourly indicators
         self._pre_h_atr14 = atr(hourly.highs, hourly.lows, hourly.closes, ATR_HOURLY_PERIOD)
         self._pre_h_ema20 = ema(hourly.closes, EMA_1H_PERIOD)
 
-        # Hourly datetime conversions (biggest bottleneck: 4ms/bar)
-        self._pre_h_datetimes = [self._to_datetime(hourly.times[i]) for i in range(len(hourly.times))]
+        # Hourly datetime conversions (vectorized)
+        self._pre_h_datetimes = pd.DatetimeIndex(hourly.times).to_pydatetime().tolist()
+
+        # Precompute WVWAP (weekly reset, no campaign dependency)
+        self._pre_h_wvwap = compute_wvwap(
+            hourly.highs, hourly.lows, hourly.closes, hourly.volumes,
+            self._pre_h_datetimes,
+        )
 
         # 4H indicators
         if len(four_hour.closes) > 0:
@@ -639,8 +660,9 @@ class BreakoutEngine:
 
         # Skip NaN bars (carry forward last MTM — no valid price to re-mark)
         if np.isnan(O) or np.isnan(C):
-            self.equity_curve.append(self.equity_curve[-1] if self.equity_curve else self.equity)
-            self.timestamps.append(hourly.times[t])
+            self._eq_arr[self._bar_idx] = self._eq_arr[self._bar_idx - 1] if self._bar_idx > 0 else self.equity
+            self._ts_arr[self._bar_idx] = hourly.times[t]
+            self._bar_idx += 1
             return
 
         # 1. Process fills from SimBroker
@@ -678,8 +700,9 @@ class BreakoutEngine:
 
         # Skip signal detection during warmup
         if t < warmup_h or d_idx < warmup_d:
-            self.equity_curve.append(self.equity)
-            self.timestamps.append(hourly.times[t])
+            self._eq_arr[self._bar_idx] = self.equity
+            self._ts_arr[self._bar_idx] = hourly.times[t]
+            self._bar_idx += 1
             return
 
         # 6. Pending mechanism
@@ -692,7 +715,7 @@ class BreakoutEngine:
                 self.positions,
                 self.campaign.pending.direction,
                 self._daily_ctx.get("final_risk_dollars", 0.0),
-                self.equity,
+                self._risk_equity(),
             ):
                 # Re-validate and place
                 self._place_entry(
@@ -726,8 +749,9 @@ class BreakoutEngine:
                 mtm_equity += (C - pos.fill_price) * pv * pos.qty_open
             else:
                 mtm_equity += (pos.fill_price - C) * pv * pos.qty_open
-        self.equity_curve.append(mtm_equity)
-        self.timestamps.append(hourly.times[t])
+        self._eq_arr[self._bar_idx] = mtm_equity
+        self._ts_arr[self._bar_idx] = hourly.times[t]
+        self._bar_idx += 1
 
     # ------------------------------------------------------------------
     # Daily close routine (campaign state machine)
@@ -827,8 +851,9 @@ class BreakoutEngine:
 
         # --- 3) AVWAP_D ---
         bar_times = self._pre_d_datetimes[start:end] if hasattr(self, '_pre_d_datetimes') else [self._to_datetime(daily.times[start + i]) for i in range(len(closes))]
-        avwap_d_arr = compute_avwap(highs, lows, closes, volumes, bar_times, campaign.anchor_time)
-        avwap_d = float(avwap_d_arr[-1]) if not np.isnan(avwap_d_arr[-1]) else close_today
+        avwap_d = avwap_last(highs, lows, closes, volumes, bar_times, campaign.anchor_time)
+        if np.isnan(avwap_d):
+            avwap_d = close_today
 
         # --- 4) Breakout qualification ---
         direction = signals.check_structural_breakout(close_today, campaign.box_high, campaign.box_low)
@@ -1064,7 +1089,7 @@ class BreakoutEngine:
             cb_mult *= CHOP_DEGRADED_SIZE_MULT
 
         final_risk_dollars = allocator.compute_final_risk(
-            self.equity, cfg.base_risk_pct, risk_regime,
+            self._risk_equity(), cfg.base_risk_pct, risk_regime,
             quality_mult, expiry_mult, cb_mult,
         )
 
@@ -1145,8 +1170,6 @@ class BreakoutEngine:
 
         self._cached_regime_4h = regime_4h
         self._regime_history.append(regime_4h)
-        if len(self._regime_history) > 10:
-            self._regime_history = self._regime_history[-10:]
 
         # Track regime distribution
         if regime_4h == Regime4H.BULL_TREND:
@@ -1159,8 +1182,8 @@ class BreakoutEngine:
         # Use precomputed arrays for trailing stop cache
         self._cached_atr14_4h = float(self._pre_4h_atr14[fh_idx])
         self._cached_ema50_4h = float(self._pre_4h_ema50[fh_idx])
-        self._cached_4h_highs = [float(h) for h in highs_arr[-20:]]
-        self._cached_4h_lows = [float(l) for l in lows_arr[-20:]]
+        self._cached_4h_highs = four_hour.highs[max(0, fh_idx - 19):fh_idx + 1]
+        self._cached_4h_lows = four_hour.lows[max(0, fh_idx - 19):fh_idx + 1]
 
     # ------------------------------------------------------------------
     # Hourly state update
@@ -1191,25 +1214,23 @@ class BreakoutEngine:
         if t >= EMA_1H_PERIOD:
             hs.ema20_h = float(self._pre_h_ema20[t])
 
+        # WVWAP -- precomputed (weekly reset, no campaign dependency)
+        hs.wvwap = float(self._pre_h_wvwap[t])
+
         # AVWAP_H (campaign-anchored) — cannot precompute, depends on anchor_time
         if self.campaign.anchor_time:
-            h_times = self._pre_h_datetimes[start:t + 1] if hasattr(self, '_pre_h_datetimes') else [self._to_datetime(hourly.times[start + i]) for i in range(lookback)]
-            avwap_arr = compute_avwap(h_highs, h_lows, h_closes, h_volumes,
-                                       h_times, self.campaign.anchor_time)
-            val = float(avwap_arr[-1])
+            val = avwap_last(h_highs, h_lows, h_closes, h_volumes,
+                             self._pre_h_datetimes[start:t + 1],
+                             self.campaign.anchor_time)
             hs.avwap_h = val if not np.isnan(val) else float(h_closes[-1])
-
-            # WVWAP
-            wvwap_arr = compute_wvwap(h_highs, h_lows, h_closes, h_volumes, h_times)
-            hs.wvwap = float(wvwap_arr[-1])
 
         hs.close = float(h_closes[-1])
         hs.bar_time = bar_time
 
-        # Rolling data for signals
-        hs.closes = [float(c) for c in h_closes[-200:]]
-        hs.highs = [float(h) for h in h_highs[-200:]]
-        hs.lows = [float(l) for l in h_lows[-200:]]
+        # Rolling data for signals (numpy views -- zero-copy)
+        hs.closes = hourly.closes[max(0, t - 199):t + 1]
+        hs.highs = hourly.highs[max(0, t - 199):t + 1]
+        hs.lows = hourly.lows[max(0, t - 199):t + 1]
 
         # RVOL_H (slot-normalized)
         key = get_slot_key(bar_time)
@@ -1272,8 +1293,8 @@ class BreakoutEngine:
             direction=direction,
             campaign=campaign,
             hourly_close=hs.close,
-            hourly_low=float(hs.lows[-1]) if hs.lows else hs.close,
-            hourly_high=float(hs.highs[-1]) if hs.highs else hs.close,
+            hourly_low=float(hs.lows[-1]) if len(hs.lows) > 0 else hs.close,
+            hourly_high=float(hs.highs[-1]) if len(hs.highs) > 0 else hs.close,
             hourly_closes=hs.closes,
             hourly_highs=hs.highs,
             hourly_lows=hs.lows,
@@ -1306,7 +1327,7 @@ class BreakoutEngine:
         ok, reason, _ = gates.full_eligibility_check(
             self.symbol, direction, campaign, cfg, bar_time,
             self.circuit_breaker, self.positions,
-            final_risk_dollars, self.equity,
+            final_risk_dollars, self._risk_equity(),
             [],  # No news calendar in backtest
             self.correlation_map,
         )
@@ -1322,7 +1343,7 @@ class BreakoutEngine:
             if not self.flags.disable_pending:
                 block_reason = gates.check_transient_blocks(
                     self.symbol, direction, self.positions,
-                    final_risk_dollars, self.equity, self.correlation_map,
+                    final_risk_dollars, self._risk_equity(), self.correlation_map,
                 )
                 if block_reason:
                     campaign.pending = PendingEntry(
@@ -1337,7 +1358,8 @@ class BreakoutEngine:
         # Micro guard
         if not self.flags.disable_micro_guard:
             base_risk_adj = allocator.compute_risk_regime_adj(cfg.base_risk_pct, ctx["risk_regime"])
-            final_risk_pct = final_risk_dollars / self.equity if self.equity > 0 else 0.0
+            risk_equity = self._risk_equity()
+            final_risk_pct = final_risk_dollars / risk_equity if risk_equity > 0 else 0.0
             if not allocator.micro_guard_ok(expiry_mult, disp_mult, trade_regime, final_risk_pct, base_risk_adj):
                 if self.bt_config.track_signals:
                     self._log_signal_event(
@@ -1347,6 +1369,15 @@ class BreakoutEngine:
                 self.entries_blocked += 1
                 return
 
+        if not np.isfinite(avwap_h):
+            if self.bt_config.track_signals:
+                self._log_signal_event(
+                    bar_time, direction, entry_type, False, "invalid_avwap_h",
+                    ctx, rvol_h,
+                )
+            self.entries_blocked += 1
+            return
+
         # Friction gate
         if not self.flags.disable_friction_gate:
             stop_price = stops.compute_initial_stop(
@@ -1354,6 +1385,14 @@ class BreakoutEngine:
                 campaign.box_high, campaign.box_low, campaign.box_mid,
                 atr14_d, cfg.atr_stop_mult, ctx["sq_good"], cfg.tick_size,
             )
+            if not np.isfinite(stop_price) or not np.isfinite(final_risk_dollars):
+                if self.bt_config.track_signals:
+                    self._log_signal_event(
+                        bar_time, direction, entry_type, False, "invalid_entry_inputs",
+                        ctx, rvol_h,
+                    )
+                self.entries_blocked += 1
+                return
             shares_est = allocator.compute_shares(final_risk_dollars, avwap_h, stop_price, cfg.fee_bps_est)
             if shares_est > 0 and not gates.friction_gate(self.symbol, cfg.fee_bps_est, avwap_h, shares_est, final_risk_dollars):
                 if self.bt_config.track_signals:
@@ -1395,12 +1434,17 @@ class BreakoutEngine:
         trade_regime: TradeRegime = ctx["trade_regime"]
         sq_good = ctx["sq_good"]
 
+        if not np.isfinite(avwap_h):
+            return
+
         # Stop
         stop_price = stops.compute_initial_stop(
             direction, entry_type.value,
             campaign.box_high, campaign.box_low, campaign.box_mid,
             atr14_d, cfg.atr_stop_mult, sq_good, cfg.tick_size,
         )
+        if not np.isfinite(stop_price) or not np.isfinite(final_risk_dollars):
+            return
 
         # Entry level
         if entry_type == EntryType.A_AVWAP_RETEST:
@@ -1526,6 +1570,8 @@ class BreakoutEngine:
             campaign.box_high, campaign.box_low, campaign.box_mid,
             atr14_d, cfg.atr_stop_mult, sq_good, cfg.tick_size,
         )
+        if not np.isfinite(stop_price) or not np.isfinite(final_risk_dollars):
+            return
 
         # Shares
         shares = allocator.compute_shares(final_risk_dollars, entry_price, stop_price, cfg.fee_bps_est)
@@ -1632,8 +1678,8 @@ class BreakoutEngine:
         reclaim_buffer = max(0.12 * atr14_h, 0.03 * atr14_d)
         triggered = signals.check_add_trigger(
             direction, hs.close,
-            float(hs.lows[-1]) if hs.lows else hs.close,
-            float(hs.highs[-1]) if hs.highs else hs.close,
+            float(hs.lows[-1]) if len(hs.lows) > 0 else hs.close,
+            float(hs.highs[-1]) if len(hs.highs) > 0 else hs.close,
             ref, float(hs.closes[-2]),
             rvol_h,
             high_vol_regime=ctx.get("risk_regime", 1.0) > 1.2,
@@ -1646,19 +1692,21 @@ class BreakoutEngine:
         if rvol_h < 0.8:
             if not signals.strong_close_location(
                 direction,
-                float(hs.highs[-1]) if hs.highs else hs.close,
-                float(hs.lows[-1]) if hs.lows else hs.close,
+                float(hs.highs[-1]) if len(hs.highs) > 0 else hs.close,
+                float(hs.lows[-1]) if len(hs.lows) > 0 else hs.close,
                 hs.close,
             ):
                 return
 
         # Add stop
-        pullback_low = min(hs.lows[-3:]) if len(hs.lows) >= 3 else (hs.lows[-1] if hs.lows else hs.close)
-        pullback_high = max(hs.highs[-3:]) if len(hs.highs) >= 3 else (hs.highs[-1] if hs.highs else hs.close)
+        pullback_low = min(hs.lows[-3:]) if len(hs.lows) >= 3 else (hs.lows[-1] if len(hs.lows) > 0 else hs.close)
+        pullback_high = max(hs.highs[-3:]) if len(hs.highs) >= 3 else (hs.highs[-1] if len(hs.highs) > 0 else hs.close)
         add_stop = stops.compute_add_stop(
             direction, pullback_low, pullback_high,
             ref, atr14_d, cfg.atr_stop_mult, cfg.tick_size,
         )
+        if not np.isfinite(ref) or not np.isfinite(add_stop) or not np.isfinite(add_risk):
+            return
 
         # Size
         add_shares = allocator.compute_shares(add_risk, ref, add_stop, cfg.fee_bps_est)
@@ -1723,6 +1771,8 @@ class BreakoutEngine:
             self._on_partial_fill(fill, bar_time)
         elif fill.order.tag == "add_on":
             self._on_add_fill(fill, bar_time)
+        elif fill.order.tag == "flatten":
+            self._on_flatten_fill(fill, bar_time)
 
     def _on_entry_fill(self, fill: FillResult, bar_time: datetime) -> None:
         """Handle entry fill: create position, place protective stop."""
@@ -1864,6 +1914,7 @@ class BreakoutEngine:
                            fill.commission)
 
         self._update_circuit_breaker(r_multiple, bar_time)
+        self._pending_flatten_reason = None
         self.broker.cancel_all(self.symbol)
         self._clear_position()
 
@@ -2116,7 +2167,7 @@ class BreakoutEngine:
 
         # --- Stale exit (deferred — only if TP1 not hit this bar) ---
         if should_exit_stale and not tp1_hit_this_bar:
-            self._flatten_position(pos, C, bar_time, "STALE")
+            self._submit_flatten(pos, bar_time, "STALE")
             return
 
         # --- Runner trailing stop (4H ATR-based) ---
@@ -2194,6 +2245,26 @@ class BreakoutEngine:
         )
         self.broker.submit_order(order)
 
+    def _submit_flatten(self, pos: _ActivePosition, bar_time: datetime, reason: str) -> None:
+        """Submit a next-bar market order for a discretionary full exit."""
+        if pos.qty_open <= 0 or self._pending_flatten_reason:
+            return
+        self.broker.cancel_orders(self.symbol, tag="protective_stop")
+        exit_side = OrderSide.SELL if pos.setup.direction == Direction.LONG else OrderSide.BUY
+        order = SimOrder(
+            order_id=self.broker.next_order_id(),
+            symbol=self.symbol,
+            side=exit_side,
+            order_type=OrderType.MARKET,
+            qty=pos.qty_open,
+            tick_size=self.cfg.tick_size,
+            submit_time=bar_time,
+            ttl_hours=0,
+            tag="flatten",
+        )
+        self.broker.submit_order(order)
+        self._pending_flatten_reason = reason
+
     # ------------------------------------------------------------------
     # Position flatten (market exit)
     # ------------------------------------------------------------------
@@ -2204,6 +2275,8 @@ class BreakoutEngine:
         exit_price: float,
         bar_time: datetime,
         reason: str,
+        *,
+        exit_commission: float | None = None,
     ) -> None:
         """Flatten entire position at the given price."""
         setup = pos.setup
@@ -2228,12 +2301,16 @@ class BreakoutEngine:
         else:
             mfe_r = mae_r = 0.0
 
-        self.equity += pnl_points * pv * pos.qty_open
+        if exit_commission is None:
+            exit_commission = self.broker._compute_commission(pos.qty_open)
+        self.total_commission += exit_commission
+        self.equity += pnl_points * pv * pos.qty_open - exit_commission
 
         self._record_trade(pos, exit_price, bar_time, reason, pnl_points,
-                           pnl_dollars, r_multiple, mfe_r, mae_r, 0.0)
+                           pnl_dollars, r_multiple, mfe_r, mae_r, exit_commission)
 
         self._update_circuit_breaker(r_multiple, bar_time)
+        self._pending_flatten_reason = None
         self.broker.cancel_all(self.symbol)
         self._clear_position()
 
@@ -2265,7 +2342,53 @@ class BreakoutEngine:
             ps.regime_at_entry = None
 
         self.active_position = None
+        self._pending_flatten_reason = None
         self._pending_setup = None
+
+    def _on_flatten_fill(self, fill: FillResult, bar_time: datetime) -> None:
+        """Handle a queued flatten fill."""
+        pos = self.active_position
+        if pos is None:
+            return
+        reason = self._pending_flatten_reason or "FLATTEN"
+        self._pending_flatten_reason = None
+        self._flatten_position(
+            pos,
+            fill.fill_price,
+            bar_time,
+            reason,
+            exit_commission=fill.commission,
+        )
+
+    def _flatten_at_end_of_data(self, last_price: float, bar_time: datetime) -> None:
+        """Apply market-exit friction at end of data."""
+        pos = self.active_position
+        if pos is None or pos.qty_open <= 0:
+            return
+        exit_side = OrderSide.SELL if pos.setup.direction == Direction.LONG else OrderSide.BUY
+        order = SimOrder(
+            order_id=self.broker.next_order_id(),
+            symbol=self.symbol,
+            side=exit_side,
+            order_type=OrderType.MARKET,
+            qty=pos.qty_open,
+            tick_size=self.cfg.tick_size,
+            submit_time=bar_time,
+            ttl_hours=0,
+            tag="flatten",
+        )
+        fill = self.broker._fill_market(order, bar_time, last_price, self.cfg.tick_size)
+        self._pending_flatten_reason = None
+        self._flatten_position(
+            pos,
+            fill.fill_price,
+            bar_time,
+            "END_OF_DATA",
+            exit_commission=fill.commission,
+        )
+        if self._bar_idx > 0:
+            self._eq_arr[self._bar_idx - 1] = self.equity
+            self._ts_arr[self._bar_idx - 1] = np.datetime64(bar_time)
 
     # ------------------------------------------------------------------
     # Trade recording

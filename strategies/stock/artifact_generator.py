@@ -84,3 +84,48 @@ async def ensure_artifacts(
             logger.info("ALCB done in %.0fs", time.monotonic() - t1)
     logger.info("All artifact generation completed in %.0fs", time.monotonic() - t0)
     return results
+
+
+async def _main() -> None:
+    """Standalone entrypoint: generate both IARIC and ALCB artifacts for today."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+
+    today = date.today()
+    et_today = datetime.now(ZoneInfo("America/New_York")).date()
+    if today != et_today:
+        logger.info("UTC date %s differs from ET date %s -- using ET", today, et_today)
+    today = et_today
+
+    host = os.environ.get("IB_HOST", "127.0.0.1")
+    port = int(os.environ.get("IB_PORT", "4002"))
+
+    logger.info(
+        "Generating stock artifacts for %s (IB %s:%d, client_id=%d)",
+        today, host, port, RESEARCH_CLIENT_ID,
+    )
+
+    results = await ensure_artifacts(
+        today,
+        missing=["IARIC_v1", "ALCB_v1"],
+        host=host,
+        port=port,
+    )
+
+    failed = [sid for sid, ok in results.items() if not ok]
+    if failed:
+        logger.error("Artifact generation FAILED for: %s", failed)
+        raise SystemExit(1)
+
+    logger.info("All artifacts generated successfully: %s", list(results.keys()))
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    asyncio.run(_main())

@@ -4,8 +4,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from strategy_iaric.models import PositionState as IARICPositionState
-from strategy_orb.models import PositionState as USORBPositionState
+from strategies.stock.iaric.models import PositionState as IARICPositionState
+from strategies.stock.alcb.models import Direction as ALCBDirection
+from strategies.stock.alcb.models import PositionState as ALCBPositionState
 
 
 def _now():
@@ -30,8 +31,9 @@ def test_iaric_position_exposes_fields_needed_for_mfe_mae_tracking():
     assert pos.max_adverse_price == 100.0
 
 
-def test_us_orb_position_exposes_fields_needed_for_mfe_mae_tracking():
-    pos = USORBPositionState(
+def test_alcb_position_exposes_fields_needed_for_mfe_mae_tracking():
+    pos = ALCBPositionState(
+        direction=ALCBDirection.LONG,
         entry_price=50.0,
         qty_entry=20,
         qty_open=20,
@@ -41,6 +43,8 @@ def test_us_orb_position_exposes_fields_needed_for_mfe_mae_tracking():
         initial_risk_per_share=1.0,
         max_favorable_price=50.0,
         max_adverse_price=50.0,
+        tp1_price=51.0,
+        tp2_price=52.0,
     )
 
     assert pos.total_initial_risk_usd == 20.0
@@ -65,8 +69,9 @@ def test_iaric_max_favorable_price_supports_mfe_r_calculation():
     assert mfe_r == pytest.approx(1.5)
 
 
-def test_us_orb_max_favorable_price_supports_mfe_r_calculation():
-    pos = USORBPositionState(
+def test_alcb_max_favorable_price_supports_mfe_r_calculation():
+    pos = ALCBPositionState(
+        direction=ALCBDirection.LONG,
         entry_price=50.0,
         qty_entry=20,
         qty_open=20,
@@ -76,6 +81,8 @@ def test_us_orb_max_favorable_price_supports_mfe_r_calculation():
         initial_risk_per_share=1.0,
         max_favorable_price=52.5,
         max_adverse_price=49.4,
+        tp1_price=51.0,
+        tp2_price=52.0,
     )
 
     mfe_r = (pos.max_favorable_price - pos.entry_price) / pos.initial_risk_per_share

@@ -156,7 +156,7 @@ def _cmd_run_atrss(args):
         performance_report,
     )
     from backtest.config import BacktestConfig, SlippageConfig
-    from backtest.engine.portfolio_engine import run_independent
+    from backtest.engine.portfolio_engine import run_synchronized
     from strategy.config import SYMBOL_CONFIGS
 
     symbols = args.symbols.split(",")
@@ -187,7 +187,7 @@ def _cmd_run_atrss(args):
         fixed_qty=fixed_qty,
     )
 
-    result = run_independent(data, config)
+    result = run_synchronized(data, config)
     report_sections: list[str] = []
 
     for sym, sr in result.symbol_results.items():
@@ -301,7 +301,7 @@ def _cmd_ablation_atrss(args):
     from backtest.analysis.metrics import compute_metrics
     from backtest.analysis.reports import print_summary
     from backtest.config import AblationFlags, BacktestConfig, SlippageConfig
-    from backtest.engine.portfolio_engine import run_independent
+    from backtest.engine.portfolio_engine import run_synchronized
     from strategy.config import SYMBOL_CONFIGS
 
     symbols = args.symbols.split(",")
@@ -331,7 +331,7 @@ def _cmd_ablation_atrss(args):
         initial_equity=args.equity,
         data_dir=data_dir,
     )
-    baseline = run_independent(data, baseline_config)
+    baseline = run_synchronized(data, baseline_config)
 
     flags = AblationFlags()
     slippage = SlippageConfig()
@@ -348,7 +348,7 @@ def _cmd_ablation_atrss(args):
         slippage=slippage,
         data_dir=data_dir,
     )
-    ablation = run_independent(data, ablation_config)
+    ablation = run_synchronized(data, ablation_config)
 
     ablation_label = ",".join(filter_names)
     print(f"\n=== Ablation: {ablation_label} = OFF ===\n")
@@ -440,7 +440,7 @@ def _cmd_run_helix(args):
     )
     from backtest.config import SlippageConfig
     from backtest.config_helix import HelixBacktestConfig
-    from backtest.engine.helix_portfolio_engine import run_helix_independent
+    from backtest.engine.helix_portfolio_engine import run_helix_synchronized
     from strategy_2.config import SYMBOL_CONFIGS
 
     symbols = args.symbols.split(",")
@@ -470,7 +470,7 @@ def _cmd_run_helix(args):
         fixed_qty=fixed_qty,
     )
 
-    result = run_helix_independent(data, config)
+    result = run_helix_synchronized(data, config)
     report_sections: list[str] = []
 
     for sym, sr in result.symbol_results.items():
@@ -567,7 +567,7 @@ def _cmd_ablation_helix(args):
     from backtest.analysis.metrics import compute_metrics
     from backtest.analysis.reports import print_summary
     from backtest.config_helix import HelixAblationFlags, HelixBacktestConfig
-    from backtest.engine.helix_portfolio_engine import run_helix_independent
+    from backtest.engine.helix_portfolio_engine import run_helix_synchronized
     from strategy_2.config import SYMBOL_CONFIGS
 
     symbols = args.symbols.split(",")
@@ -596,7 +596,7 @@ def _cmd_ablation_helix(args):
         initial_equity=args.equity,
         data_dir=data_dir,
     )
-    baseline = run_helix_independent(data, baseline_config)
+    baseline = run_helix_synchronized(data, baseline_config)
 
     flags = HelixAblationFlags()
     for fn in filter_names:
@@ -609,7 +609,7 @@ def _cmd_ablation_helix(args):
         flags=flags,
         data_dir=data_dir,
     )
-    ablation = run_helix_independent(data, ablation_config)
+    ablation = run_helix_synchronized(data, ablation_config)
 
     ablation_label = ",".join(filter_names)
     print(f"\n=== Helix Ablation: {ablation_label} = ON (disabled) ===\n")
@@ -701,7 +701,7 @@ def _cmd_run_breakout(args):
     )
     from backtest.config import SlippageConfig
     from backtest.config_breakout import BreakoutBacktestConfig
-    from backtest.engine.breakout_portfolio_engine import run_breakout_independent
+    from backtest.engine.breakout_portfolio_engine import run_breakout_synchronized
     from strategy_3.config import SYMBOL_CONFIGS
 
     symbols = args.symbols.split(",")
@@ -732,7 +732,7 @@ def _cmd_run_breakout(args):
         breakout_day_entry=getattr(args, 'breakout_day_entry', False),
     )
 
-    result = run_breakout_independent(data, config)
+    result = run_breakout_synchronized(data, config)
     report_sections: list[str] = []
 
     for sym, sr in result.symbol_results.items():
@@ -819,7 +819,7 @@ def _cmd_ablation_breakout(args):
     from backtest.analysis.metrics import compute_metrics
     from backtest.analysis.reports import print_summary
     from backtest.config_breakout import BreakoutAblationFlags, BreakoutBacktestConfig
-    from backtest.engine.breakout_portfolio_engine import run_breakout_independent
+    from backtest.engine.breakout_portfolio_engine import run_breakout_synchronized
     from strategy_3.config import SYMBOL_CONFIGS
 
     symbols = args.symbols.split(",")
@@ -849,7 +849,7 @@ def _cmd_ablation_breakout(args):
         data_dir=data_dir,
         track_signals=False,
     )
-    baseline = run_breakout_independent(data, baseline_config)
+    baseline = run_breakout_synchronized(data, baseline_config)
 
     flags = BreakoutAblationFlags()
     for fn in filter_names:
@@ -863,7 +863,7 @@ def _cmd_ablation_breakout(args):
         data_dir=data_dir,
         track_signals=False,
     )
-    ablation = run_breakout_independent(data, ablation_config)
+    ablation = run_breakout_synchronized(data, ablation_config)
 
     ablation_label = ",".join(filter_names)
     print(f"\n=== Breakout Ablation: {ablation_label} = ON (disabled) ===\n")
@@ -1366,7 +1366,7 @@ def _cmd_run_brs(args):
     from backtest.analysis.brs_diagnostics import compute_brs_diagnostics
     from backtest.analysis.metrics import compute_metrics
     from backtest.config_brs import BRSConfig
-    from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_independent
+    from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
 
     symbols = args.symbols.split(",")
     data_dir = Path(args.data_dir)
@@ -1384,7 +1384,7 @@ def _cmd_run_brs(args):
         logger.error("No data loaded for BRS. Check data_dir and symbols.")
         return
 
-    result = run_brs_independent(data, config)
+    result = run_brs_synchronized(data, config)
 
     # Print per-symbol results
     for sym, sr in result.symbol_results.items():

@@ -130,6 +130,24 @@ class Helix4Engine:
         self._timer_task: Optional[asyncio.Task] = None
         self._last_session_actions: dict[str, datetime] = {}
 
+        # Diagnostic pulse state
+        self._last_decision_code: str = "IDLE"
+        self._last_decision_details: dict = {}
+        self._last_bar_ts: datetime | None = None
+
+    def _record_decision(self, code: str, details: dict | None = None) -> None:
+        self._last_decision_code = code
+        self._last_decision_details = details or {}
+
+    def health_status(self) -> dict:
+        return {
+            "strategy_id": STRATEGY_ID,
+            "running": self._running,
+            "last_decision_code": self._last_decision_code,
+            "last_decision_details": self._last_decision_details,
+            "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
+        }
+
     def _dd_tier_name(self) -> str:
         mult = self._throttle.dd_size_mult
         if mult >= 1.0:
@@ -304,10 +322,11 @@ class Helix4Engine:
             ("5 mins", "5 D", None, TF.M5),
         ]:
             try:
-                bars = await self.ib.ib.reqHistoricalDataAsync(
+                bars = await self.ib.req_historical_data(
                     self._contract, endDateTime="", durationStr=duration,
                     barSizeSetting=bar_size, whatToShow="TRADES",
                     useRTH=False, formatDate=1, keepUpToDate=True,
+                    request_kind="subscription",
                 )
                 self._bar_streams[tf] = bars
                 if series is not None:
@@ -327,9 +346,9 @@ class Helix4Engine:
         for bar_obj in list(self.h4.bars):
             self.pivots_4h.on_bar(bar_obj, self.h4)
 
-        self.daily._recompute()
-        if self.daily._atr is not None:
-            n = len(self.daily._atr)
+        # Indicators are computed incrementally via add_bar(), no recompute needed
+        n = len(self.daily._atr_d)
+        if n > 0:
             for i in range(max(0, n - 10), n):
                 self._ts_history.append(self.daily.trend_strength_at(i))
         ts_3d = self._ts_history[-4] if len(self._ts_history) >= 4 else None
@@ -355,6 +374,7 @@ class Helix4Engine:
             try:
                 b = bars[-1]
                 ts = self._normalize_ts(b.date if hasattr(b, 'date') else None)
+                self._last_bar_ts = ts
                 bar = Bar(
                     ts=ts, open=b.open, high=b.high,
                     low=b.low, close=b.close, volume=b.volume,
@@ -461,14 +481,22 @@ class Helix4Engine:
 
         if entries_allowed(block) and not is_halt(now_et) and not is_reopen_dead(now_et):
             await self._detect_and_arm(now_et, last_price)
+        elif self.positions.positions:
+            self._record_decision("MANAGING_POSITION", {"open_positions": len(self.positions.positions)})
+        elif is_halt(now_et):
+            self._record_decision("OUTSIDE_RTH", {"reason": "halt"})
+        else:
+            self._record_decision("OUTSIDE_RTH", {"session": block.value})
 
     async def _detect_and_arm(self, now_et: datetime, last_price: float) -> None:
         # Drawdown throttle: daily loss cap halt (matches backtest helix_engine.py:667)
         if DRAWDOWN_THROTTLE_ENABLED and self._throttle.daily_halted:
+            self._record_decision("CIRCUIT_BREAKER", {"reason": "daily_loss_cap_halt"})
             return
 
         # DOW block: Monday + Wednesday
         if now_et.weekday() in DOW_BLOCKED:
+            self._record_decision("OUTSIDE_RTH", {"reason": "dow_blocked", "weekday": now_et.weekday()})
             return
 
         candidates: list[Setup] = []
@@ -529,6 +557,7 @@ class Helix4Engine:
             self._cascade_ts[setup.setup_id] = now_et
 
         if not candidates:
+            self._record_decision("NO_SIGNAL")
             return
 
         # Priority: M > F > T
@@ -647,6 +676,10 @@ class Helix4Engine:
 
             armed = await self.exec.arm_setup(setup, now_et, contracts)
             if armed:
+                self._record_decision("ENTRY_SUBMITTED", {
+                    "class": setup.cls.value, "direction": setup.direction,
+                    "contracts": contracts, "risk_r": round(risk_r, 4),
+                })
                 self.risk.add_pending_risk(setup.direction, risk_r)
                 self._placed_signatures.add(sig)
                 self._sig_expiry[sig] = now_et + timedelta(seconds=setup.ttl_seconds())

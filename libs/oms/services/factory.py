@@ -9,7 +9,7 @@ import logging
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Callable, Optional, TYPE_CHECKING
+from typing import Awaitable, Callable, Optional, TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import asyncpg
@@ -17,10 +17,11 @@ import asyncpg
 from ..config.risk_config import RiskConfig, StrategyRiskConfig
 from ..coordination.coordinator import StrategyCoordinator
 from ..engine.fill_processor import FillProcessor
+from ..engine.state_machine import transition
 from ..events.bus import EventBus
 from ..execution.router import ExecutionRouter
 from ..intent.handler import IntentHandler
-from ..models.order import OrderRole, OrderSide
+from ..models.order import OrderRole, OrderSide, OrderStatus
 from ..models.position import Position
 from ..models.risk_state import StrategyRiskState, PortfolioRiskState
 from ..persistence.in_memory import InMemoryRepository
@@ -938,6 +939,110 @@ def _task_exception_handler(task: "asyncio.Task", bus: EventBus = None) -> None:
                 logger.error("Failed to emit RISK_HALT after callback exception")
 
 
+def _make_order_callback_dispatcher(bus: EventBus) -> Callable[[str, Callable[[], Awaitable[None]]], None]:
+    """Serialize broker callbacks per order while preserving cross-order concurrency."""
+    import asyncio
+
+    background_tasks: set[asyncio.Task] = set()
+    tails: dict[str, asyncio.Task] = {}
+
+    def _dispatch(oms_order_id: str, coro_factory: Callable[[], Awaitable[None]]) -> None:
+        previous = tails.get(oms_order_id)
+
+        async def _run() -> None:
+            if previous is not None:
+                try:
+                    await previous
+                except BaseException:
+                    pass
+            await coro_factory()
+
+        task = asyncio.create_task(_run())
+        background_tasks.add(task)
+
+        def _cleanup(done: "asyncio.Task") -> None:
+            background_tasks.discard(done)
+            if tails.get(oms_order_id) is done:
+                tails.pop(oms_order_id, None)
+            _task_exception_handler(done, bus=bus)
+
+        task.add_done_callback(_cleanup)
+        tails[oms_order_id] = task
+
+    return _dispatch
+
+
+_STATUS_TO_ORDER_STATUS: dict[str, OrderStatus] = {
+    "Submitted": OrderStatus.WORKING,
+    "PreSubmitted": OrderStatus.ROUTED,
+    "Filled": OrderStatus.FILLED,
+    "Cancelled": OrderStatus.CANCELLED,
+    "ApiCancelled": OrderStatus.CANCELLED,
+    "PendingCancel": OrderStatus.CANCEL_REQUESTED,
+}
+
+_ACK_FALLBACK_STATUSES = {
+    OrderStatus.WORKING,
+    OrderStatus.PARTIALLY_FILLED,
+    OrderStatus.FILLED,
+    OrderStatus.CANCEL_REQUESTED,
+    OrderStatus.CANCELLED,
+    OrderStatus.REJECTED,
+    OrderStatus.EXPIRED,
+}
+
+
+def _apply_ack_update(order, broker_ref, *, as_of: datetime) -> str:
+    if order.status == OrderStatus.ROUTED and transition(order, OrderStatus.ACKED):
+        order.broker_order_ref = broker_ref
+        order.acked_at = as_of
+        order.last_update_at = as_of
+        return "emit"
+
+    if order.status in _ACK_FALLBACK_STATUSES:
+        changed = False
+        if order.broker_order_ref != broker_ref:
+            order.broker_order_ref = broker_ref
+            changed = True
+        if order.acked_at is None:
+            order.acked_at = as_of
+            changed = True
+        if changed:
+            order.last_update_at = as_of
+            return "persist"
+        return "noop"
+
+    return "invalid"
+
+
+def _apply_status_update(order, *, status: str, remaining: float, as_of: datetime) -> str:
+    new_status = _STATUS_TO_ORDER_STATUS.get(status)
+    if new_status is None:
+        return "noop"
+
+    status_changed = False
+    if new_status != order.status:
+        if order.status == OrderStatus.ROUTED and new_status in {
+            OrderStatus.WORKING,
+            OrderStatus.FILLED,
+        }:
+            if not transition(order, OrderStatus.ACKED):
+                return "invalid"
+            if order.acked_at is None:
+                order.acked_at = as_of
+        if new_status != order.status and not transition(order, new_status):
+            return "invalid"
+        status_changed = True
+
+    remaining_int = int(remaining)
+    if not status_changed and order.remaining_qty == remaining_int:
+        return "noop"
+
+    order.remaining_qty = remaining_int
+    order.last_update_at = as_of
+    return "emit"
+
+
 def _wire_adapter_callbacks(
     adapter, bus: EventBus, repo, fill_proc: FillProcessor, router,
     strategy_risk_states, portfolio_risk_state, unit_risk_dollars, open_positions,
@@ -958,22 +1063,9 @@ def _wire_adapter_callbacks(
     Also wires FillProcessor for OMS order state and updates risk state.
     """
     import asyncio
-    from ..models.events import OMSEvent, OMSEventType
-    from ..models.order import OrderStatus
-    from ..engine.state_machine import transition
     from datetime import datetime, date, timezone
 
-    # C5 fix: store task references to prevent GC and enable exception handling
-    _background_tasks: set[asyncio.Task] = set()
-
-    def _create_tracked_task(coro) -> asyncio.Task:
-        """Create an asyncio task with exception handler and prevent GC."""
-        task = asyncio.create_task(coro)
-        _background_tasks.add(task)
-        task.add_done_callback(_background_tasks.discard)
-        # H4: pass bus so exception handler can emit RISK_HALT
-        task.add_done_callback(lambda t: _task_exception_handler(t, bus=bus))
-        return task
+    dispatch_order_callback = _make_order_callback_dispatcher(bus)
 
     def _get_running_loop():
         """Get the running event loop, or None if not in async context."""
@@ -996,15 +1088,15 @@ def _wire_adapter_callbacks(
         async def _emit_ack():
             order = await repo.get_order(oms_order_id)
             if order:
-                # C6 fix: use state machine transition instead of direct assignment
-                if transition(order, OrderStatus.ACKED):
-                    order.broker_order_ref = broker_ref
-                    order.acked_at = datetime.now(timezone.utc)
-                    order.last_update_at = order.acked_at
+                acked_at = datetime.now(timezone.utc)
+                outcome = _apply_ack_update(order, broker_ref, as_of=acked_at)
+                if outcome == "emit":
                     await repo.save_order(order)
                     bus.emit_order_event(order)
                     logger.debug(f"Adapter ack emitted: {oms_order_id} for {order.strategy_id}")
-                else:
+                elif outcome == "persist":
+                    await repo.save_order(order)
+                elif outcome == "invalid":
                     logger.warning(
                         f"Adapter ack: invalid transition for {oms_order_id} "
                         f"(current status={order.status.value})"
@@ -1012,7 +1104,7 @@ def _wire_adapter_callbacks(
             else:
                 logger.warning(f"Adapter ack for unknown order: {oms_order_id}")
 
-        _create_tracked_task(_emit_ack())
+        dispatch_order_callback(oms_order_id, _emit_ack)
 
     def on_reject(oms_order_id: str, reason: str, error_code: int, retryable: bool) -> None:
         """Handle order rejection from broker."""
@@ -1065,7 +1157,7 @@ def _wire_adapter_callbacks(
                     f"(current status={order.status.value})"
                 )
 
-        _create_tracked_task(_emit_reject())
+        dispatch_order_callback(oms_order_id, _emit_reject)
 
     def on_fill(
         oms_order_id: str,
@@ -1265,7 +1357,7 @@ def _wire_adapter_callbacks(
 
             logger.info(f"Adapter fill processed: {oms_order_id} {qty}@{price} for {sid}/{instr_sym}")
 
-        _create_tracked_task(_emit_fill())
+        dispatch_order_callback(oms_order_id, _emit_fill)
 
     def on_status(oms_order_id: str, status: str, remaining: float) -> None:
         """Handle status update from broker."""
@@ -1277,33 +1369,26 @@ def _wire_adapter_callbacks(
         async def _emit_status():
             order = await repo.get_order(oms_order_id)
             if order:
-                # Map broker status string to OrderStatus
-                status_map = {
-                    "Submitted": OrderStatus.WORKING,
-                    "PreSubmitted": OrderStatus.ROUTED,
-                    "Filled": OrderStatus.FILLED,
-                    "Cancelled": OrderStatus.CANCELLED,
-                    "ApiCancelled": OrderStatus.CANCELLED,
-                    "PendingCancel": OrderStatus.CANCEL_REQUESTED,
-                }
-                new_status = status_map.get(status)
-                if new_status and new_status != order.status:
-                    # C6 fix: use state machine transition instead of direct assignment
-                    if transition(order, new_status):
-                        order.remaining_qty = int(remaining)
-                        order.last_update_at = datetime.now(timezone.utc)
-                        await repo.save_order(order)
-                        bus.emit_order_event(order)
-                        logger.debug(f"Adapter status emitted: {oms_order_id} {status} for {order.strategy_id}")
-                    else:
-                        logger.warning(
-                            f"Adapter status: invalid transition for {oms_order_id} "
-                            f"{order.status.value} -> {new_status.value}"
-                        )
+                outcome = _apply_status_update(
+                    order,
+                    status=status,
+                    remaining=remaining,
+                    as_of=datetime.now(timezone.utc),
+                )
+                if outcome == "emit":
+                    await repo.save_order(order)
+                    bus.emit_order_event(order)
+                    logger.debug(f"Adapter status emitted: {oms_order_id} {status} for {order.strategy_id}")
+                elif outcome == "invalid":
+                    target = _STATUS_TO_ORDER_STATUS.get(status)
+                    logger.warning(
+                        f"Adapter status: invalid transition for {oms_order_id} "
+                        f"{order.status.value} -> {target.value if target else status}"
+                    )
             else:
                 logger.debug(f"Adapter status for unknown order: {oms_order_id} {status}")
 
-        _create_tracked_task(_emit_status())
+        dispatch_order_callback(oms_order_id, _emit_status)
 
     adapter.on_ack = on_ack
     adapter.on_reject = on_reject
@@ -1333,20 +1418,9 @@ def _wire_adapter_callbacks_multi(
     - coordinator notified on fills for cross-strategy signals
     """
     import asyncio
-    from ..models.events import OMSEvent, OMSEventType
-    from ..models.order import OrderStatus
-    from ..engine.state_machine import transition
     from datetime import datetime, timezone
 
-    _background_tasks: set[asyncio.Task] = set()
-
-    def _create_tracked_task(coro) -> asyncio.Task:
-        task = asyncio.create_task(coro)
-        _background_tasks.add(task)
-        task.add_done_callback(_background_tasks.discard)
-        # H4: pass bus so exception handler can emit RISK_HALT
-        task.add_done_callback(lambda t: _task_exception_handler(t, bus=bus))
-        return task
+    dispatch_order_callback = _make_order_callback_dispatcher(bus)
 
     def _get_running_loop():
         try:
@@ -1368,14 +1442,23 @@ def _wire_adapter_callbacks_multi(
         async def _emit_ack():
             order = await repo.get_order(oms_order_id)
             if order:
-                if transition(order, OrderStatus.ACKED):
-                    order.broker_order_ref = broker_ref
-                    order.acked_at = datetime.now(timezone.utc)
-                    order.last_update_at = order.acked_at
+                outcome = _apply_ack_update(
+                    order,
+                    broker_ref,
+                    as_of=datetime.now(timezone.utc),
+                )
+                if outcome == "emit":
                     await repo.save_order(order)
                     bus.emit_order_event(order)
+                elif outcome == "persist":
+                    await repo.save_order(order)
+                elif outcome == "invalid":
+                    logger.warning(
+                        f"Adapter ack: invalid transition for {oms_order_id} "
+                        f"(current status={order.status.value})"
+                    )
 
-        _create_tracked_task(_emit_ack())
+        dispatch_order_callback(oms_order_id, _emit_ack)
 
     def on_reject(oms_order_id: str, reason: str, error_code: int, retryable: bool) -> None:
         loop = _get_running_loop()
@@ -1417,7 +1500,7 @@ def _wire_adapter_callbacks_multi(
                 await repo.save_order(order)
                 bus.emit_order_event(order)
 
-        _create_tracked_task(_emit_reject())
+        dispatch_order_callback(oms_order_id, _emit_reject)
 
     def on_fill(
         oms_order_id: str,
@@ -1622,7 +1705,7 @@ def _wire_adapter_callbacks_multi(
 
             logger.info(f"Multi-OMS fill: {oms_order_id} {qty}@{price} for {sid}/{instr_sym}")
 
-        _create_tracked_task(_emit_fill())
+        dispatch_order_callback(oms_order_id, _emit_fill)
 
     def on_status(oms_order_id: str, status: str, remaining: float) -> None:
         loop = _get_running_loop()
@@ -1632,23 +1715,23 @@ def _wire_adapter_callbacks_multi(
         async def _emit_status():
             order = await repo.get_order(oms_order_id)
             if order:
-                status_map = {
-                    "Submitted": OrderStatus.WORKING,
-                    "PreSubmitted": OrderStatus.ROUTED,
-                    "Filled": OrderStatus.FILLED,
-                    "Cancelled": OrderStatus.CANCELLED,
-                    "ApiCancelled": OrderStatus.CANCELLED,
-                    "PendingCancel": OrderStatus.CANCEL_REQUESTED,
-                }
-                new_status = status_map.get(status)
-                if new_status and new_status != order.status:
-                    if transition(order, new_status):
-                        order.remaining_qty = int(remaining)
-                        order.last_update_at = datetime.now(timezone.utc)
-                        await repo.save_order(order)
-                        bus.emit_order_event(order)
+                outcome = _apply_status_update(
+                    order,
+                    status=status,
+                    remaining=remaining,
+                    as_of=datetime.now(timezone.utc),
+                )
+                if outcome == "emit":
+                    await repo.save_order(order)
+                    bus.emit_order_event(order)
+                elif outcome == "invalid":
+                    target = _STATUS_TO_ORDER_STATUS.get(status)
+                    logger.warning(
+                        f"Adapter status: invalid transition for {oms_order_id} "
+                        f"{order.status.value} -> {target.value if target else status}"
+                    )
 
-        _create_tracked_task(_emit_status())
+        dispatch_order_callback(oms_order_id, _emit_status)
 
     adapter.on_ack = on_ack
     adapter.on_reject = on_reject

@@ -125,7 +125,7 @@ def compute_trailing_stop(
     Optional EMA50_4H floor.
     """
     if direction == Direction.LONG:
-        if not highs_4h:
+        if len(highs_4h) == 0:
             return current_stop
         hh = max(highs_4h[-20:]) if len(highs_4h) >= 20 else max(highs_4h)
         raw = hh - trail_mult * atr14_4h
@@ -136,7 +136,7 @@ def compute_trailing_stop(
         # Ratchet only — never lower the stop
         return max(candidate, current_stop)
     else:
-        if not lows_4h:
+        if len(lows_4h) == 0:
             return current_stop
         ll = min(lows_4h[-20:]) if len(lows_4h) >= 20 else min(lows_4h)
         raw = ll + trail_mult * atr14_4h

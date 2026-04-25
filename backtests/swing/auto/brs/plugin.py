@@ -264,7 +264,7 @@ class BRSPlugin:
         install()
 
         from backtest.config_brs import BRSConfig
-        from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_independent
+        from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
         from backtests.swing.analysis.brs_diagnostics import compute_brs_diagnostics
         from backtests.swing.auto.brs.config_mutator import mutate_brs_config
         from backtests.swing.auto.brs.scoring import extract_brs_metrics
@@ -274,13 +274,13 @@ class BRSPlugin:
             mutations,
         )
         data = load_brs_data(config)
-        result = run_brs_independent(data, config)
+        result = run_brs_synchronized(data, config)
         metrics = extract_brs_metrics(result, self.initial_equity)
         diagnostics = compute_brs_diagnostics(
             result.symbol_results,
             self.initial_equity,
             combined_equity=result.combined_equity,
-            combined_timestamps=result.timestamps,
+            combined_timestamps=result.combined_timestamps,
         )
 
         all_trades = []

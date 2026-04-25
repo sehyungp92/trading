@@ -81,11 +81,20 @@ class FillProcessor:
         updated_order.remaining_qty = max(0, updated_order.qty - updated_order.filled_qty)
         updated_order.avg_fill_price = self._compute_avg(old_filled, updated_order.avg_fill_price, price, qty)
 
-        # Transition state
-        if updated_order.remaining_qty <= 0:
-            transition(updated_order, OrderStatus.FILLED)
-        else:
-            transition(updated_order, OrderStatus.PARTIALLY_FILLED)
+        # Preserve strict transitions, but tolerate status-first persistence by
+        # skipping a redundant transition when the order is already advanced.
+        target_status = (
+            OrderStatus.FILLED
+            if updated_order.remaining_qty <= 0
+            else OrderStatus.PARTIALLY_FILLED
+        )
+        if updated_order.status != target_status and not transition(updated_order, target_status):
+            logger.warning(
+                "Fill transition rejected for %s: %s -> %s",
+                oms_order_id,
+                updated_order.status.value,
+                target_status.value,
+            )
 
         updated_order.last_update_at = timestamp
         inserted = await self._repo.save_order_fill_and_event(

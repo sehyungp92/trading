@@ -16,6 +16,8 @@ from pathlib import Path
 if sys.stdout.encoding != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
+from backtests.diagnostic_snapshot import build_group_snapshot
+
 
 DEFAULT_PHASE_STATE = Path("backtests/stock/auto/iaric_pullback/output_multiphase/phase_state.json")
 DEFAULT_OUTPUT = Path("backtests/stock/auto/iaric_pullback/output_multiphase/r4_hybrid_full_diagnostics.txt")
@@ -29,6 +31,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--phase-state", default=str(DEFAULT_PHASE_STATE))
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
+    parser.add_argument("--phase-result", help="Optional phase id to load from phase_results instead of cumulative mutations.")
+    parser.add_argument(
+        "--mutation-kind",
+        choices=["base", "final", "current"],
+        default="current",
+        help="When --phase-result is supplied, choose base_mutations, final_mutations, or cumulative_mutations.",
+    )
     parser.add_argument("--start", default=START_DATE)
     parser.add_argument("--end", default=END_DATE)
     parser.add_argument("--equity", type=float, default=INITIAL_EQUITY)
@@ -45,8 +54,18 @@ def main() -> None:
 
     # Load optimized mutations
     phase_state = json.loads(Path(args.phase_state).read_text(encoding="utf-8"))
-    mutations = phase_state["cumulative_mutations"]
-    print(f"Loaded {len(mutations)} cumulative mutations from {args.phase_state}")
+    if args.phase_result:
+        if args.mutation_kind == "current":
+            mutations = phase_state["cumulative_mutations"]
+        else:
+            phase_result = phase_state.get("phase_results", {}).get(str(args.phase_result))
+            if phase_result is None:
+                raise SystemExit(f"Phase result {args.phase_result} not found in {args.phase_state}")
+            key = "base_mutations" if args.mutation_kind == "base" else "final_mutations"
+            mutations = phase_result.get(key, {})
+    else:
+        mutations = phase_state["cumulative_mutations"]
+    print(f"Loaded {len(mutations)} mutations from {args.phase_state}")
     print(f"Date range: {args.start} -- {args.end}")
     print(f"Initial equity: ${args.equity:,.0f}")
     print()
@@ -82,11 +101,22 @@ def main() -> None:
         selection_attribution=result.selection_attribution,
         fsm_log=result.fsm_log,
     )
-    print(diag)
+    snapshot = build_group_snapshot(
+        "IARIC Strength / Weakness Snapshot",
+        result.trades,
+        [
+            ("symbol", lambda trade: getattr(trade, "symbol", None)),
+            ("entry variant", lambda trade: getattr(trade, "metadata", {}).get("entry_variant")),
+            ("exit reason", lambda trade: getattr(trade, "exit_reason", None)),
+        ],
+        min_count=5,
+    )
+    full_report = snapshot + "\n\n" + diag
+    print(full_report)
 
     out_path = Path(args.output)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(diag, encoding="utf-8")
+    out_path.write_text(full_report, encoding="utf-8")
     print(f"\nFull diagnostics saved to {out_path}")
 
 

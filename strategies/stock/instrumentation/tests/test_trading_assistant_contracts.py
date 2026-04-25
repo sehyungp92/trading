@@ -13,7 +13,7 @@ from strategies.stock.instrumentation.src.trade_logger import TradeLogger
 def _config(tmpdir: str) -> dict:
     return {
         "bot_id": "contract_bot",
-        "strategy_type": "strategy_orb",
+        "strategy_type": "strategy_alcb",
         "data_dir": tmpdir,
         "data_source_id": "ibkr_us_equities",
         "market_snapshots": {"interval_seconds": 60, "symbols": ["AAPL"]},

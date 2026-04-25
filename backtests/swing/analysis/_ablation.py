@@ -6,7 +6,7 @@ from backtests.swing._aliases import install
 install()
 
 from backtests.swing.config_brs import BRSConfig
-from backtests.swing.engine.brs_portfolio_engine import load_brs_data, run_brs_independent
+from backtests.swing.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
 from backtests.swing.auto.brs.scoring import extract_brs_metrics
 from backtests.swing.auto.brs.config_mutator import mutate_brs_config
 
@@ -65,7 +65,7 @@ def run(mutations):
     if mutations:
         cfg = mutate_brs_config(cfg, mutations)
     data = load_brs_data(cfg)
-    res = run_brs_independent(data, cfg)
+    res = run_brs_synchronized(data, cfg)
     m = extract_brs_metrics(res, EQ)
     # PnL concentration
     trades = []

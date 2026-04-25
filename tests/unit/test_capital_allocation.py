@@ -22,13 +22,19 @@ def test_family_default_split_for_swing_strategy() -> None:
     assert allocation.allocated_nav == pytest.approx(100_000.0 * 0.3334 / 4, rel=1e-6)
 
 
-def test_explicit_stock_strategy_allocation_is_used() -> None:
+def test_explicit_stock_strategy_allocations_are_used() -> None:
     registry = load_strategy_registry(CONFIG_DIR)
     portfolio = load_portfolio_config(CONFIG_DIR)
 
-    allocation = resolve_strategy_capital_allocation("IARIC_v1", 100_000.0, registry, portfolio)
+    iaric = resolve_strategy_capital_allocation("IARIC_v1", 100_000.0, registry, portfolio)
+    alcb = resolve_strategy_capital_allocation("ALCB_v1", 100_000.0, registry, portfolio)
 
-    assert allocation.family == "stock"
-    assert allocation.family_fraction == 0.3333
-    assert allocation.strategy_fraction_within_family == 0.45
-    assert allocation.allocated_nav == pytest.approx(100_000.0 * 0.3333 * 0.45, rel=1e-6)
+    assert iaric.family == "stock"
+    assert iaric.family_fraction == 0.3333
+    assert iaric.strategy_fraction_within_family == 0.55
+    assert iaric.allocated_nav == pytest.approx(100_000.0 * 0.3333 * 0.55, rel=1e-6)
+
+    assert alcb.family == "stock"
+    assert alcb.family_fraction == 0.3333
+    assert alcb.strategy_fraction_within_family == 0.45
+    assert alcb.allocated_nav == pytest.approx(100_000.0 * 0.3333 * 0.45, rel=1e-6)

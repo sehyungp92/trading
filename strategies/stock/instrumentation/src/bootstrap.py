@@ -31,27 +31,22 @@ logger = logging.getLogger("instrumentation.bootstrap")
 
 _STRATEGY_CONFIG_MODULES = {
     "IARIC_v1": ["strategy_iaric.config"],
-    "US_ORB_v1": ["strategy_orb.config"],
     "ALCB_v1": ["strategy_alcb.config"],
     "strategy_iaric": ["strategy_iaric.config"],
-    "strategy_orb": ["strategy_orb.config"],
     "strategy_alcb": ["strategy_alcb.config"],
 }
 
 _BOT_NAME_MAP = {
     "IARIC_v1": "IARIC v1",
-    "US_ORB_v1": "US ORB v1",
     "ALCB_v1": "ALCB v1",
 }
 
 # Single bot_id for all strategies; strategy_id distinguishes them in events
 _BOT_ID = "stock_trader"
 _HMAC_SECRET_ENV = "INSTRUMENTATION_HMAC_SECRET"
-# Pass strategy_ids through unchanged — must match registry keys
-# (IARIC_v1, US_ORB_v1, ALCB_v1) for the assistant pipeline.
+# Pass strategy_ids through unchanged to match registry keys.
 _STRATEGY_ID_MAP = {
     "IARIC_v1": "IARIC_v1",
-    "US_ORB_v1": "US_ORB_v1",
     "ALCB_v1": "ALCB_v1",
 }
 
@@ -146,6 +141,7 @@ class InstrumentationManager:
         self._strategy_type = _normalize_strategy_type(strategy_id, strategy_type)
         self._config = _load_config(strategy_id, self._strategy_type)
         self.bot_id = self._config["bot_id"]
+        self._pg_store = pg_store
         self._data_provider = None
         self._get_regime_ctx = get_regime_ctx
         self._get_applied_config = get_applied_config
@@ -270,6 +266,16 @@ class InstrumentationManager:
                 positions=positions,
                 portfolio_exposure=portfolio_exposure,
             )
+        except Exception:
+            pass
+
+    def on_indicator_snapshot(self, *args, **kwargs) -> None:
+        """Proxy direct engine indicator decisions to the facade."""
+        try:
+            from .facade import InstrumentationKit
+
+            kit = InstrumentationKit(self, strategy_type=self._strategy_type)
+            kit.on_indicator_snapshot(*args, **kwargs)
         except Exception:
             pass
 

@@ -51,7 +51,7 @@ class DownturnMetrics:
     median_hold_5m: float = 0.0
 
     # Downturn-specific
-    correction_alpha_pct: float = 0.0
+    correction_pnl_pct: float = 0.0
     bear_regime_pnl: float = 0.0
     signal_to_entry_ratio: float = 0.0
     regime_detection_latency: float = 0.0  # deferred: requires per-window peak tracking
@@ -59,12 +59,21 @@ class DownturnMetrics:
     bear_capture_ratio: float = 0.0
 
     # Correction coverage
-    correction_coverage: float = 0.0  # fraction of correction windows with >= 1 trade
+    correction_coverage: float = 0.0  # fraction of eligible correction windows with >= 1 trade
 
     # Exit quality
-    exit_quality: float = 0.0  # mean(actual_r * mfe) — rewards magnitude AND capture
+    exit_quality: float = 0.0  # mean(actual_r * mfe); rewards magnitude and capture
     tp_hit_rates: dict[str, float] = field(default_factory=dict)
     avg_mfe_capture: float = 0.0
+
+    @property
+    def correction_alpha_pct(self) -> float:
+        """Backward-compatible alias for older payloads."""
+        return self.correction_pnl_pct
+
+    @correction_alpha_pct.setter
+    def correction_alpha_pct(self, value: float) -> None:
+        self.correction_pnl_pct = value
 
 
 def compute_downturn_metrics(
@@ -142,13 +151,9 @@ def compute_downturn_metrics(
     hold_bars = [getattr(t, "hold_bars_5m", 0) for t in trades if getattr(t, "hold_bars_5m", 0) > 0]
     m.median_hold_5m = float(np.median(hold_bars)) if hold_bars else 0.0
 
-    # Correction alpha
+    # Correction-window PnL scaled by initial equity
     correction_pnl = sum(t.pnl for t in trades if t.in_correction_window)
-    # Total NQ downside during corrections
-    total_nq_downside = 0.0
-    for w in result.correction_windows:
-        total_nq_downside += w.peak_to_trough_pct
-    m.correction_alpha_pct = (correction_pnl / initial_eq * 100) if initial_eq > 0 else 0.0
+    m.correction_pnl_pct = (correction_pnl / initial_eq * 100) if initial_eq > 0 else 0.0
 
     # Correction coverage: fraction of *tradeable* correction windows (>= 2 days) with >= 1 trade
     if result.correction_windows:
@@ -257,15 +262,15 @@ def generate_downturn_report(metrics: DownturnMetrics) -> str:
         buf.write(f"  {name:12s}  trades={trades:4d}  WR={wr:.1%}  avgR={avg_r:+.2f}\n")
     buf.write("\n")
 
-    # Correction alpha
-    buf.write("--- Correction Alpha ---\n")
-    buf.write(f"  Correction alpha:    {m.correction_alpha_pct:.2f}%\n")
+    # Correction-window PnL
+    buf.write("--- Correction PnL ---\n")
+    buf.write(f"  Correction PnL:      {m.correction_pnl_pct:.2f}%\n")
     buf.write(f"  Bear regime PnL:     ${m.bear_regime_pnl:,.0f}\n")
     buf.write(f"  Bear capture ratio:  {m.bear_capture_ratio:.1%}\n\n")
 
     # Signal quality
     buf.write("--- Signal Quality ---\n")
-    buf.write(f"  Signal→entry ratio:  {m.signal_to_entry_ratio:.2f}\n")
+    buf.write(f"  Signal-to-entry ratio:  {m.signal_to_entry_ratio:.2f}\n")
     buf.write(f"  Exit efficiency:     {m.exit_efficiency:.2f}\n")
     buf.write(f"  Avg MFE capture:     {m.avg_mfe_capture:.2f}\n\n")
 

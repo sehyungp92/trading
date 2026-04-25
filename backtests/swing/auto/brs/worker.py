@@ -49,7 +49,7 @@ def score_candidate(args: tuple[str, dict, dict]) -> ScoredCandidate:
     name, candidate_muts, base_muts = args
 
     try:
-        from backtest.engine.brs_portfolio_engine import run_brs_independent
+        from backtest.engine.brs_portfolio_engine import run_brs_synchronized
         from backtests.swing.auto.brs.config_mutator import mutate_brs_config
         from backtests.swing.auto.brs.plugin import score_phase_metrics
         from backtests.swing.auto.brs.scoring import composite_score, extract_brs_metrics
@@ -58,7 +58,7 @@ def score_candidate(args: tuple[str, dict, dict]) -> ScoredCandidate:
         all_muts.update(candidate_muts)
 
         config = mutate_brs_config(_worker_config, all_muts)
-        result = run_brs_independent(_worker_data, config)
+        result = run_brs_synchronized(_worker_data, config)
         metrics = extract_brs_metrics(result, _worker_equity)
 
         if _worker_phase > 0:

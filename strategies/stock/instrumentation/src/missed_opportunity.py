@@ -40,7 +40,7 @@ class MissedOpportunityEvent:
     market_snapshot: dict
 
     bot_id: str = ""
-    strategy_id: str = ""               # "iaric" / "us_orb"
+    strategy_id: str = ""               # "IARIC_v1" / "ALCB_v1"
     pair: str = ""
     side: str = ""
     signal: str = ""

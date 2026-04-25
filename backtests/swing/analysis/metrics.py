@@ -125,7 +125,7 @@ def compute_cagr(
 
 def compute_sharpe(
     equity_curve: np.ndarray,
-    periods_per_year: float = 252 * 24,
+    periods_per_year: float = 252 * 7,
     risk_free_rate: float = 0.0,
 ) -> float:
     """Annualized Sharpe ratio from an hourly equity curve."""
@@ -144,7 +144,7 @@ def compute_sharpe(
 
 def compute_sortino(
     equity_curve: np.ndarray,
-    periods_per_year: float = 252 * 24,
+    periods_per_year: float = 252 * 7,
     risk_free_rate: float = 0.0,
 ) -> float:
     """Annualized Sortino ratio (downside deviation only)."""

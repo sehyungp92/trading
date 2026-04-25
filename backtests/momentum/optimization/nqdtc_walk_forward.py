@@ -16,6 +16,7 @@ from backtest.analysis.metrics import compute_metrics
 from backtest.config_nqdtc import NQDTCBacktestConfig
 from backtest.data.preprocessing import (
     NumpyBars,
+    align_daily_to_5m,
     align_higher_tf_to_5m,
     build_numpy_arrays,
     resample_5m_to_1h,
@@ -250,7 +251,7 @@ class NQDTCWalkForwardValidator:
         thirty_min_idx_map = align_higher_tf_to_5m(m_df, thirty_min_df)
         hourly_idx_map = align_higher_tf_to_5m(m_df, hourly_df)
         four_hour_idx_map = align_higher_tf_to_5m(m_df, four_hour_df)
-        daily_idx_map = align_higher_tf_to_5m(m_df, daily_df)
+        daily_idx_map = align_daily_to_5m(m_df, daily_df)
 
         return {
             "five_min_bars": sliced_5m,

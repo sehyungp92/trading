@@ -86,12 +86,30 @@ class OverlayEngine:
         self._daily_task: asyncio.Task | None = None
         self._running = False
 
+        # Diagnostic pulse state
+        self._last_decision_code: str = "IDLE"
+        self._last_decision_details: dict = {}
+        self._last_bar_ts: datetime | None = None
+
         # BRS bear regime check (wired by coordinator)
         self._bear_regime_check: Any = None
 
     def set_bear_regime_check(self, fn) -> None:
         """Register callable returning True when BRS detects BEAR_STRONG."""
         self._bear_regime_check = fn
+
+    def _record_decision(self, code: str, details: dict | None = None) -> None:
+        self._last_decision_code = code
+        self._last_decision_details = details or {}
+
+    def health_status(self) -> dict:
+        return {
+            "strategy_id": "OVERLAY",
+            "running": self._running,
+            "last_decision_code": self._last_decision_code,
+            "last_decision_details": self._last_decision_details,
+            "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
+        }
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -181,6 +199,7 @@ class OverlayEngine:
     async def _daily_rebalance(self) -> None:
         """Fetch bars, compute EMAs, rebalance overlay positions."""
         logger.info("Overlay: === Daily rebalance ===")
+        self._last_bar_ts = datetime.now(timezone.utc)
 
         # 1. Refresh equity from IB
         await self._refresh_equity()
@@ -210,10 +229,10 @@ class OverlayEngine:
                 continue
 
             try:
-                bars = await self._ib.ib.reqHistoricalDataAsync(
+                bars = await self._ib.req_historical_data(
                     contract, endDateTime="", durationStr="200 D",
                     barSizeSetting="1 day", whatToShow="TRADES",
-                    useRTH=True, formatDate=1,
+                    useRTH=True, formatDate=1, request_kind="recurring",
                 )
             except Exception:
                 logger.warning("Overlay: failed to fetch bars for %s", sym)
@@ -328,6 +347,10 @@ class OverlayEngine:
             # Detect entry (0 → >0) and exit (>0 → 0) transitions
             entering = current == 0 and target > 0
             exiting = current > 0 and target == 0
+            if entering:
+                self._record_decision("ENTRY_SUBMITTED", {
+                    "symbol": sym, "target_shares": target,
+                })
 
             action = "BUY" if delta > 0 else "SELL"
             qty = abs(delta)
@@ -465,6 +488,18 @@ class OverlayEngine:
 
         # Persist overlay positions to DB for dashboard visibility
         await self._persist_positions_to_db(prices)
+
+        # Record final decision
+        active_syms = [s for s, sh in self._shares.items() if sh > 0]
+        if active_syms:
+            self._record_decision("MANAGING_POSITION", {
+                "active_symbols": active_syms,
+                "shares": {s: sh for s, sh in self._shares.items() if sh > 0},
+            })
+        else:
+            self._record_decision("NO_SIGNAL", {
+                "signals": {s: v for s, v in signals.items()},
+            })
 
         logger.info("Overlay: rebalance complete — shares: %s", self._shares)
 

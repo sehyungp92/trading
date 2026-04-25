@@ -10,6 +10,10 @@ from datetime import datetime, timedelta
 import numpy as np
 
 
+def _trade_net_pnl(trade) -> float:
+    return float(trade.pnl_dollars) - float(getattr(trade, "commission", 0.0) or 0.0)
+
+
 # ---------------------------------------------------------------------------
 # 1. Entry type drill-down
 # ---------------------------------------------------------------------------
@@ -37,7 +41,7 @@ def atrss_entry_type_drilldown(trades: list) -> str:
         count = len(ct)
         wr = np.mean([t.r_multiple > 0 for t in ct]) * 100
         avg_r = np.mean([t.r_multiple for t in ct])
-        pnl = sum(t.pnl_dollars for t in ct)
+        pnl = sum(_trade_net_pnl(t) for t in ct)
         mfe = np.mean([t.mfe_r for t in ct])
         mae = np.mean([t.mae_r for t in ct])
         hold = np.mean([t.bars_held for t in ct])
@@ -59,7 +63,7 @@ def atrss_entry_type_drilldown(trades: list) -> str:
     count = len(trades)
     wr = np.mean([t.r_multiple > 0 for t in trades]) * 100
     avg_r = np.mean([t.r_multiple for t in trades])
-    pnl = sum(t.pnl_dollars for t in trades)
+    pnl = sum(_trade_net_pnl(t) for t in trades)
     lines.append("  " + "-" * (len(header) - 2))
     lines.append(
         f"  {'ALL':10s} {count:6d} {wr:5.0f}% {avg_r:+7.3f} {pnl:+10,.0f}"
@@ -100,7 +104,7 @@ def atrss_exit_analysis(trades: list) -> str:
         count = len(ct)
         wr = np.mean([t.r_multiple > 0 for t in ct]) * 100
         avg_r = np.mean([t.r_multiple for t in ct])
-        pnl = sum(t.pnl_dollars for t in ct)
+        pnl = sum(_trade_net_pnl(t) for t in ct)
         hold = np.mean([t.bars_held for t in ct])
         mfe = np.mean([t.mfe_r for t in ct])
         mae = np.mean([t.mae_r for t in ct])
@@ -152,7 +156,7 @@ def atrss_bias_alignment(trades: list, result=None) -> str:
                 continue
             avg_r = np.mean([t.r_multiple for t in cell])
             wr = np.mean([t.r_multiple > 0 for t in cell]) * 100
-            pnl = sum(t.pnl_dollars for t in cell)
+            pnl = sum(_trade_net_pnl(t) for t in cell)
             lines.append(
                 f"  {dir_label:6s} {etype:12s} {len(cell):6d} {avg_r:+7.3f} {wr:5.0f}% {pnl:+10,.0f}"
             )
@@ -363,7 +367,7 @@ def atrss_losing_trade_detail(trades: list) -> str:
     lines = ["=== ATRSS Losing Trade Detail ==="]
     lines.append(f"\nTotal losers: {len(losers)} / {len(trades)}"
                   f" ({len(losers)/len(trades)*100:.0f}%)")
-    lines.append(f"Total loss: {sum(t.pnl_dollars for t in losers):+,.0f}")
+    lines.append(f"Total loss: {sum(_trade_net_pnl(t) for t in losers):+,.0f}")
 
     lines.append(f"\n  {'#':>3s} {'Entry':19s} {'Exit':19s} {'Type':10s} {'Dir':5s} "
                   f"{'StopDist':>8s} {'R':>7s} {'MFE':>6s} {'MAE':>6s} "
@@ -593,7 +597,7 @@ def atrss_addon_analysis(trades: list) -> str:
             continue
         wr = np.mean([t.r_multiple > 0 for t in group]) * 100
         avg_r = np.mean([t.r_multiple for t in group])
-        pnl = sum(t.pnl_dollars for t in group)
+        pnl = sum(_trade_net_pnl(t) for t in group)
         hold = np.mean([t.bars_held for t in group])
         lines.append(f"  {label:15s} {len(group):6d} {wr:5.0f}% {avg_r:+7.3f} {pnl:+10,.0f} {hold:7.1f}")
 
@@ -602,7 +606,7 @@ def atrss_addon_analysis(trades: list) -> str:
     if both:
         wr = np.mean([t.r_multiple > 0 for t in both]) * 100
         avg_r = np.mean([t.r_multiple for t in both])
-        pnl = sum(t.pnl_dollars for t in both)
+        pnl = sum(_trade_net_pnl(t) for t in both)
         lines.append(f"  {'Both A+B':15s} {len(both):6d} {wr:5.0f}% {avg_r:+7.3f} {pnl:+10,.0f}")
 
     # Add-on triggered vs not: is it a signal of trade quality?
@@ -632,7 +636,7 @@ def atrss_addon_analysis(trades: list) -> str:
                     continue
                 wr = np.mean([t.r_multiple > 0 for t in lt_trades]) * 100
                 avg_r = np.mean([t.r_multiple for t in lt_trades])
-                pnl = sum(t.pnl_dollars for t in lt_trades)
+                pnl = sum(_trade_net_pnl(t) for t in lt_trades)
                 avg_mfe = np.mean([t.mfe_r for t in lt_trades])
                 lines.append(f"  {lt:15s} {len(lt_trades):6d} {wr:5.0f}% {avg_r:+7.3f} {pnl:+10,.0f} {avg_mfe:7.2f}")
 
@@ -1121,7 +1125,7 @@ def atrss_crisis_window_analysis(trades: list) -> str:
         wr = np.mean([t.r_multiple > 0 for t in ct]) * 100
         avg_r = np.mean([t.r_multiple for t in ct])
         tot_r = sum(t.r_multiple for t in ct)
-        pnl = sum(t.pnl_dollars for t in ct)
+        pnl = sum(_trade_net_pnl(t) for t in ct)
         total_crisis_r += tot_r
         lines.append(f"  {name:25s} {str(start.date()) + ' -> ' + str(end.date()):25s} "
                      f"{n:4d} {wr:4.0f}% {avg_r:+7.3f} {tot_r:+8.2f} ${pnl:+10,.0f}")

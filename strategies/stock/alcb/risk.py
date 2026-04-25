@@ -372,11 +372,20 @@ def momentum_stop_price(
 
 
 def momentum_size_mult(momentum_score: int, settings: StrategySettings) -> float:
-    """Bonus sizing per point above minimum momentum score."""
-    excess = momentum_score - settings.momentum_score_min
-    if excess <= 0:
+    """Score-bucket sizing with the minimum score bucket normalized to 1.0."""
+    if momentum_score <= settings.momentum_score_min:
         return 1.0
-    return 1.0 + (0.05 * min(excess, 4))
+    if momentum_score >= 7:
+        return settings.momentum_size_mult_score_7_plus
+    if momentum_score == 6:
+        return settings.momentum_size_mult_score_6
+    if momentum_score == 5:
+        return settings.momentum_size_mult_score_5
+    if momentum_score == 4:
+        return settings.momentum_size_mult_score_4
+    if momentum_score == 3:
+        return settings.momentum_size_mult_score_3
+    return 1.0
 
 
 def momentum_position_size(

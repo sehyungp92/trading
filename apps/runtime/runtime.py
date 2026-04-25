@@ -24,6 +24,7 @@ from libs.config.loader import (
 from libs.config.registry import build_registry_artifact
 from libs.oms.persistence.db_config import get_environment
 from strategies.contracts import RuntimeContext
+from strategies.stock.readiness import validate_stock_readiness
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,8 @@ class RuntimeShell:
         self._require_loaded()
 
         checks: list[PreflightCheck] = []
-        enabled = self.registry.enabled_strategies()
+        runtime_env = get_environment()
+        enabled = self.registry.enabled_strategies(live=runtime_env == "live")
         checks.append(
             PreflightCheck(
                 name="registry-load",
@@ -122,6 +124,19 @@ class RuntimeShell:
                 if not missing_routes
                 else ", ".join(missing_routes),
             )
+        )
+
+        _, stock_failures = validate_stock_readiness(
+            self.registry,
+            live=runtime_env == "live",
+        )
+        checks.extend(
+            PreflightCheck(
+                name=failure.check_name,
+                ok=False,
+                detail=failure.detail,
+            )
+            for failure in stock_failures
         )
 
         family_total = sum(self.portfolio.capital.family_allocations.values())
@@ -273,6 +288,20 @@ class RuntimeShell:
                 detail=f"Database unreachable: {exc}",
             ))
 
+        if "stock" in families and self.registry is not None:
+            _, stock_failures = validate_stock_readiness(
+                self.registry,
+                live=get_environment() == "live",
+            )
+            checks.extend(
+                PreflightCheck(
+                    name=failure.check_name,
+                    ok=False,
+                    detail=failure.detail,
+                )
+                for failure in stock_failures
+            )
+
         # 1c. IB Gateway reachability (async to avoid blocking the event loop)
         if connect_ib and self.registry is not None:
             for group_name, group_cfg in self.registry.connection_groups.items():
@@ -365,9 +394,23 @@ class RuntimeShell:
         for c in checks:
             lvl = logging.INFO if c.ok else logging.WARNING
             logger.log(lvl, "PREFLIGHT %s: %s -- %s", "OK" if c.ok else "FAIL", c.name, c.detail)
+        critical_prefixes = {
+            "import",
+            "database",
+            "ib-gateway",
+        }
+        # Stock readiness should hard-fail only when stock is the requested
+        # runtime target. In mixed-family runs, stock startup is isolated later
+        # at the coordinator boundary so other families can continue.
+        if enabled_families == {"stock"}:
+            critical_prefixes.update({
+                "stock-account-config",
+                "stock-artifact-readiness",
+            })
+
         critical_failures = [
             c for c in checks
-            if not c.ok and c.name.split(":")[0] in ("import", "database", "ib-gateway")
+            if not c.ok and c.name.split(":")[0] in critical_prefixes
         ]
         if critical_failures:
             for c in critical_failures:

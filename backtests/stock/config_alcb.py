@@ -47,6 +47,12 @@ class ALCBAblationFlags:
     use_mfe_conviction_exit: bool = False
     use_adaptive_trail: bool = False
 
+    # P15 extension: US_ORB-inspired gates and management
+    use_orb_quality_gate: bool = False
+    use_orb_gap_policy: bool = False
+    use_orb_entry_range_gate: bool = False
+    use_orb_retracement_trail: bool = False
+
 
 @dataclass
 class ALCBBacktestConfig:

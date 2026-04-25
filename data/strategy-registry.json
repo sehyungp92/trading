@@ -1,13 +1,11 @@
 {
   "connection_groups": [
-    "momentum",
-    "stock",
-    "swing"
+    "default"
   ],
   "strategies": [
     {
       "asset_class": "mixed",
-      "connection_group": "swing",
+      "connection_group": "default",
       "dashboard_metadata": {
         "color_key": "blue",
         "short_label": "SWING",
@@ -25,14 +23,13 @@
       "strategy_id": "AKC_HELIX",
       "symbols": [
         "QQQ",
-        "GLD",
-        "IBIT"
+        "GLD"
       ],
       "system_id": "swing_trader"
     },
     {
       "asset_class": "futures",
-      "connection_group": "momentum",
+      "connection_group": "default",
       "dashboard_metadata": {
         "color_key": "orange",
         "short_label": "MOMO",
@@ -55,7 +52,7 @@
     },
     {
       "asset_class": "equity",
-      "connection_group": "stock",
+      "connection_group": "default",
       "dashboard_metadata": {
         "color_key": "green",
         "short_label": "STOCK",
@@ -80,7 +77,7 @@
     },
     {
       "asset_class": "mixed",
-      "connection_group": "swing",
+      "connection_group": "default",
       "dashboard_metadata": {
         "color_key": "blue",
         "short_label": "SWING",
@@ -104,7 +101,53 @@
     },
     {
       "asset_class": "equity",
-      "connection_group": "stock",
+      "connection_group": "default",
+      "dashboard_metadata": {
+        "color_key": "red",
+        "short_label": "SWING",
+        "system_label": "Swing Trader"
+      },
+      "deployment_tags": [
+        "live",
+        "swing"
+      ],
+      "display_name": "BRS R9 Bear Regime Swing",
+      "enabled": true,
+      "family": "swing",
+      "paper_mode": false,
+      "strategy_id": "BRS_R9",
+      "symbols": [
+        "QQQ",
+        "GLD"
+      ],
+      "system_id": "swing_trader"
+    },
+    {
+      "asset_class": "futures",
+      "connection_group": "default",
+      "dashboard_metadata": {
+        "color_key": "orange",
+        "short_label": "MOMO",
+        "system_label": "Momentum Trader"
+      },
+      "deployment_tags": [
+        "live",
+        "paper",
+        "momentum"
+      ],
+      "display_name": "Downturn Dominator v1",
+      "enabled": true,
+      "family": "momentum",
+      "paper_mode": false,
+      "strategy_id": "DownturnDominator_v1",
+      "symbols": [
+        "MNQ"
+      ],
+      "system_id": "momentum_trader"
+    },
+    {
+      "asset_class": "equity",
+      "connection_group": "default",
       "dashboard_metadata": {
         "color_key": "green",
         "short_label": "STOCK",
@@ -129,7 +172,7 @@
     },
     {
       "asset_class": "futures",
-      "connection_group": "momentum",
+      "connection_group": "default",
       "dashboard_metadata": {
         "color_key": "orange",
         "short_label": "MOMO",
@@ -152,54 +195,7 @@
     },
     {
       "asset_class": "mixed",
-      "connection_group": "swing",
-      "dashboard_metadata": {
-        "color_key": "blue",
-        "short_label": "SWING",
-        "system_label": "Swing Trader"
-      },
-      "deployment_tags": [
-        "live",
-        "paper",
-        "swing"
-      ],
-      "display_name": "S5 Dual",
-      "enabled": true,
-      "family": "swing",
-      "paper_mode": false,
-      "strategy_id": "S5_DUAL",
-      "symbols": [
-        "GLD",
-        "IBIT"
-      ],
-      "system_id": "swing_trader"
-    },
-    {
-      "asset_class": "mixed",
-      "connection_group": "swing",
-      "dashboard_metadata": {
-        "color_key": "blue",
-        "short_label": "SWING",
-        "system_label": "Swing Trader"
-      },
-      "deployment_tags": [
-        "live",
-        "paper",
-        "swing"
-      ],
-      "display_name": "S5 Pullback",
-      "enabled": true,
-      "family": "swing",
-      "paper_mode": false,
-      "strategy_id": "S5_PB",
-      "symbols": [
-        "IBIT"
-      ],
-      "system_id": "swing_trader"
-    },
-    {
-      "asset_class": "mixed",
-      "connection_group": "swing",
+      "connection_group": "default",
       "dashboard_metadata": {
         "color_key": "blue",
         "short_label": "SWING",
@@ -222,33 +218,8 @@
       "system_id": "swing_trader"
     },
     {
-      "asset_class": "equity",
-      "connection_group": "stock",
-      "dashboard_metadata": {
-        "color_key": "green",
-        "short_label": "STOCK",
-        "system_label": "Stock Trader"
-      },
-      "deployment_tags": [
-        "live",
-        "paper",
-        "stock"
-      ],
-      "display_name": "US ORB v1",
-      "enabled": true,
-      "family": "stock",
-      "paper_mode": false,
-      "strategy_id": "US_ORB_v1",
-      "symbols": [
-        "SPY",
-        "QQQ",
-        "IWM"
-      ],
-      "system_id": "stock_trader"
-    },
-    {
       "asset_class": "futures",
-      "connection_group": "momentum",
+      "connection_group": "default",
       "dashboard_metadata": {
         "color_key": "orange",
         "short_label": "MOMO",

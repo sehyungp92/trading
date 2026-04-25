@@ -23,7 +23,17 @@ mkdir -p "$(dirname "$LOG")"
   echo "Waiting 20s for Gateway to reconnect to data farms..."
   sleep 20
 
-  # Then restart runtime for fresh artifact generation
+  # Generate stock artifacts (IARIC + ALCB) as a one-shot container
+  # before restarting runtime, so startup is not blocked for 40-50 min.
+  # Timeout prevents infinite hang if IB is unresponsive (normal run ~50 min).
+  echo "Generating stock artifacts..."
+  if timeout 3600 docker compose run --rm runtime python -m strategies.stock.artifact_generator; then
+    echo "Artifact generation OK"
+  else
+    echo "Artifact generation FAILED (exit=$?) -- stock family will be skipped until artifacts are regenerated"
+  fi
+
+  # Restart runtime (loads pre-generated artifacts from shared volume)
   if docker compose restart runtime; then
     echo "runtime restart OK"
   else

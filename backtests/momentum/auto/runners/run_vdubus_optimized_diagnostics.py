@@ -1,8 +1,8 @@
-"""Run VdubusNQ with R1-optimized config defaults and full diagnostics.
+"""Run VdubusNQ with the live phase-seed/current baseline and full diagnostics.
 
-Config.py now contains all R1 accepted mutations as defaults:
-  MOM_N=65, MAX_POSITION_BARS_15M=64, EARLY_KILL_R=-0.40,
-  PLUS_1R_PARTIAL_ENABLED=False, CHOP_THRESHOLD=40, BASE_RISK_PCT=0.02
+The runner reads the active values directly from ``strategy_3.config`` and
+prints them into the report so the saved artifact matches the actual baseline
+used for the run.
 
 Usage:
     cd trading
@@ -10,6 +10,7 @@ Usage:
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import time
@@ -33,6 +34,7 @@ from backtests.momentum.auto.scoring import composite_score, extract_metrics
 from backtests.momentum.cli import _load_vdubus_data
 from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
 from backtests.momentum.engine.vdubus_engine import VdubusEngine
+from backtests.diagnostic_snapshot import build_group_snapshot
 
 from strategy_3 import config as C
 
@@ -43,11 +45,15 @@ OUTPUT_DIR = ROOT / "backtests" / "momentum" / "auto" / "vdubus" / "output"
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", default=str(OUTPUT_DIR / "r1_final_diagnostics.txt"))
+    args = parser.parse_args()
+
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
 
     print("=" * 72)
-    print("  VDUBUS R1-OPTIMIZED CONFIG -- FULL DIAGNOSTICS")
+    print("  VDUBUS PHASE-SEED / CURRENT BASELINE -- FULL DIAGNOSTICS")
     print("=" * 72)
 
     # Show active config defaults (R1 mutations now baked in)
@@ -59,7 +65,7 @@ def main():
         "CHOP_THRESHOLD": C.CHOP_THRESHOLD,
         "BASE_RISK_PCT": C.BASE_RISK_PCT,
     }
-    print("\n  R1-optimized config defaults:")
+    print("\n  Active phase-seed/current config values:")
     for k, v in r1_params.items():
         print(f"    {k}: {v}")
     print()
@@ -138,12 +144,22 @@ def main():
     print(f"\n  Composite Score: {score.total:.4f}")
     print(f"    Calmar={score.calmar_component:.4f}  PF={score.pf_component:.4f}  "
           f"InvDD={score.inv_dd_component:.4f}  Net={score.net_profit_component:.4f}")
+    snapshot = build_group_snapshot(
+        "Vdubus Strength / Weakness Snapshot",
+        result.trades,
+        [
+            ("entry type", lambda trade: getattr(trade, "entry_type", None)),
+            ("sub-window", lambda trade: getattr(trade, "sub_window", None)),
+            ("exit reason", lambda trade: getattr(trade, "exit_reason", None)),
+        ],
+        min_count=5,
+    )
 
     # Build report sections
-    report_sections: list[str] = []
+    report_sections: list[str] = [snapshot]
 
     report_sections.append("=" * 72)
-    report_sections.append("  VDUBUS R1-OPTIMIZED DEFAULTS -- FULL DIAGNOSTICS")
+    report_sections.append("  VDUBUS PHASE-SEED / CURRENT BASELINE -- FULL DIAGNOSTICS")
     report_sections.append(f"  Equity: ${EQUITY:,.0f}  Fixed qty: 10 MNQ")
     report_sections.append(f"  Config: {json.dumps(r1_params, default=str)}")
     report_sections.append(f"  Score: {score.total:.4f}")
@@ -205,7 +221,7 @@ def main():
 
     # Join and save
     full_report = "\n\n".join(report_sections)
-    output_path = OUTPUT_DIR / "r1_final_diagnostics.txt"
+    output_path = Path(args.output)
     output_path.write_text(full_report, encoding="utf-8")
 
     try:

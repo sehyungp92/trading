@@ -81,6 +81,14 @@ class _PBHybridState:
     ready_cpr: float = 0.0
     ready_volume_ratio: float = 0.0
     ready_timestamp: datetime | None = None
+    accepted_bar_idx: int = -1
+    accepted_timestamp: datetime | None = None
+    accepted_entry_price: float = 0.0
+    accepted_entry_trigger: str = ""
+    accepted_route_family: str = ""
+    accepted_score: float = 0.0
+    accepted_session_atr: float = 0.0
+    accepted_score_components: dict[str, float] = field(default_factory=dict)
     # V2 fields
     trigger_types: list[str] = field(default_factory=list)
     trigger_tier: str = ""
@@ -106,6 +114,14 @@ class _PBHybridState:
         self.ready_cpr = 0.0
         self.ready_volume_ratio = 0.0
         self.ready_timestamp = None
+        self.accepted_bar_idx = -1
+        self.accepted_timestamp = None
+        self.accepted_entry_price = 0.0
+        self.accepted_entry_trigger = ""
+        self.accepted_route_family = ""
+        self.accepted_score = 0.0
+        self.accepted_session_atr = 0.0
+        self.accepted_score_components = {}
 
 
 @dataclass
@@ -141,6 +157,12 @@ class _PBHybridPosition:
     reentry_count: int
     entry_atr: float
     item: WatchlistItem
+    ready_timestamp: datetime | None = None
+    accepted_timestamp: datetime | None = None
+    accepted_bar_idx: int = -1
+    accepted_entry_price: float = 0.0
+    accepted_intraday_score: float = 0.0
+    accepted_entry_trigger: str = ""
     acceptance_count: int = 0
     required_acceptance: int = 0
     micropressure_signal: str = "NEUTRAL"
@@ -219,6 +241,12 @@ class _PBHybridPosition:
             "carry_profile": self.carry_profile,
             "selection_reason": self.selection_reason,
             "intraday_score": round(self.intraday_score, 2),
+            "ready_timestamp": self.ready_timestamp.isoformat() if self.ready_timestamp is not None else "",
+            "accepted_timestamp": self.accepted_timestamp.isoformat() if self.accepted_timestamp is not None else "",
+            "accepted_bar_index": self.accepted_bar_idx,
+            "accepted_entry_price": round(self.accepted_entry_price, 2),
+            "accepted_intraday_score": round(self.accepted_intraday_score, 2),
+            "accepted_entry_trigger": self.accepted_entry_trigger,
             "reclaim_bars": self.reclaim_bars,
             "acceptance_count": self.acceptance_count,
             "required_acceptance_count": self.required_acceptance,
@@ -794,7 +822,7 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                 trade, eq_delta = self._close_position(
                     pos,
                     pos.entry_price,
-                    datetime(trade_date.year, trade_date.month, trade_date.day, 9, 30, tzinfo=timezone.utc),
+                    self._market_open_timestamp(trade_date),
                     "DATA_GAP",
                 )
                 trades.append(trade)
@@ -876,7 +904,7 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                 trade, eq_delta = self._close_position(
                     pos,
                     float(exit_price),
-                    datetime(trade_date.year, trade_date.month, trade_date.day, 16, 0, tzinfo=timezone.utc),
+                    self._market_close_timestamp(trade_date),
                     exit_reason,
                 )
                 trades.append(trade)
@@ -1412,6 +1440,9 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
     def _market_open_timestamp(self, trade_date: date) -> datetime:
         return datetime(trade_date.year, trade_date.month, trade_date.day, 9, 30, tzinfo=ET).astimezone(timezone.utc)
 
+    def _market_close_timestamp(self, trade_date: date) -> datetime:
+        return datetime(trade_date.year, trade_date.month, trade_date.day, 16, 0, tzinfo=ET).astimezone(timezone.utc)
+
     def _activate_delayed_confirm(
         self,
         state: _PBHybridState,
@@ -1773,7 +1804,13 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
             route_family="OPEN_SCORED_ENTRY",
             carry_profile=self._route_carry_profile("OPEN_SCORED_ENTRY"),
             selection_reason=str(record.get("selection_reason") or "daily_signal_score"),
-            intraday_score=float(record.get("selection_refine_score") or 0.0),
+            intraday_score=float(
+                record.get("intraday_score")
+                or record.get("route_score")
+                or record.get("daily_signal_score")
+                or record.get("selection_refine_score")
+                or 0.0
+            ),
             reclaim_bars=0,
             rescue_flow_candidate=bool(record.get("rescue_flow_candidate")),
             reentry_count=0,
@@ -1805,7 +1842,7 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
             trade, eq_delta = self._close_position(
                 position,
                 position.entry_price,
-                datetime(trade_date.year, trade_date.month, trade_date.day, 16, 0, tzinfo=timezone.utc),
+                self._market_close_timestamp(trade_date),
                 "DATA_GAP",
             )
             trades.append(trade)
@@ -1884,7 +1921,7 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
         trade, eq_delta = self._close_position(
             position,
             float(C if exit_price is None else exit_price),
-            datetime(trade_date.year, trade_date.month, trade_date.day, 16, 0, tzinfo=timezone.utc),
+            self._market_close_timestamp(trade_date),
             "EOD_FLATTEN" if exit_price is None else exit_reason,
         )
         trades.append(trade)
@@ -2252,6 +2289,262 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                             market.last_30m_bar = agg
                             market.bars_30m.append(agg)
 
+                queued_entry_candidates: list[dict[str, Any]] = []
+                for symbol, state in state_by_symbol.items():
+                    if state.stage != "ENTRY_QUEUED" or symbol in intraday_positions or symbol in open_scored_positions:
+                        continue
+                    bars = bars_by_symbol.get(symbol)
+                    if bars is None or bar_idx >= len(bars) or bar_idx != state.accepted_bar_idx + 1:
+                        continue
+                    queued_entry_candidates.append({
+                        "symbol": symbol,
+                        "state": state,
+                        "bar": bars[bar_idx],
+                        "score": state.accepted_score,
+                        "entry_trigger": state.accepted_entry_trigger,
+                        "route_family": state.accepted_route_family,
+                        "session_atr": state.accepted_session_atr,
+                        "score_components": dict(state.accepted_score_components),
+                    })
+
+                queued_entry_candidates.sort(
+                    key=lambda row: (
+                        -float(row["score"]),
+                        float(row["state"].entry_rank_pct),
+                        float(row["state"].entry_rsi),
+                    )
+                )
+                for candidate in queued_entry_candidates:
+                    state = candidate["state"]
+                    symbol = str(candidate["symbol"])
+                    if state.stage != "ENTRY_QUEUED" or symbol in intraday_positions or symbol in open_scored_positions:
+                        continue
+
+                    bar = candidate["bar"]
+                    record = state.record
+                    sector = state.sector
+                    if len(intraday_positions) + len(open_scored_positions) >= available_slots:
+                        state.priority_skip_count += 1
+                        if record is not None and not record.get("blocked_by_capacity_reason"):
+                            record["blocked_by_capacity_reason"] = "slot_cap"
+                        self._invalidate_state(
+                            state,
+                            record,
+                            fsm_log,
+                            trade_date,
+                            bar.start_time,
+                            "slot_cap_reject",
+                            max_bars + 1,
+                        )
+                        continue
+                    if sector_counts.get(sector, 0) >= cfg.max_per_sector:
+                        state.priority_skip_count += 1
+                        if record is not None and not record.get("blocked_by_capacity_reason"):
+                            record["blocked_by_capacity_reason"] = "sector_cap"
+                        self._invalidate_state(
+                            state,
+                            record,
+                            fsm_log,
+                            trade_date,
+                            bar.start_time,
+                            "sector_cap_reject",
+                            max_bars + 1,
+                        )
+                        continue
+                    if state.rescue_flow_candidate and rescue_entries_today >= settings.pb_rescue_max_per_day:
+                        state.priority_skip_count += 1
+                        if record is not None and not record.get("blocked_by_capacity_reason"):
+                            record["blocked_by_capacity_reason"] = "rescue_cap"
+                        self._invalidate_state(
+                            state,
+                            record,
+                            fsm_log,
+                            trade_date,
+                            bar.start_time,
+                            "rescue_cap_reject",
+                            max_bars + 1,
+                        )
+                        continue
+
+                    entry_price = float(bar.open)
+                    stop_level = self._initial_stop(state, float(candidate["session_atr"]))
+                    slip = entry_price * self._slippage.slip_bps_normal / 10_000
+                    fill_price = round(entry_price + slip, 2)
+                    risk_per_share = fill_price - stop_level
+                    if risk_per_share <= 0:
+                        self._invalidate_state(
+                            state,
+                            record,
+                            fsm_log,
+                            trade_date,
+                            bar.start_time,
+                            "sizing_reject",
+                            max_bars + 1,
+                        )
+                        continue
+
+                    risk_dollars = equity * settings.base_risk_fraction * _risk_budget_mult(trade_date, settings)
+                    if settings.pb_v2_enabled:
+                        v2_mult = _v2_score_sizing_mult(
+                            state.daily_signal_score,
+                            state.trend_tier,
+                            str(candidate["route_family"]),
+                            settings,
+                        )
+                        risk_dollars *= v2_mult
+                    elif settings.pb_entry_strength_sizing:
+                        risk_dollars *= min(max(float(candidate["score"]) / 80.0, 0.6), 1.4)
+                    if regime_tier == "B" and settings.t2_regime_b_sizing_mult != 1.0:
+                        risk_dollars *= settings.t2_regime_b_sizing_mult
+                    if state.rescue_flow_candidate:
+                        risk_dollars *= 0.65
+                    qty = int(floor(risk_dollars / risk_per_share))
+                    if qty < 1:
+                        self._invalidate_state(
+                            state,
+                            record,
+                            fsm_log,
+                            trade_date,
+                            bar.start_time,
+                            "sizing_reject",
+                            max_bars + 1,
+                        )
+                        continue
+
+                    if settings.intraday_leverage > 0:
+                        carry_notional = sum(position.entry_price * position.quantity for position in carry_positions.values())
+                        fallback_notional = sum(position.entry_price * position.quantity for position in open_scored_positions.values())
+                        intraday_notional = sum(position.entry_price * position.quantity for position in intraday_positions.values())
+                        available_bp = equity * settings.intraday_leverage - carry_notional - fallback_notional - intraday_notional
+                        max_qty_bp = int(available_bp / entry_price) if entry_price > 0 else 0
+                        qty = min(qty, max_qty_bp)
+                        if qty < 1:
+                            if record is not None:
+                                record["blocked_by_capacity_reason"] = "buying_power"
+                            self._invalidate_state(
+                                state,
+                                record,
+                                fsm_log,
+                                trade_date,
+                                bar.start_time,
+                                "buying_power_reject",
+                                max_bars + 1,
+                            )
+                            continue
+
+                    commission = self._slippage.commission_per_share * qty
+                    is_pm_reentry = bool(state.stopped_out_today and settings.pb_pm_reentry)
+                    reentry_count = state.reentry_count + 1 if is_pm_reentry else state.reentry_count
+                    micro_signal = self._micropressure_label(
+                        bars_by_symbol[symbol],
+                        min(bar_idx, len(bars_by_symbol[symbol]) - 1),
+                        state.reclaim_level,
+                        state.item,
+                    )
+                    position = _PBHybridPosition(
+                        symbol=symbol,
+                        entry_price=fill_price,
+                        entry_time=bar.start_time,
+                        quantity=qty,
+                        risk_per_share=risk_per_share,
+                        sector=sector,
+                        regime_tier=regime_tier,
+                        stop=stop_level,
+                        current_stop=stop_level,
+                        trigger_type=state.trigger_type,
+                        entry_rsi=state.entry_rsi,
+                        entry_gap_pct=state.entry_gap_pct,
+                        entry_sma_dist_pct=state.entry_sma_dist_pct,
+                        entry_cdd=state.entry_cdd,
+                        entry_rank=state.entry_rank,
+                        entry_rank_pct=state.entry_rank_pct,
+                        n_candidates=state.n_candidates,
+                        daily_signal_score=state.daily_signal_score,
+                        daily_signal_rank_pct=state.daily_signal_rank_pct,
+                        signal_family="v2" if settings.pb_v2_enabled else str(getattr(self._settings, "pb_daily_signal_family", "balanced_v1")),
+                        intraday_setup_type=state.intraday_setup_type,
+                        entry_trigger=str(candidate["entry_trigger"]),
+                        route_family=str(candidate["route_family"]),
+                        carry_profile=self._route_carry_profile(str(candidate["route_family"])),
+                        selection_reason="pm_reentry" if is_pm_reentry else "route_confirmation",
+                        intraday_score=float(candidate["score"]),
+                        reclaim_bars=max(state.ready_bar_idx - state.flush_bar_idx + 1, 1),
+                        rescue_flow_candidate=state.rescue_flow_candidate,
+                        reentry_count=reentry_count,
+                        entry_atr=float(candidate["session_atr"]),
+                        item=state.item,
+                        ready_timestamp=state.ready_timestamp,
+                        accepted_timestamp=state.accepted_timestamp,
+                        accepted_bar_idx=state.accepted_bar_idx,
+                        accepted_entry_price=state.accepted_entry_price,
+                        accepted_intraday_score=state.accepted_score,
+                        accepted_entry_trigger=state.accepted_entry_trigger,
+                        acceptance_count=state.acceptance_count,
+                        required_acceptance=state.required_acceptance,
+                        micropressure_signal=micro_signal,
+                        trigger_types=list(state.trigger_types),
+                        trigger_tier=state.trigger_tier,
+                        trend_tier=state.trend_tier,
+                        max_favorable=max(fill_price, bar.high),
+                        max_adverse=min(fill_price, bar.low),
+                        highest_close=bar.close,
+                        commission_entry=commission,
+                        slippage_entry=slip * qty,
+                        entry_bar_idx=bar_idx,
+                        ledger_ref=record,
+                        score_components=dict(candidate["score_components"]),
+                    )
+                    intraday_positions[symbol] = position
+                    sector_counts[sector] = sector_counts.get(sector, 0) + 1
+                    prior = state.stage
+                    state.stage = "IN_POSITION"
+                    state.accepted_bar_idx = -1
+                    state.accepted_timestamp = None
+                    state.accepted_entry_price = 0.0
+                    state.accepted_entry_trigger = ""
+                    state.accepted_route_family = ""
+                    state.accepted_score = 0.0
+                    state.accepted_session_atr = 0.0
+                    state.accepted_score_components = {}
+                    if is_pm_reentry:
+                        state.reentry_count = reentry_count
+                    state.stopped_out_today = False
+                    if record is not None:
+                        record["disposition"] = "entered"
+                        record["quantity"] = qty
+                        record["entry_timestamp"] = bar.start_time
+                        record["entry_bar_index"] = int(bar_idx)
+                        record["entry_trigger"] = position.entry_trigger
+                        record["entry_route_family"] = position.route_family
+                        record["selected_route"] = position.route_family
+                        record["route_family"] = position.route_family
+                        record["intraday_score"] = round(position.intraday_score, 2)
+                        record["route_score"] = round(position.intraday_score, 2)
+                        record["reclaim_bars"] = position.reclaim_bars
+                        record["rescue_flow_candidate"] = position.rescue_flow_candidate
+                        record["refinement_route"] = position.route_family
+                        record["selection_reason"] = position.selection_reason
+                        self._apply_score_components(record, position.score_components, prefix="score_component_")
+                    if funnel_counters is not None:
+                        funnel_counters["entered"] = funnel_counters.get("entered", 0) + 1
+                        if position.rescue_flow_candidate:
+                            funnel_counters["rescue_entered"] = funnel_counters.get("rescue_entered", 0) + 1
+                        if position.reentry_count > 0:
+                            funnel_counters["pm_reentry"] = funnel_counters.get("pm_reentry", 0) + 1
+                    if position.rescue_flow_candidate:
+                        rescue_entries_today += 1
+                    if fsm_log is not None:
+                        self._log_fsm(
+                            fsm_log,
+                            symbol,
+                            trade_date,
+                            bar.start_time,
+                            prior,
+                            "IN_POSITION",
+                            position.entry_trigger.lower(),
+                            score=position.intraday_score,
+                        )
+
                 closed_symbols: list[str] = []
                 for symbol, position in list(intraday_positions.items()):
                     bars = bars_by_symbol.get(symbol)
@@ -2322,8 +2615,9 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                                 position.partial_taken = True
                                 position.partial_qty_exited += partial_qty
                                 partial_commission = self._slippage.commission_per_share * partial_qty
-                                partial_slip = bar.high * self._slippage.slip_bps_normal / 10_000
-                                partial_fill = round(bar.high - partial_slip, 2)
+                                partial_mid = (bar.high + bar.close) / 2
+                                partial_slip = partial_mid * self._slippage.slip_bps_normal / 10_000
+                                partial_fill = round(partial_mid - partial_slip, 2)
                                 position.realized_partial_commission += partial_commission
                                 position.realized_partial_slippage += partial_slip * partial_qty
                                 partial_pnl = (partial_fill - position.entry_price) * partial_qty
@@ -2446,7 +2740,7 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                     if sector in sector_counts:
                         sector_counts[sector] = max(sector_counts[sector] - 1, 0)
 
-                entry_candidates: list[dict[str, Any]] = []
+                entry_acceptances: list[dict[str, Any]] = []
                 for symbol, state in state_by_symbol.items():
                     if symbol in intraday_positions:
                         continue
@@ -2627,6 +2921,9 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                         continue
                     if now_et < settings.pb_intraday_entry_start or now_et > settings.pb_intraday_entry_end:
                         continue
+                    next_bar_idx = bar_idx + 1
+                    if next_bar_idx >= len(bars):
+                        continue
                     if bar.low <= state.stop_level:
                         self._invalidate_state(
                             state,
@@ -2644,10 +2941,11 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                     route_family = state.route_family or ("DELAYED_CONFIRM" if state.intraday_setup_type == "DELAYED_CONFIRM" else "OPENING_RECLAIM")
                     entry_trigger = ""
                     desired_entry = 0.0
-                    if bar_idx <= state.improvement_expires and bar.low <= state.target_entry_price <= bar.high:
+                    # Defer entry to next bar to avoid same-bar signal+fill
+                    if bar_idx > state.ready_bar_idx and bar_idx <= state.improvement_expires and bar.low <= state.target_entry_price <= bar.high:
                         desired_entry = state.target_entry_price
                         entry_trigger = route_family
-                    elif bar_idx >= state.improvement_expires or bar.close >= state.reclaim_level + session_atr * 0.25:
+                    elif bar_idx > state.ready_bar_idx and (bar_idx >= state.improvement_expires or bar.close >= state.reclaim_level + session_atr * 0.25):
                         desired_entry = max(bar.close, state.reclaim_level)
                         entry_trigger = route_family
                     if desired_entry > 0 and entry_trigger and record is not None:
@@ -2662,194 +2960,52 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                     if state.intraday_score < self._entry_threshold(state):
                         continue
                     if desired_entry > 0 and entry_trigger:
-                        entry_candidates.append({
+                        entry_acceptances.append({
                             "symbol": symbol,
                             "state": state,
                             "bar": bar,
-                            "entry_price": desired_entry,
+                            "accepted_bar_idx": int(bar_idx),
+                            "accepted_entry_price": float(desired_entry),
                             "entry_trigger": entry_trigger,
+                            "route_family": route_family,
                             "score": state.intraday_score,
                             "session_atr": session_atr,
+                            "score_components": dict(state.score_components),
                         })
 
-                entry_candidates.sort(
+                entry_acceptances.sort(
                     key=lambda row: (
                         -float(row["score"]),
                         float(row["state"].entry_rank_pct),
                         float(row["state"].entry_rsi),
                     )
                 )
-                for candidate in entry_candidates:
+                for candidate in entry_acceptances:
                     state = candidate["state"]
                     symbol = str(candidate["symbol"])
                     if state.stage != "READY" or symbol in intraday_positions or symbol in open_scored_positions:
                         continue
                     record = state.record
-                    sector = state.sector
-                    if len(intraday_positions) + len(open_scored_positions) >= available_slots:
-                        state.priority_skip_count += 1
-                        if record is not None and not record.get("blocked_by_capacity_reason"):
-                            record["blocked_by_capacity_reason"] = "slot_cap"
-                        continue
-                    if sector_counts.get(sector, 0) >= cfg.max_per_sector:
-                        state.priority_skip_count += 1
-                        if record is not None and not record.get("blocked_by_capacity_reason"):
-                            record["blocked_by_capacity_reason"] = "sector_cap"
-                        continue
-                    if state.rescue_flow_candidate and rescue_entries_today >= settings.pb_rescue_max_per_day:
-                        state.priority_skip_count += 1
-                        if record is not None and not record.get("blocked_by_capacity_reason"):
-                            record["blocked_by_capacity_reason"] = "rescue_cap"
-                        continue
-                    record = state.record
-                    entry_price = float(candidate["entry_price"])
-                    stop_level = self._initial_stop(state, float(candidate["session_atr"]))
-                    slip = entry_price * self._slippage.slip_bps_normal / 10_000
-                    fill_price = round(entry_price + slip, 2)
-                    risk_per_share = fill_price - stop_level
-                    if risk_per_share <= 0:
-                        self._invalidate_state(
-                            state,
-                            record,
-                            fsm_log,
-                            trade_date,
-                            candidate["bar"].end_time,
-                            "sizing_reject",
-                            max_bars + 1,
-                        )
-                        continue
-
-                    risk_dollars = equity * settings.base_risk_fraction * _risk_budget_mult(trade_date, settings)
-                    if settings.pb_v2_enabled:
-                        v2_mult = _v2_score_sizing_mult(
-                            state.daily_signal_score, state.trend_tier, route_family, settings,
-                        )
-                        risk_dollars *= v2_mult
-                    elif settings.pb_entry_strength_sizing:
-                        risk_dollars *= min(max(state.intraday_score / 80.0, 0.6), 1.4)
-                    if regime_tier == "B" and settings.t2_regime_b_sizing_mult != 1.0:
-                        risk_dollars *= settings.t2_regime_b_sizing_mult
-                    if state.rescue_flow_candidate:
-                        risk_dollars *= 0.65
-                    qty = int(floor(risk_dollars / risk_per_share))
-                    if qty < 1:
-                        self._invalidate_state(
-                            state,
-                            record,
-                            fsm_log,
-                            trade_date,
-                            candidate["bar"].end_time,
-                            "sizing_reject",
-                            max_bars + 1,
-                        )
-                        continue
-
-                    if settings.intraday_leverage > 0:
-                        carry_notional = sum(position.entry_price * position.quantity for position in carry_positions.values())
-                        fallback_notional = sum(position.entry_price * position.quantity for position in open_scored_positions.values())
-                        intraday_notional = sum(position.entry_price * position.quantity for position in intraday_positions.values())
-                        available_bp = equity * settings.intraday_leverage - carry_notional - fallback_notional - intraday_notional
-                        max_qty_bp = int(available_bp / entry_price) if entry_price > 0 else 0
-                        qty = min(qty, max_qty_bp)
-                        if qty < 1:
-                            if record is not None:
-                                record["blocked_by_capacity_reason"] = "buying_power"
-                            self._invalidate_state(
-                                state,
-                                record,
-                                fsm_log,
-                                trade_date,
-                                candidate["bar"].end_time,
-                                "buying_power_reject",
-                                max_bars + 1,
-                            )
-                            continue
-
-                    commission = self._slippage.commission_per_share * qty
-                    is_pm_reentry = bool(state.stopped_out_today and settings.pb_pm_reentry)
-                    reentry_count = state.reentry_count + 1 if is_pm_reentry else state.reentry_count
-                    micro_signal = self._micropressure_label(
-                        bars_by_symbol[symbol],
-                        min(bar_idx, len(bars_by_symbol[symbol]) - 1),
-                        state.reclaim_level,
-                        state.item,
-                    )
-                    position = _PBHybridPosition(
-                        symbol=symbol,
-                        entry_price=fill_price,
-                        entry_time=candidate["bar"].end_time,
-                        quantity=qty,
-                        risk_per_share=risk_per_share,
-                        sector=sector,
-                        regime_tier=regime_tier,
-                        stop=stop_level,
-                        current_stop=stop_level,
-                        trigger_type=state.trigger_type,
-                        entry_rsi=state.entry_rsi,
-                        entry_gap_pct=state.entry_gap_pct,
-                        entry_sma_dist_pct=state.entry_sma_dist_pct,
-                        entry_cdd=state.entry_cdd,
-                        entry_rank=state.entry_rank,
-                        entry_rank_pct=state.entry_rank_pct,
-                        n_candidates=state.n_candidates,
-                        daily_signal_score=state.daily_signal_score,
-                        daily_signal_rank_pct=state.daily_signal_rank_pct,
-                        signal_family="v2" if settings.pb_v2_enabled else str(getattr(self._settings, "pb_daily_signal_family", "balanced_v1")),
-                        intraday_setup_type=state.intraday_setup_type,
-                        entry_trigger=str(candidate["entry_trigger"]),
-                        route_family=route_family,
-                        carry_profile=self._route_carry_profile(route_family),
-                        selection_reason="pm_reentry" if is_pm_reentry else "route_confirmation",
-                        intraday_score=float(state.intraday_score),
-                        reclaim_bars=max(state.ready_bar_idx - state.flush_bar_idx + 1, 1),
-                        rescue_flow_candidate=state.rescue_flow_candidate,
-                        reentry_count=reentry_count,
-                        entry_atr=float(candidate["session_atr"]),
-                        item=state.item,
-                        acceptance_count=state.acceptance_count,
-                        required_acceptance=state.required_acceptance,
-                        micropressure_signal=micro_signal,
-                        trigger_types=list(state.trigger_types),
-                        trigger_tier=state.trigger_tier,
-                        trend_tier=state.trend_tier,
-                        max_favorable=max(fill_price, candidate["bar"].high),
-                        max_adverse=min(fill_price, candidate["bar"].low),
-                        highest_close=candidate["bar"].close,
-                        commission_entry=commission,
-                        slippage_entry=slip * qty,
-                        entry_bar_idx=bar_idx,
-                        ledger_ref=record,
-                        score_components=dict(state.score_components),
-                    )
-                    intraday_positions[symbol] = position
-                    sector_counts[sector] = sector_counts.get(sector, 0) + 1
                     prior = state.stage
-                    state.stage = "IN_POSITION"
-                    if is_pm_reentry:
-                        state.reentry_count = reentry_count
-                    state.stopped_out_today = False
+                    state.stage = "ENTRY_QUEUED"
+                    state.accepted_bar_idx = int(candidate["accepted_bar_idx"])
+                    state.accepted_timestamp = candidate["bar"].end_time
+                    state.accepted_entry_price = float(candidate["accepted_entry_price"])
+                    state.accepted_entry_trigger = str(candidate["entry_trigger"])
+                    state.accepted_route_family = str(candidate["route_family"])
+                    state.accepted_score = float(candidate["score"])
+                    state.accepted_session_atr = float(candidate["session_atr"])
+                    state.accepted_score_components = dict(candidate["score_components"])
                     if record is not None:
-                        record["disposition"] = "entered"
-                        record["quantity"] = qty
-                        record["entry_trigger"] = position.entry_trigger
-                        record["entry_route_family"] = position.route_family
-                        record["selected_route"] = position.route_family
-                        record["route_family"] = position.route_family
-                        record["intraday_score"] = round(position.intraday_score, 2)
-                        record["route_score"] = round(position.intraday_score, 2)
-                        record["reclaim_bars"] = position.reclaim_bars
-                        record["rescue_flow_candidate"] = position.rescue_flow_candidate
-                        record["refinement_route"] = position.route_family
-                        record["selection_reason"] = position.selection_reason
-                        self._apply_score_components(record, position.score_components, prefix="score_component_")
-                    if funnel_counters is not None:
-                        funnel_counters["entered"] = funnel_counters.get("entered", 0) + 1
-                        if position.rescue_flow_candidate:
-                            funnel_counters["rescue_entered"] = funnel_counters.get("rescue_entered", 0) + 1
-                        if position.reentry_count > 0:
-                            funnel_counters["pm_reentry"] = funnel_counters.get("pm_reentry", 0) + 1
-                    if position.rescue_flow_candidate:
-                        rescue_entries_today += 1
+                        record["disposition"] = "entry_queued"
+                        record["accepted_timestamp"] = state.accepted_timestamp
+                        record["accepted_bar_index"] = state.accepted_bar_idx
+                        record["accepted_entry_price"] = round(state.accepted_entry_price, 2)
+                        record["accepted_entry_trigger"] = state.accepted_entry_trigger
+                        record["accepted_route_family"] = state.accepted_route_family
+                        record["accepted_intraday_score"] = round(state.accepted_score, 2)
+                        record["selection_reason"] = "next_bar_open_fill"
+                    self._mark_stage(record, "ENTRY_QUEUED")
                     if fsm_log is not None:
                         self._log_fsm(
                             fsm_log,
@@ -2857,9 +3013,9 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                             trade_date,
                             candidate["bar"].end_time,
                             prior,
-                            "IN_POSITION",
-                            position.entry_trigger.lower(),
-                            score=position.intraday_score,
+                            "ENTRY_QUEUED",
+                            "next_bar_open_fill",
+                            score=state.accepted_score,
                         )
 
             pending_dispositions = {
@@ -2868,6 +3024,7 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                 "watchlist",
                 "rescue_watchlist",
                 "flow_rescue_pool",
+                "entry_queued",
             }
             for symbol, state in state_by_symbol.items():
                 if symbol in intraday_positions:
@@ -2894,7 +3051,7 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                         shadow_outcomes,
                         funnel_counters,
                     )
-                elif state.stage == "READY":
+                elif state.stage in {"READY", "ENTRY_QUEUED"}:
                     self._record_rejection(record, "entry_window_expired", rejection_log, shadow_outcomes, funnel_counters)
 
             for symbol, position in list(open_scored_positions.items()):
@@ -3019,7 +3176,7 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
 
         if carry_positions and trading_dates:
             last_date = trading_dates[-1]
-            ts_final = datetime(last_date.year, last_date.month, last_date.day, 16, 0, tzinfo=timezone.utc)
+            ts_final = self._market_close_timestamp(last_date)
             for symbol, position in list(carry_positions.items()):
                 close_price = self._replay.get_daily_close(symbol, last_date)
                 if close_price is None:

@@ -53,7 +53,7 @@ def _build_runner(args: argparse.Namespace):
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="alcb-p15-phase",
-        description="ALCB P15 phased auto-optimization (3 phases, 30 candidates)",
+        description="ALCB P15 phased auto-optimization (6 phases, compact phase-specific scoring)",
     )
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("--data-dir", default="backtests/stock/data/raw")
@@ -65,7 +65,7 @@ def main() -> None:
     parser.add_argument("--max-rounds", type=int, default=None)
     parser.add_argument("--min-delta", type=float, default=0.001)
     parser.add_argument("--max-retries", type=int, default=0)
-    parser.add_argument("--phase", type=int, default=None, choices=[1, 2, 3],
+    parser.add_argument("--phase", type=int, default=None, choices=[1, 2, 3, 4, 5, 6],
                         help="Run a single phase instead of all phases")
     parser.add_argument("--experiments", nargs="*", help="Filter to specific experiment names")
 

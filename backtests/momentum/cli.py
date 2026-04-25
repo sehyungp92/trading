@@ -74,6 +74,7 @@ def _load_nqdtc_data(symbol: str, data_dir: Path) -> dict:
     """Load 5-min NQ parquet and resample to multi-TF arrays for NQDTCEngine."""
     from backtest.data.cache import load_bars
     from backtest.data.preprocessing import (
+        align_daily_to_5m,
         align_higher_tf_to_5m,
         build_numpy_arrays,
         filter_eth,
@@ -116,7 +117,7 @@ def _load_nqdtc_data(symbol: str, data_dir: Path) -> dict:
     thirty_min_idx_map = align_higher_tf_to_5m(m_df, thirty_min_df)
     hourly_idx_map = align_higher_tf_to_5m(m_df, hourly_df)
     four_hour_idx_map = align_higher_tf_to_5m(m_df, four_hour_df)
-    daily_idx_map = align_higher_tf_to_5m(m_df, daily_df)
+    daily_idx_map = align_daily_to_5m(m_df, daily_df)
 
     result = {
         "five_min_bars": five_min_bars,
@@ -134,7 +135,7 @@ def _load_nqdtc_data(symbol: str, data_dir: Path) -> dict:
     if es_daily_path.exists():
         es_daily_df = normalize_timezone(load_bars(es_daily_path))
         result["daily_es"] = build_numpy_arrays(es_daily_df)
-        result["daily_es_idx_map"] = align_higher_tf_to_5m(m_df, es_daily_df)
+        result["daily_es_idx_map"] = align_daily_to_5m(m_df, es_daily_df)
         logger.info(
             "Loaded %s: %d 5m bars, %d 30m, %d 1H, %d 4H, %d daily, %d ES daily",
             symbol, len(m_df), len(thirty_min_df), len(hourly_df),
@@ -154,6 +155,7 @@ def _load_downturn_data(symbol: str, data_dir: Path) -> dict:
     """Load 5m NQ and resample to 6 timeframes for DownturnEngine."""
     from backtest.data.cache import load_bars
     from backtest.data.preprocessing import (
+        align_daily_to_5m,
         align_higher_tf_to_5m,
         build_numpy_arrays,
         filter_eth,
@@ -206,13 +208,13 @@ def _load_downturn_data(symbol: str, data_dir: Path) -> dict:
         "thirty_min_idx_map": align_higher_tf_to_5m(m_df, m30_df),
         "hourly_idx_map": align_higher_tf_to_5m(m_df, h_df),
         "four_hour_idx_map": align_higher_tf_to_5m(m_df, fh_df),
-        "daily_idx_map": align_higher_tf_to_5m(m_df, d_df),
+        "daily_idx_map": align_daily_to_5m(m_df, d_df),
     }
 
     if es_daily_path.exists():
         es_df = normalize_timezone(load_bars(es_daily_path))
         result["daily_es"] = build_numpy_arrays(es_df)
-        result["daily_es_idx_map"] = align_higher_tf_to_5m(m_df, es_df)
+        result["daily_es_idx_map"] = align_daily_to_5m(m_df, es_df)
     else:
         result["daily_es"] = None
         result["daily_es_idx_map"] = None
@@ -229,6 +231,7 @@ def _load_vdubus_data(symbol: str, data_dir: Path, include_5m: bool = False) -> 
     from backtest.data.cache import load_bars
     from backtest.data.preprocessing import (
         align_5m_to_15m,
+        align_daily_to_15m,
         align_higher_tf_to_15m,
         build_numpy_arrays,
         filter_vdubus_session,
@@ -262,7 +265,7 @@ def _load_vdubus_data(symbol: str, data_dir: Path, include_5m: bool = False) -> 
     daily_es = build_numpy_arrays(es_daily_df)
 
     hourly_idx_map = align_higher_tf_to_15m(m_df, hourly_df)
-    daily_es_idx_map = align_higher_tf_to_15m(m_df, es_daily_df)
+    daily_es_idx_map = align_daily_to_15m(m_df, es_daily_df)
 
     logger.info(
         "Loaded %s: %d 15m bars, %d 1H, %d ES daily",
@@ -348,6 +351,7 @@ def _load_helix_data(symbol: str, data_dir: Path) -> dict:
     """Load 5-min NQ parquet and resample for HelixEngine."""
     from backtest.data.cache import load_bars
     from backtest.data.preprocessing import (
+        align_daily_to_5m,
         align_higher_tf_to_5m,
         build_numpy_arrays,
         filter_eth,
@@ -383,7 +387,7 @@ def _load_helix_data(symbol: str, data_dir: Path) -> dict:
 
     hourly_idx_map = align_higher_tf_to_5m(m_df, hourly_df)
     four_hour_idx_map = align_higher_tf_to_5m(m_df, four_hour_df)
-    daily_idx_map = align_higher_tf_to_5m(m_df, daily_df)
+    daily_idx_map = align_daily_to_5m(m_df, daily_df)
 
     logger.info(
         "Loaded %s (Helix): %d 5m bars, %d hourly, %d 4H, %d daily",
@@ -399,6 +403,57 @@ def _load_helix_data(symbol: str, data_dir: Path) -> dict:
         "four_hour_idx_map": four_hour_idx_map,
         "daily_idx_map": daily_idx_map,
     }
+
+
+def _load_helix_data_cached(symbol: str, data_dir: Path) -> dict:
+    """Cached wrapper around _load_helix_data.
+
+    Pickles the fully processed data dict (NumpyBars + idx_maps). Cache key
+    is derived from source parquet file mtimes and sizes, so the cache auto-
+    invalidates when data files change.
+    """
+    import hashlib
+    import pickle
+
+    five_min_path = data_dir / f"{symbol}_5m.parquet"
+    daily_path = data_dir / f"{symbol}_1d.parquet"
+
+    # Build cache key from file metadata
+    parts = []
+    for p in (five_min_path, daily_path):
+        if p.exists():
+            st = p.stat()
+            parts.append(f"{st.st_mtime_ns}_{st.st_size}")
+        else:
+            parts.append("missing")
+    key = hashlib.md5("_".join(parts).encode()).hexdigest()[:12]
+
+    cache_path = data_dir / f".cache_helix_{symbol}_{key}.pkl"
+
+    if cache_path.exists():
+        try:
+            with open(cache_path, "rb") as f:
+                data = pickle.load(f)
+            logger.info("Loaded %s (Helix) from cache: %s", symbol, cache_path.name)
+            return data
+        except Exception:
+            logger.warning("Cache load failed, rebuilding...")
+
+    # Cache miss -- run full pipeline
+    data = _load_helix_data(symbol, data_dir)
+
+    # Save cache and clean stale caches for this symbol
+    try:
+        for old in data_dir.glob(f".cache_helix_{symbol}_*.pkl"):
+            if old != cache_path:
+                old.unlink(missing_ok=True)
+        with open(cache_path, "wb") as f:
+            pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+        logger.info("Cached %s (Helix) data to %s", symbol, cache_path.name)
+    except Exception as e:
+        logger.warning("Failed to write cache: %s", e)
+
+    return data
 
 
 # ---------------------------------------------------------------------------
@@ -1746,10 +1801,10 @@ def _cmd_ablation_downturn(args):
     base_result = engine.run(**data)
     base_metrics = compute_downturn_metrics(base_result, data["daily"])
 
-    print(f"{'Flag':<35s} {'Trades':>7s} {'PF':>7s} {'DD%':>7s} {'CorrAlpha':>10s} {'Delta PF':>9s}")
+    print(f"{'Flag':<35s} {'Trades':>7s} {'PF':>7s} {'DD%':>7s} {'CorrPnL':>10s} {'Delta PF':>9s}")
     print("-" * 80)
     print(f"{'BASELINE':<35s} {base_metrics.total_trades:>7d} {base_metrics.profit_factor:>7.2f} "
-          f"{base_metrics.max_dd_pct:>7.2%} {base_metrics.correction_alpha_pct:>10.2f}")
+          f"{base_metrics.max_dd_pct:>7.2%} {base_metrics.correction_pnl_pct:>10.2f}")
 
     filter_names: list[str] = []
     if getattr(args, 'filter', None):
@@ -1772,7 +1827,7 @@ def _cmd_ablation_downturn(args):
         m = compute_downturn_metrics(res, data["daily"])
         delta_pf = m.profit_factor - base_metrics.profit_factor
         print(f"{flag_name:<35s} {m.total_trades:>7d} {m.profit_factor:>7.2f} "
-              f"{m.max_dd_pct:>7.2%} {m.correction_alpha_pct:>10.2f} {delta_pf:>+9.2f}")
+              f"{m.max_dd_pct:>7.2%} {m.correction_pnl_pct:>10.2f} {delta_pf:>+9.2f}")
 
 
 def _cmd_phase_run_downturn(args):
@@ -2092,4 +2147,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

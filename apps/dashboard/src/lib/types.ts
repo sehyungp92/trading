@@ -61,7 +61,6 @@ export const STRATEGY_CONFIG: Record<string, StrategyConfig> = {
   DownturnDominator_v1: { system: 'momentum_trader', maxHeatR: 3.50, riskPct: 2.4,  priority: 3, dailyStopR: 2.5 },
   IARIC_v1:             { system: 'stock_trader',    maxHeatR: 5.00, riskPct: 1.2,  priority: 0, dailyStopR: 2.0 },
   ALCB_v1:              { system: 'stock_trader',    maxHeatR: 7.00, riskPct: 0.65, priority: 1, dailyStopR: 2.0 },
-  US_ORB_v1:            { system: 'stock_trader',    maxHeatR: 4.00, riskPct: 0.35, priority: 2, dailyStopR: 2.0 },
 };
 
 /** Map family_id from DB to SystemId */

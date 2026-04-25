@@ -146,11 +146,21 @@ class BRSLiveEngine:
         self._exec: Optional[BRSExecutionEngine] = None
         self._eval_lock = asyncio.Lock()
         self._running = False
+
+        # Diagnostic pulse state
+        self._last_decision_code: str = "IDLE"
+        self._last_decision_details: dict[str, Any] = {}
+        self._last_bar_ts: datetime | None = None
+
         self._bar_processed_count: dict[tuple[str, str], int] = {}  # (symbol, tf_name) -> count
         self._pending_orders: dict[str, PendingOrder] = {}  # oms_order_id -> PendingOrder
         self._filled_order_ids: set[str] = set()  # exec_ids already processed (dedup)
         self._closing: dict[str, str] = {}  # symbol -> exit_reason
         self._event_task: Optional[asyncio.Task] = None
+
+    def _record_decision(self, code: str, details: dict | None = None) -> None:
+        self._last_decision_code = code
+        self._last_decision_details = details or {}
 
     # ══════════════════════════════════════════════════════════════════
     # Lifecycle
@@ -196,7 +206,7 @@ class BRSLiveEngine:
                 continue
             for bar_size, duration, tf in bar_specs:
                 try:
-                    bars = await self.ib.ib.reqHistoricalDataAsync(
+                    bars = await self.ib.req_historical_data(
                         contract,
                         endDateTime="",
                         durationStr=duration,
@@ -205,6 +215,7 @@ class BRSLiveEngine:
                         useRTH=False,
                         formatDate=1,
                         keepUpToDate=True,
+                        request_kind="subscription",
                     )
                     # Backfill from historical bars
                     series = self._get_series(sym, tf)
@@ -263,6 +274,9 @@ class BRSLiveEngine:
             "streams": len(self._bar_streams),
             "positions": positions,
             "regimes": regimes,
+            "last_decision_code": self._last_decision_code,
+            "last_decision_details": self._last_decision_details,
+            "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
         }
 
     # ══════════════════════════════════════════════════════════════════
@@ -305,6 +319,13 @@ class BRSLiveEngine:
             for i in range(last_idx, new_end):
                 series.add_bar(self._convert_ib_bar(bars[i]))
             self._bar_processed_count[key] = new_end
+
+            # Track bar timestamp for diagnostic pulse
+            last_ib_bar = bars[new_end - 1] if new_end > 0 else None
+            if last_ib_bar is not None:
+                bar_ts = last_ib_bar.date if isinstance(last_ib_bar.date, datetime) else None
+                if bar_ts is not None:
+                    self._last_bar_ts = bar_ts if bar_ts.tzinfo else bar_ts.replace(tzinfo=ET)
 
             if tf == TF.D1:
                 self._update_daily_context(symbol)
@@ -1116,6 +1137,7 @@ class BRSLiveEngine:
     async def _on_hourly_bar(self, symbol: str) -> None:
         hs = self._h1_series[symbol]
         if len(hs) < 30:
+            self._record_decision("AWAITING_DATA", {"symbol": symbol, "bars": len(hs), "need": 30})
             return
 
         hs.ensure_computed()
@@ -1130,6 +1152,7 @@ class BRSLiveEngine:
         # RTH filter
         bar_et = bar.ts.astimezone(ET)
         if not (RTH_START <= bar_et.time() < RTH_END):
+            self._record_decision("OUTSIDE_RTH", {"symbol": symbol})
             return
 
         self._hourly_bar_count[symbol] += 1
@@ -1146,6 +1169,7 @@ class BRSLiveEngine:
         # ── Position management ───────────────────────────────────────
         pos = self._position[symbol]
         if pos is not None:
+            self._record_decision("MANAGING_POSITION", {"symbol": symbol, "entry_type": pos.entry_type})
             _old_stop = pos.stop_price
             actions = pos.manage(h_ctx, d_ctx, cfg, sym_cfg, self._prev_regime[symbol])
             await self._execute_actions(symbol, actions, _old_stop)
@@ -1347,6 +1371,7 @@ class BRSLiveEngine:
                     )
                 except Exception:
                     pass
+            self._record_decision("SIGNAL_FILTERED", {"symbol": symbol, "filter": "cooldown"})
             return
 
         # Check concurrent positions (include pending entries to prevent race)
@@ -1390,6 +1415,7 @@ class BRSLiveEngine:
                 signal = sig
 
         if signal is None:
+            self._record_decision("NO_SIGNAL", {"symbol": symbol, "bar_idx": bar_idx})
             return
 
         # Sizing
@@ -1467,6 +1493,7 @@ class BRSLiveEngine:
         )
 
         if oms_id is None:
+            self._record_decision("ENTRY_DENIED", {"symbol": symbol, "signal": signal.entry_type.value, "denial_reason": "oms_rejection"})
             if self._instrumentation:
                 _hcap = cfg.crisis_heat_cap_r if d.vol.extreme_vol else cfg.heat_cap_r
                 self._instrumentation.log_missed(
@@ -1495,6 +1522,7 @@ class BRSLiveEngine:
                 )
             return
 
+        self._record_decision("ENTRY_SUBMITTED", {"symbol": symbol, "signal": signal.entry_type.value, "oms_id": oms_id})
         # Store pending entry -- position created on actual fill event
         self._pending_orders[oms_id] = PendingOrder(
             oms_order_id=oms_id,

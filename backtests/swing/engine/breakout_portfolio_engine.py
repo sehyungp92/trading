@@ -36,6 +36,7 @@ from backtest.data.preprocessing import (
     resample_1h_to_4h,
 )
 from backtest.engine.breakout_engine import (
+    _AblationPatch,
     BreakoutEngine,
     BreakoutSymbolResult,
 )
@@ -81,9 +82,38 @@ def load_breakout_data(
     symbols: list[str],
     data_dir,
 ) -> BreakoutPortfolioData:
-    """Load 1H + 1D parquets, resample 1H->4H, build NumpyBars + idx maps."""
+    """Load 1H + 1D parquets, resample 1H->4H, build NumpyBars + idx maps.
+
+    Caches preprocessed data as a pickle keyed on source file mtime+size
+    to avoid redundant reprocessing across diagnostic/optimization runs.
+    """
+    import hashlib
+    import pickle
     from pathlib import Path
     data_dir = Path(data_dir)
+
+    # Build cache key from source file stats
+    key_parts = []
+    for sym in sorted(symbols):
+        for suffix in ("_1h.parquet", "_1d.parquet"):
+            p = data_dir / f"{sym}{suffix}"
+            if p.exists():
+                st = p.stat()
+                key_parts.append(f"{p.name}:{st.st_mtime_ns}:{st.st_size}")
+    cache_hash = hashlib.md5("|".join(key_parts).encode()).hexdigest()[:12]
+    cache_path = data_dir / f".cache_breakout_{cache_hash}.pkl"
+
+    # Try cache hit
+    if cache_path.exists():
+        try:
+            with open(cache_path, "rb") as f:
+                portfolio = pickle.load(f)
+            logger.info("Loaded cached breakout data from %s", cache_path)
+            return portfolio
+        except Exception:
+            logger.warning("Cache load failed, rebuilding")
+
+    # Cache miss -- build from scratch
     portfolio = BreakoutPortfolioData()
 
     for sym in symbols:
@@ -121,6 +151,20 @@ def load_breakout_data(
 
         portfolio.daily_idx_maps[sym] = align_daily_to_hourly(hourly_df, daily_df)
         portfolio.four_hour_idx_maps[sym] = align_4h_to_hourly(hourly_df, four_hour_df)
+
+    # Write cache (clean stale caches first)
+    for stale in data_dir.glob(".cache_breakout_*.pkl"):
+        if stale != cache_path:
+            try:
+                stale.unlink()
+            except OSError:
+                pass
+    try:
+        with open(cache_path, "wb") as f:
+            pickle.dump(portfolio, f, protocol=pickle.HIGHEST_PROTOCOL)
+        logger.info("Cached breakout data to %s", cache_path)
+    except Exception:
+        logger.warning("Failed to write cache")
 
     return portfolio
 
@@ -197,7 +241,7 @@ def run_breakout_synchronized(
         cfg = _apply_overrides(cfg, bt_config.param_overrides)
         configs[sym] = cfg
 
-        engines[sym] = BreakoutEngine(
+        eng = BreakoutEngine(
             symbol=sym,
             cfg=cfg,
             bt_config=bt_config,
@@ -206,6 +250,8 @@ def run_breakout_synchronized(
             external_circuit_breaker=shared_cb,
             external_correlation_map=shared_corr,
         )
+        eng._init_equity_arrays(len(data.hourly[sym]), data.hourly[sym].times.dtype)
+        engines[sym] = eng
 
     if not engines:
         return BreakoutPortfolioResult()
@@ -230,51 +276,73 @@ def run_breakout_synchronized(
     equity_curve: list[float] = []
     timestamps: list = []
     heat_samples: list[float] = []
+    warmup_d = bt_config.warmup_daily
+    warmup_h = bt_config.warmup_hourly
+    warmup_4h = bt_config.warmup_4h
 
     prev_daily_idxs: dict[str, int] = {sym: -1 for sym in engines}
 
-    for ts in unified_ts:
-        # Step each symbol
+    with _AblationPatch(bt_config.flags, bt_config.param_overrides):
         for sym, engine in engines.items():
-            bar_idx = time_sets[sym].get(ts)
-            if bar_idx is None:
+            engine._precompute_indicators(data.daily[sym], data.hourly[sym], data.four_hour[sym])
+            engine._init_histories(data.daily[sym], warmup_d)
+            engine._init_slot_medians(data.hourly[sym], warmup_h)
+
+        for ts in unified_ts:
+            # Step each symbol
+            for sym, engine in engines.items():
+                bar_idx = time_sets[sym].get(ts)
+                if bar_idx is None:
+                    continue
+
+                engine.sizing_equity = portfolio_equity
+                engine._step_bar(
+                    data.daily[sym], data.hourly[sym], data.four_hour[sym],
+                    data.daily_idx_maps[sym], data.four_hour_idx_maps[sym],
+                    bar_idx,
+                    warmup_d, warmup_h, warmup_4h,
+                )
+
+                # Detect daily boundary for correlation update
+                d_idx = int(data.daily_idx_maps[sym][bar_idx])
+                if d_idx != prev_daily_idxs[sym]:
+                    prev_daily_idxs[sym] = d_idx
+
+            # Portfolio equity from per-symbol deltas
+            for sym, eng in engines.items():
+                delta = eng.equity - prev_sym_equity[sym]
+                portfolio_equity += delta
+                prev_sym_equity[sym] = eng.equity
+            equity_curve.append(portfolio_equity)
+            timestamps.append(ts)
+
+            # Update correlations periodically (every 20 bars)
+            if len(timestamps) % 20 == 0:
+                _update_correlations(engines, shared_corr)
+
+            # Track portfolio heat
+            total_heat = 0.0
+            for sym, eng in engines.items():
+                pos = eng.active_position
+                if pos is not None and pos.qty_open > 0:
+                    risk_dollars = abs(pos.fill_price - pos.current_stop) * pos.qty_open
+                    total_heat += risk_dollars
+            heat_pct = total_heat / portfolio_equity if portfolio_equity > 0 else 0.0
+            heat_samples.append(heat_pct)
+
+        for sym, engine in engines.items():
+            if engine.active_position is None:
                 continue
-
-            engine.equity = portfolio_equity
-            engine._step_bar(
-                data.daily[sym], data.hourly[sym], data.four_hour[sym],
-                data.daily_idx_maps[sym], data.four_hour_idx_maps[sym],
-                bar_idx,
-                bt_config.warmup_daily, bt_config.warmup_hourly,
-                bt_config.warmup_4h,
+            hourly = data.hourly[sym]
+            engine._flatten_at_end_of_data(
+                hourly.closes[-1],
+                engine._to_datetime(hourly.times[-1]),
             )
-
-            # Detect daily boundary for correlation update
-            d_idx = int(data.daily_idx_maps[sym][bar_idx])
-            if d_idx != prev_daily_idxs[sym]:
-                prev_daily_idxs[sym] = d_idx
-
-        # Portfolio equity from per-symbol deltas
-        for sym, eng in engines.items():
-            delta = eng.equity - prev_sym_equity[sym]
+            delta = engine.equity - prev_sym_equity[sym]
             portfolio_equity += delta
-            prev_sym_equity[sym] = eng.equity
-        equity_curve.append(portfolio_equity)
-        timestamps.append(ts)
-
-        # Update correlations periodically (every 20 bars)
-        if len(timestamps) % 20 == 0:
-            _update_correlations(engines, shared_corr)
-
-        # Track portfolio heat
-        total_heat = 0.0
-        for sym, eng in engines.items():
-            pos = eng.active_position
-            if pos is not None and pos.qty_open > 0:
-                risk_dollars = abs(pos.fill_price - pos.current_stop) * pos.qty_open
-                total_heat += risk_dollars
-        heat_pct = total_heat / portfolio_equity if portfolio_equity > 0 else 0.0
-        heat_samples.append(heat_pct)
+            prev_sym_equity[sym] = engine.equity
+        if equity_curve:
+            equity_curve[-1] = portfolio_equity
 
     # Compute heat stats
     heat_arr = np.array(heat_samples) if heat_samples else np.array([0.0])
@@ -291,8 +359,8 @@ def run_breakout_synchronized(
             symbol=sym,
             trades=engine.trades,
             signal_events=engine.signal_events,
-            equity_curve=np.array(engine.equity_curve),
-            timestamps=np.array(engine.timestamps),
+            equity_curve=engine._eq_arr[:engine._bar_idx].copy(),
+            timestamps=engine._ts_arr[:engine._bar_idx].copy(),
             total_commission=engine.total_commission,
             entries_placed=engine.entries_placed,
             entries_filled=engine.entries_filled,

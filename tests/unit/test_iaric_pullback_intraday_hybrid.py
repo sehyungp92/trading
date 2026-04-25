@@ -177,6 +177,7 @@ class _FakeReplayDelayedConfirm(_FakeReplay):
             (123.18, 123.45, 123.15, 123.42, 2_600),
             (123.42, 124.20, 123.35, 124.00, 2_200),
             (124.00, 124.50, 123.90, 124.30, 1_900),
+            (124.30, 124.65, 124.10, 124.50, 1_700),
         ]
         bars: list[Bar] = []
         current = datetime.combine(trade_date, time(14, 30), tzinfo=timezone.utc)
@@ -281,6 +282,43 @@ def test_intraday_hybrid_engine_enters_and_logs_fsm():
     assert any(row["to_state"] == "IN_POSITION" for row in result.fsm_log)
     assert result.candidate_ledger is not None
     assert result.candidate_ledger[replay.trade_date][0]["disposition"] == "entered"
+
+
+def test_intraday_hybrid_queues_ready_entries_for_next_bar_open_fill():
+    replay = _FakeReplay()
+    config = IARICBacktestConfig(
+        start_date=replay.trade_date.isoformat(),
+        end_date=replay.trade_date.isoformat(),
+        param_overrides={
+            "pb_execution_mode": "intraday_hybrid",
+            "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
+            "pb_rsi_entry": 20.0,
+            "pb_entry_score_min": 45.0,
+            "pb_entry_score_family": "route_momentum_v1",
+            "pb_ready_min_volume_ratio": 0.5,
+            "pb_entry_strength_sizing": False,
+            "pb_partial_r": 1.0,
+        },
+    )
+
+    result = IARICPullbackIntradayHybridEngine(config, replay, collect_diagnostics=True).run()
+
+    assert len(result.trades) == 1
+    trade = result.trades[0]
+    meta = trade.metadata
+    bars = replay.get_5m_bar_objects_for_date("AAA", replay.trade_date)
+
+    assert meta["accepted_bar_index"] >= 0
+    assert meta["entry_bar_index"] == meta["accepted_bar_index"] + 1
+    assert trade.entry_time == bars[meta["entry_bar_index"]].start_time
+    assert meta["accepted_timestamp"] == bars[meta["accepted_bar_index"]].end_time.isoformat()
+    assert meta["ready_timestamp"]
+
+    assert result.candidate_ledger is not None
+    ledger = result.candidate_ledger[replay.trade_date][0]
+    assert ledger["accepted_bar_index"] + 1 == ledger["entry_bar_index"]
 
 
 def test_intraday_hybrid_does_not_carry_when_carry_is_disabled():

@@ -228,6 +228,24 @@ class HelixEngine:
         self._running = False
         self._resubscribing = False
 
+        # Diagnostic pulse state
+        self._last_decision_code: str = "IDLE"
+        self._last_decision_details: dict = {}
+        self._last_bar_ts: datetime | None = None
+
+    def _record_decision(self, code: str, details: dict | None = None) -> None:
+        self._last_decision_code = code
+        self._last_decision_details = details or {}
+
+    def health_status(self) -> dict:
+        return {
+            "strategy_id": STRATEGY_ID,
+            "running": self._running,
+            "last_decision_code": self._last_decision_code,
+            "last_decision_details": self._last_decision_details,
+            "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
+        }
+
     # ------------------------------------------------------------------
     # Signal evolution tracking (for TA alpha decay detector)
     # ------------------------------------------------------------------
@@ -545,6 +563,7 @@ class HelixEngine:
         """Execute the hourly cycle per spec."""
         now = datetime.now(timezone.utc)
         logger.info("=== Helix hourly cycle %s ===", now.isoformat())
+        self._last_bar_ts = datetime.now(timezone.utc)
 
         # 1. Refresh equity
         await self._refresh_equity()
@@ -652,6 +671,13 @@ class HelixEngine:
                     setup.state = SetupState.NEW
                     self.queued_setups[setup.setup_id] = setup
                     logger.info("Queued %s %s (outside window)", setup.symbol, setup.setup_id[:8])
+
+        if not all_candidates and not self.active_setups:
+            self._record_decision("NO_SIGNAL", {"symbols": list(self._config.keys())})
+        elif self.active_setups:
+            self._record_decision("MANAGING_POSITION", {
+                "active_count": len(self.active_setups),
+            })
 
         # Hook 1: Market snapshot + regime classification (post-decision)
         if self._kit:
@@ -1229,6 +1255,12 @@ class HelixEngine:
             )
         )
         if receipt.oms_order_id:
+            self._record_decision("ENTRY_SUBMITTED", {
+                "symbol": setup.symbol,
+                "setup_class": setup.setup_class.value,
+                "qty": setup.qty_planned,
+                "oms_order_id": receipt.oms_order_id,
+            })
             setup.primary_order_id = receipt.oms_order_id
             self._order_to_setup[receipt.oms_order_id] = setup.setup_id
 
@@ -1243,6 +1275,12 @@ class HelixEngine:
                     requested_price=setup.bos_level,
                     strategy_id=STRATEGY_ID,
                 )
+        else:
+            self._record_decision("ENTRY_DENIED", {
+                "symbol": setup.symbol,
+                "setup_class": setup.setup_class.value,
+                "reason": "oms_rejected",
+            })
 
         # Conditional catch-up LIMIT (spec s11.4): only if price already broke BoS
         tf1h = self.tf_states.get(setup.symbol, {}).get("1H")
@@ -2867,7 +2905,7 @@ class HelixEngine:
                 cfg = self._config[sym]
 
                 # Daily bars
-                bars_d = await self._fetch_bars(sym, cfg, "1 day", "200 D")
+                bars_d = await self._fetch_bars(sym, cfg, "1 day", "200 D", request_kind="startup")
                 if bars_d is not None:
                     closes = np.array([b.close for b in bars_d], dtype=float)
                     highs = np.array([b.high for b in bars_d], dtype=float)
@@ -2884,7 +2922,7 @@ class HelixEngine:
                     )
 
                 # 1H bars (30 days for chandelier + pivot history)
-                bars_1h = await self._fetch_bars(sym, cfg, "1 hour", "30 D")
+                bars_1h = await self._fetch_bars(sym, cfg, "1 hour", "30 D", request_kind="startup")
                 if bars_1h is not None:
                     self._update_tf_state(sym, "1H", bars_1h)
                     logger.info(
@@ -2895,7 +2933,7 @@ class HelixEngine:
                     )
 
                 # 4H bars (60 days for sufficient pivot history)
-                bars_4h = await self._fetch_bars(sym, cfg, "4 hours", "60 D")
+                bars_4h = await self._fetch_bars(sym, cfg, "4 hours", "60 D", request_kind="startup")
                 if bars_4h is not None:
                     self._update_tf_state(sym, "4H", bars_4h)
                     logger.info(
@@ -2910,6 +2948,7 @@ class HelixEngine:
 
     async def _fetch_bars(
         self, sym: str, cfg: SymbolConfig, bar_size: str, duration: str,
+        request_kind: str = "recurring",
     ) -> list[Any] | None:
         """Fetch historical bars from IB."""
         try:
@@ -2917,7 +2956,7 @@ class HelixEngine:
             if contract is None:
                 return None
 
-            bars = await self._ib.ib.reqHistoricalDataAsync(
+            bars = await self._ib.req_historical_data(
                 contract,
                 endDateTime="",
                 durationStr=duration,
@@ -2925,6 +2964,7 @@ class HelixEngine:
                 whatToShow="TRADES",
                 useRTH=False,
                 formatDate=1,
+                request_kind=request_kind,
             )
             return bars if bars else None
         except Exception:

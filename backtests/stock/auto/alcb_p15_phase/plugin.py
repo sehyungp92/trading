@@ -31,28 +31,58 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 PHASE_STATIC_HARD_REJECTS: dict[int, dict[str, float]] = {
     1: {
-        "min_expected_total_r": 60.0,
-        "min_trades_per_month": 15.0,
-        "min_pf": 1.50,
+        "min_expected_total_r": 90.0,
+        "min_net_profit": 7000.0,
+        "min_trades_per_month": 20.0,
+        "min_pf": 1.55,
+        "min_expectancy_dollar": 10.0,
         "max_dd_pct": 0.07,
     },
     2: {
-        "min_expected_total_r": 35.0,
-        "min_trades_per_month": 8.0,
-        "min_pf": 1.35,
+        "min_expected_total_r": 85.0,
+        "min_net_profit": 6500.0,
+        "min_trades_per_month": 18.0,
+        "min_pf": 1.50,
+        "min_expectancy_dollar": 9.0,
         "max_dd_pct": 0.07,
     },
     3: {
-        "min_expected_total_r": 55.0,
-        "min_trades_per_month": 14.0,
+        "min_expected_total_r": 85.0,
+        "min_net_profit": 6800.0,
+        "min_trades_per_month": 18.0,
         "min_pf": 1.50,
+        "min_expectancy_dollar": 9.5,
         "max_dd_pct": 0.07,
+    },
+    4: {
+        "min_expected_total_r": 85.0,
+        "min_net_profit": 6500.0,
+        "min_trades_per_month": 18.0,
+        "min_pf": 1.45,
+        "min_expectancy_dollar": 9.0,
+        "max_dd_pct": 0.065,
+    },
+    5: {
+        "min_expected_total_r": 85.0,
+        "min_net_profit": 6500.0,
+        "min_trades_per_month": 18.0,
+        "min_pf": 1.45,
+        "min_expectancy_dollar": 9.0,
+        "max_dd_pct": 0.065,
+    },
+    6: {
+        "min_expected_total_r": 85.0,
+        "min_net_profit": 6500.0,
+        "min_trades_per_month": 18.0,
+        "min_pf": 1.48,
+        "min_expectancy_dollar": 9.0,
+        "max_dd_pct": 0.060,
     },
 }
 
-PHASE_MAX_ROUNDS = {1: 10, 2: 8, 3: 12}
-PHASE_PRUNE_THRESHOLDS = {1: 0.05, 2: 0.06, 3: 0.05}
-PHASE_MIN_EFFECTIVE_DELTA = {1: 0.003, 2: 0.003, 3: 0.002}
+PHASE_MAX_ROUNDS = {1: 10, 2: 8, 3: 12, 4: 8, 5: 8, 6: 8}
+PHASE_PRUNE_THRESHOLDS = {1: 0.05, 2: 0.06, 3: 0.05, 4: 0.04, 5: 0.05, 6: 0.04}
+PHASE_MIN_EFFECTIVE_DELTA = {1: 0.003, 2: 0.003, 3: 0.002, 4: 0.0015, 5: 0.0015, 6: 0.0015}
 
 ULTIMATE_TARGETS = {
     "expectancy_dollar": 14.00,
@@ -483,6 +513,27 @@ class ALCBP15Plugin:
                 gaps.append("Entry refinement is eroding per-trade expectancy.")
             if metrics["trades_per_month"] < max(10.0, base_metrics.get("trades_per_month", 0.0) * 0.80):
                 gaps.append("Entry filtering is cutting too much throughput.")
+        elif phase == 4:
+            if metrics["expected_total_r"] < base_metrics.get("expected_total_r", 0.0) * 0.96:
+                gaps.append("ORB quality/danger filters are cutting too much total alpha.")
+            if metrics["trades_per_month"] < base_metrics.get("trades_per_month", 0.0) * 0.88:
+                gaps.append("ORB quality/danger filters are suppressing frequency too much.")
+            if metrics["profit_factor"] < max(1.45, base_metrics.get("profit_factor", 0.0) * 0.98):
+                gaps.append("ORB quality/danger filters have not protected profit factor.")
+        elif phase == 5:
+            if metrics["expected_total_r"] < base_metrics.get("expected_total_r", 0.0) * 0.95:
+                gaps.append("Acceptance/retest entries are not recovering enough incremental alpha.")
+            if metrics["trades_per_month"] < base_metrics.get("trades_per_month", 0.0) * 0.90:
+                gaps.append("Acceptance/retest entries are too restrictive for the frequency goal.")
+            if metrics["profit_factor"] < max(1.42, base_metrics.get("profit_factor", 0.0) * 0.95):
+                gaps.append("Retest expansion is adding low-quality trades.")
+        elif phase == 6:
+            if metrics.get("mfe_capture_efficiency", 0.0) < base_metrics.get("mfe_capture_efficiency", 0.0) * 0.96:
+                gaps.append("ORB exit management is giving back too much MFE capture.")
+            if metrics["profit_protection"] < base_metrics.get("profit_protection", 0.0) * 0.98:
+                gaps.append("ORB scratch/retracement exits have not improved loss control.")
+            if metrics["expected_total_r"] < base_metrics.get("expected_total_r", 0.0) * 0.96:
+                gaps.append("ORB exits are over-trimming total R.")
         return gaps
 
     def build_analysis_extra(self, phase: int, metrics: dict[str, float], state: PhaseState, greedy_result) -> dict[str, Any]:
@@ -535,28 +586,57 @@ class ALCBP15Plugin:
         dd_budget = self._drawdown_budget(phase, base_metrics)
         if phase == 1:
             return [
-                self._min_gate("expected_total_r", metrics["expected_total_r"], max(32.0, base_metrics.get("expected_total_r", 0.0) * 0.85)),
-                self._min_gate("trades_per_month", metrics["trades_per_month"], max(12.0, base_metrics.get("trades_per_month", 0.0) * 0.55)),
-                self._min_gate("profit_factor", metrics["profit_factor"], max(1.20, base_metrics.get("profit_factor", 0.0) * 1.0)),
-                self._min_gate("expectancy_dollar", metrics["expectancy_dollar"], max(3.00, base_metrics.get("expectancy_dollar", 0.0) * 0.95)),
+                self._min_gate("expected_total_r", metrics["expected_total_r"], max(90.0, base_metrics.get("expected_total_r", 0.0) * 0.98)),
+                self._min_gate("net_profit", metrics["net_profit"], max(7000.0, base_metrics.get("net_profit", 0.0) * 0.95)),
+                self._min_gate("trades_per_month", metrics["trades_per_month"], max(20.0, base_metrics.get("trades_per_month", 0.0) * 0.92)),
+                self._min_gate("profit_factor", metrics["profit_factor"], max(1.55, base_metrics.get("profit_factor", 0.0) * 0.98)),
+                self._min_gate("expectancy_dollar", metrics["expectancy_dollar"], max(10.00, base_metrics.get("expectancy_dollar", 0.0) * 0.96)),
                 self._max_gate("max_drawdown_pct", metrics["max_drawdown_pct"], dd_budget),
             ]
         if phase == 2:
             return [
-                self._min_gate("mfe_capture_efficiency", metrics.get("mfe_capture_efficiency", 0.0), max(0.40, base_metrics.get("mfe_capture_efficiency", 0.0) * 0.98)),
-                self._min_gate("long_hold_capture", metrics["long_hold_capture"], max(0.40, base_metrics.get("long_hold_capture", 0.0) * 0.95)),
-                self._min_gate("expected_total_r", metrics["expected_total_r"], max(35.0, base_metrics.get("expected_total_r", 0.0) * 0.90)),
-                self._min_gate("expectancy_dollar", metrics["expectancy_dollar"], max(3.00, base_metrics.get("expectancy_dollar", 0.0) * 0.95)),
-                self._min_gate("profit_factor", metrics["profit_factor"], max(1.25, base_metrics.get("profit_factor", 0.0) * 0.98)),
+                self._min_gate("expected_total_r", metrics["expected_total_r"], max(85.0, base_metrics.get("expected_total_r", 0.0) * 0.97)),
+                self._min_gate("net_profit", metrics["net_profit"], max(6500.0, base_metrics.get("net_profit", 0.0) * 0.94)),
+                self._min_gate("trades_per_month", metrics["trades_per_month"], max(18.0, base_metrics.get("trades_per_month", 0.0) * 0.90)),
+                self._min_gate("profit_factor", metrics["profit_factor"], max(1.50, base_metrics.get("profit_factor", 0.0) * 0.96)),
+                self._min_gate("expectancy_dollar", metrics["expectancy_dollar"], max(9.00, base_metrics.get("expectancy_dollar", 0.0) * 0.92)),
                 self._max_gate("max_drawdown_pct", metrics["max_drawdown_pct"], dd_budget),
             ]
-        # phase 3: entry refinement
+        if phase == 3:
+            return [
+                self._min_gate("expected_total_r", metrics["expected_total_r"], max(85.0, base_metrics.get("expected_total_r", 0.0) * 0.97)),
+                self._min_gate("net_profit", metrics["net_profit"], max(6800.0, base_metrics.get("net_profit", 0.0) * 0.96)),
+                self._min_gate("trades_per_month", metrics["trades_per_month"], max(18.0, base_metrics.get("trades_per_month", 0.0) * 0.88)),
+                self._min_gate("profit_factor", metrics["profit_factor"], max(1.50, base_metrics.get("profit_factor", 0.0) * 0.96)),
+                self._min_gate("expectancy_dollar", metrics["expectancy_dollar"], max(9.50, base_metrics.get("expectancy_dollar", 0.0) * 0.95)),
+                self._max_gate("max_drawdown_pct", metrics["max_drawdown_pct"], dd_budget),
+            ]
+        if phase == 4:
+            return [
+                self._min_gate("expected_total_r", metrics["expected_total_r"], max(85.0, base_metrics.get("expected_total_r", 0.0) * 0.96)),
+                self._min_gate("net_profit", metrics["net_profit"], max(6500.0, base_metrics.get("net_profit", 0.0) * 0.94)),
+                self._min_gate("trades_per_month", metrics["trades_per_month"], max(18.0, base_metrics.get("trades_per_month", 0.0) * 0.88)),
+                self._min_gate("profit_factor", metrics["profit_factor"], max(1.45, base_metrics.get("profit_factor", 0.0) * 0.96)),
+                self._min_gate("profit_protection", metrics["profit_protection"], max(0.58, base_metrics.get("profit_protection", 0.0) * 0.96)),
+                self._max_gate("max_drawdown_pct", metrics["max_drawdown_pct"], dd_budget),
+            ]
+        if phase == 5:
+            return [
+                self._min_gate("expected_total_r", metrics["expected_total_r"], max(85.0, base_metrics.get("expected_total_r", 0.0) * 0.97)),
+                self._min_gate("net_profit", metrics["net_profit"], max(6500.0, base_metrics.get("net_profit", 0.0) * 0.94)),
+                self._min_gate("trades_per_month", metrics["trades_per_month"], max(18.0, base_metrics.get("trades_per_month", 0.0) * 0.92)),
+                self._min_gate("profit_factor", metrics["profit_factor"], max(1.45, base_metrics.get("profit_factor", 0.0) * 0.95)),
+                self._min_gate("mfe_capture_efficiency", metrics.get("mfe_capture_efficiency", 0.0), max(0.66, base_metrics.get("mfe_capture_efficiency", 0.0) * 0.94)),
+                self._max_gate("max_drawdown_pct", metrics["max_drawdown_pct"], dd_budget),
+            ]
+        # phase 6: exit/management repair
         return [
-            self._min_gate("entry_quality", metrics["entry_quality"], max(0.50, base_metrics.get("entry_quality", 0.0) * 1.0)),
-            self._min_gate("expectancy_dollar", metrics["expectancy_dollar"], max(3.00, base_metrics.get("expectancy_dollar", 0.0) * 0.98)),
-            self._min_gate("expected_total_r", metrics["expected_total_r"], max(38.0, base_metrics.get("expected_total_r", 0.0) * 0.95)),
-            self._min_gate("profit_factor", metrics["profit_factor"], max(1.30, base_metrics.get("profit_factor", 0.0) * 0.98)),
-            self._min_gate("trades_per_month", metrics["trades_per_month"], max(10.0, base_metrics.get("trades_per_month", 0.0) * 0.80)),
+            self._min_gate("expected_total_r", metrics["expected_total_r"], max(85.0, base_metrics.get("expected_total_r", 0.0) * 0.97)),
+            self._min_gate("net_profit", metrics["net_profit"], max(6500.0, base_metrics.get("net_profit", 0.0) * 0.94)),
+            self._min_gate("trades_per_month", metrics["trades_per_month"], max(18.0, base_metrics.get("trades_per_month", 0.0) * 0.90)),
+            self._min_gate("profit_factor", metrics["profit_factor"], max(1.48, base_metrics.get("profit_factor", 0.0) * 0.96)),
+            self._min_gate("mfe_capture_efficiency", metrics.get("mfe_capture_efficiency", 0.0), max(0.66, base_metrics.get("mfe_capture_efficiency", 0.0) * 0.96)),
+            self._min_gate("profit_protection", metrics["profit_protection"], max(0.58, base_metrics.get("profit_protection", 0.0) * 0.96)),
             self._max_gate("max_drawdown_pct", metrics["max_drawdown_pct"], dd_budget),
         ]
 
@@ -570,17 +650,45 @@ class ALCBP15Plugin:
         resolved.update(hard_rejects or {})
 
         if phase == 1:
-            self._raise_floor(resolved, "min_expected_total_r", base_metrics.get("expected_total_r", 0.0), 0.90, minimum=60.0)
-            self._raise_floor(resolved, "min_trades_per_month", base_metrics.get("trades_per_month", 0.0), 0.75, minimum=15.0)
-            self._raise_floor(resolved, "min_pf", base_metrics.get("profit_factor", 0.0), 0.80, minimum=1.50)
+            self._raise_floor(resolved, "min_expected_total_r", base_metrics.get("expected_total_r", 0.0), 0.98, minimum=90.0)
+            self._raise_floor(resolved, "min_net_profit", base_metrics.get("net_profit", 0.0), 0.95, minimum=7000.0)
+            self._raise_floor(resolved, "min_trades_per_month", base_metrics.get("trades_per_month", 0.0), 0.92, minimum=20.0)
+            self._raise_floor(resolved, "min_pf", base_metrics.get("profit_factor", 0.0), 0.98, minimum=1.55)
+            self._raise_floor(resolved, "min_expectancy_dollar", base_metrics.get("expectancy_dollar", 0.0), 0.96, minimum=10.0)
         elif phase == 2:
-            self._raise_floor(resolved, "min_expected_total_r", base_metrics.get("expected_total_r", 0.0), 0.55, minimum=35.0)
-            self._raise_floor(resolved, "min_trades_per_month", base_metrics.get("trades_per_month", 0.0), 0.40, minimum=8.0)
-            self._raise_floor(resolved, "min_pf", base_metrics.get("profit_factor", 0.0), 0.70, minimum=1.35)
-        else:  # phase 3
-            self._raise_floor(resolved, "min_expected_total_r", base_metrics.get("expected_total_r", 0.0), 0.75, minimum=55.0)
-            self._raise_floor(resolved, "min_trades_per_month", base_metrics.get("trades_per_month", 0.0), 0.65, minimum=14.0)
-            self._raise_floor(resolved, "min_pf", base_metrics.get("profit_factor", 0.0), 0.75, minimum=1.50)
+            self._raise_floor(resolved, "min_expected_total_r", base_metrics.get("expected_total_r", 0.0), 0.97, minimum=85.0)
+            self._raise_floor(resolved, "min_net_profit", base_metrics.get("net_profit", 0.0), 0.94, minimum=6500.0)
+            self._raise_floor(resolved, "min_trades_per_month", base_metrics.get("trades_per_month", 0.0), 0.90, minimum=18.0)
+            self._raise_floor(resolved, "min_pf", base_metrics.get("profit_factor", 0.0), 0.96, minimum=1.50)
+            self._raise_floor(resolved, "min_expectancy_dollar", base_metrics.get("expectancy_dollar", 0.0), 0.92, minimum=9.0)
+        elif phase == 3:
+            self._raise_floor(resolved, "min_expected_total_r", base_metrics.get("expected_total_r", 0.0), 0.97, minimum=85.0)
+            self._raise_floor(resolved, "min_net_profit", base_metrics.get("net_profit", 0.0), 0.96, minimum=6800.0)
+            self._raise_floor(resolved, "min_trades_per_month", base_metrics.get("trades_per_month", 0.0), 0.88, minimum=18.0)
+            self._raise_floor(resolved, "min_pf", base_metrics.get("profit_factor", 0.0), 0.96, minimum=1.50)
+            self._raise_floor(resolved, "min_expectancy_dollar", base_metrics.get("expectancy_dollar", 0.0), 0.95, minimum=9.5)
+        elif phase == 4:
+            self._raise_floor(resolved, "min_expected_total_r", base_metrics.get("expected_total_r", 0.0), 0.96, minimum=85.0)
+            self._raise_floor(resolved, "min_net_profit", base_metrics.get("net_profit", 0.0), 0.94, minimum=6500.0)
+            self._raise_floor(resolved, "min_trades_per_month", base_metrics.get("trades_per_month", 0.0), 0.88, minimum=18.0)
+            self._raise_floor(resolved, "min_pf", base_metrics.get("profit_factor", 0.0), 0.96, minimum=1.45)
+            self._raise_floor(resolved, "min_expectancy_dollar", base_metrics.get("expectancy_dollar", 0.0), 0.92, minimum=9.0)
+            self._raise_floor(resolved, "min_profit_protection", base_metrics.get("profit_protection", 0.0), 0.96, minimum=0.58)
+        elif phase == 5:
+            self._raise_floor(resolved, "min_expected_total_r", base_metrics.get("expected_total_r", 0.0), 0.97, minimum=85.0)
+            self._raise_floor(resolved, "min_net_profit", base_metrics.get("net_profit", 0.0), 0.94, minimum=6500.0)
+            self._raise_floor(resolved, "min_trades_per_month", base_metrics.get("trades_per_month", 0.0), 0.92, minimum=18.0)
+            self._raise_floor(resolved, "min_pf", base_metrics.get("profit_factor", 0.0), 0.95, minimum=1.45)
+            self._raise_floor(resolved, "min_expectancy_dollar", base_metrics.get("expectancy_dollar", 0.0), 0.90, minimum=9.0)
+            self._raise_floor(resolved, "min_mfe_capture_efficiency", base_metrics.get("mfe_capture_efficiency", 0.0), 0.94, minimum=0.66)
+        else:  # phase 6+
+            self._raise_floor(resolved, "min_expected_total_r", base_metrics.get("expected_total_r", 0.0), 0.97, minimum=85.0)
+            self._raise_floor(resolved, "min_net_profit", base_metrics.get("net_profit", 0.0), 0.94, minimum=6500.0)
+            self._raise_floor(resolved, "min_trades_per_month", base_metrics.get("trades_per_month", 0.0), 0.90, minimum=18.0)
+            self._raise_floor(resolved, "min_pf", base_metrics.get("profit_factor", 0.0), 0.96, minimum=1.48)
+            self._raise_floor(resolved, "min_expectancy_dollar", base_metrics.get("expectancy_dollar", 0.0), 0.92, minimum=9.0)
+            self._raise_floor(resolved, "min_mfe_capture_efficiency", base_metrics.get("mfe_capture_efficiency", 0.0), 0.96, minimum=0.66)
+            self._raise_floor(resolved, "min_profit_protection", base_metrics.get("profit_protection", 0.0), 0.96, minimum=0.58)
 
         resolved["max_dd_pct"] = min(
             float(resolved.get("max_dd_pct", 0.07)),
@@ -711,9 +819,9 @@ class ALCBP15Plugin:
     @staticmethod
     def _drawdown_budget(phase: int, base_metrics: dict[str, float]) -> float:
         base_dd = float(base_metrics.get("max_drawdown_pct", 0.0))
-        multiplier = {1: 1.20, 2: 1.15, 3: 1.10}.get(phase, 1.15)
-        static_cap = {1: 0.07, 2: 0.065, 3: 0.06}.get(phase, 0.07)
-        floor = {1: 0.06, 2: 0.055, 3: 0.05}.get(phase, 0.06)
+        multiplier = {1: 1.15, 2: 1.12, 3: 1.10, 4: 1.08, 5: 1.10, 6: 1.06}.get(phase, 1.10)
+        static_cap = {1: 0.065, 2: 0.065, 3: 0.060, 4: 0.058, 5: 0.060, 6: 0.055}.get(phase, 0.060)
+        floor = {1: 0.055, 2: 0.055, 3: 0.052, 4: 0.050, 5: 0.052, 6: 0.048}.get(phase, 0.052)
         dynamic = max(base_dd * multiplier, base_dd + 0.015, floor)
         return min(static_cap, dynamic)
 

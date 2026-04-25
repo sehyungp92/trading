@@ -47,12 +47,12 @@ async def test_record_entry_swallows_instrumentation_failures():
     recorder = InstrumentedTradeRecorder(
         inner,
         kit,
-        strategy_id="US_ORB_v1",
-        strategy_type="strategy_orb",
+        strategy_id="ALCB_v1",
+        strategy_type="strategy_alcb",
     )
 
     trade_id = await recorder.record_entry(
-        strategy_id="US_ORB_v1",
+        strategy_id="ALCB_v1",
         instrument="MSFT",
         direction="LONG",
         quantity=5,
@@ -105,8 +105,8 @@ async def test_record_exit_swallows_instrumentation_failures():
     recorder = InstrumentedTradeRecorder(
         inner,
         kit,
-        strategy_id="US_ORB_v1",
-        strategy_type="strategy_orb",
+        strategy_id="ALCB_v1",
+        strategy_type="strategy_alcb",
     )
 
     await recorder.record_exit(
@@ -127,12 +127,12 @@ async def test_record_entry_falls_back_to_direct_instrumentation_without_pg():
     recorder = InstrumentedTradeRecorder(
         None,
         kit,
-        strategy_id="US_ORB_v1",
-        strategy_type="strategy_orb",
+        strategy_id="ALCB_v1",
+        strategy_type="strategy_alcb",
     )
 
     trade_id = await recorder.record_entry(
-        strategy_id="US_ORB_v1",
+        strategy_id="ALCB_v1",
         instrument="AAPL",
         direction="LONG",
         quantity=3,

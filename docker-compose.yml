@@ -89,6 +89,7 @@ services:
     volumes:
       - runtime_instrumentation:/app/instrumentation/data
       - runtime_data:/app/data
+      - stock_artifacts:/app/strategies/stock/data
     # NOTE: depends_on is ignored with network_mode:host in some compose
     # versions. The runtime's preflight TCP checks handle this gracefully.
     depends_on:
@@ -156,4 +157,5 @@ volumes:
   postgres_data:
   runtime_instrumentation:
   runtime_data:
+  stock_artifacts:
   relay_data:

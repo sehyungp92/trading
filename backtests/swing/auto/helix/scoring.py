@@ -168,10 +168,13 @@ def extract_helix_metrics(
 
     wins = [t for t in all_trades if t.r_multiple > 0]
     losses = [t for t in all_trades if t.r_multiple <= 0]
+    net_pnls = [float(t.pnl_dollars) - float(getattr(t, "commission", 0.0) or 0.0) for t in all_trades]
 
     gross_win = sum(t.r_multiple for t in wins) if wins else 0.0
     gross_loss = abs(sum(t.r_multiple for t in losses)) if losses else 0.0
-    pf = gross_win / gross_loss if gross_loss > 0 else 999.0
+    net_gross_win = sum(pnl for pnl in net_pnls if pnl > 0)
+    net_gross_loss = abs(sum(pnl for pnl in net_pnls if pnl < 0))
+    pf = net_gross_win / net_gross_loss if net_gross_loss > 0 else 999.0
     total_r = sum(t.r_multiple for t in all_trades)
 
     # Regime-specific PF
@@ -179,8 +182,9 @@ def extract_helix_metrics(
     bear_trades = [t for t in all_trades if getattr(t, "regime_at_entry", "") == "BEAR"]
 
     def _regime_pf(trades):
-        w = sum(t.r_multiple for t in trades if t.r_multiple > 0)
-        l = abs(sum(t.r_multiple for t in trades if t.r_multiple <= 0))
+        pnls = [float(t.pnl_dollars) - float(getattr(t, "commission", 0.0) or 0.0) for t in trades]
+        w = sum(pnl for pnl in pnls if pnl > 0)
+        l = abs(sum(pnl for pnl in pnls if pnl < 0))
         return w / l if l > 0 else 999.0
 
     bull_pf = _regime_pf(bull_trades) if bull_trades else 999.0

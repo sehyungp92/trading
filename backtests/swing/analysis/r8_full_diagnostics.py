@@ -12,7 +12,7 @@ from backtests.swing._aliases import install
 install()
 
 from backtest.config_brs import BRSConfig
-from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_independent
+from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
 from backtests.swing.auto.brs.config_mutator import mutate_brs_config
 
 # ---------------------------------------------------------------------------
@@ -130,7 +130,7 @@ print()
 config = BRSConfig(initial_equity=INITIAL_EQUITY, data_dir=DATA_DIR)
 config = mutate_brs_config(config, R8_MUTATIONS)
 data = load_brs_data(config)
-result = run_brs_independent(data, config)
+result = run_brs_synchronized(data, config)
 
 # Collect all trades
 all_trades = []

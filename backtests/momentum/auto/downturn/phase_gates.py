@@ -70,8 +70,8 @@ def _get_criteria(
                           metrics.signal_to_entry_ratio >= 0.15),
             GateCriterion("total_trades", 15, metrics.total_trades,
                           metrics.total_trades >= 15),
-            GateCriterion("correction_alpha_pct", 5.0, metrics.correction_alpha_pct,
-                          metrics.correction_alpha_pct >= 5.0),
+            GateCriterion("correction_pnl_pct", 5.0, metrics.correction_pnl_pct,
+                          metrics.correction_pnl_pct >= 5.0),
         ]
     elif phase == 2:
         return [
@@ -79,8 +79,8 @@ def _get_criteria(
                           metrics.exit_efficiency >= 0.20),
             GateCriterion("profit_factor", 1.3, metrics.profit_factor,
                           metrics.profit_factor >= 1.3),
-            GateCriterion("correction_alpha_pct", 10.0, metrics.correction_alpha_pct,
-                          metrics.correction_alpha_pct >= 10.0),
+            GateCriterion("correction_pnl_pct", 10.0, metrics.correction_pnl_pct,
+                          metrics.correction_pnl_pct >= 10.0),
         ]
     elif phase == 3:
         return [
@@ -95,8 +95,8 @@ def _get_criteria(
         # No regression: each metric within 90% of phase 3
         criteria = []
         if prior_phase_metrics:
-            for key in ["calmar", "profit_factor", "sharpe", "correction_alpha_pct"]:
-                target = prior_phase_metrics.get(key, 0) * 0.90
+            for key in ["calmar", "profit_factor", "sharpe", "correction_pnl_pct"]:
+                target = _prior_metric(prior_phase_metrics, key) * 0.90
                 actual = getattr(metrics, key, 0)
                 criteria.append(GateCriterion(
                     f"no_regress_{key}", target, actual, actual >= target,
@@ -109,8 +109,8 @@ def _get_criteria(
         # No regression from Phase 4
         criteria = []
         if prior_phase_metrics:
-            for key in ["calmar", "profit_factor", "sharpe", "correction_alpha_pct"]:
-                target = prior_phase_metrics.get(key, 0) * 0.90
+            for key in ["calmar", "profit_factor", "sharpe", "correction_pnl_pct"]:
+                target = _prior_metric(prior_phase_metrics, key) * 0.90
                 actual = getattr(metrics, key, 0)
                 criteria.append(GateCriterion(
                     f"no_regress_{key}", target, actual, actual >= target,
@@ -132,7 +132,7 @@ def _categorize_failure(
     # Structural issue
     if metrics.total_trades < 8 or metrics.max_dd_pct > 0.30:
         return "structural_issue"
-    if metrics.correction_alpha_pct < 0:
+    if metrics.correction_pnl_pct < 0:
         return "structural_issue"
 
     # Candidates exhausted
@@ -168,7 +168,7 @@ def _get_recommendations(
             recs.append("Relax signal gates to increase trade count")
         if metrics.max_dd_pct > 0.30:
             recs.append("Reduce position sizing or add tighter stops")
-        if metrics.correction_alpha_pct < 0:
+        if metrics.correction_pnl_pct < 0:
             recs.append("Strategy loses money during corrections — fundamental signal issue")
     elif category == "scoring_ineffective":
         recs.append("Adjust scoring weights to better reward gate-relevant metrics")
@@ -179,3 +179,11 @@ def _get_recommendations(
         for c in failed:
             recs.append(f"Near-miss on {c.name}: {c.actual:.3f} vs target {c.target:.3f}")
     return recs
+
+
+def _prior_metric(prior_phase_metrics: dict, key: str) -> float:
+    if key in prior_phase_metrics:
+        return prior_phase_metrics[key]
+    if key == "correction_pnl_pct":
+        return prior_phase_metrics.get("correction_alpha_pct", 0)
+    return prior_phase_metrics.get(key, 0)

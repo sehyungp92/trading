@@ -76,15 +76,15 @@ PHASE_HARD_REJECTS: dict[int, dict[str, float]] = {
 }
 
 PHASE_FOCUS = {
-    1: ("Signal Detection", ["signal_to_entry_ratio", "correction_alpha_pct", "total_trades"]),
-    2: ("Capture", ["exit_efficiency", "profit_factor", "correction_alpha_pct"]),
+    1: ("Signal Detection", ["signal_to_entry_ratio", "correction_pnl_pct", "total_trades"]),
+    2: ("Capture", ["exit_efficiency", "profit_factor", "correction_pnl_pct"]),
     3: ("Risk Control", ["calmar", "max_dd_pct", "sharpe"]),
-    4: ("Fine-tuning", ["calmar", "net_return_pct", "correction_alpha_pct"]),
+    4: ("Fine-tuning", ["calmar", "net_return_pct", "correction_pnl_pct"]),
     5: ("Exit Management", ["exit_efficiency", "net_return_pct", "profit_factor"]),
 }
 
 ULTIMATE_TARGETS = {
-    "correction_alpha_pct": 25.0,
+    "correction_pnl_pct": 25.0,
     "profit_factor": 2.0,
     "net_return_pct": 40.0,
     "max_dd_pct": 15.0,
@@ -330,7 +330,7 @@ class DownturnPlugin:
         final_diagnostics_text = self.run_enhanced_diagnostics(self.num_phases, state, metrics, final_greedy)
 
         extraction = (
-            f"Correction alpha is {metrics_obj.correction_alpha_pct:.1f}% with coverage {metrics_obj.correction_coverage:.1%}. "
+            f"Correction PnL is {metrics_obj.correction_pnl_pct:.1f}% with coverage {metrics_obj.correction_coverage:.1%}. "
             f"Bear capture ratio is {metrics_obj.bear_capture_ratio:.1%}."
         )
         discrimination = (
@@ -349,8 +349,8 @@ class DownturnPlugin:
             f"Median hold is {metrics_obj.median_hold_5m:.1f} bars."
         )
         overall_verdict = (
-            f"Signal extraction {'is' if metrics_obj.correction_alpha_pct >= 25.0 else 'is not yet'} capturing correction alpha at the target level "
-            f"({metrics_obj.correction_alpha_pct:.1f}%). "
+            f"Signal extraction {'is' if metrics_obj.correction_pnl_pct >= 25.0 else 'is not yet'} capturing correction-window PnL at the target level "
+            f"({metrics_obj.correction_pnl_pct:.1f}%). "
             f"Discrimination quality is anchored by signal-to-entry {metrics_obj.signal_to_entry_ratio:.2f} and engine health "
             f"{', '.join(f'{engine}={status}' for engine, status in extra['engine_health'].items())}. "
             f"Final trade-management and exit quality should be judged from the full diagnostics with DD {metrics_obj.max_dd_pct:.1%}, "
@@ -425,7 +425,7 @@ class DownturnPlugin:
             add("relax_friction_gate", {"flags.friction_gate": False})
             add("wider_regime_neutral", {"param_overrides.regime_mult_neutral": 0.80})
 
-        if metrics_obj.correction_alpha_pct < 5.0:
+        if metrics_obj.correction_pnl_pct < 5.0:
             add("regime_faster_ema_10", {"param_overrides.ema_fast_period": 10})
             add("regime_adx_trending_20", {"param_overrides.adx_trending_threshold": 20})
             add("regime_sma200_150", {"param_overrides.sma200_period": 150})
@@ -469,7 +469,7 @@ class DownturnPlugin:
             if criterion.passed:
                 continue
             name = criterion.name.removeprefix("hard_")
-            if name in {"signal_to_entry", "signal_to_entry_ratio", "correction_alpha_pct", "total_trades"}:
+            if name in {"signal_to_entry", "signal_to_entry_ratio", "correction_pnl_pct", "total_trades"}:
                 weights["coverage"] *= 1.20
             if name in {"exit_efficiency"}:
                 weights["capture"] *= 1.25
@@ -550,7 +550,7 @@ class DownturnPlugin:
         criteria = [
             GateCriterion("hard_min_trades", 8.0, float(metric_obj.total_trades), metric_obj.total_trades >= 8),
             GateCriterion("hard_max_dd_pct", 0.30, metric_obj.max_dd_pct, metric_obj.max_dd_pct <= 0.30),
-            GateCriterion("hard_correction_alpha_pct", 0.0, metric_obj.correction_alpha_pct, metric_obj.correction_alpha_pct >= 0.0),
+            GateCriterion("hard_correction_pnl_pct", 0.0, metric_obj.correction_pnl_pct, metric_obj.correction_pnl_pct >= 0.0),
         ]
 
         if phase == 1:
@@ -558,7 +558,7 @@ class DownturnPlugin:
                 [
                     GateCriterion("signal_to_entry_ratio", 0.15, metric_obj.signal_to_entry_ratio, metric_obj.signal_to_entry_ratio >= 0.15),
                     GateCriterion("total_trades", 15.0, float(metric_obj.total_trades), metric_obj.total_trades >= 15),
-                    GateCriterion("correction_alpha_pct", 5.0, metric_obj.correction_alpha_pct, metric_obj.correction_alpha_pct >= 5.0),
+                    GateCriterion("correction_pnl_pct", 5.0, metric_obj.correction_pnl_pct, metric_obj.correction_pnl_pct >= 5.0),
                 ]
             )
             return criteria
@@ -568,7 +568,7 @@ class DownturnPlugin:
                 [
                     GateCriterion("exit_efficiency", 0.20, metric_obj.exit_efficiency, metric_obj.exit_efficiency >= 0.20),
                     GateCriterion("profit_factor", 1.3, metric_obj.profit_factor, metric_obj.profit_factor >= 1.3),
-                    GateCriterion("correction_alpha_pct", 10.0, metric_obj.correction_alpha_pct, metric_obj.correction_alpha_pct >= 10.0),
+                    GateCriterion("correction_pnl_pct", 10.0, metric_obj.correction_pnl_pct, metric_obj.correction_pnl_pct >= 10.0),
                 ]
             )
             return criteria
@@ -585,9 +585,9 @@ class DownturnPlugin:
 
         prior_metrics = state.get_phase_metrics(phase - 1) or {}
         if prior_metrics:
-            for key in ["calmar", "profit_factor", "sharpe", "correction_alpha_pct"]:
-                target = float(prior_metrics.get(key, 0.0)) * 0.90
-                actual = float(metrics.get(key, 0.0))
+            for key in ["calmar", "profit_factor", "sharpe", "correction_pnl_pct"]:
+                target = float(_payload_metric(prior_metrics, key)) * 0.90
+                actual = float(_payload_metric(metrics, key))
                 criteria.append(GateCriterion(f"no_regress_{key}", target, actual, actual >= target))
         else:
             criteria.append(GateCriterion(f"phase{phase}_pass", 0.0, 1.0, True))
@@ -602,11 +602,21 @@ def _metrics_from_dict(metrics: dict[str, float]) -> DownturnMetrics:
     for key, field_info in fields.items():
         if key in metrics:
             payload[key] = metrics[key]
+        elif key == "correction_pnl_pct" and "correction_alpha_pct" in metrics:
+            payload[key] = metrics["correction_alpha_pct"]
         elif field_info.default is not MISSING:
             payload[key] = field_info.default
         elif field_info.default_factory is not MISSING:
             payload[key] = field_info.default_factory()
     return DownturnMetrics(**payload)
+
+
+def _payload_metric(metrics: dict[str, float], key: str) -> float:
+    if key in metrics:
+        return float(metrics[key])
+    if key == "correction_pnl_pct" and "correction_alpha_pct" in metrics:
+        return float(metrics["correction_alpha_pct"])
+    return 0.0
 
 
 def _assess_engine_health(metrics: DownturnMetrics) -> dict[str, str]:

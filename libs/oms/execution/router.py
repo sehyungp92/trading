@@ -138,20 +138,43 @@ class ExecutionRouter:
         # Get contract expiry from instrument
         contract_expiry = order.instrument.contract_expiry if order.instrument else ""
 
-        ref = await self._adapter.submit_order(
-            oms_order_id=order.oms_order_id,
-            contract_symbol=order.instrument.root if order.instrument else "",
-            contract_expiry=contract_expiry,
-            action=order.side.value,
-            order_type=order.order_type.value,
-            qty=order.qty,
-            limit_price=order.limit_price,
-            stop_price=order.stop_price,
-            tif=order.tif,
-            oca_group=order.oca_group,
-            oca_type=order.oca_type,
-            client_order_id=order.client_order_id or None,
-        )
+        try:
+            ref = await self._adapter.submit_order(
+                oms_order_id=order.oms_order_id,
+                contract_symbol=order.instrument.root if order.instrument else "",
+                contract_expiry=contract_expiry,
+                action=order.side.value,
+                order_type=order.order_type.value,
+                qty=order.qty,
+                limit_price=order.limit_price,
+                stop_price=order.stop_price,
+                tif=order.tif,
+                oca_group=order.oca_group,
+                oca_type=order.oca_type,
+                client_order_id=order.client_order_id or None,
+                instrument=order.instrument,
+            )
+        except Exception as exc:
+            logger.exception(
+                "Broker submission failed for order %s — rolling back to REJECTED",
+                order.oms_order_id,
+            )
+            message = str(exc) or exc.__class__.__name__
+            transition(order, OrderStatus.REJECTED)
+            order.reject_reason = message
+            order.last_update_at = datetime.now(timezone.utc)
+            await self._repo.save_order_and_event(
+                order,
+                "BROKER_SUBMIT_FAILED",
+                {
+                    "error_type": exc.__class__.__name__,
+                    "error": message,
+                    "instrument_backed": order.instrument is not None,
+                },
+            )
+            if self._bus is not None:
+                self._bus.emit_order_event(order)
+            return
 
         order.broker_order_id = ref.broker_order_id
         order.perm_id = ref.perm_id

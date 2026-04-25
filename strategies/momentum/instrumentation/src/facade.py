@@ -8,6 +8,7 @@ Usage in strategy engine:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from datetime import datetime, timezone
@@ -61,6 +62,35 @@ class InstrumentationKit:
     @property
     def active(self) -> bool:
         return self._mgr is not None
+
+    def _record_strategy_decision(
+        self,
+        code: str,
+        details: dict,
+        exchange_timestamp: Optional[datetime] = None,
+    ) -> None:
+        if not self._mgr or not code:
+            return
+        pg_store = getattr(self._mgr, "_pg_store", None)
+        strategy_id = getattr(self._mgr, "_strategy_id", "")
+        if pg_store is None or not strategy_id:
+            return
+        async def _persist() -> None:
+            try:
+                await pg_store.record_strategy_decision(
+                    strategy_id,
+                    code,
+                    details=details,
+                    last_seen_bar_ts=exchange_timestamp,
+                )
+            except Exception:
+                logger.debug("Failed to persist strategy decision", exc_info=True)
+
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(_persist())
+        except RuntimeError:
+            logger.debug("No running loop for strategy decision persistence")
 
     def log_entry(
         self,
@@ -206,6 +236,21 @@ class InstrumentationKit:
                     bar_id=bar_id,
                 )
 
+            self._record_strategy_decision(
+                f"ENTRY:{entry_signal}" if entry_signal else "ENTRY",
+                {
+                    "pair": pair,
+                    "side": side,
+                    "trade_id": trade_id,
+                    "signal_id": entry_signal_id,
+                    "signal_strength": entry_signal_strength,
+                    "strategy_type": self._strategy_type,
+                    "bar_id": bar_id,
+                    "filter_decisions": filter_decisions or [],
+                },
+                exchange_timestamp,
+            )
+
         except Exception as e:
             logger.warning("InstrumentationKit.log_entry failed: %s", e)
 
@@ -309,6 +354,21 @@ class InstrumentationKit:
                 exchange_timestamp=exchange_timestamp,
                 bar_id=bar_id,
                 signal_evolution=signal_evolution,
+            )
+            self._record_strategy_decision(
+                f"BLOCKED:{blocked_by}" if blocked_by else "BLOCKED",
+                {
+                    "pair": pair,
+                    "side": side,
+                    "signal": signal,
+                    "signal_id": signal_id,
+                    "signal_strength": signal_strength,
+                    "block_reason": block_reason,
+                    "strategy_type": self._strategy_type,
+                    "bar_id": bar_id,
+                    "filter_decisions": filter_decisions or [],
+                },
+                exchange_timestamp,
             )
         except Exception as e:
             logger.warning("InstrumentationKit.log_missed failed: %s", e)
@@ -425,6 +485,19 @@ class InstrumentationKit:
                     exchange_timestamp=exchange_timestamp, bar_id=bar_id,
                     context=context,
                 )
+            if decision:
+                self._record_strategy_decision(
+                    f"{signal_name}:{decision}" if signal_name else decision,
+                    {
+                        "pair": pair,
+                        "signal_name": signal_name,
+                        "signal_strength": signal_strength,
+                        "strategy_type": strategy_type,
+                        "bar_id": bar_id,
+                        "context": context or {},
+                    },
+                    exchange_timestamp,
+                )
         except Exception:
             pass
 
@@ -458,6 +531,25 @@ class InstrumentationKit:
                     signal_strength=signal_strength, strategy_type=strategy_type,
                     exchange_timestamp=exchange_timestamp, bar_id=bar_id,
                 )
+                if fds:
+                    failed = next((fd for fd in fds if not getattr(fd, "passed", True)), None)
+                    code = (
+                        f"FILTER_BLOCKED:{failed.filter_name}"
+                        if failed is not None
+                        else "FILTERS_PASSED"
+                    )
+                    self._record_strategy_decision(
+                        code,
+                        {
+                            "pair": pair,
+                            "signal_name": signal_name,
+                            "signal_strength": signal_strength,
+                            "strategy_type": strategy_type,
+                            "bar_id": bar_id,
+                            "filter_decisions": [fd.to_dict() for fd in fds],
+                        },
+                        exchange_timestamp,
+                    )
         except Exception:
             pass
 

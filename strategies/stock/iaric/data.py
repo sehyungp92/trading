@@ -213,11 +213,13 @@ class IBMarketDataSource:
         contract_factory: ContractFactory,
         on_quote: Callable[[str, QuoteSnapshot], Any] | Callable[[str, QuoteSnapshot], Awaitable[Any]],
         on_bar: Callable[[str, Bar], Any] | Callable[[str, Bar], Awaitable[Any]],
+        historical_requester: Callable[..., Awaitable[Any]] | None = None,
     ) -> None:
         self._ib = ib
         self._factory = contract_factory
         self._on_quote = on_quote
         self._on_bar = on_bar
+        self._historical_requester = historical_requester
         self._contracts: dict[str, Any] = {}
         self._builders: dict[str, _MinuteAccumulator] = {}
         self._logical_symbol_by_conid: dict[int, str] = {}
@@ -405,15 +407,29 @@ class IBMarketDataSource:
 
     async def request_recent_bars(self, instrument: Instrument, duration: str = "1 D") -> list[Bar]:
         contract, _ = await self._factory.resolve(symbol=instrument.root or instrument.symbol, instrument=instrument)
-        rows = await self._ib.reqHistoricalDataAsync(
-            contract,
-            endDateTime="",
-            durationStr=duration,
-            barSizeSetting="1 min",
-            whatToShow="TRADES",
-            useRTH=True,
-            keepUpToDate=False,
-        )
+        if self._historical_requester is not None:
+            rows = await self._historical_requester(
+                contract,
+                endDateTime="",
+                durationStr=duration,
+                barSizeSetting="1 min",
+                whatToShow="TRADES",
+                useRTH=True,
+                keepUpToDate=False,
+                request_kind="recurring",
+            )
+        else:
+            # Raw IB fallback for standalone tools/tests without UnifiedIBSession.
+            rows = await self._ib.reqHistoricalDataAsync(
+                contract,
+                endDateTime="",
+                durationStr=duration,
+                barSizeSetting="1 min",
+                whatToShow="TRADES",
+                useRTH=True,
+                keepUpToDate=False,
+                timeout=20,
+            )
         bars: list[Bar] = []
         for row in rows:
             start = row.date if isinstance(row.date, datetime) else datetime.now(timezone.utc)

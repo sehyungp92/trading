@@ -43,6 +43,10 @@ class FarmMonitor:
     def get_status(self, farm_name: str) -> FarmStatus | None:
         return self._farm_status.get(farm_name)
 
+    def all_statuses(self) -> dict[str, str]:
+        """Return {farm_name: status_value} for all known farms."""
+        return {name: status.value for name, status in self._farm_status.items()}
+
     def _on_error(
         self,
         reqId: int,

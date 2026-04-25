@@ -49,6 +49,7 @@ def load_worker_data(symbol: str, data_dir: Path) -> dict:
     """Load NQDTC bar data (same as cli._load_nqdtc_data)."""
     from backtest.data.cache import load_bars
     from backtest.data.preprocessing import (
+        align_daily_to_5m,
         align_higher_tf_to_5m,
         build_numpy_arrays,
         filter_eth,
@@ -83,14 +84,14 @@ def load_worker_data(symbol: str, data_dir: Path) -> dict:
         "thirty_min_idx_map": align_higher_tf_to_5m(m_df, m30_df),
         "hourly_idx_map": align_higher_tf_to_5m(m_df, h_df),
         "four_hour_idx_map": align_higher_tf_to_5m(m_df, fh_df),
-        "daily_idx_map": align_higher_tf_to_5m(m_df, d_df),
+        "daily_idx_map": align_daily_to_5m(m_df, d_df),
     }
 
     es_path = data_dir / "ES_1d.parquet"
     if es_path.exists():
         es_df = normalize_timezone(load_bars(es_path))
         data["daily_es"] = build_numpy_arrays(es_df)
-        data["daily_es_idx_map"] = align_higher_tf_to_5m(m_df, es_df)
+        data["daily_es_idx_map"] = align_daily_to_5m(m_df, es_df)
 
     return data
 

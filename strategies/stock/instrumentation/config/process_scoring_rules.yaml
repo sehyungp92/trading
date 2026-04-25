@@ -34,14 +34,3 @@ strategies:
     min_signal_strength: 0.25      # 2/8 = minimum passing momentum_score
     strong_signal_threshold: 0.625  # 5/8 = 5+ of 8 factors
 
-  # US ORB v1 — opening range breakout, US equities
-  us_orb:
-    preferred_regimes:
-      - trending_up
-      - volatile
-    adverse_regimes:
-      - ranging
-    max_hold_bars: 72              # Intraday 5-min bars: entry 9:51 to flatten 15:45
-    expected_slippage_bps: 5       # First 15 min: wider spreads at open
-    min_signal_strength: 0.50      # minimum_quality_score / 100
-    strong_signal_threshold: 0.85  # top_quality_score / 100

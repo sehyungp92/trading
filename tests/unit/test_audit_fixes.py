@@ -506,6 +506,56 @@ class TestAsyncPreflight:
             assert len(gw_checks) == 1
             assert not gw_checks[0].ok
 
+    @pytest.mark.asyncio
+    async def test_preflight_flags_unresolved_stock_account_id(self):
+        shell = self._make_shell()
+
+        with patch("apps.runtime.runtime.get_environment", return_value="dev"), patch(
+            "apps.runtime.runtime.validate_stock_readiness",
+            return_value=(
+                {},
+                [
+                    MagicMock(
+                        check_name="stock-account-config:default",
+                        detail="account_id is unresolved placeholder ${IB_ACCOUNT_ID}",
+                    )
+                ],
+            ),
+        ):
+            checks = await shell._run_async_preflight(
+                connect_ib=False,
+                families={"stock"},
+            )
+
+        stock_checks = [c for c in checks if c.name == "stock-account-config:default"]
+        assert len(stock_checks) == 1
+        assert not stock_checks[0].ok
+
+    @pytest.mark.asyncio
+    async def test_preflight_flags_missing_stock_artifact(self):
+        shell = self._make_shell()
+
+        with patch("apps.runtime.runtime.get_environment", return_value="dev"), patch(
+            "apps.runtime.runtime.validate_stock_readiness",
+            return_value=(
+                {},
+                [
+                    MagicMock(
+                        check_name="stock-artifact-readiness:IARIC_v1",
+                        detail="watchlist unavailable for 2026-04-24: missing file",
+                    )
+                ],
+            ),
+        ):
+            checks = await shell._run_async_preflight(
+                connect_ib=False,
+                families={"stock"},
+            )
+
+        stock_checks = [c for c in checks if c.name == "stock-artifact-readiness:IARIC_v1"]
+        assert len(stock_checks) == 1
+        assert not stock_checks[0].ok
+
 
 # ===========================================================================
 # Apr10-7 / Apr13RT-12 — Paper equity scoping

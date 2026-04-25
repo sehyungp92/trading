@@ -17,6 +17,21 @@ import math
 from dataclasses import dataclass, field
 from datetime import datetime
 
+import numpy as np
+
+
+def _span_days(timestamps) -> float:
+    if timestamps is None or len(timestamps) < 2:
+        return 0.0
+    delta = timestamps[-1] - timestamps[0]
+    if hasattr(delta, "total_seconds"):
+        return float(delta.total_seconds()) / 86400.0
+    if isinstance(delta, np.timedelta64):
+        return float(delta / np.timedelta64(1, "s")) / 86400.0
+    if isinstance(delta, (int, float, np.integer, np.floating)):
+        return float(delta) / 86400.0
+    return 0.0
+
 
 @dataclass
 class NQDTCMetrics:
@@ -171,8 +186,9 @@ def extract_nqdtc_metrics(
     win_count = len(winners)
     win_rate = win_count / total if total > 0 else 0.0
 
-    gross_profit = sum(t.pnl_dollars for t in trades if t.pnl_dollars > 0)
-    gross_loss = abs(sum(t.pnl_dollars for t in trades if t.pnl_dollars < 0))
+    net_pnls = [float(t.pnl_dollars) - float(getattr(t, "commission", 0.0) or 0.0) for t in trades]
+    gross_profit = sum(pnl for pnl in net_pnls if pnl > 0)
+    gross_loss = abs(sum(pnl for pnl in net_pnls if pnl < 0))
     pf = gross_profit / gross_loss if gross_loss > 0 else 99.0
 
     avg_r = sum(t.r_multiple for t in trades) / total if total > 0 else 0.0
@@ -200,11 +216,10 @@ def extract_nqdtc_metrics(
     r_vals = [t.r_multiple for t in trades]
     mean_r = avg_r
     if len(r_vals) >= 2:
-        import numpy as np
         std_r = float(np.std(r_vals, ddof=1))
         # Annualized: mean_r * trades_per_year / (std_r * sqrt(trades_per_year))
         if timestamps is not None and len(timestamps) >= 2:
-            span_days = (timestamps[-1] - timestamps[0]).total_seconds() / 86400
+            span_days = _span_days(timestamps)
             trades_per_year = total / (span_days / 365.25) if span_days > 0 else total
         else:
             trades_per_year = total

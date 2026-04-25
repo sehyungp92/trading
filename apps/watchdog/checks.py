@@ -38,28 +38,50 @@ async def check_heartbeats(
     results: list[CheckResult] = []
     try:
         rows = await pool.fetch("SELECT * FROM v_strategy_health")
+        stale_rows = []
         for row in rows:
             sid = row["strategy_id"]
             family = strategy_family_map.get(sid)
-            # Skip strategies whose family is not active right now
-            if family and family not in active_families:
+            # Skip disabled / unknown strategies and inactive families.
+            if not family or family not in active_families:
                 continue
             age = row["heartbeat_age_sec"]
             status = row["health_status"]
             is_stale = age is not None and float(age) > threshold
             if is_stale:
-                results.append(CheckResult(
-                    key=f"heartbeat:{sid}",
-                    check_name="Heartbeat",
-                    detail=f"{sid} -- stale for {int(age)}s (threshold {threshold}s), status={status}",
-                    is_problem=True,
-                ))
+                stale_rows.append((sid, int(age), status))
             else:
                 results.append(CheckResult(
                     key=f"heartbeat:{sid}",
                     check_name="Heartbeat",
                     detail=f"{sid} OK ({int(age or 0)}s)",
                     is_problem=False,
+                ))
+        if len(stale_rows) >= 3:
+            ages = [age for _, age, _ in stale_rows]
+            sids = ", ".join(sid for sid, _, _ in stale_rows)
+            results.append(CheckResult(
+                key="heartbeat:systemic",
+                check_name="Heartbeat",
+                detail=(
+                    f"{len(stale_rows)} strategies stale "
+                    f"({min(ages)}-{max(ages)}s, threshold {threshold}s): {sids}"
+                ),
+                is_problem=True,
+            ))
+        else:
+            results.append(CheckResult(
+                key="heartbeat:systemic",
+                check_name="Heartbeat",
+                detail="Systemic heartbeat OK",
+                is_problem=False,
+            ))
+            for sid, age, status in stale_rows:
+                results.append(CheckResult(
+                    key=f"heartbeat:{sid}",
+                    check_name="Heartbeat",
+                    detail=f"{sid} -- stale for {age}s (threshold {threshold}s), status={status}",
+                    is_problem=True,
                 ))
     except Exception as exc:
         results.append(CheckResult(
@@ -343,6 +365,74 @@ async def check_errors(pool: asyncpg.Pool, config: dict) -> list[CheckResult]:
         results.append(CheckResult(
             key="error:__db_error__",
             check_name="Error",
+            detail=f"DB query failed: {exc}",
+            is_problem=True,
+        ))
+    return results
+
+
+# ---------------------------------------------------------------------------
+# 8. Data freshness (market-hours gated)
+# ---------------------------------------------------------------------------
+
+async def check_data_freshness(
+    pool: asyncpg.Pool,
+    config: dict,
+    active_families: set[str],
+    strategy_family_map: dict[str, str],
+) -> list[CheckResult]:
+    """Alert when engines stop receiving bar data during market hours."""
+    thresholds = config.get("checks", {}).get("data_freshness", {}).get("thresholds", {})
+    results: list[CheckResult] = []
+    try:
+        rows = await pool.fetch(
+            "SELECT strategy_id, last_decision_code, last_seen_bar_ts, bar_age_sec, "
+            "       last_decision_details, health_status "
+            "FROM v_strategy_health WHERE health_status != 'STALE'"
+        )
+        stale_count = 0
+        for row in rows:
+            sid = row["strategy_id"]
+            family = strategy_family_map.get(sid)
+            if not family or family not in active_families:
+                continue
+            threshold = thresholds.get(family, 5400)
+            bar_age = row["bar_age_sec"]
+            decision = row["last_decision_code"]
+            details = row["last_decision_details"] or {}
+
+            if bar_age is not None and bar_age > threshold:
+                stale_count += 1
+                farm_info = ""
+                if isinstance(details, dict):
+                    farms = details.get("ib_farm_status", {})
+                    broken = [f for f, s in farms.items() if s != "OK"] if isinstance(farms, dict) else []
+                    if broken:
+                        farm_info = f" (farms: {', '.join(broken)})"
+                results.append(CheckResult(
+                    key=f"data_fresh:{sid}",
+                    check_name="DataFreshness",
+                    detail=f"{sid} -- bar data stale ({int(bar_age)}s, threshold {threshold}s){farm_info}",
+                    is_problem=True,
+                ))
+            elif bar_age is None and decision == "IDLE":
+                results.append(CheckResult(
+                    key=f"data_fresh:{sid}",
+                    check_name="DataFreshness",
+                    detail=f"{sid} -- no bar data received (decision={decision})",
+                    is_problem=True,
+                ))
+            else:
+                results.append(CheckResult(
+                    key=f"data_fresh:{sid}",
+                    check_name="DataFreshness",
+                    detail=f"{sid} -- OK (decision={decision})",
+                    is_problem=False,
+                ))
+    except Exception as exc:
+        results.append(CheckResult(
+            key="data_fresh:__db_error__",
+            check_name="DataFreshness",
             detail=f"DB query failed: {exc}",
             is_problem=True,
         ))

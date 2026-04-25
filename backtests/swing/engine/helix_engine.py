@@ -320,6 +320,7 @@ class HelixEngine:
         # Position tracking
         self.active_position: _ActivePosition | None = None
         self.pending_setup: SetupInstance | None = None
+        self._pending_flatten_reason: str | None = None
 
         # Results
         self.trades: list[HelixTradeRecord] = []
@@ -373,11 +374,9 @@ class HelixEngine:
 
             # Close any remaining position at last bar's close
             if self.active_position is not None:
-                self._flatten_position(
-                    self.active_position,
+                self._flatten_at_end_of_data(
                     hourly.closes[-1],
                     self._to_datetime(hourly.times[-1]),
-                    "END_OF_DATA",
                 )
 
         return HelixSymbolResult(
@@ -471,7 +470,7 @@ class HelixEngine:
 
         # Skip NaN bars (gaps)
         if np.isnan(O) or np.isnan(C):
-            self.equity_curve.append(self.equity)
+            self.equity_curve.append(self._mtm_equity(C if not np.isnan(C) else 0.0))
             self.timestamps.append(hourly.times[t])
             return
 
@@ -528,7 +527,7 @@ class HelixEngine:
 
         # Skip signal detection during warmup
         if t < warmup_h or d_idx < warmup_d:
-            self.equity_curve.append(self.equity)
+            self.equity_curve.append(self._mtm_equity(C))
             self.timestamps.append(hourly.times[t])
             return
 
@@ -540,9 +539,17 @@ class HelixEngine:
         if self.active_position is None and self.pending_setup is None and self.daily_state is not None:
             self._detect_and_arm(bar_time, is_4h_boundary)
 
-        # Record equity
-        self.equity_curve.append(self.equity)
+        # Record equity (mark-to-market)
+        self.equity_curve.append(self._mtm_equity(C))
         self.timestamps.append(hourly.times[t])
+
+    def _mtm_equity(self, current_price: float) -> float:
+        """Return equity with unrealized P&L from open position."""
+        if self.active_position is None or current_price == 0.0:
+            return self.equity
+        pos = self.active_position
+        d = 1 if pos.setup.direction == Direction.LONG else -1
+        return self.equity + (current_price - pos.fill_price) * d * self.point_value * pos.qty_open
 
     # ------------------------------------------------------------------
     # Indicator updates
@@ -992,6 +999,8 @@ class HelixEngine:
             self._on_partial_fill(fill, bar_time)
         elif fill.order.tag == "add_on":
             self._on_add_fill(fill, bar_time)
+        elif fill.order.tag == "flatten":
+            self._on_flatten_fill(fill, bar_time)
 
     def _on_entry_fill(self, fill: FillResult, bar_time: datetime) -> None:
         """Handle entry fill: create position, place protective stop."""
@@ -1104,6 +1113,7 @@ class HelixEngine:
         self._update_circuit_breaker(r_multiple, bar_time)
 
         # Cancel any remaining orders for this symbol
+        self._pending_flatten_reason = None
         self.broker.cancel_all(self.symbol)
         self.active_position = None
 
@@ -1244,7 +1254,7 @@ class HelixEngine:
 
         # Catastrophic loss protection: flatten if loss exceeds emergency stop
         if r_now < EMERGENCY_STOP_R:
-            self._flatten_position(pos, C, bar_time, "STOP")
+            self._submit_flatten(pos, bar_time, "STOP")
             return
 
         # Class B bail trigger: exit early if trade hasn't shown momentum
@@ -1252,7 +1262,7 @@ class HelixEngine:
                 and pos.bars_held_1h >= CLASS_B_BAIL_BARS
                 and r_now < CLASS_B_BAIL_R_THRESH
                 and not pos.trail_active):
-            self._flatten_position(pos, C, bar_time, "STALE")
+            self._submit_flatten(pos, bar_time, "STALE")
             return
 
         # Class D bail trigger: exit early if momentum reverses (0 = disabled)
@@ -1261,7 +1271,7 @@ class HelixEngine:
                 and pos.bars_held_1h >= CLASS_D_BAIL_BARS
                 and r_now < CLASS_D_BAIL_R_THRESH
                 and not pos.trail_active):
-            self._flatten_position(pos, C, bar_time, "STALE")
+            self._submit_flatten(pos, bar_time, "STALE")
             return
 
         new_stop = pos.current_stop
@@ -1415,12 +1425,12 @@ class HelixEngine:
                 (setup.direction == Direction.LONG and daily.regime == Regime.BEAR)
                 or (setup.direction == Direction.SHORT and daily.regime == Regime.BULL)
             ):
-                self._flatten_position(pos, C, bar_time, "REGIME_FLIP")
+                self._submit_flatten(pos, bar_time, "REGIME_FLIP")
                 return
 
         # Early stale: if N+ bars and trail never activated, flatten losers.
         if pos.bars_held_1h >= EARLY_STALE_BARS and not pos.trail_active and r_state < 0 and not class_c_min_hold:
-            self._flatten_position(pos, C, bar_time, "STALE")
+            self._submit_flatten(pos, bar_time, "STALE")
             return
 
         # Stale exit (graduated response) — skip during Class C min hold
@@ -1430,12 +1440,12 @@ class HelixEngine:
             if r_state >= STALE_FLATTEN_R_FLOOR:
                 if not pos.trail_active:
                     # Trail never activated — flatten rather than hold indefinitely
-                    self._flatten_position(pos, C, bar_time, "STALE")
+                    self._submit_flatten(pos, bar_time, "STALE")
                     return
                 # else: trail is active and will tighten naturally
             else:
                 # Below floor: flatten immediately
-                self._flatten_position(pos, C, bar_time, "STALE")
+                self._submit_flatten(pos, bar_time, "STALE")
                 return
 
         # Update stop if tightened
@@ -1491,6 +1501,73 @@ class HelixEngine:
             tag="partial",
         )
         self.broker.submit_order(order)
+
+    def _submit_flatten(self, pos: _ActivePosition, bar_time: datetime, reason: str) -> None:
+        """Submit a next-bar market order for a discretionary full exit."""
+        if pos.qty_open <= 0 or self._pending_flatten_reason:
+            return
+        self.broker.cancel_orders(self.symbol, tag="protective_stop")
+        exit_side = OrderSide.SELL if pos.setup.direction == Direction.LONG else OrderSide.BUY
+        order = SimOrder(
+            order_id=self.broker.next_order_id(),
+            symbol=self.symbol,
+            side=exit_side,
+            order_type=OrderType.MARKET,
+            qty=pos.qty_open,
+            tick_size=self.cfg.tick_size,
+            submit_time=bar_time,
+            ttl_hours=0,
+            tag="flatten",
+        )
+        self.broker.submit_order(order)
+        self._pending_flatten_reason = reason
+
+    def _on_flatten_fill(self, fill: FillResult, bar_time: datetime) -> None:
+        """Handle a queued flatten fill."""
+        pos = self.active_position
+        if pos is None:
+            return
+        reason = self._pending_flatten_reason or "FLATTEN"
+        self._pending_flatten_reason = None
+        self._flatten_position(
+            pos,
+            fill.fill_price,
+            bar_time,
+            reason,
+            exit_commission=fill.commission,
+        )
+
+    def _flatten_at_end_of_data(self, last_price: float, bar_time: datetime) -> None:
+        """Apply market-exit friction at end of data."""
+        pos = self.active_position
+        if pos is None or pos.qty_open <= 0:
+            return
+        exit_side = OrderSide.SELL if pos.setup.direction == Direction.LONG else OrderSide.BUY
+        order = SimOrder(
+            order_id=self.broker.next_order_id(),
+            symbol=self.symbol,
+            side=exit_side,
+            order_type=OrderType.MARKET,
+            qty=pos.qty_open,
+            tick_size=self.cfg.tick_size,
+            submit_time=bar_time,
+            ttl_hours=0,
+            tag="flatten",
+        )
+        fill = self.broker._fill_market(order, bar_time, last_price, self.cfg.tick_size)
+        self._pending_flatten_reason = None
+        self._flatten_position(
+            pos,
+            fill.fill_price,
+            bar_time,
+            "END_OF_DATA",
+            exit_commission=fill.commission,
+        )
+        if self.equity_curve:
+            self.equity_curve[-1] = self.equity
+        else:
+            self.equity_curve.append(self.equity)
+            self.timestamps.append(np.datetime64(bar_time))
 
     def _try_add(self, pos: _ActivePosition, bar_time: datetime) -> None:
         """Detect and place add-on entry (spec s15.2) — original structural version."""
@@ -1589,6 +1666,8 @@ class HelixEngine:
         exit_price: float,
         bar_time: datetime,
         reason: str,
+        *,
+        exit_commission: float | None = None,
     ) -> None:
         """Flatten entire position at the given price."""
         setup = pos.setup
@@ -1600,7 +1679,8 @@ class HelixEngine:
             pnl_points = pos.fill_price - exit_price
 
         # Compute exit commission for remaining open qty
-        exit_commission = self.broker._compute_commission(pos.qty_open)
+        if exit_commission is None:
+            exit_commission = self.broker._compute_commission(pos.qty_open)
         self.total_commission += exit_commission
         pos.commission += exit_commission
 
@@ -1655,6 +1735,7 @@ class HelixEngine:
         self._update_circuit_breaker(r_multiple, bar_time)
 
         # Cancel all remaining orders
+        self._pending_flatten_reason = None
         self.broker.cancel_all(self.symbol)
         self.active_position = None
 

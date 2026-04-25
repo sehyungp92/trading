@@ -5,13 +5,17 @@ to update their health state in the database.
 """
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Iterable, Mapping, Optional
 
 from ..oms.persistence.postgres import PgStore
 from ..oms.persistence.schema import StrategyStateRow, AdapterStateRow
+
+logger = logging.getLogger(__name__)
 
 
 class HeartbeatService:
@@ -94,3 +98,46 @@ async def emit_heartbeat(
         daily_pnl_r=Decimal(str(daily_pnl_r)),
         last_decision_code=decision_code,
     )
+
+
+async def emit_family_heartbeats(
+    heartbeat: HeartbeatService,
+    family_id: str,
+    strategy_payloads: Iterable[Mapping[str, Any]],
+    adapter_connected: bool | None = None,
+    timeout_s: float = 5.0,
+) -> None:
+    """Emit strategy heartbeats concurrently with bounded per-write latency."""
+    payloads = list(strategy_payloads)
+
+    async def _emit_strategy(payload: Mapping[str, Any]) -> None:
+        sid = str(payload.get("strategy_id", "unknown"))
+        try:
+            await asyncio.wait_for(
+                heartbeat.strategy_heartbeat(**dict(payload)),
+                timeout=timeout_s,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Strategy heartbeat timed out: family=%s strategy=%s", family_id, sid)
+        except Exception:
+            logger.debug(
+                "Strategy heartbeat failed: family=%s strategy=%s",
+                family_id,
+                sid,
+                exc_info=True,
+            )
+
+    if payloads:
+        await asyncio.gather(*(_emit_strategy(payload) for payload in payloads))
+
+    if adapter_connected is None:
+        return
+    try:
+        await asyncio.wait_for(
+            heartbeat.adapter_heartbeat(family_id, connected=adapter_connected),
+            timeout=timeout_s,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("Adapter heartbeat timed out: family=%s", family_id)
+    except Exception:
+        logger.debug("Adapter heartbeat failed: family=%s", family_id, exc_info=True)

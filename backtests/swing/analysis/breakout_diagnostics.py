@@ -9,6 +9,10 @@ from collections import Counter, defaultdict
 import numpy as np
 
 
+def _trade_net_pnl(trade) -> float:
+    return float(trade.pnl_dollars) - float(getattr(trade, "commission", 0.0) or 0.0)
+
+
 # ---------------------------------------------------------------------------
 # 1. Entry type drill-down
 # ---------------------------------------------------------------------------
@@ -35,7 +39,7 @@ def breakout_entry_drilldown(trades: list) -> str:
         count = len(ct)
         wr = np.mean([t.r_multiple > 0 for t in ct]) * 100
         avg_r = np.mean([t.r_multiple for t in ct])
-        pnl = sum(t.pnl_dollars for t in ct)
+        pnl = sum(_trade_net_pnl(t) for t in ct)
         mfe = np.mean([t.mfe_r for t in ct])
         mae = np.mean([t.mae_r for t in ct])
         hold = np.mean([t.bars_held for t in ct])
@@ -50,7 +54,7 @@ def breakout_entry_drilldown(trades: list) -> str:
     count = len(trades)
     wr = np.mean([t.r_multiple > 0 for t in trades]) * 100
     avg_r = np.mean([t.r_multiple for t in trades])
-    pnl = sum(t.pnl_dollars for t in trades)
+    pnl = sum(_trade_net_pnl(t) for t in trades)
     lines.append("  " + "-" * (len(header) - 2))
     lines.append(f"  {'ALL':18s} {count:6d} {wr:5.0f}% {avg_r:+7.3f} {pnl:+10,.0f}")
 
@@ -94,7 +98,7 @@ def breakout_exit_tier_drilldown(trades: list) -> str:
         count = len(ct)
         wr = np.mean([t.r_multiple > 0 for t in ct]) * 100
         avg_r = np.mean([t.r_multiple for t in ct])
-        pnl = sum(t.pnl_dollars for t in ct)
+        pnl = sum(_trade_net_pnl(t) for t in ct)
         tp1_pct = np.mean([t.tp1_done for t in ct]) * 100
         tp2_pct = np.mean([t.tp2_done for t in ct]) * 100
         runner_pct = np.mean([t.runner_active for t in ct]) * 100
@@ -133,7 +137,7 @@ def breakout_regime_breakdown(trades: list) -> str:
         count = len(ct)
         wr = np.mean([t.r_multiple > 0 for t in ct]) * 100
         avg_r = np.mean([t.r_multiple for t in ct])
-        pnl = sum(t.pnl_dollars for t in ct)
+        pnl = sum(_trade_net_pnl(t) for t in ct)
         n_long = sum(1 for t in ct if t.direction == 1)
         n_short = count - n_long
 
@@ -165,7 +169,7 @@ def breakout_exit_reason_breakdown(trades: list) -> str:
         count = len(ct)
         wr = np.mean([t.r_multiple > 0 for t in ct]) * 100
         avg_r = np.mean([t.r_multiple for t in ct])
-        pnl = sum(t.pnl_dollars for t in ct)
+        pnl = sum(_trade_net_pnl(t) for t in ct)
         lines.append(
             f"  {reason:18s} {count:6d} {wr:5.0f}% {avg_r:+7.3f} {pnl:+10,.0f}"
         )
@@ -222,7 +226,7 @@ def breakout_gap_stop_report(trades: list) -> str:
     lines = ["=== Gap-Through-Stop Report ==="]
     lines.append(f"  Count: {len(gap_trades)}")
     lines.append(f"  Avg R: {np.mean([t.r_multiple for t in gap_trades]):+.3f}")
-    lines.append(f"  Total P&L: {sum(t.pnl_dollars for t in gap_trades):+,.0f}")
+    lines.append(f"  Total P&L: {sum(_trade_net_pnl(t) for t in gap_trades):+,.0f}")
 
     slippages = []
     for t in gap_trades:
@@ -283,7 +287,7 @@ def breakout_chop_impact(trades: list) -> str:
         count = len(ct)
         wr = np.mean([t.r_multiple > 0 for t in ct]) * 100
         avg_r = np.mean([t.r_multiple for t in ct])
-        pnl = sum(t.pnl_dollars for t in ct)
+        pnl = sum(_trade_net_pnl(t) for t in ct)
         lines.append(
             f"  {mode:10s}: {count:5d} trades  WR={wr:5.0f}%  avgR={avg_r:+.3f}  P&L={pnl:+,.0f}"
         )
@@ -306,7 +310,7 @@ def breakout_stale_analysis(trades: list) -> str:
     lines.append(f"  Avg R: {np.mean([t.r_multiple for t in stale]):+.3f}")
     lines.append(f"  Avg bars held: {np.mean([t.bars_held for t in stale]):.0f}")
     lines.append(f"  Avg days held: {np.mean([t.days_held for t in stale]):.0f}")
-    lines.append(f"  Total P&L: {sum(t.pnl_dollars for t in stale):+,.0f}")
+    lines.append(f"  Total P&L: {sum(_trade_net_pnl(t) for t in stale):+,.0f}")
 
     return "\n".join(lines)
 
@@ -522,7 +526,7 @@ def breakout_regime_direction_grid(trades: list) -> str:
             n = len(ct)
             wr = np.mean([t.r_multiple > 0 for t in ct]) * 100
             avg_r = np.mean([t.r_multiple for t in ct])
-            pnl = sum(t.pnl_dollars for t in ct)
+            pnl = sum(_trade_net_pnl(t) for t in ct)
             avg_qm = np.mean([t.quality_mult_at_entry for t in ct])
             avg_mfe = np.mean([t.mfe_r for t in ct])
 
@@ -1059,11 +1063,413 @@ def breakout_regime_transition(trades: list) -> str:
 
 
 # ---------------------------------------------------------------------------
+# 22. Monthly returns heatmap
+# ---------------------------------------------------------------------------
+
+def breakout_monthly_returns(trades: list) -> str:
+    """Calendar heatmap of monthly R returns -- reveals edge stability."""
+    if not trades:
+        return "No trades for monthly returns."
+
+    lines = ["=== Monthly Returns (R) ==="]
+
+    # Group trades by year-month
+    monthly: dict[tuple[int, int], list] = defaultdict(list)
+    for t in trades:
+        if t.entry_time is not None:
+            dt = t.entry_time
+            if hasattr(dt, 'year'):
+                monthly[(dt.year, dt.month)].append(t)
+
+    if not monthly:
+        return "=== Monthly Returns (R) ===\n  No trades with timestamps."
+
+    years = sorted(set(y for y, m in monthly))
+    months = range(1, 13)
+    month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+    # Header
+    header = f"  {'Year':>6s}" + "".join(f" {mn:>7s}" for mn in month_names) + f" {'Total':>8s}"
+    lines.append(header)
+    lines.append("  " + "-" * (len(header) - 2))
+
+    year_totals = {}
+    positive_months = 0
+    total_months = 0
+
+    for year in years:
+        cells = []
+        year_r = 0.0
+        for m in months:
+            key = (year, m)
+            if key in monthly:
+                month_r = sum(t.r_multiple for t in monthly[key])
+                n = len(monthly[key])
+                year_r += month_r
+                total_months += 1
+                if month_r > 0:
+                    positive_months += 1
+                cells.append(f"{month_r:+7.2f}")
+            else:
+                cells.append(f"{'--':>7s}")
+        year_totals[year] = year_r
+        lines.append(f"  {year:6d}" + "".join(f" {c}" for c in cells) + f" {year_r:+8.2f}")
+
+    # Summary stats
+    lines.append("")
+    if total_months > 0:
+        lines.append(f"  Positive months: {positive_months}/{total_months} ({100*positive_months/total_months:.0f}%)")
+    all_monthly_r = [sum(t.r_multiple for t in tl) for tl in monthly.values()]
+    if all_monthly_r:
+        lines.append(f"  Best month:  {max(all_monthly_r):+.2f}R")
+        lines.append(f"  Worst month: {min(all_monthly_r):+.2f}R")
+        lines.append(f"  Avg month:   {np.mean(all_monthly_r):+.2f}R")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 23. Rolling edge (trailing N-trade avg R)
+# ---------------------------------------------------------------------------
+
+def breakout_rolling_edge(trades: list) -> str:
+    """Trailing 20/50 trade average R -- detects edge decay or improvement."""
+    if len(trades) < 20:
+        return "=== Rolling Edge ===\n  Fewer than 20 trades -- insufficient for rolling analysis."
+
+    lines = ["=== Rolling Edge (Trailing Avg R) ==="]
+
+    r_vals = np.array([t.r_multiple for t in trades])
+    n = len(r_vals)
+
+    for window in [20, 50]:
+        if n < window:
+            continue
+        rolling = np.convolve(r_vals, np.ones(window) / window, mode='valid')
+        lines.append(f"\n  Trailing {window}-trade avg R:")
+        lines.append(f"    Current:  {rolling[-1]:+.3f}")
+        lines.append(f"    Peak:     {np.max(rolling):+.3f} (trade #{np.argmax(rolling) + window})")
+        lines.append(f"    Trough:   {np.min(rolling):+.3f} (trade #{np.argmin(rolling) + window})")
+        lines.append(f"    Mean:     {np.mean(rolling):+.3f}")
+        lines.append(f"    Std:      {np.std(rolling):.3f}")
+
+        # Is edge currently above or below historical mean?
+        mean_r = np.mean(rolling)
+        std_r = np.std(rolling)
+        current = rolling[-1]
+        if std_r > 0:
+            z = (current - mean_r) / std_r
+            if z < -1.0:
+                lines.append(f"    ** BELOW mean by {abs(z):.1f} sigma -- potential edge decay")
+            elif z > 1.0:
+                lines.append(f"    ** ABOVE mean by {z:.1f} sigma -- edge is strong")
+
+    # First half vs second half comparison
+    mid = n // 2
+    first_half_r = np.mean(r_vals[:mid])
+    second_half_r = np.mean(r_vals[mid:])
+    lines.append(f"\n  Half-split comparison:")
+    lines.append(f"    First half  (trades 1-{mid}):     avg R = {first_half_r:+.3f}")
+    lines.append(f"    Second half (trades {mid+1}-{n}): avg R = {second_half_r:+.3f}")
+    delta = second_half_r - first_half_r
+    lines.append(f"    Delta: {delta:+.3f}")
+    if delta < -0.1:
+        lines.append("    ** Edge appears to be DECAYING over time")
+    elif delta > 0.1:
+        lines.append("    ** Edge appears to be IMPROVING over time")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 24. Cumulative R curve analysis
+# ---------------------------------------------------------------------------
+
+def breakout_r_curve(trades: list) -> str:
+    """Cumulative R curve with drawdown and recovery analysis."""
+    if not trades:
+        return "No trades for R curve analysis."
+
+    lines = ["=== Cumulative R Curve ==="]
+
+    r_vals = [t.r_multiple for t in trades]
+    cum_r = np.cumsum(r_vals)
+    n = len(r_vals)
+
+    lines.append(f"  Total trades: {n}")
+    lines.append(f"  Final R:      {cum_r[-1]:+.2f}")
+    lines.append(f"  Peak R:       {np.max(cum_r):+.2f} (trade #{np.argmax(cum_r) + 1})")
+
+    # R drawdown (peak-to-trough in R-space)
+    running_max = np.maximum.accumulate(cum_r)
+    r_drawdown = cum_r - running_max
+    max_r_dd = np.min(r_drawdown)
+    max_r_dd_idx = np.argmin(r_drawdown)
+
+    lines.append(f"  Max R drawdown: {max_r_dd:+.2f}R (at trade #{max_r_dd_idx + 1})")
+
+    # Find the peak before the max drawdown
+    peak_before = np.argmax(cum_r[:max_r_dd_idx + 1]) if max_r_dd_idx > 0 else 0
+    lines.append(f"    Drawdown from trade #{peak_before + 1} to #{max_r_dd_idx + 1} "
+                 f"({max_r_dd_idx - peak_before} trades)")
+
+    # Recovery: did we recover from max dd?
+    if max_r_dd_idx < n - 1:
+        peak_r = cum_r[peak_before]
+        recovered = False
+        recovery_trade = None
+        for i in range(max_r_dd_idx + 1, n):
+            if cum_r[i] >= peak_r:
+                recovered = True
+                recovery_trade = i + 1
+                break
+        if recovered:
+            lines.append(f"    Recovery at trade #{recovery_trade} "
+                         f"({recovery_trade - max_r_dd_idx - 1} trades to recover)")
+        else:
+            lines.append(f"    ** Not yet recovered from max drawdown")
+
+    # R per trade by quintile (shows if big wins cluster)
+    quintile_size = n // 5
+    if quintile_size > 0:
+        lines.append(f"\n  R by chronological quintile:")
+        for q in range(5):
+            start = q * quintile_size
+            end = start + quintile_size if q < 4 else n
+            q_r = sum(r_vals[start:end])
+            q_avg = np.mean(r_vals[start:end])
+            lines.append(f"    Q{q+1} (trades {start+1}-{end}): {q_r:+.2f}R total, {q_avg:+.3f} avg")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 25. Crisis window analysis
+# ---------------------------------------------------------------------------
+
+def breakout_crisis_window_analysis(trades: list) -> str:
+    """Performance during known market stress periods."""
+    if not trades:
+        return "No trades for crisis window analysis."
+
+    from datetime import datetime as dt
+
+    CRISIS_WINDOWS = [
+        ("2022 Bear Market", dt(2022, 1, 3), dt(2022, 10, 13)),
+        ("SVB Collapse", dt(2023, 3, 8), dt(2023, 3, 15)),
+        ("Aug 2024 Unwind", dt(2024, 8, 1), dt(2024, 8, 5)),
+        ("Tariff Shock", dt(2025, 2, 1), dt(2025, 4, 30)),
+    ]
+
+    lines = ["=== Crisis Window Analysis ==="]
+
+    for name, start, end in CRISIS_WINDOWS:
+        crisis_trades = []
+        for t in trades:
+            if t.entry_time is None:
+                continue
+            entry = t.entry_time
+            if hasattr(entry, 'replace'):
+                entry = entry.replace(tzinfo=None)
+            if start <= entry <= end:
+                crisis_trades.append(t)
+
+        if not crisis_trades:
+            lines.append(f"\n  {name} ({start.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')}): no trades")
+            continue
+
+        n = len(crisis_trades)
+        total_r = sum(t.r_multiple for t in crisis_trades)
+        wr = np.mean([t.r_multiple > 0 for t in crisis_trades]) * 100
+        avg_r = np.mean([t.r_multiple for t in crisis_trades])
+        pnl = sum(_trade_net_pnl(t) for t in crisis_trades)
+
+        lines.append(f"\n  {name} ({start.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')}):")
+        lines.append(f"    Trades: {n}  WR: {wr:.0f}%  Avg R: {avg_r:+.3f}  "
+                     f"Total R: {total_r:+.2f}  PnL: ${pnl:+,.0f}")
+
+        # Direction breakdown
+        longs = [t for t in crisis_trades if t.direction == 1]
+        shorts = [t for t in crisis_trades if t.direction == -1]
+        if longs:
+            lines.append(f"    Longs:  {len(longs)} trades, avgR={np.mean([t.r_multiple for t in longs]):+.3f}")
+        if shorts:
+            lines.append(f"    Shorts: {len(shorts)} trades, avgR={np.mean([t.r_multiple for t in shorts]):+.3f}")
+
+    # Non-crisis performance for comparison
+    all_crisis_trades = set()
+    for name, start, end in CRISIS_WINDOWS:
+        for t in trades:
+            if t.entry_time is None:
+                continue
+            entry = t.entry_time
+            if hasattr(entry, 'replace'):
+                entry = entry.replace(tzinfo=None)
+            if start <= entry <= end:
+                all_crisis_trades.add(id(t))
+
+    normal_trades = [t for t in trades if id(t) not in all_crisis_trades]
+    if normal_trades and all_crisis_trades:
+        lines.append(f"\n  Normal periods: {len(normal_trades)} trades  "
+                     f"avgR={np.mean([t.r_multiple for t in normal_trades]):+.3f}")
+        lines.append(f"  Crisis periods: {len(all_crisis_trades)} trades  "
+                     f"avgR={np.mean([t.r_multiple for t in trades if id(t) in all_crisis_trades]):+.3f}")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 26. Profit concentration
+# ---------------------------------------------------------------------------
+
+def breakout_profit_concentration(trades: list) -> str:
+    """Measure dependency on outlier winners -- fragility indicator."""
+    if not trades:
+        return "No trades for profit concentration."
+
+    lines = ["=== Profit Concentration ==="]
+
+    r_vals = sorted([t.r_multiple for t in trades], reverse=True)
+    total_r = sum(r_vals)
+    n = len(r_vals)
+
+    if total_r <= 0:
+        lines.append("  Total R is non-positive -- no profit to concentrate.")
+        return "\n".join(lines)
+
+    # Top N% contribution
+    for pct in [5, 10, 20]:
+        top_n = max(1, n * pct // 100)
+        top_r = sum(r_vals[:top_n])
+        lines.append(f"  Top {pct:2d}% ({top_n:3d} trades): {top_r:+.2f}R = {100*top_r/total_r:.0f}% of total profit")
+
+    # Gini coefficient of positive R trades
+    winners = sorted([t.r_multiple for t in trades if t.r_multiple > 0])
+    if len(winners) >= 2:
+        n_w = len(winners)
+        cum = np.cumsum(winners)
+        gini = 1 - 2 * np.sum(cum) / (n_w * cum[-1]) + 1 / n_w
+        lines.append(f"\n  Winner Gini coefficient: {gini:.3f}")
+        if gini > 0.5:
+            lines.append("    ** HIGH concentration -- profits depend on few large winners")
+        elif gini < 0.3:
+            lines.append("    ** LOW concentration -- profits well distributed")
+
+    # Single trade dependency
+    best_trade_r = max(t.r_multiple for t in trades)
+    lines.append(f"\n  Best single trade: {best_trade_r:+.2f}R ({100*best_trade_r/total_r:.0f}% of total)")
+    worst_trade_r = min(t.r_multiple for t in trades)
+    lines.append(f"  Worst single trade: {worst_trade_r:+.2f}R")
+
+    # What if we remove the best 3 trades?
+    if n > 3:
+        r_without_best3 = sum(r_vals[3:])
+        lines.append(f"\n  Without best 3 trades: {r_without_best3:+.2f}R "
+                     f"({100*r_without_best3/total_r:.0f}% of total)")
+        if r_without_best3 <= 0:
+            lines.append("    ** FRAGILE -- strategy is unprofitable without top 3 trades")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 27. Exit efficiency (MFE capture)
+# ---------------------------------------------------------------------------
+
+def breakout_exit_efficiency(trades: list) -> str:
+    """Measure how much of MFE (peak favorable excursion) is captured at exit."""
+    if not trades:
+        return "No trades for exit efficiency."
+
+    lines = ["=== Exit Efficiency (MFE Capture) ==="]
+
+    # MFE capture ratio: exit R / MFE R (1.0 = perfect, 0 = gave it all back)
+    trades_with_mfe = [t for t in trades if t.mfe_r > 0]
+    if not trades_with_mfe:
+        lines.append("  No trades with positive MFE.")
+        return "\n".join(lines)
+
+    capture_ratios = [t.r_multiple / t.mfe_r for t in trades_with_mfe]
+    # Clamp to [-2, 1] for stats (avoid extreme outliers from tiny MFE)
+    capture_clamped = [max(-2.0, min(1.0, c)) for c in capture_ratios]
+
+    lines.append(f"  Trades with MFE > 0: {len(trades_with_mfe)}")
+    lines.append(f"  Mean capture ratio:  {np.mean(capture_clamped):.3f}")
+    lines.append(f"  Median capture:      {np.median(capture_clamped):.3f}")
+
+    # Breakdown by outcome
+    winners = [t for t in trades_with_mfe if t.r_multiple > 0]
+    losers = [t for t in trades_with_mfe if t.r_multiple <= 0]
+
+    if winners:
+        w_capture = [t.r_multiple / t.mfe_r for t in winners]
+        lines.append(f"\n  Winners ({len(winners)}):  mean capture = {np.mean(w_capture):.3f}")
+    if losers:
+        l_capture = [t.r_multiple / t.mfe_r for t in losers]
+        lines.append(f"  Losers  ({len(losers)}):  mean capture = {np.mean(l_capture):.3f}")
+
+    # By MFE bucket
+    lines.append(f"\n  Capture by MFE bucket:")
+    header = f"    {'MFE Range':14s} {'N':>5s} {'AvgCapture':>11s} {'AvgR':>7s} {'AvgMFE':>7s} {'WR':>5s}"
+    lines.append(header)
+    lines.append("    " + "-" * (len(header) - 4))
+
+    buckets = [
+        ("0.0 - 0.5R", 0.0, 0.5),
+        ("0.5 - 1.0R", 0.5, 1.0),
+        ("1.0 - 2.0R", 1.0, 2.0),
+        ("2.0 - 3.0R", 2.0, 3.0),
+        ("3.0R+", 3.0, float("inf")),
+    ]
+
+    for label, lo, hi in buckets:
+        bucket = [t for t in trades_with_mfe if lo <= t.mfe_r < hi]
+        if not bucket:
+            continue
+        n = len(bucket)
+        caps = [max(-2.0, min(1.0, t.r_multiple / t.mfe_r)) for t in bucket]
+        avg_r = np.mean([t.r_multiple for t in bucket])
+        avg_mfe = np.mean([t.mfe_r for t in bucket])
+        wr = 100 * np.mean([t.r_multiple > 0 for t in bucket])
+        lines.append(f"    {label:14s} {n:5d} {np.mean(caps):11.3f} {avg_r:+7.3f} {avg_mfe:7.2f} {wr:4.0f}%")
+
+    # By exit tier
+    tiers = sorted(set(t.exit_tier for t in trades_with_mfe if t.exit_tier))
+    if tiers:
+        lines.append(f"\n  Capture by exit tier:")
+        for tier in tiers:
+            tier_trades = [t for t in trades_with_mfe if t.exit_tier == tier]
+            if tier_trades:
+                caps = [max(-2.0, min(1.0, t.r_multiple / t.mfe_r)) for t in tier_trades]
+                lines.append(f"    {tier:10s}: n={len(tier_trades):4d}  capture={np.mean(caps):.3f}")
+
+    # By entry type
+    etypes = sorted(set(t.entry_type for t in trades_with_mfe))
+    if etypes:
+        lines.append(f"\n  Capture by entry type:")
+        for et in etypes:
+            et_trades = [t for t in trades_with_mfe if t.entry_type == et]
+            if et_trades:
+                caps = [max(-2.0, min(1.0, t.r_multiple / t.mfe_r)) for t in et_trades]
+                lines.append(f"    {et:18s}: n={len(et_trades):4d}  capture={np.mean(caps):.3f}")
+
+    # Actionable insight
+    overall_capture = np.mean(capture_clamped)
+    if overall_capture < 0.3:
+        lines.append("\n  ** LOW capture (<0.3) -- exits are leaving significant profit on the table")
+    elif overall_capture > 0.6:
+        lines.append("\n  ** HIGH capture (>0.6) -- exit management is strong")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Combined report
 # ---------------------------------------------------------------------------
 
 def breakout_full_diagnostic(trades: list) -> str:
-    """Generate full breakout diagnostic report."""
+    """Generate full breakout diagnostic report (27 sections)."""
     sections = [
         breakout_entry_drilldown(trades),
         breakout_exit_tier_drilldown(trades),
@@ -1086,5 +1492,12 @@ def breakout_full_diagnostic(trades: list) -> str:
         breakout_partial_timing_analysis(trades),
         breakout_stop_evolution(trades),
         breakout_regime_transition(trades),
+        # Advanced diagnostics (22-27)
+        breakout_monthly_returns(trades),
+        breakout_rolling_edge(trades),
+        breakout_r_curve(trades),
+        breakout_crisis_window_analysis(trades),
+        breakout_profit_concentration(trades),
+        breakout_exit_efficiency(trades),
     ]
     return "\n\n".join(sections)

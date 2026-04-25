@@ -174,6 +174,24 @@ class ATRSSEngine:
         self._event_queue: asyncio.Queue | None = None
         self._running = False
 
+        # Diagnostic pulse state
+        self._last_decision_code: str = "IDLE"
+        self._last_decision_details: dict = {}
+        self._last_bar_ts: datetime | None = None
+
+    def _record_decision(self, code: str, details: dict | None = None) -> None:
+        self._last_decision_code = code
+        self._last_decision_details = details or {}
+
+    def health_status(self) -> dict:
+        return {
+            "strategy_id": STRATEGY_ID,
+            "running": self._running,
+            "last_decision_code": self._last_decision_code,
+            "last_decision_details": self._last_decision_details,
+            "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
+        }
+
     # ------------------------------------------------------------------
     # Signal evolution tracking (for TA alpha decay detector)
     # ------------------------------------------------------------------
@@ -321,6 +339,7 @@ class ATRSSEngine:
         """Execute the 10-step hourly cycle per spec."""
         now = datetime.now(timezone.utc)
         logger.info("=== Hourly cycle %s ===", now.isoformat())
+        self._last_bar_ts = datetime.now(timezone.utc)
 
         # Refresh equity from broker before allocation
         await self._refresh_equity()
@@ -369,6 +388,16 @@ class ATRSSEngine:
 
             for cand in accepted:
                 await self._submit_entry(cand)
+
+        has_positions = any(
+            pos.direction != Direction.FLAT for pos in self.positions.values()
+        )
+        if not all_candidates and not has_positions:
+            self._record_decision("NO_SIGNAL", {"symbols": list(self._config.keys())})
+        elif has_positions and not all_candidates:
+            self._record_decision("MANAGING_POSITION", {
+                "position_count": sum(1 for p in self.positions.values() if p.direction != Direction.FLAT),
+            })
 
         # Hook 1: Market snapshot + regime classification (post-decision, never affects trading)
         if self._kit:
@@ -1196,6 +1225,12 @@ class ATRSSEngine:
 
         receipt = await self._oms.submit_intent(intent)
         if receipt.oms_order_id:
+            self._record_decision("ENTRY_SUBMITTED", {
+                "symbol": candidate.symbol,
+                "type": candidate.type.value,
+                "qty": candidate.qty,
+                "oms_order_id": receipt.oms_order_id,
+            })
             daily = self.daily_states.get(candidate.symbol)
             hourly = self.hourly_states.get(candidate.symbol)
             cfg_snap = self._config.get(candidate.symbol)
@@ -1254,6 +1289,12 @@ class ATRSSEngine:
                     requested_price=candidate.trigger_price,
                     strategy_id=STRATEGY_ID,
                 )
+        else:
+            self._record_decision("ENTRY_DENIED", {
+                "symbol": candidate.symbol,
+                "type": candidate.type.value,
+                "reason": "oms_rejected",
+            })
 
     async def _submit_addon_a(
         self,
@@ -2175,7 +2216,9 @@ class ATRSSEngine:
         for sym in self._config:
             try:
                 cfg = self._config[sym]
-                closes_d, highs_d, lows_d, last_daily_date = await self._fetch_daily_bars(sym, cfg)
+                closes_d, highs_d, lows_d, last_daily_date = await self._fetch_daily_bars(
+                    sym, cfg, request_kind="startup",
+                )
                 if closes_d is not None:
                     daily = compute_daily_state(closes_d, highs_d, lows_d, None, cfg, last_daily_date)
                     self.daily_states[sym] = daily
@@ -2188,7 +2231,7 @@ class ATRSSEngine:
                 logger.exception("Error loading initial bars for %s", sym)
 
     async def _fetch_daily_bars(
-        self, sym: str, cfg: SymbolConfig
+        self, sym: str, cfg: SymbolConfig, request_kind: str = "recurring",
     ) -> tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None, str | None]:
         """Fetch daily historical bars from IB.
 
@@ -2199,7 +2242,7 @@ class ATRSSEngine:
             if contract is None:
                 return None, None, None, None
 
-            bars = await self._ib.ib.reqHistoricalDataAsync(
+            bars = await self._ib.req_historical_data(
                 contract,
                 endDateTime="",
                 durationStr="200 D",
@@ -2207,6 +2250,7 @@ class ATRSSEngine:
                 whatToShow="TRADES",
                 useRTH=True,
                 formatDate=1,
+                request_kind=request_kind,
             )
             if not bars:
                 return None, None, None, None
@@ -2229,7 +2273,7 @@ class ATRSSEngine:
             return None, None, None, None
 
     async def _fetch_hourly_bars(
-        self, sym: str, cfg: SymbolConfig
+        self, sym: str, cfg: SymbolConfig, request_kind: str = "recurring",
     ) -> tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None, np.ndarray | None]:
         """Fetch hourly historical bars from IB. Returns (closes, highs, lows, opens)."""
         try:
@@ -2237,7 +2281,7 @@ class ATRSSEngine:
             if contract is None:
                 return None, None, None, None
 
-            bars = await self._ib.ib.reqHistoricalDataAsync(
+            bars = await self._ib.req_historical_data(
                 contract,
                 endDateTime="",
                 durationStr="10 D",
@@ -2245,6 +2289,7 @@ class ATRSSEngine:
                 whatToShow="TRADES",
                 useRTH=True,
                 formatDate=1,
+                request_kind=request_kind,
             )
             if not bars:
                 return None, None, None, None

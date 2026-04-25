@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Awaitable, Callable, Optional
 
 logger = logging.getLogger("instrumentation.ibkr_provider")
 
@@ -29,10 +29,17 @@ class IBKRHistoricalProvider:
         candles = provider.get_ohlcv("QQQ", "5m", since_ms, 300)
     """
 
-    def __init__(self, ib, contract_factory, loop: asyncio.AbstractEventLoop):
+    def __init__(
+        self,
+        ib,
+        contract_factory,
+        loop: asyncio.AbstractEventLoop,
+        historical_requester: Callable[..., Awaitable[object]] | None = None,
+    ):
         self._ib = ib
         self._factory = contract_factory
         self._loop = loop
+        self._historical_requester = historical_requester
         self._contract_cache: dict[str, object] = {}
 
     def get_price_at(self, symbol: str, timestamp: datetime) -> Optional[float]:
@@ -98,7 +105,7 @@ class IBKRHistoricalProvider:
 
         end_dt = timestamp.strftime("%Y%m%d %H:%M:%S") + " UTC"
 
-        bars = await self._ib.reqHistoricalDataAsync(
+        bars = await self._request_historical_data(
             contract,
             endDateTime=end_dt,
             durationStr="3600 S",
@@ -145,7 +152,7 @@ class IBKRHistoricalProvider:
             end_dt = ""
             duration_str = f"{limit * 5 * 60} S"
 
-        bars = await self._ib.reqHistoricalDataAsync(
+        bars = await self._request_historical_data(
             contract,
             endDateTime=end_dt,
             durationStr=duration_str,
@@ -171,3 +178,13 @@ class IBKRHistoricalProvider:
             ]
             for bar in bars
         ]
+
+    async def _request_historical_data(self, contract, **kwargs):
+        if self._historical_requester is not None:
+            return await self._historical_requester(
+                contract,
+                request_kind="backfill",
+                **kwargs,
+            )
+        # Raw IB fallback for standalone instrumentation tools/tests.
+        return await self._ib.reqHistoricalDataAsync(contract, timeout=45, **kwargs)

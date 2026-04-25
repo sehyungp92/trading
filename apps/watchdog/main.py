@@ -17,6 +17,7 @@ from .alerts import TelegramAlerter, format_alert, format_startup_summary
 from .checks import (
     check_adapters,
     check_daily_pnl,
+    check_data_freshness,
     check_errors,
     check_halts,
     check_heartbeats,
@@ -84,6 +85,10 @@ async def _run_cycle(
         tasks.append(asyncio.create_task(check_relay(session, config)))
     if checks_cfg.get("errors", {}).get("enabled"):
         tasks.append(asyncio.create_task(check_errors(pool, config)))
+    if checks_cfg.get("data_freshness", {}).get("enabled"):
+        tasks.append(asyncio.create_task(
+            check_data_freshness(pool, config, active_families, strategy_family_map)
+        ))
 
     if not tasks:
         logger.warning("No checks enabled")

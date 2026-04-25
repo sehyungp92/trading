@@ -236,6 +236,24 @@ class VdubNQv4Engine:
         self._event_queue: asyncio.Queue | None = None
         self._running = False
 
+        # Diagnostic pulse state
+        self._last_decision_code: str = "IDLE"
+        self._last_decision_details: dict = {}
+        self._last_bar_ts: datetime | None = None
+
+    def _record_decision(self, code: str, details: dict | None = None) -> None:
+        self._last_decision_code = code
+        self._last_decision_details = details or {}
+
+    def health_status(self) -> dict:
+        return {
+            "strategy_id": C.STRATEGY_ID,
+            "running": self._running,
+            "last_decision_code": self._last_decision_code,
+            "last_decision_details": self._last_decision_details,
+            "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
+        }
+
     # ------------------------------------------------------------------
     # Signal evolution (M2)
     # ------------------------------------------------------------------
@@ -431,13 +449,14 @@ class VdubNQv4Engine:
 
     async def _on_15m_close(self) -> None:
         now = datetime.now(timezone.utc)
+        self._last_bar_ts = now
         self._bar_idx += 1
         logger.info("=== 15m bar %d  %s ===", self._bar_idx, now.isoformat())
 
         self._check_daily_reset(now)
         await self._refresh_equity()
         self._throttle.update_equity(self._equity)
-        await self._fetch_bars()
+        await self._fetch_bars(request_kind="startup")
         self._update_indicators()
         self._update_regime()
         self._signal_ring.append(self._snapshot_signal_state())
@@ -536,19 +555,23 @@ class VdubNQv4Engine:
         self._last_session_window = session_name
 
         if session == SessionWindow.BLOCKED:
+            self._record_decision("OUTSIDE_RTH", {"session": "BLOCKED"})
             return
 
         # Event gate (Section 6)
         self._update_event_state(now)
         if not self.event_state.rearmed:
+            self._record_decision("SIGNAL_FILTERED", {"reason": "event_block"})
             return
 
         if self.regime.vol_state == VolState.SHOCK:
+            self._record_decision("SIGNAL_FILTERED", {"reason": "vol_shock"})
             await self._shock_tighten_all()
             return
 
         # Drawdown throttle: daily loss cap halt
         if self._throttle.daily_halted:
+            self._record_decision("CIRCUIT_BREAKER", {"reason": "daily_loss_cap_halt"})
             return
 
         for direction in (Direction.LONG, Direction.SHORT):
@@ -762,6 +785,7 @@ class VdubNQv4Engine:
                 )
                 signal_type = EntryType.TYPE_B
         if signal is None:
+            self._record_decision("NO_SIGNAL", {"direction": direction.name, "session": session.value})
             return
 
         _sig_id = f"{signal_type.value}_{direction.name}_{self._bar_idx}"
@@ -867,6 +891,10 @@ class VdubNQv4Engine:
             return
 
         # Submit entry order
+        self._record_decision("ENTRY_SUBMITTED", {
+            "direction": direction.name, "signal_type": signal_type.value,
+            "qty": qty, "is_pyramid": is_pyramid,
+        })
         await self._submit_entry(
             direction, qty, stop_entry, limit_entry, initial_stop,
             signal_type, is_flip, is_pyramid, class_mult, vwap_used,
@@ -1766,7 +1794,7 @@ class VdubNQv4Engine:
             len(self._pivots_1h),
         )
 
-    async def _fetch_bars(self) -> None:
+    async def _fetch_bars(self, request_kind: str = "recurring") -> None:
         if not self._ib.ib.isConnected():
             if not getattr(self, '_fetch_disconn_logged', False):
                 logger.warning("Skipping bar fetch — IB not connected")
@@ -1780,7 +1808,7 @@ class VdubNQv4Engine:
                 await self._ib.ib.qualifyContractsAsync(c)
 
         # 15m NQ
-        bars = await self._req_bars(nq, "30 D", "15 mins")
+        bars = await self._req_bars(nq, "30 D", "15 mins", request_kind=request_kind)
         if bars:
             self._c15 = np.array([b.close for b in bars], dtype=float)
             self._h15 = np.array([b.high for b in bars], dtype=float)
@@ -1789,7 +1817,7 @@ class VdubNQv4Engine:
             self._t15 = [getattr(b, 'date', datetime.now(timezone.utc)) for b in bars]
 
         # 1H NQ
-        bars = await self._req_bars(nq, "120 D", "1 hour")
+        bars = await self._req_bars(nq, "120 D", "1 hour", request_kind=request_kind)
         if bars:
             self._c1h = np.array([b.close for b in bars], dtype=float)
             self._h1h = np.array([b.high for b in bars], dtype=float)
@@ -1798,14 +1826,14 @@ class VdubNQv4Engine:
             self._t1h = [getattr(b, 'date', datetime.now(timezone.utc)) for b in bars]
 
         # Daily ES (regime)
-        bars = await self._req_bars(es, "2 Y", "1 day", use_rth=True)
+        bars = await self._req_bars(es, "2 Y", "1 day", use_rth=True, request_kind=request_kind)
         if bars:
             self._es_c = np.array([b.close for b in bars], dtype=float)
             self._es_h = np.array([b.high for b in bars], dtype=float)
             self._es_l = np.array([b.low for b in bars], dtype=float)
 
         # Daily NQ (VWAP-A anchor pivots)
-        bars = await self._req_bars(nq, "200 D", "1 day", use_rth=True)
+        bars = await self._req_bars(nq, "200 D", "1 day", use_rth=True, request_kind=request_kind)
         if bars:
             nq_d_h = np.array([b.high for b in bars], dtype=float)
             nq_d_l = np.array([b.low for b in bars], dtype=float)
@@ -1814,14 +1842,15 @@ class VdubNQv4Engine:
 
     async def _req_bars(
         self, contract: Any, duration: str, bar_size: str, use_rth: bool = False,
+        request_kind: str = "recurring",
     ) -> list | None:
         if contract is None:
             return None
         try:
-            bars = await self._ib.ib.reqHistoricalDataAsync(
+            bars = await self._ib.req_historical_data(
                 contract, endDateTime="", durationStr=duration,
                 barSizeSetting=bar_size, whatToShow="TRADES",
-                useRTH=use_rth, formatDate=1,
+                useRTH=use_rth, formatDate=1, request_kind=request_kind,
             )
             return bars if bars else None
         except Exception:

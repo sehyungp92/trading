@@ -29,6 +29,7 @@ from backtest.data.preprocessing import (
     resample_1h_to_4h,
 )
 from backtest.engine.helix_engine import HelixEngine, HelixSymbolResult
+from backtest.engine.helix_engine import _AblationPatch
 
 logger = logging.getLogger(__name__)
 
@@ -231,37 +232,55 @@ def run_helix_synchronized(
 
     from strategy_2.config import PORTFOLIO_CAP_R
 
-    for ts in unified_ts:
+    with _AblationPatch(bt_config.flags, bt_config.param_overrides):
         for sym, engine in engines.items():
-            bar_idx = time_sets[sym].get(ts)
-            if bar_idx is None:
+            engine._precompute_indicators(data.hourly[sym], data.four_hour[sym])
+
+        for ts in unified_ts:
+            for sym, engine in engines.items():
+                bar_idx = time_sets[sym].get(ts)
+                if bar_idx is None:
+                    continue
+
+                engine.sizing_equity = portfolio_equity
+                engine._step_bar(
+                    data.daily[sym], data.hourly[sym], data.four_hour[sym],
+                    data.daily_idx_maps[sym], data.four_hour_idx_maps[sym],
+                    bar_idx,
+                    bt_config.warmup_daily, bt_config.warmup_hourly,
+                )
+
+            # Portfolio equity from per-symbol deltas
+            for sym, eng in engines.items():
+                delta = eng.equity - prev_sym_equity[sym]
+                portfolio_equity += delta
+                prev_sym_equity[sym] = eng.equity
+            equity_curve.append(portfolio_equity)
+            timestamps.append(ts)
+
+            # Track heat
+            total_heat = 0.0
+            for sym, eng in engines.items():
+                pos = eng.active_position
+                if pos is not None and pos.qty_open > 0:
+                    risk_dollars = abs(pos.fill_price - pos.current_stop) * _get_point_value(sym) * pos.qty_open
+                    total_heat += risk_dollars
+            heat_pct = total_heat / portfolio_equity if portfolio_equity > 0 else 0.0
+            heat_samples.append(heat_pct)
+
+        for sym, engine in engines.items():
+            if engine.active_position is None:
                 continue
-
-            engine.sizing_equity = portfolio_equity
-            engine._step_bar(
-                data.daily[sym], data.hourly[sym], data.four_hour[sym],
-                data.daily_idx_maps[sym], data.four_hour_idx_maps[sym],
-                bar_idx,
-                bt_config.warmup_daily, bt_config.warmup_hourly,
+            hourly = data.hourly[sym]
+            engine._flatten_at_end_of_data(
+                hourly.closes[-1],
+                engine._to_datetime(hourly.times[-1]),
             )
-
-        # Portfolio equity from per-symbol deltas
-        for sym, eng in engines.items():
-            delta = eng.equity - prev_sym_equity[sym]
+            delta = engine.equity - prev_sym_equity[sym]
             portfolio_equity += delta
-            prev_sym_equity[sym] = eng.equity
-        equity_curve.append(portfolio_equity)
-        timestamps.append(ts)
-
-        # Track heat
-        total_heat = 0.0
-        for sym, eng in engines.items():
-            pos = eng.active_position
-            if pos is not None and pos.qty_open > 0:
-                risk_dollars = abs(pos.fill_price - pos.current_stop) * _get_point_value(sym) * pos.qty_open
-                total_heat += risk_dollars
-        heat_pct = total_heat / portfolio_equity if portfolio_equity > 0 else 0.0
-        heat_samples.append(heat_pct)
+            prev_sym_equity[sym] = engine.equity
+        if equity_curve:
+            equity_curve[-1] = portfolio_equity
 
     # Compute heat stats
     heat_arr = np.array(heat_samples) if heat_samples else np.array([0.0])

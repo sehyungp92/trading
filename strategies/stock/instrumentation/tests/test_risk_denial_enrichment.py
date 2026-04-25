@@ -36,7 +36,7 @@ def test_handle_risk_denial_uses_enriched_payload():
 def test_handle_risk_denial_fallback_without_enrichment():
     """RISK_DENIAL without enriched payload should use defaults."""
     oms = MagicMock()
-    mgr = InstrumentationManager(oms, "test_strat", "strategy_orb")
+    mgr = InstrumentationManager(oms, "test_strat", "strategy_alcb")
     mgr.missed_logger = MagicMock()
 
     event = MagicMock()
@@ -49,5 +49,5 @@ def test_handle_risk_denial_fallback_without_enrichment():
     kwargs = mgr.missed_logger.log_missed.call_args[1]
     assert kwargs["pair"] == "SPY"  # falls back to stock_trader proxy defaults
     assert kwargs["side"] == "UNKNOWN"  # no enrichment
-    assert kwargs["signal"] == "risk_denial_test_strat"  # generated name
+    assert kwargs["signal"] == "risk_denial_stock_trader"  # generated name
     assert kwargs["signal_strength"] == 0.0

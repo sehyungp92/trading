@@ -78,14 +78,13 @@ class TestCaptureConcurrentPositions:
         asyncio.run(
             capture_concurrent_positions(
                 mock_pg_store, "stock", "IARIC_v1", "AAPL",
-                ["IARIC_v1", "US_ORB_v1", "ALCB_v1"],
+                ["IARIC_v1", "ALCB_v1"],
             )
         )
         call_args = mock_pg_store.fetch.call_args
         # Second positional arg is the sibling list (excluding current)
         siblings_passed = call_args[0][1]
         assert "IARIC_v1" not in siblings_passed
-        assert "US_ORB_v1" in siblings_passed
         assert "ALCB_v1" in siblings_passed
 
 

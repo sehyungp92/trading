@@ -377,6 +377,10 @@ SELECT
     mode,
     last_heartbeat_ts,
     EXTRACT(EPOCH FROM (now() - last_heartbeat_ts)) AS heartbeat_age_sec,
+    last_decision_code,
+    last_decision_details,
+    last_seen_bar_ts,
+    EXTRACT(EPOCH FROM (now() - last_seen_bar_ts)) AS bar_age_sec,
     CASE
         WHEN EXTRACT(EPOCH FROM (now() - last_heartbeat_ts)) > 120 THEN 'STALE'
         WHEN mode != 'RUNNING' THEN mode
@@ -998,8 +1002,16 @@ class PgStore:
                 last_heartbeat_ts = EXCLUDED.last_heartbeat_ts,
                 mode = EXCLUDED.mode,
                 stand_down_reason = EXCLUDED.stand_down_reason,
-                last_decision_code = EXCLUDED.last_decision_code,
-                last_decision_details = EXCLUDED.last_decision_details,
+                last_decision_code = COALESCE(
+                    NULLIF(EXCLUDED.last_decision_code, ''),
+                    strategy_state.last_decision_code
+                ),
+                last_decision_details = CASE
+                    WHEN NULLIF(EXCLUDED.last_decision_code, '') IS NOT NULL
+                         OR EXCLUDED.last_decision_details IS DISTINCT FROM '{}'::jsonb
+                    THEN EXCLUDED.last_decision_details
+                    ELSE strategy_state.last_decision_details
+                END,
                 last_error_ts = EXCLUDED.last_error_ts,
                 last_error = EXCLUDED.last_error,
                 last_seen_bar_ts = EXCLUDED.last_seen_bar_ts,
@@ -1018,6 +1030,34 @@ class PgStore:
             row.last_seen_bar_ts,
             row.heat_r,
             row.daily_pnl_r,
+        )
+
+    async def record_strategy_decision(
+        self,
+        strategy_id: str,
+        decision_code: str,
+        details: Optional[dict] = None,
+        last_seen_bar_ts: Optional[datetime] = None,
+    ) -> None:
+        if not decision_code:
+            return
+        await self._pool.execute(
+            """
+            INSERT INTO strategy_state
+                (strategy_id, last_decision_code, last_decision_details, last_seen_bar_ts)
+            VALUES ($1, $2, $3::jsonb, $4)
+            ON CONFLICT (strategy_id) DO UPDATE SET
+                last_decision_code = EXCLUDED.last_decision_code,
+                last_decision_details = EXCLUDED.last_decision_details,
+                last_seen_bar_ts = COALESCE(
+                    EXCLUDED.last_seen_bar_ts,
+                    strategy_state.last_seen_bar_ts
+                )
+            """,
+            strategy_id,
+            decision_code,
+            json.dumps(details or {}, default=str),
+            last_seen_bar_ts,
         )
 
     async def get_strategy_states(self) -> list[StrategyStateRow]:

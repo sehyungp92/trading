@@ -6,6 +6,10 @@ from typing import Any
 from .scoring import NQDTCMetrics
 
 
+def _net_trade_pnl(trade: Any) -> float:
+    return float(getattr(trade, "pnl_dollars", 0.0) or 0.0) - float(getattr(trade, "commission", 0.0) or 0.0)
+
+
 def generate_phase_diagnostics(
     phase: int,
     metrics: NQDTCMetrics,
@@ -117,7 +121,7 @@ def _session_direction_breakdown(lines: list[str], trades: list) -> None:
         wins = sum(1 for t in group if t.r_multiple > 0)
         wr = wins / count if count else 0
         avg_r = sum(t.r_multiple for t in group) / count if count else 0
-        total_pnl = sum(t.pnl_dollars for t in group)
+        total_pnl = sum(_net_trade_pnl(t) for t in group)
         lines.append(f"  {key:15s}: {count:3d} trades, WR={wr:.0%}, avgR={avg_r:+.3f}, PnL=${total_pnl:+,.0f}")
 
 
@@ -141,11 +145,11 @@ def _burst_analysis(lines: list[str], trades: list) -> None:
 
     if burst_trades:
         burst_avg_r = sum(t.r_multiple for t in burst_trades) / len(burst_trades)
-        burst_pnl = sum(t.pnl_dollars for t in burst_trades)
+        burst_pnl = sum(_net_trade_pnl(t) for t in burst_trades)
         lines.append(f"  Burst trades:    {len(burst_trades)}, avgR={burst_avg_r:+.3f}, PnL=${burst_pnl:+,.0f}")
     if isolated_trades:
         iso_avg_r = sum(t.r_multiple for t in isolated_trades) / len(isolated_trades)
-        iso_pnl = sum(t.pnl_dollars for t in isolated_trades)
+        iso_pnl = sum(_net_trade_pnl(t) for t in isolated_trades)
         lines.append(f"  Isolated trades: {len(isolated_trades)}, avgR={iso_avg_r:+.3f}, PnL=${iso_pnl:+,.0f}")
 
 
@@ -161,5 +165,5 @@ def _regime_breakdown(lines: list[str], trades: list) -> None:
         wins = sum(1 for t in group if t.r_multiple > 0)
         wr = wins / count if count else 0
         avg_r = sum(t.r_multiple for t in group) / count if count else 0
-        total_pnl = sum(t.pnl_dollars for t in group)
+        total_pnl = sum(_net_trade_pnl(t) for t in group)
         lines.append(f"  {regime:12s}: {count:3d} trades, WR={wr:.0%}, avgR={avg_r:+.3f}, PnL=${total_pnl:+,.0f}")

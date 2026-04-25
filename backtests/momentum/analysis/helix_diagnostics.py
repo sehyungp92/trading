@@ -1,10 +1,10 @@
-"""Diagnostic reports for Helix v3.1 NQ strategy backtests.
+"""Diagnostic reports for Helix v4.0 NQ strategy backtests.
 
 All functions accept lists of HelixTradeRecord and related logs, returning str.
 """
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, defaultdict
 
 import numpy as np
 
@@ -1308,6 +1308,612 @@ def helix_setup_density(setup_log: list, gate_log: list | None = None) -> str:
 
 
 # ---------------------------------------------------------------------------
+# 27. Momentum stall deep dive
+# ---------------------------------------------------------------------------
+
+def helix_momentum_stall_deep_dive(trades: list) -> str:
+    """Deep analysis of the momentum stall exit — the single biggest optimization mutation.
+
+    Quantifies what stall catches: trades that never develop momentum and would
+    have become losers. Compares stall exits vs other exits to measure false-positive cost.
+    """
+    if not trades:
+        return "=== Momentum Stall Deep Dive ===\n  No trades."
+
+    lines = ["=== Momentum Stall Deep Dive ==="]
+    lines.append("  Momentum stall exits at bar 8 when R < 0.30 and MFE < 0.80R.\n")
+
+    stall = [t for t in trades if t.exit_reason == "MOMENTUM_STALL"]
+    non_stall = [t for t in trades if t.exit_reason != "MOMENTUM_STALL"]
+    n = len(trades)
+
+    lines.append(f"  Stall exits:     {len(stall):4d} ({100 * len(stall) / n:.0f}% of trades)")
+    lines.append(f"  Non-stall exits: {len(non_stall):4d}")
+
+    if stall:
+        rs = np.array([t.r_multiple for t in stall])
+        mfes = np.array([t.mfe_r for t in stall])
+        maes = np.array([t.mae_r for t in stall])
+        pnl = sum(t.pnl_dollars for t in stall)
+        wr = np.mean(rs > 0) * 100
+
+        lines.append(f"\n  Stall exit profile:")
+        lines.append(f"    Avg R:   {np.mean(rs):+.3f}  (median: {np.median(rs):+.3f})")
+        lines.append(f"    Avg MFE: {np.mean(mfes):+.3f}  (these never gained traction)")
+        lines.append(f"    Avg MAE: {np.mean(maes):+.3f}")
+        lines.append(f"    WR:      {wr:.0f}%  (low WR = stall correctly catching dead trades)")
+        lines.append(f"    Net P&L: ${pnl:+,.0f}")
+
+        # R-distribution of stall exits
+        lines.append(f"\n  Stall R-distribution:")
+        for lo, hi, label in [(-2.0, -1.0, "-2 to -1R"), (-1.0, -0.5, "-1 to -0.5R"),
+                               (-0.5, 0.0, "-0.5 to 0R"), (0.0, 0.3, "0 to +0.3R"),
+                               (0.3, 1.0, "+0.3 to +1R")]:
+            ct = sum(1 for r in rs if lo <= r < hi)
+            if ct:
+                lines.append(f"    {label:14s}: {ct:4d} ({100 * ct / len(stall):.0f}%)")
+
+        # Losses avoided: stall trades that were already negative (correct catches)
+        correct_catches = sum(1 for r in rs if r < 0)
+        false_positives = sum(1 for r in rs if r >= 0)
+        lines.append(f"\n  Catch quality:")
+        lines.append(f"    Correct catches (R<0): {correct_catches} ({100 * correct_catches / len(stall):.0f}%)")
+        lines.append(f"    False positives (R>=0): {false_positives} ({100 * false_positives / len(stall):.0f}%)")
+        if false_positives > 0:
+            fp_avg_r = np.mean([t.r_multiple for t in stall if t.r_multiple >= 0])
+            lines.append(f"    False positive avg R: {fp_avg_r:+.3f} (opportunity cost per false positive)")
+
+    # Compare: what do non-stall trades look like at bar 8?
+    early_non_stall = [t for t in non_stall if t.bars_held_1h >= 8]
+    if early_non_stall:
+        lines.append(f"\n  Trades that survived past bar 8 (n={len(early_non_stall)}):")
+        en_rs = np.array([t.r_multiple for t in early_non_stall])
+        lines.append(f"    Avg R: {np.mean(en_rs):+.3f}  WR: {np.mean(en_rs > 0) * 100:.0f}%")
+        lines.append(f"    P&L:   ${sum(t.pnl_dollars for t in early_non_stall):+,.0f}")
+
+    # Stall by class
+    if stall:
+        lines.append(f"\n  Stall exits by class:")
+        for cls in sorted(set(t.setup_class for t in stall)):
+            ct = [t for t in stall if t.setup_class == cls]
+            avg_r = np.mean([t.r_multiple for t in ct])
+            lines.append(f"    {cls}: {len(ct)} exits, avg R={avg_r:+.3f}")
+
+    # Stall by direction
+    if stall:
+        lines.append(f"\n  Stall exits by direction:")
+        for d_val, d_label in [(1, "LONG"), (-1, "SHORT")]:
+            ct = [t for t in stall if t.direction == d_val]
+            if ct:
+                avg_r = np.mean([t.r_multiple for t in ct])
+                lines.append(f"    {d_label}: {len(ct)} exits, avg R={avg_r:+.3f}")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 28. Trail effectiveness analysis
+# ---------------------------------------------------------------------------
+
+def helix_trail_effectiveness(trades: list) -> str:
+    """Analyze the trailing stop system: activation rate, capture, and value-add."""
+    if not trades:
+        return "=== Trail Effectiveness ===\n  No trades."
+
+    lines = ["=== Trail Effectiveness ==="]
+    lines.append("  Trail activates at +0.55R (BE stop). Chandelier trail: mult = max(1.5, 3.0 - R/5).\n")
+
+    trail_exits = [t for t in trades if t.exit_reason == "TRAILING_STOP"]
+    initial_exits = [t for t in trades if t.exit_reason == "INITIAL_STOP"]
+    hit_1r = [t for t in trades if t.hit_1r]
+    n = len(trades)
+
+    lines.append(f"  Trail activation (+1R milestone): {len(hit_1r)}/{n} ({100 * len(hit_1r) / n:.0f}%)")
+    lines.append(f"  Trailing stop exits:  {len(trail_exits):4d} ({100 * len(trail_exits) / n:.0f}%)")
+    lines.append(f"  Initial stop exits:   {len(initial_exits):4d} ({100 * len(initial_exits) / n:.0f}%)")
+
+    if trail_exits:
+        rs = np.array([t.r_multiple for t in trail_exits])
+        mfes = np.array([t.mfe_r for t in trail_exits])
+        capture = rs / np.where(mfes > 0, mfes, 1.0)
+
+        lines.append(f"\n  Trailing stop exit quality:")
+        lines.append(f"    Avg R at exit:   {np.mean(rs):+.3f}")
+        lines.append(f"    Avg MFE:         {np.mean(mfes):+.3f}")
+        lines.append(f"    Avg capture:     {np.mean(capture):.1%} of MFE retained")
+        lines.append(f"    Median capture:  {np.median(capture):.1%}")
+        lines.append(f"    P&L:             ${sum(t.pnl_dollars for t in trail_exits):+,.0f}")
+        lines.append(f"    Avg bars held:   {np.mean([t.bars_held_1h for t in trail_exits]):.1f}")
+
+        # R at trail exit distribution
+        lines.append(f"\n  Trail exit R-distribution:")
+        for lo, hi, label in [(0.0, 0.5, "0 to +0.5R"), (0.5, 1.0, "+0.5 to +1R"),
+                               (1.0, 2.0, "+1 to +2R"), (2.0, 3.0, "+2 to +3R"),
+                               (3.0, 100.0, "+3R+")]:
+            ct = sum(1 for r in rs if lo <= r < hi)
+            if ct:
+                lines.append(f"    {label:14s}: {ct:4d} ({100 * ct / len(trail_exits):.0f}%)")
+
+        # Negative trail exits (stopped at BE)
+        neg_trail = sum(1 for r in rs if r <= 0)
+        if neg_trail:
+            lines.append(f"    At or below BE: {neg_trail} ({100 * neg_trail / len(trail_exits):.0f}%)")
+
+    if initial_exits:
+        lines.append(f"\n  Initial stop exit profile:")
+        init_rs = np.array([t.r_multiple for t in initial_exits])
+        lines.append(f"    Avg R: {np.mean(init_rs):+.3f}  (expected: ~-1.0R)")
+        lines.append(f"    P&L:   ${sum(t.pnl_dollars for t in initial_exits):+,.0f}")
+
+    # Value of trailing: compare winners with trail vs without
+    winners = [t for t in trades if t.r_multiple > 0]
+    if winners:
+        w_trail = [t for t in winners if t.exit_reason == "TRAILING_STOP"]
+        w_other = [t for t in winners if t.exit_reason != "TRAILING_STOP"]
+        if w_trail and w_other:
+            lines.append(f"\n  Trail value-add (winners only):")
+            lines.append(f"    Trail exit avg R: {np.mean([t.r_multiple for t in w_trail]):+.3f} (n={len(w_trail)})")
+            lines.append(f"    Other exit avg R: {np.mean([t.r_multiple for t in w_other]):+.3f} (n={len(w_other)})")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 29. Drawdown episode anatomy
+# ---------------------------------------------------------------------------
+
+def helix_drawdown_anatomy(trades: list) -> str:
+    """Deep dive into drawdown episodes: attribution by class, session, vol regime."""
+    if not trades:
+        return "=== Drawdown Episode Anatomy ===\n  No trades."
+
+    dated = sorted([t for t in trades if t.entry_time], key=lambda t: t.entry_time)
+    if not dated:
+        return "=== Drawdown Episode Anatomy ===\n  No dated trades."
+
+    lines = ["=== Drawdown Episode Anatomy ==="]
+    lines.append("  Identifies worst drawdown episodes and attributes them to specific contexts.\n")
+
+    # Build cumulative PnL series
+    cum_pnl = np.cumsum([t.pnl_dollars for t in dated])
+    peak_pnl = np.maximum.accumulate(cum_pnl)
+    dd_dollars = cum_pnl - peak_pnl
+
+    # Find top 5 drawdown episodes (defined by trough)
+    episodes = []
+    in_dd = False
+    ep_start = 0
+    for i in range(len(dd_dollars)):
+        if dd_dollars[i] < 0 and not in_dd:
+            in_dd = True
+            ep_start = i
+        elif dd_dollars[i] >= 0 and in_dd:
+            in_dd = False
+            trough_idx = ep_start + int(np.argmin(dd_dollars[ep_start:i]))
+            episodes.append({
+                "start": ep_start,
+                "end": i,
+                "trough": trough_idx,
+                "depth": float(dd_dollars[trough_idx]),
+                "trades_in_dd": i - ep_start,
+            })
+    # Handle open drawdown at end
+    if in_dd:
+        trough_idx = ep_start + int(np.argmin(dd_dollars[ep_start:]))
+        episodes.append({
+            "start": ep_start,
+            "end": len(dd_dollars) - 1,
+            "trough": trough_idx,
+            "depth": float(dd_dollars[trough_idx]),
+            "trades_in_dd": len(dd_dollars) - ep_start,
+        })
+
+    episodes.sort(key=lambda e: e["depth"])
+    top_episodes = episodes[:5]
+
+    if not top_episodes:
+        lines.append("  No drawdown episodes found.")
+        return "\n".join(lines)
+
+    for rank, ep in enumerate(top_episodes, 1):
+        ep_trades = dated[ep["start"]:ep["end"] + 1]
+        start_date = ep_trades[0].entry_time.strftime("%Y-%m-%d") if ep_trades[0].entry_time else "?"
+        end_date = ep_trades[-1].exit_time.strftime("%Y-%m-%d") if ep_trades[-1].exit_time else "?"
+        trough_date = dated[ep["trough"]].entry_time.strftime("%Y-%m-%d") if dated[ep["trough"]].entry_time else "?"
+
+        lines.append(f"  Episode #{rank}: ${ep['depth']:+,.0f} ({start_date} -- {end_date})")
+        lines.append(f"    Trough: {trough_date}, trades: {ep['trades_in_dd']}")
+
+        # Attribution breakdown
+        class_pnl: dict[str, float] = defaultdict(float)
+        dir_pnl: dict[str, float] = defaultdict(float)
+        session_pnl: dict[str, float] = defaultdict(float)
+        exit_pnl: dict[str, float] = defaultdict(float)
+        for t in ep_trades:
+            class_pnl[t.setup_class] += t.pnl_dollars
+            dir_pnl["LONG" if t.direction == 1 else "SHORT"] += t.pnl_dollars
+            session_pnl[t.session_at_entry] += t.pnl_dollars
+            exit_pnl[t.exit_reason] += t.pnl_dollars
+
+        # Show top contributor to loss
+        worst_class = min(class_pnl.items(), key=lambda x: x[1])
+        worst_dir = min(dir_pnl.items(), key=lambda x: x[1])
+        worst_session = min(session_pnl.items(), key=lambda x: x[1])
+        lines.append(f"    Worst class:   {worst_class[0]} (${worst_class[1]:+,.0f})")
+        lines.append(f"    Worst dir:     {worst_dir[0]} (${worst_dir[1]:+,.0f})")
+        lines.append(f"    Worst session: {worst_session[0]} (${worst_session[1]:+,.0f})")
+        lines.append(f"    Exit reasons:  {', '.join(f'{k}={v:+.0f}' for k, v in sorted(exit_pnl.items(), key=lambda x: x[1]))}")
+        lines.append("")
+
+    # Aggregate drawdown stats
+    all_dd_trades = []
+    for ep in top_episodes:
+        all_dd_trades.extend(dated[ep["start"]:ep["end"] + 1])
+
+    if all_dd_trades:
+        lines.append(f"  Aggregate across top {len(top_episodes)} episodes ({len(all_dd_trades)} trades):")
+        vol_buckets = defaultdict(list)
+        for t in all_dd_trades:
+            if t.vol_pct_at_entry < 20:
+                vol_buckets["low (<20)"].append(t.pnl_dollars)
+            elif t.vol_pct_at_entry < 50:
+                vol_buckets["chop (20-50)"].append(t.pnl_dollars)
+            elif t.vol_pct_at_entry < 80:
+                vol_buckets["normal (50-80)"].append(t.pnl_dollars)
+            else:
+                vol_buckets["high (80+)"].append(t.pnl_dollars)
+        for regime, pnls in sorted(vol_buckets.items()):
+            lines.append(f"    Vol {regime}: {len(pnls)} trades, ${sum(pnls):+,.0f}")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 30. Winner vs loser entry profile comparison
+# ---------------------------------------------------------------------------
+
+def helix_winner_loser_profile(trades: list) -> str:
+    """Compare entry conditions of winners vs losers to surface predictive features."""
+    if not trades:
+        return "=== Winner vs Loser Entry Profile ===\n  No trades."
+
+    lines = ["=== Winner vs Loser Entry Profile ==="]
+    lines.append("  Compares entry context to identify features predictive of outcome.\n")
+
+    winners = [t for t in trades if t.r_multiple > 0]
+    losers = [t for t in trades if t.r_multiple <= 0]
+
+    if not winners or not losers:
+        lines.append("  Insufficient winners or losers for comparison.")
+        return "\n".join(lines)
+
+    header = f"  {'Feature':24s} {'Winners':>10s} {'Losers':>10s} {'Delta':>10s} {'Signal':>8s}"
+    lines.append(header)
+    lines.append("  " + "-" * (len(header) - 2))
+
+    # Alignment score
+    w_align = np.mean([t.alignment_at_entry for t in winners])
+    l_align = np.mean([t.alignment_at_entry for t in losers])
+    sig = "STRONG" if abs(w_align - l_align) > 0.3 else "weak"
+    lines.append(f"  {'Alignment score':24s} {w_align:10.2f} {l_align:10.2f} {w_align - l_align:+10.2f} {sig:>8s}")
+
+    # Vol percentile
+    w_vol = np.mean([t.vol_pct_at_entry for t in winners])
+    l_vol = np.mean([t.vol_pct_at_entry for t in losers])
+    sig = "STRONG" if abs(w_vol - l_vol) > 10 else "weak"
+    lines.append(f"  {'Vol percentile':24s} {w_vol:10.1f} {l_vol:10.1f} {w_vol - l_vol:+10.1f} {sig:>8s}")
+
+    # Session distribution
+    for sess in sorted(set(t.session_at_entry for t in trades)):
+        w_pct = 100 * sum(1 for t in winners if t.session_at_entry == sess) / len(winners)
+        l_pct = 100 * sum(1 for t in losers if t.session_at_entry == sess) / len(losers)
+        sig = "STRONG" if abs(w_pct - l_pct) > 10 else "weak"
+        lines.append(f"  {'  ' + sess:24s} {w_pct:9.0f}% {l_pct:9.0f}% {w_pct - l_pct:+9.0f}% {sig:>8s}")
+
+    # Class distribution
+    for cls in sorted(set(t.setup_class for t in trades)):
+        w_pct = 100 * sum(1 for t in winners if t.setup_class == cls) / len(winners)
+        l_pct = 100 * sum(1 for t in losers if t.setup_class == cls) / len(losers)
+        sig = "STRONG" if abs(w_pct - l_pct) > 10 else "weak"
+        lines.append(f"  {'  Class ' + cls:24s} {w_pct:9.0f}% {l_pct:9.0f}% {w_pct - l_pct:+9.0f}% {sig:>8s}")
+
+    # Direction
+    w_long_pct = 100 * sum(1 for t in winners if t.direction == 1) / len(winners)
+    l_long_pct = 100 * sum(1 for t in losers if t.direction == 1) / len(losers)
+    sig = "STRONG" if abs(w_long_pct - l_long_pct) > 10 else "weak"
+    lines.append(f"  {'  Long %':24s} {w_long_pct:9.0f}% {l_long_pct:9.0f}% {w_long_pct - l_long_pct:+9.0f}% {sig:>8s}")
+
+    # Bars held
+    w_bars = np.mean([t.bars_held_1h for t in winners])
+    l_bars = np.mean([t.bars_held_1h for t in losers])
+    sig = "STRONG" if abs(w_bars - l_bars) > 3 else "weak"
+    lines.append(f"  {'Bars held (avg)':24s} {w_bars:10.1f} {l_bars:10.1f} {w_bars - l_bars:+10.1f} {sig:>8s}")
+
+    # Teleport rate
+    w_tele = 100 * sum(1 for t in winners if t.teleport) / len(winners)
+    l_tele = 100 * sum(1 for t in losers if t.teleport) / len(losers)
+    sig = "STRONG" if abs(w_tele - l_tele) > 5 else "weak"
+    lines.append(f"  {'Teleport %':24s} {w_tele:9.0f}% {l_tele:9.0f}% {w_tele - l_tele:+9.0f}% {sig:>8s}")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 31. R-per-bar efficiency
+# ---------------------------------------------------------------------------
+
+def helix_r_per_bar_efficiency(trades: list) -> str:
+    """Capital efficiency metric: R earned per bar held."""
+    if not trades:
+        return "=== R-per-Bar Efficiency ===\n  No trades."
+
+    lines = ["=== R-per-Bar Efficiency ==="]
+    lines.append("  Measures capital efficiency: how much R is generated per unit of time.\n")
+
+    valid = [t for t in trades if t.bars_held_1h > 0]
+    if not valid:
+        lines.append("  No trades with positive hold time.")
+        return "\n".join(lines)
+
+    rpb = np.array([t.r_multiple / t.bars_held_1h for t in valid])
+    lines.append(f"  Overall R/bar: {np.mean(rpb):+.4f}  (median: {np.median(rpb):+.4f})")
+
+    # By hold duration bucket
+    buckets = [
+        ("1-4 bars (fast)", 1, 4),
+        ("5-8 bars (medium)", 5, 8),
+        ("9-14 bars (developing)", 9, 14),
+        ("15-20 bars (mature)", 15, 20),
+        ("21+ bars (extended)", 21, 999),
+    ]
+
+    header = f"  {'Duration':28s} {'N':>5s} {'AvgR':>7s} {'R/bar':>8s} {'TotalR':>8s} {'P&L':>10s}"
+    lines.append(header)
+    lines.append("  " + "-" * (len(header) - 2))
+
+    for label, lo, hi in buckets:
+        ct = [t for t in valid if lo <= t.bars_held_1h <= hi]
+        if not ct:
+            continue
+        n = len(ct)
+        avg_r = np.mean([t.r_multiple for t in ct])
+        total_r = sum(t.r_multiple for t in ct)
+        r_per_bar = np.mean([t.r_multiple / t.bars_held_1h for t in ct])
+        pnl = sum(t.pnl_dollars for t in ct)
+        lines.append(
+            f"  {label:28s} {n:5d} {avg_r:+7.3f} {r_per_bar:+8.4f} {total_r:+8.1f} {pnl:+10,.0f}"
+        )
+
+    # Best R/bar bucket insight
+    best_rpb = -999.0
+    best_label = ""
+    for label, lo, hi in buckets:
+        ct = [t for t in valid if lo <= t.bars_held_1h <= hi]
+        if len(ct) >= 3:
+            val = np.mean([t.r_multiple / t.bars_held_1h for t in ct])
+            if val > best_rpb:
+                best_rpb = val
+                best_label = label
+    if best_label:
+        lines.append(f"\n  Most capital-efficient bucket: {best_label} (R/bar={best_rpb:+.4f})")
+
+    # By exit reason
+    lines.append(f"\n  R/bar by exit reason:")
+    for reason in sorted(set(t.exit_reason for t in valid)):
+        ct = [t for t in valid if t.exit_reason == reason]
+        if len(ct) >= 2:
+            rpb_reason = np.mean([t.r_multiple / t.bars_held_1h for t in ct])
+            avg_bars = np.mean([t.bars_held_1h for t in ct])
+            lines.append(f"    {reason:22s}: R/bar={rpb_reason:+.4f}  avg_bars={avg_bars:.1f}  n={len(ct)}")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 32. Post-partial runner analysis
+# ---------------------------------------------------------------------------
+
+def helix_post_partial_runner(trades: list) -> str:
+    """Deep dive into runner performance after P1/P2 partial exits."""
+    if not trades:
+        return "=== Post-Partial Runner Analysis ===\n  No trades."
+
+    lines = ["=== Post-Partial Runner Analysis ==="]
+    lines.append("  P1: +1.0R/30%, P2: +1.5R/30%, Runner: 40% remaining.\n")
+
+    p1_only = [t for t in trades if t.partial_done and not getattr(t, "partial2_done", False)]
+    both = [t for t in trades if getattr(t, "partial2_done", False)]
+    no_partial = [t for t in trades if not t.partial_done]
+    n = len(trades)
+
+    lines.append(f"  No partial:     {len(no_partial):4d} ({100 * len(no_partial) / n:.0f}%)")
+    lines.append(f"  P1 only:        {len(p1_only):4d} ({100 * len(p1_only) / n:.0f}%)")
+    lines.append(f"  P1 + P2:        {len(both):4d} ({100 * len(both) / n:.0f}%)")
+
+    # Key question: does the runner after P1 add value?
+    if p1_only:
+        lines.append(f"\n  P1-only runner outcomes (n={len(p1_only)}):")
+        rs = np.array([t.r_multiple for t in p1_only])
+        mfes = np.array([t.mfe_r for t in p1_only])
+        lines.append(f"    Avg final R:  {np.mean(rs):+.3f}")
+        lines.append(f"    Avg peak MFE: {np.mean(mfes):+.3f}")
+        # Runner typically exits via trail or stale after P1 at +1R
+        trail_after_p1 = [t for t in p1_only if t.exit_reason == "TRAILING_STOP"]
+        stale_after_p1 = [t for t in p1_only if t.exit_reason in ("STALE", "EARLY_STALE")]
+        if trail_after_p1:
+            lines.append(f"    Trail exits: {len(trail_after_p1)}, avg R={np.mean([t.r_multiple for t in trail_after_p1]):+.3f}")
+        if stale_after_p1:
+            lines.append(f"    Stale exits: {len(stale_after_p1)}, avg R={np.mean([t.r_multiple for t in stale_after_p1]):+.3f}")
+
+    if both:
+        lines.append(f"\n  P1+P2 runner outcomes (n={len(both)}):")
+        rs = np.array([t.r_multiple for t in both])
+        mfes = np.array([t.mfe_r for t in both])
+        lines.append(f"    Avg final R:  {np.mean(rs):+.3f}")
+        lines.append(f"    Avg peak MFE: {np.mean(mfes):+.3f}")
+        # These reached +1.5R minimum; where do they end up?
+        above_2r = sum(1 for r in rs if r >= 2.0)
+        above_3r = sum(1 for r in rs if r >= 3.0)
+        lines.append(f"    Finished >= +2R: {above_2r} ({100 * above_2r / len(both):.0f}%)")
+        lines.append(f"    Finished >= +3R: {above_3r} ({100 * above_3r / len(both):.0f}%)")
+
+        # MFE left on table
+        left_on_table = np.array([t.mfe_r - t.r_multiple for t in both])
+        lines.append(f"    Avg MFE left on table: {np.mean(left_on_table):.3f}R")
+
+    # Partial vs no-partial P&L comparison
+    partial_pnl = sum(t.pnl_dollars for t in p1_only) + sum(t.pnl_dollars for t in both)
+    no_partial_pnl = sum(t.pnl_dollars for t in no_partial)
+    lines.append(f"\n  P&L summary:")
+    lines.append(f"    Partial trades:    ${partial_pnl:+,.0f} (n={len(p1_only) + len(both)})")
+    lines.append(f"    No-partial trades: ${no_partial_pnl:+,.0f} (n={len(no_partial)})")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 33. Volatility regime interaction crosstab
+# ---------------------------------------------------------------------------
+
+def helix_vol_regime_crosstab(trades: list) -> str:
+    """Cross-tab vol regime x class x direction to find toxic combinations."""
+    if not trades:
+        return "=== Vol Regime Interaction Crosstab ===\n  No trades."
+
+    lines = ["=== Vol Regime Interaction Crosstab ==="]
+    lines.append("  Finds specific vol x class x direction combinations that underperform.\n")
+
+    vol_labels = [
+        (0, 20, "low(0-20)"),
+        (20, 50, "chop(20-50)"),
+        (50, 80, "norm(50-80)"),
+        (80, 101, "high(80+)"),
+    ]
+    dir_map = {1: "L", -1: "S"}
+
+    header = f"  {'Vol Regime':14s} {'Class':5s} {'Dir':3s} {'N':>4s} {'WR':>5s} {'AvgR':>7s} {'PF':>6s} {'P&L':>9s}"
+    lines.append(header)
+    lines.append("  " + "-" * (len(header) - 2))
+
+    toxic = []
+    strong = []
+
+    for lo, hi, vol_label in vol_labels:
+        for cls in sorted(set(t.setup_class for t in trades)):
+            for d_val, d_str in dir_map.items():
+                ct = [t for t in trades
+                      if lo <= t.vol_pct_at_entry < hi
+                      and t.setup_class == cls
+                      and t.direction == d_val]
+                if len(ct) < 3:
+                    continue
+                n = len(ct)
+                rs = np.array([t.r_multiple for t in ct])
+                wr = np.mean(rs > 0) * 100
+                avg_r = float(np.mean(rs))
+                pnl = sum(t.pnl_dollars for t in ct)
+                gw = float(np.sum(rs[rs > 0]))
+                gl = float(np.sum(np.abs(rs[rs < 0])))
+                pf = gw / gl if gl > 0 else float('inf')
+                pf_str = f"{pf:6.2f}" if pf < 100 else "   inf"
+
+                lines.append(
+                    f"  {vol_label:14s} {cls:5s} {d_str:3s} {n:4d} {wr:4.0f}% {avg_r:+7.3f} {pf_str} ${pnl:+8,.0f}"
+                )
+
+                if avg_r < -0.15 and n >= 3:
+                    toxic.append((vol_label, cls, d_str, n, avg_r, pnl))
+                elif avg_r > 0.3 and n >= 5:
+                    strong.append((vol_label, cls, d_str, n, avg_r, pnl))
+
+    if toxic:
+        lines.append(f"\n  TOXIC combinations (avg R < -0.15, n>=3):")
+        for vol, cls, d, n, avg_r, pnl in sorted(toxic, key=lambda x: x[4]):
+            lines.append(f"    {vol} {cls} {d}: n={n}, avgR={avg_r:+.3f}, P&L=${pnl:+,.0f}")
+
+    if strong:
+        lines.append(f"\n  STRONG combinations (avg R > +0.30, n>=5):")
+        for vol, cls, d, n, avg_r, pnl in sorted(strong, key=lambda x: -x[4]):
+            lines.append(f"    {vol} {cls} {d}: n={n}, avgR={avg_r:+.3f}, P&L=${pnl:+,.0f}")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 34. Stop distance calibration
+# ---------------------------------------------------------------------------
+
+def helix_stop_distance_calibration(trades: list, entry_tracking: list | None = None) -> str:
+    """Analyze initial stop distance vs outcome to assess stop sizing quality."""
+    if not trades:
+        return "=== Stop Distance Calibration ===\n  No trades."
+
+    lines = ["=== Stop Distance Calibration ==="]
+    lines.append("  Are stops well-sized? Too tight → stopped out on noise. Too wide → excess risk per trade.\n")
+
+    # Compute stop distance in R-units (always ~1R by construction) and in points
+    # Use MAE to assess if stops are reached on winning trades (near-miss stops)
+    winners = [t for t in trades if t.r_multiple > 0]
+    losers = [t for t in trades if t.r_multiple <= 0]
+
+    if winners:
+        w_mae = np.array([t.mae_r for t in winners])
+        lines.append(f"  Winner adverse excursion (how close to stop before recovering):")
+        lines.append(f"    Avg MAE:    {np.mean(w_mae):.3f}R")
+        lines.append(f"    Median MAE: {np.median(w_mae):.3f}R")
+        near_stop = sum(1 for m in w_mae if m > 0.7)
+        lines.append(f"    Near-stop (MAE > 0.7R): {near_stop}/{len(winners)} "
+                     f"({100 * near_stop / len(winners):.0f}%) -- winners that almost hit stop")
+
+    if losers:
+        # Initial stop vs other exit reasons
+        init_stop = [t for t in losers if t.exit_reason == "INITIAL_STOP"]
+        other_loss = [t for t in losers if t.exit_reason != "INITIAL_STOP"]
+
+        lines.append(f"\n  Loser classification:")
+        lines.append(f"    Initial stop hits: {len(init_stop)}/{len(losers)} ({100 * len(init_stop) / len(losers):.0f}%)")
+        lines.append(f"    Other loss exits:  {len(other_loss)}/{len(losers)} ({100 * len(other_loss) / len(losers):.0f}%)")
+
+        if init_stop:
+            is_mae = np.array([t.mae_r for t in init_stop])
+            is_mfe = np.array([t.mfe_r for t in init_stop])
+            lines.append(f"\n  Initial stop losers:")
+            lines.append(f"    Avg MAE:  {np.mean(is_mae):.3f}R  (should be ~1.0R)")
+            lines.append(f"    Avg MFE before stop: {np.mean(is_mfe):.3f}R")
+            # Were any of these profitable at some point?
+            was_positive = sum(1 for m in is_mfe if m > 0.3)
+            lines.append(f"    Reached +0.3R before stopping: {was_positive}/{len(init_stop)} "
+                         f"({100 * was_positive / len(init_stop):.0f}%)")
+
+        if other_loss:
+            lines.append(f"\n  Non-stop losers (stale, early adverse, momentum stall):")
+            for reason in sorted(set(t.exit_reason for t in other_loss)):
+                ct = [t for t in other_loss if t.exit_reason == reason]
+                avg_r = np.mean([t.r_multiple for t in ct])
+                avg_bars = np.mean([t.bars_held_1h for t in ct])
+                lines.append(f"    {reason:22s}: n={len(ct)}, avgR={avg_r:+.3f}, avg_bars={avg_bars:.1f}")
+
+    # Entry tracking: stop distance in points
+    if entry_tracking:
+        stop_dists = np.array([abs(e.entry_stop - e.stop0) for e in entry_tracking])
+        filled = [e for e in entry_tracking if e.filled]
+        unfilled = [e for e in entry_tracking if not e.filled]
+
+        lines.append(f"\n  Stop distance distribution (points):")
+        lines.append(f"    All entries: min={stop_dists.min():.1f}  "
+                     f"median={np.median(stop_dists):.1f}  "
+                     f"mean={stop_dists.mean():.1f}  max={stop_dists.max():.1f}")
+        if filled:
+            fd = np.array([abs(e.entry_stop - e.stop0) for e in filled])
+            lines.append(f"    Filled:   median={np.median(fd):.1f}  mean={fd.mean():.1f}")
+        if unfilled:
+            ud = np.array([abs(e.entry_stop - e.stop0) for e in unfilled])
+            lines.append(f"    Unfilled: median={np.median(ud):.1f}  mean={ud.mean():.1f}")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Full diagnostic report
 # ---------------------------------------------------------------------------
 
@@ -1338,6 +1944,15 @@ def helix_full_diagnostic(
         helix_mfe_capture(trades),
         helix_hold_duration_analysis(trades),
         helix_partial_exit_analysis(trades),
+        # Deep strategy diagnostics (v4.0)
+        helix_momentum_stall_deep_dive(trades),
+        helix_trail_effectiveness(trades),
+        helix_drawdown_anatomy(trades),
+        helix_winner_loser_profile(trades),
+        helix_r_per_bar_efficiency(trades),
+        helix_post_partial_runner(trades),
+        helix_vol_regime_crosstab(trades),
+        helix_stop_distance_calibration(trades, entry_tracking),
     ]
     if gate_log:
         sections.insert(2, helix_gate_blocks(gate_log))

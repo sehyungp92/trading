@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+import logging
+from datetime import date, datetime, timedelta, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -13,8 +15,10 @@ from libs.oms.intent.handler import IntentHandler
 from libs.oms.models.instrument import Instrument
 from libs.oms.models.intent import Intent, IntentResult, IntentType
 from libs.oms.models.order import OMSOrder, OrderRole, OrderSide, OrderStatus, OrderType
+from libs.oms.models.risk_state import PortfolioRiskState
 from libs.oms.persistence.in_memory import InMemoryRepository
 from libs.oms.persistence.repository import OMSPersistenceInvariantError, OMSRepository
+from libs.oms.services.factory import _wire_adapter_callbacks, _wire_adapter_callbacks_multi
 
 
 def _instrument(symbol: str = "QQQ") -> Instrument:
@@ -70,6 +74,34 @@ class _BrokenPool:
 
     def acquire(self):
         return _Acquire(self._conn)
+
+
+class _DelayedWorkingSaveRepository(InMemoryRepository):
+    def __init__(self) -> None:
+        super().__init__()
+        self.working_save_started = asyncio.Event()
+        self.release_working_save = asyncio.Event()
+        self.saved_statuses: list[OrderStatus] = []
+
+    async def save_order(self, order: OMSOrder) -> None:
+        self.saved_statuses.append(order.status)
+        if order.status == OrderStatus.WORKING and not self.release_working_save.is_set():
+            self.working_save_started.set()
+            await self.release_working_save.wait()
+        await super().save_order(order)
+
+
+async def _wait_for_order_status(
+    repo: InMemoryRepository,
+    oms_order_id: str,
+    expected: OrderStatus,
+) -> OMSOrder:
+    for _ in range(200):
+        order = await repo.get_order(oms_order_id)
+        if order is not None and order.status == expected:
+            return order
+        await asyncio.sleep(0.01)
+    raise AssertionError(f"Order {oms_order_id} never reached {expected.value}")
 
 
 @pytest.mark.asyncio
@@ -155,6 +187,58 @@ async def test_execution_router_queue_expiry_uses_atomic_helper() -> None:
     assert order.status == OrderStatus.EXPIRED
     repo.save_order_and_event.assert_awaited_once()
     assert router._queue == []
+
+
+@pytest.mark.asyncio
+async def test_execution_router_submit_failure_persists_rejection_event_and_emits_bus() -> None:
+    adapter = MagicMock()
+    adapter.is_congested = False
+    adapter.submit_order = AsyncMock(side_effect=RuntimeError("submit exploded"))
+    repo = MagicMock()
+    repo.save_order = AsyncMock()
+    repo.save_order_and_event = AsyncMock()
+    bus = MagicMock()
+    bus.emit_order_event = MagicMock()
+    router = ExecutionRouter(adapter, repo, bus)
+    order = _entry_order("MSFT")
+    order.status = OrderStatus.RISK_APPROVED
+    order.remaining_qty = order.qty
+
+    await router._submit_to_adapter(order)
+
+    assert order.status == OrderStatus.REJECTED
+    assert order.reject_reason == "submit exploded"
+    assert order.last_update_at is not None
+    repo.save_order.assert_awaited_once()
+    repo.save_order_and_event.assert_awaited_once()
+    saved_order, event_type, payload = repo.save_order_and_event.await_args.args
+    assert saved_order is order
+    assert event_type == "BROKER_SUBMIT_FAILED"
+    assert payload["error_type"] == "RuntimeError"
+    assert payload["error"] == "submit exploded"
+    assert payload["instrument_backed"] is True
+    bus.emit_order_event.assert_called_once_with(order)
+
+
+@pytest.mark.asyncio
+async def test_execution_router_passes_instrument_to_adapter_submit() -> None:
+    adapter = MagicMock()
+    adapter.is_congested = False
+    adapter.submit_order = AsyncMock(
+        return_value=SimpleNamespace(broker_order_id=101, perm_id=202)
+    )
+    repo = MagicMock()
+    repo.save_order = AsyncMock()
+    router = ExecutionRouter(adapter, repo)
+    order = _entry_order("IBIT")
+    order.status = OrderStatus.RISK_APPROVED
+    order.remaining_qty = order.qty
+
+    await router._submit_to_adapter(order)
+
+    assert adapter.submit_order.await_args.kwargs["instrument"] is order.instrument
+    assert order.broker_order_id == 101
+    assert order.perm_id == 202
 
 
 @pytest.mark.asyncio
@@ -278,6 +362,138 @@ async def test_fill_processor_serializes_distinct_partial_fills_per_order() -> N
     assert updated.filled_qty == 10
     assert updated.remaining_qty == 0
     assert updated.status == OrderStatus.FILLED
+
+
+@pytest.mark.asyncio
+async def test_fill_processor_accepts_status_first_terminal_state_without_warning(caplog) -> None:
+    repo = InMemoryRepository()
+    order = _entry_order("NVDA")
+    order.status = OrderStatus.FILLED
+    order.remaining_qty = 10
+    await repo.save_order(order)
+    processor = FillProcessor(repo)
+    caplog.set_level(logging.WARNING)
+
+    await processor.process_fill(
+        oms_order_id=order.oms_order_id,
+        broker_fill_id="exec-status-first",
+        price=101.25,
+        qty=10,
+        timestamp=datetime.now(timezone.utc),
+        fees=1.5,
+    )
+
+    updated = await repo.get_order(order.oms_order_id)
+    assert updated is not None
+    assert updated.status == OrderStatus.FILLED
+    assert updated.filled_qty == 10
+    assert "Invalid transition" not in caplog.text
+    assert "Fill transition rejected" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_single_oms_callbacks_serialize_status_ack_then_fill(caplog) -> None:
+    repo = _DelayedWorkingSaveRepository()
+    order = _entry_order("QQQ")
+    order.status = OrderStatus.ROUTED
+    order.remaining_qty = order.qty
+    await repo.save_order(order)
+    repo.saved_statuses.clear()
+    bus = MagicMock()
+    bus.emit_order_event = MagicMock()
+    bus.emit_fill_event = MagicMock()
+    adapter = SimpleNamespace()
+    caplog.set_level(logging.WARNING)
+
+    _wire_adapter_callbacks(
+        adapter=adapter,
+        bus=bus,
+        repo=repo,
+        fill_proc=FillProcessor(repo),
+        router=MagicMock(),
+        strategy_risk_states={},
+        portfolio_risk_state=PortfolioRiskState(trade_date=date.today()),
+        unit_risk_dollars=100.0,
+        open_positions={},
+    )
+
+    adapter.on_status(order.oms_order_id, "Submitted", order.qty)
+    await asyncio.wait_for(repo.working_save_started.wait(), timeout=1.0)
+    adapter.on_ack(order.oms_order_id, SimpleNamespace(broker_order_id=77))
+    adapter.on_fill(
+        order.oms_order_id,
+        "exec-single",
+        101.0,
+        order.qty,
+        datetime.now(timezone.utc),
+        0.0,
+    )
+    repo.release_working_save.set()
+
+    updated = await _wait_for_order_status(repo, order.oms_order_id, OrderStatus.FILLED)
+
+    assert updated.filled_qty == order.qty
+    assert updated.remaining_qty == 0
+    assert updated.acked_at is not None
+    assert updated.broker_order_ref is not None
+    assert repo.saved_statuses[0] == OrderStatus.WORKING
+    assert repo.saved_statuses[-1] == OrderStatus.FILLED
+    assert "Invalid transition" not in caplog.text
+    assert "Fill transition rejected" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_multi_oms_callbacks_serialize_status_ack_then_fill(caplog) -> None:
+    repo = _DelayedWorkingSaveRepository()
+    order = _entry_order("GLD")
+    order.status = OrderStatus.ROUTED
+    order.remaining_qty = order.qty
+    await repo.save_order(order)
+    repo.saved_statuses.clear()
+    bus = MagicMock()
+    bus.emit_order_event = MagicMock()
+    bus.emit_fill_event = MagicMock()
+    adapter = SimpleNamespace()
+    coordinator = MagicMock()
+    caplog.set_level(logging.WARNING)
+
+    _wire_adapter_callbacks_multi(
+        adapter=adapter,
+        bus=bus,
+        repo=repo,
+        fill_proc=FillProcessor(repo),
+        router=MagicMock(),
+        strategy_risk_states={},
+        portfolio_risk_state=PortfolioRiskState(trade_date=date.today()),
+        unit_risk_map={order.strategy_id: 100.0},
+        open_positions={},
+        coordinator=coordinator,
+        portfolio_urd=100.0,
+    )
+
+    adapter.on_status(order.oms_order_id, "Submitted", order.qty)
+    await asyncio.wait_for(repo.working_save_started.wait(), timeout=1.0)
+    adapter.on_ack(order.oms_order_id, SimpleNamespace(broker_order_id=88))
+    adapter.on_fill(
+        order.oms_order_id,
+        "exec-multi",
+        99.5,
+        order.qty,
+        datetime.now(timezone.utc),
+        0.0,
+    )
+    repo.release_working_save.set()
+
+    updated = await _wait_for_order_status(repo, order.oms_order_id, OrderStatus.FILLED)
+
+    assert updated.filled_qty == order.qty
+    assert updated.remaining_qty == 0
+    assert updated.acked_at is not None
+    assert updated.broker_order_ref is not None
+    assert repo.saved_statuses[0] == OrderStatus.WORKING
+    assert repo.saved_statuses[-1] == OrderStatus.FILLED
+    assert "Invalid transition" not in caplog.text
+    assert "Fill transition rejected" not in caplog.text
 
 
 @pytest.mark.asyncio

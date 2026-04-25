@@ -118,6 +118,7 @@ class PositionLeg:
     entry_price: float = 0.0
     initial_stop: float = 0.0
     fill_time: Optional[datetime] = None
+    entry_commission: float = 0.0
     oms_order_id: str = ""
     trade_id: str = ""
 

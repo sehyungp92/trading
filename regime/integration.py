@@ -78,8 +78,8 @@ OVERLAY_WEIGHTS: dict[str, dict[str, float]] = {
 STOCK_PROFILES: dict[str, dict] = {
     "G": {"alcb_max_positions": 8, "iaric_pb_max_positions": 8, "disabled": frozenset()},
     "R": {"alcb_max_positions": 6, "iaric_pb_max_positions": 5, "disabled": frozenset()},
-    "S": {"alcb_max_positions": 4, "iaric_pb_max_positions": 3, "disabled": frozenset({"US_ORB_v1"})},
-    "D": {"alcb_max_positions": 3, "iaric_pb_max_positions": 2, "disabled": frozenset({"US_ORB_v1"})},
+    "S": {"alcb_max_positions": 4, "iaric_pb_max_positions": 3, "disabled": frozenset()},
+    "D": {"alcb_max_positions": 3, "iaric_pb_max_positions": 2, "disabled": frozenset()},
 }
 
 MOMENTUM_PROFILES: dict[str, dict] = {

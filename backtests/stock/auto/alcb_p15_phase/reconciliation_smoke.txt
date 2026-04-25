@@ -1,0 +1,6 @@
+current_defaults: trades=737 totalR=45.42 PF=1.52 pnl=4507.76 $/t=6.12 TPM=28.47 DD=4.26% MFEcap=0.548
+or6_end1200_blocktrue_frtrail03: trades=628 totalR=27.41 PF=1.43 pnl=3138.50 $/t=5.00 TPM=24.26 DD=4.56% MFEcap=0.539
+or6_end1300_blocktrue_frtrail03: trades=702 totalR=25.18 PF=1.36 pnl=2950.45 $/t=4.20 TPM=27.12 DD=5.21% MFEcap=0.538
+or6_end1300_blockfalse_frtrail03: trades=727 totalR=21.12 PF=1.34 pnl=2873.86 $/t=3.95 TPM=28.08 DD=5.81% MFEcap=0.535
+or6_end1300_blocktrue_frtrail0: trades=610 totalR=94.81 PF=1.65 pnl=7919.03 $/t=12.98 TPM=23.56 DD=3.72% MFEcap=0.759
+or6_end1300_blockfalse_frtrail0: trades=639 totalR=91.83 PF=1.58 pnl=7419.22 $/t=11.61 TPM=24.68 DD=4.04% MFEcap=0.756

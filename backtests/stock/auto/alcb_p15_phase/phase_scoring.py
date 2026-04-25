@@ -13,34 +13,75 @@ _BUCKET_1000_START = time(10, 0)
 _BUCKET_1000_END = time(10, 30)
 
 
-IMMUTABLE_WEIGHTS: dict[str, float] = {
-    "expected_total_r": 0.20,
-    "net_profit": 0.15,
-    "trades_per_month": 0.12,
-    "expectancy": 0.10,
-    "profit_factor": 0.10,
-    "mfe_capture_efficiency": 0.10,
-    "long_hold_total_r": 0.08,
-    "inv_dd": 0.08,
-    "entry_quality": 0.07,
-}
-
 PHASE_SCORING_WEIGHTS: dict[int, dict[str, float]] = {
-    1: dict(IMMUTABLE_WEIGHTS),
-    2: dict(IMMUTABLE_WEIGHTS),
-    3: dict(IMMUTABLE_WEIGHTS),
+    # Entry discrimination: reject chase/weak signals without losing the edge.
+    1: {
+        "expected_total_r": 0.28,
+        "net_profit": 0.20,
+        "trades_per_month": 0.18,
+        "profit_factor": 0.16,
+        "expectancy": 0.10,
+        "inv_dd": 0.08,
+    },
+    # Structural entries: only add frequency when it brings real total alpha.
+    2: {
+        "expected_total_r": 0.30,
+        "trades_per_month": 0.22,
+        "net_profit": 0.16,
+        "profit_factor": 0.14,
+        "expectancy": 0.10,
+        "inv_dd": 0.08,
+    },
+    # Sizing/management: maximize dollars and R without hiding risk decay.
+    3: {
+        "net_profit": 0.26,
+        "expected_total_r": 0.22,
+        "trades_per_month": 0.16,
+        "profit_factor": 0.14,
+        "expectancy_dollar": 0.12,
+        "inv_dd": 0.10,
+    },
+    # US_ORB quality/danger: improve selectivity while preserving throughput.
+    4: {
+        "expected_total_r": 0.22,
+        "net_profit": 0.18,
+        "profit_factor": 0.18,
+        "trades_per_month": 0.16,
+        "profit_protection": 0.16,
+        "inv_dd": 0.10,
+    },
+    # US_ORB acceptance/retest: recover alpha left on the table.
+    5: {
+        "expected_total_r": 0.30,
+        "trades_per_month": 0.22,
+        "net_profit": 0.16,
+        "profit_factor": 0.14,
+        "expectancy": 0.10,
+        "inv_dd": 0.10,
+    },
+    # US_ORB exits: improve capture/protection without strangling winners.
+    6: {
+        "expected_total_r": 0.24,
+        "net_profit": 0.18,
+        "profit_factor": 0.16,
+        "mfe_capture_efficiency": 0.16,
+        "profit_protection": 0.16,
+        "inv_dd": 0.10,
+    },
 }
 
 NORMALIZATION_RANGES: dict[str, tuple[float, float]] = {
-    "expected_total_r": (65.0, 115.0),
-    "net_profit": (6000.0, 12000.0),
-    "trades_per_month": (18.0, 32.0),
-    "expectancy": (0.10, 0.20),
-    "profit_factor": (1.65, 2.35),
-    "mfe_capture_efficiency": (0.40, 0.60),
-    "long_hold_total_r": (45.0, 75.0),
-    # inv_dd is 1 - dd / 12%; 0.50 ~= 6% DD, 0.875 ~= 1.5% DD.
-    "inv_dd": (0.50, 0.875),
+    # Scaled around the reconciled P15 baseline and prior P15 optimized bundle.
+    "expected_total_r": (80.0, 125.0),
+    "net_profit": (6500.0, 10500.0),
+    "trades_per_month": (18.0, 31.0),
+    "expectancy": (0.12, 0.22),
+    "expectancy_dollar": (9.0, 16.0),
+    "profit_factor": (1.48, 1.95),
+    "mfe_capture_efficiency": (0.70, 0.82),
+    "profit_protection": (0.60, 0.80),
+    # inv_dd is 1 - dd / 12%; 0.58 ~= 5.0% DD, 0.82 ~= 2.2% DD.
+    "inv_dd": (0.58, 0.82),
     "entry_quality": (0.85, 1.0),
 }
 
@@ -115,7 +156,7 @@ def compute_alcb_phase_metrics(trades: list[Any]) -> dict[str, float]:
     ]
     long_hold = [trade for trade in trades if _hold_bars(trade) > 24]
     carry_trades = [trade for trade in trades if _is_carry_trade(trade)]
-    or_trades = [trade for trade in trades if _entry_type(trade) in {"OR_BREAKOUT", "OR_RECLAIM"}]
+    or_trades = [trade for trade in trades if _entry_type(trade) in {"OR_BREAKOUT", "OR_RECLAIM", "AVWAP_RECLAIM"}]
     combined_trades = [trade for trade in trades if _entry_type(trade).startswith("COMBINED")]
     pdh_trades = [trade for trade in trades if _entry_type(trade) in {"PDH_BREAKOUT", "PDH_RECLAIM"}]
     tight_or = [trade for trade in trades if _or_width_pct(trade) < 0.2]

@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from libs.oms.persistence.db_config import get_environment
+from libs.services.heartbeat import emit_family_heartbeats
 
 from strategies.contracts import RuntimeContext
 
@@ -124,8 +125,9 @@ class MomentumFamilyCoordinator:
             from ib_async import ContFuture
             mnq_cont = ContFuture("MNQ", "CME")
             await session.ib.qualifyContractsAsync(mnq_cont)
-            bars = await session.ib.reqHistoricalDataAsync(
+            bars = await session.req_historical_data(
                 mnq_cont, "", "1 D", "1 day", "TRADES", False,
+                request_kind="quick",
             )
             mnq_price = bars[-1].close if bars else 21000.0
         except Exception:
@@ -398,26 +400,42 @@ class MomentumFamilyCoordinator:
                 await asyncio.sleep(15)
             except asyncio.CancelledError:
                 return
+            payloads = []
             for i, sid in enumerate(self._strategy_ids):
-                try:
-                    # Use per-strategy state (not portfolio state) for correct per-strategy metrics
-                    srs = getattr(self._oms_services[i], "_strategy_risk_states", {})
-                    sr = srs.get(sid)
-                    # Fall back to portfolio state for halted check
-                    prs = getattr(self._oms_services[i], "_portfolio_risk_state", None)
-                    await heartbeat.strategy_heartbeat(
-                        strategy_id=sid,
-                        heat_r=Decimal(str(sr.open_risk_R)) if sr else Decimal("0"),
-                        daily_pnl_r=Decimal(str(sr.daily_realized_R)) if sr else Decimal("0"),
-                        mode="HALTED" if (prs and prs.halted) else "RUNNING",
-                    )
-                except Exception:
-                    logger.debug("Heartbeat failed for %s", sid, exc_info=True)
-            try:
-                connected = session.ib.isConnected() if session else False
-                await heartbeat.adapter_heartbeat(self.family_id, connected=connected)
-            except Exception:
-                logger.debug("Adapter heartbeat failed", exc_info=True)
+                # Use per-strategy state (not portfolio state) for correct per-strategy metrics
+                srs = getattr(self._oms_services[i], "_strategy_risk_states", {})
+                sr = srs.get(sid)
+                # Fall back to portfolio state for halted check
+                prs = getattr(self._oms_services[i], "_portfolio_risk_state", None)
+                payload = {
+                    "strategy_id": sid,
+                    "heat_r": Decimal(str(sr.open_risk_R)) if sr else Decimal("0"),
+                    "daily_pnl_r": Decimal(str(sr.daily_realized_R)) if sr else Decimal("0"),
+                    "mode": "HALTED" if (prs and prs.halted) else "RUNNING",
+                }
+                # Diagnostic pulse fields
+                engine = self._engines[i]
+                if hasattr(engine, "_last_decision_code"):
+                    payload["last_decision_code"] = engine._last_decision_code
+                    payload["last_decision_details"] = getattr(engine, "_last_decision_details", None)
+                    payload["last_seen_bar_ts"] = getattr(engine, "_last_bar_ts", None)
+                payloads.append(payload)
+            connected = session.ib.isConnected() if session else False
+            # Enrich with IB farm status for diagnostic context
+            if session:
+                farm_statuses = {}
+                for group in session.groups.values():
+                    if group.farm_monitor:
+                        farm_statuses.update(group.farm_monitor.all_statuses())
+                if farm_statuses:
+                    for p in payloads:
+                        details = p.get("last_decision_details") or {}
+                        if isinstance(details, dict):
+                            details["ib_farm_status"] = farm_statuses
+                            p["last_decision_details"] = details
+            await emit_family_heartbeats(
+                heartbeat, self.family_id, payloads, adapter_connected=connected,
+            )
 
     # ── internal ─────────────────────────────────────────────────────
 

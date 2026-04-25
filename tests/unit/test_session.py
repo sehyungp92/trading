@@ -5,6 +5,7 @@ import asyncio
 from unittest.mock import MagicMock, AsyncMock, patch, PropertyMock
 
 import pytest
+from libs.broker_ibkr.throttler import PacingChannel
 
 
 # ---------------------------------------------------------------------------
@@ -259,3 +260,61 @@ class TestResilientStop:
 
             mock_hb.stop.assert_awaited_once()
             mock_fm.stop.assert_called_once()
+
+
+class TestHistoricalDataWrapper:
+    @pytest.mark.asyncio
+    async def test_req_historical_data_throttles_and_passes_timeout(self) -> None:
+        session, *_ = _make_session()
+        session.throttled = AsyncMock()
+        session.ib.reqHistoricalDataAsync = AsyncMock(return_value=[object()])
+
+        rows = await session.req_historical_data(
+            "contract", "", "1 D", "1 day", "TRADES", False, request_kind="quick",
+        )
+
+        assert rows
+        session.throttled.assert_awaited_once_with(PacingChannel.HISTORICAL)
+        kwargs = session.ib.reqHistoricalDataAsync.await_args.kwargs
+        assert kwargs["timeout"] == 15.0
+
+    @pytest.mark.asyncio
+    async def test_req_historical_data_opens_breaker_and_skips_refreshes(self) -> None:
+        session, *_ = _make_session()
+        session.throttled = AsyncMock()
+
+        async def slow_empty(*args, **kwargs):
+            await asyncio.sleep(0.02)
+            return []
+
+        session.ib.reqHistoricalDataAsync = AsyncMock(side_effect=slow_empty)
+
+        for _ in range(3):
+            await session.req_historical_data(
+                "contract", "", "1 D", "1 day", "TRADES", False, timeout=0.01,
+            )
+
+        assert session.historical_health()["timeout_count"] == 3
+        session.ib.reqHistoricalDataAsync.reset_mock()
+
+        rows = await session.req_historical_data(
+            "contract", "", "1 D", "1 day", "TRADES", False, timeout=0.01,
+        )
+
+        assert rows == []
+        session.ib.reqHistoricalDataAsync.assert_not_awaited()
+        assert session.historical_health()["skipped_count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_req_historical_data_does_not_skip_subscriptions(self) -> None:
+        session, *_ = _make_session()
+        session._historical_breaker_open_until = 10**9
+        session.throttled = AsyncMock()
+        session.ib.reqHistoricalDataAsync = AsyncMock(return_value=[object()])
+
+        await session.req_historical_data(
+            "contract", "", "1 D", "1 day", "TRADES", False, keepUpToDate=True,
+        )
+
+        session.ib.reqHistoricalDataAsync.assert_awaited_once()
+        assert session.ib.reqHistoricalDataAsync.await_args.kwargs["timeout"] == 45.0

@@ -183,6 +183,24 @@ class BreakoutEngine:
         self._running = False
         self._resubscribing = False
 
+        # Diagnostic pulse state
+        self._last_decision_code: str = "IDLE"
+        self._last_decision_details: dict = {}
+        self._last_bar_ts: datetime | None = None
+
+    def _record_decision(self, code: str, details: dict | None = None) -> None:
+        self._last_decision_code = code
+        self._last_decision_details = details or {}
+
+    def health_status(self) -> dict:
+        return {
+            "strategy_id": STRATEGY_ID,
+            "running": self._running,
+            "last_decision_code": self._last_decision_code,
+            "last_decision_details": self._last_decision_details,
+            "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
+        }
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
@@ -320,6 +338,8 @@ class BreakoutEngine:
                 now_et = datetime.now(timezone.utc).astimezone(_ET)
                 if gates.is_rth_time(now_et):
                     await self._hourly_cycle(now_et)
+                else:
+                    self._record_decision("OUTSIDE_RTH")
             except Exception:
                 logger.exception("Error in hourly cycle")
 
@@ -362,19 +382,19 @@ class BreakoutEngine:
                     continue
 
                 # Daily bars (~3y)
-                daily_bars = await self._ib.ib.reqHistoricalDataAsync(
+                daily_bars = await self._ib.req_historical_data(
                     contract, endDateTime="", durationStr="3 Y",
                     barSizeSetting="1 day", whatToShow="TRADES",
-                    useRTH=True, formatDate=1,
+                    useRTH=True, formatDate=1, request_kind="startup",
                 )
                 if daily_bars:
                     self._init_daily_indicators(sym, daily_bars)
 
                 # Hourly bars (~2yr)
-                hourly_bars = await self._ib.ib.reqHistoricalDataAsync(
+                hourly_bars = await self._ib.req_historical_data(
                     contract, endDateTime="", durationStr="2 Y",
                     barSizeSetting="1 hour", whatToShow="TRADES",
-                    useRTH=True, formatDate=1,
+                    useRTH=True, formatDate=1, request_kind="startup",
                 )
                 if hourly_bars:
                     self._init_hourly_indicators(sym, hourly_bars)
@@ -460,10 +480,10 @@ class BreakoutEngine:
         hist = self.histories[symbol]
 
         # Fetch fresh daily bars
-        bars = await self._ib.ib.reqHistoricalDataAsync(
+        bars = await self._ib.req_historical_data(
             contract, endDateTime="", durationStr="200 D",
             barSizeSetting="1 day", whatToShow="TRADES",
-            useRTH=True, formatDate=1,
+            useRTH=True, formatDate=1, request_kind="recurring",
         )
         if not bars or len(bars) < ATR_DAILY_LONG_PERIOD + 10:
             return
@@ -923,6 +943,7 @@ class BreakoutEngine:
     async def _hourly_cycle(self, now_et: datetime) -> None:
         """Execute hourly cycle for all symbols."""
         logger.info("=== Hourly cycle %s ===", now_et.isoformat())
+        self._last_bar_ts = datetime.now(timezone.utc)
 
         for sym in self._config:
             try:
@@ -1042,6 +1063,7 @@ class BreakoutEngine:
         # --- Check if we already have a position (adds) ---
         have_position = symbol in self.positions and self.positions[symbol].qty > 0
         if have_position:
+            self._record_decision("MANAGING_POSITION", {"symbol": symbol})
             await self._handle_adds(
                 symbol, direction, rvol_h, avwap_h, wvwap, ema20_h,
                 atr14_d, atr14_h, campaign, cfg, quality_mult,
@@ -1091,6 +1113,7 @@ class BreakoutEngine:
             ema20_h=ema20_h,
         )
         if entry_type is None:
+            self._record_decision("NO_SIGNAL", {"symbol": symbol})
             return
 
         # C entry displacement ceiling (3E): reject if price too far from AVWAP
@@ -1313,6 +1336,10 @@ class BreakoutEngine:
             Intent(intent_type=IntentType.NEW_ORDER, strategy_id=STRATEGY_ID, order=entry_order)
         )
         if receipt.oms_order_id:
+            self._record_decision("ENTRY_SUBMITTED", {
+                "symbol": symbol, "entry_type": entry_type,
+                "shares": shares, "oms_order_id": receipt.oms_order_id,
+            })
             setup.primary_order_id = receipt.oms_order_id
             self._track_order(
                 receipt.oms_order_id,
@@ -1332,6 +1359,11 @@ class BreakoutEngine:
                     requested_price=entry_price,
                     strategy_id=STRATEGY_ID,
                 )
+        else:
+            self._record_decision("ENTRY_DENIED", {
+                "symbol": symbol, "entry_type": entry_type,
+                "reason": "oms_rejected",
+            })
 
         self.active_setups[setup.setup_id] = setup
         logger.info("%s: Entry %s %s placed — shares=%d, stop=%.2f, tp1=%.2f",
@@ -2574,10 +2606,10 @@ class BreakoutEngine:
         if not contract:
             return None
         try:
-            return await self._ib.ib.reqHistoricalDataAsync(
+            return await self._ib.req_historical_data(
                 contract, endDateTime="", durationStr=duration,
                 barSizeSetting="1 hour", whatToShow="TRADES",
-                useRTH=True, formatDate=1,
+                useRTH=True, formatDate=1, request_kind="recurring",
             )
         except Exception:
             logger.warning("Could not fetch hourly bars for %s", symbol)

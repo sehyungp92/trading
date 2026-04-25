@@ -73,8 +73,8 @@ def get_diagnostic_gaps(phase: int, metrics: DownturnMetrics) -> list[str]:
         gaps.append("Exit efficiency is low but D3 not enabled until Phase 2")
 
     # Check if correction detail would help
-    if phase < 3 and metrics.correction_alpha_pct < 5.0:
-        gaps.append("Correction alpha low but D7 not enabled until Phase 3")
+    if phase < 3 and metrics.correction_pnl_pct < 5.0:
+        gaps.append("Correction-window PnL is low but D7 is not enabled until Phase 3")
 
     # Engine-specific gaps
     if metrics.reversal_trades > 0 and metrics.reversal_avg_r < -0.5:
@@ -293,9 +293,9 @@ def _write_d6_phase_delta(
 
     prev_metrics = prev_result.get("final_metrics", {})
     for key in ["total_trades", "profit_factor", "max_dd_pct", "calmar",
-                "sharpe", "net_return_pct", "correction_alpha_pct",
+                "sharpe", "net_return_pct", "correction_pnl_pct",
                 "exit_efficiency", "signal_to_entry_ratio"]:
-        prev = prev_metrics.get(key, 0)
+        prev = prev_metrics.get(key, prev_metrics.get("correction_alpha_pct", 0) if key == "correction_pnl_pct" else 0)
         curr = getattr(metrics, key, 0)
         delta = curr - prev
         arrow = "+" if delta >= 0 else ""
@@ -312,7 +312,7 @@ def _write_d7_correction_detail(
     metrics: DownturnMetrics,
 ) -> None:
     buf.write("--- D7: Correction-Window Detail ---\n")
-    buf.write(f"  Correction alpha: {metrics.correction_alpha_pct:.2f}%\n")
+    buf.write(f"  Correction PnL: {metrics.correction_pnl_pct:.2f}%\n")
     buf.write(f"  Bear capture ratio: {metrics.bear_capture_ratio:.1%}\n")
 
     if not trades:

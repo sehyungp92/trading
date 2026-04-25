@@ -8,6 +8,7 @@ Usage:
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from datetime import datetime
@@ -56,19 +57,31 @@ from backtest.analysis.reports import (
     performance_report,
 )
 from backtest.config import AblationFlags, BacktestConfig, SlippageConfig
-from backtest.engine.portfolio_engine import PortfolioResult, run_independent
+from backtest.engine.portfolio_engine import PortfolioResult, run_synchronized
+from backtests.diagnostic_snapshot import build_group_snapshot
 from backtests.swing.auto.config_mutator import mutate_atrss_config
 
 import numpy as np
 
 DATA_DIR = Path("backtests/swing/data/raw")
 INITIAL_EQUITY = 10_000.0
+DEFAULT_OUTPUT = Path("backtests/swing/auto/output/atrss_full_diagnostics.txt")
 
 
 def _out(text: str, f=None) -> None:
     print(text)
     if f is not None:
         f.write(text + "\n")
+
+
+def _trade_net_pnl(trade) -> float:
+    return float(trade.pnl_dollars) - float(getattr(trade, "commission", 0.0) or 0.0)
+
+
+def _net_profit_factor(trades: list) -> float:
+    gross_profit = sum(_trade_net_pnl(t) for t in trades if _trade_net_pnl(t) > 0)
+    gross_loss = abs(sum(_trade_net_pnl(t) for t in trades if _trade_net_pnl(t) < 0))
+    return gross_profit / gross_loss if gross_loss > 0 else float("inf")
 
 
 def _load_data(symbols: list[str], data_dir: Path):
@@ -99,8 +112,16 @@ def _load_data(symbols: list[str], data_dir: Path):
 
 
 def main():
-    output_path = (Path(__file__).resolve().parent.parent
-                   / "auto" / "output" / "atrss_full_diagnostics.txt")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--phase-result",
+        default="current",
+        help="Phase result to load from phase_state.json (1-4) or 'current' for cumulative mutations.",
+    )
+    parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
+    args = parser.parse_args()
+
+    output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Load optimized mutations from phased auto-optimization
@@ -109,7 +130,12 @@ def main():
     if phase_state_path.exists():
         with open(phase_state_path) as fp:
             phase_state = json.load(fp)
-        mutations = phase_state.get("cumulative_mutations", {})
+        if args.phase_result == "current":
+            mutations = phase_state.get("cumulative_mutations", {})
+        else:
+            phase_key = str(args.phase_result)
+            phase_result = phase_state.get("phase_results", {}).get(phase_key, {})
+            mutations = phase_result.get("final_mutations", {})
     else:
         mutations = {}
     print(f"Optimized mutations ({len(mutations)}): {mutations}")
@@ -132,7 +158,7 @@ def main():
     print(f"Loading data from {DATA_DIR}...")
     data = _load_data(config.symbols, DATA_DIR)
     print("Running backtest...")
-    result = run_independent(data, config)
+    result = run_synchronized(data, config)
 
     # Collect all trades
     all_trades: list = []
@@ -143,10 +169,23 @@ def main():
     all_trades.sort(key=lambda t: t.entry_time or datetime.min)
 
     print(f"Total trades: {len(all_trades)}")
+    snapshot = build_group_snapshot(
+        "ATRSS Strength / Weakness Snapshot",
+        all_trades,
+        [
+            ("symbol", lambda trade: getattr(trade, "symbol", None)),
+            ("entry type", lambda trade: getattr(trade, "entry_type", None)),
+            ("exit reason", lambda trade: getattr(trade, "exit_reason", None)),
+        ],
+        min_count=5,
+    )
 
     with open(output_path, "w", encoding="utf-8") as f:
         _out("=" * 80, f)
-        _out("ATRSS FULL DIAGNOSTICS (PHASED AUTO-OPTIMIZED)", f)
+        if args.phase_result == "current":
+            _out("ATRSS FULL DIAGNOSTICS (PHASED AUTO-OPTIMIZED)", f)
+        else:
+            _out(f"ATRSS FULL DIAGNOSTICS (PHASE {args.phase_result} FINAL BASELINE)", f)
         _out(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", f)
         _out(f"Initial Equity: ${INITIAL_EQUITY:,.0f}", f)
         _out(f"Symbols: {', '.join(config.symbols)}", f)
@@ -155,24 +194,22 @@ def main():
             _out(f"  {mk}: {mv}", f)
         _out("=" * 80, f)
         _out("", f)
+        _out(snapshot, f)
+        _out("", f)
 
         # ==================================================================
         # AGGREGATE SUMMARY
         # ==================================================================
         if all_trades:
-            total_pnl = sum(t.pnl_dollars for t in all_trades)
+            total_pnl = sum(_trade_net_pnl(t) for t in all_trades)
             total_r = sum(t.r_multiple for t in all_trades)
             n_wins = sum(1 for t in all_trades if t.r_multiple > 0)
             wr = n_wins / len(all_trades) * 100
 
-            pnls = np.array([t.pnl_dollars for t in all_trades])
             # Build combined equity for Sharpe/Sortino
             eq = result.combined_equity
-            ts = result.combined_timestamps
 
-            gross_w = sum(t.r_multiple for t in all_trades if t.r_multiple > 0)
-            gross_l = abs(sum(t.r_multiple for t in all_trades if t.r_multiple < 0))
-            pf = gross_w / gross_l if gross_l > 0 else float("inf")
+            pf = _net_profit_factor(all_trades)
             max_dd_pct, max_dd_dollar = compute_max_drawdown(eq) if len(eq) > 1 else (0, 0)
 
             sharpe = compute_sharpe(eq) if len(eq) > 1 else 0.0
@@ -209,12 +246,10 @@ def main():
                 continue
             n = len(trades)
             wr_s = sum(1 for t in trades if t.r_multiple > 0) / n * 100
-            gw = sum(t.r_multiple for t in trades if t.r_multiple > 0)
-            gl = abs(sum(t.r_multiple for t in trades if t.r_multiple < 0))
-            pf_s = gw / gl if gl > 0 else float("inf")
+            pf_s = _net_profit_factor(trades)
             avg_r = np.mean([t.r_multiple for t in trades])
             tot_r = sum(t.r_multiple for t in trades)
-            pnl_s = sum(t.pnl_dollars for t in trades)
+            pnl_s = sum(_trade_net_pnl(t) for t in trades)
             dd_pct, _ = compute_max_drawdown(sr.equity_curve) if len(sr.equity_curve) > 1 else (0, 0)
             sh = compute_sharpe(sr.equity_curve) if len(sr.equity_curve) > 1 else 0.0
             _out(f"  {sym:>6s} {n:5d} {wr_s:4.0f}% {min(pf_s, 99.99):6.2f} {avg_r:+7.3f} "

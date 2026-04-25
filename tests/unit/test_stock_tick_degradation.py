@@ -7,7 +7,6 @@ import pytest
 from libs.oms.models.instrument import Instrument
 from strategies.stock.alcb.data import IBMarketDataSource as ALCBMarketDataSource
 from strategies.stock.iaric.data import IBMarketDataSource as IARICMarketDataSource
-from strategies.stock.us_orb.data import IBMarketDataSource as ORBMarketDataSource
 
 
 class _FakeEvent:
@@ -83,33 +82,6 @@ def _instrument(symbol: str) -> Instrument:
         primary_exchange="NASDAQ",
         sec_type="STK",
     )
-
-
-@pytest.mark.asyncio
-async def test_orb_degrades_10190_without_blacklisting_and_recovers_after_invalidation() -> None:
-    ib = _FakeIB()
-    factory = _FakeFactory(broker_symbol="IB1T")
-    source = ORBMarketDataSource(ib, factory, lambda *args: None, lambda *args: None)
-    instrument = _instrument("IBIT")
-
-    await source.ensure_hot_symbols([instrument])
-
-    assert len(ib.req_mkt_data_calls) == 1
-    assert len(ib.req_tick_by_tick_calls) == 2
-
-    source._on_ib_error(1, 10190, "tick cap", factory._contracts["IBIT"])
-
-    assert "IBIT" in source._tick_by_tick_disabled
-    assert source._tick_flow_available["IBIT"] is False
-    assert "IBIT" not in source._blacklisted
-    assert len(ib.cancel_tick_by_tick_calls) == 2
-
-    await source.ensure_hot_symbols([instrument])
-    assert len(ib.req_tick_by_tick_calls) == 2
-
-    source.invalidate_subscriptions()
-    await source.ensure_hot_symbols([instrument])
-    assert len(ib.req_tick_by_tick_calls) == 4
 
 
 @pytest.mark.asyncio

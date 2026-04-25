@@ -98,6 +98,9 @@ class _Position:
     carry_days: int = 0
     opened_date: date | None = None
     setup_tag: str = ""
+    orb_quality_score: float = 0.0
+    gap_size_mult: float = 1.0
+    time_size_mult: float = 1.0
 
     def unrealized_r(self, price: float) -> float:
         if self.risk_per_share <= 0:
@@ -120,6 +123,9 @@ class _PendingEntry:
     avwap_at_signal: float
     momentum_score: int
     score_detail: dict
+    orb_quality_score: float
+    gap_size_mult: float
+    time_size_mult: float
     setup: MomentumSetup
     regime_tier: str
     opened_date: date
@@ -600,6 +606,34 @@ class ALCBIntradayEngine:
                         elif pos.direction == Direction.SHORT and trail_price < pos.current_stop:
                             pos.current_stop = trail_price
 
+        # 2d. ORB-STYLE RETRACEMENT TRAIL (preserve a fraction of MFE)
+        if ablation.use_orb_retracement_trail and settings.orb_retracement_trail_start_bars > 0:
+            if pos.hold_bars >= settings.orb_retracement_trail_start_bars and pos.risk_per_share > 0:
+                mfe_r = pos.unrealized_r(pos.max_favorable)
+                if mfe_r >= settings.orb_retracement_trail_min_mfe_r:
+                    keep_fraction = settings.orb_retracement_trail_early
+                    if (
+                        settings.orb_retracement_trail_tighten_bars > 0
+                        and pos.hold_bars >= settings.orb_retracement_trail_tighten_bars
+                    ):
+                        keep_fraction = settings.orb_retracement_trail_late
+                    keep_fraction = max(0.0, min(0.95, keep_fraction))
+                    gain = (
+                        pos.max_favorable - pos.entry_price
+                        if pos.direction == Direction.LONG
+                        else pos.entry_price - pos.max_favorable
+                    )
+                    if gain > 0:
+                        trail_price = (
+                            pos.entry_price + gain * keep_fraction
+                            if pos.direction == Direction.LONG
+                            else pos.entry_price - gain * keep_fraction
+                        )
+                        if pos.direction == Direction.LONG and trail_price > pos.current_stop:
+                            pos.current_stop = trail_price
+                        elif pos.direction == Direction.SHORT and trail_price < pos.current_stop:
+                            pos.current_stop = trail_price
+
         # 3. PARTIAL_TAKE
         if ablation.use_partial_takes:
             ur = pos.unrealized_r(bar.close)
@@ -672,7 +706,7 @@ class ALCBIntradayEngine:
         return round(fill_price, 2), slip_per_share
 
     def _consume_arms(self, state: _BreakoutArmState, entry_type: str) -> None:
-        if entry_type in {"OR_BREAKOUT", "COMBINED_BREAKOUT", "OR_RECLAIM", "COMBINED_RECLAIM"}:
+        if entry_type in {"OR_BREAKOUT", "COMBINED_BREAKOUT", "OR_RECLAIM", "COMBINED_RECLAIM", "AVWAP_RECLAIM"}:
             state.or_armed = False
         if entry_type in {"PDH_BREAKOUT", "COMBINED_BREAKOUT", "PDH_RECLAIM", "COMBINED_RECLAIM"}:
             state.pdh_armed = False
@@ -716,6 +750,159 @@ class ALCBIntradayEngine:
         tolerance = abs(level) * max(0.0, tolerance_pct)
         return bar.low <= level + tolerance and bar.close > level
 
+    @staticmethod
+    def _minutes_after(anchor: time, value: time) -> float:
+        anchor_minutes = anchor.hour * 60 + anchor.minute + anchor.second / 60.0
+        value_minutes = value.hour * 60 + value.minute + value.second / 60.0
+        return max(0.0, value_minutes - anchor_minutes)
+
+    def _orb_time_size_mult(self, signal_time: time, settings: StrategySettings) -> float:
+        decay = max(0.0, settings.orb_late_size_decay_per_30m)
+        if decay <= 0:
+            return 1.0
+        steps = self._minutes_after(settings.orb_time_decay_start, signal_time) / 30.0
+        return max(settings.orb_late_size_floor, 1.0 - decay * steps)
+
+    def _orb_required_rvol(self, base_rvol: float, signal_time: time, settings: StrategySettings) -> float:
+        add = max(0.0, settings.orb_late_rvol_add_per_30m)
+        if add <= 0:
+            return base_rvol
+        steps = self._minutes_after(settings.orb_time_decay_start, signal_time) / 30.0
+        return base_rvol + add * steps
+
+    @staticmethod
+    def _targeted_entry_size_mult(
+        entry_type: str,
+        entry_bar_index: int,
+        signal_time: datetime | time,
+        settings: StrategySettings,
+    ) -> float:
+        if isinstance(signal_time, datetime):
+            signal_time_et = signal_time.astimezone(_ET).time()
+        else:
+            signal_time_et = signal_time
+
+        mult = 1.0
+        if entry_type in {"PDH_BREAKOUT", "PDH_RECLAIM"}:
+            mult *= max(0.0, settings.pdh_size_mult)
+        if entry_bar_index == 9:
+            mult *= max(0.0, settings.bar9_size_mult)
+        if signal_time_et >= settings.late_entry_cutoff:
+            mult *= max(0.0, settings.late_entry_size_mult)
+        return mult
+
+    @staticmethod
+    def _orb_quality_score(
+        item: CandidateItem,
+        bar,
+        *,
+        entry_type: str,
+        m_score: int,
+        bar_rvol: float,
+        cpr: float,
+        avwap: float,
+        risk_per_share: float,
+        gap_pct: float,
+        regime_tier: str,
+    ) -> float:
+        score = 0.0
+        score += min(26.0, max(0.0, (bar_rvol - 1.2) * 10.0))
+        score += min(18.0, max(0.0, (cpr - 0.45) * 60.0))
+        score += min(24.0, max(0.0, float(m_score) * 4.0))
+        score += 10.0 * min(1.0, max(0.0, float(getattr(item, "relative_strength_percentile", 0.0) or 0.0)))
+        if avwap > 0 and bar.close > avwap:
+            score += 6.0
+        if "RECLAIM" in entry_type:
+            score += 5.0
+        if regime_tier == "A":
+            score += 5.0
+        elif regime_tier == "B":
+            score += 2.5
+
+        if gap_pct >= 0.08:
+            score -= 8.0
+        elif gap_pct >= 0.05:
+            score -= 4.0
+        elif gap_pct <= 0.0:
+            score -= 3.0
+
+        if risk_per_share > 0:
+            range_r = (bar.high - bar.low) / risk_per_share
+            if range_r > 2.0:
+                score -= 10.0
+            elif range_r > 1.6:
+                score -= 5.0
+        return min(100.0, max(0.0, score))
+
+    @staticmethod
+    def _orb_quality_size_mult(quality_score: float, settings: StrategySettings) -> float:
+        floor = float(settings.orb_quality_size_floor)
+        if floor <= 0:
+            return 1.0
+        min_score = max(1.0, float(settings.orb_quality_score_min))
+        top_score = max(min_score + 1.0, float(settings.orb_quality_top_score))
+        top_mult = max(floor, float(settings.orb_quality_top_mult))
+        if quality_score <= min_score:
+            return floor
+        if quality_score >= top_score:
+            return top_mult
+        blend = (quality_score - min_score) / (top_score - min_score)
+        return floor + blend * (top_mult - floor)
+
+    @staticmethod
+    def _orb_gap_policy(
+        gap_pct: float,
+        quality_score: float,
+        cpr: float,
+        settings: StrategySettings,
+    ) -> tuple[bool, float, str]:
+        mode = str(settings.orb_gap_policy_mode or "off").lower()
+        if mode == "off":
+            return True, 1.0, "gap_policy_off"
+        if gap_pct >= settings.orb_gap_block_pct:
+            return False, 0.0, "gap_ge_block"
+        if gap_pct <= settings.orb_gap_down_block_pct:
+            return False, 0.0, "gap_down_block"
+        if gap_pct >= settings.orb_gap_caution_pct:
+            if mode == "filter" and quality_score < max(settings.orb_quality_score_min, 70.0):
+                return False, 0.0, "gap_caution_quality"
+            return True, settings.orb_gap_caution_mult, "gap_caution"
+        if gap_pct >= settings.orb_gap_tight_pct:
+            if mode == "filter" and cpr < 0.60:
+                return False, 0.0, "gap_tight_cpr"
+            return True, settings.orb_gap_tight_mult, "gap_tight"
+        return True, 1.0, "gap_ok"
+
+    @staticmethod
+    def _orb_structure_stop(
+        entry_price: float,
+        default_stop: float,
+        pending: _PendingEntry,
+        settings: StrategySettings,
+    ) -> float:
+        mode = str(settings.orb_structure_stop_mode or "default").lower()
+        if mode == "default":
+            return default_stop
+        if mode == "reclaim" and "RECLAIM" not in pending.entry_type:
+            return default_stop
+
+        breakout_level = pending.setup.breakout_level if pending.setup else 0.0
+        support = breakout_level
+        if pending.avwap_at_signal > 0:
+            support = min(value for value in (breakout_level, pending.avwap_at_signal) if value > 0)
+        if support <= 0:
+            support = pending.signal_low
+
+        buffer_value = max(0.01, entry_price * max(0.0, settings.orb_structure_stop_buffer_pct))
+        candidate = min(pending.signal_low, support) - buffer_value
+        default_risk = max(0.01, entry_price - default_stop)
+        min_risk = default_risk * max(0.0, min(1.0, settings.orb_structure_min_risk_pct))
+        candidate_risk = entry_price - candidate
+        if candidate_risk < min_risk:
+            candidate = entry_price - min_risk
+        stop = max(default_stop, candidate)
+        return min(stop, entry_price - 0.01)
+
     def _reclaim_entry_type(
         self,
         bar,
@@ -746,10 +933,12 @@ class ALCBIntradayEngine:
         allow_or = "or" in mode
         allow_pdh = "pdh" in mode
         allow_avwap_ref = "avwap" in mode
+        allow_avwap_entry = "avwap_entry" in mode or "avwap_only" in mode
         tolerance = settings.reclaim_touch_tolerance_pct
 
         had_or_break = bool(recent) and any(prev.close > or_high for prev in recent)
         had_pdh_break = pdh > 0 and bool(recent) and any(prev.close > pdh for prev in recent)
+        had_any_break = had_or_break or had_pdh_break
 
         avwap_reclaim = (
             allow_avwap_ref
@@ -781,6 +970,8 @@ class ALCBIntradayEngine:
             return "OR_RECLAIM"
         if pdh_reclaim:
             return "PDH_RECLAIM"
+        if allow_avwap_entry and had_any_break and avwap_reclaim:
+            return "AVWAP_RECLAIM"
         return None
 
     def _fill_pending_entry(
@@ -809,13 +1000,14 @@ class ALCBIntradayEngine:
             Direction.LONG,
             is_entry=True,
         )
-        stop_price = momentum_stop_price(
+        default_stop = momentum_stop_price(
             entry_price,
             pending.or_low,
             pending.signal_low,
             pending.daily_atr,
             settings,
         )
+        stop_price = self._orb_structure_stop(entry_price, default_stop, pending, settings)
         risk_per_share = abs(entry_price - stop_price)
         if risk_per_share <= 0:
             pending_entries.pop(sym, None)
@@ -864,6 +1056,15 @@ class ALCBIntradayEngine:
             * size_mult
             * dow_mult
             * sector_mult
+            * pending.gap_size_mult
+            * pending.time_size_mult
+            * self._targeted_entry_size_mult(
+                pending.entry_type,
+                pending.signal_bar_index + 1,
+                pending.signal_time,
+                settings,
+            )
+            * self._orb_quality_size_mult(pending.orb_quality_score, settings)
         )
         qty = int(risk_budget / risk_per_share)
         if qty <= 0:
@@ -913,6 +1114,9 @@ class ALCBIntradayEngine:
             max_adverse=entry_price,
             opened_date=pending.opened_date,
             setup_tag=f"T1_{pending.entry_type}",
+            orb_quality_score=pending.orb_quality_score,
+            gap_size_mult=pending.gap_size_mult,
+            time_size_mult=pending.time_size_mult,
         )
         positions[sym] = pos
         pending_entries.pop(sym, None)
@@ -987,7 +1191,8 @@ class ALCBIntradayEngine:
         if shadow:
             shadow.record_funnel("evaluated")
 
-        if ablation.use_rvol_filter and bar_rvol < settings.rvol_threshold:
+        required_rvol = self._orb_required_rvol(settings.rvol_threshold, bar_time_et, settings)
+        if ablation.use_rvol_filter and bar_rvol < required_rvol:
             return
         if ablation.use_cpr_filter and cpr < settings.cpr_threshold:
             return
@@ -998,6 +1203,8 @@ class ALCBIntradayEngine:
             and arm_state.pdh_armed
             and bar.close > pdh
         )
+        raw_above_or = bar.close > or_high
+        raw_above_pdh = ablation.use_prior_day_high_breakout and bar.close > pdh
         if settings.reclaim_entry_mode != "off":
             entry_type_str = self._reclaim_entry_type(
                 bar,
@@ -1005,15 +1212,18 @@ class ALCBIntradayEngine:
                 or_high=or_high,
                 pdh=pdh,
                 avwap=avwap,
-                above_or=above_or,
-                above_pdh=above_pdh,
+                above_or=raw_above_or,
+                above_pdh=raw_above_pdh,
                 bar_rvol=bar_rvol,
                 cpr=cpr,
                 settings=settings,
                 ablation=ablation,
             )
-            if entry_type_str is None:
-                return
+        else:
+            entry_type_str = None
+
+        if entry_type_str is not None:
+            pass
         elif above_or and above_pdh and ablation.use_combined_breakout:
             entry_type_str = "COMBINED_BREAKOUT"
         elif above_or:
@@ -1055,6 +1265,52 @@ class ALCBIntradayEngine:
                     entry_type=entry_type_str,
                 ))
 
+        session_open = sb[0].open if sb else bar.open
+        gap_pct = ((session_open - pdc) / pdc) if pdc > 0 else 0.0
+        orb_quality_score = self._orb_quality_score(
+            item,
+            bar,
+            entry_type=entry_type_str,
+            m_score=m_score,
+            bar_rvol=bar_rvol,
+            cpr=cpr,
+            avwap=avwap,
+            risk_per_share=risk_per_share,
+            gap_pct=gap_pct,
+            regime_tier=regime_tier,
+        )
+        if (
+            ablation.use_orb_quality_gate
+            and settings.orb_quality_score_min > 0
+            and orb_quality_score < settings.orb_quality_score_min
+        ):
+            _reject("orb_quality_score")
+            return
+
+        gap_size_mult = 1.0
+        if ablation.use_orb_gap_policy:
+            gap_allowed, gap_size_mult, gap_reason = self._orb_gap_policy(
+                gap_pct,
+                orb_quality_score,
+                cpr,
+                settings,
+            )
+            if not gap_allowed:
+                _reject(gap_reason)
+                return
+
+        time_size_mult = self._orb_time_size_mult(bar_time_et, settings)
+
+        if (
+            ablation.use_orb_entry_range_gate
+            and settings.orb_entry_range_cap_r > 0
+            and risk_per_share > 0
+        ):
+            signal_range_r = (bar.high - bar.low) / risk_per_share
+            if signal_range_r > settings.orb_entry_range_cap_r:
+                _reject("orb_entry_range_cap")
+                return
+
         # --- Gate checks ---
 
         # AVWAP filter
@@ -1090,6 +1346,41 @@ class ALCBIntradayEngine:
             _reject("momentum_score_gate")
             return
 
+        entry_bar_index = bar_idx + 1
+        avwap_dist_pct = (bar.close - avwap) / avwap if avwap > 0 else 0.0
+        is_pdh_entry = entry_type_str in {"PDH_BREAKOUT", "PDH_RECLAIM"}
+        is_bar9_entry = entry_bar_index == 9
+        is_late_entry = bar_time_et >= settings.late_entry_cutoff
+
+        if is_late_entry and settings.late_avwap_cap_pct > 0 and avwap_dist_pct > settings.late_avwap_cap_pct:
+            _reject("late_avwap_cap")
+            return
+
+        if is_bar9_entry:
+            if settings.bar9_score_min > 0 and m_score < settings.bar9_score_min:
+                _reject("bar9_score_gate")
+                return
+            if settings.bar9_rvol_min > 0 and bar_rvol < settings.bar9_rvol_min:
+                _reject("bar9_rvol_gate")
+                return
+            if settings.bar9_avwap_cap_pct > 0 and avwap_dist_pct > settings.bar9_avwap_cap_pct:
+                _reject("bar9_avwap_cap")
+                return
+
+        if is_pdh_entry:
+            if bar_time_et > settings.pdh_entry_window_end:
+                _reject("pdh_entry_window")
+                return
+            if settings.pdh_breakout_score_min > 0 and m_score < settings.pdh_breakout_score_min:
+                _reject("pdh_quality_score")
+                return
+            if settings.pdh_breakout_min_rvol > 0 and bar_rvol < settings.pdh_breakout_min_rvol:
+                _reject("pdh_quality_rvol")
+                return
+            if settings.pdh_avwap_cap_pct > 0 and avwap_dist_pct > settings.pdh_avwap_cap_pct:
+                _reject("pdh_avwap_cap")
+                return
+
         # COMBINED_BREAKOUT quality gate (require higher score / RVOL for weaker entry type)
         if ablation.use_combined_quality_gate and entry_type_str.startswith("COMBINED"):
             if settings.combined_breakout_score_min > 0 and m_score < settings.combined_breakout_score_min:
@@ -1099,11 +1390,9 @@ class ALCBIntradayEngine:
                 _reject("combined_quality_rvol")
                 return
             # COMBINED-specific AVWAP distance cap
-            if settings.combined_avwap_cap_pct > 0 and avwap > 0:
-                avwap_dist_pct = (bar.close - avwap) / avwap
-                if avwap_dist_pct > settings.combined_avwap_cap_pct:
-                    _reject("combined_avwap_cap")
-                    return
+            if settings.combined_avwap_cap_pct > 0 and avwap_dist_pct > settings.combined_avwap_cap_pct:
+                _reject("combined_avwap_cap")
+                return
             # COMBINED-specific breakout distance cap
             if settings.combined_breakout_cap_r > 0 and risk_per_share > 0:
                 breakout_dist_r = (bar.close - or_high) / risk_per_share
@@ -1122,7 +1411,6 @@ class ALCBIntradayEngine:
 
         # AVWAP distance cap (block extended entries too far above AVWAP)
         if ablation.use_avwap_distance_cap and settings.avwap_distance_cap_pct > 0 and avwap > 0:
-            avwap_dist_pct = (bar.close - avwap) / avwap
             if avwap_dist_pct > settings.avwap_distance_cap_pct:
                 _reject("avwap_distance_cap")
                 return
@@ -1185,7 +1473,23 @@ class ALCBIntradayEngine:
             sector_mult = settings.sector_mult_consumer_disc
         elif item.sector == "Healthcare":
             sector_mult = settings.sector_mult_healthcare
-        risk_budget = equity * settings.base_risk_fraction * reg_mult * size_mult * dow_mult * sector_mult
+        risk_budget = (
+            equity
+            * settings.base_risk_fraction
+            * reg_mult
+            * size_mult
+            * dow_mult
+            * sector_mult
+            * gap_size_mult
+            * time_size_mult
+            * self._targeted_entry_size_mult(
+                entry_type_str,
+                entry_bar_index,
+                signal_time,
+                settings,
+            )
+            * self._orb_quality_size_mult(orb_quality_score, settings)
+        )
         qty = int(risk_budget / risk_per_share)
         if qty <= 0:
             return
@@ -1207,6 +1511,13 @@ class ALCBIntradayEngine:
         if not has_next_bar:
             return
 
+        if entry_type_str == "AVWAP_RECLAIM" and avwap > 0:
+            breakout_level = avwap
+        elif "OR" in entry_type_str or entry_type_str.startswith("COMBINED"):
+            breakout_level = or_high
+        else:
+            breakout_level = pdh
+
         setup = MomentumSetup(
             symbol=sym,
             or_high=or_high,
@@ -1215,7 +1526,7 @@ class ALCBIntradayEngine:
             prior_day_high=pdh,
             prior_day_low=pdl,
             prior_day_close=pdc,
-            breakout_level=or_high if ("OR" in entry_type_str or entry_type_str.startswith("COMBINED")) else pdh,
+            breakout_level=breakout_level,
             entry_type=entry_type_str,
             rvol_at_entry=bar_rvol,
             momentum_score=m_score,
@@ -1236,6 +1547,9 @@ class ALCBIntradayEngine:
             avwap_at_signal=avwap,
             momentum_score=m_score,
             score_detail=score_detail,
+            orb_quality_score=orb_quality_score,
+            gap_size_mult=gap_size_mult,
+            time_size_mult=time_size_mult,
             setup=setup,
             regime_tier=regime_tier,
             opened_date=current,
@@ -1303,6 +1617,9 @@ class ALCBIntradayEngine:
             "fill_time": pos.entry_time.isoformat(),
             "fill_bar_index": pos.fill_bar_index,
             "reentry_sequence": pos.reentry_sequence,
+            "orb_quality_score": round(pos.orb_quality_score, 3),
+            "gap_size_mult": round(pos.gap_size_mult, 4),
+            "time_size_mult": round(pos.time_size_mult, 4),
         }
         if pos.momentum_setup:
             metadata["or_high"] = pos.momentum_setup.or_high

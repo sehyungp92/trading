@@ -101,6 +101,11 @@ class TradeRecord:
     di_agrees: bool = False
     quality_score: float = 0.0
     regime_entry: str = ""
+    signal_time: datetime | None = None
+    fill_time: datetime | None = None
+    signal_bar_index: int = -1
+    fill_bar_index: int = -1
+    campaign_id: str = ""
 
 
 @dataclass
@@ -536,7 +541,7 @@ class BacktestEngine:
 
         if np.isnan(O) or np.isnan(H) or np.isnan(L):
             self._funnel.bars_nan += 1
-            self.equity_curve.append(self.equity)
+            self.equity_curve.append(self._mtm_equity(C))
             self.timestamps.append(hourly.times[bar_idx])
             self._defer_submissions = False
             return []
@@ -548,7 +553,7 @@ class BacktestEngine:
 
         if self.daily_state is None:
             self._funnel.bars_warmup += 1
-            self.equity_curve.append(self.equity)
+            self.equity_curve.append(self._mtm_equity(C))
             self.timestamps.append(hourly.times[bar_idx])
             self._defer_submissions = False
             return []
@@ -565,7 +570,7 @@ class BacktestEngine:
             )
         else:
             self._funnel.bars_warmup += 1
-            self.equity_curve.append(self.equity)
+            self.equity_curve.append(self._mtm_equity(C))
             self.timestamps.append(hourly.times[bar_idx])
             self._defer_submissions = False
             return []
@@ -599,7 +604,7 @@ class BacktestEngine:
             # Generate candidates (deferred) — only if not in position at bar start
             self._generate_candidates(h, self.daily_state, bar_time)
 
-        self.equity_curve.append(self.equity)
+        self.equity_curve.append(self._mtm_equity(C))
         self.timestamps.append(hourly.times[bar_idx])
 
         self._defer_submissions = False
@@ -629,7 +634,7 @@ class BacktestEngine:
             # Skip NaN bars (gap-filled)
             if np.isnan(O) or np.isnan(H) or np.isnan(L):
                 self._funnel.bars_nan += 1
-                self.equity_curve.append(self.equity)
+                self.equity_curve.append(self._mtm_equity(C))
                 self.timestamps.append(hourly.times[i])
                 continue
 
@@ -642,7 +647,7 @@ class BacktestEngine:
 
             if self.daily_state is None:
                 self._funnel.bars_warmup += 1
-                self.equity_curve.append(self.equity)
+                self.equity_curve.append(self._mtm_equity(C))
                 self.timestamps.append(hourly.times[i])
                 continue
 
@@ -660,7 +665,7 @@ class BacktestEngine:
                 )
             else:
                 self._funnel.bars_warmup += 1
-                self.equity_curve.append(self.equity)
+                self.equity_curve.append(self._mtm_equity(C))
                 self.timestamps.append(hourly.times[i])
                 continue
 
@@ -711,8 +716,19 @@ class BacktestEngine:
                 self._generate_candidates(h, self.daily_state, bar_time)
 
             # Record equity
-            self.equity_curve.append(self.equity)
+            self.equity_curve.append(self._mtm_equity(C))
             self.timestamps.append(hourly.times[i])
+
+    def _mtm_equity(self, current_price: float) -> float:
+        """Return equity with unrealized P&L from open legs."""
+        if self.position.direction == Direction.FLAT or np.isnan(current_price):
+            return self.equity
+        d = 1 if self.position.direction == Direction.LONG else -1
+        unrealized = sum(
+            (current_price - leg.entry_price) * d * self.point_value * leg.qty
+            for leg in self.position.legs
+        )
+        return self.equity + unrealized
 
     # ------------------------------------------------------------------
     # Daily state update
@@ -782,6 +798,10 @@ class BacktestEngine:
         # flatten/partial commission is tracked by _close_position/_partial_close_base.
         if order.tag not in ("flatten", "partial"):
             self.total_commission += fr.commission
+            # Debit entry/addon commission from equity (stop commission
+            # is already captured via PnL formula in _handle_stop_fill)
+            if order.tag != "protective_stop":
+                self.equity -= fr.commission
 
         if order.tag == "protective_stop":
             self._handle_stop_fill(fr, bar_time)
@@ -793,6 +813,12 @@ class BacktestEngine:
             self._handle_flatten_fill(fr, bar_time)
         elif order.tag == "partial":
             self._handle_partial_fill(fr, bar_time)
+
+    @staticmethod
+    def _commission_share(total_commission: float, qty: int, total_qty: int) -> float:
+        if total_commission <= 0 or qty <= 0 or total_qty <= 0:
+            return 0.0
+        return total_commission * qty / total_qty
 
     def _handle_entry_fill(self, fr: FillResult, bar_time: datetime) -> None:
         """Process entry fill: create position, check bad fill, place stop."""
@@ -828,6 +854,7 @@ class BacktestEngine:
                     entry_price=fill_price,
                     initial_stop=initial_stop,
                     fill_time=bar_time,
+                    entry_commission=fr.commission,
                 )
                 self.position.legs.append(leg)
                 self.position.addon_b_done = True
@@ -841,6 +868,7 @@ class BacktestEngine:
                 entry_price=fill_price,
                 initial_stop=initial_stop,
                 fill_time=bar_time,
+                entry_commission=fr.commission,
             )
             self.position = PositionBook(
                 symbol=self.symbol,
@@ -897,6 +925,7 @@ class BacktestEngine:
             entry_price=fr.fill_price,
             initial_stop=self.position.current_stop,
             fill_time=bar_time,
+            entry_commission=fr.commission,
         )
         self.position.legs.append(leg)
         self.position.addon_a_done = True
@@ -994,14 +1023,15 @@ class BacktestEngine:
         pos = self.position
         fill_price = fr.fill_price
         risk_per_unit = pos.base_risk_per_unit
-        n_legs = max(len(pos.legs), 1)
-        leg_commission = fr.commission / n_legs
+        total_qty = max(sum(leg.qty for leg in pos.legs), 1)
 
         # Cancel all pending entry orders for this symbol
         self.broker.cancel_all(self.symbol)
 
         # Record trade(s)
         for leg in pos.legs:
+            exit_commission = self._commission_share(fr.commission, leg.qty, total_qty)
+            trade_commission = leg.entry_commission + exit_commission
             if pos.direction == Direction.LONG:
                 pnl_pts = fill_price - leg.entry_price
             else:
@@ -1037,7 +1067,7 @@ class BacktestEngine:
                 mfe_r=pos.mfe,
                 mae_r=mae_r,
                 bars_held=pos.bars_held,
-                commission=leg_commission,
+                commission=trade_commission,
                 addon_a_qty=addon_a,
                 addon_b_qty=addon_b,
                 leg_type=leg.leg_type.value,
@@ -1049,7 +1079,7 @@ class BacktestEngine:
                 regime_entry=self._last_entry_context.get("regime_entry", ""),
             )
             self.trades.append(trade)
-            self.equity += pnl_dollars - leg_commission
+            self.equity += pnl_dollars - exit_commission
             if not self._defer_submissions:
                 self.sizing_equity = self.equity
 
@@ -1092,10 +1122,10 @@ class BacktestEngine:
         if exit_commission is None:
             exit_commission = self.broker._compute_commission(total_qty)
         self.total_commission += exit_commission
-        n_legs = max(len(pos.legs), 1)
-        leg_commission = exit_commission / n_legs
 
         for leg in pos.legs:
+            leg_exit_commission = self._commission_share(exit_commission, leg.qty, total_qty)
+            trade_commission = leg.entry_commission + leg_exit_commission
             if pos.direction == Direction.LONG:
                 pnl_pts = exit_price - leg.entry_price
             else:
@@ -1130,7 +1160,7 @@ class BacktestEngine:
                 mfe_r=pos.mfe,
                 mae_r=mae_r,
                 bars_held=pos.bars_held,
-                commission=leg_commission,
+                commission=trade_commission,
                 addon_a_qty=addon_a,
                 addon_b_qty=addon_b,
                 leg_type=leg.leg_type.value,
@@ -1142,7 +1172,7 @@ class BacktestEngine:
                 regime_entry=self._last_entry_context.get("regime_entry", ""),
             )
             self.trades.append(trade)
-            self.equity += pnl_dollars - leg_commission
+            self.equity += pnl_dollars - leg_exit_commission
             if not self._defer_submissions:
                 self.sizing_equity = self.equity
 
@@ -1185,11 +1215,13 @@ class BacktestEngine:
             partial_qty = max(1, int(base.qty * frac))
         if partial_qty >= base.qty:
             partial_qty = base.qty - 1  # Keep at least 1
+        base_qty_before = base.qty
 
         # Compute exit commission if not provided
         if exit_commission is None:
             exit_commission = self.broker._compute_commission(partial_qty)
         self.total_commission += exit_commission
+        entry_commission = self._commission_share(base.entry_commission, partial_qty, base_qty_before)
 
         risk_per_unit = pos.base_risk_per_unit
         if pos.direction == Direction.LONG:
@@ -1220,7 +1252,7 @@ class BacktestEngine:
             mfe_r=pos.mfe,
             mae_r=mae_r,
             bars_held=pos.bars_held,
-            commission=exit_commission,
+            commission=entry_commission + exit_commission,
             addon_a_qty=0,
             addon_b_qty=0,
             leg_type="BASE",
@@ -1238,6 +1270,7 @@ class BacktestEngine:
 
         # Reduce base leg qty
         base.qty -= partial_qty
+        base.entry_commission = max(base.entry_commission - entry_commission, 0.0)
 
         # Update protective stop to reflect reduced position size
         self._update_protective_stop()

@@ -18,7 +18,7 @@ from libs.oms.risk.portfolio_rules import (
     PortfolioRulesConfig,
 )
 
-STOCK_IDS = ("IARIC_v1", "US_ORB_v1", "ALCB_v1")
+STOCK_IDS = ("IARIC_v1", "ALCB_v1")
 
 
 def _make_checker(
@@ -72,7 +72,7 @@ async def test_drawdown_tier_half_size_at_10pct_dd():
 async def test_drawdown_tier_quarter_size_at_13pct_dd():
     # 13% drawdown → falls in [0.12, 0.15) tier → 0.25 multiplier
     checker = _make_checker(equity=8_700.0, initial_equity=10_000.0)
-    result = await checker.check_entry("US_ORB_v1", "LONG", 1.0)
+    result = await checker.check_entry("ALCB_v1", "LONG", 1.0)
     assert result.approved
     assert result.size_multiplier == 0.25
 
@@ -110,7 +110,7 @@ async def test_directional_cap_blocks_when_family_exceeds():
 @pytest.mark.asyncio
 async def test_directional_cap_disabled_when_zero():
     checker = _make_checker(directional_cap_R=0, dir_risk_family=100.0)
-    result = await checker.check_entry("US_ORB_v1", "LONG", 1.0)
+    result = await checker.check_entry("ALCB_v1", "LONG", 1.0)
     assert result.approved
 
 
@@ -206,7 +206,7 @@ async def test_direction_filter_noop_for_stock():
 async def test_chop_throttle_noop_for_stock():
     """Chop throttle only fires for Helix — stock IDs pass through."""
     checker = _make_checker()
-    result = await checker.check_entry("US_ORB_v1", "LONG", 1.0)
+    result = await checker.check_entry("ALCB_v1", "LONG", 1.0)
     assert result.approved
 
 
@@ -254,12 +254,12 @@ async def test_symbol_collision_excludes_requesting_strategy():
         get_current_equity=lambda: 10_000.0,
         get_sibling_positions_for_symbol=sibling_mock,
     )
-    await checker.check_entry("US_ORB_v1", "LONG", 1.0, symbol="TSLA")
-    # Must be called with siblings only — US_ORB_v1 excluded
+    await checker.check_entry("ALCB_v1", "LONG", 1.0, symbol="TSLA")
+    # Must be called with siblings only — ALCB_v1 excluded
     sibling_mock.assert_awaited_once()
     called_ids = sibling_mock.call_args[0][0]
-    assert "US_ORB_v1" not in called_ids
-    assert set(called_ids) == {"IARIC_v1", "ALCB_v1"}
+    assert "ALCB_v1" not in called_ids
+    assert set(called_ids) == {"IARIC_v1"}
 
 
 def test_invalid_collision_action_raises():
@@ -272,7 +272,7 @@ def test_invalid_pair_collision_action_raises():
     """Invalid action in symbol_collision_pairs raises ValueError at config init."""
     with pytest.raises(ValueError, match="Invalid pair action"):
         PortfolioRulesConfig(
-            symbol_collision_pairs=(("ALCB_v1", "US_ORB_v1", "quarter_size"),),
+            symbol_collision_pairs=(("ALCB_v1", "IARIC_v1", "quarter_size"),),
         )
 
 
@@ -280,9 +280,9 @@ def test_invalid_pair_collision_action_raises():
 
 
 PRIORITY_KWARGS = dict(
-    strategy_priorities=(("IARIC_v1", 0), ("ALCB_v1", 1), ("US_ORB_v1", 2)),
+    strategy_priorities=(("IARIC_v1", 0), ("ALCB_v1", 1)),
     priority_headroom_R=5.0,
-    priority_reserve_threshold=1,
+    priority_reserve_threshold=0,
 )
 
 
@@ -317,7 +317,7 @@ async def test_priority_disabled_when_headroom_zero():
         priority_headroom_R=0.0,
     )
     # 6R + 1R = 7R < 8R cap, remaining=2R < 3R headroom, but headroom disabled
-    result = await checker.check_entry("US_ORB_v1", "LONG", 1.0)
+    result = await checker.check_entry("ALCB_v1", "LONG", 1.0)
     assert result.approved
 
 
@@ -325,29 +325,20 @@ async def test_priority_disabled_when_headroom_zero():
 async def test_priority_iaric_passes_in_reserved_headroom():
     """Priority 0 (IARIC) passes even when remaining <= headroom_R."""
     checker = _make_priority_checker(dir_risk_family=4.0)
-    # remaining = 8-4 = 4R <= 5R headroom, but IARIC priority 0 <= threshold 1
+    # remaining = 8-4 = 4R <= 5R headroom, but IARIC priority 0 <= threshold 0
     result = await checker.check_entry("IARIC_v1", "LONG", 1.0)
     assert result.approved
 
 
 @pytest.mark.asyncio
-async def test_priority_alcb_passes_in_reserved_headroom():
-    """Priority 1 (ALCB) passes even when remaining <= headroom_R."""
+async def test_priority_alcb_blocked_in_reserved_headroom():
+    """Priority 1 (ALCB) is blocked when remaining <= headroom_R."""
     checker = _make_priority_checker(dir_risk_family=4.0)
-    # remaining = 4R <= 5R headroom, ALCB priority 1 <= threshold 1
+    # remaining = 4R <= 5R headroom, ALCB priority 1 > threshold 0 → blocked
     result = await checker.check_entry("ALCB_v1", "LONG", 1.0)
-    assert result.approved
-
-
-@pytest.mark.asyncio
-async def test_priority_orb_blocked_in_reserved_headroom():
-    """Priority 2 (ORB) blocked when remaining <= headroom_R but total < hard cap."""
-    checker = _make_priority_checker(dir_risk_family=4.0)
-    # remaining = 4R <= 5R headroom, ORB priority 2 > threshold 1 → blocked
-    result = await checker.check_entry("US_ORB_v1", "LONG", 1.0)
     assert not result.approved
     assert "directional_cap_reserved" in result.denial_reason
-    assert "priority 2" in result.denial_reason
+    assert "priority 1" in result.denial_reason
 
 
 @pytest.mark.asyncio
@@ -371,18 +362,18 @@ async def test_priority_unknown_strategy_gets_default_99():
 
 
 @pytest.mark.asyncio
-async def test_priority_orb_passes_when_headroom_sufficient():
-    """ORB passes when remaining > headroom_R (plenty of capacity)."""
+async def test_priority_alcb_passes_when_headroom_sufficient():
+    """ALCB passes when remaining > headroom_R (plenty of capacity)."""
     checker = _make_priority_checker(dir_risk_family=2.0)
     # remaining = 8-2 = 6R > 5R headroom → reservation not triggered
-    result = await checker.check_entry("US_ORB_v1", "LONG", 1.0)
+    result = await checker.check_entry("ALCB_v1", "LONG", 1.0)
     assert result.approved
 
 
 # ── Per-pair symbol collision overrides ────────────────────────────
 
 
-COLLISION_PAIR = (("ALCB_v1", "US_ORB_v1", "block"),)
+COLLISION_PAIR = (("ALCB_v1", "IARIC_v1", "block"),)
 
 
 def _make_pair_checker(
@@ -418,39 +409,40 @@ def _make_pair_checker(
 
 
 @pytest.mark.asyncio
-async def test_pair_alcb_holds_blocks_orb():
-    """ALCB holds AAPL → US_ORB fully blocked (not half_size)."""
+async def test_pair_alcb_holds_blocks_iaric():
+    """ALCB holds AAPL → IARIC fully blocked (not half_size)."""
     checker = _make_pair_checker(holder_has_symbol=True)
-    result = await checker.check_entry("US_ORB_v1", "LONG", 1.0, symbol="AAPL")
+    result = await checker.check_entry("IARIC_v1", "LONG", 1.0, symbol="AAPL")
     assert not result.approved
     assert "symbol_collision" in result.denial_reason
 
 
 @pytest.mark.asyncio
 async def test_pair_alcb_not_holding_falls_through_to_generic():
-    """ALCB does NOT hold AAPL → falls through to generic half_size check."""
+    """ALCB does NOT hold AAPL → pair override does not block the request."""
     checker = _make_pair_checker(holder_has_symbol=False, generic_sibling_has=True)
-    result = await checker.check_entry("US_ORB_v1", "LONG", 1.0, symbol="AAPL")
-    # Generic half_size because some other sibling (IARIC) holds the symbol
-    assert result.approved
-    assert result.size_multiplier == 0.5
-
-
-@pytest.mark.asyncio
-async def test_pair_iaric_holds_orb_gets_half_size():
-    """IARIC holds AAPL + US_ORB requests → generic half_size (no pair override for IARIC→ORB)."""
-    checker = _make_pair_checker(holder_has_symbol=False, generic_sibling_has=True)
-    result = await checker.check_entry("US_ORB_v1", "LONG", 1.0, symbol="AAPL")
-    assert result.approved
-    assert result.size_multiplier == 0.5
-
-
-@pytest.mark.asyncio
-async def test_pair_alcb_holds_iaric_gets_half_size():
-    """ALCB holds AAPL + IARIC requests → generic half_size (pair only targets US_ORB)."""
-    checker = _make_pair_checker(holder_has_symbol=True, generic_sibling_has=True)
     result = await checker.check_entry("IARIC_v1", "LONG", 1.0, symbol="AAPL")
-    # Pair override doesn't match IARIC as requester → generic half_size
+    # With only one sibling in the family, the override holder and generic sibling
+    # are the same strategy, so "holder missing" means no collision at all.
+    assert result.approved
+    assert result.size_multiplier == 1.0
+
+
+@pytest.mark.asyncio
+async def test_pair_iaric_holds_alcb_gets_half_size():
+    """IARIC holds AAPL + ALCB requests → generic half_size (no pair override for IARIC→ALCB)."""
+    checker = _make_pair_checker(holder_has_symbol=False, generic_sibling_has=True)
+    result = await checker.check_entry("ALCB_v1", "LONG", 1.0, symbol="AAPL")
+    assert result.approved
+    assert result.size_multiplier == 0.5
+
+
+@pytest.mark.asyncio
+async def test_pair_alcb_holds_alcb_request_gets_half_size():
+    """ALCB holds AAPL + ALCB requests → generic half_size (pair only targets IARIC)."""
+    checker = _make_pair_checker(holder_has_symbol=True, generic_sibling_has=True)
+    result = await checker.check_entry("ALCB_v1", "LONG", 1.0, symbol="AAPL")
+    # Pair override doesn't match ALCB as requester → generic half_size
     assert result.approved
     assert result.size_multiplier == 0.5
 
@@ -459,7 +451,7 @@ async def test_pair_alcb_holds_iaric_gets_half_size():
 async def test_pair_no_pairs_backward_compatible():
     """Empty symbol_collision_pairs = backward compatible, generic action only."""
     checker = _make_pair_checker(pairs=(), generic_sibling_has=True)
-    result = await checker.check_entry("US_ORB_v1", "LONG", 1.0, symbol="AAPL")
+    result = await checker.check_entry("IARIC_v1", "LONG", 1.0, symbol="AAPL")
     assert result.approved
     assert result.size_multiplier == 0.5
 
@@ -468,6 +460,6 @@ async def test_pair_no_pairs_backward_compatible():
 async def test_pair_no_collision_at_all():
     """No holder has symbol, no generic collision → approved at full size."""
     checker = _make_pair_checker(holder_has_symbol=False, generic_sibling_has=False)
-    result = await checker.check_entry("US_ORB_v1", "LONG", 1.0, symbol="AAPL")
+    result = await checker.check_entry("IARIC_v1", "LONG", 1.0, symbol="AAPL")
     assert result.approved
     assert result.size_multiplier == 1.0

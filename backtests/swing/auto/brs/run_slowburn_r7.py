@@ -79,14 +79,14 @@ def filter_slowburn_candidates(
 def run_final_diagnostics(mutations: dict, label: str) -> dict:
     """Run backtest with given mutations and return metrics dict."""
     from backtest.config_brs import BRSConfig
-    from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_independent
+    from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
     from backtests.swing.auto.brs.config_mutator import mutate_brs_config
 
     equity = 100_000.0
     config = BRSConfig(initial_equity=equity, data_dir=DATA_DIR)
     config = mutate_brs_config(config, mutations)
     data = load_brs_data(config)
-    result = run_brs_independent(data, config)
+    result = run_brs_synchronized(data, config)
     metrics = extract_brs_metrics(result, equity)
     return asdict(metrics)
 

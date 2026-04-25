@@ -624,13 +624,13 @@ class VdubusEngine:
             if self.flags.event_blocking:
                 self._update_event_state(bar_time)
                 if not self.event_state.rearmed:
-                    self._equity_snapshot(bar_time)
+                    self._equity_snapshot(bar_time, Cl)
                     return
 
             # Shock block
             if self.flags.shock_block and self.regime.vol_state == VolState.SHOCK:
                 self._shock_tighten_all()
-                self._equity_snapshot(bar_time)
+                self._equity_snapshot(bar_time, Cl)
                 return
 
             for direction in (Direction.LONG, Direction.SHORT):
@@ -641,7 +641,7 @@ class VdubusEngine:
                 )
 
         # 13. Equity snapshot
-        self._equity_snapshot(bar_time)
+        self._equity_snapshot(bar_time, Cl)
 
     # ------------------------------------------------------------------
     # Higher-TF boundary handlers
@@ -2029,8 +2029,12 @@ class VdubusEngine:
         if self.cfg.track_signals:
             self._signal_events.append(evt)
 
-    def _equity_snapshot(self, bar_time: datetime) -> None:
-        self._equity_history.append(self.equity)
+    def _equity_snapshot(self, bar_time: datetime, current_price: float = 0.0) -> None:
+        mtm = self.equity
+        if current_price and self._active and self._active.pos.qty_open > 0:
+            p = self._active.pos
+            mtm += (current_price - p.entry_price) * p.direction * self.pv * p.qty_open
+        self._equity_history.append(mtm)
         self._time_history.append(bar_time)
 
     # ------------------------------------------------------------------

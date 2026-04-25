@@ -80,6 +80,7 @@ class InstrumentationManager:
         self._oms = oms
         self._strategy_id = strategy_id
         self._config = _load_config(strategy_id, strategy_type)
+        self._pg_store = pg_store
         self._get_regime_ctx = get_regime_ctx
         self._get_applied_config = get_applied_config
 

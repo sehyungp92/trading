@@ -33,6 +33,12 @@ checks:
   errors:
     enabled: true
     max_age_minutes: 30
+  data_freshness:
+    enabled: true
+    thresholds:
+      swing: 5400                       # 90 min (hourly bars)
+      momentum: 5400                    # 90 min (hourly/15m bars)
+      stock: 300                        # 5 min (1-minute bars)
 
 cooldown:
   alert_cooldown_sec: 900           # 15 min between repeated alerts for same issue

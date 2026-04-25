@@ -122,37 +122,6 @@ strategies:
       color_key: "green"
     deployment_tags: [live, paper, stock]
 
-  US_ORB_v1:
-    strategy_id: US_ORB_v1
-    system_id: stock_trader
-    family: stock
-    connection_group: default
-    display_name: "US ORB v1"
-    module_path: "strategies.stock.us_orb.plugin"
-
-    enabled: true
-    paper_mode: false
-    asset_class: equity
-    symbols: [SPY, QQQ, IWM]
-    artifact_config:
-      type: cache
-      source: stock_trader/data/strategy_orb
-    engine_config:
-      universe: scanner
-    risk:
-      unit_risk_dollars: 100.0
-      daily_stop_R: 2.0
-      max_working_orders: 1
-      max_heat_R: 4.0
-      portfolio_daily_stop_R: 3.0
-    allocation:
-      base_risk_pct: 0.0035
-    dashboard_metadata:
-      system_label: "Stock Trader"
-      short_label: "STOCK"
-      color_key: "green"
-    deployment_tags: [live, paper, stock]
-
   ALCB_v1:
     strategy_id: ALCB_v1
     system_id: stock_trader

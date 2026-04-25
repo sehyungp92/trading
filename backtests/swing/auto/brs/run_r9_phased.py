@@ -73,13 +73,13 @@ INITIAL_EQUITY = 100_000.0
 def run_backtest_metrics(mutations: dict) -> dict:
     """Run backtest and return metrics dict."""
     from backtest.config_brs import BRSConfig
-    from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_independent
+    from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
     from backtests.swing.auto.brs.config_mutator import mutate_brs_config
 
     config = BRSConfig(initial_equity=INITIAL_EQUITY, data_dir=DATA_DIR)
     config = mutate_brs_config(config, mutations)
     data = load_brs_data(config)
-    result = run_brs_independent(data, config)
+    result = run_brs_synchronized(data, config)
     metrics = extract_brs_metrics(result, INITIAL_EQUITY)
     return asdict(metrics)
 

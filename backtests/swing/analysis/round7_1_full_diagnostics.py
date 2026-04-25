@@ -18,7 +18,7 @@ from backtests.swing._aliases import install; install()
 
 from backtests.swing.config_brs import BRSConfig
 from backtests.swing.engine.brs_portfolio_engine import (
-    load_brs_data, run_brs_independent,
+    load_brs_data, run_brs_synchronized,
 )
 from backtests.swing.analysis.brs_diagnostics import (
     compute_brs_diagnostics, CRISIS_WINDOWS,
@@ -55,7 +55,7 @@ def build_config() -> BRSConfig:
 # ---------------------------------------------------------------------------
 def run_full(cfg: BRSConfig):
     data = load_brs_data(cfg)
-    result = run_brs_independent(data, cfg)
+    result = run_brs_synchronized(data, cfg)
     diag = compute_brs_diagnostics(
         result.symbol_results,
         cfg.initial_equity,

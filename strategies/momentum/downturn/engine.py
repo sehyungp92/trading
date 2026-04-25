@@ -249,6 +249,15 @@ class DownturnEngine:
         self._bar_count_5m: int = 0
         self._signal_ring: deque[dict] = deque(maxlen=20)
 
+        # Diagnostic pulse state
+        self._last_decision_code: str = "IDLE"
+        self._last_decision_details: dict = {}
+        self._last_bar_ts: datetime | None = None
+
+    def _record_decision(self, code: str, details: dict | None = None) -> None:
+        self._last_decision_code = code
+        self._last_decision_details = details or {}
+
     # ── Lifecycle ─────────────────────────────────────────────────────
 
     async def start(self) -> None:
@@ -261,7 +270,7 @@ class DownturnEngine:
         self._event_task = asyncio.create_task(self._process_events())
 
         # Initial bar fetch + state initialization
-        await self._fetch_bars()
+        await self._fetch_bars(request_kind="startup")
         self._initialize_boundaries()
 
         self._cycle_task = asyncio.create_task(self._5m_scheduler())
@@ -295,6 +304,9 @@ class DownturnEngine:
             "daily_loss": self._daily_loss,
             "circuit_breaker": self._circuit_breaker_tripped,
             "bar_count_5m": self._bar_count_5m,
+            "last_decision_code": self._last_decision_code,
+            "last_decision_details": self._last_decision_details,
+            "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
         }
 
     # ── Instrumentation helpers ──────────────────────────────────────
@@ -433,6 +445,7 @@ class DownturnEngine:
         """Core 5m cycle: fetch bars, detect boundaries, manage/signal."""
         await self._refresh_equity()
         await self._fetch_bars()
+        self._last_bar_ts = datetime.now(timezone.utc)
         self._bar_count_5m += 1
 
         # Detect new boundaries by comparing bar counts
@@ -469,6 +482,7 @@ class DownturnEngine:
 
         # Manage existing position
         if self._position is not None:
+            self._record_decision("MANAGING_POSITION")
             await self._manage_position()
 
         # Evaluate new entries
@@ -478,8 +492,16 @@ class DownturnEngine:
                 result = self._evaluate_signals()
                 if result is not None:
                     signal, tag = result
+                    self._record_decision("ENTRY_SUBMITTED", {"tag": tag.value if hasattr(tag, 'value') else str(tag)})
                     await self._submit_entry(signal, tag)
-            elif gate_block not in ("session_window", "dead_zone", "news_blackout"):
+                else:
+                    self._record_decision("NO_SIGNAL")
+            elif gate_block in ("session_window", "dead_zone"):
+                self._record_decision("OUTSIDE_RTH", {"gate": gate_block})
+            elif gate_block == "circuit_breaker":
+                self._record_decision("CIRCUIT_BREAKER", {"gate": gate_block})
+            else:
+                self._record_decision("SIGNAL_FILTERED", {"gate": gate_block})
                 # Log actionable rejections; skip high-frequency time-window noise
                 self._log_missed(
                     signal_name="gate_block",
@@ -494,7 +516,7 @@ class DownturnEngine:
 
     # ── Bar Management ────────────────────────────────────────────────
 
-    async def _fetch_bars(self) -> None:
+    async def _fetch_bars(self, request_kind: str = "recurring") -> None:
         if not getattr(self._ib, "is_connected", True):
             if not getattr(self, "_fetch_disconn_logged", False):
                 logger.warning("Skipping bar fetch -- IB not connected")
@@ -524,10 +546,10 @@ class DownturnEngine:
         ]
         for tf_label, duration, bar_size, use_rth, attr in fetch_specs:
             try:
-                bars = await ib.reqHistoricalDataAsync(
+                bars = await self._ib.req_historical_data(
                     contract, endDateTime="", durationStr=duration,
                     barSizeSetting=bar_size, whatToShow="TRADES",
-                    useRTH=use_rth, formatDate=1,
+                    useRTH=use_rth, formatDate=1, request_kind=request_kind,
                 )
                 if bars:
                     setattr(self, attr, self._bars_to_arrays(bars))

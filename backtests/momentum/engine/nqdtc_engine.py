@@ -849,9 +849,14 @@ class NQDTCEngine:
         # 12. Check working order cancellation (A cancel depth)
         self._check_working_order_cancellation(bar_time, Cl)
 
-        # 13. Equity snapshot (every 30m)
+        # 13. Equity snapshot (every 30m, mark-to-market)
         if new_30m or len(self._equity_history) == 0:
-            self._equity_history.append(self.equity)
+            mtm = self.equity
+            if self._active and self._active.pos.open:
+                p = self._active.pos
+                unrealized = (Cl - p.entry_price) * p.direction * self.pv * p.qty_open
+                mtm += unrealized
+            self._equity_history.append(mtm)
             self._time_history.append(bar_time)
 
     # ------------------------------------------------------------------

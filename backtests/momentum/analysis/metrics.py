@@ -98,7 +98,7 @@ def compute_cagr(
 
 def compute_sharpe(
     equity_curve: np.ndarray,
-    periods_per_year: float = 252 * 24,
+    periods_per_year: float = 252 * 7,
     risk_free_rate: float = 0.0,
 ) -> float:
     """Annualized Sharpe ratio from an hourly equity curve."""
@@ -117,7 +117,7 @@ def compute_sharpe(
 
 def compute_sortino(
     equity_curve: np.ndarray,
-    periods_per_year: float = 252 * 24,
+    periods_per_year: float = 252 * 7,
     risk_free_rate: float = 0.0,
 ) -> float:
     """Annualized Sortino ratio (downside deviation only)."""
@@ -232,12 +232,15 @@ def compute_metrics(
     if n_trades == 0:
         return PerformanceMetrics()
 
-    wins = trade_pnls > 0
-    losses = trade_pnls < 0
+    # Use fee-net PnL for PF, expectancy, and tail metrics
+    fee_net_pnls = trade_pnls - trade_commissions
 
-    gross_profit = float(np.sum(trade_pnls[wins]))
-    gross_loss = float(np.sum(trade_pnls[losses]))
-    net_profit = float(np.sum(trade_pnls))
+    wins = fee_net_pnls > 0
+    losses = fee_net_pnls < 0
+
+    gross_profit = float(np.sum(fee_net_pnls[wins]))
+    gross_loss = float(np.sum(fee_net_pnls[losses]))
+    net_profit = float(np.sum(fee_net_pnls))
     total_commissions = float(np.sum(trade_commissions))
 
     # Time span in years
@@ -279,7 +282,7 @@ def compute_metrics(
         gross_loss=gross_loss,
         net_profit=net_profit,
         profit_factor=compute_profit_factor(gross_profit, gross_loss),
-        expectancy=compute_expectancy(trade_pnls, trade_risks),
+        expectancy=compute_expectancy(fee_net_pnls, trade_risks),
         expectancy_dollar=net_profit / n_trades,
         cagr=cagr,
         sharpe=compute_sharpe(equity_curve),
@@ -290,7 +293,7 @@ def compute_metrics(
         avg_hold_hours=float(np.mean(trade_hold_hours)),
         trades_per_month=trades_per_month,
         total_commissions=total_commissions,
-        tail_loss_pct=compute_tail_loss(trade_pnls),
-        tail_loss_r=compute_tail_loss_r(trade_pnls, trade_risks),
+        tail_loss_pct=compute_tail_loss(fee_net_pnls),
+        tail_loss_r=compute_tail_loss_r(fee_net_pnls, trade_risks),
         per_instrument_trades_per_month=per_inst_tpm,
     )

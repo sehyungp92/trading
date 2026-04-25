@@ -32,6 +32,7 @@ def bootstrap_instrumentation(
     coordinator=None,
     get_regime_ctx=None,
     get_applied_config=None,
+    pg_store=None,
 ) -> "InstrumentationContext":
     """Create an InstrumentationContext with all services wired up.
 
@@ -121,6 +122,7 @@ def bootstrap_instrumentation(
         data_dir=config["data_dir"],
         get_regime_ctx=get_regime_ctx,
         get_applied_config=get_applied_config,
+        pg_store=pg_store,
     )
 
     logger.info(
@@ -213,6 +215,7 @@ def _bootstrap_kit_from_shared(
         filter_logger=shared_ctx.filter_logger,
         orderbook_logger=shared_ctx.orderbook_logger,
         experiment_registry=shared_ctx.experiment_registry,
+        pg_store=shared_ctx.pg_store,
         bot_id=strategy_id,
         data_dir=shared_ctx.data_dir,
         get_regime_ctx=shared_ctx.get_regime_ctx,

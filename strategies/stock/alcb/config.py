@@ -157,12 +157,17 @@ class StrategySettings:
     dirty_reset_days: int = 5
 
     # --- Momentum continuation (T1) ---
-    opening_range_bars: int = 12            # 12 × 5m = 60 min
+    opening_range_bars: int = 6             # 6 x 5m = 30 min
     entry_window_start: time = time(10, 0)
-    entry_window_end: time = time(12, 0)
+    entry_window_end: time = time(12, 30)
     rvol_threshold: float = 2.0
     cpr_threshold: float = 0.6
     momentum_score_min: int = 2
+    momentum_size_mult_score_3: float = 1.00
+    momentum_size_mult_score_4: float = 1.15
+    momentum_size_mult_score_5: float = 1.05
+    momentum_size_mult_score_6: float = 1.20
+    momentum_size_mult_score_7_plus: float = 1.25
     adx_threshold: float = 20.0
     stop_atr_multiple: float = 1.0
     use_or_low_stop: bool = True
@@ -176,7 +181,7 @@ class StrategySettings:
     carry_regime_required: tuple[str, ...] = ("A", "B")
     max_carry_days: int = 2
     regime_mult_a: float = 1.0
-    regime_mult_b: float = 0.5
+    regime_mult_b: float = 0.7
     regime_mult_c: float = 0.6
     block_combined_regime_b: bool = True           # Block COMBINED_BREAKOUT in Tier B
     # Flow reversal tuning
@@ -185,10 +190,10 @@ class StrategySettings:
 
     # --- Diagnostic-driven experiment params (Phase 6) ---
     rvol_max: float = 5.0                        # Max RVOL at entry; reject above
-    fr_mfe_grace_r: float = 0.15                 # Skip FR if position MFE (R) exceeds this (0=disabled)
+    fr_mfe_grace_r: float = 0.20                 # Skip FR if position MFE (R) exceeds this (0=disabled)
     thursday_sizing_mult: float = 1.0            # Sizing multiplier for Thursday (1.0=identity)
     tuesday_sizing_mult: float = 1.0             # Sizing multiplier for Tuesday (1.0=identity)
-    fr_trailing_activate_r: float = 0.3          # Activate trailing stop at this MFE R (0=disabled)
+    fr_trailing_activate_r: float = 0.0          # Activate trailing stop at this MFE R (0=disabled)
     fr_trailing_distance_r: float = 0.3          # Trail distance in R once activated
     close_stop_be_after_r: float = 0.0           # Move stop to breakeven after this MFE R (0=disabled)
     entry_window_end_early: time = time(15, 30)  # Override entry_window_end if tighter
@@ -199,6 +204,12 @@ class StrategySettings:
     min_rs_percentile: float = 0.0             # Min relative_strength_percentile (0=disabled)
     late_entry_cutoff: time = time(11, 0)      # Time after which late_entry_score_min applies
     late_entry_score_min: int = 0              # Min momentum score for late entries (0=disabled)
+    late_avwap_cap_pct: float = 0.0            # Max AVWAP premium for late entries (0=disabled)
+    late_entry_size_mult: float = 1.0          # Size multiplier for late entries
+    bar9_score_min: int = 0                    # Extra momentum score floor for bar 9 / 10:10 entries
+    bar9_rvol_min: float = 0.0                 # Extra RVOL floor for bar 9 entries
+    bar9_avwap_cap_pct: float = 0.0            # Max AVWAP premium for bar 9 entries (0=disabled)
+    bar9_size_mult: float = 1.0                # Size multiplier for bar 9 entries
 
     # --- Phase 8: Exit & Signal Diagnostics ---
     # A. Time-based quick exit (cut short-hold losers)
@@ -230,11 +241,16 @@ class StrategySettings:
     qe_stage1_min_r: float = -0.5             # Stage 1 R threshold (exit if below)
     or_breakout_score_min: int = 0             # Min momentum score for OR_BREAKOUT (0=disabled; P14 ablation OFF)
     or_breakout_min_rvol: float = 0.0          # Min RVOL for OR_BREAKOUT (0=use global)
+    pdh_breakout_score_min: int = 0            # Min momentum score for PDH entries (0=disabled)
+    pdh_breakout_min_rvol: float = 0.0         # Min RVOL for PDH entries (0=use global)
+    pdh_entry_window_end: time = time(15, 30)  # Extra PDH-specific entry cutoff
+    pdh_avwap_cap_pct: float = 0.005           # Max AVWAP premium for PDH entries (0=disabled)
+    pdh_size_mult: float = 0.75                # Size multiplier for PDH entries
 
     # --- Phase 10: MFE Conviction Exit ---
-    mfe_conviction_check_bars: int = 12        # Bar at which to check MFE (0=disabled)
-    mfe_conviction_min_r: float = 0.15         # Min MFE in R to survive check
-    mfe_conviction_floor_r: float = 0.0        # Compound mode: also require current R < this (0=MFE-only)
+    mfe_conviction_check_bars: int = 16        # Bar at which to check MFE (0=disabled)
+    mfe_conviction_min_r: float = 0.20         # Min MFE in R to survive check
+    mfe_conviction_floor_r: float = -0.15      # Compound mode: also require current R < this (0=MFE-only)
 
     # --- Phase 10: Adaptive Trailing Stop ---
     adaptive_trail_start_bars: int = 25        # Bar at which mid-phase trail begins (0=disabled)
@@ -255,6 +271,34 @@ class StrategySettings:
     reclaim_min_rvol: float = 2.0             # Reclaim-specific RVOL floor
     reclaim_cpr_threshold: float = 0.55       # Reclaim-specific close-location floor
     reclaim_max_avwap_premium_pct: float = 0.0075 # Avoid reclaim entries too extended above AVWAP
+
+    # --- P15 extension: US_ORB-inspired entry quality and acceptance ---
+    orb_quality_score_min: float = 0.0        # Min ORB-style composite quality score (0=disabled)
+    orb_quality_size_floor: float = 0.0       # Quality sizing floor at min score (0=disabled)
+    orb_quality_top_score: float = 85.0       # Score that earns top quality sizing
+    orb_quality_top_mult: float = 1.15        # Max quality sizing multiplier
+    orb_gap_policy_mode: str = "off"          # off, size, filter
+    orb_gap_block_pct: float = 0.12           # Hard block large gaps when policy enabled
+    orb_gap_down_block_pct: float = -0.05     # Hard block large down gaps when policy enabled
+    orb_gap_caution_pct: float = 0.08         # Caution gap threshold
+    orb_gap_tight_pct: float = 0.05           # Mild gap threshold
+    orb_gap_caution_mult: float = 0.65        # Size multiplier for caution gaps
+    orb_gap_tight_mult: float = 0.80          # Size multiplier for mild gaps
+    orb_entry_range_cap_r: float = 0.0        # Max signal bar range in entry risk R (0=disabled)
+    orb_time_decay_start: time = time(10, 30) # Start late-entry RVOL/size decay
+    orb_late_rvol_add_per_30m: float = 0.0    # Additive RVOL floor per 30m after start
+    orb_late_size_decay_per_30m: float = 0.0  # Multiplicative size decay per 30m after start
+    orb_late_size_floor: float = 0.50         # Minimum late-entry size multiplier
+    orb_structure_stop_mode: str = "default"  # default, reclaim, all
+    orb_structure_stop_buffer_pct: float = 0.0015 # Buffer below retest/support level
+    orb_structure_min_risk_pct: float = 0.60  # Avoid unrealistically tiny retest stops
+
+    # --- P15 extension: US_ORB-inspired scratch / retracement exits ---
+    orb_retracement_trail_start_bars: int = 0 # Enable retracement trail after N bars (0=disabled)
+    orb_retracement_trail_tighten_bars: int = 0
+    orb_retracement_trail_min_mfe_r: float = 0.40
+    orb_retracement_trail_early: float = 0.45 # Preserve this fraction of MFE before tighten
+    orb_retracement_trail_late: float = 0.72  # Preserve this fraction of MFE after tighten
 
     # --- Position Sizing: Buying Power ---
     intraday_leverage: float = 2.0             # Max leverage (2.0 = Reg T, 4.0 = PDT intraday)

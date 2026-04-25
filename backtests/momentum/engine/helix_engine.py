@@ -220,6 +220,7 @@ class _ActivePosition:
     mae_price: float = 0.0
     setup_id: str = ""
     entry_contracts: int = 0
+    commission_at_open: float = 0.0
 
 
 @dataclass
@@ -428,7 +429,7 @@ class Helix4Engine:
             last_time = self._bar_time(minute_bars.times[-1])
             for ap in list(self._active_positions):
                 if ap.pos.contracts > 0:
-                    self._close_position(ap, last_close, last_time, "END_OF_DATA")
+                    self._close_position_market(ap, last_close, last_time, "END_OF_DATA")
 
         # Shadow simulation
         shadow_summary = ""
@@ -523,9 +524,14 @@ class Helix4Engine:
             self._on_1h_boundary(hourly, h_idx, bar_time)
             self._last_1h_idx = h_idx
 
-        # 4. Equity snapshot
+        # 4. Equity snapshot (mark-to-market)
         if new_1h or len(self._equity_history) == 0:
-            self._equity_history.append(self.equity)
+            mtm = self.equity
+            for ap in self._active_positions:
+                p = ap.pos
+                if p.contracts > 0:
+                    mtm += (Cl - p.avg_entry) * p.direction * self.pv * p.contracts
+            self._equity_history.append(mtm)
             self._time_history.append(bar_time)
 
     # ------------------------------------------------------------------
@@ -1122,6 +1128,7 @@ class Helix4Engine:
             mfe_price=fp, mae_price=fp,
             setup_id=setup.setup_id,
             entry_contracts=pending.contracts,
+            commission_at_open=self._total_commission,
         )
         self._active_positions.append(ap)
 
@@ -1170,12 +1177,12 @@ class Helix4Engine:
 
         # 1) Catastrophic floor
         if R_total < self.cfg.catastrophic_r:
-            self._close_position(ap, last_price, now_et, "CATASTROPHIC_STOP")
+            self._close_position_market(ap, last_price, now_et, "CATASTROPHIC_STOP")
             return
 
         # 1b) Early adverse: -0.80R within 4 bars (tighter than v3.1)
         if pos.bars_held_1h <= EARLY_ADVERSE_BARS and R_total <= EARLY_ADVERSE_R:
-            self._close_position(ap, last_price, now_et, "EARLY_ADVERSE")
+            self._close_position_market(ap, last_price, now_et, "EARLY_ADVERSE")
             return
 
         # 2) Momentum stall: bar 8, R < 0.30, MFE < 0.80, not trailing
@@ -1184,7 +1191,7 @@ class Helix4Engine:
                 and pos.bars_held_1h >= MOMENTUM_STALL_BAR
                 and R_total < MOMENTUM_STALL_MIN_R
                 and pos.peak_mfe_r < MOMENTUM_STALL_MIN_MFE):
-            self._close_position(ap, last_price, now_et, "MOMENTUM_STALL")
+            self._close_position_market(ap, last_price, now_et, "MOMENTUM_STALL")
             return
 
         # 3) Trail activation at TRAIL_ACTIVATION_R + BE stop
@@ -1245,12 +1252,12 @@ class Helix4Engine:
 
         # 5) Early stale
         if self.flags.use_early_stale and self._should_early_stale(pos, R_total):
-            self._close_position(ap, last_price, now_et, "EARLY_STALE")
+            self._close_position_market(ap, last_price, now_et, "EARLY_STALE")
             return
 
         # 6) Stale exit
         if self.flags.use_stale_exit and self._should_stale(pos, R_total):
-            self._close_position(ap, last_price, now_et, "STALE")
+            self._close_position_market(ap, last_price, now_et, "STALE")
             return
 
     def _do_partial_exit(self, ap: _ActivePosition, partial_qty: int, last_price: float) -> None:
@@ -1380,7 +1387,7 @@ class Helix4Engine:
         record.mae_r = mae_r
         record.exit_reason = reason
         record.bars_held_1h = pos.bars_held_1h
-        record.commission = self._total_commission
+        record.commission = self._total_commission - ap.commission_at_open
         record.exit_contracts = pos.contracts
         record.partial2_done = pos.partial2_done
 
@@ -1397,6 +1404,20 @@ class Helix4Engine:
         pos.contracts = 0
         if ap in self._active_positions:
             self._active_positions.remove(ap)
+
+    def _close_position_market(
+        self, ap: _ActivePosition, price: float, bar_time: datetime, reason: str,
+    ) -> None:
+        """Close position with market-order slippage and commission applied."""
+        slip = self.cfg.slippage.slip_ticks_normal * self.tick
+        if ap.pos.direction == 1:  # LONG
+            exit_price = price - slip
+        else:
+            exit_price = price + slip
+        commission = self.cfg.slippage.commission_per_contract * ap.pos.contracts
+        self._total_commission += commission
+        self.equity -= commission
+        self._close_position(ap, exit_price, bar_time, reason)
 
     def _update_mfe_mae(self, ap: _ActivePosition, H: float, L: float) -> None:
         if ap.pos.direction == 1:
@@ -1426,6 +1447,10 @@ class Helix4Engine:
         )
         exit_price = round_to_tick(exit_price, self.tick)
 
+        # Apply exit commission (slippage already baked into catastrophic exit_price)
+        commission = self.cfg.slippage.commission_per_contract * pos.contracts
+        self._total_commission += commission
+        self.equity -= commission
         self._close_position(ap, exit_price, bar_time, "CATASTROPHIC_STOP")
 
     def _teleport_check(

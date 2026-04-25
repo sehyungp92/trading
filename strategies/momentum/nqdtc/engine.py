@@ -243,6 +243,24 @@ class NQDTCEngine:
         self._event_queue: Optional[asyncio.Queue] = None
         self._running = False
 
+        # Diagnostic pulse state
+        self._last_decision_code: str = "IDLE"
+        self._last_decision_details: dict = {}
+        self._last_bar_ts: datetime | None = None
+
+    def _record_decision(self, code: str, details: dict | None = None) -> None:
+        self._last_decision_code = code
+        self._last_decision_details = details or {}
+
+    def health_status(self) -> dict:
+        return {
+            "strategy_id": C.STRATEGY_ID,
+            "running": self._running,
+            "last_decision_code": self._last_decision_code,
+            "last_decision_details": self._last_decision_details,
+            "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
+        }
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
@@ -255,7 +273,7 @@ class NQDTCEngine:
         self._event_queue = self._oms.stream_events(C.STRATEGY_ID)
         self._event_task = asyncio.create_task(self._process_events())
 
-        await self._fetch_bars()
+        await self._fetch_bars(request_kind="startup")
         self._update_regime()
 
         self._cycle_task = asyncio.create_task(self._5m_scheduler())
@@ -376,6 +394,7 @@ class NQDTCEngine:
 
     async def _on_5m_close(self) -> None:
         now = datetime.now(timezone.utc)
+        self._last_bar_ts = now
         ts_ny = _to_ny(now)
         session = session_type(ts_ny)
         self._bar_count_5m += 1
@@ -443,6 +462,7 @@ class NQDTCEngine:
 
         # 9) If position open → manage
         if self._position.open:
+            self._record_decision("MANAGING_POSITION", {"session": session.value})
             await self._manage_position(engine, now, ts_ny, session)
             if new_30m:
                 self._position.bars_since_entry_30m += 1
@@ -451,6 +471,7 @@ class NQDTCEngine:
 
         # 10) Not in entry window → just update state
         if not entry_window_ok(ts_ny, session):
+            self._record_decision("OUTSIDE_RTH", {"reason": "entry_window_closed", "session": session.value})
             if new_30m:
                 self._update_box_and_breakout(engine, session, now)
             self._persist_state()
@@ -471,12 +492,19 @@ class NQDTCEngine:
 
         # 12) Block RTH entries (matches backtest rth_entries=False baseline)
         if not C.RTH_ENTRIES_ENABLED and session == Session.RTH:
+            self._record_decision("OUTSIDE_RTH", {"reason": "rth_entries_disabled"})
             self._persist_state()
             return
 
         # 13) If breakout active + gates pass → evaluate entries
         if engine.breakout.active and gates_ok and engine.mode != ChopMode.HALT:
             await self._evaluate_entries(engine, session, now)
+        elif not engine.breakout.active:
+            self._record_decision("AWAITING_DATA", {"reason": "no_breakout_active", "session": session.value})
+        elif not gates_ok:
+            self._record_decision("SIGNAL_FILTERED", {"reason": "hard_gates_failed", "session": session.value})
+        elif engine.mode == ChopMode.HALT:
+            self._record_decision("SIGNAL_FILTERED", {"reason": "chop_halt", "session": session.value})
 
         # 14) Re-entry evaluation (fix #2)
         if (
@@ -1428,6 +1456,11 @@ class NQDTCEngine:
         ))
 
         if receipt.oms_order_id:
+            self._record_decision("ENTRY_SUBMITTED", {
+                "subtype": subtype.value if hasattr(subtype, 'value') else str(subtype),
+                "direction": direction.value if hasattr(direction, 'value') else str(direction),
+                "qty": qty, "price": planned_entry,
+            })
             self._working_orders.append(WorkingOrder(
                 oms_order_id=receipt.oms_order_id,
                 subtype=subtype,
@@ -2342,7 +2375,7 @@ class NQDTCEngine:
     # Bar fetching (fix #1: session filtering, fix #12: 60D for 30m)
     # ------------------------------------------------------------------
 
-    async def _fetch_bars(self) -> None:
+    async def _fetch_bars(self, request_kind: str = "recurring") -> None:
         """Fetch all timeframes from IB."""
         if not self._ib.ib.isConnected():
             if not getattr(self, '_fetch_disconn_logged', False):
@@ -2358,10 +2391,10 @@ class NQDTCEngine:
             contract = contracts[0]
 
         try:
-            bars_5m = await self._ib.ib.reqHistoricalDataAsync(
+            bars_5m = await self._ib.req_historical_data(
                 contract, endDateTime="", durationStr="2 D",
                 barSizeSetting="5 mins", whatToShow="TRADES",
-                useRTH=False, formatDate=1,
+                useRTH=False, formatDate=1, request_kind=request_kind,
             )
             if bars_5m:
                 self._bars_5m = self._bars_to_arrays(bars_5m)
@@ -2371,10 +2404,10 @@ class NQDTCEngine:
         # Phase 1.1: 15m bars for slope filter
         if C.SLOPE_FILTER_ENABLED:
             try:
-                bars_15m = await self._ib.ib.reqHistoricalDataAsync(
+                bars_15m = await self._ib.req_historical_data(
                     contract, endDateTime="", durationStr="5 D",
                     barSizeSetting="15 mins", whatToShow="TRADES",
-                    useRTH=False, formatDate=1,
+                    useRTH=False, formatDate=1, request_kind=request_kind,
                 )
                 if bars_15m:
                     self._bars_15m = self._bars_to_arrays(bars_15m)
@@ -2383,10 +2416,10 @@ class NQDTCEngine:
 
         try:
             # Fix #12: fetch 60D instead of 30D for proper ~60d ATR percentile
-            bars_30m = await self._ib.ib.reqHistoricalDataAsync(
+            bars_30m = await self._ib.req_historical_data(
                 contract, endDateTime="", durationStr="60 D",
                 barSizeSetting="30 mins", whatToShow="TRADES",
-                useRTH=False, formatDate=1,
+                useRTH=False, formatDate=1, request_kind=request_kind,
             )
             if bars_30m:
                 self._raw_bars_30m = bars_30m
@@ -2400,10 +2433,10 @@ class NQDTCEngine:
             logger.exception("Error fetching 30m bars")
 
         try:
-            bars_1h = await self._ib.ib.reqHistoricalDataAsync(
+            bars_1h = await self._ib.req_historical_data(
                 contract, endDateTime="", durationStr="60 D",
                 barSizeSetting="1 hour", whatToShow="TRADES",
-                useRTH=False, formatDate=1,
+                useRTH=False, formatDate=1, request_kind=request_kind,
             )
             if bars_1h:
                 self._bars_1h = self._bars_to_arrays(bars_1h)
@@ -2411,10 +2444,10 @@ class NQDTCEngine:
             logger.exception("Error fetching 1H bars")
 
         try:
-            bars_4h = await self._ib.ib.reqHistoricalDataAsync(
+            bars_4h = await self._ib.req_historical_data(
                 contract, endDateTime="", durationStr="1 Y",
                 barSizeSetting="4 hours", whatToShow="TRADES",
-                useRTH=False, formatDate=1,
+                useRTH=False, formatDate=1, request_kind=request_kind,
             )
             if bars_4h:
                 self._bars_4h = self._bars_to_arrays(bars_4h)
@@ -2422,10 +2455,10 @@ class NQDTCEngine:
             logger.exception("Error fetching 4H bars")
 
         try:
-            bars_d = await self._ib.ib.reqHistoricalDataAsync(
+            bars_d = await self._ib.req_historical_data(
                 contract, endDateTime="", durationStr="2 Y",
                 barSizeSetting="1 day", whatToShow="TRADES",
-                useRTH=True, formatDate=1,
+                useRTH=True, formatDate=1, request_kind=request_kind,
             )
             if bars_d:
                 self._bars_daily = self._bars_to_arrays(bars_d)

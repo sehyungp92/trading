@@ -78,7 +78,7 @@ def _worker_score(args: tuple) -> tuple[str, float, bool, str]:
     try:
         from dataclasses import replace
         from backtest.config_brs import BRSConfig
-        from backtest.engine.brs_portfolio_engine import run_brs_independent
+        from backtest.engine.brs_portfolio_engine import run_brs_synchronized
         from backtests.swing.auto.brs.config_mutator import mutate_brs_config
         from backtests.swing.auto.brs.scoring import extract_brs_metrics
         from backtests.swing.auto.brs.phase_scoring import score_phase
@@ -88,7 +88,7 @@ def _worker_score(args: tuple) -> tuple[str, float, bool, str]:
         all_muts.update(candidate_muts)
 
         config = mutate_brs_config(_worker_config, all_muts)
-        result = run_brs_independent(_worker_data, config)
+        result = run_brs_synchronized(_worker_data, config)
         metrics = extract_brs_metrics(result, _worker_equity)
 
         if _worker_phase > 0:
@@ -200,7 +200,7 @@ def run_greedy(
     install()
 
     from backtest.config_brs import BRSConfig
-    from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_independent
+    from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
     from backtests.swing.auto.brs.config_mutator import mutate_brs_config
     from backtests.swing.auto.brs.scoring import extract_brs_metrics
     from backtests.swing.auto.brs.phase_scoring import score_phase
@@ -209,7 +209,7 @@ def run_greedy(
     base_config = BRSConfig(initial_equity=initial_equity, data_dir=data_dir)
     base_config = mutate_brs_config(base_config, base_mutations)
     data = load_brs_data(base_config)
-    base_result = run_brs_independent(data, base_config)
+    base_result = run_brs_synchronized(data, base_config)
     base_metrics = extract_brs_metrics(base_result, initial_equity)
 
     if phase > 0:
@@ -328,7 +328,7 @@ def run_greedy(
         BRSConfig(initial_equity=initial_equity, data_dir=data_dir),
         accepted_mutations,
     )
-    final_result = run_brs_independent(data, final_config)
+    final_result = run_brs_synchronized(data, final_config)
     final_metrics = extract_brs_metrics(final_result, initial_equity)
 
     if verbose:

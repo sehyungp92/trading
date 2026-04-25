@@ -23,7 +23,7 @@ def test_load_config_applies_stock_trader_defaults():
     config = _load_config("IARIC_v1", "strategy_iaric")
 
     assert config["bot_id"] == "stock_trader"
-    assert config["strategy_id"] == "iaric"
+    assert config["strategy_id"] == "IARIC_v1"
     assert config["strategy_type"] == "strategy_iaric"
     assert config["data_source_id"] == "ibkr_us_equities"
     assert config["heartbeat_interval_seconds"] == 30
@@ -36,7 +36,7 @@ def test_load_config_applies_alcb_strategy_identity():
     config = _load_config("ALCB_v1", "strategy_alcb")
 
     assert config["bot_id"] == "stock_trader"
-    assert config["strategy_id"] == "alcb"
+    assert config["strategy_id"] == "ALCB_v1"
     assert config["strategy_type"] == "strategy_alcb"
     assert config["data_source_id"] == "ibkr_us_equities"
     assert config["sidecar"]["hmac_secret_env"] == "INSTRUMENTATION_HMAC_SECRET"
@@ -45,17 +45,17 @@ def test_load_config_applies_alcb_strategy_identity():
 def test_manager_maps_config_modules_and_attachs_provider():
     manager = InstrumentationManager(
         oms=_DummyOMS(),
-        strategy_id="US_ORB_v1",
-        strategy_type="strategy_orb",
+        strategy_id="IARIC_v1",
+        strategy_type="strategy_iaric",
     )
     provider = object()
 
     manager.attach_data_provider(provider)
 
     assert manager.bot_id == "stock_trader"
-    assert manager.config["strategy_id"] == "us_orb"
+    assert manager.config["strategy_id"] == "IARIC_v1"
     assert manager.config_watcher is not None
-    assert manager.config_watcher._config_modules == ["strategy_orb.config"]
+    assert manager.config_watcher._config_modules == ["strategy_iaric.config"]
     assert manager.snapshot_service._data_provider is provider
     assert manager.regime_classifier.data_provider is provider
     assert manager.config["sidecar"]["hmac_secret_env"] == "INSTRUMENTATION_HMAC_SECRET"
@@ -69,7 +69,7 @@ def test_manager_maps_alcb_config_module():
     )
 
     assert manager.bot_id == "stock_trader"
-    assert manager.config["strategy_id"] == "alcb"
+    assert manager.config["strategy_id"] == "ALCB_v1"
     assert manager.config_watcher is not None
     assert manager.config_watcher._config_modules == ["strategy_alcb.config"]
 
@@ -107,8 +107,8 @@ def test_periodic_loop_checkpoints_daily_snapshot():
     async def _run():
         manager = InstrumentationManager(
             oms=_DummyOMS(),
-            strategy_id="US_ORB_v1",
-            strategy_type="strategy_orb",
+            strategy_id="ALCB_v1",
+            strategy_type="strategy_alcb",
         )
         manager.snapshot_service.run_periodic = MagicMock()
         manager.trade_logger.run_post_exit_backfill = MagicMock()
@@ -138,8 +138,8 @@ def test_start_requires_sidecar_auth_in_paper(monkeypatch):
 
         manager = InstrumentationManager(
             oms=_DummyOMS(),
-            strategy_id="US_ORB_v1",
-            strategy_type="strategy_orb",
+            strategy_id="ALCB_v1",
+            strategy_type="strategy_alcb",
         )
 
         with pytest.raises(RuntimeError, match="HMAC secret"):

@@ -581,7 +581,7 @@ def _compute_intraday_summary(
             "trigger_rows": [],
             "hour_rows": [],
             "transition_rows": [],
-            "coverage": {"with_5m": 0, "missing_5m": 0, "fallback_share": 0.0},
+            "coverage": {"with_5m": 0, "missing_5m": 0, "missing_5m_share": 0.0, "fallback_share": 0.0},
             "live_selector": {
                 "considered": 0,
                 "accepted": 0,
@@ -646,6 +646,7 @@ def _compute_intraday_summary(
         "coverage": {
             "with_5m": len(live_records),
             "missing_5m": len(fallback_records),
+            "missing_5m_share": _share(len(fallback_records), len(intraday_records)),
             "fallback_share": _share(len(fallback_records), len(intraday_records)),
         },
         "live_selector": {
@@ -1690,7 +1691,14 @@ def _render_funnel(snapshot: dict[str, Any]) -> str:
     lines.append(f"  Universe seen: {counters.get('universe_seen', 0)}")
     lines.append(f"  Triggered: {counters.get('triggered', 0)}")
     lines.append(f"  Candidate pool: {counters.get('candidate_pool', 0)}")
-    lines.append(f"  Entered: {counters.get('entered', 0)} ({funnel['accept_rate']:.1%} of candidate pool)")
+    pool = int(funnel.get("candidate_pool", 0))
+    entered = int(funnel.get("entered", 0))
+    if pool > 0 and entered <= pool:
+        lines.append(f"  Entered: {entered} ({funnel['accept_rate']:.1%} of candidate pool)")
+    else:
+        lines.append(
+            f"  Entered: {entered} (mixed cohorts; headline accept rate omitted, see 3C for cohort splits)"
+        )
     lines.append("")
     lines.append(f"  {'Gate':<24s} {'Count':>7s} {'AvgShadowR':>12s} {'FP Rate':>9s} {'Verdict':>8s}")
     lines.append("  " + "-" * 68)
@@ -1719,16 +1727,19 @@ def _render_intraday(snapshot: dict[str, Any]) -> str:
     )
     coverage = intraday.get("coverage", {})
     if coverage:
+        missing_5m_share = _safe_float(
+            coverage.get("missing_5m_share", coverage.get("fallback_share"))
+        )
         lines.append(
             "  Coverage: "
             f"5m-ready={coverage.get('with_5m', 0)}, "
             f"missing_5m={coverage.get('missing_5m', 0)}, "
-            f"open-scored share={_safe_float(coverage.get('fallback_share')):.1%}"
+            f"missing_5m share={missing_5m_share:.1%}"
         )
     live_selector = intraday.get("live_selector", {})
     if _safe_int(live_selector.get("considered")) > 0:
         lines.append(
-            "  Live 5m selector: "
+            "  Live 5m cohort: "
             f"entered={_safe_int(live_selector.get('accepted'))}/{_safe_int(live_selector.get('considered'))}, "
             f"accepted avg_r={_safe_float(live_selector.get('accepted_avg_r')):+.3f}, "
             f"rejected shadow={_safe_float(live_selector.get('rejected_avg_shadow_r')):+.3f}, "

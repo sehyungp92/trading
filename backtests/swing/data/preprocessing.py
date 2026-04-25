@@ -64,6 +64,16 @@ def mark_invalid_blocks(df: pd.DataFrame, max_consecutive: int = 5) -> pd.DataFr
     return df
 
 
+def _vectorized_align(target_times: np.ndarray, source_times: np.ndarray) -> np.ndarray:
+    """Map each target timestamp to the index of the last source timestamp strictly before it.
+
+    Uses np.searchsorted for O(n log m) vectorized alignment instead of
+    O(n) Python loop. Returns int64 array of length len(target_times).
+    """
+    idx = np.searchsorted(source_times, target_times, side="left") - 1
+    return np.clip(idx, 0, len(source_times) - 1).astype(np.int64)
+
+
 def align_daily_to_hourly(
     hourly_df: pd.DataFrame,
     daily_df: pd.DataFrame,
@@ -79,26 +89,9 @@ def align_daily_to_hourly(
     before ``t``'s date (i.e., yesterday's daily bar during the current day,
     switching to today's daily bar only on the first bar of the next day).
     """
-    daily_dates = daily_df.index.normalize()
-    hourly_dates = hourly_df.index.normalize()
-
-    idx_map = np.empty(len(hourly_df), dtype=np.int64)
-    daily_pos = 0
-
-    for i in range(len(hourly_df)):
-        h_date = hourly_dates[i]
-        # Advance daily_pos to the last daily bar whose date < hourly bar's date
-        while daily_pos < len(daily_dates) - 1 and daily_dates[daily_pos + 1] < h_date:
-            daily_pos += 1
-        # Use daily bar only if its date is strictly before the hourly bar's date
-        if daily_dates[daily_pos] < h_date:
-            idx_map[i] = daily_pos
-        elif daily_pos > 0:
-            idx_map[i] = daily_pos - 1
-        else:
-            idx_map[i] = 0
-
-    return idx_map
+    daily_dates = daily_df.index.normalize().values
+    hourly_dates = hourly_df.index.normalize().values
+    return _vectorized_align(hourly_dates, daily_dates)
 
 
 @dataclass
@@ -131,7 +124,7 @@ def resample_1h_to_4h(hourly_df: pd.DataFrame) -> pd.DataFrame:
     if "volume" in hourly_df.columns:
         agg["volume"] = "sum"
 
-    resampled = hourly_df.resample("4h", offset="0h").agg(agg)
+    resampled = hourly_df.resample("4h", offset="0h", label="right").agg(agg)
     # Drop rows where all OHLC are NaN (incomplete periods at boundaries)
     resampled = resampled.dropna(subset=["open", "close"])
     return resampled
@@ -150,26 +143,7 @@ def align_4h_to_hourly(
     closing at 04:00 is available starting from the 05:00 hourly bar.
     The hourly bars at 01:00-04:00 use the previous 4H bar (closing at 00:00).
     """
-    four_hour_times = four_hour_df.index
-    hourly_times = hourly_df.index
-
-    idx_map = np.empty(len(hourly_df), dtype=np.int64)
-    fh_pos = 0
-
-    for i in range(len(hourly_times)):
-        h_time = hourly_times[i]
-        # Advance fh_pos to the last 4H bar whose time < hourly bar's time
-        while fh_pos < len(four_hour_times) - 1 and four_hour_times[fh_pos + 1] < h_time:
-            fh_pos += 1
-        # Use 4H bar only if its time is strictly before the hourly bar's time
-        if four_hour_times[fh_pos] < h_time:
-            idx_map[i] = fh_pos
-        elif fh_pos > 0:
-            idx_map[i] = fh_pos - 1
-        else:
-            idx_map[i] = 0
-
-    return idx_map
+    return _vectorized_align(hourly_df.index.values, four_hour_df.index.values)
 
 
 def build_numpy_arrays(df: pd.DataFrame) -> NumpyBars:

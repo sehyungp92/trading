@@ -8,7 +8,7 @@ Each component maps to a structural weakness:
   risk       (15%): inverse max drawdown -- don't blow up
   hold       (10%): median hold duration -- penalizes scalping
 
-Hard rejects: <10 trades, negative correction alpha, DD > 40%.
+Hard rejects: <10 trades, negative correction-window PnL, DD > 40%.
 """
 from __future__ import annotations
 
@@ -64,10 +64,10 @@ def composite_score(
         return DownturnCompositeScore(
             rejected=True, reject_reason=f"too_few_trades ({metrics.total_trades})",
         )
-    if metrics.correction_alpha_pct < 0:
+    if metrics.correction_pnl_pct < 0:
         return DownturnCompositeScore(
             rejected=True,
-            reject_reason=f"negative_correction_alpha ({metrics.correction_alpha_pct:.2f}%)",
+            reject_reason=f"negative_correction_pnl ({metrics.correction_pnl_pct:.2f}%)",
         )
     if metrics.max_dd_pct > 0.40:
         return DownturnCompositeScore(
