@@ -2375,6 +2375,28 @@ class NQDTCEngine:
     # Bar fetching (fix #1: session filtering, fix #12: 60D for 30m)
     # ------------------------------------------------------------------
 
+    async def _req_completed_bars(
+        self,
+        contract: Any,
+        duration: str,
+        bar_size: str,
+        *,
+        request_kind: str,
+        use_rth: bool = False,
+    ) -> list | None:
+        bars = await self._ib.req_historical_data(
+            contract,
+            endDateTime="",
+            durationStr=duration,
+            barSizeSetting=bar_size,
+            whatToShow="TRADES",
+            useRTH=use_rth,
+            formatDate=1,
+            request_kind=request_kind,
+            completed_only=True,
+        )
+        return bars if bars else None
+
     async def _fetch_bars(self, request_kind: str = "recurring") -> None:
         """Fetch all timeframes from IB."""
         if not self._ib.ib.isConnected():
@@ -2391,11 +2413,7 @@ class NQDTCEngine:
             contract = contracts[0]
 
         try:
-            bars_5m = await self._ib.req_historical_data(
-                contract, endDateTime="", durationStr="2 D",
-                barSizeSetting="5 mins", whatToShow="TRADES",
-                useRTH=False, formatDate=1, request_kind=request_kind,
-            )
+            bars_5m = await self._req_completed_bars(contract, "2 D", "5 mins", request_kind=request_kind)
             if bars_5m:
                 self._bars_5m = self._bars_to_arrays(bars_5m)
         except Exception:
@@ -2404,11 +2422,7 @@ class NQDTCEngine:
         # Phase 1.1: 15m bars for slope filter
         if C.SLOPE_FILTER_ENABLED:
             try:
-                bars_15m = await self._ib.req_historical_data(
-                    contract, endDateTime="", durationStr="5 D",
-                    barSizeSetting="15 mins", whatToShow="TRADES",
-                    useRTH=False, formatDate=1, request_kind=request_kind,
-                )
+                bars_15m = await self._req_completed_bars(contract, "5 D", "15 mins", request_kind=request_kind)
                 if bars_15m:
                     self._bars_15m = self._bars_to_arrays(bars_15m)
             except Exception:
@@ -2416,11 +2430,7 @@ class NQDTCEngine:
 
         try:
             # Fix #12: fetch 60D instead of 30D for proper ~60d ATR percentile
-            bars_30m = await self._ib.req_historical_data(
-                contract, endDateTime="", durationStr="60 D",
-                barSizeSetting="30 mins", whatToShow="TRADES",
-                useRTH=False, formatDate=1, request_kind=request_kind,
-            )
+            bars_30m = await self._req_completed_bars(contract, "60 D", "30 mins", request_kind=request_kind)
             if bars_30m:
                 self._raw_bars_30m = bars_30m
                 self._bars_30m = self._bars_to_arrays(bars_30m)
@@ -2433,32 +2443,26 @@ class NQDTCEngine:
             logger.exception("Error fetching 30m bars")
 
         try:
-            bars_1h = await self._ib.req_historical_data(
-                contract, endDateTime="", durationStr="60 D",
-                barSizeSetting="1 hour", whatToShow="TRADES",
-                useRTH=False, formatDate=1, request_kind=request_kind,
-            )
+            bars_1h = await self._req_completed_bars(contract, "60 D", "1 hour", request_kind=request_kind)
             if bars_1h:
                 self._bars_1h = self._bars_to_arrays(bars_1h)
         except Exception:
             logger.exception("Error fetching 1H bars")
 
         try:
-            bars_4h = await self._ib.req_historical_data(
-                contract, endDateTime="", durationStr="1 Y",
-                barSizeSetting="4 hours", whatToShow="TRADES",
-                useRTH=False, formatDate=1, request_kind=request_kind,
-            )
+            bars_4h = await self._req_completed_bars(contract, "1 Y", "4 hours", request_kind=request_kind)
             if bars_4h:
                 self._bars_4h = self._bars_to_arrays(bars_4h)
         except Exception:
             logger.exception("Error fetching 4H bars")
 
         try:
-            bars_d = await self._ib.req_historical_data(
-                contract, endDateTime="", durationStr="2 Y",
-                barSizeSetting="1 day", whatToShow="TRADES",
-                useRTH=True, formatDate=1, request_kind=request_kind,
+            bars_d = await self._req_completed_bars(
+                contract,
+                "2 Y",
+                "1 day",
+                request_kind=request_kind,
+                use_rth=True,
             )
             if bars_d:
                 self._bars_daily = self._bars_to_arrays(bars_d)

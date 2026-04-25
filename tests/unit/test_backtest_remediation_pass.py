@@ -12,6 +12,10 @@ from backtests.swing._aliases import install as install_swing_aliases
 install_swing_aliases()
 
 from backtests.diagnostic_snapshot import build_group_snapshot
+from backtests.swing.analysis.optimized_baseline import (
+    load_phase_mutation_source,
+    summarize_optimizer_reference,
+)
 from backtest.config import BacktestConfig, SlippageConfig
 from backtest.engine.backtest_engine import BacktestEngine
 from backtest.engine.sim_broker import FillResult, FillStatus, OrderSide, OrderType, SimOrder
@@ -454,13 +458,20 @@ def test_shared_capital_diagnostics_and_iaric_data_gap_fix_are_wired_in():
     swing_breakout_portfolio_src = Path("backtests/swing/engine/breakout_portfolio_engine.py").read_text(encoding="utf-8")
     swing_breakout_engine_src = Path("backtests/swing/engine/breakout_engine.py").read_text(encoding="utf-8")
     iaric_diag_src = Path("backtests/stock/analysis/iaric_pullback_diagnostics.py").read_text(encoding="utf-8")
+    iaric_runner_src = Path("backtests/stock/auto/iaric_pullback/run_optimized_diagnostics.py").read_text(encoding="utf-8")
+    alcb_runner_src = Path("backtests/stock/auto/alcb_p12_phase/run_conservative_diagnostics.py").read_text(encoding="utf-8")
     downturn_r6_src = Path("backtests/momentum/auto/downturn/output/generate_r6_diagnostics.py").read_text(encoding="utf-8")
     downturn_r7_src = Path("backtests/momentum/auto/downturn/output/generate_r7_diagnostics.py").read_text(encoding="utf-8")
     downturn_r7b_src = Path("backtests/momentum/auto/downturn/output/generate_r7b_diagnostics.py").read_text(encoding="utf-8")
 
     assert "run_synchronized" in atrss_src
+    assert "load_phase_mutation_source" in atrss_src
+    assert "Execution mode: synchronized/shared-capital" in atrss_src
     assert "_trade_net_pnl" in atrss_src
     assert "run_helix_synchronized" in helix_src
+    assert "mutate_helix_config" in helix_src
+    assert "load_phase_mutation_source" in helix_src
+    assert "Execution mode: synchronized/shared-capital" in helix_src
     assert "_trade_net_pnl" in helix_src
     assert "with _AblationPatch(bt_config.flags, bt_config.param_overrides):" in swing_helix_portfolio_src
     assert "engine._precompute_indicators(data.hourly[sym], data.four_hour[sym])" in swing_helix_portfolio_src
@@ -494,6 +505,13 @@ def test_shared_capital_diagnostics_and_iaric_data_gap_fix_are_wired_in():
     assert '"total_pnl": sum(_trade_net_pnl(t) for t in all_trades)' in breakout_src
     assert "missing_5m share=" in iaric_diag_src
     assert "mixed cohorts; headline accept rate omitted" in iaric_diag_src
+    assert '--summary-json' in iaric_runner_src
+    assert "Mutation source:" in iaric_runner_src
+    assert "Phase-state reference (pre-fix optimization record):" in iaric_runner_src
+    assert "phase_state_reference" in iaric_runner_src
+    assert '--summary-json' in alcb_runner_src
+    assert "Mutation count:" in alcb_runner_src
+    assert '"strategy": "alcb_conservative_p12"' in alcb_runner_src
     assert "Correction PnL %" in downturn_r6_src
     assert "Correction PnL %" in downturn_r7_src
     assert "Correction PnL %" in downturn_r7b_src
@@ -546,3 +564,53 @@ def test_group_snapshot_surfaces_loss_concentration_when_losses_are_clustered():
     )
 
     assert "Losses are concentrated: top 2 losers drive" in snapshot
+
+
+def test_phase_mutation_source_loads_current_and_phase_specific_views(tmp_path: Path):
+    state_path = tmp_path / "phase_state.json"
+    state_path.write_text(
+        """
+{
+  "current_phase": 4,
+  "cumulative_mutations": {"flags.alpha": true},
+  "phase_results": {
+    "1": {"final_mutations": {"flags.alpha": false}, "final_score": 0.61},
+    "4": {
+      "final_mutations": {"flags.alpha": true},
+      "final_score": 0.82,
+      "final_metrics": {"profit_factor": 2.4, "net_return_pct": 18.5, "max_dd_pct": 0.04, "total_trades": 123}
+    }
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    current = load_phase_mutation_source(state_path, "current")
+    phase1 = load_phase_mutation_source(state_path, "1")
+
+    assert current.mutations == {"flags.alpha": True}
+    assert current.phase_label == "CURRENT OPTIMIZED BASELINE"
+    assert current.optimizer_reference["final_score"] == pytest.approx(0.82)
+    assert phase1.mutations == {"flags.alpha": False}
+    assert phase1.phase_label == "PHASE 1 FINAL BASELINE"
+
+
+def test_optimizer_reference_summary_labels_independent_metrics():
+    lines = summarize_optimizer_reference(
+        {
+            "final_score": 0.8123,
+            "final_metrics": {
+                "total_trades": 256,
+                "profit_factor": 6.98,
+                "net_return_pct": 29.6,
+                "max_dd_pct": 0.034,
+            },
+        }
+    )
+
+    text = "\n".join(lines)
+    assert "independent fast-path" in text
+    assert "Score: 0.8123" in text
+    assert "Trades: 256" in text
+    assert "Profit factor: 6.98" in text

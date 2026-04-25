@@ -13,6 +13,7 @@ from typing import Any, Callable
 from ib_async import IB
 
 from libs.config.models import ConnectionGroupConfig
+from libs.config.completed_bar_policy import filter_completed_live_bars
 
 from .connection import ConnectionManager
 from .farm_monitor import FarmMonitor
@@ -305,6 +306,8 @@ class UnifiedIBSession:
         chartOptions: list[Any] | None = None,
         timeout: float | None = None,
         request_kind: str = "recurring",
+        completed_only: bool = False,
+        as_of: datetime | None = None,
     ) -> Any:
         """Paced, bounded historical-data request with a short farm-hiccup breaker."""
         timeout = self._historical_timeout(timeout, request_kind, keepUpToDate)
@@ -348,7 +351,32 @@ class UnifiedIBSession:
             and elapsed >= max(timeout * 0.9, timeout - 1.0)
         ):
             self._record_historical_timeout(time.monotonic())
+        if bars and completed_only and not keepUpToDate:
+            bars = self.filter_completed_historical_bars(
+                bars,
+                bar_size_setting=barSizeSetting,
+                useRTH=useRTH,
+                endDateTime=endDateTime,
+                as_of=as_of,
+            )
         return bars
+
+    @staticmethod
+    def filter_completed_historical_bars(
+        bars: Any,
+        *,
+        bar_size_setting: str,
+        useRTH: bool,
+        endDateTime: Any = "",
+        as_of: datetime | None = None,
+    ) -> list[Any]:
+        return filter_completed_live_bars(
+            bars,
+            bar_size_setting=bar_size_setting,
+            use_rth=useRTH,
+            end_datetime=endDateTime,
+            as_of=as_of,
+        )
 
     def historical_health(self) -> dict[str, Any]:
         now = time.monotonic()

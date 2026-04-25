@@ -6,6 +6,11 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from libs.config.completed_bar_policy import (
+    align_completed_daily_session_indices,
+    align_completed_higher_timeframe_indices,
+)
+
 
 def filter_rth(df: pd.DataFrame) -> pd.DataFrame:
     """Filter DataFrame to Regular Trading Hours only (09:30-16:00 ET).
@@ -65,13 +70,8 @@ def mark_invalid_blocks(df: pd.DataFrame, max_consecutive: int = 5) -> pd.DataFr
 
 
 def _vectorized_align(target_times: np.ndarray, source_times: np.ndarray) -> np.ndarray:
-    """Map each target timestamp to the index of the last source timestamp strictly before it.
-
-    Uses np.searchsorted for O(n log m) vectorized alignment instead of
-    O(n) Python loop. Returns int64 array of length len(target_times).
-    """
-    idx = np.searchsorted(source_times, target_times, side="left") - 1
-    return np.clip(idx, 0, len(source_times) - 1).astype(np.int64)
+    """Compatibility wrapper over the shared completed-bar alignment policy."""
+    return align_completed_higher_timeframe_indices(target_times, source_times)
 
 
 def align_daily_to_hourly(
@@ -89,9 +89,7 @@ def align_daily_to_hourly(
     before ``t``'s date (i.e., yesterday's daily bar during the current day,
     switching to today's daily bar only on the first bar of the next day).
     """
-    daily_dates = daily_df.index.normalize().values
-    hourly_dates = hourly_df.index.normalize().values
-    return _vectorized_align(hourly_dates, daily_dates)
+    return align_completed_daily_session_indices(hourly_df.index.values, daily_df.index.values)
 
 
 @dataclass

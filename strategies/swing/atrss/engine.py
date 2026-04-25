@@ -2251,17 +2251,10 @@ class ATRSSEngine:
                 useRTH=True,
                 formatDate=1,
                 request_kind=request_kind,
+                completed_only=True,
             )
             if not bars:
                 return None, None, None, None
-
-            # Drop incomplete intraday bar if market is currently open
-            from datetime import time as _time
-            from zoneinfo import ZoneInfo
-            now_et = datetime.now(ZoneInfo("America/New_York"))
-            t = now_et.time()
-            if now_et.weekday() < 5 and _time(9, 30) <= t < _time(16, 0) and len(bars) > 1:
-                bars = bars[:-1]
 
             closes = np.array([b.close for b in bars], dtype=float)
             highs = np.array([b.high for b in bars], dtype=float)
@@ -2290,6 +2283,7 @@ class ATRSSEngine:
                 useRTH=True,
                 formatDate=1,
                 request_kind=request_kind,
+                completed_only=True,
             )
             if not bars:
                 return None, None, None, None

@@ -44,7 +44,7 @@ R8_MUTATIONS = {
 }
 
 DATA_DIR = Path("backtests/swing/data/raw")
-INITIAL_EQUITY = 100_000.0
+INITIAL_EQUITY = 10_000.0
 
 CRISIS_WINDOWS = [
     ("2022 Bear", datetime(2022, 1, 3), datetime(2022, 10, 13)),

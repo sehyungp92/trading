@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import MagicMock, AsyncMock, patch, PropertyMock
 
 import pytest
@@ -318,3 +320,76 @@ class TestHistoricalDataWrapper:
 
         session.ib.reqHistoricalDataAsync.assert_awaited_once()
         assert session.ib.reqHistoricalDataAsync.await_args.kwargs["timeout"] == 45.0
+
+    @pytest.mark.asyncio
+    async def test_req_historical_data_filters_incomplete_intraday_tail_when_requested(self) -> None:
+        session, *_ = _make_session()
+        session.throttled = AsyncMock()
+        session.ib.reqHistoricalDataAsync = AsyncMock(
+            return_value=[
+                SimpleNamespace(date=datetime(2024, 1, 5, 10, 0, tzinfo=timezone.utc)),
+                SimpleNamespace(date=datetime(2024, 1, 5, 11, 0, tzinfo=timezone.utc)),
+            ]
+        )
+
+        rows = await session.req_historical_data(
+            "contract",
+            "",
+            "2 D",
+            "1 hour",
+            "TRADES",
+            False,
+            completed_only=True,
+            as_of=datetime(2024, 1, 5, 11, 30, tzinfo=timezone.utc),
+        )
+
+        assert len(rows) == 1
+        assert rows[0].date == datetime(2024, 1, 5, 10, 0, tzinfo=timezone.utc)
+
+    @pytest.mark.asyncio
+    async def test_req_historical_data_filters_same_day_rth_daily_tail_when_requested(self) -> None:
+        session, *_ = _make_session()
+        session.throttled = AsyncMock()
+        session.ib.reqHistoricalDataAsync = AsyncMock(
+            return_value=[
+                SimpleNamespace(date="20240104"),
+                SimpleNamespace(date="20240105"),
+            ]
+        )
+
+        rows = await session.req_historical_data(
+            "contract",
+            "",
+            "200 D",
+            "1 day",
+            "TRADES",
+            True,
+            completed_only=True,
+            as_of=datetime(2024, 1, 5, 15, 30, tzinfo=timezone.utc),
+        )
+
+        assert [row.date for row in rows] == ["20240104"]
+
+    @pytest.mark.asyncio
+    async def test_req_historical_data_does_not_filter_explicit_enddatetime(self) -> None:
+        session, *_ = _make_session()
+        session.throttled = AsyncMock()
+        session.ib.reqHistoricalDataAsync = AsyncMock(
+            return_value=[
+                SimpleNamespace(date=datetime(2024, 1, 5, 10, 0, tzinfo=timezone.utc)),
+                SimpleNamespace(date=datetime(2024, 1, 5, 11, 0, tzinfo=timezone.utc)),
+            ]
+        )
+
+        rows = await session.req_historical_data(
+            "contract",
+            "20240105 11:30:00",
+            "2 D",
+            "1 hour",
+            "TRADES",
+            False,
+            completed_only=True,
+            as_of=datetime(2024, 1, 5, 11, 30, tzinfo=timezone.utc),
+        )
+
+        assert len(rows) == 2

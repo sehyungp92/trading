@@ -20,7 +20,7 @@ from backtests.swing.auto.brs.config_mutator import mutate_brs_config
 from backtests.swing.auto.brs.scoring import composite_score, extract_brs_metrics
 
 DATA_DIR = Path("backtests/swing/data/raw")
-INITIAL_EQUITY = 100_000.0
+INITIAL_EQUITY = 10_000.0
 OUTPUT_DIR = Path("backtests/swing/auto/brs/output")
 OUTPUT_PATH = OUTPUT_DIR / "optimal_starting_baseline_full_diagnostics.txt"
 MUTATIONS_PATH = OUTPUT_DIR / "optimal_starting_baseline_mutations.json"
@@ -108,6 +108,7 @@ def main() -> None:
 
     _out(lines, "A) Topline")
     _out(lines, "-" * 88)
+    _out(lines, f"Initial equity: ${INITIAL_EQUITY:,.0f}")
     _out(lines, f"Campaigns: {metrics.campaign_count}")
     _out(lines, f"Realized legs: {metrics.realized_leg_count}")
     _out(lines, f"Net return: {metrics.net_return_pct:.1f}%")

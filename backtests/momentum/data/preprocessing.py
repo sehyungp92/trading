@@ -6,6 +6,11 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from libs.config.completed_bar_policy import (
+    align_completed_daily_session_indices,
+    align_completed_higher_timeframe_indices,
+)
+
 
 def filter_rth(df: pd.DataFrame) -> pd.DataFrame:
     """Filter DataFrame to Regular Trading Hours only (09:30-16:00 ET).
@@ -65,26 +70,8 @@ def mark_invalid_blocks(df: pd.DataFrame, max_consecutive: int = 5) -> pd.DataFr
 
 
 def _vectorized_align(lower_times, higher_times) -> np.ndarray:
-    """Vectorized alignment: map each lower-TF timestamp to the most recent
-    *completed* higher-TF bar (strict less-than).
-
-    Uses np.searchsorted for O(N log M) instead of Python loop O(N).
-
-    For intraday HTF bars, use ``label="right"`` when resampling so that
-    bar labels represent the *end* of each window.  This way, a lower-TF
-    bar at 13:35 maps to the 30m bar labeled 13:30 (the window [13:00,13:30]
-    which is fully complete), not to the in-progress window [13:30,14:00].
-
-    For daily bars, use ``align_daily_to_5m`` / ``align_daily_to_15m``
-    (date-normalised alignment) instead of this function directly, because
-    daily resamples should NOT use ``label="right"`` (shifts to next day).
-    """
-    # searchsorted(side='right') returns i where higher[i-1] <= t < higher[i]
-    # We want strict less-than (completed bar), so use side='left':
-    # side='left' returns i where higher[i-1] < t <= higher[i]
-    # Then i-1 is the last completed bar (strictly before t).
-    idx = np.searchsorted(higher_times, lower_times, side='left').astype(np.int64) - 1
-    return np.clip(idx, 0, max(len(higher_times) - 1, 0))
+    """Compatibility wrapper over the shared completed-bar alignment policy."""
+    return align_completed_higher_timeframe_indices(lower_times, higher_times)
 
 
 def align_daily_to_hourly(
@@ -102,9 +89,7 @@ def align_daily_to_hourly(
     before ``t``'s date (i.e., yesterday's daily bar during the current day,
     switching to today's daily bar only on the first bar of the next day).
     """
-    daily_dates = daily_df.index.normalize().values
-    hourly_dates = hourly_df.index.normalize().values
-    return _vectorized_align(hourly_dates, daily_dates)
+    return align_completed_daily_session_indices(hourly_df.index.values, daily_df.index.values)
 
 
 def align_daily_to_5m(
@@ -118,9 +103,7 @@ def align_daily_to_5m(
     is used with daily bars (whose left-edge label is today's date at 00:00 UTC,
     making today's incomplete daily bar appear complete).
     """
-    daily_dates = daily_df.index.normalize().values
-    five_min_dates = five_min_df.index.normalize().values
-    return _vectorized_align(five_min_dates, daily_dates)
+    return align_completed_daily_session_indices(five_min_df.index.values, daily_df.index.values)
 
 
 def align_daily_to_15m(
@@ -133,9 +116,7 @@ def align_daily_to_15m(
     to avoid the look-ahead bias that occurs when ``align_higher_tf_to_15m``
     is used with daily bars.
     """
-    daily_dates = daily_df.index.normalize().values
-    fifteen_min_dates = fifteen_min_df.index.normalize().values
-    return _vectorized_align(fifteen_min_dates, daily_dates)
+    return align_completed_daily_session_indices(fifteen_min_df.index.values, daily_df.index.values)
 
 
 @dataclass

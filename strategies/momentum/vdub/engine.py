@@ -1851,6 +1851,7 @@ class VdubNQv4Engine:
                 contract, endDateTime="", durationStr=duration,
                 barSizeSetting=bar_size, whatToShow="TRADES",
                 useRTH=use_rth, formatDate=1, request_kind=request_kind,
+                completed_only=True,
             )
             return bars if bars else None
         except Exception:

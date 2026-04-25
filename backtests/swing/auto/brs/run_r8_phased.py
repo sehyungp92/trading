@@ -60,7 +60,7 @@ R72_BASELINE = {
 }
 
 NUM_PHASES = 4
-INITIAL_EQUITY = 100_000.0
+INITIAL_EQUITY = 10_000.0
 
 
 def run_backtest_metrics(mutations: dict) -> dict:

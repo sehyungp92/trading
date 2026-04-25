@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "artifacts": [
+    {
+      "id": "swing_atrss_postfix",
+      "artifact_path": "backtests/swing/auto/output/post-fixes/atrss_optimized_baseline_full_diagnostics.txt",
+      "parser_kind": "swing_aggregate_summary",
+      "summary_source": null,
+      "sha256": "2B6F707C5E25CF4BC6DE99FAD48CC6E51ABAA82E890F0FCFD7F79BE235DEF471",
+      "expected_metrics": {
+        "total_trades": 48.0,
+        "win_rate_pct": 75.0,
+        "profit_factor": 0.4,
+        "total_pnl": -442.84,
+        "max_drawdown_pct": 5.72
+      }
+    },
+    {
+      "id": "swing_breakout_postfix",
+      "artifact_path": "backtests/swing/auto/output/post-fixes/breakout_optimized_seed_full_diagnostics.txt",
+      "parser_kind": "swing_aggregate_summary",
+      "summary_source": null,
+      "sha256": "D0E81CAADE1311BD4C02E60D20F431ECACFEA1637406C4AA3C0BE37E7CDC76CA",
+      "expected_metrics": {
+        "total_trades": 37.0,
+        "win_rate_pct": 86.5,
+        "profit_factor": 21.21,
+        "total_pnl": 1522.01,
+        "max_drawdown_pct": 0.32
+      }
+    },
+    {
+      "id": "swing_brs_postfix",
+      "artifact_path": "backtests/swing/auto/output/post-fixes/brs_optimal_starting_baseline_full_diagnostics.txt",
+      "parser_kind": "brs_topline",
+      "summary_source": null,
+      "sha256": "B5CD2B819E46E07CD9B6208F73DC8A43D903C2C6C61EAC4E725AFA92B76831BB",
+      "expected_metrics": {
+        "campaigns": 109.0,
+        "fee_net_pnl": 2021.29,
+        "profit_factor": 1.89,
+        "max_drawdown_pct": 7.2,
+        "composite_score": 0.5912
+      }
+    },
+    {
+      "id": "swing_helix_postfix",
+      "artifact_path": "backtests/swing/auto/output/post-fixes/helix_exit_alpha_optimized_baseline_full_diagnostics.txt",
+      "parser_kind": "swing_helix_summary",
+      "summary_source": null,
+      "sha256": "C162587AEBD6743A09E1AB97E0A865DA05DCA54FC721A07A346735FD1DEB157F",
+      "expected_metrics": {
+        "total_trades": 348.0,
+        "win_rate_pct": 47.4,
+        "profit_factor": 2.8,
+        "total_pnl": 21833.37,
+        "net_return_pct": 217.1,
+        "max_drawdown_pct": 0.03
+      }
+    },
+    {
+      "id": "momentum_downturn_postfix",
+      "artifact_path": "backtests/momentum/auto/output/post-fixes/downturn_baseline_full_diagnostics.txt",
+      "parser_kind": "downturn_summary",
+      "summary_source": null,
+      "sha256": "F1CDC060FCE866799F10F30B7144CCB28067333FF1253CB9B2A7640E0B829424",
+      "expected_metrics": {
+        "total_trades": 194.0,
+        "win_rate_pct": 36.6,
+        "profit_factor": 1.25,
+        "net_return_pct": 74.2,
+        "max_drawdown_pct": 29.04,
+        "correction_pnl_pct": 75.14
+      }
+    },
+    {
+      "id": "momentum_helix_postfix",
+      "artifact_path": "backtests/momentum/auto/output/post-fixes/helix_optimized_seed_full_diagnostics.txt",
+      "parser_kind": "momentum_performance_summary",
+      "summary_source": null,
+      "sha256": "29D8B2C4AF4A4020A415ACFBD0FC01201136CFB52F042E71BAE24CCEC0A6A05B",
+      "expected_metrics": {
+        "composite_score": 0.7293,
+        "total_trades": 60.0,
+        "win_rate_pct": 58.3,
+        "profit_factor": 2.97,
+        "net_profit": 72507.0,
+        "max_drawdown_pct": 29.2
+      }
+    },
+    {
+      "id": "momentum_nqdtc_postfix",
+      "artifact_path": "backtests/momentum/auto/output/post-fixes/nqdtc_phase_seed_full_diagnostics.txt",
+      "parser_kind": "momentum_performance_report",
+      "summary_source": null,
+      "sha256": "D26A0C88BDF3C8DD811741BBC89F26B2487D69007DFE608E1211B60F600F294A",
+      "expected_metrics": {
+        "total_trades": 239.0,
+        "win_rate_pct": 51.0,
+        "profit_factor": 0.98,
+        "net_profit": -417.15,
+        "max_drawdown_pct": 36.4
+      }
+    },
+    {
+      "id": "momentum_vdubus_postfix",
+      "artifact_path": "backtests/momentum/auto/output/post-fixes/vdubus_phase_seed_full_diagnostics.txt",
+      "parser_kind": "momentum_performance_report",
+      "summary_source": null,
+      "sha256": "997873676F32633722FF35A71254BC6A3080AAF9C43167195FDB1AA96A43C9F4",
+      "expected_metrics": {
+        "total_trades": 176.0,
+        "win_rate_pct": 48.3,
+        "profit_factor": 2.26,
+        "net_profit": 101963.22,
+        "max_drawdown_pct": 28.5
+      }
+    },
+    {
+      "id": "stock_iaric_phase4_baseline",
+      "artifact_path": "backtests/stock/auto/iaric_pullback/output_v4r1/phase_4_optimal_starting_baseline_full_diagnostics.txt",
+      "parser_kind": "stock_iaric_phase_summary",
+      "summary_source": {
+        "kind": "json",
+        "path": "backtests/stock/auto/iaric_pullback/output_v4r1/phase_4_optimal_starting_baseline_summary.json"
+      },
+      "sha256": "326C762F906D78C300D1BD144B61B87F7BF4D38EEBFA6BD51B72C5F5E212A008",
+      "expected_metrics": {
+        "total_trades": 682.0,
+        "win_rate_pct": 72.87390029325513,
+        "profit_factor": 1.9836828820852042,
+        "total_pnl": 13589.959999999985,
+        "max_drawdown_r": -5.15
+      }
+    },
+    {
+      "id": "stock_alcb_round_final",
+      "artifact_path": "backtests/stock/auto/alcb_p16_phase/output_targeted_entry_repair_v2/round_final_diagnostics.txt",
+      "parser_kind": "stock_alcb_round_summary",
+      "summary_source": null,
+      "sha256": "3D29B1A1A404E48D13F12916C7FCD9B8065F438B642CB5E1A7CAC35EB74E2BB0",
+      "expected_metrics": {
+        "total_trades": 562.0,
+        "win_rate_pct": 59.1,
+        "profit_factor": 1.749,
+        "total_pnl": 8749.17,
+        "max_drawdown_pct": 3.5
+      }
+    }
+  ]
+}

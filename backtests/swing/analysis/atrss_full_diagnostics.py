@@ -59,6 +59,10 @@ from backtest.analysis.reports import (
 from backtest.config import AblationFlags, BacktestConfig, SlippageConfig
 from backtest.engine.portfolio_engine import PortfolioResult, run_synchronized
 from backtests.diagnostic_snapshot import build_group_snapshot
+from backtests.swing.analysis.optimized_baseline import (
+    load_phase_mutation_source,
+    summarize_optimizer_reference,
+)
 from backtests.swing.auto.config_mutator import mutate_atrss_config
 
 import numpy as np
@@ -118,26 +122,23 @@ def main():
         default="current",
         help="Phase result to load from phase_state.json (1-4) or 'current' for cumulative mutations.",
     )
+    parser.add_argument(
+        "--state-path",
+        default=str(
+            Path(__file__).resolve().parent.parent / "auto" / "atrss" / "output" / "phase_state.json"
+        ),
+        help="Path to the ATRSS phase_state.json file.",
+    )
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
+    parser.add_argument("--summary-json", default="", help="Optional path to save a machine-readable summary.")
+    parser.add_argument("--title", default="", help="Optional report title override.")
     args = parser.parse_args()
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Load optimized mutations from phased auto-optimization
-    phase_state_path = (Path(__file__).resolve().parent.parent
-                        / "auto" / "atrss" / "output" / "phase_state.json")
-    if phase_state_path.exists():
-        with open(phase_state_path) as fp:
-            phase_state = json.load(fp)
-        if args.phase_result == "current":
-            mutations = phase_state.get("cumulative_mutations", {})
-        else:
-            phase_key = str(args.phase_result)
-            phase_result = phase_state.get("phase_results", {}).get(phase_key, {})
-            mutations = phase_result.get("final_mutations", {})
-    else:
-        mutations = {}
+    source = load_phase_mutation_source(args.state_path, args.phase_result)
+    mutations = source.mutations
     print(f"Optimized mutations ({len(mutations)}): {mutations}")
 
     # Base config (matches plugin.py baseline)
@@ -179,19 +180,32 @@ def main():
         ],
         min_count=5,
     )
+    report_title = args.title or f"ATRSS FULL DIAGNOSTICS ({source.phase_label})"
+    optimizer_lines = summarize_optimizer_reference(source.optimizer_reference)
+    summary_payload = {
+        "strategy": "atrss",
+        "phase_result": source.phase_result,
+        "phase_label": source.phase_label,
+        "execution_mode": "synchronized",
+        "state_path": str(source.state_path),
+        "mutations": mutations,
+    }
 
     with open(output_path, "w", encoding="utf-8") as f:
         _out("=" * 80, f)
-        if args.phase_result == "current":
-            _out("ATRSS FULL DIAGNOSTICS (PHASED AUTO-OPTIMIZED)", f)
-        else:
-            _out(f"ATRSS FULL DIAGNOSTICS (PHASE {args.phase_result} FINAL BASELINE)", f)
+        _out(report_title, f)
         _out(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", f)
         _out(f"Initial Equity: ${INITIAL_EQUITY:,.0f}", f)
         _out(f"Symbols: {', '.join(config.symbols)}", f)
+        _out("Execution mode: synchronized/shared-capital", f)
+        _out(f"Mutation source: {source.state_path}", f)
         _out(f"Base: stall_exit=False, commission=$1.00/contract", f)
         for mk, mv in sorted(mutations.items()):
             _out(f"  {mk}: {mv}", f)
+        if optimizer_lines:
+            _out("", f)
+            for line in optimizer_lines:
+                _out(line, f)
         _out("=" * 80, f)
         _out("", f)
         _out(snapshot, f)
@@ -214,6 +228,21 @@ def main():
 
             sharpe = compute_sharpe(eq) if len(eq) > 1 else 0.0
             sortino = compute_sortino(eq) if len(eq) > 1 else 0.0
+            summary_payload.update(
+                {
+                    "total_trades": len(all_trades),
+                    "win_rate_pct": wr,
+                    "profit_factor": pf,
+                    "total_r": total_r,
+                    "total_pnl": total_pnl,
+                    "max_drawdown_pct": max_dd_pct,
+                    "max_drawdown_dollars": max_dd_dollar,
+                    "sharpe": sharpe,
+                    "sortino": sortino,
+                    "avg_r": float(np.mean([t.r_multiple for t in all_trades])),
+                    "avg_hold_bars": float(np.mean([t.bars_held for t in all_trades])),
+                }
+            )
 
             _out("--- AGGREGATE SUMMARY ---", f)
             _out(f"  Total trades:    {len(all_trades)}", f)
@@ -381,6 +410,12 @@ def main():
         _out("=" * 80, f)
         _out("ATRSS DIAGNOSTICS COMPLETE", f)
         _out("=" * 80, f)
+
+    if args.summary_json:
+        summary_path = Path(args.summary_json)
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_path.write_text(json.dumps(summary_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        print(f"Saved summary to {summary_path}")
 
     print(f"\nSaved to {output_path}")
 

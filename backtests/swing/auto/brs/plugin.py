@@ -190,7 +190,7 @@ class BRSPlugin:
     def __init__(
         self,
         data_dir: Path,
-        initial_equity: float = 100_000.0,
+        initial_equity: float = 10_000.0,
         max_workers: int | None = 3,
         *,
         num_phases: int = 4,

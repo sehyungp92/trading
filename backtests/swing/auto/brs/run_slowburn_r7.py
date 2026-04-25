@@ -82,7 +82,7 @@ def run_final_diagnostics(mutations: dict, label: str) -> dict:
     from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
     from backtests.swing.auto.brs.config_mutator import mutate_brs_config
 
-    equity = 100_000.0
+    equity = 10_000.0
     config = BRSConfig(initial_equity=equity, data_dir=DATA_DIR)
     config = mutate_brs_config(config, mutations)
     data = load_brs_data(config)
@@ -219,7 +219,7 @@ def main():
     greedy_result = run_greedy(
         data_dir=DATA_DIR,
         candidates=candidates,
-        initial_equity=100_000.0,
+        initial_equity=10_000.0,
         base_mutations=r6_mutations,
         phase=1,
         verbose=True,

@@ -1,6 +1,8 @@
 """Helix Full Diagnostics -- comprehensive analysis with default (optimized) config."""
 from __future__ import annotations
 
+import argparse
+import json
 import statistics
 import sys
 from collections import defaultdict
@@ -16,11 +18,17 @@ from backtest.config_helix import HelixBacktestConfig
 from backtest.engine.helix_portfolio_engine import load_helix_data, run_helix_synchronized
 from backtest.analysis.metrics import compute_metrics, compute_sharpe, compute_sortino, compute_max_drawdown
 from backtests.diagnostic_snapshot import build_group_snapshot
+from backtests.swing.analysis.optimized_baseline import (
+    load_phase_mutation_source,
+    summarize_optimizer_reference,
+)
+from backtests.swing.auto.config_mutator import mutate_helix_config
 
 import numpy as np
 
 DATA_DIR = Path("backtests/swing/data/raw")
 INITIAL_EQUITY = 10_000.0
+DEFAULT_OUTPUT = Path("backtests/swing/auto/output/helix_full_diagnostics.txt")
 
 CRISIS_WINDOWS = [
     ("2022 Bear", datetime(2022, 1, 3), datetime(2022, 10, 13)),
@@ -108,14 +116,34 @@ def _out(text: str, f=None) -> None:
 # ---------------------------------------------------------------------------
 
 def main():
-    output_path = (Path(__file__).resolve().parent.parent
-                   / "auto" / "output" / "helix_full_diagnostics.txt")
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--phase-result",
+        default="current",
+        help="Phase result to load from phase_state.json (1-4) or 'current' for cumulative mutations.",
+    )
+    parser.add_argument(
+        "--state-path",
+        default=str(
+            Path(__file__).resolve().parent.parent / "auto" / "helix" / "output" / "phase_state.json"
+        ),
+        help="Path to the Helix lineage phase_state.json file.",
+    )
+    parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
+    parser.add_argument("--summary-json", default="", help="Optional path to save a machine-readable summary.")
+    parser.add_argument("--title", default="", help="Optional report title override.")
+    parser.add_argument("--lineage-label", default="Helix", help="Display label for the report header.")
+    args = parser.parse_args()
 
-    config = HelixBacktestConfig(
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    source = load_phase_mutation_source(args.state_path, args.phase_result)
+
+    base_config = HelixBacktestConfig(
         initial_equity=INITIAL_EQUITY,
         data_dir=DATA_DIR,
     )
+    config = mutate_helix_config(base_config, source.mutations) if source.mutations else base_config
     data = load_helix_data(config.symbols, config.data_dir)
     result = run_helix_synchronized(data, config)
 
@@ -137,13 +165,33 @@ def main():
         min_count=5,
         width=80,
     )
+    report_title = args.title or f"{args.lineage_label.upper()} FULL DIAGNOSTICS ({source.phase_label})"
+    optimizer_lines = summarize_optimizer_reference(source.optimizer_reference)
+    summary_payload = {
+        "strategy": "helix",
+        "lineage": args.lineage_label,
+        "phase_result": source.phase_result,
+        "phase_label": source.phase_label,
+        "execution_mode": "synchronized",
+        "state_path": str(source.state_path),
+        "mutations": source.mutations,
+    }
 
     with open(output_path, "w", encoding="utf-8") as f:
 
         _out("=" * 80, f)
-        _out("HELIX (AKC-HELIX) FULL DIAGNOSTICS", f)
+        _out(report_title, f)
         _out(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", f)
         _out(f"Initial Equity: ${INITIAL_EQUITY:,.0f}", f)
+        _out(f"Symbols: {', '.join(config.symbols)}", f)
+        _out("Execution mode: synchronized/shared-capital", f)
+        _out(f"Mutation source: {source.state_path}", f)
+        for key, value in sorted(source.mutations.items()):
+            _out(f"  {key}: {value}", f)
+        if optimizer_lines:
+            _out("", f)
+            for line in optimizer_lines:
+                _out(line, f)
         _out("=" * 80, f)
         _out("", f)
         _out(snapshot, f)
@@ -162,6 +210,18 @@ def main():
         _out(f"Avg Win R: {avg_win:+.2f}  Avg Loss R: {avg_loss:+.2f}  "
              f"Win/Loss Ratio: {abs(avg_win/avg_loss) if avg_loss else 0:.2f}", f)
         _out(f"Total Commission: ${sum(t.commission for t in all_trades):,.2f}", f)
+        summary_payload.update(
+            {
+                "total_trades": len(all_trades),
+                "total_pnl": total_pnl,
+                "total_r": total_r,
+                "win_rate_pct": _wr(all_trades),
+                "profit_factor": _compute_pf(all_trades),
+                "avg_win_r": avg_win,
+                "avg_loss_r": avg_loss,
+                "total_commission": float(sum(t.commission for t in all_trades)),
+            }
+        )
 
         # Equity curve metrics
         if result.combined_equity is not None and len(result.combined_equity) > 0:
@@ -171,12 +231,23 @@ def main():
             sortino = compute_sortino(eq)
             final_eq = eq[-1] if len(eq) > 0 else INITIAL_EQUITY
             ret_pct = (final_eq - INITIAL_EQUITY) / INITIAL_EQUITY * 100
+            summary_payload.update(
+                {
+                    "final_equity": float(final_eq),
+                    "net_return_pct": float(ret_pct),
+                    "max_drawdown_pct": float(dd_pct),
+                    "max_drawdown_dollars": float(dd_dollar),
+                    "sharpe": float(sharpe),
+                    "sortino": float(sortino),
+                }
+            )
             _out(f"\nFinal Equity: ${final_eq:,.2f}", f)
             _out(f"Net Return: {ret_pct:+.1f}%", f)
             _out(f"Max Drawdown: {dd_pct:.2f}% (${dd_dollar:,.0f})", f)
             _out(f"Sharpe: {sharpe:.2f}  Sortino: {sortino:.2f}", f)
             if dd_pct > 0:
                 calmar = ret_pct / dd_pct
+                summary_payload["calmar"] = float(calmar)
                 _out(f"Calmar: {calmar:.2f}", f)
         _out("", f)
 
@@ -997,6 +1068,12 @@ def main():
         _out("=" * 80, f)
         _out("HELIX DIAGNOSTICS COMPLETE", f)
         _out("=" * 80, f)
+
+    if args.summary_json:
+        summary_path = Path(args.summary_json)
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_path.write_text(json.dumps(summary_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        print(f"Saved summary to {summary_path}")
 
     print(f"\nSaved to {output_path}")
 

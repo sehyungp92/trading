@@ -101,7 +101,7 @@ def main() -> None:
 
     def add_common(command: argparse.ArgumentParser) -> None:
         command.add_argument("--data-dir", default="backtests/swing/data/raw")
-        command.add_argument("--equity", type=float, default=100_000.0)
+        command.add_argument("--equity", type=float, default=10_000.0)
 
     phase_run = sub.add_parser("phase-run", help="Run a single BRS phase")
     add_common(phase_run)

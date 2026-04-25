@@ -382,19 +382,23 @@ class BreakoutEngine:
                     continue
 
                 # Daily bars (~3y)
-                daily_bars = await self._ib.req_historical_data(
-                    contract, endDateTime="", durationStr="3 Y",
-                    barSizeSetting="1 day", whatToShow="TRADES",
-                    useRTH=True, formatDate=1, request_kind="startup",
+                daily_bars = await self._req_completed_bars(
+                    contract,
+                    duration="3 Y",
+                    bar_size="1 day",
+                    use_rth=True,
+                    request_kind="startup",
                 )
                 if daily_bars:
                     self._init_daily_indicators(sym, daily_bars)
 
                 # Hourly bars (~2yr)
-                hourly_bars = await self._ib.req_historical_data(
-                    contract, endDateTime="", durationStr="2 Y",
-                    barSizeSetting="1 hour", whatToShow="TRADES",
-                    useRTH=True, formatDate=1, request_kind="startup",
+                hourly_bars = await self._req_completed_bars(
+                    contract,
+                    duration="2 Y",
+                    bar_size="1 hour",
+                    use_rth=True,
+                    request_kind="startup",
                 )
                 if hourly_bars:
                     self._init_hourly_indicators(sym, hourly_bars)
@@ -480,10 +484,12 @@ class BreakoutEngine:
         hist = self.histories[symbol]
 
         # Fetch fresh daily bars
-        bars = await self._ib.req_historical_data(
-            contract, endDateTime="", durationStr="200 D",
-            barSizeSetting="1 day", whatToShow="TRADES",
-            useRTH=True, formatDate=1, request_kind="recurring",
+        bars = await self._req_completed_bars(
+            contract,
+            duration="200 D",
+            bar_size="1 day",
+            use_rth=True,
+            request_kind="recurring",
         )
         if not bars or len(bars) < ATR_DAILY_LONG_PERIOD + 10:
             return
@@ -2606,14 +2612,38 @@ class BreakoutEngine:
         if not contract:
             return None
         try:
-            return await self._ib.req_historical_data(
-                contract, endDateTime="", durationStr=duration,
-                barSizeSetting="1 hour", whatToShow="TRADES",
-                useRTH=True, formatDate=1, request_kind="recurring",
+            return await self._req_completed_bars(
+                contract,
+                duration=duration,
+                bar_size="1 hour",
+                use_rth=True,
+                request_kind="recurring",
             )
         except Exception:
             logger.warning("Could not fetch hourly bars for %s", symbol)
             return None
+
+    async def _req_completed_bars(
+        self,
+        contract: Any,
+        *,
+        duration: str,
+        bar_size: str,
+        use_rth: bool,
+        request_kind: str,
+    ) -> list[Any] | None:
+        bars = await self._ib.req_historical_data(
+            contract,
+            endDateTime="",
+            durationStr=duration,
+            barSizeSetting=bar_size,
+            whatToShow="TRADES",
+            useRTH=use_rth,
+            formatDate=1,
+            request_kind=request_kind,
+            completed_only=True,
+        )
+        return bars if bars else None
 
     def _get_tp_r_multiples(self, trade_regime: TradeRegime, tp_scale: float = 1.0) -> tuple[float, float]:
         """Return (TP1_R, TP2_R) for the given trade regime, scaled per-symbol."""

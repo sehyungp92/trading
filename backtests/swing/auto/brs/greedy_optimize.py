@@ -147,7 +147,7 @@ class GreedyResult:
 def run_greedy(
     data_dir: Path,
     candidates: list[tuple[str, dict]],
-    initial_equity: float = 100_000.0,
+    initial_equity: float = 10_000.0,
     base_mutations: dict | None = None,
     max_rounds: int = 0,
     max_workers: int | None = None,

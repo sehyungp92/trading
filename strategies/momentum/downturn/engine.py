@@ -516,6 +516,28 @@ class DownturnEngine:
 
     # ── Bar Management ────────────────────────────────────────────────
 
+    async def _req_completed_bars(
+        self,
+        contract: Any,
+        duration: str,
+        bar_size: str,
+        *,
+        use_rth: bool,
+        request_kind: str,
+    ) -> list[Any] | None:
+        bars = await self._ib.req_historical_data(
+            contract,
+            endDateTime="",
+            durationStr=duration,
+            barSizeSetting=bar_size,
+            whatToShow="TRADES",
+            useRTH=use_rth,
+            formatDate=1,
+            request_kind=request_kind,
+            completed_only=True,
+        )
+        return bars if bars else None
+
     async def _fetch_bars(self, request_kind: str = "recurring") -> None:
         if not getattr(self._ib, "is_connected", True):
             if not getattr(self, "_fetch_disconn_logged", False):
@@ -546,10 +568,12 @@ class DownturnEngine:
         ]
         for tf_label, duration, bar_size, use_rth, attr in fetch_specs:
             try:
-                bars = await self._ib.req_historical_data(
-                    contract, endDateTime="", durationStr=duration,
-                    barSizeSetting=bar_size, whatToShow="TRADES",
-                    useRTH=use_rth, formatDate=1, request_kind=request_kind,
+                bars = await self._req_completed_bars(
+                    contract,
+                    duration,
+                    bar_size,
+                    use_rth=use_rth,
+                    request_kind=request_kind,
                 )
                 if bars:
                     setattr(self, attr, self._bars_to_arrays(bars))

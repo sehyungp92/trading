@@ -9,7 +9,9 @@ Usage::
 """
 from __future__ import annotations
 
+import argparse
 import io
+import json
 import sys
 from pathlib import Path
 
@@ -38,9 +40,15 @@ CONSERVATIVE_MUTATIONS = {
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
+    parser.add_argument("--summary-json", default="", help="Optional summary JSON output path.")
+    parser.add_argument("--title", default="ALCB CONSERVATIVE P12 DIAGNOSTICS")
+    args = parser.parse_args()
+
     from backtests.stock.analysis.alcb_diagnostics import alcb_full_diagnostic
     from backtests.stock.analysis.alcb_shadow_tracker import ALCBShadowTracker
-    from backtests.stock.analysis.reports import full_report
+    from backtests.stock.analysis.reports import compute_and_format, full_report
     from backtests.stock.auto.config_mutator import mutate_alcb_config
     from backtests.stock.config_alcb import ALCBBacktestConfig
     from backtests.stock.engine.alcb_engine import ALCBIntradayEngine
@@ -87,10 +95,55 @@ def main() -> None:
     )
     print(diag)
 
-    output_path = DEFAULT_OUTPUT
+    header_lines = [
+        "=" * 60,
+        f"  {args.title}",
+        "=" * 60,
+        f"  Date range: {START_DATE} -- {END_DATE}",
+        f"  Initial equity: ${INITIAL_EQUITY:,.0f}",
+        f"  Mutation count: {len(CONSERVATIVE_MUTATIONS)}",
+        "  Mutations:",
+    ]
+    for key, value in sorted(CONSERVATIVE_MUTATIONS.items()):
+        header_lines.append(f"    {key}: {value}")
+
+    output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(f"{report}\n\n{diag}", encoding="utf-8")
+    output_path.write_text("\n".join(header_lines) + f"\n\n{report}\n\n{diag}", encoding="utf-8")
     print(f"\nDiagnostics saved to {output_path}")
+
+    metrics, _ = compute_and_format(
+        result.trades,
+        result.equity_curve,
+        result.timestamps,
+        INITIAL_EQUITY,
+    )
+    summary_payload = {
+        "strategy": "alcb_conservative_p12",
+        "title": args.title,
+        "date_range": {"start": START_DATE, "end": END_DATE},
+        "initial_equity": INITIAL_EQUITY,
+        "mutation_count": len(CONSERVATIVE_MUTATIONS),
+        "mutations": CONSERVATIVE_MUTATIONS,
+        "metrics": {
+            "total_trades": metrics.total_trades,
+            "win_rate": metrics.win_rate,
+            "profit_factor": metrics.profit_factor,
+            "net_profit": metrics.net_profit,
+            "max_drawdown_pct": metrics.max_drawdown_pct,
+            "max_drawdown_dollar": metrics.max_drawdown_dollar,
+            "sharpe": metrics.sharpe,
+            "sortino": metrics.sortino,
+            "calmar": metrics.calmar,
+            "avg_hold_hours": metrics.avg_hold_hours,
+            "trades_per_month": metrics.trades_per_month,
+            "total_commissions": metrics.total_commissions,
+        },
+    }
+    summary_path = Path(args.summary_json) if args.summary_json else output_path.with_name(f"{output_path.stem}_summary.json")
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_path.write_text(json.dumps(summary_payload, indent=2, default=str) + "\n", encoding="utf-8")
+    print(f"Summary saved to {summary_path}")
 
 
 if __name__ == "__main__":

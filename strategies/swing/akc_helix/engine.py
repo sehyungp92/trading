@@ -2965,6 +2965,7 @@ class HelixEngine:
                 useRTH=False,
                 formatDate=1,
                 request_kind=request_kind,
+                completed_only=True,
             )
             return bars if bars else None
         except Exception:
