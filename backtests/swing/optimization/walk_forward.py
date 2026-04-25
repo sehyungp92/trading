@@ -8,12 +8,12 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 
-from backtest.analysis.metrics import PerformanceMetrics, compute_metrics
-from backtest.config import BacktestConfig
-from backtest.engine.portfolio_engine import PortfolioData, run_independent
-from backtest.optimization.objective import composite_objective
-from backtest.optimization.runner import OptimizationRunner, TrialResult
-from strategy.config import SYMBOL_CONFIGS
+from backtests.swing.analysis.metrics import PerformanceMetrics, compute_metrics
+from backtests.swing.config import BacktestConfig
+from backtests.swing.engine.portfolio_engine import PortfolioData, run_independent
+from backtests.swing.optimization.objective import composite_objective
+from backtests.swing.optimization.runner import OptimizationRunner, TrialResult
+from strategies.swing.atrss.config import SYMBOL_CONFIGS
 
 logger = logging.getLogger(__name__)
 
@@ -241,7 +241,7 @@ class WalkForwardValidator:
             if not mask.any():
                 continue
 
-            from backtest.data.preprocessing import NumpyBars
+            from backtests.swing.data.preprocessing import NumpyBars
             sliced.hourly[sym] = NumpyBars(
                 opens=h.opens[mask],
                 highs=h.highs[mask],
@@ -257,7 +257,7 @@ class WalkForwardValidator:
             if not mask.any():
                 continue
 
-            from backtest.data.preprocessing import NumpyBars
+            from backtests.swing.data.preprocessing import NumpyBars
             sliced.daily[sym] = NumpyBars(
                 opens=d.opens[mask],
                 highs=d.highs[mask],
@@ -271,7 +271,7 @@ class WalkForwardValidator:
         for sym in sliced.hourly:
             if sym not in sliced.daily:
                 continue
-            from backtest.data.preprocessing import align_daily_to_hourly
+            from backtests.swing.data.preprocessing import align_daily_to_hourly
             # Build temporary DataFrames for alignment
             h_times = pd.DatetimeIndex(sliced.hourly[sym].times)
             d_times = pd.DatetimeIndex(sliced.daily[sym].times)

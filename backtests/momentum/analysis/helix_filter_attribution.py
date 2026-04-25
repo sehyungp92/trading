@@ -8,7 +8,7 @@ from __future__ import annotations
 import numpy as np
 from collections import Counter
 
-from backtest.analysis.helix_shadow_tracker import HelixFilterStats, HelixShadowTracker
+from backtests.momentum.analysis.helix_shadow_tracker import HelixFilterStats, HelixShadowTracker
 
 
 def helix_filter_attribution_report(

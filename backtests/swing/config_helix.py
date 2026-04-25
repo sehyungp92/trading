@@ -5,12 +5,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from backtest.config import SlippageConfig
+from backtests.swing.config import SlippageConfig
 
 
 def _default_helix_symbols() -> list[str]:
     try:
-        from strategy_2.config import SYMBOLS
+        from strategies.swing.akc_helix.config import SYMBOLS
         return list(SYMBOLS)
     except ImportError:
         return ["QQQ", "GLD"]

@@ -21,9 +21,6 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT))
 
-from backtests.momentum._aliases import install
-install()
-
 from backtests.momentum.analysis.metrics import compute_metrics
 from backtests.momentum.analysis.reports import format_summary
 from backtests.momentum.analysis.vdubus_diagnostics import vdubus_full_diagnostic
@@ -36,7 +33,7 @@ from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktest
 from backtests.momentum.engine.vdubus_engine import VdubusEngine
 from backtests.diagnostic_snapshot import build_group_snapshot
 
-from strategy_3 import config as C
+from strategies.momentum.vdub import config as C
 
 EQUITY = 10_000.0
 POINT_VALUE = 2.0  # MNQ

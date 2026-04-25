@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 
 from backtests.shared.auto.phase_state import PhaseState
+from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
@@ -18,7 +19,7 @@ from backtests.shared.auto.plugin_utils import (
     mutation_signature,
     resolve_worker_processes,
 )
-from backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion
+from backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion, ScoredCandidate
 
 from .phase_candidates import (
     BASE_MUTATIONS,
@@ -325,6 +326,7 @@ class IARICPullbackPlugin:
         self._baseline_metrics_cache: dict[str, float] | None = None
         self._last_context: dict[str, Any] = {}
         self._evaluation_cache: dict[str, Any] = {}
+        # Reserved for CachedBatchEvaluator's raw mutation_signature keys.
         self._metrics_cache: dict[str, dict[str, float]] = {}
         self._config_cache: dict[tuple, dict[str, Any]] = {}
 
@@ -373,6 +375,31 @@ class IARICPullbackPlugin:
         if self._baseline_metrics_cache is None:
             self._baseline_metrics_cache = self._run_config(self.initial_mutations, store_context=False)["metrics"]
         return self._baseline_metrics_cache
+
+    def _replay_data_fingerprint(self) -> str:
+        return self._ensure_replay().data_fingerprint()
+
+    def _metrics_cache_key(
+        self,
+        mutations: dict[str, Any],
+        *,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> str:
+        effective_start = start_date or self.start_date
+        effective_end = end_date or self.end_date
+        return build_cache_key(
+            "iaric_pullback.metrics",
+            source_fingerprint=self._replay_data_fingerprint(),
+            mutations=mutations,
+            extra={
+                "round_name": self._round_name,
+                "profile": self.profile,
+                "start_date": effective_start,
+                "end_date": effective_end,
+                "initial_equity": self.initial_equity,
+            },
+        )
 
     def _reference_metrics(self, phase: int, state: PhaseState) -> dict[str, float]:
         if phase > 1:
@@ -451,15 +478,31 @@ class IARICPullbackPlugin:
         scoring_weights: dict[str, float] | None = None,
         hard_rejects: dict[str, float] | None = None,
     ):
-        # Pre-seed baseline metrics into the cache so greedy round 1 gets a free hit
+        resolved_hard_rejects = dict(hard_rejects or self._phase_hard_rejects.get(phase, {}))
+        base_metrics = self._run_config(cumulative_mutations, store_context=False)["metrics"]
         baseline_key = mutation_signature(cumulative_mutations)
-        if baseline_key not in self._metrics_cache:
-            base_metrics = self._baseline_metrics() if cumulative_mutations == self.initial_mutations else None
-            if base_metrics:
-                self._metrics_cache[baseline_key] = dict(base_metrics)
+        baseline_result = self._seed_result_for_metrics(
+            "__baseline__",
+            phase,
+            base_metrics,
+            resolved_hard_rejects,
+            scoring_weights,
+        )
+        self._metrics_cache[baseline_key] = dict(base_metrics)
 
-        evaluation_key = mutation_signature(
-            {"phase": phase, "scoring_weights": scoring_weights or {}, "hard_rejects": hard_rejects or {}}
+        evaluation_key = build_cache_key(
+            "iaric_pullback.evaluation",
+            source_fingerprint=self._replay_data_fingerprint(),
+            extra={
+                "phase": phase,
+                "scoring_weights": scoring_weights or {},
+                "hard_rejects": resolved_hard_rejects,
+                "round_name": self._round_name,
+                "profile": self.profile,
+                "start_date": self.start_date,
+                "end_date": self.end_date,
+                "initial_equity": self.initial_equity,
+            },
         )
 
         def local_factory():
@@ -469,7 +512,7 @@ class IARICPullbackPlugin:
                 self.end_date,
                 self.initial_equity,
                 phase,
-                hard_rejects,
+                resolved_hard_rejects,
                 scoring_weights,
                 self._round_name,
             )
@@ -484,7 +527,7 @@ class IARICPullbackPlugin:
                     self.end_date,
                     self.initial_equity,
                     phase,
-                    hard_rejects,
+                    resolved_hard_rejects,
                     scoring_weights,
                     self.max_workers,
                     self._round_name,
@@ -495,13 +538,15 @@ class IARICPullbackPlugin:
         return CachedBatchEvaluator(
             evaluator,
             cache=self._evaluation_cache,
+            seed_results={baseline_key: baseline_result},
             signature_prefix=evaluation_key,
+            metrics_cache=self._metrics_cache,
         )
 
     def compute_final_metrics(self, mutations: dict[str, Any]) -> dict[str, float]:
-        cached = self._metrics_cache.get(mutation_signature(mutations))
-        if cached:
-            return dict(cached)
+        metrics_key = self._metrics_cache_key(mutations)
+        if self._last_context.get("metrics_cache_key") == metrics_key:
+            return dict(self._last_context["metrics"])
         return self._run_config(mutations, store_context=True)["metrics"]
 
     def run_phase_diagnostics(self, phase: int, state: PhaseState, metrics: dict[str, float], greedy_result) -> str:
@@ -878,30 +923,30 @@ class IARICPullbackPlugin:
         store_context: bool = False,
         collect_diagnostics: bool = False,
     ) -> dict[str, Any]:
-        from backtests.stock._aliases import install
         from backtests.stock.analysis.iaric_pullback_diagnostics import compute_pullback_diagnostic_snapshot
         from backtests.stock.auto.config_mutator import mutate_iaric_config
         from backtests.stock.auto.scoring import extract_metrics
         from backtests.stock.config_iaric import IARICBacktestConfig
         from backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
 
-        install()
         effective_start = start_date or self.start_date
         effective_end = end_date or self.end_date
         diagnostics_enabled = bool(collect_diagnostics or store_context)
         sig = mutation_signature(mutations)
-        cache_key = (sig, effective_start, effective_end, diagnostics_enabled)
+        replay = self._ensure_replay()
+        data_fingerprint = replay.data_fingerprint()
+        metrics_key = self._metrics_cache_key(mutations, start_date=effective_start, end_date=effective_end)
+        cache_key = (data_fingerprint, sig, effective_start, effective_end, diagnostics_enabled)
 
         # Check config cache -- a diagnostics-enabled result satisfies non-diagnostic requests
         cached = self._config_cache.get(cache_key)
         if cached is None and not diagnostics_enabled:
-            cached = self._config_cache.get((sig, effective_start, effective_end, True))
+            cached = self._config_cache.get((data_fingerprint, sig, effective_start, effective_end, True))
         if cached is not None:
             if store_context:
                 self._last_context = cached
             return cached
 
-        replay = self._ensure_replay()
         config = mutate_iaric_config(
             IARICBacktestConfig(
                 start_date=effective_start,
@@ -948,16 +993,121 @@ class IARICPullbackPlugin:
             "fsm_log": result.fsm_log,
             "config": config,
             "diagnostic_snapshot": diagnostic_snapshot,
+            "metrics_cache_key": metrics_key,
+            "cache_source_fingerprint": data_fingerprint,
         }
 
         # Populate caches
         self._config_cache[cache_key] = context
         if diagnostics_enabled:
-            self._config_cache[(sig, effective_start, effective_end, False)] = context
-        self._metrics_cache[sig] = dict(metrics)
+            self._config_cache[(data_fingerprint, sig, effective_start, effective_end, False)] = context
         if store_context:
             self._last_context = context
         return context
+
+    def _seed_result_for_metrics(
+        self,
+        name: str,
+        phase: int,
+        metrics: dict[str, float],
+        hard_rejects: dict[str, float],
+        scoring_weights: dict[str, float] | None,
+    ) -> ScoredCandidate:
+        reject_reason = self._phase_reject_reason(phase, metrics, hard_rejects)
+        if reject_reason:
+            return ScoredCandidate(
+                name=name,
+                score=0.0,
+                rejected=True,
+                reject_reason=reject_reason,
+                metrics=dict(metrics),
+            )
+        return ScoredCandidate(
+            name=name,
+            score=self._score_phase_metrics(phase, metrics, scoring_weights),
+            metrics=dict(metrics),
+        )
+
+    def _score_phase_metrics(
+        self,
+        phase: int,
+        metrics: dict[str, float],
+        scoring_weights: dict[str, float] | None,
+    ) -> float:
+        from .phase_scoring import (
+            score_pullback_phase,
+            score_v2r1_pullback_phase,
+            score_v2r2_pullback_phase,
+            score_v2r3_pullback_phase,
+            score_v2r4_pullback_phase,
+            score_v3r1_pullback_phase,
+            score_v4r1_pullback_phase,
+        )
+
+        if self._round_name == "v4r1":
+            score_fn = score_v4r1_pullback_phase
+        elif self._round_name == "v3r1":
+            score_fn = score_v3r1_pullback_phase
+        elif self._round_name == "v2r4":
+            score_fn = score_v2r4_pullback_phase
+        elif self._round_name == "v2r3":
+            score_fn = score_v2r3_pullback_phase
+        elif self._round_name == "v2r2":
+            score_fn = score_v2r2_pullback_phase
+        elif self._round_name == "v2r1":
+            score_fn = score_v2r1_pullback_phase
+        else:
+            score_fn = score_pullback_phase
+        return score_fn(phase, metrics, scoring_weights)
+
+    @staticmethod
+    def _phase_reject_reason(
+        phase: int,
+        metrics: dict[str, float],
+        hard_rejects: dict[str, float] | None,
+    ) -> str:
+        rejects = hard_rejects or {}
+        total_trades = int(metrics.get("total_trades", 0.0))
+        max_drawdown_pct = float(metrics.get("max_drawdown_pct", 0.0))
+        profit_factor = float(metrics.get("profit_factor", 0.0))
+        sharpe = float(metrics.get("sharpe", 0.0))
+        expectancy = float(metrics.get("expectancy", 0.0))
+        avg_r = float(metrics.get("avg_r", 0.0))
+
+        min_trades = int(rejects.get("min_trades", 0))
+        if total_trades < min_trades:
+            return f"phase{phase}_too_few_trades ({total_trades} < {min_trades})"
+
+        max_dd = rejects.get("max_dd_pct")
+        if max_dd is not None and max_drawdown_pct > float(max_dd):
+            return f"phase{phase}_max_dd ({max_drawdown_pct:.2%} > {float(max_dd):.2%})"
+
+        min_pf = rejects.get("min_pf")
+        if min_pf is not None and profit_factor < float(min_pf):
+            return f"phase{phase}_low_pf ({profit_factor:.2f} < {float(min_pf):.2f})"
+
+        min_sharpe = rejects.get("min_sharpe")
+        if min_sharpe is not None and sharpe < float(min_sharpe):
+            return f"phase{phase}_low_sharpe ({sharpe:.2f} < {float(min_sharpe):.2f})"
+
+        min_expectancy = rejects.get("min_expectancy")
+        if min_expectancy is not None and expectancy < float(min_expectancy):
+            return f"phase{phase}_low_expectancy ({expectancy:.3f} < {float(min_expectancy):.3f})"
+
+        min_avg_r = rejects.get("min_avg_r")
+        if min_avg_r is not None and avg_r < float(min_avg_r):
+            return f"phase{phase}_low_avg_r ({avg_r:.4f} < {float(min_avg_r):.4f})"
+
+        min_expected_total_r = rejects.get("min_expected_total_r")
+        if min_expected_total_r is not None:
+            expected_total_r = avg_r * total_trades
+            if expected_total_r < float(min_expected_total_r):
+                return (
+                    f"phase{phase}_low_expected_total_r "
+                    f"({expected_total_r:.2f} < {float(min_expected_total_r):.2f})"
+                )
+
+        return ""
 
     def _run_ablation_suite(self, state: PhaseState, *, final_metrics: dict[str, float] | None = None) -> list[str]:
         sequence = _resolve_kept_sequence(state, profile=self.profile, round_name=self._round_name)

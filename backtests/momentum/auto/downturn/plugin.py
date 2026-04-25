@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from .scoring import DownturnCompositeScore
 
 from backtests.shared.auto.phase_state import PhaseState
+from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
@@ -213,6 +214,7 @@ class DownturnPlugin:
         self.num_phases = num_phases
         self._cached_data: dict[str, Any] | None = None
         self._last_context: dict[str, Any] = {}
+        self._final_metrics_cache: dict[str, dict[str, Any]] = {}
 
     def get_phase_spec(self, phase: int, state: PhaseState) -> PhaseSpec:
         focus, focus_metrics = PHASE_FOCUS[phase]
@@ -270,12 +272,9 @@ class DownturnPlugin:
         return CachedBatchEvaluator(raw)
 
     def compute_final_metrics(self, mutations: dict[str, Any]) -> dict[str, float]:
-        from backtests.momentum._aliases import install
-
-        install()
-
-        from backtest.config_downturn import DownturnBacktestConfig
-        from backtest.engine.downturn_engine import DownturnEngine
+        from backtests.momentum.config_downturn import DownturnBacktestConfig
+        from backtests.momentum.data.replay_cache import replay_engine_kwargs
+        from backtests.momentum.engine.downturn_engine import DownturnEngine
         from backtests.momentum.analysis.downturn_diagnostics import compute_downturn_metrics
         from backtests.momentum.auto.downturn.config_mutator import mutate_downturn_config
         from backtests.momentum.auto.downturn.worker import load_worker_data
@@ -283,12 +282,23 @@ class DownturnPlugin:
         if self._cached_data is None:
             self._cached_data = load_worker_data("NQ", self.data_dir)
 
+        cache_key = build_cache_key(
+            "downturn.final_metrics",
+            source_fingerprint=str(self._cached_data.get("cache_source_fingerprint", "")),
+            mutations=mutations,
+            extra={"initial_equity": self.initial_equity},
+        )
+        cached = self._final_metrics_cache.get(cache_key)
+        if cached is not None:
+            self._last_context = cached["context"]
+            return dict(cached["metrics"])
+
         config = mutate_downturn_config(
             DownturnBacktestConfig(initial_equity=self.initial_equity, data_dir=self.data_dir),
             mutations,
         )
         engine = DownturnEngine("NQ", config)
-        result = engine.run(**self._cached_data)
+        result = engine.run(**replay_engine_kwargs(self._cached_data))
         metrics = compute_downturn_metrics(result, self._cached_data["daily"])
         self._last_context = {
             "mutations": dict(mutations),
@@ -296,8 +306,14 @@ class DownturnPlugin:
             "result": result,
             "metrics": metrics,
             "trades": result.trades,
+            "cache_key": cache_key,
         }
-        return asdict(metrics)
+        metrics_dict = asdict(metrics)
+        self._final_metrics_cache[cache_key] = {
+            "metrics": dict(metrics_dict),
+            "context": self._last_context,
+        }
+        return metrics_dict
 
     def run_phase_diagnostics(self, phase: int, state: PhaseState, metrics: dict[str, float], greedy_result) -> str:
         from .phase_diagnostics import generate_phase_diagnostics

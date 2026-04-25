@@ -19,11 +19,11 @@ from typing import Optional
 
 import numpy as np
 
-from backtest.analysis.vdubus_shadow_tracker import VdubusShadowTracker
-from backtest.config import SlippageConfig, round_to_tick
-from backtest.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
-from backtest.data.preprocessing import NumpyBars
-from backtest.engine.sim_broker import (
+from backtests.momentum.analysis.vdubus_shadow_tracker import VdubusShadowTracker
+from backtests.momentum.config import SlippageConfig, round_to_tick
+from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
+from backtests.momentum.data.preprocessing import NumpyBars
+from backtests.momentum.engine.sim_broker import (
     FillResult,
     FillStatus,
     OrderSide,
@@ -32,13 +32,13 @@ from backtest.engine.sim_broker import (
     SimOrder,
 )
 
-from strategy_3 import config as C
-from strategy_3 import exits
-from strategy_3 import indicators as ind
-from strategy_3 import regime as reg
-from strategy_3 import risk
-from strategy_3 import signals as sig
-from strategy_3.models import (
+from strategies.momentum.vdub import config as C
+from strategies.momentum.vdub import exits
+from strategies.momentum.vdub import indicators as ind
+from strategies.momentum.vdub import regime as reg
+from strategies.momentum.vdub import risk
+from strategies.momentum.vdub import signals as sig
+from strategies.momentum.vdub.models import (
     DayCounters,
     Direction,
     EntryType,
@@ -75,7 +75,7 @@ def _minutes(h: int, m: int) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Session / time classification (reuse from strategy_3.engine)
+# Session / time classification (reuse from strategies.momentum.vdub.engine)
 # ---------------------------------------------------------------------------
 
 def classify_session(dt_utc: datetime) -> tuple[SessionWindow, SubWindow]:
@@ -1561,7 +1561,7 @@ class VdubusEngine:
 
         # v4.1: Day-of-week sizing reduction
         if self.flags.dow_sizing and C.DOW_SIZE_MULT:
-            from strategy_3.config import DOW_SIZE_MULT
+            from strategies.momentum.vdub.config import DOW_SIZE_MULT
             dow_mult = DOW_SIZE_MULT.get(_to_et(bar_time).weekday(), 1.0)
             if dow_mult < 1.0:
                 qty = max(1, int(qty * dow_mult))

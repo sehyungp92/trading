@@ -7,18 +7,14 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from backtests.swing._aliases import install as install_swing_aliases
-
-install_swing_aliases()
-
 from backtests.diagnostic_snapshot import build_group_snapshot
 from backtests.swing.analysis.optimized_baseline import (
     load_phase_mutation_source,
     summarize_optimizer_reference,
 )
-from backtest.config import BacktestConfig, SlippageConfig
-from backtest.engine.backtest_engine import BacktestEngine
-from backtest.engine.sim_broker import FillResult, FillStatus, OrderSide, OrderType, SimOrder
+from backtests.swing.config import BacktestConfig, SlippageConfig
+from backtests.swing.engine.backtest_engine import BacktestEngine
+from backtests.swing.engine.sim_broker import FillResult, FillStatus, OrderSide, OrderType, SimOrder
 from backtests.momentum.analysis.downturn_diagnostics import DownturnMetrics
 from backtests.momentum.auto.downturn.plugin import _metrics_from_dict
 from backtests.momentum.auto.nqdtc.phase_diagnostics import generate_phase_diagnostics as generate_nqdtc_phase_diagnostics

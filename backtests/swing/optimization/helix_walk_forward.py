@@ -11,26 +11,26 @@ from datetime import timezone
 import numpy as np
 import pandas as pd
 
-from backtest.analysis.metrics import compute_metrics
-from backtest.config_helix import HelixBacktestConfig
-from backtest.data.preprocessing import (
+from backtests.swing.analysis.metrics import compute_metrics
+from backtests.swing.config_helix import HelixBacktestConfig
+from backtests.swing.data.preprocessing import (
     NumpyBars,
     align_4h_to_hourly,
     align_daily_to_hourly,
     resample_1h_to_4h,
 )
-from backtest.engine.helix_portfolio_engine import (
+from backtests.swing.engine.helix_portfolio_engine import (
     HelixPortfolioData,
     run_helix_independent,
 )
-from backtest.optimization.helix_runner import HelixOptimizationRunner
-from backtest.optimization.objective import composite_objective
-from backtest.optimization.walk_forward import (
+from backtests.swing.optimization.helix_runner import HelixOptimizationRunner
+from backtests.swing.optimization.objective import composite_objective
+from backtests.swing.optimization.walk_forward import (
     RobustnessThresholds,
     WalkForwardFold,
     WalkForwardResult,
 )
-from strategy_2.config import SYMBOL_CONFIGS
+from strategies.swing.akc_helix.config import SYMBOL_CONFIGS
 
 logger = logging.getLogger(__name__)
 
@@ -247,7 +247,7 @@ class HelixWalkForwardValidator:
                 "volume": sliced.hourly[sym].volumes,
             }, index=h_times)
 
-            from backtest.data.preprocessing import build_numpy_arrays
+            from backtests.swing.data.preprocessing import build_numpy_arrays
             four_hour_df = resample_1h_to_4h(h_df_full)
             sliced.four_hour[sym] = build_numpy_arrays(four_hour_df)
             sliced.four_hour_idx_maps[sym] = align_4h_to_hourly(h_df_full, four_hour_df)

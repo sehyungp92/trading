@@ -34,10 +34,10 @@ class DownturnPlugin:
         return self._engine.health_status()
 
     async def hydrate(self, snapshot: dict[str, Any]) -> None:
-        pass
+        await self._engine.hydrate(snapshot)
 
     def snapshot_state(self) -> dict[str, Any]:
-        return {"strategy_id": self.strategy_id}
+        return self._engine.snapshot_state()
 
     async def on_market_data(self, event: Any) -> None:
         pass  # Engine subscribes directly via IB session

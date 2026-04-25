@@ -10,7 +10,7 @@ from collections import Counter
 
 import numpy as np
 
-from backtest.analysis.metrics import BuyAndHoldMetrics, PerformanceMetrics
+from backtests.momentum.analysis.metrics import BuyAndHoldMetrics, PerformanceMetrics
 
 logger = logging.getLogger(__name__)
 

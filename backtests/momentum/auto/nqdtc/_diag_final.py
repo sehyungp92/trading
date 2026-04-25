@@ -7,11 +7,8 @@ _root = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(_root))
 logging.basicConfig(level=logging.WARNING)
 
-from backtests.momentum._aliases import install
-install()
-
-from backtest.config_nqdtc import NQDTCBacktestConfig
-from backtest.engine.nqdtc_engine import NQDTCEngine
+from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
+from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
 from backtests.momentum.auto.nqdtc.scoring import extract_nqdtc_metrics
 from backtests.momentum.auto.nqdtc.worker import load_worker_data
 

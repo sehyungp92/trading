@@ -9,17 +9,17 @@ from functools import partial
 
 import numpy as np
 
-from backtest.analysis.metrics import compute_metrics
-from backtest.config import BacktestConfig
-from backtest.engine.portfolio_engine import PortfolioData, run_independent
-from backtest.optimization.objective import composite_objective
-from backtest.optimization.param_space import (
+from backtests.swing.analysis.metrics import compute_metrics
+from backtests.swing.config import BacktestConfig
+from backtests.swing.engine.portfolio_engine import PortfolioData, run_independent
+from backtests.swing.optimization.objective import composite_objective
+from backtests.swing.optimization.param_space import (
     PARAM_SPACE,
     ParamRange,
     latin_hypercube_sample,
     params_to_overrides,
 )
-from strategy.config import SYMBOL_CONFIGS
+from strategies.swing.atrss.config import SYMBOL_CONFIGS
 
 logger = logging.getLogger(__name__)
 

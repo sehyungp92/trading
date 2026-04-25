@@ -89,9 +89,6 @@ def main() -> None:
     parser.add_argument("--summary-json", default="", help="Optional summary JSON output path.")
     args = parser.parse_args()
 
-    from backtests.stock._aliases import install
-    install()
-
     from backtests.stock.analysis.iaric_pullback_diagnostics import pullback_full_diagnostic
     from backtests.stock.analysis.iaric_pullback_diagnostics import _trade_stats as _iaric_trade_stats
     from backtests.stock.auto.config_mutator import mutate_iaric_config

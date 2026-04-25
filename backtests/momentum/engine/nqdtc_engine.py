@@ -1,7 +1,7 @@
 """NQDTC v2.0 backtest engine — 5-minute primary loop.
 
-Replicates strategy_2/engine.py orchestration in synchronous, bar-by-bar mode.
-Imports pure functions from strategy_2 (box, signals, indicators, stops, sizing).
+Replicates the live NQDTC orchestration in synchronous, bar-by-bar mode.
+Imports pure functions from strategies.momentum.nqdtc.
 
 Primary feed: 5m bars. Higher TFs: 30m, 1H, 4H, Daily via idx maps.
 Dual session state: independent ETH + RTH box/breakout/VWAP/chop state.
@@ -15,15 +15,15 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 
-from backtest.analysis.nqdtc_shadow_tracker import NQDTCShadowTracker
-from backtest.config import SlippageConfig, round_to_tick
-from backtest.config_nqdtc import NQDTCAblationFlags, NQDTCBacktestConfig
-from backtest.data.preprocessing import NumpyBars
-from backtest.engine.sim_broker import (
+from backtests.momentum.analysis.nqdtc_shadow_tracker import NQDTCShadowTracker
+from backtests.momentum.config import SlippageConfig, round_to_tick
+from backtests.momentum.config_nqdtc import NQDTCAblationFlags, NQDTCBacktestConfig
+from backtests.momentum.data.preprocessing import NumpyBars
+from backtests.momentum.engine.sim_broker import (
     FillResult,
     FillStatus,
     OrderSide,
@@ -31,16 +31,30 @@ from backtest.engine.sim_broker import (
     SimBroker,
     SimOrder,
 )
+from backtests.shared.parity.decision_capture import normalize_decision_stream
+from backtests.shared.parity.execution_adapters import ParitySimOrder, neutral_action_to_sim_order
+from backtests.shared.parity.replay_driver import ReplayStep, run_replay
+from backtests.shared.parity.trade_outcomes import normalize_trade_outcome_stream
 
 import copy as _copy
 
-from strategy_2 import box as box_mod
-from strategy_2 import config as C
-from strategy_2 import indicators as ind
-from strategy_2 import signals as sig
-from strategy_2 import sizing
-from strategy_2 import stops
-from strategy_2.models import (
+from strategies.core.actions import SubmitEntry
+from strategies.momentum.nqdtc.core import logic as nqdtc_core_logic
+from strategies.momentum.nqdtc.core.state import (
+    NQDTCCoreState,
+    NQDTCEntryFillContext,
+    NQDTCEntryRequest,
+    NQDTCFill,
+    NQDTCOrderUpdate,
+    NQDTCSimpleRequest,
+)
+from strategies.momentum.nqdtc import box as box_mod
+from strategies.momentum.nqdtc import config as C
+from strategies.momentum.nqdtc import indicators as ind
+from strategies.momentum.nqdtc import signals as sig
+from strategies.momentum.nqdtc import sizing
+from strategies.momentum.nqdtc import stops
+from strategies.momentum.nqdtc.models import (
     BoxEngineState,
     BoxState,
     BreakoutEngineState,
@@ -62,6 +76,26 @@ from strategy_2.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _sim_order_from_parity(order: ParitySimOrder) -> SimOrder:
+    return SimOrder(
+        order_id=order.order_id,
+        symbol=order.symbol,
+        side=OrderSide[order.side.name],
+        order_type=OrderType[order.order_type.name],
+        qty=order.qty,
+        stop_price=order.stop_price,
+        limit_price=order.limit_price,
+        tick_size=order.tick_size,
+        submit_time=order.submit_time,
+        ttl_hours=order.ttl_hours,
+        ttl_minutes=order.ttl_minutes,
+        tag=order.tag,
+        oca_group=order.oca_group,
+        invalidation_price=order.invalidation_price,
+        triggered_ts=order.triggered_ts,
+    )
 
 # ---------------------------------------------------------------------------
 # Snapshot of patchable C module values -- captured lazily on first use.
@@ -358,6 +392,8 @@ class NQDTCSymbolResult:
     symbol: str = "NQ"
     trades: list[NQDTCTradeRecord] = field(default_factory=list)
     signal_events: list[NQDTCSignalEvent] = field(default_factory=list)
+    decision_stream: list[dict[str, Any]] = field(default_factory=list)
+    trade_outcomes: list[dict[str, Any]] = field(default_factory=list)
     equity_curve: np.ndarray = field(default_factory=lambda: np.array([]))
     timestamps: np.ndarray = field(default_factory=lambda: np.array([]))
     total_commission: float = 0.0
@@ -407,6 +443,9 @@ class NQDTCEngine:
 
         # Simulated broker
         self.broker = SimBroker(slippage_config=bt_config.slippage)
+        self._core_state = NQDTCCoreState(symbol=symbol)
+        self._decision_events: list[Any] = []
+        self._bar_count_5m = 0
 
         # News blackout windows + event times (for flatten/tighten)
         self._news_windows, self._news_event_times = _load_news_events(bt_config.news_calendar_path)
@@ -582,7 +621,7 @@ class NQDTCEngine:
         self._daily_es_idx_map = daily_es_idx_map
         self._last_es_d_idx = -1
         if daily_es is not None and len(daily_es) > C.ES_DAILY_SMA_PERIOD:
-            from strategy_3.indicators import sma
+            from strategies.momentum.vdub.indicators import sma
             self._es_sma200_pre = sma(daily_es.closes[:len(daily_es)], C.ES_DAILY_SMA_PERIOD)
         else:
             self._es_sma200_pre = np.array([])
@@ -662,6 +701,8 @@ class NQDTCEngine:
             symbol=self.symbol,
             trades=self._trades,
             signal_events=self._signal_events,
+            decision_stream=normalize_decision_stream(self._decision_events),
+            trade_outcomes=normalize_trade_outcome_stream(self._trades),
             equity_curve=np.array(self._equity_history),
             timestamps=np.array(self._time_history),
             total_commission=self._total_commission,
@@ -672,6 +713,30 @@ class NQDTCEngine:
             gates_blocked=self._gates_blocked,
             shadow_summary=shadow_summary,
         )
+
+    def _replay_core_step(
+        self,
+        *,
+        bar_input: dict[str, Any] | None = None,
+        order_updates: list[NQDTCOrderUpdate] | None = None,
+        fills: list[NQDTCFill] | None = None,
+    ):
+        result = run_replay(
+            self._core_state,
+            steps=[
+                ReplayStep(
+                    bar_input=bar_input,
+                    order_updates=order_updates or [],
+                    fills=fills or [],
+                )
+            ],
+            on_bar=lambda state, payload: nqdtc_core_logic.on_bar(state, **payload),
+            on_order_update=nqdtc_core_logic.on_order_update,
+            on_fill=nqdtc_core_logic.on_fill,
+        )
+        self._core_state = result.state
+        self._decision_events.extend(result.events)
+        return result
 
     # ------------------------------------------------------------------
     # Per-5m-bar step
@@ -687,6 +752,8 @@ class NQDTCEngine:
         m30_idx: int, h_idx: int, fh_idx: int, d_idx: int, es_d_idx: int,
         wu_d: int, wu_30m: int, wu_1h: int, wu_4h: int,
     ) -> None:
+        self._bar_count_5m += 1
+
         # 1. Classify session
         session = _classify_session(bar_time)
         sess_state = self.eth if session == Session.ETH else self.rth
@@ -1726,15 +1793,56 @@ class NQDTCEngine:
         # Convert ttl_bars to minutes (5m bars)
         ttl_minutes = ttl_bars * 5 if ttl_bars > 0 else 0
 
-        order = SimOrder(
-            order_id=order_id, symbol=self.symbol, side=side,
-            order_type=order_type, qty=qty,
-            stop_price=stop_price, limit_price=limit_price,
-            tick_size=self.tick, submit_time=bar_time,
-            ttl_minutes=ttl_minutes,
-            tag=subtype.value, oca_group=oca_group,
+        entry_request = NQDTCEntryRequest(
+            client_order_id=order_id,
+            symbol=self.symbol,
+            subtype=subtype,
+            direction=direction,
+            qty=qty,
+            stop_for_risk=stop_for_risk,
+            tif="DAY",
+            order_type=order_type.name,
+            price=limit_price or stop_price or None,
+            limit_price=limit_price or None,
+            stop_price=stop_price or None,
+            oca_group=oca_group,
+            is_limit=(order_type == OrderType.LIMIT),
+            quality_mult=quality_mult,
+            submitted_bar_idx=self._bar_count_5m,
+            ttl_bars=ttl_bars,
         )
+        replay = self._replay_core_step(
+            bar_input={
+                "bar_count_5m": self._bar_count_5m,
+                "bar_ts": bar_time,
+                "entry_request": entry_request,
+            }
+        )
+        submit_action = next((action for action in replay.actions if isinstance(action, SubmitEntry)), None)
+        if submit_action is None:
+            return
+        order = _sim_order_from_parity(
+            neutral_action_to_sim_order(
+                submit_action,
+                tick_size=self.tick,
+                submit_time=bar_time,
+            )
+        )
+        order.tag = subtype.value
+        order.oca_group = oca_group
+        order.ttl_minutes = ttl_minutes
         self.broker.submit_order(order)
+        self._replay_core_step(
+            order_updates=[
+                NQDTCOrderUpdate(
+                    oms_order_id=order.order_id,
+                    status="accepted",
+                    timestamp=bar_time,
+                    order_role="entry",
+                    accepted_entry=entry_request,
+                )
+            ]
+        )
 
         wo = WorkingOrder(
             oms_order_id=order_id,
@@ -1771,6 +1879,15 @@ class NQDTCEngine:
                 self._on_tp_fill(fill, bar_time)
 
         elif fill.status == FillStatus.EXPIRED:
+            self._replay_core_step(
+                order_updates=[
+                    NQDTCOrderUpdate(
+                        oms_order_id=order.order_id,
+                        status="expired",
+                        timestamp=bar_time,
+                    )
+                ]
+            )
             wo = self._working.pop(order.order_id, None)
             # If an A order expired, enable market fallback
             if wo is not None and wo.subtype in (EntrySubtype.A_RETEST, EntrySubtype.A_LATCH):
@@ -1783,9 +1900,27 @@ class NQDTCEngine:
                     self._a_fallback_eligible = True
 
         elif fill.status == FillStatus.CANCELLED:
+            self._replay_core_step(
+                order_updates=[
+                    NQDTCOrderUpdate(
+                        oms_order_id=order.order_id,
+                        status="cancelled",
+                        timestamp=bar_time,
+                    )
+                ]
+            )
             self._working.pop(order.order_id, None)
 
         elif fill.status == FillStatus.REJECTED:
+            self._replay_core_step(
+                order_updates=[
+                    NQDTCOrderUpdate(
+                        oms_order_id=order.order_id,
+                        status="rejected",
+                        timestamp=bar_time,
+                    )
+                ]
+            )
             pass  # Keep in working for stop-limit re-eval
 
     def _on_entry_fill(self, wo: WorkingOrder, fill: FillResult, bar_time: datetime) -> None:
@@ -1860,6 +1995,28 @@ class NQDTCEngine:
                 tp_levels = tp_levels[:1]
         else:
             tp_levels = []
+
+        self._replay_core_step(
+            fills=[
+                NQDTCFill(
+                    oms_order_id=fill.order.order_id,
+                    fill_price=fill_price,
+                    fill_qty=wo.qty,
+                    fill_time=bar_time,
+                    entry_context=NQDTCEntryFillContext(
+                        exit_tier=exit_tier,
+                        tp_levels=list(tp_levels),
+                        mm_level=sess.breakout.mm_level if sess.breakout.active else 0.0,
+                        mm_reached=sess.breakout.mm_reached if sess.breakout.active else False,
+                        box_high_at_entry=sess.box.box_high,
+                        box_low_at_entry=sess.box.box_low,
+                        box_mid_at_entry=sess.box.box_mid,
+                        entry_session=sess.session,
+                        tp1_only_cap=tp1_cap,
+                    ),
+                )
+            ]
+        )
 
         # Build position state
         pos = PositionState(
@@ -1938,6 +2095,16 @@ class NQDTCEngine:
         )
         self.broker.submit_order(stop_order)
         active.stop_order_id = stop_id
+        self._replay_core_step(
+            order_updates=[
+                NQDTCOrderUpdate(
+                    oms_order_id=stop_id,
+                    status="accepted",
+                    timestamp=bar_time,
+                    order_role="stop",
+                )
+            ]
+        )
 
         # Place TP orders
         for i, tp in enumerate(tp_levels):
@@ -1961,6 +2128,17 @@ class NQDTCEngine:
     def _on_stop_fill(self, fill: FillResult, bar_time: datetime) -> None:
         if self._active is None:
             return
+        self._replay_core_step(
+            fills=[
+                NQDTCFill(
+                    oms_order_id=fill.order.order_id,
+                    fill_price=fill.fill_price,
+                    fill_qty=fill.order.qty,
+                    fill_time=bar_time,
+                    exit_type="STOP",
+                )
+            ]
+        )
         commission = fill.commission
         self._total_commission += commission
         self.equity -= commission
@@ -2014,6 +2192,17 @@ class NQDTCEngine:
 
         # If all qty closed, finalize
         if pos.qty_open <= 0:
+            self._replay_core_step(
+                fills=[
+                    NQDTCFill(
+                        oms_order_id=order.order_id,
+                        fill_price=fill.fill_price,
+                        fill_qty=tp.qty,
+                        fill_time=bar_time,
+                        exit_type=f"TP{tp_idx+1}_FULL",
+                    )
+                ]
+            )
             self._close_position(fill.fill_price, bar_time, f"TP{tp_idx+1}_FULL")
 
     # ------------------------------------------------------------------
@@ -2290,12 +2479,30 @@ class NQDTCEngine:
         pos = self._active.pos
         if not pos.open:
             return
+        self._replay_core_step(
+            bar_input={
+                "bar_count_5m": self._bar_count_5m,
+                "bar_ts": bar_time,
+                "flatten_request": NQDTCSimpleRequest(reason=reason, qty=pos.qty_open),
+            }
+        )
         # Market-exit slippage
         slip = self.cfg.slippage.slip_ticks_normal * self.tick
         if pos.direction == Direction.LONG:
             exit_price = price - slip   # selling: adverse = lower
         else:
             exit_price = price + slip   # covering: adverse = higher
+        self._replay_core_step(
+            fills=[
+                NQDTCFill(
+                    oms_order_id=self._active.stop_order_id or reason,
+                    fill_price=exit_price,
+                    fill_qty=pos.qty_open,
+                    fill_time=bar_time,
+                    exit_type=reason,
+                )
+            ]
+        )
         # Exit commission (matches _on_stop_fill pattern)
         commission = self.cfg.slippage.commission_per_contract * pos.qty_open
         self._total_commission += commission
@@ -2320,6 +2527,17 @@ class NQDTCEngine:
         if self._active is None:
             return
         new_stop = round_to_tick(new_stop, self.tick)
+        self._replay_core_step(
+            bar_input={
+                "bar_count_5m": self._bar_count_5m,
+                "bar_ts": bar_time,
+                "stop_update": NQDTCSimpleRequest(
+                    reason=self._active.pos.stop_source,
+                    price=new_stop,
+                    qty=self._active.pos.qty_open,
+                ),
+            }
+        )
         self._active.pos.stop_price = new_stop
         # Update broker's stop order
         for o in self.broker.pending_orders:
@@ -2340,6 +2558,22 @@ class NQDTCEngine:
                     to_cancel.append(oid)
 
         for oid in to_cancel:
+            self._replay_core_step(
+                bar_input={
+                    "bar_count_5m": self._bar_count_5m,
+                    "bar_ts": bar_time,
+                    "cancel_order_ids": [oid],
+                }
+            )
+            self._replay_core_step(
+                order_updates=[
+                    NQDTCOrderUpdate(
+                        oms_order_id=oid,
+                        status="cancelled",
+                        timestamp=bar_time,
+                    )
+                ]
+            )
             self.broker.cancel_orders(self.symbol, tag=None)
             self._working.pop(oid, None)
 

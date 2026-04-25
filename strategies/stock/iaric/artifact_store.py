@@ -279,15 +279,32 @@ def persist_intraday_state(snapshot: IntradayStateSnapshot, root: Path | None = 
     return path
 
 
-def load_intraday_state(trade_date: date, root: Path | None = None, settings: StrategySettings | None = None) -> IntradayStateSnapshot:
-    payload = _read_json(state_path(trade_date, root=root, settings=settings))
+def coerce_intraday_state_snapshot(
+    payload: IntradayStateSnapshot | dict[str, Any],
+) -> IntradayStateSnapshot:
+    if isinstance(payload, IntradayStateSnapshot):
+        return payload
+    if not isinstance(payload, dict):
+        raise TypeError(
+            "Intraday state payload must be an IntradayStateSnapshot or dict"
+        )
+
+    def _as_datetime(value: datetime | str | None) -> datetime | None:
+        if value is None or isinstance(value, datetime):
+            return value
+        return datetime.fromisoformat(value)
+
+    def _as_date(value: date | str) -> date:
+        if isinstance(value, date):
+            return value
+        return date.fromisoformat(value)
 
     def _pending(data: dict[str, Any] | None) -> PendingOrderState | None:
         if not data:
             return None
         return PendingOrderState(
             oms_order_id=str(data["oms_order_id"]),
-            submitted_at=datetime.fromisoformat(data["submitted_at"]),
+            submitted_at=_as_datetime(data["submitted_at"]),
             role=str(data["role"]),
             requested_qty=int(data["requested_qty"]),
             limit_price=float(data["limit_price"]) if data.get("limit_price") is not None else None,
@@ -304,7 +321,7 @@ def load_intraday_state(trade_date: date, root: Path | None = None, settings: St
             qty_open=int(data["qty_open"]),
             final_stop=float(data["final_stop"]),
             current_stop=float(data["current_stop"]),
-            entry_time=datetime.fromisoformat(data["entry_time"]),
+            entry_time=_as_datetime(data["entry_time"]),
             initial_risk_per_share=float(data["initial_risk_per_share"]),
             max_favorable_price=float(data["max_favorable_price"]),
             max_adverse_price=float(data.get("max_adverse_price", data["entry_price"])),
@@ -313,11 +330,7 @@ def load_intraday_state(trade_date: date, root: Path | None = None, settings: St
             trade_id=str(data.get("trade_id", "")),
             realized_pnl_usd=float(data.get("realized_pnl_usd", 0.0)),
             setup_tag=str(data.get("setup_tag", "UNCLASSIFIED")),
-            time_stop_deadline=(
-                datetime.fromisoformat(data["time_stop_deadline"])
-                if data.get("time_stop_deadline")
-                else None
-            ),
+            time_stop_deadline=_as_datetime(data.get("time_stop_deadline")),
         )
 
     def _pb_symbol(data: dict[str, Any]) -> PBSymbolState:
@@ -348,16 +361,8 @@ def load_intraday_state(trade_date: date, root: Path | None = None, settings: St
             sizing_mult=float(data.get("sizing_mult", 1.0)),
             daily_atr=float(data.get("daily_atr", 0.0)),
             entry_atr=float(data.get("entry_atr", 0.0)),
-            last_1m_bar_time=(
-                datetime.fromisoformat(data["last_1m_bar_time"])
-                if data.get("last_1m_bar_time")
-                else None
-            ),
-            last_5m_bar_time=(
-                datetime.fromisoformat(data["last_5m_bar_time"])
-                if data.get("last_5m_bar_time")
-                else None
-            ),
+            last_1m_bar_time=_as_datetime(data.get("last_1m_bar_time")),
+            last_5m_bar_time=_as_datetime(data.get("last_5m_bar_time")),
             active_order_id=str(data["active_order_id"]) if data.get("active_order_id") else None,
             last_transition_reason=str(data.get("last_transition_reason", "")),
             mfe_stage=int(data.get("mfe_stage", 0)),
@@ -376,7 +381,6 @@ def load_intraday_state(trade_date: date, root: Path | None = None, settings: St
 
     symbols = []
     for data in payload.get("symbols", []):
-        # Detect PBSymbolState by presence of 'stage' key (only PB state has it)
         if "stage" in data:
             symbols.append(_pb_symbol(data))
         else:
@@ -404,22 +408,10 @@ def load_intraday_state(trade_date: date, root: Path | None = None, settings: St
                     micropressure_mode=str(data.get("micropressure_mode", "PROXY")),
                     flowproxy_signal=str(data.get("flowproxy_signal", "UNAVAILABLE")),
                     confidence=str(data["confidence"]) if data.get("confidence") else None,
-                    last_1m_bar_time=(
-                        datetime.fromisoformat(data["last_1m_bar_time"])
-                        if data.get("last_1m_bar_time")
-                        else None
-                    ),
-                    last_5m_bar_time=(
-                        datetime.fromisoformat(data["last_5m_bar_time"])
-                        if data.get("last_5m_bar_time")
-                        else None
-                    ),
+                    last_1m_bar_time=_as_datetime(data.get("last_1m_bar_time")),
+                    last_5m_bar_time=_as_datetime(data.get("last_5m_bar_time")),
                     active_order_id=str(data["active_order_id"]) if data.get("active_order_id") else None,
-                    time_stop_deadline=(
-                        datetime.fromisoformat(data["time_stop_deadline"])
-                        if data.get("time_stop_deadline")
-                        else None
-                    ),
+                    time_stop_deadline=_as_datetime(data.get("time_stop_deadline")),
                     setup_tag=str(data["setup_tag"]) if data.get("setup_tag") else None,
                     expected_volume_pct=float(data.get("expected_volume_pct", 0.0)),
                     average_30m_volume=float(data.get("average_30m_volume", 0.0)),
@@ -430,10 +422,16 @@ def load_intraday_state(trade_date: date, root: Path | None = None, settings: St
                     pending_hard_exit=bool(data.get("pending_hard_exit", False)),
                 )
             )
+
     return IntradayStateSnapshot(
-        trade_date=date.fromisoformat(payload["trade_date"]),
-        saved_at=datetime.fromisoformat(payload["saved_at"]),
+        trade_date=_as_date(payload["trade_date"]),
+        saved_at=_as_datetime(payload["saved_at"]),
         symbols=symbols,
         last_decision_code=str(payload.get("last_decision_code", "")),
         meta=dict(payload.get("meta", {})),
     )
+
+
+def load_intraday_state(trade_date: date, root: Path | None = None, settings: StrategySettings | None = None) -> IntradayStateSnapshot:
+    payload = _read_json(state_path(trade_date, root=root, settings=settings))
+    return coerce_intraday_state_snapshot(payload)

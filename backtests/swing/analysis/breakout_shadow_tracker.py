@@ -12,14 +12,14 @@ from datetime import datetime
 
 import numpy as np
 
-from strategy_3.config import (
+from strategies.swing.breakout.config import (
     ENTRY_A_TTL_RTH_HOURS,
     STALE_EXIT_DAYS_MIN,
     STALE_R_THRESH,
     TP1_R_NEUTRAL,
     TP2_R_NEUTRAL,
 )
-from strategy_3.models import Direction
+from strategies.swing.breakout.models import Direction
 
 logger = logging.getLogger(__name__)
 

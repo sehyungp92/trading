@@ -267,17 +267,14 @@ class ATRSSPlugin:
         if self._cached_data is not None:
             return self._cached_data
 
-        from backtests.swing._aliases import install
-        install()
-
-        from backtest.data.cache import load_bars
-        from backtest.data.preprocessing import (
+        from backtests.swing.data.cache import load_bars
+        from backtests.swing.data.preprocessing import (
             align_daily_to_hourly,
             build_numpy_arrays,
             filter_rth,
             normalize_timezone,
         )
-        from backtest.engine.portfolio_engine import PortfolioData
+        from backtests.swing.engine.portfolio_engine import PortfolioData
 
         data = PortfolioData()
         for sym in ("QQQ", "GLD"):
@@ -298,11 +295,8 @@ class ATRSSPlugin:
         if cached:
             return dict(cached)
 
-        from backtests.swing._aliases import install
-        install()
-
-        from backtest.config import AblationFlags, BacktestConfig, SlippageConfig
-        from backtest.engine.portfolio_engine import run_independent
+        from backtests.swing.config import AblationFlags, BacktestConfig, SlippageConfig
+        from backtests.swing.engine.portfolio_engine import run_independent
         from backtests.swing.auto.config_mutator import mutate_atrss_config
 
         base_config = BacktestConfig(

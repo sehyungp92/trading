@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from backtest.analysis.nqdtc_shadow_tracker import NQDTCFilterStats, NQDTCShadowTracker
-from backtest.engine.nqdtc_engine import NQDTCSignalEvent
+from backtests.momentum.analysis.nqdtc_shadow_tracker import NQDTCFilterStats, NQDTCShadowTracker
+from backtests.momentum.engine.nqdtc_engine import NQDTCSignalEvent
 
 
 def nqdtc_filter_attribution_report(

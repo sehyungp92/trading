@@ -20,10 +20,7 @@ _worker_equity: float = 0.0
 
 def load_helix_worker_data(symbols: list[str], data_dir: Path) -> dict:
     """Load helix data -- usable from both worker init and plugin."""
-    from backtests.swing._aliases import install
-    install()
-
-    from backtest.engine.helix_portfolio_engine import load_helix_data
+    from backtests.swing.engine.helix_portfolio_engine import load_helix_data
     return load_helix_data(symbols, data_dir)
 
 
@@ -34,10 +31,7 @@ def init_worker(data_dir_str: str, equity: float) -> None:
     if sys.stdout.encoding != "utf-8":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-    from backtests.swing._aliases import install
-    install()
-
-    from backtest.config_helix import HelixBacktestConfig
+    from backtests.swing.config_helix import HelixBacktestConfig
 
     _worker_equity = equity
     _worker_config = HelixBacktestConfig(
@@ -56,7 +50,7 @@ def score_candidate(args: tuple) -> ScoredCandidate:
     name, candidate_muts, base_muts, phase, scoring_weights, hard_rejects = args
 
     try:
-        from backtest.engine.helix_portfolio_engine import run_helix_independent
+        from backtests.swing.engine.helix_portfolio_engine import run_helix_independent
         from backtests.swing.auto.helix.config_mutator import mutate_helix_config
         from backtests.swing.auto.helix.plugin import score_phase_metrics
         from backtests.swing.auto.helix.scoring import composite_score, extract_helix_metrics

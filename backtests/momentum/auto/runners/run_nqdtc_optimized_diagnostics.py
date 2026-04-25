@@ -21,9 +21,6 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT))
 
-from backtests.momentum._aliases import install
-install()
-
 from backtests.momentum.analysis.metrics import compute_metrics
 from backtests.momentum.analysis.reports import (
     format_summary,

@@ -7,7 +7,7 @@ from pathlib import Path
 
 def _default_atrss_symbols() -> list[str]:
     try:
-        from strategy.config import SYMBOLS
+        from strategies.swing.atrss.config import SYMBOLS
         return list(SYMBOLS)
     except ImportError:
         return ["QQQ", "GLD"]

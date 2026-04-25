@@ -19,10 +19,6 @@ from pathlib import Path
 if sys.stdout.encoding != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True)
 
-from backtests.stock._aliases import install
-
-install()
-
 import numpy as np
 
 from backtests.stock.auto.config_mutator import mutate_alcb_config

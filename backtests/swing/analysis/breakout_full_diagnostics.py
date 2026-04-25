@@ -12,6 +12,7 @@ Usage:
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import time
@@ -21,10 +22,7 @@ from pathlib import Path
 
 # Setup path and aliases
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from backtests.swing._aliases import install
-install()
-
-from backtest.analysis.breakout_diagnostics import (
+from backtests.swing.analysis.breakout_diagnostics import (
     breakout_add_analysis,
     breakout_chop_impact,
     breakout_continuation_analysis,
@@ -53,33 +51,34 @@ from backtest.analysis.breakout_diagnostics import (
     breakout_streak_analysis,
     breakout_exit_efficiency,
 )
-from backtest.analysis.metrics import (
+from backtests.swing.analysis.metrics import (
     compute_buy_and_hold,
     compute_max_drawdown,
     compute_metrics,
     compute_sharpe,
     compute_sortino,
 )
-from backtest.analysis.reports import (
+from backtests.swing.analysis.reports import (
     breakout_behavior_report,
     breakout_diagnostic_report,
     breakout_performance_report,
     buy_and_hold_report,
 )
-from backtest.config import SlippageConfig
-from backtest.config_breakout import BreakoutAblationFlags, BreakoutBacktestConfig
-from backtest.engine.breakout_portfolio_engine import (
+from backtests.swing.config import SlippageConfig
+from backtests.swing.config_breakout import BreakoutAblationFlags, BreakoutBacktestConfig
+from backtests.swing.engine.breakout_portfolio_engine import (
     load_breakout_data,
     run_breakout_synchronized,
 )
 from backtests.diagnostic_snapshot import build_group_snapshot
 from backtests.swing.auto.config_mutator import mutate_breakout_config
-from strategy_3.config import SYMBOL_CONFIGS
+from strategies.swing.breakout.config import SYMBOL_CONFIGS
 
 import numpy as np
 
 DATA_DIR = Path("backtests/swing/data/raw")
 INITIAL_EQUITY = 10_000.0
+DEFAULT_OUTPUT = Path("backtests/swing/auto/output/breakout_full_diagnostics.txt")
 
 # Greedy-portfolio-optimized mutations (breakout-specific only)
 OPTIMIZED_MUTATIONS = {
@@ -142,8 +141,11 @@ def _cache_fingerprint(
 def main():
     import pickle
 
-    output_path = (Path(__file__).resolve().parent.parent
-                   / "auto" / "output" / "breakout_full_diagnostics.txt")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
+    args = parser.parse_args()
+
+    output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     t0 = time.time()

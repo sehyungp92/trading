@@ -10,15 +10,15 @@ import multiprocessing
 
 import numpy as np
 
-from backtest.analysis.metrics import compute_metrics
-from backtest.config_nqdtc import NQDTCBacktestConfig
-from backtest.optimization.nqdtc_param_space import (
+from backtests.momentum.analysis.metrics import compute_metrics
+from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
+from backtests.momentum.optimization.nqdtc_param_space import (
     NQDTC_PARAM_SPACE,
     nqdtc_params_to_overrides,
 )
-from backtest.optimization.objective import composite_objective
-from backtest.optimization.param_space import latin_hypercube_sample
-from backtest.optimization.runner import OptimizationResult, TrialResult
+from backtests.momentum.optimization.objective import composite_objective
+from backtests.momentum.optimization.param_space import latin_hypercube_sample
+from backtests.momentum.optimization.runner import OptimizationResult, TrialResult
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ def _evaluate_single(
         warmup_5m=base_config.warmup_5m,
     )
 
-    from backtest.engine.nqdtc_engine import NQDTCEngine
+    from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
 
     engine = NQDTCEngine(config.symbols[0], config)
     result = engine.run(

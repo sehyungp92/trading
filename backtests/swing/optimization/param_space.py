@@ -6,7 +6,7 @@ from typing import Sequence
 
 import numpy as np
 
-from strategy.config import SYMBOLS, SYMBOL_CONFIGS
+from strategies.swing.atrss.config import SYMBOLS, SYMBOL_CONFIGS
 
 
 @dataclass

@@ -12,14 +12,14 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from strategy import allocator
-from strategy.config import SYMBOL_CONFIGS, SymbolConfig
-from strategy.models import Direction
+from strategies.swing.atrss import allocator
+from strategies.swing.atrss.config import SYMBOL_CONFIGS, SymbolConfig
+from strategies.swing.atrss.models import Direction
 
-from backtest.analysis.shadow_tracker import FilterStats, ShadowTracker
-from backtest.config import BacktestConfig
-from backtest.data.preprocessing import NumpyBars
-from backtest.engine.backtest_engine import BacktestEngine, SymbolResult, _AblationPatch
+from backtests.swing.analysis.shadow_tracker import FilterStats, ShadowTracker
+from backtests.swing.config import BacktestConfig
+from backtests.swing.data.preprocessing import NumpyBars
+from backtests.swing.engine.backtest_engine import BacktestEngine, SymbolResult, _AblationPatch
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +165,7 @@ def run_synchronized(
     timestamps: list = []
     heat_samples: list[float] = []
 
-    from strategy.config import MAX_PORTFOLIO_HEAT
+    from strategies.swing.atrss.config import MAX_PORTFOLIO_HEAT
 
     with _AblationPatch(bt_config.flags, bt_config.param_overrides):
         for t in unified_ts:

@@ -48,11 +48,8 @@ def _init_worker(
     if sys.stdout.encoding != "utf-8":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-    from backtests.swing._aliases import install
-    install()
-
-    from backtest.config_brs import BRSConfig
-    from backtest.engine.brs_portfolio_engine import load_brs_data
+    from backtests.swing.config_brs import BRSConfig
+    from backtests.swing.engine.brs_portfolio_engine import load_brs_data
 
     _worker_equity = equity
     _worker_phase = phase
@@ -77,8 +74,8 @@ def _worker_score(args: tuple) -> tuple[str, float, bool, str]:
 
     try:
         from dataclasses import replace
-        from backtest.config_brs import BRSConfig
-        from backtest.engine.brs_portfolio_engine import run_brs_synchronized
+        from backtests.swing.config_brs import BRSConfig
+        from backtests.swing.engine.brs_portfolio_engine import run_brs_synchronized
         from backtests.swing.auto.brs.config_mutator import mutate_brs_config
         from backtests.swing.auto.brs.scoring import extract_brs_metrics
         from backtests.swing.auto.brs.phase_scoring import score_phase
@@ -196,11 +193,8 @@ def run_greedy(
     if verbose:
         print("Scoring baseline...")
 
-    from backtests.swing._aliases import install
-    install()
-
-    from backtest.config_brs import BRSConfig
-    from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
+    from backtests.swing.config_brs import BRSConfig
+    from backtests.swing.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
     from backtests.swing.auto.brs.config_mutator import mutate_brs_config
     from backtests.swing.auto.brs.scoring import extract_brs_metrics
     from backtests.swing.auto.brs.phase_scoring import score_phase

@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from backtest.config import SlippageConfig
+from backtests.momentum.config import SlippageConfig
 
 
 @dataclass

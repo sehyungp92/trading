@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from backtest.engine.backtest_engine import TradeRecord
+from backtests.swing.engine.backtest_engine import TradeRecord
 
 BEAR_REGIMES = {"BEAR_STRONG", "BEAR_TREND", "BEAR_FORMING"}
 NON_DOWNTURN_REGIMES = {"RANGE_CHOP", "BULL_TREND"}

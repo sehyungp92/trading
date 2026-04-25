@@ -5,12 +5,12 @@ strategy-agnostic param_space module.
 """
 from __future__ import annotations
 
-from backtest.optimization.param_space import ParamRange
+from backtests.swing.optimization.param_space import ParamRange
 
 
 def _helix_symbols() -> list[str]:
     try:
-        from strategy_2.config import SYMBOLS
+        from strategies.swing.akc_helix.config import SYMBOLS
         return list(SYMBOLS)
     except ImportError:
         return ["QQQ", "GLD"]

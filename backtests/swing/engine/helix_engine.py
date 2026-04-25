@@ -18,13 +18,13 @@ import pandas as pd
 
 from libs.broker_ibkr.risk_support.tick_rules import round_to_tick
 
-from strategy_2 import signals, stops
-from strategy_2.allocator import (
+from strategies.swing.akc_helix import signals, stops
+from strategies.swing.akc_helix.allocator import (
     compute_position_size,
     compute_risk_r,
     compute_unit1_risk,
 )
-from strategy_2.config import (
+from strategies.swing.akc_helix.config import (
     ADD_1H_R,
     ADD_4H_R,
     ADD_OVERNIGHT_R,
@@ -91,7 +91,7 @@ from strategy_2.config import (
     WEEKLY_STOP_R,
     SymbolConfig,
 )
-from strategy_2.indicators import (
+from strategies.swing.akc_helix.indicators import (
     atr,
     compute_daily_state,
     compute_regime_4h,
@@ -99,7 +99,7 @@ from strategy_2.indicators import (
     macd,
     scan_pivots,
 )
-from strategy_2.models import (
+from strategies.swing.akc_helix.models import (
     CircuitBreakerState,
     DailyState,
     Direction,
@@ -112,10 +112,10 @@ from strategy_2.models import (
     TFState,
 )
 
-from backtest.config import SlippageConfig
-from backtest.config_helix import HelixAblationFlags, HelixBacktestConfig
-from backtest.data.preprocessing import NumpyBars
-from backtest.engine.sim_broker import (
+from backtests.swing.config import SlippageConfig
+from backtests.swing.config_helix import HelixAblationFlags, HelixBacktestConfig
+from backtests.swing.data.preprocessing import NumpyBars
+from backtests.swing.engine.sim_broker import (
     FillResult,
     FillStatus,
     OrderSide,
@@ -146,8 +146,8 @@ class _AblationPatch:
 
     def __enter__(self):
         import sys
-        import strategy_2.config as scfg
-        import strategy_2.stops as sstops
+        import strategies.swing.akc_helix.config as scfg
+        import strategies.swing.akc_helix.stops as sstops
 
         engine_mod = sys.modules[__name__]
 
@@ -408,7 +408,7 @@ class HelixEngine:
         Avoids recomputing 200-bar ATR/MACD windows on every bar.
         Also precomputes datetime conversions (biggest bottleneck: 4ms/bar).
         """
-        from strategy_2.config import ATR_DAILY_PERIOD
+        from strategies.swing.akc_helix.config import ATR_DAILY_PERIOD
 
         # 1H full arrays
         self._pre_1h_atr = atr(hourly.highs, hourly.lows, hourly.closes, ATR_DAILY_PERIOD)
@@ -582,7 +582,7 @@ class HelixEngine:
         self.tf_1h.lows = [float(v) for v in lows[-chandelier_lb:]]
 
         # Check for pivot at current bar only (O(1) instead of scanning 200 bars)
-        from strategy_2.indicators import confirmed_pivot
+        from strategies.swing.akc_helix.indicators import confirmed_pivot
         bar_times = self._pre_1h_datetimes[start:t + 1]
         local_idx = lookback - 1  # current bar index within the slice
         p = confirmed_pivot(highs, lows, local_idx, line_slice, hist_slice, atr_slice, bar_times)
@@ -632,7 +632,7 @@ class HelixEngine:
             )
 
         # Check for pivot at current bar only (O(1) instead of scanning 200 bars)
-        from strategy_2.indicators import confirmed_pivot
+        from strategies.swing.akc_helix.indicators import confirmed_pivot
         bar_times = self._pre_4h_datetimes[start:fh_idx + 1]
         local_idx = lookback - 1
         p = confirmed_pivot(highs, lows, local_idx, line_slice, hist_slice, atr_slice, bar_times)
@@ -690,7 +690,7 @@ class HelixEngine:
             return
 
         # Extreme vol: disable 1H-origin classes (B, D) when vol_pct > 95th
-        from strategy_2.config import EXTREME_VOL_PCT
+        from strategies.swing.akc_helix.config import EXTREME_VOL_PCT
         _1h_disabled = daily.vol_pct > EXTREME_VOL_PCT
 
         candidates: list[SetupInstance] = []
@@ -916,7 +916,7 @@ class HelixEngine:
                 tag="entry",
             )
         else:
-            from strategy_2.config import HIGH_VOL_PCT
+            from strategies.swing.akc_helix.config import HIGH_VOL_PCT
             if daily.vol_pct > HIGH_VOL_PCT:
                 offset_ticks = self.cfg.offset_wide_ticks
             else:
@@ -1477,7 +1477,7 @@ class HelixEngine:
         # Add-on check (simplified: time + R + price gate)
         if not pos.add_done and not self.flags.disable_add_ons and pos.qty_open > 0:
             min_r = ADD_4H_R if setup.origin_tf == "4H" else ADD_1H_R
-            from strategy_2.config import ADD_MIN_BARS, ADD_MAX_BARS, ADD_PRICE_GATE_ATR_MULT
+            from strategies.swing.akc_helix.config import ADD_MIN_BARS, ADD_MAX_BARS, ADD_PRICE_GATE_ATR_MULT
             in_time_window = ADD_MIN_BARS <= pos.bars_held_1h <= ADD_MAX_BARS
             if r_now >= min_r and in_time_window:
                 self._try_add_simplified(pos, bar_time, C)
@@ -1600,7 +1600,7 @@ class HelixEngine:
             trigger = round_to_tick(add.bos_level, tick, "down")
             limit_price = trigger - self.cfg.offset_tight_ticks * tick
 
-        from strategy_2.config import TTL_ADD_HOURS
+        from strategies.swing.akc_helix.config import TTL_ADD_HOURS
         order = SimOrder(
             order_id=self.broker.next_order_id(),
             symbol=self.symbol,
@@ -1622,7 +1622,7 @@ class HelixEngine:
     ) -> None:
         """Simplified add: price gate + market entry, no pivot requirement."""
         setup = pos.setup
-        from strategy_2.config import ADD_PRICE_GATE_ATR_MULT
+        from strategies.swing.akc_helix.config import ADD_PRICE_GATE_ATR_MULT
 
         # Price gate: price must have moved beyond BoS + 0.5×ATR1H in trade direction
         price_offset = ADD_PRICE_GATE_ATR_MULT * self.tf_1h.atr

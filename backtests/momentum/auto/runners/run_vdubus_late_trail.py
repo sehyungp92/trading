@@ -23,10 +23,6 @@ from pathlib import Path
 _root = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(_root))
 
-from backtests.momentum._aliases import install
-
-install()
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
@@ -284,8 +280,8 @@ def main(max_workers: int = 2) -> None:
     print("-" * 70)
 
     try:
-        from backtest.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
-        from backtest.engine.vdubus_engine import VdubusEngine
+        from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
+        from backtests.momentum.engine.vdubus_engine import VdubusEngine
         from backtests.momentum.auto.config_mutator import mutate_vdubus_config
         from backtests.momentum.auto.vdubus.scoring import composite_score, extract_vdubus_metrics
         from backtests.momentum.auto.vdubus.worker import load_worker_data

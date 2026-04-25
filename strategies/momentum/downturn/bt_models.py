@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import IntEnum, Enum
+from typing import Any
 
 import numpy as np
 
@@ -218,6 +219,8 @@ class DownturnResult:
     symbol: str
     trades: list[DownturnTradeRecord] = field(default_factory=list)
     signal_events: list[DownturnSignalEvent] = field(default_factory=list)
+    decision_stream: list[dict[str, Any]] = field(default_factory=list)
+    trade_outcomes: list[dict[str, Any]] = field(default_factory=list)
     equity_curve: np.ndarray = field(default_factory=lambda: np.array([]))
     timestamps: np.ndarray = field(default_factory=lambda: np.array([]))
     total_commission: float = 0.0

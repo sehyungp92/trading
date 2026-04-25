@@ -224,7 +224,7 @@ def _flip_entry_analysis(trades: list) -> str:
 def _predator_analysis(trades: list) -> str:
     """Predator overlay impact: trades with/without predator class_mult."""
     lines = ["=== Predator Overlay Impact ==="]
-    from strategy_3.config import CLASS_MULT_PREDATOR, CLASS_MULT_NOPRED
+    from strategies.momentum.vdub.config import CLASS_MULT_PREDATOR, CLASS_MULT_NOPRED
     pred = [t for t in trades if t.class_mult >= CLASS_MULT_PREDATOR - 0.01]
     nopred = [t for t in trades if abs(t.class_mult - CLASS_MULT_NOPRED) < 0.01]
 

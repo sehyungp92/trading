@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 from collections import deque
+from copy import deepcopy
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -23,6 +24,7 @@ from libs.oms.models.order import (
     OMSOrder, OrderRole, OrderSide, OrderType, RiskContext,
 )
 from libs.oms.risk.calculator import RiskCalculator
+from strategies.core.actions import CancelAction, SubmitEntry, SubmitExit
 
 # Pure-function modules (shared with backtests)
 from .indicators import (
@@ -90,6 +92,15 @@ from .models import (
     ReversalState,
     VolState,
     WorkingEntry,
+)
+from .core import logic as downturn_core_logic
+from .core.serializers import restore_state as restore_core_state
+from .core.serializers import snapshot_state as snapshot_core_state
+from .core.state import (
+    DownturnCoreState,
+    DownturnEntryRequest,
+    DownturnFill,
+    DownturnOrderUpdate,
 )
 
 logger = logging.getLogger(__name__)
@@ -308,6 +319,48 @@ class DownturnEngine:
             "last_decision_details": self._last_decision_details,
             "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
         }
+
+    def snapshot_state(self) -> dict[str, Any]:
+        return {
+            "strategy_id": C.STRATEGY_ID,
+            "symbol": self._symbol,
+            "equity": self._equity,
+            "core": snapshot_core_state(self._build_core_state()),
+        }
+
+    async def hydrate(self, snapshot: dict[str, Any]) -> None:
+        core_snapshot = snapshot.get("core", snapshot)
+        self._apply_core_state(restore_core_state(core_snapshot))
+        if "equity" in snapshot:
+            self._equity = float(snapshot["equity"])
+
+    def _build_core_state(self) -> DownturnCoreState:
+        return DownturnCoreState(
+            symbol=self._symbol,
+            position=deepcopy(self._position),
+            working_entries=deepcopy(self._working_entries),
+            bar_count_5m=self._bar_count_5m,
+            bars_since_last_entry=self._bars_since_last_entry,
+            last_decision_code=self._last_decision_code,
+            last_decision_details=dict(self._last_decision_details),
+            last_bar_ts=self._last_bar_ts,
+        )
+
+    def _apply_core_state(self, state: DownturnCoreState) -> None:
+        if state.symbol:
+            self._symbol = state.symbol
+        self._position = deepcopy(state.position)
+        self._working_entries = deepcopy(state.working_entries)
+        self._bar_count_5m = state.bar_count_5m
+        self._bars_since_last_entry = state.bars_since_last_entry
+        self._last_decision_code = state.last_decision_code
+        self._last_decision_details = dict(state.last_decision_details)
+        self._last_bar_ts = state.last_bar_ts
+
+    def _apply_core_events(self, events: list[Any]) -> None:
+        for event in events:
+            self._record_decision(event.code, dict(event.details))
+            self._last_bar_ts = event.ts
 
     # ── Instrumentation helpers ──────────────────────────────────────
 
@@ -1390,13 +1443,47 @@ class DownturnEngine:
         # TP schedule
         tp_sched = compute_tiered_tp_schedule(tag, self._regime.composite_regime, po)
 
-        # Build OMS order
         if entry_type == "stop_market":
-            order_type = OrderType.STOP
+            neutral_order_type = "STOP"
+            oms_order_type = OrderType.STOP
             limit_price = None
         else:
-            order_type = OrderType.STOP_LIMIT
+            neutral_order_type = "STOP_LIMIT"
+            oms_order_type = OrderType.STOP_LIMIT
             limit_price = entry_price - 4 * self._tick_size
+
+        entry_request = DownturnEntryRequest(
+            client_order_id=f"{C.STRATEGY_ID}:{tag.value}:{self._bar_count_5m}:{len(self._working_entries)}",
+            symbol=self._symbol,
+            engine_tag=tag,
+            signal_class=sig_class,
+            qty=qty,
+            entry_price=entry_price,
+            stop0=stop0,
+            order_type=neutral_order_type,
+            price=entry_price if neutral_order_type == "STOP_LIMIT" else None,
+            limit_price=limit_price,
+            stop_price=entry_price,
+            submitted_bar_idx=self._bar_count_5m,
+            ttl_bars=72,
+            composite_regime=self._regime.composite_regime,
+            vol_state=self._regime.vol_state,
+            in_correction=self._in_correction_now,
+            predator=getattr(signal, "predator_present", False),
+            tp_schedule=tp_sched,
+            signal_strength=getattr(signal, "class_mult", 0.5),
+        )
+        core_state, actions, events = downturn_core_logic.on_bar(
+            self._build_core_state(),
+            bar_count_5m=self._bar_count_5m,
+            bar_ts=self._last_bar_ts or datetime.now(timezone.utc),
+            entry_request=entry_request,
+        )
+        self._apply_core_state(core_state)
+        self._apply_core_events(events)
+        submit_action = next((action for action in actions if isinstance(action, SubmitEntry)), None)
+        if submit_action is None:
+            return
 
         risk_ctx = RiskContext(
             stop_for_risk=stop0,
@@ -1410,11 +1497,11 @@ class DownturnEngine:
             strategy_id=C.STRATEGY_ID,
             instrument=inst,
             side=OrderSide.SELL,
-            qty=qty,
-            order_type=order_type,
-            limit_price=limit_price,
-            stop_price=entry_price,
-            tif="DAY",
+            qty=submit_action.qty,
+            order_type=oms_order_type,
+            limit_price=submit_action.limit_price,
+            stop_price=submit_action.stop_price,
+            tif=submit_action.tif,
             role=OrderRole.ENTRY,
             risk_context=risk_ctx,
         )
@@ -1426,23 +1513,18 @@ class DownturnEngine:
         ))
 
         if receipt and receipt.oms_order_id:
-            we = WorkingEntry(
-                oms_order_id=receipt.oms_order_id,
-                engine_tag=tag,
-                signal_class=sig_class,
-                entry_price=entry_price,
-                stop0=stop0,
-                qty=qty,
-                submitted_bar_idx=self._bar_count_5m,
-                ttl_bars=72,  # 6 hours at 5m
-                composite_regime=self._regime.composite_regime,
-                vol_state=self._regime.vol_state,
-                in_correction=self._in_correction_now,
-                predator=getattr(signal, "predator_present", False),
-                tp_schedule=tp_sched,
-                signal_strength=getattr(signal, "class_mult", 0.5),
+            core_state, _, events = downturn_core_logic.on_order_update(
+                self._build_core_state(),
+                DownturnOrderUpdate(
+                    oms_order_id=receipt.oms_order_id,
+                    status="accepted",
+                    timestamp=datetime.now(timezone.utc),
+                    order_role="entry",
+                    accepted_entry=entry_request,
+                ),
             )
-            self._working_entries.append(we)
+            self._apply_core_state(core_state)
+            self._apply_core_events(events)
             logger.info(
                 "Entry submitted: %s/%s @ %.2f stop=%.2f qty=%d",
                 tag.value, sig_class, entry_price, stop0, qty,
@@ -1471,7 +1553,17 @@ class DownturnEngine:
             order=order,
         ))
         if receipt and receipt.oms_order_id and self._position:
-            self._position.stop_oms_order_id = receipt.oms_order_id
+            core_state, _, events = downturn_core_logic.on_order_update(
+                self._build_core_state(),
+                DownturnOrderUpdate(
+                    oms_order_id=receipt.oms_order_id,
+                    status="accepted",
+                    timestamp=datetime.now(timezone.utc),
+                    order_role="stop",
+                ),
+            )
+            self._apply_core_state(core_state)
+            self._apply_core_events(events)
 
     async def _update_stop(self, new_stop: float) -> None:
         """Update protective stop via REPLACE_ORDER intent."""
@@ -1659,53 +1751,55 @@ class DownturnEngine:
         fill_price = payload.get("price", 0.0)
         fill_qty = payload.get("qty", 0)
         fill_commission = float(payload.get("commission", 0.0) or 0.0)
+        fill_time = getattr(event, "timestamp", None) or datetime.now(timezone.utc)
 
         # Check if this is an entry fill
         for we in list(self._working_entries):
             if we.oms_order_id == oms_order_id:
-                self._working_entries.remove(we)
-                await self._on_entry_fill(we, fill_price, fill_qty, fill_commission)
+                await self._on_entry_fill(we, fill_price, fill_qty, fill_commission, fill_time)
                 return
 
         # Check if this is an exit fill (protective stop or flatten)
         if self._position is not None:
             if oms_order_id == self._position.stop_oms_order_id:
-                await self._on_exit_fill(fill_price, fill_qty, "stop", fill_commission)
+                await self._on_exit_fill(fill_price, fill_qty, "stop", fill_commission, fill_time)
             else:
                 # Flatten or other exit — treat as market exit
-                await self._on_exit_fill(fill_price, fill_qty, "market_exit", fill_commission)
+                await self._on_exit_fill(fill_price, fill_qty, "market_exit", fill_commission, fill_time)
 
     async def _on_entry_fill(
         self, we: WorkingEntry, fill_price: float, fill_qty: int,
-        fill_commission: float = 0.0,
+        fill_commission: float = 0.0, fill_time: datetime | None = None,
     ) -> None:
         """Create ActivePosition from filled entry order."""
-        self._bars_since_last_entry = 0
-        qty = fill_qty or we.qty
-
-        self._position = ActivePosition(
-            engine_tag=we.engine_tag,
-            signal_class=we.signal_class,
-            trade_id=we.oms_order_id,
-            entry_price=fill_price,
-            stop0=we.stop0,
-            qty=qty,
-            remaining_qty=qty,
-            entry_oms_order_id=we.oms_order_id,
-            entry_time=datetime.now(timezone.utc),
-            mfe_price=fill_price,
-            mae_price=fill_price,
-            chandelier_stop=we.stop0,
-            tp_schedule=we.tp_schedule,
-            composite_regime=we.composite_regime,
-            vol_state=we.vol_state,
-            in_correction=we.in_correction,
-            predator=we.predator,
+        core_state, actions, events = downturn_core_logic.on_fill(
+            self._build_core_state(),
+            DownturnFill(
+                oms_order_id=we.oms_order_id,
+                fill_price=fill_price,
+                fill_qty=fill_qty or we.qty,
+                commission=fill_commission,
+                fill_time=fill_time or datetime.now(timezone.utc),
+            ),
         )
-        self._position.commission = fill_commission
+        self._apply_core_state(core_state)
+        self._apply_core_events(events)
+        if self._position is None:
+            logger.error("Shared core did not open downturn position for filled entry %s", we.oms_order_id)
+            self._record_decision(
+                "CORE_ENTRY_FILL_ERROR",
+                {"oms_order_id": we.oms_order_id, "fill_price": fill_price, "qty": fill_qty or we.qty},
+            )
+            try:
+                await self._flatten("CORE_ENTRY_FILL_ERROR")
+            except Exception:
+                logger.exception("Failed emergency flatten after downturn core entry-fill mismatch")
+            return
+        qty = self._position.qty if self._position is not None else (fill_qty or we.qty)
 
-        # Place protective stop
-        await self._place_protective_stop(we.stop0, qty)
+        for action in actions:
+            if isinstance(action, SubmitExit):
+                await self._place_protective_stop(action.stop_price or we.stop0, action.qty)
 
         logger.info(
             "Entry filled: %s/%s @ %.2f qty=%d stop0=%.2f",
@@ -1786,7 +1880,7 @@ class DownturnEngine:
 
     async def _on_exit_fill(
         self, fill_price: float, fill_qty: int, exit_type: str,
-        fill_commission: float = 0.0,
+        fill_commission: float = 0.0, fill_time: datetime | None = None,
     ) -> None:
         """Process exit fill: record trade, update risk, clear position."""
         pos = self._position
@@ -1875,30 +1969,59 @@ class DownturnEngine:
             except Exception:
                 logger.warning("Trade recorder failed", exc_info=True)
 
-        # Clear position
-        self._position = None
+        core_state, _, events = downturn_core_logic.on_fill(
+            self._build_core_state(),
+            DownturnFill(
+                oms_order_id=pos.stop_oms_order_id or pos.entry_oms_order_id,
+                fill_price=fill_price,
+                fill_qty=close_qty,
+                commission=fill_commission,
+                fill_time=fill_time or datetime.now(timezone.utc),
+                exit_type=exit_type,
+            ),
+        )
+        self._apply_core_state(core_state)
+        self._apply_core_events(events)
         self._momentum_impulse_pending = False
         self._persist_state()
 
     def _on_order_terminal(self, event: Any) -> None:
         """Handle cancelled/expired/rejected orders."""
-        oms_order_id = getattr(event, "oms_order_id", "")
-        self._working_entries = [
-            we for we in self._working_entries if we.oms_order_id != oms_order_id
-        ]
+        core_state, _, events = downturn_core_logic.on_order_update(
+            self._build_core_state(),
+            DownturnOrderUpdate(
+                oms_order_id=getattr(event, "oms_order_id", ""),
+                status=str(getattr(getattr(event, "event_type", None), "value", "terminal")).lower(),
+                timestamp=datetime.now(timezone.utc),
+            ),
+        )
+        self._apply_core_state(core_state)
+        self._apply_core_events(events)
 
     def _expire_working_entries(self) -> None:
         """Cancel entries that exceeded their TTL."""
-        expired = [
-            we for we in self._working_entries
-            if self._bar_count_5m - we.submitted_bar_idx >= we.ttl_bars
+        entries_by_id = {we.oms_order_id: we for we in self._working_entries}
+        core_state, actions, events = downturn_core_logic.on_bar(
+            self._build_core_state(),
+            bar_count_5m=self._bar_count_5m,
+            bar_ts=self._last_bar_ts or datetime.now(timezone.utc),
+            expire_entries=True,
+        )
+        self._apply_core_state(core_state)
+        self._apply_core_events(events)
+        expired_ids = [
+            action.target_order_id
+            for action in actions
+            if isinstance(action, CancelAction) and action.reason == "ttl_expiry"
         ]
-        for we in expired:
-            asyncio.create_task(self._cancel_order(we.oms_order_id))
-            self._working_entries.remove(we)
+        for oms_order_id in expired_ids:
+            we = entries_by_id.get(oms_order_id)
+            if we is None:
+                continue
+            asyncio.create_task(self._cancel_order(oms_order_id))
             self._log_missed(
                 signal_name=f"{we.engine_tag.value}_{we.signal_class}",
-                signal_id=we.oms_order_id,
+                signal_id=oms_order_id,
                 signal_strength=we.signal_strength,
                 blocked_by="ttl_expiry",
                 block_reason=f"Working entry expired after {we.ttl_bars} bars without fill",

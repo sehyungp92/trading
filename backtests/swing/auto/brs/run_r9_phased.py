@@ -24,9 +24,6 @@ from pathlib import Path
 
 # Aliases must be installed before any backtest imports
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
-from backtests.swing._aliases import install
-install()
-
 from backtests.swing.auto.brs.greedy_optimize import run_greedy, save_greedy_result
 from backtests.swing.auto.brs.phase_candidates import get_phase_candidates
 from backtests.swing.auto.brs.phase_gates import check_phase_gate
@@ -72,8 +69,8 @@ INITIAL_EQUITY = 10_000.0
 
 def run_backtest_metrics(mutations: dict) -> dict:
     """Run backtest and return metrics dict."""
-    from backtest.config_brs import BRSConfig
-    from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
+    from backtests.swing.config_brs import BRSConfig
+    from backtests.swing.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
     from backtests.swing.auto.brs.config_mutator import mutate_brs_config
 
     config = BRSConfig(initial_equity=INITIAL_EQUITY, data_dir=DATA_DIR)

@@ -30,11 +30,7 @@ def init_worker(data_dir_str: str, equity: float) -> None:
     logging.getLogger("strategies.momentum.vdub").setLevel(logging.WARNING)
     logging.getLogger("backtests.momentum.engine.vdubus_engine").setLevel(logging.WARNING)
 
-    from backtests.momentum._aliases import install
-
-    install()
-
-    from backtest.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
+    from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
 
     _worker_config = VdubusBacktestConfig(
         initial_equity=equity,
@@ -70,7 +66,7 @@ def score_candidate(args: tuple) -> ScoredCandidate:
     try:
         from dataclasses import asdict
 
-        from backtest.engine.vdubus_engine import VdubusEngine
+        from backtests.momentum.engine.vdubus_engine import VdubusEngine
         from backtests.momentum.auto.config_mutator import mutate_vdubus_config
         from backtests.momentum.auto.vdubus.plugin import score_phase_metrics
         from backtests.momentum.auto.vdubus.scoring import extract_vdubus_metrics

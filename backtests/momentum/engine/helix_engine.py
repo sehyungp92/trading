@@ -28,16 +28,16 @@ from typing import Optional
 
 import numpy as np
 
-from backtest.analysis.helix_shadow_tracker import HelixShadowTracker
-from backtest.config import round_to_tick, SlippageConfig
-from backtest.config_helix import Helix4AblationFlags, Helix4BacktestConfig
-from backtest.data.preprocessing import NumpyBars
-from backtest.engine.sim_broker import (
+from backtests.momentum.analysis.helix_shadow_tracker import HelixShadowTracker
+from backtests.momentum.config import round_to_tick, SlippageConfig
+from backtests.momentum.config_helix import Helix4AblationFlags, Helix4BacktestConfig
+from backtests.momentum.data.preprocessing import NumpyBars
+from backtests.momentum.engine.sim_broker import (
     FillResult, FillStatus, OrderSide, OrderType, SimBroker, SimOrder,
 )
 
-from strategy import config as C
-from strategy.config import (
+from strategies.momentum.helix_v40 import config as C
+from strategies.momentum.helix_v40.config import (
     Setup, SetupClass, SetupState, PositionState, SessionBlock, TF, Bar, Pivot,
     MAX_CONCURRENT_POSITIONS, DUPLICATE_OVERRIDE_MIN_R,
     PARTIAL1_R, PARTIAL1_FRAC, PARTIAL2_R, PARTIAL2_FRAC,
@@ -56,18 +56,18 @@ from strategy.config import (
     DOW_BLOCKED, HOUR_SIZE_MULT, DOW_SIZE_MULT,
     CLASS_T_MIN_BARS_SINCE_M,
 )
-from strategy.gates import check_gates, GateResult
-from strategy.indicators import BarSeries, VolEngine
-from strategy.pivots import PivotDetector
-from strategy.positions import unrealized_r, r_state
-from strategy.risk import RiskEngine
-from strategy.session import (
+from strategies.momentum.helix_v40.gates import check_gates, GateResult
+from strategies.momentum.helix_v40.indicators import BarSeries, VolEngine
+from strategies.momentum.helix_v40.pivots import PivotDetector
+from strategies.momentum.helix_v40.positions import unrealized_r, r_state
+from strategies.momentum.helix_v40.risk import RiskEngine
+from strategies.momentum.helix_v40.session import (
     get_session_block, entries_allowed,
     is_halt, is_reopen_dead, is_pre_halt_cancel,
     class_allowed_in_session, max_spread_for_session, is_rth,
     session_size_mult, NewsCalendar,
 )
-from strategy.signals import (
+from strategies.momentum.helix_v40.signals import (
     SignalEngine, alignment_score, trend_strength, strong_trend_flag,
 )
 
@@ -246,8 +246,8 @@ class _PendingSetup:
 @contextmanager
 def _ablation_patch(overrides: dict[str, float]):
     """Temporarily override strategy.config module-level constants."""
-    import strategy.gates as _gates
-    import strategy.risk as _risk_mod
+    import strategies.momentum.helix_v40.gates as _gates
+    import strategies.momentum.helix_v40.risk as _risk_mod
 
     _submodules = [_gates, _risk_mod]
     originals = {}

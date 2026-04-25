@@ -13,21 +13,21 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 
-from strategy_3.config import (
+from strategies.swing.breakout.config import (
     CORR_LOOKBACK_BARS,
     MAX_PORTFOLIO_HEAT,
     SYMBOL_CONFIGS,
     SymbolConfig,
 )
-from strategy_3.indicators import rolling_correlation
-from strategy_3.models import (
+from strategies.swing.breakout.indicators import rolling_correlation
+from strategies.swing.breakout.models import (
     CircuitBreakerState,
     Direction,
     PositionState,
 )
 
-from backtest.config_breakout import BreakoutBacktestConfig
-from backtest.data.preprocessing import (
+from backtests.swing.config_breakout import BreakoutBacktestConfig
+from backtests.swing.data.preprocessing import (
     NumpyBars,
     align_4h_to_hourly,
     align_daily_to_hourly,
@@ -35,7 +35,7 @@ from backtest.data.preprocessing import (
     filter_rth,
     resample_1h_to_4h,
 )
-from backtest.engine.breakout_engine import (
+from backtests.swing.engine.breakout_engine import (
     _AblationPatch,
     BreakoutEngine,
     BreakoutSymbolResult,

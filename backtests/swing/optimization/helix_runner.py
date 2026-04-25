@@ -11,20 +11,20 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import numpy as np
 
-from backtest.analysis.metrics import compute_metrics
-from backtest.config_helix import HelixBacktestConfig
-from backtest.engine.helix_portfolio_engine import (
+from backtests.swing.analysis.metrics import compute_metrics
+from backtests.swing.config_helix import HelixBacktestConfig
+from backtests.swing.engine.helix_portfolio_engine import (
     HelixPortfolioData,
     run_helix_independent,
 )
-from backtest.optimization.objective import composite_objective
-from backtest.optimization.param_space import latin_hypercube_sample
-from backtest.optimization.helix_param_space import (
+from backtests.swing.optimization.objective import composite_objective
+from backtests.swing.optimization.param_space import latin_hypercube_sample
+from backtests.swing.optimization.helix_param_space import (
     HELIX_PARAM_SPACE,
     helix_params_to_overrides,
 )
-from backtest.optimization.runner import OptimizationResult, TrialResult
-from strategy_2.config import SYMBOL_CONFIGS
+from backtests.swing.optimization.runner import OptimizationResult, TrialResult
+from strategies.swing.akc_helix.config import SYMBOL_CONFIGS
 
 logger = logging.getLogger(__name__)
 

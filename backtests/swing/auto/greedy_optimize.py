@@ -42,8 +42,6 @@ def _init_worker(data_dir_str: str, equity: float) -> None:
     """Initialize a worker process: install aliases, load data."""
     global _worker_data, _worker_equity
 
-    from backtests.swing._aliases import install
-    install()
     from backtests.swing.config_unified import UnifiedBacktestConfig
     from backtests.swing.engine.unified_portfolio_engine import load_unified_data
 

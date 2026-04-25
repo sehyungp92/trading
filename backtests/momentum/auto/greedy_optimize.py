@@ -35,9 +35,6 @@ def _init_worker(data_dir_str: str, equity: float) -> None:
     """Initialize worker process with shared data."""
     global _worker_helix_data, _worker_nqdtc_data, _worker_vdubus_data, _worker_equity
 
-    from backtests.momentum._aliases import install
-    install()
-
     from backtests.momentum.cli import (
         _load_helix_data,
         _load_nqdtc_data,
@@ -164,9 +161,6 @@ _strat_worker_equity: float = 10_000.0
 def _init_strategy_worker(strategy: str, data_dir_str: str, equity: float) -> None:
     """Initialize worker for single-strategy greedy (loads only 1 dataset)."""
     global _strat_worker_data, _strat_worker_strategy, _strat_worker_equity
-
-    from backtests.momentum._aliases import install
-    install()
 
     from backtests.momentum.cli import (
         _load_helix_data,

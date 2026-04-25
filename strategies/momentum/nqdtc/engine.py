@@ -6,6 +6,7 @@ import json
 import logging
 import math
 import uuid
+from copy import deepcopy
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -20,6 +21,7 @@ from libs.oms.models.order import (
 )
 from libs.oms.risk.calculator import RiskCalculator
 from libs.services.trade_recorder import TradeRecorder
+from strategies.core.actions import CancelAction, SubmitEntry, SubmitExit
 
 from libs.risk.drawdown_throttle import DrawdownThrottle, DrawdownThrottleConfig
 from . import box as box_mod
@@ -34,6 +36,16 @@ from .models import (
     BoxEngineState, NewsEvent,
     PositionState, RegimeState, Regime4H, RollingBuffer, Session,
     SessionEngineState, TPLevel, VWAPAccumulator, WorkingOrder,
+)
+from .core import logic as nqdtc_core_logic
+from .core.serializers import restore_state as restore_core_state
+from .core.serializers import snapshot_state as snapshot_core_state
+from .core.state import (
+    NQDTCCoreState,
+    NQDTCEntryFillContext,
+    NQDTCEntryRequest,
+    NQDTCFill,
+    NQDTCOrderUpdate,
 )
 from strategies.momentum.instrumentation.src.config_snapshot import snapshot_config_module
 from strategies.momentum.nqdtc import config as strategy_config
@@ -260,6 +272,46 @@ class NQDTCEngine:
             "last_decision_details": self._last_decision_details,
             "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
         }
+
+    def snapshot_state(self) -> dict[str, Any]:
+        return {
+            "strategy_id": C.STRATEGY_ID,
+            "symbol": self._symbol,
+            "equity": self._equity,
+            "core": snapshot_core_state(self._build_core_state()),
+        }
+
+    async def hydrate(self, snapshot: dict[str, Any]) -> None:
+        core_snapshot = snapshot.get("core", snapshot)
+        self._apply_core_state(restore_core_state(core_snapshot))
+        if "equity" in snapshot:
+            self._equity = float(snapshot["equity"])
+
+    def _build_core_state(self) -> NQDTCCoreState:
+        return NQDTCCoreState(
+            symbol=self._symbol,
+            position=deepcopy(self._position),
+            working_orders=deepcopy(self._working_orders),
+            bar_count_5m=self._bar_count_5m,
+            last_decision_code=self._last_decision_code,
+            last_decision_details=dict(self._last_decision_details),
+            last_bar_ts=self._last_bar_ts,
+        )
+
+    def _apply_core_state(self, state: NQDTCCoreState) -> None:
+        if state.symbol:
+            self._symbol = state.symbol
+        self._position = deepcopy(state.position)
+        self._working_orders = deepcopy(state.working_orders)
+        self._bar_count_5m = state.bar_count_5m
+        self._last_decision_code = state.last_decision_code
+        self._last_decision_details = dict(state.last_decision_details)
+        self._last_bar_ts = state.last_bar_ts
+
+    def _apply_core_events(self, events: list[Any]) -> None:
+        for event in events:
+            self._record_decision(event.code, dict(event.details))
+            self._last_bar_ts = event.ts
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -1425,6 +1477,36 @@ class NQDTCEngine:
         side = OrderSide.BUY if direction == Direction.LONG else OrderSide.SELL
         planned_entry = price or stop_price or 0.0
 
+        entry_request = NQDTCEntryRequest(
+            client_order_id=f"{C.STRATEGY_ID}:{subtype.value}:{self._bar_count_5m}:{len(self._working_orders)}",
+            symbol=self._symbol,
+            subtype=subtype,
+            direction=direction,
+            qty=qty,
+            stop_for_risk=stop_for_risk,
+            tif=tif,
+            order_type=order_type.name,
+            price=price,
+            limit_price=price if is_limit else price,
+            stop_price=stop_price,
+            oca_group=oca_group,
+            is_limit=is_limit,
+            quality_mult=quality_mult,
+            submitted_bar_idx=self._bar_count_5m,
+            ttl_bars=C.A_TTL_5M_BARS if subtype in (EntrySubtype.A_RETEST, EntrySubtype.A_LATCH) else 6,
+        )
+        core_state, actions, events = nqdtc_core_logic.on_bar(
+            self._build_core_state(),
+            bar_count_5m=self._bar_count_5m,
+            bar_ts=self._last_bar_ts or datetime.now(timezone.utc),
+            entry_request=entry_request,
+        )
+        self._apply_core_state(core_state)
+        self._apply_core_events(events)
+        submit_action = next((action for action in actions if isinstance(action, SubmitEntry)), None)
+        if submit_action is None:
+            return None
+
         risk_ctx = RiskContext(
             stop_for_risk=stop_for_risk,
             planned_entry_price=planned_entry,
@@ -1437,11 +1519,11 @@ class NQDTCEngine:
             strategy_id=C.STRATEGY_ID,
             instrument=inst,
             side=side,
-            qty=qty,
+            qty=submit_action.qty,
             order_type=order_type,
-            limit_price=price,
-            stop_price=stop_price,
-            tif=tif,
+            limit_price=submit_action.limit_price,
+            stop_price=submit_action.stop_price,
+            tif=submit_action.tif,
             role=OrderRole.ENTRY,
             entry_policy=EntryPolicy(ttl_bars=C.A_TTL_5M_BARS if subtype in (EntrySubtype.A_RETEST, EntrySubtype.A_LATCH) else None),
             risk_context=risk_ctx,
@@ -1456,25 +1538,18 @@ class NQDTCEngine:
         ))
 
         if receipt.oms_order_id:
-            self._record_decision("ENTRY_SUBMITTED", {
-                "subtype": subtype.value if hasattr(subtype, 'value') else str(subtype),
-                "direction": direction.value if hasattr(direction, 'value') else str(direction),
-                "qty": qty, "price": planned_entry,
-            })
-            self._working_orders.append(WorkingOrder(
-                oms_order_id=receipt.oms_order_id,
-                subtype=subtype,
-                direction=direction,
-                price=planned_entry,
-                qty=qty,
-                submitted_bar_idx=self._bar_count_5m,
-                ttl_bars=C.A_TTL_5M_BARS if subtype in (EntrySubtype.A_RETEST, EntrySubtype.A_LATCH) else 6,
-                oca_group=oca_group,
-                is_limit=is_limit,
-                quality_mult=quality_mult,
-                stop_for_risk=stop_for_risk,
-                expected_fill_price=planned_entry,
-            ))
+            core_state, _, events = nqdtc_core_logic.on_order_update(
+                self._build_core_state(),
+                NQDTCOrderUpdate(
+                    oms_order_id=receipt.oms_order_id,
+                    status="accepted",
+                    timestamp=datetime.now(timezone.utc),
+                    order_role="entry",
+                    accepted_entry=entry_request,
+                ),
+            )
+            self._apply_core_state(core_state)
+            self._apply_core_events(events)
             return receipt.oms_order_id
         return None
 
@@ -1815,6 +1890,34 @@ class NQDTCEngine:
         except Exception as e:
             logger.warning("Cancel failed for %s: %s", oms_order_id, e)
 
+    async def _reject_filled_entry(
+        self,
+        filled_order_id: str,
+        sibling_order_ids: list[str],
+        *,
+        reason: str,
+        details: dict[str, Any],
+    ) -> None:
+        for sibling_order_id in sibling_order_ids:
+            await self._cancel_order(sibling_order_id)
+
+        remove_ids = {filled_order_id, *sibling_order_ids}
+        self._working_orders = [
+            order for order in self._working_orders if order.oms_order_id not in remove_ids
+        ]
+        self._record_decision("ENTRY_FILL_REJECTED", {"reason": reason, **details})
+
+        try:
+            receipt = await self._oms.submit_intent(Intent(
+                intent_type=IntentType.FLATTEN,
+                strategy_id=C.STRATEGY_ID,
+                instrument_symbol=self._symbol,
+            ))
+            if receipt and receipt.oms_order_id:
+                self._last_flatten_oms_id = receipt.oms_order_id
+        except Exception:
+            logger.exception("Failed emergency flatten after rejected filled entry %s", filled_order_id)
+
     async def _update_stop(self, new_stop: float, old_stop: float = 0.0, source: str = "") -> None:
         """Update protective stop order."""
         if self._position.stop_oms_order_id:
@@ -2040,6 +2143,7 @@ class NQDTCEngine:
         payload = event.payload or {}
         price = payload.get("price", 0.0)
         qty = payload.get("qty", 0)
+        fill_time = getattr(event, "timestamp", None) or datetime.now(timezone.utc)
 
         # Flatten fill confirmation -- broker executed the pre-booked exit
         if self._last_flatten_oms_id and oms_id == self._last_flatten_oms_id:
@@ -2098,27 +2202,33 @@ class NQDTCEngine:
                     except Exception:
                         pass
                 self._accumulate_realized_pnl(stop_r)
-                self._clear_position()
+                core_state, _, events = nqdtc_core_logic.on_fill(
+                    self._build_core_state(),
+                    NQDTCFill(
+                        oms_order_id=oms_id,
+                        fill_price=price,
+                        fill_qty=qty,
+                        fill_time=fill_time,
+                        exit_type="stop",
+                    ),
+                )
+                self._apply_core_state(core_state)
+                self._apply_core_events(events)
                 self._last_flatten_oms_id = None
             return
 
-        # Cancel OCO sibling
-        if wo.oca_group:
-            for sibling in list(self._working_orders):
-                if sibling.oca_group == wo.oca_group and sibling.oms_order_id != oms_id:
-                    await self._cancel_order(sibling.oms_order_id)
-                    self._working_orders.remove(sibling)
-
-        # Remove from working
-        if wo in self._working_orders:
-            self._working_orders.remove(wo)
+        sibling_order_ids = [
+            sibling.oms_order_id
+            for sibling in self._working_orders
+            if wo.oca_group and sibling.oca_group == wo.oca_group and sibling.oms_order_id != oms_id
+        ]
 
         # Open position
         inst = self._instruments.get(self._symbol)
         tick = inst.tick_size if inst else 0.25
 
         # Get active session engine for box state
-        now_ny = _to_ny(datetime.now(timezone.utc))
+        now_ny = _to_ny(fill_time)
         session = session_type(now_ny)
         engine = self._engines[session]
 
@@ -2132,6 +2242,12 @@ class NQDTCEngine:
             logger.info("Min stop gate: stop_dist=%.2f < %.1f, rejecting fill", r_points, MIN_STOP_DISTANCE)
             self._log_missed(wo.direction, wo.subtype.value, oms_id, "MIN_STOP_DISTANCE", f"r={r_points:.2f}", signal_strength=wo.quality_mult,
                             filter_decisions=[{"filter_name": "MIN_STOP_DISTANCE", "threshold": MIN_STOP_DISTANCE, "actual_value": r_points, "passed": False}])
+            await self._reject_filled_entry(
+                oms_id,
+                sibling_order_ids,
+                reason="MIN_STOP_DISTANCE",
+                details={"actual_value": r_points, "threshold": MIN_STOP_DISTANCE, "subtype": wo.subtype.value},
+            )
             return
 
         # v7: Max stop width gate: reject excessively wide stops
@@ -2139,6 +2255,12 @@ class NQDTCEngine:
             logger.info("Max stop width: stop_dist=%.2f > %.1f, rejecting", r_points, C.MAX_STOP_WIDTH_PTS)
             self._log_missed(wo.direction, wo.subtype.value, oms_id, "MAX_STOP_WIDTH", f"r={r_points:.2f}", signal_strength=wo.quality_mult,
                             filter_decisions=[{"filter_name": "MAX_STOP_WIDTH", "threshold": C.MAX_STOP_WIDTH_PTS, "actual_value": r_points, "passed": False}])
+            await self._reject_filled_entry(
+                oms_id,
+                sibling_order_ids,
+                reason="MAX_STOP_WIDTH",
+                details={"actual_value": r_points, "threshold": C.MAX_STOP_WIDTH_PTS, "subtype": wo.subtype.value},
+            )
             return
 
         # Block fills during 06:00 ET hour (pre-European-open, WR=39%)
@@ -2146,6 +2268,12 @@ class NQDTCEngine:
             logger.info("06:00 ET fill block: rejecting entry fill at %s", now_ny.strftime("%H:%M"))
             self._log_missed(wo.direction, wo.subtype.value, oms_id, "BLOCK_06_ET", "fill at 06:xx ET", signal_strength=wo.quality_mult,
                             filter_decisions=[{"filter_name": "BLOCK_06_ET", "threshold": 6, "actual_value": now_ny.hour, "passed": False}])
+            await self._reject_filled_entry(
+                oms_id,
+                sibling_order_ids,
+                reason="BLOCK_06_ET",
+                details={"actual_value": now_ny.hour, "threshold": 6, "subtype": wo.subtype.value},
+            )
             return
 
         # Block fills during 12:00 ET hour (17% WR, outlier-dependent)
@@ -2153,6 +2281,12 @@ class NQDTCEngine:
             logger.info("12:00 ET fill block: rejecting entry fill at %s", now_ny.strftime("%H:%M"))
             self._log_missed(wo.direction, wo.subtype.value, oms_id, "BLOCK_12_ET", "fill at 12:xx ET", signal_strength=wo.quality_mult,
                             filter_decisions=[{"filter_name": "BLOCK_12_ET", "threshold": 12, "actual_value": now_ny.hour, "passed": False}])
+            await self._reject_filled_entry(
+                oms_id,
+                sibling_order_ids,
+                reason="BLOCK_12_ET",
+                details={"actual_value": now_ny.hour, "threshold": 12, "subtype": wo.subtype.value},
+            )
             return
 
         # Determine exit tier using actual quality_mult from working order (fix #5)
@@ -2175,37 +2309,53 @@ class NQDTCEngine:
             wo.direction, price, r_points, exit_tier, qty, tick,
         )
 
-        self._position = PositionState(
-            open=True,
-            symbol=self._symbol,
-            direction=wo.direction,
-            entry_subtype=wo.subtype,
-            entry_price=price,
-            stop_price=stop_price,
-            initial_stop_price=stop_price,
-            qty=qty,
-            qty_open=qty,
-            R_dollars=r_points * (inst.point_value if inst else 20.0) * qty,
-            quality_mult=wo.quality_mult,
-            exit_tier=exit_tier,
-            tp_levels=tp_levels,
-            mm_level=engine.breakout.mm_level,
-            mm_reached=engine.breakout.mm_reached if engine.breakout.active else False,
-            highest_since_entry=price,
-            lowest_since_entry=price,
-            box_high_at_entry=engine.box.box_high,
-            box_low_at_entry=engine.box.box_low,
-            box_mid_at_entry=engine.box.box_mid,
-            entry_session=session,
-            tp1_only_cap=tp1_cap,
+        core_state, actions, events = nqdtc_core_logic.on_fill(
+            self._build_core_state(),
+            NQDTCFill(
+                oms_order_id=oms_id,
+                fill_price=price,
+                fill_qty=qty,
+                fill_time=fill_time,
+                entry_context=NQDTCEntryFillContext(
+                    exit_tier=exit_tier,
+                    tp_levels=tp_levels,
+                    mm_level=engine.breakout.mm_level,
+                    mm_reached=engine.breakout.mm_reached if engine.breakout.active else False,
+                    box_high_at_entry=engine.box.box_high,
+                    box_low_at_entry=engine.box.box_low,
+                    box_mid_at_entry=engine.box.box_mid,
+                    entry_session=session,
+                    tp1_only_cap=tp1_cap,
+                ),
+            ),
         )
+        self._apply_core_state(core_state)
+        self._apply_core_events(events)
+        if not self._position.open:
+            logger.error("Shared core did not open NQDTC position for filled entry %s", oms_id)
+            await self._reject_filled_entry(
+                oms_id,
+                sibling_order_ids,
+                reason="CORE_ENTRY_FILL_ERROR",
+                details={"oms_order_id": oms_id, "fill_price": price, "qty": qty, "subtype": wo.subtype.value},
+            )
+            return
+        self._position.symbol = self._symbol
+        self._position.R_dollars = r_points * (inst.point_value if inst else 20.0) * qty
+
+        for sibling_order_id in sibling_order_ids:
+            await self._cancel_order(sibling_order_id)
+            self._working_orders = [
+                order for order in self._working_orders if order.oms_order_id != sibling_order_id
+            ]
 
         # Track continuation fills per breakout
         if wo.subtype == EntrySubtype.C_CONTINUATION and engine.breakout.active:
             engine.breakout.continuation_fills += 1
 
-        # Place protective stop
-        await self._place_protective_stop(stop_price, qty, wo.direction)
+        for action in actions:
+            if isinstance(action, SubmitExit):
+                await self._place_protective_stop(action.stop_price or stop_price, action.qty, wo.direction)
 
         # Telemetry (fix #16)
         fill_R_dollars = r_points * (inst.point_value if inst else 20.0) * qty
@@ -2338,17 +2488,33 @@ class NQDTCEngine:
             order=order,
         ))
         if receipt.oms_order_id:
-            self._position.stop_oms_order_id = receipt.oms_order_id
+            core_state, _, events = nqdtc_core_logic.on_order_update(
+                self._build_core_state(),
+                NQDTCOrderUpdate(
+                    oms_order_id=receipt.oms_order_id,
+                    status="accepted",
+                    timestamp=datetime.now(timezone.utc),
+                    order_role="stop",
+                ),
+            )
+            self._apply_core_state(core_state)
+            self._apply_core_events(events)
 
     async def _on_order_update(self, event: Any) -> None:
         """Handle terminal order events (cancel, reject, expire)."""
         oms_id = event.oms_order_id or ""
         etype = event.event_type
 
-        # Remove from working orders
-        self._working_orders = [
-            wo for wo in self._working_orders if wo.oms_order_id != oms_id
-        ]
+        core_state, _, events = nqdtc_core_logic.on_order_update(
+            self._build_core_state(),
+            NQDTCOrderUpdate(
+                oms_order_id=oms_id,
+                status=str(getattr(etype, "value", "terminal")).lower(),
+                timestamp=datetime.now(timezone.utc),
+            ),
+        )
+        self._apply_core_state(core_state)
+        self._apply_core_events(events)
 
         # Flatten order failed — resubmit emergency flatten (Rec 1/3)
         if self._last_flatten_oms_id and oms_id == self._last_flatten_oms_id:
@@ -2369,7 +2535,6 @@ class NQDTCEngine:
         # If stop order was cancelled/rejected for open position
         if self._position.stop_oms_order_id == oms_id:
             logger.warning("Protective stop %s -> %s!", oms_id, etype.value)
-            self._position.stop_oms_order_id = ""
 
     # ------------------------------------------------------------------
     # Bar fetching (fix #1: session filtering, fix #12: 60D for 30m)

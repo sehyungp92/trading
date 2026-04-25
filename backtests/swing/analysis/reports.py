@@ -6,9 +6,9 @@ from collections import Counter
 
 import numpy as np
 
-from backtest.analysis.metrics import BuyAndHoldMetrics, PerformanceMetrics
-from backtest.analysis.shadow_tracker import ShadowTracker
-from backtest.engine.backtest_engine import SymbolResult, TradeRecord
+from backtests.swing.analysis.metrics import BuyAndHoldMetrics, PerformanceMetrics
+from backtests.swing.analysis.shadow_tracker import ShadowTracker
+from backtests.swing.engine.backtest_engine import SymbolResult, TradeRecord
 
 logger = logging.getLogger(__name__)
 

@@ -1,4 +1,4 @@
-from strategy_3.models import SetupInstance
+from strategies.swing.breakout.models import SetupInstance
 
 
 def test_setup_instance_has_excursion_fields():

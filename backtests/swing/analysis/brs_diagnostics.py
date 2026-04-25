@@ -8,7 +8,7 @@ from io import StringIO
 import numpy as np
 import pandas as pd
 
-from backtest.engine.backtest_engine import SymbolResult
+from backtests.swing.engine.backtest_engine import SymbolResult
 
 from .brs_trade_metrics import BEAR_REGIMES, NON_DOWNTURN_REGIMES, summarize_brs_campaigns
 

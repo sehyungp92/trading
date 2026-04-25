@@ -14,19 +14,19 @@ from pathlib import Path
 
 import numpy as np
 
-from backtest.analysis.metrics import compute_metrics
-from backtest.config_breakout import BreakoutBacktestConfig
-from backtest.engine.breakout_portfolio_engine import (
+from backtests.swing.analysis.metrics import compute_metrics
+from backtests.swing.config_breakout import BreakoutBacktestConfig
+from backtests.swing.engine.breakout_portfolio_engine import (
     BreakoutPortfolioData,
     run_breakout_independent,
 )
-from backtest.optimization.objective import composite_objective
-from backtest.optimization.param_space import latin_hypercube_sample
-from backtest.optimization.breakout_param_space import (
+from backtests.swing.optimization.objective import composite_objective
+from backtests.swing.optimization.param_space import latin_hypercube_sample
+from backtests.swing.optimization.breakout_param_space import (
     BREAKOUT_PARAM_SPACE,
     breakout_params_to_overrides,
 )
-from backtest.optimization.runner import OptimizationResult, TrialResult
+from backtests.swing.optimization.runner import OptimizationResult, TrialResult
 
 logger = logging.getLogger(__name__)
 

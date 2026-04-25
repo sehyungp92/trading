@@ -11,12 +11,12 @@ import multiprocessing
 
 import numpy as np
 
-from backtest.analysis.metrics import compute_metrics
-from backtest.config_vdubus import VdubusBacktestConfig
-from backtest.optimization.objective import composite_objective
-from backtest.optimization.param_space import latin_hypercube_sample
-from backtest.optimization.runner import OptimizationResult, TrialResult
-from backtest.optimization.vdubus_param_space import (
+from backtests.momentum.analysis.metrics import compute_metrics
+from backtests.momentum.config_vdubus import VdubusBacktestConfig
+from backtests.momentum.optimization.objective import composite_objective
+from backtests.momentum.optimization.param_space import latin_hypercube_sample
+from backtests.momentum.optimization.runner import OptimizationResult, TrialResult
+from backtests.momentum.optimization.vdubus_param_space import (
     VDUBUS_PARAM_SPACE,
     vdubus_params_to_overrides,
 )
@@ -48,7 +48,7 @@ def _evaluate_single(
         warmup_5m=base_config.warmup_5m,
     )
 
-    from backtest.engine.vdubus_engine import VdubusEngine
+    from backtests.momentum.engine.vdubus_engine import VdubusEngine
 
     engine = VdubusEngine(config.symbols[0], config)
     result = engine.run(

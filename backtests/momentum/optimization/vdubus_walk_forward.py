@@ -12,9 +12,9 @@ from datetime import timezone
 import numpy as np
 import pandas as pd
 
-from backtest.analysis.metrics import compute_metrics
-from backtest.config_vdubus import VdubusBacktestConfig
-from backtest.data.preprocessing import (
+from backtests.momentum.analysis.metrics import compute_metrics
+from backtests.momentum.config_vdubus import VdubusBacktestConfig
+from backtests.momentum.data.preprocessing import (
     NumpyBars,
     align_5m_to_15m,
     align_daily_to_15m,
@@ -23,9 +23,9 @@ from backtest.data.preprocessing import (
     resample_15m_to_1h,
     resample_5m_to_15m,
 )
-from backtest.optimization.objective import composite_objective
-from backtest.optimization.vdubus_runner import VdubusOptimizationRunner
-from backtest.optimization.walk_forward import (
+from backtests.momentum.optimization.objective import composite_objective
+from backtests.momentum.optimization.vdubus_runner import VdubusOptimizationRunner
+from backtests.momentum.optimization.walk_forward import (
     RobustnessThresholds,
     WalkForwardFold,
     WalkForwardResult,
@@ -165,7 +165,7 @@ class VdubusWalkForwardValidator:
             warmup_5m=self.base_config.warmup_5m,
         )
 
-        from backtest.engine.vdubus_engine import VdubusEngine
+        from backtests.momentum.engine.vdubus_engine import VdubusEngine
         engine = VdubusEngine(test_config.symbols[0], test_config)
         test_result = engine.run(
             test_data["bars_15m"],

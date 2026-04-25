@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from strategies.contracts import RuntimeContext
+from strategies.core.plugin_runtime import delegate_hydrate, delegate_snapshot_state
 from .engine import BRSLiveEngine
 from .config import build_instruments
 
@@ -32,10 +33,10 @@ class BRSPlugin:
         return self._engine.health_status()
 
     async def hydrate(self, snapshot: dict[str, Any]) -> None:
-        pass
+        await delegate_hydrate(self._engine, snapshot)
 
     def snapshot_state(self) -> dict[str, Any]:
-        return {"strategy_id": self.strategy_id}
+        return delegate_snapshot_state(self._engine, strategy_id=self.strategy_id)
 
     async def on_market_data(self, event: Any) -> None:
         pass  # Engine subscribes directly via IB session

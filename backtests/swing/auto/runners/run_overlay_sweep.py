@@ -15,8 +15,6 @@ Usage:
 """
 from __future__ import annotations
 
-from backtests.swing._aliases import install; install()
-
 import argparse
 import copy
 import logging
@@ -26,8 +24,8 @@ from pathlib import Path
 
 import numpy as np
 
-from backtest.config_unified import UnifiedBacktestConfig, PRESETS
-from backtest.engine.unified_portfolio_engine import (
+from backtests.swing.config_unified import UnifiedBacktestConfig, PRESETS
+from backtests.swing.engine.unified_portfolio_engine import (
     UnifiedPortfolioData,
     UnifiedPortfolioResult,
     load_unified_data,

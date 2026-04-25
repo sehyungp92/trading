@@ -4,12 +4,12 @@ Reuses ParamRange, latin_hypercube_sample from the shared param_space module.
 """
 from __future__ import annotations
 
-from backtest.optimization.param_space import ParamRange
+from backtests.swing.optimization.param_space import ParamRange
 
 
 def _breakout_symbols() -> list[str]:
     try:
-        from strategy_3.config import SYMBOLS
+        from strategies.swing.breakout.config import SYMBOLS
         return list(SYMBOLS)
     except ImportError:
         return ["QQQ", "GLD"]

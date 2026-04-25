@@ -8,8 +8,8 @@ from enum import Enum, auto
 
 from libs.broker_ibkr.risk_support.tick_rules import round_to_tick
 
-from backtest.config import SlippageConfig
-from backtest.models import Direction
+from backtests.swing.config import SlippageConfig
+from backtests.swing.models import Direction
 
 logger = logging.getLogger(__name__)
 

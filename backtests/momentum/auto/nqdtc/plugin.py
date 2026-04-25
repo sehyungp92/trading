@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from .scoring import NQDTCCompositeScore, NQDTCMetrics
 
 from backtests.shared.auto.phase_state import PhaseState
+from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
@@ -227,8 +228,7 @@ class NQDTCPlugin:
         self._cached_data: dict[str, Any] | None = None
         self._last_context: dict[str, Any] = {}
         self._pool: mp.Pool | None = None
-        self._last_metrics_sig: str = ""
-        self._last_metrics_result: dict[str, float] | None = None
+        self._final_metrics_cache: dict[str, dict[str, Any]] = {}
 
     def get_phase_spec(self, phase: int, state: PhaseState) -> PhaseSpec:
         focus, focus_metrics = PHASE_FOCUS[phase]
@@ -326,16 +326,9 @@ class NQDTCPlugin:
     # -- Metrics ---------------------------------------------------------------
 
     def compute_final_metrics(self, mutations: dict[str, Any]) -> dict[str, float]:
-        sig = mutation_signature(mutations)
-        if sig == self._last_metrics_sig and self._last_metrics_result is not None:
-            return self._last_metrics_result
-
-        from backtests.momentum._aliases import install
-
-        install()
-
-        from backtest.config_nqdtc import NQDTCBacktestConfig
-        from backtest.engine.nqdtc_engine import NQDTCEngine
+        from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
+        from backtests.momentum.data.replay_cache import replay_engine_kwargs
+        from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
         from backtests.momentum.auto.config_mutator import mutate_nqdtc_config
         from backtests.momentum.auto.nqdtc.scoring import extract_nqdtc_metrics
         from backtests.momentum.auto.nqdtc.worker import load_worker_data
@@ -343,12 +336,23 @@ class NQDTCPlugin:
         if self._cached_data is None:
             self._cached_data = load_worker_data("NQ", self.data_dir)
 
+        cache_key = build_cache_key(
+            "nqdtc.final_metrics",
+            source_fingerprint=str(self._cached_data.get("cache_source_fingerprint", "")),
+            mutations=mutations,
+            extra={"initial_equity": self.initial_equity},
+        )
+        cached = self._final_metrics_cache.get(cache_key)
+        if cached is not None:
+            self._last_context = cached["context"]
+            return dict(cached["metrics"])
+
         config = mutate_nqdtc_config(
             NQDTCBacktestConfig(initial_equity=self.initial_equity, data_dir=self.data_dir, fixed_qty=10),
             mutations,
         )
         engine = NQDTCEngine("MNQ", config)
-        result = engine.run(**self._cached_data)
+        result = engine.run(**replay_engine_kwargs(self._cached_data))
         metrics = extract_nqdtc_metrics(
             result.trades,
             list(result.equity_curve),
@@ -361,10 +365,13 @@ class NQDTCPlugin:
             "result": result,
             "metrics": metrics,
             "trades": result.trades,
+            "cache_key": cache_key,
         }
         metrics_dict = asdict(metrics)
-        self._last_metrics_sig = sig
-        self._last_metrics_result = metrics_dict
+        self._final_metrics_cache[cache_key] = {
+            "metrics": dict(metrics_dict),
+            "context": self._last_context,
+        }
         return metrics_dict
 
     def run_phase_diagnostics(self, phase: int, state: PhaseState, metrics: dict[str, float], greedy_result) -> str:

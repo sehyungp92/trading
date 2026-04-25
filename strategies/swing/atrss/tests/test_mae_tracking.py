@@ -1,5 +1,5 @@
 """Tests for MAE (Maximum Adverse Excursion) tracking in ATRSS PositionBook."""
-from strategy.models import PositionBook
+from strategies.swing.atrss.models import PositionBook
 
 
 def test_position_book_has_mae_fields():

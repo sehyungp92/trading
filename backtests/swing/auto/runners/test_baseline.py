@@ -12,8 +12,6 @@ logging.basicConfig(
 
 
 def main():
-    from backtests.swing._aliases import install; install()
-
     print("=" * 60, flush=True)
     print("BASELINE TEST: Swing Strategies", flush=True)
     print("=" * 60, flush=True)

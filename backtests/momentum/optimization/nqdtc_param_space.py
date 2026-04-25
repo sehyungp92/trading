@@ -6,7 +6,7 @@ Tier C (risk/trailing/exit management).
 """
 from __future__ import annotations
 
-from backtest.optimization.param_space import ParamRange
+from backtests.momentum.optimization.param_space import ParamRange
 
 
 # ---------------------------------------------------------------------------

@@ -11,9 +11,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from strategy.config import SymbolConfig
-from strategy.models import DailyState, Direction
-from backtest.data.preprocessing import NumpyBars
+from strategies.swing.atrss.config import SymbolConfig
+from strategies.swing.atrss.models import DailyState, Direction
+from backtests.swing.data.preprocessing import NumpyBars
 
 logger = logging.getLogger(__name__)
 

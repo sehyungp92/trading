@@ -6,14 +6,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from backtests.swing._aliases import install
-
-install()
-
-from backtest.config_brs import BRSConfig
-from backtest.data.preprocessing import NumpyBars
-from backtest.engine.brs_engine import BRSEngine
-from backtest.engine.brs_portfolio_engine import BRSSymbolData, run_brs_synchronized
+from backtests.swing.config_brs import BRSConfig
+from backtests.swing.data.preprocessing import NumpyBars
+from backtests.swing.engine.brs_engine import BRSEngine
+from backtests.swing.engine.brs_portfolio_engine import BRSSymbolData, run_brs_synchronized
 from backtests.swing.analysis.brs_diagnostics import compute_brs_diagnostics
 from backtests.swing.analysis.brs_trade_metrics import summarize_brs_campaigns
 from strategies.swing.brs.models import BRSRegime, Direction, EntrySignal, EntryType, ExitReason
@@ -91,7 +87,7 @@ def _short_signal(price: float) -> EntrySignal:
 
 
 def _patch_common(monkeypatch, *, signal_closes: set[float], qty_fn=None, exit_fn=None, scale_out_fn=None):
-    from backtest.engine import brs_engine as brs_engine_module
+    from backtests.swing.engine import brs_engine as brs_engine_module
 
     monkeypatch.setattr(
         brs_engine_module,

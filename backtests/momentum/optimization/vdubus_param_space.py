@@ -6,7 +6,7 @@ exits, decision gate, and risk parameters.
 """
 from __future__ import annotations
 
-from backtest.optimization.param_space import ParamRange
+from backtests.momentum.optimization.param_space import ParamRange
 
 
 # ---------------------------------------------------------------------------

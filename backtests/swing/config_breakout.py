@@ -5,12 +5,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from backtest.config import SlippageConfig
+from backtests.swing.config import SlippageConfig
 
 
 def _default_breakout_symbols() -> list[str]:
     try:
-        from strategy_3.config import SYMBOLS
+        from strategies.swing.breakout.config import SYMBOLS
         return list(SYMBOLS)
     except ImportError:
         return ["QQQ", "GLD"]

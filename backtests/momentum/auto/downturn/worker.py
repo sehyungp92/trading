@@ -28,11 +28,7 @@ def init_worker(
     if sys.stdout.encoding != "utf-8":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-    from backtests.momentum._aliases import install
-
-    install()
-
-    from backtest.config_downturn import DownturnBacktestConfig
+    from backtests.momentum.config_downturn import DownturnBacktestConfig
 
     _worker_phase = phase
     _worker_weights = scoring_weights
@@ -45,67 +41,26 @@ def init_worker(
 
 
 def load_worker_data(symbol: str, data_dir: Path) -> dict:
-    from backtest.data.cache import load_bars
-    from backtest.data.preprocessing import (
-        align_daily_to_5m,
-        align_higher_tf_to_5m,
-        build_numpy_arrays,
-        filter_eth,
-        normalize_timezone,
-        resample_5m_to_15m,
-        resample_5m_to_1h,
-        resample_5m_to_30m,
-        resample_5m_to_4h,
-        resample_5m_to_daily,
+    from backtests.momentum.data.replay_cache import load_replay_bundle
+
+    return load_replay_bundle(
+        symbol,
+        data_dir,
+        include_fifteen_min=True,
+        include_thirty_min=True,
+        include_hourly=True,
+        include_four_hour=True,
+        include_daily=True,
+        include_daily_es=True,
     )
-
-    five_min_path = data_dir / f"{symbol}_5m.parquet"
-    daily_path = data_dir / f"{symbol}_1d.parquet"
-
-    m_df = normalize_timezone(load_bars(five_min_path))
-    m_df = filter_eth(m_df)
-
-    m15_df = resample_5m_to_15m(m_df)
-    m30_df = resample_5m_to_30m(m_df)
-    h_df = resample_5m_to_1h(m_df)
-    fh_df = resample_5m_to_4h(m_df)
-
-    if daily_path.exists():
-        d_df = normalize_timezone(load_bars(daily_path))
-    else:
-        d_df = resample_5m_to_daily(m_df)
-
-    data = {
-        "five_min": build_numpy_arrays(m_df),
-        "fifteen_min": build_numpy_arrays(m15_df),
-        "thirty_min": build_numpy_arrays(m30_df),
-        "hourly": build_numpy_arrays(h_df),
-        "four_hour": build_numpy_arrays(fh_df),
-        "daily": build_numpy_arrays(d_df),
-        "fifteen_min_idx_map": align_higher_tf_to_5m(m_df, m15_df),
-        "thirty_min_idx_map": align_higher_tf_to_5m(m_df, m30_df),
-        "hourly_idx_map": align_higher_tf_to_5m(m_df, h_df),
-        "four_hour_idx_map": align_higher_tf_to_5m(m_df, fh_df),
-        "daily_idx_map": align_daily_to_5m(m_df, d_df),
-    }
-
-    es_path = data_dir / "ES_1d.parquet"
-    if es_path.exists():
-        es_df = normalize_timezone(load_bars(es_path))
-        data["daily_es"] = build_numpy_arrays(es_df)
-        data["daily_es_idx_map"] = align_daily_to_5m(m_df, es_df)
-    else:
-        data["daily_es"] = None
-        data["daily_es_idx_map"] = None
-
-    return data
 
 
 def score_candidate(args: tuple[str, dict, dict]) -> ScoredCandidate:
     name, candidate_muts, base_muts = args
 
     try:
-        from backtest.engine.downturn_engine import DownturnEngine
+        from backtests.momentum.data.replay_cache import replay_engine_kwargs
+        from backtests.momentum.engine.downturn_engine import DownturnEngine
         from backtests.momentum.analysis.downturn_diagnostics import compute_downturn_metrics
         from backtests.momentum.auto.downturn.config_mutator import mutate_downturn_config
         from backtests.momentum.auto.downturn.plugin import score_phase_metrics
@@ -115,7 +70,7 @@ def score_candidate(args: tuple[str, dict, dict]) -> ScoredCandidate:
 
         config = mutate_downturn_config(_worker_config, all_muts)
         engine = DownturnEngine("NQ", config)
-        result = engine.run(**_worker_data)
+        result = engine.run(**replay_engine_kwargs(_worker_data))
         metrics = compute_downturn_metrics(result, _worker_data["daily"])
         score = score_phase_metrics(
             _worker_phase,

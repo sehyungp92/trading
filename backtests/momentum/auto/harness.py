@@ -44,8 +44,6 @@ _p1: dict = {}  # Populated by _init_phase1_worker in each child process
 
 def _init_phase1_worker(data_dir_str: str, equity: float) -> None:
     """Initialize a Phase 1 worker. Loads all bar data once per process."""
-    from backtests.momentum._aliases import install
-    install()
     from backtests.momentum.cli import (
         _load_helix_data, _load_nqdtc_data, _load_vdubus_data,
     )

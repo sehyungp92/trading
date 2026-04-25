@@ -1,7 +1,7 @@
 """Composite objective function for optimization."""
 from __future__ import annotations
 
-from backtest.analysis.metrics import PerformanceMetrics
+from backtests.swing.analysis.metrics import PerformanceMetrics
 
 
 def composite_objective(

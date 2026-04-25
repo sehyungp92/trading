@@ -14,8 +14,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from strategy.models import DailyState, Direction
-from backtest.data.preprocessing import NumpyBars
+from strategies.swing.atrss.models import DailyState, Direction
+from backtests.swing.data.preprocessing import NumpyBars
 
 
 @dataclass

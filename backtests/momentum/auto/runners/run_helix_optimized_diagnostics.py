@@ -24,9 +24,6 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT))
 
-from backtests.momentum._aliases import install
-install()
-
 from backtests.momentum.analysis.helix_diagnostics import helix_full_diagnostic
 from backtests.momentum.auto.config_mutator import mutate_helix_config
 from backtests.momentum.auto.scoring import composite_score, extract_metrics

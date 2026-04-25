@@ -11,12 +11,9 @@ from pathlib import Path
 
 # Setup path and aliases
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from backtests.swing._aliases import install
-install()
-
-from backtest.config_helix import HelixBacktestConfig
-from backtest.engine.helix_portfolio_engine import load_helix_data, run_helix_synchronized
-from backtest.analysis.metrics import compute_metrics, compute_sharpe, compute_sortino, compute_max_drawdown
+from backtests.swing.config_helix import HelixBacktestConfig
+from backtests.swing.engine.helix_portfolio_engine import load_helix_data, run_helix_synchronized
+from backtests.swing.analysis.metrics import compute_metrics, compute_sharpe, compute_sortino, compute_max_drawdown
 from backtests.diagnostic_snapshot import build_group_snapshot
 from backtests.swing.analysis.optimized_baseline import (
     load_phase_mutation_source,

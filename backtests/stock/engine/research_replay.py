@@ -11,8 +11,6 @@ built at load time (O(1) lookup) rather than pd.index.normalize() per query.
 from __future__ import annotations
 
 import bisect
-import hashlib
-import json
 import logging
 from collections import defaultdict
 from dataclasses import asdict
@@ -23,6 +21,7 @@ from statistics import fmean
 import numpy as np
 import pandas as pd
 
+from backtests.shared.auto.cache_keys import fingerprint_tree, stable_signature
 from backtests.stock.config import UniverseConfig
 from backtests.stock.data.cache import bar_path, load_bars
 from backtests.stock.data.downloader import REFERENCE_SYMBOLS, SECTOR_ETFS
@@ -100,18 +99,7 @@ def _iloc_after(sorted_dates: list[date], last_ilocs: list[int], trade_date: dat
 
 def _json_signature(value) -> str:
     """Build a stable JSON signature for settings-aware cache keys."""
-
-    def _default(obj):
-        if isinstance(obj, Path):
-            return str(obj)
-        if isinstance(obj, (date, datetime)):
-            return obj.isoformat()
-        if hasattr(obj, "isoformat"):
-            return obj.isoformat()
-        return str(obj)
-
-    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), default=_default)
-    return hashlib.sha1(encoded.encode("utf-8")).hexdigest()
+    return stable_signature(value)
 
 
 # ---------------------------------------------------------------------------
@@ -384,6 +372,7 @@ class ResearchReplayEngine:
         self._5m_paths: dict[str, Path] = {}  # deferred 5m parquet paths for lazy loading
 
         self._trading_dates: list[date] = []
+        self._data_fingerprint: str | None = None
 
     # ------------------------------------------------------------------
     # Data loading
@@ -391,6 +380,7 @@ class ResearchReplayEngine:
 
     def load_all_data(self) -> None:
         """Load all parquet files into memory and pre-compute indices."""
+        self._data_fingerprint = None
         all_symbols = [sym for sym, _, _ in self._universe]
         ref_symbols = list(REFERENCE_SYMBOLS)
 
@@ -524,6 +514,11 @@ class ResearchReplayEngine:
     @property
     def trading_dates(self) -> list[date]:
         return self._trading_dates
+
+    def data_fingerprint(self) -> str:
+        if self._data_fingerprint is None:
+            self._data_fingerprint = fingerprint_tree(self._data_dir, patterns=("*.parquet",))
+        return self._data_fingerprint
 
     def _alcb_settings_signature(
         self,

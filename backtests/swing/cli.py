@@ -16,8 +16,6 @@ Or override per-command: --symbols QQQ,GLD
 """
 from __future__ import annotations
 
-from backtests.swing._aliases import install; install()
-
 import argparse
 import asyncio
 import logging
@@ -38,19 +36,19 @@ def _default_symbols(strategy: str) -> list[str]:
     """Resolve default symbols based on strategy."""
     if strategy == "helix":
         try:
-            from strategy_2.config import SYMBOLS
+            from strategies.swing.akc_helix.config import SYMBOLS
             return list(SYMBOLS)
         except ImportError:
             return ["QQQ", "GLD"]
     elif strategy == "breakout":
         try:
-            from strategy_3.config import SYMBOLS
+            from strategies.swing.breakout.config import SYMBOLS
             return list(SYMBOLS)
         except ImportError:
             return ["QQQ", "GLD"]
     else:  # atrss and regime both use ATRSS symbols
         try:
-            from strategy.config import SYMBOLS
+            from strategies.swing.atrss.config import SYMBOLS
             return list(SYMBOLS)
         except ImportError:
             return ["QQQ", "GLD"]
@@ -59,26 +57,26 @@ def _default_symbols(strategy: str) -> list[str]:
 def _get_symbol_configs(strategy: str):
     """Get the SYMBOL_CONFIGS for the given strategy."""
     if strategy == "helix":
-        from strategy_2.config import SYMBOL_CONFIGS
+        from strategies.swing.akc_helix.config import SYMBOL_CONFIGS
         return SYMBOL_CONFIGS
     elif strategy == "breakout":
-        from strategy_3.config import SYMBOL_CONFIGS
+        from strategies.swing.breakout.config import SYMBOL_CONFIGS
         return SYMBOL_CONFIGS
     else:
-        from strategy.config import SYMBOL_CONFIGS
+        from strategies.swing.atrss.config import SYMBOL_CONFIGS
         return SYMBOL_CONFIGS
 
 
 def _load_data(symbols: list[str], data_dir: Path):
     """Load cached parquet data into PortfolioData (ATRSS)."""
-    from backtest.data.cache import load_bars
-    from backtest.data.preprocessing import (
+    from backtests.swing.data.cache import load_bars
+    from backtests.swing.data.preprocessing import (
         align_daily_to_hourly,
         build_numpy_arrays,
         filter_rth,
         normalize_timezone,
     )
-    from backtest.engine.portfolio_engine import PortfolioData
+    from backtests.swing.engine.portfolio_engine import PortfolioData
 
     data = PortfolioData()
 
@@ -108,19 +106,19 @@ def _load_data(symbols: list[str], data_dir: Path):
 
 def _load_helix_data(symbols: list[str], data_dir: Path):
     """Load cached parquet data into HelixPortfolioData (includes 4H)."""
-    from backtest.engine.helix_portfolio_engine import load_helix_data
+    from backtests.swing.engine.helix_portfolio_engine import load_helix_data
     return load_helix_data(symbols, data_dir)
 
 
 def _load_breakout_data(symbols: list[str], data_dir: Path):
     """Load cached parquet data into BreakoutPortfolioData (includes 4H)."""
-    from backtest.engine.breakout_portfolio_engine import load_breakout_data
+    from backtests.swing.engine.breakout_portfolio_engine import load_breakout_data
     return load_breakout_data(symbols, data_dir)
 
 
 def cmd_download(args):
     """Download historical data from IBKR."""
-    from backtest.data.downloader import download_all_symbols
+    from backtests.swing.data.downloader import download_all_symbols
 
     symbols = args.symbols.split(",")
     data_dir = Path(args.data_dir)
@@ -147,17 +145,17 @@ def cmd_download(args):
 
 def _cmd_run_atrss(args):
     """Run a single ATRSS backtest."""
-    from backtest.analysis.metrics import compute_buy_and_hold, compute_metrics
-    from backtest.analysis.reports import (
+    from backtests.swing.analysis.metrics import compute_buy_and_hold, compute_metrics
+    from backtests.swing.analysis.reports import (
         behavior_report,
         buy_and_hold_report,
         diagnostic_report,
         format_summary,
         performance_report,
     )
-    from backtest.config import BacktestConfig, SlippageConfig
-    from backtest.engine.portfolio_engine import run_synchronized
-    from strategy.config import SYMBOL_CONFIGS
+    from backtests.swing.config import BacktestConfig, SlippageConfig
+    from backtests.swing.engine.portfolio_engine import run_synchronized
+    from strategies.swing.atrss.config import SYMBOL_CONFIGS
 
     symbols = args.symbols.split(",")
     data_dir = Path(args.data_dir)
@@ -232,7 +230,7 @@ def _cmd_run_atrss(args):
 
         # Extended ATRSS diagnostics
         if getattr(args, 'diagnostics', False):
-            from backtest.analysis.atrss_diagnostics import (
+            from backtests.swing.analysis.atrss_diagnostics import (
                 atrss_addon_analysis,
                 atrss_bias_alignment,
                 atrss_breakout_arm_diagnostic,
@@ -272,7 +270,7 @@ def _cmd_run_atrss(args):
 
         # Candlestick charts
         if getattr(args, 'charts', False):
-            from backtest.analysis.charts import generate_backtest_charts
+            from backtests.swing.analysis.charts import generate_backtest_charts
             chart_dir = Path(getattr(args, 'chart_dir', 'backtest/output/charts'))
             daily_bars = data.daily.get(sym)
             hourly_bars = data.hourly.get(sym)
@@ -298,11 +296,11 @@ def _cmd_run_atrss(args):
 
 def _cmd_ablation_atrss(args):
     """Run ATRSS ablation test."""
-    from backtest.analysis.metrics import compute_metrics
-    from backtest.analysis.reports import print_summary
-    from backtest.config import AblationFlags, BacktestConfig, SlippageConfig
-    from backtest.engine.portfolio_engine import run_synchronized
-    from strategy.config import SYMBOL_CONFIGS
+    from backtests.swing.analysis.metrics import compute_metrics
+    from backtests.swing.analysis.reports import print_summary
+    from backtests.swing.config import AblationFlags, BacktestConfig, SlippageConfig
+    from backtests.swing.engine.portfolio_engine import run_synchronized
+    from strategies.swing.atrss.config import SYMBOL_CONFIGS
 
     symbols = args.symbols.split(",")
     data_dir = Path(args.data_dir)
@@ -376,8 +374,8 @@ def _cmd_ablation_atrss(args):
 
 def _cmd_optimize_atrss(args):
     """Run ATRSS parameter optimization."""
-    from backtest.config import BacktestConfig
-    from backtest.optimization.runner import OptimizationRunner
+    from backtests.swing.config import BacktestConfig
+    from backtests.swing.optimization.runner import OptimizationRunner
 
     symbols = args.symbols.split(",")
     data_dir = Path(args.data_dir)
@@ -402,8 +400,8 @@ def _cmd_optimize_atrss(args):
 
 def _cmd_walk_forward_atrss(args):
     """Run ATRSS walk-forward validation."""
-    from backtest.config import BacktestConfig
-    from backtest.optimization.walk_forward import WalkForwardValidator
+    from backtests.swing.config import BacktestConfig
+    from backtests.swing.optimization.walk_forward import WalkForwardValidator
 
     symbols = args.symbols.split(",")
     data_dir = Path(args.data_dir)
@@ -430,18 +428,18 @@ def _cmd_walk_forward_atrss(args):
 
 def _cmd_run_helix(args):
     """Run a single Helix backtest."""
-    from backtest.analysis.metrics import compute_buy_and_hold, compute_metrics
-    from backtest.analysis.reports import (
+    from backtests.swing.analysis.metrics import compute_buy_and_hold, compute_metrics
+    from backtests.swing.analysis.reports import (
         buy_and_hold_report,
         format_summary,
         helix_behavior_report,
         helix_diagnostic_report,
         helix_performance_report,
     )
-    from backtest.config import SlippageConfig
-    from backtest.config_helix import HelixBacktestConfig
-    from backtest.engine.helix_portfolio_engine import run_helix_synchronized
-    from strategy_2.config import SYMBOL_CONFIGS
+    from backtests.swing.config import SlippageConfig
+    from backtests.swing.config_helix import HelixBacktestConfig
+    from backtests.swing.engine.helix_portfolio_engine import run_helix_synchronized
+    from strategies.swing.akc_helix.config import SYMBOL_CONFIGS
 
     symbols = args.symbols.split(",")
     data_dir = Path(args.data_dir)
@@ -515,7 +513,7 @@ def _cmd_run_helix(args):
 
         # Extended Helix diagnostics
         if getattr(args, 'diagnostics', False):
-            from backtest.analysis.helix_diagnostics import (
+            from backtests.swing.analysis.helix_diagnostics import (
                 helix_class_drilldown,
                 helix_divergence_quality,
                 helix_losing_trade_detail,
@@ -538,7 +536,7 @@ def _cmd_run_helix(args):
 
         # Candlestick charts
         if getattr(args, 'charts', False):
-            from backtest.analysis.charts import generate_backtest_charts
+            from backtests.swing.analysis.charts import generate_backtest_charts
             chart_dir = Path(getattr(args, 'chart_dir', 'backtest/output/charts'))
             daily_bars = data.daily.get(sym)
             hourly_bars = data.hourly.get(sym)
@@ -564,11 +562,11 @@ def _cmd_run_helix(args):
 
 def _cmd_ablation_helix(args):
     """Run Helix ablation test."""
-    from backtest.analysis.metrics import compute_metrics
-    from backtest.analysis.reports import print_summary
-    from backtest.config_helix import HelixAblationFlags, HelixBacktestConfig
-    from backtest.engine.helix_portfolio_engine import run_helix_synchronized
-    from strategy_2.config import SYMBOL_CONFIGS
+    from backtests.swing.analysis.metrics import compute_metrics
+    from backtests.swing.analysis.reports import print_summary
+    from backtests.swing.config_helix import HelixAblationFlags, HelixBacktestConfig
+    from backtests.swing.engine.helix_portfolio_engine import run_helix_synchronized
+    from strategies.swing.akc_helix.config import SYMBOL_CONFIGS
 
     symbols = args.symbols.split(",")
     data_dir = Path(args.data_dir)
@@ -637,8 +635,8 @@ def _cmd_ablation_helix(args):
 
 def _cmd_optimize_helix(args):
     """Run Helix parameter optimization."""
-    from backtest.config_helix import HelixBacktestConfig
-    from backtest.optimization.helix_runner import HelixOptimizationRunner
+    from backtests.swing.config_helix import HelixBacktestConfig
+    from backtests.swing.optimization.helix_runner import HelixOptimizationRunner
 
     symbols = args.symbols.split(",")
     data_dir = Path(args.data_dir)
@@ -663,8 +661,8 @@ def _cmd_optimize_helix(args):
 
 def _cmd_walk_forward_helix(args):
     """Run Helix walk-forward validation."""
-    from backtest.config_helix import HelixBacktestConfig
-    from backtest.optimization.helix_walk_forward import HelixWalkForwardValidator
+    from backtests.swing.config_helix import HelixBacktestConfig
+    from backtests.swing.optimization.helix_walk_forward import HelixWalkForwardValidator
 
     symbols = args.symbols.split(",")
     data_dir = Path(args.data_dir)
@@ -691,18 +689,18 @@ def _cmd_walk_forward_helix(args):
 
 def _cmd_run_breakout(args):
     """Run a single Breakout v3.3-ETF backtest."""
-    from backtest.analysis.metrics import compute_buy_and_hold, compute_metrics
-    from backtest.analysis.reports import (
+    from backtests.swing.analysis.metrics import compute_buy_and_hold, compute_metrics
+    from backtests.swing.analysis.reports import (
         breakout_behavior_report,
         breakout_diagnostic_report,
         breakout_performance_report,
         buy_and_hold_report,
         format_summary,
     )
-    from backtest.config import SlippageConfig
-    from backtest.config_breakout import BreakoutBacktestConfig
-    from backtest.engine.breakout_portfolio_engine import run_breakout_synchronized
-    from strategy_3.config import SYMBOL_CONFIGS
+    from backtests.swing.config import SlippageConfig
+    from backtests.swing.config_breakout import BreakoutBacktestConfig
+    from backtests.swing.engine.breakout_portfolio_engine import run_breakout_synchronized
+    from strategies.swing.breakout.config import SYMBOL_CONFIGS
 
     symbols = args.symbols.split(",")
     data_dir = Path(args.data_dir)
@@ -777,11 +775,11 @@ def _cmd_run_breakout(args):
 
         # Extended Breakout diagnostics
         if getattr(args, 'diagnostics', False):
-            from backtest.analysis.breakout_diagnostics import breakout_full_diagnostic
+            from backtests.swing.analysis.breakout_diagnostics import breakout_full_diagnostic
             report_sections.append(breakout_full_diagnostic(sr.trades))
 
             if sr.signal_events:
-                from backtest.analysis.breakout_filter_attribution import (
+                from backtests.swing.analysis.breakout_filter_attribution import (
                     breakout_filter_attribution_report,
                 )
                 report_sections.append(
@@ -790,7 +788,7 @@ def _cmd_run_breakout(args):
 
         # Candlestick charts
         if getattr(args, 'charts', False):
-            from backtest.analysis.charts import generate_backtest_charts
+            from backtests.swing.analysis.charts import generate_backtest_charts
             chart_dir = Path(getattr(args, 'chart_dir', 'backtest/output/charts'))
             daily_bars = data.daily.get(sym)
             hourly_bars = data.hourly.get(sym)
@@ -816,11 +814,11 @@ def _cmd_run_breakout(args):
 
 def _cmd_ablation_breakout(args):
     """Run Breakout ablation test."""
-    from backtest.analysis.metrics import compute_metrics
-    from backtest.analysis.reports import print_summary
-    from backtest.config_breakout import BreakoutAblationFlags, BreakoutBacktestConfig
-    from backtest.engine.breakout_portfolio_engine import run_breakout_synchronized
-    from strategy_3.config import SYMBOL_CONFIGS
+    from backtests.swing.analysis.metrics import compute_metrics
+    from backtests.swing.analysis.reports import print_summary
+    from backtests.swing.config_breakout import BreakoutAblationFlags, BreakoutBacktestConfig
+    from backtests.swing.engine.breakout_portfolio_engine import run_breakout_synchronized
+    from strategies.swing.breakout.config import SYMBOL_CONFIGS
 
     symbols = args.symbols.split(",")
     data_dir = Path(args.data_dir)
@@ -890,8 +888,8 @@ def _cmd_ablation_breakout(args):
 
 def _cmd_optimize_breakout(args):
     """Run Breakout parameter optimization."""
-    from backtest.config_breakout import BreakoutBacktestConfig
-    from backtest.optimization.breakout_runner import (
+    from backtests.swing.config_breakout import BreakoutBacktestConfig
+    from backtests.swing.optimization.breakout_runner import (
         BreakoutOptimizationRunner,
         permutation_importance,
         save_trials_csv,
@@ -934,8 +932,8 @@ def _cmd_optimize_breakout(args):
 
 def _cmd_walk_forward_breakout(args):
     """Run Breakout walk-forward validation."""
-    from backtest.config_breakout import BreakoutBacktestConfig
-    from backtest.optimization.breakout_walk_forward import BreakoutWalkForwardValidator
+    from backtests.swing.config_breakout import BreakoutBacktestConfig
+    from backtests.swing.optimization.breakout_walk_forward import BreakoutWalkForwardValidator
 
     symbols = args.symbols.split(",")
     data_dir = Path(args.data_dir)
@@ -962,17 +960,17 @@ def _cmd_walk_forward_breakout(args):
 
 def _cmd_run_regime(args):
     """Run a single regime-following backtest."""
-    from backtest.analysis.metrics import compute_buy_and_hold, compute_metrics
-    from backtest.analysis.reports import (
+    from backtests.swing.analysis.metrics import compute_buy_and_hold, compute_metrics
+    from backtests.swing.analysis.reports import (
         behavior_report,
         buy_and_hold_report,
         format_summary,
         performance_report,
     )
-    from backtest.config import SlippageConfig
-    from backtest.config_regime import RegimeConfig
-    from backtest.engine.regime_engine import run_regime_independent
-    from strategy.config import SYMBOL_CONFIGS
+    from backtests.swing.config import SlippageConfig
+    from backtests.swing.config_regime import RegimeConfig
+    from backtests.swing.engine.regime_engine import run_regime_independent
+    from strategies.swing.atrss.config import SYMBOL_CONFIGS
 
     symbols = args.symbols.split(",")
     data_dir = Path(args.data_dir)
@@ -1065,9 +1063,9 @@ def _cmd_run_regime(args):
 
 def _run_investigation_backtest(symbols, data_dir, equity, fixed_qty=None):
     """Shared: run ATRSS backtest and return (data, config, result, engines_info)."""
-    from backtest.config import BacktestConfig, SlippageConfig
-    from backtest.engine.portfolio_engine import PortfolioData, run_independent
-    from strategy.config import SYMBOL_CONFIGS
+    from backtests.swing.config import BacktestConfig, SlippageConfig
+    from backtests.swing.engine.portfolio_engine import PortfolioData, run_independent
+    from strategies.swing.atrss.config import SYMBOL_CONFIGS
 
     data = _load_data(symbols, data_dir)
 
@@ -1090,8 +1088,8 @@ def _run_investigation_backtest(symbols, data_dir, equity, fixed_qty=None):
     )
 
     # We need access to engine internals (daily_state_by_idx), so run manually
-    from backtest.engine.backtest_engine import BacktestEngine, _AblationPatch
-    from backtest.analysis.shadow_tracker import ShadowTracker
+    from backtests.swing.engine.backtest_engine import BacktestEngine, _AblationPatch
+    from backtests.swing.analysis.shadow_tracker import ShadowTracker
 
     engines: dict[str, BacktestEngine] = {}
     results_by_sym = {}
@@ -1120,7 +1118,7 @@ def _run_investigation_backtest(symbols, data_dir, equity, fixed_qty=None):
 
 def cmd_hold_time(args):
     """Investigation 5: Hold-time vs R analysis."""
-    from backtest.analysis.hold_time_analysis import (
+    from backtests.swing.analysis.hold_time_analysis import (
         format_hold_time_report,
         hold_time_analysis,
     )
@@ -1142,11 +1140,11 @@ def cmd_hold_time(args):
 
 def cmd_exit_hyp(args):
     """Investigation 1: Exit hypotheticals."""
-    from backtest.analysis.exit_hypotheticals import (
+    from backtests.swing.analysis.exit_hypotheticals import (
         format_exit_hypotheticals_report,
         simulate_exit_hypotheticals,
     )
-    from strategy.config import SYMBOL_CONFIGS
+    from strategies.swing.atrss.config import SYMBOL_CONFIGS
 
     symbols = args.symbols.split(",")
     data_dir = Path(args.data_dir)
@@ -1171,7 +1169,7 @@ def cmd_exit_hyp(args):
 
 def cmd_regime_bh(args):
     """Investigation 3: Regime-filtered buy-and-hold benchmark."""
-    from backtest.analysis.regime_benchmark import (
+    from backtests.swing.analysis.regime_benchmark import (
         compute_regime_benchmark,
         format_regime_benchmark_report,
     )
@@ -1195,10 +1193,10 @@ def cmd_regime_bh(args):
 
 def cmd_chand_sweep(args):
     """Investigation 4: Chandelier multiplier sweep."""
-    from backtest.analysis.metrics import compute_metrics
-    from backtest.config import BacktestConfig, SlippageConfig
-    from backtest.engine.portfolio_engine import run_independent
-    from strategy.config import SYMBOL_CONFIGS
+    from backtests.swing.analysis.metrics import compute_metrics
+    from backtests.swing.config import BacktestConfig, SlippageConfig
+    from backtests.swing.engine.portfolio_engine import run_independent
+    from strategies.swing.atrss.config import SYMBOL_CONFIGS
 
     symbols = args.symbols.split(",")
     data_dir = Path(args.data_dir)
@@ -1285,11 +1283,11 @@ def cmd_chand_sweep(args):
 
 def _cmd_weakness_report(args):
     """Generate unified swing weakness report by running the portfolio engine."""
-    from backtest.engine.unified_portfolio_engine import run_unified, load_unified_data
-    from backtest.config_unified import UnifiedBacktestConfig
-    from backtest.analysis.weakness_report import swing_weakness_report
-    from backtest.analysis.portfolio_diagnostics import portfolio_diagnostic_report
-    from backtest.analysis.drawdown_attribution import drawdown_attribution_report
+    from backtests.swing.engine.unified_portfolio_engine import run_unified, load_unified_data
+    from backtests.swing.config_unified import UnifiedBacktestConfig
+    from backtests.swing.analysis.weakness_report import swing_weakness_report
+    from backtests.swing.analysis.portfolio_diagnostics import portfolio_diagnostic_report
+    from backtests.swing.analysis.drawdown_attribution import drawdown_attribution_report
 
     logger.info("Running unified portfolio for weakness report...")
 
@@ -1363,10 +1361,10 @@ def cmd_auto(args):
 
 def _cmd_run_brs(args):
     """Run a BRS (Bear Regime Swing) backtest."""
-    from backtest.analysis.brs_diagnostics import compute_brs_diagnostics
-    from backtest.analysis.metrics import compute_metrics
-    from backtest.config_brs import BRSConfig
-    from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
+    from backtests.swing.analysis.brs_diagnostics import compute_brs_diagnostics
+    from backtests.swing.analysis.metrics import compute_metrics
+    from backtests.swing.config_brs import BRSConfig
+    from backtests.swing.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
 
     symbols = args.symbols.split(",")
     data_dir = Path(args.data_dir)

@@ -12,8 +12,8 @@ from datetime import datetime
 
 import numpy as np
 
-from strategy_3 import config as C
-from strategy_3.models import Direction
+from strategies.momentum.vdub import config as C
+from strategies.momentum.vdub.models import Direction
 
 logger = logging.getLogger(__name__)
 

@@ -269,9 +269,6 @@ def main():
     parser.add_argument("--quick", action="store_true", help="Run layers 1+2 only (~8 runs)")
     args = parser.parse_args()
 
-    from backtests.stock._aliases import install
-    install()
-
     from backtests.stock.engine.research_replay import ResearchReplayEngine
 
     print("=" * 80)

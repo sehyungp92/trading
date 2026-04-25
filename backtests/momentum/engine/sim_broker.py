@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum, auto
 
-from backtest.config import SlippageConfig, round_to_tick
-from backtest.models import Direction
+from backtests.momentum.config import SlippageConfig, round_to_tick
+from backtests.momentum.models import Direction
 
 logger = logging.getLogger(__name__)
 

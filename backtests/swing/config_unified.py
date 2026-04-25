@@ -5,9 +5,9 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Callable
 
-from backtest.config import AblationFlags, BacktestConfig, SlippageConfig
-from backtest.config_helix import HelixAblationFlags, HelixBacktestConfig
-from backtest.config_breakout import BreakoutAblationFlags, BreakoutBacktestConfig
+from backtests.swing.config import AblationFlags, BacktestConfig, SlippageConfig
+from backtests.swing.config_helix import HelixAblationFlags, HelixBacktestConfig
+from backtests.swing.config_breakout import BreakoutAblationFlags, BreakoutBacktestConfig
 
 
 @dataclass

@@ -30,11 +30,8 @@ def init_worker(data_dir_str: str, equity: float) -> None:
     if sys.stdout.encoding != "utf-8":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-    from backtests.swing._aliases import install
-    install()
-
-    from backtest.config import AblationFlags, BacktestConfig, SlippageConfig
-    from backtest.engine.portfolio_engine import PortfolioData
+    from backtests.swing.config import AblationFlags, BacktestConfig, SlippageConfig
+    from backtests.swing.engine.portfolio_engine import PortfolioData
 
     # Suppress engine logger noise
     logging.getLogger("backtest.engine.backtest_engine").setLevel(logging.WARNING)
@@ -51,8 +48,8 @@ def init_worker(data_dir_str: str, equity: float) -> None:
         flags=AblationFlags(stall_exit=False),
     )
 
-    from backtest.data.cache import load_bars
-    from backtest.data.preprocessing import (
+    from backtests.swing.data.cache import load_bars
+    from backtests.swing.data.preprocessing import (
         align_daily_to_hourly,
         build_numpy_arrays,
         filter_rth,
@@ -81,7 +78,7 @@ def score_candidate(args: tuple) -> ScoredCandidate:
     name, candidate_muts, base_muts, phase, scoring_weights, hard_rejects = args
 
     try:
-        from backtest.engine.portfolio_engine import run_independent
+        from backtests.swing.engine.portfolio_engine import run_independent
         from backtests.swing.auto.config_mutator import mutate_atrss_config
 
         all_muts = dict(base_muts)

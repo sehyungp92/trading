@@ -13,8 +13,8 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 
 from libs.broker_ibkr.risk_support.tick_rules import round_to_tick
-from strategy import allocator, signals, stops
-from strategy.config import (
+from strategies.swing.atrss import allocator, signals, stops
+from strategies.swing.atrss.config import (
     ADDON_A_SIZE_MULT,
     ADDON_B_SIZE_MULT,
     ARM_WINDOW_HOURS,
@@ -38,8 +38,8 @@ from strategy.config import (
     TREND_STOP_TIGHTENING,
     SymbolConfig,
 )
-from strategy.indicators import compute_daily_state, compute_hourly_state
-from strategy.models import (
+from strategies.swing.atrss.indicators import compute_daily_state, compute_hourly_state
+from strategies.swing.atrss.models import (
     BreakoutArmState,
     Candidate,
     CandidateType,
@@ -53,9 +53,9 @@ from strategy.models import (
     Regime,
 )
 
-from backtest.config import AblationFlags, BacktestConfig, SlippageConfig
-from backtest.data.preprocessing import NumpyBars
-from backtest.engine.sim_broker import (
+from backtests.swing.config import AblationFlags, BacktestConfig, SlippageConfig
+from backtests.swing.data.preprocessing import NumpyBars
+from backtests.swing.engine.sim_broker import (
     FillResult,
     FillStatus,
     OrderSide,
@@ -172,8 +172,8 @@ class _AblationPatch:
         self._patches: list[tuple[object, str, object]] = []
 
     def __enter__(self):
-        import strategy.config as scfg
-        import strategy.signals as ssig
+        import strategies.swing.atrss.config as scfg
+        import strategies.swing.atrss.signals as ssig
 
         f = self.flags
         ov = self.overrides
@@ -184,7 +184,7 @@ class _AblationPatch:
 
         if not f.fast_confirm:
             self._patch(scfg, "FAST_CONFIRM_SCORE", 999)
-            import strategy.indicators as sind
+            import strategies.swing.atrss.indicators as sind
             self._patch(sind, "FAST_CONFIRM_SCORE", 999)
 
         if not f.short_safety:
@@ -208,26 +208,26 @@ class _AblationPatch:
             self._patch(ssig, "VOUCHER_VALID_HOURS", val)
 
         if "confirm_days_normal" in ov:
-            import strategy.indicators as sind
+            import strategies.swing.atrss.indicators as sind
             val = int(ov["confirm_days_normal"])
             self._patch(scfg, "CONFIRM_DAYS_NORMAL", val)
             self._patch(sind, "CONFIRM_DAYS_NORMAL", val)
 
         if "pullback_lookback" in ov:
-            import strategy.indicators as sind
+            import strategies.swing.atrss.indicators as sind
             val = int(ov["pullback_lookback"])
             self._patch(scfg, "PULLBACK_LOOKBACK", val)
             self._patch(sind, "PULLBACK_LOOKBACK", val)
 
         if "adx_slope_gate" in ov:
-            import strategy.indicators as sind
+            import strategies.swing.atrss.indicators as sind
             val = float(ov["adx_slope_gate"])
             self._patch(scfg, "ADX_STRONG_SLOPE_FLOOR", val)
             self._patch(sind, "ADX_STRONG_SLOPE_FLOOR", val)
 
         # --- ADX regime thresholds (adx_on/adx_off now per-symbol in SymbolConfig) ---
         if "adx_strong" in ov:
-            import strategy.indicators as sind
+            import strategies.swing.atrss.indicators as sind
             self._patch(scfg, "ADX_STRONG", int(ov["adx_strong"]))
             self._patch(sind, "ADX_STRONG", int(ov["adx_strong"]))
 
@@ -237,12 +237,12 @@ class _AblationPatch:
             self._patch(scfg, "SCORE_REVERSE_MIN", val)
             self._patch(ssig, "SCORE_REVERSE_MIN", val)
         if "fast_confirm_score" in ov:
-            import strategy.indicators as sind
+            import strategies.swing.atrss.indicators as sind
             val = int(ov["fast_confirm_score"])
             self._patch(scfg, "FAST_CONFIRM_SCORE", val)
             self._patch(sind, "FAST_CONFIRM_SCORE", val)
         if "fast_confirm_adx" in ov:
-            import strategy.indicators as sind
+            import strategies.swing.atrss.indicators as sind
             val = int(ov["fast_confirm_adx"])
             self._patch(scfg, "FAST_CONFIRM_ADX", val)
             self._patch(sind, "FAST_CONFIRM_ADX", val)
@@ -347,7 +347,7 @@ class _AblationPatch:
             self._patch(_self_mod, "ADDON_B_SIZE_MULT", val)
 
         # --- Dict-type constants used by stops module ---
-        import strategy.stops as ssto
+        import strategies.swing.atrss.stops as ssto
         if "profit_floor" in ov:
             val = {float(k): float(v) for k, v in ov["profit_floor"].items()}
             self._patch(scfg, "PROFIT_FLOOR", val)
@@ -430,7 +430,7 @@ class BacktestEngine:
             self.cfg = _dc_replace(cfg, **_cfg_kw)
 
         # Overridable module-level constants (resolved from param_overrides)
-        import strategy.config as _scfg
+        import strategies.swing.atrss.config as _scfg
         self._be_trigger_r: float = float(_ov.get("be_trigger_r", _scfg.BE_TRIGGER_R))
         self._chandelier_trigger_r: float = float(_ov.get("chandelier_trigger_r", _scfg.CHANDELIER_TRIGGER_R))
 

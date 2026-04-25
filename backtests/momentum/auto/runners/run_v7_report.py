@@ -15,26 +15,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT))
 
-from backtests.momentum._aliases import install
-install()
-
-from backtest.analysis.portfolio_reports import portfolio_full_report
-from backtest.auto.config_mutator import (
+from backtests.momentum.analysis.portfolio_reports import portfolio_full_report
+from backtests.momentum.auto.config_mutator import (
     extract_passthrough_mutations,
     mutate_helix_config,
     mutate_nqdtc_config,
     mutate_portfolio_config,
     mutate_vdubus_config,
 )
-from backtest.cli import _load_helix_data, _load_nqdtc_data, _load_vdubus_data
-from backtest.config_helix import Helix4BacktestConfig
-from backtest.config_nqdtc import NQDTCBacktestConfig
-from backtest.config_portfolio import PortfolioBacktestConfig
-from backtest.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
-from backtest.engine.helix_engine import Helix4Engine
-from backtest.engine.nqdtc_engine import NQDTCEngine
-from backtest.engine.portfolio_engine import PortfolioBacktester
-from backtest.engine.vdubus_engine import VdubusEngine
+from backtests.momentum.cli import _load_helix_data, _load_nqdtc_data, _load_vdubus_data
+from backtests.momentum.config_helix import Helix4BacktestConfig
+from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
+from backtests.momentum.config_portfolio import PortfolioBacktestConfig
+from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
+from backtests.momentum.engine.helix_engine import Helix4Engine
+from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
+from backtests.momentum.engine.portfolio_engine import PortfolioBacktester
+from backtests.momentum.engine.vdubus_engine import VdubusEngine
 
 EQUITY = 10_000.0
 DATA_DIR = ROOT / "backtests" / "momentum" / "data" / "raw"

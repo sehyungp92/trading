@@ -7,8 +7,8 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from backtest.config_brs import BRSConfig
-from backtest.data.preprocessing import (
+from backtests.swing.config_brs import BRSConfig
+from backtests.swing.data.preprocessing import (
     NumpyBars,
     align_4h_to_hourly,
     align_daily_to_hourly,
@@ -17,8 +17,8 @@ from backtest.data.preprocessing import (
     normalize_timezone,
     resample_1h_to_4h,
 )
-from backtest.engine.backtest_engine import SymbolResult
-from backtest.engine.brs_engine import BRSEngine
+from backtests.swing.engine.backtest_engine import SymbolResult
+from backtests.swing.engine.brs_engine import BRSEngine
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ class BRSPortfolioResult:
 
 def load_brs_data(config: BRSConfig) -> dict[str, BRSSymbolData]:
     """Load and prepare 3-timeframe data for all BRS symbols."""
-    from backtest.data.cache import load_bars
+    from backtests.swing.data.cache import load_bars
 
     data: dict[str, BRSSymbolData] = {}
 

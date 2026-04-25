@@ -9,14 +9,14 @@ from datetime import timedelta
 
 import numpy as np
 
-from backtest.analysis.metrics import (
+from backtests.momentum.analysis.metrics import (
     PerformanceMetrics,
     compute_cagr,
     compute_max_drawdown,
     compute_sharpe,
     compute_sortino,
 )
-from backtest.engine.portfolio_engine import PortfolioResult, PortfolioTrade
+from backtests.momentum.engine.portfolio_engine import PortfolioResult, PortfolioTrade
 
 
 # ---------------------------------------------------------------------------
@@ -263,7 +263,7 @@ def portfolio_correlation_report(result: PortfolioResult) -> str:
 
     for t in result.trades:
         if t.exit_time:
-            from backtest.engine.portfolio_engine import _trading_day
+            from backtests.momentum.engine.portfolio_engine import _trading_day
             day = _trading_day(t.exit_time)
             daily_pnl[t.strategy_id][day] += t.adjusted_pnl
 

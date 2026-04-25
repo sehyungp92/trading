@@ -23,10 +23,6 @@ from pathlib import Path
 _root = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(_root))
 
-from backtests.momentum._aliases import install
-
-install()
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
@@ -281,8 +277,8 @@ def main() -> None:
     print("-" * 70)
 
     try:
-        from backtest.config_nqdtc import NQDTCBacktestConfig
-        from backtest.engine.nqdtc_engine import NQDTCEngine
+        from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
+        from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
         from backtests.momentum.auto.config_mutator import mutate_nqdtc_config
         from backtests.momentum.auto.nqdtc.scoring import (
             NQDTCCompositeScore,

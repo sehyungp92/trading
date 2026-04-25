@@ -94,7 +94,7 @@ def composite_score(
     """Compute the ATRSS composite score.
 
     Args:
-        metrics: ATRSS metrics from backtest.
+        metrics: ATRSS metrics from backtests.swing.
         weights: Optional weight overrides (unused -- ATRSS uses fixed weights).
         hard_rejects: Phase-specific hard reject thresholds.
 

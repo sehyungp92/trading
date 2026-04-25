@@ -83,7 +83,6 @@ def _run_baseline(
     end_date: str,
 ) -> dict[str, object]:
     """Run a single baseline and return metrics + diagnostics."""
-    from backtests.stock._aliases import install
     from backtests.stock.analysis.iaric_pullback_diagnostics import (
         compute_pullback_diagnostic_snapshot,
         pullback_full_diagnostic,
@@ -97,8 +96,6 @@ def _run_baseline(
     from backtests.stock.config_iaric import IARICBacktestConfig
     from backtests.stock.engine.iaric_pullback_engine import IARICPullbackEngine
     from backtests.stock.engine.research_replay import ResearchReplayEngine
-
-    install()
 
     print(f"\n{'=' * 72}")
     print(f"  V2 Baseline: {label}")

@@ -1,6 +1,6 @@
 """Tests for MAE (Maximum Adverse Excursion) tracking in AKC-Helix ActiveSetup."""
 
-from strategy_2.models import SetupInstance
+from strategies.swing.akc_helix.models import SetupInstance
 
 
 class TestMAETracking:

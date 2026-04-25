@@ -15,9 +15,6 @@ ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT))
 
 # Install swing aliases before any backtest imports
-from backtests.swing._aliases import install
-install()
-
 from backtests.swing.config_unified import UnifiedBacktestConfig
 from backtests.swing.engine.unified_portfolio_engine import load_unified_data
 from backtests.swing.auto.greedy_optimize import (

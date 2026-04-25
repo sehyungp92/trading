@@ -265,7 +265,7 @@ class SwingAutoHarness:
     @staticmethod
     def _get_atrss_symbols() -> list[str]:
         try:
-            from strategy.config import SYMBOLS
+            from strategies.swing.atrss.config import SYMBOLS
             return list(SYMBOLS)
         except ImportError:
             return ["QQQ", "GLD"]
@@ -273,7 +273,7 @@ class SwingAutoHarness:
     @staticmethod
     def _get_helix_symbols() -> list[str]:
         try:
-            from strategy_2.config import SYMBOLS
+            from strategies.swing.akc_helix.config import SYMBOLS
             return list(SYMBOLS)
         except ImportError:
             return ["QQQ", "GLD"]
@@ -281,7 +281,7 @@ class SwingAutoHarness:
     @staticmethod
     def _get_breakout_symbols() -> list[str]:
         try:
-            from strategy_3.config import SYMBOLS
+            from strategies.swing.breakout.config import SYMBOLS
             return list(SYMBOLS)
         except ImportError:
             return ["QQQ", "GLD"]
@@ -480,7 +480,7 @@ class SwingAutoHarness:
         """Run ATRSS per symbol, merge results."""
         from backtests.swing.engine.backtest_engine import BacktestEngine
         try:
-            from strategy.config import SYMBOL_CONFIGS
+            from strategies.swing.atrss.config import SYMBOL_CONFIGS
         except ImportError:
             from backtests.swing.config import _default_atrss_symbols
             SYMBOL_CONFIGS = {}
@@ -519,7 +519,7 @@ class SwingAutoHarness:
         """Run Helix per symbol, merge results."""
         from backtests.swing.engine.helix_engine import HelixEngine
         try:
-            from strategy_2.config import SYMBOL_CONFIGS
+            from strategies.swing.akc_helix.config import SYMBOL_CONFIGS
         except ImportError:
             SYMBOL_CONFIGS = {}
 
@@ -559,7 +559,7 @@ class SwingAutoHarness:
         """Run Breakout per symbol, merge results."""
         from backtests.swing.engine.breakout_engine import BreakoutEngine
         try:
-            from strategy_3.config import SYMBOL_CONFIGS as BRK_CONFIGS
+            from strategies.swing.breakout.config import SYMBOL_CONFIGS as BRK_CONFIGS
         except ImportError:
             BRK_CONFIGS = {}
 

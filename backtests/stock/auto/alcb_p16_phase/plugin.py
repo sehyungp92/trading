@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from backtests.shared.auto.phase_state import PhaseState
+from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
@@ -198,13 +199,37 @@ class ALCBP16Plugin:
         self.max_workers = max_workers
         self.experiment_names = set(experiment_names or [])
         self._cached_replay = None
-        self._config_cache: dict[tuple[str, str, str, bool], dict[str, Any]] = {}
+        self._config_cache: dict[tuple[Any, ...], dict[str, Any]] = {}
         self._evaluation_cache: dict[str, ScoredCandidate] = {}
+        # Reserved for CachedBatchEvaluator's raw mutation_signature keys.
         self._metrics_cache: dict[str, dict[str, float]] = {}
         self._last_context: dict[str, Any] = {}
         self._phase_runtime_context: dict[int, dict[str, Any]] = {}
         self._shared_pool: mp.Pool | None = None
         self._resolved_workers: int = 0
+
+    def _replay_data_fingerprint(self) -> str:
+        return self._ensure_replay().data_fingerprint()
+
+    def _metrics_cache_key(
+        self,
+        mutations: dict[str, Any],
+        *,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> str:
+        effective_start = start_date or self.start_date
+        effective_end = end_date or self.end_date
+        return build_cache_key(
+            "alcb_p16.metrics",
+            source_fingerprint=self._replay_data_fingerprint(),
+            mutations=mutations,
+            extra={
+                "start_date": effective_start,
+                "end_date": effective_end,
+                "initial_equity": self.initial_equity,
+            },
+        )
 
     def _get_or_create_pool(self) -> mp.Pool:
         if self._shared_pool is None:
@@ -291,12 +316,17 @@ class ALCBP16Plugin:
             "base_metrics": base_metrics,
             "hard_rejects": resolved_hard_rejects,
         }
-        evaluation_key = mutation_signature(
-            {
+        evaluation_key = build_cache_key(
+            "alcb_p16.evaluation",
+            source_fingerprint=self._replay_data_fingerprint(),
+            extra={
                 "phase": phase,
                 "scoring_weights": scoring_weights or {},
                 "hard_rejects": resolved_hard_rejects,
-            }
+                "start_date": self.start_date,
+                "end_date": self.end_date,
+                "initial_equity": self.initial_equity,
+            },
         )
 
         def local_factory():
@@ -339,9 +369,9 @@ class ALCBP16Plugin:
         )
 
     def compute_final_metrics(self, mutations: dict[str, Any]) -> dict[str, float]:
-        cached = self._metrics_cache.get(mutation_signature(mutations))
-        if cached:
-            return dict(cached)
+        metrics_key = self._metrics_cache_key(mutations)
+        if self._last_context.get("metrics_cache_key") == metrics_key:
+            return dict(self._last_context["metrics"])
         return self._run_config(mutations, store_context=True)["metrics"]
 
     def run_phase_diagnostics(self, phase: int, state: PhaseState, metrics: dict[str, float], greedy_result) -> str:
@@ -670,29 +700,29 @@ class ALCBP16Plugin:
         store_context: bool = False,
         collect_diagnostics: bool = False,
     ) -> dict[str, Any]:
-        from backtests.stock._aliases import install
         from backtests.stock.analysis.alcb_shadow_tracker import ALCBShadowTracker
         from backtests.stock.auto.config_mutator import mutate_alcb_config
         from backtests.stock.auto.scoring import extract_metrics
         from backtests.stock.config_alcb import ALCBBacktestConfig
         from backtests.stock.engine.alcb_engine import ALCBIntradayEngine
 
-        install()
         mutations = hydrate_time_mutations(mutations)
         effective_start = start_date or self.start_date
         effective_end = end_date or self.end_date
         diagnostics_enabled = bool(collect_diagnostics or store_context)
         signature = mutation_signature(mutations)
-        cache_key = (signature, effective_start, effective_end, diagnostics_enabled)
+        replay = self._ensure_replay()
+        data_fingerprint = replay.data_fingerprint()
+        metrics_key = self._metrics_cache_key(mutations, start_date=effective_start, end_date=effective_end)
+        cache_key = (data_fingerprint, signature, effective_start, effective_end, diagnostics_enabled)
         cached = self._config_cache.get(cache_key)
         if cached is None and not diagnostics_enabled:
-            cached = self._config_cache.get((signature, effective_start, effective_end, True))
+            cached = self._config_cache.get((data_fingerprint, signature, effective_start, effective_end, True))
         if cached is not None:
             if store_context:
                 self._last_context = cached
             return cached
 
-        replay = self._ensure_replay()
         config = mutate_alcb_config(
             ALCBBacktestConfig(
                 start_date=effective_start,
@@ -718,10 +748,12 @@ class ALCBP16Plugin:
             "daily_selections": result.daily_selections,
             "shadow_tracker": shadow_tracker,
             "config": config,
+            "metrics_cache_key": metrics_key,
+            "cache_source_fingerprint": data_fingerprint,
         }
         self._config_cache[cache_key] = context
         if diagnostics_enabled:
-            self._config_cache[(signature, effective_start, effective_end, False)] = context
+            self._config_cache[(data_fingerprint, signature, effective_start, effective_end, False)] = context
         if store_context:
             self._last_context = context
         return context

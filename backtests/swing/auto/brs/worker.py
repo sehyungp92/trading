@@ -27,12 +27,8 @@ def init_worker(
     if sys.stdout.encoding != "utf-8":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-    from backtests.swing._aliases import install
-
-    install()
-
-    from backtest.config_brs import BRSConfig
-    from backtest.engine.brs_portfolio_engine import load_brs_data
+    from backtests.swing.config_brs import BRSConfig
+    from backtests.swing.engine.brs_portfolio_engine import load_brs_data
 
     _worker_equity = equity
     _worker_phase = phase
@@ -49,7 +45,7 @@ def score_candidate(args: tuple[str, dict, dict]) -> ScoredCandidate:
     name, candidate_muts, base_muts = args
 
     try:
-        from backtest.engine.brs_portfolio_engine import run_brs_synchronized
+        from backtests.swing.engine.brs_portfolio_engine import run_brs_synchronized
         from backtests.swing.auto.brs.config_mutator import mutate_brs_config
         from backtests.swing.auto.brs.plugin import score_phase_metrics
         from backtests.swing.auto.brs.scoring import composite_score, extract_brs_metrics

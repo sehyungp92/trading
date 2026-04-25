@@ -8,10 +8,10 @@ from datetime import datetime, timezone
 
 import numpy as np
 
-from backtest.config_brs import BRSConfig, BRSSymbolConfig
-from backtest.data.preprocessing import NumpyBars
-from backtest.engine.backtest_engine import SymbolResult, TradeRecord
-from backtest.engine.sim_broker import (
+from backtests.swing.config_brs import BRSConfig, BRSSymbolConfig
+from backtests.swing.data.preprocessing import NumpyBars
+from backtests.swing.engine.backtest_engine import SymbolResult, TradeRecord
+from backtests.swing.engine.sim_broker import (
     FillResult,
     FillStatus,
     OrderSide,

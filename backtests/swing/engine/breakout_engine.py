@@ -19,8 +19,8 @@ import pandas as pd
 
 from libs.broker_ibkr.risk_support.tick_rules import round_to_tick
 
-from strategy_3 import allocator, gates, signals, stops
-from strategy_3.config import (
+from strategies.swing.breakout import allocator, gates, signals, stops
+from strategies.swing.breakout.config import (
     ADD_RISK_MULT,
     ADX_PERIOD,
     ATR_DAILY_LONG_PERIOD,
@@ -54,7 +54,7 @@ from strategy_3.config import (
     SYMBOL_CONFIGS,
     SymbolConfig,
 )
-from strategy_3.indicators import (
+from strategies.swing.breakout.indicators import (
     adx,
     atr,
     avwap_last,
@@ -73,7 +73,7 @@ from strategy_3.indicators import (
     sma,
     update_slot_medians,
 )
-from strategy_3.models import (
+from strategies.swing.breakout.models import (
     CampaignState,
     ChopMode,
     CircuitBreakerState,
@@ -92,10 +92,10 @@ from strategy_3.models import (
     TradeRegime,
 )
 
-from backtest.config import SlippageConfig
-from backtest.config_breakout import BreakoutAblationFlags, BreakoutBacktestConfig
-from backtest.data.preprocessing import NumpyBars
-from backtest.engine.sim_broker import (
+from backtests.swing.config import SlippageConfig
+from backtests.swing.config_breakout import BreakoutAblationFlags, BreakoutBacktestConfig
+from backtests.swing.data.preprocessing import NumpyBars
+from backtests.swing.engine.sim_broker import (
     FillResult,
     FillStatus,
     OrderSide,
@@ -132,7 +132,7 @@ class _AblationPatch:
 
     def __enter__(self):
         import sys
-        import strategy_3.config as scfg
+        import strategies.swing.breakout.config as scfg
 
         engine_mod = sys.modules[__name__]
 
@@ -1318,7 +1318,7 @@ class BreakoutEngine:
 
         # Displacement ceiling: reject C_standard entries too far from AVWAP
         if entry_type in (EntryType.C_STANDARD, EntryType.C_CONTINUATION) and atr14_d > 0:
-            from strategy_3.config import C_ENTRY_MAX_DISP_H
+            from strategies.swing.breakout.config import C_ENTRY_MAX_DISP_H
             disp_from_avwap = abs(hs.close - avwap_h) / atr14_d
             if disp_from_avwap > C_ENTRY_MAX_DISP_H:
                 return
@@ -2525,7 +2525,7 @@ class BreakoutEngine:
         cb.weekly_realized_r += r_multiple
         cb.monthly_realized_r += r_multiple
 
-        from strategy_3.config import MONTHLY_HALT_R, MONTHLY_HALT_DAYS
+        from strategies.swing.breakout.config import MONTHLY_HALT_R, MONTHLY_HALT_DAYS
         if cb.monthly_realized_r <= MONTHLY_HALT_R:
             cb.halted = True
 

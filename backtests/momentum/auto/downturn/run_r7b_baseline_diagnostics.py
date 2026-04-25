@@ -8,13 +8,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from backtests.diagnostic_snapshot import build_group_snapshot
-from backtests.momentum._aliases import install
-
-install()
-
-from backtest.analysis.downturn_diagnostics import compute_downturn_metrics
-from backtest.config_downturn import DownturnBacktestConfig
-from backtest.engine.downturn_engine import DownturnEngine
+from backtests.momentum.analysis.downturn_diagnostics import compute_downturn_metrics
+from backtests.momentum.config_downturn import DownturnBacktestConfig
+from backtests.momentum.engine.downturn_engine import DownturnEngine
 from backtests.momentum.auto.downturn.config_mutator import mutate_downturn_config
 from backtests.momentum.auto.downturn.output.generate_r5_diagnostics import generate_expanded_report
 from backtests.momentum.auto.downturn.output.generate_r7b_diagnostics import R7B_MUTATIONS

@@ -656,14 +656,12 @@ class ALCBP13Plugin:
         store_context: bool = False,
         collect_diagnostics: bool = False,
     ) -> dict[str, Any]:
-        from backtests.stock._aliases import install
         from backtests.stock.analysis.alcb_shadow_tracker import ALCBShadowTracker
         from backtests.stock.auto.config_mutator import mutate_alcb_config
         from backtests.stock.auto.scoring import extract_metrics
         from backtests.stock.config_alcb import ALCBBacktestConfig
         from backtests.stock.engine.alcb_engine import ALCBIntradayEngine
 
-        install()
         mutations = hydrate_time_mutations(mutations)
         effective_start = start_date or self.start_date
         effective_end = end_date or self.end_date

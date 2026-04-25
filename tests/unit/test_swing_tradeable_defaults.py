@@ -1,9 +1,5 @@
 from pathlib import Path
 
-from backtests.swing._aliases import install
-
-install()
-
 from backtests.swing.auto.experiments import build_experiment_queue
 from backtests.swing.config import BacktestConfig
 from backtests.swing.config_breakout import BreakoutBacktestConfig
@@ -17,7 +13,7 @@ from backtests.swing.optimization.helix_param_space import _helix_symbols
 from backtests.swing.optimization.param_space import _BTC_SYMS as ATRSS_BTC_SYMS
 from libs.config.loader import load_strategy_registry
 from strategies.swing.akc_helix.config import SYMBOLS as HELIX_SYMBOLS
-from strategy.config import SYMBOLS as ATRSS_SYMBOLS
+from strategies.swing.atrss.config import SYMBOLS as ATRSS_SYMBOLS
 
 
 CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"

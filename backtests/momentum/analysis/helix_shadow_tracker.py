@@ -12,7 +12,7 @@ from datetime import datetime
 
 import numpy as np
 
-from strategy.config import (
+from strategies.momentum.helix_v40.config import (
     STALE_M_BARS, STALE_R_THRESHOLD,
     TRAIL_LOOKBACK_1H, TRAIL_MULT_FLOOR, TRAIL_R_DIVISOR,
     NQ_POINT_VALUE,

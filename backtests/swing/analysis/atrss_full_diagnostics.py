@@ -16,10 +16,7 @@ from pathlib import Path
 
 # Setup path and aliases
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from backtests.swing._aliases import install
-install()
-
-from backtest.analysis.atrss_diagnostics import (
+from backtests.swing.analysis.atrss_diagnostics import (
     atrss_addon_analysis,
     atrss_adx_edge_analysis,
     atrss_bias_alignment,
@@ -43,21 +40,21 @@ from backtest.analysis.atrss_diagnostics import (
     atrss_streak_analysis,
     atrss_time_analysis,
 )
-from backtest.analysis.metrics import (
+from backtests.swing.analysis.metrics import (
     compute_buy_and_hold,
     compute_max_drawdown,
     compute_metrics,
     compute_sharpe,
     compute_sortino,
 )
-from backtest.analysis.reports import (
+from backtests.swing.analysis.reports import (
     behavior_report,
     buy_and_hold_report,
     diagnostic_report,
     performance_report,
 )
-from backtest.config import AblationFlags, BacktestConfig, SlippageConfig
-from backtest.engine.portfolio_engine import PortfolioResult, run_synchronized
+from backtests.swing.config import AblationFlags, BacktestConfig, SlippageConfig
+from backtests.swing.engine.portfolio_engine import PortfolioResult, run_synchronized
 from backtests.diagnostic_snapshot import build_group_snapshot
 from backtests.swing.analysis.optimized_baseline import (
     load_phase_mutation_source,
@@ -89,14 +86,14 @@ def _net_profit_factor(trades: list) -> float:
 
 
 def _load_data(symbols: list[str], data_dir: Path):
-    from backtest.data.cache import load_bars
-    from backtest.data.preprocessing import (
+    from backtests.swing.data.cache import load_bars
+    from backtests.swing.data.preprocessing import (
         align_daily_to_hourly,
         build_numpy_arrays,
         filter_rth,
         normalize_timezone,
     )
-    from backtest.engine.portfolio_engine import PortfolioData
+    from backtests.swing.engine.portfolio_engine import PortfolioData
 
     data = PortfolioData()
     for sym in symbols:

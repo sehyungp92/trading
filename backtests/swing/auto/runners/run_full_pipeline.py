@@ -19,9 +19,6 @@ ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT))
 
 # Install swing aliases before any backtest imports
-from backtests.swing._aliases import install
-install()
-
 from backtests.swing.auto.harness import SwingAutoHarness
 from backtests.swing.auto.experiments import build_experiment_queue
 from backtests.swing.auto.greedy_optimize import run_greedy, save_result

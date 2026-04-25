@@ -1,9 +1,9 @@
 """Tests for MAE (Maximum Adverse Excursion) tracking on PositionState."""
 import pytest
 from datetime import datetime
-from strategy.config import PositionState as HelixPositionState, SetupClass
-from strategy_2.models import PositionState as NQDTCPositionState, Direction as NQDTCDirection
-from strategy_3.models import PositionState as VdubusPositionState
+from strategies.momentum.helix_v40.config import PositionState as HelixPositionState, SetupClass
+from strategies.momentum.nqdtc.models import PositionState as NQDTCPositionState, Direction as NQDTCDirection
+from strategies.momentum.vdub.models import PositionState as VdubusPositionState
 
 
 def test_helix_position_has_mae_field():

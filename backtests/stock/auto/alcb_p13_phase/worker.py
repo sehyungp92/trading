@@ -33,10 +33,6 @@ def init_worker(
     if sys.stdout.encoding != "utf-8":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-    from backtests.stock._aliases import install
-
-    install()
-
     from backtests.stock.config_alcb import ALCBBacktestConfig
     from backtests.stock.engine.research_replay import ResearchReplayEngine
 

@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 from strategies.contracts import RuntimeContext
+from .artifact_store import coerce_intraday_state_snapshot
 from .config import StrategySettings
 from .diagnostics import JsonlDiagnostics
 from .engine import IARICEngine
@@ -45,6 +46,7 @@ class IARICPlugin:
         self._diagnostics = diagnostics
         self._instrumentation = ctx.instrumentation
         self._engine: IARICEngine | None = None
+        self._pending_snapshot: Any | None = None
 
     # -- lifecycle --------------------------------------------------------
 
@@ -67,6 +69,10 @@ class IARICPlugin:
 
     async def start(self) -> None:
         self._engine = self._build_engine()
+        if self._pending_snapshot is not None:
+            self._engine.hydrate_state(
+                coerce_intraday_state_snapshot(self._pending_snapshot)
+            )
         await self._engine.start()
 
     async def stop(self) -> None:
@@ -74,14 +80,18 @@ class IARICPlugin:
             await self._engine.stop()
 
     def health_status(self) -> dict[str, Any]:
+        if self._engine is not None:
+            return self._engine.health_status()
         return {
             "strategy_id": self.strategy_id,
-            "running": getattr(self._engine, "_running", False),
+            "running": False,
             "has_artifact": self._artifact is not None,
         }
 
     async def hydrate(self, snapshot: dict[str, Any]) -> None:
-        pass  # Stock engines load artifacts on start
+        self._pending_snapshot = coerce_intraday_state_snapshot(snapshot)
+        if self._engine is not None:
+            self._engine.hydrate_state(self._pending_snapshot)
 
     def snapshot_state(self) -> dict[str, Any]:
         if self._engine is not None and hasattr(self._engine, "snapshot_state"):
@@ -89,6 +99,10 @@ class IARICPlugin:
             if dataclasses.is_dataclass(state):
                 return dataclasses.asdict(state)
             return state
+        if self._pending_snapshot is not None:
+            if dataclasses.is_dataclass(self._pending_snapshot):
+                return dataclasses.asdict(self._pending_snapshot)
+            return self._pending_snapshot
         return {"strategy_id": self.strategy_id}
 
     async def on_market_data(self, event: Any) -> None:

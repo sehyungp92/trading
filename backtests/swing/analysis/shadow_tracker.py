@@ -12,15 +12,15 @@ from datetime import datetime
 
 import numpy as np
 
-import strategy.config as _scfg
-from strategy.config import (
+import strategies.swing.atrss.config as _scfg
+from strategies.swing.atrss.config import (
     MAX_HOLD_HOURS,
     ORDER_EXPIRY_HOURS,
     PROFIT_FLOOR,
     SymbolConfig,
 )
-from strategy.models import DailyState, Direction, Regime
-from strategy import stops
+from strategies.swing.atrss.models import DailyState, Direction, Regime
+from strategies.swing.atrss import stops
 
 logger = logging.getLogger(__name__)
 

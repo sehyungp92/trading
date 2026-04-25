@@ -1,18 +1,15 @@
 """R9 BRS diagnostics on the synchronized, fee-net campaign engine."""
 from __future__ import annotations
 
+import argparse
 import sys
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from backtests.swing._aliases import install
-
-install()
-
-from backtest.config_brs import BRSConfig
-from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
+from backtests.swing.config_brs import BRSConfig
+from backtests.swing.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
 from backtests.swing.analysis.brs_diagnostics import CRISIS_WINDOWS, compute_brs_diagnostics
 from backtests.swing.analysis.brs_trade_metrics import summarize_brs_campaigns
 from backtests.swing.auto.brs.config_mutator import mutate_brs_config
@@ -21,10 +18,15 @@ from backtests.swing.auto.brs.scoring import extract_brs_metrics
 R9_MUTATIONS = {}
 DATA_DIR = Path("backtests/swing/data/raw")
 INITIAL_EQUITY = 10_000.0
+DEFAULT_OUTPUT = Path("backtests/swing/auto/brs/output/r9_full_diagnostics.txt")
 
 
 def main() -> None:
-    output_path = Path(__file__).resolve().parent.parent / "auto" / "brs" / "output" / "r9_full_diagnostics.txt"
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
+    args = parser.parse_args()
+
+    output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     config = mutate_brs_config(BRSConfig(initial_equity=INITIAL_EQUITY, data_dir=DATA_DIR), R9_MUTATIONS)

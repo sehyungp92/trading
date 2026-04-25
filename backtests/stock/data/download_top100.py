@@ -15,9 +15,6 @@ import logging
 import sys
 from pathlib import Path
 
-from backtests.stock._aliases import install
-install()
-
 from backtests.momentum.data.downloader import (
     _CLIENT_ID,
     _PACING_DELAY,

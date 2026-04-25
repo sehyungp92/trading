@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
-from backtest.config_portfolio import PortfolioBacktestConfig
+from backtests.momentum.config_portfolio import PortfolioBacktestConfig
 from libs.oms.config.portfolio_config import PortfolioConfig, StrategyAllocation
 
 # ---------------------------------------------------------------------------

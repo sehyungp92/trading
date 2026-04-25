@@ -259,12 +259,8 @@ class BRSPlugin:
         return CachedBatchEvaluator(raw)
 
     def compute_final_metrics(self, mutations: dict[str, Any]) -> dict[str, float]:
-        from backtests.swing._aliases import install
-
-        install()
-
-        from backtest.config_brs import BRSConfig
-        from backtest.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
+        from backtests.swing.config_brs import BRSConfig
+        from backtests.swing.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
         from backtests.swing.analysis.brs_diagnostics import compute_brs_diagnostics
         from backtests.swing.auto.brs.config_mutator import mutate_brs_config
         from backtests.swing.auto.brs.scoring import extract_brs_metrics

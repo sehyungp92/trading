@@ -19,16 +19,16 @@ from datetime import datetime, timezone
 import numpy as np
 
 from libs.broker_ibkr.risk_support.tick_rules import round_to_tick
-from strategy import stops
-from strategy.config import SYMBOL_CONFIGS, SymbolConfig
-from strategy.indicators import compute_daily_state, compute_hourly_state
-from strategy.models import DailyState, Direction, HourlyState, Regime
+from strategies.swing.atrss import stops
+from strategies.swing.atrss.config import SYMBOL_CONFIGS, SymbolConfig
+from strategies.swing.atrss.indicators import compute_daily_state, compute_hourly_state
+from strategies.swing.atrss.models import DailyState, Direction, HourlyState, Regime
 
-from backtest.config import SlippageConfig
-from backtest.config_regime import RegimeConfig
-from backtest.data.preprocessing import NumpyBars
-from backtest.engine.backtest_engine import SymbolResult, TradeRecord
-from backtest.engine.portfolio_engine import PortfolioData, PortfolioResult
+from backtests.swing.config import SlippageConfig
+from backtests.swing.config_regime import RegimeConfig
+from backtests.swing.data.preprocessing import NumpyBars
+from backtests.swing.engine.backtest_engine import SymbolResult, TradeRecord
+from backtests.swing.engine.portfolio_engine import PortfolioData, PortfolioResult
 
 logger = logging.getLogger(__name__)
 

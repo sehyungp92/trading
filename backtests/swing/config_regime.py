@@ -5,12 +5,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from backtest.config import SlippageConfig
+from backtests.swing.config import SlippageConfig
 
 
 def _default_atrss_symbols() -> list[str]:
     try:
-        from strategy.config import SYMBOLS
+        from strategies.swing.atrss.config import SYMBOLS
         return list(SYMBOLS)
     except ImportError:
         return ["QQQ", "GLD"]

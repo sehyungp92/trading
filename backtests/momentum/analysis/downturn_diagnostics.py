@@ -7,7 +7,7 @@ from io import StringIO
 
 import numpy as np
 
-from backtest.data.preprocessing import NumpyBars
+from backtests.momentum.data.preprocessing import NumpyBars
 from strategies.momentum.downturn.bt_models import (
     CorrectionWindow,
     DownturnResult,

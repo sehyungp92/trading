@@ -6,21 +6,19 @@ milliseconds since it just walks pre-computed trade lists.
 """
 from __future__ import annotations
 
-from backtests.momentum._aliases import install; install()
-
 from dataclasses import dataclass, replace
 from typing import Callable
 
 import numpy as np
 
-from backtest.analysis.metrics import (
+from backtests.momentum.analysis.metrics import (
     compute_cagr,
     compute_max_drawdown,
     compute_sharpe,
     compute_sortino,
 )
-from backtest.config_portfolio import PortfolioBacktestConfig
-from backtest.engine.portfolio_engine import PortfolioBacktester, PortfolioResult
+from backtests.momentum.config_portfolio import PortfolioBacktestConfig
+from backtests.momentum.engine.portfolio_engine import PortfolioBacktester, PortfolioResult
 from libs.oms.config.portfolio_config import PortfolioConfig, StrategyAllocation
 
 

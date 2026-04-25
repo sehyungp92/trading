@@ -10,8 +10,6 @@ Usage:
 """
 from __future__ import annotations
 
-from backtests.momentum._aliases import install; install()
-
 import argparse
 import asyncio
 import logging
@@ -72,8 +70,8 @@ def _log_live_parity_caveats(strategy: str, fixed_qty: int | None) -> None:
 
 def _load_nqdtc_data(symbol: str, data_dir: Path) -> dict:
     """Load 5-min NQ parquet and resample to multi-TF arrays for NQDTCEngine."""
-    from backtest.data.cache import load_bars
-    from backtest.data.preprocessing import (
+    from backtests.momentum.data.cache import load_bars
+    from backtests.momentum.data.preprocessing import (
         align_daily_to_5m,
         align_higher_tf_to_5m,
         build_numpy_arrays,
@@ -153,8 +151,8 @@ def _load_nqdtc_data(symbol: str, data_dir: Path) -> dict:
 
 def _load_downturn_data(symbol: str, data_dir: Path) -> dict:
     """Load 5m NQ and resample to 6 timeframes for DownturnEngine."""
-    from backtest.data.cache import load_bars
-    from backtest.data.preprocessing import (
+    from backtests.momentum.data.cache import load_bars
+    from backtests.momentum.data.preprocessing import (
         align_daily_to_5m,
         align_higher_tf_to_5m,
         build_numpy_arrays,
@@ -228,8 +226,8 @@ def _load_downturn_data(symbol: str, data_dir: Path) -> dict:
 
 def _load_vdubus_data(symbol: str, data_dir: Path, include_5m: bool = False) -> dict:
     """Load NQ 15m + ES daily parquet and resample for VdubusEngine."""
-    from backtest.data.cache import load_bars
-    from backtest.data.preprocessing import (
+    from backtests.momentum.data.cache import load_bars
+    from backtests.momentum.data.preprocessing import (
         align_5m_to_15m,
         align_daily_to_15m,
         align_higher_tf_to_15m,
@@ -302,7 +300,7 @@ def cmd_download(args):
     duration = args.duration
 
     if args.strategy == "nqdtc":
-        from backtest.data.downloader import download_nqdtc_data
+        from backtests.momentum.data.downloader import download_nqdtc_data
 
         symbol = args.symbols
 
@@ -317,7 +315,7 @@ def cmd_download(args):
 
         asyncio.run(_run_nqdtc())
     elif args.strategy == "vdubus":
-        from backtest.data.downloader import download_vdubus_data
+        from backtests.momentum.data.downloader import download_vdubus_data
 
         symbol = args.symbols
 
@@ -332,7 +330,7 @@ def cmd_download(args):
 
         asyncio.run(_run_vdubus())
     elif args.strategy == "helix":
-        from backtest.data.downloader import download_apex_data
+        from backtests.momentum.data.downloader import download_apex_data
         symbol = args.symbols
 
         async def _run_helix():
@@ -349,8 +347,8 @@ def cmd_download(args):
 
 def _load_helix_data(symbol: str, data_dir: Path) -> dict:
     """Load 5-min NQ parquet and resample for HelixEngine."""
-    from backtest.data.cache import load_bars
-    from backtest.data.preprocessing import (
+    from backtests.momentum.data.cache import load_bars
+    from backtests.momentum.data.preprocessing import (
         align_daily_to_5m,
         align_higher_tf_to_5m,
         build_numpy_arrays,
@@ -462,15 +460,15 @@ def _load_helix_data_cached(symbol: str, data_dir: Path) -> dict:
 
 def _cmd_run_nqdtc(args):
     """Run a single NQDTC v2.0 backtest."""
-    from backtest.analysis.metrics import compute_metrics
-    from backtest.analysis.reports import (
+    from backtests.momentum.analysis.metrics import compute_metrics
+    from backtests.momentum.analysis.reports import (
         format_summary,
         nqdtc_behavior_report,
         nqdtc_diagnostic_report,
         nqdtc_performance_report,
     )
-    from backtest.config_nqdtc import NQDTCBacktestConfig
-    from backtest.engine.nqdtc_engine import NQDTCEngine
+    from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
+    from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
 
     symbol = args.symbols  # "NQ" ??used for data file paths
     data_dir = Path(args.data_dir)
@@ -532,14 +530,14 @@ def _cmd_run_nqdtc(args):
 
         # Extended diagnostics
         if getattr(args, 'diagnostics', False):
-            from backtest.analysis.nqdtc_diagnostics import nqdtc_full_diagnostic
+            from backtests.momentum.analysis.nqdtc_diagnostics import nqdtc_full_diagnostic
             report_sections.append(nqdtc_full_diagnostic(
                 result.trades, signal_events=result.signal_events,
             ))
 
             # Gating attribution (critical deliverable)
             if result.signal_events:
-                from backtest.analysis.nqdtc_filter_attribution import (
+                from backtests.momentum.analysis.nqdtc_filter_attribution import (
                     nqdtc_filter_attribution_report,
                 )
                 report_sections.append(
@@ -568,10 +566,10 @@ def _cmd_run_nqdtc(args):
 
 def _cmd_ablation_nqdtc(args):
     """Run NQDTC ablation test."""
-    from backtest.analysis.metrics import compute_metrics
-    from backtest.analysis.reports import print_summary
-    from backtest.config_nqdtc import NQDTCAblationFlags, NQDTCBacktestConfig
-    from backtest.engine.nqdtc_engine import NQDTCEngine
+    from backtests.momentum.analysis.metrics import compute_metrics
+    from backtests.momentum.analysis.reports import print_summary
+    from backtests.momentum.config_nqdtc import NQDTCAblationFlags, NQDTCBacktestConfig
+    from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
 
     symbol = args.symbols  # "NQ" ??used for data file paths
     data_dir = Path(args.data_dir)
@@ -645,8 +643,8 @@ def _cmd_ablation_nqdtc(args):
 
 def _cmd_optimize_nqdtc(args):
     """Run NQDTC parameter optimization."""
-    from backtest.config_nqdtc import NQDTCBacktestConfig
-    from backtest.optimization.nqdtc_runner import NQDTCOptimizationRunner
+    from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
+    from backtests.momentum.optimization.nqdtc_runner import NQDTCOptimizationRunner
 
     symbol = args.symbols
     data_dir = Path(args.data_dir)
@@ -672,8 +670,8 @@ def _cmd_optimize_nqdtc(args):
 
 def _cmd_walk_forward_nqdtc(args):
     """Run NQDTC walk-forward validation."""
-    from backtest.config_nqdtc import NQDTCBacktestConfig
-    from backtest.optimization.nqdtc_walk_forward import NQDTCWalkForwardValidator
+    from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
+    from backtests.momentum.optimization.nqdtc_walk_forward import NQDTCWalkForwardValidator
 
     symbol = args.symbols
     data_dir = Path(args.data_dir)
@@ -700,11 +698,11 @@ def _cmd_walk_forward_nqdtc(args):
 
 def _cmd_run_vdubus(args):
     """Run a single VdubusNQ v4.0 backtest."""
-    from backtest.analysis.metrics import compute_metrics
-    from backtest.analysis.reports import format_summary
-    from backtest.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
-    from backtest.engine.vdubus_engine import VdubusEngine
-    from strategy_3 import config as C
+    from backtests.momentum.analysis.metrics import compute_metrics
+    from backtests.momentum.analysis.reports import format_summary
+    from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
+    from backtests.momentum.engine.vdubus_engine import VdubusEngine
+    from strategies.momentum.vdub import config as C
 
     symbol = args.symbols
     data_dir = Path(args.data_dir)
@@ -810,7 +808,7 @@ def _cmd_run_vdubus(args):
 
         # Extended diagnostics
         if getattr(args, 'diagnostics', False):
-            from backtest.analysis.vdubus_diagnostics import vdubus_full_diagnostic
+            from backtests.momentum.analysis.vdubus_diagnostics import vdubus_full_diagnostic
             report_sections.append(vdubus_full_diagnostic(
                 result.trades, signal_events=result.signal_events,
                 equity_curve=result.equity_curve,
@@ -819,7 +817,7 @@ def _cmd_run_vdubus(args):
 
             # Gating attribution
             if result.signal_events:
-                from backtest.analysis.vdubus_filter_attribution import (
+                from backtests.momentum.analysis.vdubus_filter_attribution import (
                     vdubus_filter_attribution_report,
                 )
                 report_sections.append(
@@ -849,11 +847,11 @@ def _cmd_run_vdubus(args):
 
 def _cmd_ablation_vdubus(args):
     """Run VdubusNQ ablation test."""
-    from backtest.analysis.metrics import compute_metrics
-    from backtest.analysis.reports import print_summary
-    from backtest.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
-    from backtest.engine.vdubus_engine import VdubusEngine
-    from strategy_3 import config as C
+    from backtests.momentum.analysis.metrics import compute_metrics
+    from backtests.momentum.analysis.reports import print_summary
+    from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
+    from backtests.momentum.engine.vdubus_engine import VdubusEngine
+    from strategies.momentum.vdub import config as C
 
     symbol = args.symbols
     data_dir = Path(args.data_dir)
@@ -947,8 +945,8 @@ def _cmd_ablation_vdubus(args):
 
 def _cmd_optimize_vdubus(args):
     """Run VdubusNQ parameter optimization."""
-    from backtest.config_vdubus import VdubusBacktestConfig
-    from backtest.optimization.vdubus_runner import VdubusOptimizationRunner
+    from backtests.momentum.config_vdubus import VdubusBacktestConfig
+    from backtests.momentum.optimization.vdubus_runner import VdubusOptimizationRunner
 
     symbol = args.symbols
     data_dir = Path(args.data_dir)
@@ -974,8 +972,8 @@ def _cmd_optimize_vdubus(args):
 
 def _cmd_walk_forward_vdubus(args):
     """Run VdubusNQ walk-forward validation."""
-    from backtest.config_vdubus import VdubusBacktestConfig
-    from backtest.optimization.vdubus_walk_forward import VdubusWalkForwardValidator
+    from backtests.momentum.config_vdubus import VdubusBacktestConfig
+    from backtests.momentum.optimization.vdubus_walk_forward import VdubusWalkForwardValidator
 
     symbol = args.symbols
     data_dir = Path(args.data_dir)
@@ -1002,10 +1000,10 @@ def _cmd_walk_forward_vdubus(args):
 
 def _cmd_run_helix(args):
     """Run a single Helix v4.0 Apex Trail backtest."""
-    from backtest.analysis.metrics import compute_metrics
-    from backtest.analysis.reports import format_summary
-    from backtest.config_helix import Helix4BacktestConfig
-    from backtest.engine.helix_engine import Helix4Engine
+    from backtests.momentum.analysis.metrics import compute_metrics
+    from backtests.momentum.analysis.reports import format_summary
+    from backtests.momentum.config_helix import Helix4BacktestConfig
+    from backtests.momentum.engine.helix_engine import Helix4Engine
 
     symbol = args.symbols
     data_dir = Path(args.data_dir)
@@ -1103,11 +1101,11 @@ def _cmd_run_helix(args):
         )
         report_sections.append(format_summary(metrics))
 
-        from backtest.analysis.reports import helix_performance_report
+        from backtests.momentum.analysis.reports import helix_performance_report
         report_sections.append(helix_performance_report(symbol, metrics))
 
         if getattr(args, 'diagnostics', False):
-            from backtest.analysis.helix_diagnostics import helix_full_diagnostic
+            from backtests.momentum.analysis.helix_diagnostics import helix_full_diagnostic
             report_sections.append(helix_full_diagnostic(
                 result.trades,
                 setup_log=result.setup_log,
@@ -1123,7 +1121,7 @@ def _cmd_run_helix(args):
     # Helix filter attribution with formal verdicts
     if getattr(args, 'diagnostics', False) and hasattr(result, 'gate_log'):
         try:
-            from backtest.analysis.helix_filter_attribution import helix_filter_attribution_report
+            from backtests.momentum.analysis.helix_filter_attribution import helix_filter_attribution_report
             shadow_tracker = getattr(result, 'shadow_tracker', None)
             report_sections.append(helix_filter_attribution_report(
                 gate_log=result.gate_log,
@@ -1147,10 +1145,10 @@ def _cmd_run_helix(args):
 
 def _cmd_ablation_helix(args):
     """Run Helix ablation test."""
-    from backtest.analysis.metrics import compute_metrics
-    from backtest.analysis.reports import print_summary
-    from backtest.config_helix import Helix4AblationFlags, Helix4BacktestConfig
-    from backtest.engine.helix_engine import Helix4Engine
+    from backtests.momentum.analysis.metrics import compute_metrics
+    from backtests.momentum.analysis.reports import print_summary
+    from backtests.momentum.config_helix import Helix4AblationFlags, Helix4BacktestConfig
+    from backtests.momentum.engine.helix_engine import Helix4Engine
 
     symbol = args.symbols
     data_dir = Path(args.data_dir)
@@ -1227,13 +1225,13 @@ def _cmd_ablation_helix(args):
 
 def _cmd_run_portfolio(args):
     """Run combined portfolio backtest across all strategies."""
-    from backtest.analysis.metrics import compute_metrics
-    from backtest.analysis.portfolio_reports import portfolio_full_report
-    from backtest.config_helix import Helix4BacktestConfig
-    from backtest.config_nqdtc import NQDTCBacktestConfig
-    from backtest.config_portfolio import PRESETS, PortfolioBacktestConfig
-    from backtest.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
-    from backtest.engine.portfolio_engine import PortfolioBacktester
+    from backtests.momentum.analysis.metrics import compute_metrics
+    from backtests.momentum.analysis.portfolio_reports import portfolio_full_report
+    from backtests.momentum.config_helix import Helix4BacktestConfig
+    from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
+    from backtests.momentum.config_portfolio import PRESETS, PortfolioBacktestConfig
+    from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
+    from backtests.momentum.engine.portfolio_engine import PortfolioBacktester
 
     data_dir = Path(args.data_dir)
     preset_name = getattr(args, 'preset', '10k_v6')
@@ -1262,7 +1260,7 @@ def _cmd_run_portfolio(args):
     # --- Run Helix ---
     helix_alloc = pc.get_strategy("Helix")
     if config.run_helix and helix_alloc and helix_alloc.enabled:
-        from backtest.engine.helix_engine import Helix4Engine
+        from backtests.momentum.engine.helix_engine import Helix4Engine
 
         symbol = "NQ"
         helix_data = _load_helix_data(symbol, data_dir)
@@ -1289,7 +1287,7 @@ def _cmd_run_portfolio(args):
     # --- Run NQDTC ---
     nqdtc_alloc = pc.get_strategy("NQDTC")
     if config.run_nqdtc and nqdtc_alloc and nqdtc_alloc.enabled:
-        from backtest.engine.nqdtc_engine import NQDTCEngine
+        from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
 
         symbol = "NQ"
         nqdtc_data = _load_nqdtc_data(symbol, data_dir)
@@ -1320,8 +1318,8 @@ def _cmd_run_portfolio(args):
     # --- Run Vdubus ---
     vdubus_alloc = pc.get_strategy("Vdubus")
     if config.run_vdubus and vdubus_alloc and vdubus_alloc.enabled:
-        from backtest.engine.vdubus_engine import VdubusEngine
-        from strategy_3 import config as C
+        from backtests.momentum.engine.vdubus_engine import VdubusEngine
+        from strategies.momentum.vdub import config as C
 
         symbol = "NQ"
         vdubus_data = _load_vdubus_data(symbol, data_dir)
@@ -1391,11 +1389,11 @@ def _cmd_run_portfolio(args):
 
 def _cmd_sweep_portfolio(args):
     """Run portfolio parameter sweep across config variants."""
-    from backtest.config_helix import Helix4BacktestConfig
-    from backtest.config_nqdtc import NQDTCBacktestConfig
-    from backtest.config_portfolio import PRESETS, PortfolioBacktestConfig
-    from backtest.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
-    from backtest.sweep_portfolio import (
+    from backtests.momentum.config_helix import Helix4BacktestConfig
+    from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
+    from backtests.momentum.config_portfolio import PRESETS, PortfolioBacktestConfig
+    from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
+    from backtests.momentum.sweep_portfolio import (
         build_combined_variant,
         build_sweep_variants,
         find_winners,
@@ -1430,7 +1428,7 @@ def _cmd_sweep_portfolio(args):
     # --- Run each engine once ---
     helix_alloc = pc.get_strategy("Helix")
     if helix_alloc and helix_alloc.enabled:
-        from backtest.engine.helix_engine import Helix4Engine
+        from backtests.momentum.engine.helix_engine import Helix4Engine
 
         symbol = "NQ"
         helix_data = _load_helix_data(symbol, data_dir)
@@ -1455,7 +1453,7 @@ def _cmd_sweep_portfolio(args):
 
     nqdtc_alloc = pc.get_strategy("NQDTC")
     if nqdtc_alloc and nqdtc_alloc.enabled:
-        from backtest.engine.nqdtc_engine import NQDTCEngine
+        from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
 
         symbol = "NQ"
         nqdtc_data = _load_nqdtc_data(symbol, data_dir)
@@ -1484,8 +1482,8 @@ def _cmd_sweep_portfolio(args):
 
     vdubus_alloc = pc.get_strategy("Vdubus")
     if vdubus_alloc and vdubus_alloc.enabled:
-        from backtest.engine.vdubus_engine import VdubusEngine
-        from strategy_3 import config as C
+        from backtests.momentum.engine.vdubus_engine import VdubusEngine
+        from strategies.momentum.vdub import config as C
 
         symbol = "NQ"
         vdubus_data = _load_vdubus_data(symbol, data_dir)
@@ -1563,8 +1561,8 @@ def _cmd_sweep_portfolio(args):
                 start_date=bt_config.start_date,
                 end_date=bt_config.end_date,
             )
-            from backtest.engine.portfolio_engine import PortfolioBacktester
-            from backtest.sweep_portfolio import _extract_metrics
+            from backtests.momentum.engine.portfolio_engine import PortfolioBacktester
+            from backtests.momentum.sweep_portfolio import _extract_metrics
 
             bt = PortfolioBacktester(combined_bt_cfg)
             pr = bt.run(
@@ -1608,8 +1606,8 @@ def _cmd_sweep_portfolio(args):
 
 def _cmd_weakness_report(args):
     """Generate unified momentum weakness report by running all 3 strategies."""
-    from backtest.analysis.weakness_report import momentum_weakness_report
-    from backtest.analysis.drawdown_attribution import drawdown_attribution_report
+    from backtests.momentum.analysis.weakness_report import momentum_weakness_report
+    from backtests.momentum.analysis.drawdown_attribution import drawdown_attribution_report
 
     logger.info("Running all 3 strategies for weakness report...")
 
@@ -1621,8 +1619,8 @@ def _cmd_weakness_report(args):
 
     # Helix
     try:
-        from backtest.engine.helix_engine import Helix4Engine
-        from backtest.config_helix import Helix4BacktestConfig
+        from backtests.momentum.engine.helix_engine import Helix4Engine
+        from backtests.momentum.config_helix import Helix4BacktestConfig
         helix_data = _load_helix_data("NQ", data_dir)
         h_cfg = Helix4BacktestConfig(
             symbols=["NQ"], initial_equity=args.equity, data_dir=data_dir, fixed_qty=10,
@@ -1641,8 +1639,8 @@ def _cmd_weakness_report(args):
 
     # NQDTC
     try:
-        from backtest.config_nqdtc import NQDTCBacktestConfig
-        from backtest.engine.nqdtc_engine import NQDTCEngine
+        from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
+        from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
         nqdtc_data = _load_nqdtc_data("NQ", data_dir)
         n_cfg = NQDTCBacktestConfig(
             symbols=["MNQ"], initial_equity=args.equity, data_dir=data_dir, fixed_qty=10,
@@ -1663,9 +1661,9 @@ def _cmd_weakness_report(args):
 
     # Vdubus
     try:
-        from backtest.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
-        from backtest.engine.vdubus_engine import VdubusEngine
-        from strategy_3 import config as C
+        from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
+        from backtests.momentum.engine.vdubus_engine import VdubusEngine
+        from strategies.momentum.vdub import config as C
         vdubus_data = _load_vdubus_data("NQ", data_dir)
         orig_nq_spec = dict(C.NQ_SPEC)
         orig_rt_comm = C.RT_COMM_FEES
@@ -1731,8 +1729,8 @@ def _cmd_weakness_report(args):
 
 def _cmd_run_downturn(args):
     """Run a single Downturn Dominator backtest."""
-    from backtest.config_downturn import DownturnBacktestConfig
-    from backtest.engine.downturn_engine import DownturnEngine
+    from backtests.momentum.config_downturn import DownturnBacktestConfig
+    from backtests.momentum.engine.downturn_engine import DownturnEngine
     from backtests.momentum.analysis.downturn_diagnostics import (
         compute_downturn_metrics,
         generate_downturn_report,
@@ -1786,8 +1784,8 @@ def _cmd_run_downturn(args):
 def _cmd_ablation_downturn(args):
     """Run ablation test for Downturn Dominator."""
     from dataclasses import fields
-    from backtest.config_downturn import DownturnAblationFlags, DownturnBacktestConfig
-    from backtest.engine.downturn_engine import DownturnEngine
+    from backtests.momentum.config_downturn import DownturnAblationFlags, DownturnBacktestConfig
+    from backtests.momentum.engine.downturn_engine import DownturnEngine
     from backtests.momentum.analysis.downturn_diagnostics import compute_downturn_metrics
 
     symbol = args.symbols if isinstance(args.symbols, str) else "NQ"

@@ -298,12 +298,8 @@ class VdubusPlugin:
         if sig == self._last_metrics_sig and self._last_metrics_result is not None:
             return self._last_metrics_result
 
-        from backtests.momentum._aliases import install
-
-        install()
-
-        from backtest.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
-        from backtest.engine.vdubus_engine import VdubusEngine
+        from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
+        from backtests.momentum.engine.vdubus_engine import VdubusEngine
         from backtests.momentum.auto.config_mutator import mutate_vdubus_config
         from backtests.momentum.auto.vdubus.scoring import extract_vdubus_metrics
         from backtests.momentum.auto.vdubus.worker import load_worker_data

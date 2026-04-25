@@ -15,8 +15,8 @@ from collections import Counter
 
 import numpy as np
 
-from backtest.analysis.vdubus_shadow_tracker import VdubusFilterStats, VdubusShadowTracker
-from backtest.engine.vdubus_engine import VdubusSignalEvent
+from backtests.momentum.analysis.vdubus_shadow_tracker import VdubusFilterStats, VdubusShadowTracker
+from backtests.momentum.engine.vdubus_engine import VdubusSignalEvent
 
 
 def vdubus_filter_attribution_report(

@@ -6,6 +6,17 @@
       "artifact_path": "backtests/swing/auto/output/post-fixes/atrss_optimized_baseline_full_diagnostics.txt",
       "parser_kind": "swing_aggregate_summary",
       "summary_source": null,
+      "regeneration": {
+        "executor": "python_file",
+        "entrypoint": "backtests/swing/analysis/atrss_full_diagnostics.py",
+        "arguments": [
+          "--output",
+          "backtests/swing/auto/output/post-fixes/atrss_optimized_baseline_full_diagnostics.txt",
+          "--title",
+          "ATRSS OPTIMIZED BASELINE FULL DIAGNOSTICS (SYNCHRONIZED / FEE-NET)"
+        ],
+        "expected_output": "backtests/swing/auto/output/post-fixes/atrss_optimized_baseline_full_diagnostics.txt"
+      },
       "sha256": "2B6F707C5E25CF4BC6DE99FAD48CC6E51ABAA82E890F0FCFD7F79BE235DEF471",
       "expected_metrics": {
         "total_trades": 48.0,
@@ -20,6 +31,15 @@
       "artifact_path": "backtests/swing/auto/output/post-fixes/breakout_optimized_seed_full_diagnostics.txt",
       "parser_kind": "swing_aggregate_summary",
       "summary_source": null,
+      "regeneration": {
+        "executor": "python_file",
+        "entrypoint": "backtests/swing/analysis/breakout_full_diagnostics.py",
+        "arguments": [
+          "--output",
+          "backtests/swing/auto/output/post-fixes/breakout_optimized_seed_full_diagnostics.txt"
+        ],
+        "expected_output": "backtests/swing/auto/output/post-fixes/breakout_optimized_seed_full_diagnostics.txt"
+      },
       "sha256": "D0E81CAADE1311BD4C02E60D20F431ECACFEA1637406C4AA3C0BE37E7CDC76CA",
       "expected_metrics": {
         "total_trades": 37.0,
@@ -34,6 +54,15 @@
       "artifact_path": "backtests/swing/auto/output/post-fixes/brs_optimal_starting_baseline_full_diagnostics.txt",
       "parser_kind": "brs_topline",
       "summary_source": null,
+      "regeneration": {
+        "executor": "python_file",
+        "entrypoint": "backtests/swing/analysis/r9_full_diagnostics.py",
+        "arguments": [
+          "--output",
+          "backtests/swing/auto/output/post-fixes/brs_optimal_starting_baseline_full_diagnostics.txt"
+        ],
+        "expected_output": "backtests/swing/auto/output/post-fixes/brs_optimal_starting_baseline_full_diagnostics.txt"
+      },
       "sha256": "B5CD2B819E46E07CD9B6208F73DC8A43D903C2C6C61EAC4E725AFA92B76831BB",
       "expected_metrics": {
         "campaigns": 109.0,
@@ -48,6 +77,19 @@
       "artifact_path": "backtests/swing/auto/output/post-fixes/helix_exit_alpha_optimized_baseline_full_diagnostics.txt",
       "parser_kind": "swing_helix_summary",
       "summary_source": null,
+      "regeneration": {
+        "executor": "python_file",
+        "entrypoint": "backtests/swing/analysis/helix_full_diagnostics.py",
+        "arguments": [
+          "--state-path",
+          "backtests/swing/auto/helix/exit_alpha/output/phase_state.json",
+          "--output",
+          "backtests/swing/auto/output/post-fixes/helix_exit_alpha_optimized_baseline_full_diagnostics.txt",
+          "--title",
+          "HELIX EXIT-ALPHA OPTIMIZED BASELINE FULL DIAGNOSTICS (SYNCHRONIZED / FEE-NET)"
+        ],
+        "expected_output": "backtests/swing/auto/output/post-fixes/helix_exit_alpha_optimized_baseline_full_diagnostics.txt"
+      },
       "sha256": "C162587AEBD6743A09E1AB97E0A865DA05DCA54FC721A07A346735FD1DEB157F",
       "expected_metrics": {
         "total_trades": 348.0,
@@ -63,6 +105,17 @@
       "artifact_path": "backtests/momentum/auto/output/post-fixes/downturn_baseline_full_diagnostics.txt",
       "parser_kind": "downturn_summary",
       "summary_source": null,
+      "regeneration": {
+        "executor": "python_file",
+        "entrypoint": "backtests/momentum/auto/downturn/run_r7b_baseline_diagnostics.py",
+        "arguments": [
+          "--output",
+          "backtests/momentum/auto/output/post-fixes/downturn_baseline_full_diagnostics.txt",
+          "--json-output",
+          "backtests/momentum/auto/output/post-fixes/downturn_baseline_summary.json"
+        ],
+        "expected_output": "backtests/momentum/auto/output/post-fixes/downturn_baseline_full_diagnostics.txt"
+      },
       "sha256": "F1CDC060FCE866799F10F30B7144CCB28067333FF1253CB9B2A7640E0B829424",
       "expected_metrics": {
         "total_trades": 194.0,
@@ -78,6 +131,17 @@
       "artifact_path": "backtests/momentum/auto/output/post-fixes/helix_optimized_seed_full_diagnostics.txt",
       "parser_kind": "momentum_performance_summary",
       "summary_source": null,
+      "regeneration": {
+        "executor": "python_file",
+        "entrypoint": "backtests/momentum/auto/runners/run_helix_optimized_diagnostics.py",
+        "arguments": [
+          "--output",
+          "backtests/momentum/auto/output/post-fixes/helix_optimized_seed_full_diagnostics.txt",
+          "--json-output",
+          "backtests/momentum/auto/output/post-fixes/helix_optimized_seed.json"
+        ],
+        "expected_output": "backtests/momentum/auto/output/post-fixes/helix_optimized_seed_full_diagnostics.txt"
+      },
       "sha256": "29D8B2C4AF4A4020A415ACFBD0FC01201136CFB52F042E71BAE24CCEC0A6A05B",
       "expected_metrics": {
         "composite_score": 0.7293,
@@ -93,6 +157,21 @@
       "artifact_path": "backtests/momentum/auto/output/post-fixes/nqdtc_phase_seed_full_diagnostics.txt",
       "parser_kind": "momentum_performance_report",
       "summary_source": null,
+      "regeneration": {
+        "executor": "python_file",
+        "entrypoint": "backtests/momentum/auto/runners/run_nqdtc_optimized_diagnostics.py",
+        "arguments": [
+          "--phase-result",
+          "1",
+          "--mutation-kind",
+          "base",
+          "--output",
+          "backtests/momentum/auto/output/post-fixes/nqdtc_phase_seed_full_diagnostics.txt",
+          "--label",
+          "NQDTC PHASE-SEED BASELINE"
+        ],
+        "expected_output": "backtests/momentum/auto/output/post-fixes/nqdtc_phase_seed_full_diagnostics.txt"
+      },
       "sha256": "D26A0C88BDF3C8DD811741BBC89F26B2487D69007DFE608E1211B60F600F294A",
       "expected_metrics": {
         "total_trades": 239.0,
@@ -107,6 +186,15 @@
       "artifact_path": "backtests/momentum/auto/output/post-fixes/vdubus_phase_seed_full_diagnostics.txt",
       "parser_kind": "momentum_performance_report",
       "summary_source": null,
+      "regeneration": {
+        "executor": "python_file",
+        "entrypoint": "backtests/momentum/auto/runners/run_vdubus_optimized_diagnostics.py",
+        "arguments": [
+          "--output",
+          "backtests/momentum/auto/output/post-fixes/vdubus_phase_seed_full_diagnostics.txt"
+        ],
+        "expected_output": "backtests/momentum/auto/output/post-fixes/vdubus_phase_seed_full_diagnostics.txt"
+      },
       "sha256": "997873676F32633722FF35A71254BC6A3080AAF9C43167195FDB1AA96A43C9F4",
       "expected_metrics": {
         "total_trades": 176.0,
@@ -124,6 +212,25 @@
         "kind": "json",
         "path": "backtests/stock/auto/iaric_pullback/output_v4r1/phase_4_optimal_starting_baseline_summary.json"
       },
+      "regeneration": {
+        "executor": "python_module",
+        "entrypoint": "backtests.stock.auto.iaric_pullback.run_optimized_diagnostics",
+        "arguments": [
+          "--phase-state",
+          "backtests/stock/auto/iaric_pullback/output_v4r1/phase_state.json",
+          "--phase-result",
+          "4",
+          "--mutation-kind",
+          "final",
+          "--output",
+          "backtests/stock/auto/iaric_pullback/output_v4r1/phase_4_optimal_starting_baseline_full_diagnostics.txt",
+          "--summary-json",
+          "backtests/stock/auto/iaric_pullback/output_v4r1/phase_4_optimal_starting_baseline_summary.json",
+          "--title",
+          "IARIC PHASE 4 OPTIMAL STARTING BASELINE"
+        ],
+        "expected_output": "backtests/stock/auto/iaric_pullback/output_v4r1/phase_4_optimal_starting_baseline_full_diagnostics.txt"
+      },
       "sha256": "326C762F906D78C300D1BD144B61B87F7BF4D38EEBFA6BD51B72C5F5E212A008",
       "expected_metrics": {
         "total_trades": 682.0,
@@ -138,6 +245,15 @@
       "artifact_path": "backtests/stock/auto/alcb_p16_phase/output_targeted_entry_repair_v2/round_final_diagnostics.txt",
       "parser_kind": "stock_alcb_round_summary",
       "summary_source": null,
+      "regeneration": {
+        "executor": "python_module",
+        "entrypoint": "backtests.stock.auto.alcb_p16_phase",
+        "arguments": [
+          "--output-dir",
+          "backtests/stock/auto/alcb_p16_phase/output_targeted_entry_repair_v2"
+        ],
+        "expected_output": "backtests/stock/auto/alcb_p16_phase/output_targeted_entry_repair_v2/round_final_diagnostics.txt"
+      },
       "sha256": "3D29B1A1A404E48D13F12916C7FCD9B8065F438B642CB5E1A7CAC35EB74E2BB0",
       "expected_metrics": {
         "total_trades": 562.0,

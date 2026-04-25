@@ -17,7 +17,11 @@ def default_manifest_path() -> Path:
 
 def load_manifest(path: Path | None = None) -> dict[str, Any]:
     manifest_path = path or default_manifest_path()
-    return json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    artifacts = manifest.get("artifacts", [])
+    for entry in artifacts:
+        validate_manifest_entry(entry)
+    return manifest
 
 
 def resolve_repo_path(relative_path: str, *, root: Path | None = None) -> Path:
@@ -61,6 +65,47 @@ def collect_baseline_snapshot(
             summary_data=summary_data,
         ),
     }
+
+
+def validate_manifest_entry(entry: dict[str, Any]) -> None:
+    required_fields = ("id", "artifact_path", "parser_kind", "sha256", "expected_metrics", "regeneration")
+    missing = [field for field in required_fields if field not in entry]
+    if missing:
+        raise ValueError(f"Baseline manifest entry missing required fields: {', '.join(missing)}")
+
+    expected_metrics = entry.get("expected_metrics")
+    if not isinstance(expected_metrics, dict) or not expected_metrics:
+        raise ValueError(f"Baseline manifest entry {entry.get('id')} has no expected_metrics payload")
+
+    regeneration = entry.get("regeneration")
+    if not isinstance(regeneration, dict):
+        raise ValueError(f"Baseline manifest entry {entry.get('id')} must define regeneration metadata")
+
+    executor = regeneration.get("executor")
+    if executor not in {"python_file", "python_module", "manual"}:
+        raise ValueError(
+            f"Baseline manifest entry {entry.get('id')} has unsupported regeneration executor: {executor}"
+        )
+
+    entrypoint = regeneration.get("entrypoint")
+    if not isinstance(entrypoint, str) or not entrypoint.strip():
+        raise ValueError(f"Baseline manifest entry {entry.get('id')} must define a regeneration entrypoint")
+
+    arguments = regeneration.get("arguments", [])
+    if not isinstance(arguments, list) or any(not isinstance(arg, str) or not arg.strip() for arg in arguments):
+        raise ValueError(
+            f"Baseline manifest entry {entry.get('id')} regeneration arguments must be a list of strings"
+        )
+
+    notes = regeneration.get("notes")
+    if notes is not None and not isinstance(notes, str):
+        raise ValueError(f"Baseline manifest entry {entry.get('id')} regeneration notes must be a string")
+
+    expected_output = regeneration.get("expected_output")
+    if expected_output != entry["artifact_path"]:
+        raise ValueError(
+            f"Baseline manifest entry {entry.get('id')} regeneration expected_output must match artifact_path"
+        )
 
 
 def parse_diagnostic_metrics(

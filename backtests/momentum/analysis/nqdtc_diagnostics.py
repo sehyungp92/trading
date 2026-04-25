@@ -417,7 +417,7 @@ def _quality_mult_calibration(trades: list) -> str:
     if not trades:
         return "=== Quality Mult Calibration ===\n  No trades."
 
-    from strategy_2.config import REGIME_MULT, CHOP_SIZE_MULT
+    from strategies.momentum.nqdtc.config import CHOP_SIZE_MULT, REGIME_MULT
 
     lines = ["=== Quality Mult Calibration ==="]
 

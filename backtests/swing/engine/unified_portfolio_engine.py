@@ -16,22 +16,22 @@ from datetime import datetime, date
 import numpy as np
 import pandas as pd
 
-from strategy.config import SYMBOL_CONFIGS as ATRSS_SYMBOL_CONFIGS
-from strategy.models import Direction as AtrssDirection
+from strategies.swing.atrss.config import SYMBOL_CONFIGS as ATRSS_SYMBOL_CONFIGS
+from strategies.swing.atrss.models import Direction as AtrssDirection
 
-from strategy_2.config import SYMBOL_CONFIGS as HELIX_SYMBOL_CONFIGS
-from strategy_2.models import Direction as HelixDirection
+from strategies.swing.akc_helix.config import SYMBOL_CONFIGS as HELIX_SYMBOL_CONFIGS
+from strategies.swing.akc_helix.models import Direction as HelixDirection
 
-from strategy_3.config import SYMBOL_CONFIGS as BREAKOUT_SYMBOL_CONFIGS
-from strategy_3.config import _ETF_CONFIGS as BREAKOUT_ETF_CONFIGS
-from strategy_3.models import (
+from strategies.swing.breakout.config import SYMBOL_CONFIGS as BREAKOUT_SYMBOL_CONFIGS
+from strategies.swing.breakout.config import _ETF_CONFIGS as BREAKOUT_ETF_CONFIGS
+from strategies.swing.breakout.models import (
     CircuitBreakerState as BreakoutCBState,
     Direction as BreakoutDirection,
     PositionState as BreakoutPositionState,
 )
 
-from backtest.config_unified import UnifiedBacktestConfig, StrategySlot
-from backtest.data.preprocessing import (
+from backtests.swing.config_unified import UnifiedBacktestConfig, StrategySlot
+from backtests.swing.data.preprocessing import (
     NumpyBars,
     align_4h_to_hourly,
     align_daily_to_hourly,
@@ -40,9 +40,9 @@ from backtest.data.preprocessing import (
     normalize_timezone,
     resample_1h_to_4h,
 )
-from backtest.engine.backtest_engine import BacktestEngine, _AblationPatch
-from backtest.engine.helix_engine import HelixEngine
-from backtest.engine.breakout_engine import BreakoutEngine
+from backtests.swing.engine.backtest_engine import BacktestEngine, _AblationPatch
+from backtests.swing.engine.helix_engine import HelixEngine
+from backtests.swing.engine.breakout_engine import BreakoutEngine
 
 logger = logging.getLogger(__name__)
 
@@ -1472,7 +1472,7 @@ def _force_flatten_breakout(engine: BreakoutEngine, pos) -> None:
     engine.entries_filled = max(0, engine.entries_filled - 1)
     # Reset campaign state back from POSITION_OPEN to BREAKOUT
     if hasattr(engine, "campaign") and engine.campaign is not None:
-        from backtest.engine.breakout_engine import CampaignState
+        from backtests.swing.engine.breakout_engine import CampaignState
         if engine.campaign.state == CampaignState.POSITION_OPEN:
             engine.campaign.state = CampaignState.BREAKOUT
     engine.active_position = None

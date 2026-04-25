@@ -8,13 +8,18 @@ from __future__ import annotations
 import logging
 import math
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
 import numpy as np
 
-from backtest.config_downturn import DownturnBacktestConfig
-from backtest.data.preprocessing import NumpyBars
+from backtests.momentum.config_downturn import DownturnBacktestConfig
+from backtests.momentum.data.preprocessing import NumpyBars
+from backtests.shared.parity.decision_capture import normalize_decision_stream
+from backtests.shared.parity.execution_adapters import ParitySimOrder, neutral_action_to_sim_order
+from backtests.shared.parity.replay_driver import ReplayStep, run_replay
+from backtests.shared.parity.trade_outcomes import normalize_trade_outcome_stream
+from strategies.core.actions import SubmitEntry
 from strategies.momentum.downturn.indicators import (
     IncrementalATR,
     IncrementalEMA,
@@ -90,7 +95,15 @@ from strategies.momentum.downturn.stops import (
     compute_tiered_tp_schedule,
     update_chandelier_trail,
 )
-from backtest.engine.sim_broker import (
+from strategies.momentum.downturn.core import logic as downturn_core_logic
+from strategies.momentum.downturn.core.state import (
+    DownturnCoreState,
+    DownturnEntryRequest,
+    DownturnFill,
+    DownturnOrderUpdate,
+    DownturnStopUpdateRequest,
+)
+from backtests.momentum.engine.sim_broker import (
     FillResult,
     FillStatus,
     OrderSide,
@@ -98,10 +111,30 @@ from backtest.engine.sim_broker import (
     SimBroker,
     SimOrder,
 )
-from backtest.models import Direction
+from backtests.momentum.models import Direction
 
 logger = logging.getLogger(__name__)
 ET = ZoneInfo("America/New_York")
+
+
+def _sim_order_from_parity(order: ParitySimOrder) -> SimOrder:
+    return SimOrder(
+        order_id=order.order_id,
+        symbol=order.symbol,
+        side=OrderSide[order.side.name],
+        order_type=OrderType[order.order_type.name],
+        qty=order.qty,
+        stop_price=order.stop_price,
+        limit_price=order.limit_price,
+        tick_size=order.tick_size,
+        submit_time=order.submit_time,
+        ttl_hours=order.ttl_hours,
+        ttl_minutes=order.ttl_minutes,
+        tag=order.tag,
+        oca_group=order.oca_group,
+        invalidation_price=order.invalidation_price,
+        triggered_ts=order.triggered_ts,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +221,8 @@ class DownturnEngine:
         self.flags = config.flags
         self.po = config.param_overrides
         self.broker = SimBroker(slippage_config=config.slippage)
+        self._core_state = DownturnCoreState(symbol=symbol)
+        self._decision_events: list[Any] = []
 
         # State
         self._position: Optional[_ActivePosition] = None
@@ -398,6 +433,8 @@ class DownturnEngine:
             symbol=self.symbol,
             trades=self._trades,
             signal_events=self._signals,
+            decision_stream=normalize_decision_stream(self._decision_events),
+            trade_outcomes=normalize_trade_outcome_stream(self._trades),
             equity_curve=equity_curve,
             timestamps=five_min.times,
             total_commission=self._total_commission,
@@ -406,6 +443,30 @@ class DownturnEngine:
             breakdown_counters=self._breakdown_ctr,
             fade_counters=self._fade_ctr,
         )
+
+    def _replay_core_step(
+        self,
+        *,
+        bar_input: dict[str, Any] | None = None,
+        order_updates: list[DownturnOrderUpdate] | None = None,
+        fills: list[DownturnFill] | None = None,
+    ):
+        result = run_replay(
+            self._core_state,
+            steps=[
+                ReplayStep(
+                    bar_input=bar_input,
+                    order_updates=order_updates or [],
+                    fills=fills or [],
+                )
+            ],
+            on_bar=lambda state, payload: downturn_core_logic.on_bar(state, **payload),
+            on_order_update=downturn_core_logic.on_order_update,
+            on_fill=downturn_core_logic.on_fill,
+        )
+        self._core_state = result.state
+        self._decision_events.extend(result.events)
+        return result
 
     # -------------------------------------------------------------------
     # Boundary callbacks
@@ -1048,25 +1109,59 @@ class DownturnEngine:
 
         # Submit order
         oid = self.broker.next_order_id()
-        if entry_type == "stop_market":
-            order = SimOrder(
-                order_id=oid, symbol=self.symbol, side=OrderSide.SELL,
-                order_type=OrderType.STOP, qty=qty,
-                stop_price=entry_price, tick_size=cfg.tick_size,
-                submit_time=bar_time, ttl_hours=6, tag="entry",
-            )
-        else:
-            # Stop-limit
-            limit_offset = 4 * cfg.tick_size
-            order = SimOrder(
-                order_id=oid, symbol=self.symbol, side=OrderSide.SELL,
-                order_type=OrderType.STOP_LIMIT, qty=qty,
-                stop_price=entry_price,
-                limit_price=entry_price - limit_offset,
+        limit_offset = 4 * cfg.tick_size
+        entry_request = DownturnEntryRequest(
+            client_order_id=oid,
+            symbol=self.symbol,
+            engine_tag=tag,
+            signal_class=sig_class,
+            qty=qty,
+            entry_price=entry_price,
+            stop0=stop0,
+            tif="DAY",
+            order_type="STOP" if entry_type == "stop_market" else "STOP_LIMIT",
+            price=entry_price if entry_type != "stop_market" else None,
+            limit_price=entry_price - limit_offset if entry_type != "stop_market" else None,
+            stop_price=entry_price,
+            submitted_bar_idx=t,
+            ttl_bars=72,
+            composite_regime=self._regime.composite_regime,
+            vol_state=self._regime.vol_state,
+            in_correction=in_correction,
+            predator=predator,
+            tp_schedule=tp_sched,
+            signal_strength=getattr(signal, "class_mult", 0.5),
+        )
+        replay = self._replay_core_step(
+            bar_input={
+                "bar_count_5m": t,
+                "bar_ts": bar_time,
+                "entry_request": entry_request,
+            }
+        )
+        submit_action = next((action for action in replay.actions if isinstance(action, SubmitEntry)), None)
+        if submit_action is None:
+            return
+        order = _sim_order_from_parity(
+            neutral_action_to_sim_order(
+                submit_action,
                 tick_size=cfg.tick_size,
-                submit_time=bar_time, ttl_hours=6, tag="entry",
+                submit_time=bar_time,
             )
+        )
+        order.tag = "entry"
         self.broker.submit_order(order)
+        self._replay_core_step(
+            order_updates=[
+                DownturnOrderUpdate(
+                    oms_order_id=order.order_id,
+                    status="accepted",
+                    timestamp=bar_time,
+                    order_role="entry",
+                    accepted_entry=entry_request,
+                )
+            ]
+        )
 
         # Store pending position data on order for fill handler
         order._pending_data = {
@@ -1094,11 +1189,57 @@ class DownturnEngine:
         """Route fill to entry or exit handler."""
         if fill.status == FillStatus.FILLED:
             if fill.order.tag == "entry" and self._position is None:
+                self._replay_core_step(
+                    fills=[
+                        DownturnFill(
+                            oms_order_id=fill.order.order_id,
+                            fill_price=fill.fill_price,
+                            fill_qty=fill.order.qty,
+                            commission=fill.commission,
+                            fill_time=bar_time,
+                        )
+                    ]
+                )
                 self._on_entry_fill(fill, bar_time, correction_windows)
             elif fill.order.tag == "protective_stop" and self._position is not None:
+                self._replay_core_step(
+                    fills=[
+                        DownturnFill(
+                            oms_order_id=fill.order.order_id,
+                            fill_price=fill.fill_price,
+                            fill_qty=fill.order.qty,
+                            commission=fill.commission,
+                            fill_time=bar_time,
+                            exit_type="stop",
+                        )
+                    ]
+                )
                 self._on_exit_fill(fill, bar_time, "stop")
             elif fill.order.tag.startswith("tp") and self._position is not None:
+                if self._position.remaining_qty <= fill.order.qty:
+                    self._replay_core_step(
+                        fills=[
+                            DownturnFill(
+                                oms_order_id=fill.order.order_id,
+                                fill_price=fill.fill_price,
+                                fill_qty=fill.order.qty,
+                                commission=fill.commission,
+                                fill_time=bar_time,
+                                exit_type=fill.order.tag,
+                            )
+                        ]
+                    )
                 self._on_tp_fill(fill, bar_time)
+        elif fill.status in (FillStatus.EXPIRED, FillStatus.CANCELLED, FillStatus.REJECTED):
+            self._replay_core_step(
+                order_updates=[
+                    DownturnOrderUpdate(
+                        oms_order_id=fill.order.order_id,
+                        status=fill.status.value.lower(),
+                        timestamp=bar_time,
+                    )
+                ]
+            )
 
     def _on_entry_fill(
         self, fill: FillResult, bar_time: datetime,
@@ -1368,12 +1509,40 @@ class DownturnEngine:
             submit_time=bar_time, ttl_hours=0, tag="protective_stop",
         )
         self.broker.submit_order(order)
+        self._replay_core_step(
+            order_updates=[
+                DownturnOrderUpdate(
+                    oms_order_id=oid,
+                    status="accepted",
+                    timestamp=bar_time,
+                    order_role="stop",
+                )
+            ]
+        )
 
     def _update_protective_stop(self, new_stop: float, qty: int, bar_time: datetime) -> None:
+        self._replay_core_step(
+            bar_input={
+                "bar_count_5m": self._core_state.bar_count_5m,
+                "bar_ts": bar_time,
+                "stop_update": DownturnStopUpdateRequest(
+                    stop_price=new_stop,
+                    qty=qty,
+                    reason=self._position.exit_trigger if self._position is not None else "stop_update",
+                ),
+            }
+        )
         self.broker.cancel_orders(self.symbol, tag="protective_stop")
         self._submit_protective_stop(new_stop, qty, bar_time)
 
     def _submit_market_exit(self, qty: int, bar_time: datetime, tag: str) -> None:
+        self._replay_core_step(
+            bar_input={
+                "bar_count_5m": self._core_state.bar_count_5m,
+                "bar_ts": bar_time,
+                "flatten_reason": tag,
+            }
+        )
         oid = self.broker.next_order_id()
         order = SimOrder(
             order_id=oid, symbol=self.symbol, side=OrderSide.BUY,
@@ -1388,6 +1557,17 @@ class DownturnEngine:
         if self._position is None:
             return
         pos = self._position
+        self._replay_core_step(
+            fills=[
+                DownturnFill(
+                    oms_order_id="force_close",
+                    fill_price=close,
+                    fill_qty=pos.qty,
+                    fill_time=None,
+                    exit_type="eob",
+                )
+            ]
+        )
         pnl = (pos.entry_price - close) * pos.qty * self.config.point_value - pos.commission
         self._realized_pnl += pnl
         r_mult = pos.r_state(close)

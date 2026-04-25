@@ -13,23 +13,23 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 
-from strategy_2.config import SYMBOL_CONFIGS, SymbolConfig
-from strategy_2.models import Direction
+from strategies.swing.akc_helix.config import SYMBOL_CONFIGS, SymbolConfig
+from strategies.swing.akc_helix.models import Direction
 
-from backtest.analysis.helix_shadow_tracker import (
+from backtests.swing.analysis.helix_shadow_tracker import (
     FilterStats,
     HelixShadowTracker,
 )
-from backtest.config_helix import HelixBacktestConfig
-from backtest.data.preprocessing import (
+from backtests.swing.config_helix import HelixBacktestConfig
+from backtests.swing.data.preprocessing import (
     NumpyBars,
     align_4h_to_hourly,
     align_daily_to_hourly,
     build_numpy_arrays,
     resample_1h_to_4h,
 )
-from backtest.engine.helix_engine import HelixEngine, HelixSymbolResult
-from backtest.engine.helix_engine import _AblationPatch
+from backtests.swing.engine.helix_engine import HelixEngine, HelixSymbolResult
+from backtests.swing.engine.helix_engine import _AblationPatch
 
 logger = logging.getLogger(__name__)
 
@@ -179,8 +179,8 @@ def run_helix_synchronized(
     1. Each symbol updates state and detects setups
     2. Portfolio allocation ranks and filters across symbols
     """
-    from strategy_2 import allocator
-    from strategy_2.models import SetupState
+    from strategies.swing.akc_helix import allocator
+    from strategies.swing.akc_helix.models import SetupState
 
     engines: dict[str, HelixEngine] = {}
     configs: dict[str, SymbolConfig] = {}
@@ -230,7 +230,7 @@ def run_helix_synchronized(
     timestamps: list = []
     heat_samples: list[float] = []
 
-    from strategy_2.config import PORTFOLIO_CAP_R
+    from strategies.swing.akc_helix.config import PORTFOLIO_CAP_R
 
     with _AblationPatch(bt_config.flags, bt_config.param_overrides):
         for sym, engine in engines.items():

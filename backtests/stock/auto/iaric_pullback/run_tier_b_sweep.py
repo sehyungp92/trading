@@ -24,10 +24,6 @@ from pathlib import Path
 if sys.stdout.encoding != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True)
 
-from backtests.stock._aliases import install
-
-install()
-
 from backtests.stock.analysis.iaric_pullback_diagnostics import pullback_full_diagnostic
 from backtests.stock.auto.config_mutator import mutate_iaric_config
 from backtests.stock.config_iaric import IARICBacktestConfig

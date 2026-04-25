@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from strategies.contracts import RuntimeContext
+from strategies.core.plugin_runtime import delegate_hydrate, delegate_snapshot_state
 from .config import SYMBOL_CONFIGS, SymbolConfig
 from .engine import HelixEngine
 
@@ -38,16 +39,13 @@ class AKCHelixPlugin:
         await self._engine.stop()
 
     def health_status(self) -> dict[str, Any]:
-        return {
-            "strategy_id": self.strategy_id,
-            "running": getattr(self._engine, "_running", False),
-        }
+        return self._engine.health_status()
 
     async def hydrate(self, snapshot: dict[str, Any]) -> None:
-        pass  # Engine manages its own state
+        await delegate_hydrate(self._engine, snapshot)
 
     def snapshot_state(self) -> dict[str, Any]:
-        return {"strategy_id": self.strategy_id}
+        return delegate_snapshot_state(self._engine, strategy_id=self.strategy_id)
 
     async def on_market_data(self, event: Any) -> None:
         pass  # Engine subscribes directly via IB session

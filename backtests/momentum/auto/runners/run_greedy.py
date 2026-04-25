@@ -15,9 +15,6 @@ ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT))
 
 # Install momentum aliases before any backtest imports
-from backtests.momentum._aliases import install
-install()
-
 from backtests.momentum.auto.greedy_optimize import (
     PORTFOLIO_CANDIDATES,
     run_greedy,

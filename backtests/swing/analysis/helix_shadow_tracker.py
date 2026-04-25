@@ -12,8 +12,8 @@ from datetime import datetime
 
 import numpy as np
 
-from strategy_2 import stops
-from strategy_2.config import (
+from strategies.swing.akc_helix import stops
+from strategies.swing.akc_helix.config import (
     R_BE,
     R_PARTIAL_2P5,
     STALE_1H_BARS,
@@ -21,7 +21,7 @@ from strategy_2.config import (
     TTL_4H_HOURS,
     SymbolConfig,
 )
-from strategy_2.models import DailyState, Direction, Regime
+from strategies.swing.akc_helix.models import DailyState, Direction, Regime
 
 logger = logging.getLogger(__name__)
 

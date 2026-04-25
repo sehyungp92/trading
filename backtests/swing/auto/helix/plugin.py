@@ -311,11 +311,8 @@ class HelixPlugin:
         if sig == self._last_metrics_sig and self._last_metrics_result is not None:
             return self._last_metrics_result
 
-        from backtests.swing._aliases import install
-        install()
-
-        from backtest.config_helix import HelixBacktestConfig
-        from backtest.engine.helix_portfolio_engine import run_helix_independent
+        from backtests.swing.config_helix import HelixBacktestConfig
+        from backtests.swing.engine.helix_portfolio_engine import run_helix_independent
         from .config_mutator import mutate_helix_config
         from .scoring import extract_helix_metrics
         from .worker import load_helix_worker_data
