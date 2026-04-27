@@ -28,7 +28,7 @@ def init_worker(
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
     from backtests.swing.config_brs import BRSConfig
-    from backtests.swing.engine.brs_portfolio_engine import load_brs_data
+    from backtests.swing.data.replay_cache import load_brs_replay_bundle
 
     _worker_equity = equity
     _worker_phase = phase
@@ -38,7 +38,7 @@ def init_worker(
         initial_equity=equity,
         data_dir=Path(data_dir_str),
     )
-    _worker_data = load_brs_data(_worker_config)
+    _worker_data = load_brs_replay_bundle(_worker_config).data
 
 
 def score_candidate(args: tuple[str, dict, dict]) -> ScoredCandidate:

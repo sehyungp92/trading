@@ -322,12 +322,13 @@ class IARICPullbackPlugin:
         self.num_phases = num_phases
         self.profile = profile_key
         self.name = f"iaric_pullback_{self._round_name}_{self.profile}"
-        self._cached_replay = None
+        self._cached_bundle = None
         self._baseline_metrics_cache: dict[str, float] | None = None
         self._last_context: dict[str, Any] = {}
         self._evaluation_cache: dict[str, Any] = {}
         # Reserved for CachedBatchEvaluator's raw mutation_signature keys.
         self._metrics_cache: dict[str, dict[str, float]] = {}
+        self._cache_source_fingerprint: str = ""
         self._config_cache: dict[tuple, dict[str, Any]] = {}
 
         if round_name == "v4r1":
@@ -376,8 +377,22 @@ class IARICPullbackPlugin:
             self._baseline_metrics_cache = self._run_config(self.initial_mutations, store_context=False)["metrics"]
         return self._baseline_metrics_cache
 
+    def _replay_bundle(self):
+        from backtests.stock.data.replay_cache import load_research_replay_bundle
+
+        bundle = load_research_replay_bundle(self.data_dir)
+        if self._cache_source_fingerprint != bundle.cache_source_fingerprint:
+            self._metrics_cache.clear()
+            self._config_cache.clear()
+            self._evaluation_cache.clear()
+            self._baseline_metrics_cache = None
+            self._last_context = {}
+            self._cache_source_fingerprint = bundle.cache_source_fingerprint
+        self._cached_bundle = bundle
+        return bundle
+
     def _replay_data_fingerprint(self) -> str:
-        return self._ensure_replay().data_fingerprint()
+        return self._replay_bundle().cache_source_fingerprint
 
     def _metrics_cache_key(
         self,
@@ -906,13 +921,7 @@ class IARICPullbackPlugin:
         return criteria
 
     def _ensure_replay(self):
-        if self._cached_replay is None:
-            from backtests.stock.engine.research_replay import ResearchReplayEngine
-
-            replay = ResearchReplayEngine(data_dir=self.data_dir)
-            replay.load_all_data()
-            self._cached_replay = replay
-        return self._cached_replay
+        return self._replay_bundle().data
 
     def _run_config(
         self,
@@ -933,8 +942,9 @@ class IARICPullbackPlugin:
         effective_end = end_date or self.end_date
         diagnostics_enabled = bool(collect_diagnostics or store_context)
         sig = mutation_signature(mutations)
-        replay = self._ensure_replay()
-        data_fingerprint = replay.data_fingerprint()
+        replay_bundle = self._replay_bundle()
+        replay = replay_bundle.data
+        data_fingerprint = replay_bundle.cache_source_fingerprint
         metrics_key = self._metrics_cache_key(mutations, start_date=effective_start, end_date=effective_end)
         cache_key = (data_fingerprint, sig, effective_start, effective_end, diagnostics_enabled)
 

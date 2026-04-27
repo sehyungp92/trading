@@ -16,6 +16,9 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 import pandas as pd
 
+from backtests.shared.parity.decision_capture import normalize_decision_stream
+from backtests.shared.parity.legacy_result_outputs import trade_outcomes_from_records
+from backtests.shared.parity.replay_driver import ReplayStep, run_replay
 from libs.broker_ibkr.risk_support.tick_rules import round_to_tick
 
 from strategies.swing.akc_helix import signals, stops
@@ -98,6 +101,16 @@ from strategies.swing.akc_helix.indicators import (
     ema,
     macd,
     scan_pivots,
+)
+from strategies.swing.akc_helix.core import logic as helix_core_logic
+from strategies.swing.akc_helix.core.state import (
+    AKCHelixCoreState,
+    AKCHelixEntryRequest,
+    AKCHelixFill,
+    AKCHelixFlattenRequest,
+    AKCHelixOrderUpdate,
+    AKCHelixPartialExitRequest,
+    AKCHelixStopUpdateRequest,
 )
 from strategies.swing.akc_helix.models import (
     CircuitBreakerState,
@@ -229,6 +242,8 @@ class HelixSymbolResult:
     regime_days_bull: int = 0
     regime_days_bear: int = 0
     regime_days_chop: int = 0
+    decision_stream: list[dict] = field(default_factory=list)
+    trade_outcomes: list[dict] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -348,6 +363,10 @@ class HelixEngine:
         # Bar index tracking for 4H detection
         self._prev_4h_idx: int = -1
 
+        # Core state for thin-driver event capture
+        self._core_state = AKCHelixCoreState()
+        self._decision_events: list = []
+
     def run(
         self,
         daily: NumpyBars,
@@ -392,7 +411,33 @@ class HelixEngine:
             regime_days_bull=self.regime_days_bull,
             regime_days_bear=self.regime_days_bear,
             regime_days_chop=self.regime_days_chop,
+            decision_stream=normalize_decision_stream(self._decision_events),
+            trade_outcomes=trade_outcomes_from_records(self.trades),
         )
+
+    # ------------------------------------------------------------------
+    # Core replay driver (thin-driver event capture)
+    # ------------------------------------------------------------------
+
+    def _replay_core_step(self, *, bar_input=None, order_updates=None, fills=None):
+        """Delegate to shared core logic for decision event capture."""
+        result = run_replay(
+            self._core_state,
+            steps=[ReplayStep(bar_input=bar_input, order_updates=order_updates or [], fills=fills or [])],
+            on_bar=lambda state, payload: helix_core_logic.on_bar(state, **payload),
+            on_order_update=helix_core_logic.on_order_update,
+            on_fill=helix_core_logic.on_fill,
+        )
+        self._core_state = result.state
+        self._decision_events.extend(result.events)
+        return result
+
+    def _sync_core_stop(self, setup_id: str, stop_order_id: str) -> None:
+        """Update core state stop tracking after placing a new stop order."""
+        setup = self._core_state.active_setups.get(setup_id)
+        if setup is not None:
+            setup.stop_order_id = stop_order_id
+        self._core_state.order_to_setup[stop_order_id] = setup_id
 
     # ------------------------------------------------------------------
     # Indicator precomputation
@@ -946,6 +991,15 @@ class HelixEngine:
         self.pending_setup = setup
         self.setups_armed += 1
 
+        # Core notification: entry requested
+        entry_req = AKCHelixEntryRequest(
+            client_order_id=order.order_id,
+            setup=setup,
+            order_role="entry",
+        )
+        self._replay_core_step(bar_input={"bar_ts": bar_time, "entry_request": entry_req})
+        self._core_state.order_to_setup[order.order_id] = setup.setup_id
+
     # ------------------------------------------------------------------
     # Pending setup management
     # ------------------------------------------------------------------
@@ -977,15 +1031,18 @@ class HelixEngine:
 
     def _handle_fill(self, fill: FillResult, bar_time: datetime, close: float) -> None:
         """Route a fill result to the appropriate handler."""
-        if fill.status == FillStatus.EXPIRED:
+        if fill.status in (FillStatus.EXPIRED, FillStatus.REJECTED, FillStatus.CANCELLED):
             if fill.order.tag == "entry":
                 self.pending_setup = None
-                self.setups_expired += 1
-            return
-
-        if fill.status == FillStatus.REJECTED:
-            if fill.order.tag == "entry":
-                self.pending_setup = None
+                if fill.status == FillStatus.EXPIRED:
+                    self.setups_expired += 1
+            _role_map = {"entry": "entry", "add_on": "add", "partial": "partial",
+                         "protective_stop": "stop", "flatten": "flatten"}
+            self._replay_core_step(order_updates=[AKCHelixOrderUpdate(
+                oms_order_id=fill.order.order_id, status=fill.status.name.lower(),
+                symbol=self.symbol, timestamp=bar_time,
+                order_role=_role_map.get(fill.order.tag, "unknown"),
+            )])
             return
 
         if fill.status != FillStatus.FILLED:
@@ -1043,6 +1100,15 @@ class HelixEngine:
         )
         self.broker.submit_order(stop_order)
         pos.stop_order_tag = "protective_stop"
+
+        # Core notification: entry fill + stop registration
+        self._replay_core_step(fills=[AKCHelixFill(
+            oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
+            fill_qty=fill.order.qty, symbol=self.symbol,
+            fill_time=bar_time, commission=fill.commission,
+            order_role="entry",
+        )])
+        self._sync_core_stop(setup.setup_id, stop_order.order_id)
 
     def _on_stop_fill(self, fill: FillResult, bar_time: datetime) -> None:
         """Handle protective stop fill."""
@@ -1109,6 +1175,14 @@ class HelixEngine:
         )
         self.trades.append(trade)
 
+        # Core notification: stop fill
+        self._replay_core_step(fills=[AKCHelixFill(
+            oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
+            fill_qty=pos.qty_open, symbol=self.symbol,
+            fill_time=bar_time, commission=fill.commission,
+            order_role="stop", exit_type="STOP",
+        )])
+
         # Update circuit breaker
         self._update_circuit_breaker(r_multiple, bar_time)
 
@@ -1157,6 +1231,16 @@ class HelixEngine:
             )
             self.broker.submit_order(stop_order)
 
+        # Core notification: partial fill + stop registration
+        self._replay_core_step(fills=[AKCHelixFill(
+            oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
+            fill_qty=fill.order.qty, symbol=self.symbol,
+            fill_time=bar_time, commission=fill.commission,
+            order_role="partial",
+        )])
+        if pos.qty_open > 0:
+            self._sync_core_stop(pos.setup.setup_id, stop_order.order_id)
+
     def _on_add_fill(self, fill: FillResult, bar_time: datetime) -> None:
         """Handle add-on entry fill."""
         pos = self.active_position
@@ -1200,6 +1284,15 @@ class HelixEngine:
             tag="protective_stop",
         )
         self.broker.submit_order(stop_order)
+
+        # Core notification: add fill + stop registration
+        self._replay_core_step(fills=[AKCHelixFill(
+            oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
+            fill_qty=fill.order.qty, symbol=self.symbol,
+            fill_time=bar_time, commission=fill.commission,
+            order_role="add",
+        )])
+        self._sync_core_stop(setup.setup_id, stop_order.order_id)
 
     # ------------------------------------------------------------------
     # Active position management (spec s13, s14, s15)
@@ -1474,6 +1567,13 @@ class HelixEngine:
                 )
                 self.broker.submit_order(stop_order)
 
+                # Core notification: stop update + registration
+                self._replay_core_step(bar_input={"bar_ts": bar_time, "stop_update": AKCHelixStopUpdateRequest(
+                    setup_id=setup.setup_id, symbol=self.symbol,
+                    stop_price=new_stop, qty=pos.qty_open, reason="trailing",
+                )})
+                self._sync_core_stop(setup.setup_id, stop_order.order_id)
+
         # Add-on check (simplified: time + R + price gate)
         if not pos.add_done and not self.flags.disable_add_ons and pos.qty_open > 0:
             min_r = ADD_4H_R if setup.origin_tf == "4H" else ADD_1H_R
@@ -1502,6 +1602,13 @@ class HelixEngine:
         )
         self.broker.submit_order(order)
 
+        # Core notification: partial exit requested
+        self._replay_core_step(bar_input={"bar_ts": bar_time, "partial_exit_request": AKCHelixPartialExitRequest(
+            client_order_id=order.order_id, setup_id=pos.setup.setup_id,
+            symbol=self.symbol, qty=qty, reason="partial",
+        )})
+        self._core_state.order_to_setup[order.order_id] = pos.setup.setup_id
+
     def _submit_flatten(self, pos: _ActivePosition, bar_time: datetime, reason: str) -> None:
         """Submit a next-bar market order for a discretionary full exit."""
         if pos.qty_open <= 0 or self._pending_flatten_reason:
@@ -1521,6 +1628,11 @@ class HelixEngine:
         )
         self.broker.submit_order(order)
         self._pending_flatten_reason = reason
+
+        # Core notification: flatten requested
+        self._replay_core_step(bar_input={"bar_ts": bar_time, "flatten_request": AKCHelixFlattenRequest(
+            setup_id=pos.setup.setup_id, symbol=self.symbol, reason=reason,
+        )})
 
     def _on_flatten_fill(self, fill: FillResult, bar_time: datetime) -> None:
         """Handle a queued flatten fill."""
@@ -1542,6 +1654,10 @@ class HelixEngine:
         pos = self.active_position
         if pos is None or pos.qty_open <= 0:
             return
+        # Core notification: flatten requested (end of data)
+        self._replay_core_step(bar_input={"bar_ts": bar_time, "flatten_request": AKCHelixFlattenRequest(
+            setup_id=pos.setup.setup_id, symbol=self.symbol, reason="END_OF_DATA",
+        )})
         exit_side = OrderSide.SELL if pos.setup.direction == Direction.LONG else OrderSide.BUY
         order = SimOrder(
             order_id=self.broker.next_order_id(),
@@ -1617,6 +1733,15 @@ class HelixEngine:
         self.broker.submit_order(order)
         pos.add_done = True
 
+        # Core notification: add-on entry requested
+        add_req = AKCHelixEntryRequest(
+            client_order_id=order.order_id,
+            setup=pos.setup,
+            order_role="add",
+        )
+        self._replay_core_step(bar_input={"bar_ts": bar_time, "entry_request": add_req})
+        self._core_state.order_to_setup[order.order_id] = pos.setup.setup_id
+
     def _try_add_simplified(
         self, pos: _ActivePosition, bar_time: datetime, current_price: float,
     ) -> None:
@@ -1655,6 +1780,15 @@ class HelixEngine:
         )
         self.broker.submit_order(order)
         pos.add_done = True
+
+        # Core notification: add-on entry requested (simplified)
+        add_req = AKCHelixEntryRequest(
+            client_order_id=order.order_id,
+            setup=pos.setup,
+            order_role="add",
+        )
+        self._replay_core_step(bar_input={"bar_ts": bar_time, "entry_request": add_req})
+        self._core_state.order_to_setup[order.order_id] = pos.setup.setup_id
 
     # ------------------------------------------------------------------
     # Position flatten (market exit)

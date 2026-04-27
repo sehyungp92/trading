@@ -18,6 +18,10 @@ from datetime import datetime, timezone
 
 import numpy as np
 
+from backtests.shared.parity.legacy_result_outputs import (
+    decision_stream_from_trades,
+    trade_outcomes_from_records,
+)
 from libs.broker_ibkr.risk_support.tick_rules import round_to_tick
 from strategies.swing.atrss import stops
 from strategies.swing.atrss.config import SYMBOL_CONFIGS, SymbolConfig
@@ -118,6 +122,8 @@ class RegimeEngine:
             equity_curve=np.array(self.equity_curve),
             timestamps=np.array(self.timestamps),
             total_commission=self.total_commission,
+            decision_stream=decision_stream_from_trades(self.trades, timeframe="1h"),
+            trade_outcomes=trade_outcomes_from_records(self.trades),
         )
 
     # ------------------------------------------------------------------

@@ -31,7 +31,6 @@ def init_worker(data_dir_str: str, equity: float) -> None:
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
     from backtests.swing.config import AblationFlags, BacktestConfig, SlippageConfig
-    from backtests.swing.engine.portfolio_engine import PortfolioData
 
     # Suppress engine logger noise
     logging.getLogger("backtest.engine.backtest_engine").setLevel(logging.WARNING)
@@ -48,22 +47,9 @@ def init_worker(data_dir_str: str, equity: float) -> None:
         flags=AblationFlags(stall_exit=False),
     )
 
-    from backtests.swing.data.cache import load_bars
-    from backtests.swing.data.preprocessing import (
-        align_daily_to_hourly,
-        build_numpy_arrays,
-        filter_rth,
-        normalize_timezone,
-    )
+    from backtests.swing.data.replay_cache import load_atrss_replay_bundle
 
-    _worker_data = PortfolioData()
-    for sym in ("QQQ", "GLD"):
-        h_df = normalize_timezone(load_bars(data_dir / f"{sym}_1h.parquet"))
-        h_df = filter_rth(h_df)
-        d_df = normalize_timezone(load_bars(data_dir / f"{sym}_1d.parquet"))
-        _worker_data.hourly[sym] = build_numpy_arrays(h_df)
-        _worker_data.daily[sym] = build_numpy_arrays(d_df)
-        _worker_data.daily_idx_maps[sym] = align_daily_to_hourly(h_df, d_df)
+    _worker_data = load_atrss_replay_bundle(data_dir).data
 
 
 def score_candidate(args: tuple) -> ScoredCandidate:

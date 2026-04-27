@@ -9,6 +9,15 @@ from typing import Any
 
 import numpy as np
 
+from backtests.shared.parity.decision_capture import normalize_decision_stream
+from backtests.shared.parity.legacy_result_outputs import trade_outcomes_from_records
+from strategies.stock.iaric.core import logic as iaric_core_logic
+from strategies.stock.iaric.core.state import (
+    IARICEntryRequest,
+    IARICFill,
+    IARICFlattenRequest,
+    IARICPartialExitRequest,
+)
 from backtests.stock.engine.iaric_pullback_engine import (
     IARICPullbackDailyEngine,
     IARICPullbackResult,
@@ -31,7 +40,6 @@ from backtests.stock.models import Direction as BTDirection, TradeRecord
 
 from strategies.stock.iaric.config import ET
 from strategies.stock.iaric.models import Bar, MarketSnapshot, WatchlistArtifact, WatchlistItem
-from strategies.stock.iaric.signals import compute_micropressure_proxy
 
 logger = logging.getLogger(__name__)
 
@@ -332,10 +340,7 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
         record["actual_trade_count"] = int(record.get("actual_trade_count", 0) or 0) + 1
 
     def _volume_ratio(self, bar: Bar, item: WatchlistItem) -> float:
-        expected = item.expected_5m_volume
-        if expected <= 0 and item.average_30m_volume > 0:
-            expected = item.average_30m_volume / 6.0
-        return float(bar.volume / max(expected, 1.0))
+        return iaric_core_logic.compute_volume_ratio(bar, item)
 
     def _session_atr(self, item: WatchlistItem, bars: list[Bar]) -> float:
         ref_price = bars[0].open if bars else max(item.avwap_ref, 1.0)
@@ -354,37 +359,16 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
         *,
         lookback_bars: int = 3,
     ) -> str:
-        if bar_idx < 0 or bar_idx >= len(bars):
-            return "NEUTRAL"
-        span = max(int(lookback_bars), 1)
-        recent = bars[max(0, bar_idx - (span - 1)):bar_idx + 1]
-        bullish = 0
-        for sample in recent:
-            label = compute_micropressure_proxy(
-                sample,
-                expected_volume=max(item.expected_5m_volume, 1.0),
-                median20_volume=max(item.average_30m_volume / 6.0, 1.0),
-                reclaim_level=reclaim_level,
-            )
-            if label == "ACCUMULATE":
-                bullish += 1
-        if bullish >= max(1, len(recent) - 1):
-            return "ACCUMULATE"
-        if bullish == 0 and recent and recent[-1].close < recent[-1].open:
-            return "DISTRIBUTE"
-        return "NEUTRAL"
+        return iaric_core_logic.micropressure_label(
+            bars,
+            bar_idx,
+            reclaim_level,
+            item,
+            lookback_bars=lookback_bars,
+        )
 
     def _thirty_min_context_bonus(self, market: MarketSnapshot, *, weight: float) -> float:
-        bar = market.last_30m_bar
-        if bar is None:
-            return 0.0
-        close_pct = _close_in_range_pct(bar.high, bar.low, bar.close)
-        bonus = (close_pct - 0.5) * weight
-        if bar.close > bar.open:
-            bonus += weight * 0.35
-        elif bar.close < bar.open:
-            bonus -= weight * 0.20
-        return float(min(max(bonus, -weight), weight))
+        return iaric_core_logic.thirty_min_context_bonus(market, weight=weight)
 
     def _apply_score_components(
         self,
@@ -399,60 +383,22 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
             payload[f"{prefix}{name}"] = round(float(value), 4)
 
     def _route_prefix(self, route_family: str) -> str:
-        return {
-            "OPEN_SCORED_ENTRY": "pb_open_scored",
-            "DELAYED_CONFIRM": "pb_delayed_confirm",
-            "OPENING_RECLAIM": "pb_opening_reclaim",
-        }.get(str(route_family or "").upper(), "pb_opening_reclaim")
+        return iaric_core_logic.route_prefix(route_family)
 
     def _route_enabled(self, route_family: str) -> bool:
-        route_key = str(route_family or "").upper()
-        v2 = self._settings.pb_v2_enabled
-        if route_key == "OPEN_SCORED_ENTRY":
-            return bool(getattr(self._settings, "pb_v2_open_scored_enabled" if v2 else "pb_open_scored_enabled", True))
-        if route_key == "DELAYED_CONFIRM":
-            return bool(getattr(self._settings, "pb_delayed_confirm_enabled", True))
-        if route_key == "OPENING_RECLAIM":
-            return bool(getattr(self._settings, "pb_opening_reclaim_enabled", True))
-        if route_key == "VWAP_BOUNCE":
-            return v2 and bool(getattr(self._settings, "pb_v2_vwap_bounce_enabled", True))
-        if route_key == "AFTERNOON_RETEST":
-            return v2 and bool(getattr(self._settings, "pb_v2_afternoon_retest_enabled", True))
-        return True
+        return iaric_core_logic.route_enabled(self._settings, route_family)
 
     def _route_setting(self, route_family: str, suffix: str, fallback_suffix: str | None = None):
-        prefix = self._route_prefix(route_family)
-        if hasattr(self._settings, f"{prefix}_{suffix}"):
-            return getattr(self._settings, f"{prefix}_{suffix}")
-        if fallback_suffix is not None and hasattr(self._settings, fallback_suffix):
-            return getattr(self._settings, fallback_suffix)
-        raise AttributeError(f"Missing route setting for {route_family}:{suffix}")
+        return iaric_core_logic.route_setting(self._settings, route_family, suffix, fallback_suffix)
 
     def _route_carry_profile(self, route_family: str) -> str:
-        return self._route_prefix(route_family).replace("pb_", "").upper()
+        return iaric_core_logic.route_carry_profile(route_family)
 
     def _route_min_daily_signal_score(self, route_family: str) -> float:
-        route_key = str(route_family or "").upper()
-        if route_key == "OPEN_SCORED_ENTRY":
-            v2 = self._settings.pb_v2_enabled
-            return float(getattr(self._settings, "pb_v2_open_scored_min_score" if v2 else "pb_open_scored_min_score", 0.0))
-        if route_key == "DELAYED_CONFIRM":
-            return float(getattr(self._settings, "pb_delayed_confirm_min_daily_signal_score", getattr(self._settings, "pb_daily_signal_min_score", 0.0)))
-        if route_key == "OPENING_RECLAIM":
-            return float(getattr(self._settings, "pb_opening_reclaim_min_daily_signal_score", getattr(self._settings, "pb_daily_signal_min_score", 0.0)))
-        return float(getattr(self._settings, "pb_daily_signal_min_score", 0.0))
+        return iaric_core_logic.route_min_daily_signal_score(self._settings, route_family)
 
     def _open_scored_eligible(self, payload: dict[str, Any] | None) -> bool:
-        if not self._route_enabled("OPEN_SCORED_ENTRY"):
-            return False
-        source = payload or {}
-        score = float(source.get("daily_signal_score") or 0.0)
-        rank_pct = float(source.get("daily_signal_rank_pct") or 100.0)
-        v2 = self._settings.pb_v2_enabled
-        min_score = float(getattr(self._settings, "pb_v2_open_scored_min_score" if v2 else "pb_open_scored_min_score", 0.0))
-        # V2: use pb_v2_open_scored_rank_pct_max (default 100.0 = no filter); legacy uses pb_open_scored_rank_pct_max
-        max_rank_pct = float(getattr(self._settings, "pb_v2_open_scored_rank_pct_max", 100.0)) if v2 else float(getattr(self._settings, "pb_open_scored_rank_pct_max", 100.0))
-        return score >= min_score and rank_pct <= max_rank_pct
+        return iaric_core_logic.open_scored_eligible(self._settings, payload)
 
     def _entry_score_bundle(
         self,
@@ -462,164 +408,14 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
         bars: list[Bar],
         bar_idx: int,
     ) -> dict[str, float]:
-        def _clip01(value: float) -> float:
-            return min(max(float(value), 0.0), 1.0)
-
-        def _peak_score(value: float, *, target: float, width: float) -> float:
-            width = max(float(width), 1e-6)
-            return _clip01(1.0 - abs(float(value) - float(target)) / width)
-
-        route_family = state.route_family or ("DELAYED_CONFIRM" if state.intraday_setup_type == "DELAYED_CONFIRM" else "OPENING_RECLAIM")
-        score_family = str(getattr(self._settings, "pb_entry_score_family", "meanrev_sweetspot_v1") or "meanrev_sweetspot_v1").lower()
-        daily_signal = min(max(state.daily_signal_score / 100.0, 0.0), 1.0)
-        reclaim_score = 0.0
-        if state.stop_level > 0 and bar.close > state.reclaim_level:
-            reclaim_score = min(
-                max((bar.close - state.reclaim_level) / max(bar.close - state.stop_level, 0.01), 0.0),
-                1.5,
-            ) / 1.5
-        volume_score = min(max(self._volume_ratio(bar, state.item) / max(self._settings.pb_ready_min_volume_ratio, 0.25), 0.0), 1.25) / 1.25
-        vwap = market.session_vwap or bar.close
-        vwap_score = 0.0
-        if state.daily_atr > 0:
-            vwap_score = min(max((bar.close - vwap) / max(state.daily_atr * 0.75, 0.01), 0.0), 1.0)
-        cpr_score = min(max(bar.cpr, 0.0), 1.0)
-        micro_label = self._micropressure_label(bars, bar_idx, state.reclaim_level, state.item)
-        reclaim_bars = max(bar_idx - state.flush_bar_idx + 1, 1)
-        speed_score = min(max(1.0 - (reclaim_bars - 1) / 8.0, 0.0), 1.0)
-        context_bonus = self._thirty_min_context_bonus(market, weight=4.0)
-        route_flag = 0.0 if route_family == "OPENING_RECLAIM" else 1.0
-
-        def _bundle(
-            *,
-            daily_weight: float,
-            reclaim_weight: float,
-            volume_weight: float,
-            vwap_weight: float,
-            cpr_weight: float,
-            speed_weight: float,
-            context_low: float,
-            context_high: float,
-            distribute_penalty: float,
-            neutral_penalty: float,
-            weak_vwap_penalty_value: float,
-            rescue_penalty_value: float,
-            reclaim_input: float = reclaim_score,
-            vwap_input: float = vwap_score,
-            cpr_input: float = cpr_score,
-            extension_penalty: float = 0.0,
-        ) -> dict[str, float]:
-            context_adjust = min(max(context_bonus, context_low), context_high)
-            micro_penalty = distribute_penalty if micro_label == "DISTRIBUTE" else neutral_penalty if micro_label == "NEUTRAL" else 0.0
-            weak_vwap_penalty = weak_vwap_penalty_value if bar.close < vwap else 0.0
-            rescue_penalty = rescue_penalty_value if state.rescue_flow_candidate else 0.0
-            total = (
-                daily_signal * daily_weight
-                + reclaim_input * reclaim_weight
-                + volume_score * volume_weight
-                + vwap_input * vwap_weight
-                + cpr_input * cpr_weight
-                + speed_score * speed_weight
-                + context_adjust
-                + micro_penalty
-                + weak_vwap_penalty
-                + rescue_penalty
-                + extension_penalty
-            )
-            return {
-                "route_family": route_flag,
-                "daily_signal": float(daily_signal * daily_weight),
-                "reclaim": float(reclaim_input * reclaim_weight),
-                "volume": float(volume_score * volume_weight),
-                "vwap_hold": float(vwap_input * vwap_weight),
-                "cpr": float(cpr_input * cpr_weight),
-                "speed": float(speed_score * speed_weight),
-                "context_adjust": float(context_adjust),
-                "micro_penalty": float(micro_penalty),
-                "weak_vwap_penalty": float(weak_vwap_penalty),
-                "rescue_penalty": float(rescue_penalty),
-                "extension_penalty": float(extension_penalty),
-                "score": float(max(total, 0.0)),
-            }
-
-        if score_family == "route_momentum_v1":
-            return _bundle(
-                daily_weight=45.0,
-                reclaim_weight=18.0,
-                volume_weight=12.0,
-                vwap_weight=10.0,
-                cpr_weight=10.0,
-                speed_weight=8.0,
-                context_low=-6.0,
-                context_high=3.0,
-                distribute_penalty=-12.0,
-                neutral_penalty=-4.0,
-                weak_vwap_penalty_value=-8.0,
-                rescue_penalty_value=-8.0,
-            )
-
-        if score_family == "route_quality_v1":
-            return _bundle(
-                daily_weight=40.0,
-                reclaim_weight=10.0,
-                volume_weight=16.0,
-                vwap_weight=10.0,
-                cpr_weight=10.0,
-                speed_weight=8.0,
-                context_low=-4.0,
-                context_high=2.0,
-                distribute_penalty=-14.0,
-                neutral_penalty=-6.0,
-                weak_vwap_penalty_value=-12.0,
-                rescue_penalty_value=-10.0,
-            )
-
-        if score_family == "route_early_reversal_v1":
-            return _bundle(
-                daily_weight=36.0,
-                reclaim_weight=14.0,
-                volume_weight=14.0,
-                vwap_weight=12.0,
-                cpr_weight=10.0,
-                speed_weight=12.0,
-                context_low=-4.0,
-                context_high=2.0,
-                distribute_penalty=-12.0,
-                neutral_penalty=-5.0,
-                weak_vwap_penalty_value=-10.0,
-                rescue_penalty_value=-8.0,
-            )
-
-        reclaim_target = 0.55 if route_family == "OPENING_RECLAIM" else 0.45
-        vwap_target = 0.28 if route_family == "OPENING_RECLAIM" else 0.20
-        cpr_target = 0.68 if route_family == "OPENING_RECLAIM" else 0.62
-        reclaim_component = _peak_score(reclaim_score, target=reclaim_target, width=0.45)
-        vwap_component = _peak_score(vwap_score, target=vwap_target, width=0.28)
-        cpr_component = _peak_score(cpr_score, target=cpr_target, width=0.28)
-        extension_penalty = 0.0
-        if reclaim_score > 0.85:
-            extension_penalty -= _clip01((reclaim_score - 0.85) / 0.15) * 4.0
-        if vwap_score > 0.60:
-            extension_penalty -= _clip01((vwap_score - 0.60) / 0.40) * 6.0
-        if cpr_score > 0.85:
-            extension_penalty -= _clip01((cpr_score - 0.85) / 0.15) * 6.0
-        return _bundle(
-            daily_weight=54.0,
-            reclaim_weight=8.0,
-            volume_weight=12.0,
-            vwap_weight=5.0,
-            cpr_weight=6.0,
-            speed_weight=8.0,
-            context_low=-4.0,
-            context_high=2.0,
-            distribute_penalty=-12.0,
-            neutral_penalty=-5.0,
-            weak_vwap_penalty_value=-10.0,
-            rescue_penalty_value=-8.0,
-            reclaim_input=reclaim_component,
-            vwap_input=vwap_component,
-            cpr_input=cpr_component,
-            extension_penalty=extension_penalty,
+        return iaric_core_logic.compute_route_entry_score_bundle(
+            self._settings,
+            state,
+            state.item,
+            bar,
+            market,
+            bar_idx,
+            bars=bars,
         )
 
     def _compute_entry_score(
@@ -803,6 +599,26 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
             max_adverse=position.max_adverse,
             metadata=metadata,
         )
+
+        # ---- parity: notify core of exit ----
+        _exit_oid = f"iaric-x-{position.symbol}-{self._order_counter}"
+        self._order_counter += 1
+        self._replay_core_step(
+            bar_input={"bar_ts": ts, "flatten_request": IARICFlattenRequest(symbol=position.symbol, reason=reason)},
+            fills=[
+                IARICFill(
+                    oms_order_id=_exit_oid,
+                    fill_price=fill,
+                    fill_qty=position.quantity,
+                    fill_time=ts,
+                    commission=commission,
+                    symbol=position.symbol,
+                    order_role="EXIT",
+                    exit_type=reason,
+                )
+            ],
+        )
+
         return trade, runner_pnl - commission - position.commission_entry
 
     def _process_overnight_carries(
@@ -1431,11 +1247,7 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
         )
 
     def _entry_threshold(self, state: _PBHybridState) -> float:
-        if state.rescue_flow_candidate:
-            return float(max(self._settings.pb_rescue_min_score, self._settings.pb_entry_score_min))
-        if state.intraday_setup_type == "DELAYED_CONFIRM":
-            return float(min(self._settings.pb_entry_score_min, self._settings.pb_delayed_confirm_score_min))
-        return float(self._settings.pb_entry_score_min)
+        return iaric_core_logic.entry_threshold(self._settings, state)
 
     def _market_open_timestamp(self, trade_date: date) -> datetime:
         return datetime(trade_date.year, trade_date.month, trade_date.day, 9, 30, tzinfo=ET).astimezone(timezone.utc)
@@ -1455,85 +1267,21 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
         funnel_counters: dict[str, int] | None,
         fsm_log: list[dict[str, Any]] | None,
     ) -> bool:
-        settings = self._settings
-        if state.stopped_out_today:
-            return False
-        if state.rescue_flow_candidate and not getattr(settings, "pb_v2_delayed_confirm_allow_rescue", False):
-            return False
-        if not self._route_enabled("DELAYED_CONFIRM"):
-            return False
-        if state.daily_signal_score < self._route_min_daily_signal_score("DELAYED_CONFIRM"):
-            return False
-        if bar_idx < settings.pb_delayed_confirm_after_bar:
-            return False
-        if state.stage != "WATCHING" or bar_idx >= len(bars):
+        if bar_idx >= len(bars):
             return False
         bar = bars[bar_idx]
-        vwap = market.session_vwap
-        if vwap is None:
-            return False
-        session_low = min(market.session_low or bar.low, bar.low)
-        close_pct = _close_in_range_pct(bar.high, bar.low, bar.close)
-        micro = self._micropressure_label(bars, bar_idx, vwap, state.item)
-        v2 = settings.pb_v2_enabled
-        if v2:
-            # V2: relaxed confirmation gates
-            min_close_pct = settings.pb_v2_delayed_confirm_min_close_pct
-            vol_ratio_min = settings.pb_v2_delayed_confirm_vol_ratio
-            volume_ok = self._volume_ratio(bar, state.item) >= vol_ratio_min
-            vwap_ok = bar.close >= vwap - 0.50 * session_atr
-            if bar.close <= bar.open or close_pct < min_close_pct or not volume_ok or not vwap_ok or micro == "DISTRIBUTE":
-                return False
-        else:
-            volume_ok = self._volume_ratio(bar, state.item) >= max(settings.pb_ready_min_volume_ratio * 0.75, 0.5)
-            vwap_ok = bar.close >= vwap - settings.pb_ready_vwap_buffer_atr * session_atr
-            retest_depth = (bars[0].open - session_low) / max(session_atr, 0.01)
-            bounce_strength = (bar.close - session_low) / max(session_atr, 0.01)
-            if (
-                bar.close <= bar.open
-                or close_pct < settings.pb_delayed_confirm_min_close_pct
-                or not volume_ok
-                or not vwap_ok
-                or micro == "DISTRIBUTE"
-                or retest_depth < 0.05
-                or bounce_strength < 0.20
-            ):
-                return False
-
-        state.intraday_setup_type = "DELAYED_CONFIRM"
-        state.route_family = "DELAYED_CONFIRM"
-        state.setup_low = session_low
-        state.reclaim_level = max(vwap, session_low + session_atr * 0.35)
-        state.stop_level = self._initial_stop(state, session_atr)
-        state.flush_bar_idx = max(0, bar_idx - settings.pb_delayed_confirm_after_bar + 1)
-        state.acceptance_count = 1
-        state.required_acceptance = 1
-        score_bundle = self._entry_score_bundle(state, bar, market, bars, bar_idx)
-        state.score_components = dict(score_bundle)
-        state.intraday_score = float(score_bundle["score"])
-        if state.intraday_score < settings.pb_delayed_confirm_score_min:
-            state.intraday_setup_type = ""
-            state.setup_low = 0.0
-            state.reclaim_level = 0.0
-            state.stop_level = 0.0
-            state.flush_bar_idx = 0
-            state.acceptance_count = 0
-            state.required_acceptance = 0
-            state.intraday_score = 0.0
-            state.score_components = {}
-            return False
-
-        prior = state.stage
-        state.stage = "READY"
-        state.ready_bar_idx = bar_idx
-        state.ready_cpr = float(bar.cpr)
-        state.ready_volume_ratio = float(self._volume_ratio(bar, state.item))
-        state.ready_timestamp = bar.end_time
-        state.target_entry_price = max(
-            state.reclaim_level,
-            bar.close * (1.0 - settings.pb_improvement_discount_pct * 0.5),
+        step = iaric_core_logic.activate_delayed_confirm_route(
+            self._settings,
+            state,
+            state.item,
+            bar,
+            market,
+            bar_idx,
+            session_atr,
+            bars=bars,
         )
-        state.improvement_expires = bar_idx + max(0, settings.pb_improvement_window_bars)
+        if step is None:
+            return False
         self._mark_stage(record, "READY")
         if funnel_counters is not None:
             funnel_counters["ready"] = funnel_counters.get("ready", 0) + 1
@@ -1554,9 +1302,9 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                 state.symbol,
                 trade_date,
                 bar.end_time,
-                prior,
+                step.prior_stage,
                 "READY",
-                "delayed_confirm",
+                step.reason or "delayed_confirm",
                 score=state.intraday_score,
             )
         return True
@@ -1576,58 +1324,21 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
         funnel_counters: dict[str, int] | None,
         fsm_log: list[dict[str, Any]] | None,
     ) -> bool:
-        settings = self._settings
-        if not settings.pb_v2_enabled or not settings.pb_v2_vwap_bounce_enabled:
-            return False
-        if state.stopped_out_today:
-            return False
-        if state.rescue_flow_candidate and not getattr(settings, "pb_v2_vwap_bounce_allow_rescue", False):
-            return False
-        if state.stage != "WATCHING" or bar_idx >= len(bars):
-            return False
-        if bar_idx < settings.pb_v2_vwap_bounce_after_bar:
+        if bar_idx >= len(bars):
             return False
         bar = bars[bar_idx]
-        vwap = market.session_vwap
-        if vwap is None or session_atr <= 0:
-            return False
-        # Price must have touched below VWAP in first 60 min (12 bars)
-        touched_below = any(
-            b.low < (market.session_vwap or vwap)
-            for b in bars[: min(12, bar_idx)]
+        step = iaric_core_logic.activate_vwap_bounce_route(
+            self._settings,
+            state,
+            state.item,
+            bar,
+            market,
+            bar_idx,
+            session_atr,
+            bars=bars,
         )
-        if not touched_below:
+        if step is None:
             return False
-        # Current bar closes above VWAP, green bar, volume OK
-        if bar.close <= vwap or bar.close <= bar.open:
-            return False
-        if self._volume_ratio(bar, state.item) < settings.pb_v2_vwap_bounce_vol_ratio:
-            return False
-        micro = self._micropressure_label(bars, bar_idx, vwap, state.item)
-        if micro == "DISTRIBUTE":
-            return False
-
-        session_low = min(market.session_low or bar.low, bar.low)
-        state.intraday_setup_type = "VWAP_BOUNCE"
-        state.route_family = "VWAP_BOUNCE"
-        state.setup_low = session_low
-        state.reclaim_level = vwap
-        state.stop_level = session_low - 0.25 * session_atr
-        state.flush_bar_idx = 0
-        state.acceptance_count = 1
-        state.required_acceptance = 1
-        score_bundle = self._entry_score_bundle(state, bar, market, bars, bar_idx)
-        state.score_components = dict(score_bundle)
-        state.intraday_score = float(score_bundle["score"])
-
-        prior = state.stage
-        state.stage = "READY"
-        state.ready_bar_idx = bar_idx
-        state.ready_cpr = float(bar.cpr)
-        state.ready_volume_ratio = float(self._volume_ratio(bar, state.item))
-        state.ready_timestamp = bar.end_time
-        state.target_entry_price = bar.close
-        state.improvement_expires = bar_idx + 2
         self._mark_stage(record, "READY")
         if funnel_counters is not None:
             funnel_counters["ready"] = funnel_counters.get("ready", 0) + 1
@@ -1643,7 +1354,7 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
             record["refinement_route"] = "VWAP_BOUNCE"
             self._apply_score_components(record, state.score_components, prefix="score_component_")
         if fsm_log is not None:
-            self._log_fsm(fsm_log, state.symbol, trade_date, bar.end_time, prior, "READY", "vwap_bounce", score=state.intraday_score)
+            self._log_fsm(fsm_log, state.symbol, trade_date, bar.end_time, step.prior_stage, "READY", step.reason or "vwap_bounce", score=state.intraday_score)
         return True
 
     # ------------------------------------------------------------------
@@ -1661,53 +1372,21 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
         funnel_counters: dict[str, int] | None,
         fsm_log: list[dict[str, Any]] | None,
     ) -> bool:
-        settings = self._settings
-        if not settings.pb_v2_enabled or not settings.pb_v2_afternoon_retest_enabled:
-            return False
-        if state.rescue_flow_candidate and not getattr(settings, "pb_v2_afternoon_retest_allow_rescue", False):
-            return False
-        if state.stage != "WATCHING":
-            return False
-        if bar_idx < settings.pb_v2_afternoon_retest_after_bar or bar_idx >= len(bars):
-            return False
-        if state.daily_signal_score < settings.pb_v2_afternoon_retest_min_score:
+        if bar_idx >= len(bars):
             return False
         bar = bars[bar_idx]
-        vwap = market.session_vwap
-        if vwap is None or session_atr <= 0:
+        step = iaric_core_logic.activate_afternoon_retest_route(
+            self._settings,
+            state,
+            state.item,
+            bar,
+            market,
+            bar_idx,
+            session_atr,
+            bars=bars,
+        )
+        if step is None:
             return False
-        session_low = min(market.session_low or bar.low, bar.low)
-        # Price retested morning low and held
-        if bar.low < 0.95 * session_low:
-            return False
-        # Current bar closes above VWAP
-        if bar.close <= vwap:
-            return False
-        # No distribution volume
-        avg_vol = sum(b.volume for b in bars[:bar_idx + 1]) / max(bar_idx + 1, 1)
-        if bar.volume > 1.5 * avg_vol:
-            return False
-
-        state.intraday_setup_type = "AFTERNOON_RETEST"
-        state.route_family = "AFTERNOON_RETEST"
-        state.setup_low = session_low
-        state.reclaim_level = vwap
-        state.stop_level = session_low - 0.40 * session_atr
-        state.flush_bar_idx = 0
-        state.acceptance_count = 1
-        state.required_acceptance = 1
-        score_bundle = self._entry_score_bundle(state, bar, market, bars, bar_idx)
-        state.score_components = dict(score_bundle)
-        state.intraday_score = float(score_bundle["score"])
-
-        prior = state.stage
-        state.stage = "READY"
-        state.ready_bar_idx = bar_idx
-        state.ready_cpr = float(bar.cpr)
-        state.ready_volume_ratio = float(self._volume_ratio(bar, state.item))
-        state.ready_timestamp = bar.end_time
-        state.target_entry_price = bar.close
-        state.improvement_expires = bar_idx + 2
         self._mark_stage(record, "READY")
         if funnel_counters is not None:
             funnel_counters["ready"] = funnel_counters.get("ready", 0) + 1
@@ -1723,7 +1402,7 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
             record["refinement_route"] = "AFTERNOON_RETEST"
             self._apply_score_components(record, state.score_components, prefix="score_component_")
         if fsm_log is not None:
-            self._log_fsm(fsm_log, state.symbol, trade_date, bar.end_time, prior, "READY", "afternoon_retest", score=state.intraday_score)
+            self._log_fsm(fsm_log, state.symbol, trade_date, bar.end_time, step.prior_stage, "READY", step.reason or "afternoon_retest", score=state.intraday_score)
         return True
 
     def _invalidate_state(
@@ -1747,12 +1426,12 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
             self._log_fsm(fsm_log, state.symbol, trade_date, timestamp, prior, "INVALIDATED", reason)
 
     def _initial_stop(self, state: _PBHybridState, session_atr: float) -> float:
-        daily_cap = self._settings.pb_stop_daily_atr_cap * max(state.daily_atr, 0.0)
-        if daily_cap > 0:
-            buffer = min(self._settings.pb_stop_session_atr_mult * session_atr, daily_cap)
-        else:
-            buffer = self._settings.pb_stop_session_atr_mult * session_atr
-        return max(state.setup_low - max(buffer, 0.01), 0.01)
+        return iaric_core_logic.compute_initial_stop(
+            self._settings,
+            state.setup_low,
+            state.daily_atr,
+            session_atr,
+        )
 
     def _build_daily_fallback_position(
         self,
@@ -1953,6 +1632,8 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                 shadow_outcomes=[] if collect_diagnostics else None,
                 selection_attribution={} if collect_diagnostics else None,
                 fsm_log=[] if collect_diagnostics else None,
+                decision_stream=[],
+                trade_outcomes=[],
             )
 
         equity = cfg.initial_equity
@@ -2256,6 +1937,37 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                     funnel_counters["entered"] = funnel_counters.get("entered", 0) + 1
                     funnel_counters["open_scored_entry"] = funnel_counters.get("open_scored_entry", 0) + 1
 
+                # ---- parity: notify core of daily fallback entry ----
+                _entry_oid = f"iaric-e-{position.symbol}-{self._order_counter}"
+                self._order_counter += 1
+                self._ensure_core_symbol(position.symbol, position.stop, "OPEN_SCORED_ENTRY")
+                self._replay_core_step(
+                    bar_input={
+                        "bar_ts": position.entry_time,
+                        "entry_request": IARICEntryRequest(
+                            client_order_id=_entry_oid,
+                            symbol=position.symbol,
+                            route="OPEN_SCORED_ENTRY",
+                            qty=position.quantity,
+                            limit_price=position.entry_price,
+                            stop_price=position.stop,
+                        ),
+                    },
+                )
+                self._replay_core_step(
+                    fills=[
+                        IARICFill(
+                            oms_order_id=_entry_oid,
+                            fill_price=position.entry_price,
+                            fill_qty=position.quantity,
+                            fill_time=position.entry_time,
+                            commission=position.commission_entry,
+                            symbol=position.symbol,
+                            order_role="ENTRY",
+                        )
+                    ],
+                )
+
             intraday_positions: dict[str, _PBHybridPosition] = {}
             # V2: merge OPEN_SCORED with 5m data into intraday for bar-level management
             # (MFE stages, 5m EMA reversion, partial profits -- all improvements over daily)
@@ -2545,6 +2257,37 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                             score=position.intraday_score,
                         )
 
+                    # ---- parity: notify core of intraday entry ----
+                    _entry_oid = f"iaric-e-{symbol}-{self._order_counter}"
+                    self._order_counter += 1
+                    self._ensure_core_symbol(symbol, position.stop, position.route_family)
+                    self._replay_core_step(
+                        bar_input={
+                            "bar_ts": bar.start_time,
+                            "entry_request": IARICEntryRequest(
+                                client_order_id=_entry_oid,
+                                symbol=symbol,
+                                route=position.route_family,
+                                qty=position.quantity,
+                                limit_price=position.entry_price,
+                                stop_price=position.stop,
+                            ),
+                        },
+                    )
+                    self._replay_core_step(
+                        fills=[
+                            IARICFill(
+                                oms_order_id=_entry_oid,
+                                fill_price=position.entry_price,
+                                fill_qty=position.quantity,
+                                fill_time=bar.start_time,
+                                commission=position.commission_entry,
+                                symbol=symbol,
+                                order_role="ENTRY",
+                            )
+                        ],
+                    )
+
                 closed_symbols: list[str] = []
                 for symbol, position in list(intraday_positions.items()):
                     bars = bars_by_symbol.get(symbol)
@@ -2631,6 +2374,32 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                                     funnel_counters["partial"] = funnel_counters.get("partial", 0) + 1
                                 if position.ledger_ref is not None:
                                     position.ledger_ref["partial_taken"] = True
+                                # ---- parity: notify core of V2 partial exit ----
+                                _partial_oid = f"iaric-p-{symbol}-{self._order_counter}"
+                                self._order_counter += 1
+                                self._replay_core_step(
+                                    bar_input={
+                                        "bar_ts": bar.start_time,
+                                        "partial_exit_request": IARICPartialExitRequest(
+                                            client_order_id=_partial_oid,
+                                            symbol=symbol,
+                                            qty=partial_qty,
+                                            reason="V2_PARTIAL_PROFIT",
+                                        ),
+                                    },
+                                    fills=[
+                                        IARICFill(
+                                            oms_order_id=_partial_oid,
+                                            fill_price=partial_fill,
+                                            fill_qty=partial_qty,
+                                            fill_time=bar.start_time,
+                                            commission=partial_commission,
+                                            symbol=symbol,
+                                            order_role="TP",
+                                            exit_type="V2_PARTIAL_PROFIT",
+                                        )
+                                    ],
+                                )
                     elif exit_price is None and not _v2 and not position.partial_taken:
                         partial_trigger = position.entry_price + partial_r * position.risk_per_share
                         if bar.high >= partial_trigger:
@@ -2656,6 +2425,32 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                                     funnel_counters["partial"] = funnel_counters.get("partial", 0) + 1
                                 if position.ledger_ref is not None:
                                     position.ledger_ref["partial_taken"] = True
+                                # ---- parity: notify core of partial exit ----
+                                _partial_oid = f"iaric-p-{symbol}-{self._order_counter}"
+                                self._order_counter += 1
+                                self._replay_core_step(
+                                    bar_input={
+                                        "bar_ts": bar.start_time,
+                                        "partial_exit_request": IARICPartialExitRequest(
+                                            client_order_id=_partial_oid,
+                                            symbol=symbol,
+                                            qty=partial_qty,
+                                            reason="PARTIAL_PROFIT",
+                                        ),
+                                    },
+                                    fills=[
+                                        IARICFill(
+                                            oms_order_id=_partial_oid,
+                                            fill_price=partial_fill,
+                                            fill_qty=partial_qty,
+                                            fill_time=bar.start_time,
+                                            commission=partial_commission,
+                                            symbol=symbol,
+                                            order_role="TP",
+                                            exit_type="PARTIAL_PROFIT",
+                                        )
+                                    ],
+                                )
 
                     # V2: 3-stage MFE protection
                     if exit_price is None and _v2:
@@ -2754,55 +2549,38 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                     session_atr = session_atr_by_symbol[symbol]
 
                     if state.stage == "INVALIDATED":
-                        if bar_idx >= state.invalid_reset_bar:
-                            prior = state.stage
-                            state.reset_for_watch()
+                        if iaric_core_logic.maybe_reset_invalidated_state(state, bar_idx):
                             if fsm_log is not None:
-                                self._log_fsm(fsm_log, symbol, trade_date, bar.end_time, prior, "WATCHING", "cooldown_reset")
+                                self._log_fsm(fsm_log, symbol, trade_date, bar.end_time, "INVALIDATED", "WATCHING", "cooldown_reset")
                         else:
                             continue
 
                     if state.stage == "WATCHING":
-                        open_price = bars[0].open
-                        flush_distance = (open_price - min(market.session_low or bar.low, bar.low)) / max(session_atr, 0.01)
-                        flush_bar = (
-                            bar_idx < settings.pb_flush_window_bars
-                            and flush_distance >= settings.pb_flush_min_atr
-                            and bar.cpr <= settings.pb_flush_cpr_max
-                        )
-                        pm_reentry_signal = (
-                            state.stopped_out_today
-                            and settings.pb_pm_reentry
-                            and bar_idx >= settings.pb_pm_reentry_after_bar
-                            and bar.close > bar.open
-                            and market.session_vwap is not None
-                            and bar.close >= market.session_vwap
-                            and self._micropressure_label(bars, bar_idx, bar.close, state.item) == "ACCUMULATE"
-                        )
                         can_try_opening_reclaim = (
                             self._route_enabled("OPENING_RECLAIM")
                             and state.daily_signal_score >= self._route_min_daily_signal_score("OPENING_RECLAIM")
                         )
-                        if can_try_opening_reclaim and (flush_bar or pm_reentry_signal):
-                            prior = state.stage
-                            state.stage = "FLUSH_LOCKED"
-                            state.intraday_setup_type = "PM_REENTRY" if pm_reentry_signal else ("OPENING_FLUSH" if bar_idx < settings.pb_opening_range_bars else "SESSION_FLUSH")
-                            state.route_family = "OPENING_RECLAIM"
-                            state.setup_low = min(market.session_low or bar.low, bar.low)
-                            reclaim_anchor = max(
-                                bar.high - settings.pb_reclaim_offset_atr * session_atr,
-                                (market.session_vwap or bar.close) - settings.pb_ready_vwap_buffer_atr * session_atr,
+                        if can_try_opening_reclaim:
+                            step = iaric_core_logic.advance_opening_reclaim_route(
+                                settings,
+                                state,
+                                state.item,
+                                bar,
+                                market,
+                                bar_idx,
+                                session_atr,
+                                bars=bars,
                             )
-                            state.reclaim_level = max(reclaim_anchor, state.setup_low + session_atr * 0.25)
-                            state.stop_level = self._initial_stop(state, session_atr)
-                            state.flush_bar_idx = bar_idx
+                        else:
+                            step = None
+                        if step is not None and step.stage == "FLUSH_LOCKED":
                             self._mark_stage(record, "FLUSH_LOCKED")
                             if funnel_counters is not None:
                                 funnel_counters["flush_locked"] = funnel_counters.get("flush_locked", 0) + 1
                             if record is not None:
                                 record["intraday_setup_type"] = state.intraday_setup_type
                             if fsm_log is not None:
-                                self._log_fsm(fsm_log, symbol, trade_date, bar.end_time, prior, "FLUSH_LOCKED", state.intraday_setup_type)
+                                self._log_fsm(fsm_log, symbol, trade_date, bar.end_time, step.prior_stage, "FLUSH_LOCKED", step.reason or state.intraday_setup_type)
                             continue
                         if self._activate_delayed_confirm(
                             state,
@@ -2828,69 +2606,49 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                             continue
 
                     if state.stage == "FLUSH_LOCKED":
-                        state.setup_low = min(state.setup_low, bar.low)
-                        reclaim_anchor = max(
-                            bar.high - settings.pb_reclaim_offset_atr * session_atr,
-                            (market.session_vwap or bar.close) - settings.pb_ready_vwap_buffer_atr * session_atr,
+                        step = iaric_core_logic.advance_opening_reclaim_route(
+                            settings,
+                            state,
+                            state.item,
+                            bar,
+                            market,
+                            bar_idx,
+                            session_atr,
+                            bars=bars,
                         )
-                        state.reclaim_level = max(reclaim_anchor, state.setup_low + session_atr * 0.25)
-                        state.stop_level = self._initial_stop(state, session_atr)
-                        if bar.close >= state.reclaim_level or bar.high >= state.reclaim_level:
-                            prior = state.stage
-                            state.stage = "RECLAIMING"
-                            state.required_acceptance = max(1, settings.pb_ready_acceptance_bars)
+                        if step is not None and step.stage == "RECLAIMING":
                             self._mark_stage(record, "RECLAIMING")
                             if funnel_counters is not None:
                                 funnel_counters["reclaiming"] = funnel_counters.get("reclaiming", 0) + 1
                             if fsm_log is not None:
-                                self._log_fsm(fsm_log, symbol, trade_date, bar.end_time, prior, "RECLAIMING", "reclaim_hit")
-                        elif bar_idx >= settings.pb_flush_window_bars + settings.pb_ready_acceptance_bars:
-                            self._invalidate_state(
-                                state,
-                                record,
-                                fsm_log,
-                                trade_date,
-                                bar.end_time,
-                                "flush_stale",
-                                max(bar_idx + 1, settings.pb_delayed_confirm_after_bar),
-                            )
+                                self._log_fsm(fsm_log, symbol, trade_date, bar.end_time, step.prior_stage, "RECLAIMING", step.reason or "reclaim_hit")
+                        elif step is not None and step.stage == "INVALIDATED":
+                            if record is not None:
+                                record["intraday_invalid_reason"] = state.invalid_reason
+                            self._mark_stage(record, "INVALIDATED")
+                            if fsm_log is not None:
+                                self._log_fsm(fsm_log, symbol, trade_date, bar.end_time, step.prior_stage, "INVALIDATED", step.reason)
                         continue
 
                     if state.stage == "RECLAIMING":
-                        if bar.low <= state.stop_level or bar.close < state.setup_low:
-                            self._invalidate_state(
-                                state,
-                                record,
-                                fsm_log,
-                                trade_date,
-                                bar.end_time,
-                                "reclaim_failed",
-                                max(bar_idx + 2, settings.pb_pm_reentry_after_bar if state.stopped_out_today else bar_idx + 2),
-                            )
+                        step = iaric_core_logic.advance_opening_reclaim_route(
+                            settings,
+                            state,
+                            state.item,
+                            bar,
+                            market,
+                            bar_idx,
+                            session_atr,
+                            bars=bars,
+                        )
+                        if step is not None and step.stage == "INVALIDATED":
+                            if record is not None:
+                                record["intraday_invalid_reason"] = state.invalid_reason
+                            self._mark_stage(record, "INVALIDATED")
+                            if fsm_log is not None:
+                                self._log_fsm(fsm_log, symbol, trade_date, bar.end_time, step.prior_stage, "INVALIDATED", step.reason)
                             continue
-                        micro = self._micropressure_label(bars, bar_idx, state.reclaim_level, state.item)
-                        volume_ok = self._volume_ratio(bar, state.item) >= settings.pb_ready_min_volume_ratio
-                        cpr_ok = bar.cpr >= settings.pb_ready_min_cpr
-                        vwap_ok = market.session_vwap is None or bar.close >= market.session_vwap - settings.pb_ready_vwap_buffer_atr * session_atr
-                        if bar.close >= state.reclaim_level and bar.close > bar.open and cpr_ok and volume_ok and vwap_ok and micro != "DISTRIBUTE":
-                            state.acceptance_count += 1
-                        elif bar.close < state.reclaim_level:
-                            state.acceptance_count = max(state.acceptance_count - 1, 0)
-                        if state.acceptance_count >= max(1, state.required_acceptance):
-                            prior = state.stage
-                            state.stage = "READY"
-                            state.ready_bar_idx = bar_idx
-                            score_bundle = self._entry_score_bundle(state, bar, market, bars, bar_idx)
-                            state.score_components = dict(score_bundle)
-                            state.intraday_score = float(score_bundle["score"])
-                            state.ready_cpr = float(bar.cpr)
-                            state.ready_volume_ratio = float(self._volume_ratio(bar, state.item))
-                            state.ready_timestamp = bar.end_time
-                            state.target_entry_price = max(
-                                state.reclaim_level,
-                                bar.close * (1.0 - settings.pb_improvement_discount_pct),
-                            )
-                            state.improvement_expires = bar_idx + max(0, settings.pb_improvement_window_bars)
+                        if step is not None and step.stage == "READY":
                             self._mark_stage(record, "READY")
                             if funnel_counters is not None:
                                 funnel_counters["ready"] = funnel_counters.get("ready", 0) + 1
@@ -2910,9 +2668,9 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                                     symbol,
                                     trade_date,
                                     bar.end_time,
-                                    prior,
+                                    step.prior_stage,
                                     "READY",
-                                    "acceptance_complete",
+                                    step.reason or "acceptance_complete",
                                     score=state.intraday_score,
                                 )
                         continue
@@ -2924,31 +2682,24 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                     next_bar_idx = bar_idx + 1
                     if next_bar_idx >= len(bars):
                         continue
-                    if bar.low <= state.stop_level:
-                        self._invalidate_state(
-                            state,
-                            record,
-                            fsm_log,
-                            trade_date,
-                            bar.end_time,
-                            "ready_stop_breach",
-                            max(bar_idx + 2, settings.pb_pm_reentry_after_bar if state.stopped_out_today else bar_idx + 2),
-                        )
+                    step = iaric_core_logic.evaluate_ready_entry(
+                        settings,
+                        state,
+                        state.item,
+                        bar,
+                        market,
+                        bar_idx,
+                        session_atr,
+                        bars=bars,
+                    )
+                    if step is not None and step.stage == "INVALIDATED":
+                        if record is not None:
+                            record["intraday_invalid_reason"] = state.invalid_reason
+                        self._mark_stage(record, "INVALIDATED")
+                        if fsm_log is not None:
+                            self._log_fsm(fsm_log, symbol, trade_date, bar.end_time, step.prior_stage, "INVALIDATED", step.reason)
                         continue
-                    score_bundle = self._entry_score_bundle(state, bar, market, bars, bar_idx)
-                    state.score_components = dict(score_bundle)
-                    state.intraday_score = float(score_bundle["score"])
-                    route_family = state.route_family or ("DELAYED_CONFIRM" if state.intraday_setup_type == "DELAYED_CONFIRM" else "OPENING_RECLAIM")
-                    entry_trigger = ""
-                    desired_entry = 0.0
-                    # Defer entry to next bar to avoid same-bar signal+fill
-                    if bar_idx > state.ready_bar_idx and bar_idx <= state.improvement_expires and bar.low <= state.target_entry_price <= bar.high:
-                        desired_entry = state.target_entry_price
-                        entry_trigger = route_family
-                    elif bar_idx > state.ready_bar_idx and (bar_idx >= state.improvement_expires or bar.close >= state.reclaim_level + session_atr * 0.25):
-                        desired_entry = max(bar.close, state.reclaim_level)
-                        entry_trigger = route_family
-                    if desired_entry > 0 and entry_trigger and record is not None:
+                    if step is not None and step.entry_feasible and record is not None:
                         record["entry_window_feasible"] = True
                         feasible_idx = record.get("entry_window_feasible_bar_index")
                         if feasible_idx is None or int(feasible_idx) < 0 or bar_idx < int(feasible_idx):
@@ -2957,20 +2708,18 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                             float(record.get("max_feasible_intraday_score", 0.0) or 0.0),
                             float(state.intraday_score),
                         )
-                    if state.intraday_score < self._entry_threshold(state):
-                        continue
-                    if desired_entry > 0 and entry_trigger:
+                    if step is not None and step.acceptance is not None:
                         entry_acceptances.append({
                             "symbol": symbol,
                             "state": state,
                             "bar": bar,
-                            "accepted_bar_idx": int(bar_idx),
-                            "accepted_entry_price": float(desired_entry),
-                            "entry_trigger": entry_trigger,
-                            "route_family": route_family,
-                            "score": state.intraday_score,
-                            "session_atr": session_atr,
-                            "score_components": dict(state.score_components),
+                            "accepted_bar_idx": int(step.acceptance.accepted_bar_idx),
+                            "accepted_entry_price": float(step.acceptance.accepted_entry_price),
+                            "entry_trigger": step.acceptance.entry_trigger,
+                            "route_family": step.acceptance.route_family,
+                            "score": float(step.acceptance.score),
+                            "session_atr": float(step.acceptance.session_atr),
+                            "score_components": dict(step.acceptance.score_components),
                         })
 
                 entry_acceptances.sort(
@@ -2988,14 +2737,19 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                     record = state.record
                     prior = state.stage
                     state.stage = "ENTRY_QUEUED"
-                    state.accepted_bar_idx = int(candidate["accepted_bar_idx"])
-                    state.accepted_timestamp = candidate["bar"].end_time
-                    state.accepted_entry_price = float(candidate["accepted_entry_price"])
-                    state.accepted_entry_trigger = str(candidate["entry_trigger"])
-                    state.accepted_route_family = str(candidate["route_family"])
-                    state.accepted_score = float(candidate["score"])
-                    state.accepted_session_atr = float(candidate["session_atr"])
-                    state.accepted_score_components = dict(candidate["score_components"])
+                    iaric_core_logic.apply_entry_acceptance(
+                        state,
+                        iaric_core_logic.IARICEntryAcceptance(
+                            accepted_bar_idx=int(candidate["accepted_bar_idx"]),
+                            accepted_timestamp=candidate["bar"].end_time,
+                            accepted_entry_price=float(candidate["accepted_entry_price"]),
+                            entry_trigger=str(candidate["entry_trigger"]),
+                            route_family=str(candidate["route_family"]),
+                            score=float(candidate["score"]),
+                            session_atr=float(candidate["session_atr"]),
+                            score_components=dict(candidate["score_components"]),
+                        ),
+                    )
                     if record is not None:
                         record["disposition"] = "entry_queued"
                         record["accepted_timestamp"] = state.accepted_timestamp
@@ -3206,4 +2960,6 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
             shadow_outcomes=shadow_outcomes,
             selection_attribution=selection_attribution,
             fsm_log=fsm_log,
+            decision_stream=normalize_decision_stream(self._decision_events),
+            trade_outcomes=trade_outcomes_from_records(trades),
         )

@@ -646,6 +646,37 @@ def test_intraday_hybrid_intraday_scoring_does_not_depend_on_diagnostics_mode():
     assert result.trades[0].metadata["entry_trigger"] in {"OPENING_RECLAIM", "DELAYED_CONFIRM"}
 
 
+def test_intraday_hybrid_emits_live_aligned_decision_stream_and_trade_outcomes() -> None:
+    replay = _FakeReplay()
+    config = IARICBacktestConfig(
+        start_date=replay.trade_date.isoformat(),
+        end_date=replay.trade_date.isoformat(),
+        param_overrides={
+            "pb_execution_mode": "intraday_hybrid",
+            "pb_daily_signal_min_score": 0.0,
+            "pb_v2_signal_floor": 0.0,
+            "pb_v2_enabled": False,
+            "pb_rsi_entry": 20.0,
+            "pb_entry_score_min": 45.0,
+            "pb_entry_score_family": "route_momentum_v1",
+            "pb_entry_strength_sizing": False,
+            "pb_ready_min_volume_ratio": 0.5,
+            "pb_partial_r": 1.0,
+        },
+    )
+
+    result = IARICPullbackIntradayHybridEngine(config, replay, collect_diagnostics=True).run()
+    codes = [event["code"] for event in result.decision_stream]
+
+    assert len(result.trades) == 1
+    assert "ENTRY_REQUESTED" in codes
+    assert "ENTRY_FILLED" in codes
+    assert "EXIT_FILLED" in codes
+    assert len(result.trade_outcomes) == len(result.trades) == 1
+    assert result.trade_outcomes[0]["symbol"] == result.trades[0].symbol
+    assert result.trade_outcomes[0]["exit_reason"] == result.trades[0].exit_reason
+
+
 def test_intraday_hybrid_entry_bundle_supports_round3_route_score_families():
     replay = _FakeReplay()
     bars = replay.get_5m_bar_objects_for_date("AAA", replay.trade_date)

@@ -432,6 +432,7 @@ class PBSymbolState:
     symbol: str
     stage: str = "WATCHING"  # WATCHING|FLUSH_LOCKED|RECLAIMING|READY|IN_POSITION|INVALIDATED
     route_family: str = ""   # OPENING_RECLAIM|DELAYED_CONFIRM|VWAP_BOUNCE|AFTERNOON_RETEST|OPEN_SCORED_ENTRY
+    intraday_setup_type: str = ""
     setup_low: float = 0.0
     reclaim_level: float = 0.0
     stop_level: float = 0.0
@@ -477,6 +478,22 @@ class PBSymbolState:
     # Intraday tracking (research parity)
     stopped_out_today: bool = False
     flush_bar_idx: int = 0
+    ready_bar_idx: int = -1
+    target_entry_price: float = 0.0
+    improvement_expires: int = 0
+    invalid_reason: str = ""
+    invalid_reset_bar: int = 0
+    ready_cpr: float = 0.0
+    ready_volume_ratio: float = 0.0
+    ready_timestamp: datetime | None = None
+    accepted_bar_idx: int = -1
+    accepted_timestamp: datetime | None = None
+    accepted_entry_price: float = 0.0
+    accepted_entry_trigger: str = ""
+    accepted_route_family: str = ""
+    accepted_score: float = 0.0
+    accepted_session_atr: float = 0.0
+    accepted_score_components: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass(slots=True)

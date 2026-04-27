@@ -225,10 +225,13 @@ class NQDTCPlugin:
         self.initial_equity = initial_equity
         self.max_workers = max_workers
         self.num_phases = num_phases
-        self._cached_data: dict[str, Any] | None = None
+        self._cached_bundle = None
         self._last_context: dict[str, Any] = {}
         self._pool: mp.Pool | None = None
         self._final_metrics_cache: dict[str, dict[str, Any]] = {}
+        self._evaluation_cache: dict[str, Any] = {}
+        self._metrics_cache: dict[str, dict[str, float]] = {}
+        self._cache_source_fingerprint: str = ""
 
     def get_phase_spec(self, phase: int, state: PhaseState) -> PhaseSpec:
         focus, focus_metrics = PHASE_FOCUS[phase]
@@ -270,6 +273,16 @@ class NQDTCPlugin:
         scoring_weights: dict[str, float] | None = None,
         hard_rejects: dict[str, float] | None = None,
     ):
+        evaluation_key = build_cache_key(
+            "nqdtc.evaluation",
+            source_fingerprint=self._replay_bundle().cache_source_fingerprint,
+            extra={
+                "phase": phase,
+                "scoring_weights": scoring_weights or {},
+                "hard_rejects": hard_rejects or {},
+            },
+        )
+
         def make_parallel():
             self._ensure_pool()
             return _SharedPoolBatchEvaluator(
@@ -283,7 +296,26 @@ class NQDTCPlugin:
             )
 
         raw = ResilientBatchEvaluator(make_parallel, make_sequential, description=f"nqdtc phase {phase}")
-        return CachedBatchEvaluator(raw)
+        return CachedBatchEvaluator(
+            raw,
+            cache=self._evaluation_cache,
+            signature_prefix=evaluation_key,
+            metrics_cache=self._metrics_cache,
+        )
+
+    def _replay_bundle(self):
+        from backtests.momentum.auto.nqdtc.worker import load_worker_data
+
+        bundle = load_worker_data("NQ", self.data_dir)
+        if self._cache_source_fingerprint != bundle.cache_source_fingerprint:
+            self._metrics_cache.clear()
+            self._evaluation_cache.clear()
+            self._final_metrics_cache.clear()
+            self._last_context = {}
+            self.close_pool()
+            self._cache_source_fingerprint = bundle.cache_source_fingerprint
+        self._cached_bundle = bundle
+        return bundle
 
     # -- Pool lifecycle --------------------------------------------------------
 
@@ -331,14 +363,15 @@ class NQDTCPlugin:
         from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
         from backtests.momentum.auto.config_mutator import mutate_nqdtc_config
         from backtests.momentum.auto.nqdtc.scoring import extract_nqdtc_metrics
-        from backtests.momentum.auto.nqdtc.worker import load_worker_data
 
-        if self._cached_data is None:
-            self._cached_data = load_worker_data("NQ", self.data_dir)
+        replay_bundle = self._replay_bundle()
+        metrics_sig = mutation_signature(mutations)
+        if self._last_context.get("mutation_signature") == metrics_sig:
+            return dict(self._last_context["metrics"])
 
         cache_key = build_cache_key(
             "nqdtc.final_metrics",
-            source_fingerprint=str(self._cached_data.get("cache_source_fingerprint", "")),
+            source_fingerprint=replay_bundle.cache_source_fingerprint,
             mutations=mutations,
             extra={"initial_equity": self.initial_equity},
         )
@@ -352,22 +385,24 @@ class NQDTCPlugin:
             mutations,
         )
         engine = NQDTCEngine("MNQ", config)
-        result = engine.run(**replay_engine_kwargs(self._cached_data))
+        result = engine.run(**replay_engine_kwargs(replay_bundle))
         metrics = extract_nqdtc_metrics(
             result.trades,
             list(result.equity_curve),
             list(result.timestamps),
             self.initial_equity,
         )
+        metrics_dict = asdict(metrics)
         self._last_context = {
+            "mutation_signature": metrics_sig,
             "mutations": dict(mutations),
             "config": config,
             "result": result,
-            "metrics": metrics,
+            "metrics": dict(metrics_dict),
             "trades": result.trades,
             "cache_key": cache_key,
         }
-        metrics_dict = asdict(metrics)
+        self._metrics_cache[metrics_sig] = dict(metrics_dict)
         self._final_metrics_cache[cache_key] = {
             "metrics": dict(metrics_dict),
             "context": self._last_context,

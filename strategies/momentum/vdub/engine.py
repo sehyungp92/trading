@@ -24,6 +24,21 @@ from libs.services.trade_recorder import TradeRecorder
 from libs.risk.drawdown_throttle import DrawdownThrottle
 
 from . import config as C
+from .core import logic as vdub_core_logic
+from .core.logic import apply_core_state as apply_core_runtime_state
+from .core.logic import build_core_state as build_core_runtime_state
+from .core.serializers import restore_state as restore_core_state
+from .core.serializers import snapshot_state as snapshot_core_state
+from .core.state import (
+    VdubEntryFillContext,
+    VdubEntrySubmitted,
+    VdubFill,
+    VdubFlattenRequest,
+    VdubOrderUpdate,
+    VdubPartialExitDone,
+    VdubStopUpdateRequest,
+)
+from strategies.core.actions import FlattenPosition, ReplaceProtectiveStop, SubmitExit
 from . import indicators as ind
 from . import signals as sig
 from . import exits
@@ -245,6 +260,60 @@ class VdubNQv4Engine:
         self._last_decision_code = code
         self._last_decision_details = details or {}
 
+    # ------------------------------------------------------------------
+    # Core on_bar routing helpers
+    # ------------------------------------------------------------------
+
+    async def _bar_route_stop(
+        self, pos_id: str, new_stop: float, reason: str,
+        adjustment_type: str = "trailing",
+    ) -> None:
+        """Route a stop update through core on_bar, then dispatch to OMS."""
+        req = VdubStopUpdateRequest(pos_id=pos_id, new_stop=new_stop, reason=reason)
+        core_state = build_core_runtime_state(self)
+        core_state, actions, events = vdub_core_logic.on_bar(
+            core_state, bar_ts=self._last_bar_ts, stop_updates=[req])
+        apply_core_runtime_state(self, core_state)
+        for action in actions:
+            if isinstance(action, ReplaceProtectiveStop):
+                p = next((p for p in self.positions if p.trade_id == pos_id), None)
+                if p and p.stop_oms_order_id:
+                    old_stop = (action.metadata or {}).get("old_stop", 0.0)
+                    await self._update_stop(
+                        p, action.stop_price,
+                        adjustment_type=adjustment_type,
+                        trigger=reason, old_stop=old_stop,
+                    )
+        for event in events:
+            self._record_decision(event.code, event.details)
+
+    async def _bar_route_flatten(self, pos_id: str, reason: str) -> None:
+        """Route a flatten request through core on_bar, then dispatch to OMS."""
+        req = VdubFlattenRequest(pos_id=pos_id, reason=reason)
+        core_state = build_core_runtime_state(self)
+        core_state, actions, events = vdub_core_logic.on_bar(
+            core_state, bar_ts=self._last_bar_ts, flatten_requests=[req])
+        apply_core_runtime_state(self, core_state)
+        for action in actions:
+            if isinstance(action, FlattenPosition):
+                p_id = (action.metadata or {}).get("pos_id")
+                p = next((p for p in self.positions
+                          if p.trade_id == p_id and p.qty_open > 0), None)
+                if p:
+                    await self._flatten_position(p, action.reason or reason)
+        for event in events:
+            self._record_decision(event.code, event.details)
+
+    def _bar_route_decision(self, code: str, details: dict | None = None) -> None:
+        """Route a decision record through core on_bar."""
+        core_state = build_core_runtime_state(self)
+        core_state, _actions, events = vdub_core_logic.on_bar(
+            core_state, bar_ts=self._last_bar_ts,
+            decision_code=code, decision_details=details)
+        apply_core_runtime_state(self, core_state)
+        for event in events:
+            self._record_decision(event.code, event.details)
+
     def health_status(self) -> dict:
         return {
             "strategy_id": C.STRATEGY_ID,
@@ -253,6 +322,14 @@ class VdubNQv4Engine:
             "last_decision_details": self._last_decision_details,
             "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
         }
+
+    def snapshot_state(self) -> dict[str, Any]:
+        return snapshot_core_state(build_core_runtime_state(self))
+
+    async def hydrate(self, snapshot: dict[str, Any]) -> None:
+        if not snapshot:
+            return
+        apply_core_runtime_state(self, restore_core_state(snapshot))
 
     # ------------------------------------------------------------------
     # Signal evolution (M2)
@@ -513,9 +590,7 @@ class VdubNQv4Engine:
                 new_stop = exits.compute_overnight_trail(
                     pos, self._h1h, self._l1h, atr1h)
                 if new_stop != pos.stop_price:
-                    _old = pos.stop_price
-                    pos.stop_price = new_stop
-                    await self._update_stop(pos, new_stop, trigger="overnight_trail", old_stop=_old)
+                    await self._bar_route_stop(pos.trade_id, new_stop, "overnight_trail")
 
         # 5) VWAP-A failure (Section 18.3) — after decision gate
         for pos in list(self.positions):
@@ -526,7 +601,7 @@ class VdubNQv4Engine:
                     pos, float(self._c1h[-1]), self._vwap_a_val, price, atr1h=atr1h,
                 ):
                     logger.info("VWAP-A failure: %s", pos.trade_id)
-                    await self._flatten_position(pos, "VWAP_A_FAIL")
+                    await self._bar_route_flatten(pos.trade_id, "VWAP_A_FAIL")
 
         # 6) Entry evaluation
         session, sub_window = classify_session(now)
@@ -555,23 +630,23 @@ class VdubNQv4Engine:
         self._last_session_window = session_name
 
         if session == SessionWindow.BLOCKED:
-            self._record_decision("OUTSIDE_RTH", {"session": "BLOCKED"})
+            self._bar_route_decision("OUTSIDE_RTH", {"session": "BLOCKED"})
             return
 
         # Event gate (Section 6)
         self._update_event_state(now)
         if not self.event_state.rearmed:
-            self._record_decision("SIGNAL_FILTERED", {"reason": "event_block"})
+            self._bar_route_decision("SIGNAL_FILTERED", {"reason": "event_block"})
             return
 
         if self.regime.vol_state == VolState.SHOCK:
-            self._record_decision("SIGNAL_FILTERED", {"reason": "vol_shock"})
+            self._bar_route_decision("SIGNAL_FILTERED", {"reason": "vol_shock"})
             await self._shock_tighten_all()
             return
 
         # Drawdown throttle: daily loss cap halt
         if self._throttle.daily_halted:
-            self._record_decision("CIRCUIT_BREAKER", {"reason": "daily_loss_cap_halt"})
+            self._bar_route_decision("CIRCUIT_BREAKER", {"reason": "daily_loss_cap_halt"})
             return
 
         for direction in (Direction.LONG, Direction.SHORT):
@@ -785,7 +860,7 @@ class VdubNQv4Engine:
                 )
                 signal_type = EntryType.TYPE_B
         if signal is None:
-            self._record_decision("NO_SIGNAL", {"direction": direction.name, "session": session.value})
+            self._bar_route_decision("NO_SIGNAL", {"direction": direction.name, "session": session.value})
             return
 
         _sig_id = f"{signal_type.value}_{direction.name}_{self._bar_idx}"
@@ -891,7 +966,7 @@ class VdubNQv4Engine:
             return
 
         # Submit entry order
-        self._record_decision("ENTRY_SUBMITTED", {
+        self._bar_route_decision("ENTRY_SUBMITTED", {
             "direction": direction.name, "signal_type": signal_type.value,
             "qty": qty, "is_pyramid": is_pyramid,
         })
@@ -964,8 +1039,11 @@ class VdubNQv4Engine:
     # ------------------------------------------------------------------
 
     async def _manage_positions(self, now: datetime) -> None:
-        for pos in list(self.positions):
-            if pos.qty_open <= 0:
+        for _pos_ref in list(self.positions):
+            _tid = _pos_ref.trade_id
+            # Re-fetch: prior iteration's core routing may have replaced self.positions
+            pos = next((p for p in self.positions if p.trade_id == _tid), None)
+            if pos is None or pos.qty_open <= 0:
                 continue
             pos.bars_since_entry += 1
 
@@ -987,13 +1065,13 @@ class VdubNQv4Engine:
             if exits.check_early_kill(pos, price):
                 logger.info("Early kill: %s (%.2fR, MFE %.2fR)",
                             pos.trade_id, unreal_r, pos.peak_mfe_r)
-                await self._flatten_position(pos, "EARLY_KILL")
+                await self._bar_route_flatten(pos.trade_id, "EARLY_KILL")
                 continue
 
             # Max duration hard stop
             if exits.check_max_duration(pos):
                 logger.info("Max duration exit: %s (%d bars)", pos.trade_id, pos.bars_since_entry)
-                await self._flatten_position(pos, "MAX_DURATION")
+                await self._bar_route_flatten(pos.trade_id, "MAX_DURATION")
                 continue
 
             # +1R free-ride (Section 16.1)
@@ -1008,9 +1086,8 @@ class VdubNQv4Engine:
                 )
                 if _is_close_entry:
                     if self._unrealized_r(pos, price) >= 1.0:
-                        _old = pos.stop_price
-                        pos.stop_price = pos.entry_price
-                        await self._update_stop(pos, pos.entry_price, adjustment_type="breakeven", trigger="plus1r_be_skip_partial", old_stop=_old)
+                        await self._bar_route_stop(pos.trade_id, pos.entry_price, "plus1r_be_skip_partial", adjustment_type="breakeven")
+                        pos = next((p for p in self.positions if p.trade_id == _tid), pos)
                         pos.partial_done = True
                         pos.stage = PositionStage.ACTIVE_FREE
                         logger.info("+1R BE (skip-partial): %s", pos.trade_id)
@@ -1019,17 +1096,15 @@ class VdubNQv4Engine:
                     if qty_close > 0:
                         await self._submit_partial_exit(pos, qty_close)
                         pos.qty_open -= qty_close
-                        _old = pos.stop_price
-                        pos.stop_price = pos.entry_price
-                        await self._update_stop(pos, pos.entry_price, adjustment_type="breakeven", trigger="plus1r_partial_be", old_stop=_old)
+                        await self._bar_route_stop(pos.trade_id, pos.entry_price, "plus1r_partial_be", adjustment_type="breakeven")
+                        pos = next((p for p in self.positions if p.trade_id == _tid), pos)
                         pos.partial_done = True
                         pos.stage = PositionStage.ACTIVE_FREE
                         logger.info("+1R partial: %s closed=%d", pos.trade_id, qty_close)
                     elif self._unrealized_r(pos, price) >= 1.0:
                         # 1-lot: just move stop to BE
-                        _old = pos.stop_price
-                        pos.stop_price = pos.entry_price
-                        await self._update_stop(pos, pos.entry_price, adjustment_type="breakeven", trigger="plus1r_be", old_stop=_old)
+                        await self._bar_route_stop(pos.trade_id, pos.entry_price, "plus1r_be", adjustment_type="breakeven")
+                        pos = next((p for p in self.positions if p.trade_id == _tid), pos)
                         pos.partial_done = True
                         pos.stage = PositionStage.ACTIVE_FREE
                         logger.info("+1R BE: %s", pos.trade_id)
@@ -1043,9 +1118,8 @@ class VdubNQv4Engine:
                 # Profit lock: tighten stop to lock +0.25R once peak >= 0.50R
                 lock_stop = exits.compute_free_profit_lock(pos, price)
                 if lock_stop != pos.stop_price:
-                    _old = pos.stop_price
-                    pos.stop_price = lock_stop
-                    await self._update_stop(pos, lock_stop, trigger="free_profit_lock", old_stop=_old)
+                    await self._bar_route_stop(pos.trade_id, lock_stop, "free_profit_lock")
+                    pos = next((p for p in self.positions if p.trade_id == _tid), pos)
 
                 # v4.2: CLOSE-specific MFE ratchet (applied after BE move)
                 if C.CLOSE_SKIP_PARTIAL and pos.entry_time is not None:
@@ -1057,9 +1131,8 @@ class VdubNQv4Engine:
                             else:
                                 new_floor = min(pos.stop_price, ratchet)
                             if new_floor != pos.stop_price:
-                                _old = pos.stop_price
-                                pos.stop_price = new_floor
-                                await self._update_stop(pos, new_floor, trigger="close_mfe_ratchet", old_stop=_old)
+                                await self._bar_route_stop(pos.trade_id, new_floor, "close_mfe_ratchet")
+                                pos = next((p for p in self.positions if p.trade_id == _tid), pos)
                                 logger.debug("CLOSE ratchet: %s stop=%.2f (MFE=%.2fR)",
                                              pos.trade_id, new_floor, pos.peak_mfe_r)
 
@@ -1067,7 +1140,7 @@ class VdubNQv4Engine:
                 if exits.check_free_ride_stale(pos, price):
                     logger.info("Free-ride stale exit: %s (%d bars since partial)",
                                 pos.trade_id, pos.bars_since_partial)
-                    await self._flatten_position(pos, "FREE_STALE")
+                    await self._bar_route_flatten(pos.trade_id, "FREE_STALE")
                     continue
 
             # Intraday trailing (Section 16.2) — post +1R, not overnight
@@ -1084,22 +1157,21 @@ class VdubNQv4Engine:
                     pos, self._h15, self._l15, atr15, price, tighten_factor=tf,
                     stage=pos.stage)
                 if new_stop != pos.stop_price:
-                    _old = pos.stop_price
-                    pos.stop_price = new_stop
-                    await self._update_stop(pos, new_stop, trigger="intraday_trail", old_stop=_old)
+                    await self._bar_route_stop(pos.trade_id, new_stop, "intraday_trail")
+                    pos = next((p for p in self.positions if p.trade_id == _tid), pos)
 
             # VWAP failure exit (Section 16.3) — pre +1R, skip evening (stale VWAP)
             vwap_fail_ok = C.VWAP_FAIL_EVENING or pos.entry_session != SessionWindow.EVENING
             if vwap_fail_ok and not pos.partial_done and pos.vwap_used_at_entry != 0.0:
                 if exits.check_vwap_failure(pos, self._c15, pos.vwap_used_at_entry):
                     logger.info("VWAP failure exit: %s", pos.trade_id)
-                    await self._flatten_position(pos, "VWAP_FAIL")
+                    await self._bar_route_flatten(pos.trade_id, "VWAP_FAIL")
                     continue
 
             # Stale exit (Section 16.4) — pre +1R
             if not pos.partial_done and exits.check_stale_exit(pos, price, sub_window="CORE"):
                 logger.info("Stale exit: %s (%d bars)", pos.trade_id, pos.bars_since_entry)
-                await self._flatten_position(pos, "STALE")
+                await self._bar_route_flatten(pos.trade_id, "STALE")
                 continue
 
     # ------------------------------------------------------------------
@@ -1122,29 +1194,26 @@ class VdubNQv4Engine:
 
             if action == "HOLD":
                 if new_stop != pos.stop_price:
-                    _old = pos.stop_price
-                    pos.stop_price = new_stop
-                    await self._update_stop(pos, new_stop, trigger="gate_hold", old_stop=_old)
+                    await self._bar_route_stop(pos.trade_id, new_stop, "gate_hold")
+                    pos = next((p for p in self.positions if p.trade_id == pos.trade_id), pos)
                 pos.stage = PositionStage.SWING_HOLD
                 logger.info("Gate HOLD: %s (%.2fR)",
                             pos.trade_id, self._unrealized_r(pos, price))
             else:
                 logger.info("Gate FLATTEN: %s (%.2fR)",
                             pos.trade_id, self._unrealized_r(pos, price))
-                await self._flatten_position(pos, "GATE_FLATTEN")
+                await self._bar_route_flatten(pos.trade_id, "GATE_FLATTEN")
 
     # ------------------------------------------------------------------
     # Shock mid-position (Section 4.3)
     # ------------------------------------------------------------------
 
     async def _shock_tighten_all(self) -> None:
-        for pos in self.positions:
+        for pos in list(self.positions):
             if pos.qty_open > 0:
                 new_stop = exits.shock_stop_tighten(pos)
                 if new_stop != pos.stop_price:
-                    _old = pos.stop_price
-                    pos.stop_price = new_stop
-                    await self._update_stop(pos, new_stop, trigger="shock_tighten", old_stop=_old)
+                    await self._bar_route_stop(pos.trade_id, new_stop, "shock_tighten")
 
     # ------------------------------------------------------------------
     # Event safety (Section 6)
@@ -1468,250 +1537,294 @@ class VdubNQv4Engine:
     async def _on_fill(self, oms_id: str | None, payload: dict) -> None:
         if not oms_id:
             return
+        from copy import deepcopy
 
-        we = self.working_entries.pop(oms_id, None)
-        if we is None:
-            # Stop or flatten fill
-            await self._on_stop_fill(oms_id, payload)
-            return
-
-        fill_price = payload.get("price", we.stop_entry)
-        fill_qty = int(payload.get("qty", we.qty))
+        fill_price = payload.get("price", 0.0)
+        fill_qty = int(payload.get("qty", 0))
         fill_time = datetime.now(timezone.utc)
 
-        # Record entry
+        # Build fill object with entry context if applicable
+        fill = VdubFill(
+            oms_order_id=oms_id,
+            fill_price=fill_price,
+            fill_qty=fill_qty,
+            fill_time=fill_time,
+            point_value=C.NQ_SPEC["point_value"],
+        )
+        matched_we = None
+        if oms_id in self.working_entries:
+            matched_we = self.working_entries[oms_id]
+            fill.fill_price = fill_price or matched_we.stop_entry
+            fill.fill_qty = fill_qty or matched_we.qty
+            fill.entry_context = VdubEntryFillContext(working_entry=matched_we)
+
+        # Snapshot pre-fill state for instrumentation
+        pre_positions = deepcopy(self.positions)
+
+        # Route through core
+        core_state = build_core_runtime_state(self)
+        core_state, actions, events = vdub_core_logic.on_fill(core_state, fill)
+        apply_core_runtime_state(self, core_state)
+
+        # Dispatch actions
+        for action in actions:
+            if isinstance(action, SubmitExit):
+                pos = next(
+                    (p for p in self.positions
+                     if p.trade_id == action.metadata.get("pos_id")),
+                    None,
+                )
+                if pos:
+                    await self._place_stop(pos)
+            elif isinstance(action, FlattenPosition):
+                reason = action.reason
+                logger.warning("Core requested flatten: %s", reason)
+                await self._oms.submit_intent(Intent(
+                    intent_type=IntentType.FLATTEN,
+                    strategy_id=C.STRATEGY_ID,
+                    instrument_symbol=self._symbol,
+                ))
+
+        # Record trade_id from recorder AFTER core creates position
+        # (core uses working_entry.oms_order_id as trade_id; we overwrite with recorder ID)
         trade_id = ""
-        if self._recorder:
+        if matched_we is not None:
+            if self._recorder:
+                try:
+                    trade_id = await self._recorder.record_entry(
+                        strategy_id=C.STRATEGY_ID, instrument=self._symbol,
+                        direction="LONG" if matched_we.direction == Direction.LONG else "SHORT",
+                        quantity=fill.fill_qty, entry_price=Decimal(str(fill.fill_price)),
+                        entry_ts=fill_time, setup_tag=matched_we.entry_type.value,
+                        entry_type=matched_we.entry_type.value,
+                    )
+                except Exception:
+                    logger.exception("Error recording entry")
+            # Overwrite core's trade_id with recorder trade_id
+            if trade_id:
+                for pos in self.positions:
+                    if pos.trade_id == matched_we.oms_order_id:
+                        pos.trade_id = trade_id
+                        break
+
+        # Post-core instrumentation based on events
+        for event in events:
+            if event.code == "ENTRY_FILLED":
+                we = matched_we
+                pos = next(
+                    (p for p in self.positions
+                     if p.entry_price == fill.fill_price and p.entry_time == fill_time),
+                    None,
+                )
+                if we and pos:
+                    logger.info("FILL %s %s %d @ %.2f (R=%.1f)",
+                                we.entry_type.value, we.direction.name,
+                                fill.fill_qty, fill.fill_price, pos.r_points)
+                    await self._on_entry_fill_instrumentation(
+                        we, pos, fill.fill_price, fill.fill_qty, fill_time)
+            elif event.code == "STOP_FILLED":
+                pre_pos = next(
+                    (p for p in pre_positions
+                     if p.trade_id == event.details.get("trade_id")), None)
+                if pre_pos:
+                    stop_fill_price = event.details.get("fill_price", fill_price)
+                    self._throttle.record_trade_close(event.details.get("r", 0))
+                    await self._on_stop_fill_instrumentation(
+                        pre_pos, stop_fill_price, payload)
+            elif event.code == "ENTRY_FILL_REJECTED":
+                logger.warning("Fill rejected: %s", event.details.get("reason", "unknown"))
+
+    async def _on_entry_fill_instrumentation(
+        self, we, pos, fill_price: float, fill_qty: int, fill_time: datetime,
+    ) -> None:
+        """Instrumentation-only: log entry after core has created the position."""
+        trade_id = pos.trade_id
+        if not self._kit.active or not trade_id:
+            return
+        try:
+            pv = C.NQ_SPEC["point_value"]
+            config_snapshot = snapshot_config_module(strategy_config)
+
+            signal_detected_at = self._cascade_ts.pop("_last_eval", fill_time)
+            exec_ts = {
+                "signal_detected_at": signal_detected_at.isoformat(),
+                "fill_received_at": fill_time.isoformat(),
+                "cascade_duration_ms": round(
+                    (fill_time - signal_detected_at).total_seconds() * 1000
+                ),
+            }
+
+            portfolio_state = None
             try:
-                trade_id = await self._recorder.record_entry(
-                    strategy_id=C.STRATEGY_ID, instrument=self._symbol,
-                    direction="LONG" if we.direction == Direction.LONG else "SHORT",
-                    quantity=fill_qty, entry_price=Decimal(str(fill_price)),
-                    entry_ts=fill_time, setup_tag=we.entry_type.value,
-                    entry_type=we.entry_type.value,
+                risk_state = await self._oms.get_portfolio_risk()
+                portfolio_state = {
+                    "total_exposure_r": risk_state.open_risk_R,
+                    "daily_realized_pnl": risk_state.daily_realized_pnl,
+                    "daily_realized_r": risk_state.daily_realized_R,
+                    "weekly_realized_pnl": risk_state.weekly_realized_pnl,
+                    "weekly_realized_r": risk_state.weekly_realized_R,
+                    "open_risk_r": risk_state.open_risk_R,
+                    "pending_entry_risk_r": risk_state.pending_entry_risk_R,
+                    "halted": risk_state.halted,
+                }
+            except Exception:
+                portfolio_state = None
+
+            self._kit.log_entry(
+                trade_id=trade_id,
+                pair=self._symbol,
+                side="LONG" if we.direction == Direction.LONG else "SHORT",
+                entry_price=fill_price,
+                position_size=fill_qty,
+                position_size_quote=fill_qty * fill_price * pv,
+                entry_signal=we.entry_type.value,
+                entry_signal_id=trade_id,
+                entry_signal_strength=we.class_mult,
+                expected_entry_price=we.stop_entry,
+                strategy_params={
+                    "entry_type": we.entry_type.value,
+                    "initial_stop": we.initial_stop,
+                    "session": we.session.value if hasattr(we.session, 'value') else str(we.session),
+                    "class_mult": we.class_mult,
+                    **config_snapshot,
+                },
+                filter_decisions=we.filter_decisions,
+                signal_factors=[
+                    {"factor_name": "class_mult", "factor_value": we.class_mult,
+                     "threshold": 0.0, "contribution": we.class_mult},
+                    {"factor_name": "entry_type", "factor_value": we.entry_type.value,
+                     "threshold": "TYPE_A", "contribution": "entry_quality"},
+                    {"factor_name": "session", "factor_value": we.session.value if hasattr(we.session, 'value') else str(we.session),
+                     "threshold": "CORE", "contribution": "session_quality"},
+                    {"factor_name": "daily_trend", "factor_value": self.regime.daily_trend,
+                     "threshold": 0, "contribution": "trend_alignment"},
+                    {"factor_name": "vol_state", "factor_value": self.regime.vol_state.value if hasattr(self.regime.vol_state, 'value') else str(self.regime.vol_state),
+                     "threshold": "NORMAL", "contribution": "volatility_regime"},
+                    {"factor_name": "chop_value", "factor_value": self.regime.choppiness,
+                     "threshold": C.CHOP_THRESHOLD, "contribution": "trend_clarity"},
+                ],
+                sizing_inputs={
+                    "unit_risk": risk.compute_unit_risk(self._equity, self.regime.vol_state),
+                    "class_mult": we.class_mult,
+                    "session_mult": C.SESSION_MULT.get(
+                        we.session.value if hasattr(we.session, 'value') else "RTH", 1.0),
+                    "dd_mult": max(0.75, self._throttle.dd_size_mult),
+                    "contracts": fill_qty,
+                    "equity": self._equity,
+                },
+                session_type=we.session.value if hasattr(we.session, 'value') else str(we.session),
+                concurrent_positions=len(self.positions),
+                drawdown_pct=getattr(self._throttle, 'dd_pct', None),
+                drawdown_tier=self._dd_tier_name(),
+                drawdown_size_mult=getattr(self._throttle, 'dd_size_mult', None),
+                portfolio_state=portfolio_state,
+                signal_evolution=self._build_signal_evolution(),
+                execution_timestamps=exec_ts,
+            )
+
+            _ba = self._get_bid_ask()
+            self._kit.on_orderbook_context(
+                pair=self._symbol,
+                best_bid=_ba[0] if _ba else fill_price,
+                best_ask=_ba[1] if _ba else fill_price,
+                trade_context="entry",
+                related_trade_id=trade_id,
+                exchange_timestamp=fill_time,
+            )
+        except Exception:
+            pass
+
+    async def _on_stop_fill_instrumentation(
+        self, pre_pos: PositionState, fill_price: float, payload: dict,
+    ) -> None:
+        """Instrumentation-only: log stop exit after core has closed the position."""
+        pv = C.NQ_SPEC["point_value"]
+        pnl_pts = (fill_price - pre_pos.entry_price) if pre_pos.direction == Direction.LONG else \
+                   (pre_pos.entry_price - fill_price)
+        realized_usd = pnl_pts * pv * pre_pos.qty_open
+        r = pnl_pts / pre_pos.r_points if pre_pos.r_points > 0 else 0
+
+        if self._recorder and pre_pos.trade_id:
+            try:
+                await self._recorder.record_exit(
+                    trade_id=pre_pos.trade_id,
+                    exit_price=Decimal(str(fill_price)),
+                    exit_ts=datetime.now(timezone.utc),
+                    exit_reason="STOP",
+                    realized_r=Decimal(str(round(r, 4))),
+                    realized_usd=Decimal(str(round(realized_usd, 2))),
+                    duration_bars=pre_pos.bars_since_entry,
                 )
             except Exception:
-                logger.exception("Error recording entry")
+                logger.exception("Error recording stop exit")
 
-        r_points = abs(fill_price - we.initial_stop)
-        if r_points == 0:
-            logger.warning("Fill rejected: r_points=0 (fill=%.2f stop=%.2f)", fill_price, we.initial_stop)
-            return
-
-        pos = PositionState(
-            trade_id=trade_id, direction=we.direction,
-            entry_price=fill_price, stop_price=we.initial_stop,
-            qty_entry=fill_qty, qty_open=fill_qty,
-            r_points=r_points,
-            entry_time=fill_time, entry_type=we.entry_type,
-            vwap_used_at_entry=we.vwap_used,
-            is_addon=we.is_addon, class_mult=we.class_mult,
-            is_flip_entry=we.is_flip,
-            highest_since_entry=fill_price,
-            lowest_since_entry=fill_price,
-            entry_session=we.session,
-        )
-        self.positions.append(pos)
-        await self._place_stop(pos)
-
-        if we.direction == Direction.LONG:
-            self.counters.long_fills += 1
-        else:
-            self.counters.short_fills += 1
-
-        logger.info("FILL %s %s %d @ %.2f (R=%.1f)",
-                     we.entry_type.value, we.direction.name,
-                     fill_qty, fill_price, pos.r_points)
-
-        if self._kit.active and trade_id:
+        logger.info("STOPPED %s @ %.2f ($%.2f)",
+                     pre_pos.trade_id, fill_price, realized_usd)
+        if self._kit.active and pre_pos.trade_id:
             try:
-                pv = C.NQ_SPEC["point_value"]
-                config_snapshot = snapshot_config_module(strategy_config)
-
-                # Execution cascade timestamps (#16)
-                signal_detected_at = self._cascade_ts.pop("_last_eval", fill_time)
-                exec_ts = {
-                    "signal_detected_at": signal_detected_at.isoformat(),
-                    "fill_received_at": fill_time.isoformat(),
-                    "cascade_duration_ms": round(
-                        (fill_time - signal_detected_at).total_seconds() * 1000
-                    ),
-                }
-
-                # Capture portfolio state at entry (G4)
-                portfolio_state = None
-                try:
-                    risk_state = await self._oms.get_portfolio_risk()
-                    portfolio_state = {
-                        "total_exposure_r": risk_state.open_risk_R,
-                        "daily_realized_pnl": risk_state.daily_realized_pnl,
-                        "daily_realized_r": risk_state.daily_realized_R,
-                        "weekly_realized_pnl": risk_state.weekly_realized_pnl,
-                        "weekly_realized_r": risk_state.weekly_realized_R,
-                        "open_risk_r": risk_state.open_risk_R,
-                        "pending_entry_risk_r": risk_state.pending_entry_risk_R,
-                        "halted": risk_state.halted,
-                    }
-                except Exception:
-                    portfolio_state = None
-
-                self._kit.log_entry(
-                    trade_id=trade_id,
-                    pair=self._symbol,
-                    side="LONG" if we.direction == Direction.LONG else "SHORT",
-                    entry_price=fill_price,
-                    position_size=fill_qty,
-                    position_size_quote=fill_qty * fill_price * pv,
-                    entry_signal=we.entry_type.value,
-                    entry_signal_id=trade_id,
-                    entry_signal_strength=we.class_mult,
-                    expected_entry_price=we.stop_entry,
-                    strategy_params={
-                        "entry_type": we.entry_type.value,
-                        "initial_stop": we.initial_stop,
-                        "session": we.session.value if hasattr(we.session, 'value') else str(we.session),
-                        "class_mult": we.class_mult,
-                        **config_snapshot,
-                    },
-                    filter_decisions=we.filter_decisions,
-                    signal_factors=[
-                        {"factor_name": "class_mult", "factor_value": we.class_mult,
-                         "threshold": 0.0, "contribution": we.class_mult},
-                        {"factor_name": "entry_type", "factor_value": we.entry_type.value,
-                         "threshold": "TYPE_A", "contribution": "entry_quality"},
-                        {"factor_name": "session", "factor_value": we.session.value if hasattr(we.session, 'value') else str(we.session),
-                         "threshold": "CORE", "contribution": "session_quality"},
-                        {"factor_name": "daily_trend", "factor_value": self.regime.daily_trend,
-                         "threshold": 0, "contribution": "trend_alignment"},
-                        {"factor_name": "vol_state", "factor_value": self.regime.vol_state.value if hasattr(self.regime.vol_state, 'value') else str(self.regime.vol_state),
-                         "threshold": "NORMAL", "contribution": "volatility_regime"},
-                        {"factor_name": "chop_value", "factor_value": self.regime.choppiness,
-                         "threshold": C.CHOP_THRESHOLD, "contribution": "trend_clarity"},
-                    ],
-                    sizing_inputs={
-                        "unit_risk": risk.compute_unit_risk(self._equity, self.regime.vol_state),
-                        "class_mult": we.class_mult,
-                        "session_mult": C.SESSION_MULT.get(
-                            we.session.value if hasattr(we.session, 'value') else "RTH", 1.0),
-                        "dd_mult": max(0.75, self._throttle.dd_size_mult),
-                        "contracts": fill_qty,
-                        "equity": self._equity,
-                    },
-                    session_type=we.session.value if hasattr(we.session, 'value') else str(we.session),
-                    concurrent_positions=len(self.positions),
-                    drawdown_pct=getattr(self._throttle, 'dd_pct', None),
-                    drawdown_tier=self._dd_tier_name(),
-                    drawdown_size_mult=getattr(self._throttle, 'dd_size_mult', None),
-                    portfolio_state=portfolio_state,
-                    signal_evolution=self._build_signal_evolution(),
-                    execution_timestamps=exec_ts,
+                self._kit.log_exit(
+                    trade_id=pre_pos.trade_id,
+                    exit_price=fill_price,
+                    exit_reason="STOP",
+                    expected_exit_price=pre_pos.stop_price,
+                    mfe_r=pre_pos.peak_mfe_r,
+                    mae_r=pre_pos.peak_mae_r,
+                    mfe_price=pre_pos.highest_since_entry if pre_pos.direction == Direction.LONG else pre_pos.lowest_since_entry,
+                    mae_price=pre_pos.lowest_since_entry if pre_pos.direction == Direction.LONG else pre_pos.highest_since_entry,
+                    session_transitions=getattr(pre_pos, 'session_transitions_log', None) or None,
                 )
-
-                # Phase 2B: emit orderbook context at entry
                 _ba = self._get_bid_ask()
                 self._kit.on_orderbook_context(
                     pair=self._symbol,
                     best_bid=_ba[0] if _ba else fill_price,
                     best_ask=_ba[1] if _ba else fill_price,
-                    trade_context="entry",
-                    related_trade_id=trade_id,
-                    exchange_timestamp=fill_time,
+                    trade_context="exit",
+                    related_trade_id=pre_pos.trade_id,
                 )
             except Exception:
                 pass
 
-    async def _on_stop_fill(self, oms_id: str, payload: dict) -> None:
-        # Flatten fill confirmation -- broker executed the pre-booked exit
-        if self._last_flatten_oms_id and oms_id == self._last_flatten_oms_id:
-            self._last_flatten_oms_id = None
-            return
-
-        for pos in list(self.positions):
-            if pos.stop_oms_order_id == oms_id:
-                fill_price = payload.get("price", pos.stop_price)
-                pnl_pts = (fill_price - pos.entry_price) if pos.direction == Direction.LONG else \
-                           (pos.entry_price - fill_price)
-                realized_usd = pnl_pts * C.NQ_SPEC["point_value"] * pos.qty_open
-                self.counters.daily_realized_pnl += realized_usd
-                self._recent_wins.append(pnl_pts > 0)
-
-                r = pnl_pts / pos.r_points if pos.r_points > 0 else 0
-                self._throttle.record_trade_close(r)
-
-                if self._recorder and pos.trade_id:
-                    try:
-                        await self._recorder.record_exit(
-                            trade_id=pos.trade_id,
-                            exit_price=Decimal(str(fill_price)),
-                            exit_ts=datetime.now(timezone.utc),
-                            exit_reason="STOP",
-                            realized_r=Decimal(str(round(r, 4))),
-                            realized_usd=Decimal(str(round(realized_usd, 2))),
-                            duration_bars=pos.bars_since_entry,
-                        )
-                    except Exception:
-                        logger.exception("Error recording stop exit")
-
-                logger.info("STOPPED %s @ %.2f ($%.2f)",
-                             pos.trade_id, fill_price, realized_usd)
-                if self._kit.active and pos.trade_id:
-                    try:
-                        self._kit.log_exit(
-                            trade_id=pos.trade_id,
-                            exit_price=fill_price,
-                            exit_reason="STOP",
-                            expected_exit_price=pos.stop_price,
-                            mfe_r=pos.peak_mfe_r,
-                            mae_r=pos.peak_mae_r,
-                            mfe_price=pos.highest_since_entry if pos.direction == Direction.LONG else pos.lowest_since_entry,
-                            mae_price=pos.lowest_since_entry if pos.direction == Direction.LONG else pos.highest_since_entry,
-                            session_transitions=getattr(pos, 'session_transitions_log', None) or None,
-                        )
-                        _ba = self._get_bid_ask()
-                        self._kit.on_orderbook_context(
-                            pair=self._symbol,
-                            best_bid=_ba[0] if _ba else fill_price,
-                            best_ask=_ba[1] if _ba else fill_price,
-                            trade_context="exit",
-                            related_trade_id=pos.trade_id,
-                        )
-                    except Exception:
-                        pass
-                pos.qty_open = 0
-                self.positions = [p for p in self.positions if p.qty_open > 0]
-                self._last_flatten_oms_id = None
-                break
-
     async def _on_terminal(self, oms_id: str | None) -> None:
         if not oms_id:
             return
-        we = self.working_entries.pop(oms_id, None)
-        if we:
-            logger.info("Order terminal: %s", oms_id)
-            return
 
-        # Flatten order failed — resubmit emergency flatten
-        if self._last_flatten_oms_id and oms_id == self._last_flatten_oms_id:
-            self._last_flatten_oms_id = None
-            if not self.positions:
-                return  # Position already closed (e.g. stop filled first)
-            logger.critical(
-                "FLATTEN ORDER %s CANCELLED/REJECTED -- resubmitting emergency flatten",
-                oms_id,
-            )
-            receipt = await self._oms.submit_intent(Intent(
-                intent_type=IntentType.FLATTEN,
-                strategy_id=C.STRATEGY_ID, instrument_symbol=self._symbol,
-            ))
-            self._last_flatten_oms_id = receipt.oms_order_id if receipt and receipt.oms_order_id else None
-            return
+        update = VdubOrderUpdate(
+            oms_order_id=oms_id,
+            status="cancelled",
+            timestamp=datetime.now(timezone.utc),
+        )
+        core_state = build_core_runtime_state(self)
+        core_state, actions, events = vdub_core_logic.on_order_update(core_state, update)
+        apply_core_runtime_state(self, core_state)
 
-        # Check if this is a stop order — position left unprotected
-        for pos in self.positions:
-            if pos.stop_oms_order_id == oms_id and pos.qty_open > 0:
-                logger.error("STOP ORDER LOST for %s -- flattening position", pos.trade_id)
-                await self._flatten_position(pos, "STOP_LOST")
-                break
+        # Dispatch actions
+        for action in actions:
+            if isinstance(action, FlattenPosition):
+                reason = action.reason
+                if reason == "FLATTEN_RESUBMIT":
+                    if not self.positions:
+                        continue
+                    logger.critical(
+                        "FLATTEN ORDER %s CANCELLED/REJECTED -- resubmitting emergency flatten",
+                        oms_id,
+                    )
+                    receipt = await self._oms.submit_intent(Intent(
+                        intent_type=IntentType.FLATTEN,
+                        strategy_id=C.STRATEGY_ID, instrument_symbol=self._symbol,
+                    ))
+                    self._last_flatten_oms_id = (
+                        receipt.oms_order_id if receipt and receipt.oms_order_id else None
+                    )
+                elif reason == "STOP_LOST":
+                    pos_id = action.metadata.get("pos_id", "")
+                    pos = next((p for p in self.positions if p.trade_id == pos_id), None)
+                    if pos:
+                        logger.error("STOP ORDER LOST for %s -- flattening position", pos.trade_id)
+                        await self._flatten_position(pos, "STOP_LOST")
+
+        for event in events:
+            if event.code == "ENTRY_CANCELLED":
+                logger.info("Order terminal: %s", oms_id)
 
     # ------------------------------------------------------------------
     # Helpers

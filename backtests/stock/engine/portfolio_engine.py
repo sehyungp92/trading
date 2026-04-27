@@ -13,6 +13,10 @@ from datetime import datetime, timezone
 
 import numpy as np
 
+from backtests.shared.parity.legacy_result_outputs import (
+    decision_stream_from_trades,
+    trade_outcomes_from_records,
+)
 from backtests.stock.config_portfolio import PortfolioBacktestConfig
 from backtests.stock.models import Direction, TradeRecord
 
@@ -29,6 +33,8 @@ class PortfolioResult:
     alcb_trades: list[TradeRecord]
     iaric_trades: list[TradeRecord]
     blocked_trades: list[TradeRecord]
+    decision_stream: list[dict] = field(default_factory=list)
+    trade_outcomes: list[dict] = field(default_factory=list)
 
 
 class StockPortfolioEngine:
@@ -172,6 +178,8 @@ class StockPortfolioEngine:
             alcb_trades=[t for t in accepted_trades if t.strategy == "ALCB"],
             iaric_trades=[t for t in accepted_trades if t.strategy == "IARIC"],
             blocked_trades=blocked_trades,
+            decision_stream=decision_stream_from_trades(accepted_trades, timeframe="portfolio"),
+            trade_outcomes=trade_outcomes_from_records(accepted_trades),
         )
 
     def _close_exited(

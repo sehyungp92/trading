@@ -6,6 +6,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.phase_state import PhaseState
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
 from backtests.shared.auto.plugin_utils import (
@@ -214,10 +215,13 @@ class HelixPlugin:
         self._pool: mp.Pool | None = None
         self._pool_dirty = False
         # Data cache for compute_final_metrics (avoids reloading)
-        self._cached_data: dict | None = None
+        self._cached_bundle = None
         # Metrics memoization
         self._last_metrics_sig: str | None = None
         self._last_metrics_result: dict[str, float] | None = None
+        self._evaluation_cache: dict[str, Any] = {}
+        self._metrics_cache: dict[str, dict[str, float]] = {}
+        self._cache_source_fingerprint: str = ""
 
     def get_phase_spec(self, phase: int, state: PhaseState) -> PhaseSpec:
         focus, focus_metrics = PHASE_FOCUS[phase]
@@ -290,6 +294,16 @@ class HelixPlugin:
         scoring_weights: dict[str, float] | None = None,
         hard_rejects: dict[str, float] | None = None,
     ):
+        evaluation_key = build_cache_key(
+            "swing.helix.evaluation",
+            source_fingerprint=self._replay_bundle().cache_source_fingerprint,
+            extra={
+                "phase": phase,
+                "scoring_weights": scoring_weights or {},
+                "hard_rejects": hard_rejects or {},
+            },
+        )
+
         def make_parallel():
             self._ensure_pool()
             return _SharedPoolBatchEvaluator(
@@ -304,27 +318,44 @@ class HelixPlugin:
             )
 
         raw = ResilientBatchEvaluator(make_parallel, make_sequential, description=f"Helix phase {phase}")
-        return CachedBatchEvaluator(raw)
+        return CachedBatchEvaluator(
+            raw,
+            cache=self._evaluation_cache,
+            signature_prefix=evaluation_key,
+            metrics_cache=self._metrics_cache,
+        )
+
+    def _replay_bundle(self):
+        from backtests.swing.config_helix import HelixBacktestConfig
+        from backtests.swing.data.replay_cache import load_helix_replay_bundle
+
+        base_config = HelixBacktestConfig(initial_equity=self.initial_equity, data_dir=self.data_dir)
+        bundle = load_helix_replay_bundle(base_config.symbols, base_config.data_dir)
+        if self._cache_source_fingerprint != bundle.cache_source_fingerprint:
+            self._metrics_cache.clear()
+            self._evaluation_cache.clear()
+            self._last_context = {}
+            self._last_metrics_sig = None
+            self._last_metrics_result = None
+            self.close_pool()
+            self._cache_source_fingerprint = bundle.cache_source_fingerprint
+        self._cached_bundle = bundle
+        return bundle
 
     def compute_final_metrics(self, mutations: dict[str, Any]) -> dict[str, float]:
         sig = mutation_signature(mutations)
-        if sig == self._last_metrics_sig and self._last_metrics_result is not None:
-            return self._last_metrics_result
+        cached = self._metrics_cache.get(sig)
+        if cached is not None:
+            return dict(cached)
 
         from backtests.swing.config_helix import HelixBacktestConfig
         from backtests.swing.engine.helix_portfolio_engine import run_helix_independent
         from .config_mutator import mutate_helix_config
         from .scoring import extract_helix_metrics
-        from .worker import load_helix_worker_data
 
         base_config = HelixBacktestConfig(initial_equity=self.initial_equity, data_dir=self.data_dir)
         config = mutate_helix_config(base_config, mutations)
-        if self._cached_data is None:
-            # Always load all default symbols so cache stays valid when
-            # symbol-pruning mutations run first.
-            self._cached_data = load_helix_worker_data(base_config.symbols, base_config.data_dir)
-
-        result = run_helix_independent(self._cached_data, config)
+        result = run_helix_independent(self._replay_bundle().data, config)
         metrics = extract_helix_metrics(result, self.initial_equity)
 
         all_trades = []
@@ -339,6 +370,7 @@ class HelixPlugin:
             "all_trades": all_trades,
         }
         metrics_dict = asdict(metrics)
+        self._metrics_cache[sig] = metrics_dict
         self._last_metrics_sig = sig
         self._last_metrics_result = metrics_dict
         return metrics_dict

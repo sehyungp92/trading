@@ -13,13 +13,14 @@ from __future__ import annotations
 
 import logging
 import weakref
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timezone
 from math import floor
 from typing import Any
 
 import numpy as np
 
+from backtests.shared.parity.legacy_result_outputs import trade_outcomes_from_records
 from backtests.stock.config_iaric import IARICBacktestConfig
 from backtests.stock.engine.iaric_pullback_indicators import (
     adx_suite,
@@ -39,10 +40,19 @@ from backtests.stock.engine.research_replay import (
     ResearchReplayEngine,
     _iloc_upto,
 )
+from backtests.shared.parity.decision_capture import normalize_decision_stream
+from backtests.shared.parity.replay_driver import ReplayStep, run_replay
 from backtests.stock.models import Direction as BTDirection, TradeRecord
+from strategies.stock.iaric.core import logic as iaric_core_logic
+from strategies.stock.iaric.core.state import (
+    IARICCoreState,
+    IARICEntryRequest,
+    IARICFill,
+    IARICFlattenRequest,
+)
 
 from strategies.stock.iaric.config import StrategySettings
-from strategies.stock.iaric.models import WatchlistArtifact, WatchlistItem
+from strategies.stock.iaric.models import PBSymbolState, WatchlistArtifact, WatchlistItem
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +179,8 @@ class IARICPullbackResult:
     shadow_outcomes: list[dict[str, Any]] | None = None
     selection_attribution: dict[date, dict[str, Any]] | None = None
     fsm_log: list[dict[str, Any]] | None = None
+    decision_stream: list[dict[str, Any]] = field(default_factory=list)
+    trade_outcomes: list[dict[str, Any]] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -1117,6 +1129,38 @@ class IARICPullbackDailyEngine:
         # V2: multi-day candidate persistence
         self._prev_day_candidates: set[str] = set()
 
+        # ---- parity: core-logic replay state ----
+        self._core_state = IARICCoreState(
+            trade_date=date.today(),
+            saved_at=datetime.now(timezone.utc),
+            symbols=[],
+        )
+        self._decision_events: list = []
+        self._order_counter: int = 0
+
+    # ---- parity helpers ------------------------------------------------
+    def _replay_core_step(self, *, bar_input=None, order_updates=None, fills=None):
+        result = run_replay(
+            self._core_state,
+            steps=[ReplayStep(bar_input=bar_input, order_updates=order_updates or [], fills=fills or [])],
+            on_bar=lambda state, payload: iaric_core_logic.on_bar(state, **payload),
+            on_order_update=iaric_core_logic.on_order_update,
+            on_fill=iaric_core_logic.on_fill,
+        )
+        self._core_state = result.state
+        self._decision_events.extend(result.events)
+        return result
+
+    def _ensure_core_symbol(self, symbol: str, stop_level: float, route_family: str) -> None:
+        for s in self._core_state.symbols:
+            if s.symbol == symbol:
+                s.stop_level = stop_level
+                s.route_family = route_family
+                return
+        self._core_state.symbols.append(
+            PBSymbolState(symbol=symbol, stop_level=stop_level, route_family=route_family)
+        )
+
     def _record_shadow_outcome(
         self,
         record: dict[str, Any],
@@ -1539,6 +1583,25 @@ class IARICPullbackDailyEngine:
                 )
                 trades.append(trade)
                 self._attach_trade_outcome(pos, trade)
+
+                # ---- parity: notify core of carry exit ----
+                _exit_oid = f"iaric-x-{sym}-{self._order_counter}"
+                self._order_counter += 1
+                self._replay_core_step(
+                    bar_input={"bar_ts": ts, "flatten_request": IARICFlattenRequest(symbol=sym, reason=exit_reason)},
+                    fills=[
+                        IARICFill(
+                            oms_order_id=_exit_oid,
+                            fill_price=fill,
+                            fill_qty=pos.quantity,
+                            fill_time=ts,
+                            commission=commission,
+                            symbol=sym,
+                            order_role="EXIT",
+                            exit_type=exit_reason,
+                        )
+                    ],
+                )
 
                 if cfg.verbose:
                     logger.info(
@@ -2049,6 +2112,37 @@ class IARICPullbackDailyEngine:
                 if funnel_counters is not None:
                     funnel_counters["entered"] += 1
 
+                # ---- parity: notify core of entry ----
+                _entry_oid = f"iaric-e-{sym}-{self._order_counter}"
+                self._order_counter += 1
+                self._ensure_core_symbol(sym, stop_price, "OPEN_SCORED_ENTRY")
+                self._replay_core_step(
+                    bar_input={
+                        "bar_ts": ts,
+                        "entry_request": IARICEntryRequest(
+                            client_order_id=_entry_oid,
+                            symbol=sym,
+                            route="OPEN_SCORED_ENTRY",
+                            qty=qty,
+                            limit_price=fill_price,
+                            stop_price=stop_price,
+                        ),
+                    },
+                )
+                self._replay_core_step(
+                    fills=[
+                        IARICFill(
+                            oms_order_id=_entry_oid,
+                            fill_price=fill_price,
+                            fill_qty=qty,
+                            fill_time=ts,
+                            commission=commission,
+                            symbol=sym,
+                            order_role="ENTRY",
+                        )
+                    ],
+                )
+
                 if cfg.verbose:
                     logger.info(
                         "[%s] ENTRY %s @ %.2f qty=%d trigger=%s RSI=%.1f regime=%s",
@@ -2198,6 +2292,25 @@ class IARICPullbackDailyEngine:
                 trades.append(trade)
                 self._attach_trade_outcome(pos, trade)
 
+                # ---- parity: notify core of intraday exit ----
+                _exit_oid = f"iaric-x-{pos.symbol}-{self._order_counter}"
+                self._order_counter += 1
+                self._replay_core_step(
+                    bar_input={"bar_ts": ts, "flatten_request": IARICFlattenRequest(symbol=pos.symbol, reason=exit_reason)},
+                    fills=[
+                        IARICFill(
+                            oms_order_id=_exit_oid,
+                            fill_price=fill,
+                            fill_qty=pos.quantity,
+                            fill_time=ts,
+                            commission=commission,
+                            symbol=pos.symbol,
+                            order_role="EXIT",
+                            exit_type=exit_reason,
+                        )
+                    ],
+                )
+
                 if cfg.verbose:
                     logger.info(
                         "[%s] EXIT %s @ %.2f reason=%s PnL=%.2f R=%.2f",
@@ -2251,6 +2364,25 @@ class IARICPullbackDailyEngine:
                 trades.append(trade)
                 self._attach_trade_outcome(pos, trade)
 
+                # ---- parity: notify core of end-of-backtest exit ----
+                _exit_oid = f"iaric-x-{sym}-{self._order_counter}"
+                self._order_counter += 1
+                self._replay_core_step(
+                    bar_input={"bar_ts": ts, "flatten_request": IARICFlattenRequest(symbol=sym, reason="END_OF_BACKTEST")},
+                    fills=[
+                        IARICFill(
+                            oms_order_id=_exit_oid,
+                            fill_price=fill,
+                            fill_qty=pos.quantity,
+                            fill_time=ts,
+                            commission=commission,
+                            symbol=sym,
+                            order_role="EXIT",
+                            exit_type="END_OF_BACKTEST",
+                        )
+                    ],
+                )
+
             # Update equity curve to reflect EOB closures
             equity_history[-1] = equity
 
@@ -2274,6 +2406,8 @@ class IARICPullbackDailyEngine:
             shadow_outcomes=shadow_outcomes,
             selection_attribution=selection_attribution,
             fsm_log=None,
+            decision_stream=normalize_decision_stream(self._decision_events),
+            trade_outcomes=trade_outcomes_from_records(trades),
         )
 
 

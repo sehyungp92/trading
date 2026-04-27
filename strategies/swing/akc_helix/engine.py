@@ -1,4 +1,4 @@
-"""AKC-Helix Swing — async event-driven core engine."""
+﻿"""AKC-Helix Swing ??async event-driven core engine."""
 from __future__ import annotations
 
 import asyncio
@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 from collections import deque
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
@@ -28,6 +29,20 @@ from libs.oms.risk.calculator import RiskCalculator
 from libs.services.trade_recorder import TradeRecorder
 
 from . import allocator, gates, signals, stops
+from .core import logic as akc_helix_core_logic
+from .core.logic import apply_core_state as apply_core_runtime_state
+from .core.logic import build_core_state as build_core_runtime_state
+from .core.state import (
+    AKCHelixEntryRequest,
+    AKCHelixFill,
+    AKCHelixFlattenRequest,
+    AKCHelixOrderUpdate,
+    AKCHelixPartialExitRequest,
+    AKCHelixStopUpdateRequest,
+)
+from strategies.core.actions import ReplaceProtectiveStop, SubmitProtectiveStop
+from .core.serializers import restore_state as restore_core_state
+from .core.serializers import snapshot_state as snapshot_core_state
 from .config import (
     ADD_4H_R,
     ADD_1H_R,
@@ -185,19 +200,19 @@ class HelixEngine:
 
         # Per-symbol state
         self.daily_states: dict[str, DailyState] = {}
-        self.tf_states: dict[str, dict[str, TFState]] = {}    # sym → {"1H": ..., "4H": ...}
-        self.pivots: dict[str, dict[str, PivotStore]] = {}     # sym → {"1H": ..., "4H": ...}
-        self.regime_4h: dict[str, Regime] = {}                  # sym → Regime
-        self.div_mag_history: dict[str, list[float]] = {}       # sym → list of div_mag_norm values
-        self.active_setups: dict[str, SetupInstance] = {}       # setup_id → active
-        self.pending_setups: dict[str, SetupInstance] = {}      # setup_id → armed
-        self.queued_setups: dict[str, SetupInstance] = {}       # setup_id → queued (outside window)
+        self.tf_states: dict[str, dict[str, TFState]] = {}    # sym ??{"1H": ..., "4H": ...}
+        self.pivots: dict[str, dict[str, PivotStore]] = {}     # sym ??{"1H": ..., "4H": ...}
+        self.regime_4h: dict[str, Regime] = {}                  # sym ??Regime
+        self.div_mag_history: dict[str, list[float]] = {}       # sym ??list of div_mag_norm values
+        self.active_setups: dict[str, SetupInstance] = {}       # setup_id ??active
+        self.pending_setups: dict[str, SetupInstance] = {}      # setup_id ??armed
+        self.queued_setups: dict[str, SetupInstance] = {}       # setup_id ??queued (outside window)
         self.circuit_breakers: dict[str, CircuitBreakerState] = {}
-        self.contracts: dict[str, Any] = {}                     # symbol → (Contract, spec)
+        self.contracts: dict[str, Any] = {}                     # symbol ??(Contract, spec)
         self._contract_symbol_by_conid: dict[int, str] = {}
 
         # Order tracking
-        self._order_to_setup: dict[str, str] = {}   # oms_order_id → setup_id
+        self._order_to_setup: dict[str, str] = {}   # oms_order_id ??setup_id
         self._oca_counter: int = 0
 
         # Class B pivot dedup (per-symbol last pivot timestamps)
@@ -217,7 +232,7 @@ class HelixEngine:
         self._risk_halted = False
         self._risk_halt_reason = ""
         # Signal evolution ring buffer for TA alpha decay detector
-        self._signal_ring: dict[str, deque] = {}  # sym → deque of snapshots
+        self._signal_ring: dict[str, deque] = {}  # sym ??deque of snapshots
 
         # Async tasks
         self._event_task: asyncio.Task | None = None
@@ -245,6 +260,106 @@ class HelixEngine:
             "last_decision_details": self._last_decision_details,
             "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
         }
+
+    def snapshot_state(self) -> dict[str, Any]:
+        return snapshot_core_state(build_core_runtime_state(self))
+
+    async def hydrate(self, snapshot: dict[str, Any]) -> None:
+        if not snapshot:
+            return
+        apply_core_runtime_state(self, restore_core_state(snapshot))
+
+    def _apply_core_bar_transition(self, *, bar_ts: datetime, **payload: Any) -> None:
+        core_state = build_core_runtime_state(self)
+        new_state, _actions, _events = akc_helix_core_logic.on_bar(
+            core_state,
+            bar_ts=bar_ts,
+            **payload,
+        )
+        apply_core_runtime_state(self, new_state)
+
+    def _route_core_entry_request(
+        self,
+        *,
+        bar_ts: datetime,
+        setup: SetupInstance,
+        client_order_id: str,
+        order_type: str = "STOP_LIMIT",
+        order_role: str = "entry",
+        limit_price: float | None = None,
+    ) -> SetupInstance:
+        self._apply_core_bar_transition(
+            bar_ts=bar_ts,
+            entry_request=AKCHelixEntryRequest(
+                client_order_id=client_order_id,
+                setup=setup,
+                order_type=order_type,
+                order_role=order_role,
+                limit_price=limit_price,
+            ),
+        )
+        if order_role == "entry":
+            return self.pending_setups.get(setup.setup_id, setup)
+        return self.active_setups.get(setup.setup_id, self.pending_setups.get(setup.setup_id, setup))
+
+    def _route_core_stop_update(
+        self,
+        *,
+        bar_ts: datetime,
+        setup_id: str,
+        symbol: str,
+        stop_price: float,
+        qty: int,
+        reason: str,
+    ) -> None:
+        self._apply_core_bar_transition(
+            bar_ts=bar_ts,
+            stop_update=AKCHelixStopUpdateRequest(
+                setup_id=setup_id,
+                symbol=symbol,
+                stop_price=stop_price,
+                qty=qty,
+                reason=reason,
+            ),
+        )
+
+    def _route_core_partial_exit_request(
+        self,
+        *,
+        bar_ts: datetime,
+        setup_id: str,
+        symbol: str,
+        client_order_id: str,
+        qty: int,
+        reason: str,
+    ) -> None:
+        self._apply_core_bar_transition(
+            bar_ts=bar_ts,
+            partial_exit_request=AKCHelixPartialExitRequest(
+                client_order_id=client_order_id,
+                setup_id=setup_id,
+                symbol=symbol,
+                qty=qty,
+                reason=reason,
+            ),
+        )
+
+    def _route_core_flatten_request(
+        self,
+        *,
+        bar_ts: datetime,
+        setup_id: str,
+        symbol: str,
+        reason: str,
+    ) -> None:
+        self._apply_core_bar_transition(
+            bar_ts=bar_ts,
+            flatten_request=AKCHelixFlattenRequest(
+                setup_id=setup_id,
+                symbol=symbol,
+                reason=reason,
+            ),
+        )
 
     # ------------------------------------------------------------------
     # Signal evolution tracking (for TA alpha decay detector)
@@ -278,7 +393,7 @@ class HelixEngine:
 
     async def start(self) -> None:
         """Subscribe to events, load initial bar history, start hourly scheduler."""
-        logger.info("Helix engine starting …")
+        logger.info("Helix engine starting")
         self._running = True
 
         # Subscribe to OMS events
@@ -344,7 +459,7 @@ class HelixEngine:
 
     async def stop(self) -> None:
         """Cancel all pending, cleanup."""
-        logger.info("Helix engine stopping …")
+        logger.info("Helix engine stopping")
         self._running = False
 
         if self._cycle_task:
@@ -424,10 +539,10 @@ class HelixEngine:
     # ------------------------------------------------------------------
 
     def _on_farm_recovery(self, farm_name: str) -> None:
-        """Synchronous callback from FarmMonitor — schedule async resubscription."""
+        """Synchronous callback from FarmMonitor ??schedule async resubscription."""
         if not self._running:
             return
-        logger.info("Farm %s recovered — scheduling market data resubscription", farm_name)
+        logger.info("Farm %s recovered ??scheduling market data resubscription", farm_name)
         asyncio.get_running_loop().call_soon(
             lambda: asyncio.create_task(self._resubscribe_market_data())
         )
@@ -584,7 +699,7 @@ class HelixEngine:
         # 4. Manage active setups
         await self._manage_active_setups(now)
 
-        # 5. Check queued setups (spec s1.2) — arm if window open + structure valid
+        # 5. Check queued setups (spec s1.2) ??arm if window open + structure valid
         await self._process_queued_setups(now)
 
         # 6. Detect new setups
@@ -830,7 +945,7 @@ class HelixEngine:
                 continue
 
             # Gap rule (spec s1.4): if price already beyond trigger by
-            # more than 0.20 × ATR1H, skip the setup instance.
+            # more than 0.20 횞 ATR1H, skip the setup instance.
             tf1h = self.tf_states.get(setup.symbol, {}).get("1H")
             if tf1h:
                 price_now = self._get_current_price(setup.symbol) or tf1h.close
@@ -1255,6 +1370,13 @@ class HelixEngine:
             )
         )
         if receipt.oms_order_id:
+            setup = self._route_core_entry_request(
+                bar_ts=now,
+                setup=setup,
+                client_order_id=receipt.oms_order_id,
+                order_type=primary_order.order_type.value if hasattr(primary_order.order_type, "value") else str(primary_order.order_type),
+                limit_price=primary_order.limit_price,
+            )
             self._record_decision("ENTRY_SUBMITTED", {
                 "symbol": setup.symbol,
                 "setup_class": setup.setup_class.value,
@@ -1281,6 +1403,7 @@ class HelixEngine:
                 "setup_class": setup.setup_class.value,
                 "reason": "oms_rejected",
             })
+            return
 
         # Conditional catch-up LIMIT (spec s11.4): only if price already broke BoS
         tf1h = self.tf_states.get(setup.symbol, {}).get("1H")
@@ -1469,7 +1592,7 @@ class HelixEngine:
                 logger.warning("Error cancelling primary for rescue: %s", e)
 
         # Teleport check (spec s11.5): price must not be too far from trigger
-        # Distance limit = teleport_offset_mult × entry offset (not corridor)
+        # Distance limit = teleport_offset_mult 횞 entry offset (not corridor)
         tf1h = self.tf_states.get(setup.symbol, {}).get("1H")
         if tf1h is None:
             return
@@ -1486,13 +1609,13 @@ class HelixEngine:
                 await self._cancel_setup(setup, "teleport_too_far")
                 return
 
-        # Slippage check (spec s11.5): move from trigger ≤ 0.5 × offset
+        # Slippage check (spec s11.5): move from trigger ??0.5 횞 offset
         slip = abs(price_now - setup.bos_level)
         if entry_offset > 0 and slip > RESCUE_SLIP_FRAC * entry_offset:
             await self._cancel_setup(setup, "rescue_slip_exceeded")
             return
 
-        # Place rescue LIMIT (±2 ticks per spec s11.5)
+        # Place rescue LIMIT (짹2 ticks per spec s11.5)
         side = OrderSide.BUY if setup.direction == Direction.LONG else OrderSide.SELL
         tick = cfg.tick_size
         if setup.direction == Direction.LONG:
@@ -1626,7 +1749,7 @@ class HelixEngine:
         # Per-class BE threshold: R_BE for 4H origin, R_BE_1H for 1H origin
         be_threshold = R_BE_1H if setup.origin_tf == "1H" else R_BE
 
-        # +BE → move stop to breakeven (spec s13.2)
+        # +BE ??move stop to breakeven (spec s13.2)
         if r_now >= be_threshold and not setup.trail_active:
             be_stop = stops.compute_be_stop(
                 setup.direction, setup.fill_price, tf1h.atr, cfg.tick_size,
@@ -1634,13 +1757,13 @@ class HelixEngine:
             if setup.direction == Direction.LONG and be_stop > new_stop:
                 new_stop = be_stop
                 setup.stop_source = "BE"
-                logger.info("%s BE triggered at %.2fR → stop %.4f", setup.symbol, r_now, be_stop)
+                logger.info("%s BE triggered at %.2fR ??stop %.4f", setup.symbol, r_now, be_stop)
             elif setup.direction == Direction.SHORT and be_stop < new_stop:
                 new_stop = be_stop
                 setup.stop_source = "BE"
-                logger.info("%s BE triggered at %.2fR → stop %.4f", setup.symbol, r_now, be_stop)
+                logger.info("%s BE triggered at %.2fR ??stop %.4f", setup.symbol, r_now, be_stop)
 
-        # +2.5R → partial 50% (spec s13.3)
+        # +2.5R ??partial 50% (spec s13.3)
         if r_now >= R_PARTIAL_2P5 and not setup.partial_2p5_done:
             partial_qty = max(1, int(setup.qty_open * PARTIAL_2P5_FRAC))
             await self._partial_exit(setup, partial_qty)
@@ -1654,7 +1777,7 @@ class HelixEngine:
             elif setup.direction == Direction.SHORT and ratchet < new_stop:
                 new_stop = ratchet
 
-        # +5R → partial 25% + trail bonus (spec s13.4)
+        # +5R ??partial 25% + trail bonus (spec s13.4)
         if r_now >= R_PARTIAL_5 and not setup.partial_5_done:
             partial_qty = max(1, int(setup.qty_open * PARTIAL_5_FRAC))
             await self._partial_exit(setup, partial_qty)
@@ -1785,7 +1908,7 @@ class HelixEngine:
             # Teleport penalty (spec s11.2): add delayed to +2R
             if setup.add_min_r_override > 0:
                 min_r = max(min_r, setup.add_min_r_override)
-            # Change #5: bars window — not too early, not too late
+            # Change #5: bars window ??not too early, not too late
             bars_ok = ADD_MIN_BARS <= setup.bars_held_1h <= ADD_MAX_BARS
             if r_now >= min_r and bars_ok:
                 await self._try_add(setup, now)
@@ -1859,7 +1982,7 @@ class HelixEngine:
         tick = cfg.tick_size
 
         if add is not None:
-            # Structural confirmation found — use pivot-based entry
+            # Structural confirmation found ??use pivot-based entry
             risk_per_contract = abs(add.bos_level - add.stop0) * inst.point_value
             if risk_per_contract <= 0:
                 return
@@ -1973,6 +2096,14 @@ class HelixEngine:
             )
         )
         if receipt.oms_order_id:
+            self._route_core_partial_exit_request(
+                bar_ts=datetime.now(timezone.utc),
+                setup_id=setup.setup_id,
+                symbol=setup.symbol,
+                client_order_id=receipt.oms_order_id,
+                qty=qty,
+                reason="partial",
+            )
             # Track order for fill reconciliation
             self._order_to_setup[receipt.oms_order_id] = setup.setup_id
 
@@ -2016,6 +2147,14 @@ class HelixEngine:
                 symbol=setup.symbol, old_stop=old_stop, new_stop=new_stop,
                 adjustment_type=adjustment_type, trigger=trigger,
             )
+        self._route_core_stop_update(
+            bar_ts=datetime.now(timezone.utc),
+            setup_id=setup.setup_id,
+            symbol=setup.symbol,
+            stop_price=new_stop,
+            qty=setup.qty_open,
+            reason=trigger,
+        )
         try:
             await self._oms.submit_intent(
                 Intent(
@@ -2048,6 +2187,12 @@ class HelixEngine:
             except Exception as e:
                 logger.warning("Error cancelling stop for %s: %s", setup.symbol, e)
 
+        self._route_core_flatten_request(
+            bar_ts=datetime.now(timezone.utc),
+            setup_id=setup.setup_id,
+            symbol=setup.symbol,
+            reason=reason,
+        )
         # Flatten
         receipt = await self._oms.submit_intent(
             Intent(
@@ -2095,13 +2240,13 @@ class HelixEngine:
             setup.state = SetupState.CLOSING
             setup._flatten_reason = reason
             setup._closing_since = datetime.now(timezone.utc)
-            logger.info("Flatten %s %s → %s (awaiting fill)",
+            logger.info("Flatten %s %s ??%s (awaiting fill)",
                         setup.symbol, setup.setup_id[:8], receipt.result)
         else:
             # No order ID means immediate (e.g. position already flat at broker)
             setup.state = SetupState.CLOSED
             self.active_setups.pop(setup.setup_id, None)
-            logger.info("Flatten %s %s → %s (immediate)",
+            logger.info("Flatten %s %s ??%s (immediate)",
                         setup.symbol, setup.setup_id[:8], receipt.result)
 
     # ------------------------------------------------------------------
@@ -2133,13 +2278,13 @@ class HelixEngine:
             return
 
         if etype == OMSEventType.FILL or etype == OMSEventType.ORDER_FILLED:
-            await self._on_fill(oms_id, event.payload or {})
+            await self._on_fill_core_routed(oms_id, event)
         elif etype == OMSEventType.RISK_HALT:
             await self._on_risk_halt((event.payload or {}).get("reason", ""))
         elif etype == OMSEventType.ORDER_REJECTED:
-            await self._on_terminal(oms_id, etype)
+            await self._on_terminal_core_routed(oms_id, etype)
         elif etype in (OMSEventType.ORDER_CANCELLED, OMSEventType.ORDER_EXPIRED):
-            await self._on_terminal(oms_id, etype)
+            await self._on_terminal_core_routed(oms_id, etype)
         elif etype == OMSEventType.ORDER_WORKING:
             # ORDER_WORKING = order accepted; only mark TRIGGERED if price
             # has actually crossed the stop trigger (bos_level).
@@ -2151,6 +2296,495 @@ class HelixEngine:
                     setup.triggered_ts = datetime.now(timezone.utc)
                     self._schedule_rescue_timer(setup)
                     self._schedule_backstop_timer(setup)
+
+    async def _on_fill_core_routed(self, oms_order_id: str | None, event) -> None:
+        """Route fill events through core logic with engine-side post-processing."""
+        if not oms_order_id:
+            return
+        payload = event.payload or {}
+
+        # --- Determine order role and find setup ---
+        setup_id = self._order_to_setup.get(oms_order_id)
+        original_role = "unknown"
+        setup = None
+        is_stop_fill = False
+
+        if setup_id is None:
+            # Not in order tracking -- check for stop fill by matching stop_order_id
+            for s in self.active_setups.values():
+                if s.stop_order_id == oms_order_id:
+                    setup = s
+                    setup_id = s.setup_id
+                    original_role = "stop"
+                    is_stop_fill = True
+                    break
+            if setup is None:
+                return
+        else:
+            if setup_id in self.pending_setups:
+                setup = self.pending_setups[setup_id]
+                if setup.catchup_order_id == oms_order_id:
+                    original_role = "catchup"
+                elif setup.rescue_order_id == oms_order_id:
+                    original_role = "rescue"
+                else:
+                    original_role = "entry"
+            else:
+                setup = self.active_setups.get(setup_id)
+                if setup is None:
+                    return
+                if setup.state == SetupState.CLOSING:
+                    original_role = "flatten"
+                elif getattr(setup, '_pending_partial_qty', 0) > 0:
+                    original_role = "partial"
+                else:
+                    original_role = "add"
+
+        # --- Extract fill details ---
+        fill_price = float(payload.get("price", 0) or 0)
+        fill_qty = int(payload.get("qty", 0) or 0)
+        if fill_price <= 0:
+            fill_price = setup.bos_level if hasattr(setup, 'bos_level') else 0.0
+        if fill_qty <= 0:
+            fill_qty = setup.qty_planned if hasattr(setup, 'qty_planned') else setup.qty_open
+        fill_time = datetime.now(timezone.utc)
+
+        # --- Capture pre-fill state ---
+        pre_setup = deepcopy(setup)
+        oca_siblings = []
+        if original_role in ("entry", "catchup", "rescue"):
+            for sib in (setup.primary_order_id, setup.catchup_order_id, setup.rescue_order_id):
+                if sib and sib != oms_order_id:
+                    oca_siblings.append(sib)
+
+        # Map flatten to stop for core (full close semantics)
+        core_role = original_role if original_role != "flatten" else "stop"
+
+        # --- Build core fill and route ---
+        fill = AKCHelixFill(
+            oms_order_id=oms_order_id,
+            fill_price=fill_price,
+            fill_qty=fill_qty,
+            symbol=setup.symbol,
+            fill_time=fill_time,
+            commission=float(payload.get("commission", 0) or 0),
+            order_role=core_role,
+        )
+        core_state = build_core_runtime_state(self)
+        # For stop fills not tracked in order_to_setup, inject temporary mapping
+        if is_stop_fill:
+            core_state.order_to_setup[oms_order_id] = setup_id
+        new_state, actions, events = akc_helix_core_logic.on_fill(core_state, fill)
+        apply_core_runtime_state(self, new_state)
+
+        # Clean up order tracking (core uses .get() not .pop())
+        self._order_to_setup.pop(oms_order_id, None)
+
+        # --- Dispatch engine-side effects based on core events ---
+        for ev in events:
+            if ev.code == "ENTRY_FILLED":
+                setup = self.active_setups.get(pre_setup.setup_id, pre_setup)
+
+                # Cancel timers and OCA siblings
+                self._cancel_setup_timers(setup.setup_id)
+                for sib in oca_siblings:
+                    try:
+                        await self._oms.submit_intent(
+                            Intent(intent_type=IntentType.CANCEL_ORDER,
+                                   strategy_id=STRATEGY_ID, target_oms_order_id=sib)
+                        )
+                        self._order_to_setup.pop(sib, None)
+                    except Exception:
+                        pass
+
+                # ETF slippage guard (spec s11.2)
+                cfg = self._config.get(setup.symbol)
+                if cfg and cfg.is_etf:
+                    slip_dollars = abs(fill_price - setup.bos_level)
+                    slip_bps = (slip_dollars / setup.bos_level * 10_000) if setup.bos_level > 0 else 0.0
+                    if cfg.slip_max_dollars > 0 or cfg.slip_max_bps > 0:
+                        if slip_dollars > cfg.slip_max_dollars or slip_bps > cfg.slip_max_bps:
+                            setup.teleport_fill = True
+                            setup.add_min_r_override = 2.0
+                            logger.warning(
+                                "%s TELEPORT FILL: slip=$%.4f (%.1f bps) exceeds limits ($%.2f / %d bps) -- add delayed to +2R",
+                                setup.symbol, slip_dollars, slip_bps,
+                                cfg.slip_max_dollars, int(cfg.slip_max_bps),
+                            )
+
+                # Record trade entry
+                if self._recorder:
+                    try:
+                        trade_id = await self._recorder.record_entry(
+                            strategy_id=STRATEGY_ID,
+                            instrument=setup.symbol,
+                            direction="LONG" if setup.direction == Direction.LONG else "SHORT",
+                            quantity=fill_qty,
+                            entry_price=Decimal(str(fill_price)),
+                            entry_ts=fill_time,
+                            setup_tag=setup.setup_class.value,
+                            entry_type=setup.setup_class.value,
+                            meta={
+                                "setup_id": setup.setup_id,
+                                "adx_at_entry": setup.adx_at_entry,
+                                "regime_4h_at_entry": setup.regime_4h_at_entry,
+                                "size_mult": setup.setup_size_mult,
+                                "vol_factor": setup.vol_factor_at_placement,
+                            },
+                        )
+                        setup.trade_id = trade_id
+                    except Exception:
+                        logger.exception("Error recording entry for %s", setup.symbol)
+
+                # Submit protective stop via OMS (dispatch SubmitProtectiveStop)
+                for action in actions:
+                    if isinstance(action, SubmitProtectiveStop):
+                        inst = self._instruments.get(setup.symbol)
+                        if inst:
+                            stop_side = OrderSide.SELL if setup.direction == Direction.LONG else OrderSide.BUY
+                            stop_order = OMSOrder(
+                                strategy_id=STRATEGY_ID, instrument=inst,
+                                side=stop_side, qty=action.qty,
+                                order_type=OrderType.STOP,
+                                stop_price=action.stop_price,
+                                tif="GTC", role=OrderRole.STOP,
+                            )
+                            receipt = await self._oms.submit_intent(
+                                Intent(intent_type=IntentType.NEW_ORDER,
+                                       strategy_id=STRATEGY_ID, order=stop_order)
+                            )
+                            if receipt.oms_order_id:
+                                setup.stop_order_id = receipt.oms_order_id
+
+                # Set regime at entry
+                daily = self.daily_states.get(setup.symbol)
+                if daily:
+                    setup.regime_at_entry = daily.regime.value
+
+                logger.info(
+                    "FILL %s %s %s %d @ %.4f (stop=%.4f)",
+                    setup.symbol, setup.setup_class.value,
+                    "LONG" if setup.direction == Direction.LONG else "SHORT",
+                    fill_qty, fill_price, setup.stop0,
+                )
+
+                # Instrumentation
+                self._record_akc_entry_instrumentation(
+                    setup, oms_order_id, fill_price, fill_qty, fill_time,
+                )
+
+            elif ev.code == "ADD_FILLED":
+                setup = self.active_setups.get(pre_setup.setup_id, pre_setup)
+                logger.info("ADD FILL %s qty=%d @ %.4f, total open=%d",
+                            setup.symbol, fill_qty, fill_price, setup.qty_open)
+                # BE tighten on add fill
+                tf1h = self.tf_states.get(setup.symbol, {}).get("1H")
+                if tf1h and setup.fill_price > 0:
+                    atr_offset = BE_ATR1H_OFFSET * tf1h.atr
+                    be_level = (setup.fill_price + atr_offset
+                                if setup.direction == Direction.LONG
+                                else setup.fill_price - atr_offset)
+                    if setup.direction == Direction.LONG:
+                        new_stop = max(setup.current_stop, be_level)
+                    else:
+                        new_stop = min(setup.current_stop, be_level)
+                    if new_stop != setup.current_stop:
+                        logger.info("ADD BE tighten %s: stop %.4f -> %.4f",
+                                    setup.symbol, setup.current_stop, new_stop)
+                        await self._update_stop(setup, new_stop,
+                                                adjustment_type="breakeven", trigger="add_on_be")
+
+            elif ev.code == "STOP_FILLED":
+                if original_role == "flatten":
+                    reason = getattr(pre_setup, '_flatten_reason', 'FLATTEN')
+                    logger.info("FLATTEN FILL %s @ %.4f (%s)",
+                                pre_setup.symbol, fill_price, reason)
+                else:
+                    await self._process_stop_fill_effects(
+                        pre_setup, oms_order_id, fill_price, fill_time,
+                    )
+
+            elif ev.code == "PARTIAL_EXIT_FILLED":
+                setup = self.active_setups.get(pre_setup.setup_id, pre_setup)
+                pending_qty = getattr(pre_setup, '_pending_partial_qty', 0)
+                if pending_qty > 0:
+                    inst = self._instruments.get(setup.symbol)
+                    pv = inst.point_value if inst else 1.0
+                    estimate = getattr(pre_setup, '_partial_pnl_estimate', 0.0)
+                    if setup.direction == Direction.LONG:
+                        actual_pnl = (fill_price - setup.fill_price) * pv * pending_qty
+                    else:
+                        actual_pnl = (setup.fill_price - fill_price) * pv * pending_qty
+                    correction = actual_pnl - estimate
+                    setup.realized_pnl += correction
+                    setup._pending_partial_qty = 0
+                    setup._partial_pnl_estimate = 0.0
+                    logger.info("PARTIAL FILL %s qty=%d @ %.4f (correction=%.2f)",
+                                setup.symbol, pending_qty, fill_price, correction)
+
+            elif ev.code == "EXIT_FILLED":
+                # Full close from partial exit reaching qty_open=0
+                await self._process_stop_fill_effects(
+                    pre_setup, oms_order_id, fill_price, fill_time,
+                )
+
+    async def _on_terminal_core_routed(self, oms_order_id: str | None, etype) -> None:
+        """Route terminal order events through core logic."""
+        if not oms_order_id:
+            return
+
+        # Capture setup reference before core modifies tracking
+        setup_id = self._order_to_setup.get(oms_order_id)
+        setup = None
+        if setup_id:
+            setup = self.pending_setups.get(setup_id) or self.active_setups.get(setup_id)
+
+        _status_map = {
+            OMSEventType.ORDER_CANCELLED: "cancelled",
+            OMSEventType.ORDER_REJECTED: "rejected",
+            OMSEventType.ORDER_EXPIRED: "expired",
+        }
+        update = AKCHelixOrderUpdate(
+            oms_order_id=oms_order_id,
+            status=_status_map.get(etype, "cancelled"),
+            symbol=setup.symbol if setup else "",
+        )
+        core_state = build_core_runtime_state(self)
+        new_state, _, events = akc_helix_core_logic.on_order_update(core_state, update)
+        apply_core_runtime_state(self, new_state)
+
+        # Engine-side: log and instrumentation
+        if setup_id:
+            logger.info("Order %s terminal (%s) for setup %s", oms_order_id, etype, setup_id[:8])
+
+        for ev in events:
+            if ev.code == "ORDER_TERMINAL" and setup and self._kit:
+                _kit_status = {
+                    OMSEventType.ORDER_REJECTED: "REJECTED",
+                    OMSEventType.ORDER_CANCELLED: "CANCELLED",
+                    OMSEventType.ORDER_EXPIRED: "EXPIRED",
+                }
+                self._kit.on_order_event(
+                    order_id=oms_order_id,
+                    pair=setup.symbol,
+                    side="LONG" if setup.direction == Direction.LONG else "SHORT",
+                    order_type="STOP_LIMIT",
+                    status=_kit_status.get(etype, "CANCELLED"),
+                    requested_qty=float(setup.qty_planned),
+                    requested_price=setup.bos_level,
+                    strategy_id=STRATEGY_ID,
+                )
+
+    async def _process_stop_fill_effects(
+        self,
+        pre_setup: SetupInstance,
+        oms_order_id: str,
+        fill_price: float,
+        fill_time: datetime,
+    ) -> None:
+        """Engine-side effects for stop/exit fills (recording, circuit breaker, kit)."""
+        setup = pre_setup
+        inst = self._instruments.get(setup.symbol)
+        pv = inst.point_value if inst else 1.0
+
+        # Compute R and PnL
+        if setup.r_price > 0:
+            if setup.direction == Direction.LONG:
+                realized_r = (fill_price - setup.fill_price) / setup.r_price
+            else:
+                realized_r = (setup.fill_price - fill_price) / setup.r_price
+        else:
+            realized_r = 0.0
+        if setup.direction == Direction.LONG:
+            pnl_usd = (fill_price - setup.fill_price) * pv * setup.qty_open
+        else:
+            pnl_usd = (setup.fill_price - fill_price) * pv * setup.qty_open
+
+        # Record exit
+        if self._recorder and setup.trade_id:
+            try:
+                await self._recorder.record_exit(
+                    trade_id=setup.trade_id,
+                    exit_price=Decimal(str(fill_price)),
+                    exit_ts=fill_time,
+                    exit_reason=f"STOP_{setup.stop_source}",
+                    realized_r=Decimal(str(round(realized_r, 4))),
+                    realized_usd=Decimal(str(round(pnl_usd, 2))),
+                    duration_bars=setup.bars_held_1h,
+                )
+            except Exception:
+                logger.exception("Error recording exit for %s", setup.symbol)
+
+        # Update circuit breaker
+        cb = self.circuit_breakers.get(setup.symbol, CircuitBreakerState())
+        cb.daily_realized_r += realized_r
+        cb.weekly_realized_r += realized_r
+        if realized_r < 0:
+            cb.consecutive_stops += 1
+            if cb.consecutive_stops >= CONSEC_STOPS_HALVE:
+                cb.halved_until = fill_time + timedelta(hours=24)
+                logger.warning("%s %d consecutive stops -- halving size",
+                               setup.symbol, cb.consecutive_stops)
+        else:
+            cb.consecutive_stops = 0
+        if cb.daily_realized_r <= DAILY_STOP_R:
+            cfg = self._config.get(setup.symbol)
+            if cfg and cfg.is_etf:
+                next_open = _next_session_open_et(fill_time, cfg.entry_window_start_et)
+            else:
+                next_open = _next_session_open_et(fill_time, "03:00")
+            cb.paused_until = next_open
+            logger.warning("%s daily stop hit (%.2fR) -- pausing until %s",
+                           setup.symbol, cb.daily_realized_r, next_open.isoformat())
+        if cb.weekly_realized_r <= WEEKLY_STOP_R:
+            next_daily = _next_daily_close_et(fill_time)
+            cb.paused_until = next_daily
+            logger.warning("%s weekly stop hit (%.2fR) -- pausing until %s",
+                           setup.symbol, cb.weekly_realized_r, next_daily.isoformat())
+        self.circuit_breakers[setup.symbol] = cb
+
+        # Instrumentation
+        if self._kit:
+            tid = setup.trade_id or setup.setup_id
+            if setup.direction == Direction.LONG:
+                _mfe_price = setup.fill_price + setup.mfe_r_peak * setup.r_price if setup.r_price > 0 else setup.fill_price
+                _mae_price = setup.fill_price + setup.mae_r_trough * setup.r_price if setup.r_price > 0 else setup.fill_price
+                _pnl_pct = (fill_price - setup.fill_price) / setup.fill_price if setup.fill_price > 0 else None
+            else:
+                _mfe_price = setup.fill_price - setup.mfe_r_peak * setup.r_price if setup.r_price > 0 else setup.fill_price
+                _mae_price = setup.fill_price - setup.mae_r_trough * setup.r_price if setup.r_price > 0 else setup.fill_price
+                _pnl_pct = (setup.fill_price - fill_price) / setup.fill_price if setup.fill_price > 0 else None
+            _mfe_pct = abs(setup.mfe_r_peak * setup.r_price / setup.fill_price) if setup.fill_price > 0 and setup.r_price > 0 else None
+            _mae_pct = abs(setup.mae_r_trough * setup.r_price / setup.fill_price) if setup.fill_price > 0 and setup.r_price > 0 else None
+            stop_reason = f"STOP_{setup.stop_source}"
+            self._kit.log_exit(
+                trade_id=tid,
+                exit_price=fill_price,
+                exit_reason=stop_reason,
+                expected_exit_price=setup.current_stop,
+                mfe_price=_mfe_price, mae_price=_mae_price,
+                mfe_r=setup.mfe_r_peak, mae_r=setup.mae_r_trough,
+                mfe_pct=_mfe_pct, mae_pct=_mae_pct,
+                pnl_pct=_pnl_pct,
+                fill_order_id=oms_order_id,
+                fill_qty=float(setup.qty_open),
+            )
+            self._kit.on_order_event(
+                order_id=oms_order_id,
+                pair=setup.symbol,
+                side="SELL" if setup.direction == Direction.LONG else "BUY",
+                order_type="STOP",
+                status="FILLED",
+                requested_qty=float(setup.qty_open),
+                filled_qty=float(setup.qty_open),
+                requested_price=setup.current_stop,
+                fill_price=fill_price,
+                related_trade_id=tid,
+                strategy_id=STRATEGY_ID,
+            )
+
+        logger.info("STOPPED OUT %s @ %.4f (%.2fR) after %d bars",
+                    setup.symbol, fill_price, realized_r, setup.bars_held_1h)
+
+    def _record_akc_entry_instrumentation(
+        self,
+        setup: SetupInstance,
+        oms_order_id: str,
+        fill_price: float,
+        fill_qty: int,
+        fill_time: datetime,
+    ) -> None:
+        """Record entry instrumentation for a filled primary entry."""
+        if not self._kit:
+            return
+        cfg = self._config.get(setup.symbol)
+        side_str = "LONG" if setup.direction == Direction.LONG else "SHORT"
+        active = {sid: s for sid, s in self.active_setups.items()
+                  if s.state in (SetupState.FILLED, SetupState.ACTIVE)}
+        from .config import BASKET_SYMBOLS
+        correlated = []
+        if setup.symbol in BASKET_SYMBOLS:
+            for sid, peer in active.items():
+                if peer.symbol in BASKET_SYMBOLS and peer.symbol != setup.symbol:
+                    correlated.append({
+                        "symbol": peer.symbol,
+                        "direction": "LONG" if peer.direction == Direction.LONG else "SHORT",
+                        "relationship": "basket_peer",
+                        "same_direction": (peer.direction == setup.direction),
+                    })
+        _cfg_dict = dataclasses.asdict(cfg) if cfg else {}
+        _param_set_id = hashlib.md5(
+            json.dumps(_cfg_dict, sort_keys=True, default=str).encode()
+        ).hexdigest()[:8]
+        self._kit.log_entry(
+            trade_id=setup.trade_id or setup.setup_id,
+            pair=setup.symbol,
+            side=side_str,
+            entry_price=fill_price,
+            position_size=float(fill_qty),
+            position_size_quote=fill_price * fill_qty,
+            entry_signal=setup.setup_class.value,
+            entry_signal_id=setup.setup_id,
+            entry_signal_strength=0.5,
+            active_filters=["spread_gate", "heat_cap"],
+            passed_filters=["spread_gate", "heat_cap"],
+            filter_decisions=setup.gate_decisions,
+            strategy_params={
+                "param_set_id": _param_set_id,
+                "config": _cfg_dict,
+                "adx_at_entry": setup.adx_at_entry,
+                "regime_4h": setup.regime_4h_at_entry,
+                "size_mult": setup.setup_size_mult,
+                "setup_class": setup.setup_class.value,
+                "origin_tf": setup.origin_tf,
+                "div_mag_norm": setup.div_mag_norm,
+                "vol_factor": setup.vol_factor_at_placement,
+                "bos_level": setup.bos_level,
+                "stop0": setup.stop0,
+                "base_risk_pct": self._base_risk_pct if hasattr(self, '_base_risk_pct') else 0.01,
+                "r_price": setup.r_price,
+                "unit1_risk_dollars": setup.unit1_risk_dollars,
+            },
+            expected_entry_price=setup.bos_level,
+            signal_factors=[
+                {"factor_name": "adx", "factor_value": setup.adx_at_entry, "threshold": 20.0, "contribution": "trend_strength"},
+                {"factor_name": "setup_class", "factor_value": setup.setup_class.value, "threshold": "CLASS_A", "contribution": "setup_quality"},
+                {"factor_name": "size_mult", "factor_value": setup.setup_size_mult, "threshold": 0.5, "contribution": "conviction"},
+                {"factor_name": "div_mag_norm", "factor_value": setup.div_mag_norm, "threshold": 0.5, "contribution": "divergence_magnitude"},
+                {"factor_name": "vol_factor", "factor_value": setup.vol_factor_at_placement, "threshold": 1.0, "contribution": "volatility_regime"},
+                {"factor_name": "regime_4h", "factor_value": setup.regime_4h_at_entry or "unknown", "threshold": "BULL", "contribution": "higher_tf_regime"},
+                {"factor_name": "origin_tf", "factor_value": setup.origin_tf, "threshold": "4H", "contribution": "timeframe_origin"},
+            ],
+            sizing_inputs={
+                "target_risk_pct": self._base_risk_pct if hasattr(self, '_base_risk_pct') else 0.01,
+                "account_equity": self._equity if hasattr(self, '_equity') else 0.0,
+                "volatility_basis": setup.adx_at_entry,
+                "sizing_model": "helix_class_mult",
+            },
+            portfolio_state_at_entry={
+                "num_positions": len(active),
+                "symbols_held": [s.symbol for s in active.values()],
+            },
+            signal_evolution=self._build_signal_evolution(setup.symbol),
+            correlated_pairs_detail=correlated if correlated else None,
+            concurrent_positions_strategy=len(self.active_setups),
+            fill_order_id=oms_order_id,
+            fill_qty=float(fill_qty),
+            fill_time_ms=int(fill_time.timestamp() * 1000),
+        )
+        self._kit.on_order_event(
+            order_id=oms_order_id,
+            pair=setup.symbol,
+            side=side_str,
+            order_type="STOP_LIMIT",
+            status="FILLED",
+            requested_qty=float(setup.qty_planned),
+            filled_qty=float(fill_qty),
+            requested_price=setup.bos_level,
+            fill_price=fill_price,
+            related_trade_id=setup.trade_id or setup.setup_id,
+            strategy_id=STRATEGY_ID,
+        )
 
     async def _on_risk_halt(self, reason: str) -> None:
         """Pause new entries and cancel live entry intents."""
@@ -2184,7 +2818,7 @@ class HelixEngine:
         symbol = payload.get("symbol", "")
 
         if coord_type == "TIGHTEN_STOP_BE":
-            # Rule 1: ATRSS entered on this symbol → tighten Helix stop to breakeven
+            # Rule 1: ATRSS entered on this symbol ??tighten Helix stop to breakeven
             await self._tighten_stop_to_breakeven(symbol)
 
     async def _tighten_stop_to_breakeven(self, symbol: str) -> None:
@@ -2271,432 +2905,12 @@ class HelixEngine:
                             outcome="skipped_already_tighter",
                         )
 
-    async def _on_fill(self, oms_order_id: str | None, payload: dict) -> None:
-        """Handle a fill event — create position state, place protective stop."""
-        if not oms_order_id:
-            return
-
-        setup_id = self._order_to_setup.pop(oms_order_id, None)
-        if setup_id is None:
-            # Could be a stop fill or partial exit fill
-            await self._on_stop_fill(oms_order_id, payload)
-            return
-
-        # Find the setup
-        setup = self.pending_setups.pop(setup_id, None)
-        if setup is None:
-            # Might be an add fill, partial fill, or flatten fill on an active setup
-            setup = self.active_setups.get(setup_id)
-            if setup is None:
-                return
-
-            # --- Handle flatten fill (CLOSING state) ---
-            if setup.state == SetupState.CLOSING:
-                fill_price = payload.get("price", 0.0)
-                reason = getattr(setup, '_flatten_reason', 'FLATTEN')
-                logger.info("FLATTEN FILL %s @ %.4f (%s)",
-                            setup.symbol, fill_price, reason)
-                setup.state = SetupState.CLOSED
-                self.active_setups.pop(setup.setup_id, None)
-                return
-
-            # --- Handle partial exit fill (correct PnL estimate) ---
-            pending_qty = getattr(setup, '_pending_partial_qty', 0)
-            if pending_qty > 0:
-                fill_price = payload.get("price", 0.0)
-                inst = self._instruments.get(setup.symbol)
-                pv = inst.point_value if inst else 1.0
-                # Correct the estimated PnL with actual fill price
-                estimate = getattr(setup, '_partial_pnl_estimate', 0.0)
-                if setup.direction == Direction.LONG:
-                    actual_pnl = (fill_price - setup.fill_price) * pv * pending_qty
-                else:
-                    actual_pnl = (setup.fill_price - fill_price) * pv * pending_qty
-                correction = actual_pnl - estimate
-                setup.realized_pnl += correction
-                setup._pending_partial_qty = 0
-                setup._partial_pnl_estimate = 0.0
-                logger.info("PARTIAL FILL %s qty=%d @ %.4f (correction=%.2f)",
-                            setup.symbol, pending_qty, fill_price, correction)
-                return
-
-            # Handle add fill
-            fill_price = payload.get("price", 0.0)
-            fill_qty = int(payload.get("qty", 0))
-            setup.qty_open += fill_qty
-            logger.info("ADD FILL %s qty=%d @ %.4f, total open=%d",
-                        setup.symbol, fill_qty, fill_price, setup.qty_open)
-            # Move stop to at least breakeven on add fill
-            tf1h = self.tf_states.get(setup.symbol, {}).get("1H")
-            if tf1h and setup.fill_price > 0:
-                atr_offset = BE_ATR1H_OFFSET * tf1h.atr
-                be_level = (setup.fill_price + atr_offset
-                            if setup.direction == Direction.LONG
-                            else setup.fill_price - atr_offset)
-                if setup.direction == Direction.LONG:
-                    new_stop = max(setup.current_stop, be_level)
-                else:
-                    new_stop = min(setup.current_stop, be_level)
-                if new_stop != setup.current_stop:
-                    logger.info("ADD BE tighten %s: stop %.4f → %.4f",
-                                setup.symbol, setup.current_stop, new_stop)
-                    await self._update_stop(setup, new_stop,
-                                            adjustment_type="breakeven", trigger="add_on_be")
-            return
-
-        fill_price = payload.get("price", setup.bos_level)
-        fill_qty = int(payload.get("qty", setup.qty_planned))
-        fill_time = datetime.now(timezone.utc)
-
-        # Cancel associated timer tasks
-        self._cancel_setup_timers(setup.setup_id)
-
-        # Cancel OCA siblings
-        for sibling_oid in (setup.primary_order_id, setup.catchup_order_id, setup.rescue_order_id):
-            if sibling_oid and sibling_oid != oms_order_id:
-                try:
-                    await self._oms.submit_intent(
-                        Intent(
-                            intent_type=IntentType.CANCEL_ORDER,
-                            strategy_id=STRATEGY_ID,
-                            target_oms_order_id=sibling_oid,
-                        )
-                    )
-                    self._order_to_setup.pop(sibling_oid, None)
-                except Exception:
-                    pass
-
-        # Update setup state
-        setup.state = SetupState.FILLED
-        setup.fill_price = fill_price
-        setup.fill_qty = fill_qty
-        setup.fill_ts = fill_time
-        setup.qty_open = fill_qty
-        setup.current_stop = setup.stop0
-
-        # ETF slippage guard (spec s11.2)
-        cfg = self._config.get(setup.symbol)
-        if cfg and cfg.is_etf:
-            slip_dollars = abs(fill_price - setup.bos_level)
-            slip_bps = (slip_dollars / setup.bos_level * 10_000) if setup.bos_level > 0 else 0.0
-            slip_exceeded = False
-            if cfg.slip_max_dollars > 0 or cfg.slip_max_bps > 0:
-                slip_exceeded = (slip_dollars > cfg.slip_max_dollars
-                                 or slip_bps > cfg.slip_max_bps)
-            if slip_exceeded:
-                setup.teleport_fill = True
-                setup.add_min_r_override = 2.0  # penalty: no add until +2R
-                logger.warning(
-                    "%s TELEPORT FILL: slip=$%.4f (%.1f bps) exceeds limits ($%.2f / %d bps) — add delayed to +2R",
-                    setup.symbol, slip_dollars, slip_bps,
-                    cfg.slip_max_dollars, int(cfg.slip_max_bps),
-                )
-
-        # Record trade entry
-        if self._recorder:
-            try:
-                trade_id = await self._recorder.record_entry(
-                    strategy_id=STRATEGY_ID,
-                    instrument=setup.symbol,
-                    direction="LONG" if setup.direction == Direction.LONG else "SHORT",
-                    quantity=fill_qty,
-                    entry_price=Decimal(str(fill_price)),
-                    entry_ts=fill_time,
-                    setup_tag=setup.setup_class.value,
-                    entry_type=setup.setup_class.value,
-                    meta={
-                        "setup_id": setup.setup_id,
-                        "adx_at_entry": setup.adx_at_entry,
-                        "regime_4h_at_entry": setup.regime_4h_at_entry,
-                        "size_mult": setup.setup_size_mult,
-                        "vol_factor": setup.vol_factor_at_placement,
-                    },
-                )
-                setup.trade_id = trade_id
-            except Exception:
-                logger.exception("Error recording entry for %s", setup.symbol)
-
-        # Place protective stop
-        inst = self._instruments.get(setup.symbol)
-        if inst:
-            stop_side = OrderSide.SELL if setup.direction == Direction.LONG else OrderSide.BUY
-            stop_order = OMSOrder(
-                strategy_id=STRATEGY_ID,
-                instrument=inst,
-                side=stop_side,
-                qty=fill_qty,
-                order_type=OrderType.STOP,
-                stop_price=setup.stop0,
-                tif="GTC",
-                role=OrderRole.STOP,
-            )
-            stop_receipt = await self._oms.submit_intent(
-                Intent(
-                    intent_type=IntentType.NEW_ORDER,
-                    strategy_id=STRATEGY_ID,
-                    order=stop_order,
-                )
-            )
-            if stop_receipt.oms_order_id:
-                setup.stop_order_id = stop_receipt.oms_order_id
-
-        # Move to active — record regime at entry for transition tracking
-        setup.state = SetupState.ACTIVE
-        daily = self.daily_states.get(setup.symbol)
-        if daily:
-            setup.regime_at_entry = daily.regime.value
-        self.active_setups[setup.setup_id] = setup
-
-        logger.info(
-            "FILL %s %s %s %d @ %.4f (stop=%.4f)",
-            setup.symbol, setup.setup_class.value,
-            "LONG" if setup.direction == Direction.LONG else "SHORT",
-            fill_qty, fill_price, setup.stop0,
-        )
-
-        # Hook 4: Instrumentation trade entry
-        if self._kit:
-            side_str = "LONG" if setup.direction == Direction.LONG else "SHORT"
-            active = {sid: s for sid, s in self.active_setups.items() if s.state in (SetupState.FILLED, SetupState.ACTIVE)}
-            # Correlated pairs (basket peers)
-            from .config import BASKET_SYMBOLS
-            correlated = []
-            if setup.symbol in BASKET_SYMBOLS:
-                for sid, peer in active.items():
-                    if peer.symbol in BASKET_SYMBOLS and peer.symbol != setup.symbol:
-                        correlated.append({
-                            "symbol": peer.symbol,
-                            "direction": "LONG" if peer.direction == Direction.LONG else "SHORT",
-                            "relationship": "basket_peer",
-                            "same_direction": (peer.direction == setup.direction),
-                        })
-            _cfg_dict = dataclasses.asdict(cfg) if cfg else {}
-            _param_set_id = hashlib.md5(
-                json.dumps(_cfg_dict, sort_keys=True, default=str).encode()
-            ).hexdigest()[:8]
-            self._kit.log_entry(
-                trade_id=setup.trade_id or setup.setup_id,
-                pair=setup.symbol,
-                side=side_str,
-                entry_price=fill_price,
-                position_size=float(fill_qty),
-                position_size_quote=fill_price * fill_qty,
-                entry_signal=setup.setup_class.value,
-                entry_signal_id=setup.setup_id,
-                entry_signal_strength=0.5,
-                active_filters=["spread_gate", "heat_cap"],
-                passed_filters=["spread_gate", "heat_cap"],
-                filter_decisions=setup.gate_decisions,
-                strategy_params={
-                    "param_set_id": _param_set_id,
-                    "config": _cfg_dict,
-                    "adx_at_entry": setup.adx_at_entry,
-                    "regime_4h": setup.regime_4h_at_entry,
-                    "size_mult": setup.setup_size_mult,
-                    "setup_class": setup.setup_class.value,
-                    "origin_tf": setup.origin_tf,
-                    "div_mag_norm": setup.div_mag_norm,
-                    "vol_factor": setup.vol_factor_at_placement,
-                    "bos_level": setup.bos_level,
-                    "stop0": setup.stop0,
-                    "base_risk_pct": self._base_risk_pct if hasattr(self, '_base_risk_pct') else 0.01,
-                    "r_price": setup.r_price,
-                    "unit1_risk_dollars": setup.unit1_risk_dollars,
-                },
-                expected_entry_price=setup.bos_level,
-                signal_factors=[
-                    {"factor_name": "adx", "factor_value": setup.adx_at_entry, "threshold": 20.0, "contribution": "trend_strength"},
-                    {"factor_name": "setup_class", "factor_value": setup.setup_class.value, "threshold": "CLASS_A", "contribution": "setup_quality"},
-                    {"factor_name": "size_mult", "factor_value": setup.setup_size_mult, "threshold": 0.5, "contribution": "conviction"},
-                    {"factor_name": "div_mag_norm", "factor_value": setup.div_mag_norm, "threshold": 0.5, "contribution": "divergence_magnitude"},
-                    {"factor_name": "vol_factor", "factor_value": setup.vol_factor_at_placement, "threshold": 1.0, "contribution": "volatility_regime"},
-                    {"factor_name": "regime_4h", "factor_value": setup.regime_4h_at_entry or "unknown", "threshold": "BULL", "contribution": "higher_tf_regime"},
-                    {"factor_name": "origin_tf", "factor_value": setup.origin_tf, "threshold": "4H", "contribution": "timeframe_origin"},
-                ],
-                sizing_inputs={
-                    "target_risk_pct": self._base_risk_pct if hasattr(self, '_base_risk_pct') else 0.01,
-                    "account_equity": self._equity if hasattr(self, '_equity') else 0.0,
-                    "volatility_basis": setup.adx_at_entry,
-                    "sizing_model": "helix_class_mult",
-                },
-                portfolio_state_at_entry={
-                    "num_positions": len(active),
-                    "symbols_held": [s.symbol for s in active.values()],
-                },
-                signal_evolution=self._build_signal_evolution(setup.symbol),
-                correlated_pairs_detail=correlated if correlated else None,
-                concurrent_positions_strategy=len(self.active_setups),
-                fill_order_id=oms_order_id,
-                fill_qty=float(fill_qty),
-                fill_time_ms=int(fill_time.timestamp() * 1000),
-            )
-
-            self._kit.on_order_event(
-                order_id=oms_order_id,
-                pair=setup.symbol,
-                side="LONG" if setup.direction == Direction.LONG else "SHORT",
-                order_type="STOP_LIMIT",
-                status="FILLED",
-                requested_qty=float(setup.qty_planned),
-                filled_qty=float(fill_qty),
-                requested_price=setup.bos_level,
-                fill_price=fill_price,
-                related_trade_id=setup.trade_id or setup.setup_id,
-                strategy_id=STRATEGY_ID,
-            )
-
-    async def _on_stop_fill(self, oms_order_id: str, payload: dict) -> None:
-        """Handle a stop-loss fill — record exit, update circuit breaker."""
-        for setup_id, setup in list(self.active_setups.items()):
-            if setup.stop_order_id == oms_order_id:
-                fill_price = payload.get("price", setup.current_stop)
-                fill_time = datetime.now(timezone.utc)
-
-                # Compute R
-                if setup.r_price > 0:
-                    if setup.direction == Direction.LONG:
-                        realized_r = (fill_price - setup.fill_price) / setup.r_price
-                    else:
-                        realized_r = (setup.fill_price - fill_price) / setup.r_price
-                else:
-                    realized_r = 0.0
-
-                inst = self._instruments.get(setup.symbol)
-                pv = inst.point_value if inst else 1.0
-                if setup.direction == Direction.LONG:
-                    pnl_usd = (fill_price - setup.fill_price) * pv * setup.qty_open
-                else:
-                    pnl_usd = (setup.fill_price - fill_price) * pv * setup.qty_open
-
-                # Record exit
-                if self._recorder and setup.trade_id:
-                    try:
-                        await self._recorder.record_exit(
-                            trade_id=setup.trade_id,
-                            exit_price=Decimal(str(fill_price)),
-                            exit_ts=fill_time,
-                            exit_reason=f"STOP_{setup.stop_source}",
-                            realized_r=Decimal(str(round(realized_r, 4))),
-                            realized_usd=Decimal(str(round(pnl_usd, 2))),
-                            duration_bars=setup.bars_held_1h,
-                        )
-                    except Exception:
-                        logger.exception("Error recording exit for %s", setup.symbol)
-
-                # Update circuit breaker
-                cb = self.circuit_breakers.get(setup.symbol, CircuitBreakerState())
-                cb.daily_realized_r += realized_r
-                cb.weekly_realized_r += realized_r
-                if realized_r < 0:
-                    cb.consecutive_stops += 1
-                    if cb.consecutive_stops >= CONSEC_STOPS_HALVE:
-                        cb.halved_until = fill_time + timedelta(hours=24)
-                        logger.warning("%s %d consecutive stops — halving size",
-                                       setup.symbol, cb.consecutive_stops)
-                else:
-                    cb.consecutive_stops = 0
-
-                if cb.daily_realized_r <= DAILY_STOP_R:
-                    # Spec s8.4: pause until next session open
-                    cfg = self._config.get(setup.symbol)
-                    if cfg and cfg.is_etf:
-                        next_open = _next_session_open_et(fill_time, cfg.entry_window_start_et)
-                    else:
-                        next_open = _next_session_open_et(fill_time, "03:00")
-                    cb.paused_until = next_open
-                    logger.warning("%s daily stop hit (%.2fR) — pausing until %s",
-                                   setup.symbol, cb.daily_realized_r, next_open.isoformat())
-                if cb.weekly_realized_r <= WEEKLY_STOP_R:
-                    # Spec s8.4: pause until next Daily close
-                    next_daily = _next_daily_close_et(fill_time)
-                    cb.paused_until = next_daily
-                    logger.warning("%s weekly stop hit (%.2fR) — pausing until %s",
-                                   setup.symbol, cb.weekly_realized_r, next_daily.isoformat())
-                self.circuit_breakers[setup.symbol] = cb
-
-                # Hook 5: Instrumentation trade exit + process scoring
-                if self._kit:
-                    tid = setup.trade_id or setup.setup_id
-                    if setup.direction == Direction.LONG:
-                        _mfe_price = setup.fill_price + setup.mfe_r_peak * setup.r_price if setup.r_price > 0 else setup.fill_price
-                        _mae_price = setup.fill_price + setup.mae_r_trough * setup.r_price if setup.r_price > 0 else setup.fill_price
-                        _pnl_pct = (fill_price - setup.fill_price) / setup.fill_price if setup.fill_price > 0 else None
-                    else:
-                        _mfe_price = setup.fill_price - setup.mfe_r_peak * setup.r_price if setup.r_price > 0 else setup.fill_price
-                        _mae_price = setup.fill_price - setup.mae_r_trough * setup.r_price if setup.r_price > 0 else setup.fill_price
-                        _pnl_pct = (setup.fill_price - fill_price) / setup.fill_price if setup.fill_price > 0 else None
-                    _mfe_pct = abs(setup.mfe_r_peak * setup.r_price / setup.fill_price) if setup.fill_price > 0 and setup.r_price > 0 else None
-                    _mae_pct = abs(setup.mae_r_trough * setup.r_price / setup.fill_price) if setup.fill_price > 0 and setup.r_price > 0 else None
-                    stop_reason = f"STOP_{setup.stop_source}"
-                    self._kit.log_exit(
-                        trade_id=tid,
-                        exit_price=fill_price,
-                        exit_reason=stop_reason,
-                        expected_exit_price=setup.current_stop,
-                        mfe_price=_mfe_price,
-                        mae_price=_mae_price,
-                        mfe_r=setup.mfe_r_peak,
-                        mae_r=setup.mae_r_trough,
-                        mfe_pct=_mfe_pct,
-                        mae_pct=_mae_pct,
-                        pnl_pct=_pnl_pct,
-                        fill_order_id=oms_order_id,
-                        fill_qty=float(setup.qty_open),
-                    )
-
-                    self._kit.on_order_event(
-                        order_id=oms_order_id,
-                        pair=setup.symbol,
-                        side="SELL" if setup.direction == Direction.LONG else "BUY",
-                        order_type="STOP",
-                        status="FILLED",
-                        requested_qty=float(setup.qty_open),
-                        filled_qty=float(setup.qty_open),
-                        requested_price=setup.current_stop,
-                        fill_price=fill_price,
-                        related_trade_id=setup.trade_id or setup.setup_id,
-                        strategy_id=STRATEGY_ID,
-                    )
-
-                # Clean up
-                setup.state = SetupState.CLOSED
-                self.active_setups.pop(setup_id, None)
-                logger.info("STOPPED OUT %s @ %.4f (%.2fR) after %d bars",
-                            setup.symbol, fill_price, realized_r, setup.bars_held_1h)
-                break
-
-    async def _on_terminal(self, oms_order_id: str | None, etype: Any) -> None:
-        """Clean up on cancel/reject/expire."""
-        if not oms_order_id:
-            return
-        setup_id = self._order_to_setup.pop(oms_order_id, None)
-        if setup_id:
-            logger.info("Order %s terminal (%s) for setup %s", oms_order_id, etype, setup_id[:8])
-
-            setup = self.pending_setups.get(setup_id) or self.active_setups.get(setup_id)
-            if self._kit and setup:
-                status_map = {
-                    OMSEventType.ORDER_REJECTED: "REJECTED",
-                    OMSEventType.ORDER_CANCELLED: "CANCELLED",
-                    OMSEventType.ORDER_EXPIRED: "EXPIRED",
-                }
-                self._kit.on_order_event(
-                    order_id=oms_order_id,
-                    pair=setup.symbol,
-                    side="LONG" if setup.direction == Direction.LONG else "SHORT",
-                    order_type="STOP_LIMIT",
-                    status=status_map.get(etype, "CANCELLED"),
-                    requested_qty=float(setup.qty_planned),
-                    requested_price=setup.bos_level,
-                    strategy_id=STRATEGY_ID,
-                )
-
     # ------------------------------------------------------------------
     # Live market data helpers
     # ------------------------------------------------------------------
 
     def _get_current_price(self, sym: str) -> float:
-        """Best available current price: live ticker → 1H close fallback."""
+        """Best available current price: live ticker ??1H close fallback."""
         ticker = self._tickers.get(sym)
         if ticker is not None:
             last = getattr(ticker, 'last', None)
@@ -2747,7 +2961,7 @@ class HelixEngine:
     # ------------------------------------------------------------------
 
     def _on_ticker_update(self, tickers: set) -> None:
-        """pendingTickersEvent callback — primary trigger detector."""
+        """pendingTickersEvent callback ??primary trigger detector."""
         now = datetime.now(timezone.utc)
         try:
             now_et = now.astimezone(ET)
@@ -3023,3 +3237,4 @@ class HelixEngine:
         if con_id and con_id in self._contract_symbol_by_conid:
             return self._contract_symbol_by_conid[con_id]
         return str(getattr(contract, "symbol", "") or "").upper()
+

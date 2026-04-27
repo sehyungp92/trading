@@ -8,6 +8,9 @@ from datetime import datetime, timezone
 
 import numpy as np
 
+from backtests.shared.parity.decision_capture import normalize_decision_stream
+from backtests.shared.parity.legacy_result_outputs import trade_outcomes_from_records
+from backtests.shared.parity.replay_driver import ReplayStep, run_replay
 from backtests.swing.config_brs import BRSConfig, BRSSymbolConfig
 from backtests.swing.data.preprocessing import NumpyBars
 from backtests.swing.engine.backtest_engine import SymbolResult, TradeRecord
@@ -72,6 +75,19 @@ from strategies.swing.brs.signals import (
     check_s3,
     check_s3_arm,
 )
+from strategies.swing.brs.core import logic as brs_core_logic
+from strategies.swing.brs.core.state import (
+    BRSAddOnRequest,
+    BRSCoreState,
+    BRSEntryFillContext,
+    BRSEntryRequest,
+    BRSFill,
+    BRSFlattenRequest,
+    BRSOrderUpdate,
+    BRSScaleOutRequest,
+    BRSStopUpdateRequest,
+)
+from strategies.swing.brs.positions import PendingOrder
 from strategies.swing.brs.sizing import compute_position_size
 
 logger = logging.getLogger(__name__)
@@ -201,6 +217,10 @@ class BRSEngine:
         self._last_daily_idx = -1
         self._last_4h_idx = -1
 
+        # Core state for thin-driver event capture
+        self._core_state = BRSCoreState()
+        self._decision_events: list = []
+
     def run(
         self,
         daily: NumpyBars,
@@ -233,8 +253,27 @@ class BRSEngine:
             equity_curve=np.array(self.equity_curve, dtype=np.float64) + equity_offset,
             timestamps=np.array(self.timestamps),
             total_commission=self.total_commission,
+            decision_stream=normalize_decision_stream(self._decision_events),
+            trade_outcomes=trade_outcomes_from_records(self.trades),
         )
         result.crisis_state_log = self.crisis_state_log  # type: ignore[attr-defined]
+        return result
+
+    # ------------------------------------------------------------------
+    # Core replay driver (thin-driver event capture)
+    # ------------------------------------------------------------------
+
+    def _replay_core_step(self, *, bar_input=None, order_updates=None, fills=None):
+        """Delegate to shared core logic for decision event capture."""
+        result = run_replay(
+            self._core_state,
+            steps=[ReplayStep(bar_input=bar_input, order_updates=order_updates or [], fills=fills or [])],
+            on_bar=lambda state, payload: brs_core_logic.on_bar(state, **payload),
+            on_order_update=brs_core_logic.on_order_update,
+            on_fill=brs_core_logic.on_fill,
+        )
+        self._core_state = result.state
+        self._decision_events.extend(result.events)
         return result
 
     def _prepare_run_context(
@@ -500,6 +539,12 @@ class BRSEngine:
             if self._pending_partial_order_id == fill.order.order_id:
                 self._pending_partial_order_id = None
                 self._pending_partial_qty = 0
+            _role_map = {"entry": "entry", "add_on": "pyramid", "partial": "scale_out",
+                         "protective_stop": "stop", "exit": "flatten"}
+            self._replay_core_step(order_updates=[BRSOrderUpdate(
+                oms_order_id=fill.order.order_id, status=fill.status.name.lower(),
+                order_role=_role_map.get(fill.order.tag, "unknown"), symbol=self.symbol,
+            )])
             return
 
         if fill.status != FillStatus.FILLED:
@@ -588,6 +633,19 @@ class BRSEngine:
         if self._protective_stop_live:
             self._sync_protective_stop(bar_time)
 
+        # Core notification: entry fill + protective stop registration
+        self._replay_core_step(fills=[BRSFill(
+            oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
+            fill_qty=fill.order.qty, fill_time=bar_time, commission=fill.commission,
+            symbol=self.symbol,
+            entry_context=BRSEntryFillContext(
+                cooldown_until=None,
+                reset_arm_state=pending.signal.entry_type,
+                reset_short_bias=True,
+                tranche_b_qty=self._pos_original_qty - self._pos_qty if self._pos_tranche_b_open else 0,
+            ),
+        )])
+
     def _on_add_fill(self, fill: FillResult, bar_time: datetime, _bar_idx: int) -> None:
         pending = self._pending_add
         if pending is None or fill.order.order_id != pending.order_id or not self._in_position:
@@ -611,6 +669,13 @@ class BRSEngine:
         self._pyramid_count += 1
         if self._protective_stop_live:
             self._sync_protective_stop(bar_time)
+
+        # Core notification: add-on fill
+        self._replay_core_step(fills=[BRSFill(
+            oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
+            fill_qty=fill.order.qty, fill_time=bar_time, commission=fill.commission,
+            symbol=self.symbol,
+        )])
 
     def _on_partial_fill(self, fill: FillResult, bar_time: datetime, _bar_idx: int) -> None:
         if (
@@ -649,10 +714,24 @@ class BRSEngine:
 
         if self._pos_qty <= 0:
             self._finalize_flat_position()
+
+            # Core notification: partial fill that closed position
+            self._replay_core_step(fills=[BRSFill(
+                oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
+                fill_qty=qty, fill_time=bar_time, commission=fill.commission,
+                symbol=self.symbol,
+            )])
             return
 
         if self._protective_stop_live:
             self._sync_protective_stop(bar_time)
+
+        # Core notification: partial fill
+        self._replay_core_step(fills=[BRSFill(
+            oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
+            fill_qty=qty, fill_time=bar_time, commission=fill.commission,
+            symbol=self.symbol,
+        )])
 
     def _on_exit_fill(self, fill: FillResult, bar_time: datetime, bar_idx: int) -> None:
         if (
@@ -665,11 +744,27 @@ class BRSEngine:
         reason = self._pending_exit_reason or ExitReason.TIME_DECAY.value
         self._pending_exit_order_id = None
         self._pending_exit_reason = ""
+
+        # Core notification: flatten fill
+        self._replay_core_step(fills=[BRSFill(
+            oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
+            fill_qty=self._pos_qty, fill_time=bar_time, commission=fill.commission,
+            symbol=self.symbol, exit_type=reason,
+        )])
+
         self._close_full_position(fill.fill_price, bar_time, reason, fill.commission, bar_idx)
 
     def _on_stop_fill(self, fill: FillResult, bar_time: datetime, bar_idx: int) -> None:
         if not self._in_position:
             return
+
+        # Core notification: stop fill
+        self._replay_core_step(fills=[BRSFill(
+            oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
+            fill_qty=self._pos_qty, fill_time=bar_time, commission=fill.commission,
+            symbol=self.symbol, exit_type=ExitReason.STOP.value,
+        )])
+
         self._close_full_position(fill.fill_price, bar_time, ExitReason.STOP.value, fill.commission, bar_idx)
 
     def _manage_position(self, h: HourlyContext, bar_time: datetime, bar_idx: int) -> None:
@@ -728,6 +823,10 @@ class BRSEngine:
         self._pos_current_stop = new_stop
         self._pos_be_triggered = new_be
         if stop_changed:
+            # Core notification: stop update
+            self._replay_core_step(bar_input={"bar_ts": bar_time, "stop_update": BRSStopUpdateRequest(
+                symbol=self.symbol, stop_price=new_stop, qty=self._pos_qty, reason="trail",
+            )})
             self._sync_protective_stop(bar_time)
 
         if (
@@ -929,6 +1028,15 @@ class BRSEngine:
             quality_score=signal.quality_score,
         )
 
+        # Core notification: entry requested + order registered
+        self._replay_core_step(bar_input={"bar_ts": bar_time, "entry_request": BRSEntryRequest(
+            client_order_id=order_id, symbol=self.symbol, signal=signal, qty=qty, pos_id=order_id,
+        )})
+        self._core_state.pending_orders[order_id] = PendingOrder(
+            oms_order_id=order_id, symbol=self.symbol, role="entry", qty=qty,
+            signal=signal, pos_id=order_id,
+        )
+
     def _submit_market_exit(self, reason: str, bar_time: datetime) -> None:
         if not self._in_position or self._pending_exit_order_id is not None:
             return
@@ -950,6 +1058,11 @@ class BRSEngine:
         self._pending_exit_order_id = order_id
         self._pending_exit_reason = reason
 
+        # Core notification: flatten requested
+        self._replay_core_step(bar_input={"bar_ts": bar_time, "flatten_request": BRSFlattenRequest(
+            symbol=self.symbol, reason=reason,
+        )})
+
     def _submit_partial_exit(self, qty: int, bar_time: datetime) -> None:
         if not self._in_position or qty <= 0 or qty > self._pos_qty or self._pending_partial_order_id is not None:
             return
@@ -970,6 +1083,16 @@ class BRSEngine:
         )
         self._pending_partial_order_id = order_id
         self._pending_partial_qty = qty
+
+        # Core notification: scale_out requested + order registered
+        self._replay_core_step(bar_input={"bar_ts": bar_time, "scale_out_request": BRSScaleOutRequest(
+            client_order_id=order_id, symbol=self.symbol, qty=qty,
+            limit_price=0.0, pos_id=self._campaign_id,
+        )})
+        self._core_state.pending_orders[order_id] = PendingOrder(
+            oms_order_id=order_id, symbol=self.symbol, role="scale_out", qty=qty,
+            pos_id=self._campaign_id,
+        )
 
     def _submit_add_order(self, signal: EntrySignal, bar_time: datetime, bar_idx: int) -> None:
         if not self._in_position or self._pending_add is not None:
@@ -1007,6 +1130,16 @@ class BRSEngine:
             signal_bar_index=bar_idx,
         )
 
+        # Core notification: add-on requested + order registered
+        self._replay_core_step(bar_input={"bar_ts": bar_time, "add_on_request": BRSAddOnRequest(
+            client_order_id=order_id, symbol=self.symbol, signal=signal, qty=add_qty,
+            pos_id=self._campaign_id,
+        )})
+        self._core_state.pending_orders[order_id] = PendingOrder(
+            oms_order_id=order_id, symbol=self.symbol, role="pyramid", qty=add_qty,
+            signal=signal, pos_id=self._campaign_id,
+        )
+
     def _sync_protective_stop(self, bar_time: datetime) -> None:
         self.broker.cancel_orders(self.symbol, tag="protective_stop")
         if (
@@ -1018,9 +1151,10 @@ class BRSEngine:
             return
 
         stop_side = OrderSide.SELL if self._pos_direction == Direction.LONG else OrderSide.BUY
+        stop_order_id = self.broker.next_order_id()
         self.broker.submit_order(
             SimOrder(
-                order_id=self.broker.next_order_id(),
+                order_id=stop_order_id,
                 symbol=self.symbol,
                 side=stop_side,
                 order_type=OrderType.STOP,
@@ -1032,6 +1166,11 @@ class BRSEngine:
                 tag="protective_stop",
             )
         )
+
+        # Core notification: register stop order ID for fill matching
+        pos = self._core_state.position.get(self.symbol)
+        if pos is not None:
+            pos.stop_oms_id = stop_order_id
 
     def _activate_protective_stop_if_due(self, bar_time: datetime) -> None:
         if not self._in_position or self._protective_stop_live or self._pos_qty <= 0:
@@ -1427,10 +1566,16 @@ class BRSEngine:
         if last_price <= 0.0 or np.isnan(last_price):
             last_price = self._pos_entry_price
 
+        # Core notification: flatten at end of data
+        self._replay_core_step(bar_input={"bar_ts": last_time, "flatten_request": BRSFlattenRequest(
+            symbol=self.symbol, reason=exit_reason,
+        )})
+
         exit_side = OrderSide.SELL if self._pos_direction == Direction.LONG else OrderSide.BUY
+        eod_order_id = self.broker.next_order_id()
         fill = self.broker._fill_market(
             SimOrder(
-                order_id=self.broker.next_order_id(),
+                order_id=eod_order_id,
                 symbol=self.symbol,
                 side=exit_side,
                 order_type=OrderType.MARKET,
@@ -1444,6 +1589,14 @@ class BRSEngine:
             last_price,
             _TICK_SIZE,
         )
+
+        # Core notification: end-of-data fill
+        self._replay_core_step(fills=[BRSFill(
+            oms_order_id=eod_order_id, fill_price=fill.fill_price,
+            fill_qty=self._pos_qty, fill_time=last_time, commission=fill.commission,
+            symbol=self.symbol, exit_type=exit_reason,
+        )])
+
         self._close_full_position(fill.fill_price, last_time, exit_reason, fill.commission, last_index)
 
     def _finalize_flat_position(self) -> None:

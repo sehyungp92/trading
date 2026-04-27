@@ -18,6 +18,7 @@ from backtests.shared.auto.plugin_utils import (
     deserialize_experiments,
     greedy_result_from_state,
     greedy_result_to_dict,
+    mutation_signature,
     resolve_worker_processes,
     seen_experiment_names,
 )
@@ -124,38 +125,35 @@ def score_phase_metrics(
     return composite_score(metrics, weights)
 
 
-class _PoolBatchEvaluator:
+class _SharedPoolBatchEvaluator:
     def __init__(
         self,
-        data_dir: Path,
-        initial_equity: float,
+        pool: mp.Pool,
         phase: int,
         scoring_weights: dict[str, float] | None,
         hard_rejects: dict[str, float] | None,
-        max_workers: int | None,
+        on_terminate,
     ):
-        from .worker import init_worker
-
-        processes = resolve_worker_processes(max_workers)
-        self._pool = mp.Pool(
-            processes=processes,
-            initializer=init_worker,
-            initargs=(str(data_dir), initial_equity, phase, scoring_weights, hard_rejects),
-        )
+        self._pool = pool
+        self._phase = phase
+        self._scoring_weights = scoring_weights
+        self._hard_rejects = hard_rejects
+        self._on_terminate = on_terminate
 
     def __call__(self, candidates: list[Experiment], current_mutations: dict[str, Any]):
         from .worker import score_candidate
 
-        args = [(candidate.name, candidate.mutations, current_mutations) for candidate in candidates]
+        args = [
+            (candidate.name, candidate.mutations, current_mutations, self._phase, self._scoring_weights, self._hard_rejects)
+            for candidate in candidates
+        ]
         return self._pool.map(score_candidate, args)
 
     def close(self) -> None:
-        self._pool.close()
-        self._pool.join()
+        pass
 
     def terminate(self) -> None:
-        self._pool.terminate()
-        self._pool.join()
+        self._on_terminate()
 
 
 class _SequentialBatchEvaluator:
@@ -178,13 +176,16 @@ class _SequentialBatchEvaluator:
         if self._initialised:
             return
         from .worker import init_worker
-        init_worker(str(self._data_dir), self._initial_equity, self._phase, self._scoring_weights, self._hard_rejects)
+        init_worker(str(self._data_dir), self._initial_equity)
         self._initialised = True
 
     def __call__(self, candidates: list[Experiment], current_mutations: dict[str, Any]):
         self._ensure_init()
         from .worker import score_candidate
-        return [score_candidate((c.name, c.mutations, current_mutations)) for c in candidates]
+        return [
+            score_candidate((c.name, c.mutations, current_mutations, self._phase, self._scoring_weights, self._hard_rejects))
+            for c in candidates
+        ]
 
     def close(self) -> None:
         pass
@@ -212,9 +213,13 @@ class DownturnPlugin:
         self.initial_equity = initial_equity
         self.max_workers = max_workers
         self.num_phases = num_phases
-        self._cached_data: dict[str, Any] | None = None
+        self._cached_bundle = None
         self._last_context: dict[str, Any] = {}
+        self._pool: mp.Pool | None = None
         self._final_metrics_cache: dict[str, dict[str, Any]] = {}
+        self._evaluation_cache: dict[str, Any] = {}
+        self._metrics_cache: dict[str, dict[str, float]] = {}
+        self._cache_source_fingerprint: str = ""
 
     def get_phase_spec(self, phase: int, state: PhaseState) -> PhaseSpec:
         focus, focus_metrics = PHASE_FOCUS[phase]
@@ -256,10 +261,24 @@ class DownturnPlugin:
         scoring_weights: dict[str, float] | None = None,
         hard_rejects: dict[str, float] | None = None,
     ):
+        evaluation_key = build_cache_key(
+            "downturn.evaluation",
+            source_fingerprint=self._replay_bundle().cache_source_fingerprint,
+            extra={
+                "phase": phase,
+                "scoring_weights": scoring_weights or {},
+                "hard_rejects": hard_rejects or {},
+            },
+        )
+
         def make_parallel():
-            return _PoolBatchEvaluator(
-                self.data_dir, self.initial_equity, phase,
-                scoring_weights, hard_rejects, self.max_workers,
+            self._ensure_pool()
+            return _SharedPoolBatchEvaluator(
+                self._pool,
+                phase,
+                scoring_weights,
+                hard_rejects,
+                self._destroy_pool,
             )
 
         def make_sequential():
@@ -269,7 +288,56 @@ class DownturnPlugin:
             )
 
         raw = ResilientBatchEvaluator(make_parallel, make_sequential, description=f"downturn phase {phase}")
-        return CachedBatchEvaluator(raw)
+        return CachedBatchEvaluator(
+            raw,
+            cache=self._evaluation_cache,
+            signature_prefix=evaluation_key,
+            metrics_cache=self._metrics_cache,
+        )
+
+    def _replay_bundle(self):
+        from backtests.momentum.auto.downturn.worker import load_worker_data
+
+        bundle = load_worker_data("NQ", self.data_dir)
+        if self._cache_source_fingerprint != bundle.cache_source_fingerprint:
+            self._metrics_cache.clear()
+            self._evaluation_cache.clear()
+            self._final_metrics_cache.clear()
+            self._last_context = {}
+            self.close_pool()
+            self._cache_source_fingerprint = bundle.cache_source_fingerprint
+        self._cached_bundle = bundle
+        return bundle
+
+    def _ensure_pool(self) -> None:
+        if self._pool is not None:
+            return
+        from .worker import init_worker
+
+        processes = resolve_worker_processes(self.max_workers)
+        self._pool = mp.Pool(
+            processes=processes,
+            initializer=init_worker,
+            initargs=(str(self.data_dir), self.initial_equity),
+        )
+
+    def _destroy_pool(self) -> None:
+        if self._pool is not None:
+            try:
+                self._pool.terminate()
+                self._pool.join()
+            except Exception:
+                pass
+            self._pool = None
+
+    def close_pool(self) -> None:
+        if self._pool is not None:
+            try:
+                self._pool.close()
+                self._pool.join()
+            except Exception:
+                pass
+            self._pool = None
 
     def compute_final_metrics(self, mutations: dict[str, Any]) -> dict[str, float]:
         from backtests.momentum.config_downturn import DownturnBacktestConfig
@@ -277,14 +345,15 @@ class DownturnPlugin:
         from backtests.momentum.engine.downturn_engine import DownturnEngine
         from backtests.momentum.analysis.downturn_diagnostics import compute_downturn_metrics
         from backtests.momentum.auto.downturn.config_mutator import mutate_downturn_config
-        from backtests.momentum.auto.downturn.worker import load_worker_data
 
-        if self._cached_data is None:
-            self._cached_data = load_worker_data("NQ", self.data_dir)
+        replay_bundle = self._replay_bundle()
+        metrics_sig = mutation_signature(mutations)
+        if self._last_context.get("mutation_signature") == metrics_sig:
+            return dict(self._last_context["metrics"])
 
         cache_key = build_cache_key(
             "downturn.final_metrics",
-            source_fingerprint=str(self._cached_data.get("cache_source_fingerprint", "")),
+            source_fingerprint=replay_bundle.cache_source_fingerprint,
             mutations=mutations,
             extra={"initial_equity": self.initial_equity},
         )
@@ -298,17 +367,19 @@ class DownturnPlugin:
             mutations,
         )
         engine = DownturnEngine("NQ", config)
-        result = engine.run(**replay_engine_kwargs(self._cached_data))
-        metrics = compute_downturn_metrics(result, self._cached_data["daily"])
+        result = engine.run(**replay_engine_kwargs(replay_bundle))
+        metrics = compute_downturn_metrics(result, replay_bundle.data["daily"])
+        metrics_dict = asdict(metrics)
         self._last_context = {
+            "mutation_signature": metrics_sig,
             "mutations": dict(mutations),
             "config": config,
             "result": result,
-            "metrics": metrics,
+            "metrics": dict(metrics_dict),
             "trades": result.trades,
             "cache_key": cache_key,
         }
-        metrics_dict = asdict(metrics)
+        self._metrics_cache[metrics_sig] = dict(metrics_dict)
         self._final_metrics_cache[cache_key] = {
             "metrics": dict(metrics_dict),
             "context": self._last_context,

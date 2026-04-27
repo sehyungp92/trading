@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import suppress
+from copy import deepcopy
 from datetime import datetime, time, timezone
 from decimal import Decimal
 from statistics import fmean
@@ -24,9 +25,21 @@ from typing import Any
 from libs.oms.models.events import OMSEventType
 from libs.oms.models.intent import Intent, IntentType
 from libs.oms.models.order import OrderRole
+from strategies.core.actions import CancelAction, FlattenPosition, ReplaceProtectiveStop, SubmitEntry, SubmitMarketExit, SubmitProtectiveStop
 
 from .artifact_store import IntradayStateSnapshot, load_intraday_state, persist_intraday_state
 from .config import ET, PROXY_SYMBOLS, STRATEGY_ID, StrategySettings, build_proxy_instruments
+from .core import logic as iaric_core_logic
+from .core.logic import apply_core_state as apply_core_runtime_state
+from .core.logic import build_core_state as build_core_runtime_state
+from .core.state import (
+    IARICEntryRequest,
+    IARICFill,
+    IARICFlattenRequest,
+    IARICOrderUpdate,
+    IARICPartialExitRequest,
+    IARICStopUpdateRequest,
+)
 from .data import CanonicalBarBuilder
 from .diagnostics import JsonlDiagnostics
 from .execution import build_entry_order, build_market_exit, build_position_from_fill, build_stock_instrument, build_stop_order
@@ -53,7 +66,6 @@ from .models import (
     WatchlistArtifact,
 )
 from .risk import adjust_qty_for_portfolio_constraints, compute_order_quantity, timing_gate_allows_entry, weekday_sizing_multiplier
-from .signals import compute_entry_score_bundle
 
 logger = logging.getLogger(__name__)
 
@@ -221,6 +233,15 @@ class IARICEngine:
 
         Accepts legacy SymbolIntradayState objects for backward compatibility.
         """
+        restored_core = True
+        for stored in snapshot.symbols:
+            if not isinstance(stored, (PBSymbolState, SymbolIntradayState)):
+                restored_core = False
+                break
+        if restored_core:
+            apply_core_runtime_state(self, snapshot)
+            return
+
         self._active_symbols = set(snapshot.meta.get("active_symbols", self._active_symbols))
         for stored in snapshot.symbols:
             symbol_name = stored.symbol
@@ -273,13 +294,7 @@ class IARICEngine:
                     self._order_index[stored.exit_order.oms_order_id] = (symbol_name, stored.exit_order.role)
 
     def snapshot_state(self) -> IntradayStateSnapshot:
-        return IntradayStateSnapshot(
-            trade_date=self._artifact.trade_date,
-            saved_at=datetime.now(timezone.utc),
-            symbols=list(self._symbols.values()),
-            last_decision_code="snapshot",
-            meta={"active_symbols": sorted(self._active_symbols)},
-        )
+        return build_core_runtime_state(self)
 
     def subscription_instruments(self) -> list:
         instruments = build_proxy_instruments()
@@ -521,34 +536,39 @@ class IARICEngine:
                              route="ENTRY_CHECK")
             return
 
-        bars = state.bars_seen_today
+        bar_idx = max(state.bars_seen_today - 1, 0)
+        if iaric_core_logic.maybe_reset_invalidated_state(state, bar_idx):
+            pass
+        elif state.stage == "INVALIDATED":
+            return
 
-        # Route 1: OPENING_RECLAIM (bars < flush_window + acceptance)
-        flush_limit = cfg.pb_flush_window_bars + cfg.pb_ready_acceptance_bars
-        if cfg.pb_opening_reclaim_enabled and 1 <= bars <= flush_limit:
-            if self._try_opening_reclaim(symbol, bar_5m, now):
-                return
+        if state.stage in {"FLUSH_LOCKED", "RECLAIMING"}:
+            self._try_opening_reclaim(symbol, bar_5m, now)
+            return
 
-        # Route 2: OPEN_SCORED_ENTRY (bars 1+)
-        if cfg.pb_open_scored_enabled and bars >= 1:
+        if state.stage == "READY":
+            self._try_ready_entry(symbol, bar_5m, now)
+            return
+
+        if state.stage != "WATCHING":
+            return
+
+        if cfg.pb_opening_reclaim_enabled and self._try_opening_reclaim(symbol, bar_5m, now):
+            return
+
+        if cfg.pb_open_scored_enabled and bar_idx >= 0:
             if cfg.pb_v2_enabled or self._open_scored_count < cfg.pb_v2_open_scored_max_slots:
                 if self._try_open_scored_entry(symbol, bar_5m, now):
                     return
 
-        # Route 3: DELAYED_CONFIRM (bars 6+)
-        if cfg.pb_delayed_confirm_enabled and bars >= cfg.pb_delayed_confirm_after_bar:
-            if self._try_delayed_confirm(symbol, bar_5m, now):
-                return
+        if cfg.pb_delayed_confirm_enabled and self._try_delayed_confirm(symbol, bar_5m, now):
+            return
 
-        # Route 4: VWAP_BOUNCE (bars 12+)
-        if cfg.pb_v2_vwap_bounce_enabled and bars >= cfg.pb_v2_vwap_bounce_after_bar:
-            if self._try_vwap_bounce(symbol, bar_5m, now):
-                return
+        if cfg.pb_v2_vwap_bounce_enabled and self._try_vwap_bounce(symbol, bar_5m, now):
+            return
 
-        # Route 5: AFTERNOON_RETEST (bars 48+)
-        if cfg.pb_v2_afternoon_retest_enabled and bars >= cfg.pb_v2_afternoon_retest_after_bar:
-            if self._try_afternoon_retest(symbol, bar_5m, now):
-                return
+        if cfg.pb_v2_afternoon_retest_enabled:
+            self._try_afternoon_retest(symbol, bar_5m, now)
 
     def _session_atr(self, symbol: str) -> float:
         """Estimate intraday ATR from accumulated 5m bars."""
@@ -567,145 +587,34 @@ class IARICEngine:
 
     def _initial_stop(self, setup_low: float, daily_atr: float, session_atr: float) -> float:
         """Compute initial stop: session ATR based with daily ATR cap (research parity)."""
-        cfg = self._settings
-        daily_cap = cfg.pb_stop_daily_atr_cap * max(daily_atr, 0.0)
-        if daily_cap > 0:
-            buffer = min(cfg.pb_stop_session_atr_mult * session_atr, daily_cap)
-        else:
-            buffer = cfg.pb_stop_session_atr_mult * session_atr
-        return max(setup_low - max(buffer, 0.01), 0.01)
+        return iaric_core_logic.compute_initial_stop(self._settings, setup_low, daily_atr, session_atr)
 
     def _volume_ratio(self, bar: Bar, symbol: str) -> float:
         """Compute bar volume / expected 5m volume."""
-        item = self._items.get(symbol)
-        if item is None or item.expected_5m_volume <= 0:
-            return 1.0
-        return bar.volume / max(item.expected_5m_volume, 1.0)
+        return iaric_core_logic.compute_volume_ratio(bar, self._items.get(symbol))
 
     def _try_opening_reclaim(self, symbol: str, bar_5m: Bar, now: datetime) -> bool:
-        """Opening reclaim: flush detection, per-bar reclaim updates, multi-bar
-        RECLAIMING acceptance, PM reentry (research parity)."""
         state = self._symbols[symbol]
-        item = self._items[symbol]
-        cfg = self._settings
         market = self._markets[symbol]
-        session_atr = self._session_atr(symbol)
-        bar_idx = state.bars_seen_today
-
-        if state.daily_signal_score < cfg.pb_opening_reclaim_min_daily_signal_score:
-            return False
-
-        if state.stage == "WATCHING":
-            atr_val = state.daily_atr
-            session_low = min(state.session_low if state.session_low > 0 else bar_5m.low, bar_5m.low)
-            first_bar_open = market.minute_bars[0].open if market.minute_bars else bar_5m.open
-            flush_distance = (first_bar_open - session_low) / max(session_atr, 0.01)
-
-            flush_bar = (
-                bar_idx < cfg.pb_flush_window_bars
-                and flush_distance >= cfg.pb_flush_min_atr
-                and bar_5m.cpr <= cfg.pb_flush_cpr_max
-            )
-            # PM reentry: stopped out today, afternoon, green bar, above VWAP, accumulate
-            pm_reentry_signal = (
-                state.stopped_out_today
-                and cfg.pb_pm_reentry
-                and bar_idx >= cfg.pb_pm_reentry_after_bar
-                and bar_5m.close > bar_5m.open
-                and market.session_vwap is not None
-                and bar_5m.close >= market.session_vwap
-                and self._compute_micropressure(symbol, bar_5m) == "ACCUMULATE"
-            )
-
-            if flush_bar or pm_reentry_signal:
-                state.stage = "FLUSH_LOCKED"
-                state.route_family = "OPENING_RECLAIM"
-                state.setup_low = session_low
-                state.flush_bar_idx = bar_idx
-                # Reclaim level + stop computed per-bar in FLUSH_LOCKED below
-                vwap = market.session_vwap or bar_5m.close
-                reclaim_anchor = max(
-                    bar_5m.high - cfg.pb_reclaim_offset_atr * session_atr,
-                    vwap - cfg.pb_ready_vwap_buffer_atr * session_atr,
-                )
-                state.reclaim_level = max(reclaim_anchor, session_low + session_atr * 0.25)
-                state.stop_level = self._initial_stop(session_low, state.daily_atr, session_atr)
-                state.last_transition_reason = "flush_detected"
-                return False
-
-        if state.stage == "FLUSH_LOCKED":
-            # Per-bar updates (research parity)
-            state.setup_low = min(state.setup_low, bar_5m.low)
-            vwap = market.session_vwap or bar_5m.close
-            reclaim_anchor = max(
-                bar_5m.high - cfg.pb_reclaim_offset_atr * session_atr,
-                vwap - cfg.pb_ready_vwap_buffer_atr * session_atr,
-            )
-            state.reclaim_level = max(reclaim_anchor, state.setup_low + session_atr * 0.25)
-            state.stop_level = self._initial_stop(state.setup_low, state.daily_atr, session_atr)
-
-            if bar_5m.close >= state.reclaim_level or bar_5m.high >= state.reclaim_level:
-                state.stage = "RECLAIMING"
-                state.required_acceptance = max(1, cfg.pb_ready_acceptance_bars)
-                state.acceptance_count = 0
-                state.last_transition_reason = "reclaim_hit"
-            elif bar_idx >= cfg.pb_flush_window_bars + cfg.pb_ready_acceptance_bars:
-                state.stage = "INVALIDATED"
-                state.last_transition_reason = "flush_stale"
-            return False
-
-        if state.stage == "RECLAIMING":
-            # Invalidate if price breaks below stop or setup_low
-            if bar_5m.low <= state.stop_level or bar_5m.close < state.setup_low:
-                state.stage = "INVALIDATED"
-                state.last_transition_reason = "reclaim_failed"
-                return False
-
-            micro = self._compute_micropressure(symbol, bar_5m)
-            volume_ok = self._volume_ratio(bar_5m, symbol) >= cfg.pb_ready_min_volume_ratio
-            cpr_ok = bar_5m.cpr >= cfg.pb_ready_min_cpr
-            vwap_ok = (
-                market.session_vwap is None
-                or bar_5m.close >= market.session_vwap - cfg.pb_ready_vwap_buffer_atr * session_atr
-            )
-
-            if (bar_5m.close >= state.reclaim_level and bar_5m.close > bar_5m.open
-                    and cpr_ok and volume_ok and vwap_ok and micro != "DISTRIBUTE"):
-                state.acceptance_count += 1
-            elif bar_5m.close < state.reclaim_level:
-                state.acceptance_count = max(state.acceptance_count - 1, 0)
-
-            if state.acceptance_count >= state.required_acceptance:
-                # Compute entry score
-                score, components = compute_entry_score_bundle(
-                    bar=bar_5m,
-                    daily_signal_score=state.daily_signal_score,
-                    session_vwap=market.session_vwap,
-                    reclaim_level=state.reclaim_level,
-                    stop_level=state.stop_level,
-                    daily_atr=state.daily_atr,
-                    volume_ratio=self._volume_ratio(bar_5m, symbol),
-                    ready_min_volume_ratio=cfg.pb_ready_min_volume_ratio,
-                    micropressure=micro,
-                    rescue_candidate=state.rescue_flow_candidate,
-                    route_family="OPENING_RECLAIM",
-                    flush_bar_idx=state.flush_bar_idx,
-                    bar_idx=bar_idx,
-                    config=cfg,
-                )
-                state.intraday_score = score
-                state.score_components = components
-                state.entry_atr = session_atr
-                self._fire_entry(symbol, bar_5m, now, "OPENING_RECLAIM")
-                return True
-
-        return False
+        step = iaric_core_logic.advance_opening_reclaim_route(
+            self._settings,
+            state,
+            self._items[symbol],
+            bar_5m,
+            market,
+            max(state.bars_seen_today - 1, 0),
+            self._session_atr(symbol),
+            bars=list(market.bars_5m),
+        )
+        if step is not None and step.stage == "READY":
+            state.entry_atr = self._session_atr(symbol)
+        return step is not None
 
     def _try_open_scored_entry(self, symbol: str, bar_5m: Bar, now: datetime) -> bool:
         """Open-scored entry: score-ranked broad entry for qualified candidates."""
         state = self._symbols[symbol]
-        cfg = self._settings
         market = self._markets[symbol]
+        cfg = self._settings
 
         if state.daily_signal_score < cfg.pb_open_scored_min_score:
             return False
@@ -715,30 +624,26 @@ class IARICEngine:
         reclaim_lvl = state.reclaim_level if state.reclaim_level > 0 else bar_5m.close
         setup = state.setup_low if state.setup_low > 0 else session_low
         stop = self._initial_stop(setup, state.daily_atr, session_atr)
-
-        score, components = compute_entry_score_bundle(
-            bar=bar_5m,
-            daily_signal_score=state.daily_signal_score,
-            session_vwap=market.session_vwap,
-            reclaim_level=reclaim_lvl,
-            stop_level=stop,
-            daily_atr=state.daily_atr,
-            volume_ratio=self._volume_ratio(bar_5m, symbol),
-            ready_min_volume_ratio=cfg.pb_ready_min_volume_ratio,
-            micropressure=self._compute_micropressure(symbol, bar_5m),
-            rescue_candidate=state.rescue_flow_candidate,
-            route_family="OPEN_SCORED_ENTRY",
-            flush_bar_idx=0,
-            bar_idx=state.bars_seen_today,
-            config=cfg,
+        state.route_family = "OPEN_SCORED_ENTRY"
+        state.setup_low = session_low
+        state.reclaim_level = reclaim_lvl
+        state.stop_level = stop
+        state.flush_bar_idx = 0
+        bundle = iaric_core_logic.compute_route_entry_score_bundle(
+            cfg,
+            state,
+            self._items[symbol],
+            bar_5m,
+            market,
+            max(state.bars_seen_today - 1, 0),
+            bars=list(market.bars_5m),
         )
+        score = float(bundle["score"])
+        components = dict(bundle)
 
         if score >= cfg.pb_entry_score_min:
-            state.route_family = "OPEN_SCORED_ENTRY"
             state.intraday_score = score
             state.score_components = components
-            state.setup_low = session_low
-            state.stop_level = stop
             state.entry_atr = session_atr
             self._fire_entry(symbol, bar_5m, now, "OPEN_SCORED_ENTRY")
             self._open_scored_count += 1
@@ -749,210 +654,78 @@ class IARICEngine:
         return False
 
     def _try_delayed_confirm(self, symbol: str, bar_5m: Bar, now: datetime) -> bool:
-        """Delayed confirmation: mid-morning entry after acceptance."""
         state = self._symbols[symbol]
         market = self._markets[symbol]
-        cfg = self._settings
-
-        # Stopped out today gate (research parity)
-        if state.stopped_out_today:
-            self._log_missed(symbol=symbol, blocked_by="stopped_out_today",
-                             block_reason="same_day_stop_gate", exchange_timestamp=now,
-                             route="DELAYED_CONFIRM")
-            return False
-        if state.rescue_flow_candidate and not cfg.pb_v2_delayed_confirm_allow_rescue:
-            return False
-        # Use correct param: pb_delayed_confirm_min_daily_signal_score (35.0)
-        if state.daily_signal_score < cfg.pb_delayed_confirm_min_daily_signal_score:
-            return False
-
-        vwap = market.session_vwap
-        if vwap is None:
-            return False
-        session_atr = self._session_atr(symbol)
-
-        # V2 gates (research parity): green bar, close_pct, volume, VWAP
-        # tolerance (backtest V2 hardcodes 0.50 ATR), no distribution
-        if bar_5m.close <= bar_5m.open:
-            return False
-        if bar_5m.close < vwap - 0.50 * session_atr:
-            return False
-
-        micro = self._compute_micropressure(symbol, bar_5m)
-        if micro == "DISTRIBUTE":
-            return False
-        if bar_5m.cpr < cfg.pb_v2_delayed_confirm_min_close_pct:
-            return False
-        if self._volume_ratio(bar_5m, symbol) < cfg.pb_v2_delayed_confirm_vol_ratio:
-            return False
-
-        session_low = min(state.session_low if state.session_low > 0 else bar_5m.low, bar_5m.low)
-        state.route_family = "DELAYED_CONFIRM"
-        state.setup_low = session_low
-        state.reclaim_level = max(vwap, session_low + session_atr * 0.35)
-        state.stop_level = self._initial_stop(session_low, state.daily_atr, session_atr)
-        state.entry_atr = session_atr
-
-        # Compute entry score
-        score, components = compute_entry_score_bundle(
-            bar=bar_5m,
-            daily_signal_score=state.daily_signal_score,
-            session_vwap=vwap,
-            reclaim_level=state.reclaim_level,
-            stop_level=state.stop_level,
-            daily_atr=state.daily_atr,
-            volume_ratio=self._volume_ratio(bar_5m, symbol),
-            ready_min_volume_ratio=cfg.pb_ready_min_volume_ratio,
-            micropressure=micro,
-            rescue_candidate=state.rescue_flow_candidate,
-            route_family="DELAYED_CONFIRM",
-            flush_bar_idx=max(0, state.bars_seen_today - cfg.pb_delayed_confirm_after_bar + 1),
-            bar_idx=state.bars_seen_today,
-            config=cfg,
+        step = iaric_core_logic.activate_delayed_confirm_route(
+            self._settings,
+            state,
+            self._items[symbol],
+            bar_5m,
+            market,
+            max(state.bars_seen_today - 1, 0),
+            self._session_atr(symbol),
+            bars=list(market.bars_5m),
         )
-        state.intraday_score = score
-        state.score_components = components
-
-        if score < cfg.pb_delayed_confirm_score_min:
-            self._log_missed(symbol=symbol, blocked_by="delayed_confirm_score",
-                             block_reason=f"score_{score:.0f}_below_{cfg.pb_delayed_confirm_score_min}",
-                             exchange_timestamp=now, route="DELAYED_CONFIRM")
+        if step is None:
             return False
-
-        self._fire_entry(symbol, bar_5m, now, "DELAYED_CONFIRM")
+        state.entry_atr = self._session_atr(symbol)
         return True
 
     def _try_vwap_bounce(self, symbol: str, bar_5m: Bar, now: datetime) -> bool:
-        """VWAP bounce: touch below VWAP then reclaim above (research parity)."""
         state = self._symbols[symbol]
         market = self._markets[symbol]
-        cfg = self._settings
-        session_atr = self._session_atr(symbol)
-
-        if market.session_vwap is None or market.session_vwap <= 0 or session_atr <= 0:
-            return False
-        if state.stopped_out_today:
-            self._log_missed(symbol=symbol, blocked_by="stopped_out_today",
-                             block_reason="same_day_stop_gate", exchange_timestamp=now,
-                             route="VWAP_BOUNCE")
-            return False
-        if state.rescue_flow_candidate and not cfg.pb_v2_vwap_bounce_allow_rescue:
-            return False
-
-        vwap = market.session_vwap
-
-        # Price must have touched below VWAP in first 12 bars (research parity)
-        touched_below = any(
-            b.low < vwap for b in market.bars_5m[:min(12, len(market.bars_5m))]
+        step = iaric_core_logic.activate_vwap_bounce_route(
+            self._settings,
+            state,
+            self._items[symbol],
+            bar_5m,
+            market,
+            max(state.bars_seen_today - 1, 0),
+            self._session_atr(symbol),
+            bars=list(market.bars_5m),
         )
-        if not touched_below:
+        if step is None:
             return False
-
-        # Current bar closes above VWAP, green bar, volume OK
-        if bar_5m.close <= vwap or bar_5m.close <= bar_5m.open:
-            return False
-        if self._volume_ratio(bar_5m, symbol) < cfg.pb_v2_vwap_bounce_vol_ratio:
-            return False
-        if self._compute_micropressure(symbol, bar_5m) == "DISTRIBUTE":
-            return False
-
-        session_low = min(market.session_low or bar_5m.low, bar_5m.low)
-        state.route_family = "VWAP_BOUNCE"
-        state.setup_low = session_low
-        state.reclaim_level = vwap
-        # Route-specific stop: 0.25 * session_atr (tighter, research parity)
-        state.stop_level = max(session_low - 0.25 * session_atr, 0.01)
-        state.entry_atr = session_atr
-
-        # Compute entry score
-        score, components = compute_entry_score_bundle(
-            bar=bar_5m,
-            daily_signal_score=state.daily_signal_score,
-            session_vwap=vwap,
-            reclaim_level=vwap,
-            stop_level=state.stop_level,
-            daily_atr=state.daily_atr,
-            volume_ratio=self._volume_ratio(bar_5m, symbol),
-            ready_min_volume_ratio=cfg.pb_ready_min_volume_ratio,
-            micropressure=self._compute_micropressure(symbol, bar_5m),
-            rescue_candidate=state.rescue_flow_candidate,
-            route_family="VWAP_BOUNCE",
-            flush_bar_idx=0,
-            bar_idx=state.bars_seen_today,
-            config=cfg,
-        )
-        state.intraday_score = score
-        state.score_components = components
-
-        self._fire_entry(symbol, bar_5m, now, "VWAP_BOUNCE")
+        state.entry_atr = self._session_atr(symbol)
         return True
 
     def _try_afternoon_retest(self, symbol: str, bar_5m: Bar, now: datetime) -> bool:
-        """Afternoon retest: close above VWAP + no distribution volume (research parity)."""
         state = self._symbols[symbol]
         market = self._markets[symbol]
-        cfg = self._settings
-        session_atr = self._session_atr(symbol)
-
-        if state.stopped_out_today:
-            self._log_missed(symbol=symbol, blocked_by="stopped_out_today",
-                             block_reason="same_day_stop_gate", exchange_timestamp=now,
-                             route="AFTERNOON_RETEST")
-            return False
-        if state.rescue_flow_candidate and not cfg.pb_v2_afternoon_retest_allow_rescue:
-            return False
-        if state.daily_signal_score < cfg.pb_v2_afternoon_retest_min_score:
-            return False
-
-        vwap = market.session_vwap
-        if vwap is None:
-            return False
-
-        session_low = min(market.session_low or bar_5m.low, bar_5m.low)
-
-        # Research parity: reject if price near session low (< 95%)
-        if bar_5m.low < 0.95 * session_low:
-            return False
-
-        # Research parity: close above VWAP
-        if bar_5m.close <= vwap:
-            return False
-
-        # No distribution volume (bar volume <= 1.5x average)
-        item = self._items.get(symbol)
-        if item and item.expected_5m_volume > 0:
-            avg_vol = item.expected_5m_volume
-            if bar_5m.volume > 1.5 * avg_vol:
-                return False
-
-        state.route_family = "AFTERNOON_RETEST"
-        state.setup_low = session_low
-        state.reclaim_level = vwap
-        # Route-specific stop: 0.40 * session_atr (research parity)
-        state.stop_level = max(session_low - 0.40 * session_atr, 0.01)
-        state.entry_atr = session_atr
-
-        # Compute entry score
-        score, components = compute_entry_score_bundle(
-            bar=bar_5m,
-            daily_signal_score=state.daily_signal_score,
-            session_vwap=vwap,
-            reclaim_level=vwap,
-            stop_level=state.stop_level,
-            daily_atr=state.daily_atr,
-            volume_ratio=self._volume_ratio(bar_5m, symbol),
-            ready_min_volume_ratio=cfg.pb_ready_min_volume_ratio,
-            micropressure=self._compute_micropressure(symbol, bar_5m),
-            rescue_candidate=state.rescue_flow_candidate,
-            route_family="AFTERNOON_RETEST",
-            flush_bar_idx=0,
-            bar_idx=state.bars_seen_today,
-            config=cfg,
+        step = iaric_core_logic.activate_afternoon_retest_route(
+            self._settings,
+            state,
+            self._items[symbol],
+            bar_5m,
+            market,
+            max(state.bars_seen_today - 1, 0),
+            self._session_atr(symbol),
+            bars=list(market.bars_5m),
         )
-        state.intraday_score = score
-        state.score_components = components
+        if step is None:
+            return False
+        state.entry_atr = self._session_atr(symbol)
+        return True
 
-        self._fire_entry(symbol, bar_5m, now, "AFTERNOON_RETEST")
+    def _try_ready_entry(self, symbol: str, bar_5m: Bar, now: datetime) -> bool:
+        state = self._symbols[symbol]
+        market = self._markets[symbol]
+        step = iaric_core_logic.evaluate_ready_entry(
+            self._settings,
+            state,
+            self._items[symbol],
+            bar_5m,
+            market,
+            max(state.bars_seen_today - 1, 0),
+            self._session_atr(symbol),
+            bars=list(market.bars_5m),
+        )
+        if step is None:
+            return False
+        if step.acceptance is not None:
+            iaric_core_logic.apply_entry_acceptance(state, step.acceptance)
+            state.entry_atr = self._session_atr(symbol)
+            self._fire_entry(symbol, bar_5m, now, step.acceptance.route_family)
         return True
 
     def _fire_entry(self, symbol: str, bar_5m: Bar, now: datetime, route: str) -> None:
@@ -962,16 +735,21 @@ class IARICEngine:
         asyncio.create_task(self._submit_entry(symbol, now, route)).add_done_callback(self._log_task_exception)
 
     def _compute_micropressure(self, symbol: str, bar_5m: Bar) -> str:
-        """Simple micropressure from bar characteristics."""
+        """Route-aligned micropressure proxy from completed 5m bars."""
         market = self._markets.get(symbol)
-        if market is not None and market.tick_pressure_window:
-            uptick = sum(v for _, v in market.tick_pressure_window if v > 0)
-            downtick = abs(sum(v for _, v in market.tick_pressure_window if v < 0))
-            if uptick > 1.5 * max(downtick, 1.0):
-                return "ACCUMULATE"
-            if downtick > 1.5 * max(uptick, 1.0):
-                return "DISTRIBUTE"
-        return "NEUTRAL"
+        item = self._items.get(symbol)
+        state = self._symbols.get(symbol)
+        if market is None or item is None or state is None:
+            return "NEUTRAL"
+        bars = list(market.bars_5m)
+        if not bars:
+            bars = [bar_5m]
+        return iaric_core_logic.micropressure_label(
+            bars,
+            len(bars) - 1,
+            state.reclaim_level if state.reclaim_level > 0 else bar_5m.close,
+            item,
+        )
 
     # ── Position management ─────────────────────────────────────────
 
@@ -1026,9 +804,22 @@ class IARICEngine:
 
         if new_stop > state.stop_level:
             old_stop = state.stop_level
-            state.stop_level = new_stop
-            if position.stop_order_id:
-                position.current_stop = new_stop
+            stop_request = IARICStopUpdateRequest(
+                symbol=symbol,
+                stop_price=new_stop,
+                qty=position.qty_open,
+                reason="mfe_stage_trail",
+            )
+            core_state = build_core_runtime_state(self)
+            new_state, actions, _events = iaric_core_logic.on_bar(
+                core_state,
+                bar_ts=self._last_bar_ts,
+                stop_update=stop_request,
+            )
+            apply_core_runtime_state(self, new_state)
+            state = self._symbols[symbol]
+            position = state.position
+            if any(isinstance(action, ReplaceProtectiveStop) for action in actions):
                 asyncio.create_task(self._replace_stop(symbol)).add_done_callback(self._log_task_exception)
             kit = self._kit_cache
             if kit:
@@ -1040,7 +831,6 @@ class IARICEngine:
 
         # V2 partial profit (triggers on MFE, not unrealized -- research parity)
         if check_v2_partial(max_mfe_r, state.v2_partial_taken, self._settings.pb_v2_partial_profit_trigger_r):
-            state.v2_partial_taken = True
             partial_qty = max(1, position.qty_open // 2)
             self._diagnostics.log_decision("V2_PARTIAL", {
                 "symbol": symbol, "mfe_r": round(max_mfe_r, 3),
@@ -1058,9 +848,23 @@ class IARICEngine:
                         symbol=symbol, old_stop=old_sl, new_stop=partial_stop,
                         adjustment_type="partial_trail", trigger="v2_partial_profit",
                     )
-            asyncio.create_task(
-                self._submit_market_exit(symbol, partial_qty, OrderRole.TP)
-            ).add_done_callback(self._log_task_exception)
+            partial_request = IARICPartialExitRequest(
+                client_order_id=f"{symbol}-partial-{int(now.timestamp())}",
+                symbol=symbol,
+                qty=partial_qty,
+                reason="TP",
+            )
+            core_state = build_core_runtime_state(self)
+            new_state, actions, _events = iaric_core_logic.on_bar(
+                core_state,
+                bar_ts=self._last_bar_ts,
+                partial_exit_request=partial_request,
+            )
+            apply_core_runtime_state(self, new_state)
+            if any(isinstance(action, SubmitMarketExit) for action in actions):
+                asyncio.create_task(
+                    self._submit_market_exit(symbol, partial_qty, OrderRole.TP)
+                ).add_done_callback(self._log_task_exception)
             return
 
         hold_days = (now.astimezone(ET).date() - position.entry_time.astimezone(ET).date()).days
@@ -1203,22 +1007,55 @@ class IARICEngine:
             return
 
         state.risk_per_share = max(entry_price - state.stop_level, 0.01)
-        order = build_entry_order(item, self._account_id, qty, entry_price, state.stop_level)
+        entry_request = IARICEntryRequest(
+            client_order_id=f"{symbol}-entry-{int(now.timestamp())}",
+            symbol=symbol,
+            route=route,
+            qty=qty,
+            limit_price=entry_price,
+            stop_price=state.stop_level,
+            metadata={
+                "daily_signal_score": state.daily_signal_score,
+                "route": route,
+                "sizing_mult": round(sizing_mult, 6),
+            },
+        )
+        core_state = build_core_runtime_state(self)
+        new_state, actions, _events = iaric_core_logic.on_bar(
+            core_state,
+            bar_ts=self._last_bar_ts,
+            entry_request=entry_request,
+        )
+        apply_core_runtime_state(self, new_state)
+        state = self._symbols[symbol]
+        submit_action = next((action for action in actions if isinstance(action, SubmitEntry)), None)
+        if submit_action is None:
+            if state.active_order_id == "SUBMITTING_ENTRY":
+                state.active_order_id = None
+            return
+
+        order = build_entry_order(
+            item,
+            self._account_id,
+            submit_action.qty,
+            submit_action.limit_price or entry_price,
+            float(submit_action.risk_context.get("stop_for_risk", state.stop_level)),
+        )
         receipt = await self._oms.submit_intent(Intent(intent_type=IntentType.NEW_ORDER, strategy_id=STRATEGY_ID, order=order))
         if receipt.oms_order_id:
             state.entry_order = PendingOrderState(
                 oms_order_id=receipt.oms_order_id,
                 submitted_at=now,
                 role="ENTRY",
-                requested_qty=qty,
-                limit_price=entry_price,
+                requested_qty=submit_action.qty,
+                limit_price=submit_action.limit_price or entry_price,
             )
             state.active_order_id = receipt.oms_order_id
-            self._portfolio.pending_entry_risk[symbol] = qty * state.risk_per_share
+            self._portfolio.pending_entry_risk[symbol] = submit_action.qty * state.risk_per_share
             self._order_index[receipt.oms_order_id] = (symbol, "ENTRY")
-            self._record_decision("ENTRY_SUBMITTED", {"symbol": symbol, "qty": qty, "price": entry_price, "route": route})
+            self._record_decision("ENTRY_SUBMITTED", {"symbol": symbol, "qty": submit_action.qty, "price": submit_action.limit_price or entry_price, "route": route})
             self._diagnostics.log_order(symbol, "submit_entry", {
-                "qty": qty, "limit_price": entry_price, "route": route,
+                "qty": submit_action.qty, "limit_price": submit_action.limit_price or entry_price, "route": route,
                 "sizing_mult": round(sizing_mult, 3), "daily_score": state.daily_signal_score,
             })
             kit = self._instr_kit
@@ -1227,8 +1064,8 @@ class IARICEngine:
                     kit.on_order_event(
                         order_id=receipt.oms_order_id,
                         pair=symbol, side="BUY", order_type="LIMIT_ENTRY",
-                        status="SUBMITTED", requested_qty=qty,
-                        requested_price=entry_price,
+                        status="SUBMITTED", requested_qty=submit_action.qty,
+                        requested_price=submit_action.limit_price or entry_price,
                         strategy_type="strategy_iaric",
                         session=self._current_session_type(now),
                         exchange_timestamp=now,
@@ -1314,19 +1151,23 @@ class IARICEngine:
         position = state.position
         if position is None or position.qty_open <= 0:
             return
-        state.last_transition_reason = reason
-        if state.exit_order is not None:
-            if state.exit_order.role == OrderRole.EXIT.value:
-                return
-            state.pending_hard_exit = True
-            if not state.exit_order.cancel_requested:
-                state.exit_order.cancel_requested = True
-                task = asyncio.create_task(self._cancel_order(state.exit_order.oms_order_id))
+        flatten_request = IARICFlattenRequest(symbol=symbol, reason=reason, qty=position.qty_open)
+        core_state = build_core_runtime_state(self)
+        new_state, actions, _events = iaric_core_logic.on_bar(
+            core_state,
+            bar_ts=self._last_bar_ts,
+            flatten_request=flatten_request,
+        )
+        apply_core_runtime_state(self, new_state)
+        for action in actions:
+            if isinstance(action, CancelAction):
+                task = asyncio.create_task(self._cancel_order(action.target_order_id))
                 task.add_done_callback(self._log_task_exception)
-            return
-        asyncio.create_task(
-            self._cancel_then_exit(symbol, position.qty_open),
-        ).add_done_callback(self._log_task_exception)
+            elif isinstance(action, FlattenPosition):
+                task = asyncio.create_task(
+                    self._cancel_then_exit(action.symbol, action.qty or position.qty_open),
+                )
+                task.add_done_callback(self._log_task_exception)
 
     async def _cancel_then_exit(self, symbol: str, qty: int) -> None:
         await self._cancel_stop(symbol)
@@ -1399,9 +1240,9 @@ class IARICEngine:
     async def _handle_fill(self, event) -> None:
         payload = event.payload or {}
         symbol, role = self._resolve_order(event.oms_order_id, payload)
-        if event.oms_order_id:
-            self._order_index.pop(event.oms_order_id, None)
         if not symbol:
+            if event.oms_order_id:
+                self._order_index.pop(event.oms_order_id, None)
             return
         state = self._symbols.get(symbol)
         item = self._items.get(symbol)
@@ -1412,252 +1253,282 @@ class IARICEngine:
         if fill_qty <= 0:
             return
 
-        if role == "ENTRY":
-            state.entry_order = None
-            state.active_order_id = None
-            self._portfolio.pending_entry_risk.pop(symbol, None)
-            position = build_position_from_fill(
-                fill_price=fill_price,
-                fill_qty=fill_qty,
-                stop_price=state.stop_level or max(fill_price - item.tick_size, 0.01),
-                fill_time=event.timestamp,
-                setup_tag=f"PB_{state.route_family}",
+        # Capture pre-fill state for exit instrumentation
+        pre_position = deepcopy(state.position) if state.position else None
+        pre_sym_state = deepcopy(state)
+
+        # Build core fill
+        commission = float(payload.get("commission", 0.0) or 0.0)
+        fill = IARICFill(
+            oms_order_id=event.oms_order_id or "",
+            fill_price=fill_price,
+            fill_qty=fill_qty,
+            fill_time=event.timestamp,
+            commission=commission,
+            symbol=symbol,
+            order_role=role if role in ("ENTRY", "TP", "EXIT", "STOP") else "UNKNOWN",
+        )
+
+        # Route through core
+        core_state = build_core_runtime_state(self)
+        new_state, actions, events = iaric_core_logic.on_fill(core_state, fill)
+        apply_core_runtime_state(self, new_state)
+
+        # Dispatch OMS actions
+        for action in actions:
+            if isinstance(action, SubmitProtectiveStop):
+                await self._submit_stop(action.symbol)
+            elif isinstance(action, ReplaceProtectiveStop):
+                # TP breakeven floor: engine-side adjustment (core lacks tick_size)
+                if action.reason == "partial_resize":
+                    sym = self._symbols.get(action.symbol)
+                    itm = self._items.get(action.symbol)
+                    if sym and sym.position and itm:
+                        be_floor = sym.position.entry_price - itm.tick_size
+                        sym.position.current_stop = max(sym.position.current_stop, be_floor)
+                await self._replace_stop(action.symbol)
+            elif isinstance(action, FlattenPosition):
+                sym = self._symbols.get(action.symbol)
+                if sym and sym.position and sym.position.stop_order_id:
+                    await self._cancel_stop(action.symbol)
+                await self._submit_market_exit(action.symbol, action.qty, OrderRole.EXIT)
+
+        # Record decision events
+        for ev in events:
+            self._record_decision(ev.code, ev.details)
+
+        # Entry instrumentation (new position created)
+        if any(ev.code == "ENTRY_FILLED" for ev in events):
+            await self._record_entry_instrumentation(
+                symbol=symbol, event=event,
+                fill_price=fill_price, fill_qty=fill_qty,
+                payload=payload,
             )
-            state.position = position
-            state.in_position = True
-            state.stage = "IN_POSITION"
-            state.risk_per_share = max(fill_price - state.stop_level, 0.01)
-            position.current_stop = state.stop_level
-            self._portfolio.open_positions[symbol] = position
-            if self._trade_recorder:
-                position.trade_id = await self._trade_recorder.record_entry(
-                    strategy_id=STRATEGY_ID,
-                    instrument=symbol,
-                    direction="LONG",
-                    quantity=fill_qty,
-                    entry_price=Decimal(str(fill_price)),
-                    entry_ts=event.timestamp,
-                    setup_tag=position.setup_tag,
-                    entry_type="marketable_limit",
-                    meta={
-                        "entry_signal": f"PB_{state.route_family}",
-                        "entry_signal_id": event.oms_order_id or symbol,
-                        "entry_signal_strength": state.intraday_score / 100.0,
-                        "strategy_params": {
-                            "route_family": state.route_family,
-                            "daily_signal_score": state.daily_signal_score,
-                            "trigger_types": state.trigger_types,
-                            "trigger_tier": state.trigger_tier,
-                            "trend_tier": state.trend_tier,
-                            "sizing_mult": state.sizing_mult,
-                            "mfe_stage": state.mfe_stage,
-                            "stop0": state.stop_level,
-                            "cdd_value": state.cdd_value,
-                            "entry_atr": state.entry_atr,
-                            "regime_tier": self._artifact.regime.tier if self._artifact.regime else "",
-                            "regime_score": getattr(self._artifact.regime, 'score', 0.0) if self._artifact.regime else 0.0,
-                        },
-                        "sizing_inputs": {
-                            "entry_price": fill_price,
-                            "stop_level": state.stop_level,
-                            "qty": fill_qty,
-                            "risk_per_share": state.risk_per_share,
-                            "sizing_mult": state.sizing_mult,
-                            "base_risk_fraction": self._portfolio.base_risk_fraction,
-                            "account_equity": self._portfolio.account_equity,
-                        },
-                        "signal_factors": self._entry_signal_factors(symbol),
-                        "filter_decisions": self._entry_filter_decisions(symbol),
-                        "portfolio_state": self._portfolio_state_snapshot(),
-                        "session_type": self._current_session_type(event.timestamp),
-                        "exchange_timestamp": event.timestamp,
-                        "concurrent_positions": len(self._portfolio.open_positions),
-                    },
-                    account_id=self._account_id,
-                )
-            # Wire JSONL/sidecar emission for TA pipeline
-            kit = self._instr_kit
-            if kit:
-                try:
-                    kit.log_entry(
-                        trade_id=position.trade_id or f"IARIC-{symbol}",
-                        pair=symbol,
-                        side="LONG",
-                        entry_price=fill_price,
-                        position_size=float(fill_qty),
-                        position_size_quote=float(fill_price * fill_qty),
-                        entry_signal=f"PB_{state.route_family}",
-                        entry_signal_id=event.oms_order_id or symbol,
-                        entry_signal_strength=state.intraday_score / 100.0,
-                        signal_factors=self._entry_signal_factors(symbol),
-                        filter_decisions=self._entry_filter_decisions(symbol),
-                        conviction_factors=dict(state.score_components) if getattr(state, 'score_components', None) else None,
-                        sizing_inputs={
-                            "entry_price": fill_price,
-                            "stop_level": state.stop_level,
-                            "qty": fill_qty,
-                            "risk_per_share": state.risk_per_share,
-                            "sizing_mult": state.sizing_mult,
-                            "base_risk_fraction": self._portfolio.base_risk_fraction,
-                            "account_equity": self._portfolio.account_equity,
-                        },
-                        exchange_timestamp=event.timestamp,
-                        strategy_params={
-                            "route_family": state.route_family,
-                            "daily_signal_score": state.daily_signal_score,
-                            "trigger_tier": state.trigger_tier,
-                            "trend_tier": state.trend_tier,
-                        },
-                        portfolio_state={
-                            "account_equity": self._portfolio.account_equity,
-                            "open_positions": len(self._portfolio.open_positions),
-                            "pending_entry_risk": sum(self._portfolio.pending_entry_risk.values()),
-                            "base_risk_fraction": self._portfolio.base_risk_fraction,
-                            "regime_allows_no_new_entries": self._portfolio.regime_allows_no_new_entries,
-                            "symbols_held": sorted(self._portfolio.open_positions.keys()),
-                        },
-                        concurrent_positions=len(self._portfolio.open_positions),
-                        session_type=self._current_session_type(event.timestamp),
-                    )
-                except Exception:
-                    pass
-            position.entry_commission = float(payload.get("commission", 0.0) or 0.0)
-            await self._submit_stop(symbol)
-            return
 
-        # Exit/TP/Stop fill
+        # Exit instrumentation (full close: position existed, now gone)
+        cur_state = self._symbols.get(symbol)
+        if pre_position and (cur_state is None or cur_state.position is None):
+            await self._record_exit_instrumentation(
+                symbol=symbol, event=event,
+                fill_price=fill_price, fill_qty=fill_qty,
+                commission=commission, role=role,
+                pre_position=pre_position,
+                pre_sym_state=pre_sym_state,
+            )
+
+    async def _record_entry_instrumentation(
+        self, *, symbol: str, event, fill_price: float, fill_qty: int, payload: dict,
+    ) -> None:
+        state = self._symbols.get(symbol)
+        if not state or not state.position:
+            return
         position = state.position
-        if position is None:
-            return
-        exit_order = state.exit_order
-        if state.exit_order and event.oms_order_id == state.exit_order.oms_order_id:
-            state.exit_order = None
-        position.max_favorable_price = max(position.max_favorable_price, fill_price)
-        position.max_adverse_price = min(position.max_adverse_price, fill_price)
-        exit_qty = min(fill_qty, position.qty_open)
-        exit_comm = float(payload.get("commission", 0.0) or 0.0)
-        position.exit_commission += exit_comm
-        position.realized_pnl_usd += (fill_price - position.entry_price) * exit_qty
-        position.qty_open = max(0, position.qty_open - exit_qty)
-
-        if role == "TP":
-            position.partial_taken = True
-            position.current_stop = max(position.current_stop, position.entry_price - item.tick_size)
-            if position.qty_open > 0 and position.stop_order_id:
-                await self._replace_stop(symbol)
-            if state.pending_hard_exit and position.qty_open > 0:
-                state.pending_hard_exit = False
-                await self._cancel_stop(symbol)
-                await self._submit_market_exit(symbol, position.qty_open, OrderRole.EXIT)
-        elif role == "EXIT" and position.qty_open > 0 and not position.stop_order_id:
-            await self._submit_stop(symbol)
-        elif role == "STOP":
-            position.stop_order_id = ""
-
-        if position.qty_open <= 0:
-            if self._trade_recorder and position.trade_id:
-                total_fees = position.entry_commission + position.exit_commission
-                net_pnl = position.realized_pnl_usd - total_fees
-                realized_r = net_pnl / max(position.total_initial_risk_usd, 1e-9)
-                await self._trade_recorder.record_exit(
-                    trade_id=position.trade_id,
-                    exit_price=Decimal(str(fill_price)),
-                    exit_ts=event.timestamp,
-                    exit_reason=state.last_transition_reason or role or "EXIT",
-                    realized_r=Decimal(str(round(realized_r, 4))),
-                    realized_usd=Decimal(str(round(net_pnl, 2))),
-                    mfe_r=Decimal(str(round(
-                        (position.max_favorable_price - position.entry_price) / max(position.initial_risk_per_share, 1e-9), 4,
-                    ))),
-                    mae_r=Decimal(str(round(
-                        (position.max_adverse_price - position.entry_price) / max(position.initial_risk_per_share, 1e-9), 4,
-                    ))),
-                    max_adverse_price=Decimal(str(position.max_adverse_price)),
-                    max_favorable_price=Decimal(str(position.max_favorable_price)),
-                    meta={
-                        "exchange_timestamp": event.timestamp,
+        if self._trade_recorder:
+            position.trade_id = await self._trade_recorder.record_entry(
+                strategy_id=STRATEGY_ID,
+                instrument=symbol,
+                direction="LONG",
+                quantity=fill_qty,
+                entry_price=Decimal(str(fill_price)),
+                entry_ts=event.timestamp,
+                setup_tag=position.setup_tag,
+                entry_type="marketable_limit",
+                meta={
+                    "entry_signal": f"PB_{state.route_family}",
+                    "entry_signal_id": event.oms_order_id or symbol,
+                    "entry_signal_strength": state.intraday_score / 100.0,
+                    "strategy_params": {
                         "route_family": state.route_family,
+                        "daily_signal_score": state.daily_signal_score,
+                        "trigger_types": state.trigger_types,
+                        "trigger_tier": state.trigger_tier,
+                        "trend_tier": state.trend_tier,
+                        "sizing_mult": state.sizing_mult,
                         "mfe_stage": state.mfe_stage,
-                        "hold_bars": state.hold_bars,
-                        "exit_reason_detail": state.last_transition_reason,
-                        "fees_paid": position.entry_commission + position.exit_commission,
-                        "hold_days": (event.timestamp.astimezone(ET).date() - position.entry_time.astimezone(ET).date()).days if position.entry_time else 0,
-                        "carry_decision_path": state.carry_decision_path,
-                        "v2_partial_taken": state.v2_partial_taken,
-                        "trail_active": state.trail_active,
-                        "breakeven_activated": state.breakeven_activated,
+                        "stop0": state.stop_level,
+                        "cdd_value": state.cdd_value,
+                        "entry_atr": state.entry_atr,
+                        "regime_tier": self._artifact.regime.tier if self._artifact.regime else "",
+                        "regime_score": getattr(self._artifact.regime, 'score', 0.0) if self._artifact.regime else 0.0,
+                    },
+                    "sizing_inputs": {
+                        "entry_price": fill_price,
+                        "stop_level": state.stop_level,
+                        "qty": fill_qty,
+                        "risk_per_share": state.risk_per_share,
+                        "sizing_mult": state.sizing_mult,
+                        "base_risk_fraction": self._portfolio.base_risk_fraction,
+                        "account_equity": self._portfolio.account_equity,
+                    },
+                    "signal_factors": self._entry_signal_factors(symbol),
+                    "filter_decisions": self._entry_filter_decisions(symbol),
+                    "portfolio_state": self._portfolio_state_snapshot(),
+                    "session_type": self._current_session_type(event.timestamp),
+                    "exchange_timestamp": event.timestamp,
+                    "concurrent_positions": len(self._portfolio.open_positions),
+                },
+                account_id=self._account_id,
+            )
+        kit = self._instr_kit
+        if kit:
+            try:
+                kit.log_entry(
+                    trade_id=position.trade_id or f"IARIC-{symbol}",
+                    pair=symbol,
+                    side="LONG",
+                    entry_price=fill_price,
+                    position_size=float(fill_qty),
+                    position_size_quote=float(fill_price * fill_qty),
+                    entry_signal=f"PB_{state.route_family}",
+                    entry_signal_id=event.oms_order_id or symbol,
+                    entry_signal_strength=state.intraday_score / 100.0,
+                    signal_factors=self._entry_signal_factors(symbol),
+                    filter_decisions=self._entry_filter_decisions(symbol),
+                    conviction_factors=dict(state.score_components) if getattr(state, 'score_components', None) else None,
+                    sizing_inputs={
+                        "entry_price": fill_price,
+                        "stop_level": state.stop_level,
+                        "qty": fill_qty,
+                        "risk_per_share": state.risk_per_share,
+                        "sizing_mult": state.sizing_mult,
+                        "base_risk_fraction": self._portfolio.base_risk_fraction,
+                        "account_equity": self._portfolio.account_equity,
+                    },
+                    exchange_timestamp=event.timestamp,
+                    strategy_params={
+                        "route_family": state.route_family,
                         "daily_signal_score": state.daily_signal_score,
                         "trigger_tier": state.trigger_tier,
                         "trend_tier": state.trend_tier,
                     },
+                    portfolio_state={
+                        "account_equity": self._portfolio.account_equity,
+                        "open_positions": len(self._portfolio.open_positions),
+                        "pending_entry_risk": sum(self._portfolio.pending_entry_risk.values()),
+                        "base_risk_fraction": self._portfolio.base_risk_fraction,
+                        "regime_allows_no_new_entries": self._portfolio.regime_allows_no_new_entries,
+                        "symbols_held": sorted(self._portfolio.open_positions.keys()),
+                    },
+                    concurrent_positions=len(self._portfolio.open_positions),
+                    session_type=self._current_session_type(event.timestamp),
                 )
-            # Wire JSONL/sidecar exit emission for TA pipeline
-            kit = self._instr_kit
-            if kit and position.trade_id:
-                try:
-                    kit.log_exit(
-                        trade_id=position.trade_id,
-                        exit_price=fill_price,
-                        exit_reason=state.last_transition_reason or role or "EXIT",
-                        exchange_timestamp=event.timestamp,
-                        mfe_r=round(
-                            (position.max_favorable_price - position.entry_price)
-                            / max(position.initial_risk_per_share, 1e-9), 4),
-                        mae_r=round(
-                            (position.max_adverse_price - position.entry_price)
-                            / max(position.initial_risk_per_share, 1e-9), 4),
-                        mfe_price=position.max_favorable_price,
-                        mae_price=position.max_adverse_price,
-                    )
-                except Exception:
-                    pass
-            self._portfolio.open_positions.pop(symbol, None)
-            state.position = None
-            state.in_position = False
-            state.stage = "INVALIDATED"
-            state.exit_order = None
-            state.pending_hard_exit = False
-            if "STOP" in (state.last_transition_reason or "").upper():
-                state.stopped_out_today = True
+            except Exception:
+                pass
+
+    async def _record_exit_instrumentation(
+        self, *, symbol: str, event, fill_price: float, fill_qty: int,
+        commission: float, role: str,
+        pre_position: PositionState, pre_sym_state: PBSymbolState,
+    ) -> None:
+        # Compute final values from pre-fill state + this fill's contribution
+        exit_qty = min(fill_qty, pre_position.qty_open)
+        total_exit_comm = pre_position.exit_commission + commission
+        total_fees = pre_position.entry_commission + total_exit_comm
+        realized_pnl = pre_position.realized_pnl_usd + (fill_price - pre_position.entry_price) * exit_qty
+        net_pnl = realized_pnl - total_fees
+        realized_r = net_pnl / max(pre_position.total_initial_risk_usd, 1e-9)
+        max_fav = max(pre_position.max_favorable_price, fill_price)
+        max_adv = min(pre_position.max_adverse_price, fill_price)
+        exit_reason = pre_sym_state.last_transition_reason or role or "EXIT"
+
+        if self._trade_recorder and pre_position.trade_id:
+            await self._trade_recorder.record_exit(
+                trade_id=pre_position.trade_id,
+                exit_price=Decimal(str(fill_price)),
+                exit_ts=event.timestamp,
+                exit_reason=exit_reason,
+                realized_r=Decimal(str(round(realized_r, 4))),
+                realized_usd=Decimal(str(round(net_pnl, 2))),
+                mfe_r=Decimal(str(round(
+                    (max_fav - pre_position.entry_price) / max(pre_position.initial_risk_per_share, 1e-9), 4,
+                ))),
+                mae_r=Decimal(str(round(
+                    (max_adv - pre_position.entry_price) / max(pre_position.initial_risk_per_share, 1e-9), 4,
+                ))),
+                max_adverse_price=Decimal(str(max_adv)),
+                max_favorable_price=Decimal(str(max_fav)),
+                meta={
+                    "exchange_timestamp": event.timestamp,
+                    "route_family": pre_sym_state.route_family,
+                    "mfe_stage": pre_sym_state.mfe_stage,
+                    "hold_bars": pre_sym_state.hold_bars,
+                    "exit_reason_detail": pre_sym_state.last_transition_reason,
+                    "fees_paid": total_fees,
+                    "hold_days": (event.timestamp.astimezone(ET).date() - pre_position.entry_time.astimezone(ET).date()).days if pre_position.entry_time else 0,
+                    "carry_decision_path": pre_sym_state.carry_decision_path,
+                    "v2_partial_taken": pre_sym_state.v2_partial_taken,
+                    "trail_active": pre_sym_state.trail_active,
+                    "breakeven_activated": pre_sym_state.breakeven_activated,
+                    "daily_signal_score": pre_sym_state.daily_signal_score,
+                    "trigger_tier": pre_sym_state.trigger_tier,
+                    "trend_tier": pre_sym_state.trend_tier,
+                },
+            )
+        kit = self._instr_kit
+        if kit and pre_position.trade_id:
+            try:
+                kit.log_exit(
+                    trade_id=pre_position.trade_id,
+                    exit_price=fill_price,
+                    exit_reason=exit_reason,
+                    exchange_timestamp=event.timestamp,
+                    mfe_r=round(
+                        (max_fav - pre_position.entry_price)
+                        / max(pre_position.initial_risk_per_share, 1e-9), 4),
+                    mae_r=round(
+                        (max_adv - pre_position.entry_price)
+                        / max(pre_position.initial_risk_per_share, 1e-9), 4),
+                    mfe_price=max_fav,
+                    mae_price=max_adv,
+                )
+            except Exception:
+                pass
+
+    _TERMINAL_STATUS_MAP = {
+        OMSEventType.ORDER_CANCELLED: "cancelled",
+        OMSEventType.ORDER_EXPIRED: "expired",
+        OMSEventType.ORDER_REJECTED: "rejected",
+    }
 
     async def _handle_terminal(self, event) -> None:
         payload = event.payload or {}
         symbol, role = self._resolve_order(event.oms_order_id, payload)
-        if event.oms_order_id:
-            self._order_index.pop(event.oms_order_id, None)
         if not symbol:
+            if event.oms_order_id:
+                self._order_index.pop(event.oms_order_id, None)
             return
         state = self._symbols.get(symbol)
         if state is None:
             return
 
-        if role == "ENTRY":
-            state.entry_order = None
-            state.active_order_id = None
-            self._portfolio.pending_entry_risk.pop(symbol, None)
-            state.stage = "INVALIDATED"
-            state.last_transition_reason = "entry_terminal"
-            return
+        # Build core order update
+        status = self._TERMINAL_STATUS_MAP.get(event.event_type, "cancelled")
+        update = IARICOrderUpdate(
+            oms_order_id=event.oms_order_id or "",
+            status=status,
+            timestamp=event.timestamp,
+            symbol=symbol,
+            order_role=role if role in ("ENTRY", "TP", "EXIT", "STOP") else "UNKNOWN",
+        )
 
-        if role in {OrderRole.TP.value, OrderRole.EXIT.value}:
-            pending_hard_exit = state.pending_hard_exit
-            if state.exit_order and event.oms_order_id == state.exit_order.oms_order_id:
-                state.exit_order = None
-            state.pending_hard_exit = False
-            if pending_hard_exit and state.position and state.position.qty_open > 0:
-                await self._cancel_stop(symbol)
-                await self._submit_market_exit(symbol, state.position.qty_open, OrderRole.EXIT)
-            elif role == OrderRole.EXIT.value and state.position and state.position.qty_open > 0 and not state.position.stop_order_id:
-                await self._submit_stop(symbol)
-            return
+        # Route through core
+        core_state = build_core_runtime_state(self)
+        new_state, actions, events = iaric_core_logic.on_order_update(core_state, update)
+        apply_core_runtime_state(self, new_state)
 
-        if role == "STOP" and state.position and state.position.qty_open > 0:
-            if event.oms_order_id in self._expected_stop_cancels:
-                self._expected_stop_cancels.discard(event.oms_order_id)
-                state.position.stop_order_id = ""
-                return
-            state.position.stop_order_id = ""
-            await self._submit_market_exit(symbol, state.position.qty_open, OrderRole.EXIT)
+        # Dispatch OMS actions
+        for action in actions:
+            if isinstance(action, SubmitProtectiveStop):
+                await self._submit_stop(action.symbol)
+            elif isinstance(action, FlattenPosition):
+                sym = self._symbols.get(action.symbol)
+                if sym and sym.position and sym.position.stop_order_id:
+                    await self._cancel_stop(action.symbol)
+                await self._submit_market_exit(action.symbol, action.qty, OrderRole.EXIT)
+
+        # Record decision events
+        for ev in events:
+            self._record_decision(ev.code, ev.details)
 
     # ── Helpers ─────────────────────────────────────────────────────
 

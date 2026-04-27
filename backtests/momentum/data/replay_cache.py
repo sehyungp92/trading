@@ -4,8 +4,10 @@ from pathlib import Path
 from typing import Any
 
 from backtests.shared.auto.cache_keys import build_cache_key, fingerprint_paths
+from backtests.shared.auto.replay_bundle import ReplayBundle
 
-_REPLAY_CACHE: dict[str, dict[str, Any]] = {}
+_REPLAY_CACHE: dict[str, ReplayBundle[dict[str, Any]]] = {}
+_VDUB_REPLAY_CACHE: dict[str, ReplayBundle[dict[str, Any]]] = {}
 
 
 def load_replay_bundle(
@@ -18,7 +20,7 @@ def load_replay_bundle(
     include_four_hour: bool = True,
     include_daily: bool = True,
     include_daily_es: bool = True,
-) -> dict[str, Any]:
+) -> ReplayBundle[dict[str, Any]]:
     from backtests.momentum.data.cache import load_bars
     from backtests.momentum.data.preprocessing import (
         align_daily_to_5m,
@@ -49,6 +51,7 @@ def load_replay_bundle(
         "momentum.replay_bundle",
         source_fingerprint=source_fingerprint,
         extra={
+            "data_dir": str(base_dir.resolve()),
             "symbol": symbol,
             "include_fifteen_min": include_fifteen_min,
             "include_thirty_min": include_thirty_min,
@@ -64,11 +67,7 @@ def load_replay_bundle(
 
     five_min_df = normalize_timezone(load_bars(five_min_path))
     five_min_df = filter_eth(five_min_df)
-    data: dict[str, Any] = {
-        "five_min": build_numpy_arrays(five_min_df),
-        "cache_key": cache_key,
-        "cache_source_fingerprint": source_fingerprint,
-    }
+    data: dict[str, Any] = {"five_min": build_numpy_arrays(five_min_df)}
 
     if include_fifteen_min:
         fifteen_min_df = resample_5m_to_15m(five_min_df)
@@ -107,18 +106,64 @@ def load_replay_bundle(
             data["daily_es"] = None
             data["daily_es_idx_map"] = None
 
-    _REPLAY_CACHE[cache_key] = data
-    return data
+    bundle = ReplayBundle(
+        data=data,
+        cache_key=cache_key,
+        cache_source_fingerprint=source_fingerprint,
+    )
+    _REPLAY_CACHE[cache_key] = bundle
+    return bundle
 
 
-def replay_engine_kwargs(bundle: dict[str, Any]) -> dict[str, Any]:
+def replay_engine_kwargs(bundle: ReplayBundle[dict[str, Any]] | dict[str, Any]) -> dict[str, Any]:
     """Return only the kwargs accepted by replay engines.
 
     Replay bundle metadata is useful for optimizer caching, but the engines
     themselves should only receive market data arrays and index maps.
     """
+    if isinstance(bundle, ReplayBundle):
+        return dict(bundle.data)
     return {
         key: value
         for key, value in bundle.items()
         if not key.startswith("cache_")
     }
+
+
+def load_vdub_replay_bundle(
+    symbol: str,
+    data_dir: Path,
+    *,
+    include_5m: bool = False,
+) -> ReplayBundle[dict[str, Any]]:
+    from backtests.momentum.cli import _load_vdubus_data
+
+    base_dir = Path(data_dir)
+    fifteen_min_path = base_dir / f"{symbol}_15m.parquet"
+    es_daily_path = base_dir / "ES_1d.parquet"
+    source_paths = [fifteen_min_path, es_daily_path]
+
+    if include_5m:
+        source_paths.append(base_dir / f"{symbol}_5m.parquet")
+
+    source_fingerprint = fingerprint_paths(source_paths, root=base_dir)
+    cache_key = build_cache_key(
+        "momentum.vdub.replay_bundle",
+        source_fingerprint=source_fingerprint,
+        extra={
+            "data_dir": str(base_dir.resolve()),
+            "symbol": symbol,
+            "include_5m": include_5m,
+        },
+    )
+    cached = _VDUB_REPLAY_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    bundle = ReplayBundle(
+        data=_load_vdubus_data(symbol, base_dir, include_5m=include_5m),
+        cache_key=cache_key,
+        cache_source_fingerprint=source_fingerprint,
+    )
+    _VDUB_REPLAY_CACHE[cache_key] = bundle
+    return bundle

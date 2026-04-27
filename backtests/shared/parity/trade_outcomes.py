@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, is_dataclass
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 from typing import Any, Iterable
 
@@ -26,14 +26,30 @@ def normalize_trade_outcome(record: Any, *, symbol: str | None = None, side: str
     commission = float(_first_attr(record, "commission", "total_commission", default=0.0) or 0.0)
     net_pnl = _net_pnl_for(record, commission=commission)
     gross_pnl = _gross_pnl_for(record, net_pnl=net_pnl, commission=commission)
-    quantity = int(_first_attr(record, "qty", "quantity", "qty_entry", "size", default=0) or 0)
+    quantity = int(
+        _first_attr(
+            record,
+            "qty",
+            "quantity",
+            "qty_entry",
+            "size",
+            "entry_contracts",
+            "contracts",
+            "raw_qty",
+            "portfolio_qty",
+            default=0,
+        )
+        or 0
+    )
     resolved_symbol = str(symbol or _first_attr(record, "symbol", default=""))
     resolved_side = str(side or _side_for(record))
-    decision_ts = _coerce_datetime(_first_attr(record, "decision_time", "decision_ts", default=None))
+    decision_ts = _coerce_datetime(
+        _first_attr(record, "decision_time", "decision_ts", "signal_time", "setup_time", default=None)
+    )
     entry_ts = _coerce_datetime(_first_attr(record, "entry_time", "entry_ts", default=None))
     fill_ts = _coerce_datetime(_first_attr(record, "fill_time", "filled_at", default=entry_ts))
     exit_ts = _coerce_datetime(_first_attr(record, "exit_time", "exit_ts", default=None))
-    exit_reason = str(_first_attr(record, "exit_reason", "exit_type", default=""))
+    exit_reason = str(_first_attr(record, "exit_reason", "exit_type", "denial_reason", default=""))
 
     return TradeOutcome(
         symbol=resolved_symbol,
@@ -84,7 +100,10 @@ def _metadata_for(record: Any) -> dict[str, Any]:
         "pnl_dollars",
         "net_pnl",
         "gross_pnl",
+        "adjusted_pnl",
+        "raw_pnl_dollars",
         "commission",
+        "adjusted_commission",
         "entry_time",
         "entry_ts",
         "exit_time",
@@ -94,8 +113,16 @@ def _metadata_for(record: Any) -> dict[str, Any]:
         "filled_at",
         "decision_time",
         "decision_ts",
+        "signal_time",
+        "setup_time",
+        "avg_entry",
+        "entry_contracts",
+        "exit_contracts",
+        "raw_qty",
+        "portfolio_qty",
         "exit_reason",
         "exit_type",
+        "denial_reason",
     ):
         payload.pop(key, None)
     return payload
@@ -121,10 +148,14 @@ def _net_pnl_for(record: Any, *, commission: float) -> float:
         return float(record.net_pnl)
     if hasattr(record, "pnl_dollars"):
         return float(record.pnl_dollars)
+    if hasattr(record, "adjusted_pnl"):
+        return float(record.adjusted_pnl)
+    if hasattr(record, "raw_pnl_dollars"):
+        return float(record.raw_pnl_dollars)
     if hasattr(record, "pnl"):
         return float(record.pnl)
     if isinstance(record, dict):
-        for key in ("net_pnl", "pnl_dollars", "pnl"):
+        for key in ("net_pnl", "pnl_dollars", "adjusted_pnl", "raw_pnl_dollars", "pnl"):
             if key in record:
                 return float(record[key])
     return 0.0
@@ -159,7 +190,7 @@ def _coerce_datetime(value: Any) -> datetime | None:
 
 
 def _normalize_value(value: Any) -> Any:
-    if isinstance(value, datetime):
+    if isinstance(value, (datetime, date)):
         return value.isoformat()
     if isinstance(value, Enum):
         return value.value

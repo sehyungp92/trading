@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -20,11 +20,24 @@ from backtests.stock.analysis.alcb_shadow_tracker import (
     ALCBShadowTracker,
     ShadowSetup,
 )
+from backtests.shared.parity.legacy_result_outputs import trade_outcomes_from_records
 from backtests.stock.config import SlippageConfig
 from backtests.stock.config_alcb import ALCBBacktestConfig
 from backtests.stock.engine.research_replay import ResearchReplayEngine
+from backtests.shared.parity.decision_capture import normalize_decision_stream
+from backtests.shared.parity.replay_driver import ReplayStep, run_replay
 from backtests.stock.engine.sim_broker import SimBroker
 from backtests.stock.models import Direction as BTDirection, TradeRecord
+from strategies.stock.alcb.core import logic as alcb_core_logic
+from strategies.stock.alcb.core.state import (
+    ALCBCoreState,
+    ALCBEntryFillContext,
+    ALCBEntryRequest,
+    ALCBFill,
+    ALCBFlattenRequest,
+    ALCBOrderUpdate,
+    ALCBPartialExitRequest,
+)
 
 from strategies.stock.alcb.config import StrategySettings
 from strategies.stock.alcb.exits import (
@@ -37,7 +50,9 @@ from strategies.stock.alcb.models import (
     CandidateArtifact,
     CandidateItem,
     Direction,
+    EntryType,
     MomentumSetup,
+    PositionPlan,
 )
 from strategies.stock.alcb.risk import (
     momentum_regime_mult,
@@ -151,6 +166,8 @@ class ALCBIntradayResult:
     equity_curve: np.ndarray
     timestamps: np.ndarray
     daily_selections: dict[date, CandidateArtifact]
+    decision_stream: list[dict] = field(default_factory=list)
+    trade_outcomes: list[dict] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +191,9 @@ class ALCBIntradayEngine:
         self.ablation = config.ablation
         self.broker = SimBroker(slippage_config=config.slippage or SlippageConfig())
         self._shadow_tracker: ALCBShadowTracker | None = None
+        self._core_state = ALCBCoreState()
+        self._decision_events: list = []
+        self._order_counter: int = 0
 
     @property
     def shadow_tracker(self) -> ALCBShadowTracker | None:
@@ -182,6 +202,18 @@ class ALCBIntradayEngine:
     @shadow_tracker.setter
     def shadow_tracker(self, tracker: ALCBShadowTracker | None) -> None:
         self._shadow_tracker = tracker
+
+    def _replay_core_step(self, *, bar_input=None, order_updates=None, fills=None):
+        result = run_replay(
+            self._core_state,
+            steps=[ReplayStep(bar_input=bar_input, order_updates=order_updates or [], fills=fills or [])],
+            on_bar=lambda state, payload: alcb_core_logic.on_bar(state, **payload),
+            on_order_update=alcb_core_logic.on_order_update,
+            on_fill=alcb_core_logic.on_fill,
+        )
+        self._core_state = result.state
+        self._decision_events.extend(result.events)
+        return result
 
     # ------------------------------------------------------------------
     # Main run
@@ -448,6 +480,8 @@ class ALCBIntradayEngine:
             equity_curve=np.array(equity_curve, dtype=np.float64),
             timestamps=np.array(timestamps),
             daily_selections=daily_selections,
+            decision_stream=normalize_decision_stream(self._decision_events),
+            trade_outcomes=trade_outcomes_from_records(trades),
         )
 
     # ------------------------------------------------------------------
@@ -659,6 +693,30 @@ class ALCBIntradayEngine:
                     pos.quantity -= partial_qty
                     if settings.move_stop_to_be:
                         pos.current_stop = pos.entry_price
+
+                    # Core notification: partial exit lifecycle
+                    _partial_oid = f"alcb-p-{sym}-{self._order_counter}"
+                    self._order_counter += 1
+                    self._replay_core_step(
+                        bar_input={"bar_ts": bar.start_time, "partial_exit_request": ALCBPartialExitRequest(
+                            client_order_id=_partial_oid, symbol=sym, qty=partial_qty,
+                        )},
+                        order_updates=[ALCBOrderUpdate(
+                            oms_order_id=_partial_oid,
+                            status="accepted",
+                            symbol=sym,
+                            order_role="partial",
+                            timestamp=bar.start_time,
+                        )],
+                        fills=[ALCBFill(
+                            oms_order_id=_partial_oid,
+                            fill_price=partial_fill,
+                            fill_qty=partial_qty,
+                            fill_time=bar.start_time,
+                            commission=comm,
+                            exit_type="PARTIAL",
+                        )],
+                    )
 
         # 4. EOD check
         bar_time_et = bar.start_time.astimezone(_ET).time()
@@ -1120,6 +1178,72 @@ class ALCBIntradayEngine:
         )
         positions[sym] = pos
         pending_entries.pop(sym, None)
+
+        # Core notification: entry lifecycle
+        _entry_oid = f"alcb-e-{sym}-{self._order_counter}"
+        self._order_counter += 1
+        _stop_oid = f"alcb-s-{sym}-{self._order_counter}"
+        self._order_counter += 1
+        try:
+            _et = EntryType(pending.entry_type)
+        except (ValueError, KeyError):
+            _et = EntryType.OR_BREAKOUT
+        _entry_req = ALCBEntryRequest(
+            client_order_id=_entry_oid,
+            symbol=sym,
+            plan=PositionPlan(
+                symbol=sym,
+                direction=Direction.LONG,
+                entry_type=_et,
+                entry_price=entry_price,
+                stop_price=stop_price,
+                tp1_price=0.0,
+                tp2_price=0.0,
+                quantity=qty,
+                risk_per_share=risk_per_share,
+                risk_dollars=risk_per_share * qty,
+                quality_mult=1.0,
+                regime_mult=reg_mult,
+                corr_mult=1.0,
+            ),
+            meta={
+                "entry_type": pending.entry_type,
+                "sector": item.sector,
+                "regime_tier": pending.regime_tier,
+                "momentum_score": pending.momentum_score,
+                "avwap": pending.avwap_at_signal,
+                "or_high": pending.setup.or_high if pending.setup else 0.0,
+                "or_low": pending.or_low,
+            },
+        )
+        self._replay_core_step(
+            bar_input={"bar_ts": bar.start_time, "entry_request": _entry_req},
+            order_updates=[ALCBOrderUpdate(
+                oms_order_id=_entry_oid,
+                status="accepted",
+                accepted_entry=_entry_req,
+                timestamp=bar.start_time,
+            )],
+            fills=[ALCBFill(
+                oms_order_id=_entry_oid,
+                fill_price=entry_price,
+                fill_qty=qty,
+                fill_time=bar.start_time,
+                commission=commission_entry,
+                entry_context=ALCBEntryFillContext(
+                    trade_id=f"alcb-{sym}-{pending.opened_date}",
+                    emergency_stop=stop_price,
+                ),
+            )],
+        )
+        # Register protective stop with core
+        self._replay_core_step(order_updates=[ALCBOrderUpdate(
+            oms_order_id=_stop_oid,
+            status="accepted",
+            symbol=sym,
+            order_role="stop",
+            timestamp=bar.start_time,
+        )])
 
         if shadow:
             shadow.record_funnel("entered")
@@ -1626,6 +1750,30 @@ class ALCBIntradayEngine:
             metadata["or_low"] = pos.momentum_setup.or_low
             metadata["rvol_at_entry"] = pos.momentum_setup.rvol_at_entry
             metadata["breakout_level"] = pos.momentum_setup.breakout_level
+
+        # Core notification: exit lifecycle
+        _exit_oid = f"alcb-x-{pos.symbol}-{self._order_counter}"
+        self._order_counter += 1
+        self._replay_core_step(
+            bar_input={"bar_ts": exit_time, "flatten_request": ALCBFlattenRequest(
+                symbol=pos.symbol, reason=exit_reason,
+            )},
+            order_updates=[ALCBOrderUpdate(
+                oms_order_id=_exit_oid,
+                status="accepted",
+                symbol=pos.symbol,
+                order_role="exit",
+                timestamp=exit_time,
+            )],
+            fills=[ALCBFill(
+                oms_order_id=_exit_oid,
+                fill_price=exit_fill,
+                fill_qty=pos.quantity,
+                fill_time=exit_time,
+                commission=comm_rate * pos.quantity,
+                exit_type=exit_reason,
+            )],
+        )
 
         bt_dir = BTDirection.LONG if pos.direction == Direction.LONG else BTDirection.SHORT
 

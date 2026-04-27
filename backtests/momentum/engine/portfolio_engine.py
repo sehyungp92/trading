@@ -14,6 +14,10 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
+from backtests.shared.parity.legacy_result_outputs import (
+    decision_stream_from_trades,
+    trade_outcomes_from_records,
+)
 from backtests.momentum.config_portfolio import PortfolioBacktestConfig
 from libs.oms.config.portfolio_config import PortfolioConfig, StrategyAllocation
 
@@ -125,6 +129,8 @@ class PortfolioResult:
     # Concurrent position tracking
     max_concurrent: int = 0
     concurrent_distribution: dict[int, int] = field(default_factory=dict)
+    decision_stream: list[dict] = field(default_factory=list)
+    trade_outcomes: list[dict] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -328,6 +334,8 @@ class PortfolioBacktester:
 
         result.trades = approved
         result.blocked_trades = blocked
+        result.decision_stream = decision_stream_from_trades(approved, timeframe="portfolio")
+        result.trade_outcomes = trade_outcomes_from_records(approved)
 
         # 5. Build daily equity curve (one point per trading day)
         if equity_points:

@@ -20,8 +20,9 @@ _worker_equity: float = 0.0
 
 def load_helix_worker_data(symbols: list[str], data_dir: Path) -> dict:
     """Load helix data -- usable from both worker init and plugin."""
-    from backtests.swing.engine.helix_portfolio_engine import load_helix_data
-    return load_helix_data(symbols, data_dir)
+    from backtests.swing.data.replay_cache import load_helix_replay_bundle
+
+    return load_helix_replay_bundle(symbols, data_dir).data
 
 
 def init_worker(data_dir_str: str, equity: float) -> None:

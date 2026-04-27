@@ -32,6 +32,11 @@ def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest().upper()
 
 
+def normalized_sha256_file(path: Path) -> str:
+    text = path.read_text(encoding="utf-8")
+    return hashlib.sha256(normalize_artifact_text(text).encode("utf-8")).hexdigest().upper()
+
+
 def load_summary_source(entry: dict[str, Any], *, root: Path | None = None) -> Any | None:
     source = entry.get("summary_source")
     if source:
@@ -200,6 +205,16 @@ def parse_diagnostic_metrics(
             "max_drawdown_r": _extract_labeled_number(text, "Max drawdown"),
         }
     raise ValueError(f"Unsupported parser kind: {parser_kind}")
+
+
+def normalize_artifact_text(text: str) -> str:
+    normalized_lines = [
+        line.rstrip()
+        for line in text.splitlines()
+        if not re.match(r"^Generated:\s+.+$", line)
+        and not re.match(r"^Data load:\s+.+$", line)
+    ]
+    return "\n".join(normalized_lines).strip() + "\n"
 
 
 def _section_between(text: str, start_marker: str, end_markers: list[str]) -> str:

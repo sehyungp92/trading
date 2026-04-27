@@ -8,6 +8,7 @@ import json
 import logging
 import math
 from collections import deque
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
@@ -27,8 +28,23 @@ from libs.oms.models.order import (
 )
 from libs.oms.risk.calculator import RiskCalculator
 from libs.services.trade_recorder import TradeRecorder
+from strategies.core.actions import FlattenPosition, ReplaceProtectiveStop, SubmitAddOnEntry, SubmitEntry, SubmitPartialExit, SubmitProtectiveStop
 
 from . import allocator, signals, stops
+from .core import logic as atrss_core_logic
+from .core.logic import apply_core_state as apply_core_runtime_state
+from .core.logic import build_core_state as build_core_runtime_state
+from .core.serializers import restore_state as restore_core_state
+from .core.serializers import snapshot_state as snapshot_core_state
+from .core.state import (
+    ATRSSAddOnARequest,
+    ATRSSEntryRequest,
+    ATRSSFill,
+    ATRSSFlattenRequest,
+    ATRSSOrderUpdate,
+    ATRSSPartialExitRequest,
+    ATRSSStopUpdateRequest,
+)
 from .config import (
     ADDON_A_SIZE_MULT,
     ADDON_B_SIZE_MULT,
@@ -191,6 +207,14 @@ class ATRSSEngine:
             "last_decision_details": self._last_decision_details,
             "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
         }
+
+    def snapshot_state(self) -> dict[str, Any]:
+        return snapshot_core_state(build_core_runtime_state(self))
+
+    async def hydrate(self, snapshot: dict[str, Any]) -> None:
+        if not snapshot:
+            return
+        apply_core_runtime_state(self, restore_core_state(snapshot))
 
     # ------------------------------------------------------------------
     # Signal evolution tracking (for TA alpha decay detector)
@@ -1192,6 +1216,30 @@ class ATRSSEngine:
         else:
             limit_price = candidate.trigger_price - limit_band
 
+        entry_request = ATRSSEntryRequest(
+            client_order_id=f"{candidate.symbol}-entry-{int(datetime.now(timezone.utc).timestamp())}",
+            symbol=candidate.symbol,
+            candidate=candidate,
+            limit_price=limit_price,
+        )
+        core_state = build_core_runtime_state(self)
+        new_state, actions, _events = atrss_core_logic.on_bar(
+            core_state,
+            bar_ts=self._last_bar_ts,
+            entry_request=entry_request,
+        )
+        apply_core_runtime_state(self, new_state)
+        submit_action = next(
+            (
+                action
+                for action in actions
+                if isinstance(action, (SubmitEntry, SubmitAddOnEntry))
+            ),
+            None,
+        )
+        if submit_action is None:
+            return
+
         risk_ctx = RiskContext(
             stop_for_risk=candidate.initial_stop,
             planned_entry_price=candidate.trigger_price,
@@ -1207,10 +1255,10 @@ class ATRSSEngine:
             strategy_id=STRATEGY_ID,
             instrument=inst,
             side=side,
-            qty=candidate.qty,
+            qty=submit_action.qty,
             order_type=OrderType.STOP_LIMIT,
-            stop_price=candidate.trigger_price,
-            limit_price=limit_price,
+            stop_price=submit_action.stop_price or candidate.trigger_price,
+            limit_price=submit_action.limit_price or limit_price,
             tif="GTC",
             role=OrderRole.ENTRY,
             entry_policy=EntryPolicy(ttl_seconds=ORDER_EXPIRY_HOURS * 3600),
@@ -1228,7 +1276,7 @@ class ATRSSEngine:
             self._record_decision("ENTRY_SUBMITTED", {
                 "symbol": candidate.symbol,
                 "type": candidate.type.value,
-                "qty": candidate.qty,
+                "qty": submit_action.qty,
                 "oms_order_id": receipt.oms_order_id,
             })
             daily = self.daily_states.get(candidate.symbol)
@@ -1240,7 +1288,7 @@ class ATRSSEngine:
                 "direction": candidate.direction,
                 "trigger_price": candidate.trigger_price,
                 "initial_stop": candidate.initial_stop,
-                "qty": candidate.qty,
+                "qty": submit_action.qty,
                 "submitted_at": datetime.now(timezone.utc),
                 # Carry-forward for enriched telemetry
                 "quality_score": candidate.rank_score,
@@ -1274,7 +1322,7 @@ class ATRSSEngine:
                 "Submitted %s %s %s qty=%d trigger=%.4f stop=%.4f → %s",
                 candidate.symbol, candidate.type.value,
                 "LONG" if candidate.direction == Direction.LONG else "SHORT",
-                candidate.qty, candidate.trigger_price, candidate.initial_stop,
+                submit_action.qty, candidate.trigger_price, candidate.initial_stop,
                 receipt.oms_order_id,
             )
 
@@ -1285,7 +1333,7 @@ class ATRSSEngine:
                     side="LONG" if candidate.direction == Direction.LONG else "SHORT",
                     order_type="STOP_LIMIT",
                     status="SUBMITTED",
-                    requested_qty=float(candidate.qty),
+                    requested_qty=float(submit_action.qty),
                     requested_price=candidate.trigger_price,
                     strategy_id=STRATEGY_ID,
                 )
@@ -1347,6 +1395,25 @@ class ATRSSEngine:
             await asyncio.sleep(0.5)
 
         # Step 2: Submit Add-on A as market order
+        add_on_request = ATRSSAddOnARequest(
+            client_order_id=f"{sym}-addon-a-{int(datetime.now(timezone.utc).timestamp())}",
+            symbol=sym,
+            direction=pos.direction,
+            qty=qty,
+            entry_price=h.close,
+            stop_price=pos.current_stop,
+        )
+        core_state = build_core_runtime_state(self)
+        new_state, actions, _events = atrss_core_logic.on_bar(
+            core_state,
+            bar_ts=self._last_bar_ts,
+            add_on_a_request=add_on_request,
+        )
+        apply_core_runtime_state(self, new_state)
+        submit_action = next((action for action in actions if isinstance(action, SubmitAddOnEntry)), None)
+        if submit_action is None:
+            return
+
         side = OrderSide.BUY if pos.direction == Direction.LONG else OrderSide.SELL
         risk_ctx = RiskContext(
             stop_for_risk=pos.current_stop,
@@ -1359,7 +1426,7 @@ class ATRSSEngine:
             strategy_id=STRATEGY_ID,
             instrument=inst,
             side=side,
-            qty=qty,
+            qty=submit_action.qty,
             order_type=OrderType.MARKET,
             tif="GTC",
             role=OrderRole.ENTRY,
@@ -1378,7 +1445,7 @@ class ATRSSEngine:
                 "direction": pos.direction,
                 "trigger_price": h.close,
                 "initial_stop": pos.current_stop,
-                "qty": qty,
+                "qty": submit_action.qty,
                 "submitted_at": datetime.now(timezone.utc),
             }
             # C2: Track pending order ID to prevent re-triggering during async window.
@@ -1455,11 +1522,31 @@ class ATRSSEngine:
         if pos is None or not pos.stop_oms_order_id:
             return
 
+        stop_request = ATRSSStopUpdateRequest(
+            symbol=sym,
+            stop_price=new_stop,
+            qty=pos.total_qty,
+            reason="trail",
+        )
+        core_state = build_core_runtime_state(self)
+        new_state, actions, _events = atrss_core_logic.on_bar(
+            core_state,
+            bar_ts=self._last_bar_ts,
+            stop_update=stop_request,
+        )
+        apply_core_runtime_state(self, new_state)
+        pos = self.positions.get(sym)
+        replace_action = next((action for action in actions if isinstance(action, ReplaceProtectiveStop)), None)
+        if pos is None or replace_action is None:
+            return
+        new_stop = replace_action.stop_price
+
         intent = Intent(
             intent_type=IntentType.REPLACE_ORDER,
             strategy_id=STRATEGY_ID,
             target_oms_order_id=pos.stop_oms_order_id,
             new_stop_price=new_stop,
+            new_qty=replace_action.qty,
         )
 
         try:
@@ -1498,12 +1585,29 @@ class ATRSSEngine:
         inst = self._instruments.get(sym)
         if inst is None:
             return
+        partial_request = ATRSSPartialExitRequest(
+            client_order_id=f"{sym}-partial-{int(datetime.now(timezone.utc).timestamp())}",
+            symbol=sym,
+            qty=partial_qty,
+            reason=reason,
+        )
+        core_state = build_core_runtime_state(self)
+        new_state, actions, _events = atrss_core_logic.on_bar(
+            core_state,
+            bar_ts=self._last_bar_ts,
+            partial_exit_request=partial_request,
+        )
+        apply_core_runtime_state(self, new_state)
+        pos = self.positions.get(sym)
+        partial_action = next((action for action in actions if isinstance(action, SubmitPartialExit)), None)
+        if pos is None or partial_action is None:
+            return
         side = OrderSide.SELL if pos.direction == Direction.LONG else OrderSide.BUY
         order = OMSOrder(
             strategy_id=STRATEGY_ID,
             instrument=inst,
             side=side,
-            qty=partial_qty,
+            qty=partial_action.qty,
             order_type=OrderType.MARKET,
             tif="GTC",
             role=OrderRole.ENTRY,
@@ -1537,6 +1641,19 @@ class ATRSSEngine:
         inst = self._instruments.get(sym)
         if inst is None:
             return
+
+        flatten_request = ATRSSFlattenRequest(symbol=sym, reason=reason)
+        core_state = build_core_runtime_state(self)
+        new_state, actions, _events = atrss_core_logic.on_bar(
+            core_state,
+            bar_ts=self._last_bar_ts,
+            flatten_request=flatten_request,
+        )
+        apply_core_runtime_state(self, new_state)
+        flatten_action = next((action for action in actions if isinstance(action, FlattenPosition)), None)
+        if flatten_action is None:
+            return
+        reason = flatten_action.reason
 
         # Cancel all pending entry orders for this symbol
         await self._cancel_symbol_orders(sym)
@@ -1658,65 +1775,113 @@ class ATRSSEngine:
                 logger.warning("Failed to cancel ATRSS pending order %s during risk halt", oms_id)
 
     async def _on_fill(self, oms_order_id: str | None, payload: dict) -> None:
-        """Handle a fill event — update PositionBook, place/update stop, record trade."""
+        """Handle a fill event -- route through core, dispatch actions, record/instrument."""
         if not oms_order_id:
             return
 
-        meta = self.pending_orders.pop(oms_order_id, None)
-        if meta is None:
-            # Check if this is a flatten fill
-            flatten_sym = next(
-                (s for s, fid in self._pending_flattens.items() if fid["oms_order_id"] == oms_order_id),
-                None,
-            )
-            if flatten_sym:
-                await self._on_flatten_fill(flatten_sym, oms_order_id, payload)
-                return
-            # May be a stop fill (position exit)
-            await self._on_stop_fill(oms_order_id, payload)
-            return
+        # 1. Capture pre-fill context (core will pop pending_orders / positions)
+        meta = self.pending_orders.get(oms_order_id)
+        pre_positions = {s: deepcopy(p) for s, p in self.positions.items()}
 
-        sym = meta["symbol"]
+        # Resolve fill details
+        fill_price = payload.get("price", 0.0)
+        fill_qty = int(payload.get("qty", 0))
+        fill_time = datetime.now(timezone.utc)
+        symbol = ""
+        if meta:
+            symbol = meta["symbol"]
+            fill_price = fill_price or meta.get("trigger_price", 0.0)
+            fill_qty = fill_qty or int(meta.get("qty", 0))
+
+        # Detect bad-fill BEFORE core routing (need meta + config)
+        is_bad_fill = False
+        if meta and meta.get("type") not in ("PARTIAL_CLOSE",):
+            cfg = self._config.get(symbol)
+            if cfg:
+                hourly = self.hourly_states.get(symbol)
+                atrh = hourly.atrh if hourly else 0.0
+                max_slip_pct = cfg.max_entry_slip_pct * meta.get("trigger_price", 0)
+                max_slip_atr = MAX_ENTRY_SLIP_ATR * atrh
+                max_slip = min(max_slip_pct, max_slip_atr)
+                actual_slip = abs(fill_price - meta.get("trigger_price", fill_price))
+                if max_slip > 0 and actual_slip > max_slip:
+                    logger.warning(
+                        "%s BAD FILL: slip=%.4f > max=%.4f (trigger=%.4f fill=%.4f), "
+                        "will flatten after recording",
+                        symbol, actual_slip, max_slip, meta["trigger_price"], fill_price,
+                    )
+                    is_bad_fill = True
+
+        # 2. Route through core for state transitions
+        fill = ATRSSFill(
+            oms_order_id=oms_order_id,
+            fill_price=fill_price,
+            fill_qty=fill_qty,
+            symbol=symbol,
+            fill_time=fill_time,
+            commission=payload.get("commission", 0.0),
+        )
+        core_state = build_core_runtime_state(self)
+        new_state, actions, events = atrss_core_logic.on_fill(core_state, fill)
+        apply_core_runtime_state(self, new_state)
+
+        # 3. Dispatch OMS actions from core
+        for action in actions:
+            if isinstance(action, SubmitProtectiveStop):
+                stop_id = await self._place_stop(action.symbol, action.stop_price, action.qty)
+                pos = self.positions.get(action.symbol)
+                if pos:
+                    pos.stop_oms_order_id = stop_id or ""
+                    pos.stop_pending = False
+            elif isinstance(action, ReplaceProtectiveStop):
+                await self._update_stop_qty(action.symbol)
+            elif isinstance(action, FlattenPosition):
+                await self._flatten_position(action.symbol, action.reason)
+
+        # 4. Instrumentation per event
+        for event in events:
+            self._record_decision(event.code, event.details)
+            ev_sym = event.details.get("symbol", symbol) if event.details else symbol
+
+            if event.code == "ENTRY_FILLED" and meta:
+                await self._record_entry_instrumentation(
+                    ev_sym, meta, fill_price, fill_qty, fill_time, oms_order_id,
+                )
+            elif event.code == "ADD_ON_FILLED":
+                logger.info("ADD_ON FILL %s @ %.4f", ev_sym, fill_price)
+            elif event.code == "ORPHANED_ADDON_FILLED":
+                logger.warning("ORPHANED ADDON %s @ %.4f -- flattening", ev_sym, fill_price)
+            elif event.code in ("STOP_FILLED", "EXIT_FILLED"):
+                pre_pos = pre_positions.get(ev_sym)
+                if pre_pos:
+                    exit_reason = event.details.get("reason", "STOP") if event.details else "STOP"
+                    await self._record_exit_instrumentation(
+                        ev_sym, pre_pos, fill_price, fill_time, exit_reason, oms_order_id,
+                    )
+                    # Cancel all pending orders for exited symbol (M4)
+                    await self._cancel_symbol_orders(ev_sym)
+            elif event.code == "PARTIAL_EXIT_FILLED" and meta:
+                pre_pos = pre_positions.get(ev_sym)
+                await self._record_partial_instrumentation(
+                    ev_sym, meta, pre_pos, fill_price, fill_time,
+                )
+
+        # 5. Bad-fill flatten AFTER instrumentation
+        if is_bad_fill and symbol:
+            await self._flatten_position(symbol, "FLATTEN_BAD_FILL")
+
+    async def _record_entry_instrumentation(
+        self, sym: str, meta: dict,
+        fill_price: float, fill_qty: int, fill_time: datetime, oms_order_id: str,
+    ) -> None:
+        """Record trade entry + kit logging for a filled entry."""
         direction = meta["direction"]
         ctype = meta["type"]
-
-        # --- Handle partial close fills ---
-        if ctype == "PARTIAL_CLOSE":
-            await self._on_partial_close_fill(sym, meta, payload)
-            return
-
-        fill_price = payload.get("price", meta["trigger_price"])
-        fill_qty = int(payload.get("qty", meta["qty"]))
-        fill_time = datetime.now(timezone.utc)
         cfg = self._config.get(sym)
-        if cfg is None:
-            return
-
-        # Bad-fill slippage guard (spec Section 6) — detect but don't exit yet
-        is_bad_fill = False
         hourly = self.hourly_states.get(sym)
         atrh = hourly.atrh if hourly else 0.0
-        max_slip_pct = cfg.max_entry_slip_pct * meta["trigger_price"]
-        max_slip_atr = MAX_ENTRY_SLIP_ATR * atrh
-        max_slip = min(max_slip_pct, max_slip_atr)
-        actual_slip = abs(fill_price - meta["trigger_price"])
-        if max_slip > 0 and actual_slip > max_slip:
-            logger.warning(
-                "%s BAD FILL: slip=%.4f > max=%.4f (trigger=%.4f fill=%.4f), "
-                "will flatten after recording",
-                sym, actual_slip, max_slip, meta["trigger_price"], fill_price,
-            )
-            is_bad_fill = True
 
-        # Determine leg type
-        if ctype in (CandidateType.PULLBACK, CandidateType.BREAKOUT, CandidateType.REVERSE):
-            leg_type = LegType.BASE
-        elif ctype == CandidateType.ADDON_A:
-            leg_type = LegType.ADDON_A
-        else:
-            leg_type = LegType.ADDON_B
-
-        # Record trade entry
+        # Record trade entry via recorder
         trade_id = ""
         if self._recorder:
             try:
@@ -1727,311 +1892,129 @@ class ATRSSEngine:
                     quantity=fill_qty,
                     entry_price=Decimal(str(fill_price)),
                     entry_ts=fill_time,
-                    setup_tag=ctype.value,
-                    entry_type=ctype.value,
+                    setup_tag=ctype.value if hasattr(ctype, 'value') else str(ctype),
+                    entry_type=ctype.value if hasattr(ctype, 'value') else str(ctype),
                 )
             except Exception:
                 logger.exception("Error recording entry for %s", sym)
 
-        leg = PositionLeg(
-            leg_type=leg_type,
-            qty=fill_qty,
-            entry_price=fill_price,
-            initial_stop=meta["initial_stop"],
-            fill_time=fill_time,
-            oms_order_id=oms_order_id,
-            trade_id=trade_id,
-        )
+        # Patch trade_id onto the leg that core created
+        pos = self.positions.get(sym)
+        if pos and trade_id:
+            for leg in pos.legs:
+                if leg.oms_order_id == oms_order_id and not leg.trade_id:
+                    leg.trade_id = trade_id
+                    break
 
-        if leg_type == LegType.BASE:
-            # Create new position book
-            pos = PositionBook(
-                symbol=sym,
-                direction=direction,
-                legs=[leg],
-                current_stop=meta["initial_stop"],
-                mfe_price=fill_price,
-                mae_price=fill_price,
-                entry_time=fill_time,
-                stop_pending=True,  # C3: flag that stop is being placed
+        if self._kit and cfg:
+            side_str = "LONG" if direction == Direction.LONG else "SHORT"
+            active_pos = {s: p for s, p in self.positions.items() if p.direction != Direction.FLAT}
+            quality_score = meta.get("quality_score", 0)
+            quality_margin = (quality_score - QUALITY_GATE_THRESHOLD) / max(QUALITY_GATE_THRESHOLD, 0.01) * 100 if QUALITY_GATE_THRESHOLD > 0 else 0
+            _cfg_dict = dataclasses.asdict(cfg)
+            _param_set_id = hashlib.md5(
+                json.dumps(_cfg_dict, sort_keys=True, default=str).encode()
+            ).hexdigest()[:8]
+            _ctype_val = ctype.value if hasattr(ctype, 'value') else str(ctype)
+            self._kit.log_entry(
+                trade_id=trade_id or f"{sym}_{fill_time.isoformat()}",
+                pair=sym,
+                side=side_str,
+                entry_price=fill_price,
+                position_size=float(fill_qty),
+                position_size_quote=fill_price * fill_qty,
+                entry_signal=_ctype_val,
+                entry_signal_id=f"{sym}_{_ctype_val}_{fill_time.isoformat()}",
+                entry_signal_strength=meta.get("quality_score", 0.5),
+                active_filters=["quality_gate", "momentum", "portfolio_heat"],
+                passed_filters=["quality_gate", "momentum", "portfolio_heat"],
+                filter_decisions=[
+                    {"filter_name": "quality_gate", "threshold": QUALITY_GATE_THRESHOLD,
+                     "actual_value": quality_score, "passed": True,
+                     "margin_pct": round(quality_margin, 1)},
+                    {"filter_name": "momentum", "threshold": 0,
+                     "actual_value": meta.get("hourly_ema_mom", 0), "passed": True,
+                     "margin_pct": 0},
+                ],
+                strategy_params={
+                    "param_set_id": _param_set_id,
+                    "config": _cfg_dict,
+                    "atrh": atrh,
+                    "initial_stop": meta["initial_stop"],
+                    "daily_mult": meta.get("daily_mult"),
+                    "hourly_mult": meta.get("hourly_mult"),
+                    "chand_mult": meta.get("chand_mult"),
+                    "base_risk_pct": meta.get("base_risk_pct"),
+                    "quality_gate_threshold": QUALITY_GATE_THRESHOLD,
+                    "adx_on": meta.get("adx_on"),
+                    "adx_off": meta.get("adx_off"),
+                    "regime": meta.get("daily_regime"),
+                },
+                expected_entry_price=meta["trigger_price"],
+                signal_factors=[
+                    {"factor_name": "quality_score", "factor_value": meta.get("quality_score", 0),
+                     "threshold": QUALITY_GATE_THRESHOLD, "contribution": "entry_quality"},
+                    {"factor_name": "adx", "factor_value": meta.get("daily_adx", 0),
+                     "threshold": meta.get("adx_on", 20), "contribution": "trend_strength"},
+                    {"factor_name": "ema_separation", "factor_value": meta.get("daily_ema_sep_pct", 0),
+                     "threshold": 0.15, "contribution": "trend_separation"},
+                    {"factor_name": "regime", "factor_value": meta.get("daily_regime", "unknown"),
+                     "threshold": "TREND", "contribution": "regime_context"},
+                    {"factor_name": "signal_type", "factor_value": _ctype_val,
+                     "threshold": "pullback", "contribution": "entry_type"},
+                ],
+                sizing_inputs={
+                    "target_risk_pct": cfg.base_risk_pct,
+                    "account_equity": self._equity,
+                    "volatility_basis": atrh,
+                    "sizing_model": "atr_risk",
+                },
+                portfolio_state_at_entry={
+                    "num_positions": len(active_pos),
+                    "long_positions": sum(1 for p in active_pos.values() if p.direction == Direction.LONG),
+                    "short_positions": sum(1 for p in active_pos.values() if p.direction == Direction.SHORT),
+                    "symbols_held": list(active_pos.keys()),
+                },
+                signal_evolution=self._build_signal_evolution(sym),
+                concurrent_positions_strategy=len(self.positions),
+                fill_order_id=oms_order_id,
+                fill_qty=float(fill_qty),
+                fill_time_ms=int(fill_time.timestamp() * 1000),
             )
-            self.positions[sym] = pos
 
-            # Place protective stop
-            stop_id = await self._place_stop(sym, meta["initial_stop"], fill_qty)
-            if stop_id:
-                pos.stop_oms_order_id = stop_id
-            pos.stop_pending = False  # C3: stop placed (or failed — either way, unblock)
-
-            # Hook 4: Instrumentation trade entry
-            if self._kit:
-                side_str = "LONG" if direction == Direction.LONG else "SHORT"
-                active_pos = {s: p for s, p in self.positions.items() if p.direction != Direction.FLAT}
-                quality_score = meta.get("quality_score", 0)
-                quality_margin = (quality_score - QUALITY_GATE_THRESHOLD) / max(QUALITY_GATE_THRESHOLD, 0.01) * 100 if QUALITY_GATE_THRESHOLD > 0 else 0
-                _cfg_dict = dataclasses.asdict(cfg)
-                _param_set_id = hashlib.md5(
-                    json.dumps(_cfg_dict, sort_keys=True, default=str).encode()
-                ).hexdigest()[:8]
-                self._kit.log_entry(
-                    trade_id=trade_id or f"{sym}_{fill_time.isoformat()}",
-                    pair=sym,
-                    side=side_str,
-                    entry_price=fill_price,
-                    position_size=float(fill_qty),
-                    position_size_quote=fill_price * fill_qty,
-                    entry_signal=ctype.value,
-                    entry_signal_id=f"{sym}_{ctype.value}_{fill_time.isoformat()}",
-                    entry_signal_strength=meta.get("quality_score", 0.5),
-                    active_filters=["quality_gate", "momentum", "portfolio_heat"],
-                    passed_filters=["quality_gate", "momentum", "portfolio_heat"],
-                    filter_decisions=[
-                        {"filter_name": "quality_gate", "threshold": QUALITY_GATE_THRESHOLD,
-                         "actual_value": quality_score, "passed": True,
-                         "margin_pct": round(quality_margin, 1)},
-                        {"filter_name": "momentum", "threshold": 0,
-                         "actual_value": meta.get("hourly_ema_mom", 0), "passed": True,
-                         "margin_pct": 0},
-                    ],
-                    strategy_params={
-                        "param_set_id": _param_set_id,
-                        "config": _cfg_dict,
-                        "atrh": atrh,
-                        "initial_stop": meta["initial_stop"],
-                        "daily_mult": meta.get("daily_mult"),
-                        "hourly_mult": meta.get("hourly_mult"),
-                        "chand_mult": meta.get("chand_mult"),
-                        "base_risk_pct": meta.get("base_risk_pct"),
-                        "quality_gate_threshold": QUALITY_GATE_THRESHOLD,
-                        "adx_on": meta.get("adx_on"),
-                        "adx_off": meta.get("adx_off"),
-                        "regime": meta.get("daily_regime"),
-                    },
-                    expected_entry_price=meta["trigger_price"],
-                    signal_factors=[
-                        {"factor_name": "quality_score", "factor_value": meta.get("quality_score", 0),
-                         "threshold": QUALITY_GATE_THRESHOLD, "contribution": "entry_quality"},
-                        {"factor_name": "adx", "factor_value": meta.get("daily_adx", 0),
-                         "threshold": meta.get("adx_on", 20), "contribution": "trend_strength"},
-                        {"factor_name": "ema_separation", "factor_value": meta.get("daily_ema_sep_pct", 0),
-                         "threshold": 0.15, "contribution": "trend_separation"},
-                        {"factor_name": "regime", "factor_value": meta.get("daily_regime", "unknown"),
-                         "threshold": "TREND", "contribution": "regime_context"},
-                        {"factor_name": "signal_type", "factor_value": ctype.value,
-                         "threshold": "pullback", "contribution": "entry_type"},
-                    ],
-                    sizing_inputs={
-                        "target_risk_pct": cfg.base_risk_pct,
-                        "account_equity": self._equity,
-                        "volatility_basis": atrh,
-                        "sizing_model": "atr_risk",
-                    },
-                    portfolio_state_at_entry={
-                        "num_positions": len(active_pos),
-                        "long_positions": sum(1 for p in active_pos.values() if p.direction == Direction.LONG),
-                        "short_positions": sum(1 for p in active_pos.values() if p.direction == Direction.SHORT),
-                        "symbols_held": list(active_pos.keys()),
-                    },
-                    signal_evolution=self._build_signal_evolution(sym),
-                    concurrent_positions_strategy=len(self.positions),
-                    fill_order_id=oms_order_id,
-                    fill_qty=float(fill_qty),
-                    fill_time_ms=int(fill_time.timestamp() * 1000),
-                )
-
-                self._kit.on_order_event(
-                    order_id=oms_order_id,
-                    pair=sym,
-                    side="LONG" if direction == Direction.LONG else "SHORT",
-                    order_type="STOP_LIMIT",
-                    status="FILLED",
-                    requested_qty=float(meta["qty"]),
-                    filled_qty=float(fill_qty),
-                    requested_price=meta["trigger_price"],
-                    fill_price=fill_price,
-                    related_trade_id=trade_id,
-                    strategy_id=STRATEGY_ID,
-                )
-
-        elif leg_type == LegType.ADDON_A:
-            pos = self.positions.get(sym)
-            if pos:
-                pos.legs.append(leg)
-                pos.addon_a_done = True
-                pos.addon_a_pending_id = ""  # C2: clear pending ID on fill
-                # Update stop qty to cover all legs
-                await self._update_stop_qty(sym)
-            else:
-                # H1: Base position was already flattened — orphaned addon fill
-                logger.warning(
-                    "%s ORPHANED ADDON_A fill: pos already flat, flattening orphan qty=%d @ %.4f",
-                    sym, fill_qty, fill_price,
-                )
-                await self._flatten_position(sym, "FLATTEN_ORPHANED_ADDON_A")
-
-        elif leg_type == LegType.ADDON_B:
-            pos = self.positions.get(sym)
-            if pos:
-                pos.legs.append(leg)
-                pos.addon_b_done = True
-                await self._update_stop_qty(sym)
-            else:
-                # H1: Base position was already flattened — orphaned addon fill
-                logger.warning(
-                    "%s ORPHANED ADDON_B fill: pos already flat, flattening orphan qty=%d @ %.4f",
-                    sym, fill_qty, fill_price,
-                )
-                await self._flatten_position(sym, "FLATTEN_ORPHANED_ADDON_B")
+            self._kit.on_order_event(
+                order_id=oms_order_id,
+                pair=sym,
+                side="LONG" if direction == Direction.LONG else "SHORT",
+                order_type="STOP_LIMIT",
+                status="FILLED",
+                requested_qty=float(meta["qty"]),
+                filled_qty=float(fill_qty),
+                requested_price=meta["trigger_price"],
+                fill_price=fill_price,
+                related_trade_id=trade_id,
+                strategy_id=STRATEGY_ID,
+            )
 
         logger.info(
             "FILL %s %s %s %d @ %.4f (stop=%.4f)",
-            sym, ctype.value,
+            sym, ctype.value if hasattr(ctype, 'value') else str(ctype),
             "LONG" if direction == Direction.LONG else "SHORT",
             fill_qty, fill_price, meta["initial_stop"],
         )
 
-        # Flatten AFTER position/leg is recorded so trade is tracked and reentry state updated
-        if is_bad_fill:
-            await self._flatten_position(sym, "FLATTEN_BAD_FILL")
-
-    async def _on_stop_fill(self, oms_order_id: str, payload: dict) -> None:
-        """Handle a stop-loss fill — position fully exited."""
-        for sym, pos in list(self.positions.items()):
-            if pos.stop_oms_order_id == oms_order_id:
-                fill_price = payload.get("price", pos.current_stop)
-                fill_time = datetime.now(timezone.utc)
-                cfg = self._config.get(sym)
-
-                # Resolve exit reason: check if a flatten was pending (race condition)
-                _pending = self._pending_flattens.pop(sym, None)
-                _exit_reason = _pending.get("reason", "STOP") if _pending else "STOP"
-
-                # Record exits for all legs
-                if self._recorder:
-                    for leg in pos.legs:
-                        if leg.trade_id:
-                            try:
-                                risk_per_unit = pos.base_risk_per_unit
-                                if pos.direction == Direction.LONG:
-                                    pnl = fill_price - leg.entry_price
-                                else:
-                                    pnl = leg.entry_price - fill_price
-                                realized_r = pnl / risk_per_unit if risk_per_unit > 0 else 0
-
-                                inst = self._instruments.get(sym)
-                                pv = inst.point_value if inst else 1.0
-                                realized_usd = pnl * pv * leg.qty
-
-                                await self._recorder.record_exit(
-                                    trade_id=leg.trade_id,
-                                    exit_price=Decimal(str(fill_price)),
-                                    exit_ts=fill_time,
-                                    exit_reason=_exit_reason,
-                                    realized_r=Decimal(str(round(realized_r, 4))),
-                                    realized_usd=Decimal(str(round(realized_usd, 2))),
-                                    mfe_r=Decimal(str(round(pos.mfe, 4))),
-                                    duration_bars=pos.bars_held,
-                                )
-                            except Exception:
-                                logger.exception("Error recording exit for %s leg", sym)
-
-                # Cancel all pending orders for this symbol (M4, spec Section 12.2)
-                await self._cancel_symbol_orders(sym)
-
-                # Update re-entry state
-                reentry = self.reentry_states.get(sym, ReentryState())
-                reentry.last_exit_time = fill_time
-                reentry.last_exit_dir = pos.direction
-                reentry.last_exit_mfe = pos.mfe
-                reentry.last_exit_reason = _exit_reason
-                reentry.reset_seen_long = False
-                reentry.reset_seen_short = False
-
-                # Grant voucher if MFE >= 1.0R (spec Section 4.1)
-                if pos.mfe >= 1.0:
-                    if pos.direction == Direction.LONG:
-                        reentry.voucher_long = True
-                    else:
-                        reentry.voucher_short = True
-                    reentry.voucher_granted_time = fill_time
-                    logger.info(
-                        "%s voucher granted for %s (MFE=%.2fR)",
-                        sym, pos.direction.name, pos.mfe,
-                    )
-
-                self.reentry_states[sym] = reentry
-
-                # Hook 5: Instrumentation trade exit + process scoring
-                if self._kit:
-                    _entry = pos.base_leg.entry_price if pos.base_leg else fill_price
-                    if pos.direction == Direction.LONG:
-                        _mfe_pct = (pos.mfe_price - _entry) / _entry if _entry > 0 else None
-                        _mae_pct = (_entry - pos.mae_price) / _entry if _entry > 0 else None
-                        _pnl_pct = (fill_price - _entry) / _entry if _entry > 0 else None
-                    else:
-                        _mfe_pct = (_entry - pos.mfe_price) / _entry if _entry > 0 else None
-                        _mae_pct = (pos.mae_price - _entry) / _entry if _entry > 0 else None
-                        _pnl_pct = (_entry - fill_price) / _entry if _entry > 0 else None
-                    for leg in pos.legs:
-                        tid = leg.trade_id or f"{sym}_{leg.fill_time.isoformat()}"
-                        self._kit.log_exit(
-                            trade_id=tid,
-                            exit_price=fill_price,
-                            exit_reason=_exit_reason,
-                            expected_exit_price=pos.current_stop,
-                            mfe_price=pos.mfe_price,
-                            mae_price=pos.mae_price,
-                            mfe_r=pos.mfe,
-                            mae_r=pos.mae,
-                            mfe_pct=_mfe_pct,
-                            mae_pct=_mae_pct,
-                            pnl_pct=_pnl_pct,
-                            fill_order_id=oms_order_id,
-                            fill_qty=float(pos.total_qty),
-                        )
-
-                    self._kit.on_order_event(
-                        order_id=oms_order_id,
-                        pair=sym,
-                        side="SELL" if pos.direction == Direction.LONG else "BUY",
-                        order_type="STOP",
-                        status="FILLED",
-                        requested_qty=float(pos.total_qty),
-                        filled_qty=float(pos.total_qty),
-                        requested_price=pos.current_stop,
-                        fill_price=fill_price,
-                        related_trade_id=pos.base_leg.trade_id if pos.base_leg else "",
-                        strategy_id=STRATEGY_ID,
-                    )
-
-                # M8: Remove position entirely instead of resetting to empty book
-                self.positions.pop(sym, None)
-                logger.info(
-                    "STOPPED OUT %s @ %.4f after %d bars",
-                    sym, fill_price, pos.bars_held,
-                )
-                break
-
-    async def _on_flatten_fill(
-        self, sym: str, oms_order_id: str, payload: dict
+    async def _record_exit_instrumentation(
+        self, sym: str, pre_pos: Any,
+        fill_price: float, fill_time: datetime, reason: str, oms_order_id: str,
     ) -> None:
-        """Handle a flatten fill — clean up position state (no voucher granted)."""
-        flatten_info = self._pending_flattens.pop(sym, None)
-        reason = flatten_info.get("reason", "FLATTEN") if flatten_info else "FLATTEN"
-        pos = self.positions.get(sym)
-        if pos is None or pos.direction == Direction.FLAT:
-            return
-
-        fill_price = payload.get("price", pos.current_stop)
-        fill_time = datetime.now(timezone.utc)
-
+        """Record trade exits + kit logging for a stop or flatten fill."""
         # Record exits for all legs
         if self._recorder:
-            for leg in pos.legs:
+            for leg in pre_pos.legs:
                 if leg.trade_id:
                     try:
-                        risk_per_unit = pos.base_risk_per_unit
-                        if pos.direction == Direction.LONG:
+                        risk_per_unit = pre_pos.base_risk_per_unit
+                        if pre_pos.direction == Direction.LONG:
                             pnl = fill_price - leg.entry_price
                         else:
                             pnl = leg.entry_price - fill_price
@@ -2048,115 +2031,124 @@ class ATRSSEngine:
                             exit_reason=reason,
                             realized_r=Decimal(str(round(realized_r, 4))),
                             realized_usd=Decimal(str(round(realized_usd, 2))),
-                            mfe_r=Decimal(str(round(pos.mfe, 4))),
-                            duration_bars=pos.bars_held,
+                            mfe_r=Decimal(str(round(pre_pos.mfe, 4))),
+                            duration_bars=pre_pos.bars_held,
                         )
                     except Exception:
-                        logger.exception("Error recording flatten exit for %s", sym)
+                        logger.exception("Error recording exit for %s leg", sym)
 
-        # Update re-entry state (no voucher — flatten is not a stop-hit)
-        reentry = self.reentry_states.get(sym, ReentryState())
-        reentry.last_exit_time = fill_time
-        reentry.last_exit_dir = pos.direction
-        reentry.last_exit_mfe = pos.mfe
-        reentry.last_exit_reason = reason
-        reentry.reset_seen_long = False
-        reentry.reset_seen_short = False
-        self.reentry_states[sym] = reentry
-
-        # Hook 5: Instrumentation trade exit + process scoring (flatten)
+        # Kit instrumentation
         if self._kit:
-            _entry = pos.base_leg.entry_price if pos.base_leg else fill_price
-            if pos.direction == Direction.LONG:
-                _mfe_pct = (pos.mfe_price - _entry) / _entry if _entry > 0 else None
-                _mae_pct = (_entry - pos.mae_price) / _entry if _entry > 0 else None
+            _entry = pre_pos.base_leg.entry_price if pre_pos.base_leg else fill_price
+            if pre_pos.direction == Direction.LONG:
+                _mfe_pct = (pre_pos.mfe_price - _entry) / _entry if _entry > 0 else None
+                _mae_pct = (_entry - pre_pos.mae_price) / _entry if _entry > 0 else None
                 _pnl_pct = (fill_price - _entry) / _entry if _entry > 0 else None
             else:
-                _mfe_pct = (_entry - pos.mfe_price) / _entry if _entry > 0 else None
-                _mae_pct = (pos.mae_price - _entry) / _entry if _entry > 0 else None
+                _mfe_pct = (_entry - pre_pos.mfe_price) / _entry if _entry > 0 else None
+                _mae_pct = (pre_pos.mae_price - _entry) / _entry if _entry > 0 else None
                 _pnl_pct = (_entry - fill_price) / _entry if _entry > 0 else None
-            for leg in pos.legs:
+            for leg in pre_pos.legs:
                 tid = leg.trade_id or f"{sym}_{leg.fill_time.isoformat()}"
                 self._kit.log_exit(
                     trade_id=tid,
                     exit_price=fill_price,
                     exit_reason=reason,
-                    expected_exit_price=fill_price,
-                    mfe_price=pos.mfe_price,
-                    mae_price=pos.mae_price,
-                    mfe_r=pos.mfe,
-                    mae_r=pos.mae,
+                    expected_exit_price=pre_pos.current_stop,
+                    mfe_price=pre_pos.mfe_price,
+                    mae_price=pre_pos.mae_price,
+                    mfe_r=pre_pos.mfe,
+                    mae_r=pre_pos.mae,
                     mfe_pct=_mfe_pct,
                     mae_pct=_mae_pct,
                     pnl_pct=_pnl_pct,
                     fill_order_id=oms_order_id,
-                    fill_qty=float(pos.total_qty),
+                    fill_qty=float(pre_pos.total_qty),
                 )
 
-        # M8: Remove position entirely instead of resetting to empty book
-        self.positions.pop(sym, None)
+            self._kit.on_order_event(
+                order_id=oms_order_id,
+                pair=sym,
+                side="SELL" if pre_pos.direction == Direction.LONG else "BUY",
+                order_type="STOP",
+                status="FILLED",
+                requested_qty=float(pre_pos.total_qty),
+                filled_qty=float(pre_pos.total_qty),
+                requested_price=pre_pos.current_stop,
+                fill_price=fill_price,
+                related_trade_id=pre_pos.base_leg.trade_id if pre_pos.base_leg else "",
+                strategy_id=STRATEGY_ID,
+            )
+
         logger.info(
-            "FLATTEN FILL %s @ %.4f after %d bars",
-            sym, fill_price, pos.bars_held,
+            "%s %s @ %.4f after %d bars",
+            "STOPPED OUT" if reason == "STOP" else "FLATTEN FILL",
+            sym, fill_price, pre_pos.bars_held,
         )
 
-    async def _on_partial_close_fill(
-        self, sym: str, meta: dict, payload: dict,
+    async def _record_partial_instrumentation(
+        self, sym: str, meta: dict, pre_pos: Any,
+        fill_price: float, fill_time: datetime,
     ) -> None:
-        """Handle a partial close fill — reduce base leg qty, update stop."""
-        pos = self.positions.get(sym)
-        if pos is None or pos.direction == Direction.FLAT:
-            return
-
-        base = pos.base_leg
-        if base is None:
-            return
-
+        """Record partial exit via recorder."""
         partial_qty = meta.get("partial_qty", 0)
         reason = meta.get("reason", "PARTIAL")
-        fill_price = payload.get("price", 0.0)
-        fill_time = datetime.now(timezone.utc)
-
-        # Record partial exit
-        if self._recorder and base.trade_id:
+        if self._recorder and pre_pos and pre_pos.base_leg and pre_pos.base_leg.trade_id:
             try:
-                risk_per_unit = pos.base_risk_per_unit
-                if pos.direction == Direction.LONG:
-                    pnl = fill_price - base.entry_price
+                risk_per_unit = pre_pos.base_risk_per_unit
+                if pre_pos.direction == Direction.LONG:
+                    pnl = fill_price - pre_pos.base_leg.entry_price
                 else:
-                    pnl = base.entry_price - fill_price
+                    pnl = pre_pos.base_leg.entry_price - fill_price
                 realized_r = pnl / risk_per_unit if risk_per_unit > 0 else 0
                 inst = self._instruments.get(sym)
                 pv = inst.point_value if inst else 1.0
                 realized_usd = pnl * pv * partial_qty
                 await self._recorder.record_exit(
-                    trade_id=base.trade_id,
+                    trade_id=pre_pos.base_leg.trade_id,
                     exit_price=Decimal(str(fill_price)),
                     exit_ts=fill_time,
                     exit_reason=reason,
                     realized_r=Decimal(str(round(realized_r, 4))),
                     realized_usd=Decimal(str(round(realized_usd, 2))),
-                    mfe_r=Decimal(str(round(pos.mfe, 4))),
-                    duration_bars=pos.bars_held,
+                    mfe_r=Decimal(str(round(pre_pos.mfe, 4))),
+                    duration_bars=pre_pos.bars_held,
                 )
             except Exception:
                 logger.exception("Error recording partial exit for %s", sym)
-
-        # Reduce base leg qty
-        base.qty = max(1, base.qty - partial_qty)
-
-        # Update stop qty to reflect reduced position
-        await self._update_stop_qty(sym)
-
         logger.info(
-            "PARTIAL_CLOSE FILL %s %s qty=%d reason=%s @ %.4f",
-            sym, pos.direction.name, partial_qty, reason, fill_price,
+            "PARTIAL_CLOSE FILL %s qty=%d reason=%s @ %.4f",
+            sym, partial_qty, reason, fill_price,
         )
 
     async def _on_terminal(self, oms_order_id: str | None, etype: Any) -> None:
-        """Clean up pending orders on cancel/reject/expire."""
+        """Clean up pending orders on cancel/reject/expire -- routed through core."""
         if oms_order_id:
-            meta = self.pending_orders.pop(oms_order_id, None)
+            # Capture meta for instrumentation before core pops it
+            meta = self.pending_orders.get(oms_order_id)
+
+            status_map = {
+                OMSEventType.ORDER_REJECTED: "rejected",
+                OMSEventType.ORDER_CANCELLED: "cancelled",
+                OMSEventType.ORDER_EXPIRED: "expired",
+            }
+            update = ATRSSOrderUpdate(
+                oms_order_id=oms_order_id,
+                status=status_map.get(etype, "cancelled"),
+                symbol=meta.get("symbol", "") if meta else "",
+                timestamp=datetime.now(timezone.utc),
+                order_role="entry",
+            )
+
+            # Route through core for state cleanup
+            core_state = build_core_runtime_state(self)
+            new_state, _actions, events = atrss_core_logic.on_order_update(core_state, update)
+            apply_core_runtime_state(self, new_state)
+
+            for event in events:
+                self._record_decision(event.code, event.details)
+
+            # Kit instrumentation (preserved from original)
             if meta:
                 sym = meta.get("symbol")
                 logger.info(
@@ -2165,7 +2157,7 @@ class ATRSSEngine:
                 )
 
                 if self._kit:
-                    status_map = {
+                    kit_status_map = {
                         OMSEventType.ORDER_REJECTED: "REJECTED",
                         OMSEventType.ORDER_CANCELLED: "CANCELLED",
                         OMSEventType.ORDER_EXPIRED: "EXPIRED",
@@ -2175,12 +2167,13 @@ class ATRSSEngine:
                         pair=meta.get("symbol", ""),
                         side="LONG" if meta.get("direction") == Direction.LONG else "SHORT",
                         order_type="STOP_LIMIT",
-                        status=status_map.get(etype, "CANCELLED"),
+                        status=kit_status_map.get(etype, "CANCELLED"),
                         requested_qty=float(meta.get("qty", 0)),
                         requested_price=meta.get("trigger_price", 0),
                         strategy_id=STRATEGY_ID,
                     )
-                # C2: If addon_a was rejected/cancelled, clear pending ID so it can be retried
+                # C2 addon_a clearing now handled by core on_order_update
+                # Verify: check that core cleared addon_a_pending_id
                 if meta.get("type") == CandidateType.ADDON_A and sym:
                     pos = self.positions.get(sym)
                     if pos and pos.addon_a_pending_id == oms_order_id:

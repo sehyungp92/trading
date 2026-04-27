@@ -13,6 +13,11 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 
+from backtests.shared.parity.legacy_result_outputs import (
+    decision_stream_from_trades,
+    merge_decision_streams,
+    trade_outcomes_from_records,
+)
 from strategies.swing.akc_helix.config import SYMBOL_CONFIGS, SymbolConfig
 from strategies.swing.akc_helix.models import Direction
 
@@ -63,6 +68,8 @@ class HelixPortfolioResult:
     combined_timestamps: np.ndarray = field(default_factory=lambda: np.array([]))
     filter_summary: dict[str, FilterStats] = field(default_factory=dict)
     heat_stats: HelixHeatStats = field(default_factory=HelixHeatStats)
+    decision_stream: list[dict] = field(default_factory=list)
+    trade_outcomes: list[dict] = field(default_factory=list)
 
 
 def _get_point_value(symbol: str) -> float:
@@ -162,6 +169,8 @@ def run_helix_independent(
         combined_equity=combined_equity,
         combined_timestamps=combined_ts,
         filter_summary=filter_summary,
+        decision_stream=merge_decision_streams(*(result.decision_stream for result in results.values())),
+        trade_outcomes=[outcome for result in results.values() for outcome in result.trade_outcomes],
     )
 
 
@@ -306,6 +315,8 @@ def run_helix_synchronized(
             regime_days_bull=engine.regime_days_bull,
             regime_days_bear=engine.regime_days_bear,
             regime_days_chop=engine.regime_days_chop,
+            decision_stream=decision_stream_from_trades(engine.trades, timeframe="1h"),
+            trade_outcomes=trade_outcomes_from_records(engine.trades),
         )
 
     filter_summary = _run_shadow_sim(shadow, engines, configs, data, bt_config)
@@ -316,6 +327,8 @@ def run_helix_synchronized(
         combined_timestamps=np.array(timestamps),
         filter_summary=filter_summary,
         heat_stats=heat,
+        decision_stream=merge_decision_streams(*(result.decision_stream for result in results.values())),
+        trade_outcomes=[outcome for result in results.values() for outcome in result.trade_outcomes],
     )
 
 

@@ -1235,7 +1235,7 @@ class DownturnEngine:
                 order_updates=[
                     DownturnOrderUpdate(
                         oms_order_id=fill.order.order_id,
-                        status=fill.status.value.lower(),
+                        status=fill.status.name.lower(),
                         timestamp=bar_time,
                     )
                 ]

@@ -12,6 +12,18 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
+from backtests.shared.parity.legacy_result_outputs import trade_outcomes_from_records
+from strategies.swing.atrss.core import logic as atrss_core_logic
+from strategies.swing.atrss.core.state import (
+    ATRSSAddOnARequest,
+    ATRSSCoreState,
+    ATRSSEntryRequest,
+    ATRSSFill,
+    ATRSSFlattenRequest,
+    ATRSSOrderUpdate,
+    ATRSSPartialExitRequest,
+    ATRSSStopUpdateRequest,
+)
 from libs.broker_ibkr.risk_support.tick_rules import round_to_tick
 from strategies.swing.atrss import allocator, signals, stops
 from strategies.swing.atrss.config import (
@@ -53,6 +65,8 @@ from strategies.swing.atrss.models import (
     Regime,
 )
 
+from backtests.shared.parity.decision_capture import normalize_decision_stream
+from backtests.shared.parity.replay_driver import ReplayStep, run_replay
 from backtests.swing.config import AblationFlags, BacktestConfig, SlippageConfig
 from backtests.swing.data.preprocessing import NumpyBars
 from backtests.swing.engine.sim_broker import (
@@ -152,6 +166,8 @@ class SymbolResult:
     bias_days_flat: int = 0
     funnel: SignalFunnelStats | None = None
     order_metadata: list[dict] = field(default_factory=list)
+    decision_stream: list[dict] = field(default_factory=list)
+    trade_outcomes: list[dict] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -484,6 +500,10 @@ class BacktestEngine:
         self._pending_flatten_info: dict | None = None  # {reason, reverse_entry?}
         self._pending_partial_info: dict | None = None   # {reason}
 
+        # Core parity: decision event capture via shared replay driver
+        self._core_state = ATRSSCoreState()
+        self._decision_events: list = []
+
     def run(
         self,
         daily: NumpyBars,
@@ -514,7 +534,37 @@ class BacktestEngine:
             bias_days_flat=self._bias_days_flat,
             funnel=self._funnel,
             order_metadata=self._order_metadata,
+            decision_stream=normalize_decision_stream(self._decision_events),
+            trade_outcomes=trade_outcomes_from_records(self.trades),
         )
+
+    # ------------------------------------------------------------------
+    # Core parity: replay driver delegation
+    # ------------------------------------------------------------------
+
+    def _replay_core_step(
+        self,
+        *,
+        bar_input: dict | None = None,
+        order_updates: list | None = None,
+        fills: list | None = None,
+    ):
+        result = run_replay(
+            self._core_state,
+            steps=[
+                ReplayStep(
+                    bar_input=bar_input,
+                    order_updates=order_updates or [],
+                    fills=fills or [],
+                )
+            ],
+            on_bar=lambda state, payload: atrss_core_logic.on_bar(state, **payload),
+            on_order_update=atrss_core_logic.on_order_update,
+            on_fill=atrss_core_logic.on_fill,
+        )
+        self._core_state = result.state
+        self._decision_events.extend(result.events)
+        return result
 
     # ------------------------------------------------------------------
     # Step-by-step API for synchronized portfolio mode
@@ -785,11 +835,14 @@ class BacktestEngine:
             elif fr.status == FillStatus.REJECTED:
                 om["status"] = "REJECTED"
 
-        if fr.status == FillStatus.EXPIRED:
-            return
-        if fr.status == FillStatus.REJECTED:
-            return
-        if fr.status == FillStatus.CANCELLED:
+        if fr.status in (FillStatus.EXPIRED, FillStatus.REJECTED, FillStatus.CANCELLED):
+            self._replay_core_step(order_updates=[ATRSSOrderUpdate(
+                oms_order_id=fr.order.order_id,
+                status=fr.status.name.lower(),
+                symbol=self.symbol,
+                timestamp=bar_time,
+                order_role=fr.order.tag if fr.order.tag in ("entry", "flatten", "partial") else "unknown",
+            )])
             return
 
         # FILLED
@@ -860,6 +913,15 @@ class BacktestEngine:
                 self.position.addon_b_done = True
                 # Update protective stop qty
                 self._update_protective_stop()
+                # --- Core parity: notify addon B fill ---
+                self._replay_core_step(fills=[ATRSSFill(
+                    oms_order_id=order.order_id,
+                    fill_price=fill_price,
+                    fill_qty=order.qty,
+                    symbol=self.symbol,
+                    fill_time=bar_time,
+                    commission=fr.commission,
+                )])
         else:
             # Base entry
             leg = PositionLeg(
@@ -895,6 +957,15 @@ class BacktestEngine:
                     "%s BAD FILL: panic flatten at %.4f (filled %.4f)",
                     self.symbol, fill_price, fill_price,
                 )
+                # --- Core parity: notify entry fill before bad-fill flatten ---
+                self._replay_core_step(fills=[ATRSSFill(
+                    oms_order_id=order.order_id,
+                    fill_price=fill_price,
+                    fill_qty=order.qty,
+                    symbol=self.symbol,
+                    fill_time=bar_time,
+                    commission=fr.commission,
+                )])
                 self._close_position(fill_price, bar_time, "BAD_FILL_FLATTEN")
                 return
 
@@ -913,6 +984,19 @@ class BacktestEngine:
                 tag="protective_stop",
             )
             self.broker.submit_order(stop_order)
+            # --- Core parity: notify entry fill + track stop order ---
+            self._replay_core_step(fills=[ATRSSFill(
+                oms_order_id=order.order_id,
+                fill_price=fill_price,
+                fill_qty=order.qty,
+                symbol=self.symbol,
+                fill_time=bar_time,
+                commission=fr.commission,
+            )])
+            core_pos = self._core_state.positions.get(self.symbol)
+            if core_pos is not None:
+                core_pos.stop_oms_order_id = stop_order.order_id
+                core_pos.stop_pending = False
 
     def _handle_addon_fill(self, fr: FillResult, bar_time: datetime, leg_type: LegType) -> None:
         """Process Add-on A fill."""
@@ -931,6 +1015,15 @@ class BacktestEngine:
         self.position.addon_a_done = True
         # NOTE: commission already tracked in _handle_fill() — do NOT double-count
         self._update_protective_stop()
+        # --- Core parity: notify addon A fill ---
+        self._replay_core_step(fills=[ATRSSFill(
+            oms_order_id=fr.order.order_id,
+            fill_price=fr.fill_price,
+            fill_qty=order.qty,
+            symbol=self.symbol,
+            fill_time=bar_time,
+            commission=fr.commission,
+        )])
 
     # ------------------------------------------------------------------
     # Broker-mediated discretionary exits (Rec 2)
@@ -962,6 +1055,16 @@ class BacktestEngine:
             "reason": reason,
             "reverse_entry_info": reverse_entry_info,
         }
+        # --- Core parity: notify flatten request ---
+        self._replay_core_step(bar_input={
+            "bar_ts": bar_time,
+            "flatten_request": ATRSSFlattenRequest(symbol=self.symbol, reason=reason),
+        })
+        self._core_state.pending_flattens[self.symbol] = {
+            "oms_order_id": order.order_id,
+            "reason": reason,
+            "qty": total_qty,
+        }
 
     def _submit_partial_exit(
         self, frac: float, reason: str, bar_time: datetime,
@@ -991,6 +1094,23 @@ class BacktestEngine:
         )
         self.broker.submit_order(order)
         self._pending_partial_info = {"reason": reason}
+        # --- Core parity: notify partial exit request ---
+        self._replay_core_step(bar_input={
+            "bar_ts": bar_time,
+            "partial_exit_request": ATRSSPartialExitRequest(
+                client_order_id=order.order_id,
+                symbol=self.symbol,
+                qty=partial_qty,
+                reason=reason,
+            ),
+        })
+        self._core_state.pending_orders[order.order_id] = {
+            "symbol": self.symbol,
+            "direction": pos.direction,
+            "type": "PARTIAL_CLOSE",
+            "partial_qty": partial_qty,
+            "reason": reason,
+        }
 
     def _handle_flatten_fill(self, fr: FillResult, bar_time: datetime) -> None:
         """Process fill from a broker-mediated flatten order."""
@@ -999,6 +1119,16 @@ class BacktestEngine:
         self._close_position(fr.fill_price, bar_time, reason, exit_commission=fr.commission)
         self._flatten_pending = False
         self._pending_flatten_info = None
+        # --- Core parity: notify flatten fill ---
+        self._replay_core_step(fills=[ATRSSFill(
+            oms_order_id=fr.order.order_id,
+            fill_price=fr.fill_price,
+            fill_qty=fr.order.qty,
+            symbol=self.symbol,
+            fill_time=bar_time,
+            commission=fr.commission,
+            exit_type=reason,
+        )])
         # Submit deferred reverse entry (bias flip)
         reverse = info.get("reverse_entry_info")
         if reverse:
@@ -1014,6 +1144,15 @@ class BacktestEngine:
             fr.fill_price, bar_time, frac=0.0, reason=reason,
             exit_commission=fr.commission, override_qty=fr.order.qty,
         )
+        # --- Core parity: notify partial fill ---
+        self._replay_core_step(fills=[ATRSSFill(
+            oms_order_id=fr.order.order_id,
+            fill_price=fr.fill_price,
+            fill_qty=fr.order.qty,
+            symbol=self.symbol,
+            fill_time=bar_time,
+            commission=fr.commission,
+        )])
 
     def _handle_stop_fill(self, fr: FillResult, bar_time: datetime) -> None:
         """Process protective stop fill — close the position."""
@@ -1102,6 +1241,16 @@ class BacktestEngine:
         # Clear position
         self.position = PositionBook(symbol=self.symbol)
         self._mae_price = 0.0
+        # --- Core parity: notify stop fill ---
+        self._replay_core_step(fills=[ATRSSFill(
+            oms_order_id=fr.order.order_id,
+            fill_price=fr.fill_price,
+            fill_qty=fr.order.qty,
+            symbol=self.symbol,
+            fill_time=bar_time,
+            commission=fr.commission,
+            exit_type="STOP",
+        )])
 
     def _close_position(
         self, exit_price: float, bar_time: datetime, reason: str,
@@ -1415,6 +1564,16 @@ class BacktestEngine:
         # Update protective stop if changed
         if new_stop != pos.current_stop:
             pos.current_stop = new_stop
+            # --- Core parity: notify stop update ---
+            self._replay_core_step(bar_input={
+                "bar_ts": bar_time,
+                "stop_update": ATRSSStopUpdateRequest(
+                    symbol=self.symbol,
+                    stop_price=new_stop,
+                    qty=pos.total_qty,
+                    reason="trailing_stop_update",
+                ),
+            })
             self._update_protective_stop()
 
         # --- Bias flip exit + reverse ---
@@ -1464,6 +1623,24 @@ class BacktestEngine:
         )
         self.broker.submit_order(order)
         pos.addon_a_done = True
+        # --- Core parity: notify add-on A request ---
+        addon_req = ATRSSAddOnARequest(
+            client_order_id=order.order_id,
+            symbol=self.symbol,
+            direction=pos.direction,
+            qty=desired,
+            entry_price=0.0,
+            stop_price=pos.current_stop,
+        )
+        self._replay_core_step(bar_input={"bar_ts": bar_time, "add_on_a_request": addon_req})
+        self._core_state.pending_orders[order.order_id] = {
+            "symbol": self.symbol,
+            "direction": pos.direction,
+            "type": CandidateType.ADDON_A,
+            "trigger_price": 0.0,
+            "initial_stop": pos.current_stop,
+            "qty": desired,
+        }
 
     # ------------------------------------------------------------------
     # ------------------------------------------------------------------
@@ -1789,6 +1966,25 @@ class BacktestEngine:
         self._order_metadata.append(om)
         self._order_metadata_by_id[order_id] = om
 
+        # --- Core parity: notify entry request ---
+        _order_type_str = "STOP" if self.bt_config.slippage.use_stop_market else "STOP_LIMIT"
+        entry_req = ATRSSEntryRequest(
+            client_order_id=order_id,
+            symbol=self.symbol,
+            candidate=cand,
+            limit_price=getattr(order, "limit_price", 0.0),
+            order_type=_order_type_str,
+        )
+        self._replay_core_step(bar_input={"bar_ts": bar_time, "entry_request": entry_req})
+        self._core_state.pending_orders[order_id] = {
+            "symbol": self.symbol,
+            "direction": cand.direction,
+            "type": cand.type,
+            "trigger_price": cand.trigger_price,
+            "initial_stop": cand.initial_stop,
+            "qty": cand.qty,
+        }
+
     def _submit_entry(
         self,
         ctype: CandidateType,
@@ -1887,6 +2083,10 @@ class BacktestEngine:
             tag="protective_stop",
         )
         self.broker.submit_order(stop_order)
+        # --- Core parity: track new stop order ID ---
+        core_pos = self._core_state.positions.get(self.symbol)
+        if core_pos is not None:
+            core_pos.stop_oms_order_id = stop_order.order_id
 
     # ------------------------------------------------------------------
     # Breakout arm state management (spec S7.2-7.3)

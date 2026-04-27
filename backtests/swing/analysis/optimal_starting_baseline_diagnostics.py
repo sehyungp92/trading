@@ -1,6 +1,7 @@
 """Full diagnostics for the truthful BRS starting baseline."""
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from collections import defaultdict
@@ -59,8 +60,17 @@ OPTIMAL_STARTING_BASELINE_MUTATIONS = {
 
 
 def main() -> None:
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    MUTATIONS_PATH.write_text(
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", default=str(OUTPUT_PATH))
+    parser.add_argument("--mutations-output", default=str(MUTATIONS_PATH))
+    args = parser.parse_args()
+
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    mutations_path = Path(args.mutations_output)
+    mutations_path.parent.mkdir(parents=True, exist_ok=True)
+
+    mutations_path.write_text(
         json.dumps(OPTIMAL_STARTING_BASELINE_MUTATIONS, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
@@ -209,9 +219,9 @@ def main() -> None:
     _out(lines, "-" * 88)
     lines.extend(diagnostics.report.rstrip().splitlines())
 
-    OUTPUT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"Saved diagnostics to {OUTPUT_PATH}")
-    print(f"Saved mutations to {MUTATIONS_PATH}")
+    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"Saved diagnostics to {output_path}")
+    print(f"Saved mutations to {mutations_path}")
 
 
 def _campaign_summary_line(label: str, campaigns) -> str:

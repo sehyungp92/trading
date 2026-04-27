@@ -198,18 +198,34 @@ class ALCBP16Plugin:
         self.initial_equity = initial_equity
         self.max_workers = max_workers
         self.experiment_names = set(experiment_names or [])
-        self._cached_replay = None
+        self._cached_bundle = None
         self._config_cache: dict[tuple[Any, ...], dict[str, Any]] = {}
         self._evaluation_cache: dict[str, ScoredCandidate] = {}
         # Reserved for CachedBatchEvaluator's raw mutation_signature keys.
         self._metrics_cache: dict[str, dict[str, float]] = {}
+        self._cache_source_fingerprint: str = ""
         self._last_context: dict[str, Any] = {}
         self._phase_runtime_context: dict[int, dict[str, Any]] = {}
         self._shared_pool: mp.Pool | None = None
         self._resolved_workers: int = 0
 
+    def _replay_bundle(self):
+        from backtests.stock.data.replay_cache import load_research_replay_bundle
+
+        bundle = load_research_replay_bundle(self.data_dir)
+        if self._cache_source_fingerprint != bundle.cache_source_fingerprint:
+            self._metrics_cache.clear()
+            self._config_cache.clear()
+            self._evaluation_cache.clear()
+            self._last_context = {}
+            self._phase_runtime_context.clear()
+            self.close_pool()
+            self._cache_source_fingerprint = bundle.cache_source_fingerprint
+        self._cached_bundle = bundle
+        return bundle
+
     def _replay_data_fingerprint(self) -> str:
-        return self._ensure_replay().data_fingerprint()
+        return self._replay_bundle().cache_source_fingerprint
 
     def _metrics_cache_key(
         self,
@@ -410,16 +426,24 @@ class ALCBP16Plugin:
             qe_replacement_analysis(trades, max_positions=max_positions),
         ])
 
+    def _build_final_round_context(self, state: PhaseState) -> tuple[int, dict[str, Any], dict[str, float], Any]:
+        final_phase = max(state.completed_phases) if state.completed_phases else self.num_phases
+        final_ctx = self._run_config(state.cumulative_mutations, store_context=True, collect_diagnostics=True)
+        final_metrics = final_ctx["metrics"]
+        final_greedy = greedy_result_from_state(state, phase=final_phase, final_metrics=final_metrics)
+        return final_phase, final_ctx, final_metrics, final_greedy
+
+    def render_final_diagnostics_text(self, state: PhaseState) -> str:
+        final_phase, _final_ctx, final_metrics, final_greedy = self._build_final_round_context(state)
+        return self.run_enhanced_diagnostics(final_phase, state, final_metrics, final_greedy)
+
     def build_end_of_round_artifacts(self, state: PhaseState) -> EndOfRoundArtifacts:
         from backtests.stock.analysis.alcb_qe_replacement import qe_replacement_analysis
 
-        final_phase = max(state.completed_phases) if state.completed_phases else self.num_phases
-        final_ctx = self._run_config(state.cumulative_mutations, store_context=True, collect_diagnostics=True)
+        final_phase, final_ctx, final_metrics, final_greedy = self._build_final_round_context(state)
         base_ctx = self._run_config(BASE_MUTATIONS, store_context=False, collect_diagnostics=True)
-        final_metrics = final_ctx["metrics"]
         base_metrics = base_ctx["metrics"]
         final_trades = final_ctx["trades"]
-        final_greedy = greedy_result_from_state(state, phase=final_phase, final_metrics=final_metrics)
         final_diagnostics_text = self.run_enhanced_diagnostics(final_phase, state, final_metrics, final_greedy)
 
         dimension_reports = {
@@ -683,13 +707,7 @@ class ALCBP16Plugin:
         return resolved
 
     def _ensure_replay(self):
-        if self._cached_replay is None:
-            from backtests.stock.engine.research_replay import ResearchReplayEngine
-
-            replay = ResearchReplayEngine(data_dir=self.data_dir)
-            replay.load_all_data()
-            self._cached_replay = replay
-        return self._cached_replay
+        return self._replay_bundle().data
 
     def _run_config(
         self,
@@ -711,8 +729,9 @@ class ALCBP16Plugin:
         effective_end = end_date or self.end_date
         diagnostics_enabled = bool(collect_diagnostics or store_context)
         signature = mutation_signature(mutations)
-        replay = self._ensure_replay()
-        data_fingerprint = replay.data_fingerprint()
+        replay_bundle = self._replay_bundle()
+        replay = replay_bundle.data
+        data_fingerprint = replay_bundle.cache_source_fingerprint
         metrics_key = self._metrics_cache_key(mutations, start_date=effective_start, end_date=effective_end)
         cache_key = (data_fingerprint, signature, effective_start, effective_end, diagnostics_enabled)
         cached = self._config_cache.get(cache_key)

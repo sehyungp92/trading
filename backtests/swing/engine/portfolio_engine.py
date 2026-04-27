@@ -12,6 +12,11 @@ from types import SimpleNamespace
 
 import numpy as np
 
+from backtests.shared.parity.legacy_result_outputs import (
+    decision_stream_from_trades,
+    merge_decision_streams,
+    trade_outcomes_from_records,
+)
 from strategies.swing.atrss import allocator
 from strategies.swing.atrss.config import SYMBOL_CONFIGS, SymbolConfig
 from strategies.swing.atrss.models import Direction
@@ -51,6 +56,8 @@ class PortfolioResult:
     combined_timestamps: np.ndarray = field(default_factory=lambda: np.array([]))
     filter_summary: dict[str, FilterStats] = field(default_factory=dict)
     heat_stats: HeatStats = field(default_factory=HeatStats)
+    decision_stream: list[dict] = field(default_factory=list)
+    trade_outcomes: list[dict] = field(default_factory=list)
 
 
 def _get_point_value(symbol: str) -> float:
@@ -100,6 +107,8 @@ def run_independent(
         combined_equity=combined_equity,
         combined_timestamps=combined_ts,
         filter_summary=filter_summary,
+        decision_stream=merge_decision_streams(*(result.decision_stream for result in results.values())),
+        trade_outcomes=[outcome for result in results.values() for outcome in result.trade_outcomes],
     )
 
 
@@ -250,6 +259,8 @@ def run_synchronized(
             bias_days_flat=engine._bias_days_flat,
             funnel=engine._funnel,
             order_metadata=engine._order_metadata,
+            decision_stream=decision_stream_from_trades(engine.trades, timeframe="1h"),
+            trade_outcomes=trade_outcomes_from_records(engine.trades),
         )
 
     filter_summary = _run_shadow_sim(shadow, engines, configs, data, bt_config)
@@ -260,6 +271,8 @@ def run_synchronized(
         combined_timestamps=np.array(timestamps),
         filter_summary=filter_summary,
         heat_stats=heat,
+        decision_stream=merge_decision_streams(*(result.decision_stream for result in results.values())),
+        trade_outcomes=[outcome for result in results.values() for outcome in result.trade_outcomes],
     )
 
 

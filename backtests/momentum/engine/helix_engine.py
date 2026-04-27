@@ -32,6 +32,9 @@ from backtests.momentum.analysis.helix_shadow_tracker import HelixShadowTracker
 from backtests.momentum.config import round_to_tick, SlippageConfig
 from backtests.momentum.config_helix import Helix4AblationFlags, Helix4BacktestConfig
 from backtests.momentum.data.preprocessing import NumpyBars
+from backtests.shared.parity.decision_capture import normalize_decision_stream
+from backtests.shared.parity.replay_driver import ReplayStep, run_replay
+from backtests.shared.parity.trade_outcomes import normalize_trade_outcome_stream
 from backtests.momentum.engine.sim_broker import (
     FillResult, FillStatus, OrderSide, OrderType, SimBroker, SimOrder,
 )
@@ -69,6 +72,18 @@ from strategies.momentum.helix_v40.session import (
 )
 from strategies.momentum.helix_v40.signals import (
     SignalEngine, alignment_score, trend_strength, strong_trend_flag,
+)
+from strategies.core.events import DecisionEvent
+from strategies.momentum.helix_v40.core import logic as helix_core_logic
+from strategies.momentum.helix_v40.core.state import (
+    HelixV40CoreState,
+    HelixV40EntryArmed,
+    HelixV40EntryFillContext,
+    HelixV40ExpireSignatures,
+    HelixV40Fill,
+    HelixV40FlattenRequest,
+    HelixV40OrderUpdate,
+    HelixV40StopUpdateRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -204,6 +219,8 @@ class Helix4SymbolResult:
     gates_blocked: int = 0
     shadow_summary: str = ""
     shadow_tracker: HelixShadowTracker | None = None
+    decision_stream: list[dict] = field(default_factory=list)
+    trade_outcomes: list[dict] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -383,6 +400,38 @@ class Helix4Engine:
         self._time_history: list = []
         self._total_commission = 0.0
 
+        # Core state tracking for parity (thin-driver pattern)
+        self._core_state = HelixV40CoreState()
+        self._decision_events: list[DecisionEvent] = []
+
+    # ------------------------------------------------------------------
+    # Core replay bridge
+    # ------------------------------------------------------------------
+
+    def _replay_core_step(
+        self,
+        *,
+        bar_input: dict | None = None,
+        order_updates: list[HelixV40OrderUpdate] | None = None,
+        fills: list[HelixV40Fill] | None = None,
+    ):
+        result = run_replay(
+            self._core_state,
+            steps=[
+                ReplayStep(
+                    bar_input=bar_input,
+                    order_updates=order_updates or [],
+                    fills=fills or [],
+                )
+            ],
+            on_bar=lambda state, payload: helix_core_logic.on_bar(state, **payload),
+            on_order_update=helix_core_logic.on_order_update,
+            on_fill=helix_core_logic.on_fill,
+        )
+        self._core_state = result.state
+        self._decision_events.extend(result.events)
+        return result
+
     # ------------------------------------------------------------------
     # Main entry point
     # ------------------------------------------------------------------
@@ -460,6 +509,8 @@ class Helix4Engine:
             gates_blocked=sum(1 for g in self._gate_log if g.decision == "blocked"),
             shadow_summary=shadow_summary,
             shadow_tracker=self._shadow if self._shadow and self._shadow.rejections else None,
+            decision_stream=normalize_decision_stream(self._decision_events),
+            trade_outcomes=normalize_trade_outcome_stream(self._trades),
         )
 
     # ------------------------------------------------------------------
@@ -951,6 +1002,19 @@ class Helix4Engine:
                 pending.catchup_order_id = catchup_id
                 self._pending[catchup_id] = pending
 
+            # Core state tracking: entry armed
+            self._replay_core_step(bar_input=dict(
+                bar_ts=now_et,
+                armed_entries=[HelixV40EntryArmed(
+                    setup=setup,
+                    contracts=contracts,
+                    risk_r=entry_risk_r_armed,
+                    signature=sig,
+                    sig_expiry_ts=now_et + timedelta(seconds=ttl_s),
+                    bar_idx_1h=self._bar_idx_1h,
+                )],
+            ))
+
     def _place_catchup_if_overshot(
         self, setup: Setup, pending: _PendingSetup,
         side: OrderSide, last_price: float, atr1h: float,
@@ -1058,6 +1122,25 @@ class Helix4Engine:
         if fill.status == FillStatus.FILLED:
             pending = self._pending.pop(order.order_id, None)
             if pending is not None:
+                # Core state tracking: entry fill
+                _atr1 = self._h1.current_atr()
+                _is_tp = self._teleport_check(
+                    fill.fill_price, pending.setup.entry_stop,
+                    _to_et(bar_time), _atr1,
+                )
+                self._replay_core_step(fills=[HelixV40Fill(
+                    oms_order_id=order.order_id,
+                    fill_price=fill.fill_price,
+                    fill_qty=pending.contracts,
+                    fill_time=bar_time,
+                    point_value=self.pv,
+                    commission=fill.commission,
+                    is_teleport=_is_tp,
+                    entry_context=HelixV40EntryFillContext(
+                        setup=pending.setup, is_teleport=_is_tp,
+                    ),
+                )])
+
                 sibling = (pending.catchup_order_id if order.order_id == pending.order_id
                            else pending.order_id)
                 self._pending.pop(sibling, None)
@@ -1070,12 +1153,28 @@ class Helix4Engine:
             else:
                 for ap in self._active_positions:
                     if order.order_id == ap.stop_order_id:
+                        # Core state tracking: stop fill
+                        self._replay_core_step(fills=[HelixV40Fill(
+                            oms_order_id=order.order_id,
+                            fill_price=fill.fill_price,
+                            fill_qty=order.qty,
+                            fill_time=bar_time,
+                            point_value=self.pv,
+                            commission=fill.commission,
+                        )])
                         self._on_stop_fill(ap, fill, bar_time)
                         break
 
         elif fill.status in (FillStatus.EXPIRED, FillStatus.CANCELLED):
             pending = self._pending.pop(order.order_id, None)
             if pending:
+                # Core state tracking: order terminal
+                self._replay_core_step(order_updates=[HelixV40OrderUpdate(
+                    oms_order_id=order.order_id,
+                    status="cancelled" if fill.status == FillStatus.CANCELLED else "expired",
+                    timestamp=bar_time,
+                    order_role="entry",
+                )])
                 self._risk.release_pending_risk(
                     pending.setup.direction, pending.armed_risk_r)
                 et = self._entry_tracking_by_setup.get(pending.setup.setup_id)
@@ -1198,7 +1297,7 @@ class Helix4Engine:
         if not pos.trailing_active and R_total >= TRAIL_ACTIVATION_R:
             pos.trailing_active = True
             be_stop = pos.avg_entry
-            self._tighten_stop(ap, be_stop)
+            self._tighten_stop(ap, be_stop, now_et)
 
         # 3b) +1R milestone
         if not pos.did_1r and R_total >= 1.0:
@@ -1231,7 +1330,7 @@ class Helix4Engine:
         # 4) Single-phase chandelier trail (no bar-based phases)
         if self.flags.use_trailing and pos.trailing_active and pos.contracts > 0:
             new_stop = self._compute_trail(ap, last_price)
-            self._tighten_stop(ap, new_stop)
+            self._tighten_stop(ap, new_stop, now_et)
 
         # 4a) MFE ratchet floor
         if (self.flags.use_mfe_ratchet
@@ -1243,12 +1342,12 @@ class Helix4Engine:
             if r_points > 0:
                 floor_price = pos.avg_entry + pos.direction * min_exit_r * r_points
                 floor_price = round_to_tick(floor_price, self.tick)
-                self._tighten_stop(ap, floor_price)
+                self._tighten_stop(ap, floor_price, now_et)
 
         # 4b) Single time-decay: BE force at bar 12
         if self.flags.use_time_decay and not pos.trailing_active and pos.contracts > 0:
             if pos.bars_held_1h >= TIME_DECAY_BARS and R_total < TIME_DECAY_PROGRESS_R:
-                self._tighten_stop(ap, pos.avg_entry)
+                self._tighten_stop(ap, pos.avg_entry, now_et)
 
         # 5) Early stale
         if self.flags.use_early_stale and self._should_early_stale(pos, R_total):
@@ -1331,7 +1430,7 @@ class Helix4Engine:
     # Helpers
     # ------------------------------------------------------------------
 
-    def _tighten_stop(self, ap: _ActivePosition, new_stop: float) -> None:
+    def _tighten_stop(self, ap: _ActivePosition, new_stop: float, bar_time: datetime | None = None) -> None:
         """Tighten stop (never loosen)."""
         pos = ap.pos
         new_stop = round_to_tick(new_stop, self.tick)
@@ -1342,6 +1441,14 @@ class Helix4Engine:
             if new_stop >= pos.stop_price:
                 return
         pos.stop_price = new_stop
+        # Core state tracking: stop update
+        self._replay_core_step(bar_input=dict(
+            bar_ts=bar_time or self._core_state.last_bar_ts,
+            stop_updates=[HelixV40StopUpdateRequest(
+                pos_id=pos.pos_id, stop_price=new_stop,
+                reason="trail", symbol=self.symbol, qty=pos.contracts,
+            )],
+        ))
         for o in self.broker.pending_orders:
             if o.order_id == ap.stop_order_id:
                 o.stop_price = new_stop
@@ -1409,6 +1516,13 @@ class Helix4Engine:
         self, ap: _ActivePosition, price: float, bar_time: datetime, reason: str,
     ) -> None:
         """Close position with market-order slippage and commission applied."""
+        # Core state tracking: flatten request
+        self._replay_core_step(bar_input=dict(
+            bar_ts=bar_time,
+            flatten_requests=[HelixV40FlattenRequest(
+                pos_id=ap.pos.pos_id, reason=reason, symbol=self.symbol,
+            )],
+        ))
         slip = self.cfg.slippage.slip_ticks_normal * self.tick
         if ap.pos.direction == 1:  # LONG
             exit_price = price - slip
@@ -1447,6 +1561,13 @@ class Helix4Engine:
         )
         exit_price = round_to_tick(exit_price, self.tick)
 
+        # Core state tracking: catastrophic flatten
+        self._replay_core_step(bar_input=dict(
+            bar_ts=bar_time,
+            flatten_requests=[HelixV40FlattenRequest(
+                pos_id=pos.pos_id, reason="CATASTROPHIC_STOP", symbol=self.symbol,
+            )],
+        ))
         # Apply exit commission (slippage already baked into catastrophic exit_price)
         commission = self.cfg.slippage.commission_per_contract * pos.contracts
         self._total_commission += commission
@@ -1472,6 +1593,12 @@ class Helix4Engine:
 
     def _expire_signatures(self, now_et: datetime) -> None:
         expired = [sig for sig, exp in self._sig_expiry.items() if now_et >= exp]
+        if expired:
+            # Core state tracking: signature expiry
+            self._replay_core_step(bar_input=dict(
+                bar_ts=now_et,
+                expire_sigs=HelixV40ExpireSignatures(now=now_et),
+            ))
         for sig in expired:
             self._placed_signatures.discard(sig)
             del self._sig_expiry[sig]

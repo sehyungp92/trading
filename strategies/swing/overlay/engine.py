@@ -18,6 +18,7 @@ from typing import Any
 import numpy as np
 
 from .config import OverlayConfig
+from .shared import allocate_weighted_targets, compute_ema
 
 logger = logging.getLogger(__name__)
 
@@ -31,15 +32,8 @@ ET = ZoneInfo("America/New_York")
 # ---------------------------------------------------------------------------
 
 def _compute_ema(series: np.ndarray, period: int) -> np.ndarray:
-    """EMA with SMA seed — matches backtest/_overlay_ema exactly."""
-    out = np.full_like(series, np.nan, dtype=float)
-    if len(series) < period:
-        return out
-    out[period - 1] = np.mean(series[:period])
-    k = 2.0 / (period + 1)
-    for i in range(period, len(series)):
-        out[i] = series[i] * k + out[i - 1] * (1 - k)
-    return out
+    """EMA with SMA seed shared with the backtest mirror."""
+    return compute_ema(series, period)
 
 
 # ---------------------------------------------------------------------------
@@ -296,24 +290,22 @@ class OverlayEngine:
                         pass
         self._last_signals = dict(signals)
 
-        # 5. Compute target shares
-        if self._config.weights is None:
-            bullish_w = {s: 1.0 for s in self._config.symbols if signals.get(s)}
-        else:
+        # 5. Compute target shares from the shared decision/allocation helper.
+        target_shares = allocate_weighted_targets(
+            self._config.symbols,
+            signals=signals,
+            prices=prices,
+            portfolio_equity=net_equity,
+            max_equity_pct=self._config.max_equity_pct,
+            weights=self._config.weights,
+        )
+        bullish_w = {s: 1.0 for s in self._config.symbols if signals.get(s)}
+        if self._config.weights is not None:
             bullish_w = {
                 s: self._config.weights.get(s, 1.0)
                 for s in self._config.symbols if signals.get(s)
             }
         total_w = sum(bullish_w.values())
-
-        target_shares: dict[str, int] = {}
-        for sym in self._config.symbols:
-            price = prices.get(sym, 0.0)
-            if signals.get(sym) and price > 0 and total_w > 0:
-                alloc = available * bullish_w[sym] / total_w
-                target_shares[sym] = int(alloc / price)  # floor to whole shares
-            else:
-                target_shares[sym] = 0
 
         # BRS bear regime: block new overlay entries, allow exits of existing
         if self._bear_regime_check:

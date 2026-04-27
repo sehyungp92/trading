@@ -10,10 +10,11 @@ Infrastructure adapted from: strategies/stock/alcb/engine.py (compression-breako
 from __future__ import annotations
 
 import asyncio
-import logging
-import uuid
 from collections import deque
 from contextlib import suppress
+from copy import deepcopy
+import logging
+import uuid
 from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 from typing import Any
@@ -24,6 +25,27 @@ from .config import ET, STRATEGY_ID, StrategySettings
 from .data import CanonicalBarBuilder
 from .diagnostics import JsonlDiagnostics
 from .artifact_store import persist_intraday_state_t2, load_intraday_state_t2
+from .core import logic as alcb_core_logic
+from .core.logic import apply_core_state as apply_core_runtime_state
+from .core.logic import build_core_state as build_core_runtime_state
+from .core.serializers import restore_state as restore_core_state
+from .core.serializers import snapshot_state as snapshot_core_state
+from .core.state import (
+    ALCBEntryFillContext,
+    ALCBEntryRequest,
+    ALCBFill,
+    ALCBFlattenRequest,
+    ALCBOrderUpdate,
+    ALCBPartialExitRequest,
+    ALCBStopUpdateRequest,
+)
+from strategies.core.actions import (
+    FlattenPosition,
+    ReplaceProtectiveStop,
+    SubmitEntry,
+    SubmitExit,
+    SubmitPartialExit,
+)
 from .execution import build_entry_order, build_market_exit, build_stock_instrument, build_stop_order
 from .exits import (
     carry_eligible_momentum,
@@ -267,97 +289,16 @@ class ALCBT2Engine:
 
     def _build_state_snapshot(self) -> dict:
         """Build serializable snapshot of current engine state."""
-        return {
-            "trade_date": self._artifact.trade_date.isoformat(),
-            "saved_at": datetime.now(timezone.utc).isoformat(),
-            "positions": {
-                sym: {
-                    "entry_price": pos.entry_price,
-                    "stop_price": pos.stop_price,
-                    "current_stop": pos.current_stop,
-                    "quantity": pos.quantity,
-                    "qty_original": pos.qty_original,
-                    "risk_per_share": pos.risk_per_share,
-                    "entry_time": pos.entry_time.isoformat(),
-                    "entry_type": pos.entry_type,
-                    "sector": pos.sector,
-                    "regime_tier": pos.regime_tier,
-                    "momentum_score": pos.momentum_score,
-                    "hold_bars": pos.hold_bars,
-                    "partial_taken": pos.partial_taken,
-                    "stop_order_id": pos.stop_order_id,
-                    "trade_id": pos.trade_id,
-                    "setup_tag": pos.setup_tag,
-                    "direction": pos.direction.value,
-                    "max_favorable": pos.max_favorable,
-                    "max_adverse": pos.max_adverse,
-                    "carry_days": pos.carry_days,
-                    "avwap_at_entry": pos.avwap_at_entry,
-                    "or_high": pos.or_high,
-                    "or_low": pos.or_low,
-                    "mfe_r": pos.mfe_r,
-                    "partial_qty_exited": pos.partial_qty_exited,
-                    "realized_partial_pnl": pos.realized_partial_pnl,
-                    "entry_commission": pos.entry_commission,
-                    "exit_commission": pos.exit_commission,
-                    "fr_trailing_active": pos.fr_trailing_active,
-                    "trade_class": pos.trade_class,
-                }
-                for sym, pos in self._positions.items()
-            },
-            "or_data": {k: list(v) for k, v in self._or_data.items()},
-            "or_built": dict(self._or_built),
-            "order_index": {k: list(v) for k, v in self._order_index.items()},
-        }
+        snapshot = snapshot_core_state(build_core_runtime_state(self))
+        snapshot["trade_date"] = self._artifact.trade_date.isoformat()
+        snapshot["saved_at"] = datetime.now(timezone.utc).isoformat()
+        return snapshot
 
     def hydrate_state(self, snapshot: dict) -> None:
         """Restore engine state from a persisted snapshot."""
         if not snapshot:
             return
-        positions_data = snapshot.get("positions", {})
-        for sym, pdata in positions_data.items():
-            pos = T2PositionState(
-                symbol=sym,
-                direction=Direction(pdata.get("direction", "LONG")),
-                entry_price=pdata["entry_price"],
-                stop_price=pdata["stop_price"],
-                current_stop=pdata["current_stop"],
-                quantity=pdata["quantity"],
-                qty_original=pdata["qty_original"],
-                risk_per_share=pdata["risk_per_share"],
-                entry_time=datetime.fromisoformat(pdata["entry_time"]),
-                entry_type=pdata.get("entry_type", "OR_BREAKOUT"),
-                sector=pdata.get("sector", ""),
-                regime_tier=pdata.get("regime_tier", "A"),
-                momentum_score=pdata.get("momentum_score", 0),
-                avwap_at_entry=pdata.get("avwap_at_entry", 0.0),
-                or_high=pdata.get("or_high", 0.0),
-                or_low=pdata.get("or_low", 0.0),
-                max_favorable=pdata.get("max_favorable", pdata["entry_price"]),
-                max_adverse=pdata.get("max_adverse", pdata["entry_price"]),
-                setup_tag=pdata.get("setup_tag", ""),
-                trade_id=pdata.get("trade_id", ""),
-                hold_bars=pdata.get("hold_bars", 0),
-                partial_taken=pdata.get("partial_taken", False),
-                stop_order_id=pdata.get("stop_order_id", ""),
-                carry_days=pdata.get("carry_days", 0),
-                mfe_r=pdata.get("mfe_r", 0.0),
-                partial_qty_exited=pdata.get("partial_qty_exited", 0),
-                realized_partial_pnl=pdata.get("realized_partial_pnl", 0.0),
-                entry_commission=pdata.get("entry_commission", 0.0),
-                exit_commission=pdata.get("exit_commission", 0.0),
-                fr_trailing_active=pdata.get("fr_trailing_active", False),
-                trade_class=pdata.get("trade_class", ""),
-            )
-            self._positions[sym] = pos
-        # Restore OR state
-        for sym, vals in snapshot.get("or_data", {}).items():
-            self._or_data[sym] = tuple(vals)
-        for sym, built in snapshot.get("or_built", {}).items():
-            self._or_built[sym] = built
-        # Restore order index for position stop orders
-        for oid, pair in snapshot.get("order_index", {}).items():
-            self._order_index[oid] = tuple(pair)
+        apply_core_runtime_state(self, restore_core_state(snapshot))
         logger.info("T2 state hydrated: %d positions", len(self._positions))
 
     @staticmethod
@@ -617,15 +558,26 @@ class ALCBT2Engine:
             self._fire_exit(symbol, "EOD_FLATTEN")
 
     def _fire_exit(self, symbol: str, reason: str) -> None:
-        """Initiate a full exit via async task."""
-        task = asyncio.create_task(self._request_full_exit(symbol, reason))
-        task.add_done_callback(self._log_task_exception)
+        """Initiate a full exit via async task, routed through core."""
+        # Route through core for decision tracking
+        flatten_req = ALCBFlattenRequest(symbol=symbol, reason=reason)
+        core_state = build_core_runtime_state(self)
+        new_state, actions, events = alcb_core_logic.on_bar(
+            core_state, bar_ts=self._last_bar_ts, flatten_request=flatten_req,
+        )
+        apply_core_runtime_state(self, new_state)
+        # Dispatch via OMS (core emits FlattenPosition action)
+        for action in actions:
+            if isinstance(action, FlattenPosition):
+                task = asyncio.create_task(self._request_full_exit(action.symbol, action.reason))
+                task.add_done_callback(self._log_task_exception)
 
     def _fire_partial(self, symbol: str, qty: int) -> None:
-        """Initiate partial exit + stop-to-breakeven."""
+        """Initiate partial exit + stop-to-breakeven, routed through core."""
         pos = self._positions.get(symbol)
         if pos is None:
             return
+        # Engine-specific: mark partial taken and move stop to BE
         pos.partial_taken = True
         if self._settings.move_stop_to_be:
             old_stop = pos.current_stop
@@ -637,8 +589,21 @@ class ALCBT2Engine:
                     symbol=symbol, old_stop=old_stop, new_stop=pos.entry_price,
                     adjustment_type="breakeven", trigger="partial_be",
                 )
-        task = asyncio.create_task(self._submit_partial_exit(symbol, qty))
-        task.add_done_callback(self._log_task_exception)
+        # Route through core for decision tracking
+        partial_req = ALCBPartialExitRequest(
+            client_order_id=f"T2-{symbol}-partial-{uuid.uuid4().hex[:6]}",
+            symbol=symbol, qty=qty,
+        )
+        core_state = build_core_runtime_state(self)
+        new_state, actions, events = alcb_core_logic.on_bar(
+            core_state, bar_ts=self._last_bar_ts, partial_exit_request=partial_req,
+        )
+        apply_core_runtime_state(self, new_state)
+        # Dispatch via OMS (core emits SubmitPartialExit action)
+        for action in actions:
+            if isinstance(action, SubmitPartialExit):
+                task = asyncio.create_task(self._submit_partial_exit(action.symbol, action.qty))
+                task.add_done_callback(self._log_task_exception)
 
     # ------------------------------------------------------------------
     # Entry logic — matches backtest _try_entry() exactly
@@ -1123,6 +1088,16 @@ class ALCBT2Engine:
             "filter_decisions": _gates,
             "gate_decisions": {g["filter_name"]: g["passed"] for g in _gates},
         }
+        # Route through core for decision event tracking
+        entry_req = ALCBEntryRequest(
+            client_order_id=f"T2-{symbol}-{uuid.uuid4().hex[:8]}",
+            symbol=symbol, plan=plan, meta=meta,
+        )
+        core_state = build_core_runtime_state(self)
+        new_state, _, _ = alcb_core_logic.on_bar(
+            core_state, bar_ts=self._last_bar_ts, entry_request=entry_req,
+        )
+        apply_core_runtime_state(self, new_state)
         # Register synchronously BEFORE creating async task to prevent
         # concurrent entries from bypassing max_positions check (H1 fix).
         self._pending_entries[symbol] = "SUBMITTING"
@@ -1148,11 +1123,21 @@ class ALCBT2Engine:
             )
             now = datetime.now(timezone.utc)
             if receipt.oms_order_id:
-                self._pending_entries[symbol] = receipt.oms_order_id
-                self._order_index[receipt.oms_order_id] = (symbol, "ENTRY")
-                self._pending_plans[receipt.oms_order_id] = plan
-                self._entry_meta[receipt.oms_order_id] = meta
                 meta["submitted_at"] = now
+                update = ALCBOrderUpdate(
+                    oms_order_id=receipt.oms_order_id,
+                    status="accepted",
+                    timestamp=now,
+                    accepted_entry=ALCBEntryRequest(
+                        client_order_id="",
+                        symbol=symbol,
+                        plan=plan,
+                        meta=meta,
+                    ),
+                )
+                state = build_core_runtime_state(self)
+                new_state, _, _ = alcb_core_logic.on_order_update(state, update)
+                apply_core_runtime_state(self, new_state)
                 self._record_decision("ENTRY_SUBMITTED", {"symbol": symbol, "qty": plan.quantity, "price": plan.entry_price})
                 self._diagnostics.log_order(symbol, "t2_submit_entry", {
                     "entry_type": meta["entry_type"],
@@ -1221,8 +1206,15 @@ class ALCBT2Engine:
                     Intent(intent_type=IntentType.NEW_ORDER, strategy_id=STRATEGY_ID, order=order)
                 )
                 if receipt.oms_order_id:
-                    pos.stop_order_id = receipt.oms_order_id
-                    self._order_index[receipt.oms_order_id] = (symbol, "STOP")
+                    update = ALCBOrderUpdate(
+                        oms_order_id=receipt.oms_order_id,
+                        status="accepted",
+                        symbol=symbol,
+                        order_role="stop",
+                    )
+                    core_st = build_core_runtime_state(self)
+                    new_st, _, _ = alcb_core_logic.on_order_update(core_st, update)
+                    apply_core_runtime_state(self, new_st)
                     self._diagnostics.log_order(symbol, "t2_submit_stop", {
                         "qty": pos.quantity, "stop_price": pos.current_stop,
                     })
@@ -1293,8 +1285,15 @@ class ALCBT2Engine:
                 Intent(intent_type=IntentType.NEW_ORDER, strategy_id=STRATEGY_ID, order=order)
             )
             if receipt.oms_order_id:
-                self._order_index[receipt.oms_order_id] = (symbol, "PARTIAL")
-                self._pending_exits[symbol] = receipt.oms_order_id
+                update = ALCBOrderUpdate(
+                    oms_order_id=receipt.oms_order_id,
+                    status="accepted",
+                    symbol=symbol,
+                    order_role="partial",
+                )
+                core_st = build_core_runtime_state(self)
+                new_st, _, _ = alcb_core_logic.on_order_update(core_st, update)
+                apply_core_runtime_state(self, new_st)
                 self._diagnostics.log_order(symbol, "t2_submit_partial", {"qty": qty})
         except Exception as exc:
             logger.error("T2 submit_partial failed for %s: %s", symbol, exc, exc_info=exc)
@@ -1337,9 +1336,16 @@ class ALCBT2Engine:
                 Intent(intent_type=IntentType.NEW_ORDER, strategy_id=STRATEGY_ID, order=order)
             )
             if receipt.oms_order_id:
-                self._pending_exits[symbol] = receipt.oms_order_id
-                self._order_index[receipt.oms_order_id] = (symbol, "EXIT")
-                self._exit_reasons[receipt.oms_order_id] = reason
+                update = ALCBOrderUpdate(
+                    oms_order_id=receipt.oms_order_id,
+                    status="accepted",
+                    symbol=symbol,
+                    order_role="exit",
+                    reason=reason,
+                )
+                core_st = build_core_runtime_state(self)
+                new_st, _, _ = alcb_core_logic.on_order_update(core_st, update)
+                apply_core_runtime_state(self, new_st)
                 self._diagnostics.log_order(symbol, "t2_submit_exit", {
                     "reason": reason, "qty": pos.quantity,
                     "stop_cancelled": stop_cancelled,
@@ -1470,6 +1476,7 @@ class ALCBT2Engine:
             await self._flatten_all("risk_halt")
 
     async def _handle_fill(self, event) -> None:
+        """Route fill event through shared core decision machine."""
         payload = event.payload or {}
         oms_order_id = getattr(event, "oms_order_id", None)
         if oms_order_id is None:
@@ -1483,72 +1490,99 @@ class ALCBT2Engine:
         fill_qty = int(payload.get("filled_qty") or payload.get("qty") or 0)
         fill_price = float(payload.get("avg_price") or payload.get("price") or 0.0)
         fill_time = datetime.now(timezone.utc)
+        fill_commission = float(payload.get("commission", 0.0) or 0.0)
 
+        # Snapshot state before core call (needed for instrumentation)
+        pre_positions = {sym: pos for sym, pos in self._positions.items()}
+        pre_meta = dict(self._entry_meta.get(oms_order_id, {}))
+        pre_plan = self._pending_plans.get(oms_order_id)
+
+        # Build entry context if this is an entry fill
+        entry_context = None
         if role == "ENTRY":
-            await self._handle_entry_fill(symbol, oms_order_id, fill_qty, fill_price, fill_time, payload)
-        elif role == "EXIT":
-            await self._handle_exit_fill(symbol, oms_order_id, fill_qty, fill_price, "EXIT", payload)
-        elif role == "PARTIAL":
-            await self._handle_exit_fill(symbol, oms_order_id, fill_qty, fill_price, "PARTIAL", payload)
-        elif role == "STOP":
-            await self._handle_exit_fill(symbol, oms_order_id, fill_qty, fill_price, "STOP_FILLED", payload)
+            entry_context = ALCBEntryFillContext(
+                trade_id=f"T2-{symbol}-{uuid.uuid4().hex[:8]}",
+            )
 
-    async def _handle_entry_fill(
+        # Build fill and route through core
+        fill = ALCBFill(
+            oms_order_id=oms_order_id,
+            fill_price=fill_price,
+            fill_qty=fill_qty,
+            fill_time=fill_time,
+            commission=fill_commission,
+            exit_type=role if role != "ENTRY" else None,
+            entry_context=entry_context,
+        )
+        core_state = build_core_runtime_state(self)
+        new_state, actions, events = alcb_core_logic.on_fill(core_state, fill)
+        apply_core_runtime_state(self, new_state)
+
+        # Post-processing: submit protective stop for new entry positions
+        if role == "ENTRY":
+            pos = self._positions.get(symbol)
+            if pos is not None:
+                pos.entry_commission = fill_commission
+                await self._submit_stop(symbol)
+
+        # Dispatch core actions (stop resize after partial fill)
+        for action in actions:
+            if isinstance(action, SubmitExit):
+                # Protective stop — already handled by _submit_stop above
+                pass
+            elif isinstance(action, ReplaceProtectiveStop):
+                pos = self._positions.get(action.symbol)
+                if pos is not None and pos.stop_order_id:
+                    task = asyncio.create_task(self._replace_stop(action.symbol))
+                    task.add_done_callback(self._log_task_exception)
+
+        # Process events for instrumentation (use pre-captured meta/plan
+        # since core's on_fill pops them from state)
+        pending_meta = pre_meta
+        pending_plan = pre_plan
+        for ev in events:
+            if ev.code == "ENTRY_FILLED":
+                await self._handle_entry_fill_instrumentation(
+                    symbol, oms_order_id, fill_qty, fill_price, fill_time,
+                    pending_meta, pending_plan, payload,
+                )
+            elif ev.code == "EXIT_FILLED":
+                pre_pos = pre_positions.get(ev.symbol)
+                reason = ev.details.get("reason", role)
+                if pre_pos is not None:
+                    await self._handle_exit_fill_instrumentation(
+                        ev.symbol, pre_pos, fill_qty, fill_price, reason, payload,
+                    )
+            elif ev.code == "PARTIAL_EXIT_FILLED":
+                pre_pos = pre_positions.get(ev.symbol)
+                reason = ev.details.get("reason", "PARTIAL")
+                if pre_pos is not None:
+                    self._handle_partial_fill_instrumentation(
+                        ev.symbol, pre_pos, fill_qty, fill_price, reason,
+                    )
+            elif ev.code == "EXIT_PARTIALLY_FILLED":
+                # Non-final partial of a full exit — just log
+                logger.info("T2 exit partially filled: %s qty=%d", ev.symbol, fill_qty)
+
+        if not events:
+            logger.debug("T2 unmatched fill event: %s", oms_order_id)
+
+    async def _handle_entry_fill_instrumentation(
         self, symbol: str, oms_order_id: str,
         fill_qty: int, fill_price: float, fill_time: datetime,
-        payload: dict | None = None,
+        meta: dict, plan: PositionPlan | None, payload: dict | None = None,
     ) -> None:
-        self._pending_entries.pop(symbol, None)
-        plan = self._pending_plans.pop(oms_order_id, None)
-        meta = self._entry_meta.pop(oms_order_id, {})
+        """Instrumentation-only entry fill handler.
 
-        if fill_qty <= 0:
+        State mutations (position creation, pending cleanup, stop submission)
+        are handled by core logic in ``_handle_fill``.  This method only
+        records the trade via trade_recorder, instrumentation kit, and
+        diagnostics.
+        """
+        # Position was already created by the core -- read it back
+        pos = self._positions.get(symbol)
+        if pos is None or fill_qty <= 0:
             return
-
-        if plan is None:
-            # Crash recovery: fill arrived for an order whose plan was lost.
-            # Build a conservative position so we track it and submit a stop.
-            emergency_stop = round(fill_price * 0.98, 2)  # 2% emergency stop
-            logger.warning(
-                "T2 entry fill with no plan (crash recovery?) — %s qty=%d price=%.2f, using emergency stop %.2f",
-                symbol, fill_qty, fill_price, emergency_stop,
-            )
-            plan = PositionPlan(
-                symbol=symbol, direction=Direction.LONG,
-                entry_type=EntryType.OR_BREAKOUT, entry_price=fill_price,
-                stop_price=emergency_stop, tp1_price=0.0, tp2_price=0.0,
-                quantity=fill_qty, risk_per_share=max(fill_price - emergency_stop, 0.01),
-                risk_dollars=fill_qty * max(fill_price - emergency_stop, 0.01),
-                quality_mult=1.0, regime_mult=1.0, corr_mult=1.0,
-            )
-
-        pos = T2PositionState(
-            symbol=symbol,
-            direction=Direction.LONG,
-            entry_price=fill_price,
-            stop_price=plan.stop_price,
-            current_stop=plan.stop_price,
-            quantity=fill_qty,
-            qty_original=fill_qty,
-            risk_per_share=max(abs(fill_price - plan.stop_price), 0.01),
-            entry_time=fill_time,
-            entry_type=meta.get("entry_type", "OR_BREAKOUT"),
-            sector=meta.get("sector", ""),
-            regime_tier=meta.get("regime_tier", "A"),
-            momentum_score=meta.get("momentum_score", 0),
-            avwap_at_entry=meta.get("avwap", 0.0),
-            or_high=meta.get("or_high", 0.0),
-            or_low=meta.get("or_low", 0.0),
-            max_favorable=fill_price,
-            max_adverse=fill_price,
-            setup_tag=f"T2_{meta.get('entry_type', 'OR_BREAKOUT')}",
-            trade_id=f"T2-{symbol}-{uuid.uuid4().hex[:8]}",
-        )
-        self._positions[symbol] = pos
-        pos.entry_commission = float((payload or {}).get("commission", 0.0) or 0.0)
-
-        # Submit protective stop
-        await self._submit_stop(symbol)
 
         logger.info(
             "T2 entry filled: %s %s qty=%d price=%.2f stop=%.2f",
@@ -1673,144 +1707,167 @@ class ALCBT2Engine:
             exchange_timestamp=fill_time,
         )
 
-    async def _handle_exit_fill(
-        self, symbol: str, oms_order_id: str,
-        fill_qty: int, fill_price: float, exit_type: str,
+    async def _handle_exit_fill_instrumentation(
+        self, symbol: str, pre_pos: T2PositionState,
+        fill_qty: int, fill_price: float, reason: str,
         payload: dict | None = None,
     ) -> None:
-        pos = self._positions.get(symbol)
-        if pos is None:
-            self._pending_exits.pop(symbol, None)
-            return
+        """Instrumentation-only exit fill handler.
 
-        pos.quantity -= fill_qty
-        reason = self._exit_reasons.pop(oms_order_id, exit_type)
+        State mutations (position deletion, pending cleanup, qty decrement)
+        are handled by core logic in ``_handle_fill``.  This method only
+        records the trade exit via trade_recorder, instrumentation kit, and
+        diagnostics.  ``pre_pos`` is the position snapshot taken *before*
+        the core call (the core may have already deleted it).
+        """
+        pos = pre_pos
         exit_comm = float((payload or {}).get("commission", 0.0) or 0.0)
         pos.exit_commission += exit_comm
 
-        if pos.quantity <= 0:
-            # Position fully closed — cancel any orphaned orders for this symbol
-            await self._cleanup_orphaned_orders(symbol, pos)
-            del self._positions[symbol]
-            self._pending_exits.pop(symbol, None)
+        # Cancel any orphaned orders for this symbol
+        await self._cleanup_orphaned_orders(symbol, pos)
 
-            logger.info(
-                "T2 position closed: %s reason=%s exit_price=%.2f",
-                symbol, reason, fill_price,
-            )
-            self._diagnostics.log_order(symbol, "t2_position_closed", {
-                "reason": reason, "exit_price": fill_price,
-                "entry_price": pos.entry_price, "hold_bars": pos.hold_bars,
-                "mfe_r": round(pos.mfe_r, 4),
-            })
+        logger.info(
+            "T2 position closed: %s reason=%s exit_price=%.2f",
+            symbol, reason, fill_price,
+        )
+        self._diagnostics.log_order(symbol, "t2_position_closed", {
+            "reason": reason, "exit_price": fill_price,
+            "entry_price": pos.entry_price, "hold_bars": pos.hold_bars,
+            "mfe_r": round(pos.mfe_r, 4),
+        })
 
-            # Compute trade_class if not already set (EOD path sets it in _check_exits)
-            if not pos.trade_class:
-                sb = self._session_bars_5m.get(symbol, [])
-                if sb:
-                    avwap = compute_session_avwap(sb, len(sb) - 1)
-                    tc = classify_momentum_trade(sb[-8:], pos.entry_price, avwap)
-                    pos.trade_class = tc.value if hasattr(tc, 'value') else str(tc)
+        # Compute trade_class if not already set (EOD path sets it in _check_exits)
+        if not pos.trade_class:
+            sb = self._session_bars_5m.get(symbol, [])
+            if sb:
+                avwap = compute_session_avwap(sb, len(sb) - 1)
+                tc = classify_momentum_trade(sb[-8:], pos.entry_price, avwap)
+                pos.trade_class = tc.value if hasattr(tc, 'value') else str(tc)
 
-            # Record trade exit for instrumentation
-            if self._trade_recorder is not None:
-                try:
-                    exit_time = datetime.now(timezone.utc)
-                    total_fees = pos.entry_commission + pos.exit_commission
-                    net_pnl = (fill_price - pos.entry_price) * fill_qty + pos.realized_partial_pnl - total_fees
-                    realized_r = net_pnl / max(pos.risk_per_share * pos.qty_original, 1e-9)
-                    mfe_r = (pos.max_favorable - pos.entry_price) / max(pos.risk_per_share, 1e-9)
-                    mae_r = (pos.max_adverse - pos.entry_price) / max(pos.risk_per_share, 1e-9)
-                    await self._trade_recorder.record_exit(
-                        trade_id=pos.trade_id,
-                        exit_price=Decimal(str(fill_price)),
-                        exit_ts=exit_time,
-                        exit_reason=reason,
-                        realized_r=Decimal(str(round(realized_r, 4))),
-                        realized_usd=Decimal(str(round(net_pnl, 2))),
-                        mfe_r=Decimal(str(round(mfe_r, 4))),
-                        mae_r=Decimal(str(round(mae_r, 4))),
-                        max_adverse_price=Decimal(str(pos.max_adverse)),
-                        max_favorable_price=Decimal(str(pos.max_favorable)),
-                        duration_bars=pos.hold_bars,
-                        meta={
-                            "exchange_timestamp": exit_time.isoformat(),
-                            "expected_exit_price": fill_price,
-                            "fees_paid": pos.entry_commission + pos.exit_commission,
-                            "session_transitions": [],
-                            "exit_latency_ms": None,
-                            # Position lifecycle (flows to DB recorder for diagnostics)
-                            "hold_bars": pos.hold_bars,
-                            "hold_days": max(0, (exit_time.date() - pos.entry_time.date()).days) if pos.entry_time else 0,
-                            "mfe_r": round(mfe_r, 4),
-                            "mae_r": round(mae_r, 4),
-                            "exit_efficiency": round(realized_r / max(mfe_r, 0.01), 4) if mfe_r > 0 else 0.0,
-                            "partial_taken": pos.partial_taken,
-                            "partial_qty_exited": pos.partial_qty_exited,
-                            "fr_trailing_active": pos.fr_trailing_active,
-                            "trade_class": pos.trade_class,
-                            "carry_days": pos.carry_days,
-                            "entry_type": pos.entry_type,
-                            "regime_tier": pos.regime_tier,
-                            "momentum_score_at_entry": pos.momentum_score,
-                            "sector": pos.sector,
-                            "or_high": pos.or_high,
-                            "or_low": pos.or_low,
-                        },
-                    )
-                except Exception as exc:
-                    logger.debug("T2 trade_recorder.record_exit failed: %s", exc)
-            # Wire JSONL/sidecar exit emission for TA pipeline
-            kit = self._instr_kit
-            if kit and pos.trade_id:
-                try:
-                    kit.log_exit(
-                        trade_id=pos.trade_id,
-                        exit_price=fill_price,
-                        exit_reason=reason,
-                        exchange_timestamp=datetime.now(timezone.utc),
-                        mfe_r=round(mfe_r, 4),
-                        mae_r=round(mae_r, 4),
-                        mfe_price=pos.max_favorable,
-                        mae_price=pos.max_adverse,
-                    )
-                except Exception:
-                    pass
-            self._log_orderbook_context(
-                symbol=symbol, trade_context="exit",
-                related_trade_id=pos.trade_id,
-                exchange_timestamp=datetime.now(timezone.utc),
-            )
-        else:
-            # Partial fill — position still open
-            self._pending_exits.pop(symbol, None)
-            pos.realized_partial_pnl += (fill_price - pos.entry_price) * fill_qty
-            if exit_type == "PARTIAL":
-                pos.partial_qty_exited += fill_qty
-                self._diagnostics.log_order(symbol, "t2_partial_filled", {
-                    "qty_exited": fill_qty, "qty_remaining": pos.quantity,
-                })
-                # Update broker stop to match reduced position quantity
-                if pos.stop_order_id:
-                    task = asyncio.create_task(self._replace_stop(symbol))
-                    task.add_done_callback(self._log_task_exception)
+        # Record trade exit for instrumentation
+        if self._trade_recorder is not None:
+            try:
+                exit_time = datetime.now(timezone.utc)
+                total_fees = pos.entry_commission + pos.exit_commission
+                net_pnl = (fill_price - pos.entry_price) * fill_qty + pos.realized_partial_pnl - total_fees
+                realized_r = net_pnl / max(pos.risk_per_share * pos.qty_original, 1e-9)
+                mfe_r = (pos.max_favorable - pos.entry_price) / max(pos.risk_per_share, 1e-9)
+                mae_r = (pos.max_adverse - pos.entry_price) / max(pos.risk_per_share, 1e-9)
+                await self._trade_recorder.record_exit(
+                    trade_id=pos.trade_id,
+                    exit_price=Decimal(str(fill_price)),
+                    exit_ts=exit_time,
+                    exit_reason=reason,
+                    realized_r=Decimal(str(round(realized_r, 4))),
+                    realized_usd=Decimal(str(round(net_pnl, 2))),
+                    mfe_r=Decimal(str(round(mfe_r, 4))),
+                    mae_r=Decimal(str(round(mae_r, 4))),
+                    max_adverse_price=Decimal(str(pos.max_adverse)),
+                    max_favorable_price=Decimal(str(pos.max_favorable)),
+                    duration_bars=pos.hold_bars,
+                    meta={
+                        "exchange_timestamp": exit_time.isoformat(),
+                        "expected_exit_price": fill_price,
+                        "fees_paid": pos.entry_commission + pos.exit_commission,
+                        "session_transitions": [],
+                        "exit_latency_ms": None,
+                        "hold_bars": pos.hold_bars,
+                        "hold_days": max(0, (exit_time.date() - pos.entry_time.date()).days) if pos.entry_time else 0,
+                        "mfe_r": round(mfe_r, 4),
+                        "mae_r": round(mae_r, 4),
+                        "exit_efficiency": round(realized_r / max(mfe_r, 0.01), 4) if mfe_r > 0 else 0.0,
+                        "partial_taken": pos.partial_taken,
+                        "partial_qty_exited": pos.partial_qty_exited,
+                        "fr_trailing_active": pos.fr_trailing_active,
+                        "trade_class": pos.trade_class,
+                        "carry_days": pos.carry_days,
+                        "entry_type": pos.entry_type,
+                        "regime_tier": pos.regime_tier,
+                        "momentum_score_at_entry": pos.momentum_score,
+                        "sector": pos.sector,
+                        "or_high": pos.or_high,
+                        "or_low": pos.or_low,
+                    },
+                )
+            except Exception as exc:
+                logger.debug("T2 trade_recorder.record_exit failed: %s", exc)
+        # Wire JSONL/sidecar exit emission for TA pipeline
+        kit = self._instr_kit
+        if kit and pos.trade_id:
+            try:
+                mfe_r = (pos.max_favorable - pos.entry_price) / max(pos.risk_per_share, 1e-9)
+                mae_r = (pos.max_adverse - pos.entry_price) / max(pos.risk_per_share, 1e-9)
+                kit.log_exit(
+                    trade_id=pos.trade_id,
+                    exit_price=fill_price,
+                    exit_reason=reason,
+                    exchange_timestamp=datetime.now(timezone.utc),
+                    mfe_r=round(mfe_r, 4),
+                    mae_r=round(mae_r, 4),
+                    mfe_price=pos.max_favorable,
+                    mae_price=pos.max_adverse,
+                )
+            except Exception:
+                pass
+        self._log_orderbook_context(
+            symbol=symbol, trade_context="exit",
+            related_trade_id=pos.trade_id,
+            exchange_timestamp=datetime.now(timezone.utc),
+        )
+
+    def _handle_partial_fill_instrumentation(
+        self, symbol: str, pre_pos: T2PositionState,
+        fill_qty: int, fill_price: float, reason: str,
+    ) -> None:
+        """Instrumentation-only partial fill handler.
+
+        State mutations (qty decrement, realized_partial_pnl, stop resize)
+        are handled by core logic in ``_handle_fill``.  This method only
+        records diagnostics.
+        """
+        pos = self._positions.get(symbol) or pre_pos
+        self._diagnostics.log_order(symbol, "t2_partial_filled", {
+            "qty_exited": fill_qty, "qty_remaining": pos.quantity,
+            "reason": reason,
+        })
 
     async def _handle_terminal(self, event) -> None:
         oms_order_id = getattr(event, "oms_order_id", None)
         if oms_order_id is None:
             return
-        lookup = self._order_index.pop(oms_order_id, None)
+        # Capture pre-state for instrumentation before core modifies it
+        lookup = self._order_index.get(oms_order_id)
         if lookup is None:
             return
         symbol, role = lookup
+        entry_meta = self._entry_meta.get(oms_order_id)
 
         event_type = getattr(event, "event_type", None)
+        status_str = event_type.value if hasattr(event_type, "value") else str(event_type)
+
+        # Expected stop cancel — skip core to avoid clearing stop_order_id
+        if role == "STOP" and oms_order_id in self._expected_stop_cancels:
+            self._expected_stop_cancels.discard(oms_order_id)
+            self._order_index.pop(oms_order_id, None)
+            logger.info("T2 order terminal (expected): %s %s %s", symbol, role, event_type)
+            return
+
+        # Route through core — pops order_index, pending_*, clears stop_order_id
+        update = ALCBOrderUpdate(
+            oms_order_id=oms_order_id,
+            status=status_str,
+            symbol=symbol,
+            order_role=role.lower(),
+        )
+        state = build_core_runtime_state(self)
+        new_state, _, events = alcb_core_logic.on_order_update(state, update)
+        apply_core_runtime_state(self, new_state)
+
         logger.info("T2 order terminal: %s %s %s", symbol, role, event_type)
 
+        # Post-core instrumentation and safety logic
         if role == "ENTRY":
-            self._pending_entries.pop(symbol, None)
-            self._pending_plans.pop(oms_order_id, None)
-            entry_meta = self._entry_meta.pop(oms_order_id, None)
             self._log_missed(
                 symbol=symbol, blocked_by="entry_terminal",
                 block_reason=str(event_type),
@@ -1818,24 +1875,15 @@ class ALCBT2Engine:
                 exchange_timestamp=datetime.now(timezone.utc),
                 strategy_params=entry_meta,
             )
-        elif role in ("EXIT", "PARTIAL"):
-            self._pending_exits.pop(symbol, None)
         elif role == "STOP":
-            pos = self._positions.get(symbol)
-            if pos is not None:
-                pos.stop_order_id = ""
-                # Expected cancel (we initiated it before a full exit)
-                if oms_order_id in self._expected_stop_cancels:
-                    self._expected_stop_cancels.discard(oms_order_id)
-                    return
-                # Unexpected stop termination — position is now unprotected.
-                # Fire emergency market exit if no exit is already pending.
-                if symbol not in self._pending_exits:
-                    logger.critical(
-                        "T2 UNEXPECTED stop termination for %s (%s) — firing emergency exit",
-                        symbol, event_type,
-                    )
-                    self._fire_exit(symbol, "EMERGENCY_STOP_LOST")
+            # Unexpected stop termination — position is now unprotected.
+            # Fire emergency market exit if no exit is already pending.
+            if symbol not in self._pending_exits and symbol in self._positions:
+                logger.critical(
+                    "T2 UNEXPECTED stop termination for %s (%s) — firing emergency exit",
+                    symbol, event_type,
+                )
+                self._fire_exit(symbol, "EMERGENCY_STOP_LOST")
 
     # ------------------------------------------------------------------
     # Day reset (called by coordinator at session open)
@@ -1889,32 +1937,32 @@ class ALCBT2Engine:
     # ------------------------------------------------------------------
 
     def snapshot_state(self) -> dict[str, Any]:
-        return {
-            "engine": "ALCBT2",
-            "running": self._running,
-            "positions": {
-                sym: {
-                    "entry_price": pos.entry_price,
-                    "current_stop": pos.current_stop,
-                    "quantity": pos.quantity,
-                    "hold_bars": pos.hold_bars,
-                    "mfe_r": round(pos.mfe_r, 4),
-                    "entry_type": pos.entry_type,
-                    "partial_taken": pos.partial_taken,
-                    "unrealized_r": round(
-                        pos.unrealized_r(self._markets.get(sym, MarketSnapshot(symbol=sym)).last_price or pos.entry_price), 4
-                    ),
-                }
-                for sym, pos in self._positions.items()
-            },
-            "or_built": sum(1 for v in self._or_built.values() if v),
-            "total_symbols": len(self._items),
-            "pending_entries": len(self._pending_entries),
-            "pending_exits": len(self._pending_exits),
-            "last_decision_code": self._last_decision_code,
-            "last_decision_details": self._last_decision_details,
-            "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
-        }
+        snapshot = snapshot_core_state(build_core_runtime_state(self))
+        # Ensure diagnostic keys are always present at top level
+        snapshot["last_decision_code"] = self._last_decision_code
+        snapshot["last_decision_details"] = self._last_decision_details
+        snapshot["last_bar_ts"] = self._last_bar_ts
+        snapshot["engine"] = "ALCBT2"
+        snapshot["running"] = self._running
+        snapshot["or_built_count"] = sum(1 for v in self._or_built.values() if v)
+        snapshot["total_symbols"] = len(self._items)
+        # Position summary with computed display fields
+        pos_summary = {}
+        for sym, pos in self._positions.items():
+            market = self._markets.get(sym)
+            last_price = (market.last_price or pos.entry_price) if market else pos.entry_price
+            pos_summary[sym] = {
+                "entry_price": pos.entry_price,
+                "current_stop": pos.current_stop,
+                "quantity": pos.quantity,
+                "hold_bars": pos.hold_bars,
+                "mfe_r": round(pos.mfe_r, 4),
+                "entry_type": pos.entry_type,
+                "partial_taken": pos.partial_taken,
+                "unrealized_r": round(pos.unrealized_r(last_price), 4),
+            }
+        snapshot["position_summary"] = pos_summary
+        return snapshot
 
     def get_position_snapshot(self) -> list[dict[str, Any]]:
         result = []

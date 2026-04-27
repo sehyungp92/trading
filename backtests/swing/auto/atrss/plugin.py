@@ -11,6 +11,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.phase_state import PhaseState
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
 from backtests.shared.auto.plugin_utils import (
@@ -139,12 +140,13 @@ class ATRSSPlugin:
         # Persistent pool -- created lazily, reused across phases
         self._pool: mp.Pool | None = None
         # Data cache for compute_final_metrics (avoids reloading parquets)
-        self._cached_data: Any | None = None
+        self._cached_bundle: Any | None = None
         # Cross-phase caches: evaluation cache is namespaced by signature_prefix
         # so stale scores from a prior phase (different weights/rejects) are never hit.
         # Metrics cache stores raw metrics (settings-independent) for compute_final_metrics reuse.
         self._evaluation_cache: dict[str, Any] = {}
         self._metrics_cache: dict[str, dict[str, float]] = {}
+        self._cache_source_fingerprint: str = ""
 
     # -- PhaseSpec -------------------------------------------------------------
 
@@ -196,8 +198,10 @@ class ATRSSPlugin:
     ):
         # Settings-aware cache key: same mutations scored with different
         # weights/rejects (different phase or scoring retry) get distinct entries.
-        evaluation_key = mutation_signature(
-            {"phase": phase, "scoring_weights": scoring_weights or {}, "hard_rejects": hard_rejects or {}},
+        evaluation_key = build_cache_key(
+            "swing.atrss.evaluation",
+            source_fingerprint=self._ensure_bundle().cache_source_fingerprint,
+            extra={"phase": phase, "scoring_weights": scoring_weights or {}, "hard_rejects": hard_rejects or {}},
         )
 
         def make_parallel():
@@ -262,30 +266,18 @@ class ATRSSPlugin:
 
     # -- Metrics ---------------------------------------------------------------
 
-    def _ensure_data(self):
+    def _ensure_bundle(self):
         """Load and cache PortfolioData for compute_final_metrics."""
-        if self._cached_data is not None:
-            return self._cached_data
+        from backtests.swing.data.replay_cache import load_atrss_replay_bundle
 
-        from backtests.swing.data.cache import load_bars
-        from backtests.swing.data.preprocessing import (
-            align_daily_to_hourly,
-            build_numpy_arrays,
-            filter_rth,
-            normalize_timezone,
-        )
-        from backtests.swing.engine.portfolio_engine import PortfolioData
-
-        data = PortfolioData()
-        for sym in ("QQQ", "GLD"):
-            h_df = normalize_timezone(load_bars(self.data_dir / f"{sym}_1h.parquet"))
-            h_df = filter_rth(h_df)
-            d_df = normalize_timezone(load_bars(self.data_dir / f"{sym}_1d.parquet"))
-            data.hourly[sym] = build_numpy_arrays(h_df)
-            data.daily[sym] = build_numpy_arrays(d_df)
-            data.daily_idx_maps[sym] = align_daily_to_hourly(h_df, d_df)
-        self._cached_data = data
-        return data
+        bundle = load_atrss_replay_bundle(self.data_dir)
+        if self._cache_source_fingerprint != bundle.cache_source_fingerprint:
+            self._metrics_cache.clear()
+            self._evaluation_cache.clear()
+            self.close_pool()
+            self._cache_source_fingerprint = bundle.cache_source_fingerprint
+        self._cached_bundle = bundle
+        return bundle
 
     def compute_final_metrics(self, mutations: dict[str, Any]) -> dict[str, float]:
         sig = mutation_signature(mutations)
@@ -308,8 +300,7 @@ class ATRSSPlugin:
             flags=AblationFlags(stall_exit=False),
         )
         config = mutate_atrss_config(base_config, mutations)
-        data = self._ensure_data()
-        result = run_independent(data, config)
+        result = run_independent(self._ensure_bundle().data, config)
         metrics = extract_atrss_metrics(result, self.initial_equity)
         result_dict = asdict(metrics)
         self._metrics_cache[sig] = result_dict

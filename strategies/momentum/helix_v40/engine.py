@@ -28,6 +28,20 @@ from .config import (
 )
 from strategies.momentum.instrumentation.src.config_snapshot import snapshot_config_module
 from strategies.momentum.helix_v40 import config as strategy_config
+from .core import logic as helix_core_logic
+from .core.logic import apply_core_state as apply_core_runtime_state
+from .core.logic import build_core_state as build_core_runtime_state
+from .core.serializers import restore_state as restore_core_state
+from .core.serializers import snapshot_state as snapshot_core_state
+from .core.state import (
+    HelixV40EntryArmed,
+    HelixV40EntryFillContext,
+    HelixV40ExpireSignatures,
+    HelixV40Fill,
+    HelixV40OrderUpdate,
+    HelixV40StopUpdateRequest,
+)
+from strategies.core.actions import FlattenPosition, SubmitExit
 from .indicators import BarSeries, VolEngine
 from .pivots import PivotDetector
 from .signals import SignalEngine, alignment_score, trend_strength
@@ -136,8 +150,13 @@ class Helix4Engine:
         self._last_bar_ts: datetime | None = None
 
     def _record_decision(self, code: str, details: dict | None = None) -> None:
-        self._last_decision_code = code
-        self._last_decision_details = details or {}
+        core_state = build_core_runtime_state(self)
+        core_state, _, _ = helix_core_logic.on_bar(
+            core_state,
+            decision_code=code,
+            decision_details=details,
+        )
+        apply_core_runtime_state(self, core_state)
 
     def health_status(self) -> dict:
         return {
@@ -147,6 +166,14 @@ class Helix4Engine:
             "last_decision_details": self._last_decision_details,
             "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
         }
+
+    def snapshot_state(self) -> dict[str, object]:
+        return snapshot_core_state(build_core_runtime_state(self))
+
+    async def hydrate(self, snapshot: dict[str, object]) -> None:
+        if not snapshot:
+            return
+        apply_core_runtime_state(self, restore_core_state(snapshot))
 
     def _dd_tier_name(self) -> str:
         mult = self._throttle.dd_size_mult
@@ -676,17 +703,27 @@ class Helix4Engine:
 
             armed = await self.exec.arm_setup(setup, now_et, contracts)
             if armed:
-                self._record_decision("ENTRY_SUBMITTED", {
-                    "class": setup.cls.value, "direction": setup.direction,
-                    "contracts": contracts, "risk_r": round(risk_r, 4),
-                })
-                self.risk.add_pending_risk(setup.direction, risk_r)
-                self._placed_signatures.add(sig)
-                self._sig_expiry[sig] = now_et + timedelta(seconds=setup.ttl_seconds())
-
-                # Track M placements for Class T suppression
-                if setup.cls == SetupClass.M:
-                    self._last_m_bar[setup.direction] = self._bar_idx_1h
+                # Route state changes through core
+                armed_entry = HelixV40EntryArmed(
+                    setup=setup,
+                    contracts=contracts,
+                    risk_r=risk_r,
+                    signature=sig,
+                    sig_expiry_ts=now_et + timedelta(seconds=setup.ttl_seconds()),
+                    bar_idx_1h=self._bar_idx_1h,
+                )
+                core_state = build_core_runtime_state(self)
+                core_state, _, _ = helix_core_logic.on_bar(
+                    core_state,
+                    bar_ts=now_et,
+                    armed_entries=[armed_entry],
+                    decision_code="ENTRY_SUBMITTED",
+                    decision_details={
+                        "class": setup.cls.value, "direction": setup.direction,
+                        "contracts": contracts, "risk_r": round(risk_r, 4),
+                    },
+                )
+                apply_core_runtime_state(self, core_state)
 
                 if setup.direction == 1 and last_price > setup.entry_stop:
                     await self.exec.place_catch_up(setup, last_price, self.h1.current_atr(), now_et)
@@ -769,186 +806,235 @@ class Helix4Engine:
                 remaining.append((setup, bars_left))
         self._spread_recheck = remaining
 
-    # ── OMS fill handling ───────────────────────────────────────────
+    # ── OMS fill handling (routed through core) ──────────────────────
 
     async def on_fill(self, oms_order_id: str, fill_price: float, qty: int, now_et: datetime) -> None:
-        for setup in list(self.exec.pending_setups):
+        from copy import deepcopy
+
+        # Determine fill type and build fill object
+        matched_setup = None
+        for setup in self.exec.pending_setups:
             if setup.entry_oms_id == oms_order_id or setup.catchup_oms_id == oms_order_id:
-                await self._handle_entry_fill(setup, fill_price, qty, now_et)
-                return
-        for pos in list(self.positions.positions):
-            if pos.stop_oms_id == oms_order_id:
-                await self._handle_stop_fill(pos, fill_price, qty)
-                return
-        for pos in list(self.positions.positions):
-            if oms_order_id in pos.exit_oms_ids:
-                self._reconcile_exit_fill(pos, oms_order_id, fill_price, qty)
-                return
+                matched_setup = setup
+                break
 
-    async def _handle_entry_fill(
-        self, setup: Setup, fill_price: float, qty: int, now_et: datetime,
-    ) -> None:
         atr1 = self.h1.current_atr()
-        is_teleport, is_catastrophic = self.exec.check_teleport(
-            fill_price, setup.entry_stop, now_et, atr1)
+        is_teleport = False
+        is_catastrophic = False
+        if matched_setup:
+            is_teleport, is_catastrophic = self.exec.check_teleport(
+                fill_price, matched_setup.entry_stop, now_et, atr1)
 
-        if is_catastrophic:
-            logger.warning("CATASTROPHIC fill %s: %.2f vs %.2f", setup.setup_id, fill_price, setup.entry_stop)
-            await self.oms.submit_intent(Intent(
-                intent_type=IntentType.FLATTEN,
-                strategy_id=STRATEGY_ID,
-                instrument_symbol=self.nq_inst.symbol,
-            ))
-            self.risk.release_pending_risk(setup.direction, setup.armed_risk_r)
-            setup.state = SetupState.EXITED
-            if setup in self.exec.pending_setups:
-                self.exec.pending_setups.remove(setup)
-            return
+        entry_context = None
+        if matched_setup:
+            entry_context = HelixV40EntryFillContext(
+                setup=matched_setup,
+                is_teleport=is_teleport,
+                is_catastrophic=is_catastrophic,
+            )
 
-        pos = self.positions.open_position(setup, fill_price, qty, now_et)
-        pos.teleport_penalty = is_teleport
-        setup.state = SetupState.FILLED
-
-        # Session transition tracking (#17)
-        block = get_session_block(now_et)
-        pos.entry_session = block.value
-        pos._last_session = block.value
-
-        block = get_session_block(now_et)
-        self.diagnostics.start_tracking(
-            pos=pos, setup=setup, vol_pct=self.vol.vol_pct,
-            session_block=block.value, atr_1h=atr1,
-            atr_daily=self.daily.current_atr(),
+        fill = HelixV40Fill(
+            oms_order_id=oms_order_id,
+            fill_price=fill_price,
+            fill_qty=qty,
+            fill_time=now_et,
+            point_value=self.nq_inst.point_value,
+            entry_context=entry_context,
         )
 
-        risk_r = self.risk.compute_risk_r(fill_price, setup.stop0, qty, setup.unit1_risk_usd)
-        pos.current_risk_r = risk_r
-        self.risk.promote_to_open(setup.direction, setup.armed_risk_r)
-        delta = risk_r - setup.armed_risk_r
-        if abs(delta) > 1e-9:
-            self.risk.adjust_open_risk(setup.direction, delta)
+        # Snapshot pre-fill state for instrumentation
+        pre_positions = deepcopy(self.positions.positions)
 
-        await self.exec.place_stop(pos, setup.stop0)
+        # Route through core
+        core_state = build_core_runtime_state(self)
+        core_state, actions, events = helix_core_logic.on_fill(core_state, fill)
+        apply_core_runtime_state(self, core_state)
 
-        if setup in self.exec.pending_setups:
-            self.exec.pending_setups.remove(setup)
+        # Dispatch actions
+        for action in actions:
+            if isinstance(action, SubmitExit):
+                setup_id = action.metadata.get("setup_id", "") if action.metadata else ""
+                pos = next(
+                    (p for p in self.positions.positions if p.pos_id == setup_id),
+                    None,
+                )
+                if pos and action.stop_price is not None:
+                    await self.exec.place_stop(pos, action.stop_price)
+            elif isinstance(action, FlattenPosition):
+                logger.warning("CATASTROPHIC fill -- flattening")
+                await self.oms.submit_intent(Intent(
+                    intent_type=IntentType.FLATTEN,
+                    strategy_id=STRATEGY_ID,
+                    instrument_symbol=self.nq_inst.symbol,
+                ))
+
+        # Post-core instrumentation based on events
+        for event in events:
+            if event.code == "ENTRY_FILLED":
+                await self._on_entry_fill_instrumentation(
+                    event, matched_setup, fill_price, qty, now_et)
+            elif event.code == "EXIT_FILLED":
+                setup_id = event.details.get("setup_id", "") or event.symbol
+                pre_pos = next(
+                    (p for p in pre_positions
+                     if p.origin_setup_id == setup_id), None)
+                if pre_pos:
+                    exit_type = event.details.get("exit_type", "")
+                    if "STOP" in exit_type:
+                        self._on_stop_fill_instrumentation(pre_pos, fill_price, qty)
+                    else:
+                        self._on_exit_fill_instrumentation(
+                            pre_pos, oms_order_id, fill_price, qty)
+
+    async def _on_entry_fill_instrumentation(
+        self, event, setup: Setup, fill_price: float, qty: int, now_et: datetime,
+    ) -> None:
+        """Instrumentation-only: log entry after core has created the position."""
+        if setup is None:
+            return
+
+        # Post-core enrichment: session tracking + diagnostics
+        pos = next(
+            (p for p in self.positions.positions if p.pos_id == setup.setup_id),
+            None,
+        )
+        if pos:
+            block = get_session_block(now_et)
+            pos.entry_session = block.value
+            pos._last_session = block.value
+
+            atr1 = self.h1.current_atr()
+            self.diagnostics.start_tracking(
+                pos=pos, setup=setup, vol_pct=self.vol.vol_pct,
+                session_block=block.value, atr_1h=atr1,
+                atr_daily=self.daily.current_atr(),
+            )
+
+            # Exact risk adjustment (core used approximate armed_risk_r)
+            risk_r = self.risk.compute_risk_r(
+                fill_price, setup.stop0, qty, setup.unit1_risk_usd)
+            pos.current_risk_r = risk_r
+            delta = risk_r - setup.armed_risk_r
+            if abs(delta) > 1e-9:
+                self.risk.adjust_open_risk(setup.direction, delta)
 
         logger.info("Entry fill %s: %d @ %.2f, stop=%.2f, teleport=%s",
-                     setup.setup_id, qty, fill_price, setup.stop0, is_teleport)
+                     setup.setup_id, qty, fill_price, setup.stop0,
+                     event.details.get("is_teleport", False))
 
-        if self._kit.active:
+        if not self._kit.active:
+            return
+        try:
+            block = get_session_block(datetime.now(ET))
+            config_snapshot = snapshot_config_module(strategy_config)
+
+            signal_detected_at = self._cascade_ts.pop(setup.setup_id, now_et)
+            fill_received_at = now_et
+            exec_ts = {
+                "signal_detected_at": signal_detected_at.isoformat(),
+                "fill_received_at": fill_received_at.isoformat(),
+                "cascade_duration_ms": round(
+                    (fill_received_at - signal_detected_at).total_seconds() * 1000
+                ),
+            }
+
+            portfolio_state = None
             try:
-                from .session import get_session_block
-                block = get_session_block(datetime.now(ET))
-                config_snapshot = snapshot_config_module(strategy_config)
-
-                # Execution cascade timestamps (#16)
-                signal_detected_at = self._cascade_ts.pop(setup.setup_id, now_et)
-                fill_received_at = now_et
-                exec_ts = {
-                    "signal_detected_at": signal_detected_at.isoformat(),
-                    "fill_received_at": fill_received_at.isoformat(),
-                    "cascade_duration_ms": round(
-                        (fill_received_at - signal_detected_at).total_seconds() * 1000
-                    ),
+                risk_state = await self.oms.get_portfolio_risk()
+                portfolio_state = {
+                    "total_exposure_r": risk_state.open_risk_R,
+                    "daily_realized_pnl": risk_state.daily_realized_pnl,
+                    "daily_realized_r": risk_state.daily_realized_R,
+                    "weekly_realized_pnl": risk_state.weekly_realized_pnl,
+                    "weekly_realized_r": risk_state.weekly_realized_R,
+                    "open_risk_r": risk_state.open_risk_R,
+                    "pending_entry_risk_r": risk_state.pending_entry_risk_R,
+                    "halted": risk_state.halted,
                 }
-
-                # Capture portfolio state at entry (G4)
-                portfolio_state = None
-                try:
-                    risk_state = await self.oms.get_portfolio_risk()
-                    portfolio_state = {
-                        "total_exposure_r": risk_state.open_risk_R,
-                        "daily_realized_pnl": risk_state.daily_realized_pnl,
-                        "daily_realized_r": risk_state.daily_realized_R,
-                        "weekly_realized_pnl": risk_state.weekly_realized_pnl,
-                        "weekly_realized_r": risk_state.weekly_realized_R,
-                        "open_risk_r": risk_state.open_risk_R,
-                        "pending_entry_risk_r": risk_state.pending_entry_risk_R,
-                        "halted": risk_state.halted,
-                    }
-                except Exception:
-                    portfolio_state = None
-
-                self._kit.log_entry(
-                    trade_id=setup.setup_id,
-                    pair=self.nq_inst.symbol,
-                    side="LONG" if setup.direction == 1 else "SHORT",
-                    entry_price=fill_price,
-                    position_size=qty,
-                    position_size_quote=qty * fill_price * self.nq_inst.point_value,
-                    entry_signal=f"Class_{setup.cls.value}",
-                    entry_signal_id=setup.setup_id,
-                    entry_signal_strength=setup.alignment_score / 3.0,
-                    expected_entry_price=setup.entry_stop,
-                    strategy_params={
-                        "stop0": setup.stop0,
-                        "class": setup.cls.value,
-                        "alignment_score": setup.alignment_score,
-                        **config_snapshot,
-                    },
-                    signal_factors=[
-                        {"factor_name": "alignment_score", "factor_value": setup.alignment_score,
-                         "threshold": 1, "contribution": setup.alignment_score / 3.0},
-                    ],
-                    filter_decisions=getattr(setup, '_filter_decisions', []),
-                    sizing_inputs={
-                        "unit_risk_usd": setup.unit1_risk_usd,
-                        "setup_size_mult": setup.setup_size_mult,
-                        "session_size_mult": setup.session_size_mult,
-                        "hour_mult": self.risk.hour_size_mult(datetime.now(ET).hour),
-                        "dow_mult": self.risk.dow_size_mult(datetime.now(ET).weekday()),
-                        "dd_mult": self._throttle.dd_size_mult,
-                        "contracts": qty,
-                    },
-                    session_type=block.value,
-                    contract_month=getattr(self._contract, 'lastTradeDateOrContractMonth', ''),
-                    concurrent_positions=len(self.positions.positions),
-                    drawdown_pct=self._throttle.dd_pct if hasattr(self._throttle, 'dd_pct') else None,
-                    drawdown_tier=self._dd_tier_name(),
-                    drawdown_size_mult=self._throttle.dd_size_mult,
-                    portfolio_state=portfolio_state,
-                    signal_evolution=self._build_signal_evolution(),
-                    execution_timestamps=exec_ts,
-                )
-
-                # Phase 2B: emit orderbook context at entry
-                if self._bid is not None and self._ask is not None:
-                    self._kit.on_orderbook_context(
-                        pair=self.nq_inst.symbol,
-                        best_bid=self._bid,
-                        best_ask=self._ask,
-                        trade_context="entry",
-                        related_trade_id=setup.setup_id,
-                        exchange_timestamp=now_et,
-                    )
             except Exception:
-                pass
+                portfolio_state = None
 
-    async def _handle_stop_fill(self, pos: PositionState, fill_price: float, qty: int) -> None:
+            self._kit.log_entry(
+                trade_id=setup.setup_id,
+                pair=self.nq_inst.symbol,
+                side="LONG" if setup.direction == 1 else "SHORT",
+                entry_price=fill_price,
+                position_size=qty,
+                position_size_quote=qty * fill_price * self.nq_inst.point_value,
+                entry_signal=f"Class_{setup.cls.value}",
+                entry_signal_id=setup.setup_id,
+                entry_signal_strength=setup.alignment_score / 3.0,
+                expected_entry_price=setup.entry_stop,
+                strategy_params={
+                    "stop0": setup.stop0,
+                    "class": setup.cls.value,
+                    "alignment_score": setup.alignment_score,
+                    **config_snapshot,
+                },
+                signal_factors=[
+                    {"factor_name": "alignment_score", "factor_value": setup.alignment_score,
+                     "threshold": 1, "contribution": setup.alignment_score / 3.0},
+                ],
+                filter_decisions=getattr(setup, '_filter_decisions', []),
+                sizing_inputs={
+                    "unit_risk_usd": setup.unit1_risk_usd,
+                    "setup_size_mult": setup.setup_size_mult,
+                    "session_size_mult": setup.session_size_mult,
+                    "hour_mult": self.risk.hour_size_mult(datetime.now(ET).hour),
+                    "dow_mult": self.risk.dow_size_mult(datetime.now(ET).weekday()),
+                    "dd_mult": self._throttle.dd_size_mult,
+                    "contracts": qty,
+                },
+                session_type=block.value,
+                contract_month=getattr(self._contract, 'lastTradeDateOrContractMonth', ''),
+                concurrent_positions=len(self.positions.positions),
+                drawdown_pct=self._throttle.dd_pct if hasattr(self._throttle, 'dd_pct') else None,
+                drawdown_tier=self._dd_tier_name(),
+                drawdown_size_mult=self._throttle.dd_size_mult,
+                portfolio_state=portfolio_state,
+                signal_evolution=self._build_signal_evolution(),
+                execution_timestamps=exec_ts,
+            )
+
+            if self._bid is not None and self._ask is not None:
+                self._kit.on_orderbook_context(
+                    pair=self.nq_inst.symbol,
+                    best_bid=self._bid,
+                    best_ask=self._ask,
+                    trade_context="entry",
+                    related_trade_id=setup.setup_id,
+                    exchange_timestamp=now_et,
+                )
+        except Exception:
+            pass
+
+    def _on_stop_fill_instrumentation(
+        self, pre_pos: PositionState, fill_price: float, qty: int,
+    ) -> None:
+        """Instrumentation-only: log stop exit using pre-fill position snapshot."""
         pv = self.nq_inst.point_value
-        actual_pnl = (fill_price - pos.avg_entry) * pos.direction * pv * qty
-        pos.realized_partial_usd += actual_pnl
-        pos.contracts = max(0, pos.contracts - qty)
-        if pos.contracts <= 0:
+        actual_pnl = (fill_price - pre_pos.avg_entry) * pre_pos.direction * pv * qty
+        pre_pos.realized_partial_usd += actual_pnl
+        remaining = max(0, pre_pos.contracts - qty)
+        if remaining <= 0:
             now_et = datetime.now(ET)
-            exit_reason = "TRAILING_STOP" if pos.trailing_active else "INITIAL_STOP"
-            r_mult = (pos.realized_partial_usd / (pos.unit1_risk_usd * pos.entry_contracts)
-                      if pos.unit1_risk_usd > 0 and pos.entry_contracts > 0 else 0.0)
+            exit_reason = "TRAILING_STOP" if pre_pos.trailing_active else "INITIAL_STOP"
+            r_mult = (pre_pos.realized_partial_usd / (pre_pos.unit1_risk_usd * pre_pos.entry_contracts)
+                      if pre_pos.unit1_risk_usd > 0 and pre_pos.entry_contracts > 0 else 0.0)
             self._throttle.update_equity(self.equity)
             self._throttle.record_trade_close(r_mult)
-            self.positions._close_position(pos, exit_reason, fill_price, now_et)
+            self.positions._close_position(pre_pos, exit_reason, fill_price, now_et)
             if self._kit.active:
                 try:
                     self._kit.log_exit(
-                        trade_id=pos.origin_setup_id,
+                        trade_id=pre_pos.origin_setup_id,
                         exit_price=fill_price,
                         exit_reason=exit_reason,
-                        mfe_r=pos.peak_mfe_r,
-                        mae_r=pos.peak_mae_r,
-                        mfe_price=pos.highest_since_entry if pos.direction == 1 else pos.lowest_since_entry,
-                        mae_price=pos.lowest_since_entry if pos.direction == 1 else pos.highest_since_entry,
-                        session_transitions=pos.session_transitions or None,
+                        mfe_r=pre_pos.peak_mfe_r,
+                        mae_r=pre_pos.peak_mae_r,
+                        mfe_price=pre_pos.highest_since_entry if pre_pos.direction == 1 else pre_pos.lowest_since_entry,
+                        mae_price=pre_pos.lowest_since_entry if pre_pos.direction == 1 else pre_pos.highest_since_entry,
+                        session_transitions=pre_pos.session_transitions or None,
                     )
                     if self._bid is not None and self._ask is not None:
                         self._kit.on_orderbook_context(
@@ -956,43 +1042,43 @@ class Helix4Engine:
                             best_bid=self._bid,
                             best_ask=self._ask,
                             trade_context="exit",
-                            related_trade_id=pos.origin_setup_id,
+                            related_trade_id=pre_pos.origin_setup_id,
                             exchange_timestamp=now_et,
                         )
                 except Exception:
                     pass
 
-    def _reconcile_exit_fill(
-        self, pos: PositionState, oms_order_id: str, fill_price: float, qty: int,
+    def _on_exit_fill_instrumentation(
+        self, pre_pos: PositionState, oms_order_id: str, fill_price: float, qty: int,
     ) -> None:
+        """Instrumentation-only: log exit/partial fill using pre-fill position snapshot."""
         pv = self.nq_inst.point_value
-        actual_pnl = (fill_price - pos.avg_entry) * pos.direction * pv * qty
-        if oms_order_id in pos.pending_exit_estimates:
-            estimated = pos.pending_exit_estimates.pop(oms_order_id)
+        actual_pnl = (fill_price - pre_pos.avg_entry) * pre_pos.direction * pv * qty
+        if oms_order_id in pre_pos.pending_exit_estimates:
+            estimated = pre_pos.pending_exit_estimates.pop(oms_order_id)
             correction = actual_pnl - estimated
-            pos.realized_partial_usd += correction
+            pre_pos.realized_partial_usd += correction
         else:
-            pos.realized_partial_usd += actual_pnl
-        if oms_order_id in pos.exit_oms_ids:
-            pos.exit_oms_ids.remove(oms_order_id)
-        if pos.contracts <= 0:
+            pre_pos.realized_partial_usd += actual_pnl
+        remaining = max(0, pre_pos.contracts - qty)
+        if remaining <= 0:
             now_et = datetime.now(ET)
-            r_mult = (pos.realized_partial_usd / (pos.unit1_risk_usd * pos.entry_contracts)
-                      if pos.unit1_risk_usd > 0 and pos.entry_contracts > 0 else 0.0)
+            r_mult = (pre_pos.realized_partial_usd / (pre_pos.unit1_risk_usd * pre_pos.entry_contracts)
+                      if pre_pos.unit1_risk_usd > 0 and pre_pos.entry_contracts > 0 else 0.0)
             self._throttle.update_equity(self.equity)
             self._throttle.record_trade_close(r_mult)
-            self.positions._close_position(pos, "EXIT_FILL", fill_price, now_et)
+            self.positions._close_position(pre_pos, "EXIT_FILL", fill_price, now_et)
             if self._kit.active:
                 try:
                     self._kit.log_exit(
-                        trade_id=pos.origin_setup_id,
+                        trade_id=pre_pos.origin_setup_id,
                         exit_price=fill_price,
                         exit_reason="EXIT_FILL",
-                        mfe_r=pos.peak_mfe_r,
-                        mae_r=pos.peak_mae_r,
-                        mfe_price=pos.highest_since_entry if pos.direction == 1 else pos.lowest_since_entry,
-                        mae_price=pos.lowest_since_entry if pos.direction == 1 else pos.highest_since_entry,
-                        session_transitions=pos.session_transitions or None,
+                        mfe_r=pre_pos.peak_mfe_r,
+                        mae_r=pre_pos.peak_mae_r,
+                        mfe_price=pre_pos.highest_since_entry if pre_pos.direction == 1 else pre_pos.lowest_since_entry,
+                        mae_price=pre_pos.lowest_since_entry if pre_pos.direction == 1 else pre_pos.highest_since_entry,
+                        session_transitions=pre_pos.session_transitions or None,
                     )
                     if self._bid is not None and self._ask is not None:
                         self._kit.on_orderbook_context(
@@ -1000,24 +1086,40 @@ class Helix4Engine:
                             best_bid=self._bid,
                             best_ask=self._ask,
                             trade_context="exit",
-                            related_trade_id=pos.origin_setup_id,
+                            related_trade_id=pre_pos.origin_setup_id,
                         )
                 except Exception:
                     pass
 
+    # ── OMS order terminal handling (routed through core) ───────────
+
     def _handle_order_cancelled(self, oms_order_id: str) -> None:
-        for setup in list(self.exec.pending_setups):
+        # Determine order role
+        role = "unknown"
+        for setup in self.exec.pending_setups:
             if setup.entry_oms_id == oms_order_id or setup.catchup_oms_id == oms_order_id:
-                self.risk.release_pending_risk(setup.direction, setup.armed_risk_r)
-                setup.state = SetupState.CANCELED
-                if setup in self.exec.pending_setups:
-                    self.exec.pending_setups.remove(setup)
-                return
-        for pos in self.positions.positions:
-            if pos.stop_oms_id == oms_order_id:
-                pos.stop_oms_id = None
-                logger.warning("Stop cancelled for %s — will re-place on next eval", pos.pos_id)
-                return
+                role = "entry"
+                break
+        else:
+            for pos in self.positions.positions:
+                if pos.stop_oms_id == oms_order_id:
+                    role = "stop"
+                    break
+
+        update = HelixV40OrderUpdate(
+            oms_order_id=oms_order_id,
+            status="cancelled",
+            order_role=role,
+        )
+        core_state = build_core_runtime_state(self)
+        core_state, _actions, events = helix_core_logic.on_order_update(core_state, update)
+        apply_core_runtime_state(self, core_state)
+
+        for event in events:
+            if event.code == "STOP_CANCELLED":
+                logger.warning(
+                    "Stop cancelled for %s -- will re-place on next eval",
+                    event.details.get("pos_id", "?"))
 
     def _handle_order_rejected(self, oms_order_id: str) -> None:
         self._handle_order_cancelled(oms_order_id)
@@ -1043,10 +1145,13 @@ class Helix4Engine:
             pass
 
     def _expire_signatures(self, now_et: datetime) -> None:
-        expired = [sig for sig, exp in self._sig_expiry.items() if now_et >= exp]
-        for sig in expired:
-            self._placed_signatures.discard(sig)
-            del self._sig_expiry[sig]
+        core_state = build_core_runtime_state(self)
+        core_state, _, _ = helix_core_logic.on_bar(
+            core_state,
+            bar_ts=now_et,
+            expire_sigs=HelixV40ExpireSignatures(now=now_et),
+        )
+        apply_core_runtime_state(self, core_state)
 
     async def _listen_oms_events(self) -> None:
         queue = self.oms.stream_events(STRATEGY_ID)

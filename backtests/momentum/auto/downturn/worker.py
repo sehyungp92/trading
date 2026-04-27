@@ -11,36 +11,32 @@ logger = logging.getLogger(__name__)
 
 _worker_data = None
 _worker_config = None
-_worker_phase: int = 1
-_worker_weights: dict | None = None
-_worker_hard_rejects: dict | None = None
+_worker_data_dir_key: str | None = None
 
 
 def init_worker(
     data_dir_str: str,
     equity: float,
-    phase: int = 1,
-    scoring_weights: dict | None = None,
-    hard_rejects: dict | None = None,
 ) -> None:
-    global _worker_data, _worker_config, _worker_phase, _worker_weights, _worker_hard_rejects
+    global _worker_data, _worker_config, _worker_data_dir_key
 
     if sys.stdout.encoding != "utf-8":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
     from backtests.momentum.config_downturn import DownturnBacktestConfig
 
-    _worker_phase = phase
-    _worker_weights = scoring_weights
-    _worker_hard_rejects = hard_rejects
+    data_dir = Path(data_dir_str)
     _worker_config = DownturnBacktestConfig(
         initial_equity=equity,
-        data_dir=Path(data_dir_str),
+        data_dir=data_dir,
     )
-    _worker_data = load_worker_data("NQ", Path(data_dir_str))
+    data_dir_key = str(data_dir.resolve())
+    if _worker_data is None or _worker_data_dir_key != data_dir_key:
+        _worker_data = load_worker_data("NQ", data_dir)
+        _worker_data_dir_key = data_dir_key
 
 
-def load_worker_data(symbol: str, data_dir: Path) -> dict:
+def load_worker_data(symbol: str, data_dir: Path):
     from backtests.momentum.data.replay_cache import load_replay_bundle
 
     return load_replay_bundle(
@@ -56,9 +52,11 @@ def load_worker_data(symbol: str, data_dir: Path) -> dict:
 
 
 def score_candidate(args: tuple[str, dict, dict]) -> ScoredCandidate:
-    name, candidate_muts, base_muts = args
+    name, candidate_muts, base_muts, phase, scoring_weights, hard_rejects = args
 
     try:
+        from dataclasses import asdict
+
         from backtests.momentum.data.replay_cache import replay_engine_kwargs
         from backtests.momentum.engine.downturn_engine import DownturnEngine
         from backtests.momentum.analysis.downturn_diagnostics import compute_downturn_metrics
@@ -71,17 +69,24 @@ def score_candidate(args: tuple[str, dict, dict]) -> ScoredCandidate:
         config = mutate_downturn_config(_worker_config, all_muts)
         engine = DownturnEngine("NQ", config)
         result = engine.run(**replay_engine_kwargs(_worker_data))
-        metrics = compute_downturn_metrics(result, _worker_data["daily"])
+        metrics = compute_downturn_metrics(result, _worker_data.data["daily"])
         score = score_phase_metrics(
-            _worker_phase,
+            phase,
             metrics,
-            weight_overrides=_worker_weights,
-            hard_rejects=_worker_hard_rejects,
+            weight_overrides=scoring_weights,
+            hard_rejects=hard_rejects,
         )
 
+        metrics_dict = asdict(metrics)
         if score.rejected:
-            return ScoredCandidate(name=name, score=0.0, rejected=True, reject_reason=score.reject_reason)
-        return ScoredCandidate(name=name, score=score.total)
+            return ScoredCandidate(
+                name=name,
+                score=0.0,
+                rejected=True,
+                reject_reason=score.reject_reason,
+                metrics=metrics_dict,
+            )
+        return ScoredCandidate(name=name, score=score.total, metrics=metrics_dict)
 
     except Exception as exc:
         logger.error("Worker error for %s: %s", name, exc)

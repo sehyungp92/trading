@@ -23,6 +23,9 @@ from backtests.momentum.analysis.vdubus_shadow_tracker import VdubusShadowTracke
 from backtests.momentum.config import SlippageConfig, round_to_tick
 from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
 from backtests.momentum.data.preprocessing import NumpyBars
+from backtests.shared.parity.decision_capture import normalize_decision_stream
+from backtests.shared.parity.replay_driver import ReplayStep, run_replay
+from backtests.shared.parity.trade_outcomes import normalize_trade_outcome_stream
 from backtests.momentum.engine.sim_broker import (
     FillResult,
     FillStatus,
@@ -51,6 +54,18 @@ from strategies.momentum.vdub.models import (
     SubWindow,
     VolState,
     WorkingEntry,
+)
+from strategies.core.events import DecisionEvent
+from strategies.momentum.vdub.core import logic as vdub_core_logic
+from strategies.momentum.vdub.core.state import (
+    VdubCoreState,
+    VdubEntryFillContext,
+    VdubEntrySubmitted,
+    VdubFill,
+    VdubFlattenRequest,
+    VdubOrderUpdate,
+    VdubPartialExitDone,
+    VdubStopUpdateRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -259,6 +274,8 @@ class VdubusResult:
     total_commission: float = 0.0
     shadow_summary: str = ""
     shadow_tracker: VdubusShadowTracker | None = None
+    decision_stream: list[dict] = field(default_factory=list)
+    trade_outcomes: list[dict] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -402,6 +419,30 @@ class VdubusEngine:
         if bt_config.news_calendar_path and bt_config.news_calendar_path.exists():
             self._event_calendar = self._load_event_calendar(bt_config.news_calendar_path)
 
+        # Core logic state (thin-driver parity layer)
+        self._core_state = VdubCoreState()
+        self._decision_events: list[DecisionEvent] = []
+
+    # ------------------------------------------------------------------
+    # Core replay delegation
+    # ------------------------------------------------------------------
+
+    def _replay_core_step(self, *, bar_input=None, order_updates=None, fills=None):
+        result = run_replay(
+            self._core_state,
+            steps=[ReplayStep(
+                bar_input=bar_input,
+                order_updates=order_updates or [],
+                fills=fills or [],
+            )],
+            on_bar=lambda state, payload: vdub_core_logic.on_bar(state, **payload),
+            on_order_update=vdub_core_logic.on_order_update,
+            on_fill=vdub_core_logic.on_fill,
+        )
+        self._core_state = result.state
+        self._decision_events.extend(result.events)
+        return result
+
     # ------------------------------------------------------------------
     # Main entry point
     # ------------------------------------------------------------------
@@ -539,6 +580,8 @@ class VdubusEngine:
             total_commission=self._total_commission,
             shadow_summary=shadow_summary,
             shadow_tracker=self.shadow_tracker,
+            decision_stream=normalize_decision_stream(self._decision_events),
+            trade_outcomes=normalize_trade_outcome_stream(self._trades),
         )
 
     # ------------------------------------------------------------------
@@ -612,7 +655,7 @@ class VdubusEngine:
         # 10. Overnight trail
         if self._active and self._active.pos.qty_open > 0:
             if self._active.pos.stage == PositionStage.SWING_HOLD and _is_overnight(bar_time):
-                self._apply_overnight_trail(hourly, h_idx)
+                self._apply_overnight_trail(hourly, h_idx, bar_time)
 
         # 11. VWAP-A failure check
         if self._active and self._active.pos.qty_open > 0:
@@ -1060,7 +1103,16 @@ class VdubusEngine:
         pos.partial_done = True
         pos.stage = PositionStage.ACTIVE_FREE
 
-    def _apply_overnight_trail(self, hourly: NumpyBars, h_idx: int) -> None:
+        self._replay_core_step(bar_input=dict(
+            bar_ts=bar_time,
+            partial_exit_done=VdubPartialExitDone(
+                pos_id=pos.trade_id,
+                qty_closed=qty_close,
+                new_qty=pos.qty_open,
+            ),
+        ))
+
+    def _apply_overnight_trail(self, hourly: NumpyBars, h_idx: int, bar_time: datetime | None = None) -> None:
         """Overnight trail using 1H data."""
         if self._active is None:
             return
@@ -1077,12 +1129,23 @@ class VdubusEngine:
                 (pos.direction == Direction.LONG and new_stop > pos.stop_price) or
                 (pos.direction == Direction.SHORT and new_stop < pos.stop_price)
             ):
+                old_stop = pos.stop_price
                 pos.stop_price = new_stop
                 # Update broker stop
                 for o in self.broker.pending_orders:
                     if o.order_id == self._active.stop_order_id:
                         o.stop_price = new_stop
                         break
+                # Core state tracking: overnight trail
+                if bar_time is not None and new_stop != old_stop:
+                    self._replay_core_step(bar_input=dict(
+                        bar_ts=bar_time,
+                        stop_updates=[VdubStopUpdateRequest(
+                            pos_id=pos.trade_id,
+                            new_stop=new_stop,
+                            reason="overnight_trail",
+                        )],
+                    ))
 
     def _check_vwap_a_failure(
         self, bar_time: datetime,
@@ -1715,6 +1778,13 @@ class VdubusEngine:
         self._working[order_id] = we
         self._entries_placed += 1
 
+        self._replay_core_step(bar_input=dict(
+            bar_ts=bar_time,
+            entry_submitted=VdubEntrySubmitted(
+                working_entry=we, oms_order_id=order_id, bar_idx=self._bar_idx,
+            ),
+        ))
+
         if is_flip:
             if direction == Direction.LONG:
                 self.counters.flip_entry_used_long = True
@@ -1745,9 +1815,17 @@ class VdubusEngine:
 
         elif fill.status == FillStatus.EXPIRED:
             self._working.pop(order.order_id, None)
+            self._replay_core_step(order_updates=[VdubOrderUpdate(
+                oms_order_id=order.order_id, status="EXPIRED",
+                timestamp=bar_time, order_role="entry",
+            )])
 
         elif fill.status == FillStatus.CANCELLED:
             self._working.pop(order.order_id, None)
+            self._replay_core_step(order_updates=[VdubOrderUpdate(
+                oms_order_id=order.order_id, status="CANCELLED",
+                timestamp=bar_time, order_role="entry",
+            )])
 
     def _on_entry_fill(
         self, we: WorkingEntry, fill: FillResult, bar_time: datetime,
@@ -1811,6 +1889,16 @@ class VdubusEngine:
         )
         self._active = active
 
+        self._replay_core_step(fills=[VdubFill(
+            oms_order_id=we.oms_order_id,
+            fill_price=fill_price,
+            fill_qty=we.qty,
+            fill_time=bar_time,
+            point_value=self.pv,
+            commission=commission,
+            entry_context=VdubEntryFillContext(working_entry=we),
+        )])
+
         # Place protective stop
         stop_side = OrderSide.SELL if we.direction == Direction.LONG else OrderSide.BUY
         stop_id = self.broker.next_order_id()
@@ -1832,6 +1920,14 @@ class VdubusEngine:
     def _on_stop_fill(self, fill: FillResult, bar_time: datetime) -> None:
         if self._active is None:
             return
+        self._replay_core_step(fills=[VdubFill(
+            oms_order_id=fill.order.order_id,
+            fill_price=fill.fill_price,
+            fill_qty=self._active.pos.qty_open,
+            fill_time=bar_time,
+            point_value=self.pv,
+            commission=fill.commission,
+        )])
         # Commission handled in _close_position (single authority for exit commission)
         self._close_position(fill.fill_price, bar_time, "STOP")
 
@@ -1848,6 +1944,15 @@ class VdubusEngine:
         pos = self._active.pos
         if pos.qty_open <= 0:
             return
+
+        # Flatten core step for discretionary exits
+        if market_exit:
+            self._replay_core_step(bar_input=dict(
+                bar_ts=bar_time,
+                flatten_requests=[VdubFlattenRequest(
+                    pos_id=pos.trade_id, reason=reason,
+                )],
+            ))
 
         # Market-exit slippage (discretionary exits at bar close)
         if market_exit:
@@ -1938,11 +2043,21 @@ class VdubusEngine:
         if self._active is None:
             return
         new_stop = round_to_tick(new_stop, self.tick)
+        old_stop = self._active.pos.stop_price
         self._active.pos.stop_price = new_stop
         for o in self.broker.pending_orders:
             if o.order_id == self._active.stop_order_id:
                 o.stop_price = new_stop
                 break
+        if new_stop != old_stop:
+            self._replay_core_step(bar_input=dict(
+                bar_ts=bar_time,
+                stop_updates=[VdubStopUpdateRequest(
+                    pos_id=self._active.pos.trade_id,
+                    new_stop=new_stop,
+                    reason="trail",
+                )],
+            ))
 
     def _unrealized_r(self, pos: PositionState, price: float) -> float:
         if pos.r_points <= 0:

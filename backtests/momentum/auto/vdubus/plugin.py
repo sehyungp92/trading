@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from .scoring import VdubusCompositeScore, VdubusMetrics
 
+from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.phase_state import PhaseState
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
 from backtests.shared.auto.plugin_utils import (
@@ -195,11 +196,14 @@ class VdubusPlugin:
         self.initial_equity = initial_equity
         self.max_workers = max_workers
         self.num_phases = num_phases
-        self._cached_data: dict[str, Any] | None = None
         self._last_context: dict[str, Any] = {}
         self._pool: mp.Pool | None = None
         self._last_metrics_sig: str = ""
         self._last_metrics_result: dict[str, float] | None = None
+        self._cached_bundle = None
+        self._evaluation_cache: dict[str, Any] = {}
+        self._metrics_cache: dict[str, dict[str, float]] = {}
+        self._cache_source_fingerprint: str = ""
 
     def get_phase_spec(self, phase: int, state: PhaseState) -> PhaseSpec:
         focus, focus_metrics = PHASE_FOCUS[phase]
@@ -241,6 +245,16 @@ class VdubusPlugin:
         scoring_weights: dict[str, float] | None = None,
         hard_rejects: dict[str, float] | None = None,
     ):
+        evaluation_key = build_cache_key(
+            "momentum.vdub.evaluation",
+            source_fingerprint=self._replay_bundle().cache_source_fingerprint,
+            extra={
+                "phase": phase,
+                "scoring_weights": scoring_weights or {},
+                "hard_rejects": hard_rejects or {},
+            },
+        )
+
         def make_parallel():
             self._ensure_pool()
             return _SharedPoolBatchEvaluator(
@@ -254,7 +268,30 @@ class VdubusPlugin:
             )
 
         raw = ResilientBatchEvaluator(make_parallel, make_sequential, description=f"vdubus phase {phase}")
-        return CachedBatchEvaluator(raw)
+        return CachedBatchEvaluator(
+            raw,
+            cache=self._evaluation_cache,
+            signature_prefix=evaluation_key,
+            metrics_cache=self._metrics_cache,
+        )
+
+    def _replay_bundle(self):
+        from backtests.momentum.data.replay_cache import load_vdub_replay_bundle
+
+        # Final-metrics and diagnostics flows require the 5m surface used by the
+        # live-aligned replay engine, so keep the optimizer bundle as the full
+        # superset rather than a narrower candidate-only variant.
+        bundle = load_vdub_replay_bundle("NQ", self.data_dir, include_5m=True)
+        if self._cache_source_fingerprint != bundle.cache_source_fingerprint:
+            self._metrics_cache.clear()
+            self._evaluation_cache.clear()
+            self._last_context = {}
+            self._last_metrics_sig = ""
+            self._last_metrics_result = None
+            self.close_pool()
+            self._cache_source_fingerprint = bundle.cache_source_fingerprint
+        self._cached_bundle = bundle
+        return bundle
 
     # -- Pool lifecycle --------------------------------------------------------
 
@@ -295,17 +332,14 @@ class VdubusPlugin:
 
     def compute_final_metrics(self, mutations: dict[str, Any]) -> dict[str, float]:
         sig = mutation_signature(mutations)
-        if sig == self._last_metrics_sig and self._last_metrics_result is not None:
-            return self._last_metrics_result
+        cached = self._metrics_cache.get(sig)
+        if cached is not None:
+            return dict(cached)
 
         from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
         from backtests.momentum.engine.vdubus_engine import VdubusEngine
         from backtests.momentum.auto.config_mutator import mutate_vdubus_config
         from backtests.momentum.auto.vdubus.scoring import extract_vdubus_metrics
-        from backtests.momentum.auto.vdubus.worker import load_worker_data
-
-        if self._cached_data is None:
-            self._cached_data = load_worker_data("NQ", self.data_dir)
 
         config = mutate_vdubus_config(
             VdubusBacktestConfig(
@@ -317,7 +351,7 @@ class VdubusPlugin:
             mutations,
         )
         engine = VdubusEngine("NQ", config)
-        result = engine.run(**self._cached_data)
+        result = engine.run(**self._replay_bundle().data)
         metrics = extract_vdubus_metrics(
             result.trades,
             list(result.equity_curve),
@@ -332,6 +366,7 @@ class VdubusPlugin:
             "trades": result.trades,
         }
         metrics_dict = asdict(metrics)
+        self._metrics_cache[sig] = metrics_dict
         self._last_metrics_sig = sig
         self._last_metrics_result = metrics_dict
         return metrics_dict

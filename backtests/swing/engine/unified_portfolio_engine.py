@@ -29,6 +29,7 @@ from strategies.swing.breakout.models import (
     Direction as BreakoutDirection,
     PositionState as BreakoutPositionState,
 )
+from strategies.swing.overlay.shared import allocate_weighted_targets, compute_ema
 
 from backtests.swing.config_unified import UnifiedBacktestConfig, StrategySlot
 from backtests.swing.data.preprocessing import (
@@ -470,14 +471,7 @@ def _compute_open_risk(
 
 def _overlay_ema(series: np.ndarray, period: int) -> np.ndarray:
     """EMA with SMA seed (matches idle_capital_study.py)."""
-    out = np.full_like(series, np.nan, dtype=float)
-    if len(series) < period:
-        return out
-    out[period - 1] = np.mean(series[:period])
-    k = 2.0 / (period + 1)
-    for i in range(period, len(series)):
-        out[i] = series[i] * k + out[i - 1] * (1 - k)
-    return out
+    return compute_ema(series, period)
 
 
 def _overlay_rsi(closes: np.ndarray, period: int = 14) -> np.ndarray:
@@ -715,10 +709,8 @@ def _rebalance_overlay(
         )
         return
 
-    # --- Legacy "ema" mode (unchanged) ---
-    available = max(portfolio_equity * config.overlay_max_pct, 0.0)
+    # --- Legacy "ema" mode (shared decision/allocation semantics) ---
     signals: dict[str, bool] = {}
-    n_bullish = 0
 
     for sym in config.overlay_symbols:
         sym_idx = daily_date_idx.get(sym)
@@ -734,36 +726,30 @@ def _rebalance_overlay(
             continue
         ema_f, ema_s = overlay_emas[sym]
         signals[sym] = bool(ema_f[d_idx] > ema_s[d_idx])
-        if signals[sym]:
-            n_bullish += 1
 
-    # Compute per-symbol allocation (weighted or equal-weight)
-    if config.overlay_weights is None:
-        bullish_w = {s: 1.0 for s in config.overlay_symbols if signals.get(s)}
-    else:
-        bullish_w = {s: config.overlay_weights.get(s, 1.0)
-                     for s in config.overlay_symbols if signals.get(s)}
-    total_w = sum(bullish_w.values())
-
+    execution_prices: dict[str, float] = {}
     for sym in config.overlay_symbols:
         sym_idx = daily_date_idx.get(sym)
         if sym_idx is None:
-            overlay_shares[sym] = 0.0
             continue
         d_idx = sym_idx.get(current_date)
         if d_idx is None:
-            overlay_shares[sym] = 0.0
             continue
-        # Execute at next day's open (signal at close, fill at next open)
         if d_idx + 1 < len(daily[sym].opens):
-            price = daily[sym].opens[d_idx + 1]
+            execution_prices[sym] = float(daily[sym].opens[d_idx + 1])
         else:
-            price = daily[sym].closes[d_idx]  # last day fallback
-        if signals.get(sym, False) and price > 0 and total_w > 0:
-            alloc = available * bullish_w[sym] / total_w
-            overlay_shares[sym] = int(alloc / price)
-        else:
-            overlay_shares[sym] = 0.0
+            execution_prices[sym] = float(daily[sym].closes[d_idx])
+
+    target_shares = allocate_weighted_targets(
+        config.overlay_symbols,
+        signals=signals,
+        prices=execution_prices,
+        portfolio_equity=portfolio_equity,
+        max_equity_pct=config.overlay_max_pct,
+        weights=config.overlay_weights,
+    )
+    for sym in config.overlay_symbols:
+        overlay_shares[sym] = float(target_shares.get(sym, 0))
 
 
 def _rebalance_overlay_multi(

@@ -7,11 +7,13 @@ import sys
 from pathlib import Path
 
 from backtests.shared.auto.types import ScoredCandidate
+from backtests.shared.auto.replay_bundle import ReplayBundle
 
 logger = logging.getLogger(__name__)
 
 _worker_data = None
 _worker_config = None
+_worker_data_dir_key: str | None = None
 
 
 def init_worker(data_dir_str: str, equity: float) -> None:
@@ -21,7 +23,7 @@ def init_worker(data_dir_str: str, equity: float) -> None:
     score_candidate() so the pool can be reused across phases without
     re-initialization (avoids expensive data re-loading).
     """
-    global _worker_data, _worker_config
+    global _worker_data, _worker_config, _worker_data_dir_key
 
     if sys.stdout.encoding != "utf-8":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -32,16 +34,19 @@ def init_worker(data_dir_str: str, equity: float) -> None:
 
     from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
 
+    data_dir = Path(data_dir_str)
     _worker_config = NQDTCBacktestConfig(
         initial_equity=equity,
-        data_dir=Path(data_dir_str),
+        data_dir=data_dir,
         fixed_qty=10,
     )
-    if _worker_data is None:
-        _worker_data = load_worker_data("NQ", Path(data_dir_str))
+    data_dir_key = str(data_dir.resolve())
+    if _worker_data is None or _worker_data_dir_key != data_dir_key:
+        _worker_data = load_worker_data("NQ", data_dir)
+        _worker_data_dir_key = data_dir_key
 
 
-def load_worker_data(symbol: str, data_dir: Path) -> dict:
+def load_worker_data(symbol: str, data_dir: Path) -> ReplayBundle[dict]:
     """Load NQDTC bar data (same as cli._load_nqdtc_data)."""
     from backtests.momentum.data.replay_cache import load_replay_bundle
 
@@ -55,21 +60,23 @@ def load_worker_data(symbol: str, data_dir: Path) -> dict:
         include_daily=True,
         include_daily_es=True,
     )
-    return {
-        "five_min_bars": bundle["five_min"],
-        "thirty_min": bundle["thirty_min"],
-        "hourly": bundle["hourly"],
-        "four_hour": bundle["four_hour"],
-        "daily": bundle["daily"],
-        "thirty_min_idx_map": bundle["thirty_min_idx_map"],
-        "hourly_idx_map": bundle["hourly_idx_map"],
-        "four_hour_idx_map": bundle["four_hour_idx_map"],
-        "daily_idx_map": bundle["daily_idx_map"],
-        "daily_es": bundle.get("daily_es"),
-        "daily_es_idx_map": bundle.get("daily_es_idx_map"),
-        "cache_key": bundle.get("cache_key"),
-        "cache_source_fingerprint": bundle.get("cache_source_fingerprint"),
-    }
+    return ReplayBundle(
+        data={
+            "five_min_bars": bundle.data["five_min"],
+            "thirty_min": bundle.data["thirty_min"],
+            "hourly": bundle.data["hourly"],
+            "four_hour": bundle.data["four_hour"],
+            "daily": bundle.data["daily"],
+            "thirty_min_idx_map": bundle.data["thirty_min_idx_map"],
+            "hourly_idx_map": bundle.data["hourly_idx_map"],
+            "four_hour_idx_map": bundle.data["four_hour_idx_map"],
+            "daily_idx_map": bundle.data["daily_idx_map"],
+            "daily_es": bundle.data.get("daily_es"),
+            "daily_es_idx_map": bundle.data.get("daily_es_idx_map"),
+        },
+        cache_key=bundle.cache_key,
+        cache_source_fingerprint=bundle.cache_source_fingerprint,
+    )
 
 
 def score_candidate(args: tuple) -> ScoredCandidate:

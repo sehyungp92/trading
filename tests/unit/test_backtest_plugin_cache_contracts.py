@@ -2,8 +2,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.plugin_utils import mutation_signature
 from backtests.shared.auto.types import ScoredCandidate
+from backtests.stock.auto.alcb_p16_phase import worker as alcb_worker_mod
+from backtests.stock.auto.iaric_pullback import worker as iaric_worker_mod
+from backtests.swing.auto.atrss import plugin as atrss_plugin_mod
+from backtests.swing.auto.brs import plugin as brs_plugin_mod
+from backtests.swing.auto.helix import plugin as helix_plugin_mod
+from backtests.momentum.auto.downturn import plugin as downturn_plugin_mod
+from backtests.momentum.auto.downturn import worker as downturn_worker_mod
+from backtests.momentum.auto.nqdtc import plugin as nqdtc_plugin_mod
+from backtests.momentum.auto.nqdtc import worker as nqdtc_worker_mod
+from backtests.momentum.auto.vdubus import plugin as vdub_plugin_mod
 from backtests.stock.auto.alcb_p16_phase import plugin as alcb_plugin_mod
 from backtests.stock.auto.iaric_pullback import plugin as iaric_plugin_mod
 
@@ -66,3 +77,381 @@ def test_iaric_phase_batch_seeds_metrics_cache_with_raw_mutation_signature(monke
     plugin.create_evaluate_batch(1, mutations)
 
     assert plugin._metrics_cache == {mutation_signature(mutations): metrics}
+
+
+def test_brs_phase_batch_namespaces_candidate_cache_by_source_fingerprint(monkeypatch, tmp_path: Path) -> None:
+    plugin = brs_plugin_mod.BRSPlugin(tmp_path, max_workers=1)
+    monkeypatch.setattr(
+        plugin,
+        "_replay_bundle",
+        lambda: type("Bundle", (), {"cache_source_fingerprint": "brs-fp"})(),
+    )
+
+    evaluator = plugin.create_evaluate_batch(2, {})
+
+    assert evaluator._signature_prefix == build_cache_key(
+        "swing.brs.evaluation",
+        source_fingerprint="brs-fp",
+        extra={"phase": 2, "scoring_weights": {}, "hard_rejects": {}},
+    )
+
+
+def test_atrss_phase_batch_namespaces_candidate_cache_by_source_fingerprint(monkeypatch, tmp_path: Path) -> None:
+    plugin = atrss_plugin_mod.ATRSSPlugin(tmp_path, max_workers=1)
+    monkeypatch.setattr(
+        plugin,
+        "_ensure_bundle",
+        lambda: type("Bundle", (), {"cache_source_fingerprint": "atrss-fp"})(),
+    )
+
+    evaluator = plugin.create_evaluate_batch(3, {})
+
+    assert evaluator._signature_prefix == build_cache_key(
+        "swing.atrss.evaluation",
+        source_fingerprint="atrss-fp",
+        extra={"phase": 3, "scoring_weights": {}, "hard_rejects": {}},
+    )
+
+
+def test_helix_phase_batch_namespaces_candidate_cache_by_source_fingerprint(monkeypatch, tmp_path: Path) -> None:
+    plugin = helix_plugin_mod.HelixPlugin(tmp_path, max_workers=1)
+    monkeypatch.setattr(
+        plugin,
+        "_replay_bundle",
+        lambda: type("Bundle", (), {"cache_source_fingerprint": "helix-fp"})(),
+    )
+
+    evaluator = plugin.create_evaluate_batch(1, {})
+
+    assert evaluator._signature_prefix == build_cache_key(
+        "swing.helix.evaluation",
+        source_fingerprint="helix-fp",
+        extra={"phase": 1, "scoring_weights": {}, "hard_rejects": {}},
+    )
+
+
+def test_vdub_phase_batch_namespaces_candidate_cache_by_source_fingerprint(monkeypatch, tmp_path: Path) -> None:
+    plugin = vdub_plugin_mod.VdubusPlugin(tmp_path, max_workers=1)
+    monkeypatch.setattr(
+        plugin,
+        "_replay_bundle",
+        lambda: type("Bundle", (), {"cache_source_fingerprint": "vdub-fp"})(),
+    )
+
+    evaluator = plugin.create_evaluate_batch(4, {})
+
+    assert evaluator._signature_prefix == build_cache_key(
+        "momentum.vdub.evaluation",
+        source_fingerprint="vdub-fp",
+        extra={"phase": 4, "scoring_weights": {}, "hard_rejects": {}},
+    )
+
+
+def test_downturn_phase_batch_namespaces_candidate_cache_by_source_fingerprint(monkeypatch, tmp_path: Path) -> None:
+    plugin = downturn_plugin_mod.DownturnPlugin(tmp_path, max_workers=1)
+    monkeypatch.setattr(
+        plugin,
+        "_replay_bundle",
+        lambda: type("Bundle", (), {"cache_source_fingerprint": "downturn-fp"})(),
+    )
+
+    evaluator = plugin.create_evaluate_batch(2, {})
+
+    assert evaluator._signature_prefix == build_cache_key(
+        "downturn.evaluation",
+        source_fingerprint="downturn-fp",
+        extra={"phase": 2, "scoring_weights": {}, "hard_rejects": {}},
+    )
+
+
+def test_nqdtc_phase_batch_namespaces_candidate_cache_by_source_fingerprint(monkeypatch, tmp_path: Path) -> None:
+    plugin = nqdtc_plugin_mod.NQDTCPlugin(tmp_path, max_workers=1)
+    monkeypatch.setattr(
+        plugin,
+        "_replay_bundle",
+        lambda: type("Bundle", (), {"cache_source_fingerprint": "nqdtc-fp"})(),
+    )
+
+    evaluator = plugin.create_evaluate_batch(3, {})
+
+    assert evaluator._signature_prefix == build_cache_key(
+        "nqdtc.evaluation",
+        source_fingerprint="nqdtc-fp",
+        extra={"phase": 3, "scoring_weights": {}, "hard_rejects": {}},
+    )
+
+
+def test_alcb_worker_init_uses_shared_stock_replay_bundle(monkeypatch, tmp_path: Path) -> None:
+    from backtests.stock import config_alcb as config_mod
+    from backtests.stock.data import replay_cache as replay_cache_mod
+
+    replay = object()
+
+    class DummyConfig:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    monkeypatch.setattr(
+        replay_cache_mod,
+        "load_research_replay_bundle",
+        lambda data_dir: type("Bundle", (), {"data": replay})(),
+    )
+    monkeypatch.setattr(config_mod, "ALCBBacktestConfig", DummyConfig)
+
+    alcb_worker_mod.init_worker(
+        str(tmp_path),
+        "2024-01-01",
+        "2024-12-31",
+        10_000.0,
+    )
+
+    assert alcb_worker_mod._worker_replay is replay
+
+
+def test_iaric_worker_init_uses_shared_stock_replay_bundle(monkeypatch, tmp_path: Path) -> None:
+    from backtests.stock import config_iaric as config_mod
+    from backtests.stock.data import replay_cache as replay_cache_mod
+
+    replay = object()
+
+    class DummyConfig:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    monkeypatch.setattr(
+        replay_cache_mod,
+        "load_research_replay_bundle",
+        lambda data_dir: type("Bundle", (), {"data": replay})(),
+    )
+    monkeypatch.setattr(config_mod, "IARICBacktestConfig", DummyConfig)
+
+    iaric_worker_mod.init_worker(
+        str(tmp_path),
+        "2024-01-01",
+        "2024-12-31",
+        10_000.0,
+    )
+
+    assert iaric_worker_mod._worker_replay is replay
+
+
+def test_vdub_plugin_refresh_clears_cached_metrics_and_pool(monkeypatch, tmp_path: Path) -> None:
+    from backtests.momentum.data import replay_cache as replay_cache_mod
+
+    plugin = vdub_plugin_mod.VdubusPlugin(tmp_path, max_workers=1)
+    plugin._metrics_cache["sig"] = {"score": 1.0}
+    plugin._evaluation_cache["candidate"] = object()
+    plugin._last_context = {"trades": [1]}
+    plugin._last_metrics_sig = "sig"
+    plugin._last_metrics_result = {"score": 1.0}
+    plugin._pool = object()
+
+    bundles = iter(
+        [
+            type("Bundle", (), {"cache_source_fingerprint": "fp-a", "data": {"root": "a"}})(),
+            type("Bundle", (), {"cache_source_fingerprint": "fp-b", "data": {"root": "b"}})(),
+        ]
+    )
+    close_calls = {"count": 0}
+
+    monkeypatch.setattr(replay_cache_mod, "load_vdub_replay_bundle", lambda *args, **kwargs: next(bundles))
+    monkeypatch.setattr(plugin, "close_pool", lambda: close_calls.__setitem__("count", close_calls["count"] + 1))
+
+    first = plugin._replay_bundle()
+    second = plugin._replay_bundle()
+
+    assert first.cache_source_fingerprint == "fp-a"
+    assert second.cache_source_fingerprint == "fp-b"
+    assert plugin._metrics_cache == {}
+    assert plugin._evaluation_cache == {}
+    assert plugin._last_context == {}
+    assert plugin._last_metrics_sig == ""
+    assert plugin._last_metrics_result is None
+    assert close_calls["count"] == 2
+
+
+def test_downturn_plugin_refresh_clears_cached_metrics_and_pool(monkeypatch, tmp_path: Path) -> None:
+    from backtests.momentum.auto.downturn import worker as worker_mod
+
+    plugin = downturn_plugin_mod.DownturnPlugin(tmp_path, max_workers=1)
+    plugin._metrics_cache["sig"] = {"score": 1.0}
+    plugin._evaluation_cache["candidate"] = object()
+    plugin._final_metrics_cache["final"] = {"metrics": {"score": 1.0}}
+    plugin._last_context = {"trades": [1]}
+    plugin._pool = object()
+
+    bundles = iter(
+        [
+            type("Bundle", (), {"cache_source_fingerprint": "fp-a", "data": {"root": "a"}})(),
+            type("Bundle", (), {"cache_source_fingerprint": "fp-b", "data": {"root": "b"}})(),
+        ]
+    )
+    close_calls = {"count": 0}
+
+    monkeypatch.setattr(worker_mod, "load_worker_data", lambda *args, **kwargs: next(bundles))
+    monkeypatch.setattr(plugin, "close_pool", lambda: close_calls.__setitem__("count", close_calls["count"] + 1))
+
+    first = plugin._replay_bundle()
+    second = plugin._replay_bundle()
+
+    assert first.cache_source_fingerprint == "fp-a"
+    assert second.cache_source_fingerprint == "fp-b"
+    assert plugin._metrics_cache == {}
+    assert plugin._evaluation_cache == {}
+    assert plugin._final_metrics_cache == {}
+    assert plugin._last_context == {}
+    assert close_calls["count"] == 2
+
+
+def test_nqdtc_plugin_refresh_clears_cached_metrics_and_pool(monkeypatch, tmp_path: Path) -> None:
+    from backtests.momentum.auto.nqdtc import worker as worker_mod
+
+    plugin = nqdtc_plugin_mod.NQDTCPlugin(tmp_path, max_workers=1)
+    plugin._metrics_cache["sig"] = {"score": 1.0}
+    plugin._evaluation_cache["candidate"] = object()
+    plugin._final_metrics_cache["final"] = {"metrics": {"score": 1.0}}
+    plugin._last_context = {"trades": [1]}
+    plugin._pool = object()
+
+    bundles = iter(
+        [
+            type("Bundle", (), {"cache_source_fingerprint": "fp-a", "data": {"root": "a"}})(),
+            type("Bundle", (), {"cache_source_fingerprint": "fp-b", "data": {"root": "b"}})(),
+        ]
+    )
+    close_calls = {"count": 0}
+
+    monkeypatch.setattr(worker_mod, "load_worker_data", lambda *args, **kwargs: next(bundles))
+    monkeypatch.setattr(plugin, "close_pool", lambda: close_calls.__setitem__("count", close_calls["count"] + 1))
+
+    first = plugin._replay_bundle()
+    second = plugin._replay_bundle()
+
+    assert first.cache_source_fingerprint == "fp-a"
+    assert second.cache_source_fingerprint == "fp-b"
+    assert plugin._metrics_cache == {}
+    assert plugin._evaluation_cache == {}
+    assert plugin._final_metrics_cache == {}
+    assert plugin._last_context == {}
+    assert close_calls["count"] == 2
+
+
+def test_downturn_worker_reloads_replay_bundle_when_data_dir_changes(monkeypatch, tmp_path: Path) -> None:
+    from backtests.momentum import config_downturn as config_mod
+
+    class DummyConfig:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    seen_paths: list[Path] = []
+
+    def fake_load_worker_data(symbol: str, data_dir: Path):
+        seen_paths.append(Path(data_dir))
+        return type("Bundle", (), {"data": {"symbol": symbol, "root": str(data_dir)}})()
+
+    monkeypatch.setattr(config_mod, "DownturnBacktestConfig", DummyConfig)
+    monkeypatch.setattr(downturn_worker_mod, "load_worker_data", fake_load_worker_data)
+    monkeypatch.setattr(downturn_worker_mod, "_worker_data", None)
+    monkeypatch.setattr(downturn_worker_mod, "_worker_config", None)
+    monkeypatch.setattr(downturn_worker_mod, "_worker_data_dir_key", None)
+
+    first_dir = tmp_path / "a"
+    second_dir = tmp_path / "b"
+    first_dir.mkdir()
+    second_dir.mkdir()
+
+    downturn_worker_mod.init_worker(str(first_dir), 100_000.0)
+    downturn_worker_mod.init_worker(str(first_dir), 100_000.0)
+    downturn_worker_mod.init_worker(str(second_dir), 100_000.0)
+
+    assert seen_paths == [first_dir, second_dir]
+
+
+def test_nqdtc_worker_reloads_replay_bundle_when_data_dir_changes(monkeypatch, tmp_path: Path) -> None:
+    from backtests.momentum import config_nqdtc as config_mod
+
+    class DummyConfig:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    seen_paths: list[Path] = []
+
+    def fake_load_worker_data(symbol: str, data_dir: Path):
+        seen_paths.append(Path(data_dir))
+        return type("Bundle", (), {"data": {"symbol": symbol, "root": str(data_dir)}})()
+
+    monkeypatch.setattr(config_mod, "NQDTCBacktestConfig", DummyConfig)
+    monkeypatch.setattr(nqdtc_worker_mod, "load_worker_data", fake_load_worker_data)
+    monkeypatch.setattr(nqdtc_worker_mod, "_worker_data", None)
+    monkeypatch.setattr(nqdtc_worker_mod, "_worker_config", None)
+    monkeypatch.setattr(nqdtc_worker_mod, "_worker_data_dir_key", None)
+
+    first_dir = tmp_path / "a"
+    second_dir = tmp_path / "b"
+    first_dir.mkdir()
+    second_dir.mkdir()
+
+    nqdtc_worker_mod.init_worker(str(first_dir), 10_000.0)
+    nqdtc_worker_mod.init_worker(str(first_dir), 10_000.0)
+    nqdtc_worker_mod.init_worker(str(second_dir), 10_000.0)
+
+    assert seen_paths == [first_dir, second_dir]
+
+
+def test_vdub_plugin_replay_bundle_includes_five_min_surface(monkeypatch, tmp_path: Path) -> None:
+    from backtests.momentum.data import replay_cache as replay_cache_mod
+
+    plugin = vdub_plugin_mod.VdubusPlugin(tmp_path, max_workers=1)
+    seen: dict[str, object] = {}
+
+    def fake_load(symbol, data_dir, *, include_5m=False):
+        seen["symbol"] = symbol
+        seen["data_dir"] = Path(data_dir)
+        seen["include_5m"] = include_5m
+        return type("Bundle", (), {"cache_source_fingerprint": "vdub-fp", "data": {"bars_5m": object()}})()
+
+    monkeypatch.setattr(replay_cache_mod, "load_vdub_replay_bundle", fake_load)
+
+    bundle = plugin._replay_bundle()
+
+    assert bundle.cache_source_fingerprint == "vdub-fp"
+    assert seen == {
+        "symbol": "NQ",
+        "data_dir": tmp_path,
+        "include_5m": True,
+    }
+
+
+def test_alcb_plugin_refresh_clears_context_and_shared_pool(monkeypatch, tmp_path: Path) -> None:
+    from backtests.stock.data import replay_cache as replay_cache_mod
+
+    plugin = alcb_plugin_mod.ALCBP16Plugin(tmp_path, max_workers=1)
+    plugin._metrics_cache["sig"] = {"score": 1.0}
+    plugin._config_cache[("key",)] = {"metrics": {}}
+    plugin._evaluation_cache["candidate"] = ScoredCandidate(name="x", score=1.0)
+    plugin._last_context = {"metrics": {"net_profit": 1.0}}
+    plugin._phase_runtime_context[1] = {"base_metrics": {"net_profit": 1.0}}
+    plugin._shared_pool = object()
+
+    bundles = iter(
+        [
+            type("Bundle", (), {"cache_source_fingerprint": "fp-a", "data": object()})(),
+            type("Bundle", (), {"cache_source_fingerprint": "fp-b", "data": object()})(),
+        ]
+    )
+    close_calls = {"count": 0}
+
+    monkeypatch.setattr(replay_cache_mod, "load_research_replay_bundle", lambda *args, **kwargs: next(bundles))
+    monkeypatch.setattr(plugin, "close_pool", lambda: close_calls.__setitem__("count", close_calls["count"] + 1))
+
+    first = plugin._replay_bundle()
+    second = plugin._replay_bundle()
+
+    assert first.cache_source_fingerprint == "fp-a"
+    assert second.cache_source_fingerprint == "fp-b"
+    assert plugin._metrics_cache == {}
+    assert plugin._config_cache == {}
+    assert plugin._evaluation_cache == {}
+    assert plugin._last_context == {}
+    assert plugin._phase_runtime_context == {}
+    assert close_calls["count"] == 2

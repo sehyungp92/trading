@@ -56,10 +56,12 @@
       "summary_source": null,
       "regeneration": {
         "executor": "python_file",
-        "entrypoint": "backtests/swing/analysis/r9_full_diagnostics.py",
+        "entrypoint": "backtests/swing/analysis/optimal_starting_baseline_diagnostics.py",
         "arguments": [
           "--output",
-          "backtests/swing/auto/output/post-fixes/brs_optimal_starting_baseline_full_diagnostics.txt"
+          "backtests/swing/auto/output/post-fixes/brs_optimal_starting_baseline_full_diagnostics.txt",
+          "--mutations-output",
+          "backtests/swing/auto/output/post-fixes/brs_optimal_starting_baseline_mutations.json"
         ],
         "expected_output": "backtests/swing/auto/output/post-fixes/brs_optimal_starting_baseline_full_diagnostics.txt"
       },
@@ -246,11 +248,13 @@
       "parser_kind": "stock_alcb_round_summary",
       "summary_source": null,
       "regeneration": {
-        "executor": "python_module",
-        "entrypoint": "backtests.stock.auto.alcb_p16_phase",
+        "executor": "python_file",
+        "entrypoint": "backtests/stock/auto/alcb_p16_phase/run_final_diagnostics.py",
         "arguments": [
-          "--output-dir",
-          "backtests/stock/auto/alcb_p16_phase/output_targeted_entry_repair_v2"
+          "--phase-state",
+          "backtests/stock/auto/alcb_p16_phase/output_targeted_entry_repair_v2/phase_state.json",
+          "--output",
+          "backtests/stock/auto/alcb_p16_phase/output_targeted_entry_repair_v2/round_final_diagnostics.txt"
         ],
         "expected_output": "backtests/stock/auto/alcb_p16_phase/output_targeted_entry_repair_v2/round_final_diagnostics.txt"
       },

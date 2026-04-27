@@ -1,4 +1,4 @@
-"""Multi-Asset Swing Breakout v3.3-ETF — async event-driven core engine.
+﻿"""Multi-Asset Swing Breakout v3.3-ETF ? async event-driven core engine.
 
 Orchestrates daily campaign management and hourly entry/add execution.
 """
@@ -101,6 +101,20 @@ from .models import (
     TradeRecord,
     TradeRegime,
 )
+from .core import logic as breakout_core_logic
+from .core.logic import apply_core_state as apply_core_runtime_state
+from .core.logic import build_core_state as build_core_runtime_state
+from .core.serializers import restore_state as restore_core_state
+from .core.serializers import snapshot_state as snapshot_core_state
+from .core.state import (
+    BreakoutEntryRequest,
+    BreakoutFill,
+    BreakoutFlattenRequest,
+    BreakoutOrderUpdate,
+    BreakoutPartialExitRequest,
+    BreakoutStopUpdateRequest,
+)
+from strategies.core.actions import ReplaceProtectiveStop
 
 logger = logging.getLogger(__name__)
 
@@ -201,6 +215,100 @@ class BreakoutEngine:
             "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
         }
 
+    def snapshot_state(self) -> dict[str, Any]:
+        return snapshot_core_state(build_core_runtime_state(self))
+
+    async def hydrate(self, snapshot: dict[str, Any]) -> None:
+        if not snapshot:
+            return
+        apply_core_runtime_state(self, restore_core_state(snapshot))
+
+    def _apply_core_bar_transition(self, *, bar_ts: datetime, **payload: Any) -> None:
+        core_state = build_core_runtime_state(self)
+        new_state, _actions, _events = breakout_core_logic.on_bar(
+            core_state,
+            bar_ts=bar_ts,
+            **payload,
+        )
+        apply_core_runtime_state(self, new_state)
+
+    def _route_core_entry_request(
+        self,
+        *,
+        bar_ts: datetime,
+        setup: SetupInstance,
+        client_order_id: str,
+        order_type: str,
+    ) -> SetupInstance:
+        self._apply_core_bar_transition(
+            bar_ts=bar_ts,
+            entry_request=BreakoutEntryRequest(
+                client_order_id=client_order_id,
+                setup=setup,
+                order_type=order_type,
+            ),
+        )
+        return self.active_setups.get(setup.setup_id, setup)
+
+    def _route_core_stop_update(
+        self,
+        *,
+        bar_ts: datetime,
+        setup_id: str,
+        symbol: str,
+        stop_price: float,
+        qty: int,
+        reason: str,
+    ) -> None:
+        self._apply_core_bar_transition(
+            bar_ts=bar_ts,
+            stop_update=BreakoutStopUpdateRequest(
+                setup_id=setup_id,
+                symbol=symbol,
+                stop_price=stop_price,
+                qty=qty,
+                reason=reason,
+            ),
+        )
+
+    def _route_core_partial_exit_request(
+        self,
+        *,
+        bar_ts: datetime,
+        setup_id: str,
+        symbol: str,
+        client_order_id: str,
+        qty: int,
+        reason: str,
+    ) -> None:
+        self._apply_core_bar_transition(
+            bar_ts=bar_ts,
+            partial_exit_request=BreakoutPartialExitRequest(
+                client_order_id=client_order_id,
+                setup_id=setup_id,
+                symbol=symbol,
+                qty=qty,
+                reason=reason,
+            ),
+        )
+
+    def _route_core_flatten_request(
+        self,
+        *,
+        bar_ts: datetime,
+        setup_id: str,
+        symbol: str,
+        reason: str,
+    ) -> None:
+        self._apply_core_bar_transition(
+            bar_ts=bar_ts,
+            flatten_request=BreakoutFlattenRequest(
+                setup_id=setup_id,
+                symbol=symbol,
+                reason=reason,
+            ),
+        )
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
@@ -282,10 +390,10 @@ class BreakoutEngine:
     # ------------------------------------------------------------------
 
     def _on_farm_recovery(self, farm_name: str) -> None:
-        """Synchronous callback from FarmMonitor — schedule async resubscription."""
+        """Synchronous callback from FarmMonitor ? schedule async resubscription."""
         if not self._running:
             return
-        logger.info("Farm %s recovered — scheduling market data resubscription", farm_name)
+        logger.info("Farm %s recovered ? scheduling market data resubscription", farm_name)
         asyncio.get_running_loop().call_soon(
             lambda: asyncio.create_task(self._resubscribe_market_data())
         )
@@ -426,7 +534,7 @@ class BreakoutEngine:
             sq = bh / float(atr50[i]) if atr50[i] > 0 else 1.0
             hist.add_squeeze(sq)
 
-            # Displacement requires AVWAP — use SMA as proxy for initialization
+            # Displacement requires AVWAP ? use SMA as proxy for initialization
             sma_val = float(np.mean(closes[max(0, i - 20):i + 1]))
             disp = abs(float(closes[i]) - sma_val) / float(atr14[i]) if atr14[i] > 0 else 0.0
             hist.add_disp(disp)
@@ -695,7 +803,7 @@ class BreakoutEngine:
                 campaign.inside_close_count += 1
                 if campaign.inside_close_count >= INSIDE_CLOSE_INVALIDATION_COUNT:
                     campaign.state = CampaignState.INVALIDATED
-                    logger.info("%s: Invalidated — %d consecutive inside closes",
+                    logger.info("%s: Invalidated ? %d consecutive inside closes",
                                 symbol, campaign.inside_close_count)
                     return
             else:
@@ -736,7 +844,7 @@ class BreakoutEngine:
                     close_today, avwap_d, atr14_d, hist.disp_hist[:-1], atr_expanding
                 )
                 if disp_pass and signals.dirty_opposite_allowed(disp, disp_th):
-                    pass  # Allow opposite — continue to qualification
+                    pass  # Allow opposite ? continue to qualification
                 else:
                     return
             elif direction and direction == campaign.breakout_direction:
@@ -1089,7 +1197,7 @@ class BreakoutEngine:
             dir_key = "LONG" if direction == Direction.LONG else "SHORT"
             campaign.reentry_count.setdefault(dir_key, {}).setdefault(campaign.box_version, 0)
 
-        # Check if Entry A is outstanding (spec §12.5 — C only after A resolves)
+        # Check if Entry A is outstanding (spec §12.5 ? C only after A resolves)
         entry_a_active = any(
             s.symbol == symbol
             and s.entry_type == EntryType.A_AVWAP_RETEST
@@ -1150,7 +1258,7 @@ class BreakoutEngine:
                     entry_type_requested=entry_type,
                     reason=block_reason,
                 )
-                logger.info("%s: Pending created (%s) — %s", symbol, entry_type.value, block_reason)
+                logger.info("%s: Pending created (%s) ? %s", symbol, entry_type.value, block_reason)
             return
 
         # Micro guard (spec §14.4)
@@ -1234,7 +1342,7 @@ class BreakoutEngine:
             buffer = 0.03 * atr14_d
             entry_price = avwap_h + buffer if direction == Direction.LONG else avwap_h - buffer
         elif entry_type in ("C_standard", "C_continuation"):
-            # C entries: signal confirmed via 2 consecutive closes — enter near market
+            # C entries: signal confirmed via 2 consecutive closes ? enter near market
             hs = self.hourly_states.get(symbol)
             entry_price = hs.close if hs else avwap_h
         else:
@@ -1346,6 +1454,12 @@ class BreakoutEngine:
                 "symbol": symbol, "entry_type": entry_type,
                 "shares": shares, "oms_order_id": receipt.oms_order_id,
             })
+            setup = self._route_core_entry_request(
+                bar_ts=now,
+                setup=setup,
+                client_order_id=receipt.oms_order_id,
+                order_type=order_type.value if hasattr(order_type, "value") else str(order_type),
+            )
             setup.primary_order_id = receipt.oms_order_id
             self._track_order(
                 receipt.oms_order_id,
@@ -1370,9 +1484,10 @@ class BreakoutEngine:
                 "symbol": symbol, "entry_type": entry_type,
                 "reason": "oms_rejected",
             })
+            return
 
         self.active_setups[setup.setup_id] = setup
-        logger.info("%s: Entry %s %s placed — shares=%d, stop=%.2f, tp1=%.2f",
+        logger.info("%s: Entry %s %s placed ? shares=%d, stop=%.2f, tp1=%.2f",
                     symbol, entry_type, direction.name, shares, stop_price, tp1)
 
     # ------------------------------------------------------------------
@@ -1507,7 +1622,7 @@ class BreakoutEngine:
             )
         campaign.add_count += 1
         campaign.campaign_risk_used += add_risk
-        logger.info("%s: Add #%d placed — shares=%d, ref=%.2f", symbol, campaign.add_count, add_shares, ref)
+        logger.info("%s: Add #%d placed ? shares=%d, ref=%.2f", symbol, campaign.add_count, add_shares, ref)
 
     # ------------------------------------------------------------------
     # Exit management (spec §20)
@@ -1585,7 +1700,7 @@ class BreakoutEngine:
                     await self._close_position(setup, gap_fill, "gap_stop", now_et)
                     continue
 
-            # Compute stale flags (no exit yet — TP takes priority)
+            # Compute stale flags (no exit yet ? TP takes priority)
             if setup.fill_ts:
                 setup.days_held = (now_et - setup.fill_ts).days
             else:
@@ -1668,6 +1783,14 @@ class BreakoutEngine:
                     old_stop = setup.current_stop
                     setup.current_stop = new_stop
                     pos.current_stop = new_stop
+                    self._route_core_stop_update(
+                        bar_ts=now_et,
+                        setup_id=setup.setup_id,
+                        symbol=symbol,
+                        stop_price=new_stop,
+                        qty=setup.qty_open,
+                        reason="trail",
+                    )
                     if self._kit:
                         self._kit.log_stop_adjustment(
                             trade_id=setup.trade_id or f"BKOUT-{symbol}",
@@ -1675,7 +1798,7 @@ class BreakoutEngine:
                             adjustment_type="trailing", trigger="atr_trail",
                         )
 
-            # Stop hit check — covers pre-runner trail and any stop ratchets
+            # Stop hit check ? covers pre-runner trail and any stop ratchets
             # Skip if broker owns the stop (stop_order_id is set)
             if not tp1_hit_this_bar and not setup.stop_order_id:
                 stopped = (
@@ -1688,13 +1811,13 @@ class BreakoutEngine:
                     await self._close_position(setup, current_price, "stop_hit", now_et)
                     continue
 
-            # Stale exit (deferred — only if TP1 not hit this bar)
+            # Stale exit (deferred ? only if TP1 not hit this bar)
             if should_exit_stale and not tp1_hit_this_bar:
                 logger.info("%s: Stale exit at R=%.2f", symbol, r_state)
                 await self._close_position(setup, current_price, "stale_exit", now_et)
                 continue
 
-            # Trailing stop (runner) — spec §20.3
+            # Trailing stop (runner) ? spec §20.3
             if setup.runner_active:
                 # Stale tighten applies on top of trailing
                 if should_tighten:
@@ -1725,9 +1848,17 @@ class BreakoutEngine:
             Intent(intent_type=IntentType.NEW_ORDER, strategy_id=STRATEGY_ID, order=partial_order)
         )
 
-        # Track the partial close order — fill handler will update qty_open
+        # Track the partial close order ? fill handler will update qty_open
         if receipt and receipt.oms_order_id:
             self._track_order(receipt.oms_order_id, setup.setup_id, "partial_close", qty)
+            self._route_core_partial_exit_request(
+                bar_ts=now,
+                setup_id=setup.setup_id,
+                symbol=setup.symbol,
+                client_order_id=receipt.oms_order_id,
+                qty=qty,
+                reason=reason,
+            )
 
     async def _update_runner_trailing_stop(
         self, setup: SetupInstance, pos: PositionState, symbol: str, now_et: datetime,
@@ -1781,6 +1912,14 @@ class BreakoutEngine:
                 old_stop = setup.current_stop
                 setup.current_stop = new_stop
                 pos.current_stop = new_stop
+                self._route_core_stop_update(
+                    bar_ts=now_et,
+                    setup_id=setup.setup_id,
+                    symbol=symbol,
+                    stop_price=new_stop,
+                    qty=setup.qty_open,
+                    reason="trail",
+                )
                 logger.info("%s: Runner trail ratcheted stop → %.2f", symbol, new_stop)
                 if self._kit:
                     self._kit.log_stop_adjustment(
@@ -1793,6 +1932,14 @@ class BreakoutEngine:
                 old_stop = setup.current_stop
                 setup.current_stop = new_stop
                 pos.current_stop = new_stop
+                self._route_core_stop_update(
+                    bar_ts=now_et,
+                    setup_id=setup.setup_id,
+                    symbol=symbol,
+                    stop_price=new_stop,
+                    qty=setup.qty_open,
+                    reason="trail",
+                )
                 logger.info("%s: Runner trail ratcheted stop → %.2f", symbol, new_stop)
                 if self._kit:
                     self._kit.log_stop_adjustment(
@@ -1818,7 +1965,7 @@ class BreakoutEngine:
         if setup.qty_open <= 0:
             return
         if self._has_pending_exit(setup):
-            logger.info("%s: Skipping engine close — exit order already in flight", setup.symbol)
+            logger.info("%s: Skipping engine close ? exit order already in flight", setup.symbol)
             return
 
         inst = self._instruments.get(setup.symbol)
@@ -1835,9 +1982,16 @@ class BreakoutEngine:
             tif="GTC",
             role=OrderRole.EXIT,
         )
-        await self._oms.submit_intent(
+        receipt = await self._oms.submit_intent(
             Intent(intent_type=IntentType.NEW_ORDER, strategy_id=STRATEGY_ID, order=close_order)
         )
+        if receipt and receipt.oms_order_id:
+            self._route_core_flatten_request(
+                bar_ts=now,
+                setup_id=setup.setup_id,
+                symbol=setup.symbol,
+                reason=reason,
+            )
         # Cancel any outstanding bracket orders before finalizing
         await self._cancel_remaining_exit_orders(setup, except_kind="engine_close")
         await self._finalize_closed_setup(
@@ -1859,7 +2013,7 @@ class BreakoutEngine:
         return False
 
     # ------------------------------------------------------------------
-    # Bracket orders (spec §16, §20.2) — protect positions on crash
+    # Bracket orders (spec §16, §20.2) ? protect positions on crash
     # ------------------------------------------------------------------
 
     async def _submit_bracket_orders(self, setup: SetupInstance) -> None:
@@ -1904,7 +2058,7 @@ class BreakoutEngine:
             tp1_r, tp2_r, cfg.tick_size,
         )
 
-        # TP1 order — regime-sensitive partial close (matches _manage_exits)
+        # TP1 order ? regime-sensitive partial close (matches _manage_exits)
         _chop_cap = (self.campaigns.get(setup.symbol) and
                      self.campaigns[setup.symbol].chop_mode == "DEGRADED")
         _range_cap = setup.exit_tier == ExitTier.NEUTRAL
@@ -1936,7 +2090,7 @@ class BreakoutEngine:
                 tp1_qty,
             )
 
-        # TP2 order — partial close (half of remaining)
+        # TP2 order ? partial close (half of remaining)
         remaining_after_tp1 = setup.fill_qty - tp1_qty
         tp2_qty = max(1, remaining_after_tp1 // 2) if remaining_after_tp1 > 1 else remaining_after_tp1
         if tp2_qty > 0:
@@ -1964,7 +2118,7 @@ class BreakoutEngine:
                     tp2_qty,
                 )
 
-        logger.info("%s: Bracket orders submitted — stop=%.2f, TP1=%.2f (%d), TP2=%.2f (%d)",
+        logger.info("%s: Bracket orders submitted ? stop=%.2f, TP1=%.2f (%d), TP2=%.2f (%d)",
                     setup.symbol, setup.current_stop, tp1_price, tp1_qty, tp2_price, tp2_qty)
 
     # ------------------------------------------------------------------
@@ -2001,7 +2155,7 @@ class BreakoutEngine:
             except Exception as e:
                 logger.warning("%s: Failed to cancel %s order %s: %s",
                                setup.symbol, kind, order_id, e)
-            # Clear the reference regardless — broker will handle the cancel
+            # Clear the reference regardless ? broker will handle the cancel
             self._forget_order(order_id)
 
     async def _amend_stop_qty(self, setup: SetupInstance) -> None:
@@ -2113,72 +2267,6 @@ class BreakoutEngine:
         if fill_qty <= 0:
             fill_qty = int(fallback_qty)
         return fill_price, fill_qty
-
-    def _apply_add_fill(
-        self,
-        setup: SetupInstance,
-        fill_price: float,
-        fill_qty: int,
-    ) -> int:
-        """Sync a filled add-on entry into local position state."""
-        add_qty = max(0, fill_qty)
-        if add_qty <= 0:
-            return 0
-
-        current_qty = max(0, setup.fill_qty)
-        entry_anchor = setup.avg_entry if setup.avg_entry > 0 else setup.fill_price
-        if current_qty > 0 and entry_anchor > 0:
-            setup.avg_entry = ((entry_anchor * current_qty) + (fill_price * add_qty)) / (current_qty + add_qty)
-        else:
-            setup.avg_entry = fill_price
-
-        setup.fill_qty = current_qty + add_qty
-        setup.qty_open += add_qty
-        setup.add_count += 1
-        setup.state = SetupState.ACTIVE
-
-        pos = self.positions.setdefault(
-            setup.symbol,
-            PositionState(
-                symbol=setup.symbol,
-                direction=setup.direction,
-                campaign_id=setup.campaign_id,
-                box_version=setup.box_version,
-            ),
-        )
-        pos.qty += add_qty
-        pos.avg_cost = setup.avg_entry
-        pos.add_count += 1
-        return add_qty
-
-    def _apply_exit_fill(
-        self,
-        setup: SetupInstance,
-        fill_price: float,
-        fill_qty: int,
-    ) -> int:
-        """Apply a broker-driven exit fill to local quantity and realized PnL."""
-        exit_qty = max(0, min(fill_qty, setup.qty_open if setup.qty_open > 0 else fill_qty))
-        if exit_qty <= 0:
-            return 0
-
-        entry_anchor = setup.fill_price if setup.fill_price > 0 else setup.avg_entry
-        if setup.direction == Direction.LONG:
-            pnl_points = fill_price - entry_anchor
-        else:
-            pnl_points = entry_anchor - fill_price
-        point_value = float(getattr(self._instruments.get(setup.symbol), "point_value", 1.0) or 1.0)
-        setup.realized_pnl += pnl_points * point_value * exit_qty
-        setup.qty_open = max(0, setup.qty_open - exit_qty)
-        if setup.final_risk_dollars > 0:
-            setup.r_state = setup.realized_pnl / setup.final_risk_dollars
-
-        pos = self.positions.get(setup.symbol)
-        if pos:
-            pos.qty = max(0, pos.qty - exit_qty)
-            pos.r_state = setup.r_state
-
-        return exit_qty
 
     async def _finalize_closed_setup(
         self,
@@ -2298,268 +2386,371 @@ class BreakoutEngine:
                 tracked_qty = self._order_requested_qty.get(oms_order_id, 0)
 
                 if event.event_type in (OMSEventType.FILL, OMSEventType.ORDER_FILLED):
-                    if order_kind == "add_entry":
-                        fill_price, fill_qty = self._extract_fill_details(
-                            event,
-                            fallback_price=setup.entry_price or setup.fill_price,
-                            fallback_qty=tracked_qty,
-                        )
-                        self._forget_order(oms_order_id)
-                        filled_qty = self._apply_add_fill(setup, fill_price, fill_qty)
-                        if filled_qty > 0:
-                            logger.info(
-                                "%s: Add filled %d @ %.2f, qty_open=%d",
-                                setup.symbol,
-                                filled_qty,
-                                fill_price,
-                                setup.qty_open,
-                            )
-                        continue
-
-                    if order_kind in {"tp1", "tp2", "stop", "partial_close"}:
-                        fill_price, fill_qty = self._extract_fill_details(
-                            event,
-                            fallback_price=setup.current_stop if order_kind == "stop" else setup.fill_price,
-                            fallback_qty=tracked_qty or setup.qty_open,
-                        )
-                        self._forget_order(oms_order_id)
-                        filled_qty = self._apply_exit_fill(setup, fill_price, fill_qty)
-                        if filled_qty <= 0:
-                            continue
-
-                        pos = self.positions.get(setup.symbol)
-                        if order_kind == "tp1":
-                            setup.tp1_done = True
-                            if pos:
-                                pos.tp1_done = True
-                        elif order_kind == "tp2":
-                            setup.tp2_done = True
-                            if pos:
-                                pos.tp2_done = True
-
-                        if order_kind == "stop" or setup.qty_open <= 0 or (pos and pos.qty <= 0):
-                            # Cancel remaining bracket orders before finalizing
-                            await self._cancel_remaining_exit_orders(setup, except_kind=order_kind)
-                            await self._finalize_closed_setup(
-                                setup,
-                                fill_price,
-                                f"{order_kind}_fill",
-                                datetime.now(timezone.utc),
-                                order_id=oms_order_id or "",
-                            )
-                        else:
-                            logger.info(
-                                "%s: %s filled %d @ %.2f, qty_open=%d",
-                                setup.symbol,
-                                order_kind.upper(),
-                                filled_qty,
-                                fill_price,
-                                setup.qty_open,
-                            )
-                            # Amend stop qty to match reduced position after partial TP
-                            if order_kind in ("tp1", "tp2") and setup.stop_order_id and setup.qty_open > 0:
-                                await self._amend_stop_qty(setup)
-                        continue
-
-                    if order_kind != "primary_entry":
-                        continue
-                    if setup.state in (SetupState.FILLED, SetupState.ACTIVE):
-                        continue
-
-                    fill_price, fill_qty = self._extract_fill_details(
-                        event,
-                        fallback_price=setup.entry_price,
-                        fallback_qty=tracked_qty or setup.shares_planned,
-                    )
-                    self._forget_order(oms_order_id)
-                    setup.state = SetupState.FILLED
-                    setup.fill_price = fill_price
-                    setup.fill_qty = fill_qty
-                    setup.fill_ts = datetime.now(timezone.utc)
-                    setup.qty_open = setup.fill_qty
-                    setup.avg_entry = setup.fill_price
-
-                    # Update position state
-                    pos = self.positions.setdefault(
-                        setup.symbol,
-                        PositionState(
-                            symbol=setup.symbol,
-                            direction=setup.direction,
-                            campaign_id=setup.campaign_id,
-                            box_version=setup.box_version,
-                        ),
-                    )
-                    pos.qty += setup.fill_qty
-                    pos.avg_cost = setup.fill_price
-                    pos.current_stop = setup.current_stop
-                    pos.total_risk_dollars += setup.final_risk_dollars
-                    if pos.regime_at_entry is None:
-                        pos.regime_at_entry = setup.regime_at_entry
-
-                    # Update campaign state
-                    campaign = self.campaigns.get(setup.symbol)
-                    if campaign:
-                        if campaign.state == CampaignState.BREAKOUT:
-                            campaign.state = CampaignState.POSITION_OPEN
-                        # Track re-entry count (spec §21)
-                        if campaign.last_exit_date is not None:
-                            dir_key = "LONG" if setup.direction == Direction.LONG else "SHORT"
-                            bv = campaign.box_version
-                            campaign.reentry_count.setdefault(dir_key, {})
-                            campaign.reentry_count[dir_key][bv] = campaign.reentry_count[dir_key].get(bv, 0) + 1
-                            campaign.last_exit_date = None  # consumed
-
-                    logger.info("%s: Filled %d @ %.2f", setup.symbol, setup.fill_qty, setup.fill_price)
-
-                    # Hook 4: Instrumentation trade entry
-                    if self._kit:
-                        campaign = self.campaigns.get(setup.symbol)
-                        ctx = campaign.daily_context if campaign else {}
-                        active_pos = {s: p for s, p in self.positions.items() if p.qty > 0}
-                        total_risk = sum(p.total_risk_dollars for p in active_pos.values())
-                        # Correlated pairs
-                        correlated = []
-                        for sym_b, pos_b in self.positions.items():
-                            if pos_b.qty <= 0 or sym_b == setup.symbol:
-                                continue
-                            pair_key = tuple(sorted([setup.symbol, sym_b]))
-                            corr = self.correlation_map.get(pair_key, 0.0)
-                            if abs(corr) > 0.5:
-                                correlated.append({
-                                    "symbol": sym_b,
-                                    "direction": "LONG" if pos_b.direction == Direction.LONG else "SHORT",
-                                    "correlation": round(corr, 3),
-                                    "same_direction": (pos_b.direction == setup.direction),
-                                })
-                        _s3_cfg = self._config.get(setup.symbol)
-                        _cfg_dict = dataclasses.asdict(_s3_cfg) if _s3_cfg else {}
-                        _param_set_id = hashlib.md5(
-                            json.dumps(_cfg_dict, sort_keys=True, default=str).encode()
-                        ).hexdigest()[:8]
-                        self._kit.log_entry(
-                            trade_id=setup.setup_id,
-                            pair=setup.symbol,
-                            side="LONG" if setup.direction == Direction.LONG else "SHORT",
-                            entry_price=setup.fill_price,
-                            position_size=float(setup.fill_qty),
-                            position_size_quote=setup.fill_price * setup.fill_qty,
-                            entry_signal=setup.entry_type.value if hasattr(setup.entry_type, "value") else str(setup.entry_type),
-                            entry_signal_id=setup.setup_id,
-                            entry_signal_strength=setup.quality_mult if hasattr(setup, "quality_mult") else 0.5,
-                            active_filters=["score_threshold", "displacement", "eligibility"],
-                            passed_filters=["score_threshold", "displacement", "eligibility"],
-                            filter_decisions=setup.filter_decisions if hasattr(setup, "filter_decisions") else [],
-                            strategy_params={
-                                "param_set_id": _param_set_id,
-                                "config": _cfg_dict,
-                                "final_risk_dollars": setup.final_risk_dollars,
-                                "entry_type": setup.entry_type.value if hasattr(setup.entry_type, "value") else str(setup.entry_type),
-                                "quality_mult": setup.quality_mult,
-                                "score_total": ctx.get("score_total"),
-                                "score_threshold": ctx.get("score_threshold"),
-                                "regime_4h": ctx.get("regime_4h").value if ctx.get("regime_4h") and hasattr(ctx["regime_4h"], "value") else str(ctx.get("regime_4h")),
-                                "trade_regime": str(ctx.get("trade_regime")),
-                                "chop_mode": ctx.get("chop_mode"),
-                                "atr14_d": ctx.get("atr14_d"),
-                                "risk_regime": ctx.get("risk_regime"),
-                                "cb_mult": ctx.get("cb_mult"),
-                                "expiry_mult": ctx.get("expiry_mult"),
-                                "base_risk_pct": self._base_risk_pct if hasattr(self, "_base_risk_pct") else 0.01,
-                            },
-                            expected_entry_price=setup.fill_price,
-                            signal_factors=[
-                                {"factor_name": "score_total", "factor_value": ctx.get("score_total", 0),
-                                 "threshold": ctx.get("score_threshold", 2), "contribution": "evidence_quality"},
-                                {"factor_name": "score_vol", "factor_value": ctx.get("score_vol", 0),
-                                 "threshold": 0, "contribution": "volume_confirmation"},
-                                {"factor_name": "score_squeeze", "factor_value": ctx.get("score_squeeze", 0),
-                                 "threshold": 0, "contribution": "compression_quality"},
-                                {"factor_name": "score_regime", "factor_value": ctx.get("score_regime", 0),
-                                 "threshold": 0, "contribution": "regime_alignment"},
-                                {"factor_name": "score_consec", "factor_value": ctx.get("score_consec", 0),
-                                 "threshold": 0, "contribution": "consecutive_closes"},
-                                {"factor_name": "displacement", "factor_value": ctx.get("disp", 0),
-                                 "threshold": ctx.get("disp_th", 0), "contribution": "breakout_magnitude"},
-                                {"factor_name": "quality_mult", "factor_value": ctx.get("quality_mult", 0),
-                                 "threshold": 0.25, "contribution": "composite_sizing_quality"},
-                            ],
-                            sizing_inputs={
-                                "target_risk_pct": self._base_risk_pct if hasattr(self, "_base_risk_pct") else 0.01,
-                                "account_equity": self._equity if hasattr(self, "_equity") else 0.0,
-                                "volatility_basis": setup.final_risk_dollars,
-                                "sizing_model": "breakout_r_risk",
-                            },
-                            portfolio_state_at_entry={
-                                "num_positions": len(active_pos),
-                                "total_risk_dollars": round(total_risk, 2),
-                                "total_exposure_pct": round(total_risk / self._equity, 4) if self._equity > 0 else 0,
-                                "long_positions": sum(1 for p in active_pos.values() if p.direction == Direction.LONG),
-                                "short_positions": sum(1 for p in active_pos.values() if p.direction == Direction.SHORT),
-                            },
-                            correlated_pairs_detail=correlated if correlated else None,
-                            concurrent_positions_strategy=len(self.active_setups),
-                        )
-
-                        self._kit.on_order_event(
-                            order_id=oms_order_id,
-                            pair=setup.symbol,
-                            side="LONG" if setup.direction == Direction.LONG else "SHORT",
-                            order_type=setup.entry_type.value if hasattr(setup.entry_type, "value") else str(setup.entry_type),
-                            status="FILLED",
-                            requested_qty=float(setup.shares_planned),
-                            filled_qty=float(setup.fill_qty),
-                            requested_price=setup.entry_price,
-                            fill_price=setup.fill_price,
-                            related_trade_id=setup.setup_id,
-                            strategy_id=STRATEGY_ID,
-                        )
-
-                    # Submit bracket orders (stop + TP) for position protection
-                    await self._submit_bracket_orders(setup)
-
-                elif event.event_type in (
+                    await self._on_fill_event(event, setup, order_kind, oms_order_id, tracked_qty)
+                    continue
+                if event.event_type in (
                     OMSEventType.ORDER_CANCELLED,
                     OMSEventType.ORDER_REJECTED,
                     OMSEventType.ORDER_EXPIRED,
                 ):
-                    self._forget_order(oms_order_id)
-                    if order_kind == "stop" and setup.qty_open > 0:
-                        logger.warning(
-                            "%s: Protective stop order terminal (%s) while %d shares remain open",
-                            setup.symbol,
-                            event.event_type.value,
-                            setup.qty_open,
-                        )
-                        continue
-                    if order_kind != "primary_entry":
-                        continue
-                    if setup.state in (SetupState.ARMED, SetupState.TRIGGERED):
-                        if event.event_type == OMSEventType.ORDER_EXPIRED:
-                            setup.state = SetupState.EXPIRED
-                        else:
-                            setup.state = SetupState.CANCELLED
-                        self.active_setups.pop(setup.setup_id, None)
-                        logger.info("%s: Order terminal (%s)", setup.symbol, event.event_type.value)
-
-                        if self._kit:
-                            status_map = {
-                                OMSEventType.ORDER_CANCELLED: "CANCELLED",
-                                OMSEventType.ORDER_REJECTED: "REJECTED",
-                                OMSEventType.ORDER_EXPIRED: "EXPIRED",
-                            }
-                            self._kit.on_order_event(
-                                order_id=oms_order_id,
-                                pair=setup.symbol,
-                                side="LONG" if setup.direction == Direction.LONG else "SHORT",
-                                order_type=setup.entry_type.value if hasattr(setup.entry_type, "value") else str(setup.entry_type),
-                                status=status_map.get(event.event_type, "CANCELLED"),
-                                requested_qty=float(setup.shares_planned),
-                                requested_price=setup.entry_price,
-                                strategy_id=STRATEGY_ID,
-                            )
+                    await self._on_terminal_event(event, setup, order_kind, oms_order_id)
+                    continue
 
             except Exception:
                 logger.exception("Error processing OMS event")
+
+    async def _on_fill_event(
+        self,
+        event,
+        setup: SetupInstance,
+        order_kind: str,
+        oms_order_id: str,
+        tracked_qty: int,
+    ) -> None:
+        """Route fill events through core logic with engine-side post-processing."""
+        if order_kind == "primary_entry" and setup.state in (SetupState.FILLED, SetupState.ACTIVE):
+            return
+
+        if order_kind == "add_entry":
+            fallback_price = setup.entry_price or setup.fill_price
+            fallback_qty = tracked_qty
+        elif order_kind in {"tp1", "tp2", "stop", "partial_close"}:
+            fallback_price = setup.current_stop if order_kind == "stop" else setup.fill_price
+            fallback_qty = tracked_qty or setup.qty_open
+        else:
+            fallback_price = setup.entry_price
+            fallback_qty = tracked_qty or setup.shares_planned
+
+        fill_price, fill_qty = self._extract_fill_details(
+            event,
+            fallback_price=fallback_price,
+            fallback_qty=fallback_qty,
+        )
+
+        pre_setup = dataclasses.replace(setup)
+
+        fill = BreakoutFill(
+            oms_order_id=oms_order_id or "",
+            fill_price=fill_price,
+            fill_qty=fill_qty,
+            symbol=setup.symbol,
+            fill_time=getattr(event, "timestamp", None),
+            commission=float((event.payload or {}).get("commission", 0) or 0),
+            order_role=order_kind,
+        )
+        core_state = build_core_runtime_state(self)
+        new_state, actions, events = breakout_core_logic.on_fill(core_state, fill)
+        apply_core_runtime_state(self, new_state)
+
+        self._forget_order(oms_order_id)
+        setup = self.active_setups.get(pre_setup.setup_id) or pre_setup
+
+        for ev in events:
+            if ev.code == "ENTRY_FILLED":
+                campaign = self.campaigns.get(setup.symbol)
+                if campaign:
+                    if campaign.state == CampaignState.BREAKOUT:
+                        campaign.state = CampaignState.POSITION_OPEN
+                    if campaign.last_exit_date is not None:
+                        dir_key = "LONG" if setup.direction == Direction.LONG else "SHORT"
+                        bv = setup.box_version
+                        campaign.reentry_count.setdefault(dir_key, {})
+                        campaign.reentry_count[dir_key][bv] = (
+                            campaign.reentry_count[dir_key].get(bv, 0) + 1
+                        )
+                        campaign.last_exit_date = None
+
+                logger.info("%s: Filled %d @ %.2f", setup.symbol, fill_qty, fill_price)
+                self._record_entry_instrumentation(setup, oms_order_id)
+                await self._submit_bracket_orders(setup)
+
+            elif ev.code == "ADD_FILLED":
+                logger.info(
+                    "%s: Add filled %d @ %.2f, qty_open=%d",
+                    setup.symbol,
+                    fill_qty,
+                    fill_price,
+                    setup.qty_open,
+                )
+                if any(
+                    isinstance(action, ReplaceProtectiveStop) and action.reason == "add_resize"
+                    for action in actions
+                ):
+                    if setup.stop_order_id and setup.qty_open > 0:
+                        await self._amend_stop_qty(setup)
+
+            elif ev.code in {"EXIT_FILLED", "STOP_FILLED"}:
+                self._compute_exit_pnl(setup, pre_setup, fill_price, fill_qty)
+                pos = self.positions.get(setup.symbol)
+                if order_kind == "tp1":
+                    setup.tp1_done = True
+                    if pos:
+                        pos.tp1_done = True
+                elif order_kind == "tp2":
+                    setup.tp2_done = True
+                    if pos:
+                        pos.tp2_done = True
+                await self._cancel_remaining_exit_orders(setup, except_kind=order_kind)
+                await self._finalize_closed_setup(
+                    setup,
+                    fill_price,
+                    f"{order_kind}_fill",
+                    datetime.now(timezone.utc),
+                    order_id=oms_order_id or "",
+                )
+
+            elif ev.code == "PARTIAL_EXIT_FILLED":
+                self._compute_exit_pnl(setup, pre_setup, fill_price, fill_qty)
+                pos = self.positions.get(setup.symbol)
+                if order_kind == "tp1":
+                    setup.tp1_done = True
+                    if pos:
+                        pos.tp1_done = True
+                elif order_kind == "tp2":
+                    setup.tp2_done = True
+                    if pos:
+                        pos.tp2_done = True
+                logger.info(
+                    "%s: %s filled %d @ %.2f, qty_open=%d",
+                    setup.symbol,
+                    order_kind.upper(),
+                    fill_qty,
+                    fill_price,
+                    setup.qty_open,
+                )
+                if order_kind in ("tp1", "tp2") and setup.stop_order_id and setup.qty_open > 0:
+                    await self._amend_stop_qty(setup)
+
+    async def _on_terminal_event(
+        self,
+        event,
+        setup: SetupInstance,
+        order_kind: str,
+        oms_order_id: str,
+    ) -> None:
+        """Route terminal order events through core logic."""
+        status_map = {
+            OMSEventType.ORDER_CANCELLED: "cancelled",
+            OMSEventType.ORDER_REJECTED: "rejected",
+            OMSEventType.ORDER_EXPIRED: "expired",
+        }
+        update = BreakoutOrderUpdate(
+            oms_order_id=oms_order_id or "",
+            status=status_map.get(event.event_type, "cancelled"),
+            symbol=setup.symbol,
+            timestamp=getattr(event, "timestamp", None),
+        )
+        setup_id = setup.setup_id
+        core_state = build_core_runtime_state(self)
+        new_state, _, events = breakout_core_logic.on_order_update(core_state, update)
+        apply_core_runtime_state(self, new_state)
+
+        for ev in events:
+            if ev.code != "ORDER_TERMINAL":
+                continue
+            details = ev.details or {}
+            terminal_kind = details.get("order_kind", order_kind)
+
+            if terminal_kind == "stop" and setup.qty_open > 0:
+                logger.warning(
+                    "%s: Protective stop order terminal (%s) while %d shares remain open",
+                    setup.symbol,
+                    event.event_type.value,
+                    setup.qty_open,
+                )
+                return
+
+            if terminal_kind != "primary_entry":
+                continue
+
+            setup = self.active_setups.get(setup_id, setup)
+            if setup.state in (SetupState.ARMED, SetupState.TRIGGERED):
+                if event.event_type == OMSEventType.ORDER_EXPIRED:
+                    setup.state = SetupState.EXPIRED
+                else:
+                    setup.state = SetupState.CANCELLED
+                self.active_setups.pop(setup_id, None)
+                logger.info("%s: Order terminal (%s)", setup.symbol, event.event_type.value)
+
+                if self._kit:
+                    kit_status = {
+                        OMSEventType.ORDER_CANCELLED: "CANCELLED",
+                        OMSEventType.ORDER_REJECTED: "REJECTED",
+                        OMSEventType.ORDER_EXPIRED: "EXPIRED",
+                    }
+                    self._kit.on_order_event(
+                        order_id=oms_order_id,
+                        pair=setup.symbol,
+                        side="LONG" if setup.direction == Direction.LONG else "SHORT",
+                        order_type=(
+                            setup.entry_type.value
+                            if hasattr(setup.entry_type, "value")
+                            else str(setup.entry_type)
+                        ),
+                        status=kit_status.get(event.event_type, "CANCELLED"),
+                        requested_qty=float(setup.shares_planned),
+                        requested_price=setup.entry_price,
+                        strategy_id=STRATEGY_ID,
+                    )
+
+    def _compute_exit_pnl(
+        self,
+        setup: SetupInstance,
+        pre_setup: SetupInstance,
+        fill_price: float,
+        fill_qty: int,
+    ) -> None:
+        """Compute realized PnL for exit fills on the wrapper side."""
+        exit_qty = min(fill_qty, pre_setup.qty_open) if pre_setup.qty_open > 0 else fill_qty
+        if exit_qty <= 0:
+            return
+        entry_anchor = pre_setup.fill_price if pre_setup.fill_price > 0 else pre_setup.avg_entry
+        if setup.direction == Direction.LONG:
+            pnl_points = fill_price - entry_anchor
+        else:
+            pnl_points = entry_anchor - fill_price
+        point_value = float(
+            getattr(self._instruments.get(setup.symbol), "point_value", 1.0) or 1.0
+        )
+        setup.realized_pnl = pre_setup.realized_pnl + pnl_points * point_value * exit_qty
+        if setup.final_risk_dollars > 0:
+            setup.r_state = setup.realized_pnl / setup.final_risk_dollars
+        pos = self.positions.get(setup.symbol)
+        if pos:
+            pos.r_state = setup.r_state
+
+    def _record_entry_instrumentation(self, setup: SetupInstance, oms_order_id: str) -> None:
+        """Record entry instrumentation for a filled primary entry."""
+        if not self._kit:
+            return
+        campaign = self.campaigns.get(setup.symbol)
+        ctx = campaign.daily_context if campaign else {}
+        active_pos = {symbol: pos for symbol, pos in self.positions.items() if pos.qty > 0}
+        total_risk = sum(pos.total_risk_dollars for pos in active_pos.values())
+        correlated = []
+        for sym_b, pos_b in self.positions.items():
+            if pos_b.qty <= 0 or sym_b == setup.symbol:
+                continue
+            pair_key = tuple(sorted([setup.symbol, sym_b]))
+            corr = self.correlation_map.get(pair_key, 0.0)
+            if abs(corr) > 0.5:
+                correlated.append(
+                    {
+                        "symbol": sym_b,
+                        "direction": "LONG" if pos_b.direction == Direction.LONG else "SHORT",
+                        "correlation": round(corr, 3),
+                        "same_direction": pos_b.direction == setup.direction,
+                    }
+                )
+        cfg = self._config.get(setup.symbol)
+        cfg_dict = dataclasses.asdict(cfg) if cfg else {}
+        param_set_id = hashlib.md5(
+            json.dumps(cfg_dict, sort_keys=True, default=str).encode()
+        ).hexdigest()[:8]
+        self._kit.log_entry(
+            trade_id=setup.setup_id,
+            pair=setup.symbol,
+            side="LONG" if setup.direction == Direction.LONG else "SHORT",
+            entry_price=setup.fill_price,
+            position_size=float(setup.fill_qty),
+            position_size_quote=setup.fill_price * setup.fill_qty,
+            entry_signal=setup.entry_type.value if hasattr(setup.entry_type, "value") else str(setup.entry_type),
+            entry_signal_id=setup.setup_id,
+            entry_signal_strength=setup.quality_mult if hasattr(setup, "quality_mult") else 0.5,
+            active_filters=["score_threshold", "displacement", "eligibility"],
+            passed_filters=["score_threshold", "displacement", "eligibility"],
+            filter_decisions=setup.filter_decisions if hasattr(setup, "filter_decisions") else [],
+            strategy_params={
+                "param_set_id": param_set_id,
+                "config": cfg_dict,
+                "final_risk_dollars": setup.final_risk_dollars,
+                "entry_type": setup.entry_type.value if hasattr(setup.entry_type, "value") else str(setup.entry_type),
+                "quality_mult": setup.quality_mult,
+                "score_total": ctx.get("score_total"),
+                "score_threshold": ctx.get("score_threshold"),
+                "regime_4h": ctx.get("regime_4h").value if ctx.get("regime_4h") and hasattr(ctx["regime_4h"], "value") else str(ctx.get("regime_4h")),
+                "trade_regime": str(ctx.get("trade_regime")),
+                "chop_mode": ctx.get("chop_mode"),
+                "atr14_d": ctx.get("atr14_d"),
+                "risk_regime": ctx.get("risk_regime"),
+                "cb_mult": ctx.get("cb_mult"),
+                "expiry_mult": ctx.get("expiry_mult"),
+                "base_risk_pct": self._base_risk_pct if hasattr(self, "_base_risk_pct") else 0.01,
+            },
+            expected_entry_price=setup.fill_price,
+            signal_factors=[
+                {
+                    "factor_name": "score_total",
+                    "factor_value": ctx.get("score_total", 0),
+                    "threshold": ctx.get("score_threshold", 2),
+                    "contribution": "evidence_quality",
+                },
+                {
+                    "factor_name": "score_vol",
+                    "factor_value": ctx.get("score_vol", 0),
+                    "threshold": 0,
+                    "contribution": "volume_confirmation",
+                },
+                {
+                    "factor_name": "score_squeeze",
+                    "factor_value": ctx.get("score_squeeze", 0),
+                    "threshold": 0,
+                    "contribution": "compression_quality",
+                },
+                {
+                    "factor_name": "score_regime",
+                    "factor_value": ctx.get("score_regime", 0),
+                    "threshold": 0,
+                    "contribution": "regime_alignment",
+                },
+                {
+                    "factor_name": "score_consec",
+                    "factor_value": ctx.get("score_consec", 0),
+                    "threshold": 0,
+                    "contribution": "consecutive_closes",
+                },
+                {
+                    "factor_name": "displacement",
+                    "factor_value": ctx.get("disp", 0),
+                    "threshold": ctx.get("disp_th", 0),
+                    "contribution": "breakout_magnitude",
+                },
+                {
+                    "factor_name": "quality_mult",
+                    "factor_value": ctx.get("quality_mult", 0),
+                    "threshold": 0.25,
+                    "contribution": "composite_sizing_quality",
+                },
+            ],
+            sizing_inputs={
+                "target_risk_pct": self._base_risk_pct if hasattr(self, "_base_risk_pct") else 0.01,
+                "account_equity": self._equity if hasattr(self, "_equity") else 0.0,
+                "volatility_basis": setup.final_risk_dollars,
+                "sizing_model": "breakout_r_risk",
+            },
+            portfolio_state_at_entry={
+                "num_positions": len(active_pos),
+                "total_risk_dollars": round(total_risk, 2),
+                "total_exposure_pct": round(total_risk / self._equity, 4) if self._equity > 0 else 0,
+                "long_positions": sum(1 for pos in active_pos.values() if pos.direction == Direction.LONG),
+                "short_positions": sum(1 for pos in active_pos.values() if pos.direction == Direction.SHORT),
+            },
+            correlated_pairs_detail=correlated if correlated else None,
+            concurrent_positions_strategy=len(self.active_setups),
+        )
+        self._kit.on_order_event(
+            order_id=oms_order_id,
+            pair=setup.symbol,
+            side="LONG" if setup.direction == Direction.LONG else "SHORT",
+            order_type=setup.entry_type.value if hasattr(setup.entry_type, "value") else str(setup.entry_type),
+            status="FILLED",
+            requested_qty=float(setup.shares_planned),
+            filled_qty=float(setup.fill_qty),
+            requested_price=setup.entry_price,
+            fill_price=setup.fill_price,
+            related_trade_id=setup.setup_id,
+            strategy_id=STRATEGY_ID,
+        )
 
     async def _on_risk_halt(self, reason: str) -> None:
         """Pause new entries and cancel live entry intents."""
@@ -2672,3 +2863,4 @@ class BreakoutEngine:
                     corr = rolling_correlation(ret_a, ret_b, CORR_LOOKBACK_BARS)
                     pair = tuple(sorted([sym_a, sym_b]))
                     self.correlation_map[pair] = corr
+

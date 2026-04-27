@@ -10,6 +10,7 @@ import asyncio
 import logging
 import math
 import uuid
+from copy import deepcopy
 from datetime import datetime, time, timedelta, timezone
 from typing import Any, Optional
 
@@ -45,6 +46,29 @@ from .models import (
     S2ArmState,
     S3ArmState,
     VolState,
+)
+from .core import logic as brs_core_logic
+from .core.logic import apply_core_state as apply_core_runtime_state
+from .core.logic import build_core_state as build_core_runtime_state
+from .core.serializers import restore_state as restore_core_state
+from .core.serializers import snapshot_state as snapshot_core_state
+from .core.state import (
+    BRSAddOnRequest,
+    BRSEntryFillContext,
+    BRSEntryRequest,
+    BRSFill,
+    BRSFlattenRequest,
+    BRSOrderUpdate,
+    BRSScaleOutRequest,
+    BRSStopUpdateRequest,
+)
+from strategies.core.actions import (
+    FlattenPosition,
+    ReplaceProtectiveStop,
+    SubmitAddOnEntry,
+    SubmitEntry,
+    SubmitExit,
+    SubmitPartialExit,
 )
 from .positions import ActionResult, BRSPositionState, PendingOrder, PositionAction
 from .regime import classify_regime, compute_raw_bias, compute_regime_on, update_bias
@@ -279,6 +303,14 @@ class BRSLiveEngine:
             "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
         }
 
+    def snapshot_state(self) -> dict[str, Any]:
+        return snapshot_core_state(build_core_runtime_state(self))
+
+    async def hydrate(self, snapshot: dict[str, Any]) -> None:
+        if not snapshot:
+            return
+        apply_core_runtime_state(self, restore_core_state(snapshot))
+
     # ══════════════════════════════════════════════════════════════════
     # Bar routing
     # ══════════════════════════════════════════════════════════════════
@@ -413,39 +445,60 @@ class BRSLiveEngine:
             self._closing.pop(sym)
 
     def _on_terminal(self, oms_order_id: str, evt: Any) -> None:
-        """Handle cancel/reject/expire -- clean up pending state."""
-        pending = self._pending_orders.pop(oms_order_id, None)
+        """Handle cancel/reject/expire through core state machine."""
+        # Capture pre-state for instrumentation before core modifies it
+        pending = self._pending_orders.get(oms_order_id)
+        symbol = ""
+        order_role: str = "unknown"
+        if pending:
+            symbol = pending.symbol
+            order_role = pending.role
+        else:
+            for sym, pos in self._position.items():
+                if pos is not None and pos.stop_oms_id == oms_order_id:
+                    symbol = sym
+                    order_role = "stop"
+                    break
+
+        status_str = evt.value if hasattr(evt, "value") else str(evt)
+
+        # Route through core -- pops pending, clears stop_oms_id
+        update = BRSOrderUpdate(
+            oms_order_id=oms_order_id,
+            status=status_str,
+            symbol=symbol,
+            order_role=order_role,
+        )
+        state = build_core_runtime_state(self)
+        new_state, _, events = brs_core_logic.on_order_update(state, update)
+        apply_core_runtime_state(self, new_state)
+
+        # Logging and instrumentation (unchanged behaviour)
         if pending:
             logger.info("[%s] %s order %s (%s)", pending.symbol, pending.role,
-                        evt.value if hasattr(evt, 'value') else evt, oms_order_id)
+                        status_str, oms_order_id)
             if pending.role == "entry" and self._instrumentation:
                 self._instrumentation.on_order_event(
                     order_id=oms_order_id,
                     pair=pending.symbol,
                     side="SELL" if pending.signal and pending.signal.direction == Direction.SHORT else "BUY",
                     order_type="LIMIT",
-                    status=evt.value if hasattr(evt, 'value') else "CANCELLED",
+                    status=status_str,
                     requested_qty=float(pending.qty),
                     requested_price=pending.signal.signal_price if pending.signal else 0,
                     strategy_id=STRATEGY_ID,
                 )
-            return
-
-        # Check if this is a stop order cancellation (tracked on pos.stop_oms_id)
-        for sym, pos in self._position.items():
-            if pos is not None and pos.stop_oms_id == oms_order_id:
-                logger.warning(
-                    "[%s] Stop order terminal (%s) -- position may be unprotected",
-                    sym, evt.value if hasattr(evt, 'value') else evt,
-                )
-                pos.stop_oms_id = None  # clear so next manage() can re-place
-                return
+        elif order_role == "stop":
+            logger.warning(
+                "[%s] Stop order terminal (%s) -- position may be unprotected",
+                symbol, status_str,
+            )
 
     async def _dispatch_fill(
         self, oms_order_id: str, fill_price: float, fill_qty: int,
         fill_commission: float, payload: dict,
     ) -> None:
-        """Route fill event to appropriate handler."""
+        """Route fill event through shared core decision machine."""
         # Dedup by exec_id: same fill arrives as both FILL and ORDER_FILLED events
         # with the same exec_id.  Using exec_id (not oms_order_id) preserves
         # distinct partial fills for the same order (different exec_ids).
@@ -455,111 +508,115 @@ class BRSLiveEngine:
         self._filled_order_ids.add(fill_exec_id)
         # Cap set size to prevent unbounded growth
         if len(self._filled_order_ids) > 500:
-            # Keep most recent half (order doesn't matter, just prune)
             self._filled_order_ids = set(list(self._filled_order_ids)[-250:])
 
-        # 1. Pending entry/pyramid/scale_out (matched by oms_order_id)
-        pending = self._pending_orders.pop(oms_order_id, None)
-        if pending is not None:
-            if pending.role == "entry":
-                await self._on_entry_fill(pending, fill_price, fill_qty, fill_commission)
-            elif pending.role == "pyramid":
-                await self._on_pyramid_fill(pending, fill_price, fill_qty, fill_commission)
-            elif pending.role == "scale_out":
-                await self._on_scale_out_fill(pending, fill_price, fill_qty, fill_commission)
-            return
+        # Snapshot positions before core call (needed for exit instrumentation)
+        pre_positions = {sym: pos for sym, pos in self._position.items() if pos is not None}
 
-        # 2. Broker-side stop fill (matched by pos.stop_oms_id)
-        for sym, pos in self._position.items():
-            if pos is not None and pos.stop_oms_id == oms_order_id:
-                await self._on_exit_fill(sym, pos, fill_price, fill_qty, fill_commission, "stop")
-                return
+        # Build entry context if this is an entry fill
+        pending = self._pending_orders.get(oms_order_id)
+        entry_context = None
+        if pending is not None and pending.role == "entry" and pending.signal:
+            symbol = pending.symbol
+            d = self._daily_ctx[symbol]
+            sym_cfg = self._sym_cfgs[symbol]
+            cfg = self._cfg
+            cd_bars = sym_cfg.cooldown_bars
+            if d.regime == BRSRegime.BEAR_STRONG:
+                cd_bars = cfg.cooldown_bear_strong
+            elif d.regime == BRSRegime.BEAR_TREND:
+                cd_bars = cfg.cooldown_bear_trend
+            entry_context = BRSEntryFillContext(
+                cooldown_until=datetime.now(ET) + timedelta(hours=cd_bars),
+                reset_arm_state=pending.signal.entry_type,
+                reset_short_bias=True,
+                tranche_b_qty=0,
+            )
 
-        # 3. Flatten exit fill (match by payload symbol or _closing)
-        fill_symbol = payload.get("symbol", "")
-        if fill_symbol and self._position.get(fill_symbol) is not None:
-            reason = self._closing.pop(fill_symbol, "stop")
-            await self._on_exit_fill(fill_symbol, self._position[fill_symbol],
-                                     fill_price, fill_qty, fill_commission, reason)
-            return
+        # Build fill and route through core
+        fill = BRSFill(
+            oms_order_id=oms_order_id,
+            fill_price=fill_price,
+            fill_qty=fill_qty,
+            fill_time=datetime.now(timezone.utc),
+            commission=fill_commission,
+            symbol=payload.get("symbol", ""),
+            entry_context=entry_context,
+        )
+        core_state = build_core_runtime_state(self)
+        new_state, actions, events = brs_core_logic.on_fill(core_state, fill)
+        apply_core_runtime_state(self, new_state)
 
-        # 4. Last resort: if exactly one symbol is closing and fill is unmatched
-        if len(self._closing) == 1:
-            sym = next(iter(self._closing))
-            pos = self._position.get(sym)
+        # Post-processing: setup scale-out schedule for new entry positions
+        if pending is not None and pending.role == "entry" and pending.signal:
+            pos = self._position.get(pending.symbol)
             if pos is not None:
-                reason = self._closing.pop(sym)
-                await self._on_exit_fill(sym, pos, fill_price, fill_qty, fill_commission, reason)
-                return
+                pos.setup_scale_out(self._cfg)
 
-        logger.debug("Unmatched fill event: %s", oms_order_id)
+        # Dispatch core actions (protective stop after entry fill)
+        for action in actions:
+            if isinstance(action, SubmitExit):
+                symbol = action.symbol
+                pos = self._position.get(symbol)
+                if pos is not None:
+                    stop_id = await self._exec.place_stop(symbol, pos, action.stop_price)
+                    if stop_id:
+                        pos.stop_oms_id = stop_id
 
-    async def _on_entry_fill(
-        self, pending: PendingOrder, fill_price: float, fill_qty: int,
-        fill_commission: float,
+        # Process events for equity updates, trade recording, and instrumentation
+        for event in events:
+            if event.code == "ENTRY_FILLED":
+                await self._on_entry_fill_instrumentation(
+                    event, pending, fill_price, fill_qty, fill_commission,
+                )
+            elif event.code == "ADD_ON_FILLED":
+                self._on_pyramid_fill_instrumentation(
+                    event, pending, fill_price, fill_qty, fill_commission,
+                )
+            elif event.code == "PARTIAL_EXIT_FILLED":
+                # Equity update for intermediate scale-out
+                pre_pos = pre_positions.get(event.symbol)
+                if pre_pos is not None:
+                    is_short = pre_pos.direction == Direction.SHORT
+                    exit_qty = event.details.get("qty", fill_qty)
+                    chunk_pnl = ((pre_pos.entry_price - fill_price) if is_short else
+                                 (fill_price - pre_pos.entry_price)) * exit_qty
+                    self._equity += chunk_pnl - fill_commission
+                self._on_scale_out_fill_instrumentation(
+                    event, pending, fill_price, fill_qty, fill_commission,
+                )
+            elif event.code == "EXIT_FILLED":
+                pre_pos = pre_positions.get(event.symbol)
+                if pre_pos is not None:
+                    exit_qty = event.details.get("qty", fill_qty)
+                    is_short = pre_pos.direction == Direction.SHORT
+                    gross_pnl = ((pre_pos.entry_price - fill_price) if is_short else
+                                 (fill_price - pre_pos.entry_price)) * exit_qty
+                    total_commission = pre_pos.commission + fill_commission
+                    net_pnl = gross_pnl - total_commission
+                    self._equity += net_pnl
+                    exit_type = event.details.get("exit_type", "unknown")
+                    r_mult = pre_pos.current_r(fill_price)
+                    await self._on_exit_fill_instrumentation(
+                        event.symbol, pre_pos, fill_price, fill_qty,
+                        fill_commission, exit_type, net_pnl, r_mult,
+                    )
+
+        if not events:
+            logger.debug("Unmatched fill event: %s", oms_order_id)
+
+    async def _on_entry_fill_instrumentation(
+        self, event: Any, pending: PendingOrder | None, fill_price: float,
+        fill_qty: int, fill_commission: float,
     ) -> None:
-        """Create position from actual entry fill."""
-        signal = pending.signal
-        if signal is None:
+        """Log entry fill via instrumentation (state already applied by core)."""
+        if pending is None or pending.signal is None:
             return
+        signal = pending.signal
         symbol = pending.symbol
         cfg = self._cfg
         sym_cfg = self._sym_cfgs[symbol]
-
-        # Recompute risk from actual fill price (parity with backtest slippage path)
-        if signal.direction == Direction.SHORT:
-            risk_per_unit = abs(signal.stop_price - fill_price)
-        else:
-            risk_per_unit = abs(fill_price - signal.stop_price)
-
-        pos = BRSPositionState(
-            symbol=symbol,
-            pos_id=pending.pos_id,
-            direction=signal.direction,
-            entry_price=fill_price,
-            qty=fill_qty,
-            original_qty=fill_qty,
-            risk_per_unit=max(risk_per_unit, 1e-9),
-            stop_price=signal.stop_price,
-            entry_type=signal.entry_type.value,
-            regime_at_entry=signal.regime_at_entry,
-            entry_ts=datetime.now(ET),
-            mfe_price=fill_price,
-            mae_price=fill_price,
-            quality_score=signal.quality_score,
-            vol_factor=signal.vol_factor,
-            commission=fill_commission,
-        )
-        pos.entry_oms_id = pending.oms_order_id
-        pos.setup_scale_out(cfg)
-        self._position[symbol] = pos
-
-        # Place protective stop
-        stop_id = await self._exec.place_stop(symbol, pos, signal.stop_price)
-        if stop_id:
-            pos.stop_oms_id = stop_id
-
-        # Disarm consumed arm state (matches backtest)
-        if signal.entry_type == EntryType.S2_BREAKDOWN:
-            self._s2_arm[symbol] = S2ArmState()
-        elif signal.entry_type == EntryType.S3_IMPULSE:
-            self._s3_arm[symbol] = S3ArmState()
-        elif signal.entry_type == EntryType.LH_REJECTION:
-            self._lh_arm[symbol] = LHArmState()
-        elif signal.entry_type == EntryType.BD_CONTINUATION:
-            self._bd_arm[symbol] = BDArmState()
-
-        # Reset persistence counter
-        self._short_bias_no_trade[symbol] = 0
-
-        # Set cooldown based on regime
-        d = self._daily_ctx[symbol]
-        cd_bars = sym_cfg.cooldown_bars
-        if d.regime == BRSRegime.BEAR_STRONG:
-            cd_bars = cfg.cooldown_bear_strong
-        elif d.regime == BRSRegime.BEAR_TREND:
-            cd_bars = cfg.cooldown_bear_trend
-        self._cooldown_until[symbol] = datetime.now(ET) + timedelta(hours=cd_bars)
+        risk_per_unit = abs(signal.stop_price - fill_price)
 
         logger.info(
             "[%s] ENTRY FILL %s %s %d @ %.2f (signal=%.2f) stop=%.2f comm=%.4f",
@@ -568,14 +625,19 @@ class BRSLiveEngine:
             fill_commission,
         )
 
-        # Instrumentation
         if self._instrumentation:
             _side_str = "SHORT" if signal.direction == Direction.SHORT else "LONG"
             concurrent = sum(1 for p in self._position.values() if p is not None)
             current_heat_r = self._compute_heat()
             risk_dollars = fill_qty * risk_per_unit
+            d = self._daily_ctx[symbol]
             _bias = self._bias[symbol]
             _heat_cap = cfg.crisis_heat_cap_r if d.vol.extreme_vol else cfg.heat_cap_r
+            cd_bars = sym_cfg.cooldown_bars
+            if d.regime == BRSRegime.BEAR_STRONG:
+                cd_bars = cfg.cooldown_bear_strong
+            elif d.regime == BRSRegime.BEAR_TREND:
+                cd_bars = cfg.cooldown_bear_trend
 
             self._instrumentation.log_entry(
                 trade_id=pending.pos_id,
@@ -651,25 +713,22 @@ class BRSLiveEngine:
                 strategy_id=STRATEGY_ID,
             )
 
-    async def _on_pyramid_fill(
-        self, pending: PendingOrder, fill_price: float, fill_qty: int,
-        fill_commission: float,
+    def _on_pyramid_fill_instrumentation(
+        self, event: Any, pending: PendingOrder | None, fill_price: float,
+        fill_qty: int, fill_commission: float,
     ) -> None:
-        """Apply pyramid add from actual fill."""
-        pos = self._position.get(pending.symbol)
-        if pos is None:
-            return
-        pos.apply_pyramid(fill_qty, fill_price)
-        pos.commission += fill_commission
+        """Log pyramid fill via instrumentation (state already applied by core)."""
+        symbol = event.symbol
+        pos = self._position.get(symbol)
         logger.info(
-            "[%s] PYRAMID FILL #%d: +%d @ %.2f (blended=%.2f, total=%d)",
-            pending.symbol, pos.pyramid_count, fill_qty, fill_price,
-            pos.entry_price, pos.qty,
+            "[%s] PYRAMID FILL @ %.2f qty=%d (blended=%.2f, total=%d)",
+            symbol, fill_price, fill_qty,
+            pos.entry_price if pos else 0.0, pos.qty if pos else 0,
         )
-        if self._instrumentation:
+        if self._instrumentation and pending is not None and pos is not None:
             self._instrumentation.on_order_event(
                 order_id=pending.oms_order_id,
-                pair=pending.symbol,
+                pair=symbol,
                 side="SELL" if pos.direction == Direction.SHORT else "BUY",
                 order_type="LIMIT",
                 status="FILLED",
@@ -681,104 +740,45 @@ class BRSLiveEngine:
                 strategy_id=STRATEGY_ID,
             )
 
-    async def _on_scale_out_fill(
-        self, pending: PendingOrder, fill_price: float, fill_qty: int,
-        fill_commission: float,
+    def _on_scale_out_fill_instrumentation(
+        self, event: Any, pending: PendingOrder | None, fill_price: float,
+        fill_qty: int, fill_commission: float,
     ) -> None:
-        """Record scale-out from actual fill."""
-        pos = self._position.get(pending.symbol)
-        if pos is None:
-            return
-
-        remaining_after = pos.qty - fill_qty
-
-        if remaining_after <= 0:
-            # Final scale-out closes position — delegate to _on_exit_fill.
-            # Don't decrement qty or add commission here; _on_exit_fill handles both.
-            logger.info(
-                "[%s] SCALE-OUT FILL (final) %d @ %.2f (closing remaining %d)",
-                pending.symbol, fill_qty, fill_price, pos.qty,
-            )
-            if self._instrumentation:
-                self._instrumentation.on_order_event(
-                    order_id=pending.oms_order_id,
-                    pair=pending.symbol,
-                    side="BUY" if pos.direction == Direction.SHORT else "SELL",
-                    order_type="LIMIT",
-                    status="FILLED",
-                    requested_qty=float(pending.qty),
-                    filled_qty=float(fill_qty),
-                    fill_price=fill_price,
-                    related_trade_id=pos.pos_id,
-                    strategy_id=STRATEGY_ID,
-                )
-            await self._on_exit_fill(
-                pending.symbol, pos, fill_price, pos.qty,
-                fill_commission, "scale_out_complete",
-            )
-            return
-
-        # Intermediate scale-out: decrement qty, track commission and PnL
-        pos.qty -= fill_qty
-        pos.commission += fill_commission
-        is_short = pos.direction == Direction.SHORT
-        chunk_pnl = ((pos.entry_price - fill_price) if is_short else
-                     (fill_price - pos.entry_price)) * fill_qty
-        self._equity += chunk_pnl - fill_commission
+        """Log scale-out fill via instrumentation (state + equity already applied)."""
+        symbol = event.symbol
+        exit_qty = event.details.get("qty", fill_qty)
+        pos = self._position.get(symbol)
         logger.info(
-            "[%s] SCALE-OUT FILL %d @ %.2f (remaining=%d, chunk_pnl=$%.2f)",
-            pending.symbol, fill_qty, fill_price, pos.qty, chunk_pnl,
+            "[%s] SCALE-OUT FILL %d @ %.2f (remaining=%d)",
+            symbol, exit_qty, fill_price, pos.qty if pos else 0,
         )
-        if self._instrumentation:
+        if self._instrumentation and pending is not None:
+            pos_id = pending.pos_id if pending.pos_id else (pos.pos_id if pos else "")
             self._instrumentation.on_order_event(
                 order_id=pending.oms_order_id,
-                pair=pending.symbol,
-                side="BUY" if pos.direction == Direction.SHORT else "SELL",
+                pair=symbol,
+                side="BUY" if (pos and pos.direction == Direction.SHORT) else "SELL",
                 order_type="LIMIT",
                 status="FILLED",
                 requested_qty=float(pending.qty),
-                filled_qty=float(fill_qty),
+                filled_qty=float(exit_qty),
                 fill_price=fill_price,
-                related_trade_id=pos.pos_id,
+                related_trade_id=pos_id,
                 strategy_id=STRATEGY_ID,
             )
 
-    async def _on_exit_fill(
+    async def _on_exit_fill_instrumentation(
         self, symbol: str, pos: BRSPositionState, fill_price: float,
         fill_qty: int, fill_commission: float, exit_type: str,
+        net_pnl: float, r_mult: float,
     ) -> None:
-        """Record trade exit from actual fill, clear position."""
-        pos.commission += fill_commission
+        """Record trade exit and log via instrumentation (state + equity already applied by core)."""
         is_short = pos.direction == Direction.SHORT
 
-        # Use fill_qty for PnL to handle partial exits correctly (C5 fix)
-        exit_qty = min(fill_qty, pos.qty) if fill_qty > 0 else pos.qty
-        gross_pnl = ((pos.entry_price - fill_price) if is_short else
-                     (fill_price - pos.entry_price)) * exit_qty
-        is_full_exit = exit_qty >= pos.qty
-
-        # For partial exits, prorate commission; for full exits, use accumulated
-        if is_full_exit:
-            net_pnl = gross_pnl - pos.commission
-        else:
-            prorated_comm = fill_commission  # only this fill's commission
-            net_pnl = gross_pnl - prorated_comm
-        r_mult = pos.current_r(fill_price)
-
-        # Update equity (fixes finding 3: stale equity)
-        self._equity += net_pnl
-
         logger.info(
-            "[%s] EXIT FILL %s @ %.2f qty=%d/%d pnl=$%.2f (net=$%.2f, comm=$%.4f) R=%.2f",
-            symbol, exit_type, fill_price, exit_qty, pos.qty,
-            gross_pnl, net_pnl, pos.commission, r_mult,
+            "[%s] EXIT FILL %s @ %.2f qty=%d pnl=$%.2f R=%.2f",
+            symbol, exit_type, fill_price, fill_qty, net_pnl, r_mult,
         )
-
-        # For partial exits, reduce position qty and return without clearing
-        if not is_full_exit:
-            pos.qty -= exit_qty
-            logger.info("[%s] Partial exit: %d remaining", symbol, pos.qty)
-            return
 
         # Trade recorder
         if self._trade_recorder:
@@ -799,7 +799,7 @@ class BRSLiveEngine:
                     "trade_id": pos.pos_id,
                     "hold_bars": pos.bars_held,
                     "regime": pos.regime_at_entry.value,
-                    "commission": pos.commission,
+                    "commission": pos.commission + fill_commission,
                     "pyramid_count": pos.pyramid_count,
                     "mfe_r": pos.mfe_r,
                     "mae_r": pos.mae_r,
@@ -843,9 +843,6 @@ class BRSLiveEngine:
                 related_trade_id=pos.pos_id,
                 strategy_id=STRATEGY_ID,
             )
-
-        self._position[symbol] = None
-        self._closing.pop(symbol, None)
 
     # ══════════════════════════════════════════════════════════════════
     # Equity refresh
@@ -1479,8 +1476,26 @@ class BRSLiveEngine:
                     vol_factor=signal.vol_factor,
                 )
 
-        # Submit entry
+        # Route entry through core
         pos_id = f"BRS_{symbol}_{uuid.uuid4().hex[:8]}"
+        entry_request = BRSEntryRequest(
+            client_order_id=str(uuid.uuid4()),
+            symbol=symbol,
+            signal=signal,
+            qty=qty,
+            pos_id=pos_id,
+        )
+        state = build_core_runtime_state(self)
+        new_state, core_actions, events = brs_core_logic.on_bar(
+            state, bar_ts=self._last_bar_ts, entry_request=entry_request,
+        )
+        apply_core_runtime_state(self, new_state)
+
+        # Dispatch SubmitEntry action via execution engine
+        submit_action = next((a for a in core_actions if isinstance(a, SubmitEntry)), None)
+        if submit_action is None:
+            return
+
         risk_dollars = qty * signal.risk_per_unit
         oms_id = await self._exec.submit_entry(
             symbol=symbol,
@@ -1565,11 +1580,31 @@ class BRSLiveEngine:
             return
 
         add_qty = max(1, int(math.floor(pos.original_qty * cfg.pyramid_scale)))
-        risk_dollars = add_qty * sig.risk_per_unit
+        pyr_pos_id = f"{pos.pos_id}_pyr{pos.pyramid_count + 1}"
 
+        # Route through core
+        add_on_request = BRSAddOnRequest(
+            client_order_id=str(uuid.uuid4()),
+            symbol=symbol,
+            signal=sig,
+            qty=add_qty,
+            pos_id=pyr_pos_id,
+        )
+        state = build_core_runtime_state(self)
+        new_state, core_actions, events = brs_core_logic.on_bar(
+            state, bar_ts=self._last_bar_ts, add_on_request=add_on_request,
+        )
+        apply_core_runtime_state(self, new_state)
+
+        # Dispatch SubmitAddOnEntry action
+        submit_action = next((a for a in core_actions if isinstance(a, SubmitAddOnEntry)), None)
+        if submit_action is None:
+            return
+
+        risk_dollars = add_qty * sig.risk_per_unit
         oms_id = await self._exec.submit_entry(
             symbol=symbol,
-            pos_id=f"{pos.pos_id}_pyr{pos.pyramid_count + 1}",
+            pos_id=pyr_pos_id,
             direction=sig.direction,
             qty=add_qty,
             limit_price=sig.signal_price,
@@ -1593,49 +1628,89 @@ class BRSLiveEngine:
     async def _execute_actions(
         self, symbol: str, actions: list[ActionResult], old_stop: float = 0.0,
     ) -> None:
+        """Route position-management ActionResults through core, dispatch OMS actions."""
         pos = self._position[symbol]
         if pos is None:
             return
 
+        # Build core requests from ActionResults
+        flatten_req = None
+        stop_req = None
+        scale_req = None
+        has_exit = False
+
         for act in actions:
             if act.action == PositionAction.EXIT:
-                await self._exec.flatten(
-                    symbol,
-                    reason=act.exit_reason.value if act.exit_reason else "",
+                flatten_req = BRSFlattenRequest(
+                    symbol=symbol,
+                    reason=act.exit_reason.value if act.exit_reason else "unknown",
                 )
-                self._closing[symbol] = act.exit_reason.value if act.exit_reason else "unknown"
+                has_exit = True
+                break  # EXIT overrides other actions
+            elif act.action == PositionAction.STOP_UPDATE:
+                stop_req = BRSStopUpdateRequest(
+                    symbol=symbol,
+                    stop_price=act.new_stop,
+                    qty=pos.qty,
+                    reason="trail",
+                )
+            elif act.action == PositionAction.SCALE_OUT:
+                scale_req = BRSScaleOutRequest(
+                    client_order_id=f"{pos.pos_id}-scale-{uuid.uuid4().hex[:6]}",
+                    symbol=symbol,
+                    qty=act.scale_out_qty,
+                    limit_price=act.exit_price,
+                    pos_id=pos.pos_id,
+                )
+
+        if flatten_req is None and stop_req is None and scale_req is None:
+            return
+
+        # Single core call with all requests
+        state = build_core_runtime_state(self)
+        new_state, core_actions, events = brs_core_logic.on_bar(
+            state,
+            bar_ts=self._last_bar_ts,
+            flatten_request=flatten_req,
+            stop_update=stop_req,
+            scale_out_request=scale_req,
+        )
+        apply_core_runtime_state(self, new_state)
+
+        # Dispatch core actions via execution engine
+        for ca in core_actions:
+            if isinstance(ca, FlattenPosition):
+                await self._exec.flatten(symbol, reason=ca.reason)
                 logger.info(
                     "[%s] EXIT SUBMITTED %s bars=%d mfe_r=%.2f",
-                    symbol, act.exit_reason.value if act.exit_reason else "UNKNOWN",
-                    pos.bars_held, pos.mfe_r,
+                    symbol, ca.reason, pos.bars_held, pos.mfe_r,
                 )
-                return  # position cleared on fill event in _on_exit_fill
-
-            elif act.action == PositionAction.STOP_UPDATE:
-                await self._exec.modify_stop(pos, act.new_stop)
-                if self._instrumentation:
-                    self._instrumentation.on_filter_decision(
-                        pair=symbol,
-                        filter_name="trailing_stop_update",
-                        passed=True,
-                        threshold=old_stop,
-                        actual_value=act.new_stop,
-                        signal_name=f"stop_ratchet_{pos.entry_type}",
-                        strategy_id="BRS_R9",
-                    )
-
-            elif act.action == PositionAction.SCALE_OUT:
+            elif isinstance(ca, ReplaceProtectiveStop):
+                await self._exec.modify_stop(pos, ca.stop_price)
+            elif isinstance(ca, SubmitPartialExit):
                 oms_id = await self._exec.submit_scale_out(
-                    symbol, pos, act.scale_out_qty, act.exit_price,
+                    symbol, pos, ca.qty, ca.limit_price,
                 )
                 if oms_id:
                     self._pending_orders[oms_id] = PendingOrder(
                         oms_order_id=oms_id,
                         symbol=symbol,
                         role="scale_out",
-                        qty=act.scale_out_qty,
+                        qty=ca.qty,
                         pos_id=pos.pos_id,
                     )
+
+        # Instrumentation for stop updates
+        if stop_req is not None and self._instrumentation:
+            self._instrumentation.on_filter_decision(
+                pair=symbol,
+                filter_name="trailing_stop_update",
+                passed=True,
+                threshold=old_stop,
+                actual_value=stop_req.stop_price,
+                signal_name=f"stop_ratchet_{pos.entry_type}",
+                strategy_id="BRS_R9",
+            )
 
     # ── helpers ───────────────────────────────────────────────────────
 

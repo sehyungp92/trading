@@ -13,6 +13,12 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 
+from backtests.shared.parity.legacy_result_outputs import (
+    decision_stream_from_records,
+    decision_stream_from_trades,
+    merge_decision_streams,
+    trade_outcomes_from_records,
+)
 from strategies.swing.breakout.config import (
     CORR_LOOKBACK_BARS,
     MAX_PORTFOLIO_HEAT,
@@ -72,6 +78,8 @@ class BreakoutPortfolioResult:
     combined_equity: np.ndarray = field(default_factory=lambda: np.array([]))
     combined_timestamps: np.ndarray = field(default_factory=lambda: np.array([]))
     heat_stats: BreakoutHeatStats = field(default_factory=BreakoutHeatStats)
+    decision_stream: list[dict] = field(default_factory=list)
+    trade_outcomes: list[dict] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -205,6 +213,8 @@ def run_breakout_independent(
         symbol_results=results,
         combined_equity=combined_equity,
         combined_timestamps=combined_ts,
+        decision_stream=merge_decision_streams(*(result.decision_stream for result in results.values())),
+        trade_outcomes=[outcome for result in results.values() for outcome in result.trade_outcomes],
     )
 
 
@@ -376,6 +386,11 @@ def run_breakout_synchronized(
             regime_bars_bull=engine.regime_bars_bull,
             regime_bars_bear=engine.regime_bars_bear,
             regime_bars_chop=engine.regime_bars_chop,
+            decision_stream=merge_decision_streams(
+                decision_stream_from_records(engine.signal_events, timeframe="1h"),
+                decision_stream_from_trades(engine.trades, timeframe="1h"),
+            ),
+            trade_outcomes=trade_outcomes_from_records(engine.trades),
         )
 
     return BreakoutPortfolioResult(
@@ -383,6 +398,8 @@ def run_breakout_synchronized(
         combined_equity=np.array(equity_curve),
         combined_timestamps=np.array(timestamps),
         heat_stats=heat,
+        decision_stream=merge_decision_streams(*(result.decision_stream for result in results.values())),
+        trade_outcomes=[outcome for result in results.values() for outcome in result.trade_outcomes],
     )
 
 

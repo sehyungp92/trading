@@ -7,12 +7,14 @@ from typing import Any
 
 from backtests.shared.auto.phase_state import PhaseState
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
     deserialize_experiments,
     greedy_result_from_state,
     greedy_result_to_dict,
+    mutation_signature,
     resolve_worker_processes,
     seen_experiment_names,
 )
@@ -202,6 +204,10 @@ class BRSPlugin:
         self.max_workers = max_workers
         self.num_phases = num_phases
         self._last_context: dict[str, Any] = {}
+        self._cached_bundle = None
+        self._evaluation_cache: dict[str, Any] = {}
+        self._metrics_cache: dict[str, dict[str, float]] = {}
+        self._cache_source_fingerprint: str = ""
 
     def get_phase_spec(self, phase: int, state: PhaseState) -> PhaseSpec:
         focus, focus_metrics = PHASE_FOCUS[phase]
@@ -243,6 +249,16 @@ class BRSPlugin:
         scoring_weights: dict[str, float] | None = None,
         hard_rejects: dict[str, float] | None = None,
     ):
+        evaluation_key = build_cache_key(
+            "swing.brs.evaluation",
+            source_fingerprint=self._replay_bundle().cache_source_fingerprint,
+            extra={
+                "phase": phase,
+                "scoring_weights": scoring_weights or {},
+                "hard_rejects": hard_rejects or {},
+            },
+        )
+
         def make_parallel():
             return _PoolBatchEvaluator(
                 self.data_dir, self.initial_equity, phase,
@@ -256,20 +272,44 @@ class BRSPlugin:
             )
 
         raw = ResilientBatchEvaluator(make_parallel, make_sequential, description=f"BRS phase {phase}")
-        return CachedBatchEvaluator(raw)
+        return CachedBatchEvaluator(
+            raw,
+            cache=self._evaluation_cache,
+            signature_prefix=evaluation_key,
+            metrics_cache=self._metrics_cache,
+        )
+
+    def _replay_bundle(self):
+        from backtests.swing.config_brs import BRSConfig
+        from backtests.swing.data.replay_cache import load_brs_replay_bundle
+
+        base_config = BRSConfig(initial_equity=self.initial_equity, data_dir=self.data_dir)
+        bundle = load_brs_replay_bundle(base_config)
+        if self._cache_source_fingerprint != bundle.cache_source_fingerprint:
+            self._metrics_cache.clear()
+            self._evaluation_cache.clear()
+            self._last_context = {}
+            self._cache_source_fingerprint = bundle.cache_source_fingerprint
+        self._cached_bundle = bundle
+        return bundle
 
     def compute_final_metrics(self, mutations: dict[str, Any]) -> dict[str, float]:
         from backtests.swing.config_brs import BRSConfig
-        from backtests.swing.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
+        from backtests.swing.engine.brs_portfolio_engine import run_brs_synchronized
         from backtests.swing.analysis.brs_diagnostics import compute_brs_diagnostics
         from backtests.swing.auto.brs.config_mutator import mutate_brs_config
         from backtests.swing.auto.brs.scoring import extract_brs_metrics
+
+        sig = mutation_signature(mutations)
+        cached = self._metrics_cache.get(sig)
+        if cached is not None:
+            return dict(cached)
 
         config = mutate_brs_config(
             BRSConfig(initial_equity=self.initial_equity, data_dir=self.data_dir),
             mutations,
         )
-        data = load_brs_data(config)
+        data = self._replay_bundle().data
         result = run_brs_synchronized(data, config)
         metrics = extract_brs_metrics(result, self.initial_equity)
         diagnostics = compute_brs_diagnostics(
@@ -295,7 +335,9 @@ class BRSPlugin:
             "all_trades": all_trades,
             "crisis_state_logs": crisis_state_logs,
         }
-        return asdict(metrics)
+        metrics_dict = asdict(metrics)
+        self._metrics_cache[sig] = metrics_dict
+        return metrics_dict
 
     def run_phase_diagnostics(self, phase: int, state: PhaseState, metrics: dict[str, float], greedy_result) -> str:
         from .phase_diagnostics import generate_phase_diagnostics

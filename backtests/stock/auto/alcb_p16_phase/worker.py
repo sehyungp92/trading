@@ -34,13 +34,10 @@ def init_worker(
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
     from backtests.stock.config_alcb import ALCBBacktestConfig
-    from backtests.stock.engine.research_replay import ResearchReplayEngine
+    from backtests.stock.data.replay_cache import load_research_replay_bundle
 
     data_dir = Path(data_dir_str)
-    replay = ResearchReplayEngine(data_dir=data_dir)
-    replay.load_all_data()
-
-    _worker_replay = replay
+    _worker_replay = load_research_replay_bundle(data_dir).data
     _worker_equity = equity
     _worker_phase = phase
     _worker_hard_rejects = hard_rejects or {}

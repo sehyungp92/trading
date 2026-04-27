@@ -47,12 +47,9 @@ def load_worker_data(symbol: str, data_dir: Path) -> dict:
 
     Ensures optional 5m keys are present (engine.run requires them as kwargs).
     """
-    from backtests.momentum.cli import _load_vdubus_data
+    from backtests.momentum.data.replay_cache import load_vdub_replay_bundle
 
-    data = _load_vdubus_data(symbol, data_dir)
-    data.setdefault("bars_5m", None)
-    data.setdefault("five_to_15_idx_map", None)
-    return data
+    return load_vdub_replay_bundle(symbol, data_dir).data
 
 
 def score_candidate(args: tuple) -> ScoredCandidate:

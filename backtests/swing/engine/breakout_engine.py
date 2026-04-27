@@ -17,6 +17,9 @@ from datetime import datetime, date, timedelta, timezone, time
 import numpy as np
 import pandas as pd
 
+from backtests.shared.parity.decision_capture import normalize_decision_stream
+from backtests.shared.parity.legacy_result_outputs import trade_outcomes_from_records
+from backtests.shared.parity.replay_driver import ReplayStep, run_replay
 from libs.broker_ibkr.risk_support.tick_rules import round_to_tick
 
 from strategies.swing.breakout import allocator, gates, signals, stops
@@ -90,6 +93,17 @@ from strategies.swing.breakout.models import (
     SetupState,
     SymbolCampaign,
     TradeRegime,
+)
+
+from strategies.swing.breakout.core import logic as breakout_core_logic
+from strategies.swing.breakout.core.state import (
+    BreakoutCoreState,
+    BreakoutEntryRequest,
+    BreakoutFill,
+    BreakoutFlattenRequest,
+    BreakoutOrderUpdate,
+    BreakoutPartialExitRequest,
+    BreakoutStopUpdateRequest,
 )
 
 from backtests.swing.config import SlippageConfig
@@ -297,6 +311,8 @@ class BreakoutSymbolResult:
     regime_bars_bull: int = 0
     regime_bars_bear: int = 0
     regime_bars_chop: int = 0
+    decision_stream: list[dict] = field(default_factory=list)
+    trade_outcomes: list[dict] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -472,6 +488,10 @@ class BreakoutEngine:
         self.regime_bars_bear: int = 0
         self.regime_bars_chop: int = 0
 
+        # Core state for thin-driver event capture
+        self._core_state = BreakoutCoreState()
+        self._decision_events: list = []
+
     def _init_equity_arrays(self, n_bars: int, times_dtype) -> None:
         """Pre-allocate equity and timestamp arrays for the bar loop."""
         self._eq_arr = np.empty(n_bars, dtype=np.float64)
@@ -481,6 +501,23 @@ class BreakoutEngine:
     def _risk_equity(self) -> float:
         """Portfolio equity used for sizing and admission checks."""
         return self.sizing_equity if self.sizing_equity > 0 else self.equity
+
+    # ------------------------------------------------------------------
+    # Core replay driver (thin-driver event capture)
+    # ------------------------------------------------------------------
+
+    def _replay_core_step(self, *, bar_input=None, order_updates=None, fills=None):
+        """Delegate to shared core logic for decision event capture."""
+        result = run_replay(
+            self._core_state,
+            steps=[ReplayStep(bar_input=bar_input, order_updates=order_updates or [], fills=fills or [])],
+            on_bar=lambda state, payload: breakout_core_logic.on_bar(state, **payload),
+            on_order_update=breakout_core_logic.on_order_update,
+            on_fill=breakout_core_logic.on_fill,
+        )
+        self._core_state = result.state
+        self._decision_events.extend(result.events)
+        return result
 
     def run(
         self,
@@ -544,6 +581,8 @@ class BreakoutEngine:
             regime_bars_bull=self.regime_bars_bull,
             regime_bars_bear=self.regime_bars_bear,
             regime_bars_chop=self.regime_bars_chop,
+            decision_stream=normalize_decision_stream(self._decision_events),
+            trade_outcomes=trade_outcomes_from_records(self.trades),
         )
 
     # ------------------------------------------------------------------
@@ -1538,6 +1577,15 @@ class BreakoutEngine:
         self._pending_setup = setup
         self.entries_placed += 1
 
+        # Core notification: entry requested + order registered
+        self._replay_core_step(bar_input={"bar_ts": bar_time, "entry_request": BreakoutEntryRequest(
+            client_order_id=order.order_id, setup=setup,
+            order_type="LIMIT" if order_type == OrderType.LIMIT else "MARKET",
+        )})
+        self._core_state.order_to_setup[order.order_id] = setup.setup_id
+        self._core_state.order_kind[order.order_id] = "primary_entry"
+        self._core_state.order_requested_qty[order.order_id] = shares
+
     # ------------------------------------------------------------------
     # Breakout-day entry (bypass hourly A/B/C)
     # ------------------------------------------------------------------
@@ -1628,6 +1676,14 @@ class BreakoutEngine:
         self.broker.submit_order(order)
         self._pending_setup = setup
         self.entries_placed += 1
+
+        # Core notification: breakout-day entry requested + order registered
+        self._replay_core_step(bar_input={"bar_ts": daily_bar_time, "entry_request": BreakoutEntryRequest(
+            client_order_id=order.order_id, setup=setup, order_type="MARKET",
+        )})
+        self._core_state.order_to_setup[order.order_id] = setup.setup_id
+        self._core_state.order_kind[order.order_id] = "primary_entry"
+        self._core_state.order_requested_qty[order.order_id] = shares
 
     # ------------------------------------------------------------------
     # Add handling
@@ -1740,6 +1796,23 @@ class BreakoutEngine:
         campaign.campaign_risk_used += add_risk
         self.adds_placed += 1
 
+        # Core notification: add-on entry requested + order registered
+        if pos is not None:
+            add_setup = SetupInstance(
+                symbol=self.symbol, direction=direction, entry_type=EntryType.A_AVWAP_RETEST,
+                state=SetupState.ARMED, created_ts=bar_time, armed_ts=bar_time,
+                campaign_id=campaign.campaign_id, box_version=campaign.box_version,
+                entry_price=limit_price, stop0=add_stop, final_risk_dollars=add_risk,
+                shares_planned=add_shares, is_add=True, setup_id=f"add-{order.order_id}",
+                current_stop=pos.current_stop,
+            )
+            self._replay_core_step(bar_input={"bar_ts": bar_time, "entry_request": BreakoutEntryRequest(
+                client_order_id=order.order_id, setup=add_setup, order_type="LIMIT",
+            )})
+            self._core_state.order_to_setup[order.order_id] = add_setup.setup_id
+            self._core_state.order_kind[order.order_id] = "add"
+            self._core_state.order_requested_qty[order.order_id] = add_shares
+
     # ------------------------------------------------------------------
     # Fill handling
     # ------------------------------------------------------------------
@@ -1751,6 +1824,12 @@ class BreakoutEngine:
                 self._pending_setup = None
                 self._entry_a_outstanding = False
                 self.entries_expired += 1
+            _role_map = {"entry": "entry", "add_on": "add", "partial": "partial",
+                         "protective_stop": "stop", "flatten": "flatten"}
+            self._replay_core_step(order_updates=[BreakoutOrderUpdate(
+                oms_order_id=fill.order.order_id, status="expired",
+                order_role=_role_map.get(fill.order.tag, "unknown"), symbol=self.symbol,
+            )])
             return
 
         if fill.status == FillStatus.REJECTED:
@@ -1758,6 +1837,12 @@ class BreakoutEngine:
                 self._pending_setup = None
                 self._entry_a_outstanding = False
                 self.entries_rejected += 1
+            _role_map = {"entry": "entry", "add_on": "add", "partial": "partial",
+                         "protective_stop": "stop", "flatten": "flatten"}
+            self._replay_core_step(order_updates=[BreakoutOrderUpdate(
+                oms_order_id=fill.order.order_id, status="rejected",
+                order_role=_role_map.get(fill.order.tag, "unknown"), symbol=self.symbol,
+            )])
             return
 
         if fill.status != FillStatus.FILLED:
@@ -1877,11 +1962,31 @@ class BreakoutEngine:
         )
         self.broker.submit_order(stop_order)
 
+        # Core notification: entry fill + stop order registration
+        self._replay_core_step(fills=[BreakoutFill(
+            oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
+            fill_qty=fill.order.qty, fill_time=bar_time, commission=fill.commission,
+            symbol=self.symbol, order_role="entry",
+        )])
+        # Register stop order for core fill matching
+        setup_in_core = self._core_state.active_setups.get(setup.setup_id)
+        if setup_in_core is not None:
+            setup_in_core.stop_order_id = stop_order.order_id
+        self._core_state.order_to_setup[stop_order.order_id] = setup.setup_id
+        self._core_state.order_kind[stop_order.order_id] = "stop"
+
     def _on_stop_fill(self, fill: FillResult, bar_time: datetime) -> None:
         """Handle protective stop fill."""
         pos = self.active_position
         if pos is None:
             return
+
+        # Core notification: stop fill
+        self._replay_core_step(fills=[BreakoutFill(
+            oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
+            fill_qty=pos.qty_open, fill_time=bar_time, commission=fill.commission,
+            symbol=self.symbol, order_role="stop",
+        )])
 
         self.total_commission += fill.commission
         self.equity -= fill.commission
@@ -1923,6 +2028,13 @@ class BreakoutEngine:
         pos = self.active_position
         if pos is None:
             return
+
+        # Core notification: partial fill
+        self._replay_core_step(fills=[BreakoutFill(
+            oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
+            fill_qty=fill.order.qty, fill_time=bar_time, commission=fill.commission,
+            symbol=self.symbol, order_role="partial",
+        )])
 
         self.total_commission += fill.commission
         self.equity -= fill.commission
@@ -1983,6 +2095,13 @@ class BreakoutEngine:
         )
         self.broker.submit_order(stop_order)
 
+        # Register new stop order for core fill matching
+        setup_in_core = self._core_state.active_setups.get(pos.setup.setup_id)
+        if setup_in_core is not None:
+            setup_in_core.stop_order_id = stop_order.order_id
+        self._core_state.order_to_setup[stop_order.order_id] = pos.setup.setup_id
+        self._core_state.order_kind[stop_order.order_id] = "stop"
+
         # Update portfolio position state
         ps = self.positions.get(self.symbol)
         if ps:
@@ -1993,6 +2112,13 @@ class BreakoutEngine:
         pos = self.active_position
         if pos is None:
             return
+
+        # Core notification: add-on fill
+        self._replay_core_step(fills=[BreakoutFill(
+            oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
+            fill_qty=fill.order.qty, fill_time=bar_time, commission=fill.commission,
+            symbol=self.symbol, order_role="add",
+        )])
 
         self.total_commission += fill.commission
         self.equity -= fill.commission
@@ -2017,6 +2143,13 @@ class BreakoutEngine:
             tag="protective_stop",
         )
         self.broker.submit_order(stop_order)
+
+        # Register new stop order for core fill matching
+        setup_in_core = self._core_state.active_setups.get(pos.setup.setup_id)
+        if setup_in_core is not None:
+            setup_in_core.stop_order_id = stop_order.order_id
+        self._core_state.order_to_setup[stop_order.order_id] = pos.setup.setup_id
+        self._core_state.order_kind[stop_order.order_id] = "stop"
 
         # Update portfolio position state
         ps = self.positions.get(self.symbol)
@@ -2087,6 +2220,15 @@ class BreakoutEngine:
             if gap_triggered:
                 pos.gap_stop_event = True
                 pos.gap_stop_fill_price = gap_fill
+                # Core notification: gap stop flatten + fill
+                self._replay_core_step(bar_input={"bar_ts": bar_time, "flatten_request": BreakoutFlattenRequest(
+                    setup_id=setup.setup_id, symbol=self.symbol, reason="GAP_STOP",
+                )})
+                self._replay_core_step(fills=[BreakoutFill(
+                    oms_order_id=f"gap-stop-{setup.setup_id}", fill_price=gap_fill,
+                    fill_qty=pos.qty_open, fill_time=bar_time, commission=0.0,
+                    symbol=self.symbol, order_role="flatten", exit_type="GAP_STOP",
+                )])
                 self._flatten_position(pos, gap_fill, bar_time, "GAP_STOP")
                 return
 
@@ -2205,6 +2347,13 @@ class BreakoutEngine:
             if safe:
                 pos.stop_tightens += 1
                 pos.current_stop = new_stop
+
+                # Core notification: stop update
+                self._replay_core_step(bar_input={"bar_ts": bar_time, "stop_update": BreakoutStopUpdateRequest(
+                    setup_id=setup.setup_id, symbol=self.symbol,
+                    stop_price=new_stop, qty=pos.qty_open, reason="trail",
+                )})
+
                 self.broker.cancel_orders(self.symbol, tag="protective_stop")
                 stop_side = OrderSide.SELL if setup.direction == Direction.LONG else OrderSide.BUY
                 stop_order = SimOrder(
@@ -2220,6 +2369,13 @@ class BreakoutEngine:
                     tag="protective_stop",
                 )
                 self.broker.submit_order(stop_order)
+
+                # Register new stop order for core fill matching
+                setup_in_core = self._core_state.active_setups.get(setup.setup_id)
+                if setup_in_core is not None:
+                    setup_in_core.stop_order_id = stop_order.order_id
+                self._core_state.order_to_setup[stop_order.order_id] = setup.setup_id
+                self._core_state.order_kind[stop_order.order_id] = "stop"
 
                 ps = self.positions.get(self.symbol)
                 if ps:
@@ -2245,6 +2401,15 @@ class BreakoutEngine:
         )
         self.broker.submit_order(order)
 
+        # Core notification: partial exit requested + order registered
+        self._replay_core_step(bar_input={"bar_ts": bar_time, "partial_exit_request": BreakoutPartialExitRequest(
+            client_order_id=order.order_id, setup_id=pos.setup.setup_id,
+            symbol=self.symbol, qty=qty, reason="TP1",
+        )})
+        self._core_state.order_to_setup[order.order_id] = pos.setup.setup_id
+        self._core_state.order_kind[order.order_id] = "tp1"
+        self._core_state.order_requested_qty[order.order_id] = qty
+
     def _submit_flatten(self, pos: _ActivePosition, bar_time: datetime, reason: str) -> None:
         """Submit a next-bar market order for a discretionary full exit."""
         if pos.qty_open <= 0 or self._pending_flatten_reason:
@@ -2264,6 +2429,11 @@ class BreakoutEngine:
         )
         self.broker.submit_order(order)
         self._pending_flatten_reason = reason
+
+        # Core notification: flatten requested
+        self._replay_core_step(bar_input={"bar_ts": bar_time, "flatten_request": BreakoutFlattenRequest(
+            setup_id=pos.setup.setup_id, symbol=self.symbol, reason=reason,
+        )})
 
     # ------------------------------------------------------------------
     # Position flatten (market exit)
@@ -2351,6 +2521,14 @@ class BreakoutEngine:
         if pos is None:
             return
         reason = self._pending_flatten_reason or "FLATTEN"
+
+        # Core notification: flatten fill
+        self._replay_core_step(fills=[BreakoutFill(
+            oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
+            fill_qty=pos.qty_open, fill_time=bar_time, commission=fill.commission,
+            symbol=self.symbol, order_role="flatten", exit_type=reason,
+        )])
+
         self._pending_flatten_reason = None
         self._flatten_position(
             pos,
@@ -2365,6 +2543,12 @@ class BreakoutEngine:
         pos = self.active_position
         if pos is None or pos.qty_open <= 0:
             return
+
+        # Core notification: end-of-data flatten
+        self._replay_core_step(bar_input={"bar_ts": bar_time, "flatten_request": BreakoutFlattenRequest(
+            setup_id=pos.setup.setup_id, symbol=self.symbol, reason="END_OF_DATA",
+        )})
+
         exit_side = OrderSide.SELL if pos.setup.direction == Direction.LONG else OrderSide.BUY
         order = SimOrder(
             order_id=self.broker.next_order_id(),
@@ -2378,6 +2562,14 @@ class BreakoutEngine:
             tag="flatten",
         )
         fill = self.broker._fill_market(order, bar_time, last_price, self.cfg.tick_size)
+
+        # Core notification: end-of-data fill
+        self._replay_core_step(fills=[BreakoutFill(
+            oms_order_id=order.order_id, fill_price=fill.fill_price,
+            fill_qty=pos.qty_open, fill_time=bar_time, commission=fill.commission,
+            symbol=self.symbol, order_role="flatten", exit_type="END_OF_DATA",
+        )])
+
         self._pending_flatten_reason = None
         self._flatten_position(
             pos,
