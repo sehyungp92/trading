@@ -275,8 +275,9 @@ def on_fill(
     actions: list[SubmitProtectiveStop | ReplaceProtectiveStop] = []
     events: list[DecisionEvent] = []
 
-    setup_id = next_state.order_to_setup.get(fill.oms_order_id, "")
-    order_kind = next_state.order_kind.get(fill.oms_order_id, fill.order_role)
+    setup_id = next_state.order_to_setup.pop(fill.oms_order_id, "")
+    order_kind = next_state.order_kind.pop(fill.oms_order_id, fill.order_role)
+    requested_qty = next_state.order_requested_qty.pop(fill.oms_order_id, 0)
     setup = next_state.active_setups.get(setup_id) if setup_id else None
     if setup is None:
         if fill.decision_code:
@@ -292,9 +293,11 @@ def on_fill(
         return next_state, actions, events
 
     fill_price = fill.fill_price or setup.entry_price
-    fill_qty = fill.fill_qty or next_state.order_requested_qty.get(fill.oms_order_id, setup.shares_planned)
+    fill_qty = fill.fill_qty or requested_qty or setup.shares_planned
 
     if order_kind in {"primary_entry", "entry", "add", "add_entry", "rescue", "catchup"}:
+        if setup.primary_order_id == fill.oms_order_id:
+            setup.primary_order_id = ""
         if (setup.is_add or order_kind in {"add", "add_entry"}) and setup.symbol in next_state.positions:
             position = next_state.positions[setup.symbol]
             total_before = position.qty
@@ -364,6 +367,10 @@ def on_fill(
                 )
             )
     elif order_kind in {"tp1", "tp2", "partial_close"}:
+        if order_kind == "tp1" and setup.tp1_order_id == fill.oms_order_id:
+            setup.tp1_order_id = ""
+        elif order_kind == "tp2" and setup.tp2_order_id == fill.oms_order_id:
+            setup.tp2_order_id = ""
         exit_qty = min(fill_qty, setup.qty_open)
         setup.qty_open = max(0, setup.qty_open - exit_qty)
         position = next_state.positions.get(setup.symbol)
@@ -392,6 +399,8 @@ def on_fill(
             setup.state = SetupState.CLOSED
             next_state.positions.pop(setup.symbol, None)
     elif order_kind == "stop":
+        if setup.stop_order_id == fill.oms_order_id:
+            setup.stop_order_id = ""
         setup.qty_open = 0
         setup.state = SetupState.CLOSED
         next_state.positions.pop(setup.symbol, None)

@@ -309,3 +309,62 @@ async def test_downturn_engine_entry_fill_routes_through_shared_core(tmp_path) -
     assert engine._position.entry_price == 18989.0
     assert engine._working_entries == []
     assert engine.health_status()["last_decision_code"] == "ENTRY_FILLED"
+
+
+@pytest.mark.asyncio
+async def test_downturn_live_wrapper_entry_fill_matches_replay_core_state(tmp_path, monkeypatch) -> None:
+    engine = DownturnEngine(
+        ib_session=_DummyIB(),
+        oms_service=_DummyOMS(),
+        instruments={},
+        state_dir=tmp_path,
+        instrumentation=None,
+    )
+    working_entry = WorkingEntry(
+        oms_order_id="OMS-1",
+        engine_tag=EngineTag.FADE,
+        signal_class="vwap_rejection",
+        entry_price=18990.0,
+        stop0=19010.0,
+        qty=2,
+        submitted_bar_idx=10,
+        ttl_bars=72,
+        composite_regime=CompositeRegime.EMERGING_BEAR,
+        vol_state=VolState.NORMAL,
+    )
+    engine._working_entries = [working_entry]
+
+    async def _fake_place_stop(_stop_price: float, _qty: int) -> None:
+        return None
+
+    monkeypatch.setattr(engine, "_place_protective_stop", _fake_place_stop)
+    monkeypatch.setattr(engine, "_persist_state", lambda: None)
+
+    initial_state = restore_state(snapshot_state(engine._build_core_state()))
+    fill_time = datetime(2026, 4, 25, 10, 2, tzinfo=UTC)
+
+    await engine._on_entry_fill(working_entry, 18989.0, 2, 1.25, fill_time)
+
+    wrapper_snapshot = snapshot_state(engine._build_core_state())
+    replay = run_replay(
+        initial_state,
+        steps=[
+            ReplayStep(
+                fills=[
+                    DownturnFill(
+                        oms_order_id="OMS-1",
+                        fill_price=18989.0,
+                        fill_qty=2,
+                        commission=1.25,
+                        fill_time=fill_time,
+                    )
+                ]
+            )
+        ],
+        on_bar=lambda state, payload: on_bar(state, **payload),
+        on_order_update=on_order_update,
+        on_fill=on_fill,
+    )
+
+    assert replay.events[-1].code == engine.health_status()["last_decision_code"] == "ENTRY_FILLED"
+    assert snapshot_state(replay.state) == wrapper_snapshot

@@ -280,7 +280,7 @@ def on_fill(
     actions: list[SubmitProtectiveStop | ReplaceProtectiveStop] = []
     event_ts = fill.fill_time or datetime.now(timezone.utc)
 
-    setup_id = next_state.order_to_setup.get(fill.oms_order_id, "")
+    setup_id = next_state.order_to_setup.pop(fill.oms_order_id, "")
     setup = _find_setup(next_state, setup_id)
     if setup is None:
         if fill.decision_code:
@@ -299,6 +299,12 @@ def on_fill(
     fill_qty = fill.fill_qty or setup.qty_planned
 
     if fill.order_role in {"entry", "catchup", "rescue", "add", "unknown"} and fill.exit_type == "":
+        if setup.primary_order_id == fill.oms_order_id:
+            setup.primary_order_id = ""
+        if setup.catchup_order_id == fill.oms_order_id:
+            setup.catchup_order_id = ""
+        if setup.rescue_order_id == fill.oms_order_id:
+            setup.rescue_order_id = ""
         if setup.setup_id in next_state.pending_setups:
             next_state.pending_setups.pop(setup.setup_id, None)
         setup.state = SetupState.ACTIVE
@@ -372,6 +378,8 @@ def on_fill(
             setup.state = SetupState.CLOSED
             next_state.active_setups.pop(setup.setup_id, None)
     elif fill.order_role == "stop":
+        if setup.stop_order_id == fill.oms_order_id:
+            setup.stop_order_id = ""
         setup.qty_open = 0
         setup.state = SetupState.CLOSED
         next_state.active_setups.pop(setup.setup_id, None)

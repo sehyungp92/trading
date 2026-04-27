@@ -8,6 +8,7 @@ import pytest
 from backtests.shared.parity.decision_capture import normalize_decision_stream
 from backtests.shared.parity.replay_driver import ReplayStep, run_replay
 from strategies.core.actions import FlattenPosition, ReplaceProtectiveStop, SubmitPartialExit
+from strategies.swing.brs.core.logic import build_core_state as build_brs_runtime_state
 from strategies.swing.brs.core.logic import on_bar, on_fill, on_order_update, translate_position_actions
 from strategies.swing.brs.core.serializers import restore_state, snapshot_state
 from strategies.swing.brs.core.state import (
@@ -402,3 +403,61 @@ async def test_brs_engine_snapshot_and_hydrate_preserve_runtime_state() -> None:
     assert restored._position["QQQ"].pos_id == "BRS-1"
     assert restored._pending_orders["OMS-1"].role == "entry"
     assert restored.health_status()["last_decision_code"] == "ENTRY_FILLED"
+
+
+@pytest.mark.asyncio
+async def test_brs_live_wrapper_entry_fill_matches_replay_core_state(monkeypatch) -> None:
+    instruments = [SimpleNamespace(symbol="QQQ", point_value=1.0), SimpleNamespace(symbol="GLD", point_value=1.0)]
+    engine = BRSLiveEngine(
+        ib_session=object(),
+        oms_service=SimpleNamespace(stream_events=lambda *_args, **_kwargs: None),
+        instruments=instruments,
+    )
+    engine._pending_orders["OMS-1"] = _pending_order(order_id="OMS-1")
+
+    async def _fake_place_stop(_symbol: str, _pos, _stop_price: float) -> str:
+        return ""
+
+    async def _fake_entry_instrumentation(*_args, **_kwargs) -> None:
+        return None
+
+    monkeypatch.setattr(BRSPositionState, "setup_scale_out", lambda self, _cfg: None)
+    monkeypatch.setattr(engine, "_on_entry_fill_instrumentation", _fake_entry_instrumentation)
+    engine._exec = SimpleNamespace(place_stop=_fake_place_stop)
+
+    initial_state = restore_state(snapshot_state(build_brs_runtime_state(engine)))
+
+    await engine._dispatch_fill("OMS-1", 439.75, 3, 1.2, {"symbol": "QQQ", "exec_id": "exec-1"})
+
+    engine._filled_order_ids.clear()
+    wrapper_snapshot = snapshot_state(build_brs_runtime_state(engine))
+    fill_time = engine._position["QQQ"].entry_ts
+    replay = run_replay(
+        initial_state,
+        steps=[
+            ReplayStep(
+                fills=[
+                    BRSFill(
+                        oms_order_id="OMS-1",
+                        fill_price=439.75,
+                        fill_qty=3,
+                        fill_time=fill_time,
+                        commission=1.2,
+                        symbol="QQQ",
+                        entry_context=BRSEntryFillContext(
+                            cooldown_until=engine._cooldown_until["QQQ"],
+                            reset_arm_state=_entry_signal().entry_type,
+                            reset_short_bias=True,
+                            tranche_b_qty=0,
+                        ),
+                    )
+                ]
+            )
+        ],
+        on_bar=lambda state, payload: on_bar(state, **payload),
+        on_order_update=on_order_update,
+        on_fill=on_fill,
+    )
+
+    assert replay.events[-1].code == engine.health_status()["last_decision_code"] == "ENTRY_FILLED"
+    assert snapshot_state(replay.state) == wrapper_snapshot

@@ -15,6 +15,7 @@ from backtests.momentum.auto.downturn import worker as downturn_worker_mod
 from backtests.momentum.auto.nqdtc import plugin as nqdtc_plugin_mod
 from backtests.momentum.auto.nqdtc import worker as nqdtc_worker_mod
 from backtests.momentum.auto.vdubus import plugin as vdub_plugin_mod
+from backtests.momentum.auto.vdubus import worker as vdub_worker_mod
 from backtests.stock.auto.alcb_p16_phase import plugin as alcb_plugin_mod
 from backtests.stock.auto.iaric_pullback import plugin as iaric_plugin_mod
 
@@ -420,6 +421,81 @@ def test_vdub_plugin_replay_bundle_includes_five_min_surface(monkeypatch, tmp_pa
         "data_dir": tmp_path,
         "include_5m": True,
     }
+
+
+def test_vdub_worker_init_uses_shared_replay_bundle_with_five_min_surface(monkeypatch, tmp_path: Path) -> None:
+    from backtests.momentum import config_vdubus as config_mod
+
+    class DummyConfig:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    seen: dict[str, object] = {}
+
+    def fake_load_worker_data(symbol: str, data_dir: Path):
+        seen["symbol"] = symbol
+        seen["data_dir"] = Path(data_dir)
+        return type(
+            "Bundle",
+            (),
+            {
+                "data": {"bars_15m": object(), "bars_5m": object(), "five_to_15_idx_map": object()},
+                "cache_key": "vdub-key",
+                "cache_source_fingerprint": "vdub-fp",
+            },
+        )()
+
+    monkeypatch.setattr(config_mod, "VdubusBacktestConfig", DummyConfig)
+    monkeypatch.setattr(vdub_worker_mod, "load_worker_data", fake_load_worker_data)
+    monkeypatch.setattr(vdub_worker_mod, "_worker_data", None)
+    monkeypatch.setattr(vdub_worker_mod, "_worker_config", None)
+    monkeypatch.setattr(vdub_worker_mod, "_worker_data_dir_key", None)
+
+    vdub_worker_mod.init_worker(str(tmp_path), 10_000.0)
+
+    assert seen == {
+        "symbol": "NQ",
+        "data_dir": tmp_path,
+    }
+
+
+def test_vdub_worker_reloads_replay_bundle_when_data_dir_changes(monkeypatch, tmp_path: Path) -> None:
+    from backtests.momentum import config_vdubus as config_mod
+
+    class DummyConfig:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    seen_paths: list[Path] = []
+
+    def fake_load_worker_data(symbol: str, data_dir: Path):
+        seen_paths.append(Path(data_dir))
+        return type(
+            "Bundle",
+            (),
+            {
+                "data": {"symbol": symbol, "root": str(data_dir), "bars_5m": object(), "five_to_15_idx_map": object()},
+                "cache_key": "vdub-key",
+                "cache_source_fingerprint": str(data_dir),
+            },
+        )()
+
+    monkeypatch.setattr(config_mod, "VdubusBacktestConfig", DummyConfig)
+    monkeypatch.setattr(vdub_worker_mod, "load_worker_data", fake_load_worker_data)
+    monkeypatch.setattr(vdub_worker_mod, "_worker_data", None)
+    monkeypatch.setattr(vdub_worker_mod, "_worker_config", None)
+    monkeypatch.setattr(vdub_worker_mod, "_worker_data_dir_key", None)
+
+    first_dir = tmp_path / "a"
+    second_dir = tmp_path / "b"
+    first_dir.mkdir()
+    second_dir.mkdir()
+
+    vdub_worker_mod.init_worker(str(first_dir), 10_000.0)
+    vdub_worker_mod.init_worker(str(first_dir), 10_000.0)
+    vdub_worker_mod.init_worker(str(second_dir), 10_000.0)
+
+    assert seen_paths == [first_dir, second_dir]
 
 
 def test_alcb_plugin_refresh_clears_context_and_shared_pool(monkeypatch, tmp_path: Path) -> None:

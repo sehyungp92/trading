@@ -1,15 +1,24 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
+from backtests.shared.parity.replay_driver import ReplayStep, run_replay
+from libs.oms.models.events import OMSEventType
+import pytest
+
+from strategies.swing.breakout.core.logic import build_core_state as build_breakout_runtime_state
 from strategies.core.actions import FlattenPosition, ReplaceProtectiveStop, SubmitEntry, SubmitProtectiveStop
 from strategies.swing.breakout.core import logic as breakout_logic
+from strategies.swing.breakout.core.serializers import restore_state as restore_breakout_state
+from strategies.swing.breakout.core.serializers import snapshot_state as snapshot_breakout_state
 from strategies.swing.breakout.core.state import (
     BreakoutCoreState,
     BreakoutEntryRequest,
     BreakoutFill,
     BreakoutFlattenRequest,
 )
+from strategies.swing.breakout.engine import BreakoutEngine
 from strategies.swing.breakout.models import Direction, EntryType, ExitTier, PositionState, SetupInstance, SetupState
 
 UTC = timezone.utc
@@ -189,3 +198,61 @@ def test_breakout_flatten_request_emits_flatten_position() -> None:
     assert actions[0].qty == 5
     assert events[0].code == "FLATTEN_REQUESTED"
     assert state.last_decision_code == "FLATTEN_REQUESTED"
+
+
+@pytest.mark.asyncio
+async def test_breakout_live_wrapper_entry_fill_matches_replay_core_state(monkeypatch) -> None:
+    setup = _setup()
+    engine = BreakoutEngine(
+        ib_session=object(),
+        oms_service=SimpleNamespace(stream_events=lambda *_args, **_kwargs: None),
+        instruments={},
+        config={},
+    )
+    engine.active_setups[setup.setup_id] = setup
+    engine._order_to_setup["ENTRY-1"] = setup.setup_id
+    engine._order_kind["ENTRY-1"] = "primary_entry"
+    engine._order_requested_qty["ENTRY-1"] = 5
+
+    submitted_brackets: list[tuple[str, float, int]] = []
+
+    async def _fake_submit_brackets(active_setup: SetupInstance) -> None:
+        submitted_brackets.append((active_setup.symbol, active_setup.current_stop, active_setup.qty_open))
+
+    monkeypatch.setattr(engine, "_submit_bracket_orders", _fake_submit_brackets)
+    monkeypatch.setattr(engine, "_record_entry_instrumentation", lambda *_args, **_kwargs: None)
+
+    initial_state = restore_breakout_state(snapshot_breakout_state(build_breakout_runtime_state(engine)))
+
+    event = SimpleNamespace(
+        event_type=OMSEventType.FILL,
+        payload={"price": 510.75, "qty": 5, "commission": 0.0},
+        timestamp=datetime(2026, 4, 26, 13, 5, tzinfo=UTC),
+    )
+    await engine._on_fill_event(event, setup, "primary_entry", "ENTRY-1", 5)
+
+    wrapper_snapshot = snapshot_breakout_state(build_breakout_runtime_state(engine))
+    replay = run_replay(
+        initial_state,
+        steps=[
+            ReplayStep(
+                fills=[
+                    BreakoutFill(
+                        oms_order_id="ENTRY-1",
+                        fill_price=510.75,
+                        fill_qty=5,
+                        symbol=setup.symbol,
+                        fill_time=event.timestamp,
+                        order_role="primary_entry",
+                    )
+                ]
+            )
+        ],
+        on_bar=lambda state, payload: breakout_logic.on_bar(state, **payload),
+        on_order_update=breakout_logic.on_order_update,
+        on_fill=breakout_logic.on_fill,
+    )
+
+    assert submitted_brackets == [("SPY", 504.0, 5)]
+    assert replay.events[-1].code == engine.health_status()["last_decision_code"] == "ENTRY_FILLED"
+    assert snapshot_breakout_state(replay.state) == wrapper_snapshot

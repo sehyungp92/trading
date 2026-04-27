@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timezone
+from types import SimpleNamespace
 
 from backtests.shared.parity.decision_capture import normalize_decision_stream
 from backtests.shared.parity.replay_driver import ReplayStep, run_replay
 import pytest
 
 from strategies.core.actions import FlattenPosition, ReplaceProtectiveStop, SubmitPartialExit
+from strategies.stock.alcb.core.logic import build_core_state as build_alcb_runtime_state
 from strategies.stock.alcb.core.logic import apply_carry_roll
 from strategies.stock.alcb.core.logic import on_bar, on_fill, on_order_update
 from strategies.stock.alcb.core.serializers import restore_state, snapshot_state
@@ -20,6 +22,7 @@ from strategies.stock.alcb.core.state import (
     ALCBPartialExitRequest,
     ALCBStopUpdateRequest,
 )
+from strategies.stock.alcb.engine import ALCBT2Engine
 from strategies.stock.alcb.models import (
     CandidateArtifact,
     CandidateItem,
@@ -407,3 +410,76 @@ def test_alcb_carry_roll_increments_only_held_symbols() -> None:
     assert next_state.positions["AAA"].carry_days == 2
     assert next_state.positions["BBB"].carry_days == 0
     assert state.positions["AAA"].carry_days == 1
+
+
+@pytest.mark.asyncio
+async def test_alcb_live_wrapper_entry_fill_matches_replay_core_state(monkeypatch) -> None:
+    artifact = _artifact(date(2026, 4, 25))
+    engine = ALCBT2Engine(
+        oms_service=SimpleNamespace(stream_events=lambda *_args, **_kwargs: None),
+        artifact=artifact,
+        account_id="ACCT-1",
+        nav=100_000.0,
+    )
+    engine._order_index["OMS-ENTRY"] = ("AAA", "ENTRY")
+    engine._pending_entries["AAA"] = "OMS-ENTRY"
+    engine._pending_plans["OMS-ENTRY"] = _plan()
+    engine._entry_meta["OMS-ENTRY"] = {
+        "entry_type": EntryType.OR_BREAKOUT.value,
+        "sector": "Technology",
+        "regime_tier": "A",
+        "momentum_score": 7,
+        "avwap": 24.8,
+        "or_high": 24.9,
+        "or_low": 24.1,
+    }
+
+    async def _fake_submit_stop(_symbol: str) -> None:
+        return None
+
+    async def _fake_entry_fill_instrumentation(*_args, **_kwargs) -> None:
+        return None
+
+    async def _fake_exit_fill_instrumentation(*_args, **_kwargs) -> None:
+        return None
+
+    monkeypatch.setattr(engine, "_submit_stop", _fake_submit_stop)
+    monkeypatch.setattr(engine, "_replace_stop", lambda _symbol: None)
+    monkeypatch.setattr(engine, "_handle_entry_fill_instrumentation", _fake_entry_fill_instrumentation)
+    monkeypatch.setattr(engine, "_handle_exit_fill_instrumentation", _fake_exit_fill_instrumentation)
+    monkeypatch.setattr(engine, "_handle_partial_fill_instrumentation", lambda *args, **kwargs: None)
+
+    initial_state = restore_state(snapshot_state(build_alcb_runtime_state(engine)))
+
+    await engine._handle_fill(
+        SimpleNamespace(
+            oms_order_id="OMS-ENTRY",
+            payload={"price": 25.1, "qty": 100, "commission": 1.0},
+        )
+    )
+
+    wrapper_snapshot = snapshot_state(build_alcb_runtime_state(engine))
+    position = engine._positions["AAA"]
+    replay = run_replay(
+        initial_state,
+        steps=[
+            ReplayStep(
+                fills=[
+                    ALCBFill(
+                        oms_order_id="OMS-ENTRY",
+                        fill_price=25.1,
+                        fill_qty=100,
+                        fill_time=position.entry_time,
+                        commission=1.0,
+                        entry_context=ALCBEntryFillContext(trade_id=position.trade_id),
+                    )
+                ]
+            )
+        ],
+        on_bar=lambda state, payload: on_bar(state, **payload),
+        on_order_update=on_order_update,
+        on_fill=on_fill,
+    )
+
+    assert replay.events[-1].code == engine.health_status()["last_decision_code"] == "ENTRY_FILLED"
+    assert snapshot_state(replay.state) == wrapper_snapshot

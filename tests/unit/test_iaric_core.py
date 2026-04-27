@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from types import SimpleNamespace
+
+from backtests.shared.parity.replay_driver import ReplayStep, run_replay
+import pytest
 
 from strategies.core.actions import CancelAction, FlattenPosition, ReplaceProtectiveStop, SubmitEntry, SubmitProtectiveStop
 from strategies.stock.iaric.config import StrategySettings
 from strategies.stock.iaric.core import logic as iaric_logic
+from strategies.stock.iaric.core.logic import build_core_state as build_iaric_runtime_state
+from strategies.stock.iaric.core.serializers import restore_state as restore_iaric_state
+from strategies.stock.iaric.core.serializers import snapshot_state as snapshot_iaric_state
 from strategies.stock.iaric.core.state import (
     IARICCoreState,
     IARICEntryRequest,
@@ -15,7 +22,9 @@ from strategies.stock.iaric.core.state import (
     IARICPartialExitRequest,
 )
 from backtests.stock.engine.iaric_pullback_intraday_hybrid_engine import _PBHybridState
-from strategies.stock.iaric.models import Bar, MarketSnapshot, PBSymbolState, PendingOrderState, PositionState
+from strategies.stock.iaric.diagnostics import JsonlDiagnostics
+from strategies.stock.iaric.engine import IARICEngine
+from strategies.stock.iaric.models import Bar, MarketSnapshot, PBSymbolState, PendingOrderState, PositionState, RegimeSnapshot, WatchlistArtifact
 
 UTC = timezone.utc
 
@@ -418,3 +427,99 @@ def test_iaric_shared_reset_route_state_uses_strategy_specific_reset_defaults() 
     assert state.ready_bar_idx == 0
     assert state.accepted_bar_idx == -1
     assert state.accepted_entry_price == 0.0
+
+
+@pytest.mark.asyncio
+async def test_iaric_live_wrapper_entry_fill_matches_replay_core_state(monkeypatch, tmp_path) -> None:
+    artifact = WatchlistArtifact(
+        trade_date=date(2026, 4, 26),
+        generated_at=datetime(2026, 4, 26, 13, 0, tzinfo=UTC),
+        regime=RegimeSnapshot(
+            score=0.75,
+            tier="B",
+            risk_multiplier=1.0,
+            price_ok=True,
+            breadth_ok=True,
+            vol_ok=True,
+            credit_ok=True,
+        ),
+        items=[],
+        tradable=[],
+        overflow=[],
+    )
+    engine = IARICEngine(
+        oms_service=SimpleNamespace(stream_events=lambda *_args, **_kwargs: None),
+        artifact=artifact,
+        account_id="ACCT-1",
+        nav=100_000.0,
+        settings=StrategySettings(diagnostics_dir=str(tmp_path)),
+        diagnostics=JsonlDiagnostics(Path(tmp_path), enabled=False),
+    )
+    engine._items["MSFT"] = SimpleNamespace(tick_size=0.01)
+    engine._markets["MSFT"] = MarketSnapshot(symbol="MSFT")
+    engine._symbols["MSFT"] = PBSymbolState(
+        symbol="MSFT",
+        route_family="VWAP_BOUNCE",
+        stop_level=404.5,
+        entry_order=PendingOrderState(
+            oms_order_id="ENTRY-1",
+            submitted_at=datetime(2026, 4, 26, 14, 29, tzinfo=UTC),
+            role="ENTRY",
+            requested_qty=25,
+            limit_price=410.25,
+        ),
+        active_order_id="ENTRY-1",
+    )
+    engine._portfolio.pending_entry_risk["MSFT"] = 143.75
+    engine._order_index["ENTRY-1"] = ("MSFT", "ENTRY")
+
+    async def _noop(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(engine, "_submit_stop", _noop)
+    monkeypatch.setattr(engine, "_replace_stop", _noop)
+    monkeypatch.setattr(engine, "_cancel_stop", _noop)
+    monkeypatch.setattr(engine, "_submit_market_exit", _noop)
+    monkeypatch.setattr(engine, "_record_entry_instrumentation", _noop)
+    monkeypatch.setattr(engine, "_record_exit_instrumentation", _noop)
+
+    initial_state = restore_iaric_state(snapshot_iaric_state(build_iaric_runtime_state(engine)))
+    fill_time = datetime(2026, 4, 26, 14, 31, tzinfo=UTC)
+
+    await engine._handle_fill(
+        SimpleNamespace(
+            oms_order_id="ENTRY-1",
+            payload={"price": 410.5, "qty": 25, "commission": 1.25},
+            timestamp=fill_time,
+        )
+    )
+
+    wrapper_snapshot = snapshot_iaric_state(build_iaric_runtime_state(engine))
+    replay = run_replay(
+        initial_state,
+        steps=[
+            ReplayStep(
+                fills=[
+                    IARICFill(
+                        oms_order_id="ENTRY-1",
+                        fill_price=410.5,
+                        fill_qty=25,
+                        fill_time=fill_time,
+                        commission=1.25,
+                        symbol="MSFT",
+                        order_role="ENTRY",
+                    )
+                ]
+            )
+        ],
+        on_bar=lambda state, payload: iaric_logic.on_bar(state, **payload),
+        on_order_update=iaric_logic.on_order_update,
+        on_fill=iaric_logic.on_fill,
+    )
+
+    replay_snapshot = snapshot_iaric_state(replay.state)
+    replay_snapshot.pop("saved_at", None)
+    wrapper_snapshot.pop("saved_at", None)
+
+    assert replay.events[-1].code == engine.health_status()["last_decision_code"] == "ENTRY_FILLED"
+    assert replay_snapshot == wrapper_snapshot

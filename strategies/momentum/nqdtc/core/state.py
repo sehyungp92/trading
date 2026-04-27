@@ -73,6 +73,7 @@ class NQDTCEntryFillContext:
     box_mid_at_entry: float
     entry_session: Session
     tp1_only_cap: bool
+    r_dollars: float = 0.0
 
 
 @dataclass(slots=True)

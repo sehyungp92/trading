@@ -7,27 +7,39 @@ from types import SimpleNamespace
 
 import pytest
 
+from backtests.shared.parity.replay_driver import ReplayStep, run_replay
 from strategies.momentum.helix_v40.config import (
     PositionState as HelixV40PositionState,
     Setup as HelixV40Setup,
     SetupClass as HelixV40SetupClass,
+    SetupState as HelixV40SetupState,
     TF as HelixV40TF,
 )
+from strategies.momentum.helix_v40.core.logic import build_core_state as build_helix_v40_runtime_state
+from strategies.momentum.helix_v40.core.logic import on_bar as on_helix_v40_bar
+from strategies.momentum.helix_v40.core.logic import on_fill as on_helix_v40_fill
+from strategies.momentum.helix_v40.core.logic import on_order_update as on_helix_v40_order_update
 from strategies.momentum.helix_v40.core.serializers import (
     restore_state as restore_helix_v40_state,
     snapshot_state as snapshot_helix_v40_state,
 )
-from strategies.momentum.helix_v40.core.state import HelixV40CoreState
+from strategies.momentum.helix_v40.core.state import HelixV40CoreState, HelixV40EntryFillContext, HelixV40Fill
 from strategies.momentum.helix_v40.engine import Helix4Engine
+from strategies.momentum.vdub import config as vdub_config
+from strategies.momentum.vdub.core.logic import build_core_state as build_vdub_runtime_state
+from strategies.momentum.vdub.core.logic import on_bar as on_vdub_bar
+from strategies.momentum.vdub.core.logic import on_fill as on_vdub_fill
+from strategies.momentum.vdub.core.logic import on_order_update as on_vdub_order_update
 from strategies.momentum.vdub.core.serializers import (
     restore_state as restore_vdub_state,
     snapshot_state as snapshot_vdub_state,
 )
-from strategies.momentum.vdub.core.state import VdubCoreState
+from strategies.momentum.vdub.core.state import VdubCoreState, VdubEntryFillContext, VdubFill
 from strategies.momentum.vdub.engine import VdubNQv4Engine
 from strategies.momentum.vdub.models import (
     DayCounters,
     Direction as VdubDirection,
+    EntryType as VdubEntryType,
     EventBlockState,
     RegimeState,
     VolState,
@@ -418,3 +430,140 @@ def test_iaric_core_serializer_roundtrip_preserves_intraday_snapshot_shape() -> 
     assert isinstance(restored.symbols[0], PBSymbolState)
     assert restored.symbols[0].symbol == "MSFT"
     assert restored.meta["active_symbols"] == ["MSFT"]
+
+
+def _helix_v40_setup(**overrides) -> HelixV40Setup:
+    defaults = dict(
+        setup_id="SETUP-1",
+        cls=HelixV40SetupClass.M,
+        direction=1,
+        tf_origin=HelixV40TF.H1,
+        detected_ts=datetime(2026, 4, 25, 13, 0, tzinfo=UTC),
+        stop0=19980.0,
+        entry_stop=19980.0,
+        armed_risk_r=1.0,
+        unit1_risk_usd=100.0,
+        alignment_score=0.75,
+        state=HelixV40SetupState.PENDING,
+        entry_oms_id="ENTRY-1",
+    )
+    defaults.update(overrides)
+    return HelixV40Setup(**defaults)
+
+
+@pytest.mark.asyncio
+async def test_vdub_live_wrapper_entry_fill_matches_replay_core_state(monkeypatch) -> None:
+    instrument = SimpleNamespace(symbol="NQ", point_value=vdub_config.NQ_SPEC["point_value"])
+
+    async def _fake_submit_intent(*_args, **_kwargs):
+        return SimpleNamespace(oms_order_id=None)
+
+    engine = VdubNQv4Engine(
+        ib_session=object(),
+        oms_service=SimpleNamespace(
+            stream_events=lambda *_args, **_kwargs: None,
+            submit_intent=_fake_submit_intent,
+        ),
+        instruments=[instrument],
+    )
+    working_entry = WorkingEntry(
+        oms_order_id="OMS-V1",
+        entry_type=VdubEntryType.TYPE_A,
+        direction=VdubDirection.LONG,
+        stop_entry=20010.0,
+        qty=2,
+        initial_stop=19980.0,
+    )
+    engine.working_entries["OMS-V1"] = working_entry
+
+    initial_state = restore_vdub_state(snapshot_vdub_state(build_vdub_runtime_state(engine)))
+
+    await engine._on_fill("OMS-V1", {"price": 20010.0, "qty": 2, "commission": 1.25})
+
+    wrapper_snapshot = snapshot_vdub_state(build_vdub_runtime_state(engine))
+    fill_time = engine.positions[0].entry_time
+    replay = run_replay(
+        initial_state,
+        steps=[
+            ReplayStep(
+                fills=[
+                    VdubFill(
+                        oms_order_id="OMS-V1",
+                        fill_price=20010.0,
+                        fill_qty=2,
+                        fill_time=fill_time,
+                        point_value=vdub_config.NQ_SPEC["point_value"],
+                        commission=1.25,
+                        entry_context=VdubEntryFillContext(working_entry=working_entry),
+                    )
+                ]
+            )
+        ],
+        on_bar=lambda state, payload: on_vdub_bar(state, **payload),
+        on_order_update=on_vdub_order_update,
+        on_fill=on_vdub_fill,
+    )
+
+    assert replay.events[-1].code == engine.health_status()["last_decision_code"] == "ENTRY_FILLED"
+    assert snapshot_vdub_state(replay.state) == wrapper_snapshot
+
+
+@pytest.mark.asyncio
+async def test_helix_v40_live_wrapper_entry_fill_matches_replay_core_state(monkeypatch) -> None:
+    instrument = SimpleNamespace(symbol="MNQ", point_value=2.0)
+
+    async def _fake_submit_intent(*_args, **_kwargs):
+        return SimpleNamespace(oms_order_id=None)
+
+    engine = Helix4Engine(
+        ib_session=object(),
+        oms_service=SimpleNamespace(
+            stream_events=lambda *_args, **_kwargs: None,
+            submit_intent=_fake_submit_intent,
+        ),
+        instruments=[instrument],
+    )
+    setup = _helix_v40_setup(entry_oms_id="ENTRY-1")
+    engine.exec.pending_setups = [setup]
+    engine.risk.pending_risk_r = 1.0
+    engine.risk.dir_risk_r = {1: 1.0}
+
+    async def _fake_place_stop(*_args, **_kwargs):
+        return None
+
+    async def _fake_entry_instrumentation(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(engine.exec, "place_stop", _fake_place_stop)
+    monkeypatch.setattr(engine.exec, "check_teleport", lambda *_args, **_kwargs: (False, False))
+    monkeypatch.setattr(engine, "_on_entry_fill_instrumentation", _fake_entry_instrumentation)
+
+    initial_state = restore_helix_v40_state(snapshot_helix_v40_state(build_helix_v40_runtime_state(engine)))
+    fill_time = datetime(2026, 4, 25, 14, 1, tzinfo=UTC)
+
+    await engine.on_fill("ENTRY-1", 20000.0, 2, fill_time)
+
+    wrapper_snapshot = snapshot_helix_v40_state(build_helix_v40_runtime_state(engine))
+    replay = run_replay(
+        initial_state,
+        steps=[
+            ReplayStep(
+                fills=[
+                    HelixV40Fill(
+                        oms_order_id="ENTRY-1",
+                        fill_price=20000.0,
+                        fill_qty=2,
+                        fill_time=fill_time,
+                        point_value=2.0,
+                        entry_context=HelixV40EntryFillContext(setup=setup),
+                    )
+                ]
+            )
+        ],
+        on_bar=lambda state, payload: on_helix_v40_bar(state, **payload),
+        on_order_update=on_helix_v40_order_update,
+        on_fill=on_helix_v40_fill,
+    )
+
+    assert replay.events[-1].code == engine.health_status()["last_decision_code"] == "ENTRY_FILLED"
+    assert snapshot_helix_v40_state(replay.state) == wrapper_snapshot

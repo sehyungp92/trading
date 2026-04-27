@@ -2326,6 +2326,7 @@ class NQDTCEngine:
                     box_mid_at_entry=engine.box.box_mid,
                     entry_session=session,
                     tp1_only_cap=tp1_cap,
+                    r_dollars=r_points * (inst.point_value if inst else 20.0) * qty,
                 ),
             ),
         )

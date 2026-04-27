@@ -202,20 +202,24 @@ def on_fill(
     # Entry fill (engine attaches entry_context when oms_id matches working entry)
     if fill.entry_context is not None:
         _process_entry_fill(next_state, fill, actions, events)
+        _update_fill_last_decision(next_state, events, fill.fill_time)
         return next_state, actions, events
 
     # Flatten fill confirmation
     if (next_state.last_flatten_oms_id
             and fill.oms_order_id == next_state.last_flatten_oms_id):
         _process_flatten_fill(next_state, fill, actions, events)
+        _update_fill_last_decision(next_state, events, fill.fill_time)
         return next_state, actions, events
 
     # Stop fill (match against position stop orders)
     for pos in list(next_state.positions):
         if pos.stop_oms_order_id == fill.oms_order_id:
             _process_stop_fill(next_state, pos, fill, actions, events)
+            _update_fill_last_decision(next_state, events, fill.fill_time)
             return next_state, actions, events
 
+    _update_fill_last_decision(next_state, events, fill.fill_time)
     return next_state, actions, events
 
 
@@ -383,6 +387,19 @@ def _process_flatten_fill(
             ))
 
     state.positions = [p for p in state.positions if p.qty_open > 0]
+
+
+def _update_fill_last_decision(
+    state: VdubCoreState,
+    events: list[DecisionEvent],
+    fill_time: datetime | None,
+) -> None:
+    if not events:
+        return
+    latest = events[-1]
+    state.last_decision_code = latest.code
+    state.last_decision_details = dict(latest.details)
+    state.last_bar_ts = latest.ts or fill_time or datetime.now(timezone.utc)
 
 
 # ── on_order_update ──────────────────────────────────────────────

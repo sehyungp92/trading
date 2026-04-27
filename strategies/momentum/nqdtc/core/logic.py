@@ -279,6 +279,7 @@ def on_fill(
             initial_stop_price=matched_order.stop_for_risk,
             qty=qty,
             qty_open=qty,
+            R_dollars=fill.entry_context.r_dollars,
             quality_mult=matched_order.quality_mult,
             exit_tier=fill.entry_context.exit_tier,
             tp_levels=deepcopy(fill.entry_context.tp_levels),

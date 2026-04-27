@@ -351,19 +351,6 @@ async def test_nqdtc_engine_entry_fill_routes_through_shared_core(tmp_path) -> N
             stop_for_risk=19950.0,
             expected_fill_price=19975.0,
         ),
-        WorkingOrder(
-            oms_order_id="OMS-2",
-            subtype=EntrySubtype.A_LATCH,
-            direction=Direction.LONG,
-            price=19976.0,
-            qty=2,
-            submitted_bar_idx=15,
-            ttl_bars=4,
-            oca_group="OCA-1",
-            quality_mult=1.2,
-            stop_for_risk=19950.0,
-            expected_fill_price=19976.0,
-        ),
     ]
     engine._bar_count_5m = 15
     engine._bars_daily = {"ema50": [], "atr14": []}
@@ -438,3 +425,90 @@ async def test_nqdtc_engine_rejected_filled_entry_clears_working_orders(tmp_path
     assert engine._working_orders == []
     assert engine.health_status()["last_decision_code"] == "ENTRY_FILL_REJECTED"
     assert engine.health_status()["last_decision_details"]["reason"] == "MIN_STOP_DISTANCE"
+
+
+@pytest.mark.asyncio
+async def test_nqdtc_live_wrapper_entry_fill_matches_replay_core_state(tmp_path, monkeypatch) -> None:
+    engine = NQDTCEngine(
+        ib_session=_DummyIB(),
+        oms_service=_DummyOMS(),
+        instruments={},
+        state_dir=tmp_path,
+        instrumentation=None,
+    )
+    engine._working_orders = [
+        WorkingOrder(
+            oms_order_id="OMS-1",
+            subtype=EntrySubtype.A_RETEST,
+            direction=Direction.LONG,
+            price=19975.0,
+            qty=2,
+            submitted_bar_idx=15,
+            ttl_bars=4,
+            oca_group="OCA-1",
+            is_limit=True,
+            quality_mult=1.2,
+            stop_for_risk=19950.0,
+            expected_fill_price=19975.0,
+        ),
+    ]
+    engine._bar_count_5m = 15
+    engine._bars_daily = {"ema50": [], "atr14": []}
+
+    async def _fake_place_stop(_stop_price: float, _qty: int, _direction) -> None:
+        return None
+
+    async def _fake_cancel_order(_oms_order_id: str) -> None:
+        return None
+
+    monkeypatch.setattr(engine, "_place_protective_stop", _fake_place_stop)
+    monkeypatch.setattr(engine, "_cancel_order", _fake_cancel_order)
+    monkeypatch.setattr(engine, "_log_telemetry", lambda *_args, **_kwargs: None)
+
+    initial_state = restore_state(snapshot_state(engine._build_core_state()))
+    fill_time = datetime(2026, 4, 25, 11, 2, tzinfo=UTC)
+
+    await engine._on_fill(
+        SimpleNamespace(
+            event_type=OMSEventType.FILL,
+            oms_order_id="OMS-1",
+            payload={"price": 19977.0, "qty": 2},
+            timestamp=fill_time,
+        )
+    )
+
+    wrapper_snapshot = snapshot_state(engine._build_core_state())
+    position = engine._position
+    replay = run_replay(
+        initial_state,
+        steps=[
+            ReplayStep(
+                fills=[
+                    NQDTCFill(
+                        oms_order_id="OMS-1",
+                        fill_price=19977.0,
+                        fill_qty=2,
+                        fill_time=fill_time,
+                        entry_context=NQDTCEntryFillContext(
+                            exit_tier=position.exit_tier,
+                            tp_levels=position.tp_levels,
+                            mm_level=position.mm_level,
+                            mm_reached=position.mm_reached,
+                            box_high_at_entry=position.box_high_at_entry,
+                            box_low_at_entry=position.box_low_at_entry,
+                            box_mid_at_entry=position.box_mid_at_entry,
+                            entry_session=position.entry_session,
+                            tp1_only_cap=position.tp1_only_cap,
+                            r_dollars=position.R_dollars,
+                        ),
+                    )
+                ]
+            )
+        ],
+        on_bar=lambda state, payload: on_bar(state, **payload),
+        on_order_update=on_order_update,
+        on_fill=on_fill,
+    )
+
+    assert replay.events[-1].code == engine.health_status()["last_decision_code"] == "ENTRY_FILLED"
+    assert snapshot_state(replay.state) == wrapper_snapshot

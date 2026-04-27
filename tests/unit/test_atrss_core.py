@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
+from backtests.shared.parity.replay_driver import ReplayStep, run_replay
+import pytest
+
+from strategies.swing.atrss.core.logic import build_core_state as build_atrss_runtime_state
 from strategies.core.actions import FlattenPosition, ReplaceProtectiveStop, SubmitEntry, SubmitProtectiveStop
 from strategies.swing.atrss.core import logic as atrss_logic
+from strategies.swing.atrss.core.serializers import restore_state as restore_atrss_state
+from strategies.swing.atrss.core.serializers import snapshot_state as snapshot_atrss_state
 from strategies.swing.atrss.core.state import (
     ATRSSCoreState,
     ATRSSEntryRequest,
@@ -11,6 +18,7 @@ from strategies.swing.atrss.core.state import (
     ATRSSFlattenRequest,
     ATRSSPartialExitRequest,
 )
+from strategies.swing.atrss.engine import ATRSSEngine
 from strategies.swing.atrss.models import Candidate, CandidateType, Direction, HourlyState, PositionBook, PositionLeg
 
 UTC = timezone.utc
@@ -186,3 +194,60 @@ def test_atrss_on_bar_flatten_emits_flatten_action() -> None:
     assert isinstance(actions[0], FlattenPosition)
     assert actions[0].side == "BUY"
     assert events[0].code == "FLATTEN_REQUESTED"
+
+
+@pytest.mark.asyncio
+async def test_atrss_live_wrapper_entry_fill_matches_replay_core_state(monkeypatch) -> None:
+    pending_order = {
+        "symbol": "QQQ",
+        "type": CandidateType.PULLBACK,
+        "direction": Direction.LONG,
+        "trigger_price": 510.25,
+        "initial_stop": 503.5,
+        "qty": 3,
+    }
+    engine = ATRSSEngine(
+        ib_session=object(),
+        oms_service=SimpleNamespace(stream_events=lambda *_args, **_kwargs: None),
+        instruments={},
+        config={},
+    )
+    engine.pending_orders["ENTRY-1"] = dict(pending_order)
+
+    placed_stops: list[tuple[str, float, int]] = []
+
+    async def _fake_place_stop(symbol: str, stop_price: float, qty: int) -> str:
+        placed_stops.append((symbol, stop_price, qty))
+        return ""
+
+    monkeypatch.setattr(engine, "_place_stop", _fake_place_stop)
+
+    initial_state = restore_atrss_state(snapshot_atrss_state(build_atrss_runtime_state(engine)))
+
+    await engine._on_fill("ENTRY-1", {"price": 510.5, "qty": 3, "commission": 0.0})
+
+    wrapper_snapshot = snapshot_atrss_state(build_atrss_runtime_state(engine))
+    fill_time = engine.positions["QQQ"].base_leg.fill_time
+    replay = run_replay(
+        initial_state,
+        steps=[
+            ReplayStep(
+                fills=[
+                    ATRSSFill(
+                        oms_order_id="ENTRY-1",
+                        fill_price=510.5,
+                        fill_qty=3,
+                        fill_time=fill_time,
+                    )
+                ]
+            )
+        ],
+        on_bar=lambda state, payload: atrss_logic.on_bar(state, **payload),
+        on_order_update=atrss_logic.on_order_update,
+        on_fill=atrss_logic.on_fill,
+    )
+    replay.state.positions["QQQ"].stop_pending = False
+
+    assert placed_stops == [("QQQ", 503.5, 3)]
+    assert replay.events[-1].code == engine.health_status()["last_decision_code"] == "ENTRY_FILLED"
+    assert snapshot_atrss_state(replay.state) == wrapper_snapshot

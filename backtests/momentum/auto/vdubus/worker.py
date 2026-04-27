@@ -7,11 +7,13 @@ import sys
 from pathlib import Path
 
 from backtests.shared.auto.types import ScoredCandidate
+from backtests.shared.auto.replay_bundle import ReplayBundle
 
 logger = logging.getLogger(__name__)
 
 _worker_data = None
 _worker_config = None
+_worker_data_dir_key: str | None = None
 
 
 def init_worker(data_dir_str: str, equity: float) -> None:
@@ -21,7 +23,7 @@ def init_worker(data_dir_str: str, equity: float) -> None:
     score_candidate() so the pool can be reused across phases without
     re-initialization (avoids expensive data re-loading).
     """
-    global _worker_data, _worker_config
+    global _worker_data, _worker_config, _worker_data_dir_key
 
     if sys.stdout.encoding != "utf-8":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -32,24 +34,27 @@ def init_worker(data_dir_str: str, equity: float) -> None:
 
     from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
 
+    data_dir = Path(data_dir_str)
     _worker_config = VdubusBacktestConfig(
         initial_equity=equity,
-        data_dir=Path(data_dir_str),
+        data_dir=data_dir,
         fixed_qty=10,
         flags=VdubusAblationFlags(heat_cap=False, viability_filter=False),
     )
-    if _worker_data is None:
-        _worker_data = load_worker_data("NQ", Path(data_dir_str))
+    data_dir_key = str(data_dir.resolve())
+    if _worker_data is None or _worker_data_dir_key != data_dir_key:
+        _worker_data = load_worker_data("NQ", data_dir)
+        _worker_data_dir_key = data_dir_key
 
 
-def load_worker_data(symbol: str, data_dir: Path) -> dict:
+def load_worker_data(symbol: str, data_dir: Path) -> ReplayBundle[dict]:
     """Load VdubusNQ bar data (same as cli._load_vdubus_data).
 
     Ensures optional 5m keys are present (engine.run requires them as kwargs).
     """
     from backtests.momentum.data.replay_cache import load_vdub_replay_bundle
 
-    return load_vdub_replay_bundle(symbol, data_dir).data
+    return load_vdub_replay_bundle(symbol, data_dir, include_5m=True)
 
 
 def score_candidate(args: tuple) -> ScoredCandidate:
@@ -63,6 +68,7 @@ def score_candidate(args: tuple) -> ScoredCandidate:
     try:
         from dataclasses import asdict
 
+        from backtests.momentum.data.replay_cache import replay_engine_kwargs
         from backtests.momentum.engine.vdubus_engine import VdubusEngine
         from backtests.momentum.auto.config_mutator import mutate_vdubus_config
         from backtests.momentum.auto.vdubus.plugin import score_phase_metrics
@@ -73,7 +79,7 @@ def score_candidate(args: tuple) -> ScoredCandidate:
 
         config = mutate_vdubus_config(_worker_config, all_muts)
         engine = VdubusEngine("NQ", config)
-        result = engine.run(**_worker_data)
+        result = engine.run(**replay_engine_kwargs(_worker_data))
 
         metrics = extract_vdubus_metrics(
             result.trades,

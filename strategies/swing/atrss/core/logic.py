@@ -305,11 +305,11 @@ def on_fill(
         meta = next_state.pending_orders.pop(fill.oms_order_id)
         symbol = meta["symbol"]
         direction = meta["direction"]
-        candidate_type = meta["type"]
+        raw_candidate_type = meta["type"]
         fill_price = fill.fill_price or meta.get("trigger_price", 0.0)
         fill_qty = fill.fill_qty or int(meta.get("qty", 0))
 
-        if candidate_type == "PARTIAL_CLOSE":
+        if str(raw_candidate_type) == "PARTIAL_CLOSE":
             position = next_state.positions.get(symbol)
             if position is not None and position.base_leg is not None:
                 partial_qty = int(meta.get("partial_qty", fill_qty))
@@ -335,6 +335,12 @@ def on_fill(
                 )
             _update_last_decision(next_state, events, preserve_last_bar_ts=True)
             return next_state, actions, events
+
+        candidate_type = (
+            raw_candidate_type
+            if isinstance(raw_candidate_type, CandidateType)
+            else CandidateType(str(raw_candidate_type))
+        )
 
         leg_type = _leg_type_for(candidate_type)
         leg = PositionLeg(
