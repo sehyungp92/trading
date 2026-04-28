@@ -35,15 +35,15 @@ if sys.stdout.encoding != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 from backtests.shared.auto.phase_runner import PhaseRunner
-from backtests.stock.auto.iaric_pullback.phase_candidates import (
+from backtests.shared.auto.round_manager import RoundManager
+from backtests.stock.auto.iaric.phase_candidates import (
     V4R1_BASE_MUTATIONS,
     V4R1_PHASE_CANDIDATES,
     V4R1_PHASE_FOCUS,
 )
-from backtests.stock.auto.iaric_pullback.plugin import IARICPullbackPlugin
+from backtests.stock.auto.iaric.plugin import IARICPullbackPlugin
 
 DATA_DIR = Path("backtests/stock/data/raw")
-DEFAULT_OUTPUT_DIR = Path("backtests/stock/auto/iaric_pullback/output_v4r1")
 START_DATE = "2024-01-01"
 END_DATE = "2026-03-01"
 INITIAL_EQUITY = 10_000.0
@@ -55,10 +55,11 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--start-date", default=START_DATE)
     parser.add_argument("--end-date", default=END_DATE)
-    parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
+    parser.add_argument("--output-dir", default="")
     parser.add_argument("--max-workers", type=int, default=1)
     parser.add_argument("--profile", default=PROFILE, choices=["mainline", "aggressive"])
     parser.add_argument("--num-phases", type=int, default=NUM_PHASES)
+    parser.add_argument("--round", type=int, default=None)
     return parser.parse_args()
 
 
@@ -105,7 +106,17 @@ def _write_manifest(
 
 def main() -> None:
     args = _parse_args()
-    output_dir = Path(args.output_dir)
+    round_manager = None
+    round_num = None
+    if args.output_dir:
+        output_dir = Path(args.output_dir)
+    else:
+        round_manager = RoundManager("stock", "iaric")
+        round_num, output_dir = round_manager.resolve_round(
+            args.round,
+            for_write=True,
+            expected_phases=args.num_phases,
+        )
 
     print("=" * 72)
     print("IARIC Pullback V4R1 -- Comprehensive Auto-Optimization")
@@ -144,12 +155,16 @@ def main() -> None:
         profile=args.profile,
         round_name="v4r1",
     )
+    if round_manager and round_num and round_num > 1:
+        plugin.initial_mutations = round_manager.get_previous_mutations(round_num)
     runner = PhaseRunner(
         plugin=plugin,
         output_dir=output_dir,
         round_name="v4r1",
         max_retries=0,
         max_diagnostic_retries=0,
+        round_manager=round_manager,
+        round_num=round_num,
     )
     runner.run_all_phases()
 

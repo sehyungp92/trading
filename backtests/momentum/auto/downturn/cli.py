@@ -17,27 +17,37 @@ if str(_root) not in sys.path:
 from backtests.shared.auto.phase_gates import evaluate_gate
 from backtests.shared.auto.phase_state import save_phase_state
 from backtests.shared.auto.phase_runner import PhaseRunner, _mutations_through_phase
+from backtests.shared.auto.round_manager import RoundManager
 from backtests.momentum.auto.downturn.plugin import DownturnPlugin
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-OUTPUT_DIR = _root / "backtests/momentum/auto/downturn/output"
+ROUND_MANAGER = RoundManager("momentum", "downturn")
 
 
-def _build_runner(args: argparse.Namespace) -> PhaseRunner:
+def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseRunner:
     plugin = DownturnPlugin(
         data_dir=Path(args.data_dir),
         initial_equity=args.equity,
         max_workers=getattr(args, "max_workers", None),
-        num_phases=5,
+        num_phases=3,
     )
+    round_num, round_dir = ROUND_MANAGER.resolve_round(
+        getattr(args, "round", None),
+        for_write=for_write,
+        expected_phases=plugin.num_phases if for_write else None,
+    )
+    if round_num > 1:
+        plugin.initial_mutations = ROUND_MANAGER.get_previous_mutations(round_num)
     return PhaseRunner(
         plugin=plugin,
-        output_dir=OUTPUT_DIR,
+        output_dir=round_dir,
         max_rounds=getattr(args, "max_rounds", None),
         min_delta=getattr(args, "min_delta", 0.001),
         max_retries=getattr(args, "max_retries", 2),
+        round_manager=ROUND_MANAGER,
+        round_num=round_num,
     )
 
 
@@ -59,7 +69,7 @@ def cmd_phase_auto(args: argparse.Namespace) -> None:
 
 
 def cmd_phase_gate(args: argparse.Namespace) -> None:
-    runner = _build_runner(args)
+    runner = _build_runner(args, for_write=False)
     state = runner.load_state()
     if args.phase not in state.phase_results:
         print(f"Phase {args.phase} has not been completed yet.")
@@ -89,7 +99,8 @@ def cmd_phase_gate(args: argparse.Namespace) -> None:
 
 
 def cmd_phase_diagnostics(args: argparse.Namespace) -> None:
-    diag_path = OUTPUT_DIR / f"phase_{args.phase}_diagnostics.txt"
+    _, round_dir = ROUND_MANAGER.resolve_round(getattr(args, "round", None), for_write=False)
+    diag_path = round_dir / f"phase_{args.phase}_diagnostics.txt"
     if not diag_path.exists():
         print(f"No diagnostics found at {diag_path}.")
         return
@@ -102,11 +113,12 @@ def main() -> None:
 
     def add_common(command: argparse.ArgumentParser) -> None:
         command.add_argument("--data-dir", default="backtests/momentum/data/raw")
-        command.add_argument("--equity", type=float, default=100_000.0)
+        command.add_argument("--equity", type=float, default=10_000.0)
+        command.add_argument("--round", type=int, default=None)
 
     phase_run = sub.add_parser("phase-run", help="Run a single downturn phase")
     add_common(phase_run)
-    phase_run.add_argument("--phase", type=int, required=True, choices=[1, 2, 3, 4, 5])
+    phase_run.add_argument("--phase", type=int, required=True, choices=[1, 2, 3])
     phase_run.add_argument("--max-rounds", type=int, default=50)
     phase_run.add_argument("--max-workers", type=int, default=None)
     phase_run.add_argument("--min-delta", type=float, default=0.001)
@@ -120,10 +132,11 @@ def main() -> None:
 
     phase_gate = sub.add_parser("phase-gate", help="Check a completed phase gate")
     add_common(phase_gate)
-    phase_gate.add_argument("--phase", type=int, required=True, choices=[1, 2, 3, 4, 5])
+    phase_gate.add_argument("--phase", type=int, required=True, choices=[1, 2, 3])
 
     phase_diag = sub.add_parser("phase-diagnostics", help="Print phase diagnostics")
-    phase_diag.add_argument("--phase", type=int, required=True, choices=[1, 2, 3, 4, 5])
+    phase_diag.add_argument("--phase", type=int, required=True, choices=[1, 2, 3])
+    phase_diag.add_argument("--round", type=int, default=None)
 
     args = parser.parse_args()
     if args.command == "phase-run":

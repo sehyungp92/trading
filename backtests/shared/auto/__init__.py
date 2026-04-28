@@ -9,6 +9,7 @@ from .phase_runner import PhaseRunner
 from .phase_state import PhaseState, load_phase_state, save_phase_state
 from .plugin import PhaseAnalysisPolicy, PhaseSpec, StrategyPlugin
 from .plugin_utils import CachedBatchEvaluator, ResilientBatchEvaluator, mutation_signature
+from .round_manager import RoundManager
 from .types import (
     EndOfRoundArtifacts,
     Experiment,
@@ -39,6 +40,7 @@ __all__ = [
     "PhaseSpec",
     "PhaseState",
     "ResilientBatchEvaluator",
+    "RoundManager",
     "ScoredCandidate",
     "StrategyPlugin",
     "analyze_phase",

@@ -208,30 +208,30 @@
     },
     {
       "id": "stock_iaric_phase4_baseline",
-      "artifact_path": "backtests/stock/auto/iaric_pullback/output_v4r1/phase_4_optimal_starting_baseline_full_diagnostics.txt",
+      "artifact_path": "backtests/stock/auto/iaric/output_v4r1/phase_4_optimal_starting_baseline_full_diagnostics.txt",
       "parser_kind": "stock_iaric_phase_summary",
       "summary_source": {
         "kind": "json",
-        "path": "backtests/stock/auto/iaric_pullback/output_v4r1/phase_4_optimal_starting_baseline_summary.json"
+        "path": "backtests/stock/auto/iaric/output_v4r1/phase_4_optimal_starting_baseline_summary.json"
       },
       "regeneration": {
         "executor": "python_module",
-        "entrypoint": "backtests.stock.auto.iaric_pullback.run_optimized_diagnostics",
+        "entrypoint": "backtests.stock.auto.iaric.run_optimized_diagnostics",
         "arguments": [
           "--phase-state",
-          "backtests/stock/auto/iaric_pullback/output_v4r1/phase_state.json",
+          "backtests/stock/auto/iaric/output_v4r1/phase_state.json",
           "--phase-result",
           "4",
           "--mutation-kind",
           "final",
           "--output",
-          "backtests/stock/auto/iaric_pullback/output_v4r1/phase_4_optimal_starting_baseline_full_diagnostics.txt",
+          "backtests/stock/auto/iaric/output_v4r1/phase_4_optimal_starting_baseline_full_diagnostics.txt",
           "--summary-json",
-          "backtests/stock/auto/iaric_pullback/output_v4r1/phase_4_optimal_starting_baseline_summary.json",
+          "backtests/stock/auto/iaric/output_v4r1/phase_4_optimal_starting_baseline_summary.json",
           "--title",
           "IARIC PHASE 4 OPTIMAL STARTING BASELINE"
         ],
-        "expected_output": "backtests/stock/auto/iaric_pullback/output_v4r1/phase_4_optimal_starting_baseline_full_diagnostics.txt"
+        "expected_output": "backtests/stock/auto/iaric/output_v4r1/phase_4_optimal_starting_baseline_full_diagnostics.txt"
       },
       "sha256": "326C762F906D78C300D1BD144B61B87F7BF4D38EEBFA6BD51B72C5F5E212A008",
       "expected_metrics": {
@@ -244,19 +244,19 @@
     },
     {
       "id": "stock_alcb_round_final",
-      "artifact_path": "backtests/stock/auto/alcb_p16_phase/output_targeted_entry_repair_v2/round_final_diagnostics.txt",
+      "artifact_path": "backtests/stock/auto/alcb/output_targeted_entry_repair_v2/round_final_diagnostics.txt",
       "parser_kind": "stock_alcb_round_summary",
       "summary_source": null,
       "regeneration": {
         "executor": "python_file",
-        "entrypoint": "backtests/stock/auto/alcb_p16_phase/run_final_diagnostics.py",
+        "entrypoint": "backtests/stock/auto/alcb/run_final_diagnostics.py",
         "arguments": [
           "--phase-state",
-          "backtests/stock/auto/alcb_p16_phase/output_targeted_entry_repair_v2/phase_state.json",
+          "backtests/stock/auto/alcb/output_targeted_entry_repair_v2/phase_state.json",
           "--output",
-          "backtests/stock/auto/alcb_p16_phase/output_targeted_entry_repair_v2/round_final_diagnostics.txt"
+          "backtests/stock/auto/alcb/output_targeted_entry_repair_v2/round_final_diagnostics.txt"
         ],
-        "expected_output": "backtests/stock/auto/alcb_p16_phase/output_targeted_entry_repair_v2/round_final_diagnostics.txt"
+        "expected_output": "backtests/stock/auto/alcb/output_targeted_entry_repair_v2/round_final_diagnostics.txt"
       },
       "sha256": "3D29B1A1A404E48D13F12916C7FCD9B8065F438B642CB5E1A7CAC35EB74E2BB0",
       "expected_metrics": {

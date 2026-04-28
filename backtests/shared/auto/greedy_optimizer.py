@@ -88,6 +88,7 @@ def run_greedy(
     max_rounds: int = 20,
     min_delta: float = 0.001,
     prune_threshold: float = 0.05,
+    reject_streak_limit: int = 2,
     checkpoint_path: Path | None = None,
     checkpoint_context: dict[str, object] | None = None,
     logger: logging.Logger | None = None,
@@ -199,13 +200,13 @@ def run_greedy(
                     candidate_delta = round_delta_by_name.get(candidate.name)
                     if candidate_delta is not None and candidate_delta < -prune_threshold:
                         continue
-                if reject_streak.get(candidate.name, 0) >= 2:
+                if reject_streak.get(candidate.name, 0) >= reject_streak_limit:
                     streak_pruned += 1
                     continue
                 next_remaining.append(candidate)
             remaining = next_remaining
             if streak_pruned:
-                log.info("  Pruned %d persistently-rejected candidates (2+ consecutive).", streak_pruned)
+                log.info("  Pruned %d persistently-rejected candidates (%d+ consecutive).", streak_pruned, reject_streak_limit)
 
             if checkpoint_path:
                 save_greedy_checkpoint(

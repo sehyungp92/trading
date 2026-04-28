@@ -274,6 +274,10 @@ class DownturnEngine:
         self._progressive_sma_warmup: bool = False
         # R6 Rev2: Bars since last entry fill (for momentum cooldown gate)
         self._bars_since_last_entry: int = 999
+        # Early abort when portfolio DD exceeds threshold (optimizer perf)
+        self._max_dd_abort: float = config.max_dd_abort
+        self._peak_equity: float = config.initial_equity
+        self._abort: bool = False
 
         # Incremental indicators (O(1) per boundary update)
         self._inc_atr_15m = IncrementalATR(14)
@@ -425,6 +429,16 @@ class DownturnEngine:
             self._current_equity = cfg.initial_equity + self._realized_pnl + mark_pnl
             equity_curve[t] = self._current_equity
 
+            # Early abort: stop backtest if portfolio DD exceeds threshold
+            if self._max_dd_abort > 0:
+                if self._current_equity > self._peak_equity:
+                    self._peak_equity = self._current_equity
+                elif self._peak_equity > 0:
+                    dd = (self._peak_equity - self._current_equity) / self._peak_equity
+                    if dd > self._max_dd_abort:
+                        self._abort = True
+                        break
+
         # Close any remaining position at last close
         if self._position is not None:
             self._force_close(five_min.closes[-1], n - 1, correction_windows)
@@ -433,8 +447,8 @@ class DownturnEngine:
             symbol=self.symbol,
             trades=self._trades,
             signal_events=self._signals,
-            decision_stream=normalize_decision_stream(self._decision_events),
-            trade_outcomes=normalize_trade_outcome_stream(self._trades),
+            decision_stream=[] if cfg.skip_parity_output else normalize_decision_stream(self._decision_events),
+            trade_outcomes=[] if cfg.skip_parity_output else normalize_trade_outcome_stream(self._trades),
             equity_curve=equity_curve,
             timestamps=five_min.times,
             total_commission=self._total_commission,
@@ -465,7 +479,8 @@ class DownturnEngine:
             on_fill=downturn_core_logic.on_fill,
         )
         self._core_state = result.state
-        self._decision_events.extend(result.events)
+        if not self.config.skip_parity_output:
+            self._decision_events.extend(result.events)
         return result
 
     # -------------------------------------------------------------------

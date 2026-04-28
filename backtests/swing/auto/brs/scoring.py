@@ -68,9 +68,46 @@ class BRSMetrics:
     non_downturn_net_pnl_share: float = 0.0
 
 
+DEFAULT_SCALES: dict[str, float] = {
+    "np_log_base": 1.8,
+    "pf_divisor": 2.0,
+    "calmar_divisor": 6.0,
+    "inv_dd_divisor": 0.15,
+    "bear_alpha_divisor": 25.0,
+    "freq_divisor": 120.0,
+}
+
+
+def compute_rescaled_targets(metrics: BRSMetrics, target_score: float = 0.5) -> dict[str, float]:
+    """Compute scale overrides so each component of `metrics` maps to `target_score`.
+
+    Use this to re-center scoring after ablation so the phased optimizer
+    has full dynamic range.
+    """
+    scales: dict[str, float] = {}
+    np_return = max(metrics.net_return_pct / 100.0, 0.0)
+    if np_return > 0.01:
+        # log(1+r)/log(base) = target  =>  base = (1+r)^(1/target)
+        scales["np_log_base"] = (1.0 + np_return) ** (1.0 / target_score)
+    if metrics.profit_factor > 1.05:
+        # (PF-1)/div = target  =>  div = (PF-1)/target
+        scales["pf_divisor"] = (metrics.profit_factor - 1.0) / target_score
+    if metrics.calmar > 0.1:
+        scales["calmar_divisor"] = metrics.calmar / target_score
+    if metrics.max_dd_pct > 0.005:
+        # 1 - DD/div = target  =>  div = DD/(1-target)
+        scales["inv_dd_divisor"] = metrics.max_dd_pct / (1.0 - target_score)
+    if metrics.bear_alpha_pct > 1.0:
+        scales["bear_alpha_divisor"] = metrics.bear_alpha_pct / target_score
+    if metrics.total_trades > 5:
+        scales["freq_divisor"] = metrics.total_trades / target_score
+    return scales
+
+
 def composite_score(
     metrics: BRSMetrics,
     weights: dict[str, float] | None = None,
+    scale_overrides: dict[str, float] | None = None,
 ) -> BRSCompositeScore:
     if metrics.total_trades < 10:
         return BRSCompositeScore(rejected=True, reject_reason=f"Too few campaigns: {metrics.total_trades} < 10")
@@ -85,6 +122,8 @@ def composite_score(
             ),
         )
 
+    s = {**DEFAULT_SCALES, **(scale_overrides or {})}
+
     w = weights or {}
     w_np = w.get("net_profit", W_NET_PROFIT)
     w_pf = w.get("pf", W_PF)
@@ -95,12 +134,12 @@ def composite_score(
     w_dq = w.get("detection_quality", W_DETECTION)
 
     np_return = max(metrics.net_return_pct / 100.0, 0.0)
-    np_c = _clip01(math.log(1.0 + np_return) / math.log(4.0))
-    pf_c = _clip01((metrics.profit_factor - 1.0) / 2.0)
-    calmar_c = _clip01(metrics.calmar / 10.0)
-    inv_dd_c = _clip01(1.0 - metrics.max_dd_pct / 0.30)
-    bear_alpha_c = _clip01(metrics.bear_alpha_pct / 20.0)
-    freq_c = _clip01(metrics.total_trades / 80.0)
+    np_c = _clip01(math.log(1.0 + np_return) / math.log(s["np_log_base"]))
+    pf_c = _clip01((metrics.profit_factor - 1.0) / s["pf_divisor"])
+    calmar_c = _clip01(metrics.calmar / s["calmar_divisor"])
+    inv_dd_c = _clip01(1.0 - metrics.max_dd_pct / s["inv_dd_divisor"])
+    bear_alpha_c = _clip01(metrics.bear_alpha_pct / s["bear_alpha_divisor"])
+    freq_c = _clip01(metrics.total_trades / s["freq_divisor"])
     bias_lat_score = _clip01(1.0 - metrics.bias_latency_days / 20.0)
     trade_lat_score = _clip01(1.0 - metrics.detection_latency_days / 30.0)
     coverage_score = _clip01(metrics.crisis_coverage)

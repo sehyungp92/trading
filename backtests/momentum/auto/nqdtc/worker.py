@@ -39,6 +39,10 @@ def init_worker(data_dir_str: str, equity: float) -> None:
         initial_equity=equity,
         data_dir=data_dir,
         fixed_qty=10,
+        track_signals=False,
+        track_shadows=False,
+        scoring_mode=True,
+        max_dd_abort=0.50,
     )
     data_dir_key = str(data_dir.resolve())
     if _worker_data is None or _worker_data_dir_key != data_dir_key:

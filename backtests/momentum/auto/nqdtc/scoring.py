@@ -1,15 +1,16 @@
-"""NQDTC composite scoring -- 7 orthogonal components targeting diagnosed weaknesses.
+"""NQDTC composite scoring -- 8 orthogonal components (post-audit recalibrated).
 
-Components map to NQDTC structural weaknesses:
-  net_profit    (25%): overall profitability (log-scaled)
-  pf            (15%): profit factor consistency
-  calmar        (15%): return/drawdown ratio
-  inv_dd        (10%): inverse max drawdown
-  frequency     (15%): trade count (penalizes over-filtering)
-  capture       (10%): MFE capture ratio (winners exit_R / MFE)
+Components (BASE_WEIGHTS):
+  net_profit    (15%): log-scaled profitability (1.0 at 300% return)
+  pf            (20%): profit factor (1.0 at PF=2.5)
+  calmar        (10%): return/drawdown ratio (1.0 at calmar=8)
+  inv_dd        (15%): inverse max drawdown (1.0 at 0% DD)
+  frequency     (10%): trade count (1.0 at 150 trades)
+  capture       ( 5%): MFE capture ratio (winners exit_R / MFE)
+  sortino       (15%): sortino ratio (1.0 at sortino=4)
   entry_quality (10%): WR * clipped avgR -- balanced signal quality
 
-Hard rejects: <15 trades, DD > 35%, PF < 0.80.
+Hard rejects (configurable per-phase): min_trades, max_dd_pct, min_pf.
 """
 from __future__ import annotations
 
@@ -80,13 +81,13 @@ class NQDTCCompositeScore:
 
 
 BASE_WEIGHTS = {
-    "net_profit": 0.20,
-    "pf": 0.15,
-    "calmar": 0.15,
-    "inv_dd": 0.10,
+    "net_profit": 0.15,
+    "pf": 0.20,
+    "calmar": 0.10,
+    "inv_dd": 0.15,
     "frequency": 0.10,
-    "capture": 0.10,
-    "sortino": 0.10,
+    "capture": 0.05,
+    "sortino": 0.15,
     "entry_quality": 0.10,
 }
 
@@ -98,48 +99,50 @@ def _clip01(x: float) -> float:
 def composite_score(
     metrics: NQDTCMetrics,
     weight_overrides: dict[str, float] | None = None,
+    hard_rejects: dict[str, float] | None = None,
 ) -> NQDTCCompositeScore:
-    """Compute 7-component composite score for NQDTC."""
+    """Compute 8-component composite score for NQDTC."""
     w = dict(BASE_WEIGHTS)
     if weight_overrides:
         w.update(weight_overrides)
 
-    # Hard rejects (immutable across phases -- caller may override via hard_rejects)
-    if metrics.total_trades < 15:
+    # Configurable hard rejects
+    hr = hard_rejects or {"min_trades": 15, "max_dd_pct": 0.35, "min_pf": 0.80}
+    if metrics.total_trades < hr.get("min_trades", 15):
         return NQDTCCompositeScore(
             rejected=True, reject_reason=f"too_few_trades ({metrics.total_trades})",
         )
-    if metrics.max_dd_pct > 0.35:
+    if metrics.max_dd_pct > hr.get("max_dd_pct", 0.35):
         return NQDTCCompositeScore(
             rejected=True, reject_reason=f"max_dd_exceeded ({metrics.max_dd_pct:.2%})",
         )
-    if metrics.profit_factor < 0.80:
+    if metrics.profit_factor < hr.get("min_pf", 0.80):
         return NQDTCCompositeScore(
             rejected=True, reject_reason=f"low_pf ({metrics.profit_factor:.2f})",
         )
 
-    # --- Components ---
+    # --- Components (post-audit recalibrated scales) ---
 
-    # Net profit: log scale, 1.0 at 800% return (log(9)/log(9))
-    net_profit_c = _clip01(math.log(1 + max(metrics.net_return_pct, 0) / 100) / math.log(9))
+    # Net profit: log scale, 1.0 at 300% return (log(4)/log(4))
+    net_profit_c = _clip01(math.log(1 + max(metrics.net_return_pct, 0) / 100) / math.log(4))
 
-    # Profit factor: (PF-1)/2, 1.0 at PF=3
-    pf_c = _clip01((metrics.profit_factor - 1) / 2.0)
+    # Profit factor: (PF-1)/1.5, 1.0 at PF=2.5
+    pf_c = _clip01((metrics.profit_factor - 1) / 1.5)
 
-    # Calmar: calmar/18, 1.0 at calmar=18 (baseline 10.7 -> 0.59)
-    calmar_c = _clip01(metrics.calmar / 18.0)
+    # Calmar: calmar/8, 1.0 at calmar=8
+    calmar_c = _clip01(metrics.calmar / 8.0)
 
-    # Inverse drawdown: 1 - DD/0.25, 1.0 at 0% DD
-    inv_dd_c = _clip01(1 - metrics.max_dd_pct / 0.25)
+    # Inverse drawdown: 1 - DD/0.30, 1.0 at 0% DD
+    inv_dd_c = _clip01(1 - metrics.max_dd_pct / 0.30)
 
-    # Frequency: trades/300, 1.0 at 300 trades
-    frequency_c = _clip01(metrics.total_trades / 300.0)
+    # Frequency: trades/150, 1.0 at 150 trades
+    frequency_c = _clip01(metrics.total_trades / 150.0)
 
     # Capture: mean(winner_R / winner_MFE), direct 0-1 ratio
     capture_c = _clip01(metrics.capture_ratio)
 
-    # Sortino: sortino/8, 1.0 at sortino=8
-    sortino_c = _clip01(metrics.sortino / 8.0)
+    # Sortino: sortino/4, 1.0 at sortino=4
+    sortino_c = _clip01(metrics.sortino / 4.0)
 
     # Entry quality: WR * min(1+avgR, 2) / 2
     entry_quality_c = _clip01(
@@ -153,7 +156,7 @@ def composite_score(
         + w["inv_dd"] * inv_dd_c
         + w["frequency"] * frequency_c
         + w["capture"] * capture_c
-        + w.get("sortino", 0.0) * sortino_c
+        + w["sortino"] * sortino_c
         + w["entry_quality"] * entry_quality_c
     )
 

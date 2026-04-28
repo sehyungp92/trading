@@ -146,6 +146,13 @@ QUALITY_MULT_MIN = 0.50
 QUALITY_MULT_MAX = 1.00
 RISK_FLOOR_FRAC = 0.15      # risk floor = 0.15 * base_risk_pct
 
+# Post-audit composite regime blocking (Step 0a)
+# When True, entries in that composite regime are hard-blocked (not just sized down)
+BLOCK_NEUTRAL_REGIME = False
+BLOCK_ALIGNED_REGIME = False
+BLOCK_CAUTION_REGIME = False
+SCORE_NON_RANGE_MULT = 1.0     # score threshold multiplier for non-Range regimes
+
 # ---------------------------------------------------------------------------
 # Entries (Section 16)
 # ---------------------------------------------------------------------------

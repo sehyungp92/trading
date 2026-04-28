@@ -36,7 +36,7 @@ if sys.stdout.encoding != "utf-8":
 # ── Defaults ──────────────────────────────────────────────────���───────────────
 
 DATA_DIR = Path("backtests/stock/data/raw")
-DEFAULT_OUTPUT_DIR = Path("backtests/stock/auto/iaric_pullback/output_v2_baseline")
+DEFAULT_OUTPUT_DIR = Path("backtests/stock/auto/iaric/output_v2_baseline")
 START_DATE = "2024-01-01"
 END_DATE = "2026-03-01"
 INITIAL_EQUITY = 10_000.0
@@ -88,7 +88,7 @@ def _run_baseline(
         pullback_full_diagnostic,
     )
     from backtests.stock.auto.config_mutator import mutate_iaric_config
-    from backtests.stock.auto.iaric_pullback.phase_scoring import (
+    from backtests.stock.auto.iaric.phase_scoring import (
         enrich_phase_score_metrics,
         merge_pullback_metrics,
     )

@@ -1,9 +1,14 @@
 """ATRSS per-phase candidate experiments.
 
-Phase 1: Exit Cleanup (26 candidates)
-Phase 2: Signal & Filtering (20 candidates)
-Phase 3: Entry & Fill Optimization (20 candidates)
-Phase 4: Sizing & Fine-tune (16 static + ~14 dynamic)
+R1 phases (original independent-account mode):
+  Phase 1: Exit Cleanup (26 candidates)
+  Phase 2: Signal & Filtering (20 candidates)
+  Phase 3: Entry & Fill Optimization (20 candidates)
+  Phase 4: Sizing & Fine-tune (16 static + ~14 dynamic)
+
+R9 phases (synchronized/fee-net mode):
+  Phase 1: Structural Fixes (targeting capital blocking, symbol selection, sizing)
+  Phase 2-4: Reuses R1 Phase 1-3 candidates with R9 scoring
 """
 from __future__ import annotations
 
@@ -13,13 +18,43 @@ def get_phase_candidates(
     prior_mutations: dict | None = None,
     suggested_experiments: list[tuple[str, dict]] | None = None,
 ) -> list[tuple[str, dict]]:
-    """Get experiment candidates for a specific phase."""
+    """Get experiment candidates for a specific phase (R1 mode)."""
     if phase == 1:
         candidates = _phase_1_candidates()
     elif phase == 2:
         candidates = _phase_2_candidates()
     elif phase == 3:
         candidates = _phase_3_candidates()
+    elif phase == 4:
+        candidates = _phase_4_candidates(prior_mutations or {})
+    else:
+        candidates = []
+
+    if suggested_experiments:
+        existing_names = {name for name, _ in candidates}
+        for name, muts in suggested_experiments:
+            if name not in existing_names:
+                candidates.append((name, muts))
+
+    return candidates
+
+
+def get_r9_phase_candidates(
+    phase: int,
+    prior_mutations: dict | None = None,
+    suggested_experiments: list[tuple[str, dict]] | None = None,
+) -> list[tuple[str, dict]]:
+    """Get experiment candidates for R9 synchronized mode.
+
+    Phase 1: Structural fixes targeting diagnosed weaknesses.
+    Phase 2-4: Reuses R1 exit/signal/finetune candidates.
+    """
+    if phase == 1:
+        candidates = _r9_phase_1_structural()
+    elif phase == 2:
+        candidates = _phase_1_candidates()  # R1 exit cleanup as R9 Phase 2
+    elif phase == 3:
+        candidates = _phase_2_candidates()  # R1 signal filtering as R9 Phase 3
     elif phase == 4:
         candidates = _phase_4_candidates(prior_mutations or {})
     else:
@@ -240,3 +275,69 @@ def _dynamic_finetune(prior_mutations: dict) -> list[tuple[str, dict]]:
             finetune.append((name, {key: new_val}))
 
     return finetune
+
+
+# ---------------------------------------------------------------------------
+# R9 Phase 1: Structural Fixes (targeting diagnosed weaknesses)
+# ---------------------------------------------------------------------------
+
+def _r9_phase_1_structural() -> list[tuple[str, dict]]:
+    """R9 structural candidates targeting post-audit collapse root causes.
+
+    Root causes diagnosed:
+      1. QQQ's 4 trades (0% WR, avg hold 335 bars) block shared capital
+      2. $1/contract commission eats 63% of GLD gross profit at fixed_qty=10
+      3. Independent-mode capital isolation was masking QQQ destroys value
+    """
+    candidates = []
+
+    # --- Symbol selection (1) ---
+    # Validate Phase 0 finding that GLD-only removes QQQ capital drag
+    candidates.append(("gld_only", {"symbols": ["GLD"]}))
+
+    # --- Max hold caps (3) ---
+    # Prevent QQQ capital hostage (1140-bar hold = ~71 days)
+    candidates.append(("max_hold_48h", {"param_overrides.max_hold_hours": 48}))
+    candidates.append(("max_hold_80h", {"param_overrides.max_hold_hours": 80}))
+    candidates.append(("max_hold_120h", {"param_overrides.max_hold_hours": 120}))
+
+    # --- Sizing: reduce commission burden (3) ---
+    # At fixed_qty=10, $1 commission = 63% of GLD gross.
+    # Larger qty makes commission a smaller % of risk.
+    candidates.append(("fixed_qty_20", {"fixed_qty": 20}))
+    candidates.append(("fixed_qty_50", {"fixed_qty": 50}))
+    candidates.append(("dynamic_sizing", {"fixed_qty": None}))  # equity-based
+
+    # --- Stall aggressiveness: free capital faster (3) ---
+    candidates.append(("stall_24h_mfe03", {
+        "flags.early_stall_exit": True,
+        "param_overrides.early_stall_check_hours": 24,
+        "param_overrides.early_stall_mfe_threshold": 0.30,
+    }))
+    candidates.append(("stall_12h_mfe02", {
+        "flags.early_stall_exit": True,
+        "param_overrides.early_stall_check_hours": 12,
+        "param_overrides.early_stall_mfe_threshold": 0.20,
+    }))
+    candidates.append(("stall_6h_mfe02", {
+        "flags.early_stall_exit": True,
+        "param_overrides.early_stall_check_hours": 6,
+        "param_overrides.early_stall_mfe_threshold": 0.20,
+    }))
+
+    # --- Portfolio heat: allow more simultaneous positions (2) ---
+    candidates.append(("heat_10pct", {"param_overrides.max_portfolio_heat": 0.10}))
+    candidates.append(("heat_15pct", {"param_overrides.max_portfolio_heat": 0.15}))
+
+    # --- Risk reduction: less heat per position (2) ---
+    candidates.append(("base_risk_005", {"param_overrides.base_risk_pct": 0.005}))
+    candidates.append(("base_risk_003", {"param_overrides.base_risk_pct": 0.003}))
+
+    # --- Commission reduction (2) ---
+    candidates.append(("comm_050", {"slippage.commission_per_contract": 0.50}))
+    candidates.append(("comm_035", {"slippage.commission_per_contract": 0.35}))
+
+    # --- Full stall re-enable (1) ---
+    candidates.append(("reenable_full_stall", {"flags.stall_exit": True}))
+
+    return candidates

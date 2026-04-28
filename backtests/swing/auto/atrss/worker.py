@@ -2,6 +2,10 @@
 
 Workers load data ONCE at pool creation (init_worker) and reuse across all phases.
 Phase/weights/rejects are passed per-call via score_candidate args.
+
+Supports two modes:
+  - "independent": Each symbol runs its own engine (fast, original R1 mode).
+  - "synchronized": All symbols step together with portfolio allocation (honest R9 mode).
 """
 from __future__ import annotations
 
@@ -17,15 +21,28 @@ from backtests.shared.auto.types import ScoredCandidate
 _worker_data = None
 _worker_config = None
 _worker_equity: float = 0.0
+_worker_mode: str = "independent"
+_worker_profile: str = "r1_independent"
 
 
-def init_worker(data_dir_str: str, equity: float) -> None:
+def init_worker(
+    data_dir_str: str,
+    equity: float,
+    mode: str = "independent",
+    symbols: list[str] | None = None,
+) -> None:
     """Initialize worker process: install aliases, load data, create base config.
 
     Called once per worker at pool creation. Data is loaded here and reused
     for all subsequent score_candidate calls across all phases.
+
+    Args:
+        data_dir_str: Path to data directory.
+        equity: Initial equity.
+        mode: "independent" or "synchronized".
+        symbols: List of symbols to load (default: ["QQQ", "GLD"]).
     """
-    global _worker_data, _worker_config, _worker_equity
+    global _worker_data, _worker_config, _worker_equity, _worker_mode, _worker_profile
 
     if sys.stdout.encoding != "utf-8":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -36,10 +53,13 @@ def init_worker(data_dir_str: str, equity: float) -> None:
     logging.getLogger("backtest.engine.backtest_engine").setLevel(logging.WARNING)
 
     _worker_equity = equity
+    _worker_mode = mode
+    _worker_profile = "r9_synchronized" if mode == "synchronized" else "r1_independent"
     data_dir = Path(data_dir_str)
+    sym_list = symbols or ["QQQ", "GLD"]
 
     _worker_config = BacktestConfig(
-        symbols=["QQQ", "GLD"],
+        symbols=sym_list,
         initial_equity=equity,
         fixed_qty=10,
         data_dir=data_dir,
@@ -49,7 +69,7 @@ def init_worker(data_dir_str: str, equity: float) -> None:
 
     from backtests.swing.data.replay_cache import load_atrss_replay_bundle
 
-    _worker_data = load_atrss_replay_bundle(data_dir).data
+    _worker_data = load_atrss_replay_bundle(data_dir, symbols=tuple(sym_list)).data
 
 
 def score_candidate(args: tuple) -> ScoredCandidate:
@@ -64,14 +84,18 @@ def score_candidate(args: tuple) -> ScoredCandidate:
     name, candidate_muts, base_muts, phase, scoring_weights, hard_rejects = args
 
     try:
-        from backtests.swing.engine.portfolio_engine import run_independent
+        from backtests.swing.engine.portfolio_engine import run_independent, run_synchronized
         from backtests.swing.auto.config_mutator import mutate_atrss_config
 
         all_muts = dict(base_muts)
         all_muts.update(candidate_muts)
 
         config = mutate_atrss_config(_worker_config, all_muts)
-        result = run_independent(_worker_data, config)
+
+        if _worker_mode == "synchronized":
+            result = run_synchronized(_worker_data, config)
+        else:
+            result = run_independent(_worker_data, config)
 
         from backtests.swing.auto.atrss.scoring import extract_atrss_metrics
         metrics = extract_atrss_metrics(result, _worker_equity)
@@ -82,10 +106,11 @@ def score_candidate(args: tuple) -> ScoredCandidate:
                 phase, metrics,
                 weight_overrides=scoring_weights,
                 hard_rejects=hard_rejects,
+                profile=_worker_profile,
             )
         else:
             from .scoring import composite_score
-            score = composite_score(metrics, hard_rejects=hard_rejects)
+            score = composite_score(metrics, hard_rejects=hard_rejects, profile=_worker_profile)
 
         return ScoredCandidate(
             name=name,

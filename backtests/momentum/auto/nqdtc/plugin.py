@@ -1,7 +1,7 @@
 """NQDTC phased auto-optimization plugin.
 
 Implements the StrategyPlugin protocol for the shared PhaseRunner framework.
-4 phases targeting exit optimization, signal discrimination, timing/clustering,
+4 phases targeting regime filtering, signal quality, timing/exit,
 and fine-tuning with no-regression protection.
 """
 from __future__ import annotations
@@ -29,66 +29,63 @@ from backtests.shared.auto.plugin_utils import (
 )
 from backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion, PhaseDecision
 
+import logging
+
 from .phase_candidates import get_phase_candidates
 from .phase_gates import gate_criteria_for_phase
+
+_seq_log = logging.getLogger("nqdtc.sequential")
 
 # ---------------------------------------------------------------------------
 # Phase-specific scoring weights (7-component)
 # ---------------------------------------------------------------------------
 
 PHASE_WEIGHTS: dict[int, dict[str, float] | None] = {
-    1: {  # Exit optimization: heavy capture, preserve returns
-        "net_profit": 0.18, "pf": 0.15, "calmar": 0.08,
-        "inv_dd": 0.08, "frequency": 0.08,
-        "capture": 0.20, "sortino": 0.13, "entry_quality": 0.10,
+    1: {  # Regime filtering: eliminate losing regimes -> heavy PF + inv_dd
+        "net_profit": 0.10, "pf": 0.25, "calmar": 0.05,
+        "inv_dd": 0.20, "frequency": 0.10,
+        "capture": 0.05, "sortino": 0.10, "entry_quality": 0.15,
     },
-    2: {  # Signal discrimination: heavy frequency + entry_quality
-        "net_profit": 0.15, "pf": 0.12, "calmar": 0.10,
-        "inv_dd": 0.08, "frequency": 0.18,
-        "capture": 0.05, "sortino": 0.12, "entry_quality": 0.20,
-    },
-    3: {  # Timing & clustering: heavy calmar + inv_dd + sortino
-        "net_profit": 0.15, "pf": 0.12, "calmar": 0.15,
-        "inv_dd": 0.13, "frequency": 0.10,
-        "capture": 0.05, "sortino": 0.15, "entry_quality": 0.15,
-    },
-    4: {  # Fine-tune: balanced (base weights)
-        "net_profit": 0.20, "pf": 0.15, "calmar": 0.15,
+    2: {  # Signal quality: heavy entry_quality + sortino
+        "net_profit": 0.10, "pf": 0.15, "calmar": 0.05,
         "inv_dd": 0.10, "frequency": 0.10,
-        "capture": 0.10, "sortino": 0.10, "entry_quality": 0.10,
+        "capture": 0.05, "sortino": 0.15, "entry_quality": 0.30,
     },
-    6: {  # Exit alpha: heavy capture, tight no-regression
-        "net_profit": 0.15, "pf": 0.10, "calmar": 0.15,
-        "inv_dd": 0.10, "frequency": 0.05,
-        "capture": 0.25, "sortino": 0.10, "entry_quality": 0.10,
+    3: {  # Timing & exit: heavy sortino + capture + calmar
+        "net_profit": 0.10, "pf": 0.10, "calmar": 0.15,
+        "inv_dd": 0.10, "frequency": 0.10,
+        "capture": 0.15, "sortino": 0.20, "entry_quality": 0.10,
+    },
+    4: {  # Fine-tune: balanced, close to BASE_WEIGHTS
+        "net_profit": 0.15, "pf": 0.20, "calmar": 0.10,
+        "inv_dd": 0.15, "frequency": 0.10,
+        "capture": 0.05, "sortino": 0.15, "entry_quality": 0.10,
     },
 }
 
 PHASE_HARD_REJECTS: dict[int, dict[str, float]] = {
-    1: {"max_dd_pct": 0.35, "min_trades": 15, "min_pf": 0.80},
-    2: {"max_dd_pct": 0.30, "min_trades": 20, "min_pf": 0.90},
-    3: {"max_dd_pct": 0.25, "min_trades": 20, "min_pf": 1.0},
-    4: {"max_dd_pct": 0.22, "min_trades": 25, "min_pf": 1.0, "min_sortino": 1.0},
-    6: {"max_dd_pct": 0.20, "min_trades": 150, "min_pf": 2.0, "min_sortino": 5.0},
+    1: {"max_dd_pct": 0.45, "min_trades": 10, "min_pf": 0.70},
+    2: {"max_dd_pct": 0.35, "min_trades": 15, "min_pf": 0.90},
+    3: {"max_dd_pct": 0.30, "min_trades": 15, "min_pf": 1.00},
+    4: {"max_dd_pct": 0.25, "min_trades": 15, "min_pf": 1.00},
 }
 
 PHASE_FOCUS = {
-    1: ("Exit Optimization", ["capture_ratio", "profit_factor", "net_return_pct", "sortino"]),
-    2: ("Signal Discrimination", ["total_trades", "win_rate", "entry_quality", "sortino"]),
-    3: ("Timing & Clustering", ["calmar", "max_dd_pct", "burst_trade_pct", "sortino"]),
-    4: ("Fine-tune", ["calmar", "net_return_pct", "sortino"]),
-    6: ("Exit Alpha", ["capture_ratio", "net_return_pct", "sortino", "max_dd_pct"]),
+    1: ("Regime Filtering", ["profit_factor", "max_dd_pct", "net_return_pct"]),
+    2: ("Signal Quality", ["entry_quality", "win_rate", "profit_factor"]),
+    3: ("Timing & Exit", ["sortino", "calmar", "capture_ratio"]),
+    4: ("Fine-Tune", ["net_return_pct", "profit_factor", "sortino"]),
 }
 
 ULTIMATE_TARGETS = {
-    "net_return_pct": 700.0,
-    "profit_factor": 2.5,
-    "max_dd_pct": 0.08,
-    "calmar": 15.0,
-    "total_trades": 300.0,
-    "capture_ratio": 0.45,
-    "win_rate": 0.55,
-    "sharpe": 2.5,
+    "net_return_pct": 150.0,
+    "profit_factor": 2.0,
+    "max_dd_pct": 0.15,
+    "calmar": 5.0,
+    "total_trades": 120.0,
+    "capture_ratio": 0.40,
+    "win_rate": 0.52,
+    "sharpe": 1.5,
 }
 
 
@@ -98,27 +95,16 @@ def score_phase_metrics(
     weight_overrides: dict[str, float] | None = None,
     hard_rejects: dict[str, float] | None = None,
 ) -> NQDTCCompositeScore:
-    from .scoring import NQDTCCompositeScore, composite_score
+    from .scoring import composite_score
 
     rejects = hard_rejects or PHASE_HARD_REJECTS.get(phase, {})
-    if metrics.total_trades < rejects.get("min_trades", 15):
-        return NQDTCCompositeScore(rejected=True, reject_reason=f"phase{phase}_too_few_trades ({metrics.total_trades})")
-    if metrics.max_dd_pct > rejects.get("max_dd_pct", 0.35):
-        return NQDTCCompositeScore(rejected=True, reject_reason=f"phase{phase}_max_dd ({metrics.max_dd_pct:.2%})")
-    if "min_pf" in rejects and metrics.profit_factor < rejects["min_pf"]:
-        return NQDTCCompositeScore(rejected=True, reject_reason=f"phase{phase}_low_pf ({metrics.profit_factor:.2f})")
-    if "min_sharpe" in rejects and metrics.sharpe < rejects["min_sharpe"]:
-        return NQDTCCompositeScore(rejected=True, reject_reason=f"phase{phase}_low_sharpe ({metrics.sharpe:.2f})")
-    if "min_sortino" in rejects and metrics.sortino < rejects["min_sortino"]:
-        return NQDTCCompositeScore(rejected=True, reject_reason=f"phase{phase}_low_sortino ({metrics.sortino:.2f})")
-
     weights = PHASE_WEIGHTS.get(phase)
     if weight_overrides:
         base = dict(weights or {})
         base.update(weight_overrides)
         total = sum(base.values())
         weights = {k: v / total for k, v in base.items()} if total > 0 else base
-    return composite_score(metrics, weights)
+    return composite_score(metrics, weights, hard_rejects=rejects)
 
 
 # ---------------------------------------------------------------------------
@@ -154,7 +140,9 @@ class _SharedPoolBatchEvaluator:
             (c.name, c.mutations, current_mutations, self._phase, self._scoring_weights, self._hard_rejects)
             for c in candidates
         ]
-        return self._pool.map(score_candidate, args)
+        # 5-minute timeout per candidate to avoid infinite hangs on Windows
+        timeout = max(300, len(candidates) * 300)
+        return self._pool.map_async(score_candidate, args).get(timeout=timeout)
 
     def close(self) -> None:
         pass  # Pool stays alive for reuse across phases
@@ -189,10 +177,14 @@ class _SequentialBatchEvaluator:
     def __call__(self, candidates: list[Experiment], current_mutations: dict[str, Any]):
         self._ensure_init()
         from .worker import score_candidate
-        return [
-            score_candidate((c.name, c.mutations, current_mutations, self._phase, self._scoring_weights, self._hard_rejects))
-            for c in candidates
-        ]
+        results = []
+        total = len(candidates)
+        for i, c in enumerate(candidates, 1):
+            r = score_candidate((c.name, c.mutations, current_mutations, self._phase, self._scoring_weights, self._hard_rejects))
+            tag = f"score={r.score:.4f}" if not r.rejected else f"REJECTED({r.reject_reason})"
+            _seq_log.info("[%d/%d] %s -- %s", i, total, c.name, tag)
+            results.append(r)
+        return results
 
     def close(self) -> None:
         pass
@@ -295,7 +287,13 @@ class NQDTCPlugin:
                 scoring_weights, hard_rejects,
             )
 
-        raw = ResilientBatchEvaluator(make_parallel, make_sequential, description=f"nqdtc phase {phase}")
+        # On Windows (spawn), mp.Pool re-imports everything + reloads data per
+        # worker -- extremely slow and often hangs.  Skip parallel entirely when
+        # max_workers <= 1 to avoid the overhead.
+        if self.max_workers is not None and self.max_workers <= 1:
+            raw = make_sequential()
+        else:
+            raw = ResilientBatchEvaluator(make_parallel, make_sequential, description=f"nqdtc phase {phase}")
         return CachedBatchEvaluator(
             raw,
             cache=self._evaluation_cache,
@@ -499,22 +497,28 @@ class NQDTCPlugin:
 
         weakness_text = " ".join(weaknesses).lower()
 
-        # Capture ratio low
-        if m.capture_ratio < 0.35:
-            add("suggest_tp1_r_1.0", {"param_overrides.TP1_R": 1.0})
-            add("suggest_chandelier_2.0", {"param_overrides.CHANDELIER_ATR_MULT": 2.0})
-            add("suggest_tp2_3.0R", {"param_overrides.TP2_R": 3.0, "param_overrides.TP2_PARTIAL_PCT": 0.25})
-
-        # Low trade count
-        if m.total_trades < 200 or "trade count" in weakness_text:
-            add("suggest_loosen_disp", {"flags.displacement_threshold": False})
-            add("suggest_loosen_score", {"flags.score_threshold": False})
-            add("suggest_lower_score_0.5", {"param_overrides.SCORE_NORMAL": 0.5})
+        # Low PF / negative expectancy in non-Range regimes
+        if m.profit_factor < 1.3 or "profit_factor" in weakness_text:
+            add("suggest_block_neutral", {"param_overrides.BLOCK_NEUTRAL_REGIME": True})
+            add("suggest_block_neutral_aligned", {
+                "param_overrides.BLOCK_NEUTRAL_REGIME": True,
+                "param_overrides.BLOCK_ALIGNED_REGIME": True,
+            })
+            add("suggest_score_non_range_2x", {"param_overrides.SCORE_NON_RANGE_MULT": 2.0})
 
         # High drawdown
-        if m.max_dd_pct > 0.12 or "drawdown" in weakness_text:
+        if m.max_dd_pct > 0.20 or "drawdown" in weakness_text:
             add("suggest_lower_risk_0.006", {"param_overrides.BASE_RISK_PCT": 0.006})
-            add("suggest_neutral_cut_0.35", {"param_overrides.regime_mult_neutral": 0.35})
+            add("suggest_range_only", {
+                "param_overrides.BLOCK_NEUTRAL_REGIME": True,
+                "param_overrides.BLOCK_ALIGNED_REGIME": True,
+                "param_overrides.BLOCK_CAUTION_REGIME": True,
+            })
+
+        # Capture ratio low
+        if m.capture_ratio < 0.35:
+            add("suggest_tp1_r_1.2", {"param_overrides.TP1_R": 1.2})
+            add("suggest_chandelier_1.5", {"param_overrides.CHANDELIER_ATR_MULT": 1.5})
 
         # Burst clustering
         if m.burst_trade_pct > 0.15 or "burst" in weakness_text:

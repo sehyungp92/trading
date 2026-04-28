@@ -28,73 +28,54 @@ from .phase_candidates import get_phase_candidates
 
 PHASE_WEIGHTS: dict[int, dict[str, float] | None] = {
     1: {
-        "coverage": 0.40,
+        "correction_pnl": 0.30,
+        "regime_purity": 0.18,
+        "edge": 0.15,
+        "risk": 0.15,
         "capture": 0.10,
-        "net_profit": 0.10,
-        "edge": 0.10,
-        "risk": 0.20,
-        "hold": 0.10,
+        "calmar": 0.07,
+        "frequency": 0.05,
     },
     2: {
-        "coverage": 0.15,
-        "capture": 0.35,
-        "net_profit": 0.15,
-        "edge": 0.10,
-        "risk": 0.05,
-        "hold": 0.20,
+        "correction_pnl": 0.28,
+        "edge": 0.22,
+        "capture": 0.22,
+        "risk": 0.12,
+        "regime_purity": 0.06,
+        "calmar": 0.07,
+        "frequency": 0.03,
     },
     3: {
-        "coverage": 0.20,
-        "capture": 0.20,
-        "net_profit": 0.15,
-        "edge": 0.15,
-        "risk": 0.20,
-        "hold": 0.10,
-    },
-    4: {
-        "coverage": 0.25,
-        "capture": 0.20,
-        "net_profit": 0.15,
-        "edge": 0.15,
-        "risk": 0.15,
-        "hold": 0.10,
-    },
-    5: {
-        "coverage": 0.10,
-        "capture": 0.35,
-        "net_profit": 0.20,
-        "edge": 0.10,
-        "risk": 0.15,
-        "hold": 0.10,
+        "risk": 0.25,
+        "correction_pnl": 0.22,
+        "edge": 0.18,
+        "capture": 0.15,
+        "calmar": 0.10,
+        "regime_purity": 0.08,
+        "frequency": 0.02,
     },
 }
 
 PHASE_HARD_REJECTS: dict[int, dict[str, float]] = {
-    1: {"max_dd_pct": 0.45, "min_trades": 5},
-    2: {"max_dd_pct": 0.40, "min_trades": 8},
-    3: {"max_dd_pct": 0.35, "min_trades": 10, "min_pf": 0.8},
-    4: {"max_dd_pct": 0.30, "min_trades": 10, "min_pf": 1.0, "min_sharpe": 0.2},
-    5: {"max_dd_pct": 0.40, "min_trades": 10, "min_pf": 1.0, "min_sharpe": 0.2},
+    1: {"min_trades": 10, "max_dd_pct": 0.35, "min_correction_pnl_pct": 0.0},
+    2: {"min_trades": 15, "max_dd_pct": 0.32, "min_correction_pnl_pct": 0.0},
+    3: {"min_trades": 15, "max_dd_pct": 0.30, "min_pf": 1.0},
 }
 
 PHASE_FOCUS = {
-    1: ("Signal Detection", ["signal_to_entry_ratio", "correction_pnl_pct", "total_trades"]),
-    2: ("Capture", ["exit_efficiency", "profit_factor", "correction_pnl_pct"]),
-    3: ("Risk Control", ["calmar", "max_dd_pct", "sharpe"]),
-    4: ("Fine-tuning", ["calmar", "net_return_pct", "correction_pnl_pct"]),
-    5: ("Exit Management", ["exit_efficiency", "net_return_pct", "profit_factor"]),
+    1: ("Regime Purification", ["correction_pnl_pct", "total_trades", "max_dd_pct"]),
+    2: ("Capture Optimization", ["exit_efficiency", "profit_factor", "correction_pnl_pct"]),
+    3: ("Risk Tuning", ["calmar", "max_dd_pct", "profit_factor"]),
 }
 
 ULTIMATE_TARGETS = {
-    "correction_pnl_pct": 25.0,
+    "correction_pnl_pct": 60.0,
     "profit_factor": 2.0,
-    "net_return_pct": 40.0,
-    "max_dd_pct": 15.0,
+    "net_return_pct": 50.0,
+    "max_dd_pct": 20.0,
     "calmar": 2.0,
-    "sharpe": 0.8,
-    "exit_efficiency": 0.40,
-    "signal_to_entry_ratio": 0.25,
-    "total_trades": 120.0,
+    "exit_efficiency": 0.35,
+    "total_trades": 60.0,
 }
 
 
@@ -107,14 +88,14 @@ def score_phase_metrics(
     from .scoring import DownturnCompositeScore, composite_score
 
     rejects = hard_rejects or PHASE_HARD_REJECTS.get(phase, {})
-    if metrics.total_trades < rejects.get("min_trades", 8):
+    if metrics.total_trades < rejects.get("min_trades", 10):
         return DownturnCompositeScore(rejected=True, reject_reason=f"phase{phase}_too_few_trades ({metrics.total_trades})")
     if metrics.max_dd_pct > rejects.get("max_dd_pct", 0.35):
         return DownturnCompositeScore(rejected=True, reject_reason=f"phase{phase}_max_dd ({metrics.max_dd_pct:.2%})")
     if "min_pf" in rejects and metrics.profit_factor < rejects["min_pf"]:
         return DownturnCompositeScore(rejected=True, reject_reason=f"phase{phase}_low_pf ({metrics.profit_factor:.2f})")
-    if "min_sharpe" in rejects and metrics.sharpe < rejects["min_sharpe"]:
-        return DownturnCompositeScore(rejected=True, reject_reason=f"phase{phase}_low_sharpe ({metrics.sharpe:.2f})")
+    if "min_correction_pnl_pct" in rejects and metrics.correction_pnl_pct < rejects["min_correction_pnl_pct"]:
+        return DownturnCompositeScore(rejected=True, reject_reason=f"phase{phase}_low_corr_pnl ({metrics.correction_pnl_pct:.2f}%)")
 
     weights = PHASE_WEIGHTS.get(phase)
     if weight_overrides:
@@ -193,17 +174,17 @@ class _SequentialBatchEvaluator:
 
 class DownturnPlugin:
     name = "downturn"
-    num_phases = 5
+    num_phases = 3
     ultimate_targets = ULTIMATE_TARGETS
     initial_mutations: dict[str, Any] | None = None
 
     def __init__(
         self,
         data_dir: Path,
-        initial_equity: float = 100_000.0,
+        initial_equity: float = 10_000.0,
         max_workers: int | None = 3,
         *,
-        num_phases: int = 5,
+        num_phases: int = 3,
     ):
         if not 1 <= num_phases <= max(PHASE_FOCUS):
             raise ValueError(
@@ -251,6 +232,7 @@ class DownturnPlugin:
             ),
             max_rounds=50,
             prune_threshold=0.05,
+            reject_streak_limit=1,
         )
 
     def create_evaluate_batch(
@@ -429,19 +411,20 @@ class DownturnPlugin:
             f"{metrics_obj.reversal_trades}/{metrics_obj.breakdown_trades}/{metrics_obj.fade_trades}."
         )
         management = (
-            f"Max drawdown is {metrics_obj.max_dd_pct:.1%}, calmar is {metrics_obj.calmar:.2f}, sharpe is {metrics_obj.sharpe:.2f}."
+            f"Max drawdown is {metrics_obj.max_dd_pct:.1%}, calmar is {metrics_obj.calmar:.2f}."
         )
         exits = (
             f"Exit efficiency is {metrics_obj.exit_efficiency:.2f}; average MFE capture is {metrics_obj.avg_mfe_capture:.2f}. "
             f"Median hold is {metrics_obj.median_hold_5m:.1f} bars."
         )
+        correction_attr = extra.get("correction_attribution", {})
+        regime_purity_ratio = correction_attr.get("ratio", 0.0)
         overall_verdict = (
-            f"Signal extraction {'is' if metrics_obj.correction_pnl_pct >= 25.0 else 'is not yet'} capturing correction-window PnL at the target level "
-            f"({metrics_obj.correction_pnl_pct:.1f}%). "
-            f"Discrimination quality is anchored by signal-to-entry {metrics_obj.signal_to_entry_ratio:.2f} and engine health "
-            f"{', '.join(f'{engine}={status}' for engine, status in extra['engine_health'].items())}. "
-            f"Final trade-management and exit quality should be judged from the full diagnostics with DD {metrics_obj.max_dd_pct:.1%}, "
-            f"calmar {metrics_obj.calmar:.2f}, and exit efficiency {metrics_obj.exit_efficiency:.2f}."
+            f"Correction-capture specialist: correction PnL {metrics_obj.correction_pnl_pct:.1f}% "
+            f"({'meets' if metrics_obj.correction_pnl_pct >= 60.0 else 'below'} target of 60%). "
+            f"Regime purity ratio {regime_purity_ratio:.2f}. "
+            f"PF={metrics_obj.profit_factor:.2f}, DD={metrics_obj.max_dd_pct:.1%}, Calmar={metrics_obj.calmar:.2f}. "
+            f"Exit efficiency {metrics_obj.exit_efficiency:.2f}."
         )
         return EndOfRoundArtifacts(
             final_diagnostics_text=final_diagnostics_text,
@@ -506,35 +489,33 @@ class DownturnPlugin:
                     add("fade_widen_cap_0.40", {"param_overrides.vwap_cap_core": 0.40})
                     add("fade_no_bear_required", {"flags.fade_bear_regime_required": False})
 
-        if "low trade frequency" in weakness_text or metrics_obj.total_trades < 50:
-            add("relax_dead_zones", {"flags.use_dead_zones": False})
-            add("relax_entry_windows", {"flags.use_entry_windows": False})
-            add("relax_friction_gate", {"flags.friction_gate": False})
-            add("wider_regime_neutral", {"param_overrides.regime_mult_neutral": 0.80})
+        # Regime purity suggestions
+        correction_attr = _compute_correction_attribution(self._last_context.get("trades"))
+        if correction_attr.get("non_correction_pnl", 0.0) < -500:
+            add("r2_counter_mult_0", {"param_overrides.regime_mult_counter": 0.0})
+            add("r2_counter_neutral_zero", {
+                "param_overrides.regime_mult_counter": 0.0,
+                "param_overrides.regime_mult_neutral": 0.0,
+            })
 
-        if metrics_obj.correction_pnl_pct < 5.0:
-            add("regime_faster_ema_10", {"param_overrides.ema_fast_period": 10})
-            add("regime_adx_trending_20", {"param_overrides.adx_trending_threshold": 20})
-            add("regime_sma200_150", {"param_overrides.sma200_period": 150})
-
-        if "tp2/tp3 never hit" in weakness_text:
-            add("tp2_lower_2.0R", {"param_overrides.tp2_r_aligned": 2.0})
-            add("tp3_lower_3.5R", {"param_overrides.tp3_r_aligned": 3.5})
-            add("tp1_higher_2.0R", {"param_overrides.tp1_r_aligned": 2.0})
-            add("chandelier_wider_20", {"param_overrides.chandelier_lookback": 20})
-
-        if "low tp1 hit rate" in weakness_text:
-            add("wider_stop_mult", {"param_overrides.climax_mult": 3.0})
-            add("longer_stale_fade_36", {"param_overrides.stale_bars_fade": 36})
-
-        if metrics_obj.exit_efficiency < 0.15:
-            add("faster_be_move", {"param_overrides.tp1_r_aligned": 1.0})
-            add("tighter_chandelier_8", {"param_overrides.chandelier_lookback": 8})
+        if metrics_obj.correction_pnl_pct < 20.0:
+            add("struct_corr_override", {"flags.correction_regime_override": True})
+            add("r2_block_corr_override", {
+                "flags.block_counter_regime": True,
+                "flags.correction_regime_override": True,
+            })
 
         if metrics_obj.max_dd_pct > 0.25:
             add("lower_risk_pct_0.008", {"param_overrides.base_risk_pct": 0.008})
-            add("reduce_counter_mult_0.20", {"param_overrides.regime_mult_counter": 0.20})
-            add("circuit_breaker_tighter", {"param_overrides.daily_circuit_breaker": 0.02})
+            add("reduce_counter_mult_0.10", {"param_overrides.regime_mult_counter": 0.10})
+
+        if metrics_obj.exit_efficiency < 0.20:
+            add("faster_be_move", {"param_overrides.be_trigger_r": 0.5})
+            add("tighter_chandelier_8", {"param_overrides.chandelier_lookback": 8})
+
+        if "tp2/tp3 never hit" in weakness_text:
+            add("tp2_lower_2.0R", {"param_overrides.tp2_r_aligned": 2.0})
+            add("chandelier_wider_20", {"param_overrides.chandelier_lookback": 20})
 
         unique: dict[str, Experiment] = {}
         for experiment in suggestions:
@@ -556,25 +537,23 @@ class DownturnPlugin:
             if criterion.passed:
                 continue
             name = criterion.name.removeprefix("hard_")
-            if name in {"signal_to_entry", "signal_to_entry_ratio", "correction_pnl_pct", "total_trades"}:
-                weights["coverage"] *= 1.20
+            if name in {"correction_pnl_pct", "total_trades"}:
+                weights["correction_pnl"] = weights.get("correction_pnl", 0.25) * 1.20
             if name in {"exit_efficiency"}:
-                weights["capture"] *= 1.25
+                weights["capture"] = weights.get("capture", 0.15) * 1.25
             if name in {"profit_factor"}:
-                weights["edge"] *= 1.25
-            if name in {"net_return_pct"}:
-                weights["net_profit"] *= 1.20
-            if name in {"max_dd_pct", "calmar", "sharpe"}:
-                weights["risk"] *= 1.25
+                weights["edge"] = weights.get("edge", 0.20) * 1.25
+            if name in {"max_dd_pct", "calmar"}:
+                weights["risk"] = weights.get("risk", 0.18) * 1.25
 
         weakness_text = " ".join(analysis.weaknesses).lower()
-        if "tp2/tp3" in weakness_text or "exit efficiency" in weakness_text:
-            weights["capture"] *= 1.10
-            weights["hold"] *= 1.10
-        if "trade frequency" in weakness_text:
-            weights["coverage"] *= 1.10
+        if "exit efficiency" in weakness_text:
+            weights["capture"] = weights.get("capture", 0.15) * 1.10
+        if "regime purity" in weakness_text or "counter" in weakness_text:
+            weights["regime_purity"] = weights.get("regime_purity", 0.10) * 1.15
         if "drawdown" in weakness_text:
-            weights["risk"] *= 1.10
+            weights["risk"] = weights.get("risk", 0.18) * 1.10
+            weights["calmar"] = weights.get("calmar", 0.07) * 1.15
 
         total = sum(weights.values())
         return {key: value / total for key, value in weights.items()} if total > 0 else weights
@@ -625,7 +604,7 @@ class DownturnPlugin:
                 action="improve_scoring",
                 reason=(
                     "Strategy is profitable outside correction windows but loses during corrections; "
-                    "reweight scoring toward correction capture and signal discrimination."
+                    "reweight scoring toward correction capture and regime purity."
                 ),
                 scoring_assessment_override="MISALIGNED",
                 scoring_weight_overrides=_correction_weight_overrides(phase, current_weights),
@@ -635,7 +614,7 @@ class DownturnPlugin:
     def _gate_criteria(self, phase: int, metrics: dict[str, float], state: PhaseState) -> list[GateCriterion]:
         metric_obj = _metrics_from_dict(metrics)
         criteria = [
-            GateCriterion("hard_min_trades", 8.0, float(metric_obj.total_trades), metric_obj.total_trades >= 8),
+            GateCriterion("hard_min_trades", 10.0, float(metric_obj.total_trades), metric_obj.total_trades >= 10),
             GateCriterion("hard_max_dd_pct", 0.30, metric_obj.max_dd_pct, metric_obj.max_dd_pct <= 0.30),
             GateCriterion("hard_correction_pnl_pct", 0.0, metric_obj.correction_pnl_pct, metric_obj.correction_pnl_pct >= 0.0),
         ]
@@ -643,9 +622,8 @@ class DownturnPlugin:
         if phase == 1:
             criteria.extend(
                 [
-                    GateCriterion("signal_to_entry_ratio", 0.15, metric_obj.signal_to_entry_ratio, metric_obj.signal_to_entry_ratio >= 0.15),
-                    GateCriterion("total_trades", 15.0, float(metric_obj.total_trades), metric_obj.total_trades >= 15),
-                    GateCriterion("correction_pnl_pct", 5.0, metric_obj.correction_pnl_pct, metric_obj.correction_pnl_pct >= 5.0),
+                    GateCriterion("correction_pnl_pct", 40.0, metric_obj.correction_pnl_pct, metric_obj.correction_pnl_pct >= 40.0),
+                    GateCriterion("total_trades", 20.0, float(metric_obj.total_trades), metric_obj.total_trades >= 20),
                 ]
             )
             return criteria
@@ -653,9 +631,9 @@ class DownturnPlugin:
         if phase == 2:
             criteria.extend(
                 [
-                    GateCriterion("exit_efficiency", 0.20, metric_obj.exit_efficiency, metric_obj.exit_efficiency >= 0.20),
-                    GateCriterion("profit_factor", 1.3, metric_obj.profit_factor, metric_obj.profit_factor >= 1.3),
-                    GateCriterion("correction_pnl_pct", 10.0, metric_obj.correction_pnl_pct, metric_obj.correction_pnl_pct >= 10.0),
+                    GateCriterion("profit_factor", 1.5, metric_obj.profit_factor, metric_obj.profit_factor >= 1.5),
+                    GateCriterion("exit_efficiency", 0.25, metric_obj.exit_efficiency, metric_obj.exit_efficiency >= 0.25),
+                    GateCriterion("correction_pnl_pct", 50.0, metric_obj.correction_pnl_pct, metric_obj.correction_pnl_pct >= 50.0),
                 ]
             )
             return criteria
@@ -663,21 +641,20 @@ class DownturnPlugin:
         if phase == 3:
             criteria.extend(
                 [
-                    GateCriterion("calmar", 1.0, metric_obj.calmar, metric_obj.calmar >= 1.0),
-                    GateCriterion("max_dd_pct", 0.22, metric_obj.max_dd_pct, metric_obj.max_dd_pct <= 0.22),
-                    GateCriterion("sharpe", 0.6, metric_obj.sharpe, metric_obj.sharpe >= 0.6),
+                    GateCriterion("max_dd_pct", 0.25, metric_obj.max_dd_pct, metric_obj.max_dd_pct <= 0.25),
+                    GateCriterion("profit_factor", 1.3, metric_obj.profit_factor, metric_obj.profit_factor >= 1.3),
+                    GateCriterion("calmar", 0.5, metric_obj.calmar, metric_obj.calmar >= 0.5),
                 ]
             )
+            # No-regression check against Phase 2
+            prior_metrics = state.get_phase_metrics(2) or {}
+            if prior_metrics:
+                for key in ["correction_pnl_pct", "profit_factor", "exit_efficiency"]:
+                    target = float(_payload_metric(prior_metrics, key)) * 0.90
+                    actual = float(_payload_metric(metrics, key))
+                    criteria.append(GateCriterion(f"no_regress_{key}", target, actual, actual >= target))
             return criteria
 
-        prior_metrics = state.get_phase_metrics(phase - 1) or {}
-        if prior_metrics:
-            for key in ["calmar", "profit_factor", "sharpe", "correction_pnl_pct"]:
-                target = float(_payload_metric(prior_metrics, key)) * 0.90
-                actual = float(_payload_metric(metrics, key))
-                criteria.append(GateCriterion(f"no_regress_{key}", target, actual, actual >= target))
-        else:
-            criteria.append(GateCriterion(f"phase{phase}_pass", 0.0, 1.0, True))
         return criteria
 
 
@@ -744,11 +721,11 @@ def _correction_weight_overrides(phase: int, current_weights: dict[str, float] |
     if not weights:
         return {}
 
-    weights["coverage"] = max(weights.get("coverage", 0.0), 0.35)
-    weights["edge"] = max(weights.get("edge", 0.0), 0.18)
-    weights["risk"] = max(weights.get("risk", 0.0), 0.15)
-    weights["capture"] = min(weights.get("capture", 0.0), 0.20)
-    weights["hold"] = min(weights.get("hold", 0.0), 0.10)
+    weights["correction_pnl"] = max(weights.get("correction_pnl", 0.0), 0.35)
+    weights["regime_purity"] = max(weights.get("regime_purity", 0.0), 0.15)
+    weights["edge"] = max(weights.get("edge", 0.0), 0.15)
+    weights["risk"] = max(weights.get("risk", 0.0), 0.12)
+    weights["capture"] = min(weights.get("capture", 0.0), 0.12)
 
     total = sum(weights.values())
     return {key: value / total for key, value in weights.items()} if total > 0 else weights

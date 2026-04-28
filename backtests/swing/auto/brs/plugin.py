@@ -55,10 +55,10 @@ PHASE_WEIGHTS: dict[int, dict[str, float] | None] = {
 }
 
 PHASE_HARD_REJECTS: dict[int, dict[str, float]] = {
-    1: {"max_dd_pct": 0.30, "min_trades": 10},
-    2: {"max_dd_pct": 0.30, "min_trades": 10},
-    3: {"max_dd_pct": 0.25, "min_trades": 10},
-    4: {"max_dd_pct": 0.20, "min_trades": 15},
+    1: {"max_dd_pct": 0.20, "min_trades": 15},
+    2: {"max_dd_pct": 0.20, "min_trades": 15},
+    3: {"max_dd_pct": 0.18, "min_trades": 20},
+    4: {"max_dd_pct": 0.15, "min_trades": 25},
 }
 
 PHASE_FOCUS: dict[int, tuple[str, list[str]]] = {
@@ -69,12 +69,12 @@ PHASE_FOCUS: dict[int, tuple[str, list[str]]] = {
 }
 
 ULTIMATE_TARGETS = {
-    "net_return_pct": 100.0,
-    "profit_factor": 3.0,
+    "net_return_pct": 50.0,
+    "profit_factor": 2.5,
     "max_dd_pct": 0.05,
-    "calmar": 10.0,
-    "bear_alpha_pct": 20.0,
-    "total_trades": 80.0,
+    "calmar": 5.0,
+    "bear_alpha_pct": 25.0,
+    "total_trades": 120.0,
 }
 
 _GATE_TO_SCORING = {
@@ -98,6 +98,7 @@ def score_phase_metrics(
     metrics: BRSMetrics,
     weight_overrides: dict[str, float] | None = None,
     hard_rejects: dict[str, float] | None = None,
+    scale_overrides: dict[str, float] | None = None,
 ) -> BRSCompositeScore:
     rejects = hard_rejects or PHASE_HARD_REJECTS.get(phase, {})
     min_trades = int(rejects.get("min_trades", 10))
@@ -114,7 +115,7 @@ def score_phase_metrics(
         base.update(weight_overrides)
         total = sum(base.values())
         weights = {key: value / total for key, value in base.items()} if total > 0 else base
-    return composite_score(metrics, weights)
+    return composite_score(metrics, weights, scale_overrides=scale_overrides)
 
 
 class _PoolBatchEvaluator:
@@ -126,6 +127,7 @@ class _PoolBatchEvaluator:
         scoring_weights: dict[str, float] | None,
         hard_rejects: dict[str, float] | None,
         max_workers: int | None,
+        scale_overrides: dict[str, float] | None = None,
     ):
         from .worker import init_worker
 
@@ -133,7 +135,7 @@ class _PoolBatchEvaluator:
         self._pool = mp.Pool(
             processes=processes,
             initializer=init_worker,
-            initargs=(str(data_dir), initial_equity, phase, scoring_weights, hard_rejects),
+            initargs=(str(data_dir), initial_equity, phase, scoring_weights, hard_rejects, scale_overrides),
         )
 
     def __call__(self, candidates: list[Experiment], current_mutations: dict[str, Any]):
@@ -159,19 +161,21 @@ class _SequentialBatchEvaluator:
         phase: int,
         scoring_weights: dict[str, float] | None,
         hard_rejects: dict[str, float] | None,
+        scale_overrides: dict[str, float] | None = None,
     ):
         self._data_dir = data_dir
         self._initial_equity = initial_equity
         self._phase = phase
         self._scoring_weights = scoring_weights
         self._hard_rejects = hard_rejects
+        self._scale_overrides = scale_overrides
         self._initialised = False
 
     def _ensure_init(self) -> None:
         if self._initialised:
             return
         from .worker import init_worker
-        init_worker(str(self._data_dir), self._initial_equity, self._phase, self._scoring_weights, self._hard_rejects)
+        init_worker(str(self._data_dir), self._initial_equity, self._phase, self._scoring_weights, self._hard_rejects, self._scale_overrides)
         self._initialised = True
 
     def __call__(self, candidates: list[Experiment], current_mutations: dict[str, Any]):
@@ -208,6 +212,7 @@ class BRSPlugin:
         self._evaluation_cache: dict[str, Any] = {}
         self._metrics_cache: dict[str, dict[str, float]] = {}
         self._cache_source_fingerprint: str = ""
+        self._scale_overrides: dict[str, float] | None = None
 
     def get_phase_spec(self, phase: int, state: PhaseState) -> PhaseSpec:
         focus, focus_metrics = PHASE_FOCUS[phase]
@@ -263,12 +268,14 @@ class BRSPlugin:
             return _PoolBatchEvaluator(
                 self.data_dir, self.initial_equity, phase,
                 scoring_weights, hard_rejects, self.max_workers,
+                scale_overrides=self._scale_overrides,
             )
 
         def make_sequential():
             return _SequentialBatchEvaluator(
                 self.data_dir, self.initial_equity, phase,
                 scoring_weights, hard_rejects,
+                scale_overrides=self._scale_overrides,
             )
 
         raw = ResilientBatchEvaluator(make_parallel, make_sequential, description=f"BRS phase {phase}")
@@ -635,9 +642,9 @@ class BRSPlugin:
             criteria.extend(
                 [
                     GateCriterion("hard_min_trades", 15.0, float(metric_obj.total_trades), metric_obj.total_trades >= 15),
-                    GateCriterion("hard_max_dd_pct", 0.30, metric_obj.max_dd_pct, metric_obj.max_dd_pct <= 0.30),
+                    GateCriterion("hard_max_dd_pct", 0.20, metric_obj.max_dd_pct, metric_obj.max_dd_pct <= 0.20),
                     GateCriterion("profit_factor", 1.3, metric_obj.profit_factor, metric_obj.profit_factor >= 1.3),
-                    GateCriterion("total_trades", 20.0, float(metric_obj.total_trades), metric_obj.total_trades >= 20),
+                    GateCriterion("total_trades", 25.0, float(metric_obj.total_trades), metric_obj.total_trades >= 25),
                     GateCriterion("net_return_pct", 5.0, metric_obj.net_return_pct, metric_obj.net_return_pct >= 5.0),
                 ]
             )
@@ -646,11 +653,11 @@ class BRSPlugin:
         if phase == 3:
             criteria.extend(
                 [
-                    GateCriterion("hard_min_trades", 15.0, float(metric_obj.total_trades), metric_obj.total_trades >= 15),
-                    GateCriterion("hard_max_dd_pct", 0.25, metric_obj.max_dd_pct, metric_obj.max_dd_pct <= 0.25),
+                    GateCriterion("hard_min_trades", 20.0, float(metric_obj.total_trades), metric_obj.total_trades >= 20),
+                    GateCriterion("hard_max_dd_pct", 0.18, metric_obj.max_dd_pct, metric_obj.max_dd_pct <= 0.18),
                     GateCriterion("profit_factor", 1.5, metric_obj.profit_factor, metric_obj.profit_factor >= 1.5),
                     GateCriterion("net_return_pct", 10.0, metric_obj.net_return_pct, metric_obj.net_return_pct >= 10.0),
-                    GateCriterion("max_dd_pct", 0.22, metric_obj.max_dd_pct, metric_obj.max_dd_pct <= 0.22),
+                    GateCriterion("max_dd_pct", 0.15, metric_obj.max_dd_pct, metric_obj.max_dd_pct <= 0.15),
                 ]
             )
             return criteria
@@ -658,10 +665,10 @@ class BRSPlugin:
         prior_metrics = state.get_phase_metrics(3) or {}
         criteria.extend(
             [
-                GateCriterion("hard_max_dd_pct", 0.20, metric_obj.max_dd_pct, metric_obj.max_dd_pct <= 0.20),
+                GateCriterion("hard_max_dd_pct", 0.15, metric_obj.max_dd_pct, metric_obj.max_dd_pct <= 0.15),
                 GateCriterion("hard_sharpe", 0.4, metric_obj.sharpe, metric_obj.sharpe >= 0.4),
-                GateCriterion("calmar", 1.0, metric_obj.calmar, metric_obj.calmar >= 1.0),
-                GateCriterion("max_dd_pct", 0.18, metric_obj.max_dd_pct, metric_obj.max_dd_pct <= 0.18),
+                GateCriterion("calmar", 2.0, metric_obj.calmar, metric_obj.calmar >= 2.0),
+                GateCriterion("max_dd_pct", 0.12, metric_obj.max_dd_pct, metric_obj.max_dd_pct <= 0.12),
                 GateCriterion("net_return_pct", 15.0, metric_obj.net_return_pct, metric_obj.net_return_pct >= 15.0),
             ]
         )

@@ -1,4 +1,11 @@
-"""ATRSS phase gate criteria -- progressive thresholds per phase."""
+"""ATRSS phase gate criteria -- progressive thresholds per phase.
+
+Two regimes:
+  - R1: Original high thresholds for independent-account mode.
+  - R9: Rescaled for honest synchronized/fee-net conditions.
+
+Active regime is read from phase_scoring.SCORING_REGIME.
+"""
 from __future__ import annotations
 
 from backtests.shared.auto.types import GateCriterion
@@ -14,7 +21,71 @@ def gate_criteria_for_phase(
     """Return gate criteria for *phase* given current *metrics*.
 
     Phase 4 adds no-regression checks against Phase 3 results.
+    Thresholds auto-select between R1 and R9 regimes.
     """
+    from .phase_scoring import SCORING_REGIME
+
+    if SCORING_REGIME == "r9":
+        return _gate_criteria_r9(phase, metrics, prior_phase_metrics)
+    return _gate_criteria_r1(phase, metrics, prior_phase_metrics)
+
+
+def _gate_criteria_r9(
+    phase: int,
+    metrics: ATRSSMetrics,
+    prior_phase_metrics: dict | None = None,
+) -> list[GateCriterion]:
+    """R9 gate criteria -- rescaled for synchronized/fee-net conditions."""
+    criteria: list[GateCriterion] = [
+        GateCriterion("hard_min_trades", 20.0, float(metrics.total_trades), metrics.total_trades >= 20),
+        GateCriterion("hard_max_dd_pct", 0.12, metrics.max_dd_pct, metrics.max_dd_pct <= 0.12),
+        GateCriterion("hard_min_pf", 1.0, metrics.profit_factor, metrics.profit_factor >= 1.0),
+        GateCriterion("hard_min_wr", 0.50, metrics.win_rate, metrics.win_rate >= 0.50),
+    ]
+
+    if phase == 1:
+        criteria.extend([
+            GateCriterion("profit_factor", 1.5, metrics.profit_factor, metrics.profit_factor >= 1.5),
+            GateCriterion("total_r", 15.0, metrics.total_r, metrics.total_r >= 15.0),
+            GateCriterion("mfe_capture", 0.25, metrics.mfe_capture, metrics.mfe_capture >= 0.25),
+        ])
+    elif phase == 2:
+        criteria.extend([
+            GateCriterion("total_trades", 30.0, float(metrics.total_trades), metrics.total_trades >= 30),
+            GateCriterion("win_rate", 0.60, metrics.win_rate, metrics.win_rate >= 0.60),
+            GateCriterion("profit_factor", 1.5, metrics.profit_factor, metrics.profit_factor >= 1.5),
+        ])
+    elif phase == 3:
+        criteria.extend([
+            GateCriterion("trades_per_month", 1.0, metrics.trades_per_month, metrics.trades_per_month >= 1.0),
+            GateCriterion("total_trades", 35.0, float(metrics.total_trades), metrics.total_trades >= 35),
+            GateCriterion("profit_factor", 2.0, metrics.profit_factor, metrics.profit_factor >= 2.0),
+        ])
+    elif phase == 4:
+        criteria.extend([
+            GateCriterion("calmar_r", 8.0, metrics.calmar_r, metrics.calmar_r >= 8.0),
+            GateCriterion("total_r", 30.0, metrics.total_r, metrics.total_r >= 30.0),
+            GateCriterion("sharpe", 1.0, metrics.sharpe, metrics.sharpe >= 1.0),
+        ])
+        if prior_phase_metrics:
+            for key in ("profit_factor", "total_r", "win_rate", "calmar_r"):
+                prior_val = prior_phase_metrics.get(key, 0.0)
+                if prior_val > 0:
+                    cur_val = getattr(metrics, key, 0.0)
+                    floor = prior_val * 0.95
+                    criteria.append(
+                        GateCriterion(f"no_regress_{key}", floor, cur_val, cur_val >= floor)
+                    )
+
+    return criteria
+
+
+def _gate_criteria_r1(
+    phase: int,
+    metrics: ATRSSMetrics,
+    prior_phase_metrics: dict | None = None,
+) -> list[GateCriterion]:
+    """R1 gate criteria -- original thresholds for independent-account mode."""
     criteria: list[GateCriterion] = [
         GateCriterion("hard_min_trades", 100.0, float(metrics.total_trades), metrics.total_trades >= 100),
         GateCriterion("hard_max_dd_pct", 0.07, metrics.max_dd_pct, metrics.max_dd_pct <= 0.07),
@@ -46,7 +117,6 @@ def gate_criteria_for_phase(
             GateCriterion("total_r", 150.0, metrics.total_r, metrics.total_r >= 150.0),
             GateCriterion("sharpe", 3.0, metrics.sharpe, metrics.sharpe >= 3.0),
         ])
-        # No-regression: no metric >5% below Phase 3
         if prior_phase_metrics:
             for key in ("profit_factor", "total_r", "win_rate", "calmar_r"):
                 prior_val = prior_phase_metrics.get(key, 0.0)
@@ -54,12 +124,7 @@ def gate_criteria_for_phase(
                     cur_val = getattr(metrics, key, 0.0)
                     floor = prior_val * 0.95
                     criteria.append(
-                        GateCriterion(
-                            f"no_regress_{key}",
-                            floor,
-                            cur_val,
-                            cur_val >= floor,
-                        )
+                        GateCriterion(f"no_regress_{key}", floor, cur_val, cur_val >= floor)
                     )
 
     return criteria

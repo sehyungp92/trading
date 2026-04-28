@@ -334,7 +334,7 @@ def cmd_greedy(args: argparse.Namespace) -> None:
         tier = 3
     else:
         print(f"Greedy selection not yet configured for {args.strategy}", file=sys.stderr)
-        print("  (ALCB uses phase-based optimization via alcb_p14_phase)", file=sys.stderr)
+        print("  (ALCB phased optimization now lives under backtests.stock.auto.alcb)", file=sys.stderr)
         sys.exit(1)
 
     result = run_greedy(
@@ -360,7 +360,7 @@ def _build_pullback_phase_runner(
     output_dir: Path | None = None,
 ):
     from backtests.shared.auto.phase_runner import PhaseRunner
-    from backtests.stock.auto.iaric_pullback.plugin import IARICPullbackPlugin
+    from backtests.stock.auto.iaric.plugin import IARICPullbackPlugin
 
     resolved_profile = str(profile or getattr(args, "profile", "mainline")).lower()
     plugin = IARICPullbackPlugin(
@@ -374,7 +374,7 @@ def _build_pullback_phase_runner(
     return PhaseRunner(
         plugin=plugin,
         output_dir=Path(output_dir) if output_dir is not None else Path(args.output_dir),
-        round_name=f"iaric_pullback_{resolved_profile}",
+        round_name=f"iaric_{resolved_profile}",
         max_rounds=getattr(args, "max_rounds", None),
         min_delta=getattr(args, "min_delta", 0.001),
         max_retries=getattr(args, "max_retries", 0),
@@ -467,64 +467,8 @@ def cmd_phase_auto(args: argparse.Namespace) -> None:
     print(f"Completed phases: {state.completed_phases}")
     print(f"Final mutations: {len(state.cumulative_mutations)}")
 
-
-# ---------------------------------------------------------------------------
-# ALCB P11 phase commands
-# ---------------------------------------------------------------------------
-
-
-def _build_p11_phase_runner(args: argparse.Namespace):
-    from backtests.shared.auto.phase_runner import PhaseRunner
-    from backtests.stock.auto.alcb_p11_phase.plugin import ALCBP11Plugin
-
-    experiment_names = set(args.experiments) if getattr(args, "experiments", None) else None
-    plugin = ALCBP11Plugin(
-        data_dir=Path(args.data_dir),
-        start_date=args.start,
-        end_date=args.end,
-        initial_equity=args.equity,
-        max_workers=getattr(args, "max_workers", None),
-        experiment_names=experiment_names,
-    )
-    return PhaseRunner(
-        plugin=plugin,
-        output_dir=Path(args.output_dir),
-        round_name="alcb_p11",
-        max_rounds=getattr(args, "max_rounds", None),
-        min_delta=getattr(args, "min_delta", 0.001),
-        max_retries=getattr(args, "max_retries", 0),
-    )
-
-
-def cmd_phase_run_p11(args: argparse.Namespace) -> None:
-    runner = _build_p11_phase_runner(args)
-    state = runner.load_state()
-    missing = [phase for phase in range(1, args.phase) if phase not in state.completed_phases]
-    if missing:
-        print(
-            f"Cannot run phase {args.phase} yet. Missing earlier phases: {missing}. "
-            "Run phase-auto-p11 or complete prior phases first.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    state = runner.run_phase(args.phase, state)
-    result = state.phase_results.get(args.phase, {})
-    print(f"ALCB P11 phase {args.phase} complete.")
-    print(f"Score: {result.get('base_score', 0.0):.4f} -> {result.get('final_score', 0.0):.4f}")
-    print(f"Accepted: {len(result.get('kept_features', []))}")
-
-
-def cmd_phase_auto_p11(args: argparse.Namespace) -> None:
-    runner = _build_p11_phase_runner(args)
-    state = runner.run_all_phases()
-    print("ALCB P11 phased auto-optimization complete.")
-    print(f"Completed phases: {state.completed_phases}")
-    print(f"Final mutations: {len(state.cumulative_mutations)}")
-
-
 def cmd_phase_auto_dual(args: argparse.Namespace) -> None:
-    from backtests.stock.auto.iaric_pullback.plugin import select_pullback_branch
+    from backtests.stock.auto.iaric.plugin import select_pullback_branch
 
     output_root = Path(args.output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
@@ -739,7 +683,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     def add_phase_common(command: argparse.ArgumentParser) -> None:
         command.add_argument("--data-dir", default="backtests/stock/data/raw")
-        command.add_argument("--output-dir", default="backtests/stock/auto/iaric_pullback/output")
+        command.add_argument("--output-dir", default="backtests/stock/auto/iaric/output")
         command.add_argument("--start", default="2024-01-01")
         command.add_argument("--end", default="2026-03-01")
         command.add_argument("--equity", type=float, default=10_000.0)
@@ -761,7 +705,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     phase_auto_dual = sub.add_parser("phase-auto-dual", help="Run mainline and aggressive pullback branches")
     phase_auto_dual.add_argument("--data-dir", default="backtests/stock/data/raw")
-    phase_auto_dual.add_argument("--output-dir", default="backtests/stock/auto/iaric_pullback/output_dual")
+    phase_auto_dual.add_argument("--output-dir", default="backtests/stock/auto/iaric/output_dual")
     phase_auto_dual.add_argument("--start", default="2024-01-01")
     phase_auto_dual.add_argument("--end", default="2026-03-01")
     phase_auto_dual.add_argument("--equity", type=float, default=10_000.0)
@@ -776,29 +720,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     phase_diag = sub.add_parser("phase-diagnostics", help="Print saved IARIC pullback phase diagnostics")
     phase_diag.add_argument("--phase", type=int, required=True, choices=[1, 2, 3, 4, 5, 6])
-    phase_diag.add_argument("--output-dir", default="backtests/stock/auto/iaric_pullback/output")
-
-    # ALCB P11 phase commands
-    def add_p11_common(command: argparse.ArgumentParser) -> None:
-        command.add_argument("--data-dir", default="backtests/stock/data/raw")
-        command.add_argument("--output-dir", default="backtests/stock/auto/alcb_p11_phase/output_multiphase")
-        command.add_argument("--start", default="2024-01-01")
-        command.add_argument("--end", default="2026-03-01")
-        command.add_argument("--equity", type=float, default=10_000.0)
-        command.add_argument("--max-workers", type=int, default=3)
-        command.add_argument("--experiments", nargs="*", help="Filter to specific experiment names")
-
-    phase_run_p11 = sub.add_parser("phase-run-p11", help="Run a single ALCB P11 phase")
-    add_p11_common(phase_run_p11)
-    phase_run_p11.add_argument("--phase", type=int, required=True, choices=[1, 2, 3, 4, 5, 6])
-    phase_run_p11.add_argument("--max-rounds", type=int, default=None)
-    phase_run_p11.add_argument("--min-delta", type=float, default=0.001)
-
-    phase_auto_p11 = sub.add_parser("phase-auto-p11", help="Run all ALCB P11 phases")
-    add_p11_common(phase_auto_p11)
-    phase_auto_p11.add_argument("--max-rounds", type=int, default=None)
-    phase_auto_p11.add_argument("--min-delta", type=float, default=0.001)
-    phase_auto_p11.add_argument("--max-retries", type=int, default=0)
+    phase_diag.add_argument("--output-dir", default="backtests/stock/auto/iaric/output")
 
     return parser
 
@@ -828,10 +750,6 @@ def main() -> None:
         cmd_phase_gate(args)
     elif args.command == "phase-diagnostics":
         cmd_phase_diagnostics(args)
-    elif args.command == "phase-run-p11":
-        cmd_phase_run_p11(args)
-    elif args.command == "phase-auto-p11":
-        cmd_phase_auto_p11(args)
     else:
         parser.print_help()
 

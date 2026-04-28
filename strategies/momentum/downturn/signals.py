@@ -66,11 +66,11 @@ def detect_reversal_short(
         return None
 
     # Extension gate: reject if price not extended above mean
-    if flags.reversal_extension_gate:
+    if flags.reversal_extension_gate and not getattr(flags, "reversal_no_extension_gate", False):
         if atr_d > 0 and close_d <= ema_fast_d + 1.0 * atr_d:
             return None
 
-    # 2-of-3 gate: weakening trend / extended above mean / vol coil
+    # N-of-3 gate: weakening trend / extended above mean / vol coil
     if flags.reversal_trend_weakness_gate:
         gate_count = 0
         # (1) Weakening trend: trend_strength decreased
@@ -83,12 +83,16 @@ def detect_reversal_short(
         vol_coil_threshold = po.get("vol_coil_ratio_threshold", 0.75)
         if atr_4h_slow > 0 and atr_4h_fast / atr_4h_slow < vol_coil_threshold:
             gate_count += 1
-        if gate_count < 2:
+        min_gates = getattr(flags, "reversal_min_gate_count", 2)
+        if gate_count < min_gates:
             return None
 
     # Corridor cap: reject if price too far from pivot
     if flags.reversal_corridor_cap:
         corridor_mult = po.get("corridor_cap_mult", 2.0)
+        wider = getattr(flags, "reversal_wider_corridor", 0.0)
+        if wider > 0:
+            corridor_mult = wider
         if atr_d > 0 and abs(close_d - rs.h2_price) > corridor_mult * atr_d:
             return None
 

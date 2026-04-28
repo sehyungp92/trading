@@ -13,6 +13,7 @@ _worker_equity: float = 0.0
 _worker_phase: int = 0
 _worker_scoring_weights: dict | None = None
 _worker_hard_rejects: dict | None = None
+_worker_scale_overrides: dict | None = None
 
 
 def init_worker(
@@ -21,8 +22,9 @@ def init_worker(
     phase: int = 0,
     scoring_weights: dict | None = None,
     hard_rejects: dict | None = None,
+    scale_overrides: dict | None = None,
 ) -> None:
-    global _worker_data, _worker_config, _worker_equity, _worker_phase, _worker_scoring_weights, _worker_hard_rejects
+    global _worker_data, _worker_config, _worker_equity, _worker_phase, _worker_scoring_weights, _worker_hard_rejects, _worker_scale_overrides
 
     if sys.stdout.encoding != "utf-8":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -34,6 +36,7 @@ def init_worker(
     _worker_phase = phase
     _worker_scoring_weights = scoring_weights
     _worker_hard_rejects = hard_rejects
+    _worker_scale_overrides = scale_overrides
     _worker_config = BRSConfig(
         initial_equity=equity,
         data_dir=Path(data_dir_str),
@@ -63,9 +66,10 @@ def score_candidate(args: tuple[str, dict, dict]) -> ScoredCandidate:
                 metrics,
                 weight_overrides=_worker_scoring_weights,
                 hard_rejects=_worker_hard_rejects,
+                scale_overrides=_worker_scale_overrides,
             )
         else:
-            score = composite_score(metrics)
+            score = composite_score(metrics, scale_overrides=_worker_scale_overrides)
 
         if score.rejected:
             return ScoredCandidate(name=name, score=0.0, rejected=True, reject_reason=score.reject_reason)

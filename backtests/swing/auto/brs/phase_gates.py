@@ -1,10 +1,10 @@
 """BRS phase gate criteria — success thresholds + 4 failure categories.
 
-Phase structure (Change #2):
-  Phase 1: REGIME + ENTRY params + STRUCTURAL → PF >= 1.3, trades >= 20, return > 5%
-  Phase 2: SIGNAL_SELECT → PF >= 1.3, trades >= 20, return > 5% (same as P1)
-  Phase 3: EXIT + VOLATILITY → PF >= 1.5, return >= 10%, DD <= 22%
-  Phase 4: SIZING + FINETUNE → calmar >= 1.0, DD <= 18%, return >= 15%
+Phase structure (R10 recalibrated for truthful engine):
+  Phase 1: REGIME + ENTRY + STRUCTURAL + WEAKNESS -> PF >= 1.3, trades >= 25, return > 5%
+  Phase 2: SIGNAL_SELECT -> PF >= 1.3, trades >= 25, return > 5% (same as P1)
+  Phase 3: EXIT + VOLATILITY -> PF >= 1.5, return >= 10%, DD <= 15%
+  Phase 4: SIZING + FINETUNE -> calmar >= 2.0, DD <= 12%, return >= 15%
 """
 from __future__ import annotations
 
@@ -65,10 +65,10 @@ def check_phase_gate(
 
 
 def _gate_phase_1(metrics: BRSMetrics, gr: dict | None) -> GateResult:
-    """Phase 1: profit_factor >= 1.3, trades >= 20, net_return > 5%."""
+    """Phase 1: profit_factor >= 1.3, trades >= 25, net_return > 5%."""
     criteria = [
         GateCriterion("profit_factor", 1.3, metrics.profit_factor, metrics.profit_factor >= 1.3),
-        GateCriterion("total_trades", 20, metrics.total_trades, metrics.total_trades >= 20),
+        GateCriterion("total_trades", 25, metrics.total_trades, metrics.total_trades >= 25),
         GateCriterion("net_return_pct", 5.0, metrics.net_return_pct, metrics.net_return_pct >= 5.0),
     ]
 
@@ -79,11 +79,11 @@ def _gate_phase_1(metrics: BRSMetrics, gr: dict | None) -> GateResult:
             failure_category="structural_issue",
             recommendations=("Fewer than 15 trades -- fundamental signal issue",),
         )
-    if metrics.max_dd_pct > 0.30:
+    if metrics.max_dd_pct > 0.20:
         return GateResult(
             passed=False, criteria=tuple(criteria),
             failure_category="structural_issue",
-            recommendations=(f"Max DD {metrics.max_dd_pct:.1%} exceeds 30% hard limit",),
+            recommendations=(f"Max DD {metrics.max_dd_pct:.1%} exceeds 20% hard limit",),
         )
 
     passed = all(c.passed for c in criteria)
@@ -96,10 +96,10 @@ def _gate_phase_1(metrics: BRSMetrics, gr: dict | None) -> GateResult:
 
 
 def _gate_phase_2(metrics: BRSMetrics, gr: dict | None) -> GateResult:
-    """Phase 2 (SIGNAL_SELECT): Same as Phase 1 — PF >= 1.3, trades >= 20, return > 5%."""
+    """Phase 2 (SIGNAL_SELECT): Same as Phase 1 -- PF >= 1.3, trades >= 25, return > 5%."""
     criteria = [
         GateCriterion("profit_factor", 1.3, metrics.profit_factor, metrics.profit_factor >= 1.3),
-        GateCriterion("total_trades", 20, metrics.total_trades, metrics.total_trades >= 20),
+        GateCriterion("total_trades", 25, metrics.total_trades, metrics.total_trades >= 25),
         GateCriterion("net_return_pct", 5.0, metrics.net_return_pct, metrics.net_return_pct >= 5.0),
     ]
 
@@ -109,11 +109,11 @@ def _gate_phase_2(metrics: BRSMetrics, gr: dict | None) -> GateResult:
             failure_category="structural_issue",
             recommendations=("Fewer than 15 trades",),
         )
-    if metrics.max_dd_pct > 0.30:
+    if metrics.max_dd_pct > 0.20:
         return GateResult(
             passed=False, criteria=tuple(criteria),
             failure_category="structural_issue",
-            recommendations=(f"Max DD {metrics.max_dd_pct:.1%} exceeds 30% hard limit",),
+            recommendations=(f"Max DD {metrics.max_dd_pct:.1%} exceeds 20% hard limit",),
         )
 
     passed = all(c.passed for c in criteria)
@@ -126,24 +126,24 @@ def _gate_phase_2(metrics: BRSMetrics, gr: dict | None) -> GateResult:
 
 
 def _gate_phase_3(metrics: BRSMetrics, gr: dict | None) -> GateResult:
-    """Phase 3: profit_factor >= 1.5, net_return >= 10%, max_dd <= 22%."""
+    """Phase 3: profit_factor >= 1.5, net_return >= 10%, max_dd <= 15%."""
     criteria = [
         GateCriterion("profit_factor", 1.5, metrics.profit_factor, metrics.profit_factor >= 1.5),
         GateCriterion("net_return_pct", 10.0, metrics.net_return_pct, metrics.net_return_pct >= 10.0),
-        GateCriterion("max_dd_pct", 0.22, metrics.max_dd_pct, metrics.max_dd_pct <= 0.22),
+        GateCriterion("max_dd_pct", 0.15, metrics.max_dd_pct, metrics.max_dd_pct <= 0.15),
     ]
 
-    if metrics.total_trades < 15:
+    if metrics.total_trades < 20:
         return GateResult(
             passed=False, criteria=tuple(criteria),
             failure_category="structural_issue",
-            recommendations=("Fewer than 15 trades",),
+            recommendations=("Fewer than 20 trades",),
         )
-    if metrics.max_dd_pct > 0.25:
+    if metrics.max_dd_pct > 0.18:
         return GateResult(
             passed=False, criteria=tuple(criteria),
             failure_category="structural_issue",
-            recommendations=(f"Max DD {metrics.max_dd_pct:.1%} exceeds 25% hard limit",),
+            recommendations=(f"Max DD {metrics.max_dd_pct:.1%} exceeds 18% hard limit",),
         )
 
     passed = all(c.passed for c in criteria)
@@ -160,18 +160,18 @@ def _gate_phase_4(
     gr: dict | None,
     prior_metrics: dict | None = None,
 ) -> GateResult:
-    """Phase 4: calmar >= 1.0, max_dd <= 18%, net_return >= 15%, no regression."""
+    """Phase 4: calmar >= 2.0, max_dd <= 12%, net_return >= 15%, no regression."""
     criteria = [
-        GateCriterion("calmar", 1.0, metrics.calmar, metrics.calmar >= 1.0),
-        GateCriterion("max_dd_pct", 0.18, metrics.max_dd_pct, metrics.max_dd_pct <= 0.18),
+        GateCriterion("calmar", 2.0, metrics.calmar, metrics.calmar >= 2.0),
+        GateCriterion("max_dd_pct", 0.12, metrics.max_dd_pct, metrics.max_dd_pct <= 0.12),
         GateCriterion("net_return_pct", 15.0, metrics.net_return_pct, metrics.net_return_pct >= 15.0),
     ]
 
-    if metrics.max_dd_pct > 0.20:
+    if metrics.max_dd_pct > 0.15:
         return GateResult(
             passed=False, criteria=tuple(criteria),
             failure_category="structural_issue",
-            recommendations=(f"Max DD {metrics.max_dd_pct:.1%} exceeds 20% hard limit",),
+            recommendations=(f"Max DD {metrics.max_dd_pct:.1%} exceeds 15% hard limit",),
         )
     if metrics.sharpe < 0.4:
         return GateResult(

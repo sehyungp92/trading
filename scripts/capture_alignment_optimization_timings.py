@@ -40,8 +40,8 @@ def _build_targets() -> dict[str, BenchmarkTarget]:
     from backtests.momentum.auto.downturn.plugin import DownturnPlugin
     from backtests.momentum.auto.nqdtc.plugin import NQDTCPlugin
     from backtests.momentum.auto.vdubus.plugin import VdubusPlugin
-    from backtests.stock.auto.alcb_p16_phase.plugin import ALCBP16Plugin
-    from backtests.stock.auto.iaric_pullback.plugin import IARICPullbackPlugin
+    from backtests.stock.auto.alcb.plugin import ALCBP16Plugin
+    from backtests.stock.auto.iaric.plugin import IARICPullbackPlugin
     from backtests.swing.auto.atrss.plugin import ATRSSPlugin
     from backtests.swing.auto.brs.plugin import BRSPlugin
 

@@ -38,7 +38,7 @@ if sys.stdout.encoding != "utf-8":
 import numpy as np
 
 DATA_DIR = Path("backtests/stock/data/raw")
-OUTPUT_DIR = Path("backtests/stock/auto/iaric_pullback/output_risk_sweep")
+OUTPUT_DIR = Path("backtests/stock/auto/iaric/output_risk_sweep")
 START_DATE = "2024-01-01"
 END_DATE = "2026-03-01"
 INITIAL_EQUITY = 10_000.0

@@ -115,6 +115,7 @@ def run_independent(
 def run_synchronized(
     data: PortfolioData,
     bt_config: BacktestConfig,
+    indicator_cache: dict | None = None,
 ) -> PortfolioResult:
     """Run all symbols stepping through time with cross-symbol allocation.
 
@@ -123,6 +124,12 @@ def run_synchronized(
     2. Candidates from all symbols are collected
     3. allocator.allocate() ranks and filters with portfolio heat caps
     4. Only accepted candidates are submitted
+
+    Args:
+        indicator_cache: Optional shared dict for caching indicator states
+            across optimization runs. Safe only when indicator-affecting
+            params (EMA/ATR periods, ADX thresholds) are identical across
+            candidates. Caller must clear when those params change.
     """
     engines: dict[str, BacktestEngine] = {}
     configs: dict[str, SymbolConfig] = {}
@@ -138,6 +145,7 @@ def run_synchronized(
         engines[sym] = BacktestEngine(
             symbol=sym, cfg=cfg, bt_config=bt_config,
             point_value=_get_point_value(sym),
+            indicator_cache=indicator_cache,
         )
 
     if not engines:
@@ -149,7 +157,8 @@ def run_synchronized(
             eng.on_rejection = shadow.record_rejection
 
     # Mock instruments for allocator (needs .point_value)
-    instruments = {sym: SimpleNamespace(point_value=_get_point_value(sym)) for sym in engines}
+    point_values = {sym: _get_point_value(sym) for sym in engines}
+    instruments = {sym: SimpleNamespace(point_value=pv) for sym, pv in point_values.items()}
 
     # Build unified timestamp index from all symbols
     time_sets: dict[str, dict] = {}
@@ -232,7 +241,7 @@ def run_synchronized(
             for sym, eng in engines.items():
                 pos = eng.position
                 if pos.direction != Direction.FLAT and pos.base_leg is not None:
-                    risk_dollars = abs(pos.base_leg.entry_price - pos.current_stop) * _get_point_value(sym) * pos.total_qty
+                    risk_dollars = abs(pos.base_leg.entry_price - pos.current_stop) * point_values[sym] * pos.total_qty
                     total_heat += risk_dollars
             heat_pct = total_heat / portfolio_equity if portfolio_equity > 0 else 0.0
             heat_samples.append(heat_pct)

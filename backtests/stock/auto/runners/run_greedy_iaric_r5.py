@@ -24,15 +24,15 @@ if sys.stdout.encoding != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 from backtests.shared.auto.phase_runner import PhaseRunner
-from backtests.stock.auto.iaric_pullback.phase_candidates import (
+from backtests.stock.auto.iaric.phase_candidates import (
     R5_BASE_MUTATIONS,
     R5_PHASE_CANDIDATES,
     R5_PHASE_FOCUS,
 )
-from backtests.stock.auto.iaric_pullback.plugin import IARICPullbackPlugin
+from backtests.stock.auto.iaric.plugin import IARICPullbackPlugin
 
 DATA_DIR = Path("backtests/stock/data/raw")
-DEFAULT_OUTPUT_DIR = Path("backtests/stock/auto/iaric_pullback/output_r5")
+DEFAULT_OUTPUT_DIR = Path("backtests/stock/auto/iaric/output_r5")
 START_DATE = "2024-01-01"
 END_DATE = "2026-03-01"
 INITIAL_EQUITY = 10_000.0

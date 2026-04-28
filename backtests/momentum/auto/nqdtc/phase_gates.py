@@ -1,4 +1,4 @@
-"""NQDTC phase gate criteria -- single source of truth for all gate logic."""
+"""NQDTC post-audit phase gate criteria -- recalibrated for recovery from breakeven."""
 from __future__ import annotations
 
 from backtests.shared.auto.types import GateCriterion, GateResult
@@ -13,38 +13,52 @@ def gate_criteria_for_phase(
 ) -> list[GateCriterion]:
     """Return gate criteria for *phase* given current *metrics*.
 
-    Phase 4 uses *prior_phase_metrics* (from phase 3) for no-regression checks.
+    Post-audit recalibration: targets scaled for recovery from PF=0.98 baseline.
+    Phase 1 (Regime): just need improvement over breakeven
+    Phase 2 (Signal): entry quality improvement
+    Phase 3 (Timing/Exit): full system tightening
+    Phase 4 (Fine-tune): no-regression of Phase 3
     """
-    # Hard floors (all phases)
-    criteria: list[GateCriterion] = [
-        GateCriterion("hard_min_trades", 15.0, float(metrics.total_trades), metrics.total_trades >= 15),
-        GateCriterion("hard_max_dd_pct", 0.30, metrics.max_dd_pct, metrics.max_dd_pct <= 0.30),
-        GateCriterion("hard_min_pf", 0.80, metrics.profit_factor, metrics.profit_factor >= 0.80),
-    ]
+    criteria: list[GateCriterion] = []
 
     if phase == 1:
+        # Regime filtering: just need improvement over breakeven
         criteria.extend([
-            GateCriterion("profit_factor", 1.8, metrics.profit_factor, metrics.profit_factor >= 1.8),
-            GateCriterion("net_return_pct", 50.0, metrics.net_return_pct, metrics.net_return_pct >= 50.0),
-            GateCriterion("capture_ratio", 0.30, metrics.capture_ratio, metrics.capture_ratio >= 0.30),
-            GateCriterion("sortino", 3.0, metrics.sortino, metrics.sortino >= 3.0),
+            GateCriterion("hard_min_trades", 10.0, float(metrics.total_trades), metrics.total_trades >= 10),
+            GateCriterion("hard_max_dd_pct", 0.45, metrics.max_dd_pct, metrics.max_dd_pct <= 0.45),
+            GateCriterion("hard_min_pf", 0.70, metrics.profit_factor, metrics.profit_factor >= 0.70),
+            GateCriterion("profit_factor", 1.2, metrics.profit_factor, metrics.profit_factor >= 1.2),
+            GateCriterion("max_dd_pct", 0.30, metrics.max_dd_pct, metrics.max_dd_pct <= 0.30),
+            GateCriterion("net_return_pct", 10.0, metrics.net_return_pct, metrics.net_return_pct >= 10.0),
         ])
     elif phase == 2:
+        # Signal quality: entry quality improvement
         criteria.extend([
-            GateCriterion("total_trades", 200.0, float(metrics.total_trades), metrics.total_trades >= 200),
-            GateCriterion("win_rate", 0.45, metrics.win_rate, metrics.win_rate >= 0.45),
-            GateCriterion("profit_factor", 1.5, metrics.profit_factor, metrics.profit_factor >= 1.5),
-            GateCriterion("sortino", 3.0, metrics.sortino, metrics.sortino >= 3.0),
+            GateCriterion("hard_min_trades", 15.0, float(metrics.total_trades), metrics.total_trades >= 15),
+            GateCriterion("hard_max_dd_pct", 0.35, metrics.max_dd_pct, metrics.max_dd_pct <= 0.35),
+            GateCriterion("hard_min_pf", 0.90, metrics.profit_factor, metrics.profit_factor >= 0.90),
+            GateCriterion("profit_factor", 1.4, metrics.profit_factor, metrics.profit_factor >= 1.4),
+            GateCriterion("win_rate", 0.50, metrics.win_rate, metrics.win_rate >= 0.50),
+            GateCriterion("net_return_pct", 20.0, metrics.net_return_pct, metrics.net_return_pct >= 20.0),
         ])
     elif phase == 3:
+        # Timing & exit: full system tightening
         criteria.extend([
-            GateCriterion("calmar", 5.0, metrics.calmar, metrics.calmar >= 5.0),
-            GateCriterion("max_dd_pct", 0.12, metrics.max_dd_pct, metrics.max_dd_pct <= 0.12),
-            GateCriterion("net_return_pct", 60.0, metrics.net_return_pct, metrics.net_return_pct >= 60.0),
-            GateCriterion("total_trades", 180.0, float(metrics.total_trades), metrics.total_trades >= 180),
-            GateCriterion("sortino", 4.0, metrics.sortino, metrics.sortino >= 4.0),
+            GateCriterion("hard_min_trades", 15.0, float(metrics.total_trades), metrics.total_trades >= 15),
+            GateCriterion("hard_max_dd_pct", 0.30, metrics.max_dd_pct, metrics.max_dd_pct <= 0.30),
+            GateCriterion("hard_min_pf", 1.00, metrics.profit_factor, metrics.profit_factor >= 1.00),
+            GateCriterion("profit_factor", 1.6, metrics.profit_factor, metrics.profit_factor >= 1.6),
+            GateCriterion("max_dd_pct", 0.20, metrics.max_dd_pct, metrics.max_dd_pct <= 0.20),
+            GateCriterion("sortino", 1.5, metrics.sortino, metrics.sortino >= 1.5),
+            GateCriterion("net_return_pct", 30.0, metrics.net_return_pct, metrics.net_return_pct >= 30.0),
         ])
     elif phase == 4:
+        # Fine-tune: no-regression of Phase 3 at 90%
+        criteria.extend([
+            GateCriterion("hard_min_trades", 15.0, float(metrics.total_trades), metrics.total_trades >= 15),
+            GateCriterion("hard_max_dd_pct", 0.25, metrics.max_dd_pct, metrics.max_dd_pct <= 0.25),
+            GateCriterion("hard_min_pf", 1.00, metrics.profit_factor, metrics.profit_factor >= 1.00),
+        ])
         if prior_phase_metrics:
             for key in ["calmar", "profit_factor", "sharpe", "sortino", "net_return_pct", "total_trades"]:
                 target = float(prior_phase_metrics.get(key, 0.0)) * 0.90
@@ -73,7 +87,8 @@ def check_phase_gate(
 
 
 def _categorize_failure(metrics: NQDTCMetrics, criteria: list[GateCriterion], greedy_result: dict | None) -> str:
-    if metrics.total_trades < 15 or metrics.max_dd_pct > 0.30 or metrics.profit_factor < 0.80:
+    hard_fails = [c for c in criteria if not c.passed and c.name.startswith("hard_")]
+    if hard_fails:
         return "structural_issue"
     if greedy_result and greedy_result.get("total_candidates", 0) > 0 and greedy_result.get("accepted_count", 0) == 0:
         return "candidates_exhausted"
@@ -86,9 +101,9 @@ def _categorize_failure(metrics: NQDTCMetrics, criteria: list[GateCriterion], gr
 def _get_recommendations(metrics: NQDTCMetrics, criteria: list[GateCriterion], category: str) -> list[str]:
     recs: list[str] = []
     if category == "structural_issue":
-        if metrics.total_trades < 15:
+        if metrics.total_trades < 10:
             recs.append("Relax signal gates to increase trade count")
-        if metrics.max_dd_pct > 0.30:
+        if metrics.max_dd_pct > 0.35:
             recs.append("Reduce position sizing or tighten stops")
         if metrics.profit_factor < 0.80:
             recs.append("Fundamental edge issue -- review signal quality")

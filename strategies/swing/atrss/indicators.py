@@ -44,6 +44,20 @@ def ema(arr: np.ndarray, period: int) -> np.ndarray:
     return out
 
 
+def ema_last(arr: np.ndarray, period: int) -> float:
+    """Return only the last EMA value (avoids full array allocation).
+
+    Mathematically identical to ``ema(arr, period)[-1]``.
+    """
+    k = 2.0 / (period + 1)
+    one_minus_k = 1.0 - k
+    seed_len = min(period, len(arr))
+    prev = float(np.mean(arr[:seed_len]))
+    for i in range(1, len(arr)):
+        prev = float(arr[i]) * k + prev * one_minus_k
+    return prev
+
+
 def atr(highs: np.ndarray, lows: np.ndarray, closes: np.ndarray,
         period: int) -> np.ndarray:
     """Average True Range (Wilder smoothing)."""
@@ -63,6 +77,27 @@ def atr(highs: np.ndarray, lows: np.ndarray, closes: np.ndarray,
     for i in range(1, n):
         out[i] = out[i - 1] * (1 - alpha) + tr[i] * alpha
     return out
+
+
+def atr_last(highs: np.ndarray, lows: np.ndarray, closes: np.ndarray,
+             period: int) -> float:
+    """Return only the last ATR value (avoids full array allocation).
+
+    Mathematically identical to ``atr(highs, lows, closes, period)[-1]``.
+    """
+    n = len(highs)
+    prev_close = highs[0] - lows[0]  # tr[0] seed = first range
+    out_prev = prev_close
+    alpha = 1.0 / period
+    one_minus_alpha = 1.0 - alpha
+    for i in range(1, n):
+        tr_i = max(
+            highs[i] - lows[i],
+            abs(highs[i] - closes[i - 1]),
+            abs(lows[i] - closes[i - 1]),
+        )
+        out_prev = out_prev * one_minus_alpha + tr_i * alpha
+    return float(out_prev)
 
 
 def adx_suite(
@@ -316,15 +351,16 @@ def compute_hourly_state(
     *closes*, *highs*, *lows* should contain at least ``max(48, 50, 20)``
     hourly bars.  The last element is "this bar".
     """
-    # EMA pull — adaptive to regime
+    # EMA pull — adaptive to regime (need full array for pullback touch check)
     pull_period = (
         cfg.ema_pull_strong
         if daily.regime == Regime.STRONG_TREND
         else cfg.ema_pull_normal
     )
     ema_pull_arr = ema(closes, pull_period)
-    ema_mom_arr = ema(closes, cfg.ema_mom_period)
-    atr_arr = atr(highs, lows, closes, cfg.atr_hourly_period)
+    # EMA mom and ATR: only last value used — skip full array allocation
+    cur_ema_mom = ema_last(closes, cfg.ema_mom_period)
+    cur_atrh = atr_last(highs, lows, closes, cfg.atr_hourly_period)
 
     # Donchian channel over last donchian_period bars (excluding current bar)
     dc_lookback = cfg.donchian_period
@@ -347,7 +383,6 @@ def compute_hourly_state(
         prior_low = float(lows[-1])
 
     cur_close = float(closes[-1])
-    cur_atrh = float(atr_arr[-1])
 
     # Distance to daily EMA_fast in ATR units
     if daily.atr20 > 0:
@@ -369,7 +404,7 @@ def compute_hourly_state(
         high=float(highs[-1]),
         low=float(lows[-1]),
         close=cur_close,
-        ema_mom=float(ema_mom_arr[-1]),
+        ema_mom=cur_ema_mom,
         ema_pull=float(ema_pull_arr[-1]),
         atrh=cur_atrh,
         donchian_high=donchian_high,

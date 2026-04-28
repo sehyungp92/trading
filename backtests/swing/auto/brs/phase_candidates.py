@@ -49,9 +49,9 @@ def get_phase_candidates(
 
 
 def _phase_1_candidates() -> list[tuple[str, dict]]:
-    """REGIME + ENTRY params (NO ablations) + STRUCTURAL categories.
+    """REGIME + ENTRY params (NO ablations) + STRUCTURAL + WEAKNESS categories.
 
-    Signal ablations are excluded — they run in Phase 2 after params are tuned.
+    Signal ablations are excluded -- they run in Phase 2 after params are tuned.
     """
     # Get ENTRY experiments but EXCLUDE signal ablations
     entry_exps = [
@@ -60,7 +60,8 @@ def _phase_1_candidates() -> list[tuple[str, dict]]:
     ]
     regime_exps = get_category_experiments(["REGIME"])
     structural_exps = get_category_experiments(["STRUCTURAL"])
-    return regime_exps + entry_exps + structural_exps
+    weakness_exps = get_category_experiments(["WEAKNESS"])
+    return regime_exps + entry_exps + structural_exps + weakness_exps
 
 
 def _phase_2_candidates() -> list[tuple[str, dict]]:
@@ -82,7 +83,7 @@ def _phase_4_candidates(prior_mutations: dict) -> list[tuple[str, dict]]:
 
     finetune = []
     for key, value in prior_mutations.items():
-        if not isinstance(value, (int, float)):
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
             continue
 
         # Generate ±10% and ±20% variants

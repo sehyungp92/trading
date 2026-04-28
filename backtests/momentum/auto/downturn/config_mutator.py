@@ -29,17 +29,31 @@ def mutate_downturn_config(
     slippage_updates: dict = {}
     top_updates: dict = {}
 
-    flag_names = {f.name for f in fields(DownturnAblationFlags)}
+    flag_fields = {f.name: f for f in fields(DownturnAblationFlags)}
+    # Determine expected type from default value (bool check first since bool is subclass of int)
+    flag_types: dict[str, type] = {}
+    for fname, fobj in flag_fields.items():
+        default = fobj.default
+        if isinstance(default, bool):
+            flag_types[fname] = bool
+        elif isinstance(default, int):
+            flag_types[fname] = int
+        elif isinstance(default, float):
+            flag_types[fname] = float
+        else:
+            flag_types[fname] = type(default) if default is not None else bool
 
     for key, value in mutations.items():
         if key.startswith("flags."):
             field_name = key[len("flags."):]
-            if field_name in flag_names:
-                # Bool coercion (bool is subclass of int, check first)
-                if isinstance(value, bool):
-                    flag_updates[field_name] = value
-                elif isinstance(value, (int, float)):
+            if field_name in flag_fields:
+                expected = flag_types.get(field_name, bool)
+                if expected is bool:
                     flag_updates[field_name] = bool(value)
+                elif expected is int:
+                    flag_updates[field_name] = int(value)
+                elif expected is float:
+                    flag_updates[field_name] = float(value)
                 else:
                     flag_updates[field_name] = value
             else:

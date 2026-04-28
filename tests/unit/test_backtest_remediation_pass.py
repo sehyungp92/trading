@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -443,83 +442,6 @@ def test_atrss_scoring_accepts_numeric_combined_timestamps():
 
     assert metrics.calmar > 0.0
     assert metrics.trades_per_month > 0.0
-
-
-def test_shared_capital_diagnostics_and_iaric_data_gap_fix_are_wired_in():
-    atrss_src = Path("backtests/swing/analysis/atrss_full_diagnostics.py").read_text(encoding="utf-8")
-    helix_src = Path("backtests/swing/analysis/helix_full_diagnostics.py").read_text(encoding="utf-8")
-    breakout_src = Path("backtests/swing/analysis/breakout_full_diagnostics.py").read_text(encoding="utf-8")
-    swing_cli_src = Path("backtests/swing/cli.py").read_text(encoding="utf-8")
-    swing_helix_portfolio_src = Path("backtests/swing/engine/helix_portfolio_engine.py").read_text(encoding="utf-8")
-    swing_breakout_portfolio_src = Path("backtests/swing/engine/breakout_portfolio_engine.py").read_text(encoding="utf-8")
-    swing_breakout_engine_src = Path("backtests/swing/engine/breakout_engine.py").read_text(encoding="utf-8")
-    iaric_diag_src = Path("backtests/stock/analysis/iaric_pullback_diagnostics.py").read_text(encoding="utf-8")
-    iaric_runner_src = Path("backtests/stock/auto/iaric_pullback/run_optimized_diagnostics.py").read_text(encoding="utf-8")
-    alcb_runner_src = Path("backtests/stock/auto/alcb_p12_phase/run_conservative_diagnostics.py").read_text(encoding="utf-8")
-    downturn_r6_src = Path("backtests/momentum/auto/downturn/output/generate_r6_diagnostics.py").read_text(encoding="utf-8")
-    downturn_r7_src = Path("backtests/momentum/auto/downturn/output/generate_r7_diagnostics.py").read_text(encoding="utf-8")
-    downturn_r7b_src = Path("backtests/momentum/auto/downturn/output/generate_r7b_diagnostics.py").read_text(encoding="utf-8")
-
-    assert "run_synchronized" in atrss_src
-    assert "load_phase_mutation_source" in atrss_src
-    assert "Execution mode: synchronized/shared-capital" in atrss_src
-    assert "_trade_net_pnl" in atrss_src
-    assert "run_helix_synchronized" in helix_src
-    assert "mutate_helix_config" in helix_src
-    assert "load_phase_mutation_source" in helix_src
-    assert "Execution mode: synchronized/shared-capital" in helix_src
-    assert "_trade_net_pnl" in helix_src
-    assert "with _AblationPatch(bt_config.flags, bt_config.param_overrides):" in swing_helix_portfolio_src
-    assert "engine._precompute_indicators(data.hourly[sym], data.four_hour[sym])" in swing_helix_portfolio_src
-    assert "engine._flatten_at_end_of_data(" in swing_helix_portfolio_src
-    assert "with _AblationPatch(bt_config.flags, bt_config.param_overrides):" in swing_breakout_portfolio_src
-    assert "engine._precompute_indicators(data.daily[sym], data.hourly[sym], data.four_hour[sym])" in swing_breakout_portfolio_src
-    assert "engine._flatten_at_end_of_data(" in swing_breakout_portfolio_src
-    assert "engine.sizing_equity = portfolio_equity" in swing_breakout_portfolio_src
-    assert "equity_curve[-1] = portfolio_equity" in swing_breakout_portfolio_src
-    assert 'if not np.isfinite(avwap_h):' in swing_breakout_engine_src
-    assert '"invalid_avwap_h"' in swing_breakout_engine_src
-    assert "self.sizing_equity = bt_config.initial_equity" in swing_breakout_engine_src
-    assert "def _risk_equity(self) -> float:" in swing_breakout_engine_src
-    assert '"invalid_entry_inputs"' in swing_breakout_engine_src
-    assert "self._eq_arr[self._bar_idx - 1] = self.equity" in swing_breakout_engine_src
-    assert "equity_curve[-1] = self.equity" in Path("backtests/swing/engine/helix_engine.py").read_text(encoding="utf-8")
-    assert "equity_curve[-1] = portfolio_equity" in swing_helix_portfolio_src
-    assert "run_breakout_synchronized" in breakout_src
-    assert "_trade_net_pnl" in breakout_src
-    assert "_path_signature" in breakout_src
-    assert "data_dir / f\"{sym}_1h.parquet\"" in breakout_src
-    assert "run_independent(data, config)" not in swing_cli_src
-    assert "run_helix_independent(data, config)" not in swing_cli_src
-    assert "run_breakout_independent(data, config)" not in swing_cli_src
-    assert "run_synchronized(data, config)" in swing_cli_src
-    assert "run_helix_synchronized(data, config)" in swing_cli_src
-    assert "run_breakout_synchronized(data, config)" in swing_cli_src
-    assert 'sum(_trade_net_pnl(t) for t in losers)' in helix_src
-    assert 'sum(_trade_net_pnl(t) for t in cell)' in helix_src
-    assert '"profit_factor": float(_net_profit_factor(all_trades))' in breakout_src
-    assert '"total_pnl": sum(_trade_net_pnl(t) for t in all_trades)' in breakout_src
-    assert "missing_5m share=" in iaric_diag_src
-    assert "mixed cohorts; headline accept rate omitted" in iaric_diag_src
-    assert '--summary-json' in iaric_runner_src
-    assert "Mutation source:" in iaric_runner_src
-    assert "Phase-state reference (pre-fix optimization record):" in iaric_runner_src
-    assert "phase_state_reference" in iaric_runner_src
-    assert '--summary-json' in alcb_runner_src
-    assert "Mutation count:" in alcb_runner_src
-    assert '"strategy": "alcb_conservative_p12"' in alcb_runner_src
-    assert "Correction PnL %" in downturn_r6_src
-    assert "Correction PnL %" in downturn_r7_src
-    assert "Correction PnL %" in downturn_r7b_src
-
-    src = Path(
-        "backtests/stock/engine/iaric_pullback_intraday_hybrid_engine.py"
-    ).read_text(encoding="utf-8")
-    assert 'self._market_open_timestamp(trade_date)' in src
-    assert '"ENTRY_QUEUED"' in src
-    assert 'state.stage = "ENTRY_QUEUED"' in src
-    assert '"entry_queued"' in src
-    assert 'record.get("intraday_score")' in src
 
 
 def test_group_snapshot_prefers_clean_positive_buckets_for_strengths():

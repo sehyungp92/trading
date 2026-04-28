@@ -7,8 +7,9 @@ Exports consumed by the coordinator and engine:
   - R7C_FLAGS: DownturnAblationFlags   (backtest dataclass, R7c values)
   - R7C_PARAM_OVERRIDES: dict[str, float]
 
-Authoritative source: R7C_MUTATIONS in
-  research/backtests/momentum/auto/downturn/output/generate_r7b_diagnostics.py
+Authoritative source:
+  the centralized round baseline under
+  `backtests/output/momentum/downturn/round_1/optimized_config.json`
 """
 from __future__ import annotations
 
@@ -112,6 +113,33 @@ class DownturnAblationFlags:
 
     # R6 -- Hold period
     min_hold_period: bool = False  # Skip exits for first N bars after entry (except catastrophic)
+
+    # R8 -- Intraday regime proxy (Category A)
+    four_hour_only_regime: bool = False       # Regime from 4H ADX + 4H EMA only (drop daily)
+    intraday_regime_proxy: bool = False       # 1H EMA as bear/bull proxy
+    intraday_regime_ema_period: int = 100     # EMA period for intraday proxy (50 or 100)
+    multi_tf_regime_vote: bool = False        # 2-of-3 vote: 1H + 4H + daily
+    regime_proxy_atr_expansion: bool = False  # 1H ATR expansion as stress signal
+    correction_intraday_detect: bool = False  # Intraday cumulative decline for corrections
+
+    # R8 -- Reversal engine revival (Category B)
+    reversal_min_gate_count: int = 2          # 2-of-3 -> 1-of-3 when set to 1
+    reversal_no_extension_gate: bool = False  # Remove extension gate
+    reversal_hourly_pivots: bool = False      # Use 1H pivots instead of 4H
+    reversal_wider_corridor: float = 0.0      # Override corridor_cap_mult (0=default)
+
+    # R8 -- Entry filters (Category C)
+    correction_only_mode: bool = False        # Block ALL entries outside correction windows
+    correction_only_fade: bool = False        # Block fade entries outside corrections
+    vol_percentile_gate: float = 0.0          # ATR percentile minimum at entry (0=disabled)
+    regime_confidence_gate: float = 0.0       # Conviction score minimum at entry (0=disabled)
+
+    # R8 -- Exit improvements (Category D)
+    wider_initial_stop_mult: float = 0.0      # Scale initial stop by this mult (0=default)
+    atr_scaled_initial_stop: bool = False     # Scale initial stop by ATR percentile
+    partial_at_breakeven: float = 0.0         # Take this fraction off at BE trigger (0=disabled)
+    time_stop_widening: bool = False          # Widen chandelier after N bars without progress
+    time_stop_widening_bars: int = 48         # Bar threshold for widening
 
     # Deferred (optimize later)
     earn_the_hold: bool = False

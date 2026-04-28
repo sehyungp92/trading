@@ -6,7 +6,7 @@ import pytest
 import backtests.shared.auto.phase_runner as phase_runner_module
 import backtests.stock.analysis.iaric_pullback_diagnostics as pullback_diagnostics_module
 import backtests.stock.analysis.iaric_pullback_round_diagnostics as pullback_round_module
-import backtests.stock.auto.iaric_pullback.plugin as pullback_plugin_module
+import backtests.stock.auto.iaric.plugin as pullback_plugin_module
 import backtests.stock.cli as stock_cli_module
 from backtests.momentum.auto.downturn.plugin import DownturnPlugin
 from backtests.shared.auto.phase_analyzer import analyze_phase
@@ -14,6 +14,7 @@ from backtests.shared.auto.plugin_utils import CachedBatchEvaluator, ResilientBa
 from backtests.shared.auto.phase_runner import PhaseRunner
 from backtests.shared.auto.phase_state import PhaseState
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.round_manager import RoundManager
 from backtests.shared.auto.types import (
     EndOfRoundArtifacts,
     Experiment,
@@ -23,7 +24,7 @@ from backtests.shared.auto.types import (
     PhaseDecision,
     ScoredCandidate,
 )
-from backtests.stock.auto.iaric_pullback.plugin import IARICPullbackPlugin
+from backtests.stock.auto.iaric.plugin import IARICPullbackPlugin
 from backtests.swing.auto.brs.plugin import BRSPlugin
 
 
@@ -394,6 +395,64 @@ def test_phase_runner_writes_enhanced_diagnostics_and_final_round_artifacts(tmp_
     assert (Path(tmp_path) / "phase_1_diagnostics_enhanced.txt").read_text(encoding="utf-8") == "enhanced diag"
     assert (Path(tmp_path) / "round_evaluation.txt").exists()
     assert (Path(tmp_path) / "round_final_diagnostics.txt").read_text(encoding="utf-8") == "final diag"
+
+
+def test_phase_runner_writes_run_spec_for_incremental_round_runs(tmp_path, monkeypatch):
+    class _DummyPlugin:
+        name = "dummy"
+        num_phases = 1
+        initial_mutations = {"flags.seed": True}
+        ultimate_targets = {"avg_r": 1.0}
+
+        def get_phase_spec(self, phase, state):
+            return PhaseSpec(
+                focus="test",
+                candidates=[],
+                gate_criteria_fn=lambda metrics: [GateCriterion("avg_r", 1.0, metrics["avg_r"], True)],
+                scoring_weights={},
+                hard_rejects={},
+                analysis_policy=PhaseAnalysisPolicy(focus_metrics=[]),
+                max_rounds=1,
+                prune_threshold=0.0,
+            )
+
+        def create_evaluate_batch(self, phase, cumulative_mutations, *, scoring_weights=None, hard_rejects=None):
+            return lambda candidates, current_mutations: []
+
+        def compute_final_metrics(self, mutations):
+            return {"avg_r": 1.2}
+
+        def run_phase_diagnostics(self, phase, state, metrics, greedy_result):
+            return "phase diag"
+
+        def build_end_of_round_artifacts(self, state):
+            return EndOfRoundArtifacts(
+                final_diagnostics_text="final diag",
+                dimension_reports={"signal_extraction": "ok"},
+                overall_verdict="done",
+            )
+
+    monkeypatch.setattr(
+        phase_runner_module,
+        "run_greedy",
+        lambda *args, **kwargs: _greedy_result(base_score=1.0, final_score=2.0),
+    )
+
+    round_manager = RoundManager("momentum", "sample", base_dir=Path(tmp_path) / "output")
+    round_dir = round_manager.get_round_dir(1)
+    runner = PhaseRunner(
+        plugin=_DummyPlugin(),
+        output_dir=round_dir,
+        round_manager=round_manager,
+        round_num=1,
+    )
+
+    runner.run_phase(1, runner.load_state())
+
+    run_spec = (round_dir / "run_spec.json").read_text(encoding="utf-8")
+    assert '"round": 1' in run_spec
+    assert '"baseline_mutations": {' in run_spec
+    assert '"flags.seed": true' in run_spec
 
 
 def test_brs_phase_policy_marks_small_score_gain_marginal():

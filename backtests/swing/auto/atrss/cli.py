@@ -15,37 +15,42 @@ if str(_root) not in sys.path:
     sys.path.insert(0, str(_root))
 
 from backtests.shared.auto.phase_gates import evaluate_gate
-from backtests.shared.auto.phase_state import save_phase_state
 from backtests.shared.auto.phase_runner import PhaseRunner, _mutations_through_phase
+from backtests.shared.auto.phase_state import save_phase_state
+from backtests.shared.auto.round_manager import RoundManager
 from backtests.swing.auto.atrss.plugin import ATRSSPlugin
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-OUTPUT_DIR = _root / "backtests/swing/auto/atrss/output"
+ROUND_MANAGER = RoundManager("swing", "atrss")
 
 
-def _build_runner(args: argparse.Namespace) -> PhaseRunner:
+def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseRunner:
     plugin = ATRSSPlugin(
         data_dir=Path(args.data_dir),
         initial_equity=args.equity,
         max_workers=getattr(args, "max_workers", None),
     )
+    round_num, round_dir = ROUND_MANAGER.resolve_round(
+        getattr(args, "round", None),
+        for_write=for_write,
+        expected_phases=plugin.num_phases if for_write else None,
+    )
+    if round_num > 1:
+        plugin.initial_mutations = ROUND_MANAGER.get_previous_mutations(round_num)
     return PhaseRunner(
         plugin=plugin,
-        output_dir=OUTPUT_DIR,
+        output_dir=round_dir,
         max_rounds=getattr(args, "max_rounds", None),
         min_delta=getattr(args, "min_delta", 0.005),
         max_retries=getattr(args, "max_retries", 2),
+        round_manager=ROUND_MANAGER,
+        round_num=round_num,
     )
 
 
-# ---------------------------------------------------------------------------
-# Commands
-# ---------------------------------------------------------------------------
-
 def cmd_phase_run(args: argparse.Namespace) -> None:
-    """Run a single phase."""
     runner = _build_runner(args)
     state = runner.run_phase(args.phase)
     result = state.phase_results.get(args.phase, {})
@@ -55,101 +60,106 @@ def cmd_phase_run(args: argparse.Namespace) -> None:
 
 
 def cmd_phase_gate(args: argparse.Namespace) -> None:
-    """Check if a phase passes its gate."""
-    runner = _build_runner(args)
+    runner = _build_runner(args, for_write=False)
     state = runner.load_state()
     if args.phase not in state.phase_results:
         print(f"Phase {args.phase} has not been completed yet.")
         return
 
-    plugin = runner.plugin
     phase_mutations = _mutations_through_phase(state, args.phase)
-    metrics = plugin.compute_final_metrics(phase_mutations)
-    spec = plugin.get_phase_spec(args.phase, state)
+    metrics = runner.plugin.compute_final_metrics(phase_mutations)
+    spec = runner.plugin.get_phase_spec(args.phase, state)
     gate = evaluate_gate(spec.gate_criteria_fn(metrics))
     state.record_gate(args.phase, {
         "passed": gate.passed,
-        "criteria": [c.__dict__ for c in gate.criteria],
+        "criteria": [criterion.__dict__ for criterion in gate.criteria],
         "failure_category": gate.failure_category,
+        "recommendations": list(gate.recommendations),
     })
-    save_phase_state(state, OUTPUT_DIR)
+    save_phase_state(state, runner.state_path)
+
     print(f"Phase {args.phase} gate: {'PASSED' if gate.passed else 'FAILED'}")
-    for c in gate.criteria:
-        status = "OK" if c.passed else "FAIL"
-        print(f"  [{status}] {c.name}: {c.actual:.4f} (target: {c.target:.4f})")
+    for criterion in gate.criteria:
+        marker = "[PASS]" if criterion.passed else "[FAIL]"
+        print(f"  {marker} {criterion.name}: {criterion.actual:.4f} (target {criterion.target:.4f})")
 
 
 def cmd_phase_auto(args: argparse.Namespace) -> None:
-    """Run all phases automatically."""
     runner = _build_runner(args)
     state = runner.run_all_phases()
     print("ATRSS auto-optimization complete.")
     print(f"Completed phases: {state.completed_phases}")
-    final_muts = state.cumulative_mutations
-    print(f"Cumulative mutations: {len(final_muts)}")
-    for k, v in sorted(final_muts.items()):
-        print(f"  {k}: {v}")
+    print(f"Final mutations: {len(state.cumulative_mutations)}")
+
+
+def cmd_phase_diagnostics(args: argparse.Namespace) -> None:
+    _, round_dir = ROUND_MANAGER.resolve_round(getattr(args, "round", None), for_write=False)
+    diag_path = round_dir / f"phase_{args.phase}_diagnostics.txt"
+    if not diag_path.exists():
+        print(f"No diagnostics found at {diag_path}.")
+        return
+    print(diag_path.read_text(encoding="utf-8"))
 
 
 def cmd_status(args: argparse.Namespace) -> None:
-    """Show current optimization status."""
-    runner = _build_runner(args)
+    runner = _build_runner(args, for_write=False)
     state = runner.load_state()
     print(f"Completed phases: {state.completed_phases}")
     print(f"Cumulative mutations ({len(state.cumulative_mutations)}):")
-    for k, v in sorted(state.cumulative_mutations.items()):
-        print(f"  {k}: {v}")
+    for key, value in sorted(state.cumulative_mutations.items()):
+        print(f"  {key}: {value}")
     for phase in sorted(state.phase_results.keys()):
-        res = state.phase_results[phase]
-        n_kept = len(res.get("kept_features", []))
-        score = res.get("final_score", 0.0)
-        print(f"  Phase {phase}: {n_kept} accepted, score={score:.4f}")
+        result = state.phase_results[phase]
+        accepted = len(result.get("kept_features", []))
+        score = result.get("final_score", 0.0)
+        print(f"  Phase {phase}: {accepted} accepted, score={score:.4f}")
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
+def _add_common(command: argparse.ArgumentParser) -> None:
+    command.add_argument("--data-dir", default="backtests/swing/data/raw")
+    command.add_argument("--equity", type=float, default=10_000.0)
+    command.add_argument("--max-workers", type=int, default=None)
+    command.add_argument("--max-rounds", type=int, default=None)
+    command.add_argument("--min-delta", type=float, default=0.005)
+    command.add_argument("--max-retries", type=int, default=2)
+    command.add_argument("--round", type=int, default=None)
+
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="ATRSS R1 phased auto-optimization")
-    parser.add_argument("--data-dir", default="backtests/swing/data/raw",
-                        help="Path to OHLCV data directory")
-    parser.add_argument("--equity", type=float, default=10_000.0,
-                        help="Initial equity (default: $10,000)")
-    parser.add_argument("--max-workers", type=int, default=None,
-                        help="Max parallel workers (default: CPU count - 1)")
-    parser.add_argument("--max-rounds", type=int, default=None,
-                        help="Max greedy rounds per phase")
-    parser.add_argument("--min-delta", type=float, default=0.005,
-                        help="Min score improvement to accept (default: 0.005)")
-    parser.add_argument("--max-retries", type=int, default=2,
-                        help="Max retries per phase on failure")
+    parser = argparse.ArgumentParser(prog="atrss-auto", description="ATRSS R1 phased auto-optimization")
+    sub = parser.add_subparsers(dest="command")
 
-    sub = parser.add_subparsers(dest="cmd")
+    phase_run = sub.add_parser("phase-run", help="Run a single ATRSS phase")
+    _add_common(phase_run)
+    phase_run.add_argument("--phase", type=int, required=True, choices=[1, 2, 3, 4])
 
-    # phase run
-    p_run = sub.add_parser("run", help="Run a single phase")
-    p_run.add_argument("phase", type=int, choices=[1, 2, 3, 4])
-    p_run.set_defaults(func=cmd_phase_run)
+    phase_auto = sub.add_parser("phase-auto", help="Run all ATRSS phases")
+    _add_common(phase_auto)
 
-    # phase gate
-    p_gate = sub.add_parser("gate", help="Check phase gate")
-    p_gate.add_argument("phase", type=int, choices=[1, 2, 3, 4])
-    p_gate.set_defaults(func=cmd_phase_gate)
+    phase_gate = sub.add_parser("phase-gate", help="Check a completed ATRSS phase gate")
+    _add_common(phase_gate)
+    phase_gate.add_argument("--phase", type=int, required=True, choices=[1, 2, 3, 4])
 
-    # auto (all phases)
-    p_auto = sub.add_parser("auto", help="Run all phases automatically")
-    p_auto.set_defaults(func=cmd_phase_auto)
+    phase_diag = sub.add_parser("phase-diagnostics", help="Print ATRSS phase diagnostics")
+    phase_diag.add_argument("--phase", type=int, required=True, choices=[1, 2, 3, 4])
+    phase_diag.add_argument("--round", type=int, default=None)
 
-    # status
-    p_status = sub.add_parser("status", help="Show optimization status")
-    p_status.set_defaults(func=cmd_status)
+    status = sub.add_parser("status", help="Show ATRSS optimization status")
+    _add_common(status)
 
     args = parser.parse_args()
-    if not hasattr(args, "func"):
+    if args.command == "phase-run":
+        cmd_phase_run(args)
+    elif args.command == "phase-auto":
+        cmd_phase_auto(args)
+    elif args.command == "phase-gate":
+        cmd_phase_gate(args)
+    elif args.command == "phase-diagnostics":
+        cmd_phase_diagnostics(args)
+    elif args.command == "status":
+        cmd_status(args)
+    else:
         parser.print_help()
-        return
-    args.func(args)
 
 
 if __name__ == "__main__":

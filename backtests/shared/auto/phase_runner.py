@@ -12,6 +12,7 @@ from .phase_gates import evaluate_gate
 from .phase_logging import PhaseLogger
 from .phase_state import PhaseState, _utc_now_iso, load_phase_state, save_phase_state
 from .plugin import StrategyPlugin
+from .round_manager import RoundManager
 from .types import GateResult, GreedyResult, PhaseAnalysis
 
 
@@ -47,6 +48,8 @@ class PhaseRunner:
         min_delta: float = 0.001,
         max_retries: int = 2,
         max_diagnostic_retries: int = 1,
+        round_manager: RoundManager | None = None,
+        round_num: int | None = None,
     ):
         self.plugin = plugin
         self.output_dir = Path(output_dir)
@@ -56,8 +59,30 @@ class PhaseRunner:
         self.min_delta = min_delta
         self.max_retries = max_retries
         self.max_diagnostic_retries = max_diagnostic_retries
-        self.state_path = self.output_dir / "phase_state.json"
+        self._round_manager = round_manager
+        self._round_num = round_num
+        self.state_path = (
+            self._round_manager.phase_state_path(self.output_dir)
+            if self._round_manager else self.output_dir / "phase_state.json"
+        )
         self.phase_logger = PhaseLogger(self.output_dir, round_name=round_name)
+
+    def _ensure_round_spec(self, state: PhaseState) -> None:
+        if not self._round_manager or self._round_num is None:
+            return
+        baseline_mutations = getattr(self.plugin, "initial_mutations", None)
+        if baseline_mutations is None:
+            if self._round_num > 1:
+                baseline_mutations = self._round_manager.get_previous_mutations(self._round_num)
+            else:
+                baseline_mutations = {}
+        self._round_manager.write_run_spec(
+            self.output_dir,
+            self._round_num,
+            self.plugin.name,
+            description=self.round_name or f"Round {self._round_num}",
+            baseline_mutations=dict(baseline_mutations),
+        )
 
     def load_state(self) -> PhaseState:
         state = load_phase_state(self.state_path)
@@ -70,6 +95,7 @@ class PhaseRunner:
 
     def run_phase(self, phase: int, state: PhaseState | None = None) -> PhaseState:
         state = state or self.load_state()
+        self._ensure_round_spec(state)
         state = self._prepare_state_for_phase(state, phase)
         phase_log = self.phase_logger.get_phase_logger(phase)
         phase_base_mutations = dict(state.cumulative_mutations)
@@ -120,6 +146,7 @@ class PhaseRunner:
                     max_rounds=self.max_rounds or spec.max_rounds or len(phase_candidates),
                     min_delta=self.min_delta,
                     prune_threshold=spec.prune_threshold if spec.prune_threshold is not None else 0.05,
+                    reject_streak_limit=spec.reject_streak_limit if spec.reject_streak_limit is not None else 1,
                     checkpoint_path=checkpoint_path,
                     checkpoint_context={
                         "phase": phase,
@@ -306,6 +333,8 @@ class PhaseRunner:
         backup_label = self.round_name or datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         self.phase_logger.backup_state(self.state_path, backup_label)
 
+        self._ensure_round_spec(state)
+
         if start_phase is None:
             start_phase = max(state.completed_phases) + 1 if state.completed_phases else 1
 
@@ -368,10 +397,41 @@ class PhaseRunner:
 
     def run_end_of_round(self, state: PhaseState) -> str:
         artifacts = self.plugin.build_end_of_round_artifacts(state)
-        (self.output_dir / "round_final_diagnostics.txt").write_text(artifacts.final_diagnostics_text, encoding="utf-8")
+        diagnostics_path = (
+            self._round_manager.diagnostics_path(self.output_dir)
+            if self._round_manager else self.output_dir / "round_final_diagnostics.txt"
+        )
+        evaluation_path = (
+            self._round_manager.evaluation_path(self.output_dir)
+            if self._round_manager else self.output_dir / "round_evaluation.txt"
+        )
+        diagnostics_path.write_text(artifacts.final_diagnostics_text, encoding="utf-8")
         report = build_end_of_round_report(self.plugin.name, state, artifacts)
-        (self.output_dir / "round_evaluation.txt").write_text(report, encoding="utf-8")
+        evaluation_path.write_text(report, encoding="utf-8")
         save_phase_state(state, self.state_path)
+
+        final_metrics: dict[str, Any] = {}
+        final_phase = max(state.completed_phases, default=0)
+        if final_phase:
+            final_metrics = dict(state.phase_results.get(final_phase, {}).get("final_metrics") or {})
+        if not final_metrics:
+            final_metrics = dict(self.plugin.compute_final_metrics(state.cumulative_mutations) or {})
+
+        if self._round_manager and self._round_num is not None:
+            self._round_manager.write_run_summary(
+                self.output_dir,
+                state.cumulative_mutations,
+                final_metrics,
+                state.completed_phases,
+                round_num=self._round_num,
+            )
+            self._round_manager.write_optimized_config(self.output_dir, state.cumulative_mutations)
+            self._round_manager.append_to_manifest(
+                self._round_num,
+                state.cumulative_mutations,
+                final_metrics,
+            )
+
         self.phase_logger.log_activity(
             max(state.completed_phases) if state.completed_phases else 0,
             "end_of_round",

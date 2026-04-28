@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
+import pandas as pd
 
 from backtests.momentum.analysis.nqdtc_shadow_tracker import NQDTCShadowTracker
 from backtests.momentum.config import SlippageConfig, round_to_tick
@@ -118,6 +119,9 @@ _PATCHABLE_SCALAR_KEYS = [
     'MAX_STOP_WIDTH_PTS', 'MAX_LOSS_CAP_R',
     'REENTRY_MIN_LOSS_R', 'REENTRY_COOLDOWN_MIN',
     'BLOCK_CONT_ALIGNED', 'BLOCK_STD_NEUTRAL_LOW_DISP',
+    'BLOCK_NEUTRAL_REGIME', 'BLOCK_ALIGNED_REGIME', 'BLOCK_CAUTION_REGIME',
+    'SCORE_NON_RANGE_MULT',
+    'RVOL_SCORE_THRESH',
     'CHANDELIER_TIER0_MULT', 'CHANDELIER_TIER1_MULT', 'CHANDELIER_TIER2_MULT',
     'CHANDELIER_TIER3_MULT', 'CHANDELIER_TIER4_MULT',
     'CHANDELIER_GRACE_BARS_30M',
@@ -531,6 +535,11 @@ class NQDTCEngine:
         # Inter-trade cooldown (Prereq 1)
         self._last_fill_time: datetime | None = None
 
+        # Early termination on drawdown (scoring mode)
+        self._peak_equity = bt_config.initial_equity
+        self._max_dd_abort = bt_config.max_dd_abort
+        self._abort = False
+
         # Counters
         self._breakouts_evaluated = 0
         self._breakouts_qualified = 0
@@ -657,8 +666,42 @@ class NQDTCEngine:
         }
         self._inc_30m_count: dict[Session, int] = {Session.ETH: 0, Session.RTH: 0}
 
+        # -- Pre-compute bar times vectorized (avoids 93K+ per-bar conversions) --
+        _bar_times_idx = pd.DatetimeIndex(five_min_bars.times)
+        if _bar_times_idx.tz is None:
+            _bar_times_idx = _bar_times_idx.tz_localize("UTC")
+        self._bar_times = _bar_times_idx.to_pydatetime()
+
+        # -- Pre-compute NY times, sessions, daily dates, entry windows --
+        _et = _get_et()
+        _ny_times = _bar_times_idx.tz_convert(_et)
+        _ny_total_minutes = (_ny_times.hour * 60 + _ny_times.minute).values
+        _ny_hours = _ny_times.hour.values
+        _ny_minutes = _ny_times.minute.values
+
+        _rth_start_m = _minutes(C.RTH_START_H, C.RTH_START_M)
+        _rth_end_m = _minutes(C.RTH_END_H, C.RTH_END_M)
+        self._sessions_rth_arr = (_ny_total_minutes >= _rth_start_m) & (_ny_total_minutes < _rth_end_m)
+
+        self._daily_dates_arr = _ny_times.strftime("%Y-%m-%d").values
+        self._ny_hours_arr = _ny_hours
+        self._ny_weekdays_arr = _ny_times.weekday.values
+        self._ny_days_arr = _ny_times.day.values
+
+        self._is_rth_open_arr = (_ny_hours == C.RTH_START_H) & (_ny_minutes == C.RTH_START_M)
+        self._is_eth_start_arr = (_ny_hours == C.ETH_START_H) & (_ny_minutes == C.ETH_START_M)
+
+        self._in_eth_entry_arr = (
+            (_ny_total_minutes >= _minutes(C.ETH_ENTRY_START_H, C.ETH_ENTRY_START_M))
+            & (_ny_total_minutes < _minutes(C.ETH_ENTRY_END_H, C.ETH_ENTRY_END_M))
+        )
+        self._in_rth_entry_arr = (
+            (_ny_total_minutes >= _minutes(C.RTH_ENTRY_START_H, C.RTH_ENTRY_START_M))
+            & (_ny_total_minutes < _minutes(C.RTH_ENTRY_END_H, C.RTH_ENTRY_END_M))
+        )
+
         for t in range(n):
-            bar_time = self._bar_time(five_min_bars.times[t])
+            bar_time = self._bar_times[t]
             O = five_min_bars.opens[t]
             H = five_min_bars.highs[t]
             L = five_min_bars.lows[t]
@@ -680,11 +723,13 @@ class NQDTCEngine:
                 m30_idx, h_idx, fh_idx, d_idx, es_d_idx,
                 wu_d, wu_30m, wu_1h, wu_4h,
             )
+            if self._abort:
+                break
 
         # Close any remaining position at last bar
         if self._active and self._active.pos.open:
             last_close = float(five_min_bars.closes[-1])
-            last_time = self._bar_time(five_min_bars.times[-1])
+            last_time = self._bar_times[-1]
             self._close_position_market(last_close, last_time, "END_OF_DATA")
 
         # Shadow simulation
@@ -701,8 +746,8 @@ class NQDTCEngine:
             symbol=self.symbol,
             trades=self._trades,
             signal_events=self._signal_events,
-            decision_stream=normalize_decision_stream(self._decision_events),
-            trade_outcomes=normalize_trade_outcome_stream(self._trades),
+            decision_stream=normalize_decision_stream(self._decision_events) if not self.cfg.scoring_mode else [],
+            trade_outcomes=normalize_trade_outcome_stream(self._trades) if not self.cfg.scoring_mode else [],
             equity_curve=np.array(self._equity_history),
             timestamps=np.array(self._time_history),
             total_commission=self._total_commission,
@@ -754,12 +799,12 @@ class NQDTCEngine:
     ) -> None:
         self._bar_count_5m += 1
 
-        # 1. Classify session
-        session = _classify_session(bar_time)
+        # 1. Classify session (pre-computed array lookup)
+        session = Session.RTH if self._sessions_rth_arr[t] else Session.ETH
         sess_state = self.eth if session == Session.ETH else self.rth
 
-        # 2. Daily reset
-        self._check_daily_reset(bar_time)
+        # 2. Daily reset (pre-computed array lookup)
+        self._check_daily_reset(t)
 
         # 2a. Cooldown decrement on every 5m bar (matches live engine)
         if self.flags.loss_streak_cooldown and self._cooldown_bars > 0:
@@ -788,12 +833,11 @@ class NQDTCEngine:
             opposite.last_profitable_exit_dir = Direction.FLAT
         self._last_session = session
 
-        # 3. Session VWAP reset at session open
-        if _is_rth_open(bar_time):
+        # 3. Session VWAP reset at session open (pre-computed array lookup)
+        if self._is_rth_open_arr[t]:
             self.rth.vwap_session.reset(bar_time)
         # ETH resets at 18:00 NY (start of next trading day)
-        ny = _to_ny(bar_time)
-        if ny.hour == C.ETH_START_H and ny.minute == C.ETH_START_M:
+        if self._is_eth_start_arr[t]:
             self.eth.vwap_session.reset(bar_time)
 
         # 4. Update session VWAP
@@ -910,7 +954,7 @@ class NQDTCEngine:
         if not (self._active and self._active.pos.open):
             if not self.flags.rth_entries and session == Session.RTH:
                 pass  # RTH entries disabled
-            elif sess_state.breakout.active and _in_entry_window(bar_time, session):
+            elif sess_state.breakout.active and (self._in_rth_entry_arr[t] if session == Session.RTH else self._in_eth_entry_arr[t]):
                 self._evaluate_5m_entry(bar_time, O, H, L, Cl, sess_state)
 
         # 12. Check working order cancellation (A cancel depth)
@@ -923,8 +967,15 @@ class NQDTCEngine:
                 p = self._active.pos
                 unrealized = (Cl - p.entry_price) * p.direction * self.pv * p.qty_open
                 mtm += unrealized
+            if mtm > self._peak_equity:
+                self._peak_equity = mtm
             self._equity_history.append(mtm)
             self._time_history.append(bar_time)
+            # Early termination on excessive drawdown
+            if self._max_dd_abort > 0 and self._peak_equity > 0:
+                dd = (self._peak_equity - mtm) / self._peak_equity
+                if dd > self._max_dd_abort:
+                    self._abort = True
 
     # ------------------------------------------------------------------
     # Higher-TF boundary handlers
@@ -1148,6 +1199,19 @@ class NQDTCEngine:
 
         # --- Gate evaluation (deterministic order) ---
 
+        # 0. Pre-compute daily support + composite regime (needed for gate 1b)
+        if len(self._ema50_d) > 3 and len(self._atr14_d) > 0:
+            _ds, _do = sig.classify_daily_support(
+                self._ema50_d, self._atr14_d, direction,
+            )
+            self.regime.daily_supports = _ds
+            self.regime.daily_opposes = _do
+        self.regime.composite = sig.compute_composite_regime(
+            self.regime.regime_4h.value, self.regime.trend_dir_4h,
+            direction, self.regime.daily_supports, self.regime.daily_opposes,
+        )
+        evt.composite_regime = self.regime.composite.value
+
         # 1. Regime hard block
         hard_blocked = sig.regime_hard_block(
             self.regime.regime_4h.value,
@@ -1160,6 +1224,17 @@ class NQDTCEngine:
             evt.first_block_reason = "regime_hard_block"
             self._record_signal_event(evt, sess, direction, bar_time)
             return
+
+        # 1b. Composite regime block (post-audit regime filtering)
+        if C.BLOCK_NEUTRAL_REGIME or C.BLOCK_ALIGNED_REGIME or C.BLOCK_CAUTION_REGIME:
+            _comp = self.regime.composite
+            if (C.BLOCK_NEUTRAL_REGIME and _comp == CompositeRegime.NEUTRAL) or \
+               (C.BLOCK_ALIGNED_REGIME and _comp == CompositeRegime.ALIGNED) or \
+               (C.BLOCK_CAUTION_REGIME and _comp == CompositeRegime.CAUTION):
+                evt.regime_pass = False
+                evt.first_block_reason = f"regime_{_comp.value.lower()}_block"
+                self._record_signal_event(evt, sess, direction, bar_time)
+                return
 
         # 2. CHOP halt
         if self.flags.chop_halt and sess.mode == ChopMode.HALT:
@@ -1231,24 +1306,10 @@ class NQDTCEngine:
         squeeze_good = current_sq <= float(np.quantile(sq_arr, C.SQUEEZE_GOOD_QUANTILE)) if len(sq_arr) > 5 else False
         squeeze_loose = current_sq >= float(np.quantile(sq_arr, C.SQUEEZE_LOOSE_QUANTILE)) if len(sq_arr) > 5 else False
 
-        # Daily support
-        if len(self._ema50_d) > 3 and len(self._atr14_d) > 0:
-            daily_supports, daily_opposes = sig.classify_daily_support(
-                self._ema50_d, self._atr14_d, direction,
-            )
-            self.regime.daily_supports = daily_supports
-            self.regime.daily_opposes = daily_opposes
-        else:
-            daily_supports = False
-            daily_opposes = False
-
-        # Composite regime (needs trade direction)
-        composite = sig.compute_composite_regime(
-            self.regime.regime_4h.value, self.regime.trend_dir_4h,
-            direction, daily_supports, daily_opposes,
-        )
-        self.regime.composite = composite
-        evt.composite_regime = composite.value
+        # Daily support + composite regime (already computed at gate entry, step 0)
+        daily_supports = self.regime.daily_supports
+        daily_opposes = self.regime.daily_opposes
+        composite = self.regime.composite
 
         score = sig.compute_score(
             rvol, two_outside, atr_rising, squeeze_good, squeeze_loose,
@@ -1257,6 +1318,9 @@ class NQDTCEngine:
         )
         evt.score = score
         s_threshold = sig.score_threshold(sess.mode)
+        # Post-audit: raise score threshold for non-Range regimes
+        if composite != CompositeRegime.RANGE and C.SCORE_NON_RANGE_MULT != 1.0:
+            s_threshold *= C.SCORE_NON_RANGE_MULT
         evt.score_threshold = s_threshold
         sess.last_score = score
 
@@ -1467,6 +1531,14 @@ class NQDTCEngine:
             if sig.regime_hard_block(
                 self.regime.regime_4h.value, self.regime.trend_dir_4h, direction, daily_opposes,
             ):
+                return
+
+        # Re-check composite regime block at entry time
+        if C.BLOCK_NEUTRAL_REGIME or C.BLOCK_ALIGNED_REGIME or C.BLOCK_CAUTION_REGIME:
+            _comp = self.regime.composite
+            if (C.BLOCK_NEUTRAL_REGIME and _comp == CompositeRegime.NEUTRAL) or \
+               (C.BLOCK_ALIGNED_REGIME and _comp == CompositeRegime.ALIGNED) or \
+               (C.BLOCK_CAUTION_REGIME and _comp == CompositeRegime.CAUTION):
                 return
 
         # Friction gate (moved from _try_breakout to match live engine timing)
@@ -2581,10 +2653,9 @@ class NQDTCEngine:
     # Daily reset
     # ------------------------------------------------------------------
 
-    def _check_daily_reset(self, bar_time: datetime) -> None:
-        ny = _to_ny(bar_time)
-        today = ny.strftime("%Y-%m-%d")
-        if today != self._last_reset_date and ny.hour >= 4:
+    def _check_daily_reset(self, t: int) -> None:
+        today = self._daily_dates_arr[t]
+        if today != self._last_reset_date and self._ny_hours_arr[t] >= 4:
             # Track daily PnL to ledger before reset
             if self.daily_risk.trade_date:
                 self.daily_risk.daily_pnl_ledger.append(
@@ -2601,12 +2672,12 @@ class NQDTCEngine:
             self._throttle.update_equity(self.equity)
 
             # Weekly reset on Monday
-            if ny.weekday() == 0:
+            if self._ny_weekdays_arr[t] == 0:
                 self.daily_risk.weekly_realized_R = 0.0
                 self.daily_risk.weekly_halted = False
 
             # Monthly reset on 1st
-            if ny.day == 1:
+            if self._ny_days_arr[t] == 1:
                 self.daily_risk.monthly_realized_R = 0.0
                 self.daily_risk.monthly_halted = False
 

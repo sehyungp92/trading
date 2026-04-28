@@ -80,6 +80,13 @@ from backtests.swing.engine.sim_broker import (
 
 logger = logging.getLogger(__name__)
 
+# Pre-cached timezone for hot-path use (avoids per-call import + construction)
+try:
+    from zoneinfo import ZoneInfo as _ZoneInfo
+    _ET_TZ = _ZoneInfo("America/New_York")
+except ImportError:
+    _ET_TZ = None  # type: ignore[assignment]
+
 
 # ---------------------------------------------------------------------------
 # Trade record for post-hoc analysis
@@ -398,6 +405,7 @@ class BacktestEngine:
         cfg: SymbolConfig,
         bt_config: BacktestConfig,
         point_value: float,
+        indicator_cache: dict | None = None,
     ):
         self.symbol = symbol
         self.cfg = cfg
@@ -504,6 +512,17 @@ class BacktestEngine:
         self._core_state = ATRSSCoreState()
         self._decision_events: list = []
 
+        # Pre-computed constants for hot path
+        self._hourly_lookback = max(cfg.ema_pull_normal, cfg.atr_hourly_period) + 5
+        self._daily_lookback = max(cfg.daily_ema_slow, cfg.atr_daily_period) + 5
+
+        # Optional shared indicator cache for optimization runs.
+        # When provided, caches DailyState/HourlyState by (symbol, idx).
+        # Safe only when indicator params (ema periods, atr periods, etc.)
+        # are identical across candidates.  Caller is responsible for
+        # clearing the cache when indicator-affecting params change.
+        self._indicator_cache = indicator_cache
+
     def run(
         self,
         daily: NumpyBars,
@@ -609,15 +628,22 @@ class BacktestEngine:
             return []
 
         if bar_idx >= warmup_h:
-            start = max(0, bar_idx - max(self.cfg.ema_pull_normal, self.cfg.atr_hourly_period) - 5)
-            self.hourly_state = compute_hourly_state(
-                hourly.closes[start:bar_idx + 1],
-                hourly.highs[start:bar_idx + 1],
-                hourly.lows[start:bar_idx + 1],
-                self.daily_state, self.cfg,
-                bar_time,
-                hourly.opens[start:bar_idx + 1],
-            )
+            cache = self._indicator_cache
+            cache_key = (self.symbol, "h", bar_idx)
+            if cache is not None and cache_key in cache:
+                self.hourly_state = cache[cache_key]
+            else:
+                start = max(0, bar_idx - self._hourly_lookback)
+                self.hourly_state = compute_hourly_state(
+                    hourly.closes[start:bar_idx + 1],
+                    hourly.highs[start:bar_idx + 1],
+                    hourly.lows[start:bar_idx + 1],
+                    self.daily_state, self.cfg,
+                    bar_time,
+                    hourly.opens[start:bar_idx + 1],
+                )
+                if cache is not None:
+                    cache[cache_key] = self.hourly_state
         else:
             self._funnel.bars_warmup += 1
             self.equity_curve.append(self._mtm_equity(C))
@@ -658,7 +684,9 @@ class BacktestEngine:
         self.timestamps.append(hourly.times[bar_idx])
 
         self._defer_submissions = False
-        result = list(self._deferred_candidates)
+        if not self._deferred_candidates:
+            return []
+        result = self._deferred_candidates
         self._deferred_candidates = []
         return result
 
@@ -703,16 +731,23 @@ class BacktestEngine:
 
             # --- 2. Compute hourly state ---
             if i >= warmup_h:
-                start = max(0, i - max(self.cfg.ema_pull_normal, self.cfg.atr_hourly_period) - 5)
-                h_closes = hourly.closes[start:i + 1]
-                h_highs = hourly.highs[start:i + 1]
-                h_lows = hourly.lows[start:i + 1]
-                h_opens = hourly.opens[start:i + 1]
-                self.hourly_state = compute_hourly_state(
-                    h_closes, h_highs, h_lows,
-                    self.daily_state, self.cfg,
-                    bar_time, h_opens,
-                )
+                cache = self._indicator_cache
+                cache_key = (self.symbol, "h", i)
+                if cache is not None and cache_key in cache:
+                    self.hourly_state = cache[cache_key]
+                else:
+                    start = max(0, i - self._hourly_lookback)
+                    h_closes = hourly.closes[start:i + 1]
+                    h_highs = hourly.highs[start:i + 1]
+                    h_lows = hourly.lows[start:i + 1]
+                    h_opens = hourly.opens[start:i + 1]
+                    self.hourly_state = compute_hourly_state(
+                        h_closes, h_highs, h_lows,
+                        self.daily_state, self.cfg,
+                        bar_time, h_opens,
+                    )
+                    if cache is not None:
+                        cache[cache_key] = self.hourly_state
             else:
                 self._funnel.bars_warmup += 1
                 self.equity_curve.append(self._mtm_equity(C))
@@ -786,17 +821,25 @@ class BacktestEngine:
 
     def _update_daily(self, daily: NumpyBars, d_idx: int) -> None:
         """Recompute daily state from array slice ending at d_idx."""
-        start = max(0, d_idx - max(self.cfg.daily_ema_slow, self.cfg.atr_daily_period) - 5)
-        d_closes = daily.closes[start:d_idx + 1]
-        d_highs = daily.highs[start:d_idx + 1]
-        d_lows = daily.lows[start:d_idx + 1]
-
         prev = self.daily_state
         self.prev_trend_dir = prev.trend_dir if prev else Direction.FLAT
-        daily_bar_date = str(daily.times[d_idx])[:10]
-        self.daily_state = compute_daily_state(
-            d_closes, d_highs, d_lows, prev, self.cfg, daily_bar_date,
-        )
+
+        cache = self._indicator_cache
+        cache_key = (self.symbol, "d", d_idx)
+        if cache is not None and cache_key in cache:
+            self.daily_state = cache[cache_key]
+        else:
+            start = max(0, d_idx - self._daily_lookback)
+            d_closes = daily.closes[start:d_idx + 1]
+            d_highs = daily.highs[start:d_idx + 1]
+            d_lows = daily.lows[start:d_idx + 1]
+            daily_bar_date = str(daily.times[d_idx])[:10]
+            self.daily_state = compute_daily_state(
+                d_closes, d_highs, d_lows, prev, self.cfg, daily_bar_date,
+            )
+            if cache is not None:
+                cache[cache_key] = self.daily_state
+
         self._daily_state_by_idx[d_idx] = self.daily_state
 
         # Count confirmed bias days
@@ -1656,9 +1699,7 @@ class BacktestEngine:
 
         # Per-symbol time/day blocking
         if self.cfg.blocked_hours_et or self.cfg.blocked_weekdays:
-            from zoneinfo import ZoneInfo
-            et = ZoneInfo("America/New_York")
-            dt_et = bar_time.astimezone(et)
+            dt_et = bar_time.astimezone(_ET_TZ)
             if dt_et.hour in self.cfg.blocked_hours_et:
                 self._funnel.bars_entry_restricted += 1
                 return
@@ -2123,9 +2164,7 @@ class BacktestEngine:
     @staticmethod
     def _is_rth(dt: datetime) -> bool:
         """Check if datetime falls within NYSE RTH (09:30-16:00 ET)."""
-        from zoneinfo import ZoneInfo
-        et = ZoneInfo("America/New_York")
-        dt_et = dt.astimezone(et)
+        dt_et = dt.astimezone(_ET_TZ)
         if dt_et.weekday() >= 5:  # weekend
             return False
         t = dt_et.hour * 60 + dt_et.minute
@@ -2134,9 +2173,7 @@ class BacktestEngine:
     @staticmethod
     def _is_entry_restricted(dt: datetime) -> bool:
         """True during first 5 min after open or last 5 min before close."""
-        from zoneinfo import ZoneInfo
-        et = ZoneInfo("America/New_York")
-        dt_et = dt.astimezone(et)
+        dt_et = dt.astimezone(_ET_TZ)
         if dt_et.weekday() >= 5:
             return True
         t = dt_et.hour * 60 + dt_et.minute

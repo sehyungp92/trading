@@ -700,6 +700,159 @@ def _trail_redesign_experiments() -> list[tuple[str, dict]]:
 
 
 # ---------------------------------------------------------------------------
+# R8 CATEGORY A: Intraday Regime Proxy (~6)
+# ---------------------------------------------------------------------------
+
+def _r8_intraday_regime_experiments() -> list[tuple[str, dict]]:
+    """R8: Bypass daily-bar alignment lag using intraday bars for regime."""
+    return [
+        ("r8a_four_hour_only_regime", {"flags.four_hour_only_regime": True}),
+        ("r8a_intraday_1h_ema_100", {
+            "flags.intraday_regime_proxy": True,
+            "flags.intraday_regime_ema_period": 100,
+        }),
+        ("r8a_intraday_1h_ema_50", {
+            "flags.intraday_regime_proxy": True,
+            "flags.intraday_regime_ema_period": 50,
+        }),
+        ("r8a_multi_tf_regime_vote", {"flags.multi_tf_regime_vote": True}),
+        ("r8a_atr_expansion", {"flags.regime_proxy_atr_expansion": True}),
+        ("r8a_correction_intraday", {"flags.correction_intraday_detect": True}),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# R8 CATEGORY B: Reversal Engine Revival (~6)
+# ---------------------------------------------------------------------------
+
+def _r8_reversal_revival_experiments() -> list[tuple[str, dict]]:
+    """R8: Relax gates or use alternative timeframes to revive dead reversal engine."""
+    return [
+        ("r8b_reversal_1of3_gate", {"flags.reversal_min_gate_count": 1}),
+        ("r8b_reversal_no_extension", {"flags.reversal_no_extension_gate": True}),
+        ("r8b_reversal_wider_div_005", {"param_overrides.divergence_mag_threshold": 0.05}),
+        ("r8b_reversal_wider_corridor_3", {"flags.reversal_wider_corridor": 3.0}),
+        ("r8b_reversal_hourly_pivots", {"flags.reversal_hourly_pivots": True}),
+        ("r8b_reversal_combined_relax", {
+            "flags.reversal_min_gate_count": 1,
+            "flags.reversal_no_extension_gate": True,
+            "flags.reversal_wider_corridor": 3.0,
+        }),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# R8 CATEGORY C: Entry Filters (~5)
+# ---------------------------------------------------------------------------
+
+def _r8_entry_filter_experiments() -> list[tuple[str, dict]]:
+    """R8: Reduce 66.5% stop rate by filtering weak entries."""
+    return [
+        ("r8c_correction_only_mode", {"flags.correction_only_mode": True}),
+        ("r8c_correction_only_fade", {"flags.correction_only_fade": True}),
+        ("r8c_vol_pctl_40", {"flags.vol_percentile_gate": 40.0}),
+        ("r8c_vol_pctl_60", {"flags.vol_percentile_gate": 60.0}),
+        ("r8c_regime_confidence_40", {"flags.regime_confidence_gate": 40.0}),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# R8 CATEGORY D: Exit Improvements (~6)
+# ---------------------------------------------------------------------------
+
+def _r8_exit_improvement_experiments() -> list[tuple[str, dict]]:
+    """R8: Reduce stop drag by adjusting stop mechanics."""
+    return [
+        ("r8d_wider_initial_stop_1_5x", {"flags.wider_initial_stop_mult": 1.5}),
+        ("r8d_atr_scaled_stop", {"flags.atr_scaled_initial_stop": True}),
+        ("r8d_faster_be_03r", {"param_overrides.be_trigger_r": 0.3}),
+        ("r8d_slower_be_08r", {"param_overrides.be_trigger_r": 0.8}),
+        ("r8d_partial_at_be_25pct", {"flags.partial_at_breakeven": 0.25}),
+        ("r8d_time_stop_widening", {
+            "flags.time_stop_widening": True,
+            "flags.time_stop_widening_bars": 48,
+        }),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# R2 COUNTER BLOCKING (~5) -- eliminate toxic counter-regime trades
+# ---------------------------------------------------------------------------
+
+def _r2_counter_blocking_experiments() -> list[tuple[str, dict]]:
+    """R2: Direct counter-regime blocking and neutral damping."""
+    return [
+        ("r2_counter_mult_0", {"param_overrides.regime_mult_counter": 0.0}),
+        ("r2_counter_mult_01", {"param_overrides.regime_mult_counter": 0.1}),
+        ("r2_neutral_mult_0", {"param_overrides.regime_mult_neutral": 0.0}),
+        ("r2_neutral_mult_025", {"param_overrides.regime_mult_neutral": 0.25}),
+        ("r2_counter_neutral_zero", {
+            "param_overrides.regime_mult_counter": 0.0,
+            "param_overrides.regime_mult_neutral": 0.0,
+        }),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# R2 REGIME COMBOS (~6) -- interaction combos for regime overhaul
+# ---------------------------------------------------------------------------
+
+def _r2_regime_combo_experiments() -> list[tuple[str, dict]]:
+    """R2: Combined regime overhaul experiments."""
+    return [
+        ("r2_block_corr_override", {
+            "flags.block_counter_regime": True,
+            "flags.correction_regime_override": True,
+        }),
+        ("r2_block_bear_struct", {
+            "flags.block_counter_regime": True,
+            "flags.bear_structure_override": True,
+        }),
+        ("r2_block_fast_crash_015", {
+            "flags.block_counter_regime": True,
+            "flags.fast_crash_override": True,
+            "param_overrides.crash_daily_threshold": -0.015,
+        }),
+        ("r2_full_regime_overhaul", {
+            "flags.block_counter_regime": True,
+            "flags.correction_regime_override": True,
+            "flags.bear_structure_override": True,
+            "flags.fast_crash_override": True,
+            "flags.conviction_scoring": True,
+            "flags.short_sma_trend": True,
+            "param_overrides.conviction_threshold": 30,
+        }),
+        ("r2_block_plus_corr_sizing", {
+            "flags.block_counter_regime": True,
+            "flags.correction_sizing_bonus": True,
+            "param_overrides.correction_sizing_mult": 1.30,
+        }),
+        ("r2_corr_only_plus_sizing", {
+            "flags.correction_only_mode": True,
+            "flags.correction_sizing_bonus": True,
+            "param_overrides.correction_sizing_mult": 1.40,
+        }),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# R2 REGIME PARAMS (~7) -- ADX/EMA parameter sweeps
+# ---------------------------------------------------------------------------
+
+def _r2_regime_param_experiments() -> list[tuple[str, dict]]:
+    """R2: ADX and EMA parameter sweeps to fix regime classification."""
+    return [
+        ("r2_adx_trending_22", {"param_overrides.adx_trending_threshold": 22}),
+        ("r2_adx_trending_25", {"param_overrides.adx_trending_threshold": 25}),
+        ("r2_adx_trending_30", {"param_overrides.adx_trending_threshold": 30}),
+        ("r2_adx_range_12", {"param_overrides.adx_range_threshold": 12}),
+        ("r2_adx_range_15", {"param_overrides.adx_range_threshold": 15}),
+        ("r2_ema_fast_10", {"param_overrides.ema_fast_period": 10}),
+        ("r2_ema_fast_20", {"param_overrides.ema_fast_period": 20}),
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Category registry
 # ---------------------------------------------------------------------------
 
@@ -725,6 +878,15 @@ EXPERIMENT_CATEGORIES: dict[str, list[tuple[str, dict]]] = {
     "HOLD_PERIOD": _hold_period_experiments(),
     # R6 Rev2 categories
     "TRAIL_REDESIGN": _trail_redesign_experiments(),
+    # R8 categories
+    "R8_INTRADAY_REGIME": _r8_intraday_regime_experiments(),
+    "R8_REVERSAL_REVIVAL": _r8_reversal_revival_experiments(),
+    "R8_ENTRY_FILTERS": _r8_entry_filter_experiments(),
+    "R8_EXIT_IMPROVEMENTS": _r8_exit_improvement_experiments(),
+    # R2 categories
+    "R2_COUNTER_BLOCKING": _r2_counter_blocking_experiments(),
+    "R2_REGIME_COMBOS": _r2_regime_combo_experiments(),
+    "R2_REGIME_PARAMS": _r2_regime_param_experiments(),
 }
 
 

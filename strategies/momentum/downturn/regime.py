@@ -90,6 +90,53 @@ def compute_composite_regime(
     return CompositeRegime.NEUTRAL
 
 
+def classify_intraday_regime(
+    hourly_ema: float,
+    hourly_close: float,
+    four_hour_adx: float,
+    four_hour_slope: float,
+    adx_trending_threshold: float = 25.0,
+    adx_range_threshold: float = 15.0,
+) -> CompositeRegime:
+    """Intraday-only regime classification (no daily bars needed).
+
+    Uses 1H EMA as bear/bull proxy and 4H ADX for trend strength.
+    Bypasses daily-bar alignment lag.
+    """
+    bearish_1h = hourly_close < hourly_ema
+    slope_bearish = four_hour_slope < 0
+
+    if four_hour_adx >= adx_trending_threshold and bearish_1h and slope_bearish:
+        return CompositeRegime.ALIGNED_BEAR
+
+    if bearish_1h and four_hour_adx >= adx_range_threshold:
+        return CompositeRegime.EMERGING_BEAR
+
+    if four_hour_adx >= adx_trending_threshold and not bearish_1h:
+        return CompositeRegime.COUNTER
+
+    if four_hour_adx < adx_range_threshold:
+        return CompositeRegime.RANGE
+
+    return CompositeRegime.NEUTRAL
+
+
+def multi_tf_regime_vote(
+    hourly_bearish: bool,
+    four_hour_bearish: bool,
+    daily_bearish: bool,
+) -> CompositeRegime:
+    """2-of-3 majority vote across timeframes."""
+    bear_votes = sum([hourly_bearish, four_hour_bearish, daily_bearish])
+    if bear_votes >= 3:
+        return CompositeRegime.ALIGNED_BEAR
+    if bear_votes >= 2:
+        return CompositeRegime.EMERGING_BEAR
+    if bear_votes == 1:
+        return CompositeRegime.NEUTRAL
+    return CompositeRegime.COUNTER
+
+
 def compute_vol_state(
     atr_pct: float,
     atr_v: float,

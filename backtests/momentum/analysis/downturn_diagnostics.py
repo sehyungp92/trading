@@ -57,6 +57,8 @@ class DownturnMetrics:
     regime_detection_latency: float = 0.0  # deferred: requires per-window peak tracking
     exit_efficiency: float = 0.0
     bear_capture_ratio: float = 0.0
+    correction_capture_ratio: float = 0.0  # PnL / available NQ move during correction windows
+    sortino: float = 0.0  # annualized Sortino ratio from trade R-multiples
 
     # Correction coverage
     correction_coverage: float = 0.0  # fraction of eligible correction windows with >= 1 trade
@@ -79,6 +81,7 @@ class DownturnMetrics:
 def compute_downturn_metrics(
     result: DownturnResult,
     daily_bars: NumpyBars,
+    point_value: float = 2.0,
 ) -> DownturnMetrics:
     """Compute all downturn metrics from a backtest result."""
     trades = result.trades
@@ -118,13 +121,18 @@ def compute_downturn_metrics(
     annual_ret = m.net_return_pct / years
     m.calmar = annual_ret / (m.max_dd_pct * 100) if m.max_dd_pct > 0.001 else 0.0
 
-    # Sharpe (per-trade, annualized by trades-per-year)
+    # Sharpe and Sortino (per-trade, annualized by trades-per-year)
     if len(trades) >= 2:
         r_multiples = np.array([t.r_multiple for t in trades])
+        mean_r = float(np.mean(r_multiples))
         std_r = float(np.std(r_multiples))
-        m.sharpe = float(np.mean(r_multiples) / std_r) if std_r > 0 else 0.0
         trades_per_year = len(trades) / max(0.5, years)
-        m.sharpe *= math.sqrt(trades_per_year)
+        ann_factor = math.sqrt(trades_per_year)
+        m.sharpe = (mean_r / std_r * ann_factor) if std_r > 0 else 0.0
+        # Sortino: downside deviation only
+        downside = r_multiples[r_multiples < 0]
+        downside_dev = float(np.sqrt(np.mean(downside ** 2))) if len(downside) > 0 else 0.0
+        m.sortino = (mean_r / downside_dev * ann_factor) if downside_dev > 0 else 0.0
 
     # Per-engine
     for tag, attr_prefix in [
@@ -154,6 +162,27 @@ def compute_downturn_metrics(
     # Correction-window PnL scaled by initial equity
     correction_pnl = sum(t.pnl for t in trades if t.in_correction_window)
     m.correction_pnl_pct = (correction_pnl / initial_eq * 100) if initial_eq > 0 else 0.0
+
+    # Correction capture ratio: PnL / available NQ move during each window
+    if result.correction_windows:
+        window_captures = []
+        for w in result.correction_windows:
+            w_trades = [
+                t for t in trades
+                if t.in_correction_window and t.entry_time
+                and w.start_date <= t.entry_time <= w.end_date
+            ]
+            if not w_trades:
+                continue
+            w_pnl = sum(t.pnl for t in w_trades)
+            # Estimate peak from max entry price (shorts enter near highs)
+            peak_est = max(abs(t.entry_price) for t in w_trades)
+            nq_move_points = peak_est * (w.peak_to_trough_pct / 100)
+            avg_qty = float(np.mean([abs(t.qty) for t in w_trades]))
+            available = nq_move_points * point_value * avg_qty
+            if available > 0:
+                window_captures.append(max(0, w_pnl) / available)
+        m.correction_capture_ratio = float(np.mean(window_captures)) if window_captures else 0.0
 
     # Correction coverage: fraction of *tradeable* correction windows (>= 2 days) with >= 1 trade
     if result.correction_windows:
@@ -211,19 +240,24 @@ def compute_downturn_metrics(
                 hits = sum(1 for t_rec in eng_trades if t_rec.exit_type == tp_name)
                 m.tp_hit_rates[f"{tag.value}_{tp_name}"] = hits / total_eng
 
-    # Bear capture ratio (% of NQ moves >= 2% where strategy profited)
-    captured = 0
-    total_big = 0
+    # Bear capture ratio: proportional PnL / available move for windows >= 2%
+    bear_captures = []
     for w in result.correction_windows:
         if w.peak_to_trough_pct >= 2.0:
-            total_big += 1
-            w_pnl = sum(
-                t_rec.pnl for t_rec in trades
+            w_trades = [
+                t_rec for t_rec in trades
                 if t_rec.entry_time and w.start_date <= t_rec.entry_time <= w.end_date
-            )
-            if w_pnl > 0:
-                captured += 1
-    m.bear_capture_ratio = captured / total_big if total_big > 0 else 0.0
+            ]
+            if not w_trades:
+                bear_captures.append(0.0)
+                continue
+            w_pnl = sum(t_rec.pnl for t_rec in w_trades)
+            peak_est = max(abs(t_rec.entry_price) for t_rec in w_trades)
+            nq_move_points = peak_est * (w.peak_to_trough_pct / 100)
+            avg_qty = float(np.mean([abs(t_rec.qty) for t_rec in w_trades]))
+            available = nq_move_points * point_value * avg_qty
+            bear_captures.append(max(0, w_pnl) / available if available > 0 else 0.0)
+    m.bear_capture_ratio = float(np.mean(bear_captures)) if bear_captures else 0.0
 
     return m
 
@@ -249,7 +283,8 @@ def generate_downturn_report(metrics: DownturnMetrics) -> str:
     buf.write(f"  Net return:       {m.net_return_pct:.1f}%\n")
     buf.write(f"  Max drawdown:     {m.max_dd_pct:.2%}\n")
     buf.write(f"  Calmar:           {m.calmar:.2f}\n")
-    buf.write(f"  Sharpe:           {m.sharpe:.2f}\n\n")
+    buf.write(f"  Sharpe:           {m.sharpe:.2f}\n")
+    buf.write(f"  Sortino:          {m.sortino:.2f}\n\n")
 
     # Per-engine
     buf.write("--- Per-Engine Breakdown ---\n")
@@ -266,7 +301,8 @@ def generate_downturn_report(metrics: DownturnMetrics) -> str:
     buf.write("--- Correction PnL ---\n")
     buf.write(f"  Correction PnL:      {m.correction_pnl_pct:.2f}%\n")
     buf.write(f"  Bear regime PnL:     ${m.bear_regime_pnl:,.0f}\n")
-    buf.write(f"  Bear capture ratio:  {m.bear_capture_ratio:.1%}\n\n")
+    buf.write(f"  Bear capture ratio:  {m.bear_capture_ratio:.3f}\n")
+    buf.write(f"  Corr capture ratio:  {m.correction_capture_ratio:.3f}\n\n")
 
     # Signal quality
     buf.write("--- Signal Quality ---\n")

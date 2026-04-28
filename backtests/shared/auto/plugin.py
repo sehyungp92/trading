@@ -51,6 +51,7 @@ class PhaseSpec:
     analysis_policy: PhaseAnalysisPolicy
     max_rounds: int | None = None
     prune_threshold: float | None = None
+    reject_streak_limit: int | None = None
 
 
 class StrategyPlugin(Protocol):

@@ -5,8 +5,8 @@ from pathlib import Path
 from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.plugin_utils import mutation_signature
 from backtests.shared.auto.types import ScoredCandidate
-from backtests.stock.auto.alcb_p16_phase import worker as alcb_worker_mod
-from backtests.stock.auto.iaric_pullback import worker as iaric_worker_mod
+from backtests.stock.auto.alcb import worker as alcb_worker_mod
+from backtests.stock.auto.iaric import worker as iaric_worker_mod
 from backtests.swing.auto.atrss import plugin as atrss_plugin_mod
 from backtests.swing.auto.brs import plugin as brs_plugin_mod
 from backtests.swing.auto.helix import plugin as helix_plugin_mod
@@ -16,8 +16,8 @@ from backtests.momentum.auto.nqdtc import plugin as nqdtc_plugin_mod
 from backtests.momentum.auto.nqdtc import worker as nqdtc_worker_mod
 from backtests.momentum.auto.vdubus import plugin as vdub_plugin_mod
 from backtests.momentum.auto.vdubus import worker as vdub_worker_mod
-from backtests.stock.auto.alcb_p16_phase import plugin as alcb_plugin_mod
-from backtests.stock.auto.iaric_pullback import plugin as iaric_plugin_mod
+from backtests.stock.auto.alcb import plugin as alcb_plugin_mod
+from backtests.stock.auto.iaric import plugin as iaric_plugin_mod
 
 
 class _DummyBatchEvaluator:

@@ -1,7 +1,6 @@
-"""BRS experiment definitions — ~120 experiments in 6 named categories.
+"""BRS experiment definitions -- named categories of (name, mutations_dict) tuples.
 
-Each experiment is a (name, mutations_dict) tuple.
-Categories: REGIME, ENTRY, EXIT, SIZING, VOLATILITY
+Categories: REGIME, ENTRY, EXIT, SIZING, VOLATILITY, STRUCTURAL, WEAKNESS, SIGNAL_SELECT
 """
 from __future__ import annotations
 
@@ -413,6 +412,40 @@ def _structural_experiments() -> list[tuple[str, dict]]:
     return exps
 
 
+def _weakness_experiments() -> list[tuple[str, dict]]:
+    """~20 WEAKNESS experiments targeting diagnostics-identified weak spots."""
+    exps = []
+
+    # W1: CATASTROPHIC exit tightening (4 trades, -$285, biggest exit drag)
+    exps.append(("weakness_catastrophic_1.0", {"catastrophic_cap_r": 1.0}))
+    exps.append(("weakness_catastrophic_1.25", {"catastrophic_cap_r": 1.25}))
+
+    # W2: RANGE_CHOP filtering (45 campaigns, PF=1.05, only $48 total PnL)
+    exps.append(("weakness_chop_half_size", {"size_mult_range_chop": 0.50}))
+    exps.append(("weakness_chop_third_size", {"size_mult_range_chop": 0.33}))
+    exps.append(("weakness_chop_quality_low", {"chop_quality_mult": 0.50}))
+    exps.append(("weakness_chop_quality_mid", {"chop_quality_mult": 0.60}))
+    exps.append(("weakness_chop_short_off", {"chop_short_entry_enabled": False}))
+
+    # W3: Low conviction filtering (0-25 bucket: -0.123 expectancy, 10 campaigns)
+    exps.append(("weakness_conviction_floor_25", {"min_quality_score": 0.25}))
+    exps.append(("weakness_conviction_floor_30", {"min_quality_score": 0.30}))
+    exps.append(("weakness_conviction_floor_35", {"min_quality_score": 0.35}))
+
+    # W4: BD_CONTINUATION quality (PF=1.42, weakest entry at 53% of volume)
+    exps.append(("weakness_bd_max_stop_2.5", {"bd_max_stop_atr": 2.5}))
+    exps.append(("weakness_bd_max_stop_3.0", {"bd_max_stop_atr": 3.0}))
+    exps.append(("weakness_bd_close_quality_tight", {"bd_close_quality": 0.35}))
+    exps.append(("weakness_bd_no_chop", {"bd_allow_range_chop": False}))
+
+    # W5: Defensive combos
+    exps.append(("weakness_defensive_lite", {"size_mult_range_chop": 0.50, "min_quality_score": 0.25}))
+    exps.append(("weakness_defensive_full", {"size_mult_range_chop": 0.33, "min_quality_score": 0.30, "catastrophic_cap_r": 1.25}))
+    exps.append(("weakness_chop_skip_bd_tight", {"chop_quality_mult": 0.50, "bd_max_stop_atr": 3.0}))
+
+    return exps
+
+
 def _signal_select_experiments() -> list[tuple[str, dict]]:
     """Signal combination experiments — tested AFTER params are tuned (Change #2)."""
     return [
@@ -436,6 +469,7 @@ EXPERIMENT_CATEGORIES: dict[str, list[tuple[str, dict]]] = {
     "SIZING": _sizing_experiments(),
     "VOLATILITY": _volatility_experiments(),
     "STRUCTURAL": _structural_experiments(),
+    "WEAKNESS": _weakness_experiments(),
     "SIGNAL_SELECT": _signal_select_experiments(),
 }
 

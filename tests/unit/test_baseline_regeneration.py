@@ -13,8 +13,8 @@ from backtests.shared.parity.baseline_regeneration import (
     verify_manifest_regeneration,
 )
 from backtests.shared.auto.phase_state import PhaseState
-from backtests.stock.auto.alcb_p16_phase import plugin as alcb_plugin_mod
-from backtests.stock.auto.alcb_p16_phase.run_final_diagnostics import (
+from backtests.stock.auto.alcb import plugin as alcb_plugin_mod
+from backtests.stock.auto.alcb.run_final_diagnostics import (
     _hydrate_final_phase_runtime_context,
 )
 from backtests.shared.parity.diagnostic_baselines import sha256_file
@@ -29,21 +29,21 @@ def test_remap_regeneration_arguments_only_rewrites_output_targets(tmp_path: Pat
 
     arguments = [
         "--phase-state",
-        "backtests/stock/auto/iaric_pullback/output_v4r1/phase_state.json",
+        "backtests/stock/auto/iaric/output_v4r1/phase_state.json",
         "--output",
-        "backtests/stock/auto/iaric_pullback/output_v4r1/report.txt",
+        "backtests/stock/auto/iaric/output_v4r1/report.txt",
         "--summary-json",
-        "backtests/stock/auto/iaric_pullback/output_v4r1/report.json",
+        "backtests/stock/auto/iaric/output_v4r1/report.json",
         "--output-dir",
-        "backtests/stock/auto/alcb_p16_phase/output_targeted_entry_repair_v2",
+        "backtests/stock/auto/alcb/output_targeted_entry_repair_v2",
     ]
 
     remapped = remap_regeneration_arguments(arguments, sandbox_root=sandbox, root=root)
 
-    assert remapped[1] == "backtests/stock/auto/iaric_pullback/output_v4r1/phase_state.json"
-    assert remapped[3] == str(sandbox / "backtests/stock/auto/iaric_pullback/output_v4r1/report.txt")
-    assert remapped[5] == str(sandbox / "backtests/stock/auto/iaric_pullback/output_v4r1/report.json")
-    assert remapped[7] == str(sandbox / "backtests/stock/auto/alcb_p16_phase/output_targeted_entry_repair_v2")
+    assert remapped[1] == "backtests/stock/auto/iaric/output_v4r1/phase_state.json"
+    assert remapped[3] == str(sandbox / "backtests/stock/auto/iaric/output_v4r1/report.txt")
+    assert remapped[5] == str(sandbox / "backtests/stock/auto/iaric/output_v4r1/report.json")
+    assert remapped[7] == str(sandbox / "backtests/stock/auto/alcb/output_targeted_entry_repair_v2")
 
 
 def test_remap_regeneration_arguments_supports_inline_output_assignments(tmp_path: Path) -> None:

@@ -14,7 +14,7 @@ from backtests.stock.analysis.iaric_pullback_diagnostics import (
     pullback_full_diagnostic,
 )
 from backtests.stock.analysis.metrics import PerformanceMetrics
-from backtests.stock.auto.iaric_pullback.phase_candidates import (
+from backtests.stock.auto.iaric.phase_candidates import (
     BASE_MUTATIONS,
     PHASE_CANDIDATES,
     PHASE_FOCUS,
@@ -22,7 +22,7 @@ from backtests.stock.auto.iaric_pullback.phase_candidates import (
     get_phase_candidates,
 )
 
-from backtests.stock.auto.iaric_pullback.plugin import IARICPullbackPlugin, select_pullback_branch
+from backtests.stock.auto.iaric.plugin import IARICPullbackPlugin, select_pullback_branch
 from backtests.stock.auto.scoring import IARIC_NORM, composite_score
 from backtests.stock.engine.iaric_pullback_engine import (
     _build_selection_attribution,

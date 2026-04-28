@@ -99,3 +99,7 @@ class NQDTCBacktestConfig:
     # MNQ instrument defaults (comparable basis with other strategies)
     tick_size: float = 0.25
     point_value: float = 2.0
+
+    # Performance optimization flags (for auto-optimization pipeline)
+    scoring_mode: bool = False       # Skip post-run normalizations
+    max_dd_abort: float = 0.0       # >0 enables early termination on drawdown

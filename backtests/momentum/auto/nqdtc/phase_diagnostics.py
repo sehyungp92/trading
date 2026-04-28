@@ -46,30 +46,29 @@ def generate_phase_diagnostics(
     lines.append(f"Avg MFE R:       {metrics.avg_mfe_r:.3f}")
     lines.append(f"Avg hold hours:  {metrics.avg_hold_hours:.1f}")
 
-    # D3: Session/direction asymmetry (phase >= 2 or force)
+    # D3: Regime analysis (always -- critical for post-audit regime filtering)
+    lines.append("\n--- D3: Regime Analysis ---")
+    lines.append(f"Range regime:    {metrics.range_regime_pct:.1%} of trades")
+    if all_trades:
+        _regime_breakdown(lines, all_trades)
+    else:
+        lines.append("(No trade records available)")
+
+    # D4: Session/direction asymmetry (phase >= 2 or force)
     if phase >= 2 or force_all_modules:
-        lines.append("\n--- D3: Session/Direction Asymmetry ---")
+        lines.append("\n--- D4: Session/Direction Asymmetry ---")
         lines.append(f"ETH short WR:    {metrics.eth_short_wr:.1%} ({metrics.eth_short_trades} trades)")
-        lines.append(f"Range regime:    {metrics.range_regime_pct:.1%} of trades")
 
         if all_trades:
             _session_direction_breakdown(lines, all_trades)
 
-    # D4: Trade clustering (phase >= 2 or force)
+    # D5: Trade clustering (phase >= 2 or force)
     if phase >= 2 or force_all_modules:
-        lines.append("\n--- D4: Trade Clustering ---")
+        lines.append("\n--- D5: Trade Clustering ---")
         lines.append(f"Burst trade pct: {metrics.burst_trade_pct:.1%}")
 
         if all_trades:
             _burst_analysis(lines, all_trades)
-
-    # D5: Regime analysis (phase >= 3 or force)
-    if phase >= 3 or force_all_modules:
-        lines.append("\n--- D5: Regime Analysis ---")
-        if all_trades:
-            _regime_breakdown(lines, all_trades)
-        else:
-            lines.append("(No trade records available)")
 
     # D6: Greedy result summary (always)
     if greedy_result:
@@ -96,10 +95,12 @@ def get_diagnostic_gaps(phase: int, metrics: NQDTCMetrics) -> list[str]:
         gaps.append("High burst clustering -- correlated entries drag performance")
     if metrics.eth_short_wr < 0.40 and metrics.eth_short_trades > 30:
         gaps.append("ETH shorts underperforming -- session-direction filter needed")
-    if metrics.total_trades < 200:
+    if metrics.total_trades < 80:
         gaps.append("Low trade frequency -- signal gates may be too restrictive")
-    if metrics.max_dd_pct > 0.12:
-        gaps.append("Elevated drawdown -- risk controls may need tightening")
+    if metrics.max_dd_pct > 0.20:
+        gaps.append("Elevated drawdown -- risk controls or regime filtering needed")
+    if metrics.range_regime_pct < 0.40:
+        gaps.append("Low Range regime concentration -- regime filtering may help")
     if metrics.tp1_hit_rate < 0.10:
         gaps.append("Very low TP1 hit rate -- TP target may be too aggressive")
     if metrics.profit_factor < 1.5:

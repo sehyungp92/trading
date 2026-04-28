@@ -12,13 +12,14 @@ logger = logging.getLogger(__name__)
 _worker_data = None
 _worker_config = None
 _worker_data_dir_key: str | None = None
+_worker_replay_kwargs: dict | None = None
 
 
 def init_worker(
     data_dir_str: str,
     equity: float,
 ) -> None:
-    global _worker_data, _worker_config, _worker_data_dir_key
+    global _worker_data, _worker_config, _worker_data_dir_key, _worker_replay_kwargs
 
     if sys.stdout.encoding != "utf-8":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -29,11 +30,16 @@ def init_worker(
     _worker_config = DownturnBacktestConfig(
         initial_equity=equity,
         data_dir=data_dir,
+        track_signals=False,
+        skip_parity_output=True,
+        max_dd_abort=0.50,
     )
     data_dir_key = str(data_dir.resolve())
     if _worker_data is None or _worker_data_dir_key != data_dir_key:
         _worker_data = load_worker_data("NQ", data_dir)
         _worker_data_dir_key = data_dir_key
+        from backtests.momentum.data.replay_cache import replay_engine_kwargs
+        _worker_replay_kwargs = replay_engine_kwargs(_worker_data)
 
 
 def load_worker_data(symbol: str, data_dir: Path):
@@ -57,7 +63,6 @@ def score_candidate(args: tuple[str, dict, dict]) -> ScoredCandidate:
     try:
         from dataclasses import asdict
 
-        from backtests.momentum.data.replay_cache import replay_engine_kwargs
         from backtests.momentum.engine.downturn_engine import DownturnEngine
         from backtests.momentum.analysis.downturn_diagnostics import compute_downturn_metrics
         from backtests.momentum.auto.downturn.config_mutator import mutate_downturn_config
@@ -68,7 +73,7 @@ def score_candidate(args: tuple[str, dict, dict]) -> ScoredCandidate:
 
         config = mutate_downturn_config(_worker_config, all_muts)
         engine = DownturnEngine("NQ", config)
-        result = engine.run(**replay_engine_kwargs(_worker_data))
+        result = engine.run(**_worker_replay_kwargs)
         metrics = compute_downturn_metrics(result, _worker_data.data["daily"])
         score = score_phase_metrics(
             phase,
