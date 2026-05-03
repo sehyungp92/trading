@@ -4,9 +4,9 @@ import json
 from hashlib import sha256
 from pathlib import Path
 
-from backtests.momentum.auto.nq_regime_round5.phase_candidates import BASE_MUTATIONS, build_round5_seed_from_configs
-from backtests.momentum.auto.nq_regime_round5.plugin import NqRegimeRound5Plugin
-from backtests.momentum.auto.nq_regime_round5.scoring import IMMUTABLE_WEIGHTS
+from backtests.momentum.auto.nq_regime.phase_candidates import BASE_MUTATIONS, build_round5_seed_from_configs
+from backtests.momentum.auto.nq_regime.plugin import NqRegimePlugin
+from backtests.momentum.auto.nq_regime.scoring import IMMUTABLE_WEIGHTS
 from backtests.shared.auto.phase_runner import PhaseRunner
 from backtests.shared.auto.phase_state import _utc_now_iso
 
@@ -39,7 +39,7 @@ def main() -> None:
         round4_configs["round_4c"],
     )
 
-    plugin = NqRegimeRound5Plugin(
+    plugin = NqRegimePlugin(
         data_dir=repo_root / "backtests" / "momentum" / "data" / "raw",
         initial_equity=10_000.0,
         max_workers=2,
@@ -78,7 +78,7 @@ def main() -> None:
         ],
         "source_fingerprint": source_fingerprint,
         "source_fingerprint_parts": source_fingerprint_parts,
-        "replay_command": "python -m backtests.momentum.auto.nq_regime_round5.run",
+        "replay_command": "python -m backtests.momentum.auto.nq_regime.run",
     }
     (output_dir / "run_spec.json").write_text(json.dumps(run_spec, indent=2), encoding="utf-8")
 

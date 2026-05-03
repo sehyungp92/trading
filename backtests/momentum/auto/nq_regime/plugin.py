@@ -7,7 +7,7 @@ from backtests.momentum.analysis.regime_attribution import module_attribution
 from backtests.momentum.analysis.regime_diagnostics import generate_regime_diagnostics
 from backtests.momentum.config_regime import NqRegimeBacktestConfig
 from backtests.momentum.engine.regime_engine import load_nq_regime_data, run_nq_regime_backtest
-from backtests.shared.auto.cache_keys import build_cache_key, fingerprint_tree
+from backtests.shared.auto.cache_keys import build_cache_key, fingerprint_tree, stable_signature
 from backtests.shared.auto.phase_state import PhaseState
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
 from backtests.shared.auto.plugin_utils import (
@@ -48,12 +48,15 @@ class NqRegimePlugin:
     num_phases = 7
     initial_mutations = dict(BASE_MUTATIONS)
     ultimate_targets = {
-        "module_second_wind_trades": 120.0,
-        "module_second_wind_total_r_per_month": 3.00,
-        "module_second_wind_avg_r": 0.60,
-        "module_second_wind_mfe_capture": 0.45,
-        "routing_second_wind_request_to_fill_rate": 0.35,
-        "max_drawdown_pct": 0.12,
+        "total_r_per_month": 12.0,
+        "trades_per_month": 10.0,
+        "avg_r": 1.10,
+        "module_coverage": 1.0,
+        "min_module_trades": 60.0,
+        "module_second_wind_total_r_per_month": 5.0,
+        "module_structural_expansion_trades": 60.0,
+        "module_liquidity_reversion_total_r_per_month": 6.5,
+        "max_drawdown_pct": 0.06,
     }
 
     def __init__(
@@ -76,6 +79,7 @@ class NqRegimePlugin:
         self.num_phases = num_phases
         self._bundle: ReplayBundle | None = None
         self._fingerprint = ""
+        self._fingerprint_parts: dict[str, str] = {}
         self._evaluation_cache: dict[str, Any] = {}
         self._metrics_cache: dict[str, dict[str, float]] = {}
         self._context_cache: dict[str, Any] = {}
@@ -83,16 +87,8 @@ class NqRegimePlugin:
         self._pool = None
 
     def _replay_bundle(self) -> ReplayBundle:
-        repo_root = Path(__file__).resolve().parents[4]
-        fingerprint = ":".join(
-            [
-                fingerprint_tree(self.data_dir, patterns=("*.parquet", "*.csv")),
-                fingerprint_tree(Path(__file__).resolve().parent, patterns=("*.py",)),
-                fingerprint_tree(repo_root / "strategies" / "momentum" / "nq_regime", patterns=("*.py",)),
-                fingerprint_tree(repo_root / "backtests" / "momentum" / "engine", patterns=("regime_engine.py",)),
-                fingerprint_tree(repo_root / "backtests" / "momentum", patterns=("config_regime.py",), recursive=False),
-            ]
-        )
+        fingerprint_parts = self._source_fingerprint_parts()
+        fingerprint = stable_signature(fingerprint_parts)
         if self._bundle is None or fingerprint != self._fingerprint:
             self._evaluation_cache.clear()
             self._metrics_cache.clear()
@@ -100,7 +96,16 @@ class NqRegimePlugin:
             cfg = self._base_config()
             self._bundle = ReplayBundle(load_nq_regime_data(cfg), str(self.data_dir), fingerprint)
             self._fingerprint = fingerprint
+            self._fingerprint_parts = fingerprint_parts
         return self._bundle
+
+    def source_fingerprint(self) -> str:
+        self._replay_bundle()
+        return self._fingerprint
+
+    def source_fingerprint_parts(self) -> dict[str, str]:
+        self._replay_bundle()
+        return dict(self._fingerprint_parts)
 
     def get_phase_spec(self, phase: int, state: PhaseState) -> PhaseSpec:
         focus, focus_metrics = PHASE_FOCUS[phase]
@@ -112,8 +117,9 @@ class NqRegimePlugin:
             scoring_weights=PHASE_WEIGHTS.get(phase),
             hard_rejects=PHASE_HARD_REJECTS.get(phase, {}),
             analysis_policy=PhaseAnalysisPolicy(focus_metrics=focus_metrics),
-            max_rounds=16,
+            max_rounds=10,
             prune_threshold=0.05,
+            reject_streak_limit=2,
         )
 
     def create_evaluate_batch(self, phase: int, cumulative_mutations: dict[str, Any], *, scoring_weights=None, hard_rejects=None):
@@ -121,7 +127,7 @@ class NqRegimePlugin:
         bundle = self._replay_bundle()
         init_worker(str(self.data_dir), self.initial_equity, self.analysis_symbol, self.trade_symbol)
         signature_prefix = build_cache_key(
-            "momentum.nq_regime.evaluation",
+            "momentum.nq_regime.round5.evaluation",
             source_fingerprint=bundle.cache_source_fingerprint,
             extra={
                 "phase": phase,
@@ -137,7 +143,7 @@ class NqRegimePlugin:
             delegate = ResilientBatchEvaluator(
                 preferred_factory=lambda: self._pool_evaluator(phase, scoring_weights, hard_rejects),
                 fallback_factory=lambda: _SequentialBatchEvaluator(phase, scoring_weights, hard_rejects),
-                description=f"NQ_REGIME phase {phase}",
+                description=f"NQ_REGIME round_5 phase {phase}",
             )
         return CachedBatchEvaluator(
             delegate,
@@ -150,6 +156,10 @@ class NqRegimePlugin:
         shutdown_process_pool(self._pool)
         self._pool = None
 
+    def terminate_pool(self) -> None:
+        shutdown_process_pool(self._pool, force=True)
+        self._pool = None
+
     def compute_final_metrics(self, mutations: dict[str, Any]) -> dict[str, float]:
         return dict(self._run_config(mutations)["metrics"])
 
@@ -157,9 +167,12 @@ class NqRegimePlugin:
         del state
         context = self._run_config(greedy_result.final_mutations)
         summary = (
-            f"NQ_REGIME phase {phase}: score {greedy_result.base_score:.4f}->{greedy_result.final_score:.4f}, "
-            f"trades={metrics.get('total_trades', 0):.0f}, PF={metrics.get('profit_factor', 0):.2f}, "
-            f"DD={metrics.get('max_drawdown_pct', 0):.1%}."
+            f"NQ_REGIME round_5 phase {phase}: score {greedy_result.base_score:.4f}->{greedy_result.final_score:.4f}, "
+            f"trades={metrics.get('total_trades', 0):.0f}, "
+            f"R/mo={metrics.get('total_r_per_month', 0):.2f}, "
+            f"trades/mo={metrics.get('trades_per_month', 0):.2f}, "
+            f"coverage={metrics.get('module_coverage', 0):.0%}, "
+            f"PF={metrics.get('profit_factor', 0):.2f}, DD={metrics.get('max_drawdown_pct', 0):.1%}."
         )
         return summary + "\n\n" + _format_diagnostics(context)
 
@@ -171,19 +184,20 @@ class NqRegimePlugin:
     def build_end_of_round_artifacts(self, state: PhaseState) -> EndOfRoundArtifacts:
         context = self._run_config(state.cumulative_mutations)
         attribution = module_attribution(context["trades"])
+        metrics = context["metrics"]
         return EndOfRoundArtifacts(
             final_diagnostics_text=_format_diagnostics(context),
             dimension_reports={
-                "component_edges": _format_component_dimension(attribution),
-                "regime_routing": (
-                    f"Decisions={context['metrics'].get('routing_decisions', 0):.0f}, "
-                    f"selected={context['metrics'].get('routing_selected_rate', 0):.1%}, "
-                    f"avg blocked={context['metrics'].get('routing_avg_blocked', 0):.2f}"
+                "round_4_read": (
+                    "4a preserved nq_1 but left nq_2 weak; 4b repaired nq_2 but starved nq_1; "
+                    "4c maximized nq_3 but collapsed coverage. Round_5 optimizes only all-module blends."
                 ),
-                "candidate_funnel": _format_candidate_funnel_dimension(context["metrics"]),
-                "risk": f"DD={context['metrics'].get('max_drawdown_pct', 0):.1%}, total R={context['metrics'].get('total_r', 0):.2f}",
+                "component_edges": _format_component_dimension(attribution),
+                "synergy": _format_synergy_dimension(metrics),
+                "candidate_funnel": _format_candidate_funnel_dimension(metrics),
+                "risk": f"DD={metrics.get('max_drawdown_pct', 0):.1%}, total R={metrics.get('total_r', 0):.2f}",
             },
-            overall_verdict=f"NQ_REGIME finished with net ${context['metrics'].get('net_profit', 0.0):.2f}.",
+            overall_verdict=f"NQ_REGIME round_5 finished with net ${metrics.get('net_profit', 0.0):.2f}.",
         )
 
     def _run_config(self, mutations: dict[str, Any]) -> dict[str, Any]:
@@ -207,13 +221,25 @@ class NqRegimePlugin:
             trade_symbol=self.trade_symbol,
         )
 
+    def _source_fingerprint_parts(self) -> dict[str, str]:
+        repo_root = Path(__file__).resolve().parents[4]
+        round_package = Path(__file__).resolve().parent
+        return {
+            "data_raw": fingerprint_tree(self.data_dir, patterns=("*.parquet", "*.csv")),
+            "strategy_nq_regime": fingerprint_tree(repo_root / "strategies" / "momentum" / "nq_regime", patterns=("*.py",)),
+            "backtest_regime_engine": fingerprint_tree(repo_root / "backtests" / "momentum" / "engine", patterns=("regime_engine.py",)),
+            "backtest_regime_config": fingerprint_tree(repo_root / "backtests" / "momentum", patterns=("config_regime.py",), recursive=False),
+            "round5_auto_package": fingerprint_tree(round_package, patterns=("*.py",)),
+            "shared_auto_runner": fingerprint_tree(repo_root / "backtests" / "shared" / "auto", patterns=("*.py",)),
+        }
+
     def _pool_evaluator(self, phase: int, scoring_weights, hard_rejects) -> SharedPoolBatchEvaluator:
         if self._pool is None:
             self._pool = create_process_pool(
                 self.max_workers,
                 initializer=init_worker,
                 initargs=(str(self.data_dir), self.initial_equity, self.analysis_symbol, self.trade_symbol),
-                description="NQ_REGIME auto",
+                description="NQ_REGIME round_5 auto",
             )
         return SharedPoolBatchEvaluator(
             self._pool,
@@ -222,8 +248,8 @@ class NqRegimePlugin:
                 (candidate.name, candidate.mutations, current, phase, scoring_weights, hard_rejects)
                 for candidate in candidates
             ],
-            on_terminate=self.close_pool,
-            description=f"NQ_REGIME phase {phase}",
+            on_terminate=self.terminate_pool,
+            description=f"NQ_REGIME round_5 phase {phase}",
             heartbeat_seconds=120.0,
             per_candidate_timeout_seconds=1200.0,
             minimum_timeout_seconds=1200.0,
@@ -254,6 +280,22 @@ def _format_component_dimension(attribution: dict[str, dict[str, float]]) -> str
             f"avgR={stats.get('avg_r', 0):+.3f}, MFE={stats.get('avg_mfe_r', 0):+.2f}"
         )
     return "; ".join(rows)
+
+
+def _format_synergy_dimension(metrics: dict[str, float]) -> str:
+    counts = {
+        "nq_1": metrics.get("module_second_wind_trades", 0.0),
+        "nq_2": metrics.get("module_structural_expansion_trades", 0.0),
+        "nq_3": metrics.get("module_liquidity_reversion_trades", 0.0),
+    }
+    total = sum(counts.values()) or 1.0
+    shares = ", ".join(f"{name}={value / total:.1%}" for name, value in counts.items())
+    return (
+        f"coverage={metrics.get('module_coverage', 0):.0%}, "
+        f"min_module_trades={metrics.get('min_module_trades', 0):.0f}, "
+        f"trade_share[{shares}], "
+        f"R/mo={metrics.get('total_r_per_month', 0):.2f}, trades/mo={metrics.get('trades_per_month', 0):.2f}"
+    )
 
 
 def _format_candidate_funnel_dimension(metrics: dict[str, float]) -> str:

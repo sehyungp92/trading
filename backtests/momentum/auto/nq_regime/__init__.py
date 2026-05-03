@@ -1,2 +1,2 @@
-"""Phased auto-optimization support for NQ_REGIME."""
+"""Round 5 synergistic optimizer for NQ_REGIME."""
 

@@ -4,20 +4,13 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from backtests.momentum.analysis.regime_diagnostics import generate_regime_diagnostics
+from backtests.momentum.auto.nq_regime.phase_candidates import BASE_MUTATIONS
+from backtests.momentum.auto.nq_regime.phase_candidates import build_round5_seed_from_configs
+from backtests.momentum.auto.nq_regime.phase_candidates import get_phase_candidates
 from backtests.momentum.auto.nq_regime.plugin import NqRegimePlugin
+from backtests.momentum.auto.nq_regime.scoring import PHASE_HARD_REJECTS
 from backtests.momentum.auto.nq_regime.scoring import PHASE_WEIGHTS
-from backtests.momentum.auto.nq_regime_round4c.phase_candidates import PHASE_FOCUS as ROUND4C_PHASE_FOCUS
-from backtests.momentum.auto.nq_regime_round4c.phase_candidates import get_phase_candidates as get_round4c_phase_candidates
-from backtests.momentum.auto.nq_regime_round4c.plugin import NqRegimePlugin as Round4cNqRegimePlugin
-from backtests.momentum.auto.nq_regime_round4c.scoring import PHASE_HARD_REJECTS as ROUND4C_HARD_REJECTS
-from backtests.momentum.auto.nq_regime_round4c.scoring import PHASE_WEIGHTS as ROUND4C_PHASE_WEIGHTS
-from backtests.momentum.auto.nq_regime_round5.phase_candidates import BASE_MUTATIONS as ROUND5_BASE_MUTATIONS
-from backtests.momentum.auto.nq_regime_round5.phase_candidates import build_round5_seed_from_configs
-from backtests.momentum.auto.nq_regime_round5.phase_candidates import get_phase_candidates as get_round5_phase_candidates
-from backtests.momentum.auto.nq_regime_round5.plugin import NqRegimeRound5Plugin
-from backtests.momentum.auto.nq_regime_round5.scoring import PHASE_HARD_REJECTS as ROUND5_HARD_REJECTS
-from backtests.momentum.auto.nq_regime_round5.scoring import PHASE_WEIGHTS as ROUND5_PHASE_WEIGHTS
-from backtests.momentum.auto.nq_regime_round5.scoring import composite_score as round5_composite_score
+from backtests.momentum.auto.nq_regime.scoring import composite_score
 from backtests.shared.auto.phase_state import PhaseState
 
 
@@ -36,8 +29,8 @@ def test_nq_regime_plugin_exposes_phased_optimizer_specs(tmp_path: Path) -> None
         assert callable(spec.gate_criteria_fn)
     phase7 = plugin.get_phase_spec(7, state)
     phase7_names = {candidate.name for candidate in phase7.candidates}
-    assert "nq1_vwap_reclaim_quality_gate" in phase7_names
-    assert "nq1_second_leg_quality_gate" in phase7_names
+    assert "Synergy" in phase7.focus
+    assert "r5_final_frequency_stack" in phase7_names
     assert len(PHASE_WEIGHTS[7]) <= 7
 
 
@@ -142,41 +135,25 @@ def test_nq_regime_diagnostics_separates_commission_only_excursion_gaps() -> Non
     assert "Excursion bounds are internally consistent within tolerance." in text
 
 
-def test_nq_regime_round4c_plugin_exposes_reproducibility_fingerprint_parts(tmp_path: Path) -> None:
-    plugin = Round4cNqRegimePlugin(tmp_path, initial_equity=10_000, max_workers=1)
+def test_nq_regime_plugin_exposes_reproducibility_fingerprint_parts(tmp_path: Path) -> None:
+    plugin = NqRegimePlugin(tmp_path, initial_equity=10_000, max_workers=1)
 
     parts = plugin.source_fingerprint_parts()
 
     assert plugin.source_fingerprint()
-    assert "round4c_auto_package" in parts
+    assert "round5_auto_package" in parts
     assert "shared_auto_runner" in parts
 
 
-def test_nq_regime_round4c_has_dedicated_exit_capture_phase(tmp_path: Path) -> None:
-    plugin = Round4cNqRegimePlugin(tmp_path, initial_equity=10_000, max_workers=1)
+def test_nq_regime_exposes_synergy_optimizer_specs(tmp_path: Path) -> None:
+    plugin = NqRegimePlugin(tmp_path, initial_equity=10_000, max_workers=1)
     state = PhaseState()
 
-    spec = plugin.get_phase_spec(7, state)
-    candidates = get_round4c_phase_candidates(7, {})
-
+    assert plugin.name == "nq_regime"
     assert plugin.num_phases == 7
-    assert "Exit Capture" in ROUND4C_PHASE_FOCUS[7][0]
-    assert spec.focus == ROUND4C_PHASE_FOCUS[7][0]
-    assert len(ROUND4C_PHASE_WEIGHTS[7]) <= 7
-    assert ROUND4C_HARD_REJECTS[7]["min_nq3_capture"] >= 0.68
-    assert any(any(key.endswith("REVERSION_TIME_STOP_ENABLED") for key in candidate[1]) for candidate in candidates)
-    assert any(any(key.endswith("REVERSION_VWAP_TOUCH_EXIT_ENABLED") for key in candidate[1]) for candidate in candidates)
-
-
-def test_nq_regime_round5_exposes_synergy_optimizer_specs(tmp_path: Path) -> None:
-    plugin = NqRegimeRound5Plugin(tmp_path, initial_equity=10_000, max_workers=1)
-    state = PhaseState()
-
-    assert plugin.name == "nq_regime_round5"
-    assert plugin.num_phases == 7
-    assert ROUND5_BASE_MUTATIONS["flags.enable_structural_expansion"] is True
-    assert ROUND5_BASE_MUTATIONS["flags.enable_liquidity_reversion"] is True
-    assert ROUND5_BASE_MUTATIONS["flags.enable_second_wind"] is True
+    assert BASE_MUTATIONS["flags.enable_structural_expansion"] is True
+    assert BASE_MUTATIONS["flags.enable_liquidity_reversion"] is True
+    assert BASE_MUTATIONS["flags.enable_second_wind"] is True
 
     for phase in range(1, plugin.num_phases + 1):
         spec = plugin.get_phase_spec(phase, state)
@@ -187,19 +164,19 @@ def test_nq_regime_round5_exposes_synergy_optimizer_specs(tmp_path: Path) -> Non
         assert callable(spec.gate_criteria_fn)
 
     assert "Synergy" in plugin.get_phase_spec(7, state).focus
-    assert ROUND5_PHASE_WEIGHTS[7]["alpha_return"] >= ROUND5_PHASE_WEIGHTS[1]["alpha_return"]
-    assert ROUND5_HARD_REJECTS[7]["min_module_coverage"] == 1.0
+    assert PHASE_WEIGHTS[7]["alpha_return"] >= PHASE_WEIGHTS[1]["alpha_return"]
+    assert PHASE_HARD_REJECTS[7]["min_module_coverage"] == 1.0
 
 
-def test_nq_regime_round5_candidates_do_not_disable_components() -> None:
+def test_nq_regime_candidates_do_not_disable_components() -> None:
     for phase in range(1, 8):
-        for _, mutations in get_round5_phase_candidates(phase, {}):
+        for _, mutations in get_phase_candidates(phase, {}):
             assert mutations.get("flags.enable_structural_expansion", True) is True
             assert mutations.get("flags.enable_liquidity_reversion", True) is True
             assert mutations.get("flags.enable_second_wind", True) is True
 
 
-def test_nq_regime_round5_seed_blends_round4_configs_without_starving_modules() -> None:
+def test_nq_regime_seed_blends_round4_configs_without_starving_modules() -> None:
     round4a = {
         "flags.enable_structural_expansion": True,
         "flags.enable_liquidity_reversion": True,
@@ -244,7 +221,7 @@ def test_nq_regime_round5_seed_blends_round4_configs_without_starving_modules() 
     assert seed["param_overrides.ROUTE_CANDIDATE_LED_ENABLED"] is True
 
 
-def test_nq_regime_round5_rejects_module_starvation() -> None:
+def test_nq_regime_rejects_module_starvation() -> None:
     liquidity_only_metrics = {
         "total_trades": 500.0,
         "trades_per_month": 10.0,
@@ -261,7 +238,7 @@ def test_nq_regime_round5_rejects_module_starvation() -> None:
         "module_liquidity_reversion_profit_factor": 13.25,
     }
 
-    score = round5_composite_score(liquidity_only_metrics, ROUND5_PHASE_WEIGHTS[7], ROUND5_HARD_REJECTS[7])
+    score = composite_score(liquidity_only_metrics, PHASE_WEIGHTS[7], PHASE_HARD_REJECTS[7])
 
     assert score.rejected is True
     assert score.reject_reason in {"min_module_coverage", "min_module_trades", "min_nq1_trades"}

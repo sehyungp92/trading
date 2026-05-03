@@ -79,13 +79,14 @@ def mutate_config(base: NqRegimeBacktestConfig, mutations: dict[str, Any]) -> Nq
             top_level[key] = value
     if flag_changes:
         valid = {field.name for field in fields(NqRegimeAblationFlags)}
-        cfg = replace(cfg, flags=replace(cfg.flags, **{k: v for k, v in flag_changes.items() if k in valid}))
+        cfg = replace(cfg, flags=replace(cfg.flags, **{key: value for key, value in flag_changes.items() if key in valid}))
     if slippage_changes:
         valid = {field.name for field in fields(SlippageConfig)}
-        cfg = replace(cfg, slippage=replace(cfg.slippage, **{k: v for k, v in slippage_changes.items() if k in valid}))
+        cfg = replace(cfg, slippage=replace(cfg.slippage, **{key: value for key, value in slippage_changes.items() if key in valid}))
     if param_changes:
         cfg = replace(cfg, param_overrides={**cfg.param_overrides, **param_changes})
     if top_level:
         valid = {field.name for field in fields(NqRegimeBacktestConfig)}
-        cfg = replace(cfg, **{k: v for k, v in top_level.items() if k in valid})
+        cfg = replace(cfg, **{key: value for key, value in top_level.items() if key in valid})
     return cfg
+
