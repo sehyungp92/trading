@@ -140,7 +140,7 @@ class RoundManager:
                 "strategy": self.strategy,
                 "rounds": [],
             }
-        data = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        data = json.loads(self.manifest_path.read_text(encoding="utf-8-sig"))
         data.setdefault("family", self.family)
         data.setdefault("strategy", self.strategy)
         data.setdefault("rounds", [])

@@ -1,6 +1,7 @@
 """Main OMS service."""
 import asyncio
 import logging
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Awaitable, Callable
 
 if TYPE_CHECKING:
@@ -40,6 +41,13 @@ class OMSService:
         self._ready = asyncio.Event()
         self._recon_task: asyncio.Task | None = None
 
+        # Execution health counters (read by coordinator heartbeat)
+        self._intents_submitted: int = 0
+        self._intents_accepted: int = 0
+        self._intents_denied: int = 0
+        self._consecutive_denials: int = 0
+        self._last_accepted_ts: datetime | None = None
+
     @property
     def is_ready(self) -> bool:
         return self._ready.is_set()
@@ -75,7 +83,17 @@ class OMSService:
 
     async def submit_intent(self, intent: "Intent") -> "IntentReceipt":
         await self._ready.wait()
-        return await self._handler.submit(intent)
+        self._intents_submitted += 1
+        receipt = await self._handler.submit(intent)
+        from ..models.intent import IntentResult
+        if receipt.result == IntentResult.ACCEPTED:
+            self._intents_accepted += 1
+            self._consecutive_denials = 0
+            self._last_accepted_ts = datetime.now(timezone.utc)
+        elif receipt.result == IntentResult.DENIED:
+            self._intents_denied += 1
+            self._consecutive_denials += 1
+        return receipt
 
     def stream_events(self, strategy_id: str) -> "asyncio.Queue":
         """Returns an asyncio.Queue that receives OMSEvent objects for this strategy."""

@@ -22,11 +22,13 @@ from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
+    SharedPoolBatchEvaluator,
+    create_process_pool,
     deserialize_experiments,
     greedy_result_from_state,
     greedy_result_to_dict,
     mutation_signature,
-    resolve_worker_processes,
+    shutdown_process_pool,
 )
 from backtests.shared.auto.types import (
     EndOfRoundArtifacts,
@@ -35,11 +37,18 @@ from backtests.shared.auto.types import (
 )
 
 from .phase_analyzer import get_diagnostic_gaps, suggest_experiments
-from .phase_candidates import get_phase_candidates, get_r9_phase_candidates
-from .phase_gates import gate_criteria_for_phase
+from .phase_candidates import (
+    get_phase_candidates,
+    get_r9_phase_candidates,
+    get_risk_allocation_phase_candidates,
+)
+from .phase_gates import gate_criteria_for_phase, risk_allocation_gate_criteria_for_phase
 from .phase_scoring import (
     PHASE_FOCUS,
     PHASE_HARD_REJECTS,
+    RISK_ALLOCATION_PHASE_FOCUS,
+    RISK_ALLOCATION_PHASE_HARD_REJECTS,
+    RISK_ALLOCATION_ULTIMATE_TARGETS,
     PHASE_WEIGHTS,
     ULTIMATE_TARGETS,
     score_phase_metrics,
@@ -48,45 +57,12 @@ from .scoring import ATRSSMetrics, composite_score, extract_atrss_metrics
 
 logger = logging.getLogger(__name__)
 
+_SYMBOL_EXPERIMENT_UNIVERSE = ["USO"]
+
 
 def _metrics_from_dict(d: dict[str, float]) -> ATRSSMetrics:
     """Reconstruct ATRSSMetrics from a flat dict (safe for missing keys)."""
     return ATRSSMetrics(**{k: v for k, v in d.items() if k in ATRSSMetrics.__dataclass_fields__})
-
-
-class _SharedPoolBatchEvaluator:
-    """Wraps an existing mp.Pool -- does NOT own it (no close/terminate on the pool itself)."""
-
-    def __init__(
-        self,
-        pool: mp.Pool,
-        phase: int,
-        scoring_weights: dict[str, float] | None,
-        hard_rejects: dict[str, float] | None,
-        on_terminate: Any = None,
-    ):
-        self._pool = pool
-        self._phase = phase
-        self._scoring_weights = scoring_weights
-        self._hard_rejects = hard_rejects
-        self._on_terminate = on_terminate
-
-    def __call__(self, candidates: list[Experiment], current_mutations: dict[str, Any]):
-        from .worker import score_candidate
-
-        args = [
-            (c.name, c.mutations, current_mutations,
-             self._phase, self._scoring_weights, self._hard_rejects)
-            for c in candidates
-        ]
-        return self._pool.map(score_candidate, args)
-
-    def close(self) -> None:
-        pass  # Pool is owned by the plugin, not by this evaluator
-
-    def terminate(self) -> None:
-        if callable(self._on_terminate):
-            self._on_terminate()
 
 
 class _SequentialBatchEvaluator:
@@ -99,6 +75,8 @@ class _SequentialBatchEvaluator:
         hard_rejects: dict[str, float] | None,
         mode: str = "independent",
         symbols: list[str] | None = None,
+        data_symbols: list[str] | None = None,
+        scoring_profile: str | None = None,
     ):
         self._data_dir = data_dir
         self._initial_equity = initial_equity
@@ -107,6 +85,8 @@ class _SequentialBatchEvaluator:
         self._hard_rejects = hard_rejects
         self._mode = mode
         self._symbols = symbols
+        self._data_symbols = data_symbols
+        self._scoring_profile = scoring_profile
         self._initialised = False
 
     def _ensure_init(self) -> None:
@@ -114,7 +94,9 @@ class _SequentialBatchEvaluator:
             return
         from .worker import init_worker
         init_worker(str(self._data_dir), self._initial_equity,
-                    mode=self._mode, symbols=self._symbols)
+                    mode=self._mode, symbols=self._symbols,
+                    data_symbols=self._data_symbols,
+                    scoring_profile=self._scoring_profile)
         self._initialised = True
 
     def __call__(self, candidates: list[Experiment], current_mutations: dict[str, Any]):
@@ -150,12 +132,16 @@ class ATRSSPlugin:
         max_workers: int | None = None,
         mode: str = "independent",
         symbols: list[str] | None = None,
+        candidate_profile: str = "auto",
     ):
         self.data_dir = data_dir
         self.initial_equity = initial_equity
         self.max_workers = max_workers
         self.mode = mode
         self.symbols = symbols or ["QQQ", "GLD"]
+        self.data_symbols = self._data_symbol_universe(self.symbols)
+        self.candidate_profile = candidate_profile
+        self._active_candidate_profile = "alpha"
         self._scoring_profile = "r9_synchronized" if mode == "synchronized" else "r1_independent"
         # Persistent pool -- created lazily, reused across phases
         self._pool: mp.Pool | None = None
@@ -171,14 +157,22 @@ class ATRSSPlugin:
     # -- PhaseSpec -------------------------------------------------------------
 
     def get_phase_spec(self, phase: int, state: PhaseState) -> PhaseSpec:
-        focus, focus_metrics = PHASE_FOCUS[phase]
+        active_profile = self._set_active_candidate_profile(self._candidate_profile_for_state(state))
+        focus_table = RISK_ALLOCATION_PHASE_FOCUS if active_profile == "risk" else PHASE_FOCUS
+        focus, focus_metrics = focus_table[phase]
         prior_phase = state.phase_results.get(phase - 1, {}) if phase > 1 else {}
         suggested = deserialize_experiments(prior_phase.get("suggested_experiments", []))
 
-        # R9 mode: Phase 1 uses structural candidates; Phases 2-4 use original
-        if self.mode == "synchronized" and phase == 1:
+        if self.mode == "synchronized" and active_profile == "risk":
+            raw_candidates = get_risk_allocation_phase_candidates(
+                phase,
+                prior_mutations=state.cumulative_mutations if phase == 4 else None,
+                suggested_experiments=[(e.name, e.mutations) for e in suggested] or None,
+            )
+        elif self.mode == "synchronized":
             raw_candidates = get_r9_phase_candidates(
                 phase,
+                prior_mutations=state.cumulative_mutations if phase == 4 else None,
                 suggested_experiments=[(e.name, e.mutations) for e in suggested] or None,
             )
         else:
@@ -188,12 +182,16 @@ class ATRSSPlugin:
                 suggested_experiments=[(e.name, e.mutations) for e in suggested] or None,
             )
         candidates = [Experiment(name=n, mutations=m) for n, m in raw_candidates]
+        hard_reject_table = (
+            RISK_ALLOCATION_PHASE_HARD_REJECTS
+            if active_profile == "risk" else PHASE_HARD_REJECTS
+        )
         return PhaseSpec(
             focus=focus,
             candidates=candidates,
             gate_criteria_fn=lambda metrics: self._gate_criteria(phase, metrics, state),
             scoring_weights=PHASE_WEIGHTS.get(phase),
-            hard_rejects=PHASE_HARD_REJECTS.get(phase, {}),
+            hard_rejects=hard_reject_table.get(phase, {}),
             analysis_policy=PhaseAnalysisPolicy(
                 focus_metrics=focus_metrics,
                 min_effective_score_delta_pct=0.005,
@@ -208,8 +206,10 @@ class ATRSSPlugin:
     ) -> list[GateCriterion]:
         m = _metrics_from_dict(metrics)
         prior_phase_metrics = None
-        if phase == 4:
-            prior_phase_metrics = state.phase_results.get(3, {}).get("final_metrics")
+        if phase > 1:
+            prior_phase_metrics = state.phase_results.get(phase - 1, {}).get("final_metrics")
+        if self._active_candidate_profile == "risk":
+            return risk_allocation_gate_criteria_for_phase(phase, m, prior_phase_metrics)
         return gate_criteria_for_phase(phase, m, prior_phase_metrics)
 
     # -- Evaluator factory -----------------------------------------------------
@@ -227,21 +227,43 @@ class ATRSSPlugin:
         evaluation_key = build_cache_key(
             "swing.atrss.evaluation",
             source_fingerprint=self._ensure_bundle().cache_source_fingerprint,
-            extra={"phase": phase, "scoring_weights": scoring_weights or {}, "hard_rejects": hard_rejects or {}},
+            extra={
+                "phase": phase,
+                "scoring_profile": self._scoring_profile,
+                "scoring_weights": scoring_weights or {},
+                "hard_rejects": hard_rejects or {},
+            },
         )
 
         def make_parallel():
             self._ensure_pool()
-            return _SharedPoolBatchEvaluator(
-                self._pool, phase, scoring_weights, hard_rejects,
-                self._destroy_pool,
+            from .worker import score_candidate
+
+            return SharedPoolBatchEvaluator(
+                self._pool,
+                worker_fn=score_candidate,
+                build_args=lambda candidates, current_mutations: [
+                    (
+                        candidate.name,
+                        candidate.mutations,
+                        current_mutations,
+                        phase,
+                        scoring_weights,
+                        hard_rejects,
+                    )
+                    for candidate in candidates
+                ],
+                on_terminate=self._destroy_pool,
+                description=f"ATRSS phase {phase}",
+                logger=logger,
             )
 
         def make_sequential():
             return _SequentialBatchEvaluator(
                 self.data_dir, self.initial_equity, phase,
                 scoring_weights, hard_rejects,
-                mode=self.mode, symbols=self.symbols,
+                mode=self.mode, symbols=self.symbols, data_symbols=self.data_symbols,
+                scoring_profile=self._scoring_profile,
             )
 
         raw = ResilientBatchEvaluator(make_parallel, make_sequential, description=f"ATRSS phase {phase}")
@@ -260,37 +282,37 @@ class ATRSSPlugin:
             return
         from .worker import init_worker
 
-        processes = resolve_worker_processes(self.max_workers)
-        self._pool = mp.Pool(
-            processes=processes,
+        self._pool = create_process_pool(
+            self.max_workers,
             initializer=init_worker,
-            initargs=(str(self.data_dir), self.initial_equity, self.mode, self.symbols),
+            initargs=(
+                str(self.data_dir),
+                self.initial_equity,
+                self.mode,
+                self.symbols,
+                self.data_symbols,
+                self._scoring_profile,
+            ),
+            logger=logger,
+            description=f"{self.name} evaluation",
         )
-        logger.info("Created worker pool with %d processes (mode=%s, symbols=%s)",
-                     processes, self.mode, self.symbols)
+        logger.info(
+            "Using mode=%s, symbols=%s, data_symbols=%s, scoring_profile=%s",
+            self.mode, self.symbols, self.data_symbols, self._scoring_profile,
+        )
 
     def _destroy_pool(self) -> None:
         """Force-kill the pool (called on worker errors via terminate())."""
-        if self._pool is not None:
-            try:
-                self._pool.terminate()
-                self._pool.join()
-            except Exception:
-                pass
-            self._pool = None
+        shutdown_process_pool(self._pool, force=True)
+        self._pool = None
 
     def close_pool(self) -> None:
         """Gracefully shut down the persistent worker pool.
 
         Called by PhaseRunner.run_all_phases() at the end of all phases.
         """
-        if self._pool is not None:
-            try:
-                self._pool.close()
-                self._pool.join()
-            except Exception:
-                pass
-            self._pool = None
+        shutdown_process_pool(self._pool)
+        self._pool = None
 
     # -- Metrics ---------------------------------------------------------------
 
@@ -298,7 +320,7 @@ class ATRSSPlugin:
         """Load and cache PortfolioData for compute_final_metrics."""
         from backtests.swing.data.replay_cache import load_atrss_replay_bundle
 
-        bundle = load_atrss_replay_bundle(self.data_dir, symbols=tuple(self.symbols))
+        bundle = load_atrss_replay_bundle(self.data_dir, symbols=tuple(self.data_symbols))
         if self._cache_source_fingerprint != bundle.cache_source_fingerprint:
             self._metrics_cache.clear()
             self._evaluation_cache.clear()
@@ -306,6 +328,55 @@ class ATRSSPlugin:
             self._cache_source_fingerprint = bundle.cache_source_fingerprint
         self._cached_bundle = bundle
         return bundle
+
+    @staticmethod
+    def _data_symbol_universe(symbols: list[str]) -> list[str]:
+        ordered = list(symbols)
+        for sym in _SYMBOL_EXPERIMENT_UNIVERSE:
+            if sym not in ordered:
+                ordered.append(sym)
+        return ordered
+
+    def _candidate_profile_for_state(self, state: PhaseState | None = None) -> str:
+        if self.candidate_profile in {"alpha", "risk"}:
+            return self.candidate_profile
+        if self.mode != "synchronized":
+            return "alpha"
+        mutations: dict[str, Any] = {}
+        if self.initial_mutations:
+            mutations.update(self.initial_mutations)
+        if state and state.cumulative_mutations:
+            mutations.update(state.cumulative_mutations)
+        risk_markers = {
+            "fixed_qty",
+            "param_overrides.fixed_qty_addon_b",
+            "param_overrides.fixed_qty_regime_scaling",
+            "param_overrides.base_risk_pct",
+            "param_overrides.dynamic_risk_strong_trend_mult",
+            "param_overrides.dynamic_risk_weak_trend_mult",
+        }
+        if any(key in mutations for key in risk_markers):
+            return "risk"
+        # The current alpha-optimized baseline is the handoff into the
+        # risk-allocation round.
+        if "param_overrides.adx_on" in mutations and "param_overrides.recovery_tolerance_atr_trend" in mutations:
+            return "risk"
+        return "alpha"
+
+    def _set_active_candidate_profile(self, profile: str) -> str:
+        if profile not in {"alpha", "risk"}:
+            profile = "alpha"
+        if profile != self._active_candidate_profile:
+            self.close_pool()
+        self._active_candidate_profile = profile
+        if self.mode == "synchronized":
+            self._scoring_profile = "r11_risk_allocation" if profile == "risk" else "r9_synchronized"
+        else:
+            self._scoring_profile = "r1_independent"
+        self.ultimate_targets = (
+            RISK_ALLOCATION_ULTIMATE_TARGETS if profile == "risk" else ULTIMATE_TARGETS
+        )
+        return profile
 
     def compute_final_metrics(self, mutations: dict[str, Any]) -> dict[str, float]:
         """Compute final metrics -- always uses synchronized mode for honest results."""
@@ -338,6 +409,8 @@ class ATRSSPlugin:
 
         metrics = extract_atrss_metrics(result, self.initial_equity)
         result_dict = asdict(metrics)
+        # Use R-based calmar as primary (CAGR/MaxDD% is unreliable for R-based equity curves)
+        result_dict["calmar"] = result_dict["calmar_r"]
         self._metrics_cache[sig] = result_dict
         return result_dict
 

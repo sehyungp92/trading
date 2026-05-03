@@ -6,8 +6,13 @@ from datetime import datetime, timedelta
 from .config import (
     ADDON_A_R,
     ADDON_B_R,
+    BREAKOUT_DIRECT_ENTRY,
+    BREAKOUT_REQUIRE_DIRECTIONAL_CANDLE,
+    BREAKOUT_RETRACE_ENTRY_FRAC,
+    BREAKOUT_RETRACE_LIMIT_FRAC,
     COOLDOWN_HOURS,
     MOMENTUM_TOLERANCE_ATR,
+    PULLBACK_MOMENTUM_FILTER_ENABLED,
     RECOVERY_TOLERANCE_ATR,
     RECOVERY_TOLERANCE_ATR_STRONG,
     RECOVERY_TOLERANCE_ATR_TREND,
@@ -127,6 +132,8 @@ def pullback_signal(h: HourlyState, d: DailyState) -> Direction:
             h.recent_pull_touch_long
             and h.close > h.ema_pull - tol * h.atrh
         ):
+            if PULLBACK_MOMENTUM_FILTER_ENABLED and not momentum_ok(h, Direction.LONG):
+                return Direction.FLAT
             return Direction.LONG
     elif d.trend_dir == Direction.SHORT:
         if (
@@ -134,6 +141,8 @@ def pullback_signal(h: HourlyState, d: DailyState) -> Direction:
             and h.close < h.ema_pull + tol * h.atrh
             and short_safety_ok(d)
         ):
+            if PULLBACK_MOMENTUM_FILTER_ENABLED and not momentum_ok(h, Direction.SHORT):
+                return Direction.FLAT
             return Direction.SHORT
     return Direction.FLAT
 
@@ -176,22 +185,34 @@ def breakout_pullback_signal(
     if breakout_range <= 0:
         return Direction.FLAT
 
+    if BREAKOUT_DIRECT_ENTRY:
+        if armed_dir == Direction.LONG and d.trend_dir == Direction.LONG and momentum_ok(h, Direction.LONG):
+            return Direction.LONG
+        if (
+            armed_dir == Direction.SHORT
+            and d.trend_dir == Direction.SHORT
+            and momentum_ok(h, Direction.SHORT)
+            and short_safety_ok(d)
+        ):
+            return Direction.SHORT
+        return Direction.FLAT
+
     if armed_dir == Direction.LONG:
-        retrace_entry = arm_high - 0.30 * breakout_range
-        retrace_limit = arm_high - 0.50 * breakout_range
+        retrace_entry = arm_high - BREAKOUT_RETRACE_ENTRY_FRAC * breakout_range
+        retrace_limit = arm_high - BREAKOUT_RETRACE_LIMIT_FRAC * breakout_range
         if (
             h.low <= retrace_entry
             and h.close > retrace_limit
-            and h.close > h.open
+            and (not BREAKOUT_REQUIRE_DIRECTIONAL_CANDLE or h.close > h.open)
         ):
             return Direction.LONG
     elif armed_dir == Direction.SHORT:
-        retrace_entry = arm_low + 0.30 * breakout_range
-        retrace_limit = arm_low + 0.50 * breakout_range
+        retrace_entry = arm_low + BREAKOUT_RETRACE_ENTRY_FRAC * breakout_range
+        retrace_limit = arm_low + BREAKOUT_RETRACE_LIMIT_FRAC * breakout_range
         if (
             h.high >= retrace_entry
             and h.close < retrace_limit
-            and h.close < h.open
+            and (not BREAKOUT_REQUIRE_DIRECTIONAL_CANDLE or h.close < h.open)
             and short_safety_ok(d)
         ):
             return Direction.SHORT

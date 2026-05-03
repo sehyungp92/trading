@@ -11,8 +11,12 @@ from datetime import time
 from typing import Any
 
 _TIME_PARAM_KEYS = frozenset({
+    "param_overrides.entry_window_start",
     "param_overrides.entry_window_end",
+    "param_overrides.eod_flatten_time",
     "param_overrides.late_entry_cutoff",
+    "param_overrides.orb_time_decay_start",
+    "param_overrides.pdh_entry_window_end",
 })
 
 _TIME_RE = re.compile(r"^(\d{1,2}):(\d{2})(?::(\d{2}))?$")

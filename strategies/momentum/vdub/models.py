@@ -35,6 +35,7 @@ class SubWindow(str, Enum):
 class EntryType(str, Enum):
     TYPE_A = "A"
     TYPE_B = "B"
+    TYPE_C = "C"
 
 
 class PositionStage(str, Enum):

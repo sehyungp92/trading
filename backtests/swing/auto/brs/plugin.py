@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import multiprocessing as mp
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -11,12 +10,14 @@ from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
+    SharedPoolBatchEvaluator,
+    create_process_pool,
     deserialize_experiments,
     greedy_result_from_state,
     greedy_result_to_dict,
     mutation_signature,
-    resolve_worker_processes,
     seen_experiment_names,
+    shutdown_process_pool,
 )
 from backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion, PhaseDecision
 
@@ -116,41 +117,6 @@ def score_phase_metrics(
         total = sum(base.values())
         weights = {key: value / total for key, value in base.items()} if total > 0 else base
     return composite_score(metrics, weights, scale_overrides=scale_overrides)
-
-
-class _PoolBatchEvaluator:
-    def __init__(
-        self,
-        data_dir: Path,
-        initial_equity: float,
-        phase: int,
-        scoring_weights: dict[str, float] | None,
-        hard_rejects: dict[str, float] | None,
-        max_workers: int | None,
-        scale_overrides: dict[str, float] | None = None,
-    ):
-        from .worker import init_worker
-
-        processes = resolve_worker_processes(max_workers)
-        self._pool = mp.Pool(
-            processes=processes,
-            initializer=init_worker,
-            initargs=(str(data_dir), initial_equity, phase, scoring_weights, hard_rejects, scale_overrides),
-        )
-
-    def __call__(self, candidates: list[Experiment], current_mutations: dict[str, Any]):
-        from .worker import score_candidate
-
-        args = [(candidate.name, candidate.mutations, current_mutations) for candidate in candidates]
-        return self._pool.map(score_candidate, args)
-
-    def close(self) -> None:
-        self._pool.close()
-        self._pool.join()
-
-    def terminate(self) -> None:
-        self._pool.terminate()
-        self._pool.join()
 
 
 class _SequentialBatchEvaluator:
@@ -265,10 +231,30 @@ class BRSPlugin:
         )
 
         def make_parallel():
-            return _PoolBatchEvaluator(
-                self.data_dir, self.initial_equity, phase,
-                scoring_weights, hard_rejects, self.max_workers,
-                scale_overrides=self._scale_overrides,
+            from .worker import init_worker, score_candidate
+
+            pool = create_process_pool(
+                self.max_workers,
+                initializer=init_worker,
+                initargs=(
+                    str(self.data_dir),
+                    self.initial_equity,
+                    phase,
+                    scoring_weights,
+                    hard_rejects,
+                    self._scale_overrides,
+                ),
+            )
+            return SharedPoolBatchEvaluator(
+                pool,
+                worker_fn=score_candidate,
+                build_args=lambda candidates, current_mutations: [
+                    (candidate.name, candidate.mutations, current_mutations)
+                    for candidate in candidates
+                ],
+                on_close=lambda pool=pool: shutdown_process_pool(pool),
+                on_terminate=lambda pool=pool: shutdown_process_pool(pool, force=True),
+                description=f"BRS phase {phase}",
             )
 
         def make_sequential():

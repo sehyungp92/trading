@@ -853,6 +853,218 @@ def _r2_regime_param_experiments() -> list[tuple[str, dict]]:
 
 
 # ---------------------------------------------------------------------------
+# R3 TARGETED NEXT-ROUND EXPERIMENTS
+# ---------------------------------------------------------------------------
+
+def _r3_alpha_experiments() -> list[tuple[str, dict]]:
+    """Target correction alpha coverage without changing fill semantics."""
+    return [
+        ("r3_dd_looser_2pct_lb10", {
+            "flags.drawdown_regime_override": True,
+            "param_overrides.drawdown_threshold": 0.02,
+            "param_overrides.drawdown_lookback": 10,
+        }),
+        ("r3_dd_slower_3pct_lb15", {
+            "flags.drawdown_regime_override": True,
+            "param_overrides.drawdown_threshold": 0.03,
+            "param_overrides.drawdown_lookback": 15,
+        }),
+        ("r3_fc_mild_015", {
+            "flags.fast_crash_override": True,
+            "param_overrides.crash_daily_threshold": -0.015,
+        }),
+        ("r3_fc_conv_020_30", {
+            "flags.fast_crash_override": True,
+            "flags.conviction_scoring": True,
+            "param_overrides.crash_daily_threshold": -0.020,
+            "param_overrides.conviction_threshold": 30,
+        }),
+        ("r3_bs_min2", {
+            "flags.bear_structure_override": True,
+            "param_overrides.bear_structure_min_conditions": 2,
+        }),
+        ("r3_bs_adx_20_12", {
+            "flags.bear_structure_override": True,
+            "param_overrides.bear_structure_adx_on": 20,
+            "param_overrides.bear_structure_adx_off": 12,
+        }),
+        ("r3_psma_min50", {
+            "flags.progressive_sma": True,
+            "param_overrides.progressive_sma_min": 50,
+        }),
+        ("r3_psma_min100", {
+            "flags.progressive_sma": True,
+            "param_overrides.progressive_sma_min": 100,
+        }),
+        ("r3_momentum_roc003_cd24", {
+            "flags.momentum_signal": True,
+            "param_overrides.momentum_roc_threshold": -0.003,
+            "param_overrides.momentum_cooldown_bars": 24,
+        }),
+        ("r3_momentum_roc006_cd36", {
+            "flags.momentum_signal": True,
+            "param_overrides.momentum_roc_threshold": -0.006,
+            "param_overrides.momentum_cooldown_bars": 36,
+        }),
+        ("r3_fade_allow_neutral", {"flags.fade_bear_regime_required": False}),
+        ("r3_fade_wide_045_070", {
+            "param_overrides.vwap_cap_core": 0.45,
+            "param_overrides.vwap_cap_extended": 0.70,
+        }),
+        ("r3_corr_bonus_125", {
+            "flags.correction_sizing_bonus": True,
+            "param_overrides.correction_sizing_mult": 1.25,
+        }),
+        ("r3_corr_bias_125_060", {
+            "flags.correction_sizing_bonus": True,
+            "flags.non_correction_penalty": True,
+            "param_overrides.correction_sizing_mult": 1.25,
+            "param_overrides.non_correction_sizing_mult": 0.60,
+        }),
+        ("r3_vol_gate_off", {"flags.vol_percentile_gate": 0.0}),
+        ("r3_bd_revival_default", {"flags.breakdown_engine": True}),
+        ("r3_bd_revival_balanced", {
+            "flags.breakdown_engine": True,
+            "param_overrides.box_containment_min": 0.70,
+            "param_overrides.displacement_quantile": 0.55,
+        }),
+        ("r3_bd_revival_loose_nochop", {
+            "flags.breakdown_engine": True,
+            "flags.breakdown_chop_filter": False,
+            "param_overrides.box_containment_min": 0.60,
+            "param_overrides.displacement_quantile": 0.50,
+        }),
+    ]
+
+
+def _r3_entry_experiments() -> list[tuple[str, dict]]:
+    """Entry quality and execution experiments routed through neutral orders."""
+    return [
+        ("r3_entry_ttl_12", {"param_overrides.entry_ttl_bars": 12}),
+        ("r3_entry_ttl_24", {"param_overrides.entry_ttl_bars": 24}),
+        ("r3_entry_ttl_48", {"param_overrides.entry_ttl_bars": 48}),
+        ("r3_entry_ttl_96", {"param_overrides.entry_ttl_bars": 96}),
+        ("r3_entry_buffer_1", {"param_overrides.entry_buffer_ticks": 1}),
+        ("r3_entry_buffer_3", {"param_overrides.entry_buffer_ticks": 3}),
+        ("r3_entry_buffer_4", {"param_overrides.entry_buffer_ticks": 4}),
+        ("r3_trigger_buffer_1", {"param_overrides.trigger_low_buffer_ticks": 1}),
+        ("r3_trigger_buffer_3", {"param_overrides.trigger_low_buffer_ticks": 3}),
+        ("r3_limit_offset_2", {"param_overrides.entry_limit_offset_ticks": 2}),
+        ("r3_limit_offset_6", {"param_overrides.entry_limit_offset_ticks": 6}),
+        ("r3_fade_stop_035", {"param_overrides.fade_stop_atr_mult": 0.35}),
+        ("r3_fade_stop_065", {"param_overrides.fade_stop_atr_mult": 0.65}),
+        ("r3_fade_stop_085", {"param_overrides.fade_stop_atr_mult": 0.85}),
+        ("r3_rev_stop_050", {"param_overrides.reversal_stop_atr_mult": 0.50}),
+        ("r3_rev_stop_100", {"param_overrides.reversal_stop_atr_mult": 1.00}),
+        ("r3_bd_stop_005", {"param_overrides.breakdown_stop_atr_mult": 0.05}),
+        ("r3_bd_stop_020", {"param_overrides.breakdown_stop_atr_mult": 0.20}),
+        ("r3_max_daily_2", {"param_overrides.max_daily_entries": 2}),
+        ("r3_max_daily_5", {"param_overrides.max_daily_entries": 5}),
+        ("r3_max_daily_8", {"param_overrides.max_daily_entries": 8}),
+        ("r3_friction_005", {"param_overrides.friction_min_atr_pctl": 0.05}),
+        ("r3_friction_015", {"param_overrides.friction_min_atr_pctl": 0.15}),
+        ("r3_friction_025", {"param_overrides.friction_min_atr_pctl": 0.25}),
+        ("r3_vol_gate_30", {"flags.vol_percentile_gate": 30.0}),
+        ("r3_vol_gate_50", {"flags.vol_percentile_gate": 50.0}),
+        ("r3_entry_vol_gate_off", {"flags.vol_percentile_gate": 0.0}),
+        ("r3_conviction_gate_30", {"flags.regime_confidence_gate": 30.0}),
+        ("r3_conviction_gate_45", {"flags.regime_confidence_gate": 45.0}),
+    ]
+
+
+def _r3_exit_experiments() -> list[tuple[str, dict]]:
+    """Target MFE capture without overfitting to individual exits."""
+    return [
+        ("r3_hold_8", {"flags.min_hold_period": True, "param_overrides.min_hold_bars": 8}),
+        ("r3_hold_12", {"flags.min_hold_period": True, "param_overrides.min_hold_bars": 12}),
+        ("r3_hold_18", {"flags.min_hold_period": True, "param_overrides.min_hold_bars": 18}),
+        ("r3_hold_24", {"flags.min_hold_period": True, "param_overrides.min_hold_bars": 24}),
+        ("r3_be_060", {"param_overrides.be_trigger_r": 0.60}),
+        ("r3_be_100", {"param_overrides.be_trigger_r": 1.00}),
+        ("r3_pf_threshold_100", {
+            "flags.profit_floor_trail": True,
+            "param_overrides.profit_floor_r_threshold": 1.00,
+        }),
+        ("r3_pf_threshold_180", {
+            "flags.profit_floor_trail": True,
+            "param_overrides.profit_floor_r_threshold": 1.80,
+        }),
+        ("r3_pf_threshold_220", {
+            "flags.profit_floor_trail": True,
+            "param_overrides.profit_floor_r_threshold": 2.20,
+        }),
+        ("r3_pf_lock_050", {
+            "flags.profit_floor_trail": True,
+            "param_overrides.profit_floor_lock_pct": 0.50,
+        }),
+        ("r3_pf_lock_070", {
+            "flags.profit_floor_trail": True,
+            "param_overrides.profit_floor_lock_pct": 0.70,
+        }),
+        ("r3_chand_lb12", {
+            "flags.chandelier_trailing": True,
+            "param_overrides.chandelier_lookback": 12,
+        }),
+        ("r3_chand_lb24", {
+            "flags.chandelier_trailing": True,
+            "param_overrides.chandelier_lookback": 24,
+        }),
+        ("r3_chand_floor_180", {
+            "flags.chandelier_trailing": True,
+            "param_overrides.chandelier_mult_floor": 1.80,
+        }),
+        ("r3_chand_floor_250", {
+            "flags.chandelier_trailing": True,
+            "param_overrides.chandelier_mult_floor": 2.50,
+        }),
+        ("r3_adaptive_high_cap", {
+            "flags.adaptive_profit_floor": True,
+            "param_overrides.adaptive_lock_bonus_3": 0.30,
+        }),
+        ("r3_scaleout_25_25", {
+            "flags.scale_out_enabled": True,
+            "param_overrides.scale_out_target_r": 2.5,
+            "param_overrides.scale_out_pct": 0.25,
+        }),
+        ("r3_scaleout_35_30", {
+            "flags.scale_out_enabled": True,
+            "param_overrides.scale_out_target_r": 3.5,
+            "param_overrides.scale_out_pct": 0.30,
+        }),
+        ("r3_stale_fade_24", {"param_overrides.stale_bars_fade": 24}),
+        ("r3_stale_fade_40", {"param_overrides.stale_bars_fade": 40}),
+    ]
+
+
+def _r3_risk_experiments() -> list[tuple[str, dict]]:
+    """Sizing/risk polish after entries and exits are selected."""
+    return [
+        ("r3_risk_0055", {"param_overrides.base_risk_pct": 0.0055}),
+        ("r3_risk_0070", {"param_overrides.base_risk_pct": 0.0070}),
+        ("r3_risk_0080", {"param_overrides.base_risk_pct": 0.0080}),
+        ("r3_risk_0100", {"param_overrides.base_risk_pct": 0.0100}),
+        ("r3_aligned_mult_100", {"param_overrides.regime_mult_aligned": 1.00}),
+        ("r3_aligned_mult_125", {"param_overrides.regime_mult_aligned": 1.25}),
+        ("r3_aligned_mult_150", {"param_overrides.regime_mult_aligned": 1.50}),
+        ("r3_emerging_mult_075", {"param_overrides.regime_mult_emerging": 0.75}),
+        ("r3_emerging_mult_100", {"param_overrides.regime_mult_emerging": 1.00}),
+        ("r3_emerging_mult_125", {"param_overrides.regime_mult_emerging": 1.25}),
+        ("r3_range_mult_075", {"param_overrides.regime_mult_range": 0.75}),
+        ("r3_range_mult_100", {"param_overrides.regime_mult_range": 1.00}),
+        ("r3_counter_mult_000", {"param_overrides.regime_mult_counter": 0.0}),
+        ("r3_counter_mult_010", {"param_overrides.regime_mult_counter": 0.10}),
+        ("r3_corr_bonus_140", {
+            "flags.correction_sizing_bonus": True,
+            "param_overrides.correction_sizing_mult": 1.40,
+        }),
+        ("r3_non_corr_penalty_050", {
+            "flags.non_correction_penalty": True,
+            "param_overrides.non_correction_sizing_mult": 0.50,
+        }),
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Category registry
 # ---------------------------------------------------------------------------
 
@@ -887,6 +1099,10 @@ EXPERIMENT_CATEGORIES: dict[str, list[tuple[str, dict]]] = {
     "R2_COUNTER_BLOCKING": _r2_counter_blocking_experiments(),
     "R2_REGIME_COMBOS": _r2_regime_combo_experiments(),
     "R2_REGIME_PARAMS": _r2_regime_param_experiments(),
+    "R3_ALPHA": _r3_alpha_experiments(),
+    "R3_ENTRY": _r3_entry_experiments(),
+    "R3_EXIT": _r3_exit_experiments(),
+    "R3_RISK": _r3_risk_experiments(),
 }
 
 

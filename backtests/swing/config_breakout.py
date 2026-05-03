@@ -40,6 +40,7 @@ class BreakoutAblationFlags:
     disable_regime_chop_block: bool = False
     disable_reentry_gate: bool = False
     disable_stale_exit: bool = False
+    disable_tp2_cascade: bool = False   # force TP2 skip regardless of TP2_PARTIAL_FRAC
 
 
 @dataclass

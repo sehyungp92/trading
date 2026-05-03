@@ -32,10 +32,17 @@ _PHASE_HARD_REJECTS_R1: dict[int, dict[str, float]] = {
 }
 
 _PHASE_HARD_REJECTS_R9: dict[int, dict[str, float]] = {
-    1: {"min_trades": 20, "max_dd_pct": 0.12, "min_pf": 1.0, "min_wr": 0.50},
-    2: {"min_trades": 25, "max_dd_pct": 0.10, "min_pf": 1.2, "min_wr": 0.55},
-    3: {"min_trades": 30, "max_dd_pct": 0.08, "min_pf": 1.5, "min_wr": 0.58},
-    4: {"min_trades": 35, "max_dd_pct": 0.07, "min_pf": 1.8, "min_wr": 0.60},
+    1: {"min_trades": 220, "max_dd_pct": 0.06, "min_pf": 1.8, "min_wr": 0.58},
+    2: {"min_trades": 230, "max_dd_pct": 0.055, "min_pf": 2.0, "min_wr": 0.60},
+    3: {"min_trades": 230, "max_dd_pct": 0.055, "min_pf": 2.0, "min_wr": 0.60},
+    4: {"min_trades": 240, "max_dd_pct": 0.05, "min_pf": 2.2, "min_wr": 0.62},
+}
+
+RISK_ALLOCATION_PHASE_HARD_REJECTS: dict[int, dict[str, float]] = {
+    1: {"min_trades": 250, "max_dd_pct": 0.075, "min_pf": 4.5, "min_wr": 0.78},
+    2: {"min_trades": 250, "max_dd_pct": 0.078, "min_pf": 4.5, "min_wr": 0.78},
+    3: {"min_trades": 250, "max_dd_pct": 0.080, "min_pf": 4.3, "min_wr": 0.76},
+    4: {"min_trades": 250, "max_dd_pct": 0.080, "min_pf": 4.5, "min_wr": 0.78},
 }
 
 
@@ -50,10 +57,17 @@ PHASE_HARD_REJECTS: dict[int, dict[str, float]] = (
 )
 
 PHASE_FOCUS: dict[int, tuple[str, list[str]]] = {
-    1: ("Structural Fixes", ["profit_factor", "total_r", "total_trades"]),
-    2: ("Exit Cleanup", ["profit_factor", "mfe_capture", "total_r"]),
-    3: ("Signal & Filtering", ["total_trades", "win_rate", "trades_per_month"]),
-    4: ("Fine-tune", ["calmar_r", "total_r", "sharpe"]),
+    1: ("Opportunity Surface", ["total_trades", "trades_per_month", "total_r"]),
+    2: ("Signal Geometry", ["total_trades", "win_rate", "trades_per_month"]),
+    3: ("Execution & Stops", ["profit_factor", "total_r", "net_return_pct"]),
+    4: ("Exits, Add-ons & Allocation", ["mfe_capture", "calmar_r", "total_r"]),
+}
+
+RISK_ALLOCATION_PHASE_FOCUS: dict[int, tuple[str, list[str]]] = {
+    1: ("Dynamic Risk Exposure Sweep", ["net_return_pct", "max_dd_pct", "profit_factor"]),
+    2: ("Risk & Heat Calibration", ["net_return_pct", "max_dd_pct", "calmar_r"]),
+    3: ("Winner Lean-In Add-ons", ["net_return_pct", "mfe_capture", "profit_factor"]),
+    4: ("Aggression Guardrails", ["calmar_r", "max_dd_pct", "net_return_pct"]),
 }
 
 _ULTIMATE_TARGETS_R1 = {
@@ -71,17 +85,29 @@ _ULTIMATE_TARGETS_R9 = {
     # Aspirational targets above Phase 0 vanilla baseline (2026-04-27):
     # Vanilla actuals: R=190.8, PF=4.47, DD=2.07%, cal_r=40.9, n=290,
     #                  MFE=0.654, WR=74.1%, TPM=5.0
-    "total_r": 250.0,
+    "total_r": 300.0,
     "profit_factor": 6.0,
     "max_dd_pct": 0.012,
     "calmar_r": 60.0,
-    "total_trades": 350,
+    "total_trades": 400,
     "mfe_capture": 0.80,
     "win_rate": 0.85,
-    "trades_per_month": 6.0,
+    "trades_per_month": 7.5,
 }
 
 ULTIMATE_TARGETS = _ULTIMATE_TARGETS_R9 if SCORING_REGIME == "r9" else _ULTIMATE_TARGETS_R1
+
+RISK_ALLOCATION_ULTIMATE_TARGETS = {
+    "total_r": 225.0,
+    "profit_factor": 5.5,
+    "max_dd_pct": 0.070,
+    "calmar_r": 70.0,
+    "total_trades": 270,
+    "mfe_capture": 0.70,
+    "win_rate": 0.82,
+    "trades_per_month": 4.7,
+    "net_return_pct": 140.0,
+}
 
 
 def _scoring_profile() -> str:

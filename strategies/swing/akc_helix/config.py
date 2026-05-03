@@ -56,7 +56,7 @@ class SymbolConfig:
     # Rescue
     teleport_offset_mult: float = 2.0
     # Risk
-    base_risk_pct: float = 0.005   # 0.50% per spec s8.1
+    base_risk_pct: float = 0.009
     # Experiment A/B tracking
     experiment_id: str = ""
     experiment_variant: str = ""
@@ -244,14 +244,14 @@ VOLFACTOR_BASE_PERIOD: int = 60
 # ---------------------------------------------------------------------------
 VOLFACTOR_MIN: float = 0.4
 VOLFACTOR_MAX: float = 1.5
-EXTREME_VOL_PCT: float = 95.0
+EXTREME_VOL_PCT: float = 999.0
 LOW_VOL_PCT: float = 20.0
 HIGH_VOL_PCT: float = 80.0
 
 # ---------------------------------------------------------------------------
 # Heat caps (spec s8.3)
 # ---------------------------------------------------------------------------
-PORTFOLIO_CAP_R: float = 1.40
+PORTFOLIO_CAP_R: float = 1.50
 INSTRUMENT_CAP_R: float = 0.85
 EXTREME_VOL_CAP_R: float = 1.25
 
@@ -266,7 +266,7 @@ CONSEC_STOPS_HALVE: int = 3
 # ADX
 # ---------------------------------------------------------------------------
 ADX_PERIOD: int = 14
-ADX_UPPER_GATE: float = 40.0          # R1: block overextended trends (ADX > 40)
+ADX_UPPER_GATE: float = 55.0
 
 # ---------------------------------------------------------------------------
 # 4H regime EMAs (kept for regime computation)
@@ -282,8 +282,8 @@ CLASS_D_MOM_LOOKBACK: int = 3
 # ---------------------------------------------------------------------------
 # Class B quality-filter parameters
 # ---------------------------------------------------------------------------
-CLASS_B_MOM_LOOKBACK: int = 5         # R1: MACD line must trend in trade direction over N bars
-CLASS_B_MIN_ADX: float = 20.0         # ADX floor (unchanged)
+CLASS_B_MOM_LOOKBACK: int = 7
+CLASS_B_MIN_ADX: float = 28.0
 CLASS_B_MIN_PIVOT_SEP_BARS: int = 8   # reject micro-divergence (pivots < 8 bars apart)
 CLASS_B_BAIL_BARS: int = 10           # R1: bail trigger: exit if R < threshold after N bars
 CLASS_B_BAIL_R_THRESH: float = -0.5   # bail trigger: minimum R to avoid early exit
@@ -343,7 +343,7 @@ RESCUE_SLIP_FRAC: float = 0.5
 # ---------------------------------------------------------------------------
 # TTL (spec s12)
 # ---------------------------------------------------------------------------
-TTL_1H_HOURS: int = 6
+TTL_1H_HOURS: int = 12
 TTL_4H_HOURS: int = 12
 TTL_ADD_HOURS: int = 6
 
@@ -351,18 +351,18 @@ TTL_ADD_HOURS: int = 6
 # R milestones (v2.0 — wider stops need more breathing room)
 # ---------------------------------------------------------------------------
 R_BE: float = 1.0               # spec s13.2: +1R transition (4H origin)
-R_BE_1H: float = 0.75           # faster BE for 1H-origin (B/D) setups
-R_PARTIAL_2P5: float = 2.5      # spec s13.3: +2.5R partial
+R_BE_1H: float = 1.05
+R_PARTIAL_2P5: float = 2.25
 R_PARTIAL_5: float = 5.0
-BE_ATR1H_OFFSET: float = 0.24
-PARTIAL_2P5_FRAC: float = 0.72  # R2: sell 72% at +2.5R
+BE_ATR1H_OFFSET: float = 0.3
+PARTIAL_2P5_FRAC: float = 0.88
 PARTIAL_5_FRAC: float = 0.25    # spec s13.4: exit 25% at +5R
 PARTIAL_5_TRAIL_BONUS: float = 0.5
 
 # ---------------------------------------------------------------------------
 # Stale exit (spec s13)
 # ---------------------------------------------------------------------------
-EARLY_STALE_BARS: int = 20        # early stale exit threshold (bars)
+EARLY_STALE_BARS: int = 24
 STALE_1H_BARS: int = 30           # reduced stale timeout for 1H-origin
 STALE_4H_BARS: int = 15           # spec s13.5: 4H-origin stale after 15 4H bars
 STALE_R_THRESH: float = 0.5       # spec s13.5: stale if R_state < +0.5
@@ -370,6 +370,17 @@ STALE_TIGHTEN_ATR_MULT: float = 0.25
 STALE_FLATTEN_R_FLOOR: float = -0.25
 STALE_PROFIT_MULT_OVERRIDE: float = 1.5
 STALE_LOSS_CAP_FRAC: float = 0.3
+
+# ---------------------------------------------------------------------------
+# Right-then-stopped leakage guard (disabled by default)
+# ---------------------------------------------------------------------------
+RTS_GUARD_MFE_R: float = 0.0             # min peak MFE before guard can arm; <=0 disables
+RTS_GUARD_MIN_GIVEBACK_R: float = 0.35   # required giveback from peak MFE
+RTS_GUARD_FLOOR_R: float = 0.0           # protective stop level in R after decay is detected
+RTS_GUARD_MIN_BARS: int = 4              # ignore first bars to avoid same-bar noise
+RTS_GUARD_FADE_BARS: int = 1             # consecutive adverse MACD histogram bars required
+RTS_GUARD_MAX_MFE_R: float = 1.75        # keep guard focused on small/mid MFE leaks
+RTS_FAIL_FLATTEN_R: float = -999.0       # optional late decay flatten; <=-900 disables
 
 # ---------------------------------------------------------------------------
 # Trailing (spec s14)
@@ -396,7 +407,7 @@ TRAIL_TIMEDECAY_ONSET: int = 20       # bars at R>=1 before time decay starts
 TRAIL_TIMEDECAY_RATE: float = 0.05    # decay rate per bar beyond onset
 TRAIL_TIMEDECAY_FLOOR: float = 2.5    # floor for time-decay trail mult
 # Stall layer
-TRAIL_STALL_ONSET: int = 6            # R1: bars since MFE peak before stall penalty
+TRAIL_STALL_ONSET: int = 4
 TRAIL_STALL_RATE: float = 0.08        # stall decay rate per bar
 TRAIL_STALL_FLOOR: float = 1.5        # floor for stall-decay trail mult
 
@@ -427,10 +438,10 @@ TRAIL_STALL_ONSET_CLASS_B: int = 0
 # ---------------------------------------------------------------------------
 # Adds (spec s15)
 # ---------------------------------------------------------------------------
-ADD_4H_R: float = 0.4             # R1: 4H-origin add after +0.4R
+ADD_4H_R: float = 0.25
 ADD_1H_R: float = 0.9             # R1: 1H-origin add after +0.9R
-ADD_RISK_FRAC: float = 1.008
-ADD_MIN_BARS: int = 4              # earliest add after 4 bars
+ADD_RISK_FRAC: float = 1.43
+ADD_MIN_BARS: int = 2
 ADD_MAX_BARS: int = 35             # extended window (avg hold ~30 bars)
 ADD_OVERNIGHT_R: float = 2.0
 ADD_PRICE_GATE_ATR_MULT: float = 0.5  # price-based add: price > BoS + 0.5×ATR

@@ -30,6 +30,7 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True):
     from backtests.shared.auto.phase_runner import PhaseRunner
     from backtests.shared.auto.round_manager import RoundManager
 
+    from .phase_candidates import sanitize_round2_seed
     from .plugin import ALCBP16Plugin
 
     experiment_names = set(args.experiments) if getattr(args, "experiments", None) else None
@@ -53,7 +54,11 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True):
             for_write=for_write,
             expected_phases=plugin.num_phases if for_write else None,
         )
-        if round_num > 1:
+        if round_num == 2:
+            plugin.initial_mutations = sanitize_round2_seed(
+                round_manager.get_previous_mutations(round_num)
+            )
+        elif round_num > 2:
             plugin.initial_mutations = round_manager.get_previous_mutations(round_num)
 
     return PhaseRunner(
@@ -161,23 +166,23 @@ def _add_common(command: argparse.ArgumentParser) -> None:
 def _build_standard_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="alcb-auto",
-        description="ALCB phased auto-optimization (5 phases, targeted entry-repair scoring)",
+        description="ALCB phased auto-optimization (6 phases, targeted alpha extraction scoring)",
     )
     sub = parser.add_subparsers(dest="command")
 
     phase_run = sub.add_parser("phase-run", help="Run a single ALCB phase")
     _add_common(phase_run)
-    phase_run.add_argument("--phase", type=int, required=True, choices=[1, 2, 3, 4, 5])
+    phase_run.add_argument("--phase", type=int, required=True, choices=list(range(1, 9)))
 
     phase_auto = sub.add_parser("phase-auto", help="Run all ALCB phases")
     _add_common(phase_auto)
 
     phase_gate = sub.add_parser("phase-gate", help="Check a completed ALCB phase gate")
     _add_common(phase_gate)
-    phase_gate.add_argument("--phase", type=int, required=True, choices=[1, 2, 3, 4, 5])
+    phase_gate.add_argument("--phase", type=int, required=True, choices=list(range(1, 9)))
 
     phase_diag = sub.add_parser("phase-diagnostics", help="Print ALCB phase diagnostics")
-    phase_diag.add_argument("--phase", type=int, required=True, choices=[1, 2, 3, 4, 5])
+    phase_diag.add_argument("--phase", type=int, required=True, choices=list(range(1, 9)))
     phase_diag.add_argument("--output-dir", default="")
     phase_diag.add_argument("--round", type=int, default=None)
 

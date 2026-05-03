@@ -32,9 +32,18 @@ class Direction(IntEnum):
 
 class EntryType(str, Enum):
     A_AVWAP_RETEST = "A"
+    A_RECLAIM_STRONG = "A_strong"
+    A_RECLAIM_STRONG_STOP = "A_strong_stop"
     B_SWEEP_RECLAIM = "B"
+    B_RESUME_MARKET = "B_resume_market"
+    B_RESUME_STOP = "B_resume_stop"
+    C_EARLY_STANDARD = "C_early_standard"
     C_STANDARD = "C_standard"
     C_CONTINUATION = "C_continuation"
+    C_FRESH_MARKET = "C_fresh_market"
+    C_FRESH_STOP = "C_fresh_stop"
+    C_MOMENTUM_MARKET = "C_momentum_market"
+    C_MOMENTUM_STOP = "C_momentum_stop"
     ADD = "ADD"
     BREAKOUT_DAY = "BREAKOUT_DAY"
 

@@ -30,9 +30,18 @@ from strategies.swing.atrss.config import (
     ADDON_A_SIZE_MULT,
     ADDON_B_SIZE_MULT,
     ARM_WINDOW_HOURS,
+    BREAKOUT_REQUIRE_DIRECTIONAL_CANDLE,
+    BREAKOUT_RETRACE_ENTRY_FRAC,
+    BREAKOUT_RETRACE_LIMIT_FRAC,
+    DYNAMIC_RISK_STRONG_TREND_MULT,
+    DYNAMIC_RISK_WEAK_TREND_MULT,
     EARLY_STALL_CHECK_HOURS,
     EARLY_STALL_MFE_THRESHOLD,
     EARLY_STALL_PARTIAL_FRAC,
+    FIXED_QTY_ADDON_B_ENABLED,
+    FIXED_QTY_REGIME_SCALING_ENABLED,
+    FIXED_QTY_STRONG_TREND_MULT,
+    FIXED_QTY_WEAK_TREND_MULT,
     MAX_ENTRY_SLIP_ATR,
     MAX_HOLD_HOURS,
     MOMENTUM_TOLERANCE_ATR,
@@ -197,6 +206,7 @@ class _AblationPatch:
     def __enter__(self):
         import strategies.swing.atrss.config as scfg
         import strategies.swing.atrss.signals as ssig
+        import strategies.swing.atrss.allocator as salloc
 
         f = self.flags
         ov = self.overrides
@@ -241,6 +251,16 @@ class _AblationPatch:
             val = int(ov["pullback_lookback"])
             self._patch(scfg, "PULLBACK_LOOKBACK", val)
             self._patch(sind, "PULLBACK_LOOKBACK", val)
+        if "pullback_touch_tolerance_atr" in ov:
+            import strategies.swing.atrss.indicators as sind
+            val = float(ov["pullback_touch_tolerance_atr"])
+            self._patch(scfg, "PULLBACK_TOUCH_TOLERANCE_ATR", val)
+            self._patch(sind, "PULLBACK_TOUCH_TOLERANCE_ATR", val)
+        if "pullback_touch_tolerance_pct" in ov:
+            import strategies.swing.atrss.indicators as sind
+            val = float(ov["pullback_touch_tolerance_pct"])
+            self._patch(scfg, "PULLBACK_TOUCH_TOLERANCE_PCT", val)
+            self._patch(sind, "PULLBACK_TOUCH_TOLERANCE_PCT", val)
 
         if "adx_slope_gate" in ov:
             import strategies.swing.atrss.indicators as sind
@@ -269,6 +289,21 @@ class _AblationPatch:
             val = int(ov["fast_confirm_adx"])
             self._patch(scfg, "FAST_CONFIRM_ADX", val)
             self._patch(sind, "FAST_CONFIRM_ADX", val)
+        if "di_min" in ov:
+            import strategies.swing.atrss.indicators as sind
+            val = int(ov["di_min"])
+            self._patch(scfg, "DI_MIN", val)
+            self._patch(sind, "DI_MIN", val)
+        if "sep_min" in ov:
+            import strategies.swing.atrss.indicators as sind
+            val = float(ov["sep_min"])
+            self._patch(scfg, "SEP_MIN", val)
+            self._patch(sind, "SEP_MIN", val)
+        if "adx_min_struct" in ov:
+            import strategies.swing.atrss.indicators as sind
+            val = int(ov["adx_min_struct"])
+            self._patch(scfg, "ADX_MIN_STRUCT", val)
+            self._patch(sind, "ADX_MIN_STRUCT", val)
 
         # --- BE / stop management ---
         if "be_trigger_r" in ov:
@@ -314,6 +349,14 @@ class _AblationPatch:
             val = float(ov["early_stall_partial_frac"])
             self._patch(scfg, "EARLY_STALL_PARTIAL_FRAC", val)
             self._patch(_self_mod, "EARLY_STALL_PARTIAL_FRAC", val)
+        if "stall_check_hours" in ov:
+            val = int(ov["stall_check_hours"])
+            self._patch(scfg, "STALL_CHECK_HOURS", val)
+            self._patch(_self_mod, "STALL_CHECK_HOURS", val)
+        if "stall_mfe_threshold" in ov:
+            val = float(ov["stall_mfe_threshold"])
+            self._patch(scfg, "STALL_MFE_THRESHOLD", val)
+            self._patch(_self_mod, "STALL_MFE_THRESHOLD", val)
         if "order_expiry_hours" in ov:
             val = int(ov["order_expiry_hours"])
             self._patch(scfg, "ORDER_EXPIRY_HOURS", val)
@@ -330,6 +373,30 @@ class _AblationPatch:
             val = float(ov["quality_gate_threshold"])
             self._patch(scfg, "QUALITY_GATE_THRESHOLD", val)
             self._patch(_self_mod, "QUALITY_GATE_THRESHOLD", val)
+        if "max_portfolio_heat" in ov:
+            val = float(ov["max_portfolio_heat"])
+            self._patch(scfg, "MAX_PORTFOLIO_HEAT", val)
+            self._patch(salloc, "MAX_PORTFOLIO_HEAT", val)
+        if "fixed_qty_regime_scaling" in ov:
+            val = bool(ov["fixed_qty_regime_scaling"])
+            self._patch(scfg, "FIXED_QTY_REGIME_SCALING_ENABLED", val)
+            self._patch(_self_mod, "FIXED_QTY_REGIME_SCALING_ENABLED", val)
+        if "fixed_qty_strong_trend_mult" in ov:
+            val = float(ov["fixed_qty_strong_trend_mult"])
+            self._patch(scfg, "FIXED_QTY_STRONG_TREND_MULT", val)
+            self._patch(_self_mod, "FIXED_QTY_STRONG_TREND_MULT", val)
+        if "fixed_qty_weak_trend_mult" in ov:
+            val = float(ov["fixed_qty_weak_trend_mult"])
+            self._patch(scfg, "FIXED_QTY_WEAK_TREND_MULT", val)
+            self._patch(_self_mod, "FIXED_QTY_WEAK_TREND_MULT", val)
+        if "dynamic_risk_strong_trend_mult" in ov:
+            val = float(ov["dynamic_risk_strong_trend_mult"])
+            self._patch(scfg, "DYNAMIC_RISK_STRONG_TREND_MULT", val)
+            self._patch(_self_mod, "DYNAMIC_RISK_STRONG_TREND_MULT", val)
+        if "dynamic_risk_weak_trend_mult" in ov:
+            val = float(ov["dynamic_risk_weak_trend_mult"])
+            self._patch(scfg, "DYNAMIC_RISK_WEAK_TREND_MULT", val)
+            self._patch(_self_mod, "DYNAMIC_RISK_WEAK_TREND_MULT", val)
 
         # --- Constants used by signals module ---
         if "momentum_tolerance_atr" in ov:
@@ -337,6 +404,10 @@ class _AblationPatch:
             self._patch(scfg, "MOMENTUM_TOLERANCE_ATR", val)
             self._patch(_self_mod, "MOMENTUM_TOLERANCE_ATR", val)
             self._patch(ssig, "MOMENTUM_TOLERANCE_ATR", val)
+        if "pullback_momentum_filter" in ov:
+            val = bool(ov["pullback_momentum_filter"])
+            self._patch(scfg, "PULLBACK_MOMENTUM_FILTER_ENABLED", val)
+            self._patch(ssig, "PULLBACK_MOMENTUM_FILTER_ENABLED", val)
         if "recovery_tolerance_atr" in ov:
             val = float(ov["recovery_tolerance_atr"])
             self._patch(scfg, "RECOVERY_TOLERANCE_ATR", val)
@@ -368,6 +439,37 @@ class _AblationPatch:
             val = float(ov["addon_b_size_mult"])
             self._patch(scfg, "ADDON_B_SIZE_MULT", val)
             self._patch(_self_mod, "ADDON_B_SIZE_MULT", val)
+        if "fixed_qty_addon_b" in ov:
+            val = bool(ov["fixed_qty_addon_b"])
+            self._patch(scfg, "FIXED_QTY_ADDON_B_ENABLED", val)
+            self._patch(_self_mod, "FIXED_QTY_ADDON_B_ENABLED", val)
+
+        # --- Breakout trigger variants ---
+        if "breakout_retrace_entry_frac" in ov:
+            val = float(ov["breakout_retrace_entry_frac"])
+            self._patch(scfg, "BREAKOUT_RETRACE_ENTRY_FRAC", val)
+            self._patch(ssig, "BREAKOUT_RETRACE_ENTRY_FRAC", val)
+            self._patch(_self_mod, "BREAKOUT_RETRACE_ENTRY_FRAC", val)
+        if "breakout_retrace_limit_frac" in ov:
+            val = float(ov["breakout_retrace_limit_frac"])
+            self._patch(scfg, "BREAKOUT_RETRACE_LIMIT_FRAC", val)
+            self._patch(ssig, "BREAKOUT_RETRACE_LIMIT_FRAC", val)
+            self._patch(_self_mod, "BREAKOUT_RETRACE_LIMIT_FRAC", val)
+        if "breakout_require_directional_candle" in ov:
+            val = bool(ov["breakout_require_directional_candle"])
+            self._patch(scfg, "BREAKOUT_REQUIRE_DIRECTIONAL_CANDLE", val)
+            self._patch(ssig, "BREAKOUT_REQUIRE_DIRECTIONAL_CANDLE", val)
+            self._patch(_self_mod, "BREAKOUT_REQUIRE_DIRECTIONAL_CANDLE", val)
+        if "breakout_direct_entry" in ov:
+            val = bool(ov["breakout_direct_entry"])
+            self._patch(scfg, "BREAKOUT_DIRECT_ENTRY", val)
+            self._patch(ssig, "BREAKOUT_DIRECT_ENTRY", val)
+
+        if "rank_mode" in ov:
+            import strategies.swing.atrss.allocator as salloc
+            val = str(ov["rank_mode"])
+            self._patch(scfg, "CANDIDATE_RANK_MODE", val)
+            self._patch(salloc, "CANDIDATE_RANK_MODE", val)
 
         # --- Dict-type constants used by stops module ---
         import strategies.swing.atrss.stops as ssto
@@ -1794,22 +1896,22 @@ class BacktestEngine:
         if breakout_range <= 0:
             reasons.append("zero_arm_range")
         elif arm.breakout_armed_dir == Direction.LONG:
-            retrace_entry = arm.breakout_arm_high - 0.30 * breakout_range
-            retrace_limit = arm.breakout_arm_high - 0.50 * breakout_range
+            retrace_entry = arm.breakout_arm_high - BREAKOUT_RETRACE_ENTRY_FRAC * breakout_range
+            retrace_limit = arm.breakout_arm_high - BREAKOUT_RETRACE_LIMIT_FRAC * breakout_range
             if not (h.low <= retrace_entry):
                 reasons.append("no_retrace_touch")
             if not (h.close > retrace_limit):
                 reasons.append("no_retrace_recovery")
-            if not (h.close > h.open):
+            if BREAKOUT_REQUIRE_DIRECTIONAL_CANDLE and not (h.close > h.open):
                 reasons.append("not_bullish_bar")
         elif arm.breakout_armed_dir == Direction.SHORT:
-            retrace_entry = arm.breakout_arm_low + 0.30 * breakout_range
-            retrace_limit = arm.breakout_arm_low + 0.50 * breakout_range
+            retrace_entry = arm.breakout_arm_low + BREAKOUT_RETRACE_ENTRY_FRAC * breakout_range
+            retrace_limit = arm.breakout_arm_low + BREAKOUT_RETRACE_LIMIT_FRAC * breakout_range
             if not (h.high >= retrace_entry):
                 reasons.append("no_retrace_touch")
             if not (h.close < retrace_limit):
                 reasons.append("no_retrace_recovery")
-            if not (h.close < h.open):
+            if BREAKOUT_REQUIRE_DIRECTIONAL_CANDLE and not (h.close < h.open):
                 reasons.append("not_bearish_bar")
             if not signals.short_safety_ok(d):
                 reasons.append("short_safety")
@@ -1902,13 +2004,18 @@ class BacktestEngine:
         )
         if self.bt_config.fixed_qty is not None:
             qty = self.bt_config.fixed_qty
+            if FIXED_QTY_REGIME_SCALING_ENABLED:
+                if d.regime == Regime.STRONG_TREND and d.score >= 60:
+                    qty = max(1, int(round(qty * FIXED_QTY_STRONG_TREND_MULT)))
+                elif d.regime == Regime.TREND and d.score < 45:
+                    qty = max(1, int(round(qty * FIXED_QTY_WEAK_TREND_MULT)))
         else:
             # Regime-adaptive risk sizing
             risk_pct = self.cfg.base_risk_pct
             if d.regime == Regime.STRONG_TREND and d.score >= 60:
-                risk_pct *= 1.25
+                risk_pct *= DYNAMIC_RISK_STRONG_TREND_MULT
             elif d.regime == Regime.TREND and d.score < 45:
-                risk_pct *= 0.75
+                risk_pct *= DYNAMIC_RISK_WEAK_TREND_MULT
             qty = allocator.compute_position_size(
                 trigger, initial_stop, self.sizing_equity, risk_pct, self.point_value,
             )
@@ -2053,7 +2160,7 @@ class BacktestEngine:
         bar_time: datetime,
     ) -> None:
         """Submit Add-on B as a stop-limit order (or defer in sync mode)."""
-        if self.bt_config.fixed_qty is not None:
+        if self.bt_config.fixed_qty is not None and not FIXED_QTY_ADDON_B_ENABLED:
             return
         pos = self.position
         direction = pos.direction
@@ -2074,10 +2181,15 @@ class BacktestEngine:
             direction, trigger, h, d.atr20, h.atrh,
             d_mult, h_mult, self.cfg.tick_size,
         )
-        qty = allocator.compute_position_size(
-            trigger, initial_stop, self.sizing_equity, self.cfg.base_risk_pct, self.point_value,
-        )
         base = pos.base_leg
+        if self.bt_config.fixed_qty is not None:
+            if not base:
+                return
+            qty = max(1, int(base.qty * ADDON_B_SIZE_MULT))
+        else:
+            qty = allocator.compute_position_size(
+                trigger, initial_stop, self.sizing_equity, self.cfg.base_risk_pct, self.point_value,
+            )
         if base:
             qty = min(qty, max(1, int(base.qty * ADDON_B_SIZE_MULT)))
         if qty <= 0:

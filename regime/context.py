@@ -32,7 +32,9 @@ _APPLIED_CONFIG_SNAPSHOT_KEYS = frozenset({
     "directional_cap_R", "regime_unit_risk_mult",
     "disabled_strategies", "directional_cap_long_R",
     "directional_cap_short_R", "nqdtc_oppose_size_mult",
-    "max_family_contracts_mnq_eq", "dd_tiers",
+    "nqdtc_agree_size_mult", "max_family_contracts_mnq_eq",
+    "priority_headroom_R", "reference_unit_risk_dollars",
+    "symbol_collision_action", "dd_tiers",
 })
 
 

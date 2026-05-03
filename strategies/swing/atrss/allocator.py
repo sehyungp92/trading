@@ -7,6 +7,7 @@ from typing import Sequence
 from libs.oms.models.instrument import Instrument
 
 from .config import (
+    CANDIDATE_RANK_MODE,
     MAX_PORTFOLIO_HEAT,
 )
 from .models import (
@@ -28,10 +29,22 @@ def rank_candidates(candidates: list[Candidate]) -> list[Candidate]:
     Tie-break 1: stop distance asc (tighter stop = higher priority)
     Tie-break 2: symbol asc (stable ordering)
     """
-    return sorted(
-        candidates,
-        key=lambda c: (-c.rank_score, abs(c.trigger_price - c.initial_stop), c.symbol),
-    )
+    def stop_dist(c: Candidate) -> float:
+        return abs(c.trigger_price - c.initial_stop)
+
+    mode = CANDIDATE_RANK_MODE
+    if mode == "stop_first":
+        key_fn = lambda c: (stop_dist(c), -c.rank_score, c.symbol)
+    elif mode == "score_per_risk":
+        key_fn = lambda c: (-(c.rank_score / max(stop_dist(c), 1e-9)), stop_dist(c), c.symbol)
+    elif mode == "gld_first":
+        key_fn = lambda c: (0 if c.symbol == "GLD" else 1, -c.rank_score, stop_dist(c), c.symbol)
+    elif mode == "qqq_first":
+        key_fn = lambda c: (0 if c.symbol == "QQQ" else 1, -c.rank_score, stop_dist(c), c.symbol)
+    else:
+        key_fn = lambda c: (-c.rank_score, stop_dist(c), c.symbol)
+
+    return sorted(candidates, key=key_fn)
 
 
 def _heat_of_candidate(c: Candidate, instrument: Instrument) -> float:

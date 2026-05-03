@@ -1,11 +1,9 @@
 """Unified swing portfolio backtesting engine.
 
-Runs ATRSS, Swing Breakout v3.3, and AKC-Helix under a single shared OMS
-simulation with portfolio-level heat caps, priority-aware reservation,
-per-strategy ceilings, and cross-strategy coordination.
-
-BRS has its own backtest path; this engine mirrors the production priority
-order for the three shared-portfolio engines it simulates.
+Runs ATRSS, AKC-Helix, BRS R9, Swing Breakout v3.3, and the idle-capital
+overlay under one shared replay with portfolio-level heat caps,
+priority-aware reservation, per-strategy ceilings, and cross-strategy
+coordination.
 """
 from __future__ import annotations
 
@@ -29,9 +27,12 @@ from strategies.swing.breakout.models import (
     Direction as BreakoutDirection,
     PositionState as BreakoutPositionState,
 )
+from strategies.swing.brs.models import BRSRegime
 from strategies.swing.overlay.shared import allocate_weighted_targets, compute_ema
 
-from backtests.swing.config_unified import UnifiedBacktestConfig, StrategySlot
+from libs.oms.risk.swing_portfolio_adapter import SwingPortfolioHeatAdapter as PortfolioHeatTracker
+
+from backtests.swing.config_unified import UnifiedBacktestConfig
 from backtests.swing.data.preprocessing import (
     NumpyBars,
     align_4h_to_hourly,
@@ -42,6 +43,7 @@ from backtests.swing.data.preprocessing import (
     resample_1h_to_4h,
 )
 from backtests.swing.engine.backtest_engine import BacktestEngine, _AblationPatch
+from backtests.swing.engine.brs_engine import BRSEngine
 from backtests.swing.engine.helix_engine import HelixEngine
 from backtests.swing.engine.breakout_engine import BreakoutEngine
 
@@ -70,6 +72,12 @@ class UnifiedPortfolioData:
     breakout_four_hour: dict[str, NumpyBars] = field(default_factory=dict)
     breakout_daily_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
     breakout_four_hour_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
+    # RTH-filtered hourly data for BRS (UTC, RTH only)
+    brs_daily: dict[str, NumpyBars] = field(default_factory=dict)
+    brs_hourly: dict[str, NumpyBars] = field(default_factory=dict)
+    brs_four_hour: dict[str, NumpyBars] = field(default_factory=dict)
+    brs_daily_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
+    brs_four_hour_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
     # Full hourly data for Helix (no RTH filter)
     hourly: dict[str, NumpyBars] = field(default_factory=dict)
     four_hour: dict[str, NumpyBars] = field(default_factory=dict)
@@ -93,10 +101,11 @@ def load_unified_data(config: UnifiedBacktestConfig) -> UnifiedPortfolioData:
     portfolio = UnifiedPortfolioData()
 
     atrss_set = set(config.atrss_symbols)
+    brs_set = set(config.brs_symbols)
     breakout_set = set(config.breakout_symbols)
     overlay_syms = config.overlay_symbols if config.overlay_enabled else []
     all_symbols = sorted(set(
-        config.atrss_symbols + config.helix_symbols + config.breakout_symbols
+        config.atrss_symbols + config.helix_symbols + config.brs_symbols + config.breakout_symbols
         + overlay_syms
     ))
 
@@ -144,6 +153,18 @@ def load_unified_data(config: UnifiedBacktestConfig) -> UnifiedPortfolioData:
             portfolio.atrss_hourly[sym] = build_numpy_arrays(atrss_h)
             portfolio.atrss_daily_idx_maps[sym] = align_daily_to_hourly(atrss_h, atrss_d)
 
+        # --- BRS: normalize_timezone(UTC) + filter_rth + 4H from RTH-filtered ---
+        if sym in brs_set:
+            brs_h = normalize_timezone(hourly_df.copy())
+            brs_d = normalize_timezone(daily_df.copy())
+            brs_h = filter_rth(brs_h)
+            brs_4h = resample_1h_to_4h(brs_h)
+            portfolio.brs_daily[sym] = build_numpy_arrays(brs_d)
+            portfolio.brs_hourly[sym] = build_numpy_arrays(brs_h)
+            portfolio.brs_four_hour[sym] = build_numpy_arrays(brs_4h)
+            portfolio.brs_daily_idx_maps[sym] = align_daily_to_hourly(brs_h, brs_d)
+            portfolio.brs_four_hour_idx_maps[sym] = align_4h_to_hourly(brs_h, brs_4h)
+
         # --- Breakout: tz_convert(ET) + filter_rth, 4H from RTH-filtered ---
         if sym in breakout_set:
             et = ZoneInfo("America/New_York")
@@ -161,163 +182,6 @@ def load_unified_data(config: UnifiedBacktestConfig) -> UnifiedPortfolioData:
 
     logger.info("Loaded data for %d symbols: %s", len(portfolio.hourly), list(portfolio.hourly))
     return portfolio
-
-
-# ---------------------------------------------------------------------------
-# Heat tracking
-# ---------------------------------------------------------------------------
-
-@dataclass
-class StrategyHeatState:
-    """Per-strategy heat tracking."""
-
-    strategy_id: str = ""
-    priority: int = 0
-    unit_risk_dollars: float = 0.0
-    max_heat_R: float = 1.0
-    daily_stop_R: float = 2.0
-    open_risk_dollars: float = 0.0
-    daily_realized_dollars: float = 0.0
-
-    @property
-    def daily_realized_R(self) -> float:
-        if self.unit_risk_dollars <= 0:
-            return 0.0
-        return self.daily_realized_dollars / self.unit_risk_dollars
-
-    @property
-    def open_risk_R(self) -> float:
-        if self.unit_risk_dollars <= 0:
-            return 0.0
-        return self.open_risk_dollars / self.unit_risk_dollars
-
-
-class PortfolioHeatTracker:
-    """Portfolio-level heat cap enforcement.
-
-    Mirrors the risk gateway logic in shared/oms/risk/gateway.py.
-    """
-
-    def __init__(
-        self,
-        heat_cap_R: float,
-        portfolio_daily_stop_R: float,
-        strategy_slots: list[StrategySlot],
-        equity: float,
-        simulate_live_r_normalization: bool = False,
-    ):
-        self._heat_cap_R = heat_cap_R
-        self._portfolio_daily_stop_R = portfolio_daily_stop_R
-        self._strats: dict[str, StrategyHeatState] = {}
-        self._portfolio_halted = False
-        self._simulate_live_r = simulate_live_r_normalization
-
-        # Use highest-priority strategy's unit_risk_pct as the portfolio
-        # normalization base so that portfolio-level R comparisons are
-        # consistent regardless of which strategy requests entry.
-        sorted_slots = sorted(strategy_slots, key=lambda s: s.priority)
-        self._portfolio_unit_risk_pct = sorted_slots[0].unit_risk_pct if sorted_slots else 0.01
-        self._portfolio_unit_risk = equity * self._portfolio_unit_risk_pct
-
-        for slot in strategy_slots:
-            urd = equity * slot.unit_risk_pct
-            self._strats[slot.strategy_id] = StrategyHeatState(
-                strategy_id=slot.strategy_id,
-                priority=slot.priority,
-                unit_risk_dollars=urd,
-                max_heat_R=slot.max_heat_R,
-                daily_stop_R=slot.daily_stop_R,
-            )
-
-    def update_unit_risk(self, equity: float, slots: list[StrategySlot]) -> None:
-        """Recalibrate unit risk dollars from current equity."""
-        self._portfolio_unit_risk = equity * self._portfolio_unit_risk_pct
-        for slot in slots:
-            if slot.strategy_id in self._strats:
-                self._strats[slot.strategy_id].unit_risk_dollars = equity * slot.unit_risk_pct
-
-    def can_enter(self, strategy_id: str, risk_dollars: float) -> tuple[bool, str]:
-        """Check whether a new entry is allowed."""
-        strat = self._strats.get(strategy_id)
-        if strat is None:
-            return False, f"Unknown strategy {strategy_id}"
-
-        # Portfolio daily halt
-        if self._portfolio_halted:
-            return False, "Portfolio daily stop hit"
-
-        # Use consistent portfolio-level normalization base so that the same
-        # dollar amount of risk maps to the same R regardless of which
-        # strategy is requesting entry.
-        pu = self._portfolio_unit_risk
-
-        total_daily_dollars = sum(s.daily_realized_dollars for s in self._strats.values())
-        if pu > 0:
-            portfolio_daily_R = total_daily_dollars / pu
-            if portfolio_daily_R <= -self._portfolio_daily_stop_R:
-                self._portfolio_halted = True
-                return False, "Portfolio daily stop hit"
-
-        # Strategy daily halt (uses strategy's own unit risk — correct)
-        if strat.daily_realized_R <= -strat.daily_stop_R:
-            return False, f"{strategy_id} daily stop hit"
-
-        # Per-strategy heat ceiling (uses strategy's own unit risk — correct)
-        if strat.unit_risk_dollars > 0:
-            new_risk_R = risk_dollars / strat.unit_risk_dollars
-            if strat.open_risk_R + new_risk_R > strat.max_heat_R:
-                return False, f"{strategy_id} heat ceiling ({strat.open_risk_R:.2f}R + {new_risk_R:.2f}R > {strat.max_heat_R}R)"
-
-        # Portfolio heat cap
-        total_open_dollars = sum(s.open_risk_dollars for s in self._strats.values())
-        if self._simulate_live_r:
-            # Live OMS bug simulation: each strategy's open risk is converted
-            # to R using its own URD, so 1R_atrss != 1R_helix in the sum.
-            total_open_R = sum(s.open_risk_R for s in self._strats.values())
-            new_risk_R = risk_dollars / strat.unit_risk_dollars if strat.unit_risk_dollars > 0 else float("inf")
-        elif pu > 0:
-            # Correct: use consistent portfolio-level unit risk
-            total_open_R = total_open_dollars / pu
-            new_risk_R = risk_dollars / pu
-        else:
-            total_open_R = 0.0
-            new_risk_R = 0.0
-        if total_open_R + new_risk_R > self._heat_cap_R:
-            return False, f"Portfolio heat cap ({total_open_R:.2f}R + {new_risk_R:.2f}R > {self._heat_cap_R}R)"
-
-        # Priority reservation: if remaining capacity is tight, reserve for higher priority
-        if self._simulate_live_r:
-            remaining_R = self._heat_cap_R - total_open_R
-            remaining_dollars = remaining_R * strat.unit_risk_dollars if strat.unit_risk_dollars > 0 else 0
-        else:
-            remaining_dollars = (self._heat_cap_R * pu) - total_open_dollars if pu > 0 else 0
-        if remaining_dollars < 2 * risk_dollars:
-            for other in self._strats.values():
-                if other.priority < strat.priority and other.open_risk_dollars == 0:
-                    return False, f"Heat reserved for {other.strategy_id}"
-
-        return True, ""
-
-    def update_open_risk(self, risk_by_strategy: dict[str, float]) -> None:
-        """Refresh open risk from current positions."""
-        for sid, dollars in risk_by_strategy.items():
-            if sid in self._strats:
-                self._strats[sid].open_risk_dollars = dollars
-
-    def record_trade_close(self, strategy_id: str, pnl_dollars: float) -> None:
-        """Update daily realized PnL after a trade close."""
-        if strategy_id in self._strats:
-            self._strats[strategy_id].daily_realized_dollars += pnl_dollars
-
-    def on_new_day(self) -> None:
-        """Reset daily counters."""
-        for s in self._strats.values():
-            s.daily_realized_dollars = 0.0
-        self._portfolio_halted = False
-
-    @property
-    def total_open_risk_dollars(self) -> float:
-        return sum(s.open_risk_dollars for s in self._strats.values())
 
 
 # ---------------------------------------------------------------------------
@@ -386,6 +250,8 @@ class StrategyResult:
     """Aggregated results for one strategy."""
 
     strategy_id: str = ""
+    entry_signals_fired: int = 0
+    entries_accepted_by_portfolio: int = 0
     total_trades: int = 0
     total_pnl: float = 0.0
     winning_trades: int = 0
@@ -400,6 +266,8 @@ class UnifiedPortfolioResult:
     """Combined results from the unified backtest."""
 
     combined_equity: np.ndarray = field(default_factory=lambda: np.array([]))
+    combined_equity_mtm: np.ndarray = field(default_factory=lambda: np.array([]))
+    combined_equity_realized: np.ndarray = field(default_factory=lambda: np.array([]))
     combined_timestamps: np.ndarray = field(default_factory=lambda: np.array([]))
     heat_stats: UnifiedHeatStats = field(default_factory=UnifiedHeatStats)
     strategy_results: dict[str, StrategyResult] = field(default_factory=dict)
@@ -407,12 +275,15 @@ class UnifiedPortfolioResult:
     coordination_boost_count: int = 0
     portfolio_daily_stop_activations: int = 0
     overlay_pnl: float = 0.0
+    overlay_commission: float = 0.0
     overlay_per_symbol_pnl: dict[str, float] = field(default_factory=dict)
     # Raw per-engine results for detailed analysis
     atrss_trades: list = field(default_factory=list)
     helix_trades: list = field(default_factory=list)
+    brs_trades: list = field(default_factory=list)
     breakout_trades: list = field(default_factory=list)
     # Diagnostic event logs for portfolio diagnostics
+    entry_events: list = field(default_factory=list)
     heat_rejections: list = field(default_factory=list)
     coordination_events: list = field(default_factory=list)
 
@@ -437,11 +308,12 @@ def _get_point_value(symbol: str) -> float:
 def _compute_open_risk(
     atrss_engines: dict[str, BacktestEngine],
     helix_engines: dict[str, HelixEngine],
+    brs_engines: dict[str, BRSEngine],
     breakout_engines: dict[str, BreakoutEngine],
 ) -> dict[str, float]:
     """Returns {strategy_id: total_risk_dollars}."""
     risk: dict[str, float] = {
-        "ATRSS": 0.0, "AKC_HELIX": 0.0, "SWING_BREAKOUT_V3": 0.0,
+        "ATRSS": 0.0, "AKC_HELIX": 0.0, "BRS_R9": 0.0, "SWING_BREAKOUT_V3": 0.0,
     }
 
     for sym, eng in atrss_engines.items():
@@ -456,6 +328,9 @@ def _compute_open_risk(
             r = abs(pos.fill_price - pos.current_stop) * eng.point_value * pos.qty_open
             risk["AKC_HELIX"] += r
 
+    for eng in brs_engines.values():
+        risk["BRS_R9"] += eng.reserved_risk_dollars()
+
     for sym, eng in breakout_engines.items():
         pos = eng.active_position
         if pos is not None and pos.qty_open > 0:
@@ -463,6 +338,56 @@ def _compute_open_risk(
             risk["SWING_BREAKOUT_V3"] += r
 
     return risk
+
+
+def _latest_engine_mark(engine, default_equity: float) -> float:
+    """Return the latest per-engine MTM equity mark when available."""
+    eq_arr = getattr(engine, "_eq_arr", None)
+    bar_idx = int(getattr(engine, "_bar_idx", 0) or 0)
+    if eq_arr is not None and bar_idx > 0:
+        try:
+            value = float(eq_arr[bar_idx - 1])
+            if np.isfinite(value):
+                return value
+        except (IndexError, TypeError, ValueError):
+            pass
+
+    curve = getattr(engine, "equity_curve", None)
+    if curve is not None and len(curve) > 0:
+        try:
+            value = float(curve[-1])
+            if np.isfinite(value):
+                return value
+        except (TypeError, ValueError):
+            pass
+
+    value = float(getattr(engine, "equity", default_equity) or default_equity)
+    return value if np.isfinite(value) else float(default_equity)
+
+
+def _combined_child_mtm_equity(
+    initial_equity: float,
+    engine_groups: list[tuple[str, dict[str, object]]],
+    overlay_pnl: float,
+) -> float:
+    combined = float(initial_equity) + float(overlay_pnl)
+    for label, engines in engine_groups:
+        basis = 0.0 if label == "brs" else float(initial_equity)
+        for engine in engines.values():
+            combined += _latest_engine_mark(engine, basis) - basis
+    return combined
+
+
+def _overlay_transaction_cost(shares_delta: float, raw_price: float, slippage) -> float:
+    shares = abs(float(shares_delta))
+    price = float(raw_price)
+    if shares <= 0 or price <= 0:
+        return 0.0
+    per_share_commission = shares * float(getattr(slippage, "commission_per_share_etf", 0.0) or 0.0)
+    min_commission = float(getattr(slippage, "commission_min_etf_order", 0.0) or 0.0)
+    commission = max(per_share_commission, min_commission) if min_commission > 0 else per_share_commission
+    slip = price * float(getattr(slippage, "overlay_slip_bps", 0.0) or 0.0) / 10_000
+    return commission + slip * shares
 
 
 # ---------------------------------------------------------------------------
@@ -695,6 +620,7 @@ def _rebalance_overlay(
     overlay_rsi: dict[str, np.ndarray] | None = None,
     overlay_macd: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]] | None = None,
     overlay_in_position: dict[str, bool] | None = None,
+    bear_regime_active: bool = False,
 ) -> None:
     """Rebalance overlay positions at day boundary.
 
@@ -705,7 +631,7 @@ def _rebalance_overlay(
         _rebalance_overlay_multi(
             config, daily, overlay_emas, daily_date_idx, current_date,
             portfolio_equity, overlay_shares, overlay_rsi, overlay_macd,
-            overlay_in_position or {},
+            overlay_in_position or {}, bear_regime_active=bear_regime_active,
         )
         return
 
@@ -748,6 +674,10 @@ def _rebalance_overlay(
         max_equity_pct=config.overlay_max_pct,
         weights=config.overlay_weights,
     )
+    if bear_regime_active:
+        for sym in config.overlay_symbols:
+            if overlay_shares.get(sym, 0.0) == 0.0 and target_shares.get(sym, 0) > 0:
+                target_shares[sym] = 0
     for sym in config.overlay_symbols:
         overlay_shares[sym] = float(target_shares.get(sym, 0))
 
@@ -763,6 +693,7 @@ def _rebalance_overlay_multi(
     overlay_rsi: dict[str, np.ndarray],
     overlay_macd: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]],
     overlay_in_position: dict[str, bool],
+    bear_regime_active: bool = False,
 ) -> None:
     """Multi-indicator overlay rebalance with scoring, hysteresis, and adaptive sizing."""
     available = max(portfolio_equity * config.overlay_max_pct, 0.0)
@@ -798,6 +729,9 @@ def _rebalance_overlay_multi(
         else:
             # Entry: require score >= entry threshold
             if score >= config.overlay_entry_score_min:
+                if bear_regime_active and overlay_shares.get(sym, 0.0) == 0.0:
+                    overlay_in_position[sym] = False
+                    continue
                 overlay_in_position[sym] = True
                 active_syms[sym] = score
 
@@ -886,6 +820,7 @@ def run_unified(
 
     atrss_bt = config.build_atrss_config()
     helix_bt = config.build_helix_config()
+    brs_bt = config.build_brs_config()
     breakout_bt = config.build_breakout_config()
 
     # --- Instantiate engines ---
@@ -918,6 +853,31 @@ def run_unified(
         eng._precompute_indicators(data.hourly[sym], data.four_hour[sym])
         helix_engines[sym] = eng
 
+    brs_engines: dict[str, BRSEngine] = {}
+    for sym in _brs_run_order(config.brs_symbols):
+        if sym not in data.brs_hourly:
+            continue
+        sym_cfg = brs_bt.get_symbol_config(sym)
+        mult = config.symbol_risk_multipliers.get(f"BRS_R9:{sym}", 1.0)
+        if mult != 1.0:
+            sym_cfg = _dc_replace(sym_cfg, base_risk_pct=sym_cfg.base_risk_pct * mult)
+        eng = BRSEngine(
+            symbol=sym,
+            sym_cfg=sym_cfg,
+            cfg=brs_bt,
+            starting_equity=0.0,
+        )
+        if sym == "GLD" and "QQQ" in brs_engines:
+            eng._qqq_regimes = brs_engines["QQQ"]._regime_history
+        eng._prepare_run_context(
+            daily=data.brs_daily[sym],
+            hourly=data.brs_hourly[sym],
+            four_hour=data.brs_four_hour[sym],
+            daily_idx_map=data.brs_daily_idx_maps[sym],
+            four_hour_idx_map=data.brs_four_hour_idx_maps[sym],
+        )
+        brs_engines[sym] = eng
+
     # Breakout engines: run isolated in fixed_qty mode (matches run_breakout_independent),
     # share state in risk-based mode (matches run_breakout_synchronized / production).
     shared_breakout_positions: dict[str, BreakoutPositionState] | None = None if skip_heat else {}
@@ -936,6 +896,7 @@ def run_unified(
             kw["external_positions"] = shared_breakout_positions
             kw["external_circuit_breaker"] = shared_breakout_cb
         eng = BreakoutEngine(**kw)
+        eng._init_equity_arrays(len(data.breakout_hourly[sym]), data.breakout_hourly[sym].times.dtype)
         # Precompute indicator arrays once (avoids per-bar recomputation)
         eng._precompute_indicators(data.daily[sym], data.breakout_hourly[sym], data.breakout_four_hour[sym])
         # Initialize rolling histories and slot medians (matching BreakoutEngine.run())
@@ -943,7 +904,7 @@ def run_unified(
         eng._init_slot_medians(data.breakout_hourly[sym], config.warmup_hourly)
         breakout_engines[sym] = eng
 
-    if not atrss_engines and not helix_engines and not breakout_engines:
+    if not atrss_engines and not helix_engines and not brs_engines and not breakout_engines:
         logger.warning("No engines created — check symbols and data")
         return UnifiedPortfolioResult()
 
@@ -968,6 +929,17 @@ def run_unified(
         key = f"helix_{sym}"
         all_engines_flat[key] = eng
         times = data.hourly[sym].times
+        mapping = {}
+        for i in range(len(times)):
+            t = times[i].item() if hasattr(times[i], 'item') else times[i]
+            mapping[t] = i
+        time_sets[key] = mapping
+        all_times_set.update(mapping.keys())
+
+    for sym, eng in brs_engines.items():
+        key = f"brs_{sym}"
+        all_engines_flat[key] = eng
+        times = data.brs_hourly[sym].times
         mapping = {}
         for i in range(len(times)):
             t = times[i].item() if hasattr(times[i], 'item') else times[i]
@@ -1008,8 +980,10 @@ def run_unified(
         return r
     # Pre-populate from all timestamp arrays
     for _bars in (*data.hourly.values(), *data.atrss_hourly.values(),
+                  *data.brs_hourly.values(), *data.brs_four_hour.values(),
                   *data.breakout_hourly.values(), *data.four_hour.values(),
-                  *data.breakout_four_hour.values(), *data.daily.values()):
+                  *data.breakout_four_hour.values(), *data.brs_daily.values(),
+                  *data.daily.values()):
         for _t in _bars.times:
             _fast_to_datetime(_t)
     # Patch engine static methods to use the cache
@@ -1019,11 +993,14 @@ def run_unified(
     # --- Initialize trackers ---
     init_eq = config.initial_equity
     portfolio_equity = init_eq
+    peak_risk_equity = init_eq
+    risk_sizing_equity = init_eq
+    risk_scale = 1.0
 
     heat_tracker = PortfolioHeatTracker(
         heat_cap_R=config.heat_cap_R,
         portfolio_daily_stop_R=config.portfolio_daily_stop_R,
-        strategy_slots=[config.atrss, config.breakout, config.helix],
+        strategy_slots=[config.atrss, config.helix, config.brs, config.breakout],
         equity=init_eq,
         simulate_live_r_normalization=config.simulate_live_r_normalization,
     )
@@ -1036,6 +1013,7 @@ def run_unified(
     overlay_shares: dict[str, float] = {}
     overlay_prev_value: float = 0.0
     overlay_cumulative_pnl: float = 0.0
+    overlay_total_commission: float = 0.0
     overlay_per_sym_pnl: dict[str, float] = {}
     overlay_prev_sym_value: dict[str, float] = {}
     overlay_emas: dict[str, tuple[np.ndarray, np.ndarray]] = {}
@@ -1062,18 +1040,24 @@ def run_unified(
     for label, engines in [("atrss", atrss_engines), ("helix", helix_engines), ("breakout", breakout_engines)]:
         for sym in engines:
             prev_equity[f"{label}_{sym}"] = init_eq
+    for sym in brs_engines:
+        prev_equity[f"brs_{sym}"] = 0.0
 
     # Track previous trade counts to detect actual trade closes
     prev_trade_counts: dict[str, int] = {}
-    for label, engines in [("atrss", atrss_engines), ("helix", helix_engines), ("breakout", breakout_engines)]:
+    for label, engines in [("atrss", atrss_engines), ("helix", helix_engines), ("brs", brs_engines), ("breakout", breakout_engines)]:
         for sym in engines:
             prev_trade_counts[f"{label}_{sym}"] = 0
 
-    equity_curve: list[float] = []
+    equity_curve_mtm: list[float] = []
+    equity_curve_realized: list[float] = []
     timestamps: list = []
     heat_samples: list[float] = []
     prev_date: date | None = None
-    blocked_entries: dict[str, int] = {"ATRSS": 0, "AKC_HELIX": 0, "SWING_BREAKOUT_V3": 0}
+    entry_attempts: dict[str, int] = {"ATRSS": 0, "AKC_HELIX": 0, "BRS_R9": 0, "SWING_BREAKOUT_V3": 0}
+    accepted_entries: dict[str, int] = {"ATRSS": 0, "AKC_HELIX": 0, "BRS_R9": 0, "SWING_BREAKOUT_V3": 0}
+    blocked_entries: dict[str, int] = {"ATRSS": 0, "AKC_HELIX": 0, "BRS_R9": 0, "SWING_BREAKOUT_V3": 0}
+    entry_event_log: list[dict] = []
     heat_rejection_log: list[dict] = []
     coordination_event_log: list[dict] = []
     daily_stop_activations = 0
@@ -1130,7 +1114,23 @@ def run_unified(
                     overlay_rsi=overlay_rsi or None,
                     overlay_macd=overlay_macd or None,
                     overlay_in_position=overlay_in_position,
+                    bear_regime_active=_brs_bear_strong_active(brs_engines),
                 )
+                # Overlay transaction costs: commission + slippage on share deltas
+                for _osym in config.overlay_symbols:
+                    old_sh = old_overlay_shares.get(_osym, 0.0)
+                    new_sh = overlay_shares.get(_osym, 0.0)
+                    delta_sh = abs(new_sh - old_sh)
+                    _sidx = daily_date_idx.get(_osym, {}).get(prev_date)
+                    if delta_sh > 0 and _sidx is not None and _sidx + 1 < len(data.daily[_osym].opens):
+                        cost = _overlay_transaction_cost(
+                            delta_sh,
+                            data.daily[_osym].opens[_sidx + 1],
+                            config.slippage,
+                        )
+                        overlay_total_commission += cost
+                        overlay_cumulative_pnl -= cost
+
                 # Baseline for next MTM: next-open for changed positions
                 # (execution price), close for held (preserves overnight gap).
                 overlay_prev_value = 0.0
@@ -1148,6 +1148,19 @@ def run_unified(
                     overlay_prev_sym_value[_osym] = _sv
                     overlay_prev_value += _sv
 
+        if config.dynamic_risk_enabled:
+            peak_risk_equity = max(peak_risk_equity, portfolio_equity)
+            drawdown_pct = (peak_risk_equity - portfolio_equity) / peak_risk_equity if peak_risk_equity > 0 else 0.0
+            risk_scale = _drawdown_risk_multiplier(drawdown_pct, config.drawdown_risk_tiers)
+            risk_sizing_equity = max(portfolio_equity * risk_scale, 0.0)
+            heat_tracker.update_unit_risk(
+                risk_sizing_equity,
+                [config.atrss, config.helix, config.brs, config.breakout],
+            )
+        else:
+            risk_sizing_equity = portfolio_equity
+            risk_scale = 1.0
+
         prev_date = current_date
 
         # === Step 1: ATRSS engines (priority 0) ===
@@ -1157,7 +1170,7 @@ def run_unified(
             if bar_idx is None:
                 continue
 
-            engine.sizing_equity = portfolio_equity
+            engine.sizing_equity = risk_sizing_equity
             try:
                 candidates = engine.step_bar(
                     data.daily[sym], data.atrss_hourly[sym],
@@ -1172,16 +1185,55 @@ def run_unified(
             if candidates:
                 bar_time = _to_datetime(ts)
                 for cand in candidates:
+                    entry_attempts["ATRSS"] += 1
+                    risk_dollars = abs(cand.trigger_price - cand.initial_stop) * engine.point_value * cand.qty
                     if skip_heat:
                         engine.submit_candidate(cand, bar_time)
+                        accepted_entries["ATRSS"] += 1
+                        _log_entry_event(
+                            entry_event_log, heat_tracker, bar_time, "ATRSS", sym, "entry",
+                            "accepted", "", risk_dollars,
+                            direction=int(cand.direction),
+                            entry_price=cand.trigger_price,
+                            stop_price=cand.initial_stop,
+                            quantity=cand.qty,
+                            signal_type=_enum_label(cand.type),
+                            quality_score=getattr(cand, "rank_score", None),
+                            entry_already_filled=False,
+                            metadata={"risk_scale": risk_scale, "atrh": getattr(cand, "atrh", 0.0)},
+                        )
                     else:
-                        risk_dollars = abs(cand.trigger_price - cand.initial_stop) * engine.point_value * cand.qty
                         ok, reason = heat_tracker.can_enter("ATRSS", risk_dollars)
                         if ok:
                             engine.submit_candidate(cand, bar_time)
+                            accepted_entries["ATRSS"] += 1
+                            _log_entry_event(
+                                entry_event_log, heat_tracker, bar_time, "ATRSS", sym, "entry",
+                                "accepted", "", risk_dollars,
+                                direction=int(cand.direction),
+                                entry_price=cand.trigger_price,
+                                stop_price=cand.initial_stop,
+                                quantity=cand.qty,
+                                signal_type=_enum_label(cand.type),
+                                quality_score=getattr(cand, "rank_score", None),
+                                entry_already_filled=False,
+                                metadata={"risk_scale": risk_scale, "atrh": getattr(cand, "atrh", 0.0)},
+                            )
                         else:
                             blocked_entries["ATRSS"] += 1
-                            heat_rejection_log.append({"time": bar_time, "strategy": "ATRSS", "reason": reason})
+                            event = _log_entry_event(
+                                entry_event_log, heat_tracker, bar_time, "ATRSS", sym, "entry",
+                                "blocked", reason, risk_dollars,
+                                direction=int(cand.direction),
+                                entry_price=cand.trigger_price,
+                                stop_price=cand.initial_stop,
+                                quantity=cand.qty,
+                                signal_type=_enum_label(cand.type),
+                                quality_score=getattr(cand, "rank_score", None),
+                                entry_already_filled=False,
+                                metadata={"risk_scale": risk_scale, "atrh": getattr(cand, "atrh", 0.0)},
+                            )
+                            heat_rejection_log.append(event)
                             if "daily stop" in reason.lower():
                                 daily_stop_activations += 1
 
@@ -1214,7 +1266,126 @@ def run_unified(
                             coordinator.tighten_count += 1
                             coordination_event_log.append({"time": _to_datetime(ts), "type": "tighten", "trigger_strategy": "ATRSS", "target_strategy": "AKC_HELIX", "symbol": tighten_sym})
 
-        # === Step 3: Breakout engines (priority 3) ===
+        # === Step 3: BRS engines (priority 2) ===
+        for sym in _brs_run_order(list(brs_engines)):
+            engine = brs_engines[sym]
+            key = f"brs_{sym}"
+            bar_idx = time_sets[key].get(ts)
+            if bar_idx is None:
+                continue
+
+            had_pending_entry = engine._pending_entry is not None
+            had_pending_add = engine._pending_add is not None
+
+            try:
+                engine._step_bar(
+                    bar_idx,
+                    sizing_equity=risk_sizing_equity,
+                    shared_reserved_risk_dollars=_brs_reserved_risk_dollars(brs_engines),
+                    shared_concurrent_positions=_brs_reserved_position_slots(brs_engines),
+                )
+            except (OverflowError, ValueError):
+                continue
+
+            if not skip_heat and engine._pending_entry is not None and not had_pending_entry:
+                pending = engine._pending_entry
+                signal = pending.signal
+                risk_dollars = pending.signal.risk_per_unit * pending.qty
+                entry_attempts["BRS_R9"] += 1
+                ok, reason = heat_tracker.can_enter("BRS_R9", risk_dollars)
+                if not ok:
+                    blocked_entries["BRS_R9"] += 1
+                    event = _log_entry_event(
+                        entry_event_log, heat_tracker, _to_datetime(ts), "BRS_R9", sym, "entry",
+                        "blocked", reason, risk_dollars,
+                        direction=int(signal.direction),
+                        entry_price=signal.signal_price,
+                        stop_price=signal.stop_price,
+                        quantity=pending.qty,
+                        signal_type=_enum_label(signal.entry_type),
+                        quality_score=getattr(signal, "quality_score", None),
+                        entry_already_filled=True,
+                        metadata={
+                            "risk_scale": risk_scale,
+                            "regime": _enum_label(getattr(signal, "regime_at_entry", "")),
+                            "bear_conviction": float(getattr(signal, "bear_conviction", 0.0) or 0.0),
+                            "vol_factor": float(getattr(signal, "vol_factor", 0.0) or 0.0),
+                        },
+                    )
+                    heat_rejection_log.append(event)
+                    _cancel_brs_pending_order(engine, "entry")
+                    if "daily stop" in reason.lower():
+                        daily_stop_activations += 1
+                else:
+                    accepted_entries["BRS_R9"] += 1
+                    _log_entry_event(
+                        entry_event_log, heat_tracker, _to_datetime(ts), "BRS_R9", sym, "entry",
+                        "accepted", "", risk_dollars,
+                        direction=int(signal.direction),
+                        entry_price=signal.signal_price,
+                        stop_price=signal.stop_price,
+                        quantity=pending.qty,
+                        signal_type=_enum_label(signal.entry_type),
+                        quality_score=getattr(signal, "quality_score", None),
+                        entry_already_filled=True,
+                        metadata={
+                            "risk_scale": risk_scale,
+                            "regime": _enum_label(getattr(signal, "regime_at_entry", "")),
+                            "bear_conviction": float(getattr(signal, "bear_conviction", 0.0) or 0.0),
+                            "vol_factor": float(getattr(signal, "vol_factor", 0.0) or 0.0),
+                        },
+                    )
+
+            if not skip_heat and engine._pending_add is not None and not had_pending_add:
+                pending_add = engine._pending_add
+                signal = pending_add.signal
+                risk_dollars = engine._pos_risk_per_unit * pending_add.qty
+                entry_attempts["BRS_R9"] += 1
+                ok, reason = heat_tracker.can_enter("BRS_R9", risk_dollars)
+                if not ok:
+                    blocked_entries["BRS_R9"] += 1
+                    event = _log_entry_event(
+                        entry_event_log, heat_tracker, _to_datetime(ts), "BRS_R9", sym, "add_on",
+                        "blocked", reason, risk_dollars,
+                        direction=int(signal.direction),
+                        entry_price=signal.signal_price,
+                        stop_price=signal.stop_price,
+                        quantity=pending_add.qty,
+                        signal_type=_enum_label(signal.entry_type),
+                        quality_score=getattr(signal, "quality_score", None),
+                        entry_already_filled=True,
+                        metadata={
+                            "risk_scale": risk_scale,
+                            "regime": _enum_label(getattr(signal, "regime_at_entry", "")),
+                            "bear_conviction": float(getattr(signal, "bear_conviction", 0.0) or 0.0),
+                            "vol_factor": float(getattr(signal, "vol_factor", 0.0) or 0.0),
+                        },
+                    )
+                    heat_rejection_log.append(event)
+                    _cancel_brs_pending_order(engine, "add_on")
+                    if "daily stop" in reason.lower():
+                        daily_stop_activations += 1
+                else:
+                    accepted_entries["BRS_R9"] += 1
+                    _log_entry_event(
+                        entry_event_log, heat_tracker, _to_datetime(ts), "BRS_R9", sym, "add_on",
+                        "accepted", "", risk_dollars,
+                        direction=int(signal.direction),
+                        entry_price=signal.signal_price,
+                        stop_price=signal.stop_price,
+                        quantity=pending_add.qty,
+                        signal_type=_enum_label(signal.entry_type),
+                        quality_score=getattr(signal, "quality_score", None),
+                        entry_already_filled=True,
+                        metadata={
+                            "risk_scale": risk_scale,
+                            "regime": _enum_label(getattr(signal, "regime_at_entry", "")),
+                            "bear_conviction": float(getattr(signal, "bear_conviction", 0.0) or 0.0),
+                            "vol_factor": float(getattr(signal, "vol_factor", 0.0) or 0.0),
+                        },
+                    )
+
+        # === Step 4: Breakout engines (priority 3) ===
         for sym, engine in breakout_engines.items():
             key = f"breakout_{sym}"
             bar_idx = time_sets[key].get(ts)
@@ -1227,7 +1398,7 @@ def run_unified(
             # fill-caused PnL delta and restore independent tracking.
             if not skip_heat:
                 saved_equity = engine.equity
-                engine.equity = portfolio_equity
+                engine.equity = risk_sizing_equity
 
             had_position = engine.active_position is not None and engine.active_position.qty_open > 0
 
@@ -1246,32 +1417,69 @@ def run_unified(
 
             # Restore independent equity: saved + fill PnL from this bar
             if not skip_heat:
-                fill_pnl = engine.equity - portfolio_equity
+                fill_pnl = engine.equity - risk_sizing_equity
                 engine.equity = saved_equity + fill_pnl
 
             has_position = engine.active_position is not None and engine.active_position.qty_open > 0
             if has_position and not had_position:
                 pos = engine.active_position
+                risk_dollars = abs(pos.fill_price - pos.current_stop) * engine.point_value * pos.qty_open
+                entry_attempts["SWING_BREAKOUT_V3"] += 1
                 if skip_heat:
                     ok, reason = True, ""
                 else:
-                    risk_dollars = abs(pos.fill_price - pos.current_stop) * engine.point_value * pos.qty_open
                     ok, reason = heat_tracker.can_enter("SWING_BREAKOUT_V3", risk_dollars)
                 if not ok:
                     blocked_entries["SWING_BREAKOUT_V3"] += 1
-                    heat_rejection_log.append({"time": _to_datetime(ts), "strategy": "SWING_BREAKOUT_V3", "reason": reason})
+                    event = _log_entry_event(
+                        entry_event_log, heat_tracker, _to_datetime(ts), "SWING_BREAKOUT_V3", sym, "entry",
+                        "blocked", reason, risk_dollars,
+                        direction=int(pos.setup.direction),
+                        entry_price=pos.fill_price,
+                        stop_price=pos.current_stop,
+                        quantity=pos.qty_open,
+                        signal_type=_enum_label(pos.entry_type or getattr(pos.setup, "entry_type", "")),
+                        quality_score=getattr(pos, "quality_mult", None),
+                        entry_already_filled=True,
+                        metadata={
+                            "risk_scale": risk_scale,
+                            "regime": str(getattr(pos, "regime_at_entry", "") or ""),
+                            "disp_at_entry": float(getattr(pos, "disp_at_entry", 0.0) or 0.0),
+                            "rvol_d_at_entry": float(getattr(pos, "rvol_d_at_entry", 0.0) or 0.0),
+                        },
+                    )
+                    heat_rejection_log.append(event)
                     _force_flatten_breakout(engine, pos)
                     if "daily stop" in reason.lower():
                         daily_stop_activations += 1
+                else:
+                    accepted_entries["SWING_BREAKOUT_V3"] += 1
+                    _log_entry_event(
+                        entry_event_log, heat_tracker, _to_datetime(ts), "SWING_BREAKOUT_V3", sym, "entry",
+                        "accepted", "", risk_dollars,
+                        direction=int(pos.setup.direction),
+                        entry_price=pos.fill_price,
+                        stop_price=pos.current_stop,
+                        quantity=pos.qty_open,
+                        signal_type=_enum_label(pos.entry_type or getattr(pos.setup, "entry_type", "")),
+                        quality_score=getattr(pos, "quality_mult", None),
+                        entry_already_filled=True,
+                        metadata={
+                            "risk_scale": risk_scale,
+                            "regime": str(getattr(pos, "regime_at_entry", "") or ""),
+                            "disp_at_entry": float(getattr(pos, "disp_at_entry", 0.0) or 0.0),
+                            "rvol_d_at_entry": float(getattr(pos, "rvol_d_at_entry", 0.0) or 0.0),
+                        },
+                    )
 
-        # === Step 4: Helix engines (priority 4) ===
+        # === Step 5: Helix engines (priority 4) ===
         for sym, engine in helix_engines.items():
             key = f"helix_{sym}"
             bar_idx = time_sets[key].get(ts)
             if bar_idx is None:
                 continue
 
-            engine.sizing_equity = portfolio_equity
+            engine.sizing_equity = risk_sizing_equity
 
             # Snapshot position state before step
             had_position = engine.active_position is not None and engine.active_position.qty_open > 0
@@ -1289,19 +1497,57 @@ def run_unified(
             has_position = engine.active_position is not None and engine.active_position.qty_open > 0
             if has_position and not had_position:
                 pos = engine.active_position
+                risk_dollars = abs(pos.fill_price - pos.current_stop) * engine.point_value * pos.qty_open
+                entry_attempts["AKC_HELIX"] += 1
                 if skip_heat:
                     ok, reason = True, ""
                 else:
-                    risk_dollars = abs(pos.fill_price - pos.current_stop) * engine.point_value * pos.qty_open
                     ok, reason = heat_tracker.can_enter("AKC_HELIX", risk_dollars)
                 if not ok:
                     # Force flatten: reverse the entry
                     blocked_entries["AKC_HELIX"] += 1
-                    heat_rejection_log.append({"time": _to_datetime(ts), "strategy": "AKC_HELIX", "reason": reason})
+                    event = _log_entry_event(
+                        entry_event_log, heat_tracker, _to_datetime(ts), "AKC_HELIX", sym, "entry",
+                        "blocked", reason, risk_dollars,
+                        direction=int(pos.setup.direction),
+                        entry_price=pos.fill_price,
+                        stop_price=pos.current_stop,
+                        quantity=pos.qty_open,
+                        signal_type=_enum_label(pos.setup.setup_class),
+                        quality_score=float(getattr(pos.setup, "adx_at_entry", 0.0) or 0.0),
+                        entry_already_filled=True,
+                        metadata={
+                            "risk_scale": risk_scale,
+                            "origin_tf": str(getattr(pos.setup, "origin_tf", "") or ""),
+                            "regime": str(getattr(pos, "regime_at_entry", "") or ""),
+                            "regime_4h": str(getattr(pos.setup, "regime_4h_at_entry", "") or ""),
+                            "div_mag_norm": float(getattr(pos.setup, "div_mag_norm", 0.0) or 0.0),
+                        },
+                    )
+                    heat_rejection_log.append(event)
                     _force_flatten_helix(engine, pos)
                     if "daily stop" in reason.lower():
                         daily_stop_activations += 1
                 else:
+                    accepted_entries["AKC_HELIX"] += 1
+                    _log_entry_event(
+                        entry_event_log, heat_tracker, _to_datetime(ts), "AKC_HELIX", sym, "entry",
+                        "accepted", "", risk_dollars,
+                        direction=int(pos.setup.direction),
+                        entry_price=pos.fill_price,
+                        stop_price=pos.current_stop,
+                        quantity=pos.qty_open,
+                        signal_type=_enum_label(pos.setup.setup_class),
+                        quality_score=float(getattr(pos.setup, "adx_at_entry", 0.0) or 0.0),
+                        entry_already_filled=True,
+                        metadata={
+                            "risk_scale": risk_scale,
+                            "origin_tf": str(getattr(pos.setup, "origin_tf", "") or ""),
+                            "regime": str(getattr(pos, "regime_at_entry", "") or ""),
+                            "regime_4h": str(getattr(pos.setup, "regime_4h_at_entry", "") or ""),
+                            "div_mag_norm": float(getattr(pos.setup, "div_mag_norm", 0.0) or 0.0),
+                        },
+                    )
                     # Check coordination Rule 2: size boost
                     if pos.setup and hasattr(pos.setup, 'direction'):
                         direction = pos.setup.direction
@@ -1309,11 +1555,12 @@ def run_unified(
                             coordinator.boost_count += 1
                             coordination_event_log.append({"time": _to_datetime(ts), "type": "boost", "trigger_strategy": "ATRSS", "target_strategy": "AKC_HELIX", "symbol": sym})
 
-        # === Step 5: Update portfolio equity from per-engine PnL deltas ===
+        # === Step 6: Update portfolio equity from per-engine PnL deltas ===
         # Each engine's equity = initial_equity + cumulative realized PnL
         # Portfolio equity = initial_equity + sum of all engines' realized PnL
         for label, engines, strat_id in [
             ("atrss", atrss_engines, "ATRSS"),
+            ("brs", brs_engines, "BRS_R9"),
             ("breakout", breakout_engines, "SWING_BREAKOUT_V3"),
             ("helix", helix_engines, "AKC_HELIX"),
         ]:
@@ -1332,21 +1579,55 @@ def run_unified(
                         heat_tracker.record_trade_close(strat_id, trade_pnl)
                     prev_trade_counts[key] = n_trades
 
-        # === Step 6: Update heat tracker ===
-        risk_by_strat = _compute_open_risk(atrss_engines, helix_engines, breakout_engines)
+        # === Step 7: Update heat tracker ===
+        risk_by_strat = _compute_open_risk(atrss_engines, helix_engines, brs_engines, breakout_engines)
         heat_tracker.update_open_risk(risk_by_strat)
 
-        equity_curve.append(portfolio_equity + overlay_cumulative_pnl)
+        engine_groups = [
+            ("atrss", atrss_engines),
+            ("brs", brs_engines),
+            ("breakout", breakout_engines),
+            ("helix", helix_engines),
+        ]
+        equity_curve_realized.append(portfolio_equity + overlay_cumulative_pnl)
+        equity_curve_mtm.append(_combined_child_mtm_equity(init_eq, engine_groups, overlay_cumulative_pnl))
         timestamps.append(ts)
 
         # Track heat utilization (normalized to ATRSS R-units for consistency)
         total_risk = sum(risk_by_strat.values())
-        # Use ATRSS unit_risk_dollars as the normalization base (1R = 1% of equity)
-        norm_base = config.initial_equity * config.atrss.unit_risk_pct
+        # Use the same portfolio unit risk as the gate, including dynamic NAV throttles.
+        norm_base = heat_tracker.portfolio_unit_risk_dollars
         heat_R = total_risk / norm_base if norm_base > 0 else 0.0
         heat_samples.append(heat_R)
 
     _patch.__exit__(None, None, None)
+
+    for sym, eng in brs_engines.items():
+        key = f"brs_{sym}"
+        eng._finalize_end_of_data()
+        if eng.equity_curve:
+            eng.equity_curve[-1] = eng._mtm_equity()
+        delta = eng.equity - prev_equity[key]
+        portfolio_equity += delta
+        prev_equity[key] = eng.equity
+        n_trades = len(eng.trades)
+        if n_trades > prev_trade_counts[key]:
+            for t_idx in range(prev_trade_counts[key], n_trades):
+                heat_tracker.record_trade_close("BRS_R9", eng.trades[t_idx].pnl_dollars)
+            prev_trade_counts[key] = n_trades
+        if equity_curve_realized:
+            equity_curve_realized[-1] = portfolio_equity + overlay_cumulative_pnl
+        if equity_curve_mtm:
+            equity_curve_mtm[-1] = _combined_child_mtm_equity(
+                init_eq,
+                [
+                    ("atrss", atrss_engines),
+                    ("brs", brs_engines),
+                    ("breakout", breakout_engines),
+                    ("helix", helix_engines),
+                ],
+                overlay_cumulative_pnl,
+            )
 
     # --- Final overlay settlement: MTM the last day's positions ---
     if config.overlay_enabled and prev_date is not None:
@@ -1369,8 +1650,19 @@ def run_unified(
                 _sdelta = _sv - overlay_prev_sym_value.get(_osym, 0.0)
                 overlay_per_sym_pnl[_osym] = overlay_per_sym_pnl.get(_osym, 0.0) + _sdelta
         # Update last equity curve point to include final overlay PnL
-        if equity_curve:
-            equity_curve[-1] = portfolio_equity + overlay_cumulative_pnl
+        if equity_curve_realized:
+            equity_curve_realized[-1] = portfolio_equity + overlay_cumulative_pnl
+        if equity_curve_mtm:
+            equity_curve_mtm[-1] = _combined_child_mtm_equity(
+                init_eq,
+                [
+                    ("atrss", atrss_engines),
+                    ("brs", brs_engines),
+                    ("breakout", breakout_engines),
+                    ("helix", helix_engines),
+                ],
+                overlay_cumulative_pnl,
+            )
 
     # --- Build results ---
     heat_arr = np.array(heat_samples) if heat_samples else np.array([0.0])
@@ -1389,6 +1681,10 @@ def run_unified(
     for eng in helix_engines.values():
         all_helix_trades.extend(eng.trades)
 
+    all_brs_trades = []
+    for eng in brs_engines.values():
+        all_brs_trades.extend(eng.trades)
+
     all_breakout_trades = []
     for eng in breakout_engines.values():
         all_breakout_trades.extend(eng.trades)
@@ -1396,6 +1692,7 @@ def run_unified(
     strategy_results = {}
     for sid, trades, blocked in [
         ("ATRSS", all_atrss_trades, blocked_entries["ATRSS"]),
+        ("BRS_R9", all_brs_trades, blocked_entries["BRS_R9"]),
         ("SWING_BREAKOUT_V3", all_breakout_trades, blocked_entries["SWING_BREAKOUT_V3"]),
         ("AKC_HELIX", all_helix_trades, blocked_entries["AKC_HELIX"]),
     ]:
@@ -1405,6 +1702,8 @@ def run_unified(
         total_r = sum(t.r_multiple for t in trades)
         strategy_results[sid] = StrategyResult(
             strategy_id=sid,
+            entry_signals_fired=entry_attempts[sid],
+            entries_accepted_by_portfolio=accepted_entries[sid],
             total_trades=len(trades),
             total_pnl=total_pnl,
             winning_trades=wins,
@@ -1414,7 +1713,9 @@ def run_unified(
         )
 
     return UnifiedPortfolioResult(
-        combined_equity=np.array(equity_curve),
+        combined_equity=np.array(equity_curve_mtm),
+        combined_equity_mtm=np.array(equity_curve_mtm),
+        combined_equity_realized=np.array(equity_curve_realized),
         combined_timestamps=np.array(timestamps),
         heat_stats=heat_stats,
         strategy_results=strategy_results,
@@ -1422,10 +1723,13 @@ def run_unified(
         coordination_boost_count=coordinator.boost_count,
         portfolio_daily_stop_activations=daily_stop_activations,
         overlay_pnl=overlay_cumulative_pnl,
+        overlay_commission=overlay_total_commission,
         overlay_per_symbol_pnl=dict(overlay_per_sym_pnl),
         atrss_trades=all_atrss_trades,
         helix_trades=all_helix_trades,
+        brs_trades=all_brs_trades,
         breakout_trades=all_breakout_trades,
+        entry_events=entry_event_log,
         heat_rejections=heat_rejection_log,
         coordination_events=coordination_event_log,
     )
@@ -1434,6 +1738,132 @@ def run_unified(
 # ---------------------------------------------------------------------------
 # Force-flatten helpers (when heat check fails post-entry)
 # ---------------------------------------------------------------------------
+
+def _brs_run_order(symbols) -> list[str]:
+    return sorted(symbols, key=lambda sym: (0 if sym == "QQQ" else 1, sym))
+
+
+def _brs_reserved_risk_dollars(engines: dict[str, BRSEngine]) -> float:
+    return sum(engine.reserved_risk_dollars() for engine in engines.values())
+
+
+def _brs_reserved_position_slots(engines: dict[str, BRSEngine]) -> int:
+    return sum(engine.reserved_position_slots() for engine in engines.values())
+
+
+def _brs_bear_strong_active(engines: dict[str, BRSEngine]) -> bool:
+    return any(getattr(engine.daily_ctx, "regime", None) == BRSRegime.BEAR_STRONG for engine in engines.values())
+
+
+def _drawdown_risk_multiplier(drawdown_pct: float, tiers: tuple[tuple[float, float], ...] | list[tuple[float, float]]) -> float:
+    multiplier = 1.0
+    for threshold, tier_multiplier in sorted((float(t), float(m)) for t, m in tiers):
+        if drawdown_pct >= threshold:
+            multiplier = tier_multiplier
+    return max(0.0, multiplier)
+
+
+def _enum_label(value) -> str:
+    if value is None:
+        return ""
+    return str(getattr(value, "value", getattr(value, "name", value)))
+
+
+def _cancel_brs_pending_order(engine: BRSEngine, tag: str) -> None:
+    cancelled = engine.broker.cancel_orders(engine.symbol, tag=tag)
+    cancelled_ids = {order.order_id for order in cancelled}
+    if tag == "entry" and engine._pending_entry is not None:
+        cancelled_ids.add(engine._pending_entry.order_id)
+        engine._pending_entry = None
+    elif tag == "add_on" and engine._pending_add is not None:
+        cancelled_ids.add(engine._pending_add.order_id)
+        engine._pending_add = None
+    for order_id in cancelled_ids:
+        engine._core_state.pending_orders.pop(order_id, None)
+
+
+def _log_entry_event(
+    events: list[dict],
+    heat_tracker: PortfolioHeatTracker,
+    event_time: datetime,
+    strategy_id: str,
+    symbol: str,
+    stage: str,
+    status: str,
+    reason: str,
+    risk_dollars: float,
+    *,
+    direction: int | None = None,
+    entry_price: float | None = None,
+    stop_price: float | None = None,
+    quantity: float | None = None,
+    signal_type: str | None = None,
+    quality_score: float | None = None,
+    entry_already_filled: bool | None = None,
+    metadata: dict | None = None,
+) -> dict:
+    event = {
+        "time": event_time,
+        "strategy": strategy_id,
+        "symbol": symbol,
+        "stage": stage,
+        "status": status,
+        "reason": reason,
+        "risk_dollars": float(risk_dollars or 0.0),
+        "risk_context": _entry_risk_context(heat_tracker, strategy_id, risk_dollars),
+    }
+    if direction is not None:
+        event["direction"] = int(direction)
+    if entry_price is not None:
+        event["entry_price"] = float(entry_price)
+    if stop_price is not None:
+        event["stop_price"] = float(stop_price)
+    if quantity is not None:
+        event["quantity"] = float(quantity)
+    if signal_type:
+        event["signal_type"] = str(signal_type)
+    if quality_score is not None:
+        event["quality_score"] = float(quality_score)
+    if entry_already_filled is not None:
+        event["entry_already_filled"] = bool(entry_already_filled)
+    if metadata:
+        event["metadata"] = dict(metadata)
+    events.append(event)
+    return event
+
+
+def _entry_risk_context(
+    heat_tracker: PortfolioHeatTracker,
+    strategy_id: str,
+    risk_dollars: float,
+) -> dict[str, float]:
+    if hasattr(heat_tracker, "entry_risk_context"):
+        return heat_tracker.entry_risk_context(strategy_id, risk_dollars)
+    strat = heat_tracker._strats.get(strategy_id)
+    portfolio_unit = heat_tracker._portfolio_unit_risk
+    total_open_dollars = heat_tracker.total_open_risk_dollars
+    portfolio_open_r = total_open_dollars / portfolio_unit if portfolio_unit > 0 else 0.0
+    portfolio_request_r = risk_dollars / portfolio_unit if portfolio_unit > 0 else 0.0
+    context = {
+        "portfolio_open_risk_R": float(portfolio_open_r),
+        "portfolio_request_risk_R": float(portfolio_request_r),
+        "portfolio_after_request_R": float(portfolio_open_r + portfolio_request_r),
+        "portfolio_heat_cap_R": float(heat_tracker._heat_cap_R),
+    }
+    if strat is not None:
+        strategy_request_r = risk_dollars / strat.unit_risk_dollars if strat.unit_risk_dollars > 0 else 0.0
+        context.update(
+            {
+                "strategy_open_risk_R": float(strat.open_risk_R),
+                "strategy_request_risk_R": float(strategy_request_r),
+                "strategy_after_request_R": float(strat.open_risk_R + strategy_request_r),
+                "strategy_heat_cap_R": float(strat.max_heat_R),
+                "strategy_daily_realized_R": float(strat.daily_realized_R),
+                "strategy_daily_stop_R": float(strat.daily_stop_R),
+            }
+        )
+    return context
+
 
 def _force_flatten_helix(engine: HelixEngine, pos) -> None:
     """Reverse a Helix entry that breached the heat cap."""
@@ -1557,6 +1987,7 @@ def print_unified_report(result: UnifiedPortfolioResult, config: UnifiedBacktest
         else:
             print(f"\n{'Idle-Capital Overlay (EMA {0}/{1})'.format(config.overlay_ema_fast, config.overlay_ema_slow):}")
         print(f"  Overlay PnL:         ${result.overlay_pnl:+,.2f} ({ovl_pct:+.1f}%)")
+        print(f"  Overlay Costs:       ${result.overlay_commission:,.2f}")
         print(f"  Active Strategy PnL: ${active_pnl:+,.2f} ({act_pct:+.1f}%)")
         print(f"  Overlay Max Pct:     {config.overlay_max_pct:.0%}")
         if result.overlay_per_symbol_pnl:
@@ -1567,7 +1998,7 @@ def print_unified_report(result: UnifiedPortfolioResult, config: UnifiedBacktest
     print(f"\n{'Per-Strategy Breakdown':}")
     print(f"{'Strategy':<22} {'Trades':>7} {'Win%':>6} {'PnL':>10} {'Total R':>8} {'Blocked':>8}")
     print("-" * 65)
-    for sid in ["ATRSS", "SWING_BREAKOUT_V3", "AKC_HELIX"]:
+    for sid in ["ATRSS", "AKC_HELIX", "BRS_R9", "SWING_BREAKOUT_V3"]:
         sr = result.strategy_results.get(sid)
         if sr is None:
             continue

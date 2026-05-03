@@ -18,7 +18,7 @@ _worker_equity: float = 0.0
 _worker_key: tuple[str, tuple[str, ...]] | None = None
 
 
-def init_worker(data_dir_str: str, equity: float, symbols_csv: str) -> None:
+def init_worker(data_dir_str: str, equity: float, symbols_csv: str, fixed_qty: int | None = None) -> None:
     global _worker_data, _worker_config, _worker_equity, _worker_key
 
     if sys.stdout.encoding != "utf-8":
@@ -39,7 +39,7 @@ def init_worker(data_dir_str: str, equity: float, symbols_csv: str) -> None:
         symbols=list(symbols),
         initial_equity=equity,
         data_dir=data_dir,
-        fixed_qty=10,
+        fixed_qty=fixed_qty,
         track_signals=False,
         track_shadows=False,
     )
@@ -51,7 +51,7 @@ def score_candidate(args: tuple[str, dict, dict, int, dict | None, dict | None])
     try:
         from backtests.swing.auto.config_mutator import mutate_breakout_config
         from backtests.swing.auto.scoring import extract_metrics
-        from backtests.swing.engine.breakout_portfolio_engine import run_breakout_independent
+        from backtests.swing.engine.breakout_portfolio_engine import run_breakout_synchronized
 
         from .scoring import score_phase_metrics
 
@@ -59,7 +59,7 @@ def score_candidate(args: tuple[str, dict, dict, int, dict | None, dict | None])
         all_muts.update(candidate_muts)
 
         config = mutate_breakout_config(_worker_config, all_muts)
-        result = run_breakout_independent(_worker_data, config)
+        result = run_breakout_synchronized(_worker_data, config)
         all_trades = _collect_trades(result)
         metrics = extract_metrics(
             all_trades,
@@ -67,6 +67,8 @@ def score_candidate(args: tuple[str, dict, dict, int, dict | None, dict | None])
             _timestamps_to_numeric(result.combined_timestamps),
             _worker_equity,
         )
+        metrics.avg_mfe_r = _avg_mfe_r(all_trades)
+        metrics.winner_capture_ratio = _winner_capture_ratio(all_trades)
         score = score_phase_metrics(
             phase,
             metrics,
@@ -76,15 +78,14 @@ def score_candidate(args: tuple[str, dict, dict, int, dict | None, dict | None])
             hard_rejects=hard_rejects,
         )
         metrics_dict = asdict(metrics)
-        if score.rejected:
-            return ScoredCandidate(
-                name=name,
-                score=0.0,
-                rejected=True,
-                reject_reason=score.reject_reason,
-                metrics=metrics_dict,
-            )
-        return ScoredCandidate(name=name, score=score.total, metrics=metrics_dict)
+        metrics_dict["edge_velocity"] = float(metrics.expectancy_dollar * metrics.trades_per_month)
+        return ScoredCandidate(
+            name=name,
+            score=score.total,
+            rejected=score.rejected,
+            reject_reason=score.reject_reason if score.rejected else "",
+            metrics=metrics_dict,
+        )
     except Exception as exc:
         logger.error("Breakout worker error for %s: %s", name, exc)
         return ScoredCandidate(name=name, score=0.0, rejected=True, reject_reason=f"error: {exc}")
@@ -121,3 +122,20 @@ def _trade_sort_key(trade) -> str:
     if hasattr(dt, "isoformat"):
         return dt.isoformat()
     return str(dt)
+
+
+def _avg_mfe_r(trades: list) -> float:
+    if not trades:
+        return 0.0
+    values = [float(getattr(trade, "mfe_r", 0.0) or 0.0) for trade in trades]
+    return float(np.mean(values)) if values else 0.0
+
+
+def _winner_capture_ratio(trades: list) -> float:
+    captures = []
+    for trade in trades:
+        r_multiple = float(getattr(trade, "r_multiple", 0.0) or 0.0)
+        mfe_r = float(getattr(trade, "mfe_r", 0.0) or 0.0)
+        if r_multiple > 0 and mfe_r > 0:
+            captures.append(r_multiple / mfe_r)
+    return float(np.mean(captures)) if captures else 0.0

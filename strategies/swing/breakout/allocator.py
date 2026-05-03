@@ -13,6 +13,12 @@ from .config import (
     ADD_RISK_LOWVOLH_MULT,
     ADD_RISK_MULT,
     CAMPAIGN_RISK_BUDGET_MULT,
+    C_CONTINUATION_RISK_MULT,
+    C_MOMENTUM_RISK_MULT,
+    C_STANDARD_HIGH_DISP_RISK_MULT,
+    C_STANDARD_HIGH_DISP_THRESHOLD,
+    C_STANDARD_LATE_BREAKOUT_BARS,
+    C_STANDARD_LATE_RISK_MULT,
     CORR_MULT_ALIGNED,
     CORR_MULT_OTHER,
     CORR_THRESHOLD,
@@ -199,6 +205,32 @@ def compute_final_risk(
     floor_pct = 0.20 * base_adj
     capped_pct = max(floor_pct, min(base_adj, raw_pct))
     return equity * capped_pct
+
+
+def compute_entry_risk_dollars(
+    base_risk_dollars: float,
+    *,
+    entry_type: str,
+    continuation: bool,
+    bars_since_breakout: int,
+    entry_disp_from_avwap: float,
+) -> float:
+    """Re-rank risk toward earlier/lower-disp C cohorts without deleting late flow."""
+    risk_mult = 1.0
+
+    if entry_type == "C_continuation":
+        risk_mult = C_CONTINUATION_RISK_MULT
+    elif entry_type in ("C_momentum_market", "C_momentum_stop"):
+        risk_mult = C_MOMENTUM_RISK_MULT
+    elif entry_type == "C_standard":
+        if continuation:
+            risk_mult = min(risk_mult, C_CONTINUATION_RISK_MULT)
+        if bars_since_breakout > C_STANDARD_LATE_BREAKOUT_BARS:
+            risk_mult = min(risk_mult, C_STANDARD_LATE_RISK_MULT)
+        if entry_disp_from_avwap > C_STANDARD_HIGH_DISP_THRESHOLD:
+            risk_mult = min(risk_mult, C_STANDARD_HIGH_DISP_RISK_MULT)
+
+    return base_risk_dollars * risk_mult
 
 
 # ---------------------------------------------------------------------------

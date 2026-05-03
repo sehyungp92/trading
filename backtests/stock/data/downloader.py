@@ -11,16 +11,15 @@ from pathlib import Path
 
 import pandas as pd
 
-from backtests.momentum.data.downloader import (
-    _CLIENT_ID,
-    _PACING_DELAY,
-    bar_path,
-    download_historical,
-    save_bars,
-)
+from backtests.momentum.data.downloader import _CLIENT_ID, _PACING_DELAY
+from backtests.shared.data.ibkr.bars import download_historical_bars as _shared_download_historical_bars
+from backtests.shared.data.ibkr.models import BarDownloadRequest
+from backtests.shared.data.ibkr.pacing import RequestPacer
+from backtests.stock.data.cache import bar_path, save_bars
 from strategies.stock.alcb.universe_constituents import SP500_CONSTITUENTS
 
 logger = logging.getLogger(__name__)
+_PACER = RequestPacer(min_interval_seconds=_PACING_DELAY)
 
 # Reference symbols for market/sector regime computation
 REFERENCE_SYMBOLS = [
@@ -50,6 +49,36 @@ SECTOR_ETFS = {
     "Real Estate": "XLRE",
     "Communication Services": "XLC",
 }
+
+
+async def download_historical(
+    ib,
+    symbol: str,
+    timeframe: str,
+    duration: str,
+    exchange: str,
+    trading_class: str = "",
+    rth_only: bool = False,
+    output_dir: Path = Path("backtests/stock/data/raw"),
+    sec_type: str = "STK",
+    primary_exchange: str = "",
+) -> pd.DataFrame:
+    """Compatibility wrapper over the shared IBKR downloader."""
+    return await _shared_download_historical_bars(
+        ib,
+        BarDownloadRequest(
+            symbol=symbol,
+            timeframe=timeframe,
+            duration=duration,
+            exchange=exchange,
+            trading_class=trading_class or symbol,
+            use_rth=rth_only,
+            output_dir=output_dir,
+            sec_type=sec_type,
+            primary_exchange=primary_exchange,
+        ),
+        pacer=_PACER,
+    )
 
 
 def get_universe_symbols() -> list[tuple[str, str, str]]:

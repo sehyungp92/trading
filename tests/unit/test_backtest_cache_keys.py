@@ -17,7 +17,12 @@ from backtests.shared.auto.cache_keys import (
     mutation_subset,
     stable_signature,
 )
-from backtests.swing.data.replay_cache import load_atrss_replay_bundle, load_brs_replay_bundle
+from backtests.swing.config_unified import UnifiedBacktestConfig
+from backtests.swing.data.replay_cache import (
+    load_atrss_replay_bundle,
+    load_brs_replay_bundle,
+    load_unified_portfolio_replay_bundle,
+)
 from backtests.stock.data.replay_cache import load_research_replay_bundle
 from backtests.swing.config_brs import BRSConfig
 from backtests.stock.engine.research_replay import ResearchReplayEngine
@@ -231,6 +236,38 @@ def test_load_brs_replay_bundle_reuses_source_fingerprinted_cache(monkeypatch, t
             tmp_path / "QQQ_1h.parquet",
             tmp_path / "GLD_1h.parquet",
             tmp_path / "QQQ_1d.parquet",
+            tmp_path / "GLD_1d.parquet",
+        ],
+        root=tmp_path,
+    )
+    assert calls["load"] == 1
+
+
+def test_load_unified_portfolio_replay_bundle_reuses_source_fingerprinted_cache(monkeypatch, tmp_path) -> None:
+    from backtests.swing.engine import unified_portfolio_engine as unified_mod
+
+    for symbol in ("QQQ", "GLD"):
+        (tmp_path / f"{symbol}_1h.parquet").write_text("hourly", encoding="utf-8")
+        (tmp_path / f"{symbol}_1d.parquet").write_text("daily", encoding="utf-8")
+
+    calls = {"load": 0}
+
+    def fake_load(_config: UnifiedBacktestConfig) -> dict[str, object]:
+        calls["load"] += 1
+        return {"unified": True}
+
+    monkeypatch.setattr(unified_mod, "load_unified_data", fake_load)
+
+    config = UnifiedBacktestConfig(initial_equity=25_000.0, data_dir=tmp_path)
+    first = load_unified_portfolio_replay_bundle(config)
+    second = load_unified_portfolio_replay_bundle(config)
+
+    assert first is second
+    assert first.cache_source_fingerprint == fingerprint_paths(
+        [
+            tmp_path / "QQQ_1h.parquet",
+            tmp_path / "QQQ_1d.parquet",
+            tmp_path / "GLD_1h.parquet",
             tmp_path / "GLD_1d.parquet",
         ],
         root=tmp_path,

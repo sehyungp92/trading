@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import multiprocessing as mp
 import sys
 from datetime import date
 from pathlib import Path
@@ -14,10 +13,12 @@ from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
+    SharedPoolBatchEvaluator,
+    create_process_pool,
     deserialize_experiments,
     greedy_result_from_state,
     mutation_signature,
-    resolve_worker_processes,
+    shutdown_process_pool,
 )
 from backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion, ScoredCandidate
 
@@ -44,6 +45,11 @@ from .phase_candidates import (
     V4R1_BASE_MUTATIONS,
     V4R1_PHASE_CANDIDATES,
     V4R1_PHASE_FOCUS,
+    V5R1_BASE_MUTATIONS,
+    V5R1_PHASE_CANDIDATES,
+    V5R1_PHASE_FOCUS,
+    V5R2_BASE_MUTATIONS,
+    V5R2_PHASE_FOCUS,
     get_phase_candidate_lookup,
     get_phase_candidates,
     get_r5_phase_candidate_lookup,
@@ -60,6 +66,10 @@ from .phase_candidates import (
     get_v3r1_phase_candidates,
     get_v4r1_phase_candidate_lookup,
     get_v4r1_phase_candidates,
+    get_v5r1_phase_candidate_lookup,
+    get_v5r1_phase_candidates,
+    get_v5r2_phase_candidate_lookup,
+    get_v5r2_phase_candidates,
 )
 from .phase_scoring import (
     R5_PHASE_HARD_REJECTS_BY_PROFILE,
@@ -76,6 +86,10 @@ from .phase_scoring import (
     V3R1_ULTIMATE_TARGETS,
     V4R1_PHASE_HARD_REJECTS_BY_PROFILE,
     V4R1_ULTIMATE_TARGETS,
+    V5R1_PHASE_HARD_REJECTS_BY_PROFILE,
+    V5R1_ULTIMATE_TARGETS,
+    V5R2_PHASE_HARD_REJECTS_BY_PROFILE,
+    V5R2_ULTIMATE_TARGETS,
     enrich_phase_score_metrics,
     get_phase_scoring_weights,
     get_r5_phase_scoring_weights,
@@ -85,6 +99,8 @@ from .phase_scoring import (
     get_v2r4_phase_scoring_weights,
     get_v3r1_phase_scoring_weights,
     get_v4r1_phase_scoring_weights,
+    get_v5r1_phase_scoring_weights,
+    get_v5r2_phase_scoring_weights,
     merge_pullback_metrics,
 )
 
@@ -181,47 +197,6 @@ def select_pullback_branch(mainline_metrics: dict[str, float], aggressive_metric
     return {"selected_profile": "mainline", "reason": reason}
 
 
-class _PoolBatchEvaluator:
-    def __init__(
-        self,
-        data_dir: Path,
-        start_date: str,
-        end_date: str,
-        initial_equity: float,
-        phase: int,
-        hard_rejects: dict[str, float] | None,
-        scoring_weights: dict[str, float] | None,
-        max_workers: int | None,
-        round_name: str = "r4",
-    ):
-        from .worker import init_worker
-
-        self._pool = mp.Pool(
-            processes=resolve_worker_processes(max_workers),
-            initializer=init_worker,
-            initargs=(
-                str(data_dir),
-                start_date,
-                end_date,
-                initial_equity,
-                phase,
-                hard_rejects,
-                scoring_weights,
-                round_name,
-            ),
-        )
-
-    def __call__(self, candidates: list[Experiment], current_mutations: dict[str, Any]):
-        from .worker import score_candidate
-
-        args = [(candidate.name, candidate.mutations, current_mutations) for candidate in candidates]
-        return self._pool.map(score_candidate, args)
-
-    def close(self) -> None:
-        self._pool.close()
-        self._pool.join()
-
-
 class _LocalBatchEvaluator:
     def __init__(
         self,
@@ -256,6 +231,46 @@ class _LocalBatchEvaluator:
         return None
 
 
+def _build_parallel_evaluator(
+    data_dir: Path,
+    start_date: str,
+    end_date: str,
+    initial_equity: float,
+    phase: int,
+    hard_rejects: dict[str, float] | None,
+    scoring_weights: dict[str, float] | None,
+    max_workers: int | None,
+    round_name: str,
+) -> SharedPoolBatchEvaluator:
+    from .worker import init_worker, score_candidate
+
+    pool = create_process_pool(
+        max_workers,
+        initializer=init_worker,
+        initargs=(
+            str(data_dir),
+            start_date,
+            end_date,
+            initial_equity,
+            phase,
+            hard_rejects,
+            scoring_weights,
+            round_name,
+        ),
+    )
+    return SharedPoolBatchEvaluator(
+        pool,
+        worker_fn=score_candidate,
+        build_args=lambda candidates, current_mutations: [
+            (candidate.name, candidate.mutations, current_mutations)
+            for candidate in candidates
+        ],
+        on_close=lambda pool=pool: shutdown_process_pool(pool),
+        on_terminate=lambda pool=pool: shutdown_process_pool(pool, force=True),
+        description=f"iaric phase {phase}",
+    )
+
+
 class IARICPullbackPlugin:
     name = "iaric"
     num_phases = 5
@@ -275,7 +290,11 @@ class IARICPullbackPlugin:
         round_name: str = "r4",
     ):
         self._round_name = round_name
-        if round_name == "v4r1":
+        if round_name == "v5r2":
+            phase_focus = V5R2_PHASE_FOCUS
+        elif round_name == "v5r1":
+            phase_focus = V5R1_PHASE_FOCUS
+        elif round_name == "v4r1":
             phase_focus = V4R1_PHASE_FOCUS
         elif round_name == "v3r1":
             phase_focus = V3R1_PHASE_FOCUS
@@ -296,7 +315,11 @@ class IARICPullbackPlugin:
                 f"IARICPullbackPlugin supports between 1 and {max(phase_focus)} phases, got {num_phases}."
             )
         profile_key = str(profile or "mainline").lower()
-        if round_name == "v4r1":
+        if round_name == "v5r2":
+            hard_rejects_map = V5R2_PHASE_HARD_REJECTS_BY_PROFILE
+        elif round_name == "v5r1":
+            hard_rejects_map = V5R1_PHASE_HARD_REJECTS_BY_PROFILE
+        elif round_name == "v4r1":
             hard_rejects_map = V4R1_PHASE_HARD_REJECTS_BY_PROFILE
         elif round_name == "v3r1":
             hard_rejects_map = V3R1_PHASE_HARD_REJECTS_BY_PROFILE
@@ -331,7 +354,17 @@ class IARICPullbackPlugin:
         self._cache_source_fingerprint: str = ""
         self._config_cache: dict[tuple, dict[str, Any]] = {}
 
-        if round_name == "v4r1":
+        if round_name == "v5r2":
+            self.initial_mutations = V5R2_BASE_MUTATIONS
+            self.ultimate_targets = dict(V5R2_ULTIMATE_TARGETS)
+            self._phase_hard_rejects = hard_rejects_map[self.profile]
+            self._phase_scoring_weights = get_v5r2_phase_scoring_weights(self.profile)
+        elif round_name == "v5r1":
+            self.initial_mutations = V5R1_BASE_MUTATIONS
+            self.ultimate_targets = dict(V5R1_ULTIMATE_TARGETS)
+            self._phase_hard_rejects = hard_rejects_map[self.profile]
+            self._phase_scoring_weights = get_v5r1_phase_scoring_weights(self.profile)
+        elif round_name == "v4r1":
             self.initial_mutations = V4R1_BASE_MUTATIONS
             self.ultimate_targets = dict(V4R1_ULTIMATE_TARGETS)
             self._phase_hard_rejects = hard_rejects_map[self.profile]
@@ -424,7 +457,11 @@ class IARICPullbackPlugin:
         return self._baseline_metrics()
 
     def get_phase_spec(self, phase: int, state: PhaseState) -> PhaseSpec:
-        if self._round_name == "v4r1":
+        if self._round_name == "v5r2":
+            phase_focus = V5R2_PHASE_FOCUS
+        elif self._round_name == "v5r1":
+            phase_focus = V5R1_PHASE_FOCUS
+        elif self._round_name == "v4r1":
             phase_focus = V4R1_PHASE_FOCUS
         elif self._round_name == "v3r1":
             phase_focus = V3R1_PHASE_FOCUS
@@ -444,7 +481,17 @@ class IARICPullbackPlugin:
         prior = state.phase_results.get(phase - 1, {}) if phase > 1 else {}
         suggested = deserialize_experiments(prior.get("suggested_experiments", []))
         suggested_tuples = [(experiment.name, experiment.mutations) for experiment in suggested] or None
-        if self._round_name == "v4r1":
+        if self._round_name == "v5r2":
+            candidate_tuples = get_v5r2_phase_candidates(
+                phase, profile=self.profile, suggested_experiments=suggested_tuples,
+                accepted_mutations=dict(state.cumulative_mutations) if phase > 1 else None,
+            )
+        elif self._round_name == "v5r1":
+            candidate_tuples = get_v5r1_phase_candidates(
+                phase, profile=self.profile, suggested_experiments=suggested_tuples,
+                accepted_mutations=dict(state.cumulative_mutations) if phase > 1 else None,
+            )
+        elif self._round_name == "v4r1":
             candidate_tuples = get_v4r1_phase_candidates(
                 phase, profile=self.profile, suggested_experiments=suggested_tuples,
                 accepted_mutations=dict(state.cumulative_mutations) if phase > 1 else None,
@@ -536,7 +583,7 @@ class IARICPullbackPlugin:
             evaluator = local_factory()
         else:
             evaluator = ResilientBatchEvaluator(
-                preferred_factory=lambda: _PoolBatchEvaluator(
+                preferred_factory=lambda: _build_parallel_evaluator(
                     self.data_dir,
                     self.start_date,
                     self.end_date,
@@ -565,7 +612,11 @@ class IARICPullbackPlugin:
         return self._run_config(mutations, store_context=True)["metrics"]
 
     def run_phase_diagnostics(self, phase: int, state: PhaseState, metrics: dict[str, float], greedy_result) -> str:
-        if self._round_name == "v4r1":
+        if self._round_name == "v5r2":
+            phase_focus = V5R2_PHASE_FOCUS
+        elif self._round_name == "v5r1":
+            phase_focus = V5R1_PHASE_FOCUS
+        elif self._round_name == "v4r1":
             phase_focus = V4R1_PHASE_FOCUS
         elif self._round_name == "v3r1":
             phase_focus = V3R1_PHASE_FOCUS
@@ -645,6 +696,40 @@ class IARICPullbackPlugin:
         final_greedy = greedy_result_from_state(state, phase=self.num_phases, final_metrics=final_metrics)
         final_diagnostics_text = self.run_enhanced_diagnostics(self.num_phases, state, final_metrics, final_greedy)
 
+        def _target_check_line() -> str:
+            targets = self.ultimate_targets
+            checks: list[str] = []
+
+            def add_min(label: str, metric_key: str, fmt: str, target_key: str | None = None) -> None:
+                target_name = target_key or metric_key
+                if target_name not in targets or metric_key not in final_metrics:
+                    return
+                actual = final_metrics[metric_key]
+                checks.append(f"{label} {fmt.format(actual)} ({_pass(actual >= targets[target_name])})")
+
+            def add_max(label: str, metric_key: str, fmt: str, target_key: str | None = None) -> None:
+                target_name = target_key or metric_key
+                if target_name not in targets or metric_key not in final_metrics:
+                    return
+                actual = final_metrics[metric_key]
+                checks.append(f"{label} {fmt.format(actual)} ({_pass(actual <= targets[target_name])})")
+
+            add_min("net", "net_profit", "${:,.0f}")
+            add_min("avg_r", "avg_r", "{:+.3f}")
+            add_min("expected_R", "expected_total_r", "{:.2f}")
+            add_min("PF", "profit_factor", "{:.2f}")
+            add_min("sharpe", "sharpe", "{:.2f}")
+            add_max("DD", "max_drawdown_pct", "{:.1%}")
+            add_min("managed exits", "managed_exit_share", "{:.1%}")
+            if "eod_flatten_inverse" in targets and "eod_flatten_share" in final_metrics:
+                actual_inverse = 1.0 - final_metrics["eod_flatten_share"]
+                checks.append(
+                    f"EOD flatten {final_metrics['eod_flatten_share']:.1%} "
+                    f"({_pass(actual_inverse >= targets['eod_flatten_inverse'])})"
+                )
+            add_min("trades", "total_trades", "{:.0f}")
+            return "Final target check: " + ", ".join(checks) + "."
+
         dimension_reports = {
             "signal_extraction": "\n".join([
                 f"Rebased baseline reproduced at {int(base_metrics['total_trades'])} trades, avg_r {base_metrics['avg_r']:+.3f}, PF {base_metrics['profit_factor']:.2f}; final bundle is {int(final_metrics['total_trades'])} trades, avg_r {final_metrics['avg_r']:+.3f}, PF {final_metrics['profit_factor']:.2f}.",
@@ -703,7 +788,7 @@ class IARICPullbackPlugin:
             "exit_mechanism": "\n".join([
                 f"EOD flatten share {base_metrics['eod_flatten_share']:.1%} -> {final_metrics['eod_flatten_share']:.1%}; positive EOD share {base_metrics['positive_eod_share']:.1%} -> {final_metrics['positive_eod_share']:.1%}.",
                 f"Economic exit frontier best variant: baseline {_best_variant(base_snap['exit_frontier'])}; final {_best_variant(final_snap['exit_frontier'])}.",
-                f"Final target check: avg_r {final_metrics['avg_r']:+.3f} ({_pass(final_metrics['avg_r'] >= self.ultimate_targets['avg_r'])}), PF {final_metrics['profit_factor']:.2f} ({_pass(final_metrics['profit_factor'] >= self.ultimate_targets['profit_factor'])}), sharpe {final_metrics['sharpe']:.2f} ({_pass(final_metrics['sharpe'] >= self.ultimate_targets['sharpe'])}), DD {final_metrics['max_drawdown_pct']:.1%} ({_pass(final_metrics['max_drawdown_pct'] <= self.ultimate_targets['max_drawdown_pct'])}), managed exits {final_metrics['managed_exit_share']:.1%} ({_pass(final_metrics['managed_exit_share'] >= self.ultimate_targets['managed_exit_share'])}), EOD flatten {final_metrics['eod_flatten_share']:.1%} ({_pass(1.0 - final_metrics['eod_flatten_share'] >= self.ultimate_targets['eod_flatten_inverse'])}), trades {int(final_metrics['total_trades'])} ({_pass(final_metrics['total_trades'] >= self.ultimate_targets['total_trades'])}).",
+                _target_check_line(),
             ]),
         }
         extra_sections = {
@@ -768,7 +853,11 @@ class IARICPullbackPlugin:
 
     def suggest_experiments(self, phase: int, metrics: dict[str, float], weaknesses: list[str], state: PhaseState) -> list[Experiment]:
         del state
-        if self._round_name == "v4r1":
+        if self._round_name == "v5r2":
+            lookup = get_v5r2_phase_candidate_lookup(phase, profile=self.profile)
+        elif self._round_name == "v5r1":
+            lookup = get_v5r1_phase_candidate_lookup(phase, profile=self.profile)
+        elif self._round_name == "v4r1":
             lookup = get_v4r1_phase_candidate_lookup(phase, profile=self.profile)
         elif self._round_name == "v3r1":
             lookup = get_v3r1_phase_candidate_lookup(phase, profile=self.profile)
@@ -860,6 +949,11 @@ class IARICPullbackPlugin:
         ]
 
     def _gate_criteria(self, phase: int, metrics: dict[str, float], state: PhaseState) -> list[GateCriterion]:
+        if self._round_name == "v5r2":
+            return self._v5r2_gate_criteria(phase, metrics, state)
+        if self._round_name == "v5r1":
+            return self._v5r1_gate_criteria(phase, metrics, state)
+
         hard = self._phase_hard_rejects.get(phase, {})
         criteria = [
             GateCriterion("hard_total_trades", float(hard["min_trades"]), float(metrics["total_trades"]), float(metrics["total_trades"]) >= float(hard["min_trades"])),
@@ -918,6 +1012,103 @@ class IARICPullbackPlugin:
                     _max_gate("drawdown_pct", 0.07, metrics["max_drawdown_pct"]),
                 ]
             )
+        return criteria
+
+    def _v5r1_gate_criteria(self, phase: int, metrics: dict[str, float], state: PhaseState) -> list[GateCriterion]:
+        hard = self._phase_hard_rejects.get(phase, {})
+        expected_total_r = float(metrics.get("expected_total_r", 0.0))
+        if expected_total_r == 0.0:
+            expected_total_r = float(metrics.get("avg_r", 0.0)) * float(metrics.get("total_trades", 0.0))
+
+        criteria = [
+            GateCriterion(
+                "hard_total_trades",
+                float(hard.get("min_trades", 0.0)),
+                float(metrics.get("total_trades", 0.0)),
+                float(metrics.get("total_trades", 0.0)) >= float(hard.get("min_trades", 0.0)),
+            ),
+            GateCriterion(
+                "hard_profit_factor",
+                float(hard.get("min_pf", 0.0)),
+                float(metrics.get("profit_factor", 0.0)),
+                float(metrics.get("profit_factor", 0.0)) >= float(hard.get("min_pf", 0.0)),
+            ),
+            GateCriterion(
+                "hard_max_drawdown_pct",
+                float(hard.get("max_dd_pct", 1.0)),
+                float(metrics.get("max_drawdown_pct", 0.0)),
+                float(metrics.get("max_drawdown_pct", 0.0)) <= float(hard.get("max_dd_pct", 1.0)),
+            ),
+            _min_gate("hard_avg_r", float(hard.get("min_avg_r", 0.0)), float(metrics.get("avg_r", 0.0))),
+            _min_gate("hard_expected_total_r", float(hard.get("min_expected_total_r", 0.0)), expected_total_r),
+            _min_gate("hard_sharpe", float(hard.get("min_sharpe", 0.0)), float(metrics.get("sharpe", 0.0))),
+        ]
+
+        ref = enrich_phase_score_metrics(self._reference_metrics(phase, state))
+        ref_expected_total_r = float(ref.get("expected_total_r", 0.0))
+        ref_avg_r = float(ref.get("avg_r", 0.0))
+
+        if phase in {1, 2, 3, 4}:
+            avg_r_floor_mult = 0.88 if expected_total_r >= ref_expected_total_r * 1.05 else 0.90
+            criteria.append(
+                _min_gate(
+                    "expected_total_r_reference_floor",
+                    max(float(hard.get("min_expected_total_r", 0.0)), ref_expected_total_r * 0.98),
+                    expected_total_r,
+                )
+            )
+            criteria.append(
+                _min_gate(
+                    "avg_r_reference_floor",
+                    max(float(hard.get("min_avg_r", 0.0)), ref_avg_r * avg_r_floor_mult),
+                    float(metrics.get("avg_r", 0.0)),
+                )
+            )
+        elif phase == 5:
+            criteria.append(
+                _min_gate(
+                    "expected_total_r_no_regression",
+                    max(float(hard.get("min_expected_total_r", 0.0)), ref_expected_total_r),
+                    expected_total_r,
+                )
+            )
+            criteria.append(
+                _min_gate(
+                    "avg_r_reference_floor",
+                    max(float(hard.get("min_avg_r", 0.0)), ref_avg_r * 0.92),
+                    float(metrics.get("avg_r", 0.0)),
+                )
+            )
+        return criteria
+
+    def _v5r2_gate_criteria(self, phase: int, metrics: dict[str, float], state: PhaseState) -> list[GateCriterion]:
+        hard = self._phase_hard_rejects.get(phase, {})
+        expected_total_r = float(metrics.get("expected_total_r", 0.0))
+        if expected_total_r == 0.0:
+            expected_total_r = float(metrics.get("avg_r", 0.0)) * float(metrics.get("total_trades", 0.0))
+
+        criteria = [
+            _min_gate("hard_total_trades", float(hard.get("min_trades", 0.0)), float(metrics.get("total_trades", 0.0))),
+            _min_gate("hard_net_profit", float(hard.get("min_net_profit", 0.0)), float(metrics.get("net_profit", 0.0))),
+            _min_gate("hard_profit_factor", float(hard.get("min_pf", 0.0)), float(metrics.get("profit_factor", 0.0))),
+            _max_gate("hard_max_drawdown_pct", float(hard.get("max_dd_pct", 1.0)), float(metrics.get("max_drawdown_pct", 0.0))),
+            _min_gate("hard_avg_r", float(hard.get("min_avg_r", 0.0)), float(metrics.get("avg_r", 0.0))),
+            _min_gate("hard_expected_total_r", float(hard.get("min_expected_total_r", 0.0)), expected_total_r),
+            _min_gate("hard_sharpe", float(hard.get("min_sharpe", 0.0)), float(metrics.get("sharpe", 0.0))),
+        ]
+
+        ref = enrich_phase_score_metrics(self._reference_metrics(phase, state))
+        ref_expected_total_r = float(ref.get("expected_total_r", 0.0))
+        ref_net_profit = float(ref.get("net_profit", 0.0))
+        ref_profit_factor = float(ref.get("profit_factor", 0.0))
+
+        criteria.extend(
+            [
+                _min_gate("net_profit_reference_floor", max(float(hard.get("min_net_profit", 0.0)), ref_net_profit * 0.99), float(metrics.get("net_profit", 0.0))),
+                _min_gate("expected_total_r_reference_floor", max(float(hard.get("min_expected_total_r", 0.0)), ref_expected_total_r * 0.985), expected_total_r),
+                _min_gate("profit_factor_reference_floor", max(float(hard.get("min_pf", 0.0)), ref_profit_factor * 0.995), float(metrics.get("profit_factor", 0.0))),
+            ]
+        )
         return criteria
 
     def _ensure_replay(self):
@@ -1052,9 +1243,15 @@ class IARICPullbackPlugin:
             score_v2r4_pullback_phase,
             score_v3r1_pullback_phase,
             score_v4r1_pullback_phase,
+            score_v5r1_pullback_phase,
+            score_v5r2_pullback_phase,
         )
 
-        if self._round_name == "v4r1":
+        if self._round_name == "v5r2":
+            score_fn = score_v5r2_pullback_phase
+        elif self._round_name == "v5r1":
+            score_fn = score_v5r1_pullback_phase
+        elif self._round_name == "v4r1":
             score_fn = score_v4r1_pullback_phase
         elif self._round_name == "v3r1":
             score_fn = score_v3r1_pullback_phase
@@ -1083,6 +1280,7 @@ class IARICPullbackPlugin:
         sharpe = float(metrics.get("sharpe", 0.0))
         expectancy = float(metrics.get("expectancy", 0.0))
         avg_r = float(metrics.get("avg_r", 0.0))
+        net_profit = float(metrics.get("net_profit", 0.0))
 
         min_trades = int(rejects.get("min_trades", 0))
         if total_trades < min_trades:
@@ -1095,6 +1293,10 @@ class IARICPullbackPlugin:
         min_pf = rejects.get("min_pf")
         if min_pf is not None and profit_factor < float(min_pf):
             return f"phase{phase}_low_pf ({profit_factor:.2f} < {float(min_pf):.2f})"
+
+        min_net_profit = rejects.get("min_net_profit")
+        if min_net_profit is not None and net_profit < float(min_net_profit):
+            return f"phase{phase}_low_net_profit ({net_profit:.2f} < {float(min_net_profit):.2f})"
 
         min_sharpe = rejects.get("min_sharpe")
         if min_sharpe is not None and sharpe < float(min_sharpe):
@@ -1180,7 +1382,11 @@ def _build_phase_snapshot(phase: int, focus: str, metrics: dict[str, float], gre
 
 def _resolve_kept_sequence(state: PhaseState, *, profile: str = "mainline", round_name: str = "r4") -> list[Experiment]:
     sequence: list[Experiment] = []
-    if round_name == "v4r1":
+    if round_name == "v5r2":
+        lookup_fn = get_v5r2_phase_candidate_lookup
+    elif round_name == "v5r1":
+        lookup_fn = get_v5r1_phase_candidate_lookup
+    elif round_name == "v4r1":
         lookup_fn = get_v4r1_phase_candidate_lookup
     elif round_name == "v3r1":
         lookup_fn = get_v3r1_phase_candidate_lookup

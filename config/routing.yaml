@@ -28,6 +28,11 @@ NQ:
   exchange: CME
   trading_class: NQ
 
+ES:
+  root_symbol: ES
+  exchange: CME
+  trading_class: ES
+
 CL:
   root_symbol: CL
   exchange: NYMEX

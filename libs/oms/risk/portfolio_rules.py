@@ -16,8 +16,8 @@ Used by momentum family (rules 1-5) and stock family (rules 3, 3b, 4).
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from datetime import datetime, date, timezone, timedelta
+from dataclasses import dataclass
+from datetime import datetime, timezone, timedelta
 from typing import Optional, Callable, Awaitable
 from zoneinfo import ZoneInfo
 
@@ -147,6 +147,7 @@ class PortfolioRuleChecker:
         get_directional_risk_dollars_for_strategies: Optional[
             Callable[[str, list[str]], Awaitable[float]]
         ] = None,
+        now_provider: Optional[Callable[[], datetime]] = None,
     ):
         self._cfg = config
         self._get_signal = get_strategy_signal
@@ -154,6 +155,7 @@ class PortfolioRuleChecker:
         self._on_rule_event = on_rule_event
         self._get_sibling = get_sibling_positions_for_symbol
         self._get_family_mnq_eq = get_family_aggregate_mnq_eq
+        self._now_provider = now_provider
 
         # Family-scoped directional risk: wrap callback if strategy IDs provided
         family_ids = config.family_strategy_ids
@@ -170,6 +172,12 @@ class PortfolioRuleChecker:
             self._get_dir_risk_dollars = lambda d: get_directional_risk_dollars_for_strategies(d, ids_list)
         else:
             self._get_dir_risk_dollars = None
+
+    def _now(self) -> datetime:
+        now = self._now_provider() if self._now_provider is not None else datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            return now.replace(tzinfo=timezone.utc)
+        return now
 
     def update_config(self, new_cfg: PortfolioRulesConfig) -> None:
         """Atomically replace config for regime updates. GIL-safe for single attr assign."""
@@ -319,7 +327,7 @@ class PortfolioRuleChecker:
 
         # Session-only mode: skip cooldown outside 09:45-11:30 ET overlap
         if self._cfg.cooldown_session_only:
-            now_et = datetime.now(ZoneInfo("America/New_York"))
+            now_et = self._now().astimezone(ZoneInfo("America/New_York"))
             hour_min = now_et.hour * 60 + now_et.minute
             if not (9 * 60 + 45 <= hour_min <= 11 * 60 + 30):
                 return None
@@ -328,8 +336,11 @@ class PortfolioRuleChecker:
         if other_signal is None or other_signal["last_entry_ts"] is None:
             return None
 
-        now = datetime.now(timezone.utc)
-        elapsed = now - other_signal["last_entry_ts"]
+        now = self._now().astimezone(timezone.utc)
+        last_entry = other_signal["last_entry_ts"]
+        if last_entry.tzinfo is None:
+            last_entry = last_entry.replace(tzinfo=timezone.utc)
+        elapsed = now - last_entry
         cooldown = timedelta(minutes=cooldown_min)
 
         if elapsed < cooldown:
@@ -353,7 +364,7 @@ class PortfolioRuleChecker:
             return 1.0  # No NQDTC trade today — no filter
 
         # Only apply if NQDTC traded today
-        today = datetime.now(ZoneInfo("America/New_York")).date()
+        today = self._now().astimezone(ZoneInfo("America/New_York")).date()
         if nqdtc_signal["signal_date"] != today:
             return 1.0
 

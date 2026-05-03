@@ -51,29 +51,6 @@ def init_worker(
     )
 
 
-def init_worker_data_only(
-    data_dir_str: str,
-    start_date: str,
-    end_date: str,
-    equity: float,
-) -> None:
-    """Lightweight initializer that only loads market data.
-
-    Phase, hard_rejects, and scoring_weights are broadcast once per
-    phase via ``set_phase_config``, allowing pool reuse across phases.
-    """
-    init_worker(data_dir_str, start_date, end_date, equity)
-
-
-def set_phase_config(args: tuple) -> None:
-    """Broadcast per-phase config to worker globals."""
-    global _worker_phase, _worker_hard_rejects, _worker_scoring_weights
-    phase, hard_rejects, scoring_weights = args
-    _worker_phase = phase
-    _worker_hard_rejects = hard_rejects or {}
-    _worker_scoring_weights = scoring_weights or {}
-
-
 def score_candidate(args: tuple) -> ScoredCandidate:
     """Score a single candidate configuration.
 
@@ -133,12 +110,6 @@ def score_candidate(args: tuple) -> ScoredCandidate:
         return ScoredCandidate(name=name, score=score, metrics=merged_metrics)
     except Exception:
         return ScoredCandidate(name=name, score=0.0, rejected=True, reject_reason=traceback.format_exc())
-
-
-def score_candidate_indexed(args: tuple) -> tuple[int, ScoredCandidate]:
-    """Wrapper for ``imap_unordered`` that preserves result ordering."""
-    idx, inner_args = args
-    return idx, score_candidate(inner_args)
 
 
 _EARLY_REJECT_CHECKS: tuple[tuple[str, str, bool], ...] = (
@@ -212,15 +183,26 @@ def phase_reject_reason(
         ("min_trades_per_month", "trades_per_month", False),
         ("min_pf", "profit_factor", False),
         ("min_entry_quality", "entry_quality", False),
+        ("min_signal_quality", "signal_quality", False),
+        ("min_timing_quality", "timing_quality", False),
+        ("min_extended_avwap_inverse", "extended_avwap_inverse", False),
+        ("min_bar9_inverse", "bar9_inverse", False),
+        ("min_late_entry_quality", "late_entry_quality", False),
+        ("min_score_monotonicity", "score_monotonicity", False),
         ("min_high_rvol_edge", "high_rvol_edge", False),
         ("min_profit_protection", "profit_protection", False),
         ("min_short_hold_drag_inverse", "short_hold_drag_inverse", False),
+        ("min_short_hold_24_drag_inverse", "short_hold_24_drag_inverse", False),
         ("min_flow_reversal_short_inverse", "flow_reversal_short_inverse", False),
+        ("min_flow_reversal_inverse", "flow_reversal_inverse", False),
+        ("min_mfe_conviction_inverse", "mfe_conviction_inverse", False),
+        ("min_flow_mfe_exit_inverse", "flow_mfe_exit_inverse", False),
         ("min_early_1000_drag_inverse", "early_1000_drag_inverse", False),
         ("min_long_hold_capture", "long_hold_capture", False),
         ("min_carry_capture", "carry_capture", False),
         ("min_inv_dd", "inv_dd", False),
         ("min_mfe_capture_efficiency", "mfe_capture_efficiency", False),
+        ("min_sizing_alignment", "sizing_alignment", False),
     )
     for reject_key, metric_key, strict_positive in min_checks:
         threshold = rejects.get(reject_key)

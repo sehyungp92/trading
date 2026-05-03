@@ -31,6 +31,20 @@ def _parse_symbols(value: str) -> list[str]:
     return [symbol.strip().upper() for symbol in value.split(",") if symbol.strip()]
 
 
+def _sanitize_breakout_baseline_mutations(mutations: dict[str, object]) -> dict[str, object]:
+    cleaned = dict(mutations)
+    try:
+        from strategies.swing.breakout.config import REGIME_CHOP_BLOCK
+    except Exception:
+        REGIME_CHOP_BLOCK = None
+    if cleaned.get("flags.disable_regime_chop_block") and REGIME_CHOP_BLOCK is False:
+        cleaned.pop("flags.disable_regime_chop_block", None)
+    legacy_fresh_stop = bool(cleaned.pop("param_overrides.ENTRY_C_FRESH_USE_STOP_LIMIT", False))
+    if legacy_fresh_stop and "param_overrides.ENTRY_C_FRESH_STOP_ENABLE" not in cleaned:
+        cleaned["param_overrides.ENTRY_C_FRESH_STOP_ENABLE"] = True
+    return cleaned
+
+
 def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseRunner:
     plugin = BreakoutPlugin(
         data_dir=Path(args.data_dir),
@@ -44,7 +58,9 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseR
         expected_phases=plugin.num_phases if for_write else None,
     )
     if round_num > 1:
-        plugin.initial_mutations = ROUND_MANAGER.get_previous_mutations(round_num)
+        plugin.initial_mutations = _sanitize_breakout_baseline_mutations(
+            ROUND_MANAGER.get_previous_mutations(round_num)
+        )
     return PhaseRunner(
         plugin=plugin,
         output_dir=round_dir,
@@ -67,6 +83,10 @@ def cmd_phase_run(args: argparse.Namespace) -> None:
 
 def cmd_phase_auto(args: argparse.Namespace) -> None:
     runner = _build_runner(args)
+    state = runner.load_state()
+    preflight = getattr(runner.plugin, "run_preflight_ablations", None)
+    if callable(preflight) and not state.completed_phases:
+        preflight(runner.output_dir, dict(state.cumulative_mutations))
     state = runner.run_all_phases()
     print("Breakout auto-optimization complete.")
     print(f"Completed phases: {state.completed_phases}")
@@ -119,7 +139,7 @@ def main() -> None:
 
     phase_run = sub.add_parser("phase-run", help="Run a single Breakout phase")
     add_common(phase_run)
-    phase_run.add_argument("--phase", type=int, required=True, choices=[1, 2, 3])
+    phase_run.add_argument("--phase", type=int, required=True, choices=[1, 2, 3, 4])
     phase_run.add_argument("--max-rounds", type=int, default=20)
     phase_run.add_argument("--max-workers", type=int, default=None)
     phase_run.add_argument("--min-delta", type=float, default=0.001)
@@ -133,10 +153,10 @@ def main() -> None:
 
     phase_gate = sub.add_parser("phase-gate", help="Check a completed Breakout phase gate")
     add_common(phase_gate)
-    phase_gate.add_argument("--phase", type=int, required=True, choices=[1, 2, 3])
+    phase_gate.add_argument("--phase", type=int, required=True, choices=[1, 2, 3, 4])
 
     phase_diag = sub.add_parser("phase-diagnostics", help="Print Breakout phase diagnostics")
-    phase_diag.add_argument("--phase", type=int, required=True, choices=[1, 2, 3])
+    phase_diag.add_argument("--phase", type=int, required=True, choices=[1, 2, 3, 4])
     phase_diag.add_argument("--round", type=int, default=None)
 
     args = parser.parse_args()

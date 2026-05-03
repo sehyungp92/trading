@@ -1,16 +1,17 @@
-"""NQDTC composite scoring -- 8 orthogonal components (post-audit recalibrated).
+"""NQDTC composite scoring -- 7 immutable components for NQDTC search.
 
 Components (BASE_WEIGHTS):
-  net_profit    (15%): log-scaled profitability (1.0 at 300% return)
-  pf            (20%): profit factor (1.0 at PF=2.5)
-  calmar        (10%): return/drawdown ratio (1.0 at calmar=8)
-  inv_dd        (15%): inverse max drawdown (1.0 at 0% DD)
-  frequency     (10%): trade count (1.0 at 150 trades)
-  capture       ( 5%): MFE capture ratio (winners exit_R / MFE)
-  sortino       (15%): sortino ratio (1.0 at sortino=4)
-  entry_quality (10%): WR * clipped avgR -- balanced signal quality
+  returns       (22%): raw + largest-winner-robust log-scaled net return
+  pf            (16%): profit factor quality, 1.0 at PF=2.0
+  expectancy    (12%): average R per trade, 1.0 at +0.50R
+  frequency     (16%): trade count throughput, 1.0 at 200 trades
+  risk          (14%): drawdown + Calmar blend
+  exit_capture  (12%): winner MFE capture + TP1 conversion blend
+  stability     ( 8%): Sharpe + Sortino blend
 
-Hard rejects (configurable per-phase): min_trades, max_dd_pct, min_pf.
+Hard rejects (configurable per-phase): min_trades, max_dd_pct, min_pf,
+min_avg_r, min_capture, min_net_return_pct, min_robust_net_return_pct,
+max_largest_win_pnl_share.
 """
 from __future__ import annotations
 
@@ -61,34 +62,36 @@ class NQDTCMetrics:
     avg_winner_r: float = 0.0        # average R for winners
     avg_loser_r: float = 0.0         # average R for losers
     avg_mfe_r: float = 0.0           # average MFE in R for all trades
+    robust_net_return_pct: float = 0.0       # net return excluding largest net winner
+    largest_win_return_pct: float = 0.0      # largest net winner as pct of initial equity
+    largest_win_pnl_share: float = 0.0       # largest net winner / total net profit
+    largest_winner_r: float = 0.0            # largest winning trade in R
 
 
 @dataclass(frozen=True)
 class NQDTCCompositeScore:
-    """Frozen 8-component composite score for NQDTC."""
+    """Frozen 7-component composite score for NQDTC."""
 
-    net_profit: float = 0.0
+    returns: float = 0.0
     pf: float = 0.0
-    calmar: float = 0.0
-    inv_dd: float = 0.0
+    expectancy: float = 0.0
     frequency: float = 0.0
-    capture: float = 0.0
-    sortino: float = 0.0
-    entry_quality: float = 0.0
+    risk: float = 0.0
+    exit_capture: float = 0.0
+    stability: float = 0.0
     total: float = 0.0
     rejected: bool = False
     reject_reason: str = ""
 
 
 BASE_WEIGHTS = {
-    "net_profit": 0.15,
-    "pf": 0.20,
-    "calmar": 0.10,
-    "inv_dd": 0.15,
-    "frequency": 0.10,
-    "capture": 0.05,
-    "sortino": 0.15,
-    "entry_quality": 0.10,
+    "returns": 0.22,
+    "pf": 0.16,
+    "expectancy": 0.12,
+    "frequency": 0.16,
+    "risk": 0.14,
+    "exit_capture": 0.12,
+    "stability": 0.08,
 }
 
 
@@ -101,13 +104,13 @@ def composite_score(
     weight_overrides: dict[str, float] | None = None,
     hard_rejects: dict[str, float] | None = None,
 ) -> NQDTCCompositeScore:
-    """Compute 8-component composite score for NQDTC."""
+    """Compute the immutable 7-component composite score for NQDTC."""
     w = dict(BASE_WEIGHTS)
     if weight_overrides:
         w.update(weight_overrides)
 
     # Configurable hard rejects
-    hr = hard_rejects or {"min_trades": 15, "max_dd_pct": 0.35, "min_pf": 0.80}
+    hr = hard_rejects or {"min_trades": 80, "max_dd_pct": 0.35, "min_pf": 1.00}
     if metrics.total_trades < hr.get("min_trades", 15):
         return NQDTCCompositeScore(
             rejected=True, reject_reason=f"too_few_trades ({metrics.total_trades})",
@@ -120,55 +123,77 @@ def composite_score(
         return NQDTCCompositeScore(
             rejected=True, reject_reason=f"low_pf ({metrics.profit_factor:.2f})",
         )
+    if metrics.avg_r < hr.get("min_avg_r", -999.0):
+        return NQDTCCompositeScore(
+            rejected=True, reject_reason=f"low_avg_r ({metrics.avg_r:.3f})",
+        )
+    if metrics.capture_ratio < hr.get("min_capture", -999.0):
+        return NQDTCCompositeScore(
+            rejected=True, reject_reason=f"low_capture ({metrics.capture_ratio:.3f})",
+        )
+    if metrics.net_return_pct < hr.get("min_net_return_pct", -999.0):
+        return NQDTCCompositeScore(
+            rejected=True, reject_reason=f"low_return ({metrics.net_return_pct:.1f}%)",
+        )
+    if metrics.robust_net_return_pct < hr.get("min_robust_net_return_pct", -999.0):
+        return NQDTCCompositeScore(
+            rejected=True, reject_reason=f"low_robust_return ({metrics.robust_net_return_pct:.1f}%)",
+        )
+    if metrics.largest_win_pnl_share > hr.get("max_largest_win_pnl_share", 999.0):
+        return NQDTCCompositeScore(
+            rejected=True, reject_reason=f"outlier_concentration ({metrics.largest_win_pnl_share:.1%})",
+        )
 
-    # --- Components (post-audit recalibrated scales) ---
+    # --- Components (round-2 calibrated scales) ---
 
-    # Net profit: log scale, 1.0 at 300% return (log(4)/log(4))
-    net_profit_c = _clip01(math.log(1 + max(metrics.net_return_pct, 0) / 100) / math.log(4))
+    # Returns: blend raw return with largest-winner-robust return so a single
+    # outsized trade cannot dominate the expected-return objective.
+    raw_return_c = _clip01(math.log(1 + max(metrics.net_return_pct, 0) / 100) / math.log(3.5))
+    robust_return_c = _clip01(math.log(1 + max(metrics.robust_net_return_pct, 0) / 100) / math.log(3.5))
+    returns_c = (0.60 * raw_return_c) + (0.40 * robust_return_c)
 
-    # Profit factor: (PF-1)/1.5, 1.0 at PF=2.5
-    pf_c = _clip01((metrics.profit_factor - 1) / 1.5)
+    # Profit factor: 0 at PF=1.20, 1.0 at PF=2.0.
+    pf_c = _clip01((metrics.profit_factor - 1.20) / 0.80)
 
-    # Calmar: calmar/8, 1.0 at calmar=8
-    calmar_c = _clip01(metrics.calmar / 8.0)
+    # Expectancy: 0 at +0.10R, 1.0 at +0.50R.
+    expectancy_c = _clip01((metrics.avg_r - 0.10) / 0.40)
 
-    # Inverse drawdown: 1 - DD/0.30, 1.0 at 0% DD
-    inv_dd_c = _clip01(1 - metrics.max_dd_pct / 0.30)
+    # Frequency: reward useful throughput without giving low-quality churn a pass.
+    frequency_c = _clip01((metrics.total_trades - 90.0) / 110.0)
 
-    # Frequency: trades/150, 1.0 at 150 trades
-    frequency_c = _clip01(metrics.total_trades / 150.0)
+    # Risk: combine drawdown containment and return-per-drawdown efficiency.
+    dd_c = _clip01(1 - metrics.max_dd_pct / 0.25)
+    calmar_c = _clip01(metrics.calmar / 10.0)
+    risk_c = (0.50 * dd_c) + (0.50 * calmar_c)
 
-    # Capture: mean(winner_R / winner_MFE), direct 0-1 ratio
-    capture_c = _clip01(metrics.capture_ratio)
+    # Exit capture: the structural weakness is leaving winner MFE on the table.
+    capture_c = _clip01((metrics.capture_ratio - 0.30) / 0.30)
+    tp1_c = _clip01(metrics.tp1_hit_rate / 0.65)
+    exit_capture_c = (0.70 * capture_c) + (0.30 * tp1_c)
 
-    # Sortino: sortino/4, 1.0 at sortino=4
-    sortino_c = _clip01(metrics.sortino / 4.0)
-
-    # Entry quality: WR * min(1+avgR, 2) / 2
-    entry_quality_c = _clip01(
-        metrics.win_rate * min(1 + max(metrics.avg_r, 0), 2.0) / 2.0
-    )
+    # Stability: keep a smaller reward for path quality after hard risk gates.
+    sharpe_c = _clip01(metrics.sharpe / 2.0)
+    sortino_c = _clip01(metrics.sortino / 6.0)
+    stability_c = (0.50 * sharpe_c) + (0.50 * sortino_c)
 
     total = (
-        w["net_profit"] * net_profit_c
+        w["returns"] * returns_c
         + w["pf"] * pf_c
-        + w["calmar"] * calmar_c
-        + w["inv_dd"] * inv_dd_c
+        + w["expectancy"] * expectancy_c
         + w["frequency"] * frequency_c
-        + w["capture"] * capture_c
-        + w["sortino"] * sortino_c
-        + w["entry_quality"] * entry_quality_c
+        + w["risk"] * risk_c
+        + w["exit_capture"] * exit_capture_c
+        + w["stability"] * stability_c
     )
 
     return NQDTCCompositeScore(
-        net_profit=net_profit_c,
+        returns=returns_c,
         pf=pf_c,
-        calmar=calmar_c,
-        inv_dd=inv_dd_c,
+        expectancy=expectancy_c,
         frequency=frequency_c,
-        capture=capture_c,
-        sortino=sortino_c,
-        entry_quality=entry_quality_c,
+        risk=risk_c,
+        exit_capture=exit_capture_c,
+        stability=stability_c,
         total=total,
     )
 
@@ -198,6 +223,7 @@ def extract_nqdtc_metrics(
     avg_winner_r = sum(t.r_multiple for t in winners) / win_count if win_count else 0.0
     avg_loser_r = sum(t.r_multiple for t in losers) / len(losers) if losers else 0.0
     avg_mfe_r = sum(t.mfe_r for t in trades) / total if total > 0 else 0.0
+    largest_winner_r = max((t.r_multiple for t in winners), default=0.0)
 
     # Equity curve stats
     eq = equity_curve if len(equity_curve) > 0 else [initial_equity]
@@ -212,6 +238,15 @@ def extract_nqdtc_metrics(
 
     final_eq = eq[-1] if len(eq) > 0 else initial_equity
     net_return_pct = ((final_eq - initial_equity) / initial_equity) * 100.0
+    net_profit_dollars = final_eq - initial_equity
+    largest_win_pnl = max((pnl for pnl in net_pnls if pnl > 0), default=0.0)
+    largest_win_return_pct = (largest_win_pnl / initial_equity) * 100.0 if initial_equity > 0 else 0.0
+    robust_net_return_pct = net_return_pct - largest_win_return_pct
+    largest_win_pnl_share = (
+        largest_win_pnl / net_profit_dollars
+        if net_profit_dollars > 0 and largest_win_pnl > 0
+        else 0.0
+    )
 
     calmar = (net_return_pct / 100.0) / max_dd if max_dd > 0 else 99.0
 
@@ -294,4 +329,8 @@ def extract_nqdtc_metrics(
         avg_winner_r=avg_winner_r,
         avg_loser_r=avg_loser_r,
         avg_mfe_r=avg_mfe_r,
+        robust_net_return_pct=robust_net_return_pct,
+        largest_win_return_pct=largest_win_return_pct,
+        largest_win_pnl_share=largest_win_pnl_share,
+        largest_winner_r=largest_winner_r,
     )

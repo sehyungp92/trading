@@ -194,6 +194,8 @@ class ATRSSEngine:
         self._last_decision_code: str = "IDLE"
         self._last_decision_details: dict = {}
         self._last_bar_ts: datetime | None = None
+        self._cycles_completed: int = 0
+        self._symbol_last_bar_ts: dict[str, datetime] = {}
 
     def _record_decision(self, code: str, details: dict | None = None) -> None:
         self._last_decision_code = code
@@ -206,6 +208,14 @@ class ATRSSEngine:
             "last_decision_code": self._last_decision_code,
             "last_decision_details": self._last_decision_details,
             "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
+        }
+
+    def liveness_payload(self) -> dict:
+        return {
+            "bars_processed": self._cycles_completed,
+            "symbol_freshness": {
+                sym: ts.isoformat() for sym, ts in self._symbol_last_bar_ts.items()
+            },
         }
 
     def snapshot_state(self) -> dict[str, Any]:
@@ -364,6 +374,7 @@ class ATRSSEngine:
         now = datetime.now(timezone.utc)
         logger.info("=== Hourly cycle %s ===", now.isoformat())
         self._last_bar_ts = datetime.now(timezone.utc)
+        self._cycles_completed += 1
 
         # Refresh equity from broker before allocation
         await self._refresh_equity()
@@ -431,6 +442,7 @@ class ATRSSEngine:
 
     async def _cycle_symbol(self, sym: str, now: datetime) -> None:
         """Per-symbol steps 1-7 of the hourly cycle."""
+        self._symbol_last_bar_ts[sym] = datetime.now(timezone.utc)
         cfg = self._config[sym]
 
         # 1 – Fetch latest bars

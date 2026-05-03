@@ -84,7 +84,6 @@ def _load_nqdtc_data(symbol: str, data_dir: Path) -> dict:
     )
 
     five_min_path = data_dir / f"{symbol}_5m.parquet"
-    daily_path = data_dir / f"{symbol}_1d.parquet"
     es_daily_path = data_dir / "ES_1d.parquet"
 
     if not five_min_path.exists():
@@ -100,11 +99,7 @@ def _load_nqdtc_data(symbol: str, data_dir: Path) -> dict:
     hourly_df = resample_5m_to_1h(m_df)
     four_hour_df = resample_5m_to_4h(m_df)
 
-    # Daily: prefer pre-downloaded daily bars (more history), fallback to resampled
-    if daily_path.exists():
-        daily_df = normalize_timezone(load_bars(daily_path))
-    else:
-        daily_df = resample_5m_to_daily(m_df)
+    daily_df = resample_5m_to_daily(m_df)
 
     five_min_bars = build_numpy_arrays(m_df)
     thirty_min = build_numpy_arrays(thirty_min_df)
@@ -166,7 +161,6 @@ def _load_downturn_data(symbol: str, data_dir: Path) -> dict:
     )
 
     five_min_path = data_dir / f"{symbol}_5m.parquet"
-    daily_path = data_dir / f"{symbol}_1d.parquet"
     es_daily_path = data_dir / "ES_1d.parquet"
 
     if not five_min_path.exists():
@@ -183,10 +177,7 @@ def _load_downturn_data(symbol: str, data_dir: Path) -> dict:
     h_df = resample_5m_to_1h(m_df)
     fh_df = resample_5m_to_4h(m_df)
 
-    if daily_path.exists():
-        d_df = normalize_timezone(load_bars(daily_path))
-    else:
-        d_df = resample_5m_to_daily(m_df)
+    d_df = resample_5m_to_daily(m_df)
 
     five_min = build_numpy_arrays(m_df)
     m15 = build_numpy_arrays(m15_df)
@@ -238,12 +229,13 @@ def _load_vdubus_data(symbol: str, data_dir: Path, include_5m: bool = False) -> 
         resample_5m_to_15m,
     )
 
-    fifteen_min_path = data_dir / f"{symbol}_15m.parquet"
     es_daily_path = data_dir / "ES_1d.parquet"
+    five_min_path = data_dir / f"{symbol}_5m.parquet"
+    fifteen_min_path = data_dir / f"{symbol}_15m.parquet"
 
-    if not fifteen_min_path.exists():
+    if not five_min_path.exists() and not fifteen_min_path.exists():
         raise FileNotFoundError(
-            f"Missing 15m data: {fifteen_min_path}. "
+            f"Missing 5m/15m data: {five_min_path} or {fifteen_min_path}. "
             f"Run 'download --strategy vdubus' first."
         )
     if not es_daily_path.exists():
@@ -252,7 +244,14 @@ def _load_vdubus_data(symbol: str, data_dir: Path, include_5m: bool = False) -> 
             f"Run 'download --strategy vdubus' first."
         )
 
-    m_df = normalize_timezone(load_bars(fifteen_min_path))
+    if five_min_path.exists():
+        five_min_source_df = normalize_timezone(load_bars(five_min_path))
+        m_df = resample_5m_to_15m(five_min_source_df)
+        source_label = "5m-derived"
+    else:
+        five_min_source_df = None
+        m_df = normalize_timezone(load_bars(fifteen_min_path))
+        source_label = "15m"
     m_df = filter_vdubus_session(m_df)
 
     hourly_df = resample_15m_to_1h(m_df)
@@ -266,8 +265,8 @@ def _load_vdubus_data(symbol: str, data_dir: Path, include_5m: bool = False) -> 
     daily_es_idx_map = align_daily_to_15m(m_df, es_daily_df)
 
     logger.info(
-        "Loaded %s: %d 15m bars, %d 1H, %d ES daily",
-        symbol, len(m_df), len(hourly_df), len(es_daily_df),
+        "Loaded %s: %d %s 15m bars, %d 1H, %d ES daily",
+        symbol, len(m_df), source_label, len(hourly_df), len(es_daily_df),
     )
 
     result = {
@@ -280,9 +279,8 @@ def _load_vdubus_data(symbol: str, data_dir: Path, include_5m: bool = False) -> 
 
     # Optional 5m data for micro-trigger
     if include_5m:
-        five_min_path = data_dir / f"{symbol}_5m.parquet"
-        if five_min_path.exists():
-            five_df = normalize_timezone(load_bars(five_min_path))
+        if five_min_source_df is not None:
+            five_df = five_min_source_df
             fifteen_df_for_align = m_df  # reuse filtered 15m
             five_to_15_idx_map = align_5m_to_15m(five_df, fifteen_df_for_align)
             result["bars_5m"] = build_numpy_arrays(five_df)
@@ -360,7 +358,6 @@ def _load_helix_data(symbol: str, data_dir: Path) -> dict:
     )
 
     five_min_path = data_dir / f"{symbol}_5m.parquet"
-    daily_path = data_dir / f"{symbol}_1d.parquet"
 
     if not five_min_path.exists():
         raise FileNotFoundError(
@@ -373,10 +370,7 @@ def _load_helix_data(symbol: str, data_dir: Path) -> dict:
     hourly_df = resample_5m_to_1h(m_df)
     four_hour_df = resample_5m_to_4h(m_df)
 
-    if daily_path.exists():
-        daily_df = normalize_timezone(load_bars(daily_path))
-    else:
-        daily_df = resample_5m_to_daily(m_df)
+    daily_df = resample_5m_to_daily(m_df)
 
     five_min_bars = build_numpy_arrays(m_df)
     hourly = build_numpy_arrays(hourly_df)
@@ -414,11 +408,10 @@ def _load_helix_data_cached(symbol: str, data_dir: Path) -> dict:
     import pickle
 
     five_min_path = data_dir / f"{symbol}_5m.parquet"
-    daily_path = data_dir / f"{symbol}_1d.parquet"
 
     # Build cache key from file metadata
     parts = []
-    for p in (five_min_path, daily_path):
+    for p in (five_min_path,):
         if p.exists():
             st = p.stat()
             parts.append(f"{st.st_mtime_ns}_{st.st_size}")

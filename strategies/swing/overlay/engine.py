@@ -59,7 +59,7 @@ class OverlayEngine:
         self._equity = equity
         self._config = config
         self._market_cal = market_calendar
-        self._instr = instrumentation
+        self._instr = getattr(instrumentation, 'ctx', instrumentation) if instrumentation else None
         self._equity_offset = equity_offset  # paper capital offset applied on refresh
         self._db_pool = db_pool
         self._get_deployed_capital = get_deployed_capital  # callback: () -> float (swing OMS notional)
@@ -84,6 +84,7 @@ class OverlayEngine:
         self._last_decision_code: str = "IDLE"
         self._last_decision_details: dict = {}
         self._last_bar_ts: datetime | None = None
+        self._rebalances_completed: int = 0
 
         # BRS bear regime check (wired by coordinator)
         self._bear_regime_check: Any = None
@@ -103,6 +104,13 @@ class OverlayEngine:
             "last_decision_code": self._last_decision_code,
             "last_decision_details": self._last_decision_details,
             "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
+        }
+
+    def liveness_payload(self) -> dict:
+        return {
+            "bars_processed": self._rebalances_completed,
+            "last_rebalance_date": self._last_rebalance_date or None,
+            "symbol_freshness": {},
         }
 
     # ------------------------------------------------------------------
@@ -194,6 +202,7 @@ class OverlayEngine:
         """Fetch bars, compute EMAs, rebalance overlay positions."""
         logger.info("Overlay: === Daily rebalance ===")
         self._last_bar_ts = datetime.now(timezone.utc)
+        self._rebalances_completed += 1
 
         # 1. Refresh equity from IB
         await self._refresh_equity()

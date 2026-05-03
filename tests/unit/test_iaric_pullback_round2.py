@@ -21,6 +21,11 @@ from backtests.stock.auto.iaric.phase_candidates import (
     get_phase_candidate_lookup,
     get_phase_candidates,
 )
+from backtests.stock.auto.iaric.phase_scoring import (
+    V5R1_PHASE_HARD_REJECTS,
+    V5R2_PHASE_SCORING_WEIGHTS,
+    score_v5r1_pullback_phase,
+)
 
 from backtests.stock.auto.iaric.plugin import IARICPullbackPlugin, select_pullback_branch
 from backtests.stock.auto.scoring import IARIC_NORM, composite_score
@@ -125,6 +130,58 @@ def test_iaric_immutable_score_uses_150_trade_frequency_ceiling():
 
     assert IARIC_NORM.freq_ceiling == 150.0
     assert score.freq_component == pytest.approx(120.0 / 150.0)
+
+
+def test_v5r1_guardrails_score_conservative_open_scored_baseline():
+    metrics = {
+        "total_trades": 669.0,
+        "avg_r": 0.0570,
+        "expected_total_r": 38.14,
+        "profit_factor": 1.36,
+        "sharpe": 1.85,
+        "max_drawdown_pct": 0.0575,
+        "gap_selectivity_edge": 0.0688,
+        "crowded_day_discrimination": 0.0400,
+        "eod_flatten_share": 0.0374,
+        "stop_hit_share": 0.592,
+        "protection_candidate_share": 0.085,
+    }
+
+    assert IARICPullbackPlugin._phase_reject_reason(1, metrics, V5R1_PHASE_HARD_REJECTS[1]) == ""
+    assert score_v5r1_pullback_phase(1, metrics) > 0.0
+
+
+def test_v5r2_score_stays_normalized_and_limited_to_seven_components():
+    for weights in V5R2_PHASE_SCORING_WEIGHTS.values():
+        assert len(weights) <= 7
+        assert sum(weights.values()) == pytest.approx(1.0)
+
+
+def test_v5r1_gate_allows_avg_r_tradeoff_when_expected_total_r_improves():
+    reference = {
+        "total_trades": 669.0,
+        "avg_r": 0.05701584937885738,
+        "expected_total_r": 38.14360323445559,
+        "profit_factor": 1.3611101158429302,
+        "sharpe": 1.8534233918119702,
+        "max_drawdown_pct": 0.05749607031371148,
+    }
+    metrics = {
+        **reference,
+        "total_trades": 862.0,
+        "avg_r": 0.051314058115277984,
+        "expected_total_r": 44.23271809536962,
+        "profit_factor": 1.3123883855257508,
+        "sharpe": 1.8080579094946547,
+        "max_drawdown_pct": 0.04469789104481218,
+    }
+    plugin = IARICPullbackPlugin.__new__(IARICPullbackPlugin)
+    plugin._phase_hard_rejects = V5R1_PHASE_HARD_REJECTS
+    plugin._baseline_metrics = lambda: reference
+
+    criteria = plugin._v5r1_gate_criteria(1, metrics, PhaseState())
+
+    assert all(item.passed for item in criteria)
 
 
 def test_phase_runner_keeps_plugin_initial_mutations_for_phase_one(tmp_path):

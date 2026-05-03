@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Callable
 
 from backtests.swing.config import AblationFlags, BacktestConfig, SlippageConfig
+from backtests.swing.config_brs import BRSConfig
 from backtests.swing.config_helix import HelixAblationFlags, HelixBacktestConfig
 from backtests.swing.config_breakout import BreakoutAblationFlags, BreakoutBacktestConfig
 
@@ -43,6 +44,11 @@ HELIX_SLOT = StrategySlot(
     unit_risk_pct=0.008, max_heat_R=1.20, daily_stop_R=2.5,
     max_working_orders=4,
 )
+BRS_SLOT = StrategySlot(
+    strategy_id="BRS_R9", priority=2,
+    unit_risk_pct=0.006, max_heat_R=1.25, daily_stop_R=2.0,
+    max_working_orders=3,
+)
 
 
 @dataclass
@@ -58,14 +64,26 @@ class UnifiedBacktestConfig:
     # Symbol lists per strategy (defaults match production)
     atrss_symbols: list[str] = field(default_factory=lambda: ["QQQ", "GLD"])
     helix_symbols: list[str] = field(default_factory=lambda: ["QQQ", "GLD"])
+    brs_symbols: list[str] = field(default_factory=lambda: ["QQQ", "GLD"])
     breakout_symbols: list[str] = field(default_factory=lambda: ["QQQ", "GLD"])
 
     # Portfolio-level risk rules
     heat_cap_R: float = 3.0
     portfolio_daily_stop_R: float = 4.0
+    dynamic_risk_enabled: bool = False
+    drawdown_risk_tiers: tuple[tuple[float, float], ...] = field(
+        default_factory=lambda: (
+            (0.06, 1.00),
+            (0.09, 0.70),
+            (0.12, 0.40),
+            (0.15, 0.00),
+        )
+    )
     atrss: StrategySlot = field(default_factory=lambda: ATRSS_SLOT)
     helix: StrategySlot = field(default_factory=lambda: HELIX_SLOT)
+    brs: StrategySlot = field(default_factory=lambda: BRS_SLOT)
     breakout: StrategySlot = field(default_factory=lambda: BREAKOUT_SLOT)
+    brs_runtime_config: BRSConfig | None = None
 
     # Cross-strategy coordination
     enable_atrss_helix_tighten: bool = True
@@ -203,6 +221,18 @@ class UnifiedBacktestConfig:
             merged = {**getattr(cfg, 'param_overrides', {}), **self.breakout_param_overrides}
             cfg = replace(cfg, param_overrides=merged)
         return cfg
+
+    def build_brs_config(self) -> BRSConfig:
+        if self.brs_runtime_config is not None:
+            return self.brs_runtime_config
+        return BRSConfig(
+            symbols=self.brs_symbols,
+            initial_equity=self.initial_equity,
+            data_dir=self.data_dir,
+            slippage=self.slippage,
+            heat_cap_r=self.brs.max_heat_R,
+            max_concurrent=self.brs.max_working_orders,
+        )
 
 
 

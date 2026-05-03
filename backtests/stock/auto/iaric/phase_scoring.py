@@ -1178,3 +1178,263 @@ def score_v4r1_pullback_phase(
         (weight / total_weight) * _normalize_v4r1_metric(metric_name, enriched)
         for metric_name, weight in weights.items()
     )
+
+
+# ---------------------------------------------------------------------------
+# V5R1 -- alpha/frequency score from the round-1 optimized baseline
+#
+# The immutable score intentionally has seven public components. The
+# alpha_discrimination component is a stabilized composite of two pre-entry
+# diagnostics: gap selectivity and crowded-day selected-vs-skipped shadow edge.
+# ---------------------------------------------------------------------------
+_V5R1_NORMALIZATION_CEILINGS: dict[str, float] = {
+    "avg_r": 0.25,
+    "expected_total_r": 150.0,
+    "profit_factor": 3.25,
+    "total_trades": 1000.0,
+    "inv_dd": 1.0,
+    "sharpe": 6.0,
+    "alpha_discrimination": 1.0,
+}
+
+_V5R1_IMMUTABLE_WEIGHTS: dict[str, float] = {
+    "expected_total_r": 0.30,
+    "total_trades": 0.15,
+    "avg_r": 0.15,
+    "profit_factor": 0.12,
+    "sharpe": 0.10,
+    "inv_dd": 0.08,
+    "alpha_discrimination": 0.10,
+}
+
+V5R1_PHASE_SCORING_WEIGHTS: dict[int, dict[str, float]] = {
+    phase: _normalize_weights(dict(_V5R1_IMMUTABLE_WEIGHTS))
+    for phase in (1, 2, 3, 4, 5)
+}
+
+V5R1_ULTIMATE_TARGETS: dict[str, float] = {
+    "avg_r": 0.17,
+    "expected_total_r": 125.0,
+    "profit_factor": 2.35,
+    "sharpe": 4.75,
+    "max_drawdown_pct": 0.040,
+    "total_trades": 800.0,
+    "managed_exit_share": 0.97,
+    "eod_flatten_inverse": 0.98,
+}
+
+_V5R1_HARD_REJECTS_P1: dict[str, float] = {
+    "min_trades": 450,
+    "min_pf": 1.15,
+    "min_avg_r": 0.025,
+    "min_expected_total_r": 20.0,
+    "max_dd_pct": 0.080,
+    "min_sharpe": 0.8,
+}
+
+_V5R1_HARD_REJECTS_P2: dict[str, float] = {
+    "min_trades": 450,
+    "min_pf": 1.15,
+    "min_avg_r": 0.025,
+    "min_expected_total_r": 20.0,
+    "max_dd_pct": 0.080,
+    "min_sharpe": 0.8,
+}
+
+_V5R1_HARD_REJECTS_P3: dict[str, float] = {
+    "min_trades": 500,
+    "min_pf": 1.20,
+    "min_avg_r": 0.030,
+    "min_expected_total_r": 22.0,
+    "max_dd_pct": 0.075,
+    "min_sharpe": 1.0,
+}
+
+_V5R1_HARD_REJECTS_P4: dict[str, float] = {
+    "min_trades": 500,
+    "min_pf": 1.20,
+    "min_avg_r": 0.030,
+    "min_expected_total_r": 22.0,
+    "max_dd_pct": 0.070,
+    "min_sharpe": 1.0,
+}
+
+_V5R1_HARD_REJECTS_P5: dict[str, float] = {
+    "min_trades": 550,
+    "min_pf": 1.25,
+    "min_avg_r": 0.035,
+    "min_expected_total_r": 25.0,
+    "max_dd_pct": 0.065,
+    "min_sharpe": 1.1,
+}
+
+V5R1_PHASE_HARD_REJECTS: dict[int, dict[str, float]] = {
+    1: dict(_V5R1_HARD_REJECTS_P1),
+    2: dict(_V5R1_HARD_REJECTS_P2),
+    3: dict(_V5R1_HARD_REJECTS_P3),
+    4: dict(_V5R1_HARD_REJECTS_P4),
+    5: dict(_V5R1_HARD_REJECTS_P5),
+}
+
+V5R1_PHASE_HARD_REJECTS_BY_PROFILE: dict[str, dict[int, dict[str, float]]] = {
+    "mainline": V5R1_PHASE_HARD_REJECTS,
+    "aggressive": V5R1_PHASE_HARD_REJECTS,
+}
+
+
+def get_v5r1_phase_scoring_weights(profile: str = "mainline") -> dict[int, dict[str, float]]:
+    del profile
+    return V5R1_PHASE_SCORING_WEIGHTS
+
+
+def _v5r1_alpha_discrimination(metrics: dict[str, float]) -> float:
+    gap_component = _clip01(float(metrics.get("gap_selectivity_edge", 0.0)) / 0.30)
+    crowded_component = _clip01(float(metrics.get("crowded_day_discrimination", 0.0)) / 0.20)
+    return 0.50 * gap_component + 0.50 * crowded_component
+
+
+def _normalize_v5r1_metric(metric_name: str, metrics: dict[str, float]) -> float:
+    value = float(metrics.get(metric_name, 0.0))
+    ceiling = _V5R1_NORMALIZATION_CEILINGS.get(metric_name, 1.0)
+    if ceiling <= 0:
+        return 0.0
+    return _clip01(value / ceiling)
+
+
+def score_v5r1_pullback_phase(
+    phase: int,
+    metrics: dict[str, float],
+    scoring_weights: dict[str, float] | None = None,
+) -> float:
+    if scoring_weights:
+        weights = dict(scoring_weights)
+    else:
+        weights = dict(V5R1_PHASE_SCORING_WEIGHTS.get(phase, {}))
+
+    total_weight = sum(weights.values())
+    if total_weight <= 0:
+        return 0.0
+
+    enriched = enrich_phase_score_metrics(metrics)
+    enriched["alpha_discrimination"] = _v5r1_alpha_discrimination(enriched)
+    return sum(
+        (weight / total_weight) * _normalize_v5r1_metric(metric_name, enriched)
+        for metric_name, weight in weights.items()
+    )
+
+
+# ---------------------------------------------------------------------------
+# V5R2 -- targeted residual-alpha score from the corrected round-2 baseline
+#
+# The score intentionally stays at seven components. It directly includes
+# net PnL to avoid the R-score/dollar-PnL divergence observed in round 2,
+# while still rewarding risk, sample size, and residual carry/selection alpha.
+# ---------------------------------------------------------------------------
+_V5R2_NORMALIZATION_CEILINGS: dict[str, float] = {
+    "net_profit": 16_000.0,
+    "expected_total_r": 135.0,
+    "profit_factor": 2.15,
+    "sharpe": 5.00,
+    "inv_dd": 1.0,
+    "total_trades": 1_100.0,
+    "residual_alpha_quality": 1.0,
+}
+
+_V5R2_WEIGHTS: dict[str, float] = {
+    "net_profit": 0.25,
+    "expected_total_r": 0.20,
+    "profit_factor": 0.15,
+    "sharpe": 0.12,
+    "inv_dd": 0.10,
+    "total_trades": 0.10,
+    "residual_alpha_quality": 0.08,
+}
+
+V5R2_PHASE_SCORING_WEIGHTS: dict[int, dict[str, float]] = {
+    phase: _normalize_weights(dict(_V5R2_WEIGHTS))
+    for phase in (1, 2, 3, 4)
+}
+
+V5R2_ULTIMATE_TARGETS: dict[str, float] = {
+    "net_profit": 15_000.0,
+    "avg_r": 0.13,
+    "expected_total_r": 125.0,
+    "profit_factor": 1.95,
+    "sharpe": 4.75,
+    "max_drawdown_pct": 0.035,
+    "total_trades": 950.0,
+}
+
+_V5R2_HARD_REJECTS: dict[str, float] = {
+    "min_trades": 900,
+    "min_net_profit": 13_350.0,
+    "min_pf": 1.75,
+    "min_avg_r": 0.105,
+    "min_expected_total_r": 112.0,
+    "max_dd_pct": 0.040,
+    "min_sharpe": 4.10,
+}
+
+V5R2_PHASE_HARD_REJECTS: dict[int, dict[str, float]] = {
+    phase: dict(_V5R2_HARD_REJECTS)
+    for phase in (1, 2, 3, 4)
+}
+
+V5R2_PHASE_HARD_REJECTS_BY_PROFILE: dict[str, dict[int, dict[str, float]]] = {
+    "mainline": V5R2_PHASE_HARD_REJECTS,
+    "aggressive": V5R2_PHASE_HARD_REJECTS,
+}
+
+
+def get_v5r2_phase_scoring_weights(profile: str = "mainline") -> dict[int, dict[str, float]]:
+    del profile
+    return V5R2_PHASE_SCORING_WEIGHTS
+
+
+def _v5r2_residual_alpha_quality(metrics: dict[str, float]) -> float:
+    alpha_component = _v5r1_alpha_discrimination(metrics)
+    carry_avg_r = float(metrics.get("carry_avg_r", 0.0))
+    carry_share = float(metrics.get("carry_trade_share", 0.0))
+    if carry_share <= 0.01:
+        carry_drag_inverse = 1.0
+    else:
+        carry_drag_inverse = _clip01((carry_avg_r + 0.30) / 0.30)
+    return 0.50 * alpha_component + 0.50 * carry_drag_inverse
+
+
+def _normalize_v5r2_metric(metric_name: str, metrics: dict[str, float]) -> float:
+    if metric_name == "inv_dd":
+        return _clip01(1.0 - float(metrics.get("max_drawdown_pct", 0.0)) / 0.05)
+    if metric_name == "residual_alpha_quality":
+        return _v5r2_residual_alpha_quality(metrics)
+    value = float(metrics.get(metric_name, 0.0))
+    ceiling = _V5R2_NORMALIZATION_CEILINGS.get(metric_name, 1.0)
+    if ceiling <= 0:
+        return 0.0
+    return _clip01(value / ceiling)
+
+
+def score_v5r2_pullback_phase(
+    phase: int,
+    metrics: dict[str, float],
+    scoring_weights: dict[str, float] | None = None,
+) -> float:
+    if scoring_weights:
+        weights = dict(scoring_weights)
+    else:
+        weights = dict(V5R2_PHASE_SCORING_WEIGHTS.get(phase, {}))
+
+    total_weight = sum(weights.values())
+    if total_weight <= 0:
+        return 0.0
+
+    enriched = enrich_phase_score_metrics(metrics)
+    enriched["expected_total_r"] = float(
+        enriched.get("expected_total_r", 0.0)
+        or float(enriched.get("avg_r", 0.0)) * float(enriched.get("total_trades", 0.0))
+    )
+    enriched["residual_alpha_quality"] = _v5r2_residual_alpha_quality(enriched)
+    return sum(
+        (weight / total_weight) * _normalize_v5r2_metric(metric_name, enriched)
+        for metric_name, weight in weights.items()
+    )

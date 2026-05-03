@@ -1,10 +1,12 @@
-"""VdubusNQ R1 phased auto-optimization plugin.
+"""VdubusNQ phased auto-optimization plugin.
 
 Implements the StrategyPlugin protocol for the shared PhaseRunner framework.
-4 phases: trail rehabilitation, entry precision, signal discrimination, fine-tuning.
+Round 2 uses six phases: runner protection, execution recovery, entry
+precision, alpha expansion, session/regime composition, and interactions.
 
-Key design: immutable scoring weights (no phase-variable scoring).
-Phase-specific control is via progressive hard rejects only.
+Key design: one immutable score across all phases. Phase-specific control is
+limited to hard rejects and candidate families so the optimizer cannot chase a
+different objective in each phase.
 """
 from __future__ import annotations
 
@@ -22,12 +24,14 @@ from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
+    SharedPoolBatchEvaluator,
+    create_process_pool,
     deserialize_experiments,
     greedy_result_from_state,
     greedy_result_to_dict,
     mutation_signature,
-    resolve_worker_processes,
     seen_experiment_names,
+    shutdown_process_pool,
 )
 from backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion, PhaseDecision
 
@@ -35,39 +39,46 @@ from .phase_candidates import get_phase_candidates
 from .phase_gates import gate_criteria_for_phase
 
 # ---------------------------------------------------------------------------
-# Immutable scoring weights -- same across all phases
-# Phase-specific control is via PHASE_HARD_REJECTS only
+# Immutable scoring weights -- same objective in every phase
 # ---------------------------------------------------------------------------
 
 PHASE_WEIGHTS: dict[int, dict[str, float] | None] = {
-    1: None,  # Use BASE_WEIGHTS from scoring.py
+    1: None,
     2: None,
     3: None,
     4: None,
+    5: None,
+    6: None,
 }
 
 PHASE_HARD_REJECTS: dict[int, dict[str, float]] = {
-    1: {"max_dd_pct": 0.22, "min_trades": 80, "min_pf": 1.5},
-    2: {"max_dd_pct": 0.20, "min_trades": 90, "min_pf": 1.8},
-    3: {"max_dd_pct": 0.20, "min_trades": 80, "min_pf": 2.0},
-    4: {"max_dd_pct": 0.20, "min_trades": 80, "min_pf": 2.0},
+    1: {"max_dd_pct": 0.26, "min_trades": 120, "min_pf": 1.55, "min_avg_r": 0.18, "min_tpm": 3.5},
+    2: {"max_dd_pct": 0.26, "min_trades": 120, "min_pf": 1.55, "min_avg_r": 0.18, "min_tpm": 3.5},
+    3: {"max_dd_pct": 0.25, "min_trades": 120, "min_pf": 1.55, "min_avg_r": 0.18, "min_tpm": 3.5},
+    4: {"max_dd_pct": 0.27, "min_trades": 120, "min_pf": 1.45, "min_avg_r": 0.15, "min_tpm": 3.5},
+    5: {"max_dd_pct": 0.25, "min_trades": 120, "min_pf": 1.55, "min_avg_r": 0.18, "min_tpm": 3.5},
+    6: {"max_dd_pct": 0.25, "min_trades": 120, "min_pf": 1.55, "min_avg_r": 0.18, "min_tpm": 3.5},
 }
 
 PHASE_FOCUS = {
-    1: ("Trail Rehabilitation & Exit Management", ["capture_ratio", "stale_exit_pct", "profit_factor", "sharpe"]),
-    2: ("Entry Precision & Filter Tuning", ["total_trades", "win_rate", "fast_death_pct", "sharpe"]),
-    3: ("Signal Discrimination & Regime", ["calmar", "max_dd_pct", "evening_trade_pct", "net_return_pct"]),
-    4: ("Fine-tune & Interaction", ["calmar", "net_return_pct", "capture_ratio", "sharpe"]),
+    1: ("Blocked-Gate Alpha Conversion", ["total_trades", "trades_per_month", "avg_r", "profit_factor"]),
+    2: ("No-Signal Continuation Entries", ["total_trades", "trades_per_month", "avg_r", "profit_factor"]),
+    3: ("Entry Frequency & Fill Mechanics", ["total_trades", "trades_per_month", "avg_r", "profit_factor"]),
+    4: ("Exit Capture & Slow-Death Rescue", ["capture_ratio", "stale_exit_pct", "fast_death_pct", "profit_factor"]),
+    5: ("Session & Cohort Composition", ["evening_avg_r", "evening_trade_pct", "max_dd_pct", "calmar"]),
+    6: ("Structural Interactions & Fine Tune", ["calmar", "avg_r", "capture_ratio", "trades_per_month"]),
 }
 
 ULTIMATE_TARGETS = {
-    "net_return_pct": 2000.0,
-    "profit_factor": 3.5,
-    "max_dd_pct": 0.12,
-    "calmar": 20.0,
-    "total_trades": 180.0,
-    "capture_ratio": 0.55,
+    "net_return_pct": 1200.0,
+    "profit_factor": 2.4,
+    "max_dd_pct": 0.15,
+    "calmar": 45.0,
+    "total_trades": 220.0,
+    "capture_ratio": 0.60,
     "sharpe": 2.0,
+    "trades_per_month": 7.0,
+    "avg_r": 0.40,
 }
 
 
@@ -86,8 +97,11 @@ def score_phase_metrics(
         return VdubusCompositeScore(rejected=True, reject_reason=f"phase{phase}_max_dd ({metrics.max_dd_pct:.2%})")
     if "min_pf" in rejects and metrics.profit_factor < rejects["min_pf"]:
         return VdubusCompositeScore(rejected=True, reject_reason=f"phase{phase}_low_pf ({metrics.profit_factor:.2f})")
+    if "min_avg_r" in rejects and metrics.avg_r < rejects["min_avg_r"]:
+        return VdubusCompositeScore(rejected=True, reject_reason=f"phase{phase}_low_avg_r ({metrics.avg_r:.3f})")
+    if "min_tpm" in rejects and metrics.trades_per_month < rejects["min_tpm"]:
+        return VdubusCompositeScore(rejected=True, reject_reason=f"phase{phase}_low_frequency ({metrics.trades_per_month:.2f}/mo)")
 
-    # Immutable weights -- no phase-specific overrides
     weights = PHASE_WEIGHTS.get(phase)
     if weight_overrides:
         base = dict(weights or {})
@@ -95,43 +109,6 @@ def score_phase_metrics(
         total = sum(base.values())
         weights = {k: v / total for k, v in base.items()} if total > 0 else base
     return composite_score(metrics, weights)
-
-
-# ---------------------------------------------------------------------------
-# Batch evaluators
-# ---------------------------------------------------------------------------
-
-class _SharedPoolBatchEvaluator:
-    """Pool evaluator that keeps the pool alive across close() calls."""
-
-    def __init__(
-        self,
-        pool: mp.Pool,
-        phase: int,
-        scoring_weights: dict[str, float] | None,
-        hard_rejects: dict[str, float] | None,
-        on_terminate,
-    ):
-        self._pool = pool
-        self._phase = phase
-        self._scoring_weights = scoring_weights
-        self._hard_rejects = hard_rejects
-        self._on_terminate = on_terminate
-
-    def __call__(self, candidates: list[Experiment], current_mutations: dict[str, Any]):
-        from .worker import score_candidate
-
-        args = [
-            (c.name, c.mutations, current_mutations, self._phase, self._scoring_weights, self._hard_rejects)
-            for c in candidates
-        ]
-        return self._pool.map(score_candidate, args)
-
-    def close(self) -> None:
-        pass  # Pool stays alive for reuse across phases
-
-    def terminate(self) -> None:
-        self._on_terminate()
 
 
 class _SequentialBatchEvaluator:
@@ -178,7 +155,7 @@ _INITIAL_MUTATIONS = {"flags.plus_1r_partial": False, "param_overrides.CHOP_THRE
 
 class VdubusPlugin:
     name = "vdubus"
-    num_phases = 4
+    num_phases = 6
     ultimate_targets = ULTIMATE_TARGETS
     initial_mutations = _INITIAL_MUTATIONS
 
@@ -188,7 +165,7 @@ class VdubusPlugin:
         initial_equity: float = 10_000.0,
         max_workers: int | None = 3,
         *,
-        num_phases: int = 4,
+        num_phases: int = 6,
     ):
         if not 1 <= num_phases <= max(PHASE_FOCUS):
             raise ValueError(f"VdubusPlugin supports 1-{max(PHASE_FOCUS)} phases, got {num_phases}.")
@@ -234,7 +211,7 @@ class VdubusPlugin:
                 decide_action_fn=self.decide_phase_action,
             ),
             max_rounds=50,
-            prune_threshold=0.05,
+            prune_threshold=0.06,
         )
 
     def create_evaluate_batch(
@@ -257,8 +234,17 @@ class VdubusPlugin:
 
         def make_parallel():
             self._ensure_pool()
-            return _SharedPoolBatchEvaluator(
-                self._pool, phase, scoring_weights, hard_rejects, self._destroy_pool,
+            from .worker import score_candidate
+
+            return SharedPoolBatchEvaluator(
+                self._pool,
+                worker_fn=score_candidate,
+                build_args=lambda candidates, current_mutations: [
+                    (candidate.name, candidate.mutations, current_mutations, phase, scoring_weights, hard_rejects)
+                    for candidate in candidates
+                ],
+                on_terminate=self._destroy_pool,
+                description=f"vdubus phase {phase}",
             )
 
         def make_sequential():
@@ -301,32 +287,21 @@ class VdubusPlugin:
             return
         from .worker import init_worker
 
-        processes = resolve_worker_processes(self.max_workers)
-        self._pool = mp.Pool(
-            processes=processes,
+        self._pool = create_process_pool(
+            self.max_workers,
             initializer=init_worker,
             initargs=(str(self.data_dir), self.initial_equity),
         )
 
     def _destroy_pool(self) -> None:
         """Force-kill the pool (called on worker errors via terminate())."""
-        if self._pool is not None:
-            try:
-                self._pool.terminate()
-                self._pool.join()
-            except Exception:
-                pass
-            self._pool = None
+        shutdown_process_pool(self._pool, force=True)
+        self._pool = None
 
     def close_pool(self) -> None:
         """Gracefully shut down the persistent worker pool."""
-        if self._pool is not None:
-            try:
-                self._pool.close()
-                self._pool.join()
-            except Exception:
-                pass
-            self._pool = None
+        shutdown_process_pool(self._pool)
+        self._pool = None
 
     # -- Metrics ---------------------------------------------------------------
 
@@ -420,6 +395,7 @@ class VdubusPlugin:
             f"evening trades {m.evening_trade_pct:.1%} (avgR={m.evening_avg_r:+.3f}), "
             f"trades/month {m.trades_per_month:.1f}."
         )
+        r_per_month = max(m.avg_r, 0.0) * max(m.trades_per_month, 0.0)
         overall = (
             f"VdubusNQ optimized to {m.net_return_pct:.1f}% return, PF={m.profit_factor:.2f}, "
             f"DD={m.max_dd_pct:.1%}, {m.total_trades} trades. "
@@ -428,11 +404,17 @@ class VdubusPlugin:
         return EndOfRoundArtifacts(
             final_diagnostics_text=final_diagnostics_text,
             dimension_reports={
-                "performance": extraction,
-                "signal_quality": discrimination,
-                "risk_management": management,
+                "signal_extraction": (
+                    f"{extraction} R/month throughput is {r_per_month:.2f} "
+                    f"({m.avg_r:.3f} avgR x {m.trades_per_month:.1f} trades/month)."
+                ),
+                "signal_discrimination": (
+                    f"{discrimination} Negative evening flow is contained by the current "
+                    f"caps: {m.evening_trade_pct:.1%} evening trades at {m.evening_avg_r:+.3f} avgR."
+                ),
+                "entry_mechanism": timing,
+                "trade_management": management,
                 "exit_mechanism": exits,
-                "timing": timing,
             },
             overall_verdict=overall,
         )
@@ -465,6 +447,7 @@ class VdubusPlugin:
         if m.capture_ratio < 0.45:
             add("suggest_be_wide_45", {"flags.plus_1r_partial": True, "param_overrides.TRAIL_MULT_BASE": 4.5})
             add("suggest_mfe_exempt_040", {"flags.stale_mfe_exempt": True, "param_overrides.STALE_MFE_EXEMPT_R": 0.40})
+            add("suggest_late_trail_default", {"flags.late_trail": True})
 
         # High stale rate
         if m.stale_exit_pct > 0.40 or "stale" in weakness_text:
@@ -475,14 +458,17 @@ class VdubusPlugin:
         if m.fast_death_pct > 0.20 or "fast death" in weakness_text:
             add("suggest_disable_early_kill", {"flags.early_kill": False})
             add("suggest_vwap_cap_065", {"param_overrides.VWAP_CAP_CORE": 0.65})
+            add("suggest_eqs_rth_1", {"flags.entry_quality_gate": True, "param_overrides.EQS_MIN_RTH": 1})
 
         # High drawdown
         if m.max_dd_pct > 0.15 or "drawdown" in weakness_text:
             add("suggest_lower_risk_008", {"param_overrides.BASE_RISK_PCT": 0.008})
 
-        # Low trade count
-        if m.total_trades < 120 or "trade count" in weakness_text:
+        # Low trade count/frequency
+        if m.total_trades < 180 or m.trades_per_month < 6.0 or "trade count" in weakness_text:
             add("suggest_relax_floor_015", {"param_overrides.FLOOR_PCT": 0.15})
+            add("suggest_ttl_5", {"param_overrides.TTL_BARS": 5})
+            add("suggest_enable_type_b", {"param_overrides.USE_TYPE_B": True})
 
         return suggestions
 
@@ -493,7 +479,7 @@ class VdubusPlugin:
         analysis,
         gate_result,
     ) -> dict[str, float] | None:
-        # Immutable weights -- return None to keep defaults
+        # Round 2 deliberately keeps one immutable objective across phases.
         return None
 
     def build_analysis_extra(self, phase: int, metrics: dict[str, float], state: PhaseState, greedy_result) -> dict[str, Any]:

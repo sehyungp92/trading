@@ -55,6 +55,8 @@ from strategies.stock.alcb.models import (
     PositionPlan,
 )
 from strategies.stock.alcb.risk import (
+    conditional_entry_blocked,
+    conditional_entry_size_mult,
     momentum_regime_mult,
     momentum_size_mult,
     momentum_stop_price,
@@ -116,6 +118,8 @@ class _Position:
     orb_quality_score: float = 0.0
     gap_size_mult: float = 1.0
     time_size_mult: float = 1.0
+    entry_expected_volume_5m: float = 0.0
+    entry_signal_rvol: float = 0.0
 
     def unrealized_r(self, price: float) -> float:
         if self.risk_per_share <= 0:
@@ -132,10 +136,14 @@ class _PendingEntry:
     entry_type: str
     signal_time: datetime
     signal_bar_index: int
+    signal_price: float
     signal_low: float
+    signal_risk_per_share: float
     or_low: float
     daily_atr: float
     avwap_at_signal: float
+    expected_volume_5m: float
+    signal_rvol: float
     momentum_score: int
     score_detail: dict
     orb_quality_score: float
@@ -378,6 +386,7 @@ class ALCBIntradayEngine:
                         sym,
                         bar,
                         bar_idx,
+                        session_bars,
                         pending_entries,
                         positions,
                         regime_tier,
@@ -569,6 +578,45 @@ class ALCBIntradayEngine:
                         qe_phantom_slots[0] += 1
                     return True
 
+        # 1c. EARLY-FAILURE PROTECTIVE STOP TIGHTENING
+        # Completed-bar evidence only: this updates the live protective stop for
+        # future bars instead of creating an optimistic same-bar market exit.
+        if settings.failure_stop_bars > 0 and pos.risk_per_share > 0:
+            if pos.hold_bars >= settings.failure_stop_bars:
+                mfe_r = pos.unrealized_r(pos.max_favorable)
+                current_r = pos.unrealized_r(bar.close)
+                if (
+                    mfe_r <= settings.failure_stop_mfe_max_r
+                    and current_r <= settings.failure_stop_current_r_max
+                ):
+                    target_r = settings.failure_stop_to_r
+                    buffer_pct = max(0.0, settings.failure_stop_close_buffer_pct)
+                    if pos.direction == Direction.LONG:
+                        desired_stop = pos.entry_price + target_r * pos.risk_per_share
+                        if buffer_pct > 0:
+                            desired_stop = min(desired_stop, bar.close * (1.0 - buffer_pct))
+                        if desired_stop > pos.current_stop and desired_stop < bar.close:
+                            pos.current_stop = desired_stop
+                    else:
+                        desired_stop = pos.entry_price - target_r * pos.risk_per_share
+                        if buffer_pct > 0:
+                            desired_stop = max(desired_stop, bar.close * (1.0 + buffer_pct))
+                        if desired_stop < pos.current_stop and desired_stop > bar.close:
+                            pos.current_stop = desired_stop
+
+        # 1d. EARLY MATURATION STOP TIGHTENING
+        # This only uses completed post-entry bars and updates the protective
+        # stop for later bars; it does not claim a same-bar market exit.
+        if settings.maturation_stop_bars > 0 and pos.risk_per_share > 0:
+            if pos.hold_bars >= settings.maturation_stop_bars:
+                if self._maturation_failed(pos, bar, session_bars, settings):
+                    self._tighten_stop_to_r(
+                        pos,
+                        bar,
+                        target_r=settings.maturation_stop_to_r,
+                        close_buffer_pct=settings.maturation_stop_close_buffer_pct,
+                    )
+
         # 2. FLOW_REVERSAL
         if ablation.use_flow_reversal_exit:
             # Skip FR if position has reached significant MFE (profit protection)
@@ -746,6 +794,105 @@ class ALCBIntradayEngine:
     # ------------------------------------------------------------------
     # Entry logic
     # ------------------------------------------------------------------
+
+    def _maturation_failed(
+        self,
+        pos: _Position,
+        bar,
+        session_bars: dict[str, list],
+        settings: StrategySettings,
+    ) -> bool:
+        failed_checks = 0
+        enabled_checks = 0
+        current_r = pos.unrealized_r(bar.close)
+        mfe_r = pos.unrealized_r(pos.max_favorable) if pos.risk_per_share > 0 else 0.0
+        adverse_r = max(0.0, -pos.unrealized_r(pos.max_adverse)) if pos.risk_per_share > 0 else 0.0
+
+        if settings.maturation_stop_min_current_r > -998.0:
+            enabled_checks += 1
+            failed_checks += int(current_r < settings.maturation_stop_min_current_r)
+
+        if settings.maturation_stop_min_mfe_r > 0:
+            enabled_checks += 1
+            failed_checks += int(mfe_r < settings.maturation_stop_min_mfe_r)
+
+        if settings.maturation_stop_max_mae_r > 0:
+            enabled_checks += 1
+            failed_checks += int(adverse_r > settings.maturation_stop_max_mae_r)
+
+        current_rvol = self._position_bar_rvol(pos, bar)
+        if settings.maturation_stop_min_rvol > 0:
+            enabled_checks += 1
+            failed_checks += int(current_rvol < settings.maturation_stop_min_rvol)
+
+        if settings.maturation_stop_min_rvol_ratio > 0 and pos.entry_signal_rvol > 0:
+            enabled_checks += 1
+            failed_checks += int((current_rvol / pos.entry_signal_rvol) < settings.maturation_stop_min_rvol_ratio)
+
+        level_buffer = max(0.0, settings.maturation_stop_level_buffer_pct)
+        breakout_level = self._position_breakout_level(pos)
+        if settings.maturation_stop_require_above_breakout and breakout_level > 0:
+            enabled_checks += 1
+            failed_checks += int(not self._close_holds_level(pos.direction, bar.close, breakout_level, level_buffer))
+
+        if settings.maturation_stop_require_above_avwap:
+            bars = session_bars.get(pos.symbol, [])
+            avwap = compute_session_avwap(bars, len(bars) - 1) if bars else 0.0
+            if avwap > 0:
+                enabled_checks += 1
+                failed_checks += int(not self._close_holds_level(pos.direction, bar.close, avwap, level_buffer))
+
+        if enabled_checks == 0:
+            return False
+        return failed_checks >= max(1, int(settings.maturation_stop_min_failed_checks))
+
+    @staticmethod
+    def _tighten_stop_to_r(
+        pos: _Position,
+        bar,
+        *,
+        target_r: float,
+        close_buffer_pct: float,
+    ) -> None:
+        buffer_pct = max(0.0, close_buffer_pct)
+        if pos.direction == Direction.LONG:
+            desired_stop = pos.entry_price + target_r * pos.risk_per_share
+            if buffer_pct > 0:
+                desired_stop = min(desired_stop, bar.close * (1.0 - buffer_pct))
+            if desired_stop > pos.current_stop and desired_stop < bar.close:
+                pos.current_stop = desired_stop
+            return
+
+        desired_stop = pos.entry_price - target_r * pos.risk_per_share
+        if buffer_pct > 0:
+            desired_stop = max(desired_stop, bar.close * (1.0 + buffer_pct))
+        if desired_stop < pos.current_stop and desired_stop > bar.close:
+            pos.current_stop = desired_stop
+
+    @staticmethod
+    def _position_breakout_level(pos: _Position) -> float:
+        setup = pos.momentum_setup
+        if setup is None:
+            return 0.0
+        try:
+            return float(getattr(setup, "breakout_level", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    @staticmethod
+    def _position_bar_rvol(pos: _Position, bar) -> float:
+        expected = float(pos.entry_expected_volume_5m or 0.0)
+        if expected <= 0:
+            return 0.0
+        return compute_bar_rvol(float(getattr(bar, "volume", 0.0) or 0.0), expected)
+
+    @staticmethod
+    def _close_holds_level(direction: Direction, close: float, level: float, buffer_pct: float) -> bool:
+        if level <= 0:
+            return True
+        if direction == Direction.LONG:
+            return close >= level * (1.0 + buffer_pct)
+        return close <= level * (1.0 - buffer_pct)
 
     def _market_fill_price(
         self,
@@ -1032,11 +1179,68 @@ class ALCBIntradayEngine:
             return "AVWAP_RECLAIM"
         return None
 
+    def _entry_confirmation_passed(
+        self,
+        pending: _PendingEntry,
+        session_bars: dict[str, list],
+        settings: StrategySettings,
+    ) -> bool:
+        confirm_bars = max(0, int(settings.entry_confirmation_bars))
+        if confirm_bars <= 0:
+            return True
+        bars = session_bars.get(pending.symbol, [])
+        start = pending.signal_bar_index + 1
+        stop = pending.signal_bar_index + confirm_bars + 1
+        window = bars[start:stop]
+        if len(window) < confirm_bars:
+            return False
+
+        confirm_bar = window[-1]
+        signal_risk = pending.signal_risk_per_share
+        if signal_risk <= 0:
+            return False
+
+        current_r = (confirm_bar.close - pending.signal_price) / signal_risk
+        mfe_r = (max(b.high for b in window) - pending.signal_price) / signal_risk
+        mae_r = (pending.signal_price - min(b.low for b in window)) / signal_risk
+
+        if settings.entry_confirmation_min_current_r > -998.0:
+            if current_r < settings.entry_confirmation_min_current_r:
+                return False
+
+        if settings.entry_confirmation_min_mfe_r > 0 and mfe_r < settings.entry_confirmation_min_mfe_r:
+            return False
+
+        if settings.entry_confirmation_max_mae_r > 0 and mae_r > settings.entry_confirmation_max_mae_r:
+            return False
+
+        confirm_rvol = compute_bar_rvol(confirm_bar.volume, pending.expected_volume_5m)
+        if settings.entry_confirmation_min_rvol > 0 and confirm_rvol < settings.entry_confirmation_min_rvol:
+            return False
+
+        if settings.entry_confirmation_min_rvol_ratio > 0 and pending.signal_rvol > 0:
+            if (confirm_rvol / pending.signal_rvol) < settings.entry_confirmation_min_rvol_ratio:
+                return False
+
+        level_buffer = max(0.0, settings.entry_confirmation_level_buffer_pct)
+        breakout_level = pending.setup.breakout_level if pending.setup else 0.0
+        if settings.entry_confirmation_require_above_breakout and breakout_level > 0:
+            if not self._close_holds_level(Direction.LONG, confirm_bar.close, breakout_level, level_buffer):
+                return False
+
+        if settings.entry_confirmation_require_above_avwap:
+            avwap = compute_session_avwap(bars, stop - 1) if bars else 0.0
+            if avwap > 0 and not self._close_holds_level(Direction.LONG, confirm_bar.close, avwap, level_buffer):
+                return False
+
+        return True
+
     def _fill_pending_entry(
         self,
         sym: str,
         bar,
         bar_idx: int,
+        session_bars: dict[str, list],
         pending_entries: dict[str, _PendingEntry],
         positions: dict[str, _Position],
         regime_tier: str,
@@ -1052,6 +1256,14 @@ class ALCBIntradayEngine:
         if sym in positions:
             pending_entries.pop(sym, None)
             return
+
+        confirm_bars = max(0, int(settings.entry_confirmation_bars))
+        if confirm_bars > 0:
+            if bar_idx <= pending.signal_bar_index + confirm_bars:
+                return
+            if not self._entry_confirmation_passed(pending, session_bars, settings):
+                pending_entries.pop(sym, None)
+                return
 
         entry_price, entry_slip = self._market_fill_price(
             bar.open,
@@ -1116,11 +1328,20 @@ class ALCBIntradayEngine:
             * sector_mult
             * pending.gap_size_mult
             * pending.time_size_mult
+            * (max(0.0, settings.entry_confirmation_size_mult) if confirm_bars > 0 else 1.0)
             * self._targeted_entry_size_mult(
                 pending.entry_type,
                 pending.signal_bar_index + 1,
                 pending.signal_time,
                 settings,
+            )
+            * conditional_entry_size_mult(
+                item.sector,
+                pending.entry_type,
+                pending.signal_bar_index + 1,
+                pending.momentum_score,
+                settings,
+                pending.score_detail,
             )
             * self._orb_quality_size_mult(pending.orb_quality_score, settings)
         )
@@ -1175,6 +1396,8 @@ class ALCBIntradayEngine:
             orb_quality_score=pending.orb_quality_score,
             gap_size_mult=pending.gap_size_mult,
             time_size_mult=pending.time_size_mult,
+            entry_expected_volume_5m=pending.expected_volume_5m,
+            entry_signal_rvol=pending.signal_rvol,
         )
         positions[sym] = pos
         pending_entries.pop(sym, None)
@@ -1473,8 +1696,30 @@ class ALCBIntradayEngine:
         entry_bar_index = bar_idx + 1
         avwap_dist_pct = (bar.close - avwap) / avwap if avwap > 0 else 0.0
         is_pdh_entry = entry_type_str in {"PDH_BREAKOUT", "PDH_RECLAIM"}
+        is_or_entry = entry_type_str in {"OR_BREAKOUT", "OR_RECLAIM"}
+        is_combined_entry = entry_type_str.startswith("COMBINED")
+        breakout_level_for_cap = pdh if is_pdh_entry else or_high
+        breakout_dist_r = (
+            (bar.close - breakout_level_for_cap) / risk_per_share
+            if risk_per_share > 0 and breakout_level_for_cap > 0
+            else 0.0
+        )
+        or_breakout_dist_r = (
+            (bar.close - or_high) / risk_per_share
+            if risk_per_share > 0 and or_high > 0
+            else 0.0
+        )
+        pdh_breakout_dist_r = (
+            (bar.close - pdh) / risk_per_share
+            if risk_per_share > 0 and pdh > 0
+            else 0.0
+        )
         is_bar9_entry = entry_bar_index == 9
         is_late_entry = bar_time_et >= settings.late_entry_cutoff
+
+        if conditional_entry_blocked(item.sector, entry_type_str, entry_bar_index, m_score, settings, score_detail):
+            _reject("conditional_entry_block")
+            return
 
         if is_late_entry and settings.late_avwap_cap_pct > 0 and avwap_dist_pct > settings.late_avwap_cap_pct:
             _reject("late_avwap_cap")
@@ -1506,7 +1751,7 @@ class ALCBIntradayEngine:
                 return
 
         # COMBINED_BREAKOUT quality gate (require higher score / RVOL for weaker entry type)
-        if ablation.use_combined_quality_gate and entry_type_str.startswith("COMBINED"):
+        if ablation.use_combined_quality_gate and is_combined_entry:
             if settings.combined_breakout_score_min > 0 and m_score < settings.combined_breakout_score_min:
                 _reject("combined_quality_score")
                 return
@@ -1519,13 +1764,12 @@ class ALCBIntradayEngine:
                 return
             # COMBINED-specific breakout distance cap
             if settings.combined_breakout_cap_r > 0 and risk_per_share > 0:
-                breakout_dist_r = (bar.close - or_high) / risk_per_share
-                if breakout_dist_r > settings.combined_breakout_cap_r:
+                if or_breakout_dist_r > settings.combined_breakout_cap_r:
                     _reject("combined_breakout_cap")
                     return
 
         # OR_BREAKOUT quality gate (require higher score / RVOL for OR entries)
-        if ablation.use_or_quality_gate and entry_type_str in {"OR_BREAKOUT", "OR_RECLAIM"}:
+        if ablation.use_or_quality_gate and is_or_entry:
             if settings.or_breakout_score_min > 0 and m_score < settings.or_breakout_score_min:
                 _reject("or_quality_score")
                 return
@@ -1539,16 +1783,28 @@ class ALCBIntradayEngine:
                 _reject("avwap_distance_cap")
                 return
 
-        # OR width minimum (block tight opening ranges)
-        if ablation.use_or_width_min and settings.or_width_min_pct > 0:
+        # OR width band (block tight or overly wide opening ranges)
+        if ablation.use_or_width_min and (settings.or_width_min_pct > 0 or settings.or_width_max_pct > 0):
             or_width_pct = (or_high - or_low) / or_high if or_high > 0 else 0
-            if or_width_pct < settings.or_width_min_pct:
+            if settings.or_width_min_pct > 0 and or_width_pct < settings.or_width_min_pct:
                 _reject("or_width_min")
                 return
+            if settings.or_width_max_pct > 0 and or_width_pct > settings.or_width_max_pct:
+                _reject("or_width_max")
+                return
 
-        # Breakout distance cap (block entries too far from OR high)
+        if settings.or_breakout_cap_r > 0 and (is_or_entry or is_combined_entry):
+            if or_breakout_dist_r > settings.or_breakout_cap_r:
+                _reject("or_breakout_cap")
+                return
+
+        if settings.pdh_breakout_cap_r > 0 and (is_pdh_entry or is_combined_entry):
+            if pdh_breakout_dist_r > settings.pdh_breakout_cap_r:
+                _reject("pdh_breakout_cap")
+                return
+
+        # Breakout distance cap (block entries too far from the active completed-bar breakout level)
         if ablation.use_breakout_distance_cap and settings.breakout_distance_cap_r > 0 and risk_per_share > 0:
-            breakout_dist_r = (bar.close - or_high) / risk_per_share
             if breakout_dist_r > settings.breakout_distance_cap_r:
                 _reject("breakout_distance_cap")
                 return
@@ -1606,11 +1862,20 @@ class ALCBIntradayEngine:
             * sector_mult
             * gap_size_mult
             * time_size_mult
+            * (max(0.0, settings.entry_confirmation_size_mult) if settings.entry_confirmation_bars > 0 else 1.0)
             * self._targeted_entry_size_mult(
                 entry_type_str,
                 entry_bar_index,
                 signal_time,
                 settings,
+            )
+            * conditional_entry_size_mult(
+                item.sector,
+                entry_type_str,
+                entry_bar_index,
+                m_score,
+                settings,
+                score_detail,
             )
             * self._orb_quality_size_mult(orb_quality_score, settings)
         )
@@ -1665,10 +1930,14 @@ class ALCBIntradayEngine:
             entry_type=entry_type_str,
             signal_time=signal_time,
             signal_bar_index=bar_idx,
+            signal_price=signal_price,
             signal_low=bar.low,
+            signal_risk_per_share=risk_per_share,
             or_low=or_low,
             daily_atr=daily_atr,
             avwap_at_signal=avwap,
+            expected_volume_5m=expected_vol,
+            signal_rvol=bar_rvol,
             momentum_score=m_score,
             score_detail=score_detail,
             orb_quality_score=orb_quality_score,
@@ -1744,12 +2013,15 @@ class ALCBIntradayEngine:
             "orb_quality_score": round(pos.orb_quality_score, 3),
             "gap_size_mult": round(pos.gap_size_mult, 4),
             "time_size_mult": round(pos.time_size_mult, 4),
+            "entry_signal_rvol": round(pos.entry_signal_rvol, 4),
+            "entry_expected_volume_5m": round(pos.entry_expected_volume_5m, 4),
         }
         if pos.momentum_setup:
             metadata["or_high"] = pos.momentum_setup.or_high
             metadata["or_low"] = pos.momentum_setup.or_low
             metadata["rvol_at_entry"] = pos.momentum_setup.rvol_at_entry
             metadata["breakout_level"] = pos.momentum_setup.breakout_level
+            metadata["score_detail"] = dict(pos.momentum_setup.score_detail or {})
 
         # Core notification: exit lifecycle
         _exit_oid = f"alcb-x-{pos.symbol}-{self._order_counter}"

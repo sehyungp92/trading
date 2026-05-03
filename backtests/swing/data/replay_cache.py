@@ -116,6 +116,43 @@ def load_breakout_replay_bundle(symbols: list[str], data_dir: Path) -> ReplayBun
     )
 
 
+def load_unified_portfolio_replay_bundle(config) -> ReplayBundle[Any]:
+    """Load the all-swing portfolio replay data behind a source-fingerprinted bundle."""
+
+    from backtests.swing.engine.unified_portfolio_engine import load_unified_data
+
+    base_dir = Path(config.data_dir)
+    overlay_symbols = tuple(config.overlay_symbols if config.overlay_enabled else ())
+    all_symbols = tuple(
+        sorted(
+            set(config.atrss_symbols)
+            | set(config.helix_symbols)
+            | set(config.brs_symbols)
+            | set(config.breakout_symbols)
+            | set(overlay_symbols)
+        )
+    )
+    source_paths = [
+        base_dir / f"{symbol}_{timeframe}.parquet"
+        for symbol in all_symbols
+        for timeframe in ("1h", "1d")
+    ]
+    return _build_bundle(
+        "swing.portfolio_synergy.unified_replay_bundle",
+        source_paths=source_paths,
+        root=base_dir,
+        extra={
+            "atrss_symbols": tuple(config.atrss_symbols),
+            "helix_symbols": tuple(config.helix_symbols),
+            "brs_symbols": tuple(config.brs_symbols),
+            "breakout_symbols": tuple(config.breakout_symbols),
+            "overlay_symbols": overlay_symbols,
+            "overlay_enabled": bool(config.overlay_enabled),
+        },
+        loader=lambda: load_unified_data(config),
+    )
+
+
 def _build_bundle(
     namespace: str,
     *,

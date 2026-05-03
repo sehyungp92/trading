@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import multiprocessing as mp
 from dataclasses import MISSING, asdict
 from pathlib import Path
@@ -15,57 +16,60 @@ from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
+    SharedPoolBatchEvaluator,
+    create_process_pool,
     deserialize_experiments,
     greedy_result_from_state,
     greedy_result_to_dict,
     mutation_signature,
-    resolve_worker_processes,
     seen_experiment_names,
 )
 from backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion, PhaseDecision
 
 from .phase_candidates import get_phase_candidates
 
+logger = logging.getLogger(__name__)
+
 PHASE_WEIGHTS: dict[int, dict[str, float] | None] = {
     1: {
-        "correction_pnl": 0.30,
-        "regime_purity": 0.18,
-        "edge": 0.15,
-        "risk": 0.15,
-        "capture": 0.10,
-        "calmar": 0.07,
-        "frequency": 0.05,
+        "net_return": 0.18,
+        "correction_pnl": 0.18,
+        "edge": 0.12,
+        "frequency": 0.18,
+        "coverage": 0.16,
+        "alpha_capture": 0.12,
+        "risk": 0.06,
     },
     2: {
-        "correction_pnl": 0.28,
-        "edge": 0.22,
-        "capture": 0.22,
-        "risk": 0.12,
-        "regime_purity": 0.06,
-        "calmar": 0.07,
-        "frequency": 0.03,
+        "net_return": 0.18,
+        "correction_pnl": 0.16,
+        "edge": 0.18,
+        "frequency": 0.12,
+        "coverage": 0.12,
+        "alpha_capture": 0.18,
+        "risk": 0.06,
     },
     3: {
-        "risk": 0.25,
-        "correction_pnl": 0.22,
-        "edge": 0.18,
-        "capture": 0.15,
-        "calmar": 0.10,
-        "regime_purity": 0.08,
-        "frequency": 0.02,
+        "net_return": 0.20,
+        "correction_pnl": 0.16,
+        "edge": 0.16,
+        "frequency": 0.12,
+        "coverage": 0.10,
+        "alpha_capture": 0.12,
+        "risk": 0.14,
     },
 }
 
 PHASE_HARD_REJECTS: dict[int, dict[str, float]] = {
-    1: {"min_trades": 10, "max_dd_pct": 0.35, "min_correction_pnl_pct": 0.0},
-    2: {"min_trades": 15, "max_dd_pct": 0.32, "min_correction_pnl_pct": 0.0},
-    3: {"min_trades": 15, "max_dd_pct": 0.30, "min_pf": 1.0},
+    1: {"min_trades": 50, "max_dd_pct": 0.22, "min_pf": 1.15, "min_correction_pnl_pct": 25.0},
+    2: {"min_trades": 60, "max_dd_pct": 0.20, "min_pf": 1.30, "min_correction_pnl_pct": 30.0},
+    3: {"min_trades": 70, "max_dd_pct": 0.18, "min_pf": 1.40, "min_correction_pnl_pct": 35.0},
 }
 
 PHASE_FOCUS = {
-    1: ("Regime Purification", ["correction_pnl_pct", "total_trades", "max_dd_pct"]),
-    2: ("Capture Optimization", ["exit_efficiency", "profit_factor", "correction_pnl_pct"]),
-    3: ("Risk Tuning", ["calmar", "max_dd_pct", "profit_factor"]),
+    1: ("Alpha Extraction", ["net_return_pct", "correction_pnl_pct", "total_trades", "correction_coverage"]),
+    2: ("Entry Discrimination", ["profit_factor", "low_mfe_trade_rate", "correction_capture_ratio"]),
+    3: ("Trade Management", ["calmar", "max_dd_pct", "profit_factor", "net_return_pct"]),
 }
 
 ULTIMATE_TARGETS = {
@@ -76,6 +80,8 @@ ULTIMATE_TARGETS = {
     "calmar": 2.0,
     "exit_efficiency": 0.35,
     "total_trades": 60.0,
+    "correction_coverage": 0.75,
+    "correction_capture_ratio": 0.25,
 }
 
 
@@ -104,37 +110,6 @@ def score_phase_metrics(
         total = sum(base.values())
         weights = {key: value / total for key, value in base.items()} if total > 0 else base
     return composite_score(metrics, weights)
-
-
-class _SharedPoolBatchEvaluator:
-    def __init__(
-        self,
-        pool: mp.Pool,
-        phase: int,
-        scoring_weights: dict[str, float] | None,
-        hard_rejects: dict[str, float] | None,
-        on_terminate,
-    ):
-        self._pool = pool
-        self._phase = phase
-        self._scoring_weights = scoring_weights
-        self._hard_rejects = hard_rejects
-        self._on_terminate = on_terminate
-
-    def __call__(self, candidates: list[Experiment], current_mutations: dict[str, Any]):
-        from .worker import score_candidate
-
-        args = [
-            (candidate.name, candidate.mutations, current_mutations, self._phase, self._scoring_weights, self._hard_rejects)
-            for candidate in candidates
-        ]
-        return self._pool.map(score_candidate, args)
-
-    def close(self) -> None:
-        pass
-
-    def terminate(self) -> None:
-        self._on_terminate()
 
 
 class _SequentialBatchEvaluator:
@@ -255,12 +230,25 @@ class DownturnPlugin:
 
         def make_parallel():
             self._ensure_pool()
-            return _SharedPoolBatchEvaluator(
+            from .worker import score_candidate
+
+            return SharedPoolBatchEvaluator(
                 self._pool,
-                phase,
-                scoring_weights,
-                hard_rejects,
-                self._destroy_pool,
+                worker_fn=score_candidate,
+                build_args=lambda candidates, current_mutations: [
+                    (
+                        candidate.name,
+                        candidate.mutations,
+                        current_mutations,
+                        phase,
+                        scoring_weights,
+                        hard_rejects,
+                    )
+                    for candidate in candidates
+                ],
+                on_terminate=self._destroy_pool,
+                description=f"downturn phase {phase}",
+                logger=logger,
             )
 
         def make_sequential():
@@ -296,11 +284,12 @@ class DownturnPlugin:
             return
         from .worker import init_worker
 
-        processes = resolve_worker_processes(self.max_workers)
-        self._pool = mp.Pool(
-            processes=processes,
+        self._pool = create_process_pool(
+            self.max_workers,
             initializer=init_worker,
             initargs=(str(self.data_dir), self.initial_equity),
+            logger=logger,
+            description=f"{self.name} evaluation",
         )
 
     def _destroy_pool(self) -> None:
@@ -418,11 +407,11 @@ class DownturnPlugin:
             f"Median hold is {metrics_obj.median_hold_5m:.1f} bars."
         )
         correction_attr = extra.get("correction_attribution", {})
-        regime_purity_ratio = correction_attr.get("ratio", 0.0)
+        correction_attribution_ratio = correction_attr.get("ratio", 0.0)
         overall_verdict = (
             f"Correction-capture specialist: correction PnL {metrics_obj.correction_pnl_pct:.1f}% "
             f"({'meets' if metrics_obj.correction_pnl_pct >= 60.0 else 'below'} target of 60%). "
-            f"Regime purity ratio {regime_purity_ratio:.2f}. "
+            f"Correction attribution ratio {correction_attribution_ratio:.2f}. "
             f"PF={metrics_obj.profit_factor:.2f}, DD={metrics_obj.max_dd_pct:.1%}, Calmar={metrics_obj.calmar:.2f}. "
             f"Exit efficiency {metrics_obj.exit_efficiency:.2f}."
         )
@@ -472,9 +461,18 @@ class DownturnPlugin:
                     add("rev_relax_extension_gate", {"flags.reversal_extension_gate": False})
                     add("rev_relax_corridor_cap", {"flags.reversal_corridor_cap": False})
                 elif engine == "breakdown":
-                    add("bd_relax_containment_0.60", {"param_overrides.box_containment_min": 0.60})
-                    add("bd_no_chop_filter", {"flags.breakdown_chop_filter": False})
-                    add("bd_relax_displacement_0.50", {"param_overrides.displacement_quantile": 0.50})
+                    add("bd_revival_relax_containment_0.60", {
+                        "flags.breakdown_engine": True,
+                        "param_overrides.box_containment_min": 0.60,
+                    })
+                    add("bd_revival_no_chop_filter", {
+                        "flags.breakdown_engine": True,
+                        "flags.breakdown_chop_filter": False,
+                    })
+                    add("bd_revival_relax_displacement_0.50", {
+                        "flags.breakdown_engine": True,
+                        "param_overrides.displacement_quantile": 0.50,
+                    })
                 elif engine == "fade":
                     add("fade_no_bear_required", {"flags.fade_bear_regime_required": False})
                     add("fade_no_momentum_confirm", {"flags.fade_momentum_confirm": False})
@@ -483,8 +481,14 @@ class DownturnPlugin:
                     add("rev_relax_div_threshold_0.10", {"param_overrides.divergence_mag_threshold": 0.10})
                     add("rev_relax_trend_gate", {"flags.reversal_trend_weakness_gate": False})
                 elif engine == "breakdown":
-                    add("bd_relax_containment_0.70", {"param_overrides.box_containment_min": 0.70})
-                    add("bd_relax_displacement_0.55", {"param_overrides.displacement_quantile": 0.55})
+                    add("bd_revival_relax_containment_0.70", {
+                        "flags.breakdown_engine": True,
+                        "param_overrides.box_containment_min": 0.70,
+                    })
+                    add("bd_revival_relax_displacement_0.55", {
+                        "flags.breakdown_engine": True,
+                        "param_overrides.displacement_quantile": 0.55,
+                    })
                 elif engine == "fade":
                     add("fade_widen_cap_0.40", {"param_overrides.vwap_cap_core": 0.40})
                     add("fade_no_bear_required", {"flags.fade_bear_regime_required": False})
@@ -537,10 +541,14 @@ class DownturnPlugin:
             if criterion.passed:
                 continue
             name = criterion.name.removeprefix("hard_")
-            if name in {"correction_pnl_pct", "total_trades"}:
+            if name in {"correction_pnl_pct"}:
                 weights["correction_pnl"] = weights.get("correction_pnl", 0.25) * 1.20
+            if name in {"total_trades"}:
+                weights["frequency"] = weights.get("frequency", 0.12) * 1.20
+            if name in {"correction_coverage"}:
+                weights["coverage"] = weights.get("coverage", 0.12) * 1.20
             if name in {"exit_efficiency"}:
-                weights["capture"] = weights.get("capture", 0.15) * 1.25
+                weights["alpha_capture"] = weights.get("alpha_capture", 0.15) * 1.25
             if name in {"profit_factor"}:
                 weights["edge"] = weights.get("edge", 0.20) * 1.25
             if name in {"max_dd_pct", "calmar"}:
@@ -548,12 +556,13 @@ class DownturnPlugin:
 
         weakness_text = " ".join(analysis.weaknesses).lower()
         if "exit efficiency" in weakness_text:
-            weights["capture"] = weights.get("capture", 0.15) * 1.10
-        if "regime purity" in weakness_text or "counter" in weakness_text:
-            weights["regime_purity"] = weights.get("regime_purity", 0.10) * 1.15
+            weights["alpha_capture"] = weights.get("alpha_capture", 0.15) * 1.10
+        if "coverage" in weakness_text or "correction" in weakness_text:
+            weights["coverage"] = weights.get("coverage", 0.12) * 1.10
+        if "counter" in weakness_text or "low-mfe" in weakness_text:
+            weights["alpha_capture"] = weights.get("alpha_capture", 0.15) * 1.10
         if "drawdown" in weakness_text:
             weights["risk"] = weights.get("risk", 0.18) * 1.10
-            weights["calmar"] = weights.get("calmar", 0.07) * 1.15
 
         total = sum(weights.values())
         return {key: value / total for key, value in weights.items()} if total > 0 else weights
@@ -604,7 +613,7 @@ class DownturnPlugin:
                 action="improve_scoring",
                 reason=(
                     "Strategy is profitable outside correction windows but loses during corrections; "
-                    "reweight scoring toward correction capture and regime purity."
+                    "reweight scoring toward correction capture and alpha discrimination."
                 ),
                 scoring_assessment_override="MISALIGNED",
                 scoring_weight_overrides=_correction_weight_overrides(phase, current_weights),
@@ -614,16 +623,18 @@ class DownturnPlugin:
     def _gate_criteria(self, phase: int, metrics: dict[str, float], state: PhaseState) -> list[GateCriterion]:
         metric_obj = _metrics_from_dict(metrics)
         criteria = [
-            GateCriterion("hard_min_trades", 10.0, float(metric_obj.total_trades), metric_obj.total_trades >= 10),
-            GateCriterion("hard_max_dd_pct", 0.30, metric_obj.max_dd_pct, metric_obj.max_dd_pct <= 0.30),
+            GateCriterion("hard_min_trades", 50.0, float(metric_obj.total_trades), metric_obj.total_trades >= 50),
+            GateCriterion("hard_max_dd_pct", 0.22, metric_obj.max_dd_pct, metric_obj.max_dd_pct <= 0.22),
             GateCriterion("hard_correction_pnl_pct", 0.0, metric_obj.correction_pnl_pct, metric_obj.correction_pnl_pct >= 0.0),
         ]
 
         if phase == 1:
             criteria.extend(
                 [
-                    GateCriterion("correction_pnl_pct", 40.0, metric_obj.correction_pnl_pct, metric_obj.correction_pnl_pct >= 40.0),
-                    GateCriterion("total_trades", 20.0, float(metric_obj.total_trades), metric_obj.total_trades >= 20),
+                    GateCriterion("net_return_pct", 50.0, metric_obj.net_return_pct, metric_obj.net_return_pct >= 50.0),
+                    GateCriterion("correction_pnl_pct", 45.0, metric_obj.correction_pnl_pct, metric_obj.correction_pnl_pct >= 45.0),
+                    GateCriterion("total_trades", 90.0, float(metric_obj.total_trades), metric_obj.total_trades >= 90),
+                    GateCriterion("correction_coverage", 0.40, metric_obj.correction_coverage, metric_obj.correction_coverage >= 0.40),
                 ]
             )
             return criteria
@@ -631,9 +642,10 @@ class DownturnPlugin:
         if phase == 2:
             criteria.extend(
                 [
-                    GateCriterion("profit_factor", 1.5, metric_obj.profit_factor, metric_obj.profit_factor >= 1.5),
-                    GateCriterion("exit_efficiency", 0.25, metric_obj.exit_efficiency, metric_obj.exit_efficiency >= 0.25),
-                    GateCriterion("correction_pnl_pct", 50.0, metric_obj.correction_pnl_pct, metric_obj.correction_pnl_pct >= 50.0),
+                    GateCriterion("profit_factor", 1.70, metric_obj.profit_factor, metric_obj.profit_factor >= 1.70),
+                    GateCriterion("correction_capture_ratio", 0.12, metric_obj.correction_capture_ratio, metric_obj.correction_capture_ratio >= 0.12),
+                    GateCriterion("low_mfe_trade_rate", 0.50, metric_obj.low_mfe_trade_rate, metric_obj.low_mfe_trade_rate <= 0.50),
+                    GateCriterion("correction_pnl_pct", 45.0, metric_obj.correction_pnl_pct, metric_obj.correction_pnl_pct >= 45.0),
                 ]
             )
             return criteria
@@ -641,15 +653,16 @@ class DownturnPlugin:
         if phase == 3:
             criteria.extend(
                 [
-                    GateCriterion("max_dd_pct", 0.25, metric_obj.max_dd_pct, metric_obj.max_dd_pct <= 0.25),
-                    GateCriterion("profit_factor", 1.3, metric_obj.profit_factor, metric_obj.profit_factor >= 1.3),
-                    GateCriterion("calmar", 0.5, metric_obj.calmar, metric_obj.calmar >= 0.5),
+                    GateCriterion("max_dd_pct", 0.15, metric_obj.max_dd_pct, metric_obj.max_dd_pct <= 0.15),
+                    GateCriterion("profit_factor", 1.70, metric_obj.profit_factor, metric_obj.profit_factor >= 1.70),
+                    GateCriterion("calmar", 1.50, metric_obj.calmar, metric_obj.calmar >= 1.50),
+                    GateCriterion("net_return_pct", 55.0, metric_obj.net_return_pct, metric_obj.net_return_pct >= 55.0),
                 ]
             )
             # No-regression check against Phase 2
             prior_metrics = state.get_phase_metrics(2) or {}
             if prior_metrics:
-                for key in ["correction_pnl_pct", "profit_factor", "exit_efficiency"]:
+                for key in ["correction_pnl_pct", "profit_factor", "net_return_pct"]:
                     target = float(_payload_metric(prior_metrics, key)) * 0.90
                     actual = float(_payload_metric(metrics, key))
                     criteria.append(GateCriterion(f"no_regress_{key}", target, actual, actual >= target))
@@ -722,10 +735,11 @@ def _correction_weight_overrides(phase: int, current_weights: dict[str, float] |
         return {}
 
     weights["correction_pnl"] = max(weights.get("correction_pnl", 0.0), 0.35)
-    weights["regime_purity"] = max(weights.get("regime_purity", 0.0), 0.15)
+    weights["coverage"] = max(weights.get("coverage", 0.0), 0.15)
+    weights["alpha_capture"] = max(weights.get("alpha_capture", 0.0), 0.15)
     weights["edge"] = max(weights.get("edge", 0.0), 0.15)
     weights["risk"] = max(weights.get("risk", 0.0), 0.12)
-    weights["capture"] = min(weights.get("capture", 0.0), 0.12)
+    weights["frequency"] = min(weights.get("frequency", 0.0), 0.12)
 
     total = sum(weights.values())
     return {key: value / total for key, value in weights.items()} if total > 0 else weights

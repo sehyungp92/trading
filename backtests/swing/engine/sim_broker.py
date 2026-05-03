@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from enum import Enum, auto
+from zoneinfo import ZoneInfo
 
 from libs.broker_ibkr.risk_support.tick_rules import round_to_tick
 
@@ -12,6 +13,7 @@ from backtests.swing.config import SlippageConfig
 from backtests.swing.models import Direction
 
 logger = logging.getLogger(__name__)
+_NEW_YORK_TZ = ZoneInfo("America/New_York")
 
 
 class OrderSide(Enum):
@@ -48,6 +50,8 @@ class SimOrder:
     submit_time: datetime | None = None
     ttl_hours: int = 6
     tag: str = ""  # e.g. "entry", "protective_stop", "addon_a"
+    fill_window_start_et: str | None = None
+    fill_window_end_et: str | None = None
 
     @property
     def direction(self) -> int:
@@ -102,6 +106,24 @@ class SimBroker:
     def submit_order(self, order: SimOrder) -> None:
         """Add an order to the pending queue."""
         self.pending_orders.append(order)
+
+    @staticmethod
+    def _parse_window_time(value: str | None) -> time | None:
+        if not value:
+            return None
+        hour, minute = value.split(":")
+        return time(int(hour), int(minute))
+
+    def _fill_window_open(self, order: SimOrder, bar_time: datetime) -> bool:
+        start = self._parse_window_time(order.fill_window_start_et)
+        end = self._parse_window_time(order.fill_window_end_et)
+        if start is None or end is None:
+            return True
+        if bar_time.tzinfo is not None:
+            current = bar_time.astimezone(_NEW_YORK_TZ).time()
+        else:
+            current = bar_time.time()
+        return start <= current <= end
 
     def cancel_orders(
         self,
@@ -178,6 +200,10 @@ class SimBroker:
 
             # During halt: suppress all fills except cancel expired
             if is_halted:
+                still_pending.append(order)
+                continue
+
+            if not self._fill_window_open(order, bar_time):
                 still_pending.append(order)
                 continue
 

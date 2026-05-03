@@ -44,19 +44,46 @@ def get_r9_phase_candidates(
     prior_mutations: dict | None = None,
     suggested_experiments: list[tuple[str, dict]] | None = None,
 ) -> list[tuple[str, dict]]:
-    """Get experiment candidates for R9 synchronized mode.
+    """Get experiment candidates for synchronized ATRSS rounds.
 
-    Phase 1: Structural fixes targeting diagnosed weaknesses.
-    Phase 2-4: Reuses R1 exit/signal/finetune candidates.
+    R2+ starts from the prior optimized config and targets the diagnosed
+    alpha omissions directly: opportunity surface, signal geometry,
+    execution/stop geometry, then exit/add-on/ranking management.
     """
     if phase == 1:
-        candidates = _r9_phase_1_structural()
+        candidates = _r10_phase_1_opportunity_surface()
     elif phase == 2:
-        candidates = _phase_1_candidates()  # R1 exit cleanup as R9 Phase 2
+        candidates = _r10_phase_2_signal_geometry()
     elif phase == 3:
-        candidates = _phase_2_candidates()  # R1 signal filtering as R9 Phase 3
+        candidates = _r10_phase_3_execution_and_stops()
     elif phase == 4:
-        candidates = _phase_4_candidates(prior_mutations or {})
+        candidates = _r10_phase_4_exits_addons_allocation(prior_mutations or {})
+    else:
+        candidates = []
+
+    if suggested_experiments:
+        existing_names = {name for name, _ in candidates}
+        for name, muts in suggested_experiments:
+            if name not in existing_names:
+                candidates.append((name, muts))
+
+    return candidates
+
+
+def get_risk_allocation_phase_candidates(
+    phase: int,
+    prior_mutations: dict | None = None,
+    suggested_experiments: list[tuple[str, dict]] | None = None,
+) -> list[tuple[str, dict]]:
+    """Candidate slate for the post-alpha ATRSS risk-allocation round."""
+    if phase == 1:
+        candidates = _risk_phase_1_dynamic_risk_exposure()
+    elif phase == 2:
+        candidates = _risk_phase_2_risk_heat_calibration()
+    elif phase == 3:
+        candidates = _risk_phase_3_addon_b_winner_lean_in()
+    elif phase == 4:
+        candidates = _risk_phase_4_guardrails(prior_mutations or {})
     else:
         candidates = []
 
@@ -275,6 +302,464 @@ def _dynamic_finetune(prior_mutations: dict) -> list[tuple[str, dict]]:
             finetune.append((name, {key: new_val}))
 
     return finetune
+
+
+# ---------------------------------------------------------------------------
+# Risk-allocation round: scale strong ATRSS edge without reckless heat
+# ---------------------------------------------------------------------------
+
+def _risk_phase_1_dynamic_risk_exposure() -> list[tuple[str, dict]]:
+    """Find the live-style dynamic risk band before enabling add-on complexity."""
+    return [
+        # Keep add-on B disabled in the exposure sweep so base risk is measured
+        # cleanly before testing winner lean-in as a separate gated layer.
+        ("risk_sized_150bp", {
+            "fixed_qty": None,
+            "flags.addon_b": False,
+            "param_overrides.base_risk_pct": 0.0150,
+        }),
+        ("risk_sized_175bp", {
+            "fixed_qty": None,
+            "flags.addon_b": False,
+            "param_overrides.base_risk_pct": 0.0175,
+        }),
+        ("risk_sized_200bp", {
+            "fixed_qty": None,
+            "flags.addon_b": False,
+            "param_overrides.base_risk_pct": 0.0200,
+        }),
+        ("risk_sized_225bp", {
+            "fixed_qty": None,
+            "flags.addon_b": False,
+            "param_overrides.base_risk_pct": 0.0225,
+        }),
+        ("risk_sized_240bp", {
+            "fixed_qty": None,
+            "flags.addon_b": False,
+            "param_overrides.base_risk_pct": 0.0240,
+        }),
+        ("risk_sized_250bp_guardrail_probe", {
+            "fixed_qty": None,
+            "flags.addon_b": False,
+            "param_overrides.base_risk_pct": 0.0250,
+        }),
+
+        # Dynamic regime overlays let the risk model lean into the best trend
+        # states while cutting exposure when the trend score is marginal.
+        ("risk_200bp_strong140_weak075", {
+            "fixed_qty": None,
+            "flags.addon_b": False,
+            "param_overrides.base_risk_pct": 0.0200,
+            "param_overrides.dynamic_risk_strong_trend_mult": 1.40,
+            "param_overrides.dynamic_risk_weak_trend_mult": 0.75,
+        }),
+        ("risk_225bp_strong135_weak070", {
+            "fixed_qty": None,
+            "flags.addon_b": False,
+            "param_overrides.base_risk_pct": 0.0225,
+            "param_overrides.dynamic_risk_strong_trend_mult": 1.35,
+            "param_overrides.dynamic_risk_weak_trend_mult": 0.70,
+        }),
+        ("risk_225bp_heat055_guarded", {
+            "fixed_qty": None,
+            "flags.addon_b": False,
+            "param_overrides.base_risk_pct": 0.0225,
+            "param_overrides.max_portfolio_heat": 0.055,
+        }),
+        ("risk_240bp_heat055_guarded", {
+            "fixed_qty": None,
+            "flags.addon_b": False,
+            "param_overrides.base_risk_pct": 0.0240,
+            "param_overrides.max_portfolio_heat": 0.055,
+        }),
+    ]
+
+
+def _risk_phase_2_risk_heat_calibration() -> list[tuple[str, dict]]:
+    """Tune risk budget and heat once the exposure band is chosen."""
+    return [
+        # Local refinement around the aggressive-but-gated dynamic band.
+        ("risk_sized_185bp", {"fixed_qty": None, "param_overrides.base_risk_pct": 0.0185}),
+        ("risk_sized_200bp", {"fixed_qty": None, "param_overrides.base_risk_pct": 0.0200}),
+        ("risk_sized_210bp", {"fixed_qty": None, "param_overrides.base_risk_pct": 0.0210}),
+        ("risk_sized_220bp", {"fixed_qty": None, "param_overrides.base_risk_pct": 0.0220}),
+        ("risk_sized_230bp", {"fixed_qty": None, "param_overrides.base_risk_pct": 0.0230}),
+        ("risk_sized_240bp", {"fixed_qty": None, "param_overrides.base_risk_pct": 0.0240}),
+        ("risk_sized_250bp_guardrail_probe", {"fixed_qty": None, "param_overrides.base_risk_pct": 0.0250}),
+
+        # Heat caps stay explicit optimizer mutations so any extra return must
+        # survive the shared-capital drawdown and PF gates.
+        ("heat_05pct", {"param_overrides.max_portfolio_heat": 0.050}),
+        ("heat_055pct", {"param_overrides.max_portfolio_heat": 0.055}),
+        ("heat_06pct", {"param_overrides.max_portfolio_heat": 0.060}),
+        ("heat_065pct", {"param_overrides.max_portfolio_heat": 0.065}),
+        ("heat_07pct", {"param_overrides.max_portfolio_heat": 0.070}),
+
+        # Regime scaling variants keep the dynamic risk model from being one
+        # size fits all without changing the signal or execution clocks.
+        ("dynamic_scale_default", {
+            "param_overrides.dynamic_risk_strong_trend_mult": 1.25,
+            "param_overrides.dynamic_risk_weak_trend_mult": 0.75,
+        }),
+        ("dynamic_scale_quality_130_070", {
+            "param_overrides.dynamic_risk_strong_trend_mult": 1.30,
+            "param_overrides.dynamic_risk_weak_trend_mult": 0.70,
+        }),
+        ("dynamic_scale_aggressive_140_070", {
+            "param_overrides.dynamic_risk_strong_trend_mult": 1.40,
+            "param_overrides.dynamic_risk_weak_trend_mult": 0.70,
+        }),
+        ("dynamic_scale_defensive_115_080", {
+            "param_overrides.dynamic_risk_strong_trend_mult": 1.15,
+            "param_overrides.dynamic_risk_weak_trend_mult": 0.80,
+        }),
+        ("risk_230bp_heat060", {
+            "fixed_qty": None,
+            "param_overrides.base_risk_pct": 0.0230,
+            "param_overrides.max_portfolio_heat": 0.060,
+        }),
+        ("risk_240bp_heat055", {
+            "fixed_qty": None,
+            "param_overrides.base_risk_pct": 0.0240,
+            "param_overrides.max_portfolio_heat": 0.055,
+        }),
+    ]
+
+
+def _risk_phase_3_addon_b_winner_lean_in() -> list[tuple[str, dict]]:
+    """Enable pyramiding only after base exposure has survived strict gates."""
+    return [
+        ("addon_b_200r_010", {
+            "flags.addon_b": True,
+            "param_overrides.addon_b_r": 2.00,
+            "param_overrides.addon_b_size_mult": 0.10,
+        }),
+        ("addon_b_250r_010", {
+            "flags.addon_b": True,
+            "param_overrides.addon_b_r": 2.50,
+            "param_overrides.addon_b_size_mult": 0.10,
+        }),
+        ("addon_b_250r_015", {
+            "flags.addon_b": True,
+            "param_overrides.addon_b_r": 2.50,
+            "param_overrides.addon_b_size_mult": 0.15,
+        }),
+        ("addon_b_300r_015", {
+            "flags.addon_b": True,
+            "param_overrides.addon_b_r": 3.00,
+            "param_overrides.addon_b_size_mult": 0.15,
+        }),
+        ("addon_b_300r_020", {
+            "flags.addon_b": True,
+            "param_overrides.addon_b_r": 3.00,
+            "param_overrides.addon_b_size_mult": 0.20,
+        }),
+        ("addon_b_350r_015", {
+            "flags.addon_b": True,
+            "param_overrides.addon_b_r": 3.50,
+            "param_overrides.addon_b_size_mult": 0.15,
+        }),
+
+        # Add-on A stays separate from add-on B so winner scaling is only
+        # adopted when it improves net return without damaging expectancy.
+        ("addon_a_100r_025", {
+            "param_overrides.addon_a_r": 1.00,
+            "param_overrides.addon_a_size_mult": 0.25,
+        }),
+        ("addon_a_125r_025", {
+            "param_overrides.addon_a_r": 1.25,
+            "param_overrides.addon_a_size_mult": 0.25,
+        }),
+        ("addon_a_150r_050", {
+            "param_overrides.addon_a_r": 1.50,
+            "param_overrides.addon_a_size_mult": 0.50,
+        }),
+        ("disable_addon_a", {"flags.addon_a": False}),
+        ("disable_addon_b", {"flags.addon_b": False}),
+    ]
+
+
+def _risk_phase_4_guardrails(prior_mutations: dict) -> list[tuple[str, dict]]:
+    """Final guardrail pass after size and add-ons have been established."""
+    candidates = [
+        ("risk_pct_minus25bp", _base_risk_pct_delta(prior_mutations, -0.0025)),
+        ("risk_pct_minus10bp", _base_risk_pct_delta(prior_mutations, -0.0010)),
+        ("risk_pct_plus10bp", _base_risk_pct_delta(prior_mutations, 0.0010)),
+        ("risk_pct_plus25bp", _base_risk_pct_delta(prior_mutations, 0.0025)),
+        ("heat_055pct", {"param_overrides.max_portfolio_heat": 0.055}),
+        ("heat_06pct", {"param_overrides.max_portfolio_heat": 0.060}),
+        ("heat_065pct", {"param_overrides.max_portfolio_heat": 0.065}),
+        ("heat_075pct", {"param_overrides.max_portfolio_heat": 0.075}),
+        ("dynamic_scale_default", {
+            "param_overrides.dynamic_risk_strong_trend_mult": 1.25,
+            "param_overrides.dynamic_risk_weak_trend_mult": 0.75,
+        }),
+        ("dynamic_scale_quality_130_070", {
+            "param_overrides.dynamic_risk_strong_trend_mult": 1.30,
+            "param_overrides.dynamic_risk_weak_trend_mult": 0.70,
+        }),
+        ("dynamic_scale_aggressive_140_070", {
+            "param_overrides.dynamic_risk_strong_trend_mult": 1.40,
+            "param_overrides.dynamic_risk_weak_trend_mult": 0.70,
+        }),
+
+        # Preserve the high expectancy while checking whether exits need to
+        # become more defensive after size increases.
+        ("be_trigger_075", {"param_overrides.be_trigger_r": 0.75}),
+        ("be_trigger_100", {"param_overrides.be_trigger_r": 1.00}),
+        ("tp1_frac_025", {"param_overrides.tp1_frac": 0.25}),
+        ("tp1_frac_040", {"param_overrides.tp1_frac": 0.40}),
+        ("tp2_r_200", {"param_overrides.tp2_r": 2.00}),
+        ("tp2_r_250", {"param_overrides.tp2_r": 2.50}),
+        ("floor_guardrail", {
+            "param_overrides.profit_floor": {0.75: 0.0, 1.0: 0.20, 1.5: 0.55, 2.0: 1.0, 3.0: 1.8, 4.0: 2.8},
+        }),
+        ("floor_loose", {
+            "param_overrides.profit_floor": {1.0: -0.10, 1.5: 0.30, 2.0: 0.80, 3.0: 1.6, 4.0: 2.6},
+        }),
+        ("max_hold_72h", {"param_overrides.max_hold_hours": 72}),
+        ("max_hold_88h", {"param_overrides.max_hold_hours": 88}),
+        ("max_hold_104h", {"param_overrides.max_hold_hours": 104}),
+        ("max_hold_120h", {"param_overrides.max_hold_hours": 120}),
+    ]
+    candidates.extend(_dynamic_finetune(prior_mutations))
+    return [(name, muts) for name, muts in candidates if muts]
+
+
+def _fixed_qty_delta(prior_mutations: dict, delta: int) -> dict:
+    current = prior_mutations.get("fixed_qty")
+    if current is None:
+        return {}
+    try:
+        qty = int(current) + delta
+    except (TypeError, ValueError):
+        return {}
+    if qty < 1:
+        return {}
+    return {"fixed_qty": qty}
+
+
+def _base_risk_pct_delta(prior_mutations: dict, delta: float) -> dict:
+    current = prior_mutations.get("param_overrides.base_risk_pct")
+    if current is None:
+        return {}
+    try:
+        risk_pct = float(current) + delta
+    except (TypeError, ValueError):
+        return {}
+    if risk_pct <= 0:
+        return {}
+    return {"param_overrides.base_risk_pct": round(risk_pct, 4)}
+
+
+# ---------------------------------------------------------------------------
+# Synchronized R2+: alpha-expansion phases
+# ---------------------------------------------------------------------------
+
+def _r10_phase_1_opportunity_surface() -> list[tuple[str, dict]]:
+    """Unlock missing opportunity before tuning the current pullback."""
+    return [
+        # Universe expansion remains opt-in; default ETF set is unchanged.
+        ("add_uso_sleeve", {"symbols": ["QQQ", "GLD", "USO"]}),
+
+        # Controlled short alpha probes. Shorts are additive to the existing
+        # long engine and must pass full portfolio gates.
+        ("enable_gld_shorts", {"param_overrides.shorts_enabled_GLD": 1}),
+        ("enable_qqq_shorts", {"param_overrides.shorts_enabled_QQQ": 1}),
+        ("enable_etf_shorts", {
+            "param_overrides.shorts_enabled_QQQ": 1,
+            "param_overrides.shorts_enabled_GLD": 1,
+        }),
+        ("enable_etf_shorts_loose_safety", {
+            "param_overrides.shorts_enabled_QQQ": 1,
+            "param_overrides.shorts_enabled_GLD": 1,
+            "flags.short_safety": False,
+        }),
+
+        # Bias/regime extraction: primary way to reduce FLAT-bias idle time.
+        ("confirm_days_0", {"param_overrides.confirm_days_normal": 0}),
+        ("fast_confirm_score_45", {"param_overrides.fast_confirm_score": 45}),
+        ("fast_confirm_score_50", {"param_overrides.fast_confirm_score": 50}),
+        ("fast_confirm_adx_18", {"param_overrides.fast_confirm_adx": 18}),
+        ("adx_on_13", {"param_overrides.adx_on": 13}),
+        ("adx_on_14", {"param_overrides.adx_on": 14}),
+        ("adx_on_17", {"param_overrides.adx_on": 17}),
+        ("adx_off_14", {"param_overrides.adx_off": 14}),
+        ("adx_strong_25", {"param_overrides.adx_strong": 25}),
+        ("adx_strong_35", {"param_overrides.adx_strong": 35}),
+        ("pathc_loose", {
+            "param_overrides.di_min": 7,
+            "param_overrides.sep_min": 0.12,
+            "param_overrides.adx_min_struct": 16,
+        }),
+        ("pathc_tight", {
+            "param_overrides.di_min": 14,
+            "param_overrides.sep_min": 0.28,
+            "param_overrides.adx_min_struct": 22,
+        }),
+        ("ema_daily_faster", {
+            "param_overrides.daily_ema_fast": 15,
+            "param_overrides.daily_ema_slow": 45,
+        }),
+        ("ema_daily_slower", {
+            "param_overrides.daily_ema_fast": 25,
+            "param_overrides.daily_ema_slow": 65,
+        }),
+        ("rank_stop_first", {"param_overrides.rank_mode": "stop_first"}),
+        ("rank_score_per_risk", {"param_overrides.rank_mode": "score_per_risk"}),
+    ]
+
+
+def _r10_phase_2_signal_geometry() -> list[tuple[str, dict]]:
+    """Repair signal extraction and test discrimination around pullbacks."""
+    return [
+        # Pullback discrimination.
+        ("pullback_momentum_filter", {"param_overrides.pullback_momentum_filter": True}),
+        ("pb_momentum_strict", {
+            "param_overrides.pullback_momentum_filter": True,
+            "param_overrides.momentum_tolerance_atr": 0.00,
+        }),
+        ("pb_momentum_loose", {
+            "param_overrides.pullback_momentum_filter": True,
+            "param_overrides.momentum_tolerance_atr": 0.20,
+        }),
+        ("quality_gate_30", {
+            "flags.quality_gate": True,
+            "param_overrides.quality_gate_threshold": 3.0,
+        }),
+        ("quality_gate_40", {
+            "flags.quality_gate": True,
+            "param_overrides.quality_gate_threshold": 4.0,
+        }),
+
+        # Pullback geometry.
+        ("pullback_lb_4", {"param_overrides.pullback_lookback": 4}),
+        ("pullback_lb_6", {"param_overrides.pullback_lookback": 6}),
+        ("pullback_lb_12", {"param_overrides.pullback_lookback": 12}),
+        ("pullback_lb_16", {"param_overrides.pullback_lookback": 16}),
+        ("touch_tol_035", {"param_overrides.pullback_touch_tolerance_atr": 0.35}),
+        ("touch_tol_045", {"param_overrides.pullback_touch_tolerance_atr": 0.45}),
+        ("touch_tol_070", {"param_overrides.pullback_touch_tolerance_atr": 0.70}),
+        ("touch_pct_015", {"param_overrides.pullback_touch_tolerance_pct": 0.0015}),
+        ("touch_pct_050", {"param_overrides.pullback_touch_tolerance_pct": 0.0050}),
+        ("recov_trend_020", {"param_overrides.recovery_tolerance_atr_trend": 0.20}),
+        ("recov_trend_045", {"param_overrides.recovery_tolerance_atr_trend": 0.45}),
+        ("recov_trend_055", {"param_overrides.recovery_tolerance_atr_trend": 0.55}),
+        ("recov_strong_060", {"param_overrides.recovery_tolerance_atr_strong": 0.60}),
+        ("recov_strong_100", {"param_overrides.recovery_tolerance_atr_strong": 1.00}),
+        ("ema_pull_normal_35", {"param_overrides.ema_pull_normal": 35}),
+        ("ema_pull_normal_55", {"param_overrides.ema_pull_normal": 55}),
+        ("ema_pull_strong_21", {"param_overrides.ema_pull_strong": 21}),
+        ("ema_pull_strong_50", {"param_overrides.ema_pull_strong": 50}),
+
+        # Breakout repair: arms exist, but the current retrace never converts.
+        ("breakout_direct", {"param_overrides.breakout_direct_entry": True}),
+        ("breakout_no_candle_gate", {"param_overrides.breakout_require_directional_candle": False}),
+        ("breakout_retrace_20_60", {
+            "param_overrides.breakout_retrace_entry_frac": 0.20,
+            "param_overrides.breakout_retrace_limit_frac": 0.60,
+        }),
+        ("breakout_retrace_10_75", {
+            "param_overrides.breakout_retrace_entry_frac": 0.10,
+            "param_overrides.breakout_retrace_limit_frac": 0.75,
+            "param_overrides.breakout_require_directional_candle": False,
+        }),
+    ]
+
+
+def _r10_phase_3_execution_and_stops() -> list[tuple[str, dict]]:
+    """Tune entry execution and initial risk geometry after signal discovery."""
+    return [
+        # Entry/fill mechanics.
+        ("expiry_6h", {"param_overrides.order_expiry_hours": 6}),
+        ("expiry_12h", {"param_overrides.order_expiry_hours": 12}),
+        ("expiry_24h", {"param_overrides.order_expiry_hours": 24}),
+        ("stop_market_entries", {"slippage.use_stop_market": True}),
+        ("disable_slippage_abort", {"flags.slippage_abort": False}),
+        ("slip_atr_050", {"param_overrides.max_entry_slip_atr": 0.50}),
+        ("slip_atr_075", {"param_overrides.max_entry_slip_atr": 0.75}),
+        ("limit_ticks_0", {"param_overrides.limit_ticks": 0}),
+        ("limit_ticks_4", {"param_overrides.limit_ticks": 4}),
+        ("limit_pct_0025", {"param_overrides.limit_pct": 0.0025}),
+
+        # Initial stop geometry. These are broad structural probes, not
+        # symbol-specific curve fits.
+        ("daily_mult_18", {"param_overrides.daily_mult": 1.8}),
+        ("daily_mult_24", {"param_overrides.daily_mult": 2.4}),
+        ("hourly_mult_22", {"param_overrides.hourly_mult": 2.2}),
+        ("hourly_mult_32", {"param_overrides.hourly_mult": 3.2}),
+        ("trend_stop_tight_050", {"param_overrides.trend_stop_tightening": 0.50}),
+        ("trend_stop_tight_075", {"param_overrides.trend_stop_tightening": 0.75}),
+        ("trend_stop_tight_095", {"param_overrides.trend_stop_tightening": 0.95}),
+        ("qqq_stop_tighter", {
+            "param_overrides.daily_mult_QQQ": 1.9,
+            "param_overrides.hourly_mult_QQQ": 2.4,
+        }),
+        ("gld_stop_tighter", {
+            "param_overrides.daily_mult_GLD": 1.8,
+            "param_overrides.hourly_mult_GLD": 2.3,
+        }),
+    ]
+
+
+def _r10_phase_4_exits_addons_allocation(prior_mutations: dict) -> list[tuple[str, dict]]:
+    """Harvest MFE leakage, add-on edge, and allocator mis-ranking."""
+    candidates = [
+        # Stall/time decay variants around the current winner.
+        ("early_stall_8h_mfe02", {
+            "flags.early_stall_exit": True,
+            "param_overrides.early_stall_check_hours": 8,
+            "param_overrides.early_stall_mfe_threshold": 0.20,
+        }),
+        ("early_stall_16h_mfe03", {
+            "flags.early_stall_exit": True,
+            "param_overrides.early_stall_check_hours": 16,
+            "param_overrides.early_stall_mfe_threshold": 0.30,
+        }),
+        ("early_stall_partial_025", {"param_overrides.early_stall_partial_frac": 0.25}),
+        ("early_stall_partial_075", {"param_overrides.early_stall_partial_frac": 0.75}),
+        ("disable_early_stall", {"flags.early_stall_exit": False}),
+        ("full_stall_24h_mfe03", {
+            "flags.stall_exit": True,
+            "param_overrides.stall_check_hours": 24,
+            "param_overrides.stall_mfe_threshold": 0.30,
+        }),
+        ("max_hold_64h", {"param_overrides.max_hold_hours": 64}),
+        ("max_hold_96h", {"param_overrides.max_hold_hours": 96}),
+        ("max_hold_120h", {"param_overrides.max_hold_hours": 120}),
+
+        # MFE leakage and partial capture.
+        ("be_trigger_050", {"param_overrides.be_trigger_r": 0.50}),
+        ("be_trigger_100", {"param_overrides.be_trigger_r": 1.00}),
+        ("tp1_r_090", {"param_overrides.tp1_r": 0.90}),
+        ("tp1_r_115", {"param_overrides.tp1_r": 1.15}),
+        ("tp1_frac_025", {"param_overrides.tp1_frac": 0.25}),
+        ("tp1_frac_050", {"param_overrides.tp1_frac": 0.50}),
+        ("tp2_r_175", {"param_overrides.tp2_r": 1.75}),
+        ("tp2_r_200", {"param_overrides.tp2_r": 2.00}),
+        ("floor_pre_be", {
+            "param_overrides.profit_floor": {0.75: 0.0, 1.0: 0.20, 1.5: 0.55, 2.0: 1.0, 3.0: 1.8, 4.0: 2.8},
+        }),
+        ("floor_loose_low", {
+            "param_overrides.profit_floor": {1.0: -0.10, 1.5: 0.30, 2.0: 0.80, 3.0: 1.6, 4.0: 2.6},
+        }),
+        ("chand_trigger_100", {"param_overrides.chandelier_trigger_r": 1.00}),
+        ("chand_mult_25", {"param_overrides.chand_mult": 2.5}),
+        ("chand_mult_35", {"param_overrides.chand_mult": 3.5}),
+
+        # Add-ons and allocation.
+        ("addon_a_100r", {"param_overrides.addon_a_r": 1.00}),
+        ("addon_a_125r", {"param_overrides.addon_a_r": 1.25}),
+        ("addon_a_size_050", {"param_overrides.addon_a_size_mult": 0.50}),
+        ("addon_b_150r", {"param_overrides.addon_b_r": 1.50}),
+        ("dynamic_sizing", {"fixed_qty": None}),
+        ("heat_08pct", {"param_overrides.max_portfolio_heat": 0.08}),
+        ("heat_10pct", {"param_overrides.max_portfolio_heat": 0.10}),
+        ("rank_gld_first", {"param_overrides.rank_mode": "gld_first"}),
+        ("rank_qqq_first", {"param_overrides.rank_mode": "qqq_first"}),
+    ]
+    candidates.extend(_dynamic_finetune(prior_mutations))
+    return candidates
 
 
 # ---------------------------------------------------------------------------

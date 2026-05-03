@@ -390,26 +390,27 @@ def compute_entry_subtype_stop(
 
     if engine_tag == EngineTag.REVERSAL:
         # Stop-market at L_last_4h - buffer
-        buffer = 2 * tick_size
+        buffer = po.get("entry_buffer_ticks", 2.0) * tick_size
         entry_price = _round_tick(low_recent - buffer, "down")
-        # Stop0 = H2 + 0.75xATR4H
-        stop0 = _round_tick(signal.h2_price + 0.75 * atr, "up")
+        stop_mult = po.get("reversal_stop_atr_mult", 0.75)
+        stop0 = _round_tick(signal.h2_price + stop_mult * atr, "up")
         return entry_price, stop0, "stop_market"
 
     elif engine_tag == EngineTag.BREAKDOWN:
         # A_latch: stop at breakout_low - 2 ticks
-        entry_price = _round_tick(signal.box_low - 2 * tick_size, "down")
-        # Stop0 = box_mid + 0.10xATR30m
+        buffer = po.get("entry_buffer_ticks", 2.0) * tick_size
+        entry_price = _round_tick(signal.box_low - buffer, "down")
         box_mid = (signal.box_high + signal.box_low) / 2.0
-        stop0 = _round_tick(box_mid + 0.10 * atr, "up")
+        stop_mult = po.get("breakdown_stop_atr_mult", 0.10)
+        stop0 = _round_tick(box_mid + stop_mult * atr, "up")
         return entry_price, stop0, "stop_limit"
 
     elif engine_tag == EngineTag.FADE:
         # Stop-limit at Low(trigger) - buffer
-        buffer = 2 * tick_size
+        buffer = po.get("entry_buffer_ticks", 2.0) * tick_size
         entry_price = _round_tick(low_recent - buffer, "down")
-        # Stop0 = structure + ATR guardrail
-        stop0 = _round_tick(signal.vwap_used + 0.50 * atr, "up")
+        stop_mult = po.get("fade_stop_atr_mult", 0.50)
+        stop0 = _round_tick(signal.vwap_used + stop_mult * atr, "up")
         return entry_price, stop0, "stop_limit"
 
     return close, close + atr, "market"

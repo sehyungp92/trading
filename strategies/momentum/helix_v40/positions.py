@@ -277,7 +277,13 @@ class PositionManager:
         if self.diag and exit_reason:
             self.diag.finalize(pos, last_price, exit_reason, now_et or pos.entry_ts)
         self.risk.release_open_risk(pos.direction, pos.current_risk_r)
-        self.signals.record_exit(pos.direction, exit_reason=exit_reason, bars_held=pos.bars_held_1h)
+        self.signals.record_exit(
+            pos.direction,
+            exit_reason=exit_reason,
+            bars_held=pos.bars_held_1h,
+            exit_price=last_price,
+            exit_ts=now_et,
+        )
         if pos in self.positions:
             self.positions.remove(pos)
         logger.info("Position closed: %s", pos.pos_id)

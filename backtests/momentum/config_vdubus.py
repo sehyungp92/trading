@@ -87,6 +87,12 @@ class VdubusAblationFlags:
     # v4.4 improvements
     late_trail: bool = False               # independent late-activation trail (no partial)
 
+    # v4.5 research paths (disabled by default; shared-signal compatible)
+    hourly_bypass_quality: bool = False    # allow select non-1H-aligned entries through quality gate
+    slope_bypass_quality: bool = False     # allow select slope rejects through quality gate
+    type_c_enabled: bool = False           # continuation entry for no-signal shadow alpha
+    mfe_rescue_stop: bool = False          # protect trades that show early MFE then stall
+
 
 @dataclass
 class VdubusBacktestConfig:

@@ -432,6 +432,79 @@ def helix_setup_funnel(setup_log: list, gate_log: list, entry_tracking: list) ->
     return "\n".join(lines)
 
 
+def helix_signal_variant_diagnostics(setup_log: list, gate_log: list) -> str:
+    """Variant-level setup context for structural signal family experiments."""
+    if not setup_log:
+        return "=== Signal Variant Diagnostics ===\n  No setup data."
+
+    placed_ids = {g.setup_id for g in gate_log if g.decision == "placed"} if gate_log else set()
+    blocked_ids = {g.setup_id for g in gate_log if g.decision == "blocked"} if gate_log else set()
+
+    def key_for(setup) -> str:
+        variant = getattr(setup, "signal_variant", "") or ""
+        if variant:
+            return variant
+        return f"class_{getattr(setup, 'setup_class', '')}"
+
+    def median_attr(items: list, attr: str) -> float:
+        vals = []
+        for item in items:
+            try:
+                vals.append(float(getattr(item, attr, 0.0) or 0.0))
+            except (TypeError, ValueError):
+                continue
+        return float(np.median(vals)) if vals else 0.0
+
+    def top_state(items: list, attr: str) -> str:
+        states = [getattr(item, attr, "") for item in items if getattr(item, attr, "")]
+        if not states:
+            return "-"
+        state, count = Counter(states).most_common(1)[0]
+        return f"{state} ({count})"
+
+    groups: dict[str, list] = defaultdict(list)
+    for setup in setup_log:
+        groups[key_for(setup)].append(setup)
+
+    lines = ["=== Signal Variant Diagnostics ==="]
+    lines.append(
+        "  Variant/class context for detecting whether new families are distinct alpha or noisier copies."
+    )
+    header = (
+        f"  {'Variant':26s} {'Det':>5s} {'Placed':>6s} {'Blocked':>7s} {'Shadow':>6s} "
+        f"{'GapATR':>7s} {'PB_ATR':>7s} {'H4Hist':>7s} {'PxFast':>7s} {'Top EMA State':28s}"
+    )
+    lines.append(header)
+    lines.append("  " + "-" * (len(header) - 2))
+
+    for key in sorted(groups):
+        items = groups[key]
+        placed = sum(1 for setup in items if setup.setup_id in placed_ids)
+        blocked = sum(1 for setup in items if setup.setup_id in blocked_ids and setup.setup_id not in placed_ids)
+        shadow = sum(1 for setup in items if getattr(setup, "shadow_only", False))
+        lines.append(
+            f"  {key[:26]:26s} {len(items):5d} {placed:6d} {blocked:7d} {shadow:6d} "
+            f"{median_attr(items, 'entry_gap_atr'):7.2f} "
+            f"{median_attr(items, 'pullback_depth_atr'):7.2f} "
+            f"{median_attr(items, 'h4_hist_ratio'):7.2f} "
+            f"{median_attr(items, 'price_vs_ema_fast_atr'):7.2f} "
+            f"{top_state(items, 'price_ema_state')[:28]:28s}"
+        )
+
+    ltf_items = [setup for setup in setup_log if getattr(setup, "ltf_price_ema_state", "")]
+    if ltf_items:
+        lines.append("\n  Lower-timeframe state for micro families:")
+        for key in sorted({key_for(setup) for setup in ltf_items}):
+            items = [setup for setup in ltf_items if key_for(setup) == key]
+            lines.append(
+                f"    {key[:26]:26s}: m5_pb_atr_med={median_attr(items, 'pullback_depth_m5_atr'):.2f}, "
+                f"m5_gap_atr_med={median_attr(items, 'entry_gap_ltf_atr'):.2f}, "
+                f"top_ltf_state={top_state(items, 'ltf_price_ema_state')}"
+            )
+
+    return "\n".join(lines)
+
+
 # ---------------------------------------------------------------------------
 # 11. Gate block analysis by class and direction
 # ---------------------------------------------------------------------------
@@ -1958,6 +2031,7 @@ def helix_full_diagnostic(
         sections.insert(2, helix_gate_blocks(gate_log))
     if setup_log and gate_log:
         sections.append(helix_setup_funnel(setup_log, gate_log, entry_tracking or []))
+        sections.append(helix_signal_variant_diagnostics(setup_log, gate_log))
         sections.append(helix_gate_block_detail(setup_log, gate_log))
         sections.append(helix_gate_opportunity_cost(setup_log, gate_log))
         sections.append(helix_setup_density(setup_log, gate_log))

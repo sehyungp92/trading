@@ -14,6 +14,7 @@ from .actions import (
     SubmitProtectiveStop,
 )
 from .events import DecisionEvent
+from .events import TradeOutcome
 from .plugin_runtime import delegate_hydrate, delegate_snapshot_state
 
 __all__ = [
@@ -33,4 +34,5 @@ __all__ = [
     "SubmitPartialExit",
     "SubmitProfitTarget",
     "SubmitProtectiveStop",
+    "TradeOutcome",
 ]

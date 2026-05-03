@@ -106,6 +106,7 @@ class InstrumentationManager:
             "nqdtc": ["strategies.momentum.nqdtc.config"],
             "vdubus": ["strategies.momentum.vdub.config"],
             "downturn": ["strategies.momentum.downturn.config"],
+            "nq_regime": ["strategies.momentum.nq_regime.config"],
         }
         config_modules = _strategy_config_map.get(strategy_type, [])
         try:

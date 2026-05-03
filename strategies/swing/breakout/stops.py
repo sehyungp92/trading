@@ -1,7 +1,4 @@
-"""Multi-Asset Swing Breakout v3.3-ETF — stop calculation and lifecycle.
-
-Mid/edge selection, add stops, BE, trailing, gap handling.
-"""
+"""Multi-asset breakout stop and exit helpers."""
 from __future__ import annotations
 
 from libs.broker_ibkr.risk_support.tick_rules import round_to_tick
@@ -9,21 +6,51 @@ from libs.broker_ibkr.risk_support.tick_rules import round_to_tick
 from .config import (
     ADD_STOP_ATR_MULT,
     BE_BUFFER_ATR_MULT,
+    CONTINUATION_BRANCH_MANAGEMENT_ENABLE,
+    CONTINUATION_BRANCH_PRE_RUNNER_LOCK_FRAC,
+    CONTINUATION_BRANCH_PRE_RUNNER_LOCK_THRESHOLD_R,
+    CONTINUATION_BRANCH_TP1_PARTIAL_FRAC,
+    CONTINUATION_BRANCH_TP1_R_ALIGNED,
+    CONTINUATION_BRANCH_TP1_R_CAUTION,
+    CONTINUATION_BRANCH_TP1_R_NEUTRAL,
+    CONTINUATION_BRANCH_TRAIL_4H_ATR_MULT,
+    CONTINUATION_BRANCH_TRAIL_MULT_BASE_FACTOR,
     EMA_4H_FLOOR_ATR_MULT,
+    FAST_BRANCH_MANAGEMENT_ENABLE,
+    FAST_BRANCH_PRE_RUNNER_LOCK_FRAC,
+    FAST_BRANCH_PRE_RUNNER_LOCK_THRESHOLD_R,
+    FAST_BRANCH_TP1_R_ALIGNED,
+    FAST_BRANCH_TP1_R_CAUTION,
+    FAST_BRANCH_TP1_R_NEUTRAL,
+    FAST_BRANCH_TRAIL_4H_ATR_MULT,
+    FAST_BRANCH_TRAIL_MULT_BASE_FACTOR,
+    MOMENTUM_BRANCH_MANAGEMENT_ENABLE,
+    MOMENTUM_BRANCH_PRE_RUNNER_LOCK_FRAC,
+    MOMENTUM_BRANCH_PRE_RUNNER_LOCK_THRESHOLD_R,
+    MOMENTUM_BRANCH_TP1_PARTIAL_FRAC,
+    MOMENTUM_BRANCH_TP1_R_ALIGNED,
+    MOMENTUM_BRANCH_TP1_R_CAUTION,
+    MOMENTUM_BRANCH_TP1_R_NEUTRAL,
+    MOMENTUM_BRANCH_TRAIL_4H_ATR_MULT,
+    MOMENTUM_BRANCH_TRAIL_MULT_BASE_FACTOR,
+    PRE_RUNNER_LOCK_FRAC,
+    PRE_RUNNER_LOCK_THRESHOLD_R,
     STALE_EXIT_DAYS_MAX,
     STALE_EXIT_DAYS_MIN,
     STALE_R_THRESH,
     STALE_TIGHTEN_MULT,
     STALE_WARN_DAYS,
+    TP1_R_ALIGNED,
+    TP1_R_CAUTION,
+    TP1_R_NEUTRAL,
+    TP2_R_ALIGNED,
+    TP2_R_CAUTION,
+    TP2_R_NEUTRAL,
     TRAIL_4H_ATR_MULT,
-    SymbolConfig,
+    TRAIL_MULT_BASE_FACTOR,
 )
-from .models import Direction
+from .models import Direction, TradeRegime
 
-
-# ---------------------------------------------------------------------------
-# Initial stop selection (spec §16.1)
-# ---------------------------------------------------------------------------
 
 def compute_initial_stop(
     direction: Direction,
@@ -36,34 +63,34 @@ def compute_initial_stop(
     sq_good: bool,
     tick_size: float = 0.01,
 ) -> float:
-    """Compute initial stop based on entry type and squeeze quality.
-
-    A1 fix: Always anchor from box_mid to reduce R-unit size.
-    Previously only used box_mid when sq_good=True; now box_mid is default.
-    Entry B uses box edge for wider protection on sweep entries.
-    """
+    """Compute the initial stop from the box anchor."""
+    del sq_good
     buffer = atr_stop_mult * atr14_d
 
-    # Entry B keeps edge stop (sweep entries need wider protection)
     if entry_type == "B":
-        if direction == Direction.LONG:
-            raw = box_low - buffer
-        else:
-            raw = box_high + buffer
+        raw = box_low - buffer if direction == Direction.LONG else box_high + buffer
+    elif _uses_early_branch_stop(entry_type):
+        raw = box_high - buffer if direction == Direction.LONG else box_low + buffer
     else:
-        # A1: All other entries use box_mid anchor
-        if direction == Direction.LONG:
-            raw = box_mid - buffer
-        else:
-            raw = box_mid + buffer
+        raw = box_mid - buffer if direction == Direction.LONG else box_mid + buffer
 
     rounding = "down" if direction == Direction.LONG else "up"
     return round_to_tick(raw, tick_size, rounding)
 
 
-# ---------------------------------------------------------------------------
-# Add stop (spec §13.4)
-# ---------------------------------------------------------------------------
+def _uses_early_branch_stop(entry_type: str) -> bool:
+    return entry_type in {
+        "A",
+        "A_strong",
+        "A_strong_stop",
+        "C_early_standard",
+        "C_continuation",
+        "C_fresh_market",
+        "C_fresh_stop",
+        "C_momentum_market",
+        "C_momentum_stop",
+    }
+
 
 def compute_add_stop(
     direction: Direction,
@@ -74,22 +101,14 @@ def compute_add_stop(
     atr_stop_mult: float,
     tick_size: float = 0.01,
 ) -> float:
-    """Add stop: min(pullback_low, ref) - 0.5*ATR14_D*atr_mult (long); mirror short."""
+    """Compute the add-on stop from the pullback anchor."""
     buffer = ADD_STOP_ATR_MULT * atr14_d * atr_stop_mult
-
     if direction == Direction.LONG:
-        anchor = min(pullback_low, ref)
-        raw = anchor - buffer
+        raw = min(pullback_low, ref) - buffer
         return round_to_tick(raw, tick_size, "down")
-    else:
-        anchor = max(pullback_high, ref)
-        raw = anchor + buffer
-        return round_to_tick(raw, tick_size, "up")
+    raw = max(pullback_high, ref) + buffer
+    return round_to_tick(raw, tick_size, "up")
 
-
-# ---------------------------------------------------------------------------
-# BE stop after TP1 (spec §20.2)
-# ---------------------------------------------------------------------------
 
 def compute_be_stop(
     direction: Direction,
@@ -97,17 +116,12 @@ def compute_be_stop(
     atr14_d: float,
     tick_size: float = 0.01,
 ) -> float:
-    """BE + small buffer (0.1*ATR14_D) after TP1."""
+    """Compute the break-even stop with a small ATR buffer."""
     buffer = BE_BUFFER_ATR_MULT * atr14_d
     if direction == Direction.LONG:
         return round_to_tick(avg_entry + buffer, tick_size, "up")
-    else:
-        return round_to_tick(avg_entry - buffer, tick_size, "down")
+    return round_to_tick(avg_entry - buffer, tick_size, "down")
 
-
-# ---------------------------------------------------------------------------
-# Runner trailing stop (spec §20.3)
-# ---------------------------------------------------------------------------
 
 def compute_trailing_stop(
     direction: Direction,
@@ -119,112 +133,149 @@ def compute_trailing_stop(
     current_stop: float,
     tick_size: float = 0.01,
 ) -> float:
-    """4H ATR trailing stop with ratchet-only behavior.
-
-    Trail distance = trail_mult * ATR14_4H from highest/lowest.
-    Optional EMA50_4H floor.
-    """
+    """Compute the ratcheting 4H trailing stop."""
     if direction == Direction.LONG:
         if len(highs_4h) == 0:
             return current_stop
         hh = max(highs_4h[-20:]) if len(highs_4h) >= 20 else max(highs_4h)
         raw = hh - trail_mult * atr14_4h
-        # EMA50_4H floor
-        ema_floor = ema50_4h - EMA_4H_FLOOR_ATR_MULT * atr14_4h
-        raw = max(raw, ema_floor)
+        raw = max(raw, ema50_4h - EMA_4H_FLOOR_ATR_MULT * atr14_4h)
         candidate = round_to_tick(raw, tick_size, "down")
-        # Ratchet only — never lower the stop
         return max(candidate, current_stop)
-    else:
-        if len(lows_4h) == 0:
-            return current_stop
-        ll = min(lows_4h[-20:]) if len(lows_4h) >= 20 else min(lows_4h)
-        raw = ll + trail_mult * atr14_4h
-        ema_ceil = ema50_4h + EMA_4H_FLOOR_ATR_MULT * atr14_4h
-        raw = min(raw, ema_ceil)
-        candidate = round_to_tick(raw, tick_size, "up")
-        # Ratchet only — never raise the stop (for shorts, stop goes down)
-        return min(candidate, current_stop)
+
+    if len(lows_4h) == 0:
+        return current_stop
+    ll = min(lows_4h[-20:]) if len(lows_4h) >= 20 else min(lows_4h)
+    raw = ll + trail_mult * atr14_4h
+    raw = min(raw, ema50_4h + EMA_4H_FLOOR_ATR_MULT * atr14_4h)
+    candidate = round_to_tick(raw, tick_size, "up")
+    return min(candidate, current_stop)
 
 
-# ---------------------------------------------------------------------------
-# Trail multiplier tightening (spec §20.3)
-# ---------------------------------------------------------------------------
+def is_fast_branch_entry(entry_type: str) -> bool:
+    return entry_type in {
+        "A",
+        "A_strong",
+        "A_strong_stop",
+        "C_early_standard",
+        "C_fresh_market",
+        "C_fresh_stop",
+        "C_momentum_market",
+        "C_momentum_stop",
+    }
+
+
+def is_momentum_branch_entry(entry_type: str) -> bool:
+    return entry_type in {"C_momentum_market", "C_momentum_stop"}
+
+
+def is_continuation_branch_entry(entry_type: str) -> bool:
+    return entry_type == "C_continuation"
+
 
 def compute_trail_mult(
     r_state: float,
     r_proxy: float,
     continuation: bool,
+    entry_type: str = "",
 ) -> float:
-    """Trail distance tightens after MM or high R.
-
-    Base: TRAIL_4H_ATR_MULT * 5.0 ATR14_4H (was 9.0), tightens as R grows.
-    """
-    base = TRAIL_4H_ATR_MULT * 5.0  # 2.0 with 0.40 mult (was 3.6)
-    # Tighten after measured move (earlier threshold)
-    if r_proxy >= 1.0 or continuation:  # was 2.0
+    """Compute the trailing distance multiplier."""
+    base_mult = TRAIL_4H_ATR_MULT
+    base_factor = TRAIL_MULT_BASE_FACTOR
+    if CONTINUATION_BRANCH_MANAGEMENT_ENABLE and is_continuation_branch_entry(entry_type):
+        base_mult = CONTINUATION_BRANCH_TRAIL_4H_ATR_MULT
+        base_factor = CONTINUATION_BRANCH_TRAIL_MULT_BASE_FACTOR
+    elif MOMENTUM_BRANCH_MANAGEMENT_ENABLE and is_momentum_branch_entry(entry_type):
+        base_mult = MOMENTUM_BRANCH_TRAIL_4H_ATR_MULT
+        base_factor = MOMENTUM_BRANCH_TRAIL_MULT_BASE_FACTOR
+    elif FAST_BRANCH_MANAGEMENT_ENABLE and is_fast_branch_entry(entry_type):
+        base_mult = FAST_BRANCH_TRAIL_4H_ATR_MULT
+        base_factor = FAST_BRANCH_TRAIL_MULT_BASE_FACTOR
+    base = base_mult * base_factor
+    if r_proxy >= 1.0 or continuation:
         base *= 0.70
-    if r_state >= 2.0:                  # was 4.0
+    if r_state >= 2.0:
         base *= 0.60
-    return max(1.0, base)               # was 1.5
+    return max(1.0, base)
 
-
-# ---------------------------------------------------------------------------
-# Gap-through-stop handling (spec §16.2)
-# ---------------------------------------------------------------------------
 
 def handle_gap_through_stop(
     direction: Direction,
     stop_price: float,
     session_open: float,
 ) -> tuple[bool, float]:
-    """Check if session open gaps through stop.
-
-    Returns (gap_stop_triggered, fill_price).
-    Fill at open price (adverse) if triggered.
-    """
-    if direction == Direction.LONG:
-        if session_open < stop_price:
-            return True, session_open
-    else:
-        if session_open > stop_price:
-            return True, session_open
+    """Return whether the session open gapped through the stop."""
+    if direction == Direction.LONG and session_open < stop_price:
+        return True, session_open
+    if direction == Direction.SHORT and session_open > stop_price:
+        return True, session_open
     return False, 0.0
 
 
-# ---------------------------------------------------------------------------
-# Stale exit + tighten warning (spec §20.4)
-# ---------------------------------------------------------------------------
-
-def check_stale_exit(
-    days_held: int,
-    r_state: float,
-) -> tuple[bool, bool, bool]:
-    """Check stale conditions.
-
-    Returns (should_warn, should_tighten, should_exit).
-    Lowered threshold: only stale-exit trades below STALE_R_THRESH (0.0).
-    Gives more time (STALE_EXIT_DAYS_MIN = 10) for trades to develop.
-    Hard cap at STALE_EXIT_DAYS_MAX to prevent indefinite holds.
-    """
+def check_stale_exit(days_held: int, r_state: float) -> tuple[bool, bool, bool]:
+    """Return stale warning, tighten, and exit decisions."""
     should_warn = days_held >= STALE_WARN_DAYS and r_state < STALE_R_THRESH
     should_tighten = should_warn
-    # Normal stale exit: below threshold after min days
     should_exit = days_held >= STALE_EXIT_DAYS_MIN and r_state < STALE_R_THRESH
-    # Hard cap: exit after max days regardless (prevents infinite holds near zero)
     if days_held >= STALE_EXIT_DAYS_MAX and r_state < 0.10:
         should_exit = True
     return should_warn, should_tighten, should_exit
 
 
 def apply_stale_tighten(trail_mult: float) -> float:
-    """Tighten trail multiplier by 0.8× for stale positions."""
     return trail_mult * STALE_TIGHTEN_MULT
 
 
-# ---------------------------------------------------------------------------
-# TP levels (spec §20.2)
-# ---------------------------------------------------------------------------
+def get_tp_r_multiples(
+    entry_type: str,
+    trade_regime: TradeRegime,
+    tp_scale: float = 1.0,
+) -> tuple[float, float]:
+    if CONTINUATION_BRANCH_MANAGEMENT_ENABLE and is_continuation_branch_entry(entry_type):
+        if trade_regime == TradeRegime.ALIGNED:
+            return CONTINUATION_BRANCH_TP1_R_ALIGNED * tp_scale, TP2_R_ALIGNED * tp_scale
+        if trade_regime == TradeRegime.CAUTION:
+            return CONTINUATION_BRANCH_TP1_R_CAUTION * tp_scale, TP2_R_CAUTION * tp_scale
+        return CONTINUATION_BRANCH_TP1_R_NEUTRAL * tp_scale, TP2_R_NEUTRAL * tp_scale
+
+    if MOMENTUM_BRANCH_MANAGEMENT_ENABLE and is_momentum_branch_entry(entry_type):
+        if trade_regime == TradeRegime.ALIGNED:
+            return MOMENTUM_BRANCH_TP1_R_ALIGNED * tp_scale, TP2_R_ALIGNED * tp_scale
+        if trade_regime == TradeRegime.CAUTION:
+            return MOMENTUM_BRANCH_TP1_R_CAUTION * tp_scale, TP2_R_CAUTION * tp_scale
+        return MOMENTUM_BRANCH_TP1_R_NEUTRAL * tp_scale, TP2_R_NEUTRAL * tp_scale
+
+    if FAST_BRANCH_MANAGEMENT_ENABLE and is_fast_branch_entry(entry_type):
+        if trade_regime == TradeRegime.ALIGNED:
+            return FAST_BRANCH_TP1_R_ALIGNED * tp_scale, TP2_R_ALIGNED * tp_scale
+        if trade_regime == TradeRegime.CAUTION:
+            return FAST_BRANCH_TP1_R_CAUTION * tp_scale, TP2_R_CAUTION * tp_scale
+        return FAST_BRANCH_TP1_R_NEUTRAL * tp_scale, TP2_R_NEUTRAL * tp_scale
+
+    if trade_regime == TradeRegime.ALIGNED:
+        return TP1_R_ALIGNED * tp_scale, TP2_R_ALIGNED * tp_scale
+    if trade_regime == TradeRegime.CAUTION:
+        return TP1_R_CAUTION * tp_scale, TP2_R_CAUTION * tp_scale
+    return TP1_R_NEUTRAL * tp_scale, TP2_R_NEUTRAL * tp_scale
+
+
+def get_pre_runner_lock_params(entry_type: str) -> tuple[float, float]:
+    if CONTINUATION_BRANCH_MANAGEMENT_ENABLE and is_continuation_branch_entry(entry_type):
+        return CONTINUATION_BRANCH_PRE_RUNNER_LOCK_FRAC, CONTINUATION_BRANCH_PRE_RUNNER_LOCK_THRESHOLD_R
+    if MOMENTUM_BRANCH_MANAGEMENT_ENABLE and is_momentum_branch_entry(entry_type):
+        return MOMENTUM_BRANCH_PRE_RUNNER_LOCK_FRAC, MOMENTUM_BRANCH_PRE_RUNNER_LOCK_THRESHOLD_R
+    if FAST_BRANCH_MANAGEMENT_ENABLE and is_fast_branch_entry(entry_type):
+        return FAST_BRANCH_PRE_RUNNER_LOCK_FRAC, FAST_BRANCH_PRE_RUNNER_LOCK_THRESHOLD_R
+    return PRE_RUNNER_LOCK_FRAC, PRE_RUNNER_LOCK_THRESHOLD_R
+
+
+def get_tp1_partial_frac(entry_type: str, default_frac: float) -> float:
+    if CONTINUATION_BRANCH_MANAGEMENT_ENABLE and is_continuation_branch_entry(entry_type):
+        return CONTINUATION_BRANCH_TP1_PARTIAL_FRAC
+    if MOMENTUM_BRANCH_MANAGEMENT_ENABLE and is_momentum_branch_entry(entry_type):
+        return MOMENTUM_BRANCH_TP1_PARTIAL_FRAC
+    return default_frac
+
 
 def compute_tp_levels(
     direction: Direction,

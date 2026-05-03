@@ -365,10 +365,12 @@ def run_breakout_synchronized(
     # Build per-symbol results
     results: dict[str, BreakoutSymbolResult] = {}
     for sym, engine in engines.items():
+        engine._annotate_branch_shadows(data.hourly[sym])
         results[sym] = BreakoutSymbolResult(
             symbol=sym,
             trades=engine.trades,
             signal_events=engine.signal_events,
+            branch_shadows=engine.branch_shadows,
             equity_curve=engine._eq_arr[:engine._bar_idx].copy(),
             timestamps=engine._ts_arr[:engine._bar_idx].copy(),
             total_commission=engine.total_commission,

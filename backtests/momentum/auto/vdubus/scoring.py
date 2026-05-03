@@ -1,19 +1,26 @@
-"""VdubusNQ composite scoring -- 7 orthogonal components targeting diagnosed weaknesses.
+"""VdubusNQ immutable Round 2 composite scoring.
 
-Components (immutable weights across all phases):
-  net_profit      (22%): overall profitability (log-scaled, 1.0 at 1500%)
-  profit_factor   (16%): win quality
-  calmar          (14%): return/drawdown ratio
-  capture_ratio   (14%): MFE capture (winners exit_R / MFE)
-  frequency       (12%): trade count (1.0 at 200 trades)
-  sharpe          (12%): risk-adjusted equity return
-  inv_dd          (10%): inverse max drawdown
+The Round 1 diagnostics showed that raw net return alone is not a reliable
+guide: the strategy earns money through infrequent, high-MFE trend survivors,
+while stale exits and fast deaths leak a lot of expectancy. Round 2 therefore
+uses one immutable score in every phase, centered on R/month and trade supply,
+with explicit penalties for the diagnosed leaks.
 
-Hard rejects: <40 trades, DD > 30%, PF < 0.80.
+Components:
+  r_per_month     (24%): avg R * trades/month, 1.0 at 2.50 R/month
+  profit_factor   (18%): net win quality, 1.0 at PF 2.80
+  calmar          (14%): return/drawdown balance, 1.0 at calmar 45
+  capture_ratio   (12%): winner MFE capture, 1.0 at 65%
+  frequency       (12%): trades/month, 1.0 at 8.0
+  sharpe          (10%): trade-R Sharpe, 1.0 at 2.20
+  inv_dd          (10%): inverse max drawdown, 1.0 at <=12% DD
+
+Penalties discourage stale drift, fast deaths, negative evening flow, and very
+low trade counts. Risk-sizing parameters are intentionally not rewarded because
+the optimizer evaluates fixed 10 MNQ quantity.
 """
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -63,9 +70,9 @@ class VdubusMetrics:
 
 @dataclass(frozen=True)
 class VdubusCompositeScore:
-    """Frozen 7-component composite score for VdubusNQ."""
+    """Frozen immutable composite score for VdubusNQ."""
 
-    net_profit: float = 0.0
+    r_per_month: float = 0.0
     pf: float = 0.0
     calmar: float = 0.0
     inv_dd: float = 0.0
@@ -78,13 +85,13 @@ class VdubusCompositeScore:
 
 
 BASE_WEIGHTS = {
-    "net_profit": 0.22,
-    "pf": 0.16,
+    "r_per_month": 0.24,
+    "pf": 0.18,
     "calmar": 0.14,
     "inv_dd": 0.10,
-    "capture": 0.14,
+    "capture": 0.12,
     "frequency": 0.12,
-    "sharpe": 0.12,
+    "sharpe": 0.10,
 }
 
 
@@ -99,7 +106,10 @@ def composite_score(
     """Compute 7-component composite score for VdubusNQ."""
     w = dict(BASE_WEIGHTS)
     if weight_overrides:
-        w.update(weight_overrides)
+        w.update({k: v for k, v in weight_overrides.items() if k in w})
+        total_w = sum(w.values())
+        if total_w > 0:
+            w = {k: v / total_w for k, v in w.items()}
 
     # Hard rejects (immutable across phases -- caller may override via hard_rejects)
     if metrics.total_trades < 40:
@@ -117,29 +127,30 @@ def composite_score(
 
     # --- Components ---
 
-    # Net profit: log scale, 1.0 at 1500% return (log(16)/log(16))
-    net_profit_c = _clip01(math.log(1 + max(metrics.net_return_pct, 0) / 100) / math.log(16))
+    # R/month: expected R throughput, 1.0 at 2.50R/month.
+    r_month = max(metrics.avg_r, 0.0) * max(metrics.trades_per_month, 0.0)
+    r_month_c = _clip01(r_month / 2.50)
 
-    # Profit factor: (PF-1)/4, 1.0 at PF=5
-    pf_c = _clip01((metrics.profit_factor - 1) / 4.0)
+    # Profit factor: 1.0 at PF=2.80, zero below PF=1.20.
+    pf_c = _clip01((metrics.profit_factor - 1.20) / 1.60)
 
-    # Calmar: calmar/18, 1.0 at calmar=18
-    calmar_c = _clip01(metrics.calmar / 18.0)
+    # Calmar: 1.0 at calmar=45.
+    calmar_c = _clip01(metrics.calmar / 45.0)
 
-    # Inverse drawdown: 1 - DD/0.25, 1.0 at 0% DD
-    inv_dd_c = _clip01(1 - metrics.max_dd_pct / 0.25)
+    # Inverse drawdown: 1.0 at 12% DD or lower, zero at 25% DD.
+    inv_dd_c = _clip01((0.25 - metrics.max_dd_pct) / 0.13)
 
-    # Capture: capture/0.60, 1.0 at 60% capture
-    capture_c = _clip01(metrics.capture_ratio / 0.60)
+    # Capture: 1.0 at 65% winner MFE capture.
+    capture_c = _clip01(metrics.capture_ratio / 0.65)
 
-    # Frequency: trades/200, 1.0 at 200 trades
-    frequency_c = _clip01(metrics.total_trades / 200.0)
+    # Frequency: 1.0 at 8 trades/month, zero below 3.5 trades/month.
+    frequency_c = _clip01((metrics.trades_per_month - 3.5) / 4.5)
 
-    # Sharpe: sharpe/3, 1.0 at sharpe=3
-    sharpe_c = _clip01(metrics.sharpe / 3.0)
+    # Sharpe: 1.0 at 2.20.
+    sharpe_c = _clip01(metrics.sharpe / 2.20)
 
     total = (
-        w["net_profit"] * net_profit_c
+        w["r_per_month"] * r_month_c
         + w["pf"] * pf_c
         + w["calmar"] * calmar_c
         + w["inv_dd"] * inv_dd_c
@@ -148,8 +159,17 @@ def composite_score(
         + w["sharpe"] * sharpe_c
     )
 
+    stale_penalty = max(metrics.stale_exit_pct - 0.35, 0.0) * 0.18
+    fast_death_penalty = max(metrics.fast_death_pct - 0.18, 0.0) * 0.20
+    evening_penalty = 0.0
+    if metrics.evening_trade_pct > 0.03 and metrics.evening_avg_r < 0.0:
+        evening_penalty = min(0.05, abs(metrics.evening_avg_r) * metrics.evening_trade_pct * 2.0)
+    low_frequency_penalty = max(3.5 - metrics.trades_per_month, 0.0) * 0.03
+
+    total = _clip01(total - stale_penalty - fast_death_penalty - evening_penalty - low_frequency_penalty)
+
     return VdubusCompositeScore(
-        net_profit=net_profit_c,
+        r_per_month=r_month_c,
         pf=pf_c,
         calmar=calmar_c,
         inv_dd=inv_dd_c,

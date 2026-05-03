@@ -24,6 +24,89 @@ from .config import (
     DISP_STRONG_MULT,
     ENTRYB_DISPMULT_OVERRIDE,
     ENTRYB_RVOLH_MIN,
+    ENTRY_A_ACTIVE_BLOCKS_C,
+    ENTRY_A_STRONG_CLV_Q,
+    ENTRY_A_STRONG_CONFIRM_PRIOR_STRUCTURE,
+    ENTRY_A_STRONG_ENABLE,
+    ENTRY_A_STRONG_LIMIT_OFFSET_ATR_H,
+    ENTRY_A_STRONG_MIN_QUALITY,
+    ENTRY_A_STRONG_MIN_SCORE,
+    ENTRY_A_STRONG_REQUIRE_ALIGNED,
+    ENTRY_A_STRONG_STOP_BUFFER_ATR_H,
+    ENTRY_A_STRONG_USE_STOP_LIMIT,
+    ENTRY_B_RESUME_CLV_Q,
+    ENTRY_B_RESUME_ENABLE,
+    ENTRY_B_RESUME_LIMIT_OFFSET_ATR_H,
+    ENTRY_B_RESUME_MAX_BREAKOUT_BARS,
+    ENTRY_B_RESUME_MIN_QUALITY,
+    ENTRY_B_RESUME_MIN_SCORE,
+    ENTRY_B_RESUME_REQUIRE_ALIGNED,
+    ENTRY_B_RESUME_STOP_BUFFER_ATR_H,
+    ENTRY_B_RESUME_SWEEP_ATR_D,
+    ENTRY_B_RESUME_USE_STOP_LIMIT,
+    ENTRY_C_EARLY_ALLOW_NEUTRAL,
+    ENTRY_C_EARLY_CLV_Q,
+    ENTRY_C_EARLY_ENABLE,
+    ENTRY_C_EARLY_MAX_BREAKOUT_BARS,
+    ENTRY_C_EARLY_MAX_DISP_H,
+    ENTRY_C_EARLY_MIN_QUALITY,
+    ENTRY_C_EARLY_MIN_RVOL_H,
+    ENTRY_C_EARLY_MIN_SCORE,
+    ENTRY_C_EARLY_REQUIRE_ALIGNED,
+    ENTRY_C_FAST_MARKET,
+    ENTRY_C_FAST_MIN_QUALITY,
+    ENTRY_C_FAST_MIN_SCORE,
+    ENTRY_C_FAST_REQUIRE_ALIGNED,
+    ENTRY_C_CONTINUATION_ALLOW_NEUTRAL,
+    ENTRY_C_CONTINUATION_CLV_Q,
+    ENTRY_C_CONTINUATION_ENABLE,
+    ENTRY_C_CONTINUATION_HOLD_BARS,
+    ENTRY_C_CONTINUATION_MAX_BREAKOUT_BARS,
+    ENTRY_C_CONTINUATION_MAX_DISP_H,
+    ENTRY_C_CONTINUATION_MIN_QUALITY,
+    ENTRY_C_CONTINUATION_MIN_RVOL_H,
+    ENTRY_C_CONTINUATION_MIN_SCORE,
+    ENTRY_C_CONTINUATION_PAUSE_ATR_H,
+    ENTRY_C_CONTINUATION_REQUIRE_ALIGNED,
+    ENTRY_C_STANDARD_ALLOW_CONTINUATION,
+    ENTRY_C_STANDARD_MAX_BREAKOUT_BARS,
+    ENTRY_C_STANDARD_MAX_DISP_H,
+    ENTRY_C_FRESH_ALLOW_COUNTERTREND,
+    ENTRY_C_FRESH_CLV_Q,
+    ENTRY_C_FRESH_ENABLE,
+    ENTRY_C_FRESH_LIMIT_OFFSET_ATR_H,
+    ENTRY_C_FRESH_MAX_BREAKOUT_BARS,
+    ENTRY_C_FRESH_MAX_DISP_H,
+    ENTRY_C_FRESH_MIN_QUALITY,
+    ENTRY_C_FRESH_MIN_SCORE,
+    ENTRY_C_FRESH_REQUIRE_ALIGNED,
+    ENTRY_C_FRESH_STOP_ALLOW_COUNTERTREND,
+    ENTRY_C_FRESH_STOP_CLV_Q,
+    ENTRY_C_FRESH_STOP_ENABLE,
+    ENTRY_C_FRESH_STOP_MAX_BREAKOUT_BARS,
+    ENTRY_C_FRESH_STOP_MAX_DISP_H,
+    ENTRY_C_FRESH_STOP_MIN_QUALITY,
+    ENTRY_C_FRESH_STOP_MIN_RVOL_H,
+    ENTRY_C_FRESH_STOP_MIN_SCORE,
+    ENTRY_C_FRESH_STOP_REQUIRE_ALIGNED,
+    ENTRY_C_FRESH_STOP_TOUCH_TOL_ATR_H,
+    ENTRY_C_FRESH_STOP_BUFFER_ATR_H,
+    ENTRY_C_FRESH_TOUCH_TOL_ATR_H,
+    ENTRY_C_FRESH_USE_STOP_LIMIT,
+    ENTRY_C_HOLD_BARS,
+    ENTRY_C_MOMENTUM_CLV_Q,
+    ENTRY_C_MOMENTUM_ENABLE,
+    ENTRY_C_MOMENTUM_MAX_DISP_H,
+    ENTRY_C_MOMENTUM_MIN_QUALITY,
+    ENTRY_C_MOMENTUM_MIN_SCORE,
+    ENTRY_C_MOMENTUM_REQUIRE_ALIGNED,
+    ENTRY_C_MOMENTUM_USE_STOP_LIMIT,
+    ENTRY_OUTSIDE_WINDOW_CARRY_ENABLE,
+    ENTRY_OUTSIDE_WINDOW_CARRY_A_OR_FRESH_ONLY,
+    ENTRY_OUTSIDE_WINDOW_CARRY_FRESH_ONLY,
+    ENTRY_OUTSIDE_WINDOW_CARRY_MIN_QUALITY,
+    ENTRY_OUTSIDE_WINDOW_CARRY_MIN_SCORE,
+    ENTRY_OUTSIDE_WINDOW_CARRY_REQUIRE_ALIGNED,
     EXPIRY_BARS_MAX,
     EXPIRY_BARS_MIN,
     HARD_EXPIRY_BARS_ADD,
@@ -531,6 +614,120 @@ def entry_a_signal(
 # Entry B: sweep + reclaim (spec §12.4)
 # ---------------------------------------------------------------------------
 
+def entry_a_reclaim_strong_signal(
+    direction: Direction,
+    hourly_close: float,
+    hourly_low: float,
+    hourly_high: float,
+    avwap_h: float,
+    atr14_h: float,
+    atr14_d: float,
+    score_total: int,
+    quality_mult: float,
+    regime_4h: Regime4H,
+    continuation: bool,
+    prev_hourly_low: float = 0.0,
+    prev_hourly_high: float = 0.0,
+    prev2_hourly_low: float = 0.0,
+    prev2_hourly_high: float = 0.0,
+) -> bool:
+    """High-conviction reclaim branch for stronger AVWAP retests."""
+    if not ENTRY_A_STRONG_ENABLE:
+        return False
+    if continuation:
+        return False
+    if ENTRY_A_STRONG_REQUIRE_ALIGNED and not is_regime_aligned(direction, regime_4h):
+        return False
+    if score_total < ENTRY_A_STRONG_MIN_SCORE:
+        return False
+    if quality_mult < ENTRY_A_STRONG_MIN_QUALITY:
+        return False
+    if not entry_a_signal(
+        direction,
+        hourly_close,
+        hourly_low,
+        hourly_high,
+        avwap_h,
+        atr14_h,
+        atr14_d,
+        prev_hourly_low,
+        prev_hourly_high,
+        prev2_hourly_low,
+        prev2_hourly_high,
+    ):
+        return False
+    if not strong_close_location(
+        direction,
+        hourly_high,
+        hourly_low,
+        hourly_close,
+        q=ENTRY_A_STRONG_CLV_Q,
+    ):
+        return False
+    if ENTRY_A_STRONG_CONFIRM_PRIOR_STRUCTURE:
+        if direction == Direction.LONG and prev_hourly_high > 0 and hourly_close <= prev_hourly_high:
+            return False
+        if direction == Direction.SHORT and prev_hourly_low > 0 and hourly_close >= prev_hourly_low:
+            return False
+    return True
+
+
+def entry_b_resume_signal(
+    direction: Direction,
+    campaign: SymbolCampaign,
+    hourly_close: float,
+    hourly_low: float,
+    hourly_high: float,
+    hourly_closes: list[float],
+    hourly_highs: list[float],
+    hourly_lows: list[float],
+    avwap_h: float,
+    atr14_h: float,
+    atr14_d: float,
+    score_total: int,
+    quality_mult: float,
+    regime_4h: Regime4H,
+    continuation: bool,
+) -> bool:
+    """Failed-probe resume entry for fresh breakout pullbacks."""
+    if not ENTRY_B_RESUME_ENABLE:
+        return False
+    if continuation:
+        return False
+    if ENTRY_B_RESUME_REQUIRE_ALIGNED and not is_regime_aligned(direction, regime_4h):
+        return False
+    if score_total < ENTRY_B_RESUME_MIN_SCORE:
+        return False
+    if quality_mult < ENTRY_B_RESUME_MIN_QUALITY:
+        return False
+    if campaign.bars_since_breakout > ENTRY_B_RESUME_MAX_BREAKOUT_BARS:
+        return False
+    if len(hourly_closes) < 2 or len(hourly_highs) < 2 or len(hourly_lows) < 2:
+        return False
+
+    sweep_depth = ENTRY_B_RESUME_SWEEP_ATR_D * atr14_d if atr14_d > 0 else 0.0
+    prev_high = float(hourly_highs[-2])
+    prev_low = float(hourly_lows[-2])
+
+    if direction == Direction.LONG:
+        swept = hourly_low <= avwap_h - sweep_depth or prev_low <= avwap_h - sweep_depth
+        resumed = hourly_close > max(avwap_h, prev_high)
+    else:
+        swept = hourly_high >= avwap_h + sweep_depth or prev_high >= avwap_h + sweep_depth
+        resumed = hourly_close < min(avwap_h, prev_low)
+
+    if not swept or not resumed:
+        return False
+
+    return strong_close_location(
+        direction,
+        hourly_high,
+        hourly_low,
+        hourly_close,
+        q=ENTRY_B_RESUME_CLV_Q,
+    )
+
+
 def entry_b_signal(
     direction: Direction,
     hourly_low: float,
@@ -601,30 +798,58 @@ def entry_b_permitted(
 
 def entry_c_standard_signal(
     direction: Direction,
+    campaign: SymbolCampaign,
     hourly_closes: list[float],
     avwap_h: float,
     atr_expanding: bool = True,
     rvol_h: float = 1.0,
     atr14_h: float = 0.0,
+    atr14_d: float = 0.0,
     ema20_h: float = 0.0,
+    quality_mult: float = 0.0,
+    regime_4h: Regime4H | None = None,
+    score_total: int = 0,
+    continuation: bool = False,
 ) -> bool:
-    """Entry C: 2 consecutive hourly closes on the correct side of AVWAP_H.
+    """Entry C hold logic with optional high-conviction fast mode.
 
-    Extension guard: reject if price > 2.5 ATR_H from EMA20 (overextended).
+    Default behavior is the legacy 2-bar hold. When mutated to 1-bar hold,
+    require stronger score/quality/alignment so frequency expands through
+    higher-conviction setups instead of a blanket relaxation.
     """
-    if len(hourly_closes) < 2:
+    hold_bars = max(int(ENTRY_C_HOLD_BARS), 1)
+    if len(hourly_closes) < hold_bars:
+        return False
+    if not ENTRY_C_STANDARD_ALLOW_CONTINUATION and continuation:
+        return False
+    if campaign.bars_since_breakout > ENTRY_C_STANDARD_MAX_BREAKOUT_BARS:
         return False
 
-    # Extension guard: reject if price too far from EMA20
+    last_close = hourly_closes[-1]
+
+    # Extension guard: reject if price too far from EMA20.
     if ema20_h > 0 and atr14_h > 0:
-        extension = abs(hourly_closes[-1] - ema20_h)
+        extension = abs(last_close - ema20_h)
         if extension > 2.5 * atr14_h:
             return False
+    if atr14_d > 0:
+        disp_from_avwap = abs(last_close - avwap_h) / atr14_d
+        if disp_from_avwap > ENTRY_C_STANDARD_MAX_DISP_H:
+            return False
 
+    if hold_bars == 1:
+        if ENTRY_C_FAST_REQUIRE_ALIGNED and regime_4h is not None and not is_regime_aligned(direction, regime_4h):
+            return False
+        if score_total < ENTRY_C_FAST_MIN_SCORE:
+            return False
+        if quality_mult < ENTRY_C_FAST_MIN_QUALITY:
+            return False
+        return last_close > avwap_h if direction == Direction.LONG else last_close < avwap_h
+
+    recent_closes = hourly_closes[-hold_bars:]
     if direction == Direction.LONG:
-        return hourly_closes[-1] > avwap_h and hourly_closes[-2] > avwap_h
-    else:
-        return hourly_closes[-1] < avwap_h and hourly_closes[-2] < avwap_h
+        return all(close > avwap_h for close in recent_closes)
+    return all(close < avwap_h for close in recent_closes)
 
 
 # ---------------------------------------------------------------------------
@@ -662,8 +887,550 @@ def entry_c_continuation_signal(
 
 
 # ---------------------------------------------------------------------------
+# Entry C fresh / early standard: reclaim and early hold extraction
+# ---------------------------------------------------------------------------
+
+def _entry_disp_from_avwap(hourly_close: float, avwap_h: float, atr14_d: float) -> float:
+    if atr14_d <= 0:
+        return 0.0
+    return abs(hourly_close - avwap_h) / atr14_d
+
+
+def _regime_allows_branch(
+    direction: Direction,
+    regime_4h: Regime4H,
+    *,
+    require_aligned: bool,
+    allow_countertrend: bool,
+    allow_neutral: bool = True,
+) -> tuple[bool, str]:
+    if require_aligned:
+        return is_regime_aligned(direction, regime_4h), "regime_misaligned"
+    if regime_4h == Regime4H.RANGE_CHOP:
+        return allow_neutral, "neutral_blocked"
+    if is_regime_aligned(direction, regime_4h):
+        return True, "ok"
+    if allow_countertrend:
+        return True, "ok"
+    return False, "countertrend"
+
+
+def _assess_c_continuation_signal(
+    direction: Direction,
+    campaign: SymbolCampaign,
+    hourly_close: float,
+    hourly_low: float,
+    hourly_high: float,
+    hourly_closes: list[float],
+    hourly_highs: list[float],
+    hourly_lows: list[float],
+    avwap_h: float,
+    atr14_h: float,
+    atr14_d: float,
+    rvol_h: float,
+    score_total: int,
+    quality_mult: float,
+    regime_4h: Regime4H,
+) -> tuple[bool, str]:
+    if not ENTRY_C_CONTINUATION_ENABLE:
+        return False, "disabled"
+    if not campaign.continuation:
+        return False, "not_continuation"
+
+    allowed, reason = _regime_allows_branch(
+        direction,
+        regime_4h,
+        require_aligned=ENTRY_C_CONTINUATION_REQUIRE_ALIGNED,
+        allow_countertrend=False,
+        allow_neutral=ENTRY_C_CONTINUATION_ALLOW_NEUTRAL,
+    )
+    if not allowed:
+        return False, reason
+    if score_total < ENTRY_C_CONTINUATION_MIN_SCORE:
+        return False, "score"
+    if quality_mult < ENTRY_C_CONTINUATION_MIN_QUALITY:
+        return False, "quality"
+    if rvol_h < ENTRY_C_CONTINUATION_MIN_RVOL_H:
+        return False, "rvol_h"
+    if campaign.bars_since_breakout > ENTRY_C_CONTINUATION_MAX_BREAKOUT_BARS:
+        return False, "bars_since_breakout"
+
+    hold_bars = max(1, int(ENTRY_C_CONTINUATION_HOLD_BARS))
+    if len(hourly_closes) < hold_bars or len(hourly_highs) < hold_bars or len(hourly_lows) < hold_bars:
+        return False, "history"
+
+    recent_closes = [float(v) for v in hourly_closes[-hold_bars:]]
+    if direction == Direction.LONG:
+        if any(close <= avwap_h for close in recent_closes):
+            return False, "hold_fail"
+    else:
+        if any(close >= avwap_h for close in recent_closes):
+            return False, "hold_fail"
+
+    if atr14_h > 0:
+        max_range = max(
+            float(high) - float(low)
+            for high, low in zip(hourly_highs[-hold_bars:], hourly_lows[-hold_bars:])
+        )
+        if max_range > ENTRY_C_CONTINUATION_PAUSE_ATR_H * atr14_h:
+            return False, "pause"
+
+    if _entry_disp_from_avwap(hourly_close, avwap_h, atr14_d) > ENTRY_C_CONTINUATION_MAX_DISP_H:
+        return False, "displacement"
+
+    if ENTRY_C_CONTINUATION_CLV_Q > 0 and not strong_close_location(
+        direction,
+        hourly_high,
+        hourly_low,
+        hourly_close,
+        q=ENTRY_C_CONTINUATION_CLV_Q,
+    ):
+        return False, "strong_close_fail"
+
+    return True, "ok"
+
+
+def _assess_c_fresh_signal(
+    direction: Direction,
+    campaign: SymbolCampaign,
+    hourly_close: float,
+    hourly_low: float,
+    hourly_high: float,
+    hourly_closes: list[float],
+    hourly_highs: list[float],
+    hourly_lows: list[float],
+    avwap_h: float,
+    atr14_h: float,
+    atr14_d: float,
+    score_total: int,
+    quality_mult: float,
+    regime_4h: Regime4H,
+    continuation: bool,
+    *,
+    enabled: bool,
+    min_score: int,
+    min_quality: float,
+    require_aligned: bool,
+    allow_countertrend: bool,
+    clv_q: float,
+    max_disp_h: float,
+    touch_tol_atr_h: float,
+    max_breakout_bars: int,
+    min_rvol_h: float = 0.0,
+    rvol_h: float = 0.0,
+) -> tuple[bool, str]:
+    if not enabled:
+        return False, "disabled"
+    if continuation:
+        return False, "continuation"
+    allowed, reason = _regime_allows_branch(
+        direction,
+        regime_4h,
+        require_aligned=require_aligned,
+        allow_countertrend=allow_countertrend,
+    )
+    if not allowed:
+        return False, reason
+    if score_total < min_score:
+        return False, "score"
+    if quality_mult < min_quality:
+        return False, "quality"
+    if min_rvol_h > 0 and rvol_h < min_rvol_h:
+        return False, "rvol_h"
+    if campaign.bars_since_breakout > max_breakout_bars:
+        return False, "bars_since_breakout"
+    if len(hourly_closes) < 2 or len(hourly_highs) < 2 or len(hourly_lows) < 2:
+        return False, "history"
+
+    prev_close = float(hourly_closes[-2])
+    prev_high = float(hourly_highs[-2])
+    prev_low = float(hourly_lows[-2])
+    touch_tol = touch_tol_atr_h * atr14_h if atr14_h > 0 else 0.0
+
+    if direction == Direction.LONG:
+        confirmed = hourly_close > avwap_h
+        fresh_reclaim = (
+            prev_close <= avwap_h
+            or hourly_low <= avwap_h + touch_tol
+            or prev_low <= avwap_h + touch_tol
+        )
+    else:
+        confirmed = hourly_close < avwap_h
+        fresh_reclaim = (
+            prev_close >= avwap_h
+            or hourly_high >= avwap_h - touch_tol
+            or prev_high >= avwap_h - touch_tol
+        )
+
+    fresh_context = fresh_reclaim or campaign.bars_since_breakout <= 1
+    if not confirmed or not fresh_context:
+        return False, "reclaim_fail"
+
+    if _entry_disp_from_avwap(hourly_close, avwap_h, atr14_d) > max_disp_h:
+        return False, "displacement"
+
+    if not strong_close_location(direction, hourly_high, hourly_low, hourly_close, q=clv_q):
+        return False, "strong_close_fail"
+    return True, "ok"
+
+
+def entry_c_fresh_signal(
+    direction: Direction,
+    campaign: SymbolCampaign,
+    hourly_close: float,
+    hourly_low: float,
+    hourly_high: float,
+    hourly_closes: list[float],
+    hourly_highs: list[float],
+    hourly_lows: list[float],
+    avwap_h: float,
+    atr14_h: float,
+    atr14_d: float,
+    score_total: int,
+    quality_mult: float,
+    regime_4h: Regime4H,
+    continuation: bool,
+) -> bool:
+    """Broader market-entry fresh branch."""
+    ok, _reason = _assess_c_fresh_signal(
+        direction,
+        campaign,
+        hourly_close,
+        hourly_low,
+        hourly_high,
+        hourly_closes,
+        hourly_highs,
+        hourly_lows,
+        avwap_h,
+        atr14_h,
+        atr14_d,
+        score_total,
+        quality_mult,
+        regime_4h,
+        continuation,
+        enabled=ENTRY_C_FRESH_ENABLE,
+        min_score=ENTRY_C_FRESH_MIN_SCORE,
+        min_quality=ENTRY_C_FRESH_MIN_QUALITY,
+        require_aligned=ENTRY_C_FRESH_REQUIRE_ALIGNED,
+        allow_countertrend=ENTRY_C_FRESH_ALLOW_COUNTERTREND,
+        clv_q=ENTRY_C_FRESH_CLV_Q,
+        max_disp_h=ENTRY_C_FRESH_MAX_DISP_H,
+        touch_tol_atr_h=ENTRY_C_FRESH_TOUCH_TOL_ATR_H,
+        max_breakout_bars=ENTRY_C_FRESH_MAX_BREAKOUT_BARS,
+    )
+    return ok
+
+
+def entry_c_fresh_stop_signal(
+    direction: Direction,
+    campaign: SymbolCampaign,
+    hourly_close: float,
+    hourly_low: float,
+    hourly_high: float,
+    hourly_closes: list[float],
+    hourly_highs: list[float],
+    hourly_lows: list[float],
+    avwap_h: float,
+    atr14_h: float,
+    atr14_d: float,
+    score_total: int,
+    quality_mult: float,
+    regime_4h: Regime4H,
+    continuation: bool,
+    rvol_h: float,
+) -> bool:
+    """Top-decile confirmation fresh branch that keeps stop-limit confirmation separate."""
+    ok, _reason = _assess_c_fresh_signal(
+        direction,
+        campaign,
+        hourly_close,
+        hourly_low,
+        hourly_high,
+        hourly_closes,
+        hourly_highs,
+        hourly_lows,
+        avwap_h,
+        atr14_h,
+        atr14_d,
+        score_total,
+        quality_mult,
+        regime_4h,
+        continuation,
+        enabled=ENTRY_C_FRESH_STOP_ENABLE,
+        min_score=ENTRY_C_FRESH_STOP_MIN_SCORE,
+        min_quality=ENTRY_C_FRESH_STOP_MIN_QUALITY,
+        require_aligned=ENTRY_C_FRESH_STOP_REQUIRE_ALIGNED,
+        allow_countertrend=ENTRY_C_FRESH_STOP_ALLOW_COUNTERTREND,
+        clv_q=ENTRY_C_FRESH_STOP_CLV_Q,
+        max_disp_h=ENTRY_C_FRESH_STOP_MAX_DISP_H,
+        touch_tol_atr_h=ENTRY_C_FRESH_STOP_TOUCH_TOL_ATR_H,
+        max_breakout_bars=ENTRY_C_FRESH_STOP_MAX_BREAKOUT_BARS,
+        min_rvol_h=ENTRY_C_FRESH_STOP_MIN_RVOL_H,
+        rvol_h=rvol_h,
+    )
+    return ok
+
+
+def entry_c_early_standard_signal(
+    direction: Direction,
+    campaign: SymbolCampaign,
+    hourly_close: float,
+    hourly_low: float,
+    hourly_high: float,
+    hourly_closes: list[float],
+    avwap_h: float,
+    atr14_h: float,
+    atr14_d: float,
+    rvol_h: float,
+    atr_expanding: bool,
+    ema20_h: float,
+    score_total: int,
+    quality_mult: float,
+    regime_4h: Regime4H,
+    continuation: bool,
+) -> bool:
+    """Extract the earlier, lower-displacement subset hiding inside legacy C_standard."""
+    ok, _reason = _assess_c_early_standard_signal(
+        direction,
+        campaign,
+        hourly_close,
+        hourly_low,
+        hourly_high,
+        hourly_closes,
+        avwap_h,
+        atr14_h,
+        atr14_d,
+        rvol_h,
+        atr_expanding,
+        ema20_h,
+        score_total,
+        quality_mult,
+        regime_4h,
+        continuation,
+    )
+    return ok
+
+
+def _assess_c_early_standard_signal(
+    direction: Direction,
+    campaign: SymbolCampaign,
+    hourly_close: float,
+    hourly_low: float,
+    hourly_high: float,
+    hourly_closes: list[float],
+    avwap_h: float,
+    atr14_h: float,
+    atr14_d: float,
+    rvol_h: float,
+    atr_expanding: bool,
+    ema20_h: float,
+    score_total: int,
+    quality_mult: float,
+    regime_4h: Regime4H,
+    continuation: bool,
+) -> tuple[bool, str]:
+    """Return early-standard decision plus first rejection reason for attribution."""
+    if not ENTRY_C_EARLY_ENABLE:
+        return False, "disabled"
+    if continuation:
+        return False, "continuation"
+    allowed, _reason = _regime_allows_branch(
+        direction,
+        regime_4h,
+        require_aligned=ENTRY_C_EARLY_REQUIRE_ALIGNED,
+        allow_countertrend=False,
+        allow_neutral=ENTRY_C_EARLY_ALLOW_NEUTRAL,
+    )
+    if not allowed:
+        return False, "countertrend"
+    if score_total < ENTRY_C_EARLY_MIN_SCORE:
+        return False, "score"
+    if quality_mult < ENTRY_C_EARLY_MIN_QUALITY:
+        return False, "quality"
+    if rvol_h < ENTRY_C_EARLY_MIN_RVOL_H:
+        return False, "rvol_h"
+    if campaign.bars_since_breakout > ENTRY_C_EARLY_MAX_BREAKOUT_BARS:
+        return False, "bars_since_breakout"
+    if not entry_c_standard_signal(
+        direction,
+        campaign,
+        hourly_closes,
+        avwap_h,
+        atr_expanding=atr_expanding,
+        rvol_h=rvol_h,
+        atr14_h=atr14_h,
+        atr14_d=atr14_d,
+        ema20_h=ema20_h,
+        quality_mult=quality_mult,
+        regime_4h=regime_4h,
+        score_total=score_total,
+        continuation=False,
+    ):
+        return False, "hold_fail"
+    if _entry_disp_from_avwap(hourly_close, avwap_h, atr14_d) > ENTRY_C_EARLY_MAX_DISP_H:
+        return False, "displacement"
+    if not strong_close_location(
+        direction,
+        hourly_high,
+        hourly_low,
+        hourly_close,
+        q=ENTRY_C_EARLY_CLV_Q,
+    ):
+        return False, "strong_close_fail"
+    return True, "ok"
+
+
+# ---------------------------------------------------------------------------
 # Entry selection (spec §12, A→B→C priority)
 # ---------------------------------------------------------------------------
+
+def _assess_c_momentum_signal(
+    direction: Direction,
+    campaign: SymbolCampaign,
+    hourly_close: float,
+    hourly_high: float,
+    hourly_low: float,
+    hourly_closes: list[float],
+    avwap_h: float,
+    atr14_h: float,
+    atr14_d: float,
+    rvol_h: float,
+    atr_expanding: bool,
+    ema20_h: float,
+    score_total: int,
+    quality_mult: float,
+    regime_4h: Regime4H,
+    continuation: bool,
+) -> tuple[bool, str]:
+    if not ENTRY_C_MOMENTUM_ENABLE:
+        return False, "disabled"
+    if continuation:
+        return False, "continuation"
+    if ENTRY_C_MOMENTUM_REQUIRE_ALIGNED and not is_regime_aligned(direction, regime_4h):
+        return False, "regime_misaligned"
+    if score_total < ENTRY_C_MOMENTUM_MIN_SCORE:
+        return False, "score"
+    if quality_mult < ENTRY_C_MOMENTUM_MIN_QUALITY:
+        return False, "quality"
+    if not entry_c_standard_signal(
+        direction,
+        campaign,
+        hourly_closes,
+        avwap_h,
+        atr_expanding=atr_expanding,
+        rvol_h=rvol_h,
+        atr14_h=atr14_h,
+        atr14_d=atr14_d,
+        ema20_h=ema20_h,
+        quality_mult=quality_mult,
+        regime_4h=regime_4h,
+        score_total=score_total,
+        continuation=continuation,
+    ):
+        return False, "standard_hold"
+    if atr14_d > 0:
+        disp_from_avwap = abs(hourly_close - avwap_h) / atr14_d
+        if disp_from_avwap > ENTRY_C_MOMENTUM_MAX_DISP_H:
+            return False, "displacement"
+
+    if not strong_close_location(
+        direction,
+        hourly_high,
+        hourly_low,
+        hourly_close,
+        q=ENTRY_C_MOMENTUM_CLV_Q,
+    ):
+        return False, "strong_close_fail"
+    return True, "ok"
+
+
+def entry_c_momentum_signal(
+    direction: Direction,
+    campaign: SymbolCampaign,
+    hourly_close: float,
+    hourly_high: float,
+    hourly_low: float,
+    hourly_closes: list[float],
+    avwap_h: float,
+    atr14_h: float,
+    atr14_d: float,
+    rvol_h: float,
+    atr_expanding: bool,
+    ema20_h: float,
+    score_total: int,
+    quality_mult: float,
+    regime_4h: Regime4H,
+    continuation: bool,
+) -> bool:
+    """Fast breakout branch for high-conviction C-hold signals."""
+    ok, _reason = _assess_c_momentum_signal(
+        direction,
+        campaign,
+        hourly_close,
+        hourly_high,
+        hourly_low,
+        hourly_closes,
+        avwap_h,
+        atr14_h,
+        atr14_d,
+        rvol_h,
+        atr_expanding,
+        ema20_h,
+        score_total,
+        quality_mult,
+        regime_4h,
+        continuation,
+    )
+    return ok
+
+
+def entry_outside_window_carry_allowed(
+    entry_type: EntryType,
+    direction: Direction,
+    regime_4h: Regime4H,
+    score_total: int,
+    quality_mult: float,
+    continuation: bool,
+) -> bool:
+    """Allow after-hours carry only for high-conviction non-continuation entries."""
+    if not ENTRY_OUTSIDE_WINDOW_CARRY_ENABLE:
+        return False
+    if continuation:
+        return False
+    if ENTRY_OUTSIDE_WINDOW_CARRY_REQUIRE_ALIGNED and not is_regime_aligned(direction, regime_4h):
+        return False
+    if score_total < ENTRY_OUTSIDE_WINDOW_CARRY_MIN_SCORE:
+        return False
+    if quality_mult < ENTRY_OUTSIDE_WINDOW_CARRY_MIN_QUALITY:
+        return False
+    if ENTRY_OUTSIDE_WINDOW_CARRY_FRESH_ONLY:
+        return entry_type in (
+            EntryType.C_FRESH_MARKET,
+            EntryType.C_FRESH_STOP,
+        )
+    if ENTRY_OUTSIDE_WINDOW_CARRY_A_OR_FRESH_ONLY:
+        return entry_type in (
+            EntryType.A_AVWAP_RETEST,
+            EntryType.A_RECLAIM_STRONG,
+            EntryType.A_RECLAIM_STRONG_STOP,
+            EntryType.C_EARLY_STANDARD,
+            EntryType.C_FRESH_MARKET,
+            EntryType.C_FRESH_STOP,
+        )
+    return entry_type in (
+        EntryType.A_AVWAP_RETEST,
+        EntryType.A_RECLAIM_STRONG,
+        EntryType.A_RECLAIM_STRONG_STOP,
+        EntryType.B_RESUME_MARKET,
+        EntryType.B_RESUME_STOP,
+        EntryType.C_EARLY_STANDARD,
+        EntryType.C_STANDARD,
+        EntryType.C_FRESH_MARKET,
+        EntryType.C_FRESH_STOP,
+        EntryType.C_MOMENTUM_MARKET,
+        EntryType.C_MOMENTUM_STOP,
+    )
+
 
 def select_entry_type(
     direction: Direction,
@@ -681,10 +1448,18 @@ def select_entry_type(
     disp_mult: float,
     quality_mult: float,
     regime_4h: Regime4H,
+    score_total: int = 0,
     entry_a_active: bool = False,
     atr_expanding: bool = True,
     ema20_h: float = 0.0,
+    selection_trace: dict | None = None,
 ) -> Optional[EntryType]:
+    """Select entry type: A -> B -> fresh/early C branches -> legacy C_standard."""
+    if selection_trace is not None:
+        selection_trace.clear()
+        selection_trace["bars_since_breakout"] = campaign.bars_since_breakout
+        selection_trace["continuation"] = campaign.continuation
+        selection_trace["entry_disp_from_avwap"] = _entry_disp_from_avwap(hourly_close, avwap_h, atr14_d)
     """Select entry type: A → B → C_standard (or C_continuation if in continuation)."""
     # Continuation: only C_continuation allowed (require CONTINUATION state, not just flag)
     if campaign.continuation and campaign.state == CampaignState.CONTINUATION:
@@ -699,11 +1474,54 @@ def select_entry_type(
             return EntryType.C_CONTINUATION
         return None
 
+    # Entry B resume — fresh failed probe back through AVWAP.
+    if entry_b_resume_signal(
+        direction,
+        campaign,
+        hourly_close,
+        hourly_low,
+        hourly_high,
+        hourly_closes,
+        hourly_highs,
+        hourly_lows,
+        avwap_h,
+        atr14_h,
+        atr14_d,
+        score_total,
+        quality_mult,
+        regime_4h,
+        campaign.continuation,
+    ):
+        if ENTRY_B_RESUME_USE_STOP_LIMIT:
+            return EntryType.B_RESUME_STOP
+        return EntryType.B_RESUME_MARKET
+
     # Entry A — 3-bar lookback for AVWAP touch
     prev_low = float(hourly_lows[-2]) if len(hourly_lows) >= 2 else 0.0
     prev_high = float(hourly_highs[-2]) if len(hourly_highs) >= 2 else 0.0
     prev2_low = float(hourly_lows[-3]) if len(hourly_lows) >= 3 else 0.0
     prev2_high = float(hourly_highs[-3]) if len(hourly_highs) >= 3 else 0.0
+    if entry_a_reclaim_strong_signal(
+        direction,
+        hourly_close,
+        hourly_low,
+        hourly_high,
+        avwap_h,
+        atr14_h,
+        atr14_d,
+        score_total,
+        quality_mult,
+        regime_4h,
+        campaign.continuation,
+        prev_low,
+        prev_high,
+        prev2_low,
+        prev2_high,
+    ):
+        if ENTRY_A_STRONG_USE_STOP_LIMIT:
+            return EntryType.A_RECLAIM_STRONG_STOP
+        return EntryType.A_RECLAIM_STRONG
+
     if entry_a_signal(direction, hourly_close, hourly_low, hourly_high,
                       avwap_h, atr14_h, atr14_d, prev_low, prev_high,
                       prev2_low, prev2_high):
@@ -717,10 +1535,56 @@ def select_entry_type(
             return EntryType.B_SWEEP_RECLAIM
 
     # Entry C standard — only if Entry A is not outstanding (spec §12.5)
-    if not entry_a_active and entry_c_standard_signal(
-        direction, hourly_closes, avwap_h,
+    if (not entry_a_active or not ENTRY_A_ACTIVE_BLOCKS_C) and entry_c_fresh_signal(
+        direction,
+        campaign,
+        hourly_close,
+        hourly_low,
+        hourly_high,
+        hourly_closes,
+        hourly_highs,
+        hourly_lows,
+        avwap_h,
+        atr14_h,
+        atr14_d,
+        score_total,
+        quality_mult,
+        regime_4h,
+        campaign.continuation,
+    ):
+        if ENTRY_C_FRESH_USE_STOP_LIMIT:
+            return EntryType.C_FRESH_STOP
+        return EntryType.C_FRESH_MARKET
+
+    if (not entry_a_active or not ENTRY_A_ACTIVE_BLOCKS_C) and entry_c_momentum_signal(
+        direction,
+        campaign,
+        hourly_close,
+        hourly_high,
+        hourly_low,
+        hourly_closes,
+        avwap_h,
+        atr14_h,
+        atr14_d,
+        rvol_h,
+        atr_expanding,
+        ema20_h,
+        score_total,
+        quality_mult,
+        regime_4h,
+        campaign.continuation,
+    ):
+        if ENTRY_C_MOMENTUM_USE_STOP_LIMIT:
+            return EntryType.C_MOMENTUM_STOP
+        return EntryType.C_MOMENTUM_MARKET
+
+    if (not entry_a_active or not ENTRY_A_ACTIVE_BLOCKS_C) and entry_c_standard_signal(
+        direction, campaign, hourly_closes, avwap_h,
         atr_expanding=atr_expanding, rvol_h=rvol_h, atr14_h=atr14_h,
-        ema20_h=ema20_h,
+        atr14_d=atr14_d,
+        ema20_h=ema20_h, quality_mult=quality_mult, regime_4h=regime_4h,
+        score_total=score_total,
+        continuation=campaign.continuation,
     ):
         return EntryType.C_STANDARD
 
@@ -847,3 +1711,266 @@ def classify_chop_mode(chop_score: int) -> ChopMode:
     if chop_score >= 1:
         return ChopMode.DEGRADED
     return ChopMode.NORMAL
+
+
+def select_entry_type(
+    direction: Direction,
+    campaign: SymbolCampaign,
+    hourly_close: float,
+    hourly_low: float,
+    hourly_high: float,
+    hourly_closes: list[float],
+    hourly_highs: list[float],
+    hourly_lows: list[float],
+    avwap_h: float,
+    atr14_h: float,
+    atr14_d: float,
+    rvol_h: float,
+    disp_mult: float,
+    quality_mult: float,
+    regime_4h: Regime4H,
+    score_total: int = 0,
+    entry_a_active: bool = False,
+    atr_expanding: bool = True,
+    ema20_h: float = 0.0,
+    selection_trace: dict | None = None,
+) -> Optional[EntryType]:
+    """Select entry type with branch attribution for fresh/early rerouting."""
+    if selection_trace is not None:
+        selection_trace.clear()
+        selection_trace["bars_since_breakout"] = campaign.bars_since_breakout
+        selection_trace["continuation"] = campaign.continuation
+        selection_trace["entry_disp_from_avwap"] = _entry_disp_from_avwap(hourly_close, avwap_h, atr14_d)
+
+    if entry_b_resume_signal(
+        direction,
+        campaign,
+        hourly_close,
+        hourly_low,
+        hourly_high,
+        hourly_closes,
+        hourly_highs,
+        hourly_lows,
+        avwap_h,
+        atr14_h,
+        atr14_d,
+        score_total,
+        quality_mult,
+        regime_4h,
+        campaign.continuation,
+    ):
+        return EntryType.B_RESUME_STOP if ENTRY_B_RESUME_USE_STOP_LIMIT else EntryType.B_RESUME_MARKET
+
+    prev_low = float(hourly_lows[-2]) if len(hourly_lows) >= 2 else 0.0
+    prev_high = float(hourly_highs[-2]) if len(hourly_highs) >= 2 else 0.0
+    prev2_low = float(hourly_lows[-3]) if len(hourly_lows) >= 3 else 0.0
+    prev2_high = float(hourly_highs[-3]) if len(hourly_highs) >= 3 else 0.0
+    if entry_a_reclaim_strong_signal(
+        direction,
+        hourly_close,
+        hourly_low,
+        hourly_high,
+        avwap_h,
+        atr14_h,
+        atr14_d,
+        score_total,
+        quality_mult,
+        regime_4h,
+        campaign.continuation,
+        prev_low,
+        prev_high,
+        prev2_low,
+        prev2_high,
+    ):
+        return EntryType.A_RECLAIM_STRONG_STOP if ENTRY_A_STRONG_USE_STOP_LIMIT else EntryType.A_RECLAIM_STRONG
+
+    if entry_a_signal(
+        direction,
+        hourly_close,
+        hourly_low,
+        hourly_high,
+        avwap_h,
+        atr14_h,
+        atr14_d,
+        prev_low,
+        prev_high,
+        prev2_low,
+        prev2_high,
+    ):
+        return EntryType.A_AVWAP_RETEST
+
+    if entry_b_signal(direction, hourly_low, hourly_high, hourly_close, avwap_h, atr14_d, prev_low, prev_high):
+        if entry_b_permitted(rvol_h, disp_mult, quality_mult, regime_4h, direction, campaign):
+            return EntryType.B_SWEEP_RECLAIM
+
+    if not entry_a_active or not ENTRY_A_ACTIVE_BLOCKS_C:
+        if campaign.continuation:
+            continuation_ok, continuation_reason = _assess_c_continuation_signal(
+                direction,
+                campaign,
+                hourly_close,
+                hourly_low,
+                hourly_high,
+                hourly_closes,
+                hourly_highs,
+                hourly_lows,
+                avwap_h,
+                atr14_h,
+                atr14_d,
+                rvol_h,
+                score_total,
+                quality_mult,
+                regime_4h,
+            )
+            if continuation_ok:
+                if selection_trace is not None:
+                    selection_trace["selected_entry_type"] = EntryType.C_CONTINUATION.value
+                return EntryType.C_CONTINUATION
+            if selection_trace is not None:
+                selection_trace["continuation_reject_reason"] = continuation_reason
+            if not ENTRY_C_STANDARD_ALLOW_CONTINUATION:
+                if selection_trace is not None:
+                    selection_trace.setdefault("selected_entry_type", "")
+                return None
+
+        fresh_stop_ok, fresh_stop_reason = _assess_c_fresh_signal(
+            direction,
+            campaign,
+            hourly_close,
+            hourly_low,
+            hourly_high,
+            hourly_closes,
+            hourly_highs,
+            hourly_lows,
+            avwap_h,
+            atr14_h,
+            atr14_d,
+            score_total,
+            quality_mult,
+            regime_4h,
+            campaign.continuation,
+            enabled=ENTRY_C_FRESH_STOP_ENABLE,
+            min_score=ENTRY_C_FRESH_STOP_MIN_SCORE,
+            min_quality=ENTRY_C_FRESH_STOP_MIN_QUALITY,
+            require_aligned=ENTRY_C_FRESH_STOP_REQUIRE_ALIGNED,
+            allow_countertrend=ENTRY_C_FRESH_STOP_ALLOW_COUNTERTREND,
+            clv_q=ENTRY_C_FRESH_STOP_CLV_Q,
+            max_disp_h=ENTRY_C_FRESH_STOP_MAX_DISP_H,
+            touch_tol_atr_h=ENTRY_C_FRESH_STOP_TOUCH_TOL_ATR_H,
+            max_breakout_bars=ENTRY_C_FRESH_STOP_MAX_BREAKOUT_BARS,
+            min_rvol_h=ENTRY_C_FRESH_STOP_MIN_RVOL_H,
+            rvol_h=rvol_h,
+        )
+        if fresh_stop_ok:
+            if selection_trace is not None:
+                selection_trace["selected_entry_type"] = EntryType.C_FRESH_STOP.value
+            return EntryType.C_FRESH_STOP
+        if selection_trace is not None:
+            selection_trace["fresh_stop_reject_reason"] = fresh_stop_reason
+
+        fresh_market_ok, fresh_market_reason = _assess_c_fresh_signal(
+            direction,
+            campaign,
+            hourly_close,
+            hourly_low,
+            hourly_high,
+            hourly_closes,
+            hourly_highs,
+            hourly_lows,
+            avwap_h,
+            atr14_h,
+            atr14_d,
+            score_total,
+            quality_mult,
+            regime_4h,
+            campaign.continuation,
+            enabled=ENTRY_C_FRESH_ENABLE,
+            min_score=ENTRY_C_FRESH_MIN_SCORE,
+            min_quality=ENTRY_C_FRESH_MIN_QUALITY,
+            require_aligned=ENTRY_C_FRESH_REQUIRE_ALIGNED,
+            allow_countertrend=ENTRY_C_FRESH_ALLOW_COUNTERTREND,
+            clv_q=ENTRY_C_FRESH_CLV_Q,
+            max_disp_h=ENTRY_C_FRESH_MAX_DISP_H,
+            touch_tol_atr_h=ENTRY_C_FRESH_TOUCH_TOL_ATR_H,
+            max_breakout_bars=ENTRY_C_FRESH_MAX_BREAKOUT_BARS,
+        )
+        if fresh_market_ok:
+            if selection_trace is not None:
+                selection_trace["selected_entry_type"] = EntryType.C_FRESH_MARKET.value
+            return EntryType.C_FRESH_MARKET
+        if selection_trace is not None:
+            selection_trace["fresh_market_reject_reason"] = fresh_market_reason
+
+        early_standard_ok, early_standard_reason = _assess_c_early_standard_signal(
+            direction,
+            campaign,
+            hourly_close,
+            hourly_low,
+            hourly_high,
+            hourly_closes,
+            avwap_h,
+            atr14_h,
+            atr14_d,
+            rvol_h,
+            atr_expanding,
+            ema20_h,
+            score_total,
+            quality_mult,
+            regime_4h,
+            campaign.continuation,
+        )
+        if early_standard_ok:
+            if selection_trace is not None:
+                selection_trace["selected_entry_type"] = EntryType.C_EARLY_STANDARD.value
+            return EntryType.C_EARLY_STANDARD
+        if selection_trace is not None:
+            selection_trace["early_standard_reject_reason"] = early_standard_reason
+
+        momentum_ok, momentum_reason = _assess_c_momentum_signal(
+            direction,
+            campaign,
+            hourly_close,
+            hourly_high,
+            hourly_low,
+            hourly_closes,
+            avwap_h,
+            atr14_h,
+            atr14_d,
+            rvol_h,
+            atr_expanding,
+            ema20_h,
+            score_total,
+            quality_mult,
+            regime_4h,
+            campaign.continuation,
+        )
+        if momentum_ok:
+            selected = EntryType.C_MOMENTUM_STOP if ENTRY_C_MOMENTUM_USE_STOP_LIMIT else EntryType.C_MOMENTUM_MARKET
+            if selection_trace is not None:
+                selection_trace["selected_entry_type"] = selected.value
+            return selected
+        if selection_trace is not None:
+            selection_trace["momentum_reject_reason"] = momentum_reason
+
+        if entry_c_standard_signal(
+            direction,
+            campaign,
+            hourly_closes,
+            avwap_h,
+            atr_expanding=atr_expanding,
+            rvol_h=rvol_h,
+            atr14_h=atr14_h,
+            atr14_d=atr14_d,
+            ema20_h=ema20_h,
+            quality_mult=quality_mult,
+            regime_4h=regime_4h,
+            score_total=score_total,
+            continuation=campaign.continuation,
+        ):
+            if selection_trace is not None:
+                selection_trace["selected_entry_type"] = EntryType.C_STANDARD.value
+            return EntryType.C_STANDARD
+
+    if selection_trace is not None:
+        selection_trace.setdefault("selected_entry_type", "")
+    return None

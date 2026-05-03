@@ -106,7 +106,7 @@ class DownturnAblationFlags:
 
     # R6 -- Coverage expansion
     drawdown_regime_override: bool = False  # Real-time rolling-high drawdown -> EMERGING_BEAR override
-    progressive_sma: bool = False           # Use SMA(available_bars) when < sma200_period bars
+    progressive_sma: bool = True
 
     # R6 -- Signal expansion
     momentum_signal: bool = False  # ROC-based fade alternative (no VWAP rejection needed)
@@ -164,10 +164,10 @@ DEFAULT_SYMBOL = "MNQ"
 # ---------------------------------------------------------------------------
 # Risk -- coordinator-level exports
 # ---------------------------------------------------------------------------
-BASE_RISK_PCT = 0.024          # R7c: 2.4% per trade
-DAILY_STOP_R = 2.5             # halt after -2.5R daily realized
+BASE_RISK_PCT = 0.004
+DAILY_STOP_R = 2.0
 HEAT_CAP_R = 3.5               # max simultaneous heat
-PORTFOLIO_DAILY_STOP_R = 1.5   # portfolio-level daily stop
+PORTFOLIO_DAILY_STOP_R = 2.25
 MAX_LEVERAGE_MULT = 20.0       # R7c research-validated leverage ceiling for MNQ
 
 # ---------------------------------------------------------------------------
@@ -199,20 +199,20 @@ R7C_FLAGS = DownturnAblationFlags(
 # ---------------------------------------------------------------------------
 R7C_PARAM_OVERRIDES: dict[str, float] = {
     # Profit floor
-    "profit_floor_r_threshold": 1.35,
+    "profit_floor_r_threshold": 1.5,
     "profit_floor_lock_pct": 0.60,
     # Adaptive profit floor
     "adaptive_lock_t1": 1.5,
     "adaptive_lock_bonus_1": 0.15,
     # Chandelier
-    "chandelier_lookback": 8,
+    "chandelier_lookback": 22,
     "chandelier_mult_floor": 2.2,
     "chandelier_mult_ceiling": 4.5,
     # Breakeven
-    "be_trigger_r": 0.5,
-    "be_stop_buffer_mult": 0.10,
+    "be_trigger_r": 0.9,
+    "be_stop_buffer_mult": 0.08,
     # Min hold
-    "min_hold_bars": 24,
+    "min_hold_bars": 12,
     # Fast crash
     "crash_daily_threshold": -0.018,
     # Conviction
@@ -223,19 +223,26 @@ R7C_PARAM_OVERRIDES: dict[str, float] = {
     # Divergence
     "divergence_mag_threshold": 0.1,
     # Indicators
-    "ema_fast_period": 10,
+    "ema_fast_period": 20,
     "sma200_period": 250,
     "short_sma_period": 40,
-    "adx_trending_threshold": 30,
-    "adx_range_threshold": 10,
+    "adx_trending_threshold": 22,
+    "adx_range_threshold": 18,
     # Sizing
-    "base_risk_pct": 0.024,
+    "base_risk_pct": 0.0064,
     "regime_mult_emerging": 1.8,
     "correction_sizing_mult": 1.2,
     # Circuit breaker
     "circuit_breaker_threshold": -2400,
     # Momentum
-    "momentum_cooldown_bars": 36,
+    "momentum_cooldown_bars": 24,
+    "drawdown_lookback": 10,
+    "regime_mult_counter": 0.2,
+    "tp1_r_aligned": 2.4,
+    "tp1_r_emerging": 1.8,
+    "momentum_roc_threshold": -0.003,
+    "progressive_sma_min": 100,
+    "friction_min_atr_pctl": 0.05,
 }
 
 

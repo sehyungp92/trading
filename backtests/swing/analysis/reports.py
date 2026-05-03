@@ -24,6 +24,13 @@ def _fmt_pct(value: float) -> str:
         return f"{value:.3%}"
 
 
+def _format_dd(metrics: PerformanceMetrics) -> str:
+    """Format max drawdown line, preferring R-based DD when available."""
+    if metrics.max_r_dd > 0:
+        return f"Max drawdown:       {metrics.max_r_dd:.2f}R (${metrics.max_drawdown_dollar:,.2f})"
+    return f"Max drawdown:       {_fmt_pct(metrics.max_drawdown_pct)} (${metrics.max_drawdown_dollar:,.2f})"
+
+
 def performance_report(result: SymbolResult, metrics: PerformanceMetrics) -> str:
     """Generate a performance summary report."""
     lines = [
@@ -38,7 +45,7 @@ def performance_report(result: SymbolResult, metrics: PerformanceMetrics) -> str
         f"Sharpe:             {metrics.sharpe:.2f}",
         f"Sortino:            {metrics.sortino:.2f}",
         f"Calmar:             {metrics.calmar:.2f}",
-        f"Max drawdown:       {_fmt_pct(metrics.max_drawdown_pct)} (${metrics.max_drawdown_dollar:,.2f})",
+        _format_dd(metrics),
         f"Avg hold (hours):   {metrics.avg_hold_hours:.1f}",
         f"Trades/month:       {metrics.trades_per_month:.1f}",
         f"Total commissions:  ${metrics.total_commissions:,.2f}",
@@ -259,7 +266,7 @@ def helix_performance_report(symbol: str, metrics: PerformanceMetrics) -> str:
         f"Sharpe:             {metrics.sharpe:.2f}",
         f"Sortino:            {metrics.sortino:.2f}",
         f"Calmar:             {metrics.calmar:.2f}",
-        f"Max drawdown:       {_fmt_pct(metrics.max_drawdown_pct)} (${metrics.max_drawdown_dollar:,.2f})",
+        _format_dd(metrics),
         f"Avg hold (hours):   {metrics.avg_hold_hours:.1f}",
         f"Trades/month:       {metrics.trades_per_month:.1f}",
         f"Total commissions:  ${metrics.total_commissions:,.2f}",
@@ -416,7 +423,7 @@ def breakout_performance_report(symbol: str, metrics: PerformanceMetrics) -> str
         f"Sharpe:             {metrics.sharpe:.2f}",
         f"Sortino:            {metrics.sortino:.2f}",
         f"Calmar:             {metrics.calmar:.2f}",
-        f"Max drawdown:       {_fmt_pct(metrics.max_drawdown_pct)} (${metrics.max_drawdown_dollar:,.2f})",
+        _format_dd(metrics),
         f"Avg hold (hours):   {metrics.avg_hold_hours:.1f}",
         f"Trades/month:       {metrics.trades_per_month:.1f}",
         f"Total commissions:  ${metrics.total_commissions:,.2f}",
@@ -439,7 +446,16 @@ def breakout_behavior_report(trades: list) -> str:
     # Entry type breakdown
     entry_types = Counter(t.entry_type for t in trades)
     lines.append("\nEntry type breakdown:")
-    for etype in ["A", "B", "C_standard", "C_continuation", "ADD"]:
+    for etype in [
+        "A",
+        "B",
+        "C_early_standard",
+        "C_standard",
+        "C_continuation",
+        "C_fresh_market",
+        "C_fresh_stop",
+        "ADD",
+    ]:
         count = entry_types.get(etype, 0)
         pct = count / len(trades) * 100 if trades else 0
         et_trades = [t for t in trades if t.entry_type == etype]

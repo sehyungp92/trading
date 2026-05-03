@@ -1,4 +1,4 @@
-"""VdubusNQ R1 phased auto-optimization CLI."""
+"""VdubusNQ phased auto-optimization CLI."""
 from __future__ import annotations
 
 import argparse
@@ -28,6 +28,7 @@ logging.getLogger("strategies.momentum.vdub").setLevel(logging.WARNING)
 logging.getLogger("backtests.momentum.engine.vdubus_engine").setLevel(logging.WARNING)
 
 ROUND_MANAGER = RoundManager("momentum", "vdubus")
+PHASE_CHOICES = list(range(1, VdubusPlugin.num_phases + 1))
 
 
 def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseRunner:
@@ -35,7 +36,7 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseR
         data_dir=Path(args.data_dir),
         initial_equity=args.equity,
         max_workers=getattr(args, "max_workers", None),
-        num_phases=4,
+        num_phases=VdubusPlugin.num_phases,
     )
     round_num, round_dir = ROUND_MANAGER.resolve_round(
         getattr(args, "round", None),
@@ -48,7 +49,7 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseR
         plugin=plugin,
         output_dir=round_dir,
         max_rounds=getattr(args, "max_rounds", None),
-        min_delta=getattr(args, "min_delta", 0.005),
+        min_delta=getattr(args, "min_delta", 0.003),
         max_retries=getattr(args, "max_retries", 2),
         round_manager=ROUND_MANAGER,
         round_num=round_num,
@@ -112,7 +113,7 @@ def cmd_phase_diagnostics(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="vdubus-auto", description="VdubusNQ R1 phased auto-optimization")
+    parser = argparse.ArgumentParser(prog="vdubus-auto", description="VdubusNQ phased auto-optimization")
     sub = parser.add_subparsers(dest="command")
 
     def add_common(cmd: argparse.ArgumentParser) -> None:
@@ -122,24 +123,24 @@ def main() -> None:
 
     phase_run = sub.add_parser("phase-run", help="Run a single VdubusNQ phase")
     add_common(phase_run)
-    phase_run.add_argument("--phase", type=int, required=True, choices=[1, 2, 3, 4])
+    phase_run.add_argument("--phase", type=int, required=True, choices=PHASE_CHOICES)
     phase_run.add_argument("--max-rounds", type=int, default=50)
     phase_run.add_argument("--max-workers", type=int, default=None)
-    phase_run.add_argument("--min-delta", type=float, default=0.005)
+    phase_run.add_argument("--min-delta", type=float, default=0.003)
 
     phase_auto = sub.add_parser("phase-auto", help="Run all VdubusNQ phases")
     add_common(phase_auto)
     phase_auto.add_argument("--max-rounds", type=int, default=50)
     phase_auto.add_argument("--max-workers", type=int, default=None)
-    phase_auto.add_argument("--min-delta", type=float, default=0.005)
+    phase_auto.add_argument("--min-delta", type=float, default=0.003)
     phase_auto.add_argument("--max-retries", type=int, default=2)
 
     phase_gate = sub.add_parser("phase-gate", help="Check a completed phase gate")
     add_common(phase_gate)
-    phase_gate.add_argument("--phase", type=int, required=True, choices=[1, 2, 3, 4])
+    phase_gate.add_argument("--phase", type=int, required=True, choices=PHASE_CHOICES)
 
     phase_diag = sub.add_parser("phase-diagnostics", help="Print phase diagnostics")
-    phase_diag.add_argument("--phase", type=int, required=True, choices=[1, 2, 3, 4])
+    phase_diag.add_argument("--phase", type=int, required=True, choices=PHASE_CHOICES)
     phase_diag.add_argument("--round", type=int, default=None)
 
     args = parser.parse_args()

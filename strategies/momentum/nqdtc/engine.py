@@ -259,6 +259,7 @@ class NQDTCEngine:
         self._last_decision_code: str = "IDLE"
         self._last_decision_details: dict = {}
         self._last_bar_ts: datetime | None = None
+        self._symbol_last_bar_ts: dict[str, datetime] = {}
 
     def _record_decision(self, code: str, details: dict | None = None) -> None:
         self._last_decision_code = code
@@ -312,6 +313,16 @@ class NQDTCEngine:
         for event in events:
             self._record_decision(event.code, dict(event.details))
             self._last_bar_ts = event.ts
+            if event.ts is not None:
+                self._symbol_last_bar_ts[C.STRATEGY_ID] = event.ts
+
+    def liveness_payload(self) -> dict:
+        return {
+            "bars_processed": self._bar_count_5m,
+            "symbol_freshness": {
+                sym: ts.isoformat() for sym, ts in self._symbol_last_bar_ts.items()
+            },
+        }
 
     # ------------------------------------------------------------------
     # Lifecycle

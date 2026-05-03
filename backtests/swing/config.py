@@ -22,11 +22,13 @@ class SlippageConfig:
     illiquid_hours: tuple[int, ...] = (0, 1, 2, 3, 4, 5, 22, 23)  # UTC
     commission_per_contract: float = 0.62  # IBKR micros / full-size futures
     commission_per_share_etf: float = 0.0035  # IBKR tiered US equities (min $0.35/order)
+    commission_min_etf_order: float = 0.35
     use_stop_limit: bool = True
     use_stop_market: bool = False         # J2 variant: stop-market fills (optimistic)
     halt_zero_range_bars: int = 2         # consecutive zero-range bars → halt
     halt_extra_slip_ticks: int = 3        # additional slippage on post-halt reopen
     spread_bps: float = 0.0              # spread-based slippage (bps of price); 0 = disabled
+    overlay_slip_bps: float = 5.0         # overlay ETF execution slippage (bps of price)
 
 
 @dataclass

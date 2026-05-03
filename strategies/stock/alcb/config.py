@@ -105,9 +105,9 @@ class StrategySettings:
 
     base_risk_fraction: float = 0.0065
     volatile_base_risk_fraction: float = 0.0035
-    daily_stop_r: float = 2.0
-    heat_cap_r: float = 7.0
-    portfolio_daily_stop_r: float = 5.0
+    daily_stop_r: float = 2.35
+    heat_cap_r: float = 4.4
+    portfolio_daily_stop_r: float = 3.5
     max_portfolio_heat_fraction: float = 0.03
     final_risk_min_mult: float = 0.20
     final_risk_max_mult: float = 1.00
@@ -116,7 +116,7 @@ class StrategySettings:
     max_participation_30m: float = 0.01
     thin_participation_30m: float = 0.005
 
-    max_positions: int = 8
+    max_positions: int = 6
     max_positions_per_sector: int = 3
     max_adds: int = 2
     max_campaign_risk_mult: float = 1.5
@@ -169,7 +169,7 @@ class StrategySettings:
     momentum_size_mult_score_6: float = 1.20
     momentum_size_mult_score_7_plus: float = 1.25
     adx_threshold: float = 20.0
-    stop_atr_multiple: float = 1.0
+    stop_atr_multiple: float = 0.8
     use_or_low_stop: bool = True
     partial_r_trigger: float = 1.25
     partial_fraction: float = 0.33
@@ -223,7 +223,8 @@ class StrategySettings:
     # C. Signal filters
     avwap_distance_cap_pct: float = 0.0        # Max % above AVWAP at entry (0=disabled)
     or_width_min_pct: float = 0.0015           # Min OR width as % of price (0=disabled)
-    breakout_distance_cap_r: float = 0.0       # Max breakout distance from OR high in R (0=disabled; P14 ablation OFF)
+    or_width_max_pct: float = 0.0              # Max OR width as % of price (0=disabled)
+    breakout_distance_cap_r: float = 1.0
 
     # D. Sector-weighted sizing
     sector_mult_financials: float = 0.5        # Sizing mult for Financials
@@ -237,7 +238,7 @@ class StrategySettings:
     fr_cpr_threshold: float = 0.3              # Only allow FR when CPR < this (0=disabled)
 
     # --- Phase 9: Quick Exit Refinement & OR Quality Gate ---
-    qe_stage1_bars: int = 0                    # Stage 1 early quick exit bar count (0=disabled)
+    qe_stage1_bars: int = 10
     qe_stage1_min_r: float = -0.5             # Stage 1 R threshold (exit if below)
     or_breakout_score_min: int = 0             # Min momentum score for OR_BREAKOUT (0=disabled; P14 ablation OFF)
     or_breakout_min_rvol: float = 0.0          # Min RVOL for OR_BREAKOUT (0=use global)
@@ -257,12 +258,60 @@ class StrategySettings:
     adaptive_trail_tighten_bars: int = 25      # Bar at which late-phase tight trail begins
     adaptive_trail_mid_activate_r: float = 0.20  # MFE activation for mid phase
     adaptive_trail_mid_distance_r: float = 0.40  # Trail distance in mid phase (wider)
-    adaptive_trail_late_activate_r: float = 0.25 # MFE activation for late phase
-    adaptive_trail_late_distance_r: float = 0.20 # Trail distance in late phase (tighter)
+    adaptive_trail_late_activate_r: float = 0.22
+    adaptive_trail_late_distance_r: float = 0.12
 
     # --- Phase 10: COMBINED-Specific Entry Filters ---
     combined_avwap_cap_pct: float = 0.003     # Max AVWAP distance for COMBINED entries (0=disabled)
     combined_breakout_cap_r: float = 0.0      # Max breakout distance for COMBINED entries in R (0=disabled)
+    or_breakout_cap_r: float = 0.0            # Max OR breakout distance in R (0=disabled)
+    pdh_breakout_cap_r: float = 0.0           # Max PDH breakout distance in R (0=disabled)
+
+    # --- Optimizer-safe conditional entry controls ---
+    # All keys use completed signal-bar metadata and preserve next-bar execution.
+    block_entry_bars: tuple[int, ...] = ()
+    entry_bar_size_mults: dict = field(default_factory=dict)
+    entry_type_bar_blocklist: tuple[str, ...] = ()
+    entry_type_bar_size_mults: dict = field(default_factory=dict)
+    entry_score_blocklist: tuple[str, ...] = ("COMBINED_BREAKOUT:5",)
+    entry_score_size_mults: dict = field(default_factory=lambda: {"OR_BREAKOUT:5": 0.75, "COMBINED_BREAKOUT:7": 1.15, "PDH_BREAKOUT:6": 0.5})
+    entry_detail_blocklist: tuple[str, ...] = ()
+    entry_detail_size_mults: dict = field(default_factory=lambda: {"OR_BREAKOUT:5:!bar_vol_surge": 0.55})
+    sector_entry_blocklist: tuple[str, ...] = ()
+    sector_entry_size_mults: dict = field(default_factory=dict)
+
+    # --- Round 3: causal early-failure stop tightening ---
+    failure_stop_bars: int = 10
+    failure_stop_mfe_max_r: float = 0.2
+    failure_stop_current_r_max: float = 0.0   # Only tighten if current R is no better than this
+    failure_stop_to_r: float = -0.25          # Stop level in R from entry after the completed-bar check
+    failure_stop_close_buffer_pct: float = 0.0005 # Keep updated stop beyond current close for next-bar validity
+
+    # --- Round 3 extension: causal trade-maturation confirmation ---
+    maturation_stop_bars: int = 0             # Tighten stop after N completed hold bars when maturation evidence fails
+    maturation_stop_min_failed_checks: int = 1 # Number of enabled maturation checks that must fail before tightening
+    maturation_stop_min_current_r: float = -999.0 # Minimum current R at check (-999=disabled)
+    maturation_stop_min_mfe_r: float = 0.0    # Minimum early MFE in R (0=disabled)
+    maturation_stop_max_mae_r: float = 0.0    # Max early adverse excursion in R (0=disabled)
+    maturation_stop_min_rvol_ratio: float = 0.0 # Current RVOL / signal RVOL floor (0=disabled)
+    maturation_stop_min_rvol: float = 0.0     # Current-bar RVOL floor (0=disabled)
+    maturation_stop_require_above_breakout: bool = False # Require completed bar to hold breakout level
+    maturation_stop_require_above_avwap: bool = False # Require completed bar to hold session AVWAP
+    maturation_stop_level_buffer_pct: float = 0.0 # Buffer for above-breakout/AVWAP checks
+    maturation_stop_to_r: float = -0.10       # Stop level in R after a failed maturation check
+    maturation_stop_close_buffer_pct: float = 0.0005 # Keep updated stop beyond current close for next-bar validity
+
+    # --- Round 3 extension: delayed entry confirmation ---
+    entry_confirmation_bars: int = 0          # Observe N completed bars after signal, then fill next bar if confirmed
+    entry_confirmation_min_current_r: float = -999.0 # Min R from signal close to confirmation close (-999=disabled)
+    entry_confirmation_min_mfe_r: float = 0.0 # Min favorable excursion during confirmation window (0=disabled)
+    entry_confirmation_max_mae_r: float = 0.0 # Max adverse excursion during confirmation window (0=disabled)
+    entry_confirmation_min_rvol_ratio: float = 0.0 # Confirmation RVOL / signal RVOL floor (0=disabled)
+    entry_confirmation_min_rvol: float = 0.0  # Confirmation-bar RVOL floor (0=disabled)
+    entry_confirmation_require_above_breakout: bool = False
+    entry_confirmation_require_above_avwap: bool = False
+    entry_confirmation_level_buffer_pct: float = 0.0
+    entry_confirmation_size_mult: float = 1.0 # Optional size uplift after confirmed maturation
 
     # --- Phase 11: Reclaim / retest entry experiments ---
     reclaim_entry_mode: str = "off"           # off, or, or_avwap, or_pdh, or_pdh_avwap
@@ -284,7 +333,7 @@ class StrategySettings:
     orb_gap_tight_pct: float = 0.05           # Mild gap threshold
     orb_gap_caution_mult: float = 0.65        # Size multiplier for caution gaps
     orb_gap_tight_mult: float = 0.80          # Size multiplier for mild gaps
-    orb_entry_range_cap_r: float = 0.0        # Max signal bar range in entry risk R (0=disabled)
+    orb_entry_range_cap_r: float = 1.1
     orb_time_decay_start: time = time(10, 30) # Start late-entry RVOL/size decay
     orb_late_rvol_add_per_30m: float = 0.0    # Additive RVOL floor per 30m after start
     orb_late_size_decay_per_30m: float = 0.0  # Multiplicative size decay per 30m after start

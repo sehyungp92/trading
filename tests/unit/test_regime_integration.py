@@ -54,12 +54,14 @@ def _base_stock_rules() -> PortfolioRulesConfig:
 
 def _base_momentum_rules() -> PortfolioRulesConfig:
     return PortfolioRulesConfig(
-        directional_cap_R=3.5,
-        directional_cap_long_R=3.5,
-        directional_cap_short_R=5.0,
+        directional_cap_R=4.25,
+        directional_cap_long_R=10.0,
+        directional_cap_short_R=10.5,
         initial_equity=10_000.0,
         max_family_contracts_mnq_eq=10,
-        nqdtc_direction_filter_enabled=False,
+        nqdtc_direction_filter_enabled=True,
+        nqdtc_agree_size_mult=1.25,
+        nqdtc_oppose_size_mult=0.50,
     )
 
 
@@ -190,6 +192,30 @@ class TestMappingTables:
         base = _base_stock_rules()
         result = build_stock_rules(_make_ctx("D"), base)
         assert result.initial_equity == base.initial_equity
+
+    def test_regime_scales_supplied_base_instead_of_replacing_with_table(self):
+        base = dataclasses.replace(
+            _base_stock_rules(),
+            directional_cap_R=20.0,
+            directional_cap_long_R=18.0,
+            priority_headroom_R=2.0,
+            dd_tiers=((0.10, 1.0), (0.15, 0.6), (0.20, 0.3), (1.0, 0.0)),
+        )
+
+        result = build_stock_rules(_make_ctx("D"), base)
+
+        assert result.directional_cap_R == pytest.approx(11.0)
+        assert result.directional_cap_long_R == pytest.approx(9.9)
+        assert result.priority_headroom_R == pytest.approx(1.1)
+        assert result.dd_tiers == ((0.07, 1.0), (0.105, 0.6), (0.14, 0.3), (1.0, 0.0))
+
+    def test_context_stress_dampens_regime_unit_risk(self):
+        ctx = _make_ctx("S")
+        ctx = dataclasses.replace(ctx, stress_level=0.50, stress_onset=True, suggested_leverage_mult=1.0)
+
+        result = build_swing_rules(ctx, _base_swing_rules())
+
+        assert result.regime_unit_risk_mult == pytest.approx(0.612)
 
 
 # ── Portfolio rules regime checks ─────────────────────────────────────

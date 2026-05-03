@@ -10,7 +10,18 @@ import numpy as np
 from backtests.stock.auto.scoring import extract_metrics
 from backtests.shared.auto.types import ScoredCandidate
 
-from .phase_scoring import merge_pullback_metrics, score_pullback_phase, score_v2r1_pullback_phase, score_v2r2_pullback_phase, score_v2r3_pullback_phase, score_v2r4_pullback_phase, score_v3r1_pullback_phase, score_v4r1_pullback_phase
+from .phase_scoring import (
+    merge_pullback_metrics,
+    score_pullback_phase,
+    score_v2r1_pullback_phase,
+    score_v2r2_pullback_phase,
+    score_v2r3_pullback_phase,
+    score_v2r4_pullback_phase,
+    score_v3r1_pullback_phase,
+    score_v4r1_pullback_phase,
+    score_v5r1_pullback_phase,
+    score_v5r2_pullback_phase,
+)
 
 _worker_replay = None
 _worker_config = None
@@ -85,7 +96,11 @@ def score_candidate(args: tuple[str, dict, dict]) -> ScoredCandidate:
             candidate_ledger=result.candidate_ledger,
             selection_attribution=result.selection_attribution,
         )
-        if _worker_round_name == "v4r1":
+        if _worker_round_name == "v5r2":
+            score_fn = score_v5r2_pullback_phase
+        elif _worker_round_name == "v5r1":
+            score_fn = score_v5r1_pullback_phase
+        elif _worker_round_name == "v4r1":
             score_fn = score_v4r1_pullback_phase
         elif _worker_round_name == "v3r1":
             score_fn = score_v3r1_pullback_phase
@@ -125,6 +140,10 @@ def _phase_reject_reason(metrics, hard_rejects: dict | None, *, avg_r: float | N
     min_pf = rejects.get("min_pf")
     if min_pf is not None and metrics.profit_factor < float(min_pf):
         return f"phase{_worker_phase}_low_pf ({metrics.profit_factor:.2f} < {float(min_pf):.2f})"
+
+    min_net_profit = rejects.get("min_net_profit")
+    if min_net_profit is not None and metrics.net_profit < float(min_net_profit):
+        return f"phase{_worker_phase}_low_net_profit ({metrics.net_profit:.2f} < {float(min_net_profit):.2f})"
 
     min_sharpe = rejects.get("min_sharpe")
     if min_sharpe is not None and metrics.sharpe < float(min_sharpe):

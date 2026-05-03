@@ -12,6 +12,7 @@ from .phase_state import _atomic_write_json
 from .types import Experiment, GreedyResult, GreedyRound, ScoredCandidate
 
 EvaluateFn = Callable[[list[Experiment], dict[str, object]], list[ScoredCandidate]]
+ProgressFn = Callable[[dict[str, object]], None]
 
 
 def _delta_ratio(score: float, baseline: float) -> float:
@@ -92,6 +93,7 @@ def run_greedy(
     checkpoint_path: Path | None = None,
     checkpoint_context: dict[str, object] | None = None,
     logger: logging.Logger | None = None,
+    progress_callback: ProgressFn | None = None,
 ) -> GreedyResult:
     start = time.time()
     log = logger or logging.getLogger(__name__)
@@ -108,8 +110,24 @@ def run_greedy(
     )
 
     baseline = evaluate_batch([Experiment("__baseline__", {})], current_mutations)
-    base_score = baseline[0].score if baseline and not baseline[0].rejected else 0.0
+    base_score = baseline[0].score if baseline else 0.0
+    if baseline and baseline[0].rejected:
+        log.warning(
+            "Baseline rejected by hard rejects: %s. Candidates must still "
+            "beat this score AND pass hard rejects to be accepted.",
+            baseline[0].reject_reason,
+        )
     current_score = base_score
+    _emit_progress(
+        progress_callback,
+        {
+            "event": "baseline_complete",
+            "base_score": base_score,
+            "current_score": current_score,
+            "candidate_count": total_candidates,
+            "accepted_count": len(kept_features),
+        },
+    )
 
     if checkpoint_path:
         resumed = load_greedy_checkpoint(checkpoint_path)
@@ -122,6 +140,16 @@ def run_greedy(
                 current_score,
                 len(remaining),
             )
+            _emit_progress(
+                progress_callback,
+                {
+                    "event": "checkpoint_resumed",
+                    "current_score": current_score,
+                    "accepted_count": len(kept_features),
+                    "remaining_candidates": len(remaining),
+                    "kept_features": list(kept_features),
+                },
+            )
         elif resumed:
             log.info("Checkpoint identity mismatch; starting greedy search fresh.")
 
@@ -130,6 +158,17 @@ def run_greedy(
             if not remaining:
                 break
 
+            _emit_progress(
+                progress_callback,
+                {
+                    "event": "round_start",
+                    "round_num": round_num,
+                    "candidate_count": len(remaining),
+                    "current_score": current_score,
+                    "accepted_count": len(kept_features),
+                    "kept_features": list(kept_features),
+                },
+            )
             scored = evaluate_batch(remaining, current_mutations)
             rejected_count = sum(1 for item in scored if item.rejected)
             valid = [item for item in scored if not item.rejected]
@@ -155,6 +194,21 @@ def run_greedy(
                     )
                 )
                 log.info("Round %d produced no valid candidates; stopping.", round_num)
+                _emit_progress(
+                    progress_callback,
+                    {
+                        "event": "round_complete",
+                        "round_num": round_num,
+                        "candidate_count": len(remaining),
+                        "rejected_count": rejected_count,
+                        "valid_count": 0,
+                        "current_score": current_score,
+                        "accepted_count": len(kept_features),
+                        "kept_features": list(kept_features),
+                        "kept": False,
+                        "stop_reason": "no_valid_candidates",
+                    },
+                )
                 break
 
             best = max(valid, key=lambda item: item.score)
@@ -179,6 +233,24 @@ def run_greedy(
                     round_num,
                     best.name,
                     min_delta * 100.0,
+                )
+                _emit_progress(
+                    progress_callback,
+                    {
+                        "event": "round_complete",
+                        "round_num": round_num,
+                        "candidate_count": len(remaining),
+                        "rejected_count": rejected_count,
+                        "valid_count": len(valid),
+                        "best_name": best.name,
+                        "best_score": best.score,
+                        "best_delta_pct": delta_pct,
+                        "current_score": current_score,
+                        "accepted_count": len(kept_features),
+                        "kept_features": list(kept_features),
+                        "kept": False,
+                        "stop_reason": "min_delta_not_cleared",
+                    },
                 )
                 break
 
@@ -207,6 +279,25 @@ def run_greedy(
             remaining = next_remaining
             if streak_pruned:
                 log.info("  Pruned %d persistently-rejected candidates (%d+ consecutive).", streak_pruned, reject_streak_limit)
+            _emit_progress(
+                progress_callback,
+                {
+                    "event": "round_complete",
+                    "round_num": round_num,
+                    "candidate_count": rounds[-1].candidates_tested,
+                    "rejected_count": rejected_count,
+                    "valid_count": len(valid),
+                    "best_name": best.name,
+                    "best_score": best.score,
+                    "best_delta_pct": delta_pct,
+                    "current_score": current_score,
+                    "accepted_count": len(kept_features),
+                    "kept_features": list(kept_features),
+                    "remaining_candidates": len(remaining),
+                    "streak_pruned": streak_pruned,
+                    "kept": True,
+                },
+            )
 
             if checkpoint_path:
                 save_greedy_checkpoint(
@@ -239,3 +330,8 @@ def run_greedy(
         accepted_count=len(kept_features),
         elapsed_seconds=time.time() - start,
     )
+
+
+def _emit_progress(callback: ProgressFn | None, payload: dict[str, object]) -> None:
+    if callable(callback):
+        callback(payload)

@@ -17,8 +17,8 @@ def filter_rth(df: pd.DataFrame) -> pd.DataFrame:
 
     Removes pre-market and after-hours bars so that signal detection
     runs exclusively on tradeable bars.  Bars at 09:00 ET are included
-    to provide indicator context (entry is still restricted by the engine
-    until 09:45 ET).
+    to provide indicator context. Input bars are expected to be timestamped
+    by interval start; replay loaders may shift them to close availability.
     """
     from zoneinfo import ZoneInfo
 

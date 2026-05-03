@@ -18,10 +18,10 @@ from libs.oms.models.instrument import Instrument
 
 STRATEGY_ID = "BRS_R9"
 COMMISSION_PER_SHARE = 0.0035  # match backtest (IBKR tiered US equities)
-BASE_RISK_PCT = 0.003          # GLD rate (higher of the two; per-symbol handled internally)
+BASE_RISK_PCT = 0.0072
 DAILY_STOP_R = 2.0
-HEAT_CAP_R = 1.80
-PORTFOLIO_DAILY_STOP_R = 1.5
+HEAT_CAP_R = 2.25
+PORTFOLIO_DAILY_STOP_R = 3.25
 
 
 class TF(Enum):
@@ -55,15 +55,15 @@ BRS_SYMBOL_DEFAULTS: dict[str, BRSSymbolConfig] = {
     "QQQ": BRSSymbolConfig(
         adx_on=16, adx_off=14,
         daily_mult=2.3, hourly_mult=2.9, chand_mult=2.5,
-        stop_buffer_atr=0.3, stop_floor_atr=0.6,
-        base_risk_pct=0.002, limit_pct=0.0010,
+        stop_buffer_atr=0.33, stop_floor_atr=0.384,
+        base_risk_pct=0.0054, limit_pct=0.0010,
         allow_long=False, cooldown_bars=8,
     ),
     "GLD": BRSSymbolConfig(
-        adx_on=14, adx_off=12,
+        adx_on=16, adx_off=14,
         daily_mult=2.0, hourly_mult=2.6, chand_mult=3.6,
-        stop_buffer_atr=0.18, stop_floor_atr=0.6,
-        base_risk_pct=0.003, limit_pct=0.0010,
+        stop_buffer_atr=0.198, stop_floor_atr=0.6,
+        base_risk_pct=0.0072, limit_pct=0.0010,
         allow_long=True, cooldown_bars=8,
     ),
 }
@@ -88,9 +88,9 @@ class BRSConfig:
     commission_per_share: float = COMMISSION_PER_SHARE
 
     # Global regime params -- R9 optimal
-    adx_strong: int = 25
+    adx_strong: int = 26
     ema_fast_period: int = 15
-    ema_slow_period: int = 40
+    ema_slow_period: int = 45
     regime_bear_min_conditions: int = 4
 
     # Fast-crash bias confirmation (Path D)
@@ -105,7 +105,7 @@ class BRSConfig:
 
     # Peak drawdown regime trigger
     peak_drop_enabled: bool = True
-    peak_drop_lookback: int = 16
+    peak_drop_lookback: int = 12
     peak_drop_pct: float = -0.02
 
     # Return-only bias confirmation Path F
@@ -113,9 +113,9 @@ class BRSConfig:
     return_only_thresh: float = -0.015
 
     # Cumulative return bias confirmation Path G
-    cum_return_enabled: bool = False
+    cum_return_enabled: bool = True
     cum_return_lookback: int = 5
-    cum_return_thresh: float = -0.03
+    cum_return_thresh: float = -0.015
 
     # 4H regime as bias accelerator
     bias_4h_accel_enabled: bool = True
@@ -145,18 +145,18 @@ class BRSConfig:
     max_pyramid_adds: int = 1
 
     # Regime-adaptive sizing multipliers -- R9 optimal
-    size_mult_bear_trend: float = 1.0
+    size_mult_bear_trend: float = 1.56
     size_mult_bear_strong: float = 1.0
     size_mult_range_chop: float = 1.0
     size_mult_bear_forming: float = 1.0
 
     # Quality multipliers -- R9 optimal
-    chop_quality_mult: float = 0.84
-    persist_quality_mult_lh: float = 0.50
-    persist_quality_mult_bd: float = 0.96
+    chop_quality_mult: float = 1.008
+    persist_quality_mult_lh: float = 0.35
+    persist_quality_mult_bd: float = 1.3824
 
     # BD regime restrictions
-    bd_allow_bear_strong: bool = True
+    bd_allow_bear_strong: bool = False
 
     # Quality score gate for L1
     min_quality_score: float = 0.0
@@ -170,8 +170,8 @@ class BRSConfig:
 
     # LH Rejection params
     lh_swing_lookback: int = 5
-    lh_arm_bars: int = 26
-    lh_max_stop_atr: float = 2.5
+    lh_arm_bars: int = 29
+    lh_max_stop_atr: float = 3.0
     v_reversal_max_rally: float = 1.5
     tod_filter_enabled: bool = False
     tod_filter_start: int = 840
@@ -182,43 +182,43 @@ class BRSConfig:
     bd_close_quality: float = 0.45
     bd_arm_bars: int = 24
     bd_max_stop_atr: float = 4.2
-    bd_donchian_period: int = 10
+    bd_donchian_period: int = 9
     bd_allow_bear_trend: bool = True
 
     # BEAR_TREND volume filter for LHR
-    bt_volume_mult: float = 2.0
+    bt_volume_mult: float = 1.5
 
     # Global exit params -- R9 optimal
-    catastrophic_cap_r: float = 2.5
-    be_trigger_r: float = 0.75
+    catastrophic_cap_r: float = 1.6
+    be_trigger_r: float = 0.675
     trail_trigger_r: float = 0.75
     stale_bars_short: int = 50
     stale_bars_long: int = 30
     stale_early_bars: int = 35
     time_decay_hours: int = 360
-    profit_floor_scale: float = 4.1472
+    profit_floor_scale: float = 3.73248
 
     # Minimum hold time
-    min_hold_bars: int = 5
+    min_hold_bars: int = 3
 
     # Regime-adaptive cooldown
-    cooldown_bear_strong: int = 2
+    cooldown_bear_strong: int = 1
     cooldown_bear_trend: int = 4
 
     # Wider BEAR_STRONG initial stops
-    stop_floor_bear_strong_mult: float = 1.5
+    stop_floor_bear_strong_mult: float = 1.0
 
     # Regime-aware trailing
     trail_regime_scaling: bool = True
 
     # Scale-out / partial exit -- R9 optimal
     scale_out_enabled: bool = True
-    scale_out_pct: float = 0.33
-    scale_out_target_r: float = 3.6
+    scale_out_pct: float = 0.6
+    scale_out_target_r: float = 2.0
     scale_out_trail_bonus: float = 0.3
 
     # Portfolio -- R9 optimal
-    heat_cap_r: float = 1.80
+    heat_cap_r: float = 2.25
     crisis_heat_cap_r: float = 1.25
     max_concurrent: int = 3
 

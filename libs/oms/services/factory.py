@@ -237,6 +237,7 @@ async def build_oms_service(
     risk_config = RiskConfig(
         heat_cap_R=heat_cap_R,
         portfolio_daily_stop_R=portfolio_daily_stop_R,
+        portfolio_weekly_stop_R=portfolio_weekly_stop_R,
         strategy_configs={strategy_id: strat_cfg},
         portfolio_urd=unit_risk_dollars,
     )
@@ -833,6 +834,12 @@ async def build_multi_strategy_oms(
         logger.info("Portfolio rules enabled for multi-strategy OMS (%s)", family_id)
 
     # Risk gateway (shared, now with multiple strategy configs + priorities)
+    portfolio_risk_adapter = None
+    if family_id == "swing":
+        from ..risk.swing_portfolio_adapter import SwingLivePortfolioRiskAdapter
+
+        portfolio_risk_adapter = SwingLivePortfolioRiskAdapter(risk_config)
+
     risk_gateway = RiskGateway(
         config=risk_config,
         calendar=calendar,
@@ -841,6 +848,7 @@ async def build_multi_strategy_oms(
         get_working_order_count=get_working_order_count,
         market_calendar=market_calendar,
         portfolio_checker=portfolio_checker,
+        portfolio_risk_adapter=portfolio_risk_adapter,
         account_gate=account_gate,
         family_id=family_id,
     )
@@ -888,6 +896,7 @@ async def build_multi_strategy_oms(
         get_strategy_risk=get_strategy_risk,
     )
     oms._portfolio_checker = portfolio_checker  # for coordinator regime updates
+    oms._swing_portfolio_risk_adapter = portfolio_risk_adapter
     oms._portfolio_risk_state = portfolio_risk_state  # for coordinator deployed-capital queries
     oms._strategy_risk_states = strategy_risk_states  # for per-strategy heartbeat metrics
 

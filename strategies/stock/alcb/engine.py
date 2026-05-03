@@ -161,6 +161,7 @@ class ALCBT2Engine:
         self._last_decision_code: str = "IDLE"
         self._last_decision_details: dict = {}
         self._last_bar_ts: datetime | None = None
+        self._bars_processed: int = 0
 
         self._initialize_from_artifact()
 
@@ -168,6 +169,14 @@ class ALCBT2Engine:
         """Record the latest decision for diagnostic pulse reporting."""
         self._last_decision_code = code
         self._last_decision_details = details or {}
+
+    def liveness_payload(self) -> dict:
+        return {
+            "bars_processed": self._bars_processed,
+            "symbol_freshness": {
+                sym: ts.isoformat() for sym, ts in self._bar_ts_by_symbol.items()
+            },
+        }
 
     @staticmethod
     def _signal_time(bar: Bar) -> datetime:
@@ -348,6 +357,7 @@ class ALCBT2Engine:
         market.last_price = bar.close
         self._bar_ts_by_symbol[normalized] = datetime.now(timezone.utc)
         self._last_bar_ts = datetime.now(timezone.utc)
+        self._bars_processed += 1
         self._bar_builder.ingest_bar(bar)
 
         for bar_5m in self._bar_builder.aggregate_new_bars(normalized, 5):

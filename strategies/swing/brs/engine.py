@@ -175,6 +175,7 @@ class BRSLiveEngine:
         self._last_decision_code: str = "IDLE"
         self._last_decision_details: dict[str, Any] = {}
         self._last_bar_ts: datetime | None = None
+        self._symbol_last_bar_ts: dict[str, datetime] = {}
 
         self._bar_processed_count: dict[tuple[str, str], int] = {}  # (symbol, tf_name) -> count
         self._pending_orders: dict[str, PendingOrder] = {}  # oms_order_id -> PendingOrder
@@ -303,6 +304,14 @@ class BRSLiveEngine:
             "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
         }
 
+    def liveness_payload(self) -> dict:
+        return {
+            "bars_processed": sum(self._hourly_bar_count.values()),
+            "symbol_freshness": {
+                sym: ts.isoformat() for sym, ts in self._symbol_last_bar_ts.items()
+            },
+        }
+
     def snapshot_state(self) -> dict[str, Any]:
         return snapshot_core_state(build_core_runtime_state(self))
 
@@ -358,6 +367,7 @@ class BRSLiveEngine:
                 bar_ts = last_ib_bar.date if isinstance(last_ib_bar.date, datetime) else None
                 if bar_ts is not None:
                     self._last_bar_ts = bar_ts if bar_ts.tzinfo else bar_ts.replace(tzinfo=ET)
+                    self._symbol_last_bar_ts[symbol] = self._last_bar_ts
 
             if tf == TF.D1:
                 self._update_daily_context(symbol)
@@ -1701,16 +1711,23 @@ class BRSLiveEngine:
                     )
 
         # Instrumentation for stop updates
-        if stop_req is not None and self._instrumentation:
-            self._instrumentation.on_filter_decision(
-                pair=symbol,
-                filter_name="trailing_stop_update",
-                passed=True,
-                threshold=old_stop,
-                actual_value=stop_req.stop_price,
-                signal_name=f"stop_ratchet_{pos.entry_type}",
-                strategy_id="BRS_R9",
-            )
+        if stop_req is not None and self._instrumentation and old_stop != stop_req.stop_price:
+            try:
+                self._instrumentation.log_stop_adjustment(
+                    trade_id=pos.pos_id,
+                    symbol=symbol,
+                    old_stop=old_stop,
+                    new_stop=stop_req.stop_price,
+                    adjustment_type="trailing",
+                    trigger=f"stop_ratchet_{pos.entry_type}",
+                    metadata={
+                        "bars_held": pos.bars_held,
+                        "mfe_r": round(pos.mfe_r, 3),
+                        "entry_type": pos.entry_type,
+                    },
+                )
+            except Exception:
+                pass
 
     # ── helpers ───────────────────────────────────────────────────────
 

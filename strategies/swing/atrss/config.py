@@ -35,7 +35,7 @@ class SymbolConfig:
     # Chandelier trailing multiplier
     chand_mult: float = 3.0
     # Per-symbol ADX thresholds (spec Section 2.2)
-    adx_on: int = 20
+    adx_on: int = 14
     adx_off: int = 18
     # Contract spec (for Instrument construction)
     tick_size: float = 0.25
@@ -51,7 +51,7 @@ class SymbolConfig:
     # Per-symbol bad-fill slippage (spec Section 6)
     max_entry_slip_pct: float = 0.0015
     # Per-symbol base risk (spec Section 9)
-    base_risk_pct: float = 0.01
+    base_risk_pct: float = 0.024
     # Per-symbol short trade control
     shorts_enabled: bool = True
     # Per-symbol time/day filters (hours in ET, weekdays 0=Mon..6=Sun)
@@ -134,32 +134,44 @@ _ETF_CONFIGS: dict[str, SymbolConfig] = {
     "QQQ": SymbolConfig(
         symbol="QQQ",
         daily_mult=2.1, hourly_mult=2.7, chand_mult=2.2,
-        adx_on=15, adx_off=16,
+        adx_on=14, adx_off=16,
         ema_pull_normal=40, donchian_period=20,
         tick_size=0.01, multiplier=1.0,
         exchange="SMART", sec_type="STK", primary_exchange="NASDAQ",
         limit_pct=0.0015,
-        base_risk_pct=0.01,  # 1.0% — match futures default, justified by 84% WR / PF=7 edge
+        base_risk_pct=0.024,
         shorts_enabled=False,
         size_reduction_months=((12, 0.5),),
     ),
     "GLD": SymbolConfig(
         symbol="GLD",
         daily_mult=2.0, hourly_mult=2.6, chand_mult=3.0,
-        adx_on=15, adx_off=18,
+        adx_on=14, adx_off=18,
         tick_size=0.01, multiplier=1.0,
         exchange="SMART", sec_type="STK", primary_exchange="ARCA",
-        base_risk_pct=0.01,  # 1.0% — match futures default, justified by 84% WR / PF=7 edge
+        base_risk_pct=0.024,
+        shorts_enabled=False,
+    ),
+    "USO": SymbolConfig(
+        symbol="USO",
+        daily_mult=2.3, hourly_mult=3.0, chand_mult=3.0,
+        adx_on=18, adx_off=16,
+        ema_pull_normal=45, donchian_period=20,
+        tick_size=0.01, multiplier=1.0,
+        exchange="SMART", sec_type="STK", primary_exchange="ARCA",
+        limit_pct=0.0015,
+        base_risk_pct=0.01,
         shorts_enabled=False,
     ),
 }
 
 _ALL_CONFIGS: dict[str, SymbolConfig] = {**_MICRO_CONFIGS, **_FULL_CONFIGS, **_ETF_CONFIGS}
+ALL_SYMBOL_CONFIGS: dict[str, SymbolConfig] = _ALL_CONFIGS
 
 _SETS: dict[str, list[str]] = {
     "micro": list(_MICRO_CONFIGS),
     "full": list(_FULL_CONFIGS),
-    "etf": list(_ETF_CONFIGS),
+    "etf": ["QQQ", "GLD"],
     "all": list(_ALL_CONFIGS),
 }
 
@@ -182,6 +194,17 @@ SYMBOLS, SYMBOL_CONFIGS = _resolve_symbols()
 MAX_PORTFOLIO_HEAT: float = 0.06       # 6% of equity
 
 # ---------------------------------------------------------------------------
+# Fixed-quantity risk overlays (optimizer opt-in; default preserves behavior)
+# ---------------------------------------------------------------------------
+FIXED_QTY_REGIME_SCALING_ENABLED: bool = False
+FIXED_QTY_STRONG_TREND_MULT: float = 1.25
+FIXED_QTY_WEAK_TREND_MULT: float = 0.75
+
+# Dynamic risk sizing overlays (optimizer opt-in; defaults match prior behavior)
+DYNAMIC_RISK_STRONG_TREND_MULT: float = 1.15
+DYNAMIC_RISK_WEAK_TREND_MULT: float = 0.8
+
+# ---------------------------------------------------------------------------
 # Regime / entry thresholds
 # ---------------------------------------------------------------------------
 ADX_STRONG: int = 30
@@ -191,9 +214,10 @@ PULLBACK_LOOKBACK: int = 8                # bars to look back for EMA_pull touch
 PULLBACK_TOUCH_TOLERANCE_ATR: float = 0.55  # fraction of ATR_hourly for near-touch
 PULLBACK_TOUCH_TOLERANCE_PCT: float = 0.003  # min tolerance as fraction of price (30bps)
 RECOVERY_TOLERANCE_ATR: float = 0.40       # EMA pull recovery tolerance (fraction of ATRh)
-RECOVERY_TOLERANCE_ATR_TREND: float = 0.315    # regime-adaptive: TREND (tightened per rescaled optimizer)
+RECOVERY_TOLERANCE_ATR_TREND: float = 0.55
 RECOVERY_TOLERANCE_ATR_STRONG: float = 0.85    # regime-adaptive: STRONG_TREND
 MOMENTUM_TOLERANCE_ATR: float = 0.10      # Momentum filter tolerance (fraction of ATRh)
+PULLBACK_MOMENTUM_FILTER_ENABLED: bool = False  # Optional stricter pullback discrimination
 SCORE_REVERSE_MIN: int = 60
 FAST_CONFIRM_SCORE: int = 55     # 1-day confirm when score >= 55
 FAST_CONFIRM_ADX: int = 22       # ADX floor for fast 1-day confirm (spec S2.6)
@@ -229,8 +253,9 @@ COOLDOWN_HOURS: dict[str, int] = {
 # ---------------------------------------------------------------------------
 ADDON_A_R: float = 1.5      # MFE threshold for add-on A (raised per rescaled optimizer)
 ADDON_B_R: float = 2.0      # MFE threshold for add-on B
-ADDON_A_SIZE_MULT: float = 0.25  # Add-on A qty = 0.25 * base qty
+ADDON_A_SIZE_MULT: float = 0.5
 ADDON_B_SIZE_MULT: float = 0.5  # Add-on B qty cap = 0.5 * base qty
+FIXED_QTY_ADDON_B_ENABLED: bool = False
 
 # ---------------------------------------------------------------------------
 # BE offset
@@ -254,13 +279,13 @@ TP2_FRAC: float = 0.33   # Close 33% of remaining at TP2
 # ---------------------------------------------------------------------------
 # Time decay
 # ---------------------------------------------------------------------------
-MAX_HOLD_HOURS: int = 480  # Max hold period in hourly bars
+MAX_HOLD_HOURS: int = 88
 STALL_EXIT_ENABLED: bool = True   # enable full stall flatten (rescaled optimizer: flatten at 36h if MFE<0.4R)
 STALL_CHECK_HOURS: int = 36     # Check for stall after this many bars
 STALL_MFE_THRESHOLD: float = 0.4  # MFE_R below this = stall
-EARLY_STALL_ENABLED: bool = False        # disabled per rescaled optimizer (let trades develop, use full stall instead)
-EARLY_STALL_CHECK_HOURS: int = 8        # Early non-development check after 8 RTH bars
-EARLY_STALL_MFE_THRESHOLD: float = 0.3  # MFE_R below this = non-developing
+EARLY_STALL_ENABLED: bool = False
+EARLY_STALL_CHECK_HOURS: int = 12
+EARLY_STALL_MFE_THRESHOLD: float = 0.2
 EARLY_STALL_PARTIAL_FRAC: float = 0.5   # Exit 50% of base position
 
 # ---------------------------------------------------------------------------
@@ -273,11 +298,20 @@ PROFIT_FLOOR_SHORT: dict[float, float] = {0.75: 0.10, 1.0: 0.50, 1.5: 1.0, 2.0: 
 # Breakout arm window (spec Section 7.2)
 # ---------------------------------------------------------------------------
 ARM_WINDOW_HOURS: int = 24
+BREAKOUT_RETRACE_ENTRY_FRAC: float = 0.30
+BREAKOUT_RETRACE_LIMIT_FRAC: float = 0.50
+BREAKOUT_REQUIRE_DIRECTIONAL_CANDLE: bool = True
+BREAKOUT_DIRECT_ENTRY: bool = False
 
 # ---------------------------------------------------------------------------
 # Stop tightening for non-STRONG_TREND regimes (spec Section 5.6)
 # ---------------------------------------------------------------------------
 TREND_STOP_TIGHTENING: float = 0.60   # Scale ATR stop mults by this in TREND regime
+
+# ---------------------------------------------------------------------------
+# Portfolio candidate ranking
+# ---------------------------------------------------------------------------
+CANDIDATE_RANK_MODE: str = "score"  # score, stop_first, score_per_risk, gld_first, qqq_first
 
 # ---------------------------------------------------------------------------
 # Builder helpers — create Instrument / template / route dicts

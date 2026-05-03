@@ -43,8 +43,20 @@ from .config import (
     EMA_1H_PERIOD,
     EMA_4H_PERIOD,
     EMA_DAILY_PERIOD,
+    ENTRY_A_STRONG_LIMIT_OFFSET_ATR_H,
+    ENTRY_A_STRONG_STOP_BUFFER_ATR_H,
     ENTRY_A_TTL_RTH_HOURS,
+    ENTRY_B_RESUME_LIMIT_OFFSET_ATR_H,
+    ENTRY_B_RESUME_STOP_BUFFER_ATR_H,
+    ENTRY_C_FAST_MARKET,
+    ENTRY_C_FAST_MARKET_TTL_RTH_HOURS,
+    ENTRY_C_FRESH_LIMIT_OFFSET_ATR_H,
+    ENTRY_C_FRESH_STOP_BUFFER_ATR_H,
+    ENTRY_C_HOLD_BARS,
+    ENTRY_C_MOMENTUM_LIMIT_OFFSET_ATR_H,
+    ENTRY_C_MOMENTUM_STOP_BUFFER_ATR_H,
     ENTRY_C_TTL_RTH_HOURS,
+    ENTRY_OUTSIDE_WINDOW_CARRY_TTL_HOURS,
     INSIDE_CLOSE_INVALIDATION_COUNT,
     MAX_ADDS_PER_CAMPAIGN,
     PENDING_MAX_RTH_HOURS,
@@ -201,10 +213,35 @@ class BreakoutEngine:
         self._last_decision_code: str = "IDLE"
         self._last_decision_details: dict = {}
         self._last_bar_ts: datetime | None = None
+        self._bars_processed: int = 0
+        self._symbol_last_bar_ts: dict[str, datetime] = {}
 
     def _record_decision(self, code: str, details: dict | None = None) -> None:
         self._last_decision_code = code
         self._last_decision_details = details or {}
+
+    @staticmethod
+    def _entry_disp_from_avwap(close_price: float, avwap_h: float, atr14_d: float) -> float:
+        if atr14_d <= 0:
+            return 0.0
+        return abs(close_price - avwap_h) / atr14_d
+
+    def _compute_entry_risk_dollars(
+        self,
+        campaign: SymbolCampaign,
+        entry_type: EntryType,
+        base_risk_dollars: float,
+        close_price: float,
+        avwap_h: float,
+        atr14_d: float,
+    ) -> float:
+        return allocator.compute_entry_risk_dollars(
+            base_risk_dollars,
+            entry_type=entry_type.value,
+            continuation=campaign.continuation,
+            bars_since_breakout=campaign.bars_since_breakout,
+            entry_disp_from_avwap=self._entry_disp_from_avwap(close_price, avwap_h, atr14_d),
+        )
 
     def health_status(self) -> dict:
         return {
@@ -213,6 +250,14 @@ class BreakoutEngine:
             "last_decision_code": self._last_decision_code,
             "last_decision_details": self._last_decision_details,
             "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
+        }
+
+    def liveness_payload(self) -> dict:
+        return {
+            "bars_processed": self._bars_processed,
+            "symbol_freshness": {
+                sym: ts.isoformat() for sym, ts in self._symbol_last_bar_ts.items()
+            },
         }
 
     def snapshot_state(self) -> dict[str, Any]:
@@ -1058,6 +1103,9 @@ class BreakoutEngine:
         """Execute hourly cycle for all symbols."""
         logger.info("=== Hourly cycle %s ===", now_et.isoformat())
         self._last_bar_ts = datetime.now(timezone.utc)
+        self._bars_processed += 1
+        for sym in self._config:
+            self._symbol_last_bar_ts[sym] = self._last_bar_ts
 
         for sym in self._config:
             try:
@@ -1161,15 +1209,27 @@ class BreakoutEngine:
             campaign.pending.rth_hours_elapsed += 1
             if gates.pending_expired(campaign.pending, now_et):
                 campaign.pending = None
-            elif gates.pending_block_cleared(
-                campaign.pending.reason, self.positions,
-                campaign.pending.direction, final_risk_dollars, self._equity
+            else:
+                pending_final_risk_dollars = self._compute_entry_risk_dollars(
+                    campaign,
+                    campaign.pending.entry_type_requested,
+                    final_risk_dollars,
+                    float(h_closes[-1]),
+                    avwap_h,
+                    atr14_d,
+                )
+            if campaign.pending and gates.pending_block_cleared(
+                campaign.pending.reason,
+                self.positions,
+                campaign.pending.direction,
+                pending_final_risk_dollars,
+                self._equity,
             ):
                 # Re-validate and place
                 await self._place_entry(
                     symbol, campaign.pending.entry_type_requested.value,
                     direction, campaign, cfg, avwap_h, atr14_h, atr14_d,
-                    final_risk_dollars, quality_mult, now_et,
+                    pending_final_risk_dollars, quality_mult, now_et,
                 )
                 campaign.pending = None
             return
@@ -1200,12 +1260,19 @@ class BreakoutEngine:
         # Check if Entry A is outstanding (spec §12.5 ? C only after A resolves)
         entry_a_active = any(
             s.symbol == symbol
-            and s.entry_type == EntryType.A_AVWAP_RETEST
+            and s.entry_type in (
+                EntryType.A_AVWAP_RETEST,
+                EntryType.A_RECLAIM_STRONG,
+                EntryType.A_RECLAIM_STRONG_STOP,
+            )
             and s.state in (SetupState.ARMED, SetupState.TRIGGERED)
             for s in self.active_setups.values()
         )
 
+        score_total = int(ctx.get("score_total", 0))
+
         # --- Entry selection A → B → C ---
+        selection_trace: dict[str, object] = {}
         entry_type = signals.select_entry_type(
             direction=direction,
             campaign=campaign,
@@ -1222,13 +1289,24 @@ class BreakoutEngine:
             disp_mult=disp_mult,
             quality_mult=quality_mult,
             regime_4h=regime_4h,
+            score_total=score_total,
             entry_a_active=entry_a_active,
             atr_expanding=ctx.get("atr_expanding", True),
             ema20_h=ema20_h,
+            selection_trace=selection_trace,
         )
         if entry_type is None:
             self._record_decision("NO_SIGNAL", {"symbol": symbol})
             return
+
+        final_risk_dollars = self._compute_entry_risk_dollars(
+            campaign,
+            entry_type,
+            final_risk_dollars,
+            float(h_closes[-1]),
+            avwap_h,
+            atr14_d,
+        )
 
         # C entry displacement ceiling (3E): reject if price too far from AVWAP
         if entry_type in (EntryType.C_STANDARD, EntryType.C_CONTINUATION) and atr14_d > 0:
@@ -1244,7 +1322,20 @@ class BreakoutEngine:
             final_risk_dollars, self._equity, self._news_calendar,
             self.correlation_map,
         )
-        if not ok:
+        carry_ttl_seconds = (
+            ENTRY_OUTSIDE_WINDOW_CARRY_TTL_HOURS * 3600
+            if reason == "outside_entry_window"
+            and signals.entry_outside_window_carry_allowed(
+                entry_type,
+                direction,
+                regime_4h,
+                score_total,
+                quality_mult,
+                campaign.continuation,
+            )
+            else None
+        )
+        if not ok and carry_ttl_seconds is None:
             # If blocked by transient condition, create pending
             block_reason = gates.check_transient_blocks(
                 symbol, direction, self.positions, final_risk_dollars,
@@ -1297,6 +1388,7 @@ class BreakoutEngine:
         await self._place_entry(
             symbol, entry_type.value, direction, campaign, cfg,
             avwap_h, atr14_h, atr14_d, final_risk_dollars, quality_mult, now_et,
+            ttl_seconds_override=carry_ttl_seconds,
         )
 
     # ------------------------------------------------------------------
@@ -1316,6 +1408,7 @@ class BreakoutEngine:
         final_risk_dollars: float,
         quality_mult: float,
         now: datetime,
+        ttl_seconds_override: int | None = None,
     ) -> None:
         """Compute stop, size, and submit entry orders via OMS."""
         if self._risk_halted:
@@ -1337,16 +1430,72 @@ class BreakoutEngine:
         )
 
         # Entry level
+        hs = self.hourly_states.get(symbol)
+        stop_limit_stop: float | None = None
         if entry_type == "A":
-            # Limit at AVWAP_H ± buffer
             buffer = 0.03 * atr14_d
             entry_price = avwap_h + buffer if direction == Direction.LONG else avwap_h - buffer
-        elif entry_type in ("C_standard", "C_continuation"):
-            # C entries: signal confirmed via 2 consecutive closes ? enter near market
-            hs = self.hourly_states.get(symbol)
+        elif entry_type == "A_strong":
             entry_price = hs.close if hs else avwap_h
+        elif entry_type == "A_strong_stop":
+            atr_ref = atr14_h if atr14_h > 0 else atr14_d
+            stop_buffer = ENTRY_A_STRONG_STOP_BUFFER_ATR_H * atr_ref
+            limit_offset = ENTRY_A_STRONG_LIMIT_OFFSET_ATR_H * atr_ref
+            if direction == Direction.LONG:
+                trigger_ref = float(hs.highs[-1]) if hs and len(hs.highs) > 0 else avwap_h
+                stop_limit_stop = round_to_tick(trigger_ref + stop_buffer, cfg.tick_size, "up")
+                entry_price = round_to_tick(stop_limit_stop + limit_offset, cfg.tick_size, "up")
+            else:
+                trigger_ref = float(hs.lows[-1]) if hs and len(hs.lows) > 0 else avwap_h
+                stop_limit_stop = round_to_tick(trigger_ref - stop_buffer, cfg.tick_size, "down")
+                entry_price = round_to_tick(stop_limit_stop - limit_offset, cfg.tick_size, "down")
+        elif entry_type == "B_resume_market":
+            entry_price = hs.close if hs else avwap_h
+        elif entry_type == "B_resume_stop":
+            atr_ref = atr14_h if atr14_h > 0 else atr14_d
+            stop_buffer = ENTRY_B_RESUME_STOP_BUFFER_ATR_H * atr_ref
+            limit_offset = ENTRY_B_RESUME_LIMIT_OFFSET_ATR_H * atr_ref
+            if direction == Direction.LONG:
+                trigger_ref = float(hs.highs[-1]) if hs and len(hs.highs) > 0 else avwap_h
+                stop_limit_stop = round_to_tick(trigger_ref + stop_buffer, cfg.tick_size, "up")
+                entry_price = round_to_tick(stop_limit_stop + limit_offset, cfg.tick_size, "up")
+            else:
+                trigger_ref = float(hs.lows[-1]) if hs and len(hs.lows) > 0 else avwap_h
+                stop_limit_stop = round_to_tick(trigger_ref - stop_buffer, cfg.tick_size, "down")
+                entry_price = round_to_tick(stop_limit_stop - limit_offset, cfg.tick_size, "down")
+        elif entry_type in (
+            "C_early_standard",
+            "C_standard",
+            "C_continuation",
+            "C_fresh_market",
+            "C_momentum_market",
+        ):
+            entry_price = hs.close if hs else avwap_h
+        elif entry_type == "C_fresh_stop":
+            atr_ref = atr14_h if atr14_h > 0 else atr14_d
+            stop_buffer = ENTRY_C_FRESH_STOP_BUFFER_ATR_H * atr_ref
+            limit_offset = ENTRY_C_FRESH_LIMIT_OFFSET_ATR_H * atr_ref
+            if direction == Direction.LONG:
+                trigger_ref = float(hs.highs[-1]) if hs and len(hs.highs) > 0 else avwap_h
+                stop_limit_stop = round_to_tick(trigger_ref + stop_buffer, cfg.tick_size, "up")
+                entry_price = round_to_tick(stop_limit_stop + limit_offset, cfg.tick_size, "up")
+            else:
+                trigger_ref = float(hs.lows[-1]) if hs and len(hs.lows) > 0 else avwap_h
+                stop_limit_stop = round_to_tick(trigger_ref - stop_buffer, cfg.tick_size, "down")
+                entry_price = round_to_tick(stop_limit_stop - limit_offset, cfg.tick_size, "down")
+        elif entry_type == "C_momentum_stop":
+            atr_ref = atr14_h if atr14_h > 0 else atr14_d
+            stop_buffer = ENTRY_C_MOMENTUM_STOP_BUFFER_ATR_H * atr_ref
+            limit_offset = ENTRY_C_MOMENTUM_LIMIT_OFFSET_ATR_H * atr_ref
+            if direction == Direction.LONG:
+                trigger_ref = float(hs.highs[-1]) if hs and len(hs.highs) > 0 else avwap_h
+                stop_limit_stop = round_to_tick(trigger_ref + stop_buffer, cfg.tick_size, "up")
+                entry_price = round_to_tick(stop_limit_stop + limit_offset, cfg.tick_size, "up")
+            else:
+                trigger_ref = float(hs.lows[-1]) if hs and len(hs.lows) > 0 else avwap_h
+                stop_limit_stop = round_to_tick(trigger_ref - stop_buffer, cfg.tick_size, "down")
+                entry_price = round_to_tick(stop_limit_stop - limit_offset, cfg.tick_size, "down")
         else:
-            # Market / marketable limit near current
             entry_price = avwap_h
 
         entry_price = round_to_tick(entry_price, cfg.tick_size,
@@ -1362,7 +1511,7 @@ class BreakoutEngine:
         r_per_share = abs(entry_price - stop_price)
 
         # TP levels
-        tp1_r, tp2_r = self._get_tp_r_multiples(trade_regime, cfg.tp_scale)
+        tp1_r, tp2_r = self._get_tp_r_multiples(entry_type, trade_regime, cfg.tp_scale)
         tp1, tp2 = stops.compute_tp_levels(direction, entry_price, r_per_share,
                                             tp1_r, tp2_r, cfg.tick_size)
 
@@ -1420,16 +1569,50 @@ class BreakoutEngine:
             ),
         )
 
-        # Entry A: market order with 2h TTL; B: market/MOC; C: limit
-        if entry_type == "A":
+        # Entry routing mirrors the backtest order path.
+        fast_c_market = (
+            entry_type in ("C_standard", "C_continuation")
+            and ENTRY_C_HOLD_BARS <= 1
+            and ENTRY_C_FAST_MARKET
+        )
+        if entry_type in ("A", "A_strong"):
             order_type = OrderType.MARKET
             ttl_secs = 2 * 3600
-        elif entry_type == "B":
+        elif entry_type == "A_strong_stop":
+            order_type = OrderType.STOP_LIMIT
+            ttl_secs = ENTRY_A_TTL_RTH_HOURS * 3600
+        elif entry_type in ("B", "B_resume_market"):
             order_type = OrderType.MARKET
             ttl_secs = 60  # immediate
-        else:
-            order_type = OrderType.LIMIT
+        elif entry_type == "B_resume_stop":
+            order_type = OrderType.STOP_LIMIT
+            ttl_secs = ENTRY_A_TTL_RTH_HOURS * 3600
+        elif entry_type == "C_early_standard":
+            order_type = OrderType.MARKET
+            ttl_secs = ENTRY_C_FAST_MARKET_TTL_RTH_HOURS * 3600
+        elif entry_type == "C_fresh_market":
+            order_type = OrderType.MARKET
+            ttl_secs = ENTRY_C_FAST_MARKET_TTL_RTH_HOURS * 3600
+        elif entry_type == "C_fresh_stop":
+            order_type = OrderType.STOP_LIMIT
             ttl_secs = ENTRY_C_TTL_RTH_HOURS * 3600
+        elif entry_type == "C_momentum_market":
+            order_type = OrderType.MARKET
+            ttl_secs = ENTRY_C_FAST_MARKET_TTL_RTH_HOURS * 3600
+        elif entry_type == "C_momentum_stop":
+            order_type = OrderType.STOP_LIMIT
+            ttl_secs = ENTRY_C_TTL_RTH_HOURS * 3600
+        elif entry_type in ("C_standard", "C_continuation"):
+            order_type = OrderType.MARKET if fast_c_market else OrderType.LIMIT
+            ttl_secs = (
+                ENTRY_C_FAST_MARKET_TTL_RTH_HOURS * 3600
+                if fast_c_market else ENTRY_C_TTL_RTH_HOURS * 3600
+            )
+        else:
+            order_type = OrderType.MARKET
+            ttl_secs = 3600
+        if ttl_seconds_override is not None:
+            ttl_secs = ttl_seconds_override
 
         entry_order = OMSOrder(
             strategy_id=STRATEGY_ID,
@@ -1437,7 +1620,8 @@ class BreakoutEngine:
             side=side,
             qty=shares,
             order_type=order_type,
-            limit_price=entry_price if order_type == OrderType.LIMIT else None,
+            limit_price=entry_price if order_type in (OrderType.LIMIT, OrderType.STOP_LIMIT) else None,
+            stop_price=stop_limit_stop if order_type == OrderType.STOP_LIMIT else None,
             tif="GTC",
             role=OrderRole.ENTRY,
             entry_policy=EntryPolicy(ttl_seconds=ttl_secs),
@@ -1716,22 +1900,24 @@ class BreakoutEngine:
             # TP1
             _cfg = self._config[symbol]
             tp1_r, tp2_r = self._get_tp_r_multiples(
-                TradeRegime(setup.exit_tier.value), _cfg.tp_scale
+                setup.entry_type.value,
+                TradeRegime(setup.exit_tier.value),
+                _cfg.tp_scale,
             )
 
             new_stop = setup.current_stop
             tp1_hit_this_bar = False
+            lock_frac, lock_threshold = stops.get_pre_runner_lock_params(setup.entry_type.value)
 
             # Pre-runner trail: capture MFE as it develops, even before TP1
-            # Once r_state exceeds 0.10R, start ratcheting stop toward entry
-            if not setup.runner_active and r_state > 0.10:
+            if not setup.runner_active and r_state > lock_threshold:
                 if setup.direction == Direction.LONG:
-                    candidate = setup.fill_price + 0.30 * (current_price - setup.fill_price)
+                    candidate = setup.fill_price + lock_frac * (current_price - setup.fill_price)
                     candidate = round_to_tick(candidate, _cfg.tick_size, "down")
                     if candidate > new_stop:
                         new_stop = candidate
                 else:
-                    candidate = setup.fill_price - 0.30 * (setup.fill_price - current_price)
+                    candidate = setup.fill_price - lock_frac * (setup.fill_price - current_price)
                     candidate = round_to_tick(candidate, _cfg.tick_size, "up")
                     if candidate < new_stop:
                         new_stop = candidate
@@ -1893,7 +2079,12 @@ class BreakoutEngine:
         campaign = self.campaigns.get(symbol)
         continuation = campaign.continuation if campaign else False
         r_proxy = setup.r_state
-        setup.trail_mult = stops.compute_trail_mult(setup.r_state, r_proxy, continuation)
+        setup.trail_mult = stops.compute_trail_mult(
+            setup.r_state,
+            r_proxy,
+            continuation,
+            setup.entry_type.value,
+        )
 
         cfg = self._config[symbol]
         new_stop = stops.compute_trailing_stop(
@@ -2052,7 +2243,7 @@ class BreakoutEngine:
 
         # --- TP levels ---
         trade_regime = TradeRegime(setup.exit_tier.value)
-        tp1_r, tp2_r = self._get_tp_r_multiples(trade_regime, cfg.tp_scale)
+        tp1_r, tp2_r = self._get_tp_r_multiples(setup.entry_type.value, trade_regime, cfg.tp_scale)
         tp1_price, tp2_price = stops.compute_tp_levels(
             setup.direction, setup.fill_price, setup.r_price,
             tp1_r, tp2_r, cfg.tick_size,
@@ -2836,13 +3027,13 @@ class BreakoutEngine:
         )
         return bars if bars else None
 
-    def _get_tp_r_multiples(self, trade_regime: TradeRegime, tp_scale: float = 1.0) -> tuple[float, float]:
-        """Return (TP1_R, TP2_R) for the given trade regime, scaled per-symbol."""
-        if trade_regime == TradeRegime.ALIGNED:
-            return TP1_R_ALIGNED * tp_scale, TP2_R_ALIGNED * tp_scale
-        if trade_regime == TradeRegime.CAUTION:
-            return TP1_R_CAUTION * tp_scale, TP2_R_CAUTION * tp_scale
-        return TP1_R_NEUTRAL * tp_scale, TP2_R_NEUTRAL * tp_scale
+    def _get_tp_r_multiples(
+        self,
+        entry_type: str,
+        trade_regime: TradeRegime,
+        tp_scale: float = 1.0,
+    ) -> tuple[float, float]:
+        return stops.get_tp_r_multiples(entry_type, trade_regime, tp_scale)
 
     def _update_correlations(self) -> None:
         """Update rolling correlations between all symbol pairs."""

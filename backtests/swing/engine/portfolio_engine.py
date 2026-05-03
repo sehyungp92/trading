@@ -18,7 +18,7 @@ from backtests.shared.parity.legacy_result_outputs import (
     trade_outcomes_from_records,
 )
 from strategies.swing.atrss import allocator
-from strategies.swing.atrss.config import SYMBOL_CONFIGS, SymbolConfig
+from strategies.swing.atrss.config import ALL_SYMBOL_CONFIGS, SYMBOL_CONFIGS, SymbolConfig
 from strategies.swing.atrss.models import Direction
 
 from backtests.swing.analysis.shadow_tracker import FilterStats, ShadowTracker
@@ -61,7 +61,7 @@ class PortfolioResult:
 
 
 def _get_point_value(symbol: str) -> float:
-    cfg = SYMBOL_CONFIGS.get(symbol)
+    cfg = ALL_SYMBOL_CONFIGS.get(symbol) or SYMBOL_CONFIGS.get(symbol)
     return cfg.multiplier if cfg else 1.0
 
 
@@ -80,7 +80,7 @@ def run_independent(
             logger.warning("No data for %s, skipping", sym)
             continue
 
-        cfg = SYMBOL_CONFIGS.get(sym)
+        cfg = ALL_SYMBOL_CONFIGS.get(sym) or SYMBOL_CONFIGS.get(sym)
         if cfg is None:
             continue
         cfg = _apply_overrides(cfg, bt_config.param_overrides)
@@ -137,7 +137,7 @@ def run_synchronized(
     for sym in bt_config.symbols:
         if sym not in data.hourly or sym not in data.daily:
             continue
-        cfg = SYMBOL_CONFIGS.get(sym)
+        cfg = ALL_SYMBOL_CONFIGS.get(sym) or SYMBOL_CONFIGS.get(sym)
         if cfg is None:
             continue
         cfg = _apply_overrides(cfg, bt_config.param_overrides)
@@ -183,9 +183,10 @@ def run_synchronized(
     timestamps: list = []
     heat_samples: list[float] = []
 
-    from strategies.swing.atrss.config import MAX_PORTFOLIO_HEAT
+    import strategies.swing.atrss.config as scfg
 
     with _AblationPatch(bt_config.flags, bt_config.param_overrides):
+        heat_limit = scfg.MAX_PORTFOLIO_HEAT
         for t in unified_ts:
             all_candidates = []
 
@@ -251,7 +252,7 @@ def run_synchronized(
     heat = HeatStats(
         avg_heat_pct=float(np.mean(heat_arr)),
         max_heat_pct=float(np.max(heat_arr)),
-        pct_time_at_limit=float(np.mean(heat_arr >= MAX_PORTFOLIO_HEAT)) * 100,
+        pct_time_at_limit=float(np.mean(heat_arr >= heat_limit)) * 100,
     )
 
     # Build per-symbol results

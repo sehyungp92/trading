@@ -18,8 +18,8 @@ from libs.oms.models.order import (
 from .config import (
     STRATEGY_ID, Setup, SetupState, PositionState, SetupClass, SessionBlock,
     NQ_POINT_VALUE, NQ_TICK,
-    TTL_1H_S, TTL_CATCHUP_S,
-    CATCHUP_OVERSHOOT_ATR_FRAC, CATCHUP_OFFSET_PTS,
+    TTL_1H_S, TTL_CATCHUP_S, FOLLOWTHROUGH_TTL_S,
+    CATCHUP_OVERSHOOT_ATR_FRAC, CATCHUP_OFFSET_PTS, FOLLOWTHROUGH_OFFSET_PTS,
     TELEPORT_RTH_TICKS, TELEPORT_RTH_ATR_FRAC,
     TELEPORT_ETH_TICKS, TELEPORT_ETH_ATR_FRAC,
     CATASTROPHIC_FILL_MULT,
@@ -148,6 +148,55 @@ class ExecutionEngine:
         if receipt.result.value == "ACCEPTED":
             setup.catchup_oms_id = receipt.oms_order_id
             logger.info("Catch-up placed %s at %.2f", setup.setup_id, limit)
+            return True
+        return False
+
+    async def place_follow_through_catch_up(
+        self,
+        setup: Setup,
+        last_price: float,
+        now_et: datetime,
+    ) -> bool:
+        if setup.catchup_oms_id or setup.followthrough_used or setup.contracts < 1:
+            return False
+
+        if setup.direction == 1:
+            limit = last_price + FOLLOWTHROUGH_OFFSET_PTS
+            side = OrderSide.BUY
+        else:
+            limit = last_price - FOLLOWTHROUGH_OFFSET_PTS
+            side = OrderSide.SELL
+
+        client_id = f"{STRATEGY_ID}_{setup.setup_id}_followthrough"
+        order = OMSOrder(
+            client_order_id=client_id,
+            strategy_id=STRATEGY_ID,
+            instrument=self.instrument,
+            side=side,
+            qty=setup.contracts,
+            order_type=OrderType.LIMIT,
+            limit_price=_round_price(limit, self.tick),
+            tif="GTC",
+            role=OrderRole.ENTRY,
+            oca_group=setup.oca_group,
+            entry_policy=EntryPolicy(ttl_seconds=FOLLOWTHROUGH_TTL_S),
+            risk_context=RiskContext(
+                stop_for_risk=_round_price(setup.stop0, self.tick),
+                planned_entry_price=_round_price(limit, self.tick),
+                risk_budget_tag=f"Class_{setup.cls.value}_followthrough",
+                risk_dollars=abs(limit - setup.stop0) * self.pv * setup.contracts,
+            ),
+        )
+
+        receipt = await self.oms.submit_intent(Intent(
+            intent_type=IntentType.NEW_ORDER,
+            strategy_id=STRATEGY_ID,
+            order=order,
+        ))
+        if receipt.result.value == "ACCEPTED":
+            setup.catchup_oms_id = receipt.oms_order_id
+            setup.followthrough_used = True
+            logger.info("Follow-through catch-up placed %s at %.2f", setup.setup_id, limit)
             return True
         return False
 

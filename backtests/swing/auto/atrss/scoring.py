@@ -5,13 +5,15 @@ Two scoring profiles:
   - r9_synchronized: Rescaled for honest synchronized/fee-net conditions.
 
 Components (sum to 1.0):
-  - net_r (0.20)
-  - profit_factor (0.14)
-  - calmar_r (0.14)
-  - inv_dd (0.10)
+  - net_r (0.24)
+  - net_return_pct (0.14)
+  - profit_factor (0.12)
+  - calmar_r (0.10)
+  - inv_dd (0.06)
   - frequency (0.18)
-  - mfe_capture (0.12)
-  - win_rate (0.12)
+  - mfe_capture (0.08)
+  - avg_r (0.06)
+  - win_rate (0.02)
 
 Hard rejects are phase-specific (see phase_scoring.py).
 """
@@ -26,13 +28,15 @@ import numpy as np
 # ---------------------------------------------------------------------------
 # Weights -- immutable across all phases and profiles
 # ---------------------------------------------------------------------------
-W_NET_R = 0.20
-W_PF = 0.14
-W_CALMAR_R = 0.14
-W_INV_DD = 0.10
+W_NET_R = 0.24
+W_NET_RETURN = 0.14
+W_PF = 0.12
+W_CALMAR_R = 0.10
+W_INV_DD = 0.06
 W_FREQUENCY = 0.18
-W_MFE_CAPTURE = 0.12
-W_WIN_RATE = 0.12
+W_MFE_CAPTURE = 0.08
+W_AVG_R = 0.06
+W_WIN_RATE = 0.02
 
 
 # ---------------------------------------------------------------------------
@@ -79,11 +83,42 @@ SCORING_PROFILES: dict[str, dict] = {
         "inv_dd_offset": 5.0,
         "inv_dd_divisor": 85.0,
         # frequency: tpm / 10  -- vanilla ~0.50
-        "freq_divisor": 10.0,
+        "freq_divisor": 7.5,
         # mfe_capture: capture / 1.30  -- vanilla ~0.50
-        "capture_divisor": 1.30,
-        # win_rate: wr / 1.50  -- vanilla ~0.49
-        "wr_divisor": 1.50,
+        "capture_divisor": 0.80,
+        # win_rate: WR is a guardrail more than an optimizer target.
+        "wr_divisor": 0.85,
+        # fee-net return and expectancy targets for R2 alpha expansion.
+        "net_return_divisor": 40.0,
+        "avg_r_divisor": 1.20,
+    },
+    "r11_risk_allocation": {
+        # Round 3 profile: same honest synchronized metrics, with the return
+        # scale widened enough for dynamic risk candidates above the fixed-size
+        # reference to remain distinguishable while DD stays a hard guardrail.
+        "net_r_log_divisor": 150.0,
+        "net_r_log_base": 5.0,
+        "pf_offset": 1.0,
+        "pf_divisor": 7.0,
+        "calmar_r_divisor": 90.0,
+        "inv_dd_offset": 5.0,
+        "inv_dd_divisor": 70.0,
+        "freq_divisor": 7.5,
+        "capture_divisor": 0.80,
+        "wr_divisor": 0.85,
+        "net_return_divisor": 180.0,
+        "avg_r_divisor": 1.20,
+        "weights": {
+            "net_r": 0.16,
+            "net_return": 0.32,
+            "pf": 0.12,
+            "calmar_r": 0.10,
+            "inv_dd": 0.12,
+            "frequency": 0.04,
+            "mfe_capture": 0.04,
+            "avg_r": 0.06,
+            "win_rate": 0.04,
+        },
     },
 }
 
@@ -91,7 +126,8 @@ SCORING_PROFILES: dict[str, dict] = {
 # Profile-aware default hard rejects -- used when caller doesn't pass explicit rejects.
 _DEFAULT_HARD_REJECTS: dict[str, dict[str, float]] = {
     "r1_independent": {"min_trades": 100, "max_dd_pct": 0.07, "min_pf": 2.0, "min_wr": 0.55},
-    "r9_synchronized": {"min_trades": 20, "max_dd_pct": 0.12, "min_pf": 1.0, "min_wr": 0.50},
+    "r9_synchronized": {"min_trades": 220, "max_dd_pct": 0.06, "min_pf": 1.8, "min_wr": 0.58},
+    "r11_risk_allocation": {"min_trades": 240, "max_dd_pct": 0.08, "min_pf": 4.0, "min_wr": 0.75},
 }
 
 
@@ -135,11 +171,13 @@ class ATRSSMetrics:
 class ATRSSCompositeScore:
     """Frozen composite score for ATRSS optimization."""
     net_r_component: float = 0.0
+    net_return_component: float = 0.0
     pf_component: float = 0.0
     calmar_r_component: float = 0.0
     inv_dd_component: float = 0.0
     frequency_component: float = 0.0
     mfe_capture_component: float = 0.0
+    avg_r_component: float = 0.0
     win_rate_component: float = 0.0
     total: float = 0.0
     rejected: bool = False
@@ -194,14 +232,19 @@ def composite_score(
     # --- Component normalization (all clipped to [0, 1]) ---
     p = SCORING_PROFILES.get(profile, SCORING_PROFILES["r1_independent"])
 
-    # Weights are immutable -- ignore weight overrides for ATRSS
-    w_net_r = W_NET_R
-    w_pf = W_PF
-    w_calmar_r = W_CALMAR_R
-    w_inv_dd = W_INV_DD
-    w_freq = W_FREQUENCY
-    w_capture = W_MFE_CAPTURE
-    w_wr = W_WIN_RATE
+    # Weights are immutable within a scoring profile. R11 intentionally has a
+    # separate fixed profile to evaluate capital deployment without changing
+    # the R9 alpha-discovery score.
+    profile_weights = p.get("weights", {})
+    w_net_r = float(profile_weights.get("net_r", W_NET_R))
+    w_net_return = float(profile_weights.get("net_return", W_NET_RETURN))
+    w_pf = float(profile_weights.get("pf", W_PF))
+    w_calmar_r = float(profile_weights.get("calmar_r", W_CALMAR_R))
+    w_inv_dd = float(profile_weights.get("inv_dd", W_INV_DD))
+    w_freq = float(profile_weights.get("frequency", W_FREQUENCY))
+    w_capture = float(profile_weights.get("mfe_capture", W_MFE_CAPTURE))
+    w_avg_r = float(profile_weights.get("avg_r", W_AVG_R))
+    w_wr = float(profile_weights.get("win_rate", W_WIN_RATE))
 
     # net_r: log(1 + total_r / log_divisor) / log(log_base)
     net_r_raw = _clip01(
@@ -211,6 +254,9 @@ def composite_score(
 
     # profit_factor: (pf - offset) / divisor
     pf_raw = _clip01((metrics.profit_factor - p["pf_offset"]) / p["pf_divisor"])
+
+    # fee-net return: net return % / divisor
+    net_return_raw = _clip01(max(metrics.net_return_pct, 0.0) / p.get("net_return_divisor", 40.0))
 
     # calmar_r: calmar_r / divisor
     calmar_r_raw = _clip01(metrics.calmar_r / p["calmar_r_divisor"])
@@ -225,26 +271,33 @@ def composite_score(
     # mfe_capture: capture / divisor
     capture_raw = _clip01(metrics.mfe_capture / p["capture_divisor"])
 
+    # avg_r: expectancy / divisor
+    avg_r_raw = _clip01(max(metrics.avg_r, 0.0) / p.get("avg_r_divisor", 1.20))
+
     # win_rate: wr / divisor
     wr_raw = _clip01(metrics.win_rate / p["wr_divisor"])
 
     total = (
         w_net_r * net_r_raw
+        + w_net_return * net_return_raw
         + w_pf * pf_raw
         + w_calmar_r * calmar_r_raw
         + w_inv_dd * inv_dd_raw
         + w_freq * freq_raw
         + w_capture * capture_raw
+        + w_avg_r * avg_r_raw
         + w_wr * wr_raw
     )
 
     return ATRSSCompositeScore(
         net_r_component=net_r_raw,
+        net_return_component=net_return_raw,
         pf_component=pf_raw,
         calmar_r_component=calmar_r_raw,
         inv_dd_component=inv_dd_raw,
         frequency_component=freq_raw,
         mfe_capture_component=capture_raw,
+        avg_r_component=avg_r_raw,
         win_rate_component=wr_raw,
         total=total,
     )

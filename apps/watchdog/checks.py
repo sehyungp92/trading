@@ -6,8 +6,10 @@ exceptions internally and return an error CheckResult instead.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 import aiohttp
 import asyncpg
@@ -436,4 +438,187 @@ async def check_data_freshness(
             detail=f"DB query failed: {exc}",
             is_problem=True,
         ))
+    return results
+
+
+# ---------------------------------------------------------------------------
+# 9. Liveness detection (processing-level health)
+# ---------------------------------------------------------------------------
+
+async def check_liveness(
+    pool: asyncpg.Pool,
+    config: dict,
+    active_families: set[str],
+    strategy_family_map: dict[str, str],
+    prev_bars: dict[str, int],
+    stalled_counts: dict[str, int],
+) -> list[CheckResult]:
+    """Detect silent failures: stalled engines and per-symbol data stalls.
+
+    Uses monotonic ``bars_processed`` counters and per-symbol freshness
+    timestamps from the ``liveness`` key inside ``last_decision_details``
+    JSONB column of ``strategy_state``.
+
+    ``prev_bars`` and ``stalled_counts`` are mutable dicts maintained across
+    cycles by the caller (main loop).  They reset on watchdog restart, which
+    prevents false-positive alerts on deploy.
+    """
+    liveness_cfg = config.get("checks", {}).get("liveness", {})
+    symbol_thresholds = liveness_cfg.get("symbol_stale_thresholds", {})
+    max_stalled = liveness_cfg.get("stalled_cycles", 3)
+    results: list[CheckResult] = []
+
+    try:
+        rows = await pool.fetch(
+            "SELECT strategy_id, last_decision_details, last_decision_code, "
+            "       last_seen_bar_ts "
+            "FROM strategy_state "
+            "WHERE last_decision_details IS NOT NULL"
+        )
+    except Exception as exc:
+        results.append(CheckResult(
+            key="liveness:__db_error__",
+            check_name="Liveness",
+            detail=f"DB query failed: {exc}",
+            is_problem=True,
+        ))
+        return results
+
+    now = datetime.now(timezone.utc)
+    for row in rows:
+        sid = row["strategy_id"]
+        family = strategy_family_map.get(sid)
+        if not family or family not in active_families:
+            continue
+
+        raw_details = row["last_decision_details"]
+        if isinstance(raw_details, dict):
+            details = raw_details
+        elif isinstance(raw_details, str):
+            try:
+                details = json.loads(raw_details)
+            except (json.JSONDecodeError, TypeError):
+                continue
+        else:
+            continue
+
+        liveness = details.get("liveness")
+        if not isinstance(liveness, dict):
+            continue  # engine not yet updated -- graceful skip
+
+        decision = row["last_decision_code"] or "UNKNOWN"
+
+        # --- bars_processed monotonic counter check ---
+        bars = liveness.get("bars_processed", 0)
+        if isinstance(bars, (int, float)):
+            bars = int(bars)
+            if sid in prev_bars:
+                if bars == prev_bars[sid]:
+                    stalled_counts[sid] = stalled_counts.get(sid, 0) + 1
+                    if stalled_counts[sid] >= max_stalled:
+                        results.append(CheckResult(
+                            key=f"liveness:stalled:{sid}",
+                            check_name="Liveness",
+                            detail=(
+                                f"{sid} -- engine stalled. bars_processed={bars} "
+                                f"unchanged for {stalled_counts[sid]} cycles. "
+                                f"Last decision: {decision}. "
+                                f"Check asyncio task health."
+                            ),
+                            is_problem=True,
+                        ))
+                else:
+                    stalled_counts[sid] = 0
+                    results.append(CheckResult(
+                        key=f"liveness:stalled:{sid}",
+                        check_name="Liveness",
+                        detail=f"{sid} -- OK (bars_processed={bars}, decision={decision})",
+                        is_problem=False,
+                    ))
+            # Store current value for next cycle comparison
+            prev_bars[sid] = bars
+
+        # --- Per-symbol freshness check ---
+        sym_freshness = liveness.get("symbol_freshness")
+        threshold = symbol_thresholds.get(family, 5400)
+
+        # Overlay special case: check rebalance date instead of symbol freshness
+        rebalance_date = liveness.get("last_rebalance_date")
+        if rebalance_date is not None:
+            today_str = now.strftime("%Y-%m-%d")
+            if rebalance_date != today_str:
+                results.append(CheckResult(
+                    key=f"liveness:rebalance:{sid}",
+                    check_name="Liveness",
+                    detail=(
+                        f"{sid} -- rebalance not run today "
+                        f"(last: {rebalance_date}, today: {today_str})"
+                    ),
+                    is_problem=True,
+                ))
+            else:
+                results.append(CheckResult(
+                    key=f"liveness:rebalance:{sid}",
+                    check_name="Liveness",
+                    detail=f"{sid} -- rebalance OK (date={rebalance_date})",
+                    is_problem=False,
+                ))
+            continue  # skip symbol_freshness for overlay
+
+        if isinstance(sym_freshness, dict) and sym_freshness:
+            for sym, ts_str in sym_freshness.items():
+                try:
+                    ts = datetime.fromisoformat(ts_str)
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=timezone.utc)
+                    age_sec = (now - ts).total_seconds()
+                except (ValueError, TypeError):
+                    continue
+
+                if age_sec > threshold:
+                    results.append(CheckResult(
+                        key=f"liveness:sym:{sid}:{sym}",
+                        check_name="Liveness",
+                        detail=(
+                            f"{sid} -- {sym} bar stale "
+                            f"({int(age_sec / 60)}min, threshold {threshold // 60}min). "
+                            f"bars_processed={bars}. "
+                            f"Check IBKR data subscriptions."
+                        ),
+                        is_problem=True,
+                    ))
+                else:
+                    results.append(CheckResult(
+                        key=f"liveness:sym:{sid}:{sym}",
+                        check_name="Liveness",
+                        detail=f"{sid}:{sym} -- OK ({int(age_sec)}s old)",
+                        is_problem=False,
+                    ))
+
+        # --- OMS execution health check ---
+        oms_health = details.get("oms_health")
+        if isinstance(oms_health, dict):
+            consec = oms_health.get("consecutive_denials", 0)
+            if consec > 5:
+                submitted = oms_health.get("submitted", 0)
+                denied = oms_health.get("denied", 0)
+                results.append(CheckResult(
+                    key=f"liveness:oms:{sid}",
+                    check_name="Liveness",
+                    detail=(
+                        f"{sid} -- execution blocked. "
+                        f"{consec} consecutive intent denials "
+                        f"(submitted={submitted}, denied={denied}). "
+                        f"Check portfolio rules."
+                    ),
+                    is_problem=True,
+                ))
+            else:
+                results.append(CheckResult(
+                    key=f"liveness:oms:{sid}",
+                    check_name="Liveness",
+                    detail=f"{sid} -- OMS OK",
+                    is_problem=False,
+                ))
+
     return results

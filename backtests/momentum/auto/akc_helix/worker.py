@@ -43,8 +43,14 @@ def init_worker(data_dir_str: str, equity: float) -> None:
     )
 
 
-def score_candidate(args: tuple[str, dict, dict, int, dict | None, dict | None]) -> ScoredCandidate:
-    name, candidate_muts, base_muts, phase, scoring_weights, hard_rejects = args
+def score_candidate(args: tuple) -> ScoredCandidate:
+    name = args[0]
+    candidate_muts = args[1]
+    base_muts = args[2]
+    phase = args[3]
+    scoring_weights = args[4]
+    hard_rejects = args[5]
+    target_overrides = args[6] if len(args) > 6 else None
 
     try:
         from backtests.momentum.auto.config_mutator import mutate_helix_config
@@ -79,6 +85,7 @@ def score_candidate(args: tuple[str, dict, dict, int, dict | None, dict | None])
             equity_curve=result.equity_curve,
             weight_overrides=scoring_weights,
             hard_rejects=hard_rejects,
+            target_overrides=target_overrides,
         )
         metrics_dict = asdict(metrics)
         if score.rejected:

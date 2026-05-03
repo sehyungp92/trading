@@ -18,9 +18,43 @@ from .config import (
     MIN_STOP_EXTREME, MIN_STOP_ATR_FRAC_EXTREME,
     SPIKE_FILTER_ATR_MULT, EXTENSION_ATR_MULT,
     HIGH_VOL_M_THRESHOLD,
+    CHOP_ZONE_VOL_LOW, CHOP_ZONE_VOL_HIGH,
+    CHOP_LONG_QUALITY_GATE, CHOP_LONG_MIN_SCORE, CHOP_LONG_REQUIRE_STRONG_TREND,
+    NOON_QUALITY_GATE, NOON_QUALITY_HOUR_ET, NOON_QUALITY_MIN_SCORE, NOON_QUALITY_REQUIRE_STRONG_TREND,
+    HIGH_VOL_CONTINUATION_REOPEN_ENABLED, HIGH_VOL_CONTINUATION_MAX_VOL_PCT,
+    HIGH_VOL_CONTINUATION_MIN_ALIGNMENT_SCORE, HIGH_VOL_CONTINUATION_REQUIRE_STRONG_TREND,
+    HIGH_VOL_RETEST_ENABLED, HIGH_VOL_RETEST_MIN_VOL_PCT, HIGH_VOL_RETEST_MAX_VOL_PCT,
+    HIGH_VOL_M_CONT_ENABLED, HIGH_VOL_M_CONT_MIN_VOL_PCT, HIGH_VOL_M_CONT_MAX_VOL_PCT,
+    NORM_VOL_M_SHORT_ENABLED, NORM_VOL_M_SHORT_MIN_VOL_PCT, NORM_VOL_M_SHORT_MAX_VOL_PCT,
+    NORM_VOL_M_SHORT_ALLOW_RTH_DEAD, NORM_VOL_M_SHORT_ALLOW_RTH_PRIME2,
+    NORM_VOL_M_SHORT_ALLOW_ETH_QUALITY_PM,
+    SHORT_SCORE0_REOPEN_ENABLED, SHORT_SCORE0_ALLOW_RTH_DEAD,
+    SHORT_SCORE0_ALLOW_RTH_PRIME2, SHORT_SCORE0_ALLOW_ETH_QUALITY_PM,
+    SHORT_SCORE0_MIN_VOL_PCT, SHORT_SCORE0_MAX_VOL_PCT,
+    FAILED_RECLAIM_SHORT_ENABLED, FAILED_RECLAIM_SHORT_MIN_VOL_PCT,
+    FAILED_RECLAIM_SHORT_MAX_VOL_PCT, FAILED_RECLAIM_SHORT_ALLOW_RTH_DEAD,
+    FAILED_RECLAIM_SHORT_ALLOW_RTH_PRIME2, FAILED_RECLAIM_SHORT_ALLOW_ETH_QUALITY_PM,
+    FAILED_RECLAIM_SHORT_MIN_CONTEXT_SCORE,
+    MICRO_TREND_RETEST_ENABLED, MICRO_TREND_RETEST_MIN_VOL_PCT,
+    MICRO_TREND_RETEST_MAX_VOL_PCT, MICRO_TREND_RETEST_ALLOW_RTH_PRIME1,
+    MICRO_TREND_RETEST_ALLOW_RTH_PRIME2, MICRO_TREND_RETEST_ALLOW_RTH_DEAD,
+    MICRO_TREND_RETEST_ALLOW_ETH_QUALITY_AM, MICRO_TREND_RETEST_ALLOW_ETH_QUALITY_PM,
+    MICRO_TREND_RETEST_ALLOW_SHORT_RTH_PRIME1,
+    MICRO_TREND_RETEST_ALLOW_SHORT_RTH_PRIME2,
+    MICRO_TREND_RETEST_ALLOW_SHORT_RTH_DEAD,
+    MICRO_TREND_RETEST_ALLOW_SHORT_ETH_QUALITY_AM,
+    MICRO_TREND_RETEST_ALLOW_SHORT_ETH_QUALITY_PM,
+    MICRO_TREND_RETEST_MIN_CONTEXT_SCORE_SHORT,
+    M15_TREND_RETEST_ENABLED, M15_TREND_RETEST_MIN_VOL_PCT,
+    M15_TREND_RETEST_MAX_VOL_PCT, M15_TREND_RETEST_ALLOW_RTH_PRIME1,
+    M15_TREND_RETEST_ALLOW_RTH_PRIME2, M15_TREND_RETEST_ALLOW_RTH_DEAD,
+    M15_TREND_RETEST_ALLOW_ETH_QUALITY_AM, M15_TREND_RETEST_ALLOW_ETH_QUALITY_PM,
+    M15_TREND_RETEST_MIN_CONTEXT_SCORE_SHORT,
+    CLASS_F_MIN_VOL_PCT, CLASS_F_BLOCK_ETH_QUALITY_AM, CLASS_F_BLOCK_RTH_PRIME1,
     HEAT_CAP_R, HEAT_CAP_DIR_R,
     ETH_EUROPE_REGIME_MIN_TREND, ETH_EUROPE_REGIME_MAX_VOL,
 )
+from .context import context_quality_score, meets_context_quality
 from .indicators import BarSeries, VolEngine
 from .session import (
     get_session_block, entries_allowed, is_halt, is_reopen_dead,
@@ -40,6 +74,203 @@ class GateResult:
 
     def __bool__(self):
         return self.passed
+
+
+def allow_selective_short_score0_reopen(
+    setup: Setup,
+    block: SessionBlock,
+    vol_pct: float,
+) -> bool:
+    if not SHORT_SCORE0_REOPEN_ENABLED:
+        return False
+    if setup.cls != SetupClass.M or setup.direction != -1 or setup.alignment_score != 0:
+        return False
+    if vol_pct < SHORT_SCORE0_MIN_VOL_PCT or vol_pct > SHORT_SCORE0_MAX_VOL_PCT:
+        return False
+
+    return (
+        (block == SessionBlock.RTH_DEAD and SHORT_SCORE0_ALLOW_RTH_DEAD)
+        or (block == SessionBlock.RTH_PRIME2 and SHORT_SCORE0_ALLOW_RTH_PRIME2)
+        or (block == SessionBlock.ETH_QUALITY_PM and SHORT_SCORE0_ALLOW_ETH_QUALITY_PM)
+    )
+
+
+def allow_high_vol_continuation_reopen(setup: Setup, vol_pct: float) -> bool:
+    if not HIGH_VOL_CONTINUATION_REOPEN_ENABLED:
+        return False
+    if setup.direction != 1 or setup.cls not in {SetupClass.M, SetupClass.T}:
+        return False
+    if vol_pct <= HIGH_VOL_M_THRESHOLD or vol_pct > HIGH_VOL_CONTINUATION_MAX_VOL_PCT:
+        return False
+    if setup.alignment_score < HIGH_VOL_CONTINUATION_MIN_ALIGNMENT_SCORE:
+        return False
+    if HIGH_VOL_CONTINUATION_REQUIRE_STRONG_TREND and not setup.strong_trend:
+        return False
+    return True
+
+
+def allow_high_vol_structural_retest(setup: Setup, vol_pct: float) -> bool:
+    if not HIGH_VOL_RETEST_ENABLED:
+        return False
+    if setup.signal_variant != "high_vol_retest":
+        return False
+    return HIGH_VOL_RETEST_MIN_VOL_PCT <= vol_pct <= HIGH_VOL_RETEST_MAX_VOL_PCT
+
+
+def allow_high_vol_structural_continuation(setup: Setup, vol_pct: float) -> bool:
+    if not HIGH_VOL_M_CONT_ENABLED:
+        return False
+    if setup.signal_variant != "high_vol_m_cont":
+        return False
+    return HIGH_VOL_M_CONT_MIN_VOL_PCT <= vol_pct <= HIGH_VOL_M_CONT_MAX_VOL_PCT
+
+
+def allow_normal_vol_m_short_variant(
+    setup: Setup,
+    block: SessionBlock,
+    vol_pct: float,
+) -> bool:
+    if not NORM_VOL_M_SHORT_ENABLED:
+        return False
+    if setup.signal_variant != "normal_vol_m_short":
+        return False
+    if vol_pct < NORM_VOL_M_SHORT_MIN_VOL_PCT or vol_pct > NORM_VOL_M_SHORT_MAX_VOL_PCT:
+        return False
+
+    session_ok = (
+        (block == SessionBlock.RTH_DEAD and NORM_VOL_M_SHORT_ALLOW_RTH_DEAD)
+        or (block == SessionBlock.RTH_PRIME2 and NORM_VOL_M_SHORT_ALLOW_RTH_PRIME2)
+        or (block == SessionBlock.ETH_QUALITY_PM and NORM_VOL_M_SHORT_ALLOW_ETH_QUALITY_PM)
+    )
+    if not session_ok:
+        return False
+
+    return meets_context_quality(
+        0,
+        context_quality_score(setup, block, vol_pct),
+    )
+
+
+def allow_failed_reclaim_short_variant(
+    setup: Setup,
+    block: SessionBlock,
+    vol_pct: float,
+) -> bool:
+    if not FAILED_RECLAIM_SHORT_ENABLED:
+        return False
+    if setup.signal_variant != "failed_reclaim_short":
+        return False
+    if vol_pct < FAILED_RECLAIM_SHORT_MIN_VOL_PCT or vol_pct > FAILED_RECLAIM_SHORT_MAX_VOL_PCT:
+        return False
+
+    session_ok = (
+        (block == SessionBlock.RTH_DEAD and FAILED_RECLAIM_SHORT_ALLOW_RTH_DEAD)
+        or (block == SessionBlock.RTH_PRIME2 and FAILED_RECLAIM_SHORT_ALLOW_RTH_PRIME2)
+        or (block == SessionBlock.ETH_QUALITY_PM and FAILED_RECLAIM_SHORT_ALLOW_ETH_QUALITY_PM)
+    )
+    if not session_ok:
+        return False
+
+    return meets_context_quality(
+        FAILED_RECLAIM_SHORT_MIN_CONTEXT_SCORE,
+        context_quality_score(setup, block, vol_pct),
+    )
+
+
+def _fallback_flag(value: object, default: bool) -> bool:
+    return default if value is None else bool(value)
+
+
+def _micro_short_session_allowed(block: SessionBlock) -> bool:
+    shared = {
+        SessionBlock.RTH_PRIME1: MICRO_TREND_RETEST_ALLOW_RTH_PRIME1,
+        SessionBlock.RTH_PRIME2: MICRO_TREND_RETEST_ALLOW_RTH_PRIME2,
+        SessionBlock.RTH_DEAD: MICRO_TREND_RETEST_ALLOW_RTH_DEAD,
+        SessionBlock.ETH_QUALITY_AM: MICRO_TREND_RETEST_ALLOW_ETH_QUALITY_AM,
+        SessionBlock.ETH_QUALITY_PM: MICRO_TREND_RETEST_ALLOW_ETH_QUALITY_PM,
+    }
+    short_specific = {
+        SessionBlock.RTH_PRIME1: MICRO_TREND_RETEST_ALLOW_SHORT_RTH_PRIME1,
+        SessionBlock.RTH_PRIME2: MICRO_TREND_RETEST_ALLOW_SHORT_RTH_PRIME2,
+        SessionBlock.RTH_DEAD: MICRO_TREND_RETEST_ALLOW_SHORT_RTH_DEAD,
+        SessionBlock.ETH_QUALITY_AM: MICRO_TREND_RETEST_ALLOW_SHORT_ETH_QUALITY_AM,
+        SessionBlock.ETH_QUALITY_PM: MICRO_TREND_RETEST_ALLOW_SHORT_ETH_QUALITY_PM,
+    }
+    return _fallback_flag(short_specific.get(block), bool(shared.get(block, False)))
+
+
+def _m15_session_allowed(block: SessionBlock) -> bool:
+    return (
+        (block == SessionBlock.RTH_PRIME1 and M15_TREND_RETEST_ALLOW_RTH_PRIME1)
+        or (block == SessionBlock.RTH_PRIME2 and M15_TREND_RETEST_ALLOW_RTH_PRIME2)
+        or (block == SessionBlock.RTH_DEAD and M15_TREND_RETEST_ALLOW_RTH_DEAD)
+        or (block == SessionBlock.ETH_QUALITY_AM and M15_TREND_RETEST_ALLOW_ETH_QUALITY_AM)
+        or (block == SessionBlock.ETH_QUALITY_PM and M15_TREND_RETEST_ALLOW_ETH_QUALITY_PM)
+    )
+
+
+def allow_micro_trend_retest_short_variant(
+    setup: Setup,
+    block: SessionBlock,
+    vol_pct: float,
+) -> bool:
+    if not MICRO_TREND_RETEST_ENABLED:
+        return False
+    if setup.signal_variant != "micro_trend_retest" or setup.direction != -1:
+        return False
+    if vol_pct < MICRO_TREND_RETEST_MIN_VOL_PCT or vol_pct > MICRO_TREND_RETEST_MAX_VOL_PCT:
+        return False
+
+    if not _micro_short_session_allowed(block):
+        return False
+
+    return meets_context_quality(
+        MICRO_TREND_RETEST_MIN_CONTEXT_SCORE_SHORT,
+        context_quality_score(setup, block, vol_pct),
+    )
+
+
+def allow_m15_trend_retest_short_variant(
+    setup: Setup,
+    block: SessionBlock,
+    vol_pct: float,
+) -> bool:
+    if not M15_TREND_RETEST_ENABLED:
+        return False
+    if setup.signal_variant != "m15_trend_retest" or setup.direction != -1:
+        return False
+    if vol_pct < M15_TREND_RETEST_MIN_VOL_PCT or vol_pct > M15_TREND_RETEST_MAX_VOL_PCT:
+        return False
+    if not _m15_session_allowed(block):
+        return False
+
+    return meets_context_quality(
+        M15_TREND_RETEST_MIN_CONTEXT_SCORE_SHORT,
+        context_quality_score(setup, block, vol_pct),
+    )
+
+
+def allow_short_below_min_score(
+    setup: Setup,
+    block: SessionBlock,
+    vol_pct: float,
+    min_score: int,
+) -> bool:
+    if setup.direction != -1:
+        return True
+    if setup.alignment_score >= min_score:
+        return True
+    if allow_selective_short_score0_reopen(setup, block, vol_pct):
+        return True
+    if allow_normal_vol_m_short_variant(setup, block, vol_pct):
+        return True
+    if allow_failed_reclaim_short_variant(setup, block, vol_pct):
+        return True
+    if allow_micro_trend_retest_short_variant(setup, block, vol_pct):
+        return True
+    if allow_m15_trend_retest_short_variant(setup, block, vol_pct):
+        return True
+    return False
 
 
 def check_gates(
@@ -130,6 +361,47 @@ def check_gates(
             return GateResult(False, reason)
         failures.append(reason)
 
+    if setup.cls == SetupClass.F:
+        if vol.vol_pct < CLASS_F_MIN_VOL_PCT:
+            reason = f"class_f_low_vol_{vol.vol_pct:.0f}"
+            if not collect_all:
+                return GateResult(False, reason)
+            failures.append(reason)
+        if CLASS_F_BLOCK_ETH_QUALITY_AM and block == SessionBlock.ETH_QUALITY_AM:
+            reason = "class_f_eth_quality_am_block"
+            if not collect_all:
+                return GateResult(False, reason)
+            failures.append(reason)
+        if CLASS_F_BLOCK_RTH_PRIME1 and block == SessionBlock.RTH_PRIME1:
+            reason = "class_f_rth_prime1_block"
+            if not collect_all:
+                return GateResult(False, reason)
+            failures.append(reason)
+
+    if (CHOP_LONG_QUALITY_GATE
+            and setup.cls == SetupClass.M
+            and setup.direction == 1
+            and CHOP_ZONE_VOL_LOW < vol.vol_pct < CHOP_ZONE_VOL_HIGH):
+        score_ok = setup.alignment_score >= CHOP_LONG_MIN_SCORE
+        trend_ok = (not CHOP_LONG_REQUIRE_STRONG_TREND) or setup.strong_trend
+        if not (score_ok and trend_ok):
+            reason = f"chop_long_quality_score_{setup.alignment_score}"
+            if not collect_all:
+                return GateResult(False, reason)
+            failures.append(reason)
+
+    if (NOON_QUALITY_GATE
+            and now_et.hour == NOON_QUALITY_HOUR_ET
+            and setup.direction == 1
+            and setup.cls in {SetupClass.M, SetupClass.T}):
+        score_ok = setup.alignment_score >= NOON_QUALITY_MIN_SCORE
+        trend_ok = (not NOON_QUALITY_REQUIRE_STRONG_TREND) or setup.strong_trend
+        if not (score_ok and trend_ok):
+            reason = f"noon_quality_score_{setup.alignment_score}"
+            if not collect_all:
+                return GateResult(False, reason)
+            failures.append(reason)
+
     # Extension (blocks M and T, not F)
     if setup.cls in {SetupClass.M, SetupClass.T}:
         atr_d_ext = daily.current_atr()
@@ -145,7 +417,13 @@ def check_gates(
                 failures.append("extension_blocked")
 
     # High vol blocks M and T
-    if vol.vol_pct > HIGH_VOL_M_THRESHOLD and setup.cls in {SetupClass.M, SetupClass.T}:
+    if (
+            vol.vol_pct > HIGH_VOL_M_THRESHOLD
+            and setup.cls in {SetupClass.M, SetupClass.T}
+            and not allow_high_vol_continuation_reopen(setup, vol.vol_pct)
+            and not allow_high_vol_structural_retest(setup, vol.vol_pct)
+            and not allow_high_vol_structural_continuation(setup, vol.vol_pct)
+    ):
         reason = f"high_vol_M_{vol.vol_pct:.0f}"
         if not collect_all:
             return GateResult(False, reason)

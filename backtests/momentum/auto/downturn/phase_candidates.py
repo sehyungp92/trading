@@ -1,10 +1,10 @@
-"""Downturn R2 per-phase candidate selection from experiment categories.
+"""Downturn per-phase candidate selection from experiment categories.
 
 3-phase correction-capture specialist optimization:
 
-Phase 1: Regime Purification -- counter-blocking, correction detection, regime params
-Phase 2: Capture Optimization -- exits, trailing, breakeven, scale-out, hold period
-Phase 3: Risk Tuning & Polish -- finetune accepted params, sizing, engine ablation
+Phase 1: Alpha extraction -- correction coverage, signal breadth, breakdown revival
+Phase 2: Entry discrimination -- broker-safe entry mechanics and low-MFE suppression
+Phase 3: Trade management -- sizing/risk polish and accepted-parameter finetuning
 """
 from __future__ import annotations
 
@@ -45,39 +45,24 @@ def get_phase_candidates(
 
 
 def _phase_1_candidates() -> list[tuple[str, dict]]:
-    """R2 Phase 1: Regime purification -- eliminate counter-regime, improve correction detection."""
-    return get_category_experiments([
-        "R2_COUNTER_BLOCKING", "R2_REGIME_COMBOS", "R2_REGIME_PARAMS",
-        "FREQUENCY", "FAST_CRASH", "CONVICTION", "STRUCTURAL",
-        "BEAR_STRUCTURE", "R8_INTRADAY_REGIME", "R8_ENTRY_FILTERS",
-        "PROGRESSIVE_SMA",
-    ])
+    """Phase 1: Expand real correction alpha without broad no-op sweeps."""
+    return get_category_experiments(["R3_ALPHA"])
 
 
 def _phase_2_candidates() -> list[tuple[str, dict]]:
-    """R2 Phase 2: Capture optimization -- exits, trailing, breakeven, scale-out."""
-    candidates = get_category_experiments([
-        "EXIT", "EXIT_V2", "EXIT_ADAPTIVE", "TRAIL_REDESIGN",
-        "R8_EXIT_IMPROVEMENTS", "HOLD_PERIOD",
-    ])
-    # R2 exit combos
-    candidates.append(("r2_combo_pf_adapt", {
-        "flags.profit_floor_trail": True,
-        "flags.adaptive_profit_floor": True,
-        "param_overrides.profit_floor_r_threshold": 1.0,
-    }))
-    return candidates
+    """Phase 2: Suppress weak entries and improve MFE capture."""
+    return get_category_experiments(["R3_ENTRY", "R3_EXIT"])
 
 
 def _phase_3_candidates(prior_mutations: dict) -> list[tuple[str, dict]]:
-    """R2 Phase 3: Risk tuning -- finetune accepted params, sizing, engine ablation."""
+    """Phase 3: Finetune accepted params, sizing, and engine contribution."""
     candidates: list[tuple[str, dict]] = []
 
-    # A. Auto-generated finetune from accepted numeric params (+/-10/20%)
+    # A. Auto-generated finetune from accepted numeric params (+/-10%)
     candidates.extend(_finetune_candidates(prior_mutations))
 
-    # B. Sizing experiments
-    candidates.extend(get_category_experiments(["SIZING"]))
+    # B. Sizing/risk experiments
+    candidates.extend(get_category_experiments(["R3_RISK"]))
 
     # C. Engine ablation (verify each engine still adds value post-regime-filtering)
     candidates.extend([
@@ -91,19 +76,46 @@ def _phase_3_candidates(prior_mutations: dict) -> list[tuple[str, dict]]:
 
 
 def _finetune_candidates(prior_mutations: dict) -> list[tuple[str, dict]]:
-    """Generate +/-10/20% variants around accepted numeric mutations."""
+    """Generate +/-10% variants around accepted numeric mutations."""
     candidates: list[tuple[str, dict]] = []
 
     if not prior_mutations:
         return candidates
 
+    allowlist = {
+        "param_overrides.base_risk_pct",
+        "param_overrides.regime_mult_counter",
+        "param_overrides.regime_mult_neutral",
+        "param_overrides.regime_mult_range",
+        "param_overrides.regime_mult_aligned",
+        "param_overrides.regime_mult_emerging",
+        "param_overrides.chandelier_lookback",
+        "param_overrides.profit_floor_r_threshold",
+        "param_overrides.be_trigger_r",
+        "param_overrides.be_stop_buffer_mult",
+        "param_overrides.min_hold_bars",
+        "param_overrides.tp1_r_aligned",
+        "param_overrides.tp1_r_emerging",
+        "param_overrides.fade_stop_atr_mult",
+        "param_overrides.entry_buffer_ticks",
+        "param_overrides.entry_ttl_bars",
+        "param_overrides.entry_limit_offset_ticks",
+        "param_overrides.friction_min_atr_pctl",
+        "param_overrides.vwap_cap_core",
+        "param_overrides.vwap_cap_extended",
+        "param_overrides.correction_sizing_mult",
+        "param_overrides.non_correction_sizing_mult",
+    }
+
     for key, value in prior_mutations.items():
+        if key not in allowlist:
+            continue
         if not isinstance(value, (int, float)):
             continue
         if isinstance(value, bool):
             continue
 
-        for pct_label, pct in [("m20", 0.80), ("m10", 0.90), ("p10", 1.10), ("p20", 1.20)]:
+        for pct_label, pct in [("m10", 0.90), ("p10", 1.10)]:
             new_val = value * pct
             if isinstance(value, int):
                 new_val = int(round(new_val))

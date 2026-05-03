@@ -66,6 +66,7 @@ class FillResult:
     fill_time: datetime | None = None
     slippage_ticks: int = 0
     commission: float = 0.0
+    filled_at_open: bool = False
 
 
 @dataclass
@@ -177,6 +178,11 @@ class SimBroker:
         for order in sorted_orders:
             if order.symbol != symbol:
                 still_pending.append(order)
+                continue
+            if order.oca_group and order.oca_group in filled_oca_groups:
+                results.append(FillResult(
+                    order=order, status=FillStatus.CANCELLED, fill_time=bar_time,
+                ))
                 continue
 
             # Check expiry (minute-level takes precedence over hour-level)
@@ -305,6 +311,7 @@ class SimBroker:
             fill_time=bar_time,
             slippage_ticks=slip_ticks,
             commission=commission,
+            filled_at_open=True,
         )
 
     def _fill_stop(
@@ -357,6 +364,7 @@ class SimBroker:
             fill_time=bar_time,
             slippage_ticks=slip_ticks,
             commission=commission,
+            filled_at_open=gap_open,
         )
 
     def _fill_stop_limit(
@@ -426,6 +434,7 @@ class SimBroker:
             fill_time=bar_time,
             slippage_ticks=slip_ticks,
             commission=commission,
+            filled_at_open=gap_open,
         )
 
     def _fill_limit(
@@ -446,16 +455,20 @@ class SimBroker:
             if O <= order.limit_price - tick_size:
                 # Gap through limit by >= 1 tick — fill at open (favorable)
                 fill = O
+                filled_at_open = True
             elif L <= order.limit_price - tick_size:
                 # Trade-through by >= 1 tick — fill at limit
                 fill = order.limit_price
+                filled_at_open = False
             else:
                 return None  # Touch only or not reached
         else:  # SELL
             if O >= order.limit_price + tick_size:
                 fill = O
+                filled_at_open = True
             elif H >= order.limit_price + tick_size:
                 fill = order.limit_price
+                filled_at_open = False
             else:
                 return None
 
@@ -467,4 +480,5 @@ class SimBroker:
             fill_time=bar_time,
             slippage_ticks=0,
             commission=commission,
+            filled_at_open=filled_at_open,
         )

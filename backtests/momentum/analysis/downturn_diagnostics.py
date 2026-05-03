@@ -67,6 +67,8 @@ class DownturnMetrics:
     exit_quality: float = 0.0  # mean(actual_r * mfe); rewards magnitude and capture
     tp_hit_rates: dict[str, float] = field(default_factory=dict)
     avg_mfe_capture: float = 0.0
+    low_mfe_trade_rate: float = 0.0  # fraction of trades that never reached +0.5R MFE
+    low_mfe_loss_pct: float = 0.0  # low-MFE PnL as % of initial equity
 
     @property
     def correction_alpha_pct(self) -> float:
@@ -225,6 +227,10 @@ def compute_downturn_metrics(
     total_captured = sum(max(0, t_rec.r_multiple) for t_rec in trades)
     total_mfe = sum(t_rec.mfe for t_rec in trades if t_rec.mfe > 0)
     m.avg_mfe_capture = total_captured / total_mfe if total_mfe > 0 else 0.0
+    low_mfe_trades = [t_rec for t_rec in trades if t_rec.mfe < 0.5]
+    m.low_mfe_trade_rate = len(low_mfe_trades) / len(trades) if trades else 0.0
+    low_mfe_pnl = sum(t_rec.pnl for t_rec in low_mfe_trades)
+    m.low_mfe_loss_pct = (min(0.0, low_mfe_pnl) / initial_eq * 100) if initial_eq > 0 else 0.0
     # Exit quality for diagnostics (mean of r * mfe products)
     r_mfe_products = [t_rec.r_multiple * t_rec.mfe for t_rec in trades if t_rec.mfe > 0]
     m.exit_quality = float(np.mean(r_mfe_products)) if r_mfe_products else 0.0
@@ -308,7 +314,9 @@ def generate_downturn_report(metrics: DownturnMetrics) -> str:
     buf.write("--- Signal Quality ---\n")
     buf.write(f"  Signal-to-entry ratio:  {m.signal_to_entry_ratio:.2f}\n")
     buf.write(f"  Exit efficiency:     {m.exit_efficiency:.2f}\n")
-    buf.write(f"  Avg MFE capture:     {m.avg_mfe_capture:.2f}\n\n")
+    buf.write(f"  Avg MFE capture:     {m.avg_mfe_capture:.2f}\n")
+    buf.write(f"  Low-MFE trade rate:  {m.low_mfe_trade_rate:.1%}\n")
+    buf.write(f"  Low-MFE loss:        {m.low_mfe_loss_pct:.2f}%\n\n")
 
     # TP hit rates
     if m.tp_hit_rates:

@@ -20,6 +20,7 @@ from .calendar import EventCalendar
 if TYPE_CHECKING:
     from libs.config.market_calendar import MarketCalendar
     from .portfolio_rules import PortfolioRuleChecker
+    from .swing_portfolio_adapter import SwingLivePortfolioRiskAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,7 @@ class RiskGateway:
         get_working_order_count: Callable[[str], Awaitable[int]] = None,
         market_calendar: Optional["MarketCalendar"] = None,
         portfolio_checker: Optional["PortfolioRuleChecker"] = None,
+        portfolio_risk_adapter: Optional["SwingLivePortfolioRiskAdapter"] = None,
         account_gate: Optional[object] = None,
         family_id: str = "unknown",
     ):
@@ -50,6 +52,7 @@ class RiskGateway:
         self._get_working_count = get_working_order_count
         self._market_cal = market_calendar
         self._portfolio_checker = portfolio_checker
+        self._portfolio_risk_adapter = portfolio_risk_adapter
         self._account_gate = account_gate
         self._family_id = family_id
 
@@ -162,7 +165,7 @@ class RiskGateway:
         strat_risk = await self._get_strat_risk(order.strategy_id)
         if strat_risk.halted:
             return f"Strategy halted: {strat_risk.halt_reason}"
-        if strat_risk.daily_realized_R <= -strat_cfg.daily_stop_R:
+        if self._portfolio_risk_adapter is None and strat_risk.daily_realized_R <= -strat_cfg.daily_stop_R:
             return (
                 f"Strategy daily stop: realized {strat_risk.daily_realized_R:.2f}R "
                 f"<= -{strat_cfg.daily_stop_R}R"
@@ -172,7 +175,7 @@ class RiskGateway:
         port_risk = await self._get_port_risk()
         if port_risk.halted:
             return f"Portfolio halted: {port_risk.halt_reason}"
-        if port_risk.daily_realized_R <= -self._config.portfolio_daily_stop_R:
+        if self._portfolio_risk_adapter is None and port_risk.daily_realized_R <= -self._config.portfolio_daily_stop_R:
             return f"Portfolio daily stop: {port_risk.daily_realized_R:.2f}R"
 
         # 7. Portfolio weekly halt (momentum/stock families)
@@ -211,38 +214,50 @@ class RiskGateway:
         else:
             new_risk_portfolio_R = new_risk_R
 
-        total_risk_R = port_risk.open_risk_R + port_risk.pending_entry_risk_R + new_risk_portfolio_R
-        if total_risk_R > self._config.heat_cap_R:
-            return (
-                f"Heat cap breach: open {port_risk.open_risk_R:.2f}R + "
-                f"pending {port_risk.pending_entry_risk_R:.2f}R + "
-                f"new {new_risk_portfolio_R:.2f}R > cap {self._config.heat_cap_R}R"
+        if self._portfolio_risk_adapter is not None:
+            decision = await self._portfolio_risk_adapter.check_entry(
+                strategy_id=order.strategy_id,
+                new_risk_dollars=new_risk_dollars,
+                strat_cfg=strat_cfg,
+                strat_risk=strat_risk,
+                port_risk=port_risk,
+                get_strategy_risk=self._get_strat_risk,
             )
-
-        # 9b. Per-strategy heat ceiling (swing family): prevent one strategy
-        # from monopolising the shared pool.
-        if strat_cfg.max_heat_R > 0:
-            strat_heat_R = strat_risk.open_risk_R + new_risk_R
-            if strat_heat_R > strat_cfg.max_heat_R:
+            if not decision.approved:
+                return decision.reason
+        else:
+            total_risk_R = port_risk.open_risk_R + port_risk.pending_entry_risk_R + new_risk_portfolio_R
+            if total_risk_R > self._config.heat_cap_R:
                 return (
-                    f"Strategy heat ceiling: {order.strategy_id} open "
-                    f"{strat_risk.open_risk_R:.2f}R + new {new_risk_R:.2f}R "
-                    f"> cap {strat_cfg.max_heat_R:.2f}R"
+                    f"Heat cap breach: open {port_risk.open_risk_R:.2f}R + "
+                    f"pending {port_risk.pending_entry_risk_R:.2f}R + "
+                    f"new {new_risk_portfolio_R:.2f}R > cap {self._config.heat_cap_R}R"
                 )
 
-        # Priority-aware heat reservation (swing family): when remaining
-        # heat is tight, reserve capacity for higher-priority strategies
-        # that are IDLE (no open exposure).
-        remaining_R = self._config.heat_cap_R - (port_risk.open_risk_R + port_risk.pending_entry_risk_R)
-        if remaining_R < 2 * new_risk_portfolio_R:
-            for other_cfg in self._config.strategy_configs.values():
-                if other_cfg.priority < strat_cfg.priority:
-                    other_risk = await self._get_strat_risk(other_cfg.strategy_id)
-                    if other_risk.open_risk_R == 0:
-                        return (
-                            f"Heat cap reserved: {remaining_R:.2f}R remaining, "
-                            f"priority strategy {other_cfg.strategy_id} may need it"
-                        )
+            # 9b. Per-strategy heat ceiling (swing family): prevent one strategy
+            # from monopolising the shared pool.
+            if strat_cfg.max_heat_R > 0:
+                strat_heat_R = strat_risk.open_risk_R + new_risk_R
+                if strat_heat_R > strat_cfg.max_heat_R:
+                    return (
+                        f"Strategy heat ceiling: {order.strategy_id} open "
+                        f"{strat_risk.open_risk_R:.2f}R + new {new_risk_R:.2f}R "
+                        f"> cap {strat_cfg.max_heat_R:.2f}R"
+                    )
+
+            # Priority-aware heat reservation (swing family): when remaining
+            # heat is tight, reserve capacity for higher-priority strategies
+            # that are IDLE (no open exposure).
+            remaining_R = self._config.heat_cap_R - (port_risk.open_risk_R + port_risk.pending_entry_risk_R)
+            if remaining_R < 2 * new_risk_portfolio_R:
+                for other_cfg in self._config.strategy_configs.values():
+                    if other_cfg.priority < strat_cfg.priority:
+                        other_risk = await self._get_strat_risk(other_cfg.strategy_id)
+                        if other_risk.open_risk_R == 0:
+                            return (
+                                f"Heat cap reserved: {remaining_R:.2f}R remaining, "
+                                f"priority strategy {other_cfg.strategy_id} may need it"
+                            )
 
         # 10. Order type allowed
         if not strat_cfg.is_order_type_allowed(order.role, order.order_type):

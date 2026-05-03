@@ -55,6 +55,13 @@ from strategies.swing.akc_helix.config import (
     R_BE_1H,
     R_PARTIAL_2P5,
     R_PARTIAL_5,
+    RTS_FAIL_FLATTEN_R,
+    RTS_GUARD_FADE_BARS,
+    RTS_GUARD_FLOOR_R,
+    RTS_GUARD_MAX_MFE_R,
+    RTS_GUARD_MFE_R,
+    RTS_GUARD_MIN_BARS,
+    RTS_GUARD_MIN_GIVEBACK_R,
     STALE_1H_BARS,
     STALE_4H_BARS,
     STALE_FLATTEN_R_FLOOR,
@@ -1421,6 +1428,53 @@ class HelixEngine:
                 pos.bars_neg_fading_hist = 0
 
         # Trailing chandelier (spec s14) — activate after profit delay
+        if setup.direction == Direction.LONG:
+            max_mfe_r = (pos.mfe_price - pos.fill_price) / r_base
+        else:
+            max_mfe_r = (pos.fill_price - pos.mfe_price) / r_base
+
+        if stops.should_flatten_rts_failure(
+            max_mfe_r=max_mfe_r,
+            current_r=r_now,
+            bars_held=pos.bars_held_1h,
+            fading_bars=pos.bars_neg_fading_hist,
+            trail_active=pos.trail_active,
+            min_mfe_r=RTS_GUARD_MFE_R,
+            min_giveback_r=RTS_GUARD_MIN_GIVEBACK_R,
+            min_bars=RTS_GUARD_MIN_BARS,
+            fade_bars=RTS_GUARD_FADE_BARS,
+            max_mfe_r_limit=RTS_GUARD_MAX_MFE_R,
+            flatten_r=RTS_FAIL_FLATTEN_R,
+        ):
+            self._submit_flatten(pos, bar_time, "RTS_FAIL")
+            return
+
+        if stops.should_arm_rts_guard(
+            max_mfe_r=max_mfe_r,
+            current_r=r_now,
+            bars_held=pos.bars_held_1h,
+            fading_bars=pos.bars_neg_fading_hist,
+            trail_active=pos.trail_active,
+            min_mfe_r=RTS_GUARD_MFE_R,
+            min_giveback_r=RTS_GUARD_MIN_GIVEBACK_R,
+            min_bars=RTS_GUARD_MIN_BARS,
+            fade_bars=RTS_GUARD_FADE_BARS,
+            max_mfe_r_limit=RTS_GUARD_MAX_MFE_R,
+        ):
+            guard_stop = stops.compute_rts_guard_stop(
+                direction=setup.direction,
+                avg_entry=pos.fill_price,
+                r_price=pos.r_price,
+                current_price=C,
+                tick_size=self.cfg.tick_size,
+                floor_r=RTS_GUARD_FLOOR_R,
+            )
+            if guard_stop is not None:
+                if setup.direction == Direction.LONG and guard_stop > new_stop:
+                    new_stop = guard_stop
+                elif setup.direction == Direction.SHORT and guard_stop < new_stop:
+                    new_stop = guard_stop
+
         if r_now >= be_threshold and pos.bars_at_r1 >= TRAIL_PROFIT_DELAY_BARS and not self.flags.disable_chandelier_trailing:
             pos.trail_active = True
             momentum_strong = False

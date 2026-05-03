@@ -879,7 +879,15 @@ class DownturnEngine:
         if self.flags.friction_gate and self._atr_d > 0:
             min_atr_pctl = self.po.get("friction_min_atr_pctl", 0.10)
             if self._atr_d_pctl < min_atr_pctl:
-                    return False
+                return False
+
+        vol_gate = float(getattr(self.flags, "vol_percentile_gate", 0.0) or 0.0)
+        if vol_gate > 0 and self._atr_d_pctl * 100.0 < vol_gate:
+            return False
+
+        conviction_gate = float(getattr(self.flags, "regime_confidence_gate", 0.0) or 0.0)
+        if conviction_gate > 0 and self._bear_conviction < conviction_gate:
+            return False
 
         # Block counter-regime entries (consistently lose money)
         if self.flags.block_counter_regime:
@@ -1080,7 +1088,8 @@ class DownturnEngine:
 
         # Compute entry/stop
         atr = self._atr_30m if tag == EngineTag.BREAKDOWN else self._atr_1h
-        low_recent = close - 2 * cfg.tick_size  # simplified
+        trigger_buffer_ticks = max(0.0, float(po.get("trigger_low_buffer_ticks", 2.0)))
+        low_recent = close - trigger_buffer_ticks * cfg.tick_size
         entry_price, stop0, entry_type = compute_entry_subtype_stop(
             tag, signal, close, atr, low_recent, cfg.tick_size, po,
         )
@@ -1124,7 +1133,9 @@ class DownturnEngine:
 
         # Submit order
         oid = self.broker.next_order_id()
-        limit_offset = 4 * cfg.tick_size
+        limit_offset_ticks = max(0.0, float(po.get("entry_limit_offset_ticks", 4.0)))
+        limit_offset = limit_offset_ticks * cfg.tick_size
+        ttl_bars = max(1, int(po.get("entry_ttl_bars", 72)))
         entry_request = DownturnEntryRequest(
             client_order_id=oid,
             symbol=self.symbol,
@@ -1139,7 +1150,7 @@ class DownturnEngine:
             limit_price=entry_price - limit_offset if entry_type != "stop_market" else None,
             stop_price=entry_price,
             submitted_bar_idx=t,
-            ttl_bars=72,
+            ttl_bars=ttl_bars,
             composite_regime=self._regime.composite_regime,
             vol_state=self._regime.vol_state,
             in_correction=in_correction,

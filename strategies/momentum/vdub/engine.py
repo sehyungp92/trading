@@ -255,10 +255,19 @@ class VdubNQv4Engine:
         self._last_decision_code: str = "IDLE"
         self._last_decision_details: dict = {}
         self._last_bar_ts: datetime | None = None
+        self._symbol_last_bar_ts: dict[str, datetime] = {}
 
     def _record_decision(self, code: str, details: dict | None = None) -> None:
         self._last_decision_code = code
         self._last_decision_details = details or {}
+
+    def liveness_payload(self) -> dict:
+        return {
+            "bars_processed": self._bar_idx,
+            "symbol_freshness": {
+                sym: ts.isoformat() for sym, ts in self._symbol_last_bar_ts.items()
+            },
+        }
 
     # ------------------------------------------------------------------
     # Core on_bar routing helpers
@@ -528,6 +537,7 @@ class VdubNQv4Engine:
         now = datetime.now(timezone.utc)
         self._last_bar_ts = now
         self._bar_idx += 1
+        self._symbol_last_bar_ts[self._symbol] = now
         logger.info("=== 15m bar %d  %s ===", self._bar_idx, now.isoformat())
 
         self._check_daily_reset(now)

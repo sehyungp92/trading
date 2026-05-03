@@ -31,6 +31,8 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseR
         data_dir=Path(args.data_dir),
         initial_equity=args.equity,
         max_workers=getattr(args, "max_workers", None),
+        mode=getattr(args, "mode", "synchronized"),
+        candidate_profile=getattr(args, "candidate_profile", "auto"),
     )
     round_num, round_dir = ROUND_MANAGER.resolve_round(
         getattr(args, "round", None),
@@ -123,6 +125,8 @@ def _add_common(command: argparse.ArgumentParser) -> None:
     command.add_argument("--min-delta", type=float, default=0.005)
     command.add_argument("--max-retries", type=int, default=2)
     command.add_argument("--round", type=int, default=None)
+    command.add_argument("--mode", choices=["independent", "synchronized"], default="synchronized")
+    command.add_argument("--candidate-profile", choices=["auto", "alpha", "risk"], default="auto")
 
 
 def main() -> None:

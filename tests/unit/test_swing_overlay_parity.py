@@ -3,10 +3,12 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 import numpy as np
+import pytest
 
+from backtests.swing.config import SlippageConfig
 from backtests.swing.config_unified import UnifiedBacktestConfig
 from backtests.swing.data.preprocessing import NumpyBars
-from backtests.swing.engine.unified_portfolio_engine import _overlay_ema, _rebalance_overlay
+from backtests.swing.engine.unified_portfolio_engine import _overlay_ema, _overlay_transaction_cost, _rebalance_overlay
 from strategies.swing.overlay.config import OverlayConfig
 from strategies.swing.overlay.engine import _compute_ema
 from strategies.swing.overlay.shared import allocate_weighted_targets
@@ -198,6 +200,55 @@ def test_overlay_rebalance_matches_live_last_day_fallback_and_bearish_flattening
     assert overlay_shares == _overlay_targets_for_date(config, daily, current_date, 12_000.0)
     assert overlay_shares["QQQ"] == 0.0
     assert overlay_shares["GLD"] > 0.0
+
+
+def test_overlay_brs_bear_guard_blocks_new_entries_but_allows_exits() -> None:
+    qqq, qqq_dates = _daily_bars([100, 101, 102, 103, 104, 105, 106, 107], open_offset=1.0)
+    gld, _ = _daily_bars([80, 79, 78, 77, 76, 75, 74, 73], open_offset=-0.5)
+    current_date = qqq_dates[-2]
+    config = UnifiedBacktestConfig(
+        overlay_mode="ema",
+        overlay_symbols=["QQQ", "GLD"],
+        overlay_ema_fast=2,
+        overlay_ema_slow=4,
+        overlay_ema_overrides={},
+        overlay_max_pct=0.80,
+    )
+    daily = {"QQQ": qqq, "GLD": gld}
+    daily_date_idx = {
+        "QQQ": {day: idx for idx, day in enumerate(qqq_dates)},
+        "GLD": {day: idx for idx, day in enumerate(qqq_dates)},
+    }
+    overlay_emas = {
+        "QQQ": (_overlay_ema(qqq.closes, 2), _overlay_ema(qqq.closes, 4)),
+        "GLD": (_overlay_ema(gld.closes, 2), _overlay_ema(gld.closes, 4)),
+    }
+    overlay_shares = {"QQQ": 0.0, "GLD": 10.0}
+
+    _rebalance_overlay(
+        config,
+        daily,
+        overlay_emas,
+        daily_date_idx,
+        current_date,
+        10_000.0,
+        overlay_shares,
+        bear_regime_active=True,
+    )
+
+    assert overlay_shares["QQQ"] == 0.0
+    assert overlay_shares["GLD"] == 0.0
+
+
+def test_overlay_transaction_cost_includes_min_commission_and_slippage() -> None:
+    slippage = SlippageConfig(
+        commission_per_share_etf=0.0035,
+        commission_min_etf_order=0.35,
+        overlay_slip_bps=5.0,
+    )
+
+    assert _overlay_transaction_cost(10, 100.0, slippage) == pytest.approx(0.85)
+    assert _overlay_transaction_cost(200, 100.0, slippage) == pytest.approx(10.70)
 
 
 def test_overlay_shared_allocator_handles_missing_prices_and_bearish_symbols() -> None:

@@ -264,6 +264,7 @@ class DownturnEngine:
         self._last_decision_code: str = "IDLE"
         self._last_decision_details: dict = {}
         self._last_bar_ts: datetime | None = None
+        self._symbol_last_bar_ts: dict[str, datetime] = {}
 
     def _record_decision(self, code: str, details: dict | None = None) -> None:
         self._last_decision_code = code
@@ -318,6 +319,14 @@ class DownturnEngine:
             "last_decision_code": self._last_decision_code,
             "last_decision_details": self._last_decision_details,
             "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
+        }
+
+    def liveness_payload(self) -> dict:
+        return {
+            "bars_processed": self._bar_count_5m,
+            "symbol_freshness": {
+                sym: ts.isoformat() for sym, ts in self._symbol_last_bar_ts.items()
+            },
         }
 
     def snapshot_state(self) -> dict[str, Any]:
@@ -500,6 +509,7 @@ class DownturnEngine:
         await self._fetch_bars()
         self._last_bar_ts = datetime.now(timezone.utc)
         self._bar_count_5m += 1
+        self._symbol_last_bar_ts[self._symbol] = self._last_bar_ts
 
         # Detect new boundaries by comparing bar counts
         new_d = self._detect_boundary("daily")
@@ -1565,13 +1575,36 @@ class DownturnEngine:
             self._apply_core_state(core_state)
             self._apply_core_events(events)
 
-    async def _update_stop(self, new_stop: float) -> None:
+    async def _update_stop(self, new_stop: float, *, trigger: str = "trailing") -> None:
         """Update protective stop via REPLACE_ORDER intent."""
-        if self._position and self._position.stop_oms_order_id:
+        pos = self._position
+        if pos is None:
+            return
+        old_stop = pos.chandelier_stop
+        # Instrumentation: log stop adjustment for TA pipeline
+        if self._kit and self._kit.active and old_stop != new_stop:
+            try:
+                self._kit.log_stop_adjustment(
+                    trade_id=pos.trade_id or f"DT_{self._symbol}",
+                    symbol=self._symbol,
+                    old_stop=old_stop,
+                    new_stop=new_stop,
+                    adjustment_type="trailing",
+                    trigger=trigger,
+                    metadata={
+                        "r_at_peak": round(pos.r_at_peak, 3),
+                        "engine_tag": pos.engine_tag.value,
+                        "be_triggered": pos.be_triggered,
+                        "hold_bars_5m": pos.hold_bars_5m,
+                    },
+                )
+            except Exception:
+                pass
+        if pos.stop_oms_order_id:
             await self._oms.submit_intent(Intent(
                 intent_type=IntentType.REPLACE_ORDER,
                 strategy_id=C.STRATEGY_ID,
-                target_oms_order_id=self._position.stop_oms_order_id,
+                target_oms_order_id=pos.stop_oms_order_id,
                 new_stop_price=new_stop,
             ))
 
@@ -1637,7 +1670,7 @@ class DownturnEngine:
             if mt_stop is not None and mt_stop < pos.chandelier_stop:
                 pos.chandelier_stop = mt_stop
                 pos.exit_trigger = "profit_floor_multi"
-                await self._update_stop(mt_stop)
+                await self._update_stop(mt_stop, trigger="profit_floor_multi")
 
         # ── 3. Single-tier profit floor with adaptive lock ────────────
         elif flags.profit_floor_trail:
@@ -1653,7 +1686,7 @@ class DownturnEngine:
             if pf_stop is not None and pf_stop < pos.chandelier_stop:
                 pos.chandelier_stop = pf_stop
                 pos.exit_trigger = "profit_floor"
-                await self._update_stop(pf_stop)
+                await self._update_stop(pf_stop, trigger="profit_floor")
 
         # ── 4. Breakeven stop ─────────────────────────────────────────
         be_trigger_r = po.get("be_trigger_r", 1.0)
@@ -1663,7 +1696,7 @@ class DownturnEngine:
             )
             if be_stop < pos.chandelier_stop:
                 pos.chandelier_stop = be_stop
-                await self._update_stop(be_stop)
+                await self._update_stop(be_stop, trigger="breakeven")
             pos.be_triggered = True
 
         # ── 5. Chandelier trailing stop ───────────────────────────────
@@ -1690,7 +1723,7 @@ class DownturnEngine:
                 if new_stop < pos.chandelier_stop:
                     pos.chandelier_stop = new_stop
                     pos.exit_trigger = "chandelier"
-                    await self._update_stop(new_stop)
+                    await self._update_stop(new_stop, trigger="chandelier")
 
         # ── 6. Stale exit ─────────────────────────────────────────────
         if flags.stale_exit:

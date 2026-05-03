@@ -173,7 +173,7 @@ def mutate_unified_config(
     flag_changes: dict[str, dict] = {}
     top_level: dict = {}
 
-    strategy_slot_names = {"atrss", "helix", "breakout"}
+    strategy_slot_names = {"atrss", "helix", "brs", "breakout"}
     param_override_prefixes = {
         "atrss_param", "helix_param", "breakout_param",
     }

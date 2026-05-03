@@ -46,7 +46,7 @@ CLOSE_RANGE = ((15, 30), (15, 50))
 EVENING_RANGE = ((19, 0), (21, 0))
 
 # ── Risk ─────────────────────────────────────────────────────────────
-BASE_RISK_PCT = 0.02    # R1-opt: was 0.01 -- 2% base risk for MNQ (aggressive-moderate)
+BASE_RISK_PCT = 0.006
 RISK_PCT = BASE_RISK_PCT
 VOL_FACTOR = {"Normal": 1.0, "High": 0.65, "Shock": 0.0}
 HEAT_CAP_MULT = 3.50   # portfolio v4 shared heat cap
@@ -70,13 +70,25 @@ MAX_SHORTS_PER_DAY = 2
 # ── Type A ───────────────────────────────────────────────────────────
 TOUCH_LOOKBACK_15M = 8
 VWAP_CAP_CORE = 0.85
-VWAP_CAP_OPEN_EVE = 0.72
-VWAP_CAP_EVENING = 0.55  # tighter cap for evening_reform
+VWAP_CAP_OPEN_EVE = 0.935
+VWAP_CAP_EVENING = 0.35
 
 USE_TYPE_B = False                # disable Type B (breakout retest) entries
 TYPE_B_ALLOWED_WINDOWS = ("OPEN", "CLOSE")  # restrict to high-conviction windows (if enabled)
 TYPE_B_CLASS_MULT = 0.50          # half size until validated (if enabled)
 TYPE_B_REQUIRE_1H_ALIGN = True    # 1H trend must match direction (if enabled)
+
+# Type C continuation reclaim (v4.5 research, disabled by default). Converts
+# the shadow-positive "no_signal" bucket into an explicit completed-bar signal.
+USE_TYPE_C = False
+TYPE_C_ALLOWED_WINDOWS = ("OPEN", "CORE", "CLOSE")
+TYPE_C_CLASS_MULT = 0.50
+TYPE_C_LOOKBACK_15M = 12
+TYPE_C_BREAK_BUFFER_ATR = 0.00
+TYPE_C_MIN_CLOSE_FRAC = 0.62
+TYPE_C_MAX_BAR_ATR = 1.60
+TYPE_C_MAX_VWAP_DIST_ATR = 1.80
+TYPE_C_REQUIRE_VWAP_SIDE = True
 
 # ── Type B ───────────────────────────────────────────────────────────
 BREAK_LOOKBACK_1H = 20
@@ -95,7 +107,7 @@ NCONFIRM_1H = 4
 NCONFIRM_D = 2
 
 # ── Execution ────────────────────────────────────────────────────────
-BUFFER_TICKS = 1
+BUFFER_TICKS = 2
 TTL_BARS = 4
 TELEPORT_TICKS = 12
 OFFSET_TICKS_MIN = 1
@@ -116,7 +128,7 @@ RT_COMM_FEES = 4.12
 SLIP_TICKS_BY_WINDOW = {"OPEN": 2, "EVENING": 2, "CORE": 1, "CLOSE": 1}
 
 # ── +1R Partial ──────────────────────────────────────────────────────
-PLUS_1R_PARTIAL_ENABLED = False  # v7: disable partial close at +1R, use BE-only for all entries
+PLUS_1R_PARTIAL_ENABLED = False
 PARTIAL_PCT = 0.33
 
 # ── ACTIVE_FREE exit management ─────────────────────────────────────
@@ -125,7 +137,7 @@ FREE_STALE_R_THRESHOLD = 0.30     # unrealized R below this = stale
 FREE_PROFIT_LOCK_R = 0.25         # lock at +0.25R once peak >= 0.50R
 
 # ── Max position duration ────────────────────────────────────────────
-MAX_POSITION_BARS_15M = 128       # default: 32h position duration cap
+MAX_POSITION_BARS_15M = 51.2
 MAX_POSITION_BARS_FREE = 96       # 24 hrs: hard cap for ACTIVE_FREE
 
 
@@ -137,7 +149,7 @@ WEEKEND_LOCK_R = 0.5
 
 # ── Exits ────────────────────────────────────────────────────────────
 VWAP_FAIL_CONSEC = 2
-VWAP_FAIL_EVENING = False         # skip VWAP failure exit for evening entries (stale VWAP)
+VWAP_FAIL_EVENING = True
 STALE_BARS_15M = 8  # FINAL: reduce from 16 to 8 (2H instead of 4H wait time)
 STALE_BARS_BY_WINDOW = {      # v4.2: adaptive stale timer per sub-window
     "OPEN": 8,                # keep current (validated)
@@ -188,6 +200,18 @@ MAX_POST_EVENT_MINUTES = 60
 HOURLY_ALIGNED_MULT = 1.0
 HOURLY_NEUTRAL_MULT = 0.60
 
+# v4.5 conditional gate bypasses. Disabled by default; when enabled they only
+# let shadow-positive blocked cohorts through when quality, session, and chop agree.
+HOURLY_BYPASS_ALLOWED_WINDOWS = ("OPEN", "CLOSE")
+HOURLY_BYPASS_EQS_MIN = 2
+HOURLY_BYPASS_MAX_CHOP = 35.2
+HOURLY_BYPASS_SIZE_MULT = 0.5
+SLOPE_BYPASS_ALLOWED_WINDOWS = ("OPEN", "CORE", "CLOSE")
+SLOPE_BYPASS_EQS_MIN = 4
+SLOPE_BYPASS_MAX_CHOP = 36.0
+SLOPE_BYPASS_MOM_ABS_MIN = 0.0
+SLOPE_BYPASS_SIZE_MULT = 1.0
+
 # ── Regime ───────────────────────────────────────────────────────────
 DAILY_SMA_PERIOD = 200
 TREND_PERSIST_BARS = 2
@@ -203,7 +227,7 @@ HIGH_PCTL = 85
 
 # ── Choppiness ──────────────────────────────────────────────────────
 CHOP_PERIOD = 20        # 1H bars for choppiness index
-CHOP_THRESHOLD = 40     # v7: was 62 — more aggressive chop filtering (CI > 40 = choppy)
+CHOP_THRESHOLD = 32.0
 CHOP_MAX_LONGS = 1      # max longs/day when choppy (vs normal 2)
 CHOP_MAX_SHORTS = 1     # max shorts/day when choppy
 
@@ -213,8 +237,8 @@ EARLY_KILL_R = -0.25              # default: exit if down 0.25R in first 4 bars
 EARLY_KILL_MFE_FLOOR = 0.25      # AND peak MFE never reached this
 
 # ── v4.1 Improvements ──────────────────────────────────────────────
-DOW_SIZE_MULT = {}                    # day-of-week sizing: e.g. {2: 0.60} for Wed
-VWAP_CAP_EVENING = 0.72              # evening VWAP cap (same as OPEN by default)
+DOW_SIZE_MULT = {0: 0.5, 3: 0.65}
+VWAP_CAP_EVENING = 0.35
 
 # ── v4.2 Improvements ──────────────────────────────────────────────
 EVENING_20_BLOCK = True              # block entries during the 20:00 ET hour (40% WR, avgR=-0.141)
@@ -237,6 +261,10 @@ MFE_RATCHET_TIERS = [
     (2.00, 0.80),   # MFE >= 2.00R → stop locked at minimum +0.80R
     (3.00, 1.50),   # MFE >= 3.00R → stop locked at minimum +1.50R
 ]
+MFE_RESCUE_MIN_R = 0.50              # peak MFE required before stall protection
+MFE_RESCUE_AFTER_BARS = 5            # avoid protecting first-hour noise
+MFE_RESCUE_TRIGGER_R = 0.1
+MFE_RESCUE_LOCK_R = 0.1
 VWAP_CAP_CLOSE = 0.85                # CLOSE VWAP cap (same as CORE by default)
 EQS_MIN_RTH = 0                      # entry quality score min for RTH (0 = disabled)
 EQS_MIN_EVENING = 0                  # entry quality score min for evening (0 = disabled)

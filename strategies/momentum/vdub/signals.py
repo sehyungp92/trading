@@ -187,6 +187,84 @@ def type_b_check(
 
 
 # ---------------------------------------------------------------------------
+# Type C -- Continuation reclaim (v4.5 research)
+# ---------------------------------------------------------------------------
+
+def _latest_vwap_reference(
+    svwap: np.ndarray, vwap_a: np.ndarray, close: float,
+) -> tuple[Optional[float], str]:
+    """Return the nearest current VWAP reference if one is available."""
+    refs: list[tuple[float, str]] = []
+    if len(svwap) > 0 and not np.isnan(svwap[-1]):
+        refs.append((float(svwap[-1]), "session"))
+    if len(vwap_a) > 0 and not np.isnan(vwap_a[-1]):
+        refs.append((float(vwap_a[-1]), "anchor"))
+    if not refs:
+        return None, ""
+    # The caller only has the completed close; choosing the closest current
+    # reference avoids injecting future touch knowledge into the entry.
+    return min(refs, key=lambda item: abs(close - item[0]))
+
+
+def type_c_continuation_check(
+    closes_15m: np.ndarray, lows_15m: np.ndarray, highs_15m: np.ndarray,
+    svwap: np.ndarray, vwap_a: np.ndarray, atr15_val: float,
+    direction: Direction, sub_window: SubWindow,
+) -> Optional[dict]:
+    """Completed-bar continuation signal for the shadow-positive no_signal bucket.
+
+    The signal intentionally requires a current-bar close through the prior
+    completed range and a strong close location. Orders are still staged by the
+    backtest/live adapters after this completed bar, preserving fill causality.
+    """
+    n = len(closes_15m)
+    if atr15_val <= 0 or n < C.TYPE_C_LOOKBACK_15M + 1:
+        return None
+    if sub_window.value not in C.TYPE_C_ALLOWED_WINDOWS:
+        return None
+
+    lookback = min(C.TYPE_C_LOOKBACK_15M, n - 1)
+    prior_high = float(np.nanmax(highs_15m[-lookback - 1:-1]))
+    prior_low = float(np.nanmin(lows_15m[-lookback - 1:-1]))
+    close = float(closes_15m[-1])
+    high = float(highs_15m[-1])
+    low = float(lows_15m[-1])
+    bar_range = high - low
+    if bar_range <= 0 or bar_range > C.TYPE_C_MAX_BAR_ATR * atr15_val:
+        return None
+
+    vwap_ref, source = _latest_vwap_reference(svwap, vwap_a, close)
+    if C.TYPE_C_REQUIRE_VWAP_SIDE and vwap_ref is None:
+        return None
+    if vwap_ref is not None and abs(close - vwap_ref) > C.TYPE_C_MAX_VWAP_DIST_ATR * atr15_val:
+        return None
+
+    buffer = C.TYPE_C_BREAK_BUFFER_ATR * atr15_val
+    if direction == Direction.LONG:
+        close_frac = (close - low) / bar_range
+        if close <= prior_high + buffer or close_frac < C.TYPE_C_MIN_CLOSE_FRAC:
+            return None
+        if C.TYPE_C_REQUIRE_VWAP_SIDE and close <= float(vwap_ref):
+            return None
+        break_level = prior_high
+    else:
+        close_frac = (high - close) / bar_range
+        if close >= prior_low - buffer or close_frac < C.TYPE_C_MIN_CLOSE_FRAC:
+            return None
+        if C.TYPE_C_REQUIRE_VWAP_SIDE and close >= float(vwap_ref):
+            return None
+        break_level = prior_low
+
+    return {
+        "type": "C",
+        "dir": direction,
+        "break_level": break_level,
+        "vwap_used": vwap_ref or 0.0,
+        "source": source,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Predator overlay (Section 8)
 # ---------------------------------------------------------------------------
 

@@ -940,6 +940,13 @@ class VdubusEngine:
                     pos.stop_price = new_floor
                     self._update_stop_price(new_floor, bar_time)
 
+        # v4.5: protect trades that showed useful MFE and then stalled.
+        if self.flags.mfe_rescue_stop:
+            rescue_stop = exits.compute_mfe_rescue_stop(pos, price)
+            if rescue_stop != pos.stop_price:
+                pos.stop_price = rescue_stop
+                self._update_stop_price(rescue_stop, bar_time)
+
         # Early kill: fast-dying trades
         if self.flags.early_kill and exits.check_early_kill(pos, price):
             self._close_position(price, bar_time, "EARLY_KILL", market_exit=True)
@@ -1331,6 +1338,7 @@ class VdubusEngine:
             session=session.value,
             sub_window=sub_window.value,
         )
+        entry_size_mult = 1.0
 
         # Pre-compute approximate entry/stop for shadow tracking
         _atr15 = self._safe_atr15()
@@ -1389,10 +1397,18 @@ class VdubusEngine:
             aligned = (direction == Direction.LONG and self.regime.trend_1h == 1) or \
                       (direction == Direction.SHORT and self.regime.trend_1h == -1)
             if not aligned:
-                evt.alignment_pass = False
-                evt.first_block_reason = "hourly_align"
-                self._record_signal_event(evt)
-                return
+                if self.flags.hourly_bypass_quality and self._quality_bypass_ok(
+                    direction, sub_window, bars_15m, hourly, h_idx, t,
+                    min_eqs=C.HOURLY_BYPASS_EQS_MIN,
+                    max_chop=C.HOURLY_BYPASS_MAX_CHOP,
+                    allowed_windows=C.HOURLY_BYPASS_ALLOWED_WINDOWS,
+                ):
+                    hourly_mult = min(hourly_mult, C.HOURLY_BYPASS_SIZE_MULT)
+                else:
+                    evt.alignment_pass = False
+                    evt.first_block_reason = "hourly_align"
+                    self._record_signal_event(evt)
+                    return
 
         self._regime_passed += 1
 
@@ -1419,15 +1435,33 @@ class VdubusEngine:
         if self.flags.slope_gate and len(self._mom15) > 0:
             long_ok, short_ok = sig.slope_ok(self._mom15)
             if direction == Direction.LONG and not long_ok:
-                evt.slope_pass = False
-                evt.first_block_reason = "slope"
-                self._record_signal_event(evt)
-                return
+                if self.flags.slope_bypass_quality and self._quality_bypass_ok(
+                    direction, sub_window, bars_15m, hourly, h_idx, t,
+                    min_eqs=C.SLOPE_BYPASS_EQS_MIN,
+                    max_chop=C.SLOPE_BYPASS_MAX_CHOP,
+                    allowed_windows=C.SLOPE_BYPASS_ALLOWED_WINDOWS,
+                    mom_abs_min=C.SLOPE_BYPASS_MOM_ABS_MIN,
+                ):
+                    entry_size_mult = min(entry_size_mult, C.SLOPE_BYPASS_SIZE_MULT)
+                else:
+                    evt.slope_pass = False
+                    evt.first_block_reason = "slope"
+                    self._record_signal_event(evt)
+                    return
             if direction == Direction.SHORT and not short_ok:
-                evt.slope_pass = False
-                evt.first_block_reason = "slope"
-                self._record_signal_event(evt)
-                return
+                if self.flags.slope_bypass_quality and self._quality_bypass_ok(
+                    direction, sub_window, bars_15m, hourly, h_idx, t,
+                    min_eqs=C.SLOPE_BYPASS_EQS_MIN,
+                    max_chop=C.SLOPE_BYPASS_MAX_CHOP,
+                    allowed_windows=C.SLOPE_BYPASS_ALLOWED_WINDOWS,
+                    mom_abs_min=C.SLOPE_BYPASS_MOM_ABS_MIN,
+                ):
+                    entry_size_mult = min(entry_size_mult, C.SLOPE_BYPASS_SIZE_MULT)
+                else:
+                    evt.slope_pass = False
+                    evt.first_block_reason = "slope"
+                    self._record_signal_event(evt)
+                    return
 
         # --- Gate 5: Signal detection (Type A / Type B) ---
         atr15_val = self._safe_atr15()
@@ -1472,6 +1506,15 @@ class VdubusEngine:
                 )
                 if signal:
                     signal_type = EntryType.TYPE_B
+
+        if signal is None and C.USE_TYPE_C and self.flags.type_c_enabled:
+            signal = sig.type_c_continuation_check(
+                closes_15m, lows_15m, highs_15m,
+                svwap, vwap_a, atr15_val, direction, sub_window,
+            )
+            if signal:
+                signal_type = EntryType.TYPE_C
+                vwap_used = signal.get("vwap_used", 0.0) or 0.0
 
         if signal is None:
             evt.signal_pass = False
@@ -1583,6 +1626,8 @@ class VdubusEngine:
         # Type B: cap class_mult
         if signal_type == EntryType.TYPE_B:
             class_mult = min(class_mult, C.TYPE_B_CLASS_MULT)
+        if signal_type == EntryType.TYPE_C:
+            class_mult = min(class_mult, C.TYPE_C_CLASS_MULT)
 
         session_key = "RTH" if session == SessionWindow.RTH else "EVENING"
         session_mult = C.SESSION_MULT[session_key]
@@ -1618,14 +1663,15 @@ class VdubusEngine:
             eff_risk = risk.compute_addon_risk(eff_risk)
 
         if self.cfg.fixed_qty is not None:
-            qty = max(1, int(self.cfg.fixed_qty * hourly_mult))
+            qty = max(1, int(self.cfg.fixed_qty * hourly_mult * entry_size_mult))
         else:
-            qty = risk.compute_qty(eff_risk, r_points)
+            qty = risk.compute_qty(eff_risk * entry_size_mult, r_points)
 
         # v4.1: Day-of-week sizing reduction
         if self.flags.dow_sizing and C.DOW_SIZE_MULT:
             from strategies.momentum.vdub.config import DOW_SIZE_MULT
-            dow_mult = DOW_SIZE_MULT.get(_to_et(bar_time).weekday(), 1.0)
+            weekday = _to_et(bar_time).weekday()
+            dow_mult = DOW_SIZE_MULT.get(weekday, DOW_SIZE_MULT.get(str(weekday), 1.0))
             if dow_mult < 1.0:
                 qty = max(1, int(qty * dow_mult))
 
@@ -2065,6 +2111,41 @@ class VdubusEngine:
         if pos.direction == Direction.LONG:
             return (price - pos.entry_price) / pos.r_points
         return (pos.entry_price - price) / pos.r_points
+
+    def _quality_bypass_ok(
+        self,
+        direction: Direction,
+        sub_window: SubWindow,
+        bars_15m: NumpyBars,
+        hourly: NumpyBars,
+        h_idx: int,
+        t: int,
+        *,
+        min_eqs: int,
+        max_chop: float,
+        allowed_windows,
+        mom_abs_min: float = 0.0,
+    ) -> bool:
+        """Shared quality guard for conditional gate-bypass experiments."""
+        if sub_window.value not in allowed_windows:
+            return False
+        if self.regime.choppiness > max_chop:
+            return False
+        atr15 = self._safe_atr15()
+        if atr15 <= 0:
+            return False
+        if mom_abs_min > 0:
+            if len(self._mom15) == 0 or np.isnan(self._mom15[-1]):
+                return False
+            if abs(float(self._mom15[-1])) < mom_abs_min:
+                return False
+
+        closes_15m = bars_15m.closes[:t + 1]
+        highs_15m = bars_15m.highs[:t + 1]
+        lows_15m = bars_15m.lows[:t + 1]
+        return self._compute_eqs(
+            direction, closes_15m, highs_15m, lows_15m, atr15, h_idx, hourly,
+        ) >= min_eqs
 
     def _compute_eqs(
         self, direction: Direction,

@@ -110,6 +110,36 @@ class PhaseRunner:
         metrics: dict[str, float] | None = None
         gate_result: GateResult | None = None
 
+        def emit_progress(status: str, extra: dict[str, Any] | None = None) -> None:
+            self.phase_logger.update_progress(
+                phase,
+                _live_progress_summary(
+                    state,
+                    phase,
+                    status=status,
+                    focus=spec.focus,
+                    candidate_count=len(phase_candidates),
+                    extra=extra,
+                ),
+            )
+
+        def greedy_progress(payload: dict[str, Any]) -> None:
+            event = str(payload.get("event", "greedy_update"))
+            status = "greedy_running"
+            if event == "baseline_complete":
+                status = "greedy_baseline_complete"
+            elif event == "round_complete" and payload.get("stop_reason"):
+                status = "greedy_stopping"
+            elif event == "batch_complete":
+                status = "greedy_batch_complete"
+            emit_progress(
+                status,
+                {
+                    "last_event": event,
+                    "greedy_progress": payload,
+                },
+            )
+
         phase_log.info("Starting phase %d with %d candidates", phase, len(phase_candidates))
         self.phase_logger.log_activity(
             phase,
@@ -120,6 +150,7 @@ class PhaseRunner:
                 "timestamp": _utc_now_iso(),
             },
         )
+        emit_progress("phase_started")
 
         while True:
             if greedy_result is None:
@@ -132,12 +163,22 @@ class PhaseRunner:
                         "diagnostic_retry": state.diagnostic_retries.get(phase, 0),
                     },
                 )
+                emit_progress(
+                    "evaluating_baseline",
+                    {
+                        "scoring_retry": state.scoring_retries.get(phase, 0),
+                        "diagnostic_retry": state.diagnostic_retries.get(phase, 0),
+                    },
+                )
                 evaluate_batch = self.plugin.create_evaluate_batch(
                     phase,
                     phase_base_mutations,
                     scoring_weights=scoring_weights,
                     hard_rejects=spec.hard_rejects,
                 )
+                set_progress_callback = getattr(evaluate_batch, "set_progress_callback", None)
+                if callable(set_progress_callback):
+                    set_progress_callback(greedy_progress)
                 checkpoint_path = self.output_dir / f"phase_{phase}_greedy_checkpoint.json"
                 greedy_result = run_greedy(
                     phase_candidates,
@@ -154,6 +195,7 @@ class PhaseRunner:
                         "hard_rejects": spec.hard_rejects,
                     },
                     logger=phase_log,
+                    progress_callback=greedy_progress,
                 )
                 self.phase_logger.save_phase_output(phase, "greedy_raw", _to_dict(greedy_result))
                 try:
@@ -174,6 +216,15 @@ class PhaseRunner:
                         "accepted_count": greedy_result.accepted_count,
                     },
                 )
+                emit_progress(
+                    "greedy_complete",
+                    {
+                        "base_score": greedy_result.base_score,
+                        "final_score": greedy_result.final_score,
+                        "accepted_count": greedy_result.accepted_count,
+                        "kept_features": list(greedy_result.kept_features),
+                    },
+                )
 
                 criteria = spec.gate_criteria_fn(metrics)
                 gate_result = evaluate_gate(criteria, greedy_result)
@@ -184,6 +235,13 @@ class PhaseRunner:
                     "gate_check",
                     {
                         "passed": gate_result.passed,
+                        "failure_category": gate_result.failure_category,
+                    },
+                )
+                emit_progress(
+                    "gate_passed" if gate_result.passed else "gate_failed",
+                    {
+                        "gate_passed": gate_result.passed,
                         "failure_category": gate_result.failure_category,
                     },
                 )
@@ -207,6 +265,10 @@ class PhaseRunner:
                 phase,
                 "diagnostics_run",
                 {"enhanced": force_all_diagnostics},
+            )
+            emit_progress(
+                "diagnostics_running" if force_all_diagnostics else "diagnostics_complete",
+                {"enhanced_diagnostics": force_all_diagnostics},
             )
 
             policy = spec.analysis_policy
@@ -245,6 +307,14 @@ class PhaseRunner:
                     "reason": analysis.recommendation_reason,
                 },
             )
+            emit_progress(
+                f"analysis_{analysis.recommendation}",
+                {
+                    "recommendation": analysis.recommendation,
+                    "recommendation_reason": analysis.recommendation_reason,
+                    "scoring_assessment": analysis.scoring_assessment,
+                },
+            )
 
             if analysis.recommendation == "improve_scoring" and state.scoring_retries.get(phase, 0) < self.max_retries:
                 state.increment_retry(phase)
@@ -266,6 +336,14 @@ class PhaseRunner:
                         "candidate_count": len(phase_candidates),
                     },
                 )
+                emit_progress(
+                    "retrying_scoring",
+                    {
+                        "recommendation_reason": analysis.recommendation_reason,
+                        "scoring_weight_overrides": scoring_weights or {},
+                        "candidate_count": len(phase_candidates),
+                    },
+                )
                 continue
 
             if analysis.recommendation == "improve_diagnostics" and state.diagnostic_retries.get(phase, 0) < self.max_diagnostic_retries:
@@ -278,38 +356,70 @@ class PhaseRunner:
                     "decision_improve_diagnostics",
                     {"retry": state.diagnostic_retries.get(phase, 0)},
                 )
+                emit_progress(
+                    "retrying_diagnostics",
+                    {
+                        "recommendation_reason": analysis.recommendation_reason,
+                    },
+                )
                 continue
 
+            adopt_phase_mutations = gate_result.passed
+            adopted_final_mutations = dict(greedy_result.final_mutations)
+            adopted_final_metrics = metrics
+            adopted_final_score = greedy_result.final_score
+            adopted_kept_features = list(greedy_result.kept_features)
+            adopted_accepted_count = greedy_result.accepted_count
+
+            if not adopt_phase_mutations:
+                adopted_final_mutations = dict(phase_base_mutations)
+                adopted_final_metrics = self.plugin.compute_final_metrics(adopted_final_mutations)
+                adopted_final_score = greedy_result.base_score
+                adopted_kept_features = []
+                adopted_accepted_count = 0
+
+            missing = object()
             phase_new_mutations = {
                 key: value
-                for key, value in greedy_result.final_mutations.items()
-                if phase_base_mutations.get(key) != value
+                for key, value in adopted_final_mutations.items()
+                if phase_base_mutations.get(key, missing) != value
             }
             phase_result = {
                 "focus": spec.focus,
                 "base_mutations": dict(phase_base_mutations),
-                "final_mutations": dict(greedy_result.final_mutations),
+                "final_mutations": dict(adopted_final_mutations),
                 "base_score": greedy_result.base_score,
-                "final_score": greedy_result.final_score,
-                "kept_features": greedy_result.kept_features,
+                "final_score": adopted_final_score,
+                "kept_features": adopted_kept_features,
                 "rounds": [_to_dict(round_result) for round_result in greedy_result.rounds],
-                "final_metrics": metrics,
-                "accepted_count": greedy_result.accepted_count,
+                "final_metrics": adopted_final_metrics,
+                "total_candidates": greedy_result.total_candidates,
+                "accepted_count": adopted_accepted_count,
                 "elapsed_seconds": greedy_result.elapsed_seconds,
                 "suggested_experiments": [_to_dict(experiment) for experiment in analysis.suggested_experiments],
                 "analysis": _analysis_to_dict(analysis),
                 "new_mutations": phase_new_mutations,
+                "applied_phase_mutations": adopt_phase_mutations,
+                "attempted_final_mutations": dict(greedy_result.final_mutations),
+                "attempted_final_score": greedy_result.final_score,
+                "attempted_final_metrics": metrics,
+                "attempted_kept_features": list(greedy_result.kept_features),
+                "attempted_accepted_count": greedy_result.accepted_count,
             }
             state.advance_phase(phase, phase_new_mutations, phase_result)
             state.record_gate(phase, _gate_to_dict(gate_result))
             save_phase_state(state, self.state_path)
-            self.phase_logger.update_progress(phase, _progress_summary(state, phase))
+            completed_summary = _progress_summary(state, phase)
+            completed_summary["focus"] = spec.focus
+            completed_summary["candidate_count"] = len(phase_candidates)
+            self.phase_logger.update_progress(phase, completed_summary)
             self.phase_logger.log_activity(
                 phase,
                 "decision_advance",
                 {
                     "reason": analysis.recommendation_reason,
                     "gate_passed": gate_result.passed,
+                    "applied_phase_mutations": adopt_phase_mutations,
                     "new_mutation_count": len(phase_new_mutations),
                 },
             )
@@ -410,12 +520,7 @@ class PhaseRunner:
         evaluation_path.write_text(report, encoding="utf-8")
         save_phase_state(state, self.state_path)
 
-        final_metrics: dict[str, Any] = {}
-        final_phase = max(state.completed_phases, default=0)
-        if final_phase:
-            final_metrics = dict(state.phase_results.get(final_phase, {}).get("final_metrics") or {})
-        if not final_metrics:
-            final_metrics = dict(self.plugin.compute_final_metrics(state.cumulative_mutations) or {})
+        final_metrics = dict(self.plugin.compute_final_metrics(state.cumulative_mutations) or {})
 
         if self._round_manager and self._round_num is not None:
             self._round_manager.write_run_summary(
@@ -485,6 +590,33 @@ def _progress_summary(state: PhaseState, phase: int) -> dict:
     }
 
 
+def _live_progress_summary(
+    state: PhaseState,
+    phase: int,
+    *,
+    status: str,
+    focus: str,
+    candidate_count: int,
+    extra: dict[str, Any] | None = None,
+) -> dict:
+    summary = {
+        "status": status,
+        "updated_at": _utc_now_iso(),
+        "completed_phases": state.completed_phases,
+        "current_phase": state.current_phase,
+        "phase": phase,
+        "focus": focus,
+        "candidate_count": candidate_count,
+        "phase_started_at": state.phase_timestamps.get(phase, {}).get("started"),
+        "scoring_retries": state.scoring_retries.get(phase, 0),
+        "diagnostic_retries": state.diagnostic_retries.get(phase, 0),
+        "total_mutations": len(state.cumulative_mutations),
+    }
+    if extra:
+        summary.update(extra)
+    return summary
+
+
 def _mutations_through_phase(state: PhaseState, phase: int) -> dict[str, Any]:
     """Accumulate mutations from phases 1..phase using new_mutations (preferred).
 
@@ -505,8 +637,9 @@ def _mutations_through_phase(state: PhaseState, phase: int) -> dict[str, Any]:
         else:
             final = result.get("final_mutations", {})
             base = result.get("base_mutations", {})
+            missing = object()
             for key, value in final.items():
-                if base.get(key) != value:
+                if base.get(key, missing) != value:
                     mutations[key] = value
     return mutations
 

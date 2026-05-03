@@ -147,6 +147,36 @@ def parse_diagnostic_metrics(
             "max_drawdown_pct": _extract_labeled_number(block, "Max drawdown"),
             "composite_score": _extract_labeled_number(block, "Composite score"),
         }
+    if parser_kind == "swing_portfolio_synergy_round_summary":
+        return {
+            "final_equity": _extract_labeled_number(text, "Final equity"),
+            "net_return_pct": _extract_labeled_number(text, "Net return"),
+            "profit_factor": _extract_labeled_number(text, "Profit factor"),
+            "win_rate_pct": _extract_labeled_number(text, "Win rate"),
+            "max_drawdown_pct": _extract_labeled_number(text, "Max DD"),
+            "sharpe": _extract_labeled_number(text, "Sharpe"),
+            "sortino": _extract_labeled_number(text, "Sortino"),
+            "calmar": _extract_labeled_number(text, "Calmar"),
+            "entry_signals_fired": _extract_labeled_number(text, "Portfolio entry opportunities fired"),
+            "entries_accepted": _extract_labeled_number(text, "Portfolio entries accepted"),
+            "entries_blocked": _extract_labeled_number(text, "Portfolio entries blocked"),
+            "score_total": _extract_score_total(text),
+        }
+    if parser_kind == "stock_portfolio_synergy_round_summary":
+        return {
+            "final_equity": _extract_labeled_number(text, "Final equity"),
+            "net_return_pct": _extract_labeled_number(text, "Net return"),
+            "profit_factor": _extract_labeled_number(text, "Profit factor"),
+            "win_rate_pct": _extract_labeled_number(text, "Win rate"),
+            "max_drawdown_pct": _extract_labeled_number(text, "Max DD"),
+            "sharpe": _extract_labeled_number(text, "Sharpe"),
+            "sortino": _extract_labeled_number(text, "Sortino"),
+            "calmar": _extract_labeled_number(text, "Calmar"),
+            "entry_signals_fired": _extract_labeled_number(text, "Fired entries"),
+            "entries_accepted": _extract_labeled_number(text, "Accepted entries"),
+            "entries_blocked": _extract_labeled_number(text, "Blocked entries"),
+            "score_total": _extract_score_total(text),
+        }
     if parser_kind == "momentum_performance_summary":
         summary_block = _section_between(text, "PERFORMANCE SUMMARY", ["FUNNEL"])
         return {
@@ -236,6 +266,15 @@ def _extract_labeled_number(text: str, label: str) -> float:
             flags=re.IGNORECASE,
         ),
         label,
+    )
+    return _to_number(match.group("value"))
+
+
+def _extract_score_total(text: str) -> float:
+    score_block = _section_between(text, "Score:", [])
+    match = _require_match(
+        re.search(r"^\s*total\s+(?P<value>[+\-]?\d+(?:\.\d+)?)\s*$", score_block, flags=re.MULTILINE),
+        "score total",
     )
     return _to_number(match.group("value"))
 

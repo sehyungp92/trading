@@ -1255,6 +1255,62 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
     def _market_close_timestamp(self, trade_date: date) -> datetime:
         return datetime(trade_date.year, trade_date.month, trade_date.day, 16, 0, tzinfo=ET).astimezone(timezone.utc)
 
+    def _open_scored_fill_timing(self) -> str:
+        timing = str(getattr(self._settings, "pb_open_scored_fill_timing", "next_5m_open") or "next_5m_open").lower()
+        if timing not in {"next_5m_open", "same_open"}:
+            raise ValueError(
+                "pb_open_scored_fill_timing must be 'next_5m_open' or 'same_open'"
+            )
+        return timing
+
+    def _open_scored_fill_bar(self, bars: list[Bar]) -> tuple[int, Bar] | None:
+        start = self._settings.pb_intraday_entry_start
+        end = self._settings.pb_intraday_entry_end
+        for idx, bar in enumerate(bars):
+            ts = bar.start_time
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            now_et = ts.astimezone(ET).time()
+            if start <= now_et <= end:
+                return idx, bar
+        return None
+
+    def _apply_open_scored_delayed_fill(
+        self,
+        payload: dict[str, Any],
+        fallback: dict[str, Any],
+        *,
+        fill_bar_idx: int,
+        fill_bar: Bar,
+    ) -> bool:
+        candidate = fallback.get("candidate") or {}
+        item = fallback.get("item")
+        entry_open = float(fill_bar.open)
+        slip = entry_open * self._slippage.slip_bps_normal / 10_000
+        fill_price = round(entry_open + slip, 2)
+        entry_atr = float(
+            payload.get("entry_atr")
+            or candidate.get("entry_atr")
+            or candidate.get("daily_atr")
+            or getattr(item, "daily_atr_estimate", 0.0)
+            or 0.0
+        )
+        if fill_price <= 0 or entry_atr <= 0:
+            return False
+        stop_price = fill_price - self._settings.pb_atr_stop_mult * entry_atr
+        risk_per_share = fill_price - stop_price
+        if stop_price <= 0 or risk_per_share <= 0:
+            return False
+        payload["entry_open"] = entry_open
+        payload["entry_price"] = float(fill_price)
+        payload["entry_atr"] = entry_atr
+        payload["stop_price"] = float(stop_price)
+        payload["risk_per_share"] = float(risk_per_share)
+        payload["entry_timestamp"] = fill_bar.start_time
+        payload["entry_bar_index"] = int(fill_bar_idx)
+        payload["open_scored_fill_timing"] = "next_5m_open"
+        return True
+
     def _activate_delayed_confirm(
         self,
         state: _PBHybridState,
@@ -1442,6 +1498,8 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
         trade_date: date,
         regime_tier: str,
         quantity: int,
+        entry_time: datetime | None = None,
+        entry_bar_idx: int = 0,
     ) -> _PBHybridPosition | None:
         entry_price = float(record.get("entry_price") or 0.0)
         stop_price = float(record.get("stop_price") or 0.0)
@@ -1456,7 +1514,7 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
             entry_slip_per_share = entry_price * self._slippage.slip_bps_normal / 10_000
             entry_price = round(entry_price + entry_slip_per_share, 2)
             risk_per_share = entry_price - stop_price
-        ts = self._market_open_timestamp(trade_date)
+        ts = entry_time or self._market_open_timestamp(trade_date)
         return _PBHybridPosition(
             symbol=symbol,
             entry_price=entry_price,
@@ -1503,7 +1561,7 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
             highest_close=entry_price,
             commission_entry=self._slippage.commission_per_share * quantity,
             slippage_entry=entry_slip_per_share * quantity,
-            entry_bar_idx=0,
+            entry_bar_idx=entry_bar_idx,
             ledger_ref=record,
         )
 
@@ -1610,6 +1668,7 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
     def run(self) -> IARICPullbackResult:
         cfg = self._config
         settings = self._settings
+        open_scored_fill_timing = self._open_scored_fill_timing()
         collect_diagnostics = self._collect_diagnostics
         start = date.fromisoformat(cfg.start_date)
         end = date.fromisoformat(cfg.end_date)
@@ -1749,10 +1808,15 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                         if record is not None:
                             self._record_rejection(record, "open_scored_gate_reject", rejection_log, shadow_outcomes, funnel_counters)
                         continue
+                    if open_scored_fill_timing == "next_5m_open":
+                        if record is not None:
+                            self._record_rejection(record, "open_scored_no_post_open_bar", rejection_log, shadow_outcomes, funnel_counters)
+                        continue
                     if record is not None:
                         record["refinement_route"] = "OPEN_SCORED_ENTRY"
                         record["route_feasible"] = True
                         record["route_feasible_bar_index"] = 0
+                        record["open_scored_fill_timing"] = "same_open"
                     open_scored_candidates.append({
                         "symbol": symbol,
                         "candidate": candidate,
@@ -1803,9 +1867,25 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                     record["max_feasible_intraday_score"] = 0.0
                     record["selection_refine_score"] = float(record.get("selection_refine_score") or 0.0)
                 if self._open_scored_eligible(candidate):
+                    fill_bar_idx = 0
+                    fill_bar = bars[0]
+                    if open_scored_fill_timing == "next_5m_open":
+                        fill_ref = self._open_scored_fill_bar(bars)
+                        if fill_ref is None:
+                            if record is not None:
+                                self._record_rejection(
+                                    record,
+                                    "open_scored_no_post_open_bar",
+                                    rejection_log,
+                                    shadow_outcomes,
+                                    funnel_counters,
+                                )
+                            continue
+                        fill_bar_idx, fill_bar = fill_ref
                     if record is not None:
                         record["route_feasible"] = True
-                        record["route_feasible_bar_index"] = 0
+                        record["route_feasible_bar_index"] = int(fill_bar_idx)
+                        record["open_scored_fill_timing"] = open_scored_fill_timing
                     open_scored_candidates.append({
                         "symbol": symbol,
                         "candidate": candidate,
@@ -1813,6 +1893,8 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                         "record": record,
                         "sector": str(candidate.get("sector") or item.sector),
                         "missing_5m": False,
+                        "fill_bar_idx": fill_bar_idx,
+                        "fill_bar": fill_bar,
                     })
 
             if not state_by_symbol and not open_scored_candidates:
@@ -1872,6 +1954,28 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                         record["blocked_by_capacity_reason"] = "sector_cap"
                         self._record_rejection(record, "sector_cap_reject", rejection_log, shadow_outcomes, funnel_counters)
                     continue
+                entry_time = self._market_open_timestamp(trade_date)
+                entry_bar_idx = 0
+                if open_scored_fill_timing == "next_5m_open" and not missing_5m:
+                    fill_bar = fallback.get("fill_bar")
+                    fill_bar_idx = int(fallback.get("fill_bar_idx", -1))
+                    if not isinstance(fill_bar, Bar) or fill_bar_idx < 0:
+                        if record is not None:
+                            self._record_rejection(record, "open_scored_no_post_open_bar", rejection_log, shadow_outcomes, funnel_counters)
+                        continue
+                    if not self._apply_open_scored_delayed_fill(
+                        payload,
+                        fallback,
+                        fill_bar_idx=fill_bar_idx,
+                        fill_bar=fill_bar,
+                    ):
+                        if record is not None:
+                            self._record_rejection(record, "sizing_reject", rejection_log, shadow_outcomes, funnel_counters)
+                        continue
+                    entry_time = fill_bar.start_time
+                    entry_bar_idx = fill_bar_idx
+                else:
+                    payload["open_scored_fill_timing"] = "same_open"
                 risk_per_share = float(payload.get("risk_per_share") or 0.0)
                 entry_price = float(payload.get("entry_price") or 0.0)
                 if risk_per_share <= 0 or entry_price <= 0:
@@ -1914,6 +2018,8 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                     trade_date=trade_date,
                     regime_tier=regime_tier,
                     quantity=qty,
+                    entry_time=entry_time,
+                    entry_bar_idx=entry_bar_idx,
                 )
                 if position is None:
                     if record is not None and missing_5m:
@@ -1933,6 +2039,10 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                     record["intraday_score"] = float(record.get("daily_signal_score") or 0.0)
                     record["route_score"] = float(record.get("daily_signal_score") or 0.0)
                     record["selection_reason"] = "daily_signal_score"
+                    record["quantity"] = qty
+                    record["entry_timestamp"] = position.entry_time
+                    record["entry_bar_index"] = int(position.entry_bar_idx)
+                    record["open_scored_fill_timing"] = payload.get("open_scored_fill_timing", open_scored_fill_timing)
                 if funnel_counters is not None:
                     funnel_counters["entered"] = funnel_counters.get("entered", 0) + 1
                     funnel_counters["open_scored_entry"] = funnel_counters.get("open_scored_entry", 0) + 1
@@ -1969,9 +2079,8 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                 )
 
             intraday_positions: dict[str, _PBHybridPosition] = {}
-            # V2: merge OPEN_SCORED with 5m data into intraday for bar-level management
-            # (MFE stages, 5m EMA reversion, partial profits -- all improvements over daily)
-            if settings.pb_v2_enabled:
+            # Delayed OPEN_SCORED fills use the 5m stream so pre-entry bars cannot affect risk.
+            if settings.pb_v2_enabled or open_scored_fill_timing == "next_5m_open":
                 for _os_sym in list(open_scored_positions):
                     if _os_sym in bars_by_symbol:
                         intraday_positions[_os_sym] = open_scored_positions.pop(_os_sym)
@@ -2293,6 +2402,8 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                     bars = bars_by_symbol.get(symbol)
                     if bars is None or bar_idx >= len(bars):
                         continue
+                    if bar_idx < position.entry_bar_idx:
+                        continue
                     bar = bars[bar_idx]
                     market = market_by_symbol[symbol]
                     state = state_by_symbol[symbol]
@@ -2358,9 +2469,10 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                                 position.partial_taken = True
                                 position.partial_qty_exited += partial_qty
                                 partial_commission = self._slippage.commission_per_share * partial_qty
-                                partial_mid = (bar.high + bar.close) / 2
-                                partial_slip = partial_mid * self._slippage.slip_bps_normal / 10_000
-                                partial_fill = round(partial_mid - partial_slip, 2)
+                                # Fill at the R-level trigger price (matching V1 approach)
+                                v2_trigger_price = position.entry_price + v2_partial_r * position.risk_per_share
+                                partial_slip = v2_trigger_price * self._slippage.slip_bps_normal / 10_000
+                                partial_fill = round(v2_trigger_price - partial_slip, 2)
                                 position.realized_partial_commission += partial_commission
                                 position.realized_partial_slippage += partial_slip * partial_qty
                                 partial_pnl = (partial_fill - position.entry_price) * partial_qty

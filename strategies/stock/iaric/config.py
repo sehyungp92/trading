@@ -65,15 +65,15 @@ class StrategySettings:
     avwap_breakdown_pct: float = 0.007
     avwap_breakdown_volume_mult: float = 1.5
 
-    base_risk_fraction: float = 0.012
+    base_risk_fraction: float = 0.008
     intraday_leverage: float = 2.0             # Max leverage (2.0 = Reg T, 4.0 = PDT intraday)
-    daily_stop_r: float = 2.0
-    heat_cap_r: float = 5.0
-    portfolio_daily_stop_r: float = 4.0
+    daily_stop_r: float = 2.75
+    heat_cap_r: float = 6.0
+    portfolio_daily_stop_r: float = 3.5
     sector_risk_cap_pct: float = 0.35
     max_positions_tier_a: int = 8
     max_positions_tier_b: int = 5
-    max_positions_per_sector: int = 2
+    max_positions_per_sector: int = 4
     minimum_remaining_size_pct: float = 0.30
 
     confidence_green_mult: float = 1.0
@@ -225,7 +225,7 @@ class StrategySettings:
 
     # V2 Range Filters (widened)
     pb_v2_gap_min_pct: float = -15.0
-    pb_v2_gap_max_pct: float = 5.0
+    pb_v2_gap_max_pct: float = 2.0
     pb_v2_sma_dist_min_pct: float = -10.0
     pb_v2_sma_dist_max_pct: float = 25.0
 
@@ -241,7 +241,7 @@ class StrategySettings:
     pb_v2_gap_fill_thresh: float = -2.0           # Trigger G: gap-down % at open
 
     # V2 Scoring
-    pb_v2_signal_floor: float = 75.0              # F75 baseline (validated via daily sweep)
+    pb_v2_signal_floor: float = 72.0
     pb_v2_signal_floor_tier_b: float = 0.0         # Tier B signal floor override (0=use global)
     pb_v2_sizing_premium: float = 1.00            # score >= 75
     pb_v2_sizing_standard: float = 0.80           # score 60-74
@@ -255,10 +255,10 @@ class StrategySettings:
     pb_v2_open_scored_max_slots: int = 4
     pb_v2_delayed_confirm_min_close_pct: float = 0.40
     pb_v2_delayed_confirm_vol_ratio: float = 0.50
-    pb_v2_vwap_bounce_enabled: bool = True
+    pb_v2_vwap_bounce_enabled: bool = False
     pb_v2_vwap_bounce_after_bar: int = 12
     pb_v2_vwap_bounce_vol_ratio: float = 0.60
-    pb_v2_afternoon_retest_enabled: bool = True
+    pb_v2_afternoon_retest_enabled: bool = False
     pb_v2_afternoon_retest_after_bar: int = 48
     pb_v2_afternoon_retest_min_score: float = 50.0
     pb_v2_afternoon_retest_sizing_mult: float = 0.80
@@ -275,8 +275,8 @@ class StrategySettings:
     pb_v2_mfe_stage2_trigger: float = 0.60
     pb_v2_mfe_stage3_trigger: float = 1.25
     pb_v2_mfe_stage3_trail_atr: float = 0.75
-    pb_v2_partial_profit_trigger_r: float = 0.30
-    pb_v2_partial_profit_remainder_stop_r: float = 0.50
+    pb_v2_partial_profit_trigger_r: float = 0.2
+    pb_v2_partial_profit_remainder_stop_r: float = 0.7
     pb_v2_ema_reversion_exit: bool = True
     pb_v2_ema_reversion_min_r: float = 0.03
     pb_v2_rsi_exit_open_scored: float = 60.0
@@ -285,8 +285,8 @@ class StrategySettings:
     pb_v2_rsi_exit_afternoon: float = 50.0
     pb_v2_vwap_fail_bars: int = 3
     pb_v2_vwap_fail_close_pct: float = 0.35
-    pb_v2_stale_bars: int = 6
-    pb_v2_stale_mfe_thresh: float = 0.05
+    pb_v2_stale_bars: int = 4
+    pb_v2_stale_mfe_thresh: float = 0.08
     pb_v2_stale_tighten_pct: float = 0.30
 
     # V2 Carry (inverted -- default is carry, flatten only when conditions met)
@@ -310,7 +310,7 @@ class StrategySettings:
     pb_max_hold_days: int = 2                    # time stop in days
     pb_profit_target_r: float = 0.0              # profit target R-mult (0=disabled)
     pb_flow_gate: bool = True                    # require positive flow proxy
-    pb_max_positions: int = 8                    # max simultaneous positions (matches max_positions_tier_a)
+    pb_max_positions: int = 10
     pb_regime_gate: str = "C_only_skip"          # "C_only_skip" | "B_and_above" | "any"
     pb_carry_enabled: bool = True                # allow overnight carry
     pb_carry_min_r: float = 0.25                 # min R to qualify for carry
@@ -318,7 +318,7 @@ class StrategySettings:
     pb_gap_max_pct: float = 99.0                 # maximum acceptable gap percent at entry
     pb_sma_dist_min_pct: float = 0.0             # minimum distance above trend SMA at entry
     pb_sma_dist_max_pct: float = 99.0            # maximum distance above trend SMA at entry
-    pb_cdd_max: int = 5                          # maximum consecutive down days allowed
+    pb_cdd_max: int = 6
     pb_entry_rank_min: int = 1                   # minimum ranked candidate to admit
     pb_entry_rank_max: int = 999                 # maximum ranked candidate to admit
     pb_entry_rank_pct_min: float = 0.0           # minimum candidate rank percentile to admit
@@ -352,9 +352,9 @@ class StrategySettings:
     pb_entry_strength_sizing: bool = True        # scale size modestly by intraday score
     pb_improvement_window_bars: int = 2          # better-price wait after READY
     pb_improvement_discount_pct: float = 0.0015  # discount target for READY entry
-    pb_delayed_confirm_after_bar: int = 3        # delayed-confirm arm for medium/high quality names (V4R1)
+    pb_delayed_confirm_after_bar: int = 5
     pb_delayed_confirm_min_close_pct: float = 0.50
-    pb_delayed_confirm_score_min: float = 46.0
+    pb_delayed_confirm_score_min: float = 52.0
     pb_pm_reentry: bool = False                  # opt-in only; default quality is weak in current baseline
     pb_pm_reentry_after_bar: int = 48            # 13:30 ET on 5m bars
     pb_max_reentries_per_day: int = 1
@@ -389,6 +389,7 @@ class StrategySettings:
     pb_open_scored_min_score: float = 45.0
     pb_open_scored_max_share: float = 0.25
     pb_open_scored_missing_5m_allow: bool = True
+    pb_open_scored_fill_timing: str = "next_5m_open"  # next_5m_open | same_open
     pb_open_scored_carry_min_r: float = 0.00
     pb_open_scored_carry_close_pct_min: float = 0.0
     pb_open_scored_carry_mfe_gate_r: float = 0.0

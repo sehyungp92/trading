@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import concurrent.futures
 import logging
 import multiprocessing as mp
 import sys
 import time as _time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from backtests.shared.auto.phase_state import PhaseState
 from backtests.shared.auto.cache_keys import build_cache_key
@@ -13,25 +14,38 @@ from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
+    SharedPoolBatchEvaluator,
+    create_process_pool,
     greedy_result_from_state,
     mutation_signature,
     resolve_worker_processes,
+    shutdown_process_pool,
 )
 from backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion, ScoredCandidate
 
 from .phase_candidates import BASE_MUTATIONS, PHASE_FOCUS, get_phase_candidates
-from .phase_scoring import merge_alcb_metrics, score_alcb_phase
+from .phase_scoring import (
+    IMMUTABLE_SCORING_WEIGHTS,
+    PHASE_SCORING_WEIGHTS,
+    merge_alcb_metrics,
+    score_alcb_phase,
+)
 from .time_utils import hydrate_time_mutations
 
 logger = logging.getLogger(__name__)
 
+_ALCB_HEARTBEAT_SECONDS = 150.0
+_ALCB_PER_CANDIDATE_TIMEOUT_SECONDS = 450.0
+_ALCB_MINIMUM_TIMEOUT_SECONDS = 3600.0
+_ALCB_MAX_EVAL_BATCH_SIZE = 2
+
 
 _COMMON_HARD_REJECTS = {
-    "min_expected_total_r": 100.0,
-    "min_net_profit": 8000.0,
-    "min_trades_per_month": 20.0,
-    "min_pf": 1.62,
-    "min_expectancy_dollar": 13.55,
+    "min_expected_total_r": 118.0,
+    "min_net_profit": 9000.0,
+    "min_trades_per_month": 19.4,
+    "min_pf": 1.85,
+    "min_expectancy_dollar": 17.00,
     "max_dd_pct": 0.055,
 }
 
@@ -39,100 +53,70 @@ PHASE_STATIC_HARD_REJECTS: dict[int, dict[str, float]] = {
     phase: dict(_COMMON_HARD_REJECTS)
     for phase in PHASE_FOCUS
 }
+PHASE_STATIC_HARD_REJECTS[2].update({
+    "min_mfe_capture_efficiency": 0.74,
+    "min_flow_mfe_exit_inverse": 0.76,
+    "min_short_hold_24_drag_inverse": 0.32,
+})
+PHASE_STATIC_HARD_REJECTS[3].update({
+    "min_mfe_capture_efficiency": 0.74,
+    "min_flow_mfe_exit_inverse": 0.76,
+    "min_short_hold_24_drag_inverse": 0.32,
+})
+PHASE_STATIC_HARD_REJECTS[4].update({
+    "min_late_entry_quality": 0.50,
+})
+PHASE_STATIC_HARD_REJECTS[5].update({
+    "min_mfe_capture_efficiency": 0.70,
+    "min_flow_mfe_exit_inverse": 0.65,
+    "min_short_hold_24_drag_inverse": 0.15,
+})
+PHASE_STATIC_HARD_REJECTS[6].update({
+    "min_mfe_capture_efficiency": 0.70,
+    "min_flow_mfe_exit_inverse": 0.65,
+    "min_short_hold_24_drag_inverse": 0.15,
+})
+PHASE_STATIC_HARD_REJECTS[7].update({
+    "min_mfe_capture_efficiency": 0.74,
+    "min_flow_mfe_exit_inverse": 0.76,
+    "min_short_hold_24_drag_inverse": 0.32,
+})
+PHASE_STATIC_HARD_REJECTS[8].update({
+    "min_mfe_capture_efficiency": 0.72,
+    "min_short_hold_24_drag_inverse": 0.30,
+    "min_signal_quality": 0.55,
+    "min_timing_quality": 0.55,
+})
 
-PHASE_MAX_ROUNDS = {1: 8, 2: 8, 3: 8, 4: 6, 5: 5}
-PHASE_PRUNE_THRESHOLDS = {1: 0.04, 2: 0.04, 3: 0.04, 4: 0.03, 5: 0.03}
-PHASE_MIN_EFFECTIVE_DELTA = {1: 0.0015, 2: 0.0015, 3: 0.0015, 4: 0.0010, 5: 0.0010}
+PHASE_MAX_ROUNDS = {1: 7, 2: 8, 3: 8, 4: 6, 5: 6, 6: 7, 7: 7, 8: 6}
+PHASE_PRUNE_THRESHOLDS = {1: 0.035, 2: 0.035, 3: 0.035, 4: 0.030, 5: 0.030, 6: 0.025, 7: 0.030, 8: 0.025}
+PHASE_MIN_EFFECTIVE_DELTA = {1: 0.0012, 2: 0.0012, 3: 0.0012, 4: 0.0010, 5: 0.0010, 6: 0.0008, 7: 0.0010, 8: 0.0008}
 
 PHASE_GATE_RATIOS: dict[int, dict[str, float]] = {
-    1: {"expected_total_r": 0.98, "net_profit": 0.96, "trades_per_month": 0.94, "profit_factor": 0.97, "expectancy_dollar": 0.97},
-    2: {"expected_total_r": 0.98, "net_profit": 0.96, "trades_per_month": 0.93, "profit_factor": 0.97, "expectancy_dollar": 0.95},
-    3: {"expected_total_r": 0.98, "net_profit": 0.96, "trades_per_month": 0.95, "profit_factor": 0.98, "expectancy_dollar": 0.96},
-    4: {"expected_total_r": 0.98, "net_profit": 0.96, "trades_per_month": 0.94, "profit_factor": 0.97, "expectancy_dollar": 0.95},
-    5: {"expected_total_r": 0.99, "net_profit": 0.97, "trades_per_month": 0.95, "profit_factor": 0.98, "expectancy_dollar": 0.96},
+    1: {"expected_total_r": 0.94, "net_profit": 0.93, "trades_per_month": 0.90, "profit_factor": 0.94, "expectancy_dollar": 0.90},
+    2: {"expected_total_r": 0.95, "net_profit": 0.94, "trades_per_month": 0.92, "profit_factor": 0.94, "expectancy_dollar": 0.90},
+    3: {"expected_total_r": 0.94, "net_profit": 0.92, "trades_per_month": 0.88, "profit_factor": 0.92, "expectancy_dollar": 0.86},
+    4: {"expected_total_r": 0.95, "net_profit": 0.94, "trades_per_month": 0.98, "profit_factor": 0.92, "expectancy_dollar": 0.88},
+    5: {"expected_total_r": 0.94, "net_profit": 0.92, "trades_per_month": 0.88, "profit_factor": 0.92, "expectancy_dollar": 0.86},
+    6: {"expected_total_r": 0.97, "net_profit": 0.95, "trades_per_month": 0.95, "profit_factor": 0.95, "expectancy_dollar": 0.92},
+    7: {"expected_total_r": 0.97, "net_profit": 0.95, "trades_per_month": 0.95, "profit_factor": 0.95, "expectancy_dollar": 0.92},
+    8: {"expected_total_r": 0.97, "net_profit": 0.95, "trades_per_month": 0.98, "profit_factor": 0.95, "expectancy_dollar": 0.92},
 }
 
 ULTIMATE_TARGETS = {
-    "expectancy_dollar": 15.50,
-    "expected_total_r": 110.0,
-    "trades_per_month": 24.0,
-    "profit_factor": 1.80,
-    "extended_avwap_inverse": 0.68,
-    "bar9_inverse": 0.65,
-    "late_entry_quality": 0.66,
-    "pdh_avg_r": 0.16,
-    "score_monotonicity": 0.70,
-    "inv_dd": 0.72,
+    "expectancy_dollar": 22.0,
+    "expected_total_r": 140.0,
+    "trades_per_month": 21.5,
+    "profit_factor": 2.18,
+    "signal_quality": 0.66,
+    "timing_quality": 0.64,
+    "profit_protection": 0.72,
+    "short_hold_24_drag_inverse": 0.48,
+    "flow_mfe_exit_inverse": 0.86,
+    "mfe_capture_efficiency": 0.82,
+    "sizing_alignment": 1.0,
+    "inv_dd": 0.78,
 }
-
-
-class _PoolBatchEvaluator:
-    """Process-pool evaluator that passes phase config per-call."""
-
-    def __init__(
-        self,
-        pool: mp.Pool,
-        phase: int,
-        hard_rejects: dict[str, float] | None,
-        scoring_weights: dict[str, float] | None,
-        on_pool_dead: Callable | None = None,
-        num_workers: int = 2,
-    ):
-        self._pool = pool
-        self._phase = phase
-        self._hard_rejects = hard_rejects or {}
-        self._scoring_weights = scoring_weights or {}
-        self._on_pool_dead = on_pool_dead
-        self._num_workers = num_workers
-
-        from .worker import set_phase_config
-
-        list(pool.map(
-            set_phase_config,
-            [(phase, self._hard_rejects, self._scoring_weights)] * (num_workers * 2),
-        ))
-
-    def __call__(self, candidates: list[Experiment], current_mutations: dict[str, Any]):
-        from .worker import score_candidate_indexed
-
-        args = [
-            (candidate.name, candidate.mutations, current_mutations)
-            for candidate in candidates
-        ]
-        total = len(args)
-        if total == 0:
-            return []
-
-        start = _time.time()
-        logger.info("Dispatching %d candidates to pool...", total)
-
-        indexed_args = [(i, arg) for i, arg in enumerate(args)]
-        results: list[Any] = [None] * total
-        completed = 0
-        progress_step = max(1, total // 10)
-        chunksize = max(1, total // (self._num_workers * 4))
-        for idx, result in self._pool.imap_unordered(score_candidate_indexed, indexed_args, chunksize=chunksize):
-            results[idx] = result
-            completed += 1
-            if completed % progress_step == 0 or completed == total:
-                elapsed = _time.time() - start
-                logger.info(
-                    "  %d/%d evaluated (%.0fs, ~%.1fs/ea)",
-                    completed, total, elapsed, elapsed / completed,
-                )
-        return results
-
-    def close(self) -> None:
-        pass
-
-    def terminate(self) -> None:
-        if self._on_pool_dead:
-            self._on_pool_dead()
-        try:
-            self._pool.terminate()
-            self._pool.join()
-        except Exception:
-            pass
 
 
 class _LocalBatchEvaluator:
@@ -176,11 +160,157 @@ class _LocalBatchEvaluator:
         return None
 
 
+class _ThreadBatchEvaluator:
+    def __init__(
+        self,
+        data_dir: Path,
+        start_date: str,
+        end_date: str,
+        initial_equity: float,
+        phase: int,
+        hard_rejects: dict[str, float] | None,
+        scoring_weights: dict[str, float] | None,
+        *,
+        max_workers: int | None,
+        logger: logging.Logger | None = None,
+        description: str = "thread batch",
+        heartbeat_seconds: float = 150.0,
+        per_candidate_timeout_seconds: float = 300.0,
+        minimum_timeout_seconds: float = 300.0,
+    ):
+        from .worker import init_worker
+
+        init_worker(
+            str(data_dir),
+            start_date,
+            end_date,
+            initial_equity,
+            phase,
+            hard_rejects,
+            scoring_weights,
+        )
+        self._phase = phase
+        self._hard_rejects = hard_rejects or {}
+        self._scoring_weights = scoring_weights or {}
+        self._max_workers = resolve_worker_processes(max_workers)
+        self._logger = logger
+        self._description = description
+        self._heartbeat_seconds = float(heartbeat_seconds)
+        self._per_candidate_timeout_seconds = float(per_candidate_timeout_seconds)
+        self._minimum_timeout_seconds = float(minimum_timeout_seconds)
+        self._executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=self._max_workers,
+            thread_name_prefix=f"alcb-phase-{phase}",
+        )
+
+    def __call__(self, candidates: list[Experiment], current_mutations: dict[str, Any]):
+        from .worker import score_candidate
+
+        if not candidates:
+            return []
+
+        args = [
+            (
+                candidate.name,
+                candidate.mutations,
+                current_mutations,
+                self._phase,
+                self._hard_rejects,
+                self._scoring_weights,
+            )
+            for candidate in candidates
+        ]
+        results: list[ScoredCandidate | None] = [None] * len(args)
+        futures = {
+            self._executor.submit(score_candidate, arg): index
+            for index, arg in enumerate(args)
+        }
+        total = len(args)
+        completed = 0
+        started_at = _time.monotonic()
+        timeout_seconds = max(
+            self._minimum_timeout_seconds,
+            total * self._per_candidate_timeout_seconds,
+        )
+        poll_interval = min(max(self._heartbeat_seconds / 3.0, 1.0), 5.0)
+        next_heartbeat = started_at + max(1.0, self._heartbeat_seconds)
+        progress_step = max(5, (total + 9) // 10)
+        next_progress_at = progress_step
+
+        try:
+            while futures:
+                elapsed = _time.monotonic() - started_at
+                if elapsed >= timeout_seconds:
+                    raise TimeoutError(
+                        f"{self._description} exceeded timeout after {elapsed:.0f}s "
+                        f"while evaluating {total} candidate(s)."
+                    )
+
+                done, _ = concurrent.futures.wait(
+                    tuple(futures),
+                    timeout=poll_interval,
+                    return_when=concurrent.futures.FIRST_COMPLETED,
+                )
+                progressed = False
+                for future in done:
+                    index = futures.pop(future)
+                    results[index] = future.result()
+                    completed += 1
+                    progressed = True
+
+                if self._logger is not None and progressed and (completed >= next_progress_at or completed == total):
+                    self._logger.info(
+                        "%s progress: %d/%d completed (%.0f%%, %.0fs elapsed%s).",
+                        self._description,
+                        completed,
+                        total,
+                        (completed / total) * 100.0 if total else 100.0,
+                        elapsed,
+                        self._eta_suffix(elapsed, completed, total),
+                    )
+                    while next_progress_at <= completed:
+                        next_progress_at += progress_step
+                    next_heartbeat = _time.monotonic() + max(1.0, self._heartbeat_seconds)
+                elif self._logger is not None and _time.monotonic() >= next_heartbeat:
+                    alive_threads = min(len(futures), self._max_workers)
+                    self._logger.info(
+                        "%s still running after %.0fs (%d/%d completed, %d/%d worker thread(s) active%s).",
+                        self._description,
+                        elapsed,
+                        completed,
+                        total,
+                        alive_threads,
+                        self._max_workers,
+                        self._eta_suffix(elapsed, completed, total),
+                    )
+                    next_heartbeat = _time.monotonic() + max(1.0, self._heartbeat_seconds)
+        except Exception:
+            for future in futures:
+                future.cancel()
+            raise
+
+        if any(result is None for result in results):
+            raise RuntimeError(f"{self._description} completed with missing thread results.")
+        return [result for result in results if result is not None]
+
+    def close(self) -> None:
+        self._executor.shutdown(wait=True, cancel_futures=False)
+
+    @staticmethod
+    def _eta_suffix(elapsed_seconds: float, completed: int, total: int) -> str:
+        if completed <= 0 or completed >= total:
+            return ""
+        avg_seconds = elapsed_seconds / completed
+        remaining_seconds = avg_seconds * (total - completed)
+        return f", ETA ~{remaining_seconds:.0f}s"
+
+
 class ALCBP16Plugin:
     name = "alcb"
     num_phases = len(PHASE_FOCUS)
     initial_mutations = dict(BASE_MUTATIONS)
     ultimate_targets = ULTIMATE_TARGETS
+    immutable_scoring_weights = dict(IMMUTABLE_SCORING_WEIGHTS)
 
     def __init__(
         self,
@@ -207,7 +337,6 @@ class ALCBP16Plugin:
         self._last_context: dict[str, Any] = {}
         self._phase_runtime_context: dict[int, dict[str, Any]] = {}
         self._shared_pool: mp.Pool | None = None
-        self._resolved_workers: int = 0
 
     def _replay_bundle(self):
         from backtests.stock.data.replay_cache import load_research_replay_bundle
@@ -237,7 +366,7 @@ class ALCBP16Plugin:
         effective_start = start_date or self.start_date
         effective_end = end_date or self.end_date
         return build_cache_key(
-            "alcb_p16.metrics",
+            "alcb_p18_real_alpha.metrics",
             source_fingerprint=self._replay_data_fingerprint(),
             mutations=mutations,
             extra={
@@ -249,12 +378,11 @@ class ALCBP16Plugin:
 
     def _get_or_create_pool(self) -> mp.Pool:
         if self._shared_pool is None:
-            from .worker import init_worker_data_only
+            from .worker import init_worker
 
-            self._resolved_workers = resolve_worker_processes(self.max_workers)
-            self._shared_pool = mp.Pool(
-                processes=self._resolved_workers,
-                initializer=init_worker_data_only,
+            self._shared_pool = create_process_pool(
+                self.max_workers,
+                initializer=init_worker,
                 initargs=(
                     str(self.data_dir),
                     self.start_date,
@@ -265,19 +393,11 @@ class ALCBP16Plugin:
         return self._shared_pool
 
     def close_pool(self) -> None:
-        if self._shared_pool is not None:
-            try:
-                self._shared_pool.close()
-                self._shared_pool.join()
-            except Exception:
-                try:
-                    self._shared_pool.terminate()
-                    self._shared_pool.join()
-                except Exception:
-                    pass
-            self._shared_pool = None
+        shutdown_process_pool(self._shared_pool)
+        self._shared_pool = None
 
-    def _invalidate_pool(self) -> None:
+    def _destroy_pool(self) -> None:
+        shutdown_process_pool(self._shared_pool, force=True)
         self._shared_pool = None
 
     def get_phase_spec(self, phase: int, state: PhaseState) -> PhaseSpec:
@@ -294,7 +414,7 @@ class ALCBP16Plugin:
             focus=focus,
             candidates=candidates,
             gate_criteria_fn=lambda metrics, current_phase=phase: self._gate_criteria(current_phase, metrics),
-            scoring_weights=None,
+            scoring_weights=dict(PHASE_SCORING_WEIGHTS.get(phase, IMMUTABLE_SCORING_WEIGHTS)),
             hard_rejects=PHASE_STATIC_HARD_REJECTS.get(phase, {}),
             analysis_policy=PhaseAnalysisPolicy(
                 focus_metrics=focus_metrics,
@@ -333,7 +453,7 @@ class ALCBP16Plugin:
             "hard_rejects": resolved_hard_rejects,
         }
         evaluation_key = build_cache_key(
-            "alcb_p16.evaluation",
+            "alcb_p18_real_alpha.evaluation",
             source_fingerprint=self._replay_data_fingerprint(),
             extra={
                 "phase": phase,
@@ -356,18 +476,55 @@ class ALCBP16Plugin:
                 scoring_weights,
             )
 
-        if self.max_workers == 1 or not _supports_spawn():
+        if self.max_workers == 1:
+            evaluator = local_factory()
+        elif sys.platform == "win32":
+            logger.info(
+                "Using Windows thread evaluator for %s phase %d with max_workers=%s.",
+                self.name, phase, self.max_workers,
+            )
+            evaluator = _ThreadBatchEvaluator(
+                self.data_dir,
+                self.start_date,
+                self.end_date,
+                self.initial_equity,
+                phase,
+                resolved_hard_rejects,
+                scoring_weights,
+                max_workers=self.max_workers,
+                logger=logger,
+                description=f"{self.name} phase {phase}",
+                heartbeat_seconds=_ALCB_HEARTBEAT_SECONDS,
+                per_candidate_timeout_seconds=_ALCB_PER_CANDIDATE_TIMEOUT_SECONDS,
+                minimum_timeout_seconds=_ALCB_MINIMUM_TIMEOUT_SECONDS,
+            )
+        elif not _supports_spawn():
             evaluator = local_factory()
         else:
             def pool_factory():
                 pool = self._get_or_create_pool()
-                return _PoolBatchEvaluator(
+                from .worker import score_candidate
+
+                return SharedPoolBatchEvaluator(
                     pool,
-                    phase,
-                    resolved_hard_rejects,
-                    scoring_weights,
-                    on_pool_dead=self._invalidate_pool,
-                    num_workers=self._resolved_workers,
+                    worker_fn=score_candidate,
+                    build_args=lambda candidates, current_mutations: [
+                        (
+                            candidate.name,
+                            candidate.mutations,
+                            current_mutations,
+                            phase,
+                            resolved_hard_rejects,
+                            scoring_weights,
+                        )
+                        for candidate in candidates
+                    ],
+                    on_terminate=self._destroy_pool,
+                    description=f"{self.name} phase {phase}",
+                    logger=logger,
+                    heartbeat_seconds=_ALCB_HEARTBEAT_SECONDS,
+                    per_candidate_timeout_seconds=_ALCB_PER_CANDIDATE_TIMEOUT_SECONDS,
+                    minimum_timeout_seconds=_ALCB_MINIMUM_TIMEOUT_SECONDS,
                 )
 
             evaluator = ResilientBatchEvaluator(
@@ -382,6 +539,7 @@ class ALCBP16Plugin:
             seed_results={baseline_key: baseline_result},
             signature_prefix=evaluation_key,
             metrics_cache=self._metrics_cache,
+            max_batch_size=_ALCB_MAX_EVAL_BATCH_SIZE,
         )
 
     def compute_final_metrics(self, mutations: dict[str, Any]) -> dict[str, float]:
@@ -441,7 +599,8 @@ class ALCBP16Plugin:
         from backtests.stock.analysis.alcb_qe_replacement import qe_replacement_analysis
 
         final_phase, final_ctx, final_metrics, final_greedy = self._build_final_round_context(state)
-        base_ctx = self._run_config(BASE_MUTATIONS, store_context=False, collect_diagnostics=True)
+        base_mutations = dict(getattr(self, "initial_mutations", BASE_MUTATIONS) or {})
+        base_ctx = self._run_config(base_mutations, store_context=False, collect_diagnostics=True)
         base_metrics = base_ctx["metrics"]
         final_trades = final_ctx["trades"]
         final_diagnostics_text = self.run_enhanced_diagnostics(final_phase, state, final_metrics, final_greedy)
@@ -459,18 +618,20 @@ class ALCBP16Plugin:
                 f"Avg hold hours {base_metrics['avg_hold_hours']:.2f} -> {final_metrics['avg_hold_hours']:.2f}.",
             ]),
             "entry_shape": "\n".join([
+                f"Signal quality {base_metrics.get('signal_quality', 0.0):.3f} -> {final_metrics.get('signal_quality', 0.0):.3f}.",
+                f"Timing quality {base_metrics.get('timing_quality', 0.0):.3f} -> {final_metrics.get('timing_quality', 0.0):.3f}.",
                 f"Extended AVWAP inverse {base_metrics.get('extended_avwap_inverse', 0.0):.3f} -> {final_metrics.get('extended_avwap_inverse', 0.0):.3f}.",
                 f"Bar-9 inverse {base_metrics.get('bar9_inverse', 0.0):.3f} -> {final_metrics.get('bar9_inverse', 0.0):.3f}.",
                 f"Late-entry quality {base_metrics.get('late_entry_quality', 0.0):.3f} -> {final_metrics.get('late_entry_quality', 0.0):.3f}.",
-                f"PDH avg R {base_metrics.get('pdh_avg_r', 0.0):+.3f} -> {final_metrics.get('pdh_avg_r', 0.0):+.3f}.",
-                f"OR avg R {base_metrics.get('or_avg_r', 0.0):+.3f} -> {final_metrics.get('or_avg_r', 0.0):+.3f}.",
                 f"Score monotonicity {base_metrics.get('score_monotonicity', 0.0):.3f} -> {final_metrics.get('score_monotonicity', 0.0):.3f}.",
             ]),
             "management": "\n".join([
                 f"MFE capture eff {base_metrics.get('mfe_capture_efficiency', 0.0):.3f} -> {final_metrics.get('mfe_capture_efficiency', 0.0):.3f}.",
                 f"Profit protection {base_metrics.get('profit_protection', 0.0):.3f} -> {final_metrics.get('profit_protection', 0.0):.3f}.",
-                f"Short-hold total R {base_metrics.get('short_hold_total_r', 0.0):+.2f} -> {final_metrics.get('short_hold_total_r', 0.0):+.2f}.",
-                f"FLOW_REV short R {base_metrics.get('flow_reversal_short_total_r', 0.0):+.2f} -> {final_metrics.get('flow_reversal_short_total_r', 0.0):+.2f}.",
+                f"Short-hold <=24 bars R {base_metrics.get('short_hold_24_total_r', 0.0):+.2f} -> {final_metrics.get('short_hold_24_total_r', 0.0):+.2f}.",
+                f"FLOW/MFE exit inverse {base_metrics.get('flow_mfe_exit_inverse', 0.0):.3f} -> {final_metrics.get('flow_mfe_exit_inverse', 0.0):.3f}.",
+                f"Sizing alignment {base_metrics.get('sizing_alignment', 0.0):.3f} -> {final_metrics.get('sizing_alignment', 0.0):.3f}.",
+                f"Long-hold capture {base_metrics.get('long_hold_capture', 0.0):.3f} -> {final_metrics.get('long_hold_capture', 0.0):.3f}.",
             ]),
             "risk": "\n".join([
                 f"Max DD {base_metrics['max_drawdown_pct']:.1%} -> {final_metrics['max_drawdown_pct']:.1%}.",
@@ -488,7 +649,8 @@ class ALCBP16Plugin:
             f"Final {self.num_phases}-phase bundle finished at "
             f"expectancy ${final_metrics['expectancy_dollar']:+.2f}, expected_total_r {final_metrics['expected_total_r']:+.2f}, "
             f"{final_metrics['trades_per_month']:.2f} trades/month, PF {final_metrics['profit_factor']:.3f}, "
-            f"score monotonicity {final_metrics.get('score_monotonicity', 0.0):.3f}, "
+            f"signal_quality {final_metrics.get('signal_quality', 0.0):.3f}, "
+            f"timing_quality {final_metrics.get('timing_quality', 0.0):.3f}, "
             f"and max DD {final_metrics['max_drawdown_pct']:.1%}."
         )
         return EndOfRoundArtifacts(
@@ -502,40 +664,45 @@ class ALCBP16Plugin:
         base_metrics = self._phase_runtime_context.get(phase, {}).get("base_metrics", {})
         gaps: list[str] = []
         if phase == 1:
-            if metrics.get("extended_avwap_inverse", 0.0) < max(0.50, base_metrics.get("extended_avwap_inverse", 0.0) * 0.98):
-                gaps.append("Extended AVWAP premium cleanup still is not protecting the >0.5% bucket.")
-            if metrics["expected_total_r"] < base_metrics.get("expected_total_r", 0.0) * 0.98:
-                gaps.append("AVWAP discipline is trimming too much total alpha.")
-            if metrics["trades_per_month"] < base_metrics.get("trades_per_month", 0.0) * 0.94:
-                gaps.append("AVWAP discipline is over-pruning throughput.")
+            if metrics.get("signal_quality", 0.0) < max(0.50, base_metrics.get("signal_quality", 0.0) * 0.92):
+                gaps.append("Score-component sizing is not improving discrimination between stronger and weaker breakouts.")
+            if metrics.get("score_monotonicity", 0.0) < max(0.42, base_metrics.get("score_monotonicity", 0.0) * 0.90):
+                gaps.append("The completed-bar score shape is still not monotonic enough.")
+            if metrics["expected_total_r"] < base_metrics.get("expected_total_r", 0.0) * 0.94:
+                gaps.append("Signal discrimination is trimming too much total alpha.")
         elif phase == 2:
-            if metrics.get("bar9_inverse", 0.0) < max(0.40, base_metrics.get("bar9_inverse", 0.0) * 0.98):
-                gaps.append("Bar-9 repair is still leaving the 10:10 pocket weak.")
-            if metrics.get("late_entry_quality", 0.0) < max(0.50, base_metrics.get("late_entry_quality", 0.0) * 0.98):
-                gaps.append("Late-entry repair is not improving the weaker late bucket enough.")
-            if metrics["trades_per_month"] < base_metrics.get("trades_per_month", 0.0) * 0.93:
-                gaps.append("Timing repair is cutting too much frequency.")
+            if metrics.get("short_hold_24_drag_inverse", 0.0) < max(0.15, base_metrics.get("short_hold_24_drag_inverse", 0.0) * 0.80):
+                gaps.append("The early-failure protective stop is not neutralizing the <=24-bar loser pocket enough.")
+            if metrics.get("profit_protection", 0.0) < max(0.45, base_metrics.get("profit_protection", 0.0) * 0.85):
+                gaps.append("Early-failure protection is not improving aggregate profit protection.")
+            if metrics.get("mfe_capture_efficiency", 0.0) < max(0.70, base_metrics.get("mfe_capture_efficiency", 0.0) * 0.90):
+                gaps.append("Early stop tightening is giving up too much winner MFE capture.")
         elif phase == 3:
-            if metrics.get("pdh_avg_r", 0.0) < max(0.10, base_metrics.get("pdh_avg_r", 0.0) * 0.98):
-                gaps.append("PDH discrimination still has not closed enough of the OR-vs-PDH quality gap.")
-            if metrics["expected_total_r"] < base_metrics.get("expected_total_r", 0.0) * 0.98:
-                gaps.append("PDH repair is reducing total R instead of cleaning weak PDH flow.")
-            if metrics["trades_per_month"] < base_metrics.get("trades_per_month", 0.0) * 0.95:
-                gaps.append("PDH gating is suppressing too many acceptable trades.")
+            if metrics.get("flow_mfe_exit_inverse", 0.0) < max(0.65, base_metrics.get("flow_mfe_exit_inverse", 0.0) * 0.85):
+                gaps.append("FLOW_REVERSAL and MFE_CONVICTION exits are still too negative.")
+            if metrics.get("profit_protection", 0.0) < max(0.45, base_metrics.get("profit_protection", 0.0) * 0.85):
+                gaps.append("Exit management still is not improving aggregate profit protection.")
+            if metrics.get("long_hold_capture", 0.0) < max(0.75, base_metrics.get("long_hold_capture", 0.0) * 0.85):
+                gaps.append("Profit-retention changes are clipping too much runner alpha.")
         elif phase == 4:
-            if metrics.get("score_monotonicity", 0.0) < max(0.35, base_metrics.get("score_monotonicity", 0.0) * 1.02):
-                gaps.append("Momentum score buckets still are not allocating capital in a cleaner monotonic shape.")
-            if metrics["expectancy_dollar"] < base_metrics.get("expectancy_dollar", 0.0) * 0.95:
-                gaps.append("Score-shape normalization is hurting per-trade economics.")
-            if metrics["max_drawdown_pct"] > self._drawdown_budget(phase, base_metrics):
-                gaps.append("Score-shape normalization is taking too much drawdown heat.")
+            if metrics.get("trades_per_month", 0.0) < base_metrics.get("trades_per_month", 0.0) * 0.98:
+                gaps.append("The selective late-window extension is not recovering enough acceptable frequency.")
+            if metrics.get("late_entry_quality", 0.0) < max(0.50, base_metrics.get("late_entry_quality", 0.0) * 0.80):
+                gaps.append("The recovered late-window entries are not high quality enough.")
+            if metrics["expected_total_r"] < base_metrics.get("expected_total_r", 0.0) * 0.95:
+                gaps.append("The frequency-recovery phase is giving back too much total alpha.")
         elif phase == 5:
-            if metrics["expected_total_r"] < base_metrics.get("expected_total_r", 0.0) * 0.99:
+            if metrics.get("extended_avwap_inverse", 0.0) < max(0.30, base_metrics.get("extended_avwap_inverse", 0.0) * 0.90):
+                gaps.append("Entry geometry still is not cleaning up extended entries enough.")
+            if metrics.get("timing_quality", 0.0) < max(0.40, base_metrics.get("timing_quality", 0.0) * 0.88):
+                gaps.append("Entry geometry changes are hurting timing quality.")
+        elif phase == 6:
+            if metrics["expected_total_r"] < base_metrics.get("expected_total_r", 0.0) * 0.97:
                 gaps.append("Synthesis is not preserving the alpha gains from the earlier targeted fixes.")
             if metrics["trades_per_month"] < base_metrics.get("trades_per_month", 0.0) * 0.95:
                 gaps.append("Synthesis is sacrificing too much throughput.")
-            if metrics["profit_factor"] < base_metrics.get("profit_factor", 0.0) * 0.98:
-                gaps.append("Synthesis is blending in lower-quality trades.")
+            if metrics.get("sizing_alignment", 0.0) < max(0.80, base_metrics.get("sizing_alignment", 0.0) * 0.90):
+                gaps.append("Position sizing still allocates too much risk to losing trades versus winners.")
         return gaps
 
     def build_analysis_extra(self, phase: int, metrics: dict[str, float], state: PhaseState, greedy_result) -> dict[str, Any]:
@@ -557,10 +724,16 @@ class ALCBP16Plugin:
             "trades_per_month",
             "profit_factor",
             "max_drawdown_pct",
+            "signal_quality",
+            "timing_quality",
+            "profit_protection",
+            "short_hold_24_drag_inverse",
+            "flow_mfe_exit_inverse",
+            "mfe_capture_efficiency",
+            "sizing_alignment",
             "extended_avwap_inverse",
             "bar9_inverse",
             "late_entry_quality",
-            "pdh_avg_r",
             "score_monotonicity",
         ]
         return {
@@ -586,10 +759,16 @@ class ALCBP16Plugin:
                 f"trades_per_month={core.get('trades_per_month', 0.0):.2f}",
                 f"profit_factor={core.get('profit_factor', 0.0):.3f}",
                 f"max_drawdown_pct={core.get('max_drawdown_pct', 0.0):.2%}",
+                f"signal_quality={core.get('signal_quality', 0.0):.3f}",
+                f"timing_quality={core.get('timing_quality', 0.0):.3f}",
+                f"profit_protection={core.get('profit_protection', 0.0):.3f}",
+                f"short24_inv={core.get('short_hold_24_drag_inverse', 0.0):.3f}",
+                f"flow_mfe_inv={core.get('flow_mfe_exit_inverse', 0.0):.3f}",
+                f"mfe_capture_eff={core.get('mfe_capture_efficiency', 0.0):.3f}",
+                f"sizing_alignment={core.get('sizing_alignment', 0.0):.3f}",
                 f"extended_avwap_inverse={core.get('extended_avwap_inverse', 0.0):.3f}",
                 f"bar9_inverse={core.get('bar9_inverse', 0.0):.3f}",
                 f"late_entry_quality={core.get('late_entry_quality', 0.0):.3f}",
-                f"pdh_avg_r={core.get('pdh_avg_r', 0.0):+.3f}",
                 f"score_monotonicity={core.get('score_monotonicity', 0.0):.3f}",
             ]
         )
@@ -630,55 +809,93 @@ class ALCBP16Plugin:
         ]
 
         if phase == 1:
-            criteria.append(
-                self._min_gate(
-                    "extended_avwap_inverse",
-                    metrics.get("extended_avwap_inverse", 0.0),
-                    max(0.50, base_metrics.get("extended_avwap_inverse", 0.0) * 0.98),
-                )
-            )
-        elif phase == 2:
             criteria.extend([
                 self._min_gate(
-                    "bar9_inverse",
-                    metrics.get("bar9_inverse", 0.0),
-                    max(0.40, base_metrics.get("bar9_inverse", 0.0) * 0.98),
+                    "signal_quality",
+                    metrics.get("signal_quality", 0.0),
+                    max(0.50, base_metrics.get("signal_quality", 0.0) * 0.92),
                 ),
-                self._min_gate(
-                    "late_entry_quality",
-                    metrics.get("late_entry_quality", 0.0),
-                    max(0.50, base_metrics.get("late_entry_quality", 0.0) * 0.98),
-                ),
-            ])
-        elif phase == 3:
-            criteria.append(
-                self._min_gate(
-                    "pdh_avg_r",
-                    metrics.get("pdh_avg_r", 0.0),
-                    max(0.10, base_metrics.get("pdh_avg_r", 0.0) * 0.98),
-                )
-            )
-        elif phase == 4:
-            criteria.extend([
                 self._min_gate(
                     "score_monotonicity",
                     metrics.get("score_monotonicity", 0.0),
-                    max(0.35, base_metrics.get("score_monotonicity", 0.0) * 1.02),
+                    max(0.42, base_metrics.get("score_monotonicity", 0.0) * 0.90),
                 ),
                 self._min_gate(
-                    "inv_dd",
-                    metrics.get("inv_dd", 0.0),
-                    max(0.62, base_metrics.get("inv_dd", 0.0) * 0.98),
+                    "sizing_alignment",
+                    metrics.get("sizing_alignment", 0.0),
+                    max(0.80, base_metrics.get("sizing_alignment", 0.0) * 0.90),
+                ),
+            ])
+        elif phase in (2, 3, 7):
+            criteria.extend([
+                self._min_gate(
+                    "profit_protection",
+                    metrics.get("profit_protection", 0.0),
+                    max(0.45, base_metrics.get("profit_protection", 0.0) * 0.85),
+                ),
+                self._min_gate(
+                    "short_hold_24_drag_inverse",
+                    metrics.get("short_hold_24_drag_inverse", 0.0),
+                    max(0.15, base_metrics.get("short_hold_24_drag_inverse", 0.0) * 0.80),
+                ),
+                self._min_gate(
+                    "mfe_capture_efficiency",
+                    metrics.get("mfe_capture_efficiency", 0.0),
+                    max(0.70, base_metrics.get("mfe_capture_efficiency", 0.0) * 0.90),
+                ),
+            ])
+            if phase == 3:
+                criteria.append(
+                    self._min_gate(
+                        "long_hold_capture",
+                        metrics.get("long_hold_capture", 0.0),
+                        max(0.75, base_metrics.get("long_hold_capture", 0.0) * 0.85),
+                    )
+                )
+        elif phase == 4:
+            criteria.extend([
+                self._min_gate(
+                    "late_entry_quality",
+                    metrics.get("late_entry_quality", 0.0),
+                    max(0.50, base_metrics.get("late_entry_quality", 0.0) * 0.80),
+                ),
+                self._min_gate(
+                    "signal_quality",
+                    metrics.get("signal_quality", 0.0),
+                    max(0.50, base_metrics.get("signal_quality", 0.0) * 0.88),
+                ),
+            ])
+        elif phase == 5:
+            criteria.extend([
+                self._min_gate(
+                    "extended_avwap_inverse",
+                    metrics.get("extended_avwap_inverse", 0.0),
+                    max(0.30, base_metrics.get("extended_avwap_inverse", 0.0) * 0.90),
+                ),
+                self._min_gate(
+                    "timing_quality",
+                    metrics.get("timing_quality", 0.0),
+                    max(0.40, base_metrics.get("timing_quality", 0.0) * 0.88),
                 ),
             ])
         else:
-            criteria.append(
+            criteria.extend([
                 self._min_gate(
-                    "inv_dd",
-                    metrics.get("inv_dd", 0.0),
-                    max(0.62, base_metrics.get("inv_dd", 0.0) * 0.98),
-                )
-            )
+                    "signal_quality",
+                    metrics.get("signal_quality", 0.0),
+                    max(0.50, base_metrics.get("signal_quality", 0.0) * 0.92),
+                ),
+                self._min_gate(
+                    "sizing_alignment",
+                    metrics.get("sizing_alignment", 0.0),
+                    max(0.80, base_metrics.get("sizing_alignment", 0.0) * 0.90),
+                ),
+                self._min_gate(
+                    "profit_protection",
+                    metrics.get("profit_protection", 0.0),
+                    max(0.45, base_metrics.get("profit_protection", 0.0) * 0.85),
+                ),
+            ])
         return criteria
 
     def _resolve_phase_hard_rejects(
@@ -697,8 +914,30 @@ class ALCBP16Plugin:
         self._raise_floor(resolved, "min_pf", base_metrics.get("profit_factor", 0.0), ratios["profit_factor"], minimum=_COMMON_HARD_REJECTS["min_pf"])
         self._raise_floor(resolved, "min_expectancy_dollar", base_metrics.get("expectancy_dollar", 0.0), ratios["expectancy_dollar"], minimum=_COMMON_HARD_REJECTS["min_expectancy_dollar"])
 
-        if phase >= 4:
-            self._raise_floor(resolved, "min_inv_dd", base_metrics.get("inv_dd", 0.0), 0.98, minimum=0.62)
+        if phase == 1:
+            self._raise_floor(resolved, "min_signal_quality", base_metrics.get("signal_quality", 0.0), 0.92, minimum=0.50)
+            self._raise_floor(resolved, "min_score_monotonicity", base_metrics.get("score_monotonicity", 0.0), 0.90, minimum=0.42)
+            self._raise_floor(resolved, "min_sizing_alignment", base_metrics.get("sizing_alignment", 0.0), 0.90, minimum=0.80)
+        if phase in (2, 3, 7):
+            self._raise_floor(resolved, "min_profit_protection", base_metrics.get("profit_protection", 0.0), 0.85, minimum=0.45)
+            self._raise_floor(resolved, "min_short_hold_24_drag_inverse", base_metrics.get("short_hold_24_drag_inverse", 0.0), 0.80, minimum=0.15)
+            self._raise_floor(resolved, "min_flow_mfe_exit_inverse", base_metrics.get("flow_mfe_exit_inverse", 0.0), 0.85, minimum=0.65)
+            self._raise_floor(resolved, "min_mfe_capture_efficiency", base_metrics.get("mfe_capture_efficiency", 0.0), 0.90, minimum=0.70)
+        if phase == 3:
+            self._raise_floor(resolved, "min_long_hold_capture", base_metrics.get("long_hold_capture", 0.0), 0.85, minimum=0.75)
+        if phase == 4:
+            self._raise_floor(resolved, "min_late_entry_quality", base_metrics.get("late_entry_quality", 0.0), 0.80, minimum=0.50)
+            self._raise_floor(resolved, "min_signal_quality", base_metrics.get("signal_quality", 0.0), 0.88, minimum=0.50)
+        if phase >= 5:
+            self._raise_floor(resolved, "min_extended_avwap_inverse", base_metrics.get("extended_avwap_inverse", 0.0), 0.90, minimum=0.30)
+            self._raise_floor(resolved, "min_timing_quality", base_metrics.get("timing_quality", 0.0), 0.88, minimum=0.40)
+        if phase == 6:
+            self._raise_floor(resolved, "min_profit_protection", base_metrics.get("profit_protection", 0.0), 0.85, minimum=0.45)
+            self._raise_floor(resolved, "min_short_hold_24_drag_inverse", base_metrics.get("short_hold_24_drag_inverse", 0.0), 0.80, minimum=0.15)
+            self._raise_floor(resolved, "min_flow_mfe_exit_inverse", base_metrics.get("flow_mfe_exit_inverse", 0.0), 0.85, minimum=0.65)
+            self._raise_floor(resolved, "min_mfe_capture_efficiency", base_metrics.get("mfe_capture_efficiency", 0.0), 0.90, minimum=0.70)
+            self._raise_floor(resolved, "min_signal_quality", base_metrics.get("signal_quality", 0.0), 0.92, minimum=0.50)
+            self._raise_floor(resolved, "min_sizing_alignment", base_metrics.get("sizing_alignment", 0.0), 0.90, minimum=0.80)
 
         resolved["max_dd_pct"] = min(
             float(resolved.get("max_dd_pct", _COMMON_HARD_REJECTS["max_dd_pct"])),
@@ -826,9 +1065,9 @@ class ALCBP16Plugin:
     @staticmethod
     def _drawdown_budget(phase: int, base_metrics: dict[str, float]) -> float:
         base_dd = float(base_metrics.get("max_drawdown_pct", 0.0))
-        multiplier = {1: 1.22, 2: 1.18, 3: 1.15, 4: 1.10, 5: 1.08}.get(phase, 1.12)
-        static_cap = {1: 0.055, 2: 0.055, 3: 0.054, 4: 0.052, 5: 0.050}.get(phase, 0.052)
-        floor = {1: 0.047, 2: 0.047, 3: 0.046, 4: 0.045, 5: 0.044}.get(phase, 0.045)
+        multiplier = {1: 1.22, 2: 1.18, 3: 1.15, 4: 1.10, 5: 1.08, 6: 1.10, 7: 1.08, 8: 1.08}.get(phase, 1.12)
+        static_cap = {1: 0.055, 2: 0.055, 3: 0.054, 4: 0.052, 5: 0.052, 6: 0.055, 7: 0.052, 8: 0.052}.get(phase, 0.055)
+        floor = {1: 0.047, 2: 0.047, 3: 0.046, 4: 0.045, 5: 0.045, 6: 0.047, 7: 0.045, 8: 0.045}.get(phase, 0.045)
         dynamic = max(base_dd * multiplier, base_dd + 0.010, floor)
         return min(static_cap, dynamic)
 
@@ -852,7 +1091,7 @@ def _build_phase_snapshot(
     )
     return "\n".join([
         "=" * 70,
-        f"ALCB P16 TARGETED ENTRY REPAIR PHASE {phase} SNAPSHOT",
+        f"ALCB ROUND-3 RESIDUAL ALPHA PHASE {phase} SNAPSHOT",
         "=" * 70,
         f"Focus: {focus}",
         f"Score {greedy_result.base_score:.4f} -> {greedy_result.final_score:.4f} with {greedy_result.accepted_count} accepted mutations.",
@@ -863,16 +1102,20 @@ def _build_phase_snapshot(
             f"pf={metrics['profit_factor']:.3f}, dd={metrics['max_drawdown_pct']:.1%}, trades/month={metrics['trades_per_month']:.2f}"
         ),
         (
-            f"Entry shape: extended_avwap_inverse={metrics.get('extended_avwap_inverse', 0.0):.3f}, "
+            f"Quality: signal_quality={metrics.get('signal_quality', 0.0):.3f}, "
+            f"timing_quality={metrics.get('timing_quality', 0.0):.3f}, "
+            f"extended_avwap_inverse={metrics.get('extended_avwap_inverse', 0.0):.3f}, "
             f"bar9_inverse={metrics.get('bar9_inverse', 0.0):.3f}, "
             f"late_entry_quality={metrics.get('late_entry_quality', 0.0):.3f}, "
-            f"pdh_avg_r={metrics.get('pdh_avg_r', 0.0):+.3f}, "
-            f"or_avg_r={metrics.get('or_avg_r', 0.0):+.3f}, "
             f"score_monotonicity={metrics.get('score_monotonicity', 0.0):.3f}"
         ),
         (
             f"Management: profit_protection={metrics.get('profit_protection', 0.0):.3f}, "
+            f"short24_inv={metrics.get('short_hold_24_drag_inverse', 0.0):.3f}, "
+            f"flow_mfe_inv={metrics.get('flow_mfe_exit_inverse', 0.0):.3f}, "
             f"mfe_capture_eff={metrics.get('mfe_capture_efficiency', 0.0):.3f}, "
+            f"sizing_alignment={metrics.get('sizing_alignment', 0.0):.3f}, "
+            f"long_hold_capture={metrics.get('long_hold_capture', 0.0):.3f}, "
             f"inv_dd={metrics.get('inv_dd', 0.0):.3f}"
         ),
         f"Focus metric deltas: {focus_deltas}",

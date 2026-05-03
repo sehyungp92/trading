@@ -30,6 +30,7 @@ def generate_phase_diagnostics(
     lines.append(f"Win rate:        {metrics.win_rate:.1%}")
     lines.append(f"Profit factor:   {metrics.profit_factor:.2f}")
     lines.append(f"Net return:      {metrics.net_return_pct:.1f}%")
+    lines.append(f"Robust return:   {metrics.robust_net_return_pct:.1f}% (ex largest winner)")
     lines.append(f"Max drawdown:    {metrics.max_dd_pct:.2%}")
     lines.append(f"Calmar:          {metrics.calmar:.2f}")
     lines.append(f"Sharpe:          {metrics.sharpe:.2f}")
@@ -45,6 +46,8 @@ def generate_phase_diagnostics(
     lines.append(f"Avg loser R:     {metrics.avg_loser_r:.3f}")
     lines.append(f"Avg MFE R:       {metrics.avg_mfe_r:.3f}")
     lines.append(f"Avg hold hours:  {metrics.avg_hold_hours:.1f}")
+    lines.append(f"Largest win:     {metrics.largest_winner_r:.3f}R, "
+                 f"{metrics.largest_win_pnl_share:.1%} of net profit")
 
     # D3: Regime analysis (always -- critical for post-audit regime filtering)
     lines.append("\n--- D3: Regime Analysis ---")
@@ -89,13 +92,13 @@ def get_diagnostic_gaps(phase: int, metrics: NQDTCMetrics) -> list[str]:
     """Identify diagnostic gaps for the current phase."""
     gaps: list[str] = []
 
-    if metrics.capture_ratio < 0.35:
+    if metrics.capture_ratio < 0.42:
         gaps.append("Low MFE capture ratio -- exits leave alpha on the table")
     if metrics.burst_trade_pct > 0.15:
         gaps.append("High burst clustering -- correlated entries drag performance")
     if metrics.eth_short_wr < 0.40 and metrics.eth_short_trades > 30:
         gaps.append("ETH shorts underperforming -- session-direction filter needed")
-    if metrics.total_trades < 80:
+    if metrics.total_trades < 120:
         gaps.append("Low trade frequency -- signal gates may be too restrictive")
     if metrics.max_dd_pct > 0.20:
         gaps.append("Elevated drawdown -- risk controls or regime filtering needed")
@@ -103,8 +106,12 @@ def get_diagnostic_gaps(phase: int, metrics: NQDTCMetrics) -> list[str]:
         gaps.append("Low Range regime concentration -- regime filtering may help")
     if metrics.tp1_hit_rate < 0.10:
         gaps.append("Very low TP1 hit rate -- TP target may be too aggressive")
-    if metrics.profit_factor < 1.5:
+    if metrics.profit_factor < 1.6:
         gaps.append("Low profit factor -- edge may be degraded by filters")
+    if metrics.largest_win_pnl_share > 0.30:
+        gaps.append("High largest-winner concentration -- return may be outlier-dependent")
+    if metrics.robust_net_return_pct < 220:
+        gaps.append("Low robust return after removing largest winner")
 
     return gaps
 

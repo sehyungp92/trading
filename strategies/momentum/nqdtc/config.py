@@ -40,18 +40,18 @@ BLOCK_RTH_DEGRADED = True      # block DEGRADED-mode entries during RTH
 
 # Hour-level entry blocks (ported from NQDTCAblationFlags — optimisation pass)
 BLOCK_04_ET = True   # block all entries during the 04:00 ET hour (thin pre-dawn liquidity)
-BLOCK_05_ET = True   # block all entries during the 05:00 ET hour (matches backtest block_05_et flag)
+BLOCK_05_ET = False
 BLOCK_06_ET = True   # P5: block all entries during the 06:00 ET hour (pre-European-open, WR=39%)
-BLOCK_09_ET = True   # block all entries during the 09:00 ET hour (RTH open whipsaw)
+BLOCK_09_ET = False
 BLOCK_12_ET = True   # block all entries during the 12:00 ET hour (17% WR, outlier-dependent)
 BLOCK_THURSDAY = False  # tested: blocks 54 trades, -$11.6k PnL, Sharpe -0.03
-BLOCK_ETH_SHORTS = True   # exit-opt: ETH short entries have negative expectancy
+BLOCK_ETH_SHORTS = True
 
 # ---------------------------------------------------------------------------
 # Risk (Section 3)
 # ---------------------------------------------------------------------------
-RISK_PCT = 0.015            # exit-opt: 1.5% risk yields 2-4 contracts on $10K (was 0.80%)
-BASE_RISK_PCT = 0.015
+RISK_PCT = 0.0045
+BASE_RISK_PCT = 0.0045
 
 # Costs (Section 3.2)
 COMMISSION_RT = {"NQ": 4.12, "MNQ": 1.64}
@@ -135,9 +135,9 @@ INVALIDATION_CONSEC_INSIDE = 3
 # ---------------------------------------------------------------------------
 # Evidence scorecard (Section 13)
 # ---------------------------------------------------------------------------
-SCORE_NORMAL = 0.5   # exit-opt: lowered from 1.5 — allows more entries previously filtered
+SCORE_NORMAL = 1.5
 SCORE_DEGRADED = 2.5
-RVOL_SCORE_THRESH = 1.2
+RVOL_SCORE_THRESH = 1.5
 
 # ---------------------------------------------------------------------------
 # Sizing (Section 15)
@@ -148,9 +148,9 @@ RISK_FLOOR_FRAC = 0.15      # risk floor = 0.15 * base_risk_pct
 
 # Post-audit composite regime blocking (Step 0a)
 # When True, entries in that composite regime are hard-blocked (not just sized down)
-BLOCK_NEUTRAL_REGIME = False
-BLOCK_ALIGNED_REGIME = False
-BLOCK_CAUTION_REGIME = False
+BLOCK_NEUTRAL_REGIME = True
+BLOCK_ALIGNED_REGIME = True
+BLOCK_CAUTION_REGIME = True
 SCORE_NON_RANGE_MULT = 1.0     # score threshold multiplier for non-Range regimes
 
 # ---------------------------------------------------------------------------
@@ -204,9 +204,9 @@ MM_DURATION_MAX = 1.4
 # nqdtc_v4 step 6: collapse TP2/TP3 — chandelier runner captures post-TP1 at +1.928 avg R
 # Caution (TP1+runner) was +0.847R; Neutral/Aligned had TP2 diluting runner gains
 EXIT_TIERS = {
-    "Aligned": [(1.056, 0.25), (5.0, 0.25)],   # exit-opt: early TP1 + distant TP2 lottery
-    "Neutral":  [(1.056, 0.25), (5.0, 0.25)],   # remaining 50% trails with chandelier
-    "Caution":  [(1.056, 0.25), (5.0, 0.25)],   # TP1 locks 25%, TP2 captures massive runs
+    "Aligned": [(1.4, 0.55), (5.0, 0.25)],
+    "Neutral":  [(1.4, 0.55), (5.0, 0.25)],
+    "Caution":  [(1.4, 0.55), (5.0, 0.25)],
 }
 
 # Profit-funded
@@ -218,7 +218,7 @@ EARLY_BE_MFE_R = 0.8             # disabled via flag — clips winners that retr
 
 # Post-TP1 ratchet floor (Section 17.4b)
 RATCHET_LOCK_PCT = 0.35          # exit-opt: lock 35% of peak R (was 25%)
-RATCHET_THRESHOLD_R = 1.0        # exit-opt: ratchet activates earlier (was 1.5R)
+RATCHET_THRESHOLD_R = 0.75
 
 # Post-TP1 chandelier tightening (Improvement 4 — REVERTED: cut winners too aggressively)
 CHANDELIER_POST_TP1_MULT_DECAY = 0.0    # disabled
@@ -323,11 +323,11 @@ ATR14_5M_PERIOD = 14
 # ---------------------------------------------------------------------------
 # Auto-optimization param_overrides defaults (Prereq 4)
 # ---------------------------------------------------------------------------
-MIN_INTER_TRADE_GAP_MINUTES = 0      # disabled by default (minutes between entries)
+MIN_INTER_TRADE_GAP_MINUTES = 30
 ETH_SHORT_SIZE_MULT = 1.0            # no reduction by default (ETH short sizing)
-MIN_BOX_WIDTH = 180                  # exit-opt: reject narrow boxes < 180 pts (noise)
+MIN_BOX_WIDTH = 150
 MAX_BOX_WIDTH = 99999                # no filter by default (box width gate)
-LOSS_STREAK_THRESHOLD = 3            # consecutive losses before cooldown
+LOSS_STREAK_THRESHOLD = 2
 LOSS_STREAK_SKIP_BARS = 6            # 5m bars to skip after streak (6 = 30 min)
 PROFIT_BE_R = 0.0                    # BE trigger R (0 = on TP1 fill, current behavior)
 

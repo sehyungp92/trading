@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import backtests.shared.auto.plugin_utils as plugin_utils_module
 import backtests.shared.auto.phase_runner as phase_runner_module
 import backtests.stock.analysis.iaric_pullback_diagnostics as pullback_diagnostics_module
 import backtests.stock.analysis.iaric_pullback_round_diagnostics as pullback_round_module
@@ -10,7 +11,13 @@ import backtests.stock.auto.iaric.plugin as pullback_plugin_module
 import backtests.stock.cli as stock_cli_module
 from backtests.momentum.auto.downturn.plugin import DownturnPlugin
 from backtests.shared.auto.phase_analyzer import analyze_phase
-from backtests.shared.auto.plugin_utils import CachedBatchEvaluator, ResilientBatchEvaluator, mutation_signature
+from backtests.shared.auto.plugin_utils import (
+    CachedBatchEvaluator,
+    ResilientBatchEvaluator,
+    SharedPoolBatchEvaluator,
+    mutation_signature,
+    pool_map_with_heartbeat,
+)
 from backtests.shared.auto.phase_runner import PhaseRunner
 from backtests.shared.auto.phase_state import PhaseState
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
@@ -264,6 +271,207 @@ def test_resilient_batch_evaluator_falls_back_to_local_after_parallel_permission
     assert local.calls == 2
     assert [result.name for result in first] == ["candidate"]
     assert [result.name for result in second] == ["candidate2"]
+
+
+def test_resilient_batch_evaluator_falls_back_to_local_after_parallel_timeout():
+    class _BrokenDelegate:
+        def __init__(self):
+            self.calls = 0
+            self.terminated = False
+
+        def __call__(self, candidates, current_mutations):
+            del candidates, current_mutations
+            self.calls += 1
+            raise TimeoutError("stalled worker pool")
+
+        def terminate(self):
+            self.terminated = True
+
+    class _LocalDelegate:
+        def __init__(self):
+            self.calls = 0
+
+        def __call__(self, candidates, current_mutations):
+            del current_mutations
+            self.calls += 1
+            return [ScoredCandidate(name=candidate.name, score=3.0) for candidate in candidates]
+
+    broken = _BrokenDelegate()
+    local = _LocalDelegate()
+    evaluator = ResilientBatchEvaluator(
+        preferred_factory=lambda: broken,
+        fallback_factory=lambda: local,
+        description="timeout evaluator",
+    )
+
+    result = evaluator([Experiment("candidate", {"x": 1})], {})
+
+    assert broken.calls == 1
+    assert broken.terminated
+    assert local.calls == 1
+    assert [item.name for item in result] == ["candidate"]
+
+
+def test_shared_pool_batch_evaluator_closes_owned_pool():
+    class _AsyncResult:
+        def ready(self):
+            return True
+
+        def get(self):
+            return "ok"
+
+    class _Pool:
+        def __init__(self):
+            self.calls = []
+            self._pool = []
+
+        def apply_async(self, worker_fn, args):
+            self.calls.append((worker_fn, args))
+            return _AsyncResult()
+
+    pool = _Pool()
+    close_calls = {"count": 0}
+    worker_fn = object()
+    evaluator = SharedPoolBatchEvaluator(
+        pool,
+        worker_fn=worker_fn,
+        build_args=lambda candidates, current_mutations: [(c.name, current_mutations) for c in candidates],
+        on_close=lambda: close_calls.__setitem__("count", close_calls["count"] + 1),
+        on_terminate=None,
+        description="owned pool batch",
+    )
+
+    result = evaluator([Experiment("candidate", {"x": 1})], {})
+    evaluator.close()
+
+    assert result == ["ok"]
+    assert pool.calls == [(worker_fn, (("candidate", {}),))]
+    assert close_calls["count"] == 1
+
+
+def test_pool_map_with_heartbeat_times_out_on_stalled_pool(monkeypatch):
+    clock = {"t": 0.0}
+
+    class _AsyncResult:
+        def ready(self):
+            return False
+
+    class _Pool:
+        def __init__(self):
+            self._pool = []
+
+        def apply_async(self, worker_fn, args):
+            del worker_fn, args
+            return _AsyncResult()
+
+    monkeypatch.setattr(plugin_utils_module.time, "monotonic", lambda: clock["t"])
+    monkeypatch.setattr(plugin_utils_module.time, "sleep", lambda seconds: clock.__setitem__("t", clock["t"] + seconds))
+
+    with pytest.raises(TimeoutError, match="stalled batch exceeded timeout"):
+        pool_map_with_heartbeat(
+            _Pool(),
+            object(),
+            [("candidate",)],
+            description="stalled batch",
+            heartbeat_seconds=1.0,
+            per_candidate_timeout_seconds=2.0,
+            minimum_timeout_seconds=2.0,
+        )
+
+
+def test_shared_pool_batch_evaluator_detects_dead_workers(monkeypatch):
+    clock = {"t": 0.0}
+
+    class _DeadWorker:
+        pid = 1234
+        exitcode = 1
+
+        def is_alive(self):
+            return False
+
+    class _AsyncResult:
+        def ready(self):
+            return False
+
+    class _Pool:
+        def __init__(self):
+            self._pool = [_DeadWorker()]
+
+        def apply_async(self, worker_fn, args):
+            del worker_fn, args
+            return _AsyncResult()
+
+    monkeypatch.setattr(plugin_utils_module.time, "monotonic", lambda: clock["t"])
+
+    evaluator = SharedPoolBatchEvaluator(
+        _Pool(),
+        worker_fn=object(),
+        build_args=lambda candidates, current_mutations: [(c.name, current_mutations) for c in candidates],
+        on_terminate=None,
+        description="dead worker batch",
+    )
+
+    with pytest.raises(RuntimeError, match="worker exited unexpectedly"):
+        evaluator([Experiment("candidate", {"x": 1})], {})
+
+
+def test_pool_map_with_heartbeat_logs_grouped_progress(monkeypatch):
+    clock = {"t": 0.0}
+    messages: list[str] = []
+
+    class _Logger:
+        def info(self, message, *args):
+            messages.append(message % args)
+
+    class _AsyncResult:
+        def __init__(self, ready_at: float, value: str):
+            self._ready_at = ready_at
+            self._value = value
+
+        def ready(self):
+            return clock["t"] >= self._ready_at
+
+        def get(self):
+            return self._value
+
+    class _Worker:
+        def is_alive(self):
+            return True
+
+        exitcode = None
+        pid = 1000
+
+    class _Pool:
+        def __init__(self):
+            self._pool = [_Worker(), _Worker()]
+            self._submitted = 0
+
+        def apply_async(self, worker_fn, args):
+            del worker_fn
+            ready_at = 0.0 if self._submitted < 6 else 1.0
+            result = _AsyncResult(ready_at, args[0][0])
+            self._submitted += 1
+            return result
+
+    monkeypatch.setattr(plugin_utils_module.time, "monotonic", lambda: clock["t"])
+    monkeypatch.setattr(plugin_utils_module.time, "sleep", lambda seconds: clock.__setitem__("t", clock["t"] + seconds))
+
+    results = pool_map_with_heartbeat(
+        _Pool(),
+        object(),
+        [(f"cand_{index}",) for index in range(12)],
+        description="grouped batch",
+        logger=_Logger(),
+        heartbeat_seconds=5.0,
+        per_candidate_timeout_seconds=10.0,
+        minimum_timeout_seconds=10.0,
+    )
+
+    progress_messages = [message for message in messages if "progress:" in message]
+    assert results == [f"cand_{index}" for index in range(12)]
+    assert len(progress_messages) == 2
+    assert "6/12 completed" in progress_messages[0]
+    assert "12/12 completed" in progress_messages[1]
 
 
 def test_phase_runner_reruns_greedy_with_phase_specific_weights_and_candidates(tmp_path, monkeypatch):

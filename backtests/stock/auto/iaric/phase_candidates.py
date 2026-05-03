@@ -2466,3 +2466,493 @@ def get_v4r1_phase_candidate_lookup(
             accepted_mutations=accepted_mutations,
         )
     }
+
+
+# ---------------------------------------------------------------------------
+# V5R1 -- Alpha Extraction and Capacity Expansion from Round-1 optimum
+#
+# Baseline: backtests/output/stock/iaric/round_1/optimized_config.json
+# The candidate set deliberately stays in the existing config surface so this
+# round optimizes strategy behavior without changing execution or timing logic.
+# ---------------------------------------------------------------------------
+V5R1_BASE_MUTATIONS: dict[str, Any] = {
+    "param_overrides.pb_v2_enabled": True,
+    "param_overrides.pb_execution_mode": "intraday_hybrid",
+    "param_overrides.pb_daily_signal_family": "meanrev_sweetspot_v1",
+    "param_overrides.pb_daily_signal_min_score": 54.0,
+    "param_overrides.pb_daily_rescue_min_score": 52.0,
+    "param_overrides.pb_flow_policy": "soft_penalty_rescue",
+    "param_overrides.pb_rescue_size_mult": 0.65,
+    "param_overrides.pb_backtest_intraday_universe_only": True,
+    "param_overrides.pb_min_candidates_day": 8,
+    "param_overrides.pb_signal_rank_gate_mode": "score_rank",
+    "param_overrides.pb_v2_signal_floor": 75.0,
+    "param_overrides.pb_v2_allow_secular": True,
+    "param_overrides.pb_v2_secular_sizing_mult": 0.65,
+    "param_overrides.pb_v2_open_scored_enabled": True,
+    "param_overrides.pb_v2_open_scored_max_slots": 4,
+    "param_overrides.pb_open_scored_enabled": True,
+    "param_overrides.pb_open_scored_fill_timing": "next_5m_open",
+    "param_overrides.pb_v2_open_scored_rank_pct_max": 100.0,
+    "param_overrides.pb_v2_open_scored_min_score": 45.0,
+    "param_overrides.pb_delayed_confirm_enabled": True,
+    "param_overrides.pb_v2_vwap_bounce_enabled": True,
+    "param_overrides.pb_v2_afternoon_retest_enabled": True,
+    "param_overrides.pb_atr_stop_mult": 1.0,
+    "param_overrides.pb_v2_partial_profit_trigger_r": 0.3,
+    "param_overrides.pb_v2_ema_reversion_min_r": 0.03,
+    "param_overrides.pb_v2_stale_mfe_thresh": 0.05,
+    "param_overrides.pb_v2_stale_bars": 6,
+    "param_overrides.pb_v2_mfe_stage1_stop_r": -0.1,
+    "param_overrides.pb_v2_mfe_stage2_trigger": 0.6,
+    "param_overrides.pb_opening_reclaim_enabled": False,
+    "param_overrides.pb_v2_mfe_stage1_trigger": 0.5,
+    "param_overrides.pb_v2_mfe_stage3_trigger": 1.25,
+    "param_overrides.pb_v2_mfe_stage3_trail_atr": 0.75,
+    "param_overrides.pb_v2_ema_reversion_exit": True,
+    "param_overrides.pb_v2_rsi_exit_open_scored": 60.0,
+    "param_overrides.pb_v2_carry_overnight_stop_atr": 1.0,
+    "param_overrides.pb_v2_flatten_loss_r": -0.5,
+    "param_overrides.pb_v2_flow_grace_days": 2,
+    "param_overrides.pb_open_scored_carry_close_pct_min": 0.0,
+    "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.0,
+    "param_overrides.pb_open_scored_flow_reversal_lookback": 2,
+    "param_overrides.pb_max_hold_days": 2,
+    "param_overrides.pb_max_positions": 10,
+    "max_per_sector": 2,
+    "param_overrides.pb_open_scored_max_hold_days": 2,
+    "param_overrides.pb_carry_close_pct_min": 0.0,
+    "param_overrides.pb_carry_mfe_gate_r": 0.0,
+}
+
+
+V5R1_PHASE_FOCUS: dict[int, tuple[str, list[str]]] = {
+    1: (
+        "Signal Alpha Recovery and Rejection",
+        ["expected_total_r", "avg_r", "total_trades", "profit_factor", "alpha_discrimination"],
+    ),
+    2: (
+        "Entry Route Quality and Timing",
+        ["expected_total_r", "avg_r", "total_trades", "profit_factor", "alpha_discrimination"],
+    ),
+    3: (
+        "Capacity and Frequency Expansion",
+        ["expected_total_r", "total_trades", "avg_r", "profit_factor", "inv_dd"],
+    ),
+    4: (
+        "Carry, Management, and Exit Capture",
+        ["expected_total_r", "avg_r", "profit_factor", "sharpe", "inv_dd"],
+    ),
+    5: (
+        "Robust Interaction Bundles",
+        ["expected_total_r", "total_trades", "avg_r", "profit_factor", "alpha_discrimination"],
+    ),
+}
+
+
+V5R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
+    1: [
+        ("signal_floor_72", {"param_overrides.pb_v2_signal_floor": 72.0}),
+        ("signal_floor_78", {"param_overrides.pb_v2_signal_floor": 78.0}),
+        ("signal_floor_80", {"param_overrides.pb_v2_signal_floor": 80.0}),
+        ("signal_floor_72_gap_max_1", {
+            "param_overrides.pb_v2_signal_floor": 72.0,
+            "param_overrides.pb_v2_gap_max_pct": 1.0,
+        }),
+        ("gap_max_0", {"param_overrides.pb_v2_gap_max_pct": 0.0}),
+        ("gap_max_1", {"param_overrides.pb_v2_gap_max_pct": 1.0}),
+        ("gap_max_2", {"param_overrides.pb_v2_gap_max_pct": 2.0}),
+        ("gap_min_neg8", {"param_overrides.pb_v2_gap_min_pct": -8.0}),
+        ("gap_down_focus", {
+            "param_overrides.pb_v2_gap_min_pct": -8.0,
+            "param_overrides.pb_v2_gap_max_pct": 0.5,
+        }),
+        ("sma_dist_max_12", {"param_overrides.pb_v2_sma_dist_max_pct": 12.0}),
+        ("sma_dist_max_15", {"param_overrides.pb_v2_sma_dist_max_pct": 15.0}),
+        ("cdd_max_4", {"param_overrides.pb_cdd_max": 4}),
+        ("cdd_max_6", {"param_overrides.pb_cdd_max": 6}),
+        ("rsi2_strict_12", {"param_overrides.pb_v2_rsi2_thresh": 12.0}),
+        ("rsi2_broad_20_rsi5_35", {
+            "param_overrides.pb_v2_rsi2_thresh": 20.0,
+            "param_overrides.pb_v2_rsi5_thresh": 35.0,
+        }),
+        ("rs_ratio_relax_100", {"param_overrides.pb_v2_rs_ratio_thresh": 1.00}),
+        ("secular_size_050", {"param_overrides.pb_v2_secular_sizing_mult": 0.50}),
+    ],
+    2: [
+        ("vwap_bounce_off", {"param_overrides.pb_v2_vwap_bounce_enabled": False}),
+        ("afternoon_retest_off", {"param_overrides.pb_v2_afternoon_retest_enabled": False}),
+        ("tail_routes_off", {
+            "param_overrides.pb_v2_vwap_bounce_enabled": False,
+            "param_overrides.pb_v2_afternoon_retest_enabled": False,
+        }),
+        ("delayed_confirm_off", {"param_overrides.pb_delayed_confirm_enabled": False}),
+        ("delayed_bar_5", {"param_overrides.pb_delayed_confirm_after_bar": 5}),
+        ("delayed_bar_7", {"param_overrides.pb_delayed_confirm_after_bar": 7}),
+        ("delayed_tighter_quality", {
+            "param_overrides.pb_delayed_confirm_after_bar": 5,
+            "param_overrides.pb_v2_delayed_confirm_min_close_pct": 0.55,
+            "param_overrides.pb_v2_delayed_confirm_vol_ratio": 0.70,
+            "param_overrides.pb_delayed_confirm_score_min": 52.0,
+        }),
+        ("delayed_later_quality", {
+            "param_overrides.pb_delayed_confirm_after_bar": 7,
+            "param_overrides.pb_v2_delayed_confirm_min_close_pct": 0.55,
+            "param_overrides.pb_delayed_confirm_score_min": 52.0,
+        }),
+        ("delayed_rescue_allowed", {"param_overrides.pb_v2_delayed_confirm_allow_rescue": True}),
+        ("open_scored_min_50", {"param_overrides.pb_v2_open_scored_min_score": 50.0}),
+        ("open_scored_min_55", {"param_overrides.pb_v2_open_scored_min_score": 55.0}),
+        ("open_scored_rank_90", {"param_overrides.pb_v2_open_scored_rank_pct_max": 90.0}),
+        ("open_scored_rank_75", {"param_overrides.pb_v2_open_scored_rank_pct_max": 75.0}),
+        ("missing_5m_disallow", {"param_overrides.pb_open_scored_missing_5m_allow": False}),
+        ("opening_reclaim_high_quality", {
+            "param_overrides.pb_opening_reclaim_enabled": True,
+            "param_overrides.pb_opening_reclaim_min_daily_signal_score": 62.0,
+            "param_overrides.pb_flush_window_bars": 6,
+            "param_overrides.pb_flush_cpr_max": 0.35,
+            "param_overrides.pb_ready_min_cpr": 0.55,
+            "param_overrides.pb_ready_min_volume_ratio": 0.80,
+        }),
+    ],
+    3: [
+        ("sector_cap_3", {"max_per_sector": 3}),
+        ("sector_cap_4", {"max_per_sector": 4}),
+        ("max_pos_11", {"param_overrides.pb_max_positions": 11}),
+        ("max_pos_12", {"param_overrides.pb_max_positions": 12}),
+        ("sector3_pos12", {
+            "max_per_sector": 3,
+            "param_overrides.pb_max_positions": 12,
+        }),
+        ("tier_b_cap_6", {"max_positions_tier_b": 6}),
+        ("tier_b_cap_7", {"max_positions_tier_b": 7}),
+        ("tier_b_floor_72", {"param_overrides.pb_v2_signal_floor_tier_b": 72.0}),
+        ("tier_b_floor_78", {"param_overrides.pb_v2_signal_floor_tier_b": 78.0}),
+        ("tier_b_size_060", {"param_overrides.t2_regime_b_sizing_mult": 0.60}),
+        ("tier_b_size_080", {"param_overrides.t2_regime_b_sizing_mult": 0.80}),
+        ("leverage_250", {"param_overrides.intraday_leverage": 2.5}),
+        ("leverage_300", {"param_overrides.intraday_leverage": 3.0}),
+        ("capacity_quality_bundle", {
+            "max_per_sector": 3,
+            "param_overrides.pb_max_positions": 12,
+            "param_overrides.pb_v2_open_scored_min_score": 50.0,
+        }),
+    ],
+    4: [
+        ("v2_carry_off_gates", {
+            "param_overrides.pb_carry_close_pct_min": 999.0,
+            "param_overrides.pb_carry_mfe_gate_r": 999.0,
+            "param_overrides.pb_open_scored_carry_close_pct_min": 999.0,
+            "param_overrides.pb_open_scored_carry_mfe_gate_r": 999.0,
+            "param_overrides.pb_delayed_confirm_carry_close_pct_min": 999.0,
+            "param_overrides.pb_delayed_confirm_carry_mfe_gate_r": 999.0,
+            "param_overrides.pb_opening_reclaim_carry_close_pct_min": 999.0,
+            "param_overrides.pb_opening_reclaim_carry_mfe_gate_r": 999.0,
+        }),
+        ("carry_quality_055_020", {
+            "param_overrides.pb_carry_close_pct_min": 0.55,
+            "param_overrides.pb_carry_mfe_gate_r": 0.20,
+            "param_overrides.pb_open_scored_carry_close_pct_min": 0.55,
+            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.20,
+            "param_overrides.pb_delayed_confirm_carry_close_pct_min": 0.55,
+            "param_overrides.pb_delayed_confirm_carry_mfe_gate_r": 0.20,
+        }),
+        ("carry_quality_070_030", {
+            "param_overrides.pb_carry_close_pct_min": 0.70,
+            "param_overrides.pb_carry_mfe_gate_r": 0.30,
+            "param_overrides.pb_open_scored_carry_close_pct_min": 0.70,
+            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.30,
+            "param_overrides.pb_delayed_confirm_carry_close_pct_min": 0.70,
+            "param_overrides.pb_delayed_confirm_carry_mfe_gate_r": 0.30,
+        }),
+        ("profit_lock_050", {"param_overrides.pb_v2_carry_profit_lock_r": 0.50}),
+        ("profit_lock_100", {"param_overrides.pb_v2_carry_profit_lock_r": 1.00}),
+        ("partial_profit_020", {"param_overrides.pb_v2_partial_profit_trigger_r": 0.20}),
+        ("partial_profit_040", {"param_overrides.pb_v2_partial_profit_trigger_r": 0.40}),
+        ("partial_profit_050", {"param_overrides.pb_v2_partial_profit_trigger_r": 0.50}),
+        ("partial_remainder_030", {"param_overrides.pb_v2_partial_profit_remainder_stop_r": 0.30}),
+        ("partial_remainder_070", {"param_overrides.pb_v2_partial_profit_remainder_stop_r": 0.70}),
+        ("mfe_s1_trigger_040", {"param_overrides.pb_v2_mfe_stage1_trigger": 0.40}),
+        ("mfe_s1_stop_000", {"param_overrides.pb_v2_mfe_stage1_stop_r": 0.0}),
+        ("mfe_s2_trigger_050", {"param_overrides.pb_v2_mfe_stage2_trigger": 0.50}),
+        ("mfe_s2_trigger_080", {"param_overrides.pb_v2_mfe_stage2_trigger": 0.80}),
+        ("mfe_s3_trigger_100", {"param_overrides.pb_v2_mfe_stage3_trigger": 1.00}),
+        ("mfe_s3_trail_050", {"param_overrides.pb_v2_mfe_stage3_trail_atr": 0.50}),
+        ("stale_bars_4_mfe_008", {
+            "param_overrides.pb_v2_stale_bars": 4,
+            "param_overrides.pb_v2_stale_mfe_thresh": 0.08,
+        }),
+        ("ema_min_000", {"param_overrides.pb_v2_ema_reversion_min_r": 0.0}),
+        ("ema_min_008", {"param_overrides.pb_v2_ema_reversion_min_r": 0.08}),
+        ("rsi_exit_os_55", {"param_overrides.pb_v2_rsi_exit_open_scored": 55.0}),
+        ("rsi_exit_os_65", {"param_overrides.pb_v2_rsi_exit_open_scored": 65.0}),
+    ],
+    5: [
+        ("combo_gap_capacity", {
+            "param_overrides.pb_v2_gap_max_pct": 1.0,
+            "max_per_sector": 3,
+            "param_overrides.pb_max_positions": 12,
+        }),
+        ("combo_floor72_gap_capacity", {
+            "param_overrides.pb_v2_signal_floor": 72.0,
+            "param_overrides.pb_v2_gap_max_pct": 1.0,
+            "max_per_sector": 3,
+            "param_overrides.pb_max_positions": 12,
+        }),
+        ("combo_route_quarantine", {
+            "param_overrides.pb_v2_vwap_bounce_enabled": False,
+            "param_overrides.pb_v2_afternoon_retest_enabled": False,
+            "param_overrides.pb_delayed_confirm_after_bar": 5,
+            "param_overrides.pb_delayed_confirm_score_min": 52.0,
+        }),
+        ("combo_carry_off_exit_capture", {
+            "param_overrides.pb_carry_close_pct_min": 999.0,
+            "param_overrides.pb_carry_mfe_gate_r": 999.0,
+            "param_overrides.pb_open_scored_carry_close_pct_min": 999.0,
+            "param_overrides.pb_open_scored_carry_mfe_gate_r": 999.0,
+            "param_overrides.pb_delayed_confirm_carry_close_pct_min": 999.0,
+            "param_overrides.pb_delayed_confirm_carry_mfe_gate_r": 999.0,
+            "param_overrides.pb_v2_partial_profit_trigger_r": 0.20,
+            "param_overrides.pb_v2_mfe_stage2_trigger": 0.50,
+        }),
+        ("combo_carry_quality_profit_lock", {
+            "param_overrides.pb_carry_close_pct_min": 0.55,
+            "param_overrides.pb_carry_mfe_gate_r": 0.20,
+            "param_overrides.pb_open_scored_carry_close_pct_min": 0.55,
+            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.20,
+            "param_overrides.pb_v2_carry_profit_lock_r": 0.50,
+        }),
+        ("combo_exit_capture_fast", {
+            "param_overrides.pb_v2_partial_profit_trigger_r": 0.20,
+            "param_overrides.pb_v2_partial_profit_remainder_stop_r": 0.70,
+            "param_overrides.pb_v2_mfe_stage2_trigger": 0.50,
+            "param_overrides.pb_v2_mfe_stage3_trail_atr": 0.50,
+        }),
+        ("combo_signal_strict_exit_fast", {
+            "param_overrides.pb_v2_signal_floor": 78.0,
+            "param_overrides.pb_v2_gap_max_pct": 1.0,
+            "param_overrides.pb_v2_partial_profit_trigger_r": 0.20,
+            "param_overrides.pb_v2_mfe_stage2_trigger": 0.50,
+        }),
+        ("combo_no_secular_capacity", {
+            "param_overrides.pb_v2_allow_secular": False,
+            "max_per_sector": 3,
+            "param_overrides.pb_max_positions": 12,
+        }),
+        ("combo_missing5m_strict_open", {
+            "param_overrides.pb_open_scored_missing_5m_allow": False,
+            "param_overrides.pb_v2_open_scored_min_score": 50.0,
+            "param_overrides.pb_v2_open_scored_rank_pct_max": 90.0,
+        }),
+        ("combo_quality_final_defensive", {
+            "param_overrides.pb_v2_signal_floor": 78.0,
+            "param_overrides.pb_v2_vwap_bounce_enabled": False,
+            "param_overrides.pb_v2_afternoon_retest_enabled": False,
+            "param_overrides.pb_v2_stale_bars": 4,
+            "param_overrides.pb_v2_stale_mfe_thresh": 0.08,
+        }),
+    ],
+}
+
+
+_V5R1_DC_DEPENDENT_CANDIDATES = {
+    "delayed_bar_5",
+    "delayed_bar_7",
+    "delayed_tighter_quality",
+    "delayed_later_quality",
+    "delayed_rescue_allowed",
+}
+
+
+def get_v5r1_phase_candidates(
+    phase: int,
+    suggested_experiments: list[tuple[str, dict[str, Any]]] | None = None,
+    *,
+    profile: str = "mainline",
+    accepted_mutations: dict[str, Any] | None = None,
+) -> list[tuple[str, dict[str, Any]]]:
+    del profile
+    experiments = list(V5R1_PHASE_CANDIDATES.get(phase, []))
+    if phase == 2 and accepted_mutations:
+        if accepted_mutations.get("param_overrides.pb_delayed_confirm_enabled") is False:
+            experiments = [
+                (name, mutations)
+                for name, mutations in experiments
+                if name not in _V5R1_DC_DEPENDENT_CANDIDATES
+            ]
+
+    if suggested_experiments:
+        existing = {name for name, _ in experiments}
+        experiments.extend(
+            (name, mutations)
+            for name, mutations in suggested_experiments
+            if name not in existing
+        )
+    return experiments
+
+
+def get_v5r1_phase_candidate_lookup(
+    phase: int,
+    suggested_experiments: list[tuple[str, dict[str, Any]]] | None = None,
+    *,
+    profile: str = "mainline",
+    accepted_mutations: dict[str, Any] | None = None,
+) -> dict[str, dict[str, Any]]:
+    return {
+        name: dict(mutations)
+        for name, mutations in get_v5r1_phase_candidates(
+            phase,
+            suggested_experiments=suggested_experiments,
+            profile=profile,
+            accepted_mutations=accepted_mutations,
+        )
+    }
+
+
+V5R2_BASE_MUTATIONS = dict(V5R1_BASE_MUTATIONS)
+
+
+V5R2_PHASE_FOCUS: dict[int, tuple[str, list[str]]] = {
+    1: (
+        "Carry Drag Suppression",
+        ["net_profit", "expected_total_r", "profit_factor", "sharpe", "residual_alpha_quality"],
+    ),
+    2: (
+        "Delayed Confirm Extraction",
+        ["net_profit", "expected_total_r", "profit_factor", "total_trades", "residual_alpha_quality"],
+    ),
+    3: (
+        "Selection and Capacity Validation",
+        ["net_profit", "expected_total_r", "total_trades", "profit_factor", "inv_dd"],
+    ),
+    4: (
+        "Robust Interaction Bundles",
+        ["net_profit", "expected_total_r", "profit_factor", "sharpe", "inv_dd"],
+    ),
+}
+
+
+V5R2_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
+    1: [
+        ("open_carry_quality_055_020", {
+            "param_overrides.pb_open_scored_carry_close_pct_min": 0.55,
+            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.20,
+        }),
+        ("open_carry_quality_070_030", {
+            "param_overrides.pb_open_scored_carry_close_pct_min": 0.70,
+            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.30,
+        }),
+        ("open_carry_off", {
+            "param_overrides.pb_open_scored_carry_close_pct_min": 999.0,
+            "param_overrides.pb_open_scored_carry_mfe_gate_r": 999.0,
+        }),
+        ("all_route_carry_quality_055_020", {
+            "param_overrides.pb_carry_close_pct_min": 0.55,
+            "param_overrides.pb_carry_mfe_gate_r": 0.20,
+            "param_overrides.pb_open_scored_carry_close_pct_min": 0.55,
+            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.20,
+            "param_overrides.pb_delayed_confirm_carry_close_pct_min": 0.55,
+            "param_overrides.pb_delayed_confirm_carry_mfe_gate_r": 0.20,
+        }),
+        ("all_route_carry_off", {
+            "param_overrides.pb_carry_close_pct_min": 999.0,
+            "param_overrides.pb_carry_mfe_gate_r": 999.0,
+            "param_overrides.pb_open_scored_carry_close_pct_min": 999.0,
+            "param_overrides.pb_open_scored_carry_mfe_gate_r": 999.0,
+            "param_overrides.pb_delayed_confirm_carry_close_pct_min": 999.0,
+            "param_overrides.pb_delayed_confirm_carry_mfe_gate_r": 999.0,
+        }),
+        ("profit_lock_050", {"param_overrides.pb_v2_carry_profit_lock_r": 0.50}),
+        ("flow_grace_1", {"param_overrides.pb_v2_flow_grace_days": 1}),
+    ],
+    2: [
+        ("delayed_score_47", {"param_overrides.pb_delayed_confirm_score_min": 47.0}),
+        ("delayed_score_57", {"param_overrides.pb_delayed_confirm_score_min": 57.0}),
+        ("delayed_bar_7", {"param_overrides.pb_delayed_confirm_after_bar": 7}),
+        ("delayed_bar7_score47", {
+            "param_overrides.pb_delayed_confirm_after_bar": 7,
+            "param_overrides.pb_delayed_confirm_score_min": 47.0,
+        }),
+        ("delayed_quality_055_070", {
+            "param_overrides.pb_v2_delayed_confirm_min_close_pct": 0.55,
+            "param_overrides.pb_v2_delayed_confirm_vol_ratio": 0.70,
+        }),
+        ("delayed_carry_relaxed_045_010", {
+            "param_overrides.pb_delayed_confirm_carry_close_pct_min": 0.45,
+            "param_overrides.pb_delayed_confirm_carry_mfe_gate_r": 0.10,
+        }),
+    ],
+    3: [
+        ("ready_quality_065_120", {
+            "param_overrides.pb_ready_min_cpr": 0.65,
+            "param_overrides.pb_ready_min_volume_ratio": 1.20,
+        }),
+        ("ready_cpr_065", {"param_overrides.pb_ready_min_cpr": 0.65}),
+        ("gap_max_1", {"param_overrides.pb_v2_gap_max_pct": 1.0}),
+        ("gap_down_focus", {
+            "param_overrides.pb_v2_gap_min_pct": -8.0,
+            "param_overrides.pb_v2_gap_max_pct": 0.5,
+        }),
+        ("max_pos_11", {"param_overrides.pb_max_positions": 11}),
+        ("max_pos_12", {"param_overrides.pb_max_positions": 12}),
+    ],
+    4: [
+        ("carry_quality_delayed47", {
+            "param_overrides.pb_open_scored_carry_close_pct_min": 0.55,
+            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.20,
+            "param_overrides.pb_delayed_confirm_score_min": 47.0,
+        }),
+        ("carry_quality_delayed_bar7", {
+            "param_overrides.pb_open_scored_carry_close_pct_min": 0.55,
+            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.20,
+            "param_overrides.pb_delayed_confirm_after_bar": 7,
+        }),
+        ("carry_quality_capacity11", {
+            "param_overrides.pb_open_scored_carry_close_pct_min": 0.55,
+            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.20,
+            "param_overrides.pb_max_positions": 11,
+        }),
+        ("defensive_gap_carry_quality", {
+            "param_overrides.pb_v2_gap_max_pct": 1.0,
+            "param_overrides.pb_open_scored_carry_close_pct_min": 0.55,
+            "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.20,
+        }),
+    ],
+}
+
+
+def get_v5r2_phase_candidates(
+    phase: int,
+    suggested_experiments: list[tuple[str, dict[str, Any]]] | None = None,
+    *,
+    profile: str = "mainline",
+    accepted_mutations: dict[str, Any] | None = None,
+) -> list[tuple[str, dict[str, Any]]]:
+    del profile, accepted_mutations
+    experiments = list(V5R2_PHASE_CANDIDATES.get(phase, []))
+    if suggested_experiments:
+        existing = {name for name, _ in experiments}
+        experiments.extend(
+            (name, mutations)
+            for name, mutations in suggested_experiments
+            if name not in existing
+        )
+    return experiments
+
+
+def get_v5r2_phase_candidate_lookup(
+    phase: int,
+    suggested_experiments: list[tuple[str, dict[str, Any]]] | None = None,
+    *,
+    profile: str = "mainline",
+    accepted_mutations: dict[str, Any] | None = None,
+) -> dict[str, dict[str, Any]]:
+    return {
+        name: dict(mutations)
+        for name, mutations in get_v5r2_phase_candidates(
+            phase,
+            suggested_experiments=suggested_experiments,
+            profile=profile,
+            accepted_mutations=accepted_mutations,
+        )
+    }

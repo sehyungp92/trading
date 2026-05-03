@@ -30,6 +30,8 @@ def init_worker(
     equity: float,
     mode: str = "independent",
     symbols: list[str] | None = None,
+    data_symbols: list[str] | None = None,
+    scoring_profile: str | None = None,
 ) -> None:
     """Initialize worker process: install aliases, load data, create base config.
 
@@ -40,7 +42,10 @@ def init_worker(
         data_dir_str: Path to data directory.
         equity: Initial equity.
         mode: "independent" or "synchronized".
-        symbols: List of symbols to load (default: ["QQQ", "GLD"]).
+        symbols: Baseline tradable symbols (default: ["QQQ", "GLD"]).
+        data_symbols: Superset of symbols to load so symbol-sleeve
+            experiments can be tested without changing baseline behavior.
+        scoring_profile: Composite-score profile for this optimization round.
     """
     global _worker_data, _worker_config, _worker_equity, _worker_mode, _worker_profile
 
@@ -54,9 +59,10 @@ def init_worker(
 
     _worker_equity = equity
     _worker_mode = mode
-    _worker_profile = "r9_synchronized" if mode == "synchronized" else "r1_independent"
+    _worker_profile = scoring_profile or ("r9_synchronized" if mode == "synchronized" else "r1_independent")
     data_dir = Path(data_dir_str)
     sym_list = symbols or ["QQQ", "GLD"]
+    data_sym_list = data_symbols or sym_list
 
     _worker_config = BacktestConfig(
         symbols=sym_list,
@@ -69,7 +75,7 @@ def init_worker(
 
     from backtests.swing.data.replay_cache import load_atrss_replay_bundle
 
-    _worker_data = load_atrss_replay_bundle(data_dir, symbols=tuple(sym_list)).data
+    _worker_data = load_atrss_replay_bundle(data_dir, symbols=tuple(data_sym_list)).data
 
 
 def score_candidate(args: tuple) -> ScoredCandidate:

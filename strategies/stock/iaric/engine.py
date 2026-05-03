@@ -121,6 +121,8 @@ class IARICEngine:
         self._last_decision_code: str = "IDLE"
         self._last_decision_details: dict = {}
         self._last_bar_ts: datetime | None = None
+        self._bars_processed: int = 0
+        self._symbol_last_bar_ts: dict[str, datetime] = {}
 
         self._initialize_from_artifact()
 
@@ -128,6 +130,14 @@ class IARICEngine:
         """Record the latest decision for diagnostic pulse reporting."""
         self._last_decision_code = code
         self._last_decision_details = details or {}
+
+    def liveness_payload(self) -> dict:
+        return {
+            "bars_processed": self._bars_processed,
+            "symbol_freshness": {
+                sym: ts.isoformat() for sym, ts in self._symbol_last_bar_ts.items()
+            },
+        }
 
     @property
     def _instr_kit(self):
@@ -381,6 +391,8 @@ class IARICEngine:
             return
 
         self._last_bar_ts = datetime.now(timezone.utc)
+        self._bars_processed += 1
+        self._symbol_last_bar_ts[normalized] = self._last_bar_ts
         self._bar_builder.ingest_bar(bar)
         market.minute_bars.append(bar)
         market.last_1m_bar = bar

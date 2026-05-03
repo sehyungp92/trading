@@ -1,4 +1,8 @@
-"""NQDTC post-audit phase gate criteria -- recalibrated for recovery from breakeven."""
+"""NQDTC round-2 phase gate criteria.
+
+The score ranks candidates, while these gates keep accepted mutations from
+buying frequency with low-quality trades or exit deterioration.
+"""
 from __future__ import annotations
 
 from backtests.shared.auto.types import GateCriterion, GateResult
@@ -13,57 +17,62 @@ def gate_criteria_for_phase(
 ) -> list[GateCriterion]:
     """Return gate criteria for *phase* given current *metrics*.
 
-    Post-audit recalibration: targets scaled for recovery from PF=0.98 baseline.
-    Phase 1 (Regime): just need improvement over breakeven
-    Phase 2 (Signal): entry quality improvement
-    Phase 3 (Timing/Exit): full system tightening
-    Phase 4 (Fine-tune): no-regression of Phase 3
+    Later rounds start from the previous optimized config, so gates preserve
+    the proven edge while probing robust alpha and throughput.
     """
     criteria: list[GateCriterion] = []
 
     if phase == 1:
-        # Regime filtering: just need improvement over breakeven
+        # Session-frequency harvest: extra trades must also improve return.
         criteria.extend([
-            GateCriterion("hard_min_trades", 10.0, float(metrics.total_trades), metrics.total_trades >= 10),
-            GateCriterion("hard_max_dd_pct", 0.45, metrics.max_dd_pct, metrics.max_dd_pct <= 0.45),
-            GateCriterion("hard_min_pf", 0.70, metrics.profit_factor, metrics.profit_factor >= 0.70),
-            GateCriterion("profit_factor", 1.2, metrics.profit_factor, metrics.profit_factor >= 1.2),
-            GateCriterion("max_dd_pct", 0.30, metrics.max_dd_pct, metrics.max_dd_pct <= 0.30),
-            GateCriterion("net_return_pct", 10.0, metrics.net_return_pct, metrics.net_return_pct >= 10.0),
+            GateCriterion("hard_min_trades", 89.0, float(metrics.total_trades), metrics.total_trades >= 89),
+            GateCriterion("hard_max_dd_pct", 0.18, metrics.max_dd_pct, metrics.max_dd_pct <= 0.18),
+            GateCriterion("hard_min_pf", 2.00, metrics.profit_factor, metrics.profit_factor >= 2.00),
+            GateCriterion("total_trades", 94.0, float(metrics.total_trades), metrics.total_trades >= 94),
+            GateCriterion("net_return_pct", 300.0, metrics.net_return_pct, metrics.net_return_pct >= 300.0),
+            GateCriterion("robust_net_return_pct", 220.0, metrics.robust_net_return_pct, metrics.robust_net_return_pct >= 220.0),
+            GateCriterion("largest_win_pnl_share_max", 0.30, metrics.largest_win_pnl_share, metrics.largest_win_pnl_share <= 0.30),
         ])
     elif phase == 2:
-        # Signal quality: entry quality improvement
+        # Robust return protection: prevent one large trade from masking decay.
         criteria.extend([
-            GateCriterion("hard_min_trades", 15.0, float(metrics.total_trades), metrics.total_trades >= 15),
-            GateCriterion("hard_max_dd_pct", 0.35, metrics.max_dd_pct, metrics.max_dd_pct <= 0.35),
-            GateCriterion("hard_min_pf", 0.90, metrics.profit_factor, metrics.profit_factor >= 0.90),
-            GateCriterion("profit_factor", 1.4, metrics.profit_factor, metrics.profit_factor >= 1.4),
-            GateCriterion("win_rate", 0.50, metrics.win_rate, metrics.win_rate >= 0.50),
-            GateCriterion("net_return_pct", 20.0, metrics.net_return_pct, metrics.net_return_pct >= 20.0),
+            GateCriterion("hard_min_trades", 89.0, float(metrics.total_trades), metrics.total_trades >= 89),
+            GateCriterion("hard_max_dd_pct", 0.18, metrics.max_dd_pct, metrics.max_dd_pct <= 0.18),
+            GateCriterion("hard_min_pf", 2.00, metrics.profit_factor, metrics.profit_factor >= 2.00),
+            GateCriterion("avg_r", 0.48, metrics.avg_r, metrics.avg_r >= 0.48),
+            GateCriterion("capture_ratio", 0.40, metrics.capture_ratio, metrics.capture_ratio >= 0.40),
+            GateCriterion("robust_net_return_pct", 220.0, metrics.robust_net_return_pct, metrics.robust_net_return_pct >= 220.0),
+            GateCriterion("largest_win_pnl_share_max", 0.30, metrics.largest_win_pnl_share, metrics.largest_win_pnl_share <= 0.30),
         ])
     elif phase == 3:
-        # Timing & exit: full system tightening
+        # Selective alpha recovery: existing controls only, no broad quality decay.
         criteria.extend([
-            GateCriterion("hard_min_trades", 15.0, float(metrics.total_trades), metrics.total_trades >= 15),
-            GateCriterion("hard_max_dd_pct", 0.30, metrics.max_dd_pct, metrics.max_dd_pct <= 0.30),
-            GateCriterion("hard_min_pf", 1.00, metrics.profit_factor, metrics.profit_factor >= 1.00),
-            GateCriterion("profit_factor", 1.6, metrics.profit_factor, metrics.profit_factor >= 1.6),
-            GateCriterion("max_dd_pct", 0.20, metrics.max_dd_pct, metrics.max_dd_pct <= 0.20),
-            GateCriterion("sortino", 1.5, metrics.sortino, metrics.sortino >= 1.5),
-            GateCriterion("net_return_pct", 30.0, metrics.net_return_pct, metrics.net_return_pct >= 30.0),
+            GateCriterion("hard_min_trades", 89.0, float(metrics.total_trades), metrics.total_trades >= 89),
+            GateCriterion("hard_max_dd_pct", 0.20, metrics.max_dd_pct, metrics.max_dd_pct <= 0.20),
+            GateCriterion("hard_min_pf", 1.90, metrics.profit_factor, metrics.profit_factor >= 1.90),
+            GateCriterion("net_return_pct", 296.0, metrics.net_return_pct, metrics.net_return_pct >= 296.0),
+            GateCriterion("robust_net_return_pct", 210.0, metrics.robust_net_return_pct, metrics.robust_net_return_pct >= 210.0),
+            GateCriterion("avg_r", 0.42, metrics.avg_r, metrics.avg_r >= 0.42),
+            GateCriterion("capture_ratio", 0.38, metrics.capture_ratio, metrics.capture_ratio >= 0.38),
         ])
     elif phase == 4:
-        # Fine-tune: no-regression of Phase 3 at 90%
+        # Fine-tune: no material regression from Phase 3 while allowing small
+        # tradeoffs for higher expected return/frequency.
         criteria.extend([
-            GateCriterion("hard_min_trades", 15.0, float(metrics.total_trades), metrics.total_trades >= 15),
-            GateCriterion("hard_max_dd_pct", 0.25, metrics.max_dd_pct, metrics.max_dd_pct <= 0.25),
-            GateCriterion("hard_min_pf", 1.00, metrics.profit_factor, metrics.profit_factor >= 1.00),
+            GateCriterion("hard_min_trades", 89.0, float(metrics.total_trades), metrics.total_trades >= 89),
+            GateCriterion("hard_max_dd_pct", 0.20, metrics.max_dd_pct, metrics.max_dd_pct <= 0.20),
+            GateCriterion("hard_min_pf", 1.90, metrics.profit_factor, metrics.profit_factor >= 1.90),
+            GateCriterion("hard_min_capture", 0.38, metrics.capture_ratio, metrics.capture_ratio >= 0.38),
+            GateCriterion("hard_min_robust_return", 210.0, metrics.robust_net_return_pct, metrics.robust_net_return_pct >= 210.0),
         ])
         if prior_phase_metrics:
-            for key in ["calmar", "profit_factor", "sharpe", "sortino", "net_return_pct", "total_trades"]:
+            for key in ["profit_factor", "net_return_pct", "robust_net_return_pct", "total_trades", "avg_r", "capture_ratio"]:
                 target = float(prior_phase_metrics.get(key, 0.0)) * 0.90
                 actual = float(getattr(metrics, key, 0.0))
                 criteria.append(GateCriterion(f"no_regress_{key}", target, actual, actual >= target))
+            prior_dd = float(prior_phase_metrics.get("max_dd_pct", metrics.max_dd_pct))
+            dd_target = min(0.27, prior_dd * 1.15)
+            criteria.append(GateCriterion("no_regress_max_dd_pct", dd_target, metrics.max_dd_pct, metrics.max_dd_pct <= dd_target))
         else:
             criteria.append(GateCriterion("phase4_pass", 0.0, 1.0, True))
 
@@ -101,14 +110,14 @@ def _categorize_failure(metrics: NQDTCMetrics, criteria: list[GateCriterion], gr
 def _get_recommendations(metrics: NQDTCMetrics, criteria: list[GateCriterion], category: str) -> list[str]:
     recs: list[str] = []
     if category == "structural_issue":
-        if metrics.total_trades < 10:
+        if metrics.total_trades < 89:
             recs.append("Relax signal gates to increase trade count")
-        if metrics.max_dd_pct > 0.35:
-            recs.append("Reduce position sizing or tighten stops")
-        if metrics.profit_factor < 0.80:
-            recs.append("Fundamental edge issue -- review signal quality")
+        if metrics.max_dd_pct > 0.20:
+            recs.append("Tighten stop-width, ATR-stop, or exit protection candidates")
+        if metrics.profit_factor < 1.90:
+            recs.append("Reject low-quality cohorts before adding frequency")
     elif category == "scoring_ineffective":
-        recs.append("Adjust scoring weights to better reward gate-relevant metrics")
+        recs.append("Keep score immutable; expand candidates that target the failed gate")
     elif category == "candidates_exhausted":
         recs.append("All candidates rejected -- expand experiment pool or relax hard rejects")
     elif category == "diagnostic_needed":

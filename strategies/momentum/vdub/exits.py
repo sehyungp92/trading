@@ -210,6 +210,29 @@ def compute_mfe_ratchet_floor(pos: PositionState) -> float:
     return pos.entry_price - floor_r * pos.r_points
 
 
+def compute_mfe_rescue_stop(pos: PositionState, current_price: float) -> float:
+    """Protect proven-but-stalling trades before they decay into slow deaths."""
+    if pos.partial_done or pos.r_points <= 0:
+        return pos.stop_price
+    if pos.bars_since_entry < C.MFE_RESCUE_AFTER_BARS:
+        return pos.stop_price
+    if pos.peak_mfe_r < C.MFE_RESCUE_MIN_R:
+        return pos.stop_price
+
+    if pos.direction == Direction.LONG:
+        current_r = (current_price - pos.entry_price) / pos.r_points
+        if current_r > C.MFE_RESCUE_TRIGGER_R:
+            return pos.stop_price
+        rescue = pos.entry_price + C.MFE_RESCUE_LOCK_R * pos.r_points
+        return max(pos.stop_price, rescue)
+
+    current_r = (pos.entry_price - current_price) / pos.r_points
+    if current_r > C.MFE_RESCUE_TRIGGER_R:
+        return pos.stop_price
+    rescue = pos.entry_price - C.MFE_RESCUE_LOCK_R * pos.r_points
+    return min(pos.stop_price, rescue)
+
+
 def compute_close_mfe_ratchet(pos: PositionState) -> float:
     """CLOSE-specific MFE ratchet for skip-partial entries.
 

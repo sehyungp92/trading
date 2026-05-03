@@ -200,13 +200,15 @@ def _write_d3_exit_efficiency(buf: StringIO, trades: list[DownturnTradeRecord] |
             avg_r = float(np.mean(rs))
             buf.write(f"      {exit_type:18s}  n={len(rs):3d}  avgR={avg_r:+.3f}\n")
 
-    # MFE capture
-    mfe_captures = []
-    for t in trades:
-        if t.mfe > 0:
-            mfe_captures.append(t.r_multiple / t.mfe)
-    if mfe_captures:
-        buf.write(f"\n  Avg MFE capture: {float(np.mean(mfe_captures)):.2f}\n")
+    # MFE capture: positive realized R divided by available favorable excursion.
+    total_mfe = sum(t.mfe for t in trades if t.mfe > 0)
+    captured_r = sum(max(0.0, t.r_multiple) for t in trades)
+    if total_mfe > 0:
+        low_mfe = [t for t in trades if t.mfe < 0.5]
+        low_mfe_pnl = sum(t.pnl for t in low_mfe)
+        buf.write(f"\n  Positive MFE capture: {captured_r / total_mfe:.2f}\n")
+        buf.write(f"  Low-MFE trades (<0.5R): {len(low_mfe)}/{len(trades)} ({len(low_mfe) / len(trades):.0%})")
+        buf.write(f"  PnL=${low_mfe_pnl:+,.0f}\n")
     buf.write("\n")
 
 
@@ -395,11 +397,13 @@ def _write_d8_engine_exit_mfe(
             buf.write(f"    MAE: avg={float(np.mean(mae_arr)):.2f}  "
                       f"worst={float(np.min(mae_arr)):.2f}\n")
 
-        # Avg MFE capture per engine
-        eng_captures = [t.r_multiple / t.mfe for t in eng if t.mfe > 0]
-        if eng_captures:
-            buf.write(f"    MFE capture: {float(np.mean(eng_captures)):.2f} "
-                      f"(1.0 = perfect exit at MFE)\n")
+        # Positive MFE capture per engine
+        eng_total_mfe = sum(t.mfe for t in eng if t.mfe > 0)
+        eng_captured_r = sum(max(0.0, t.r_multiple) for t in eng)
+        if eng_total_mfe > 0:
+            low_mfe = [t for t in eng if t.mfe < 0.5]
+            buf.write(f"    Positive MFE capture: {eng_captured_r / eng_total_mfe:.2f}\n")
+            buf.write(f"    Low-MFE trades (<0.5R): {len(low_mfe)}/{len(eng)} ({len(low_mfe) / len(eng):.0%})\n")
 
     buf.write("\n")
 

@@ -28,6 +28,16 @@ from strategies.contracts import RuntimeContext
 
 logger = logging.getLogger(__name__)
 
+_PORTFOLIO_WEEKLY_STOP_R = 7.5
+_REFERENCE_UNIT_RISK_DOLLARS = 250.0
+_MAX_FAMILY_CONTRACTS_MNQ_EQ = 40
+_DD_TIERS = (
+    (0.10, 1.00),
+    (0.15, 0.60),
+    (0.20, 0.30),
+    (1.00, 0.00),
+)
+
 
 class MomentumFamilyCoordinator:
     """Lifecycle manager for four momentum strategies.
@@ -135,11 +145,11 @@ class MomentumFamilyCoordinator:
             logger.warning("MNQ price fetch failed, using default %.0f", mnq_price)
 
         mnq_notional = mnq_price * 2.0  # MNQ point_value
-        max_family_contracts = max(2, int(equity * target_leverage / mnq_notional))
+        max_family_contracts = _MAX_FAMILY_CONTRACTS_MNQ_EQ
         self._base_max_family_contracts = max_family_contracts
         logger.info(
-            "Dynamic MNQ cap: %d contracts (equity=$%.0f, %.0fx leverage, MNQ=%.0f)",
-            max_family_contracts, equity, target_leverage, mnq_price,
+            "Momentum MNQ family cap: %d contracts (equity=$%.0f, phase-auto cap, MNQ=%.0f)",
+            max_family_contracts, equity, mnq_price,
         )
 
         # ── Strategy descriptors ─────────────────────────────────────
@@ -181,22 +191,28 @@ class MomentumFamilyCoordinator:
 
             portfolio_rules = PortfolioRulesConfig(
                 initial_equity=allocated_nav,
-                directional_cap_R=3.5,
-                directional_cap_long_R=3.5,
-                directional_cap_short_R=5.0,
+                directional_cap_R=4.25,
+                directional_cap_long_R=10.0,
+                directional_cap_short_R=10.5,
                 max_family_contracts_mnq_eq=max_family_contracts,
                 family_strategy_ids=all_strategy_ids,
                 symbol_collision_action="none",
-                nqdtc_direction_filter_enabled=False,
+                cooldown_session_only=True,
+                helix_nqdtc_cooldown_minutes=30,
+                nqdtc_direction_filter_enabled=True,
+                nqdtc_agree_size_mult=1.25,
+                nqdtc_oppose_size_mult=0.50,
                 strategy_priorities=(
                     ("VdubusNQ_v4", 0),
+                    ("NQ_REGIME", 0),
                     ("NQDTC_v2.1", 1),
                     ("DownturnDominator_v1", 1),
                     ("AKC_Helix_v40", 2),
                 ),
                 priority_headroom_R=1.0,
                 priority_reserve_threshold=1,
-                reference_unit_risk_dollars=50.0,  # normalize mixed URDs ($200 VdubusNQ vs $50 others)
+                reference_unit_risk_dollars=_REFERENCE_UNIT_RISK_DOLLARS,
+                dd_tiers=_DD_TIERS,
             )
 
             if self._base_portfolio_rules is None:
@@ -210,6 +226,7 @@ class MomentumFamilyCoordinator:
                 daily_stop_R=desc["daily_stop_R"],
                 heat_cap_R=desc["heat_cap_R"],
                 portfolio_daily_stop_R=desc["portfolio_daily_stop_R"],
+                portfolio_weekly_stop_R=_PORTFOLIO_WEEKLY_STOP_R,
                 db_pool=db_pool,
                 portfolio_rules_config=portfolio_rules,
                 get_current_equity=lambda eq=_live_equity: eq[0],
@@ -419,6 +436,19 @@ class MomentumFamilyCoordinator:
                     payload["last_decision_code"] = engine._last_decision_code
                     payload["last_decision_details"] = getattr(engine, "_last_decision_details", None)
                     payload["last_seen_bar_ts"] = getattr(engine, "_last_bar_ts", None)
+                oms = self._oms_services[i]
+                if hasattr(engine, "liveness_payload") or hasattr(oms, "_intents_submitted"):
+                    details = payload.get("last_decision_details") or {}
+                    if hasattr(engine, "liveness_payload"):
+                        details["liveness"] = engine.liveness_payload()
+                    if hasattr(oms, "_intents_submitted"):
+                        details["oms_health"] = {
+                            "submitted": oms._intents_submitted,
+                            "accepted": oms._intents_accepted,
+                            "denied": oms._intents_denied,
+                            "consecutive_denials": oms._consecutive_denials,
+                        }
+                    payload["last_decision_details"] = details
                 payloads.append(payload)
             connected = session.ib.isConnected() if session else False
             # Enrich with IB farm status for diagnostic context
@@ -471,6 +501,17 @@ class MomentumFamilyCoordinator:
         )
         from strategies.momentum.nqdtc.engine import NQDTCEngine
 
+        # NQ Regime Engine
+        from strategies.momentum.nq_regime.config import (
+            STRATEGY_ID as NQ_REGIME_ID,
+            BASE_RISK_PCT as NQ_REGIME_RISK_PCT,
+            DAILY_STOP_R as NQ_REGIME_DAILY_STOP_R,
+            HEAT_CAP_R as NQ_REGIME_HEAT_CAP_R,
+            PORTFOLIO_DAILY_STOP_R as NQ_REGIME_PORTFOLIO_DAILY_STOP_R,
+            build_instruments as nq_regime_build_instruments,
+        )
+        from strategies.momentum.nq_regime.engine import NQRegimeEngine
+
         # ── VdubusNQ v4 ─────────────────────────────────────────────
         from strategies.momentum.vdub.config import (
             STRATEGY_ID as VDUB_ID,
@@ -510,7 +551,7 @@ class MomentumFamilyCoordinator:
                 "base_risk_pct": NQDTC_RISK_PCT,
                 "daily_stop_R": 2.5,
                 "heat_cap_R": 3.5,
-                "portfolio_daily_stop_R": 1.5,
+                "portfolio_daily_stop_R": 2.25,
                 "build_instruments": nqdtc_build_instruments,
                 "engine_cls": NQDTCEngine,
                 "instr_type": "nqdtc",
@@ -519,13 +560,29 @@ class MomentumFamilyCoordinator:
                     "state_dir": Path(os.environ.get("NQDTC_STATE_DIR", "data/nqdtc_state")),
                 },
             },
+            # NQ_REGIME
+            {
+                "strategy_id": NQ_REGIME_ID,
+                "base_risk_pct": NQ_REGIME_RISK_PCT,
+                "daily_stop_R": NQ_REGIME_DAILY_STOP_R,
+                "heat_cap_R": NQ_REGIME_HEAT_CAP_R,
+                "portfolio_daily_stop_R": NQ_REGIME_PORTFOLIO_DAILY_STOP_R,
+                "build_instruments": nq_regime_build_instruments,
+                "engine_cls": NQRegimeEngine,
+                "instr_type": "nq_regime",
+                "trade_recorder": trade_recorder,
+                "engine_extra_kwargs": {
+                    "analysis_symbol": "NQ",
+                    "trade_symbol": "MNQ",
+                },
+            },
             # ── VdubusNQ_v4 ────────────────────────────────────────
             {
                 "strategy_id": VDUB_ID,
                 "base_risk_pct": VDUB_RISK_PCT,
                 "daily_stop_R": 2.5,
                 "heat_cap_R": 3.5,
-                "portfolio_daily_stop_R": 1.5,
+                "portfolio_daily_stop_R": 2.25,
                 "build_instruments": vdub_build_instruments,
                 "engine_cls": VdubNQv4Engine,
                 "instr_type": "vdubus",

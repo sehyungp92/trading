@@ -12,12 +12,14 @@ from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
+    SharedPoolBatchEvaluator,
+    create_process_pool,
     deserialize_experiments,
     greedy_result_from_state,
     greedy_result_to_dict,
     mutation_signature,
-    resolve_worker_processes,
     seen_experiment_names,
+    shutdown_process_pool,
 )
 from backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion, PhaseDecision
 
@@ -107,48 +109,6 @@ def score_phase_metrics(
         total = sum(base.values())
         weights = {key: value / total for key, value in base.items()} if total > 0 else base
     return composite_score(metrics, weights, hard_rejects=hard_rejects)
-
-
-# ---------------------------------------------------------------------------
-# Pool-based and sequential batch evaluators
-# ---------------------------------------------------------------------------
-
-class _SharedPoolBatchEvaluator:
-    """Pool evaluator that keeps the pool alive across close() calls.
-
-    The pool is managed by the plugin -- close() is a no-op so the pool
-    survives between greedy runs / phases.  terminate() signals the plugin
-    to destroy and recreate the pool on next use.
-    """
-
-    def __init__(
-        self,
-        pool: mp.Pool,
-        phase: int,
-        scoring_weights: dict[str, float] | None,
-        hard_rejects: dict[str, float] | None,
-        on_terminate,
-    ):
-        self._pool = pool
-        self._phase = phase
-        self._scoring_weights = scoring_weights
-        self._hard_rejects = hard_rejects
-        self._on_terminate = on_terminate
-
-    def __call__(self, candidates: list[Experiment], current_mutations: dict[str, Any]):
-        from .worker import score_candidate
-
-        args = [
-            (c.name, c.mutations, current_mutations, self._phase, self._scoring_weights, self._hard_rejects)
-            for c in candidates
-        ]
-        return self._pool.map(score_candidate, args)
-
-    def close(self) -> None:
-        pass  # Pool stays alive for reuse across phases
-
-    def terminate(self) -> None:
-        self._on_terminate()
 
 
 class _SequentialBatchEvaluator:
@@ -267,16 +227,11 @@ class HelixPlugin:
         if self._pool is not None and not self._pool_dirty:
             return
         if self._pool is not None:
-            try:
-                self._pool.terminate()
-                self._pool.join()
-            except Exception:
-                pass
+            shutdown_process_pool(self._pool, force=True)
         from .worker import init_worker
 
-        processes = resolve_worker_processes(self.max_workers)
-        self._pool = mp.Pool(
-            processes=processes,
+        self._pool = create_process_pool(
+            self.max_workers,
             initializer=init_worker,
             initargs=(str(self.data_dir), self.initial_equity),
         )
@@ -306,9 +261,17 @@ class HelixPlugin:
 
         def make_parallel():
             self._ensure_pool()
-            return _SharedPoolBatchEvaluator(
-                self._pool, phase, scoring_weights, hard_rejects,
-                self._on_pool_terminate,
+            from .worker import score_candidate
+
+            return SharedPoolBatchEvaluator(
+                self._pool,
+                worker_fn=score_candidate,
+                build_args=lambda candidates, current_mutations: [
+                    (candidate.name, candidate.mutations, current_mutations, phase, scoring_weights, hard_rejects)
+                    for candidate in candidates
+                ],
+                on_terminate=self._on_pool_terminate,
+                description=f"Helix phase {phase}",
             )
 
         def make_sequential():
@@ -543,13 +506,8 @@ class HelixPlugin:
 
     def close_pool(self) -> None:
         """Called in finally block by PhaseRunner.run_all_phases()."""
-        if self._pool is not None:
-            try:
-                self._pool.close()
-                self._pool.join()
-            except Exception:
-                pass
-            self._pool = None
+        shutdown_process_pool(self._pool)
+        self._pool = None
 
     # ------------------------------------------------------------------
     # Gate criteria

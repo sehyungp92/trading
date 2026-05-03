@@ -98,6 +98,100 @@ def compute_ratchet_stop(
 
 
 # ---------------------------------------------------------------------------
+# Right-then-stopped leakage guard
+# ---------------------------------------------------------------------------
+
+def should_arm_rts_guard(
+    *,
+    max_mfe_r: float,
+    current_r: float,
+    bars_held: int,
+    fading_bars: int,
+    trail_active: bool,
+    min_mfe_r: float,
+    min_giveback_r: float,
+    min_bars: int,
+    fade_bars: int,
+    max_mfe_r_limit: float,
+) -> bool:
+    """Return True when a small/mid MFE winner is decaying after entry.
+
+    The guard is intentionally stateful and disabled unless min_mfe_r is set.
+    It only reacts after a trade has shown positive MFE, then given back enough
+    R with optional momentum-fade confirmation.
+    """
+    if min_mfe_r <= 0.0:
+        return False
+    if trail_active:
+        return False
+    if bars_held < max(0, min_bars):
+        return False
+    if max_mfe_r < min_mfe_r:
+        return False
+    if max_mfe_r_limit > 0.0 and max_mfe_r > max_mfe_r_limit:
+        return False
+    if fading_bars < max(0, fade_bars):
+        return False
+    return (max_mfe_r - current_r) >= max(0.0, min_giveback_r)
+
+
+def compute_rts_guard_stop(
+    *,
+    direction: Direction,
+    avg_entry: float,
+    r_price: float,
+    current_price: float,
+    tick_size: float,
+    floor_r: float,
+) -> float | None:
+    """Compute a non-marketable protective stop at a configured R floor."""
+    if r_price <= 0.0 or tick_size <= 0.0:
+        return None
+    if direction == Direction.LONG:
+        stop = round_to_tick(avg_entry + floor_r * r_price, tick_size, "down")
+        if stop >= current_price:
+            return None
+        return stop
+    stop = round_to_tick(avg_entry - floor_r * r_price, tick_size, "up")
+    if stop <= current_price:
+        return None
+    return stop
+
+
+def should_flatten_rts_failure(
+    *,
+    max_mfe_r: float,
+    current_r: float,
+    bars_held: int,
+    fading_bars: int,
+    trail_active: bool,
+    min_mfe_r: float,
+    min_giveback_r: float,
+    min_bars: int,
+    fade_bars: int,
+    max_mfe_r_limit: float,
+    flatten_r: float,
+) -> bool:
+    """Return True when an armed right-then-stopped guard has already failed."""
+    if flatten_r <= -900.0:
+        return False
+    if current_r > flatten_r:
+        return False
+    return should_arm_rts_guard(
+        max_mfe_r=max_mfe_r,
+        current_r=current_r,
+        bars_held=bars_held,
+        fading_bars=fading_bars,
+        trail_active=trail_active,
+        min_mfe_r=min_mfe_r,
+        min_giveback_r=min_giveback_r,
+        min_bars=min_bars,
+        fade_bars=fade_bars,
+        max_mfe_r_limit=max_mfe_r_limit,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Momentum check (spec s14.2)
 # ---------------------------------------------------------------------------
 

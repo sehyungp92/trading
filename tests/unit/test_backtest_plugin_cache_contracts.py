@@ -110,7 +110,7 @@ def test_atrss_phase_batch_namespaces_candidate_cache_by_source_fingerprint(monk
     assert evaluator._signature_prefix == build_cache_key(
         "swing.atrss.evaluation",
         source_fingerprint="atrss-fp",
-        extra={"phase": 3, "scoring_weights": {}, "hard_rejects": {}},
+        extra={"phase": 3, "scoring_profile": "r1_independent", "scoring_weights": {}, "hard_rejects": {}},
     )
 
 
@@ -348,7 +348,7 @@ def test_downturn_worker_reloads_replay_bundle_when_data_dir_changes(monkeypatch
 
     def fake_load_worker_data(symbol: str, data_dir: Path):
         seen_paths.append(Path(data_dir))
-        return type("Bundle", (), {"data": {"symbol": symbol, "root": str(data_dir)}})()
+        return {"symbol": symbol, "root": str(data_dir)}
 
     monkeypatch.setattr(config_mod, "DownturnBacktestConfig", DummyConfig)
     monkeypatch.setattr(downturn_worker_mod, "load_worker_data", fake_load_worker_data)

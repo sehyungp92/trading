@@ -1,9 +1,15 @@
-"""VdubusNQ R1 phased auto-optimization experiment candidates.
+"""VdubusNQ Round 3 phased auto-optimization candidates.
 
-Phase 1: Trail rehabilitation & exit management (24 experiments)
-Phase 2: Entry precision & filter tuning (20 experiments)
-Phase 3: Signal discrimination & regime (18 experiments)
-Phase 4: Fine-tune & interaction (~20+ dynamic experiments)
+Round 3 starts from the Round 2 optimized config and targets the remaining
+diagnostic alpha:
+
+* hourly_align, slope, and no_signal shadow cohorts showed positive EV.
+* Evening and daily-trend rejects looked correctly blocked.
+* Winner capture and slow-death protection are still imperfect.
+
+The experiments below are intentionally structural but disabled-by-default in
+the shared Vdubus modules. They convert shadow alpha into explicit, testable
+routes instead of globally removing gates.
 """
 from __future__ import annotations
 
@@ -19,7 +25,6 @@ def get_phase_candidates(
     prior = prior_mutations or {}
     candidates: list[tuple[str, dict]] = []
 
-    # Prepend suggested experiments (deduped)
     if suggested_experiments:
         seen = set()
         for name, muts in suggested_experiments:
@@ -28,210 +33,440 @@ def get_phase_candidates(
                 candidates.append((name, muts))
 
     if phase == 1:
-        candidates.extend(_phase_1_trail(prior))
+        candidates.extend(_phase_1_gate_alpha(prior))
     elif phase == 2:
-        candidates.extend(_phase_2_entry(prior))
+        candidates.extend(_phase_2_no_signal_continuation(prior))
     elif phase == 3:
-        candidates.extend(_phase_3_signal(prior))
+        candidates.extend(_phase_3_entry_frequency(prior))
     elif phase == 4:
-        candidates.extend(_phase_4_finetune(prior))
+        candidates.extend(_phase_4_exit_capture(prior))
+    elif phase == 5:
+        candidates.extend(_phase_5_session_cohorts(prior))
+    elif phase == 6:
+        candidates.extend(_phase_6_interactions(prior))
 
-    # Deduplicate by name
+    return _dedupe(candidates)
+
+
+def _dedupe(candidates: list[tuple[str, dict]]) -> list[tuple[str, dict]]:
     seen_names: set[str] = set()
     unique: list[tuple[str, dict]] = []
     for name, muts in candidates:
-        if name not in seen_names:
-            seen_names.add(name)
-            unique.append((name, muts))
+        if name in seen_names:
+            continue
+        seen_names.add(name)
+        unique.append((name, muts))
     return unique
 
 
-def _phase_1_trail(prior: dict) -> list[tuple[str, dict]]:
-    """Phase 1: Trail rehabilitation & exit management (~24 candidates)."""
-    c: list[tuple[str, dict]] = []
-
-    # Strategy A: Re-enable BE + Wider Trail
-    c.append(("be_default_trail", {
-        "flags.plus_1r_partial": True,
-    }))
-    c.append(("be_wide_trail_35", {
-        "flags.plus_1r_partial": True,
-        "param_overrides.TRAIL_MULT_BASE": 3.5,
-        "param_overrides.TRAIL_MULT_MIN": 2.0,
-    }))
-    c.append(("be_wide_trail_40", {
-        "flags.plus_1r_partial": True,
-        "param_overrides.TRAIL_MULT_BASE": 4.0,
-        "param_overrides.TRAIL_MULT_MIN": 2.5,
-    }))
-    c.append(("be_ultra_wide", {
-        "flags.plus_1r_partial": True,
-        "param_overrides.TRAIL_MULT_BASE": 5.0,
-        "param_overrides.TRAIL_MULT_MIN": 3.0,
-    }))
-    c.append(("be_no_core_tighten", {
-        "flags.plus_1r_partial": True,
-        "param_overrides.TRAIL_MULT_BASE": 3.5,
-        "param_overrides.TRAIL_CORE_TRANSITION_REDUCTION": 1.0,
-    }))
-    c.append(("be_wide_evening_trail", {
-        "flags.plus_1r_partial": True,
-        "param_overrides.TRAIL_MULT_BASE": 3.5,
-        "param_overrides.TRAIL_WINDOW_MULT": {"OPEN": 1.0, "CORE": 0.60, "CLOSE": 1.0, "EVENING": 1.0},
-    }))
-
-    # Strategy B: Keep No-Trail, Add MFE Protection
-    c.append(("stale_mfe_exempt_050", {
-        "flags.stale_mfe_exempt": True,
-    }))
-    c.append(("stale_mfe_exempt_075", {
-        "flags.stale_mfe_exempt": True,
-        "param_overrides.STALE_MFE_EXEMPT_R": 0.75,
-    }))
-    c.append(("stale_mfe_exempt_030", {
-        "flags.stale_mfe_exempt": True,
-        "param_overrides.STALE_MFE_EXEMPT_R": 0.30,
-    }))
-    c.append(("mfe_ratchet_low", {
-        "flags.mfe_ratchet": True,
-        "param_overrides.MFE_RATCHET_TIERS": [(0.50, 0.10), (1.00, 0.30), (2.00, 0.80), (3.00, 1.50)],
-    }))
-    c.append(("mfe_ratchet_aggressive", {
-        "flags.mfe_ratchet": True,
-        "param_overrides.MFE_RATCHET_TIERS": [(0.40, 0.05), (0.75, 0.20), (1.50, 0.60), (2.50, 1.30)],
-    }))
-
-    # Strategy C: Stale/Free-Ride Parameter Tuning
-    c.append(("stale_bars_6", {"param_overrides.STALE_BARS_15M": 6}))
-    c.append(("stale_bars_12", {"param_overrides.STALE_BARS_15M": 12}))
-    c.append(("stale_r_015", {"param_overrides.STALE_R": 0.15}))
-    c.append(("stale_r_050", {"param_overrides.STALE_R": 0.50}))
-    c.append(("hold_weekday_075", {"param_overrides.HOLD_WEEKDAY_R": 0.75}))
-    c.append(("hold_weekday_050", {"param_overrides.HOLD_WEEKDAY_R": 0.50}))
-    c.append(("hold_friday_100", {"param_overrides.HOLD_FRIDAY_R": 1.0}))
-    c.append(("overnight_atr_03", {"param_overrides.OVERNIGHT_ATR_MULT": 0.3}))
-    c.append(("overnight_atr_07", {"param_overrides.OVERNIGHT_ATR_MULT": 0.7}))
-    c.append(("max_duration_64", {"param_overrides.MAX_POSITION_BARS_15M": 64}))
-    c.append(("max_duration_192", {"param_overrides.MAX_POSITION_BARS_15M": 192}))
-
-    # Combination experiments
-    c.append(("be_wide_mfe_exempt", {
-        "flags.plus_1r_partial": True,
-        "flags.stale_mfe_exempt": True,
-        "param_overrides.TRAIL_MULT_BASE": 3.5,
-    }))
-    c.append(("mfe_exempt_hold_low", {
-        "flags.stale_mfe_exempt": True,
-        "param_overrides.HOLD_WEEKDAY_R": 0.50,
-    }))
-
-    return c
-
-
-def _phase_2_entry(prior: dict) -> list[tuple[str, dict]]:
-    """Phase 2: Entry precision & filter tuning (~20 candidates)."""
-    c: list[tuple[str, dict]] = []
-
-    # Entry quality experiments
-    c.append(("disable_early_kill", {"flags.early_kill": False}))
-    c.append(("early_kill_r_015", {"param_overrides.EARLY_KILL_R": -0.15}))
-    c.append(("early_kill_r_040", {"param_overrides.EARLY_KILL_R": -0.40}))
-    c.append(("early_kill_bars_6", {"param_overrides.EARLY_KILL_BARS": 6}))
-    c.append(("vwap_cap_core_070", {"param_overrides.VWAP_CAP_CORE": 0.70}))
-    c.append(("vwap_cap_core_060", {"param_overrides.VWAP_CAP_CORE": 0.60}))
-    c.append(("vwap_cap_open_055", {"param_overrides.VWAP_CAP_OPEN_EVE": 0.55}))
-    c.append(("extension_skip_09", {"param_overrides.EXTENSION_SKIP_ATR": 0.9}))
-    c.append(("touch_lb_4", {"param_overrides.TOUCH_LOOKBACK_15M": 4}))
-    c.append(("touch_lb_12", {"param_overrides.TOUCH_LOOKBACK_15M": 12}))
-
-    # Filter relaxation experiments
-    c.append(("relax_hourly_mult", {"param_overrides.HOURLY_NEUTRAL_MULT": 0.80}))
-    c.append(("relax_hourly_mult_100", {"param_overrides.HOURLY_NEUTRAL_MULT": 1.00}))
-    c.append(("disable_slope_gate", {"flags.slope_gate": False}))
-    c.append(("relax_momentum_floor", {"param_overrides.FLOOR_PCT": 0.15}))
-    c.append(("relax_momentum_floor_010", {"param_overrides.FLOOR_PCT": 0.10}))
-
-    # Other entry tuning
-    c.append(("mom_n_35", {"param_overrides.MOM_N": 35}))
-    c.append(("mom_n_65", {"param_overrides.MOM_N": 65}))
-    c.append(("max_stop_150", {"param_overrides.MAX_STOP_POINTS": 150}))
-    c.append(("atr_stop_12", {"param_overrides.ATR_STOP_MULT": 1.2}))
-    c.append(("combo_tight_precise", {
-        "param_overrides.VWAP_CAP_CORE": 0.65,
-        "param_overrides.EXTENSION_SKIP_ATR": 0.9,
-        "param_overrides.TOUCH_LOOKBACK_15M": 4,
-    }))
-
-    return c
+def _phase_1_gate_alpha(prior: dict) -> list[tuple[str, dict]]:
+    """Convert hourly_align and slope shadow alpha without disabling gates."""
+    return [
+        ("hourly_bypass_oc_eqs3_chop38", {
+            "flags.hourly_bypass_quality": True,
+            "param_overrides.HOURLY_BYPASS_ALLOWED_WINDOWS": ["OPEN", "CLOSE"],
+            "param_overrides.HOURLY_BYPASS_EQS_MIN": 3,
+            "param_overrides.HOURLY_BYPASS_MAX_CHOP": 38.0,
+            "param_overrides.HOURLY_BYPASS_SIZE_MULT": 0.60,
+        }),
+        ("hourly_bypass_open_eqs3_chop35", {
+            "flags.hourly_bypass_quality": True,
+            "param_overrides.HOURLY_BYPASS_ALLOWED_WINDOWS": ["OPEN"],
+            "param_overrides.HOURLY_BYPASS_EQS_MIN": 3,
+            "param_overrides.HOURLY_BYPASS_MAX_CHOP": 35.0,
+            "param_overrides.HOURLY_BYPASS_SIZE_MULT": 0.70,
+        }),
+        ("hourly_bypass_close_eqs3_chop42", {
+            "flags.hourly_bypass_quality": True,
+            "param_overrides.HOURLY_BYPASS_ALLOWED_WINDOWS": ["CLOSE"],
+            "param_overrides.HOURLY_BYPASS_EQS_MIN": 3,
+            "param_overrides.HOURLY_BYPASS_MAX_CHOP": 42.0,
+            "param_overrides.HOURLY_BYPASS_SIZE_MULT": 0.70,
+        }),
+        ("hourly_bypass_rth_eqs4_fullsize", {
+            "flags.hourly_bypass_quality": True,
+            "param_overrides.HOURLY_BYPASS_ALLOWED_WINDOWS": ["OPEN", "CORE", "CLOSE"],
+            "param_overrides.HOURLY_BYPASS_EQS_MIN": 4,
+            "param_overrides.HOURLY_BYPASS_MAX_CHOP": 36.0,
+            "param_overrides.HOURLY_BYPASS_SIZE_MULT": 1.00,
+        }),
+        ("hourly_bypass_oc_eqs2_tiny", {
+            "flags.hourly_bypass_quality": True,
+            "param_overrides.HOURLY_BYPASS_ALLOWED_WINDOWS": ["OPEN", "CLOSE"],
+            "param_overrides.HOURLY_BYPASS_EQS_MIN": 2,
+            "param_overrides.HOURLY_BYPASS_MAX_CHOP": 32.0,
+            "param_overrides.HOURLY_BYPASS_SIZE_MULT": 0.50,
+        }),
+        ("slope_bypass_rth_eqs3_chop38", {
+            "flags.slope_bypass_quality": True,
+            "param_overrides.SLOPE_BYPASS_ALLOWED_WINDOWS": ["OPEN", "CORE", "CLOSE"],
+            "param_overrides.SLOPE_BYPASS_EQS_MIN": 3,
+            "param_overrides.SLOPE_BYPASS_MAX_CHOP": 38.0,
+            "param_overrides.SLOPE_BYPASS_SIZE_MULT": 0.75,
+        }),
+        ("slope_bypass_open_close_eqs3", {
+            "flags.slope_bypass_quality": True,
+            "param_overrides.SLOPE_BYPASS_ALLOWED_WINDOWS": ["OPEN", "CLOSE"],
+            "param_overrides.SLOPE_BYPASS_EQS_MIN": 3,
+            "param_overrides.SLOPE_BYPASS_MAX_CHOP": 42.0,
+            "param_overrides.SLOPE_BYPASS_SIZE_MULT": 0.85,
+        }),
+        ("slope_bypass_eqs4_fullsize", {
+            "flags.slope_bypass_quality": True,
+            "param_overrides.SLOPE_BYPASS_ALLOWED_WINDOWS": ["OPEN", "CORE", "CLOSE"],
+            "param_overrides.SLOPE_BYPASS_EQS_MIN": 4,
+            "param_overrides.SLOPE_BYPASS_MAX_CHOP": 36.0,
+            "param_overrides.SLOPE_BYPASS_SIZE_MULT": 1.00,
+        }),
+        ("slope_bypass_strong_mom", {
+            "flags.slope_bypass_quality": True,
+            "param_overrides.SLOPE_BYPASS_ALLOWED_WINDOWS": ["OPEN", "CORE", "CLOSE"],
+            "param_overrides.SLOPE_BYPASS_EQS_MIN": 2,
+            "param_overrides.SLOPE_BYPASS_MAX_CHOP": 35.0,
+            "param_overrides.SLOPE_BYPASS_MOM_ABS_MIN": 2.0,
+            "param_overrides.SLOPE_BYPASS_SIZE_MULT": 0.90,
+        }),
+        ("combined_bypass_strict", {
+            "flags.hourly_bypass_quality": True,
+            "flags.slope_bypass_quality": True,
+            "param_overrides.HOURLY_BYPASS_ALLOWED_WINDOWS": ["OPEN", "CLOSE"],
+            "param_overrides.HOURLY_BYPASS_EQS_MIN": 4,
+            "param_overrides.HOURLY_BYPASS_MAX_CHOP": 34.0,
+            "param_overrides.HOURLY_BYPASS_SIZE_MULT": 0.60,
+            "param_overrides.SLOPE_BYPASS_ALLOWED_WINDOWS": ["OPEN", "CLOSE"],
+            "param_overrides.SLOPE_BYPASS_EQS_MIN": 4,
+            "param_overrides.SLOPE_BYPASS_MAX_CHOP": 34.0,
+            "param_overrides.SLOPE_BYPASS_SIZE_MULT": 0.75,
+        }),
+        ("legacy_disable_hourly_eqs3", {
+            "flags.hourly_alignment": False,
+            "flags.entry_quality_gate": True,
+            "param_overrides.EQS_MIN_RTH": 3,
+        }),
+        ("legacy_disable_slope_eqs3", {
+            "flags.slope_gate": False,
+            "flags.entry_quality_gate": True,
+            "param_overrides.EQS_MIN_RTH": 3,
+        }),
+    ]
 
 
-def _phase_3_signal(prior: dict) -> list[tuple[str, dict]]:
-    """Phase 3: Signal discrimination & regime (~18 candidates)."""
-    c: list[tuple[str, dict]] = []
+def _phase_2_no_signal_continuation(prior: dict) -> list[tuple[str, dict]]:
+    """Convert no_signal shadow alpha into explicit Type C continuation entries."""
+    base = {
+        "flags.type_c_enabled": True,
+        "param_overrides.USE_TYPE_C": True,
+    }
+    return [
+        ("type_c_default", dict(base)),
+        ("type_c_open_close", {
+            **base,
+            "param_overrides.TYPE_C_ALLOWED_WINDOWS": ["OPEN", "CLOSE"],
+        }),
+        ("type_c_close_only", {
+            **base,
+            "param_overrides.TYPE_C_ALLOWED_WINDOWS": ["CLOSE"],
+        }),
+        ("type_c_open_only", {
+            **base,
+            "param_overrides.TYPE_C_ALLOWED_WINDOWS": ["OPEN"],
+        }),
+        ("type_c_core_only_strict", {
+            **base,
+            "param_overrides.TYPE_C_ALLOWED_WINDOWS": ["CORE"],
+            "param_overrides.TYPE_C_MIN_CLOSE_FRAC": 0.72,
+            "param_overrides.TYPE_C_MAX_VWAP_DIST_ATR": 1.20,
+        }),
+        ("type_c_lb8_fast", {
+            **base,
+            "param_overrides.TYPE_C_LOOKBACK_15M": 8,
+            "param_overrides.TYPE_C_MIN_CLOSE_FRAC": 0.60,
+        }),
+        ("type_c_lb16_swing", {
+            **base,
+            "param_overrides.TYPE_C_LOOKBACK_15M": 16,
+            "param_overrides.TYPE_C_MIN_CLOSE_FRAC": 0.62,
+        }),
+        ("type_c_lb20_major", {
+            **base,
+            "param_overrides.TYPE_C_LOOKBACK_15M": 20,
+            "param_overrides.TYPE_C_MIN_CLOSE_FRAC": 0.65,
+        }),
+        ("type_c_strong_close", {
+            **base,
+            "param_overrides.TYPE_C_MIN_CLOSE_FRAC": 0.72,
+            "param_overrides.TYPE_C_MAX_BAR_ATR": 1.30,
+        }),
+        ("type_c_looser_close", {
+            **base,
+            "param_overrides.TYPE_C_MIN_CLOSE_FRAC": 0.55,
+            "param_overrides.TYPE_C_MAX_BAR_ATR": 1.80,
+        }),
+        ("type_c_vwap_tight", {
+            **base,
+            "param_overrides.TYPE_C_MAX_VWAP_DIST_ATR": 1.10,
+        }),
+        ("type_c_vwap_wide", {
+            **base,
+            "param_overrides.TYPE_C_MAX_VWAP_DIST_ATR": 2.40,
+        }),
+        ("type_c_no_vwap_side", {
+            **base,
+            "param_overrides.TYPE_C_REQUIRE_VWAP_SIDE": False,
+            "param_overrides.TYPE_C_MIN_CLOSE_FRAC": 0.70,
+            "param_overrides.TYPE_C_MAX_BAR_ATR": 1.25,
+        }),
+        ("type_c_break_buffer", {
+            **base,
+            "param_overrides.TYPE_C_BREAK_BUFFER_ATR": 0.05,
+            "param_overrides.TYPE_C_MIN_CLOSE_FRAC": 0.60,
+        }),
+        ("type_c_with_slope_bypass", {
+            **base,
+            "flags.slope_bypass_quality": True,
+            "param_overrides.SLOPE_BYPASS_ALLOWED_WINDOWS": ["OPEN", "CLOSE"],
+            "param_overrides.SLOPE_BYPASS_EQS_MIN": 3,
+            "param_overrides.SLOPE_BYPASS_MAX_CHOP": 35.0,
+            "param_overrides.SLOPE_BYPASS_SIZE_MULT": 0.75,
+        }),
+        ("type_c_with_hourly_bypass", {
+            **base,
+            "flags.hourly_bypass_quality": True,
+            "param_overrides.HOURLY_BYPASS_ALLOWED_WINDOWS": ["OPEN", "CLOSE"],
+            "param_overrides.HOURLY_BYPASS_EQS_MIN": 3,
+            "param_overrides.HOURLY_BYPASS_MAX_CHOP": 35.0,
+            "param_overrides.HOURLY_BYPASS_SIZE_MULT": 0.60,
+        }),
+        ("type_b_c_combo", {
+            **base,
+            "param_overrides.USE_TYPE_B": True,
+            "param_overrides.TYPE_B_ALLOWED_WINDOWS": ["OPEN", "CLOSE"],
+        }),
+    ]
 
-    # Regime & sizing
-    c.append(("chop_35", {"param_overrides.CHOP_THRESHOLD": 35}))
-    c.append(("chop_50", {"param_overrides.CHOP_THRESHOLD": 50}))
-    c.append(("max_longs_1", {"param_overrides.MAX_LONGS_PER_DAY": 1}))
-    c.append(("max_longs_3", {"param_overrides.MAX_LONGS_PER_DAY": 3}))
-    c.append(("nopred_050", {"param_overrides.CLASS_MULT_NOPRED": 0.50}))
-    c.append(("nopred_100", {"param_overrides.CLASS_MULT_NOPRED": 1.00}))
-    c.append(("evening_block", {"param_overrides.VWAP_CAP_EVENING": 0.01}))
-    c.append(("evening_tight", {"param_overrides.VWAP_CAP_EVENING": 0.35}))
-    c.append(("vol_high_050", {
-        "param_overrides.VOL_FACTOR": {"Normal": 1.0, "High": 0.50, "Shock": 0.0},
-    }))
-    c.append(("vol_high_040", {
-        "param_overrides.VOL_FACTOR": {"Normal": 1.0, "High": 0.40, "Shock": 0.0},
-    }))
 
-    # Structural entry types
-    c.append(("enable_type_b", {"param_overrides.USE_TYPE_B": True}))
-    c.append(("enable_late_shoulder", {"param_overrides.USE_LATE_SHOULDER": True}))
-    c.append(("enable_vwap_fail_evening", {"flags.vwap_fail_evening": True}))
+def _phase_3_entry_frequency(prior: dict) -> list[tuple[str, dict]]:
+    """Entry mechanics and controlled frequency expansion after new signals."""
+    return [
+        ("ttl_5", {"param_overrides.TTL_BARS": 5}),
+        ("ttl_6", {"param_overrides.TTL_BARS": 6}),
+        ("buffer_0", {"param_overrides.BUFFER_TICKS": 0}),
+        ("buffer_2", {"param_overrides.BUFFER_TICKS": 2}),
+        ("offset_atr_010", {"param_overrides.OFFSET_TICKS_ATR_FRAC": 0.10}),
+        ("offset_atr_020", {"param_overrides.OFFSET_TICKS_ATR_FRAC": 0.20}),
+        ("fallback_immediate", {"param_overrides.FALLBACK_WAIT_BARS": 0}),
+        ("fallback_wait_2", {"param_overrides.FALLBACK_WAIT_BARS": 2}),
+        ("micro_trigger_default", {"param_overrides.USE_MICRO_TRIGGER": True}),
+        ("micro_trigger_window_2", {
+            "param_overrides.USE_MICRO_TRIGGER": True,
+            "param_overrides.MICRO_WINDOW_BARS": 2,
+        }),
+        ("touch_lb_12", {"param_overrides.TOUCH_LOOKBACK_15M": 12}),
+        ("touch_lb_16", {"param_overrides.TOUCH_LOOKBACK_15M": 16}),
+        ("vwap_cap_core_100", {"param_overrides.VWAP_CAP_CORE": 1.00}),
+        ("vwap_cap_open_085", {"param_overrides.VWAP_CAP_OPEN_EVE": 0.85}),
+        ("max_longs_3", {"param_overrides.MAX_LONGS_PER_DAY": 3}),
+        ("max_shorts_3", {"param_overrides.MAX_SHORTS_PER_DAY": 3}),
+        ("max_shorts_4", {"param_overrides.MAX_SHORTS_PER_DAY": 4}),
+        ("caps_3x3", {
+            "param_overrides.MAX_LONGS_PER_DAY": 3,
+            "param_overrides.MAX_SHORTS_PER_DAY": 3,
+        }),
+        ("chop_caps_2", {
+            "param_overrides.CHOP_MAX_LONGS": 2,
+            "param_overrides.CHOP_MAX_SHORTS": 2,
+        }),
+        ("entry_recovery_combo", {
+            "param_overrides.TTL_BARS": 5,
+            "param_overrides.OFFSET_TICKS_ATR_FRAC": 0.20,
+            "param_overrides.FALLBACK_WAIT_BARS": 0,
+        }),
+    ]
 
-    # Other signal experiments
-    c.append(("disable_event_blocking", {"flags.event_blocking": False}))
-    c.append(("drawdown_throttle_off", {"flags.drawdown_throttle": False}))
-    c.append(("combo_selective_evening_block", {
-        "param_overrides.MAX_LONGS_PER_DAY": 1,
-        "param_overrides.VWAP_CAP_EVENING": 0.01,
-    }))
-    c.append(("combo_full_size_vol_cut", {
-        "param_overrides.CLASS_MULT_NOPRED": 1.00,
-        "param_overrides.VOL_FACTOR": {"Normal": 1.0, "High": 0.40, "Shock": 0.0},
-    }))
-    c.append(("enable_entry_quality_gate", {
-        "flags.entry_quality_gate": True,
-        "param_overrides.EQS_MIN_RTH": 2,
-    }))
 
-    return c
+def _phase_4_exit_capture(prior: dict) -> list[tuple[str, dict]]:
+    """Capture more MFE without clipping the 17+ bar right tail."""
+    return [
+        ("mfe_rescue_be_050_5", {
+            "flags.mfe_rescue_stop": True,
+            "param_overrides.MFE_RESCUE_MIN_R": 0.50,
+            "param_overrides.MFE_RESCUE_AFTER_BARS": 5,
+            "param_overrides.MFE_RESCUE_TRIGGER_R": 0.05,
+            "param_overrides.MFE_RESCUE_LOCK_R": 0.00,
+        }),
+        ("mfe_rescue_lock010", {
+            "flags.mfe_rescue_stop": True,
+            "param_overrides.MFE_RESCUE_MIN_R": 0.50,
+            "param_overrides.MFE_RESCUE_AFTER_BARS": 5,
+            "param_overrides.MFE_RESCUE_TRIGGER_R": 0.10,
+            "param_overrides.MFE_RESCUE_LOCK_R": 0.10,
+        }),
+        ("mfe_rescue_late", {
+            "flags.mfe_rescue_stop": True,
+            "param_overrides.MFE_RESCUE_MIN_R": 0.75,
+            "param_overrides.MFE_RESCUE_AFTER_BARS": 7,
+            "param_overrides.MFE_RESCUE_TRIGGER_R": 0.00,
+            "param_overrides.MFE_RESCUE_LOCK_R": 0.05,
+        }),
+        ("mfe_rescue_early_small", {
+            "flags.mfe_rescue_stop": True,
+            "param_overrides.MFE_RESCUE_MIN_R": 0.35,
+            "param_overrides.MFE_RESCUE_AFTER_BARS": 4,
+            "param_overrides.MFE_RESCUE_TRIGGER_R": -0.05,
+            "param_overrides.MFE_RESCUE_LOCK_R": 0.00,
+        }),
+        ("stale_mfe_exempt_035", {
+            "flags.stale_mfe_exempt": True,
+            "param_overrides.STALE_MFE_EXEMPT_R": 0.35,
+        }),
+        ("stale_mfe_exempt_050", {
+            "flags.stale_mfe_exempt": True,
+            "param_overrides.STALE_MFE_EXEMPT_R": 0.50,
+        }),
+        ("stale_bars_10", {"param_overrides.STALE_BARS_15M": 10}),
+        ("stale_bars_12", {"param_overrides.STALE_BARS_15M": 12}),
+        ("vwap_fail_3", {"param_overrides.VWAP_FAIL_CONSEC": 3}),
+        ("late_trail_fast_capture", {
+            "flags.late_trail": True,
+            "param_overrides.LATE_TRAIL_ACTIVATE_R": 1.25,
+            "param_overrides.LATE_TRAIL_MULT": 3.50,
+            "param_overrides.LATE_TRAIL_MULT_MIN": 2.00,
+        }),
+        ("late_trail_wide_runner", {
+            "flags.late_trail": True,
+            "param_overrides.LATE_TRAIL_BE_R": 1.25,
+            "param_overrides.LATE_TRAIL_ACTIVATE_R": 2.00,
+            "param_overrides.LATE_TRAIL_MULT": 4.50,
+            "param_overrides.LATE_TRAIL_MULT_MIN": 2.50,
+        }),
+        ("max_duration_64", {"param_overrides.MAX_POSITION_BARS_15M": 64}),
+        ("max_duration_80", {"param_overrides.MAX_POSITION_BARS_15M": 80}),
+        ("rescue_stale_combo", {
+            "flags.mfe_rescue_stop": True,
+            "flags.stale_mfe_exempt": True,
+            "param_overrides.MFE_RESCUE_MIN_R": 0.50,
+            "param_overrides.MFE_RESCUE_AFTER_BARS": 5,
+            "param_overrides.STALE_MFE_EXEMPT_R": 0.50,
+        }),
+    ]
 
 
-def _phase_4_finetune(prior: dict) -> list[tuple[str, dict]]:
-    """Phase 4: Fine-tune & interaction (~20+ dynamic candidates)."""
-    c: list[tuple[str, dict]] = []
+def _phase_5_session_cohorts(prior: dict) -> list[tuple[str, dict]]:
+    """Session/day cohort controls after structural routes are known."""
+    return [
+        ("dow_disable", {"flags.dow_sizing": False}),
+        ("dow_monday_only_cut", {
+            "flags.dow_sizing": True,
+            "param_overrides.DOW_SIZE_MULT": {0: 0.60},
+        }),
+        ("dow_thursday_only_cut", {
+            "flags.dow_sizing": True,
+            "param_overrides.DOW_SIZE_MULT": {3: 0.70},
+        }),
+        ("dow_monday_thu_harder", {
+            "flags.dow_sizing": True,
+            "param_overrides.DOW_SIZE_MULT": {0: 0.50, 3: 0.65},
+        }),
+        ("dow_monday_thu_softer", {
+            "flags.dow_sizing": True,
+            "param_overrides.DOW_SIZE_MULT": {0: 0.75, 3: 0.85},
+        }),
+        ("dow_tue_fri_boost", {
+            "flags.dow_sizing": True,
+            "param_overrides.DOW_SIZE_MULT": {0: 0.60, 1: 1.15, 3: 0.75, 4: 1.10},
+        }),
+        ("evening_zero_cap", {
+            "flags.evening_vwap_cap": True,
+            "param_overrides.VWAP_CAP_EVENING": 0.00,
+        }),
+        ("evening_cap_035", {
+            "flags.evening_vwap_cap": True,
+            "param_overrides.VWAP_CAP_EVENING": 0.35,
+        }),
+        ("allow_20h_quality4", {
+            "flags.block_20h_hour": False,
+            "flags.entry_quality_gate": True,
+            "param_overrides.EQS_MIN_EVENING": 4,
+            "param_overrides.VWAP_CAP_EVENING": 0.05,
+        }),
+        ("close_vwap_cap_060", {
+            "param_overrides.VWAP_CAP_CLOSE": 0.60,
+            "param_overrides.VWAP_CAP_CLOSE_STRICT": 0.45,
+        }),
+        ("close_mfe_floor_looser", {
+            "param_overrides.CLOSE_MFE_RATCHET_TIERS": [[1.00, 0.60], [1.50, 0.95]],
+        }),
+        ("close_mfe_floor_tighter", {
+            "param_overrides.CLOSE_MFE_RATCHET_TIERS": [[0.80, 0.55], [1.20, 0.95]],
+        }),
+        ("chop_28", {"param_overrides.CHOP_THRESHOLD": 28}),
+        ("chop_36", {"param_overrides.CHOP_THRESHOLD": 36}),
+        ("chop_44", {"param_overrides.CHOP_THRESHOLD": 44}),
+    ]
 
-    # Static candidates
-    c.append(("base_risk_008", {"param_overrides.BASE_RISK_PCT": 0.008}))
-    c.append(("base_risk_012", {"param_overrides.BASE_RISK_PCT": 0.012}))
 
-    # Dynamic candidates: +/-10/20% variants of accepted numeric mutations
+def _phase_6_interactions(prior: dict) -> list[tuple[str, dict]]:
+    """Curated structural interactions plus numeric fine-tuning."""
+    c: list[tuple[str, dict]] = [
+        ("combo_gate_typec_strict", {
+            "flags.hourly_bypass_quality": True,
+            "flags.slope_bypass_quality": True,
+            "flags.type_c_enabled": True,
+            "param_overrides.USE_TYPE_C": True,
+            "param_overrides.HOURLY_BYPASS_EQS_MIN": 4,
+            "param_overrides.HOURLY_BYPASS_MAX_CHOP": 34.0,
+            "param_overrides.SLOPE_BYPASS_EQS_MIN": 4,
+            "param_overrides.SLOPE_BYPASS_MAX_CHOP": 34.0,
+            "param_overrides.TYPE_C_ALLOWED_WINDOWS": ["OPEN", "CLOSE"],
+            "param_overrides.TYPE_C_MIN_CLOSE_FRAC": 0.70,
+        }),
+        ("combo_typec_rescue", {
+            "flags.type_c_enabled": True,
+            "flags.mfe_rescue_stop": True,
+            "param_overrides.USE_TYPE_C": True,
+            "param_overrides.TYPE_C_ALLOWED_WINDOWS": ["OPEN", "CLOSE"],
+            "param_overrides.MFE_RESCUE_MIN_R": 0.50,
+            "param_overrides.MFE_RESCUE_AFTER_BARS": 5,
+        }),
+        ("combo_slope_rescue", {
+            "flags.slope_bypass_quality": True,
+            "flags.mfe_rescue_stop": True,
+            "param_overrides.SLOPE_BYPASS_EQS_MIN": 3,
+            "param_overrides.SLOPE_BYPASS_MAX_CHOP": 38.0,
+            "param_overrides.MFE_RESCUE_MIN_R": 0.50,
+            "param_overrides.MFE_RESCUE_AFTER_BARS": 5,
+        }),
+        ("combo_frequency_guarded", {
+            "flags.type_c_enabled": True,
+            "param_overrides.USE_TYPE_C": True,
+            "param_overrides.TTL_BARS": 5,
+            "param_overrides.MAX_LONGS_PER_DAY": 3,
+            "param_overrides.MAX_SHORTS_PER_DAY": 3,
+            "param_overrides.TYPE_C_ALLOWED_WINDOWS": ["OPEN", "CLOSE"],
+        }),
+        ("combo_runner_guarded_expansion", {
+            "flags.type_c_enabled": True,
+            "flags.stale_mfe_exempt": True,
+            "flags.late_trail": True,
+            "param_overrides.USE_TYPE_C": True,
+            "param_overrides.TYPE_C_ALLOWED_WINDOWS": ["OPEN", "CLOSE"],
+            "param_overrides.STALE_MFE_EXEMPT_R": 0.50,
+            "param_overrides.LATE_TRAIL_ACTIVATE_R": 1.50,
+        }),
+    ]
+
     numeric_keys = []
     for key, val in prior.items():
         if key.startswith("param_overrides.") and isinstance(val, (int, float)):
+            if key.endswith("BASE_RISK_PCT"):
+                continue
             numeric_keys.append((key, val))
 
     for key, val in numeric_keys:
         short = key.split(".")[-1].lower()
-        for mult, label in [(0.80, "m20"), (0.90, "m10"), (1.10, "p10"), (1.20, "p20")]:
+        for mult, label in [(0.90, "m10"), (1.05, "p05"), (1.10, "p10"), (1.20, "p20")]:
             new_val = round(val * mult, 6)
             if new_val != val:
                 c.append((f"finetune_{short}_{label}", {key: new_val}))
-
-    # Cross-phase combos: combine strongest P1 + P2 + P3 mutations
-    # (these are already in cumulative_mutations, so adding individual
-    # finetune variants covers cross-phase interaction testing)
 
     return c

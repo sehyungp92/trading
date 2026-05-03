@@ -93,7 +93,7 @@ _ETF_CONFIGS: dict[str, SymbolConfig] = {
         min_stop_floor_dollars=0.10,
         max_shares=500,
         atr_stop_mult=0.5,   # A1: halved from 1.0 to tighten R-unit
-        base_risk_pct=0.0075,  # was 0.60% — proven winner, allocate more
+        base_risk_pct=0.005,
         m_break=2,
         fee_bps_est=0.0002,  # 2 bps
         tp_scale=1.0,
@@ -123,7 +123,7 @@ _ETF_CONFIGS: dict[str, SymbolConfig] = {
         min_stop_floor_dollars=0.10,
         max_shares=500,
         atr_stop_mult=0.5,   # A1: halved from 1.0 to tighten R-unit
-        base_risk_pct=0.0065,
+        base_risk_pct=0.005,
         m_break=2,
         fee_bps_est=0.0002,
         allowed_directions=("LONG",),
@@ -172,7 +172,7 @@ HYSTERESIS_BARS: int = 3
 # ---------------------------------------------------------------------------
 # Displacement (spec §8.2)
 # ---------------------------------------------------------------------------
-Q_DISP: float = 0.60 if TUNE_DISPLACEMENT else 0.70                 # baseline: 0.70
+Q_DISP: float = 0.45
 Q_DISP_ATR_EXPAND_ADJ: float = 0.10 if TUNE_DISPLACEMENT else 0.05  # baseline: 0.05
 DISP_STRONG_MULT: float = 1.15  # low-volume day exception
 DISP_LOOKBACK_MAX: int = 750
@@ -193,8 +193,98 @@ RECLAIM_BUFFER_ATR_H_MULT: float = 0.05                                  # was 0
 RECLAIM_BUFFER_ATR_D_MULT: float = 0.01                                   # was 0.02 — relaxed to enable Entry A
 SWEEP_DEPTH_ATR_D_MULT: float = 0.06                                     # was 0.15 — achievable on volatile hourly bars
 ENTRY_A_TTL_RTH_HOURS: int = 8 if TUNE_ENTRY_UNLOCK else 6               # baseline: 6
+ENTRY_A_STRONG_ENABLE: bool = False
+ENTRY_A_STRONG_MIN_SCORE: int = 1
+ENTRY_A_STRONG_MIN_QUALITY: float = 0.75
+ENTRY_A_STRONG_REQUIRE_ALIGNED: bool = True
+ENTRY_A_STRONG_CLV_Q: float = 0.30
+ENTRY_A_STRONG_CONFIRM_PRIOR_STRUCTURE: bool = False
+ENTRY_A_STRONG_USE_STOP_LIMIT: bool = False
+ENTRY_A_STRONG_STOP_BUFFER_ATR_H: float = 0.05
+ENTRY_A_STRONG_LIMIT_OFFSET_ATR_H: float = 0.10
+ENTRY_B_RESUME_ENABLE: bool = False
+ENTRY_B_RESUME_MIN_SCORE: int = 0
+ENTRY_B_RESUME_MIN_QUALITY: float = 0.65
+ENTRY_B_RESUME_REQUIRE_ALIGNED: bool = True
+ENTRY_B_RESUME_CLV_Q: float = 0.25
+ENTRY_B_RESUME_SWEEP_ATR_D: float = 0.03
+ENTRY_B_RESUME_MAX_BREAKOUT_BARS: int = 6
+ENTRY_B_RESUME_USE_STOP_LIMIT: bool = False
+ENTRY_B_RESUME_STOP_BUFFER_ATR_H: float = 0.05
+ENTRY_B_RESUME_LIMIT_OFFSET_ATR_H: float = 0.10
 ENTRY_C_TTL_RTH_HOURS: int = 4
 C_ENTRY_MAX_DISP_H: float = 3.0                                         # reject C entries > 3.0 ATR_D from AVWAP
+# Optional high-conviction C expansion. The default keeps the legacy
+# 2-bar passive C behavior unless explicitly mutated by the optimizer.
+ENTRY_C_HOLD_BARS: int = 2
+ENTRY_C_EARLY_ENABLE: bool = False
+ENTRY_C_EARLY_MIN_SCORE: int = 0
+ENTRY_C_EARLY_MIN_QUALITY: float = 0.45
+ENTRY_C_EARLY_REQUIRE_ALIGNED: bool = False
+ENTRY_C_EARLY_ALLOW_NEUTRAL: bool = True
+ENTRY_C_EARLY_CLV_Q: float = 0.25
+ENTRY_C_EARLY_MAX_DISP_H: float = 2.75
+ENTRY_C_EARLY_MAX_BREAKOUT_BARS: int = 6
+ENTRY_C_EARLY_MIN_RVOL_H: float = 0.85
+ENTRY_C_STANDARD_MAX_BREAKOUT_BARS: int = 999
+ENTRY_C_STANDARD_MAX_DISP_H: float = 3.0
+ENTRY_C_STANDARD_ALLOW_CONTINUATION: bool = True
+ENTRY_C_FAST_MIN_SCORE: int = 2
+ENTRY_C_FAST_MIN_QUALITY: float = 0.80
+ENTRY_C_FAST_REQUIRE_ALIGNED: bool = True
+ENTRY_C_FAST_MARKET: bool = False
+ENTRY_C_FAST_MARKET_TTL_RTH_HOURS: int = 2
+ENTRY_C_FRESH_ENABLE: bool = True
+ENTRY_C_FRESH_MIN_SCORE: int = 0
+ENTRY_C_FRESH_MIN_QUALITY: float = 0.45
+ENTRY_C_FRESH_REQUIRE_ALIGNED: bool = False
+ENTRY_C_FRESH_ALLOW_COUNTERTREND: bool = False
+ENTRY_C_FRESH_CLV_Q: float = 0.25
+ENTRY_C_FRESH_MAX_DISP_H: float = 2.75
+ENTRY_C_FRESH_TOUCH_TOL_ATR_H: float = 0.50
+ENTRY_C_FRESH_MAX_BREAKOUT_BARS: int = 8
+ENTRY_C_FRESH_USE_STOP_LIMIT: bool = False
+ENTRY_C_FRESH_STOP_ENABLE: bool = True
+ENTRY_C_FRESH_STOP_MIN_SCORE: int = 1
+ENTRY_C_FRESH_STOP_MIN_QUALITY: float = 0.55
+ENTRY_C_FRESH_STOP_REQUIRE_ALIGNED: bool = True
+ENTRY_C_FRESH_STOP_ALLOW_COUNTERTREND: bool = False
+ENTRY_C_FRESH_STOP_CLV_Q: float = 0.30
+ENTRY_C_FRESH_STOP_MAX_DISP_H: float = 2.50
+ENTRY_C_FRESH_STOP_TOUCH_TOL_ATR_H: float = 0.40
+ENTRY_C_FRESH_STOP_MAX_BREAKOUT_BARS: int = 4
+ENTRY_C_FRESH_STOP_MIN_RVOL_H: float = 0.95
+ENTRY_C_FRESH_STOP_BUFFER_ATR_H: float = 0.02
+ENTRY_C_FRESH_LIMIT_OFFSET_ATR_H: float = 0.05
+ENTRY_C_MOMENTUM_ENABLE: bool = True
+ENTRY_C_MOMENTUM_MIN_SCORE: int = 0
+ENTRY_C_MOMENTUM_MIN_QUALITY: float = 0.55
+ENTRY_C_MOMENTUM_REQUIRE_ALIGNED: bool = False
+ENTRY_C_MOMENTUM_CLV_Q: float = 0.2
+ENTRY_C_MOMENTUM_MAX_DISP_H: float = 3.0
+ENTRY_C_MOMENTUM_USE_STOP_LIMIT: bool = False
+ENTRY_C_MOMENTUM_STOP_BUFFER_ATR_H: float = 0.05
+ENTRY_C_MOMENTUM_LIMIT_OFFSET_ATR_H: float = 0.10
+ENTRY_C_CONTINUATION_ENABLE: bool = False
+ENTRY_C_CONTINUATION_MIN_SCORE: int = 0
+ENTRY_C_CONTINUATION_MIN_QUALITY: float = 0.60
+ENTRY_C_CONTINUATION_REQUIRE_ALIGNED: bool = False
+ENTRY_C_CONTINUATION_ALLOW_NEUTRAL: bool = True
+ENTRY_C_CONTINUATION_CLV_Q: float = 0.20
+ENTRY_C_CONTINUATION_HOLD_BARS: int = 1
+ENTRY_C_CONTINUATION_PAUSE_ATR_H: float = 1.25
+ENTRY_C_CONTINUATION_MAX_DISP_H: float = 3.50
+ENTRY_C_CONTINUATION_MAX_BREAKOUT_BARS: int = 999
+ENTRY_C_CONTINUATION_MIN_RVOL_H: float = 0.70
+ENTRY_OUTSIDE_WINDOW_CARRY_ENABLE: bool = True
+ENTRY_OUTSIDE_WINDOW_CARRY_MIN_SCORE: int = 0
+ENTRY_OUTSIDE_WINDOW_CARRY_MIN_QUALITY: float = 0.6
+ENTRY_OUTSIDE_WINDOW_CARRY_REQUIRE_ALIGNED: bool = True
+ENTRY_OUTSIDE_WINDOW_CARRY_TTL_HOURS: int = 24
+ENTRY_OUTSIDE_WINDOW_CARRY_FRESH_ONLY: bool = False
+ENTRY_OUTSIDE_WINDOW_CARRY_A_OR_FRESH_ONLY: bool = False
+# Entry A active blocks C entries (spec §12.5)
+ENTRY_A_ACTIVE_BLOCKS_C: bool = True
 # Entry B neutral regime permission (Cat 2)
 ENTRYB_REQUIRE_ALIGNED: bool = not TUNE_ENTRY_UNLOCK                     # baseline: True
 ENTRYB_NEUTRAL_QUALITY_MIN: float = 0.60 if TUNE_ENTRY_UNLOCK else 0.70  # baseline: 0.70
@@ -233,6 +323,14 @@ SQUEEZE_MULT_LOOSE: float = 0.85
 CORR_MULT_ALIGNED: float = 0.85
 CORR_MULT_OTHER: float = 0.70
 CORR_HEAT_PENALTY: float = 1.25
+
+# Entry-type risk ranking (R5)
+C_STANDARD_LATE_RISK_MULT: float = 0.85
+C_STANDARD_HIGH_DISP_RISK_MULT: float = 0.75
+C_CONTINUATION_RISK_MULT: float = 0.80
+C_MOMENTUM_RISK_MULT: float = 1.00
+C_STANDARD_LATE_BREAKOUT_BARS: int = 6
+C_STANDARD_HIGH_DISP_THRESHOLD: float = 2.75
 
 # ---------------------------------------------------------------------------
 # Friction (spec §15)
@@ -280,7 +378,7 @@ REGIME_CHOP_BLOCK: bool = False                                          # greed
 REGIME_CHOP_SCORE_OVERRIDE: int = 3   # allow very high-conviction through
 
 # Hard block slope threshold (spec §7.3)
-HARD_BLOCK_SLOPE_MULT: float = 0.12 if TUNE_PORTFOLIO else 0.08         # baseline: 0.08
+HARD_BLOCK_SLOPE_MULT: float = 0.08
 
 # ---------------------------------------------------------------------------
 # Breakout invalidation (spec §10)
@@ -301,7 +399,7 @@ PENDING_MAX_RTH_HOURS: int = 18 if TUNE_PORTFOLIO else 12               # baseli
 # Exit tiers (spec §20)
 # ---------------------------------------------------------------------------
 # Aligned — calibrated to actual MFE (mean ~0.30R)
-TP1_R_ALIGNED: float = 0.20                                               # was 1.5 — hit by majority of trades
+TP1_R_ALIGNED: float = 0.18
 TP2_R_ALIGNED: float = 0.50                                               # was 3.0 — reached by best trades
 # Neutral
 TP1_R_NEUTRAL: float = 0.15                                               # was 0.75
@@ -320,8 +418,55 @@ STALE_R_THRESH: float = 0.0
 STALE_TIGHTEN_MULT: float = 0.8
 
 # Trailing (spec §20.3)
-TRAIL_4H_ATR_MULT: float = 0.40
+TRAIL_4H_ATR_MULT: float = 0.35
 EMA_4H_FLOOR_ATR_MULT: float = 0.5
+
+# Exit cascade -- partial fractions (R3)
+TP1_PARTIAL_FRAC_ALIGNED: float = 0.33      # baseline: 1/3 (current hardcoded //3)
+TP1_PARTIAL_FRAC_DEGRADED: float = 0.50     # baseline: 1/2 (current hardcoded //2)
+TP2_PARTIAL_FRAC: float = 0.00              # baseline: 0.0 = skip TP2 (legacy behavior)
+
+# Pre-runner trail lockup (R3)
+PRE_RUNNER_LOCK_FRAC: float = 0.5
+PRE_RUNNER_LOCK_THRESHOLD_R: float = 0.10   # R-threshold before lockup activates
+
+# Trail mult base factor (R3)
+TRAIL_MULT_BASE_FACTOR: float = 4.0
+
+# Branch-specific management for earlier, higher-quality entries (R5)
+FAST_BRANCH_MANAGEMENT_ENABLE: bool = True
+FAST_BRANCH_TP1_R_ALIGNED: float = 0.24
+FAST_BRANCH_TP1_R_NEUTRAL: float = 0.18
+FAST_BRANCH_TP1_R_CAUTION: float = 0.12
+FAST_BRANCH_PRE_RUNNER_LOCK_FRAC: float = 0.5
+FAST_BRANCH_PRE_RUNNER_LOCK_THRESHOLD_R: float = 0.1
+FAST_BRANCH_TRAIL_MULT_BASE_FACTOR: float = 5.0
+FAST_BRANCH_TRAIL_4H_ATR_MULT: float = 0.35
+
+# First-class branch management. Defaults are off so a current-code replay of
+# historical configs remains comparable; optimizer candidates enable these
+# explicitly when branch evidence supports them.
+MOMENTUM_BRANCH_MANAGEMENT_ENABLE: bool = False
+MOMENTUM_BRANCH_TP1_R_ALIGNED: float = 0.32
+MOMENTUM_BRANCH_TP1_R_NEUTRAL: float = 0.26
+MOMENTUM_BRANCH_TP1_R_CAUTION: float = 0.16
+MOMENTUM_BRANCH_TP1_PARTIAL_FRAC: float = 0.20
+MOMENTUM_BRANCH_PRE_RUNNER_LOCK_FRAC: float = 0.70
+MOMENTUM_BRANCH_PRE_RUNNER_LOCK_THRESHOLD_R: float = 0.18
+MOMENTUM_BRANCH_TRAIL_MULT_BASE_FACTOR: float = 5.5
+MOMENTUM_BRANCH_TRAIL_4H_ATR_MULT: float = 0.42
+
+CONTINUATION_BRANCH_MANAGEMENT_ENABLE: bool = False
+CONTINUATION_BRANCH_TP1_R_ALIGNED: float = 0.18
+CONTINUATION_BRANCH_TP1_R_NEUTRAL: float = 0.14
+CONTINUATION_BRANCH_TP1_R_CAUTION: float = 0.10
+CONTINUATION_BRANCH_TP1_PARTIAL_FRAC: float = 0.45
+CONTINUATION_BRANCH_PRE_RUNNER_LOCK_FRAC: float = 0.60
+CONTINUATION_BRANCH_PRE_RUNNER_LOCK_THRESHOLD_R: float = 0.10
+CONTINUATION_BRANCH_TRAIL_MULT_BASE_FACTOR: float = 4.0
+CONTINUATION_BRANCH_TRAIL_4H_ATR_MULT: float = 0.30
+
+BRANCH_SHADOW_HORIZON_BARS: int = 24
 
 # ---------------------------------------------------------------------------
 # Re-entry (spec §21)

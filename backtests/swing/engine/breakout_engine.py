@@ -30,6 +30,7 @@ from strategies.swing.breakout.config import (
     ATR_DAILY_PERIOD,
     ATR_HOURLY_PERIOD,
     BE_BUFFER_ATR_MULT,
+    BRANCH_SHADOW_HORIZON_BARS,
     CAMPAIGN_RISK_BUDGET_MULT,
     CHOP_DEGRADED_SIZE_MULT,
     CHOP_DEGRADED_STALE_ADJ,
@@ -38,8 +39,21 @@ from strategies.swing.breakout.config import (
     EMA_1H_PERIOD,
     EMA_4H_PERIOD,
     EMA_DAILY_PERIOD,
+    ENTRY_A_STRONG_LIMIT_OFFSET_ATR_H,
+    ENTRY_A_STRONG_STOP_BUFFER_ATR_H,
     ENTRY_A_TTL_RTH_HOURS,
+    ENTRY_B_RESUME_LIMIT_OFFSET_ATR_H,
+    ENTRY_B_RESUME_STOP_BUFFER_ATR_H,
+    ENTRY_C_FAST_MARKET,
+    ENTRY_C_FAST_MARKET_TTL_RTH_HOURS,
+    ENTRY_C_FRESH_LIMIT_OFFSET_ATR_H,
+    ENTRY_C_FRESH_STOP_BUFFER_ATR_H,
+    ENTRY_C_HOLD_BARS,
+    ENTRY_C_MOMENTUM_LIMIT_OFFSET_ATR_H,
+    ENTRY_C_MOMENTUM_STOP_BUFFER_ATR_H,
+    ENTRY_C_MOMENTUM_USE_STOP_LIMIT,
     ENTRY_C_TTL_RTH_HOURS,
+    ENTRY_OUTSIDE_WINDOW_CARRY_TTL_HOURS,
     INSIDE_CLOSE_INVALIDATION_COUNT,
     MAX_ADDS_PER_CAMPAIGN,
     PENDING_MAX_RTH_HOURS,
@@ -54,6 +68,11 @@ from strategies.swing.breakout.config import (
     TP2_R_ALIGNED,
     TP2_R_CAUTION,
     TP2_R_NEUTRAL,
+    TP1_PARTIAL_FRAC_ALIGNED,
+    TP1_PARTIAL_FRAC_DEGRADED,
+    TP2_PARTIAL_FRAC,
+    PRE_RUNNER_LOCK_FRAC,
+    PRE_RUNNER_LOCK_THRESHOLD_R,
     SYMBOL_CONFIGS,
     SymbolConfig,
 )
@@ -132,11 +151,12 @@ except Exception:
 # ---------------------------------------------------------------------------
 
 class _AblationPatch:
-    """Temporarily patch strategy_3 module constants for param_overrides.
+    """Temporarily patch breakout constants for param_overrides.
 
-    Monkeypatches constants in strategy_3.config (and this engine module's
-    own top-level bindings) within a context manager. Restores originals
-    on exit. Safe in single-threaded / per-process execution.
+    The optimizer mutates config constants, but the breakout stack imports
+    many of those constants into helper modules at import time. Patch every
+    consumer module so experiment knobs remain live and auto-optimization
+    does not waste time on inert sweeps.
     """
 
     def __init__(self, flags: BreakoutAblationFlags, param_overrides: dict[str, float] | None = None):
@@ -145,19 +165,25 @@ class _AblationPatch:
         self._patches: list[tuple[object, str, object]] = []
 
     def __enter__(self):
+        import importlib
         import sys
-        import strategies.swing.breakout.config as scfg
 
         engine_mod = sys.modules[__name__]
+        module_names = (
+            "strategies.swing.breakout.config",
+            "strategies.swing.breakout.signals",
+            "strategies.swing.breakout.gates",
+            "strategies.swing.breakout.stops",
+            "strategies.swing.breakout.allocator",
+        )
+        modules = [importlib.import_module(name) for name in module_names]
+        modules.append(engine_mod)
 
         for key, val in self.overrides.items():
             upper_key = key.upper()
-            # Patch source module
-            if hasattr(scfg, upper_key):
-                self._patch(scfg, upper_key, val)
-            # Patch engine module's own top-level imported binding
-            if hasattr(engine_mod, upper_key):
-                self._patch(engine_mod, upper_key, val)
+            for module in modules:
+                if hasattr(module, upper_key):
+                    self._patch(module, upper_key, val)
         return self
 
     def __exit__(self, *exc):
@@ -278,6 +304,36 @@ class SignalEvent:
     score_consec: int = 0
     score_atr: int = 0
     chop_mode: str = ""
+    fresh_market_reject_reason: str = ""
+    fresh_stop_reject_reason: str = ""
+    early_standard_reject_reason: str = ""
+    continuation_reject_reason: str = ""
+    momentum_reject_reason: str = ""
+    entry_disp_from_avwap: float = 0.0
+    bars_since_breakout: int = 0
+    continuation: bool = False
+
+
+@dataclass
+class BranchShadowRecord:
+    """Counterfactual branch outcome for a rejected candidate."""
+
+    timestamp: datetime | None = None
+    symbol: str = ""
+    branch: str = ""
+    reject_reason: str = ""
+    direction: int = 0
+    bar_index: int = 0
+    entry_price: float = 0.0
+    stop_price: float = 0.0
+    entry_delay_bars: int = 1
+    horizon_bars: int = 0
+    mfe_r: float = 0.0
+    mae_r: float = 0.0
+    timed_exit_r: float = 0.0
+    best_exit_r: float = 0.0
+    hypothetical_exit: str = ""
+    stopped: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -291,6 +347,7 @@ class BreakoutSymbolResult:
     symbol: str
     trades: list[BreakoutTradeRecord] = field(default_factory=list)
     signal_events: list[SignalEvent] = field(default_factory=list)
+    branch_shadows: list[BranchShadowRecord] = field(default_factory=list)
     equity_curve: np.ndarray = field(default_factory=lambda: np.array([]))
     timestamps: np.ndarray = field(default_factory=lambda: np.array([]))
     total_commission: float = 0.0
@@ -468,6 +525,7 @@ class BreakoutEngine:
         # Results
         self.trades: list[BreakoutTradeRecord] = []
         self.signal_events: list[SignalEvent] = []
+        self.branch_shadows: list[BranchShadowRecord] = []
         self.equity_curve: list[float] = []
         self.timestamps: list = []
         self.total_commission: float = 0.0
@@ -501,6 +559,25 @@ class BreakoutEngine:
     def _risk_equity(self) -> float:
         """Portfolio equity used for sizing and admission checks."""
         return self.sizing_equity if self.sizing_equity > 0 else self.equity
+
+    def _compute_entry_risk_dollars(
+        self,
+        entry_type: EntryType,
+        base_risk_dollars: float,
+        close_price: float,
+        avwap_h: float,
+        atr14_d: float,
+    ) -> float:
+        entry_disp_from_avwap = 0.0
+        if atr14_d > 0:
+            entry_disp_from_avwap = abs(close_price - avwap_h) / atr14_d
+        return allocator.compute_entry_risk_dollars(
+            base_risk_dollars,
+            entry_type=entry_type.value,
+            continuation=self.campaign.continuation,
+            bars_since_breakout=self.campaign.bars_since_breakout,
+            entry_disp_from_avwap=entry_disp_from_avwap,
+        )
 
     # ------------------------------------------------------------------
     # Core replay driver (thin-driver event capture)
@@ -560,10 +637,12 @@ class BreakoutEngine:
                     self._to_datetime(hourly.times[-1]),
                 )
 
+        self._annotate_branch_shadows(hourly)
         return BreakoutSymbolResult(
             symbol=self.symbol,
             trades=self.trades,
             signal_events=self.signal_events,
+            branch_shadows=self.branch_shadows,
             equity_curve=self._eq_arr[:self._bar_idx].copy(),
             timestamps=self._ts_arr[:self._bar_idx].copy(),
             total_commission=self.total_commission,
@@ -749,11 +828,19 @@ class BreakoutEngine:
             self.campaign.pending.rth_hours_elapsed += 1
             if gates.pending_expired(self.campaign.pending, bar_time):
                 self.campaign.pending = None
-            elif gates.pending_block_cleared(
+            else:
+                pending_risk_dollars = self._compute_entry_risk_dollars(
+                    self.campaign.pending.entry_type_requested,
+                    self._daily_ctx.get("final_risk_dollars", 0.0),
+                    self.hourly_state.close,
+                    self.hourly_state.avwap_h,
+                    self._daily_ctx.get("atr14_d", 0.0),
+                )
+            if self.campaign.pending and gates.pending_block_cleared(
                 self.campaign.pending.reason,
                 self.positions,
                 self.campaign.pending.direction,
-                self._daily_ctx.get("final_risk_dollars", 0.0),
+                pending_risk_dollars,
                 self._risk_equity(),
             ):
                 # Re-validate and place
@@ -761,6 +848,7 @@ class BreakoutEngine:
                     self.campaign.pending.entry_type_requested,
                     self.campaign.pending.direction,
                     bar_time,
+                    final_risk_dollars_override=pending_risk_dollars,
                 )
                 self.campaign.pending = None
 
@@ -1307,6 +1395,7 @@ class BreakoutEngine:
         avwap_h = hs.avwap_h
         rvol_h = hs.rvol_h
         expiry_mult = ctx["expiry_mult"]
+        score_total = int(ctx.get("score_total", 0))
 
         # Chop HALT blocks all new entries
         if not self.flags.disable_chop_mode and campaign.chop_mode == "HALT":
@@ -1328,6 +1417,7 @@ class BreakoutEngine:
         if self.flags.disable_c_continuation_entry:
             campaign.continuation = False
 
+        selection_trace: dict[str, object] = {}
         entry_type = signals.select_entry_type(
             direction=direction,
             campaign=campaign,
@@ -1344,16 +1434,39 @@ class BreakoutEngine:
             disp_mult=disp_mult,
             quality_mult=quality_mult,
             regime_4h=regime_4h,
+            score_total=score_total,
             entry_a_active=self._entry_a_outstanding,
             atr_expanding=ctx.get("atr_expanding", True),
             ema20_h=hs.ema20_h,
+            selection_trace=selection_trace,
         )
 
         # Restore continuation state after entry selection
         campaign.continuation = saved_continuation
 
+        self._record_branch_shadows_from_trace(bar_time, direction, ctx, selection_trace)
+
         if entry_type is None:
+            if self.bt_config.track_signals:
+                self._log_signal_event(
+                    bar_time,
+                    direction,
+                    None,
+                    False,
+                    "",
+                    ctx,
+                    rvol_h,
+                    selection_trace=selection_trace,
+                )
             return
+
+        final_risk_dollars = self._compute_entry_risk_dollars(
+            entry_type,
+            final_risk_dollars,
+            hs.close,
+            avwap_h,
+            atr14_d,
+        )
 
         # Displacement ceiling: reject C_standard entries too far from AVWAP
         if entry_type in (EntryType.C_STANDARD, EntryType.C_CONTINUATION) and atr14_d > 0:
@@ -1370,13 +1483,26 @@ class BreakoutEngine:
             [],  # No news calendar in backtest
             self.correlation_map,
         )
+        carry_ttl_hours = (
+            ENTRY_OUTSIDE_WINDOW_CARRY_TTL_HOURS
+            if reason == "outside_entry_window"
+            and signals.entry_outside_window_carry_allowed(
+                entry_type,
+                direction,
+                regime_4h,
+                score_total,
+                quality_mult,
+                campaign.continuation,
+            )
+            else None
+        )
 
-        if not ok:
+        if not ok and carry_ttl_hours is None:
             # Log signal event
             if self.bt_config.track_signals:
                 self._log_signal_event(
                     bar_time, direction, entry_type, False, reason,
-                    ctx, rvol_h,
+                    ctx, rvol_h, selection_trace=selection_trace,
                 )
             # Pending mechanism
             if not self.flags.disable_pending:
@@ -1403,7 +1529,7 @@ class BreakoutEngine:
                 if self.bt_config.track_signals:
                     self._log_signal_event(
                         bar_time, direction, entry_type, False, "micro_guard",
-                        ctx, rvol_h,
+                        ctx, rvol_h, selection_trace=selection_trace,
                     )
                 self.entries_blocked += 1
                 return
@@ -1412,7 +1538,7 @@ class BreakoutEngine:
             if self.bt_config.track_signals:
                 self._log_signal_event(
                     bar_time, direction, entry_type, False, "invalid_avwap_h",
-                    ctx, rvol_h,
+                    ctx, rvol_h, selection_trace=selection_trace,
                 )
             self.entries_blocked += 1
             return
@@ -1428,7 +1554,7 @@ class BreakoutEngine:
                 if self.bt_config.track_signals:
                     self._log_signal_event(
                         bar_time, direction, entry_type, False, "invalid_entry_inputs",
-                        ctx, rvol_h,
+                        ctx, rvol_h, selection_trace=selection_trace,
                     )
                 self.entries_blocked += 1
                 return
@@ -1437,7 +1563,7 @@ class BreakoutEngine:
                 if self.bt_config.track_signals:
                     self._log_signal_event(
                         bar_time, direction, entry_type, False, "friction_gate",
-                        ctx, rvol_h,
+                        ctx, rvol_h, selection_trace=selection_trace,
                     )
                 self.entries_blocked += 1
                 return
@@ -1445,16 +1571,28 @@ class BreakoutEngine:
         # Place entry
         if self.bt_config.track_signals:
             self._log_signal_event(
-                bar_time, direction, entry_type, True, "",
-                ctx, rvol_h,
+                bar_time,
+                direction,
+                entry_type,
+                True,
+                "outside_entry_window_carried" if carry_ttl_hours is not None else "",
+                ctx, rvol_h, selection_trace=selection_trace,
             )
-        self._place_entry(entry_type, direction, bar_time)
+        self._place_entry(
+            entry_type,
+            direction,
+            bar_time,
+            ttl_hours_override=carry_ttl_hours,
+            final_risk_dollars_override=final_risk_dollars,
+        )
 
     def _place_entry(
         self,
         entry_type: EntryType,
         direction: Direction,
         bar_time: datetime,
+        ttl_hours_override: int | None = None,
+        final_risk_dollars_override: float | None = None,
     ) -> None:
         """Compute stop, size, and submit entry order via SimBroker."""
         ctx = self._daily_ctx
@@ -1468,7 +1606,17 @@ class BreakoutEngine:
         atr14_d = ctx["atr14_d"]
         atr14_h = hs.atr14_h
         avwap_h = hs.avwap_h
-        final_risk_dollars = ctx["final_risk_dollars"]
+        final_risk_dollars = (
+            final_risk_dollars_override
+            if final_risk_dollars_override is not None
+            else self._compute_entry_risk_dollars(
+                entry_type,
+                ctx["final_risk_dollars"],
+                hs.close,
+                avwap_h,
+                atr14_d,
+            )
+        )
         quality_mult = ctx["quality_mult"]
         trade_regime: TradeRegime = ctx["trade_regime"]
         sq_good = ctx["sq_good"]
@@ -1486,12 +1634,70 @@ class BreakoutEngine:
             return
 
         # Entry level
+        stop_limit_stop = 0.0
         if entry_type == EntryType.A_AVWAP_RETEST:
             buffer = 0.03 * atr14_d
             entry_price = avwap_h + buffer if direction == Direction.LONG else avwap_h - buffer
-        elif entry_type in (EntryType.C_STANDARD, EntryType.C_CONTINUATION):
-            # C entries: signal confirmed via 2 consecutive closes — enter near market
+        elif entry_type == EntryType.A_RECLAIM_STRONG:
             entry_price = hs.close
+        elif entry_type == EntryType.A_RECLAIM_STRONG_STOP:
+            atr_ref = atr14_h if atr14_h > 0 else atr14_d
+            stop_buffer = ENTRY_A_STRONG_STOP_BUFFER_ATR_H * atr_ref
+            limit_offset = ENTRY_A_STRONG_LIMIT_OFFSET_ATR_H * atr_ref
+            if direction == Direction.LONG:
+                trigger_ref = float(hs.highs[-1]) if len(hs.highs) > 0 else hs.close
+                stop_limit_stop = round_to_tick(trigger_ref + stop_buffer, cfg.tick_size, "up")
+                entry_price = round_to_tick(stop_limit_stop + limit_offset, cfg.tick_size, "up")
+            else:
+                trigger_ref = float(hs.lows[-1]) if len(hs.lows) > 0 else hs.close
+                stop_limit_stop = round_to_tick(trigger_ref - stop_buffer, cfg.tick_size, "down")
+                entry_price = round_to_tick(stop_limit_stop - limit_offset, cfg.tick_size, "down")
+        elif entry_type == EntryType.B_RESUME_MARKET:
+            entry_price = hs.close
+        elif entry_type == EntryType.B_RESUME_STOP:
+            atr_ref = atr14_h if atr14_h > 0 else atr14_d
+            stop_buffer = ENTRY_B_RESUME_STOP_BUFFER_ATR_H * atr_ref
+            limit_offset = ENTRY_B_RESUME_LIMIT_OFFSET_ATR_H * atr_ref
+            if direction == Direction.LONG:
+                trigger_ref = float(hs.highs[-1]) if len(hs.highs) > 0 else hs.close
+                stop_limit_stop = round_to_tick(trigger_ref + stop_buffer, cfg.tick_size, "up")
+                entry_price = round_to_tick(stop_limit_stop + limit_offset, cfg.tick_size, "up")
+            else:
+                trigger_ref = float(hs.lows[-1]) if len(hs.lows) > 0 else hs.close
+                stop_limit_stop = round_to_tick(trigger_ref - stop_buffer, cfg.tick_size, "down")
+                entry_price = round_to_tick(stop_limit_stop - limit_offset, cfg.tick_size, "down")
+        elif entry_type in (
+            EntryType.C_EARLY_STANDARD,
+            EntryType.C_STANDARD,
+            EntryType.C_CONTINUATION,
+            EntryType.C_FRESH_MARKET,
+            EntryType.C_MOMENTUM_MARKET,
+        ):
+            entry_price = hs.close
+        elif entry_type == EntryType.C_FRESH_STOP:
+            atr_ref = atr14_h if atr14_h > 0 else atr14_d
+            stop_buffer = ENTRY_C_FRESH_STOP_BUFFER_ATR_H * atr_ref
+            limit_offset = ENTRY_C_FRESH_LIMIT_OFFSET_ATR_H * atr_ref
+            if direction == Direction.LONG:
+                trigger_ref = float(hs.highs[-1]) if len(hs.highs) > 0 else hs.close
+                stop_limit_stop = round_to_tick(trigger_ref + stop_buffer, cfg.tick_size, "up")
+                entry_price = round_to_tick(stop_limit_stop + limit_offset, cfg.tick_size, "up")
+            else:
+                trigger_ref = float(hs.lows[-1]) if len(hs.lows) > 0 else hs.close
+                stop_limit_stop = round_to_tick(trigger_ref - stop_buffer, cfg.tick_size, "down")
+                entry_price = round_to_tick(stop_limit_stop - limit_offset, cfg.tick_size, "down")
+        elif entry_type == EntryType.C_MOMENTUM_STOP:
+            atr_ref = atr14_h if atr14_h > 0 else atr14_d
+            stop_buffer = ENTRY_C_MOMENTUM_STOP_BUFFER_ATR_H * atr_ref
+            limit_offset = ENTRY_C_MOMENTUM_LIMIT_OFFSET_ATR_H * atr_ref
+            if direction == Direction.LONG:
+                trigger_ref = float(hs.highs[-1]) if len(hs.highs) > 0 else hs.close
+                stop_limit_stop = round_to_tick(trigger_ref + stop_buffer, cfg.tick_size, "up")
+                entry_price = round_to_tick(stop_limit_stop + limit_offset, cfg.tick_size, "up")
+            else:
+                trigger_ref = float(hs.lows[-1]) if len(hs.lows) > 0 else hs.close
+                stop_limit_stop = round_to_tick(trigger_ref - stop_buffer, cfg.tick_size, "down")
+                entry_price = round_to_tick(stop_limit_stop - limit_offset, cfg.tick_size, "down")
         else:
             entry_price = avwap_h
 
@@ -1517,7 +1723,7 @@ class BreakoutEngine:
             final_risk_dollars = shares * r_per_share
 
         # TP levels
-        tp1_r, tp2_r = self._get_tp_r_multiples(trade_regime, self.cfg.tp_scale)
+        tp1_r, tp2_r = self._get_tp_r_multiples(entry_type.value, trade_regime, self.cfg.tp_scale)
 
         # Build setup instance
         setup = SetupInstance(
@@ -1545,19 +1751,52 @@ class BreakoutEngine:
         # Determine order type and TTL
         side = OrderSide.BUY if direction == Direction.LONG else OrderSide.SELL
 
-        if entry_type == EntryType.A_AVWAP_RETEST:
+        fast_c_market = (
+            entry_type in (EntryType.C_STANDARD, EntryType.C_CONTINUATION)
+            and ENTRY_C_HOLD_BARS <= 1
+            and ENTRY_C_FAST_MARKET
+        )
+
+        if entry_type in (
+            EntryType.A_AVWAP_RETEST,
+            EntryType.A_RECLAIM_STRONG,
+        ):
             order_type = OrderType.MARKET
             ttl_hours = 2  # needs >1 so MARKET order survives to next bar
             self._entry_a_outstanding = True
-        elif entry_type == EntryType.B_SWEEP_RECLAIM:
+        elif entry_type == EntryType.A_RECLAIM_STRONG_STOP:
+            order_type = OrderType.STOP_LIMIT
+            ttl_hours = ENTRY_A_TTL_RTH_HOURS
+            self._entry_a_outstanding = True
+        elif entry_type in (EntryType.B_SWEEP_RECLAIM, EntryType.B_RESUME_MARKET):
             order_type = OrderType.MARKET
             ttl_hours = 1  # immediate
-        elif entry_type in (EntryType.C_STANDARD, EntryType.C_CONTINUATION):
-            order_type = OrderType.LIMIT
+        elif entry_type == EntryType.B_RESUME_STOP:
+            order_type = OrderType.STOP_LIMIT
+            ttl_hours = ENTRY_A_TTL_RTH_HOURS
+        elif entry_type == EntryType.C_EARLY_STANDARD:
+            order_type = OrderType.MARKET
+            ttl_hours = ENTRY_C_FAST_MARKET_TTL_RTH_HOURS
+        elif entry_type == EntryType.C_FRESH_MARKET:
+            order_type = OrderType.MARKET
+            ttl_hours = ENTRY_C_FAST_MARKET_TTL_RTH_HOURS
+        elif entry_type == EntryType.C_FRESH_STOP:
+            order_type = OrderType.STOP_LIMIT
             ttl_hours = ENTRY_C_TTL_RTH_HOURS
+        elif entry_type == EntryType.C_MOMENTUM_MARKET:
+            order_type = OrderType.MARKET
+            ttl_hours = ENTRY_C_FAST_MARKET_TTL_RTH_HOURS
+        elif entry_type == EntryType.C_MOMENTUM_STOP:
+            order_type = OrderType.STOP_LIMIT
+            ttl_hours = ENTRY_C_TTL_RTH_HOURS
+        elif entry_type in (EntryType.C_STANDARD, EntryType.C_CONTINUATION):
+            order_type = OrderType.MARKET if fast_c_market else OrderType.LIMIT
+            ttl_hours = ENTRY_C_FAST_MARKET_TTL_RTH_HOURS if fast_c_market else ENTRY_C_TTL_RTH_HOURS
         else:
             order_type = OrderType.MARKET
             ttl_hours = 1
+        if ttl_hours_override is not None:
+            ttl_hours = ttl_hours_override
 
         order = SimOrder(
             order_id=self.broker.next_order_id(),
@@ -1565,12 +1804,14 @@ class BreakoutEngine:
             side=side,
             order_type=order_type,
             qty=shares,
-            stop_price=0.0,
-            limit_price=entry_price if order_type == OrderType.LIMIT else 0.0,
+            stop_price=stop_limit_stop if order_type == OrderType.STOP_LIMIT else 0.0,
+            limit_price=entry_price if order_type in (OrderType.LIMIT, OrderType.STOP_LIMIT) else 0.0,
             tick_size=cfg.tick_size,
             submit_time=bar_time,
             ttl_hours=ttl_hours,
             tag="entry",
+            fill_window_start_et=cfg.entry_window_start_et,
+            fill_window_end_et=cfg.entry_window_end_et,
         )
 
         self.broker.submit_order(order)
@@ -1580,7 +1821,7 @@ class BreakoutEngine:
         # Core notification: entry requested + order registered
         self._replay_core_step(bar_input={"bar_ts": bar_time, "entry_request": BreakoutEntryRequest(
             client_order_id=order.order_id, setup=setup,
-            order_type="LIMIT" if order_type == OrderType.LIMIT else "MARKET",
+            order_type=order_type.name,
         )})
         self._core_state.order_to_setup[order.order_id] = setup.setup_id
         self._core_state.order_kind[order.order_id] = "primary_entry"
@@ -1637,7 +1878,7 @@ class BreakoutEngine:
         if self.bt_config.fixed_qty is not None:
             final_risk_dollars = shares * r_per_share
 
-        tp1_r, tp2_r = self._get_tp_r_multiples(trade_regime, cfg.tp_scale)
+        tp1_r, tp2_r = self._get_tp_r_multiples(EntryType.BREAKOUT_DAY.value, trade_regime, cfg.tp_scale)
 
         setup = SetupInstance(
             symbol=self.symbol,
@@ -1672,6 +1913,8 @@ class BreakoutEngine:
             submit_time=daily_bar_time,
             ttl_hours=24,
             tag="entry",
+            fill_window_start_et=cfg.entry_window_start_et,
+            fill_window_end_et=cfg.entry_window_end_et,
         )
         self.broker.submit_order(order)
         self._pending_setup = setup
@@ -1790,6 +2033,8 @@ class BreakoutEngine:
             submit_time=bar_time,
             ttl_hours=ENTRY_A_TTL_RTH_HOURS,
             tag="add_on",
+            fill_window_start_et=cfg.entry_window_start_et,
+            fill_window_end_et=cfg.entry_window_end_et,
         )
         self.broker.submit_order(order)
         campaign.add_count += 1
@@ -2246,22 +2491,23 @@ class BreakoutEngine:
 
         # --- TP1 ---
         trade_regime = TradeRegime(pos.exit_tier) if pos.exit_tier else TradeRegime.NEUTRAL
-        tp1_r, tp2_r = self._get_tp_r_multiples(trade_regime, self.cfg.tp_scale)
+        tp1_r, tp2_r = self._get_tp_r_multiples(pos.entry_type, trade_regime, self.cfg.tp_scale)
 
         new_stop = pos.current_stop
         tp1_hit_this_bar = False
+        lock_frac, lock_threshold = stops.get_pre_runner_lock_params(pos.entry_type)
 
         # --- Pre-runner trail: capture MFE as it develops, even before TP1 ---
-        # Once r_state exceeds 0.10R, start ratcheting stop toward entry
-        if not pos.runner_active and r_state > 0.10:
-            # Lock in 30% of unrealized gain
+        # Once r_state exceeds threshold, start ratcheting stop toward entry
+        if not pos.runner_active and r_state > lock_threshold:
+            # Lock in configured fraction of unrealized gain
             if setup.direction == Direction.LONG:
-                candidate = pos.fill_price + 0.30 * (C - pos.fill_price)
+                candidate = pos.fill_price + lock_frac * (C - pos.fill_price)
                 candidate = round_to_tick(candidate, self.cfg.tick_size, "down")
                 if candidate > new_stop:
                     new_stop = candidate
             else:
-                candidate = pos.fill_price - 0.30 * (pos.fill_price - C)
+                candidate = pos.fill_price - lock_frac * (pos.fill_price - C)
                 candidate = round_to_tick(candidate, self.cfg.tick_size, "up")
                 if candidate < new_stop:
                     new_stop = candidate
@@ -2270,22 +2516,29 @@ class BreakoutEngine:
             pos.tp1_done = True
             pos.tp1_bar = pos.bars_held
             tp1_hit_this_bar = True
-            # Two-leg exit: close 33% at TP1, runner on remaining 67%
-            # Degraded/range: close 50% at TP1, runner on 50%
+
+            # Configurable TP1 partial fraction (replaces hardcoded //3 and //2)
             chop_cap = self.campaign.chop_mode == "DEGRADED"
             range_cap = pos.exit_tier == ExitTier.NEUTRAL.value
             if chop_cap or range_cap:
-                tp1_qty = max(1, pos.qty_open // 2)
+                tp1_frac = TP1_PARTIAL_FRAC_DEGRADED
             else:
-                tp1_qty = max(1, pos.qty_open // 3)
+                tp1_frac = TP1_PARTIAL_FRAC_ALIGNED
+            tp1_frac = stops.get_tp1_partial_frac(pos.entry_type, tp1_frac)
+            tp1_qty = max(1, int(pos.qty_open * tp1_frac))
 
-            # Immediately activate runner on remainder (skip TP2 partial)
-            pos.tp2_done = True
-            pos.tp2_bar = pos.bars_held
-            pos.runner_active = True
+            # TP2 activation: if TP2_PARTIAL_FRAC > 0 and flag not set, keep TP2 live
+            tp2_enabled = (TP2_PARTIAL_FRAC > 0.0
+                           and not self.flags.disable_tp2_cascade)
+            if not tp2_enabled:
+                # Legacy behavior: skip TP2, activate runner immediately
+                pos.tp2_done = True
+                pos.tp2_bar = pos.bars_held
+                pos.runner_active = True
+            # else: TP2 remains pending (tp2_done=False, runner_active=False)
 
             pos.qty_tp1 = tp1_qty
-            self._submit_partial_exit(pos, tp1_qty, bar_time)
+            self._submit_partial_exit(pos, tp1_qty, bar_time, reason="TP1")
 
             # Move stop to BE
             ctx = self._daily_ctx or {}
@@ -2304,6 +2557,29 @@ class BreakoutEngine:
             ps = self.positions.get(self.symbol)
             if ps:
                 ps.tp1_done = True
+                ps.tp2_done = pos.tp2_done
+                ps.runner_active = pos.runner_active
+
+        # --- TP2 check (only when TP2 is live, NEVER on same bar as TP1) ---
+        # Guard: `not tp1_hit_this_bar` prevents same-bar double-partial.
+        # pos.qty_open is NOT yet decremented from TP1 (fill is next bar),
+        # so TP2 must wait until TP1 fill is processed.
+        if (pos.tp1_done and not pos.tp2_done
+                and not tp1_hit_this_bar
+                and r_state >= tp2_r):
+            pos.tp2_done = True
+            pos.tp2_bar = pos.bars_held
+            pos.runner_active = True
+
+            tp2_qty = max(1, int(pos.qty_open * TP2_PARTIAL_FRAC))
+            if tp2_qty >= pos.qty_open:
+                tp2_qty = pos.qty_open - 1  # always leave >= 1 share for runner
+            if tp2_qty > 0:
+                self._submit_partial_exit(pos, tp2_qty, bar_time, reason="TP2")
+
+            # Update portfolio position
+            ps = self.positions.get(self.symbol)
+            if ps:
                 ps.tp2_done = True
                 ps.runner_active = True
 
@@ -2320,7 +2596,7 @@ class BreakoutEngine:
 
             # Compute trail mult
             continuation = self.campaign.continuation
-            pos.trail_mult = stops.compute_trail_mult(r_state, r_now, continuation)
+            pos.trail_mult = stops.compute_trail_mult(r_state, r_now, continuation, pos.entry_type)
 
             trailing_stop = stops.compute_trailing_stop(
                 setup.direction,
@@ -2383,6 +2659,7 @@ class BreakoutEngine:
 
     def _submit_partial_exit(
         self, pos: _ActivePosition, qty: int, bar_time: datetime,
+        *, reason: str = "TP1",
     ) -> None:
         """Submit a market order for partial exit."""
         if qty <= 0 or qty > pos.qty_open:
@@ -2404,10 +2681,10 @@ class BreakoutEngine:
         # Core notification: partial exit requested + order registered
         self._replay_core_step(bar_input={"bar_ts": bar_time, "partial_exit_request": BreakoutPartialExitRequest(
             client_order_id=order.order_id, setup_id=pos.setup.setup_id,
-            symbol=self.symbol, qty=qty, reason="TP1",
+            symbol=self.symbol, qty=qty, reason=reason,
         )})
         self._core_state.order_to_setup[order.order_id] = pos.setup.setup_id
-        self._core_state.order_kind[order.order_id] = "tp1"
+        self._core_state.order_kind[order.order_id] = reason.lower()
         self._core_state.order_requested_qty[order.order_id] = qty
 
     def _submit_flatten(self, pos: _ActivePosition, bar_time: datetime, reason: str) -> None:
@@ -2672,6 +2949,122 @@ class BreakoutEngine:
     # Signal event logging
     # ------------------------------------------------------------------
 
+    def _record_branch_shadows_from_trace(
+        self,
+        bar_time: datetime,
+        direction: Direction,
+        ctx: dict,
+        selection_trace: dict | None,
+    ) -> None:
+        if not self.bt_config.track_shadows or not selection_trace:
+            return
+
+        hs = self.hourly_state
+        campaign = self.campaign
+        atr14_d = float(ctx.get("atr14_d", 0.0) or 0.0)
+        sq_good = bool(ctx.get("sq_good", False))
+        momentum_entry = (
+            EntryType.C_MOMENTUM_STOP
+            if ENTRY_C_MOMENTUM_USE_STOP_LIMIT
+            else EntryType.C_MOMENTUM_MARKET
+        )
+        branch_specs = (
+            (EntryType.C_FRESH_MARKET, "fresh_market_reject_reason"),
+            (EntryType.C_FRESH_STOP, "fresh_stop_reject_reason"),
+            (EntryType.C_CONTINUATION, "continuation_reject_reason"),
+            (momentum_entry, "momentum_reject_reason"),
+        )
+        ignored = {"", "ok", "not_continuation"}
+
+        for entry_type, trace_key in branch_specs:
+            reason = str(selection_trace.get(trace_key, "") or "")
+            if reason in ignored:
+                continue
+            if reason == "disabled" and entry_type != EntryType.C_CONTINUATION:
+                continue
+            stop_price = stops.compute_initial_stop(
+                direction,
+                entry_type.value,
+                campaign.box_high,
+                campaign.box_low,
+                campaign.box_mid,
+                atr14_d,
+                self.cfg.atr_stop_mult,
+                sq_good,
+                self.cfg.tick_size,
+            )
+            if not np.isfinite(stop_price):
+                continue
+            self.branch_shadows.append(
+                BranchShadowRecord(
+                    timestamp=bar_time,
+                    symbol=self.symbol,
+                    branch=entry_type.value,
+                    reject_reason=reason,
+                    direction=int(direction),
+                    bar_index=max(0, self._bar_idx - 1),
+                    entry_price=float(hs.close),
+                    stop_price=float(stop_price),
+                    entry_delay_bars=1,
+                    horizon_bars=int(BRANCH_SHADOW_HORIZON_BARS),
+                )
+            )
+
+    def _annotate_branch_shadows(self, hourly: NumpyBars) -> None:
+        if not self.branch_shadows:
+            return
+        n_bars = len(hourly)
+        for shadow in self.branch_shadows:
+            if shadow.hypothetical_exit:
+                continue
+            fill_idx = shadow.bar_index + max(0, shadow.entry_delay_bars)
+            if fill_idx >= n_bars:
+                continue
+            end_idx = min(n_bars, fill_idx + max(1, shadow.horizon_bars))
+            if end_idx <= fill_idx:
+                continue
+
+            entry_price = float(hourly.opens[fill_idx]) if hasattr(hourly, "opens") else float(hourly.closes[fill_idx])
+            shadow.entry_price = entry_price
+            r_price = abs(entry_price - shadow.stop_price)
+            if r_price <= 0 or not np.isfinite(r_price):
+                continue
+
+            highs = np.asarray(hourly.highs[fill_idx:end_idx], dtype=float)
+            lows = np.asarray(hourly.lows[fill_idx:end_idx], dtype=float)
+            closes = np.asarray(hourly.closes[fill_idx:end_idx], dtype=float)
+            if highs.size == 0 or lows.size == 0 or closes.size == 0:
+                continue
+
+            if shadow.direction == int(Direction.LONG):
+                shadow.mfe_r = float((np.nanmax(highs) - entry_price) / r_price)
+                shadow.mae_r = float((entry_price - np.nanmin(lows)) / r_price)
+                stop_hits = np.flatnonzero(lows <= shadow.stop_price)
+                shadow.stopped = bool(stop_hits.size)
+                if shadow.stopped:
+                    stop_idx = int(stop_hits[0])
+                    shadow.timed_exit_r = -1.0
+                    shadow.best_exit_r = float((np.nanmax(highs[: stop_idx + 1]) - entry_price) / r_price)
+                    shadow.hypothetical_exit = "STOP"
+                else:
+                    shadow.timed_exit_r = float((closes[-1] - entry_price) / r_price)
+                    shadow.best_exit_r = shadow.mfe_r
+                    shadow.hypothetical_exit = "TIMED"
+            else:
+                shadow.mfe_r = float((entry_price - np.nanmin(lows)) / r_price)
+                shadow.mae_r = float((np.nanmax(highs) - entry_price) / r_price)
+                stop_hits = np.flatnonzero(highs >= shadow.stop_price)
+                shadow.stopped = bool(stop_hits.size)
+                if shadow.stopped:
+                    stop_idx = int(stop_hits[0])
+                    shadow.timed_exit_r = -1.0
+                    shadow.best_exit_r = float((entry_price - np.nanmin(lows[: stop_idx + 1])) / r_price)
+                    shadow.hypothetical_exit = "STOP"
+                else:
+                    shadow.timed_exit_r = float((entry_price - closes[-1]) / r_price)
+                    shadow.best_exit_r = shadow.mfe_r
+                    shadow.hypothetical_exit = "TIMED"
+
     def _log_signal_event(
         self,
         bar_time: datetime,
@@ -2681,8 +3074,10 @@ class BreakoutEngine:
         blocked_reason: str,
         ctx: dict,
         rvol_h: float,
+        selection_trace: dict | None = None,
     ) -> None:
         """Log a signal event for filter attribution."""
+        trace = selection_trace or {}
         event = SignalEvent(
             timestamp=bar_time,
             symbol=self.symbol,
@@ -2704,6 +3099,14 @@ class BreakoutEngine:
             score_consec=ctx.get("score_consec", 0),
             score_atr=ctx.get("score_atr", 0),
             chop_mode=ctx.get("chop_mode", ""),
+            fresh_market_reject_reason=str(trace.get("fresh_market_reject_reason", "") or ""),
+            fresh_stop_reject_reason=str(trace.get("fresh_stop_reject_reason", "") or ""),
+            early_standard_reject_reason=str(trace.get("early_standard_reject_reason", "") or ""),
+            continuation_reject_reason=str(trace.get("continuation_reject_reason", "") or ""),
+            momentum_reject_reason=str(trace.get("momentum_reject_reason", "") or ""),
+            entry_disp_from_avwap=float(trace.get("entry_disp_from_avwap", 0.0) or 0.0),
+            bars_since_breakout=int(trace.get("bars_since_breakout", 0) or 0),
+            continuation=bool(trace.get("continuation", False)),
         )
         self.signal_events.append(event)
 
@@ -2726,13 +3129,12 @@ class BreakoutEngine:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _get_tp_r_multiples(trade_regime: TradeRegime, tp_scale: float = 1.0) -> tuple[float, float]:
-        """Return (TP1_R, TP2_R) for the given trade regime, scaled per-symbol."""
-        if trade_regime == TradeRegime.ALIGNED:
-            return TP1_R_ALIGNED * tp_scale, TP2_R_ALIGNED * tp_scale
-        if trade_regime == TradeRegime.CAUTION:
-            return TP1_R_CAUTION * tp_scale, TP2_R_CAUTION * tp_scale
-        return TP1_R_NEUTRAL * tp_scale, TP2_R_NEUTRAL * tp_scale
+    def _get_tp_r_multiples(
+        entry_type: str,
+        trade_regime: TradeRegime,
+        tp_scale: float = 1.0,
+    ) -> tuple[float, float]:
+        return stops.get_tp_r_multiples(entry_type, trade_regime, tp_scale)
 
     # ------------------------------------------------------------------
     # Helpers

@@ -63,6 +63,7 @@ from .config import (
     CONSEC_STOPS_HALVE,
     DAILY_STOP_R,
     DISABLE_CLASS_A,
+    EARLY_STALE_BARS,
     EMA_4H_FAST,
     EMA_4H_SLOW,
     HIGH_VOL_PCT,
@@ -75,6 +76,13 @@ from .config import (
     R_PARTIAL_5,
     RESCUE_SLIP_FRAC,
     RESCUE_TTL_MIN,
+    RTS_FAIL_FLATTEN_R,
+    RTS_GUARD_FADE_BARS,
+    RTS_GUARD_FLOOR_R,
+    RTS_GUARD_MAX_MFE_R,
+    RTS_GUARD_MFE_R,
+    RTS_GUARD_MIN_BARS,
+    RTS_GUARD_MIN_GIVEBACK_R,
     STALE_1H_BARS,
     STALE_4H_BARS,
     STALE_FLATTEN_R_FLOOR,
@@ -247,6 +255,8 @@ class HelixEngine:
         self._last_decision_code: str = "IDLE"
         self._last_decision_details: dict = {}
         self._last_bar_ts: datetime | None = None
+        self._bars_processed: int = 0
+        self._symbol_last_bar_ts: dict[str, datetime] = {}
 
     def _record_decision(self, code: str, details: dict | None = None) -> None:
         self._last_decision_code = code
@@ -259,6 +269,14 @@ class HelixEngine:
             "last_decision_code": self._last_decision_code,
             "last_decision_details": self._last_decision_details,
             "last_bar_ts": self._last_bar_ts.isoformat() if self._last_bar_ts else None,
+        }
+
+    def liveness_payload(self) -> dict:
+        return {
+            "bars_processed": self._bars_processed,
+            "symbol_freshness": {
+                sym: ts.isoformat() for sym, ts in self._symbol_last_bar_ts.items()
+            },
         }
 
     def snapshot_state(self) -> dict[str, Any]:
@@ -679,6 +697,9 @@ class HelixEngine:
         now = datetime.now(timezone.utc)
         logger.info("=== Helix hourly cycle %s ===", now.isoformat())
         self._last_bar_ts = datetime.now(timezone.utc)
+        self._bars_processed += 1
+        for sym in self._config:
+            self._symbol_last_bar_ts[sym] = self._last_bar_ts
 
         # 1. Refresh equity
         await self._refresh_equity()
@@ -942,6 +963,17 @@ class HelixEngine:
             # Check no pause active
             cb = self.circuit_breakers.get(setup.symbol, CircuitBreakerState())
             if not gates.circuit_breaker_ok(cb, now):
+                if self._kit:
+                    self._kit.log_missed(
+                        pair=setup.symbol,
+                        side="LONG" if setup.direction == Direction.LONG else "SHORT",
+                        signal=setup.setup_class.value,
+                        signal_id=setup.setup_id,
+                        signal_strength=0.5,
+                        blocked_by="circuit_breaker",
+                        block_reason="circuit breaker pause active",
+                        strategy_params={"setup_class": setup.setup_class.value, "origin_tf": setup.origin_tf},
+                    )
                 continue
 
             # Gap rule (spec s1.4): if price already beyond trigger by
@@ -954,6 +986,17 @@ class HelixEngine:
                     overshoot = price_now - setup.bos_level
                     if overshoot > gap_overshoot_cap:
                         del self.queued_setups[setup_id]
+                        if self._kit:
+                            self._kit.log_missed(
+                                pair=setup.symbol,
+                                side="LONG",
+                                signal=setup.setup_class.value,
+                                signal_id=setup.setup_id,
+                                signal_strength=0.5,
+                                blocked_by="gap_overshoot",
+                                block_reason=f"overshoot {overshoot:.4f} > cap {gap_overshoot_cap:.4f}",
+                                strategy_params={"setup_class": setup.setup_class.value, "origin_tf": setup.origin_tf},
+                            )
                         logger.info("Queued %s %s skipped: gap overshoot %.4f > cap %.4f",
                                     setup.symbol, setup.setup_id[:8], overshoot, gap_overshoot_cap)
                         continue
@@ -961,6 +1004,17 @@ class HelixEngine:
                     overshoot = setup.bos_level - price_now
                     if overshoot > gap_overshoot_cap:
                         del self.queued_setups[setup_id]
+                        if self._kit:
+                            self._kit.log_missed(
+                                pair=setup.symbol,
+                                side="SHORT",
+                                signal=setup.setup_class.value,
+                                signal_id=setup.setup_id,
+                                signal_strength=0.5,
+                                blocked_by="gap_overshoot",
+                                block_reason=f"overshoot {overshoot:.4f} > cap {gap_overshoot_cap:.4f}",
+                                strategy_params={"setup_class": setup.setup_class.value, "origin_tf": setup.origin_tf},
+                            )
                         logger.info("Queued %s %s skipped: gap overshoot %.4f > cap %.4f",
                                     setup.symbol, setup.setup_id[:8], overshoot, gap_overshoot_cap)
                         continue
@@ -1020,6 +1074,17 @@ class HelixEngine:
             )
 
             if ADX_UPPER_GATE < 999 and daily.adx > ADX_UPPER_GATE:
+                if self._kit:
+                    self._kit.log_missed(
+                        pair=sym,
+                        side="LONG",
+                        signal="adx_gate",
+                        signal_id=f"adx_{sym}_{now.isoformat()[:19]}",
+                        signal_strength=0.0,
+                        blocked_by="adx_upper_gate",
+                        block_reason=f"ADX {daily.adx:.1f} > gate {ADX_UPPER_GATE}",
+                        strategy_params={"adx": daily.adx, "gate": ADX_UPPER_GATE},
+                    )
                 continue
 
             div_hist = self.div_mag_history.setdefault(sym, [])
@@ -1101,6 +1166,22 @@ class HelixEngine:
                         div_hist.append(setup_b.div_mag_norm)
                         candidates.append(setup_b)
                         continue  # one setup per symbol per cycle
+                    else:
+                        if self._kit:
+                            self._kit.log_missed(
+                                pair=sym,
+                                side="LONG" if setup_b.direction == Direction.LONG else "SHORT",
+                                signal=setup_b.setup_class.value,
+                                signal_id=setup_b.setup_id,
+                                signal_strength=0.5,
+                                blocked_by="quality_filter",
+                                block_reason=f"Class B rejected: regime={daily.regime.value}, adx={daily.adx:.1f}",
+                                strategy_params={
+                                    "setup_class": setup_b.setup_class.value,
+                                    "regime": daily.regime.value,
+                                    "adx": daily.adx,
+                                },
+                            )
 
             # Class D: 1H momentum continuation (every hour)
             # Disabled in extreme vol (spec s6)
@@ -1288,6 +1369,17 @@ class HelixEngine:
         # Min R-price gate (2K): reject setups with tiny risk range
         min_r_price = 0.003 * setup.bos_level
         if setup.r_price < min_r_price:
+            if self._kit:
+                self._kit.log_missed(
+                    pair=setup.symbol,
+                    side="LONG" if setup.direction == Direction.LONG else "SHORT",
+                    signal=setup.setup_class.value,
+                    signal_id=setup.setup_id,
+                    signal_strength=0.5,
+                    blocked_by="min_r_price",
+                    block_reason=f"r_price {setup.r_price:.4f} < min {min_r_price:.4f}",
+                    strategy_params={"setup_class": setup.setup_class.value, "origin_tf": setup.origin_tf, "r_price": setup.r_price, "min_r_price": min_r_price},
+                )
             return
 
         # TTL
@@ -1737,9 +1829,15 @@ class HelixEngine:
 
         new_stop = setup.current_stop
 
-        # Track peak MFE in R for stalled-winner detection
-        if r_now > setup.mfe_r_peak:
-            setup.mfe_r_peak = r_now
+        # Track peak MFE in R for stalled-winner and leakage detection.
+        if setup.direction == Direction.LONG:
+            bar_peak = max(tf1h.highs[-1], tf1h.close) if tf1h.highs else tf1h.close
+            bar_mfe_r = (bar_peak - setup.fill_price) / setup.r_price
+        else:
+            bar_peak = min(tf1h.lows[-1], tf1h.close) if tf1h.lows else tf1h.close
+            bar_mfe_r = (setup.fill_price - bar_peak) / setup.r_price
+        if bar_mfe_r > setup.mfe_r_peak:
+            setup.mfe_r_peak = bar_mfe_r
             setup.bar_of_max_mfe = setup.bars_held_1h
 
         # Track trough MAE in R for adverse-excursion analysis
@@ -1799,6 +1897,54 @@ class HelixEngine:
                 setup.bars_neg_fading_hist += 1
             else:
                 setup.bars_neg_fading_hist = 0
+
+        if stops.should_flatten_rts_failure(
+            max_mfe_r=setup.mfe_r_peak,
+            current_r=r_now,
+            bars_held=setup.bars_held_1h,
+            fading_bars=setup.bars_neg_fading_hist,
+            trail_active=setup.trail_active,
+            min_mfe_r=RTS_GUARD_MFE_R,
+            min_giveback_r=RTS_GUARD_MIN_GIVEBACK_R,
+            min_bars=RTS_GUARD_MIN_BARS,
+            fade_bars=RTS_GUARD_FADE_BARS,
+            max_mfe_r_limit=RTS_GUARD_MAX_MFE_R,
+            flatten_r=RTS_FAIL_FLATTEN_R,
+        ):
+            logger.info(
+                "%s RTS decay flatten: MFE=%.2fR, R=%.2f, fading=%d",
+                setup.symbol, setup.mfe_r_peak, r_now, setup.bars_neg_fading_hist,
+            )
+            await self._flatten_setup(setup, reason="RTS_FAIL")
+            return
+
+        if stops.should_arm_rts_guard(
+            max_mfe_r=setup.mfe_r_peak,
+            current_r=r_now,
+            bars_held=setup.bars_held_1h,
+            fading_bars=setup.bars_neg_fading_hist,
+            trail_active=setup.trail_active,
+            min_mfe_r=RTS_GUARD_MFE_R,
+            min_giveback_r=RTS_GUARD_MIN_GIVEBACK_R,
+            min_bars=RTS_GUARD_MIN_BARS,
+            fade_bars=RTS_GUARD_FADE_BARS,
+            max_mfe_r_limit=RTS_GUARD_MAX_MFE_R,
+        ):
+            guard_stop = stops.compute_rts_guard_stop(
+                direction=setup.direction,
+                avg_entry=setup.fill_price,
+                r_price=setup.r_price,
+                current_price=tf1h.close,
+                tick_size=cfg.tick_size,
+                floor_r=RTS_GUARD_FLOOR_R,
+            )
+            if guard_stop is not None:
+                if setup.direction == Direction.LONG and guard_stop > new_stop:
+                    new_stop = guard_stop
+                    setup.stop_source = "RTS_GUARD"
+                elif setup.direction == Direction.SHORT and guard_stop < new_stop:
+                    new_stop = guard_stop
+                    setup.stop_source = "RTS_GUARD"
 
         # Trailing chandelier (activate after profit delay at BE threshold)
         if r_now >= be_threshold and setup.bars_at_r1 >= TRAIL_PROFIT_DELAY_BARS:
@@ -1872,8 +2018,8 @@ class HelixEngine:
                 await self._flatten_setup(setup, reason="BIAS_FLIP")
                 return
 
-        # Early stale: if 20+ bars and trail never activated, flatten losers
-        if setup.bars_held_1h >= 20 and not setup.trail_active and r_state < 0 and not class_c_min_hold:
+        # Early stale: if N+ bars and trail never activated, flatten losers
+        if setup.bars_held_1h >= EARLY_STALE_BARS and not setup.trail_active and r_state < 0 and not class_c_min_hold:
             logger.info("%s early stale flatten: %d bars, R_state=%.2f, trail never activated",
                         setup.symbol, setup.bars_held_1h, r_state)
             await self._flatten_setup(setup, reason="EARLY_STALE")
@@ -1960,6 +2106,17 @@ class HelixEngine:
         if now_et.hour > add_cutoff_h or (now_et.hour == add_cutoff_h and now_et.minute > add_cutoff_m):
             return
         if gates.is_news_blocked(now_et, setup.symbol, self._news_calendar):
+            if self._kit:
+                self._kit.log_missed(
+                    pair=setup.symbol,
+                    side="LONG" if setup.direction == Direction.LONG else "SHORT",
+                    signal=setup.setup_class.value,
+                    signal_id=setup.setup_id,
+                    signal_strength=0.5,
+                    blocked_by="news_calendar",
+                    block_reason="add-on blocked by news calendar",
+                    strategy_params={"setup_class": setup.setup_class.value, "origin_tf": setup.origin_tf},
+                )
             return
 
         pivots_1h = self.pivots.get(setup.symbol, {}).get("1H")

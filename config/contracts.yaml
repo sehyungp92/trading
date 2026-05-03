@@ -58,6 +58,16 @@ NQ:
   tick_value: 5.00
   trading_class: NQ
 
+ES:
+  symbol: ES
+  sec_type: FUT
+  exchange: CME
+  currency: USD
+  multiplier: 50.0
+  tick_size: 0.25
+  tick_value: 12.50
+  trading_class: ES
+
 CL:
   symbol: CL
   sec_type: FUT

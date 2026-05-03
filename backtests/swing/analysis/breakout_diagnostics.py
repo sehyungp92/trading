@@ -18,7 +18,7 @@ def _trade_net_pnl(trade) -> float:
 # ---------------------------------------------------------------------------
 
 def breakout_entry_drilldown(trades: list) -> str:
-    """Per-entry-type (A/B/C_standard/C_continuation/ADD) table."""
+    """Per-entry-type table."""
     if not trades:
         return "No trades for entry type drilldown."
 
@@ -30,7 +30,32 @@ def breakout_entry_drilldown(trades: list) -> str:
     lines.append(header)
     lines.append("  " + "-" * (len(header) - 2))
 
-    for etype in ["A", "B", "C_standard", "C_continuation", "ADD"]:
+    preferred_order = [
+        "A",
+        "A_strong",
+        "A_strong_stop",
+        "B",
+        "B_resume_market",
+        "B_resume_stop",
+        "C_early_standard",
+        "C_standard",
+        "C_continuation",
+        "C_fresh_market",
+        "C_fresh_stop",
+        "C_momentum_market",
+        "C_momentum_stop",
+        "ADD",
+        "BREAKOUT_DAY",
+    ]
+    seen = {getattr(t, "entry_type", "") for t in trades}
+    entry_types = [
+        etype
+        for etype in preferred_order
+        if etype in seen or etype in {"A", "B", "C_early_standard", "C_standard", "C_continuation", "ADD"}
+    ]
+    entry_types.extend(sorted(etype for etype in seen if etype and etype not in entry_types))
+
+    for etype in entry_types:
         ct = [t for t in trades if t.entry_type == etype]
         if not ct:
             lines.append(f"  {etype:18s} {'0':>6s}")
@@ -60,7 +85,7 @@ def breakout_entry_drilldown(trades: list) -> str:
 
     # Flag worst entry type
     type_avg_r = {}
-    for etype in ["A", "B", "C_standard", "C_continuation"]:
+    for etype in entry_types:
         ct = [t for t in trades if t.entry_type == etype]
         if ct:
             type_avg_r[etype] = np.mean([t.r_multiple for t in ct])

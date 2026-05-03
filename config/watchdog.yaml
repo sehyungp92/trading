@@ -39,6 +39,13 @@ checks:
       swing: 5400                       # 90 min (hourly bars)
       momentum: 5400                    # 90 min (hourly/15m bars)
       stock: 300                        # 5 min (1-minute bars)
+  liveness:
+    enabled: true
+    symbol_stale_thresholds:            # per-symbol bar age before CRITICAL (seconds, during RTH)
+      swing: 5400                       # 90 min (hourly bars + 30min grace)
+      momentum: 1200                    # 20 min (5/15min bars + grace)
+      stock: 900                        # 15 min (5min bars + grace)
+    stalled_cycles: 3                   # CRITICAL after bars_processed unchanged for N poll cycles
 
 cooldown:
   alert_cooldown_sec: 900           # 15 min between repeated alerts for same issue

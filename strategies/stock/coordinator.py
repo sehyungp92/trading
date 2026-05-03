@@ -36,6 +36,16 @@ _STOCK_STRATEGY_PRIORITIES: tuple[tuple[str, int], ...] = (
     ("IARIC_v1", 0),
     ("ALCB_v1", 1),
 )
+_STOCK_DIRECTIONAL_CAP_R = 6.25
+_STOCK_PRIORITY_HEADROOM_R = 1.15
+_STOCK_REFERENCE_UNIT_RISK_DOLLARS = 150.0
+_STOCK_PORTFOLIO_WEEKLY_STOP_R = 8.0
+_STOCK_DD_TIERS = (
+    (0.04, 1.00),
+    (0.07, 0.75),
+    (0.10, 0.40),
+    (0.13, 0.00),
+)
 
 
 class StockFamilyCoordinator:
@@ -146,9 +156,9 @@ class StockFamilyCoordinator:
         logger.info(
             "Stock portfolio rules: directional_cap=%.1fR, collision=%s, "
             "collision_pairs=%s, headroom=%.1fR, strategies=%s",
-            12.0, "half_size",
+            _STOCK_DIRECTIONAL_CAP_R, "half_size",
             [f"{h}->{r}:{a}" for h, r, a in collision_pairs],
-            5.0, all_strategy_ids,
+            _STOCK_PRIORITY_HEADROOM_R, all_strategy_ids,
         )
 
         # Log dollar-equivalent directional cap per strategy for monitoring
@@ -157,8 +167,8 @@ class StockFamilyCoordinator:
             _nav = _alloc.allocated_nav if _alloc else equity
             _unit = RiskCalculator.compute_unit_risk_dollars(nav=_nav, unit_risk_pct=desc["base_risk_pct"])
             logger.info(
-                "Directional cap dollar-equiv for %s: 1R=$%.0f, cap=12R=$%.0f, heat=%sR=$%.0f",
-                desc["strategy_id"], _unit, 12.0 * _unit,
+                "Directional cap dollar-equiv for %s: 1R=$%.0f, cap=%.2fR=$%.0f, heat=%sR=$%.0f",
+                desc["strategy_id"], _unit, _STOCK_DIRECTIONAL_CAP_R, _STOCK_DIRECTIONAL_CAP_R * _unit,
                 desc["heat_cap_R"], desc["heat_cap_R"] * _unit,
             )
 
@@ -181,15 +191,17 @@ class StockFamilyCoordinator:
             # get_current_equity callback (allocated_nav), otherwise drawdown
             # tiers see a phantom 67% DD and halt every entry.
             portfolio_rules = PortfolioRulesConfig(
-                directional_cap_R=12.0,
+                directional_cap_R=_STOCK_DIRECTIONAL_CAP_R,
+                directional_cap_long_R=_STOCK_DIRECTIONAL_CAP_R,
                 initial_equity=allocated_nav,
                 family_strategy_ids=all_strategy_ids,
                 symbol_collision_action="half_size",
                 symbol_collision_pairs=collision_pairs,
                 strategy_priorities=strategy_priorities,
-                priority_headroom_R=5.0,       # reserve last 5R for IARIC + ALCB
+                priority_headroom_R=_STOCK_PRIORITY_HEADROOM_R,
                 priority_reserve_threshold=1,  # priority 0-1 can use reserved headroom
-                reference_unit_risk_dollars=100.0,  # all stock strategies use $100/R
+                reference_unit_risk_dollars=_STOCK_REFERENCE_UNIT_RISK_DOLLARS,
+                dd_tiers=_STOCK_DD_TIERS,
             )
             # Save first portfolio_rules as base template for regime updates
             if self._base_portfolio_rules is None:
@@ -219,6 +231,7 @@ class StockFamilyCoordinator:
                 daily_stop_R=desc["daily_stop_R"],
                 heat_cap_R=desc["heat_cap_R"],
                 portfolio_daily_stop_R=desc["portfolio_daily_stop_R"],
+                portfolio_weekly_stop_R=_STOCK_PORTFOLIO_WEEKLY_STOP_R,
                 db_pool=db_pool,
                 portfolio_rules_config=portfolio_rules,
                 get_current_equity=lambda eq=_live_equity: eq[0],
@@ -522,6 +535,19 @@ class StockFamilyCoordinator:
                     payload["last_decision_code"] = engine._last_decision_code
                     payload["last_decision_details"] = getattr(engine, "_last_decision_details", None)
                     payload["last_seen_bar_ts"] = getattr(engine, "_last_bar_ts", None)
+                oms = self._oms_services[i]
+                if hasattr(engine, "liveness_payload") or hasattr(oms, "_intents_submitted"):
+                    details = payload.get("last_decision_details") or {}
+                    if hasattr(engine, "liveness_payload"):
+                        details["liveness"] = engine.liveness_payload()
+                    if hasattr(oms, "_intents_submitted"):
+                        details["oms_health"] = {
+                            "submitted": oms._intents_submitted,
+                            "accepted": oms._intents_accepted,
+                            "denied": oms._intents_denied,
+                            "consecutive_denials": oms._consecutive_denials,
+                        }
+                    payload["last_decision_details"] = details
                 payloads.append(payload)
             connected = session.ib.isConnected() if session else False
             # Enrich with IB farm status for diagnostic context

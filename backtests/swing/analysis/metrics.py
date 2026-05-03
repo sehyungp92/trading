@@ -26,8 +26,11 @@ class PerformanceMetrics:
     calmar: float = 0.0             # CAGR / MaxDD
     max_drawdown_pct: float = 0.0
     max_drawdown_dollar: float = 0.0
+    max_r_dd: float = 0.0
     avg_hold_hours: float = 0.0
     trades_per_month: float = 0.0
+    avg_mfe_r: float = 0.0
+    winner_capture_ratio: float = 0.0
     total_commissions: float = 0.0
     tail_loss_pct: float = 0.0      # worst 5% of trades avg loss (dollars)
     tail_loss_r: float = 0.0        # worst 5% of trades avg loss (R-multiples)
@@ -291,6 +294,16 @@ def compute_metrics(
     cagr = compute_cagr(initial_equity, final_equity, years)
     calmar = cagr / max_dd_pct if max_dd_pct > 0 else 0.0
 
+    # R-based max drawdown (from cumulative R-multiples)
+    safe_risks = np.where(trade_risks > 0, trade_risks, 1.0)
+    r_multiples = fee_net_pnls / safe_risks
+    if len(r_multiples) > 0:
+        cum_r = np.cumsum(r_multiples)
+        peak_r = np.maximum.accumulate(cum_r)
+        max_r_dd = float(np.max(peak_r - cum_r))
+    else:
+        max_r_dd = 0.0
+
     # Trades per month
     months = years * 12
     trades_per_month = n_trades / months if months > 0 else 0.0
@@ -319,6 +332,7 @@ def compute_metrics(
         calmar=calmar,
         max_drawdown_pct=max_dd_pct,
         max_drawdown_dollar=max_dd_dollar,
+        max_r_dd=max_r_dd,
         avg_hold_hours=float(np.mean(trade_hold_hours)),
         trades_per_month=trades_per_month,
         total_commissions=total_commissions,

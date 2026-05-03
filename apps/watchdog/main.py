@@ -22,6 +22,7 @@ from .checks import (
     check_halts,
     check_heartbeats,
     check_ib_gateway,
+    check_liveness,
     check_relay,
 )
 from .config import build_strategy_family_map, is_family_active, load_watchdog_config
@@ -29,6 +30,10 @@ from .cooldown import CooldownTracker
 
 logger = logging.getLogger("watchdog")
 _ET = ZoneInfo("America/New_York")
+
+# Module-level mutable state for liveness tracking (resets on watchdog restart)
+_liveness_prev_bars: dict[str, int] = {}
+_liveness_stalled_counts: dict[str, int] = {}
 
 
 async def _create_pool(db_cfg: DBConfig, max_retries: int = 10) -> asyncpg.Pool:
@@ -88,6 +93,13 @@ async def _run_cycle(
     if checks_cfg.get("data_freshness", {}).get("enabled"):
         tasks.append(asyncio.create_task(
             check_data_freshness(pool, config, active_families, strategy_family_map)
+        ))
+    if checks_cfg.get("liveness", {}).get("enabled"):
+        tasks.append(asyncio.create_task(
+            check_liveness(
+                pool, config, active_families, strategy_family_map,
+                _liveness_prev_bars, _liveness_stalled_counts,
+            )
         ))
 
     if not tasks:

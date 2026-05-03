@@ -46,7 +46,17 @@ def breakout_signal_funnel(signal_events: list, trades: list) -> str:
 
     # Per entry type breakdown
     lines.append("")
-    for etype in ["A", "B", "C_standard", "C_continuation"]:
+    for etype in [
+        "A",
+        "B",
+        "C_early_standard",
+        "C_standard",
+        "C_continuation",
+        "C_fresh_market",
+        "C_fresh_stop",
+        "C_momentum_market",
+        "C_momentum_stop",
+    ]:
         et_events = [e for e in with_entry if e.entry_type_selected == etype]
         et_allowed = [e for e in et_events if e.allowed]
         et_blocked = [e for e in et_events if not e.allowed]
@@ -316,7 +326,83 @@ def breakout_first_fail_attribution(signal_events: list) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 9. Combined filter net-value report (ablation + shadow)
+# 9. Branch rejection attribution
+# ---------------------------------------------------------------------------
+
+def breakout_branch_reject_attribution(signal_events: list) -> str:
+    """Aggregate first rejection reasons for the new fresh/early sub-branches."""
+    if not signal_events:
+        return "=== Branch Reject Attribution ===\n  No signal events."
+
+    branch_specs = [
+        ("Fresh market", "C_fresh_market", "fresh_market_reject_reason"),
+        ("Fresh stop", "C_fresh_stop", "fresh_stop_reject_reason"),
+        ("Early standard", "C_early_standard", "early_standard_reject_reason"),
+        ("Continuation", "C_continuation", "continuation_reject_reason"),
+        ("Momentum", "C_momentum_market", "momentum_reject_reason"),
+    ]
+    lines = ["=== Breakout Branch Reject Attribution ==="]
+
+    for label, entry_value, attr in branch_specs:
+        reject_reasons = [getattr(event, attr, "") for event in signal_events if getattr(event, attr, "")]
+        selected = sum(1 for event in signal_events if getattr(event, "entry_type_selected", "") == entry_value)
+        if entry_value == "C_momentum_market":
+            selected += sum(1 for event in signal_events if getattr(event, "entry_type_selected", "") == "C_momentum_stop")
+        evaluated = selected + len(reject_reasons)
+        if evaluated == 0:
+            lines.append(f"  {label:16s}: no evaluations recorded")
+            continue
+
+        lines.append(f"  {label:16s}: evaluated={evaluated:4d}  selected={selected:4d}")
+        counts = Counter(reject_reasons)
+        for reason, count in counts.most_common(5):
+            lines.append(f"    {reason:20s} {count:4d} ({100 * count / max(len(reject_reasons), 1):4.0f}%)")
+        if not reject_reasons:
+            lines.append("    no rejects recorded")
+        lines.append("")
+
+    return "\n".join(lines).rstrip()
+
+
+# ---------------------------------------------------------------------------
+# 10. Branch counterfactual diagnostics
+# ---------------------------------------------------------------------------
+
+def breakout_branch_shadow_report(branch_shadows: list | None) -> str:
+    """Summarize branch-level counterfactual outcomes for rejected candidates."""
+    if not branch_shadows:
+        return "=== Branch Counterfactual Shadows ===\n  No branch shadows recorded."
+
+    lines = ["=== Branch Counterfactual Shadows ==="]
+    header = (
+        f"  {'Branch':18s} {'Reason':20s} {'N':>5s} {'MFE_R':>8s} "
+        f"{'MAE_R':>8s} {'Timed_R':>8s} {'Best_R':>8s} {'Stop%':>7s}"
+    )
+    lines.append(header)
+    lines.append("  " + "-" * (len(header) - 2))
+
+    groups: dict[tuple[str, str], list] = defaultdict(list)
+    for shadow in branch_shadows:
+        groups[(getattr(shadow, "branch", ""), getattr(shadow, "reject_reason", ""))].append(shadow)
+
+    def _avg(records: list, attr: str) -> float:
+        vals = [float(getattr(record, attr, 0.0) or 0.0) for record in records]
+        return float(np.mean(vals)) if vals else 0.0
+
+    for (branch, reason), records in sorted(groups.items(), key=lambda kv: -len(kv[1]))[:30]:
+        stop_rate = np.mean([bool(getattr(record, "stopped", False)) for record in records]) * 100.0
+        lines.append(
+            f"  {branch[:18]:18s} {reason[:20]:20s} {len(records):5d} "
+            f"{_avg(records, 'mfe_r'):8.3f} {_avg(records, 'mae_r'):8.3f} "
+            f"{_avg(records, 'timed_exit_r'):8.3f} {_avg(records, 'best_exit_r'):8.3f} "
+            f"{stop_rate:6.0f}%"
+        )
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 11. Combined filter net-value report (ablation + shadow)
 # ---------------------------------------------------------------------------
 
 def breakout_combined_filter_value(
@@ -380,12 +466,15 @@ def breakout_filter_attribution_report(
     trades: list,
     shadow_summary: dict | None = None,
     ablation_deltas: dict | None = None,
+    branch_shadows: list | None = None,
 ) -> str:
     """Generate full filter attribution report."""
     sections = [
         breakout_signal_funnel(signal_events, trades),
         breakout_blocked_reason_table(signal_events),
         breakout_first_fail_attribution(signal_events),
+        breakout_branch_reject_attribution(signal_events),
+        breakout_branch_shadow_report(branch_shadows),
         breakout_pending_effectiveness(signal_events, trades),
         breakout_chop_gate_analysis(signal_events),
         breakout_regime_gate_analysis(signal_events),

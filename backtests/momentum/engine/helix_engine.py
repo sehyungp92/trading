@@ -19,6 +19,7 @@ v4.0 changes vs helix_engine.py:
 from __future__ import annotations
 
 import logging
+import sys
 import uuid
 from collections import deque
 from contextlib import contextmanager
@@ -54,12 +55,18 @@ from strategies.momentum.helix_v40.config import (
     TELEPORT_ETH_TICKS, TELEPORT_ETH_ATR_FRAC,
     SESSION_SIZE_MULT,
     CATCHUP_OVERSHOOT_ATR_FRAC, CATCHUP_OFFSET_PTS, TTL_CATCHUP_S,
+    FOLLOWTHROUGH_OFFSET_PTS, FOLLOWTHROUGH_TTL_S,
     EARLY_ADVERSE_BARS, EARLY_ADVERSE_R,
     MOMENTUM_STALL_BAR, MOMENTUM_STALL_MIN_R, MOMENTUM_STALL_MIN_MFE,
+    POST_PARTIAL_LOCK_R,
     DOW_BLOCKED, HOUR_SIZE_MULT, DOW_SIZE_MULT,
     CLASS_T_MIN_BARS_SINCE_M,
 )
-from strategies.momentum.helix_v40.gates import check_gates, GateResult
+from strategies.momentum.helix_v40.gates import (
+    GateResult,
+    allow_short_below_min_score,
+    check_gates,
+)
 from strategies.momentum.helix_v40.indicators import BarSeries, VolEngine
 from strategies.momentum.helix_v40.pivots import PivotDetector
 from strategies.momentum.helix_v40.positions import unrealized_r, r_state
@@ -71,7 +78,7 @@ from strategies.momentum.helix_v40.session import (
     session_size_mult, NewsCalendar,
 )
 from strategies.momentum.helix_v40.signals import (
-    SignalEngine, alignment_score, trend_strength, strong_trend_flag,
+    SignalEngine, alignment_score, followthrough_catchup_allowed, trend_strength, strong_trend_flag,
 )
 from strategies.core.events import DecisionEvent
 from strategies.momentum.helix_v40.core import logic as helix_core_logic
@@ -124,6 +131,25 @@ class Helix4SetupEvent:
     entry_stop: float
     stop0: float
     session_block: str
+    signal_variant: str = ""
+    parent_setup_id: str = ""
+    entry_gap_points: float = 0.0
+    entry_gap_atr: float = 0.0
+    entry_gap_ltf_atr: float = 0.0
+    pullback_depth_atr: float = 0.0
+    pullback_depth_m5_atr: float = 0.0
+    pullback_depth_h1_atr: float = 0.0
+    h4_hist_ratio: float = 0.0
+    price_ema_state: str = ""
+    ltf_price_ema_state: str = ""
+    price_vs_ema_fast_atr: float = 0.0
+    price_vs_ema_slow_atr: float = 0.0
+    ltf_price_vs_ema_fast_atr: float = 0.0
+    ltf_price_vs_ema_slow_atr: float = 0.0
+    context_quality_score: int = 0
+    trend_strength_daily: float = 0.0
+    shadow_only: bool = False
+    diagnostic_context: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass
@@ -142,6 +168,7 @@ class Helix4TradeRecord:
     symbol: str = ""
     direction: int = 0
     setup_class: str = ""
+    signal_variant: str = ""
     # Timing
     setup_time: datetime | None = None
     entry_time: datetime | None = None
@@ -179,6 +206,7 @@ class Helix4EntryTracking:
     """Track every placed entry order for fill-rate diagnostics."""
     setup_id: str = ""
     setup_class: str = ""
+    signal_variant: str = ""
     direction: int = 0
     entry_stop: float = 0.0
     stop0: float = 0.0
@@ -265,10 +293,12 @@ def _ablation_patch(overrides: dict[str, float]):
     """Temporarily override strategy.config module-level constants."""
     import strategies.momentum.helix_v40.gates as _gates
     import strategies.momentum.helix_v40.risk as _risk_mod
+    import strategies.momentum.helix_v40.session as _session_mod
+    import strategies.momentum.helix_v40.signals as _signals
 
-    _submodules = [_gates, _risk_mod]
-    originals = {}
-    sub_originals: list[tuple] = []
+    _submodules = [sys.modules[__name__], _gates, _risk_mod, _session_mod, _signals]
+    originals: dict[str, object] = {}
+    sub_originals: list[tuple[object, str, object]] = []
     for key, value in overrides.items():
         upper = key.upper()
         if hasattr(C, upper):
@@ -345,6 +375,8 @@ class Helix4Engine:
         self.equity = bt_config.initial_equity
 
         # Strategy components (all synchronous / pure)
+        self._m5 = BarSeries(TF.M5, maxlen=2000)
+        self._m15 = BarSeries(TF.M15, maxlen=1500)
         self._h1 = BarSeries(TF.H1, maxlen=500)
         self._h4 = BarSeries(TF.H4, maxlen=200)
         self._daily = BarSeries(TF.D1, maxlen=200)
@@ -374,6 +406,8 @@ class Helix4Engine:
 
         # Class T: track last M placement bar per direction for dedup
         self._last_m_bar: dict[int, int] = {}
+        self._m15_bucket_key: datetime | None = None
+        self._m15_bucket: list[Bar] = []
 
         # Position state
         self._active_positions: list[_ActivePosition] = []
@@ -558,6 +592,8 @@ class Helix4Engine:
                     if et.closest_price == 0 or L < et.closest_price:
                         et.closest_price = L
 
+        self._on_5m_bar(bar_time, O, H, L, Cl)
+
         # 3. Higher-TF boundary processing
         new_d = d_idx != self._last_d_idx and d_idx >= warmup_d
         new_4h = fh_idx != self._last_4h_idx and fh_idx >= warmup_4h
@@ -588,6 +624,82 @@ class Helix4Engine:
     # ------------------------------------------------------------------
     # TF boundary handlers
     # ------------------------------------------------------------------
+
+    def _on_5m_bar(self, bar_time: datetime, O: float, H: float, L: float, Cl: float) -> None:
+        bar = Bar(
+            ts=bar_time,
+            open=O,
+            high=H,
+            low=L,
+            close=Cl,
+            volume=0.0,
+        )
+        if self._m5.bars and self._m5.bars[-1].ts == bar.ts:
+            return
+        self._m5.add_bar(bar)
+        self._signals.tick_micro_bars()
+
+        if (
+                C.MICRO_TREND_RETEST_ENABLED
+                and self._m5.current_atr() > 0
+                and self._h1.current_atr() > 0
+                and self._daily.current_atr() > 0):
+            self._detect_and_arm(_to_et(bar_time), last_price_override=Cl, micro_only=True)
+
+        self._update_m15_from_5m(bar)
+
+    @staticmethod
+    def _m15_bucket_start(ts: datetime) -> datetime:
+        return ts.replace(minute=(ts.minute // 15) * 15, second=0, microsecond=0)
+
+    @staticmethod
+    def _build_m15_bar(bars: list[Bar]) -> Bar:
+        return Bar(
+            ts=bars[-1].ts,
+            open=bars[0].open,
+            high=max(bar.high for bar in bars),
+            low=min(bar.low for bar in bars),
+            close=bars[-1].close,
+            volume=sum(bar.volume for bar in bars),
+        )
+
+    def _update_m15_from_5m(self, bar: Bar) -> None:
+        bucket_key = self._m15_bucket_start(bar.ts)
+        completed: Bar | None = None
+        if self._m15_bucket_key is None:
+            self._m15_bucket_key = bucket_key
+        elif bucket_key != self._m15_bucket_key:
+            if self._m15_bucket:
+                completed = self._build_m15_bar(self._m15_bucket)
+            self._m15_bucket_key = bucket_key
+            self._m15_bucket = []
+
+        self._m15_bucket.append(bar)
+        if completed is not None:
+            self._on_15m_bar(completed, availability_ts=bar.ts, last_price=bar.close)
+
+    def _on_15m_bar(
+        self,
+        bar: Bar,
+        *,
+        availability_ts: datetime | None = None,
+        last_price: float | None = None,
+    ) -> None:
+        if self._m15.bars and self._m15.bars[-1].ts == bar.ts:
+            return
+        self._m15.add_bar(bar)
+        self._signals.tick_m15_bars()
+
+        if not C.M15_TREND_RETEST_ENABLED:
+            return
+        if self._m15.current_atr() <= 0 or self._h1.current_atr() <= 0 or self._daily.current_atr() <= 0:
+            return
+
+        self._detect_and_arm(
+            _to_et(availability_ts or bar.ts),
+            last_price_override=bar.close if last_price is None else last_price,
+            m15_only=True,
+        )
 
     def _on_daily_boundary(self, daily: NumpyBars, d_idx: int) -> None:
         bar = Bar(
@@ -656,7 +768,96 @@ class Helix4Engine:
     # Signal detection and entry
     # ------------------------------------------------------------------
 
-    def _detect_and_arm(self, now_et: datetime) -> None:
+    @staticmethod
+    def _safe_ratio(num: float, den: float) -> float:
+        if abs(den) < 1e-9:
+            return 0.0
+        return num / den
+
+    @staticmethod
+    def _diag_float(diag: dict[str, object], key: str) -> float:
+        value = diag.get(key, 0.0)
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0
+
+    @staticmethod
+    def _diag_int(diag: dict[str, object], key: str) -> int:
+        value = diag.get(key, 0)
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+    @staticmethod
+    def _diag_str(diag: dict[str, object], key: str) -> str:
+        value = diag.get(key, "")
+        return str(value) if value is not None else ""
+
+    @staticmethod
+    def _price_ema_state(series: BarSeries) -> str:
+        close = series.last_close
+        fast = series.ema_fast()
+        slow = series.ema_slow()
+        fast_side = "above_fast" if close >= fast else "below_fast"
+        slow_side = "above_slow" if close >= slow else "below_slow"
+        stack = "fast_gt_slow" if fast >= slow else "fast_lt_slow"
+        return f"{fast_side}_{slow_side}_{stack}"
+
+    def _setup_diag_for_log(self, setup: Setup, last_price: float) -> dict[str, object]:
+        diag = dict(getattr(setup, "diagnostic_context", None) or {})
+        atr1 = self._h1.current_atr()
+        gap = setup.direction * (setup.entry_stop - last_price)
+        diag.setdefault("entry_gap_points", gap)
+        diag.setdefault("entry_gap_atr", self._safe_ratio(gap, atr1))
+
+        if setup.P2 is not None and setup.breakout_pivot is not None:
+            pullback_points = abs(setup.breakout_pivot.price - setup.P2.price)
+            diag.setdefault("pullback_depth_atr", self._safe_ratio(pullback_points, atr1))
+            diag.setdefault("pullback_depth_h1_atr", self._safe_ratio(pullback_points, atr1))
+
+        diag.setdefault(
+            "h4_hist_ratio",
+            self._safe_ratio(self._h4.macd_hist_now(), self._h4.macd_hist_n_ago(1)),
+        )
+        diag.setdefault("price_ema_state", self._price_ema_state(self._h1))
+        diag.setdefault(
+            "price_vs_ema_fast_atr",
+            self._safe_ratio(setup.direction * (self._h1.last_close - self._h1.ema_fast()), atr1),
+        )
+        diag.setdefault(
+            "price_vs_ema_slow_atr",
+            self._safe_ratio(setup.direction * (self._h1.last_close - self._h1.ema_slow()), atr1),
+        )
+        diag.setdefault("trend_strength_daily", trend_strength(self._daily))
+        diag.setdefault("shadow_only", bool(setup.signal_variant and getattr(C, "STRUCTURAL_VARIANT_SHADOW_ONLY", False)))
+
+        if setup.tf_origin in {TF.M5, TF.M15}:
+            ltf = self._m5 if setup.tf_origin == TF.M5 else self._m15
+            atr_ltf = ltf.current_atr()
+            diag.setdefault("entry_gap_ltf_atr", self._safe_ratio(gap, atr_ltf))
+            diag.setdefault("ltf_price_ema_state", self._price_ema_state(ltf))
+            diag.setdefault(
+                "ltf_price_vs_ema_fast_atr",
+                self._safe_ratio(setup.direction * (ltf.last_close - ltf.ema_fast()), atr_ltf),
+            )
+            diag.setdefault(
+                "ltf_price_vs_ema_slow_atr",
+                self._safe_ratio(setup.direction * (ltf.last_close - ltf.ema_slow()), atr_ltf),
+            )
+            if setup.P2 is not None and setup.breakout_pivot is not None:
+                pullback_points = abs(setup.breakout_pivot.price - setup.P2.price)
+                diag.setdefault("pullback_depth_m5_atr", self._safe_ratio(pullback_points, atr_ltf))
+        return diag
+
+    def _detect_and_arm(
+        self,
+        now_et: datetime,
+        last_price_override: float | None = None,
+        micro_only: bool = False,
+        m15_only: bool = False,
+    ) -> None:
         active_count = sum(1 for ap in self._active_positions if ap.pos.contracts > 0)
 
         block = get_session_block(now_et)
@@ -677,32 +878,104 @@ class Helix4Engine:
                 return
             # If regime mode only (no blanket), let entries through to gate chain
 
-        atr1 = self._h1.current_atr()
-
-        # Detect setups: Class M on every 1H bar
         setups: list[Setup] = []
-        m_setups = self._signals.detect_class_M(
-            self._pivots_1h, self._h1, self._h4, self._daily, now_et)
-        setups.extend(m_setups)
+        if micro_only:
+            setups.extend(
+                self._signals.detect_micro_trend_retest_setups(
+                    self._m5,
+                    self._h1,
+                    self._h4,
+                    self._daily,
+                    now_et,
+                    self._vol_pct,
+                )
+            )
+        elif m15_only:
+            setups.extend(
+                self._signals.detect_m15_trend_retest_setups(
+                    self._m15,
+                    self._h1,
+                    self._h4,
+                    self._daily,
+                    now_et,
+                    self._vol_pct,
+                )
+            )
+        else:
+            atr1 = self._h1.current_atr()
+            self._process_followthrough_entries(now_et, atr1)
 
-        # Class F: fast re-entry after trailing exit
-        if self.flags.use_class_F:
-            f_setups = self._signals.detect_class_F(
-                self._h1, self._h4, self._daily, now_et)
-            setups.extend(f_setups)
-
-        # Class T: 4H trend continuation (longs only)
-        if self.flags.use_class_T:
-            t_setups = self._signals.detect_class_T(
+            # Detect setups: Class M on every 1H bar
+            m_setups = self._signals.detect_class_M(
                 self._pivots_1h, self._h1, self._h4, self._daily, now_et)
-            # Suppress if Class M fired same bar same direction
-            m_dirs = {s.direction for s in m_setups}
-            t_setups = [s for s in t_setups if s.direction not in m_dirs]
-            # Suppress if M placed recently same direction
-            t_setups = [s for s in t_setups
-                        if (self._bar_idx_1h - self._last_m_bar.get(s.direction, -999))
-                           >= CLASS_T_MIN_BARS_SINCE_M]
-            setups.extend(t_setups)
+            setups.extend(m_setups)
+
+            second_chance_setups = self._signals.detect_second_chance_setups(
+                self._pivots_1h, self._h1, self._h4, self._daily, now_et)
+            setups.extend(second_chance_setups)
+
+            normal_vol_m_short_setups = self._signals.detect_normal_vol_m_short_setups(
+                self._pivots_1h, self._h1, self._h4, self._daily, now_et, self._vol_pct, m_setups)
+            setups.extend(normal_vol_m_short_setups)
+
+            # Class F base/reclaim path mirrors the live engine wiring.
+            if self.flags.use_class_F or C.CLASS_F_RECLAIM_ENABLED:
+                f_setups = self._signals.detect_class_F(
+                    self._h1,
+                    self._h4,
+                    self._daily,
+                    now_et,
+                    pivots_1h=self._pivots_1h,
+                    vol_pct=self._vol_pct,
+                    include_base=self.flags.use_class_F,
+                )
+                setups.extend(f_setups)
+
+            # Class T: 4H trend continuation (longs only)
+            if self.flags.use_class_T:
+                t_setups = self._signals.detect_class_T(
+                    self._pivots_1h, self._h1, self._h4, self._daily, now_et, self._vol_pct)
+                # Suppress if Class M fired same bar same direction
+                m_dirs = {s.direction for s in m_setups}
+                t_setups = [s for s in t_setups if s.direction not in m_dirs]
+                # Suppress if M placed recently same direction
+                t_setups = [s for s in t_setups
+                            if (self._bar_idx_1h - self._last_m_bar.get(s.direction, -999))
+                               >= CLASS_T_MIN_BARS_SINCE_M]
+                setups.extend(t_setups)
+
+                trend_retest_setups = self._signals.detect_trend_retest_setups(
+                    self._pivots_1h, self._h1, self._h4, self._daily, now_et, self._vol_pct)
+                trend_retest_setups = [
+                    s for s in trend_retest_setups
+                    if s.direction not in m_dirs
+                    and (self._bar_idx_1h - self._last_m_bar.get(s.direction, -999))
+                    >= CLASS_T_MIN_BARS_SINCE_M
+                ]
+                setups.extend(trend_retest_setups)
+
+                failed_reclaim_short_setups = self._signals.detect_failed_reclaim_short_setups(
+                    self._pivots_1h, self._h1, self._h4, self._daily, now_et, self._vol_pct)
+                setups.extend(failed_reclaim_short_setups)
+
+                high_vol_retest_setups = self._signals.detect_high_vol_retest_setups(
+                    self._pivots_1h, self._h1, self._h4, self._daily, now_et, self._vol_pct)
+                high_vol_retest_setups = [
+                    s for s in high_vol_retest_setups
+                    if s.direction not in m_dirs
+                    and (self._bar_idx_1h - self._last_m_bar.get(s.direction, -999))
+                    >= CLASS_T_MIN_BARS_SINCE_M
+                ]
+                setups.extend(high_vol_retest_setups)
+
+                high_vol_m_cont_setups = self._signals.detect_high_vol_m_continuation_setups(
+                    self._pivots_1h, self._h1, self._h4, self._daily, now_et, self._vol_pct, m_setups)
+                setups.extend(high_vol_m_cont_setups)
+
+        if not setups:
+            return
+
+        atr1 = self._h1.current_atr()
 
         # Expire old dedup signatures
         self._expire_signatures(now_et)
@@ -718,19 +991,27 @@ class Helix4Engine:
                 setup.P2.ts if setup.P2 else None,
                 setup.direction,
                 setup.cls.value,
+                setup.signal_variant,
+                setup.parent_setup_id,
             )
             if sig in self._placed_signatures:
                 continue
 
             # Pending dedup: skip if same class+direction already pending (matches live engine.py:391-393)
-            if any(p.setup.cls == setup.cls and p.setup.direction == setup.direction
-                   for p in self._pending.values()):
+            if any(
+                    p.setup.cls == setup.cls
+                    and p.setup.direction == setup.direction
+                    and p.setup.signal_variant == setup.signal_variant
+                    for p in self._pending.values()):
                 continue
 
             # Drawdown throttle: daily loss cap halt
             if self.flags.use_drawdown_throttle and self._throttle.daily_halted:
                 self._throttle.entries_blocked_daily += 1
                 continue
+
+            last_price = last_price_override if last_price_override is not None else self._h1.last_close
+            diag = self._setup_diag_for_log(setup, last_price)
 
             # Log setup
             self._setup_log.append(Helix4SetupEvent(
@@ -745,10 +1026,47 @@ class Helix4Engine:
                 entry_stop=setup.entry_stop,
                 stop0=setup.stop0,
                 session_block=session_block.value,
+                signal_variant=setup.signal_variant,
+                parent_setup_id=setup.parent_setup_id,
+                entry_gap_points=self._diag_float(diag, "entry_gap_points"),
+                entry_gap_atr=self._diag_float(diag, "entry_gap_atr"),
+                entry_gap_ltf_atr=self._diag_float(diag, "entry_gap_ltf_atr"),
+                pullback_depth_atr=self._diag_float(diag, "pullback_depth_atr"),
+                pullback_depth_m5_atr=self._diag_float(diag, "pullback_depth_m5_atr"),
+                pullback_depth_h1_atr=self._diag_float(diag, "pullback_depth_h1_atr"),
+                h4_hist_ratio=self._diag_float(diag, "h4_hist_ratio"),
+                price_ema_state=self._diag_str(diag, "price_ema_state"),
+                ltf_price_ema_state=self._diag_str(diag, "ltf_price_ema_state"),
+                price_vs_ema_fast_atr=self._diag_float(diag, "price_vs_ema_fast_atr"),
+                price_vs_ema_slow_atr=self._diag_float(diag, "price_vs_ema_slow_atr"),
+                ltf_price_vs_ema_fast_atr=self._diag_float(diag, "ltf_price_vs_ema_fast_atr"),
+                ltf_price_vs_ema_slow_atr=self._diag_float(diag, "ltf_price_vs_ema_slow_atr"),
+                context_quality_score=self._diag_int(diag, "context_quality_score"),
+                trend_strength_daily=self._diag_float(diag, "trend_strength_daily"),
+                shadow_only=bool(diag.get("shadow_only", False)),
+                diagnostic_context=diag,
             ))
 
+            if setup.signal_variant and getattr(C, "STRUCTURAL_VARIANT_SHADOW_ONLY", False):
+                self._gate_log.append(Helix4GateDecision(
+                    setup_id=setup.setup_id,
+                    timestamp=now_et,
+                    decision="blocked",
+                    block_reasons=["shadow_only_variant"],
+                ))
+                continue
+
             # Block short entries below minimum alignment score
-            if setup.direction == -1 and setup.alignment_score < self.flags.short_min_score:
+            if (
+                    setup.direction == -1
+                    and setup.alignment_score < self.flags.short_min_score
+                    and not allow_short_below_min_score(
+                        setup,
+                        session_block,
+                        self._vol_pct,
+                        self.flags.short_min_score,
+                    )
+            ):
                 self._gate_log.append(Helix4GateDecision(
                     setup_id=setup.setup_id,
                     timestamp=now_et,
@@ -823,7 +1141,6 @@ class Helix4Engine:
                 continue
 
             # Block duplicate: same direction + same class already open
-            last_price = self._h1.last_close
             dup_blocking = False
             for ap in self._active_positions:
                 if ap.pos.contracts <= 0:
@@ -944,6 +1261,7 @@ class Helix4Engine:
                 symbol=self.symbol,
                 direction=setup.direction,
                 setup_class=setup.cls.value,
+                signal_variant=setup.signal_variant,
                 setup_time=now_et,
                 initial_stop=setup.stop0,
                 session_at_entry=session_block.value,
@@ -971,12 +1289,16 @@ class Helix4Engine:
                 self._last_m_bar[setup.direction] = self._bar_idx_1h
 
             # Entry tracking
-            last_price = self._h1.last_close if self._h1.last_close > 0 else 0.0
+            if last_price_override is not None:
+                last_price = last_price_override
+            else:
+                last_price = self._h1.last_close if self._h1.last_close > 0 else 0.0
             entry_risk_r = self._risk.compute_risk_r(
                 setup.entry_stop, setup.stop0, contracts, unit1)
             et = Helix4EntryTracking(
                 setup_id=setup.setup_id,
                 setup_class=setup.cls.value,
+                signal_variant=setup.signal_variant,
                 direction=setup.direction,
                 entry_stop=setup.entry_stop,
                 stop0=setup.stop0,
@@ -1051,6 +1373,62 @@ class Helix4Engine:
             submit_time=now_et,
             ttl_minutes=int(TTL_CATCHUP_S / 60),
             tag="helix4_catchup",
+            oca_group=oca_grp,
+        )
+        self.broker.submit_order(catchup_order)
+        return catchup_id
+
+    def _process_followthrough_entries(self, now_et: datetime, atr1h: float) -> None:
+        last_price = self._h1.last_close
+        if last_price <= 0 or atr1h <= 0:
+            return
+
+        seen_setup_ids: set[str] = set()
+        for pending in list(self._pending.values()):
+            setup = pending.setup
+            if setup.setup_id in seen_setup_ids:
+                continue
+            seen_setup_ids.add(setup.setup_id)
+            if pending.catchup_order_id:
+                continue
+            if not followthrough_catchup_allowed(setup, self._h1, self._h4, self._daily, now_et):
+                continue
+
+            side = OrderSide.BUY if setup.direction == 1 else OrderSide.SELL
+            catchup_id = self._place_followthrough_if_near_trigger(
+                setup, pending, side, last_price, now_et, pending.oca_group,
+            )
+            if catchup_id:
+                setup.followthrough_used = True
+                pending.catchup_order_id = catchup_id
+                self._pending[catchup_id] = pending
+
+    def _place_followthrough_if_near_trigger(
+        self,
+        setup: Setup,
+        pending: _PendingSetup,
+        side: OrderSide,
+        last_price: float,
+        now_et: datetime,
+        oca_grp: str,
+    ) -> str:
+        if setup.direction == 1:
+            limit = round_to_tick(last_price + FOLLOWTHROUGH_OFFSET_PTS, self.tick)
+        else:
+            limit = round_to_tick(last_price - FOLLOWTHROUGH_OFFSET_PTS, self.tick)
+
+        catchup_id = self.broker.next_order_id()
+        catchup_order = SimOrder(
+            order_id=catchup_id,
+            symbol=self.symbol,
+            side=side,
+            order_type=OrderType.LIMIT,
+            qty=pending.contracts,
+            limit_price=limit,
+            tick_size=self.tick,
+            submit_time=now_et,
+            ttl_minutes=int(FOLLOWTHROUGH_TTL_S / 60),
+            tag="helix4_followthrough",
             oca_group=oca_grp,
         )
         self.broker.submit_order(catchup_order)
@@ -1168,6 +1546,16 @@ class Helix4Engine:
         elif fill.status in (FillStatus.EXPIRED, FillStatus.CANCELLED):
             pending = self._pending.pop(order.order_id, None)
             if pending:
+                sibling_id = (
+                    pending.catchup_order_id if order.order_id == pending.order_id
+                    else pending.order_id
+                )
+                sibling_live = sibling_id in self._pending
+                if order.order_id == pending.catchup_order_id:
+                    pending.catchup_order_id = ""
+                if sibling_live:
+                    return
+
                 # Core state tracking: order terminal
                 self._replay_core_step(order_updates=[HelixV40OrderUpdate(
                     oms_order_id=order.order_id,
@@ -1177,6 +1565,11 @@ class Helix4Engine:
                 )])
                 self._risk.release_pending_risk(
                     pending.setup.direction, pending.armed_risk_r)
+                self._signals.record_unfilled_setup(
+                    pending.setup,
+                    _to_et(bar_time),
+                    "cancelled" if fill.status == FillStatus.CANCELLED else "expired",
+                )
                 et = self._entry_tracking_by_setup.get(pending.setup.setup_id)
                 if et and not et.filled:
                     et.expired = True
@@ -1316,6 +1709,7 @@ class Helix4Engine:
             self._do_partial_exit(ap, partial_qty, last_price)
             pos.partial_done = True
             ap.record.partial_done = True
+            self._apply_post_partial_lock(ap, now_et)
 
         # Partial 2 at +1.5R (30%)
         if (pos.partial_done and not pos.partial2_done
@@ -1326,6 +1720,7 @@ class Helix4Engine:
             self._do_partial_exit(ap, partial_qty, last_price)
             pos.partial2_done = True
             ap.record.partial2_done = True
+            self._apply_post_partial_lock(ap, now_et)
 
         # 4) Single-phase chandelier trail (no bar-based phases)
         if self.flags.use_trailing and pos.trailing_active and pos.contracts > 0:
@@ -1378,6 +1773,21 @@ class Helix4Engine:
             if o.order_id == ap.stop_order_id:
                 o.qty = pos.contracts
                 break
+
+    def _apply_post_partial_lock(self, ap: _ActivePosition, now_et: datetime) -> None:
+        if POST_PARTIAL_LOCK_R <= 0 or ap.pos.contracts <= 0:
+            return
+
+        entry_qty = ap.pos.entry_contracts if ap.pos.entry_contracts > 0 else ap.pos.contracts
+        if entry_qty <= 0 or self.pv <= 0:
+            return
+
+        r_points = ap.pos.unit1_risk_usd / (self.pv * entry_qty)
+        if r_points <= 0:
+            return
+
+        lock_price = ap.pos.avg_entry + ap.pos.direction * POST_PARTIAL_LOCK_R * r_points
+        self._tighten_stop(ap, lock_price, now_et)
 
     def _compute_trail(self, ap: _ActivePosition, last_price: float) -> float:
         """Single-phase R-based trail: mult = max(1.5, 3.0 - R/5)."""
@@ -1506,7 +1916,13 @@ class Helix4Engine:
         self._risk.dir_risk_r[d] = max(0, self._risk.dir_risk_r.get(d, 0) - pos.current_risk_r)
 
         # Signal engine exit tracking (for Class F re-entry detection)
-        self._signals.record_exit(pos.direction, exit_reason=reason, bars_held=pos.bars_held_1h)
+        self._signals.record_exit(
+            pos.direction,
+            exit_reason=reason,
+            bars_held=pos.bars_held_1h,
+            exit_price=exit_price,
+            exit_ts=_to_et(bar_time),
+        )
 
         pos.contracts = 0
         if ap in self._active_positions:

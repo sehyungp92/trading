@@ -348,6 +348,178 @@ def sector_sizing_mult(sector: str, settings: StrategySettings) -> float:
     return 1.0
 
 
+def conditional_entry_blocked(
+    sector: str,
+    entry_type: str | EntryType,
+    entry_bar_index: int,
+    momentum_score: int,
+    settings: StrategySettings,
+    score_detail: dict | None = None,
+) -> bool:
+    """Return True when an optimizer-configured completed-bar cohort is blocked."""
+    entry_type_key = _entry_type_key(entry_type)
+    sector_key = _sector_key(sector)
+    bar = int(entry_bar_index)
+    score = int(momentum_score)
+
+    if bar in _int_set(settings.block_entry_bars):
+        return True
+    if _contains_key(settings.entry_type_bar_blocklist, f"{entry_type_key}:{bar}"):
+        return True
+    if _contains_key(settings.entry_score_blocklist, f"{entry_type_key}:{score}"):
+        return True
+    if _contains_key(settings.entry_score_blocklist, f"*:{score}"):
+        return True
+    if _detail_matches_any(settings.entry_detail_blocklist, entry_type_key, score, score_detail):
+        return True
+    if _contains_key(settings.sector_entry_blocklist, f"{sector_key}:{entry_type_key}"):
+        return True
+    if _contains_key(settings.sector_entry_blocklist, f"{sector_key}:*"):
+        return True
+    return False
+
+
+def conditional_entry_size_mult(
+    sector: str,
+    entry_type: str | EntryType,
+    entry_bar_index: int,
+    momentum_score: int,
+    settings: StrategySettings,
+    score_detail: dict | None = None,
+) -> float:
+    """Multiplicative sizing overlay for completed-bar entry cohorts."""
+    entry_type_key = _entry_type_key(entry_type)
+    sector_key = _sector_key(sector)
+    bar = int(entry_bar_index)
+    score = int(momentum_score)
+
+    mult = 1.0
+    mult *= _lookup_mult(settings.entry_bar_size_mults, str(bar))
+    mult *= _lookup_mult(settings.entry_type_bar_size_mults, f"{entry_type_key}:{bar}")
+    mult *= _lookup_mult(settings.entry_score_size_mults, f"{entry_type_key}:{score}")
+    mult *= _lookup_mult(settings.entry_score_size_mults, f"*:{score}")
+    mult *= _lookup_detail_mult(settings.entry_detail_size_mults, entry_type_key, score, score_detail)
+    mult *= _lookup_mult(settings.sector_entry_size_mults, f"{sector_key}:{entry_type_key}")
+    mult *= _lookup_mult(settings.sector_entry_size_mults, f"{sector_key}:*")
+    return max(0.0, mult)
+
+
+def _entry_type_key(entry_type: str | EntryType) -> str:
+    raw = getattr(entry_type, "value", entry_type)
+    return str(raw).strip().upper()
+
+
+def _sector_key(sector: str) -> str:
+    return str(sector or "").strip().lower()
+
+
+def _control_key(value: object) -> str:
+    text = str(value).strip()
+    if ":" not in text:
+        return text.lower()
+    left, right = text.split(":", 1)
+    return f"{left.strip().lower()}:{right.strip().upper()}"
+
+
+def _contains_key(values: object, key: str) -> bool:
+    wanted = _control_key(key)
+    if isinstance(values, str):
+        iterable = [part.strip() for part in values.split(",") if part.strip()]
+    else:
+        iterable = list(values or [])
+    return any(_control_key(value) == wanted for value in iterable)
+
+
+def _int_set(values: object) -> set[int]:
+    if isinstance(values, str):
+        iterable = [part.strip() for part in values.split(",") if part.strip()]
+    else:
+        iterable = list(values or [])
+    result: set[int] = set()
+    for value in iterable:
+        try:
+            result.add(int(value))
+        except (TypeError, ValueError):
+            continue
+    return result
+
+
+def _lookup_mult(mapping: object, key: str) -> float:
+    if not isinstance(mapping, dict):
+        return 1.0
+    wanted = _control_key(key)
+    for raw_key, raw_value in mapping.items():
+        if _control_key(raw_key) != wanted:
+            continue
+        try:
+            return float(raw_value)
+        except (TypeError, ValueError):
+            return 1.0
+    return 1.0
+
+
+def _detail_matches_any(values: object, entry_type_key: str, score: int, score_detail: dict | None) -> bool:
+    if isinstance(values, str):
+        iterable = [part.strip() for part in values.split(",") if part.strip()]
+    else:
+        iterable = list(values or [])
+    return any(_detail_control_matches(value, entry_type_key, score, score_detail) for value in iterable)
+
+
+def _lookup_detail_mult(mapping: object, entry_type_key: str, score: int, score_detail: dict | None) -> float:
+    if not isinstance(mapping, dict):
+        return 1.0
+    mult = 1.0
+    for raw_key, raw_value in mapping.items():
+        if not _detail_control_matches(raw_key, entry_type_key, score, score_detail):
+            continue
+        try:
+            mult *= float(raw_value)
+        except (TypeError, ValueError):
+            continue
+    return mult
+
+
+def _detail_control_matches(raw_key: object, entry_type_key: str, score: int, score_detail: dict | None) -> bool:
+    """Match ENTRY:SCORE:detail controls against completed signal-bar score detail.
+
+    Accepted forms are ENTRY:detail, ENTRY:SCORE:detail, *:detail, and *:SCORE:detail.
+    Prefix the detail name with ! to target absent/falsy score components.
+    """
+    parts = [part.strip() for part in str(raw_key).split(":") if part.strip()]
+    if len(parts) == 2:
+        type_part, detail_part = parts
+        score_part = "*"
+    elif len(parts) == 3:
+        type_part, score_part, detail_part = parts
+    else:
+        return False
+
+    if type_part != "*" and type_part.upper() != entry_type_key:
+        return False
+    if score_part != "*":
+        try:
+            if int(score_part) != int(score):
+                return False
+        except (TypeError, ValueError):
+            return False
+
+    return _score_detail_present(score_detail, detail_part)
+
+
+def _score_detail_present(score_detail: dict | None, detail_part: str) -> bool:
+    want_absent = detail_part.startswith("!")
+    detail_name = detail_part[1:] if want_absent else detail_part
+    normalized = str(detail_name).strip().lower()
+    values = score_detail or {}
+    present = False
+    for raw_key, raw_value in values.items():
+        if str(raw_key).strip().lower() == normalized:
+            present = bool(raw_value)
+            break
+    return not present if want_absent else present
+
+
 def momentum_stop_price(
     entry_price: float,
     or_low: float,

@@ -34,38 +34,45 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 _RISK_PARAMS: dict[str, dict[str, Any]] = {
     "ATRSS": {
-        "unit_risk_pct": 0.018,   # 1.8% base risk (P1 heat-unlock optimized)
-        "daily_stop_R": 2.0,
+        "unit_risk_pct": 0.016,
+        "daily_stop_R": 2.25,
         "priority": 0,            # highest expectancy
-        "max_heat_R": 1.50,
+        "max_heat_R": 1.85,
         "max_working_orders": 4,
     },
     "SWING_BREAKOUT_V3": {
-        "unit_risk_pct": 0.008,   # 0.8% base risk (P1 heat-unlock optimized)
-        "daily_stop_R": 2.0,
+        "unit_risk_pct": 0.005,
+        "daily_stop_R": 1.5,
         "priority": 3,            # rare signals, priority barely matters
-        "max_heat_R": 1.50,       # greedy v4: was 1.00
+        "max_heat_R": 0.75,
         "max_working_orders": 2,
     },
     "AKC_HELIX": {
-        "unit_risk_pct": 0.008,   # 0.8% base risk (P1 heat-unlock optimized)
+        "unit_risk_pct": 0.009,
         "daily_stop_R": 2.5,
-        "priority": 4,            # 34% WR, high stale-exit rate
-        "max_heat_R": 1.20,
+        "priority": 1,
+        "max_heat_R": 1.50,
         "max_working_orders": 4,
     },
     "BRS_R9": {
-        "unit_risk_pct": 0.003,   # 0.3% base risk (GLD rate, higher of the two)
+        "unit_risk_pct": 0.008,
         "daily_stop_R": 2.0,
-        "priority": 5,            # lowest -- episodic bear specialist
-        "max_heat_R": 1.25,       # tighter than standalone 1.80 for shared portfolio
-        "max_working_orders": 2,
+        "priority": 2,
+        "max_heat_R": 1.40,
+        "max_working_orders": 3,
     },
 }
 
-# Portfolio-level risk caps (P1 heat-unlock optimized)
-_HEAT_CAP_R = 3.0
-_PORTFOLIO_DAILY_STOP_R = 4.0
+# Portfolio-level risk caps from swing portfolio synergy round 2.
+_HEAT_CAP_R = 3.75
+_PORTFOLIO_DAILY_STOP_R = 3.25
+_PORTFOLIO_WEEKLY_STOP_R = 7.0
+_DD_TIERS = (
+    (0.06, 1.00),
+    (0.09, 0.70),
+    (0.12, 0.40),
+    (0.15, 0.00),
+)
 
 
 class SwingFamilyCoordinator:
@@ -243,10 +250,16 @@ class SwingFamilyCoordinator:
         # Portfolio rules: directional cap + symbol collision for swing family
         from libs.oms.risk.portfolio_rules import PortfolioRulesConfig
         portfolio_rules = PortfolioRulesConfig(
-            directional_cap_R=6.0,
+            directional_cap_R=3.75,
+            directional_cap_long_R=3.0,
+            directional_cap_short_R=3.25,
             initial_equity=equity,
             family_strategy_ids=tuple(strategy_ids),
             symbol_collision_action="half_size",
+            strategy_priorities=tuple((sid, _RISK_PARAMS[sid]["priority"]) for sid in strategy_ids),
+            priority_headroom_R=0.75,
+            priority_reserve_threshold=1,
+            dd_tiers=_DD_TIERS,
             helix_nqdtc_cooldown_minutes=0,  # disable momentum-specific rules
             nqdtc_direction_filter_enabled=False,
         )
@@ -267,6 +280,7 @@ class SwingFamilyCoordinator:
             ],
             heat_cap_R=_HEAT_CAP_R,
             portfolio_daily_stop_R=_PORTFOLIO_DAILY_STOP_R,
+            portfolio_weekly_stop_R=_PORTFOLIO_WEEKLY_STOP_R,
             db_pool=db_pool,
             market_calendar=market_cal,
             family_id=self.family_id,
@@ -614,6 +628,18 @@ class SwingFamilyCoordinator:
                     payload["last_decision_code"] = _engine._last_decision_code
                     payload["last_decision_details"] = getattr(_engine, "_last_decision_details", None)
                     payload["last_seen_bar_ts"] = getattr(_engine, "_last_bar_ts", None)
+                if hasattr(_engine, "liveness_payload") or hasattr(self._oms, "_intents_submitted"):
+                    details = payload.get("last_decision_details") or {}
+                    if hasattr(_engine, "liveness_payload"):
+                        details["liveness"] = _engine.liveness_payload()
+                    if hasattr(self._oms, "_intents_submitted"):
+                        details["oms_health"] = {
+                            "submitted": self._oms._intents_submitted,
+                            "accepted": self._oms._intents_accepted,
+                            "denied": self._oms._intents_denied,
+                            "consecutive_denials": self._oms._consecutive_denials,
+                        }
+                    payload["last_decision_details"] = details
                 payloads.append(payload)
             connected = session.ib.isConnected() if session else False
             # Enrich with IB farm status for diagnostic context

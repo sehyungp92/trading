@@ -25,7 +25,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
 ROUND_MANAGER = RoundManager("stock", "iaric")
-ROUND_NAME_CHOICES = ["r4", "r5", "v2r1", "v2r2", "v2r3", "v2r4", "v3r1", "v4r1"]
+ROUND_NAME_CHOICES = ["r4", "r5", "v2r1", "v2r2", "v2r3", "v2r4", "v3r1", "v4r1", "v5r1", "v5r2"]
 
 
 def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseRunner:
