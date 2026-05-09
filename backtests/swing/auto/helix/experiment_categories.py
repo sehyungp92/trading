@@ -1,9 +1,10 @@
-"""Helix experiment definitions -- 113 experiments in 11 named categories.
+"""Helix experiment definitions for phased Helix optimization.
 
 Each experiment is a (name, mutations_dict) tuple.
-Categories: CLASS_PRUNING, ENTRY_QUALITY, STRUCTURAL_ABLATION,
-            STOP_PLACEMENT, TRAILING, INLINE_TRAILING, STALE_BAIL,
-            PARTIALS_BE, VOLATILITY, ADDON, CIRCUIT_BREAKER
+Categories: CLASS_PRUNING, ENTRY_QUALITY, CLASS_D_QUALITY,
+            STRUCTURAL_ABLATION, STOP_PLACEMENT, TRAILING,
+            INLINE_TRAILING, LEAKAGE_GUARD, STALE_BAIL, PARTIALS_BE,
+            VOLATILITY, ADDON, ADDON_EXPANSION, CIRCUIT_BREAKER
 """
 from __future__ import annotations
 
@@ -22,6 +23,8 @@ def _class_pruning_experiments() -> list[tuple[str, dict]]:
 def _entry_quality_experiments() -> list[tuple[str, dict]]:
     """14 ENTRY_QUALITY experiments (Phase 1)."""
     return [
+        ("entry_b_adx_20", {"param_overrides.CLASS_B_MIN_ADX": 20}),
+        ("entry_b_adx_24", {"param_overrides.CLASS_B_MIN_ADX": 24}),
         ("entry_b_adx_25", {"param_overrides.CLASS_B_MIN_ADX": 25}),
         ("entry_b_adx_30", {"param_overrides.CLASS_B_MIN_ADX": 30}),
         ("entry_pivot_sep_12", {"param_overrides.CLASS_B_MIN_PIVOT_SEP_BARS": 12}),
@@ -36,6 +39,68 @@ def _entry_quality_experiments() -> list[tuple[str, dict]]:
         ("entry_adx_cap_45", {"param_overrides.ADX_UPPER_GATE": 45}),
         ("entry_b_mom_lookback_4", {"param_overrides.CLASS_B_MOM_LOOKBACK": 4}),
         ("entry_b_mom_lookback_5", {"param_overrides.CLASS_B_MOM_LOOKBACK": 5}),
+    ]
+
+
+def _class_d_quality_experiments() -> list[tuple[str, dict]]:
+    """Class D momentum filters targeted at durable side-level alpha."""
+    return [
+        ("entry_d_restore_streak_1", {"param_overrides.CLASS_D_REGIME_STREAK_MIN": 1}),
+        ("entry_d_restore_streak_0", {"param_overrides.CLASS_D_REGIME_STREAK_MIN": 0}),
+        ("entry_d_min_adx_18", {"param_overrides.CLASS_D_MIN_ADX": 18.0}),
+        ("entry_d_min_adx_22", {"param_overrides.CLASS_D_MIN_ADX": 22.0}),
+        ("entry_d_short_adx_16", {"param_overrides.CLASS_D_SHORT_MIN_ADX": 16.0}),
+        ("entry_d_short_adx_20", {"param_overrides.CLASS_D_SHORT_MIN_ADX": 20.0}),
+        ("entry_d_short_adx_24", {"param_overrides.CLASS_D_SHORT_MIN_ADX": 24.0}),
+        ("entry_d_short_adx_28", {"param_overrides.CLASS_D_SHORT_MIN_ADX": 28.0}),
+        ("entry_d_short_adx_0", {"param_overrides.CLASS_D_SHORT_MIN_ADX": 0.0}),
+        ("entry_d_hist_sign", {"param_overrides.CLASS_D_HIST_SIGN_GATE": True}),
+        ("entry_d_regime_streak_2", {"param_overrides.CLASS_D_REGIME_STREAK_MIN": 2}),
+        ("entry_d_regime_streak_3", {"param_overrides.CLASS_D_REGIME_STREAK_MIN": 3}),
+        (
+            "entry_d_short_adx24_hist",
+            {
+                "param_overrides.CLASS_D_SHORT_MIN_ADX": 24.0,
+                "param_overrides.CLASS_D_HIST_SIGN_GATE": True,
+            },
+        ),
+        (
+            "entry_d_short_adx24_streak2",
+            {
+                "param_overrides.CLASS_D_SHORT_MIN_ADX": 24.0,
+                "param_overrides.CLASS_D_REGIME_STREAK_MIN": 2,
+            },
+        ),
+    ]
+
+
+def _class_d_entry_discriminator_experiments() -> list[tuple[str, dict]]:
+    """Pre-entry Class D filters aimed at fast failed breakouts, not tail clipping."""
+    return [
+        ("d_sep_4", {"param_overrides.CLASS_D_MIN_PIVOT_SEP_BARS": 4}),
+        ("d_sep_6", {"param_overrides.CLASS_D_MIN_PIVOT_SEP_BARS": 6}),
+        ("d_p2_age_20", {"param_overrides.CLASS_D_MAX_PIVOT2_AGE_BARS": 20}),
+        ("d_p2_age_24", {"param_overrides.CLASS_D_MAX_PIVOT2_AGE_BARS": 24}),
+        ("d_p2_age_30", {"param_overrides.CLASS_D_MAX_PIVOT2_AGE_BARS": 30}),
+        ("d_daily_ext_300", {"param_overrides.CLASS_D_MAX_DAILY_EXTENSION_ATR": 3.00}),
+        ("d_daily_ext_350", {"param_overrides.CLASS_D_MAX_DAILY_EXTENSION_ATR": 3.50}),
+        ("d_sep4_age20", {
+            "param_overrides.CLASS_D_MIN_PIVOT_SEP_BARS": 4,
+            "param_overrides.CLASS_D_MAX_PIVOT2_AGE_BARS": 20,
+        }),
+        ("d_sep4_dailyext300", {
+            "param_overrides.CLASS_D_MIN_PIVOT_SEP_BARS": 4,
+            "param_overrides.CLASS_D_MAX_DAILY_EXTENSION_ATR": 3.00,
+        }),
+        ("d_short0_dailyext300", {
+            "param_overrides.CLASS_D_SHORT_MIN_ADX": 0.0,
+            "param_overrides.CLASS_D_MAX_DAILY_EXTENSION_ATR": 3.00,
+        }),
+        ("d_short0_sep4_dailyext300", {
+            "param_overrides.CLASS_D_SHORT_MIN_ADX": 0.0,
+            "param_overrides.CLASS_D_MIN_PIVOT_SEP_BARS": 4,
+            "param_overrides.CLASS_D_MAX_DAILY_EXTENSION_ATR": 3.00,
+        }),
     ]
 
 
@@ -102,6 +167,139 @@ def _inline_trailing_experiments() -> list[tuple[str, dict]]:
         ("stall_onset_6", {"param_overrides.TRAIL_STALL_ONSET": 6}),
         ("stall_onset_12", {"param_overrides.TRAIL_STALL_ONSET": 12}),
         ("stall_rate_012", {"param_overrides.TRAIL_STALL_RATE": 0.12}),
+    ]
+
+
+def _class_specific_trailing_experiments() -> list[tuple[str, dict]]:
+    """Class-level trailing shapes focused on Class D leakage without clipping Class B."""
+    return [
+        ("class_d_trail_base_30", {"param_overrides.TRAIL_BASE_CLASS_D": 3.0}),
+        ("class_d_trail_base_35", {"param_overrides.TRAIL_BASE_CLASS_D": 3.5}),
+        ("class_d_trail_rdiv_60", {"param_overrides.TRAIL_R_DIV_CLASS_D": 6.0}),
+        ("class_d_trail_rdiv_75", {"param_overrides.TRAIL_R_DIV_CLASS_D": 7.5}),
+        ("class_d_stall_onset_4", {"param_overrides.TRAIL_STALL_ONSET_CLASS_D": 4}),
+        ("class_d_stall_onset_6", {"param_overrides.TRAIL_STALL_ONSET_CLASS_D": 6}),
+        (
+            "class_d_tighter_fade",
+            {
+                "param_overrides.TRAIL_STALL_ONSET_CLASS_D": 4,
+                "param_overrides.TRAIL_FADE_PENALTY_CLASS_D": 1.25,
+                "param_overrides.TRAIL_FADE_MIN_R_CLASS_D": 0.75,
+            },
+        ),
+    ]
+
+
+def _leakage_guard_experiments() -> list[tuple[str, dict]]:
+    """Existing RTS guard parameterizations for small/mid-MFE giveback leaks."""
+    return [
+        (
+            "rts_guard_mfe050_be",
+            {
+                "param_overrides.RTS_GUARD_MFE_R": 0.50,
+                "param_overrides.RTS_GUARD_MIN_GIVEBACK_R": 0.35,
+                "param_overrides.RTS_GUARD_FLOOR_R": 0.0,
+            },
+        ),
+        (
+            "rts_guard_mfe075_be",
+            {
+                "param_overrides.RTS_GUARD_MFE_R": 0.75,
+                "param_overrides.RTS_GUARD_MIN_GIVEBACK_R": 0.45,
+                "param_overrides.RTS_GUARD_FLOOR_R": 0.0,
+            },
+        ),
+        (
+            "rts_guard_mfe100_be",
+            {
+                "param_overrides.RTS_GUARD_MFE_R": 1.00,
+                "param_overrides.RTS_GUARD_MIN_GIVEBACK_R": 0.50,
+                "param_overrides.RTS_GUARD_FLOOR_R": 0.0,
+            },
+        ),
+        (
+            "rts_guard_mfe075_neg010",
+            {
+                "param_overrides.RTS_GUARD_MFE_R": 0.75,
+                "param_overrides.RTS_GUARD_MIN_GIVEBACK_R": 0.45,
+                "param_overrides.RTS_GUARD_FLOOR_R": -0.10,
+            },
+        ),
+        (
+            "rts_guard_mfe075_fade2",
+            {
+                "param_overrides.RTS_GUARD_MFE_R": 0.75,
+                "param_overrides.RTS_GUARD_MIN_GIVEBACK_R": 0.45,
+                "param_overrides.RTS_GUARD_FADE_BARS": 2,
+                "param_overrides.RTS_GUARD_FLOOR_R": 0.0,
+            },
+        ),
+        (
+            "rts_fail_mfe100_neg025",
+            {
+                "param_overrides.RTS_GUARD_MFE_R": 1.00,
+                "param_overrides.RTS_GUARD_MIN_GIVEBACK_R": 0.65,
+                "param_overrides.RTS_FAIL_FLATTEN_R": -0.25,
+            },
+        ),
+        (
+            "rts_guard_mfe025_gb005_floor005",
+            {
+                "param_overrides.RTS_GUARD_MFE_R": 0.25,
+                "param_overrides.RTS_GUARD_MIN_GIVEBACK_R": 0.05,
+                "param_overrides.RTS_GUARD_FLOOR_R": 0.05,
+            },
+        ),
+        (
+            "rts_guard_mfe025_gb005_floor005_minbars10",
+            {
+                "param_overrides.RTS_GUARD_MFE_R": 0.25,
+                "param_overrides.RTS_GUARD_MIN_GIVEBACK_R": 0.05,
+                "param_overrides.RTS_GUARD_FLOOR_R": 0.05,
+                "param_overrides.RTS_GUARD_MIN_BARS": 10,
+            },
+        ),
+        (
+            "rts_guard_mfe030_gb010_floor005",
+            {
+                "param_overrides.RTS_GUARD_MFE_R": 0.30,
+                "param_overrides.RTS_GUARD_MIN_GIVEBACK_R": 0.10,
+                "param_overrides.RTS_GUARD_FLOOR_R": 0.05,
+            },
+        ),
+        (
+            "freq_d_short0_sep4_daily_rts025",
+            {
+                "param_overrides.CLASS_D_SHORT_MIN_ADX": 0.0,
+                "param_overrides.CLASS_D_MIN_PIVOT_SEP_BARS": 4,
+                "param_overrides.CLASS_D_MAX_DAILY_EXTENSION_ATR": 3.00,
+                "param_overrides.RTS_GUARD_MFE_R": 0.25,
+                "param_overrides.RTS_GUARD_MIN_GIVEBACK_R": 0.05,
+                "param_overrides.RTS_GUARD_FLOOR_R": 0.05,
+            },
+        ),
+        (
+            "freq_d_short0_sep4_daily_rts030",
+            {
+                "param_overrides.CLASS_D_SHORT_MIN_ADX": 0.0,
+                "param_overrides.CLASS_D_MIN_PIVOT_SEP_BARS": 4,
+                "param_overrides.CLASS_D_MAX_DAILY_EXTENSION_ATR": 3.00,
+                "param_overrides.RTS_GUARD_MFE_R": 0.30,
+                "param_overrides.RTS_GUARD_MIN_GIVEBACK_R": 0.10,
+                "param_overrides.RTS_GUARD_FLOOR_R": 0.05,
+            },
+        ),
+        (
+            "freq_d_short0_sep4_classc_rts035",
+            {
+                "param_overrides.CLASS_D_SHORT_MIN_ADX": 0.0,
+                "param_overrides.CLASS_D_MIN_PIVOT_SEP_BARS": 4,
+                "flags.disable_class_c": False,
+                "param_overrides.RTS_GUARD_MFE_R": 0.35,
+                "param_overrides.RTS_GUARD_MIN_GIVEBACK_R": 0.15,
+                "param_overrides.RTS_GUARD_FLOOR_R": 0.10,
+            },
+        ),
     ]
 
 
@@ -174,6 +372,22 @@ def _addon_experiments() -> list[tuple[str, dict]]:
     ]
 
 
+def _addon_expansion_experiments() -> list[tuple[str, dict]]:
+    """Local add-on expansion around the latest optimized add-on posture."""
+    return [
+        ("addon_1h_r_055", {"param_overrides.ADD_1H_R": 0.55}),
+        ("addon_1h_r_075", {"param_overrides.ADD_1H_R": 0.75}),
+        ("addon_risk_frac_150", {"param_overrides.ADD_RISK_FRAC": 1.50}),
+        ("addon_risk_frac_190", {"param_overrides.ADD_RISK_FRAC": 1.90}),
+        ("addon_risk_frac_220", {"param_overrides.ADD_RISK_FRAC": 2.20}),
+        ("addon_max_bars_14", {"param_overrides.ADD_MAX_BARS": 14}),
+        ("addon_max_bars_22", {"param_overrides.ADD_MAX_BARS": 22}),
+        ("addon_max_bars_28", {"param_overrides.ADD_MAX_BARS": 28}),
+        ("addon_price_gate_025", {"param_overrides.ADD_PRICE_GATE_ATR_MULT": 0.25}),
+        ("addon_price_gate_075", {"param_overrides.ADD_PRICE_GATE_ATR_MULT": 0.75}),
+    ]
+
+
 def _circuit_breaker_experiments() -> list[tuple[str, dict]]:
     """8 CIRCUIT_BREAKER experiments (Phase 4)."""
     return [
@@ -195,14 +409,19 @@ def _circuit_breaker_experiments() -> list[tuple[str, dict]]:
 EXPERIMENT_CATEGORIES: dict[str, list[tuple[str, dict]]] = {
     "CLASS_PRUNING": _class_pruning_experiments(),
     "ENTRY_QUALITY": _entry_quality_experiments(),
+    "CLASS_D_QUALITY": _class_d_quality_experiments(),
+    "CLASS_D_ENTRY_DISCRIMINATOR": _class_d_entry_discriminator_experiments(),
     "STRUCTURAL_ABLATION": _structural_ablation_experiments(),
     "STOP_PLACEMENT": _stop_placement_experiments(),
     "TRAILING": _trailing_experiments(),
     "INLINE_TRAILING": _inline_trailing_experiments(),
+    "CLASS_SPECIFIC_TRAILING": _class_specific_trailing_experiments(),
+    "LEAKAGE_GUARD": _leakage_guard_experiments(),
     "STALE_BAIL": _stale_bail_experiments(),
     "PARTIALS_BE": _partials_be_experiments(),
     "VOLATILITY": _volatility_experiments(),
     "ADDON": _addon_experiments(),
+    "ADDON_EXPANSION": _addon_expansion_experiments(),
     "CIRCUIT_BREAKER": _circuit_breaker_experiments(),
 }
 

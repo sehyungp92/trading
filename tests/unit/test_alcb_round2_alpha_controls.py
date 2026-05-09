@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
+import pytest
+
 from backtests.stock.auto.alcb.phase_candidates import (
     PHASE_FOCUS,
     get_phase_candidates,
@@ -137,7 +139,8 @@ def test_conditional_entry_size_mult_combines_bar_score_and_sector_overlays():
 
     mult = conditional_entry_size_mult("Financials", "OR_BREAKOUT", 11, 5, settings)
 
-    assert mult == 0.10
+    # 0.50 (bar=11) * 0.80 (OR_BREAKOUT:5) * 0.55 (default detail !bar_vol_surge) * 0.25 (sector)
+    assert mult == pytest.approx(0.055)
 
 
 def test_conditional_entry_detail_controls_use_completed_score_components():
@@ -154,8 +157,10 @@ def test_conditional_entry_detail_controls_use_completed_score_components():
 
     assert conditional_entry_blocked("Technology", "OR_BREAKOUT", 12, 5, settings, weak_detail)
     assert not conditional_entry_blocked("Technology", "OR_BREAKOUT", 12, 5, settings, strong_detail)
-    assert round(conditional_entry_size_mult("Technology", "OR_BREAKOUT", 12, 5, settings, weak_detail), 2) == 0.77
-    assert conditional_entry_size_mult("Technology", "OR_BREAKOUT", 12, 5, settings, strong_detail) == 1.10
+    # 0.75 (default OR_BREAKOUT:5 score mult) * 0.70 (!adx_trending) * 1.10 (strong_cpr) = 0.5775
+    assert round(conditional_entry_size_mult("Technology", "OR_BREAKOUT", 12, 5, settings, weak_detail), 2) == 0.58
+    # 0.75 (default OR_BREAKOUT:5) * 1.10 (strong_cpr) = 0.825
+    assert conditional_entry_size_mult("Technology", "OR_BREAKOUT", 12, 5, settings, strong_detail) == pytest.approx(0.825)
 
 
 def test_entry_confirmation_uses_completed_confirmation_bar_not_fill_bar():

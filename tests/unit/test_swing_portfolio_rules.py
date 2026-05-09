@@ -17,9 +17,16 @@ from libs.oms.risk.portfolio_rules import (
     PortfolioRuleChecker,
     PortfolioRulesConfig,
 )
+from libs.oms.coordination.coordinator import StrategyCoordinator
+from backtests.swing.config_unified import UnifiedBacktestConfig
+from backtests.swing.engine.unified_portfolio_engine import (
+    BacktestCoordinator,
+    _PortfolioRuleExposure,
+    _SwingPortfolioRuleReplayAdapter,
+)
 
-SWING_IDS = ("ATRSS", "SWING_BREAKOUT_V3", "AKC_HELIX", "BRS_R9")
-MOMENTUM_IDS = ("AKC_Helix_v40", "NQDTC_v2.1", "VdubusNQ_v4")
+SWING_IDS = ("ATRSS", "AKC_HELIX")
+MOMENTUM_IDS = ("NQ_REGIME", "NQDTC_v2.1", "VdubusNQ_v4", "DownturnDominator_v1")
 
 
 def _make_checker(
@@ -37,7 +44,6 @@ def _make_checker(
         initial_equity=initial_equity,
         family_strategy_ids=family_strategy_ids,
         symbol_collision_action=symbol_collision_action,
-        helix_nqdtc_cooldown_minutes=0,  # disable momentum-specific
         nqdtc_direction_filter_enabled=False,
     )
     return PortfolioRuleChecker(
@@ -64,7 +70,7 @@ async def test_swing_directional_cap_approves_within_limit():
 async def test_swing_directional_cap_denies_above_limit():
     checker = _make_checker(dir_risk_family=5.5)
     # 5.5R + 1R = 6.5R > 6R cap
-    result = await checker.check_entry("SWING_BREAKOUT_V3", "LONG", 1.0)
+    result = await checker.check_entry("AKC_HELIX", "LONG", 1.0)
     assert not result.approved
     assert "directional_cap" in result.denial_reason
 
@@ -99,19 +105,13 @@ async def test_swing_no_collision():
 # ── Momentum-specific: no cooldown/direction filter for swing ────
 
 
-@pytest.mark.asyncio
-async def test_swing_skips_proximity_cooldown():
-    """Swing strategies should not trigger Helix↔NQDTC cooldown."""
-    checker = _make_checker()
-    result = await checker.check_entry("ATRSS", "LONG", 1.0)
-    assert result.approved
 
 
 @pytest.mark.asyncio
 async def test_swing_skips_direction_filter():
     """Swing strategies should not trigger NQDTC direction filter."""
     checker = _make_checker()
-    result = await checker.check_entry("BRS_R9", "SHORT", 1.0)
+    result = await checker.check_entry("AKC_HELIX", "SHORT", 1.0)
     assert result.approved
 
 
@@ -159,13 +159,13 @@ async def test_momentum_family_directional_cap():
         get_sibling_positions_for_symbol=AsyncMock(return_value=False),
     )
     # 5R family + 1R new = 6R ≤ 6R cap → approved (uses family, not global)
-    result = await checker.check_entry("AKC_Helix_v40", "LONG", 1.0)
+    result = await checker.check_entry("NQ_REGIME", "LONG", 1.0)
     assert result.approved
 
 
 @pytest.mark.asyncio
 async def test_momentum_symbol_collision_nq():
-    """NQ collision between Helix and NQDTC triggers half_size."""
+    """NQ collision between momentum siblings triggers half_size."""
     config = PortfolioRulesConfig(
         initial_equity=10_000.0,
         directional_cap_R=6.0,
@@ -180,6 +180,125 @@ async def test_momentum_symbol_collision_nq():
         get_directional_risk_R_for_strategies=AsyncMock(return_value=0.0),
         get_sibling_positions_for_symbol=AsyncMock(return_value=True),
     )
-    result = await checker.check_entry("AKC_Helix_v40", "LONG", 1.0, symbol="NQ")
+    result = await checker.check_entry("NQ_REGIME", "LONG", 1.0, symbol="NQ")
     assert result.approved
     assert result.size_multiplier == 0.5
+
+
+def test_swing_backtest_replay_uses_live_portfolio_rule_checker_for_collision():
+    config = UnifiedBacktestConfig(initial_equity=50_000.0)
+    adapter = _SwingPortfolioRuleReplayAdapter(config, 50_000.0)
+    try:
+        adapter.refresh(
+            equity=50_000.0,
+            exposures=[
+                _PortfolioRuleExposure(
+                    strategy_id="ATRSS",
+                    symbol="QQQ",
+                    direction="LONG",
+                    risk_dollars=800.0,
+                    risk_R=1.0,
+                    qty=10,
+                )
+            ],
+        )
+
+        result = adapter.check_entry(
+            strategy_id="AKC_HELIX",
+            direction="LONG",
+            risk_dollars=450.0,
+            symbol="QQQ",
+            qty=10,
+        )
+
+        assert result.approved
+        assert result.size_multiplier == 0.5
+    finally:
+        adapter.close()
+
+
+def test_swing_backtest_coordination_replays_live_strategy_coordinator_semantics():
+    coordinator = BacktestCoordinator(enable_tighten=True, enable_size_boost=True)
+
+    assert isinstance(coordinator._coordinator, StrategyCoordinator)
+
+    coordinator.on_atrss_position_change("QQQ", 1, 510.25)
+
+    assert coordinator.consume_tighten_events() == ["QQQ"]
+    assert coordinator.consume_tighten_events() == []
+    assert coordinator.has_atrss_position("QQQ", 1)
+    assert not coordinator.has_atrss_position("QQQ", -1)
+
+    coordinator.on_atrss_position_change("QQQ", 0, 0.0)
+
+    assert not coordinator.has_atrss_position("QQQ", 1)
+
+
+def test_swing_backtest_replay_uses_live_portfolio_rule_checker_for_directional_cap():
+    config = UnifiedBacktestConfig(initial_equity=50_000.0)
+    adapter = _SwingPortfolioRuleReplayAdapter(config, 50_000.0)
+    try:
+        adapter.refresh(
+            equity=50_000.0,
+            exposures=[
+                _PortfolioRuleExposure(
+                    strategy_id="ATRSS",
+                    symbol="QQQ",
+                    direction="LONG",
+                    risk_dollars=3_600.0,
+                    risk_R=3.8,
+                    qty=10,
+                )
+            ],
+        )
+
+        result = adapter.check_entry(
+            strategy_id="AKC_HELIX",
+            direction="LONG",
+            risk_dollars=450.0,
+            symbol="GLD",
+            qty=10,
+        )
+
+        assert not result.approved
+        assert "directional_cap" in result.denial_reason
+    finally:
+        adapter.close()
+
+
+def test_swing_backtest_replay_directional_cap_uses_portfolio_dollar_basis():
+    config = UnifiedBacktestConfig(initial_equity=50_000.0)
+    adapter = _SwingPortfolioRuleReplayAdapter(config, 50_000.0)
+    try:
+        adapter.refresh(equity=50_000.0, exposures=[])
+
+        result = adapter.check_entry(
+            strategy_id="AKC_HELIX",
+            direction="LONG",
+            risk_dollars=2_250.0,
+            symbol="GLD",
+            qty=10,
+        )
+
+        assert result.approved
+    finally:
+        adapter.close()
+
+
+def test_swing_backtest_replay_refreshes_portfolio_reference_unit():
+    config = UnifiedBacktestConfig(initial_equity=50_000.0)
+    adapter = _SwingPortfolioRuleReplayAdapter(config, 50_000.0)
+    try:
+        adapter.refresh(equity=50_000.0, unit_equity=250_000.0, exposures=[])
+
+        result = adapter.check_entry(
+            strategy_id="ATRSS",
+            direction="LONG",
+            risk_dollars=6_000.0,
+            symbol="QQQ",
+            qty=10,
+        )
+
+        assert result.approved
+    finally:
+        adapter.close()

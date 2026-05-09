@@ -64,7 +64,7 @@ def main():
     for attr, name in [
         ('atrss_trades', 'ATRSS'),
         ('helix_trades', 'AKC_HELIX'),
-        ('breakout_trades', 'BREAKOUT'),
+        ('tpc_trades', 'TPC'),
     ]:
         trades = getattr(final_result, attr, [])
         if not trades:

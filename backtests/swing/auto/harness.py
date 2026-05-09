@@ -15,7 +15,6 @@ import numpy as np
 
 from backtests.swing.auto.config_mutator import (
     mutate_atrss_config,
-    mutate_breakout_config,
     mutate_helix_config,
     mutate_unified_config,
 )
@@ -48,7 +47,6 @@ class SwingAutoHarness:
         # Cached data (loaded once)
         self._atrss_data = None   # PortfolioData
         self._helix_data = None   # HelixPortfolioData
-        self._breakout_data = None  # BreakoutPortfolioData
         self._unified_data = None  # UnifiedPortfolioData
 
         # Baseline scores keyed by strategy name
@@ -70,7 +68,7 @@ class SwingAutoHarness:
         """Run the full experiment pipeline.
 
         Args:
-            strategy_filter: "atrss", "helix", "breakout", "portfolio", or "all"
+            strategy_filter: "atrss", "helix", "portfolio", or "all"
             experiment_ids: Specific experiment IDs to run (None = all)
             skip_robustness: Skip robustness checks for faster ablation scan
             resume: Skip experiments already in results.tsv
@@ -176,7 +174,7 @@ class SwingAutoHarness:
 
     def _load_data(self, strategy_filter: str) -> None:
         """Load bar data for needed strategies."""
-        from backtests.swing.cli import _load_data, _load_helix_data, _load_breakout_data
+        from backtests.swing.cli import _load_data, _load_helix_data
         from backtests.swing.data.preprocessing import build_numpy_arrays, normalize_timezone
         from backtests.swing.data.cache import load_bars
 
@@ -204,14 +202,6 @@ class SwingAutoHarness:
                 lambda: _load_helix_data(helix_symbols, self.data_dir),
             )
 
-        # Breakout data (daily + hourly + 4H)
-        if _all or strategy_filter == "breakout":
-            breakout_symbols = self._get_breakout_symbols()
-            self._breakout_data = _timed_load(
-                f"Breakout ({','.join(breakout_symbols)})",
-                lambda: _load_breakout_data(breakout_symbols, self.data_dir),
-            )
-
         # Unified data (for portfolio experiments)
         if _all or strategy_filter == "portfolio":
             # Portfolio needs all per-strategy data loaded first
@@ -220,8 +210,6 @@ class SwingAutoHarness:
                     self._atrss_data = _load_data(self._get_atrss_symbols(), self.data_dir)
                 if self._helix_data is None:
                     self._helix_data = _load_helix_data(self._get_helix_symbols(), self.data_dir)
-                if self._breakout_data is None:
-                    self._breakout_data = _load_breakout_data(self._get_breakout_symbols(), self.data_dir)
             self._load_unified_data()
 
     def _load_unified_data(self) -> None:
@@ -248,11 +236,6 @@ class SwingAutoHarness:
                 self._unified_data.four_hour = getattr(self._helix_data, 'four_hour', {})
                 self._unified_data.daily_idx_maps = getattr(self._helix_data, 'daily_idx_maps', {})
                 self._unified_data.four_hour_idx_maps = getattr(self._helix_data, 'four_hour_idx_maps', {})
-            if self._breakout_data:
-                self._unified_data.breakout_hourly = getattr(self._breakout_data, 'hourly', {})
-                self._unified_data.breakout_four_hour = getattr(self._breakout_data, 'four_hour', {})
-                self._unified_data.breakout_daily_idx_maps = getattr(self._breakout_data, 'daily_idx_maps', {})
-                self._unified_data.breakout_four_hour_idx_maps = getattr(self._breakout_data, 'four_hour_idx_maps', {})
             self._unified_data.daily = {
                 **getattr(self._atrss_data, 'daily', {}),
                 **getattr(self._helix_data, 'daily', {}),
@@ -274,14 +257,6 @@ class SwingAutoHarness:
     def _get_helix_symbols() -> list[str]:
         try:
             from strategies.swing.akc_helix.config import SYMBOLS
-            return list(SYMBOLS)
-        except ImportError:
-            return ["QQQ", "GLD"]
-
-    @staticmethod
-    def _get_breakout_symbols() -> list[str]:
-        try:
-            from strategies.swing.breakout.config import SYMBOLS
             return list(SYMBOLS)
         except ImportError:
             return ["QQQ", "GLD"]
@@ -471,8 +446,6 @@ class SwingAutoHarness:
             return self._run_atrss(config)
         elif strategy == "helix":
             return self._run_helix(config)
-        elif strategy == "breakout":
-            return self._run_breakout(config)
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 
@@ -555,46 +528,6 @@ class SwingAutoHarness:
         eq, ts = self._merge_equity(equity_curves, timestamps_all)
         return all_trades, eq, ts
 
-    def _run_breakout(self, config) -> tuple[list, np.ndarray, np.ndarray]:
-        """Run Breakout per symbol, merge results."""
-        from backtests.swing.engine.breakout_engine import BreakoutEngine
-        try:
-            from strategies.swing.breakout.config import SYMBOL_CONFIGS as BRK_CONFIGS
-        except ImportError:
-            BRK_CONFIGS = {}
-
-        all_trades = []
-        equity_curves = []
-        timestamps_all = []
-
-        for sym in config.symbols:
-            if self._breakout_data is None:
-                continue
-            hourly = getattr(self._breakout_data, 'hourly', {}).get(sym)
-            daily = getattr(self._breakout_data, 'daily', {}).get(sym)
-            four_hour = getattr(self._breakout_data, 'four_hour', {}).get(sym)
-            d_idx = getattr(self._breakout_data, 'daily_idx_maps', {}).get(sym)
-            fh_idx = getattr(self._breakout_data, 'four_hour_idx_maps', {}).get(sym)
-            if any(x is None for x in [hourly, daily, four_hour, d_idx, fh_idx]):
-                continue
-
-            cfg = BRK_CONFIGS.get(sym)
-            if cfg is None:
-                continue
-
-            engine = BreakoutEngine(
-                symbol=sym, cfg=cfg, bt_config=config,
-                point_value=cfg.multiplier,
-            )
-            result = engine.run(daily, hourly, four_hour, d_idx, fh_idx)
-            all_trades.extend(result.trades)
-            if len(result.equity_curve) > 0:
-                equity_curves.append(result.equity_curve)
-                timestamps_all.append(result.timestamps)
-
-        eq, ts = self._merge_equity(equity_curves, timestamps_all)
-        return all_trades, eq, ts
-
     # ------------------------------------------------------------------
     # Config factories
     # ------------------------------------------------------------------
@@ -615,13 +548,6 @@ class SwingAutoHarness:
                 data_dir=self.data_dir,
                 symbols=self._get_helix_symbols(),
             )
-        elif strategy == "breakout":
-            from backtests.swing.config_breakout import BreakoutBacktestConfig
-            return BreakoutBacktestConfig(
-                initial_equity=self.initial_equity,
-                data_dir=self.data_dir,
-                symbols=self._get_breakout_symbols(),
-            )
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 
@@ -638,8 +564,6 @@ class SwingAutoHarness:
             return mutate_atrss_config(base, mutations)
         elif strategy == "helix":
             return mutate_helix_config(base, mutations)
-        elif strategy == "breakout":
-            return mutate_breakout_config(base, mutations)
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 
@@ -752,7 +676,7 @@ class SwingAutoHarness:
         """Collect trades from a UnifiedPortfolioResult."""
         all_trades = []
         # Direct trade lists on the result object
-        for attr in ('atrss_trades', 'helix_trades', 'breakout_trades'):
+        for attr in ('atrss_trades', 'helix_trades'):
             trades = getattr(result, attr, [])
             if isinstance(trades, list):
                 all_trades.extend(trades)

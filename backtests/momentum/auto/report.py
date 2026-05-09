@@ -285,7 +285,7 @@ def _recommended_configs(
 def _param_group_key(experiment_id: str) -> str:
     """Group sweep experiment IDs by parameter name.
 
-    e.g. "sweep_helix_TRAIL_ACTIVATION_R_0.40" -> "sweep_helix_TRAIL_ACTIVATION_R"
+    e.g. "sweep_nqdtc_SCORE_MIN_4" -> "sweep_nqdtc_SCORE_MIN"
     Handles negative values, decimals, and trailing text.
     """
     return re.sub(r"_-?[\d.]+$", "", experiment_id)

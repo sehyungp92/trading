@@ -14,10 +14,12 @@ from backtests.momentum.engine.family_portfolio_engine import (
     MOMENTUM_FAMILY_STRATEGY_IDS,
     build_family_replay_bundle,
     family_config_to_dict,
-    make_controlled_aggressive_five_strategy_config,
+    make_controlled_aggressive_family_config,
     update_allocation,
 )
 
+
+_PRICE_BARS_UNSET = object()
 
 SCORE_WEIGHTS: dict[str, float] = {
     "expected_return": 0.24,
@@ -30,13 +32,13 @@ SCORE_WEIGHTS: dict[str, float] = {
 }
 
 TARGETS = {
-    "net_profit": 60_000.0,
-    "trades_per_month": 24.0,
+    "net_profit": 220_000.0,
+    "trades_per_month": 40.0,
     "max_drawdown_pct": 0.18,
-    "profit_factor": 2.4,
-    "calmar": 4.0,
-    "min_strategy_trades": 20.0,
-    "max_block_rate": 0.45,
+    "profit_factor": 2.8,
+    "calmar": 8.0,
+    "min_strategy_trades": 80.0,
+    "max_block_rate": 0.15,
 }
 
 
@@ -70,8 +72,14 @@ def run_family_phase_auto(
 ) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
     replay_bundle = build_family_replay_bundle(trades_by_strategy)
-    current_config = make_controlled_aggressive_five_strategy_config(initial_equity)
-    current_eval = evaluate_portfolio_config("BASELINE", current_config, replay_bundle)
+    price_bars = _load_mtm_price_bars_for_scoring(data_dir)
+    current_config = make_controlled_aggressive_family_config(initial_equity)
+    current_eval = evaluate_portfolio_config(
+        "BASELINE",
+        current_config,
+        replay_bundle,
+        price_bars=price_bars,
+    )
     phase_records: list[dict[str, Any]] = []
 
     _write_json(output_dir / "baseline.json", _evaluation_record(current_eval))
@@ -82,9 +90,10 @@ def run_family_phase_auto(
             candidates,
             replay_bundle,
             max_workers=max_workers,
+            price_bars=price_bars,
         )
         viable = [item for item in evaluations if not item.rejected]
-        best = max(viable, key=lambda item: item.score, default=None)
+        best = max(viable, key=_portfolio_selection_key, default=None)
         accepted = bool(best and best.score > current_eval.score + min_delta)
         if accepted and best is not None:
             current_config = best.config
@@ -100,7 +109,12 @@ def run_family_phase_auto(
         _write_json(output_dir / f"phase_{phase}.json", record)
 
     final_result = FamilyPortfolioBacktester(current_config).run_bundle(replay_bundle)
-    final_metric_package = headline_mtm_metric_package(current_config, final_result, data_dir=data_dir)
+    final_metric_package = headline_mtm_metric_package(
+        current_config,
+        final_result,
+        data_dir=data_dir,
+        price_bars=price_bars,
+    )
     final_eval = score_metrics(final_metric_package["headline_metrics"])
     summary = {
         "score_components": SCORE_WEIGHTS,
@@ -137,25 +151,31 @@ def headline_mtm_metric_package(
     result,
     *,
     data_dir: Path = Path("backtests/momentum/data/raw"),
+    price_bars: Any = _PRICE_BARS_UNSET,
 ) -> dict[str, Any]:
     realized_metrics = dict(result.metrics)
-    from backtests.momentum.analysis.family_portfolio_diagnostics import (
-        _load_mtm_price_bars,
-        _portfolio_mtm_metrics,
-    )
+    from backtests.momentum.analysis.family_portfolio_diagnostics import _portfolio_mtm_metrics
+
+    if price_bars is _PRICE_BARS_UNSET:
+        price_bars = _load_mtm_price_bars_for_scoring(data_dir)
 
     diagnostic_equity = _portfolio_mtm_metrics(
         config,
         result,
-        _load_mtm_price_bars(data_dir),
+        price_bars,
     )
     realized_dd = float(realized_metrics.get("max_drawdown_pct", 0.0) or 0.0)
     realized_calmar = float(realized_metrics.get("calmar", 0.0) or 0.0)
+    realized_return = float(realized_metrics.get("net_return_pct", 0.0) or 0.0)
     mtm_dd = float(diagnostic_equity.get("max_drawdown_pct", realized_dd) or 0.0)
     mtm_calmar = float(diagnostic_equity.get("calmar", realized_calmar) or 0.0)
+    diagnostic_return = float(diagnostic_equity.get("net_return_pct", realized_return) or 0.0)
     headline_metrics = {
         **realized_metrics,
         "risk_basis": diagnostic_equity.get("risk_basis", "realized_daily"),
+        "final_equity": diagnostic_equity.get("final_equity"),
+        "net_return_pct": diagnostic_return,
+        "net_return_pct_realized": realized_return,
         "max_drawdown_pct": mtm_dd,
         "calmar": mtm_calmar,
         "max_drawdown_pct_mtm": mtm_dd,
@@ -174,9 +194,13 @@ def evaluate_portfolio_config(
     name: str,
     config: FamilyPortfolioBacktestConfig,
     replay_bundle: FamilyPortfolioReplayBundle,
+    *,
+    price_bars: Any = _PRICE_BARS_UNSET,
 ) -> PortfolioEvaluation:
     result = FamilyPortfolioBacktester(config).run_bundle(replay_bundle)
-    scored = score_metrics(result.metrics)
+    metric_package = headline_mtm_metric_package(config, result, price_bars=price_bars)
+    headline_metrics = metric_package["headline_metrics"]
+    scored = score_metrics(headline_metrics)
     return PortfolioEvaluation(
         name=name,
         score=scored["score"],
@@ -184,7 +208,7 @@ def evaluate_portfolio_config(
         reject_reason=scored["reject_reason"],
         soft_warnings=scored["soft_warnings"],
         components=scored["components"],
-        metrics=result.metrics,
+        metrics=headline_metrics,
         config=config,
     )
 
@@ -265,7 +289,6 @@ def load_or_build_latest_strategy_trades(
             pass
 
     trades_by_strategy = {
-        "AKC_Helix_v40": _run_helix(data_dir, initial_equity),
         "NQDTC_v2.1": _run_nqdtc(data_dir, initial_equity),
         "VdubusNQ_v4": _run_vdubus(data_dir, initial_equity),
         "DownturnDominator_v1": _run_downturn(data_dir, initial_equity),
@@ -283,6 +306,7 @@ def _evaluate_candidates(
     replay_bundle: FamilyPortfolioReplayBundle,
     *,
     max_workers: int,
+    price_bars: Any,
 ) -> list[PortfolioEvaluation]:
     worker_count = max(1, min(int(max_workers), 2))
     evaluations: list[PortfolioEvaluation] = []
@@ -293,42 +317,14 @@ def _evaluate_candidates(
                 candidate.name,
                 apply_portfolio_mutations(current_config, candidate.mutations),
                 replay_bundle,
+                price_bars=price_bars,
             ): candidate
             for candidate in candidates
         }
         for future in as_completed(future_map):
             evaluations.append(future.result())
-    evaluations.sort(key=lambda item: item.score, reverse=True)
+    evaluations.sort(key=_portfolio_selection_key, reverse=True)
     return evaluations
-
-
-def _run_helix(data_dir: Path, initial_equity: float) -> list:
-    from backtests.momentum.auto.config_mutator import mutate_helix_config
-    from backtests.momentum.cli import _load_helix_data_cached
-    from backtests.momentum.config_helix import Helix4BacktestConfig
-    from backtests.momentum.engine.helix_engine import Helix4Engine
-
-    mutations = _latest_optimized_mutations("helix")
-    cfg = Helix4BacktestConfig(
-        initial_equity=initial_equity,
-        fixed_qty=10,
-        point_value=2.0,
-        data_dir=data_dir,
-        track_signals=False,
-        track_shadows=False,
-    )
-    cfg = mutate_helix_config(cfg, mutations)
-    data = _load_helix_data_cached("NQ", data_dir)
-    result = Helix4Engine(symbol="NQ", bt_config=cfg).run(
-        data["minute_bars"],
-        data["hourly"],
-        data["four_hour"],
-        data["daily"],
-        data["hourly_idx_map"],
-        data["four_hour_idx_map"],
-        data["daily_idx_map"],
-    )
-    return result.trades
 
 
 def _run_nqdtc(data_dir: Path, initial_equity: float) -> list:
@@ -431,7 +427,7 @@ def _latest_optimized_mutations(strategy_dir_name: str) -> dict[str, Any]:
 
 def _strategy_source_manifest() -> dict[str, Any]:
     manifest: dict[str, Any] = {}
-    for name in ("helix", "nqdtc", "vdubus", "downturn", "nq_regime"):
+    for name in ("nqdtc", "vdubus", "downturn", "nq_regime"):
         root = Path("backtests/output/momentum") / name
         paths = sorted(root.glob("round_*/optimized_config.json"))
         latest = max(paths, key=lambda path: path.stat().st_mtime, default=None)
@@ -447,6 +443,12 @@ def _strategy_source_manifest() -> dict[str, Any]:
     return manifest
 
 
+def _load_mtm_price_bars_for_scoring(data_dir: Path) -> dict[str, Any] | None:
+    from backtests.momentum.analysis.family_portfolio_diagnostics import _load_mtm_price_bars
+
+    return _load_mtm_price_bars(data_dir)
+
+
 def _phase_candidates() -> dict[int, list[PortfolioCandidate]]:
     return {
         1: [
@@ -454,7 +456,6 @@ def _phase_candidates() -> dict[int, list[PortfolioCandidate]]:
             PortfolioCandidate("vdubus_65bp", "Push Vdubus participation", {"allocation.VdubusNQ_v4.base_risk_pct": 0.0065}),
             PortfolioCandidate("nqdtc_55bp", "Lift NQDTC confirmer risk", {"allocation.NQDTC_v2.1.base_risk_pct": 0.0055}),
             PortfolioCandidate("downturn_50bp", "Lift downturn hedge/range ballast", {"allocation.DownturnDominator_v1.base_risk_pct": 0.0050}),
-            PortfolioCandidate("helix_45bp", "Let Helix satellite breathe", {"allocation.AKC_Helix_v40.base_risk_pct": 0.0045}),
             PortfolioCandidate(
                 "balanced_plus_10pct",
                 "Increase all allocations by a controlled step",
@@ -463,7 +464,6 @@ def _phase_candidates() -> dict[int, list[PortfolioCandidate]]:
                     "allocation.VdubusNQ_v4.base_risk_pct": 0.0061,
                     "allocation.NQDTC_v2.1.base_risk_pct": 0.0050,
                     "allocation.DownturnDominator_v1.base_risk_pct": 0.0044,
-                    "allocation.AKC_Helix_v40.base_risk_pct": 0.0039,
                 },
             ),
         ],
@@ -499,9 +499,6 @@ def _phase_candidates() -> dict[int, list[PortfolioCandidate]]:
             ),
         ],
         3: [
-            PortfolioCandidate("cooldown_0", "Remove Helix/NQDTC cooldown", {"rules.helix_nqdtc_cooldown_minutes": 0}),
-            PortfolioCandidate("cooldown_30", "Short Helix/NQDTC cooldown", {"rules.helix_nqdtc_cooldown_minutes": 30}),
-            PortfolioCandidate("cooldown_120", "More defensive cooldown", {"rules.helix_nqdtc_cooldown_minutes": 120}),
             PortfolioCandidate("oppose_block", "Block Vdubus against NQDTC direction", {"rules.nqdtc_oppose_size_mult": 0.0}),
             PortfolioCandidate("oppose_quarter", "Quarter-size Vdubus against NQDTC", {"rules.nqdtc_oppose_size_mult": 0.25}),
             PortfolioCandidate("agree_150", "Boost Vdubus when NQDTC agrees", {"rules.nqdtc_agree_size_mult": 1.50}),
@@ -554,7 +551,6 @@ def _phase_candidates() -> dict[int, list[PortfolioCandidate]]:
                     "allocation.NQ_REGIME.base_risk_pct": 0.0068,
                     "allocation.VdubusNQ_v4.base_risk_pct": 0.0060,
                     "config.portfolio_daily_stop_R": 2.25,
-                    "rules.helix_nqdtc_cooldown_minutes": 30,
                 },
             ),
             PortfolioCandidate(
@@ -568,7 +564,6 @@ def _phase_candidates() -> dict[int, list[PortfolioCandidate]]:
                     "config.portfolio_daily_stop_R": 2.25,
                     "rules.directional_cap_long_R": 5.25,
                     "rules.directional_cap_short_R": 5.75,
-                    "rules.helix_nqdtc_cooldown_minutes": 30,
                     "rules.max_family_contracts_mnq_eq": 20,
                 },
             ),
@@ -607,8 +602,8 @@ def _reject_reason(metrics: dict[str, float]) -> str:
         return "max_drawdown_above_20pct"
     if metrics.get("profit_factor", 0.0) < 1.35:
         return "profit_factor_below_1_35"
-    if metrics.get("active_strategies", 0.0) < 5.0:
-        return "not_all_five_strategies_active"
+    if metrics.get("active_strategies", 0.0) < len(MOMENTUM_FAMILY_STRATEGY_IDS):
+        return "not_all_family_strategies_active"
     return ""
 
 
@@ -642,6 +637,18 @@ def _live_rule_health_component(metrics: dict[str, float]) -> float:
     block_score = max(0.0, 1.0 - block_rate / TARGETS["max_block_rate"])
     concurrency = min(metrics.get("max_concurrent", 0.0) / 4.0, 1.0)
     return 0.65 * block_score + 0.35 * concurrency
+
+
+def _portfolio_selection_key(evaluation: PortfolioEvaluation) -> tuple[float, float, float, float, float, float]:
+    metrics = evaluation.metrics
+    return (
+        evaluation.score,
+        float(metrics.get("net_profit", 0.0) or 0.0),
+        float(metrics.get("trades_per_month", 0.0) or 0.0),
+        -float(metrics.get("max_drawdown_pct", 1.0) or 1.0),
+        -float(metrics.get("block_rate", 1.0) or 1.0),
+        float(metrics.get("profit_factor", 0.0) or 0.0),
+    )
 
 
 def _drawdown_component(max_drawdown_pct: float) -> float:

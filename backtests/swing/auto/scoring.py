@@ -1,15 +1,18 @@
 """Composite scoring for automated swing backtesting.
 
 Weights:
-  - Net profit (35%): log(1+return)/log(4), equity curve total (includes overlay)
+  - Net profit (35%): log(1+return)/log(4), equity curve total by default
   - Profit factor (30%): (PF-1)/2, win quality
   - Calmar ratio (20%): calmar/10, risk-adjusted return
   - Inverse drawdown (15%): 1-DD/0.30, low DD as reward
 
-Net profit is derived from the equity curve (final - initial), not from
-trade records, so overlay PnL is properly credited.
+Net profit is derived from the equity curve (final - initial) by default,
+so overlay PnL is properly credited. Callers can provide an explicit
+net_profit_override when a different return basis is required. Callers can
+also tighten the drawdown score and add an explicit drawdown penalty for
+portfolio-level risk profiles.
 
-Hard rejects: <30 trades (20 for breakout), >35% max DD, PF < 0.8
+Hard rejects: <30 trades, >35% max DD, PF < 0.8
 """
 from __future__ import annotations
 
@@ -42,10 +45,7 @@ _W_PF = 0.30
 _W_INV_DD = 0.15
 _W_NET_PROFIT = 0.35
 
-# Trade-count thresholds by strategy
-_MEDIUM_TRADE_STRATEGIES = ("breakout",)
 _MIN_TRADES_DEFAULT = 30
-_MIN_TRADES_MEDIUM = 20
 
 
 def composite_score(
@@ -53,6 +53,12 @@ def composite_score(
     initial_equity: float = 100_000.0,
     strategy: str | None = None,
     equity_curve: np.ndarray | None = None,
+    net_profit_override: float | None = None,
+    max_drawdown_hard_pct: float = 0.35,
+    drawdown_score_scale_pct: float = 0.30,
+    drawdown_penalty_start_pct: float | None = None,
+    drawdown_penalty_full_pct: float | None = None,
+    drawdown_penalty_weight: float = 0.0,
 ) -> CompositeScore:
     """Compute the composite score.
 
@@ -63,25 +69,35 @@ def composite_score(
         equity_curve: If provided, net profit is derived from the equity curve
             (final - initial) so overlay PnL is included. Falls back to
             metrics.net_profit if not provided.
+        net_profit_override: Optional caller-supplied PnL for the net-profit
+            component, used when the optimizer should score a comparable
+            non-compounded return basis.
+        max_drawdown_hard_pct: Hard reject threshold for max drawdown.
+        drawdown_score_scale_pct: Drawdown where inverse-DD component reaches 0.
+        drawdown_penalty_start_pct: Optional drawdown where extra penalty starts.
+        drawdown_penalty_full_pct: Optional drawdown where extra penalty reaches full weight.
+        drawdown_penalty_weight: Amount subtracted from total score at full penalty.
     """
-    if strategy in _MEDIUM_TRADE_STRATEGIES:
-        min_trades = _MIN_TRADES_MEDIUM
-    else:
-        min_trades = _MIN_TRADES_DEFAULT
+    min_trades = _MIN_TRADES_DEFAULT
 
     # Hard rejects
     if metrics.total_trades < min_trades:
         return CompositeScore(0, 0, 0, 0, 0, rejected=True,
                               reject_reason=f"Too few trades: {metrics.total_trades} < {min_trades}")
-    if metrics.max_drawdown_pct > 0.35:
+    if metrics.max_drawdown_pct > max_drawdown_hard_pct:
         return CompositeScore(0, 0, 0, 0, 0, rejected=True,
-                              reject_reason=f"Max DD too high: {metrics.max_drawdown_pct:.1%} > 35%")
+                              reject_reason=(
+                                  f"Max DD too high: {metrics.max_drawdown_pct:.1%} "
+                                  f"> {max_drawdown_hard_pct:.1%}"
+                              ))
     if metrics.profit_factor < 0.8:
         return CompositeScore(0, 0, 0, 0, 0, rejected=True,
                               reject_reason=f"PF too low: {metrics.profit_factor:.2f} < 0.80")
 
-    # Net profit: prefer equity curve (captures overlay) over trade-only PnL
-    if equity_curve is not None and len(equity_curve) >= 2:
+    # Net profit: prefer explicit override, then equity curve, then trade-only PnL.
+    if net_profit_override is not None:
+        net_profit = float(net_profit_override)
+    elif equity_curve is not None and len(equity_curve) >= 2:
         net_profit = float(equity_curve[-1]) - initial_equity
     else:
         net_profit = metrics.net_profit
@@ -90,7 +106,8 @@ def composite_score(
     # Calmar: /10.0 so Calmar=10 → 1.0 (avoids saturation at Calmar ~5+)
     calmar_raw = min(max(metrics.calmar / 10.0, 0.0), 1.0)
     pf_raw = min(max((metrics.profit_factor - 1.0) / 2.0, 0.0), 1.0)
-    inv_dd_raw = min(max(1.0 - metrics.max_drawdown_pct / 0.30, 0.0), 1.0)
+    dd_scale = max(float(drawdown_score_scale_pct), 1e-9)
+    inv_dd_raw = min(max(1.0 - metrics.max_drawdown_pct / dd_scale, 0.0), 1.0)
     # Net profit: log scale so 300% (4× money) → 1.0, diminishing marginal value
     np_return = max(net_profit / initial_equity, 0.0)
     np_raw = min(math.log(1.0 + np_return) / math.log(4.0), 1.0)
@@ -101,6 +118,22 @@ def composite_score(
         + _W_INV_DD * inv_dd_raw
         + _W_NET_PROFIT * np_raw
     )
+    if (
+        drawdown_penalty_start_pct is not None
+        and drawdown_penalty_weight > 0.0
+        and metrics.max_drawdown_pct > drawdown_penalty_start_pct
+    ):
+        penalty_full = (
+            drawdown_penalty_full_pct
+            if drawdown_penalty_full_pct is not None
+            else max_drawdown_hard_pct
+        )
+        penalty_range = max(float(penalty_full) - float(drawdown_penalty_start_pct), 1e-9)
+        penalty_ratio = min(
+            max((metrics.max_drawdown_pct - float(drawdown_penalty_start_pct)) / penalty_range, 0.0),
+            1.0,
+        )
+        total = max(total - float(drawdown_penalty_weight) * penalty_ratio, 0.0)
 
     return CompositeScore(
         calmar_component=calmar_raw,

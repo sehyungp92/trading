@@ -20,11 +20,9 @@ from backtests.shared.auto.cache_keys import (
 from backtests.swing.config_unified import UnifiedBacktestConfig
 from backtests.swing.data.replay_cache import (
     load_atrss_replay_bundle,
-    load_brs_replay_bundle,
     load_unified_portfolio_replay_bundle,
 )
 from backtests.stock.data.replay_cache import load_research_replay_bundle
-from backtests.swing.config_brs import BRSConfig
 from backtests.stock.engine.research_replay import ResearchReplayEngine
 
 UTC = timezone.utc
@@ -211,44 +209,13 @@ def test_load_vdub_replay_bundle_does_not_alias_identical_roots(monkeypatch, tmp
     assert first.data["root"] != second.data["root"]
 
 
-def test_load_brs_replay_bundle_reuses_source_fingerprinted_cache(monkeypatch, tmp_path) -> None:
-    from backtests.swing.engine import brs_portfolio_engine as brs_mod
-
-    for symbol in ("QQQ", "GLD"):
-        (tmp_path / f"{symbol}_1h.parquet").write_text("hourly", encoding="utf-8")
-        (tmp_path / f"{symbol}_1d.parquet").write_text("daily", encoding="utf-8")
-
-    calls = {"load": 0}
-
-    def fake_load(_config: BRSConfig) -> dict[str, object]:
-        calls["load"] += 1
-        return {"QQQ": {"rows": 1}, "GLD": {"rows": 1}}
-
-    monkeypatch.setattr(brs_mod, "load_brs_data", fake_load)
-
-    config = BRSConfig(initial_equity=10_000.0, data_dir=tmp_path)
-    first = load_brs_replay_bundle(config)
-    second = load_brs_replay_bundle(config)
-
-    assert first is second
-    assert first.cache_source_fingerprint == fingerprint_paths(
-        [
-            tmp_path / "QQQ_1h.parquet",
-            tmp_path / "GLD_1h.parquet",
-            tmp_path / "QQQ_1d.parquet",
-            tmp_path / "GLD_1d.parquet",
-        ],
-        root=tmp_path,
-    )
-    assert calls["load"] == 1
-
-
 def test_load_unified_portfolio_replay_bundle_reuses_source_fingerprinted_cache(monkeypatch, tmp_path) -> None:
     from backtests.swing.engine import unified_portfolio_engine as unified_mod
 
     for symbol in ("QQQ", "GLD"):
         (tmp_path / f"{symbol}_1h.parquet").write_text("hourly", encoding="utf-8")
         (tmp_path / f"{symbol}_1d.parquet").write_text("daily", encoding="utf-8")
+        (tmp_path / f"{symbol}_15m.parquet").write_text("15m", encoding="utf-8")
 
     calls = {"load": 0}
 
@@ -263,12 +230,15 @@ def test_load_unified_portfolio_replay_bundle_reuses_source_fingerprinted_cache(
     second = load_unified_portfolio_replay_bundle(config)
 
     assert first is second
+    # source_paths includes 1h+1d for all symbols + 15m for TPC symbols
     assert first.cache_source_fingerprint == fingerprint_paths(
         [
-            tmp_path / "QQQ_1h.parquet",
-            tmp_path / "QQQ_1d.parquet",
-            tmp_path / "GLD_1h.parquet",
-            tmp_path / "GLD_1d.parquet",
+            tmp_path / f"{symbol}_{timeframe}.parquet"
+            for symbol in ("GLD", "QQQ")
+            for timeframe in ("1h", "1d")
+        ] + [
+            tmp_path / f"{symbol}_15m.parquet"
+            for symbol in ("GLD", "QQQ")
         ],
         root=tmp_path,
     )

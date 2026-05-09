@@ -139,9 +139,11 @@ def test_structural_expansion_candidate_reflects_ib_acceptance_breakout_edge() -
     assert candidate is not None
     assert candidate.module is ModuleId.STRUCTURAL_EXPANSION
     assert candidate.side is TradeSide.LONG
-    assert candidate.grade in {Grade.A, Grade.A_PLUS}
+    # Round 6 uses structure_shift entries, so the breakout edge can promote
+    # directly instead of being vetoed by the old retest-distance guard.
+    assert candidate.grade is Grade.A_PLUS
     assert candidate.valid
-    assert candidate.entry_price == pytest.approx(20000)
+    assert candidate.entry_price > state.ib_levels.high
     assert candidate.stop_price < candidate.entry_price
     assert candidate.target_room_r >= 1.5
 
@@ -277,7 +279,7 @@ def test_retest_models_submit_resting_entries(monkeypatch) -> None:
     entry = next(action for action in actions if isinstance(action, SubmitEntry))
     assert entry.order_type == "LIMIT"
     assert entry.limit_price == candidate.entry_price
-    assert entry.metadata["ttl_minutes"] == 30
+    assert entry.metadata["ttl_minutes"] == 120
 
 
 def test_final_stop_fill_cancels_remaining_targets(monkeypatch) -> None:

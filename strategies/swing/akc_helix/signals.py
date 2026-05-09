@@ -22,7 +22,18 @@ from .config import (
     CLASS_C_SIZE_COUNTER,
     CLASS_C_SIZE_TREND,
     CLASS_D_SIZE_TREND,
+    CLASS_D_FRESH_BREAK_ATR,
+    CLASS_D_HIST_SLOPE_LOOKBACK,
     CLASS_D_MOM_LOOKBACK,
+    CLASS_D_MAX_ARM_OVEREXT_ATR,
+    CLASS_D_MAX_DAILY_EXTENSION_ATR,
+    CLASS_D_MAX_ENTRY_STOP_ATR,
+    CLASS_D_MAX_PULLBACK_ATR,
+    CLASS_D_MAX_PIVOT2_AGE_BARS,
+    CLASS_D_MIN_HIST_DELTA_ATR,
+    CLASS_D_MIN_MACD_DELTA_ATR,
+    CLASS_D_MIN_PIVOT_SEP_BARS,
+    CLASS_D_MIN_PULLBACK_ATR,
     DIV_MAG_MIN_HISTORY,
     DIV_MAG_DEFAULT_THRESHOLD,
     DIV_MAG_FLOOR,
@@ -640,6 +651,93 @@ def _class_c_size_mult(direction: Direction, regime: Regime) -> float:
 # Class D: 1H No-Div Momentum Continuation (spec s10.5)
 # ---------------------------------------------------------------------------
 
+def _hours_between(start: Optional[datetime], end: Optional[datetime]) -> float:
+    if start is None or end is None:
+        return 0.0
+    try:
+        return abs((end - start).total_seconds()) / 3600.0
+    except TypeError:
+        start_naive = start.replace(tzinfo=None)
+        end_naive = end.replace(tzinfo=None)
+        return abs((end_naive - start_naive).total_seconds()) / 3600.0
+
+
+def _atr_norm(value: float, atr_value: float) -> float:
+    if atr_value <= 0:
+        return 0.0
+    return float(value) / float(atr_value)
+
+
+def _class_d_hist_slope_passes(direction: Direction, tf1h: TFState) -> bool:
+    lookback = int(CLASS_D_HIST_SLOPE_LOOKBACK or 0)
+    if lookback <= 0:
+        return True
+
+    hist = tf1h.macd_hist_history
+    if len(hist) < lookback + 1 or tf1h.atr <= 0:
+        return False
+
+    raw_delta = float(tf1h.macd_hist) - float(hist[-1 - lookback])
+    directional_delta = raw_delta if direction == Direction.LONG else -raw_delta
+    return _atr_norm(directional_delta, tf1h.atr) >= float(CLASS_D_MIN_HIST_DELTA_ATR or 0.0)
+
+
+def _class_d_quality_passes(
+    direction: Direction,
+    pivot_1: Pivot,
+    pivot_2: Pivot,
+    bos: Pivot,
+    bos_level: float,
+    entry_to_stop: float,
+    daily: DailyState,
+    tf1h: TFState,
+    now: Optional[datetime],
+) -> bool:
+    atr_ref = pivot_2.atr_tf if pivot_2.atr_tf > 0 else tf1h.atr
+    if atr_ref <= 0:
+        return False
+
+    min_sep = int(CLASS_D_MIN_PIVOT_SEP_BARS or 0)
+    if min_sep > 0 and _hours_between(pivot_1.ts, pivot_2.ts) < min_sep:
+        return False
+
+    max_age = int(CLASS_D_MAX_PIVOT2_AGE_BARS or 0)
+    if max_age > 0 and now is not None and _hours_between(pivot_2.ts, now) > max_age:
+        return False
+
+    pullback_atr = _atr_norm(abs(float(bos.price) - float(pivot_2.price)), atr_ref)
+    if CLASS_D_MIN_PULLBACK_ATR > 0 and pullback_atr < CLASS_D_MIN_PULLBACK_ATR:
+        return False
+    if CLASS_D_MAX_PULLBACK_ATR > 0 and pullback_atr > CLASS_D_MAX_PULLBACK_ATR:
+        return False
+
+    if CLASS_D_MAX_ENTRY_STOP_ATR > 0 and _atr_norm(entry_to_stop, atr_ref) > CLASS_D_MAX_ENTRY_STOP_ATR:
+        return False
+
+    if CLASS_D_MAX_ARM_OVEREXT_ATR < 999.0 and tf1h.atr > 0:
+        overext = (tf1h.close - bos_level) if direction == Direction.LONG else (bos_level - tf1h.close)
+        if _atr_norm(max(0.0, overext), tf1h.atr) > CLASS_D_MAX_ARM_OVEREXT_ATR:
+            return False
+
+    macd_delta = (
+        float(tf1h.macd_line) - float(pivot_2.macd_line)
+        if direction == Direction.LONG
+        else float(pivot_2.macd_line) - float(tf1h.macd_line)
+    )
+    if CLASS_D_MIN_MACD_DELTA_ATR > 0 and _atr_norm(macd_delta, atr_ref) < CLASS_D_MIN_MACD_DELTA_ATR:
+        return False
+
+    if not _class_d_hist_slope_passes(direction, tf1h):
+        return False
+
+    if CLASS_D_MAX_DAILY_EXTENSION_ATR > 0 and daily.atr_d > 0:
+        extension = abs(float(daily.close) - float(daily.ema_fast)) / float(daily.atr_d)
+        if extension > CLASS_D_MAX_DAILY_EXTENSION_ATR:
+            return False
+
+    return True
+
+
 def detect_class_d(
     symbol: str,
     pivots_1h: PivotStore,
@@ -716,12 +814,20 @@ def _try_class_d_long(
     mult = STOP_1H_HIGHVOL if vol_pct > HIGH_VOL_PCT else STOP_1H_STD
     buffer = calc_buffer(cfg.tick_size, L2.atr_tf, cfg.is_etf)
     stop0 = L2.price - mult * L2.atr_tf
+    bos_level = bos.price + buffer
+    if CLASS_D_FRESH_BREAK_ATR > 0 and tf1h.atr > 0:
+        bos_level = max(bos_level, tf1h.close + CLASS_D_FRESH_BREAK_ATR * tf1h.atr)
 
     # Corridor cap
-    entry_to_stop = bos.price + buffer - stop0
+    entry_to_stop = bos_level - stop0
     cap_mult = _corridor_cap_mult(daily, Direction.LONG)
     corridor_cap = cap_mult * daily.atr_d
     if corridor_cap > 0 and entry_to_stop > corridor_cap:
+        return None
+
+    if not _class_d_quality_passes(
+        Direction.LONG, L1, L2, bos, bos_level, entry_to_stop, daily, tf1h, now,
+    ):
         return None
 
     return SetupInstance(
@@ -734,7 +840,7 @@ def _try_class_d_long(
         pivot_1=L1,
         pivot_2=L2,
         bos_pivot=bos,
-        bos_level=bos.price + buffer,
+        bos_level=bos_level,
         stop0=stop0,
         buffer=buffer,
         adx_at_entry=daily.adx,
@@ -791,11 +897,19 @@ def _try_class_d_short(
     mult = STOP_1H_HIGHVOL if vol_pct > HIGH_VOL_PCT else STOP_1H_STD
     buffer = calc_buffer(cfg.tick_size, H2.atr_tf, cfg.is_etf)
     stop0 = H2.price + mult * H2.atr_tf
+    bos_level = bos.price - buffer
+    if CLASS_D_FRESH_BREAK_ATR > 0 and tf1h.atr > 0:
+        bos_level = min(bos_level, tf1h.close - CLASS_D_FRESH_BREAK_ATR * tf1h.atr)
 
-    entry_to_stop = stop0 - (bos.price - buffer)
+    entry_to_stop = stop0 - bos_level
     cap_mult = _corridor_cap_mult(daily, Direction.SHORT)
     corridor_cap = cap_mult * daily.atr_d
     if corridor_cap > 0 and entry_to_stop > corridor_cap:
+        return None
+
+    if not _class_d_quality_passes(
+        Direction.SHORT, H1, H2, bos, bos_level, entry_to_stop, daily, tf1h, now,
+    ):
         return None
 
     return SetupInstance(
@@ -808,7 +922,7 @@ def _try_class_d_short(
         pivot_1=H1,
         pivot_2=H2,
         bos_pivot=bos,
-        bos_level=bos.price - buffer,
+        bos_level=bos_level,
         stop0=stop0,
         buffer=buffer,
         adx_at_entry=daily.adx,

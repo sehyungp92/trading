@@ -40,12 +40,6 @@ def _default_symbols(strategy: str) -> list[str]:
             return list(SYMBOLS)
         except ImportError:
             return ["QQQ", "GLD"]
-    elif strategy == "breakout":
-        try:
-            from strategies.swing.breakout.config import SYMBOLS
-            return list(SYMBOLS)
-        except ImportError:
-            return ["QQQ", "GLD"]
     else:  # atrss and regime both use ATRSS symbols
         try:
             from strategies.swing.atrss.config import SYMBOLS
@@ -58,9 +52,6 @@ def _get_symbol_configs(strategy: str):
     """Get the SYMBOL_CONFIGS for the given strategy."""
     if strategy == "helix":
         from strategies.swing.akc_helix.config import SYMBOL_CONFIGS
-        return SYMBOL_CONFIGS
-    elif strategy == "breakout":
-        from strategies.swing.breakout.config import SYMBOL_CONFIGS
         return SYMBOL_CONFIGS
     else:
         from strategies.swing.atrss.config import SYMBOL_CONFIGS
@@ -108,12 +99,6 @@ def _load_helix_data(symbols: list[str], data_dir: Path):
     """Load cached parquet data into HelixPortfolioData (includes 4H)."""
     from backtests.swing.engine.helix_portfolio_engine import load_helix_data
     return load_helix_data(symbols, data_dir)
-
-
-def _load_breakout_data(symbols: list[str], data_dir: Path):
-    """Load cached parquet data into BreakoutPortfolioData (includes 4H)."""
-    from backtests.swing.engine.breakout_portfolio_engine import load_breakout_data
-    return load_breakout_data(symbols, data_dir)
 
 
 def cmd_download(args):
@@ -684,277 +669,6 @@ def _cmd_walk_forward_helix(args):
 
 
 # ---------------------------------------------------------------------------
-# Breakout commands
-# ---------------------------------------------------------------------------
-
-def _cmd_run_breakout(args):
-    """Run a single Breakout v3.3-ETF backtest."""
-    from backtests.swing.analysis.metrics import compute_buy_and_hold, compute_metrics
-    from backtests.swing.analysis.reports import (
-        breakout_behavior_report,
-        breakout_diagnostic_report,
-        breakout_performance_report,
-        buy_and_hold_report,
-        format_summary,
-    )
-    from backtests.swing.config import SlippageConfig
-    from backtests.swing.config_breakout import BreakoutBacktestConfig
-    from backtests.swing.engine.breakout_portfolio_engine import run_breakout_synchronized
-    from strategies.swing.breakout.config import SYMBOL_CONFIGS
-
-    symbols = args.symbols.split(",")
-    data_dir = Path(args.data_dir)
-    data = _load_breakout_data(symbols, data_dir)
-
-    all_stk = all(
-        SYMBOL_CONFIGS.get(s, None) is not None and SYMBOL_CONFIGS[s].is_etf
-        for s in symbols
-    )
-
-    fixed_qty = args.fixed_qty
-    slippage = SlippageConfig()
-    if all_stk:
-        slippage = SlippageConfig(commission_per_contract=1.00)
-        if fixed_qty is None:
-            fixed_qty = 10
-            logger.info("ETF mode detected: defaulting to fixed_qty=10, commission=$1.00")
-
-    config = BreakoutBacktestConfig(
-        symbols=symbols,
-        start_date=datetime.fromisoformat(args.start) if args.start else None,
-        end_date=datetime.fromisoformat(args.end) if args.end else None,
-        initial_equity=args.equity,
-        data_dir=data_dir,
-        slippage=slippage,
-        fixed_qty=fixed_qty,
-        breakout_day_entry=getattr(args, 'breakout_day_entry', False),
-    )
-
-    result = run_breakout_synchronized(data, config)
-    report_sections: list[str] = []
-
-    for sym, sr in result.symbol_results.items():
-        if not sr.trades:
-            logger.info("%s: No trades", sym)
-            continue
-
-        pnls = np.array([t.pnl_dollars for t in sr.trades])
-        cfg = SYMBOL_CONFIGS[sym]
-        risks = np.array([abs(t.entry_price - t.stop_price) * t.qty for t in sr.trades])
-        holds = np.array([t.bars_held for t in sr.trades])
-        comms = np.array([t.commission for t in sr.trades])
-
-        metrics = compute_metrics(
-            pnls, risks, holds, comms,
-            sr.equity_curve, sr.timestamps, config.initial_equity,
-        )
-
-        report_sections.append(breakout_performance_report(sym, metrics))
-        report_sections.append(breakout_behavior_report(sr.trades))
-        report_sections.append(breakout_diagnostic_report(sr))
-        report_sections.append(format_summary(metrics))
-
-        if sym in data.daily:
-            daily_closes = data.daily[sym].closes
-            if len(sr.timestamps) >= 2:
-                delta = sr.timestamps[-1] - sr.timestamps[0]
-                if hasattr(delta, 'astype'):
-                    span_s = float(delta / np.timedelta64(1, 's'))
-                else:
-                    span_s = delta.total_seconds()
-                years = span_s / (365.25 * 24 * 3600)
-            else:
-                years = 1.0
-            bh = compute_buy_and_hold(
-                sym, daily_closes, years,
-                qty=fixed_qty or 10,
-                multiplier=cfg.multiplier,
-                initial_equity=config.initial_equity,
-            )
-            report_sections.append(buy_and_hold_report(bh, metrics))
-
-        # Extended Breakout diagnostics
-        if getattr(args, 'diagnostics', False):
-            from backtests.swing.analysis.breakout_diagnostics import breakout_full_diagnostic
-            report_sections.append(breakout_full_diagnostic(sr.trades))
-
-            if sr.signal_events:
-                from backtests.swing.analysis.breakout_filter_attribution import (
-                    breakout_filter_attribution_report,
-                )
-                report_sections.append(
-                    breakout_filter_attribution_report(sr.signal_events, sr.trades)
-                )
-
-        # Candlestick charts
-        if getattr(args, 'charts', False):
-            from backtests.swing.analysis.charts import generate_backtest_charts
-            chart_dir = Path(getattr(args, 'chart_dir', 'backtest/output/charts'))
-            daily_bars = data.daily.get(sym)
-            hourly_bars = data.hourly.get(sym)
-            paths = generate_backtest_charts(
-                sym, daily_bars, hourly_bars, sr.trades,
-                chart_dir, strategy_label="breakout",
-            )
-            for p in paths:
-                logger.info("Chart saved: %s", p)
-
-    # Print all sections to stdout
-    for section in report_sections:
-        print(f"\n{section}")
-
-    # Write to file if requested
-    report_file = getattr(args, 'report_file', None)
-    if report_file and report_sections:
-        report_path = Path(report_file)
-        report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text("\n\n".join(report_sections) + "\n", encoding="utf-8")
-        logger.info("Report saved: %s", report_path)
-
-
-def _cmd_ablation_breakout(args):
-    """Run Breakout ablation test."""
-    from backtests.swing.analysis.metrics import compute_metrics
-    from backtests.swing.analysis.reports import print_summary
-    from backtests.swing.config_breakout import BreakoutAblationFlags, BreakoutBacktestConfig
-    from backtests.swing.engine.breakout_portfolio_engine import run_breakout_synchronized
-    from strategies.swing.breakout.config import SYMBOL_CONFIGS
-
-    symbols = args.symbols.split(",")
-    data_dir = Path(args.data_dir)
-    data = _load_breakout_data(symbols, data_dir)
-
-    filter_names: list[str] = []
-    if args.filters:
-        filter_names = [f.strip() for f in args.filters.split(",") if f.strip()]
-    elif args.filter:
-        filter_names = [args.filter]
-    else:
-        logger.error("Must specify --filter or --filters")
-        return
-
-    flags_template = BreakoutAblationFlags()
-    valid_flags = [f for f in vars(flags_template) if not f.startswith("_")]
-    for fn in filter_names:
-        if fn not in valid_flags:
-            logger.error("Unknown Breakout filter: %s", fn)
-            logger.info("Valid filters: %s", valid_flags)
-            return
-
-    baseline_config = BreakoutBacktestConfig(
-        symbols=symbols,
-        initial_equity=args.equity,
-        data_dir=data_dir,
-        track_signals=False,
-    )
-    baseline = run_breakout_synchronized(data, baseline_config)
-
-    flags = BreakoutAblationFlags()
-    for fn in filter_names:
-        if hasattr(flags, fn):
-            setattr(flags, fn, True)  # True = disabled
-
-    ablation_config = BreakoutBacktestConfig(
-        symbols=symbols,
-        initial_equity=args.equity,
-        flags=flags,
-        data_dir=data_dir,
-        track_signals=False,
-    )
-    ablation = run_breakout_synchronized(data, ablation_config)
-
-    ablation_label = ",".join(filter_names)
-    print(f"\n=== Breakout Ablation: {ablation_label} = ON (disabled) ===\n")
-
-    for sym in symbols:
-        print(f"--- {sym} ---")
-        for label, res in [("Baseline", baseline), ("Ablated", ablation)]:
-            sr = res.symbol_results.get(sym)
-            if not sr or not sr.trades:
-                print(f"  {label}: No trades")
-                continue
-            pnls = np.array([t.pnl_dollars for t in sr.trades])
-            risks = np.array([abs(t.entry_price - t.stop_price) * t.qty for t in sr.trades])
-            holds = np.array([t.bars_held for t in sr.trades])
-            comms = np.array([t.commission for t in sr.trades])
-            metrics = compute_metrics(
-                pnls, risks, holds, comms,
-                sr.equity_curve, sr.timestamps, args.equity,
-            )
-            print(f"  {label}: ", end="")
-            print_summary(metrics)
-        print()
-
-
-def _cmd_optimize_breakout(args):
-    """Run Breakout parameter optimization."""
-    from backtests.swing.config_breakout import BreakoutBacktestConfig
-    from backtests.swing.optimization.breakout_runner import (
-        BreakoutOptimizationRunner,
-        permutation_importance,
-        save_trials_csv,
-    )
-
-    symbols = args.symbols.split(",")
-    data_dir = Path(args.data_dir)
-    data = _load_breakout_data(symbols, data_dir)
-
-    config = BreakoutBacktestConfig(
-        symbols=symbols,
-        initial_equity=args.equity,
-        data_dir=data_dir,
-        track_shadows=False,
-        track_signals=False,
-    )
-
-    runner = BreakoutOptimizationRunner(
-        base_config=config,
-        data=data,
-        n_coarse=args.n_coarse,
-        n_refine=args.n_refine,
-    )
-    result = runner.run()
-    _print_optimization_results(result)
-
-    # Persist trials to CSV
-    csv_path = save_trials_csv(result, "backtest/output/breakout_trials.csv")
-    print(f"\nTrials saved to {csv_path}")
-
-    # Permutation importance for best params
-    if result.best_params and result.best_score > 0:
-        print("\n=== Permutation Importance ===")
-        imp = permutation_importance(result.best_params, data, config)
-        for name, delta in imp[:15]:
-            print(f"  {name:30s} {delta:+.4f}")
-        if len(imp) > 15:
-            print(f"  ... ({len(imp) - 15} more parameters)")
-
-
-def _cmd_walk_forward_breakout(args):
-    """Run Breakout walk-forward validation."""
-    from backtests.swing.config_breakout import BreakoutBacktestConfig
-    from backtests.swing.optimization.breakout_walk_forward import BreakoutWalkForwardValidator
-
-    symbols = args.symbols.split(",")
-    data_dir = Path(args.data_dir)
-    data = _load_breakout_data(symbols, data_dir)
-
-    config = BreakoutBacktestConfig(
-        symbols=symbols,
-        initial_equity=args.equity,
-        data_dir=data_dir,
-    )
-
-    validator = BreakoutWalkForwardValidator(
-        data=data,
-        base_config=config,
-        test_window_months=args.test_months,
-    )
-    result = validator.run()
-    _print_walk_forward_results(result)
-
-
-# ---------------------------------------------------------------------------
 # Regime commands
 # ---------------------------------------------------------------------------
 
@@ -1305,7 +1019,6 @@ def _cmd_weakness_report(args):
     all_trades = {
         "ATRSS": result.atrss_trades,
         "Helix": result.helix_trades,
-        "Breakout": result.breakout_trades,
     }
 
     report_sections = []
@@ -1314,7 +1027,6 @@ def _cmd_weakness_report(args):
     report_sections.append(swing_weakness_report(
         atrss_result=type('R', (), {'trades': result.atrss_trades})(),
         helix_result=type('R', (), {'trades': result.helix_trades})(),
-        breakout_result=type('R', (), {'trades': result.breakout_trades})(),
         portfolio_result=result,
     ))
 
@@ -1359,101 +1071,36 @@ def cmd_auto(args):
     )
 
 
-def _cmd_run_brs(args):
-    """Run a BRS (Bear Regime Swing) backtest."""
-    from backtests.swing.analysis.brs_diagnostics import compute_brs_diagnostics
-    from backtests.swing.analysis.metrics import compute_metrics
-    from backtests.swing.config_brs import BRSConfig
-    from backtests.swing.engine.brs_portfolio_engine import load_brs_data, run_brs_synchronized
-
-    symbols = args.symbols.split(",")
-    data_dir = Path(args.data_dir)
-
-    config = BRSConfig(
-        symbols=symbols,
-        start_date=datetime.fromisoformat(args.start) if args.start else None,
-        end_date=datetime.fromisoformat(args.end) if args.end else None,
-        initial_equity=args.equity,
-        data_dir=data_dir,
-    )
-
-    data = load_brs_data(config)
-    if not data:
-        logger.error("No data loaded for BRS. Check data_dir and symbols.")
-        return
-
-    result = run_brs_synchronized(data, config)
-
-    # Print per-symbol results
-    for sym, sr in result.symbol_results.items():
-        trades = sr.trades
-        if not trades:
-            print(f"\n{sym}: No trades")
-            continue
-
-        pnls = np.array([t.pnl_dollars for t in trades])
-        risks = np.array([abs(t.entry_price - t.initial_stop) * t.qty for t in trades])
-        holds = np.array([t.bars_held for t in trades])
-        comms = np.array([t.commission for t in trades])
-
-        metrics = compute_metrics(pnls, risks, holds, comms,
-                                  sr.equity_curve, sr.timestamps, config.initial_equity)
-
-        print(f"\n{'='*60}")
-        print(f"BRS {sym}: {len(trades)} trades")
-        print(f"  Net P&L:  ${metrics.net_profit:,.0f}")
-        print(f"  Win rate: {metrics.win_rate:.1f}%")
-        print(f"  PF:       {metrics.profit_factor:.2f}")
-        print(f"  Avg R:    {np.mean([t.r_multiple for t in trades]):.2f}")
-
-    # Portfolio diagnostics
-    diag = compute_brs_diagnostics(
-        result.symbol_results, config.initial_equity,
-        result.combined_equity, result.combined_timestamps,
-    )
-    print(f"\n{diag.report}")
-
-
 def cmd_run(args):
-    """Route to ATRSS, Helix, Breakout, Regime, or BRS run."""
+    """Route to ATRSS, Helix, or Regime run."""
     if args.strategy == "helix":
         _cmd_run_helix(args)
-    elif args.strategy == "breakout":
-        _cmd_run_breakout(args)
     elif args.strategy == "regime":
         _cmd_run_regime(args)
-    elif args.strategy == "brs":
-        _cmd_run_brs(args)
     else:
         _cmd_run_atrss(args)
 
 
 def cmd_ablation(args):
-    """Route to ATRSS, Helix, or Breakout ablation."""
+    """Route to ATRSS or Helix ablation."""
     if args.strategy == "helix":
         _cmd_ablation_helix(args)
-    elif args.strategy == "breakout":
-        _cmd_ablation_breakout(args)
     else:
         _cmd_ablation_atrss(args)
 
 
 def cmd_optimize(args):
-    """Route to ATRSS, Helix, or Breakout optimization."""
+    """Route to ATRSS or Helix optimization."""
     if args.strategy == "helix":
         _cmd_optimize_helix(args)
-    elif args.strategy == "breakout":
-        _cmd_optimize_breakout(args)
     else:
         _cmd_optimize_atrss(args)
 
 
 def cmd_walk_forward(args):
-    """Route to ATRSS, Helix, or Breakout walk-forward."""
+    """Route to ATRSS or Helix walk-forward."""
     if args.strategy == "helix":
         _cmd_walk_forward_helix(args)
-    elif args.strategy == "breakout":
-        _cmd_walk_forward_breakout(args)
     else:
         _cmd_walk_forward_atrss(args)
 
@@ -1513,11 +1160,11 @@ def _print_walk_forward_results(result):
 def main():
     parser = argparse.ArgumentParser(
         prog="backtest",
-        description="Multi-Strategy Backtesting Framework (ATRSS v4.5 / AKC-Helix v1.4 / Breakout v3.3-ETF)",
+        description="Swing Backtesting Framework (ATRSS v4.5 / AKC-Helix v1.4)",
     )
     parser.add_argument(
         "--strategy", "-s",
-        choices=["atrss", "helix", "breakout", "regime", "brs"],
+        choices=["atrss", "helix", "regime"],
         default="atrss",
         help="Strategy to backtest (default: atrss)",
     )
@@ -1557,8 +1204,6 @@ def main():
                      help="Forced exit if below min R after N hours (regime strategy, default: 100)")
     run.add_argument("--shorts", action="store_true", default=False,
                      help="Enable short trades (regime strategy, default: disabled)")
-    run.add_argument("--breakout-day-entry", action="store_true", default=False,
-                     help="Breakout strategy: enter at box boundary on breakout day instead of hourly AVWAP")
     run.add_argument("--weakness-report", action="store_true", default=False,
                      help="Generate unified weakness report across all strategies")
 
@@ -1614,7 +1259,7 @@ def main():
     # auto (automated experiment harness)
     auto = sub.add_parser("auto", help="Run automated experiment harness")
     auto.add_argument("--strategy", default="all",
-                      choices=["all", "atrss", "helix", "breakout", "portfolio"],
+                      choices=["all", "atrss", "helix", "portfolio"],
                       help="Strategy filter (default: all)")
     auto.add_argument("--experiments", nargs="*", default=None,
                       help="Specific experiment IDs to run")

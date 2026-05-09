@@ -8,7 +8,7 @@ Usage:
 
 Five phases (hierarchical — strategies first, then portfolio):
   Phase 1: Run all ~420 experiments (strategy-level + portfolio-level)
-  Phase 2: Per-strategy greedy (optimize Helix/NQDTC/Vdubus independently, 1 engine each)
+  Phase 2: Per-strategy greedy (optimize NQDTC/Vdubus independently, 1 engine each)
   Phase 3: Portfolio greedy (optimize portfolio rules on top of optimized strategies)
   Phase 4: Diagnostics + comparison vs v6 baseline
 """
@@ -72,7 +72,7 @@ def main(
     Args:
         phase: One of: experiments, strategy-greedy, portfolio-greedy,
                greedy (both), diagnostics, full (all)
-        strategy_filter: "helix", "nqdtc", "vdubus", "portfolio", or "all"
+        strategy_filter: "nqdtc", "vdubus", "portfolio", or "all"
         resume: Skip completed experiments on restart
         max_workers: Parallel worker count
         equity: Initial equity (default: 10_000)
@@ -160,7 +160,7 @@ def _phase_2_strategy_greedy(max_workers: int | None) -> None:
 
     # Group positive experiments by strategy (exclude portfolio)
     strategy_candidates: dict[str, list[tuple[str, dict]]] = {
-        "helix": [], "nqdtc": [], "vdubus": [],
+        "nqdtc": [], "vdubus": [],
     }
     seen: dict[str, set] = {s: set() for s in strategy_candidates}
 
@@ -186,7 +186,7 @@ def _phase_2_strategy_greedy(max_workers: int | None) -> None:
     strategy_optimal: dict[str, dict] = {}
     n_workers_val = max_workers or 3
 
-    for strategy in ("helix", "nqdtc", "vdubus"):
+    for strategy in ("nqdtc", "vdubus"):
         cands = strategy_candidates[strategy]
         if not cands:
             print(f"\n  [{strategy.upper()}] No positive candidates, skipping")
@@ -333,27 +333,22 @@ def _run_optimal_diagnostics(mutations: dict) -> None:
     """Run the optimal portfolio config and generate full diagnostics."""
     from backtests.momentum.auto.config_mutator import (
         extract_passthrough_mutations,
-        mutate_helix_config,
         mutate_nqdtc_config,
         mutate_portfolio_config,
         mutate_vdubus_config,
     )
     from backtests.momentum.cli import (
-        _load_helix_data,
         _load_nqdtc_data,
         _load_vdubus_data,
     )
-    from backtests.momentum.config_helix import Helix4BacktestConfig
     from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
     from backtests.momentum.config_portfolio import PortfolioBacktestConfig
     from backtests.momentum.config_vdubus import VdubusBacktestConfig
-    from backtests.momentum.engine.helix_engine import Helix4Engine
     from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
     from backtests.momentum.engine.portfolio_engine import PortfolioBacktester
     from backtests.momentum.engine.vdubus_engine import VdubusEngine
 
     print("  Loading data for diagnostics...")
-    helix_data = _load_helix_data("NQ", DATA_DIR)
     nqdtc_data = _load_nqdtc_data("NQ", DATA_DIR)
     vdubus_data = _load_vdubus_data("NQ", DATA_DIR)
 
@@ -361,21 +356,10 @@ def _run_optimal_diagnostics(mutations: dict) -> None:
     portfolio_cfg = PortfolioBacktestConfig()
     portfolio_cfg = mutate_portfolio_config(portfolio_cfg, mutations)
 
-    helix_muts = extract_passthrough_mutations(mutations, "helix")
     nqdtc_muts = extract_passthrough_mutations(mutations, "nqdtc")
     vdubus_muts = extract_passthrough_mutations(mutations, "vdubus")
 
     # Run engines
-    helix_cfg = Helix4BacktestConfig(initial_equity=EQUITY, fixed_qty=10)
-    if helix_muts:
-        helix_cfg = mutate_helix_config(helix_cfg, helix_muts)
-    engine = Helix4Engine(symbol="NQ", bt_config=helix_cfg)
-    helix_result = engine.run(
-        helix_data["minute_bars"], helix_data["hourly"], helix_data["four_hour"],
-        helix_data["daily"], helix_data["hourly_idx_map"],
-        helix_data["four_hour_idx_map"], helix_data["daily_idx_map"],
-    )
-
     nqdtc_cfg = NQDTCBacktestConfig(symbols=["MNQ"], initial_equity=EQUITY, fixed_qty=10)
     if nqdtc_muts:
         nqdtc_cfg = mutate_nqdtc_config(nqdtc_cfg, nqdtc_muts)
@@ -405,7 +389,7 @@ def _run_optimal_diagnostics(mutations: dict) -> None:
 
     # Portfolio simulation
     backtester = PortfolioBacktester(portfolio_cfg)
-    result = backtester.run(helix_result.trades, nqdtc_result.trades, vdubus_result.trades)
+    result = backtester.run(nqdtc_trades=nqdtc_result.trades, vdubus_trades=vdubus_result.trades)
 
     # Compute metrics
     eq = result.equity_curve
@@ -429,7 +413,6 @@ def _run_optimal_diagnostics(mutations: dict) -> None:
         f"Trades/month:      {metrics.trades_per_month:.1f}",
         "",
         f"Per-strategy breakdown:",
-        f"  Helix:  {len(helix_result.trades)} trades",
         f"  NQDTC:  {len(nqdtc_result.trades)} trades",
         f"  Vdubus: {len(vdubus_result.trades)} trades",
         f"  Portfolio (after rules): {len(result.trades)} trades",

@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -24,15 +25,29 @@ _ETF_SYMBOLS = ["SPY", "EFA", "TLT", "GLD", "IBIT", "BIL", "DBC"]
 
 _MARKET_FRED_COLS = ["VIX", "SPREAD", "SLOPE_10Y2Y", "REAL_RATE_10Y"]
 _MACRO_GROWTH_SERIES = "ICSA"
+_RETURN_AS_OF_COLS = ["SPY", "EFA", "TLT", "GLD", "IBIT"]
+_REQUIRED_MARKET_COLS = ["VIX", "SPREAD", "SLOPE_10Y2Y"]
+_REQUIRED_MACRO_COLS = ["GROWTH", "INFLATION"]
+_MIN_HMM_LIVE_OBS = 252
+_MAX_RETURN_DATA_LAG_DAYS = 10
 
 
 class LiveDataProvider:
     """Assembles macro_df, market_df, strat_ret_df from IBKR + FRED + cached parquets."""
 
-    def __init__(self, ib_session: Any, data_dir: Path) -> None:
+    def __init__(
+        self,
+        ib_session: Any,
+        data_dir: Path,
+        *,
+        now_provider: Callable[[], datetime] | None = None,
+    ) -> None:
         self._session = ib_session
         self._data_dir = data_dir
+        self._now_provider = now_provider
         self._contracts: dict[str, Any] = {}
+        self.last_data_as_of = ""
+        self.last_data_status = ""
 
     async def qualify_contracts(self) -> None:
         """Qualify ETF contracts once at startup."""
@@ -53,6 +68,7 @@ class LiveDataProvider:
         """Load cached parquets, overlay fresh IBKR + FRED data, return 3 DataFrames."""
         # 1. Load cached baseline
         macro_df, market_df, strat_ret_df = self._load_cached()
+        status_parts: list[str] = ["cache=loaded"]
 
         # 2. Fetch IBKR daily bars and overlay
         ibkr_prices = await self._fetch_ibkr_bars()
@@ -60,6 +76,9 @@ class LiveDataProvider:
             strat_ret_df, market_df = self._overlay_ibkr(
                 ibkr_prices, strat_ret_df, market_df,
             )
+            status_parts.append("ibkr=fresh_completed")
+        else:
+            status_parts.append("ibkr=cached")
 
         # 3. Fetch FRED macro data and overlay
         loop = asyncio.get_running_loop()
@@ -70,14 +89,30 @@ class LiveDataProvider:
                 macro_df, market_df = self._overlay_fred(
                     fred_df, icsa_raw, macro_df, market_df,
                 )
+                status_parts.append("fred=fresh")
+            else:
+                status_parts.append("fred=cached")
         except Exception:
             logger.warning("Regime: FRED fetch failed, using cached macro data", exc_info=True)
+            status_parts.append("fred=cached")
 
-        # 4. Align all three DataFrames to union of dates (IBKR/FRED extend beyond cache)
+        latest_return_date = _latest_common_return_as_of(strat_ret_df)
+        if latest_return_date is None:
+            raise RuntimeError(
+                "Regime live data has no common completed return date for "
+                f"{','.join(_RETURN_AS_OF_COLS)}"
+            )
+
+        # 4. Align to the latest completed common ETF return date. FRED often
+        # updates on a date where IBKR daily bars are not yet available; do not
+        # publish a weekly HMM signal on synthetic zero ETF returns.
         all_dates = macro_df.index.union(market_df.index).union(strat_ret_df.index)
+        all_dates = all_dates[all_dates <= latest_return_date]
         macro_df = macro_df.reindex(all_dates).ffill()
         market_df = market_df.reindex(all_dates).ffill()
-        strat_ret_df = strat_ret_df.reindex(all_dates).fillna(0.0)
+        strat_ret_df = strat_ret_df.reindex(all_dates)
+        if "CASH" in strat_ret_df.columns:
+            strat_ret_df["CASH"] = strat_ret_df["CASH"].fillna(0.0)
 
         # Drop leading rows where macro features are NaN
         first_valid = macro_df.dropna(how="any").index.min()
@@ -85,6 +120,30 @@ class LiveDataProvider:
             macro_df = macro_df.loc[first_valid:]
             market_df = market_df.loc[first_valid:]
             strat_ret_df = strat_ret_df.loc[first_valid:]
+
+        lag_days = max(0, (self._now().date() - latest_return_date.date()).days)
+        self.last_data_as_of = latest_return_date.date().isoformat()
+        if lag_days > 0:
+            status_parts.append(f"return_lag_days={lag_days}")
+        backlog_status, backlog_ok = _hmm_backlog_status(
+            macro_df,
+            market_df,
+            strat_ret_df,
+            latest_return_date,
+        )
+        status_parts.append(backlog_status)
+        self.last_data_status = ";".join(status_parts)
+        if not backlog_ok:
+            raise RuntimeError(
+                "Regime live backlog is insufficient after cache + IBKR/FRED backfill: "
+                f"data_as_of={self.last_data_as_of}, status={self.last_data_status}"
+            )
+        if lag_days > _MAX_RETURN_DATA_LAG_DAYS:
+            raise RuntimeError(
+                "Regime completed return data is stale: "
+                f"data_as_of={self.last_data_as_of}, lag_days={lag_days}, "
+                f"status={self.last_data_status}"
+            )
 
         # 5. Save updated parquets back to data_dir
         try:
@@ -132,11 +191,7 @@ class LiveDataProvider:
         all_prices: dict[str, pd.Series] = {}
         for sym, contract in self._contracts.items():
             try:
-                bars = await self._session.ib.reqHistoricalDataAsync(
-                    contract, endDateTime="", durationStr="1 Y",
-                    barSizeSetting="1 day", whatToShow="TRADES",
-                    useRTH=True, formatDate=1,
-                )
+                bars = await self._request_daily_bars(contract)
                 if bars:
                     dates = pd.to_datetime([b.date for b in bars])
                     closes = pd.Series([b.close for b in bars], index=dates, name=sym, dtype=float)
@@ -166,20 +221,13 @@ class LiveDataProvider:
         """Overlay IBKR-derived returns onto cached DataFrames."""
         ibkr_log_ret = np.log(ibkr_prices / ibkr_prices.shift(1))
 
-        # Overlay strat_ret_df columns
         col_map = {"SPY": "SPY", "EFA": "EFA", "TLT": "TLT", "GLD": "GLD", "IBIT": "IBIT", "BIL": "CASH"}
+        fresh_returns = pd.DataFrame(index=ibkr_log_ret.index)
         for ibkr_col, ret_col in col_map.items():
             if ibkr_col in ibkr_log_ret.columns and ret_col in strat_ret_df.columns:
-                fresh = ibkr_log_ret[ibkr_col].dropna()
-                overlap = fresh.index.intersection(strat_ret_df.index)
-                if len(overlap) > 0:
-                    strat_ret_df.loc[overlap, ret_col] = fresh.loc[overlap]
-                # Extend with new dates beyond cached range
-                new_dates = fresh.index.difference(strat_ret_df.index)
-                if len(new_dates) > 0:
-                    extension = pd.DataFrame(0.0, index=new_dates, columns=strat_ret_df.columns)
-                    extension[ret_col] = fresh.loc[new_dates]
-                    strat_ret_df = pd.concat([strat_ret_df, extension]).sort_index()
+                fresh_returns[ret_col] = ibkr_log_ret[ibkr_col]
+        if not fresh_returns.empty:
+            strat_ret_df = _overlay_frame(strat_ret_df, fresh_returns)
 
         # Overlay DBC log returns into market_df (overlay + extend)
         if "DBC" in ibkr_log_ret.columns and "DBC" in market_df.columns:
@@ -199,6 +247,42 @@ class LiveDataProvider:
             strat_ret_df.index.max().strftime("%Y-%m-%d") if len(strat_ret_df) else "N/A",
         )
         return strat_ret_df, market_df
+
+    async def _request_daily_bars(self, contract: Any) -> Any:
+        """Request only completed daily bars, using the runtime session wrapper when available."""
+        if hasattr(self._session, "req_historical_data"):
+            return await self._session.req_historical_data(
+                contract,
+                endDateTime="",
+                durationStr="1 Y",
+                barSizeSetting="1 day",
+                whatToShow="TRADES",
+                useRTH=True,
+                formatDate=1,
+                request_kind="recurring",
+                completed_only=True,
+                as_of=self._now(),
+            )
+
+        bars = await self._session.ib.reqHistoricalDataAsync(
+            contract,
+            endDateTime="",
+            durationStr="1 Y",
+            barSizeSetting="1 day",
+            whatToShow="TRADES",
+            useRTH=True,
+            formatDate=1,
+        )
+        filter_completed = getattr(self._session, "filter_completed_historical_bars", None)
+        if bars and callable(filter_completed):
+            bars = filter_completed(
+                bars,
+                bar_size_setting="1 day",
+                useRTH=True,
+                endDateTime="",
+                as_of=self._now(),
+            )
+        return bars
 
     def _fetch_fred(self) -> tuple[pd.DataFrame, pd.Series] | None:
         """Fetch recent FRED data (blocking -- run in executor)."""
@@ -289,3 +373,58 @@ class LiveDataProvider:
 
         logger.info("Regime: FRED overlay applied")
         return macro_df, market_df
+
+    def _now(self) -> datetime:
+        now = self._now_provider() if self._now_provider is not None else datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            return now.replace(tzinfo=timezone.utc)
+        return now
+
+
+def _latest_common_return_as_of(strat_ret_df: pd.DataFrame) -> pd.Timestamp | None:
+    if strat_ret_df.empty:
+        return None
+    missing = [col for col in _RETURN_AS_OF_COLS if col not in strat_ret_df.columns]
+    if missing:
+        logger.warning("Regime: return data missing required columns for as-of date: %s", missing)
+        return None
+    valid = strat_ret_df[_RETURN_AS_OF_COLS].dropna(how="any")
+    if valid.empty:
+        return None
+    return pd.Timestamp(valid.index.max())
+
+
+def _overlay_frame(base_df: pd.DataFrame, fresh_df: pd.DataFrame) -> pd.DataFrame:
+    out = base_df.reindex(base_df.index.union(fresh_df.index)).sort_index()
+    for col in fresh_df.columns:
+        if col not in out.columns:
+            out[col] = float("nan")
+        fresh = fresh_df[col].dropna()
+        if not fresh.empty:
+            out.loc[fresh.index, col] = fresh
+    return out.sort_index()
+
+
+def _hmm_backlog_status(
+    macro_df: pd.DataFrame,
+    market_df: pd.DataFrame,
+    strat_ret_df: pd.DataFrame,
+    latest_return_date: pd.Timestamp,
+) -> tuple[str, bool]:
+    problems: list[str] = []
+    for name, df, cols in (
+        ("macro", macro_df, _REQUIRED_MACRO_COLS),
+        ("market", market_df, _REQUIRED_MARKET_COLS),
+        ("returns", strat_ret_df, _RETURN_AS_OF_COLS),
+    ):
+        missing = [col for col in cols if col not in df.columns]
+        if missing:
+            problems.append(f"{name}_missing={','.join(missing)}")
+            continue
+        obs = len(df.loc[:latest_return_date, cols].dropna(how="any"))
+        if obs < _MIN_HMM_LIVE_OBS:
+            problems.append(f"{name}_obs={obs}/{_MIN_HMM_LIVE_OBS}")
+
+    if problems:
+        return "backlog=insufficient:" + ",".join(problems), False
+    return "backlog=ok", True

@@ -233,8 +233,6 @@ class NQDTCEngine:
         # Telemetry log (fix #16)
         self._telemetry_log: list[dict] = []
 
-        # Helix veto state (Phase 3.4)
-        self._helix_signals: list[tuple[datetime, Direction]] = []
 
         # Signal evolution ring buffer (M2)
         from collections import deque as _deque
@@ -404,26 +402,6 @@ class NQDTCEngine:
         """Set upcoming news events for blackout checks (fix #11)."""
         self._news_events = events
 
-    # ------------------------------------------------------------------
-    # Helix veto (Phase 3.4)
-    # ------------------------------------------------------------------
-
-    def receive_helix_signal(self, direction: Direction, ts: datetime) -> None:
-        """Receive a Helix strategy signal for cross-strategy veto check."""
-        self._helix_signals.append((ts, direction))
-        # Prune old signals beyond 2x window
-        cutoff = ts - timedelta(minutes=C.HELIX_VETO_WINDOW_MIN * 2)
-        self._helix_signals = [(t, d) for t, d in self._helix_signals if t > cutoff]
-
-    def _helix_veto_active(self, trade_dir: Direction, now: datetime) -> bool:
-        """Check if an opposing Helix signal was received within the veto window."""
-        if not self._helix_signals:
-            return False
-        cutoff = now - timedelta(minutes=C.HELIX_VETO_WINDOW_MIN)
-        for ts, helix_dir in self._helix_signals:
-            if ts >= cutoff and helix_dir != trade_dir and helix_dir != Direction.FLAT:
-                return True
-        return False
 
     # ------------------------------------------------------------------
     # 5-minute scheduler
@@ -1054,10 +1032,6 @@ class NQDTCEngine:
             self._log_missed(direction, "BREAKOUT", "", "regime_hard_block", "4H regime opposes direction")
             return
 
-        # Phase 3.4: Helix veto check
-        if C.HELIX_VETO_ENABLED and self._helix_veto_active(trade_dir, datetime.now(timezone.utc)):
-            self._log_telemetry("entry_skipped", engine, direction, reason="helix_veto")
-            return
 
         # Sizing
         disp_norm = sizing.compute_disp_norm(

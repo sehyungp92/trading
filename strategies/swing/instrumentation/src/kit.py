@@ -68,7 +68,7 @@ class InstrumentationKit:
 
         Args:
             ctx: InstrumentationContext with all services
-            strategy_id: Strategy identifier (e.g. "ATRSS", "AKC", "SWING_BREAKOUT_V3")
+            strategy_id: Strategy identifier (e.g. "ATRSS", "AKC_HELIX")
         """
         self.ctx = ctx
         self.strategy_id = strategy_id

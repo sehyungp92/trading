@@ -42,7 +42,7 @@ class OrderEvent:
     experiment_variant: str = ""
 
     # Futures-specific fields
-    strategy_type: str = ""                # helix | nqdtc | vdubus
+    strategy_type: str = ""                # nqdtc | vdubus | downturn | nq_regime
     session: str = ""                      # ETH | RTH
     contract_month: str = ""               # e.g., "2026-06"
     order_book_depth: Optional[dict] = None

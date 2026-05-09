@@ -104,7 +104,7 @@ class TestCaptureFromCoordinator:
         coordinator.get_all_positions.return_value = {
             "ATRSS": [MagicMock(symbol="QQQ", net_qty=200)],
             "AKC_HELIX": [pos1],
-            "BRS_R9": [pos2],
+            "OVERLAY": [pos2],
         }
 
         result = capture_concurrent_positions_from_coordinator(
@@ -115,7 +115,7 @@ class TestCaptureFromCoordinator:
         assert result[0]["sibling_strategy_id"] == "AKC_HELIX"
         assert result[0]["same_symbol"] is True
         assert result[0]["sibling_direction"] == "LONG"
-        assert result[1]["sibling_strategy_id"] == "BRS_R9"
+        assert result[1]["sibling_strategy_id"] == "OVERLAY"
         assert result[1]["sibling_direction"] == "SHORT"
         assert result[1]["same_symbol"] is False
 

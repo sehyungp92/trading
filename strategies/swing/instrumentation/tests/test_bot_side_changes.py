@@ -700,7 +700,7 @@ class TestLogMissedIntegration:
         mock_event.to_dict.return_value = {"signal_id": "test", "blocked_by": "test"}
         self.mock_missed.log_missed.return_value = mock_event
         self.ctx.missed_logger = self.mock_missed
-        self.kit = InstrumentationKit(self.ctx, strategy_id="SWING_BREAKOUT_V3")
+        self.kit = InstrumentationKit(self.ctx, strategy_id="AKC_HELIX")
 
     def test_log_missed_hard_block_captures_direction(self):
         """log_missed called with direction before it's set to None."""
@@ -777,7 +777,7 @@ class TestClassifyRegimeIntegration:
         self.mock_classifier = MagicMock()
         self.mock_classifier.classify.return_value = "trending_up"
         self.ctx.regime_classifier = self.mock_classifier
-        self.kit = InstrumentationKit(self.ctx, strategy_id="SWING_BREAKOUT_V3")
+        self.kit = InstrumentationKit(self.ctx, strategy_id="AKC_HELIX")
 
     def test_classify_regime_returns_result(self):
         """classify_regime returns classifier result."""

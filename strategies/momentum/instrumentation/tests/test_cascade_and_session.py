@@ -62,7 +62,7 @@ class TestFacadeExecutionTimestamps:
         return mgr
 
     def test_log_entry_passes_execution_timestamps(self, mock_manager):
-        kit = InstrumentationKit(mock_manager, strategy_type="helix")
+        kit = InstrumentationKit(mock_manager, strategy_type="nqdtc")
         ts = {"signal_detected_at": "2026-03-01T10:00:00Z"}
 
         # Simulate open trade
@@ -85,7 +85,7 @@ class TestFacadeExecutionTimestamps:
         assert mock_trade.execution_timestamps == ts
 
     def test_log_exit_passes_session_transitions(self, mock_manager):
-        kit = InstrumentationKit(mock_manager, strategy_type="helix")
+        kit = InstrumentationKit(mock_manager, strategy_type="nqdtc")
         transitions = [{"from_session": "ETH", "to_session": "RTH"}]
 
         kit.log_exit(
@@ -98,7 +98,7 @@ class TestFacadeExecutionTimestamps:
         assert kwargs["session_transitions"] == transitions
 
     def test_log_exit_without_session_transitions(self, mock_manager):
-        kit = InstrumentationKit(mock_manager, strategy_type="helix")
+        kit = InstrumentationKit(mock_manager, strategy_type="nqdtc")
         kit.log_exit(trade_id="t1", exit_price=21050.0, exit_reason="STOP")
         kwargs = mock_manager.trade_logger.log_exit.call_args[1]
         assert kwargs["session_transitions"] is None
@@ -106,7 +106,7 @@ class TestFacadeExecutionTimestamps:
 
 class TestFacadeGracefulDegradation:
     def test_none_manager_with_execution_timestamps(self):
-        kit = InstrumentationKit(None, strategy_type="helix")
+        kit = InstrumentationKit(None, strategy_type="nqdtc")
         # Should not raise
         kit.log_entry(
             trade_id="t1", pair="NQ", side="LONG",
@@ -119,7 +119,7 @@ class TestFacadeGracefulDegradation:
         )
 
     def test_none_manager_with_session_transitions(self):
-        kit = InstrumentationKit(None, strategy_type="helix")
+        kit = InstrumentationKit(None, strategy_type="nqdtc")
         # Should not raise
         kit.log_exit(
             trade_id="t1", exit_price=21050.0, exit_reason="STOP",

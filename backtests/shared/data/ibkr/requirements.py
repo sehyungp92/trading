@@ -18,6 +18,7 @@ class BarRequirement:
     use_rth: bool = False
     output_dir: Path = Path("data/raw")
     duration: str = "2 Y"
+    primary_exchange: str = ""
 
 
 def family_bar_requirements(family: str, *, years: int = 2) -> list[BarRequirement]:
@@ -42,17 +43,35 @@ def family_bar_requirements(family: str, *, years: int = 2) -> list[BarRequireme
         ]
     if family == "swing":
         output = Path("backtests/swing/data/raw")
+        primary = {"QQQ": "NASDAQ", "GLD": "ARCA"}
         return [
-            BarRequirement("swing", symbol, timeframe, "STK", "SMART", None, "TRADES", timeframe == "1d", output, duration)
+            BarRequirement(
+                "swing",
+                symbol,
+                timeframe,
+                "STK",
+                "SMART",
+                None,
+                "TRADES",
+                timeframe == "1d",
+                output,
+                duration,
+                primary_exchange=primary.get(symbol, ""),
+            )
             for symbol in ("QQQ", "GLD")
-            for timeframe in ("1h", "1d")
+            for timeframe in ("15m", "1h", "1d")
         ]
     if family == "stock":
         output = Path("backtests/stock/data/raw")
-        symbols = _stock_symbols()
+        symbols = [(symbol, primary) for symbol, primary in _stock_symbols_with_primary() if symbol != "VIX"]
         return [
-            BarRequirement("stock", symbol, "1d", "STK", "SMART", None, "TRADES", True, output, duration)
-            for symbol in symbols
+            BarRequirement(
+                "stock", symbol, "1d", "STK", "SMART", None, "TRADES", True, output, duration,
+                primary_exchange=primary,
+            )
+            for symbol, primary in symbols
+        ] + [
+            BarRequirement("stock", "VIX", "1d", "IND", "CBOE", None, "TRADES", True, output, duration)
         ]
     raise ValueError(f"Unknown data family: {family}")
 
@@ -64,3 +83,34 @@ def _stock_symbols() -> list[str]:
         return get_all_download_symbols()
     except Exception:
         return ["SPY", "QQQ", "VIX", "HYG"]
+
+
+def _stock_symbols_with_primary() -> list[tuple[str, str]]:
+    try:
+        from backtests.stock.data.downloader import REFERENCE_SYMBOLS
+        from strategies.stock.alcb.universe_constituents import SP500_CONSTITUENTS
+
+        symbols: list[tuple[str, str]] = [(symbol, exchange) for symbol, _, exchange in SP500_CONSTITUENTS]
+        existing = {symbol for symbol, _ in symbols}
+        reference_primary = {
+            "SPY": "ARCA",
+            "HYG": "ARCA",
+            "XLK": "ARCA",
+            "XLV": "ARCA",
+            "XLF": "ARCA",
+            "XLY": "ARCA",
+            "XLP": "ARCA",
+            "XLE": "ARCA",
+            "XLB": "ARCA",
+            "XLI": "ARCA",
+            "XLU": "ARCA",
+            "XLRE": "ARCA",
+            "XLC": "ARCA",
+        }
+        for symbol in REFERENCE_SYMBOLS:
+            if symbol not in existing:
+                symbols.append((symbol, reference_primary.get(symbol, "")))
+                existing.add(symbol)
+        return symbols
+    except Exception:
+        return [(symbol, "") for symbol in _stock_symbols()]

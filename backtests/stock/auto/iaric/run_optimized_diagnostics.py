@@ -17,7 +17,7 @@ from pathlib import Path
 if sys.stdout.encoding != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-from backtests.diagnostic_snapshot import build_group_snapshot
+from backtests.shared.diagnostics.snapshot import build_group_snapshot
 from backtests.shared.auto.round_manager import RoundManager
 
 

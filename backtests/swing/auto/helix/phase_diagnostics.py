@@ -42,6 +42,8 @@ def generate_phase_diagnostics(
     lines.append(f"  Bull PF:         {metrics.bull_pf:.2f}")
     lines.append(f"  Bear PF:         {metrics.bear_pf:.2f}")
     lines.append(f"  Min Regime PF:   {metrics.min_regime_pf:.2f}")
+    lines.append(f"  Long/Short PF:   {metrics.long_pf:.2f}/{metrics.short_pf:.2f}")
+    lines.append(f"  Min Side PF:     {metrics.min_side_pf:.2f}")
     lines.append(f"  Sharpe:          {metrics.sharpe:.2f}")
     lines.append(f"  Calmar (R):      {metrics.calmar_r:.2f}")
     lines.append(f"  Win Rate:        {metrics.win_rate:.1f}%")
@@ -108,6 +110,12 @@ def get_diagnostic_gaps(phase: int, metrics: HelixMetrics) -> list[str]:
         gaps.append(
             f"Min regime PF is weak ({metrics.min_regime_pf:.2f}); "
             "one regime is significantly underperforming."
+        )
+
+    if metrics.min_side_pf < 1.2:
+        gaps.append(
+            f"Min side PF is weak ({metrics.min_side_pf:.2f}); "
+            "one direction is failing to discriminate positive from negative setups."
         )
 
     if metrics.tail_pct < 0.40:
@@ -314,7 +322,7 @@ def _write_d6_phase_delta(phase: int, state_dict: dict) -> list[str]:
         lines.append(f"  {'Metric':<20} {'Before':>10} {'After':>10} {'Delta':>10}")
         lines.append("  " + "-" * 55)
         for key in ["total_trades", "profit_factor", "net_return_pct", "max_r_dd",
-                     "exit_efficiency", "waste_ratio", "tail_pct", "sharpe", "calmar_r"]:
+                     "exit_efficiency", "waste_ratio", "min_side_pf", "tail_pct", "sharpe", "calmar_r"]:
             before = float(base_metrics.get(key, 0))
             after = float(final_metrics.get(key, 0))
             delta = after - before
@@ -322,7 +330,7 @@ def _write_d6_phase_delta(phase: int, state_dict: dict) -> list[str]:
     elif final_metrics:
         lines.append("  Final metrics (no prior phase for comparison):")
         for key in ["total_trades", "profit_factor", "net_return_pct", "max_r_dd",
-                     "exit_efficiency", "waste_ratio", "tail_pct"]:
+                     "exit_efficiency", "waste_ratio", "min_side_pf", "tail_pct"]:
             val = float(final_metrics.get(key, 0))
             lines.append(f"    {key}: {val:.3f}")
 

@@ -17,13 +17,11 @@ import pytest
 # ---------------------------------------------------------------------------
 
 ENGINE_SPECS = [
-    ("strategies.swing.brs.engine", "BRSLiveEngine"),
-    ("strategies.swing.breakout.engine", "BreakoutEngine"),
     ("strategies.swing.akc_helix.engine", "HelixEngine"),
     ("strategies.swing.atrss.engine", "ATRSSEngine"),
     ("strategies.swing.overlay.engine", "OverlayEngine"),
-    ("strategies.momentum.helix_v40.engine", "Helix4Engine"),
     ("strategies.momentum.nqdtc.engine", "NQDTCEngine"),
+    ("strategies.momentum.nq_regime.engine", "NQRegimeEngine"),
     ("strategies.momentum.vdub.engine", "VdubNQv4Engine"),
     ("strategies.momentum.downturn.engine", "DownturnEngine"),
     ("strategies.stock.iaric.engine", "IARICEngine"),
@@ -106,8 +104,8 @@ def test_health_status_returns_diagnostic_keys(module_path, class_name):
 # ---------------------------------------------------------------------------
 
 def test_record_decision_updates_state():
-    """Test _record_decision on BRS engine (representative)."""
-    cls = _get_engine_class("strategies.swing.brs.engine", "BRSLiveEngine")
+    """Test _record_decision on ATRSS engine (representative)."""
+    cls = _get_engine_class("strategies.swing.atrss.engine", "ATRSSEngine")
 
     # Create a minimal mock instance with just the diagnostic attrs
     obj = object.__new__(cls)

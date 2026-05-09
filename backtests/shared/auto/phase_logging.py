@@ -146,6 +146,8 @@ class PhaseLogger:
         for path in self.output_dir.iterdir():
             if not path.is_file():
                 continue
+            if path.name.endswith("_greedy_checkpoint.json"):
+                continue
             match = _PHASE_FILE_RE.match(path.name)
             if match and int(match.group(1)) >= from_phase:
                 _safe_remove(path)

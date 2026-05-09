@@ -19,7 +19,7 @@ from backtests.shared.parity.legacy_result_outputs import (
 )
 from strategies.swing.atrss import allocator
 from strategies.swing.atrss.config import ALL_SYMBOL_CONFIGS, SYMBOL_CONFIGS, SymbolConfig
-from strategies.swing.atrss.models import Direction
+from strategies.swing.atrss.models import Candidate, CandidateType, Direction, PositionBook, Regime
 
 from backtests.swing.analysis.shadow_tracker import FilterStats, ShadowTracker
 from backtests.swing.config import BacktestConfig
@@ -27,6 +27,13 @@ from backtests.swing.data.preprocessing import NumpyBars
 from backtests.swing.engine.backtest_engine import BacktestEngine, SymbolResult, _AblationPatch
 
 logger = logging.getLogger(__name__)
+
+
+def _timestamp_key(value):
+    """Return a stable historical timestamp key without losing datetime units."""
+    if isinstance(value, np.datetime64):
+        return value.astype("datetime64[ns]")
+    return value.item() if hasattr(value, "item") else value
 
 
 @dataclass
@@ -63,6 +70,76 @@ class PortfolioResult:
 def _get_point_value(symbol: str) -> float:
     cfg = ALL_SYMBOL_CONFIGS.get(symbol) or SYMBOL_CONFIGS.get(symbol)
     return cfg.multiplier if cfg else 1.0
+
+
+def _portfolio_mtm_equity(engines: dict[str, BacktestEngine], realized_equity: float) -> float:
+    """Return shared realized equity plus each engine's latest open-position MTM."""
+    open_unrealized = 0.0
+    for engine in engines.values():
+        if len(engine.equity_curve) == 0:
+            continue
+        open_unrealized += float(engine.equity_curve[-1]) - float(engine.equity)
+    return realized_equity + open_unrealized
+
+
+def _candidate_qty_for_equity(
+    candidate: Candidate,
+    daily_state,
+    cfg: SymbolConfig,
+    bt_config: BacktestConfig,
+    equity: float,
+    point_value: float,
+    position: PositionBook | None = None,
+) -> int:
+    """Recompute base-entry quantity from the current shared equity ledger."""
+    if candidate.type == CandidateType.ADDON_A:
+        return int(candidate.qty)
+
+    import strategies.swing.atrss.config as scfg
+
+    if candidate.type == CandidateType.ADDON_B:
+        base = position.base_leg if position is not None else None
+        if base is None:
+            return int(candidate.qty)
+        if bt_config.fixed_qty is not None:
+            qty = max(1, int(base.qty * scfg.ADDON_B_SIZE_MULT))
+        else:
+            qty = allocator.compute_position_size(
+                candidate.trigger_price,
+                candidate.initial_stop,
+                equity,
+                cfg.base_risk_pct,
+                point_value,
+            )
+        return min(qty, max(1, int(base.qty * scfg.ADDON_B_SIZE_MULT)))
+
+    if bt_config.fixed_qty is not None:
+        qty = int(bt_config.fixed_qty)
+        if scfg.FIXED_QTY_REGIME_SCALING_ENABLED:
+            if daily_state.regime == Regime.STRONG_TREND and daily_state.score >= 60:
+                qty = max(1, int(round(qty * scfg.FIXED_QTY_STRONG_TREND_MULT)))
+            elif daily_state.regime == Regime.TREND and daily_state.score < 45:
+                qty = max(1, int(round(qty * scfg.FIXED_QTY_WEAK_TREND_MULT)))
+    else:
+        risk_pct = cfg.base_risk_pct
+        if daily_state.regime == Regime.STRONG_TREND and daily_state.score >= 60:
+            risk_pct *= scfg.DYNAMIC_RISK_STRONG_TREND_MULT
+        elif daily_state.regime == Regime.TREND and daily_state.score < 45:
+            risk_pct *= scfg.DYNAMIC_RISK_WEAK_TREND_MULT
+        qty = allocator.compute_position_size(
+            candidate.trigger_price,
+            candidate.initial_stop,
+            equity,
+            risk_pct,
+            point_value,
+        )
+
+    if cfg.size_reduction_months and candidate.time is not None:
+        for month, frac in cfg.size_reduction_months:
+            if candidate.time.month == month:
+                qty = max(1, int(qty * frac))
+                break
+    return int(qty)
 
 
 def run_independent(
@@ -167,7 +244,7 @@ def run_synchronized(
         times = data.hourly[sym].times
         mapping = {}
         for i in range(len(times)):
-            key = times[i].item() if hasattr(times[i], 'item') else times[i]
+            key = _timestamp_key(times[i])
             mapping[key] = i
         time_sets[sym] = mapping
         all_times_set.update(mapping.keys())
@@ -204,6 +281,13 @@ def run_synchronized(
                 )
                 all_candidates.extend(candidates)
 
+            # Apply realized P&L from fills before allocating/submitting any
+            # new deferred entries generated on this timestamp.
+            for sym, eng in engines.items():
+                delta = eng.equity - prev_sym_equity[sym]
+                portfolio_equity += delta
+                prev_sym_equity[sym] = eng.equity
+
             if all_candidates:
                 positions = {
                     sym: eng.position for sym, eng in engines.items()
@@ -218,8 +302,29 @@ def run_synchronized(
                     if eng.hourly_state is not None
                 }
 
+                resized_candidates = []
+                for cand in all_candidates:
+                    daily_state = daily_states.get(cand.symbol)
+                    cfg = configs.get(cand.symbol)
+                    point_value = point_values.get(cand.symbol)
+                    if daily_state is None or cfg is None or point_value is None:
+                        continue
+                    cand.qty = _candidate_qty_for_equity(
+                        cand,
+                        daily_state,
+                        cfg,
+                        bt_config,
+                        portfolio_equity,
+                        point_value,
+                        positions.get(cand.symbol),
+                    )
+                    if cand.qty > 0:
+                        resized_candidates.append(cand)
+                    else:
+                        engines[cand.symbol]._funnel.rejected_sizing += 1
+
                 accepted = allocator.allocate(
-                    all_candidates, positions, daily_states,
+                    resized_candidates, positions, daily_states,
                     portfolio_equity, instruments, hourly_states,
                 )
 
@@ -229,12 +334,7 @@ def run_synchronized(
                 for cand in accepted:
                     engines[cand.symbol].submit_candidate(cand, bar_time)
 
-            # Portfolio equity = sum of per-symbol PnL deltas
-            for sym, eng in engines.items():
-                delta = eng.equity - prev_sym_equity[sym]
-                portfolio_equity += delta
-                prev_sym_equity[sym] = eng.equity
-            equity_curve.append(portfolio_equity)
+            equity_curve.append(_portfolio_mtm_equity(engines, portfolio_equity))
             timestamps.append(t)
 
             # Track portfolio heat utilization

@@ -2,298 +2,121 @@
   "version": 1,
   "artifacts": [
     {
-      "id": "swing_breakout_postfix",
-      "artifact_path": "backtests/swing/auto/output/post-fixes/breakout_optimized_seed_full_diagnostics.txt",
-      "parser_kind": "swing_aggregate_summary",
-      "summary_source": null,
-      "regeneration": {
-        "executor": "python_file",
-        "entrypoint": "backtests/swing/analysis/breakout_full_diagnostics.py",
-        "arguments": [
-          "--output",
-          "backtests/swing/auto/output/post-fixes/breakout_optimized_seed_full_diagnostics.txt"
-        ],
-        "expected_output": "backtests/swing/auto/output/post-fixes/breakout_optimized_seed_full_diagnostics.txt"
+      "id": "swing_helix_round2_lessons_hardened_25k_summary",
+      "artifact_path": "tests/fixtures/backtest_baselines/artifacts/swing_helix_round2_lessons_hardened_25k_summary.json",
+      "parser_kind": "swing_helix_summary_json",
+      "sha256": "4C11F5E88024AA1D1506EB589D1ED8AE498ABCD112763C28EE33B579A979A54C",
+      "source_fingerprint": {
+        "phase_state_path": "backtests/output/swing/helix/round_2/phase_state.json",
+        "phase_state_sha256": "F7867B0EB7800C5ADC85583480BCCCAB1C37761F40FC6ED1784434AC9A5506F5"
       },
-      "sha256": "D0E81CAADE1311BD4C02E60D20F431ECACFEA1637406C4AA3C0BE37E7CDC76CA",
       "expected_metrics": {
-        "total_trades": 37.0,
-        "win_rate_pct": 86.5,
-        "profit_factor": 21.21,
-        "total_pnl": 1522.01,
-        "max_drawdown_pct": 0.32
-      }
-    },
-    {
-      "id": "swing_brs_postfix",
-      "artifact_path": "backtests/swing/auto/output/post-fixes/brs_optimal_starting_baseline_full_diagnostics.txt",
-      "parser_kind": "brs_topline",
-      "summary_source": null,
-      "regeneration": {
-        "executor": "python_file",
-        "entrypoint": "backtests/swing/analysis/optimal_starting_baseline_diagnostics.py",
-        "arguments": [
-          "--output",
-          "backtests/swing/auto/output/post-fixes/brs_optimal_starting_baseline_full_diagnostics.txt",
-          "--mutations-output",
-          "backtests/swing/auto/output/post-fixes/brs_optimal_starting_baseline_mutations.json"
-        ],
-        "expected_output": "backtests/swing/auto/output/post-fixes/brs_optimal_starting_baseline_full_diagnostics.txt"
+        "total_trades": 396.0,
+        "win_rate_pct": 33.33333333333333,
+        "profit_factor": 1.2090905867242063,
+        "total_pnl": 8414.253500000015,
+        "total_r": 48.49181947008771,
+        "net_return_pct": 33.657014000003166,
+        "final_equity": 33414.25350000079,
+        "max_drawdown_pct": 13.396913976758157
       },
-      "sha256": "B5CD2B819E46E07CD9B6208F73DC8A43D903C2C6C61EAC4E725AFA92B76831BB",
-      "expected_metrics": {
-        "campaigns": 109.0,
-        "fee_net_pnl": 2021.29,
-        "profit_factor": 1.89,
-        "max_drawdown_pct": 7.2,
-        "composite_score": 0.5912
-      }
-    },
-    {
-      "id": "swing_helix_postfix",
-      "artifact_path": "backtests/swing/auto/output/post-fixes/helix_exit_alpha_optimized_baseline_full_diagnostics.txt",
-      "parser_kind": "swing_helix_summary",
-      "summary_source": null,
       "regeneration": {
         "executor": "python_file",
         "entrypoint": "backtests/swing/analysis/helix_full_diagnostics.py",
         "arguments": [
           "--state-path",
-          "backtests/swing/auto/helix/exit_alpha/output/phase_state.json",
+          "backtests/output/swing/helix/round_2/phase_state.json",
+          "--phase-result",
+          "current",
           "--output",
-          "backtests/swing/auto/output/post-fixes/helix_exit_alpha_optimized_baseline_full_diagnostics.txt",
+          "tests/fixtures/backtest_baselines/artifacts/swing_helix_round2_lessons_hardened_25k_diagnostics.txt",
+          "--summary-json",
+          "tests/fixtures/backtest_baselines/artifacts/swing_helix_round2_lessons_hardened_25k_summary.json",
           "--title",
-          "HELIX EXIT-ALPHA OPTIMIZED BASELINE FULL DIAGNOSTICS (SYNCHRONIZED / FEE-NET)"
+          "HELIX ROUND 2 LESSONS ALIGNMENT AFTER HARDENING",
+          "--equity",
+          "25000"
         ],
-        "expected_output": "backtests/swing/auto/output/post-fixes/helix_exit_alpha_optimized_baseline_full_diagnostics.txt"
-      },
-      "sha256": "C162587AEBD6743A09E1AB97E0A865DA05DCA54FC721A07A346735FD1DEB157F",
-      "expected_metrics": {
-        "total_trades": 348.0,
-        "win_rate_pct": 47.4,
-        "profit_factor": 2.8,
-        "total_pnl": 21833.37,
-        "net_return_pct": 217.1,
-        "max_drawdown_pct": 0.03
+        "expected_output": "tests/fixtures/backtest_baselines/artifacts/swing_helix_round2_lessons_hardened_25k_summary.json",
+        "notes": "Corrected and lesson-hardened Helix round_2 baseline: synchronized/shared-capital, fee-net actual-initial-risk basis, MTM headline risk metrics, explicit completed-HTF policy."
       }
     },
     {
-      "id": "swing_portfolio_synergy_round2",
-      "artifact_path": "backtests/output/swing/portfolio_synergy/round_2/round_final_diagnostics.txt",
-      "parser_kind": "swing_portfolio_synergy_round_summary",
-      "summary_source": null,
+      "id": "swing_atrss_round3_lessons_hardened_100k_summary",
+      "artifact_path": "tests/fixtures/backtest_baselines/artifacts/swing_atrss_round3_lessons_hardened_100k_summary.json",
+      "parser_kind": "swing_strategy_summary_json",
+      "sha256": "20818D4BF9B9C9FD42A46E2CAF15ACAD35B6B06CA206BE086165BC200FCB125C",
+      "source_fingerprint": {
+        "phase_state_path": "backtests/output/swing/atrss/round_3/phase_state.json",
+        "phase_state_sha256": "343D049FF5D884EB0A00E8BB70C4B150B6D9F1779CF79236DEA2B65A90186776"
+      },
+      "expected_metrics": {
+        "total_trades": 264.0,
+        "win_rate_pct": 83.33333333333334,
+        "profit_factor": 2.5480444069112353,
+        "total_pnl": 233530.91550000015,
+        "total_r": 234.78196932774728,
+        "net_return_pct": 238.97109450000013,
+        "final_equity": 338971.0945000001,
+        "max_drawdown_pct": 11.17839987275162
+      },
       "regeneration": {
-        "executor": "python_module",
-        "entrypoint": "backtests.swing.auto.portfolio_synergy.run_final_diagnostics",
+        "executor": "python_file",
+        "entrypoint": "backtests/swing/analysis/atrss_full_diagnostics.py",
         "arguments": [
-          "--run-dir",
-          "backtests/output/swing/portfolio_synergy/round_2",
+          "--state-path",
+          "backtests/output/swing/atrss/round_3/phase_state.json",
+          "--phase-result",
+          "current",
+          "--output",
+          "tests/fixtures/backtest_baselines/artifacts/swing_atrss_round3_lessons_hardened_100k_diagnostics.txt",
+          "--summary-json",
+          "tests/fixtures/backtest_baselines/artifacts/swing_atrss_round3_lessons_hardened_100k_summary.json",
+          "--title",
+          "ATRSS ROUND 3 LESSONS ALIGNMENT AFTER HARDENING",
+          "--equity",
+          "100000"
+        ],
+        "expected_output": "tests/fixtures/backtest_baselines/artifacts/swing_atrss_round3_lessons_hardened_100k_summary.json",
+        "notes": "Corrected and lesson-hardened ATRSS round_3 baseline: synchronized/shared-capital, fee-net closed-trade PnL, MTM headline equity and risk metrics, completed-bar policy via shared preprocessing."
+      }
+    },
+    {
+      "id": "swing_tpc_round8_lessons_hardened_100k_summary",
+      "artifact_path": "tests/fixtures/backtest_baselines/artifacts/swing_tpc_round8_lessons_hardened_100k_summary.json",
+      "parser_kind": "swing_strategy_summary_json",
+      "sha256": "469A92DEAB4E1295174F0628E65532E79787C35EDD8DB774E9E2B647D51F4781",
+      "source_fingerprint": {
+        "optimized_config_path": "backtests/output/swing/tpc/round_8/optimized_config.json",
+        "optimized_config_sha256": "5D7FDBD249D7912C896BA9EB86917DEAD47FA3DA21D1E6D81E87980D0149E1E2"
+      },
+      "expected_metrics": {
+        "total_trades": 127.0,
+        "win_rate_pct": 59.84251968503938,
+        "profit_factor": 2.082265699654456,
+        "total_pnl": 133009.9349999981,
+        "total_r": 86.47412856965774,
+        "net_return_pct": 133.0099349999961,
+        "final_equity": 233009.9349999961,
+        "max_drawdown_pct": 13.68037642663078
+      },
+      "regeneration": {
+        "executor": "python_file",
+        "entrypoint": "backtests/swing/analysis/tpc_optimized_summary.py",
+        "arguments": [
+          "--config",
+          "backtests/output/swing/tpc/round_8/optimized_config.json",
           "--data-dir",
           "backtests/swing/data/raw",
           "--equity",
-          "25000",
-          "--max-workers",
-          "2",
+          "100000",
+          "--end-date",
+          "2025-11-01",
           "--output",
-          "backtests/output/swing/portfolio_synergy/round_2/round_final_diagnostics.txt"
+          "tests/fixtures/backtest_baselines/artifacts/swing_tpc_round8_lessons_hardened_100k_summary.json"
         ],
-        "expected_output": "backtests/output/swing/portfolio_synergy/round_2/round_final_diagnostics.txt"
-      },
-      "sha256": "3925F38D5C642792D571C54E2FD6462D126DB022E32BE43DDECF5F71107262FE",
-      "expected_metrics": {
-        "final_equity": 209731.18,
-        "net_return_pct": 738.92,
-        "profit_factor": 3.03,
-        "win_rate_pct": 61.98,
-        "max_drawdown_pct": 7.03,
-        "sharpe": 2.4,
-        "sortino": 1.39,
-        "calmar": 7.31,
-        "entry_signals_fired": 779.0,
-        "entries_accepted": 740.0,
-        "entries_blocked": 39.0,
-        "score_total": 0.8124
-      }
-    },
-    {
-      "id": "stock_portfolio_synergy_round1",
-      "artifact_path": "backtests/output/stock/portfolio_synergy/round_1/round_final_diagnostics.txt",
-      "parser_kind": "stock_portfolio_synergy_round_summary",
-      "summary_source": null,
-      "regeneration": {
-        "executor": "python_module",
-        "entrypoint": "backtests.stock.auto.portfolio_synergy.run_final_diagnostics",
-        "arguments": [
-          "--run-dir",
-          "backtests/output/stock/portfolio_synergy/round_1",
-          "--data-dir",
-          "backtests/stock/data/raw",
-          "--start",
-          "2024-01-01",
-          "--end",
-          "2026-03-01",
-          "--equity",
-          "25000",
-          "--max-workers",
-          "2",
-          "--output",
-          "backtests/output/stock/portfolio_synergy/round_1/round_final_diagnostics.txt"
-        ],
-        "expected_output": "backtests/output/stock/portfolio_synergy/round_1/round_final_diagnostics.txt"
-      },
-      "sha256": "D6C87D098427846BA74C1FC4C85642431779545F159D0BDD7475846D8955B5EA",
-      "expected_metrics": {
-        "final_equity": 303605.26,
-        "net_return_pct": 1114.42,
-        "profit_factor": 2.92,
-        "win_rate_pct": 73.61,
-        "max_drawdown_pct": 2.39,
-        "sharpe": 5.91,
-        "sortino": 7.3,
-        "calmar": 111.66,
-        "entry_signals_fired": 1530.0,
-        "entries_accepted": 1209.0,
-        "entries_blocked": 321.0,
-        "score_total": 0.8452
-      }
-    },
-    {
-      "id": "momentum_downturn_postfix",
-      "artifact_path": "backtests/momentum/auto/output/post-fixes/downturn_baseline_full_diagnostics.txt",
-      "parser_kind": "downturn_summary",
-      "summary_source": null,
-      "regeneration": {
-        "executor": "python_file",
-        "entrypoint": "backtests/momentum/auto/downturn/run_r7b_baseline_diagnostics.py",
-        "arguments": [
-          "--output",
-          "backtests/momentum/auto/output/post-fixes/downturn_baseline_full_diagnostics.txt",
-          "--json-output",
-          "backtests/momentum/auto/output/post-fixes/downturn_baseline_summary.json"
-        ],
-        "expected_output": "backtests/momentum/auto/output/post-fixes/downturn_baseline_full_diagnostics.txt"
-      },
-      "sha256": "F1CDC060FCE866799F10F30B7144CCB28067333FF1253CB9B2A7640E0B829424",
-      "expected_metrics": {
-        "total_trades": 194.0,
-        "win_rate_pct": 36.6,
-        "profit_factor": 1.25,
-        "net_return_pct": 74.2,
-        "max_drawdown_pct": 29.04,
-        "correction_pnl_pct": 75.14
-      }
-    },
-    {
-      "id": "momentum_nqdtc_postfix",
-      "artifact_path": "backtests/momentum/auto/output/post-fixes/nqdtc_phase_seed_full_diagnostics.txt",
-      "parser_kind": "momentum_performance_report",
-      "summary_source": null,
-      "regeneration": {
-        "executor": "python_file",
-        "entrypoint": "backtests/momentum/auto/runners/run_nqdtc_optimized_diagnostics.py",
-        "arguments": [
-          "--phase-result",
-          "1",
-          "--mutation-kind",
-          "base",
-          "--output",
-          "backtests/momentum/auto/output/post-fixes/nqdtc_phase_seed_full_diagnostics.txt",
-          "--label",
-          "NQDTC PHASE-SEED BASELINE"
-        ],
-        "expected_output": "backtests/momentum/auto/output/post-fixes/nqdtc_phase_seed_full_diagnostics.txt"
-      },
-      "sha256": "D26A0C88BDF3C8DD811741BBC89F26B2487D69007DFE608E1211B60F600F294A",
-      "expected_metrics": {
-        "total_trades": 239.0,
-        "win_rate_pct": 51.0,
-        "profit_factor": 0.98,
-        "net_profit": -417.15,
-        "max_drawdown_pct": 36.4
-      }
-    },
-    {
-      "id": "momentum_vdubus_postfix",
-      "artifact_path": "backtests/momentum/auto/output/post-fixes/vdubus_phase_seed_full_diagnostics.txt",
-      "parser_kind": "momentum_performance_report",
-      "summary_source": null,
-      "regeneration": {
-        "executor": "python_file",
-        "entrypoint": "backtests/momentum/auto/runners/run_vdubus_optimized_diagnostics.py",
-        "arguments": [
-          "--output",
-          "backtests/momentum/auto/output/post-fixes/vdubus_phase_seed_full_diagnostics.txt"
-        ],
-        "expected_output": "backtests/momentum/auto/output/post-fixes/vdubus_phase_seed_full_diagnostics.txt"
-      },
-      "sha256": "997873676F32633722FF35A71254BC6A3080AAF9C43167195FDB1AA96A43C9F4",
-      "expected_metrics": {
-        "total_trades": 176.0,
-        "win_rate_pct": 48.3,
-        "profit_factor": 2.26,
-        "net_profit": 101963.22,
-        "max_drawdown_pct": 28.5
-      }
-    },
-    {
-      "id": "stock_iaric_phase4_baseline",
-      "artifact_path": "backtests/stock/auto/iaric/output_v4r1/phase_4_optimal_starting_baseline_full_diagnostics.txt",
-      "parser_kind": "stock_iaric_phase_summary",
-      "summary_source": {
-        "kind": "json",
-        "path": "backtests/stock/auto/iaric/output_v4r1/phase_4_optimal_starting_baseline_summary.json"
-      },
-      "regeneration": {
-        "executor": "python_module",
-        "entrypoint": "backtests.stock.auto.iaric.run_optimized_diagnostics",
-        "arguments": [
-          "--phase-state",
-          "backtests/stock/auto/iaric/output_v4r1/phase_state.json",
-          "--phase-result",
-          "4",
-          "--mutation-kind",
-          "final",
-          "--output",
-          "backtests/stock/auto/iaric/output_v4r1/phase_4_optimal_starting_baseline_full_diagnostics.txt",
-          "--summary-json",
-          "backtests/stock/auto/iaric/output_v4r1/phase_4_optimal_starting_baseline_summary.json",
-          "--title",
-          "IARIC PHASE 4 OPTIMAL STARTING BASELINE"
-        ],
-        "expected_output": "backtests/stock/auto/iaric/output_v4r1/phase_4_optimal_starting_baseline_full_diagnostics.txt"
-      },
-      "sha256": "326C762F906D78C300D1BD144B61B87F7BF4D38EEBFA6BD51B72C5F5E212A008",
-      "expected_metrics": {
-        "total_trades": 682.0,
-        "win_rate_pct": 72.87390029325513,
-        "profit_factor": 1.9836828820852042,
-        "total_pnl": 13589.959999999985,
-        "max_drawdown_r": -5.15
-      }
-    },
-    {
-      "id": "stock_alcb_round_final",
-      "artifact_path": "backtests/stock/auto/alcb/output_targeted_entry_repair_v2/round_final_diagnostics.txt",
-      "parser_kind": "stock_alcb_round_summary",
-      "summary_source": null,
-      "regeneration": {
-        "executor": "python_file",
-        "entrypoint": "backtests/stock/auto/alcb/run_final_diagnostics.py",
-        "arguments": [
-          "--phase-state",
-          "backtests/stock/auto/alcb/output_targeted_entry_repair_v2/phase_state.json",
-          "--output",
-          "backtests/stock/auto/alcb/output_targeted_entry_repair_v2/round_final_diagnostics.txt"
-        ],
-        "expected_output": "backtests/stock/auto/alcb/output_targeted_entry_repair_v2/round_final_diagnostics.txt"
-      },
-      "sha256": "3D29B1A1A404E48D13F12916C7FCD9B8065F438B642CB5E1A7CAC35EB74E2BB0",
-      "expected_metrics": {
-        "total_trades": 562.0,
-        "win_rate_pct": 59.1,
-        "profit_factor": 1.749,
-        "total_pnl": 8749.17,
-        "max_drawdown_pct": 3.5
+        "expected_output": "tests/fixtures/backtest_baselines/artifacts/swing_tpc_round8_lessons_hardened_100k_summary.json",
+        "notes": "Corrected and lesson-hardened TPC round_8 train-window baseline: shared ETF core/live adapter path, completed-bar replay bundle, shared cash/MTM equity, fee-net dollar profit factor, and canonical trade-outcome reconciliation after TPC accounting hardening."
       }
     }
   ]

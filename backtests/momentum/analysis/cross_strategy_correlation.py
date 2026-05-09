@@ -52,7 +52,7 @@ def generate_cross_strategy_correlation_report(trades_by_strategy: dict[str, lis
 
     Args:
         trades_by_strategy: Dict mapping strategy name to trade list,
-                            e.g. {"helix": [...], "nqdtc": [...], "vdubus": [...]}.
+                            e.g. {"nqdtc": [...], "vdubus": [...], "downturn": [...]}.
 
     Returns:
         Formatted text report.

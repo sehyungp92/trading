@@ -213,7 +213,7 @@ def regime_sizing_mult(
 
 
 # ---------------------------------------------------------------------------
-# Fast-crash override (BRS-inspired paths E/F/G)
+# Fast-crash override paths E/F/G
 # ---------------------------------------------------------------------------
 
 def check_fast_crash_override(
@@ -265,7 +265,7 @@ def check_fast_crash_override(
 
 
 # ---------------------------------------------------------------------------
-# Bear conviction scoring (BRS-inspired quality gate)
+# Bear conviction scoring quality gate
 # ---------------------------------------------------------------------------
 
 def compute_bear_conviction(
@@ -317,7 +317,7 @@ def compute_bear_conviction(
 
 
 # ---------------------------------------------------------------------------
-# ADX hysteresis + bear structure override (BRS-inspired paths B/C)
+# ADX hysteresis + bear structure override paths B/C
 # ---------------------------------------------------------------------------
 
 def compute_regime_on(
@@ -361,7 +361,7 @@ def check_bear_structure_override(
     path_c_ema_sep = po.get("bear_structure_path_c_ema_sep", 0.15)
     path_c_adx = po.get("bear_structure_path_c_adx", 18.0)
 
-    # Count bear conditions (from BRS classify_regime)
+    # Count bear conditions for regime classification
     bear_conds = sum([
         close < ema_fast,
         ema_fast < ema_slow,

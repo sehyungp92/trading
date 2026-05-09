@@ -148,10 +148,10 @@ RISK_FLOOR_FRAC = 0.15      # risk floor = 0.15 * base_risk_pct
 
 # Post-audit composite regime blocking (Step 0a)
 # When True, entries in that composite regime are hard-blocked (not just sized down)
-BLOCK_NEUTRAL_REGIME = True
+BLOCK_NEUTRAL_REGIME = False
 BLOCK_ALIGNED_REGIME = True
 BLOCK_CAUTION_REGIME = True
-SCORE_NON_RANGE_MULT = 1.0     # score threshold multiplier for non-Range regimes
+SCORE_NON_RANGE_MULT = 2.25    # score threshold multiplier for non-Range regimes
 
 # ---------------------------------------------------------------------------
 # Entries (Section 16)
@@ -203,10 +203,11 @@ MM_DURATION_MAX = 1.4
 # Exit tiers (Phase 2.3: widened Caution/Neutral, reduced TP1 fractions)
 # nqdtc_v4 step 6: collapse TP2/TP3 — chandelier runner captures post-TP1 at +1.928 avg R
 # Caution (TP1+runner) was +0.847R; Neutral/Aligned had TP2 diluting runner gains
+TP1_R = 1.35
 EXIT_TIERS = {
-    "Aligned": [(1.4, 0.55), (5.0, 0.25)],
-    "Neutral":  [(1.4, 0.55), (5.0, 0.25)],
-    "Caution":  [(1.4, 0.55), (5.0, 0.25)],
+    "Aligned": [(TP1_R, 0.55), (5.0, 0.25)],
+    "Neutral":  [(TP1_R, 0.55), (5.0, 0.25)],
+    "Caution":  [(TP1_R, 0.55), (5.0, 0.25)],
 }
 
 # Profit-funded
@@ -218,7 +219,7 @@ EARLY_BE_MFE_R = 0.8             # disabled via flag — clips winners that retr
 
 # Post-TP1 ratchet floor (Section 17.4b)
 RATCHET_LOCK_PCT = 0.35          # exit-opt: lock 35% of peak R (was 25%)
-RATCHET_THRESHOLD_R = 0.75
+RATCHET_THRESHOLD_R = 0.5
 
 # Post-TP1 chandelier tightening (Improvement 4 — REVERTED: cut winners too aggressively)
 CHANDELIER_POST_TP1_MULT_DECAY = 0.0    # disabled
@@ -298,12 +299,6 @@ MAX_STOP_WIDTH_PTS = 200.0  # v7: reject entries with stop > 200 points (absolut
 MAX_LOSS_CAP_R = -3.0       # v7: force exit if unrealized loss exceeds -3R (initial risk basis)
 
 # ---------------------------------------------------------------------------
-# Helix veto (Phase 3.4)
-# ---------------------------------------------------------------------------
-HELIX_VETO_ENABLED = True
-HELIX_VETO_WINDOW_MIN = 60  # minutes to check for opposing Helix signal
-
-# ---------------------------------------------------------------------------
 # ES SMA200 regime — cross-strategy directional sizing (Idea 2)
 # ---------------------------------------------------------------------------
 ES_DAILY_SMA_PERIOD = 200
@@ -323,7 +318,7 @@ ATR14_5M_PERIOD = 14
 # ---------------------------------------------------------------------------
 # Auto-optimization param_overrides defaults (Prereq 4)
 # ---------------------------------------------------------------------------
-MIN_INTER_TRADE_GAP_MINUTES = 30
+MIN_INTER_TRADE_GAP_MINUTES = 55
 ETH_SHORT_SIZE_MULT = 1.0            # no reduction by default (ETH short sizing)
 MIN_BOX_WIDTH = 150
 MAX_BOX_WIDTH = 99999                # no filter by default (box width gate)

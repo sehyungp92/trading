@@ -21,25 +21,23 @@ from backtests.momentum.engine.family_portfolio_engine import (
     FamilyPortfolioTrade,
     FamilySignalFilterCondition,
     FamilySignalFilterRule,
-    make_controlled_aggressive_five_strategy_config,
+    make_controlled_aggressive_family_config,
 )
 from libs.oms.risk.portfolio_rules import PortfolioRuleChecker, PortfolioRulesConfig
 
 
 @pytest.mark.asyncio
-async def test_portfolio_rule_checker_uses_replay_clock_for_momentum_cooldown() -> None:
+async def test_portfolio_rule_checker_uses_replay_clock_for_nqdtc_direction_filter() -> None:
     now = datetime(2025, 1, 2, 15, 0, tzinfo=timezone.utc)  # 10:00 ET
-    last_entry = datetime(2025, 1, 2, 14, 30, tzinfo=timezone.utc)
     config = PortfolioRulesConfig(
-        helix_nqdtc_cooldown_minutes=60,
-        cooldown_session_only=True,
+        nqdtc_direction_filter_enabled=True,
+        nqdtc_oppose_size_mult=0.0,
         directional_cap_R=0,
     )
     checker = PortfolioRuleChecker(
         config=config,
         get_strategy_signal=AsyncMock(return_value={
-            "last_entry_ts": last_entry,
-            "last_direction": "LONG",
+            "last_direction": "SHORT",
             "signal_date": now.date(),
         }),
         get_directional_risk_R=AsyncMock(return_value=0.0),
@@ -47,14 +45,14 @@ async def test_portfolio_rule_checker_uses_replay_clock_for_momentum_cooldown() 
         now_provider=lambda: now,
     )
 
-    result = await checker.check_entry("AKC_Helix_v40", "LONG", 1.0)
+    result = await checker.check_entry("VdubusNQ_v4", "LONG", 1.0)
 
     assert not result.approved
-    assert "proximity_cooldown" in result.denial_reason
+    assert "nqdtc_direction_filter" in result.denial_reason
 
 
-def test_family_portfolio_replay_uses_all_five_and_shared_rule_blocks() -> None:
-    cfg = make_controlled_aggressive_five_strategy_config(50_000.0)
+def test_family_portfolio_replay_uses_all_four_and_shared_rule_blocks() -> None:
+    cfg = make_controlled_aggressive_family_config(50_000.0)
     cfg = replace(
         cfg,
         max_total_positions=1,
@@ -69,17 +67,16 @@ def test_family_portfolio_replay_uses_all_five_and_shared_rule_blocks() -> None:
         "VdubusNQ_v4": [_trade("BUY", 1, 11.0)],
         "NQDTC_v2.1": [_trade("BUY", 1, 12.0)],
         "DownturnDominator_v1": [_trade("SELL", -1, 13.0)],
-        "AKC_Helix_v40": [_trade("BUY", 1, 14.0)],
     }
 
     result = FamilyPortfolioBacktester(cfg).run(trades)
 
     assert result.metrics["active_strategies"] >= 1
-    assert result.rule_blocks["max_total_positions"] == 4
-    assert result.metrics["blocked_trades"] == 4
+    assert result.rule_blocks["max_total_positions"] == 3
+    assert result.metrics["blocked_trades"] == 3
     assert result.replay_architecture == "canonical_replay_bundle_live_rule_adapter"
-    assert result.action_count == 10
-    assert result.trade_outcome_count == 5
+    assert result.action_count == 8
+    assert result.trade_outcome_count == 4
     assert result.replay_source_fingerprint
 
 
@@ -91,7 +88,7 @@ def test_family_score_has_no_more_than_seven_components() -> None:
         "max_drawdown_pct": 0.10,
         "profit_factor": 2.4,
         "calmar": 4.0,
-        "active_strategies": 5.0,
+        "active_strategies": 4.0,
         "min_strategy_trades": 25.0,
         "block_rate": 0.20,
         "max_concurrent": 4.0,
@@ -108,7 +105,7 @@ def test_family_score_treats_frequency_shortfall_as_soft_warning() -> None:
         "max_drawdown_pct": 0.10,
         "profit_factor": 2.4,
         "calmar": 4.0,
-        "active_strategies": 5.0,
+        "active_strategies": 4.0,
         "min_strategy_trades": 25.0,
         "block_rate": 0.20,
         "max_concurrent": 4.0,
@@ -120,19 +117,19 @@ def test_family_score_treats_frequency_shortfall_as_soft_warning() -> None:
 
 
 def test_family_mutations_can_update_live_rules_and_allocations() -> None:
-    cfg = make_controlled_aggressive_five_strategy_config(50_000.0)
+    cfg = make_controlled_aggressive_family_config(50_000.0)
     updated = apply_portfolio_mutations(
         cfg,
         {
             "allocation.NQ_REGIME.base_risk_pct": 0.007,
             "config.heat_cap_R": 5.25,
-            "rules.helix_nqdtc_cooldown_minutes": 30,
+            "rules.directional_cap_R": 3.75,
         },
     )
 
     assert updated.allocation_for("NQ_REGIME").base_risk_pct == 0.007
     assert updated.heat_cap_R == 5.25
-    assert updated.rules.helix_nqdtc_cooldown_minutes == 30
+    assert updated.rules.directional_cap_R == 3.75
 
     dotted = apply_portfolio_mutations(
         cfg,
@@ -145,7 +142,7 @@ def test_family_mutations_can_update_live_rules_and_allocations() -> None:
 
 
 def test_dynamic_risk_can_fit_trade_to_remaining_heat() -> None:
-    cfg = make_controlled_aggressive_five_strategy_config(50_000.0)
+    cfg = make_controlled_aggressive_family_config(50_000.0)
     cfg = replace(
         cfg,
         heat_cap_R=1.0,
@@ -172,7 +169,7 @@ def test_dynamic_risk_can_fit_trade_to_remaining_heat() -> None:
 
 
 def test_signal_filter_rules_block_matching_entry_metadata() -> None:
-    cfg = make_controlled_aggressive_five_strategy_config(50_000.0)
+    cfg = make_controlled_aggressive_family_config(50_000.0)
     cfg = replace(
         cfg,
         signal_filter_rules=(
@@ -197,7 +194,7 @@ def test_signal_filter_rules_block_matching_entry_metadata() -> None:
 
 
 def test_family_replay_bundle_matches_legacy_trade_input_path() -> None:
-    cfg = make_controlled_aggressive_five_strategy_config(50_000.0)
+    cfg = make_controlled_aggressive_family_config(50_000.0)
     cfg = replace(cfg, rules=replace(cfg.rules, directional_cap_R=0, max_family_contracts_mnq_eq=0))
     trades = {
         "NQ_REGIME": [_trade("BUY", 1, 10.0)],
@@ -219,7 +216,7 @@ def test_family_replay_bundle_matches_legacy_trade_input_path() -> None:
 
 
 def test_portfolio_diagnostics_max_dd_uses_bar_close_mark_to_market() -> None:
-    cfg = make_controlled_aggressive_five_strategy_config(1_000.0)
+    cfg = make_controlled_aggressive_family_config(1_000.0)
     entry = datetime(2025, 1, 2, 15, 0, tzinfo=timezone.utc)
     peak = datetime(2025, 1, 2, 15, 5, tzinfo=timezone.utc)
     trough = datetime(2025, 1, 2, 15, 10, tzinfo=timezone.utc)
@@ -267,7 +264,7 @@ def test_portfolio_diagnostics_max_dd_uses_bar_close_mark_to_market() -> None:
 
 
 def test_portfolio_diagnostics_reconciles_same_timestamp_trade_pnl() -> None:
-    cfg = make_controlled_aggressive_five_strategy_config(1_000.0)
+    cfg = make_controlled_aggressive_family_config(1_000.0)
     ts = datetime(2025, 1, 2, 15, 0, tzinfo=timezone.utc)
     trade = FamilyPortfolioTrade(
         strategy_id="NQ_REGIME",

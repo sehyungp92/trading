@@ -256,7 +256,7 @@ class TestTradeLogger:
 
     def test_log_entry_sets_strategy_type(self):
         logger = TradeLogger(
-            {**self.config, "strategy_type": "helix"},
+            {**self.config, "strategy_type": "nqdtc"},
             self.snap_service,
         )
         trade = logger.log_entry(
@@ -266,7 +266,7 @@ class TestTradeLogger:
             entry_signal_strength=0.8, active_filters=[], passed_filters=[],
             strategy_params={"trail_mult": 3.0},
         )
-        assert trade.strategy_type == "helix"
+        assert trade.strategy_type == "nqdtc"
 
     def test_log_entry_computes_param_set_id(self):
         import hashlib, json as _json

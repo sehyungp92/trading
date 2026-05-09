@@ -75,6 +75,22 @@ class TestIntraday30mAlignment:
 class TestDailyAlignment:
     """Verify daily alignment uses date-normalised logic (no intraday leak)."""
 
+    def test_daily_alignment_marks_unavailable_first_session(self):
+        from backtests.swing.data.preprocessing import align_daily_to_hourly
+
+        hourly_df = pd.DataFrame(
+            {"open": [1.0], "high": [1.0], "low": [1.0], "close": [1.0]},
+            index=pd.DatetimeIndex([pd.Timestamp("2024-01-02 14:00", tz="UTC")]),
+        )
+        daily_df = pd.DataFrame(
+            {"open": [100.0], "high": [101.0], "low": [99.0], "close": [100.5]},
+            index=pd.DatetimeIndex([pd.Timestamp("2024-01-02", tz="UTC")]),
+        )
+
+        idx_map = align_daily_to_hourly(hourly_df, daily_df)
+
+        assert idx_map.tolist() == [-1]
+
     def test_daily_alignment_uses_previous_day(self):
         from backtests.momentum.data.preprocessing import align_daily_to_5m
 
@@ -105,6 +121,67 @@ class TestDailyAlignment:
 
 class TestSwing4hAlignment:
     """Verify swing 1h->4h resample uses right-edge labels."""
+
+    def test_completed_htf_alignment_does_not_expose_first_bar_at_its_close(self):
+        from libs.config.completed_bar_policy import align_completed_higher_timeframe_indices
+
+        lower_times = np.array(
+            [
+                "2024-01-02T03:00:00",
+                "2024-01-02T04:00:00",
+                "2024-01-02T04:01:00",
+            ],
+            dtype="datetime64[ns]",
+        )
+        higher_times = np.array(["2024-01-02T04:00:00"], dtype="datetime64[ns]")
+
+        idx_map = align_completed_higher_timeframe_indices(
+            lower_times,
+            higher_times,
+            unavailable_index=-1,
+        )
+
+        assert idx_map.tolist() == [-1, -1, 0]
+
+    def test_shared_completed_alignment_supports_explicit_legacy_pre_history_clip(self):
+        from libs.config.completed_bar_policy import align_completed_higher_timeframe_indices
+
+        lower_times = np.array(
+            [
+                "2024-01-02T03:00:00",
+                "2024-01-02T04:00:00",
+                "2024-01-02T04:01:00",
+            ],
+            dtype="datetime64[ns]",
+        )
+        higher_times = np.array(["2024-01-02T04:00:00"], dtype="datetime64[ns]")
+
+        idx_map = align_completed_higher_timeframe_indices(
+            lower_times,
+            higher_times,
+            unavailable_index=0,
+        )
+
+        assert idx_map.tolist() == [0, 0, 0]
+
+    def test_1h_to_4h_drops_incomplete_trailing_window(self):
+        from backtests.swing.data.preprocessing import resample_1h_to_4h
+
+        idx = pd.date_range("2024-01-02 00:00", periods=6, freq="1h", tz="UTC")
+        h_df = pd.DataFrame(
+            {
+                "open": range(6),
+                "high": range(1, 7),
+                "low": range(6),
+                "close": range(6),
+                "volume": [100] * 6,
+            },
+            index=idx,
+        )
+
+        h4_df = resample_1h_to_4h(h_df)
+
+        assert list(h4_df.index) == [pd.Timestamp("2024-01-02 04:00", tz="UTC")]
 
     def test_1h_to_4h_right_label(self):
         from backtests.swing.data.preprocessing import (

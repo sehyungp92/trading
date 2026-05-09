@@ -1,7 +1,7 @@
 """
 Momentum strategy experiment catalog (~370 experiments).
 
-Frozen experiment definitions for Helix, NQDTC, Vdubus, and portfolio-level tests.
+Frozen experiment definitions for NQDTC, Vdubus, and portfolio-level tests.
 Used by the auto-runner harness to sweep ablations, parameter ranges, interactions,
 portfolio configurations, and diagnostics.
 """
@@ -13,9 +13,9 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class Experiment:
-    id: str                       # e.g. "abl_helix_extension_gate"
+    id: str                       # e.g. "abl_nqdtc_score_threshold"
     type: str                     # ABLATION | PARAM_SWEEP | INTERACTION | PORTFOLIO | DIAGNOSTIC
-    strategy: str                 # "helix" | "nqdtc" | "vdubus" | "portfolio"
+    strategy: str                 # "nqdtc" | "vdubus" | "portfolio"
     description: str
     hypothesis: str
     priority: int                 # 1=highest
@@ -27,61 +27,6 @@ E = Experiment
 # ---------------------------------------------------------------------------
 # Priority 1 — Ablation experiments (~95)
 # ---------------------------------------------------------------------------
-
-
-def _helix_ablation() -> list[Experiment]:
-    """27 ablation experiments for Helix4AblationFlags."""
-    exps: list[Experiment] = []
-
-    # Flags defaulting to True -> flip to False
-    true_flags = [
-        ("use_extension_gate", "Disable extension gate", "Over-extension filter may reject valid setups"),
-        ("use_spike_filter", "Disable spike filter", "Spike rejection may miss genuine momentum"),
-        ("use_spread_gate", "Disable spread gate", "Spread gate may over-filter in liquid sessions"),
-        ("use_dead_zone_midday", "Disable midday dead zone", "Midday block may miss valid setups"),
-        ("use_reopen_dead_zone", "Disable reopen dead zone", "Reopen dead zone may be too conservative"),
-        ("use_extreme_vol_mode", "Disable extreme vol mode", "Extreme vol sizing may reduce opportunity"),
-        ("use_min_stop_gate", "Disable min stop gate", "Min stop gate may reject tight-stop setups"),
-        ("use_news_guard", "Disable news guard", "News guard may block valid moves post-event"),
-        ("use_teleport_penalty", "Disable teleport penalty", "Teleport penalty may punish gap continuations"),
-        ("use_class_T", "Disable class T entries", "Class T entries may underperform"),
-        ("use_rtd_dead_enhanced", "Disable RTD dead enhanced", "RTD enhanced dead zone may be too wide"),
-        ("use_trailing", "Disable trailing stop", "Trailing may exit winners too early"),
-        ("use_stale_exit", "Disable stale exit", "Stale exit may cut trades before they resolve"),
-        ("use_early_stale", "Disable early stale exit", "Early stale may be too aggressive"),
-        ("use_mfe_ratchet", "Disable MFE ratchet", "MFE ratchet may lock profits too early"),
-        ("use_time_decay", "Disable time decay", "Time decay may force exits on slow movers"),
-        ("use_drawdown_throttle", "Disable drawdown throttle", "Drawdown throttle may reduce recovery speed"),
-        ("block_monday", "Disable Monday block", "Monday block may miss week-start momentum"),
-        ("block_wednesday", "Disable Wednesday block", "Wednesday block may miss mid-week setups"),
-        ("use_hour_sizing", "Disable hour-based sizing", "Hour sizing may reduce late-session opportunity"),
-        ("use_chop_sizing", "Disable chop sizing", "Chop sizing may be too conservative"),
-    ]
-    for flag, desc, hyp in true_flags:
-        exps.append(E(
-            f"abl_helix_{flag.removeprefix('use_').removesuffix('_gate').removesuffix('_filter')}",
-            "ABLATION", "helix", desc, hyp, 1,
-            {f"flags.{flag}": False},
-        ))
-
-    # Flags defaulting to False -> flip to True
-    false_flags = [
-        ("use_class_F", "Enable class F entries", "Class F entries may add profitable setups"),
-        ("enable_ETH_Europe", "Enable ETH Europe session", "European session may provide valid entries"),
-        ("use_eth_europe_regime", "Enable ETH Europe regime filter", "Regime filter may improve ETH Europe quality"),
-        ("use_momentum_stall", "Enable momentum stall detection", "Stall detection may prevent late entries"),
-    ]
-    for flag, desc, hyp in false_flags:
-        exps.append(E(
-            f"abl_helix_{flag.removeprefix('use_').removeprefix('enable_')}",
-            "ABLATION", "helix", desc, hyp, 1,
-            {f"flags.{flag}": True},
-        ))
-
-    # Non-bool: short_min_score (default=1) and vol_50_80_sizing_mult (default=0.60)
-    # These are covered in param sweeps, not ablation
-
-    return exps
 
 
 def _nqdtc_ablation() -> list[Experiment]:
@@ -219,41 +164,6 @@ def _vdubus_ablation() -> list[Experiment]:
 # ---------------------------------------------------------------------------
 
 
-def _helix_param_sweeps() -> list[Experiment]:
-    """35 parameter sweep experiments for Helix."""
-    exps: list[Experiment] = []
-
-    sweeps: list[tuple[str, str, list]] = [
-        ("TRAIL_ACTIVATION_R", "param_overrides.TRAIL_ACTIVATION_R", [0.30, 0.40, 0.70, 0.85, 1.00]),
-        ("TRAIL_MULT_MAX", "param_overrides.TRAIL_MULT_MAX", [2.0, 2.5, 3.5, 4.0]),
-        ("TRAIL_MULT_FLOOR", "param_overrides.TRAIL_MULT_FLOOR", [1.0, 1.25, 1.75, 2.0]),
-        ("TRAIL_R_DIVISOR", "param_overrides.TRAIL_R_DIVISOR", [3.0, 4.0, 6.0, 8.0]),
-        ("EARLY_ADVERSE_BARS", "param_overrides.EARLY_ADVERSE_BARS", [2, 3, 5, 6]),
-        ("EARLY_ADVERSE_R", "param_overrides.EARLY_ADVERSE_R", [-0.50, -0.65, -1.00, -1.20]),
-        ("TIME_DECAY_BARS", "param_overrides.TIME_DECAY_BARS", [8, 10, 14, 16]),
-        ("STALE_M_BARS", "param_overrides.STALE_M_BARS", [16, 18, 24, 28]),
-        ("MFE_RATCHET_ACTIVATION_R", "param_overrides.MFE_RATCHET_ACTIVATION_R", [1.0, 1.25, 1.75, 2.0]),
-        ("MFE_RATCHET_FLOOR_PCT", "param_overrides.MFE_RATCHET_FLOOR_PCT", [0.50, 0.55, 0.70, 0.80]),
-        ("SPIKE_FILTER_ATR_MULT", "param_overrides.SPIKE_FILTER_ATR_MULT", [1.8, 2.0, 3.0, 3.5]),
-        ("EXTENSION_ATR_MULT", "param_overrides.EXTENSION_ATR_MULT", [2.0, 3.0, 3.5]),
-        ("vol_50_80_sizing_mult", "flags.vol_50_80_sizing_mult", [0.40, 0.50, 0.75, 0.85]),
-        ("short_min_score", "flags.short_min_score", [0, 2, 3]),
-        ("HIGH_VOL_M_THRESHOLD", "param_overrides.HIGH_VOL_M_THRESHOLD", [90, 93, 99]),
-    ]
-    for name, key, values in sweeps:
-        for v in values:
-            exps.append(E(
-                f"sweep_helix_{name}_{v}",
-                "PARAM_SWEEP", "helix",
-                f"Helix {name}={v}",
-                f"Testing {name} at {v} may reveal performance sensitivity",
-                2,
-                {key: v},
-            ))
-
-    return exps
-
-
 def _nqdtc_param_sweeps() -> list[Experiment]:
     """55 parameter sweep experiments for NQDTC."""
     exps: list[Experiment] = []
@@ -328,91 +238,6 @@ def _vdubus_param_sweeps() -> list[Experiment]:
 # ---------------------------------------------------------------------------
 # Priority 3 — Interaction experiments (~40)
 # ---------------------------------------------------------------------------
-
-
-def _helix_interactions() -> list[Experiment]:
-    """12 interaction experiments for Helix."""
-    return [
-        E("int_helix_tight_trail", "INTERACTION", "helix",
-          "Tight trailing: low activation + tight floor",
-          "Tighter trailing may lock profits sooner on smaller moves",
-          3,
-          {"param_overrides.TRAIL_ACTIVATION_R": 0.40, "param_overrides.TRAIL_MULT_FLOOR": 1.25}),
-
-        E("int_helix_loose_trail", "INTERACTION", "helix",
-          "Loose trailing: high activation + wide max",
-          "Looser trailing may let winners run further",
-          3,
-          {"param_overrides.TRAIL_ACTIVATION_R": 0.85, "param_overrides.TRAIL_MULT_MAX": 4.0}),
-
-        E("int_helix_fast_stale", "INTERACTION", "helix",
-          "Fast stale: short stale bars + early stale + short decay",
-          "Faster stale detection may cut dead trades sooner",
-          3,
-          {"param_overrides.STALE_M_BARS": 16, "flags.use_early_stale": True,
-           "param_overrides.TIME_DECAY_BARS": 8}),
-
-        E("int_helix_conservative_risk", "INTERACTION", "helix",
-          "Conservative risk: throttle + low vol sizing + DOW blocks",
-          "Conservative risk combo may smooth equity curve",
-          3,
-          {"flags.use_drawdown_throttle": True, "flags.vol_50_80_sizing_mult": 0.40,
-           "flags.block_monday": True, "flags.block_wednesday": True}),
-
-        E("int_helix_aggressive_entry", "INTERACTION", "helix",
-          "Aggressive entry: class F + ETH Europe + no short min",
-          "Widening entry criteria may increase trade count and opportunity",
-          3,
-          {"flags.use_class_F": True, "flags.enable_ETH_Europe": True,
-           "flags.short_min_score": 0}),
-
-        E("int_helix_minimal_gates", "INTERACTION", "helix",
-          "Minimal gates: no extension, spike, or spread gate",
-          "Removing entry gates may reveal if they add or subtract value",
-          3,
-          {"flags.use_extension_gate": False, "flags.use_spike_filter": False,
-           "flags.use_spread_gate": False}),
-
-        E("int_helix_full_gates", "INTERACTION", "helix",
-          "Full gates: all entry gates enabled",
-          "Maximum filtering may improve win rate at cost of trade count",
-          3,
-          {"flags.use_extension_gate": True, "flags.use_spike_filter": True,
-           "flags.use_min_stop_gate": True, "flags.use_news_guard": True}),
-
-        E("int_helix_mfe_tight", "INTERACTION", "helix",
-          "Tight MFE ratchet: low activation + high floor",
-          "Tight MFE ratchet may protect gains on smaller moves",
-          3,
-          {"param_overrides.MFE_RATCHET_ACTIVATION_R": 1.0,
-           "param_overrides.MFE_RATCHET_FLOOR_PCT": 0.70}),
-
-        E("int_helix_mfe_loose", "INTERACTION", "helix",
-          "Loose MFE ratchet: high activation + low floor",
-          "Loose MFE ratchet may allow bigger runners",
-          3,
-          {"param_overrides.MFE_RATCHET_ACTIVATION_R": 2.0,
-           "param_overrides.MFE_RATCHET_FLOOR_PCT": 0.50}),
-
-        E("int_helix_no_dow_blocks", "INTERACTION", "helix",
-          "No DOW blocks: Monday and Wednesday enabled",
-          "Day-of-week blocks may be superstitious",
-          3,
-          {"flags.block_monday": False, "flags.block_wednesday": False}),
-
-        E("int_helix_high_vol_aggressive", "INTERACTION", "helix",
-          "High vol aggressive: lower threshold + higher sizing mult",
-          "More aggressive high-vol handling may capture bigger moves",
-          3,
-          {"param_overrides.HIGH_VOL_M_THRESHOLD": 90,
-           "flags.vol_50_80_sizing_mult": 0.85}),
-
-        E("int_helix_stall_with_decay", "INTERACTION", "helix",
-          "Momentum stall + faster time decay",
-          "Stall detection with faster decay may exit stalled trades sooner",
-          3,
-          {"flags.use_momentum_stall": True, "param_overrides.TIME_DECAY_BARS": 10}),
-    ]
 
 
 def _nqdtc_interactions() -> list[Experiment]:
@@ -666,28 +491,12 @@ def _portfolio_param_sweeps() -> list[Experiment]:
             f"Max positions at {v} may change concurrent trade profile",
             4, {"portfolio.max_total_positions": v}))
 
-    # Helix-NQDTC cooldown
-    for v in [0, 60, 180, 240, 360]:
-        exps.append(E(
-            f"port_cooldown_{v}m", "PORTFOLIO", "portfolio",
-            f"Helix-NQDTC cooldown = {v} minutes",
-            f"Cooldown at {v}m may change post-trade signal quality",
-            4, {"portfolio.helix_nqdtc_cooldown_minutes": v}))
-
-    # Cooldown session only
-    for v in [True, False]:
-        exps.append(E(
-            f"port_cooldown_session_only_{v}", "PORTFOLIO", "portfolio",
-            f"Cooldown session only = {v}",
-            f"Session-scoped cooldown {'on' if v else 'off'} may change overnight reset behavior",
-            4, {"portfolio.cooldown_session_only": v}))
-
     # NQDTC direction filter
     for v in [True, False]:
         exps.append(E(
             f"port_nqdtc_direction_filter_{v}", "PORTFOLIO", "portfolio",
             f"NQDTC direction filter = {v}",
-            f"Direction filter {'on' if v else 'off'} may change Helix/NQDTC interaction",
+            f"Direction filter {'on' if v else 'off'} may change NQDTC/Vdubus interaction",
             4, {"portfolio.nqdtc_direction_filter_enabled": v}))
 
     # NQDTC agree size mult
@@ -713,14 +522,6 @@ def _portfolio_allocation_sweeps() -> list[Experiment]:
     """Strategy allocation sweeps: base risk, daily stops, concurrency, etc."""
     exps: list[Experiment] = []
 
-    # Helix base risk [index 2]
-    for v in [0.010, 0.020, 0.025]:
-        exps.append(E(
-            f"port_helix_risk_{v}", "PORTFOLIO", "portfolio",
-            f"Helix base risk = {v}",
-            f"Helix risk at {v} may change strategy contribution",
-            4, {"portfolio.strategies[2].base_risk_pct": v}))
-
     # NQDTC base risk [index 1]
     for v in [0.005, 0.010, 0.012]:
         exps.append(E(
@@ -737,14 +538,6 @@ def _portfolio_allocation_sweeps() -> list[Experiment]:
             f"Vdubus risk at {v} may change strategy contribution",
             4, {"portfolio.strategies[0].base_risk_pct": v}))
 
-    # Helix daily stop [index 2]
-    for v in [1.5, 2.5, 3.0]:
-        exps.append(E(
-            f"port_helix_daily_stop_{v}", "PORTFOLIO", "portfolio",
-            f"Helix daily stop = {v}R",
-            f"Helix daily stop at {v}R may change drawdown profile",
-            4, {"portfolio.strategies[2].daily_stop_R": v}))
-
     # NQDTC daily stop [index 1]
     for v in [2.0, 3.0, 3.5]:
         exps.append(E(
@@ -752,14 +545,6 @@ def _portfolio_allocation_sweeps() -> list[Experiment]:
             f"NQDTC daily stop = {v}R",
             f"NQDTC daily stop at {v}R may change drawdown profile",
             4, {"portfolio.strategies[1].daily_stop_R": v}))
-
-    # Helix max concurrent [index 2]
-    for v in [1, 3]:
-        exps.append(E(
-            f"port_helix_max_concurrent_{v}", "PORTFOLIO", "portfolio",
-            f"Helix max concurrent = {v}",
-            f"Helix concurrency at {v} may change capital utilization",
-            4, {"portfolio.strategies[2].max_concurrent": v}))
 
     # NQDTC continuation size mult [index 1]
     for v in [0.40, 0.50, 0.85, 1.0]:
@@ -769,40 +554,12 @@ def _portfolio_allocation_sweeps() -> list[Experiment]:
             f"Continuation sizing at {v}x may change add-on risk",
             4, {"portfolio.strategies[1].continuation_size_mult": v}))
 
-    # Priority reorder permutations
-    exps.append(E(
-        "port_priority_helix_first", "PORTFOLIO", "portfolio",
-        "Priority reorder: Helix first",
-        "Helix priority may improve fill quality in conflicts",
-        4, {"portfolio.priority_order": ["helix", "nqdtc", "vdubus"]}))
-
-    exps.append(E(
-        "port_priority_nqdtc_first", "PORTFOLIO", "portfolio",
-        "Priority reorder: NQDTC first",
-        "NQDTC priority may improve displacement capture",
-        4, {"portfolio.priority_order": ["nqdtc", "helix", "vdubus"]}))
-
-    exps.append(E(
-        "port_priority_vdubus_first", "PORTFOLIO", "portfolio",
-        "Priority reorder: Vdubus first",
-        "Vdubus priority may improve VWAP setup capture",
-        4, {"portfolio.priority_order": ["vdubus", "nqdtc", "helix"]}))
-
     # NQDTC reversal only [index 1]
     exps.append(E(
         "port_nqdtc_reversal_only", "PORTFOLIO", "portfolio",
         "NQDTC reversal only mode",
         "Restricting NQDTC to reversals may improve quality",
         4, {"portfolio.strategies[1].reversal_only": True}))
-
-    # Helix veto
-    for v in [30, 60, 120]:
-        exps.append(E(
-            f"port_helix_veto_{v}m", "PORTFOLIO", "portfolio",
-            f"Helix veto enabled with {v}m window",
-            f"Helix veto at {v}m may prevent conflicting entries",
-            4, {"portfolio.strategies[2].helix_veto_enabled": True,
-                "portfolio.strategies[2].helix_veto_window_minutes": v}))
 
     return exps
 
@@ -828,34 +585,18 @@ def _portfolio_drawdown_tiers() -> list[Experiment]:
 
 
 def _portfolio_strategy_exclusion() -> list[Experiment]:
-    """Strategy exclusion experiments: isolate individual and paired strategies."""
+    """Strategy exclusion experiments for the remaining momentum engines."""
     return [
-        E("port_exclude_helix", "PORTFOLIO", "portfolio",
-          "Exclude Helix: run NQDTC + Vdubus only",
-          "Removing Helix may reveal if it adds portfolio value",
-          4, {"portfolio.run_helix": False}),
-
         E("port_exclude_nqdtc", "PORTFOLIO", "portfolio",
-          "Exclude NQDTC: run Helix + Vdubus only",
+          "Exclude NQDTC: run Vdubus only",
           "Removing NQDTC may reveal if it adds portfolio value",
           4, {"portfolio.run_nqdtc": False}),
 
         E("port_exclude_vdubus", "PORTFOLIO", "portfolio",
-          "Exclude Vdubus: run Helix + NQDTC only",
+          "Exclude Vdubus: run NQDTC only",
           "Removing Vdubus may reveal if it adds portfolio value",
           4, {"portfolio.run_vdubus": False}),
-
-        E("port_helix_nqdtc_only", "PORTFOLIO", "portfolio",
-          "Helix + NQDTC only: exclude Vdubus",
-          "Helix/NQDTC pair may be the core portfolio",
-          4, {"portfolio.run_vdubus": False}),
-
-        E("port_vdubus_only", "PORTFOLIO", "portfolio",
-          "Vdubus only: exclude Helix and NQDTC",
-          "Vdubus standalone may reveal independent performance",
-          4, {"portfolio.run_helix": False, "portfolio.run_nqdtc": False}),
     ]
-
 
 def _portfolio_preset_comparisons() -> list[Experiment]:
     """Preset configuration comparisons."""
@@ -999,7 +740,7 @@ def build_experiment_queue(strategy_filter: str = "all") -> list[Experiment]:
     """Build priority-ordered experiment queue.
 
     Args:
-        strategy_filter: "helix", "nqdtc", "vdubus", "portfolio", or "all"
+        strategy_filter: "nqdtc", "vdubus", "portfolio", or "all"
 
     Returns:
         List of Experiment sorted by (priority, id).
@@ -1007,24 +748,18 @@ def build_experiment_queue(strategy_filter: str = "all") -> list[Experiment]:
     all_experiments: list[Experiment] = []
 
     # Priority 1: Ablation
-    if strategy_filter in ("all", "helix"):
-        all_experiments.extend(_helix_ablation())
     if strategy_filter in ("all", "nqdtc"):
         all_experiments.extend(_nqdtc_ablation())
     if strategy_filter in ("all", "vdubus"):
         all_experiments.extend(_vdubus_ablation())
 
     # Priority 2: Parameter Sweeps
-    if strategy_filter in ("all", "helix"):
-        all_experiments.extend(_helix_param_sweeps())
     if strategy_filter in ("all", "nqdtc"):
         all_experiments.extend(_nqdtc_param_sweeps())
     if strategy_filter in ("all", "vdubus"):
         all_experiments.extend(_vdubus_param_sweeps())
 
     # Priority 3: Interactions
-    if strategy_filter in ("all", "helix"):
-        all_experiments.extend(_helix_interactions())
     if strategy_filter in ("all", "nqdtc"):
         all_experiments.extend(_nqdtc_interactions())
     if strategy_filter in ("all", "vdubus"):

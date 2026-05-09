@@ -5,7 +5,7 @@ from strategies.momentum.instrumentation.src.bootstrap import InstrumentationMan
 def test_handle_risk_denial_uses_enriched_payload():
     """RISK_DENIAL with enriched payload should use symbol/side/signal from payload."""
     oms = MagicMock()
-    mgr = InstrumentationManager(oms, "test_strat", "helix")
+    mgr = InstrumentationManager(oms, "test_strat", "nqdtc")
     # Replace the missed_logger with a mock to capture calls
     mgr.missed_logger = MagicMock()
 
@@ -16,7 +16,7 @@ def test_handle_risk_denial_uses_enriched_payload():
         "side": "LONG",
         "signal_name": "Class_M",
         "signal_strength": 0.667,
-        "strategy_id": "helix",
+        "strategy_id": "nqdtc",
     }
     event.oms_order_id = "ord_123"
     event.timestamp = None

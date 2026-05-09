@@ -58,6 +58,7 @@ class AKCHelixEntryRequest:
     tif: str = "GTC"
     order_role: Literal["entry", "catchup", "rescue", "add"] = "entry"
     limit_price: float | None = None
+    qty: int | None = None
 
 
 @dataclass(slots=True)
@@ -104,6 +105,7 @@ class AKCHelixFill:
     oms_order_id: str
     fill_price: float = 0.0
     fill_qty: int = 0
+    point_value: float = 1.0
     symbol: str = ""
     fill_time: datetime | None = None
     commission: float = 0.0

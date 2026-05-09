@@ -14,6 +14,8 @@ class RegimeContext:
     suggested_leverage_mult: float      # 0-1, recommended sizing scalar
     regime_allocations: dict[str, float]  # {SPY: 0.25, TLT: 0.55, ...}
     computed_at: str = ""                   # ISO timestamp for staleness detection
+    data_as_of: str = ""                    # latest completed return date used
+    data_status: str = ""                   # live cache/fetch/freshness status
 
     def to_snapshot_dict(self) -> dict:
         """Serialize for DailySnapshot instrumentation."""
@@ -25,11 +27,14 @@ class RegimeContext:
             "shift_velocity": self.shift_velocity,
             "suggested_leverage_mult": self.suggested_leverage_mult,
             "computed_at": self.computed_at,
+            "regime_data_as_of": self.data_as_of,
+            "regime_data_status": self.data_status,
         }
 
 
 _APPLIED_CONFIG_SNAPSHOT_KEYS = frozenset({
     "directional_cap_R", "regime_unit_risk_mult",
+    "regime_unit_risk_long_mult", "regime_unit_risk_short_mult",
     "disabled_strategies", "directional_cap_long_R",
     "directional_cap_short_R", "nqdtc_oppose_size_mult",
     "nqdtc_agree_size_mult", "max_family_contracts_mnq_eq",

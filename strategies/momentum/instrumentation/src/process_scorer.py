@@ -53,7 +53,7 @@ class ProcessScorer:
 
     Usage:
         scorer = ProcessScorer("instrumentation/config/process_scoring_rules.yaml")
-        score = scorer.score_trade(trade_event_dict, strategy_type="helix")
+        score = scorer.score_trade(trade_event_dict, strategy_type="nqdtc")
     """
 
     def __init__(self, rules_path: str = "instrumentation/config/process_scoring_rules.yaml"):

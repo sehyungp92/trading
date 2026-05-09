@@ -246,7 +246,7 @@ VOLFACTOR_MIN: float = 0.4
 VOLFACTOR_MAX: float = 1.5
 EXTREME_VOL_PCT: float = 999.0
 LOW_VOL_PCT: float = 20.0
-HIGH_VOL_PCT: float = 80.0
+HIGH_VOL_PCT: float = 68.0
 
 # ---------------------------------------------------------------------------
 # Heat caps (spec s8.3)
@@ -266,7 +266,7 @@ CONSEC_STOPS_HALVE: int = 3
 # ADX
 # ---------------------------------------------------------------------------
 ADX_PERIOD: int = 14
-ADX_UPPER_GATE: float = 55.0
+ADX_UPPER_GATE: float = 60.5
 
 # ---------------------------------------------------------------------------
 # 4H regime EMAs (kept for regime computation)
@@ -282,11 +282,11 @@ CLASS_D_MOM_LOOKBACK: int = 3
 # ---------------------------------------------------------------------------
 # Class B quality-filter parameters
 # ---------------------------------------------------------------------------
-CLASS_B_MOM_LOOKBACK: int = 7
+CLASS_B_MOM_LOOKBACK: int = 5
 CLASS_B_MIN_ADX: float = 28.0
 CLASS_B_MIN_PIVOT_SEP_BARS: int = 8   # reject micro-divergence (pivots < 8 bars apart)
-CLASS_B_BAIL_BARS: int = 10           # R1: bail trigger: exit if R < threshold after N bars
-CLASS_B_BAIL_R_THRESH: float = -0.5   # bail trigger: minimum R to avoid early exit
+CLASS_B_BAIL_BARS: int = 9            # R1: bail trigger: exit if R < threshold after N bars
+CLASS_B_BAIL_R_THRESH: float = -0.35  # bail trigger: minimum R to avoid early exit
 
 # ---------------------------------------------------------------------------
 # Class C min hold (spec s10.4)
@@ -298,6 +298,26 @@ CLASS_C_MIN_HOLD_BARS: int = 12       # min bars before stale can trigger on Cla
 # ---------------------------------------------------------------------------
 CLASS_D_BAIL_BARS: int = 0            # set >0 to enable early bail for momentum trades
 CLASS_D_BAIL_R_THRESH: float = -0.5   # bail if R < threshold after N bars
+
+# Class D quality gates (disabled by default)
+CLASS_D_MIN_ADX: float = 0.0           # all Class D entries require daily ADX >= threshold
+CLASS_D_SHORT_MIN_ADX: float = 0.0     # short-side overlay for weak bear/short alpha
+CLASS_D_HIST_SIGN_GATE: bool = False   # require 1H histogram sign to agree with direction
+CLASS_D_REGIME_STREAK_MIN: int = 2     # require N consecutive daily regime bars before D entry
+
+# Class D pre-entry discriminator.  Defaults are disabled to preserve the
+# baseline unless an optimizer candidate explicitly opts in.
+CLASS_D_MIN_PIVOT_SEP_BARS: int = 4       # reject compressed higher-low/lower-high patterns
+CLASS_D_MAX_PIVOT2_AGE_BARS: int = 0      # reject stale P2 pivots after N 1H bars; 0 disables
+CLASS_D_MIN_PULLBACK_ATR: float = 0.0     # require pullback depth from BOS to P2, normalized by ATR1H
+CLASS_D_MAX_PULLBACK_ATR: float = 0.0     # reject oversized pullbacks; 0 disables
+CLASS_D_MAX_ENTRY_STOP_ATR: float = 0.0   # reject wide entry-to-stop structures; 0 disables
+CLASS_D_MAX_ARM_OVEREXT_ATR: float = 999.0  # reject late/overextended arms past BOS
+CLASS_D_MIN_MACD_DELTA_ATR: float = 0.0   # require current MACD impulse vs P2, normalized by ATR1H
+CLASS_D_HIST_SLOPE_LOOKBACK: int = 0      # require histogram improving over N bars; 0 disables
+CLASS_D_MIN_HIST_DELTA_ATR: float = 0.0   # minimum normalized histogram improvement
+CLASS_D_MAX_DAILY_EXTENSION_ATR: float = 3.5  # reject daily EMA overextension; 0 disables
+CLASS_D_FRESH_BREAK_ATR: float = 0.0      # require fresh continuation beyond close before entry; 0 disables
 
 # ---------------------------------------------------------------------------
 # Size multipliers — Class A (spec s10.1) and Class D (spec s10.5)
@@ -315,6 +335,8 @@ CLASS_D_SIZE_TREND: float = 0.80   # 1H no-div momentum, trend-only
 
 # R1: Class A (4H hidden div) disabled -- zero value in 8-phase optimization
 DISABLE_CLASS_A: bool = True
+DISABLE_CLASS_C: bool = True
+DISABLE_CIRCUIT_BREAKER: bool = True
 
 # ---------------------------------------------------------------------------
 # Divergence magnitude filter (spec s9)
@@ -343,7 +365,7 @@ RESCUE_SLIP_FRAC: float = 0.5
 # ---------------------------------------------------------------------------
 # TTL (spec s12)
 # ---------------------------------------------------------------------------
-TTL_1H_HOURS: int = 12
+TTL_1H_HOURS: int = 6
 TTL_4H_HOURS: int = 12
 TTL_ADD_HOURS: int = 6
 
@@ -351,11 +373,11 @@ TTL_ADD_HOURS: int = 6
 # R milestones (v2.0 — wider stops need more breathing room)
 # ---------------------------------------------------------------------------
 R_BE: float = 1.0               # spec s13.2: +1R transition (4H origin)
-R_BE_1H: float = 1.05
-R_PARTIAL_2P5: float = 2.25
-R_PARTIAL_5: float = 5.0
-BE_ATR1H_OFFSET: float = 0.3
-PARTIAL_2P5_FRAC: float = 0.88
+R_BE_1H: float = 0.756
+R_PARTIAL_2P5: float = 1.8
+R_PARTIAL_5: float = 6.6
+BE_ATR1H_OFFSET: float = 0.08
+PARTIAL_2P5_FRAC: float = 0.968
 PARTIAL_5_FRAC: float = 0.25    # spec s13.4: exit 25% at +5R
 PARTIAL_5_TRAIL_BONUS: float = 0.5
 
@@ -363,9 +385,9 @@ PARTIAL_5_TRAIL_BONUS: float = 0.5
 # Stale exit (spec s13)
 # ---------------------------------------------------------------------------
 EARLY_STALE_BARS: int = 24
-STALE_1H_BARS: int = 30           # reduced stale timeout for 1H-origin
+STALE_1H_BARS: int = 24           # reduced stale timeout for 1H-origin
 STALE_4H_BARS: int = 15           # spec s13.5: 4H-origin stale after 15 4H bars
-STALE_R_THRESH: float = 0.5       # spec s13.5: stale if R_state < +0.5
+STALE_R_THRESH: float = 0.3       # spec s13.5: stale if R_state < +0.5
 STALE_TIGHTEN_ATR_MULT: float = 0.25
 STALE_FLATTEN_R_FLOOR: float = -0.25
 STALE_PROFIT_MULT_OVERRIDE: float = 1.5
@@ -374,10 +396,10 @@ STALE_LOSS_CAP_FRAC: float = 0.3
 # ---------------------------------------------------------------------------
 # Right-then-stopped leakage guard (disabled by default)
 # ---------------------------------------------------------------------------
-RTS_GUARD_MFE_R: float = 0.0             # min peak MFE before guard can arm; <=0 disables
-RTS_GUARD_MIN_GIVEBACK_R: float = 0.35   # required giveback from peak MFE
-RTS_GUARD_FLOOR_R: float = 0.0           # protective stop level in R after decay is detected
-RTS_GUARD_MIN_BARS: int = 4              # ignore first bars to avoid same-bar noise
+RTS_GUARD_MFE_R: float = 0.25            # min peak MFE before guard can arm; <=0 disables
+RTS_GUARD_MIN_GIVEBACK_R: float = 0.05   # required giveback from peak MFE
+RTS_GUARD_FLOOR_R: float = 0.05          # protective stop level in R after decay is detected
+RTS_GUARD_MIN_BARS: int = 10             # ignore first bars to avoid same-bar noise
 RTS_GUARD_FADE_BARS: int = 1             # consecutive adverse MACD histogram bars required
 RTS_GUARD_MAX_MFE_R: float = 1.75        # keep guard focused on small/mid MFE leaks
 RTS_FAIL_FLATTEN_R: float = -999.0       # optional late decay flatten; <=-900 disables
@@ -388,27 +410,27 @@ RTS_FAIL_FLATTEN_R: float = -999.0       # optional late decay flatten; <=-900 d
 TRAIL_MIN: float = 2.0
 TRAIL_MAX: float = 4.0
 TRAIL_BASE: float = 4.0            # spec s14.1: mult_base = max(2.0, 4.0 - R/5)
-TRAIL_R_DIV: float = 5.0
+TRAIL_R_DIV: float = 8.4
 TRAIL_MOM_BONUS: float = 0.5
 TRAIL_CHOP_PENALTY: float = 0.25
 TRAIL_FLIP_PENALTY: float = 0.50
-TRAIL_PROFIT_DELAY_BARS: int = 4
+TRAIL_PROFIT_DELAY_BARS: int = 6
 
 # ---------------------------------------------------------------------------
 # Inline trailing tightening (configurable versions of hardcoded engine values)
 # ---------------------------------------------------------------------------
 # Momentum fade layer
 TRAIL_FADE_ONSET_BARS: int = 2        # negative MACD hist bars before fade triggers
-TRAIL_FADE_PENALTY: float = 0.75      # ATR mult penalty on momentum fade
+TRAIL_FADE_PENALTY: float = 1.32      # ATR mult penalty on momentum fade
 TRAIL_FADE_FLOOR: float = 1.5         # floor after momentum fade
-TRAIL_FADE_MIN_R: float = 1.0         # min R before fade can trigger
+TRAIL_FADE_MIN_R: float = 0.5         # min R before fade can trigger
 # Time-decay layer
-TRAIL_TIMEDECAY_ONSET: int = 20       # bars at R>=1 before time decay starts
+TRAIL_TIMEDECAY_ONSET: int = 25       # bars at R>=1 before time decay starts
 TRAIL_TIMEDECAY_RATE: float = 0.05    # decay rate per bar beyond onset
 TRAIL_TIMEDECAY_FLOOR: float = 2.5    # floor for time-decay trail mult
 # Stall layer
-TRAIL_STALL_ONSET: int = 4
-TRAIL_STALL_RATE: float = 0.08        # stall decay rate per bar
+TRAIL_STALL_ONSET: int = 5
+TRAIL_STALL_RATE: float = 0.1584      # stall decay rate per bar
 TRAIL_STALL_FLOOR: float = 1.5        # floor for stall-decay trail mult
 
 # ---------------------------------------------------------------------------
@@ -439,10 +461,10 @@ TRAIL_STALL_ONSET_CLASS_B: int = 0
 # Adds (spec s15)
 # ---------------------------------------------------------------------------
 ADD_4H_R: float = 0.25
-ADD_1H_R: float = 0.9             # R1: 1H-origin add after +0.9R
-ADD_RISK_FRAC: float = 1.43
+ADD_1H_R: float = 0.7776          # R1: 1H-origin add after +0.9R
+ADD_RISK_FRAC: float = 2.0592
 ADD_MIN_BARS: int = 2
-ADD_MAX_BARS: int = 35             # extended window (avg hold ~30 bars)
+ADD_MAX_BARS: int = 18             # extended window (avg hold ~30 bars)
 ADD_OVERNIGHT_R: float = 2.0
 ADD_PRICE_GATE_ATR_MULT: float = 0.5  # price-based add: price > BoS + 0.5×ATR
 

@@ -55,7 +55,7 @@ from backtests.swing.analysis.reports import (
 )
 from backtests.swing.config import AblationFlags, BacktestConfig, SlippageConfig
 from backtests.swing.engine.portfolio_engine import PortfolioResult, run_synchronized
-from backtests.diagnostic_snapshot import build_group_snapshot
+from backtests.shared.diagnostics.snapshot import build_group_snapshot
 from backtests.swing.analysis.optimized_baseline import (
     load_phase_mutation_source,
     summarize_optimizer_reference,
@@ -129,7 +129,14 @@ def main():
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
     parser.add_argument("--summary-json", default="", help="Optional path to save a machine-readable summary.")
     parser.add_argument("--title", default="", help="Optional report title override.")
+    parser.add_argument(
+        "--equity",
+        type=float,
+        default=INITIAL_EQUITY,
+        help="Initial equity for the replay. Use the same value across strategies for like-for-like diagnostics.",
+    )
     args = parser.parse_args()
+    initial_equity = float(args.equity)
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -141,7 +148,7 @@ def main():
     # Base config (matches plugin.py baseline)
     base_config = BacktestConfig(
         symbols=["QQQ", "GLD"],
-        initial_equity=INITIAL_EQUITY,
+        initial_equity=initial_equity,
         data_dir=DATA_DIR,
         flags=AblationFlags(stall_exit=False),
         slippage=SlippageConfig(commission_per_contract=1.00),
@@ -184,6 +191,7 @@ def main():
         "phase_result": source.phase_result,
         "phase_label": source.phase_label,
         "execution_mode": "synchronized",
+        "initial_equity": initial_equity,
         "state_path": str(source.state_path),
         "mutations": mutations,
     }
@@ -192,9 +200,10 @@ def main():
         _out("=" * 80, f)
         _out(report_title, f)
         _out(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", f)
-        _out(f"Initial Equity: ${INITIAL_EQUITY:,.0f}", f)
+        _out(f"Initial Equity: ${initial_equity:,.0f}", f)
         _out(f"Symbols: {', '.join(config.symbols)}", f)
         _out("Execution mode: synchronized/shared-capital", f)
+        _out("Comparable basis: current-code final optimized config replay", f)
         _out(f"Mutation source: {source.state_path}", f)
         _out(f"Base: stall_exit=False, commission=$1.00/contract", f)
         for mk, mv in sorted(mutations.items()):
@@ -221,7 +230,10 @@ def main():
             eq = result.combined_equity
 
             pf = _net_profit_factor(all_trades)
-            max_dd_pct, max_dd_dollar = compute_max_drawdown(eq) if len(eq) > 1 else (0, 0)
+            final_equity = float(eq[-1]) if len(eq) else initial_equity + total_pnl
+            net_return_pct = (final_equity - initial_equity) / initial_equity * 100.0
+            open_mtm_pnl = final_equity - initial_equity - total_pnl
+            max_dd_fraction, max_dd_dollar = compute_max_drawdown(eq) if len(eq) > 1 else (0, 0)
 
             sharpe = compute_sharpe(eq) if len(eq) > 1 else 0.0
             sortino = compute_sortino(eq) if len(eq) > 1 else 0.0
@@ -230,9 +242,14 @@ def main():
                     "total_trades": len(all_trades),
                     "win_rate_pct": wr,
                     "profit_factor": pf,
+                    "equity_basis": "mark_to_market",
                     "total_r": total_r,
                     "total_pnl": total_pnl,
-                    "max_drawdown_pct": max_dd_pct,
+                    "open_mtm_pnl": open_mtm_pnl,
+                    "final_equity": final_equity,
+                    "net_return_pct": net_return_pct,
+                    "max_drawdown_fraction": max_dd_fraction,
+                    "max_drawdown_pct": max_dd_fraction * 100.0,
                     "max_drawdown_dollars": max_dd_dollar,
                     "sharpe": sharpe,
                     "sortino": sortino,
@@ -247,7 +264,10 @@ def main():
             _out(f"  Profit factor:   {pf:.2f}", f)
             _out(f"  Total R:         {total_r:+.2f}", f)
             _out(f"  Total PnL:       ${total_pnl:+,.2f}", f)
-            _out(f"  Max drawdown:    {max_dd_pct:.2%} (${max_dd_dollar:,.2f})", f)
+            _out(f"  Open MTM PnL:    ${open_mtm_pnl:+,.2f}", f)
+            _out(f"  Final equity:    ${final_equity:,.2f}", f)
+            _out(f"  Net return:      {net_return_pct:+.1f}%", f)
+            _out(f"  Max drawdown:    {max_dd_fraction:.2%} (${max_dd_dollar:,.2f})", f)
             _out(f"  Sharpe:          {sharpe:.2f}", f)
             _out(f"  Sortino:         {sortino:.2f}", f)
             _out(f"  Avg R:           {np.mean([t.r_multiple for t in all_trades]):+.3f}", f)

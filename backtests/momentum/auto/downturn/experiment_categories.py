@@ -306,7 +306,7 @@ def _structural_experiments() -> list[tuple[str, dict]]:
 
 
 # ---------------------------------------------------------------------------
-# FAST_CRASH (~8) -- BRS-inspired fast-crash override paths E/F/G
+# FAST_CRASH (~8) -- fast-crash override paths E/F/G
 # ---------------------------------------------------------------------------
 
 def _fast_crash_experiments() -> list[tuple[str, dict]]:
@@ -370,7 +370,7 @@ def _conviction_experiments() -> list[tuple[str, dict]]:
 # ---------------------------------------------------------------------------
 
 def _exit_v2_experiments() -> list[tuple[str, dict]]:
-    """BRS-inspired exit enhancements."""
+    """Exit enhancements."""
     exps = []
     # Multi-tier profit floor with scales
     for scale in [0.8, 1.0, 1.2, 1.5]:

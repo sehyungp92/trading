@@ -29,6 +29,7 @@ from libs.oms.risk.calculator import RiskCalculator
 from libs.services.trade_recorder import TradeRecorder
 
 from . import allocator, gates, signals, stops
+from .circuit import roll_circuit_breaker_window
 from .core import logic as akc_helix_core_logic
 from .core.logic import apply_core_state as apply_core_runtime_state
 from .core.logic import build_core_state as build_core_runtime_state
@@ -60,9 +61,14 @@ from .config import (
     CLASS_B_BAIL_R_THRESH,
     CLASS_B_MIN_ADX,
     CLASS_B_MOM_LOOKBACK,
+    CLASS_D_HIST_SIGN_GATE,
+    CLASS_D_MIN_ADX,
+    CLASS_D_REGIME_STREAK_MIN,
+    CLASS_D_SHORT_MIN_ADX,
     CONSEC_STOPS_HALVE,
     DAILY_STOP_R,
     DISABLE_CLASS_A,
+    DISABLE_CLASS_C,
     EARLY_STALE_BARS,
     EMA_4H_FAST,
     EMA_4H_SLOW,
@@ -91,13 +97,23 @@ from .config import (
     STOP_1H_STD,
     STRATEGY_ID,
     SYMBOL_CONFIGS,
+    TRAIL_BASE_CLASS_B,
+    TRAIL_BASE_CLASS_D,
     TRAIL_FADE_FLOOR,
     TRAIL_FADE_MIN_R,
+    TRAIL_FADE_MIN_R_CLASS_D,
     TRAIL_FADE_ONSET_BARS,
     TRAIL_FADE_PENALTY,
+    TRAIL_FADE_PENALTY_CLASS_D,
+    TRAIL_MIN,
     TRAIL_PROFIT_DELAY_BARS,
+    TRAIL_R_DIV,
+    TRAIL_R_DIV_CLASS_B,
+    TRAIL_R_DIV_CLASS_D,
     TRAIL_STALL_FLOOR,
     TRAIL_STALL_ONSET,
+    TRAIL_STALL_ONSET_CLASS_B,
+    TRAIL_STALL_ONSET_CLASS_D,
     TRAIL_STALL_RATE,
     TRAIL_TIMEDECAY_FLOOR,
     TRAIL_TIMEDECAY_ONSET,
@@ -305,6 +321,7 @@ class HelixEngine:
         order_type: str = "STOP_LIMIT",
         order_role: str = "entry",
         limit_price: float | None = None,
+        qty: int | None = None,
     ) -> SetupInstance:
         self._apply_core_bar_transition(
             bar_ts=bar_ts,
@@ -314,6 +331,7 @@ class HelixEngine:
                 order_type=order_type,
                 order_role=order_role,
                 limit_price=limit_price,
+                qty=qty,
             ),
         )
         if order_role == "entry":
@@ -962,6 +980,8 @@ class HelixEngine:
 
             # Check no pause active
             cb = self.circuit_breakers.get(setup.symbol, CircuitBreakerState())
+            cb = roll_circuit_breaker_window(cb, now_et)
+            self.circuit_breakers[setup.symbol] = cb
             if not gates.circuit_breaker_ok(cb, now):
                 if self._kit:
                     self._kit.log_missed(
@@ -1111,7 +1131,7 @@ class HelixEngine:
                     continue  # one setup per symbol per cycle
 
             # Class C: 4H classic divergence reversal (only on 4H boundary, gated)
-            if is_4h_boundary and tf4h is not None and pivots_4h is not None and not _4h_disabled_by_corridor:
+            if is_4h_boundary and tf4h is not None and pivots_4h is not None and not _4h_disabled_by_corridor and not DISABLE_CLASS_C:
                 setup_c = signals.detect_class_c(
                     sym, pivots_4h, daily, tf4h, cfg, div_hist, now,
                 )
@@ -1190,6 +1210,45 @@ class HelixEngine:
                     sym, pivots_1h, daily, tf1h, cfg, now,
                 )
                 if setup_1h is not None:
+                    d_rejections: list[str] = []
+                    if CLASS_D_MIN_ADX > 0 and daily.adx < CLASS_D_MIN_ADX:
+                        d_rejections.append("class_d_low_adx")
+                    if (
+                        setup_1h.direction == Direction.SHORT
+                        and CLASS_D_SHORT_MIN_ADX > 0
+                        and daily.adx < CLASS_D_SHORT_MIN_ADX
+                    ):
+                        d_rejections.append("class_d_short_low_adx")
+                    if CLASS_D_HIST_SIGN_GATE:
+                        hist = tf1h.macd_hist
+                        if setup_1h.direction == Direction.LONG and hist <= 0:
+                            d_rejections.append("class_d_hist_sign")
+                        elif setup_1h.direction == Direction.SHORT and hist >= 0:
+                            d_rejections.append("class_d_hist_sign")
+                    if (
+                        CLASS_D_REGIME_STREAK_MIN > 0
+                        and self._regime_streaks.get(sym, 0) < CLASS_D_REGIME_STREAK_MIN
+                    ):
+                        d_rejections.append("class_d_regime_streak")
+                    if d_rejections:
+                        if self._kit:
+                            self._kit.log_missed(
+                                pair=sym,
+                                side="LONG" if setup_1h.direction == Direction.LONG else "SHORT",
+                                signal=setup_1h.setup_class.value,
+                                signal_id=setup_1h.setup_id,
+                                signal_strength=0.5,
+                                blocked_by="class_d_quality_filter",
+                                block_reason=",".join(d_rejections),
+                                strategy_params={
+                                    "adx": daily.adx,
+                                    "hist": tf1h.macd_hist,
+                                    "regime_streak": self._regime_streaks.get(sym, 0),
+                                },
+                            )
+                        setup_1h = None
+
+                if setup_1h is not None:
                     # Pivot dedup for Class D (2M)
                     _d_ok = True
                     if setup_1h.pivot_2 is not None:
@@ -1233,9 +1292,8 @@ class HelixEngine:
 
         # Compute unit1 risk
         vf = daily.vol_factor
-        setup.unit1_risk_dollars = allocator.compute_unit1_risk(
-            self._equity, cfg.base_risk_pct, vf,
-        )
+        base_unit1_risk = allocator.compute_unit1_risk(self._equity, cfg.base_risk_pct, vf)
+        setup.base_unit1_risk_dollars = base_unit1_risk
         setup.vol_factor_at_placement = vf
 
         # Rule 2: size boost when ATRSS has a concurrent position on same symbol+direction
@@ -1262,11 +1320,17 @@ class HelixEngine:
                     outcome="applied",
                 )
 
+        target_initial_risk = base_unit1_risk * effective_size_mult
+        setup.target_initial_risk_dollars = target_initial_risk
+        setup.actual_initial_risk_dollars = 0.0
+        setup.risk_utilization = 0.0
+        setup.unit1_risk_dollars = target_initial_risk if target_initial_risk > 0 else base_unit1_risk
+
         # Position size
         if setup.qty_planned <= 0:
             setup.qty_planned = allocator.compute_position_size(
                 setup.bos_level, setup.stop0,
-                setup.unit1_risk_dollars, effective_size_mult,
+                base_unit1_risk, effective_size_mult,
                 inst.point_value, cfg.max_contracts,
             )
         if setup.qty_planned <= 0:
@@ -1325,6 +1389,8 @@ class HelixEngine:
                 pending_r += r
 
         cb = self.circuit_breakers.get(setup.symbol, CircuitBreakerState())
+        cb = roll_circuit_breaker_window(cb, now_et)
+        self.circuit_breakers[setup.symbol] = cb
         ok, reason = gates.full_eligibility_check(
             setup, now_et, daily, cfg, spread_ticks,
             portfolio_r, pending_r, instrument_r, cb,
@@ -1468,6 +1534,7 @@ class HelixEngine:
                 client_order_id=receipt.oms_order_id,
                 order_type=primary_order.order_type.value if hasattr(primary_order.order_type, "value") else str(primary_order.order_type),
                 limit_price=primary_order.limit_price,
+                qty=primary_order.qty,
             )
             self._record_decision("ENTRY_SUBMITTED", {
                 "symbol": setup.symbol,
@@ -1807,8 +1874,9 @@ class HelixEngine:
 
         # R_state includes realized PnL from partials (spec s13.1)
         pv = inst.point_value
-        unrealized = (tf1h.close - setup.fill_price) * pv * setup.qty_open if setup.direction == Direction.LONG \
-            else (setup.fill_price - tf1h.close) * pv * setup.qty_open
+        cost_basis = setup.avg_entry_price or setup.fill_price
+        unrealized = (tf1h.close - cost_basis) * pv * setup.qty_open if setup.direction == Direction.LONG \
+            else (cost_basis - tf1h.close) * pv * setup.qty_open
         r_state = (setup.realized_pnl + unrealized) / setup.unit1_risk_dollars if setup.unit1_risk_dollars > 0 else r_now
 
         # Catastrophic loss protection: flatten if loss exceeds -2R
@@ -1978,9 +2046,34 @@ class HelixEngine:
                 setup.trailing_mult_bonus,
             )
 
+            cls_name = setup.setup_class.name if hasattr(setup.setup_class, "name") else str(setup.setup_class)
+            if cls_name == "D" and TRAIL_BASE_CLASS_D > 0:
+                trail_mult = max(
+                    TRAIL_MIN,
+                    TRAIL_BASE_CLASS_D - r_state / (TRAIL_R_DIV_CLASS_D or TRAIL_R_DIV),
+                )
+            elif cls_name == "B" and TRAIL_BASE_CLASS_B > 0:
+                trail_mult = max(
+                    TRAIL_MIN,
+                    TRAIL_BASE_CLASS_B - r_state / (TRAIL_R_DIV_CLASS_B or TRAIL_R_DIV),
+                )
+
+            if cls_name == "D" and TRAIL_STALL_ONSET_CLASS_D > 0:
+                fade_penalty = TRAIL_FADE_PENALTY_CLASS_D or TRAIL_FADE_PENALTY
+                fade_min_r = TRAIL_FADE_MIN_R_CLASS_D or TRAIL_FADE_MIN_R
+                stall_onset = TRAIL_STALL_ONSET_CLASS_D
+            elif cls_name == "B" and TRAIL_STALL_ONSET_CLASS_B > 0:
+                fade_penalty = TRAIL_FADE_PENALTY
+                fade_min_r = TRAIL_FADE_MIN_R
+                stall_onset = TRAIL_STALL_ONSET_CLASS_B
+            else:
+                fade_penalty = TRAIL_FADE_PENALTY
+                fade_min_r = TRAIL_FADE_MIN_R
+                stall_onset = TRAIL_STALL_ONSET
+
             # Momentum fade tightening
-            if setup.bars_neg_fading_hist >= TRAIL_FADE_ONSET_BARS and r_state > TRAIL_FADE_MIN_R:
-                trail_mult = max(TRAIL_FADE_FLOOR, trail_mult - TRAIL_FADE_PENALTY)
+            if setup.bars_neg_fading_hist >= TRAIL_FADE_ONSET_BARS and r_state > fade_min_r:
+                trail_mult = max(TRAIL_FADE_FLOOR, trail_mult - fade_penalty)
 
             # Time-decay trailing: after onset bars at +1R, tighten per bar
             if setup.bars_at_r1 > TRAIL_TIMEDECAY_ONSET:
@@ -1989,7 +2082,7 @@ class HelixEngine:
 
             # Stalled winner decay: profitable but no new MFE for onset+ bars
             bars_since_peak = setup.bars_held_1h - setup.bar_of_max_mfe
-            if r_state > 0.5 and bars_since_peak >= TRAIL_STALL_ONSET:
+            if r_state > 0.5 and bars_since_peak >= stall_onset:
                 stall_decay = min(1.0, bars_since_peak * TRAIL_STALL_RATE)
                 trail_mult = max(TRAIL_STALL_FLOOR, trail_mult - stall_decay)
 
@@ -1999,7 +2092,7 @@ class HelixEngine:
             )
             # Determine trail source for exit reason granularity
             _trail_source = "TRAIL"
-            if bars_since_peak >= TRAIL_STALL_ONSET and r_state > 0.5:
+            if bars_since_peak >= stall_onset and r_state > 0.5:
                 _trail_source = "TRAIL_STALL"
             if setup.direction == Direction.LONG and chandelier > new_stop:
                 new_stop = chandelier
@@ -2268,10 +2361,11 @@ class HelixEngine:
             # will be corrected on actual fill in _on_fill)
             tf1h = self.tf_states.get(setup.symbol, {}).get("1H")
             if tf1h and inst:
+                cost_basis = setup.avg_entry_price or setup.fill_price
                 if setup.direction == Direction.LONG:
-                    partial_pnl = (tf1h.close - setup.fill_price) * inst.point_value * qty
+                    partial_pnl = (tf1h.close - cost_basis) * inst.point_value * qty
                 else:
-                    partial_pnl = (setup.fill_price - tf1h.close) * inst.point_value * qty
+                    partial_pnl = (cost_basis - tf1h.close) * inst.point_value * qty
                 setup.realized_pnl += partial_pnl
                 setup._partial_pnl_estimate = partial_pnl  # store for correction on fill
             setup.qty_open -= qty
@@ -2522,6 +2616,7 @@ class HelixEngine:
             oms_order_id=oms_order_id,
             fill_price=fill_price,
             fill_qty=fill_qty,
+            point_value=float(getattr(self._instruments.get(setup.symbol), "point_value", 1.0) or 1.0),
             symbol=setup.symbol,
             fill_time=fill_time,
             commission=float(payload.get("commission", 0) or 0),
@@ -2668,10 +2763,11 @@ class HelixEngine:
                     inst = self._instruments.get(setup.symbol)
                     pv = inst.point_value if inst else 1.0
                     estimate = getattr(pre_setup, '_partial_pnl_estimate', 0.0)
+                    cost_basis = setup.avg_entry_price or setup.fill_price
                     if setup.direction == Direction.LONG:
-                        actual_pnl = (fill_price - setup.fill_price) * pv * pending_qty
+                        actual_pnl = (fill_price - cost_basis) * pv * pending_qty
                     else:
-                        actual_pnl = (setup.fill_price - fill_price) * pv * pending_qty
+                        actual_pnl = (cost_basis - fill_price) * pv * pending_qty
                     correction = actual_pnl - estimate
                     setup.realized_pnl += correction
                     setup._pending_partial_qty = 0
@@ -2745,17 +2841,12 @@ class HelixEngine:
         pv = inst.point_value if inst else 1.0
 
         # Compute R and PnL
-        if setup.r_price > 0:
-            if setup.direction == Direction.LONG:
-                realized_r = (fill_price - setup.fill_price) / setup.r_price
-            else:
-                realized_r = (setup.fill_price - fill_price) / setup.r_price
-        else:
-            realized_r = 0.0
+        cost_basis = setup.avg_entry_price or setup.fill_price
         if setup.direction == Direction.LONG:
-            pnl_usd = (fill_price - setup.fill_price) * pv * setup.qty_open
+            pnl_usd = (fill_price - cost_basis) * pv * setup.qty_open + setup.realized_pnl
         else:
-            pnl_usd = (setup.fill_price - fill_price) * pv * setup.qty_open
+            pnl_usd = (cost_basis - fill_price) * pv * setup.qty_open + setup.realized_pnl
+        realized_r = pnl_usd / setup.unit1_risk_dollars if setup.unit1_risk_dollars > 0 else 0.0
 
         # Record exit
         if self._recorder and setup.trade_id:
@@ -2774,6 +2865,11 @@ class HelixEngine:
 
         # Update circuit breaker
         cb = self.circuit_breakers.get(setup.symbol, CircuitBreakerState())
+        try:
+            cb_time = fill_time.astimezone(ET)
+        except Exception:
+            cb_time = fill_time
+        cb = roll_circuit_breaker_window(cb, cb_time)
         cb.daily_realized_r += realized_r
         cb.weekly_realized_r += realized_r
         if realized_r < 0:
@@ -3394,4 +3490,3 @@ class HelixEngine:
         if con_id and con_id in self._contract_symbol_by_conid:
             return self._contract_symbol_by_conid[con_id]
         return str(getattr(contract, "symbol", "") or "").upper()
-

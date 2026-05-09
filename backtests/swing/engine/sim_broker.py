@@ -236,6 +236,19 @@ class SimBroker:
             return self._fill_limit(order, bar_time, O, H, L, tick_size)
         return None
 
+    def fill_market_order(
+        self,
+        order: SimOrder,
+        bar_time: datetime,
+        price: float,
+        tick_size: float,
+        extra_slip: bool = False,
+    ) -> FillResult:
+        """Fill an immediate market order through the broker friction model."""
+        if order.order_type != OrderType.MARKET:
+            raise ValueError("fill_market_order only supports market orders")
+        return self._fill_market(order, bar_time, price, tick_size, extra_slip)
+
     def _get_slippage_ticks(
         self,
         bar_time: datetime,

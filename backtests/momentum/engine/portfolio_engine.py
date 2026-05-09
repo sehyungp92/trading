@@ -1,8 +1,8 @@
 """Post-hoc portfolio simulation engine.
 
 Runs each strategy independently, then merges trade lists and simulates
-portfolio rules (heat cap, directional cap, daily/weekly stops, proximity
-cooldown, drawdown tiers, NQDTC continuation sizing, etc.) on the unified
+portfolio rules (heat cap, directional cap, daily/weekly stops, drawdown
+tiers, NQDTC continuation sizing, etc.) on the unified
 timeline.  Position sizes are computed from equity * base_risk_pct, not
 fixed_qty — this reflects realistic $10K account sizing.
 """
@@ -19,7 +19,7 @@ from backtests.shared.parity.legacy_result_outputs import (
     trade_outcomes_from_records,
 )
 from backtests.momentum.config_portfolio import PortfolioBacktestConfig
-from libs.oms.config.portfolio_config import PortfolioConfig, StrategyAllocation
+from libs.oms.config.portfolio_config import PortfolioConfig
 
 # ---------------------------------------------------------------------------
 # ET timezone offset helpers (US Eastern approximation for futures)
@@ -163,8 +163,6 @@ class _PortfolioState:
     weekly_pnl_R: float = 0.0
     current_week: tuple[int, int] = (0, 0)
 
-    # Last entry time per strategy (for proximity cooldown)
-    last_entry_time: dict[str, datetime] = field(default_factory=dict)
 
     # Last NQDTC direction (for Vdubus direction filter)
     last_nqdtc_direction: int = 0
@@ -174,27 +172,6 @@ class _PortfolioState:
 # ---------------------------------------------------------------------------
 # Trade conversion from strategy-specific records
 # ---------------------------------------------------------------------------
-
-def _from_helix(trade) -> PortfolioTrade:
-    """Convert Helix4TradeRecord -> PortfolioTrade."""
-    return PortfolioTrade(
-        strategy_id="Helix",
-        direction=trade.direction,
-        entry_time=trade.entry_time,
-        exit_time=trade.exit_time,
-        entry_price=trade.avg_entry,
-        exit_price=trade.exit_price,
-        initial_stop=trade.initial_stop,
-        raw_pnl_dollars=trade.pnl_dollars,
-        raw_qty=trade.entry_contracts,
-        r_multiple=trade.r_multiple,
-        mfe_r=trade.mfe_r,
-        mae_r=trade.mae_r,
-        commission_per_contract=trade.commission / max(trade.entry_contracts * 2, 1),
-        exit_reason=trade.exit_reason,
-        session=trade.session_at_entry,
-    )
-
 
 def _from_nqdtc(trade) -> PortfolioTrade:
     """Convert NQDTCTradeRecord -> PortfolioTrade."""
@@ -257,25 +234,18 @@ class PortfolioBacktester:
 
     def run(
         self,
-        helix_trades: list | None = None,
         nqdtc_trades: list | None = None,
         vdubus_trades: list | None = None,
     ) -> PortfolioResult:
         """Run the portfolio simulation.
 
         Args:
-            helix_trades: List of Helix4TradeRecord from independent run.
             nqdtc_trades: List of NQDTCTradeRecord from independent run.
             vdubus_trades: List of VdubusTradeRecord from independent run.
         """
         # 1. Convert all trades to normalized PortfolioTrade
         all_trades: list[PortfolioTrade] = []
 
-        if helix_trades and self.config.run_helix:
-            for t in helix_trades:
-                pt = _from_helix(t)
-                if self._in_date_range(pt):
-                    all_trades.append(pt)
 
         if nqdtc_trades and self.config.run_nqdtc:
             for t in nqdtc_trades:
@@ -505,35 +475,6 @@ class PortfolioBacktester:
             self._deny(trade, result, "directional_cap")
             return
 
-        # 8. Helix veto (NQDTC blocked if Helix traded recently)
-        if alloc.helix_veto_enabled and trade.entry_time:
-            helix_last = state.last_entry_time.get("Helix")
-            if helix_last:
-                elapsed = (trade.entry_time - helix_last).total_seconds() / 60.0
-                if elapsed < alloc.helix_veto_window_minutes:
-                    self._deny(trade, result, "helix_veto")
-                    return
-
-        # 9. Proximity cooldown (bidirectional Helix <-> NQDTC)
-        if pc.helix_nqdtc_cooldown_minutes > 0 and trade.entry_time:
-            if trade.strategy_id in ("Helix", "NQDTC"):
-                apply_cooldown = True
-                if pc.cooldown_session_only:
-                    et = _to_et(trade.entry_time)
-                    hour_min = et.hour * 60 + et.minute
-                    # Only enforce during 09:45-11:30 ET overlap window
-                    if not (9 * 60 + 45 <= hour_min <= 11 * 60 + 30):
-                        apply_cooldown = False
-
-                if apply_cooldown:
-                    other = "NQDTC" if trade.strategy_id == "Helix" else "Helix"
-                    other_last = state.last_entry_time.get(other)
-                    if other_last:
-                        elapsed = (trade.entry_time - other_last).total_seconds() / 60.0
-                        if elapsed < pc.helix_nqdtc_cooldown_minutes:
-                            self._deny(trade, result, "proximity_cooldown")
-                            return
-
         # --- Size multiplier accumulation ---
         size_mult = 1.0
 
@@ -617,9 +558,6 @@ class PortfolioBacktester:
             entry_time=trade.entry_time,
         ))
 
-        # Update last entry time
-        if trade.entry_time:
-            state.last_entry_time[trade.strategy_id] = trade.entry_time
 
     # ------------------------------------------------------------------
     # Exit processing

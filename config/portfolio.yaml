@@ -30,11 +30,7 @@ coordination:
       target: {strategy: AKC_HELIX, action: SIZE_BOOST}
       condition: SAME_SYMBOL_SAME_DIRECTION
       params: {size_mult: 1.25}
-  cooldown_pairs:
-    - strategies: [AKC_Helix_v40, "NQDTC_v2.1"]
-      minutes: 30
-      session_only: true
-      session_window: ["09:45", "11:30"]
+  cooldown_pairs: []
   direction_filter:
     observer: VdubusNQ_v4
     reference: "NQDTC_v2.1"
@@ -48,6 +44,6 @@ coordination:
     size_mult: 0.70
 
 # stock_coordination: removed — stock coordinator hardcodes its PortfolioRulesConfig
-# directly (family-scoped 6.25R directional cap + half_size symbol collision
+# directly (family-scoped 6.5R/6.25R directional caps + half_size symbol collision
 # + 1.15R priority headroom). See strategies/stock/coordinator.py for the
 # authoritative config.

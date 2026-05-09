@@ -50,7 +50,7 @@ class TestMissedOpportunityLogger:
             signal="Class M bullish", signal_id="class_m_bull",
             signal_strength=0.75, blocked_by="volume_filter",
             block_reason="Volume below threshold",
-            strategy_type="helix", market_regime="trending_up",
+            strategy_type="nqdtc", market_regime="trending_up",
         )
         assert event.pair == "NQ"
         assert event.side == "LONG"
@@ -165,7 +165,7 @@ class TestMissedOpportunityEventNewFields:
         event = MissedOpportunityEvent(
             event_metadata={}, market_snapshot={},
             filter_decisions=[{"filter": "dow_block", "passed": False, "reason": "Wednesday"}],
-            coordination_context={"helix_active": True, "heat_R": 2.1},
+            coordination_context={"nqdtc_active": True, "heat_R": 2.1},
             concurrent_positions_at_signal=3,
             session_type="RTH_CORE",
             drawdown_pct=1.5,
@@ -173,7 +173,7 @@ class TestMissedOpportunityEventNewFields:
         )
         d = event.to_dict()
         assert d["filter_decisions"] == [{"filter": "dow_block", "passed": False, "reason": "Wednesday"}]
-        assert d["coordination_context"] == {"helix_active": True, "heat_R": 2.1}
+        assert d["coordination_context"] == {"nqdtc_active": True, "heat_R": 2.1}
         assert d["concurrent_positions_at_signal"] == 3
         assert d["session_type"] == "RTH_CORE"
         assert d["drawdown_pct"] == 1.5

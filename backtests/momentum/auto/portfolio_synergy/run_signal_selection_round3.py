@@ -11,6 +11,7 @@ from typing import Any
 
 from backtests.momentum.auto.portfolio_synergy.family_phase_auto import (
     SCORE_WEIGHTS,
+    _load_mtm_price_bars_for_scoring,
     apply_portfolio_mutations,
     headline_mtm_metric_package,
     score_metrics,
@@ -105,6 +106,7 @@ def run_round3(
             encoding="utf-8",
         )
     replay_bundle = build_family_replay_bundle(trades_by_strategy)
+    price_bars = _load_mtm_price_bars_for_scoring(data_dir)
 
     split_time = _split_time(base_config, replay_bundle)
     current_config = base_config
@@ -116,6 +118,7 @@ def run_round3(
         split_time,
         baseline_validation_score=None,
         filter_rules=(),
+        price_bars=price_bars,
     )
     phase_records: list[dict[str, Any]] = []
     _write_json(output_dir / "baseline.json", _evaluation_record(current_eval))
@@ -129,9 +132,10 @@ def run_round3(
             current_eval=current_eval,
             max_workers=max_workers,
             validation_min_delta=validation_min_delta,
+            price_bars=price_bars,
         )
         viable = [item for item in evaluations if not item.rejected and item.robust_pass]
-        best = max(viable, key=lambda item: item.score, default=None)
+        best = max(viable, key=_round3_selection_key, default=None)
         accepted = bool(
             best
             and best.score > current_eval.score + min_delta
@@ -152,7 +156,12 @@ def run_round3(
         _write_json(output_dir / f"phase_{phase}.json", record)
 
     final_result = FamilyPortfolioBacktester(current_config).run_bundle(replay_bundle)
-    final_metric_package = headline_mtm_metric_package(current_config, final_result, data_dir=data_dir)
+    final_metric_package = headline_mtm_metric_package(
+        current_config,
+        final_result,
+        data_dir=data_dir,
+        price_bars=price_bars,
+    )
     final_scored = score_metrics(final_metric_package["headline_metrics"])
     final_validation_result = FamilyPortfolioBacktester(
         replace(current_config, start_date=split_time, end_date=None)
@@ -161,6 +170,7 @@ def run_round3(
         replace(current_config, start_date=split_time, end_date=None),
         final_validation_result,
         data_dir=data_dir,
+        price_bars=price_bars,
     )
     final_validation_scored = score_metrics(final_validation_metric_package["headline_metrics"])
     summary = {
@@ -223,15 +233,29 @@ def evaluate_round3_config(
     baseline_validation_net_profit: float | None = None,
     validation_min_delta: float = 0.0,
     filter_rules: tuple[FamilySignalFilterRule, ...] = (),
+    price_bars: Any = None,
 ) -> Round3Evaluation:
     full_result = FamilyPortfolioBacktester(config).run_bundle(replay_bundle)
-    full_scored = score_metrics(full_result.metrics)
+    full_metric_package = headline_mtm_metric_package(config, full_result, price_bars=price_bars)
+    full_metrics = full_metric_package["headline_metrics"]
+    full_scored = score_metrics(full_metrics)
     train_result = FamilyPortfolioBacktester(replace(config, end_date=split_time)).run_bundle(replay_bundle)
+    train_metric_package = headline_mtm_metric_package(
+        replace(config, end_date=split_time),
+        train_result,
+        price_bars=price_bars,
+    )
     validation_result = FamilyPortfolioBacktester(replace(config, start_date=split_time, end_date=None)).run_bundle(replay_bundle)
-    validation_scored = score_metrics(validation_result.metrics)
+    validation_metric_package = headline_mtm_metric_package(
+        replace(config, start_date=split_time, end_date=None),
+        validation_result,
+        price_bars=price_bars,
+    )
+    validation_metrics = validation_metric_package["headline_metrics"]
+    validation_scored = score_metrics(validation_metrics)
     filter_sample_stats = _filter_sample_stats(full_result, split_time, filter_rules)
     robust_pass, robust_reason = _robust_gate(
-        validation_result.metrics,
+        validation_metrics,
         validation_scored["score"],
         baseline_validation_score,
         baseline_validation_net_profit,
@@ -245,9 +269,9 @@ def evaluate_round3_config(
         validation_score=validation_scored["score"],
         robust_pass=robust_pass,
         robust_reason=robust_reason,
-        metrics=full_result.metrics,
-        validation_metrics=validation_result.metrics,
-        train_metrics=train_result.metrics,
+        metrics=full_metrics,
+        validation_metrics=validation_metrics,
+        train_metrics=train_metric_package["headline_metrics"],
         rejected=full_scored["rejected"],
         reject_reason=full_scored["reject_reason"],
         soft_warnings=full_scored["soft_warnings"],
@@ -294,6 +318,7 @@ def _evaluate_candidates(
     current_eval: Round3Evaluation,
     max_workers: int,
     validation_min_delta: float,
+    price_bars: Any,
 ) -> list[Round3Evaluation]:
     worker_count = max(1, min(int(max_workers), 2))
     evaluations: list[Round3Evaluation] = []
@@ -310,12 +335,13 @@ def _evaluate_candidates(
                 current_eval.validation_metrics.get("net_profit", 0.0),
                 validation_min_delta,
                 candidate.filters,
+                price_bars=price_bars,
             ): candidate
             for candidate in candidates
         }
         for future in as_completed(future_map):
             evaluations.append(future.result())
-    evaluations.sort(key=lambda item: (item.robust_pass, item.score), reverse=True)
+    evaluations.sort(key=_round3_selection_key, reverse=True)
     return evaluations
 
 
@@ -415,12 +441,6 @@ def _phase_candidates() -> dict[int, list[Round3Candidate]]:
                 (_rule("nqdtc_score_2_5", "NQDTC_v2.1", "metadata.score_at_entry", "eq", 2.5),),
             ),
             Round3Candidate(
-                "filter_helix_alignment_1",
-                "Test weak Helix alignment bucket without adding complexity",
-                {},
-                (_rule("helix_alignment_1", "AKC_Helix_v40", "metadata.alignment", "eq", 1.0),),
-            ),
-            Round3Candidate(
                 "filter_nq_regime_wide_ib",
                 "Test NQ regime wide-IB subset that failed validation in diagnostics",
                 {},
@@ -435,7 +455,6 @@ def _phase_candidates() -> dict[int, list[Round3Candidate]]:
         ],
         2: [
             Round3Candidate("vdubus_second_slot", "Allow high-throughput Vdubus second concurrent slot", {"allocation.VdubusNQ_v4.max_concurrent": 2}),
-            Round3Candidate("helix_second_slot", "Allow Helix second concurrent slot", {"allocation.AKC_Helix_v40.max_concurrent": 2}),
             Round3Candidate("nq_regime_third_slot", "Allow NQ regime third concurrent slot", {"allocation.NQ_REGIME.max_concurrent": 3}),
             Round3Candidate(
                 "selective_extra_slots",
@@ -443,7 +462,6 @@ def _phase_candidates() -> dict[int, list[Round3Candidate]]:
                 {
                     "allocation.NQ_REGIME.max_concurrent": 3,
                     "allocation.VdubusNQ_v4.max_concurrent": 2,
-                    "allocation.AKC_Helix_v40.max_concurrent": 2,
                     "allocation.DownturnDominator_v1.max_concurrent": 2,
                     "allocation.NQDTC_v2.1.max_concurrent": 2,
                 },
@@ -456,7 +474,6 @@ def _phase_candidates() -> dict[int, list[Round3Candidate]]:
                 {
                     "allocation.NQ_REGIME.max_concurrent": 3,
                     "allocation.VdubusNQ_v4.max_concurrent": 2,
-                    "allocation.AKC_Helix_v40.max_concurrent": 2,
                     "allocation.DownturnDominator_v1.max_concurrent": 2,
                     "allocation.NQDTC_v2.1.max_concurrent": 2,
                     "config.heat_cap_R": 6.25,
@@ -471,7 +488,6 @@ def _phase_candidates() -> dict[int, list[Round3Candidate]]:
                 {
                     "allocation.NQ_REGIME.max_concurrent": 3,
                     "allocation.VdubusNQ_v4.max_concurrent": 2,
-                    "allocation.AKC_Helix_v40.max_concurrent": 2,
                     "allocation.DownturnDominator_v1.max_concurrent": 2,
                     "allocation.NQDTC_v2.1.max_concurrent": 2,
                     "config.heat_cap_R": 6.75,
@@ -486,7 +502,6 @@ def _phase_candidates() -> dict[int, list[Round3Candidate]]:
                 {
                     "allocation.NQ_REGIME.max_concurrent": 3,
                     "allocation.VdubusNQ_v4.max_concurrent": 2,
-                    "allocation.AKC_Helix_v40.max_concurrent": 2,
                     "allocation.DownturnDominator_v1.max_concurrent": 2,
                     "allocation.NQDTC_v2.1.max_concurrent": 2,
                     "config.heat_cap_R": 7.25,
@@ -501,7 +516,6 @@ def _phase_candidates() -> dict[int, list[Round3Candidate]]:
                 {
                     "allocation.NQ_REGIME.max_concurrent": 3,
                     "allocation.VdubusNQ_v4.max_concurrent": 2,
-                    "allocation.AKC_Helix_v40.max_concurrent": 2,
                     "allocation.DownturnDominator_v1.max_concurrent": 2,
                     "allocation.NQDTC_v2.1.max_concurrent": 2,
                     "config.heat_cap_R": 8.25,
@@ -517,7 +531,6 @@ def _phase_candidates() -> dict[int, list[Round3Candidate]]:
                 {
                     "allocation.NQ_REGIME.max_concurrent": 3,
                     "allocation.VdubusNQ_v4.max_concurrent": 2,
-                    "allocation.AKC_Helix_v40.max_concurrent": 2,
                     "allocation.DownturnDominator_v1.max_concurrent": 2,
                     "allocation.NQDTC_v2.1.max_concurrent": 2,
                     "config.heat_cap_R": 9.0,
@@ -534,7 +547,6 @@ def _phase_candidates() -> dict[int, list[Round3Candidate]]:
                 {
                     "allocation.NQ_REGIME.max_concurrent": 3,
                     "allocation.VdubusNQ_v4.max_concurrent": 2,
-                    "allocation.AKC_Helix_v40.max_concurrent": 2,
                     "allocation.DownturnDominator_v1.max_concurrent": 2,
                     "allocation.NQDTC_v2.1.max_concurrent": 2,
                     "config.heat_cap_R": 10.0,
@@ -551,7 +563,6 @@ def _phase_candidates() -> dict[int, list[Round3Candidate]]:
                 {
                     "allocation.NQ_REGIME.max_concurrent": 3,
                     "allocation.VdubusNQ_v4.max_concurrent": 2,
-                    "allocation.AKC_Helix_v40.max_concurrent": 2,
                     "allocation.DownturnDominator_v1.max_concurrent": 2,
                     "allocation.NQDTC_v2.1.max_concurrent": 2,
                     "config.heat_cap_R": 10.0,
@@ -596,6 +607,21 @@ def _phase_candidates() -> dict[int, list[Round3Candidate]]:
 
 
 PHASE_CANDIDATES = _phase_candidates()
+
+
+def _round3_selection_key(evaluation: Round3Evaluation) -> tuple[float, float, float, float, float, float, float, float]:
+    metrics = evaluation.metrics
+    validation_metrics = evaluation.validation_metrics
+    return (
+        1.0 if evaluation.robust_pass else 0.0,
+        evaluation.score,
+        evaluation.validation_score,
+        float(validation_metrics.get("net_profit", 0.0) or 0.0),
+        float(metrics.get("net_profit", 0.0) or 0.0),
+        float(metrics.get("trades_per_month", 0.0) or 0.0),
+        -float(metrics.get("max_drawdown_pct", 1.0) or 1.0),
+        -float(metrics.get("block_rate", 1.0) or 1.0),
+    )
 
 
 def _evaluation_record(evaluation: Round3Evaluation) -> dict[str, Any]:

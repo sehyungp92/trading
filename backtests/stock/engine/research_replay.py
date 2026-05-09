@@ -27,6 +27,7 @@ from backtests.stock.data.cache import bar_path, load_bars
 from backtests.stock.data.downloader import REFERENCE_SYMBOLS, SECTOR_ETFS
 
 from strategies.stock.alcb.universe_constituents import KNOWN_ETFS, SP500_CONSTITUENTS
+from strategies.stock.live_universe import BACKTESTED_INTRADAY_STOCK_SYMBOLS
 
 # Strategy model imports — both ALCB and IARIC define identical
 # MarketResearch / SectorResearch / ResearchDailyBar shapes.
@@ -305,8 +306,18 @@ class ResearchReplayEngine:
         self._data_dir = Path(data_dir)
         self._universe_config = universe_config or UniverseConfig()
 
-        # (symbol, sector, exchange) tuples
-        self._universe: list[tuple[str, str, str]] = list(SP500_CONSTITUENTS)
+        # (symbol, sector, exchange) tuples.  Stock backtests intentionally
+        # load the focused intraday cohort by default; the broad S&P list is
+        # still available by setting UniverseConfig(use_backtested_intraday_universe=False).
+        if self._universe_config.use_backtested_intraday_universe:
+            focused = set(BACKTESTED_INTRADAY_STOCK_SYMBOLS)
+            self._universe = [
+                row
+                for row in SP500_CONSTITUENTS
+                if row[0] in focused
+            ]
+        else:
+            self._universe = list(SP500_CONSTITUENTS)
         self._sector_map: dict[str, str] = {sym: sector for sym, sector, _ in self._universe}
         self._exchange_map: dict[str, str] = {sym: exch for sym, _, exch in self._universe}
 

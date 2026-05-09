@@ -1,8 +1,8 @@
 """Momentum family coordinator — each strategy gets its own OMS instance.
 
 Unlike swing (shared OMS), momentum strategies are independent:
-  - AKC_Helix_v40        (Helix4Engine)     — NQ/MNQ futures trend-following
   - NQDTC_v2.1           (NQDTCEngine)      — MNQ day-trade continuation
+  - NQ_REGIME            (NQRegimeEngine)   — NQ/MNQ intraday regime routing
   - VdubusNQ_v4          (VdubNQv4Engine)   — MNQ Vdubus signals
   - DownturnDominator_v1 (DownturnEngine)   — MNQ short-only regime scalping
 
@@ -28,7 +28,7 @@ from strategies.contracts import RuntimeContext
 
 logger = logging.getLogger(__name__)
 
-_PORTFOLIO_WEEKLY_STOP_R = 7.5
+_PORTFOLIO_WEEKLY_STOP_R = 9.0
 _REFERENCE_UNIT_RISK_DOLLARS = 250.0
 _MAX_FAMILY_CONTRACTS_MNQ_EQ = 40
 _DD_TIERS = (
@@ -58,6 +58,8 @@ class MomentumFamilyCoordinator:
         self._base_portfolio_rules: Any = None
         self._base_max_family_contracts: int = 0
         self._regime_ctx: Any = None
+        self._regime_adjusted_rules: Any = None  # stored after apply_regime for crisis overlay
+        self._crisis_ctx: Any = None
         self._heartbeat_task: asyncio.Task | None = None
 
     # ── lifecycle ────────────────────────────────────────────────────
@@ -198,8 +200,7 @@ class MomentumFamilyCoordinator:
                 family_strategy_ids=all_strategy_ids,
                 symbol_collision_action="none",
                 cooldown_session_only=True,
-                helix_nqdtc_cooldown_minutes=30,
-                nqdtc_direction_filter_enabled=True,
+                nqdtc_direction_filter_enabled=False,
                 nqdtc_agree_size_mult=1.25,
                 nqdtc_oppose_size_mult=0.50,
                 strategy_priorities=(
@@ -207,7 +208,6 @@ class MomentumFamilyCoordinator:
                     ("NQ_REGIME", 0),
                     ("NQDTC_v2.1", 1),
                     ("DownturnDominator_v1", 1),
-                    ("AKC_Helix_v40", 2),
                 ),
                 priority_headroom_R=1.0,
                 priority_reserve_threshold=1,
@@ -354,6 +354,17 @@ class MomentumFamilyCoordinator:
         prev_regime = getattr(self._regime_ctx, "regime", None)
         self._regime_ctx = ctx
         new_rules = build_momentum_rules(ctx, self._base_portfolio_rules, self._base_max_family_contracts)
+        self._regime_adjusted_rules = new_rules  # Store for crisis overlay
+
+        # Apply crisis overlay if active, including pre-action stress formation.
+        if self._crisis_ctx is not None:
+            from regime.crisis.integration import apply_crisis_overlay
+            new_rules = apply_crisis_overlay(
+                new_rules,
+                self._crisis_ctx,
+                self.family_id,
+                regime=ctx.regime,
+            )
 
         for checker in self._portfolio_checkers:
             if checker is not None:
@@ -385,6 +396,84 @@ class MomentumFamilyCoordinator:
                 "disabled_strategies": r.disabled_strategies or [],
             },
         })
+
+    def apply_crisis(self, ctx) -> None:
+        """Apply crisis context overlay on top of regime-adjusted rules.
+
+        Always starts from _regime_adjusted_rules (not current checker config)
+        to prevent compounding. Preserves per-checker initial_equity.
+        """
+        import dataclasses
+        from regime.crisis.actions import resolve_crisis_action
+        from regime.crisis.integration import apply_crisis_overlay
+
+        prev_level = getattr(self._crisis_ctx, "alert_level", "NORMAL") if self._crisis_ctx else "NORMAL"
+        self._crisis_ctx = ctx
+
+        if self._regime_adjusted_rules is None:
+            logger.warning("apply_crisis called before apply_regime — skipping")
+            return
+
+        regime = getattr(self._regime_ctx, "regime", None)
+        action = resolve_crisis_action(ctx, self.family_id, regime=regime)
+        if action.is_no_action():
+            # NORMAL or WATCH: revert to regime-only rules
+            for checker in self._portfolio_checkers:
+                if checker is not None:
+                    checker.update_config(dataclasses.replace(
+                        self._regime_adjusted_rules,
+                        initial_equity=checker._cfg.initial_equity,
+                    ))
+            if prev_level not in ("NORMAL", "WATCH"):
+                logger.info("Momentum crisis overlay removed (level=%s)", ctx.alert_level)
+            return
+
+        tightened = apply_crisis_overlay(
+            self._regime_adjusted_rules,
+            ctx,
+            self.family_id,
+            regime=regime,
+        )
+        for checker in self._portfolio_checkers:
+            if checker is not None:
+                checker.update_config(dataclasses.replace(
+                    tightened, initial_equity=checker._cfg.initial_equity,
+                ))
+
+        changed = f" (was {prev_level})" if prev_level != ctx.alert_level else ""
+        logger.info(
+            "Momentum crisis applied: %s%s (risk_mult=%.2f, dd_mult=%.2f, "
+            "provenance=%s, dominant=%s)",
+            ctx.alert_level, changed, action.risk_multiplier,
+            action.dd_tier_multiplier, action.action_provenance, ctx.dominant_channel,
+        )
+
+        self._emit_crisis_event({
+            "family": "momentum",
+            "alert_level": ctx.alert_level,
+            "prev_level": prev_level,
+            "risk_multiplier": ctx.risk_multiplier,
+            "dd_tier_multiplier": ctx.dd_tier_multiplier,
+            "dominant_channel": ctx.dominant_channel,
+            "action_policy": action.to_dict(),
+        })
+
+    def _emit_crisis_event(self, payload: dict) -> None:
+        """Write a crisis event to each strategy's data_dir for TA pipeline."""
+        now = datetime.now(timezone.utc)
+        record = {"timestamp": now.isoformat(), "event_type": "crisis_alert_change", **payload}
+        for instr in self._instrumentations:
+            try:
+                data_dir = getattr(instr, "_config", {}).get("data_dir")
+                if not data_dir:
+                    continue
+                out_dir = Path(data_dir) / "coordination_events"
+                out_dir.mkdir(parents=True, exist_ok=True)
+                date_str = now.strftime("%Y-%m-%d")
+                with open(out_dir / f"{date_str}.jsonl", "a") as f:
+                    f.write(json.dumps(record, default=str) + "\n")
+            except Exception:
+                pass
 
     def _emit_regime_event(self, payload: dict) -> None:
         """Write a regime→rules event to each strategy's data_dir for TA pipeline."""
@@ -472,7 +561,6 @@ class MomentumFamilyCoordinator:
     def _build_strategy_descriptors(self) -> list[dict[str, Any]]:
         """Return per-strategy wiring descriptors.
 
-        Risk params for Helix come from its config module.
         NQDTC and VdubusNQ hardcode their OMS risk params (matching main.py).
         """
         ctx = self._ctx
@@ -481,17 +569,6 @@ class MomentumFamilyCoordinator:
         trade_recorder = getattr(ctx, "trade_recorder", None)
         if trade_recorder is None:
             trade_recorder = getattr(ctx.instrumentation, "trade_recorder", None)
-
-        # ── Helix v4.0 ──────────────────────────────────────────────
-        from strategies.momentum.helix_v40.config import (
-            STRATEGY_ID as HELIX_ID,
-            BASE_RISK_PCT as HELIX_RISK_PCT,
-            DAILY_STOP_R as HELIX_DAILY_STOP_R,
-            HEAT_CAP_R as HELIX_HEAT_CAP_R,
-            PORTFOLIO_DAILY_STOP_R as HELIX_PORTFOLIO_DAILY_STOP_R,
-            build_instruments as helix_build_instruments,
-        )
-        from strategies.momentum.helix_v40.engine import Helix4Engine
 
         # ── NQDTC v2.1 ──────────────────────────────────────────────
         from strategies.momentum.nqdtc.config import (
@@ -532,26 +609,13 @@ class MomentumFamilyCoordinator:
         from strategies.momentum.downturn.engine import DownturnEngine
 
         return [
-            # ── AKC_Helix_v40 ───────────────────────────────────────
-            {
-                "strategy_id": HELIX_ID,
-                "base_risk_pct": HELIX_RISK_PCT,
-                "daily_stop_R": HELIX_DAILY_STOP_R,
-                "heat_cap_R": HELIX_HEAT_CAP_R,
-                "portfolio_daily_stop_R": HELIX_PORTFOLIO_DAILY_STOP_R,
-                "build_instruments": helix_build_instruments,
-                "engine_cls": Helix4Engine,
-                "instr_type": "helix",
-                "trade_recorder": trade_recorder,
-                "engine_extra_kwargs": {},
-            },
             # ── NQDTC_v2.1 ─────────────────────────────────────────
             {
                 "strategy_id": NQDTC_ID,
                 "base_risk_pct": NQDTC_RISK_PCT,
                 "daily_stop_R": 2.5,
                 "heat_cap_R": 3.5,
-                "portfolio_daily_stop_R": 2.25,
+                "portfolio_daily_stop_R": 2.75,
                 "build_instruments": nqdtc_build_instruments,
                 "engine_cls": NQDTCEngine,
                 "instr_type": "nqdtc",
@@ -582,7 +646,7 @@ class MomentumFamilyCoordinator:
                 "base_risk_pct": VDUB_RISK_PCT,
                 "daily_stop_R": 2.5,
                 "heat_cap_R": 3.5,
-                "portfolio_daily_stop_R": 2.25,
+                "portfolio_daily_stop_R": 2.75,
                 "build_instruments": vdub_build_instruments,
                 "engine_cls": VdubNQv4Engine,
                 "instr_type": "vdubus",

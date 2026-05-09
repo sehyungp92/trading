@@ -1,30 +1,11 @@
 from __future__ import annotations
 
-from collections import deque
 from datetime import date, datetime, timezone
-import json
 from types import SimpleNamespace
 
 import pytest
 
 from backtests.shared.parity.replay_driver import ReplayStep, run_replay
-from strategies.momentum.helix_v40.config import (
-    PositionState as HelixV40PositionState,
-    Setup as HelixV40Setup,
-    SetupClass as HelixV40SetupClass,
-    SetupState as HelixV40SetupState,
-    TF as HelixV40TF,
-)
-from strategies.momentum.helix_v40.core.logic import build_core_state as build_helix_v40_runtime_state
-from strategies.momentum.helix_v40.core.logic import on_bar as on_helix_v40_bar
-from strategies.momentum.helix_v40.core.logic import on_fill as on_helix_v40_fill
-from strategies.momentum.helix_v40.core.logic import on_order_update as on_helix_v40_order_update
-from strategies.momentum.helix_v40.core.serializers import (
-    restore_state as restore_helix_v40_state,
-    snapshot_state as snapshot_helix_v40_state,
-)
-from strategies.momentum.helix_v40.core.state import HelixV40CoreState, HelixV40EntryFillContext, HelixV40Fill
-from strategies.momentum.helix_v40.engine import Helix4Engine
 from strategies.momentum.vdub import config as vdub_config
 from strategies.momentum.vdub.core.logic import build_core_state as build_vdub_runtime_state
 from strategies.momentum.vdub.core.logic import on_bar as on_vdub_bar
@@ -75,14 +56,6 @@ from strategies.swing.atrss.models import (
     Direction as ATRSSDirection,
     HaltState,
 )
-from strategies.swing.breakout.core.serializers import (
-    restore_state as restore_breakout_state,
-    snapshot_state as snapshot_breakout_state,
-)
-from strategies.swing.breakout.core.state import BreakoutCoreState
-from strategies.swing.breakout.engine import BreakoutEngine
-from strategies.swing.breakout.models import CircuitBreakerState, SymbolCampaign
-
 UTC = timezone.utc
 
 
@@ -122,26 +95,6 @@ def test_atrss_core_serializer_roundtrip_preserves_typed_state() -> None:
     assert restored.halt_states["QQQ"].queued_stop_updates == [("STOP-1", 505.0)]
     assert isinstance(restored.breakout_arm_states["QQQ"], BreakoutArmState)
     assert restored.breakout_arm_states["QQQ"].breakout_armed_dir is ATRSSDirection.SHORT
-
-
-def test_breakout_core_serializer_roundtrip_preserves_tuple_key_maps() -> None:
-    state = BreakoutCoreState(
-        campaigns={"QQQ": SymbolCampaign(campaign_id=7, box_high=501.25)},
-        circuit_breaker=CircuitBreakerState(halted=True),
-        correlation_map={("QQQ", "GLD"): 0.75},
-        order_requested_qty={"ENTRY-1": 3},
-        last_decision_code="BREAKOUT",
-    )
-
-    snapshot = snapshot_breakout_state(state)
-    restored = restore_breakout_state(json.loads(json.dumps(snapshot)))
-
-    assert isinstance(restored.campaigns["QQQ"], SymbolCampaign)
-    assert restored.campaigns["QQQ"].campaign_id == 7
-    assert isinstance(restored.circuit_breaker, CircuitBreakerState)
-    assert restored.circuit_breaker.halted is True
-    assert restored.correlation_map == {("QQQ", "GLD"): 0.75}
-    assert restored.order_requested_qty["ENTRY-1"] == 3
 
 
 def test_akc_helix_core_serializer_roundtrip_preserves_nested_runtime_models() -> None:
@@ -198,51 +151,6 @@ def test_vdub_core_serializer_roundtrip_preserves_typed_runtime_state() -> None:
     assert restored.recent_wins == [True, False]
 
 
-def test_helix_v40_core_serializer_roundtrip_preserves_set_and_tuple_state() -> None:
-    detected_ts = datetime(2026, 4, 25, 13, 20, tzinfo=UTC)
-    setup = HelixV40Setup(
-        setup_id="SETUP-1",
-        cls=HelixV40SetupClass.M,
-        direction=1,
-        tf_origin=HelixV40TF.H1,
-        detected_ts=detected_ts,
-        entry_stop=20260.0,
-        stop0=20200.0,
-    )
-    state = HelixV40CoreState(
-        positions=[
-            HelixV40PositionState(
-                pos_id="POS-1",
-                direction=1,
-                avg_entry=20250.0,
-                contracts=1,
-                unit1_risk_usd=120.0,
-                origin_class=HelixV40SetupClass.M,
-                origin_setup_id="SETUP-1",
-                entry_ts=detected_ts,
-                stop_price=20200.0,
-            )
-        ],
-        pending_setups=[setup],
-        placed_signatures={("M", 1)},
-        sig_expiry={("M", 1): detected_ts},
-        last_m_bar={1: 7},
-        spread_recheck=[(setup, 2)],
-        last_decision_code="HELIX_V40",
-    )
-
-    snapshot = snapshot_helix_v40_state(state)
-    restored = restore_helix_v40_state(json.loads(json.dumps(snapshot)))
-
-    assert isinstance(restored.positions[0], HelixV40PositionState)
-    assert restored.positions[0].origin_class is HelixV40SetupClass.M
-    assert isinstance(restored.pending_setups[0], HelixV40Setup)
-    assert restored.pending_setups[0].tf_origin is HelixV40TF.H1
-    assert restored.placed_signatures == {("M", 1)}
-    assert restored.sig_expiry == {("M", 1): detected_ts}
-    assert restored.last_m_bar == {1: 7}
-    assert isinstance(restored.spread_recheck[0][0], HelixV40Setup)
-    assert restored.spread_recheck[0][1] == 2
 
 
 @pytest.mark.asyncio
@@ -273,34 +181,6 @@ async def test_atrss_engine_snapshot_and_hydrate_preserve_runtime_types() -> Non
     assert isinstance(restored.halt_states["QQQ"], HaltState)
     assert restored.halt_states["QQQ"].is_halted is True
     assert restored.health_status()["last_decision_code"] == "HALT_GUARDED"
-
-
-@pytest.mark.asyncio
-async def test_breakout_engine_snapshot_and_hydrate_preserve_campaign_state() -> None:
-    engine = BreakoutEngine(
-        ib_session=object(),
-        oms_service=SimpleNamespace(stream_events=lambda *_args, **_kwargs: None),
-        instruments={},
-        config={},
-    )
-    engine.campaigns["QQQ"] = SymbolCampaign(campaign_id=7, box_high=501.25)
-    engine.circuit_breaker = CircuitBreakerState(halted=True)
-    engine._last_decision_code = "CAMPAIGN_ACTIVE"
-
-    restored = BreakoutEngine(
-        ib_session=object(),
-        oms_service=SimpleNamespace(stream_events=lambda *_args, **_kwargs: None),
-        instruments={},
-        config={},
-    )
-    await restored.hydrate(engine.snapshot_state())
-
-    assert isinstance(restored.campaigns["QQQ"], SymbolCampaign)
-    assert restored.campaigns["QQQ"].campaign_id == 7
-    assert restored.campaigns["QQQ"].box_high == pytest.approx(501.25)
-    assert isinstance(restored.circuit_breaker, CircuitBreakerState)
-    assert restored.circuit_breaker.halted is True
-    assert restored.health_status()["last_decision_code"] == "CAMPAIGN_ACTIVE"
 
 
 @pytest.mark.asyncio
@@ -358,62 +238,6 @@ async def test_vdub_engine_snapshot_and_hydrate_preserve_regime_state() -> None:
     assert restored.health_status()["last_decision_code"] == "ENTRY_ARMED"
 
 
-@pytest.mark.asyncio
-async def test_helix_v40_engine_snapshot_and_hydrate_preserve_dataclass_state() -> None:
-    instrument = SimpleNamespace(symbol="MNQ", point_value=2.0)
-    engine = Helix4Engine(
-        ib_session=object(),
-        oms_service=SimpleNamespace(stream_events=lambda *_args, **_kwargs: None),
-        instruments=[instrument],
-    )
-    detected_ts = datetime(2026, 4, 25, 14, 0, tzinfo=UTC)
-    engine.positions.positions = [
-        HelixV40PositionState(
-            pos_id="POS-1",
-            direction=1,
-            avg_entry=20250.0,
-            contracts=1,
-            unit1_risk_usd=120.0,
-            origin_class=HelixV40SetupClass.M,
-            origin_setup_id="SETUP-1",
-            entry_ts=detected_ts,
-            stop_price=20200.0,
-        )
-    ]
-    engine.exec.pending_setups = [
-        HelixV40Setup(
-            setup_id="SETUP-1",
-            cls=HelixV40SetupClass.M,
-            direction=1,
-            tf_origin=HelixV40TF.H1,
-            detected_ts=detected_ts,
-            entry_stop=20260.0,
-            stop0=20200.0,
-        )
-    ]
-    engine.risk.open_risk_r = 0.75
-    engine.vol.vol_pct = 42.0
-    engine._ts_history.extend([0.25, 0.5])
-    engine._placed_signatures = {("M", 1)}
-    engine._last_decision_code = "ARMED"
-
-    restored = Helix4Engine(
-        ib_session=object(),
-        oms_service=SimpleNamespace(stream_events=lambda *_args, **_kwargs: None),
-        instruments=[instrument],
-    )
-    await restored.hydrate(engine.snapshot_state())
-
-    assert isinstance(restored.positions.positions[0], HelixV40PositionState)
-    assert restored.positions.positions[0].pos_id == "POS-1"
-    assert isinstance(restored.exec.pending_setups[0], HelixV40Setup)
-    assert restored.exec.pending_setups[0].setup_id == "SETUP-1"
-    assert isinstance(restored._ts_history, deque)
-    assert restored._ts_history.maxlen == 10
-    assert list(restored._ts_history) == [0.25, 0.5]
-    assert restored._placed_signatures == {("M", 1)}
-    assert restored.health_status()["last_decision_code"] == "ARMED"
-
 
 def test_iaric_core_serializer_roundtrip_preserves_intraday_snapshot_shape() -> None:
     snapshot = IntradayStateSnapshot(
@@ -432,23 +256,6 @@ def test_iaric_core_serializer_roundtrip_preserves_intraday_snapshot_shape() -> 
     assert restored.meta["active_symbols"] == ["MSFT"]
 
 
-def _helix_v40_setup(**overrides) -> HelixV40Setup:
-    defaults = dict(
-        setup_id="SETUP-1",
-        cls=HelixV40SetupClass.M,
-        direction=1,
-        tf_origin=HelixV40TF.H1,
-        detected_ts=datetime(2026, 4, 25, 13, 0, tzinfo=UTC),
-        stop0=19980.0,
-        entry_stop=19980.0,
-        armed_risk_r=1.0,
-        unit1_risk_usd=100.0,
-        alignment_score=0.75,
-        state=HelixV40SetupState.PENDING,
-        entry_oms_id="ENTRY-1",
-    )
-    defaults.update(overrides)
-    return HelixV40Setup(**defaults)
 
 
 @pytest.mark.asyncio
@@ -506,64 +313,3 @@ async def test_vdub_live_wrapper_entry_fill_matches_replay_core_state(monkeypatc
 
     assert replay.events[-1].code == engine.health_status()["last_decision_code"] == "ENTRY_FILLED"
     assert snapshot_vdub_state(replay.state) == wrapper_snapshot
-
-
-@pytest.mark.asyncio
-async def test_helix_v40_live_wrapper_entry_fill_matches_replay_core_state(monkeypatch) -> None:
-    instrument = SimpleNamespace(symbol="MNQ", point_value=2.0)
-
-    async def _fake_submit_intent(*_args, **_kwargs):
-        return SimpleNamespace(oms_order_id=None)
-
-    engine = Helix4Engine(
-        ib_session=object(),
-        oms_service=SimpleNamespace(
-            stream_events=lambda *_args, **_kwargs: None,
-            submit_intent=_fake_submit_intent,
-        ),
-        instruments=[instrument],
-    )
-    setup = _helix_v40_setup(entry_oms_id="ENTRY-1")
-    engine.exec.pending_setups = [setup]
-    engine.risk.pending_risk_r = 1.0
-    engine.risk.dir_risk_r = {1: 1.0}
-
-    async def _fake_place_stop(*_args, **_kwargs):
-        return None
-
-    async def _fake_entry_instrumentation(*_args, **_kwargs):
-        return None
-
-    monkeypatch.setattr(engine.exec, "place_stop", _fake_place_stop)
-    monkeypatch.setattr(engine.exec, "check_teleport", lambda *_args, **_kwargs: (False, False))
-    monkeypatch.setattr(engine, "_on_entry_fill_instrumentation", _fake_entry_instrumentation)
-
-    initial_state = restore_helix_v40_state(snapshot_helix_v40_state(build_helix_v40_runtime_state(engine)))
-    fill_time = datetime(2026, 4, 25, 14, 1, tzinfo=UTC)
-
-    await engine.on_fill("ENTRY-1", 20000.0, 2, fill_time)
-
-    wrapper_snapshot = snapshot_helix_v40_state(build_helix_v40_runtime_state(engine))
-    replay = run_replay(
-        initial_state,
-        steps=[
-            ReplayStep(
-                fills=[
-                    HelixV40Fill(
-                        oms_order_id="ENTRY-1",
-                        fill_price=20000.0,
-                        fill_qty=2,
-                        fill_time=fill_time,
-                        point_value=2.0,
-                        entry_context=HelixV40EntryFillContext(setup=setup),
-                    )
-                ]
-            )
-        ],
-        on_bar=lambda state, payload: on_helix_v40_bar(state, **payload),
-        on_order_update=on_helix_v40_order_update,
-        on_fill=on_helix_v40_fill,
-    )
-
-    assert replay.events[-1].code == engine.health_status()["last_decision_code"] == "ENTRY_FILLED"
-    assert snapshot_helix_v40_state(replay.state) == wrapper_snapshot

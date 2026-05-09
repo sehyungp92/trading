@@ -46,7 +46,7 @@ CLOSE_RANGE = ((15, 30), (15, 50))
 EVENING_RANGE = ((19, 0), (21, 0))
 
 # ── Risk ─────────────────────────────────────────────────────────────
-BASE_RISK_PCT = 0.006
+BASE_RISK_PCT = 0.0065
 RISK_PCT = BASE_RISK_PCT
 VOL_FACTOR = {"Normal": 1.0, "High": 0.65, "Shock": 0.0}
 HEAT_CAP_MULT = 3.50   # portfolio v4 shared heat cap

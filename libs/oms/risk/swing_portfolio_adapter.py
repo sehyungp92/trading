@@ -34,6 +34,7 @@ class SwingPortfolioRiskSnapshot:
     portfolio_pending_entry_risk_dollars: float = 0.0
     portfolio_halted: bool = False
     simulate_live_r_normalization: bool = False
+    reserve_idle_higher_priority: bool = True
 
 
 @dataclass(frozen=True)
@@ -164,7 +165,7 @@ def evaluate_swing_entry(
             if portfolio_unit > 0
             else 0.0
         )
-    if remaining_dollars < 2 * risk_dollars:
+    if snapshot.reserve_idle_higher_priority and remaining_dollars < 2 * risk_dollars:
         for other in sorted(snapshot.strategy_slots.values(), key=lambda item: item.priority):
             if other.priority < strat.priority and float(snapshot.strategy_open_risk_dollars.get(other.strategy_id, 0.0) or 0.0) == 0.0:
                 return SwingPortfolioRiskDecision(
@@ -227,12 +228,15 @@ class SwingPortfolioHeatAdapter:
         strategy_slots: list[Any],
         equity: float,
         simulate_live_r_normalization: bool = False,
+        reserve_idle_higher_priority: bool = True,
     ):
         self._heat_cap_R = float(heat_cap_R)
         self._portfolio_daily_stop_R = float(portfolio_daily_stop_R)
         self._strats: dict[str, SwingStrategyHeatState] = {}
         self._portfolio_halted = False
         self._simulate_live_r = bool(simulate_live_r_normalization)
+        self._reserve_idle_higher_priority = bool(reserve_idle_higher_priority)
+        self._pending_entry_risk_by_strategy: dict[str, float] = {}
 
         sorted_slots = sorted(strategy_slots, key=lambda s: int(getattr(s, "priority")))
         self._portfolio_unit_risk_pct = (
@@ -278,6 +282,16 @@ class SwingPortfolioHeatAdapter:
         for sid, dollars in risk_by_strategy.items():
             if sid in self._strats:
                 self._strats[sid].open_risk_dollars = float(dollars or 0.0)
+        self._pending_entry_risk_by_strategy.clear()
+
+    def reserve_entry(self, strategy_id: str, risk_dollars: float) -> None:
+        """Reserve newly accepted replay risk until the next open-risk refresh."""
+
+        if strategy_id in self._strats:
+            self._pending_entry_risk_by_strategy[strategy_id] = (
+                self._pending_entry_risk_by_strategy.get(strategy_id, 0.0)
+                + float(risk_dollars or 0.0)
+            )
 
     def record_trade_close(self, strategy_id: str, pnl_dollars: float) -> None:
         """Update daily realized PnL after a trade close."""
@@ -291,6 +305,7 @@ class SwingPortfolioHeatAdapter:
         for state in self._strats.values():
             state.daily_realized_dollars = 0.0
         self._portfolio_halted = False
+        self._pending_entry_risk_by_strategy.clear()
 
     def entry_risk_context(self, strategy_id: str, risk_dollars: float) -> dict[str, float]:
         return build_swing_entry_risk_context(self._snapshot(), strategy_id, risk_dollars)
@@ -318,10 +333,14 @@ class SwingPortfolioHeatAdapter:
                 )
                 for sid, state in self._strats.items()
             },
-            strategy_open_risk_dollars={sid: state.open_risk_dollars for sid, state in self._strats.items()},
+            strategy_open_risk_dollars={
+                sid: state.open_risk_dollars + self._pending_entry_risk_by_strategy.get(sid, 0.0)
+                for sid, state in self._strats.items()
+            },
             strategy_daily_realized_dollars={sid: state.daily_realized_dollars for sid, state in self._strats.items()},
             portfolio_halted=self._portfolio_halted,
             simulate_live_r_normalization=self._simulate_live_r,
+            reserve_idle_higher_priority=self._reserve_idle_higher_priority,
         )
 
 

@@ -52,7 +52,7 @@ class TestMomentumTradeEventCompat:
             trade_id="m_001",
             event_metadata=_make_event_metadata(),
             entry_snapshot=_make_snapshot(),
-            bot_id="momentum_helix",
+            bot_id="momentum_nqdtc",
             pair="NQ",
             side="LONG",
             entry_time=datetime.now(timezone.utc).isoformat(),
@@ -66,14 +66,14 @@ class TestMomentumTradeEventCompat:
             entry_signal_id="sig_abc",
             entry_signal_strength=0.85,
             exit_reason="TAKE_PROFIT",
-            strategy_type="helix",
+            strategy_type="nqdtc",
             stage="exit",
         )
 
     def test_bot_id_present(self):
         trade = self._build_momentum_trade()
         d = trade.to_dict()
-        assert d["bot_id"] == "momentum_helix", "bot_id must be set on momentum TradeEvent"
+        assert d["bot_id"] == "momentum_nqdtc", "bot_id must be set on momentum TradeEvent"
 
     def test_ta_aliases_present(self):
         trade = self._build_momentum_trade()

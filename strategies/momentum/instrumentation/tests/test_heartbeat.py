@@ -19,7 +19,7 @@ def _make_kit_with_data_dir():
         "sidecar_buffer_depth": 0,
         "relay_reachable": True,
     }
-    kit = InstrumentationKit(mgr, strategy_type="helix")
+    kit = InstrumentationKit(mgr, strategy_type="nqdtc")
     return kit, tmpdir
 
 
@@ -40,7 +40,7 @@ class TestHeartbeatEnrichment:
                 "unrealized_pnl_r": 0.45,
                 "duration_minutes": 35,
                 "session": "RTH",
-                "strategy_type": "helix",
+                "strategy_type": "nqdtc",
                 "mfe_since_entry_r": 0.8,
                 "mae_since_entry_r": -0.2,
             },
@@ -71,7 +71,7 @@ class TestHeartbeatEnrichment:
             "daily_realized_pnl": 1200.0,
             "session": "RTH",
             "by_strategy": {
-                "helix": {"positions": 1, "contracts": 2, "unrealized_pnl": 990.0},
+                "nqdtc": {"positions": 1, "contracts": 2, "unrealized_pnl": 990.0},
                 "nqdtc": {"positions": 1, "contracts": 1, "unrealized_pnl": 695.0},
             },
         }
@@ -86,7 +86,7 @@ class TestHeartbeatEnrichment:
         data = json.loads(hb_files[0].read_text().strip())
         assert data["portfolio_exposure"]["margin_used_pct"] == 42.5
         assert data["portfolio_exposure"]["session"] == "RTH"
-        assert "helix" in data["portfolio_exposure"]["by_strategy"]
+        assert "nqdtc" in data["portfolio_exposure"]["by_strategy"]
 
     def test_by_strategy_grouping(self):
         """Multiple strategies → correct breakdown in portfolio_exposure."""
@@ -94,7 +94,7 @@ class TestHeartbeatEnrichment:
         exposure = {
             "total_positions": 3,
             "by_strategy": {
-                "helix": {"positions": 2, "contracts": 3, "unrealized_pnl": 1500.0},
+                "nqdtc": {"positions": 2, "contracts": 3, "unrealized_pnl": 1500.0},
                 "nqdtc": {"positions": 1, "contracts": 2, "unrealized_pnl": 950.0},
             },
         }
@@ -108,7 +108,7 @@ class TestHeartbeatEnrichment:
         hb_files = list((Path(tmpdir) / "heartbeats").glob("*.jsonl"))
         data = json.loads(hb_files[0].read_text().strip())
         by_st = data["portfolio_exposure"]["by_strategy"]
-        assert by_st["helix"]["positions"] == 2
+        assert by_st["nqdtc"]["positions"] == 2
         assert by_st["nqdtc"]["contracts"] == 2
 
     def test_empty_positions(self):
@@ -146,7 +146,7 @@ class TestHeartbeatEnrichment:
 
     def test_heartbeat_noop_without_manager(self):
         """emit_heartbeat with None manager does not raise."""
-        kit = InstrumentationKit(None, strategy_type="helix")
+        kit = InstrumentationKit(None, strategy_type="nqdtc")
         kit.emit_heartbeat(
             active_positions=0,
             open_orders=0,

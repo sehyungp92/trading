@@ -15,7 +15,7 @@ def _create_scorer():
             "expected_slippage_bps": 3,
         },
         "strategies": {
-            "helix": {
+            "nqdtc": {
                 "preferred_regimes": ["trending_up", "trending_down"],
                 "adverse_regimes": ["ranging"],
                 "expected_slippage_bps": 2,
@@ -39,7 +39,7 @@ class TestProcessScorer:
             "entry_slippage_bps": 1.0, "exit_slippage_bps": 1.0,
             "exit_reason": "TAKE_PROFIT", "pnl": 500, "pnl_pct": 2.0,
         }
-        score = self.scorer.score_trade(trade, "helix")
+        score = self.scorer.score_trade(trade, "nqdtc")
         assert score.process_quality_score >= 80
         assert "regime_aligned" in score.root_causes
         assert score.classification == "good_process"
@@ -51,7 +51,7 @@ class TestProcessScorer:
             "entry_slippage_bps": 20.0, "exit_slippage_bps": 15.0,
             "exit_reason": "STOP_LOSS", "pnl": -200, "pnl_pct": -1.5,
         }
-        score = self.scorer.score_trade(trade, "helix")
+        score = self.scorer.score_trade(trade, "nqdtc")
         assert score.process_quality_score < 50
         assert "regime_mismatch" in score.root_causes
         assert "weak_signal" in score.root_causes
@@ -65,7 +65,7 @@ class TestProcessScorer:
             "entry_slippage_bps": 1.0, "exit_reason": "STOP_LOSS",
             "pnl": -100, "pnl_pct": -0.5,
         }
-        score = self.scorer.score_trade(trade, "helix")
+        score = self.scorer.score_trade(trade, "nqdtc")
         assert score.process_quality_score >= 80
         assert "normal_loss" in score.root_causes
         assert score.classification == "good_process"
@@ -73,7 +73,7 @@ class TestProcessScorer:
     def test_all_root_causes_from_taxonomy(self):
         """No root cause should exist outside the controlled taxonomy."""
         trade = {"trade_id": "t4", "pnl": 0}
-        score = self.scorer.score_trade(trade, "helix")
+        score = self.scorer.score_trade(trade, "nqdtc")
         for cause in score.root_causes:
             assert cause in ROOT_CAUSES, f"'{cause}' not in ROOT_CAUSES taxonomy"
 
@@ -82,7 +82,7 @@ class TestProcessScorer:
             "trade_id": "t5", "market_regime": "trending_up",
             "entry_signal_strength": 0.9, "pnl": 100, "pnl_pct": 1.0,
         }
-        score = self.scorer.score_trade(trade, "helix")
+        score = self.scorer.score_trade(trade, "nqdtc")
         assert "strong_signal" in score.root_causes
 
     def test_late_entry_tagged(self):
@@ -90,7 +90,7 @@ class TestProcessScorer:
             "trade_id": "t6", "entry_latency_ms": 8000,
             "pnl": 0,
         }
-        score = self.scorer.score_trade(trade, "helix")
+        score = self.scorer.score_trade(trade, "nqdtc")
         assert "late_entry" in score.root_causes
 
     def test_slippage_spike_tagged(self):
@@ -98,7 +98,7 @@ class TestProcessScorer:
             "trade_id": "t7", "entry_slippage_bps": 15.0,
             "pnl": 0,
         }
-        score = self.scorer.score_trade(trade, "helix")
+        score = self.scorer.score_trade(trade, "nqdtc")
         assert "slippage_spike" in score.root_causes
 
     def test_good_execution_tagged(self):
@@ -106,7 +106,7 @@ class TestProcessScorer:
             "trade_id": "t8", "entry_slippage_bps": 0.5,
             "pnl": 100, "pnl_pct": 1.0,
         }
-        score = self.scorer.score_trade(trade, "helix")
+        score = self.scorer.score_trade(trade, "nqdtc")
         assert "good_execution" in score.root_causes
 
     def test_scorer_never_crashes(self):
@@ -128,13 +128,13 @@ class TestProcessScorer:
             "entry_slippage_bps": 999, "exit_slippage_bps": 999,
             "exit_reason": "MANUAL", "pnl": -5000, "pnl_pct": -50,
         }
-        score = self.scorer.score_trade(trade, "helix")
+        score = self.scorer.score_trade(trade, "nqdtc")
         assert score.process_quality_score >= 0
         assert score.process_quality_score <= 100
 
     def test_to_dict(self):
         trade = {"trade_id": "t11", "pnl": 100, "pnl_pct": 1.0}
-        score = self.scorer.score_trade(trade, "helix")
+        score = self.scorer.score_trade(trade, "nqdtc")
         d = score.to_dict()
         assert isinstance(d, dict)
         assert "process_quality_score" in d

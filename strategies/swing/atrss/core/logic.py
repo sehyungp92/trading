@@ -36,6 +36,17 @@ _TERMINAL_STATUSES = {
     "order_rejected",
 }
 
+_ACTIVE_ORDER_STATUSES = {
+    "accepted",
+    "open",
+    "pending_submit",
+    "submitted",
+    "working",
+    "order_accepted",
+    "order_submitted",
+    "order_working",
+}
+
 
 def build_core_state(engine) -> ATRSSCoreState:
     return ATRSSCoreState(
@@ -243,6 +254,59 @@ def on_order_update(
     status = update.status.lower()
     event_ts = update.timestamp or datetime.now(timezone.utc)
     events: list[DecisionEvent] = []
+
+    if status in _ACTIVE_ORDER_STATUSES and update.oms_order_id:
+        meta = dict(update.metadata)
+        symbol = meta.get("symbol", update.symbol)
+        if update.order_role == "stop":
+            position = next_state.positions.get(symbol)
+            if position is not None:
+                position.stop_oms_order_id = update.oms_order_id
+                position.stop_pending = False
+                events.append(
+                    _event(
+                        code="STOP_SUBMITTED",
+                        ts=event_ts,
+                        symbol=symbol,
+                        details={
+                            "status": status,
+                            "qty": meta.get("qty", position.total_qty),
+                            "stop_price": meta.get("stop_price", position.current_stop),
+                        },
+                    )
+                )
+        elif update.order_role == "flatten":
+            next_state.pending_flattens[symbol] = {
+                **meta,
+                "oms_order_id": update.oms_order_id,
+            }
+            events.append(
+                _event(
+                    code="FLATTEN_ORDER_SUBMITTED",
+                    ts=event_ts,
+                    symbol=symbol,
+                    details={"status": status, "reason": meta.get("reason", ""), "qty": meta.get("qty", 0)},
+                )
+            )
+        elif meta:
+            next_state.pending_orders[update.oms_order_id] = meta
+            if _candidate_type_value(meta.get("type")) == CandidateType.ADDON_A.value:
+                position = next_state.positions.get(symbol)
+                if position is not None:
+                    position.addon_a_pending_id = update.oms_order_id
+            events.append(
+                _event(
+                    code="ORDER_SUBMITTED",
+                    ts=event_ts,
+                    symbol=symbol,
+                    details={
+                        "status": status,
+                        "order_role": update.order_role,
+                        "order_type": _candidate_type_value(meta.get("type")),
+                        "qty": meta.get("qty", 0),
+                    },
+                )
+            )
 
     if status in _TERMINAL_STATUSES and update.oms_order_id:
         meta = next_state.pending_orders.pop(update.oms_order_id, None)
@@ -504,6 +568,20 @@ def on_fill(
                 details=fill.decision_details,
             )
         )
+    elif not events:
+        events.append(
+            _event(
+                code="UNMATCHED_FILL",
+                ts=event_ts,
+                symbol=fill.symbol,
+                details={
+                    "oms_order_id": fill.oms_order_id,
+                    "qty": fill.fill_qty,
+                    "price": fill.fill_price,
+                    "reason": "no_pending_order_or_position",
+                },
+            )
+        )
 
     _update_last_decision(next_state, events, preserve_last_bar_ts=True)
     return next_state, actions, events
@@ -534,6 +612,12 @@ def _leg_type_for(candidate_type: Any) -> LegType:
     if candidate_type == CandidateType.ADDON_B:
         return LegType.ADDON_B
     return LegType.BASE
+
+
+def _candidate_type_value(candidate_type: Any) -> str:
+    if isinstance(candidate_type, CandidateType):
+        return candidate_type.value
+    return str(candidate_type or "")
 
 
 def _legacy_bar_events(payload: ATRSSBarInput) -> list[DecisionEvent]:

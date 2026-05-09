@@ -1,6 +1,6 @@
 """Experiment definitions and priority queue for auto backtesting.
 
-Experiments across ATRSS, Helix, Breakout, and portfolio-level studies.
+Experiments across ATRSS, Helix, and portfolio-level studies.
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 class Experiment:
     id: str                       # e.g. "abl_atrss_stall_exit"
     type: str                     # ABLATION | PARAM_SWEEP | INTERACTION | PORTFOLIO
-    strategy: str                 # "atrss" | "helix" | "breakout" | "portfolio"
+    strategy: str                 # "atrss" | "helix" | "portfolio"
     description: str
     hypothesis: str
     priority: int                 # 1=highest
@@ -22,7 +22,7 @@ def build_experiment_queue(strategy_filter: str = "all") -> list[Experiment]:
     """Build priority-ordered experiment queue.
 
     Args:
-        strategy_filter: "atrss", "helix", "breakout", "portfolio", or "all"
+        strategy_filter: "atrss", "helix", "portfolio", or "all"
     """
     experiments: list[Experiment] = []
     _all = strategy_filter == "all"
@@ -32,22 +32,16 @@ def build_experiment_queue(strategy_filter: str = "all") -> list[Experiment]:
         experiments.extend(_atrss_ablation())
     if _all or strategy_filter == "helix":
         experiments.extend(_helix_ablation())
-    if _all or strategy_filter == "breakout":
-        experiments.extend(_breakout_ablation())
     # Priority 2: Param sweeps
     if _all or strategy_filter == "atrss":
         experiments.extend(_atrss_param_sweeps())
     if _all or strategy_filter == "helix":
         experiments.extend(_helix_param_sweeps())
-    if _all or strategy_filter == "breakout":
-        experiments.extend(_breakout_param_sweeps())
     # Priority 3: Interactions
     if _all or strategy_filter == "atrss":
         experiments.extend(_atrss_interactions())
     if _all or strategy_filter == "helix":
         experiments.extend(_helix_interactions())
-    if _all or strategy_filter == "breakout":
-        experiments.extend(_breakout_interactions())
 
     # Priority 4: Portfolio
     if _all or strategy_filter == "portfolio":
@@ -178,71 +172,6 @@ def _helix_ablation() -> list[Experiment]:
     ]
 
 
-def _breakout_ablation() -> list[Experiment]:
-    """Breakout: 15 wired + 2 unwired = 17 experiments."""
-    E = Experiment
-    return [
-        # Priority 1a — key weaknesses
-        E("abl_brk_stale_exit", "ABLATION", "breakout",
-          "Disable stale exit", "May cut winners consolidating before continuation",
-          1, {"flags.disable_stale_exit": True}),
-        E("abl_brk_chop_mode", "ABLATION", "breakout",
-          "Disable chop mode", "ChopMode blocking may reject valid setups in small ETF universe",
-          1, {"flags.disable_chop_mode": True}),
-        E("abl_brk_regime_chop", "ABLATION", "breakout",
-          "Disable regime chop block", "Double gating on chop compounds with chop_mode",
-          1, {"flags.disable_regime_chop_block": True}),
-
-        # Priority 1b
-        E("abl_brk_score_threshold", "ABLATION", "breakout",
-          "Disable score threshold", "Score threshold may reject valid breakouts",
-          1, {"flags.disable_score_threshold": True}),
-        E("abl_brk_displacement", "ABLATION", "breakout",
-          "Disable displacement", "May delay entries until breakout is extended",
-          1, {"flags.disable_displacement": True}),
-        E("abl_brk_dirty", "ABLATION", "breakout",
-          "Disable dirty state", "May block legitimate structural re-entries",
-          1, {"flags.disable_dirty": True}),
-        E("abl_brk_quality_reject", "ABLATION", "breakout",
-          "Disable breakout quality reject", "Additional quality filter on score threshold",
-          1, {"flags.disable_breakout_quality_reject": True}),
-
-        # Priority 1c
-        E("abl_brk_hard_block", "ABLATION", "breakout",
-          "Disable hard block", "Hard block conditions",
-          1, {"flags.disable_hard_block": True}),
-        E("abl_brk_continuation", "ABLATION", "breakout",
-          "Disable continuation", "Continuation entry logic",
-          1, {"flags.disable_continuation": True}),
-        E("abl_brk_c_continuation", "ABLATION", "breakout",
-          "Disable C continuation entry", "Weaker continuation variant",
-          1, {"flags.disable_c_continuation_entry": True}),
-        E("abl_brk_reentry_gate", "ABLATION", "breakout",
-          "Disable reentry gate", "May miss quick re-breakouts",
-          1, {"flags.disable_reentry_gate": True}),
-        E("abl_brk_micro_guard", "ABLATION", "breakout",
-          "Disable micro guard", "Micro structure protection — conservative",
-          1, {"flags.disable_micro_guard": True}),
-        E("abl_brk_friction_gate", "ABLATION", "breakout",
-          "Disable friction gate", "Friction/slippage gate — may reject viable ETF trades",
-          1, {"flags.disable_friction_gate": True}),
-        E("abl_brk_pending", "ABLATION", "breakout",
-          "Disable pending entry queue", "Pending entry queue management",
-          1, {"flags.disable_pending": True}),
-        E("abl_brk_add_rvol", "ABLATION", "breakout",
-          "Disable add RVOL acceptance", "Volume confirmation for position building",
-          1, {"flags.disable_add_rvol_acceptance": True}),
-
-        # Priority 1d — unwired
-        E("abl_brk_corr_heat", "ABLATION", "breakout",
-          "Disable correlation heat penalty", "UNWIRED: flag not checked in engine",
-          1, {"flags.disable_corr_heat_penalty": True}),
-        E("abl_brk_rvol_gating", "ABLATION", "breakout",
-          "Disable entry B RVOL gating", "UNWIRED: flag not checked in engine",
-          1, {"flags.disable_entry_b_rvol_gating": True}),
-    ]
-
-
 # ---------------------------------------------------------------------------
 # Priority 2: Parameter sweeps
 # ---------------------------------------------------------------------------
@@ -327,45 +256,6 @@ def _helix_param_sweeps() -> list[Experiment]:
         exps.append(E(f"ps_helix_b_adx_{val}", "PARAM_SWEEP", "helix",
                       f"Class B min ADX={val}", "ADX filter for Class B setups",
                       2, {"param_overrides.CLASS_B_MIN_ADX": val}))
-
-    return exps
-
-
-def _breakout_param_sweeps() -> list[Experiment]:
-    """Breakout: 20 parameter sweep experiments."""
-    E = Experiment
-    exps = []
-
-    for val in [1, 2, 3]:
-        exps.append(E(f"ps_brk_score_{val}", "PARAM_SWEEP", "breakout",
-                      f"Score threshold normal={val}", "Entry score gate",
-                      2, {"param_overrides.SCORE_THRESHOLD_NORMAL": val}))
-
-    for val in [0.5, 0.67, 0.80, 1.0]:
-        exps.append(E(f"ps_brk_chop_mult_{val}", "PARAM_SWEEP", "breakout",
-                      f"Chop degraded size mult={val}", "Sizing in degraded regime",
-                      2, {"param_overrides.CHOP_DEGRADED_SIZE_MULT": val}))
-
-    for val in [-3, -2, -1, 0]:
-        exps.append(E(f"ps_brk_chop_stale_{val}", "PARAM_SWEEP", "breakout",
-                      f"Chop degraded stale adj={val}", "Stale exit days added in degraded",
-                      2, {"param_overrides.CHOP_DEGRADED_STALE_ADJ": val}))
-
-    for val in [4, 6, 8, 12]:
-        exps.append(E(f"ps_brk_pending_{val}", "PARAM_SWEEP", "breakout",
-                      f"Pending max RTH hours={val}", "Pending entry queue timeout",
-                      2, {"param_overrides.PENDING_MAX_RTH_HOURS": val}))
-
-    # TP1/TP2 sweeps for aligned tier (±20% of defaults)
-    for mult in [0.8, 1.0, 1.2]:
-        exps.append(E(f"ps_brk_tp1_aligned_{mult}", "PARAM_SWEEP", "breakout",
-                      f"TP1 R aligned ×{mult}", "Take-profit level for aligned tier",
-                      2, {"param_overrides.TP1_R_ALIGNED_MULT": mult}))
-
-    for mult in [0.8, 1.0, 1.2]:
-        exps.append(E(f"ps_brk_tp2_aligned_{mult}", "PARAM_SWEEP", "breakout",
-                      f"TP2 R aligned ×{mult}", "Second take-profit level",
-                      2, {"param_overrides.TP2_R_ALIGNED_MULT": mult}))
 
     return exps
 
@@ -460,25 +350,6 @@ def _helix_interactions() -> list[Experiment]:
     return exps
 
 
-def _breakout_interactions() -> list[Experiment]:
-    """Breakout: 3 interaction experiments (1 pair × 3 combos)."""
-    E = Experiment
-    return [
-        E("int_brk_chop_regime_both", "INTERACTION", "breakout",
-          "Disable chop_mode + regime_chop_block",
-          "Double chop gating — may be redundant",
-          3, {"flags.disable_chop_mode": True, "flags.disable_regime_chop_block": True}),
-        E("int_brk_chop_only", "INTERACTION", "breakout",
-          "Disable chop_mode only (interaction ref)",
-          "Reference for interaction effect",
-          3, {"flags.disable_chop_mode": True}),
-        E("int_brk_regime_only", "INTERACTION", "breakout",
-          "Disable regime_chop_block only (interaction ref)",
-          "Reference for interaction effect",
-          3, {"flags.disable_regime_chop_block": True}),
-    ]
-
-
 # ---------------------------------------------------------------------------
 # Priority 4: Portfolio-level experiments
 # ---------------------------------------------------------------------------
@@ -516,20 +387,17 @@ def _portfolio_experiments() -> list[Experiment]:
                       f"Portfolio daily stop R={val}", f"Daily loss limit at {val}R",
                       4, {"portfolio_daily_stop_R": val}))
 
-    # Priority ordering (3)
+    # Priority ordering (2)
     exps.extend([
         E("pf_helix_pri1", "PORTFOLIO", "portfolio",
-          "Helix priority 1, Breakout 4", "Old ordering: Helix before Breakout",
-          4, {"helix.priority": 1, "breakout.priority": 4}),
+          "Helix priority 1", "Helix runs directly after ATRSS",
+          4, {"helix.priority": 1}),
         E("pf_equal_pri", "PORTFOLIO", "portfolio",
           "Equal priority", "Pure time-of-signal ordering",
-          4, {"atrss.priority": 0, "breakout.priority": 0, "helix.priority": 0}),
-        E("pf_expectancy", "PORTFOLIO", "portfolio",
-          "Expectancy-ordered priority", "Re-order by estimated expectancy",
-          4, {"atrss.priority": 0, "helix.priority": 1, "breakout.priority": 2}),
+          4, {"atrss.priority": 0, "helix.priority": 0}),
     ])
 
-    # Risk allocation (5)
+    # Risk allocation (4)
     exps.extend([
         E("pf_atrss_risk_2.0", "PORTFOLIO", "portfolio",
           "ATRSS risk 2.0%", "ATRSS highest expectancy — more allocation",
@@ -543,9 +411,6 @@ def _portfolio_experiments() -> list[Experiment]:
         E("pf_helix_risk_1.2", "PORTFOLIO", "portfolio",
           "Helix risk 1.2%", "Moderate Helix increase",
           4, {"helix.unit_risk_pct": 0.012}),
-        E("pf_brk_heat_1.5", "PORTFOLIO", "portfolio",
-          "Breakout max heat 1.5R", "Expand Breakout ceiling",
-          4, {"breakout.max_heat_R": 1.5}),
     ])
 
     # Overlay experiments (3)

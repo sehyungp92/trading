@@ -1,15 +1,13 @@
-"""ATRSS composite scoring -- 7-component score, immutable across all 4 phases.
+"""ATRSS composite scoring -- 7 active components, immutable across phases.
 
 Two scoring profiles:
   - r1_independent: Original scales calibrated for independent-account mode.
   - r9_synchronized: Rescaled for honest synchronized/fee-net conditions.
 
-Components (sum to 1.0):
-  - net_r (0.24)
-  - net_return_pct (0.14)
+Active components (sum to 1.0):
+  - return_quality (0.38): blended total_r and net_return_pct
   - profit_factor (0.12)
-  - calmar_r (0.10)
-  - inv_dd (0.06)
+  - risk_efficiency (0.16): blended calmar_r and inverse drawdown
   - frequency (0.18)
   - mfe_capture (0.08)
   - avg_r (0.06)
@@ -28,15 +26,20 @@ import numpy as np
 # ---------------------------------------------------------------------------
 # Weights -- immutable across all phases and profiles
 # ---------------------------------------------------------------------------
-W_NET_R = 0.24
-W_NET_RETURN = 0.14
+W_RETURN = 0.38
 W_PF = 0.12
-W_CALMAR_R = 0.10
-W_INV_DD = 0.06
+W_RISK = 0.16
 W_FREQUENCY = 0.18
 W_MFE_CAPTURE = 0.08
 W_AVG_R = 0.06
 W_WIN_RATE = 0.02
+
+# Within-component blends preserve the old return/risk balance without
+# exposing more optimizer objectives than the seven active components.
+RETURN_NET_R_BLEND = 0.24 / W_RETURN
+RETURN_NET_RETURN_BLEND = 0.14 / W_RETURN
+RISK_CALMAR_BLEND = 0.10 / W_RISK
+RISK_INV_DD_BLEND = 0.06 / W_RISK
 
 
 # ---------------------------------------------------------------------------
@@ -109,11 +112,9 @@ SCORING_PROFILES: dict[str, dict] = {
         "net_return_divisor": 180.0,
         "avg_r_divisor": 1.20,
         "weights": {
-            "net_r": 0.16,
-            "net_return": 0.32,
+            "return": 0.48,
             "pf": 0.12,
-            "calmar_r": 0.10,
-            "inv_dd": 0.12,
+            "risk": 0.22,
             "frequency": 0.04,
             "mfe_capture": 0.04,
             "avg_r": 0.06,
@@ -170,11 +171,9 @@ class ATRSSMetrics:
 @dataclass(frozen=True)
 class ATRSSCompositeScore:
     """Frozen composite score for ATRSS optimization."""
-    net_r_component: float = 0.0
-    net_return_component: float = 0.0
+    return_component: float = 0.0
     pf_component: float = 0.0
-    calmar_r_component: float = 0.0
-    inv_dd_component: float = 0.0
+    risk_component: float = 0.0
     frequency_component: float = 0.0
     mfe_capture_component: float = 0.0
     avg_r_component: float = 0.0
@@ -182,6 +181,26 @@ class ATRSSCompositeScore:
     total: float = 0.0
     rejected: bool = False
     reject_reason: str = ""
+
+    @property
+    def net_r_component(self) -> float:
+        """Compatibility alias for older reports."""
+        return self.return_component
+
+    @property
+    def net_return_component(self) -> float:
+        """Compatibility alias for older reports."""
+        return self.return_component
+
+    @property
+    def calmar_r_component(self) -> float:
+        """Compatibility alias for older reports."""
+        return self.risk_component
+
+    @property
+    def inv_dd_component(self) -> float:
+        """Compatibility alias for older reports."""
+        return self.risk_component
 
 
 def composite_score(
@@ -236,15 +255,18 @@ def composite_score(
     # separate fixed profile to evaluate capital deployment without changing
     # the R9 alpha-discovery score.
     profile_weights = p.get("weights", {})
-    w_net_r = float(profile_weights.get("net_r", W_NET_R))
-    w_net_return = float(profile_weights.get("net_return", W_NET_RETURN))
+    w_return = float(profile_weights.get("return", W_RETURN))
     w_pf = float(profile_weights.get("pf", W_PF))
-    w_calmar_r = float(profile_weights.get("calmar_r", W_CALMAR_R))
-    w_inv_dd = float(profile_weights.get("inv_dd", W_INV_DD))
+    w_risk = float(profile_weights.get("risk", W_RISK))
     w_freq = float(profile_weights.get("frequency", W_FREQUENCY))
     w_capture = float(profile_weights.get("mfe_capture", W_MFE_CAPTURE))
     w_avg_r = float(profile_weights.get("avg_r", W_AVG_R))
     w_wr = float(profile_weights.get("win_rate", W_WIN_RATE))
+
+    return_net_r_blend = float(profile_weights.get("return_net_r_blend", RETURN_NET_R_BLEND))
+    return_net_return_blend = float(profile_weights.get("return_net_return_blend", RETURN_NET_RETURN_BLEND))
+    risk_calmar_blend = float(profile_weights.get("risk_calmar_blend", RISK_CALMAR_BLEND))
+    risk_inv_dd_blend = float(profile_weights.get("risk_inv_dd_blend", RISK_INV_DD_BLEND))
 
     # net_r: log(1 + total_r / log_divisor) / log(log_base)
     net_r_raw = _clip01(
@@ -277,12 +299,21 @@ def composite_score(
     # win_rate: wr / divisor
     wr_raw = _clip01(metrics.win_rate / p["wr_divisor"])
 
+    return_blend_total = max(return_net_r_blend + return_net_return_blend, 1e-9)
+    return_raw = _clip01(
+        (return_net_r_blend * net_r_raw + return_net_return_blend * net_return_raw)
+        / return_blend_total
+    )
+    risk_blend_total = max(risk_calmar_blend + risk_inv_dd_blend, 1e-9)
+    risk_raw = _clip01(
+        (risk_calmar_blend * calmar_r_raw + risk_inv_dd_blend * inv_dd_raw)
+        / risk_blend_total
+    )
+
     total = (
-        w_net_r * net_r_raw
-        + w_net_return * net_return_raw
+        w_return * return_raw
         + w_pf * pf_raw
-        + w_calmar_r * calmar_r_raw
-        + w_inv_dd * inv_dd_raw
+        + w_risk * risk_raw
         + w_freq * freq_raw
         + w_capture * capture_raw
         + w_avg_r * avg_r_raw
@@ -290,11 +321,9 @@ def composite_score(
     )
 
     return ATRSSCompositeScore(
-        net_r_component=net_r_raw,
-        net_return_component=net_return_raw,
+        return_component=return_raw,
         pf_component=pf_raw,
-        calmar_r_component=calmar_r_raw,
-        inv_dd_component=inv_dd_raw,
+        risk_component=risk_raw,
         frequency_component=freq_raw,
         mfe_capture_component=capture_raw,
         avg_r_component=avg_r_raw,

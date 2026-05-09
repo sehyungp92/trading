@@ -2,7 +2,7 @@
 
 ## Bot Identity
 - Bot ID: `swing_multi_01`
-- Strategy type: Multi-strategy (ATRSS trend-follow, Helix divergence-swing, Breakout compression, BRS bear-regime swing, EMA crossover overlay)
+- Strategy type: Multi-strategy (ATRSS trend-follow, Helix divergence-swing, EMA crossover overlay)
 - Exchange(s): Interactive Brokers (IBKR) — futures + equities
 - Default pairs: QQQ, GLD (ETFs — default production config)
 - Available pairs: MNQ, MCL, MGC, MBT, NQ, CL, GC, BRR, BT, QQQ, GLD, USO (configurable via `ATRSS_SYMBOL_SET`, `AKCHELIX_SYMBOL_SET` env vars)
@@ -15,7 +15,6 @@
   - [strategy/signals.py:168] `breakout_pullback_signal()` — 30-50% retracement after arm
   - [strategy/signals.py:209] `reverse_entry_ok()` — stop-and-reverse eligibility
   - [strategy_2/signals.py] Helix: divergence, momentum, catchup signals (CLASS_A/B/C)
-  - [strategy_3/signals.py] Breakout: squeeze breakout, displacement signal
   - [shared/overlay/engine.py] Overlay: EMA fast > slow crossover on daily closes (QQQ 10/21, GLD 13/21)
 - Signal strength available: YES — [strategy/signals.py:70] `compute_entry_quality()` scores 0-7 (ADX, DI alignment, EMA separation, touch distance, momentum)
 - Filters:

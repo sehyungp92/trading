@@ -65,6 +65,8 @@ class HelixPortfolioResult:
 
     symbol_results: dict[str, HelixSymbolResult] = field(default_factory=dict)
     combined_equity: np.ndarray = field(default_factory=lambda: np.array([]))
+    combined_equity_mtm: np.ndarray = field(default_factory=lambda: np.array([]))
+    combined_equity_realized: np.ndarray = field(default_factory=lambda: np.array([]))
     combined_timestamps: np.ndarray = field(default_factory=lambda: np.array([]))
     filter_summary: dict[str, FilterStats] = field(default_factory=dict)
     heat_stats: HelixHeatStats = field(default_factory=HelixHeatStats)
@@ -84,11 +86,17 @@ def _get_point_value(symbol: str) -> float:
 def load_helix_data(
     symbols: list[str],
     data_dir,
+    *,
+    start_date=None,
+    end_date=None,
 ) -> HelixPortfolioData:
     """Load 1H + 1D parquets, resample 1H→4H, build NumpyBars + idx maps."""
     from pathlib import Path
+    from backtests.swing.data.replay_cache import _coerce_utc_timestamp, _slice_timestamp_index
     data_dir = Path(data_dir)
     portfolio = HelixPortfolioData()
+    start_ts = _coerce_utc_timestamp(start_date)
+    end_ts = _coerce_utc_timestamp(end_date, end_of_day=True)
 
     for sym in symbols:
         hourly_path = data_dir / f"{sym}_1h.parquet"
@@ -107,6 +115,9 @@ def load_helix_data(
             hourly_df.index = pd.DatetimeIndex(hourly_df.index)
         if not isinstance(daily_df.index, pd.DatetimeIndex):
             daily_df.index = pd.DatetimeIndex(daily_df.index)
+
+        hourly_df = _slice_timestamp_index(hourly_df, start_ts, end_ts)
+        daily_df = _slice_timestamp_index(daily_df, start_ts, end_ts)
 
         # Resample 1H → 4H
         four_hour_df = resample_1h_to_4h(hourly_df)
@@ -167,6 +178,8 @@ def run_helix_independent(
     return HelixPortfolioResult(
         symbol_results=results,
         combined_equity=combined_equity,
+        combined_equity_mtm=combined_equity,
+        combined_equity_realized=combined_equity,
         combined_timestamps=combined_ts,
         filter_summary=filter_summary,
         decision_stream=merge_decision_streams(*(result.decision_stream for result in results.values())),
@@ -233,9 +246,11 @@ def run_helix_synchronized(
     unified_ts = sorted(all_times_set)
     init_eq = bt_config.initial_equity
     prev_sym_equity: dict[str, float] = {sym: init_eq for sym in engines}
+    last_sym_mtm: dict[str, float] = {sym: init_eq for sym in engines}
     portfolio_equity = init_eq
 
-    equity_curve: list[float] = []
+    equity_curve_mtm: list[float] = []
+    equity_curve_realized: list[float] = []
     timestamps: list = []
     heat_samples: list[float] = []
 
@@ -258,13 +273,20 @@ def run_helix_synchronized(
                     bar_idx,
                     bt_config.warmup_daily, bt_config.warmup_hourly,
                 )
+                if engine.equity_curve:
+                    last_sym_mtm[sym] = float(engine.equity_curve[-1])
 
-            # Portfolio equity from per-symbol deltas
+            # Portfolio realized equity from per-symbol closed-PnL deltas.
             for sym, eng in engines.items():
                 delta = eng.equity - prev_sym_equity[sym]
                 portfolio_equity += delta
                 prev_sym_equity[sym] = eng.equity
-            equity_curve.append(portfolio_equity)
+
+            # Add only the child open-PnL deltas to avoid double-counting realized PnL.
+            open_mtm = sum(last_sym_mtm[sym] - eng.equity for sym, eng in engines.items())
+            portfolio_mtm = portfolio_equity + open_mtm
+            equity_curve_realized.append(portfolio_equity)
+            equity_curve_mtm.append(portfolio_mtm)
             timestamps.append(ts)
 
             # Track heat
@@ -272,9 +294,15 @@ def run_helix_synchronized(
             for sym, eng in engines.items():
                 pos = eng.active_position
                 if pos is not None and pos.qty_open > 0:
-                    risk_dollars = abs(pos.fill_price - pos.current_stop) * _get_point_value(sym) * pos.qty_open
+                    basis = getattr(pos, "avg_entry_price", 0.0) or pos.fill_price
+                    if pos.setup.direction.name == "LONG":
+                        risk_per_share = max(0.0, basis - pos.current_stop)
+                    else:
+                        risk_per_share = max(0.0, pos.current_stop - basis)
+                    risk_dollars = risk_per_share * _get_point_value(sym) * pos.qty_open
                     total_heat += risk_dollars
-            heat_pct = total_heat / portfolio_equity if portfolio_equity > 0 else 0.0
+            heat_base = portfolio_mtm if portfolio_mtm > 0 else portfolio_equity
+            heat_pct = total_heat / heat_base if heat_base > 0 else 0.0
             heat_samples.append(heat_pct)
 
         for sym, engine in engines.items():
@@ -288,8 +316,10 @@ def run_helix_synchronized(
             delta = engine.equity - prev_sym_equity[sym]
             portfolio_equity += delta
             prev_sym_equity[sym] = engine.equity
-        if equity_curve:
-            equity_curve[-1] = portfolio_equity
+            last_sym_mtm[sym] = engine.equity
+        if equity_curve_mtm:
+            equity_curve_mtm[-1] = portfolio_equity
+            equity_curve_realized[-1] = portfolio_equity
 
     # Compute heat stats
     heat_arr = np.array(heat_samples) if heat_samples else np.array([0.0])
@@ -323,7 +353,9 @@ def run_helix_synchronized(
 
     return HelixPortfolioResult(
         symbol_results=results,
-        combined_equity=np.array(equity_curve),
+        combined_equity=np.array(equity_curve_mtm),
+        combined_equity_mtm=np.array(equity_curve_mtm),
+        combined_equity_realized=np.array(equity_curve_realized),
         combined_timestamps=np.array(timestamps),
         filter_summary=filter_summary,
         heat_stats=heat,

@@ -449,7 +449,7 @@ class DownturnEngine:
                     block_reason: str, *,
                     filter_decisions: list[dict] | None = None,
                     **extra) -> None:
-        """Log missed opportunity (matches Helix pattern)."""
+        """Log missed opportunity with the shared momentum instrumentation shape."""
         if not self._kit or not self._kit.active:
             return
         try:

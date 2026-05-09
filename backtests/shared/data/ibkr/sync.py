@@ -60,7 +60,9 @@ async def sync_families(
 
     try:
         for family in normalized:
-            for requirement in family_bar_requirements(family, years=years):
+            requirements = list(family_bar_requirements(family, years=years))
+            logger.info("[%s] %d symbols to sync", family, len(requirements))
+            for i, requirement in enumerate(requirements, 1):
                 end = datetime.now(timezone.utc)
                 request = BarDownloadRequest(
                     symbol=requirement.symbol,
@@ -68,6 +70,7 @@ async def sync_families(
                     sec_type=requirement.sec_type,
                     exchange=requirement.exchange,
                     trading_class=requirement.trading_class,
+                    primary_exchange=requirement.primary_exchange,
                     what_to_show=requirement.what_to_show,
                     use_rth=requirement.use_rth,
                     duration=requirement.duration,
@@ -86,6 +89,12 @@ async def sync_families(
                         latest_only=latest,
                     )
                 else:
+                    logger.info(
+                        "[%s] (%d/%d) %s %s %s",
+                        family, i, len(requirements),
+                        requirement.symbol, requirement.timeframe,
+                        requirement.what_to_show,
+                    )
                     result = await download_historical_bars(
                         ib,
                         request,
@@ -95,6 +104,12 @@ async def sync_families(
                         latest_only=latest,
                     )
                 if isinstance(result, DownloadResult):
+                    if not dry_run and result.rows:
+                        logger.info(
+                            "  -> %s %s: %d rows [%s .. %s]",
+                            result.symbol, result.timeframe,
+                            result.rows, result.start, result.end,
+                        )
                     results.append(result)
     finally:
         if ib is not None:

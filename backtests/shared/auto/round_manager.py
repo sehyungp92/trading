@@ -21,7 +21,7 @@ _CANONICAL_METRIC_KEYS = {
     "calmar_ratio": ("calmar_ratio", "calmar", "calmar_r"),
 }
 
-_PERCENT_METRICS = {"win_rate", "max_drawdown_pct", "net_return_pct"}
+_PERCENT_RATIO_METRICS = {"win_rate"}
 _BOOTSTRAP_EXTRA_FILES = {
     "phase_activity_log.jsonl",
     "phase_run_manifest.json",
@@ -78,7 +78,7 @@ def canonicalize_metrics(final_metrics: dict[str, Any] | None) -> dict[str, Any]
     canonical: dict[str, Any] = {}
     for key, aliases in _CANONICAL_METRIC_KEYS.items():
         value = _first_metric(metrics, aliases)
-        if key in _PERCENT_METRICS:
+        if key in _PERCENT_RATIO_METRICS:
             canonical[key] = _coerce_percent(value)
         else:
             canonical[key] = _coerce_number(value)
@@ -150,6 +150,8 @@ class RoundManager:
         rounds = self.load_manifest().get("rounds", [])
         latest = 0
         for entry in rounds:
+            if entry.get("archived"):
+                continue
             try:
                 latest = max(latest, int(entry.get("round", 0)))
             except (TypeError, ValueError):
@@ -243,6 +245,7 @@ class RoundManager:
         scoring_weights: dict[str, Any] | None = None,
         baseline_mutations: dict[str, Any] | None = None,
         baseline_source: Path | str | None = None,
+        execution_context: dict[str, Any] | None = None,
         overwrite: bool = False,
     ) -> Path:
         path = self.run_spec_path(round_dir)
@@ -263,6 +266,7 @@ class RoundManager:
             "baseline_mutation_count": len(baseline_mutations or {}),
             "baseline_mutations": dict(baseline_mutations or {}),
             "scoring_weights": dict(scoring_weights or {}),
+            "execution_context": dict(execution_context or {}),
         }
         _atomic_write_json(payload, path)
         return path
@@ -319,7 +323,7 @@ class RoundManager:
         rounds = manifest.setdefault("rounds", [])
         replaced = False
         for index, existing in enumerate(rounds):
-            if int(existing.get("round", 0)) == round_num:
+            if int(existing.get("round", 0)) == round_num and not existing.get("archived"):
                 rounds[index] = entry
                 replaced = True
                 break

@@ -91,27 +91,10 @@ STRATEGIES: list[StrategyBootstrapSpec] = [
     ),
     StrategyBootstrapSpec(
         family="swing",
-        strategy="brs",
-        diagnostics=_path("backtests/swing/auto/brs/output/r10_full_diagnostics.txt"),
-        phase_state=_path("backtests/swing/auto/brs/output/phase_state.json"),
-        artifacts_dir=_path("backtests/swing/auto/brs/output"),
-    ),
-    StrategyBootstrapSpec(
-        family="swing",
         strategy="atrss",
         diagnostics=_path("backtests/swing/auto/atrss/output/r9_phase1_full_diagnostics.txt"),
         phase_state=_path("backtests/swing/auto/atrss/output/phase_state.json"),
         artifacts_dir=_path("backtests/swing/auto/atrss/output"),
-    ),
-    StrategyBootstrapSpec(
-        family="swing",
-        strategy="breakout",
-        diagnostics=_path("backtests/swing/auto/output/breakout_optimized_seed_full_diagnostics.txt"),
-        summary_json=_path("backtests/swing/auto/output/breakout_optimized_seed_summary.json"),
-        mutations_override={
-            "flags.disable_regime_chop_block": True,
-            "flags.disable_score_threshold": True,
-        },
     ),
     StrategyBootstrapSpec(
         family="stock",

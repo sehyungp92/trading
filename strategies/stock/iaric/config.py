@@ -65,10 +65,10 @@ class StrategySettings:
     avwap_breakdown_pct: float = 0.007
     avwap_breakdown_volume_mult: float = 1.5
 
-    base_risk_fraction: float = 0.008
+    base_risk_fraction: float = 0.00864
     intraday_leverage: float = 2.0             # Max leverage (2.0 = Reg T, 4.0 = PDT intraday)
     daily_stop_r: float = 2.75
-    heat_cap_r: float = 6.0
+    heat_cap_r: float = 5.4
     portfolio_daily_stop_r: float = 3.5
     sector_risk_cap_pct: float = 0.35
     max_positions_tier_a: int = 8
@@ -241,7 +241,7 @@ class StrategySettings:
     pb_v2_gap_fill_thresh: float = -2.0           # Trigger G: gap-down % at open
 
     # V2 Scoring
-    pb_v2_signal_floor: float = 72.0
+    pb_v2_signal_floor: float = 66.0
     pb_v2_signal_floor_tier_b: float = 0.0         # Tier B signal floor override (0=use global)
     pb_v2_sizing_premium: float = 1.00            # score >= 75
     pb_v2_sizing_standard: float = 0.80           # score 60-74
@@ -275,7 +275,7 @@ class StrategySettings:
     pb_v2_mfe_stage2_trigger: float = 0.60
     pb_v2_mfe_stage3_trigger: float = 1.25
     pb_v2_mfe_stage3_trail_atr: float = 0.75
-    pb_v2_partial_profit_trigger_r: float = 0.2
+    pb_v2_partial_profit_trigger_r: float = 0.1
     pb_v2_partial_profit_remainder_stop_r: float = 0.7
     pb_v2_ema_reversion_exit: bool = True
     pb_v2_ema_reversion_min_r: float = 0.03
@@ -310,7 +310,7 @@ class StrategySettings:
     pb_max_hold_days: int = 2                    # time stop in days
     pb_profit_target_r: float = 0.0              # profit target R-mult (0=disabled)
     pb_flow_gate: bool = True                    # require positive flow proxy
-    pb_max_positions: int = 10
+    pb_max_positions: int = 9
     pb_regime_gate: str = "C_only_skip"          # "C_only_skip" | "B_and_above" | "any"
     pb_carry_enabled: bool = True                # allow overnight carry
     pb_carry_min_r: float = 0.25                 # min R to qualify for carry

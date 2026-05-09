@@ -107,7 +107,6 @@ def _score_strategy(trades: list, label: str = "") -> dict:
 def swing_weakness_report(
     atrss_result=None,
     helix_result=None,
-    breakout_result=None,
     portfolio_result=None,
     overlay_result=None,
     filter_verdicts: dict[str, dict[str, str]] | None = None,
@@ -127,7 +126,6 @@ def swing_weakness_report(
     strategies = {}
     for name, result in [
         ("ATRSS", atrss_result), ("Helix", helix_result),
-        ("Breakout", breakout_result),
     ]:
         if result is not None:
             trades = getattr(result, 'trades', [])

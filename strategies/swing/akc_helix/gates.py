@@ -10,6 +10,7 @@ from typing import Optional
 from .config import (
     BASKET_4H_SECOND_MULT,
     BASKET_SYMBOLS,
+    DISABLE_CIRCUIT_BREAKER,
     EXTREME_VOL_CAP_R,
     EXTREME_VOL_PCT,
     INSTRUMENT_CAP_R,
@@ -265,6 +266,8 @@ def extreme_vol_gate(setup_class: SetupClass, vol_pct: float) -> bool:
 
 def circuit_breaker_ok(cb: CircuitBreakerState, now: datetime) -> bool:
     """Check if circuit breaker allows new entries."""
+    if DISABLE_CIRCUIT_BREAKER:
+        return True
     if cb.paused_until and now < cb.paused_until:
         return False
     return True

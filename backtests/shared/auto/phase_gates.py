@@ -9,7 +9,14 @@ FAILURE_CATEGORIES = (
     "diagnostic_needed",
 )
 
-_LOWER_IS_BETTER_TOKENS = ("drawdown", "latency")
+_LOWER_IS_BETTER_TOKENS = (
+    "drawdown",
+    "latency",
+    "false_positive",
+    "right_then_lost",
+    "top5_winner_share",
+    "hold_bars",
+)
 
 
 def _lower_is_better(name: str) -> bool:

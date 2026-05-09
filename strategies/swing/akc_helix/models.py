@@ -170,6 +170,10 @@ class SetupInstance:
 
     # Risk
     unit1_risk_dollars: float = 0.0
+    base_unit1_risk_dollars: float = 0.0
+    target_initial_risk_dollars: float = 0.0
+    actual_initial_risk_dollars: float = 0.0
+    risk_utilization: float = 0.0
     setup_size_mult: float = 1.0
     vol_factor_at_placement: float = 1.0
     offset_ticks_at_placement: int = 0
@@ -193,6 +197,7 @@ class SetupInstance:
 
     # Fill
     fill_price: float = 0.0
+    avg_entry_price: float = 0.0
     fill_qty: int = 0
     fill_ts: Optional[datetime] = None
     r_price: float = 0.0             # dollar risk per unit for R calc
@@ -244,6 +249,8 @@ class SetupInstance:
 class CircuitBreakerState:
     weekly_realized_r: float = 0.0
     daily_realized_r: float = 0.0
+    daily_bucket: Optional[str] = None
+    weekly_bucket: Optional[str] = None
     consecutive_stops: int = 0
     halved_until: Optional[datetime] = None
     paused_until: Optional[datetime] = None

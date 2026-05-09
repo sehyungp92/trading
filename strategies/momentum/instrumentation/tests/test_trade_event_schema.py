@@ -44,8 +44,8 @@ def test_trade_event_mfe_mae_defaults_none_in_dict():
 def test_trade_event_has_strategy_type_field():
     te = TradeEvent(trade_id="t1", event_metadata={}, entry_snapshot={})
     assert te.strategy_type == ""
-    te2 = TradeEvent(trade_id="t2", event_metadata={}, entry_snapshot={}, strategy_type="helix")
-    assert te2.strategy_type == "helix"
+    te2 = TradeEvent(trade_id="t2", event_metadata={}, entry_snapshot={}, strategy_type="nqdtc")
+    assert te2.strategy_type == "nqdtc"
 
 
 def test_trade_event_has_param_set_id_field():

@@ -1,12 +1,12 @@
 # Trading Monorepo
 
-Systematic trading system running **11 strategies** across **3 families** — swing (ETFs), momentum (NQ futures), and stock (US equities) — on a single-VPS deployment with unified OMS, risk gateway, and instrumentation pipeline.
+Systematic trading system running **9 strategies** across **3 families** — swing (ETFs), momentum (NQ futures), and stock (US equities) — on a single-VPS Docker deployment with unified OMS, risk gateway, and instrumentation pipeline.
 
 ---
 
 ## Strategy Families
 
-### Swing Family (4 strategies + overlay)
+### Swing Family (3 strategies + overlay)
 
 Trades ETFs (QQQ, GLD) on hourly/daily timeframes. All strategies share a single OMS instance with coordinated position management.
 
@@ -14,8 +14,7 @@ Trades ETFs (QQQ, GLD) on hourly/daily timeframes. All strategies share a single
 |----------|------|
 | **AKC Helix** | Trend-following with regime filtering across two ETFs. EMA-based trend alignment with ATR stops. |
 | **ATRSS** | ATR-calibrated multi-leg breakout/reentry with chandelier trailing and stall detection. Quality gate filters low-conviction setups. |
-| **Swing Breakout** | Campaign-based entries scored by AVWAP + multi-timeframe EMA alignment + displacement quantile. Only high-momentum, low-chop breakouts are taken. |
-| **BRS** | Regime-gated multi-arm entry with 4H structural classification and daily bias alignment. Pyramiding with signal-confirmed adds. |
+| **TPC** | Trend pullback continuation on Fibonacci retracement levels (Type A/B/C depth bands) with 4H regime gating, multi-trigger micro-confirmation, and scored setup sizing. |
 | **Overlay** | Deploys idle cash via daily EMA crossover rebalancing. Zero additional margin cost — uses capital not committed to swing risk. |
 
 ### Momentum Family (4 strategies)
@@ -24,26 +23,25 @@ Trades MNQ (Micro E-mini Nasdaq) futures on intraday timeframes (5m/15m/1H). Eac
 
 | Strategy | Edge |
 |----------|------|
+| **NQ Regime** | Intraday regime classifier that scores each session into structural expansion, liquidity reversion, or PM continuation, then routes to a matching trade module. IB-range anchored entries with key-level awareness and news-event gating. |
 | **NQDTC** | Compression-breakout on 5m bars with precise stop placement at box boundary. Chop detection (ADX) blocks ranging conditions. Ablation-optimized partials. |
 | **VdubusNQ** | VWAP as dynamic support/resistance with quantile-based displacement filtering. Session window restrictions concentrate entries in highest-probability time blocks. |
-| **AKC Helix** | Class-based signal hierarchy (Momentum > Fade > Trend) with session-aware sizing and DOW filtering. Apex chandelier trail captures extended moves. |
 | **Downturn Dominator** | Short-only specialist with 5 bear-regime override modes. Conviction scoring + fast-crash detection increase aggression during genuine downturns. VWAP-failure exit cuts losers early. |
 
-### Stock Family (3 strategies)
+### Stock Family (2 strategies)
 
-Trades US equities (S&P 500 universe + scanner-driven). Each strategy runs its own OMS instance.
+Trades US equities (S&P 500 universe). Each strategy runs its own OMS instance.
 
-| Strategy | Instruments | Edge |
-|----------|-------------|------|
-| **IARIC** | S&P 500 watchlist | Nightly pullback selection ranked by 7-trigger score with 5 intraday entry routes (opening reclaim, VWAP bounce, afternoon retest, etc.). AVWAP provides objective entry-level validation. |
-| **ALCB** | S&P 500 candidates | Opening range momentum continuation with ADX + RVOL confirmation. Sector-based size penalty prevents concentration. Flow reversal trailing stop. |
-| **US ORB** | IB scanner (gap + volume) | Pure first-hour momentum capture. Scanner dynamically selects the day's strongest movers; breadth filter prevents entries during weak tape. |
+| Strategy | Edge |
+|----------|------|
+| **IARIC** | Nightly pullback selection ranked by 7-trigger score with 5 intraday entry routes (opening reclaim, VWAP bounce, afternoon retest, etc.). AVWAP provides objective entry-level validation. |
+| **ALCB** | Opening range momentum continuation with ADX + RVOL confirmation. Sector-based size penalty prevents concentration. Flow reversal trailing stop. |
 
 ---
 
 ## Regime System
 
-A macro regime classifier runs weekly and governs risk budgets, position limits, and allocation weights across all three families.
+A macro regime classifier runs weekly and governs risk budgets, position limits, and allocation weights across all families.
 
 ### Classification
 
@@ -78,14 +76,14 @@ Each coordinator receives a `RegimeContext` and atomically updates its live `Por
   | S | 2.0 | 2.0 | 0.7x | 0.7x | 0.5x |
   | D | 1.5 | 2.5 | 0.5x | 0.5x | 0.5x |
 
-- **Stock** — Directional cap tightens, symbol collision action escalates from `half_size` (allow at reduced size) to `block` (deny entry) in S/D. Priority headroom for IARIC+ALCB narrows. US_ORB disabled in S/D regimes. Per-strategy max positions reduce progressively.
+- **Stock** — Directional cap tightens, symbol collision action escalates from `half_size` (allow at reduced size) to `block` (deny entry) in S/D. Priority headroom for IARIC+ALCB narrows. Per-strategy max positions reduce progressively.
 
-  | Regime | `directional_cap_R` | `unit_risk_mult` | `collision` | `headroom_R` | ALCB max pos | IARIC max pos | US_ORB |
-  |:------:|:-------------------:|:----------------:|:-----------:|:------------:|:------------:|:-------------:|:------:|
-  | G | 8.0 | 1.0x | half_size | 3.0 | 8 | 8 | on |
-  | R | 6.0 | 0.9x | half_size | 3.0 | 6 | 5 | on |
-  | S | 5.0 | 0.7x | block | 2.0 | 4 | 3 | off |
-  | D | 4.0 | 0.5x | block | 1.5 | 3 | 2 | off |
+  | Regime | `directional_cap_R` | `unit_risk_mult` | `collision` | `headroom_R` | ALCB max pos | IARIC max pos |
+  |:------:|:-------------------:|:----------------:|:-----------:|:------------:|:------------:|:-------------:|
+  | G | 8.0 | 1.0x | half_size | 3.0 | 8 | 8 |
+  | R | 6.0 | 0.9x | half_size | 3.0 | 6 | 5 |
+  | S | 5.0 | 0.7x | block | 2.0 | 4 | 3 |
+  | D | 4.0 | 0.5x | block | 1.5 | 3 | 2 |
 
 A **drawdown ladder** further tightens sizing within each regime. Thresholds compress in S/D to trigger earlier:
 
@@ -95,6 +93,35 @@ A **drawdown ladder** further tightens sizing within each regime. Thresholds com
 | Half | 8-12% | 7-11% | 6-10% | 0.50x |
 | Quarter | 12-15% | 11-14% | 10-13% | 0.25x |
 | Halt | > 15% | > 14% | > 13% | 0.00x |
+
+### Crisis Detection
+
+A daily-frequency crisis detector operates as a **tighten-only Layer 2** on top of the weekly regime classification. Where the HMM classifies macro environment (allocation), the crisis system detects tail-risk events (protection). It uses absolute market thresholds rather than z-scores, and no single channel can trigger action alone (conjunction gating). 
+
+Five primary channels are classified into levels 0-3 (NORMAL/WATCH/WARNING/CRISIS):
+
+| Channel | Source | WATCH | WARNING | CRISIS |
+|---------|--------|:-----:|:-------:|:------:|
+| **VIX** | FRED VIXCLS | >= 29 | >= 41.6 | >= 42 |
+| **Credit Spread** | FRED HY OAS (bps) | >= 250 | >= 336 | >= 500 |
+| **Yield Curve** | FRED 10Y-2Y | <= -0.50 (inversion) | 20d steepen >= +0.50 | 20d steepen >= +0.60 |
+| **SPY-TLT Corr** | 20-day rolling | >= 0.40 | >= 0.55 | >= 0.55 AND SPY DD <= -7% |
+| **SPY Drawdown** | 10-day cumulative | <= -5.0% | <= -5.5% | <= -10% |
+
+**Conjunction logic:** WARNING requires 2+ channels at Warning; CRISIS requires 2+ at Crisis or 3+ at Warning. A hybrid path allows WARNING when any single channel is at CRISIS and 2+ are at WARNING+. Stress formation bridges (shock, grind, credit-impulse) provide pre-action risk reduction before full WARNING/CRISIS triggers.
+
+**Directional action layer:** The detector emits a single market-wide alert level. The downstream action layer applies it asymmetrically by direction for momentum and swing — long exposure is cut while short exposure is preserved, since crises are directional events:
+
+|  | Long unit risk | Short unit risk | Long cap | Short cap | DD tier mult |
+|:-----:|:---------:|:---------:|:---------:|:---------:|:------------------:|
+| NORMAL | 1.00x | 1.00x | 1.00x | 1.00x | 1.00x |
+| WATCH | 1.00x | 1.00x | 1.00x | 1.00x | 1.00x |
+| WARNING | 0.65x | 1.00x | 0.70-0.75x | 1.00x | 0.90x |
+| CRISIS | 0.30x | 1.00x | 0.35-0.40x | 1.00x | 0.75x |
+
+Stock applies symmetric cuts (both directions at 0.65x/0.30x) and disables ALCB + IARIC entirely at CRISIS. Shorts are still bounded by drawdown tiers, contract caps, account heat, and family-level controls.
+
+**Hysteresis:** Escalation is immediate; de-escalation requires consecutive days below threshold (2 for CRISIS, 1 for WARNING). A recovery ramp restores risk from 0.75x to 1.0x over 5 days after de-escalation. Each coordinator applies crisis overlay starting from regime-adjusted rules to prevent compounding.
 
 ---
 
@@ -166,13 +193,14 @@ The pipeline ensures every suggestion is traceable to specific trades, fills, an
 
 ```
 apps/
-  runtime/        # RuntimeShell — loads all families via --family flag
+  runtime/        # RuntimeShell -- loads all families via --family flag
   relay/          # Webhook event ingestion (HMAC auth, rate limiting)
   dashboard/      # Next.js portfolio viewer
 strategies/
-  swing/          # 4 strategies + overlay + coordinator + instrumentation
+  swing/          # 3 strategies + overlay + coordinator + instrumentation
   momentum/       # 4 strategies + coordinator + instrumentation
-  stock/          # 3 strategies + coordinator + instrumentation
+  stock/          # 2 strategies + coordinator + instrumentation
+
 libs/
   oms/            # Unified OMS (models, engine, risk gateway, persistence)
   broker_ibkr/    # IBKR adapter layer
@@ -183,7 +211,8 @@ backtests/
   swing/          # Swing backtest engines + auto-optimisation
   momentum/       # Momentum backtest engines + auto-optimisation
   stock/          # Stock backtest engines + auto-optimisation
+regime/           # Macro regime classifier (HMM, features, integration) + crisis detector
 config/
-  strategies.yaml # All 13 strategies with symbols, risk params, flags
+  strategies.yaml # All strategies with symbols, risk params, flags
 infra/            # Docker, migrations, cron, deployment
 ```

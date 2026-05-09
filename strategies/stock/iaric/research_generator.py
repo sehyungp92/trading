@@ -250,22 +250,24 @@ async def generate_research_snapshot(
     sem = asyncio.Semaphore(10)
 
     # -- Load universe -------------------------------------------------------
-    from .universe_constituents import KNOWN_ETFS, SP500_CONSTITUENTS
+    from .universe_constituents import KNOWN_ETFS
+    from strategies.stock.live_universe import (
+        BACKTESTED_INTRADAY_STOCK_SYMBOLS,
+        LIVE_STOCK_UNIVERSE,
+        LIVE_STOCK_UNIVERSE_ADDED_SYMBOLS,
+    )
 
     universe: dict[str, tuple[str, str]] = {}  # symbol -> (sector, primary_exchange)
-    for sym, sector, pex in SP500_CONSTITUENTS:
+    for sym, sector, pex in LIVE_STOCK_UNIVERSE:
         universe[sym] = (sector, pex)
 
-    # Supplement with IB momentum scanner
-    try:
-        scanner_symbols = await _fetch_scanner_symbols(ib, rate)
-        for sym in scanner_symbols:
-            if sym not in universe and sym not in KNOWN_ETFS:
-                universe[sym] = ("Unknown", "")
-    except Exception:
-        logger.warning("IB scanner supplement failed, using S&P 500 only", exc_info=True)
+    logger.info(
+        "IARIC focused live universe: %d symbols (%d backtested, %d Nasdaq/Dow additions)",
+        len(universe),
+        len(BACKTESTED_INTRADAY_STOCK_SYMBOLS),
+        len(LIVE_STOCK_UNIVERSE_ADDED_SYMBOLS),
+    )
 
-    # Cap at ~600
     all_symbols = list(universe.keys())[:600]
     logger.info("Research universe: %d symbols", len(all_symbols))
 

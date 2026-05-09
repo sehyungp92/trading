@@ -1,6 +1,6 @@
 """Downturn 3-decision loop analyzer — improve_scoring / improve_diagnostics / advance.
 
-3 improvements over BRS pattern:
+3 improvements over the previous pattern:
   A. Cross-engine delta tracking (per-engine health assessment)
   B. Correction-window attribution (split PnL into correction vs non-correction)
   C. Engine-routed experiment suggestions (target experiments to weak engines)

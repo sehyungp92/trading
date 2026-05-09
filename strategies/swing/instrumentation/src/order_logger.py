@@ -42,7 +42,7 @@ class OrderEvent:
     experiment_variant: str = ""
 
     # swing_trader-specific fields
-    strategy_id: str = ""                  # ATRSS | AKC_HELIX | SWING_BREAKOUT_V3 | OVERLAY
+    strategy_id: str = ""                  # ATRSS | AKC_HELIX | OVERLAY
     order_action: str = "NEW"              # NEW | MODIFY | CANCEL
     coordinator_triggered: bool = False    # True if coordinator rule caused this order
     coordinator_rule: str = ""             # which rule (e.g., "tighten_stop_be", "size_boost")

@@ -1,7 +1,7 @@
 """InstrumentationKit facade — single clean API for strategy engines.
 
 Usage in strategy engine:
-    kit = InstrumentationKit(instr_manager, strategy_type="helix")
+    kit = InstrumentationKit(instr_manager, strategy_type="nqdtc")
     kit.log_entry(trade_id=..., signal_factors=[...], filter_decisions=[...], ...)
     kit.log_exit(trade_id=..., exit_price=..., exit_reason=...)
     kit.log_missed(pair=..., blocked_by=..., filter_decisions=[...], ...)

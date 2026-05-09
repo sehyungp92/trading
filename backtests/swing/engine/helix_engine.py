@@ -23,10 +23,12 @@ from libs.broker_ibkr.risk_support.tick_rules import round_to_tick
 
 from strategies.swing.akc_helix import signals, stops
 from strategies.swing.akc_helix.allocator import (
+    apply_initial_risk_basis,
     compute_position_size,
     compute_risk_r,
     compute_unit1_risk,
 )
+from strategies.swing.akc_helix.circuit import roll_circuit_breaker_window
 from strategies.swing.akc_helix.config import (
     ADD_1H_R,
     ADD_4H_R,
@@ -42,6 +44,10 @@ from strategies.swing.akc_helix.config import (
     CLASS_C_MIN_HOLD_BARS,
     CLASS_D_BAIL_BARS,
     CLASS_D_BAIL_R_THRESH,
+    CLASS_D_HIST_SIGN_GATE,
+    CLASS_D_MIN_ADX,
+    CLASS_D_REGIME_STREAK_MIN,
+    CLASS_D_SHORT_MIN_ADX,
     CONSEC_STOPS_HALVE,
     DAILY_STOP_R,
     EARLY_STALE_BARS,
@@ -167,6 +173,7 @@ class _AblationPatch:
     def __enter__(self):
         import sys
         import strategies.swing.akc_helix.config as scfg
+        import strategies.swing.akc_helix.signals as ssig
         import strategies.swing.akc_helix.stops as sstops
 
         engine_mod = sys.modules[__name__]
@@ -179,6 +186,9 @@ class _AblationPatch:
             # Patch engine module's own top-level imported binding
             if hasattr(engine_mod, upper_key):
                 self._patch(engine_mod, upper_key, val)
+            # Patch signals module's cached bindings (Class D momentum lookback, div filters, stops).
+            if hasattr(ssig, upper_key):
+                self._patch(ssig, upper_key, val)
             # Patch stops module's cached bindings (TRAIL_BASE, R_BE, etc.)
             if hasattr(sstops, upper_key):
                 self._patch(sstops, upper_key, val)
@@ -209,6 +219,7 @@ class HelixTradeRecord:
     entry_time: datetime | None = None
     exit_time: datetime | None = None
     entry_price: float = 0.0
+    avg_entry_price: float = 0.0
     exit_price: float = 0.0
     qty: int = 0
     initial_stop: float = 0.0
@@ -216,6 +227,12 @@ class HelixTradeRecord:
     pnl_points: float = 0.0
     pnl_dollars: float = 0.0
     r_multiple: float = 0.0
+    net_pnl_dollars: float = 0.0
+    net_r_multiple: float = 0.0
+    base_unit1_risk_dollars: float = 0.0
+    target_initial_risk_dollars: float = 0.0
+    actual_initial_risk_dollars: float = 0.0
+    risk_utilization: float = 0.0
     mfe_r: float = 0.0
     mae_r: float = 0.0
     bars_held: int = 0
@@ -263,6 +280,7 @@ class _ActivePosition:
 
     setup: SetupInstance
     fill_price: float = 0.0
+    avg_entry_price: float = 0.0
     qty_open: int = 0
     initial_stop: float = 0.0
     current_stop: float = 0.0
@@ -600,8 +618,59 @@ class HelixEngine:
         if self.active_position is None or current_price == 0.0:
             return self.equity
         pos = self.active_position
+        basis = self._position_cost_basis(pos)
         d = 1 if pos.setup.direction == Direction.LONG else -1
-        return self.equity + (current_price - pos.fill_price) * d * self.point_value * pos.qty_open
+        return self.equity + (current_price - basis) * d * self.point_value * pos.qty_open
+
+    def _position_cost_basis(self, pos: _ActivePosition) -> float:
+        """Average entry for open quantity, including add-on fills."""
+        return pos.avg_entry_price or pos.fill_price
+
+    def _apply_add_fill_cost_basis(self, pos: _ActivePosition, fill_price: float, qty: int) -> None:
+        """Fold an add-on fill into the open position using average-cost accounting."""
+        if qty <= 0:
+            return
+        old_qty = max(int(pos.qty_open), 0)
+        old_basis = self._position_cost_basis(pos)
+        new_qty = old_qty + int(qty)
+        pos.avg_entry_price = ((old_basis * old_qty) + (float(fill_price) * int(qty))) / new_qty
+        pos.qty_open = new_qty
+
+    def _cap_add_qty(self, pos: _ActivePosition, qty: int) -> int:
+        """Respect the configured absolute position cap for pyramid add-ons."""
+        qty = max(0, int(qty))
+        max_contracts = int(getattr(self.cfg, "max_contracts", 0) or 0)
+        if max_contracts <= 0:
+            return qty
+        remaining = max(0, max_contracts - int(pos.qty_open))
+        return min(qty, remaining)
+
+    def _cap_entry_qty_to_initial_risk(self, setup: SetupInstance, fill_price: float, qty: int) -> int:
+        """Cap entry quantity using the actual fill-to-stop distance."""
+        qty = max(0, int(qty))
+        if qty <= 0 or not getattr(self.bt_config, "enforce_initial_risk_cap", True):
+            return qty
+        target = float(getattr(setup, "target_initial_risk_dollars", 0.0) or 0.0)
+        if target <= 0.0:
+            target = float(getattr(setup, "unit1_risk_dollars", 0.0) or 0.0)
+        if target <= 0.0:
+            return qty
+        risk_per_unit = abs(float(fill_price) - float(getattr(setup, "stop0", fill_price))) * self.point_value
+        if risk_per_unit <= 0.0:
+            return 0
+        buffer = max(0.0, float(getattr(self.bt_config, "initial_risk_cap_buffer", 0.0) or 0.0))
+        cap_qty = int((target * (1.0 + buffer)) // risk_per_unit)
+        max_contracts = int(getattr(self.cfg, "max_contracts", 0) or 0)
+        if max_contracts > 0:
+            cap_qty = min(cap_qty, max_contracts)
+        return min(qty, max(0, cap_qty))
+
+    def _net_trade_r(self, gross_pnl_dollars: float, commission: float, setup: SetupInstance) -> tuple[float, float]:
+        """Return fee-net dollars and R for a closed trade."""
+        net_pnl = float(gross_pnl_dollars) - float(commission)
+        unit_risk = float(getattr(setup, "unit1_risk_dollars", 0.0) or 0.0)
+        net_r = net_pnl / unit_risk if unit_risk > 0.0 else 0.0
+        return net_pnl, net_r
 
     # ------------------------------------------------------------------
     # Indicator updates
@@ -726,7 +795,8 @@ class HelixEngine:
 
         # Circuit breaker check
         if not self.flags.disable_circuit_breaker:
-            cb = self.circuit_breaker
+            cb = roll_circuit_breaker_window(self.circuit_breaker, bar_time)
+            self.circuit_breaker = cb
             if cb.paused_until and bar_time < cb.paused_until:
                 return
 
@@ -840,6 +910,31 @@ class HelixEngine:
                 self.cfg, bar_time,
             )
             if setup_1h is not None:
+                d_rejections: list[str] = []
+                if CLASS_D_MIN_ADX > 0 and daily.adx < CLASS_D_MIN_ADX:
+                    d_rejections.append("class_d_low_adx")
+                if (
+                    setup_1h.direction == Direction.SHORT
+                    and CLASS_D_SHORT_MIN_ADX > 0
+                    and daily.adx < CLASS_D_SHORT_MIN_ADX
+                ):
+                    d_rejections.append("class_d_short_low_adx")
+                if CLASS_D_HIST_SIGN_GATE:
+                    hist = self.tf_1h.macd_hist
+                    if setup_1h.direction == Direction.LONG and hist <= 0:
+                        d_rejections.append("class_d_hist_sign")
+                    elif setup_1h.direction == Direction.SHORT and hist >= 0:
+                        d_rejections.append("class_d_hist_sign")
+                if (
+                    CLASS_D_REGIME_STREAK_MIN > 0
+                    and self._regime_streak < CLASS_D_REGIME_STREAK_MIN
+                ):
+                    d_rejections.append("class_d_regime_streak")
+                if d_rejections:
+                    self._record_rejection(setup_1h, d_rejections[0], bar_time)
+                    setup_1h = None
+
+            if setup_1h is not None:
                 # Pivot dedup: skip if same L2/H2 as last D detection
                 p2_ts = setup_1h.pivot_2.ts if setup_1h.pivot_2 else None
                 if setup_1h.direction == Direction.LONG:
@@ -888,16 +983,17 @@ class HelixEngine:
         # Compute unit1 risk and position size
         vf = daily.vol_factor
         unit1_risk = compute_unit1_risk(self.sizing_equity, self.cfg.base_risk_pct, vf)
+        target_initial_risk = unit1_risk * setup.setup_size_mult
+        setup.base_unit1_risk_dollars = unit1_risk
+        setup.target_initial_risk_dollars = target_initial_risk
+        setup.actual_initial_risk_dollars = 0.0
+        setup.risk_utilization = 0.0
+        setup.unit1_risk_dollars = target_initial_risk if target_initial_risk > 0 else unit1_risk
         setup.vol_factor_at_placement = vf
 
         if self.bt_config.fixed_qty is not None:
             setup.qty_planned = self.bt_config.fixed_qty
-            # When qty is fixed, unit1_risk must reflect actual trade risk
-            # so that R-multiples (pnl / unit1_risk) are meaningful.
-            actual_risk = abs(setup.bos_level - setup.stop0) * self.point_value * setup.qty_planned
-            setup.unit1_risk_dollars = actual_risk if actual_risk > 0 else unit1_risk
         else:
-            setup.unit1_risk_dollars = unit1_risk
             setup.qty_planned = compute_position_size(
                 setup.bos_level, setup.stop0, unit1_risk,
                 setup.setup_size_mult, self.point_value,
@@ -910,7 +1006,8 @@ class HelixEngine:
 
         # Circuit breaker halving
         if not self.flags.disable_circuit_breaker:
-            cb = self.circuit_breaker
+            cb = roll_circuit_breaker_window(self.circuit_breaker, bar_time)
+            self.circuit_breaker = cb
             if cb.halved_until and bar_time < cb.halved_until:
                 setup.qty_planned = max(1, setup.qty_planned // 2)
 
@@ -1003,9 +1100,9 @@ class HelixEngine:
             client_order_id=order.order_id,
             setup=setup,
             order_role="entry",
+            qty=order.qty,
         )
         self._replay_core_step(bar_input={"bar_ts": bar_time, "entry_request": entry_req})
-        self._core_state.order_to_setup[order.order_id] = setup.setup_id
 
     # ------------------------------------------------------------------
     # Pending setup management
@@ -1073,13 +1170,35 @@ class HelixEngine:
             return
 
         self.pending_setup = None
+        accepted_qty = self._cap_entry_qty_to_initial_risk(setup, fill.fill_price, fill.order.qty)
+        if accepted_qty <= 0:
+            self._record_rejection(setup, "entry_initial_risk_cap", bar_time)
+            self.broker.cancel_all(self.symbol)
+            return
+        if accepted_qty != fill.order.qty:
+            fill.order.qty = accepted_qty
+            fill.commission = self.broker._compute_commission(accepted_qty)
+            setup.qty_planned = accepted_qty
+
         self.setups_filled += 1
         self.total_commission += fill.commission
         self.equity -= fill.commission
 
+        actual_r_price = abs(fill.fill_price - setup.stop0)
+        if actual_r_price > 0:
+            setup.r_price = actual_r_price
+        apply_initial_risk_basis(
+            setup,
+            fill.fill_price,
+            fill.order.qty,
+            self.point_value,
+            setup.target_initial_risk_dollars,
+        )
+
         pos = _ActivePosition(
             setup=setup,
             fill_price=fill.fill_price,
+            avg_entry_price=fill.fill_price,
             qty_open=fill.order.qty,
             initial_stop=setup.stop0,
             current_stop=setup.stop0,
@@ -1088,6 +1207,7 @@ class HelixEngine:
             mfe_price=fill.fill_price,
             mae_price=fill.fill_price,
             regime_at_entry=self.daily_state.regime.value if self.daily_state else "",
+            commission=fill.commission,
         )
         self.active_position = pos
 
@@ -1111,7 +1231,7 @@ class HelixEngine:
         # Core notification: entry fill + stop registration
         self._replay_core_step(fills=[AKCHelixFill(
             oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
-            fill_qty=fill.order.qty, symbol=self.symbol,
+            fill_qty=fill.order.qty, point_value=self.point_value, symbol=self.symbol,
             fill_time=bar_time, commission=fill.commission,
             order_role="entry",
         )])
@@ -1129,13 +1249,16 @@ class HelixEngine:
         # Compute R and PnL
         setup = pos.setup
         pv = self.point_value
+        cost_basis = self._position_cost_basis(pos)
         if setup.direction == Direction.LONG:
-            pnl_points = fill.fill_price - pos.fill_price
+            pnl_points = fill.fill_price - cost_basis
         else:
-            pnl_points = pos.fill_price - fill.fill_price
+            pnl_points = cost_basis - fill.fill_price
 
         pnl_dollars = pnl_points * pv * pos.qty_open + pos.realized_pnl
         r_multiple = pnl_dollars / setup.unit1_risk_dollars if setup.unit1_risk_dollars > 0 else 0.0
+        trade_commission = pos.commission + fill.commission
+        net_pnl_dollars, net_r_multiple = self._net_trade_r(pnl_dollars, trade_commission, setup)
 
         # MFE/MAE in R
         r_base = pos.r_price
@@ -1159,6 +1282,7 @@ class HelixEngine:
             entry_time=pos.entry_time,
             exit_time=bar_time,
             entry_price=pos.fill_price,
+            avg_entry_price=cost_basis,
             exit_price=fill.fill_price,
             qty=setup.qty_planned,
             initial_stop=pos.initial_stop,
@@ -1166,10 +1290,16 @@ class HelixEngine:
             pnl_points=pnl_points,
             pnl_dollars=pnl_dollars,
             r_multiple=r_multiple,
+            net_pnl_dollars=net_pnl_dollars,
+            net_r_multiple=net_r_multiple,
+            base_unit1_risk_dollars=setup.base_unit1_risk_dollars,
+            target_initial_risk_dollars=setup.target_initial_risk_dollars,
+            actual_initial_risk_dollars=setup.actual_initial_risk_dollars,
+            risk_utilization=setup.risk_utilization,
             mfe_r=mfe_r,
             mae_r=mae_r,
             bars_held=pos.bars_held_1h,
-            commission=pos.commission + fill.commission,
+            commission=trade_commission,
             qty_partial_1=pos.qty_partial_1,
             qty_partial_2=pos.qty_partial_2,
             add_on_qty=pos.add_qty,
@@ -1185,13 +1315,13 @@ class HelixEngine:
         # Core notification: stop fill
         self._replay_core_step(fills=[AKCHelixFill(
             oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
-            fill_qty=pos.qty_open, symbol=self.symbol,
+            fill_qty=pos.qty_open, point_value=self.point_value, symbol=self.symbol,
             fill_time=bar_time, commission=fill.commission,
             order_role="stop", exit_type="STOP",
         )])
 
         # Update circuit breaker
-        self._update_circuit_breaker(r_multiple, bar_time)
+        self._update_circuit_breaker(net_r_multiple, bar_time)
 
         # Cancel any remaining orders for this symbol
         self._pending_flatten_reason = None
@@ -1210,14 +1340,14 @@ class HelixEngine:
 
         # Record realized PnL from partial
         pv = self.point_value
+        cost_basis = self._position_cost_basis(pos)
         if pos.setup.direction == Direction.LONG:
-            partial_pnl = (fill.fill_price - pos.fill_price) * pv * fill.order.qty
+            partial_pnl = (fill.fill_price - cost_basis) * pv * fill.order.qty
         else:
-            partial_pnl = (pos.fill_price - fill.fill_price) * pv * fill.order.qty
+            partial_pnl = (cost_basis - fill.fill_price) * pv * fill.order.qty
 
         pos.realized_pnl += partial_pnl
-        self.equity += (fill.fill_price - pos.fill_price) * pv * fill.order.qty if pos.setup.direction == Direction.LONG \
-            else (pos.fill_price - fill.fill_price) * pv * fill.order.qty
+        self.equity += partial_pnl
         pos.qty_open -= fill.order.qty
 
         # Update protective stop qty
@@ -1241,7 +1371,7 @@ class HelixEngine:
         # Core notification: partial fill + stop registration
         self._replay_core_step(fills=[AKCHelixFill(
             oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
-            fill_qty=fill.order.qty, symbol=self.symbol,
+            fill_qty=fill.order.qty, point_value=self.point_value, symbol=self.symbol,
             fill_time=bar_time, commission=fill.commission,
             order_role="partial",
         )])
@@ -1257,7 +1387,7 @@ class HelixEngine:
         self.total_commission += fill.commission
         self.equity -= fill.commission
         pos.commission += fill.commission
-        pos.qty_open += fill.order.qty
+        self._apply_add_fill_cost_basis(pos, fill.fill_price, fill.order.qty)
         pos.add_qty = fill.order.qty
         pos.add_fill_price = fill.fill_price
 
@@ -1295,7 +1425,7 @@ class HelixEngine:
         # Core notification: add fill + stop registration
         self._replay_core_step(fills=[AKCHelixFill(
             oms_order_id=fill.order.order_id, fill_price=fill.fill_price,
-            fill_qty=fill.order.qty, symbol=self.symbol,
+            fill_qty=fill.order.qty, point_value=self.point_value, symbol=self.symbol,
             fill_time=bar_time, commission=fill.commission,
             order_role="add",
         )])
@@ -1345,10 +1475,11 @@ class HelixEngine:
 
         # R_state includes realized PnL from partials
         pv = self.point_value
+        cost_basis = self._position_cost_basis(pos)
         if setup.direction == Direction.LONG:
-            unrealized = (C - pos.fill_price) * pv * pos.qty_open
+            unrealized = (C - cost_basis) * pv * pos.qty_open
         else:
-            unrealized = (pos.fill_price - C) * pv * pos.qty_open
+            unrealized = (cost_basis - C) * pv * pos.qty_open
         r_state = (pos.realized_pnl + unrealized) / setup.unit1_risk_dollars \
             if setup.unit1_risk_dollars > 0 else r_now
 
@@ -1724,7 +1855,7 @@ class HelixEngine:
             ttl_hours=0,
             tag="flatten",
         )
-        fill = self.broker._fill_market(order, bar_time, last_price, self.cfg.tick_size)
+        fill = self.broker.fill_market_order(order, bar_time, last_price, self.cfg.tick_size)
         self._pending_flatten_reason = None
         self._flatten_position(
             pos,
@@ -1759,6 +1890,9 @@ class HelixEngine:
         if risk_per_contract <= 0:
             return
         add_qty = max(1, int(add_risk / risk_per_contract))
+        add_qty = self._cap_add_qty(pos, add_qty)
+        if add_qty <= 0:
+            return
 
         tick = self.cfg.tick_size
         side = OrderSide.BUY if setup.direction == Direction.LONG else OrderSide.SELL
@@ -1792,9 +1926,9 @@ class HelixEngine:
             client_order_id=order.order_id,
             setup=pos.setup,
             order_role="add",
+            qty=order.qty,
         )
         self._replay_core_step(bar_input={"bar_ts": bar_time, "entry_request": add_req})
-        self._core_state.order_to_setup[order.order_id] = pos.setup.setup_id
 
     def _try_add_simplified(
         self, pos: _ActivePosition, bar_time: datetime, current_price: float,
@@ -1818,6 +1952,9 @@ class HelixEngine:
         if risk_per_contract <= 0:
             return
         add_qty = max(1, int(add_risk / risk_per_contract))
+        add_qty = self._cap_add_qty(pos, add_qty)
+        if add_qty <= 0:
+            return
 
         # Market order for immediate fill
         side = OrderSide.BUY if setup.direction == Direction.LONG else OrderSide.SELL
@@ -1840,9 +1977,9 @@ class HelixEngine:
             client_order_id=order.order_id,
             setup=pos.setup,
             order_role="add",
+            qty=order.qty,
         )
         self._replay_core_step(bar_input={"bar_ts": bar_time, "entry_request": add_req})
-        self._core_state.order_to_setup[order.order_id] = pos.setup.setup_id
 
     # ------------------------------------------------------------------
     # Position flatten (market exit)
@@ -1860,11 +1997,12 @@ class HelixEngine:
         """Flatten entire position at the given price."""
         setup = pos.setup
         pv = self.point_value
+        cost_basis = self._position_cost_basis(pos)
 
         if setup.direction == Direction.LONG:
-            pnl_points = exit_price - pos.fill_price
+            pnl_points = exit_price - cost_basis
         else:
-            pnl_points = pos.fill_price - exit_price
+            pnl_points = cost_basis - exit_price
 
         # Compute exit commission for remaining open qty
         if exit_commission is None:
@@ -1874,6 +2012,7 @@ class HelixEngine:
 
         pnl_dollars = pnl_points * pv * pos.qty_open + pos.realized_pnl
         r_multiple = pnl_dollars / setup.unit1_risk_dollars if setup.unit1_risk_dollars > 0 else 0.0
+        net_pnl_dollars, net_r_multiple = self._net_trade_r(pnl_dollars, pos.commission, setup)
 
         r_base = pos.r_price
         if r_base > 0:
@@ -1896,6 +2035,7 @@ class HelixEngine:
             entry_time=pos.entry_time,
             exit_time=bar_time,
             entry_price=pos.fill_price,
+            avg_entry_price=cost_basis,
             exit_price=exit_price,
             qty=setup.qty_planned,
             initial_stop=pos.initial_stop,
@@ -1903,6 +2043,12 @@ class HelixEngine:
             pnl_points=pnl_points,
             pnl_dollars=pnl_dollars,
             r_multiple=r_multiple,
+            net_pnl_dollars=net_pnl_dollars,
+            net_r_multiple=net_r_multiple,
+            base_unit1_risk_dollars=setup.base_unit1_risk_dollars,
+            target_initial_risk_dollars=setup.target_initial_risk_dollars,
+            actual_initial_risk_dollars=setup.actual_initial_risk_dollars,
+            risk_utilization=setup.risk_utilization,
             mfe_r=mfe_r,
             mae_r=mae_r,
             bars_held=pos.bars_held_1h,
@@ -1920,7 +2066,7 @@ class HelixEngine:
         self.trades.append(trade)
 
         # Update circuit breaker
-        self._update_circuit_breaker(r_multiple, bar_time)
+        self._update_circuit_breaker(net_r_multiple, bar_time)
 
         # Cancel all remaining orders
         self._pending_flatten_reason = None
@@ -1936,9 +2082,10 @@ class HelixEngine:
         if self.flags.disable_circuit_breaker:
             return
 
-        cb = self.circuit_breaker
+        cb = roll_circuit_breaker_window(self.circuit_breaker, bar_time)
         cb.daily_realized_r += r_multiple
         cb.weekly_realized_r += r_multiple
+        self.circuit_breaker = cb
 
         if r_multiple < 0:
             cb.consecutive_stops += 1

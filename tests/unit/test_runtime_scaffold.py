@@ -17,10 +17,10 @@ def test_strategy_registry_loads_expected_inventory() -> None:
     registry = load_strategy_registry(CONFIG_DIR)
 
     assert len(registry.connection_groups) == 1
-    assert len(registry.strategies) == 13
-    assert len(registry.enabled_strategies()) == 11
+    assert len(registry.strategies) == 11
+    assert len(registry.enabled_strategies()) == 9
     assert registry.strategies["ATRSS"].connection_group == "default"
-    assert registry.strategies["AKC_Helix_v40"].connection_group == "default"
+    assert registry.strategies["AKC_HELIX"].connection_group == "default"
     assert "NQ_REGIME" in registry.strategies
     assert "US_ORB_v1" not in registry.strategies
     assert "S5_PB" not in registry.strategies
@@ -32,7 +32,7 @@ def test_registry_artifact_contains_all_strategies() -> None:
 
     artifact = build_registry_artifact(registry)
 
-    assert len(artifact["strategies"]) == 13
+    assert len(artifact["strategies"]) == 11
     assert {item["strategy_id"] for item in artifact["strategies"]} >= {
         "ATRSS",
         "IARIC_v1",

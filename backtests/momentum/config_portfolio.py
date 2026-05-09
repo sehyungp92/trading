@@ -48,7 +48,6 @@ class PortfolioBacktestConfig:
     data_dir: Path = field(default_factory=lambda: Path("backtest/data/raw"))
 
     # Which strategies to include
-    run_helix: bool = True
     run_nqdtc: bool = True
     run_vdubus: bool = True
 

@@ -40,7 +40,7 @@ def convert_experiment_to_unified_mutation(strategy: str, mutations: dict) -> di
             # Portfolio experiments already use unified-level keys
             unified[key] = value
         else:
-            # atrss, helix, breakout: have flags, param_overrides, slippage
+        # ATRSS, Helix, and TPC have flags/param_overrides/slippage-style routing.
             if key.startswith("flags."):
                 unified[f"{strategy}_{key}"] = value
             elif key.startswith("param_overrides."):
@@ -79,7 +79,7 @@ def parse_v3(path: Path) -> dict:
     # Per-strategy from the breakdown table (regex handles $ sign + comma-separated numbers)
     v3["strategies"] = {}
     for line in text.splitlines():
-        for sname in ["ATRSS", "AKC_HELIX", "SWING_BREAKOUT_V3"]:
+        for sname in ["ATRSS", "AKC_HELIX", "TPC"]:
             if line.strip().startswith(sname):
                 m = re.match(
                     rf"\s*{sname}\s+(\d+)\s+([\d.]+)%\s+\$\s*([\d,.]+)",
@@ -248,7 +248,7 @@ def main():
     strat_list = [
         ('atrss_trades', 'ATRSS'),
         ('helix_trades', 'AKC_HELIX'),
-        ('breakout_trades', 'SWING_BREAKOUT_V3'),
+        ('tpc_trades', 'TPC'),
     ]
     strategies_data = []
     for attr, name in strat_list:

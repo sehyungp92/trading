@@ -33,7 +33,6 @@ MOMENTUM_FAMILY_STRATEGY_IDS: tuple[str, ...] = (
     "VdubusNQ_v4",
     "NQDTC_v2.1",
     "DownturnDominator_v1",
-    "AKC_Helix_v40",
 )
 
 
@@ -211,10 +210,10 @@ class FamilyPortfolioAction:
     priority: int = 99
 
 
-def make_controlled_aggressive_five_strategy_config(
+def make_controlled_aggressive_family_config(
     initial_equity: float = 50_000.0,
 ) -> FamilyPortfolioBacktestConfig:
-    """Return a controlled-aggressive five-strategy seed config."""
+    """Return a controlled-aggressive four-strategy seed config."""
 
     reference_unit_risk = initial_equity * 0.005
     priorities = (
@@ -222,11 +221,9 @@ def make_controlled_aggressive_five_strategy_config(
         ("NQ_REGIME", 0),
         ("NQDTC_v2.1", 1),
         ("DownturnDominator_v1", 1),
-        ("AKC_Helix_v40", 2),
     )
     rules = PortfolioRulesConfig(
         initial_equity=initial_equity,
-        helix_nqdtc_cooldown_minutes=60,
         cooldown_session_only=True,
         nqdtc_direction_filter_enabled=True,
         nqdtc_agree_size_mult=1.25,
@@ -247,7 +244,6 @@ def make_controlled_aggressive_five_strategy_config(
         FamilyStrategyAllocation("VdubusNQ_v4", base_risk_pct=0.0055, daily_stop_R=2.5, max_concurrent=1, priority=0),
         FamilyStrategyAllocation("NQDTC_v2.1", base_risk_pct=0.0045, daily_stop_R=2.5, max_concurrent=1, priority=1),
         FamilyStrategyAllocation("DownturnDominator_v1", base_risk_pct=0.0040, daily_stop_R=2.0, max_concurrent=1, priority=1),
-        FamilyStrategyAllocation("AKC_Helix_v40", base_risk_pct=0.0035, daily_stop_R=2.0, max_concurrent=1, priority=2),
     )
     return FamilyPortfolioBacktestConfig(
         initial_equity=initial_equity,
@@ -259,6 +255,14 @@ def make_controlled_aggressive_five_strategy_config(
         max_total_positions=5,
         reference_unit_risk_dollars=reference_unit_risk,
     )
+
+
+def make_controlled_aggressive_five_strategy_config(
+    initial_equity: float = 50_000.0,
+) -> FamilyPortfolioBacktestConfig:
+    """Backward-compatible alias for the four-strategy family seed."""
+
+    return make_controlled_aggressive_family_config(initial_equity)
 
 
 class FamilyPortfolioBacktester:
@@ -973,7 +977,6 @@ def build_family_replay_bundle(
 
 def _family_trade_converters() -> dict[str, object]:
     return {
-        "AKC_Helix_v40": _from_helix,
         "NQDTC_v2.1": _from_nqdtc,
         "VdubusNQ_v4": _from_vdubus,
         "DownturnDominator_v1": _from_downturn,
@@ -1099,35 +1102,6 @@ def _stable_json_value(value: Any) -> Any:
     if hasattr(value, "value"):
         return str(value.value)
     return value
-
-
-def _from_helix(trade) -> FamilyPortfolioTrade:
-    qty = int(getattr(trade, "entry_contracts", 0) or getattr(trade, "qty", 0) or 1)
-    return FamilyPortfolioTrade(
-        strategy_id="AKC_Helix_v40",
-        direction=int(getattr(trade, "direction", 0)),
-        entry_time=getattr(trade, "entry_time", None),
-        exit_time=getattr(trade, "exit_time", None),
-        entry_price=float(getattr(trade, "avg_entry", getattr(trade, "entry_price", 0.0))),
-        exit_price=float(getattr(trade, "exit_price", 0.0)),
-        initial_stop=float(getattr(trade, "initial_stop", 0.0)),
-        raw_pnl_dollars=float(getattr(trade, "pnl_dollars", 0.0)),
-        raw_qty=max(qty, 1),
-        r_multiple=float(getattr(trade, "r_multiple", 0.0)),
-        mfe_r=float(getattr(trade, "mfe_r", 0.0)),
-        mae_r=float(getattr(trade, "mae_r", 0.0)),
-        commission=float(getattr(trade, "commission", 0.0)),
-        exit_reason=str(getattr(trade, "exit_reason", "")),
-        source_label="helix",
-        metadata={
-            "setup_class": _metadata_value(getattr(trade, "setup_class", "")),
-            "signal_variant": _metadata_value(getattr(trade, "signal_variant", "")),
-            "session": _metadata_value(getattr(trade, "session_at_entry", "")),
-            "vol_pct": float(getattr(trade, "vol_pct_at_entry", 0.0) or 0.0),
-            "alignment": float(getattr(trade, "alignment_at_entry", 0.0) or 0.0),
-            "teleport": bool(getattr(trade, "teleport", False)),
-        },
-    )
 
 
 def _from_nqdtc(trade) -> FamilyPortfolioTrade:

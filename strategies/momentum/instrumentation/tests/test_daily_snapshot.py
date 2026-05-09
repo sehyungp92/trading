@@ -17,7 +17,7 @@ class TestDailySnapshotBuilder:
         self.tmpdir = tempfile.mkdtemp()
         self.config = {
             "bot_id": "test_bot",
-            "strategy_type": "helix",
+            "strategy_type": "nqdtc",
             "data_dir": self.tmpdir,
         }
         self.date_str = "2026-03-01"
@@ -130,19 +130,19 @@ class TestDailySnapshotBuilder:
         d = snapshot.to_dict()
         assert isinstance(d, dict)
         assert d["bot_id"] == "test_bot"
-        assert d["strategy_type"] == "helix"
+        assert d["strategy_type"] == "nqdtc"
 
     def test_per_strategy_summary_single_strategy(self):
         self._write_trades([
             {"stage": "exit", "trade_id": "t1", "pnl": 500, "fees_paid": 10,
-             "strategy_type": "helix", "entry_slippage_bps": 1.5},
+             "strategy_type": "nqdtc", "entry_slippage_bps": 1.5},
             {"stage": "exit", "trade_id": "t2", "pnl": -200, "fees_paid": 10,
-             "strategy_type": "helix"},
+             "strategy_type": "nqdtc"},
         ])
         builder = DailySnapshotBuilder(self.config)
         snapshot = builder.build(self.date_str)
-        assert "helix" in snapshot.per_strategy_summary
-        s = snapshot.per_strategy_summary["helix"]
+        assert "nqdtc" in snapshot.per_strategy_summary
+        s = snapshot.per_strategy_summary["nqdtc"]
         assert s["trades"] == 2
         assert s["win_count"] == 1
         assert s["loss_count"] == 1
@@ -157,7 +157,7 @@ class TestDailySnapshotBuilder:
     def test_per_strategy_summary_multi_strategy(self):
         self._write_trades([
             {"stage": "exit", "trade_id": "t1", "pnl": 500, "fees_paid": 0,
-             "strategy_type": "helix"},
+             "strategy_type": "nqdtc"},
             {"stage": "exit", "trade_id": "t2", "pnl": -100, "fees_paid": 0,
              "strategy_type": "nqdtc"},
             {"stage": "exit", "trade_id": "t3", "pnl": 300, "fees_paid": 0,
@@ -166,8 +166,8 @@ class TestDailySnapshotBuilder:
         builder = DailySnapshotBuilder(self.config)
         snapshot = builder.build(self.date_str)
         assert len(snapshot.per_strategy_summary) == 2
-        assert snapshot.per_strategy_summary["helix"]["trades"] == 1
-        assert snapshot.per_strategy_summary["helix"]["net_pnl"] == 500.0
+        assert snapshot.per_strategy_summary["nqdtc"]["trades"] == 1
+        assert snapshot.per_strategy_summary["nqdtc"]["net_pnl"] == 500.0
         assert snapshot.per_strategy_summary["nqdtc"]["trades"] == 2
         assert snapshot.per_strategy_summary["nqdtc"]["net_pnl"] == 200.0
         assert snapshot.per_strategy_summary["nqdtc"]["win_count"] == 1

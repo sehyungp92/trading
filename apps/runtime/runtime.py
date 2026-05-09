@@ -465,21 +465,47 @@ class RuntimeShell:
                 logger.warning("AccountRiskGate init failed (non-fatal): %s", exc)
 
         # ------------------------------------------------------------------
-        # 3.5  Regime service (non-fatal)
+        # 3.5  Regime service
         # ------------------------------------------------------------------
         regime_service = None
+        market_calendar = None
         if connect_ib and self.session:
             try:
                 from regime.live import RegimeService
                 from libs.config.market_calendar import MarketCalendar
+                market_calendar = MarketCalendar()
                 regime_service = RegimeService(
                     ib_session=self.session,
-                    market_calendar=MarketCalendar(),
+                    market_calendar=market_calendar,
                 )
                 await regime_service.start()
                 logger.info("Regime service started: %s", regime_service.get_context())
             except Exception as exc:
-                logger.warning("Regime service init failed (non-fatal): %s", exc)
+                logger.error("Regime service init failed: %s", exc, exc_info=True)
+                raise RuntimeError(
+                    "Regime service startup failed; live deployment requires "
+                    "a usable HMM regime backlog after cache + IBKR/FRED backfill"
+                ) from exc
+
+        # ------------------------------------------------------------------
+        # 3.6  Crisis detection service
+        # ------------------------------------------------------------------
+        crisis_service = None
+        if connect_ib and self.session:
+            try:
+                from regime.crisis.service import CrisisService
+                crisis_service = CrisisService(
+                    ib_session=self.session,
+                    market_calendar=market_calendar,
+                )
+                await crisis_service.start()
+                logger.info("Crisis service started: %s", crisis_service.get_context().alert_level if crisis_service.get_context() else "loading")
+            except Exception as exc:
+                logger.error("Crisis service init failed: %s", exc, exc_info=True)
+                raise RuntimeError(
+                    "Crisis service startup failed; live deployment requires "
+                    "a usable early-regime/crisis backlog after cache + IBKR/FRED backfill"
+                ) from exc
 
         # ------------------------------------------------------------------
         # 4. Group strategies by family and build coordinators
@@ -512,6 +538,7 @@ class RuntimeShell:
                 account_gate=account_gate,
                 family_coordinator=None,
                 regime_service=regime_service,
+                crisis_service=crisis_service,
                 trade_recorder=trade_recorder,
                 heartbeat=heartbeat,
             )
@@ -562,10 +589,45 @@ class RuntimeShell:
                     except Exception as exc:
                         logger.error("Initial regime apply failed for %s: %s",
                                     getattr(coordinator, "family_id", "?"), exc)
-            logger.info("Regime context applied: regime=%s, confidence=%.3f, computed_at=%s",
-                        regime_ctx.regime, regime_ctx.regime_confidence, regime_ctx.computed_at or "unknown")
+            logger.info(
+                "Regime context applied: regime=%s, confidence=%.3f, "
+                "computed_at=%s, data_as_of=%s",
+                regime_ctx.regime,
+                regime_ctx.regime_confidence,
+                regime_ctx.computed_at or "unknown",
+                getattr(regime_ctx, "data_as_of", "") or "unknown",
+            )
         except Exception as exc:
             logger.warning("Regime context load failed (non-fatal): %s", exc)
+
+        # 5c. Load and apply initial crisis context AFTER regime
+        last_crisis_action_level_int: int | None = None
+        try:
+            crisis_ctx = None
+            if crisis_service is not None:
+                crisis_ctx = crisis_service.get_context()
+            if crisis_ctx is None:
+                from regime.crisis.persistence import load_crisis_context
+                crisis_ctx = load_crisis_context()
+            last_crisis_action_level_int = crisis_ctx.portfolio_action_level_int
+            for coordinator in coordinators:
+                if hasattr(coordinator, "apply_crisis"):
+                    try:
+                        coordinator.apply_crisis(crisis_ctx)
+                    except Exception as exc:
+                        logger.error("Initial crisis apply failed for %s: %s",
+                                    getattr(coordinator, "family_id", "?"), exc)
+            logger.info(
+                "Crisis context applied: internal=%s advisory=%s action=%s "
+                "(risk_mult=%.2f, data_as_of=%s)",
+                crisis_ctx.alert_level,
+                crisis_ctx.advisory_level,
+                crisis_ctx.portfolio_action_level,
+                crisis_ctx.risk_multiplier,
+                getattr(crisis_ctx, "data_as_of", "") or "unknown",
+            )
+        except Exception as exc:
+            logger.warning("Crisis context load failed (non-fatal): %s", exc)
 
         if not coordinators:
             logger.error("No coordinators started successfully — shutting down")
@@ -574,6 +636,64 @@ class RuntimeShell:
             if self.session is not None:
                 await self.session.stop()
             return
+
+        async def _apply_crisis_context(ctx: Any, source: str) -> None:
+            """Apply live crisis context, refreshing HMM first on hard escalation."""
+            nonlocal last_crisis_action_level_int
+            prev_action = last_crisis_action_level_int
+            last_crisis_action_level_int = ctx.portfolio_action_level_int
+            crisis_escalated = (
+                ctx.portfolio_action_level_int >= 2
+                and (prev_action is None or prev_action < 2)
+            )
+
+            if crisis_escalated and regime_service is not None:
+                try:
+                    regime_ctx = await regime_service.compute_now()
+                    for coordinator in coordinators:
+                        if hasattr(coordinator, "apply_regime"):
+                            try:
+                                coordinator.apply_regime(regime_ctx)
+                            except Exception as exc:
+                                logger.error(
+                                    "Crisis-triggered regime refresh failed for %s: %s",
+                                    getattr(coordinator, "family_id", "?"), exc,
+                                )
+                    logger.info(
+                        "Crisis-triggered regime refresh: %s "
+                        "(confidence=%.3f, computed_at=%s, data_as_of=%s)",
+                        regime_ctx.regime,
+                        regime_ctx.regime_confidence,
+                        regime_ctx.computed_at or "unknown",
+                        getattr(regime_ctx, "data_as_of", "") or "unknown",
+                    )
+                except Exception as exc:
+                    logger.error("Crisis-triggered regime recompute failed: %s", exc)
+
+            for coordinator in coordinators:
+                if hasattr(coordinator, "apply_crisis"):
+                    try:
+                        coordinator.apply_crisis(ctx)
+                    except Exception as exc:
+                        logger.error("Crisis apply failed for %s: %s",
+                                    getattr(coordinator, "family_id", "?"), exc)
+            logger.info(
+                "Crisis signal delivered (%s): internal=%s advisory=%s action=%s "
+                "(risk_mult=%.2f, dominant=%s, data_as_of=%s)",
+                source,
+                ctx.alert_level,
+                ctx.advisory_level,
+                ctx.portfolio_action_level,
+                ctx.risk_multiplier,
+                ctx.dominant_channel,
+                getattr(ctx, "data_as_of", "") or "unknown",
+            )
+
+        if crisis_service is not None:
+            crisis_service.add_listener(
+                lambda ctx: _apply_crisis_context(ctx, "live_service")
+            )
+            logger.info("Crisis live service listener registered for downstream delivery")
 
         # ------------------------------------------------------------------
         # 6. Run until shutdown signal
@@ -641,12 +761,52 @@ class RuntimeShell:
                             except Exception as exc:
                                 logger.error("Regime refresh failed for %s: %s",
                                             getattr(coordinator, "family_id", "?"), exc)
-                    logger.info("Weekly regime refresh: %s (confidence=%.3f, computed_at=%s)",
-                                ctx.regime, ctx.regime_confidence, ctx.computed_at or "unknown")
+                    logger.info(
+                        "Weekly regime refresh: %s "
+                        "(confidence=%.3f, computed_at=%s, data_as_of=%s)",
+                        ctx.regime,
+                        ctx.regime_confidence,
+                        ctx.computed_at or "unknown",
+                        getattr(ctx, "data_as_of", "") or "unknown",
+                    )
                 except Exception as exc:
                     logger.error("Regime refresh loop error: %s", exc)
 
         regime_task = asyncio.create_task(_regime_refresh_loop(), name="regime_refresh")
+
+        # 6c. Start daily crisis refresh task
+        crisis_task: asyncio.Task | None = None
+
+        async def _crisis_refresh_loop() -> None:
+            """Fallback disk-based crisis refresh when the live service is unavailable."""
+            from zoneinfo import ZoneInfo
+            ET = ZoneInfo("America/New_York")
+            last_refresh_date = None
+            while True:
+                await asyncio.sleep(3600)
+                if stop_event.is_set():
+                    break
+                now_et = datetime.now(ET)
+                today = now_et.date()
+                # Weekdays only, after 17:00 ET
+                if now_et.weekday() >= 5:
+                    continue
+                if now_et.hour < 17:
+                    continue
+                if last_refresh_date == today:
+                    continue
+                last_refresh_date = today
+                try:
+                    from regime.crisis.persistence import load_crisis_context
+                    ctx = load_crisis_context()
+                    await _apply_crisis_context(ctx, "disk_fallback")
+                except Exception as exc:
+                    logger.error("Crisis refresh loop error: %s", exc)
+
+        if crisis_service is None:
+            crisis_task = asyncio.create_task(_crisis_refresh_loop(), name="crisis_refresh")
+        else:
+            logger.info("Crisis live service scheduler active; runtime polling disabled")
 
         try:
             await stop_event.wait()
@@ -657,6 +817,18 @@ class RuntimeShell:
         # 7. Graceful shutdown (reverse order)
         # ------------------------------------------------------------------
         logger.info("Shutting down ...")
+
+        if crisis_task is not None:
+            crisis_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await crisis_task
+
+        if crisis_service is not None:
+            try:
+                await crisis_service.stop()
+                logger.info("Crisis service stopped")
+            except Exception as exc:
+                logger.warning("Crisis service stop error: %s", exc)
 
         if regime_task is not None:
             regime_task.cancel()

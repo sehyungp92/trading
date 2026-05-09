@@ -1,13 +1,12 @@
-"""Swing family coordinator — orchestrates 4 strategies sharing one OMS.
+"""Swing family coordinator — orchestrates swing strategies sharing one OMS.
 
-Strategies by priority: ATRSS(0), Breakout(3), Helix(4), BRS_R9(5).
+Strategies by priority: ATRSS(0), Helix(1).
 Shares a single IBKR adapter, multi-strategy OMS, StrategyCoordinator, and
 OverlayEngine across all engines.
 
 Cross-strategy coordination:
   - ATRSS entry fill on symbol X -> tighten Helix stop to breakeven on X
   - has_atrss_position() -> Helix 1.25x size boost when ATRSS confirms direction
-  - BRS_R9 SHORT entry on symbol X -> tighten all LONG stops on X to breakeven
 
 Extracted from swing_trader/main_multi.py (826 lines) into a clean coordinator
 that receives its dependencies via RuntimeContext.
@@ -34,49 +33,43 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 _RISK_PARAMS: dict[str, dict[str, Any]] = {
     "ATRSS": {
-        "unit_risk_pct": 0.016,
+        "unit_risk_pct": 0.0165,
         "daily_stop_R": 2.25,
         "priority": 0,            # highest expectancy
-        "max_heat_R": 1.85,
+        "max_heat_R": 2.15,
         "max_working_orders": 4,
-    },
-    "SWING_BREAKOUT_V3": {
-        "unit_risk_pct": 0.005,
-        "daily_stop_R": 1.5,
-        "priority": 3,            # rare signals, priority barely matters
-        "max_heat_R": 0.75,
-        "max_working_orders": 2,
     },
     "AKC_HELIX": {
-        "unit_risk_pct": 0.009,
+        "unit_risk_pct": 0.013,
         "daily_stop_R": 2.5,
-        "priority": 1,
-        "max_heat_R": 1.50,
+        "priority": 2,
+        "max_heat_R": 2.10,
         "max_working_orders": 4,
     },
-    "BRS_R9": {
-        "unit_risk_pct": 0.008,
+    "TPC": {
+        "unit_risk_pct": 0.005,
         "daily_stop_R": 2.0,
-        "priority": 2,
-        "max_heat_R": 1.40,
+        "priority": 1,
+        "max_heat_R": 4.00,
         "max_working_orders": 3,
     },
 }
 
-# Portfolio-level risk caps from swing portfolio synergy round 2.
-_HEAT_CAP_R = 3.75
-_PORTFOLIO_DAILY_STOP_R = 3.25
-_PORTFOLIO_WEEKLY_STOP_R = 7.0
+# Portfolio-level risk caps from swing portfolio synergy round 3.
+_HEAT_CAP_R = 5.5
+_PORTFOLIO_DAILY_STOP_R = 3.75
+_PORTFOLIO_WEEKLY_STOP_R = 9.0
 _DD_TIERS = (
-    (0.06, 1.00),
-    (0.09, 0.70),
-    (0.12, 0.40),
-    (0.15, 0.00),
+    (0.04, 0.90),
+    (0.07, 0.70),
+    (0.10, 0.50),
+    (0.14, 0.25),
+    (0.18, 0.00),
 )
 
 
 class SwingFamilyCoordinator:
-    """Orchestrates 4 swing strategies sharing one OMS instance.
+    """Orchestrates swing strategies sharing one OMS instance.
 
     Lifecycle:
         coordinator = SwingFamilyCoordinator(ctx)
@@ -98,7 +91,10 @@ class SwingFamilyCoordinator:
         self._portfolio_checker: Any = None
         self._base_portfolio_rules: Any = None
         self._regime_ctx: Any = None
+        self._regime_adjusted_rules: Any = None  # stored after apply_regime for crisis overlay
+        self._crisis_ctx: Any = None
         self._heartbeat_task: asyncio.Task | None = None
+        self._base_overlay_max_equity_pct: float | None = None
 
     # ------------------------------------------------------------------
     # Start
@@ -125,20 +121,12 @@ class SwingFamilyCoordinator:
         )
         from strategies.swing.akc_helix.engine import HelixEngine
 
-        from strategies.swing.breakout.config import (
-            STRATEGY_ID as BREAKOUT_ID,
-            SYMBOL_CONFIGS as BREAKOUT_CONFIGS,
-            build_instruments as breakout_build_instruments,
+        from strategies.swing.tpc.config import (
+            STRATEGY_ID as TPC_ID,
+            SYMBOL_CONFIGS as TPC_CONFIGS,
+            build_instruments as tpc_build_instruments,
         )
-        from strategies.swing.breakout.engine import BreakoutEngine
-
-        from strategies.swing.brs.config import (
-            STRATEGY_ID as BRS_ID,
-            BRS_SYMBOL_DEFAULTS as BRS_CONFIGS,
-            build_instruments as brs_build_instruments,
-        )
-        from strategies.swing.brs.engine import BRSLiveEngine
-        from strategies.swing.brs.models import BRSRegime
+        from strategies.swing.tpc.engine import TPCEngine
 
         ctx = self._ctx
         session = ctx.session
@@ -232,7 +220,7 @@ class SwingFamilyCoordinator:
             return _nav_for(strategy_id) / equity if equity > 0 else 1.0
 
         # -- Compute unit risk dollars per strategy ------------------------
-        strategy_ids = [ATRSS_ID, BREAKOUT_ID, HELIX_ID, BRS_ID]
+        strategy_ids = [ATRSS_ID, HELIX_ID, TPC_ID]
         urds: dict[str, float] = {}
         for sid in strategy_ids:
             params = _RISK_PARAMS[sid]
@@ -244,23 +232,23 @@ class SwingFamilyCoordinator:
         # -- Build shared multi-strategy OMS -------------------------------
         # Use the runtime-provided account gate (shared across all families)
         # instead of creating a local one with min(URDs) which was ~12x too
-        # restrictive for strategies like BRS_R9 with small URDs.
+        # restrictive for strategies with small URDs.
         account_gate = self._ctx.account_gate
 
         # Portfolio rules: directional cap + symbol collision for swing family
         from libs.oms.risk.portfolio_rules import PortfolioRulesConfig
         portfolio_rules = PortfolioRulesConfig(
-            directional_cap_R=3.75,
-            directional_cap_long_R=3.0,
-            directional_cap_short_R=3.25,
+            directional_cap_R=_HEAT_CAP_R,
+            directional_cap_long_R=4.0,
+            directional_cap_short_R=4.0,
             initial_equity=equity,
             family_strategy_ids=tuple(strategy_ids),
             symbol_collision_action="half_size",
             strategy_priorities=tuple((sid, _RISK_PARAMS[sid]["priority"]) for sid in strategy_ids),
             priority_headroom_R=0.75,
             priority_reserve_threshold=1,
+            reference_unit_risk_dollars=urds[ATRSS_ID],
             dd_tiers=_DD_TIERS,
-            helix_nqdtc_cooldown_minutes=0,  # disable momentum-specific rules
             nqdtc_direction_filter_enabled=False,
         )
 
@@ -336,8 +324,7 @@ class SwingFamilyCoordinator:
             {
                 ATRSS_ID: ATRSS_CONFIGS,
                 HELIX_ID: HELIX_CONFIGS,
-                BREAKOUT_ID: BREAKOUT_CONFIGS,
-                BRS_ID: BRS_CONFIGS,
+                TPC_ID: TPC_CONFIGS,
             },
             data_provider=_data_provider,
         )
@@ -345,7 +332,7 @@ class SwingFamilyCoordinator:
         # -- Build instruments per strategy --------------------------------
         atrss_instruments = atrss_build_instruments()
         helix_instruments = helix_build_instruments()
-        breakout_instruments = breakout_build_instruments()
+        tpc_instruments = tpc_build_instruments()
 
         # -- Trade recorder (from bootstrap context) -----------------------
         trade_recorder = getattr(ctx, "trade_recorder", None)
@@ -383,37 +370,25 @@ class SwingFamilyCoordinator:
             equity_alloc_pct=_alloc_pct_for(HELIX_ID),
         )
 
-        breakout_engine = BreakoutEngine(
+        tpc_engine = TPCEngine(
             ib_session=session,
             oms_service=oms,
-            instruments=breakout_instruments,
-            config=BREAKOUT_CONFIGS,
+            instruments=tpc_instruments,
+            config=TPC_CONFIGS,
             trade_recorder=trade_recorder,
-            equity=_nav_for(BREAKOUT_ID),
+            equity=_nav_for(TPC_ID),
             market_calendar=market_cal,
-            instrumentation=self._kits.get(BREAKOUT_ID),
+            kit=self._kits.get(TPC_ID),
             equity_offset=paper_equity_offset,
-            equity_alloc_pct=_alloc_pct_for(BREAKOUT_ID),
+            equity_alloc_pct=_alloc_pct_for(TPC_ID),
+            coordinator=coordinator,
         )
 
-        brs_instruments = brs_build_instruments()
-
-        brs_engine = BRSLiveEngine(
-            ib_session=session,
-            oms_service=oms,
-            instruments=brs_instruments,
-            trade_recorder=trade_recorder,
-            equity=_nav_for(BRS_ID),
-            instrumentation=self._kits.get(BRS_ID),
-            equity_alloc_pct=_alloc_pct_for(BRS_ID),
-        )
-
-        # Store engines in priority order (ATRSS first, BRS last)
+        # Store engines in priority order.
         self._engines = [
             (ATRSS_ID, atrss_engine),
-            (BREAKOUT_ID, breakout_engine),
             (HELIX_ID, helix_engine),
-            (BRS_ID, brs_engine),
+            (TPC_ID, tpc_engine),
         ]
 
         # -- Create OverlayEngine (idle-capital EMA crossover) -------------
@@ -427,19 +402,6 @@ class SwingFamilyCoordinator:
             equity_alloc_pct=swing_family_nav / equity if equity > 0 else 1.0,
         )
 
-        # -- Wire BRS bear regime check to overlay engine -------------------
-        if self._overlay_engine is not None:
-            def _brs_bear_strong() -> bool:
-                try:
-                    for sym in ("QQQ", "GLD"):
-                        dctx = brs_engine._daily_ctx.get(sym)
-                        if dctx and dctx.regime == BRSRegime.BEAR_STRONG:
-                            return True
-                except Exception:
-                    pass  # engine not ready yet — default to non-bear
-                return False
-            self._overlay_engine.set_bear_regime_check(_brs_bear_strong)
-
         # -- Wire overlay state provider to all instrumentation kits -------
         if self._overlay_engine is not None:
             overlay_state_fn = self._overlay_engine.get_signals
@@ -449,7 +411,7 @@ class SwingFamilyCoordinator:
                 if kit is not None and hasattr(kit, "ctx"):
                     kit.ctx.overlay_state_provider = overlay_state_fn
 
-        # -- Start engines in priority order (ATRSS first, BRS last) --------
+        # -- Start engines in priority order --------------------------------
         for sid, engine in self._engines:
             await engine.start()
             logger.info("%s engine started (priority %d)", sid, _RISK_PARAMS[sid]["priority"])
@@ -472,7 +434,7 @@ class SwingFamilyCoordinator:
     # ------------------------------------------------------------------
 
     async def stop(self) -> None:
-        """Graceful shutdown: overlay -> engines (reverse priority) -> OMS."""
+        """Graceful shutdown: overlay -> engines -> OMS."""
         # 0. Stop heartbeat loop
         if self._heartbeat_task is not None:
             self._heartbeat_task.cancel()
@@ -488,7 +450,7 @@ class SwingFamilyCoordinator:
             except Exception:
                 logger.debug("Overlay engine stop failed", exc_info=True)
 
-        # 2. Stop strategy engines in reverse priority (BRS -> ... -> ATRSS)
+        # 2. Stop strategy engines in reverse priority.
         for sid, engine in reversed(self._engines):
             try:
                 await engine.stop()
@@ -551,8 +513,20 @@ class SwingFamilyCoordinator:
         self._regime_ctx = ctx
 
         # Tier 1: portfolio rules
+        new_rules = build_swing_rules(ctx, self._base_portfolio_rules)
+        self._regime_adjusted_rules = new_rules  # Store for crisis overlay
+
+        # Apply crisis overlay if active, including pre-action stress formation.
+        if self._crisis_ctx is not None:
+            from regime.crisis.integration import apply_crisis_overlay
+            new_rules = apply_crisis_overlay(
+                new_rules,
+                self._crisis_ctx,
+                self.family_id,
+                regime=ctx.regime,
+            )
+
         if self._portfolio_checker is not None:
-            new_rules = build_swing_rules(ctx, self._base_portfolio_rules)
             self._portfolio_checker.update_config(new_rules)
 
         # Overlay QQQ/GLD capital split from regime
@@ -560,13 +534,25 @@ class SwingFamilyCoordinator:
         regime = _validated_regime(ctx.regime)
         if self._overlay_engine is not None:
             self._overlay_engine._config.weights = dict(OVERLAY_WEIGHTS[regime])
+            overlay_mult = 1.0
+            if self._crisis_ctx is not None:
+                from regime.crisis.actions import resolve_crisis_action
+
+                action = resolve_crisis_action(
+                    self._crisis_ctx,
+                    self.family_id,
+                    regime=ctx.regime,
+                )
+                overlay_mult = self._crisis_overlay_multiplier(action)
+            self._apply_overlay_crisis_multiplier(overlay_mult)
 
         changed = f" (was {prev_regime})" if prev_regime and prev_regime != ctx.regime else ""
-        logger.info("Swing regime applied: %s%s (cap=%.1fR, risk=%.2fx, overlay=%s)",
+        logger.info("Swing regime applied: %s%s (cap=%.1fR, risk=%.2fx, overlay=%s, overlay_max=%.3f)",
                     ctx.regime, changed,
                     self._portfolio_checker._cfg.directional_cap_R if self._portfolio_checker else 0,
                     self._portfolio_checker._cfg.regime_unit_risk_mult if self._portfolio_checker else 1,
-                    OVERLAY_WEIGHTS[regime])
+                    OVERLAY_WEIGHTS[regime],
+                    self._overlay_engine._config.max_equity_pct if self._overlay_engine else 0.0)
 
         self._emit_regime_event({
             "family": "swing",
@@ -576,8 +562,91 @@ class SwingFamilyCoordinator:
                 "directional_cap_R": self._portfolio_checker._cfg.directional_cap_R if self._portfolio_checker else None,
                 "regime_unit_risk_mult": self._portfolio_checker._cfg.regime_unit_risk_mult if self._portfolio_checker else None,
                 "overlay_weights": dict(OVERLAY_WEIGHTS[regime]),
+                "overlay_max_equity_pct": self._overlay_engine._config.max_equity_pct if self._overlay_engine else None,
             },
         })
+
+    def apply_crisis(self, ctx) -> None:
+        """Apply crisis context overlay on top of regime-adjusted rules.
+
+        Always starts from _regime_adjusted_rules (not current checker config)
+        to prevent compounding across calls.
+        """
+        from regime.crisis.actions import resolve_crisis_action
+        from regime.crisis.integration import apply_crisis_overlay
+
+        prev_level = getattr(self._crisis_ctx, "alert_level", "NORMAL") if self._crisis_ctx else "NORMAL"
+        self._crisis_ctx = ctx
+
+        if self._regime_adjusted_rules is None:
+            logger.warning("apply_crisis called before apply_regime — skipping")
+            return
+
+        regime = getattr(self._regime_ctx, "regime", None)
+        action = resolve_crisis_action(ctx, self.family_id, regime=regime)
+        if action.is_no_action():
+            # NORMAL or WATCH: revert to regime-only rules
+            if self._portfolio_checker is not None:
+                self._portfolio_checker.update_config(self._regime_adjusted_rules)
+            self._apply_overlay_crisis_multiplier(1.0)
+            if prev_level not in ("NORMAL", "WATCH"):
+                logger.info("Swing crisis overlay removed (level=%s)", ctx.alert_level)
+            return
+
+        tightened = apply_crisis_overlay(
+            self._regime_adjusted_rules,
+            ctx,
+            self.family_id,
+            regime=regime,
+        )
+        if self._portfolio_checker is not None:
+            self._portfolio_checker.update_config(tightened)
+        overlay_max = self._apply_overlay_crisis_multiplier(
+            self._crisis_overlay_multiplier(action),
+        )
+
+        changed = f" (was {prev_level})" if prev_level != ctx.alert_level else ""
+        logger.info(
+            "Swing crisis applied: %s%s (risk_mult=%.2f, dd_mult=%.2f, "
+            "overlay_mult=%.2f, overlay_max=%s, provenance=%s, dominant=%s)",
+            ctx.alert_level, changed, action.risk_multiplier,
+            action.dd_tier_multiplier, self._crisis_overlay_multiplier(action),
+            f"{overlay_max:.3f}" if overlay_max is not None else "n/a",
+            action.action_provenance, ctx.dominant_channel,
+        )
+
+        self._emit_crisis_event({
+            "family": "swing",
+            "alert_level": ctx.alert_level,
+            "prev_level": prev_level,
+            "risk_multiplier": ctx.risk_multiplier,
+            "dd_tier_multiplier": ctx.dd_tier_multiplier,
+            "overlay_exposure_multiplier": self._crisis_overlay_multiplier(action),
+            "overlay_max_equity_pct": overlay_max,
+            "dominant_channel": ctx.dominant_channel,
+            "vix_level": ctx.vix_level,
+            "credit_spread_bps": ctx.credit_spread_bps,
+            "action_policy": action.to_dict(),
+        })
+
+    def _emit_crisis_event(self, payload: dict) -> None:
+        """Write a crisis event to the shared data_dir for TA pipeline."""
+        ctx = getattr(self, "_instrumentation_ctx", None)
+        if ctx is None:
+            return
+        data_dir = getattr(ctx, "data_dir", None)
+        if not data_dir:
+            return
+        now = datetime.now(timezone.utc)
+        record = {"timestamp": now.isoformat(), "event_type": "crisis_alert_change", **payload}
+        try:
+            out_dir = Path(data_dir) / "coordination_events"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            date_str = now.strftime("%Y-%m-%d")
+            with open(out_dir / f"{date_str}.jsonl", "a") as f:
+                f.write(json.dumps(record, default=str) + "\n")
+        except Exception:
+            logger.debug("Failed to emit crisis event", exc_info=True)
 
     def _emit_regime_event(self, payload: dict) -> None:
         """Write a regime->rules event to the shared data_dir for TA pipeline."""
@@ -725,7 +794,7 @@ class SwingFamilyCoordinator:
         convert open_risk_dollars into notional:
             notional ≈ risk_dollars / unit_risk_pct
         This is far more accurate than a fixed 3% divisor because strategies
-        range from 0.2% (BRS) to 1.8% (ATRSS).
+        vary by strategy.
         """
         if not hasattr(self, "_oms") or self._oms is None:
             return 0.0
@@ -760,6 +829,7 @@ class SwingFamilyCoordinator:
             from strategies.swing.overlay.engine import OverlayEngine
 
             overlay_config = OverlayConfig()
+            self._base_overlay_max_equity_pct = overlay_config.max_equity_pct
 
             if not overlay_config.enabled:
                 return None
@@ -782,3 +852,22 @@ class SwingFamilyCoordinator:
         except Exception:
             logger.warning("OverlayEngine creation failed", exc_info=True)
             return None
+
+    def _apply_overlay_crisis_multiplier(self, multiplier: float) -> float | None:
+        """Apply crisis as a total overlay exposure throttle.
+
+        HMM regime still chooses the QQQ/GLD mix. The crisis layer only scales
+        the total idle-capital overlay so it does not fight the regime rotation.
+        """
+        if self._overlay_engine is None or self._base_overlay_max_equity_pct is None:
+            return None
+        mult = max(0.0, min(float(multiplier), 1.0))
+        max_pct = round(self._base_overlay_max_equity_pct * mult, 6)
+        self._overlay_engine._config.max_equity_pct = max_pct
+        return max_pct
+
+    @staticmethod
+    def _crisis_overlay_multiplier(action: Any) -> float:
+        overlay_mult = getattr(action, "overlay_exposure_multiplier", 1.0)
+        risk_mult = getattr(action, "risk_multiplier", 1.0)
+        return min(float(overlay_mult), float(risk_mult))

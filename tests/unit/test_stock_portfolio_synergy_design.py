@@ -14,6 +14,7 @@ from backtests.stock.auto.portfolio_synergy.core.serializers import (
 from backtests.stock.auto.portfolio_synergy.core.state import PortfolioActionType
 from backtests.stock.auto.portfolio_synergy.evaluator import (
     _stock_portfolio_mtm_metrics,
+    _latest_strategy_mutation_paths,
     build_effective_portfolio_config,
     replay_trade_streams,
 )
@@ -168,6 +169,22 @@ def test_stock_effective_config_applies_nested_mutations() -> None:
     assert effective["portfolio_rules"]["heat_cap_R"] == 7.0
     assert effective["strategy_allocations"]["ALCB_R3"]["unit_risk_pct"] == 0.007
     assert effective["cross_strategy_rules"]["candidate_rank_mode"] == "expected_alpha_per_heat"
+
+
+def test_stock_portfolio_uses_latest_individual_strategy_configs(tmp_path: Path) -> None:
+    for strategy in ("alcb", "iaric"):
+        for round_num in (1, 3):
+            path = tmp_path / "backtests" / "output" / "stock" / strategy / f"round_{round_num}" / "optimized_config.json"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("{}", encoding="utf-8")
+    newer_iaric = tmp_path / "backtests" / "output" / "stock" / "iaric" / "round_4" / "optimized_config.json"
+    newer_iaric.parent.mkdir(parents=True, exist_ok=True)
+    newer_iaric.write_text("{}", encoding="utf-8")
+
+    alcb_path, iaric_path = _latest_strategy_mutation_paths(tmp_path)
+
+    assert alcb_path.as_posix().endswith("stock/alcb/round_3/optimized_config.json")
+    assert iaric_path.as_posix().endswith("stock/iaric/round_4/optimized_config.json")
 
 
 def test_stock_portfolio_synergy_final_metrics_add_total_score_from_cache() -> None:

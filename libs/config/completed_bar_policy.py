@@ -41,24 +41,37 @@ def intraday_bar_timedelta(bar_size_setting: str) -> timedelta | None:
 def align_completed_higher_timeframe_indices(
     lower_times: Sequence[Any] | np.ndarray,
     higher_times: Sequence[Any] | np.ndarray,
+    *,
+    unavailable_index: int = -1,
 ) -> np.ndarray:
-    """Map lower-TF timestamps to the most recent completed higher-TF bar."""
+    """Map lower-TF timestamps to the most recent completed higher-TF bar.
+
+    ``unavailable_index`` controls bars before the first completed higher-TF
+    bar. The strict default keeps unavailable higher-TF context explicit;
+    legacy callers that deliberately pre-seed context can pass ``0``.
+    """
     higher = np.asarray(higher_times)
     lower = np.asarray(lower_times)
     if len(higher) == 0:
-        return np.zeros(len(lower), dtype=np.int64)
+        return np.full(len(lower), unavailable_index, dtype=np.int64)
     idx = np.searchsorted(higher, lower, side="left").astype(np.int64) - 1
-    return np.clip(idx, 0, len(higher) - 1)
+    idx = np.minimum(idx, len(higher) - 1)
+    if unavailable_index >= 0:
+        return np.maximum(idx, unavailable_index)
+    return np.where(idx < 0, unavailable_index, idx).astype(np.int64, copy=False)
 
 
 def align_completed_daily_session_indices(
     lower_times: Sequence[Any] | np.ndarray,
     daily_times: Sequence[Any] | np.ndarray,
+    *,
+    unavailable_index: int = -1,
 ) -> np.ndarray:
     """Map intraday timestamps to the most recent completed daily session."""
     return align_completed_higher_timeframe_indices(
         _normalize_dates(lower_times),
         _normalize_dates(daily_times),
+        unavailable_index=unavailable_index,
     )
 
 

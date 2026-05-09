@@ -1,2 +1,2 @@
-"""Swing portfolio synergy round design helpers."""
+"""Swing portfolio synergy rerun tools."""
 

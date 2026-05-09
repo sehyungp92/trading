@@ -19,7 +19,7 @@ from backtests.momentum.analysis.metrics import (
 )
 from backtests.momentum.config_portfolio import PortfolioBacktestConfig
 from backtests.momentum.engine.portfolio_engine import PortfolioBacktester, PortfolioResult
-from libs.oms.config.portfolio_config import PortfolioConfig, StrategyAllocation
+from libs.oms.config.portfolio_config import PortfolioConfig
 
 
 # ---------------------------------------------------------------------------
@@ -140,34 +140,6 @@ def build_sweep_variants() -> list[SweepVariant]:
         config_factory=lambda c: replace(c, nqdtc_oppose_size_mult=0.50),
     ))
 
-    # 2a. Cooldown 120 -> 60 min
-    variants.append(SweepVariant(
-        name="cooldown_60",
-        description="Reduce proximity cooldown 120 -> 60 min",
-        config_factory=lambda c: replace(c, helix_nqdtc_cooldown_minutes=60),
-    ))
-
-    # 2b. Cooldown 120 -> 30 min
-    variants.append(SweepVariant(
-        name="cooldown_30",
-        description="Reduce proximity cooldown 120 -> 30 min",
-        config_factory=lambda c: replace(c, helix_nqdtc_cooldown_minutes=30),
-    ))
-
-    # 2c. Cooldown session-only (09:45-11:30 ET)
-    variants.append(SweepVariant(
-        name="cooldown_session",
-        description="Only enforce cooldown during 09:45-11:30 ET overlap",
-        config_factory=lambda c: replace(c, cooldown_session_only=True),
-    ))
-
-    # 3. Helix max_concurrent 1 -> 2
-    variants.append(SweepVariant(
-        name="helix_concurrent_2",
-        description="Allow overlapping Helix trades (max_concurrent 1->2)",
-        config_factory=lambda c: _replace_strategy(c, "Helix", max_concurrent=2),
-    ))
-
     # 4a. Directional cap 2.5 -> 3.0
     variants.append(SweepVariant(
         name="dir_cap_3.0",
@@ -217,7 +189,6 @@ def build_sweep_variants() -> list[SweepVariant]:
 
 def run_sweep(
     baseline_config: PortfolioConfig,
-    helix_trades: list | None,
     nqdtc_trades: list | None,
     vdubus_trades: list | None,
     variants: list[SweepVariant],
@@ -228,7 +199,6 @@ def run_sweep(
 
     Args:
         baseline_config: The baseline PortfolioConfig (e.g. 10k_v4).
-        helix_trades: Raw trade lists from independent engine runs.
         nqdtc_trades: Raw trade lists from independent engine runs.
         vdubus_trades: Raw trade lists from independent engine runs.
         variants: List of SweepVariant to test.
@@ -241,7 +211,6 @@ def run_sweep(
         cfg = replace(bt_config_template, portfolio=pc)
         bt = PortfolioBacktester(cfg)
         pr = bt.run(
-            helix_trades=helix_trades,
             nqdtc_trades=nqdtc_trades,
             vdubus_trades=vdubus_trades,
         )

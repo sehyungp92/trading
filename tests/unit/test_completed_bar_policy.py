@@ -164,4 +164,4 @@ def test_align_completed_daily_session_indices_uses_previous_session() -> None:
 
     idx = align_completed_daily_session_indices(lower, daily)
 
-    assert idx.tolist() == [0, 0, 1]
+    assert idx.tolist() == [-1, 0, 1]

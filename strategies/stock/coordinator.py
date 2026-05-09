@@ -36,9 +36,10 @@ _STOCK_STRATEGY_PRIORITIES: tuple[tuple[str, int], ...] = (
     ("IARIC_v1", 0),
     ("ALCB_v1", 1),
 )
-_STOCK_DIRECTIONAL_CAP_R = 6.25
+_STOCK_DIRECTIONAL_CAP_R = 6.5
+_STOCK_DIRECTIONAL_LONG_CAP_R = 6.25
 _STOCK_PRIORITY_HEADROOM_R = 1.15
-_STOCK_REFERENCE_UNIT_RISK_DOLLARS = 150.0
+_STOCK_REFERENCE_UNIT_RISK_DOLLARS = 162.0
 _STOCK_PORTFOLIO_WEEKLY_STOP_R = 8.0
 _STOCK_DD_TIERS = (
     (0.04, 1.00),
@@ -70,6 +71,9 @@ class StockFamilyCoordinator:
         self._engine_map: dict[str, Any] = {}
         self._base_portfolio_rules: Any = None
         self._regime_ctx: Any = None
+        self._regime_adjusted_rules: Any = None  # stored after apply_regime for crisis overlay
+        self._regime_stock_profile: dict | None = None  # stored Tier 2 profile
+        self._crisis_ctx: Any = None
         self._heartbeat_task: asyncio.Task | None = None
 
     # ── lifecycle ────────────────────────────────────────────────────
@@ -192,7 +196,7 @@ class StockFamilyCoordinator:
             # tiers see a phantom 67% DD and halt every entry.
             portfolio_rules = PortfolioRulesConfig(
                 directional_cap_R=_STOCK_DIRECTIONAL_CAP_R,
-                directional_cap_long_R=_STOCK_DIRECTIONAL_CAP_R,
+                directional_cap_long_R=_STOCK_DIRECTIONAL_LONG_CAP_R,
                 initial_equity=allocated_nav,
                 family_strategy_ids=all_strategy_ids,
                 symbol_collision_action="half_size",
@@ -447,18 +451,13 @@ class StockFamilyCoordinator:
         prev_regime = getattr(self._regime_ctx, "regime", None)
         self._regime_ctx = ctx
         new_rules = build_stock_rules(ctx, self._base_portfolio_rules)
-
-        # Tier 1: update PortfolioRulesConfig on each checker
-        for checker in self._portfolio_checkers:
-            if checker is not None:
-                checker.update_config(dataclasses.replace(
-                    new_rules, initial_equity=checker._cfg.initial_equity,
-                ))
+        self._regime_adjusted_rules = new_rules  # Store for crisis overlay
 
         # Tier 2: engine position limit updates
         from regime.integration import _validated_regime
         regime = _validated_regime(ctx.regime)
         profile = STOCK_PROFILES[regime]
+        self._regime_stock_profile = dict(profile)  # Store for crisis overlay
         for sid, engine in self._engine_map.items():
             settings = getattr(engine, '_settings', None)
             if settings is None:
@@ -467,6 +466,23 @@ class StockFamilyCoordinator:
                 object.__setattr__(settings, 'max_positions', profile["alcb_max_positions"])
             elif sid == "IARIC_v1" and hasattr(settings, 'pb_max_positions'):
                 object.__setattr__(settings, 'pb_max_positions', profile["iaric_pb_max_positions"])
+
+        # Apply crisis overlay if active, including pre-action stress formation.
+        if self._crisis_ctx is not None:
+            from regime.crisis.integration import apply_crisis_overlay
+            new_rules = apply_crisis_overlay(
+                new_rules,
+                self._crisis_ctx,
+                self.family_id,
+                regime=ctx.regime,
+            )
+
+        # Tier 1: update PortfolioRulesConfig on each checker
+        for checker in self._portfolio_checkers:
+            if checker is not None:
+                checker.update_config(dataclasses.replace(
+                    new_rules, initial_equity=checker._cfg.initial_equity,
+                ))
 
         changed = f" (was {prev_regime})" if prev_regime and prev_regime != ctx.regime else ""
         logger.info("Stock regime applied: %s%s (cap=%.1fR, risk=%.2fx, disabled=%s)",
@@ -486,6 +502,110 @@ class StockFamilyCoordinator:
                 "iaric_pb_max_positions": profile.get("iaric_pb_max_positions"),
             },
         })
+
+    def apply_crisis(self, ctx) -> None:
+        """Apply crisis context overlay on top of regime-adjusted rules.
+
+        Handles both Tier 1 (PortfolioRulesConfig) and Tier 2 (engine settings).
+        Always starts from _regime_adjusted_rules to prevent compounding.
+        """
+        import dataclasses
+        from regime.crisis.actions import resolve_crisis_action
+        from regime.crisis.integration import apply_crisis_overlay
+
+        prev_level = getattr(self._crisis_ctx, "alert_level", "NORMAL") if self._crisis_ctx else "NORMAL"
+        self._crisis_ctx = ctx
+
+        if self._regime_adjusted_rules is None:
+            logger.warning("apply_crisis called before apply_regime — skipping")
+            return
+
+        regime = getattr(self._regime_ctx, "regime", None)
+        action = resolve_crisis_action(ctx, self.family_id, regime=regime)
+        if action.is_no_action():
+            # NORMAL or WATCH: revert to regime-only rules
+            for checker in self._portfolio_checkers:
+                if checker is not None:
+                    checker.update_config(dataclasses.replace(
+                        self._regime_adjusted_rules,
+                        initial_equity=checker._cfg.initial_equity,
+                    ))
+            # Restore regime Tier 2 settings
+            if self._regime_stock_profile is not None:
+                self._apply_tier2_settings(self._regime_stock_profile)
+            if prev_level not in ("NORMAL", "WATCH"):
+                logger.info("Stock crisis overlay removed (level=%s)", ctx.alert_level)
+            return
+
+        tightened = apply_crisis_overlay(
+            self._regime_adjusted_rules,
+            ctx,
+            self.family_id,
+            regime=regime,
+        )
+        for checker in self._portfolio_checkers:
+            if checker is not None:
+                checker.update_config(dataclasses.replace(
+                    tightened, initial_equity=checker._cfg.initial_equity,
+                ))
+
+        # Tier 2 crisis tightening: reduce engine position limits further
+        if self._regime_stock_profile is not None and action.alert_level_int >= 2:
+            crisis_profile = {
+                "alcb_max_positions": max(
+                    1, int(self._regime_stock_profile.get("alcb_max_positions", 6) * action.position_limit_multiplier)
+                ),
+                "iaric_pb_max_positions": max(
+                    1, int(self._regime_stock_profile.get("iaric_pb_max_positions", 10) * action.position_limit_multiplier)
+                ),
+            }
+            self._apply_tier2_settings(crisis_profile)
+
+        changed = f" (was {prev_level})" if prev_level != ctx.alert_level else ""
+        logger.info(
+            "Stock crisis applied: %s%s (risk_mult=%.2f, dd_mult=%.2f, "
+            "provenance=%s, dominant=%s)",
+            ctx.alert_level, changed, action.risk_multiplier,
+            action.dd_tier_multiplier, action.action_provenance, ctx.dominant_channel,
+        )
+
+        self._emit_crisis_event({
+            "family": "stock",
+            "alert_level": ctx.alert_level,
+            "prev_level": prev_level,
+            "risk_multiplier": ctx.risk_multiplier,
+            "dd_tier_multiplier": ctx.dd_tier_multiplier,
+            "dominant_channel": ctx.dominant_channel,
+            "action_policy": action.to_dict(),
+        })
+
+    def _apply_tier2_settings(self, profile: dict) -> None:
+        """Apply Tier 2 engine position limit settings."""
+        for sid, engine in self._engine_map.items():
+            settings = getattr(engine, '_settings', None)
+            if settings is None:
+                continue
+            if sid == "ALCB_v1" and hasattr(settings, 'max_positions'):
+                object.__setattr__(settings, 'max_positions', profile["alcb_max_positions"])
+            elif sid == "IARIC_v1" and hasattr(settings, 'pb_max_positions'):
+                object.__setattr__(settings, 'pb_max_positions', profile["iaric_pb_max_positions"])
+
+    def _emit_crisis_event(self, payload: dict) -> None:
+        """Write a crisis event to each strategy's data_dir for TA pipeline."""
+        now = datetime.now(timezone.utc)
+        record = {"timestamp": now.isoformat(), "event_type": "crisis_alert_change", **payload}
+        for instr in self._instrumentations:
+            try:
+                data_dir = getattr(instr, "_config", {}).get("data_dir")
+                if not data_dir:
+                    continue
+                out_dir = Path(data_dir) / "coordination_events"
+                out_dir.mkdir(parents=True, exist_ok=True)
+                date_str = now.strftime("%Y-%m-%d")
+                with open(out_dir / f"{date_str}.jsonl", "a") as f:
+                    f.write(json.dumps(record, default=str) + "\n")
+            except Exception:
+                pass
 
     def _emit_regime_event(self, payload: dict) -> None:
         """Write a regime→rules event to each strategy's data_dir for TA pipeline."""

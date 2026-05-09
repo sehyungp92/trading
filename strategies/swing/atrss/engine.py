@@ -226,6 +226,21 @@ class ATRSSEngine:
             return
         apply_core_runtime_state(self, restore_core_state(snapshot))
 
+    def _apply_core_bar_transition(
+        self,
+        *,
+        bar_ts: datetime | None,
+        **payload: Any,
+    ):
+        core_state = build_core_runtime_state(self)
+        new_state, actions, events = atrss_core_logic.on_bar(
+            core_state,
+            bar_ts=bar_ts,
+            **payload,
+        )
+        apply_core_runtime_state(self, new_state)
+        return actions, events
+
     # ------------------------------------------------------------------
     # Signal evolution tracking (for TA alpha decay detector)
     # ------------------------------------------------------------------
@@ -1234,13 +1249,10 @@ class ATRSSEngine:
             candidate=candidate,
             limit_price=limit_price,
         )
-        core_state = build_core_runtime_state(self)
-        new_state, actions, _events = atrss_core_logic.on_bar(
-            core_state,
+        actions, _events = self._apply_core_bar_transition(
             bar_ts=self._last_bar_ts,
             entry_request=entry_request,
         )
-        apply_core_runtime_state(self, new_state)
         submit_action = next(
             (
                 action
@@ -1415,13 +1427,10 @@ class ATRSSEngine:
             entry_price=h.close,
             stop_price=pos.current_stop,
         )
-        core_state = build_core_runtime_state(self)
-        new_state, actions, _events = atrss_core_logic.on_bar(
-            core_state,
+        actions, _events = self._apply_core_bar_transition(
             bar_ts=self._last_bar_ts,
             add_on_a_request=add_on_request,
         )
-        apply_core_runtime_state(self, new_state)
         submit_action = next((action for action in actions if isinstance(action, SubmitAddOnEntry)), None)
         if submit_action is None:
             return
@@ -1540,13 +1549,10 @@ class ATRSSEngine:
             qty=pos.total_qty,
             reason="trail",
         )
-        core_state = build_core_runtime_state(self)
-        new_state, actions, _events = atrss_core_logic.on_bar(
-            core_state,
+        actions, _events = self._apply_core_bar_transition(
             bar_ts=self._last_bar_ts,
             stop_update=stop_request,
         )
-        apply_core_runtime_state(self, new_state)
         pos = self.positions.get(sym)
         replace_action = next((action for action in actions if isinstance(action, ReplaceProtectiveStop)), None)
         if pos is None or replace_action is None:
@@ -1603,13 +1609,10 @@ class ATRSSEngine:
             qty=partial_qty,
             reason=reason,
         )
-        core_state = build_core_runtime_state(self)
-        new_state, actions, _events = atrss_core_logic.on_bar(
-            core_state,
+        actions, _events = self._apply_core_bar_transition(
             bar_ts=self._last_bar_ts,
             partial_exit_request=partial_request,
         )
-        apply_core_runtime_state(self, new_state)
         pos = self.positions.get(sym)
         partial_action = next((action for action in actions if isinstance(action, SubmitPartialExit)), None)
         if pos is None or partial_action is None:
@@ -1655,13 +1658,10 @@ class ATRSSEngine:
             return
 
         flatten_request = ATRSSFlattenRequest(symbol=sym, reason=reason)
-        core_state = build_core_runtime_state(self)
-        new_state, actions, _events = atrss_core_logic.on_bar(
-            core_state,
+        actions, _events = self._apply_core_bar_transition(
             bar_ts=self._last_bar_ts,
             flatten_request=flatten_request,
         )
-        apply_core_runtime_state(self, new_state)
         flatten_action = next((action for action in actions if isinstance(action, FlattenPosition)), None)
         if flatten_action is None:
             return

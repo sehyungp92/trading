@@ -31,14 +31,14 @@ class TestOrderEvent:
             related_trade_id="t_001",
             experiment_id="exp_001",
             experiment_variant="control",
-            strategy_type="helix",
+            strategy_type="nqdtc",
             session="RTH",
             contract_month="2026-06",
             order_book_depth={"bid_levels": [[21449.75, 15]], "ask_levels": [[21450.00, 12]]},
         )
         d = event.to_dict()
         assert d["order_id"] == "ORD_001"
-        assert d["strategy_type"] == "helix"
+        assert d["strategy_type"] == "nqdtc"
         assert d["session"] == "RTH"
         assert d["contract_month"] == "2026-06"
         assert d["order_book_depth"]["bid_levels"] == [[21449.75, 15]]
@@ -69,7 +69,7 @@ class TestOrderLogger:
 
     def test_slippage_for_limit_order(self):
         """Requested_price vs fill_price → correct bps."""
-        logger = OrderLogger(self.config, strategy_type="helix")
+        logger = OrderLogger(self.config, strategy_type="nqdtc")
         event = logger.log_order(
             order_id="ORD_001",
             pair="NQ",
@@ -87,7 +87,7 @@ class TestOrderLogger:
 
     def test_slippage_for_market_order(self):
         """Requested_price=None → slippage_bps=None."""
-        logger = OrderLogger(self.config, strategy_type="helix")
+        logger = OrderLogger(self.config, strategy_type="nqdtc")
         event = logger.log_order(
             order_id="ORD_002",
             pair="NQ",
@@ -102,7 +102,7 @@ class TestOrderLogger:
 
     def test_partial_fill(self):
         """PARTIAL_FILL: filled_qty < requested_qty."""
-        logger = OrderLogger(self.config, strategy_type="helix")
+        logger = OrderLogger(self.config, strategy_type="nqdtc")
         event = logger.log_order(
             order_id="ORD_003",
             pair="NQ",
@@ -120,7 +120,7 @@ class TestOrderLogger:
 
     def test_rejected_order(self):
         """REJECTED: reject_reason populated, filled_qty=0."""
-        logger = OrderLogger(self.config, strategy_type="helix")
+        logger = OrderLogger(self.config, strategy_type="nqdtc")
         event = logger.log_order(
             order_id="ORD_004",
             pair="NQ",
@@ -137,7 +137,7 @@ class TestOrderLogger:
 
     def test_writes_to_jsonl(self):
         """Verify JSONL file is created with correct content."""
-        logger = OrderLogger(self.config, strategy_type="helix")
+        logger = OrderLogger(self.config, strategy_type="nqdtc")
         ts = datetime(2026, 3, 6, 14, 30, 0, tzinfo=timezone.utc)
         logger.log_order(
             order_id="ORD_005",
@@ -158,7 +158,7 @@ class TestOrderLogger:
 
     def test_experiment_tracking_propagated(self):
         """Experiment id/variant from config propagated to events."""
-        logger = OrderLogger(self.config, strategy_type="helix")
+        logger = OrderLogger(self.config, strategy_type="nqdtc")
         event = logger.log_order(
             order_id="ORD_006",
             pair="NQ",
@@ -172,7 +172,7 @@ class TestOrderLogger:
 
     def test_event_metadata_attached(self):
         """Event metadata is attached to the order event."""
-        logger = OrderLogger(self.config, strategy_type="helix")
+        logger = OrderLogger(self.config, strategy_type="nqdtc")
         event = logger.log_order(
             order_id="ORD_007",
             pair="NQ",
@@ -201,7 +201,7 @@ class TestFacadeOrderEvent:
     def test_on_order_event_delegates(self):
         mgr = MagicMock()
         mgr.order_logger = MagicMock()
-        kit = InstrumentationKit(mgr, strategy_type="helix")
+        kit = InstrumentationKit(mgr, strategy_type="nqdtc")
         kit.on_order_event(
             order_id="ORD_001",
             pair="NQ",
@@ -211,14 +211,14 @@ class TestFacadeOrderEvent:
             requested_qty=2,
             filled_qty=2,
             fill_price=21450.00,
-            strategy_type="helix",
+            strategy_type="nqdtc",
             session="RTH",
             contract_month="2026-06",
         )
         assert mgr.order_logger.log_order.called
         kwargs = mgr.order_logger.log_order.call_args[1]
         assert kwargs["order_id"] == "ORD_001"
-        assert kwargs["strategy_type"] == "helix"
+        assert kwargs["strategy_type"] == "nqdtc"
 
     def test_on_order_event_uses_kit_strategy_type(self):
         mgr = MagicMock()
@@ -236,7 +236,7 @@ class TestFacadeOrderEvent:
         assert kwargs["strategy_type"] == "nqdtc"
 
     def test_on_order_event_noop_without_manager(self):
-        kit = InstrumentationKit(None, strategy_type="helix")
+        kit = InstrumentationKit(None, strategy_type="nqdtc")
         # Should not raise
         kit.on_order_event(
             order_id="ORD_003",

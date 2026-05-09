@@ -103,10 +103,10 @@ class StrategySettings:
     intraday_rvol_strong: float = 2.0
     evidence_disp_bonus_threshold: float = 1.30
 
-    base_risk_fraction: float = 0.0065
+    base_risk_fraction: float = 0.00702
     volatile_base_risk_fraction: float = 0.0035
     daily_stop_r: float = 2.35
-    heat_cap_r: float = 4.4
+    heat_cap_r: float = 4.0
     portfolio_daily_stop_r: float = 3.5
     max_portfolio_heat_fraction: float = 0.03
     final_risk_min_mult: float = 0.20
@@ -227,7 +227,7 @@ class StrategySettings:
     breakout_distance_cap_r: float = 1.0
 
     # D. Sector-weighted sizing
-    sector_mult_financials: float = 0.5        # Sizing mult for Financials
+    sector_mult_financials: float = 0.65       # Sizing mult for Financials
     sector_mult_communication: float = 0.8     # Sizing mult for Communication Services
     sector_mult_industrials: float = 0.5       # Sizing mult for Industrials
     sector_mult_consumer_disc: float = 1.2     # Sizing mult for Consumer Discretionary
@@ -246,7 +246,7 @@ class StrategySettings:
     pdh_breakout_min_rvol: float = 0.0         # Min RVOL for PDH entries (0=use global)
     pdh_entry_window_end: time = time(15, 30)  # Extra PDH-specific entry cutoff
     pdh_avwap_cap_pct: float = 0.005           # Max AVWAP premium for PDH entries (0=disabled)
-    pdh_size_mult: float = 0.75                # Size multiplier for PDH entries
+    pdh_size_mult: float = 1.10                # Size multiplier for PDH entries
 
     # --- Phase 10: MFE Conviction Exit ---
     mfe_conviction_check_bars: int = 16        # Bar at which to check MFE (0=disabled)
@@ -276,7 +276,7 @@ class StrategySettings:
     entry_score_blocklist: tuple[str, ...] = ("COMBINED_BREAKOUT:5",)
     entry_score_size_mults: dict = field(default_factory=lambda: {"OR_BREAKOUT:5": 0.75, "COMBINED_BREAKOUT:7": 1.15, "PDH_BREAKOUT:6": 0.5})
     entry_detail_blocklist: tuple[str, ...] = ()
-    entry_detail_size_mults: dict = field(default_factory=lambda: {"OR_BREAKOUT:5:!bar_vol_surge": 0.55})
+    entry_detail_size_mults: dict = field(default_factory=lambda: {"OR_BREAKOUT:5:!bar_vol_surge": 0.45})
     sector_entry_blocklist: tuple[str, ...] = ()
     sector_entry_size_mults: dict = field(default_factory=dict)
 

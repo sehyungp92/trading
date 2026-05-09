@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import Callable
 
 from backtests.swing.config import AblationFlags, BacktestConfig, SlippageConfig
-from backtests.swing.config_brs import BRSConfig
+from backtests.swing.config_etf_base import ETFSlippageConfig
 from backtests.swing.config_helix import HelixAblationFlags, HelixBacktestConfig
-from backtests.swing.config_breakout import BreakoutAblationFlags, BreakoutBacktestConfig
+from backtests.swing.config_tpc import TPCBacktestConfig
 
 
 @dataclass
@@ -27,30 +27,22 @@ class StrategySlot:
 # Raised heat_cap 2.0→3.0 unlocked 682 blocked entries, +54% total PnL,
 # Sharpe 1.24→1.52, ratio 72:28→58:42 overlay:active.
 # ATRSS(0): highest expectancy, always gets first fill.
-# Breakout(3): rare signals, priority mostly matters under shared heat.
-# Helix(4): biggest beneficiary of heat unlock (87→323 trades, $1.5k→$6.5k).
+# Helix(1): second priority after ATRSS.
 ATRSS_SLOT = StrategySlot(
     strategy_id="ATRSS", priority=0,
     unit_risk_pct=0.018, max_heat_R=1.50, daily_stop_R=2.0,
     max_working_orders=4,
 )
-BREAKOUT_SLOT = StrategySlot(
-    strategy_id="SWING_BREAKOUT_V3", priority=3,
-    unit_risk_pct=0.008, max_heat_R=1.50, daily_stop_R=2.0,  # greedy v4: was 1.00
-    max_working_orders=2,
-)
 HELIX_SLOT = StrategySlot(
-    strategy_id="AKC_HELIX", priority=4,
+    strategy_id="AKC_HELIX", priority=1,
     unit_risk_pct=0.008, max_heat_R=1.20, daily_stop_R=2.5,
     max_working_orders=4,
 )
-BRS_SLOT = StrategySlot(
-    strategy_id="BRS_R9", priority=2,
-    unit_risk_pct=0.006, max_heat_R=1.25, daily_stop_R=2.0,
+TPC_SLOT = StrategySlot(
+    strategy_id="TPC", priority=2,
+    unit_risk_pct=0.005, max_heat_R=1.00, daily_stop_R=2.0,
     max_working_orders=3,
 )
-
-
 @dataclass
 class UnifiedBacktestConfig:
     """Top-level config for the active unified swing portfolio backtest."""
@@ -64,12 +56,12 @@ class UnifiedBacktestConfig:
     # Symbol lists per strategy (defaults match production)
     atrss_symbols: list[str] = field(default_factory=lambda: ["QQQ", "GLD"])
     helix_symbols: list[str] = field(default_factory=lambda: ["QQQ", "GLD"])
-    brs_symbols: list[str] = field(default_factory=lambda: ["QQQ", "GLD"])
-    breakout_symbols: list[str] = field(default_factory=lambda: ["QQQ", "GLD"])
+    tpc_symbols: list[str] = field(default_factory=lambda: ["QQQ", "GLD"])
 
     # Portfolio-level risk rules
     heat_cap_R: float = 3.0
     portfolio_daily_stop_R: float = 4.0
+    portfolio_constraints_enabled: bool = True
     dynamic_risk_enabled: bool = False
     drawdown_risk_tiers: tuple[tuple[float, float], ...] = field(
         default_factory=lambda: (
@@ -81,9 +73,7 @@ class UnifiedBacktestConfig:
     )
     atrss: StrategySlot = field(default_factory=lambda: ATRSS_SLOT)
     helix: StrategySlot = field(default_factory=lambda: HELIX_SLOT)
-    brs: StrategySlot = field(default_factory=lambda: BRS_SLOT)
-    breakout: StrategySlot = field(default_factory=lambda: BREAKOUT_SLOT)
-    brs_runtime_config: BRSConfig | None = None
+    tpc: StrategySlot = field(default_factory=lambda: TPC_SLOT)
 
     # Cross-strategy coordination
     enable_atrss_helix_tighten: bool = True
@@ -93,6 +83,7 @@ class UnifiedBacktestConfig:
     warmup_daily: int = 60
     warmup_hourly: int = 55
     warmup_4h: int = 50
+    warmup_15m: int = 2_000
 
     # Position sizing — fixed_qty=10 for ETFs (matches individual runners)
     fixed_qty: int | None = None
@@ -142,6 +133,7 @@ class UnifiedBacktestConfig:
     # portfolio R sums instead of consistent portfolio base. This makes the
     # backtest match live's more conservative behavior for impact measurement.
     simulate_live_r_normalization: bool = False
+    reserve_idle_higher_priority: bool = True
 
     # Per-strategy per-symbol risk multipliers.
     # Maps "STRATEGY_ID:SYMBOL" -> multiplier that scales base_risk_pct.
@@ -149,21 +141,22 @@ class UnifiedBacktestConfig:
     symbol_risk_multipliers: dict[str, float] = field(default_factory=dict)
 
     # Per-strategy ablation flags (baseline = all enabled)
-    atrss_flags: AblationFlags = field(default_factory=AblationFlags)
+    atrss_flags: AblationFlags = field(default_factory=lambda: AblationFlags(stall_exit=False))
     helix_flags: HelixAblationFlags = field(default_factory=HelixAblationFlags)
-    breakout_flags: BreakoutAblationFlags = field(default_factory=BreakoutAblationFlags)
 
     # Per-strategy engine param overrides (applied by build_*_config methods)
     # These allow greedy optimizers to route strategy-specific params through
     # the unified config without modifying per-strategy config classes.
     atrss_param_overrides: dict = field(default_factory=dict)
     helix_param_overrides: dict = field(default_factory=dict)
-    breakout_param_overrides: dict = field(default_factory=dict)
+    tpc_param_overrides: dict = field(default_factory=dict)
 
     def build_atrss_config(self) -> BacktestConfig:
         slippage = self.slippage
         if self.fixed_qty is not None:
             slippage = SlippageConfig(commission_per_contract=1.00)
+        elif slippage.commission_per_contract == SlippageConfig().commission_per_contract:
+            slippage = replace(slippage, commission_per_contract=1.00)
         cfg = BacktestConfig(
             symbols=self.atrss_symbols,
             initial_equity=self.initial_equity,
@@ -201,40 +194,18 @@ class UnifiedBacktestConfig:
             cfg = replace(cfg, param_overrides=merged)
         return cfg
 
-    def build_breakout_config(self) -> BreakoutBacktestConfig:
-        slippage = self.slippage
-        if self.fixed_qty is not None:
-            slippage = SlippageConfig(commission_per_contract=1.00)
-        cfg = BreakoutBacktestConfig(
-            symbols=self.breakout_symbols,
-            initial_equity=self.initial_equity,
-            slippage=slippage,
-            flags=self.breakout_flags,
-            data_dir=self.data_dir,
-            track_shadows=False,
-            warmup_daily=self.warmup_daily,
-            warmup_hourly=self.warmup_hourly,
-            warmup_4h=self.warmup_4h,
-            fixed_qty=self.fixed_qty,
-        )
-        if self.breakout_param_overrides:
-            merged = {**getattr(cfg, 'param_overrides', {}), **self.breakout_param_overrides}
-            cfg = replace(cfg, param_overrides=merged)
-        return cfg
+    def _etf_slippage(self) -> ETFSlippageConfig:
+        return ETFSlippageConfig()
 
-    def build_brs_config(self) -> BRSConfig:
-        if self.brs_runtime_config is not None:
-            return self.brs_runtime_config
-        return BRSConfig(
-            symbols=self.brs_symbols,
+    def build_tpc_config(self) -> TPCBacktestConfig:
+        cfg = TPCBacktestConfig(
+            symbols=tuple(self.tpc_symbols),
             initial_equity=self.initial_equity,
             data_dir=self.data_dir,
-            slippage=self.slippage,
-            heat_cap_r=self.brs.max_heat_R,
-            max_concurrent=self.brs.max_working_orders,
+            warmup_15m=self.warmup_15m,
+            slippage=self._etf_slippage(),
         )
-
-
+        return cfg.with_overrides(self.tpc_param_overrides) if self.tpc_param_overrides else cfg
 
 # ---------------------------------------------------------------------------
 # Preset factory functions — each returns a fully configured UnifiedBacktestConfig
@@ -252,14 +223,13 @@ def _slot(sid: str, priority: int, urp: float, mh: float, ds: float,
 
 
 def make_baseline(equity: float) -> UnifiedBacktestConfig:
-    """Pre-optimized production parameters: ATRSS(0) > Breakout(1) > Helix(2)."""
+    """Pre-optimized production parameters: ATRSS(0) > Helix(1)."""
     return UnifiedBacktestConfig(
         initial_equity=equity,
         heat_cap_R=1.5,
         portfolio_daily_stop_R=3.0,
         atrss=_slot("ATRSS", 0, 0.01, 1.0, 2.0),
-        helix=_slot("AKC_HELIX", 2, 0.005, 0.85, 2.5),
-        breakout=_slot("SWING_BREAKOUT_V3", 1, 0.005, 0.65, 2.0, mwo=2),
+        helix=_slot("AKC_HELIX", 1, 0.005, 0.85, 2.5),
         overlay_ema_overrides={},
     )
 
@@ -271,8 +241,7 @@ def make_a1_atrss_tilt(equity: float) -> UnifiedBacktestConfig:
         heat_cap_R=1.5,
         portfolio_daily_stop_R=3.0,
         atrss=_slot("ATRSS", 0, 0.015, 1.2, 2.0),
-        helix=_slot("AKC_HELIX", 2, 0.003, 0.5, 2.5),
-        breakout=_slot("SWING_BREAKOUT_V3", 1, 0.003, 0.4, 2.0, mwo=2),
+        helix=_slot("AKC_HELIX", 1, 0.003, 0.5, 2.5),
         overlay_ema_overrides={},
     )
 
@@ -284,8 +253,7 @@ def make_a2_equal_alloc(equity: float) -> UnifiedBacktestConfig:
         heat_cap_R=1.5,
         portfolio_daily_stop_R=3.0,
         atrss=_slot("ATRSS", 0, 0.0075, 1.0, 2.0),
-        helix=_slot("AKC_HELIX", 2, 0.0075, 1.0, 2.5),
-        breakout=_slot("SWING_BREAKOUT_V3", 1, 0.0075, 1.0, 2.0, mwo=2),
+        helix=_slot("AKC_HELIX", 1, 0.0075, 1.0, 2.5),
         overlay_ema_overrides={},
     )
 
@@ -297,8 +265,7 @@ def make_b1_tight_heat(equity: float) -> UnifiedBacktestConfig:
         heat_cap_R=1.0,
         portfolio_daily_stop_R=3.0,
         atrss=_slot("ATRSS", 0, 0.01, 0.6, 2.0),
-        helix=_slot("AKC_HELIX", 2, 0.005, 0.5, 2.5),
-        breakout=_slot("SWING_BREAKOUT_V3", 1, 0.005, 0.3, 2.0, mwo=2),
+        helix=_slot("AKC_HELIX", 1, 0.005, 0.5, 2.5),
         overlay_ema_overrides={},
     )
 
@@ -310,21 +277,19 @@ def make_b2_expanded_heat(equity: float) -> UnifiedBacktestConfig:
         heat_cap_R=2.0,
         portfolio_daily_stop_R=3.0,
         atrss=_slot("ATRSS", 0, 0.01, 1.2, 2.0),
-        helix=_slot("AKC_HELIX", 2, 0.005, 1.0, 2.5),
-        breakout=_slot("SWING_BREAKOUT_V3", 1, 0.005, 0.8, 2.0, mwo=2),
+        helix=_slot("AKC_HELIX", 1, 0.005, 1.0, 2.5),
         overlay_ema_overrides={},
     )
 
 
 def make_c1_old_priority(equity: float) -> UnifiedBacktestConfig:
-    """C1: Old priority ordering (Helix > Breakout) for comparison."""
+    """C1: Legacy Helix priority preset for comparison."""
     return UnifiedBacktestConfig(
         initial_equity=equity,
         heat_cap_R=1.5,
         portfolio_daily_stop_R=3.0,
         atrss=_slot("ATRSS", 0, 0.01, 1.0, 2.0),
         helix=_slot("AKC_HELIX", 1, 0.005, 0.85, 2.5),
-        breakout=_slot("SWING_BREAKOUT_V3", 2, 0.005, 0.65, 2.0, mwo=2),
         overlay_ema_overrides={},
     )
 
@@ -336,8 +301,7 @@ def make_d1_no_coordination(equity: float) -> UnifiedBacktestConfig:
         heat_cap_R=1.5,
         portfolio_daily_stop_R=3.0,
         atrss=_slot("ATRSS", 0, 0.01, 1.0, 2.0),
-        helix=_slot("AKC_HELIX", 2, 0.005, 0.85, 2.5),
-        breakout=_slot("SWING_BREAKOUT_V3", 1, 0.005, 0.65, 2.0, mwo=2),
+        helix=_slot("AKC_HELIX", 1, 0.005, 0.85, 2.5),
         enable_atrss_helix_tighten=False,
         enable_atrss_helix_size_boost=False,
         overlay_ema_overrides={},
@@ -351,8 +315,7 @@ def make_e1_tighter_daily_stops(equity: float) -> UnifiedBacktestConfig:
         heat_cap_R=1.5,
         portfolio_daily_stop_R=2.5,
         atrss=_slot("ATRSS", 0, 0.01, 1.0, 1.5),
-        helix=_slot("AKC_HELIX", 2, 0.005, 0.85, 2.0),
-        breakout=_slot("SWING_BREAKOUT_V3", 1, 0.005, 0.65, 1.5, mwo=2),
+        helix=_slot("AKC_HELIX", 1, 0.005, 0.85, 2.0),
         overlay_ema_overrides={},
     )
 
@@ -367,9 +330,7 @@ def make_optimized_v1(equity: float) -> UnifiedBacktestConfig:
         heat_cap_R=2.0,
         portfolio_daily_stop_R=3.0,
         atrss=_slot("ATRSS", 0, 0.012, 1.0, 2.0),
-        breakout=_slot("SWING_BREAKOUT_V3", 1, 0.005, 0.65, 2.0, mwo=2),
-        helix=_slot("AKC_HELIX", 2, 0.005, 0.85, 2.5),
-        breakout_symbols=["QQQ", "GLD"],
+        helix=_slot("AKC_HELIX", 1, 0.005, 0.85, 2.5),
     )
 
 
@@ -407,8 +368,7 @@ def make_live_parity(equity: float) -> UnifiedBacktestConfig:
 
     Uses default StrategySlot values:
       ATRSS(0)  URD 1.8%  max_heat 1.50R  daily_stop 2.0R
-      Breakout(3) URD 0.8% max_heat 1.50R daily_stop 2.0R
-      Helix(4)  URD 0.8%  max_heat 1.20R  daily_stop 2.5R
+      Helix(1)  URD 0.8%  max_heat 1.20R  daily_stop 2.5R
       heat_cap_R=3.0, portfolio_daily_stop_R=4.0
     Greedy v4 mutation retained here: ATRSS stall_exit disabled.
     """
@@ -451,8 +411,7 @@ def make_p2_aggressive_active(equity: float) -> UnifiedBacktestConfig:
         heat_cap_R=3.5,
         portfolio_daily_stop_R=4.5,
         atrss=_slot("ATRSS", 0, 0.020, 1.8, 2.0),
-        breakout=_slot("SWING_BREAKOUT_V3", 1, 0.010, 1.2, 2.0, mwo=2),
-        helix=_slot("AKC_HELIX", 2, 0.006, 1.0, 2.5),
+        helix=_slot("AKC_HELIX", 1, 0.006, 1.0, 2.5),
         symbol_risk_multipliers={
             "ATRSS:QQQ": 1.3,
             "ATRSS:GLD": 1.3,
@@ -471,8 +430,7 @@ def make_p3_balanced_split(equity: float) -> UnifiedBacktestConfig:
         heat_cap_R=2.5,
         portfolio_daily_stop_R=3.5,
         atrss=_slot("ATRSS", 0, 0.015, 1.2, 2.0),
-        breakout=_slot("SWING_BREAKOUT_V3", 1, 0.007, 0.65, 2.0, mwo=2),
-        helix=_slot("AKC_HELIX", 2, 0.007, 1.0, 2.5),
+        helix=_slot("AKC_HELIX", 1, 0.007, 1.0, 2.5),
         overlay_max_pct=0.65,
     )
 

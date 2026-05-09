@@ -7,7 +7,7 @@ Algorithm:
   4. Accept if improvement >= min_delta, else stop
   5. Record round-by-round history
 
-Worker processes run all 3 engines independently, then feed trade lists
+Worker processes run the active engines independently, then feed trade lists
 to the post-hoc PortfolioBacktester.
 """
 from __future__ import annotations
@@ -25,7 +25,6 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 # Module-level worker state (initialized once per process)
-_worker_helix_data: dict | None = None
 _worker_nqdtc_data: dict | None = None
 _worker_vdubus_data: dict | None = None
 _worker_equity: float = 10_000.0
@@ -33,16 +32,14 @@ _worker_equity: float = 10_000.0
 
 def _init_worker(data_dir_str: str, equity: float) -> None:
     """Initialize worker process with shared data."""
-    global _worker_helix_data, _worker_nqdtc_data, _worker_vdubus_data, _worker_equity
+    global _worker_nqdtc_data, _worker_vdubus_data, _worker_equity
 
     from backtests.momentum.cli import (
-        _load_helix_data,
         _load_nqdtc_data,
         _load_vdubus_data,
     )
 
     data_dir = Path(data_dir_str)
-    _worker_helix_data = _load_helix_data("NQ", data_dir)
     _worker_nqdtc_data = _load_nqdtc_data("NQ", data_dir)
     _worker_vdubus_data = _load_vdubus_data("NQ", data_dir)
     _worker_equity = equity
@@ -51,7 +48,7 @@ def _init_worker(data_dir_str: str, equity: float) -> None:
 def _worker_score(mutations: dict) -> tuple[float, bool, str]:
     """Score a portfolio config in a worker process.
 
-    Runs all 3 engines independently, then feeds trade lists to
+    Runs active engines independently, then feeds trade lists to
     PortfolioBacktester for post-hoc simulation.
 
     Returns:
@@ -59,17 +56,14 @@ def _worker_score(mutations: dict) -> tuple[float, bool, str]:
     """
     from backtests.momentum.auto.config_mutator import (
         extract_passthrough_mutations,
-        mutate_helix_config,
         mutate_nqdtc_config,
         mutate_portfolio_config,
         mutate_vdubus_config,
     )
     from backtests.momentum.auto.scoring import composite_score, extract_metrics
-    from backtests.momentum.config_helix import Helix4BacktestConfig
     from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
     from backtests.momentum.config_portfolio import PortfolioBacktestConfig
     from backtests.momentum.config_vdubus import VdubusBacktestConfig
-    from backtests.momentum.engine.helix_engine import Helix4Engine
     from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
     from backtests.momentum.engine.portfolio_engine import PortfolioBacktester
     from backtests.momentum.engine.vdubus_engine import VdubusEngine
@@ -80,23 +74,8 @@ def _worker_score(mutations: dict) -> tuple[float, bool, str]:
         portfolio_cfg = mutate_portfolio_config(portfolio_cfg, mutations)
 
         # Extract per-strategy mutations
-        helix_muts = extract_passthrough_mutations(mutations, "helix")
         nqdtc_muts = extract_passthrough_mutations(mutations, "nqdtc")
         vdubus_muts = extract_passthrough_mutations(mutations, "vdubus")
-
-        # Run Helix
-        helix_trades = []
-        if portfolio_cfg.run_helix and _worker_helix_data:
-            cfg = Helix4BacktestConfig(initial_equity=_worker_equity, fixed_qty=10)
-            if helix_muts:
-                cfg = mutate_helix_config(cfg, helix_muts)
-            d = _worker_helix_data
-            engine = Helix4Engine(symbol="NQ", bt_config=cfg)
-            result = engine.run(
-                d["minute_bars"], d["hourly"], d["four_hour"], d["daily"],
-                d["hourly_idx_map"], d["four_hour_idx_map"], d["daily_idx_map"],
-            )
-            helix_trades = result.trades
 
         # Run NQDTC
         nqdtc_trades = []
@@ -133,7 +112,7 @@ def _worker_score(mutations: dict) -> tuple[float, bool, str]:
 
         # Portfolio simulation
         backtester = PortfolioBacktester(portfolio_cfg)
-        result = backtester.run(helix_trades, nqdtc_trades, vdubus_trades)
+        result = backtester.run(nqdtc_trades=nqdtc_trades, vdubus_trades=vdubus_trades)
 
         eq = result.equity_curve
         ts = np.array([dt.timestamp() for dt in result.equity_timestamps]) if result.equity_timestamps else np.array([])
@@ -163,7 +142,6 @@ def _init_strategy_worker(strategy: str, data_dir_str: str, equity: float) -> No
     global _strat_worker_data, _strat_worker_strategy, _strat_worker_equity
 
     from backtests.momentum.cli import (
-        _load_helix_data,
         _load_nqdtc_data,
         _load_vdubus_data,
     )
@@ -172,9 +150,7 @@ def _init_strategy_worker(strategy: str, data_dir_str: str, equity: float) -> No
     _strat_worker_equity = equity
     data_dir = Path(data_dir_str)
 
-    if strategy == "helix":
-        _strat_worker_data = _load_helix_data("NQ", data_dir)
-    elif strategy == "nqdtc":
+    if strategy == "nqdtc":
         _strat_worker_data = _load_nqdtc_data("NQ", data_dir)
     elif strategy == "vdubus":
         _strat_worker_data = _load_vdubus_data("NQ", data_dir)
@@ -183,15 +159,12 @@ def _init_strategy_worker(strategy: str, data_dir_str: str, equity: float) -> No
 def _strategy_worker_score(mutations: dict) -> tuple[float, bool, str]:
     """Score a single-strategy config. Runs only 1 engine."""
     from backtests.momentum.auto.config_mutator import (
-        mutate_helix_config,
         mutate_nqdtc_config,
         mutate_vdubus_config,
     )
     from backtests.momentum.auto.scoring import composite_score, extract_metrics
-    from backtests.momentum.config_helix import Helix4BacktestConfig
     from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
     from backtests.momentum.config_vdubus import VdubusBacktestConfig
-    from backtests.momentum.engine.helix_engine import Helix4Engine
     from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
     from backtests.momentum.engine.vdubus_engine import VdubusEngine
 
@@ -200,18 +173,7 @@ def _strategy_worker_score(mutations: dict) -> tuple[float, bool, str]:
     d = _strat_worker_data
 
     try:
-        if strategy == "helix":
-            cfg = Helix4BacktestConfig(initial_equity=eq, fixed_qty=10)
-            if mutations:
-                cfg = mutate_helix_config(cfg, mutations)
-            engine = Helix4Engine(symbol="NQ", bt_config=cfg)
-            r = engine.run(
-                d["minute_bars"], d["hourly"], d["four_hour"], d["daily"],
-                d["hourly_idx_map"], d["four_hour_idx_map"], d["daily_idx_map"],
-            )
-            trades, ecurve, ts = r.trades, r.equity_curve, r.timestamps
-
-        elif strategy == "nqdtc":
+        if strategy == "nqdtc":
             cfg = NQDTCBacktestConfig(symbols=["MNQ"], initial_equity=eq, fixed_qty=10)
             if mutations:
                 cfg = mutate_nqdtc_config(cfg, mutations)
@@ -627,13 +589,10 @@ PORTFOLIO_CANDIDATES: list[tuple[str, dict]] = [
     ("weekly_stop_0", {"portfolio.portfolio_weekly_stop_R": 0.0}),
 
     # Cross-strategy rules
-    ("cooldown_60", {"portfolio.helix_nqdtc_cooldown_minutes": 60}),
-    ("cooldown_180", {"portfolio.helix_nqdtc_cooldown_minutes": 180}),
     ("nqdtc_dir_filter", {"portfolio.nqdtc_direction_filter_enabled": True}),
     ("nqdtc_oppose_0.25", {"portfolio.nqdtc_oppose_size_mult": 0.25}),
 
     # Per-strategy risk
-    ("helix_risk_0.020", {"portfolio.strategies[2].base_risk_pct": 0.020}),
     ("nqdtc_risk_0.010", {"portfolio.strategies[1].base_risk_pct": 0.010}),
     ("vdubus_risk_0.010", {"portfolio.strategies[0].base_risk_pct": 0.010}),
 
@@ -655,8 +614,6 @@ def convert_experiment_to_portfolio_mutation(
     """Convert strategy-level experiment mutations to portfolio-level mutations.
 
     Maps:
-      helix flags.X     -> helix_flags.X
-      helix param_overrides.Y -> helix_param.Y
       nqdtc flags.X     -> nqdtc_flags.X
       nqdtc param_overrides.Y -> nqdtc_param.Y
       vdubus flags.X    -> vdubus_flags.X

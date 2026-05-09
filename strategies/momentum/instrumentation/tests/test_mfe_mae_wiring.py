@@ -7,7 +7,7 @@ def test_log_exit_passes_mfe_mae_to_trade_logger():
     mgr = MagicMock()
     mgr.trade_logger = MagicMock()
     mgr.trade_logger._open_trades = {}
-    kit = InstrumentationKit(mgr, strategy_type="helix")
+    kit = InstrumentationKit(mgr, strategy_type="nqdtc")
 
     kit.log_exit(
         trade_id="t1",
@@ -30,7 +30,7 @@ def test_log_exit_passes_none_when_mfe_mae_not_provided():
     mgr = MagicMock()
     mgr.trade_logger = MagicMock()
     mgr.trade_logger._open_trades = {}
-    kit = InstrumentationKit(mgr, strategy_type="helix")
+    kit = InstrumentationKit(mgr, strategy_type="nqdtc")
 
     kit.log_exit(
         trade_id="t2",
@@ -46,7 +46,7 @@ def test_log_exit_passes_none_when_mfe_mae_not_provided():
 
 
 def test_log_exit_inactive_kit_does_not_raise():
-    kit = InstrumentationKit(None, strategy_type="helix")
+    kit = InstrumentationKit(None, strategy_type="nqdtc")
     # Should not raise
     kit.log_exit(
         trade_id="t3",
@@ -60,7 +60,7 @@ def test_log_exit_inactive_kit_does_not_raise():
 def test_facade_log_exit_exception_is_caught():
     mgr = MagicMock()
     mgr.trade_logger.log_exit.side_effect = Exception("boom")
-    kit = InstrumentationKit(mgr, strategy_type="helix")
+    kit = InstrumentationKit(mgr, strategy_type="nqdtc")
 
     # Should not propagate
     kit.log_exit(

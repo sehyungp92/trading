@@ -27,6 +27,7 @@ class RuntimeContext:
     account_gate: Any = None
     family_coordinator: Any = None
     regime_service: Any = None
+    crisis_service: Any = None
     trade_recorder: Any = None
     heartbeat: Any = None
 

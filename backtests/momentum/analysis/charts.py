@@ -194,7 +194,7 @@ def generate_backtest_charts(
     output_dir : Path
         Directory to save PNGs.
     strategy_label : str
-        Label for filenames (e.g. "helix", "atrss").
+        Label for filenames (e.g. "nqdtc", "vdubus").
 
     Returns
     -------

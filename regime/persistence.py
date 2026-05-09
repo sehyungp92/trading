@@ -29,6 +29,7 @@ RECOVERY_DEFAULT = RegimeContext(
 )
 
 _STALENESS_DOWNGRADE_DAYS = 7  # downgrade to S if context older than this
+_DATA_AS_OF_STALENESS_DAYS = 10
 
 
 def load_regime_context(path: Path = REGIME_CONTEXT_PATH) -> RegimeContext:
@@ -52,6 +53,21 @@ def load_regime_context(path: Path = REGIME_CONTEXT_PATH) -> RegimeContext:
                     ctx = dataclasses.replace(ctx, regime="S")
             except (ValueError, TypeError):
                 logger.warning("Cannot parse computed_at=%r for staleness check", computed_at)
+
+        data_as_of = getattr(ctx, "data_as_of", "")
+        if data_as_of:
+            try:
+                as_of = datetime.fromisoformat(data_as_of).date()
+                data_age = (datetime.now(timezone.utc).date() - as_of).days
+                if data_age > _DATA_AS_OF_STALENESS_DAYS:
+                    logger.warning(
+                        "Regime data is %d days old (data_as_of=%s), "
+                        "downgrading to defensive regime S",
+                        data_age, data_as_of,
+                    )
+                    ctx = dataclasses.replace(ctx, regime="S", data_status="stale_data_as_of")
+            except (ValueError, TypeError):
+                logger.warning("Cannot parse data_as_of=%r for staleness check", data_as_of)
 
         return ctx
 

@@ -26,10 +26,10 @@ strategies:
       unit_risk_dollars: 200.0
       daily_stop_R: 2.25
       max_working_orders: 4
-      max_heat_R: 1.85
+      max_heat_R: 2.15
       priority: 0
     allocation:
-      base_risk_pct: 0.016
+      base_risk_pct: 0.0165
       equity_offset: 0.0
     dashboard_metadata:
       system_label: "Swing Trader"
@@ -53,34 +53,34 @@ strategies:
       unit_risk_dollars: 200.0
       daily_stop_R: 2.5
       max_working_orders: 4
-      max_heat_R: 1.50
-      priority: 1
+      max_heat_R: 2.10
+      priority: 2
     allocation:
-      base_risk_pct: 0.009
+      base_risk_pct: 0.013
     dashboard_metadata:
       system_label: "Swing Trader"
       short_label: "SWING"
       color_key: "blue"
     deployment_tags: [live, paper, swing]
 
-  SWING_BREAKOUT_V3:
-    strategy_id: SWING_BREAKOUT_V3
+  TPC:
+    strategy_id: TPC
     system_id: swing_trader
     family: swing
     connection_group: default
-    display_name: "Swing Breakout v3"
-    module_path: "strategies.swing.breakout.plugin"
+    display_name: "Trend Pullback Continuation"
+    module_path: "strategies.swing.tpc.plugin"
 
     enabled: true
     paper_mode: false
-    asset_class: mixed
+    asset_class: equity
     symbols: [QQQ, GLD]
     risk:
       unit_risk_dollars: 200.0
-      daily_stop_R: 1.5
-      max_working_orders: 2
-      max_heat_R: 0.75
-      priority: 3
+      daily_stop_R: 2.0
+      max_working_orders: 3
+      max_heat_R: 4.00
+      priority: 1
     allocation:
       base_risk_pct: 0.005
     dashboard_metadata:
@@ -110,10 +110,10 @@ strategies:
       unit_risk_dollars: 100.0
       daily_stop_R: 2.75
       max_working_orders: 1
-      max_heat_R: 6.0
+      max_heat_R: 5.4
       portfolio_daily_stop_R: 3.5
     allocation:
-      base_risk_pct: 0.008
+      base_risk_pct: 0.00864
       continuation_half_size: false
       continuation_size_mult: 0.50
     dashboard_metadata:
@@ -143,42 +143,15 @@ strategies:
       unit_risk_dollars: 100.0
       daily_stop_R: 2.35
       max_working_orders: 1
-      max_heat_R: 4.4
+      max_heat_R: 4.0
       portfolio_daily_stop_R: 3.5
     allocation:
-      base_risk_pct: 0.0065
+      base_risk_pct: 0.00702
     dashboard_metadata:
       system_label: "Stock Trader"
       short_label: "STOCK"
       color_key: "green"
     deployment_tags: [live, paper, stock]
-
-  AKC_Helix_v40:
-    strategy_id: AKC_Helix_v40
-    system_id: momentum_trader
-    family: momentum
-    connection_group: default
-    display_name: "AKC Helix v40"
-    module_path: "strategies.momentum.helix_v40.plugin"
-
-    enabled: true
-    paper_mode: false
-    asset_class: futures
-    symbols: [NQ]
-    risk:
-      unit_risk_dollars: 50.0
-      daily_stop_R: 2.0
-      max_working_orders: 2
-      max_heat_R: 3.00
-      portfolio_daily_stop_R: 2.25
-      priority: 2
-    allocation:
-      base_risk_pct: 0.0035
-    dashboard_metadata:
-      system_label: "Momentum Trader"
-      short_label: "MOMO"
-      color_key: "orange"
-    deployment_tags: [live, paper, momentum]
 
   NQDTC_v2.1:
     strategy_id: "NQDTC_v2.1"
@@ -199,7 +172,7 @@ strategies:
       unit_risk_dollars: 50.0
       daily_stop_R: 2.5
       max_working_orders: 2
-      portfolio_daily_stop_R: 2.25
+      portfolio_daily_stop_R: 2.75
       priority: 1
     allocation:
       base_risk_pct: 0.0045
@@ -231,10 +204,10 @@ strategies:
       daily_stop_R: 3.0
       max_working_orders: 2
       max_heat_R: 1.50
-      portfolio_daily_stop_R: 2.25
+      portfolio_daily_stop_R: 2.75
       priority: 0
     allocation:
-      base_risk_pct: 0.0068
+      base_risk_pct: 0.006
     dashboard_metadata:
       system_label: "Momentum Trader"
       short_label: "MOMO"
@@ -258,10 +231,10 @@ strategies:
       daily_stop_R: 2.5
       max_working_orders: 2
       max_heat_R: 3.50
-      portfolio_daily_stop_R: 2.25
+      portfolio_daily_stop_R: 2.75
       priority: 0
     allocation:
-      base_risk_pct: 0.006
+      base_risk_pct: 0.0065
     dashboard_metadata:
       system_label: "Momentum Trader"
       short_label: "MOMO"
@@ -288,7 +261,7 @@ strategies:
       daily_stop_R: 2.0
       max_working_orders: 2
       max_heat_R: 3.50
-      portfolio_daily_stop_R: 2.25
+      portfolio_daily_stop_R: 2.75
       priority: 1
     allocation:
       base_risk_pct: 0.004
@@ -297,32 +270,6 @@ strategies:
       short_label: "MOMO"
       color_key: "orange"
     deployment_tags: [live, paper, momentum]
-
-  BRS_R9:
-    strategy_id: BRS_R9
-    system_id: swing_trader
-    family: swing
-    connection_group: default
-    display_name: "BRS R9 Bear Regime Swing"
-    module_path: "strategies.swing.brs.plugin"
-
-    enabled: true
-    paper_mode: false
-    asset_class: equity
-    symbols: [QQQ, GLD]
-    risk:
-      unit_risk_dollars: 30.0
-      daily_stop_R: 2.0
-      max_working_orders: 3
-      max_heat_R: 1.40
-      priority: 2
-    allocation:
-      base_risk_pct: 0.008
-    dashboard_metadata:
-      system_label: "Swing Trader"
-      short_label: "SWING"
-      color_key: "red"
-    deployment_tags: [live, swing]
 
   SCALP_IVB_AUCTION:
     strategy_id: SCALP_IVB_AUCTION

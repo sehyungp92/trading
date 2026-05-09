@@ -102,6 +102,7 @@ class ATRSSOrderUpdate:
     timestamp: datetime | None = None
     order_role: Literal["entry", "add_on", "partial", "stop", "flatten", "unknown"] = "unknown"
     timeframe: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
     decision_code: str = ""
     decision_details: dict[str, Any] = field(default_factory=dict)
 

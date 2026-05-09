@@ -154,7 +154,7 @@ def run_greedy(
             log.info("Checkpoint identity mismatch; starting greedy search fresh.")
 
     try:
-        for round_num in range(1, max_rounds + 1):
+        for round_num in range(len(rounds) + 1, max_rounds + 1):
             if not remaining:
                 break
 

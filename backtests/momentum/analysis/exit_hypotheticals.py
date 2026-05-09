@@ -3,7 +3,7 @@
 For each trade, replays bars forward from entry applying alternative
 exit rules. Answers: "Would a different exit strategy improve results?"
 
-Supports Helix (5-min), NQDTC (5-min), and Vdubus (15-min) strategies.
+Supports NQDTC (5-min) and Vdubus (15-min) strategies.
 """
 from __future__ import annotations
 
@@ -28,63 +28,6 @@ class HypotheticalResult:
     r_multiple: float = 0.0
     mfe_r: float = 0.0
     bars_held: int = 0
-
-
-def _build_helix_rules() -> list[ExitRule]:
-    """Exit rules to test for Helix strategy."""
-    rules = []
-
-    # Flat R targets
-    for target in [1.0, 1.5, 2.0]:
-        t = target  # capture
-        rules.append(ExitRule(
-            name=f"FLAT_{t:.0f}R" if t == int(t) else f"FLAT_{t}R",
-            should_exit=lambda idx, ep, d, rb, mfe, bh, h, l, c, _t=t: (
-                ((h - ep) / rb if d == 1 else (ep - l) / rb) >= _t if rb > 0 else False
-            ),
-            description=f"Exit at {target}R profit target",
-        ))
-
-    # No partial at 1R (skip 30% scale-out)
-    rules.append(ExitRule(
-        name="NO_PARTIAL_1R",
-        should_exit=lambda idx, ep, d, rb, mfe, bh, h, l, c: False,  # never exits early; uses default trail
-        description="Skip 30% partial at +1R",
-    ))
-
-    # No stall exit (remove bar-8 momentum stall)
-    rules.append(ExitRule(
-        name="NO_STALL_EXIT",
-        should_exit=lambda idx, ep, d, rb, mfe, bh, h, l, c: False,
-        description="Remove bar-8 momentum stall exit",
-    ))
-
-    # No time decay BE (remove bar-12 BE move)
-    rules.append(ExitRule(
-        name="NO_TIME_DECAY_BE",
-        should_exit=lambda idx, ep, d, rb, mfe, bh, h, l, c: False,
-        description="Remove bar-12 breakeven move",
-    ))
-
-    # Tight trail (0.5R activation vs 1.0R)
-    rules.append(ExitRule(
-        name="TIGHT_TRAIL",
-        should_exit=lambda idx, ep, d, rb, mfe, bh, h, l, c: mfe >= 0.5 and (
-            (mfe - ((c - ep) / rb if d == 1 else (ep - c) / rb)) > 0.3 if rb > 0 else False
-        ),
-        description="Trailing stop activates at 0.5R instead of 1.0R",
-    ))
-
-    # Loose trail (1.5R activation)
-    rules.append(ExitRule(
-        name="LOOSE_TRAIL",
-        should_exit=lambda idx, ep, d, rb, mfe, bh, h, l, c: mfe >= 1.5 and (
-            (mfe - ((c - ep) / rb if d == 1 else (ep - c) / rb)) > 0.5 if rb > 0 else False
-        ),
-        description="Trailing stop activates at 1.5R instead of 1.0R",
-    ))
-
-    return rules
 
 
 def _build_nqdtc_rules() -> list[ExitRule]:
@@ -263,7 +206,7 @@ def exit_hypotheticals_report(
         trades: Completed trade records.
         bar_data: Tuple of (opens, highs, lows, closes, volumes) numpy arrays.
         bar_times: Corresponding timestamps array.
-        strategy: One of "helix", "nqdtc", "vdubus".
+        strategy: One of "nqdtc", "vdubus".
         point_value: Dollar value per point (default 2.0 for MNQ).
     """
     lines = ["=" * 60]
@@ -278,9 +221,7 @@ def exit_hypotheticals_report(
     opens, highs, lows, closes, *_ = bar_data
 
     # Build rules for strategy
-    if strategy.lower() == "helix":
-        rules = _build_helix_rules()
-    elif strategy.lower() == "nqdtc":
+    if strategy.lower() == "nqdtc":
         rules = _build_nqdtc_rules()
     elif strategy.lower() == "vdubus":
         rules = _build_vdubus_rules()

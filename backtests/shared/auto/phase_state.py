@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -89,10 +90,21 @@ class PhaseState:
 
 def _atomic_write_json(data: Any, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    with open(tmp, "w", encoding="utf-8") as handle:
-        json.dump(data, handle, indent=2, cls=_NumpySafeEncoder)
-    os.replace(str(tmp), str(path))
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    last_error: PermissionError | None = None
+    for attempt in range(8):
+        with open(tmp, "w", encoding="utf-8") as handle:
+            json.dump(data, handle, indent=2, cls=_NumpySafeEncoder)
+        try:
+            os.replace(str(tmp), str(path))
+            return
+        except PermissionError as exc:
+            last_error = exc
+            time.sleep(0.05 * (attempt + 1))
+    if tmp.exists():
+        tmp.unlink(missing_ok=True)
+    if last_error is not None:
+        raise last_error
 
 
 def save_phase_state(state: PhaseState, path: Path) -> None:

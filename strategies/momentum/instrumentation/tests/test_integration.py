@@ -18,7 +18,7 @@ class TestFullLifecycle:
         self.tmpdir = tempfile.mkdtemp()
         self.config = {
             "bot_id": "integration_test",
-            "strategy_type": "helix",
+            "strategy_type": "nqdtc",
             "data_dir": self.tmpdir,
             "data_source_id": "test",
             "market_snapshots": {"interval_seconds": 60, "symbols": ["NQ"]},
@@ -71,7 +71,7 @@ class TestFullLifecycle:
             signal="Class M bullish", signal_id="class_m_bull",
             signal_strength=0.75, blocked_by="volume_filter",
             block_reason="Volume below threshold",
-            strategy_type="helix", market_regime="trending_up",
+            strategy_type="nqdtc", market_regime="trending_up",
         )
 
         # Build daily snapshot
@@ -183,6 +183,6 @@ class TestFullLifecycle:
         exit_data = json.loads(lines[-1])
 
         scorer = ProcessScorer("/nonexistent/path.yaml")
-        score = scorer.score_trade(exit_data, "helix")
+        score = scorer.score_trade(exit_data, "nqdtc")
         for cause in score.root_causes:
             assert cause in ROOT_CAUSES, f"'{cause}' not in ROOT_CAUSES"

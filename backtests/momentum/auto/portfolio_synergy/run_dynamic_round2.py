@@ -10,6 +10,7 @@ from typing import Any
 
 from backtests.momentum.auto.portfolio_synergy.family_phase_auto import (
     SCORE_WEIGHTS,
+    _load_mtm_price_bars_for_scoring,
     apply_portfolio_mutations,
     headline_mtm_metric_package,
     score_metrics,
@@ -90,16 +91,29 @@ def run_dynamic_round2(
             encoding="utf-8",
         )
     replay_bundle = build_family_replay_bundle(trades_by_strategy)
+    price_bars = _load_mtm_price_bars_for_scoring(data_dir)
 
     current_config = base_config
-    current_eval = evaluate_dynamic_config("ROUND_1_STATIC_BASELINE", "Round 1 static optimizer result", current_config, replay_bundle)
+    current_eval = evaluate_dynamic_config(
+        "ROUND_1_STATIC_BASELINE",
+        "Round 1 static optimizer result",
+        current_config,
+        replay_bundle,
+        price_bars=price_bars,
+    )
     phase_records: list[dict[str, Any]] = []
     _write_json(output_dir / "baseline.json", _evaluation_record(current_eval))
 
     for phase, candidates in sorted(PHASE_CANDIDATES.items()):
-        evaluations = _evaluate_candidates(current_config, candidates, replay_bundle, max_workers=max_workers)
+        evaluations = _evaluate_candidates(
+            current_config,
+            candidates,
+            replay_bundle,
+            max_workers=max_workers,
+            price_bars=price_bars,
+        )
         viable = [item for item in evaluations if not item.rejected]
-        best = max(viable, key=lambda item: item.score, default=None)
+        best = max(viable, key=_dynamic_selection_key, default=None)
         accepted = bool(best and best.score > current_eval.score + min_delta)
         if accepted and best is not None:
             current_config = best.config
@@ -115,7 +129,12 @@ def run_dynamic_round2(
         _write_json(output_dir / f"phase_{phase}.json", record)
 
     final_result = FamilyPortfolioBacktester(current_config).run_bundle(replay_bundle)
-    final_metric_package = headline_mtm_metric_package(current_config, final_result, data_dir=data_dir)
+    final_metric_package = headline_mtm_metric_package(
+        current_config,
+        final_result,
+        data_dir=data_dir,
+        price_bars=price_bars,
+    )
     final_scored = score_metrics(final_metric_package["headline_metrics"])
     summary = {
         "round": 2,
@@ -153,9 +172,13 @@ def evaluate_dynamic_config(
     description: str,
     config: FamilyPortfolioBacktestConfig,
     replay_bundle: FamilyPortfolioReplayBundle,
+    *,
+    price_bars: Any,
 ) -> DynamicEvaluation:
     result = FamilyPortfolioBacktester(config).run_bundle(replay_bundle)
-    scored = score_metrics(result.metrics)
+    metric_package = headline_mtm_metric_package(config, result, price_bars=price_bars)
+    headline_metrics = metric_package["headline_metrics"]
+    scored = score_metrics(headline_metrics)
     return DynamicEvaluation(
         name=name,
         description=description,
@@ -164,7 +187,7 @@ def evaluate_dynamic_config(
         reject_reason=scored["reject_reason"],
         soft_warnings=scored["soft_warnings"],
         components=scored["components"],
-        metrics=result.metrics,
+        metrics=headline_metrics,
         config=config,
     )
 
@@ -175,6 +198,7 @@ def _evaluate_candidates(
     replay_bundle: FamilyPortfolioReplayBundle,
     *,
     max_workers: int,
+    price_bars: Any,
 ) -> list[DynamicEvaluation]:
     worker_count = max(1, min(int(max_workers), 2))
     evaluations: list[DynamicEvaluation] = []
@@ -186,12 +210,13 @@ def _evaluate_candidates(
                 candidate.description,
                 apply_portfolio_mutations(current_config, candidate.mutations),
                 replay_bundle,
+                price_bars=price_bars,
             ): candidate
             for candidate in candidates
         }
         for future in as_completed(future_map):
             evaluations.append(future.result())
-    evaluations.sort(key=lambda item: item.score, reverse=True)
+    evaluations.sort(key=_dynamic_selection_key, reverse=True)
     return evaluations
 
 
@@ -276,20 +301,18 @@ def _phase_candidates() -> dict[int, list[DynamicCandidate]]:
                         ("VdubusNQ_v4", 1.10),
                         ("NQDTC_v2.1", 1.10),
                         ("DownturnDominator_v1", 1.00),
-                        ("AKC_Helix_v40", 0.85),
                     ),
                 },
             ),
             DynamicCandidate(
                 "blocked_alpha_recovery",
-                "Recover blocked NQ/Helix edge through smaller but still meaningful entries",
+                "Recover blocked NQ edge through smaller but still meaningful entries",
                 {
                     "dynamic.strategy_multipliers": (
                         ("NQ_REGIME", 0.90),
                         ("VdubusNQ_v4", 1.00),
                         ("NQDTC_v2.1", 1.00),
                         ("DownturnDominator_v1", 1.00),
-                        ("AKC_Helix_v40", 0.95),
                     ),
                 },
             ),
@@ -303,7 +326,6 @@ def _phase_candidates() -> dict[int, list[DynamicCandidate]]:
                         ("VdubusNQ_v4", 0.85),
                         ("NQDTC_v2.1", 0.95),
                         ("DownturnDominator_v1", 0.95),
-                        ("AKC_Helix_v40", 0.65),
                     ),
                 },
             ),
@@ -317,7 +339,6 @@ def _phase_candidates() -> dict[int, list[DynamicCandidate]]:
                         ("VdubusNQ_v4", 1.10),
                         ("NQDTC_v2.1", 1.05),
                         ("DownturnDominator_v1", 1.00),
-                        ("AKC_Helix_v40", 0.90),
                     ),
                 },
             ),
@@ -347,7 +368,6 @@ def _phase_candidates() -> dict[int, list[DynamicCandidate]]:
                             ("VdubusNQ_v4", 1.10),
                             ("NQDTC_v2.1", 1.05),
                             ("DownturnDominator_v1", 1.00),
-                            ("AKC_Helix_v40", 0.85),
                         ),
                     ),
                     "config.heat_cap_R": 6.25,
@@ -372,7 +392,6 @@ def _phase_candidates() -> dict[int, list[DynamicCandidate]]:
                             ("VdubusNQ_v4", 0.95),
                             ("NQDTC_v2.1", 1.00),
                             ("DownturnDominator_v1", 1.00),
-                            ("AKC_Helix_v40", 0.75),
                         ),
                     ),
                     "config.heat_cap_R": 6.75,
@@ -395,7 +414,6 @@ def _phase_candidates() -> dict[int, list[DynamicCandidate]]:
                             ("VdubusNQ_v4", 1.10),
                             ("NQDTC_v2.1", 1.05),
                             ("DownturnDominator_v1", 1.00),
-                            ("AKC_Helix_v40", 0.90),
                         ),
                     ),
                     "config.heat_cap_R": 6.75,
@@ -409,6 +427,18 @@ def _phase_candidates() -> dict[int, list[DynamicCandidate]]:
 
 
 PHASE_CANDIDATES = _phase_candidates()
+
+
+def _dynamic_selection_key(evaluation: DynamicEvaluation) -> tuple[float, float, float, float, float, float]:
+    metrics = evaluation.metrics
+    return (
+        evaluation.score,
+        float(metrics.get("net_profit", 0.0) or 0.0),
+        float(metrics.get("trades_per_month", 0.0) or 0.0),
+        -float(metrics.get("max_drawdown_pct", 1.0) or 1.0),
+        -float(metrics.get("block_rate", 1.0) or 1.0),
+        float(metrics.get("profit_factor", 0.0) or 0.0),
+    )
 
 
 def _jsonable(value: Any) -> Any:

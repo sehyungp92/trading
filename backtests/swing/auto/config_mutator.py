@@ -1,6 +1,6 @@
 """Config mutation for automated swing experiments.
 
-Generates mutated ATRSS/Helix/Breakout/Unified configs from a base config
+Generates mutated ATRSS/Helix/Unified configs from a base config
 and a mutation dictionary using dot-notation keys.
 """
 from __future__ import annotations
@@ -9,7 +9,6 @@ from dataclasses import fields, replace
 
 from backtests.swing.config import AblationFlags, BacktestConfig, SlippageConfig
 from backtests.swing.config_helix import HelixAblationFlags, HelixBacktestConfig
-from backtests.swing.config_breakout import BreakoutAblationFlags, BreakoutBacktestConfig
 from backtests.swing.config_unified import StrategySlot, UnifiedBacktestConfig
 
 
@@ -105,52 +104,6 @@ def mutate_helix_config(
     return config
 
 
-def mutate_breakout_config(
-    base: BreakoutBacktestConfig,
-    mutations: dict,
-) -> BreakoutBacktestConfig:
-    """Apply dot-notation mutations to a Breakout config.
-
-    Mutation key patterns:
-      - "flags.disable_chop_mode": True  → builds new BreakoutAblationFlags
-      - "param_overrides.SCORE_THRESHOLD_NORMAL": 3  → merges into param_overrides (NEW)
-      - "slippage.*"  → SlippageConfig
-      - top-level  → direct replace
-    """
-    config = base
-    flag_changes: dict = {}
-    param_changes: dict = {}
-    slippage_changes: dict = {}
-    top_level: dict = {}
-
-    for key, value in mutations.items():
-        if key.startswith("flags."):
-            flag_changes[key.split(".", 1)[1]] = value
-        elif key.startswith("param_overrides."):
-            param_changes[key.split(".", 1)[1]] = value
-        elif key.startswith("slippage."):
-            slippage_changes[key.split(".", 1)[1]] = value
-        else:
-            top_level[key] = value
-
-    if flag_changes:
-        new_flags = replace(config.flags, **flag_changes)
-        config = replace(config, flags=new_flags)
-
-    if param_changes:
-        merged = {**config.param_overrides, **param_changes}
-        config = replace(config, param_overrides=merged)
-
-    if slippage_changes:
-        new_slippage = _mutate_slippage(config.slippage, slippage_changes)
-        config = replace(config, slippage=new_slippage)
-
-    if top_level:
-        config = replace(config, **top_level)
-
-    return config
-
-
 def mutate_unified_config(
     base: UnifiedBacktestConfig,
     mutations: dict,
@@ -164,7 +117,6 @@ def mutate_unified_config(
       - "overlay_enabled": False  → top-level overlay toggle
       - "enable_atrss_helix_tighten": False  → coordination toggle
       - "helix_param.STALE_4H_BARS": 4  → per-strategy engine param
-      - "breakout_flags.disable_score_threshold": True  → per-strategy flag
       - "helix_flags.disable_class_c": True  → per-strategy flag
     """
     config = base
@@ -173,11 +125,11 @@ def mutate_unified_config(
     flag_changes: dict[str, dict] = {}
     top_level: dict = {}
 
-    strategy_slot_names = {"atrss", "helix", "brs", "breakout"}
+    strategy_slot_names = {"atrss", "helix", "tpc"}
     param_override_prefixes = {
-        "atrss_param", "helix_param", "breakout_param",
+        "atrss_param", "helix_param", "tpc_param",
     }
-    flag_prefixes = {"atrss_flags", "helix_flags", "breakout_flags"}
+    flag_prefixes = {"atrss_flags", "helix_flags"}
 
     for key, value in mutations.items():
         parts = key.split(".", 1)

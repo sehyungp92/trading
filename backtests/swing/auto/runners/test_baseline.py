@@ -31,7 +31,7 @@ def main():
     )
 
     # 1. Load all data
-    print("\n[1/4] Loading data...", flush=True)
+    print("\n[1/3] Loading data...", flush=True)
     t0 = time.time()
     harness._load_data("all")
     print(f"  Data loaded in {time.time() - t0:.1f}s", flush=True)
@@ -41,9 +41,6 @@ def main():
 
     # 3. Run Helix baseline
     _run_strategy_baseline(harness, "helix")
-
-    # 4. Run Breakout baseline
-    _run_strategy_baseline(harness, "breakout")
 
     print(f"\n{'=' * 60}", flush=True)
     print("BASELINE SUMMARY", flush=True)
@@ -66,9 +63,9 @@ def main():
 
 def _run_strategy_baseline(harness, strategy: str) -> None:
     """Run a single strategy baseline with timing."""
-    step = {"atrss": 2, "helix": 3, "breakout": 4}
+    step = {"atrss": 2, "helix": 3}
     n = step.get(strategy, 0)
-    print(f"\n[{n}/4] Running {strategy.upper()} baseline...", flush=True)
+    print(f"\n[{n}/3] Running {strategy.upper()} baseline...", flush=True)
     t = time.time()
 
     success = harness._run_baseline(strategy)

@@ -9,7 +9,7 @@ from .round_design import write_round_design
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="momentum-portfolio-synergy-design",
-        description="Write the next momentum five-strategy portfolio synergy phase-auto design.",
+        description="Write the next momentum four-strategy portfolio synergy phase-auto design.",
     )
     parser.add_argument(
         "--output-dir",

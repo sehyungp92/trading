@@ -101,7 +101,7 @@ def liveness_config():
 @pytest.fixture
 def family_map():
     return {
-        "BRS_R9": "swing",
+        "ATRSS": "swing",
         "Helix_v40": "momentum",
         "OVERLAY": "swing",
         "ALCB_T2": "stock",
@@ -113,11 +113,11 @@ async def test_check_liveness_ok_when_counter_increases(liveness_config, family_
     """4. Returns OK when bars_processed increases between cycles."""
     from apps.watchdog.checks import check_liveness
 
-    rows = [_make_row("BRS_R9", bars_processed=10)]
+    rows = [_make_row("ATRSS", bars_processed=10)]
     pool = AsyncMock()
     pool.fetch = AsyncMock(return_value=rows)
 
-    prev_bars: dict[str, int] = {"BRS_R9": 5}  # was 5, now 10 -> increasing
+    prev_bars: dict[str, int] = {"ATRSS": 5}  # was 5, now 10 -> increasing
     stalled: dict[str, int] = {}
     active = {"swing"}
 
@@ -125,7 +125,7 @@ async def test_check_liveness_ok_when_counter_increases(liveness_config, family_
     ok_results = [r for r in results if not r.is_problem and "stalled" in r.key]
     assert len(ok_results) == 1
     assert "OK" in ok_results[0].detail
-    assert prev_bars["BRS_R9"] == 10
+    assert prev_bars["ATRSS"] == 10
 
 
 @pytest.mark.asyncio
@@ -133,19 +133,19 @@ async def test_check_liveness_critical_when_stalled(liveness_config, family_map)
     """5. Returns CRITICAL when bars_processed unchanged for N cycles."""
     from apps.watchdog.checks import check_liveness
 
-    rows = [_make_row("BRS_R9", bars_processed=42)]
+    rows = [_make_row("ATRSS", bars_processed=42)]
     pool = AsyncMock()
     pool.fetch = AsyncMock(return_value=rows)
 
-    prev_bars: dict[str, int] = {"BRS_R9": 42}  # same as current
-    stalled: dict[str, int] = {"BRS_R9": 2}  # already 2, will become 3 == threshold
+    prev_bars: dict[str, int] = {"ATRSS": 42}  # same as current
+    stalled: dict[str, int] = {"ATRSS": 2}  # already 2, will become 3 == threshold
     active = {"swing"}
 
     results = await check_liveness(pool, liveness_config, active, family_map, prev_bars, stalled)
     problems = [r for r in results if r.is_problem and "stalled" in r.key]
     assert len(problems) == 1
     assert "engine stalled" in problems[0].detail
-    assert stalled["BRS_R9"] == 3
+    assert stalled["ATRSS"] == 3
 
 
 @pytest.mark.asyncio
@@ -154,7 +154,7 @@ async def test_check_liveness_symbol_stale(liveness_config, family_map):
     from apps.watchdog.checks import check_liveness
 
     stale_ts = (datetime.now(timezone.utc) - timedelta(minutes=100)).isoformat()
-    rows = [_make_row("BRS_R9", bars_processed=10,
+    rows = [_make_row("ATRSS", bars_processed=10,
                        symbol_freshness={"QQQ": stale_ts})]
     pool = AsyncMock()
     pool.fetch = AsyncMock(return_value=rows)
@@ -175,12 +175,12 @@ async def test_check_liveness_skips_inactive_family(liveness_config, family_map)
     """7. Skips inactive families (off-hours)."""
     from apps.watchdog.checks import check_liveness
 
-    rows = [_make_row("BRS_R9", bars_processed=42)]
+    rows = [_make_row("ATRSS", bars_processed=42)]
     pool = AsyncMock()
     pool.fetch = AsyncMock(return_value=rows)
 
-    prev_bars: dict[str, int] = {"BRS_R9": 42}
-    stalled: dict[str, int] = {"BRS_R9": 5}
+    prev_bars: dict[str, int] = {"ATRSS": 42}
+    stalled: dict[str, int] = {"ATRSS": 5}
     active: set[str] = set()  # no active families
 
     results = await check_liveness(pool, liveness_config, active, family_map, prev_bars, stalled)
@@ -193,7 +193,7 @@ async def test_check_liveness_handles_missing_liveness_key(liveness_config, fami
     from apps.watchdog.checks import check_liveness
 
     rows = [{
-        "strategy_id": "BRS_R9",
+        "strategy_id": "ATRSS",
         "last_decision_details": {"some_other_key": 123},
         "last_decision_code": "NO_SIGNAL",
         "last_seen_bar_ts": datetime.now(timezone.utc),

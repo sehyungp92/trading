@@ -12,7 +12,6 @@ STRATEGY_ORDER = (
     "VdubusNQ_v4",
     "NQDTC_v2.1",
     "DownturnDominator_v1",
-    "AKC_Helix_v40",
 )
 
 SCORE_WEIGHTS: dict[str, float] = {
@@ -31,7 +30,7 @@ ROUND_TARGETS: dict[str, float] = {
     "min_total_r_per_month": 14.0,
     "min_profit_factor": 2.4,
     "max_drawdown_pct": 0.18,
-    "min_active_strategies": 5.0,
+    "min_active_strategies": 4.0,
     "max_single_strategy_risk_share": 0.40,
 }
 
@@ -40,7 +39,7 @@ SEED_PORTFOLIO_CONFIG: dict[str, Any] = {
     "risk_stance": RISK_STANCE,
     "portfolio_rules": {
         "heat_cap_R": 4.0,
-        "max_total_positions": 5,
+        "max_total_positions": 4,
         "directional_cap_R": 3.5,
         "directional_cap_long_R": 3.25,
         "directional_cap_short_R": 4.0,
@@ -87,13 +86,6 @@ SEED_PORTFOLIO_CONFIG: dict[str, Any] = {
             "priority": 3,
             "role": "correction and range ballast",
         },
-        "AKC_Helix_v40": {
-            "base_risk_pct": 0.0030,
-            "daily_stop_R": 1.75,
-            "max_concurrent": 1,
-            "priority": 4,
-            "role": "low-frequency convex trend satellite",
-        },
     },
     "cross_strategy_rules": {
         "priority_order": list(STRATEGY_ORDER),
@@ -102,11 +94,6 @@ SEED_PORTFOLIO_CONFIG: dict[str, Any] = {
             "enabled": True,
             "agree_size_mult": 1.25,
             "oppose_size_mult": 0.50,
-        },
-        "helix_cooldown": {
-            "pairs": ("NQDTC_v2.1", "NQ_REGIME"),
-            "minutes": 120,
-            "session_only": True,
         },
         "downturn_regime_reserve": {
             "enabled": True,
@@ -117,7 +104,7 @@ SEED_PORTFOLIO_CONFIG: dict[str, Any] = {
 }
 
 PHASE_FOCUS: dict[int, str] = {
-    1: "Baseline five-strategy inclusion and diagnostic integrity",
+    1: "Baseline four-strategy inclusion and diagnostic integrity",
     2: "Alpha/frequency capacity expansion",
     3: "Conviction-weighted risk allocation",
     4: "Cross-strategy routing and conflict rules",
@@ -128,7 +115,7 @@ PHASE_FOCUS: dict[int, str] = {
 
 PHASE_GATES: dict[int, dict[str, float]] = {
     1: {
-        "min_active_strategies": 5.0,
+        "min_active_strategies": 4.0,
         "min_trades_per_month": 18.0,
         "max_drawdown_pct": 0.20,
     },
@@ -148,9 +135,8 @@ PHASE_GATES: dict[int, dict[str, float]] = {
         "min_profit_factor": 2.35,
     },
     5: {
-        "min_active_strategies": 5.0,
+        "min_active_strategies": 4.0,
         "min_downturn_correction_trade_share": 0.08,
-        "min_helix_trend_satellite_trade_share": 0.04,
     },
     6: {
         "max_drawdown_pct": 0.18,
@@ -192,14 +178,13 @@ _PHASE_CANDIDATES: dict[int, list[dict[str, Any]]] = {
         {
             "name": "seed_aggressive_controlled_50k",
             "mutations": SEED_PORTFOLIO_CONFIG,
-            "rationale": "Use all five strategies with NQ_REGIME/Vdubus as the frequency core and Helix as a capped satellite.",
+            "rationale": "Use all active strategies with NQ_REGIME/Vdubus as the frequency core.",
         },
         {
             "name": "seed_nq_regime_heavy",
             "mutations": {
                 "strategy_allocations.NQ_REGIME.base_risk_pct": 0.0075,
                 "strategy_allocations.NQ_REGIME.max_concurrent": 2,
-                "strategy_allocations.AKC_Helix_v40.base_risk_pct": 0.0025,
             },
             "rationale": "Lean harder into the cleanest latest diagnostic: 497 trades, 10.47 trades/month, 3.2% DD.",
         },
@@ -210,14 +195,14 @@ _PHASE_CANDIDATES: dict[int, list[dict[str, Any]]] = {
                 "strategy_allocations.NQDTC_v2.1.base_risk_pct": 0.0040,
                 "portfolio_rules.max_total_positions": 5,
             },
-            "rationale": "Lift Vdubus/NQDTC throughput while preserving five-strategy participation.",
+            "rationale": "Lift Vdubus/NQDTC throughput while preserving active strategy participation.",
         },
     ],
     2: [
         {
             "name": "capacity_positions_5",
             "mutations": {"portfolio_rules.max_total_positions": 5},
-            "rationale": "Allow one slot per strategy before conflict rules start rationing alpha.",
+            "rationale": "Allow one slot per active strategy before conflict rules start rationing alpha.",
         },
         {
             "name": "capacity_positions_6_probe",
@@ -240,7 +225,7 @@ _PHASE_CANDIDATES: dict[int, list[dict[str, Any]]] = {
                 "portfolio_rules.directional_cap_long_R": 3.25,
                 "portfolio_rules.directional_cap_short_R": 4.25,
             },
-            "rationale": "Give Downturn/NQDTC/Helix shorts more room because they diversify long Nasdaq momentum risk.",
+            "rationale": "Give Downturn/NQDTC shorts more room because they diversify long Nasdaq momentum risk.",
         },
     ],
     3: [
@@ -253,11 +238,6 @@ _PHASE_CANDIDATES: dict[int, list[dict[str, Any]]] = {
             "name": "risk_vdubus_055",
             "mutations": {"strategy_allocations.VdubusNQ_v4.base_risk_pct": 0.0055},
             "rationale": "Vdubus carries the best legacy return engine but needs fast-death gates to earn this size.",
-        },
-        {
-            "name": "risk_helix_025",
-            "mutations": {"strategy_allocations.AKC_Helix_v40.base_risk_pct": 0.0025},
-            "rationale": "Curb the 27.3% standalone DD while keeping convex trend contribution alive.",
         },
         {
             "name": "risk_downturn_045",
@@ -289,14 +269,6 @@ _PHASE_CANDIDATES: dict[int, list[dict[str, Any]]] = {
             "rationale": "Use NQDTC as confirmation without fully blocking Vdubus frequency on opposed reads.",
         },
         {
-            "name": "helix_overlap_cooldown_session_only",
-            "mutations": {
-                "cross_strategy_rules.helix_cooldown.minutes": 120,
-                "cross_strategy_rules.helix_cooldown.session_only": True,
-            },
-            "rationale": "Avoid immediate same-session crowding while letting Helix still trade its sparse windows.",
-        },
-        {
             "name": "downturn_correction_priority",
             "mutations": {
                 "cross_strategy_rules.downturn_regime_reserve.enabled": True,
@@ -321,11 +293,6 @@ _PHASE_CANDIDATES: dict[int, list[dict[str, Any]]] = {
             "mutations": {"strategy_filters.DownturnDominator_v1.allowed_regimes": ("neutral", "range", "correction")},
             "rationale": "Latest Downturn alpha came from correction/range, while aligned/emerging bear buckets lost money.",
         },
-        {
-            "name": "helix_trend_satellite_gate",
-            "mutations": {"strategy_filters.AKC_Helix_v40.require_high_trend_quality": True},
-            "rationale": "Keep Helix for high payoff trend windows instead of letting long underwater periods dominate risk.",
-        },
     ],
     6: [
         {
@@ -348,7 +315,7 @@ _PHASE_CANDIDATES: dict[int, list[dict[str, Any]]] = {
                     (0.20, 0.00),
                 )
             },
-            "rationale": "Let the book press at highs but force de-risking before the DD profile resembles standalone Helix.",
+            "rationale": "Let the book press at highs but force de-risking before drawdown accelerates.",
         },
         {
             "name": "weekly_stop_6R",
@@ -364,8 +331,8 @@ _PHASE_CANDIDATES: dict[int, list[dict[str, Any]]] = {
         },
         {
             "name": "final_min_all_strategies_active",
-            "mutations": {"portfolio_rules.min_active_strategies": 5},
-            "rationale": "Require all five engines to survive the blend unless diagnostics prove one is harmful.",
+            "mutations": {"portfolio_rules.min_active_strategies": 4},
+            "rationale": "Require all four momentum engines to survive the blend unless diagnostics prove one is harmful.",
         },
         {
             "name": "final_walk_forward_robustness_gate",
@@ -379,4 +346,3 @@ _PHASE_CANDIDATES: dict[int, list[dict[str, Any]]] = {
         },
     ],
 }
-

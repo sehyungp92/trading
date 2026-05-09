@@ -152,7 +152,6 @@ def run_diagnostic(equity: float, data: UnifiedPortfolioData) -> None:
     for label, trades in [
         ("ATRSS", result.atrss_trades),
         ("AKC_HELIX", result.helix_trades),
-        ("SWING_BREAKOUT_V3", result.breakout_trades),
     ]:
         by_sym: dict[str, list] = {}
         for t in trades:

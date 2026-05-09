@@ -42,7 +42,7 @@ _W_NET_PROFIT = 0.35
 # Trade-count thresholds by strategy (momentum-tuned)
 _LOW_TRADE_STRATEGIES = ("vdubus",)       # 15-min bars, lowest frequency
 _MEDIUM_TRADE_STRATEGIES = ("nqdtc",)     # breakout-driven
-_MIN_TRADES_DEFAULT = 30                  # Helix (most active)
+_MIN_TRADES_DEFAULT = 30
 _MIN_TRADES_MEDIUM = 25                   # NQDTC
 _MIN_TRADES_LOW = 20                      # Vdubus
 
@@ -122,7 +122,7 @@ def extract_metrics(
 ) -> PerformanceMetrics:
     """Standard metrics extraction from engine result.
 
-    Accepts trade records from any momentum engine (Helix4, NQDTC, Vdubus,
+    Accepts trade records from any active momentum engine (NQDTC, Vdubus,
     PortfolioTrade). Each record must have pnl_dollars, initial_stop,
     entry_price, qty (or equivalent), bars_held, commission, symbol.
     """

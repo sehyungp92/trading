@@ -3,7 +3,6 @@
 Usage:
     python -m backtest.cli run --strategy vdubus --diagnostics
     python -m backtest.cli run --strategy nqdtc
-    python -m backtest.cli run --strategy helix --diagnostics
     python -m backtest.cli ablation --strategy vdubus --filter daily_trend_gate
     python -m backtest.cli optimize --strategy nqdtc --n-coarse 500 --n-refine 200
     python -m backtest.cli walk-forward --strategy vdubus --test-months 6
@@ -47,12 +46,7 @@ def _log_live_parity_caveats(strategy: str, fixed_qty: int | None) -> None:
         strategy,
     )
 
-    if strategy == "Helix":
-        logger.warning(
-            "Helix backtest defaults also differ from live config: ETH_EUROPE and "
-            "RTH_DEAD sizing enhancements are off unless explicitly enabled."
-        )
-    elif strategy == "NQDTC":
+    if strategy == "NQDTC":
         logger.warning(
             "NQDTC backtest still models B-sweep as MARKET, while live submits it "
             "as a marketable IOC LIMIT."
@@ -327,124 +321,8 @@ def cmd_download(args):
                 logger.info("Downloaded %s -> %s", key, path)
 
         asyncio.run(_run_vdubus())
-    elif args.strategy == "helix":
-        from backtests.momentum.data.downloader import download_apex_data
-        symbol = args.symbols
-
-        async def _run_helix():
-            result = await download_apex_data(
-                symbol=symbol, duration=duration, output_dir=data_dir,
-            )
-            for tf, path in result.items():
-                logger.info("Downloaded %s %s -> %s", symbol, tf, path)
-
-        asyncio.run(_run_helix())
     else:
         logger.error("Unknown strategy: %s", args.strategy)
-
-
-def _load_helix_data(symbol: str, data_dir: Path) -> dict:
-    """Load 5-min NQ parquet and resample for HelixEngine."""
-    from backtests.momentum.data.cache import load_bars
-    from backtests.momentum.data.preprocessing import (
-        align_daily_to_5m,
-        align_higher_tf_to_5m,
-        build_numpy_arrays,
-        filter_eth,
-        normalize_timezone,
-        resample_5m_to_1h,
-        resample_5m_to_4h,
-        resample_5m_to_daily,
-    )
-
-    five_min_path = data_dir / f"{symbol}_5m.parquet"
-
-    if not five_min_path.exists():
-        raise FileNotFoundError(
-            f"Missing 5-min data: {five_min_path}. Run 'download --strategy helix' first."
-        )
-
-    m_df = normalize_timezone(load_bars(five_min_path))
-    m_df = filter_eth(m_df)
-
-    hourly_df = resample_5m_to_1h(m_df)
-    four_hour_df = resample_5m_to_4h(m_df)
-
-    daily_df = resample_5m_to_daily(m_df)
-
-    five_min_bars = build_numpy_arrays(m_df)
-    hourly = build_numpy_arrays(hourly_df)
-    four_hour = build_numpy_arrays(four_hour_df)
-    daily = build_numpy_arrays(daily_df)
-
-    hourly_idx_map = align_higher_tf_to_5m(m_df, hourly_df)
-    four_hour_idx_map = align_higher_tf_to_5m(m_df, four_hour_df)
-    daily_idx_map = align_daily_to_5m(m_df, daily_df)
-
-    logger.info(
-        "Loaded %s (Helix): %d 5m bars, %d hourly, %d 4H, %d daily",
-        symbol, len(m_df), len(hourly_df), len(four_hour_df), len(daily_df),
-    )
-
-    return {
-        "minute_bars": five_min_bars,
-        "hourly": hourly,
-        "four_hour": four_hour,
-        "daily": daily,
-        "hourly_idx_map": hourly_idx_map,
-        "four_hour_idx_map": four_hour_idx_map,
-        "daily_idx_map": daily_idx_map,
-    }
-
-
-def _load_helix_data_cached(symbol: str, data_dir: Path) -> dict:
-    """Cached wrapper around _load_helix_data.
-
-    Pickles the fully processed data dict (NumpyBars + idx_maps). Cache key
-    is derived from source parquet file mtimes and sizes, so the cache auto-
-    invalidates when data files change.
-    """
-    import hashlib
-    import pickle
-
-    five_min_path = data_dir / f"{symbol}_5m.parquet"
-
-    # Build cache key from file metadata
-    parts = []
-    for p in (five_min_path,):
-        if p.exists():
-            st = p.stat()
-            parts.append(f"{st.st_mtime_ns}_{st.st_size}")
-        else:
-            parts.append("missing")
-    key = hashlib.md5("_".join(parts).encode()).hexdigest()[:12]
-
-    cache_path = data_dir / f".cache_helix_{symbol}_{key}.pkl"
-
-    if cache_path.exists():
-        try:
-            with open(cache_path, "rb") as f:
-                data = pickle.load(f)
-            logger.info("Loaded %s (Helix) from cache: %s", symbol, cache_path.name)
-            return data
-        except Exception:
-            logger.warning("Cache load failed, rebuilding...")
-
-    # Cache miss -- run full pipeline
-    data = _load_helix_data(symbol, data_dir)
-
-    # Save cache and clean stale caches for this symbol
-    try:
-        for old in data_dir.glob(f".cache_helix_{symbol}_*.pkl"):
-            if old != cache_path:
-                old.unlink(missing_ok=True)
-        with open(cache_path, "wb") as f:
-            pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
-        logger.info("Cached %s (Helix) data to %s", symbol, cache_path.name)
-    except Exception as e:
-        logger.warning("Failed to write cache: %s", e)
-
-    return data
 
 
 # ---------------------------------------------------------------------------
@@ -988,239 +866,12 @@ def _cmd_walk_forward_vdubus(args):
 
 
 # ---------------------------------------------------------------------------
-# Helix commands
-# ---------------------------------------------------------------------------
-
-def _cmd_run_helix(args):
-    """Run a single Helix v4.0 Apex Trail backtest."""
-    from backtests.momentum.analysis.metrics import compute_metrics
-    from backtests.momentum.analysis.reports import format_summary
-    from backtests.momentum.config_helix import Helix4BacktestConfig
-    from backtests.momentum.engine.helix_engine import Helix4Engine
-
-    symbol = args.symbols
-    data_dir = Path(args.data_dir)
-    helix_data = _load_helix_data(symbol, data_dir)
-
-    _log_live_parity_caveats("Helix", args.fixed_qty or None)
-
-    config = Helix4BacktestConfig(
-        symbols=[symbol],
-        start_date=datetime.fromisoformat(args.start) if args.start else None,
-        end_date=datetime.fromisoformat(args.end) if args.end else None,
-        initial_equity=args.equity,
-        data_dir=data_dir,
-        fixed_qty=args.fixed_qty or None,
-        news_calendar_path=Path(args.news_calendar) if getattr(args, 'news_calendar', None) else None,
-    )
-
-    engine = Helix4Engine(symbol, config)
-    result = engine.run(
-        helix_data["minute_bars"],
-        helix_data["hourly"],
-        helix_data["four_hour"],
-        helix_data["daily"],
-        helix_data["hourly_idx_map"],
-        helix_data["four_hour_idx_map"],
-        helix_data["daily_idx_map"],
-    )
-
-    report_sections: list[str] = []
-
-    # Buy-and-hold baseline
-    bh_qty = config.fixed_qty or 10
-    daily_bars = helix_data["daily"]
-    bh_entry = float(daily_bars.opens[0])
-    bh_exit = float(daily_bars.closes[-1])
-    bh_pnl = (bh_exit - bh_entry) * config.point_value * bh_qty
-    bh_equity_final = config.initial_equity + bh_pnl
-    n_days = len(daily_bars)
-    years = max(n_days / 252, 0.01)
-    bh_cagr = (bh_equity_final / config.initial_equity) ** (1 / years) - 1
-    bh_peak = float(daily_bars.opens[0])
-    bh_max_dd_pct = 0.0
-    for i in range(len(daily_bars)):
-        px = float(daily_bars.closes[i])
-        eq = config.initial_equity + (px - bh_entry) * config.point_value * bh_qty
-        if eq > bh_peak:
-            bh_peak = eq
-        dd = (bh_peak - eq) / bh_peak if bh_peak > 0 else 0
-        if dd > bh_max_dd_pct:
-            bh_max_dd_pct = dd
-    report_sections.append(
-        f"=== Buy & Hold Baseline: {bh_qty} MNQ ===\n"
-        f"  Entry: {bh_entry:,.2f}  Exit: {bh_exit:,.2f}  "
-        f"Days: {n_days}\n"
-        f"  P&L: ${bh_pnl:+,.0f}  CAGR: {bh_cagr:.1%}  "
-        f"MaxDD: {bh_max_dd_pct:.1%}"
-    )
-
-    if not result.trades:
-        logger.info("%s: No trades", symbol)
-    else:
-        pnls = np.array([t.pnl_dollars for t in result.trades])
-        risks = np.array([
-            t.unit1_risk_usd if t.unit1_risk_usd > 0
-            else abs(t.avg_entry - t.initial_stop) * config.point_value
-            for t in result.trades
-        ])
-        holds = np.array([t.bars_held_1h for t in result.trades])
-        comms = np.array([t.commission for t in result.trades])
-
-        metrics = compute_metrics(
-            trade_pnls=pnls,
-            trade_risks=risks,
-            trade_hold_hours=holds,
-            trade_commissions=comms,
-            equity_curve=result.equity_curve,
-            timestamps=result.timestamps,
-            initial_equity=config.initial_equity,
-        )
-
-        qty_label = f"{config.fixed_qty} units fixed" if config.fixed_qty else "risk-based sizing"
-        report_sections.append(
-            f"=== Helix v4.0 Apex Trail Backtest: {symbol} ({qty_label}) ===\n"
-            f"Instrument:         MNQ (Micro E-mini Nasdaq-100)\n"
-            f"Point value:        ${config.point_value:.2f}\n"
-            f"Tick size:          {config.tick_size}\n"
-            f"Fixed qty:          {config.fixed_qty or 'N/A (risk-based)'}\n"
-            f"Initial equity:     ${config.initial_equity:,.0f}\n"
-            f"\n"
-            f"  Trades: {len(result.trades)}  "
-            f"Setups detected: {result.setups_detected}  "
-            f"Gates blocked: {result.gates_blocked}\n"
-            f"  Entries placed: {result.entries_placed}  "
-            f"Entries filled: {result.entries_filled}"
-        )
-        report_sections.append(format_summary(metrics))
-
-        from backtests.momentum.analysis.reports import helix_performance_report
-        report_sections.append(helix_performance_report(symbol, metrics))
-
-        if getattr(args, 'diagnostics', False):
-            from backtests.momentum.analysis.helix_diagnostics import helix_full_diagnostic
-            report_sections.append(helix_full_diagnostic(
-                result.trades,
-                setup_log=result.setup_log,
-                gate_log=result.gate_log,
-                entry_tracking=result.entry_tracking,
-                equity_curve=result.equity_curve,
-                timestamps=result.timestamps,
-            ))
-
-    if result.shadow_summary:
-        report_sections.append(result.shadow_summary)
-
-    # Helix filter attribution with formal verdicts
-    if getattr(args, 'diagnostics', False) and hasattr(result, 'gate_log'):
-        try:
-            from backtests.momentum.analysis.helix_filter_attribution import helix_filter_attribution_report
-            shadow_tracker = getattr(result, 'shadow_tracker', None)
-            report_sections.append(helix_filter_attribution_report(
-                gate_log=result.gate_log,
-                setup_log=getattr(result, 'setup_log', []),
-                trades=result.trades,
-                shadow_tracker=shadow_tracker,
-            ))
-        except Exception as e:
-            logger.warning("Helix filter attribution failed: %s", e)
-
-    for section in report_sections:
-        print(f"\n{section}")
-
-    report_file = getattr(args, 'report_file', None)
-    if report_file and report_sections:
-        report_path = Path(report_file)
-        report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text("\n\n".join(report_sections) + "\n", encoding="utf-8")
-        logger.info("Report saved: %s", report_path)
-
-
-def _cmd_ablation_helix(args):
-    """Run Helix ablation test."""
-    from backtests.momentum.analysis.metrics import compute_metrics
-    from backtests.momentum.analysis.reports import print_summary
-    from backtests.momentum.config_helix import Helix4AblationFlags, Helix4BacktestConfig
-    from backtests.momentum.engine.helix_engine import Helix4Engine
-
-    symbol = args.symbols
-    data_dir = Path(args.data_dir)
-    helix_data = _load_helix_data(symbol, data_dir)
-
-    filter_names: list[str] = []
-    if args.filters:
-        filter_names = [f.strip() for f in args.filters.split(",") if f.strip()]
-    elif args.filter:
-        filter_names = [args.filter]
-    else:
-        logger.error("Must specify --filter or --filters")
-        return
-
-    flags_template = Helix4AblationFlags()
-    valid_flags = [f for f in vars(flags_template) if not f.startswith("_")]
-    for fn in filter_names:
-        if fn not in valid_flags:
-            logger.error("Unknown Helix filter: %s", fn)
-            logger.info("Valid filters: %s", valid_flags)
-            return
-
-    def _run_one(config):
-        engine = Helix4Engine(symbol, config)
-        return engine.run(
-            helix_data["minute_bars"], helix_data["hourly"],
-            helix_data["four_hour"], helix_data["daily"],
-            helix_data["hourly_idx_map"], helix_data["four_hour_idx_map"],
-            helix_data["daily_idx_map"],
-        )
-
-    baseline_config = Helix4BacktestConfig(
-        symbols=[symbol], initial_equity=args.equity, data_dir=data_dir,
-    )
-    baseline_result = _run_one(baseline_config)
-
-    flags = Helix4AblationFlags()
-    for fn in filter_names:
-        if hasattr(flags, fn):
-            setattr(flags, fn, False)
-
-    ablation_config = Helix4BacktestConfig(
-        symbols=[symbol], initial_equity=args.equity, flags=flags, data_dir=data_dir,
-    )
-    ablation_result = _run_one(ablation_config)
-
-    ablation_label = ",".join(filter_names)
-    print(f"\n=== Helix Ablation: {ablation_label} = OFF ===\n")
-
-    for label, result in [("Baseline", baseline_result), ("Ablated", ablation_result)]:
-        if not result.trades:
-            print(f"  {label}: No trades")
-            continue
-        pnls = np.array([t.pnl_dollars for t in result.trades])
-        risks = np.array([
-            t.unit1_risk_usd if t.unit1_risk_usd > 0
-            else abs(t.avg_entry - t.initial_stop) * baseline_config.point_value
-            for t in result.trades
-        ])
-        holds = np.array([t.bars_held_1h for t in result.trades])
-        comms = np.array([t.commission for t in result.trades])
-        metrics = compute_metrics(
-            pnls, risks, holds, comms,
-            result.equity_curve, result.timestamps, args.equity,
-        )
-        print(f"  {label}: ", end="")
-        print_summary(metrics)
-    print()
-
-
-# ---------------------------------------------------------------------------
 # Portfolio command
 # ---------------------------------------------------------------------------
 
 def _cmd_run_portfolio(args):
     """Run combined portfolio backtest across all strategies."""
-    from backtests.momentum.analysis.metrics import compute_metrics
     from backtests.momentum.analysis.portfolio_reports import portfolio_full_report
-    from backtests.momentum.config_helix import Helix4BacktestConfig
     from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
     from backtests.momentum.config_portfolio import PRESETS, PortfolioBacktestConfig
     from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
@@ -1246,36 +897,8 @@ def _cmd_run_portfolio(args):
 
     independent_pnl: dict[str, float] = {}  # sum of R-multiples per strategy
     independent_trades: dict[str, int] = {}  # trade count per strategy
-    helix_trades = None
     nqdtc_trades = None
     vdubus_trades = None
-
-    # --- Run Helix ---
-    helix_alloc = pc.get_strategy("Helix")
-    if config.run_helix and helix_alloc and helix_alloc.enabled:
-        from backtests.momentum.engine.helix_engine import Helix4Engine
-
-        symbol = "NQ"
-        helix_data = _load_helix_data(symbol, data_dir)
-        helix_cfg = Helix4BacktestConfig(
-            symbols=[symbol],
-            start_date=config.start_date,
-            end_date=config.end_date,
-            initial_equity=pc.initial_equity,
-            data_dir=data_dir,
-            fixed_qty=10,  # engine uses fixed_qty; portfolio rescales
-        )
-        engine = Helix4Engine(symbol, helix_cfg)
-        helix_result = engine.run(
-            helix_data["minute_bars"], helix_data["hourly"],
-            helix_data["four_hour"], helix_data["daily"],
-            helix_data["hourly_idx_map"], helix_data["four_hour_idx_map"],
-            helix_data["daily_idx_map"],
-        )
-        helix_trades = helix_result.trades
-        independent_pnl["Helix"] = sum(t.r_multiple for t in helix_trades)
-        independent_trades["Helix"] = len(helix_trades)
-        logger.info("Helix: %d trades, %+.1fR", len(helix_trades), independent_pnl["Helix"])
 
     # --- Run NQDTC ---
     nqdtc_alloc = pc.get_strategy("NQDTC")
@@ -1359,7 +982,6 @@ def _cmd_run_portfolio(args):
     logger.info("Running portfolio simulation with preset '%s'...", preset_name)
     backtester = PortfolioBacktester(config)
     result = backtester.run(
-        helix_trades=helix_trades,
         nqdtc_trades=nqdtc_trades,
         vdubus_trades=vdubus_trades,
     )
@@ -1382,7 +1004,6 @@ def _cmd_run_portfolio(args):
 
 def _cmd_sweep_portfolio(args):
     """Run portfolio parameter sweep across config variants."""
-    from backtests.momentum.config_helix import Helix4BacktestConfig
     from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
     from backtests.momentum.config_portfolio import PRESETS, PortfolioBacktestConfig
     from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
@@ -1414,36 +1035,10 @@ def _cmd_sweep_portfolio(args):
     )
 
     independent_pnl: dict[str, float] = {}
-    helix_trades = None
     nqdtc_trades = None
     vdubus_trades = None
 
     # --- Run each engine once ---
-    helix_alloc = pc.get_strategy("Helix")
-    if helix_alloc and helix_alloc.enabled:
-        from backtests.momentum.engine.helix_engine import Helix4Engine
-
-        symbol = "NQ"
-        helix_data = _load_helix_data(symbol, data_dir)
-        helix_cfg = Helix4BacktestConfig(
-            symbols=[symbol],
-            start_date=bt_config.start_date,
-            end_date=bt_config.end_date,
-            initial_equity=pc.initial_equity,
-            data_dir=data_dir,
-            fixed_qty=10,
-        )
-        engine = Helix4Engine(symbol, helix_cfg)
-        helix_result = engine.run(
-            helix_data["minute_bars"], helix_data["hourly"],
-            helix_data["four_hour"], helix_data["daily"],
-            helix_data["hourly_idx_map"], helix_data["four_hour_idx_map"],
-            helix_data["daily_idx_map"],
-        )
-        helix_trades = helix_result.trades
-        independent_pnl["Helix"] = sum(t.r_multiple for t in helix_trades)
-        logger.info("Helix: %d trades, %+.1fR", len(helix_trades), independent_pnl["Helix"])
-
     nqdtc_alloc = pc.get_strategy("NQDTC")
     if nqdtc_alloc and nqdtc_alloc.enabled:
         from backtests.momentum.engine.nqdtc_engine import NQDTCEngine
@@ -1525,7 +1120,6 @@ def _cmd_sweep_portfolio(args):
     variants = build_sweep_variants()
     results = run_sweep(
         baseline_config=pc,
-        helix_trades=helix_trades,
         nqdtc_trades=nqdtc_trades,
         vdubus_trades=vdubus_trades,
         variants=variants,
@@ -1559,7 +1153,6 @@ def _cmd_sweep_portfolio(args):
 
             bt = PortfolioBacktester(combined_bt_cfg)
             pr = bt.run(
-                helix_trades=helix_trades,
                 nqdtc_trades=nqdtc_trades,
                 vdubus_trades=vdubus_trades,
             )
@@ -1598,37 +1191,17 @@ def _cmd_sweep_portfolio(args):
 # ---------------------------------------------------------------------------
 
 def _cmd_weakness_report(args):
-    """Generate unified momentum weakness report by running all 3 strategies."""
+    """Generate unified momentum weakness report by running active strategies."""
     from backtests.momentum.analysis.weakness_report import momentum_weakness_report
     from backtests.momentum.analysis.drawdown_attribution import drawdown_attribution_report
 
-    logger.info("Running all 3 strategies for weakness report...")
+    logger.info("Running active momentum strategies for weakness report...")
 
     # Run each strategy and collect results
     results = {}
     all_trades = {}
 
     data_dir = Path(args.data_dir)
-
-    # Helix
-    try:
-        from backtests.momentum.engine.helix_engine import Helix4Engine
-        from backtests.momentum.config_helix import Helix4BacktestConfig
-        helix_data = _load_helix_data("NQ", data_dir)
-        h_cfg = Helix4BacktestConfig(
-            symbols=["NQ"], initial_equity=args.equity, data_dir=data_dir, fixed_qty=10,
-        )
-        h_eng = Helix4Engine("NQ", h_cfg)
-        h_result = h_eng.run(
-            helix_data["minute_bars"], helix_data["hourly"],
-            helix_data["four_hour"], helix_data["daily"],
-            helix_data["hourly_idx_map"], helix_data["four_hour_idx_map"],
-            helix_data["daily_idx_map"],
-        )
-        results["helix"] = h_result
-        all_trades["Helix"] = h_result.trades
-    except Exception as e:
-        logger.warning("Helix run failed: %s", e)
 
     # NQDTC
     try:
@@ -1687,7 +1260,6 @@ def _cmd_weakness_report(args):
 
     # Weakness report
     report_sections.append(momentum_weakness_report(
-        helix_result=results.get("helix"),
         nqdtc_result=results.get("nqdtc"),
         vdubus_result=results.get("vdubus"),
     ))
@@ -1872,8 +1444,6 @@ def cmd_run(args):
         _cmd_run_nqdtc(args)
     elif args.strategy == "vdubus":
         _cmd_run_vdubus(args)
-    elif args.strategy == "helix":
-        _cmd_run_helix(args)
     elif args.strategy == "portfolio":
         _cmd_run_portfolio(args)
     elif args.strategy == "downturn":
@@ -1888,8 +1458,6 @@ def cmd_ablation(args):
         _cmd_ablation_nqdtc(args)
     elif args.strategy == "vdubus":
         _cmd_ablation_vdubus(args)
-    elif args.strategy == "helix":
-        _cmd_ablation_helix(args)
     elif args.strategy == "downturn":
         _cmd_ablation_downturn(args)
     else:
@@ -1902,8 +1470,6 @@ def cmd_optimize(args):
         _cmd_optimize_nqdtc(args)
     elif args.strategy == "vdubus":
         _cmd_optimize_vdubus(args)
-    elif args.strategy == "helix":
-        logger.error("%s optimization not yet implemented", args.strategy)
     else:
         logger.error("Unknown strategy: %s", args.strategy)
 
@@ -1914,8 +1480,6 @@ def cmd_walk_forward(args):
         _cmd_walk_forward_nqdtc(args)
     elif args.strategy == "vdubus":
         _cmd_walk_forward_vdubus(args)
-    elif args.strategy == "helix":
-        logger.error("%s walk-forward not yet implemented", args.strategy)
     else:
         logger.error("Unknown strategy: %s", args.strategy)
 
@@ -2003,11 +1567,11 @@ def _cmd_auto(args):
 def main():
     parser = argparse.ArgumentParser(
         prog="backtest",
-        description="Multi-Strategy Backtesting Framework (NQDTC v2.0 / VdubusNQ v4.0 / Helix v4.0)",
+        description="Multi-Strategy Backtesting Framework (NQDTC v2.0 / VdubusNQ v4.0 / Downturn Dominator)",
     )
     parser.add_argument(
         "--strategy", "-s",
-        choices=["nqdtc", "vdubus", "helix", "portfolio", "downturn"],
+        choices=["nqdtc", "vdubus", "portfolio", "downturn"],
         default="vdubus",
         help="Strategy to backtest (default: vdubus)",
     )
@@ -2082,7 +1646,7 @@ def main():
     auto = sub.add_parser("auto", help="Automated research pipeline")
     auto.add_argument("--phase", choices=["experiments", "greedy", "diagnostics", "comparison", "full"],
                        default="full", help="Pipeline phase to run")
-    auto.add_argument("--strategy", choices=["helix", "nqdtc", "vdubus", "portfolio", "all"],
+    auto.add_argument("--strategy", choices=["nqdtc", "vdubus", "portfolio", "all"],
                        default="all", dest="auto_strategy", help="Strategy filter")
     auto.add_argument("--experiment-ids", nargs="*", help="Specific experiment IDs to run")
     auto.add_argument("--skip-robustness", action="store_true", help="Skip robustness checks")

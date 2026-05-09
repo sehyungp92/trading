@@ -16,7 +16,7 @@ def mock_manager():
 
 @pytest.fixture
 def kit(mock_manager):
-    return InstrumentationKit(mock_manager, strategy_type="helix")
+    return InstrumentationKit(mock_manager, strategy_type="nqdtc")
 
 
 def test_log_entry_delegates_to_trade_logger(kit, mock_manager):
@@ -105,7 +105,7 @@ def test_log_missed_delegates_with_enriched_params(kit, mock_manager):
 
 
 def test_kit_graceful_on_none_manager():
-    kit = InstrumentationKit(None, strategy_type="helix")
+    kit = InstrumentationKit(None, strategy_type="nqdtc")
     # Should not raise
     kit.log_entry(trade_id="t1", pair="NQ", side="LONG", entry_price=21000.0,
                   position_size=1, position_size_quote=21000.0,
@@ -118,7 +118,7 @@ def test_kit_graceful_on_none_manager():
 
 
 def test_kit_active_property():
-    kit_active = InstrumentationKit(MagicMock(), strategy_type="helix")
+    kit_active = InstrumentationKit(MagicMock(), strategy_type="nqdtc")
     assert kit_active.active is True
     kit_none = InstrumentationKit(None)
     assert kit_none.active is False

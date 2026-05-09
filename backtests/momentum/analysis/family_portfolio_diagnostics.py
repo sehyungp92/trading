@@ -27,17 +27,16 @@ from backtests.momentum.engine.family_portfolio_engine import (
 
 
 STRATEGY_OUTPUTS = {
-    "AKC_Helix_v40": ("helix", "round_5"),
-    "NQDTC_v2.1": ("nqdtc", "round_3"),
+    "NQDTC_v2.1": ("nqdtc", "round_4"),
     "VdubusNQ_v4": ("vdubus", "round_3"),
-    "DownturnDominator_v1": ("downturn", "round_3"),
-    "NQ_REGIME": ("nq_regime", "round_5"),
+    "DownturnDominator_v1": ("downturn", "round_4"),
+    "NQ_REGIME": ("nq_regime", "round_6"),
 }
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Build detailed diagnostics for the five-strategy momentum portfolio replay.",
+        description="Build detailed diagnostics for the four-strategy momentum portfolio replay.",
     )
     parser.add_argument("--run-dir", required=True)
     parser.add_argument("--momentum-output-root", default="backtests/output/momentum")
@@ -840,7 +839,6 @@ def _config_snapshot(config: FamilyPortfolioBacktestConfig) -> dict[str, Any]:
         "directional_cap_long_R": config.rules.directional_cap_long_R,
         "directional_cap_short_R": config.rules.directional_cap_short_R,
         "max_family_contracts_mnq_eq": config.rules.max_family_contracts_mnq_eq,
-        "helix_nqdtc_cooldown_minutes": config.rules.helix_nqdtc_cooldown_minutes,
         "dynamic_risk": {
             "enabled": config.dynamic_risk.enabled,
             "strategy_multipliers": dict(config.dynamic_risk.strategy_multipliers),
@@ -877,7 +875,6 @@ def _relaxed_config(config: FamilyPortfolioBacktestConfig) -> FamilyPortfolioBac
     )
     rules = replace(
         config.rules,
-        helix_nqdtc_cooldown_minutes=0,
         nqdtc_direction_filter_enabled=False,
         directional_cap_R=0.0,
         directional_cap_long_R=0.0,

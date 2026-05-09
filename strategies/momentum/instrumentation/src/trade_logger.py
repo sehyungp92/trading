@@ -151,8 +151,8 @@ class TradeEvent:
     session_transitions: Optional[List[dict]] = None
 
     # Strategy identification
-    strategy_id: str = ""                # "AKC_Helix_v40" / "NQDTC_v2.1" / ...
-    strategy_type: str = ""              # "helix" / "nqdtc" / "vdubus"
+    strategy_id: str = ""                # "NQDTC_v2.1" / "VdubusNQ_v4" / ...
+    strategy_type: str = ""              # "nqdtc" / "vdubus" / "downturn" / "nq_regime"
     param_set_id: Optional[str] = None   # sha256[:16] of strategy_params for grouping
 
     # Event stage

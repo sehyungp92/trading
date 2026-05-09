@@ -49,6 +49,102 @@ def test_replay_adapter_enforces_shared_swing_heat_rules() -> None:
     assert adapter.entry_risk_context("ATRSS", 60.0)["portfolio_after_request_R"] == pytest.approx(3.1)
 
 
+def test_replay_adapter_reserves_same_bar_accepted_risk() -> None:
+    slots = [
+        SimpleNamespace(
+            strategy_id="ATRSS",
+            priority=0,
+            unit_risk_pct=0.01,
+            max_heat_R=3.0,
+            daily_stop_R=2.0,
+        )
+    ]
+    adapter = SwingPortfolioHeatAdapter(
+        heat_cap_R=1.5,
+        portfolio_daily_stop_R=4.0,
+        strategy_slots=slots,
+        equity=10_000.0,
+    )
+
+    approved, reason = adapter.can_enter("ATRSS", 100.0)
+    assert approved, reason
+
+    adapter.reserve_entry("ATRSS", 100.0)
+    approved, reason = adapter.can_enter("ATRSS", 60.0)
+
+    assert not approved
+    assert reason == "Portfolio heat cap (1.00R + 0.60R > 1.5R)"
+
+
+def test_replay_adapter_can_disable_idle_priority_reservation() -> None:
+    slots = [
+        SimpleNamespace(
+            strategy_id="ATRSS",
+            priority=0,
+            unit_risk_pct=0.01,
+            max_heat_R=3.0,
+            daily_stop_R=2.0,
+        ),
+        SimpleNamespace(
+            strategy_id="AKC_HELIX",
+            priority=1,
+            unit_risk_pct=0.01,
+            max_heat_R=3.0,
+            daily_stop_R=2.5,
+        ),
+    ]
+    reserved = SwingPortfolioHeatAdapter(
+        heat_cap_R=3.0,
+        portfolio_daily_stop_R=4.0,
+        strategy_slots=slots,
+        equity=10_000.0,
+    )
+    reserved.update_open_risk({"AKC_HELIX": 150.0})
+
+    approved, reason = reserved.can_enter("AKC_HELIX", 100.0)
+    assert not approved
+    assert reason == "Heat reserved for ATRSS"
+
+    unreserved = SwingPortfolioHeatAdapter(
+        heat_cap_R=3.0,
+        portfolio_daily_stop_R=4.0,
+        strategy_slots=slots,
+        equity=10_000.0,
+        reserve_idle_higher_priority=False,
+    )
+    unreserved.update_open_risk({"AKC_HELIX": 150.0})
+
+    approved, reason = unreserved.can_enter("AKC_HELIX", 100.0)
+    assert approved, reason
+
+
+def test_replay_adapter_rebases_heat_units_to_sizing_equity() -> None:
+    slots = [
+        SimpleNamespace(
+            strategy_id="ATRSS",
+            priority=0,
+            unit_risk_pct=0.01,
+            max_heat_R=3.0,
+            daily_stop_R=2.0,
+        )
+    ]
+    adapter = SwingPortfolioHeatAdapter(
+        heat_cap_R=2.0,
+        portfolio_daily_stop_R=4.0,
+        strategy_slots=slots,
+        equity=10_000.0,
+    )
+    adapter.update_unit_risk(20_000.0, slots)
+    adapter.update_open_risk({"ATRSS": 200.0})
+
+    approved, reason = adapter.can_enter("ATRSS", 200.0)
+
+    assert approved, reason
+    context = adapter.entry_risk_context("ATRSS", 200.0)
+    assert context["portfolio_open_risk_R"] == pytest.approx(1.0)
+    assert context["portfolio_after_request_R"] == pytest.approx(2.0)
+
+
 @pytest.mark.asyncio
 async def test_live_gateway_routes_swing_heat_through_shared_adapter() -> None:
     today = date(2026, 5, 2)

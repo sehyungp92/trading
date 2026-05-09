@@ -1,6 +1,6 @@
 """Dot-notation config mutation for momentum auto-backtesting.
 
-Four mutator functions, one per config type. Each parses mutation keys
+Three mutator functions, one per config type. Each parses mutation keys
 by prefix, collects changes by category, and applies via dataclasses.replace().
 
 Key routing:
@@ -12,9 +12,9 @@ Key routing:
 Portfolio config additionally routes:
   - portfolio.<field>       -> replace config.portfolio
   - portfolio.strategies[N].<field> -> rebuild strategies tuple
-  - run_helix / run_nqdtc / run_vdubus -> direct replace
-  - helix_flags.<field> / nqdtc_flags.<field> / vdubus_flags.<field> -> pass-through
-  - helix_param.<KEY> / nqdtc_param.<KEY> / vdubus_param.<KEY> -> pass-through
+  - run_nqdtc / run_vdubus -> direct replace
+  - nqdtc_flags.<field> / vdubus_flags.<field> -> pass-through
+  - nqdtc_param.<KEY> / vdubus_param.<KEY> -> pass-through
 """
 from __future__ import annotations
 
@@ -22,7 +22,6 @@ import re
 from dataclasses import fields, replace
 
 from backtests.momentum.config import SlippageConfig
-from backtests.momentum.config_helix import Helix4AblationFlags, Helix4BacktestConfig
 from backtests.momentum.config_nqdtc import NQDTCAblationFlags, NQDTCBacktestConfig
 from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
 from backtests.momentum.config_portfolio import PortfolioBacktestConfig
@@ -32,11 +31,6 @@ from libs.oms.config.portfolio_config import PortfolioConfig, StrategyAllocation
 # ---------------------------------------------------------------------------
 # Strategy-level mutators
 # ---------------------------------------------------------------------------
-
-def mutate_helix_config(base: Helix4BacktestConfig, mutations: dict) -> Helix4BacktestConfig:
-    """Apply dot-notation mutations to a Helix4BacktestConfig."""
-    return _mutate_strategy_config(base, mutations, Helix4AblationFlags)
-
 
 def mutate_nqdtc_config(base: NQDTCBacktestConfig, mutations: dict) -> NQDTCBacktestConfig:
     """Apply dot-notation mutations to a NQDTCBacktestConfig."""
@@ -107,9 +101,9 @@ def mutate_portfolio_config(
       portfolio.<field>                    -> PortfolioConfig field
       portfolio.strategies[N].<field>      -> StrategyAllocation at index N
       portfolio.dd_tiers                   -> tuple of (dd_pct, mult) tuples
-      run_helix / run_nqdtc / run_vdubus  -> direct on PortfolioBacktestConfig
-      helix_flags.<f> / nqdtc_flags.<f> / vdubus_flags.<f>  -> stored for pass-through
-      helix_param.<K> / nqdtc_param.<K> / vdubus_param.<K>  -> stored for pass-through
+      run_nqdtc / run_vdubus  -> direct on PortfolioBacktestConfig
+      nqdtc_flags.<f> / vdubus_flags.<f>  -> stored for pass-through
+      nqdtc_param.<K> / vdubus_param.<K>  -> stored for pass-through
       <top-level>                          -> direct on PortfolioBacktestConfig
     """
     if not mutations:
@@ -122,8 +116,8 @@ def mutate_portfolio_config(
     # These are pass-through keys that the harness reads when building
     # per-strategy configs for portfolio experiments
     _passthrough_prefixes = (
-        "helix_flags.", "nqdtc_flags.", "vdubus_flags.",
-        "helix_param.", "nqdtc_param.", "vdubus_param.",
+        "nqdtc_flags.", "vdubus_flags.",
+        "nqdtc_param.", "vdubus_param.",
     )
 
     for key, value in mutations.items():
@@ -139,7 +133,7 @@ def mutate_portfolio_config(
             field_name = key[len("portfolio."):]
             portfolio_changes[field_name] = value
         elif any(key.startswith(p) for p in _passthrough_prefixes):
-            # Passthrough keys (helix_flags.*, nqdtc_param.*, etc.) are read
+            # Passthrough keys (nqdtc_flags.*, nqdtc_param.*, etc.) are read
             # directly from the mutations dict by the harness, not from the config.
             continue
         else:
@@ -169,7 +163,7 @@ def mutate_portfolio_config(
             pc = replace(pc, **portfolio_changes)
             config = replace(config, portfolio=pc)
 
-    # Apply top-level changes (run_helix, run_nqdtc, run_vdubus, etc.)
+    # Apply top-level changes (run_nqdtc, run_vdubus, etc.)
     # Filter to only valid PortfolioBacktestConfig fields
     bt_fields = {f.name for f in fields(PortfolioBacktestConfig)}
     bt_level = {k: v for k, v in top_level.items() if k in bt_fields}
@@ -198,8 +192,8 @@ def extract_passthrough_mutations(
     """Extract strategy-specific flag/param mutations from portfolio experiment mutations.
 
     Used by harness to build per-strategy configs when running portfolio experiments.
-    E.g. helix_flags.use_trailing -> flags.use_trailing (for helix config)
-         helix_param.TRAIL_MULT  -> param_overrides.TRAIL_MULT
+    E.g. nqdtc_flags.use_trailing -> flags.use_trailing (for NQDTC config)
+         nqdtc_param.TRAIL_MULT  -> param_overrides.TRAIL_MULT
     """
     prefix_flags = f"{strategy}_flags."
     prefix_param = f"{strategy}_param."

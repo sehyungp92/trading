@@ -1,23 +1,21 @@
 """Cross-strategy portfolio risk rules for live trading.
 
 Implements the rules from PortfolioConfig v7:
-  1. Proximity cooldown (Helix <-> NQDTC, session-only during 09:45-11:30 ET)
-  2. NQDTC direction filter (affects Vdubus sizing)
-  3. Directional cap (max same-direction risk; asymmetric long/short supported)
-  3a. Family contract cap (MNQ-equivalent ceiling across momentum family)
-  3b. Symbol collision guard (stock family: block/reduce when sibling holds same ticker)
-  4. Drawdown tiers (size reduction as DD increases)
-  5. NQDTC chop throttle (affects Helix sizing)
+  1. NQDTC direction filter (affects Vdubus sizing)
+  2. Directional cap (max same-direction risk; asymmetric long/short supported)
+  2a. Family contract cap (MNQ-equivalent ceiling across momentum family)
+  2b. Symbol collision guard (stock family: block/reduce when sibling holds same ticker)
+  3. Drawdown tiers (size reduction as DD increases)
 
 These rules query the shared `strategy_signals` and `positions` tables
 to coordinate across independently-running strategy containers.
-Used by momentum family (rules 1-5) and stock family (rules 3, 3b, 4).
+Used by momentum family and stock family.
 """
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from typing import Optional, Callable, Awaitable
 from zoneinfo import ZoneInfo
 
@@ -30,10 +28,7 @@ logger = logging.getLogger(__name__)
 class PortfolioRulesConfig:
     """Live portfolio rules matching PortfolioConfig v7."""
 
-    # Proximity cooldown (Helix <-> NQDTC, bidirectional)
-    helix_nqdtc_cooldown_minutes: int = 120
-    cooldown_session_only: bool = True           # only enforce during 09:45-11:30 ET overlap
-    helix_strategy_id: str = "AKC_Helix_v40"
+    cooldown_session_only: bool = True
     nqdtc_strategy_id: str = "NQDTC_v2.1"
 
     # NQDTC direction filter (affects Vdubus)
@@ -47,11 +42,6 @@ class PortfolioRulesConfig:
     # Asymmetric directional caps (0.0 = use symmetric directional_cap_R)
     directional_cap_long_R: float = 0.0
     directional_cap_short_R: float = 0.0
-
-    # NQDTC chop throttle (affects Helix sizing)
-    nqdtc_chop_throttle_enabled: bool = False
-    nqdtc_chop_throttle_score: int = 2        # apply throttle when chop_score >= this
-    nqdtc_chop_throttle_mult: float = 0.70    # 30% size reduction during chop
 
     # Drawdown tiers: (dd_pct_threshold, size_multiplier)
     # Applied in order: first tier where current_dd < threshold wins
@@ -87,8 +77,10 @@ class PortfolioRulesConfig:
     # families where strategies have different URDs (e.g. momentum: $200 vs $50).
     reference_unit_risk_dollars: float = 0.0
 
-    # Regime-driven sizing scalar (applied as multiplier in check_entry)
+    # Regime-driven sizing scalars (applied as multipliers in check_entry)
     regime_unit_risk_mult: float = 1.0
+    regime_unit_risk_long_mult: float = 1.0
+    regime_unit_risk_short_mult: float = 1.0
     # Strategies blocked from new entries by regime (checked first in check_entry)
     disabled_strategies: frozenset[str] = frozenset()
 
@@ -231,14 +223,7 @@ class PortfolioRuleChecker:
                 denial_reason=f"regime_disabled: {strategy_id} blocked in current regime",
             )
 
-        # 1. Proximity cooldown
-        denial = await self._check_proximity_cooldown(strategy_id)
-        if denial:
-            self._emit({"rule": "proximity_cooldown", "strategy_id": strategy_id,
-                         "approved": False, "denial_reason": denial})
-            return PortfolioRuleResult(approved=False, denial_reason=denial)
-
-        # 2. NQDTC direction filter (Vdubus only)
+        # 1. NQDTC direction filter (Vdubus only)
         size_mult = await self._check_direction_filter(strategy_id, direction)
         if size_mult == 0.0:
             reason = f"nqdtc_direction_filter: NQDTC opposes {direction}"
@@ -250,14 +235,14 @@ class PortfolioRuleChecker:
                          "direction": direction, "approved": True, "size_multiplier": size_mult})
         result.size_multiplier *= size_mult
 
-        # 3. Directional cap
+        # 2. Directional cap
         denial = await self._check_directional_cap(strategy_id, direction, new_risk_R, new_risk_dollars)
         if denial:
             self._emit({"rule": "directional_cap", "strategy_id": strategy_id,
                          "direction": direction, "approved": False, "denial_reason": denial})
             return PortfolioRuleResult(approved=False, denial_reason=denial)
 
-        # 3a. Family contract cap (MNQ-equivalent ceiling)
+        # 2a. Family contract cap (MNQ-equivalent ceiling)
         denial = await self._check_family_contract_cap(
             strategy_id, symbol or "", new_qty,
         )
@@ -266,7 +251,7 @@ class PortfolioRuleChecker:
                          "approved": False, "denial_reason": denial})
             return PortfolioRuleResult(approved=False, denial_reason=denial)
 
-        # 3b. Symbol collision (stock family -- block/reduce when sibling holds same ticker)
+        # 2b. Symbol collision (stock family -- block/reduce when sibling holds same ticker)
         collision_result = await self._check_symbol_collision(strategy_id, symbol)
         if collision_result is not None:
             if collision_result == 0.0:
@@ -278,7 +263,7 @@ class PortfolioRuleChecker:
                          "symbol": symbol, "approved": True, "size_multiplier": collision_result})
             result.size_multiplier *= collision_result
 
-        # 4. Drawdown tiers
+        # 3. Drawdown tiers
         dd_mult = self._check_drawdown_tier()
         if dd_mult == 0.0:
             reason = "drawdown_halt: equity drawdown exceeds maximum tier"
@@ -292,64 +277,29 @@ class PortfolioRuleChecker:
                          "drawdown_pct": self._current_dd_pct()})
         result.size_multiplier *= dd_mult
 
-        # 4b. Regime unit-risk multiplier
+        # 4b. Regime unit-risk multipliers
         regime_mult = self._cfg.regime_unit_risk_mult
         if regime_mult != 1.0:
             self._emit({"rule": "regime_unit_risk", "strategy_id": strategy_id,
                         "approved": True, "size_multiplier": regime_mult})
             result.size_multiplier *= regime_mult
 
-        # 5. NQDTC chop throttle (affects Helix only)
-        chop_mult = await self._check_chop_throttle(strategy_id)
-        if chop_mult < 1.0:
-            self._emit({"rule": "nqdtc_chop_throttle", "strategy_id": strategy_id,
-                         "approved": True, "size_multiplier": chop_mult})
-        result.size_multiplier *= chop_mult
+        direction_mult = self._directional_unit_risk_mult(direction)
+        if direction_mult != 1.0:
+            self._emit({"rule": "regime_directional_unit_risk", "strategy_id": strategy_id,
+                        "direction": direction, "approved": True,
+                        "size_multiplier": direction_mult})
+            result.size_multiplier *= direction_mult
 
         return result
 
-    async def _check_proximity_cooldown(self, strategy_id: str) -> Optional[str]:
-        """Helix-NQDTC bidirectional proximity cooldown."""
-        cooldown_min = self._cfg.helix_nqdtc_cooldown_minutes
-        if cooldown_min <= 0:
-            return None
-
-        helix_id = self._cfg.helix_strategy_id
-        nqdtc_id = self._cfg.nqdtc_strategy_id
-
-        # Only applies to Helix and NQDTC
-        if strategy_id == helix_id:
-            other_id = nqdtc_id
-        elif strategy_id == nqdtc_id:
-            other_id = helix_id
-        else:
-            return None
-
-        # Session-only mode: skip cooldown outside 09:45-11:30 ET overlap
-        if self._cfg.cooldown_session_only:
-            now_et = self._now().astimezone(ZoneInfo("America/New_York"))
-            hour_min = now_et.hour * 60 + now_et.minute
-            if not (9 * 60 + 45 <= hour_min <= 11 * 60 + 30):
-                return None
-
-        other_signal = await self._get_signal(other_id)
-        if other_signal is None or other_signal["last_entry_ts"] is None:
-            return None
-
-        now = self._now().astimezone(timezone.utc)
-        last_entry = other_signal["last_entry_ts"]
-        if last_entry.tzinfo is None:
-            last_entry = last_entry.replace(tzinfo=timezone.utc)
-        elapsed = now - last_entry
-        cooldown = timedelta(minutes=cooldown_min)
-
-        if elapsed < cooldown:
-            remaining = cooldown - elapsed
-            return (
-                f"proximity_cooldown: {other_id} entered {int(elapsed.total_seconds() / 60)}m ago, "
-                f"{int(remaining.total_seconds() / 60)}m remaining"
-            )
-        return None
+    def _directional_unit_risk_mult(self, direction: str) -> float:
+        direction_u = (direction or "").upper()
+        if direction_u == "LONG":
+            return self._cfg.regime_unit_risk_long_mult
+        if direction_u == "SHORT":
+            return self._cfg.regime_unit_risk_short_mult
+        return 1.0
 
     async def _check_direction_filter(self, strategy_id: str, direction: str) -> float:
         """NQDTC direction filter — affects Vdubus sizing."""
@@ -455,29 +405,6 @@ class PortfolioRuleChecker:
             )
 
         return None
-
-    async def _check_chop_throttle(self, strategy_id: str) -> float:
-        """NQDTC chop score throttle — reduces Helix sizing during choppy markets."""
-        if not self._cfg.nqdtc_chop_throttle_enabled:
-            return 1.0
-
-        # Only applies to Helix
-        if strategy_id != self._cfg.helix_strategy_id:
-            return 1.0
-
-        nqdtc_signal = await self._get_signal(self._cfg.nqdtc_strategy_id)
-        if nqdtc_signal is None:
-            return 1.0
-
-        chop_score = nqdtc_signal.get("chop_score", 0)
-        if chop_score >= self._cfg.nqdtc_chop_throttle_score:
-            logger.info(
-                "Chop throttle: NQDTC chop_score=%d >= %d → %.0f%% sizing for %s",
-                chop_score, self._cfg.nqdtc_chop_throttle_score,
-                self._cfg.nqdtc_chop_throttle_mult * 100, strategy_id,
-            )
-            return self._cfg.nqdtc_chop_throttle_mult
-        return 1.0
 
     async def _check_symbol_collision(
         self, strategy_id: str, symbol: Optional[str],

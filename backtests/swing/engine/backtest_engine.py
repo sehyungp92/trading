@@ -117,6 +117,8 @@ class TradeRecord:
     exit_reason: str = ""      # STOP, FLATTEN_BIAS_FLIP, FLATTEN_TIME_DECAY
     pnl_points: float = 0.0
     pnl_dollars: float = 0.0
+    gross_pnl: float = 0.0
+    net_pnl: float = 0.0
     r_multiple: float = 0.0
     mfe_r: float = 0.0
     mae_r: float = 0.0
@@ -136,6 +138,12 @@ class TradeRecord:
     signal_bar_index: int = -1
     fill_bar_index: int = -1
     campaign_id: str = ""
+
+    def __post_init__(self) -> None:
+        if self.gross_pnl == 0.0 and self.pnl_dollars != 0.0:
+            self.gross_pnl = self.pnl_dollars
+        if self.net_pnl == 0.0 and (self.pnl_dollars != 0.0 or self.commission != 0.0):
+            self.net_pnl = self.pnl_dollars - self.commission
 
 
 @dataclass
@@ -687,6 +695,33 @@ class BacktestEngine:
         self._decision_events.extend(result.events)
         return result
 
+    def _notify_core_order_submitted(
+        self,
+        order_id: str,
+        *,
+        bar_time: datetime | None,
+        order_role: str,
+        metadata: dict | None = None,
+    ) -> None:
+        self._replay_core_step(order_updates=[ATRSSOrderUpdate(
+            oms_order_id=order_id,
+            status="submitted",
+            symbol=self.symbol,
+            timestamp=bar_time,
+            order_role=order_role,
+            metadata=metadata or {},
+        )])
+
+    @staticmethod
+    def _core_order_role(order_tag: str) -> str:
+        if order_tag in ("addon_a", "addon_b"):
+            return "add_on"
+        if order_tag == "protective_stop":
+            return "stop"
+        if order_tag in ("entry", "flatten", "partial"):
+            return order_tag
+        return "unknown"
+
     # ------------------------------------------------------------------
     # Step-by-step API for synchronized portfolio mode
     # ------------------------------------------------------------------
@@ -986,7 +1021,7 @@ class BacktestEngine:
                 status=fr.status.name.lower(),
                 symbol=self.symbol,
                 timestamp=bar_time,
-                order_role=fr.order.tag if fr.order.tag in ("entry", "flatten", "partial") else "unknown",
+                order_role=self._core_order_role(fr.order.tag),
             )])
             return
 
@@ -1042,6 +1077,7 @@ class BacktestEngine:
         entry_type = self._pending_entry_types.pop(order.order_id, "PULLBACK")
         entry_ctx = self._pending_entry_context.pop(order.order_id, {})
         self._last_entry_context = entry_ctx
+        portfolio_size_mult = float(entry_ctx.get("portfolio_size_mult", 1.0) or 1.0)
 
         if is_addon_b:
             # Add-on B fill
@@ -1054,6 +1090,8 @@ class BacktestEngine:
                     fill_time=bar_time,
                     entry_commission=fr.commission,
                 )
+                setattr(leg, "portfolio_size_mult", portfolio_size_mult)
+                setattr(leg, "signal_time", entry_ctx.get("signal_time"))
                 self.position.legs.append(leg)
                 self.position.addon_b_done = True
                 # Update protective stop qty
@@ -1077,6 +1115,8 @@ class BacktestEngine:
                 fill_time=bar_time,
                 entry_commission=fr.commission,
             )
+            setattr(leg, "portfolio_size_mult", portfolio_size_mult)
+            setattr(leg, "signal_time", entry_ctx.get("signal_time"))
             self.position = PositionBook(
                 symbol=self.symbol,
                 direction=Direction(direction),
@@ -1138,10 +1178,12 @@ class BacktestEngine:
                 fill_time=bar_time,
                 commission=fr.commission,
             )])
-            core_pos = self._core_state.positions.get(self.symbol)
-            if core_pos is not None:
-                core_pos.stop_oms_order_id = stop_order.order_id
-                core_pos.stop_pending = False
+            self._notify_core_order_submitted(
+                stop_order.order_id,
+                bar_time=bar_time,
+                order_role="stop",
+                metadata={"qty": stop_order.qty, "stop_price": stop_order.stop_price},
+            )
 
     def _handle_addon_fill(self, fr: FillResult, bar_time: datetime, leg_type: LegType) -> None:
         """Process Add-on A fill."""
@@ -1156,6 +1198,7 @@ class BacktestEngine:
             fill_time=bar_time,
             entry_commission=fr.commission,
         )
+        setattr(leg, "signal_time", order.submit_time)
         self.position.legs.append(leg)
         self.position.addon_a_done = True
         # NOTE: commission already tracked in _handle_fill() — do NOT double-count
@@ -1205,11 +1248,12 @@ class BacktestEngine:
             "bar_ts": bar_time,
             "flatten_request": ATRSSFlattenRequest(symbol=self.symbol, reason=reason),
         })
-        self._core_state.pending_flattens[self.symbol] = {
-            "oms_order_id": order.order_id,
-            "reason": reason,
-            "qty": total_qty,
-        }
+        self._notify_core_order_submitted(
+            order.order_id,
+            bar_time=bar_time,
+            order_role="flatten",
+            metadata={"symbol": self.symbol, "reason": reason, "qty": total_qty},
+        )
 
     def _submit_partial_exit(
         self, frac: float, reason: str, bar_time: datetime,
@@ -1249,13 +1293,18 @@ class BacktestEngine:
                 reason=reason,
             ),
         })
-        self._core_state.pending_orders[order.order_id] = {
-            "symbol": self.symbol,
-            "direction": pos.direction,
-            "type": "PARTIAL_CLOSE",
-            "partial_qty": partial_qty,
-            "reason": reason,
-        }
+        self._notify_core_order_submitted(
+            order.order_id,
+            bar_time=bar_time,
+            order_role="partial",
+            metadata={
+                "symbol": self.symbol,
+                "direction": pos.direction,
+                "type": "PARTIAL_CLOSE",
+                "partial_qty": partial_qty,
+                "reason": reason,
+            },
+        )
 
     def _handle_flatten_fill(self, fr: FillResult, bar_time: datetime) -> None:
         """Process fill from a broker-mediated flatten order."""
@@ -1361,7 +1410,10 @@ class BacktestEngine:
                 di_agrees=self._last_entry_context.get("di_agrees", False),
                 quality_score=self._last_entry_context.get("quality_score", 0.0),
                 regime_entry=self._last_entry_context.get("regime_entry", ""),
+                signal_time=getattr(leg, "signal_time", None),
+                fill_time=leg.fill_time,
             )
+            setattr(trade, "portfolio_size_mult", self._last_entry_context.get("portfolio_size_mult", 1.0))
             self.trades.append(trade)
             self.equity += pnl_dollars - exit_commission
             if not self._defer_submissions:
@@ -1464,7 +1516,10 @@ class BacktestEngine:
                 di_agrees=self._last_entry_context.get("di_agrees", False),
                 quality_score=self._last_entry_context.get("quality_score", 0.0),
                 regime_entry=self._last_entry_context.get("regime_entry", ""),
+                signal_time=getattr(leg, "signal_time", None),
+                fill_time=leg.fill_time,
             )
+            setattr(trade, "portfolio_size_mult", self._last_entry_context.get("portfolio_size_mult", 1.0))
             self.trades.append(trade)
             self.equity += pnl_dollars - leg_exit_commission
             if not self._defer_submissions:
@@ -1556,7 +1611,10 @@ class BacktestEngine:
             di_agrees=self._last_entry_context.get("di_agrees", False),
             quality_score=self._last_entry_context.get("quality_score", 0.0),
             regime_entry=self._last_entry_context.get("regime_entry", ""),
+            signal_time=getattr(base, "signal_time", None),
+            fill_time=base.fill_time,
         )
+        setattr(trade, "portfolio_size_mult", self._last_entry_context.get("portfolio_size_mult", 1.0))
         self.trades.append(trade)
         self.equity += pnl_dollars - exit_commission
         if not self._defer_submissions:
@@ -1778,14 +1836,19 @@ class BacktestEngine:
             stop_price=pos.current_stop,
         )
         self._replay_core_step(bar_input={"bar_ts": bar_time, "add_on_a_request": addon_req})
-        self._core_state.pending_orders[order.order_id] = {
-            "symbol": self.symbol,
-            "direction": pos.direction,
-            "type": CandidateType.ADDON_A,
-            "trigger_price": 0.0,
-            "initial_stop": pos.current_stop,
-            "qty": desired,
-        }
+        self._notify_core_order_submitted(
+            order.order_id,
+            bar_time=bar_time,
+            order_role="add_on",
+            metadata={
+                "symbol": self.symbol,
+                "direction": pos.direction,
+                "type": CandidateType.ADDON_A,
+                "trigger_price": 0.0,
+                "initial_stop": pos.current_stop,
+                "qty": desired,
+            },
+        )
 
     # ------------------------------------------------------------------
     # ------------------------------------------------------------------
@@ -2090,6 +2153,8 @@ class BacktestEngine:
             "di_agrees": di_ok,
             "quality_score": self._last_quality_score,
             "regime_entry": d.regime.value if d else "",
+            "portfolio_size_mult": float(getattr(cand, "portfolio_size_mult", 1.0) or 1.0),
+            "signal_time": bar_time,
         }
 
         # Order metadata for fill rate diagnostic
@@ -2099,6 +2164,7 @@ class BacktestEngine:
         trigger_dist_atr = trigger_dist / atr_at_submit if atr_at_submit > 0 else 0.0
         om = {
             "order_id": order_id,
+            "qty": cand.qty,
             "trigger_price": cand.trigger_price,
             "limit_price": getattr(order, "limit_price", None),
             "market_price_at_submit": market_price,
@@ -2124,14 +2190,19 @@ class BacktestEngine:
             order_type=_order_type_str,
         )
         self._replay_core_step(bar_input={"bar_ts": bar_time, "entry_request": entry_req})
-        self._core_state.pending_orders[order_id] = {
-            "symbol": self.symbol,
-            "direction": cand.direction,
-            "type": cand.type,
-            "trigger_price": cand.trigger_price,
-            "initial_stop": cand.initial_stop,
-            "qty": cand.qty,
-        }
+        self._notify_core_order_submitted(
+            order_id,
+            bar_time=bar_time,
+            order_role="add_on" if cand.type == CandidateType.ADDON_B else "entry",
+            metadata={
+                "symbol": self.symbol,
+                "direction": cand.direction,
+                "type": cand.type,
+                "trigger_price": cand.trigger_price,
+                "initial_stop": cand.initial_stop,
+                "qty": cand.qty,
+            },
+        )
 
     def _submit_entry(
         self,
@@ -2236,10 +2307,13 @@ class BacktestEngine:
             tag="protective_stop",
         )
         self.broker.submit_order(stop_order)
-        # --- Core parity: track new stop order ID ---
-        core_pos = self._core_state.positions.get(self.symbol)
-        if core_pos is not None:
-            core_pos.stop_oms_order_id = stop_order.order_id
+        # --- Core parity: track replacement stop through the shared order update path ---
+        self._notify_core_order_submitted(
+            stop_order.order_id,
+            bar_time=stop_order.submit_time,
+            order_role="stop",
+            metadata={"qty": stop_order.qty, "stop_price": stop_order.stop_price},
+        )
 
     # ------------------------------------------------------------------
     # Breakout arm state management (spec S7.2-7.3)
@@ -2304,6 +2378,14 @@ class BacktestEngine:
         """Convert numpy datetime64 to Python datetime."""
         if isinstance(ts, datetime):
             return ts
+        if isinstance(ts, (int, float, np.integer, np.floating)):
+            # numpy.datetime64.item() returns an integer nanosecond offset for
+            # ns-resolution arrays. Treat large numeric timestamps explicitly
+            # instead of silently falling back to wall-clock time.
+            value = float(ts)
+            if abs(value) > 1e14:
+                value /= 1e9
+            return datetime.fromtimestamp(value, tz=timezone.utc)
         if hasattr(ts, 'astype'):
             # numpy datetime64
             unix_epoch = np.datetime64(0, 'ns')

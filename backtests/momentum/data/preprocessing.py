@@ -71,7 +71,11 @@ def mark_invalid_blocks(df: pd.DataFrame, max_consecutive: int = 5) -> pd.DataFr
 
 def _vectorized_align(lower_times, higher_times) -> np.ndarray:
     """Compatibility wrapper over the shared completed-bar alignment policy."""
-    return align_completed_higher_timeframe_indices(lower_times, higher_times)
+    return align_completed_higher_timeframe_indices(
+        lower_times,
+        higher_times,
+        unavailable_index=0,
+    )
 
 
 def align_daily_to_hourly(
@@ -89,7 +93,11 @@ def align_daily_to_hourly(
     before ``t``'s date (i.e., yesterday's daily bar during the current day,
     switching to today's daily bar only on the first bar of the next day).
     """
-    return align_completed_daily_session_indices(hourly_df.index.values, daily_df.index.values)
+    return align_completed_daily_session_indices(
+        hourly_df.index.values,
+        daily_df.index.values,
+        unavailable_index=0,
+    )
 
 
 def align_daily_to_5m(
@@ -103,7 +111,11 @@ def align_daily_to_5m(
     is used with daily bars (whose left-edge label is today's date at 00:00 UTC,
     making today's incomplete daily bar appear complete).
     """
-    return align_completed_daily_session_indices(five_min_df.index.values, daily_df.index.values)
+    return align_completed_daily_session_indices(
+        five_min_df.index.values,
+        daily_df.index.values,
+        unavailable_index=0,
+    )
 
 
 def align_daily_to_15m(
@@ -116,7 +128,11 @@ def align_daily_to_15m(
     to avoid the look-ahead bias that occurs when ``align_higher_tf_to_15m``
     is used with daily bars.
     """
-    return align_completed_daily_session_indices(fifteen_min_df.index.values, daily_df.index.values)
+    return align_completed_daily_session_indices(
+        fifteen_min_df.index.values,
+        daily_df.index.values,
+        unavailable_index=0,
+    )
 
 
 @dataclass

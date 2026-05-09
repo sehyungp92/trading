@@ -9,7 +9,7 @@ Exports consumed by the coordinator and engine:
 
 Authoritative source:
   the centralized round baseline under
-  `backtests/output/momentum/downturn/round_1/optimized_config.json`
+  `backtests/output/momentum/downturn/round_4/optimized_config.json`
 """
 from __future__ import annotations
 
@@ -88,11 +88,11 @@ class DownturnAblationFlags:
     multi_tier_profit_floor: bool = False  # 5-tier MFE-based profit floor ratchet
     regime_adaptive_chandelier: bool = False  # Regime multiplier on chandelier trailing
 
-    # BRS-inspired fast-crash override (paths E/F/G)
+    # Fast-crash override (paths E/F/G)
     fast_crash_override: bool = False  # Override regime to EMERGING_BEAR on real-time price drops
     conviction_scoring: bool = False   # Bear conviction quality gate (0-100) for overrides
 
-    # BRS-inspired bear structure override (paths B/C + BEAR_FORMING)
+    # Bear structure override (paths B/C + BEAR_FORMING)
     bear_structure_override: bool = False  # ADX hysteresis + gradual bear detection
 
     # Correction-specific gates
@@ -167,7 +167,7 @@ DEFAULT_SYMBOL = "MNQ"
 BASE_RISK_PCT = 0.004
 DAILY_STOP_R = 2.0
 HEAT_CAP_R = 3.5               # max simultaneous heat
-PORTFOLIO_DAILY_STOP_R = 2.25
+PORTFOLIO_DAILY_STOP_R = 2.75
 MAX_LEVERAGE_MULT = 20.0       # R7c research-validated leverage ceiling for MNQ
 
 # ---------------------------------------------------------------------------
@@ -205,7 +205,7 @@ R7C_PARAM_OVERRIDES: dict[str, float] = {
     "adaptive_lock_t1": 1.5,
     "adaptive_lock_bonus_1": 0.15,
     # Chandelier
-    "chandelier_lookback": 22,
+    "chandelier_lookback": 24,
     "chandelier_mult_floor": 2.2,
     "chandelier_mult_ceiling": 4.5,
     # Breakeven
@@ -218,8 +218,8 @@ R7C_PARAM_OVERRIDES: dict[str, float] = {
     # Conviction
     "conviction_threshold": 35,
     # VWAP caps
-    "vwap_cap_core": 0.55,
-    "vwap_cap_extended": 0.72,
+    "vwap_cap_core": 0.45,
+    "vwap_cap_extended": 0.77,
     # Divergence
     "divergence_mag_threshold": 0.1,
     # Indicators
@@ -243,6 +243,7 @@ R7C_PARAM_OVERRIDES: dict[str, float] = {
     "momentum_roc_threshold": -0.003,
     "progressive_sma_min": 100,
     "friction_min_atr_pctl": 0.05,
+    "entry_buffer_ticks": 1,
 }
 
 

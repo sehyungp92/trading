@@ -58,33 +58,6 @@ def print_summary(metrics: PerformanceMetrics) -> None:
     print(format_summary(metrics))
 
 
-# ---------------------------------------------------------------------------
-# NQDTC-specific reports
-# ---------------------------------------------------------------------------
-
-def helix_performance_report(symbol: str, metrics: PerformanceMetrics) -> str:
-    """Performance summary for a Helix v3.1 backtest."""
-    lines = [
-        f"=== Helix v3.1 Performance Report: {symbol} ===",
-        f"Total trades:       {metrics.total_trades}",
-        f"Win rate:           {metrics.win_rate:.1%}",
-        f"Profit factor:      {metrics.profit_factor:.2f}",
-        f"Expectancy (R):     {metrics.expectancy:+.3f}",
-        f"Expectancy ($):     {metrics.expectancy_dollar:+,.2f}",
-        f"Net profit:         ${metrics.net_profit:+,.2f}",
-        f"CAGR:               {metrics.cagr:.1%}",
-        f"Sharpe:             {metrics.sharpe:.2f}",
-        f"Sortino:            {metrics.sortino:.2f}",
-        f"Calmar:             {metrics.calmar:.2f}",
-        f"Max drawdown:       {metrics.max_drawdown_pct:.1%} (${metrics.max_drawdown_dollar:,.2f})",
-        f"Avg hold (1H bars): {metrics.avg_hold_hours:.1f}",
-        f"Trades/month:       {metrics.trades_per_month:.1f}",
-        f"Total commissions:  ${metrics.total_commissions:,.2f}",
-        f"Tail loss (5%):     ${metrics.tail_loss_pct:,.2f}  ({metrics.tail_loss_r:+.2f}R)",
-    ]
-    return "\n".join(lines)
-
-
 def nqdtc_performance_report(symbol: str, metrics: PerformanceMetrics) -> str:
     """Performance summary for an NQDTC v2.0 backtest."""
     lines = [

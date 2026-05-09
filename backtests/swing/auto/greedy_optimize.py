@@ -36,26 +36,38 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 _worker_data = None
 _worker_equity: float = 0.0
+_worker_return_basis: str = "equity_curve"
+_worker_scoring_kwargs: dict = {}
+_worker_score_profile: str = "generic"
 
 
-def _init_worker(data_dir_str: str, equity: float) -> None:
+def _init_worker(
+    data_dir_str: str,
+    equity: float,
+    return_basis: str = "equity_curve",
+    scoring_kwargs: dict | None = None,
+    score_profile: str = "generic",
+) -> None:
     """Initialize a worker process: install aliases, load data."""
-    global _worker_data, _worker_equity
+    global _worker_data, _worker_equity, _worker_return_basis, _worker_scoring_kwargs, _worker_score_profile
 
     from backtests.swing.config_unified import UnifiedBacktestConfig
     from backtests.swing.engine.unified_portfolio_engine import load_unified_data
 
     _worker_equity = equity
+    _worker_return_basis = return_basis
+    _worker_scoring_kwargs = dict(scoring_kwargs or {})
+    _worker_score_profile = score_profile
     config = UnifiedBacktestConfig(initial_equity=equity, data_dir=Path(data_dir_str))
     _worker_data = load_unified_data(config)
 
 
 def _worker_score(mutations: dict) -> tuple[float, bool, str]:
     """Score a config in a worker process. Returns (score, rejected, reject_reason)."""
-    global _worker_data, _worker_equity
+    global _worker_data, _worker_equity, _worker_return_basis, _worker_scoring_kwargs, _worker_score_profile
 
     from backtests.swing.auto.config_mutator import mutate_unified_config
-    from backtests.swing.auto.scoring import composite_score, extract_metrics
+    from backtests.swing.auto.scoring import extract_metrics
     from backtests.swing.config_unified import UnifiedBacktestConfig
     from backtests.swing.engine.unified_portfolio_engine import run_unified
 
@@ -69,7 +81,21 @@ def _worker_score(mutations: dict) -> tuple[float, bool, str]:
             trades, result.combined_equity,
             result.combined_timestamps, _worker_equity,
         )
-        score = composite_score(metrics, _worker_equity, equity_curve=result.combined_equity)
+        net_profit_override = _score_net_profit(
+            config,
+            result,
+            _worker_equity,
+            _worker_return_basis,
+        )
+        score = _score_result(
+            metrics,
+            config,
+            result,
+            _worker_equity,
+            net_profit_override=net_profit_override,
+            score_profile=_worker_score_profile,
+            scoring_kwargs=_worker_scoring_kwargs,
+        )
         return score.total if not score.rejected else 0.0, score.rejected, score.reject_reason
     except Exception:
         return 0.0, True, traceback.format_exc()
@@ -106,6 +132,24 @@ class GreedyResult:
     final_sharpe: float = 0.0
 
 
+@dataclass(frozen=True)
+class _ScoreResult:
+    total: float
+    rejected: bool = False
+    reject_reason: str = ""
+
+
+DEFAULT_PORTFOLIO_SYNERGY_WEIGHTS: dict[str, float] = {
+    "alpha_quality": 0.27,
+    "frequency_quality": 0.23,
+    "drawdown_quality": 0.18,
+    "pf_quality": 0.11,
+    "balance_quality": 0.10,
+    "capture_quality": 0.07,
+    "robustness_quality": 0.04,
+}
+
+
 # ---------------------------------------------------------------------------
 # Trade collection helper
 # ---------------------------------------------------------------------------
@@ -113,7 +157,7 @@ class GreedyResult:
 def _collect_trades(result) -> list:
     """Collect trades from a UnifiedPortfolioResult."""
     all_trades = []
-    for attr in ('atrss_trades', 'helix_trades', 'breakout_trades'):
+    for attr in ('atrss_trades', 'helix_trades', 'tpc_trades'):
         trades = getattr(result, attr, [])
         if isinstance(trades, list):
             all_trades.extend(trades)
@@ -124,6 +168,294 @@ def _collect_trades(result) -> list:
     return all_trades
 
 
+def _score_net_profit(config, result, initial_equity: float, return_basis: str) -> float | None:
+    """Return a scoring PnL override, or None to use the default equity curve."""
+    if return_basis == "equity_curve":
+        return None
+    if return_basis == "static_initial_strategy_risk":
+        return _static_initial_strategy_net_profit(config, result, initial_equity)
+    raise ValueError(f"Unknown swing greedy return_basis: {return_basis}")
+
+
+def _static_initial_strategy_net_profit(config, result, initial_equity: float) -> float:
+    """Score strategy R on initial unit risk to avoid rewarding later compounding."""
+    strategy_results = getattr(result, "strategy_results", {}) or {}
+    slot_attrs = {
+        "ATRSS": "atrss",
+        "AKC_HELIX": "helix",
+        "TPC": "tpc",
+    }
+    total = 0.0
+    for strategy_id, slot_attr in slot_attrs.items():
+        sr = strategy_results.get(strategy_id)
+        if sr is None:
+            continue
+        slot = getattr(config, slot_attr, None)
+        unit_risk_pct = float(getattr(slot, "unit_risk_pct", 0.0) or 0.0)
+        total_r = float(getattr(sr, "total_r", 0.0) or 0.0)
+        total += total_r * float(initial_equity) * unit_risk_pct
+    return total
+
+
+def _score_result(
+    metrics,
+    config,
+    result,
+    initial_equity: float,
+    *,
+    net_profit_override: float | None,
+    score_profile: str,
+    scoring_kwargs: dict,
+):
+    if score_profile == "generic":
+        from backtests.swing.auto.scoring import composite_score
+
+        return composite_score(
+            metrics,
+            initial_equity,
+            equity_curve=result.combined_equity,
+            net_profit_override=net_profit_override,
+            **scoring_kwargs,
+        )
+    if score_profile == "portfolio_synergy_alpha_frequency":
+        return _portfolio_synergy_score(
+            metrics,
+            config,
+            result,
+            initial_equity,
+            net_profit_override=net_profit_override,
+            scoring_kwargs=scoring_kwargs,
+        )
+    raise ValueError(f"Unknown swing greedy score_profile: {score_profile}")
+
+
+def _portfolio_synergy_score(
+    metrics,
+    config,
+    result,
+    initial_equity: float,
+    *,
+    net_profit_override: float | None,
+    scoring_kwargs: dict,
+) -> _ScoreResult:
+    """Score portfolio synergy for alpha, frequency, balance, and controlled risk."""
+    hard_dd = float(scoring_kwargs.get("max_drawdown_hard_pct", 0.15))
+    drawdown_comfort = scoring_kwargs.get("drawdown_comfort_pct")
+    alpha_return_target_pct = max(float(scoring_kwargs.get("alpha_return_target_pct", 240.0)), 1e-9)
+    min_pf = float(scoring_kwargs.get("min_profit_factor", 1.75))
+    min_trades = int(scoring_kwargs.get("min_trades", 120))
+    required_strategies = tuple(scoring_kwargs.get("required_strategies", ()))
+    min_required_strategy_trades = int(scoring_kwargs.get("min_required_strategy_trades", 1))
+    max_single_strategy_static_pnl_share = scoring_kwargs.get("max_single_strategy_static_pnl_share")
+    trades_per_month_target = max(float(scoring_kwargs.get("trades_per_month_target", 8.0)), 1e-9)
+    total_r_per_month_target = max(float(scoring_kwargs.get("total_r_per_month_target", 4.5)), 1e-9)
+    accept_rate_target = max(float(scoring_kwargs.get("accept_rate_target", 0.22)), 1e-9)
+    strategy_active_trade_floor = max(float(scoring_kwargs.get("strategy_active_trade_floor", 10.0)), 1e-9)
+    strategy_min_trade_target = max(float(scoring_kwargs.get("strategy_min_trade_target", 20.0)), 1e-9)
+    pf_quality_floor = float(scoring_kwargs.get("pf_quality_floor", 1.4))
+    pf_quality_target = max(float(scoring_kwargs.get("pf_quality_target", 3.6)), pf_quality_floor + 1e-9)
+    sharpe_quality_target = max(float(scoring_kwargs.get("sharpe_quality_target", 2.2)), 1e-9)
+    strategy_results = getattr(result, "strategy_results", {}) or {}
+    if metrics.max_drawdown_pct > hard_dd:
+        return _ScoreResult(0.0, True, f"Max DD too high: {metrics.max_drawdown_pct:.1%} > {hard_dd:.1%}")
+    if metrics.profit_factor < min_pf:
+        return _ScoreResult(0.0, True, f"PF too low: {metrics.profit_factor:.2f} < {min_pf:.2f}")
+    if metrics.total_trades < min_trades:
+        return _ScoreResult(0.0, True, f"Too few trades: {metrics.total_trades} < {min_trades}")
+    for strategy_id in required_strategies:
+        sr = strategy_results.get(strategy_id)
+        strategy_trades = int(getattr(sr, "total_trades", 0) or 0) if sr is not None else 0
+        if strategy_trades < min_required_strategy_trades:
+            return _ScoreResult(
+                0.0,
+                True,
+                (
+                    f"{strategy_id} too few trades: {strategy_trades} "
+                    f"< {min_required_strategy_trades}"
+                ),
+            )
+
+    net_profit = float(net_profit_override if net_profit_override is not None else metrics.net_profit)
+    return_pct = net_profit / initial_equity * 100.0 if initial_equity > 0 else 0.0
+    months = _backtest_months(getattr(result, "combined_timestamps", None))
+    trades_per_month = float(metrics.total_trades) / months if months > 0 else 0.0
+
+    total_fired = 0.0
+    total_accepted = 0.0
+    total_r = 0.0
+    trade_counts: list[float] = []
+    static_pnls: list[float] = []
+    for strategy_id in ("ATRSS", "AKC_HELIX", "TPC"):
+        sr = strategy_results.get(strategy_id)
+        if sr is None:
+            trade_counts.append(0.0)
+            static_pnls.append(0.0)
+            continue
+        fired = float(
+            getattr(
+                sr,
+                "entry_requests",
+                getattr(sr, "entry_signals_fired", 0.0),
+            )
+            or 0.0
+        )
+        accepted = float(getattr(sr, "entries_accepted_by_portfolio", 0.0) or 0.0)
+        total_fired += max(fired, accepted)
+        total_accepted += accepted
+        total_r += float(getattr(sr, "total_r", 0.0) or 0.0)
+        trade_counts.append(float(getattr(sr, "total_trades", 0.0) or 0.0))
+        static_pnls.append(
+            max(
+                _strategy_static_pnl(config, strategy_id, getattr(sr, "total_r", 0.0), initial_equity),
+                0.0,
+            )
+        )
+    positive_static_total = sum(static_pnls)
+    if max_single_strategy_static_pnl_share is not None and positive_static_total > 0.0:
+        max_share = max(static_pnls) / positive_static_total
+        if max_share > float(max_single_strategy_static_pnl_share):
+            return _ScoreResult(
+                0.0,
+                True,
+                (
+                    f"Single-strategy static PnL share too high: {max_share:.1%} "
+                    f"> {float(max_single_strategy_static_pnl_share):.1%}"
+                ),
+            )
+
+    total_r_per_month = total_r / months if months > 0 else 0.0
+    accept_rate = total_accepted / total_fired if total_fired > 0 else 0.0
+    pf_quality = _clip((float(metrics.profit_factor) - pf_quality_floor) / (pf_quality_target - pf_quality_floor))
+    drawdown_quality = _drawdown_quality(metrics.max_drawdown_pct, hard_dd, drawdown_comfort)
+    frequency_quality = (
+        0.55 * _clip(trades_per_month / trades_per_month_target)
+        + 0.45 * _clip(total_r_per_month / total_r_per_month_target)
+    )
+    alpha_quality = _clip(return_pct / alpha_return_target_pct)
+    balance_quality = (
+        0.55 * _participation_quality(
+            trade_counts,
+            active_floor=strategy_active_trade_floor,
+            min_trade_target=strategy_min_trade_target,
+        )
+        + 0.45 * _entropy_quality(static_pnls)
+    )
+    capture_quality = 0.60 * _clip(accept_rate / accept_rate_target) + 0.40 * pf_quality
+    robustness_quality = 0.50 * _clip(float(metrics.sharpe) / sharpe_quality_target) + 0.50 * drawdown_quality
+    components = {
+        "alpha_quality": alpha_quality,
+        "frequency_quality": frequency_quality,
+        "drawdown_quality": drawdown_quality,
+        "pf_quality": pf_quality,
+        "balance_quality": balance_quality,
+        "capture_quality": capture_quality,
+        "robustness_quality": robustness_quality,
+    }
+    weights = _portfolio_synergy_weights(scoring_kwargs.get("score_weights"))
+    total = sum(weights[key] * components[key] for key in weights)
+    return _ScoreResult(total)
+
+
+def _drawdown_quality(max_drawdown_pct: float, hard_dd: float, comfort_pct: float | None) -> float:
+    if comfort_pct is None:
+        return _clip((hard_dd - max_drawdown_pct) / max(hard_dd - 0.06, 1e-9))
+    comfort = min(max(float(comfort_pct), 0.0), hard_dd)
+    if max_drawdown_pct <= comfort:
+        return 1.0
+    return _clip((hard_dd - max_drawdown_pct) / max(hard_dd - comfort, 1e-9))
+
+
+def _strategy_static_pnl(config, strategy_id: str, total_r: float, initial_equity: float) -> float:
+    slot_attrs = {"ATRSS": "atrss", "AKC_HELIX": "helix", "TPC": "tpc"}
+    slot = getattr(config, slot_attrs.get(strategy_id, ""), None)
+    unit_risk_pct = float(getattr(slot, "unit_risk_pct", 0.0) or 0.0)
+    return float(total_r or 0.0) * float(initial_equity) * unit_risk_pct
+
+
+def _portfolio_synergy_weights(overrides) -> dict[str, float]:
+    weights = dict(DEFAULT_PORTFOLIO_SYNERGY_WEIGHTS)
+    if overrides:
+        for key, value in dict(overrides).items():
+            if key not in weights:
+                raise ValueError(f"Unknown portfolio synergy score weight: {key}")
+            weights[key] = max(float(value), 0.0)
+    total = sum(weights.values())
+    if total <= 0.0:
+        return dict(DEFAULT_PORTFOLIO_SYNERGY_WEIGHTS)
+    return {key: value / total for key, value in weights.items()}
+
+
+def _participation_quality(
+    trade_counts: list[float],
+    *,
+    active_floor: float = 10.0,
+    min_trade_target: float = 20.0,
+) -> float:
+    if not trade_counts:
+        return 0.0
+    active = sum(1 for count in trade_counts if count >= active_floor)
+    min_trade_quality = _clip(min(trade_counts) / min_trade_target)
+    return 0.70 * (active / len(trade_counts)) + 0.30 * min_trade_quality
+
+
+def _entropy_quality(values: list[float]) -> float:
+    positives = [max(float(value), 0.0) for value in values]
+    total = sum(positives)
+    if total <= 0.0 or len(positives) <= 1:
+        return 0.0
+    shares = [value / total for value in positives if value > 0.0]
+    entropy = -sum(share * float(np.log(share)) for share in shares)
+    return _clip(entropy / float(np.log(len(positives))))
+
+
+def _backtest_months(timestamps) -> float:
+    if timestamps is None or len(timestamps) < 2:
+        return 1.0
+    arr = np.asarray(timestamps)
+    if np.issubdtype(arr.dtype, np.datetime64):
+        start = arr[0].astype("datetime64[ns]")
+        end = arr[-1].astype("datetime64[ns]")
+        days = float((end - start) / np.timedelta64(1, "D"))
+    elif np.issubdtype(arr.dtype, np.number):
+        delta = float(arr[-1] - arr[0])
+        # Engine timestamps are commonly nanoseconds since epoch when numeric.
+        scale = 1e9 if abs(delta) > 1e12 else 1.0
+        days = delta / scale / 86_400.0
+    else:
+        import pandas as pd
+
+        start_ts = _coerce_timestamp(arr[0], pd)
+        end_ts = _coerce_timestamp(arr[-1], pd)
+        if start_ts.tzinfo is not None:
+            start_ts = start_ts.tz_convert("UTC").tz_localize(None)
+        if end_ts.tzinfo is not None:
+            end_ts = end_ts.tz_convert("UTC").tz_localize(None)
+        days = (end_ts - start_ts).total_seconds() / 86_400.0
+    return max(days / 30.4375, 1.0)
+
+
+def _coerce_timestamp(value, pd):
+    """Normalize mixed replay timestamps without assuming one array dtype."""
+
+    if hasattr(value, "item"):
+        try:
+            value = value.item()
+        except ValueError:
+            pass
+    if isinstance(value, (int, np.integer, float, np.floating)):
+        # Unified replay timestamps are nanoseconds when magnitudes are epoch-sized.
+        unit = "ns" if abs(float(value)) > 1e12 else None
+        return pd.Timestamp(value, unit=unit) if unit else pd.Timestamp(value)
+    return pd.Timestamp(value)
+
+
+def _clip(value: float) -> float:
+    if not np.isfinite(value):
+        return 0.0
+    return min(max(float(value), 0.0), 1.0)
+
+
+
 # ---------------------------------------------------------------------------
 # Single-process scoring (for baseline and final run)
 # ---------------------------------------------------------------------------
@@ -132,10 +464,13 @@ def _score_config(
     data,
     mutations: dict,
     initial_equity: float,
+    return_basis: str = "equity_curve",
+    scoring_kwargs: dict | None = None,
+    score_profile: str = "generic",
 ):
-    """Build config, run unified engine, return (score, metrics)."""
+    """Build config, run unified engine, return (score, metrics, scoring_pnl)."""
     from backtests.swing.auto.config_mutator import mutate_unified_config
-    from backtests.swing.auto.scoring import composite_score, extract_metrics
+    from backtests.swing.auto.scoring import extract_metrics
     from backtests.swing.config_unified import UnifiedBacktestConfig
     from backtests.swing.engine.unified_portfolio_engine import run_unified
 
@@ -148,8 +483,18 @@ def _score_config(
         trades, result.combined_equity,
         result.combined_timestamps, initial_equity,
     )
-    score = composite_score(metrics, initial_equity, equity_curve=result.combined_equity)
-    return score, metrics
+    net_profit_override = _score_net_profit(config, result, initial_equity, return_basis)
+    score = _score_result(
+        metrics,
+        config,
+        result,
+        initial_equity,
+        net_profit_override=net_profit_override,
+        score_profile=score_profile,
+        scoring_kwargs=dict(scoring_kwargs or {}),
+    )
+    score_net_profit = net_profit_override if net_profit_override is not None else metrics.net_profit
+    return score, metrics, score_net_profit
 
 
 # ---------------------------------------------------------------------------
@@ -163,6 +508,9 @@ def run_greedy(
     base_mutations: dict | None = None,
     data_dir: Path | None = None,
     max_workers: int | None = None,
+    return_basis: str = "equity_curve",
+    scoring_kwargs: dict | None = None,
+    score_profile: str = "generic",
     verbose: bool = True,
 ) -> GreedyResult:
     """Run greedy forward selection to find optimal portfolio config.
@@ -174,6 +522,11 @@ def run_greedy(
         base_mutations: Optional starting mutations (default: live_parity base)
         data_dir: Path to bar data (required for parallel workers to load data)
         max_workers: Number of parallel workers (default: cpu_count - 1)
+        return_basis: "equity_curve" for existing compounded scoring, or
+            "static_initial_strategy_risk" to score strategy total R against
+            each sleeve's initial unit risk.
+        scoring_kwargs: Optional keyword arguments forwarded to composite_score.
+        score_profile: "generic" or "portfolio_synergy_alpha_frequency".
         verbose: Print progress
 
     Returns:
@@ -183,6 +536,11 @@ def run_greedy(
         base_mutations = {}
     if max_workers is None:
         max_workers = min(len(candidates), max(1, (os.cpu_count() or 4) - 1))
+    if return_basis not in {"equity_curve", "static_initial_strategy_risk"}:
+        raise ValueError(f"Unknown swing greedy return_basis: {return_basis}")
+    if score_profile not in {"generic", "portfolio_synergy_alpha_frequency"}:
+        raise ValueError(f"Unknown swing greedy score_profile: {score_profile}")
+    scoring_kwargs = dict(scoring_kwargs or {})
 
     if verbose:
         print(f"\n{'='*60}")
@@ -194,7 +552,14 @@ def run_greedy(
         print(f"{'='*60}\n")
 
     # Compute baseline in main process (data already loaded)
-    base_score_obj, base_metrics = _score_config(data, base_mutations, initial_equity)
+    base_score_obj, base_metrics, base_score_net_profit = _score_config(
+        data,
+        base_mutations,
+        initial_equity,
+        return_basis,
+        scoring_kwargs,
+        score_profile,
+    )
 
     if base_score_obj.rejected:
         print(f"WARNING: Base config rejected ({base_score_obj.reject_reason})")
@@ -208,7 +573,7 @@ def run_greedy(
             print(f"  trades={base_metrics.total_trades}, "
                   f"PF={base_metrics.profit_factor:.2f}, "
                   f"DD={base_metrics.max_drawdown_pct:.1%}, "
-                  f"return={base_metrics.net_profit / initial_equity:.1%}, "
+                  f"return={base_score_net_profit / initial_equity:.1%}, "
                   f"Sharpe={base_metrics.sharpe:.2f}")
         print()
 
@@ -221,7 +586,7 @@ def run_greedy(
     pool = mp.Pool(
         processes=max_workers,
         initializer=_init_worker,
-        initargs=(str(data_dir), initial_equity),
+        initargs=(str(data_dir), initial_equity, return_basis, scoring_kwargs, score_profile),
     )
     print(f"Pool ready in {time.time() - t_pool:.1f}s\n")
 
@@ -311,7 +676,14 @@ def run_greedy(
         pool.join()
 
     # Final scoring in main process for detailed metrics
-    _, final_metrics = _score_config(data, current_mutations, initial_equity)
+    _, final_metrics, final_score_net_profit = _score_config(
+        data,
+        current_mutations,
+        initial_equity,
+        return_basis,
+        scoring_kwargs,
+        score_profile,
+    )
 
     result = GreedyResult(
         base_score=baseline_score,
@@ -325,7 +697,7 @@ def run_greedy(
         result.final_trades = final_metrics.total_trades
         result.final_pf = final_metrics.profit_factor
         result.final_dd_pct = final_metrics.max_drawdown_pct
-        result.final_return_pct = final_metrics.net_profit / initial_equity
+        result.final_return_pct = final_score_net_profit / initial_equity
         result.final_sharpe = final_metrics.sharpe
 
     if verbose:
@@ -399,8 +771,6 @@ def save_result(result: GreedyResult, output_path: Path) -> None:
 # Candidates ordered by individual delta (highest first).
 # Strategy-specific params are mapped to unified config routing keys.
 PORTFOLIO_CANDIDATES: list[tuple[str, dict]] = [
-    # Breakout score threshold removal
-    ("brk_no_score_threshold", {"breakout_flags.disable_score_threshold": True}),
     # Helix stale 4H detection
     ("helix_stale_4h_4", {"helix_param.STALE_4H_BARS": 4}),
     # Portfolio-level risk adjustments

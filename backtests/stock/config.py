@@ -21,6 +21,7 @@ class UniverseConfig:
     """Universe selection parameters."""
 
     use_sp500_base: bool = True               # SP500 base universe
+    use_backtested_intraday_universe: bool = True  # stock replay/backtests use the focused intraday cohort
     include_scanner_supplement: bool = False   # scanner supplement (live only)
     min_adv20_usd: float = 5_000_000.0        # minimum 20-day ADV in USD
     min_price: float = 5.0                    # minimum stock price

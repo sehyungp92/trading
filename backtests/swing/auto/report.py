@@ -192,7 +192,7 @@ def _recommended_configs(
         by_strategy[r.strategy].append(r)
 
     # Individual strategies first, then portfolio
-    strategy_order = ["atrss", "helix", "breakout"]
+    strategy_order = ["atrss", "helix"]
     for strategy in strategy_order:
         if strategy not in by_strategy:
             continue

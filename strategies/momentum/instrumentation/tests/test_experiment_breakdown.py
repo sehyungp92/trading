@@ -22,7 +22,7 @@ class TestExperimentBreakdown:
         self.tmpdir = tempfile.mkdtemp()
         self.config = {
             "bot_id": "test_bot",
-            "strategy_type": "helix",
+            "strategy_type": "nqdtc",
             "data_dir": self.tmpdir,
         }
         self.date_str = "2026-03-01"
@@ -43,14 +43,14 @@ class TestExperimentBreakdown:
         assert snapshot.experiment_breakdown == {}
 
     def test_multi_strategy_experiment(self):
-        """Helix + nqdtc trades in same experiment → grouped correctly."""
+        """NQDTC + nqdtc trades in same experiment → grouped correctly."""
         self._write_trades([
             {"stage": "exit", "trade_id": "t1", "pnl": 500, "fees_paid": 10,
              "experiment_id": "exp_001", "experiment_variant": "control",
-             "strategy_type": "helix"},
+             "strategy_type": "nqdtc"},
             {"stage": "exit", "trade_id": "t2", "pnl": 300, "fees_paid": 5,
              "experiment_id": "exp_001", "experiment_variant": "control",
-             "strategy_type": "helix"},
+             "strategy_type": "nqdtc"},
             {"stage": "exit", "trade_id": "t3", "pnl": -100, "fees_paid": 5,
              "experiment_id": "exp_001", "experiment_variant": "control",
              "strategy_type": "nqdtc"},
@@ -62,18 +62,18 @@ class TestExperimentBreakdown:
         assert bd["trades"] == 3
         assert bd["win_count"] == 2
         assert bd["loss_count"] == 1
-        # Dominant strategy_type is helix (2 vs 1)
-        assert bd["strategy_type"] == "helix"
+        # Dominant strategy_type is nqdtc (2 vs 1)
+        assert bd["strategy_type"] == "nqdtc"
 
     def test_param_set_id_uniform(self):
         """All trades in variant share same param_set_id → populated."""
         self._write_trades([
             {"stage": "exit", "trade_id": "t1", "pnl": 500, "fees_paid": 0,
              "experiment_id": "exp_001", "experiment_variant": "a",
-             "param_set_id": "abc123", "strategy_type": "helix"},
+             "param_set_id": "abc123", "strategy_type": "nqdtc"},
             {"stage": "exit", "trade_id": "t2", "pnl": 200, "fees_paid": 0,
              "experiment_id": "exp_001", "experiment_variant": "a",
-             "param_set_id": "abc123", "strategy_type": "helix"},
+             "param_set_id": "abc123", "strategy_type": "nqdtc"},
         ])
         builder = DailySnapshotBuilder(self.config)
         snapshot = builder.build(self.date_str)
@@ -84,10 +84,10 @@ class TestExperimentBreakdown:
         self._write_trades([
             {"stage": "exit", "trade_id": "t1", "pnl": 500, "fees_paid": 0,
              "experiment_id": "exp_001", "experiment_variant": "a",
-             "param_set_id": "abc123", "strategy_type": "helix"},
+             "param_set_id": "abc123", "strategy_type": "nqdtc"},
             {"stage": "exit", "trade_id": "t2", "pnl": 200, "fees_paid": 0,
              "experiment_id": "exp_001", "experiment_variant": "a",
-             "param_set_id": "def456", "strategy_type": "helix"},
+             "param_set_id": "def456", "strategy_type": "nqdtc"},
         ])
         builder = DailySnapshotBuilder(self.config)
         snapshot = builder.build(self.date_str)
@@ -138,7 +138,7 @@ class TestExportActive:
                     "hypothesis": "Tighter trail improves Sharpe",
                     "variants": ["control", "tight"],
                     "start_date": "2026-01-01",
-                    "strategy_type": "helix",
+                    "strategy_type": "nqdtc",
                     "primary_metric": "sharpe",
                     "secondary_metrics": ["win_rate", "avg_pnl"],
                     "min_trades_per_variant": 30,
@@ -151,7 +151,7 @@ class TestExportActive:
             assert exp["hypothesis"] == "Tighter trail improves Sharpe"
             assert exp["variants"] == ["control", "tight"]
             assert exp["primary_metric"] == "sharpe"
-            assert exp["strategy_type"] == "helix"
+            assert exp["strategy_type"] == "nqdtc"
             assert exp["status"] == "active"
             assert exp["min_trades_per_variant"] == 30
 
@@ -163,13 +163,13 @@ class TestExportActive:
                     "variants": ["a", "b"],
                     "start_date": "2026-01-01",
                     "end_date": "2026-02-01",
-                    "strategy_type": "helix",
+                    "strategy_type": "nqdtc",
                 },
                 "exp_future": {
                     "hypothesis": "test",
                     "variants": ["a", "b"],
                     "start_date": "2027-01-01",
-                    "strategy_type": "helix",
+                    "strategy_type": "nqdtc",
                 },
             })
             reg = ExperimentRegistry(config_path=path)
@@ -189,7 +189,7 @@ class TestActiveExperimentsInDailySnapshot:
         self.tmpdir = tempfile.mkdtemp()
         self.config = {
             "bot_id": "test_bot",
-            "strategy_type": "helix",
+            "strategy_type": "nqdtc",
             "data_dir": self.tmpdir,
         }
         self.date_str = "2026-03-01"
@@ -202,7 +202,7 @@ class TestActiveExperimentsInDailySnapshot:
                     "hypothesis": "Test hypothesis",
                     "variants": ["control", "treatment"],
                     "start_date": "2026-01-01",
-                    "strategy_type": "helix",
+                    "strategy_type": "nqdtc",
                 },
             }}))
             reg = ExperimentRegistry(config_path=exp_path)

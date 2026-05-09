@@ -12,7 +12,7 @@ from .family_phase_auto import (
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Run five-strategy momentum family portfolio phase auto optimization.",
+        description="Run four-strategy momentum family portfolio phase auto optimization.",
     )
     parser.add_argument("--data-dir", default="backtests/momentum/data/raw")
     parser.add_argument("--output-dir", default=None)

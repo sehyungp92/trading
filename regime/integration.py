@@ -41,15 +41,15 @@ def _finite_float(value: float | int | None, default: float) -> float:
 
 
 def _context_sizing_mult(ctx: RegimeContext) -> float:
-    """Bound model leverage so regime can tilt, not replace, optimized risk."""
+    """Bound model leverage so regime can tilt, not replace, optimized risk.
+
+    ``suggested_leverage_mult`` is already the regime engine's final leverage
+    output, including its deliberately tiny stress-HMM dampener. Do not apply
+    ``stress_level`` again here; the daily crisis detector is the actionable
+    tail-risk layer.
+    """
     leverage = _finite_float(ctx.suggested_leverage_mult, 1.0)
     leverage = _clamp(leverage, 0.50, 1.05)
-
-    stress = _clamp(_finite_float(ctx.stress_level, 0.0), 0.0, 1.0)
-    if ctx.stress_onset:
-        leverage = min(leverage, 0.85)
-    if stress > 0.0:
-        leverage *= 1.0 - (0.20 * stress)
 
     return round(_clamp(leverage, 0.45, 1.05), 4)
 

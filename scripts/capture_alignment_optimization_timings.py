@@ -43,7 +43,6 @@ def _build_targets() -> dict[str, BenchmarkTarget]:
     from backtests.stock.auto.alcb.plugin import ALCBP16Plugin
     from backtests.stock.auto.iaric.plugin import IARICPullbackPlugin
     from backtests.swing.auto.atrss.plugin import ATRSSPlugin
-    from backtests.swing.auto.brs.plugin import BRSPlugin
 
     swing_data = ROOT / "backtests" / "swing" / "data" / "raw"
     momentum_data = ROOT / "backtests" / "momentum" / "data" / "raw"
@@ -56,13 +55,6 @@ def _build_targets() -> dict[str, BenchmarkTarget]:
             phase=1,
             sample_size=2,
             factory=lambda: ATRSSPlugin(swing_data, max_workers=1),
-        ),
-        "swing_brs": BenchmarkTarget(
-            name="swing_brs",
-            family="swing",
-            phase=1,
-            sample_size=2,
-            factory=lambda: BRSPlugin(swing_data, max_workers=1),
         ),
         "momentum_downturn": BenchmarkTarget(
             name="momentum_downturn",
@@ -185,7 +177,6 @@ def main() -> int:
     args = _parse_args()
     targets = _build_targets()
     selected_names = args.targets or [
-        "swing_brs",
         "swing_atrss",
         "momentum_downturn",
         "momentum_nqdtc",

@@ -561,7 +561,7 @@ class DownturnEngine:
         self._regime.trend_strength = ts
         self._trend_strength_3d.append(ts)
 
-        # Fast-crash override (BRS paths E/F/G)
+        # Fast-crash override paths E/F/G
         if self.flags.fast_crash_override:
             self._fast_crash_active = check_fast_crash_override(
                 daily.closes[:end], self._ema_fast_d,

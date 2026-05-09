@@ -1,15 +1,18 @@
 """Unified swing portfolio backtesting engine.
 
-Runs ATRSS, AKC-Helix, BRS R9, Swing Breakout v3.3, and the idle-capital
-overlay under one shared replay with portfolio-level heat caps,
+Runs ATRSS, AKC-Helix, and the idle-capital overlay under one shared replay
+with portfolio-level heat caps,
 priority-aware reservation, per-strategy ceilings, and cross-strategy
 coordination.
 """
 from __future__ import annotations
 
 import logging
+import json
+import asyncio
+import copy
 from dataclasses import dataclass, field, replace as _dc_replace
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 import numpy as np
 import pandas as pd
@@ -20,17 +23,11 @@ from strategies.swing.atrss.models import Direction as AtrssDirection
 from strategies.swing.akc_helix.config import SYMBOL_CONFIGS as HELIX_SYMBOL_CONFIGS
 from strategies.swing.akc_helix.models import Direction as HelixDirection
 
-from strategies.swing.breakout.config import SYMBOL_CONFIGS as BREAKOUT_SYMBOL_CONFIGS
-from strategies.swing.breakout.config import _ETF_CONFIGS as BREAKOUT_ETF_CONFIGS
-from strategies.swing.breakout.models import (
-    CircuitBreakerState as BreakoutCBState,
-    Direction as BreakoutDirection,
-    PositionState as BreakoutPositionState,
-)
-from strategies.swing.brs.models import BRSRegime
 from strategies.swing.overlay.shared import allocate_weighted_targets, compute_ema
 
 from libs.oms.risk.swing_portfolio_adapter import SwingPortfolioHeatAdapter as PortfolioHeatTracker
+from libs.oms.risk.portfolio_rules import PortfolioRuleChecker, PortfolioRulesConfig
+from libs.oms.coordination.coordinator import StrategyCoordinator
 
 from backtests.swing.config_unified import UnifiedBacktestConfig
 from backtests.swing.data.preprocessing import (
@@ -42,10 +39,15 @@ from backtests.swing.data.preprocessing import (
     normalize_timezone,
     resample_1h_to_4h,
 )
-from backtests.swing.engine.backtest_engine import BacktestEngine, _AblationPatch
-from backtests.swing.engine.brs_engine import BRSEngine
-from backtests.swing.engine.helix_engine import HelixEngine
-from backtests.swing.engine.breakout_engine import BreakoutEngine
+from backtests.swing.data.multitimeframe import (
+    align_15m_to_30m,
+    align_15m_to_1h,
+    align_15m_to_4h,
+    align_daily_to_15m,
+    resample_15m_to_30m,
+)
+from backtests.swing.engine.backtest_engine import BacktestEngine, _AblationPatch, ORDER_EXPIRY_HOURS
+from backtests.swing.engine.helix_engine import HelixEngine, _AblationPatch as _HelixAblationPatch
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +61,7 @@ class UnifiedPortfolioData:
     """Pre-loaded data for all symbols across all strategies.
 
     ATRSS requires RTH-filtered hourly data (matching its individual runner).
-    Helix/Breakout use full hourly data (matching their individual runners).
+    Helix uses full hourly data (matching its individual runner).
     For shared symbols (e.g. QQQ), both versions are stored separately.
     """
 
@@ -67,22 +69,56 @@ class UnifiedPortfolioData:
     # RTH-filtered hourly data for ATRSS (UTC, RTH only)
     atrss_hourly: dict[str, NumpyBars] = field(default_factory=dict)
     atrss_daily_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
-    # RTH-filtered hourly data for Breakout (ET timezone, RTH only)
-    breakout_hourly: dict[str, NumpyBars] = field(default_factory=dict)
-    breakout_four_hour: dict[str, NumpyBars] = field(default_factory=dict)
-    breakout_daily_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
-    breakout_four_hour_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
-    # RTH-filtered hourly data for BRS (UTC, RTH only)
-    brs_daily: dict[str, NumpyBars] = field(default_factory=dict)
-    brs_hourly: dict[str, NumpyBars] = field(default_factory=dict)
-    brs_four_hour: dict[str, NumpyBars] = field(default_factory=dict)
-    brs_daily_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
-    brs_four_hour_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
     # Full hourly data for Helix (no RTH filter)
     hourly: dict[str, NumpyBars] = field(default_factory=dict)
     four_hour: dict[str, NumpyBars] = field(default_factory=dict)
     daily_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
     four_hour_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
+    # Full 15m ETF data for TPC.
+    etf_15m: dict[str, NumpyBars] = field(default_factory=dict)
+    etf_30m: dict[str, NumpyBars] = field(default_factory=dict)
+    etf_1h: dict[str, NumpyBars] = field(default_factory=dict)
+    etf_4h: dict[str, NumpyBars] = field(default_factory=dict)
+    etf_daily: dict[str, NumpyBars] = field(default_factory=dict)
+    etf_1h_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
+    etf_30m_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
+    etf_4h_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
+    etf_daily_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
+    tpc_replay: dict[str, dict] = field(default_factory=dict)
+
+
+def _coerce_index_bound(
+    value: str | pd.Timestamp | None,
+    index: pd.DatetimeIndex,
+    *,
+    end_of_day: bool,
+) -> pd.Timestamp | None:
+    if value is None:
+        return None
+    ts = pd.Timestamp(value)
+    if end_of_day and ts == ts.normalize():
+        ts = ts + pd.Timedelta(days=1) - pd.Timedelta(nanoseconds=1)
+    index_tz = index.tz
+    if index_tz is None:
+        if ts.tzinfo is not None:
+            ts = ts.tz_convert("UTC").tz_localize(None)
+    elif ts.tzinfo is None:
+        ts = ts.tz_localize(index_tz)
+    else:
+        ts = ts.tz_convert(index_tz)
+    return ts
+
+
+def _slice_config_window(df: pd.DataFrame, config: UnifiedBacktestConfig) -> pd.DataFrame:
+    if not isinstance(df.index, pd.DatetimeIndex):
+        df.index = pd.DatetimeIndex(df.index)
+    start_ts = _coerce_index_bound(config.start_date, df.index, end_of_day=False)
+    end_ts = _coerce_index_bound(config.end_date, df.index, end_of_day=True)
+    if start_ts is not None:
+        df = df[df.index >= start_ts]
+    if end_ts is not None:
+        df = df[df.index <= end_ts]
+    return df
 
 
 def load_unified_data(config: UnifiedBacktestConfig) -> UnifiedPortfolioData:
@@ -91,22 +127,17 @@ def load_unified_data(config: UnifiedBacktestConfig) -> UnifiedPortfolioData:
     Each strategy's individual runner loads data differently:
     - ATRSS: normalize_timezone(UTC) + filter_rth
     - Helix: raw parquet (no filter)
-    - Breakout: tz_convert(ET) + filter_rth, 4H resampled from RTH-filtered
-
     We replicate each strategy's exact data pipeline to ensure trade alignment.
     """
     from pathlib import Path
-    from zoneinfo import ZoneInfo
     data_dir = Path(config.data_dir)
     portfolio = UnifiedPortfolioData()
 
     atrss_set = set(config.atrss_symbols)
-    brs_set = set(config.brs_symbols)
-    breakout_set = set(config.breakout_symbols)
     overlay_syms = config.overlay_symbols if config.overlay_enabled else []
+    etf_syms = sorted(set(config.tpc_symbols))
     all_symbols = sorted(set(
-        config.atrss_symbols + config.helix_symbols + config.brs_symbols + config.breakout_symbols
-        + overlay_syms
+        config.atrss_symbols + config.helix_symbols + overlay_syms + etf_syms
     ))
 
     for sym in all_symbols:
@@ -117,21 +148,11 @@ def load_unified_data(config: UnifiedBacktestConfig) -> UnifiedPortfolioData:
             logger.warning("Missing data for %s, skipping", sym)
             continue
 
-        hourly_df = pd.read_parquet(hourly_path)
-        daily_df = pd.read_parquet(daily_path)
+        hourly_df = _slice_config_window(pd.read_parquet(hourly_path), config)
+        daily_df = _slice_config_window(pd.read_parquet(daily_path), config)
 
-        if not isinstance(hourly_df.index, pd.DatetimeIndex):
-            hourly_df.index = pd.DatetimeIndex(hourly_df.index)
-        if not isinstance(daily_df.index, pd.DatetimeIndex):
-            daily_df.index = pd.DatetimeIndex(daily_df.index)
 
         # Date range filtering (reduces bar count → faster engine run)
-        if config.start_date:
-            hourly_df = hourly_df[hourly_df.index >= config.start_date]
-            daily_df = daily_df[daily_df.index >= config.start_date]
-        if config.end_date:
-            hourly_df = hourly_df[hourly_df.index <= config.end_date]
-            daily_df = daily_df[daily_df.index <= config.end_date]
 
         # Standardize column names
         hourly_df.columns = hourly_df.columns.str.lower()
@@ -153,43 +174,83 @@ def load_unified_data(config: UnifiedBacktestConfig) -> UnifiedPortfolioData:
             portfolio.atrss_hourly[sym] = build_numpy_arrays(atrss_h)
             portfolio.atrss_daily_idx_maps[sym] = align_daily_to_hourly(atrss_h, atrss_d)
 
-        # --- BRS: normalize_timezone(UTC) + filter_rth + 4H from RTH-filtered ---
-        if sym in brs_set:
-            brs_h = normalize_timezone(hourly_df.copy())
-            brs_d = normalize_timezone(daily_df.copy())
-            brs_h = filter_rth(brs_h)
-            brs_4h = resample_1h_to_4h(brs_h)
-            portfolio.brs_daily[sym] = build_numpy_arrays(brs_d)
-            portfolio.brs_hourly[sym] = build_numpy_arrays(brs_h)
-            portfolio.brs_four_hour[sym] = build_numpy_arrays(brs_4h)
-            portfolio.brs_daily_idx_maps[sym] = align_daily_to_hourly(brs_h, brs_d)
-            portfolio.brs_four_hour_idx_maps[sym] = align_4h_to_hourly(brs_h, brs_4h)
-
-        # --- Breakout: tz_convert(ET) + filter_rth, 4H from RTH-filtered ---
-        if sym in breakout_set:
-            et = ZoneInfo("America/New_York")
-            bo_h = hourly_df.copy()
-            if bo_h.index.tz is not None:
-                bo_h = bo_h.tz_convert(et)
+        # --- TPC: full 15m primary data with completed HTF maps ---
+        if sym in etf_syms:
+            path_15m = data_dir / f"{sym}_15m.parquet"
+            if path_15m.exists():
+                df15 = _slice_config_window(pd.read_parquet(path_15m), config)
+                df15.columns = df15.columns.str.lower()
+                df15 = normalize_timezone(df15)
+                hourly_norm = normalize_timezone(hourly_df.copy())
+                daily_norm = normalize_timezone(daily_df.copy())
+                four_hour_norm = resample_1h_to_4h(hourly_norm)
+                df30 = resample_15m_to_30m(df15)
+                portfolio.etf_15m[sym] = build_numpy_arrays(df15)
+                portfolio.etf_30m[sym] = build_numpy_arrays(df30)
+                portfolio.etf_1h[sym] = build_numpy_arrays(hourly_norm)
+                portfolio.etf_4h[sym] = build_numpy_arrays(four_hour_norm)
+                portfolio.etf_daily[sym] = build_numpy_arrays(daily_norm)
+                portfolio.etf_30m_idx_maps[sym] = align_15m_to_30m(df15, df30)
+                portfolio.etf_1h_idx_maps[sym] = align_15m_to_1h(df15, hourly_norm)
+                portfolio.etf_4h_idx_maps[sym] = align_15m_to_4h(df15, four_hour_norm)
+                portfolio.etf_daily_idx_maps[sym] = align_daily_to_15m(df15, daily_norm)
             else:
-                bo_h = bo_h.tz_localize("UTC").tz_convert(et)
-            bo_h = filter_rth(bo_h)
-            bo_4h = resample_1h_to_4h(bo_h)
-            portfolio.breakout_hourly[sym] = build_numpy_arrays(bo_h)
-            portfolio.breakout_four_hour[sym] = build_numpy_arrays(bo_4h)
-            portfolio.breakout_daily_idx_maps[sym] = align_daily_to_hourly(bo_h, daily_df)
-            portfolio.breakout_four_hour_idx_maps[sym] = align_4h_to_hourly(bo_h, bo_4h)
+                logger.warning("Missing 15m ETF data for %s, TPC will skip it", sym)
+
+    if etf_syms:
+        from backtests.swing.data.replay_cache import load_tpc_replay_bundle
+
+        tpc_bundle = load_tpc_replay_bundle(
+            data_dir,
+            symbols=tuple(etf_syms),
+            start_date=config.start_date,
+            end_date=config.end_date,
+        )
+        portfolio.tpc_replay = dict(tpc_bundle.data)
+        for sym, payload in portfolio.tpc_replay.items():
+            portfolio.etf_15m[sym] = payload["bars_15m"]
+            portfolio.etf_30m[sym] = payload.get("bars_30m")
+            portfolio.etf_1h[sym] = payload["bars_1h"]
+            portfolio.etf_4h[sym] = payload["bars_4h"]
+            portfolio.etf_daily[sym] = payload["bars_daily"]
+            portfolio.etf_30m_idx_maps[sym] = payload.get("idx_30m")
+            portfolio.etf_1h_idx_maps[sym] = payload["idx_1h"]
+            portfolio.etf_4h_idx_maps[sym] = payload["idx_4h"]
+            portfolio.etf_daily_idx_maps[sym] = payload["idx_daily"]
 
     logger.info("Loaded data for %d symbols: %s", len(portfolio.hourly), list(portfolio.hourly))
     return portfolio
 
 
 # ---------------------------------------------------------------------------
-# Cross-strategy coordination (simplified backtest version)
+# Cross-strategy coordination replay adapter
 # ---------------------------------------------------------------------------
 
+
+class _ReplayCoordinationBus:
+    """Tiny bus used to run the live StrategyCoordinator in deterministic replay."""
+
+    def __init__(self) -> None:
+        self.events: list[dict[str, str]] = []
+
+    def emit_coordination_event(
+        self,
+        *,
+        target_strategy: str,
+        event_type: str,
+        symbol: str,
+    ) -> None:
+        self.events.append(
+            {
+                "target_strategy": target_strategy,
+                "event_type": event_type,
+                "symbol": symbol,
+            }
+        )
+
+
 class BacktestCoordinator:
-    """Simplified coordinator for backtest.
+    """Replay adapter around the live StrategyCoordinator.
 
     Rule 1: ATRSS entry on symbol X → tighten Helix stop to BE on X.
     Rule 2: ATRSS has active position on symbol X → Helix 1.25x size boost.
@@ -199,37 +260,61 @@ class BacktestCoordinator:
         self._enable_tighten = enable_tighten
         self._enable_size_boost = enable_size_boost
         # symbol → (direction, entry_price)
-        self._atrss_positions: dict[str, tuple[int, float]] = {}
-        self._pending_tighten: list[str] = []  # symbols needing Helix stop tighten
+        self._bus = _ReplayCoordinationBus()
+        self._coordinator = StrategyCoordinator(self._bus)
         self.tighten_count = 0
         self.boost_count = 0
 
     def on_atrss_position_change(
         self, symbol: str, direction: int, entry_price: float,
     ) -> None:
-        """Track ATRSS position changes."""
-        if direction != 0:  # FLAT
-            was_flat = symbol not in self._atrss_positions
-            self._atrss_positions[symbol] = (direction, entry_price)
+        """Track ATRSS position changes through the live coordinator."""
+        existing = self._coordinator.get_position("ATRSS", symbol)
+        was_flat = existing is None or existing.qty <= 0
+        if direction != 0:
+            direction_label = "LONG" if int(direction) > 0 else "SHORT"
+            self._coordinator.on_position_update(
+                "ATRSS",
+                symbol,
+                qty=1,
+                direction=direction_label,
+                entry_price=entry_price,
+            )
             if was_flat and self._enable_tighten:
-                self._pending_tighten.append(symbol)
+                self._bus.emit_coordination_event(
+                    target_strategy="AKC_HELIX",
+                    event_type="TIGHTEN_STOP_BE",
+                    symbol=symbol,
+                )
         else:
-            self._atrss_positions.pop(symbol, None)
+            self._coordinator.on_position_update(
+                "ATRSS",
+                symbol,
+                qty=0,
+                direction="",
+                entry_price=0.0,
+            )
 
     def consume_tighten_events(self) -> list[str]:
         """Return and clear pending tighten events."""
-        events = list(self._pending_tighten)
-        self._pending_tighten.clear()
+        events = [
+            event["symbol"]
+            for event in self._bus.events
+            if event.get("target_strategy") == "AKC_HELIX"
+            and event.get("event_type") == "TIGHTEN_STOP_BE"
+        ]
+        self._bus.events.clear()
         return events
 
     def has_atrss_position(self, symbol: str, direction: int) -> bool:
         """Check if ATRSS has an active position on symbol in the given direction."""
         if not self._enable_size_boost:
             return False
-        pos = self._atrss_positions.get(symbol)
-        if pos is None:
-            return False
-        return pos[0] == direction
+        direction_label = "LONG" if int(direction) > 0 else "SHORT"
+        return self._coordinator.has_atrss_position(symbol, direction_label)
+
+    def log_action(self, **kwargs) -> None:
+        self._coordinator.log_action(**kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -251,6 +336,7 @@ class StrategyResult:
 
     strategy_id: str = ""
     entry_signals_fired: int = 0
+    entry_requests: int = 0
     entries_accepted_by_portfolio: int = 0
     total_trades: int = 0
     total_pnl: float = 0.0
@@ -259,6 +345,7 @@ class StrategyResult:
     total_r: float = 0.0
     max_drawdown_dollars: float = 0.0
     entries_blocked_by_heat: int = 0
+    suppressed_entry_retries: int = 0
 
 
 @dataclass
@@ -280,12 +367,183 @@ class UnifiedPortfolioResult:
     # Raw per-engine results for detailed analysis
     atrss_trades: list = field(default_factory=list)
     helix_trades: list = field(default_factory=list)
-    brs_trades: list = field(default_factory=list)
-    breakout_trades: list = field(default_factory=list)
+    tpc_trades: list = field(default_factory=list)
     # Diagnostic event logs for portfolio diagnostics
     entry_events: list = field(default_factory=list)
     heat_rejections: list = field(default_factory=list)
     coordination_events: list = field(default_factory=list)
+    portfolio_rule_events: list = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class _PortfolioRuleExposure:
+    strategy_id: str
+    symbol: str
+    direction: str
+    risk_dollars: float
+    risk_R: float
+    qty: int
+
+
+def _direction_label(direction: object) -> str:
+    value = getattr(direction, "value", direction)
+    try:
+        numeric = int(value)
+    except Exception:
+        text = str(value).upper()
+        return "SHORT" if "SHORT" in text or text == "-1" else "LONG"
+    return "LONG" if numeric > 0 else "SHORT"
+
+
+def _strategy_slot(config: UnifiedBacktestConfig, strategy_id: str):
+    if strategy_id == "ATRSS":
+        return config.atrss
+    if strategy_id == "AKC_HELIX":
+        return config.helix
+    if strategy_id == "TPC":
+        return config.tpc
+    return None
+
+
+def _strategy_unit_risk(config: UnifiedBacktestConfig, strategy_id: str, initial_equity: float) -> float:
+    slot = _strategy_slot(config, strategy_id)
+    if slot is None:
+        return 0.0
+    return float(initial_equity) * float(getattr(slot, "unit_risk_pct", 0.0) or 0.0)
+
+
+class _SwingPortfolioRuleReplayAdapter:
+    """Synchronous replay wrapper around the live PortfolioRuleChecker."""
+
+    def __init__(self, config: UnifiedBacktestConfig, initial_equity: float):
+        strategy_ids = ("ATRSS", "AKC_HELIX", "TPC")
+        dd_tiers = config.drawdown_risk_tiers if not config.dynamic_risk_enabled else ((1.0, 1.0),)
+        self._config = config
+        self._initial_equity = float(initial_equity)
+        self._reference_strategy_id = strategy_ids[0]
+        self._reference_unit_risk = _strategy_unit_risk(config, self._reference_strategy_id, initial_equity)
+        self._current_equity = float(initial_equity)
+        self._exposures: list[_PortfolioRuleExposure] = []
+        self._skip_current: tuple[str, str] | None = None
+        self._loop = asyncio.new_event_loop()
+        rules = PortfolioRulesConfig(
+            directional_cap_R=float(config.heat_cap_R),
+            directional_cap_long_R=4.0,
+            directional_cap_short_R=4.0,
+            initial_equity=float(initial_equity),
+            family_strategy_ids=strategy_ids,
+            symbol_collision_action="half_size",
+            strategy_priorities=tuple(
+                (sid, int(getattr(_strategy_slot(config, sid), "priority", 99)))
+                for sid in strategy_ids
+            ),
+            priority_headroom_R=0.75,
+            priority_reserve_threshold=1,
+            reference_unit_risk_dollars=self._reference_unit_risk,
+            dd_tiers=tuple(dd_tiers),
+            nqdtc_direction_filter_enabled=False,
+        )
+        self._rules = rules
+        self._checker = PortfolioRuleChecker(
+            config=rules,
+            get_strategy_signal=self._get_strategy_signal,
+            get_directional_risk_R=self._get_directional_risk_R,
+            get_current_equity=lambda: self._current_equity,
+            get_directional_risk_R_for_strategies=self._get_directional_risk_R_for_strategies,
+            get_directional_risk_dollars_for_strategies=self._get_directional_risk_dollars_for_strategies,
+            get_sibling_positions_for_symbol=self._get_sibling_positions_for_symbol,
+        )
+
+    def refresh(
+        self,
+        *,
+        equity: float,
+        exposures: list[_PortfolioRuleExposure],
+        unit_equity: float | None = None,
+    ) -> None:
+        self._current_equity = float(equity)
+        self._exposures = list(exposures)
+        if unit_equity is None:
+            return
+        reference_unit_risk = _strategy_unit_risk(
+            self._config,
+            self._reference_strategy_id,
+            float(unit_equity),
+        )
+        if reference_unit_risk <= 0 or abs(reference_unit_risk - self._reference_unit_risk) < 1e-9:
+            return
+        self._reference_unit_risk = reference_unit_risk
+        self._rules = _dc_replace(
+            self._rules,
+            reference_unit_risk_dollars=reference_unit_risk,
+        )
+        self._checker.update_config(self._rules)
+
+    def check_entry(
+        self,
+        *,
+        strategy_id: str,
+        direction: str,
+        risk_dollars: float,
+        symbol: str,
+        qty: int,
+        skip_current_exposure: bool = False,
+    ):
+        unit = _strategy_unit_risk(self._config, strategy_id, self._initial_equity)
+        new_risk_R = float(risk_dollars) / unit if unit > 0 else 0.0
+        self._skip_current = (strategy_id, symbol) if skip_current_exposure else None
+        try:
+            return self._loop.run_until_complete(
+                self._checker.check_entry(
+                    strategy_id=strategy_id,
+                    direction=direction,
+                    new_risk_R=new_risk_R,
+                    symbol=symbol,
+                    new_qty=int(qty),
+                    new_risk_dollars=float(risk_dollars),
+                )
+            )
+        finally:
+            self._skip_current = None
+
+    def close(self) -> None:
+        if not self._loop.is_closed():
+            self._loop.close()
+
+    async def _get_strategy_signal(self, _strategy_id: str):
+        return None
+
+    async def _get_directional_risk_R(self, direction: str) -> float:
+        return sum(exp.risk_R for exp in self._iter_exposures() if exp.direction == direction)
+
+    async def _get_directional_risk_R_for_strategies(self, direction: str, strategy_ids: list[str]) -> float:
+        allowed = set(strategy_ids)
+        return sum(
+            exp.risk_R
+            for exp in self._iter_exposures()
+            if exp.strategy_id in allowed and exp.direction == direction
+        )
+
+    async def _get_directional_risk_dollars_for_strategies(self, direction: str, strategy_ids: list[str]) -> float:
+        allowed = set(strategy_ids)
+        return sum(
+            exp.risk_dollars
+            for exp in self._iter_exposures()
+            if exp.strategy_id in allowed and exp.direction == direction
+        )
+
+    async def _get_sibling_positions_for_symbol(self, strategy_ids: list[str], symbol: str) -> bool:
+        allowed = set(strategy_ids)
+        return any(
+            exp.strategy_id in allowed and exp.symbol == symbol and exp.qty > 0
+            for exp in self._iter_exposures()
+        )
+
+    def _iter_exposures(self):
+        for exp in self._exposures:
+            if self._skip_current is not None and (exp.strategy_id, exp.symbol) == self._skip_current:
+                continue
+            yield exp
 
 
 # ---------------------------------------------------------------------------
@@ -294,7 +552,7 @@ class UnifiedPortfolioResult:
 
 def _get_point_value(symbol: str) -> float:
     """Get point value from whichever strategy config has it."""
-    for cfgs in (ATRSS_SYMBOL_CONFIGS, HELIX_SYMBOL_CONFIGS, BREAKOUT_SYMBOL_CONFIGS, BREAKOUT_ETF_CONFIGS):
+    for cfgs in (ATRSS_SYMBOL_CONFIGS, HELIX_SYMBOL_CONFIGS):
         cfg = cfgs.get(symbol)
         if cfg is not None:
             return cfg.multiplier
@@ -308,12 +566,11 @@ def _get_point_value(symbol: str) -> float:
 def _compute_open_risk(
     atrss_engines: dict[str, BacktestEngine],
     helix_engines: dict[str, HelixEngine],
-    brs_engines: dict[str, BRSEngine],
-    breakout_engines: dict[str, BreakoutEngine],
+    tpc_open_risks: dict[int, float] | None = None,
 ) -> dict[str, float]:
     """Returns {strategy_id: total_risk_dollars}."""
     risk: dict[str, float] = {
-        "ATRSS": 0.0, "AKC_HELIX": 0.0, "BRS_R9": 0.0, "SWING_BREAKOUT_V3": 0.0,
+        "ATRSS": 0.0, "AKC_HELIX": 0.0, "TPC": 0.0,
     }
 
     for sym, eng in atrss_engines.items():
@@ -328,16 +585,344 @@ def _compute_open_risk(
             r = abs(pos.fill_price - pos.current_stop) * eng.point_value * pos.qty_open
             risk["AKC_HELIX"] += r
 
-    for eng in brs_engines.values():
-        risk["BRS_R9"] += eng.reserved_risk_dollars()
-
-    for sym, eng in breakout_engines.items():
-        pos = eng.active_position
-        if pos is not None and pos.qty_open > 0:
-            r = abs(pos.fill_price - pos.current_stop) * eng.point_value * pos.qty_open
-            risk["SWING_BREAKOUT_V3"] += r
+    if tpc_open_risks:
+        risk["TPC"] = float(sum(tpc_open_risks.values()))
 
     return risk
+
+
+def _portfolio_rule_exposures(
+    config: UnifiedBacktestConfig,
+    initial_equity: float,
+    atrss_engines: dict[str, BacktestEngine],
+    helix_engines: dict[str, HelixEngine],
+    active_tpc_trades: dict[int, object],
+    active_tpc_risks: dict[int, float],
+) -> list[_PortfolioRuleExposure]:
+    exposures: list[_PortfolioRuleExposure] = []
+
+    def _append(strategy_id: str, symbol: str, direction: object, risk_dollars: float, qty: float) -> None:
+        risk_dollars_f = float(risk_dollars or 0.0)
+        if risk_dollars_f <= 0:
+            return
+        unit = _strategy_unit_risk(config, strategy_id, initial_equity)
+        exposures.append(
+            _PortfolioRuleExposure(
+                strategy_id=strategy_id,
+                symbol=str(symbol or ""),
+                direction=_direction_label(direction),
+                risk_dollars=risk_dollars_f,
+                risk_R=risk_dollars_f / unit if unit > 0 else 0.0,
+                qty=max(0, int(abs(qty or 0))),
+            )
+        )
+
+    for sym, eng in atrss_engines.items():
+        pos = eng.position
+        if pos.direction != AtrssDirection.FLAT and pos.base_leg is not None:
+            risk_dollars = abs(pos.base_leg.entry_price - pos.current_stop) * eng.point_value * pos.total_qty
+            _append("ATRSS", sym, pos.direction, risk_dollars, pos.total_qty)
+
+    for sym, eng in helix_engines.items():
+        pos = eng.active_position
+        if pos is not None and pos.qty_open > 0:
+            risk_dollars = abs(pos.fill_price - pos.current_stop) * eng.point_value * pos.qty_open
+            _append("AKC_HELIX", sym, pos.setup.direction, risk_dollars, pos.qty_open)
+
+    for trade_id, trade in active_tpc_trades.items():
+        sym = str(getattr(trade, "symbol", "") or "")
+        qty = float(getattr(trade, "qty", 0.0) or 0.0)
+        risk_dollars = float(active_tpc_risks.get(trade_id, _trade_risk_dollars(trade)) or 0.0)
+        _append("TPC", sym, getattr(trade, "direction", 0), risk_dollars, qty)
+
+    return exposures
+
+
+def _apply_portfolio_size_multiplier_to_atrss_candidate(cand, size_multiplier: float) -> tuple[float, int]:
+    original_qty = int(getattr(cand, "qty", 0) or 0)
+    if original_qty <= 0 or size_multiplier == 1.0:
+        return 1.0, original_qty
+    new_qty = max(1, int(original_qty * float(size_multiplier)))
+    cand.qty = new_qty
+    return (new_qty / original_qty if original_qty else 1.0), new_qty
+
+
+def _apply_portfolio_size_multiplier_to_helix(engine: HelixEngine, size_multiplier: float) -> tuple[float, int]:
+    pos = engine.active_position
+    if pos is None or pos.qty_open <= 0 or size_multiplier == 1.0:
+        return 1.0, int(pos.qty_open if pos is not None else 0)
+    original_qty = int(pos.qty_open)
+    new_qty = max(1, int(original_qty * float(size_multiplier)))
+    ratio = new_qty / original_qty if original_qty else 1.0
+    if new_qty == original_qty:
+        return ratio, new_qty
+
+    pos.qty_open = new_qty
+    pos.setup.qty_planned = new_qty
+    pos.setup.fill_qty = new_qty
+    if hasattr(pos.setup, "qty_open"):
+        pos.setup.qty_open = new_qty
+    for order in getattr(engine.broker, "pending_orders", []):
+        if order.symbol == engine.symbol and order.tag == "protective_stop":
+            order.qty = new_qty
+    core_setup = getattr(engine, "_core_state", None)
+    if core_setup is not None:
+        setup = core_setup.active_setups.get(pos.setup.setup_id)
+        if setup is not None:
+            setup.qty_planned = new_qty
+            setup.fill_qty = new_qty
+            setup.qty_open = new_qty
+    return ratio, new_qty
+
+
+def _scaled_tpc_trade(trade, size_multiplier: float) -> tuple[object, float, int]:
+    original_qty = int(abs(float(getattr(trade, "qty", 0.0) or 0.0)))
+    if original_qty <= 0 or size_multiplier == 1.0:
+        return trade, 1.0, original_qty
+    new_qty = max(1, int(original_qty * float(size_multiplier)))
+    ratio = new_qty / original_qty if original_qty else 1.0
+    if ratio == 1.0:
+        return trade, ratio, new_qty
+    adjusted = copy.copy(trade)
+    setattr(adjusted, "qty", new_qty)
+    for attr in ("pnl_dollars", "commission"):
+        if hasattr(adjusted, attr):
+            setattr(adjusted, attr, float(getattr(adjusted, attr, 0.0) or 0.0) * ratio)
+    setattr(adjusted, "portfolio_size_mult", ratio)
+    return adjusted, ratio, new_qty
+
+
+_TPC_REPLAY_CACHE: dict[str, list] = {}
+
+
+def _timeline_key(ts) -> int:
+    """Normalize numpy/pandas/Python timestamps to UTC nanoseconds."""
+    if isinstance(ts, (int, np.integer)):
+        return int(ts)
+    if hasattr(ts, "item"):
+        item = ts.item()
+        if isinstance(item, (int, np.integer)):
+            return int(item)
+    return int(pd.Timestamp(ts).value)
+
+
+def _tpc_cache_key(data: UnifiedPortfolioData, config: UnifiedBacktestConfig) -> str:
+    spans = []
+    for sym in config.tpc_symbols:
+        replay_payload = data.tpc_replay.get(sym, {})
+        bars = replay_payload.get("bars_15m") or data.etf_15m.get(sym)
+        if bars is None or len(bars) == 0:
+            spans.append((sym, 0, 0, 0, ()))
+            continue
+        context_keys = tuple(sorted((replay_payload.get("context_indicators") or {}).keys()))
+        spans.append((sym, len(bars), _timeline_key(bars.times[0]), _timeline_key(bars.times[-1]), context_keys))
+    payload = {
+        "initial_equity": config.initial_equity,
+        "symbols": list(config.tpc_symbols),
+        "warmup_15m": config.warmup_15m,
+        "overrides": config.tpc_param_overrides,
+        "spans": spans,
+    }
+    return json.dumps(payload, sort_keys=True, default=str)
+
+
+def _build_tpc_replay_data(
+    data: UnifiedPortfolioData,
+    config: UnifiedBacktestConfig,
+) -> dict[str, dict]:
+    if data.tpc_replay:
+        return {
+            sym: data.tpc_replay[sym]
+            for sym in config.tpc_symbols
+            if sym in data.tpc_replay
+        }
+    replay: dict[str, dict] = {}
+    for sym in config.tpc_symbols:
+        if (
+            sym not in data.etf_15m
+            or sym not in data.etf_1h
+            or sym not in data.etf_4h
+            or sym not in data.etf_daily
+        ):
+            continue
+        replay[sym] = {
+            "bars_15m": data.etf_15m[sym],
+            "bars_30m": data.etf_30m.get(sym),
+            "bars_1h": data.etf_1h[sym],
+            "bars_4h": data.etf_4h[sym],
+            "bars_daily": data.etf_daily[sym],
+            "idx_30m": data.etf_30m_idx_maps.get(sym),
+            "idx_1h": data.etf_1h_idx_maps.get(sym),
+            "idx_4h": data.etf_4h_idx_maps.get(sym),
+            "idx_daily": data.etf_daily_idx_maps.get(sym),
+        }
+    return replay
+
+
+def _run_tpc_source_replay(data: UnifiedPortfolioData, config: UnifiedBacktestConfig) -> list:
+    """Run/cache TPC's own shared-core replay and return source trades."""
+    if not config.tpc_symbols:
+        return []
+    cache_key = _tpc_cache_key(data, config)
+    cached = _TPC_REPLAY_CACHE.get(cache_key)
+    if cached is not None:
+        return list(cached)
+
+    replay = _build_tpc_replay_data(data, config)
+    if not replay:
+        _TPC_REPLAY_CACHE[cache_key] = []
+        return []
+
+    from backtests.swing.engine.tpc_engine import run_tpc_independent
+
+    result = run_tpc_independent(replay, config.build_tpc_config())
+    trades = sorted(
+        list(getattr(result, "trades", []) or []),
+        key=lambda t: (_timeline_key(getattr(t, "entry_time", 0) or 0), _timeline_key(getattr(t, "exit_time", 0) or 0)),
+    )
+    _TPC_REPLAY_CACHE[cache_key] = trades
+    return list(trades)
+
+
+def _build_tpc_trade_events(trades: list) -> tuple[dict[int, list[tuple[int, object]]], dict[int, list[tuple[int, object]]]]:
+    entries: dict[int, list[tuple[int, object]]] = {}
+    exits: dict[int, list[tuple[int, object]]] = {}
+    for idx, trade in enumerate(trades):
+        entry_time = getattr(trade, "entry_time", None)
+        exit_time = getattr(trade, "exit_time", None)
+        if entry_time is None or exit_time is None:
+            continue
+        entries.setdefault(_timeline_key(entry_time), []).append((idx, trade))
+        exits.setdefault(_timeline_key(exit_time), []).append((idx, trade))
+    return entries, exits
+
+
+def _trade_risk_dollars(trade) -> float:
+    entry = float(getattr(trade, "entry_price", 0.0) or 0.0)
+    stop = float(getattr(trade, "initial_stop", 0.0) or 0.0)
+    qty = abs(float(getattr(trade, "qty", 0.0) or 0.0))
+    risk = abs(entry - stop) * qty
+    return risk if np.isfinite(risk) and risk > 0 else 1.0
+
+
+def _strategy_initial_unit_risk_dollars(
+    config: UnifiedBacktestConfig,
+    strategy_id: str,
+    initial_equity: float,
+) -> float:
+    slot_attr = {
+        "ATRSS": "atrss",
+        "AKC_HELIX": "helix",
+        "TPC": "tpc",
+    }.get(strategy_id)
+    if slot_attr is None:
+        return 0.0
+    slot = getattr(config, slot_attr, None)
+    unit_risk_pct = float(getattr(slot, "unit_risk_pct", 0.0) or 0.0)
+    return float(initial_equity) * unit_risk_pct
+
+
+def _trade_portfolio_size_mult(trade) -> float:
+    value = float(getattr(trade, "portfolio_size_mult", 1.0) or 1.0)
+    return value if np.isfinite(value) and value >= 0.0 else 1.0
+
+
+def _trade_net_pnl(trade) -> float:
+    if hasattr(trade, "net_pnl_dollars"):
+        return float(getattr(trade, "net_pnl_dollars", 0.0) or 0.0)
+    return float(getattr(trade, "pnl_dollars", 0.0) or 0.0) - float(getattr(trade, "commission", 0.0) or 0.0)
+
+
+def _strategy_trade_net_pnl(strategy_id: str, trade) -> float:
+    if hasattr(trade, "net_pnl_dollars"):
+        return float(getattr(trade, "net_pnl_dollars", 0.0) or 0.0)
+    pnl = float(getattr(trade, "pnl_dollars", 0.0) or 0.0)
+    if strategy_id == "TPC":
+        return pnl
+    return pnl - float(getattr(trade, "commission", 0.0) or 0.0)
+
+
+def _trade_net_r(trade) -> float:
+    if hasattr(trade, "net_r_multiple"):
+        return float(getattr(trade, "net_r_multiple", 0.0) or 0.0)
+    return float(getattr(trade, "r_multiple", 0.0) or 0.0)
+
+
+def _normalised_trade_r(trade) -> float:
+    total_r = _trade_net_r(trade)
+    if not np.isfinite(total_r):
+        return 0.0
+    return total_r * _trade_portfolio_size_mult(trade)
+
+
+def _normalised_trade_pnl(
+    strategy_id: str,
+    trade,
+    config: UnifiedBacktestConfig,
+    initial_equity: float,
+) -> float:
+    unit_risk = _strategy_initial_unit_risk_dollars(config, strategy_id, initial_equity)
+    total_r = _normalised_trade_r(trade)
+    if unit_risk > 0.0 and np.isfinite(total_r):
+        return total_r * unit_risk
+    return _strategy_trade_net_pnl(strategy_id, trade)
+
+
+def _normalised_trade_copy(
+    strategy_id: str,
+    trade,
+    config: UnifiedBacktestConfig,
+    initial_equity: float,
+):
+    normalised = copy.copy(trade)
+    source_pnl = _strategy_trade_net_pnl(strategy_id, trade)
+    source_r = _trade_net_r(trade)
+    pnl = _normalised_trade_pnl(strategy_id, trade, config, initial_equity)
+    total_r = _normalised_trade_r(trade)
+    setattr(normalised, "source_pnl_dollars", source_pnl)
+    setattr(normalised, "source_r_multiple", source_r)
+    setattr(normalised, "pnl_dollars", pnl)
+    setattr(normalised, "r_multiple", total_r)
+    setattr(normalised, "net_pnl_dollars", pnl)
+    setattr(normalised, "net_r_multiple", total_r)
+    qty = abs(float(getattr(normalised, "qty", 0.0) or 0.0))
+    if qty > 0:
+        setattr(normalised, "pnl_points", pnl / qty)
+    setattr(normalised, "portfolio_normalised", True)
+    return normalised
+
+
+def _tpc_open_mtm_pnl(
+    data: UnifiedPortfolioData,
+    active_trades: dict[int, object],
+    active_risks: dict[int, float],
+    config: UnifiedBacktestConfig,
+    initial_equity: float,
+    ts_key: int,
+) -> float:
+    """Approximate MTM for accepted open TPC source trades."""
+    pnl = 0.0
+    unit_risk = _strategy_initial_unit_risk_dollars(config, "TPC", initial_equity)
+    for trade_id, trade in active_trades.items():
+        sym = getattr(trade, "symbol", "")
+        bars = data.etf_15m.get(sym)
+        if bars is None or len(bars) == 0:
+            continue
+        times = bars.times.astype("datetime64[ns]").astype(np.int64)
+        idx = int(np.searchsorted(times, ts_key, side="right") - 1)
+        if idx < 0:
+            continue
+        close = float(bars.closes[min(idx, len(bars.closes) - 1)])
+        direction = 1 if int(getattr(trade, "direction", 0) or 0) > 0 else -1
+        qty = abs(float(getattr(trade, "qty", 0.0) or 0.0))
+        entry = float(getattr(trade, "entry_price", 0.0) or 0.0)
+        raw_open_pnl = (close - entry) * direction * qty
+        risk_dollars = float(active_risks.get(trade_id, _trade_risk_dollars(trade)) or 0.0)
+        if unit_risk > 0.0 and risk_dollars > 0.0:
+            pnl += raw_open_pnl / risk_dollars * unit_risk * _trade_portfolio_size_mult(trade)
+        else:
+            pnl += raw_open_pnl
+    return float(pnl)
 
 
 def _latest_engine_mark(engine, default_equity: float) -> float:
@@ -365,17 +950,211 @@ def _latest_engine_mark(engine, default_equity: float) -> float:
     return value if np.isfinite(value) else float(default_equity)
 
 
-def _combined_child_mtm_equity(
-    initial_equity: float,
+def _active_strategy_ids(config: UnifiedBacktestConfig) -> list[str]:
+    active: list[str] = []
+    if config.atrss_symbols:
+        active.append("ATRSS")
+    if config.helix_symbols:
+        active.append("AKC_HELIX")
+    if config.tpc_symbols:
+        active.append("TPC")
+    return active
+
+
+def _native_strategy_result(strategy_id: str, trades: list, entry_requests: int | None = None) -> StrategyResult:
+    total_pnl = sum(_strategy_trade_net_pnl(strategy_id, t) for t in trades)
+    wins = sum(1 for t in trades if _strategy_trade_net_pnl(strategy_id, t) > 0.0)
+    losses = sum(1 for t in trades if _strategy_trade_net_pnl(strategy_id, t) <= 0.0)
+    total_r = sum(_trade_net_r(t) for t in trades)
+    requests = len(trades) if entry_requests is None else int(entry_requests)
+    return StrategyResult(
+        strategy_id=strategy_id,
+        entry_signals_fired=requests,
+        entry_requests=requests,
+        entries_accepted_by_portfolio=len(trades),
+        total_trades=len(trades),
+        total_pnl=total_pnl,
+        winning_trades=wins,
+        losing_trades=losses,
+        total_r=total_r,
+    )
+
+
+def _empty_strategy_results(active_id: str, trades: list, entry_requests: int | None = None) -> dict[str, StrategyResult]:
+    return {
+        sid: _native_strategy_result(sid, trades if sid == active_id else [], entry_requests if sid == active_id else 0)
+        for sid in ("ATRSS", "AKC_HELIX", "TPC")
+    }
+
+
+def _native_heat_stats(native_result) -> UnifiedHeatStats:
+    heat = getattr(native_result, "heat_stats", None)
+    if heat is None:
+        return UnifiedHeatStats()
+    return UnifiedHeatStats(
+        avg_heat_pct=float(getattr(heat, "avg_heat_pct", 0.0) or 0.0),
+        max_heat_pct=float(getattr(heat, "max_heat_pct", 0.0) or 0.0),
+        pct_time_at_cap=float(
+            getattr(heat, "pct_time_at_cap", getattr(heat, "pct_time_at_limit", 0.0)) or 0.0
+        ),
+    )
+
+
+def _collect_native_trades(symbol_results: dict) -> list:
+    trades: list = []
+    for sym, result in symbol_results.items():
+        for trade in getattr(result, "trades", []) or []:
+            if not getattr(trade, "symbol", ""):
+                setattr(trade, "symbol", sym)
+            trades.append(trade)
+    trades.sort(
+        key=lambda t: (
+            _timeline_key(getattr(t, "entry_time", 0) or 0),
+            _timeline_key(getattr(t, "exit_time", 0) or 0),
+        )
+    )
+    return trades
+
+
+def _run_native_standalone_if_requested(
+    data: UnifiedPortfolioData,
+    config: UnifiedBacktestConfig,
+) -> UnifiedPortfolioResult | None:
+    """Use the individual synchronized runner for exact standalone parity.
+
+    The portfolio driver intentionally changes order admission semantics. For
+    a no-overlay, no-constraints single-strategy run, the correct reference is
+    the same synchronized engine used by the latest individual diagnostics.
+    """
+    if config.portfolio_constraints_enabled or config.overlay_enabled:
+        return None
+    active = _active_strategy_ids(config)
+    if len(active) != 1:
+        return None
+
+    strategy_id = active[0]
+    if strategy_id == "ATRSS":
+        from backtests.swing.engine.portfolio_engine import PortfolioData, run_synchronized
+
+        portfolio_data = PortfolioData(
+            daily={sym: data.daily[sym] for sym in config.atrss_symbols if sym in data.daily},
+            hourly={sym: data.atrss_hourly[sym] for sym in config.atrss_symbols if sym in data.atrss_hourly},
+            daily_idx_maps={
+                sym: data.atrss_daily_idx_maps[sym]
+                for sym in config.atrss_symbols
+                if sym in data.atrss_daily_idx_maps
+            },
+        )
+        native = run_synchronized(portfolio_data, config.build_atrss_config())
+        trades = _collect_native_trades(native.symbol_results)
+        equity = np.array(native.combined_equity)
+        return UnifiedPortfolioResult(
+            combined_equity=equity,
+            combined_equity_mtm=equity,
+            combined_equity_realized=equity,
+            combined_timestamps=np.array(native.combined_timestamps),
+            heat_stats=_native_heat_stats(native),
+            strategy_results=_empty_strategy_results("ATRSS", trades),
+            atrss_trades=trades,
+        )
+
+    if strategy_id == "AKC_HELIX":
+        from backtests.swing.engine.helix_portfolio_engine import HelixPortfolioData, run_helix_synchronized
+
+        portfolio_data = HelixPortfolioData(
+            daily={sym: data.daily[sym] for sym in config.helix_symbols if sym in data.daily},
+            hourly={sym: data.hourly[sym] for sym in config.helix_symbols if sym in data.hourly},
+            four_hour={sym: data.four_hour[sym] for sym in config.helix_symbols if sym in data.four_hour},
+            daily_idx_maps={
+                sym: data.daily_idx_maps[sym]
+                for sym in config.helix_symbols
+                if sym in data.daily_idx_maps
+            },
+            four_hour_idx_maps={
+                sym: data.four_hour_idx_maps[sym]
+                for sym in config.helix_symbols
+                if sym in data.four_hour_idx_maps
+            },
+        )
+        native = run_helix_synchronized(portfolio_data, config.build_helix_config())
+        trades = _collect_native_trades(native.symbol_results)
+        equity = np.array(native.combined_equity)
+        return UnifiedPortfolioResult(
+            combined_equity=equity,
+            combined_equity_mtm=equity,
+            combined_equity_realized=equity,
+            combined_timestamps=np.array(native.combined_timestamps),
+            heat_stats=_native_heat_stats(native),
+            strategy_results=_empty_strategy_results("AKC_HELIX", trades),
+            helix_trades=trades,
+        )
+
+    if strategy_id == "TPC":
+        trades = _run_tpc_source_replay(data, config)
+        total_pnl = sum(_strategy_trade_net_pnl("TPC", t) for t in trades)
+        equity = np.array([float(config.initial_equity), float(config.initial_equity) + total_pnl])
+        return UnifiedPortfolioResult(
+            combined_equity=equity,
+            combined_equity_mtm=equity,
+            combined_equity_realized=equity,
+            strategy_results=_empty_strategy_results("TPC", trades),
+            tpc_trades=trades,
+        )
+
+    return None
+
+
+def _combined_child_open_mtm_pnl(
     engine_groups: list[tuple[str, dict[str, object]]],
-    overlay_pnl: float,
+    config: UnifiedBacktestConfig | None = None,
+    initial_equity: float | None = None,
 ) -> float:
-    combined = float(initial_equity) + float(overlay_pnl)
+    """Return only unrealized MTM from child engines, excluding realized equity."""
+    open_mtm = 0.0
+    strategy_by_label = {"atrss": "ATRSS", "helix": "AKC_HELIX"}
     for label, engines in engine_groups:
-        basis = 0.0 if label == "brs" else float(initial_equity)
+        unit_risk = (
+            _strategy_initial_unit_risk_dollars(config, strategy_by_label.get(label, ""), float(initial_equity))
+            if config is not None and initial_equity is not None
+            else 0.0
+        )
         for engine in engines.values():
-            combined += _latest_engine_mark(engine, basis) - basis
-    return combined
+            realized_equity = float(getattr(engine, "equity", 0.0) or 0.0)
+            mark = _latest_engine_mark(engine, realized_equity)
+            if np.isfinite(mark) and np.isfinite(realized_equity):
+                raw_open_mtm = mark - realized_equity
+                actual_open_risk = _engine_open_risk_dollars(engine)
+                if unit_risk > 0.0 and actual_open_risk > 0.0:
+                    open_mtm += raw_open_mtm / actual_open_risk * unit_risk
+                else:
+                    open_mtm += raw_open_mtm
+    return float(open_mtm)
+
+
+def _engine_open_risk_dollars(engine) -> float:
+    point_value = float(getattr(engine, "point_value", 1.0) or 1.0)
+    position = getattr(engine, "position", None)
+    direction = getattr(position, "direction", None)
+    if position is not None and str(direction).split(".")[-1] != "FLAT":
+        legs = getattr(position, "legs", []) or []
+        risk = 0.0
+        for leg in legs:
+            entry = float(getattr(leg, "entry_price", 0.0) or 0.0)
+            stop = float(getattr(leg, "initial_stop", 0.0) or 0.0)
+            qty = abs(float(getattr(leg, "qty", 0.0) or 0.0))
+            risk += abs(entry - stop) * point_value * qty
+        if risk > 0.0 and np.isfinite(risk):
+            return float(risk)
+
+    active = getattr(engine, "active_position", None)
+    if active is not None:
+        entry = float(getattr(active, "fill_price", 0.0) or 0.0)
+        stop = float(getattr(active, "initial_stop", 0.0) or 0.0)
+        qty = abs(float(getattr(active, "qty_open", 0.0) or 0.0))
+        risk = abs(entry - stop) * point_value * qty
+        if risk > 0.0 and np.isfinite(risk):
+            return float(risk)
+    return 0.0
 
 
 def _overlay_transaction_cost(shares_delta: float, raw_price: float, slippage) -> float:
@@ -814,14 +1593,18 @@ def run_unified(
 ) -> UnifiedPortfolioResult:
     """Run all strategies stepping through time with shared portfolio constraints."""
 
+    standalone_result = _run_native_standalone_if_requested(data, config)
+    if standalone_result is not None:
+        return standalone_result
+
     # When fixed_qty is used, heat enforcement is disabled because position
     # sizes don't scale with equity — the R-based thresholds become meaningless.
-    skip_heat = config.fixed_qty is not None
+    skip_heat = (not config.portfolio_constraints_enabled) or config.fixed_qty is not None
 
     atrss_bt = config.build_atrss_config()
     helix_bt = config.build_helix_config()
-    brs_bt = config.build_brs_config()
-    breakout_bt = config.build_breakout_config()
+    tpc_source_trades = _run_tpc_source_replay(data, config)
+    tpc_entries_by_ts, tpc_exits_by_ts = _build_tpc_trade_events(tpc_source_trades)
 
     # --- Instantiate engines ---
     atrss_engines: dict[str, BacktestEngine] = {}
@@ -853,63 +1636,12 @@ def run_unified(
         eng._precompute_indicators(data.hourly[sym], data.four_hour[sym])
         helix_engines[sym] = eng
 
-    brs_engines: dict[str, BRSEngine] = {}
-    for sym in _brs_run_order(config.brs_symbols):
-        if sym not in data.brs_hourly:
-            continue
-        sym_cfg = brs_bt.get_symbol_config(sym)
-        mult = config.symbol_risk_multipliers.get(f"BRS_R9:{sym}", 1.0)
-        if mult != 1.0:
-            sym_cfg = _dc_replace(sym_cfg, base_risk_pct=sym_cfg.base_risk_pct * mult)
-        eng = BRSEngine(
-            symbol=sym,
-            sym_cfg=sym_cfg,
-            cfg=brs_bt,
-            starting_equity=0.0,
-        )
-        if sym == "GLD" and "QQQ" in brs_engines:
-            eng._qqq_regimes = brs_engines["QQQ"]._regime_history
-        eng._prepare_run_context(
-            daily=data.brs_daily[sym],
-            hourly=data.brs_hourly[sym],
-            four_hour=data.brs_four_hour[sym],
-            daily_idx_map=data.brs_daily_idx_maps[sym],
-            four_hour_idx_map=data.brs_four_hour_idx_maps[sym],
-        )
-        brs_engines[sym] = eng
-
-    # Breakout engines: run isolated in fixed_qty mode (matches run_breakout_independent),
-    # share state in risk-based mode (matches run_breakout_synchronized / production).
-    shared_breakout_positions: dict[str, BreakoutPositionState] | None = None if skip_heat else {}
-    shared_breakout_cb: BreakoutCBState | None = None if skip_heat else BreakoutCBState()
-    breakout_engines: dict[str, BreakoutEngine] = {}
-    for sym in config.breakout_symbols:
-        cfg = BREAKOUT_SYMBOL_CONFIGS.get(sym) or BREAKOUT_ETF_CONFIGS.get(sym)
-        if cfg is None or sym not in data.breakout_hourly:
-            continue
-        mult = config.symbol_risk_multipliers.get(f"SWING_BREAKOUT_V3:{sym}", 1.0)
-        if mult != 1.0:
-            cfg = _dc_replace(cfg, base_risk_pct=cfg.base_risk_pct * mult)
-        kw: dict = dict(symbol=sym, cfg=cfg, bt_config=breakout_bt,
-                        point_value=cfg.multiplier)
-        if shared_breakout_positions is not None:
-            kw["external_positions"] = shared_breakout_positions
-            kw["external_circuit_breaker"] = shared_breakout_cb
-        eng = BreakoutEngine(**kw)
-        eng._init_equity_arrays(len(data.breakout_hourly[sym]), data.breakout_hourly[sym].times.dtype)
-        # Precompute indicator arrays once (avoids per-bar recomputation)
-        eng._precompute_indicators(data.daily[sym], data.breakout_hourly[sym], data.breakout_four_hour[sym])
-        # Initialize rolling histories and slot medians (matching BreakoutEngine.run())
-        eng._init_histories(data.daily[sym], config.warmup_daily)
-        eng._init_slot_medians(data.breakout_hourly[sym], config.warmup_hourly)
-        breakout_engines[sym] = eng
-
-    if not atrss_engines and not helix_engines and not brs_engines and not breakout_engines:
+    if not atrss_engines and not helix_engines and not tpc_source_trades:
         logger.warning("No engines created — check symbols and data")
         return UnifiedPortfolioResult()
 
     # --- Build unified timestamp index ---
-    # ATRSS uses RTH-filtered hourly; Helix/Breakout use full hourly
+    # ATRSS uses RTH-filtered hourly; Helix uses full hourly.
     time_sets: dict[str, dict] = {}
     all_times_set: set = set()
     all_engines_flat: dict[str, object] = {}
@@ -936,33 +1668,14 @@ def run_unified(
         time_sets[key] = mapping
         all_times_set.update(mapping.keys())
 
-    for sym, eng in brs_engines.items():
-        key = f"brs_{sym}"
-        all_engines_flat[key] = eng
-        times = data.brs_hourly[sym].times
-        mapping = {}
-        for i in range(len(times)):
-            t = times[i].item() if hasattr(times[i], 'item') else times[i]
-            mapping[t] = i
-        time_sets[key] = mapping
-        all_times_set.update(mapping.keys())
-
-    for sym, eng in breakout_engines.items():
-        key = f"breakout_{sym}"
-        all_engines_flat[key] = eng
-        times = data.breakout_hourly[sym].times
-        mapping = {}
-        for i in range(len(times)):
-            t = times[i].item() if hasattr(times[i], 'item') else times[i]
-            mapping[t] = i
-        time_sets[key] = mapping
-        all_times_set.update(mapping.keys())
+    all_times_set.update(tpc_entries_by_ts.keys())
+    all_times_set.update(tpc_exits_by_ts.keys())
 
     unified_ts = sorted(all_times_set)
     logger.info("Unified timeline: %d bars", len(unified_ts))
 
     # --- Pre-cache _to_datetime conversions for engine hot-paths ---
-    # The Helix and Breakout engines convert numpy datetime64 → Python
+    # Helix converts numpy datetime64 to Python
     # datetime thousands of times per bar (lookback-window scans).
     # Pre-converting all unique timestamps into a cache and monkey-patching
     # the engines' _to_datetime eliminates redundant pd.Timestamp() calls.
@@ -980,15 +1693,11 @@ def run_unified(
         return r
     # Pre-populate from all timestamp arrays
     for _bars in (*data.hourly.values(), *data.atrss_hourly.values(),
-                  *data.brs_hourly.values(), *data.brs_four_hour.values(),
-                  *data.breakout_hourly.values(), *data.four_hour.values(),
-                  *data.breakout_four_hour.values(), *data.brs_daily.values(),
-                  *data.daily.values()):
+                  *data.four_hour.values(), *data.daily.values()):
         for _t in _bars.times:
             _fast_to_datetime(_t)
     # Patch engine static methods to use the cache
     HelixEngine._to_datetime = staticmethod(_fast_to_datetime)
-    BreakoutEngine._to_datetime = staticmethod(_fast_to_datetime)
 
     # --- Initialize trackers ---
     init_eq = config.initial_equity
@@ -1000,10 +1709,12 @@ def run_unified(
     heat_tracker = PortfolioHeatTracker(
         heat_cap_R=config.heat_cap_R,
         portfolio_daily_stop_R=config.portfolio_daily_stop_R,
-        strategy_slots=[config.atrss, config.helix, config.brs, config.breakout],
+        strategy_slots=[config.atrss, config.helix, config.tpc],
         equity=init_eq,
         simulate_live_r_normalization=config.simulate_live_r_normalization,
+        reserve_idle_higher_priority=config.reserve_idle_higher_priority,
     )
+    portfolio_rule_replay = None if skip_heat else _SwingPortfolioRuleReplayAdapter(config, init_eq)
     coordinator = BacktestCoordinator(
         enable_tighten=config.enable_atrss_helix_tighten,
         enable_size_boost=config.enable_atrss_helix_size_boost,
@@ -1033,19 +1744,9 @@ def run_unified(
             overlay_prev_sym_value[sym] = 0.0
             overlay_in_position[sym] = False
 
-    # Per-engine previous equity for delta tracking
-    # ATRSS and Helix: engine.equity starts at initial_equity, modified only by fills
-    # Breakout: engine.equity is NOT set to portfolio_equity (avoid double-counting)
-    prev_equity: dict[str, float] = {}
-    for label, engines in [("atrss", atrss_engines), ("helix", helix_engines), ("breakout", breakout_engines)]:
-        for sym in engines:
-            prev_equity[f"{label}_{sym}"] = init_eq
-    for sym in brs_engines:
-        prev_equity[f"brs_{sym}"] = 0.0
-
     # Track previous trade counts to detect actual trade closes
     prev_trade_counts: dict[str, int] = {}
-    for label, engines in [("atrss", atrss_engines), ("helix", helix_engines), ("brs", brs_engines), ("breakout", breakout_engines)]:
+    for label, engines in [("atrss", atrss_engines), ("helix", helix_engines)]:
         for sym in engines:
             prev_trade_counts[f"{label}_{sym}"] = 0
 
@@ -1054,17 +1755,23 @@ def run_unified(
     timestamps: list = []
     heat_samples: list[float] = []
     prev_date: date | None = None
-    entry_attempts: dict[str, int] = {"ATRSS": 0, "AKC_HELIX": 0, "BRS_R9": 0, "SWING_BREAKOUT_V3": 0}
-    accepted_entries: dict[str, int] = {"ATRSS": 0, "AKC_HELIX": 0, "BRS_R9": 0, "SWING_BREAKOUT_V3": 0}
-    blocked_entries: dict[str, int] = {"ATRSS": 0, "AKC_HELIX": 0, "BRS_R9": 0, "SWING_BREAKOUT_V3": 0}
+    entry_attempts: dict[str, int] = {"ATRSS": 0, "AKC_HELIX": 0, "TPC": 0}
+    accepted_entries: dict[str, int] = {"ATRSS": 0, "AKC_HELIX": 0, "TPC": 0}
+    blocked_entries: dict[str, int] = {"ATRSS": 0, "AKC_HELIX": 0, "TPC": 0}
+    suppressed_entry_retries: dict[str, int] = {"ATRSS": 0, "AKC_HELIX": 0, "TPC": 0}
     entry_event_log: list[dict] = []
     heat_rejection_log: list[dict] = []
     coordination_event_log: list[dict] = []
+    portfolio_rule_event_log: list[dict] = []
     daily_stop_activations = 0
+    active_tpc_trades: dict[int, object] = {}
+    active_tpc_risks: dict[int, float] = {}
+    accepted_tpc_trades: list = []
+    atrss_blocked_until: dict[tuple[str, str, int], datetime] = {}
+    atrss_block_ttl = timedelta(hours=float(ORDER_EXPIRY_HOURS))
 
     warmup_d = config.warmup_daily
     warmup_h = config.warmup_hourly
-    warmup_4h = config.warmup_4h
 
     # Track ATRSS position state for coordination
     atrss_prev_positions: dict[str, bool] = {sym: False for sym in atrss_engines}
@@ -1073,6 +1780,8 @@ def run_unified(
     # Apply ablation patches for ATRSS module-level constants (matches run_independent)
     _patch = _AblationPatch(atrss_bt.flags, atrss_bt.param_overrides)
     _patch.__enter__()
+    _helix_patch = _HelixAblationPatch(helix_bt.flags, helix_bt.param_overrides)
+    _helix_patch.__enter__()
 
     for ts in unified_ts:
 
@@ -1114,7 +1823,6 @@ def run_unified(
                     overlay_rsi=overlay_rsi or None,
                     overlay_macd=overlay_macd or None,
                     overlay_in_position=overlay_in_position,
-                    bear_regime_active=_brs_bear_strong_active(brs_engines),
                 )
                 # Overlay transaction costs: commission + slippage on share deltas
                 for _osym in config.overlay_symbols:
@@ -1153,13 +1861,13 @@ def run_unified(
             drawdown_pct = (peak_risk_equity - portfolio_equity) / peak_risk_equity if peak_risk_equity > 0 else 0.0
             risk_scale = _drawdown_risk_multiplier(drawdown_pct, config.drawdown_risk_tiers)
             risk_sizing_equity = max(portfolio_equity * risk_scale, 0.0)
-            heat_tracker.update_unit_risk(
-                risk_sizing_equity,
-                [config.atrss, config.helix, config.brs, config.breakout],
-            )
         else:
             risk_sizing_equity = portfolio_equity
             risk_scale = 1.0
+        heat_tracker.update_unit_risk(
+            risk_sizing_equity,
+            [config.atrss, config.helix, config.tpc],
+        )
 
         prev_date = current_date
 
@@ -1185,11 +1893,20 @@ def run_unified(
             if candidates:
                 bar_time = _to_datetime(ts)
                 for cand in candidates:
+                    signal_key = (sym, _enum_label(cand.type), int(cand.direction))
+                    blocked_until = atrss_blocked_until.get(signal_key)
+                    if blocked_until is not None:
+                        if bar_time < blocked_until:
+                            suppressed_entry_retries["ATRSS"] += 1
+                            continue
+                        atrss_blocked_until.pop(signal_key, None)
                     entry_attempts["ATRSS"] += 1
                     risk_dollars = abs(cand.trigger_price - cand.initial_stop) * engine.point_value * cand.qty
                     if skip_heat:
+                        setattr(cand, "portfolio_size_mult", 1.0)
                         engine.submit_candidate(cand, bar_time)
                         accepted_entries["ATRSS"] += 1
+                        atrss_blocked_until.pop(signal_key, None)
                         _log_entry_event(
                             entry_event_log, heat_tracker, bar_time, "ATRSS", sym, "entry",
                             "accepted", "", risk_dollars,
@@ -1204,12 +1921,67 @@ def run_unified(
                         )
                     else:
                         ok, reason = heat_tracker.can_enter("ATRSS", risk_dollars)
+                        adjusted_risk_dollars = risk_dollars
+                        portfolio_size_mult = 1.0
+                        if ok and portfolio_rule_replay is not None:
+                            portfolio_rule_replay.refresh(
+                                equity=portfolio_equity,
+                                unit_equity=risk_sizing_equity,
+                                exposures=_portfolio_rule_exposures(
+                                    config,
+                                    init_eq,
+                                    atrss_engines,
+                                    helix_engines,
+                                    active_tpc_trades,
+                                    active_tpc_risks,
+                                ),
+                            )
+                            rule_result = portfolio_rule_replay.check_entry(
+                                strategy_id="ATRSS",
+                                direction=_direction_label(cand.direction),
+                                risk_dollars=risk_dollars,
+                                symbol=sym,
+                                qty=cand.qty,
+                            )
+                            if not rule_result.approved:
+                                ok = False
+                                reason = f"Portfolio rule: {rule_result.denial_reason}"
+                                portfolio_rule_event_log.append(
+                                    {
+                                        "time": bar_time,
+                                        "strategy": "ATRSS",
+                                        "symbol": sym,
+                                        "result": "blocked",
+                                        "reason": reason,
+                                    }
+                                )
+                            else:
+                                portfolio_size_mult = float(rule_result.size_multiplier or 1.0)
+                                ratio, _new_qty = _apply_portfolio_size_multiplier_to_atrss_candidate(
+                                    cand,
+                                    portfolio_size_mult,
+                                )
+                                adjusted_risk_dollars = risk_dollars * ratio
+                                if portfolio_size_mult != 1.0:
+                                    portfolio_rule_event_log.append(
+                                        {
+                                            "time": bar_time,
+                                            "strategy": "ATRSS",
+                                            "symbol": sym,
+                                            "result": "sized",
+                                            "size_multiplier": portfolio_size_mult,
+                                            "quantity": _new_qty,
+                                        }
+                                    )
                         if ok:
+                            setattr(cand, "portfolio_size_mult", portfolio_size_mult)
                             engine.submit_candidate(cand, bar_time)
+                            heat_tracker.reserve_entry("ATRSS", adjusted_risk_dollars)
                             accepted_entries["ATRSS"] += 1
+                            atrss_blocked_until.pop(signal_key, None)
                             _log_entry_event(
                                 entry_event_log, heat_tracker, bar_time, "ATRSS", sym, "entry",
-                                "accepted", "", risk_dollars,
+                                "accepted", "", adjusted_risk_dollars,
                                 direction=int(cand.direction),
                                 entry_price=cand.trigger_price,
                                 stop_price=cand.initial_stop,
@@ -1217,10 +1989,16 @@ def run_unified(
                                 signal_type=_enum_label(cand.type),
                                 quality_score=getattr(cand, "rank_score", None),
                                 entry_already_filled=False,
-                                metadata={"risk_scale": risk_scale, "atrh": getattr(cand, "atrh", 0.0)},
+                                metadata={
+                                    "risk_scale": risk_scale,
+                                    "atrh": getattr(cand, "atrh", 0.0),
+                                    "portfolio_size_mult": portfolio_size_mult,
+                                    "requested_risk_dollars": risk_dollars,
+                                },
                             )
                         else:
                             blocked_entries["ATRSS"] += 1
+                            atrss_blocked_until[signal_key] = bar_time + atrss_block_ttl
                             event = _log_entry_event(
                                 entry_event_log, heat_tracker, bar_time, "ATRSS", sym, "entry",
                                 "blocked", reason, risk_dollars,
@@ -1266,213 +2044,7 @@ def run_unified(
                             coordinator.tighten_count += 1
                             coordination_event_log.append({"time": _to_datetime(ts), "type": "tighten", "trigger_strategy": "ATRSS", "target_strategy": "AKC_HELIX", "symbol": tighten_sym})
 
-        # === Step 3: BRS engines (priority 2) ===
-        for sym in _brs_run_order(list(brs_engines)):
-            engine = brs_engines[sym]
-            key = f"brs_{sym}"
-            bar_idx = time_sets[key].get(ts)
-            if bar_idx is None:
-                continue
-
-            had_pending_entry = engine._pending_entry is not None
-            had_pending_add = engine._pending_add is not None
-
-            try:
-                engine._step_bar(
-                    bar_idx,
-                    sizing_equity=risk_sizing_equity,
-                    shared_reserved_risk_dollars=_brs_reserved_risk_dollars(brs_engines),
-                    shared_concurrent_positions=_brs_reserved_position_slots(brs_engines),
-                )
-            except (OverflowError, ValueError):
-                continue
-
-            if not skip_heat and engine._pending_entry is not None and not had_pending_entry:
-                pending = engine._pending_entry
-                signal = pending.signal
-                risk_dollars = pending.signal.risk_per_unit * pending.qty
-                entry_attempts["BRS_R9"] += 1
-                ok, reason = heat_tracker.can_enter("BRS_R9", risk_dollars)
-                if not ok:
-                    blocked_entries["BRS_R9"] += 1
-                    event = _log_entry_event(
-                        entry_event_log, heat_tracker, _to_datetime(ts), "BRS_R9", sym, "entry",
-                        "blocked", reason, risk_dollars,
-                        direction=int(signal.direction),
-                        entry_price=signal.signal_price,
-                        stop_price=signal.stop_price,
-                        quantity=pending.qty,
-                        signal_type=_enum_label(signal.entry_type),
-                        quality_score=getattr(signal, "quality_score", None),
-                        entry_already_filled=True,
-                        metadata={
-                            "risk_scale": risk_scale,
-                            "regime": _enum_label(getattr(signal, "regime_at_entry", "")),
-                            "bear_conviction": float(getattr(signal, "bear_conviction", 0.0) or 0.0),
-                            "vol_factor": float(getattr(signal, "vol_factor", 0.0) or 0.0),
-                        },
-                    )
-                    heat_rejection_log.append(event)
-                    _cancel_brs_pending_order(engine, "entry")
-                    if "daily stop" in reason.lower():
-                        daily_stop_activations += 1
-                else:
-                    accepted_entries["BRS_R9"] += 1
-                    _log_entry_event(
-                        entry_event_log, heat_tracker, _to_datetime(ts), "BRS_R9", sym, "entry",
-                        "accepted", "", risk_dollars,
-                        direction=int(signal.direction),
-                        entry_price=signal.signal_price,
-                        stop_price=signal.stop_price,
-                        quantity=pending.qty,
-                        signal_type=_enum_label(signal.entry_type),
-                        quality_score=getattr(signal, "quality_score", None),
-                        entry_already_filled=True,
-                        metadata={
-                            "risk_scale": risk_scale,
-                            "regime": _enum_label(getattr(signal, "regime_at_entry", "")),
-                            "bear_conviction": float(getattr(signal, "bear_conviction", 0.0) or 0.0),
-                            "vol_factor": float(getattr(signal, "vol_factor", 0.0) or 0.0),
-                        },
-                    )
-
-            if not skip_heat and engine._pending_add is not None and not had_pending_add:
-                pending_add = engine._pending_add
-                signal = pending_add.signal
-                risk_dollars = engine._pos_risk_per_unit * pending_add.qty
-                entry_attempts["BRS_R9"] += 1
-                ok, reason = heat_tracker.can_enter("BRS_R9", risk_dollars)
-                if not ok:
-                    blocked_entries["BRS_R9"] += 1
-                    event = _log_entry_event(
-                        entry_event_log, heat_tracker, _to_datetime(ts), "BRS_R9", sym, "add_on",
-                        "blocked", reason, risk_dollars,
-                        direction=int(signal.direction),
-                        entry_price=signal.signal_price,
-                        stop_price=signal.stop_price,
-                        quantity=pending_add.qty,
-                        signal_type=_enum_label(signal.entry_type),
-                        quality_score=getattr(signal, "quality_score", None),
-                        entry_already_filled=True,
-                        metadata={
-                            "risk_scale": risk_scale,
-                            "regime": _enum_label(getattr(signal, "regime_at_entry", "")),
-                            "bear_conviction": float(getattr(signal, "bear_conviction", 0.0) or 0.0),
-                            "vol_factor": float(getattr(signal, "vol_factor", 0.0) or 0.0),
-                        },
-                    )
-                    heat_rejection_log.append(event)
-                    _cancel_brs_pending_order(engine, "add_on")
-                    if "daily stop" in reason.lower():
-                        daily_stop_activations += 1
-                else:
-                    accepted_entries["BRS_R9"] += 1
-                    _log_entry_event(
-                        entry_event_log, heat_tracker, _to_datetime(ts), "BRS_R9", sym, "add_on",
-                        "accepted", "", risk_dollars,
-                        direction=int(signal.direction),
-                        entry_price=signal.signal_price,
-                        stop_price=signal.stop_price,
-                        quantity=pending_add.qty,
-                        signal_type=_enum_label(signal.entry_type),
-                        quality_score=getattr(signal, "quality_score", None),
-                        entry_already_filled=True,
-                        metadata={
-                            "risk_scale": risk_scale,
-                            "regime": _enum_label(getattr(signal, "regime_at_entry", "")),
-                            "bear_conviction": float(getattr(signal, "bear_conviction", 0.0) or 0.0),
-                            "vol_factor": float(getattr(signal, "vol_factor", 0.0) or 0.0),
-                        },
-                    )
-
-        # === Step 4: Breakout engines (priority 3) ===
-        for sym, engine in breakout_engines.items():
-            key = f"breakout_{sym}"
-            bar_idx = time_sets[key].get(ts)
-            if bar_idx is None:
-                continue
-
-            # Breakout uses self.equity for both sizing and PnL tracking
-            # (no separate sizing_equity like ATRSS/Helix). In risk-based
-            # mode we inject portfolio equity for sizing, then extract the
-            # fill-caused PnL delta and restore independent tracking.
-            if not skip_heat:
-                saved_equity = engine.equity
-                engine.equity = risk_sizing_equity
-
-            had_position = engine.active_position is not None and engine.active_position.qty_open > 0
-
-            try:
-                engine._step_bar(
-                    data.daily[sym], data.breakout_hourly[sym],
-                    data.breakout_four_hour[sym],
-                    data.breakout_daily_idx_maps[sym],
-                    data.breakout_four_hour_idx_maps[sym],
-                    bar_idx, warmup_d, warmup_h, warmup_4h,
-                )
-            except (OverflowError, ValueError):
-                if not skip_heat:
-                    engine.equity = saved_equity
-                continue
-
-            # Restore independent equity: saved + fill PnL from this bar
-            if not skip_heat:
-                fill_pnl = engine.equity - risk_sizing_equity
-                engine.equity = saved_equity + fill_pnl
-
-            has_position = engine.active_position is not None and engine.active_position.qty_open > 0
-            if has_position and not had_position:
-                pos = engine.active_position
-                risk_dollars = abs(pos.fill_price - pos.current_stop) * engine.point_value * pos.qty_open
-                entry_attempts["SWING_BREAKOUT_V3"] += 1
-                if skip_heat:
-                    ok, reason = True, ""
-                else:
-                    ok, reason = heat_tracker.can_enter("SWING_BREAKOUT_V3", risk_dollars)
-                if not ok:
-                    blocked_entries["SWING_BREAKOUT_V3"] += 1
-                    event = _log_entry_event(
-                        entry_event_log, heat_tracker, _to_datetime(ts), "SWING_BREAKOUT_V3", sym, "entry",
-                        "blocked", reason, risk_dollars,
-                        direction=int(pos.setup.direction),
-                        entry_price=pos.fill_price,
-                        stop_price=pos.current_stop,
-                        quantity=pos.qty_open,
-                        signal_type=_enum_label(pos.entry_type or getattr(pos.setup, "entry_type", "")),
-                        quality_score=getattr(pos, "quality_mult", None),
-                        entry_already_filled=True,
-                        metadata={
-                            "risk_scale": risk_scale,
-                            "regime": str(getattr(pos, "regime_at_entry", "") or ""),
-                            "disp_at_entry": float(getattr(pos, "disp_at_entry", 0.0) or 0.0),
-                            "rvol_d_at_entry": float(getattr(pos, "rvol_d_at_entry", 0.0) or 0.0),
-                        },
-                    )
-                    heat_rejection_log.append(event)
-                    _force_flatten_breakout(engine, pos)
-                    if "daily stop" in reason.lower():
-                        daily_stop_activations += 1
-                else:
-                    accepted_entries["SWING_BREAKOUT_V3"] += 1
-                    _log_entry_event(
-                        entry_event_log, heat_tracker, _to_datetime(ts), "SWING_BREAKOUT_V3", sym, "entry",
-                        "accepted", "", risk_dollars,
-                        direction=int(pos.setup.direction),
-                        entry_price=pos.fill_price,
-                        stop_price=pos.current_stop,
-                        quantity=pos.qty_open,
-                        signal_type=_enum_label(pos.entry_type or getattr(pos.setup, "entry_type", "")),
-                        quality_score=getattr(pos, "quality_mult", None),
-                        entry_already_filled=True,
-                        metadata={
-                            "risk_scale": risk_scale,
-                            "regime": str(getattr(pos, "regime_at_entry", "") or ""),
-                            "disp_at_entry": float(getattr(pos, "disp_at_entry", 0.0) or 0.0),
-                            "rvol_d_at_entry": float(getattr(pos, "rvol_d_at_entry", 0.0) or 0.0),
-                        },
-                    )
-
-        # === Step 5: Helix engines (priority 4) ===
+        # === Step 3: Helix engines (priority 1) ===
         for sym, engine in helix_engines.items():
             key = f"helix_{sym}"
             bar_idx = time_sets[key].get(ts)
@@ -1503,6 +2075,59 @@ def run_unified(
                     ok, reason = True, ""
                 else:
                     ok, reason = heat_tracker.can_enter("AKC_HELIX", risk_dollars)
+                adjusted_risk_dollars = risk_dollars
+                portfolio_size_mult = 1.0
+                if ok and not skip_heat and portfolio_rule_replay is not None:
+                    portfolio_rule_replay.refresh(
+                        equity=portfolio_equity,
+                        unit_equity=risk_sizing_equity,
+                        exposures=_portfolio_rule_exposures(
+                            config,
+                            init_eq,
+                            atrss_engines,
+                            helix_engines,
+                            active_tpc_trades,
+                            active_tpc_risks,
+                        ),
+                    )
+                    rule_result = portfolio_rule_replay.check_entry(
+                        strategy_id="AKC_HELIX",
+                        direction=_direction_label(pos.setup.direction),
+                        risk_dollars=risk_dollars,
+                        symbol=sym,
+                        qty=pos.qty_open,
+                        skip_current_exposure=True,
+                    )
+                    if not rule_result.approved:
+                        ok = False
+                        reason = f"Portfolio rule: {rule_result.denial_reason}"
+                        portfolio_rule_event_log.append(
+                            {
+                                "time": _to_datetime(ts),
+                                "strategy": "AKC_HELIX",
+                                "symbol": sym,
+                                "result": "blocked",
+                                "reason": reason,
+                            }
+                        )
+                    else:
+                        portfolio_size_mult = float(rule_result.size_multiplier or 1.0)
+                        ratio, new_qty = _apply_portfolio_size_multiplier_to_helix(
+                            engine,
+                            portfolio_size_mult,
+                        )
+                        adjusted_risk_dollars = risk_dollars * ratio
+                        if portfolio_size_mult != 1.0:
+                            portfolio_rule_event_log.append(
+                                {
+                                    "time": _to_datetime(ts),
+                                    "strategy": "AKC_HELIX",
+                                    "symbol": sym,
+                                    "result": "sized",
+                                    "size_multiplier": portfolio_size_mult,
+                                    "quantity": new_qty,
+                                }
+                            )
                 if not ok:
                     # Force flatten: reverse the entry
                     blocked_entries["AKC_HELIX"] += 1
@@ -1530,18 +2155,21 @@ def run_unified(
                         daily_stop_activations += 1
                 else:
                     accepted_entries["AKC_HELIX"] += 1
+                    heat_tracker.reserve_entry("AKC_HELIX", adjusted_risk_dollars)
                     _log_entry_event(
                         entry_event_log, heat_tracker, _to_datetime(ts), "AKC_HELIX", sym, "entry",
-                        "accepted", "", risk_dollars,
+                        "accepted", "", adjusted_risk_dollars,
                         direction=int(pos.setup.direction),
                         entry_price=pos.fill_price,
                         stop_price=pos.current_stop,
-                        quantity=pos.qty_open,
+                        quantity=engine.active_position.qty_open if engine.active_position is not None else pos.qty_open,
                         signal_type=_enum_label(pos.setup.setup_class),
                         quality_score=float(getattr(pos.setup, "adx_at_entry", 0.0) or 0.0),
                         entry_already_filled=True,
                         metadata={
                             "risk_scale": risk_scale,
+                            "portfolio_size_mult": portfolio_size_mult,
+                            "requested_risk_dollars": risk_dollars,
                             "origin_tf": str(getattr(pos.setup, "origin_tf", "") or ""),
                             "regime": str(getattr(pos, "regime_at_entry", "") or ""),
                             "regime_4h": str(getattr(pos.setup, "regime_4h_at_entry", "") or ""),
@@ -1555,42 +2183,159 @@ def run_unified(
                             coordinator.boost_count += 1
                             coordination_event_log.append({"time": _to_datetime(ts), "type": "boost", "trigger_strategy": "ATRSS", "target_strategy": "AKC_HELIX", "symbol": sym})
 
-        # === Step 6: Update portfolio equity from per-engine PnL deltas ===
-        # Each engine's equity = initial_equity + cumulative realized PnL
-        # Portfolio equity = initial_equity + sum of all engines' realized PnL
+        # === Step 3b: TPC completed-trade source replay (priority 2) ===
+        # TPC uses its shared-core ETF replay to generate source trades; this
+        # layer then admits those trades through family heat and daily stops.
+        for trade_id, trade in tpc_exits_by_ts.get(ts, []):
+            if trade_id not in active_tpc_trades:
+                continue
+            admitted_trade = active_tpc_trades[trade_id]
+            trade_pnl = _normalised_trade_pnl("TPC", admitted_trade, config, init_eq)
+            portfolio_equity += trade_pnl
+            heat_tracker.record_trade_close("TPC", trade_pnl)
+            accepted_tpc_trades.append(admitted_trade)
+            active_tpc_trades.pop(trade_id, None)
+            active_tpc_risks.pop(trade_id, None)
+
+        for trade_id, trade in tpc_entries_by_ts.get(ts, []):
+            sym = str(getattr(trade, "symbol", ""))
+            risk_dollars = _trade_risk_dollars(trade)
+            entry_attempts["TPC"] += 1
+            if skip_heat:
+                ok, reason = True, ""
+            else:
+                ok, reason = heat_tracker.can_enter("TPC", risk_dollars)
+            adjusted_trade = trade
+            adjusted_risk_dollars = risk_dollars
+            portfolio_size_mult = 1.0
+            adjusted_qty = int(abs(float(getattr(trade, "qty", 0.0) or 0.0)))
+            if ok and not skip_heat and portfolio_rule_replay is not None:
+                portfolio_rule_replay.refresh(
+                    equity=portfolio_equity,
+                    unit_equity=risk_sizing_equity,
+                    exposures=_portfolio_rule_exposures(
+                        config,
+                        init_eq,
+                        atrss_engines,
+                        helix_engines,
+                        active_tpc_trades,
+                        active_tpc_risks,
+                    ),
+                )
+                rule_result = portfolio_rule_replay.check_entry(
+                    strategy_id="TPC",
+                    direction=_direction_label(getattr(trade, "direction", 0)),
+                    risk_dollars=risk_dollars,
+                    symbol=sym,
+                    qty=adjusted_qty,
+                )
+                if not rule_result.approved:
+                    ok = False
+                    reason = f"Portfolio rule: {rule_result.denial_reason}"
+                    portfolio_rule_event_log.append(
+                        {
+                            "time": _to_datetime(ts),
+                            "strategy": "TPC",
+                            "symbol": sym,
+                            "result": "blocked",
+                            "reason": reason,
+                        }
+                    )
+                else:
+                    portfolio_size_mult = float(rule_result.size_multiplier or 1.0)
+                    adjusted_trade, ratio, adjusted_qty = _scaled_tpc_trade(trade, portfolio_size_mult)
+                    adjusted_risk_dollars = risk_dollars * ratio
+                    if portfolio_size_mult != 1.0:
+                        portfolio_rule_event_log.append(
+                            {
+                                "time": _to_datetime(ts),
+                                "strategy": "TPC",
+                                "symbol": sym,
+                                "result": "sized",
+                                "size_multiplier": portfolio_size_mult,
+                                "quantity": adjusted_qty,
+                            }
+                        )
+            if ok:
+                accepted_entries["TPC"] += 1
+                active_tpc_trades[trade_id] = adjusted_trade
+                active_tpc_risks[trade_id] = adjusted_risk_dollars
+                heat_tracker.reserve_entry("TPC", adjusted_risk_dollars)
+                _log_entry_event(
+                    entry_event_log, heat_tracker, _to_datetime(ts), "TPC", sym, "entry",
+                    "accepted", "", adjusted_risk_dollars,
+                    direction=int(getattr(adjusted_trade, "direction", 0) or 0),
+                    entry_price=float(getattr(adjusted_trade, "entry_price", 0.0) or 0.0),
+                    stop_price=float(getattr(adjusted_trade, "initial_stop", 0.0) or 0.0),
+                    quantity=float(getattr(adjusted_trade, "qty", 0.0) or 0.0),
+                    signal_type=str(getattr(adjusted_trade, "entry_type", "") or ""),
+                    quality_score=float(getattr(adjusted_trade, "quality_score", 0.0) or 0.0),
+                    entry_already_filled=True,
+                    metadata={
+                        "risk_scale": risk_scale,
+                        "source": "tpc_completed_trade_replay",
+                        "portfolio_size_mult": portfolio_size_mult,
+                        "requested_risk_dollars": risk_dollars,
+                    },
+                )
+            else:
+                blocked_entries["TPC"] += 1
+                event = _log_entry_event(
+                    entry_event_log, heat_tracker, _to_datetime(ts), "TPC", sym, "entry",
+                    "blocked", reason, risk_dollars,
+                    direction=int(getattr(trade, "direction", 0) or 0),
+                    entry_price=float(getattr(trade, "entry_price", 0.0) or 0.0),
+                    stop_price=float(getattr(trade, "initial_stop", 0.0) or 0.0),
+                    quantity=float(getattr(trade, "qty", 0.0) or 0.0),
+                    signal_type=str(getattr(trade, "entry_type", "") or ""),
+                    quality_score=float(getattr(trade, "quality_score", 0.0) or 0.0),
+                    entry_already_filled=True,
+                    metadata={"risk_scale": risk_scale, "source": "tpc_completed_trade_replay"},
+                )
+                heat_rejection_log.append(event)
+                if "daily stop" in reason.lower():
+                    daily_stop_activations += 1
+
+        # === Step 4: Update portfolio equity from normalized closed-trade PnL ===
         for label, engines, strat_id in [
             ("atrss", atrss_engines, "ATRSS"),
-            ("brs", brs_engines, "BRS_R9"),
-            ("breakout", breakout_engines, "SWING_BREAKOUT_V3"),
             ("helix", helix_engines, "AKC_HELIX"),
         ]:
             for sym, eng in engines.items():
                 key = f"{label}_{sym}"
-                delta = eng.equity - prev_equity[key]
-                portfolio_equity += delta
-                prev_equity[key] = eng.equity
-
                 # Record realized PnL only when a trade actually closes
                 n_trades = len(eng.trades)
                 if n_trades > prev_trade_counts[key]:
                     # New trade(s) closed — record the PnL from the most recent trade
                     for t_idx in range(prev_trade_counts[key], n_trades):
-                        trade_pnl = eng.trades[t_idx].pnl_dollars
+                        trade_pnl = _normalised_trade_pnl(strat_id, eng.trades[t_idx], config, init_eq)
+                        portfolio_equity += trade_pnl
                         heat_tracker.record_trade_close(strat_id, trade_pnl)
                     prev_trade_counts[key] = n_trades
 
-        # === Step 7: Update heat tracker ===
-        risk_by_strat = _compute_open_risk(atrss_engines, helix_engines, brs_engines, breakout_engines)
+        # === Step 5: Update heat tracker ===
+        risk_by_strat = _compute_open_risk(atrss_engines, helix_engines, active_tpc_risks)
         heat_tracker.update_open_risk(risk_by_strat)
 
         engine_groups = [
             ("atrss", atrss_engines),
-            ("brs", brs_engines),
-            ("breakout", breakout_engines),
             ("helix", helix_engines),
         ]
+        tpc_open_mtm = _tpc_open_mtm_pnl(
+            data,
+            active_tpc_trades,
+            active_tpc_risks,
+            config,
+            init_eq,
+            int(ts),
+        )
         equity_curve_realized.append(portfolio_equity + overlay_cumulative_pnl)
-        equity_curve_mtm.append(_combined_child_mtm_equity(init_eq, engine_groups, overlay_cumulative_pnl))
+        equity_curve_mtm.append(
+            portfolio_equity
+            + overlay_cumulative_pnl
+            + _combined_child_open_mtm_pnl(engine_groups, config, init_eq)
+            + tpc_open_mtm
+        )
         timestamps.append(ts)
 
         # Track heat utilization (normalized to ATRSS R-units for consistency)
@@ -1600,34 +2345,50 @@ def run_unified(
         heat_R = total_risk / norm_base if norm_base > 0 else 0.0
         heat_samples.append(heat_R)
 
-    _patch.__exit__(None, None, None)
-
-    for sym, eng in brs_engines.items():
-        key = f"brs_{sym}"
-        eng._finalize_end_of_data()
-        if eng.equity_curve:
-            eng.equity_curve[-1] = eng._mtm_equity()
-        delta = eng.equity - prev_equity[key]
-        portfolio_equity += delta
-        prev_equity[key] = eng.equity
-        n_trades = len(eng.trades)
-        if n_trades > prev_trade_counts[key]:
-            for t_idx in range(prev_trade_counts[key], n_trades):
-                heat_tracker.record_trade_close("BRS_R9", eng.trades[t_idx].pnl_dollars)
+    finalized_helix = False
+    for sym, engine in helix_engines.items():
+        if engine.active_position is None:
+            continue
+        hourly = data.hourly.get(sym)
+        if hourly is None or len(hourly) == 0:
+            continue
+        engine._flatten_at_end_of_data(
+            hourly.closes[-1],
+            engine._to_datetime(hourly.times[-1]),
+        )
+        key = f"helix_{sym}"
+        n_trades = len(engine.trades)
+        if n_trades > prev_trade_counts.get(key, 0):
+            for t_idx in range(prev_trade_counts.get(key, 0), n_trades):
+                trade_pnl = _normalised_trade_pnl("AKC_HELIX", engine.trades[t_idx], config, init_eq)
+                portfolio_equity += trade_pnl
+                heat_tracker.record_trade_close("AKC_HELIX", trade_pnl)
             prev_trade_counts[key] = n_trades
-        if equity_curve_realized:
-            equity_curve_realized[-1] = portfolio_equity + overlay_cumulative_pnl
-        if equity_curve_mtm:
-            equity_curve_mtm[-1] = _combined_child_mtm_equity(
+            finalized_helix = True
+
+    if finalized_helix and equity_curve_realized:
+        final_ts = int(timestamps[-1]) if timestamps else 0
+        final_engine_groups = [
+            ("atrss", atrss_engines),
+            ("helix", helix_engines),
+        ]
+        equity_curve_realized[-1] = portfolio_equity + overlay_cumulative_pnl
+        equity_curve_mtm[-1] = (
+            portfolio_equity
+            + overlay_cumulative_pnl
+            + _combined_child_open_mtm_pnl(final_engine_groups, config, init_eq)
+            + _tpc_open_mtm_pnl(
+                data,
+                active_tpc_trades,
+                active_tpc_risks,
+                config,
                 init_eq,
-                [
-                    ("atrss", atrss_engines),
-                    ("brs", brs_engines),
-                    ("breakout", breakout_engines),
-                    ("helix", helix_engines),
-                ],
-                overlay_cumulative_pnl,
+                final_ts,
             )
+        )
+
+    _helix_patch.__exit__(None, None, None)
+    _patch.__exit__(None, None, None)
 
     # --- Final overlay settlement: MTM the last day's positions ---
     if config.overlay_enabled and prev_date is not None:
@@ -1653,15 +2414,23 @@ def run_unified(
         if equity_curve_realized:
             equity_curve_realized[-1] = portfolio_equity + overlay_cumulative_pnl
         if equity_curve_mtm:
-            equity_curve_mtm[-1] = _combined_child_mtm_equity(
-                init_eq,
-                [
-                    ("atrss", atrss_engines),
-                    ("brs", brs_engines),
-                    ("breakout", breakout_engines),
-                    ("helix", helix_engines),
-                ],
-                overlay_cumulative_pnl,
+            final_ts = int(timestamps[-1]) if timestamps else 0
+            final_engine_groups = [
+                ("atrss", atrss_engines),
+                ("helix", helix_engines),
+            ]
+            equity_curve_mtm[-1] = (
+                portfolio_equity
+                + overlay_cumulative_pnl
+                + _combined_child_open_mtm_pnl(final_engine_groups, config, init_eq)
+                + _tpc_open_mtm_pnl(
+                    data,
+                    active_tpc_trades,
+                    active_tpc_risks,
+                    config,
+                    init_eq,
+                    final_ts,
+                )
             )
 
     # --- Build results ---
@@ -1672,37 +2441,44 @@ def run_unified(
         pct_time_at_cap=float(np.mean(heat_arr >= config.heat_cap_R)) * 100,
     )
 
-    # Collect trades per strategy
-    all_atrss_trades = []
+    # Collect portfolio-normalised trades per strategy. Raw child-engine
+    # trade dollars are source diagnostics; portfolio reports use the same
+    # static initial-risk basis that drove the shared equity ledger.
+    raw_atrss_trades = []
     for eng in atrss_engines.values():
-        all_atrss_trades.extend(eng.trades)
+        raw_atrss_trades.extend(eng.trades)
 
-    all_helix_trades = []
+    raw_helix_trades = []
     for eng in helix_engines.values():
-        all_helix_trades.extend(eng.trades)
+        raw_helix_trades.extend(eng.trades)
 
-    all_brs_trades = []
-    for eng in brs_engines.values():
-        all_brs_trades.extend(eng.trades)
-
-    all_breakout_trades = []
-    for eng in breakout_engines.values():
-        all_breakout_trades.extend(eng.trades)
+    all_atrss_trades = [
+        _normalised_trade_copy("ATRSS", trade, config, init_eq)
+        for trade in raw_atrss_trades
+    ]
+    all_helix_trades = [
+        _normalised_trade_copy("AKC_HELIX", trade, config, init_eq)
+        for trade in raw_helix_trades
+    ]
+    all_tpc_trades = [
+        _normalised_trade_copy("TPC", trade, config, init_eq)
+        for trade in accepted_tpc_trades
+    ]
 
     strategy_results = {}
     for sid, trades, blocked in [
         ("ATRSS", all_atrss_trades, blocked_entries["ATRSS"]),
-        ("BRS_R9", all_brs_trades, blocked_entries["BRS_R9"]),
-        ("SWING_BREAKOUT_V3", all_breakout_trades, blocked_entries["SWING_BREAKOUT_V3"]),
         ("AKC_HELIX", all_helix_trades, blocked_entries["AKC_HELIX"]),
+        ("TPC", all_tpc_trades, blocked_entries["TPC"]),
     ]:
-        total_pnl = sum(t.pnl_dollars for t in trades)
-        wins = sum(1 for t in trades if t.pnl_dollars > 0)
-        losses = sum(1 for t in trades if t.pnl_dollars <= 0)
-        total_r = sum(t.r_multiple for t in trades)
+        total_pnl = sum(_trade_net_pnl(t) for t in trades)
+        wins = sum(1 for t in trades if _trade_net_pnl(t) > 0)
+        losses = sum(1 for t in trades if _trade_net_pnl(t) <= 0)
+        total_r = sum(_trade_net_r(t) for t in trades)
         strategy_results[sid] = StrategyResult(
             strategy_id=sid,
             entry_signals_fired=entry_attempts[sid],
+            entry_requests=entry_attempts[sid],
             entries_accepted_by_portfolio=accepted_entries[sid],
             total_trades=len(trades),
             total_pnl=total_pnl,
@@ -1710,7 +2486,11 @@ def run_unified(
             losing_trades=losses,
             total_r=total_r,
             entries_blocked_by_heat=blocked,
+            suppressed_entry_retries=suppressed_entry_retries[sid],
         )
+
+    if portfolio_rule_replay is not None:
+        portfolio_rule_replay.close()
 
     return UnifiedPortfolioResult(
         combined_equity=np.array(equity_curve_mtm),
@@ -1727,33 +2507,17 @@ def run_unified(
         overlay_per_symbol_pnl=dict(overlay_per_sym_pnl),
         atrss_trades=all_atrss_trades,
         helix_trades=all_helix_trades,
-        brs_trades=all_brs_trades,
-        breakout_trades=all_breakout_trades,
+        tpc_trades=all_tpc_trades,
         entry_events=entry_event_log,
         heat_rejections=heat_rejection_log,
         coordination_events=coordination_event_log,
+        portfolio_rule_events=portfolio_rule_event_log,
     )
 
 
 # ---------------------------------------------------------------------------
 # Force-flatten helpers (when heat check fails post-entry)
 # ---------------------------------------------------------------------------
-
-def _brs_run_order(symbols) -> list[str]:
-    return sorted(symbols, key=lambda sym: (0 if sym == "QQQ" else 1, sym))
-
-
-def _brs_reserved_risk_dollars(engines: dict[str, BRSEngine]) -> float:
-    return sum(engine.reserved_risk_dollars() for engine in engines.values())
-
-
-def _brs_reserved_position_slots(engines: dict[str, BRSEngine]) -> int:
-    return sum(engine.reserved_position_slots() for engine in engines.values())
-
-
-def _brs_bear_strong_active(engines: dict[str, BRSEngine]) -> bool:
-    return any(getattr(engine.daily_ctx, "regime", None) == BRSRegime.BEAR_STRONG for engine in engines.values())
-
 
 def _drawdown_risk_multiplier(drawdown_pct: float, tiers: tuple[tuple[float, float], ...] | list[tuple[float, float]]) -> float:
     multiplier = 1.0
@@ -1767,19 +2531,6 @@ def _enum_label(value) -> str:
     if value is None:
         return ""
     return str(getattr(value, "value", getattr(value, "name", value)))
-
-
-def _cancel_brs_pending_order(engine: BRSEngine, tag: str) -> None:
-    cancelled = engine.broker.cancel_orders(engine.symbol, tag=tag)
-    cancelled_ids = {order.order_id for order in cancelled}
-    if tag == "entry" and engine._pending_entry is not None:
-        cancelled_ids.add(engine._pending_entry.order_id)
-        engine._pending_entry = None
-    elif tag == "add_on" and engine._pending_add is not None:
-        cancelled_ids.add(engine._pending_add.order_id)
-        engine._pending_add = None
-    for order_id in cancelled_ids:
-        engine._core_state.pending_orders.pop(order_id, None)
 
 
 def _log_entry_event(
@@ -1874,23 +2625,6 @@ def _force_flatten_helix(engine: HelixEngine, pos) -> None:
         engine.equity += entry_comm
         engine.total_commission -= entry_comm
     engine.setups_filled = max(0, engine.setups_filled - 1)
-    engine.active_position = None
-
-
-def _force_flatten_breakout(engine: BreakoutEngine, pos) -> None:
-    """Reverse a Breakout entry that breached the heat cap."""
-    engine.broker.cancel_all(engine.symbol)
-    # Reverse entry commission leaked by the phantom fill
-    entry_comm = getattr(pos, "commission", 0.0)
-    if entry_comm > 0:
-        engine.equity += entry_comm
-        engine.total_commission -= entry_comm
-    engine.entries_filled = max(0, engine.entries_filled - 1)
-    # Reset campaign state back from POSITION_OPEN to BREAKOUT
-    if hasattr(engine, "campaign") and engine.campaign is not None:
-        from backtests.swing.engine.breakout_engine import CampaignState
-        if engine.campaign.state == CampaignState.POSITION_OPEN:
-            engine.campaign.state = CampaignState.BREAKOUT
     engine.active_position = None
 
 
@@ -1998,7 +2732,7 @@ def print_unified_report(result: UnifiedPortfolioResult, config: UnifiedBacktest
     print(f"\n{'Per-Strategy Breakdown':}")
     print(f"{'Strategy':<22} {'Trades':>7} {'Win%':>6} {'PnL':>10} {'Total R':>8} {'Blocked':>8}")
     print("-" * 65)
-    for sid in ["ATRSS", "AKC_HELIX", "BRS_R9", "SWING_BREAKOUT_V3"]:
+    for sid in ["ATRSS", "AKC_HELIX", "TPC"]:
         sr = result.strategy_results.get(sid)
         if sr is None:
             continue

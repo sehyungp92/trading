@@ -57,7 +57,6 @@ def performance_report(result: SymbolResult, metrics: PerformanceMetrics) -> str
             lines.append(f"  {sym}: {tpm:.1f}")
     return "\n".join(lines)
 
-
 def behavior_report(trades: list[TradeRecord]) -> str:
     """Generate a behavior analysis report."""
     if not trades:
@@ -116,8 +115,6 @@ def behavior_report(trades: list[TradeRecord]) -> str:
     lines.append(f"Trades with Add-on B: {len(addon_b)}")
 
     return "\n".join(lines)
-
-
 def diagnostic_report(result: SymbolResult) -> str:
     """Short-side diagnostic: bias distribution, long/short breakdown, losing short detail."""
     trades = result.trades
@@ -401,161 +398,5 @@ def helix_diagnostic_report(result) -> str:
         for regime, count in regime_at_entry.most_common():
             label = regime if regime else "unknown"
             lines.append(f"  {label}: {count}")
-
-    return "\n".join(lines)
-
-
-# ---------------------------------------------------------------------------
-# Breakout-specific reports
-# ---------------------------------------------------------------------------
-
-def breakout_performance_report(symbol: str, metrics: PerformanceMetrics) -> str:
-    """Performance summary for a Breakout v3.3-ETF symbol result."""
-    lines = [
-        f"=== Breakout Performance Report: {symbol} ===",
-        f"Total trades:       {metrics.total_trades}",
-        f"Win rate:           {metrics.win_rate:.1%}",
-        f"Profit factor:      {metrics.profit_factor:.2f}",
-        f"Expectancy (R):     {metrics.expectancy:+.3f}",
-        f"Expectancy ($):     {metrics.expectancy_dollar:+,.2f}",
-        f"Net profit:         ${metrics.net_profit:+,.2f}",
-        f"CAGR:               {_fmt_pct(metrics.cagr)}",
-        f"Sharpe:             {metrics.sharpe:.2f}",
-        f"Sortino:            {metrics.sortino:.2f}",
-        f"Calmar:             {metrics.calmar:.2f}",
-        _format_dd(metrics),
-        f"Avg hold (hours):   {metrics.avg_hold_hours:.1f}",
-        f"Trades/month:       {metrics.trades_per_month:.1f}",
-        f"Total commissions:  ${metrics.total_commissions:,.2f}",
-        f"Tail loss (5%):     ${metrics.tail_loss_pct:,.2f}  ({metrics.tail_loss_r:+.2f}R)",
-    ]
-    if metrics.per_instrument_trades_per_month:
-        lines.append("Per-instrument trades/month:")
-        for sym, tpm in sorted(metrics.per_instrument_trades_per_month.items()):
-            lines.append(f"  {sym}: {tpm:.1f}")
-    return "\n".join(lines)
-
-
-def breakout_behavior_report(trades: list) -> str:
-    """Breakout behavior report: entry type, exit reason, direction, partials, adds."""
-    if not trades:
-        return "No trades to analyze."
-
-    lines = ["=== Breakout Behavior Report ==="]
-
-    # Entry type breakdown
-    entry_types = Counter(t.entry_type for t in trades)
-    lines.append("\nEntry type breakdown:")
-    for etype in [
-        "A",
-        "B",
-        "C_early_standard",
-        "C_standard",
-        "C_continuation",
-        "C_fresh_market",
-        "C_fresh_stop",
-        "ADD",
-    ]:
-        count = entry_types.get(etype, 0)
-        pct = count / len(trades) * 100 if trades else 0
-        et_trades = [t for t in trades if t.entry_type == etype]
-        avg_r = np.mean([t.r_multiple for t in et_trades]) if et_trades else 0
-        wr = np.mean([t.r_multiple > 0 for t in et_trades]) * 100 if et_trades else 0
-        lines.append(f"  {etype:18s}: {count:4d} ({pct:5.1f}%)  avg R: {avg_r:+.3f}  WR: {wr:.0f}%")
-
-    # Exit reason breakdown
-    exit_reasons = Counter(t.exit_reason for t in trades)
-    lines.append("\nExit reasons:")
-    for reason, count in exit_reasons.most_common():
-        pct = count / len(trades) * 100
-        avg_r = np.mean([t.r_multiple for t in trades if t.exit_reason == reason])
-        lines.append(f"  {reason:20s}: {count:4d} ({pct:5.1f}%)  avg R: {avg_r:+.3f}")
-
-    # Direction breakdown
-    long_trades = [t for t in trades if t.direction == 1]
-    short_trades = [t for t in trades if t.direction == -1]
-    lines.append(f"\nLong trades:  {len(long_trades)}")
-    if long_trades:
-        lines.append(f"  Avg R: {np.mean([t.r_multiple for t in long_trades]):+.3f}  "
-                      f"Win rate: {np.mean([t.r_multiple > 0 for t in long_trades]):.1%}")
-    lines.append(f"Short trades: {len(short_trades)}")
-    if short_trades:
-        lines.append(f"  Avg R: {np.mean([t.r_multiple for t in short_trades]):+.3f}  "
-                      f"Win rate: {np.mean([t.r_multiple > 0 for t in short_trades]):.1%}")
-
-    # Partial exit stats
-    tp1 = [t for t in trades if t.tp1_done]
-    tp2 = [t for t in trades if t.tp2_done]
-    runner = [t for t in trades if t.runner_active]
-    lines.append(f"\nPartial exits:")
-    lines.append(f"  TP1 hit: {len(tp1)} ({100 * len(tp1) / max(len(trades), 1):.1f}%)")
-    lines.append(f"  TP2 hit: {len(tp2)} ({100 * len(tp2) / max(len(trades), 1):.1f}%)")
-    lines.append(f"  Runner:  {len(runner)} ({100 * len(runner) / max(len(trades), 1):.1f}%)")
-
-    # Add stats
-    add_trades = [t for t in trades if t.add_count > 0]
-    lines.append(f"\nTrades with adds: {len(add_trades)} ({100 * len(add_trades) / max(len(trades), 1):.1f}%)")
-
-    # R-multiple distribution
-    r_values = [t.r_multiple for t in trades]
-    lines.append(f"\nR-multiple distribution:")
-    lines.append(f"  Mean:   {np.mean(r_values):+.3f}")
-    lines.append(f"  Median: {np.median(r_values):+.3f}")
-    lines.append(f"  Std:    {np.std(r_values):.3f}")
-    for thresh in [-2, -1, 0, 1, 2, 3, 5]:
-        count = sum(1 for r in r_values if r >= thresh)
-        lines.append(f"  >= {thresh:+d}R: {count} ({100 * count / len(trades):.1f}%)")
-
-    # MFE/MAE
-    lines.append(f"\nMFE (R): mean={np.mean([t.mfe_r for t in trades]):.3f}  "
-                  f"median={np.median([t.mfe_r for t in trades]):.3f}")
-    lines.append(f"MAE (R): mean={np.mean([t.mae_r for t in trades]):.3f}  "
-                  f"median={np.median([t.mae_r for t in trades]):.3f}")
-
-    # Hold time
-    hold = [t.bars_held for t in trades]
-    lines.append(f"\nHold time (1H bars):")
-    lines.append(f"  Mean: {np.mean(hold):.1f}  Median: {np.median(hold):.1f}  Max: {np.max(hold)}")
-
-    return "\n".join(lines)
-
-
-def breakout_diagnostic_report(result) -> str:
-    """Breakout diagnostic: regime distribution, campaign/entry pipeline.
-
-    Accepts BreakoutSymbolResult (duck-typed).
-    """
-    lines = [f"=== Breakout Diagnostic Report: {result.symbol} ==="]
-
-    # Regime distribution (hourly bars)
-    total_bars = result.regime_bars_bull + result.regime_bars_bear + result.regime_bars_chop
-    lines.append("\n4H regime distribution (hourly bars):")
-    if total_bars > 0:
-        lines.append(f"  BULL_TREND: {result.regime_bars_bull:5d} ({100 * result.regime_bars_bull / total_bars:5.1f}%)")
-        lines.append(f"  BEAR_TREND: {result.regime_bars_bear:5d} ({100 * result.regime_bars_bear / total_bars:5.1f}%)")
-        lines.append(f"  RANGE_CHOP: {result.regime_bars_chop:5d} ({100 * result.regime_bars_chop / total_bars:5.1f}%)")
-    else:
-        lines.append("  (no bars processed)")
-
-    # Campaign pipeline
-    lines.append(f"\nCampaign pipeline:")
-    lines.append(f"  Campaigns activated:   {result.campaigns_activated}")
-    lines.append(f"  Breakouts qualified:   {result.breakouts_qualified}")
-    lines.append(f"  Dirty episodes:        {result.dirty_episodes}")
-    lines.append(f"  Continuations entered:  {result.continuations_entered}")
-
-    # Entry pipeline
-    lines.append(f"\nEntry pipeline:")
-    lines.append(f"  Entries placed:  {result.entries_placed}")
-    lines.append(f"  Entries filled:  {result.entries_filled}")
-    lines.append(f"  Entries expired: {result.entries_expired}")
-    lines.append(f"  Entries rejected:{result.entries_rejected}")
-    lines.append(f"  Entries blocked: {result.entries_blocked}")
-    lines.append(f"  Adds placed:     {result.adds_placed}")
-    lines.append(f"  Adds filled:     {result.adds_filled}")
-
-    if result.entries_placed > 0:
-        fill_rate = result.entries_filled / result.entries_placed * 100
-        lines.append(f"  Fill rate:       {fill_rate:.1f}%")
 
     return "\n".join(lines)

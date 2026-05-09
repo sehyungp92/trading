@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from backtests.swing.config_helix import HelixBacktestConfig
 from backtests.swing.engine.helix_portfolio_engine import load_helix_data, run_helix_synchronized
 from backtests.swing.analysis.metrics import compute_metrics, compute_sharpe, compute_sortino, compute_max_drawdown
-from backtests.diagnostic_snapshot import build_group_snapshot
+from backtests.shared.diagnostics.snapshot import build_group_snapshot
 from backtests.swing.analysis.optimized_baseline import (
     load_phase_mutation_source,
     summarize_optimizer_reference,
@@ -46,23 +46,62 @@ def _pf(wins_total: float, losses_total: float) -> float:
 
 
 def _trade_net_pnl(trade) -> float:
+    if hasattr(trade, "net_pnl_dollars"):
+        return float(getattr(trade, "net_pnl_dollars", 0.0) or 0.0)
     return float(trade.pnl_dollars) - float(getattr(trade, "commission", 0.0) or 0.0)
+
+
+def _trade_net_r(trade) -> float:
+    if hasattr(trade, "net_r_multiple"):
+        return float(getattr(trade, "net_r_multiple", 0.0) or 0.0)
+    return float(getattr(trade, "r_multiple", 0.0) or 0.0)
 
 
 def _wr(trades: list) -> float:
     if not trades:
         return 0.0
-    return sum(1 for t in trades if t.r_multiple > 0) / len(trades) * 100
+    return sum(1 for t in trades if _trade_net_r(t) > 0) / len(trades) * 100
 
 
 def _avg_r(trades: list) -> float:
     if not trades:
         return 0.0
-    return sum(t.r_multiple for t in trades) / len(trades)
+    return sum(_trade_net_r(t) for t in trades) / len(trades)
 
 
 def _total_r(trades: list) -> float:
-    return sum(t.r_multiple for t in trades)
+    return sum(_trade_net_r(t) for t in trades)
+
+
+def _risk_basis_summary(trades: list) -> dict:
+    rows = []
+    for t in trades:
+        target = float(getattr(t, "target_initial_risk_dollars", 0.0) or 0.0)
+        actual = float(getattr(t, "actual_initial_risk_dollars", 0.0) or 0.0)
+        util = float(getattr(t, "risk_utilization", 0.0) or 0.0)
+        if target > 0 and actual > 0:
+            rows.append((target, actual, util))
+    if not rows:
+        return {
+            "basis": "actual_initial_risk_dollars_after_fill_rounding_and_caps",
+            "trades_with_basis": 0,
+        }
+    targets = [r[0] for r in rows]
+    actuals = [r[1] for r in rows]
+    utils = [r[2] for r in rows]
+    return {
+        "basis": "actual_initial_risk_dollars_after_fill_rounding_and_caps",
+        "trades_with_basis": len(rows),
+        "target_initial_risk_total": float(sum(targets)),
+        "actual_initial_risk_total": float(sum(actuals)),
+        "mean_utilization_pct": float(statistics.mean(utils) * 100.0),
+        "median_utilization_pct": float(statistics.median(utils) * 100.0),
+        "min_utilization_pct": float(min(utils) * 100.0),
+        "max_utilization_pct": float(max(utils) * 100.0),
+        "underfilled_98pct_count": int(sum(1 for u in utils if u < 0.98)),
+        "underfilled_90pct_count": int(sum(1 for u in utils if u < 0.90)),
+        "overfilled_102pct_count": int(sum(1 for u in utils if u > 1.02)),
+    }
 
 
 def _compute_pf(trades: list) -> float:
@@ -130,18 +169,34 @@ def main():
     parser.add_argument("--summary-json", default="", help="Optional path to save a machine-readable summary.")
     parser.add_argument("--title", default="", help="Optional report title override.")
     parser.add_argument("--lineage-label", default="Helix", help="Display label for the report header.")
+    parser.add_argument("--start-date", default=None, help="Optional inclusive data start date.")
+    parser.add_argument("--end-date", default=None, help="Optional inclusive data end date.")
+    parser.add_argument(
+        "--equity",
+        type=float,
+        default=INITIAL_EQUITY,
+        help="Initial equity for the replay. Use the same value across strategies for like-for-like diagnostics.",
+    )
     args = parser.parse_args()
+    initial_equity = float(args.equity)
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     source = load_phase_mutation_source(args.state_path, args.phase_result)
 
     base_config = HelixBacktestConfig(
-        initial_equity=INITIAL_EQUITY,
+        initial_equity=initial_equity,
         data_dir=DATA_DIR,
+        start_date=args.start_date,
+        end_date=args.end_date,
     )
     config = mutate_helix_config(base_config, source.mutations) if source.mutations else base_config
-    data = load_helix_data(config.symbols, config.data_dir)
+    data = load_helix_data(
+        config.symbols,
+        config.data_dir,
+        start_date=config.start_date,
+        end_date=config.end_date,
+    )
     result = run_helix_synchronized(data, config)
 
     all_trades = []
@@ -170,6 +225,9 @@ def main():
         "phase_result": source.phase_result,
         "phase_label": source.phase_label,
         "execution_mode": "synchronized",
+        "initial_equity": initial_equity,
+        "start_date": args.start_date,
+        "end_date": args.end_date,
         "state_path": str(source.state_path),
         "mutations": source.mutations,
     }
@@ -179,9 +237,12 @@ def main():
         _out("=" * 80, f)
         _out(report_title, f)
         _out(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", f)
-        _out(f"Initial Equity: ${INITIAL_EQUITY:,.0f}", f)
+        _out(f"Initial Equity: ${initial_equity:,.0f}", f)
+        if args.start_date or args.end_date:
+            _out(f"Data window: {args.start_date or 'beginning'} through {args.end_date or 'end'}", f)
         _out(f"Symbols: {', '.join(config.symbols)}", f)
         _out("Execution mode: synchronized/shared-capital", f)
+        _out("Comparable basis: current-code final optimized config replay", f)
         _out(f"Mutation source: {source.state_path}", f)
         for key, value in sorted(source.mutations.items()):
             _out(f"  {key}: {value}", f)
@@ -199,14 +260,28 @@ def main():
         total_r = _total_r(all_trades)
         _out(f"Total trades: {len(all_trades)}", f)
         _out(f"Total PnL: ${total_pnl:,.2f}", f)
-        _out(f"Total R: {total_r:+.2f}", f)
+        _out(f"Total R (fee-net): {total_r:+.2f}", f)
         _out(f"Win Rate: {_wr(all_trades):.1f}%", f)
         _out(f"Profit Factor: {_compute_pf(all_trades):.2f}", f)
-        avg_win = _avg_r([t for t in all_trades if t.r_multiple > 0])
-        avg_loss = _avg_r([t for t in all_trades if t.r_multiple <= 0])
+        avg_win = _avg_r([t for t in all_trades if _trade_net_r(t) > 0])
+        avg_loss = _avg_r([t for t in all_trades if _trade_net_r(t) <= 0])
         _out(f"Avg Win R: {avg_win:+.2f}  Avg Loss R: {avg_loss:+.2f}  "
              f"Win/Loss Ratio: {abs(avg_win/avg_loss) if avg_loss else 0:.2f}", f)
         _out(f"Total Commission: ${sum(t.commission for t in all_trades):,.2f}", f)
+        risk_basis = _risk_basis_summary(all_trades)
+        if risk_basis.get("trades_with_basis", 0):
+            _out("Risk Basis: actual initial dollars-at-risk after fill, rounding, and caps", f)
+            _out(
+                "Sizing Utilization: "
+                f"mean={risk_basis['mean_utilization_pct']:.1f}% "
+                f"median={risk_basis['median_utilization_pct']:.1f}% "
+                f"min={risk_basis['min_utilization_pct']:.1f}% "
+                f"max={risk_basis['max_utilization_pct']:.1f}% "
+                f"under98={risk_basis['underfilled_98pct_count']} "
+                f"under90={risk_basis['underfilled_90pct_count']} "
+                f"over102={risk_basis['overfilled_102pct_count']}",
+                f,
+            )
         summary_payload.update(
             {
                 "total_trades": len(all_trades),
@@ -217,6 +292,9 @@ def main():
                 "avg_win_r": avg_win,
                 "avg_loss_r": avg_loss,
                 "total_commission": float(sum(t.commission for t in all_trades)),
+                "r_basis": "fee_net_actual_initial_risk",
+                "gross_total_r": float(sum(getattr(t, "r_multiple", 0.0) for t in all_trades)),
+                "risk_basis": risk_basis,
             }
         )
 
@@ -226,13 +304,14 @@ def main():
             dd_pct, dd_dollar = compute_max_drawdown(eq)
             sharpe = compute_sharpe(eq)
             sortino = compute_sortino(eq)
-            final_eq = eq[-1] if len(eq) > 0 else INITIAL_EQUITY
-            ret_pct = (final_eq - INITIAL_EQUITY) / INITIAL_EQUITY * 100
+            final_eq = eq[-1] if len(eq) > 0 else initial_equity
+            ret_pct = (final_eq - initial_equity) / initial_equity * 100
             summary_payload.update(
                 {
                     "final_equity": float(final_eq),
                     "net_return_pct": float(ret_pct),
-                    "max_drawdown_pct": float(dd_pct),
+                    "max_drawdown_fraction": float(dd_pct),
+                    "max_drawdown_pct": float(dd_pct * 100.0),
                     "max_drawdown_dollars": float(dd_dollar),
                     "sharpe": float(sharpe),
                     "sortino": float(sortino),
@@ -240,10 +319,10 @@ def main():
             )
             _out(f"\nFinal Equity: ${final_eq:,.2f}", f)
             _out(f"Net Return: {ret_pct:+.1f}%", f)
-            _out(f"Max Drawdown: {dd_pct:.2f}% (${dd_dollar:,.0f})", f)
+            _out(f"Max Drawdown: {dd_pct * 100.0:.2f}% (${dd_dollar:,.0f})", f)
             _out(f"Sharpe: {sharpe:.2f}  Sortino: {sortino:.2f}", f)
             if dd_pct > 0:
-                calmar = ret_pct / dd_pct
+                calmar = ret_pct / (dd_pct * 100.0)
                 summary_payload["calmar"] = float(calmar)
                 _out(f"Calmar: {calmar:.2f}", f)
         _out("", f)
@@ -416,9 +495,9 @@ def main():
                  f"median={np.median(stop_pcts):.2f}%", f)
 
         # MFE capture for winners
-        winners = [t for t in all_trades if t.r_multiple > 0]
+        winners = [t for t in all_trades if _trade_net_r(t) > 0]
         if winners:
-            captures = [t.r_multiple / t.mfe_r for t in winners if t.mfe_r > 0]
+            captures = [_trade_net_r(t) / t.mfe_r for t in winners if t.mfe_r > 0]
             if captures:
                 _out(f"\n  MFE capture (winners, n={len(winners)}):", f)
                 _out(f"    Mean: {np.mean(captures):.1%}  Median: {np.median(captures):.1%}", f)
@@ -426,7 +505,7 @@ def main():
                      f"({sum(1 for c in captures if c < 0.5)/len(captures)*100:.0f}%)", f)
 
         # Loser classification
-        losers = [t for t in all_trades if t.r_multiple <= 0]
+        losers = [t for t in all_trades if _trade_net_r(t) <= 0]
         if losers:
             right_then_stopped = [t for t in losers if t.mfe_r >= 0.5]
             immediately_wrong = [t for t in losers if t.mfe_r < 0.5]
@@ -439,7 +518,7 @@ def main():
             _out(f"    Immediately wrong (MFE < 0.5R):   {len(immediately_wrong)} "
                  f"({len(immediately_wrong)/len(losers)*100:.0f}%)", f)
 
-            stopped_at_1r = sum(1 for t in losers if -1.1 <= t.r_multiple <= -0.9)
+            stopped_at_1r = sum(1 for t in losers if -1.1 <= _trade_net_r(t) <= -0.9)
             _out(f"    Stopped at ~1R: {stopped_at_1r} ({stopped_at_1r/len(losers)*100:.0f}%)", f)
         _out("", f)
 
@@ -450,7 +529,7 @@ def main():
         class_a = [t for t in all_trades if t.setup_class == "A"]
         if class_a:
             div_vals = np.array([getattr(t, 'div_mag_norm', 0.0) for t in class_a])
-            rs = np.array([t.r_multiple for t in class_a])
+            rs = np.array([_trade_net_r(t) for t in class_a])
             if div_vals.sum() > 0:
                 _out(f"  n={len(class_a)}  div_mag: mean={np.mean(div_vals):.4f}  "
                      f"median={np.median(div_vals):.4f}  max={np.max(div_vals):.4f}", f)
@@ -492,7 +571,7 @@ def main():
                     _print_trade_table(bucket, label, f)
 
             adx_arr = np.array([t.adx_at_entry for t in all_trades if t.adx_at_entry > 0])
-            r_arr = np.array([t.r_multiple for t in all_trades if t.adx_at_entry > 0])
+            r_arr = np.array([_trade_net_r(t) for t in all_trades if t.adx_at_entry > 0])
             if len(adx_arr) >= 5:
                 corr = np.corrcoef(adx_arr, r_arr)[0, 1]
                 _out(f"\n  Correlation(ADX, R): {corr:+.3f}", f)
@@ -519,7 +598,7 @@ def main():
                 dir_l = "LONG" if t.direction == 1 else "SHORT"
                 _out(f"    {t.symbol:5s} {t.setup_class:3s} {dir_l:5s} {t.regime_at_entry:6s} "
                      f"entry={et_t.strftime('%Y-%m-%d %H:%M') if et_t else 'N/A':16s} "
-                     f"R={t.r_multiple:+.2f}  PnL=${t.pnl_dollars:+,.0f}  bars={t.bars_held}", f)
+                     f"R={_trade_net_r(t):+.2f}  PnL=${_trade_net_pnl(t):+,.0f}  bars={t.bars_held}", f)
         _out("", f)
 
         # N) Trade gap analysis
@@ -566,7 +645,7 @@ def main():
         _out("P) CUMULATIVE R CURVE & DRAWDOWN", f)
         _out("=" * 80, f)
         sorted_by_exit = sorted(all_trades, key=lambda t: t.exit_time or datetime.min)
-        rs = [t.r_multiple for t in sorted_by_exit]
+        rs = [_trade_net_r(t) for t in sorted_by_exit]
         cum_r = np.cumsum(rs)
 
         _out(f"  Total R: {cum_r[-1]:+.2f}  Peak R: {np.max(cum_r):+.2f}", f)
@@ -593,7 +672,7 @@ def main():
         for t in sorted_by_exit:
             if t.exit_time:
                 key = t.exit_time.strftime("%Y-%m")
-                month_r[key] += t.r_multiple
+                month_r[key] += _trade_net_r(t)
                 month_count[key] += 1
 
         if month_r:
@@ -616,7 +695,7 @@ def main():
         _out("=" * 80, f)
         _out("Q) WIN/LOSS STREAK ANALYSIS", f)
         _out("=" * 80, f)
-        outcomes = [1 if t.r_multiple > 0 else 0 for t in sorted_by_exit]
+        outcomes = [1 if _trade_net_r(t) > 0 else 0 for t in sorted_by_exit]
         win_streaks = []
         loss_streaks = []
         current_type = outcomes[0]
@@ -646,7 +725,7 @@ def main():
                     sc += 1
                 else:
                     if sc >= 3:
-                        recovery_rs.append(sorted_by_exit[i].r_multiple)
+                        recovery_rs.append(_trade_net_r(sorted_by_exit[i]))
                     sc = 0
             if recovery_rs:
                 _out(f"  Post-3+-loss recovery: {len(recovery_rs)} trades, "
@@ -671,7 +750,7 @@ def main():
 
         # Correlation
         if len(bars) >= 5:
-            corr = np.corrcoef(bars, [t.r_multiple for t in all_trades])[0, 1]
+            corr = np.corrcoef(bars, [_trade_net_r(t) for t in all_trades])[0, 1]
             _out(f"\n  Correlation(bars_held, R): {corr:+.3f}", f)
         _out("", f)
 
@@ -694,14 +773,14 @@ def main():
         _out("=" * 80, f)
         _out("T) TOP 10 BEST & WORST TRADES", f)
         _out("=" * 80, f)
-        by_r = sorted(all_trades, key=lambda t: t.r_multiple, reverse=True)
+        by_r = sorted(all_trades, key=_trade_net_r, reverse=True)
 
         _out("  Best trades:", f)
         for i, t in enumerate(by_r[:10], 1):
             et_t = _trade_time(t, "entry_time")
             _out(f"    #{i:2d}  {t.symbol:5s} {t.setup_class:3s} {t.regime_at_entry:6s} "
                  f"{et_t.strftime('%Y-%m-%d') if et_t else 'N/A':10s} "
-                 f"R={t.r_multiple:+7.2f}  PnL=${t.pnl_dollars:+,.0f}  "
+                 f"R={_trade_net_r(t):+7.2f}  PnL=${_trade_net_pnl(t):+,.0f}  "
                  f"MFE={t.mfe_r:.2f}R  bars={t.bars_held}", f)
 
         _out("\n  Worst trades:", f)
@@ -709,7 +788,7 @@ def main():
             et_t = _trade_time(t, "entry_time")
             _out(f"    #{i:2d}  {t.symbol:5s} {t.setup_class:3s} {t.regime_at_entry:6s} "
                  f"{et_t.strftime('%Y-%m-%d') if et_t else 'N/A':10s} "
-                 f"R={t.r_multiple:+7.2f}  PnL=${t.pnl_dollars:+,.0f}  "
+                 f"R={_trade_net_r(t):+7.2f}  PnL=${_trade_net_pnl(t):+,.0f}  "
                  f"MFE={t.mfe_r:.2f}R  MAE={t.mae_r:.2f}R  reason={t.exit_reason}", f)
         _out("", f)
 
@@ -775,7 +854,7 @@ def main():
         _out("=" * 80, f)
         mfe_vals = np.array([t.mfe_r for t in all_trades])
         mae_vals = np.array([t.mae_r for t in all_trades])
-        r_vals = np.array([t.r_multiple for t in all_trades])
+        r_vals = np.array([_trade_net_r(t) for t in all_trades])
 
         _out(f"  MFE: mean={np.mean(mfe_vals):.2f}R  median={np.median(mfe_vals):.2f}R  "
              f"max={np.max(mfe_vals):.2f}R", f)
@@ -806,12 +885,12 @@ def main():
                 if t.mae_r >= stop_mult:
                     # MAE exceeded this stop level -- would have been stopped
                     new_rs.append(-stop_mult)
-                    if t.r_multiple > -stop_mult:
+                    if _trade_net_r(t) > -stop_mult:
                         lost += 1  # lost a trade that recovered
                     else:
                         saved += 1  # saved from worse loss
                 else:
-                    new_rs.append(t.r_multiple)
+                    new_rs.append(_trade_net_r(t))
             net_r = sum(new_rs)
             new_wr = sum(1 for r in new_rs if r > 0) / len(new_rs) * 100
             _out(f"  {stop_mult:8.2f}R {saved:6d} {lost:6d} {net_r:+8.2f} {new_wr:5.1f}% "
@@ -845,7 +924,7 @@ def main():
         _out("X) LOSING TRADE DETAIL (worst 20)", f)
         _out("=" * 80, f)
         if losers:
-            losers_sorted = sorted(losers, key=lambda t: t.r_multiple)
+            losers_sorted = sorted(losers, key=_trade_net_r)
             _out(f"  Total losers: {len(losers)}/{len(all_trades)} "
                  f"({len(losers)/len(all_trades)*100:.0f}%)", f)
             _out(f"  Total loss: ${sum(_trade_net_pnl(t) for t in losers):+,.0f}", f)
@@ -858,7 +937,7 @@ def main():
                 dir_l = "LONG" if t.direction == 1 else "SHORT"
                 _out(f"  {i:3d} {et_t.strftime('%Y-%m-%d') if et_t else 'N/A':12s} "
                      f"{t.symbol:5s} {t.setup_class:3s} {dir_l:5s} "
-                     f"{t.regime_at_entry:6s} {t.adx_at_entry:5.1f} {t.r_multiple:+7.3f} "
+                     f"{t.regime_at_entry:6s} {t.adx_at_entry:5.1f} {_trade_net_r(t):+7.3f} "
                      f"{t.mfe_r:6.2f} {t.mae_r:6.2f} {t.exit_reason:15s} {t.bars_held:4d}", f)
         _out("", f)
 
@@ -887,14 +966,14 @@ def main():
         _out("=" * 80, f)
         _out("Z) PROFIT CONCENTRATION (Pareto analysis)", f)
         _out("=" * 80, f)
-        by_pnl_desc = sorted(all_trades, key=lambda t: t.r_multiple, reverse=True)
-        total_gross_r = sum(t.r_multiple for t in all_trades if t.r_multiple > 0)
+        by_pnl_desc = sorted(all_trades, key=_trade_net_r, reverse=True)
+        total_gross_r = sum(_trade_net_r(t) for t in all_trades if _trade_net_r(t) > 0)
         if total_gross_r > 0:
             cum_gross = 0.0
             thresholds = {50: None, 75: None, 90: None}
             for i, t in enumerate(by_pnl_desc, 1):
-                if t.r_multiple > 0:
-                    cum_gross += t.r_multiple
+                if _trade_net_r(t) > 0:
+                    cum_gross += _trade_net_r(t)
                     pct = cum_gross / total_gross_r * 100
                     for th in thresholds:
                         if thresholds[th] is None and pct >= th:
@@ -905,12 +984,12 @@ def main():
                          f"generate {th}% of gross R", f)
 
             # How much R comes from trades > 3R?
-            big_winners = [t for t in all_trades if t.r_multiple >= 3.0]
+            big_winners = [t for t in all_trades if _trade_net_r(t) >= 3.0]
             if big_winners:
                 big_r = _total_r(big_winners)
                 _out(f"\n  Big winners (>=3R): {len(big_winners)} trades, "
                      f"totR={big_r:+.2f} ({big_r/total_gross_r*100:.0f}% of gross wins)", f)
-            small_winners = [t for t in all_trades if 0 < t.r_multiple < 1.0]
+            small_winners = [t for t in all_trades if 0 < _trade_net_r(t) < 1.0]
             if small_winners:
                 sm_r = _total_r(small_winners)
                 _out(f"  Small winners (<1R): {len(small_winners)} trades, "
@@ -924,7 +1003,7 @@ def main():
         right_then_stopped = [t for t in losers if t.mfe_r >= 0.5]
         if right_then_stopped:
             _out(f"  {len(right_then_stopped)} trades went right (MFE >= 0.5R) then lost", f)
-            rts_leaked = sum(t.mfe_r - t.r_multiple for t in right_then_stopped)
+            rts_leaked = sum(t.mfe_r - _trade_net_r(t) for t in right_then_stopped)
             _out(f"  Total R leaked (MFE - final R): {rts_leaked:+.2f}R", f)
             _out(f"  Avg MFE before reversal: {np.mean([t.mfe_r for t in right_then_stopped]):.2f}R", f)
             _out(f"  Avg final R: {_avg_r(right_then_stopped):+.2f}", f)
@@ -935,7 +1014,7 @@ def main():
                 by_reason[t.exit_reason].append(t)
             for reason in sorted(by_reason, key=lambda r: -len(by_reason[r])):
                 rt = by_reason[reason]
-                leaked = sum(t.mfe_r - t.r_multiple for t in rt)
+                leaked = sum(t.mfe_r - _trade_net_r(t) for t in rt)
                 _out(f"    {reason:15s}  n={len(rt):3d}  avgMFE={np.mean([t.mfe_r for t in rt]):.2f}R  "
                      f"avgR={_avg_r(rt):+.2f}  leaked={leaked:+.2f}R", f)
 
@@ -944,7 +1023,7 @@ def main():
                                            (2.0, 3.0, "2.0-3.0R"), (3.0, 99, "3.0R+")]:
                 bucket = [t for t in right_then_stopped if mfe_lo <= t.mfe_r < mfe_hi]
                 if bucket:
-                    leaked = sum(t.mfe_r - t.r_multiple for t in bucket)
+                    leaked = sum(t.mfe_r - _trade_net_r(t) for t in bucket)
                     _out(f"    MFE {label:8s}  n={len(bucket):3d}  avgR={_avg_r(bucket):+.2f}  "
                          f"leaked={leaked:+.2f}R", f)
 
@@ -1007,7 +1086,7 @@ def main():
             pnl = sum(_trade_net_pnl(t) for t in yt)
             # Year max drawdown in R
             yr_sorted = sorted(yt, key=lambda t: t.exit_time or datetime.min)
-            yr_cum = np.cumsum([t.r_multiple for t in yr_sorted])
+            yr_cum = np.cumsum([_trade_net_r(t) for t in yr_sorted])
             yr_peak = np.maximum.accumulate(yr_cum)
             yr_dd = float(np.min(yr_cum - yr_peak)) if len(yr_cum) > 0 else 0.0
             _out(f"  {year:4d} {len(yt):6d} {wr:5.0f}% {avg_r:+7.3f} {tot_r:+8.2f} "
@@ -1027,7 +1106,7 @@ def main():
             if not reached:
                 continue
             # If we exited at target R: reached trades get target R, others keep actual
-            sim_r = sum(target for _ in reached) + sum(t.r_multiple for t in not_reached)
+            sim_r = sum(target for _ in reached) + sum(_trade_net_r(t) for t in not_reached)
             actual_r = _total_r(all_trades)
             hit_rate = len(reached) / len(all_trades) * 100
             _out(f"  {target:8.1f}R {hit_rate:7.1f}% {sim_r:+8.2f} {sim_r - actual_r:+10.2f}", f)

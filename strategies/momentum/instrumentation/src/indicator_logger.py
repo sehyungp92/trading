@@ -23,14 +23,13 @@ class IndicatorSnapshot:
     signal_name: str
     signal_strength: float
     decision: str  # "enter", "skip", "exit"
-    strategy_type: str  # "helix", "nqdtc", "vdubus"
+    strategy_type: str  # "nqdtc", "vdubus", "downturn", "nq_regime"
     event_id: str = ""
     bar_id: Optional[str] = None
     context: dict = field(default_factory=dict)
     # momentum_trader-specific context keys:
     #   "session": "RTH" | "ETH"
     #   "contract_month": "2026-06"
-    #   "signal_class": "M" | "F" | "T"  (Helix signal class)
     #   "concurrent_positions": 2
     #   "drawdown_tier": "NORMAL" | "CAUTION" | "DEFENSIVE"
 

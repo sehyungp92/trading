@@ -1,6 +1,6 @@
 """Momentum unified weakness report — cross-strategy executive summary.
 
-Synthesizes diagnostics from all 3 momentum strategies into a single
+Synthesizes diagnostics from the active momentum strategies into a single
 actionable report with per-strategy scores and prioritized weaknesses.
 """
 from __future__ import annotations
@@ -104,7 +104,6 @@ def _score_strategy(trades: list, label: str = "") -> dict:
 
 
 def momentum_weakness_report(
-    helix_result=None,
     nqdtc_result=None,
     vdubus_result=None,
     portfolio_result=None,
@@ -124,7 +123,7 @@ def momentum_weakness_report(
     # Gather trades from each strategy
     strategies = {}
     for name, result in [
-        ("Helix", helix_result), ("NQDTC", nqdtc_result),
+        ("NQDTC", nqdtc_result),
         ("Vdubus", vdubus_result),
     ]:
         if result is not None:

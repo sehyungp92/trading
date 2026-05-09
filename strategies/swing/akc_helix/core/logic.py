@@ -13,6 +13,7 @@ from strategies.core.actions import (
     SubmitProtectiveStop,
 )
 from strategies.core.events import DecisionEvent
+from strategies.swing.akc_helix.allocator import apply_initial_risk_basis
 from strategies.swing.akc_helix.models import Direction, SetupInstance, SetupState
 
 from .state import (
@@ -121,16 +122,37 @@ def on_bar(
     event_ts = bar_ts or datetime.now(timezone.utc)
 
     if entry_request is not None:
-        setup = deepcopy(entry_request.setup)
-        setup.state = SetupState.ARMED
-        next_state.pending_setups[setup.setup_id] = setup
-        action_cls = SubmitAddOnEntry if entry_request.order_role == "add" or setup.add_done else SubmitAddOnEntry if setup.add_done else SubmitEntry
+        is_add = entry_request.order_role == "add"
+        setup = deepcopy(_find_setup(next_state, entry_request.setup.setup_id) or entry_request.setup)
+        action_qty = int(entry_request.qty if entry_request.qty is not None else setup.qty_planned)
+        if is_add:
+            setup.add_done = True
+            if setup.setup_id in next_state.active_setups:
+                next_state.active_setups[setup.setup_id] = setup
+            elif setup.state is SetupState.ACTIVE or setup.qty_open > 0:
+                setup.state = SetupState.ACTIVE
+                next_state.active_setups[setup.setup_id] = setup
+                next_state.pending_setups.pop(setup.setup_id, None)
+            else:
+                setup.state = SetupState.ARMED
+                next_state.pending_setups[setup.setup_id] = setup
+        else:
+            setup.state = SetupState.ARMED
+            if entry_request.order_role == "catchup":
+                setup.catchup_order_id = entry_request.client_order_id
+            elif entry_request.order_role == "rescue":
+                setup.rescue_order_id = entry_request.client_order_id
+            else:
+                setup.primary_order_id = entry_request.client_order_id
+            next_state.pending_setups[setup.setup_id] = setup
+        next_state.order_to_setup[entry_request.client_order_id] = setup.setup_id
+        action_cls = SubmitAddOnEntry if is_add else SubmitEntry
         actions.append(
             action_cls(
                 client_order_id=entry_request.client_order_id,
                 symbol=setup.symbol,
                 side="BUY" if setup.direction == Direction.LONG else "SELL",
-                qty=setup.qty_planned,
+                qty=action_qty,
                 order_type=entry_request.order_type,
                 tif=entry_request.tif,
                 stop_price=setup.bos_level if entry_request.order_type in {"STOP", "STOP_LIMIT"} else None,
@@ -149,7 +171,7 @@ def on_bar(
                 code="ADD_REQUESTED" if action_cls is SubmitAddOnEntry else "ENTRY_REQUESTED",
                 ts=event_ts,
                 symbol=setup.symbol,
-                details={"setup_id": setup.setup_id, "qty": setup.qty_planned, "bos_level": setup.bos_level},
+                details={"setup_id": setup.setup_id, "qty": action_qty, "bos_level": setup.bos_level},
             )
         )
 
@@ -308,11 +330,31 @@ def on_fill(
         if setup.setup_id in next_state.pending_setups:
             next_state.pending_setups.pop(setup.setup_id, None)
         setup.state = SetupState.ACTIVE
-        setup.fill_price = fill_price
+        previous_qty = max(int(setup.qty_open), 0)
+        previous_basis = setup.avg_entry_price or setup.fill_price or fill_price
+        is_initial_fill = previous_qty <= 0
+        if previous_qty <= 0:
+            setup.fill_price = fill_price
+            setup.avg_entry_price = fill_price
+        else:
+            setup.avg_entry_price = (
+                (previous_basis * previous_qty) + (fill_price * fill_qty)
+            ) / (previous_qty + fill_qty)
         setup.fill_qty += fill_qty
         setup.qty_open += fill_qty
         setup.fill_ts = event_ts
         setup.current_stop = setup.current_stop or setup.stop0
+        if is_initial_fill:
+            actual_r_price = abs(fill_price - setup.stop0)
+            if actual_r_price > 0:
+                setup.r_price = actual_r_price
+            apply_initial_risk_basis(
+                setup,
+                fill_price,
+                fill_qty,
+                fill.point_value,
+                setup.target_initial_risk_dollars,
+            )
         next_state.active_setups[setup.setup_id] = setup
         if setup.fill_qty == fill_qty:
             actions.append(

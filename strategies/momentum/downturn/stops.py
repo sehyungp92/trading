@@ -224,7 +224,7 @@ def compute_breakeven_stop(
 
 
 # ---------------------------------------------------------------------------
-# Multi-tier profit floor (BRS-inspired 5-tier ratchet)
+# Multi-tier profit floor (5-tier ratchet)
 # ---------------------------------------------------------------------------
 
 # Default tiers: (MFE threshold in R, locked profit in R)

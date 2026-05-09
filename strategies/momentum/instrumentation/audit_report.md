@@ -3,7 +3,6 @@
 ## Bot Identity
 - Bot ID: `momentum_nq_01`
 - Strategy type: Multi-strategy NQ futures (3 concurrent strategies)
-  - **Helix v4.0** — 1H pullback trend-following (strategy/)
   - **NQDTC v2.1** — 30m box-breakout directional (strategy_2/)
   - **VdubusNQ v4.2** — 15m VWAP pullback swing (strategy_3/)
 - Exchange(s): Interactive Brokers (IBKR) — CME/GLOBEX
@@ -12,7 +11,6 @@
 
 ## Entry Logic
 
-### Helix v4.0
 - Signal generation: `strategy/signals.py:106-379` — Class M (1H pullback), Class T (4H trend continuation)
 - Signal strength: `strategy/signals.py:37-56` — alignment_score (0-2) + trend_strength (float)
 - Filters:
@@ -63,7 +61,6 @@
 
 ## Exit Logic
 
-### Helix
 - TAKE_PROFIT: `strategy/partials.py:18-43` — P1 at +1.0R (30%), P2 at +1.5R (30%), 40% runner
 - STOP_LOSS: `strategy/execution.py:154-183` — initial stop from setup, STOP order
 - TRAILING: `strategy/trail.py:25-46` — chandelier `mult = max(1.5, 3.0 - R/5)`, 24-bar lookback
@@ -92,7 +89,6 @@
 - MAX_DURATION: `strategy_3/exits.py:118-122` — 128 bars (32h)
 
 ## Position Sizing
-- Helix: `strategy/risk.py:54-128` — 1.25% equity * vol_factor * alignment_mult * session_mult * DOW_mult * drawdown_throttle
 - NQDTC: `strategy_2/sizing.py:41-109` — 0.80% equity * quality_mult (regime * chop * disp) with risk floor 0.12%
 - Vdubus: `strategy_3/risk.py:63-103` — 0.80% equity * vol_factor * class_mult (predator/flip) * session_mult
 - Risk limits (shared): `shared/oms/risk/gateway.py:50-139` — heat cap, daily/weekly stops, directional cap, portfolio rules
@@ -109,10 +105,8 @@
 - Current location: stdout (all strategies), `nqdtc_telemetry.jsonl` (NQDTC), `nqdtc_state.json` (NQDTC state)
 - Trade logging detail level: Basic (entry/exit at INFO level with prices, PnL)
 - Error logging: Python logger at ERROR/EXCEPTION level
-- Signal logging (including blocked): Partial — Helix gates.py logs blocks at WARNING, NQDTC telemetry logs `breakout_blocked`/`entry_skipped`, Vdubus logs at INFO
 
 ## Configuration
-- Config location: `strategy/config.py` (Helix), `strategy_2/config.py` (NQDTC), `strategy_3/config.py` (Vdubus)
 - Shared config: `shared/oms/config/risk_config.py`, `shared/oms/config/portfolio_config.py`
 - External config: `config/contracts.yaml`, `config/routing.yaml`, `config/ibkr_profiles.yaml`
 - Configurable params: All indicator periods, TP/SL levels, session windows, sizing multipliers, risk limits
@@ -120,7 +114,6 @@
 ## State Management
 - Position tracking: In-memory (all strategies) + PostgreSQL (OMS positions table)
 - NQDTC: Additional JSON state file (`nqdtc_state.json`) for full engine state persistence
-- Restart recovery: NQDTC restores from JSON; Helix/Vdubus rely on OMS position reconciliation
 - Health check: OMS reconciliation loop (60-180s interval), timeout monitor for stuck orders
 
 ## Dependencies
@@ -134,32 +127,26 @@
 **All strategies share the same OMS, so the cleanest hooks are at the OMS level:**
 
 1. **Pre-entry hook (signal generation)**:
-   - Helix: `strategy/engine.py:319-469` (`_detect_and_arm()`) — capture signal before gate check
    - NQDTC: `strategy_2/engine.py:596-707` — capture breakout qualification
    - Vdubus: `strategy_3/engine.py:451-632` — capture entry evaluation
 2. **Post-entry hook (fill confirmed)**:
-   - Helix: `strategy/engine.py:547-605` (`_handle_entry_fill()`)
    - NQDTC: `strategy_2/engine.py:1738-1879` (`_on_fill()`)
    - Vdubus: `strategy_3/engine.py:1141-1197` (fill handler)
 3. **Pre-exit hook (exit decision)**:
-   - Helix: `strategy/positions.py:126-223` (`manage_all()`)
    - NQDTC: `strategy_2/engine.py:1334-1488` (`_manage_position()`)
    - Vdubus: `strategy_3/engine.py:695-853` (`_manage_positions()`)
 4. **Post-exit hook (exit fill confirmed)**:
    - OMS level: `shared/oms/services/factory.py:322-470` (on_fill callback, EXIT role)
 5. **Signal generation hook (all signals, including blocked)**:
-   - Helix: `strategy/gates.py:45-209` — each gate return False = blocked signal
    - NQDTC: `strategy_2/engine.py:791-969` — hard gates + soft blocks
    - Vdubus: `strategy_3/regime.py:118-141` + `strategy_3/risk.py:110-132`
 6. **Filter hooks**: See filter chains above (one per filter per strategy)
 7. **Error hook**: Each strategy's try/except blocks + OMS factory callbacks
 8. **Main loop hook**:
-   - Helix: `strategy/engine.py:275-292` (`_session_timer()` — 15s polling loop)
    - NQDTC: `strategy_2/engine.py:335-434` (`_on_5m_close()` — 5m cycle)
    - Vdubus: `strategy_3/engine.py:240-256` (15m scheduler)
 
 ### Missing Data (must be added)
-- [x] Signal strength: Available as proxy — alignment_score (Helix), evidence_score (NQDTC), momentum_slope (Vdubus)
 - [ ] Bid/ask spread at entry/exit: Available from IB market data (`_bid`, `_ask` cached in engines)
 - [ ] Funding rate: N/A for equity futures
 - [ ] Open interest: Not currently tracked

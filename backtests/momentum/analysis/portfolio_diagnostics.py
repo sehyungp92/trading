@@ -1,6 +1,6 @@
 """Portfolio diagnostics — 10-section comprehensive portfolio report.
 
-Provides a full executive summary of the 3-strategy momentum portfolio
+Provides a full executive summary of the active momentum portfolio
 including per-strategy contribution, heat utilization, correlation,
 coordination events, monthly mix, drawdown attribution, and recommendations.
 """
@@ -66,7 +66,6 @@ def _stats(trades: list) -> dict:
 
 def generate_portfolio_diagnostics_report(
     portfolio_result,
-    helix_trades: list,
     nqdtc_trades: list,
     vdubus_trades: list,
     initial_equity: float = 10_000.0,
@@ -77,7 +76,6 @@ def generate_portfolio_diagnostics_report(
         portfolio_result: Object with trades, blocked_trades, equity_curve,
             equity_timestamps, rule_blocks (dict), rule_blocked_pnl (dict),
             max_concurrent (int).
-        helix_trades: Helix strategy trade list.
         nqdtc_trades: NQDTC strategy trade list.
         vdubus_trades: VDUBUS strategy trade list.
         initial_equity: Starting equity.
@@ -90,14 +88,14 @@ def generate_portfolio_diagnostics_report(
     lines.append("=" * 72)
     lines.append("")
 
-    all_trades = getattr(portfolio_result, "trades", helix_trades + nqdtc_trades + vdubus_trades)
+    all_trades = getattr(portfolio_result, "trades", nqdtc_trades + vdubus_trades)
     equity_curve = getattr(portfolio_result, "equity_curve", None)
     equity_ts = getattr(portfolio_result, "equity_timestamps", None)
     rule_blocks = getattr(portfolio_result, "rule_blocks", {})
     rule_blocked_pnl = getattr(portfolio_result, "rule_blocked_pnl", {})
     max_concurrent = getattr(portfolio_result, "max_concurrent", 0)
 
-    strats = {"helix": helix_trades, "nqdtc": nqdtc_trades, "vdubus": vdubus_trades}
+    strats = {"nqdtc": nqdtc_trades, "vdubus": vdubus_trades}
 
     # ──────────────────────────────────────────────
     # 1. OVERVIEW

@@ -55,3 +55,5 @@ class HelixBacktestConfig:
     warmup_hourly: int = 55
     warmup_4h: int = 50
     fixed_qty: int | None = None
+    enforce_initial_risk_cap: bool = True
+    initial_risk_cap_buffer: float = 0.0

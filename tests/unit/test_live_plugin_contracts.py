@@ -4,23 +4,19 @@ from types import SimpleNamespace
 
 import pytest
 
-from strategies.momentum.helix_v40.plugin import HelixV40Plugin
 from strategies.momentum.vdub.plugin import VdubNQv4Plugin
 from strategies.swing.akc_helix.plugin import AKCHelixPlugin
 from strategies.swing.atrss.plugin import ATRSSPlugin
-from strategies.swing.breakout.plugin import BreakoutPlugin
-from strategies.swing.brs.plugin import BRSPlugin
+from strategies.swing.tpc.plugin import TPCPlugin
 
 
 @pytest.mark.parametrize(
     ("plugin_cls", "strategy_id"),
     [
         (ATRSSPlugin, "ATRSS"),
-        (BreakoutPlugin, "SWING_BREAKOUT_V3"),
         (AKCHelixPlugin, "AKC_HELIX"),
-        (BRSPlugin, "BRS_R9"),
+        (TPCPlugin, "TPC"),
         (VdubNQv4Plugin, "VdubusNQ_v4"),
-        (HelixV40Plugin, "AKC_Helix_v40"),
     ],
 )
 def test_plugin_health_status_delegates_full_engine_payload(plugin_cls, strategy_id) -> None:
@@ -45,11 +41,9 @@ def test_plugin_health_status_delegates_full_engine_payload(plugin_cls, strategy
     "plugin_cls",
     [
         ATRSSPlugin,
-        BreakoutPlugin,
         AKCHelixPlugin,
-        BRSPlugin,
+        TPCPlugin,
         VdubNQv4Plugin,
-        HelixV40Plugin,
     ],
 )
 async def test_plugin_snapshot_and_hydrate_delegate_when_engine_supports_contract(plugin_cls) -> None:

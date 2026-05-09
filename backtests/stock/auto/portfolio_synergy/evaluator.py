@@ -388,9 +388,23 @@ def _load_latest_strategy_mutations(repo_root: Path) -> tuple[dict[str, Any], di
 
 def _latest_strategy_mutation_paths(repo_root: Path) -> tuple[Path, Path]:
     return (
-        repo_root / "backtests/output/stock/alcb/round_3/optimized_config.json",
-        repo_root / "backtests/output/stock/iaric/round_2/optimized_config.json",
+        _latest_optimized_config_path(repo_root, "alcb"),
+        _latest_optimized_config_path(repo_root, "iaric"),
     )
+
+
+def _latest_optimized_config_path(repo_root: Path, strategy: str) -> Path:
+    strategy_dir = repo_root / "backtests" / "output" / "stock" / strategy
+    candidates: list[tuple[int, Path]] = []
+    for path in strategy_dir.glob("round_*/optimized_config.json"):
+        try:
+            round_num = int(path.parent.name.removeprefix("round_"))
+        except ValueError:
+            continue
+        candidates.append((round_num, path))
+    if not candidates:
+        raise FileNotFoundError(f"No optimized stock config found for {strategy} under {strategy_dir}")
+    return max(candidates, key=lambda item: item[0])[1]
 
 
 def _read_json(path: Path) -> dict[str, Any]:

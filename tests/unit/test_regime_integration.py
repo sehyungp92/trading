@@ -209,13 +209,20 @@ class TestMappingTables:
         assert result.priority_headroom_R == pytest.approx(1.1)
         assert result.dd_tiers == ((0.07, 1.0), (0.105, 0.6), (0.14, 0.3), (1.0, 0.0))
 
-    def test_context_stress_dampens_regime_unit_risk(self):
+    def test_context_uses_final_leverage_without_second_stress_cut(self):
         ctx = _make_ctx("S")
         ctx = dataclasses.replace(ctx, stress_level=0.50, stress_onset=True, suggested_leverage_mult=1.0)
 
         result = build_swing_rules(ctx, _base_swing_rules())
 
-        assert result.regime_unit_risk_mult == pytest.approx(0.612)
+        assert result.regime_unit_risk_mult == pytest.approx(0.80)
+
+    def test_context_suggested_leverage_still_dampens_regime_unit_risk(self):
+        ctx = dataclasses.replace(_make_ctx("S"), suggested_leverage_mult=0.95)
+
+        result = build_swing_rules(ctx, _base_swing_rules())
+
+        assert result.regime_unit_risk_mult == pytest.approx(0.76)
 
 
 # ── Portfolio rules regime checks ─────────────────────────────────────
@@ -228,7 +235,6 @@ class TestPortfolioRulesRegime:
             initial_equity=10_000.0,
             regime_unit_risk_mult=1.0,
             disabled_strategies=frozenset(),
-            helix_nqdtc_cooldown_minutes=0,
             nqdtc_direction_filter_enabled=False,
         )
         return PortfolioRuleChecker(
@@ -263,6 +269,23 @@ class TestPortfolioRulesRegime:
         result = asyncio.run(checker.check_entry("ALCB_v1", "LONG", 1.0))
         assert result.approved
         assert result.size_multiplier == pytest.approx(0.5)
+
+    def test_directional_unit_risk_mult_applied(self, checker: PortfolioRuleChecker):
+        new_cfg = dataclasses.replace(
+            checker._cfg,
+            regime_unit_risk_mult=0.8,
+            regime_unit_risk_long_mult=0.5,
+            regime_unit_risk_short_mult=1.0,
+        )
+        checker.update_config(new_cfg)
+
+        long_result = asyncio.run(checker.check_entry("ALCB_v1", "LONG", 1.0))
+        short_result = asyncio.run(checker.check_entry("ALCB_v1", "SHORT", 1.0))
+
+        assert long_result.approved
+        assert short_result.approved
+        assert long_result.size_multiplier == pytest.approx(0.4)
+        assert short_result.size_multiplier == pytest.approx(0.8)
 
     def test_regime_mult_compounds_with_dd(self, checker: PortfolioRuleChecker):
         """Defensive (0.5x) at 10% DD (0.5x) = 0.25x final multiplier."""

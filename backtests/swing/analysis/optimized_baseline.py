@@ -65,13 +65,14 @@ def summarize_optimizer_reference(reference: dict[str, Any] | None) -> list[str]
     metrics = reference.get("final_metrics", {})
     score = reference.get("final_score")
 
-    lines = ["Optimizer reference (independent fast-path):"]
+    lines = ["Optimizer reference (historical phase-search basis; not the current full replay headline):"]
     if score is not None:
         lines.append(f"  Score: {float(score):.4f}")
     if metrics:
         pf = metrics.get("profit_factor")
         net_return = metrics.get("net_return_pct")
-        dd_pct = metrics.get("max_dd_pct", metrics.get("max_r_dd"))
+        dd_pct = metrics.get("max_dd_pct")
+        dd_r = metrics.get("max_r_dd")
         trades = metrics.get("total_trades")
         if trades is not None:
             lines.append(f"  Trades: {int(trades)}")
@@ -84,5 +85,7 @@ def summarize_optimizer_reference(reference: dict[str, Any] | None) -> list[str]
             if abs(dd_value) <= 1.0:
                 lines.append(f"  Max drawdown: {dd_value:.2%}")
             else:
-                lines.append(f"  Max drawdown: {dd_value:.2f}")
+                lines.append(f"  Max drawdown: {dd_value:.2f}%")
+        elif dd_r is not None:
+            lines.append(f"  Max R drawdown: {float(dd_r):.2f}R")
     return lines

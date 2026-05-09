@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from backtests.diagnostic_snapshot import build_group_snapshot
+from backtests.shared.diagnostics.snapshot import build_group_snapshot
 from backtests.swing.analysis.optimized_baseline import (
     load_phase_mutation_source,
     summarize_optimizer_reference,
@@ -21,7 +21,6 @@ from backtests.momentum.auto.nqdtc.scoring import extract_nqdtc_metrics
 from backtests.momentum.auto.vdubus.phase_diagnostics import generate_phase_diagnostics as generate_vdubus_phase_diagnostics
 from backtests.momentum.auto.vdubus.scoring import extract_vdubus_metrics
 from backtests.swing.analysis.atrss_diagnostics import atrss_entry_type_drilldown
-from backtests.swing.analysis.breakout_diagnostics import breakout_entry_drilldown
 from backtests.swing.analysis.helix_diagnostics import helix_class_drilldown
 from backtests.swing.auto.atrss.scoring import extract_atrss_metrics
 from backtests.swing.auto.helix.scoring import extract_helix_metrics
@@ -357,6 +356,7 @@ def test_nqdtc_and_vdubus_phase_diagnostics_report_fee_net_pnl():
         win_rate=1.0,
         profit_factor=1.5,
         net_return_pct=5.0,
+        robust_net_return_pct=5.0,
         max_dd_pct=0.05,
         calmar=1.0,
         sharpe=1.0,
@@ -368,6 +368,8 @@ def test_nqdtc_and_vdubus_phase_diagnostics_report_fee_net_pnl():
         avg_winner_r=1.0,
         avg_loser_r=0.0,
         avg_mfe_r=2.0,
+        largest_winner_r=1.0,
+        largest_win_pnl_share=0.0,
         avg_hold_hours=1.0,
         eth_short_wr=0.0,
         eth_short_trades=0,
@@ -408,11 +410,9 @@ def test_swing_diagnostic_tables_report_fee_net_pnl():
 
     atrss_text = atrss_entry_type_drilldown([trade])
     helix_text = helix_class_drilldown([trade])
-    breakout_text = breakout_entry_drilldown([trade])
 
     assert "+75" in atrss_text
     assert "+75" in helix_text
-    assert "+75" in breakout_text
 
 
 def test_atrss_scoring_accepts_numeric_combined_timestamps():

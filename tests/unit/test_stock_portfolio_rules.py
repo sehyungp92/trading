@@ -186,12 +186,6 @@ async def test_symbol_collision_ignored_without_symbol():
 # ── Momentum checks are no-ops for stock IDs ───────────────────────
 
 
-@pytest.mark.asyncio
-async def test_proximity_cooldown_noop_for_stock():
-    """Proximity cooldown only fires for Helix/NQDTC IDs — stock IDs pass through."""
-    checker = _make_checker()
-    result = await checker.check_entry("IARIC_v1", "LONG", 1.0)
-    assert result.approved
 
 
 @pytest.mark.asyncio
@@ -202,12 +196,6 @@ async def test_direction_filter_noop_for_stock():
     assert result.approved
 
 
-@pytest.mark.asyncio
-async def test_chop_throttle_noop_for_stock():
-    """Chop throttle only fires for Helix — stock IDs pass through."""
-    checker = _make_checker()
-    result = await checker.check_entry("ALCB_v1", "LONG", 1.0)
-    assert result.approved
 
 
 # ── Backward compatibility ──────────────────────────────────────────

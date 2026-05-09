@@ -5,7 +5,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -58,7 +58,13 @@ def _next_friday_1630(now_et: datetime, market_cal: Any | None) -> datetime:
 _REQUIRED_SIGNAL_COLS = {"P_G", "P_R", "P_S", "P_D", "Conf", "L"}
 
 
-def _row_to_context(row: pd.Series, computed_at: str = "") -> RegimeContext:
+def _row_to_context(
+    row: pd.Series,
+    computed_at: str = "",
+    *,
+    data_as_of: str = "",
+    data_status: str = "",
+) -> RegimeContext:
     """Convert a signals DataFrame row to RegimeContext."""
     posteriors = [row["P_G"], row["P_R"], row["P_S"], row["P_D"]]
     dominant_idx = int(np.argmax(posteriors))
@@ -80,6 +86,8 @@ def _row_to_context(row: pd.Series, computed_at: str = "") -> RegimeContext:
         suggested_leverage_mult=float(row["L"]),
         regime_allocations=allocations,
         computed_at=computed_at,
+        data_as_of=data_as_of,
+        data_status=data_status,
     )
 
 
@@ -92,20 +100,27 @@ class RegimeService:
         cfg: MetaConfig | None = None,
         data_dir: Path | None = None,
         market_calendar: Any | None = None,
+        now_provider: Callable[[], datetime] | None = None,
     ) -> None:
-        self._provider = LiveDataProvider(ib_session, data_dir or _DEFAULT_DATA_DIR)
+        self._now_provider = now_provider
+        self._provider = LiveDataProvider(
+            ib_session,
+            data_dir or _DEFAULT_DATA_DIR,
+            now_provider=now_provider,
+        )
         self._cfg = cfg or MetaConfig()
         self._market_cal = market_calendar
         self._context: RegimeContext | None = None
         self._signals_df: pd.DataFrame | None = None
         self._last_compute: datetime | None = None
+        self._compute_lock = asyncio.Lock()
         self._scheduler_task: asyncio.Task | None = None
         self._running = False
 
     async def start(self) -> None:
         """Qualify contracts, compute initial signal, launch weekly scheduler."""
         await self._provider.qualify_contracts()
-        await self._compute_signal()
+        await self.compute_now()
         self._running = True
         self._scheduler_task = asyncio.create_task(self._weekly_scheduler())
 
@@ -121,6 +136,14 @@ class RegimeService:
 
     def get_context(self) -> RegimeContext | None:
         """Thread-safe getter. Returns None only before first computation."""
+        return self._context
+
+    async def compute_now(self) -> RegimeContext:
+        """Force an immediate regime computation and return the fresh context."""
+        async with self._compute_lock:
+            await self._compute_signal()
+        if self._context is None:
+            raise RuntimeError("RegimeService compute_now did not produce a context")
         return self._context
 
     @property
@@ -140,7 +163,7 @@ class RegimeService:
     async def _weekly_scheduler(self) -> None:
         """Sleep until Friday 16:30 ET, then recompute."""
         while self._running:
-            now_et = datetime.now(timezone.utc).astimezone(_ET)
+            now_et = self._now().astimezone(_ET)
             target = _next_friday_1630(now_et, self._market_cal)
             wait = (target - now_et).total_seconds()
             logger.info(
@@ -151,7 +174,7 @@ class RegimeService:
             if not self._running:
                 break
             try:
-                await self._compute_signal()
+                await self.compute_now()
             except Exception:
                 logger.exception("RegimeService: weekly computation failed, keeping previous context")
 
@@ -188,16 +211,23 @@ class RegimeService:
             raise ValueError(f"signals_df missing required columns: {missing}")
 
         self._signals_df = signals_df
-        now = datetime.now(timezone.utc)
+        now = self._now()
         _prev_ctx = self._context
-        self._context = _row_to_context(signals_df.iloc[-1], computed_at=now.isoformat())
+        self._context = _row_to_context(
+            signals_df.iloc[-1],
+            computed_at=now.isoformat(),
+            data_as_of=self._provider.last_data_as_of,
+            data_status=self._provider.last_data_status,
+        )
         self._last_compute = now
         logger.info(
-            "Regime signal computed: %s (conf=%.2f, stress=%.2f, leverage=%.2f)",
+            "Regime signal computed: %s "
+            "(conf=%.2f, stress=%.2f, leverage=%.2f, data_as_of=%s)",
             self._context.regime,
             self._context.regime_confidence,
             self._context.stress_level,
             self._context.suggested_leverage_mult,
+            self._context.data_as_of or "unknown",
         )
 
         # 4. Persist to disk for diagnostics and restart resilience
@@ -233,6 +263,12 @@ class RegimeService:
             logger.info("Regime transition: %s -> %s", prev.regime, curr.regime)
         except Exception:
             logger.warning("Failed to emit RegimeTransitionEvent", exc_info=True)
+
+    def _now(self) -> datetime:
+        now = self._now_provider() if self._now_provider is not None else datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            return now.replace(tzinfo=timezone.utc)
+        return now
 
     def __repr__(self) -> str:
         ctx = self._context

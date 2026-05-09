@@ -32,7 +32,6 @@ from backtests.shared.auto.types import (
     ScoredCandidate,
 )
 from backtests.stock.auto.iaric.plugin import IARICPullbackPlugin
-from backtests.swing.auto.brs.plugin import BRSPlugin
 
 
 def _greedy_result(*, base_score: float, final_score: float, accepted_count: int = 1) -> GreedyResult:
@@ -661,41 +660,6 @@ def test_phase_runner_writes_run_spec_for_incremental_round_runs(tmp_path, monke
     assert '"round": 1' in run_spec
     assert '"baseline_mutations": {' in run_spec
     assert '"flags.seed": true' in run_spec
-
-
-def test_brs_phase_policy_marks_small_score_gain_marginal():
-    plugin = BRSPlugin(Path("."))
-    state = PhaseState()
-    spec = plugin.get_phase_spec(2, state)
-    policy = PhaseAnalysisPolicy(
-        focus_metrics=spec.analysis_policy.focus_metrics,
-        min_effective_score_delta_pct=spec.analysis_policy.min_effective_score_delta_pct,
-        diagnostic_gap_fn=lambda phase, metrics: [],
-        suggest_experiments_fn=lambda phase, metrics, weaknesses, state: [],
-        redesign_scoring_weights_fn=spec.analysis_policy.redesign_scoring_weights_fn,
-    )
-    analysis = analyze_phase(
-        2,
-        _greedy_result(base_score=100.0, final_score=100.5),
-        {
-            "profit_factor": 1.5,
-            "net_return_pct": 5.0,
-            "max_dd_pct": 0.10,
-            "total_trades": 20.0,
-            "bear_alpha_pct": 5.0,
-            "bear_pf": 1.2,
-            "regime_f1": 0.50,
-            "exit_efficiency": 0.20,
-        },
-        state,
-        GateResult(passed=False, criteria=(GateCriterion("profit_factor", 2.0, 1.5, False),)),
-        ultimate_targets=plugin.ultimate_targets,
-        policy=policy,
-        current_weights=spec.scoring_weights,
-    )
-
-    assert analysis.scoring_assessment == "MARGINAL"
-    assert analysis.recommendation == "improve_scoring"
 
 
 def test_downturn_policy_forces_rescoring_on_negative_correction_pnl():

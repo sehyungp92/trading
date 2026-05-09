@@ -90,6 +90,9 @@ class NQRegimeEngine:
         # Liveness tracking
         self._bars_processed: int = 0
         self._symbol_last_bar_ts: dict[str, datetime] = {}
+        self._last_decision_code: str = self._state.last_decision_code
+        self._last_decision_details: dict[str, Any] = dict(self._state.last_decision_details)
+        self._last_bar_ts: datetime | None = self._state.last_bar_ts
 
         # Instrumentation tracking state
         self._entry_candidate: SetupCandidate | None = None
@@ -136,6 +139,7 @@ class NQRegimeEngine:
             "active_module": self._state.active_module.value,
             "last_decision_code": self._state.last_decision_code,
             "last_decision_details": self._state.last_decision_details,
+            "last_bar_ts": self._state.last_bar_ts,
             "last_seen_bar_ts": self._state.last_bar_ts,
         }
 
@@ -332,6 +336,18 @@ class NQRegimeEngine:
                     self._update_mae()
             except Exception:
                 logger.debug("nq_regime instrumentation event failed", exc_info=True)
+
+    def _record_decision(
+        self,
+        code: str,
+        details: dict[str, Any] | None = None,
+        last_bar_ts: datetime | None = None,
+    ) -> None:
+        self._state.last_decision_code = code
+        self._state.last_decision_details = dict(details or {})
+        if last_bar_ts is not None:
+            self._state.last_bar_ts = last_bar_ts
+        self._sync_health_fields()
 
     def _log_entry_fill(self, fill: FillEvent) -> None:
         if not self._kit.active:
@@ -732,7 +748,7 @@ class NQRegimeEngine:
 
     def _sync_health_fields(self) -> None:
         self._last_decision_code = self._state.last_decision_code
-        self._last_decision_details = self._state.last_decision_details
+        self._last_decision_details = dict(self._state.last_decision_details)
         self._last_bar_ts = self._state.last_bar_ts
 
     def liveness_payload(self) -> dict:

@@ -1,4 +1,4 @@
-"""Append recent data to BRS parquet files using IBKR gateway.
+"""Append recent data to swing parquet files using IBKR gateway.
 
 Requires IB Gateway or TWS running on localhost:7496.
 
@@ -180,7 +180,7 @@ async def main(port: int = 7496, client_id: int = 99):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Append IBKR data to BRS parquet files")
+    parser = argparse.ArgumentParser(description="Append IBKR data to swing parquet files")
     parser.add_argument("--port", type=int, default=7496, help="IB Gateway port")
     parser.add_argument("--client-id", type=int, default=99, help="IBKR client ID")
     args = parser.parse_args()

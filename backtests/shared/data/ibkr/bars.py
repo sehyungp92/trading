@@ -236,6 +236,7 @@ async def download_historical_bars(
         )
 
     pacer = pacer or RequestPacer()
+    logger.debug("download %s %s: %d windows planned", request.symbol, request.timeframe, len(windows))
     if request.sec_type.upper() == "FUT":
         downloaded = await _download_continuous_future(ib, request, start=effective_start, end=end, pacer=pacer)
     else:
@@ -436,6 +437,12 @@ async def build_generic_contract(ib: Any, request: BarDownloadRequest):
         from ib_async import Stock
 
         contract = Stock(symbol=request.symbol, exchange=request.exchange, currency=request.currency)
+        if request.primary_exchange:
+            contract.primaryExchange = request.primary_exchange
+    elif request.sec_type.upper() in {"IND", "INDEX"}:
+        from ib_async import Index
+
+        contract = Index(symbol=request.symbol, exchange=request.exchange, currency=request.currency)
     elif request.sec_type.upper() == "FUT":
         from ib_async import ContFuture
 

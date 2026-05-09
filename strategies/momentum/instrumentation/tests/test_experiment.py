@@ -19,7 +19,7 @@ class TestExperimentMetadata:
             hypothesis="Tighter trail improves Sharpe",
             variants=["control", "tight"],
             start_date="2026-03-15",
-            strategy_type="helix",
+            strategy_type="nqdtc",
         )
         assert exp.primary_metric == "sharpe"
         assert exp.min_trades_per_variant == 30
@@ -46,7 +46,7 @@ class TestExperimentRegistry:
                     "hypothesis": "Tighter trail",
                     "variants": ["control", "tight"],
                     "start_date": "2026-03-01",
-                    "strategy_type": "helix",
+                    "strategy_type": "nqdtc",
                 },
             })
             reg = ExperimentRegistry(config_path=path)
@@ -68,20 +68,20 @@ class TestExperimentRegistry:
                     "hypothesis": "test",
                     "variants": ["a", "b"],
                     "start_date": "2026-01-01",
-                    "strategy_type": "helix",
+                    "strategy_type": "nqdtc",
                 },
                 "exp_ended": {
                     "hypothesis": "test",
                     "variants": ["a", "b"],
                     "start_date": "2026-01-01",
                     "end_date": "2026-02-01",
-                    "strategy_type": "helix",
+                    "strategy_type": "nqdtc",
                 },
                 "exp_future": {
                     "hypothesis": "test",
                     "variants": ["a", "b"],
                     "start_date": "2027-01-01",
-                    "strategy_type": "helix",
+                    "strategy_type": "nqdtc",
                 },
             })
             reg = ExperimentRegistry(config_path=path)

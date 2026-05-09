@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import datetime as _dt
 
 from libs.broker_ibkr.risk_support.tick_rules import round_qty
@@ -33,6 +34,15 @@ _CLASS_PRIORITY: dict[SetupClass, int] = {
 }
 
 _EPOCH = _dt.min
+
+
+@dataclass(frozen=True)
+class InitialRiskBasis:
+    """Target versus actual initial risk after fills, rounding, and caps."""
+
+    target_risk_dollars: float
+    actual_risk_dollars: float
+    utilization: float
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +100,48 @@ def compute_position_size(
         if qty * mid_price > max_notional:
             qty = int(max_notional / mid_price)
     return qty
+
+
+def compute_initial_risk_basis(
+    entry_price: float,
+    stop0: float,
+    qty: int,
+    point_value: float,
+    target_risk_dollars: float,
+) -> InitialRiskBasis:
+    """Return the actual filled initial risk and target utilization."""
+    target = max(float(target_risk_dollars or 0.0), 0.0)
+    actual = abs(float(entry_price) - float(stop0)) * max(int(qty), 0) * float(point_value)
+    utilization = actual / target if target > 0 else 0.0
+    return InitialRiskBasis(
+        target_risk_dollars=target,
+        actual_risk_dollars=actual,
+        utilization=utilization,
+    )
+
+
+def apply_initial_risk_basis(
+    setup: SetupInstance,
+    entry_price: float,
+    qty: int,
+    point_value: float,
+    target_risk_dollars: float | None = None,
+) -> InitialRiskBasis:
+    """Persist actual initial risk as the R-accounting denominator."""
+    target = (
+        float(target_risk_dollars)
+        if target_risk_dollars is not None
+        else float(setup.target_initial_risk_dollars or setup.unit1_risk_dollars or 0.0)
+    )
+    basis = compute_initial_risk_basis(entry_price, setup.stop0, qty, point_value, target)
+    setup.target_initial_risk_dollars = basis.target_risk_dollars
+    setup.actual_initial_risk_dollars = basis.actual_risk_dollars
+    setup.risk_utilization = basis.utilization
+    if basis.actual_risk_dollars > 0:
+        setup.unit1_risk_dollars = basis.actual_risk_dollars
+    elif basis.target_risk_dollars > 0:
+        setup.unit1_risk_dollars = basis.target_risk_dollars
+    return basis
 
 
 def compute_risk_r(
@@ -197,7 +249,10 @@ def allocate(
             s.qty_planned = max(1, s.qty_planned // 2)
 
         # Accept
-        s.unit1_risk_dollars = u1
+        target_risk = u1 * s.setup_size_mult
+        s.base_unit1_risk_dollars = u1
+        s.target_initial_risk_dollars = target_risk
+        s.unit1_risk_dollars = target_risk if target_risk > 0 else u1
         portfolio_r += cand_r
         instrument_r[sym] = instrument_r.get(sym, 0.0) + cand_r
         accepted.append(s)

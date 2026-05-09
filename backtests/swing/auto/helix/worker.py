@@ -9,6 +9,7 @@ from __future__ import annotations
 import io
 import sys
 import traceback
+from dataclasses import asdict
 from pathlib import Path
 
 from backtests.shared.auto.types import ScoredCandidate
@@ -16,18 +17,36 @@ from backtests.shared.auto.types import ScoredCandidate
 _worker_data = None
 _worker_config = None
 _worker_equity: float = 0.0
+_worker_start_date: str | None = None
+_worker_end_date: str | None = None
 
 
-def load_helix_worker_data(symbols: list[str], data_dir: Path) -> dict:
+def load_helix_worker_data(
+    symbols: list[str],
+    data_dir: Path,
+    *,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict:
     """Load helix data -- usable from both worker init and plugin."""
     from backtests.swing.data.replay_cache import load_helix_replay_bundle
 
-    return load_helix_replay_bundle(symbols, data_dir).data
+    return load_helix_replay_bundle(
+        symbols,
+        data_dir,
+        start_date=start_date,
+        end_date=end_date,
+    ).data
 
 
-def init_worker(data_dir_str: str, equity: float) -> None:
+def init_worker(
+    data_dir_str: str,
+    equity: float,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> None:
     """Initialize worker: load data once, reuse across all phases/tasks."""
-    global _worker_data, _worker_config, _worker_equity
+    global _worker_data, _worker_config, _worker_equity, _worker_start_date, _worker_end_date
 
     if sys.stdout.encoding != "utf-8":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -38,8 +57,18 @@ def init_worker(data_dir_str: str, equity: float) -> None:
     _worker_config = HelixBacktestConfig(
         initial_equity=equity,
         data_dir=Path(data_dir_str),
+        start_date=start_date,
+        end_date=end_date,
+        track_shadows=False,
     )
-    _worker_data = load_helix_worker_data(_worker_config.symbols, _worker_config.data_dir)
+    _worker_start_date = start_date
+    _worker_end_date = end_date
+    _worker_data = load_helix_worker_data(
+        _worker_config.symbols,
+        _worker_config.data_dir,
+        start_date=start_date,
+        end_date=end_date,
+    )
 
 
 def score_candidate(args: tuple) -> ScoredCandidate:
@@ -74,8 +103,14 @@ def score_candidate(args: tuple) -> ScoredCandidate:
             score = composite_score(metrics)
 
         if score.rejected:
-            return ScoredCandidate(name=name, score=0.0, rejected=True, reject_reason=score.reject_reason)
-        return ScoredCandidate(name=name, score=score.total)
+            return ScoredCandidate(
+                name=name,
+                score=0.0,
+                rejected=True,
+                reject_reason=score.reject_reason,
+                metrics=asdict(metrics),
+            )
+        return ScoredCandidate(name=name, score=score.total, metrics=asdict(metrics))
 
     except Exception:
         return ScoredCandidate(name=name, score=0.0, rejected=True, reject_reason=traceback.format_exc())

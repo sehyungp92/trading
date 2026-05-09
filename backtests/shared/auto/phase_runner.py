@@ -76,12 +76,15 @@ class PhaseRunner:
                 baseline_mutations = self._round_manager.get_previous_mutations(self._round_num)
             else:
                 baseline_mutations = {}
+        baseline_source = getattr(self.plugin, "initial_mutations_source", None)
         self._round_manager.write_run_spec(
             self.output_dir,
             self._round_num,
             self.plugin.name,
             description=self.round_name or f"Round {self._round_num}",
             baseline_mutations=dict(baseline_mutations),
+            baseline_source=baseline_source,
+            execution_context=_plugin_execution_context(self.plugin),
         )
 
     def load_state(self) -> PhaseState:
@@ -365,6 +368,27 @@ class PhaseRunner:
                 continue
 
             adopt_phase_mutations = gate_result.passed
+            adoption_reason = "gate_passed" if gate_result.passed else "gate_failed"
+            if not adopt_phase_mutations and greedy_result.accepted_count > 0:
+                should_adopt_failed_gate = getattr(self.plugin, "should_adopt_failed_gate", None)
+                if callable(should_adopt_failed_gate):
+                    phase_base_metrics = self.plugin.compute_final_metrics(phase_base_mutations)
+                    adoption_decision = should_adopt_failed_gate(
+                        phase=phase,
+                        base_metrics=phase_base_metrics,
+                        candidate_metrics=metrics,
+                        greedy_result=greedy_result,
+                        gate_result=gate_result,
+                    )
+                    if isinstance(adoption_decision, tuple):
+                        adopt_phase_mutations = bool(adoption_decision[0])
+                        adoption_reason = str(adoption_decision[1])
+                    else:
+                        adopt_phase_mutations = bool(adoption_decision)
+                        adoption_reason = (
+                            "incremental_improvement_without_material_harm"
+                            if adopt_phase_mutations else "gate_failed"
+                        )
             adopted_final_mutations = dict(greedy_result.final_mutations)
             adopted_final_metrics = metrics
             adopted_final_score = greedy_result.final_score
@@ -400,6 +424,7 @@ class PhaseRunner:
                 "analysis": _analysis_to_dict(analysis),
                 "new_mutations": phase_new_mutations,
                 "applied_phase_mutations": adopt_phase_mutations,
+                "adoption_reason": adoption_reason,
                 "attempted_final_mutations": dict(greedy_result.final_mutations),
                 "attempted_final_score": greedy_result.final_score,
                 "attempted_final_metrics": metrics,
@@ -420,6 +445,7 @@ class PhaseRunner:
                     "reason": analysis.recommendation_reason,
                     "gate_passed": gate_result.passed,
                     "applied_phase_mutations": adopt_phase_mutations,
+                    "adoption_reason": adoption_reason,
                     "new_mutation_count": len(phase_new_mutations),
                 },
             )
@@ -506,6 +532,13 @@ class PhaseRunner:
         return base_mutations
 
     def run_end_of_round(self, state: PhaseState) -> str:
+        set_round_artifact_context = getattr(self.plugin, "set_round_artifact_context", None)
+        if callable(set_round_artifact_context):
+            set_round_artifact_context(
+                output_dir=self.output_dir,
+                state_path=self.state_path,
+                round_num=self._round_num,
+            )
         artifacts = self.plugin.build_end_of_round_artifacts(state)
         diagnostics_path = (
             self._round_manager.diagnostics_path(self.output_dir)
@@ -569,6 +602,15 @@ def _analysis_to_dict(analysis: PhaseAnalysis) -> dict:
         "scoring_weight_overrides": analysis.scoring_weight_overrides,
         "extra": analysis.extra,
     }
+
+
+def _plugin_execution_context(plugin: StrategyPlugin) -> dict[str, Any]:
+    context: dict[str, Any] = {}
+    for attr in ("data_dir", "initial_equity", "start_date", "end_date", "max_workers"):
+        if hasattr(plugin, attr):
+            value = getattr(plugin, attr)
+            context[attr] = str(value) if isinstance(value, Path) else value
+    return context
 
 
 def _progress_summary(state: PhaseState, phase: int) -> dict:

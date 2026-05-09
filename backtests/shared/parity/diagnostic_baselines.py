@@ -119,6 +119,18 @@ def parse_diagnostic_metrics(
     parser_kind: str,
     summary_data: Any | None = None,
 ) -> dict[str, float]:
+    if parser_kind in {"swing_helix_summary_json", "swing_strategy_summary_json"}:
+        payload = json.loads(text)
+        return {
+            "total_trades": _to_number(payload["total_trades"]),
+            "win_rate_pct": _to_number(payload["win_rate_pct"]),
+            "profit_factor": _to_number(payload["profit_factor"]),
+            "total_pnl": _to_number(payload["total_pnl"]),
+            "total_r": _to_number(payload["total_r"]),
+            "net_return_pct": _to_number(payload["net_return_pct"]),
+            "final_equity": _to_number(payload["final_equity"]),
+            "max_drawdown_pct": _to_number(payload["max_drawdown_pct"]),
+        }
     if parser_kind == "swing_aggregate_summary":
         block = _section_between(text, "--- AGGREGATE SUMMARY ---", ["PER-SYMBOL SUMMARY"])
         return {

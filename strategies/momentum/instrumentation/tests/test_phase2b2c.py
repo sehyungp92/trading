@@ -22,8 +22,8 @@ from strategies.momentum.instrumentation.src.sidecar import _DIR_TO_EVENT_TYPE, 
 # =========================================================================
 
 class TestIndicatorSnapshot:
-    def test_helix_indicators_captured(self):
-        """Helix-specific indicators (MACD, volume percentile) present."""
+    def test_nqdtc_indicators_captured(self):
+        """NQDTC-specific indicators (MACD, volume percentile) present."""
         snap = IndicatorSnapshot(
             bot_id="test", pair="NQ", timestamp="2026-03-15T10:30:00Z",
             indicators={
@@ -32,8 +32,8 @@ class TestIndicatorSnapshot:
                 "macd_histogram": 15.15, "volume_percentile": 72.0,
                 "trend_strength": 0.82,
             },
-            signal_name="helix_class_M", signal_strength=0.75,
-            decision="enter", strategy_type="helix",
+            signal_name="nqdtc_breakout_M", signal_strength=0.75,
+            decision="enter", strategy_type="nqdtc",
         )
         assert snap.indicators["macd"] == 70.25
         assert snap.indicators["volume_percentile"] == 72.0
@@ -43,7 +43,7 @@ class TestIndicatorSnapshot:
         snap = IndicatorSnapshot(
             bot_id="test", pair="NQ", timestamp="t",
             indicators={"ema_9": 1.0}, signal_name="x",
-            signal_strength=0.5, decision="skip", strategy_type="helix",
+            signal_strength=0.5, decision="skip", strategy_type="nqdtc",
             context={"session": "RTH", "contract_month": "2026-06"},
         )
         assert snap.context["session"] == "RTH"
@@ -53,8 +53,8 @@ class TestIndicatorSnapshot:
         """Signal class M/F/T correctly reported in context."""
         snap = IndicatorSnapshot(
             bot_id="test", pair="NQ", timestamp="t",
-            indicators={}, signal_name="helix_class_T",
-            signal_strength=0.9, decision="enter", strategy_type="helix",
+            indicators={}, signal_name="nqdtc_breakout_T",
+            signal_strength=0.9, decision="enter", strategy_type="nqdtc",
             context={"signal_class": "T"},
         )
         assert snap.context["signal_class"] == "T"
@@ -67,10 +67,10 @@ class TestIndicatorSnapshot:
             result = lgr.log_snapshot(
                 pair="NQ",
                 indicators={"ema_9": 100.5, "atr_14": 20.0},
-                signal_name="helix_class_M",
+                signal_name="nqdtc_breakout_M",
                 signal_strength=0.6,
                 decision="enter",
-                strategy_type="helix",
+                strategy_type="nqdtc",
                 exchange_timestamp=ts,
                 bar_id="2026-03-15T14:00Z_1h",
                 context={"session": "RTH", "concurrent_positions": 1},
@@ -100,7 +100,7 @@ class TestFilterEventLogger:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             lgr = FilterEventLogger(data_dir=tmpdir, bot_id="test")
-            lgr.log_decision(fd, pair="NQ", strategy_type="helix")
+            lgr.log_decision(fd, pair="NQ", strategy_type="nqdtc")
             files = list(Path(tmpdir, "filter_decisions").glob("*.jsonl"))
             data = json.loads(files[0].read_text().strip())
             assert data["margin_pct"] == expected_margin
@@ -116,8 +116,8 @@ class TestFilterEventLogger:
         with tempfile.TemporaryDirectory() as tmpdir:
             lgr = FilterEventLogger(data_dir=tmpdir, bot_id="test")
             lgr.log_decisions(
-                fds, pair="NQ", signal_name="helix_class_M",
-                signal_strength=0.75, strategy_type="helix",
+                fds, pair="NQ", signal_name="nqdtc_breakout_M",
+                signal_strength=0.75, strategy_type="nqdtc",
             )
             files = list(Path(tmpdir, "filter_decisions").glob("*.jsonl"))
             lines = files[0].read_text().strip().split("\n")
@@ -132,7 +132,7 @@ class TestFilterEventLogger:
         with tempfile.TemporaryDirectory() as tmpdir:
             mgr = MagicMock()
             mgr._config = {"data_dir": tmpdir, "bot_id": "test"}
-            kit = InstrumentationKit(mgr, strategy_type="helix")
+            kit = InstrumentationKit(mgr, strategy_type="nqdtc")
 
             # Mix of dict and FilterDecision
             fds = [
@@ -142,7 +142,7 @@ class TestFilterEventLogger:
             ]
             kit.on_filter_decisions(
                 filter_decisions=fds, pair="NQ",
-                signal_name="helix_class_M", strategy_type="helix",
+                signal_name="nqdtc_breakout_M", strategy_type="nqdtc",
             )
             files = list(Path(tmpdir, "filter_decisions").glob("*.jsonl"))
             lines = files[0].read_text().strip().split("\n")
@@ -301,7 +301,7 @@ class TestExperimentRegistryOrchestrator:
                     "hypothesis": "Tighter trail",
                     "variants": ["control", "tight"],
                     "start_date": "2026-03-01",
-                    "strategy_type": "helix",
+                    "strategy_type": "nqdtc",
                 },
             }}))
             reg = ExperimentRegistry(config_path=path)
@@ -431,7 +431,7 @@ class TestVariantAssignment:
                     "hypothesis": "test",
                     "variants": ["a", "b", "c"],
                     "start_date": "2026-01-01",
-                    "strategy_type": "helix",
+                    "strategy_type": "nqdtc",
                 },
             })
             counts = {"a": 0, "b": 0, "c": 0}
@@ -508,15 +508,15 @@ class TestFacadePhase2B:
         with tempfile.TemporaryDirectory() as tmpdir:
             mgr = MagicMock()
             mgr._config = {"data_dir": tmpdir, "bot_id": "test"}
-            kit = InstrumentationKit(mgr, strategy_type="helix")
+            kit = InstrumentationKit(mgr, strategy_type="nqdtc")
 
             kit.on_indicator_snapshot(
                 pair="NQ",
                 indicators={"ema_9": 100.0, "atr_14": 10.0},
-                signal_name="helix_class_M",
+                signal_name="nqdtc_breakout_M",
                 signal_strength=0.8,
                 decision="enter",
-                strategy_type="helix",
+                strategy_type="nqdtc",
                 context={"session": "RTH"},
             )
             files = list(Path(tmpdir, "indicators").glob("*.jsonl"))
@@ -526,7 +526,7 @@ class TestFacadePhase2B:
         with tempfile.TemporaryDirectory() as tmpdir:
             mgr = MagicMock()
             mgr._config = {"data_dir": tmpdir, "bot_id": "test"}
-            kit = InstrumentationKit(mgr, strategy_type="helix")
+            kit = InstrumentationKit(mgr, strategy_type="nqdtc")
 
             kit.on_orderbook_context(
                 pair="NQ", best_bid=21248.50, best_ask=21249.00,
@@ -541,7 +541,7 @@ class TestFacadePhase2B:
         # These should all be no-ops
         kit.on_indicator_snapshot(
             pair="NQ", indicators={}, signal_name="x",
-            signal_strength=0, decision="skip", strategy_type="helix",
+            signal_strength=0, decision="skip", strategy_type="nqdtc",
         )
         kit.on_filter_decisions([], pair="NQ")
         kit.on_orderbook_context(pair="NQ", best_bid=0, best_ask=0)

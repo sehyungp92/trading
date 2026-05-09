@@ -15,7 +15,12 @@ from .artifact_store import persist_research_snapshot
 from .config import ScannerSettings, StrategySettings
 from .models import Bar, MarketResearch, ResearchDailyBar, ResearchSnapshot, ResearchSymbol, SectorResearch
 from .signals import ema
-from .universe_constituents import KNOWN_ETFS, SP500_CONSTITUENTS
+from .universe_constituents import KNOWN_ETFS
+from strategies.stock.live_universe import (
+    BACKTESTED_INTRADAY_STOCK_SYMBOLS,
+    LIVE_STOCK_UNIVERSE,
+    LIVE_STOCK_UNIVERSE_ADDED_SYMBOLS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -229,11 +234,16 @@ async def generate_research_snapshot(
 ) -> ResearchSnapshot:
     cfg = settings or StrategySettings()
     rate = _RateBudget(rate_per_second=3.0, burst=6.0)
-    universe: dict[str, tuple[str, str]] = {symbol: (sector, primary) for symbol, sector, primary in SP500_CONSTITUENTS}
-    for symbol in await _fetch_scanner_symbols(ib, rate, cfg.scanner):
-        if symbol in KNOWN_ETFS or symbol in universe:
-            continue
-        universe[symbol] = ("Unknown", "")
+    universe: dict[str, tuple[str, str]] = {
+        symbol: (sector, primary)
+        for symbol, sector, primary in LIVE_STOCK_UNIVERSE
+    }
+    logger.info(
+        "ALCB focused live universe: %d symbols (%d backtested, %d Nasdaq/Dow additions)",
+        len(universe),
+        len(BACKTESTED_INTRADAY_STOCK_SYMBOLS),
+        len(LIVE_STOCK_UNIVERSE_ADDED_SYMBOLS),
+    )
     all_symbols = list(universe.keys())[: cfg.universe_cap]
     sem = asyncio.Semaphore(12)
     _progress = {"done": 0, "total": len(all_symbols)}

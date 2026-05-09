@@ -54,13 +54,6 @@ class StrategyAssessment:
 
 LATEST_ROUNDS: tuple[LatestRoundSource, ...] = (
     LatestRoundSource(
-        "helix",
-        "AKC_Helix_v40",
-        "round_4",
-        "backtests/output/momentum/helix/round_4/run_summary.json",
-        "backtests/output/momentum/helix/round_4/round_final_diagnostics.txt",
-    ),
-    LatestRoundSource(
         "nqdtc",
         "NQDTC_v2.1",
         "round_3",
@@ -91,7 +84,6 @@ LATEST_ROUNDS: tuple[LatestRoundSource, ...] = (
 )
 
 AVG_R_FALLBACKS = {
-    "helix": 0.384,
     "nqdtc": 0.511,
     "vdubus": 0.440,
     "downturn": 0.425,
@@ -99,11 +91,6 @@ AVG_R_FALLBACKS = {
 }
 
 STRATEGY_READS = {
-    "helix": (
-        "High-dollar expectancy and convex trend payoff, but only 3.97 trades/month with 27.3% standalone DD.",
-        "Use as a capped satellite; require trend-quality and overlap gates before increasing size.",
-        "underweight_satellite",
-    ),
     "nqdtc": (
         "Stable range-regime contributor: 100 trades, 58% WR, PF 2.14, robust return remains positive ex-largest winner.",
         "Latest phase accepted no new candidates, so treat it as confirmation/frequency support rather than primary alpha.",
@@ -146,13 +133,13 @@ def build_round_design(repo_root: Path | None = None) -> dict[str, Any]:
         "status": "designed_not_executed",
         "generated_at_utc": generated_at,
         "description": (
-            "Five-strategy phase-auto round design using the latest Helix, NQDTC, Vdubus, "
+            "Four-strategy phase-auto round design using the latest NQDTC, Vdubus, "
             "Downturn, and NQ_REGIME diagnostics."
         ),
         "risk_stance": RISK_STANCE,
         "initial_equity": INITIAL_EQUITY,
         "starting_equity_assumption": (
-            "$50,000 is used as the controlled-aggressive starter book: large enough for five MNQ engines "
+            "$50,000 is used as the controlled-aggressive starter book: large enough for active MNQ engines "
             "to trade without $10k-style fragility, small enough that risk percent choices stay meaningful."
         ),
         "diagnostic_sources": [asdict(source) for source in LATEST_ROUNDS],
@@ -193,7 +180,7 @@ def build_round_design(repo_root: Path | None = None) -> dict[str, Any]:
         "replay_notes": [
             "This artifact is a phase-auto design seed, not an optimized result.",
             "The execution round should evaluate synchronized trade streams before adopting live risk changes.",
-            "Candidates that improve standalone return but reduce all-five coverage should be rejected.",
+            "Candidates that improve standalone return but reduce all-four coverage should be rejected.",
         ],
     }
 
@@ -254,7 +241,7 @@ def render_markdown(design: dict[str, Any]) -> str:
             "",
             "## Guardrails",
             "",
-            "- All five strategies start enabled.",
+            "- All four momentum strategies start enabled.",
             "- No single strategy may exceed 40% of selected risk contribution.",
             "- The optimizer is allowed to be aggressive on frequency, but DD hard-rejects above 18%.",
             "- Live adoption requires synchronized portfolio replay and completed-bar/fee parity checks.",
@@ -378,4 +365,3 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, dict):
         return {key: _jsonable(item) for key, item in value.items()}
     return value
-

@@ -1,4 +1,4 @@
-"""Unified 3-strategy portfolio backtest runner.
+"""Unified swing portfolio backtest runner.
 
 Usage:
     python -m backtest.run_unified [--equity 10000] [--data-dir backtest/data/raw]
@@ -54,8 +54,8 @@ def print_comparison_report(
     print(f"PORTFOLIO OPTIMIZATION COMPARISON (${equity:,.0f})")
     print("=" * 110)
     hdr = (
-        f"{'Preset':<22} {'Trades':>7} {'ATRSS':>6} {'Helix':>6} "
-        f"{'Brkout':>6} {'PnL':>10} {'OvlyPnL':>9} {'Sharpe':>7} {'MaxDD':>7} {'Blocked':>8}"
+        f"{'Preset':<22} {'Trades':>7} {'ATRSS':>6} {'Helix':>6} {'TPC':>6} "
+        f"{'PnL':>10} {'OvlyPnL':>9} {'Sharpe':>7} {'MaxDD':>7} {'Blocked':>8}"
     )
     print(hdr)
     print("-" * 110)
@@ -68,7 +68,7 @@ def print_comparison_report(
         sr = res.strategy_results
         atrss_n = sr.get("ATRSS")
         helix_n = sr.get("AKC_HELIX")
-        brkout_n = sr.get("SWING_BREAKOUT_V3")
+        tpc_n = sr.get("TPC")
         total_trades = sum(s.total_trades for s in sr.values())
         total_pnl = sum(s.total_pnl for s in sr.values()) + res.overlay_pnl
         total_blocked = sum(s.entries_blocked_by_heat for s in sr.values())
@@ -81,7 +81,7 @@ def print_comparison_report(
             f"{name:<22} {total_trades:>7} "
             f"{atrss_n.total_trades if atrss_n else 0:>6} "
             f"{helix_n.total_trades if helix_n else 0:>6} "
-            f"{brkout_n.total_trades if brkout_n else 0:>6} "
+            f"{tpc_n.total_trades if tpc_n else 0:>6} "
             f"{'${:>,.0f}'.format(total_pnl):>10} "
             f"{'${:>,.0f}'.format(ovly_pnl):>9} "
             f"{sharpe:>7.2f} "

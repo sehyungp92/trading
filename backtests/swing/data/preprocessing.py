@@ -69,9 +69,18 @@ def mark_invalid_blocks(df: pd.DataFrame, max_consecutive: int = 5) -> pd.DataFr
     return df
 
 
-def _vectorized_align(target_times: np.ndarray, source_times: np.ndarray) -> np.ndarray:
+def _vectorized_align(
+    target_times: np.ndarray,
+    source_times: np.ndarray,
+    *,
+    unavailable_index: int = -1,
+) -> np.ndarray:
     """Compatibility wrapper over the shared completed-bar alignment policy."""
-    return align_completed_higher_timeframe_indices(target_times, source_times)
+    return align_completed_higher_timeframe_indices(
+        target_times,
+        source_times,
+        unavailable_index=unavailable_index,
+    )
 
 
 def align_daily_to_hourly(
@@ -89,7 +98,11 @@ def align_daily_to_hourly(
     before ``t``'s date (i.e., yesterday's daily bar during the current day,
     switching to today's daily bar only on the first bar of the next day).
     """
-    return align_completed_daily_session_indices(hourly_df.index.values, daily_df.index.values)
+    return align_completed_daily_session_indices(
+        hourly_df.index.values,
+        daily_df.index.values,
+        unavailable_index=-1,
+    )
 
 
 @dataclass
@@ -108,10 +121,11 @@ class NumpyBars:
 
 
 def resample_1h_to_4h(hourly_df: pd.DataFrame) -> pd.DataFrame:
-    """Resample 1H OHLCV bars to 4H using standard aggregation.
+    """Resample completed 1H OHLCV bars to completed 4H bars.
 
     Uses UTC boundaries (00:00, 04:00, 08:00, 12:00, 16:00, 20:00).
-    The resulting DataFrame has the same timezone as the input.
+    Output rows are labeled at the 4H window close/availability time and only
+    include windows with four valid 1H OHLC bars.
     """
     agg = {
         "open": "first",
@@ -122,9 +136,16 @@ def resample_1h_to_4h(hourly_df: pd.DataFrame) -> pd.DataFrame:
     if "volume" in hourly_df.columns:
         agg["volume"] = "sum"
 
-    resampled = hourly_df.resample("4h", offset="0h", label="right").agg(agg)
-    # Drop rows where all OHLC are NaN (incomplete periods at boundaries)
-    resampled = resampled.dropna(subset=["open", "close"])
+    resampler = hourly_df.resample("4h", offset="0h", label="right", closed="left")
+    resampled = resampler.agg(agg)
+    complete_ohlc = hourly_df[["open", "high", "low", "close"]].notna().all(axis=1)
+    source_counts = complete_ohlc.astype(int).resample(
+        "4h",
+        offset="0h",
+        label="right",
+        closed="left",
+    ).sum()
+    resampled = resampled.loc[source_counts >= 4]
     return resampled
 
 
