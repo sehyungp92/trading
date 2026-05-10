@@ -2,7 +2,7 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Awaitable, Callable
+from typing import TYPE_CHECKING, Awaitable, Callable, Optional
 
 if TYPE_CHECKING:
     from ..intent.handler import IntentHandler
@@ -29,6 +29,7 @@ class OMSService:
         timeout_monitor: "OrderTimeoutMonitor | None" = None,
         get_portfolio_risk: "Callable[[], Awaitable[PortfolioRiskState]] | None" = None,
         get_strategy_risk: "Callable[[str], Awaitable[StrategyRiskState]] | None" = None,
+        on_intent_denied: Optional[Callable[[dict], None]] = None,
     ):
         self._handler = intent_handler
         self._bus = bus
@@ -38,6 +39,10 @@ class OMSService:
         self._timeout_monitor = timeout_monitor
         self._get_portfolio_risk = get_portfolio_risk
         self._get_strategy_risk = get_strategy_risk
+        # Forensic per-denial event sink (parallels PortfolioRuleChecker.on_rule_event).
+        # Counters above tell the watchdog "many denials happening";
+        # this callback lets operators audit each one with rule + reason.
+        self._on_intent_denied = on_intent_denied
         self._ready = asyncio.Event()
         self._recon_task: asyncio.Task | None = None
 
@@ -93,6 +98,27 @@ class OMSService:
         elif receipt.result == IntentResult.DENIED:
             self._intents_denied += 1
             self._consecutive_denials += 1
+            if self._on_intent_denied is not None:
+                order = intent.order
+                event = {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "strategy_id": getattr(order, "strategy_id", "") if order else "",
+                    "symbol": (
+                        order.instrument.symbol
+                        if order and getattr(order, "instrument", None)
+                        else ""
+                    ),
+                    "side": getattr(order.side, "value", str(order.side)) if order and order.side is not None else "",
+                    "qty": getattr(order, "qty", 0) if order else 0,
+                    "role": getattr(order.role, "value", str(order.role)) if order and order.role is not None else "",
+                    "intent_id": receipt.intent_id,
+                    "denial_reason": receipt.denial_reason or "",
+                    "consecutive_denials": self._consecutive_denials,
+                }
+                try:
+                    self._on_intent_denied(event)
+                except Exception:
+                    logger.debug("on_intent_denied callback failed", exc_info=True)
         return receipt
 
     def stream_events(self, strategy_id: str) -> "asyncio.Queue":

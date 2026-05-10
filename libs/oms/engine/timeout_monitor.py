@@ -1,7 +1,7 @@
-"""Order timeout monitor for stuck transient states (C4 fix).
+"""Order timeout monitor for stuck transient states.
 
 Scans for orders stuck in ROUTED or CANCEL_REQUESTED beyond configurable
-thresholds and transitions them to terminal states.
+thresholds without inventing terminal broker state.
 """
 import asyncio
 import logging
@@ -12,8 +12,9 @@ from ..models.order import OrderStatus
 from .state_machine import transition
 
 if TYPE_CHECKING:
-    from ..persistence.repository import OMSRepository
     from ..events.bus import EventBus
+    from ..execution.router import ExecutionRouter
+    from ..persistence.repository import OMSRepository
 
 logger = logging.getLogger(__name__)
 
@@ -23,24 +24,20 @@ DEFAULT_SCAN_INTERVAL_S = 5.0
 
 
 class OrderTimeoutMonitor:
-    """Background task that detects and resolves stuck orders.
-
-    Orders can get stuck in transient states (ROUTED, CANCEL_REQUESTED)
-    if the broker never sends an ACK or cancel confirmation (e.g., network
-    drop, gateway restart). This monitor detects such orders and transitions
-    them to terminal states.
-    """
+    """Background task that detects and escalates stuck transient orders."""
 
     def __init__(
         self,
         repo: "OMSRepository",
         bus: "EventBus",
+        router: "ExecutionRouter | None" = None,
         routed_timeout_s: float = DEFAULT_ROUTED_TIMEOUT_S,
         cancel_timeout_s: float = DEFAULT_CANCEL_REQUESTED_TIMEOUT_S,
         scan_interval_s: float = DEFAULT_SCAN_INTERVAL_S,
     ):
         self._repo = repo
         self._bus = bus
+        self._router = router
         self._routed_timeout_s = routed_timeout_s
         self._cancel_timeout_s = cancel_timeout_s
         self._scan_interval_s = scan_interval_s
@@ -55,8 +52,10 @@ class OrderTimeoutMonitor:
         self._running = True
         self._task = asyncio.create_task(self._monitor_loop())
         logger.info(
-            f"OrderTimeoutMonitor started: routed={self._routed_timeout_s}s, "
-            f"cancel={self._cancel_timeout_s}s, scan={self._scan_interval_s}s"
+            "OrderTimeoutMonitor started: routed=%ss, cancel=%ss, scan=%ss",
+            self._routed_timeout_s,
+            self._cancel_timeout_s,
+            self._scan_interval_s,
         )
 
     async def stop(self) -> None:
@@ -81,12 +80,12 @@ class OrderTimeoutMonitor:
                     )
                 self._db_timeout_streak = 0
                 self._db_degraded = False
-                backoff = self._scan_interval_s  # reset on success
+                backoff = self._scan_interval_s
                 await asyncio.sleep(self._scan_interval_s)
             except asyncio.CancelledError:
                 break
-            except Exception as e:
-                if self._is_db_timeout(e):
+            except Exception as exc:
+                if self._is_db_timeout(exc):
                     self._db_timeout_streak += 1
                     if self._db_timeout_streak >= 3 and not self._db_degraded:
                         self._db_degraded = True
@@ -94,7 +93,7 @@ class OrderTimeoutMonitor:
                             "OMS timeout monitor degraded: repeated database acquire timeouts (%d consecutive)",
                             self._db_timeout_streak,
                         )
-                logger.warning("Timeout monitor error (retry in %.0fs): %s", backoff, e)
+                logger.warning("Timeout monitor error (retry in %.0fs): %s", backoff, exc)
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 60.0)
 
@@ -116,30 +115,31 @@ class OrderTimeoutMonitor:
                 ref_time = order.submitted_at or order.created_at
                 if ref_time and (now - ref_time).total_seconds() > self._routed_timeout_s:
                     logger.warning(
-                        f"Order {order.oms_order_id} stuck in ROUTED for "
-                        f">{self._routed_timeout_s}s — cancelling"
+                        "Order %s stuck in ROUTED for >%ss; requesting broker cancel",
+                        order.oms_order_id,
+                        self._routed_timeout_s,
                     )
-                    if transition(order, OrderStatus.CANCELLED):
+                    if transition(order, OrderStatus.CANCEL_REQUESTED):
                         order.last_update_at = now
                         await self._repo.save_order_and_event(
                             order,
-                            "TIMEOUT_CANCELLED",
+                            "TIMEOUT_CANCEL_REQUESTED",
                             {"reason": "routed_timeout", "timeout_s": self._routed_timeout_s},
                         )
-                        self._bus.emit_order_event(order)
+                        if self._router is not None:
+                            await self._router.cancel(order)
 
             elif order.status == OrderStatus.CANCEL_REQUESTED:
                 ref_time = order.last_update_at or order.created_at
                 if ref_time and (now - ref_time).total_seconds() > self._cancel_timeout_s:
                     logger.warning(
-                        f"Order {order.oms_order_id} stuck in CANCEL_REQUESTED for "
-                        f">{self._cancel_timeout_s}s — marking cancelled"
+                        "Order %s stuck in CANCEL_REQUESTED for >%ss; reconciliation required",
+                        order.oms_order_id,
+                        self._cancel_timeout_s,
                     )
-                    if transition(order, OrderStatus.CANCELLED):
-                        order.last_update_at = now
-                        await self._repo.save_order_and_event(
-                            order,
-                            "TIMEOUT_CANCELLED",
-                            {"reason": "cancel_timeout", "timeout_s": self._cancel_timeout_s},
-                        )
-                        self._bus.emit_order_event(order)
+                    order.last_update_at = now
+                    await self._repo.save_order_and_event(
+                        order,
+                        "TIMEOUT_CANCEL_RECONCILE_REQUIRED",
+                        {"reason": "cancel_timeout", "timeout_s": self._cancel_timeout_s},
+                    )

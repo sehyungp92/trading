@@ -231,11 +231,24 @@ class IBKRExecutionAdapter:
         await self._session.throttled(PacingChannel.ORDERS)
         return await self._snapshots.fetch_executions(since_ts)
 
-    async def rebuild_cache(self, oms_order_id_resolver) -> None:
-        """Restore broker/OMS order mappings after a restart."""
+    async def rebuild_cache(
+        self,
+        oms_order_id_resolver,
+        fill_exists_check=None,
+        fill_importer=None,
+    ) -> None:
+        """Restore broker/OMS order mappings after a restart.
+
+        OMS-3: passes fill_exists_check + fill_importer through so the cache
+        can import any broker executions missing from OMS state before marking
+        their exec_ids seen. Without this, a fill that occurred while the
+        runtime was down would be permanently dropped on the next reconnect.
+        """
         await self._cache.rebuild_from_broker(
             self._snapshots,
             oms_order_id_resolver=oms_order_id_resolver,
+            fill_exists_check=fill_exists_check,
+            fill_importer=fill_importer,
         )
 
     @property

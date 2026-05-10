@@ -17,12 +17,19 @@ WHERE fill_ts < now() - INTERVAL '90 days';
 DELETE FROM strategy_state
 WHERE last_heartbeat_ts < now() - INTERVAL '30 days';
 
--- 4. Reset daily disconnect counters (adapter_state.disconnect_count_24h)
+-- 4. Strategy heartbeat history older than 60 days (snapshot table feeding
+--    v_daily_strategy_activity). Bounded growth: ~10 strategies × ~12
+--    snapshots/hour × ~16 trading hours/day × 252 days ≈ 484k rows/year.
+DELETE FROM strategy_heartbeat_history
+WHERE captured_at < now() - INTERVAL '60 days';
+
+-- 5. Reset daily disconnect counters (adapter_state.disconnect_count_24h)
 UPDATE adapter_state SET disconnect_count_24h = 0;
 
--- 5. Vacuum analyze high-churn tables
+-- 6. Vacuum analyze high-churn tables
 VACUUM ANALYZE order_events;
 VACUUM ANALYZE fills;
 VACUUM ANALYZE trades;
 VACUUM ANALYZE orders;
 VACUUM ANALYZE strategy_state;
+VACUUM ANALYZE strategy_heartbeat_history;

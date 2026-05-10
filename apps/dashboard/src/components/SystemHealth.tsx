@@ -28,7 +28,20 @@ export function SystemHealth({ health }: Props) {
       <CardContent className="space-y-4">
         {/* Adapters */}
         <div>
-          <p className="text-xs text-gray-500 font-mono uppercase tracking-wider mb-2">Broker Adapters</p>
+          <div className="flex items-baseline justify-between mb-2">
+            <p className="text-xs text-gray-500 font-mono uppercase tracking-wider">Broker Adapters</p>
+            {adapters.length > 0 && (() => {
+              const bad = adapters.filter(a => a.health_status !== 'OK');
+              const totalDiscon = adapters.reduce((s, a) => s + (a.disconnect_count_24h || 0), 0);
+              if (bad.length === 0 && totalDiscon === 0) {
+                return <Badge variant="success">All OK</Badge>;
+              }
+              if (bad.length > 0) {
+                return <Badge variant="danger">{bad.length} down</Badge>;
+              }
+              return <Badge variant="warning">{totalDiscon} discon/24h</Badge>;
+            })()}
+          </div>
           {adapters.length === 0 ? (
             <p className="text-xs text-gray-600 font-mono">No adapters registered</p>
           ) : (

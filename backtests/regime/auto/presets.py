@@ -98,18 +98,18 @@ R9_BUDGET_MUTATIONS: dict[str, object] = {
     "posterior_ema_alpha": 0.6,
     "crisis_weights": (0.2, 0.4, 0.2, 0.2),
     "stress_reduction_max": 0.05,
-    # All 30 budget fields at MetaConfig defaults (explicit baseline)
-    "budget_G_spy": 0.40, "budget_G_efa": 0.10, "budget_G_ibit": 0.25,
-    "budget_G_tlt": 0.05, "budget_G_gld": 0.05, "budget_G_cash": 0.15,
+    # All 25 budget fields at MetaConfig defaults (explicit baseline)
+    "budget_G_spy": 0.40, "budget_G_efa": 0.10,
+    "budget_G_tlt": 0.05, "budget_G_gld": 0.05, "budget_G_cash": 0.40,
     "budget_R_spy": 0.35, "budget_R_efa": 0.15, "budget_R_gld": 0.30,
-    "budget_R_ibit": 0.10, "budget_R_tlt": 0.00, "budget_R_cash": 0.10,
+    "budget_R_tlt": 0.00, "budget_R_cash": 0.20,
     "budget_S_gld": 0.50, "budget_S_cash": 0.30, "budget_S_spy": 0.10,
-    "budget_S_efa": 0.05, "budget_S_tlt": 0.05, "budget_S_ibit": 0.00,
+    "budget_S_efa": 0.05, "budget_S_tlt": 0.05,
     "budget_D_tlt": 0.50, "budget_D_cash": 0.30, "budget_D_gld": 0.10,
-    "budget_D_spy": 0.05, "budget_D_efa": 0.05, "budget_D_ibit": 0.00,
+    "budget_D_spy": 0.05, "budget_D_efa": 0.05,
     "budget_neutral_spy": 0.20, "budget_neutral_efa": 0.10,
     "budget_neutral_tlt": 0.25, "budget_neutral_gld": 0.25,
-    "budget_neutral_ibit": 0.05, "budget_neutral_cash": 0.15,
+    "budget_neutral_cash": 0.20,
 }
 
 PRESET_MUTATIONS: dict[str, dict[str, object]] = {

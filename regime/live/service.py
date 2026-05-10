@@ -70,7 +70,7 @@ def _row_to_context(
     dominant_idx = int(np.argmax(posteriors))
     dominant = REGIMES[dominant_idx] if dominant_idx < len(REGIMES) else "G"
 
-    sleeves = ["SPY", "EFA", "TLT", "GLD", "IBIT", "CASH"]
+    sleeves = ["SPY", "EFA", "TLT", "GLD", "CASH"]
     allocations = {s: float(row.get(f"w_{s}", 0.0)) for s in sleeves}
 
     # stress_velocity = rate of change in stress_level (stress HMM, enabled by default)

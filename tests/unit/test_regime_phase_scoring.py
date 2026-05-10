@@ -41,8 +41,7 @@ def _make_regime_signals() -> pd.DataFrame:
             "pi_EFA": [0.05, 0.06, 0.10, 0.09, 0.01, 0.01, 0.02, 0.15],
             "pi_TLT": [0.35, 0.33, 0.25, 0.24, 0.32, 0.35, 0.30, 0.10],
             "pi_GLD": [0.25, 0.26, 0.20, 0.22, 0.28, 0.30, 0.26, 0.08],
-            "pi_IBIT": [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.05],
-            "pi_CASH": [0.25, 0.23, 0.27, 0.25, 0.27, 0.23, 0.24, 0.34],
+            "pi_CASH": [0.25, 0.23, 0.27, 0.25, 0.27, 0.23, 0.24, 0.39],
         },
         index=idx,
     )
@@ -64,10 +63,10 @@ def _soften_posteriors(signals: pd.DataFrame, dominant_prob: float = 0.55) -> pd
 def _signals_from_dominants(dominants: list[str]) -> pd.DataFrame:
     idx = _make_regime_signals().index
     alloc_map = {
-        "G": {"pi_SPY": 0.28, "pi_EFA": 0.15, "pi_TLT": 0.10, "pi_GLD": 0.08, "pi_IBIT": 0.05, "pi_CASH": 0.34},
-        "R": {"pi_SPY": 0.22, "pi_EFA": 0.12, "pi_TLT": 0.05, "pi_GLD": 0.20, "pi_IBIT": 0.08, "pi_CASH": 0.33},
-        "S": {"pi_SPY": 0.03, "pi_EFA": 0.02, "pi_TLT": 0.30, "pi_GLD": 0.26, "pi_IBIT": 0.00, "pi_CASH": 0.39},
-        "D": {"pi_SPY": 0.10, "pi_EFA": 0.05, "pi_TLT": 0.35, "pi_GLD": 0.25, "pi_IBIT": 0.00, "pi_CASH": 0.25},
+        "G": {"pi_SPY": 0.28, "pi_EFA": 0.15, "pi_TLT": 0.10, "pi_GLD": 0.08, "pi_CASH": 0.39},
+        "R": {"pi_SPY": 0.22, "pi_EFA": 0.12, "pi_TLT": 0.05, "pi_GLD": 0.20, "pi_CASH": 0.41},
+        "S": {"pi_SPY": 0.03, "pi_EFA": 0.02, "pi_TLT": 0.30, "pi_GLD": 0.26, "pi_CASH": 0.39},
+        "D": {"pi_SPY": 0.10, "pi_EFA": 0.05, "pi_TLT": 0.35, "pi_GLD": 0.25, "pi_CASH": 0.25},
     }
     rows = []
     for regime in dominants:
@@ -184,7 +183,7 @@ def test_phase1_and_phase2_reward_crisis_accuracy_and_allocation_differentiation
     )
     good = _make_regime_signals()
     weak = good.copy()
-    weak[["pi_SPY", "pi_EFA", "pi_TLT", "pi_GLD", "pi_IBIT", "pi_CASH"]] = 0.16
+    weak[["pi_SPY", "pi_EFA", "pi_TLT", "pi_GLD", "pi_CASH"]] = 0.20
     weak.loc["2022-01-07":"2022-02-04", ["P_G", "P_R", "P_S", "P_D"]] = [0.70, 0.10, 0.10, 0.10]
 
     good_stats = compute_regime_stats(good)
@@ -209,7 +208,7 @@ def test_all_phase_scorers_enforce_allocation_differentiation_floor():
         n_rebalances=20,
     )
     weak = _make_regime_signals()
-    weak[["pi_SPY", "pi_EFA", "pi_TLT", "pi_GLD", "pi_IBIT", "pi_CASH"]] = 0.16
+    weak[["pi_SPY", "pi_EFA", "pi_TLT", "pi_GLD", "pi_CASH"]] = 0.20
     weak_stats = compute_regime_stats(weak)
 
     assert weak_stats["alloc_differentiation"] < 0.015

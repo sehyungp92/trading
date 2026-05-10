@@ -271,6 +271,10 @@ strategies:
       color_key: "orange"
     deployment_tags: [live, paper, momentum]
 
+  # RESEARCH PHASE — coordinator is a stub (strategies/scalp/coordinator.py)
+  # and is NOT registered in apps/runtime/runtime.py:_FAMILY_COORDINATORS.
+  # Must not be enabled until that coordinator is rebuilt to wire OMS, risk
+  # gate, instrumentation, and heartbeat. See the file docstring there.
   SCALP_IVB_AUCTION:
     strategy_id: SCALP_IVB_AUCTION
     system_id: scalp_trader
@@ -301,6 +305,8 @@ strategies:
       color_key: "purple"
     deployment_tags: [paper, scalp, futures]
 
+  # RESEARCH PHASE — see SCALP_IVB_AUCTION note above. Same coordinator
+  # stub applies; do not enable.
   SCALP_PO3_REVERSAL:
     strategy_id: SCALP_PO3_REVERSAL
     system_id: scalp_trader

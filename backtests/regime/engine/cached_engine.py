@@ -106,12 +106,12 @@ STRESS_FEATURE_PARAMS = frozenset({
 })
 
 BUDGET_PARAMS = frozenset({
-    "budget_G_spy", "budget_G_efa", "budget_G_ibit", "budget_G_tlt", "budget_G_gld", "budget_G_cash",
-    "budget_R_spy", "budget_R_efa", "budget_R_gld", "budget_R_ibit", "budget_R_tlt", "budget_R_cash",
-    "budget_S_gld", "budget_S_cash", "budget_S_spy", "budget_S_efa", "budget_S_tlt", "budget_S_ibit",
-    "budget_D_tlt", "budget_D_cash", "budget_D_gld", "budget_D_spy", "budget_D_efa", "budget_D_ibit",
+    "budget_G_spy", "budget_G_efa", "budget_G_tlt", "budget_G_gld", "budget_G_cash",
+    "budget_R_spy", "budget_R_efa", "budget_R_gld", "budget_R_tlt", "budget_R_cash",
+    "budget_S_gld", "budget_S_cash", "budget_S_spy", "budget_S_efa", "budget_S_tlt",
+    "budget_D_tlt", "budget_D_cash", "budget_D_gld", "budget_D_spy", "budget_D_efa",
     "budget_neutral_spy", "budget_neutral_efa", "budget_neutral_tlt", "budget_neutral_gld",
-    "budget_neutral_ibit", "budget_neutral_cash",
+    "budget_neutral_cash",
 })
 
 

@@ -231,6 +231,37 @@ export interface HaltRow {
   last_update_at: string;
 }
 
+export interface StrategyDiagnosticsRow {
+  strategy_id: string;
+  mode: string;
+  health_status: string;
+  last_heartbeat_ts: string | null;
+  heartbeat_age_sec: number | null;
+  last_decision_code: string | null;
+  last_seen_bar_ts: string | null;
+  bar_age_sec: number | null;
+  bars_processed: number | null;
+  symbol_freshness: Record<string, string> | null;
+  intents_submitted: number | null;
+  intents_denied: number | null;
+  consecutive_denials: number | null;
+  ib_farm_status: Record<string, string> | null;
+  last_error: string | null;
+  last_error_ts: string | null;
+}
+
+export interface DailyClassificationRow {
+  strategy_id: string;
+  family_id: string | null;
+  bars: number | null;
+  trades: number | null;
+  denials: number | null;
+  last_bar_ts: string | null;
+  last_decision_code: string | null;
+  classification: 'ACTIVE' | 'NORMAL_QUIET' | 'BLOCKED' | 'DEAD' | 'BROKER_DOWN';
+  daily_realized_r: number | null;
+}
+
 export interface EquityCurvePoint {
   trade_date: string;
   daily_realized_r: number;

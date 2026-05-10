@@ -101,35 +101,58 @@ class MomentumFamilyCoordinator:
         # ── Resolve equity ───────────────────────────────────────────
         paper_mode = get_environment() == "paper"
         paper_equity_pool: Any = None
-        equity: float
+        _env = os.getenv("PAPER_INITIAL_EQUITY")
+        _paper_seed = (
+            float(_env) if _env else ctx.portfolio.capital.paper_initial_equity
+        )
 
         if paper_mode:
-            from libs.persistence.paper_equity import PaperEquityManager
-            _env = os.getenv("PAPER_INITIAL_EQUITY")
-            _paper_seed = float(_env) if _env else ctx.portfolio.capital.paper_initial_equity
-            _pem = PaperEquityManager(db_pool, account_scope=self.family_id, initial_equity=_paper_seed)
-            equity = await _pem.load()
-            paper_equity_pool = db_pool
-            logger.info("Paper mode equity: $%.2f", equity)
+            base_equity = _paper_seed
         else:
-            equity = 100_000.0
-            try:
-                accounts = session.ib.managedAccounts()
-                if accounts:
-                    for item in session.ib.accountValues():
-                        if item.tag == "NetLiquidation" and item.currency == "USD" and item.account == accounts[0]:
-                            equity = float(item.value)
-                            logger.info("Account equity: $%.2f", equity)
-                            break
-            except Exception:
-                logger.warning("Using default equity $%.2f", equity)
+            # EQUITY-1: hard-fail in live mode if NetLiquidation can't be
+            # resolved. The previous warn-and-default to $100k was a silent
+            # mis-sizing risk when accountValues() raced startup.
+            from libs.services.equity import resolve_live_nlv
+            base_equity = await resolve_live_nlv(
+                session, account_id=ibkr_config.profile.account_id,
+            )
 
         # ── Capital allocation ───────────────────────────────────────
         try:
-            allocs = bootstrap_capital(equity, config_dir)
+            allocs = bootstrap_capital(base_equity, config_dir)
         except Exception as exc:
-            logger.warning("bootstrap_capital failed (%s), using full equity", exc)
+            logger.warning("bootstrap_capital failed (%s), using equal split", exc)
             allocs = {}
+
+        descriptors = self._build_strategy_descriptors()
+        all_strategy_ids = tuple(d["strategy_id"] for d in descriptors)
+        fallback_nav = base_equity / max(1, len(descriptors))
+
+        paper_nav_by_strategy: dict[str, float] = {}
+        paper_initial_nav_by_strategy: dict[str, float] = {}
+        equity = base_equity
+        if paper_mode:
+            from libs.persistence.paper_equity import PaperEquityManager
+
+            for desc in descriptors:
+                sid = desc["strategy_id"]
+                alloc = allocs.get(sid)
+                initial_nav = alloc.allocated_nav if alloc else fallback_nav
+                paper_initial_nav_by_strategy[sid] = initial_nav
+                pem = PaperEquityManager(
+                    db_pool,
+                    account_scope=sid,
+                    initial_equity=initial_nav,
+                )
+                paper_nav_by_strategy[sid] = await pem.load()
+            if paper_nav_by_strategy:
+                equity = sum(paper_nav_by_strategy.values())
+            paper_equity_pool = db_pool
+            logger.info(
+                "Paper mode equity by strategy: total=$%.2f scopes=%s",
+                equity,
+                {k: round(v, 2) for k, v in paper_nav_by_strategy.items()},
+            )
 
         # ── Dynamic MNQ contract cap ──────────────────────────────────
         target_leverage = 12.0
@@ -155,11 +178,6 @@ class MomentumFamilyCoordinator:
         )
 
         # ── Strategy descriptors ─────────────────────────────────────
-        descriptors = self._build_strategy_descriptors()
-
-        # Pre-compute all strategy IDs for family-scoped portfolio rules
-        all_strategy_ids = tuple(d["strategy_id"] for d in descriptors)
-
         _shared_sidecar = None  # one sidecar per family (Finding 8)
         for desc in descriptors:
             sid = desc["strategy_id"]
@@ -174,7 +192,18 @@ class MomentumFamilyCoordinator:
 
             # Resolve allocated NAV
             alloc = allocs.get(sid)
-            allocated_nav = alloc.allocated_nav if alloc else equity
+            initial_nav = (
+                paper_initial_nav_by_strategy.get(sid)
+                if paper_mode
+                else None
+            )
+            if initial_nav is None:
+                initial_nav = alloc.allocated_nav if alloc else fallback_nav
+            allocated_nav = (
+                paper_nav_by_strategy.get(sid, initial_nav)
+                if paper_mode
+                else (alloc.allocated_nav if alloc else fallback_nav)
+            )
             if alloc:
                 logger.info(
                     "Capital allocation: %s -> $%.2f (%.1f%% of $%.2f)",
@@ -182,7 +211,8 @@ class MomentumFamilyCoordinator:
                 )
             else:
                 logger.warning(
-                    "Strategy %s not in unified config, using full equity", sid,
+                    "Strategy %s not in unified config, using equal fallback NAV %.2f",
+                    sid, fallback_nav,
                 )
 
             # Risk
@@ -232,7 +262,7 @@ class MomentumFamilyCoordinator:
                 get_current_equity=lambda eq=_live_equity: eq[0],
                 paper_equity_pool=paper_equity_pool,
                 paper_equity_scope=sid,
-                paper_initial_equity=allocated_nav,
+                paper_initial_equity=initial_nav,
                 live_equity=_live_equity if not paper_equity_pool else None,
                 family_id=self.family_id,
                 account_gate=account_gate,
@@ -284,6 +314,30 @@ class MomentumFamilyCoordinator:
             await engine.start()
             logger.info("Engine started for %s", sid)
             self._engines.append(engine)
+
+        # ── Reconnect callback ─────────────────────────────────────
+        # CONN-1: momentum previously installed no reconnect callback. With
+        # 4 per-strategy OMS instances, that meant zero post-reconnect OMS
+        # reconciliation across the whole family.
+        async def _on_reconnect() -> None:
+            for i, oms in enumerate(self._oms_services):
+                reconciler = getattr(oms, "_reconciler", None)
+                if reconciler is not None:
+                    try:
+                        await reconciler.on_reconnect_reconciliation()
+                    except Exception as exc:
+                        sid = self._strategy_ids[i] if i < len(self._strategy_ids) else "?"
+                        logger.error(
+                            "Momentum OMS reconnect reconciliation failed for %s: %s",
+                            sid, exc,
+                        )
+            logger.info(
+                "Momentum post-reconnect: %d OMS reconcilers fired",
+                len(self._oms_services),
+            )
+
+        if hasattr(session, "add_reconnect_callback"):
+            session.add_reconnect_callback(_on_reconnect)
 
         # ── Heartbeat background task ──────────────────────────────────
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
@@ -501,60 +555,69 @@ class MomentumFamilyCoordinator:
         if heartbeat is None:
             return
         session = self._ctx.session
+        # HB-1: any exception in payload construction or emission must not
+        # kill the loop. A dead heartbeat task wouldn't be observed until the
+        # watchdog stale_threshold elapsed, masking a live runtime as silent.
         while True:
             try:
                 await asyncio.sleep(15)
             except asyncio.CancelledError:
                 return
-            payloads = []
-            for i, sid in enumerate(self._strategy_ids):
-                # Use per-strategy state (not portfolio state) for correct per-strategy metrics
-                srs = getattr(self._oms_services[i], "_strategy_risk_states", {})
-                sr = srs.get(sid)
-                # Fall back to portfolio state for halted check
-                prs = getattr(self._oms_services[i], "_portfolio_risk_state", None)
-                payload = {
-                    "strategy_id": sid,
-                    "heat_r": Decimal(str(sr.open_risk_R)) if sr else Decimal("0"),
-                    "daily_pnl_r": Decimal(str(sr.daily_realized_R)) if sr else Decimal("0"),
-                    "mode": "HALTED" if (prs and prs.halted) else "RUNNING",
-                }
-                # Diagnostic pulse fields
-                engine = self._engines[i]
-                if hasattr(engine, "_last_decision_code"):
-                    payload["last_decision_code"] = engine._last_decision_code
-                    payload["last_decision_details"] = getattr(engine, "_last_decision_details", None)
-                    payload["last_seen_bar_ts"] = getattr(engine, "_last_bar_ts", None)
-                oms = self._oms_services[i]
-                if hasattr(engine, "liveness_payload") or hasattr(oms, "_intents_submitted"):
-                    details = payload.get("last_decision_details") or {}
-                    if hasattr(engine, "liveness_payload"):
-                        details["liveness"] = engine.liveness_payload()
-                    if hasattr(oms, "_intents_submitted"):
-                        details["oms_health"] = {
-                            "submitted": oms._intents_submitted,
-                            "accepted": oms._intents_accepted,
-                            "denied": oms._intents_denied,
-                            "consecutive_denials": oms._consecutive_denials,
-                        }
-                    payload["last_decision_details"] = details
-                payloads.append(payload)
-            connected = session.ib.isConnected() if session else False
-            # Enrich with IB farm status for diagnostic context
-            if session:
-                farm_statuses = {}
-                for group in session.groups.values():
-                    if group.farm_monitor:
-                        farm_statuses.update(group.farm_monitor.all_statuses())
-                if farm_statuses:
-                    for p in payloads:
-                        details = p.get("last_decision_details") or {}
-                        if isinstance(details, dict):
-                            details["ib_farm_status"] = farm_statuses
-                            p["last_decision_details"] = details
-            await emit_family_heartbeats(
-                heartbeat, self.family_id, payloads, adapter_connected=connected,
-            )
+            try:
+                await self._heartbeat_iteration(heartbeat, session)
+            except Exception:
+                logger.exception("Momentum heartbeat iteration failed; continuing")
+
+    async def _heartbeat_iteration(self, heartbeat, session) -> None:
+        payloads = []
+        for i, sid in enumerate(self._strategy_ids):
+            # Use per-strategy state (not portfolio state) for correct per-strategy metrics
+            srs = getattr(self._oms_services[i], "_strategy_risk_states", {})
+            sr = srs.get(sid)
+            # Fall back to portfolio state for halted check
+            prs = getattr(self._oms_services[i], "_portfolio_risk_state", None)
+            payload = {
+                "strategy_id": sid,
+                "heat_r": Decimal(str(sr.open_risk_R)) if sr else Decimal("0"),
+                "daily_pnl_r": Decimal(str(sr.daily_realized_R)) if sr else Decimal("0"),
+                "mode": "HALTED" if (prs and prs.halted) else "RUNNING",
+            }
+            # Diagnostic pulse fields
+            engine = self._engines[i]
+            if hasattr(engine, "_last_decision_code"):
+                payload["last_decision_code"] = engine._last_decision_code
+                payload["last_decision_details"] = getattr(engine, "_last_decision_details", None)
+                payload["last_seen_bar_ts"] = getattr(engine, "_last_bar_ts", None)
+            oms = self._oms_services[i]
+            if hasattr(engine, "liveness_payload") or hasattr(oms, "_intents_submitted"):
+                details = payload.get("last_decision_details") or {}
+                if hasattr(engine, "liveness_payload"):
+                    details["liveness"] = engine.liveness_payload()
+                if hasattr(oms, "_intents_submitted"):
+                    details["oms_health"] = {
+                        "submitted": oms._intents_submitted,
+                        "accepted": oms._intents_accepted,
+                        "denied": oms._intents_denied,
+                        "consecutive_denials": oms._consecutive_denials,
+                    }
+                payload["last_decision_details"] = details
+            payloads.append(payload)
+        connected = session.ib.isConnected() if session else False
+        # Enrich with IB farm status for diagnostic context
+        if session:
+            farm_statuses = {}
+            for group in session.groups.values():
+                if group.farm_monitor:
+                    farm_statuses.update(group.farm_monitor.all_statuses())
+            if farm_statuses:
+                for p in payloads:
+                    details = p.get("last_decision_details") or {}
+                    if isinstance(details, dict):
+                        details["ib_farm_status"] = farm_statuses
+                        p["last_decision_details"] = details
+        await emit_family_heartbeats(
+            heartbeat, self.family_id, payloads, adapter_connected=connected,
+        )
 
     # ── internal ─────────────────────────────────────────────────────
 
@@ -564,6 +627,16 @@ class MomentumFamilyCoordinator:
         NQDTC and VdubusNQ hardcode their OMS risk params (matching main.py).
         """
         ctx = self._ctx
+
+        # CFG-5: prefer manifest.engine_config["state_dir"] from
+        # config/strategies.yaml over env-var-only. This makes YAML edits
+        # actually take effect (previously the YAML key was decorative).
+        def _resolve_state_dir(strategy_id: str, env_var: str, default: str) -> Path:
+            manifest = None
+            if ctx.registry is not None and strategy_id in ctx.registry.strategies:
+                manifest = ctx.registry.strategies[strategy_id]
+            yaml_dir = (manifest.engine_config or {}).get("state_dir") if manifest else None
+            return Path(yaml_dir or os.environ.get(env_var) or default)
 
         # Trade recorder from context
         trade_recorder = getattr(ctx, "trade_recorder", None)
@@ -621,10 +694,14 @@ class MomentumFamilyCoordinator:
                 "instr_type": "nqdtc",
                 "trade_recorder": trade_recorder,
                 "engine_extra_kwargs": {
-                    "state_dir": Path(os.environ.get("NQDTC_STATE_DIR", "data/nqdtc_state")),
+                    "state_dir": _resolve_state_dir(
+                        NQDTC_ID, "NQDTC_STATE_DIR", "data/nqdtc_state",
+                    ),
                 },
             },
-            # NQ_REGIME
+            # NQ_REGIME — STRAT-2: state_dir wired so on-disk core snapshot
+            # survives restarts. The engine itself has the 5m scheduler and
+            # _restore_state/_persist_state hooks that consume this path.
             {
                 "strategy_id": NQ_REGIME_ID,
                 "base_risk_pct": NQ_REGIME_RISK_PCT,
@@ -638,6 +715,9 @@ class MomentumFamilyCoordinator:
                 "engine_extra_kwargs": {
                     "analysis_symbol": "NQ",
                     "trade_symbol": "MNQ",
+                    "state_dir": _resolve_state_dir(
+                        NQ_REGIME_ID, "NQ_REGIME_STATE_DIR", "data/nq_regime_state",
+                    ),
                 },
             },
             # ── VdubusNQ_v4 ────────────────────────────────────────
@@ -665,7 +745,9 @@ class MomentumFamilyCoordinator:
                 "instr_type": "downturn",
                 "trade_recorder": trade_recorder,
                 "engine_extra_kwargs": {
-                    "state_dir": Path(os.environ.get("DOWNTURN_STATE_DIR", "data/downturn_state")),
+                    "state_dir": _resolve_state_dir(
+                        DOWNTURN_ID, "DOWNTURN_STATE_DIR", "data/downturn_state",
+                    ),
                 },
             },
         ]

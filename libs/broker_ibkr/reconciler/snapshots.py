@@ -63,6 +63,9 @@ class SnapshotFetcher:
             remaining_qty=os.remaining,
             avg_fill_price=os.avgFillPrice,
             last_fill_price=os.lastFillPrice,
+            order_ref=str(getattr(trade.order, "orderRef", "") or ""),
+            account=str(getattr(trade.order, "account", "") or ""),
+            client_id=getattr(trade.order, "clientId", None),
         )
 
     def _normalize_execution(self, fill) -> ExecutionReport:

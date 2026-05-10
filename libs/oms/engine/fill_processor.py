@@ -30,10 +30,18 @@ class FillProcessor:
         qty: float,
         timestamp: datetime,
         fees: float = 0.0,
-    ) -> None:
+    ) -> bool:
+        """Persist a fill atomically. Returns True iff a new fill row was inserted.
+
+        Callers in libs/oms/services/factory.py MUST gate post-fill side effects
+        (risk/equity/position updates, strategy bus emissions, coordinator
+        notifications) on this return value. Returning False on duplicates is
+        the only thing that prevents double-counting after IBKR replays an
+        execDetailsEvent or after a process restart.
+        """
         lock = self._fill_locks.setdefault(oms_order_id, asyncio.Lock())
         async with lock:
-            await self._process_fill_locked(
+            return await self._process_fill_locked(
                 oms_order_id=oms_order_id,
                 broker_fill_id=broker_fill_id,
                 price=price,
@@ -51,16 +59,16 @@ class FillProcessor:
         qty: float,
         timestamp: datetime,
         fees: float = 0.0,
-    ) -> None:
+    ) -> bool:
         # Deduplicate
         if await self._repo.fill_exists(broker_fill_id):
             logger.info(f"Duplicate fill ignored: {broker_fill_id}")
-            return
+            return False
 
         order = await self._repo.get_order(oms_order_id)
         if not order:
             logger.error(f"Fill for unknown order: {oms_order_id}")
-            return
+            return False
 
         # Create and persist fill
         fill = Fill(
@@ -80,6 +88,12 @@ class FillProcessor:
         updated_order.filled_qty += qty
         updated_order.remaining_qty = max(0, updated_order.qty - updated_order.filled_qty)
         updated_order.avg_fill_price = self._compute_avg(old_filled, updated_order.avg_fill_price, price, qty)
+
+        # OMS-8: Fill-first race — if the order is still ROUTED when a fill
+        # arrives, walk ROUTED→ACKED first so the ROUTED→FILLED rejection that
+        # used to leave the row in an inconsistent state can no longer happen.
+        if updated_order.status == OrderStatus.ROUTED:
+            transition(updated_order, OrderStatus.ACKED)
 
         # Preserve strict transitions, but tolerate status-first persistence by
         # skipping a redundant transition when the order is already advanced.
@@ -110,6 +124,7 @@ class FillProcessor:
         )
         if not inserted:
             logger.info(f"Duplicate fill ignored after race: {broker_fill_id}")
+        return inserted
 
     @staticmethod
     def _compute_avg(

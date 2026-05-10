@@ -26,6 +26,7 @@ _DIR_TO_EVENT_TYPE = {
     "orders": "order",
     "heartbeats": "heartbeat",
     "portfolio_rules": "portfolio_rule_check",
+    "risk_denials": "risk_denial",
     # Phase 2B event types
     "indicators": "indicator_snapshot",
     "filter_decisions": "filter_decision",
@@ -36,6 +37,8 @@ _DIR_TO_EVENT_TYPE = {
     "coordination_events": "coordinator_action",
     "stop_adjustments": "stop_adjustment",
 }
+
+_MUTABLE_JSONL_EVENT_TYPES = {"missed_opportunity"}
 
 # Event priority for sorting (#25): lower number = higher priority
 _EVENT_PRIORITY = {
@@ -89,6 +92,7 @@ class Sidecar:
 
         self.watermark_file = self.buffer_dir / "watermark.json"
         self.watermarks = self._load_watermarks()
+        self._observed_mutable_jsonl_hashes: Dict[str, List[str]] = {}
 
         self._running = False
         self._thread: Optional[threading.Thread] = None
@@ -146,39 +150,92 @@ class Sidecar:
 
     def _read_unsent_events(self, filepath: Path, event_type: str) -> List[dict]:
         key = str(filepath)
-        last_sent = self.watermarks.get(key, 0)
+        watermark = self.watermarks.get(key, 0)
+        is_mutable_jsonl = filepath.suffix == ".jsonl" and event_type in _MUTABLE_JSONL_EVENT_TYPES
 
         events = []
         try:
             if filepath.suffix == ".jsonl":
+                last_sent = watermark if isinstance(watermark, int) else 0
+                known_hashes: List[str] = []
+                if isinstance(watermark, dict) and watermark.get("kind") == "jsonl":
+                    stored_hashes = watermark.get("line_hashes", [])
+                    if isinstance(stored_hashes, list):
+                        known_hashes = [str(value) for value in stored_hashes]
+
                 with open(filepath, "r", encoding="utf-8") as handle:
+                    observed_hashes: List[str] = []
                     for i, line in enumerate(handle):
-                        if i < last_sent:
-                            continue
                         line = line.strip()
                         if not line:
                             continue
+                        line_hash = hashlib.sha256(line.encode("utf-8")).hexdigest()
+                        if is_mutable_jsonl:
+                            observed_hashes.append(line_hash)
+                            if known_hashes:
+                                if i < len(known_hashes) and known_hashes[i] == line_hash:
+                                    continue
+                            elif i < last_sent:
+                                continue
+                        elif i < last_sent:
+                            continue
                         try:
                             raw = json.loads(line)
-                            wrapped = self._wrap_event(raw, event_type)
+                            revision_salt = (
+                                line_hash
+                                if is_mutable_jsonl and known_hashes and i < len(known_hashes)
+                                else None
+                            )
+                            wrapped = self._wrap_event(raw, event_type, revision_salt=revision_salt)
                             wrapped["_source_file"] = key
                             wrapped["_line_number"] = i
+                            wrapped["_line_hash"] = line_hash
                             events.append(wrapped)
                         except (json.JSONDecodeError, KeyError) as e:
                             logger.warning("Skipping bad line %d in %s: %s", i, filepath, e)
+                    if is_mutable_jsonl:
+                        self._observed_mutable_jsonl_hashes[key] = observed_hashes
             elif filepath.suffix == ".json":
-                if last_sent == 0:
-                    raw = json.loads(filepath.read_text())
+                stat = filepath.stat()
+                current_mtime_ns = int(stat.st_mtime_ns)
+                text = filepath.read_text(encoding="utf-8")
+                current_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+                last_mtime_ns = self._json_watermark_mtime(watermark)
+                last_hash = self._json_watermark_hash(watermark)
+                if current_mtime_ns != last_mtime_ns or current_hash != last_hash:
+                    raw = json.loads(text)
                     wrapped = self._wrap_event(raw, event_type)
                     wrapped["_source_file"] = key
                     wrapped["_line_number"] = 1
+                    wrapped["_json_mtime_ns"] = current_mtime_ns
+                    wrapped["_json_hash"] = current_hash
                     events.append(wrapped)
         except (OSError, json.JSONDecodeError) as e:
             logger.error("Failed to read %s: %s", filepath, e)
 
         return events
 
-    def _wrap_event(self, raw_event: dict, event_type: str) -> dict:
+    @staticmethod
+    def _json_watermark_mtime(watermark: object) -> int:
+        if isinstance(watermark, dict):
+            try:
+                return int(watermark.get("mtime_ns", 0) or 0)
+            except (TypeError, ValueError):
+                return 0
+        return 0
+
+    @staticmethod
+    def _json_watermark_hash(watermark: object) -> str:
+        if isinstance(watermark, dict):
+            return str(watermark.get("hash", "") or "")
+        return ""
+
+    def _wrap_event(
+        self,
+        raw_event: dict,
+        event_type: str,
+        revision_salt: Optional[str] = None,
+    ) -> dict:
         forwarded_event_type = self._forward_event_type(raw_event, event_type)
         metadata = raw_event.get("event_metadata", {})
         event_id = metadata.get("event_id", "")
@@ -191,7 +248,11 @@ class Sidecar:
             or datetime.now(timezone.utc).isoformat()
         )
 
-        if not event_id:
+        if revision_salt:
+            logical_event_id = event_id or raw_event.get("trade_id", raw_event.get("date", raw_event.get("snapshot_id", "")))
+            raw_str = f"{self.bot_id}|{forwarded_event_type}|{logical_event_id}|{revision_salt}"
+            event_id = hashlib.sha256(raw_str.encode()).hexdigest()[:16]
+        elif not event_id:
             key = raw_event.get("trade_id", raw_event.get("date", raw_event.get("snapshot_id", "")))
             raw_str = f"{self.bot_id}|{exchange_ts}|{forwarded_event_type}|{key}"
             event_id = hashlib.sha256(raw_str.encode()).hexdigest()[:16]
@@ -303,18 +364,25 @@ class Sidecar:
     def run_once(self):
         """Collect and forward all unsent events, sorted by priority (#25)."""
         self.cleanup_old_watermarks()
+        self._observed_mutable_jsonl_hashes = {}
         all_files = self._get_event_files()
 
         # Collect ALL unsent events across all files first (#25)
         all_unsent: List[dict] = []
+        remaining_by_source: Dict[str, int] = {}
         for filepath, event_type in all_files:
             unsent = self._read_unsent_events(filepath, event_type)
             all_unsent.extend(unsent)
+            if unsent:
+                remaining_by_source[str(filepath)] = len(unsent)
 
         # Update buffer depth diagnostic (#24)
         self._buffer_depth = len(all_unsent)
 
         if not all_unsent:
+            self._persist_observed_mutable_jsonl_hashes(
+                set(self._observed_mutable_jsonl_hashes.keys())
+            )
             return
 
         # Sort by priority: errors first, then snapshots, trades, missed, scores (#25)
@@ -328,8 +396,20 @@ class Sidecar:
                 for evt in batch:
                     src = evt["_source_file"]
                     line = evt["_line_number"]
+                    if src in remaining_by_source:
+                        remaining_by_source[src] = max(0, remaining_by_source[src] - 1)
+                    if "_json_mtime_ns" in evt:
+                        self.watermarks[src] = {
+                            "kind": "json",
+                            "mtime_ns": int(evt["_json_mtime_ns"]),
+                            "hash": str(evt.get("_json_hash", "")),
+                        }
+                        continue
+                    if src in self._observed_mutable_jsonl_hashes:
+                        continue
                     current = self.watermarks.get(src, 0)
-                    if line + 1 > current:
+                    current_line = current if isinstance(current, int) else 0
+                    if line + 1 > current_line:
                         self.watermarks[src] = line + 1
                 self._save_watermarks()
                 total_sent += len(batch)
@@ -337,11 +417,36 @@ class Sidecar:
                 logger.warning("Failed to send batch, will retry")
                 break
 
+        fully_sent_sources = {
+            src for src, remaining in remaining_by_source.items() if remaining == 0
+        }
+        fully_sent_sources.update(
+            src
+            for src in self._observed_mutable_jsonl_hashes
+            if src not in remaining_by_source
+        )
+        if fully_sent_sources:
+            self._persist_observed_mutable_jsonl_hashes(fully_sent_sources)
+
         # Update buffer depth after sending
         self._buffer_depth = max(0, self._buffer_depth - total_sent)
 
         if total_sent > 0:
             logger.info("Forwarded %d events to relay", total_sent)
+
+    def _persist_observed_mutable_jsonl_hashes(self, sources: set[str]) -> None:
+        updated = False
+        for src in sources:
+            line_hashes = self._observed_mutable_jsonl_hashes.get(src)
+            if not line_hashes:
+                continue
+            self.watermarks[src] = {
+                "kind": "jsonl",
+                "line_hashes": line_hashes,
+            }
+            updated = True
+        if updated:
+            self._save_watermarks()
 
     def start(self):
         if self._running:

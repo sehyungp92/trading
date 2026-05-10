@@ -72,8 +72,3 @@ GLD:
   root_symbol: GLD
   exchange: SMART
   primary_exchange: ARCA
-
-IBIT:
-  root_symbol: IBIT
-  exchange: SMART
-  primary_exchange: LSEETF

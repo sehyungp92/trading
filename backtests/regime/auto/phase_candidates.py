@@ -621,8 +621,8 @@ def _r8_stress_phase_3_candidates() -> list[tuple[str, dict]]:
     candidates.append(("budget_D_tlt_heavy", {"budget_D_tlt": 0.60, "budget_D_cash": 0.20}))
     candidates.append(("budget_D_gld_heavy", {"budget_D_tlt": 0.40, "budget_D_gld": 0.20}))
     # Goldilocks: aggressive vs conservative
-    candidates.append(("budget_G_aggressive", {"budget_G_spy": 0.50, "budget_G_ibit": 0.10}))
-    candidates.append(("budget_G_conservative", {"budget_G_spy": 0.40, "budget_G_ibit": 0.20}))
+    candidates.append(("budget_G_aggressive", {"budget_G_spy": 0.50, "budget_G_cash": 0.30}))
+    candidates.append(("budget_G_conservative", {"budget_G_tlt": 0.10, "budget_G_gld": 0.10}))
     # Stagflation: GLD tilt
     candidates.append(("budget_S_gld_heavy", {"budget_S_gld": 0.60, "budget_S_cash": 0.20}))
     candidates.append(("budget_S_cash_heavy", {"budget_S_gld": 0.40, "budget_S_cash": 0.40}))
@@ -663,92 +663,92 @@ def _r8_stress_phase_4_candidates() -> list[tuple[str, dict]]:
 def _r9_budget_phase_5_candidates() -> list[tuple[str, dict]]:
     """R9 Phase 5: Per-regime complete budget profiles.
 
-    Each candidate sets all 6 assets for one regime (sums to 1.0).
+    Each candidate sets all active assets for one regime (sums to 1.0).
     The greedy optimizer applies these on top of the R9 baseline which
-    already includes all 30 budget fields at MetaConfig defaults.
+    already includes all 25 budget fields at MetaConfig defaults.
     """
     candidates: list[tuple[str, dict]] = []
 
     # --- Goldilocks (4 variants -- risk-on alternatives) ---
     candidates.append(("G_equity_heavy", {
-        "budget_G_spy": 0.50, "budget_G_efa": 0.20, "budget_G_ibit": 0.10,
-        "budget_G_tlt": 0.00, "budget_G_gld": 0.05, "budget_G_cash": 0.15,
+        "budget_G_spy": 0.50, "budget_G_efa": 0.20,
+        "budget_G_tlt": 0.00, "budget_G_gld": 0.05, "budget_G_cash": 0.25,
     }))
-    candidates.append(("G_crypto_tilt", {
-        "budget_G_spy": 0.40, "budget_G_efa": 0.10, "budget_G_ibit": 0.25,
-        "budget_G_tlt": 0.05, "budget_G_gld": 0.05, "budget_G_cash": 0.15,
+    candidates.append(("G_spy_tilt", {
+        "budget_G_spy": 0.50, "budget_G_efa": 0.10,
+        "budget_G_tlt": 0.05, "budget_G_gld": 0.05, "budget_G_cash": 0.30,
     }))
     candidates.append(("G_conservative", {
-        "budget_G_spy": 0.35, "budget_G_efa": 0.15, "budget_G_ibit": 0.15,
-        "budget_G_tlt": 0.10, "budget_G_gld": 0.10, "budget_G_cash": 0.15,
+        "budget_G_spy": 0.35, "budget_G_efa": 0.15,
+        "budget_G_tlt": 0.10, "budget_G_gld": 0.10, "budget_G_cash": 0.30,
     }))
     candidates.append(("G_no_cash", {
-        "budget_G_spy": 0.45, "budget_G_efa": 0.20, "budget_G_ibit": 0.20,
-        "budget_G_tlt": 0.05, "budget_G_gld": 0.10, "budget_G_cash": 0.00,
+        "budget_G_spy": 0.55, "budget_G_efa": 0.25,
+        "budget_G_tlt": 0.05, "budget_G_gld": 0.15, "budget_G_cash": 0.00,
     }))
 
     # --- Reflation (3 variants -- commodity/equity balance) ---
     candidates.append(("R_equity_tilt", {
         "budget_R_spy": 0.40, "budget_R_efa": 0.20, "budget_R_gld": 0.20,
-        "budget_R_ibit": 0.10, "budget_R_tlt": 0.00, "budget_R_cash": 0.10,
+        "budget_R_tlt": 0.00, "budget_R_cash": 0.20,
     }))
     candidates.append(("R_gld_dominant", {
         "budget_R_spy": 0.25, "budget_R_efa": 0.10, "budget_R_gld": 0.40,
-        "budget_R_ibit": 0.05, "budget_R_tlt": 0.05, "budget_R_cash": 0.15,
+        "budget_R_tlt": 0.05, "budget_R_cash": 0.20,
     }))
     candidates.append(("R_balanced", {
         "budget_R_spy": 0.30, "budget_R_efa": 0.15, "budget_R_gld": 0.25,
-        "budget_R_ibit": 0.10, "budget_R_tlt": 0.05, "budget_R_cash": 0.15,
+        "budget_R_tlt": 0.05, "budget_R_cash": 0.25,
     }))
 
     # --- Stagflation (3 variants -- safe haven mix) ---
     candidates.append(("S_deep_defensive", {
         "budget_S_gld": 0.55, "budget_S_cash": 0.35, "budget_S_spy": 0.05,
-        "budget_S_efa": 0.00, "budget_S_tlt": 0.05, "budget_S_ibit": 0.00,
+        "budget_S_efa": 0.00, "budget_S_tlt": 0.05,
     }))
     candidates.append(("S_tlt_hedge", {
-        "budget_S_gld": 0.40, "budget_S_cash": 0.20, "budget_S_spy": 0.10,
-        "budget_S_efa": 0.05, "budget_S_tlt": 0.20, "budget_S_ibit": 0.05,
+        "budget_S_gld": 0.40, "budget_S_cash": 0.25, "budget_S_spy": 0.10,
+        "budget_S_efa": 0.05, "budget_S_tlt": 0.20,
     }))
     candidates.append(("S_mild", {
-        "budget_S_gld": 0.40, "budget_S_cash": 0.25, "budget_S_spy": 0.15,
-        "budget_S_efa": 0.10, "budget_S_tlt": 0.05, "budget_S_ibit": 0.05,
+        "budget_S_gld": 0.40, "budget_S_cash": 0.30, "budget_S_spy": 0.15,
+        "budget_S_efa": 0.10, "budget_S_tlt": 0.05,
     }))
 
     # --- Defensive (3 variants -- bond/cash allocation) ---
     candidates.append(("D_tlt_dominant", {
         "budget_D_tlt": 0.60, "budget_D_cash": 0.25, "budget_D_gld": 0.05,
-        "budget_D_spy": 0.05, "budget_D_efa": 0.05, "budget_D_ibit": 0.00,
+        "budget_D_spy": 0.05, "budget_D_efa": 0.05,
     }))
     candidates.append(("D_gld_tilt", {
         "budget_D_tlt": 0.40, "budget_D_cash": 0.20, "budget_D_gld": 0.25,
-        "budget_D_spy": 0.10, "budget_D_efa": 0.05, "budget_D_ibit": 0.00,
+        "budget_D_spy": 0.10, "budget_D_efa": 0.05,
     }))
     candidates.append(("D_moderate", {
         "budget_D_tlt": 0.40, "budget_D_cash": 0.25, "budget_D_gld": 0.15,
-        "budget_D_spy": 0.10, "budget_D_efa": 0.10, "budget_D_ibit": 0.00,
+        "budget_D_spy": 0.10, "budget_D_efa": 0.10,
     }))
 
     # --- Neutral fallback (4 variants -- affects all low-confidence periods) ---
     candidates.append(("N_equity_tilt", {
         "budget_neutral_spy": 0.25, "budget_neutral_efa": 0.15,
         "budget_neutral_tlt": 0.20, "budget_neutral_gld": 0.20,
-        "budget_neutral_ibit": 0.05, "budget_neutral_cash": 0.15,
+        "budget_neutral_cash": 0.20,
     }))
     candidates.append(("N_safety_tilt", {
         "budget_neutral_spy": 0.15, "budget_neutral_efa": 0.10,
         "budget_neutral_tlt": 0.30, "budget_neutral_gld": 0.25,
-        "budget_neutral_ibit": 0.05, "budget_neutral_cash": 0.15,
+        "budget_neutral_cash": 0.20,
     }))
     candidates.append(("N_gld_anchor", {
         "budget_neutral_spy": 0.20, "budget_neutral_efa": 0.10,
         "budget_neutral_tlt": 0.20, "budget_neutral_gld": 0.30,
-        "budget_neutral_ibit": 0.05, "budget_neutral_cash": 0.15,
+        "budget_neutral_cash": 0.20,
     }))
     candidates.append(("N_minimal_cash", {
         "budget_neutral_spy": 0.25, "budget_neutral_efa": 0.15,
         "budget_neutral_tlt": 0.25, "budget_neutral_gld": 0.25,
-        "budget_neutral_ibit": 0.05, "budget_neutral_cash": 0.05,
+        "budget_neutral_cash": 0.10,
     }))
 
     return candidates

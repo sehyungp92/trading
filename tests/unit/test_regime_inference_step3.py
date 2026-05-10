@@ -34,7 +34,6 @@ def _make_market_inputs(tlt_sign: float) -> tuple[pd.DataFrame, pd.DataFrame]:
             "EFA": spy * 0.9,
             "TLT": tlt,
             "GLD": spy * 0.1,
-            "IBIT": spy * 1.5,
             "CASH": 0.0,
         },
         index=idx,

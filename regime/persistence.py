@@ -23,7 +23,7 @@ RECOVERY_DEFAULT = RegimeContext(
     suggested_leverage_mult=0.75,
     regime_allocations={
         "SPY": 0.15, "TLT": 0.10, "GLD": 0.10,
-        "IBIT": 0.10, "EFA": 0.05, "CASH": 0.50,
+        "EFA": 0.05, "CASH": 0.60,
     },
     computed_at="",
 )

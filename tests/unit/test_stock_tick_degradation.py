@@ -54,7 +54,7 @@ class _FakeFactory:
     async def resolve(self, symbol: str, expiry: str = "", instrument=None):
         contract = SimpleNamespace(
             conId=len(self._contracts) + 100,
-            symbol=self._broker_symbol if symbol == "IBIT" else symbol,
+            symbol=symbol,
             secType="STK",
             exchange="SMART",
             primaryExchange="NASDAQ",

@@ -4,9 +4,10 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+import yaml
 
 from apps.runtime.runtime import RuntimeShell
-from libs.config.loader import load_strategy_registry
+from libs.config.loader import load_portfolio_config, load_strategy_registry
 from libs.config.registry import build_registry_artifact
 
 
@@ -53,6 +54,38 @@ def test_checked_in_registry_artifact_matches_config() -> None:
     checked_in_artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
 
     assert checked_in_artifact == build_registry_artifact(registry)
+
+
+def test_portfolio_account_urd_config() -> None:
+    portfolio = load_portfolio_config(CONFIG_DIR)
+
+    assert portfolio.risk.account_urd_dollars == 200.0
+
+
+def test_runtime_preflight_flags_mode_port_mismatch(monkeypatch) -> None:
+    monkeypatch.setattr("apps.runtime.runtime.get_environment", lambda: "live")
+    shell = RuntimeShell(CONFIG_DIR)
+
+    checks = shell.run_preflight()
+
+    by_name = {check.name: check for check in checks}
+    assert "ib-mode-port:default" in by_name
+    assert not by_name["ib-mode-port:default"].ok
+
+
+def test_trading_assistant_momentum_membership_is_current() -> None:
+    path = CONFIG_DIR.parent / "_references" / "trading_assistant" / "data" / "bot_configs" / "momentum_trader.yaml"
+    cfg = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    assert "NQ_REGIME" in cfg["strategies"]
+    assert "AKC_Helix_v40" not in cfg["strategies"]
+    assert all(param["strategy_id"] != "AKC_Helix_v40" for param in cfg["parameters"])
+    nqdtc_paths = {
+        param["file_path"]
+        for param in cfg["parameters"]
+        if param["strategy_id"] == "NQDTC_v2.1"
+    }
+    assert nqdtc_paths == {"strategies/momentum/nqdtc/config.py"}
 
 
 def test_runtime_preflight_flags_stock_readiness_failures_on_scaffold_config(monkeypatch) -> None:

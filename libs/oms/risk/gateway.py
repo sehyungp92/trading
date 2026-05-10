@@ -95,7 +95,24 @@ class RiskGateway:
 
     # ── Main entry check ──────────────────────────────────────────────
 
-    async def check_entry(self, order: OMSOrder) -> Optional[str]:
+    @staticmethod
+    def _entry_risk_dollars(order: OMSOrder) -> float:
+        risk_ctx = order.risk_context
+        instrument = order.instrument
+        if risk_ctx is None or instrument is None:
+            return 0.0
+        return (
+            order.qty
+            * abs(risk_ctx.planned_entry_price - risk_ctx.stop_for_risk)
+            * instrument.point_value
+        )
+
+    async def check_entry(
+        self,
+        order: OMSOrder,
+        *,
+        skip_account_gate: bool = False,
+    ) -> Optional[str]:
         """Returns denial reason string, or None if approved.
 
         Check order:
@@ -284,14 +301,38 @@ class RiskGateway:
                     port_result.size_multiplier, order.strategy_id, direction,
                 )
 
-        # 12. Account-level cross-family risk gate (dollar-basis to avoid mixed R)
-        if self._account_gate is not None:
-            decision = await self._account_gate.check_entry(self._family_id, new_risk_dollars)
-            if not decision.approved:
-                return f"Account gate: {decision.reason}"
-
         # Store computed risk for pending-entry tracking
         risk_ctx.risk_dollars = new_risk_dollars
         risk_ctx.unit_risk_dollars = strat_cfg.unit_risk_dollars
 
+        # 12. Account-level cross-family risk gate. IntentHandler can skip this
+        # and call check_account_gate() inside the RISK_APPROVED transaction.
+        if not skip_account_gate:
+            denial = await self.check_account_gate(order)
+            if denial:
+                return denial
+
         return None  # Approved
+
+    async def check_account_gate(self, order: OMSOrder, conn=None) -> Optional[str]:
+        """Run only the account-global reservation gate for an approved ENTRY."""
+        if order.role != OrderRole.ENTRY or self._account_gate is None:
+            return None
+        if not order.risk_context:
+            return "ENTRY order missing risk_context"
+
+        risk_dollars = order.risk_context.risk_dollars
+        if not math.isfinite(risk_dollars) or risk_dollars <= 0:
+            risk_dollars = self._entry_risk_dollars(order)
+            order.risk_context.risk_dollars = risk_dollars
+        if not math.isfinite(risk_dollars) or risk_dollars <= 0:
+            return "ENTRY risk_dollars must be positive before account gate"
+
+        decision = await self._account_gate.check_entry(
+            self._family_id,
+            risk_dollars,
+            conn=conn,
+        )
+        if not decision.approved:
+            return f"Account gate: {decision.reason}"
+        return None

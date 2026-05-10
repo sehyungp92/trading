@@ -23,22 +23,62 @@ class ReconcilerSync:
     def __init__(self, policy: DiscrepancyPolicy):
         self._policy = policy
 
+    @staticmethod
+    def _int_or_none(value: object) -> int | None:
+        if value in (None, ""):
+            return None
+        try:
+            return int(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return None
+
     def reconcile_orders(
         self,
         broker_orders: list[OrderStatusEvent],
         oms_working_ids: set[int],
-        our_client_id_pattern: str,
+        known_order_refs: dict[str, str] | None = None,
+        our_client_id_pattern: str = "",
     ) -> list[Discrepancy]:
         """Compare broker open orders vs OMS working orders."""
         discrepancies = []
-        broker_ids = {o.broker_order_id for o in broker_orders}
+        known_order_refs = known_order_refs or {}
+        oms_working_ids = {
+            broker_order_id
+            for raw_id in oms_working_ids
+            if (broker_order_id := self._int_or_none(raw_id)) is not None
+        }
+        broker_ids = {
+            broker_order_id
+            for order in broker_orders
+            if (broker_order_id := self._int_or_none(order.broker_order_id)) is not None
+        }
 
         # Orders on broker but not in OMS
         for bo in broker_orders:
-            if bo.broker_order_id not in oms_working_ids:
-                action = self._policy.unknown_order_with_our_tag
+            broker_order_id = self._int_or_none(bo.broker_order_id)
+            if broker_order_id not in oms_working_ids:
+                order_ref = (getattr(bo, "order_ref", "") or "").strip()
+                if order_ref and order_ref in known_order_refs:
+                    discrepancies.append(
+                        Discrepancy(
+                            "repair_order_mapping",
+                            DiscrepancyAction.REPAIR_MAPPING,
+                            {
+                                "order": bo,
+                                "order_ref": order_ref,
+                                "oms_order_id": known_order_refs[order_ref],
+                            },
+                        )
+                    )
+                    continue
+                if not order_ref:
+                    action = self._policy.unknown_order_orphan
+                    details = {"order": bo, "order_ref": ""}
+                else:
+                    action = self._policy.unknown_order_with_our_tag
+                    details = {"order": bo, "order_ref": order_ref}
                 discrepancies.append(
-                    Discrepancy("unknown_order", action, {"order": bo})
+                    Discrepancy("unknown_order", action, details)
                 )
 
         # Orders in OMS but not on broker

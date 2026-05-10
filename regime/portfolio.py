@@ -21,26 +21,26 @@ def default_regime_budgets(
 ) -> Tuple[dict, pd.Series]:
     if cfg is not None:
         regime_budgets = {
-            "G": budget(cols, SPY=cfg.budget_G_spy, EFA=cfg.budget_G_efa, IBIT=cfg.budget_G_ibit,
+            "G": budget(cols, SPY=cfg.budget_G_spy, EFA=cfg.budget_G_efa,
                         TLT=cfg.budget_G_tlt, GLD=cfg.budget_G_gld, CASH=cfg.budget_G_cash),
             "R": budget(cols, SPY=cfg.budget_R_spy, EFA=cfg.budget_R_efa, GLD=cfg.budget_R_gld,
-                        IBIT=cfg.budget_R_ibit, TLT=cfg.budget_R_tlt, CASH=cfg.budget_R_cash),
+                        TLT=cfg.budget_R_tlt, CASH=cfg.budget_R_cash),
             "S": budget(cols, GLD=cfg.budget_S_gld, CASH=cfg.budget_S_cash, SPY=cfg.budget_S_spy,
-                        EFA=cfg.budget_S_efa, TLT=cfg.budget_S_tlt, IBIT=cfg.budget_S_ibit),
+                        EFA=cfg.budget_S_efa, TLT=cfg.budget_S_tlt),
             "D": budget(cols, TLT=cfg.budget_D_tlt, CASH=cfg.budget_D_cash, GLD=cfg.budget_D_gld,
-                        SPY=cfg.budget_D_spy, EFA=cfg.budget_D_efa, IBIT=cfg.budget_D_ibit),
+                        SPY=cfg.budget_D_spy, EFA=cfg.budget_D_efa),
         }
         w_neutral = budget(cols, SPY=cfg.budget_neutral_spy, EFA=cfg.budget_neutral_efa,
                            TLT=cfg.budget_neutral_tlt, GLD=cfg.budget_neutral_gld,
-                           IBIT=cfg.budget_neutral_ibit, CASH=cfg.budget_neutral_cash)
+                           CASH=cfg.budget_neutral_cash)
     else:
         regime_budgets = {
-            "G": budget(cols, SPY=0.45, EFA=0.15, IBIT=0.15, TLT=0.05, GLD=0.05, CASH=0.15),
-            "R": budget(cols, SPY=0.35, EFA=0.15, GLD=0.30, IBIT=0.10, TLT=0.00, CASH=0.10),
-            "S": budget(cols, GLD=0.50, CASH=0.30, SPY=0.10, EFA=0.05, TLT=0.05, IBIT=0.00),
-            "D": budget(cols, TLT=0.50, CASH=0.30, GLD=0.10, SPY=0.05, EFA=0.05, IBIT=0.00),
+            "G": budget(cols, SPY=0.40, EFA=0.10, TLT=0.05, GLD=0.05, CASH=0.40),
+            "R": budget(cols, SPY=0.35, EFA=0.15, GLD=0.30, TLT=0.00, CASH=0.20),
+            "S": budget(cols, GLD=0.50, CASH=0.30, SPY=0.10, EFA=0.05, TLT=0.05),
+            "D": budget(cols, TLT=0.50, CASH=0.30, GLD=0.10, SPY=0.05, EFA=0.05),
         }
-        w_neutral = budget(cols, SPY=0.20, EFA=0.10, TLT=0.25, GLD=0.25, IBIT=0.05, CASH=0.15)
+        w_neutral = budget(cols, SPY=0.20, EFA=0.10, TLT=0.25, GLD=0.25, CASH=0.20)
     return regime_budgets, w_neutral
 
 

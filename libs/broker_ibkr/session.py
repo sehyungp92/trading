@@ -453,18 +453,27 @@ class UnifiedIBSession:
     def register_farm_recovery_callback(self, group_id: str, cb: Callable[[str], None]) -> None:
         self._get_group(group_id).farm_recovery_callbacks.append(cb)
 
-    def set_reconnect_callback(self, group_id_or_callback, callback: Callable | None = None) -> None:
-        """Register a reconnect callback.
+    def add_reconnect_callback(self, group_id_or_callback, callback: Callable | None = None) -> None:
+        """CONN-1: append a post-reconnect callback. Multiple families can
+        each add their own callback and all will fire after a successful
+        reconnect.
 
         Supports two calling conventions:
-          - set_reconnect_callback(group_id, callback)  — target specific group
-          - set_reconnect_callback(callback)             — broadcast to all groups
+          - add_reconnect_callback(group_id, callback)  — target specific group
+          - add_reconnect_callback(callback)             — broadcast to all groups
         """
         if callback is None and callable(group_id_or_callback):
             for group in self._groups.values():
-                group.conn.set_reconnect_callback(group_id_or_callback)
+                group.conn.add_reconnect_callback(group_id_or_callback)
         else:
-            self._get_group(group_id_or_callback).conn.set_reconnect_callback(callback)
+            self._get_group(group_id_or_callback).conn.add_reconnect_callback(callback)
+
+    def set_reconnect_callback(self, group_id_or_callback, callback: Callable | None = None) -> None:
+        """Deprecated alias — append, don't overwrite. Existing callers
+        won't break, and now multiple families can each register their own
+        callback (the previous behaviour was destructive: the last setter won).
+        """
+        self.add_reconnect_callback(group_id_or_callback, callback)
 
     def _dispatch_farm_recovery(self, group_id: str, farm_name: str) -> None:
         for callback in self._groups[group_id].farm_recovery_callbacks:

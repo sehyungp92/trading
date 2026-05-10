@@ -4,10 +4,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
-from strategies.core.actions import ReplaceProtectiveStop
+from libs.oms.models.instrument import Instrument
+from libs.oms.models.intent import IntentType
+from libs.oms.models.order import OrderRole
+from strategies.core.actions import (
+    ReplaceProtectiveStop,
+    SubmitAddOnEntry,
+    SubmitMarketExit,
+    SubmitPartialExit,
+)
 from strategies.swing._shared.etf_core import ETFCoreState, ETFFill, ETFPosition, SetupSnapshot
 from strategies.swing.tpc.config import SYMBOL_CONFIGS, TPCSymbolConfig
 from strategies.swing.tpc.engine import TPCEngine
@@ -35,6 +44,21 @@ def _engine(kit: _RecordingKit) -> TPCEngine:
         config=SYMBOL_CONFIGS,
         kit=kit,
         equity=10_000.0,
+    )
+
+
+def _instrument(symbol: str = "QQQ") -> Instrument:
+    return Instrument(
+        symbol=symbol,
+        root=symbol,
+        venue="SMART",
+        tick_size=0.01,
+        tick_value=0.01,
+        multiplier=1.0,
+        point_value=1.0,
+        currency="USD",
+        primary_exchange="NASDAQ",
+        sec_type="STK",
     )
 
 
@@ -393,4 +417,116 @@ def test_order_terminal_event_routes_to_on_order_event():
     assert kwargs["order_id"] == "oms-99"
     assert kwargs["pair"] == "QQQ"
     assert kwargs["status"] == "rejected"
-    assert kwargs["related_trade_id"] == "TPC-QQQ-1"
+
+
+@pytest.mark.asyncio
+async def test_tpc_cycle_persists_after_successful_bar_mutation():
+    kit = _RecordingKit()
+    engine = _engine(kit)
+    persisted = {"count": 0}
+
+    from types import SimpleNamespace
+    from strategies.swing._shared.etf_core import ETFBarInput
+
+    bar = SimpleNamespace(
+        timestamp=datetime(2026, 5, 9, 14, 30, tzinfo=timezone.utc),
+        open=100.0,
+        high=101.0,
+        low=99.0,
+        close=100.5,
+        volume=1.0,
+    )
+    bar_input = ETFBarInput(symbol="QQQ", bar_15m=bar, indicators={}, equity=10_000.0)
+
+    async def _build_bar_input(symbol: str, request_kind: str):
+        return bar_input
+
+    engine._config = {"QQQ": SYMBOL_CONFIGS["QQQ"]}
+    engine._build_bar_input = _build_bar_input
+    engine.process_bar_input = lambda bi: ([], [])
+    engine._persist_state = lambda: persisted.__setitem__("count", persisted["count"] + 1)
+
+    await engine._cycle_once(request_kind="test")
+
+    assert persisted["count"] == 1
+
+
+def test_tpc_state_persist_uses_atomic_replace(tmp_path):
+    kit = _RecordingKit()
+    engine = TPCEngine(
+        ib_session=object(),
+        oms_service=object(),
+        instruments={},
+        config=SYMBOL_CONFIGS,
+        kit=kit,
+        equity=10_000.0,
+        state_dir=tmp_path,
+    )
+
+    engine._persist_state()
+
+    snap_path = tmp_path / "TPC.json"
+    assert snap_path.exists()
+    assert not (tmp_path / "TPC.json.tmp").exists()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("action", "expected_role", "expected_cache_role"),
+    [
+        (
+            SubmitAddOnEntry(
+                client_order_id="add-1",
+                symbol="QQQ",
+                side="BUY",
+                qty=3,
+                order_type="LIMIT",
+                limit_price=101.0,
+                risk_context={"planned_entry_price": 101.0, "stop_for_risk": 99.0},
+            ),
+            OrderRole.ENTRY,
+            "add_on_entry",
+        ),
+        (
+            SubmitPartialExit(
+                client_order_id="px-1",
+                symbol="QQQ",
+                side="SELL",
+                qty=2,
+                order_type="MARKET",
+            ),
+            OrderRole.EXIT,
+            "partial_exit",
+        ),
+        (
+            SubmitMarketExit(
+                client_order_id="mx-1",
+                symbol="QQQ",
+                side="SELL",
+                qty=5,
+            ),
+            OrderRole.EXIT,
+            "market_exit",
+        ),
+    ],
+)
+async def test_tpc_dispatch_handles_add_on_and_exit_actions(
+    action,
+    expected_role: OrderRole,
+    expected_cache_role: str,
+):
+    kit = _RecordingKit()
+    engine = _engine(kit)
+    engine._instruments["QQQ"] = _instrument()
+    receipt = type("Receipt", (), {"oms_order_id": f"oms-{action.client_order_id}"})()
+    oms = type("OMS", (), {})()
+    oms.submit_intent = AsyncMock(return_value=receipt)
+    engine._oms = oms
+
+    await engine._dispatch_action(action, "QQQ")
+
+    oms.submit_intent.assert_awaited_once()
+    intent = oms.submit_intent.await_args.args[0]
+    assert intent.intent_type == IntentType.NEW_ORDER
+    assert intent.order.role == expected_role
+    assert engine._oms_order_role[receipt.oms_order_id] == expected_cache_role

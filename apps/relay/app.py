@@ -1,4 +1,4 @@
-"""FastAPI relay application — buffers events from trading bots."""
+"""FastAPI relay application that buffers events from trading bots."""
 from __future__ import annotations
 
 import asyncio
@@ -56,6 +56,10 @@ class AckRequest(BaseModel):
     watermark: str
 
 
+class AckExactRequest(BaseModel):
+    event_ids: list[str]
+
+
 class AckResponse(BaseModel):
     status: str
     watermark: str
@@ -82,36 +86,47 @@ def create_relay_app(
     _start_mono = _time.monotonic()
 
     trading_env = os.environ.get("TRADING_MODE", os.environ.get("TRADING_ENV", "dev"))
-    if not api_key and trading_env in ("paper", "live"):
-        logger.warning(
-            "RELAY_API_KEY not set in %s mode — read/admin endpoints are unauthenticated. "
-            "Set RELAY_API_KEY for production security.",
-            trading_env,
+    # RELAY-2: in paper/live, missing API key or empty shared secrets is a
+    # hard fail. The previous warn-and-continue path was a silent
+    # production-security gap. Operators who genuinely need an
+    # unauthenticated relay (local dev only) must opt in explicitly.
+    _allow_unauth = os.environ.get("ALLOW_UNAUTHENTICATED_RELAY_DEV") == "1"
+    if not api_key and trading_env in ("paper", "live") and not _allow_unauth:
+        raise RuntimeError(
+            f"RELAY_API_KEY required in {trading_env} mode. Set the env var, "
+            f"or set ALLOW_UNAUTHENTICATED_RELAY_DEV=1 for local development."
         )
     elif not api_key:
-        logger.warning("No api_key configured — read/admin endpoints are unauthenticated")
+        logger.warning("No api_key configured; read/admin endpoints are unauthenticated")
 
     store = EventStore(db_path=db_path)
     auth = HMACAuth(shared_secrets=shared_secrets)
-    if not auth.enabled and trading_env in ("paper", "live"):
-        logger.warning(
-            "RELAY_SHARED_SECRETS empty in %s mode — ingest endpoint accepts unsigned events. "
-            "Set RELAY_SHARED_SECRETS for production security.",
-            trading_env,
+    if not auth.enabled and trading_env in ("paper", "live") and not _allow_unauth:
+        raise RuntimeError(
+            f"RELAY_SHARED_SECRETS required in {trading_env} mode. Set a JSON "
+            f"object mapping bot_id -> secret, or set "
+            f"ALLOW_UNAUTHENTICATED_RELAY_DEV=1 for local development."
         )
     limiter = RateLimiter(max_requests=max_requests_per_minute)
+
+    # RELAY-1: stale-unacked window is configurable. Default 14d covers
+    # multi-day assistant outages that the previous 3d window would have
+    # silently dropped. Acked-purge stays at 7d since acked rows are
+    # already replicated downstream.
+    _purge_days = int(os.environ.get("RELAY_PURGE_DAYS", "14"))
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         # Startup: purge old acked + stale unacked events, single VACUUM
         try:
             purged = store.purge_acked(days=7, vacuum=False)
-            purged_stale = store.purge_stale_unacked(days=3, vacuum=False)
+            purged_stale = store.purge_stale_unacked(days=_purge_days, vacuum=False)
             if purged or purged_stale:
                 store.vacuum()
                 logger.info(
-                    "Startup purge: removed %d acked, %d stale unacked events",
-                    purged, purged_stale,
+                    "Startup purge: removed %d acked, %d stale unacked events "
+                    "(stale window=%dd)",
+                    purged, purged_stale, _purge_days,
                 )
         except Exception as e:
             logger.warning("Startup purge failed: %s", e)
@@ -122,7 +137,7 @@ def create_relay_app(
                 await asyncio.sleep(86400)  # 24 hours
                 try:
                     a = store.purge_acked(days=7, vacuum=False)
-                    s = store.purge_stale_unacked(days=3, vacuum=False)
+                    s = store.purge_stale_unacked(days=_purge_days, vacuum=False)
                     if a or s:
                         store.vacuum()
                 except Exception as e:
@@ -204,13 +219,29 @@ def create_relay_app(
         since: str | None = None,
         limit: int = 100,
         bot_id: str | None = None,
+        min_priority: int | None = None,
+        max_priority: int | None = None,
+        priority_first: bool = False,
         x_api_key: str = Header(default=""),
     ):
-        """Pull un-acked events (used by home orchestrator)."""
+        """Pull un-acked events (used by home orchestrator).
+
+        Default delivery is id ordered for watermark ack safety. Use
+        `priority_first=true` with `max_priority` and `/ack-exact` to drain
+        urgent events first; `min_priority` remains a deprecated alias for
+        `max_priority`.
+        """
         denied = _check_api_key(x_api_key)
         if denied:
             return denied
-        events = store.get_events(since=since, limit=min(limit, 1000), bot_id=bot_id)
+        events = store.get_events(
+            since=since,
+            limit=min(limit, 1000),
+            bot_id=bot_id,
+            min_priority=min_priority,
+            max_priority=max_priority,
+            priority_first=priority_first,
+        )
         return {"events": events}
 
     @app.post("/ack", response_model=None)
@@ -221,6 +252,15 @@ def create_relay_app(
             return denied
         count = store.ack_up_to(req.watermark)
         return AckResponse(status="ok", watermark=req.watermark, acked_count=count)
+
+    @app.post("/ack-exact", response_model=None)
+    async def ack_events_exact(req: AckExactRequest, x_api_key: str = Header(default="")):
+        """Acknowledge exactly the listed event IDs."""
+        denied = _check_api_key(x_api_key)
+        if denied:
+            return denied
+        count = store.ack_exact(req.event_ids)
+        return {"status": "ok", "acked_count": count}
 
     @app.get("/health")
     async def health():
@@ -248,7 +288,7 @@ def create_relay_app(
         return {"status": "ok", "deleted": deleted, "retention_days": days}
 
     @app.post("/admin/purge-stale", response_model=None)
-    async def admin_purge_stale(days: int = 3, x_api_key: str = Header(default="")):
+    async def admin_purge_stale(days: int = _purge_days, x_api_key: str = Header(default="")):
         """Purge unacked events older than N days."""
         denied = _check_api_key(x_api_key)
         if denied:

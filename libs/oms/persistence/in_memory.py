@@ -1,7 +1,9 @@
 """In-memory repository for development and testing."""
 import json
 import logging
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from typing import AsyncIterator
 from typing import Optional
 
 from ..models.fill import Fill
@@ -32,11 +34,15 @@ class InMemoryRepository:
         self._fills: dict[str, Fill] = {}
         self._positions: dict[tuple[str, str, str], Position] = {}  # (strategy, account, symbol)
 
-    async def save_order(self, order: OMSOrder) -> None:
+    @asynccontextmanager
+    async def transaction(self, conn=None) -> AsyncIterator[None]:
+        yield None
+
+    async def save_order(self, order: OMSOrder, conn=None) -> None:
         """Upsert current order state."""
         self._orders[order.oms_order_id] = order
 
-    async def save_event(self, oms_order_id: str, event_type: str, payload: dict) -> None:
+    async def save_event(self, oms_order_id: str, event_type: str, payload: dict, conn=None) -> None:
         """Append to order events."""
         self._events.append({
             "oms_order_id": oms_order_id,
@@ -45,7 +51,7 @@ class InMemoryRepository:
             "timestamp": datetime.now(timezone.utc),
         })
 
-    async def save_fill(self, fill: Fill) -> bool:
+    async def save_fill(self, fill: Fill, conn=None) -> bool:
         if fill.broker_fill_id in self._fills:
             return False
         self._fills[fill.broker_fill_id] = fill
@@ -56,6 +62,7 @@ class InMemoryRepository:
         order: OMSOrder,
         event_type: str,
         payload: dict,
+        conn=None,
     ) -> None:
         await self.save_order(order)
         await self.save_event(order.oms_order_id, event_type, payload)

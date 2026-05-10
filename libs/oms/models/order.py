@@ -81,6 +81,10 @@ class RiskContext:
     risk_budget_tag: str = ""  # e.g. "MR", "Trend"
     risk_dollars: float = 0.0  # computed: qty * |entry - stop| * point_value
     portfolio_size_mult: float = 1.0  # cross-strategy sizing adjustment
+    # H7: persisted instead of transient dynamic attr (matches retry_count fix below).
+    # gateway.py attaches strat_cfg.unit_risk_dollars after approval; without this
+    # field, repository.__dict__ persistence + RiskContext(**rc_data) reload raises.
+    unit_risk_dollars: float = 0.0
 
 
 @dataclass

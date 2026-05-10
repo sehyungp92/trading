@@ -622,3 +622,159 @@ async def check_liveness(
                 ))
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# 10. Daily quiet-day classifier (one CheckResult per active strategy).
+# ---------------------------------------------------------------------------
+
+def classify_daily_activity(
+    bars: int | None,
+    trades: int | None,
+    denials: int | None,
+    last_bar_ts: datetime | None,
+    family_disconnect_count: int,
+    now: datetime,
+    session_start_threshold_hours: float = 8.0,
+) -> str:
+    """Return one of ACTIVE / NORMAL_QUIET / BLOCKED / DEAD / BROKER_DOWN.
+
+    Pure function so the test suite can drive it without DB fixtures.
+    Inputs default to 0 / None when unknown:
+      * ``bars``, ``trades``, ``denials`` are aggregates from
+        ``v_daily_strategy_activity``.
+      * ``last_bar_ts`` is the most recent bar timestamp the engine has
+        emitted today.
+      * ``family_disconnect_count`` is ``adapter_state.disconnect_count_24h``
+        for the family's adapter.
+
+    Decision tree (first match wins):
+
+      1. ACTIVE          -- trades > 0 (informational)
+      2. BROKER_DOWN     -- bars == 0 AND family_disconnect_count > 0
+      3. DEAD            -- bars == 0
+                         OR last_bar_ts older than session_start_threshold
+      4. BLOCKED         -- bars > 0 AND trades == 0 AND denials > 0
+      5. NORMAL_QUIET    -- everything else (engine alive, no signal)
+    """
+    bars_v = bars or 0
+    trades_v = trades or 0
+    denials_v = denials or 0
+
+    if trades_v > 0:
+        return "ACTIVE"
+
+    bar_is_stale = (
+        last_bar_ts is not None
+        and (now - last_bar_ts).total_seconds() > session_start_threshold_hours * 3600
+    )
+
+    if bars_v == 0:
+        if family_disconnect_count > 0:
+            return "BROKER_DOWN"
+        return "DEAD"
+
+    if last_bar_ts is None or bar_is_stale:
+        if family_disconnect_count > 0:
+            return "BROKER_DOWN"
+        return "DEAD"
+
+    if denials_v > 0:
+        return "BLOCKED"
+
+    return "NORMAL_QUIET"
+
+
+async def check_daily_classification(
+    pool: asyncpg.Pool,
+    config: dict,
+    active_families: set[str],
+    strategy_family_map: dict[str, str],
+) -> list[CheckResult]:
+    """Run the quiet-day classifier for the current trading day.
+
+    Reads from ``v_daily_strategy_activity`` (which aggregates over
+    ``strategy_heartbeat_history``) plus ``adapter_state`` for the
+    BROKER_DOWN signal. Emits one CheckResult per strategy in an active
+    family. Non-NORMAL classifications are flagged ``is_problem=True``;
+    NORMAL_QUIET and ACTIVE are not problems.
+    """
+    cfg = config.get("checks", {}).get("daily_classification", {})
+    session_threshold_h = float(cfg.get("session_start_threshold_hours", 8.0))
+    results: list[CheckResult] = []
+
+    try:
+        rows = await pool.fetch(
+            "SELECT strategy_id, family_id, bars, denials, trades, last_bar_ts "
+            "FROM v_daily_strategy_activity "
+            "WHERE day = (now() AT TIME ZONE 'UTC')::date"
+        )
+    except Exception as exc:
+        results.append(CheckResult(
+            key="daily_class:__db_error__",
+            check_name="DailyClassification",
+            detail=f"DB query failed: {exc}",
+            is_problem=True,
+        ))
+        return results
+
+    # Pull adapter disconnect counts once (small table, ~3 rows).
+    family_disconnects: dict[str, int] = {}
+    try:
+        adapter_rows = await pool.fetch(
+            "SELECT adapter_id, disconnect_count_24h FROM adapter_state"
+        )
+        for ar in adapter_rows:
+            family_disconnects[ar["adapter_id"]] = int(ar["disconnect_count_24h"] or 0)
+    except Exception as exc:
+        logger.warning("DailyClassification: adapter_state read failed: %s", exc)
+
+    seen: set[str] = set()
+    now = datetime.now(timezone.utc)
+
+    for row in rows:
+        sid = row["strategy_id"]
+        family = row["family_id"] or strategy_family_map.get(sid)
+        if not family or family not in active_families:
+            continue
+
+        seen.add(sid)
+        disconnects = family_disconnects.get(family, 0)
+        last_bar_ts = row["last_bar_ts"]
+        if last_bar_ts is not None and last_bar_ts.tzinfo is None:
+            last_bar_ts = last_bar_ts.replace(tzinfo=timezone.utc)
+
+        label = classify_daily_activity(
+            bars=row["bars"],
+            trades=row["trades"],
+            denials=row["denials"],
+            last_bar_ts=last_bar_ts,
+            family_disconnect_count=disconnects,
+            now=now,
+            session_start_threshold_hours=session_threshold_h,
+        )
+        is_problem = label not in ("ACTIVE", "NORMAL_QUIET")
+        results.append(CheckResult(
+            key=f"daily_class:{sid}",
+            check_name="DailyClassification",
+            detail=(
+                f"{sid} -- {label} "
+                f"(bars={row['bars'] or 0}, trades={row['trades'] or 0}, "
+                f"denials={row['denials'] or 0})"
+            ),
+            is_problem=is_problem,
+        ))
+
+    # Strategies in active families with NO row in v_daily_strategy_activity
+    # are silently DEAD: the snapshot writer never captured a single
+    # heartbeat for them today. Surface explicitly so they don't slip past.
+    for sid, family in strategy_family_map.items():
+        if family in active_families and sid not in seen:
+            results.append(CheckResult(
+                key=f"daily_class:{sid}",
+                check_name="DailyClassification",
+                detail=f"{sid} -- DEAD (no heartbeat history captured today)",
+                is_problem=True,
+            ))
+
+    return results

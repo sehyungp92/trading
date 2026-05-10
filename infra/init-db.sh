@@ -13,17 +13,28 @@ set -e
 READER_PW="${POSTGRES_READER_PASSWORD:-changeme}"
 WRITER_PW="${POSTGRES_WRITER_PASSWORD:-changeme}"
 
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<EOSQL
+# INFRA-1: pass passwords as psql variables and use a single-quoted heredoc.
+# The previous unquoted heredoc let bash interpolate ${READER_PW}/${WRITER_PW}
+# straight into SQL, which broke role creation for any password containing
+# a single-quote, dollar sign, backtick, or backslash. With -v + :'name' psql
+# performs proper SQL literal escaping.
+psql \
+    -v ON_ERROR_STOP=1 \
+    -v reader_pw="${READER_PW}" \
+    -v writer_pw="${WRITER_PW}" \
+    -v db_name="${POSTGRES_DB}" \
+    --username "$POSTGRES_USER" \
+    --dbname "$POSTGRES_DB" <<'EOSQL'
 -- Pin timezone to ET so CURRENT_DATE matches OMS trade-date semantics
-ALTER DATABASE ${POSTGRES_DB} SET timezone = 'America/New_York';
+ALTER DATABASE :"db_name" SET timezone = 'America/New_York';
 
 -- Create read-only user for the trading dashboard
-CREATE USER trading_reader WITH PASSWORD '${READER_PW}';
-GRANT CONNECT ON DATABASE ${POSTGRES_DB} TO trading_reader;
+CREATE USER trading_reader WITH PASSWORD :'reader_pw';
+GRANT CONNECT ON DATABASE :"db_name" TO trading_reader;
 
 -- Create writer role for OMS services
-CREATE USER trading_writer WITH PASSWORD '${WRITER_PW}';
-GRANT CONNECT ON DATABASE ${POSTGRES_DB} TO trading_writer;
+CREATE USER trading_writer WITH PASSWORD :'writer_pw';
+GRANT CONNECT ON DATABASE :"db_name" TO trading_writer;
 GRANT USAGE, CREATE ON SCHEMA public TO trading_writer;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO trading_writer;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO trading_writer;

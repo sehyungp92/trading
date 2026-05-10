@@ -69,6 +69,9 @@ class OrderStatusEvent:
     remaining_qty: float
     avg_fill_price: float
     last_fill_price: float = 0.0
+    order_ref: str = ""
+    account: str = ""
+    client_id: int | None = None
 
 
 @dataclass(frozen=True)

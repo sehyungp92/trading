@@ -5,7 +5,7 @@ import asyncio
 import logging
 import signal
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 import aiohttp
@@ -16,6 +16,7 @@ from libs.oms.persistence.db_config import DBConfig
 from .alerts import TelegramAlerter, format_alert, format_startup_summary
 from .checks import (
     check_adapters,
+    check_daily_classification,
     check_daily_pnl,
     check_data_freshness,
     check_errors,
@@ -27,6 +28,7 @@ from .checks import (
 )
 from .config import build_strategy_family_map, is_family_active, load_watchdog_config
 from .cooldown import CooldownTracker
+from .snapshot import capture_snapshot
 
 logger = logging.getLogger("watchdog")
 _ET = ZoneInfo("America/New_York")
@@ -34,6 +36,12 @@ _ET = ZoneInfo("America/New_York")
 # Module-level mutable state for liveness tracking (resets on watchdog restart)
 _liveness_prev_bars: dict[str, int] = {}
 _liveness_stalled_counts: dict[str, int] = {}
+
+# Throttle for the strategy_heartbeat_history snapshot writer. Captures a
+# row every ``snapshot_interval_seconds`` (default 300s = 5 min) so the
+# v_daily_strategy_activity view sees enough data points to compute a
+# bars-processed delta over a session.
+_last_snapshot_at: datetime | None = None
 
 
 async def _create_pool(db_cfg: DBConfig, max_retries: int = 10) -> asyncpg.Pool:
@@ -101,6 +109,24 @@ async def _run_cycle(
                 _liveness_prev_bars, _liveness_stalled_counts,
             )
         ))
+    if checks_cfg.get("daily_classification", {}).get("enabled"):
+        tasks.append(asyncio.create_task(
+            check_daily_classification(pool, config, active_families, strategy_family_map)
+        ))
+
+    # Snapshot strategy_state every snapshot_interval_seconds. Runs in
+    # parallel with the checks but does NOT generate alerts -- it only
+    # populates strategy_heartbeat_history for the daily classifier.
+    snapshot_cfg = checks_cfg.get("snapshot", {})
+    if snapshot_cfg.get("enabled") and active_families:
+        global _last_snapshot_at
+        interval = float(snapshot_cfg.get("snapshot_interval_seconds", 300))
+        now_utc = datetime.now(timezone.utc)
+        if _last_snapshot_at is None or (now_utc - _last_snapshot_at).total_seconds() >= interval:
+            _last_snapshot_at = now_utc
+            tasks.append(asyncio.create_task(
+                capture_snapshot(pool, active_families, strategy_family_map)
+            ))
 
     if not tasks:
         logger.warning("No checks enabled")

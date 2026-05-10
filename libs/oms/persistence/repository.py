@@ -2,6 +2,7 @@
 import json
 import logging
 from contextlib import asynccontextmanager
+from dataclasses import fields as dc_fields
 from datetime import datetime
 from typing import Any, AsyncIterator, Optional
 
@@ -93,12 +94,14 @@ class OMSRepository:
                     tif, role, status, broker, broker_order_id, perm_id, oca_group,
                     filled_qty, remaining_qty, avg_fill_price, reprice_count,
                     entry_policy, risk_context,
-                    created_at, submitted_at, acked_at, last_update_at
-                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb,$23::jsonb,$24,$25,$26,$27)
+                    created_at, submitted_at, acked_at, last_update_at,
+                    retry_count, reject_reason
+                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb,$23::jsonb,$24,$25,$26,$27,$28,$29)
                 ON CONFLICT (oms_order_id) DO UPDATE SET
                     status=$13, broker_order_id=$15, perm_id=$16,
                     filled_qty=$18, remaining_qty=$19, avg_fill_price=$20,
-                    reprice_count=$21, submitted_at=$25, acked_at=$26, last_update_at=$27
+                    reprice_count=$21, submitted_at=$25, acked_at=$26, last_update_at=$27,
+                    retry_count=$28, reject_reason=$29
                 """,
                 order.oms_order_id,
                 order.client_order_id,
@@ -127,6 +130,8 @@ class OMSRepository:
                 order.submitted_at,
                 order.acked_at,
                 order.last_update_at,
+                order.retry_count,
+                order.reject_reason,
             )
 
     async def save_event(
@@ -188,10 +193,11 @@ class OMSRepository:
         order: OMSOrder,
         event_type: str,
         payload: dict,
+        conn=None,
     ) -> None:
-        async with self.transaction() as conn:
-            await self.save_order(order, conn=conn)
-            await self.save_event(order.oms_order_id, event_type, payload, conn=conn)
+        async with self.transaction(conn=conn) as active_conn:
+            await self.save_order(order, conn=active_conn)
+            await self.save_event(order.oms_order_id, event_type, payload, conn=active_conn)
 
     async def save_order_fill_and_event(
         self,
@@ -446,13 +452,15 @@ class OMSRepository:
         if row.get("entry_policy"):
             ep = row["entry_policy"]
             ep_data = ep if isinstance(ep, dict) else json.loads(ep)
-            entry_policy = EntryPolicy(**ep_data)
+            ep_keys = {f.name for f in dc_fields(EntryPolicy)}
+            entry_policy = EntryPolicy(**{k: v for k, v in ep_data.items() if k in ep_keys})
 
         risk_context = None
         if row.get("risk_context"):
             rc = row["risk_context"]
             rc_data = rc if isinstance(rc, dict) else json.loads(rc)
-            risk_context = RiskContext(**rc_data)
+            rc_keys = {f.name for f in dc_fields(RiskContext)}
+            risk_context = RiskContext(**{k: v for k, v in rc_data.items() if k in rc_keys})
 
         # Look up instrument from registry, fall back to minimal stub
         instrument = None
@@ -497,6 +505,8 @@ class OMSRepository:
             remaining_qty=row.get("remaining_qty") or 0.0,
             avg_fill_price=row.get("avg_fill_price") or 0.0,
             reprice_count=row.get("reprice_count") or 0,
+            retry_count=row.get("retry_count") or 0,
+            reject_reason=row.get("reject_reason") or "",
         )
 
     def _row_to_position(self, row: dict) -> Position:

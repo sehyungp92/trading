@@ -106,31 +106,6 @@ class StockFamilyCoordinator:
         db_pool = ctx.db_pool
         account_gate = ctx.account_gate
 
-        # Resolve paper-mode equity
-        paper_mode = get_environment() == "paper"
-        equity: float
-
-        if paper_mode:
-            from libs.persistence.paper_equity import PaperEquityManager
-            _env = os.getenv("PAPER_INITIAL_EQUITY")
-            _paper_seed = float(_env) if _env else ctx.portfolio.capital.paper_initial_equity
-            pem = PaperEquityManager(db_pool, account_scope=self.family_id, initial_equity=_paper_seed)
-            equity = await pem.load()
-            logger.info("Paper mode equity for stock family: $%.2f", equity)
-        else:
-            equity = 100_000.0
-            try:
-                accounts = session.ib.managedAccounts()
-                if accounts:
-                    for item in session.ib.accountValues():
-                        if item.tag == "NetLiquidation" and item.currency == "USD" and item.account == accounts[0]:
-                            equity = float(item.value)
-                            logger.info("Account equity: $%.2f", equity)
-                            break
-            except Exception:
-                logger.warning("Using default equity $%.2f", equity)
-
-        # Capital allocation per strategy
         config_dir = Path(
             os.environ.get(
                 "CONFIG_DIR",
@@ -138,8 +113,36 @@ class StockFamilyCoordinator:
             )
         )
 
+        # Resolve paper-mode equity
+        runtime_env = get_environment()
+        paper_mode = runtime_env == "paper"
+        strict_market_data = runtime_env in {"paper", "live"}
+        _env = os.getenv("PAPER_INITIAL_EQUITY")
+        _paper_seed = (
+            float(_env) if _env else ctx.portfolio.capital.paper_initial_equity
+        )
+
+        if paper_mode:
+            base_equity = _paper_seed
+        else:
+            # EQUITY-1: hard-fail in live mode if NetLiquidation can't be
+            # resolved, using the configured IBKR profile account. The helper polls
+            # accountValues() up to its timeout to handle the async populate
+            # race between ib.connectAsync and the first accountValues read.
+            from libs.services.equity import resolve_live_nlv
+            from libs.broker_ibkr.config.loader import IBKRConfig
+
+            ibkr_config = IBKRConfig(config_dir)
+            if not ibkr_config.profile.account_id:
+                raise RuntimeError("Stock live equity requires configured IBKR account_id")
+            base_equity = await resolve_live_nlv(
+                session,
+                account_id=ibkr_config.profile.account_id,
+            )
+
+        # Capital allocation per strategy
         try:
-            allocs = bootstrap_capital(equity, config_dir)
+            allocs = bootstrap_capital(base_equity, config_dir)
         except Exception as exc:
             logger.warning("bootstrap_capital failed (%s), using equal split", exc)
             allocs = {}
@@ -149,6 +152,32 @@ class StockFamilyCoordinator:
         if not _strategies:
             logger.warning("No enabled stock strategies remain after registry filtering")
             return
+        fallback_nav = base_equity / max(1, len(_strategies))
+
+        paper_nav_by_strategy: dict[str, float] = {}
+        paper_initial_nav_by_strategy: dict[str, float] = {}
+        equity = base_equity
+        if paper_mode:
+            from libs.persistence.paper_equity import PaperEquityManager
+
+            for desc in _strategies:
+                sid = desc["strategy_id"]
+                alloc = allocs.get(sid)
+                initial_nav = alloc.allocated_nav if alloc else fallback_nav
+                paper_initial_nav_by_strategy[sid] = initial_nav
+                pem = PaperEquityManager(
+                    db_pool,
+                    account_scope=sid,
+                    initial_equity=initial_nav,
+                )
+                paper_nav_by_strategy[sid] = await pem.load()
+            if paper_nav_by_strategy:
+                equity = sum(paper_nav_by_strategy.values())
+            logger.info(
+                "Paper mode equity for stock strategies: total=$%.2f scopes=%s",
+                equity,
+                {k: round(v, 2) for k, v in paper_nav_by_strategy.items()},
+            )
 
         # Portfolio rules: drawdown tiers + family-scoped directional cap + symbol collision
         rule_inputs = self._portfolio_rule_inputs(
@@ -168,7 +197,13 @@ class StockFamilyCoordinator:
         # Log dollar-equivalent directional cap per strategy for monitoring
         for desc in _strategies:
             _alloc = allocs.get(desc["strategy_id"])
-            _nav = _alloc.allocated_nav if _alloc else equity
+            _nav = (
+                paper_nav_by_strategy.get(desc["strategy_id"])
+                if paper_mode
+                else None
+            )
+            if _nav is None:
+                _nav = _alloc.allocated_nav if _alloc else fallback_nav
             _unit = RiskCalculator.compute_unit_risk_dollars(nav=_nav, unit_risk_pct=desc["base_risk_pct"])
             logger.info(
                 "Directional cap dollar-equiv for %s: 1R=$%.0f, cap=%.2fR=$%.0f, heat=%sR=$%.0f",
@@ -189,7 +224,18 @@ class StockFamilyCoordinator:
 
             # Resolve allocated NAV
             alloc = allocs.get(sid)
-            allocated_nav = alloc.allocated_nav if alloc else equity
+            initial_nav = (
+                paper_initial_nav_by_strategy.get(sid)
+                if paper_mode
+                else None
+            )
+            if initial_nav is None:
+                initial_nav = alloc.allocated_nav if alloc else fallback_nav
+            allocated_nav = (
+                paper_nav_by_strategy.get(sid, initial_nav)
+                if paper_mode
+                else (alloc.allocated_nav if alloc else fallback_nav)
+            )
 
             # Per-strategy portfolio rules — initial_equity must match the
             # get_current_equity callback (allocated_nav), otherwise drawdown
@@ -218,7 +264,8 @@ class StockFamilyCoordinator:
                 )
             else:
                 logger.warning(
-                    "Strategy %s not in unified config, using full equity", sid,
+                    "Strategy %s not in unified config, using equal fallback NAV %.2f",
+                    sid, fallback_nav,
                 )
 
             # Risk parameters
@@ -241,7 +288,7 @@ class StockFamilyCoordinator:
                 get_current_equity=lambda eq=_live_equity: eq[0],
                 paper_equity_pool=db_pool if paper_mode else None,
                 paper_equity_scope=sid,
-                paper_initial_equity=allocated_nav,
+                paper_initial_equity=initial_nav,
                 live_equity=_live_equity if not paper_mode else None,
                 family_id=self.family_id,
                 account_gate=account_gate,
@@ -339,11 +386,24 @@ class StockFamilyCoordinator:
                     logger.info("Market data started for %s", sid)
                 except Exception as exc:
                     logger.error("Market data init failed for %s: %s", sid, exc, exc_info=exc)
+                    if strict_market_data:
+                        await self.stop()
+                        raise RuntimeError(
+                            f"Stock market data init failed for {sid} in {runtime_env} mode"
+                        ) from exc
             else:
                 logger.warning("No contract factory — market data NOT wired for %s", sid)
+            if self._contract_factory is None and strict_market_data:
+                await self.stop()
+                raise RuntimeError(
+                    f"Stock market data not wired for {sid} in {runtime_env} mode"
+                )
             self._market_data_sources.append(md_source)
 
         # ── Reconnect callback ─────────────────────────────────────
+        # CONN-1: also drive OMS reconciliation on each per-strategy OMS.
+        # The previous version only did per-engine reconcile + subscription
+        # invalidation, leaving OMS<->broker drift undetected.
         async def _on_reconnect() -> None:
             for i, eng in enumerate(self._engines):
                 if hasattr(eng, "_reconcile_after_reconnect"):
@@ -355,10 +415,23 @@ class StockFamilyCoordinator:
                 md = self._market_data_sources[i] if i < len(self._market_data_sources) else None
                 if md is not None and hasattr(md, "invalidate_subscriptions"):
                     md.invalidate_subscriptions()
-            logger.info("Post-reconnect: reconciliation + subscription invalidation complete")
+            for i, oms in enumerate(self._oms_services):
+                reconciler = getattr(oms, "_reconciler", None)
+                if reconciler is not None:
+                    try:
+                        await reconciler.on_reconnect_reconciliation()
+                    except Exception as exc:
+                        logger.error(
+                            "Stock OMS reconnect reconciliation failed for %s: %s",
+                            self._strategy_ids[i], exc,
+                        )
+            logger.info(
+                "Post-reconnect: per-engine + OMS reconciliation + "
+                "subscription invalidation complete"
+            )
 
-        if hasattr(session, "set_reconnect_callback"):
-            session.set_reconnect_callback(_on_reconnect)
+        if hasattr(session, "add_reconnect_callback"):
+            session.add_reconnect_callback(_on_reconnect)
 
         # ── Background market data refresh loop ────────────────────
         self._market_data_task = asyncio.create_task(self._market_data_loop())
@@ -631,60 +704,69 @@ class StockFamilyCoordinator:
         if heartbeat is None:
             return
         session = self._ctx.session
+        # HB-1: any exception in payload construction or emission must not
+        # kill the loop. A dead heartbeat task wouldn't be observed until the
+        # watchdog stale_threshold elapsed, masking a live runtime as silent.
         while True:
             try:
                 await asyncio.sleep(15)
             except asyncio.CancelledError:
                 return
-            payloads = []
-            for i, sid in enumerate(self._strategy_ids):
-                # Use per-strategy state (not portfolio state) for correct per-strategy metrics
-                srs = getattr(self._oms_services[i], "_strategy_risk_states", {})
-                sr = srs.get(sid)
-                # Fall back to portfolio state for halted check
-                prs = getattr(self._oms_services[i], "_portfolio_risk_state", None)
-                payload = {
-                    "strategy_id": sid,
-                    "heat_r": Decimal(str(sr.open_risk_R)) if sr else Decimal("0"),
-                    "daily_pnl_r": Decimal(str(sr.daily_realized_R)) if sr else Decimal("0"),
-                    "mode": "HALTED" if (prs and prs.halted) else "RUNNING",
-                }
-                # Diagnostic pulse fields
-                engine = self._engines[i]
-                if hasattr(engine, "_last_decision_code"):
-                    payload["last_decision_code"] = engine._last_decision_code
-                    payload["last_decision_details"] = getattr(engine, "_last_decision_details", None)
-                    payload["last_seen_bar_ts"] = getattr(engine, "_last_bar_ts", None)
-                oms = self._oms_services[i]
-                if hasattr(engine, "liveness_payload") or hasattr(oms, "_intents_submitted"):
-                    details = payload.get("last_decision_details") or {}
-                    if hasattr(engine, "liveness_payload"):
-                        details["liveness"] = engine.liveness_payload()
-                    if hasattr(oms, "_intents_submitted"):
-                        details["oms_health"] = {
-                            "submitted": oms._intents_submitted,
-                            "accepted": oms._intents_accepted,
-                            "denied": oms._intents_denied,
-                            "consecutive_denials": oms._consecutive_denials,
-                        }
-                    payload["last_decision_details"] = details
-                payloads.append(payload)
-            connected = session.ib.isConnected() if session else False
-            # Enrich with IB farm status for diagnostic context
-            if session:
-                farm_statuses = {}
-                for group in session.groups.values():
-                    if group.farm_monitor:
-                        farm_statuses.update(group.farm_monitor.all_statuses())
-                if farm_statuses:
-                    for p in payloads:
-                        details = p.get("last_decision_details") or {}
-                        if isinstance(details, dict):
-                            details["ib_farm_status"] = farm_statuses
-                            p["last_decision_details"] = details
-            await emit_family_heartbeats(
-                heartbeat, self.family_id, payloads, adapter_connected=connected,
-            )
+            try:
+                await self._heartbeat_iteration(heartbeat, session)
+            except Exception:
+                logger.exception("Stock heartbeat iteration failed; continuing")
+
+    async def _heartbeat_iteration(self, heartbeat, session) -> None:
+        payloads = []
+        for i, sid in enumerate(self._strategy_ids):
+            # Use per-strategy state (not portfolio state) for correct per-strategy metrics
+            srs = getattr(self._oms_services[i], "_strategy_risk_states", {})
+            sr = srs.get(sid)
+            # Fall back to portfolio state for halted check
+            prs = getattr(self._oms_services[i], "_portfolio_risk_state", None)
+            payload = {
+                "strategy_id": sid,
+                "heat_r": Decimal(str(sr.open_risk_R)) if sr else Decimal("0"),
+                "daily_pnl_r": Decimal(str(sr.daily_realized_R)) if sr else Decimal("0"),
+                "mode": "HALTED" if (prs and prs.halted) else "RUNNING",
+            }
+            # Diagnostic pulse fields
+            engine = self._engines[i]
+            if hasattr(engine, "_last_decision_code"):
+                payload["last_decision_code"] = engine._last_decision_code
+                payload["last_decision_details"] = getattr(engine, "_last_decision_details", None)
+                payload["last_seen_bar_ts"] = getattr(engine, "_last_bar_ts", None)
+            oms = self._oms_services[i]
+            if hasattr(engine, "liveness_payload") or hasattr(oms, "_intents_submitted"):
+                details = payload.get("last_decision_details") or {}
+                if hasattr(engine, "liveness_payload"):
+                    details["liveness"] = engine.liveness_payload()
+                if hasattr(oms, "_intents_submitted"):
+                    details["oms_health"] = {
+                        "submitted": oms._intents_submitted,
+                        "accepted": oms._intents_accepted,
+                        "denied": oms._intents_denied,
+                        "consecutive_denials": oms._consecutive_denials,
+                    }
+                payload["last_decision_details"] = details
+            payloads.append(payload)
+        connected = session.ib.isConnected() if session else False
+        # Enrich with IB farm status for diagnostic context
+        if session:
+            farm_statuses = {}
+            for group in session.groups.values():
+                if group.farm_monitor:
+                    farm_statuses.update(group.farm_monitor.all_statuses())
+            if farm_statuses:
+                for p in payloads:
+                    details = p.get("last_decision_details") or {}
+                    if isinstance(details, dict):
+                        details["ib_farm_status"] = farm_statuses
+                        p["last_decision_details"] = details
+        await emit_family_heartbeats(
+            heartbeat, self.family_id, payloads, adapter_connected=connected,
+        )
 
     async def _market_data_loop(self) -> None:
         """Periodically refresh market data subscriptions for all engines."""

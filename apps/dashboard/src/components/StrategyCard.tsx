@@ -4,6 +4,7 @@ import { fmtR, fmtAge, toPercent } from '@/lib/formatters';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { StrategyDiagnostics } from '@/components/StrategyDiagnostics';
 
 interface Props {
   strategy: StrategyData;
@@ -90,6 +91,8 @@ export function StrategyCard({ strategy }: Props) {
           </p>
         )}
       </div>
+
+      <StrategyDiagnostics strategyId={strategy.strategy_id} />
     </div>
   );
 }

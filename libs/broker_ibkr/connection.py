@@ -23,8 +23,12 @@ class ConnectionManager:
         self._shutting_down = False
         self._retry_count = 0
         self._reconnect_task: Optional[asyncio.Task] = None
-        # H5 fix: callback for post-reconnect reconciliation
-        self._on_reconnect_callback: Optional[Callable] = None
+        # CONN-1: list of post-reconnect callbacks. The previous single-slot
+        # design caused later coordinators to silently overwrite earlier
+        # registrations — swing's OMS reconciler was lost when stock
+        # registered its engine-only callback, and momentum registered
+        # nothing at all. Now every family appends and all run on reconnect.
+        self._on_reconnect_callbacks: list[Callable] = []
 
     @property
     def ib(self) -> IB:
@@ -70,9 +74,20 @@ class ConnectionManager:
         delay = delay * (0.5 + random.random())
         return delay
 
+    def add_reconnect_callback(self, callback: Callable) -> None:
+        """CONN-1: append a post-reconnect callback. Idempotent — duplicate
+        registrations of the same callable are dropped to keep the list
+        deterministic across coordinator restarts.
+        """
+        if callback not in self._on_reconnect_callbacks:
+            self._on_reconnect_callbacks.append(callback)
+
     def set_reconnect_callback(self, callback: Callable) -> None:
-        """H5 fix: Register a callback to invoke after successful reconnection."""
-        self._on_reconnect_callback = callback
+        """Deprecated alias for add_reconnect_callback. Kept so existing call
+        sites that haven't migrated still work; once they're all migrated
+        this can be deleted.
+        """
+        self.add_reconnect_callback(callback)
 
     async def disconnect(self) -> None:
         """Graceful disconnect. Cancels any in-flight reconnect loop."""
@@ -124,15 +139,22 @@ class ConnectionManager:
         while not self._shutting_down:
             try:
                 await self._attempt_connect()
-                # H5 fix: trigger reconciliation after successful reconnection
-                if self._on_reconnect_callback:
+                # CONN-1: invoke every registered callback. One failure must
+                # not skip the others — each gets its own try/except so a
+                # broken family-level callback can't suppress reconciliation
+                # in another family.
+                for cb in list(self._on_reconnect_callbacks):
                     try:
-                        result = self._on_reconnect_callback()
+                        result = cb()
                         if asyncio.iscoroutine(result):
                             await result
-                        logger.info("Post-reconnect callback completed")
                     except Exception as e:
                         logger.error(f"Post-reconnect callback failed: {e}")
+                if self._on_reconnect_callbacks:
+                    logger.info(
+                        "Post-reconnect callbacks completed (%d)",
+                        len(self._on_reconnect_callbacks),
+                    )
                 return  # connected successfully
             except Exception as e:
                 if self._shutting_down:

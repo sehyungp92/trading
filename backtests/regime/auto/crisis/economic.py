@@ -682,10 +682,9 @@ def build_sleeve_proxy_returns(strat_ret_df: pd.DataFrame) -> pd.DataFrame:
     idx = returns.index
     spy = returns.get("SPY", pd.Series(0.0, index=idx))
     efa = returns.get("EFA", pd.Series(0.0, index=idx))
-    ibit = returns.get("IBIT", pd.Series(0.0, index=idx))
     gld = returns.get("GLD", pd.Series(0.0, index=idx))
     qqq_proxy = returns.get("QQQ", spy)
-    equity_beta = 0.75 * spy + 0.15 * efa + 0.10 * ibit
+    equity_beta = 0.85 * spy + 0.15 * efa
     return pd.DataFrame(
         {
             "equity_beta": equity_beta,

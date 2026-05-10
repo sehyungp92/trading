@@ -12,7 +12,7 @@ schedules:                          # heartbeat staleness only alerting during t
 checks:
   heartbeat:
     enabled: true
-    stale_threshold_sec: 180        # alert if heartbeat > 3 min old (view threshold is 2 min)
+    stale_threshold_sec: 180        # alert if heartbeat > 3 min old (matches v_strategy_health STALE)
   adapter:
     enabled: true
   halts:
@@ -46,6 +46,12 @@ checks:
       momentum: 1200                    # 20 min (5/15min bars + grace)
       stock: 900                        # 15 min (5min bars + grace)
     stalled_cycles: 3                   # CRITICAL after bars_processed unchanged for N poll cycles
+  snapshot:
+    enabled: true
+    snapshot_interval_seconds: 300      # capture strategy_state into strategy_heartbeat_history every 5 min
+  daily_classification:
+    enabled: true
+    session_start_threshold_hours: 8.0  # last_bar_ts older than this == DEAD
 
 cooldown:
   alert_cooldown_sec: 900           # 15 min between repeated alerts for same issue

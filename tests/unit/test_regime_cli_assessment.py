@@ -18,7 +18,7 @@ def _dummy_cached_data():
     macro_df = pd.DataFrame({"GROWTH": 0.0, "INFLATION": 0.0}, index=idx)
     market_df = pd.DataFrame({"VIX": 20.0, "SPREAD": 1.0}, index=idx)
     strat_ret_df = pd.DataFrame(
-        {"SPY": 0.0, "EFA": 0.0, "TLT": 0.0, "GLD": 0.0, "IBIT": 0.0, "CASH": 0.0},
+        {"SPY": 0.0, "EFA": 0.0, "TLT": 0.0, "GLD": 0.0, "CASH": 0.0},
         index=idx,
     )
     return macro_df, market_df, strat_ret_df

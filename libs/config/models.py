@@ -139,6 +139,7 @@ class PortfolioRiskConfig(BaseModel):
     heat_cap_R: float = 2.5
     portfolio_daily_stop_R: float = 3.0
     portfolio_weekly_stop_R: float = 5.0
+    account_urd_dollars: float = 200.0
     global_standdown: bool = False
 
 
@@ -193,4 +194,3 @@ class StrategyRegistryConfig(BaseModel):
             manifest for manifest in self.strategies.values()
             if manifest.enabled and (not live or not manifest.paper_mode)
         ]
-

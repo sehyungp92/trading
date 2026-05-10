@@ -7,6 +7,7 @@ class DiscrepancyAction(Enum):
     IMPORT = "import"
     CANCEL = "cancel"
     MARK_CANCELLED = "mark_cancelled"
+    REPAIR_MAPPING = "repair_mapping"
     ADJUST_POSITION = "adjust_position"
     HALT_AND_ALERT = "halt_and_alert"
 

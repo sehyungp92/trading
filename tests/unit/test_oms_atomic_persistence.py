@@ -14,11 +14,16 @@ from libs.oms.execution.router import ExecutionRouter, OrderPriority
 from libs.oms.intent.handler import IntentHandler
 from libs.oms.models.instrument import Instrument
 from libs.oms.models.intent import Intent, IntentResult, IntentType
-from libs.oms.models.order import OMSOrder, OrderRole, OrderSide, OrderStatus, OrderType
+from libs.oms.models.order import OMSOrder, OrderRole, OrderSide, OrderStatus, OrderType, RiskContext
 from libs.oms.models.risk_state import PortfolioRiskState
 from libs.oms.persistence.in_memory import InMemoryRepository
 from libs.oms.persistence.repository import OMSPersistenceInvariantError, OMSRepository
-from libs.oms.services.factory import _wire_adapter_callbacks, _wire_adapter_callbacks_multi
+from libs.oms.services.factory import (
+    _hydrate_open_positions_from_repo,
+    _wire_adapter_callbacks,
+    _wire_adapter_callbacks_multi,
+)
+from libs.risk.account_risk_gate import AccountRiskGate
 
 
 def _instrument(symbol: str = "QQQ") -> Instrument:
@@ -74,6 +79,31 @@ class _BrokenPool:
 
     def acquire(self):
         return _Acquire(self._conn)
+
+
+class _AccountGateConn:
+    def __init__(self) -> None:
+        self.locked = False
+        self.queries: list[str] = []
+
+    async def execute(self, query, *args):
+        if "pg_advisory_xact_lock" in query:
+            self.locked = True
+
+    async def fetchrow(self, query, *args):
+        self.queries.append(query)
+        if "FROM positions" in query:
+            return {"total_open_risk_dollars": 200.0}
+        if "FROM orders" in query:
+            return {"pending_entry_risk_dollars": 150.0}
+        if "FROM risk_daily_portfolio" in query:
+            return {"total_daily_realized_dollars": 0.0}
+        raise AssertionError(query)
+
+
+class _HydrationFailRepository:
+    async def get_positions_for_strategies(self, strategy_ids):
+        raise RuntimeError("db down")
 
 
 class _DelayedWorkingSaveRepository(InMemoryRepository):
@@ -137,6 +167,7 @@ async def test_intent_handler_denial_uses_atomic_helper() -> None:
 async def test_intent_handler_approval_uses_atomic_helper() -> None:
     risk = MagicMock()
     risk.check_entry = AsyncMock(return_value=None)
+    risk.check_account_gate = AsyncMock(return_value=None)
     router = MagicMock()
     router.route = AsyncMock()
     repo = MagicMock()
@@ -160,6 +191,89 @@ async def test_intent_handler_approval_uses_atomic_helper() -> None:
     assert saved_order.status == OrderStatus.RISK_APPROVED
     assert event_type == "RISK_APPROVED"
     assert payload == {}
+    risk.check_entry.assert_awaited_once()
+    assert risk.check_entry.await_args.kwargs["skip_account_gate"] is True
+    risk.check_account_gate.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_intent_handler_account_gate_denial_does_not_persist_approval() -> None:
+    risk = MagicMock()
+    risk.check_entry = AsyncMock(return_value=None)
+    risk.check_account_gate = AsyncMock(return_value="Account gate: heat cap")
+    router = MagicMock()
+    router.route = AsyncMock()
+    repo = InMemoryRepository()
+    bus = MagicMock()
+    bus.emit_risk_denial = MagicMock()
+    bus.emit_order_event = MagicMock()
+
+    handler = IntentHandler(risk, router, repo, bus)
+    order = _entry_order("AAPL")
+
+    receipt = await handler.submit(
+        Intent(intent_type=IntentType.NEW_ORDER, strategy_id="TEST", order=order)
+    )
+
+    assert receipt.result == IntentResult.DENIED
+    saved = await repo.get_order(order.oms_order_id)
+    assert saved is not None
+    assert saved.status == OrderStatus.REJECTED
+    assert [event["event_type"] for event in repo._events] == ["RISK_DENIED"]
+    router.route.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_intent_handler_account_gate_sees_multiplier_adjusted_risk() -> None:
+    async def _check_entry(order: OMSOrder, *, skip_account_gate: bool = False):
+        assert skip_account_gate is True
+        order.risk_context.portfolio_size_mult = 0.5
+        order.risk_context.risk_dollars = 100.0
+        return None
+
+    async def _check_account_gate(order: OMSOrder, conn=None):
+        assert order.qty == 5
+        assert order.remaining_qty == 5
+        assert order.risk_context.risk_dollars == pytest.approx(50.0)
+        assert conn is None
+        return None
+
+    risk = MagicMock()
+    risk.check_entry = AsyncMock(side_effect=_check_entry)
+    risk.check_account_gate = AsyncMock(side_effect=_check_account_gate)
+    router = MagicMock()
+    router.route = AsyncMock()
+    repo = InMemoryRepository()
+    bus = MagicMock()
+    bus.emit_order_event = MagicMock()
+
+    handler = IntentHandler(risk, router, repo, bus)
+    order = _entry_order("TSLA")
+    order.risk_context = RiskContext(
+        stop_for_risk=90.0,
+        planned_entry_price=100.0,
+        risk_dollars=100.0,
+    )
+
+    receipt = await handler.submit(
+        Intent(intent_type=IntentType.NEW_ORDER, strategy_id="TEST", order=order)
+    )
+
+    assert receipt.result == IntentResult.ACCEPTED
+    router.route.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_account_risk_gate_counts_pending_entry_reservations() -> None:
+    gate = AccountRiskGate(MagicMock(), heat_cap_R=2.0, daily_stop_R=3.0, account_urd=200.0)
+    conn = _AccountGateConn()
+
+    decision = await gate.check_entry("momentum", risk_dollars=100.0, conn=conn)
+
+    assert conn.locked is True
+    assert not decision.approved
+    assert "Account heat cap" in (decision.reason or "")
+    assert "reserved 1.75R" in (decision.reason or "")
 
 
 @pytest.mark.asyncio
@@ -230,7 +344,7 @@ async def test_execution_router_passes_instrument_to_adapter_submit() -> None:
     repo = MagicMock()
     repo.save_order = AsyncMock()
     router = ExecutionRouter(adapter, repo)
-    order = _entry_order("IBIT")
+    order = _entry_order("GLD")
     order.status = OrderStatus.RISK_APPROVED
     order.remaining_qty = order.qty
 
@@ -243,22 +357,38 @@ async def test_execution_router_passes_instrument_to_adapter_submit() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("status", "timestamp_attr", "payload_reason"),
+    ("status", "timestamp_attr", "payload_reason", "expected_status", "expected_event"),
     [
-        (OrderStatus.ROUTED, "submitted_at", "routed_timeout"),
-        (OrderStatus.CANCEL_REQUESTED, "last_update_at", "cancel_timeout"),
+        (
+            OrderStatus.ROUTED,
+            "submitted_at",
+            "routed_timeout",
+            OrderStatus.CANCEL_REQUESTED,
+            "TIMEOUT_CANCEL_REQUESTED",
+        ),
+        (
+            OrderStatus.CANCEL_REQUESTED,
+            "last_update_at",
+            "cancel_timeout",
+            OrderStatus.CANCEL_REQUESTED,
+            "TIMEOUT_CANCEL_RECONCILE_REQUIRED",
+        ),
     ],
 )
 async def test_timeout_monitor_uses_atomic_helper(
     status: OrderStatus,
     timestamp_attr: str,
     payload_reason: str,
+    expected_status: OrderStatus,
+    expected_event: str,
 ) -> None:
     repo = MagicMock()
     repo.save_order_and_event = AsyncMock()
     bus = MagicMock()
     bus.emit_order_event = MagicMock()
-    monitor = OrderTimeoutMonitor(repo, bus, routed_timeout_s=30.0, cancel_timeout_s=15.0)
+    router = MagicMock()
+    router.cancel = AsyncMock()
+    monitor = OrderTimeoutMonitor(repo, bus, router, routed_timeout_s=30.0, cancel_timeout_s=15.0)
     order = _entry_order("NFLX")
     order.status = status
     stale_ts = datetime.now(timezone.utc) - timedelta(seconds=60)
@@ -268,11 +398,15 @@ async def test_timeout_monitor_uses_atomic_helper(
 
     await monitor._scan_stuck_orders()
 
-    assert order.status == OrderStatus.CANCELLED
+    assert order.status == expected_status
     repo.save_order_and_event.assert_awaited_once()
     _, event_type, payload = repo.save_order_and_event.await_args.args
-    assert event_type == "TIMEOUT_CANCELLED"
+    assert event_type == expected_event
     assert payload["reason"] == payload_reason
+    if status == OrderStatus.ROUTED:
+        router.cancel.assert_awaited_once_with(order)
+    else:
+        router.cancel.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -281,7 +415,7 @@ async def test_fill_processor_uses_atomic_fill_helper_only() -> None:
     repo.fill_exists = AsyncMock(return_value=False)
     repo.save_fill = AsyncMock()
     repo.save_order_fill_and_event = AsyncMock(return_value=True)
-    order = _entry_order("IBIT")
+    order = _entry_order("QQQ")
     order.status = OrderStatus.WORKING
     order.remaining_qty = 10
     repo.get_order = AsyncMock(return_value=order)
@@ -310,7 +444,7 @@ async def test_fill_processor_ignores_duplicate_fill_after_race() -> None:
     repo = MagicMock()
     repo.fill_exists = AsyncMock(return_value=False)
     repo.save_order_fill_and_event = AsyncMock(return_value=False)
-    order = _entry_order("IBIT")
+    order = _entry_order("SPY")
     order.status = OrderStatus.WORKING
     order.remaining_qty = 10
     repo.get_order = AsyncMock(return_value=order)
@@ -333,7 +467,7 @@ async def test_fill_processor_ignores_duplicate_fill_after_race() -> None:
 @pytest.mark.asyncio
 async def test_fill_processor_serializes_distinct_partial_fills_per_order() -> None:
     repo = InMemoryRepository()
-    order = _entry_order("IBIT")
+    order = _entry_order("MSFT")
     order.status = OrderStatus.WORKING
     order.remaining_qty = 10
     await repo.save_order(order)
@@ -494,6 +628,65 @@ async def test_multi_oms_callbacks_serialize_status_ack_then_fill(caplog) -> Non
     assert repo.saved_statuses[-1] == OrderStatus.FILLED
     assert "Invalid transition" not in caplog.text
     assert "Fill transition rejected" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_single_oms_unknown_exit_fill_halts_without_flat_position() -> None:
+    repo = InMemoryRepository()
+    order = _entry_order("QQQ")
+    order.role = OrderRole.EXIT
+    order.side = OrderSide.SELL
+    order.status = OrderStatus.WORKING
+    order.remaining_qty = order.qty
+    order.risk_context = None
+    await repo.save_order(order)
+    bus = MagicMock()
+    bus.emit_fill_event = MagicMock()
+    bus.emit_risk_halt = MagicMock()
+    adapter = SimpleNamespace()
+    halt_trading = AsyncMock()
+
+    _wire_adapter_callbacks(
+        adapter=adapter,
+        bus=bus,
+        repo=repo,
+        fill_proc=FillProcessor(repo),
+        router=MagicMock(),
+        strategy_risk_states={},
+        portfolio_risk_state=PortfolioRiskState(trade_date=date.today()),
+        unit_risk_dollars=100.0,
+        open_positions={},
+        halt_trading=halt_trading,
+    )
+
+    adapter.on_fill(
+        order.oms_order_id,
+        "exec-unknown-exit",
+        101.0,
+        order.qty,
+        datetime.now(timezone.utc),
+        0.0,
+    )
+
+    updated = await _wait_for_order_status(repo, order.oms_order_id, OrderStatus.FILLED)
+
+    assert updated.filled_qty == order.qty
+    assert repo._positions == {}
+    bus.emit_fill_event.assert_called_once()
+    bus.emit_risk_halt.assert_called_once()
+    halt_trading.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_open_position_hydration_is_strict_for_db_backed_services() -> None:
+    with pytest.raises(RuntimeError, match="open_positions hydration failed"):
+        await _hydrate_open_positions_from_repo(
+            open_positions={},
+            repo=_HydrationFailRepository(),
+            strategy_ids=["TEST"],
+            unit_risk_dollars_for=lambda _sid: 100.0,
+            strict=True,
+        )
 
 
 @pytest.mark.asyncio

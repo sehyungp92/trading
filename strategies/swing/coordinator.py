@@ -1,8 +1,8 @@
 """Swing family coordinator — orchestrates swing strategies sharing one OMS.
 
-Strategies by priority: ATRSS(0), Helix(1).
-Shares a single IBKR adapter, multi-strategy OMS, StrategyCoordinator, and
-OverlayEngine across all engines.
+Strategies by priority: ATRSS(0), TPC(1), AKC_HELIX(2). Shares a single IBKR
+adapter, multi-strategy OMS, StrategyCoordinator, and OverlayEngine across
+all engines.
 
 Cross-strategy coordination:
   - ATRSS entry fill on symbol X -> tighten Helix stop to breakeven on X
@@ -55,10 +55,15 @@ _RISK_PARAMS: dict[str, dict[str, Any]] = {
     },
 }
 
-# Portfolio-level risk caps from swing portfolio synergy round 3.
-_HEAT_CAP_R = 5.5
-_PORTFOLIO_DAILY_STOP_R = 3.75
-_PORTFOLIO_WEEKLY_STOP_R = 9.0
+# Swing-family-level risk caps from swing portfolio synergy round 3.
+# Two-tier model: portfolio.yaml.risk.* are ACCOUNT-level caps that the
+# AccountRiskGate enforces across all families (default 2.5R / 3.0R / 5.0R).
+# These constants are intra-family: they bound the combined exposure of
+# ATRSS+Helix+TPC inside the swing OMS, sized for swing's higher win-rate
+# distribution. Both layers must approve before an entry is admitted.
+_SWING_FAMILY_HEAT_CAP_R = 5.5
+_SWING_FAMILY_DAILY_STOP_R = 3.75
+_SWING_FAMILY_WEEKLY_STOP_R = 9.0
 _DD_TIERS = (
     (0.04, 0.90),
     (0.07, 0.70),
@@ -148,33 +153,35 @@ class SwingFamilyCoordinator:
             from libs.broker_ibkr.mapping.contract_factory import ContractFactory
             from libs.broker_ibkr.adapters.execution_adapter import IBKRExecutionAdapter
 
+            # SWING-2: hard-fail on IBKRConfig load. The previous soft-degrade
+            # let the runtime "start" with adapter=None, log healthy
+            # heartbeats for hours, and never place an order. Compare with
+            # momentum/coordinator.py:89-94 which already raises on the same
+            # path. Keep the soft path only when session is None (dev/shadow).
             try:
                 ibkr_config = IBKRConfig(config_dir)
             except Exception as exc:
-                logger.error(
-                    "IBKRConfig load failed (%s) — swing adapter unavailable. "
-                    "Ensure config/ibkr_profiles.yaml exists.",
-                    exc,
-                )
-                ibkr_config = None
+                raise RuntimeError(
+                    f"Swing IBKRConfig load failed — ensure "
+                    f"config/ibkr_profiles.yaml exists and IB_ACCOUNT_ID is "
+                    f"set: {exc}"
+                ) from exc
 
-            if ibkr_config is not None:
-                contract_factory = ContractFactory(
-                    ib=session.ib,
-                    templates=ibkr_config.contracts,
-                    routes=ibkr_config.routes,
-                )
-                setattr(session, "_contract_factory", contract_factory)
-                adapter = IBKRExecutionAdapter(
-                    session=session,
-                    contract_factory=contract_factory,
-                    account=ibkr_config.profile.account_id,
-                )
-                logger.info("Swing execution adapter created (account=%s)", ibkr_config.profile.account_id)
-            else:
-                logger.warning("IBKRConfig unavailable — swing running without execution adapter")
+            contract_factory = ContractFactory(
+                ib=session.ib,
+                templates=ibkr_config.contracts,
+                routes=ibkr_config.routes,
+            )
+            setattr(session, "_contract_factory", contract_factory)
+            adapter = IBKRExecutionAdapter(
+                session=session,
+                contract_factory=contract_factory,
+                account=ibkr_config.profile.account_id,
+            )
+            logger.info("Swing execution adapter created (account=%s)", ibkr_config.profile.account_id)
         else:
             logger.warning("No IB session -- swing adapter is None (shadow/test mode)")
+            ibkr_config = None
 
         # -- Market calendar -----------------------------------------------
         from libs.config.market_calendar import MarketCalendar
@@ -186,7 +193,18 @@ class SwingFamilyCoordinator:
 
         _env = os.getenv("PAPER_INITIAL_EQUITY")
         _paper_seed = float(_env) if _env else ctx.portfolio.capital.paper_initial_equity
-        equity: float = _paper_seed if paper_mode else 100_000.0
+
+        if paper_mode:
+            equity = _paper_seed
+        else:
+            # SWING-1: live equity from NetLiquidation. The previous literal
+            # 100_000.0 mis-sized every swing trade by the ratio of real
+            # account NAV to $100k. Using the shared helper makes this
+            # consistent with momentum and stock (after EQUITY-1).
+            from libs.services.equity import resolve_live_nlv
+            account_id = ibkr_config.profile.account_id if ibkr_config else None
+            equity = await resolve_live_nlv(session, account_id=account_id)
+
         _seed_equity = equity  # preserve for paper equity seeding
         if paper_mode and db_pool is not None:
             from libs.persistence.paper_equity import PaperEquityManager
@@ -238,7 +256,7 @@ class SwingFamilyCoordinator:
         # Portfolio rules: directional cap + symbol collision for swing family
         from libs.oms.risk.portfolio_rules import PortfolioRulesConfig
         portfolio_rules = PortfolioRulesConfig(
-            directional_cap_R=_HEAT_CAP_R,
+            directional_cap_R=_SWING_FAMILY_HEAT_CAP_R,
             directional_cap_long_R=4.0,
             directional_cap_short_R=4.0,
             initial_equity=equity,
@@ -266,9 +284,9 @@ class SwingFamilyCoordinator:
                 }
                 for sid in strategy_ids
             ],
-            heat_cap_R=_HEAT_CAP_R,
-            portfolio_daily_stop_R=_PORTFOLIO_DAILY_STOP_R,
-            portfolio_weekly_stop_R=_PORTFOLIO_WEEKLY_STOP_R,
+            heat_cap_R=_SWING_FAMILY_HEAT_CAP_R,
+            portfolio_daily_stop_R=_SWING_FAMILY_DAILY_STOP_R,
+            portfolio_weekly_stop_R=_SWING_FAMILY_WEEKLY_STOP_R,
             db_pool=db_pool,
             market_calendar=market_cal,
             family_id=self.family_id,
@@ -283,23 +301,25 @@ class SwingFamilyCoordinator:
         self._portfolio_checker = getattr(self._oms, '_portfolio_checker', None)
         self._base_portfolio_rules = portfolio_rules
 
-        # -- Wire coordinator action logger --------------------------------
+        # SWING-3: action logger wiring is deferred until AFTER
+        # _bootstrap_instrumentation_kits populates self._instrumentation_ctx.
+        # The runtime constructs RuntimeContext with instrumentation=None, so
+        # reading ctx.instrumentation here returned None and the wiring was
+        # silently skipped — dropping ATRSS/Helix/TPC coordination evidence.
         instrumentation_ctx = getattr(ctx, "instrumentation", None)
+        # Keep the placeholder write so any code path that reads
+        # self._instrumentation_ctx before bootstrap doesn't AttributeError.
         self._instrumentation_ctx = instrumentation_ctx
-        if instrumentation_ctx and getattr(instrumentation_ctx, "coordination_logger", None):
-            self._coordinator.set_action_logger(
-                instrumentation_ctx.coordination_logger.log_action
-            )
-            logger.info("Coordinator action logger wired")
 
         # -- Start OMS -----------------------------------------------------
         await self._oms.start()
         logger.info("Multi-strategy OMS started")
 
-        # Wire post-reconnect reconciliation
-        if hasattr(session, "set_reconnect_callback") and hasattr(self._oms, "_reconciler"):
-            session.set_reconnect_callback(self._oms._reconciler.on_reconnect_reconciliation)
-            logger.info("Post-reconnect reconciliation callback wired")
+        # Wire post-reconnect reconciliation. Use add_reconnect_callback so we
+        # don't clobber stock/momentum callbacks (CONN-1).
+        if hasattr(session, "add_reconnect_callback") and hasattr(self._oms, "_reconciler"):
+            session.add_reconnect_callback(self._oms._reconciler.on_reconnect_reconciliation)
+            logger.info("Swing post-reconnect reconciliation callback wired")
 
         # -- Bootstrap instrumentation kits --------------------------------
         _data_provider = None
@@ -328,6 +348,24 @@ class SwingFamilyCoordinator:
             },
             data_provider=_data_provider,
         )
+
+        # SWING-3: now that _bootstrap_instrumentation_kits has populated
+        # self._instrumentation_ctx, wire the coordinator action logger.
+        # CoordinationLogger writes its events to the data_dir/coordination/
+        # subdir; the swing sidecar maps that directory (see DIR-MAP fix in
+        # this same phase) so they reach the relay as `coordinator_action`.
+        if self._instrumentation_ctx is not None and getattr(
+            self._instrumentation_ctx, "coordination_logger", None
+        ):
+            self._coordinator.set_action_logger(
+                self._instrumentation_ctx.coordination_logger.log_action
+            )
+            logger.info("Swing coordinator action logger wired (post-bootstrap)")
+        else:
+            logger.warning(
+                "Swing coordinator action logger NOT wired — coordination "
+                "evidence will not flow. Check instrumentation bootstrap."
+            )
 
         # -- Build instruments per strategy --------------------------------
         atrss_instruments = atrss_build_instruments()
@@ -370,6 +408,19 @@ class SwingFamilyCoordinator:
             equity_alloc_pct=_alloc_pct_for(HELIX_ID),
         )
 
+        # STRAT-1: TPCEngine now has a live execution shell (15m scheduler +
+        # action dispatcher + OMS event loop + state hydration). state_dir
+        # defaults to data/tpc_state but can be overridden via TPC_STATE_DIR.
+        tpc_state_dir = Path(
+            os.environ.get("TPC_STATE_DIR")
+            or (
+                ctx.registry.strategies.get(TPC_ID).engine_config.get("state_dir")
+                if ctx.registry and TPC_ID in ctx.registry.strategies
+                and ctx.registry.strategies[TPC_ID].engine_config
+                else None
+            )
+            or "data/tpc_state"
+        )
         tpc_engine = TPCEngine(
             ib_session=session,
             oms_service=oms,
@@ -382,6 +433,7 @@ class SwingFamilyCoordinator:
             equity_offset=paper_equity_offset,
             equity_alloc_pct=_alloc_pct_for(TPC_ID),
             coordinator=coordinator,
+            state_dir=tpc_state_dir,
         )
 
         # Store engines in priority order.
@@ -676,56 +728,67 @@ class SwingFamilyCoordinator:
         if heartbeat is None:
             return
         session = self._ctx.session
+        # HB-1: self-heal — a transient exception in payload construction or
+        # emission must not kill the loop. The previous shape only caught
+        # CancelledError around the sleep, so any error in the body
+        # silently terminated the heartbeat task and the watchdog only
+        # detected it after stale_threshold_sec elapsed.
         while True:
             try:
                 await asyncio.sleep(15)
             except asyncio.CancelledError:
                 return
-            rs = getattr(self._oms, "_portfolio_risk_state", None)
-            srs = getattr(self._oms, "_strategy_risk_states", {})
-            payloads = []
-            for sid, _engine in self._engines:
-                sr = srs.get(sid)
-                payload = {
-                    "strategy_id": sid,
-                    "heat_r": Decimal(str(sr.open_risk_R)) if sr else Decimal("0"),
-                    "daily_pnl_r": Decimal(str(sr.daily_realized_R)) if sr else Decimal("0"),
-                    "mode": "HALTED" if (rs and rs.halted) else "RUNNING",
-                }
-                # Diagnostic pulse fields
-                if hasattr(_engine, "_last_decision_code"):
-                    payload["last_decision_code"] = _engine._last_decision_code
-                    payload["last_decision_details"] = getattr(_engine, "_last_decision_details", None)
-                    payload["last_seen_bar_ts"] = getattr(_engine, "_last_bar_ts", None)
-                if hasattr(_engine, "liveness_payload") or hasattr(self._oms, "_intents_submitted"):
-                    details = payload.get("last_decision_details") or {}
-                    if hasattr(_engine, "liveness_payload"):
-                        details["liveness"] = _engine.liveness_payload()
-                    if hasattr(self._oms, "_intents_submitted"):
-                        details["oms_health"] = {
-                            "submitted": self._oms._intents_submitted,
-                            "accepted": self._oms._intents_accepted,
-                            "denied": self._oms._intents_denied,
-                            "consecutive_denials": self._oms._consecutive_denials,
-                        }
-                    payload["last_decision_details"] = details
-                payloads.append(payload)
-            connected = session.ib.isConnected() if session else False
-            # Enrich with IB farm status for diagnostic context
-            if session:
-                farm_statuses = {}
-                for group in session.groups.values():
-                    if group.farm_monitor:
-                        farm_statuses.update(group.farm_monitor.all_statuses())
-                if farm_statuses:
-                    for p in payloads:
-                        details = p.get("last_decision_details") or {}
-                        if isinstance(details, dict):
-                            details["ib_farm_status"] = farm_statuses
-                            p["last_decision_details"] = details
-            await emit_family_heartbeats(
-                heartbeat, self.family_id, payloads, adapter_connected=connected,
-            )
+            try:
+                await self._heartbeat_iteration(heartbeat, session)
+            except Exception:
+                logger.exception("Swing heartbeat iteration failed; continuing")
+
+    async def _heartbeat_iteration(self, heartbeat, session) -> None:
+        rs = getattr(self._oms, "_portfolio_risk_state", None)
+        srs = getattr(self._oms, "_strategy_risk_states", {})
+        payloads = []
+        for sid, _engine in self._engines:
+            sr = srs.get(sid)
+            payload = {
+                "strategy_id": sid,
+                "heat_r": Decimal(str(sr.open_risk_R)) if sr else Decimal("0"),
+                "daily_pnl_r": Decimal(str(sr.daily_realized_R)) if sr else Decimal("0"),
+                "mode": "HALTED" if (rs and rs.halted) else "RUNNING",
+            }
+            # Diagnostic pulse fields
+            if hasattr(_engine, "_last_decision_code"):
+                payload["last_decision_code"] = _engine._last_decision_code
+                payload["last_decision_details"] = getattr(_engine, "_last_decision_details", None)
+                payload["last_seen_bar_ts"] = getattr(_engine, "_last_bar_ts", None)
+            if hasattr(_engine, "liveness_payload") or hasattr(self._oms, "_intents_submitted"):
+                details = payload.get("last_decision_details") or {}
+                if hasattr(_engine, "liveness_payload"):
+                    details["liveness"] = _engine.liveness_payload()
+                if hasattr(self._oms, "_intents_submitted"):
+                    details["oms_health"] = {
+                        "submitted": self._oms._intents_submitted,
+                        "accepted": self._oms._intents_accepted,
+                        "denied": self._oms._intents_denied,
+                        "consecutive_denials": self._oms._consecutive_denials,
+                    }
+                payload["last_decision_details"] = details
+            payloads.append(payload)
+        connected = session.ib.isConnected() if session else False
+        # Enrich with IB farm status for diagnostic context
+        if session:
+            farm_statuses = {}
+            for group in session.groups.values():
+                if group.farm_monitor:
+                    farm_statuses.update(group.farm_monitor.all_statuses())
+            if farm_statuses:
+                for p in payloads:
+                    details = p.get("last_decision_details") or {}
+                    if isinstance(details, dict):
+                        details["ib_farm_status"] = farm_statuses
+                        p["last_decision_details"] = details
+        await emit_family_heartbeats(
+            heartbeat, self.family_id, payloads, adapter_connected=connected,
+        )
 
     # ------------------------------------------------------------------
     # Internal helpers

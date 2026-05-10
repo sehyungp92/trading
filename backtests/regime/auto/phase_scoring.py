@@ -18,7 +18,7 @@ CRISIS_PERIODS = {
 
 REGIME_COLS = ["P_G", "P_R", "P_S", "P_D"]
 REGIME_LABELS = ["G", "R", "S", "D"]
-ALLOC_ASSETS = ["SPY", "EFA", "TLT", "GLD", "IBIT", "CASH"]
+ALLOC_ASSETS = ["SPY", "EFA", "TLT", "GLD", "CASH"]
 ALLOC_DIFF_FLOOR = 0.015
 
 

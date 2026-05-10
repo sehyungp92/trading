@@ -35,6 +35,9 @@ _FAMILY_COORDINATORS: dict[str, str] = {
     "stock": "strategies.stock.coordinator.StockFamilyCoordinator",
 }
 
+_PAPER_PORTS = {4002, 7497}
+_LIVE_PORTS = {4001, 7496}
+
 
 def _import_coordinator(family: str) -> type:
     """Dynamically import a family coordinator class."""
@@ -98,6 +101,19 @@ class RuntimeShell:
                 detail=f"{len(enabled)} strategies enabled",
             )
         )
+        for group_name, group_cfg in self.registry.connection_groups.items():
+            port = getattr(group_cfg, "port", 0)
+            mismatch = (
+                (runtime_env == "live" and port in _PAPER_PORTS)
+                or (runtime_env == "paper" and port in _LIVE_PORTS)
+            )
+            checks.append(
+                PreflightCheck(
+                    name=f"ib-mode-port:{group_name}",
+                    ok=not mismatch,
+                    detail=f"env={runtime_env} port={port}",
+                )
+            )
 
         missing_contracts: list[str] = []
         missing_routes: list[str] = []
@@ -255,6 +271,20 @@ class RuntimeShell:
                     detail=f"Coordinator import failed: {exc}",
                 ))
 
+        if self.registry is not None:
+            runtime_env = get_environment()
+            for group_name, group_cfg in self.registry.connection_groups.items():
+                port = getattr(group_cfg, "port", 0)
+                mismatch = (
+                    (runtime_env == "live" and port in _PAPER_PORTS)
+                    or (runtime_env == "paper" and port in _LIVE_PORTS)
+                )
+                checks.append(PreflightCheck(
+                    name=f"ib-mode-port:{group_name}",
+                    ok=not mismatch,
+                    detail=f"env={runtime_env} port={port}",
+                ))
+
         # 1b. Database connectivity
         try:
             from libs.oms.persistence.db_config import DBConfig
@@ -360,6 +390,7 @@ class RuntimeShell:
         once: bool = False,
         family_filter: str | None = None,
         allow_no_db: bool = False,
+        allow_partial_families: bool = False,
     ) -> None:
         self.load()
         self._require_loaded()
@@ -398,6 +429,7 @@ class RuntimeShell:
             "import",
             "database",
             "ib-gateway",
+            "ib-mode-port",
         }
         # Stock readiness should hard-fail only when stock is the requested
         # runtime target. In mixed-family runs, stock startup is isolated later
@@ -457,12 +489,48 @@ class RuntimeShell:
                 ) from exc
 
         if db_pool is not None:
+            # CFG-1: wire portfolio.yaml.risk.* through to the gate.
+            # Previously the gate was constructed without the YAML values and
+            # silently fell through to dataclass defaults — making the YAML
+            # keys dead config. Now editing portfolio.yaml has the effect
+            # operators expect.
+            risk_cfg = self.portfolio.risk
             try:
                 from libs.risk.account_risk_gate import AccountRiskGate
-                _account_urd = float(os.environ.get("ACCOUNT_UNIT_RISK_DOLLARS", "200"))
-                account_gate = AccountRiskGate(db_pool, account_urd=_account_urd)
+                _account_urd = float(
+                    os.environ.get(
+                        "ACCOUNT_UNIT_RISK_DOLLARS",
+                        str(risk_cfg.account_urd_dollars),
+                    )
+                )
+                if _account_urd <= 0:
+                    raise ValueError("account_urd_dollars must be > 0")
+                account_gate = AccountRiskGate(
+                    db_pool,
+                    heat_cap_R=risk_cfg.heat_cap_R,
+                    daily_stop_R=risk_cfg.portfolio_daily_stop_R,
+                    account_urd=_account_urd,
+                )
+                logger.info(
+                    "AccountRiskGate active: heat=%.1fR=$%.0f, "
+                    "daily_stop=%.1fR=$%.0f, urd=$%.0f",
+                    risk_cfg.heat_cap_R, risk_cfg.heat_cap_R * _account_urd,
+                    risk_cfg.portfolio_daily_stop_R,
+                    risk_cfg.portfolio_daily_stop_R * _account_urd,
+                    _account_urd,
+                )
             except Exception as exc:
-                logger.warning("AccountRiskGate init failed (non-fatal): %s", exc)
+                # In paper/live, deletion of the only cross-family heat cap is
+                # a hard fail; in dev it stays a warning so unit tests with no
+                # AccountRiskGate dependency still run.
+                if get_environment() in ("paper", "live"):
+                    raise RuntimeError(
+                        f"AccountRiskGate init failed in {get_environment()} mode "
+                        f"- refusing to start without cross-family risk gate: {exc}"
+                    ) from exc
+                logger.warning(
+                    "AccountRiskGate init failed (non-fatal in dev): %s", exc,
+                )
 
         # ------------------------------------------------------------------
         # 3.5  Regime service
@@ -553,6 +621,19 @@ class RuntimeShell:
                 )
             except Exception as exc:
                 logger.error("Failed to create coordinator for '%s': %s", family, exc, exc_info=True)
+                # RUNTIME-1: in paper/live, refuse to start with a missing
+                # family by default. Operators expecting a 3-family runtime
+                # would otherwise silently end up with 1-2 families running
+                # and an under-allocated AccountRiskGate.
+                if (
+                    runtime_env in ("paper", "live")
+                    and not allow_partial_families
+                ):
+                    raise RuntimeError(
+                        f"Coordinator '{family}' failed to construct in "
+                        f"{runtime_env} mode. Pass --allow-partial-families "
+                        f"to permit degraded startup."
+                    ) from exc
 
         # ------------------------------------------------------------------
         # 5. Start all coordinators (must run before regime apply so that
@@ -569,6 +650,19 @@ class RuntimeShell:
                     "Coordinator '%s' failed to start: %s",
                     getattr(coordinator, "family_id", "?"), exc, exc_info=True,
                 )
+                # RUNTIME-1: same gate as the create loop above. Running
+                # paper/live with a partial family set silently mis-allocates
+                # the AccountRiskGate. Default = strict; opt-in for
+                # development workflows that need a single-family run.
+                if (
+                    runtime_env in ("paper", "live")
+                    and not allow_partial_families
+                ):
+                    raise RuntimeError(
+                        f"Coordinator '{getattr(coordinator, 'family_id', '?')}' "
+                        f"failed to start in {runtime_env} mode. Pass "
+                        f"--allow-partial-families to permit degraded startup."
+                    ) from exc
         coordinators = started_coordinators
 
         # ------------------------------------------------------------------

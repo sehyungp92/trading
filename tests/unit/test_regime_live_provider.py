@@ -33,7 +33,6 @@ def _seed_regime_cache(data_dir, dates: pd.DatetimeIndex) -> None:
             "EFA": [0.001] * len(dates),
             "TLT": [0.0005] * len(dates),
             "GLD": [0.0002] * len(dates),
-            "IBIT": [0.002] * len(dates),
             "CASH": [0.0] * len(dates),
         },
         index=dates,

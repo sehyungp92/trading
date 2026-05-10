@@ -34,7 +34,6 @@ def test_full_and_cached_engines_match_on_new_step3_step4_columns(monkeypatch):
             "EFA": 0.001,
             "TLT": 0.001,
             "GLD": 0.001,
-            "IBIT": 0.001,
             "CASH": 0.0,
         },
         index=daily_idx,

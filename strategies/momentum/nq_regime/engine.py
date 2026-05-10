@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +29,7 @@ from .core.logic import on_order_update as core_on_order_update
 from .core.serializers import hydrate_state, snapshot_state
 from .core.state import BarData, FillEvent, OrderUpdateEvent, RegimeCoreState
 from .modules.base import NewsEvent, SetupCandidate
+from strategies.scalp._shared.time_utils import session_date
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,8 @@ class NQRegimeEngine:
         instrumentation: Any = None,
         analysis_symbol: str = config.ANALYSIS_SYMBOL,
         trade_symbol: str = config.TRADE_SYMBOL,
+        state_dir: Path | str | None = None,
+        equity_alloc_pct: float = 1.0,
         **_: Any,
     ) -> None:
         self._ib = ib_session
@@ -69,6 +72,7 @@ class NQRegimeEngine:
         self._instruments = dict(instruments or {})
         self._trade_recorder = trade_recorder
         self._equity = float(equity)
+        self._equity_alloc_pct = float(equity_alloc_pct)
         self._instrumentation = instrumentation
         self._settings = config.StrategyRuntimeSettings(
             analysis_symbol=analysis_symbol.upper(),
@@ -80,6 +84,12 @@ class NQRegimeEngine:
         self._scheduled_news: list[NewsEvent] = []
         self._event_queue: Any = None
         self._event_task: asyncio.Task | None = None
+        # STRAT-2: live wiring needs a 5m bar scheduler task and a place to
+        # persist core state across restarts. Mirrors NQDTC's _cycle_task +
+        # _restore_state pattern. state_dir defaults align with the
+        # NQDTC_STATE_DIR convention.
+        self._cycle_task: asyncio.Task | None = None
+        self._state_dir = Path(state_dir) if state_dir else Path("data/nq_regime_state")
         self._running = False
 
         # Instrumentation kit
@@ -100,22 +110,56 @@ class NQRegimeEngine:
         self._mae_r: float = 0.0
         self._prev_stop_price: float = 0.0
         self._prev_regime: Any = None
+        self._daily_levels: KeyLevels | None = None
+        self._daily_levels_session_date: str = ""
 
     async def start(self) -> None:
+        """STRAT-2 / Phase D live wiring.
+
+        Mirrors NQDTC's start() pattern:
+          1. Restore persisted core state (signal evolution, last_decision_*).
+          2. Open OMS event stream for fill/order updates.
+          3. Fetch initial NQ analysis bars so the first 5m boundary has
+             enough history for the regime classifier.
+          4. Spawn the 5m boundary scheduler that calls on_bar(...), the
+             code path that turns raw bars into actions and dispatches them
+             through the existing _dispatch_action.
+
+        Without this, NQ_REGIME would appear running while processing zero
+        bars: heartbeats green, no trades, no missed-opportunity evidence.
+        """
+        logger.info("NQ_REGIME engine starting")
         self._running = True
+        self._restore_state()
+
         if self._oms is not None and hasattr(self._oms, "stream_events"):
             self._event_queue = self._oms.stream_events(config.STRATEGY_ID)
             self._event_task = asyncio.create_task(self._event_loop())
 
+        # Initial bars + scheduler
+        try:
+            await self._fetch_and_emit_bar(request_kind="startup")
+        except Exception:
+            logger.exception("NQ_REGIME initial bar fetch failed")
+        self._cycle_task = asyncio.create_task(self._5m_scheduler())
+        logger.info(
+            "NQ_REGIME engine started (analysis=%s, trade=%s)",
+            self._settings.analysis_symbol, self._settings.trade_symbol,
+        )
+
     async def stop(self) -> None:
+        logger.info("NQ_REGIME engine stopping")
         self._running = False
-        if self._event_task is not None:
-            self._event_task.cancel()
-            try:
-                await self._event_task
-            except asyncio.CancelledError:
-                pass
-            self._event_task = None
+        for task in (self._cycle_task, self._event_task):
+            if task is not None:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        self._cycle_task = None
+        self._event_task = None
+        self._persist_state()
 
     async def hydrate(self, snapshot: dict[str, Any]) -> None:
         if snapshot:
@@ -179,9 +223,216 @@ class NQRegimeEngine:
         for action in actions:
             await self._dispatch_action(action)
         self._sync_health_fields()
+        self._persist_state()
 
     def set_scheduled_news(self, events: list[NewsEvent]) -> None:
         self._scheduled_news = list(events)
+
+    # ------------------------------------------------------------------
+    # STRAT-2 / Phase D: 5m bar scheduler + state persistence
+    # ------------------------------------------------------------------
+
+    async def _5m_scheduler(self) -> None:
+        """Sleep until the next 5m boundary + 10s offset, then fetch & emit.
+
+        Pattern mirrors NQDTC's _5m_scheduler. The 10s offset gives IBKR
+        time to mark the just-closed bar as 'completed'; without it the
+        request can return the still-open bar.
+        """
+        while self._running:
+            now = datetime.now(timezone.utc)
+            minute = now.minute
+            next_5 = ((minute // 5) + 1) * 5
+            if next_5 >= 60:
+                next_bar = (now + timedelta(hours=1)).replace(
+                    minute=next_5 - 60, second=10, microsecond=0,
+                )
+            else:
+                next_bar = now.replace(minute=next_5, second=10, microsecond=0)
+            wait = max(0.0, (next_bar - now).total_seconds())
+            try:
+                await asyncio.sleep(wait)
+            except asyncio.CancelledError:
+                return
+            if not self._running:
+                return
+            try:
+                await self._fetch_and_emit_bar(request_kind="recurring")
+            except Exception:
+                logger.exception("NQ_REGIME 5m cycle error")
+
+    def _get_analysis_contract(self) -> Any:
+        """Build the continuous future contract used for analysis bars.
+
+        analysis_symbol is `NQ` (full-size), `trade_symbol` is `MNQ`. We
+        fetch bars on the analysis symbol because it has tighter spreads
+        and is the canonical price reference for regime classification;
+        order routing in _dispatch_action uses the trade_symbol's
+        instrument from self._instruments.
+        """
+        try:
+            from ib_async import ContFuture
+            return ContFuture(
+                symbol=self._settings.analysis_symbol,
+                exchange="CME",
+                currency="USD",
+            )
+        except Exception:
+            logger.warning(
+                "NQ_REGIME: failed to build ContFuture for %s",
+                self._settings.analysis_symbol,
+            )
+            return None
+
+    async def _fetch_and_emit_bar(self, request_kind: str = "recurring") -> None:
+        """Fetch the most recent completed 5m bar for NQ and run on_bar(...)."""
+        if self._ib is None:
+            return
+        ib_obj = getattr(self._ib, "ib", None)
+        if ib_obj is None or not ib_obj.isConnected():
+            logger.debug("NQ_REGIME: IB not connected, skipping fetch")
+            return
+        contract = self._get_analysis_contract()
+        if contract is None:
+            return
+        try:
+            qualified = await ib_obj.qualifyContractsAsync(contract)
+            if qualified:
+                contract = qualified[0]
+        except Exception:
+            logger.debug("NQ_REGIME: contract qualification failed", exc_info=True)
+
+        try:
+            bars = await self._ib.req_historical_data(
+                contract,
+                endDateTime="",
+                durationStr="2 D",
+                barSizeSetting="5 mins",
+                whatToShow="TRADES",
+                useRTH=False,
+                formatDate=1,
+                request_kind=request_kind,
+                completed_only=True,
+            )
+        except Exception:
+            logger.exception("NQ_REGIME 5m fetch failed")
+            return
+        if not bars:
+            return
+        # Pass the most recent completed bar; CompletedBarPolicy.build_event
+        # internally decides whether to emit using the recent bar history.
+        latest = _bar_data_from_any(bars[-1])
+        target_session = str(session_date(latest.ts))
+        if self._daily_levels is None or target_session != self._daily_levels_session_date:
+            await self._refresh_daily_context(force=True, for_ts=latest.ts)
+        if self._daily_levels is None:
+            logger.error(
+                "NQ_REGIME skipping scheduled bar without daily key levels (session=%s)",
+                target_session,
+            )
+            self._record_decision(
+                "MISSING_DAILY_KEY_LEVELS",
+                {"session": target_session, "request_kind": request_kind},
+                latest.ts,
+            )
+            return
+        await self.on_bar(latest, daily_context=self._daily_levels)
+
+    async def _refresh_daily_context(
+        self,
+        *,
+        force: bool = False,
+        for_ts: datetime | None = None,
+    ) -> None:
+        """Refresh previous-day and weekly levels from completed daily bars."""
+        if self._ib is None:
+            return
+        ib_obj = getattr(self._ib, "ib", None)
+        if ib_obj is None or not ib_obj.isConnected():
+            return
+        target_session = str(session_date(for_ts or datetime.now(timezone.utc)))
+        if not force and self._daily_levels_session_date == target_session:
+            return
+        contract = self._get_analysis_contract()
+        if contract is None:
+            return
+        try:
+            qualified = await ib_obj.qualifyContractsAsync(contract)
+            if qualified:
+                contract = qualified[0]
+        except Exception:
+            logger.debug("NQ_REGIME: daily contract qualification failed", exc_info=True)
+        try:
+            bars = await self._ib.req_historical_data(
+                contract,
+                endDateTime="",
+                durationStr="10 D",
+                barSizeSetting="1 day",
+                whatToShow="TRADES",
+                useRTH=False,
+                formatDate=1,
+                request_kind="daily_levels",
+                completed_only=True,
+            )
+        except Exception:
+            logger.exception("NQ_REGIME daily level fetch failed")
+            return
+        daily = [_bar_data_from_any(bar) for bar in (bars or [])]
+        if not daily:
+            return
+        prev = daily[-1]
+        lookback = daily[-5:]
+        self._daily_levels = KeyLevels(
+            pdh=prev.high,
+            pdl=prev.low,
+            pdm=(prev.high + prev.low) / 2.0,
+            weekly_high=max(bar.high for bar in lookback),
+            weekly_low=min(bar.low for bar in lookback),
+        )
+        self._daily_levels_session_date = target_session
+        logger.info(
+            "NQ_REGIME daily levels refreshed: pdh=%.2f pdl=%.2f weekly_high=%.2f weekly_low=%.2f",
+            self._daily_levels.pdh,
+            self._daily_levels.pdl,
+            self._daily_levels.weekly_high,
+            self._daily_levels.weekly_low,
+        )
+
+    def _restore_state(self) -> None:
+        """Load core state from disk if present. Best-effort, never raises."""
+        try:
+            self._state_dir.mkdir(parents=True, exist_ok=True)
+            snap_path = self._state_dir / f"{config.STRATEGY_ID}.json"
+            if not snap_path.exists():
+                return
+            with snap_path.open("r", encoding="utf-8") as f:
+                payload = json.load(f)
+            core = payload.get("core") if isinstance(payload, dict) else None
+            if core is None:
+                return
+            self._state = hydrate_state(core)
+            self._sync_health_fields()
+            self._prev_stop_price = self._state.stop_price
+            self._prev_regime = self._state.regime
+            logger.info(
+                "NQ_REGIME state restored from %s (last_bar=%s)",
+                snap_path, self._state.last_bar_ts,
+            )
+        except Exception:
+            logger.warning("NQ_REGIME state restore failed", exc_info=True)
+
+    def _persist_state(self) -> None:
+        """Write current core state to disk. Best-effort, never raises."""
+        try:
+            self._state_dir.mkdir(parents=True, exist_ok=True)
+            snap_path = self._state_dir / f"{config.STRATEGY_ID}.json"
+            tmp_path = snap_path.with_suffix(".json.tmp")
+            payload = self.snapshot_state()
+            with tmp_path.open("w", encoding="utf-8") as f:
+                json.dump(payload, f, default=str)
+            tmp_path.replace(snap_path)
+        except Exception:
+            logger.warning("NQ_REGIME state persist failed", exc_info=True)
 
     async def _event_loop(self) -> None:
         while True:
@@ -226,6 +477,7 @@ class NQRegimeEngine:
             for action in actions:
                 await self._dispatch_action(action)
             self._sync_health_fields()
+            self._persist_state()
             return
 
         if etype in (OMSEventType.ORDER_CANCELLED, OMSEventType.ORDER_REJECTED, OMSEventType.ORDER_EXPIRED):
@@ -240,6 +492,7 @@ class NQRegimeEngine:
             for action in actions:
                 await self._dispatch_action(action)
             self._sync_health_fields()
+            self._persist_state()
 
     async def _dispatch_action(self, action: Any) -> None:
         if self._oms is None:

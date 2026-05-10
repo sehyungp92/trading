@@ -43,6 +43,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Start without DB (no portfolio rules). Use for debugging only.",
     )
+    run.add_argument(
+        "--allow-partial-families",
+        action="store_true",
+        help=(
+            "Permit paper/live startup to continue when one or more enabled "
+            "family coordinators fail to construct or start. Default = strict "
+            "(any failure aborts startup). Use only for development workflows "
+            "that intentionally run a subset of families."
+        ),
+    )
 
     return parser
 
@@ -90,6 +100,7 @@ def main(argv: list[str] | None = None) -> int:
                 once=args.once,
                 family_filter=args.family,
                 allow_no_db=args.allow_no_db,
+                allow_partial_families=args.allow_partial_families,
             ))
             return 0
         except KeyboardInterrupt:

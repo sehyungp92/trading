@@ -21,6 +21,7 @@ from ..engine.state_machine import transition
 from ..events.bus import EventBus
 from ..execution.router import ExecutionRouter
 from ..intent.handler import IntentHandler
+from ..models.instrument_registry import InstrumentRegistry
 from ..models.order import OrderRole, OrderSide, OrderStatus
 from ..models.position import Position
 from ..models.risk_state import StrategyRiskState, PortfolioRiskState
@@ -37,6 +38,94 @@ if TYPE_CHECKING:
     from libs.config.market_calendar import MarketCalendar
 
 logger = logging.getLogger(__name__)
+
+
+# OMS-5: Hydrate the per-strategy in-memory `open_positions` cache from the
+# `positions` table on startup. The dict is consulted by exit-fill processing to
+# release risk, compute realized P&L, and update equity. If we don't reseed it
+# after a restart, an exit fill that arrives before any new entry has been
+# processed in this lifetime cannot compute P&L or release risk. DB-backed
+# paper/live startup therefore treats hydration failure as fatal, and the fill
+# callback halts if it ever sees an unknown exit position. The schema doesn't
+# store side/point_value/risk_per_contract directly, so we derive them.
+async def _hydrate_open_positions_from_repo(
+    *,
+    open_positions: dict[tuple[str, str], dict],
+    repo: OMSRepository,
+    strategy_ids: list[str],
+    unit_risk_dollars_for: Callable[[str], float],
+    portfolio_unit_risk_dollars: Optional[float] = None,
+    strict: bool = False,
+) -> int:
+    """Seed open_positions for any non-zero broker position on disk.
+
+    Args:
+        open_positions: dict to populate in-place.
+        repo: OMS repository.
+        strategy_ids: strategies whose positions we own.
+        unit_risk_dollars_for: maps strategy_id -> URD for that strategy.
+        portfolio_unit_risk_dollars: cross-family URD used by multi-strategy
+            OMS to compute risk_per_contract_portfolio_R. None for single-OMS.
+
+    Returns the number of positions hydrated.
+    """
+    if not strategy_ids:
+        return 0
+    try:
+        positions = await repo.get_positions_for_strategies(strategy_ids)
+    except Exception as exc:
+        if strict:
+            raise RuntimeError("open_positions hydration failed") from exc
+        logger.warning(
+            "open_positions hydration query failed (non-fatal): %s", exc,
+        )
+        return 0
+
+    hydrated = 0
+    for pos in positions:
+        if not pos.net_qty:
+            continue
+        sid = pos.strategy_id
+        sym = pos.instrument_symbol
+        if not sym or sid not in strategy_ids:
+            continue
+        urd = unit_risk_dollars_for(sid) or 0.0
+        # risk_per_contract_R is what the EXIT branch multiplies by qty to
+        # release strategy-R; derive from total open_risk_R / |net_qty|.
+        abs_qty = abs(float(pos.net_qty))
+        risk_per_contract_R = (
+            float(pos.open_risk_R) / abs_qty if abs_qty > 0 else 0.0
+        )
+        if portfolio_unit_risk_dollars and portfolio_unit_risk_dollars > 0 and urd > 0:
+            risk_per_contract_portfolio_R = (
+                risk_per_contract_R * urd / portfolio_unit_risk_dollars
+            )
+        else:
+            risk_per_contract_portfolio_R = risk_per_contract_R
+
+        instr = InstrumentRegistry.get(sym)
+        point_value = float(getattr(instr, "point_value", 1.0)) if instr else 1.0
+        side = OrderSide.BUY if pos.net_qty > 0 else OrderSide.SELL
+
+        entry: dict = {
+            "entry_price": float(pos.avg_price),
+            "risk_per_contract_R": risk_per_contract_R,
+            "point_value": point_value,
+            "side": side,
+            "open_qty": abs_qty,
+        }
+        if portfolio_unit_risk_dollars is not None:
+            entry["risk_per_contract_portfolio_R"] = risk_per_contract_portfolio_R
+        open_positions[(sid, sym)] = entry
+        hydrated += 1
+
+    if hydrated:
+        logger.info(
+            "open_positions hydrated: %d position(s) restored from DB across %s",
+            hydrated, ", ".join(strategy_ids),
+        )
+    return hydrated
+
 
 _ET = ZoneInfo("America/New_York")
 
@@ -157,6 +246,34 @@ def _make_portfolio_rule_logger(data_dir: str = "", family_id: str = "") -> Call
             pass
 
     return _log_rule
+
+
+def _make_intent_denial_logger(data_dir: str = "", family_id: str = "") -> Callable:
+    """Create a JSONL-writing callback for intent-denial forensic events.
+
+    Counterpart to :func:`_make_portfolio_rule_logger`. The OMS service
+    fires this on every DENIED intent so operators can audit gateway-level
+    rejections (heat cap, daily stop, session block, account gate, etc.)
+    that the existing ``portfolio_rules/`` sidecar stream does not cover.
+    """
+    if data_dir:
+        denial_dir = Path(data_dir) / "risk_denials"
+    elif family_id:
+        denial_dir = Path(f"strategies/{family_id}/instrumentation/data/risk_denials")
+    else:
+        denial_dir = Path("instrumentation/data/risk_denials")
+    denial_dir.mkdir(parents=True, exist_ok=True)
+
+    def _log_denial(event: dict) -> None:
+        try:
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            path = denial_dir / f"denials_{today}.jsonl"
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(event, default=str) + "\n")
+        except Exception:
+            pass
+
+    return _log_denial
 
 
 # ---------------------------------------------------------------------------
@@ -500,15 +617,37 @@ async def build_oms_service(
     router = ExecutionRouter(adapter, repo, bus=bus)
 
     # Intent handler
-    handler = IntentHandler(risk_gateway, router, repo, bus)
+    # OMS-7: pass adapter's configured IB account so the handler can stamp
+    # account_id on swing/momentum orders (which leave it blank by default).
+    _adapter_account = getattr(adapter, "_account", "") or ""
+    handler = IntentHandler(
+        risk_gateway, router, repo, bus,
+        default_account_id=_adapter_account,
+    )
 
     # Reconciler — wire halt_trading if provided, else use internal _halt_trading
     _halt_cb = halt_trading if halt_trading is not None else _halt_trading
-    reconciler = ReconciliationOrchestrator(adapter, repo, bus, halt_trading=_halt_cb)
+    reconciler = ReconciliationOrchestrator(
+        adapter, repo, bus, halt_trading=_halt_cb, fill_processor=fill_proc,
+    )
 
     # C4 fix: Order timeout monitor for stuck ROUTED / CANCEL_REQUESTED states
     from ..engine.timeout_monitor import OrderTimeoutMonitor
-    timeout_monitor = OrderTimeoutMonitor(repo, bus)
+    timeout_monitor = OrderTimeoutMonitor(repo, bus, router)
+
+    # OMS-5: Hydrate the in-memory open_positions cache from DB before any
+    # fill callback can fire. Without this, an exit fill arriving after a
+    # restart would land in the `pos is None` branch and silently lose the
+    # realized P&L update.
+    if db_pool is not None:
+        await _hydrate_open_positions_from_repo(
+            open_positions=open_positions,
+            repo=repo,
+            strategy_ids=[strategy_id],
+            unit_risk_dollars_for=lambda _sid: unit_risk_dollars,
+            portfolio_unit_risk_dollars=None,
+            strict=True,
+        )
 
     # Wire adapter callbacks to bus (with risk state updates)
     _wire_adapter_callbacks(
@@ -523,6 +662,7 @@ async def build_oms_service(
         live_equity=live_equity,
         paper_equity_scope=paper_equity_scope,
         paper_initial_equity=paper_initial_equity,
+        halt_trading=_halt_cb,
     )
 
     # Build OMS service
@@ -535,6 +675,7 @@ async def build_oms_service(
         timeout_monitor=timeout_monitor,
         get_portfolio_risk=get_portfolio_risk,
         get_strategy_risk=get_strategy_risk,
+        on_intent_denied=_make_intent_denial_logger(family_id=family_id),
     )
     oms._portfolio_checker = portfolio_checker  # for coordinator regime updates
     oms._portfolio_risk_state = portfolio_risk_state  # for coordinator heartbeat queries
@@ -857,18 +998,40 @@ async def build_multi_strategy_oms(
     router = ExecutionRouter(adapter, repo, bus=bus)
 
     # Intent handler (shared)
-    handler = IntentHandler(risk_gateway, router, repo, bus)
+    # OMS-7: pass adapter's configured IB account so the handler can stamp
+    # account_id on swing/momentum orders (which leave it blank by default).
+    _adapter_account = getattr(adapter, "_account", "") or ""
+    handler = IntentHandler(
+        risk_gateway, router, repo, bus,
+        default_account_id=_adapter_account,
+    )
 
     # Reconciler (shared) — with halt callback
     _halt_cb = halt_trading if halt_trading is not None else _internal_halt_trading
-    reconciler = ReconciliationOrchestrator(adapter, repo, bus, halt_trading=_halt_cb)
+    reconciler = ReconciliationOrchestrator(
+        adapter, repo, bus, halt_trading=_halt_cb, fill_processor=fill_proc,
+    )
 
     # Timeout monitor
     from ..engine.timeout_monitor import OrderTimeoutMonitor
-    timeout_monitor = OrderTimeoutMonitor(repo, bus)
+    timeout_monitor = OrderTimeoutMonitor(repo, bus, router)
 
     # Coordinator (cross-strategy signals)
     coordinator = StrategyCoordinator(bus, repo)
+
+    # OMS-5: Hydrate the multi-strategy open_positions cache from DB before
+    # any fill callback can fire. Same intent as the single-OMS path; the
+    # multi version also seeds risk_per_contract_portfolio_R because the
+    # multi callback's exit branch uses portfolio R for cross-family caps.
+    if db_pool is not None:
+        await _hydrate_open_positions_from_repo(
+            open_positions=open_positions,
+            repo=repo,
+            strategy_ids=list(unit_risk_map.keys()),
+            unit_risk_dollars_for=lambda sid: unit_risk_map.get(sid, 0.0),
+            portfolio_unit_risk_dollars=portfolio_urd,
+            strict=True,
+        )
 
     # Wire adapter callbacks (multi-strategy aware, with DB persistence)
     _wire_adapter_callbacks_multi(
@@ -882,6 +1045,7 @@ async def build_multi_strategy_oms(
         paper_equity_pool=paper_equity_pool,
         paper_equity_scope=paper_equity_scope,
         paper_initial_equity=paper_initial_equity,
+        halt_trading=_halt_cb,
     )
 
     # Build OMS service
@@ -894,6 +1058,7 @@ async def build_multi_strategy_oms(
         timeout_monitor=timeout_monitor,
         get_portfolio_risk=get_portfolio_risk,
         get_strategy_risk=get_strategy_risk,
+        on_intent_denied=_make_intent_denial_logger(family_id=family_id),
     )
     oms._portfolio_checker = portfolio_checker  # for coordinator regime updates
     oms._swing_portfolio_risk_adapter = portfolio_risk_adapter
@@ -1052,6 +1217,28 @@ def _apply_status_update(order, *, status: str, remaining: float, as_of: datetim
     return "emit"
 
 
+async def _halt_unknown_exit_position(
+    *,
+    halt_trading,
+    bus: EventBus,
+    strategy_id: str,
+    oms_order_id: str,
+    instrument_symbol: str,
+    role: OrderRole,
+    qty: float,
+    price: float,
+) -> None:
+    reason = (
+        "Unknown open position for exit fill: "
+        f"strategy={strategy_id} symbol={instrument_symbol} "
+        f"role={role.value} order={oms_order_id} qty={qty} price={price}"
+    )
+    logger.critical(reason)
+    bus.emit_risk_halt(strategy_id, reason)
+    if halt_trading is not None:
+        await halt_trading(reason)
+
+
 def _wire_adapter_callbacks(
     adapter, bus: EventBus, repo, fill_proc: FillProcessor, router,
     strategy_risk_states, portfolio_risk_state, unit_risk_dollars, open_positions,
@@ -1064,6 +1251,7 @@ def _wire_adapter_callbacks(
     live_equity=None,
     paper_equity_scope="paper",
     paper_initial_equity=10_000.0,
+    halt_trading=None,
 ) -> None:
     """Wire IBKRExecutionAdapter callbacks to OMS event bus.
 
@@ -1190,7 +1378,16 @@ def _wire_adapter_callbacks(
 
             # 1. Update OMS order state (filled_qty, status, avg_fill_price)
             fill_ts = timestamp if isinstance(timestamp, datetime) else datetime.now(timezone.utc)
-            await fill_proc.process_fill(oms_order_id, exec_id, price, qty, fill_ts, commission)
+            inserted = await fill_proc.process_fill(oms_order_id, exec_id, price, qty, fill_ts, commission)
+
+            # OMS-2: All downstream side effects (risk/equity/position updates,
+            # strategy bus emit, paper equity, coordinator notifications) are
+            # gated on `inserted`. A duplicate exec_id (IBKR replay, restart
+            # cache miss) returns False and we skip everything below. This is
+            # the only barrier preventing double-counted realized P&L and
+            # double-released open risk after a duplicate fill.
+            if not inserted:
+                return
 
             # 2. Emit fill event to strategy
             fill_data = {
@@ -1273,6 +1470,18 @@ def _wire_adapter_callbacks(
 
             elif order.role in (OrderRole.EXIT, OrderRole.STOP, OrderRole.TP):
                 pos = open_positions.get(pos_key)
+                if pos is None:
+                    await _halt_unknown_exit_position(
+                        halt_trading=halt_trading,
+                        bus=bus,
+                        strategy_id=sid,
+                        oms_order_id=oms_order_id,
+                        instrument_symbol=instr_sym,
+                        role=order.role,
+                        qty=qty,
+                        price=price,
+                    )
+                    return
                 if pos:
                     # Reduce open risk
                     released_R = pos["risk_per_contract_R"] * qty
@@ -1418,6 +1627,7 @@ def _wire_adapter_callbacks_multi(
     paper_equity_pool=None,
     paper_equity_scope: str = "paper",
     paper_initial_equity: float = 10_000.0,
+    halt_trading=None,
 ) -> None:
     """Wire IBKRExecutionAdapter callbacks for multi-strategy OMS.
 
@@ -1530,7 +1740,13 @@ def _wire_adapter_callbacks_multi(
                 return
 
             fill_ts = timestamp if isinstance(timestamp, datetime) else datetime.now(timezone.utc)
-            await fill_proc.process_fill(oms_order_id, exec_id, price, qty, fill_ts, commission)
+            inserted = await fill_proc.process_fill(oms_order_id, exec_id, price, qty, fill_ts, commission)
+
+            # OMS-2: Same dedupe gate as the single-strategy callback above.
+            # Without this, IBKR exec replays would double-count risk across
+            # the swing family's shared multi-strategy OMS.
+            if not inserted:
+                return
 
             fill_data = {
                 "exec_id": exec_id,
@@ -1615,6 +1831,18 @@ def _wire_adapter_callbacks_multi(
 
             elif order.role in (OrderRole.EXIT, OrderRole.STOP, OrderRole.TP):
                 pos = open_positions.get(pos_key)
+                if pos is None:
+                    await _halt_unknown_exit_position(
+                        halt_trading=halt_trading,
+                        bus=bus,
+                        strategy_id=sid,
+                        oms_order_id=oms_order_id,
+                        instrument_symbol=instr_sym,
+                        role=order.role,
+                        qty=qty,
+                        price=price,
+                    )
+                    return
                 if pos:
                     released_R = pos["risk_per_contract_R"] * qty
                     released_dollars = released_R * urd

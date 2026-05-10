@@ -78,8 +78,20 @@ class EventStore:
         since: str | None = None,
         limit: int = 100,
         bot_id: str | None = None,
+        min_priority: int | None = None,
+        max_priority: int | None = None,
+        priority_first: bool = False,
     ) -> list[dict[str, Any]]:
-        """Fetch un-acked events, optionally after a watermark event_id."""
+        """Fetch un-acked events, optionally after a watermark event_id.
+
+        Default delivery stays id ordered so `/ack` can safely mark a
+        monotonic watermark. Priority delivery is opt-in via
+        `priority_first=True` and should be paired with `ack_exact(...)`
+        because lower numeric priority values are more urgent.
+
+        `min_priority` is kept only as a deprecated alias for
+        `max_priority`.
+        """
         conn = self._connect()
         try:
             if since:
@@ -98,7 +110,18 @@ class EventStore:
                 query += " AND bot_id = ?"
                 params.append(bot_id)
 
-            query += " ORDER BY id ASC LIMIT ?"
+            effective_max_priority = max_priority
+            if effective_max_priority is None and min_priority is not None:
+                effective_max_priority = min_priority
+
+            if effective_max_priority is not None:
+                query += " AND priority <= ?"
+                params.append(int(effective_max_priority))
+
+            if priority_first:
+                query += " ORDER BY priority ASC, id ASC LIMIT ?"
+            else:
+                query += " ORDER BY id ASC LIMIT ?"
             params.append(limit)
 
             rows = conn.execute(query, params).fetchall()
@@ -118,6 +141,22 @@ class EventStore:
             cursor = conn.execute(
                 "UPDATE events SET acked = 1 WHERE id <= ? AND acked = 0",
                 (row["id"],),
+            )
+            conn.commit()
+            return cursor.rowcount
+        finally:
+            conn.close()
+
+    def ack_exact(self, event_ids: list[str]) -> int:
+        """Mark only the provided event IDs as acked."""
+        if not event_ids:
+            return 0
+        conn = self._connect()
+        try:
+            placeholders = ",".join("?" for _ in event_ids)
+            cursor = conn.execute(
+                f"UPDATE events SET acked = 1 WHERE event_id IN ({placeholders}) AND acked = 0",
+                event_ids,
             )
             conn.commit()
             return cursor.rowcount
@@ -201,13 +240,20 @@ class EventStore:
             conn.close()
 
     def start_periodic_purge(self, interval_hours: float = 6.0) -> None:
-        """Schedule periodic purge of acked and stale unacked events."""
+        """Schedule periodic purge of acked and stale unacked events.
+
+        RELAY-1: stale window honours `RELAY_PURGE_DAYS` (default 14d, same
+        as `purge_stale_unacked`). Previously this method hardcoded `days=3`
+        while the lifespan-managed purge in apps/relay/app.py used 14d, so
+        running both paths together silently dropped evidence after 3 days.
+        """
         self._purge_stop = threading.Event()
+        stale_days = int(os.environ.get("RELAY_PURGE_DAYS", "14"))
 
         def _run_purge():
             try:
                 acked = self.purge_acked(days=7, vacuum=False)
-                stale = self.purge_stale_unacked(days=3, vacuum=False)
+                stale = self.purge_stale_unacked(days=stale_days, vacuum=False)
                 if acked > 0 or stale > 0:
                     self.vacuum()
             except Exception:
@@ -229,8 +275,16 @@ class EventStore:
         if hasattr(self, "_purge_stop"):
             self._purge_stop.set()
 
-    def purge_stale_unacked(self, days: int = 3, vacuum: bool = True) -> int:
-        """Delete unacked events older than N days (no consumer draining them)."""
+    def purge_stale_unacked(self, days: int = 14, vacuum: bool = True) -> int:
+        """Delete unacked events older than N days (no consumer draining them).
+
+        RELAY-1: default raised from 3 -> 14. The previous 3-day window
+        permanently dropped evidence whenever the trading_assistant
+        orchestrator was offline >3 days (laptop off, network outage,
+        illness). Storage cost of holding 14d of unacked events is negligible.
+        Operators with strict storage budgets can override via the
+        RELAY_PURGE_DAYS env var read by the app.py callers.
+        """
         conn = self._connect()
         try:
             cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()

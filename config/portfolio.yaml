@@ -2,6 +2,7 @@ risk:
   heat_cap_R: 2.5
   portfolio_daily_stop_R: 3.0
   portfolio_weekly_stop_R: 5.0
+  account_urd_dollars: 200.0
   global_standdown: false
 
 capital:

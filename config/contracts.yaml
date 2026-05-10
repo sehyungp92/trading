@@ -147,13 +147,3 @@ GLD:
   tick_size: 0.01
   tick_value: 0.01
   primary_exchange: ARCA
-
-IBIT:
-  symbol: IB1T
-  sec_type: STK
-  exchange: SMART
-  currency: GBP
-  multiplier: 1.0
-  tick_size: 0.01
-  tick_value: 0.01
-  primary_exchange: LSEETF

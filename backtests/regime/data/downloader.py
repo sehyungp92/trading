@@ -1,4 +1,4 @@
-"""Data pipeline: FRED + yfinance download, IBIT proxy, cache as parquet."""
+"""Data pipeline: FRED + yfinance download, cache as parquet."""
 from __future__ import annotations
 
 import logging
@@ -26,12 +26,6 @@ _ICSA_SERIES_ID = "ICSA"
 # ETF tickers for yfinance
 _ETF_TICKERS = ["SPY", "EFA", "TLT", "GLD", "BIL"]
 _FEATURE_ETF_TICKERS = ["DBC"]  # Invesco DB Commodity Index (inception 2006-02)
-
-# IBIT proxy dates
-_BTC_START = pd.Timestamp("2014-09-17")
-_IBIT_START = pd.Timestamp("2024-01-11")
-_BTC_FEE_DRAG_ANNUAL = 0.0025
-
 
 def _require_fred_key() -> str:
     key = os.environ.get("FRED_API_KEY", "")
@@ -123,40 +117,6 @@ def _download_etf_prices(start: str = "2002-01-01") -> pd.DataFrame:
     return prices
 
 
-def _download_btc_prices(start: str = "2014-09-01") -> pd.Series:
-    """Download BTC-USD daily prices via yfinance."""
-    import yfinance as yf
-
-    logger.info("Downloading BTC-USD prices")
-    data = yf.download("BTC-USD", start=start, auto_adjust=True, progress=False)
-    if isinstance(data.columns, pd.MultiIndex):
-        prices = data["Close"].squeeze()
-    else:
-        prices = data["Close"] if "Close" in data.columns else data.iloc[:, 0]
-    prices.index = pd.to_datetime(prices.index)
-    if prices.index.tz is not None:
-        prices.index = prices.index.tz_localize(None)
-    prices.name = "BTC"
-    return prices
-
-
-def _download_ibit_prices() -> pd.Series:
-    """Download IBIT ETF prices (post Jan 2024)."""
-    import yfinance as yf
-
-    logger.info("Downloading IBIT prices")
-    data = yf.download("IBIT", start="2024-01-01", auto_adjust=True, progress=False)
-    if isinstance(data.columns, pd.MultiIndex):
-        prices = data["Close"].squeeze()
-    else:
-        prices = data["Close"] if "Close" in data.columns else data.iloc[:, 0]
-    prices.index = pd.to_datetime(prices.index)
-    if prices.index.tz is not None:
-        prices.index = prices.index.tz_localize(None)
-    prices.name = "IBIT"
-    return prices
-
-
 def _download_feature_etfs(start: str = "2002-01-01") -> pd.DataFrame:
     """Download feature-only ETF prices (DBC etc.) via yfinance."""
     import yfinance as yf
@@ -179,52 +139,6 @@ def _download_feature_etfs(start: str = "2002-01-01") -> pd.DataFrame:
     return prices
 
 
-def _build_ibit_returns(
-    etf_returns: pd.DataFrame,
-    btc_prices: pd.Series,
-    ibit_prices: pd.Series,
-) -> pd.Series:
-    """Build IBIT return series with proxy logic.
-
-    Pre 2014-09-17:  IBIT returns = CASH (BIL) returns
-    2014-09 to 2024-01:  BTC-USD log returns - 0.25% annual fee drag
-    Post 2024-01:  Actual IBIT ETF log returns
-    """
-    full_idx = etf_returns.index
-    ibit_ret = pd.Series(np.nan, index=full_idx, name="IBIT")
-
-    # Phase 1: pre-BTC → use CASH returns
-    pre_btc = full_idx < _BTC_START
-    if "CASH" in etf_returns.columns:
-        ibit_ret.loc[pre_btc] = etf_returns.loc[pre_btc, "CASH"]
-    else:
-        ibit_ret.loc[pre_btc] = 0.0
-
-    # Phase 2: BTC proxy (2014-09 to IBIT launch)
-    btc_log_ret = np.log(btc_prices / btc_prices.shift(1)).dropna()
-    fee_daily = _BTC_FEE_DRAG_ANNUAL / 252.0
-    btc_adj_ret = btc_log_ret - fee_daily
-
-    # Find IBIT splice date (first available IBIT trading day)
-    ibit_splice = _IBIT_START
-    if len(ibit_prices) > 1:
-        ibit_splice = ibit_prices.index[1]  # first day with a return
-
-    btc_mask = (full_idx >= _BTC_START) & (full_idx < ibit_splice)
-    btc_adj_ret_aligned = btc_adj_ret.reindex(full_idx)
-    ibit_ret.loc[btc_mask] = btc_adj_ret_aligned.loc[btc_mask]
-
-    # Phase 3: actual IBIT returns
-    ibit_log_ret = np.log(ibit_prices / ibit_prices.shift(1)).dropna()
-    ibit_log_ret_aligned = ibit_log_ret.reindex(full_idx)
-    post_ibit = full_idx >= ibit_splice
-    ibit_ret.loc[post_ibit] = ibit_log_ret_aligned.loc[post_ibit]
-
-    # Forward-fill any remaining gaps
-    ibit_ret = ibit_ret.ffill().fillna(0.0)
-    return ibit_ret
-
-
 def build_all_data(
     data_dir: Path | None = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -233,7 +147,7 @@ def build_all_data(
     Returns:
         macro_df: columns [GROWTH, INFLATION]
         market_df: columns [VIX, SPREAD, SLOPE_10Y2Y, REAL_RATE_10Y, DBC]
-        strat_ret_df: columns [SPY, EFA, TLT, GLD, IBIT, CASH]
+        strat_ret_df: columns [SPY, EFA, TLT, GLD, CASH]
     """
     if data_dir is None:
         data_dir = Path("backtests/regime/data/raw")
@@ -243,8 +157,6 @@ def build_all_data(
     fred_df = _download_fred()
     icsa_vintage = _download_icsa_vintage()
     etf_prices = _download_etf_prices()
-    btc_prices = _download_btc_prices()
-    ibit_prices = _download_ibit_prices()
     feature_etf_prices = _download_feature_etfs()
 
     # -- Build market_df --
@@ -288,10 +200,6 @@ def build_all_data(
         strat_ret_df["CASH"] = log_returns["BIL"]
     else:
         strat_ret_df["CASH"] = 0.0
-
-    # IBIT proxy
-    ibit_ret = _build_ibit_returns(strat_ret_df, btc_prices, ibit_prices)
-    strat_ret_df["IBIT"] = ibit_ret
 
     # Drop rows before both macro features are available
     # T10YIE starts Jan 2003; ICSA first-release may have a few leading NaN

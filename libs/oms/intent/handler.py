@@ -31,15 +31,21 @@ class IntentHandler:
         router: "ExecutionRouter",
         repo: "OMSRepository",
         bus: "EventBus",
+        default_account_id: str = "",
     ):
         self._risk = risk
         self._router = router
         self._repo = repo
         self._bus = bus
+        # OMS-7: configured IB account injected by the factory. When a strategy's
+        # OMSOrder has account_id="" (the default for swing/momentum builders
+        # don't set it), the handler stamps this value before persistence so
+        # DB attribution and reconciliation can keyed-by-account.
+        self._default_account_id = default_account_id
         self._idempotency: OrderedDict[str, str] = OrderedDict()  # client_order_id -> oms_order_id
         # C1: per-client_order_id locks to prevent duplicate orders across concurrent tasks
         self._idemp_locks: dict[str, asyncio.Lock] = {}
-        # 1C: serialize entry risk-check → persist to prevent concurrent race in shared OMS
+        # 1C: serialize entry risk-check to persist to prevent concurrent race in shared OMS
         self._entry_lock = asyncio.Lock()
 
     def _prune_idemp_cache(self) -> None:
@@ -79,6 +85,14 @@ class IntentHandler:
             return IntentReceipt(
                 IntentResult.DENIED, intent_id, denial_reason="No order in intent"
             )
+
+        # OMS-7: stamp the configured account_id on orders that didn't set
+        # one. Swing+momentum builders historically left this blank, so DB
+        # attribution and reconciliation lost the account scope; stock
+        # already sets it explicitly. The factory passes the configured
+        # IBKRConfig.profile.account_id into this handler.
+        if not order.account_id and self._default_account_id:
+            order.account_id = self._default_account_id
 
         # M1: Validate qty > 0
         if order.qty <= 0:
@@ -125,18 +139,46 @@ class IntentHandler:
         order.created_at = datetime.now(timezone.utc)
         order.remaining_qty = order.qty
 
-        # 1C: Serialize ENTRY risk-check → persist to prevent concurrent entries
+        # 1C: Serialize ENTRY risk-check to persist to prevent concurrent entries
         # from both passing heat cap before either persists (swing shared OMS).
         # Exits/stops skip the lock since RiskGateway auto-approves non-ENTRY orders.
         use_entry_lock = order.role == OrderRole.ENTRY
 
+        def _rollback_idempotency() -> None:
+            if order.client_order_id:
+                self._idempotency.pop(order.client_order_id, None)
+                self._idemp_locks.pop(order.client_order_id, None)
+
+        def _apply_portfolio_multiplier() -> None:
+            if not order.risk_context or order.risk_context.portfolio_size_mult == 1.0:
+                return
+            mult = order.risk_context.portfolio_size_mult
+            original_qty = order.qty
+            order.qty = max(1, int(order.qty * mult))
+            order.remaining_qty = order.qty
+            if order.instrument is not None:
+                order.risk_context.risk_dollars = (
+                    order.qty
+                    * abs(
+                        order.risk_context.planned_entry_price
+                        - order.risk_context.stop_for_risk
+                    )
+                    * order.instrument.point_value
+                )
+            elif original_qty > 0:
+                order.risk_context.risk_dollars *= order.qty / original_qty
+            logger.info(
+                "Portfolio size mult %.2fx: qty %d -> %d for %s",
+                mult, original_qty, order.qty, order.strategy_id,
+            )
+
         async def _risk_check_and_route():
-            denial = await self._risk.check_entry(order)
+            denial = await self._risk.check_entry(
+                order,
+                skip_account_gate=order.role == OrderRole.ENTRY,
+            )
             if denial:
-                # Roll back idempotency registration on denial so order can be retried
-                if order.client_order_id:
-                    self._idempotency.pop(order.client_order_id, None)
-                    self._idemp_locks.pop(order.client_order_id, None)
+                _rollback_idempotency()
                 order.status = OrderStatus.REJECTED
                 await self._repo.save_order_and_event(
                     order,
@@ -148,22 +190,41 @@ class IntentHandler:
                     IntentResult.DENIED, intent_id, denial_reason=denial
                 )
 
-            # Apply portfolio size multiplier to order qty (C2 fix: was write-only)
-            if order.risk_context and order.risk_context.portfolio_size_mult != 1.0:
-                mult = order.risk_context.portfolio_size_mult
-                original_qty = order.qty
-                order.qty = max(1, int(order.qty * mult))
-                order.remaining_qty = order.qty
-                if original_qty > 0:
-                    order.risk_context.risk_dollars *= order.qty / original_qty
-                logger.info(
-                    "Portfolio size mult %.2fx: qty %d -> %d for %s",
-                    mult, original_qty, order.qty, order.strategy_id,
-                )
+            _apply_portfolio_multiplier()
 
             # Approve and persist
-            order.status = OrderStatus.RISK_APPROVED
-            await self._repo.save_order_and_event(order, "RISK_APPROVED", {})
+            if order.role == OrderRole.ENTRY:
+                async with self._repo.transaction() as conn:
+                    account_denial = await self._risk.check_account_gate(order, conn=conn)
+                    if account_denial:
+                        _rollback_idempotency()
+                        order.status = OrderStatus.REJECTED
+                        await self._repo.save_order_and_event(
+                            order,
+                            "RISK_DENIED",
+                            {"reason": account_denial},
+                            conn=conn,
+                        )
+                        self._bus.emit_risk_denial(
+                            order.strategy_id,
+                            order.oms_order_id,
+                            account_denial,
+                        )
+                        return IntentReceipt(
+                            IntentResult.DENIED,
+                            intent_id,
+                            denial_reason=account_denial,
+                        )
+                    order.status = OrderStatus.RISK_APPROVED
+                    await self._repo.save_order_and_event(
+                        order,
+                        "RISK_APPROVED",
+                        {},
+                        conn=conn,
+                    )
+            else:
+                order.status = OrderStatus.RISK_APPROVED
+                await self._repo.save_order_and_event(order, "RISK_APPROVED", {})
 
             # Route to execution
             await self._router.route(order)

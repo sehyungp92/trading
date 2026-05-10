@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 
 from strategies.swing._shared.etf_core import ETFBarInput, ETFFill, ETFOrderUpdate
@@ -54,6 +55,7 @@ class ETFCoreLiveEngine:
         self._last_actions: list[Any] = []
         self._last_events: list[Any] = []
         self._bars_processed = 0
+        self._symbol_last_bar_ts: dict[str, datetime] = {}
 
     async def start(self) -> None:
         self._running = True
@@ -74,8 +76,17 @@ class ETFCoreLiveEngine:
         }
 
     def liveness_payload(self) -> dict[str, Any]:
+        # Cap symbol_freshness to currently-configured symbols so a rotating
+        # config does not let stale entries grow unbounded.
+        active = set(self._config.keys())
+        symbol_freshness = {
+            sym: ts.isoformat()
+            for sym, ts in self._symbol_last_bar_ts.items()
+            if sym in active
+        }
         return {
             "bars_processed": self._bars_processed,
+            "symbol_freshness": symbol_freshness,
             "open_positions": sorted(self._state.positions),
             "pending_orders": sorted(self._state.pending_orders),
         }
@@ -96,6 +107,9 @@ class ETFCoreLiveEngine:
         self._last_actions = list(actions)
         self._last_events = list(events)
         self._bars_processed += 1
+        bar_ts = bar_input.timestamp or self._state.last_bar_ts
+        if bar_ts is not None:
+            self._symbol_last_bar_ts[bar_input.symbol] = bar_ts
         return actions, events
 
     def process_fill(self, fill: ETFFill) -> tuple[list[Any], list[Any]]:

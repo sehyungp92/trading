@@ -21,11 +21,11 @@ _FRED_SERIES = {
     "REAL_RATE_10Y": "DFII10",
 }
 
-_ETF_SYMBOLS = ["SPY", "EFA", "TLT", "GLD", "IBIT", "BIL", "DBC"]
+_ETF_SYMBOLS = ["SPY", "EFA", "TLT", "GLD", "BIL", "DBC"]
 
 _MARKET_FRED_COLS = ["VIX", "SPREAD", "SLOPE_10Y2Y", "REAL_RATE_10Y"]
 _MACRO_GROWTH_SERIES = "ICSA"
-_RETURN_AS_OF_COLS = ["SPY", "EFA", "TLT", "GLD", "IBIT"]
+_RETURN_AS_OF_COLS = ["SPY", "EFA", "TLT", "GLD"]
 _REQUIRED_MARKET_COLS = ["VIX", "SPREAD", "SLOPE_10Y2Y"]
 _REQUIRED_MACRO_COLS = ["GROWTH", "INFLATION"]
 _MIN_HMM_LIVE_OBS = 252
@@ -176,11 +176,14 @@ class LiveDataProvider:
                     "Seed data via Dockerfile COPY or run "
                     "`FRED_API_KEY=<key> python -m backtests.regime.cli download --data-dir data/regime/raw`."
                 )
-        return (
-            pd.read_parquet(self._data_dir / "macro_df.parquet").copy(),
-            pd.read_parquet(self._data_dir / "market_df.parquet").copy(),
-            pd.read_parquet(self._data_dir / "strat_ret_df.parquet").copy(),
-        )
+        macro_df = pd.read_parquet(self._data_dir / "macro_df.parquet").copy()
+        market_df = pd.read_parquet(self._data_dir / "market_df.parquet").copy()
+        strat_ret_df = pd.read_parquet(self._data_dir / "strat_ret_df.parquet").copy()
+        keep_cols = [col for col in [*_RETURN_AS_OF_COLS, "CASH"] if col in strat_ret_df.columns]
+        stale_cols = [col for col in strat_ret_df.columns if col not in keep_cols]
+        if stale_cols:
+            logger.info("Regime: dropping stale cached return columns: %s", ",".join(stale_cols))
+        return macro_df, market_df, strat_ret_df.loc[:, keep_cols].copy()
 
     async def _fetch_ibkr_bars(self) -> pd.DataFrame | None:
         """Fetch 1Y daily bars for all qualified ETF contracts."""
@@ -221,7 +224,7 @@ class LiveDataProvider:
         """Overlay IBKR-derived returns onto cached DataFrames."""
         ibkr_log_ret = np.log(ibkr_prices / ibkr_prices.shift(1))
 
-        col_map = {"SPY": "SPY", "EFA": "EFA", "TLT": "TLT", "GLD": "GLD", "IBIT": "IBIT", "BIL": "CASH"}
+        col_map = {"SPY": "SPY", "EFA": "EFA", "TLT": "TLT", "GLD": "GLD", "BIL": "CASH"}
         fresh_returns = pd.DataFrame(index=ibkr_log_ret.index)
         for ibkr_col, ret_col in col_map.items():
             if ibkr_col in ibkr_log_ret.columns and ret_col in strat_ret_df.columns:

@@ -10,22 +10,22 @@ from libs.oms.models.instrument import Instrument
 class _FakeIB:
     async def qualifyContractsAsync(self, contract):
         contract.conId = 123456
-        contract.symbol = "IB1T"
+        contract.symbol = "UK1T"
         contract.secType = "STK"
         contract.exchange = "SMART"
         contract.currency = "GBP"
         contract.primaryExchange = "LSEETF"
-        contract.tradingClass = "IB1T"
+        contract.tradingClass = "UK1T"
         return [contract]
 
 
 @pytest.mark.asyncio
-async def test_contract_factory_resolves_logical_ibit_to_broker_ib1t():
+async def test_contract_factory_resolves_logical_symbol_to_broker_alias():
     factory = ContractFactory(
         ib=_FakeIB(),
         templates={
-            "IBIT": ContractTemplate(
-                symbol="IB1T",
+            "UKETF": ContractTemplate(
+                symbol="UK1T",
                 sec_type="STK",
                 exchange="SMART",
                 currency="GBP",
@@ -36,16 +36,16 @@ async def test_contract_factory_resolves_logical_ibit_to_broker_ib1t():
             )
         },
         routes={
-            "IBIT": ExchangeRoute(
-                root_symbol="IBIT",
+            "UKETF": ExchangeRoute(
+                root_symbol="UKETF",
                 exchange="SMART",
                 primary_exchange="LSEETF",
             )
         },
     )
     logical_instrument = Instrument(
-        symbol="IBIT",
-        root="IBIT",
+        symbol="UKETF",
+        root="UKETF",
         venue="SMART",
         tick_size=0.01,
         tick_value=0.01,
@@ -56,12 +56,12 @@ async def test_contract_factory_resolves_logical_ibit_to_broker_ib1t():
         sec_type="STK",
     )
 
-    contract, spec = await factory.resolve("IBIT", instrument=logical_instrument)
+    contract, spec = await factory.resolve("UKETF", instrument=logical_instrument)
 
-    assert contract.symbol == "IB1T"
+    assert contract.symbol == "UK1T"
     assert contract.currency == "GBP"
     assert getattr(contract, "primaryExchange", "") == "LSEETF"
-    assert spec.symbol == "IB1T"
+    assert spec.symbol == "UK1T"
     assert spec.currency == "GBP"
     assert spec.primary_exchange == "LSEETF"
-    assert factory.logical_symbol_for_contract(contract) == "IBIT"
+    assert factory.logical_symbol_for_contract(contract) == "UKETF"

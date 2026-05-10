@@ -88,7 +88,7 @@ def run_signal_engine(
     inflation_feature: str,
     cfg: MetaConfig,
 ) -> pd.DataFrame:
-    required_cols = ["SPY", "EFA", "TLT", "GLD", "IBIT", cfg.cash_col]
+    required_cols = ["SPY", "EFA", "TLT", "GLD", cfg.cash_col]
     for c in required_cols:
         assert c in strat_ret_df.columns, f"Missing: {c}"
 

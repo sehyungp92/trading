@@ -1,9 +1,27 @@
+"""IVB auction footprint and signal scoring tests."""
 from __future__ import annotations
 
-from strategies.scalp.ivb_auction.signals import score_signal
-from strategies.scalp.ivb_auction.config import TradeDirection
-from strategies.scalp.ivb_auction.target_model import reclaim_targets
+from datetime import datetime, timedelta, timezone
+
 from strategies.scalp._shared.levels import IVBLevels
+from strategies.scalp.ivb_auction.config import TradeDirection
+from strategies.scalp.ivb_auction.footprint import FootprintBuilder
+from strategies.scalp.ivb_auction.models import ScalpTick
+from strategies.scalp.ivb_auction.signals import score_signal
+from strategies.scalp.ivb_auction.target_model import reclaim_targets
+
+
+def test_footprint_classifies_bid_ask_aggression() -> None:
+    builder = FootprintBuilder(bar_seconds=30)
+    ts = datetime(2026, 4, 29, 14, 0, tzinfo=timezone.utc)
+    builder.on_tick(ScalpTick(ts=ts, price=100.25, size=3, bid=100.0, ask=100.25))
+    builder.on_tick(ScalpTick(ts=ts + timedelta(seconds=1), price=100.0, size=2, bid=100.0, ask=100.25))
+    bar = builder.flush()
+
+    assert bar is not None
+    assert bar.ask_volume == 3
+    assert bar.bid_volume == 2
+    assert bar.delta == 1
 
 
 def test_ivb_signal_renormalizes_when_footprint_missing() -> None:

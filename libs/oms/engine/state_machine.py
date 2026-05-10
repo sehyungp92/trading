@@ -15,7 +15,13 @@ TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     },
     # H3: CANCELLED added — broker can cancel before ACK (race condition)
     # RISK_APPROVED added — retryable broker rejects re-route through risk gateway
-    OrderStatus.ROUTED: {OrderStatus.ACKED, OrderStatus.REJECTED, OrderStatus.CANCELLED, OrderStatus.RISK_APPROVED},
+    OrderStatus.ROUTED: {
+        OrderStatus.ACKED,
+        OrderStatus.REJECTED,
+        OrderStatus.CANCEL_REQUESTED,
+        OrderStatus.CANCELLED,
+        OrderStatus.RISK_APPROVED,
+    },
     OrderStatus.ACKED: {
         OrderStatus.WORKING,
         OrderStatus.FILLED,

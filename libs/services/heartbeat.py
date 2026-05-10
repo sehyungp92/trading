@@ -14,8 +14,14 @@ from typing import Any, Iterable, Mapping, Optional
 
 from ..oms.persistence.postgres import PgStore
 from ..oms.persistence.schema import StrategyStateRow, AdapterStateRow
+from .decision_codes import is_known as _is_known_decision_code
 
 logger = logging.getLogger(__name__)
+
+# Warned (strategy_id, code) pairs are remembered so the 15s heartbeat loop
+# does not spam the log. Reset only on process restart -- intentional, since
+# a fresh deploy is exactly when an operator wants to see drift.
+_warned_decision_codes: set[tuple[str, str]] = set()
 
 
 class HeartbeatService:
@@ -36,6 +42,16 @@ class HeartbeatService:
         error: Optional[str] = None,
     ) -> None:
         """Update strategy health state. Call every 10-30 seconds."""
+        if last_decision_code is not None and not _is_known_decision_code(last_decision_code):
+            key = (strategy_id, last_decision_code)
+            if key not in _warned_decision_codes:
+                _warned_decision_codes.add(key)
+                logger.warning(
+                    "Unknown decision_code emitted by strategy=%s code=%r -- "
+                    "see libs/services/decision_codes.py for the canonical taxonomy",
+                    strategy_id,
+                    last_decision_code,
+                )
         row = StrategyStateRow(
             strategy_id=strategy_id,
             mode=mode,

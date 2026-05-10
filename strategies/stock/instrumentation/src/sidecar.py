@@ -26,6 +26,7 @@ _DIR_TO_EVENT_TYPE = {
     "orders": "order",
     "heartbeats": "heartbeat",
     "portfolio_rules": "portfolio_rule_check",
+    "risk_denials": "risk_denial",
     # Phase 2B event types
     "indicators": "indicator_snapshot",
     "filter_decisions": "filter_decision",

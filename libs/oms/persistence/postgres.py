@@ -254,6 +254,26 @@ CREATE TABLE IF NOT EXISTS adapter_state (
 );
 
 
+-- 5-min snapshots of strategy_state captured by apps/watchdog/snapshot.py.
+-- Used by v_daily_strategy_activity to compute bars/denials deltas across
+-- a session for the quiet-day classifier.
+CREATE TABLE IF NOT EXISTS strategy_heartbeat_history (
+    captured_at         TIMESTAMPTZ NOT NULL,
+    strategy_id         TEXT        NOT NULL,
+    mode                TEXT,
+    last_decision_code  TEXT,
+    bars_processed      BIGINT,
+    last_seen_bar_ts    TIMESTAMPTZ,
+    consecutive_denials INT,
+    denials_today       INT,
+    PRIMARY KEY (captured_at, strategy_id)
+);
+CREATE INDEX IF NOT EXISTS idx_heartbeat_history_captured
+    ON strategy_heartbeat_history(captured_at);
+CREATE INDEX IF NOT EXISTS idx_heartbeat_history_strategy
+    ON strategy_heartbeat_history(strategy_id, captured_at);
+
+
 -- ============================================================
 -- NEW TABLES: Reconciliation
 -- ============================================================
@@ -382,7 +402,11 @@ SELECT
     last_seen_bar_ts,
     EXTRACT(EPOCH FROM (now() - last_seen_bar_ts)) AS bar_age_sec,
     CASE
-        WHEN EXTRACT(EPOCH FROM (now() - last_heartbeat_ts)) > 120 THEN 'STALE'
+        -- 180s matches apps/watchdog/checks.py:check_heartbeats default
+        -- (stale_threshold_sec). Engines emit every 15s; this gives ~12 missed
+        -- heartbeats before the dashboard flips to STALE, which is the same
+        -- window the watchdog uses to alert.
+        WHEN EXTRACT(EPOCH FROM (now() - last_heartbeat_ts)) > 180 THEN 'STALE'
         WHEN mode != 'RUNNING' THEN mode
         ELSE 'OK'
     END AS health_status,
@@ -452,6 +476,75 @@ FROM trades t
 LEFT JOIN trade_marks m ON t.trade_id = m.trade_id
 WHERE t.entry_ts >= CURRENT_DATE
 ORDER BY t.entry_ts DESC;
+
+
+-- Flatten the JSONB last_decision_details once so the dashboard does not
+-- have to encode the schema. Keys here mirror the contract in
+-- libs/services/decision_codes.py.
+CREATE OR REPLACE VIEW v_strategy_diagnostics AS
+SELECT
+    sh.strategy_id,
+    sh.mode,
+    sh.health_status,
+    sh.last_heartbeat_ts,
+    sh.heartbeat_age_sec,
+    sh.last_decision_code,
+    sh.last_seen_bar_ts,
+    sh.bar_age_sec,
+    NULLIF(sh.last_decision_details->'liveness'->>'bars_processed', '')::bigint
+        AS bars_processed,
+    sh.last_decision_details->'liveness'->'symbol_freshness'
+        AS symbol_freshness,
+    NULLIF(sh.last_decision_details->'oms_health'->>'submitted', '')::int
+        AS intents_submitted,
+    NULLIF(sh.last_decision_details->'oms_health'->>'denied', '')::int
+        AS intents_denied,
+    NULLIF(sh.last_decision_details->'oms_health'->>'consecutive_denials', '')::int
+        AS consecutive_denials,
+    sh.last_decision_details->'ib_farm_status'
+        AS ib_farm_status,
+    sh.last_error,
+    sh.last_error_ts
+FROM v_strategy_health sh;
+
+
+CREATE OR REPLACE VIEW v_daily_strategy_activity AS
+WITH hb_agg AS (
+    SELECT
+        (captured_at AT TIME ZONE 'UTC')::date AS day,
+        strategy_id,
+        MAX(bars_processed) - MIN(bars_processed) AS bars,
+        MAX(denials_today)                       AS denials,
+        MAX(last_seen_bar_ts)                    AS last_bar_ts,
+        (array_agg(last_decision_code ORDER BY captured_at DESC))[1] AS last_decision_code,
+        (array_agg(mode ORDER BY captured_at DESC))[1]               AS last_mode
+    FROM strategy_heartbeat_history
+    GROUP BY (captured_at AT TIME ZONE 'UTC')::date, strategy_id
+),
+trade_agg AS (
+    SELECT
+        (entry_ts AT TIME ZONE 'UTC')::date AS day,
+        strategy_id,
+        count(*) AS trades
+    FROM trades
+    GROUP BY (entry_ts AT TIME ZONE 'UTC')::date, strategy_id
+)
+SELECT
+    h.day,
+    h.strategy_id,
+    rds.family_id,
+    h.bars,
+    h.denials,
+    h.last_bar_ts,
+    h.last_decision_code,
+    h.last_mode,
+    COALESCE(t.trades, 0)            AS trades,
+    rds.daily_realized_r,
+    rds.daily_realized_usd
+FROM hb_agg h
+LEFT JOIN trade_agg t USING (day, strategy_id)
+LEFT JOIN risk_daily_strategy rds
+    ON rds.trade_date = h.day AND rds.strategy_id = h.strategy_id;
 
 
 -- ============================================================

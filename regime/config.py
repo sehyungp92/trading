@@ -72,7 +72,7 @@ class MetaConfig:
     delta_rho_threshold: float = 0.15
     delta_rho_exempt: float = 0.0
     pnl_confirm_days: int = 10
-    risk_on_set: Tuple[str, ...] = ("SPY", "EFA", "IBIT")
+    risk_on_set: Tuple[str, ...] = ("SPY", "EFA")
 
     # -- Phase B leverage (fixed sigma-star, no confidence modulation) --
     L_max: float = 1.6
@@ -184,35 +184,30 @@ class MetaConfig:
     # Recovery (G): risk-on tilt
     budget_G_spy: float = 0.40
     budget_G_efa: float = 0.10
-    budget_G_ibit: float = 0.25
     budget_G_tlt: float = 0.05
     budget_G_gld: float = 0.05
-    budget_G_cash: float = 0.15
+    budget_G_cash: float = 0.40
     # Reflation (R): commodity/equity tilt
     budget_R_spy: float = 0.35
     budget_R_efa: float = 0.15
     budget_R_gld: float = 0.30
-    budget_R_ibit: float = 0.10
     budget_R_tlt: float = 0.00
-    budget_R_cash: float = 0.10
+    budget_R_cash: float = 0.20
     # Infl Hedge (S): gold-dominated inflation hedge
     budget_S_gld: float = 0.50
     budget_S_cash: float = 0.30
     budget_S_spy: float = 0.10
     budget_S_efa: float = 0.05
     budget_S_tlt: float = 0.05
-    budget_S_ibit: float = 0.00
     # Defensive (D): bonds + cash safety
     budget_D_tlt: float = 0.50
     budget_D_cash: float = 0.30
     budget_D_gld: float = 0.10
     budget_D_spy: float = 0.05
     budget_D_efa: float = 0.05
-    budget_D_ibit: float = 0.00
     # Neutral: balanced fallback
     budget_neutral_spy: float = 0.20
     budget_neutral_efa: float = 0.10
     budget_neutral_tlt: float = 0.25
     budget_neutral_gld: float = 0.25
-    budget_neutral_ibit: float = 0.05
-    budget_neutral_cash: float = 0.15
+    budget_neutral_cash: float = 0.20

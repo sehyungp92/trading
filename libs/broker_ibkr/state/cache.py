@@ -51,15 +51,36 @@ class IBCache:
         self.seen_exec_ids.clear()
         self.acked_oms_ids.clear()
 
-    async def rebuild_from_broker(self, snapshot_fetcher, oms_order_id_resolver=None) -> None:
+    async def rebuild_from_broker(
+        self,
+        snapshot_fetcher,
+        oms_order_id_resolver=None,
+        fill_exists_check=None,
+        fill_importer=None,
+    ) -> None:
         """H6 fix: Rebuild order mappings from broker open orders and recent executions.
 
         Called on startup to restore order ID mappings lost after a restart.
 
         Args:
             snapshot_fetcher: SnapshotFetcher instance to query broker state
-            oms_order_id_resolver: Optional callable(order_ref: str) -> Optional[str]
-                that resolves an order reference to an OMS order ID from the DB
+            oms_order_id_resolver: Optional callable(broker_order_id: int) -> Optional[str]
+                that resolves a broker order ID to an OMS order ID from the DB
+            fill_exists_check: Optional async callable(exec_id: str) -> bool that
+                checks whether a broker execution is already persisted in the
+                fills table. Required for OMS-3 (offline execution import).
+            fill_importer: Optional async callable(oms_order_id: str, exec_report)
+                -> bool that imports a missing broker execution into OMS state.
+                Returns True iff the execution was newly persisted. The cache
+                only marks the exec_id `seen` after a successful import or a
+                positive `fill_exists_check`.
+
+        OMS-3 contract: an execution is marked seen ONLY after we confirm it is
+        in OMS state (already persisted OR successfully imported). The previous
+        behaviour marked every fetched execution seen unconditionally, which
+        caused IBKR to re-deliver `execDetailsEvent` for fills that occurred
+        while the runtime was down — and the adapter dropped them as duplicates,
+        permanently losing the fill from OMS accounting.
         """
         import logging
         logger = logging.getLogger(__name__)
@@ -80,19 +101,76 @@ class IBCache:
                         self.register_order(oms_id, broker_id, perm_id)
                         logger.info(f"Cache rebuilt: {oms_id} -> broker={broker_id}")
 
-            # Rebuild from recent executions to deduplicate fills
+            # Rebuild from recent executions to deduplicate fills, importing
+            # any executions that the OMS has not yet seen.
             executions = await snapshot_fetcher.fetch_executions()
+            imported_count = 0
             for exec_report in executions:
-                self.mark_fill_seen(exec_report.exec_id)
                 broker_id = exec_report.broker_order_id
+
+                # First ensure the order mapping exists, so a later
+                # execDetailsEvent for the same order can route correctly
+                # (independent of the import path below).
                 if self.lookup_oms_id(broker_id) is None and oms_order_id_resolver:
                     oms_id = await oms_order_id_resolver(broker_id)
                     if oms_id:
                         self.register_order(oms_id, broker_id, exec_report.perm_id)
 
+                # Decide whether to mark this execution seen.
+                already_in_oms: bool
+                if fill_exists_check is not None:
+                    already_in_oms = await fill_exists_check(exec_report.exec_id)
+                else:
+                    # Backward compat: callers that don't pass the check fall
+                    # back to the old unconditional-mark behaviour, since the
+                    # alternative (skipping the mark entirely) would re-process
+                    # every recent execution on every reconnect.
+                    already_in_oms = True
+
+                if already_in_oms:
+                    self.mark_fill_seen(exec_report.exec_id)
+                    continue
+
+                # Execution is missing locally — try to import via OMS fill
+                # processor (idempotent through save_order_fill_and_event).
+                if fill_importer is None:
+                    logger.warning(
+                        "Broker execution %s missing in OMS but no importer "
+                        "configured; NOT marking seen so the next "
+                        "execDetailsEvent can carry it through",
+                        exec_report.exec_id,
+                    )
+                    continue
+
+                oms_id = self.lookup_oms_id(broker_id)
+                if not oms_id:
+                    logger.warning(
+                        "Cannot import broker exec %s — no OMS order mapping "
+                        "for broker_order_id=%s; leaving unmarked",
+                        exec_report.exec_id, broker_id,
+                    )
+                    continue
+
+                try:
+                    imported = await fill_importer(oms_id, exec_report)
+                except Exception as imp_exc:
+                    logger.error(
+                        "Failed to import broker exec %s for oms_order_id=%s: %s",
+                        exec_report.exec_id, oms_id, imp_exc,
+                    )
+                    continue
+
+                if imported:
+                    self.mark_fill_seen(exec_report.exec_id)
+                    imported_count += 1
+                else:
+                    # Importer detected a race-duplicate; safe to mark seen.
+                    self.mark_fill_seen(exec_report.exec_id)
+
             logger.info(
                 f"IBCache rebuilt: {len(self.order_map)} order mappings, "
-                f"{len(self.seen_exec_ids)} seen exec IDs"
+                f"{len(self.seen_exec_ids)} seen exec IDs, "
+                f"{imported_count} fills imported from broker"
             )
         except Exception as e:
             logger.error(f"Failed to rebuild IBCache from broker: {e}")
