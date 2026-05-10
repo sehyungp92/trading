@@ -20,9 +20,11 @@ from libs.oms.persistence.in_memory import InMemoryRepository
 from libs.oms.persistence.repository import OMSPersistenceInvariantError, OMSRepository
 from libs.oms.services.factory import (
     _hydrate_open_positions_from_repo,
+    _import_fill_through_adapter_callback,
     _wire_adapter_callbacks,
     _wire_adapter_callbacks_multi,
 )
+from libs.broker_ibkr.state.cache import IBCache
 from libs.risk.account_risk_gate import AccountRiskGate
 
 
@@ -119,6 +121,17 @@ class _DelayedWorkingSaveRepository(InMemoryRepository):
             self.working_save_started.set()
             await self.release_working_save.wait()
         await super().save_order(order)
+
+
+class _ExecutionSnapshot:
+    def __init__(self, executions: list[SimpleNamespace]) -> None:
+        self._executions = executions
+
+    async def fetch_open_orders(self) -> list:
+        return []
+
+    async def fetch_executions(self):
+        return self._executions
 
 
 async def _wait_for_order_status(
@@ -628,6 +641,202 @@ async def test_multi_oms_callbacks_serialize_status_ack_then_fill(caplog) -> Non
     assert repo.saved_statuses[-1] == OrderStatus.FILLED
     assert "Invalid transition" not in caplog.text
     assert "Fill transition rejected" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_offline_import_uses_single_oms_fill_side_effects() -> None:
+    repo = InMemoryRepository()
+    order = _entry_order("QQQ")
+    order.status = OrderStatus.WORKING
+    order.remaining_qty = order.qty
+    order.risk_context = RiskContext(
+        stop_for_risk=99.0,
+        planned_entry_price=100.0,
+        risk_dollars=100.0,
+    )
+    await repo.save_order(order)
+    bus = MagicMock()
+    bus.emit_order_event = MagicMock()
+    bus.emit_fill_event = MagicMock()
+    adapter = SimpleNamespace()
+    strategy_risk_states: dict = {}
+    portfolio_risk_state = PortfolioRiskState(trade_date=date.today())
+
+    _wire_adapter_callbacks(
+        adapter=adapter,
+        bus=bus,
+        repo=repo,
+        fill_proc=FillProcessor(repo),
+        router=MagicMock(),
+        strategy_risk_states=strategy_risk_states,
+        portfolio_risk_state=portfolio_risk_state,
+        unit_risk_dollars=100.0,
+        open_positions={},
+    )
+
+    exec_report = SimpleNamespace(
+        broker_order_id=77,
+        perm_id=8801,
+        exec_id="exec-offline-single",
+        price=101.0,
+        qty=order.qty,
+        fill_time=datetime.now(timezone.utc),
+        commission=1.25,
+    )
+    cache = IBCache()
+    await cache.rebuild_from_broker(
+        _ExecutionSnapshot([exec_report]),
+        oms_order_id_resolver=AsyncMock(return_value=order.oms_order_id),
+        fill_exists_check=repo.fill_exists,
+        fill_importer=lambda oms_id, er: _import_fill_through_adapter_callback(
+            adapter, repo, oms_id, er,
+        ),
+    )
+
+    assert cache.is_fill_seen(exec_report.exec_id)
+    bus.emit_fill_event.assert_called_once()
+    assert strategy_risk_states[order.strategy_id].open_risk_R == pytest.approx(1.0)
+    assert portfolio_risk_state.open_risk_R == pytest.approx(1.0)
+    positions = await repo.get_all_positions()
+    assert len(positions) == 1
+    assert positions[0].net_qty == order.qty
+    assert positions[0].open_risk_R == pytest.approx(1.0)
+
+
+@pytest.mark.asyncio
+async def test_adapter_importer_reports_duplicate_fill_without_side_effects() -> None:
+    repo = InMemoryRepository()
+    order = _entry_order("QQQ")
+    order.status = OrderStatus.WORKING
+    order.remaining_qty = order.qty
+    order.risk_context = RiskContext(
+        stop_for_risk=99.0,
+        planned_entry_price=100.0,
+        risk_dollars=100.0,
+    )
+    await repo.save_order(order)
+    bus = MagicMock()
+    bus.emit_order_event = MagicMock()
+    bus.emit_fill_event = MagicMock()
+    adapter = SimpleNamespace()
+
+    _wire_adapter_callbacks(
+        adapter=adapter,
+        bus=bus,
+        repo=repo,
+        fill_proc=FillProcessor(repo),
+        router=MagicMock(),
+        strategy_risk_states={},
+        portfolio_risk_state=PortfolioRiskState(trade_date=date.today()),
+        unit_risk_dollars=100.0,
+        open_positions={},
+    )
+    exec_report = SimpleNamespace(
+        broker_order_id=77,
+        perm_id=8801,
+        exec_id="exec-duplicate-import",
+        price=101.0,
+        qty=order.qty,
+        fill_time=datetime.now(timezone.utc),
+        commission=0.0,
+    )
+
+    first = await _import_fill_through_adapter_callback(
+        adapter, repo, order.oms_order_id, exec_report,
+    )
+    duplicate = await _import_fill_through_adapter_callback(
+        adapter, repo, order.oms_order_id, exec_report,
+    )
+
+    assert first is True
+    assert duplicate is False
+    bus.emit_fill_event.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_offline_import_uses_multi_oms_fill_side_effects() -> None:
+    repo = InMemoryRepository()
+    order = _entry_order("GLD")
+    order.status = OrderStatus.WORKING
+    order.remaining_qty = order.qty
+    order.risk_context = RiskContext(
+        stop_for_risk=98.0,
+        planned_entry_price=100.0,
+        risk_dollars=100.0,
+    )
+    await repo.save_order(order)
+    bus = MagicMock()
+    bus.emit_order_event = MagicMock()
+    bus.emit_fill_event = MagicMock()
+    adapter = SimpleNamespace()
+    coordinator = MagicMock()
+    strategy_risk_states: dict = {}
+    portfolio_risk_state = PortfolioRiskState(trade_date=date.today())
+
+    _wire_adapter_callbacks_multi(
+        adapter=adapter,
+        bus=bus,
+        repo=repo,
+        fill_proc=FillProcessor(repo),
+        router=MagicMock(),
+        strategy_risk_states=strategy_risk_states,
+        portfolio_risk_state=portfolio_risk_state,
+        unit_risk_map={order.strategy_id: 100.0},
+        open_positions={},
+        coordinator=coordinator,
+        portfolio_urd=100.0,
+    )
+
+    exec_report = SimpleNamespace(
+        broker_order_id=88,
+        perm_id=8802,
+        exec_id="exec-offline-multi",
+        price=99.5,
+        qty=order.qty,
+        fill_time=datetime.now(timezone.utc),
+        commission=0.0,
+    )
+    cache = IBCache()
+    await cache.rebuild_from_broker(
+        _ExecutionSnapshot([exec_report]),
+        oms_order_id_resolver=AsyncMock(return_value=order.oms_order_id),
+        fill_exists_check=repo.fill_exists,
+        fill_importer=lambda oms_id, er: _import_fill_through_adapter_callback(
+            adapter, repo, oms_id, er,
+        ),
+    )
+
+    assert cache.is_fill_seen(exec_report.exec_id)
+    bus.emit_fill_event.assert_called_once()
+    coordinator.on_fill.assert_called_once()
+    coordinator.on_position_update.assert_called_once()
+    assert strategy_risk_states[order.strategy_id].open_risk_R == pytest.approx(1.0)
+    positions = await repo.get_all_positions()
+    assert len(positions) == 1
+    assert positions[0].net_qty == order.qty
+
+
+@pytest.mark.asyncio
+async def test_failed_offline_import_leaves_exec_unmarked() -> None:
+    exec_report = SimpleNamespace(
+        broker_order_id=99,
+        perm_id=8803,
+        exec_id="exec-failed-import",
+        price=100.0,
+        qty=1,
+        fill_time=datetime.now(timezone.utc),
+        commission=0.0,
+    )
+    cache = IBCache()
+
+    await cache.rebuild_from_broker(
+        _ExecutionSnapshot([exec_report]),
+        oms_order_id_resolver=AsyncMock(return_value="oms-failed"),
+        fill_exists_check=AsyncMock(return_value=False),
+        fill_importer=AsyncMock(return_value=False),
+    )
+
+    assert not cache.is_fill_seen(exec_report.exec_id)
 
 
 @pytest.mark.asyncio

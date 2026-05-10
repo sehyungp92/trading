@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any
 
 from ib_async import Contract, Future, IB, Stock
 
+from libs.market_data.futures_roll import active_contract_month, is_supported_quarterly_future
+
 from ..config.schemas import ContractTemplate, ExchangeRoute
 from ..models.types import IBContractSpec
 
@@ -168,6 +170,9 @@ class ContractFactory:
         if template is None:
             return None
         from libs.oms.models.instrument import Instrument
+        resolved_expiry = expiry
+        if template.sec_type == "FUT" and not resolved_expiry and is_supported_quarterly_future(symbol):
+            resolved_expiry = active_contract_month(symbol)
         return Instrument(
             symbol=template.symbol,
             root=symbol,
@@ -176,7 +181,7 @@ class ContractFactory:
             tick_value=template.tick_value,
             multiplier=template.multiplier,
             currency=template.currency,
-            contract_expiry=expiry if template.sec_type == "FUT" else "",
+            contract_expiry=resolved_expiry if template.sec_type == "FUT" else "",
             sec_type=template.sec_type,
             primary_exchange=(route.primary_exchange if route and route.primary_exchange else template.primary_exchange or ""),
             trading_class=(route.trading_class if route and route.trading_class else template.trading_class or ""),
@@ -220,6 +225,19 @@ class ContractFactory:
                 overrides["primary_exchange"] = route.primary_exchange
             if route.trading_class:
                 overrides["trading_class"] = route.trading_class
+        resolved_root = str(overrides.get("root") or symbol or instrument.root or instrument.symbol)
+        resolved_sec_type = str(overrides.get("sec_type") or instrument.sec_type or "").upper()
+        if not resolved_sec_type and is_supported_quarterly_future(resolved_root):
+            resolved_sec_type = "FUT"
+            overrides["sec_type"] = "FUT"
+        if (
+            resolved_sec_type == "FUT"
+            and not overrides.get("contract_expiry")
+            and is_supported_quarterly_future(resolved_root)
+        ):
+            overrides["contract_expiry"] = active_contract_month(resolved_root)
+            if not overrides.get("trading_class"):
+                overrides["trading_class"] = resolved_root.upper()
         return dataclasses.replace(instrument, **overrides)
 
     @staticmethod

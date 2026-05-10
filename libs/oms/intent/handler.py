@@ -6,6 +6,11 @@ from collections import OrderedDict
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from libs.market_data.futures_roll import (
+    roll_blackout_reason,
+    with_contract_expiry_for_order,
+)
+
 from ..models.intent import Intent, IntentType, IntentReceipt, IntentResult
 from ..models.order import OMSOrder, OrderRole, OrderStatus
 from ..engine.state_machine import transition
@@ -94,6 +99,29 @@ class IntentHandler:
         if not order.account_id and self._default_account_id:
             order.account_id = self._default_account_id
 
+        now_utc = datetime.now(timezone.utc)
+        if order.instrument is not None:
+            order.instrument = with_contract_expiry_for_order(
+                order.instrument,
+                order_role=order.role.value,
+                as_of=now_utc,
+            )
+
+        if order.role == OrderRole.ENTRY and order.instrument is not None:
+            denial = roll_blackout_reason(order.instrument, as_of=now_utc)
+            if denial:
+                logger.warning(
+                    "Denying entry during futures roll blackout: strategy=%s symbol=%s reason=%s",
+                    order.strategy_id,
+                    getattr(order.instrument, "symbol", ""),
+                    denial,
+                )
+                return IntentReceipt(
+                    IntentResult.DENIED,
+                    intent_id,
+                    denial_reason=denial,
+                )
+
         # M1: Validate qty > 0
         if order.qty <= 0:
             return IntentReceipt(
@@ -136,7 +164,7 @@ class IntentHandler:
                 self._prune_idemp_cache()
 
         # Set timestamps
-        order.created_at = datetime.now(timezone.utc)
+        order.created_at = now_utc
         order.remaining_qty = order.qty
 
         # 1C: Serialize ENTRY risk-check to persist to prevent concurrent entries

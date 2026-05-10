@@ -262,6 +262,8 @@ def build_instruments() -> dict[str, Instrument]:
             tick_value=spec["tick_value"],
             multiplier=spec["point_value"],
             contract_expiry="",
+            sec_type="FUT",
+            trading_class=sym,
         )
         InstrumentRegistry.register(inst)
         instruments[sym] = inst

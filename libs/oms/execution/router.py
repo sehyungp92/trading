@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from enum import IntEnum
 from typing import Optional, TYPE_CHECKING
 
+from libs.market_data.futures_roll import with_contract_expiry_for_order
+
 from ..models.order import OMSOrder, OrderRole, OrderSide, OrderStatus, OrderType
 from ..models.position import Position
 from ..engine.state_machine import transition
@@ -126,6 +128,12 @@ class ExecutionRouter:
         return order
 
     async def _submit_to_adapter(self, order: OMSOrder) -> None:
+        if order.instrument is not None:
+            order.instrument = with_contract_expiry_for_order(
+                order.instrument,
+                order_role=order.role.value,
+                as_of=datetime.now(timezone.utc),
+            )
         if not transition(order, OrderStatus.ROUTED):
             logger.warning(
                 "Cannot route order %s — transition from %s to ROUTED invalid, skipping submission",

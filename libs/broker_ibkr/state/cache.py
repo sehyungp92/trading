@@ -79,7 +79,7 @@ class IBCache:
         in OMS state (already persisted OR successfully imported). The previous
         behaviour marked every fetched execution seen unconditionally, which
         caused IBKR to re-deliver `execDetailsEvent` for fills that occurred
-        while the runtime was down — and the adapter dropped them as duplicates,
+        while the runtime was down, and the adapter dropped them as duplicates,
         permanently losing the fill from OMS accounting.
         """
         import logging
@@ -131,8 +131,8 @@ class IBCache:
                     self.mark_fill_seen(exec_report.exec_id)
                     continue
 
-                # Execution is missing locally — try to import via OMS fill
-                # processor (idempotent through save_order_fill_and_event).
+                # Execution is missing locally; import through the OMS fill
+                # pipeline before suppressing future broker replays.
                 if fill_importer is None:
                     logger.warning(
                         "Broker execution %s missing in OMS but no importer "
@@ -145,7 +145,7 @@ class IBCache:
                 oms_id = self.lookup_oms_id(broker_id)
                 if not oms_id:
                     logger.warning(
-                        "Cannot import broker exec %s — no OMS order mapping "
+                        "Cannot import broker exec %s: no OMS order mapping "
                         "for broker_order_id=%s; leaving unmarked",
                         exec_report.exec_id, broker_id,
                     )
@@ -164,8 +164,25 @@ class IBCache:
                     self.mark_fill_seen(exec_report.exec_id)
                     imported_count += 1
                 else:
-                    # Importer detected a race-duplicate; safe to mark seen.
-                    self.mark_fill_seen(exec_report.exec_id)
+                    confirmed = False
+                    if fill_exists_check is not None:
+                        try:
+                            confirmed = await fill_exists_check(exec_report.exec_id)
+                        except Exception as check_exc:
+                            logger.error(
+                                "Could not confirm broker exec %s after importer returned False: %s",
+                                exec_report.exec_id, check_exc,
+                            )
+                    if confirmed:
+                        # Importer lost a duplicate-insert race; the fill is
+                        # now present in OMS, so it is safe to suppress replay.
+                        self.mark_fill_seen(exec_report.exec_id)
+                    else:
+                        logger.error(
+                            "Broker exec %s was not imported and is not present in OMS; "
+                            "leaving unmarked for fail-closed replay",
+                            exec_report.exec_id,
+                        )
 
             logger.info(
                 f"IBCache rebuilt: {len(self.order_map)} order mappings, "

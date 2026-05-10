@@ -88,6 +88,31 @@ def test_trading_assistant_momentum_membership_is_current() -> None:
     assert nqdtc_paths == {"strategies/momentum/nqdtc/config.py"}
 
 
+def test_trading_assistant_stock_membership_is_current() -> None:
+    path = CONFIG_DIR.parent / "_references" / "trading_assistant" / "data" / "bot_configs" / "stock_trader.yaml"
+    cfg = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    assert "IARIC_v1" in cfg["strategies"]
+    assert "ALCB_v1" in cfg["strategies"]
+    assert "US_ORB_v1" not in cfg["strategies"]
+
+
+def test_dashboard_fallback_strategy_config_matches_enabled_runtime_roster() -> None:
+    registry = load_strategy_registry(CONFIG_DIR)
+    src = (CONFIG_DIR.parent / "apps" / "dashboard" / "src" / "lib" / "types.ts").read_text(
+        encoding="utf-8"
+    )
+
+    enabled_non_scalp = {
+        strategy.strategy_id
+        for strategy in registry.strategies.values()
+        if strategy.enabled and strategy.family != "scalp"
+    }
+    for strategy_id in enabled_non_scalp:
+        assert strategy_id in src
+    assert "US_ORB_v1" not in src
+
+
 def test_runtime_preflight_flags_stock_readiness_failures_on_scaffold_config(monkeypatch) -> None:
     monkeypatch.delenv("IB_ACCOUNT_ID", raising=False)
     shell = RuntimeShell(CONFIG_DIR)

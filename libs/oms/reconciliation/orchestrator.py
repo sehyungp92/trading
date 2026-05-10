@@ -28,15 +28,15 @@ class ReconciliationOrchestrator:
         bus: "EventBus",
         halt_trading: Optional[Callable[[str], Awaitable[None]]] = None,
         fill_processor: Optional["FillProcessor"] = None,
+        offline_fill_importer: Optional[Callable[[str, object], Awaitable[bool]]] = None,
     ):
         self._adapter = adapter  # IBKRExecutionAdapter
         self._repo = repo
         self._bus = bus
         self._halt_trading = halt_trading
-        # OMS-3: optional FillProcessor for offline-execution import. If None,
-        # the cache rebuild falls back to legacy behaviour (mark-seen without
-        # import — the original bug); production wiring in factory.py always
-        # passes one.
+        # OMS-3: production passes offline_fill_importer so startup broker
+        # executions run through the same side-effect path as live fills.
+        self._offline_fill_importer = offline_fill_importer
         self._fill_processor = fill_processor
         self._policy = DiscrepancyPolicy()
         self._reconciler = ReconcilerSync(self._policy)
@@ -215,11 +215,12 @@ class ReconciliationOrchestrator:
         """
         logger.info("Starting reconciliation...")
 
-        # OMS-3: closure that turns a broker ExecutionReport into a FillProcessor
-        # call. This is invoked from inside cache.rebuild_from_broker for
-        # executions that aren't yet in the OMS fills table — the importer
-        # routes them through the same idempotent path as live execDetailsEvents.
+        # OMS-3: import broker executions that are missing locally. Production
+        # uses the live fill callback pipeline; FillProcessor is a compatibility
+        # fallback for older tests/callers.
         async def _fill_importer(oms_order_id: str, exec_report) -> bool:
+            if self._offline_fill_importer is not None:
+                return await self._offline_fill_importer(oms_order_id, exec_report)
             if self._fill_processor is None:
                 return False
             ts = getattr(exec_report, "fill_time", None) or datetime.now(timezone.utc)
@@ -234,11 +235,11 @@ class ReconciliationOrchestrator:
                     fees=float(commission),
                 )
             except Exception as e:
-                logger.error(
+                logger.exception(
                     "Offline fill import failed for exec_id=%s oms_order_id=%s: %s",
                     exec_report.exec_id, oms_order_id, e,
                 )
-                return False
+                raise
 
         # Rebuild broker->OMS order mappings first so fills/cancels remain routable
         # after a process restart.

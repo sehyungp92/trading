@@ -18,6 +18,8 @@ from typing import Any, Optional
 import numpy as np
 
 # OMS models
+from libs.market_data.futures_roll import roll_blackout_reason, roll_force_flatten_reason
+from libs.market_data.live_futures import req_panama_adjusted_historical_data
 from libs.oms.models.events import OMSEventType
 from libs.oms.models.intent import Intent, IntentType
 from libs.oms.models.order import (
@@ -235,6 +237,8 @@ class DownturnEngine:
         self._position: Optional[ActivePosition] = None
         self._working_entries: list[WorkingEntry] = []
         self._bars_since_last_entry: int = 999
+        self._roll_flatten_pending: bool = False
+        self._roll_flatten_oms_id: str = ""
 
         # ── Engine counters ───────────────────────────────────────────
         self._reversal_ctr = EngineCounters()
@@ -543,6 +547,10 @@ class DownturnEngine:
         # TTL expiry for working entries
         self._expire_working_entries()
 
+        if await self._force_flatten_for_roll(self._last_bar_ts):
+            self._persist_state()
+            return
+
         # Manage existing position
         if self._position is not None:
             self._record_decision("MANAGING_POSITION")
@@ -588,8 +596,10 @@ class DownturnEngine:
         use_rth: bool,
         request_kind: str,
     ) -> list[Any] | None:
-        bars = await self._ib.req_historical_data(
+        bars = await req_panama_adjusted_historical_data(
+            self._ib,
             contract,
+            symbol=self._symbol,
             endDateTime="",
             durationStr=duration,
             barSizeSetting=bar_size,
@@ -1610,11 +1620,14 @@ class DownturnEngine:
 
     async def _flatten(self, reason: str = "market_exit") -> None:
         """Flatten entire position via market order."""
-        await self._oms.submit_intent(Intent(
+        receipt = await self._oms.submit_intent(Intent(
             intent_type=IntentType.FLATTEN,
             strategy_id=C.STRATEGY_ID,
             instrument_symbol=self._symbol,
         ))
+        if reason == "ROLL_SAFETY":
+            self._roll_flatten_oms_id = str(getattr(receipt, "oms_order_id", "") or "")
+            self._roll_flatten_pending = bool(self._roll_flatten_oms_id)
         logger.info("Flatten submitted: reason=%s", reason)
 
     async def _cancel_order(self, oms_order_id: str) -> None:
@@ -2015,24 +2028,100 @@ class DownturnEngine:
         )
         self._apply_core_state(core_state)
         self._apply_core_events(events)
+        self._roll_flatten_pending = False
+        self._roll_flatten_oms_id = ""
         self._momentum_impulse_pending = False
         self._persist_state()
 
     def _on_order_terminal(self, event: Any) -> None:
         """Handle cancelled/expired/rejected orders."""
+        oms_order_id = getattr(event, "oms_order_id", "")
+        is_roll_flatten_terminal = bool(
+            self._roll_flatten_oms_id and oms_order_id == self._roll_flatten_oms_id
+        )
         core_state, _, events = downturn_core_logic.on_order_update(
             self._build_core_state(),
             DownturnOrderUpdate(
-                oms_order_id=getattr(event, "oms_order_id", ""),
+                oms_order_id=oms_order_id,
                 status=str(getattr(getattr(event, "event_type", None), "value", "terminal")).lower(),
                 timestamp=datetime.now(timezone.utc),
             ),
         )
         self._apply_core_state(core_state)
         self._apply_core_events(events)
+        if is_roll_flatten_terminal:
+            self._roll_flatten_pending = False
+            self._roll_flatten_oms_id = ""
+            if self._position is not None:
+                self._record_decision(
+                    "ROLL_FORCE_FLATTEN_RETRY",
+                    {"oms_order_id": oms_order_id},
+                )
+
+    async def _force_flatten_for_roll(self, now: datetime | None) -> bool:
+        if self._position is None:
+            self._roll_flatten_pending = False
+            self._roll_flatten_oms_id = ""
+            return False
+        reason = roll_force_flatten_reason(
+            self._instruments.get(self._symbol) or self._symbol,
+            as_of=now or datetime.now(timezone.utc),
+        )
+        if not reason:
+            return False
+        if self._roll_flatten_pending:
+            self._record_decision(
+                "ROLL_FORCE_FLATTEN_PENDING",
+                {"reason": reason, "oms_order_id": self._roll_flatten_oms_id},
+            )
+            return True
+        self._roll_flatten_pending = True
+        self._record_decision("ROLL_FORCE_FLATTEN", {"reason": reason})
+        logger.critical("Downturn forcing flatten for roll safety: %s", reason)
+        try:
+            await self._flatten("ROLL_SAFETY")
+        except Exception:
+            self._roll_flatten_pending = False
+            self._roll_flatten_oms_id = ""
+            self._record_decision("ROLL_FORCE_FLATTEN_FAILED", {"reason": reason})
+            logger.exception("Downturn roll-safety flatten submission failed")
+        return True
 
     def _expire_working_entries(self) -> None:
         """Cancel entries that exceeded their TTL."""
+        reason = roll_blackout_reason(
+            self._instruments.get(self._symbol) or self._symbol,
+            as_of=self._last_bar_ts or datetime.now(timezone.utc),
+        )
+        if reason and self._working_entries:
+            entries = list(self._working_entries)
+            for we in entries:
+                asyncio.create_task(self._cancel_order(we.oms_order_id))
+                core_state, _, events = downturn_core_logic.on_order_update(
+                    self._build_core_state(),
+                    DownturnOrderUpdate(
+                        oms_order_id=we.oms_order_id,
+                        status="cancelled",
+                        timestamp=datetime.now(timezone.utc),
+                        order_role="entry",
+                    ),
+                )
+                self._apply_core_state(core_state)
+                self._apply_core_events(events)
+                self._log_missed(
+                    signal_name=f"{we.engine_tag.value}_{we.signal_class}",
+                    signal_id=we.oms_order_id,
+                    signal_strength=we.signal_strength,
+                    blocked_by="roll_blackout",
+                    block_reason=reason,
+                    filter_decisions=self._entry_gate_decisions(),
+                    entry_price=we.entry_price,
+                    stop0=we.stop0,
+                )
+            self._record_decision("ENTRY_CANCELLED_BY_ROLL_BLACKOUT", {"reason": reason, "count": len(entries)})
+            logger.warning("Cancelled %d Downturn working entries during roll blackout: %s", len(entries), reason)
+            return
+
         entries_by_id = {we.oms_order_id: we for we in self._working_entries}
         core_state, actions, events = downturn_core_logic.on_bar(
             self._build_core_state(),

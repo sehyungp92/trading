@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -13,6 +14,7 @@ from libs.oms.models.intent import IntentType
 from libs.oms.models.order import OrderRole
 from strategies.core.actions import (
     ReplaceProtectiveStop,
+    SubmitEntry,
     SubmitAddOnEntry,
     SubmitMarketExit,
     SubmitPartialExit,
@@ -149,6 +151,44 @@ def test_entry_filled_routes_to_log_entry():
     assert kwargs["trade_id"] == setup.setup_id
     assert kwargs["entry_price"] == 100.0
     assert kwargs["entry_signal"] == "TYPE_A"
+
+
+@pytest.mark.asyncio
+async def test_cycle_once_routes_core_entry_action_to_oms():
+    kit = _RecordingKit()
+    oms = SimpleNamespace(
+        submit_intent=AsyncMock(return_value=SimpleNamespace(oms_order_id="oms-tpc-entry"))
+    )
+    engine = TPCEngine(
+        ib_session=object(),
+        oms_service=oms,
+        instruments={"QQQ": _instrument("QQQ")},
+        config={"QQQ": SYMBOL_CONFIGS["QQQ"]},
+        kit=kit,
+        equity=10_000.0,
+    )
+    action = SubmitEntry(
+        client_order_id="TPC-QQQ-entry-1",
+        symbol="QQQ",
+        side="BUY",
+        qty=10,
+        order_type="LIMIT",
+        limit_price=100.0,
+        stop_price=99.0,
+        risk_context={"stop_for_risk": 99.0, "planned_entry_price": 100.0},
+        metadata={"setup_id": "TPC-QQQ-1"},
+    )
+    engine._build_bar_input = AsyncMock(return_value=SimpleNamespace(bar_15m=object()))
+    engine.process_bar_input = lambda _bar_input: ([action], [])
+    engine._persist_state = lambda: None
+
+    await engine._cycle_once(request_kind="test")
+
+    oms.submit_intent.assert_awaited_once()
+    intent = oms.submit_intent.await_args.args[0]
+    assert intent.order.strategy_id == "TPC"
+    assert intent.order.client_order_id == "TPC-QQQ-entry-1"
+    assert intent.order.risk_context.risk_dollars == pytest.approx(10.0)
 
 
 def test_exit_filled_routes_to_log_exit_with_pre_position_mfe():

@@ -14,6 +14,8 @@ from typing import Any, Optional
 import numpy as np
 
 from libs.broker_ibkr.risk_support.tick_rules import round_to_tick
+from libs.market_data.futures_roll import roll_blackout_reason, roll_force_flatten_reason
+from libs.market_data.live_futures import req_panama_adjusted_historical_data
 from libs.oms.models.events import OMSEventType
 from libs.oms.models.intent import Intent, IntentType
 from libs.oms.models.order import (
@@ -500,6 +502,10 @@ class NQDTCEngine:
 
         # 8) Manage working orders on every 5m cycle (fix #17)
         await self._manage_working_orders(engine)
+
+        if self._position.open and await self._force_flatten_for_roll(engine, now):
+            self._persist_state()
+            return
 
         # 9) If position open → manage
         if self._position.open:
@@ -1802,8 +1808,53 @@ class NQDTCEngine:
                 return False  # still active
         return True  # no A orders → they expired or were never placed
 
+    async def _force_flatten_for_roll(self, engine: SessionEngineState, now: datetime) -> bool:
+        reason = roll_force_flatten_reason(
+            self._instruments.get(self._symbol) or self._symbol,
+            as_of=now,
+        )
+        if not reason:
+            return False
+        close = self._latest_close_5m(default=self._position.entry_price)
+        open_r = self._position_open_r(close)
+        self._record_decision("ROLL_FORCE_FLATTEN", {"reason": reason, "open_r": open_r})
+        logger.critical("NQDTC forcing flatten for roll safety: %s", reason)
+        await self._flatten(engine, open_r, reason="ROLL_SAFETY")
+        return True
+
+    def _latest_close_5m(self, *, default: float = 0.0) -> float:
+        close = self._bars_5m.get("close")
+        if close is None or len(close) == 0:
+            return float(default)
+        return float(close[-1])
+
+    def _position_open_r(self, close: float) -> float:
+        pos = self._position
+        r_pts = abs(pos.entry_price - pos.initial_stop_price)
+        if r_pts <= 0:
+            return 0.0
+        if pos.direction == Direction.LONG:
+            return (close - pos.entry_price) / r_pts
+        if pos.direction == Direction.SHORT:
+            return (pos.entry_price - close) / r_pts
+        return 0.0
+
     async def _manage_working_orders(self, engine: SessionEngineState) -> None:
         """Cancel expired or invalidated working orders."""
+        reason = roll_blackout_reason(
+            self._instruments.get(self._symbol) or self._symbol,
+            as_of=self._last_bar_ts or datetime.now(timezone.utc),
+        )
+        if reason and self._working_orders:
+            for wo in list(self._working_orders):
+                await self._cancel_order(wo.oms_order_id)
+            cancelled = len(self._working_orders)
+            self._working_orders.clear()
+            self._a_fallback_eligible = False
+            self._record_decision("ENTRY_CANCELLED_BY_ROLL_BLACKOUT", {"reason": reason, "count": cancelled})
+            logger.warning("Cancelled %d NQDTC working entries during roll blackout: %s", cancelled, reason)
+            return
+
         c5 = self._bars_5m.get("close")
         if c5 is None or len(c5) == 0:
             return
@@ -2535,8 +2586,10 @@ class NQDTCEngine:
         request_kind: str,
         use_rth: bool = False,
     ) -> list | None:
-        bars = await self._ib.req_historical_data(
+        bars = await req_panama_adjusted_historical_data(
+            self._ib,
             contract,
+            symbol=self._symbol,
             endDateTime="",
             durationStr=duration,
             barSizeSetting=bar_size,

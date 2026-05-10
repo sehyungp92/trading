@@ -340,6 +340,8 @@ def build_instruments() -> dict[str, Instrument]:
             point_value=spec.point_value,
             currency="USD",
             contract_expiry="",
+            sec_type="FUT",
+            trading_class=symbol,
         )
         InstrumentRegistry.register(instrument)
         instruments[symbol] = instrument

@@ -49,14 +49,15 @@ export interface StrategyConfig {
 }
 
 export const STRATEGY_CONFIG: Record<string, StrategyConfig> = {
-  ATRSS:                { system: 'swing_trader',    maxHeatR: 1.85, riskPct: 1.6,  priority: 0, dailyStopR: 2.25 },
-  AKC_HELIX:            { system: 'swing_trader',    maxHeatR: 1.50, riskPct: 0.9,  priority: 1, dailyStopR: 2.5 },
+  ATRSS:                { system: 'swing_trader',    maxHeatR: 2.15, riskPct: 1.65, priority: 0, dailyStopR: 2.25 },
+  TPC:                  { system: 'swing_trader',    maxHeatR: 4.00, riskPct: 0.50, priority: 1, dailyStopR: 2.0 },
+  AKC_HELIX:            { system: 'swing_trader',    maxHeatR: 2.10, riskPct: 1.30, priority: 2, dailyStopR: 2.5 },
   'NQDTC_v2.1':         { system: 'momentum_trader', maxHeatR: 3.50, riskPct: 0.45, priority: 1, dailyStopR: 2.5 },
-  NQ_REGIME:            { system: 'momentum_trader', maxHeatR: 1.50, riskPct: 0.68, priority: 0, dailyStopR: 3.0 },
-  VdubusNQ_v4:          { system: 'momentum_trader', maxHeatR: 3.50, riskPct: 0.6,  priority: 0, dailyStopR: 2.5 },
-  DownturnDominator_v1: { system: 'momentum_trader', maxHeatR: 3.50, riskPct: 0.4,  priority: 1, dailyStopR: 2.0 },
-  IARIC_v1:             { system: 'stock_trader',    maxHeatR: 6.00, riskPct: 0.8,  priority: 0, dailyStopR: 2.75 },
-  ALCB_v1:              { system: 'stock_trader',    maxHeatR: 4.40, riskPct: 0.65, priority: 1, dailyStopR: 2.35 },
+  NQ_REGIME:            { system: 'momentum_trader', maxHeatR: 1.50, riskPct: 0.60, priority: 0, dailyStopR: 3.0 },
+  VdubusNQ_v4:          { system: 'momentum_trader', maxHeatR: 3.50, riskPct: 0.65, priority: 0, dailyStopR: 2.5 },
+  DownturnDominator_v1: { system: 'momentum_trader', maxHeatR: 3.50, riskPct: 0.40, priority: 1, dailyStopR: 2.0 },
+  IARIC_v1:             { system: 'stock_trader',    maxHeatR: 5.40, riskPct: 0.864, priority: 0, dailyStopR: 2.75 },
+  ALCB_v1:              { system: 'stock_trader',    maxHeatR: 4.00, riskPct: 0.702, priority: 1, dailyStopR: 2.35 },
 };
 
 /** Map family_id from DB to SystemId */

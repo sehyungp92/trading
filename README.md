@@ -15,7 +15,6 @@ Trades ETFs (QQQ, GLD) on hourly/daily timeframes. All strategies share a single
 | **AKC Helix** | Trend-following with regime filtering across two ETFs. EMA-based trend alignment with ATR stops. |
 | **ATRSS** | ATR-calibrated multi-leg breakout/reentry with chandelier trailing and stall detection. Quality gate filters low-conviction setups. |
 | **TPC** | Trend pullback continuation on Fibonacci retracement levels (Type A/B/C depth bands) with 4H regime gating, multi-trigger micro-confirmation, and scored setup sizing. |
-| **Overlay** | Deploys idle cash via daily EMA crossover rebalancing. Zero additional margin cost — uses capital not committed to swing risk. |
 
 ### Momentum Family (4 strategies)
 

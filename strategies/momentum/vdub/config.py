@@ -286,6 +286,7 @@ def build_instruments() -> list[Instrument]:
             tick_size=mnq["tick"], tick_value=mnq["tick_value"],
             multiplier=mnq["point_value"], currency="USD",
             point_value=mnq["point_value"], contract_expiry="",
+            sec_type="FUT", trading_class=DEFAULT_SYMBOL,
         ),
     ]
     for inst in instruments:

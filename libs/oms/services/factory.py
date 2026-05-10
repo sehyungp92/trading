@@ -628,7 +628,14 @@ async def build_oms_service(
     # Reconciler — wire halt_trading if provided, else use internal _halt_trading
     _halt_cb = halt_trading if halt_trading is not None else _halt_trading
     reconciler = ReconciliationOrchestrator(
-        adapter, repo, bus, halt_trading=_halt_cb, fill_processor=fill_proc,
+        adapter,
+        repo,
+        bus,
+        halt_trading=_halt_cb,
+        fill_processor=fill_proc,
+        offline_fill_importer=lambda oms_id, exec_report: _import_fill_through_adapter_callback(
+            adapter, repo, oms_id, exec_report,
+        ),
     )
 
     # C4 fix: Order timeout monitor for stuck ROUTED / CANCEL_REQUESTED states
@@ -1009,7 +1016,14 @@ async def build_multi_strategy_oms(
     # Reconciler (shared) — with halt callback
     _halt_cb = halt_trading if halt_trading is not None else _internal_halt_trading
     reconciler = ReconciliationOrchestrator(
-        adapter, repo, bus, halt_trading=_halt_cb, fill_processor=fill_proc,
+        adapter,
+        repo,
+        bus,
+        halt_trading=_halt_cb,
+        fill_processor=fill_proc,
+        offline_fill_importer=lambda oms_id, exec_report: _import_fill_through_adapter_callback(
+            adapter, repo, oms_id, exec_report,
+        ),
     )
 
     # Timeout monitor
@@ -1113,23 +1127,23 @@ def _task_exception_handler(task: "asyncio.Task", bus: EventBus = None) -> None:
                 logger.error("Failed to emit RISK_HALT after callback exception")
 
 
-def _make_order_callback_dispatcher(bus: EventBus) -> Callable[[str, Callable[[], Awaitable[None]]], None]:
+def _make_order_callback_dispatcher(bus: EventBus) -> Callable[[str, Callable[[], Awaitable[object]]], object]:
     """Serialize broker callbacks per order while preserving cross-order concurrency."""
     import asyncio
 
     background_tasks: set[asyncio.Task] = set()
     tails: dict[str, asyncio.Task] = {}
 
-    def _dispatch(oms_order_id: str, coro_factory: Callable[[], Awaitable[None]]) -> None:
+    def _dispatch(oms_order_id: str, coro_factory: Callable[[], Awaitable[object]]) -> object:
         previous = tails.get(oms_order_id)
 
-        async def _run() -> None:
+        async def _run() -> object:
             if previous is not None:
                 try:
                     await previous
                 except BaseException:
                     pass
-            await coro_factory()
+            return await coro_factory()
 
         task = asyncio.create_task(_run())
         background_tasks.add(task)
@@ -1142,6 +1156,7 @@ def _make_order_callback_dispatcher(bus: EventBus) -> Callable[[str, Callable[[]
 
         task.add_done_callback(_cleanup)
         tails[oms_order_id] = task
+        return task
 
     return _dispatch
 
@@ -1237,6 +1252,41 @@ async def _halt_unknown_exit_position(
     bus.emit_risk_halt(strategy_id, reason)
     if halt_trading is not None:
         await halt_trading(reason)
+
+
+async def _import_fill_through_adapter_callback(
+    adapter,
+    repo,
+    oms_order_id: str,
+    exec_report,
+) -> bool:
+    """Run offline broker executions through the live adapter fill pipeline."""
+    on_fill = getattr(adapter, "on_fill", None)
+    if on_fill is None:
+        logger.error("Offline fill import requested before adapter.on_fill was wired")
+        return False
+
+    fill_ts = getattr(exec_report, "fill_time", None) or datetime.now(timezone.utc)
+    commission = getattr(exec_report, "commission", 0.0) or 0.0
+    result = on_fill(
+        oms_order_id,
+        exec_report.exec_id,
+        float(exec_report.price),
+        float(exec_report.qty),
+        fill_ts,
+        float(commission),
+    )
+    if result is not None and hasattr(result, "__await__"):
+        imported = await result
+        if isinstance(imported, bool):
+            if imported and not await repo.fill_exists(exec_report.exec_id):
+                logger.error(
+                    "Offline fill importer reported success but fill is missing: exec_id=%s",
+                    exec_report.exec_id,
+                )
+                return False
+            return imported
+    return await repo.fill_exists(exec_report.exec_id)
 
 
 def _wire_adapter_callbacks(
@@ -1374,7 +1424,7 @@ def _wire_adapter_callbacks(
             order = await repo.get_order(oms_order_id)
             if not order:
                 logger.warning(f"Adapter fill for unknown order: {oms_order_id}")
-                return
+                return False
 
             # 1. Update OMS order state (filled_qty, status, avg_fill_price)
             fill_ts = timestamp if isinstance(timestamp, datetime) else datetime.now(timezone.utc)
@@ -1387,7 +1437,7 @@ def _wire_adapter_callbacks(
             # the only barrier preventing double-counted realized P&L and
             # double-released open risk after a duplicate fill.
             if not inserted:
-                return
+                return False
 
             # 2. Emit fill event to strategy
             fill_data = {
@@ -1481,7 +1531,7 @@ def _wire_adapter_callbacks(
                         qty=qty,
                         price=price,
                     )
-                    return
+                    return True
                 if pos:
                     # Reduce open risk
                     released_R = pos["risk_per_contract_R"] * qty
@@ -1574,8 +1624,9 @@ def _wire_adapter_callbacks(
                 await persist_portfolio_risk_state(fill_ts)
 
             logger.info(f"Adapter fill processed: {oms_order_id} {qty}@{price} for {sid}/{instr_sym}")
+            return True
 
-        dispatch_order_callback(oms_order_id, _emit_fill)
+        return dispatch_order_callback(oms_order_id, _emit_fill)
 
     def on_status(oms_order_id: str, status: str, remaining: float) -> None:
         """Handle status update from broker."""
@@ -1737,7 +1788,7 @@ def _wire_adapter_callbacks_multi(
             order = await repo.get_order(oms_order_id)
             if not order:
                 logger.warning(f"Adapter fill for unknown order: {oms_order_id}")
-                return
+                return False
 
             fill_ts = timestamp if isinstance(timestamp, datetime) else datetime.now(timezone.utc)
             inserted = await fill_proc.process_fill(oms_order_id, exec_id, price, qty, fill_ts, commission)
@@ -1746,7 +1797,7 @@ def _wire_adapter_callbacks_multi(
             # Without this, IBKR exec replays would double-count risk across
             # the swing family's shared multi-strategy OMS.
             if not inserted:
-                return
+                return False
 
             fill_data = {
                 "exec_id": exec_id,
@@ -1842,7 +1893,7 @@ def _wire_adapter_callbacks_multi(
                         qty=qty,
                         price=price,
                     )
-                    return
+                    return True
                 if pos:
                     released_R = pos["risk_per_contract_R"] * qty
                     released_dollars = released_R * urd
@@ -1941,8 +1992,9 @@ def _wire_adapter_callbacks_multi(
                 await persist_portfolio_risk_state(fill_ts)
 
             logger.info(f"Multi-OMS fill: {oms_order_id} {qty}@{price} for {sid}/{instr_sym}")
+            return True
 
-        dispatch_order_callback(oms_order_id, _emit_fill)
+        return dispatch_order_callback(oms_order_id, _emit_fill)
 
     def on_status(oms_order_id: str, status: str, remaining: float) -> None:
         loop = _get_running_loop()

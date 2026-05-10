@@ -7,6 +7,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from libs.market_data.futures_roll import roll_blackout_reason, roll_force_flatten_reason
+from libs.market_data.live_futures import req_panama_adjusted_historical_data
 from libs.oms.models.events import OMSEventType
 from libs.oms.models.intent import Intent, IntentType
 from libs.oms.models.order import OMSOrder, OrderRole, OrderSide, OrderType, RiskContext
@@ -112,6 +114,8 @@ class NQRegimeEngine:
         self._prev_regime: Any = None
         self._daily_levels: KeyLevels | None = None
         self._daily_levels_session_date: str = ""
+        self._roll_flatten_pending: bool = False
+        self._roll_flatten_oms_id: str = ""
 
     async def start(self) -> None:
         """STRAT-2 / Phase D live wiring.
@@ -220,6 +224,11 @@ class NQRegimeEngine:
             self._emit_regime_coordination(new_regime)
         self._prev_regime = new_regime
 
+        if await self._force_flatten_for_roll(bar_data.ts):
+            self._sync_health_fields()
+            self._persist_state()
+            return
+
         for action in actions:
             await self._dispatch_action(action)
         self._sync_health_fields()
@@ -303,8 +312,10 @@ class NQRegimeEngine:
             logger.debug("NQ_REGIME: contract qualification failed", exc_info=True)
 
         try:
-            bars = await self._ib.req_historical_data(
+            bars = await req_panama_adjusted_historical_data(
+                self._ib,
                 contract,
+                symbol=self._settings.analysis_symbol,
                 endDateTime="",
                 durationStr="2 D",
                 barSizeSetting="5 mins",
@@ -363,8 +374,10 @@ class NQRegimeEngine:
         except Exception:
             logger.debug("NQ_REGIME: daily contract qualification failed", exc_info=True)
         try:
-            bars = await self._ib.req_historical_data(
+            bars = await req_panama_adjusted_historical_data(
+                self._ib,
                 contract,
+                symbol=self._settings.analysis_symbol,
                 endDateTime="",
                 durationStr="10 D",
                 barSizeSetting="1 day",
@@ -463,6 +476,9 @@ class NQRegimeEngine:
                 exit_type=str(payload.get("exit_type", "")),
             )
             self._state, actions, events = core_on_fill(self._state, fill, settings=self._settings)
+            if self._state.position_side is TradeSide.FLAT or self._state.qty_open <= 0:
+                self._roll_flatten_pending = False
+                self._roll_flatten_oms_id = ""
             self._record_events(events)
 
             # Detect entry fill: was FLAT, now has position
@@ -481,8 +497,12 @@ class NQRegimeEngine:
             return
 
         if etype in (OMSEventType.ORDER_CANCELLED, OMSEventType.ORDER_REJECTED, OMSEventType.ORDER_EXPIRED):
+            oms_order_id = str(getattr(event, "oms_order_id", ""))
+            is_roll_flatten_terminal = bool(
+                self._roll_flatten_oms_id and oms_order_id == self._roll_flatten_oms_id
+            )
             update = OrderUpdateEvent(
-                oms_order_id=str(getattr(event, "oms_order_id", "")),
+                oms_order_id=oms_order_id,
                 status=etype.value if hasattr(etype, "value") else str(etype),
                 timestamp=_event_ts(event),
                 symbol=self._settings.trade_symbol,
@@ -491,13 +511,105 @@ class NQRegimeEngine:
             self._record_events(events)
             for action in actions:
                 await self._dispatch_action(action)
+            if is_roll_flatten_terminal:
+                self._roll_flatten_pending = False
+                self._roll_flatten_oms_id = ""
+                if self._state.position_side is not TradeSide.FLAT and self._state.qty_open > 0:
+                    self._record_decision(
+                        "ROLL_FORCE_FLATTEN_RETRY",
+                        {"oms_order_id": oms_order_id, "status": update.status},
+                        update.timestamp,
+                    )
+                    await self._force_flatten_for_roll(update.timestamp)
             self._sync_health_fields()
             self._persist_state()
+
+    async def _force_flatten_for_roll(self, now: datetime) -> bool:
+        if self._oms is None:
+            return False
+        if self._state.position_side is TradeSide.FLAT or self._state.qty_open <= 0:
+            self._roll_flatten_pending = False
+            self._roll_flatten_oms_id = ""
+            return False
+        instrument = self._instrument(self._settings.trade_symbol)
+        reason = roll_force_flatten_reason(instrument, as_of=now)
+        if not reason:
+            return False
+        if self._roll_flatten_pending:
+            self._record_decision(
+                "ROLL_FORCE_FLATTEN_PENDING",
+                {"reason": reason, "oms_order_id": self._roll_flatten_oms_id},
+            )
+            return True
+        for order_id in [
+            self._state.working_entry_order_id,
+            self._state.working_stop_order_id,
+            *self._state.working_target_order_ids,
+        ]:
+            if order_id:
+                try:
+                    await self._oms.submit_intent(
+                        Intent(
+                            intent_type=IntentType.CANCEL_ORDER,
+                            strategy_id=config.STRATEGY_ID,
+                            target_oms_order_id=order_id,
+                        )
+                    )
+                except Exception:
+                    logger.warning("NQ_REGIME roll-safety cancel failed for %s", order_id, exc_info=True)
+        try:
+            receipt = await self._oms.submit_intent(
+                Intent(
+                    intent_type=IntentType.FLATTEN,
+                    strategy_id=config.STRATEGY_ID,
+                    instrument_symbol=self._settings.trade_symbol,
+                )
+            )
+        except Exception:
+            self._roll_flatten_pending = False
+            self._roll_flatten_oms_id = ""
+            self._record_decision("ROLL_FORCE_FLATTEN_FAILED", {"reason": reason}, now)
+            logger.exception("NQ_REGIME roll-safety flatten submission failed")
+            return True
+        self._roll_flatten_oms_id = str(getattr(receipt, "oms_order_id", "") or "")
+        self._roll_flatten_pending = bool(self._roll_flatten_oms_id)
+        self._record_decision(
+            "ROLL_FORCE_FLATTEN",
+            {"reason": reason, "oms_order_id": self._roll_flatten_oms_id},
+            now,
+        )
+        logger.critical("NQ_REGIME forcing flatten for roll safety: %s", reason)
+        return True
 
     async def _dispatch_action(self, action: Any) -> None:
         if self._oms is None:
             return
         if isinstance(action, SubmitEntry):
+            now = datetime.now(timezone.utc)
+            instrument = self._instrument(action.symbol)
+            denial = roll_blackout_reason(instrument, as_of=now)
+            if denial:
+                self._state, _, events = core_on_order_update(
+                    self._state,
+                    OrderUpdateEvent(
+                        oms_order_id=action.client_order_id,
+                        status="rejected",
+                        timestamp=now,
+                        symbol=action.symbol,
+                        order_role="entry",
+                        reason=denial,
+                    ),
+                )
+                self._record_events(events)
+                self._record_decision(
+                    "ENTRY_BLOCKED_BY_ROLL_BLACKOUT",
+                    {"reason": denial, "symbol": action.symbol},
+                    now,
+                )
+                self._sync_health_fields()
+                self._persist_state()
+                logger.warning("NQ_REGIME entry blocked by roll blackout: %s", denial)
+                return
             receipt = await self._oms.submit_intent(
                 Intent(intent_type=IntentType.NEW_ORDER, strategy_id=config.STRATEGY_ID, order=self._order_from_entry(action))
             )

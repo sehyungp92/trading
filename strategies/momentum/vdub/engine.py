@@ -13,6 +13,8 @@ from typing import Any, Optional
 import numpy as np
 
 from libs.broker_ibkr.risk_support.tick_rules import round_to_tick
+from libs.market_data.futures_roll import roll_blackout_reason, roll_force_flatten_reason
+from libs.market_data.live_futures import req_panama_adjusted_historical_data
 from libs.oms.models.events import OMSEventType
 from libs.oms.models.intent import Intent, IntentType
 from libs.oms.models.order import (
@@ -584,6 +586,9 @@ class VdubNQv4Engine:
         # 1) Manage working entries (TTL, teleport, fallback)
         await self._manage_working_entries()
 
+        if await self._force_flatten_for_roll(now):
+            return
+
         # 2) Manage open positions
         await self._manage_positions(now)
 
@@ -990,7 +995,39 @@ class VdubNQv4Engine:
     # Working entry management (Section 15)
     # ------------------------------------------------------------------
 
+    async def _force_flatten_for_roll(self, now: datetime) -> bool:
+        reason = roll_force_flatten_reason(
+            self._instruments.get(self._symbol) or self._symbol,
+            as_of=now,
+        )
+        if not reason:
+            return False
+        open_positions = [pos for pos in list(self.positions) if pos.qty_open > 0]
+        if not open_positions:
+            return False
+        self._record_decision("ROLL_FORCE_FLATTEN", {"reason": reason, "count": len(open_positions)})
+        logger.critical("Vdub forcing %d positions flat for roll safety: %s", len(open_positions), reason)
+        for pos in open_positions:
+            await self._flatten_position(pos, "ROLL_SAFETY")
+        return True
+
     async def _manage_working_entries(self) -> None:
+        reason = roll_blackout_reason(
+            self._instruments.get(self._symbol) or self._symbol,
+            as_of=self._last_bar_ts or datetime.now(timezone.utc),
+        )
+        if reason and self.working_entries:
+            to_cancel = list(self.working_entries)
+            for oms_id in to_cancel:
+                await self._cancel_order(oms_id)
+            self.working_entries.clear()
+            self._record_decision(
+                "ENTRY_CANCELLED_BY_ROLL_BLACKOUT",
+                {"reason": reason, "count": len(to_cancel)},
+            )
+            logger.warning("Cancelled %d Vdub working entries during roll blackout: %s", len(to_cancel), reason)
+            return
+
         for oms_id, we in list(self.working_entries.items()):
             bars_since = self._bar_idx - we.submitted_bar_idx
 
@@ -1970,8 +2007,10 @@ class VdubNQv4Engine:
         if contract is None:
             return None
         try:
-            bars = await self._ib.req_historical_data(
-                contract, endDateTime="", durationStr=duration,
+            bars = await req_panama_adjusted_historical_data(
+                self._ib, contract,
+                symbol=self._symbol,
+                endDateTime="", durationStr=duration,
                 barSizeSetting=bar_size, whatToShow="TRADES",
                 useRTH=use_rth, formatDate=1, request_kind=request_kind,
                 completed_only=True,
