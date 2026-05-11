@@ -6,7 +6,7 @@ Systematic trading system running **9 strategies** across **3 families** — swi
 
 ## Strategy Families
 
-### Swing Family (3 strategies + overlay)
+### Swing Family (3 strategies)
 
 Trades ETFs (QQQ, GLD) on hourly/daily timeframes. All strategies share a single OMS instance with coordinated position management.
 

@@ -1,4 +1,3 @@
-import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -25,7 +24,6 @@ async def test_alcb_fetch_bars_passes_timeout_and_retries_timeout_empty(monkeypa
         async def reqHistoricalDataAsync(self, *args, **kwargs):
             self.calls.append((args, kwargs))
             if len(self.calls) == 1:
-                await asyncio.sleep(0.002)
                 return []
             return [bar]
 
@@ -34,6 +32,12 @@ async def test_alcb_fetch_bars_passes_timeout_and_retries_timeout_empty(monkeypa
 
     monkeypatch.setattr(alcb_research, "HISTORICAL_REQUEST_TIMEOUT", 0.001)
     monkeypatch.setattr(alcb_research, "HISTORICAL_TIMEOUT_RETRY_DELAYS", (0.0,))
+    ticks = iter([0.0, 0.001, 0.001, 0.001])
+    monkeypatch.setattr(
+        alcb_research,
+        "time",
+        SimpleNamespace(monotonic=lambda: next(ticks)),
+    )
 
     bars = await alcb_research._fetch_bars(ib, contract, "90 D", "30 mins")
 

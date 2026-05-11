@@ -1,8 +1,8 @@
 """Focused live stock universe shared by stock strategies.
 
 The broad ``SP500_CONSTITUENTS`` list remains available for historical
-backtest/research tooling. Live stock selection is intentionally narrower:
-the intraday backtest cohort plus Nasdaq-100 and Dow Jones additions.
+backtest/research tooling. Live stock selection is intentionally limited to
+the intraday backtest cohort while IB historical-data pacing is stabilized.
 """
 
 from __future__ import annotations
@@ -111,7 +111,8 @@ BACKTESTED_INTRADAY_STOCK_SYMBOLS: tuple[str, ...] = (
     "ZTS",
 )
 
-# Current component snapshots checked on 2026-05-03.
+# Current component snapshots checked on 2026-05-03. These lists are kept for
+# future expansion, but are not part of the active live universe for now.
 NASDAQ_100_SYMBOLS: tuple[str, ...] = (
     "ADBE",
     "AMD",
@@ -362,8 +363,6 @@ def _constituents_for(symbols: tuple[str, ...]) -> tuple[tuple[str, str, str], .
 
 LIVE_STOCK_UNIVERSE_SYMBOLS: tuple[str, ...] = _unique_symbols(
     BACKTESTED_INTRADAY_STOCK_SYMBOLS,
-    NASDAQ_100_SYMBOLS,
-    DOW_JONES_SYMBOLS,
 )
 
 LIVE_STOCK_UNIVERSE_ADDED_SYMBOLS: tuple[str, ...] = tuple(
