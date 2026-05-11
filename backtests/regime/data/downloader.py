@@ -3,8 +3,12 @@ from __future__ import annotations
 
 import logging
 import os
+import time
+from datetime import datetime, timedelta, timezone
+from importlib import metadata
 from pathlib import Path
-from typing import Tuple
+from typing import Any, Tuple
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -26,6 +30,9 @@ _ICSA_SERIES_ID = "ICSA"
 # ETF tickers for yfinance
 _ETF_TICKERS = ["SPY", "EFA", "TLT", "GLD", "BIL"]
 _FEATURE_ETF_TICKERS = ["DBC"]  # Invesco DB Commodity Index (inception 2006-02)
+_ET = ZoneInfo("America/New_York")
+_DAILY_BAR_COMPLETE_HOUR_ET = 17
+_DAILY_BAR_COMPLETE_MINUTE_ET = 5
 
 def _require_fred_key() -> str:
     key = os.environ.get("FRED_API_KEY", "")
@@ -45,7 +52,10 @@ def _download_fred(start: str = "2002-01-01") -> pd.DataFrame:
     frames = {}
     for col, series_id in _FRED_SERIES.items():
         logger.info("Downloading FRED %s (%s)", col, series_id)
-        s = fred.get_series(series_id, observation_start=start)
+        s = _fred_call_with_retries(
+            lambda: fred.get_series(series_id, observation_start=start),
+            label=f"FRED {col} ({series_id})",
+        )
         s.name = col
         frames[col] = s
 
@@ -68,7 +78,10 @@ def _download_icsa_vintage(start: str = "2002-01-01") -> pd.Series:
     fred = Fred(api_key=key)
 
     logger.info("Downloading ICSA via ALFRED (point-in-time vintages)")
-    releases = fred.get_series_all_releases(_ICSA_SERIES_ID)
+    releases = _fred_call_with_retries(
+        lambda: fred.get_series_all_releases(_ICSA_SERIES_ID),
+        label=f"ALFRED {_ICSA_SERIES_ID}",
+    )
     # releases is a DataFrame with columns: realtime_start, date, value
     # or a MultiIndex Series — normalize to DataFrame
     if isinstance(releases, pd.Series):
@@ -99,6 +112,27 @@ def _download_icsa_vintage(start: str = "2002-01-01") -> pd.Series:
     return first_release
 
 
+def _fred_call_with_retries(call, *, label: str, max_attempts: int = 4):
+    """Run a FRED/ALFRED request with bounded backoff for transient outages."""
+    last_exc: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return call()
+        except Exception as exc:
+            last_exc = exc
+            if attempt >= max_attempts:
+                break
+            wait = min(2 ** (attempt - 1), 8)
+            logger.warning(
+                "%s request failed on attempt %d/%d: %s; retrying in %ss",
+                label, attempt, max_attempts, exc, wait,
+            )
+            time.sleep(wait)
+    raise RuntimeError(
+        f"{label} request failed after {max_attempts} attempts: {last_exc}"
+    ) from last_exc
+
+
 def _download_etf_prices(start: str = "2002-01-01") -> pd.DataFrame:
     """Download adjusted close prices for ETFs via yfinance."""
     import yfinance as yf
@@ -114,7 +148,7 @@ def _download_etf_prices(start: str = "2002-01-01") -> pd.DataFrame:
     # Remove timezone info if present
     if prices.index.tz is not None:
         prices.index = prices.index.tz_localize(None)
-    return prices
+    return _filter_completed_daily_prices(prices)
 
 
 def _download_feature_etfs(start: str = "2002-01-01") -> pd.DataFrame:
@@ -136,11 +170,44 @@ def _download_feature_etfs(start: str = "2002-01-01") -> pd.DataFrame:
     prices.index.name = "date"
     if prices.index.tz is not None:
         prices.index = prices.index.tz_localize(None)
-    return prices
+    return _filter_completed_daily_prices(prices)
+
+
+def _filter_completed_daily_prices(
+    prices: pd.DataFrame,
+    *,
+    now: datetime | None = None,
+) -> pd.DataFrame:
+    """Drop any current-session row before the completed daily-bar cutoff."""
+    if prices.empty:
+        return prices
+    completed = _latest_completed_us_equity_session(now or datetime.now(timezone.utc))
+    return prices.loc[prices.index <= completed].copy()
+
+
+def _latest_completed_us_equity_session(now: datetime) -> pd.Timestamp:
+    """Return the latest US weekday whose daily bar should be complete."""
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    now_et = now.astimezone(_ET)
+    candidate = now_et.date()
+    cutoff = now_et.replace(
+        hour=_DAILY_BAR_COMPLETE_HOUR_ET,
+        minute=_DAILY_BAR_COMPLETE_MINUTE_ET,
+        second=0,
+        microsecond=0,
+    )
+    if now_et < cutoff:
+        candidate -= timedelta(days=1)
+    while candidate.weekday() >= 5:
+        candidate -= timedelta(days=1)
+    return pd.Timestamp(candidate)
 
 
 def build_all_data(
     data_dir: Path | None = None,
+    *,
+    write_manifest: bool = True,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Download all data, build the three DataFrames, cache as parquet.
 
@@ -218,6 +285,14 @@ def build_all_data(
     macro_df.to_parquet(data_dir / "macro_df.parquet")
     market_df.to_parquet(data_dir / "market_df.parquet")
     strat_ret_df.to_parquet(data_dir / "strat_ret_df.parquet")
+    if write_manifest:
+        from regime.seed_manifest import write_seed_manifest
+
+        write_seed_manifest(
+            data_dir,
+            generated_by="backtests.regime.data.downloader.build_all_data",
+            source_versions=_source_versions(),
+        )
 
     logger.info("Saved 3 parquet files to %s", data_dir)
     return macro_df, market_df, strat_ret_df
@@ -234,3 +309,36 @@ def load_cached_data(
     market_df = pd.read_parquet(data_dir / "market_df.parquet")
     strat_ret_df = pd.read_parquet(data_dir / "strat_ret_df.parquet")
     return macro_df, market_df, strat_ret_df
+
+
+def write_manifest_for_cached_data(data_dir: Path | None = None) -> dict[str, Any]:
+    """Write a manifest for already-cached regime seed parquet files."""
+    if data_dir is None:
+        data_dir = Path("backtests/regime/data/raw")
+    from regime.seed_manifest import write_seed_manifest
+
+    return write_seed_manifest(
+        Path(data_dir),
+        generated_by="backtests.regime.data.downloader.write_manifest_for_cached_data",
+        source_versions=_source_versions(),
+    )
+
+
+def _source_versions() -> dict[str, Any]:
+    packages: dict[str, str] = {}
+    for package in ("fredapi", "yfinance", "pandas", "pyarrow"):
+        try:
+            packages[package] = metadata.version(package)
+        except metadata.PackageNotFoundError:
+            packages[package] = "not-installed"
+    return {
+        "providers": {
+            "fred": _FRED_SERIES,
+            "alfred": {"GROWTH": _ICSA_SERIES_ID},
+            "price_provider": "yfinance",
+            "etf_tickers": list(_ETF_TICKERS),
+            "feature_etf_tickers": list(_FEATURE_ETF_TICKERS),
+        },
+        "packages": packages,
+        "fred_api_key_present": bool(os.environ.get("FRED_API_KEY")),
+    }

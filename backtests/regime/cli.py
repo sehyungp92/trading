@@ -2,6 +2,8 @@
 
 Usage:
     python -m backtests.regime.cli download
+    python -m backtests.regime.cli seed-refresh
+    python -m backtests.regime.cli seed-validate --require-manifest
     python -m backtests.regime.cli run [--diagnostics]
     python -m backtests.regime.cli optimize [--max-rounds N] [--max-workers N]
     python -m backtests.regime.cli walk-forward [--test-years 2]
@@ -198,6 +200,66 @@ def cmd_download(args: argparse.Namespace) -> None:
     print(f"  NaN: {strat_ret_df.isna().sum().to_dict()}")
 
     print(f"\nFiles saved to: {data_dir}")
+    print(f"Manifest saved to: {data_dir / 'regime_seed_manifest.json'}")
+
+
+def cmd_seed_refresh(args: argparse.Namespace) -> None:
+    """Refresh deployment seed parquets and write a manifest."""
+    from backtests.regime.data.downloader import (
+        build_all_data,
+        write_manifest_for_cached_data,
+    )
+    from regime.seed_manifest import validate_seed_data_dir
+
+    data_dir = Path(args.data_dir)
+    if args.manifest_only:
+        print(f"Writing manifest for cached seed data in {data_dir}...")
+        manifest = write_manifest_for_cached_data(data_dir)
+    else:
+        print(f"Refreshing regime seed data in {data_dir}...")
+        print("Sources: FRED/ALFRED for macro/market data, yfinance for ETF seed prices.")
+        build_all_data(data_dir)
+        manifest = json.loads(
+            (data_dir / "regime_seed_manifest.json").read_text(encoding="utf-8")
+        )
+
+    ok, status, _ = validate_seed_data_dir(
+        data_dir,
+        require_manifest=True,
+        validate_hashes=True,
+    )
+    print("\n=== Regime Seed Refresh ===")
+    print(f"  Data dir: {data_dir}")
+    print(f"  Manifest: {data_dir / 'regime_seed_manifest.json'}")
+    print(f"  data_as_of: {manifest.get('data_as_of')}")
+    print(f"  row_counts: {manifest.get('row_counts')}")
+    print(f"  validation: {'OK' if ok else 'FAIL'} ({status})")
+    if not ok:
+        raise SystemExit(1)
+
+
+def cmd_seed_validate(args: argparse.Namespace) -> None:
+    """Validate deployment seed parquets and manifest."""
+    from regime.seed_manifest import build_seed_manifest, validate_seed_data_dir
+
+    data_dir = Path(args.data_dir)
+    ok, status, manifest = validate_seed_data_dir(
+        data_dir,
+        require_manifest=args.require_manifest,
+        validate_hashes=not args.skip_hashes,
+    )
+    current = build_seed_manifest(
+        data_dir,
+        generated_by="backtests.regime.cli.seed-validate",
+        source_versions=(manifest or {}).get("source_versions", {}),
+    )
+    print("\n=== Regime Seed Validation ===")
+    print(f"  Data dir: {data_dir}")
+    print(f"  Status: {'OK' if ok else 'FAIL'} ({status})")
+    print(f"  data_as_of: {current.get('data_as_of')}")
+    print(f"  row_counts: {current.get('row_counts')}")
+    if not ok:
+        raise SystemExit(1)
 
 
 # ---------------------------------------------------------------------------
@@ -2056,6 +2118,33 @@ def main():
     dl = sub.add_parser("download", help="Download data from FRED + yfinance")
     add_common(dl)
 
+    seed_refresh = sub.add_parser(
+        "seed-refresh",
+        help="Refresh deployment seed parquets and write manifest",
+    )
+    add_common(seed_refresh)
+    seed_refresh.add_argument(
+        "--manifest-only",
+        action="store_true",
+        help="Only fingerprint and validate existing parquet files",
+    )
+
+    seed_validate = sub.add_parser(
+        "seed-validate",
+        help="Validate deployment seed parquets and manifest",
+    )
+    add_common(seed_validate)
+    seed_validate.add_argument(
+        "--require-manifest",
+        action="store_true",
+        help="Fail when regime_seed_manifest.json is missing",
+    )
+    seed_validate.add_argument(
+        "--skip-hashes",
+        action="store_true",
+        help="Skip manifest sha256 comparisons",
+    )
+
     # run
     run = sub.add_parser("run", help="Run single backtest")
     add_common(run)
@@ -2277,6 +2366,10 @@ def main():
 
     if args.command == "download":
         cmd_download(args)
+    elif args.command == "seed-refresh":
+        cmd_seed_refresh(args)
+    elif args.command == "seed-validate":
+        cmd_seed_validate(args)
     elif args.command == "run":
         cmd_run(args)
     elif args.command == "optimize":

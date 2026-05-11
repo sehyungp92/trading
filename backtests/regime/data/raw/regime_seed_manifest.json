@@ -1,0 +1,102 @@
+{
+  "data_as_of": "2026-05-08",
+  "files": {
+    "macro_df.parquet": {
+      "columns": [
+        "GROWTH",
+        "INFLATION"
+      ],
+      "end": "2026-05-08",
+      "latest_required_as_of": "2026-05-08",
+      "row_count": 5875,
+      "sha256": "c882c54ef781234da273235c06135a10c8a4aac20d28542ee42b571dbb02c4be",
+      "start": "2003-01-02"
+    },
+    "market_df.parquet": {
+      "columns": [
+        "VIX",
+        "SPREAD",
+        "SLOPE_10Y2Y",
+        "REAL_RATE_10Y",
+        "DBC"
+      ],
+      "end": "2026-05-08",
+      "latest_required_as_of": "2026-05-08",
+      "row_count": 5875,
+      "sha256": "f27a7b9ee0ecdd86d8eb658660682e6a7f35555199a5e649a3b6ce145351e3c2",
+      "start": "2003-01-02"
+    },
+    "strat_ret_df.parquet": {
+      "columns": [
+        "SPY",
+        "EFA",
+        "TLT",
+        "GLD",
+        "CASH"
+      ],
+      "end": "2026-05-08",
+      "latest_required_as_of": "2026-05-08",
+      "row_count": 5875,
+      "sha256": "52469b9a54b6094d4568a31cf232212b6ed43eba5d284dd473a38f65bf16594d",
+      "start": "2003-01-02"
+    }
+  },
+  "generated_at": "2026-05-11T15:40:03.161395+00:00",
+  "generated_by": "backtests.regime.data.downloader.build_all_data",
+  "required_columns": {
+    "macro_df.parquet": [
+      "GROWTH",
+      "INFLATION"
+    ],
+    "market_df.parquet": [
+      "VIX",
+      "SPREAD",
+      "SLOPE_10Y2Y"
+    ],
+    "strat_ret_df.parquet": [
+      "SPY",
+      "EFA",
+      "TLT",
+      "GLD",
+      "CASH"
+    ]
+  },
+  "row_counts": {
+    "macro_df.parquet": 5875,
+    "market_df.parquet": 5875,
+    "strat_ret_df.parquet": 5875
+  },
+  "schema_version": 1,
+  "source_versions": {
+    "fred_api_key_present": true,
+    "packages": {
+      "fredapi": "0.5.2",
+      "pandas": "2.3.3",
+      "pyarrow": "23.0.0",
+      "yfinance": "1.2.0"
+    },
+    "providers": {
+      "alfred": {
+        "GROWTH": "ICSA"
+      },
+      "etf_tickers": [
+        "SPY",
+        "EFA",
+        "TLT",
+        "GLD",
+        "BIL"
+      ],
+      "feature_etf_tickers": [
+        "DBC"
+      ],
+      "fred": {
+        "INFLATION": "T10YIE",
+        "REAL_RATE_10Y": "DFII10",
+        "SLOPE_10Y2Y": "T10Y2Y",
+        "SPREAD": "BAMLH0A0HYM2",
+        "VIX": "VIXCLS"
+      },
+      "price_provider": "yfinance"
+    }
+  }
+}

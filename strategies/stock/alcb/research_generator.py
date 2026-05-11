@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from statistics import fmean
@@ -23,6 +24,12 @@ from strategies.stock.live_universe import (
 )
 
 logger = logging.getLogger(__name__)
+
+IB_REQUEST_RATE_PER_SECOND = 1.0
+IB_REQUEST_RATE_BURST = 2.0
+IB_REQUEST_CONCURRENCY = 6
+HISTORICAL_REQUEST_TIMEOUT = 180.0
+HISTORICAL_TIMEOUT_RETRY_DELAYS = (5.0, 15.0)
 
 
 @dataclass
@@ -162,15 +169,74 @@ async def _fetch_scanner_symbols(
 
 
 async def _fetch_bars(ib: IB, contract, duration: str, bar_size: str):
-    return await ib.reqHistoricalDataAsync(
-        contract,
-        endDateTime="",
-        durationStr=duration,
-        barSizeSetting=bar_size,
-        whatToShow="TRADES",
-        useRTH=True,
-        keepUpToDate=False,
-    )
+    # ib_async defaults to 60s and cancels the request on timeout; broad
+    # research sweeps need a wider window plus a retry for farm hiccups.
+    total_attempts = len(HISTORICAL_TIMEOUT_RETRY_DELAYS) + 1
+    label = getattr(contract, "localSymbol", None) or getattr(contract, "symbol", contract)
+    for attempt in range(1, total_attempts + 1):
+        retry_delay = (
+            HISTORICAL_TIMEOUT_RETRY_DELAYS[attempt - 1]
+            if attempt <= len(HISTORICAL_TIMEOUT_RETRY_DELAYS)
+            else None
+        )
+        started_at = time.monotonic()
+        try:
+            bars = await ib.reqHistoricalDataAsync(
+                contract,
+                endDateTime="",
+                durationStr=duration,
+                barSizeSetting=bar_size,
+                whatToShow="TRADES",
+                useRTH=True,
+                keepUpToDate=False,
+                timeout=HISTORICAL_REQUEST_TIMEOUT,
+            )
+        except Exception:
+            if retry_delay is None:
+                raise
+            logger.warning(
+                "ALCB historical bars failed for %s %s %s (attempt %d/%d); retrying in %.0fs",
+                label,
+                duration,
+                bar_size,
+                attempt,
+                total_attempts,
+                retry_delay,
+                exc_info=True,
+            )
+            await asyncio.sleep(retry_delay)
+            continue
+
+        elapsed = time.monotonic() - started_at
+        timed_out = (
+            not bars
+            and HISTORICAL_REQUEST_TIMEOUT > 0
+            and elapsed >= max(HISTORICAL_REQUEST_TIMEOUT * 0.9, HISTORICAL_REQUEST_TIMEOUT - 1.0)
+        )
+        if bars or not timed_out or retry_delay is None:
+            if timed_out:
+                logger.warning(
+                    "ALCB historical bars timed out for %s %s %s after %.1fs; no retries left",
+                    label,
+                    duration,
+                    bar_size,
+                    elapsed,
+                )
+            return bars
+
+        logger.warning(
+            "ALCB historical bars timed out for %s %s %s after %.1fs (attempt %d/%d); retrying in %.0fs",
+            label,
+            duration,
+            bar_size,
+            elapsed,
+            attempt,
+            total_attempts,
+            retry_delay,
+        )
+        await asyncio.sleep(retry_delay)
+
+    return []
 
 
 async def _resolve_stock(ib: IB, symbol: str, primary_exchange: str) -> tuple[Any | None, Any | None]:
@@ -233,7 +299,7 @@ async def generate_research_snapshot(
     settings: StrategySettings | None = None,
 ) -> ResearchSnapshot:
     cfg = settings or StrategySettings()
-    rate = _RateBudget(rate_per_second=3.0, burst=6.0)
+    rate = _RateBudget(rate_per_second=IB_REQUEST_RATE_PER_SECOND, burst=IB_REQUEST_RATE_BURST)
     universe: dict[str, tuple[str, str]] = {
         symbol: (sector, primary)
         for symbol, sector, primary in LIVE_STOCK_UNIVERSE
@@ -245,7 +311,7 @@ async def generate_research_snapshot(
         len(LIVE_STOCK_UNIVERSE_ADDED_SYMBOLS),
     )
     all_symbols = list(universe.keys())[: cfg.universe_cap]
-    sem = asyncio.Semaphore(12)
+    sem = asyncio.Semaphore(IB_REQUEST_CONCURRENCY)
     _progress = {"done": 0, "total": len(all_symbols)}
 
     async def _load_symbol(symbol: str) -> tuple[str, ResearchSymbol | None]:

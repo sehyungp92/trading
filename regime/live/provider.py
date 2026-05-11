@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -66,12 +68,31 @@ class LiveDataProvider:
 
     async def build_live_data(self) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """Load cached parquets, overlay fresh IBKR + FRED data, return 3 DataFrames."""
-        # 1. Load cached baseline
+        # 1. Bootstrap and load cached baseline
+        bootstrap_status = _bootstrap_seed_status(self._data_dir)
         macro_df, market_df, strat_ret_df = self._load_cached()
-        status_parts: list[str] = ["cache=loaded"]
+        manifest_ok, manifest_status, _ = _seed_manifest_status(self._data_dir)
+        if not manifest_ok:
+            raise RuntimeError(
+                "Regime seed manifest validation failed before live overlay: "
+                f"{manifest_status}"
+            )
+        seed_return_date = _latest_common_return_as_of(strat_ret_df)
+        ibkr_duration = _overlay_duration_str(seed_return_date, self._now())
+        fred_start = _overlay_start_date(seed_return_date, self._now())
+        status_parts: list[str] = [
+            "cache=loaded",
+            bootstrap_status,
+            manifest_status,
+            f"ibkr_window={ibkr_duration.replace(' ', '')}",
+            f"fred_start={fred_start}",
+        ]
 
         # 2. Fetch IBKR daily bars and overlay
-        ibkr_prices = await self._fetch_ibkr_bars()
+        ibkr_prices = await _call_async_with_optional_kwargs(
+            self._fetch_ibkr_bars,
+            duration_str=ibkr_duration,
+        )
         if ibkr_prices is not None and not ibkr_prices.empty:
             strat_ret_df, market_df = self._overlay_ibkr(
                 ibkr_prices, strat_ret_df, market_df,
@@ -83,7 +104,13 @@ class LiveDataProvider:
         # 3. Fetch FRED macro data and overlay
         loop = asyncio.get_running_loop()
         try:
-            fred_data = await loop.run_in_executor(None, self._fetch_fred)
+            fred_data = await loop.run_in_executor(
+                None,
+                lambda: _call_sync_with_optional_kwargs(
+                    self._fetch_fred,
+                    start=fred_start,
+                ),
+            )
             if fred_data is not None:
                 fred_df, icsa_raw = fred_data
                 macro_df, market_df = self._overlay_fred(
@@ -150,6 +177,19 @@ class LiveDataProvider:
             macro_df.to_parquet(self._data_dir / "macro_df.parquet")
             market_df.to_parquet(self._data_dir / "market_df.parquet")
             strat_ret_df.to_parquet(self._data_dir / "strat_ret_df.parquet")
+            from regime.seed_manifest import write_seed_manifest
+
+            write_seed_manifest(
+                self._data_dir,
+                generated_by="regime.live.provider.LiveDataProvider",
+                source_versions={
+                    "runtime_overlay": {
+                        "ibkr": "completed_daily_bars",
+                        "fred": "recent_observations",
+                    },
+                    "status": ";".join(status_parts),
+                },
+            )
             logger.info("Regime: updated cached parquets in %s", self._data_dir)
         except Exception:
             logger.warning("Regime: failed to update parquet cache", exc_info=True)
@@ -185,7 +225,7 @@ class LiveDataProvider:
             logger.info("Regime: dropping stale cached return columns: %s", ",".join(stale_cols))
         return macro_df, market_df, strat_ret_df.loc[:, keep_cols].copy()
 
-    async def _fetch_ibkr_bars(self) -> pd.DataFrame | None:
+    async def _fetch_ibkr_bars(self, duration_str: str = "1 Y") -> pd.DataFrame | None:
         """Fetch 1Y daily bars for all qualified ETF contracts."""
         if not self._contracts:
             logger.warning("Regime: no IBKR contracts qualified, skipping IBKR fetch")
@@ -194,7 +234,10 @@ class LiveDataProvider:
         all_prices: dict[str, pd.Series] = {}
         for sym, contract in self._contracts.items():
             try:
-                bars = await self._request_daily_bars(contract)
+                bars = await self._request_daily_bars(
+                    contract,
+                    duration_str=duration_str,
+                )
                 if bars:
                     dates = pd.to_datetime([b.date for b in bars])
                     closes = pd.Series([b.close for b in bars], index=dates, name=sym, dtype=float)
@@ -251,13 +294,18 @@ class LiveDataProvider:
         )
         return strat_ret_df, market_df
 
-    async def _request_daily_bars(self, contract: Any) -> Any:
+    async def _request_daily_bars(
+        self,
+        contract: Any,
+        *,
+        duration_str: str = "1 Y",
+    ) -> Any:
         """Request only completed daily bars, using the runtime session wrapper when available."""
         if hasattr(self._session, "req_historical_data"):
             return await self._session.req_historical_data(
                 contract,
                 endDateTime="",
-                durationStr="1 Y",
+                durationStr=duration_str,
                 barSizeSetting="1 day",
                 whatToShow="TRADES",
                 useRTH=True,
@@ -270,7 +318,7 @@ class LiveDataProvider:
         bars = await self._session.ib.reqHistoricalDataAsync(
             contract,
             endDateTime="",
-            durationStr="1 Y",
+            durationStr=duration_str,
             barSizeSetting="1 day",
             whatToShow="TRADES",
             useRTH=True,
@@ -287,10 +335,8 @@ class LiveDataProvider:
             )
         return bars
 
-    def _fetch_fred(self) -> tuple[pd.DataFrame, pd.Series] | None:
+    def _fetch_fred(self, start: str | None = None) -> tuple[pd.DataFrame, pd.Series] | None:
         """Fetch recent FRED data (blocking -- run in executor)."""
-        import os
-
         key = os.environ.get("FRED_API_KEY", "")
         if not key:
             logger.warning("Regime: FRED_API_KEY not set, skipping FRED fetch")
@@ -302,7 +348,8 @@ class LiveDataProvider:
 
         # Only need recent data to overlay on cached baseline
         from datetime import datetime, timedelta
-        start = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
+        if start is None:
+            start = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
 
         # Fetch 5 market series
         frames: dict[str, pd.Series] = {}
@@ -431,3 +478,81 @@ def _hmm_backlog_status(
     if problems:
         return "backlog=insufficient:" + ",".join(problems), False
     return "backlog=ok", True
+
+
+def _bootstrap_seed_status(data_dir: Path) -> str:
+    seed_dir_raw = os.environ.get("REGIME_SEED_DIR", "").strip()
+    if not seed_dir_raw:
+        return "seed_bootstrap=disabled"
+    from regime.seed_manifest import bootstrap_seed_data_dir
+
+    return bootstrap_seed_data_dir(data_dir, Path(seed_dir_raw))
+
+
+def _seed_manifest_status(data_dir: Path) -> tuple[bool, str, dict[str, Any] | None]:
+    require_manifest = os.environ.get("REGIME_REQUIRE_SEED_MANIFEST", "0").strip().lower()
+    require = require_manifest in {"1", "true", "yes", "on"}
+    from regime.seed_manifest import validate_seed_data_dir
+
+    return validate_seed_data_dir(
+        data_dir,
+        require_manifest=require,
+        validate_hashes=True,
+    )
+
+
+def _overlay_duration_str(
+    seed_return_date: pd.Timestamp | None,
+    now: datetime,
+    *,
+    min_days: int = 14,
+    max_days: int = 365,
+) -> str:
+    if seed_return_date is None:
+        return "1 Y"
+    lag_days = max(1, (now.date() - seed_return_date.date()).days)
+    days = min(max(lag_days + 7, min_days), max_days)
+    if days >= 365:
+        return "1 Y"
+    return f"{days} D"
+
+
+def _overlay_start_date(
+    seed_return_date: pd.Timestamp | None,
+    now: datetime,
+    *,
+    min_days: int = 30,
+    default_days: int = 90,
+) -> str:
+    now_ts = pd.Timestamp(now).tz_localize(None) if pd.Timestamp(now).tzinfo else pd.Timestamp(now)
+    if seed_return_date is None:
+        return (now_ts - pd.Timedelta(days=default_days)).date().isoformat()
+    seed_ts = pd.Timestamp(seed_return_date).tz_localize(None) if pd.Timestamp(seed_return_date).tzinfo else pd.Timestamp(seed_return_date)
+    start = min(
+        seed_ts - pd.Timedelta(days=min_days),
+        now_ts - pd.Timedelta(days=min_days),
+    )
+    return start.date().isoformat()
+
+
+async def _call_async_with_optional_kwargs(func: Callable[..., Any], **kwargs: Any) -> Any:
+    if not _accepts_any_kwargs(func):
+        return await func()
+    return await func(**kwargs)
+
+
+def _call_sync_with_optional_kwargs(func: Callable[..., Any], **kwargs: Any) -> Any:
+    if not _accepts_any_kwargs(func):
+        return func()
+    return func(**kwargs)
+
+
+def _accepts_any_kwargs(func: Callable[..., Any]) -> bool:
+    try:
+        signature = inspect.signature(func)
+    except (TypeError, ValueError):
+        return True
+    return any(
+        param.kind in (param.KEYWORD_ONLY, param.POSITIONAL_OR_KEYWORD, param.VAR_KEYWORD)
+        for param in signature.parameters.values()
+    )

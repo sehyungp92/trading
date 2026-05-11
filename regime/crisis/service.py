@@ -43,8 +43,8 @@ try:
 except Exception:
     _ET = timezone(timedelta(hours=-5))
 
-_DEFAULT_DATA_DIR = Path("data/crisis")
-_DEFAULT_REGIME_DATA_DIR = Path("data/regime/raw")
+_DEFAULT_DATA_DIR = Path(os.environ.get("CRISIS_DATA_DIR", "data/crisis"))
+_DEFAULT_REGIME_DATA_DIR = Path(os.environ.get("REGIME_DATA_DIR", "data/regime/raw"))
 _CRISIS_COMPUTE_HOUR_ET = 17
 _CRISIS_COMPUTE_MINUTE_ET = 5
 
@@ -393,12 +393,33 @@ class CrisisService:
         staying lightweight: the crisis layer only needs market FRED series and
         completed daily SPY/TLT returns.
         """
-        market_df, strat_ret_df = self._load_cached_inputs()
-        status_parts: list[str] = []
+        market_df, strat_ret_df, seed_status = self._load_cached_inputs()
+        cached_return_as_of = _latest_return_as_of(strat_ret_df)
+        ibkr_duration = _overlay_duration_str(
+            cached_return_as_of,
+            self._now(),
+            max_days=180,
+        )
+        fred_start = _overlay_start_date(
+            cached_return_as_of,
+            self._now(),
+            default_days=180,
+        )
+        status_parts: list[str] = [
+            seed_status,
+            f"ibkr_window={ibkr_duration.replace(' ', '')}",
+            f"fred_start={fred_start}",
+        ]
 
         loop = asyncio.get_running_loop()
         try:
-            fred_df = await loop.run_in_executor(None, self._fetch_fred)
+            fred_df = await loop.run_in_executor(
+                None,
+                lambda: _call_sync_with_optional_kwargs(
+                    self._fetch_fred,
+                    start=fred_start,
+                ),
+            )
             if fred_df is not None and not fred_df.empty:
                 market_cols = ["VIX", "SPREAD", "SLOPE_10Y2Y"]
                 fresh_market_cols = [
@@ -418,7 +439,10 @@ class CrisisService:
             fred_df = None
 
         try:
-            fresh_returns = await self._fetch_etf_returns()
+            fresh_returns = await _call_async_with_optional_kwargs(
+                self._fetch_etf_returns,
+                duration_str=ibkr_duration,
+            )
             if fresh_returns is not None and not fresh_returns.empty:
                 strat_ret_df = _overlay_columns(strat_ret_df, fresh_returns, _CRISIS_ETF_SYMBOLS)
                 status_parts.append("ibkr=fresh_completed")
@@ -443,7 +467,7 @@ class CrisisService:
 
         return market_df, strat_ret_df, vix3m_series, ";".join(status_parts)
 
-    def _fetch_fred(self) -> pd.DataFrame | None:
+    def _fetch_fred(self, start: str | None = None) -> pd.DataFrame | None:
         """Fetch recent FRED data for VIX, SPREAD, SLOPE_10Y2Y."""
         key = os.environ.get("FRED_API_KEY", "")
         if not key:
@@ -457,7 +481,8 @@ class CrisisService:
             logger.warning("Crisis: fredapi not installed")
             return None
 
-        start = (self._now() - timedelta(days=180)).strftime("%Y-%m-%d")
+        if start is None:
+            start = (self._now() - timedelta(days=180)).strftime("%Y-%m-%d")
 
         frames: dict[str, pd.Series] = {}
         for col, series_id in _CRISIS_FRED_SERIES.items():
@@ -477,7 +502,7 @@ class CrisisService:
         df = df.ffill()
         return df
 
-    async def _fetch_etf_returns(self) -> pd.DataFrame:
+    async def _fetch_etf_returns(self, duration_str: str = "180 D") -> pd.DataFrame:
         """Fetch daily bars for SPY and TLT, compute returns."""
         frames: dict[str, pd.Series] = {}
 
@@ -489,7 +514,7 @@ class CrisisService:
                 bars = await self._session.req_historical_data(
                     contract,
                     endDateTime="",
-                    durationStr="180 D",
+                    durationStr=duration_str,
                     barSizeSetting="1 day",
                     whatToShow="TRADES",
                     useRTH=True,
@@ -511,7 +536,39 @@ class CrisisService:
 
         return pd.DataFrame(frames).dropna()
 
-    def _load_cached_inputs(self) -> tuple[pd.DataFrame, pd.DataFrame]:
+    def _load_cached_inputs(self) -> tuple[pd.DataFrame, pd.DataFrame, str]:
+        from regime.seed_manifest import bootstrap_seed_data_dir, validate_seed_data_dir
+
+        seed_dir_raw = os.environ.get("REGIME_SEED_DIR", "").strip()
+        seed_status = bootstrap_seed_data_dir(
+            self._regime_data_dir,
+            Path(seed_dir_raw) if seed_dir_raw else None,
+        )
+        require_manifest = os.environ.get("REGIME_REQUIRE_SEED_MANIFEST", "0").strip().lower()
+        manifest_required = require_manifest in {"1", "true", "yes", "on"}
+        should_validate_seed = (
+            bool(seed_dir_raw)
+            or manifest_required
+            or any((self._regime_data_dir / name).exists() for name in (
+                "macro_df.parquet",
+                "market_df.parquet",
+                "strat_ret_df.parquet",
+            ))
+        )
+        if should_validate_seed:
+            seed_ok, manifest_status, _ = validate_seed_data_dir(
+                self._regime_data_dir,
+                require_manifest=manifest_required,
+                validate_hashes=True,
+            )
+            if not seed_ok:
+                raise RuntimeError(
+                    "Crisis seed manifest validation failed before live overlay: "
+                    f"{manifest_status}"
+                )
+            seed_status = f"{seed_status};{manifest_status}"
+        else:
+            seed_status = f"{seed_status};seed_manifest=not_checked"
         market_candidates = [
             self._data_dir / "market_df.parquet",
             self._regime_data_dir / "market_df.parquet",
@@ -520,9 +577,9 @@ class CrisisService:
             self._data_dir / "strat_ret_df.parquet",
             self._regime_data_dir / "strat_ret_df.parquet",
         ]
-        market_df = _read_first_existing(market_candidates)
-        strat_ret_df = _read_first_existing(strat_candidates)
-        return market_df, strat_ret_df
+        market_df = _read_freshest_existing(market_candidates, required_cols=["VIX", "SPREAD", "SLOPE_10Y2Y"])
+        strat_ret_df = _read_freshest_existing(strat_candidates, required_cols=_CRISIS_ETF_SYMBOLS)
+        return market_df, strat_ret_df, seed_status
 
     def _now(self) -> datetime:
         now = self._now_provider() if self._now_provider is not None else datetime.now(timezone.utc)
@@ -594,13 +651,50 @@ def _read_first_existing(paths: list[Path]) -> pd.DataFrame:
     for path in paths:
         if not path.exists():
             continue
-        df = pd.read_parquet(path).copy()
-        if not isinstance(df.index, pd.DatetimeIndex):
-            df.index = pd.to_datetime(df.index)
-        if df.index.tz is not None:
-            df.index = df.index.tz_localize(None)
-        return df.sort_index()
+        return _read_parquet_normalized(path)
     return pd.DataFrame()
+
+
+def _read_freshest_existing(
+    paths: list[Path],
+    *,
+    required_cols: list[str],
+) -> pd.DataFrame:
+    candidates: list[tuple[pd.Timestamp, int, pd.DataFrame]] = []
+    for ordinal, path in enumerate(paths):
+        if not path.exists():
+            continue
+        df = _read_parquet_normalized(path)
+        as_of = _latest_required_as_of(df, required_cols)
+        if as_of is not None:
+            candidates.append((as_of, -ordinal, df))
+    if not candidates:
+        return _read_first_existing(paths)
+    candidates.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    return candidates[0][2]
+
+
+def _read_parquet_normalized(path: Path) -> pd.DataFrame:
+    df = pd.read_parquet(path).copy()
+    if not isinstance(df.index, pd.DatetimeIndex):
+        df.index = pd.to_datetime(df.index)
+    if df.index.tz is not None:
+        df.index = df.index.tz_localize(None)
+    return df.sort_index()
+
+
+def _latest_required_as_of(
+    df: pd.DataFrame,
+    required_cols: list[str],
+) -> pd.Timestamp | None:
+    if df.empty:
+        return None
+    if any(col not in df.columns for col in required_cols):
+        return None
+    valid = df[required_cols].dropna(how="any")
+    if valid.empty:
+        return None
+    return pd.Timestamp(valid.index.max())
 
 
 def _overlay_columns(
@@ -743,3 +837,58 @@ def _latest_non_na_index(
     if series.empty:
         return None
     return pd.Timestamp(series.index.max())
+
+
+def _overlay_duration_str(
+    seed_return_date: pd.Timestamp | None,
+    now: datetime,
+    *,
+    min_days: int = 14,
+    max_days: int = 180,
+) -> str:
+    if seed_return_date is None:
+        return f"{max_days} D"
+    lag_days = max(1, (now.date() - seed_return_date.date()).days)
+    days = min(max(lag_days + 7, min_days), max_days)
+    return f"{days} D"
+
+
+def _overlay_start_date(
+    seed_return_date: pd.Timestamp | None,
+    now: datetime,
+    *,
+    min_days: int = 30,
+    default_days: int = 180,
+) -> str:
+    now_ts = pd.Timestamp(now).tz_localize(None) if pd.Timestamp(now).tzinfo else pd.Timestamp(now)
+    if seed_return_date is None:
+        return (now_ts - pd.Timedelta(days=default_days)).date().isoformat()
+    seed_ts = pd.Timestamp(seed_return_date).tz_localize(None) if pd.Timestamp(seed_return_date).tzinfo else pd.Timestamp(seed_return_date)
+    start = min(
+        seed_ts - pd.Timedelta(days=min_days),
+        now_ts - pd.Timedelta(days=min_days),
+    )
+    return start.date().isoformat()
+
+
+async def _call_async_with_optional_kwargs(func: Callable[..., Any], **kwargs: Any) -> Any:
+    if not _accepts_any_kwargs(func):
+        return await func()
+    return await func(**kwargs)
+
+
+def _call_sync_with_optional_kwargs(func: Callable[..., Any], **kwargs: Any) -> Any:
+    if not _accepts_any_kwargs(func):
+        return func()
+    return func(**kwargs)
+
+
+def _accepts_any_kwargs(func: Callable[..., Any]) -> bool:
+    try:
+        signature = inspect.signature(func)
+    except (TypeError, ValueError):
+        return True
+    return any(
+        param.kind in (param.KEYWORD_ONLY, param.POSITIONAL_OR_KEYWORD, param.VAR_KEYWORD)
+        for param in signature.parameters.values()
+    )

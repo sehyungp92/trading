@@ -13,8 +13,13 @@ COPY libs/ libs/
 COPY strategies/ strategies/
 COPY apps/runtime/ apps/runtime/
 COPY regime/ regime/
-COPY backtests/regime/data/raw/ data/regime/raw/
+COPY backtests/regime/data/raw/ seed/regime/raw/
 COPY config/ config/
 COPY data/ data/
+
+ENV REGIME_SEED_DIR=/app/seed/regime/raw \
+    REGIME_DATA_DIR=/app/data/regime/raw \
+    CRISIS_DATA_DIR=/app/data/crisis \
+    REGIME_REQUIRE_SEED_MANIFEST=1
 
 CMD ["python", "-m", "apps.runtime", "run", "--connect-ib"]

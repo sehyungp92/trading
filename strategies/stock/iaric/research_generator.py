@@ -37,6 +37,12 @@ SECTOR_ETFS: dict[str, str] = {
     "Communication Services": "XLC",
 }
 
+IB_REQUEST_RATE_PER_SECOND = 1.0
+IB_REQUEST_RATE_BURST = 2.0
+IB_REQUEST_CONCURRENCY = 5
+HISTORICAL_REQUEST_TIMEOUT = 180.0
+HISTORICAL_TIMEOUT_RETRY_DELAYS = (5.0, 15.0)
+
 
 # ---------------------------------------------------------------------------
 # Rate limiter (mirrors strategy_iaric/data.py RateBudget)
@@ -85,6 +91,86 @@ def _stock_contract(symbol: str, exchange: str = "SMART", primary_exchange: str 
 def _index_contract(symbol: str, exchange: str = "CBOE"):
     from ib_async import Index
     return Index(symbol, exchange, "USD")
+
+
+async def _request_historical_bars(
+    ib,
+    contract,
+    *,
+    duration: str,
+    bar_size: str,
+    what: str = "TRADES",
+):
+    """Request historical bars with timeout-aware retries for nightly sweeps."""
+    total_attempts = len(HISTORICAL_TIMEOUT_RETRY_DELAYS) + 1
+    label = getattr(contract, "localSymbol", None) or getattr(contract, "symbol", contract)
+    for attempt in range(1, total_attempts + 1):
+        retry_delay = (
+            HISTORICAL_TIMEOUT_RETRY_DELAYS[attempt - 1]
+            if attempt <= len(HISTORICAL_TIMEOUT_RETRY_DELAYS)
+            else None
+        )
+        started_at = _time.monotonic()
+        try:
+            bars = await ib.reqHistoricalDataAsync(
+                contract,
+                endDateTime="",
+                durationStr=duration,
+                barSizeSetting=bar_size,
+                whatToShow=what,
+                useRTH=True,
+                keepUpToDate=False,
+                timeout=HISTORICAL_REQUEST_TIMEOUT,
+            )
+        except Exception:
+            if retry_delay is None:
+                raise
+            logger.warning(
+                "IARIC historical bars failed for %s %s %s %s (attempt %d/%d); retrying in %.0fs",
+                label,
+                duration,
+                bar_size,
+                what,
+                attempt,
+                total_attempts,
+                retry_delay,
+                exc_info=True,
+            )
+            await asyncio.sleep(retry_delay)
+            continue
+
+        elapsed = _time.monotonic() - started_at
+        timed_out = (
+            not bars
+            and HISTORICAL_REQUEST_TIMEOUT > 0
+            and elapsed >= max(HISTORICAL_REQUEST_TIMEOUT * 0.9, HISTORICAL_REQUEST_TIMEOUT - 1.0)
+        )
+        if bars or not timed_out or retry_delay is None:
+            if timed_out:
+                logger.warning(
+                    "IARIC historical bars timed out for %s %s %s %s after %.1fs; no retries left",
+                    label,
+                    duration,
+                    bar_size,
+                    what,
+                    elapsed,
+                )
+            return bars
+
+        logger.warning(
+            "IARIC historical bars timed out for %s %s %s %s after %.1fs (attempt %d/%d); retrying in %.0fs",
+            label,
+            duration,
+            bar_size,
+            what,
+            elapsed,
+            attempt,
+            total_attempts,
+            retry_delay,
+        )
+        await asyncio.sleep(retry_delay)
+
+    return []
 
 
 # ---------------------------------------------------------------------------
@@ -246,8 +332,8 @@ async def generate_research_snapshot(
     cache_dir = cfg.cache_dir
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    rate = _RateBudget(rate_per_second=3.0, burst=6.0)
-    sem = asyncio.Semaphore(10)
+    rate = _RateBudget(rate_per_second=IB_REQUEST_RATE_PER_SECOND, burst=IB_REQUEST_RATE_BURST)
+    sem = asyncio.Semaphore(IB_REQUEST_CONCURRENCY)
 
     # -- Load universe -------------------------------------------------------
     from .universe_constituents import KNOWN_ETFS
@@ -529,9 +615,12 @@ async def _fetch_reference_data(ib, rate: _RateBudget, sem: asyncio.Semaphore) -
     async def _fetch_bars(contract, duration: str, bar_size: str, what: str, key: str):
         async with sem:
             await rate.wait_for()
-            bars = await ib.reqHistoricalDataAsync(
-                contract, endDateTime="", durationStr=duration,
-                barSizeSetting=bar_size, whatToShow=what, useRTH=True, keepUpToDate=False,
+            bars = await _request_historical_bars(
+                ib,
+                contract,
+                duration=duration,
+                bar_size=bar_size,
+                what=what,
             )
             result[key] = [
                 {
@@ -555,9 +644,12 @@ async def _fetch_reference_data(ib, rate: _RateBudget, sem: asyncio.Semaphore) -
             async with sem:
                 await rate.wait_for()
                 contract = _stock_contract(sym, primary_exchange="ARCA")
-                bars = await ib.reqHistoricalDataAsync(
-                    contract, endDateTime="", durationStr="120 D",
-                    barSizeSetting="1 day", whatToShow="TRADES", useRTH=True, keepUpToDate=False,
+                bars = await _request_historical_bars(
+                    ib,
+                    contract,
+                    duration="120 D",
+                    bar_size="1 day",
+                    what="TRADES",
                 )
                 return sym, [
                     {
@@ -610,9 +702,12 @@ async def _fetch_daily_bars_cached(
         else:
             duration = "1 Y"  # 252 trading days for SMA200 + warmup
 
-        bars = await ib.reqHistoricalDataAsync(
-            contract, endDateTime="", durationStr=duration,
-            barSizeSetting="1 day", whatToShow="TRADES", useRTH=True, keepUpToDate=False,
+        bars = await _request_historical_bars(
+            ib,
+            contract,
+            duration=duration,
+            bar_size="1 day",
+            what="TRADES",
         )
 
         new_bars = [
@@ -652,9 +747,12 @@ async def _fetch_intraday_30m(
         if con_id:
             contract.conId = con_id
 
-        bars = await ib.reqHistoricalDataAsync(
-            contract, endDateTime="", durationStr="5 D",
-            barSizeSetting="30 mins", whatToShow="TRADES", useRTH=True, keepUpToDate=False,
+        bars = await _request_historical_bars(
+            ib,
+            contract,
+            duration="5 D",
+            bar_size="30 mins",
+            what="TRADES",
         )
         if not bars:
             return 0.0

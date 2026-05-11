@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -23,7 +24,7 @@ try:
 except Exception:
     _ET = timezone(timedelta(hours=-5))
 
-_DEFAULT_DATA_DIR = Path("data/regime/raw")
+_DEFAULT_DATA_DIR = Path(os.environ.get("REGIME_DATA_DIR", "data/regime/raw"))
 
 
 def _next_friday_1630(now_et: datetime, market_cal: Any | None) -> datetime:
