@@ -231,6 +231,39 @@ class RiskGateway:
         else:
             new_risk_portfolio_R = new_risk_R
 
+        portfolio_rules_checked = False
+        if self._portfolio_checker and self._portfolio_risk_adapter is None:
+            direction = "LONG" if order.side.value == "BUY" else "SHORT"
+            port_result = await self._portfolio_checker.check_entry(
+                strategy_id=order.strategy_id,
+                direction=direction,
+                new_risk_R=new_risk_R,
+                symbol=order.instrument.symbol if order.instrument else None,
+                new_qty=order.qty,
+                new_risk_dollars=new_risk_dollars,
+            )
+            portfolio_rules_checked = True
+            if not port_result.approved:
+                return f"Portfolio rule: {port_result.denial_reason}"
+            if port_result.size_multiplier != 1.0:
+                risk_ctx.portfolio_size_mult = port_result.size_multiplier
+                adjusted_qty = max(1, int(order.qty * port_result.size_multiplier))
+                new_risk_dollars = adjusted_qty * risk_per_contract
+                new_risk_R = (
+                    new_risk_dollars / strat_cfg.unit_risk_dollars
+                    if strat_cfg.unit_risk_dollars > 0
+                    else float("inf")
+                )
+                new_risk_portfolio_R = (
+                    new_risk_dollars / portfolio_urd
+                    if portfolio_urd > 0
+                    else new_risk_R
+                )
+                logger.info(
+                    "Portfolio size multiplier %.2fx applied to %s %s before heat checks",
+                    port_result.size_multiplier, order.strategy_id, direction,
+                )
+
         if self._portfolio_risk_adapter is not None:
             decision = await self._portfolio_risk_adapter.check_entry(
                 strategy_id=order.strategy_id,
@@ -281,7 +314,7 @@ class RiskGateway:
             return f"Order type {order.order_type} not allowed for role {order.role}"
 
         # 11. Cross-strategy portfolio rules (momentum / stock family)
-        if self._portfolio_checker:
+        if self._portfolio_checker and not portfolio_rules_checked:
             direction = "LONG" if order.side.value == "BUY" else "SHORT"
             port_result = await self._portfolio_checker.check_entry(
                 strategy_id=order.strategy_id,
@@ -296,6 +329,8 @@ class RiskGateway:
             # Apply size multiplier to risk context for downstream sizing
             if port_result.size_multiplier != 1.0:
                 risk_ctx.portfolio_size_mult = port_result.size_multiplier
+                adjusted_qty = max(1, int(order.qty * port_result.size_multiplier))
+                new_risk_dollars = adjusted_qty * risk_per_contract
                 logger.info(
                     "Portfolio size multiplier %.2fx applied to %s %s",
                     port_result.size_multiplier, order.strategy_id, direction,

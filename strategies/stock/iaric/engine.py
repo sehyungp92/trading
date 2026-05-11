@@ -19,7 +19,6 @@ from contextlib import suppress
 from copy import deepcopy
 from datetime import datetime, time, timezone
 from decimal import Decimal
-from statistics import fmean
 from typing import Any
 
 from libs.oms.models.events import OMSEventType
@@ -42,7 +41,7 @@ from .core.state import (
 )
 from .data import CanonicalBarBuilder
 from .diagnostics import JsonlDiagnostics
-from .execution import build_entry_order, build_market_exit, build_position_from_fill, build_stock_instrument, build_stop_order
+from .execution import build_entry_order, build_market_exit, build_stock_instrument, build_stop_order
 from .exits import (
     _route_param,
     carry_quality_gate,
@@ -992,8 +991,13 @@ class IARICEngine:
         # Note: regime_risk_multiplier NOT applied here (research parity --
         # backtest sizing uses v2_score_sizing_mult + dow_mult only).
         sizing_mult = state.sizing_mult
+        gap_up_mult = (
+            max(0.0, float(self._settings.pb_gap_up_size_mult))
+            if item.entry_gap_pct > 0
+            else 1.0
+        )
         dow_mult = weekday_sizing_multiplier(now, self._settings)
-        risk_unit = sizing_mult * dow_mult
+        risk_unit = sizing_mult * dow_mult * gap_up_mult
         qty = compute_order_quantity(
             account_equity=self._portfolio.account_equity,
             base_risk_fraction=self._portfolio.base_risk_fraction,
@@ -1030,6 +1034,8 @@ class IARICEngine:
                 "daily_signal_score": state.daily_signal_score,
                 "route": route,
                 "sizing_mult": round(sizing_mult, 6),
+                "entry_gap_pct": round(item.entry_gap_pct, 6),
+                "gap_up_size_mult": round(gap_up_mult, 6),
             },
         )
         core_state = build_core_runtime_state(self)
@@ -1068,7 +1074,8 @@ class IARICEngine:
             self._record_decision("ENTRY_SUBMITTED", {"symbol": symbol, "qty": submit_action.qty, "price": submit_action.limit_price or entry_price, "route": route})
             self._diagnostics.log_order(symbol, "submit_entry", {
                 "qty": submit_action.qty, "limit_price": submit_action.limit_price or entry_price, "route": route,
-                "sizing_mult": round(sizing_mult, 3), "daily_score": state.daily_signal_score,
+                "sizing_mult": round(sizing_mult, 3), "gap_up_size_mult": round(gap_up_mult, 3),
+                "daily_score": state.daily_signal_score,
             })
             kit = self._instr_kit
             if kit:

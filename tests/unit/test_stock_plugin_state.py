@@ -48,11 +48,12 @@ def _runtime_ctx() -> SimpleNamespace:
         ),
         portfolio=SimpleNamespace(
             capital=SimpleNamespace(
-                strategy_allocations={
+                strategy_navs={
                     "ALCB_v1": 25_000.0,
                     "IARIC_v1": 20_000.0,
                 },
-                initial_equity=100_000.0,
+                strategy_allocations={},
+                paper_initial_equity=30_000.0,
             )
         ),
         oms=object(),
@@ -155,6 +156,7 @@ def _iaric_watchlist_artifact(trade_date: date) -> WatchlistArtifact:
         recommended_risk_r=1.0,
         average_30m_volume=200_000.0,
         expected_5m_volume=25_000.0,
+        entry_gap_pct=0.4,
         flow_proxy_gate_pass=True,
         daily_signal_score=88.0,
         trigger_types=["OPENING_RECLAIM", "VWAP_BOUNCE"],
@@ -354,6 +356,7 @@ def test_iaric_watchlist_artifact_roundtrip_preserves_directive_fields(tmp_path)
 
     assert restored.items[0].trigger_types == ["OPENING_RECLAIM", "VWAP_BOUNCE"]
     assert restored.items[0].sizing_mult == pytest.approx(1.15)
+    assert restored.items[0].entry_gap_pct == pytest.approx(0.4)
     assert restored.held_positions[0].setup_tag == "PB_CARRY"
     assert restored.held_positions[0].time_stop_deadline == datetime(2026, 4, 25, 18, 0, tzinfo=UTC)
 

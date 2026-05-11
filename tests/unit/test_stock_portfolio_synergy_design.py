@@ -282,6 +282,7 @@ def test_stock_portfolio_core_emits_neutral_actions_and_trade_outcomes() -> None
     assert {event.decision_code for event in result.decisions} == {"ACCEPT_ENTRY", "BLOCK_ENTRY"}
     assert len(result.trade_outcomes) == 1
     assert result.trade_outcomes[0].net_pnl == result.state.accepted_positions[0].pnl
+    assert result.replay_architecture == "stock_portfolio_core_live_rule_adapter"
 
 
 def test_stock_portfolio_mtm_drawdown_marks_open_loser_before_exit() -> None:

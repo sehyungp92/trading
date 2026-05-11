@@ -47,10 +47,13 @@ from .core.state import (
 )
 from .config import (
     ADDON_A_SIZE_MULT,
+    ADDON_B_ENABLED,
     ADDON_B_SIZE_MULT,
     ARM_WINDOW_HOURS,
     BE_TRIGGER_R,
     CHANDELIER_TRIGGER_R,
+    DYNAMIC_RISK_STRONG_TREND_MULT,
+    DYNAMIC_RISK_WEAK_TREND_MULT,
     EARLY_STALL_ENABLED,
     EARLY_STALL_CHECK_HOURS,
     EARLY_STALL_MFE_THRESHOLD,
@@ -791,7 +794,7 @@ class ATRSSEngine:
 
             # --- Add-on B entries (only if base position open) ---
             # Note: Add-on A is event-driven inside _manage_position, not collected here
-            if has_position and pos is not None:
+            if has_position and pos is not None and ADDON_B_ENABLED:
                 # Add-on B
                 if signals.addon_b_eligible(pos, hourly, daily):
                     cand = self._build_addon_b_candidate(
@@ -835,9 +838,9 @@ class ATRSSEngine:
         # Risk sizing per symbol — regime-adaptive (spec Section 9)
         risk_pct = cfg.base_risk_pct
         if d.regime == Regime.STRONG_TREND and d.score >= 60:
-            risk_pct *= 1.25
+            risk_pct *= DYNAMIC_RISK_STRONG_TREND_MULT
         elif d.regime == Regime.TREND and d.score < 45:
-            risk_pct *= 0.75
+            risk_pct *= DYNAMIC_RISK_WEAK_TREND_MULT
         inst = self._instruments.get(sym)
         if inst is None:
             return None

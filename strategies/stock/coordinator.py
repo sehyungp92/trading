@@ -16,18 +16,22 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import os
 from contextlib import suppress
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from libs.oms.persistence.db_config import get_environment
 from libs.services.heartbeat import emit_family_heartbeats
 
 from strategies.contracts import RuntimeContext
 from strategies.stock.readiness import validate_stock_readiness
+
+if TYPE_CHECKING:
+    from regime.context import RegimeContext
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +43,16 @@ _STOCK_STRATEGY_PRIORITIES: tuple[tuple[str, int], ...] = (
 _STOCK_DIRECTIONAL_CAP_R = 6.5
 _STOCK_DIRECTIONAL_LONG_CAP_R = 6.25
 _STOCK_PRIORITY_HEADROOM_R = 1.15
-_STOCK_REFERENCE_UNIT_RISK_DOLLARS = 162.0
+_STOCK_REFERENCE_RISK_PCT = 0.00648
+_STOCK_MAX_TOTAL_ACTIVE_POSITIONS = 12
+_STOCK_MAX_SYMBOL_HEAT_R = 2.2
+_STOCK_SAME_SECTOR_HEAT_CAP_R = 3.8
+_STOCK_MAX_SINGLE_STRATEGY_TRADE_SHARE = 0.85
+_STOCK_DYNAMIC_MIN_MULT = 0.65
+_STOCK_DYNAMIC_MAX_MULT = 1.22
+_STOCK_DYNAMIC_POSITIVE_BOOST = 0.10
+_STOCK_DYNAMIC_NEGATIVE_CUT = 0.18
+_STOCK_DYNAMIC_LOOKBACK_TRADES = 60
 _STOCK_PORTFOLIO_WEEKLY_STOP_R = 8.0
 _STOCK_DD_TIERS = (
     (0.04, 1.00),
@@ -47,6 +60,43 @@ _STOCK_DD_TIERS = (
     (0.10, 0.40),
     (0.13, 0.00),
 )
+
+
+def _stock_family_nav(
+    base_equity: float,
+    allocs: dict[str, Any],
+    strategy_ids: tuple[str, ...],
+    ctx: RuntimeContext,
+) -> float:
+    """Return the stock-family NAV used by optimized stock portfolio sizing."""
+    for strategy_id in strategy_ids:
+        alloc = allocs.get(strategy_id)
+        family_fraction = getattr(alloc, "family_fraction", None)
+        if _positive_finite(family_fraction):
+            return float(base_equity) * float(family_fraction)
+
+    capital = getattr(getattr(ctx, "portfolio", None), "capital", None)
+    family_allocations = getattr(capital, "family_allocations", {}) or {}
+    family_fraction = family_allocations.get("stock")
+    if _positive_finite(family_fraction):
+        return float(base_equity) * float(family_fraction)
+
+    allocated = [
+        float(getattr(allocs.get(strategy_id), "allocated_nav", 0.0) or 0.0)
+        for strategy_id in strategy_ids
+    ]
+    total_allocated = sum(value for value in allocated if _positive_finite(value))
+    if total_allocated > 0:
+        return total_allocated
+    return float(base_equity)
+
+
+def _positive_finite(value: Any) -> bool:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(number) and number > 0
 
 
 class StockFamilyCoordinator:
@@ -84,6 +134,7 @@ class StockFamilyCoordinator:
         from libs.oms.risk.calculator import RiskCalculator
         from libs.oms.risk.portfolio_rules import PortfolioRulesConfig
         from libs.config.capital_bootstrap import bootstrap_capital
+        from .live_universe import LIVE_STOCK_UNIVERSE
 
         active_strategy_ids = self._enabled_stock_strategy_ids()
         if not active_strategy_ids:
@@ -152,32 +203,38 @@ class StockFamilyCoordinator:
         if not _strategies:
             logger.warning("No enabled stock strategies remain after registry filtering")
             return
-        fallback_nav = base_equity / max(1, len(_strategies))
 
-        paper_nav_by_strategy: dict[str, float] = {}
-        paper_initial_nav_by_strategy: dict[str, float] = {}
-        equity = base_equity
+        family_initial_nav = _stock_family_nav(base_equity, allocs, active_strategy_ids, ctx)
+        family_current_nav = family_initial_nav
         if paper_mode:
             from libs.persistence.paper_equity import PaperEquityManager
 
-            for desc in _strategies:
-                sid = desc["strategy_id"]
-                alloc = allocs.get(sid)
-                initial_nav = alloc.allocated_nav if alloc else fallback_nav
-                paper_initial_nav_by_strategy[sid] = initial_nav
-                pem = PaperEquityManager(
-                    db_pool,
-                    account_scope=sid,
-                    initial_equity=initial_nav,
-                )
-                paper_nav_by_strategy[sid] = await pem.load()
-            if paper_nav_by_strategy:
-                equity = sum(paper_nav_by_strategy.values())
-            logger.info(
-                "Paper mode equity for stock strategies: total=$%.2f scopes=%s",
-                equity,
-                {k: round(v, 2) for k, v in paper_nav_by_strategy.items()},
+            pem = PaperEquityManager(
+                db_pool,
+                account_scope=self.family_id,
+                initial_equity=family_initial_nav,
             )
+            family_current_nav = await pem.load()
+            logger.info(
+                "Paper mode equity for stock portfolio: scope=%s current=$%.2f initial=$%.2f",
+                self.family_id,
+                family_current_nav,
+                family_initial_nav,
+            )
+
+        stock_equity_ref = [family_current_nav]
+        reference_unit_risk = RiskCalculator.compute_unit_risk_dollars(
+            nav=family_current_nav,
+            unit_risk_pct=_STOCK_REFERENCE_RISK_PCT,
+        )
+        logger.info(
+            "Stock portfolio sizing base: current_nav=$%.2f initial_nav=$%.2f "
+            "account_nav=$%.2f reference_1R=$%.2f",
+            family_current_nav,
+            family_initial_nav,
+            base_equity,
+            reference_unit_risk,
+        )
 
         # Portfolio rules: drawdown tiers + family-scoped directional cap + symbol collision
         rule_inputs = self._portfolio_rule_inputs(
@@ -186,25 +243,33 @@ class StockFamilyCoordinator:
         all_strategy_ids = rule_inputs["family_strategy_ids"]
         collision_pairs = rule_inputs["symbol_collision_pairs"]
         strategy_priorities = rule_inputs["strategy_priorities"]
+        symbol_sector_map = tuple(
+            (symbol, sector) for symbol, sector, _primary in LIVE_STOCK_UNIVERSE
+        )
         logger.info(
-            "Stock portfolio rules: directional_cap=%.1fR, collision=%s, "
+            "Stock portfolio rules: heat=%.1fR, long=%.1fR, max_active=%d, "
+            "symbol_heat=%.1fR, sector_heat=%.1fR, trade_share=%.0f%%, "
+            "dynamic=[%.2f, %.2f], collision=%s, "
             "collision_pairs=%s, headroom=%.1fR, strategies=%s",
-            _STOCK_DIRECTIONAL_CAP_R, "half_size",
+            _STOCK_DIRECTIONAL_CAP_R,
+            _STOCK_DIRECTIONAL_LONG_CAP_R,
+            _STOCK_MAX_TOTAL_ACTIVE_POSITIONS,
+            _STOCK_MAX_SYMBOL_HEAT_R,
+            _STOCK_SAME_SECTOR_HEAT_CAP_R,
+            _STOCK_MAX_SINGLE_STRATEGY_TRADE_SHARE * 100,
+            _STOCK_DYNAMIC_MIN_MULT,
+            _STOCK_DYNAMIC_MAX_MULT,
+            "half_size",
             [f"{h}->{r}:{a}" for h, r, a in collision_pairs],
             _STOCK_PRIORITY_HEADROOM_R, all_strategy_ids,
         )
 
         # Log dollar-equivalent directional cap per strategy for monitoring
         for desc in _strategies:
-            _alloc = allocs.get(desc["strategy_id"])
-            _nav = (
-                paper_nav_by_strategy.get(desc["strategy_id"])
-                if paper_mode
-                else None
+            _unit = RiskCalculator.compute_unit_risk_dollars(
+                nav=family_current_nav,
+                unit_risk_pct=desc["base_risk_pct"],
             )
-            if _nav is None:
-                _nav = _alloc.allocated_nav if _alloc else fallback_nav
-            _unit = RiskCalculator.compute_unit_risk_dollars(nav=_nav, unit_risk_pct=desc["base_risk_pct"])
             logger.info(
                 "Directional cap dollar-equiv for %s: 1R=$%.0f, cap=%.2fR=$%.0f, heat=%sR=$%.0f",
                 desc["strategy_id"], _unit, _STOCK_DIRECTIONAL_CAP_R, _STOCK_DIRECTIONAL_CAP_R * _unit,
@@ -222,36 +287,55 @@ class StockFamilyCoordinator:
 
             self._strategy_ids.append(sid)
 
-            # Resolve allocated NAV
+            # Optimized stock portfolio sizing is based on the stock-family NAV.
             alloc = allocs.get(sid)
-            initial_nav = (
-                paper_initial_nav_by_strategy.get(sid)
-                if paper_mode
-                else None
-            )
-            if initial_nav is None:
-                initial_nav = alloc.allocated_nav if alloc else fallback_nav
-            allocated_nav = (
-                paper_nav_by_strategy.get(sid, initial_nav)
-                if paper_mode
-                else (alloc.allocated_nav if alloc else fallback_nav)
-            )
+            initial_nav = family_initial_nav
+            allocated_nav = stock_equity_ref[0]
 
-            # Per-strategy portfolio rules — initial_equity must match the
-            # get_current_equity callback (allocated_nav), otherwise drawdown
-            # tiers see a phantom 67% DD and halt every entry.
+            # Per-strategy OMS instances share the same stock portfolio equity
+            # basis so optimized unit_risk_pct values are not multiplied by a
+            # legacy per-strategy capital split.
             portfolio_rules = PortfolioRulesConfig(
                 directional_cap_R=_STOCK_DIRECTIONAL_CAP_R,
                 directional_cap_long_R=_STOCK_DIRECTIONAL_LONG_CAP_R,
-                initial_equity=allocated_nav,
+                max_total_active_positions=_STOCK_MAX_TOTAL_ACTIVE_POSITIONS,
+                max_symbol_heat_R=_STOCK_MAX_SYMBOL_HEAT_R,
+                same_sector_heat_cap_R=_STOCK_SAME_SECTOR_HEAT_CAP_R,
+                symbol_sector_map=symbol_sector_map,
+                max_single_strategy_trade_share=_STOCK_MAX_SINGLE_STRATEGY_TRADE_SHARE,
+                dynamic_allocation_enabled=True,
+                dynamic_lookback_trades=_STOCK_DYNAMIC_LOOKBACK_TRADES,
+                dynamic_min_mult=_STOCK_DYNAMIC_MIN_MULT,
+                dynamic_max_mult=_STOCK_DYNAMIC_MAX_MULT,
+                dynamic_positive_expectancy_boost=_STOCK_DYNAMIC_POSITIVE_BOOST,
+                dynamic_negative_expectancy_cut=_STOCK_DYNAMIC_NEGATIVE_CUT,
+                initial_equity=initial_nav,
                 family_strategy_ids=all_strategy_ids,
                 symbol_collision_action="half_size",
                 symbol_collision_pairs=collision_pairs,
                 strategy_priorities=strategy_priorities,
                 priority_headroom_R=_STOCK_PRIORITY_HEADROOM_R,
                 priority_reserve_threshold=1,  # priority 0-1 can use reserved headroom
-                reference_unit_risk_dollars=_STOCK_REFERENCE_UNIT_RISK_DOLLARS,
+                reference_unit_risk_dollars=reference_unit_risk,
+                reference_unit_risk_pct=_STOCK_REFERENCE_RISK_PCT,
                 dd_tiers=_STOCK_DD_TIERS,
+                portfolio_heat_cap_R=_STOCK_DIRECTIONAL_CAP_R,
+                max_strategy_active_positions=tuple(
+                    (
+                        item["strategy_id"],
+                        int(item.get("max_concurrent", 0) or 0),
+                    )
+                    for item in _strategies
+                    if item["strategy_id"] in all_strategy_ids
+                ),
+                max_strategy_heat_R=tuple(
+                    (
+                        item["strategy_id"],
+                        float(item.get("heat_cap_R", 0.0) or 0.0),
+                    )
+                    for item in _strategies
+                    if item["strategy_id"] in all_strategy_ids
+                ),
             )
             # Save first portfolio_rules as base template for regime updates
             if self._base_portfolio_rules is None:
@@ -259,37 +343,40 @@ class StockFamilyCoordinator:
 
             if alloc:
                 logger.info(
-                    "Capital allocation: %s -> $%.2f (%.1f%% of $%.2f)",
-                    sid, allocated_nav, alloc.capital_pct, equity,
+                    "Capital allocation: %s -> stock portfolio NAV $%.2f "
+                    "(config allocation %.1f%% kept for non-stock allocators only)",
+                    sid, allocated_nav, getattr(alloc, "capital_pct", 0.0),
                 )
             else:
                 logger.warning(
-                    "Strategy %s not in unified config, using equal fallback NAV %.2f",
-                    sid, fallback_nav,
+                    "Strategy %s not in unified config, using stock portfolio NAV %.2f",
+                    sid, allocated_nav,
                 )
 
             # Risk parameters
             unit_risk = RiskCalculator.compute_unit_risk_dollars(
                 nav=allocated_nav, unit_risk_pct=desc["base_risk_pct"],
             )
-            _live_equity = [allocated_nav]
 
             # Build per-strategy OMS with portfolio rules
             oms = await build_oms_service(
                 adapter=desc["adapter"](session),
                 strategy_id=sid,
                 unit_risk_dollars=unit_risk,
+                portfolio_unit_risk_dollars=reference_unit_risk,
                 daily_stop_R=desc["daily_stop_R"],
-                heat_cap_R=desc["heat_cap_R"],
+                strategy_heat_cap_R=desc["heat_cap_R"],
+                heat_cap_R=_STOCK_DIRECTIONAL_CAP_R,
                 portfolio_daily_stop_R=desc["portfolio_daily_stop_R"],
                 portfolio_weekly_stop_R=_STOCK_PORTFOLIO_WEEKLY_STOP_R,
                 db_pool=db_pool,
                 portfolio_rules_config=portfolio_rules,
-                get_current_equity=lambda eq=_live_equity: eq[0],
+                get_current_equity=lambda eq=stock_equity_ref: eq[0],
                 paper_equity_pool=db_pool if paper_mode else None,
-                paper_equity_scope=sid,
+                paper_equity_scope=self.family_id,
                 paper_initial_equity=initial_nav,
-                live_equity=_live_equity if not paper_mode else None,
+                paper_equity_ref=stock_equity_ref if paper_mode else None,
+                live_equity=stock_equity_ref if not paper_mode else None,
                 family_id=self.family_id,
                 account_gate=account_gate,
                 family_strategy_ids=list(all_strategy_ids),
@@ -886,6 +973,7 @@ class StockFamilyCoordinator:
                 "base_risk_pct": iaric_settings.base_risk_fraction,
                 "daily_stop_R": iaric_settings.daily_stop_r,
                 "heat_cap_R": iaric_settings.heat_cap_r,
+                "max_concurrent": iaric_settings.pb_max_positions,
                 "portfolio_daily_stop_R": iaric_settings.portfolio_daily_stop_r,
                 "adapter": _make_adapter,
                 "engine_cls": _import_iaric_engine,
@@ -913,6 +1001,7 @@ class StockFamilyCoordinator:
                 "base_risk_pct": alcb_settings.base_risk_fraction,
                 "daily_stop_R": alcb_settings.daily_stop_r,
                 "heat_cap_R": alcb_settings.heat_cap_r,
+                "max_concurrent": alcb_settings.max_positions,
                 "portfolio_daily_stop_R": alcb_settings.portfolio_daily_stop_r,
                 "adapter": _make_adapter,
                 "engine_cls": _import_alcb_engine,

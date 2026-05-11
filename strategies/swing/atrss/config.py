@@ -51,7 +51,7 @@ class SymbolConfig:
     # Per-symbol bad-fill slippage (spec Section 6)
     max_entry_slip_pct: float = 0.0015
     # Per-symbol base risk (spec Section 9)
-    base_risk_pct: float = 0.024
+    base_risk_pct: float = 0.016
     # Per-symbol short trade control
     shorts_enabled: bool = True
     # Per-symbol time/day filters (hours in ET, weekdays 0=Mon..6=Sun)
@@ -139,7 +139,7 @@ _ETF_CONFIGS: dict[str, SymbolConfig] = {
         tick_size=0.01, multiplier=1.0,
         exchange="SMART", sec_type="STK", primary_exchange="NASDAQ",
         limit_pct=0.0015,
-        base_risk_pct=0.024,
+        base_risk_pct=0.016,
         shorts_enabled=False,
         size_reduction_months=((12, 0.5),),
     ),
@@ -149,7 +149,7 @@ _ETF_CONFIGS: dict[str, SymbolConfig] = {
         adx_on=14, adx_off=18,
         tick_size=0.01, multiplier=1.0,
         exchange="SMART", sec_type="STK", primary_exchange="ARCA",
-        base_risk_pct=0.024,
+        base_risk_pct=0.016,
         shorts_enabled=False,
     ),
     "USO": SymbolConfig(
@@ -255,6 +255,7 @@ ADDON_A_R: float = 1.5      # MFE threshold for add-on A (raised per rescaled op
 ADDON_B_R: float = 2.0      # MFE threshold for add-on B
 ADDON_A_SIZE_MULT: float = 0.5
 ADDON_B_SIZE_MULT: float = 0.5  # Add-on B qty cap = 0.5 * base qty
+ADDON_B_ENABLED: bool = False
 FIXED_QTY_ADDON_B_ENABLED: bool = False
 
 # ---------------------------------------------------------------------------

@@ -9,12 +9,26 @@ Validates:
 """
 from __future__ import annotations
 
+from datetime import date
 from unittest.mock import AsyncMock
 
 import pytest
 
+from libs.oms.config.risk_config import RiskConfig, StrategyRiskConfig
+from libs.oms.models.instrument import Instrument
+from libs.oms.models.order import (
+    OMSOrder,
+    OrderRole,
+    OrderSide,
+    OrderType,
+    RiskContext,
+)
+from libs.oms.models.risk_state import PortfolioRiskState, StrategyRiskState
+from libs.oms.risk.calendar import EventCalendar
+from libs.oms.risk.gateway import RiskGateway
 from libs.oms.risk.portfolio_rules import (
     PortfolioRuleChecker,
+    PortfolioRuleResult,
     PortfolioRulesConfig,
 )
 
@@ -124,6 +138,317 @@ async def test_directional_cap_falls_back_to_global_without_family_ids():
     result = await checker.check_entry("IARIC_v1", "LONG", 1.0)
     assert not result.approved
     assert "directional_cap" in result.denial_reason
+
+
+@pytest.mark.asyncio
+async def test_max_total_active_positions_blocks_family_capacity():
+    config = PortfolioRulesConfig(
+        directional_cap_R=0,
+        family_strategy_ids=STOCK_IDS,
+        max_total_active_positions=2,
+    )
+    checker = PortfolioRuleChecker(
+        config=config,
+        get_strategy_signal=AsyncMock(return_value=None),
+        get_directional_risk_R=AsyncMock(return_value=0.0),
+        get_current_equity=lambda: 10_000.0,
+        get_open_position_count_for_strategies=AsyncMock(return_value=2),
+    )
+
+    result = await checker.check_entry("IARIC_v1", "LONG", 1.0, symbol="AAPL")
+
+    assert not result.approved
+    assert "max_total_active_positions" in result.denial_reason
+
+
+@pytest.mark.asyncio
+async def test_symbol_heat_cap_uses_reference_risk_dollars():
+    config = PortfolioRulesConfig(
+        directional_cap_R=0,
+        family_strategy_ids=STOCK_IDS,
+        reference_unit_risk_dollars=100.0,
+        max_symbol_heat_R=2.2,
+    )
+    checker = PortfolioRuleChecker(
+        config=config,
+        get_strategy_signal=AsyncMock(return_value=None),
+        get_directional_risk_R=AsyncMock(return_value=0.0),
+        get_current_equity=lambda: 10_000.0,
+        get_symbol_open_risk_dollars_for_strategies=AsyncMock(return_value=150.0),
+    )
+
+    result = await checker.check_entry(
+        "IARIC_v1", "LONG", 0.8, symbol="AAPL", new_risk_dollars=80.0,
+    )
+
+    assert not result.approved
+    assert "symbol_heat_cap" in result.denial_reason
+
+
+@pytest.mark.asyncio
+async def test_reference_risk_pct_tracks_current_equity_for_heat_caps():
+    equity = [10_000.0]
+    config = PortfolioRulesConfig(
+        directional_cap_R=0,
+        family_strategy_ids=STOCK_IDS,
+        reference_unit_risk_dollars=100.0,
+        reference_unit_risk_pct=0.01,
+        portfolio_heat_cap_R=2.0,
+    )
+    checker = PortfolioRuleChecker(
+        config=config,
+        get_strategy_signal=AsyncMock(return_value=None),
+        get_directional_risk_R=AsyncMock(return_value=0.0),
+        get_current_equity=lambda: equity[0],
+        get_active_risk_dollars_for_strategies=AsyncMock(return_value=150.0),
+    )
+
+    blocked = await checker.check_entry(
+        "IARIC_v1", "LONG", 0.8, symbol="AAPL", new_risk_dollars=80.0,
+    )
+    equity[0] = 20_000.0
+    approved = await checker.check_entry(
+        "IARIC_v1", "LONG", 0.8, symbol="AAPL", new_risk_dollars=80.0,
+    )
+
+    assert not blocked.approved
+    assert "portfolio_heat_cap" in blocked.denial_reason
+    assert approved.approved
+
+
+@pytest.mark.asyncio
+async def test_sector_heat_cap_uses_symbol_sector_map():
+    sector_risk = AsyncMock(return_value=300.0)
+    config = PortfolioRulesConfig(
+        directional_cap_R=0,
+        family_strategy_ids=STOCK_IDS,
+        reference_unit_risk_dollars=100.0,
+        same_sector_heat_cap_R=3.8,
+        symbol_sector_map=(("AAPL", "Technology"), ("MSFT", "Technology")),
+    )
+    checker = PortfolioRuleChecker(
+        config=config,
+        get_strategy_signal=AsyncMock(return_value=None),
+        get_directional_risk_R=AsyncMock(return_value=0.0),
+        get_current_equity=lambda: 10_000.0,
+        get_symbols_open_risk_dollars_for_strategies=sector_risk,
+    )
+
+    result = await checker.check_entry(
+        "ALCB_v1", "LONG", 0.9, symbol="AAPL", new_risk_dollars=90.0,
+    )
+
+    assert not result.approved
+    assert "sector_heat_cap" in result.denial_reason
+    assert set(sector_risk.await_args.args[1]) == {"AAPL", "MSFT"}
+
+
+@pytest.mark.asyncio
+async def test_size_multipliers_apply_before_directional_cap():
+    config = PortfolioRulesConfig(
+        directional_cap_R=1.0,
+        family_strategy_ids=STOCK_IDS,
+        reference_unit_risk_dollars=100.0,
+        initial_equity=10_000.0,
+        dd_tiers=((0.10, 0.50), (1.00, 0.00)),
+    )
+    checker = PortfolioRuleChecker(
+        config=config,
+        get_strategy_signal=AsyncMock(return_value=None),
+        get_directional_risk_R=AsyncMock(return_value=0.0),
+        get_current_equity=lambda: 9_500.0,
+        get_directional_risk_dollars_for_strategies=AsyncMock(return_value=60.0),
+    )
+
+    result = await checker.check_entry(
+        "ALCB_v1", "LONG", 0.8, symbol="AAPL", new_risk_dollars=80.0,
+    )
+
+    assert result.approved
+    assert result.size_multiplier == pytest.approx(0.5)
+
+
+@pytest.mark.asyncio
+async def test_dynamic_allocation_boosts_recent_positive_expectancy():
+    config = PortfolioRulesConfig(
+        directional_cap_R=0,
+        family_strategy_ids=STOCK_IDS,
+        dynamic_allocation_enabled=True,
+        dynamic_lookback_trades=60,
+        dynamic_positive_expectancy_boost=0.10,
+        dynamic_max_mult=1.22,
+    )
+    checker = PortfolioRuleChecker(
+        config=config,
+        get_strategy_signal=AsyncMock(return_value=None),
+        get_directional_risk_R=AsyncMock(return_value=0.0),
+        get_current_equity=lambda: 10_000.0,
+        get_recent_strategy_r_multiples=AsyncMock(return_value=[0.4] * 40 + [-0.1] * 10),
+    )
+
+    result = await checker.check_entry("IARIC_v1", "LONG", 1.0, symbol="AAPL")
+
+    assert result.approved
+    assert result.size_multiplier == pytest.approx(1.10)
+
+
+@pytest.mark.asyncio
+async def test_strategy_active_positions_blocks_per_strategy_capacity():
+    async def open_count(ids: list[str]) -> int:
+        return 3 if ids == ["NQ_REGIME"] else 0
+
+    config = PortfolioRulesConfig(
+        directional_cap_R=0,
+        family_strategy_ids=("NQ_REGIME", "VdubusNQ_v4"),
+        max_strategy_active_positions=(("NQ_REGIME", 3), ("VdubusNQ_v4", 2)),
+    )
+    checker = PortfolioRuleChecker(
+        config=config,
+        get_strategy_signal=AsyncMock(return_value=None),
+        get_directional_risk_R=AsyncMock(return_value=0.0),
+        get_current_equity=lambda: 10_000.0,
+        get_open_position_count_for_strategies=open_count,
+    )
+
+    result = await checker.check_entry("NQ_REGIME", "LONG", 1.0, symbol="MNQ")
+
+    assert not result.approved
+    assert "max_strategy_active_positions" in result.denial_reason
+
+
+@pytest.mark.asyncio
+async def test_momentum_dynamic_sizing_fits_remaining_capacity_before_caps():
+    config = PortfolioRulesConfig(
+        directional_cap_R=2.0,
+        family_strategy_ids=("NQ_REGIME", "VdubusNQ_v4"),
+        reference_unit_risk_dollars=100.0,
+        portfolio_heat_cap_R=2.0,
+        strategy_size_multipliers=(("NQ_REGIME", 0.75),),
+        max_trade_risk_R=2.0,
+        fit_to_remaining_heat=True,
+        fit_to_remaining_directional_cap=True,
+    )
+    checker = PortfolioRuleChecker(
+        config=config,
+        get_strategy_signal=AsyncMock(return_value=None),
+        get_directional_risk_R=AsyncMock(return_value=0.0),
+        get_current_equity=lambda: 10_000.0,
+        get_directional_risk_dollars_for_strategies=AsyncMock(return_value=100.0),
+        get_active_risk_dollars_for_strategies=AsyncMock(return_value=50.0),
+    )
+
+    result = await checker.check_entry(
+        "NQ_REGIME", "LONG", 4.0, symbol="MNQ", new_qty=4, new_risk_dollars=400.0,
+    )
+
+    assert result.approved
+    assert result.size_multiplier == pytest.approx(0.25)
+
+
+@pytest.mark.asyncio
+async def test_momentum_dynamic_sizing_blocks_when_capacity_floor_has_no_room():
+    config = PortfolioRulesConfig(
+        directional_cap_R=0,
+        family_strategy_ids=("NQ_REGIME", "VdubusNQ_v4"),
+        reference_unit_risk_dollars=100.0,
+        portfolio_heat_cap_R=2.0,
+        fit_to_remaining_heat=True,
+    )
+    checker = PortfolioRuleChecker(
+        config=config,
+        get_strategy_signal=AsyncMock(return_value=None),
+        get_directional_risk_R=AsyncMock(return_value=0.0),
+        get_current_equity=lambda: 10_000.0,
+        get_active_risk_dollars_for_strategies=AsyncMock(return_value=200.0),
+    )
+
+    result = await checker.check_entry(
+        "NQ_REGIME", "LONG", 1.0, symbol="MNQ", new_qty=1, new_risk_dollars=100.0,
+    )
+
+    assert not result.approved
+    assert result.denial_reason == "dynamic_capacity_floor"
+
+
+@pytest.mark.asyncio
+async def test_risk_gateway_applies_portfolio_multiplier_before_heat_cap():
+    class HalfSizeChecker:
+        async def check_entry(self, **kwargs):
+            return PortfolioRuleResult(approved=True, size_multiplier=0.5)
+
+    gateway = RiskGateway(
+        config=RiskConfig(
+            heat_cap_R=2.0,
+            portfolio_daily_stop_R=3.0,
+            portfolio_weekly_stop_R=9.0,
+            portfolio_urd=100.0,
+            strategy_configs={
+                "NQ_REGIME": StrategyRiskConfig(
+                    strategy_id="NQ_REGIME",
+                    unit_risk_dollars=100.0,
+                    daily_stop_R=3.0,
+                )
+            },
+        ),
+        calendar=EventCalendar(),
+        get_strategy_risk=AsyncMock(
+            return_value=StrategyRiskState("NQ_REGIME", date.today())
+        ),
+        get_portfolio_risk=AsyncMock(
+            return_value=PortfolioRiskState(
+                date.today(),
+                open_risk_R=1.0,
+            )
+        ),
+        portfolio_checker=HalfSizeChecker(),
+    )
+    order = OMSOrder(
+        strategy_id="NQ_REGIME",
+        instrument=Instrument(
+            symbol="MNQ",
+            root="MNQ",
+            venue="CME",
+            tick_size=0.25,
+            tick_value=0.5,
+            multiplier=2.0,
+            point_value=2.0,
+        ),
+        side=OrderSide.BUY,
+        qty=2,
+        order_type=OrderType.LIMIT,
+        role=OrderRole.ENTRY,
+        risk_context=RiskContext(planned_entry_price=100.0, stop_for_risk=50.0),
+    )
+
+    denial = await gateway.check_entry(order)
+
+    assert denial is None
+    assert order.risk_context.portfolio_size_mult == pytest.approx(0.5)
+    assert order.risk_context.risk_dollars == pytest.approx(100.0)
+
+
+@pytest.mark.asyncio
+async def test_strategy_trade_share_cap_blocks_after_min_sample():
+    config = PortfolioRulesConfig(
+        directional_cap_R=0,
+        family_strategy_ids=STOCK_IDS,
+        max_single_strategy_trade_share=0.85,
+        strategy_trade_share_min_total=50,
+    )
+    checker = PortfolioRuleChecker(
+        config=config,
+        get_strategy_signal=AsyncMock(return_value=None),
+        get_directional_risk_R=AsyncMock(return_value=0.0),
+        get_current_equity=lambda: 10_000.0,
+        get_completed_trade_counts_for_strategies=AsyncMock(
+            return_value={"IARIC_v1": 50, "ALCB_v1": 8}
+        ),
+    )
+
+    result = await checker.check_entry("IARIC_v1", "LONG", 1.0, symbol="AAPL")
+
+    assert not result.approved
+    assert "strategy_trade_share_cap" in result.denial_reason
 
 
 # ── Symbol collision ────────────────────────────────────────────────

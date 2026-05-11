@@ -34,6 +34,38 @@ MOMENTUM_FAMILY_STRATEGY_IDS: tuple[str, ...] = (
     "NQDTC_v2.1",
     "DownturnDominator_v1",
 )
+PORTFOLIO_REPLAY_CONTRACT_VERSION = "completed_source_trade_replay_live_portfolio_rules.v1"
+
+
+def portfolio_replay_contract(
+    *,
+    source_label: str = "legacy_strategy_trades",
+    decision_count: int = 0,
+) -> dict[str, object]:
+    """Describe exactly what the portfolio replay can and cannot prove."""
+
+    return {
+        "version": PORTFOLIO_REPLAY_CONTRACT_VERSION,
+        "scope": "portfolio_sizing_routing_and_live_risk_overlay",
+        "candidate_source": source_label,
+        "live_rule_checker": "libs.oms.risk.portfolio_rules.PortfolioRuleChecker",
+        "uses_live_portfolio_rules": True,
+        "uses_shared_capital_ledger": True,
+        "source_strategy_execution_simulation": False,
+        "decision_event_count": decision_count,
+        "decision_stream_status": (
+            "provided" if decision_count > 0 else "not_provided_completed_trade_replay"
+        ),
+        "evidence_label": "portfolio_sizing_evidence_not_full_source_execution_simulation",
+        "known_limitation": (
+            "The portfolio layer replays completed source trade outcomes. It cannot "
+            "discover source-strategy fill, order-path, or intrabar execution defects."
+        ),
+        "source_strategy_parity_prerequisite": (
+            "Each source momentum strategy must maintain its own live/backtest parity "
+            "through shared-core or equivalent source-engine tests."
+        ),
+    }
 
 
 @dataclass(frozen=True)
@@ -168,6 +200,7 @@ class FamilyPortfolioResult:
     replay_source_fingerprint: str = ""
     trade_outcome_count: int = 0
     decision_count: int = 0
+    replay_bundle_metadata: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass
@@ -300,6 +333,7 @@ class FamilyPortfolioBacktester:
                 replay_source_fingerprint=bundle.source_fingerprint,
                 trade_outcome_count=len(bundle.trade_outcomes),
                 decision_count=len(bundle.decisions),
+                replay_bundle_metadata=dict(bundle.metadata),
             )
             result.metrics = self._compute_metrics(result)
             return result
@@ -312,6 +346,7 @@ class FamilyPortfolioBacktester:
             replay_source_fingerprint=bundle.source_fingerprint,
             trade_outcome_count=len(bundle.trade_outcomes),
             decision_count=len(bundle.decisions),
+            replay_bundle_metadata=dict(bundle.metadata),
         )
         return await FamilyPortfolioReplayDriver(actions, adapter).run()
 
@@ -803,6 +838,7 @@ class _LiveRuleFamilyExecutionAdapter:
         replay_source_fingerprint: str,
         trade_outcome_count: int,
         decision_count: int,
+        replay_bundle_metadata: dict[str, object],
     ):
         self.engine = engine
         self.all_trades = all_trades
@@ -816,6 +852,7 @@ class _LiveRuleFamilyExecutionAdapter:
             replay_source_fingerprint=replay_source_fingerprint,
             trade_outcome_count=trade_outcome_count,
             decision_count=decision_count,
+            replay_bundle_metadata=dict(replay_bundle_metadata),
         )
         self.current_time = {"value": _aware_utc(first_timestamp)}
         self.equity_points: list[tuple[datetime, float]] = [
@@ -966,6 +1003,10 @@ def build_family_replay_bundle(
         "source_label": source_label,
         "strategy_trade_counts": strategy_counts,
         "schema": "momentum_family_replay_bundle.v1",
+        "replay_contract": portfolio_replay_contract(
+            source_label=source_label,
+            decision_count=len(decision_tuple),
+        ),
     }
     return FamilyPortfolioReplayBundle(
         source_fingerprint=_replay_bundle_fingerprint(outcome_tuple, decision_tuple),

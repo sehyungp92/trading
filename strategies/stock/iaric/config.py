@@ -316,6 +316,7 @@ class StrategySettings:
     pb_carry_min_r: float = 0.25                 # min R to qualify for carry
     pb_gap_min_pct: float = -99.0                # minimum acceptable gap percent at entry
     pb_gap_max_pct: float = 99.0                 # maximum acceptable gap percent at entry
+    pb_gap_up_size_mult: float = 0.60            # phase-5 portfolio overlay parity
     pb_sma_dist_min_pct: float = 0.0             # minimum distance above trend SMA at entry
     pb_sma_dist_max_pct: float = 99.0            # maximum distance above trend SMA at entry
     pb_cdd_max: int = 6

@@ -718,19 +718,49 @@ class PgStore:
     async def get_directional_risk_dollars_for_strategies(
         self, direction: str, strategy_ids: list[str],
     ) -> float:
-        """Sum open risk dollars for positions in a given direction, filtered by strategy IDs."""
+        """Sum active risk dollars in a direction, including pending entries."""
+        if not strategy_ids:
+            return 0.0
+        working_statuses = [
+            "RISK_APPROVED",
+            "ROUTED",
+            "ACKED",
+            "WORKING",
+            "PARTIALLY_FILLED",
+        ]
         r = await self._pool.fetchrow(
             """
-            SELECT COALESCE(SUM(open_risk_dollars), 0) AS total_risk
-            FROM positions
-            WHERE strategy_id = ANY($2)
-            AND net_qty != 0
-            AND CASE WHEN $1 = 'LONG' THEN net_qty > 0 ELSE net_qty < 0 END
+            SELECT
+                (
+                    SELECT COALESCE(SUM(open_risk_dollars), 0)
+                    FROM positions
+                    WHERE strategy_id = ANY($2)
+                    AND net_qty != 0
+                    AND CASE WHEN $1 = 'LONG' THEN net_qty > 0 ELSE net_qty < 0 END
+                ) AS open_risk,
+                (
+                    SELECT COALESCE(SUM(
+                        COALESCE((risk_context->>'risk_dollars')::double precision, 0.0)
+                        * CASE
+                            WHEN qty > 0 AND COALESCE(remaining_qty, 0) > 0
+                            THEN remaining_qty::double precision / qty::double precision
+                            ELSE 1.0
+                        END
+                    ), 0.0)
+                    FROM orders
+                    WHERE strategy_id = ANY($2)
+                    AND role = 'ENTRY'
+                    AND status = ANY($3)
+                    AND CASE WHEN $1 = 'LONG' THEN side = 'BUY' ELSE side = 'SELL' END
+                ) AS pending_risk
             """,
             direction,
             strategy_ids,
+            working_statuses,
         )
-        return float(r["total_risk"]) if r else 0.0
+        if r is None:
+            return 0.0
+        return float(r["open_risk"] or 0.0) + float(r["pending_risk"] or 0.0)
 
     async def get_sibling_positions_for_symbol(
         self, strategy_ids: list[str], symbol: str,
@@ -750,8 +780,175 @@ class PgStore:
         )
         return bool(r)
 
+    async def get_open_position_count_for_strategies(
+        self, strategy_ids: list[str],
+    ) -> int:
+        """Count family open positions plus pending entry orders."""
+        if not strategy_ids:
+            return 0
+        working_statuses = [
+            "RISK_APPROVED",
+            "ROUTED",
+            "ACKED",
+            "WORKING",
+            "PARTIALLY_FILLED",
+        ]
+        row = await self._pool.fetchrow(
+            """
+            SELECT
+                (
+                    SELECT COUNT(*)
+                    FROM positions
+                    WHERE strategy_id = ANY($1)
+                    AND net_qty != 0
+                ) AS open_positions,
+                (
+                    SELECT COUNT(*)
+                    FROM orders
+                    WHERE strategy_id = ANY($1)
+                    AND role = 'ENTRY'
+                    AND status = ANY($2)
+                ) AS pending_entries
+            """,
+            strategy_ids,
+            working_statuses,
+        )
+        if row is None:
+            return 0
+        return int(row["open_positions"] or 0) + int(row["pending_entries"] or 0)
+
+    async def get_symbol_open_risk_dollars_for_strategies(
+        self, strategy_ids: list[str], symbol: str,
+    ) -> float:
+        """Sum open risk dollars for one symbol within a strategy family."""
+        if not strategy_ids or not symbol:
+            return 0.0
+        r = await self._pool.fetchval(
+            """
+            SELECT COALESCE(SUM(open_risk_dollars), 0)
+            FROM positions
+            WHERE strategy_id = ANY($1)
+            AND instrument_symbol = $2
+            AND net_qty != 0
+            """,
+            strategy_ids,
+            symbol,
+        )
+        return float(r or 0.0)
+
+    async def get_symbols_open_risk_dollars_for_strategies(
+        self, strategy_ids: list[str], symbols: list[str],
+    ) -> float:
+        """Sum open risk dollars for a set of symbols within a strategy family."""
+        if not strategy_ids or not symbols:
+            return 0.0
+        r = await self._pool.fetchval(
+            """
+            SELECT COALESCE(SUM(open_risk_dollars), 0)
+            FROM positions
+            WHERE strategy_id = ANY($1)
+            AND instrument_symbol = ANY($2)
+            AND net_qty != 0
+            """,
+            strategy_ids,
+            symbols,
+        )
+        return float(r or 0.0)
+
+    async def get_active_risk_dollars_for_strategies(
+        self, strategy_ids: list[str],
+    ) -> float:
+        """Sum open position risk plus pending entry risk for a family."""
+        if not strategy_ids:
+            return 0.0
+        working_statuses = [
+            "RISK_APPROVED",
+            "ROUTED",
+            "ACKED",
+            "WORKING",
+            "PARTIALLY_FILLED",
+        ]
+        row = await self._pool.fetchrow(
+            """
+            SELECT
+                (
+                    SELECT COALESCE(SUM(open_risk_dollars), 0)
+                    FROM positions
+                    WHERE strategy_id = ANY($1)
+                    AND net_qty != 0
+                ) AS open_risk,
+                (
+                    SELECT COALESCE(SUM(
+                        COALESCE((risk_context->>'risk_dollars')::double precision, 0.0)
+                        * CASE
+                            WHEN qty > 0 AND COALESCE(remaining_qty, 0) > 0
+                            THEN remaining_qty::double precision / qty::double precision
+                            ELSE 1.0
+                        END
+                    ), 0.0)
+                    FROM orders
+                    WHERE strategy_id = ANY($1)
+                    AND role = 'ENTRY'
+                    AND status = ANY($2)
+                ) AS pending_risk
+            """,
+            strategy_ids,
+            working_statuses,
+        )
+        if row is None:
+            return 0.0
+        return float(row["open_risk"] or 0.0) + float(row["pending_risk"] or 0.0)
+
+    async def get_completed_trade_counts_for_strategies(
+        self, strategy_ids: list[str],
+    ) -> dict[str, int]:
+        """Count completed trades per strategy for family balance rules."""
+        if not strategy_ids:
+            return {}
+        rows = await self._pool.fetch(
+            """
+            SELECT strategy_id, COUNT(*) AS trade_count
+            FROM trades
+            WHERE strategy_id = ANY($1)
+            AND exit_ts IS NOT NULL
+            GROUP BY strategy_id
+            """,
+            strategy_ids,
+        )
+        return {row["strategy_id"]: int(row["trade_count"] or 0) for row in rows}
+
+    async def get_recent_strategy_r_multiples(
+        self, strategy_id: str, limit: int,
+    ) -> list[float]:
+        """Most recent completed trade R values for live dynamic allocation."""
+        if not strategy_id or limit <= 0:
+            return []
+        rows = await self._pool.fetch(
+            """
+            SELECT realized_r
+            FROM trades
+            WHERE strategy_id = $1
+            AND realized_r IS NOT NULL
+            AND exit_ts IS NOT NULL
+            ORDER BY exit_ts DESC
+            LIMIT $2
+            """,
+            strategy_id,
+            limit,
+        )
+        return [float(row["realized_r"]) for row in rows]
+
     async def get_family_aggregate_mnq_eq(self, strategy_ids: list[str]) -> int:
-        """Sum abs(net_qty) across family strategies, converting NQ to 10x MNQ-eq."""
+        """Sum open and pending contracts, converting NQ to 10x MNQ-eq."""
+        if not strategy_ids:
+            return 0
+        working_statuses = [
+            "RISK_APPROVED",
+            "ROUTED",
+            "ACKED",
+            "WORKING",
+            "PARTIALLY_FILLED",
+        ]
         rows = await self._pool.fetch(
             "SELECT instrument_symbol, COALESCE(SUM(ABS(net_qty)), 0)::int AS total_qty "
             "FROM positions WHERE strategy_id = ANY($1) AND net_qty != 0 "
@@ -760,6 +957,26 @@ class PgStore:
         )
         total = 0
         for row in rows:
+            qty = int(row["total_qty"])
+            total += qty * 10 if row["instrument_symbol"] == "NQ" else qty
+        pending_rows = await self._pool.fetch(
+            """
+            SELECT instrument_symbol, COALESCE(SUM(
+                CASE
+                    WHEN COALESCE(remaining_qty, 0) > 0 THEN remaining_qty
+                    ELSE qty
+                END
+            ), 0)::int AS total_qty
+            FROM orders
+            WHERE strategy_id = ANY($1)
+            AND role = 'ENTRY'
+            AND status = ANY($2)
+            GROUP BY instrument_symbol
+            """,
+            strategy_ids,
+            working_statuses,
+        )
+        for row in pending_rows:
             qty = int(row["total_qty"])
             total += qty * 10 if row["instrument_symbol"] == "NQ" else qty
         return total

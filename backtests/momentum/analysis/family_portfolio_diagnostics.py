@@ -60,6 +60,7 @@ def build_diagnostics(
     data_dir: Path = Path("backtests/momentum/data/raw"),
 ) -> dict[str, Any]:
     config = _load_config(run_dir / "optimized_portfolio_config.json")
+    run_summary = _load_optional_json(run_dir / "run_summary.json")
     with (run_dir / "strategy_trades.pkl").open("rb") as fh:
         trades_by_strategy = pickle.load(fh)
 
@@ -96,9 +97,10 @@ def build_diagnostics(
             "calmar": headline_metrics.get("calmar", 0.0),
             "trades_per_month": headline_metrics.get("trades_per_month", 0.0),
             "risk_basis": diagnostic_equity.get("risk_basis", "realized_daily"),
-            "score": json.loads((run_dir / "run_summary.json").read_text(encoding="utf-8")).get("final_score"),
+            "score": run_summary.get("final_score"),
         },
         "diagnostic_equity": diagnostic_equity,
+        "implementation_safeguards": _implementation_safeguards(run_summary, result, diagnostic_equity),
         "config": _config_snapshot(config),
         "strategy_summary": strategy_summary,
         "block_summary": block_summary,
@@ -806,6 +808,31 @@ def render_markdown(diagnostics: dict[str, Any]) -> str:
             f"{row['max_drawdown_pct']:.2%} | {row['block_rate']:.1%} |"
         )
 
+    safeguards = diagnostics.get("implementation_safeguards", {})
+    replay_contract = safeguards.get("replay_contract", {})
+    lines.extend([
+        "",
+        "## Implementation Safeguards",
+        "",
+        "| Safeguard | Status |",
+        "|---|---|",
+        f"| Replay contract | {replay_contract.get('version', '')} |",
+        f"| Evidence scope | {replay_contract.get('evidence_label', '')} |",
+        f"| Live portfolio rules | {_yes_no(safeguards.get('live_portfolio_rule_checker_used'))} |",
+        f"| Shared capital ledger | {_yes_no(safeguards.get('shared_capital_ledger_used'))} |",
+        f"| Source artifact hashes recorded | {_yes_no(safeguards.get('source_artifact_hashes_recorded'))} |",
+        f"| Source artifacts fingerprint | {safeguards.get('source_artifacts_fingerprint', '')} |",
+        f"| Headline risk basis | {safeguards.get('headline_risk_basis', '')} |",
+        f"| Decision stream status | {safeguards.get('decision_stream_status', '')} |",
+        f"| Full source execution simulation | {_yes_no(safeguards.get('source_strategy_execution_simulation'))} |",
+        "",
+        (
+            "The portfolio result is official for shared-capital sizing/routing evidence. "
+            "It does not replace source-strategy live/backtest parity tests for fills, "
+            "order paths, or intrabar execution."
+        ),
+    ])
+
     interp = diagnostics["interpretation"]
     lines.extend([
         "",
@@ -826,6 +853,41 @@ def render_markdown(diagnostics: dict[str, Any]) -> str:
 
 def _load_config(path: Path) -> FamilyPortfolioBacktestConfig:
     return family_config_from_dict(json.loads(path.read_text(encoding="utf-8")))
+
+
+def _load_optional_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
+def _implementation_safeguards(
+    run_summary: dict[str, Any],
+    result,
+    diagnostic_equity: dict[str, Any],
+) -> dict[str, Any]:
+    replay_contract = dict(run_summary.get("replay_contract", {}))
+    if not replay_contract:
+        replay_contract = dict(result.replay_bundle_metadata.get("replay_contract", {}))
+    source_artifacts_fingerprint = str(run_summary.get("source_artifacts_fingerprint", ""))
+    risk_basis = diagnostic_equity.get("risk_basis", "realized_daily")
+    return {
+        "replay_contract": replay_contract,
+        "completed_trade_replay_labeled": (
+            replay_contract.get("evidence_label")
+            == "portfolio_sizing_evidence_not_full_source_execution_simulation"
+        ),
+        "live_portfolio_rule_checker_used": bool(replay_contract.get("uses_live_portfolio_rules")),
+        "shared_capital_ledger_used": bool(replay_contract.get("uses_shared_capital_ledger")),
+        "source_artifact_hashes_recorded": bool(source_artifacts_fingerprint),
+        "source_artifacts_fingerprint": source_artifacts_fingerprint,
+        "headline_risk_basis": risk_basis,
+        "mtm_risk_is_headline": risk_basis == "bar_close_mark_to_market",
+        "decision_stream_status": replay_contract.get("decision_stream_status", ""),
+        "source_strategy_execution_simulation": bool(
+            replay_contract.get("source_strategy_execution_simulation")
+        ),
+    }
 
 
 def _config_snapshot(config: FamilyPortfolioBacktestConfig) -> dict[str, Any]:
@@ -945,6 +1007,10 @@ def _avg(values: list[float]) -> float:
 
 def _safe_div(numerator: float, denominator: float) -> float:
     return numerator / denominator if denominator else 0.0
+
+
+def _yes_no(value: Any) -> str:
+    return "yes" if bool(value) else "no"
 
 
 def _fmt_num(value: Any) -> str:

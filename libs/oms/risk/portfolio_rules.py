@@ -76,6 +76,39 @@ class PortfolioRulesConfig:
     # dollars (cap_R * reference_urd) instead of R units.  Fixes mixed-R-unit
     # families where strategies have different URDs (e.g. momentum: $200 vs $50).
     reference_unit_risk_dollars: float = 0.0
+    reference_unit_risk_pct: float = 0.0
+
+    # Stock portfolio-synergy caps. Defaults are disabled so existing families
+    # keep their previous behaviour unless they opt in.
+    max_total_active_positions: int = 0
+    max_symbol_heat_R: float = 0.0
+    same_sector_heat_cap_R: float = 0.0
+    symbol_sector_map: tuple[tuple[str, str], ...] = ()
+    max_single_strategy_trade_share: float = 1.0
+    strategy_trade_share_min_total: int = 50
+    dynamic_allocation_enabled: bool = False
+    dynamic_lookback_trades: int = 60
+    dynamic_min_mult: float = 0.65
+    dynamic_max_mult: float = 1.22
+    dynamic_positive_expectancy_boost: float = 0.10
+    dynamic_negative_expectancy_cut: float = 0.18
+
+    # Momentum portfolio-synergy dynamic sizing. These mirror the optimized
+    # replay policy but default to no-op so other families are unaffected.
+    max_strategy_active_positions: tuple[tuple[str, int], ...] = ()
+    max_strategy_heat_R: tuple[tuple[str, float], ...] = ()
+    strategy_size_multipliers: tuple[tuple[str, float], ...] = ()
+    existing_position_mult: float = 1.0
+    portfolio_heat_cap_R: float = 0.0
+    heat_pressure_threshold: float = 1.0
+    heat_pressure_mult: float = 1.0
+    same_direction_pressure_threshold: float = 1.0
+    same_direction_pressure_mult: float = 1.0
+    max_trade_risk_R: float = 0.0
+    min_qty: int = 1
+    fit_to_remaining_heat: bool = False
+    fit_to_remaining_directional_cap: bool = False
+    fit_to_remaining_family_cap: bool = False
 
     # Regime-driven sizing scalars (applied as multipliers in check_entry)
     regime_unit_risk_mult: float = 1.0
@@ -139,6 +172,24 @@ class PortfolioRuleChecker:
         get_directional_risk_dollars_for_strategies: Optional[
             Callable[[str, list[str]], Awaitable[float]]
         ] = None,
+        get_open_position_count_for_strategies: Optional[
+            Callable[[list[str]], Awaitable[int]]
+        ] = None,
+        get_symbol_open_risk_dollars_for_strategies: Optional[
+            Callable[[list[str], str], Awaitable[float]]
+        ] = None,
+        get_symbols_open_risk_dollars_for_strategies: Optional[
+            Callable[[list[str], list[str]], Awaitable[float]]
+        ] = None,
+        get_active_risk_dollars_for_strategies: Optional[
+            Callable[[list[str]], Awaitable[float]]
+        ] = None,
+        get_completed_trade_counts_for_strategies: Optional[
+            Callable[[list[str]], Awaitable[dict[str, int]]]
+        ] = None,
+        get_recent_strategy_r_multiples: Optional[
+            Callable[[str, int], Awaitable[list[float]]]
+        ] = None,
         now_provider: Optional[Callable[[], datetime]] = None,
     ):
         self._cfg = config
@@ -147,7 +198,17 @@ class PortfolioRuleChecker:
         self._on_rule_event = on_rule_event
         self._get_sibling = get_sibling_positions_for_symbol
         self._get_family_mnq_eq = get_family_aggregate_mnq_eq
+        self._get_open_position_count = get_open_position_count_for_strategies
+        self._get_symbol_risk_dollars = get_symbol_open_risk_dollars_for_strategies
+        self._get_symbols_risk_dollars = get_symbols_open_risk_dollars_for_strategies
+        self._get_active_risk_dollars = get_active_risk_dollars_for_strategies
+        self._get_trade_counts = get_completed_trade_counts_for_strategies
+        self._get_recent_r = get_recent_strategy_r_multiples
         self._now_provider = now_provider
+        self._symbol_sector_map = dict(config.symbol_sector_map)
+        self._strategy_size_multipliers = dict(config.strategy_size_multipliers)
+        self._max_strategy_active_positions = dict(config.max_strategy_active_positions)
+        self._max_strategy_heat_R = dict(config.max_strategy_heat_R)
 
         # Family-scoped directional risk: wrap callback if strategy IDs provided
         family_ids = config.family_strategy_ids
@@ -174,6 +235,10 @@ class PortfolioRuleChecker:
     def update_config(self, new_cfg: PortfolioRulesConfig) -> None:
         """Atomically replace config for regime updates. GIL-safe for single attr assign."""
         self._cfg = new_cfg
+        self._symbol_sector_map = dict(new_cfg.symbol_sector_map)
+        self._strategy_size_multipliers = dict(new_cfg.strategy_size_multipliers)
+        self._max_strategy_active_positions = dict(new_cfg.max_strategy_active_positions)
+        self._max_strategy_heat_R = dict(new_cfg.max_strategy_heat_R)
 
     def _emit(self, event: dict) -> None:
         if self._on_rule_event:
@@ -202,6 +267,16 @@ class PortfolioRuleChecker:
         if initial <= 0 or equity >= initial:
             return 0.0
         return (initial - equity) / initial
+
+    def _reference_unit_risk_dollars(self) -> float:
+        if self._cfg.reference_unit_risk_pct > 0:
+            try:
+                equity = float(self._get_equity())
+            except (TypeError, ValueError):
+                equity = 0.0
+            if equity > 0:
+                return max(equity * self._cfg.reference_unit_risk_pct, 1.0)
+        return self._cfg.reference_unit_risk_dollars
 
     async def check_entry(
         self,
@@ -235,33 +310,12 @@ class PortfolioRuleChecker:
                          "direction": direction, "approved": True, "size_multiplier": size_mult})
         result.size_multiplier *= size_mult
 
-        # 2. Directional cap
-        denial = await self._check_directional_cap(strategy_id, direction, new_risk_R, new_risk_dollars)
-        if denial:
-            self._emit({"rule": "directional_cap", "strategy_id": strategy_id,
-                         "direction": direction, "approved": False, "denial_reason": denial})
-            return PortfolioRuleResult(approved=False, denial_reason=denial)
-
-        # 2a. Family contract cap (MNQ-equivalent ceiling)
-        denial = await self._check_family_contract_cap(
-            strategy_id, symbol or "", new_qty,
-        )
-        if denial:
-            self._emit({"rule": "family_contract_cap", "strategy_id": strategy_id,
-                         "approved": False, "denial_reason": denial})
-            return PortfolioRuleResult(approved=False, denial_reason=denial)
-
-        # 2b. Symbol collision (stock family -- block/reduce when sibling holds same ticker)
-        collision_result = await self._check_symbol_collision(strategy_id, symbol)
-        if collision_result is not None:
-            if collision_result == 0.0:
-                reason = f"symbol_collision: sibling strategy holds {symbol}"
-                self._emit({"rule": "symbol_collision", "strategy_id": strategy_id,
-                             "symbol": symbol, "approved": False, "denial_reason": reason})
-                return PortfolioRuleResult(approved=False, denial_reason=reason)
-            self._emit({"rule": "symbol_collision", "strategy_id": strategy_id,
-                         "symbol": symbol, "approved": True, "size_multiplier": collision_result})
-            result.size_multiplier *= collision_result
+        # 2. Static optimized per-strategy multipliers.
+        strategy_mult = self._strategy_size_multipliers.get(strategy_id, 1.0)
+        if strategy_mult != 1.0:
+            self._emit({"rule": "strategy_size_multiplier", "strategy_id": strategy_id,
+                        "approved": True, "size_multiplier": strategy_mult})
+        result.size_multiplier *= strategy_mult
 
         # 3. Drawdown tiers
         dd_mult = self._check_drawdown_tier()
@@ -291,7 +345,137 @@ class PortfolioRuleChecker:
                         "size_multiplier": direction_mult})
             result.size_multiplier *= direction_mult
 
+        dynamic_mult = await self._dynamic_allocation_mult(strategy_id)
+        if dynamic_mult != 1.0:
+            self._emit({"rule": "dynamic_allocation", "strategy_id": strategy_id,
+                        "approved": True, "size_multiplier": dynamic_mult})
+            result.size_multiplier *= dynamic_mult
+
+        momentum_mult = await self._momentum_dynamic_sizing_mult(
+            strategy_id=strategy_id,
+            direction=direction,
+        )
+        if momentum_mult == 0.0:
+            reason = "dynamic_capacity_floor"
+            self._emit({"rule": "dynamic_capacity_floor", "strategy_id": strategy_id,
+                        "approved": False, "denial_reason": reason})
+            return PortfolioRuleResult(approved=False, denial_reason=reason)
+        if momentum_mult != 1.0:
+            self._emit({"rule": "momentum_dynamic_sizing", "strategy_id": strategy_id,
+                        "direction": direction, "approved": True,
+                        "size_multiplier": momentum_mult})
+            result.size_multiplier *= momentum_mult
+
+        capacity_mult = await self._capacity_fit_mult(
+            strategy_id=strategy_id,
+            direction=direction,
+            symbol=symbol or "",
+            new_qty=new_qty,
+            new_risk_dollars=new_risk_dollars,
+            current_size_multiplier=result.size_multiplier,
+        )
+        if capacity_mult == 0.0:
+            reason = "dynamic_capacity_floor"
+            self._emit({"rule": "dynamic_capacity_floor", "strategy_id": strategy_id,
+                        "approved": False, "denial_reason": reason})
+            return PortfolioRuleResult(approved=False, denial_reason=reason)
+        if capacity_mult != 1.0:
+            self._emit({"rule": "dynamic_capacity_fit", "strategy_id": strategy_id,
+                        "approved": True, "size_multiplier": capacity_mult})
+            result.size_multiplier *= capacity_mult
+
+        # 5. Symbol collision (stock family -- block/reduce when sibling holds same ticker)
+        collision_result = await self._check_symbol_collision(strategy_id, symbol)
+        if collision_result is not None:
+            if collision_result == 0.0:
+                reason = f"symbol_collision: sibling strategy holds {symbol}"
+                self._emit({"rule": "symbol_collision", "strategy_id": strategy_id,
+                             "symbol": symbol, "approved": False, "denial_reason": reason})
+                return PortfolioRuleResult(approved=False, denial_reason=reason)
+            self._emit({"rule": "symbol_collision", "strategy_id": strategy_id,
+                         "symbol": symbol, "approved": True, "size_multiplier": collision_result})
+            result.size_multiplier *= collision_result
+
+        adjusted_qty = self._adjusted_qty(new_qty, result.size_multiplier)
+        if new_qty > 0 and new_risk_dollars > 0:
+            risk_per_contract = new_risk_dollars / new_qty
+            adjusted_risk_dollars = adjusted_qty * risk_per_contract
+            adjusted_risk_R = (
+                new_risk_R * (adjusted_risk_dollars / new_risk_dollars)
+                if new_risk_dollars > 0 else new_risk_R * result.size_multiplier
+            )
+        else:
+            adjusted_risk_R = new_risk_R * result.size_multiplier
+            adjusted_risk_dollars = new_risk_dollars * result.size_multiplier
+
+        # 6. Portfolio-synergy hard caps
+        denial = await self._check_total_active_positions()
+        if denial:
+            self._emit({"rule": "max_total_active_positions", "strategy_id": strategy_id,
+                        "approved": False, "denial_reason": denial})
+            return PortfolioRuleResult(approved=False, denial_reason=denial)
+
+        denial = await self._check_strategy_active_positions(strategy_id)
+        if denial:
+            self._emit({"rule": "max_strategy_active_positions", "strategy_id": strategy_id,
+                        "approved": False, "denial_reason": denial})
+            return PortfolioRuleResult(approved=False, denial_reason=denial)
+
+        denial = await self._check_portfolio_heat_cap(adjusted_risk_R, adjusted_risk_dollars)
+        if denial:
+            self._emit({"rule": "portfolio_heat_cap", "strategy_id": strategy_id,
+                        "approved": False, "denial_reason": denial})
+            return PortfolioRuleResult(approved=False, denial_reason=denial)
+
+        denial = await self._check_strategy_heat_cap(
+            strategy_id, adjusted_risk_R, adjusted_risk_dollars,
+        )
+        if denial:
+            self._emit({"rule": "strategy_heat_cap", "strategy_id": strategy_id,
+                        "approved": False, "denial_reason": denial})
+            return PortfolioRuleResult(approved=False, denial_reason=denial)
+
+        denial = await self._check_strategy_trade_share(strategy_id)
+        if denial:
+            self._emit({"rule": "strategy_trade_share_cap", "strategy_id": strategy_id,
+                        "approved": False, "denial_reason": denial})
+            return PortfolioRuleResult(approved=False, denial_reason=denial)
+
+        denial = await self._check_directional_cap(
+            strategy_id, direction, adjusted_risk_R, adjusted_risk_dollars,
+        )
+        if denial:
+            self._emit({"rule": "directional_cap", "strategy_id": strategy_id,
+                         "direction": direction, "approved": False, "denial_reason": denial})
+            return PortfolioRuleResult(approved=False, denial_reason=denial)
+
+        denial = await self._check_family_contract_cap(
+            strategy_id, symbol or "", adjusted_qty,
+        )
+        if denial:
+            self._emit({"rule": "family_contract_cap", "strategy_id": strategy_id,
+                         "approved": False, "denial_reason": denial})
+            return PortfolioRuleResult(approved=False, denial_reason=denial)
+
+        denial = await self._check_symbol_heat_cap(symbol, adjusted_risk_R, adjusted_risk_dollars)
+        if denial:
+            self._emit({"rule": "symbol_heat_cap", "strategy_id": strategy_id,
+                        "symbol": symbol, "approved": False, "denial_reason": denial})
+            return PortfolioRuleResult(approved=False, denial_reason=denial)
+
+        denial = await self._check_sector_heat_cap(symbol, adjusted_risk_R, adjusted_risk_dollars)
+        if denial:
+            self._emit({"rule": "sector_heat_cap", "strategy_id": strategy_id,
+                        "symbol": symbol, "approved": False, "denial_reason": denial})
+            return PortfolioRuleResult(approved=False, denial_reason=denial)
+
         return result
+
+    @staticmethod
+    def _adjusted_qty(new_qty: int, size_multiplier: float) -> int:
+        if new_qty <= 0 or size_multiplier <= 0:
+            return 0
+        return max(1, int(new_qty * size_multiplier))
 
     def _directional_unit_risk_mult(self, direction: str) -> float:
         direction_u = (direction or "").upper()
@@ -300,6 +484,143 @@ class PortfolioRuleChecker:
         if direction_u == "SHORT":
             return self._cfg.regime_unit_risk_short_mult
         return 1.0
+
+    async def _dynamic_allocation_mult(self, strategy_id: str) -> float:
+        if not self._cfg.dynamic_allocation_enabled or self._get_recent_r is None:
+            return 1.0
+        lookback = max(1, int(self._cfg.dynamic_lookback_trades))
+        recent = await self._get_recent_r(strategy_id, lookback)
+        if len(recent) < 20:
+            return 1.0
+        avg_r = sum(recent) / len(recent)
+        win_rate = sum(1 for value in recent if value > 0) / len(recent)
+        mult = 1.0
+        if avg_r > 0.20 and win_rate > 0.58:
+            mult += self._cfg.dynamic_positive_expectancy_boost
+        elif avg_r < 0.0 or win_rate < 0.45:
+            mult -= self._cfg.dynamic_negative_expectancy_cut
+        return max(self._cfg.dynamic_min_mult, min(self._cfg.dynamic_max_mult, mult))
+
+    async def _momentum_dynamic_sizing_mult(
+        self,
+        *,
+        strategy_id: str,
+        direction: str,
+    ) -> float:
+        mult = 1.0
+        family_ids = list(self._cfg.family_strategy_ids)
+        if family_ids and self._cfg.existing_position_mult != 1.0 and self._get_open_position_count is not None:
+            if await self._get_open_position_count(family_ids) > 0:
+                mult *= self._cfg.existing_position_mult
+
+        ref_urd = self._reference_unit_risk_dollars()
+        if ref_urd <= 0:
+            return mult
+
+        heat_cap = self._cfg.portfolio_heat_cap_R
+        if (
+            heat_cap > 0
+            and self._cfg.heat_pressure_mult != 1.0
+            and self._get_active_risk_dollars is not None
+            and family_ids
+        ):
+            current_heat_R = await self._get_active_risk_dollars(family_ids) / ref_urd
+            if current_heat_R / heat_cap >= self._cfg.heat_pressure_threshold:
+                mult *= self._cfg.heat_pressure_mult
+
+        direction_cap = self._direction_cap_for(direction)
+        if (
+            direction_cap > 0
+            and self._cfg.same_direction_pressure_mult != 1.0
+            and self._get_dir_risk_dollars is not None
+        ):
+            current_direction_R = await self._get_dir_risk_dollars(direction) / ref_urd
+            if current_direction_R / direction_cap >= self._cfg.same_direction_pressure_threshold:
+                mult *= self._cfg.same_direction_pressure_mult
+
+        return mult
+
+    async def _capacity_fit_mult(
+        self,
+        *,
+        strategy_id: str,
+        direction: str,
+        symbol: str,
+        new_qty: int,
+        new_risk_dollars: float,
+        current_size_multiplier: float,
+    ) -> float:
+        if new_qty <= 0 or new_risk_dollars <= 0:
+            return 1.0
+        ref_urd = self._reference_unit_risk_dollars()
+        risk_per_contract = new_risk_dollars / new_qty
+        if ref_urd <= 0 or risk_per_contract <= 0:
+            return 1.0
+
+        max_qty = self._adjusted_qty(new_qty, current_size_multiplier)
+        cap_limited = False
+
+        if self._cfg.max_trade_risk_R > 0:
+            max_qty = min(
+                max_qty,
+                self._qty_for_risk_dollars(
+                    self._cfg.max_trade_risk_R * ref_urd,
+                    risk_per_contract,
+                ),
+            )
+
+        family_ids = list(self._cfg.family_strategy_ids)
+        if (
+            self._cfg.fit_to_remaining_heat
+            and self._cfg.portfolio_heat_cap_R > 0
+            and self._get_active_risk_dollars is not None
+            and family_ids
+        ):
+            current_dollars = await self._get_active_risk_dollars(family_ids)
+            remaining_dollars = self._cfg.portfolio_heat_cap_R * ref_urd - current_dollars
+            max_qty = min(max_qty, self._qty_for_risk_dollars(remaining_dollars, risk_per_contract))
+            cap_limited = True
+
+        direction_cap = self._direction_cap_for(direction)
+        if self._cfg.fit_to_remaining_directional_cap and direction_cap > 0 and self._get_dir_risk_dollars is not None:
+            current_dollars = await self._get_dir_risk_dollars(direction)
+            remaining_dollars = direction_cap * ref_urd - current_dollars
+            max_qty = min(max_qty, self._qty_for_risk_dollars(remaining_dollars, risk_per_contract))
+            cap_limited = True
+
+        if (
+            self._cfg.fit_to_remaining_family_cap
+            and self._cfg.max_family_contracts_mnq_eq > 0
+            and self._get_family_mnq_eq is not None
+            and family_ids
+        ):
+            current_mnq_eq = await self._get_family_mnq_eq(family_ids)
+            symbol_mult = 10 if symbol == "NQ" else 1
+            remaining_mnq_eq = self._cfg.max_family_contracts_mnq_eq - current_mnq_eq
+            max_qty = min(max_qty, max(0, remaining_mnq_eq // symbol_mult))
+            cap_limited = True
+
+        min_qty = max(1, int(self._cfg.min_qty))
+        if max_qty < min_qty:
+            return 0.0 if cap_limited or max_qty <= 0 else 1.0
+        target_mult = max_qty / new_qty
+        if target_mult < current_size_multiplier:
+            return max(0.0, target_mult / max(current_size_multiplier, 1e-12))
+        return 1.0
+
+    @staticmethod
+    def _qty_for_risk_dollars(risk_dollars: float, risk_per_contract: float) -> int:
+        if risk_dollars <= 0 or risk_per_contract <= 0:
+            return 0
+        return max(0, int(risk_dollars // risk_per_contract))
+
+    def _direction_cap_for(self, direction: str) -> float:
+        direction_u = (direction or "").upper()
+        if direction_u == "LONG" and self._cfg.directional_cap_long_R > 0:
+            return self._cfg.directional_cap_long_R
+        if direction_u == "SHORT" and self._cfg.directional_cap_short_R > 0:
+            return self._cfg.directional_cap_short_R
+        return self._cfg.directional_cap_R
 
     async def _check_direction_filter(self, strategy_id: str, direction: str) -> float:
         """NQDTC direction filter — affects Vdubus sizing."""
@@ -342,7 +663,7 @@ class PortfolioRuleChecker:
         if cap_R <= 0:
             return None
 
-        ref_urd = self._cfg.reference_unit_risk_dollars
+        ref_urd = self._reference_unit_risk_dollars()
         use_dollars = ref_urd > 0 and self._get_dir_risk_dollars is not None
 
         if use_dollars:
@@ -458,6 +779,155 @@ class PortfolioRuleChecker:
                 symbol, strategy_id,
             )
             return 0.5
+        return None
+
+    async def _check_total_active_positions(self) -> Optional[str]:
+        cap = self._cfg.max_total_active_positions
+        family_ids = list(self._cfg.family_strategy_ids)
+        if cap <= 0 or not family_ids or self._get_open_position_count is None:
+            return None
+        current = await self._get_open_position_count(family_ids)
+        if current >= cap:
+            return f"max_total_active_positions: {current} open >= cap {cap}"
+        return None
+
+    async def _check_strategy_active_positions(self, strategy_id: str) -> Optional[str]:
+        cap = self._max_strategy_active_positions.get(strategy_id, 0)
+        if cap <= 0 or self._get_open_position_count is None:
+            return None
+        current = await self._get_open_position_count([strategy_id])
+        if current >= cap:
+            return f"max_strategy_active_positions: {strategy_id} {current} open >= cap {cap}"
+        return None
+
+    async def _check_portfolio_heat_cap(
+        self,
+        new_risk_R: float,
+        new_risk_dollars: float,
+    ) -> Optional[str]:
+        cap = self._cfg.portfolio_heat_cap_R
+        family_ids = list(self._cfg.family_strategy_ids)
+        if cap <= 0 or not family_ids:
+            return None
+
+        ref_urd = self._reference_unit_risk_dollars()
+        if ref_urd > 0 and self._get_active_risk_dollars is not None:
+            current_dollars = await self._get_active_risk_dollars(family_ids)
+            total_R = (current_dollars + new_risk_dollars) / ref_urd
+            if total_R > cap:
+                return (
+                    f"portfolio_heat_cap: {current_dollars / ref_urd:.2f}R + "
+                    f"new {new_risk_dollars / ref_urd:.2f}R > cap {cap:.2f}R"
+                )
+            return None
+
+        if new_risk_R > cap:
+            return f"portfolio_heat_cap: new {new_risk_R:.2f}R > cap {cap:.2f}R"
+        return None
+
+    async def _check_strategy_heat_cap(
+        self,
+        strategy_id: str,
+        new_risk_R: float,
+        new_risk_dollars: float,
+    ) -> Optional[str]:
+        cap = self._max_strategy_heat_R.get(strategy_id, 0.0)
+        if cap <= 0:
+            return None
+
+        ref_urd = self._reference_unit_risk_dollars()
+        if ref_urd > 0 and self._get_active_risk_dollars is not None:
+            current_dollars = await self._get_active_risk_dollars([strategy_id])
+            total_R = (current_dollars + new_risk_dollars) / ref_urd
+            if total_R > cap:
+                return (
+                    f"strategy_heat_cap: {strategy_id} {current_dollars / ref_urd:.2f}R + "
+                    f"new {new_risk_dollars / ref_urd:.2f}R > cap {cap:.2f}R"
+                )
+            return None
+
+        if new_risk_R > cap:
+            return f"strategy_heat_cap: {strategy_id} new {new_risk_R:.2f}R > cap {cap:.2f}R"
+        return None
+
+    async def _check_strategy_trade_share(self, strategy_id: str) -> Optional[str]:
+        cap = self._cfg.max_single_strategy_trade_share
+        family_ids = list(self._cfg.family_strategy_ids)
+        if cap >= 1.0 or not family_ids or self._get_trade_counts is None:
+            return None
+        counts = await self._get_trade_counts(family_ids)
+        future_total = sum(counts.values()) + 1
+        if future_total <= self._cfg.strategy_trade_share_min_total:
+            return None
+        future_count = int(counts.get(strategy_id, 0)) + 1
+        future_share = future_count / future_total
+        if future_share > cap:
+            return (
+                f"strategy_trade_share_cap: {strategy_id} future share "
+                f"{future_share:.2%} > cap {cap:.2%}"
+            )
+        return None
+
+    async def _check_symbol_heat_cap(
+        self,
+        symbol: Optional[str],
+        new_risk_R: float,
+        new_risk_dollars: float,
+    ) -> Optional[str]:
+        cap = self._cfg.max_symbol_heat_R
+        family_ids = list(self._cfg.family_strategy_ids)
+        if cap <= 0 or not symbol or not family_ids:
+            return None
+
+        ref_urd = self._reference_unit_risk_dollars()
+        if ref_urd > 0 and self._get_symbol_risk_dollars is not None:
+            current_dollars = await self._get_symbol_risk_dollars(family_ids, symbol)
+            total_R = (current_dollars + new_risk_dollars) / ref_urd
+            if total_R > cap:
+                return (
+                    f"symbol_heat_cap: {symbol} "
+                    f"{current_dollars / ref_urd:.2f}R + new "
+                    f"{new_risk_dollars / ref_urd:.2f}R > cap {cap:.2f}R"
+                )
+            return None
+
+        if new_risk_R > cap:
+            return f"symbol_heat_cap: new {new_risk_R:.2f}R > cap {cap:.2f}R"
+        return None
+
+    async def _check_sector_heat_cap(
+        self,
+        symbol: Optional[str],
+        new_risk_R: float,
+        new_risk_dollars: float,
+    ) -> Optional[str]:
+        cap = self._cfg.same_sector_heat_cap_R
+        family_ids = list(self._cfg.family_strategy_ids)
+        sector = self._symbol_sector_map.get(symbol or "")
+        if cap <= 0 or not sector or not family_ids:
+            return None
+
+        sector_symbols = [
+            mapped_symbol
+            for mapped_symbol, mapped_sector in self._symbol_sector_map.items()
+            if mapped_sector == sector
+        ]
+        ref_urd = self._reference_unit_risk_dollars()
+        if ref_urd > 0 and self._get_symbols_risk_dollars is not None:
+            current_dollars = await self._get_symbols_risk_dollars(
+                family_ids, sector_symbols,
+            )
+            total_R = (current_dollars + new_risk_dollars) / ref_urd
+            if total_R > cap:
+                return (
+                    f"sector_heat_cap: {sector} "
+                    f"{current_dollars / ref_urd:.2f}R + new "
+                    f"{new_risk_dollars / ref_urd:.2f}R > cap {cap:.2f}R"
+                )
+            return None
+
+        if new_risk_R > cap:
+            return f"sector_heat_cap: new {new_risk_R:.2f}R > cap {cap:.2f}R"
         return None
 
     async def _check_family_contract_cap(

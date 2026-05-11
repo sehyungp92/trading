@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from strategies.contracts import RuntimeContext
+from strategies.core.capital import resolve_plugin_nav
 from strategies.core.plugin_runtime import delegate_hydrate, delegate_snapshot_state
 from .engine import VdubNQv4Engine
 
@@ -18,7 +19,7 @@ class VdubNQv4Plugin:
             oms_service=ctx.oms,
             instruments=list(ctx.contracts.values()),
             trade_recorder=getattr(ctx.instrumentation, "trade_recorder", None),
-            equity=getattr(ctx.portfolio, "allocation", 100_000.0),
+            equity=resolve_plugin_nav(ctx, self.strategy_id),
             instrumentation=ctx.instrumentation,
         )
 

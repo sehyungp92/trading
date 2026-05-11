@@ -6,15 +6,17 @@ risk:
   global_standdown: false
 
 capital:
-  initial_equity: 100000.0
-  paper_initial_equity: 10000.0
+  # Preflight-only nominal NAV for validating allocation math.
+  # Paper uses paper_initial_equity; live uses broker NetLiquidation.
+  allocation_check_equity: 100000.0
+  paper_initial_equity: 30000.0
   family_allocations:
-    swing: 0.3334
-    stock: 0.3333
-    momentum: 0.3333
-  strategy_allocations:
-    IARIC_v1: 0.55
-    ALCB_v1: 0.45
+    swing: 0.3333333333333333
+    stock: 0.3333333333333333
+    momentum: 0.3333333333333333
+  # Strategy-level risk allocation is encoded in each optimized strategy's
+  # unit_risk_pct. Stock, momentum, and swing live sizing use family NAV directly.
+  strategy_allocations: {}
 
 drawdown_tiers:
   - [0.08, 1.00]

@@ -68,11 +68,11 @@ def _overlay_targets_for_date(
     return {sym: float(targets.get(sym, 0)) for sym in config.overlay_symbols}
 
 
-def test_overlay_config_defaults_match_unified_backtest_defaults() -> None:
+def test_overlay_config_defaults_match_optimized_live_posture() -> None:
     live = OverlayConfig()
     backtest = UnifiedBacktestConfig()
 
-    assert live.enabled == backtest.overlay_enabled
+    assert live.enabled is False
     assert live.symbols == backtest.overlay_symbols
     assert live.max_equity_pct == backtest.overlay_max_pct
     assert live.ema_fast == backtest.overlay_ema_fast

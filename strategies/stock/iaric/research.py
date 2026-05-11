@@ -15,7 +15,6 @@ from statistics import fmean, median
 from .artifact_store import load_research_snapshot, persist_watchlist_artifact
 from .config import StrategySettings
 from .diagnostics import JsonlDiagnostics
-from .indicators import rolling_sma
 from .models import (
     HeldPositionDirective,
     RegimeSnapshot,
@@ -29,8 +28,16 @@ from .signals import (
     compute_indicator_cache,
     compute_trend_tier,
     compute_trigger_tier,
-    score_daily_candidate,
 )
+
+
+def _entry_gap_pct(symbol: ResearchSymbol) -> float:
+    if len(symbol.daily_bars) < 2:
+        return 0.0
+    prev_close = symbol.daily_bars[-2].close
+    if prev_close <= 0:
+        return 0.0
+    return (symbol.daily_bars[-1].open - prev_close) / prev_close * 100.0
 
 
 def _zscore_map(values: dict[str, float]) -> dict[str, float]:
@@ -319,6 +326,7 @@ def build_watchlist_item(
         recommended_risk_r=conviction_multiplier,
         average_30m_volume=max(symbol.average_30m_volume, 0.0),
         expected_5m_volume=max(symbol.expected_5m_volume, 0.0),
+        entry_gap_pct=_entry_gap_pct(symbol),
         flow_proxy_gate_pass=flow_proxy_gate_pass,
     )
 
@@ -484,6 +492,7 @@ def _pullback_daily_selection(
             recommended_risk_r=sizing_mult,
             average_30m_volume=max(symbol.average_30m_volume, 0.0),
             expected_5m_volume=max(symbol.expected_5m_volume, 0.0),
+            entry_gap_pct=_entry_gap_pct(symbol),
             flow_proxy_gate_pass=not rescue_candidate,
             # Pullback V2 fields
             daily_signal_score=score,

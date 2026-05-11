@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import os
 from contextlib import suppress
 from datetime import datetime, timezone
@@ -29,7 +30,12 @@ from strategies.contracts import RuntimeContext
 logger = logging.getLogger(__name__)
 
 _PORTFOLIO_WEEKLY_STOP_R = 9.0
-_REFERENCE_UNIT_RISK_DOLLARS = 250.0
+_PORTFOLIO_DAILY_STOP_R = 2.75
+_PORTFOLIO_HEAT_CAP_R = 10.0
+_OPTIMIZED_INITIAL_EQUITY = 50_000.0
+_OPTIMIZED_REFERENCE_UNIT_RISK_DOLLARS = 250.0
+_REFERENCE_UNIT_RISK_PCT = _OPTIMIZED_REFERENCE_UNIT_RISK_DOLLARS / _OPTIMIZED_INITIAL_EQUITY
+_MAX_TOTAL_POSITIONS = 8
 _MAX_FAMILY_CONTRACTS_MNQ_EQ = 40
 _DD_TIERS = (
     (0.10, 1.00),
@@ -37,6 +43,67 @@ _DD_TIERS = (
     (0.20, 0.30),
     (1.00, 0.00),
 )
+_STRATEGY_PRIORITIES = (
+    ("VdubusNQ_v4", 0),
+    ("NQ_REGIME", 0),
+    ("NQDTC_v2.1", 1),
+    ("DownturnDominator_v1", 1),
+)
+_MAX_STRATEGY_ACTIVE_POSITIONS = (
+    ("NQ_REGIME", 3),
+    ("VdubusNQ_v4", 2),
+    ("NQDTC_v2.1", 2),
+    ("DownturnDominator_v1", 2),
+)
+_STRATEGY_DAILY_STOPS_R = (
+    ("NQ_REGIME", 3.0),
+    ("VdubusNQ_v4", 2.5),
+    ("NQDTC_v2.1", 2.5),
+    ("DownturnDominator_v1", 2.0),
+)
+_STRATEGY_SIZE_MULTIPLIERS = (
+    ("NQ_REGIME", 0.75),
+    ("VdubusNQ_v4", 0.95),
+    ("NQDTC_v2.1", 1.0),
+    ("DownturnDominator_v1", 1.0),
+)
+
+
+def _momentum_family_nav(
+    base_equity: float,
+    allocs: dict[str, Any],
+    strategy_ids: tuple[str, ...],
+    ctx: RuntimeContext,
+) -> float:
+    """Return the momentum-family NAV used by optimized portfolio sizing."""
+    for strategy_id in strategy_ids:
+        alloc = allocs.get(strategy_id)
+        family_fraction = getattr(alloc, "family_fraction", None)
+        if _positive_finite(family_fraction):
+            return float(base_equity) * float(family_fraction)
+
+    capital = getattr(getattr(ctx, "portfolio", None), "capital", None)
+    family_allocations = getattr(capital, "family_allocations", {}) or {}
+    family_fraction = family_allocations.get("momentum")
+    if _positive_finite(family_fraction):
+        return float(base_equity) * float(family_fraction)
+
+    allocated = [
+        float(getattr(allocs.get(strategy_id), "allocated_nav", 0.0) or 0.0)
+        for strategy_id in strategy_ids
+    ]
+    total_allocated = sum(value for value in allocated if _positive_finite(value))
+    if total_allocated > 0:
+        return total_allocated
+    return float(base_equity)
+
+
+def _positive_finite(value: Any) -> bool:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(number) and number > 0
 
 
 class MomentumFamilyCoordinator:
@@ -121,41 +188,47 @@ class MomentumFamilyCoordinator:
         try:
             allocs = bootstrap_capital(base_equity, config_dir)
         except Exception as exc:
-            logger.warning("bootstrap_capital failed (%s), using equal split", exc)
+            logger.warning(
+                "bootstrap_capital failed (%s), using configured momentum family allocation fallback",
+                exc,
+            )
             allocs = {}
 
         descriptors = self._build_strategy_descriptors()
         all_strategy_ids = tuple(d["strategy_id"] for d in descriptors)
-        fallback_nav = base_equity / max(1, len(descriptors))
-
-        paper_nav_by_strategy: dict[str, float] = {}
-        paper_initial_nav_by_strategy: dict[str, float] = {}
-        equity = base_equity
+        family_initial_nav = _momentum_family_nav(base_equity, allocs, all_strategy_ids, ctx)
+        family_current_nav = family_initial_nav
         if paper_mode:
             from libs.persistence.paper_equity import PaperEquityManager
 
-            for desc in descriptors:
-                sid = desc["strategy_id"]
-                alloc = allocs.get(sid)
-                initial_nav = alloc.allocated_nav if alloc else fallback_nav
-                paper_initial_nav_by_strategy[sid] = initial_nav
-                pem = PaperEquityManager(
-                    db_pool,
-                    account_scope=sid,
-                    initial_equity=initial_nav,
-                )
-                paper_nav_by_strategy[sid] = await pem.load()
-            if paper_nav_by_strategy:
-                equity = sum(paper_nav_by_strategy.values())
+            pem = PaperEquityManager(
+                db_pool,
+                account_scope=self.family_id,
+                initial_equity=family_initial_nav,
+            )
+            family_current_nav = await pem.load()
             paper_equity_pool = db_pool
             logger.info(
-                "Paper mode equity by strategy: total=$%.2f scopes=%s",
-                equity,
-                {k: round(v, 2) for k, v in paper_nav_by_strategy.items()},
+                "Paper mode equity for momentum portfolio: scope=%s current=$%.2f initial=$%.2f",
+                self.family_id,
+                family_current_nav,
+                family_initial_nav,
             )
+        momentum_equity_ref = [family_current_nav]
+        reference_unit_risk = RiskCalculator.compute_unit_risk_dollars(
+            nav=family_current_nav,
+            unit_risk_pct=_REFERENCE_UNIT_RISK_PCT,
+        )
+        logger.info(
+            "Momentum portfolio sizing base: current_nav=$%.2f initial_nav=$%.2f "
+            "account_nav=$%.2f reference_1R=$%.2f",
+            family_current_nav,
+            family_initial_nav,
+            base_equity,
+            reference_unit_risk,
+        )
 
         # ── Dynamic MNQ contract cap ──────────────────────────────────
-        target_leverage = 12.0
         try:
             from ib_async import ContFuture
             mnq_cont = ContFuture("MNQ", "CME")
@@ -169,12 +242,11 @@ class MomentumFamilyCoordinator:
             mnq_price = 21000.0
             logger.warning("MNQ price fetch failed, using default %.0f", mnq_price)
 
-        mnq_notional = mnq_price * 2.0  # MNQ point_value
         max_family_contracts = _MAX_FAMILY_CONTRACTS_MNQ_EQ
         self._base_max_family_contracts = max_family_contracts
         logger.info(
             "Momentum MNQ family cap: %d contracts (equity=$%.0f, phase-auto cap, MNQ=%.0f)",
-            max_family_contracts, equity, mnq_price,
+            max_family_contracts, family_current_nav, mnq_price,
         )
 
         # ── Strategy descriptors ─────────────────────────────────────
@@ -190,42 +262,44 @@ class MomentumFamilyCoordinator:
                 account=ibkr_config.profile.account_id,
             )
 
-            # Resolve allocated NAV
+            # Resolve optimized family NAV.
             alloc = allocs.get(sid)
-            initial_nav = (
-                paper_initial_nav_by_strategy.get(sid)
-                if paper_mode
-                else None
-            )
-            if initial_nav is None:
-                initial_nav = alloc.allocated_nav if alloc else fallback_nav
-            allocated_nav = (
-                paper_nav_by_strategy.get(sid, initial_nav)
-                if paper_mode
-                else (alloc.allocated_nav if alloc else fallback_nav)
-            )
+            initial_nav = family_initial_nav
+            allocated_nav = momentum_equity_ref[0]
             if alloc:
                 logger.info(
-                    "Capital allocation: %s -> $%.2f (%.1f%% of $%.2f)",
-                    sid, allocated_nav, alloc.capital_pct, equity,
+                    "Capital allocation: %s -> momentum portfolio NAV $%.2f "
+                    "(config allocation %.1f%% kept for non-momentum allocators only)",
+                    sid, allocated_nav, getattr(alloc, "capital_pct", 0.0),
                 )
             else:
                 logger.warning(
-                    "Strategy %s not in unified config, using equal fallback NAV %.2f",
-                    sid, fallback_nav,
+                    "Strategy %s not in unified config, using momentum portfolio NAV %.2f",
+                    sid, allocated_nav,
                 )
 
             # Risk
             unit_risk = RiskCalculator.compute_unit_risk_dollars(
                 nav=allocated_nav, unit_risk_pct=desc["base_risk_pct"],
             )
-            _live_equity = [allocated_nav]
+            # Backtest strategy daily stops are expressed on portfolio reference-R.
+            strategy_daily_stop_R = desc["daily_stop_R"]
+            if unit_risk > 0 and reference_unit_risk > 0:
+                strategy_daily_stop_R = (
+                    desc["daily_stop_R"] * reference_unit_risk / unit_risk
+                )
 
             portfolio_rules = PortfolioRulesConfig(
-                initial_equity=allocated_nav,
+                initial_equity=initial_nav,
                 directional_cap_R=4.25,
                 directional_cap_long_R=10.0,
                 directional_cap_short_R=10.5,
+                max_total_active_positions=_MAX_TOTAL_POSITIONS,
+                max_strategy_active_positions=tuple(
+                    (strategy_id, cap)
+                    for strategy_id, cap in _MAX_STRATEGY_ACTIVE_POSITIONS
+                    if strategy_id in all_strategy_ids
+                ),
                 max_family_contracts_mnq_eq=max_family_contracts,
                 family_strategy_ids=all_strategy_ids,
                 symbol_collision_action="none",
@@ -233,15 +307,30 @@ class MomentumFamilyCoordinator:
                 nqdtc_direction_filter_enabled=False,
                 nqdtc_agree_size_mult=1.25,
                 nqdtc_oppose_size_mult=0.50,
-                strategy_priorities=(
-                    ("VdubusNQ_v4", 0),
-                    ("NQ_REGIME", 0),
-                    ("NQDTC_v2.1", 1),
-                    ("DownturnDominator_v1", 1),
+                strategy_priorities=tuple(
+                    (strategy_id, priority)
+                    for strategy_id, priority in _STRATEGY_PRIORITIES
+                    if strategy_id in all_strategy_ids
+                ),
+                strategy_size_multipliers=tuple(
+                    (strategy_id, multiplier)
+                    for strategy_id, multiplier in _STRATEGY_SIZE_MULTIPLIERS
+                    if strategy_id in all_strategy_ids
                 ),
                 priority_headroom_R=1.0,
                 priority_reserve_threshold=1,
-                reference_unit_risk_dollars=_REFERENCE_UNIT_RISK_DOLLARS,
+                reference_unit_risk_dollars=reference_unit_risk,
+                portfolio_heat_cap_R=_PORTFOLIO_HEAT_CAP_R,
+                existing_position_mult=0.85,
+                heat_pressure_threshold=0.65,
+                heat_pressure_mult=0.65,
+                same_direction_pressure_threshold=0.65,
+                same_direction_pressure_mult=0.70,
+                max_trade_risk_R=2.0,
+                min_qty=1,
+                fit_to_remaining_heat=True,
+                fit_to_remaining_directional_cap=True,
+                fit_to_remaining_family_cap=True,
                 dd_tiers=_DD_TIERS,
             )
 
@@ -253,17 +342,19 @@ class MomentumFamilyCoordinator:
                 adapter=adapter,
                 strategy_id=sid,
                 unit_risk_dollars=unit_risk,
-                daily_stop_R=desc["daily_stop_R"],
-                heat_cap_R=desc["heat_cap_R"],
-                portfolio_daily_stop_R=desc["portfolio_daily_stop_R"],
+                portfolio_unit_risk_dollars=reference_unit_risk,
+                daily_stop_R=strategy_daily_stop_R,
+                heat_cap_R=_PORTFOLIO_HEAT_CAP_R,
+                portfolio_daily_stop_R=_PORTFOLIO_DAILY_STOP_R,
                 portfolio_weekly_stop_R=_PORTFOLIO_WEEKLY_STOP_R,
                 db_pool=db_pool,
                 portfolio_rules_config=portfolio_rules,
-                get_current_equity=lambda eq=_live_equity: eq[0],
+                get_current_equity=lambda eq=momentum_equity_ref: eq[0],
                 paper_equity_pool=paper_equity_pool,
-                paper_equity_scope=sid,
+                paper_equity_scope=self.family_id,
                 paper_initial_equity=initial_nav,
-                live_equity=_live_equity if not paper_equity_pool else None,
+                paper_equity_ref=momentum_equity_ref if paper_mode else None,
+                live_equity=momentum_equity_ref if not paper_equity_pool else None,
                 family_id=self.family_id,
                 account_gate=account_gate,
                 family_strategy_ids=list(all_strategy_ids),
@@ -306,7 +397,7 @@ class MomentumFamilyCoordinator:
                 trade_recorder=desc.get("trade_recorder"),
                 equity=allocated_nav,
                 instrumentation=instr,
-                equity_alloc_pct=allocated_nav / equity if equity > 0 else 1.0,
+                equity_alloc_pct=1.0,
             )
             engine_kwargs.update(desc.get("engine_extra_kwargs", {}))
 
@@ -655,9 +746,6 @@ class MomentumFamilyCoordinator:
         from strategies.momentum.nq_regime.config import (
             STRATEGY_ID as NQ_REGIME_ID,
             BASE_RISK_PCT as NQ_REGIME_RISK_PCT,
-            DAILY_STOP_R as NQ_REGIME_DAILY_STOP_R,
-            HEAT_CAP_R as NQ_REGIME_HEAT_CAP_R,
-            PORTFOLIO_DAILY_STOP_R as NQ_REGIME_PORTFOLIO_DAILY_STOP_R,
             build_instruments as nq_regime_build_instruments,
         )
         from strategies.momentum.nq_regime.engine import NQRegimeEngine
@@ -674,21 +762,18 @@ class MomentumFamilyCoordinator:
         from strategies.momentum.downturn.config import (
             STRATEGY_ID as DOWNTURN_ID,
             BASE_RISK_PCT as DOWNTURN_RISK_PCT,
-            DAILY_STOP_R as DOWNTURN_DAILY_STOP_R,
-            HEAT_CAP_R as DOWNTURN_HEAT_CAP_R,
-            PORTFOLIO_DAILY_STOP_R as DOWNTURN_PORTFOLIO_DAILY_STOP_R,
             build_instruments as downturn_build_instruments,
         )
         from strategies.momentum.downturn.engine import DownturnEngine
+
+        daily_stops = dict(_STRATEGY_DAILY_STOPS_R)
 
         return [
             # ── NQDTC_v2.1 ─────────────────────────────────────────
             {
                 "strategy_id": NQDTC_ID,
                 "base_risk_pct": NQDTC_RISK_PCT,
-                "daily_stop_R": 2.5,
-                "heat_cap_R": 3.5,
-                "portfolio_daily_stop_R": 2.75,
+                "daily_stop_R": daily_stops[NQDTC_ID],
                 "build_instruments": nqdtc_build_instruments,
                 "engine_cls": NQDTCEngine,
                 "instr_type": "nqdtc",
@@ -705,9 +790,7 @@ class MomentumFamilyCoordinator:
             {
                 "strategy_id": NQ_REGIME_ID,
                 "base_risk_pct": NQ_REGIME_RISK_PCT,
-                "daily_stop_R": NQ_REGIME_DAILY_STOP_R,
-                "heat_cap_R": NQ_REGIME_HEAT_CAP_R,
-                "portfolio_daily_stop_R": NQ_REGIME_PORTFOLIO_DAILY_STOP_R,
+                "daily_stop_R": daily_stops[NQ_REGIME_ID],
                 "build_instruments": nq_regime_build_instruments,
                 "engine_cls": NQRegimeEngine,
                 "instr_type": "nq_regime",
@@ -724,9 +807,7 @@ class MomentumFamilyCoordinator:
             {
                 "strategy_id": VDUB_ID,
                 "base_risk_pct": VDUB_RISK_PCT,
-                "daily_stop_R": 2.5,
-                "heat_cap_R": 3.5,
-                "portfolio_daily_stop_R": 2.75,
+                "daily_stop_R": daily_stops[VDUB_ID],
                 "build_instruments": vdub_build_instruments,
                 "engine_cls": VdubNQv4Engine,
                 "instr_type": "vdubus",
@@ -737,9 +818,7 @@ class MomentumFamilyCoordinator:
             {
                 "strategy_id": DOWNTURN_ID,
                 "base_risk_pct": DOWNTURN_RISK_PCT,
-                "daily_stop_R": DOWNTURN_DAILY_STOP_R,
-                "heat_cap_R": DOWNTURN_HEAT_CAP_R,
-                "portfolio_daily_stop_R": DOWNTURN_PORTFOLIO_DAILY_STOP_R,
+                "daily_stop_R": daily_stops[DOWNTURN_ID],
                 "build_instruments": downturn_build_instruments,
                 "engine_cls": DownturnEngine,
                 "instr_type": "downturn",

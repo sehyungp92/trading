@@ -49,9 +49,9 @@ class _NoopETFCoreLogic:
         return state, [], []
 
 
-def test_tpc_empty_avoid_windows_do_not_block_gld_primary_session() -> None:
+def test_tpc_gld_primary_session_not_blocked_by_optimized_avoid_window() -> None:
     ts = datetime(2025, 3, 3, 8, 15, tzinfo=ZoneInfo("America/New_York"))
-    assert TPC_SYMBOL_CONFIGS["GLD"].avoid_windows_et == ()
+    assert TPC_SYMBOL_CONFIGS["GLD"].avoid_windows_et == ((11, 0, 12, 0),)
     assert tpc_session_filter(ts, TPC_SYMBOL_CONFIGS["GLD"])
 
 

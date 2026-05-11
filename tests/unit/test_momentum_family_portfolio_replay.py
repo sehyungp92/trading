@@ -205,11 +205,16 @@ def test_family_replay_bundle_matches_legacy_trade_input_path() -> None:
     legacy_result = backtester.run(trades)
     bundle = backtester.build_replay_bundle(trades)
     bundle_result = backtester.run_bundle(bundle)
+    replay_contract = bundle.metadata["replay_contract"]
 
     assert bundle.source_fingerprint == legacy_result.replay_source_fingerprint
     assert bundle_result.replay_source_fingerprint == bundle.source_fingerprint
     assert bundle_result.metrics == legacy_result.metrics
     assert bundle_result.strategy_trade_counts == legacy_result.strategy_trade_counts
+    assert replay_contract["uses_live_portfolio_rules"] is True
+    assert replay_contract["source_strategy_execution_simulation"] is False
+    assert replay_contract["decision_stream_status"] == "not_provided_completed_trade_replay"
+    assert bundle_result.replay_bundle_metadata["replay_contract"] == replay_contract
     assert [trade.adjusted_pnl for trade in bundle_result.trades] == [
         trade.adjusted_pnl for trade in legacy_result.trades
     ]

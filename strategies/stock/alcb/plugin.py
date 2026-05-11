@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 from strategies.contracts import RuntimeContext
+from strategies.core.capital import resolve_plugin_nav
 from .config import StrategySettings
 from .diagnostics import JsonlDiagnostics
 from .engine import ALCBT2Engine
@@ -25,11 +26,7 @@ class ALCBPlugin:
         conn_group = ctx.registry.connection_groups[manifest.connection_group]
         account_id = conn_group.account_id or ""
 
-        # NAV: use portfolio capital allocation; fallback to initial equity
-        nav = ctx.portfolio.capital.strategy_allocations.get(
-            self.strategy_id,
-            ctx.portfolio.capital.initial_equity,
-        )
+        nav = resolve_plugin_nav(ctx, self.strategy_id)
 
         # Artifact will be supplied by the family coordinator before start().
         # Store a sentinel so the coordinator can inject it.

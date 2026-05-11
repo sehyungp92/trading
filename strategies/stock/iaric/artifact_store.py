@@ -211,6 +211,7 @@ def _watchlist_item_from_dict(data: dict[str, Any]) -> WatchlistItem:
         recommended_risk_r=float(data["recommended_risk_r"]),
         average_30m_volume=float(data.get("average_30m_volume", 0.0)),
         expected_5m_volume=float(data.get("expected_5m_volume", 0.0)),
+        entry_gap_pct=float(data.get("entry_gap_pct", 0.0)),
         flow_proxy_gate_pass=bool(data.get("flow_proxy_gate_pass", True)),
         overflow_rank=int(data["overflow_rank"]) if data.get("overflow_rank") is not None else None,
         # Pullback V2 fields

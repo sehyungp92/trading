@@ -185,7 +185,7 @@ class RuntimeShell:
         for manifest in enabled:
             allocation = resolve_strategy_capital_allocation(
                 manifest.strategy_id,
-                raw_nav=self.portfolio.capital.initial_equity,
+                raw_nav=self.portfolio.capital.allocation_check_equity,
                 registry=self.registry,
                 portfolio=self.portfolio,
             )

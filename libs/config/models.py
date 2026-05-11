@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ContractTemplate(BaseModel):
@@ -144,8 +144,10 @@ class PortfolioRiskConfig(BaseModel):
 
 
 class PortfolioCapitalConfig(BaseModel):
-    initial_equity: float = 100000.0
-    paper_initial_equity: float = 10000.0
+    model_config = ConfigDict(extra="forbid")
+
+    allocation_check_equity: float = 100000.0
+    paper_initial_equity: float = 30000.0
     family_allocations: dict[str, float] = Field(default_factory=dict)
     strategy_allocations: dict[str, float] = Field(default_factory=dict)
 

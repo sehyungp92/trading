@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from strategies.contracts import RuntimeContext
+from strategies.core.capital import resolve_plugin_nav
 from .engine import NQDTCEngine
 
 
@@ -18,7 +19,7 @@ class NQDTCPlugin:
             oms_service=ctx.oms,
             instruments=dict(ctx.contracts),
             trade_recorder=getattr(ctx.instrumentation, "trade_recorder", None),
-            equity=getattr(ctx.portfolio, "allocation", 100_000.0),
+            equity=resolve_plugin_nav(ctx, self.strategy_id),
             symbol=cfg.get("symbol", "NQ"),
             state_dir=getattr(ctx.state_store, "state_dir", None),
             instrumentation=ctx.instrumentation,

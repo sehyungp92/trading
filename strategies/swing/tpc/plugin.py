@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from strategies.contracts import RuntimeContext
+from strategies.core.capital import resolve_plugin_nav
 from strategies.core.plugin_runtime import delegate_hydrate, delegate_snapshot_state
 from .config import SYMBOL_CONFIGS
 from .engine import TPCEngine
@@ -19,7 +20,7 @@ class TPCPlugin:
             instruments=ctx.contracts,
             config=SYMBOL_CONFIGS,
             trade_recorder=getattr(ctx.instrumentation, "trade_recorder", None),
-            equity=getattr(ctx.portfolio.capital, "initial_equity", 100_000.0),
+            equity=resolve_plugin_nav(ctx, self.strategy_id),
             market_calendar=getattr(ctx.market_data, "market_calendar", None),
             kit=ctx.instrumentation,
             equity_offset=getattr(ctx.manifest.allocation, "equity_offset", 0.0),

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 from collections import defaultdict, deque
+from dataclasses import replace
 from datetime import datetime
 from typing import Any
 
@@ -8,6 +10,7 @@ import numpy as np
 
 from backtests.stock.analysis.metrics import compute_metrics
 from backtests.stock.models import Direction, TradeRecord
+from libs.oms.risk.portfolio_rules import PortfolioRuleChecker, PortfolioRulesConfig
 
 from ..phase_candidates import INITIAL_EQUITY, STRATEGY_ORDER
 from .state import (
@@ -36,6 +39,14 @@ def run_portfolio_replay(
     iaric_trades: tuple[TradeRecord, ...] | list[TradeRecord],
     effective: dict[str, Any],
 ) -> PortfolioReplayResult:
+    return asyncio.run(_run_portfolio_replay_async(alcb_trades, iaric_trades, effective))
+
+
+async def _run_portfolio_replay_async(
+    alcb_trades: tuple[TradeRecord, ...] | list[TradeRecord],
+    iaric_trades: tuple[TradeRecord, ...] | list[TradeRecord],
+    effective: dict[str, Any],
+) -> PortfolioReplayResult:
     initial_equity = float(effective.get("initial_equity", INITIAL_EQUITY))
     rules = effective["portfolio_rules"]
     reference_risk_pct = float(rules.get("reference_risk_pct", 0.006) or 0.006)
@@ -50,6 +61,11 @@ def run_portfolio_replay(
     entries.extend((trade.entry_time, "ALCB_R3", trade) for trade in alcb_trades)
     entries.extend((trade.entry_time, "IARIC_V5R1", trade) for trade in iaric_trades)
     entries.sort(key=lambda item: item[0])
+    live_rule_adapter = _StockPortfolioLiveRuleReplayAdapter(
+        state=state,
+        effective=effective,
+        symbol_sector_map=_symbol_sector_map(entries),
+    )
 
     actions: list[PortfolioAction] = []
     decisions: list[DecisionEvent] = []
@@ -85,14 +101,7 @@ def run_portfolio_replay(
 
         for candidate in candidates:
             state.candidate_count += 1
-            reason = _block_reason(
-                candidate,
-                state.active_positions,
-                state.accepted_positions,
-                effective,
-                state.equity,
-                reference_risk_pct,
-            )
+            reason = await live_rule_adapter.check_entry(candidate)
             if reason:
                 action = PortfolioAction(
                     action_type=PortfolioActionType.BLOCK_ENTRY,
@@ -190,7 +199,260 @@ def run_portfolio_replay(
         decisions=tuple(decisions),
         actions=tuple(actions),
         trade_outcomes=tuple(trade_outcomes),
+        replay_architecture="stock_portfolio_core_live_rule_adapter",
     )
+
+
+class _StockPortfolioLiveRuleReplayAdapter:
+    """Replay adapter that delegates portfolio admission to the live rule checker."""
+
+    def __init__(
+        self,
+        *,
+        state: PortfolioCoreState,
+        effective: dict[str, Any],
+        symbol_sector_map: tuple[tuple[str, str], ...],
+    ) -> None:
+        self._state = state
+        self._effective = effective
+        self._current_time: datetime | None = None
+        self._base_config = self._portfolio_rules_config(symbol_sector_map)
+        self._checker = PortfolioRuleChecker(
+            config=self._base_config,
+            get_strategy_signal=self._get_strategy_signal,
+            get_directional_risk_R=self._get_directional_risk_R,
+            get_current_equity=lambda: float(self._state.equity),
+            get_directional_risk_R_for_strategies=self._get_directional_risk_R_for_strategies,
+            get_directional_risk_dollars_for_strategies=(
+                self._get_directional_risk_dollars_for_strategies
+            ),
+            get_open_position_count_for_strategies=self._get_open_position_count_for_strategies,
+            get_symbol_open_risk_dollars_for_strategies=(
+                self._get_symbol_open_risk_dollars_for_strategies
+            ),
+            get_symbols_open_risk_dollars_for_strategies=(
+                self._get_symbols_open_risk_dollars_for_strategies
+            ),
+            get_active_risk_dollars_for_strategies=self._get_active_risk_dollars_for_strategies,
+            get_completed_trade_counts_for_strategies=self._get_completed_trade_counts_for_strategies,
+            get_recent_strategy_r_multiples=self._get_recent_strategy_r_multiples,
+            now_provider=lambda: self._current_time or datetime.utcnow(),
+        )
+
+    async def check_entry(self, candidate: ReplayCandidate) -> str:
+        self._current_time = candidate.trade.entry_time
+        self._checker.update_config(
+            replace(
+                self._base_config,
+                reference_unit_risk_dollars=self._reference_risk_dollars(),
+                initial_equity=float(self._state.equity),
+            )
+        )
+        result = await self._checker.check_entry(
+            strategy_id=candidate.strategy,
+            direction=_direction_text(candidate.trade.direction),
+            new_risk_R=candidate.heat_r,
+            symbol=candidate.trade.symbol,
+            new_qty=max(1, int(round(float(candidate.trade.quantity) * candidate.size_mult))),
+            new_risk_dollars=candidate.risk_dollars,
+        )
+        if not result.approved:
+            return _legacy_block_reason(result.denial_reason or "")
+        return self._custom_replay_block_reason(candidate)
+
+    def _portfolio_rules_config(
+        self,
+        symbol_sector_map: tuple[tuple[str, str], ...],
+    ) -> PortfolioRulesConfig:
+        rules = self._effective["portfolio_rules"]
+        allocations = self._effective["strategy_allocations"]
+        cross = self._effective.get("cross_strategy_rules", {})
+        strategy_priorities = tuple(
+            (strategy, int(allocations[strategy].get("priority", index)))
+            for index, strategy in enumerate(STRATEGY_ORDER)
+            if strategy in allocations
+        )
+        return PortfolioRulesConfig(
+            nqdtc_direction_filter_enabled=False,
+            directional_cap_R=0.0,
+            directional_cap_long_R=float(rules.get("max_long_heat_R", 0.0) or 0.0),
+            directional_cap_short_R=0.0,
+            dd_tiers=((1.0, 1.0),),
+            initial_equity=float(self._state.equity),
+            family_strategy_ids=tuple(STRATEGY_ORDER),
+            symbol_collision_action="none",
+            strategy_priorities=strategy_priorities,
+            priority_headroom_R=0.0,
+            reference_unit_risk_dollars=self._reference_risk_dollars(),
+            reference_unit_risk_pct=float(rules.get("reference_risk_pct", 0.006) or 0.006),
+            max_total_active_positions=int(rules.get("max_total_active_positions", 0) or 0),
+            max_symbol_heat_R=float(rules.get("max_symbol_heat_R", 0.0) or 0.0),
+            same_sector_heat_cap_R=float(cross.get("same_sector_heat_cap_R", 0.0) or 0.0),
+            symbol_sector_map=symbol_sector_map,
+            max_single_strategy_trade_share=float(
+                rules.get("max_single_strategy_trade_share", 1.0) or 1.0
+            ),
+            strategy_trade_share_min_total=50,
+            dynamic_allocation_enabled=False,
+            portfolio_heat_cap_R=float(rules.get("heat_cap_R", 0.0) or 0.0),
+            max_strategy_active_positions=tuple(
+                (strategy, int(allocations[strategy].get("max_concurrent", 0) or 0))
+                for strategy in STRATEGY_ORDER
+                if strategy in allocations
+            ),
+            max_strategy_heat_R=tuple(
+                (strategy, float(allocations[strategy].get("max_heat_R", 0.0) or 0.0))
+                for strategy in STRATEGY_ORDER
+                if strategy in allocations
+            ),
+        )
+
+    def _reference_risk_dollars(self) -> float:
+        return max(
+            float(self._state.equity)
+            * float(self._effective["portfolio_rules"].get("reference_risk_pct", 0.006) or 0.006),
+            1.0,
+        )
+
+    def _custom_replay_block_reason(self, candidate: ReplayCandidate) -> str:
+        cross = self._effective.get("cross_strategy_rules", {})
+        same_symbol_policy = str(cross.get("same_symbol_policy", "half_size"))
+        if same_symbol_policy != "best_rank_only":
+            return ""
+        same_symbol_active = [
+            position
+            for position in self._state.active_positions
+            if position.symbol == candidate.trade.symbol
+        ]
+        if not same_symbol_active:
+            return ""
+        best_active_quality = max(position.quality for position in same_symbol_active)
+        return "same_symbol_lower_rank" if candidate.quality <= best_active_quality else ""
+
+    async def _get_strategy_signal(self, strategy_id: str) -> None:
+        del strategy_id
+        return None
+
+    async def _get_directional_risk_R(self, direction: str) -> float:
+        return await self._get_directional_risk_R_for_strategies(direction, list(STRATEGY_ORDER))
+
+    async def _get_directional_risk_R_for_strategies(
+        self,
+        direction: str,
+        strategy_ids: list[str],
+    ) -> float:
+        ref = self._reference_risk_dollars()
+        return await self._get_directional_risk_dollars_for_strategies(direction, strategy_ids) / ref
+
+    async def _get_directional_risk_dollars_for_strategies(
+        self,
+        direction: str,
+        strategy_ids: list[str],
+    ) -> float:
+        ids = set(strategy_ids)
+        return float(
+            sum(
+                position.risk_dollars
+                for position in self._state.active_positions
+                if position.strategy in ids
+                and _direction_text(position.direction) == direction.upper()
+            )
+        )
+
+    async def _get_open_position_count_for_strategies(self, strategy_ids: list[str]) -> int:
+        ids = set(strategy_ids)
+        return sum(1 for position in self._state.active_positions if position.strategy in ids)
+
+    async def _get_symbol_open_risk_dollars_for_strategies(
+        self,
+        strategy_ids: list[str],
+        symbol: str,
+    ) -> float:
+        ids = set(strategy_ids)
+        return float(
+            sum(
+                position.risk_dollars
+                for position in self._state.active_positions
+                if position.strategy in ids and position.symbol == symbol
+            )
+        )
+
+    async def _get_symbols_open_risk_dollars_for_strategies(
+        self,
+        strategy_ids: list[str],
+        symbols: list[str],
+    ) -> float:
+        ids = set(strategy_ids)
+        symbol_set = set(symbols)
+        return float(
+            sum(
+                position.risk_dollars
+                for position in self._state.active_positions
+                if position.strategy in ids and position.symbol in symbol_set
+            )
+        )
+
+    async def _get_active_risk_dollars_for_strategies(self, strategy_ids: list[str]) -> float:
+        ids = set(strategy_ids)
+        return float(
+            sum(
+                position.risk_dollars
+                for position in self._state.active_positions
+                if position.strategy in ids
+            )
+        )
+
+    async def _get_completed_trade_counts_for_strategies(
+        self,
+        strategy_ids: list[str],
+    ) -> dict[str, int]:
+        ids = set(strategy_ids)
+        counts: dict[str, int] = {strategy: 0 for strategy in strategy_ids}
+        for position in self._state.accepted_positions:
+            if position.strategy in ids:
+                counts[position.strategy] = counts.get(position.strategy, 0) + 1
+        return counts
+
+    async def _get_recent_strategy_r_multiples(self, strategy_id: str, lookback: int) -> list[float]:
+        recent = self._state.strategy_recent.get(strategy_id)
+        if not recent:
+            return []
+        return list(recent)[-max(1, int(lookback)):]
+
+
+def _symbol_sector_map(entries: list[tuple[datetime, str, TradeRecord]]) -> tuple[tuple[str, str], ...]:
+    mapping: dict[str, str] = {}
+    for _, _, trade in entries:
+        symbol = str(getattr(trade, "symbol", "") or "")
+        sector = str(getattr(trade, "sector", "") or "")
+        if symbol and sector:
+            mapping[symbol] = sector
+    return tuple(sorted(mapping.items()))
+
+
+def _direction_text(direction: Direction) -> str:
+    return "LONG" if direction == Direction.LONG or int(direction) > 0 else "SHORT"
+
+
+def _legacy_block_reason(denial_reason: str) -> str:
+    reason = denial_reason or "portfolio_rule_block"
+    if reason.startswith("max_total_active_positions"):
+        return "max_total_active_positions"
+    if reason.startswith("max_strategy_active_positions"):
+        return "strategy_max_concurrent"
+    if reason.startswith("portfolio_heat_cap"):
+        return "portfolio_heat_cap"
+    if reason.startswith("strategy_heat_cap"):
+        return "strategy_heat_cap"
+    if reason.startswith("symbol_heat_cap"):
+        return "symbol_heat_cap"
+    if reason.startswith("sector_heat_cap"):
+        return "sector_heat_cap"
+    if reason.startswith("directional_cap"):
+        return "long_heat_cap"
+    if reason.startswith("strategy_trade_share_cap"):
+        return "strategy_trade_share_cap"
+    return reason.split(":", 1)[0]
 
 
 def _decision_event(

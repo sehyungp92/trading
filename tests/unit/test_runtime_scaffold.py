@@ -5,9 +5,11 @@ from unittest.mock import AsyncMock
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from apps.runtime.runtime import RuntimeShell
 from libs.config.loader import load_portfolio_config, load_strategy_registry
+from libs.config.models import PortfolioCapitalConfig
 from libs.config.registry import build_registry_artifact
 
 
@@ -60,6 +62,32 @@ def test_portfolio_account_urd_config() -> None:
     portfolio = load_portfolio_config(CONFIG_DIR)
 
     assert portfolio.risk.account_urd_dollars == 200.0
+
+
+def test_portfolio_allocation_check_equity_is_preflight_only() -> None:
+    raw = yaml.safe_load((CONFIG_DIR / "portfolio.yaml").read_text(encoding="utf-8"))
+    portfolio = load_portfolio_config(CONFIG_DIR)
+
+    assert raw["capital"]["allocation_check_equity"] == 100_000.0
+    assert "initial_equity" not in raw["capital"]
+    assert portfolio.capital.allocation_check_equity == 100_000.0
+    assert not hasattr(portfolio.capital, "initial_equity")
+
+
+def test_portfolio_capital_rejects_legacy_initial_equity() -> None:
+    with pytest.raises(ValidationError):
+        PortfolioCapitalConfig.model_validate({"initial_equity": 100_000.0})
+
+
+def test_portfolio_paper_equity_starts_as_30k_account_split_by_family() -> None:
+    portfolio = load_portfolio_config(CONFIG_DIR)
+
+    assert portfolio.capital.paper_initial_equity == 30_000.0
+    for family in ("swing", "momentum", "stock"):
+        assert (
+            portfolio.capital.paper_initial_equity
+            * portfolio.capital.family_allocations[family]
+        ) == pytest.approx(10_000.0)
 
 
 def test_runtime_preflight_flags_mode_port_mismatch(monkeypatch) -> None:

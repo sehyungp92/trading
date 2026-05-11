@@ -142,4 +142,4 @@ class PortfolioReplayResult:
     decisions: tuple[DecisionEvent, ...]
     actions: tuple[PortfolioAction, ...]
     trade_outcomes: tuple[TradeOutcome, ...]
-    replay_architecture: str = "stock_portfolio_core_neutral_action_replay"
+    replay_architecture: str = "stock_portfolio_core_live_rule_adapter"

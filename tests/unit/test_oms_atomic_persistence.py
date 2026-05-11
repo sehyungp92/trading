@@ -817,6 +817,104 @@ async def test_offline_import_uses_multi_oms_fill_side_effects() -> None:
 
 
 @pytest.mark.asyncio
+async def test_multi_oms_paper_equity_ref_tracks_entry_and_exit_commissions(monkeypatch) -> None:
+    repo = InMemoryRepository()
+    entry = _entry_order("GLD")
+    entry.status = OrderStatus.WORKING
+    entry.remaining_qty = entry.qty
+    entry.risk_context = RiskContext(
+        stop_for_risk=90.0,
+        planned_entry_price=100.0,
+        risk_dollars=100.0,
+    )
+    await repo.save_order(entry)
+
+    paper_value = 10_000.0
+    calls: list[tuple[float, float, str, float]] = []
+
+    async def fake_apply_paper_pnl(
+        pool,
+        pnl: float,
+        commission: float,
+        *,
+        account_scope: str,
+        initial_equity: float,
+    ) -> float:
+        nonlocal paper_value
+        calls.append((pnl, commission, account_scope, initial_equity))
+        paper_value += pnl - commission
+        return paper_value
+
+    monkeypatch.setattr(
+        "libs.persistence.paper_equity.apply_paper_pnl",
+        fake_apply_paper_pnl,
+    )
+
+    adapter = SimpleNamespace()
+    bus = MagicMock()
+    bus.emit_order_event = MagicMock()
+    bus.emit_fill_event = MagicMock()
+    coordinator = MagicMock()
+    live_equity = [paper_value]
+    open_positions: dict = {}
+
+    _wire_adapter_callbacks_multi(
+        adapter=adapter,
+        bus=bus,
+        repo=repo,
+        fill_proc=FillProcessor(repo),
+        router=MagicMock(),
+        strategy_risk_states={},
+        portfolio_risk_state=PortfolioRiskState(trade_date=date.today()),
+        unit_risk_map={entry.strategy_id: 100.0},
+        open_positions=open_positions,
+        coordinator=coordinator,
+        portfolio_urd=100.0,
+        live_equity=live_equity,
+        paper_equity_pool=object(),
+        paper_equity_scope="swing",
+        paper_initial_equity=10_000.0,
+    )
+
+    task = adapter.on_fill(
+        entry.oms_order_id,
+        "exec-entry-paper",
+        100.0,
+        entry.qty,
+        datetime.now(timezone.utc),
+        1.25,
+    )
+    await asyncio.wait_for(task, timeout=1.0)
+    assert live_equity[0] == pytest.approx(9_998.75)
+
+    exit_order = _entry_order("GLD")
+    exit_order.oms_order_id = "oms-gld-exit"
+    exit_order.client_order_id = "client-gld-exit"
+    exit_order.side = OrderSide.SELL
+    exit_order.role = OrderRole.EXIT
+    exit_order.status = OrderStatus.WORKING
+    exit_order.remaining_qty = exit_order.qty
+    exit_order.risk_context = None
+    await repo.save_order(exit_order)
+
+    task = adapter.on_fill(
+        exit_order.oms_order_id,
+        "exec-exit-paper",
+        103.0,
+        exit_order.qty,
+        datetime.now(timezone.utc),
+        1.0,
+    )
+    await asyncio.wait_for(task, timeout=1.0)
+
+    assert live_equity[0] == pytest.approx(10_027.75)
+    assert calls == [
+        (0.0, 1.25, "swing", 10_000.0),
+        (30.0, 1.0, "swing", 10_000.0),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_failed_offline_import_leaves_exec_unmarked() -> None:
     exec_report = SimpleNamespace(
         broker_order_id=99,

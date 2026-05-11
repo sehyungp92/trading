@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import os
 from contextlib import suppress
 from datetime import datetime, timezone
@@ -71,6 +72,43 @@ _DD_TIERS = (
     (0.14, 0.25),
     (0.18, 0.00),
 )
+
+
+def _swing_family_nav(
+    base_equity: float,
+    allocs: dict[str, Any],
+    strategy_ids: tuple[str, ...],
+    ctx: RuntimeContext,
+) -> float:
+    """Return the swing-family NAV used by optimized portfolio sizing."""
+    for strategy_id in strategy_ids:
+        alloc = allocs.get(strategy_id)
+        family_fraction = getattr(alloc, "family_fraction", None)
+        if _positive_finite(family_fraction):
+            return float(base_equity) * float(family_fraction)
+
+    capital = getattr(getattr(ctx, "portfolio", None), "capital", None)
+    family_allocations = getattr(capital, "family_allocations", {}) or {}
+    family_fraction = family_allocations.get("swing")
+    if _positive_finite(family_fraction):
+        return float(base_equity) * float(family_fraction)
+
+    allocated = [
+        float(getattr(allocs.get(strategy_id), "allocated_nav", 0.0) or 0.0)
+        for strategy_id in strategy_ids
+    ]
+    total_allocated = sum(value for value in allocated if _positive_finite(value))
+    if total_allocated > 0:
+        return total_allocated
+    return float(base_equity)
+
+
+def _positive_finite(value: Any) -> bool:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(number) and number > 0
 
 
 class SwingFamilyCoordinator:
@@ -136,6 +174,7 @@ class SwingFamilyCoordinator:
         ctx = self._ctx
         session = ctx.session
         db_pool = getattr(ctx, "db_pool", None)
+        strategy_ids = [ATRSS_ID, HELIX_ID, TPC_ID]
 
         # -- Config dir (needed for adapter + capital bootstrap) -----------
         config_dir = Path(
@@ -192,10 +231,10 @@ class SwingFamilyCoordinator:
         paper_mode = get_environment() == "paper"
 
         _env = os.getenv("PAPER_INITIAL_EQUITY")
-        _paper_seed = float(_env) if _env else ctx.portfolio.capital.paper_initial_equity
+        _paper_account_seed = float(_env) if _env else ctx.portfolio.capital.paper_initial_equity
 
         if paper_mode:
-            equity = _paper_seed
+            account_equity = _paper_account_seed
         else:
             # SWING-1: live equity from NetLiquidation. The previous literal
             # 100_000.0 mis-sized every swing trade by the ratio of real
@@ -203,9 +242,24 @@ class SwingFamilyCoordinator:
             # consistent with momentum and stock (after EQUITY-1).
             from libs.services.equity import resolve_live_nlv
             account_id = ibkr_config.profile.account_id if ibkr_config else None
-            equity = await resolve_live_nlv(session, account_id=account_id)
+            account_equity = await resolve_live_nlv(session, account_id=account_id)
 
-        _seed_equity = equity  # preserve for paper equity seeding
+        account_allocs: dict[str, Any] | None = None
+        try:
+            account_allocs = bootstrap_capital(account_equity, config_dir)
+        except Exception as exc:
+            logger.warning(
+                "bootstrap_capital failed (%s), using configured swing family allocation fallback",
+                exc,
+            )
+
+        _seed_equity = _swing_family_nav(
+            account_equity,
+            account_allocs or {},
+            tuple(strategy_ids),
+            ctx,
+        )
+        equity = _seed_equity
         if paper_mode and db_pool is not None:
             from libs.persistence.paper_equity import PaperEquityManager
             _pem = PaperEquityManager(db_pool, account_scope=self.family_id, initial_equity=_seed_equity)
@@ -214,36 +268,23 @@ class SwingFamilyCoordinator:
         paper_equity_offset: float = getattr(ctx, "paper_equity_offset", 0.0)
 
         # -- Capital allocation per strategy -------------------------------
-        allocs: dict[str, Any] | None = None
-        try:
-            allocs = bootstrap_capital(equity, config_dir)
-            swing_nav = {
-                sid: allocs[sid].allocated_nav
-                for sid in allocs
-                if getattr(allocs[sid], "family", "") == "swing"
-            }
-            logger.info(
-                "Capital allocation (swing family): %s",
-                {k: f"${v:,.2f}" for k, v in swing_nav.items()},
-            )
-        except Exception as exc:
-            logger.warning("bootstrap_capital failed (%s), falling back to full equity", exc)
+        family_initial_nav = _seed_equity
 
-        def _nav_for(strategy_id: str) -> float:
-            if allocs and strategy_id in allocs:
-                return allocs[strategy_id].allocated_nav
-            return equity
-
-        def _alloc_pct_for(strategy_id: str) -> float:
-            return _nav_for(strategy_id) / equity if equity > 0 else 1.0
+        swing_nav = {
+            sid: equity
+            for sid in strategy_ids
+        }
+        logger.info(
+            "Capital allocation (swing family): %s",
+            {k: f"${v:,.2f}" for k, v in swing_nav.items()},
+        )
 
         # -- Compute unit risk dollars per strategy ------------------------
-        strategy_ids = [ATRSS_ID, HELIX_ID, TPC_ID]
         urds: dict[str, float] = {}
         for sid in strategy_ids:
             params = _RISK_PARAMS[sid]
             urds[sid] = RiskCalculator.compute_unit_risk_dollars(
-                nav=_nav_for(sid),
+                nav=equity,
                 unit_risk_pct=params["unit_risk_pct"],
             )
 
@@ -259,7 +300,7 @@ class SwingFamilyCoordinator:
             directional_cap_R=_SWING_FAMILY_HEAT_CAP_R,
             directional_cap_long_R=4.0,
             directional_cap_short_R=4.0,
-            initial_equity=equity,
+            initial_equity=family_initial_nav,
             family_strategy_ids=tuple(strategy_ids),
             symbol_collision_action="half_size",
             strategy_priorities=tuple((sid, _RISK_PARAMS[sid]["priority"]) for sid in strategy_ids),
@@ -387,11 +428,11 @@ class SwingFamilyCoordinator:
             instruments=atrss_instruments,
             config=ATRSS_CONFIGS,
             trade_recorder=trade_recorder,
-            equity=_nav_for(ATRSS_ID),
+            equity=equity,
             market_calendar=market_cal,
             kit=self._kits.get(ATRSS_ID),
             equity_offset=paper_equity_offset,
-            equity_alloc_pct=_alloc_pct_for(ATRSS_ID),
+            equity_alloc_pct=1.0,
         )
 
         helix_engine = HelixEngine(
@@ -400,12 +441,12 @@ class SwingFamilyCoordinator:
             instruments=helix_instruments,
             config=HELIX_CONFIGS,
             trade_recorder=trade_recorder,
-            equity=_nav_for(HELIX_ID),
+            equity=equity,
             coordinator=coordinator,  # enables ATRSS->Helix cross-strategy rules
             market_calendar=market_cal,
             instrumentation_kit=self._kits.get(HELIX_ID),
             equity_offset=paper_equity_offset,
-            equity_alloc_pct=_alloc_pct_for(HELIX_ID),
+            equity_alloc_pct=1.0,
         )
 
         # STRAT-1: TPCEngine now has a live execution shell (15m scheduler +
@@ -427,11 +468,11 @@ class SwingFamilyCoordinator:
             instruments=tpc_instruments,
             config=TPC_CONFIGS,
             trade_recorder=trade_recorder,
-            equity=_nav_for(TPC_ID),
+            equity=equity,
             market_calendar=market_cal,
             kit=self._kits.get(TPC_ID),
             equity_offset=paper_equity_offset,
-            equity_alloc_pct=_alloc_pct_for(TPC_ID),
+            equity_alloc_pct=1.0,
             coordinator=coordinator,
             state_dir=tpc_state_dir,
         )
@@ -445,13 +486,13 @@ class SwingFamilyCoordinator:
 
         # -- Create OverlayEngine (idle-capital EMA crossover) -------------
         # Overlay operates on the swing family's total allocated NAV, not full account
-        swing_family_nav = sum(_nav_for(sid) for sid in strategy_ids)
+        swing_family_nav = equity
         self._overlay_engine = self._create_overlay_engine(
             session=session,
             equity=swing_family_nav,
             market_cal=market_cal,
             paper_equity_offset=paper_equity_offset,
-            equity_alloc_pct=swing_family_nav / equity if equity > 0 else 1.0,
+            equity_alloc_pct=1.0,
         )
 
         # -- Wire overlay state provider to all instrumentation kits -------

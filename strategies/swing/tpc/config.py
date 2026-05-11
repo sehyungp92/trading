@@ -58,8 +58,8 @@ class TPCSymbolConfig:
     type_c_value_hits_min: int = 1
     pb30_pullback_enabled: bool = True
     pb30_ema20_value_touch_enabled: bool = False
-    pb30_pullback_min_bars_30m: int = 5
-    pb30_pullback_max_bars_30m: int = 18
+    pb30_pullback_min_bars_30m: int = 6
+    pb30_pullback_max_bars_30m: int = 20
     pb30_pullback_orderly_required: bool = True
     pb30_fib_a_low: float = 0.0
     pb30_fib_a_high: float = 0.0
@@ -120,7 +120,7 @@ class TPCSymbolConfig:
     stall_exit_bars_15m: int = 52
     stall_exit_min_mfe_r: float = 1.0
     stall_exit_max_current_r: float = 0.2
-    mfe_giveback_trigger_r: float = 0.0
+    mfe_giveback_trigger_r: float = 2.0
     mfe_giveback_retain_frac: float = 0.40
     mfe_giveback_lock_r: float = 0.5
     mfe_giveback_after_t1_only: bool = False
@@ -142,10 +142,10 @@ class TPCSymbolConfig:
     shorts_require_a_plus: bool = False
     longs_enabled: bool = True
     shorts_enabled: bool = True
-    risk_a_plus_pct: float = 0.025
-    risk_a_pct: float = 0.016
-    risk_b_pct: float = 0.01
-    max_risk_pct: float = 0.025
+    risk_a_plus_pct: float = 0.020
+    risk_a_pct: float = 0.012
+    risk_b_pct: float = 0.009
+    max_risk_pct: float = 0.020
     dynamic_risk_enabled: bool = False
     dynamic_risk_score_floor: float = 14.0
     dynamic_risk_score_ceiling: float = 21.0
@@ -155,7 +155,7 @@ class TPCSymbolConfig:
     max_daily_loss_r: float = 2.0
     max_weekly_loss_r: float = 5.0
     max_open_risk_r: float = 1.5
-    max_position_notional_pct: float = 8.0
+    max_position_notional_pct: float = 6.0
 
     asset_context_enabled: bool = False
     asset_context_min_score: float = -1.0
@@ -177,7 +177,7 @@ SYMBOL_CONFIGS: dict[str, TPCSymbolConfig] = {
     "QQQ": TPCSymbolConfig(
         symbol="QQQ",
         stop_buffer_atr_mult=0.25,
-        t1_r=1.0,
+        t1_r=0.9,
         primary_windows_et=((9, 35, 12, 15), (13, 30, 15, 45)),
         avoid_windows_et=((11, 0, 12, 0),),
         type_b_enabled=True,

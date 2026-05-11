@@ -6,9 +6,9 @@ from dataclasses import dataclass, field
 
 @dataclass
 class OverlayConfig:
-    """Mirrors backtest/config_unified.py overlay defaults."""
+    """Live overlay config; structural params mirror backtest defaults."""
 
-    enabled: bool = True
+    enabled: bool = False
     symbols: list[str] = field(default_factory=lambda: ["QQQ", "GLD"])
     max_equity_pct: float = 0.85
     ema_fast: int = 13
