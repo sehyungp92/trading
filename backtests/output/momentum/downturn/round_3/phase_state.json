@@ -1,0 +1,1298 @@
+{
+  "current_phase": 3,
+  "completed_phases": [
+    1,
+    2,
+    3
+  ],
+  "cumulative_mutations": {
+    "flags.drawdown_regime_override": true,
+    "param_overrides.drawdown_lookback": 10,
+    "param_overrides.adx_range_threshold": 18,
+    "param_overrides.divergence_mag_threshold": 0.1,
+    "param_overrides.adx_trending_threshold": 22,
+    "param_overrides.ema_fast_period": 20,
+    "param_overrides.base_risk_pct": 0.0064,
+    "param_overrides.regime_mult_counter": 0.2,
+    "flags.chandelier_trailing": true,
+    "param_overrides.chandelier_lookback": 22,
+    "param_overrides.profit_floor_r_threshold": 1.5,
+    "flags.vol_percentile_gate": 0.0,
+    "param_overrides.be_trigger_r": 0.9,
+    "flags.block_counter_regime": true,
+    "flags.bear_structure_override": true,
+    "flags.correction_regime_override": true,
+    "flags.min_hold_period": true,
+    "param_overrides.min_hold_bars": 12,
+    "param_overrides.tp1_r_aligned": 2.4,
+    "param_overrides.tp1_r_emerging": 1.8,
+    "param_overrides.be_stop_buffer_mult": 0.08,
+    "flags.breakdown_engine": false,
+    "flags.momentum_signal": true,
+    "param_overrides.momentum_roc_threshold": -0.003,
+    "param_overrides.momentum_cooldown_bars": 24,
+    "flags.progressive_sma": true,
+    "param_overrides.progressive_sma_min": 100,
+    "param_overrides.friction_min_atr_pctl": 0.05
+  },
+  "phase_results": {
+    "1": {
+      "focus": "Alpha Extraction",
+      "base_mutations": {
+        "flags.drawdown_regime_override": true,
+        "param_overrides.drawdown_lookback": 10,
+        "param_overrides.adx_range_threshold": 18,
+        "param_overrides.divergence_mag_threshold": 0.05,
+        "param_overrides.adx_trending_threshold": 22,
+        "param_overrides.ema_fast_period": 20,
+        "param_overrides.base_risk_pct": 0.0064,
+        "param_overrides.regime_mult_counter": 0.2,
+        "flags.chandelier_trailing": true,
+        "param_overrides.chandelier_lookback": 20,
+        "param_overrides.profit_floor_r_threshold": 1.5,
+        "flags.vol_percentile_gate": 40.0,
+        "param_overrides.be_trigger_r": 0.8,
+        "flags.block_counter_regime": true,
+        "flags.bear_structure_override": true,
+        "flags.correction_regime_override": true,
+        "flags.min_hold_period": true,
+        "param_overrides.min_hold_bars": 14,
+        "param_overrides.tp1_r_aligned": 2.4,
+        "param_overrides.tp1_r_emerging": 1.8,
+        "param_overrides.be_stop_buffer_mult": 0.08,
+        "flags.breakdown_engine": false
+      },
+      "final_mutations": {
+        "flags.drawdown_regime_override": true,
+        "param_overrides.drawdown_lookback": 10,
+        "param_overrides.adx_range_threshold": 18,
+        "param_overrides.divergence_mag_threshold": 0.05,
+        "param_overrides.adx_trending_threshold": 22,
+        "param_overrides.ema_fast_period": 20,
+        "param_overrides.base_risk_pct": 0.0064,
+        "param_overrides.regime_mult_counter": 0.2,
+        "flags.chandelier_trailing": true,
+        "param_overrides.chandelier_lookback": 20,
+        "param_overrides.profit_floor_r_threshold": 1.5,
+        "flags.vol_percentile_gate": 0.0,
+        "param_overrides.be_trigger_r": 0.8,
+        "flags.block_counter_regime": true,
+        "flags.bear_structure_override": true,
+        "flags.correction_regime_override": true,
+        "flags.min_hold_period": true,
+        "param_overrides.min_hold_bars": 14,
+        "param_overrides.tp1_r_aligned": 2.4,
+        "param_overrides.tp1_r_emerging": 1.8,
+        "param_overrides.be_stop_buffer_mult": 0.08,
+        "flags.breakdown_engine": false,
+        "flags.momentum_signal": true,
+        "param_overrides.momentum_roc_threshold": -0.003,
+        "param_overrides.momentum_cooldown_bars": 24,
+        "flags.progressive_sma": true,
+        "param_overrides.progressive_sma_min": 100
+      },
+      "base_score": 0.6808347201395365,
+      "final_score": 0.846041190342234,
+      "kept_features": [
+        "r3_momentum_roc003_cd24",
+        "r3_vol_gate_off",
+        "r3_psma_min100"
+      ],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 18,
+          "best_name": "r3_momentum_roc003_cd24",
+          "best_score": 0.8257212211333842,
+          "best_delta_pct": 21.280715672689745,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 11,
+          "best_name": "r3_vol_gate_off",
+          "best_score": 0.8423156665801601,
+          "best_delta_pct": 2.009691046089186,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 3,
+          "candidates_tested": 9,
+          "best_name": "r3_psma_min100",
+          "best_score": 0.846041190342234,
+          "best_delta_pct": 0.44229543743377214,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 4,
+          "candidates_tested": 8,
+          "best_name": "r3_dd_slower_3pct_lb15",
+          "best_score": 0.846041190342234,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 118,
+        "profit_factor": 2.44862507002734,
+        "max_dd_pct": 0.07035685678091393,
+        "calmar": 6.647995938988468,
+        "sharpe": 1.3314414883362753,
+        "net_return_pct": 121.01639999999998,
+        "win_rate": 0.4830508474576271,
+        "reversal_trades": 2,
+        "reversal_wr": 0.0,
+        "reversal_avg_r": -0.35469007885567577,
+        "breakdown_trades": 0,
+        "breakdown_wr": 0.0,
+        "breakdown_avg_r": 0.0,
+        "fade_trades": 116,
+        "fade_wr": 0.49137931034482757,
+        "fade_avg_r": 0.34444042725186047,
+        "momentum_trades": 61,
+        "momentum_wr": 0.45901639344262296,
+        "momentum_avg_r": 0.2321006567019892,
+        "median_hold_5m": 16.0,
+        "correction_pnl_pct": 121.523,
+        "bear_regime_pnl": -542.5800000000002,
+        "signal_to_entry_ratio": 0.5244444444444445,
+        "regime_detection_latency": 0.0,
+        "exit_efficiency": 0.7179265769256593,
+        "bear_capture_ratio": 0.09871850092163058,
+        "correction_capture_ratio": 0.2871810935901981,
+        "sortino": 2.132704096367825,
+        "correction_coverage": 0.5714285714285714,
+        "exit_quality": 2.7772295528200726,
+        "tp_hit_rates": {
+          "reversal_tp1": 0.0,
+          "reversal_tp2": 0.0,
+          "reversal_tp3": 0.0,
+          "fade_tp1": 0.3448275862068966,
+          "fade_tp2": 0.0,
+          "fade_tp3": 0.0
+        },
+        "avg_mfe_capture": 0.7179265769256593,
+        "low_mfe_trade_rate": 0.4406779661016949,
+        "low_mfe_loss_pct": -72.7372
+      },
+      "accepted_count": 3,
+      "elapsed_seconds": 1101.0064678192139,
+      "suggested_experiments": [
+        {
+          "name": "rev_relax_div_threshold_0.08",
+          "mutations": {
+            "param_overrides.divergence_mag_threshold": 0.08
+          }
+        },
+        {
+          "name": "rev_relax_trend_gate",
+          "mutations": {
+            "flags.reversal_trend_weakness_gate": false
+          }
+        },
+        {
+          "name": "rev_relax_extension_gate",
+          "mutations": {
+            "flags.reversal_extension_gate": false
+          }
+        },
+        {
+          "name": "rev_relax_corridor_cap",
+          "mutations": {
+            "flags.reversal_corridor_cap": false
+          }
+        },
+        {
+          "name": "bd_revival_relax_containment_0.60",
+          "mutations": {
+            "flags.breakdown_engine": true,
+            "param_overrides.box_containment_min": 0.6
+          }
+        },
+        {
+          "name": "bd_revival_no_chop_filter",
+          "mutations": {
+            "flags.breakdown_engine": true,
+            "flags.breakdown_chop_filter": false
+          }
+        },
+        {
+          "name": "bd_revival_relax_displacement_0.50",
+          "mutations": {
+            "flags.breakdown_engine": true,
+            "param_overrides.displacement_quantile": 0.5
+          }
+        }
+      ],
+      "analysis": {
+        "phase": 1,
+        "goal_progress": {
+          "correction_pnl_pct": {
+            "target": 60.0,
+            "actual": 121.523,
+            "pct_of_target": 200.0
+          },
+          "profit_factor": {
+            "target": 2.0,
+            "actual": 2.44862507002734,
+            "pct_of_target": 122.43125350136701
+          },
+          "net_return_pct": {
+            "target": 50.0,
+            "actual": 121.01639999999998,
+            "pct_of_target": 200.0
+          },
+          "max_dd_pct": {
+            "target": 20.0,
+            "actual": 0.07035685678091393,
+            "pct_of_target": 200.0
+          },
+          "calmar": {
+            "target": 2.0,
+            "actual": 6.647995938988468,
+            "pct_of_target": 200.0
+          },
+          "exit_efficiency": {
+            "target": 0.35,
+            "actual": 0.7179265769256593,
+            "pct_of_target": 200.0
+          },
+          "total_trades": {
+            "target": 60.0,
+            "actual": 118.0,
+            "pct_of_target": 196.66666666666666
+          },
+          "correction_coverage": {
+            "target": 0.75,
+            "actual": 0.5714285714285714,
+            "pct_of_target": 76.19047619047619
+          },
+          "correction_capture_ratio": {
+            "target": 0.25,
+            "actual": 0.2871810935901981,
+            "pct_of_target": 114.87243743607924
+          }
+        },
+        "strengths": [
+          "correction_pnl_pct: 121.5230 (200% of 60.0000)",
+          "profit_factor: 2.4486 (122% of 2.0000)",
+          "net_return_pct: 121.0164 (200% of 50.0000)",
+          "max_dd_pct: 0.0704 (200% of 20.0000)",
+          "calmar: 6.6480 (200% of 2.0000)",
+          "exit_efficiency: 0.7179 (200% of 0.3500)",
+          "total_trades: 118.0000 (197% of 60.0000)",
+          "correction_capture_ratio: 0.2872 (115% of 0.2500)"
+        ],
+        "weaknesses": [],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "TP2/TP3 never hit \u2014 exit schedule may be unreachable"
+        ],
+        "suggested_experiments": [
+          {
+            "name": "rev_relax_div_threshold_0.08",
+            "mutations": {
+              "param_overrides.divergence_mag_threshold": 0.08
+            }
+          },
+          {
+            "name": "rev_relax_trend_gate",
+            "mutations": {
+              "flags.reversal_trend_weakness_gate": false
+            }
+          },
+          {
+            "name": "rev_relax_extension_gate",
+            "mutations": {
+              "flags.reversal_extension_gate": false
+            }
+          },
+          {
+            "name": "rev_relax_corridor_cap",
+            "mutations": {
+              "flags.reversal_corridor_cap": false
+            }
+          },
+          {
+            "name": "bd_revival_relax_containment_0.60",
+            "mutations": {
+              "flags.breakdown_engine": true,
+              "param_overrides.box_containment_min": 0.6
+            }
+          },
+          {
+            "name": "bd_revival_no_chop_filter",
+            "mutations": {
+              "flags.breakdown_engine": true,
+              "flags.breakdown_chop_filter": false
+            }
+          },
+          {
+            "name": "bd_revival_relax_displacement_0.50",
+            "mutations": {
+              "flags.breakdown_engine": true,
+              "param_overrides.displacement_quantile": 0.5
+            }
+          }
+        ],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + correction_pnl_pct: 121.5230 (200% of 60.0000)\n  + profit_factor: 2.4486 (122% of 2.0000)\n  + net_return_pct: 121.0164 (200% of 50.0000)\n  + max_dd_pct: 0.0704 (200% of 20.0000)\n  + calmar: 6.6480 (200% of 2.0000)\n  + exit_efficiency: 0.7179 (200% of 0.3500)\n  + total_trades: 118.0000 (197% of 60.0000)\n  + correction_capture_ratio: 0.2872 (115% of 0.2500)\n\nDiagnostic Gaps:\n  ! TP2/TP3 never hit \u2014 exit schedule may be unreachable\n\nSuggested Experiments (7):\n  - rev_relax_div_threshold_0.08: {\"param_overrides.divergence_mag_threshold\": 0.08}\n  - rev_relax_trend_gate: {\"flags.reversal_trend_weakness_gate\": false}\n  - rev_relax_extension_gate: {\"flags.reversal_extension_gate\": false}\n  - rev_relax_corridor_cap: {\"flags.reversal_corridor_cap\": false}\n  - bd_revival_relax_containment_0.60: {\"flags.breakdown_engine\": true, \"param_overrides.box_containment_min\": 0.6}\n  - bd_revival_no_chop_filter: {\"flags.breakdown_engine\": true, \"flags.breakdown_chop_filter\": false}\n  - bd_revival_relax_displacement_0.50: {\"flags.breakdown_engine\": true, \"param_overrides.displacement_quantile\": 0.5}\n\nExtra Analysis:\n  Engine health: reversal=insufficient_data, breakdown=insufficient_data, fade=healthy\n  Correction attribution: corr_pnl=12152, non_corr_pnl=-51, ratio=1.00\n\nGoal Progress:\n  correction_pnl_pct: 121.5230 / 60.0000 (200%)\n  profit_factor: 2.4486 / 2.0000 (122%)\n  net_return_pct: 121.0164 / 50.0000 (200%)\n  max_dd_pct: 0.0704 / 20.0000 (200%)\n  calmar: 6.6480 / 2.0000 (200%)\n  exit_efficiency: 0.7179 / 0.3500 (200%)\n  total_trades: 118.0000 / 60.0000 (197%)\n  correction_coverage: 0.5714 / 0.7500 (76%)\n  correction_capture_ratio: 0.2872 / 0.2500 (115%)",
+        "scoring_weight_overrides": null,
+        "extra": {
+          "engine_health": {
+            "reversal": "insufficient_data",
+            "breakdown": "insufficient_data",
+            "fade": "healthy"
+          },
+          "correction_attribution": {
+            "correction_pnl": 12152.3,
+            "non_correction_pnl": -50.66000000000011,
+            "ratio": 1.0041862094724352
+          }
+        }
+      },
+      "new_mutations": {
+        "flags.vol_percentile_gate": 0.0,
+        "flags.momentum_signal": true,
+        "param_overrides.momentum_roc_threshold": -0.003,
+        "param_overrides.momentum_cooldown_bars": 24,
+        "flags.progressive_sma": true,
+        "param_overrides.progressive_sma_min": 100
+      },
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "flags.drawdown_regime_override": true,
+        "param_overrides.drawdown_lookback": 10,
+        "param_overrides.adx_range_threshold": 18,
+        "param_overrides.divergence_mag_threshold": 0.05,
+        "param_overrides.adx_trending_threshold": 22,
+        "param_overrides.ema_fast_period": 20,
+        "param_overrides.base_risk_pct": 0.0064,
+        "param_overrides.regime_mult_counter": 0.2,
+        "flags.chandelier_trailing": true,
+        "param_overrides.chandelier_lookback": 20,
+        "param_overrides.profit_floor_r_threshold": 1.5,
+        "flags.vol_percentile_gate": 0.0,
+        "param_overrides.be_trigger_r": 0.8,
+        "flags.block_counter_regime": true,
+        "flags.bear_structure_override": true,
+        "flags.correction_regime_override": true,
+        "flags.min_hold_period": true,
+        "param_overrides.min_hold_bars": 14,
+        "param_overrides.tp1_r_aligned": 2.4,
+        "param_overrides.tp1_r_emerging": 1.8,
+        "param_overrides.be_stop_buffer_mult": 0.08,
+        "flags.breakdown_engine": false,
+        "flags.momentum_signal": true,
+        "param_overrides.momentum_roc_threshold": -0.003,
+        "param_overrides.momentum_cooldown_bars": 24,
+        "flags.progressive_sma": true,
+        "param_overrides.progressive_sma_min": 100
+      },
+      "attempted_final_score": 0.846041190342234,
+      "attempted_final_metrics": {
+        "total_trades": 118,
+        "profit_factor": 2.44862507002734,
+        "max_dd_pct": 0.07035685678091393,
+        "calmar": 6.647995938988468,
+        "sharpe": 1.3314414883362753,
+        "net_return_pct": 121.01639999999998,
+        "win_rate": 0.4830508474576271,
+        "reversal_trades": 2,
+        "reversal_wr": 0.0,
+        "reversal_avg_r": -0.35469007885567577,
+        "breakdown_trades": 0,
+        "breakdown_wr": 0.0,
+        "breakdown_avg_r": 0.0,
+        "fade_trades": 116,
+        "fade_wr": 0.49137931034482757,
+        "fade_avg_r": 0.34444042725186047,
+        "momentum_trades": 61,
+        "momentum_wr": 0.45901639344262296,
+        "momentum_avg_r": 0.2321006567019892,
+        "median_hold_5m": 16.0,
+        "correction_pnl_pct": 121.523,
+        "bear_regime_pnl": -542.5800000000002,
+        "signal_to_entry_ratio": 0.5244444444444445,
+        "regime_detection_latency": 0.0,
+        "exit_efficiency": 0.7179265769256593,
+        "bear_capture_ratio": 0.09871850092163058,
+        "correction_capture_ratio": 0.2871810935901981,
+        "sortino": 2.132704096367825,
+        "correction_coverage": 0.5714285714285714,
+        "exit_quality": 2.7772295528200726,
+        "tp_hit_rates": {
+          "reversal_tp1": 0.0,
+          "reversal_tp2": 0.0,
+          "reversal_tp3": 0.0,
+          "fade_tp1": 0.3448275862068966,
+          "fade_tp2": 0.0,
+          "fade_tp3": 0.0
+        },
+        "avg_mfe_capture": 0.7179265769256593,
+        "low_mfe_trade_rate": 0.4406779661016949,
+        "low_mfe_loss_pct": -72.7372
+      },
+      "attempted_kept_features": [
+        "r3_momentum_roc003_cd24",
+        "r3_vol_gate_off",
+        "r3_psma_min100"
+      ],
+      "attempted_accepted_count": 3
+    },
+    "2": {
+      "focus": "Entry Discrimination",
+      "base_mutations": {
+        "flags.drawdown_regime_override": true,
+        "param_overrides.drawdown_lookback": 10,
+        "param_overrides.adx_range_threshold": 18,
+        "param_overrides.divergence_mag_threshold": 0.05,
+        "param_overrides.adx_trending_threshold": 22,
+        "param_overrides.ema_fast_period": 20,
+        "param_overrides.base_risk_pct": 0.0064,
+        "param_overrides.regime_mult_counter": 0.2,
+        "flags.chandelier_trailing": true,
+        "param_overrides.chandelier_lookback": 20,
+        "param_overrides.profit_floor_r_threshold": 1.5,
+        "flags.vol_percentile_gate": 0.0,
+        "param_overrides.be_trigger_r": 0.8,
+        "flags.block_counter_regime": true,
+        "flags.bear_structure_override": true,
+        "flags.correction_regime_override": true,
+        "flags.min_hold_period": true,
+        "param_overrides.min_hold_bars": 14,
+        "param_overrides.tp1_r_aligned": 2.4,
+        "param_overrides.tp1_r_emerging": 1.8,
+        "param_overrides.be_stop_buffer_mult": 0.08,
+        "flags.breakdown_engine": false,
+        "flags.momentum_signal": true,
+        "param_overrides.momentum_roc_threshold": -0.003,
+        "param_overrides.momentum_cooldown_bars": 24,
+        "flags.progressive_sma": true,
+        "param_overrides.progressive_sma_min": 100
+      },
+      "final_mutations": {
+        "flags.drawdown_regime_override": true,
+        "param_overrides.drawdown_lookback": 10,
+        "param_overrides.adx_range_threshold": 18,
+        "param_overrides.divergence_mag_threshold": 0.05,
+        "param_overrides.adx_trending_threshold": 22,
+        "param_overrides.ema_fast_period": 20,
+        "param_overrides.base_risk_pct": 0.0064,
+        "param_overrides.regime_mult_counter": 0.2,
+        "flags.chandelier_trailing": true,
+        "param_overrides.chandelier_lookback": 24,
+        "param_overrides.profit_floor_r_threshold": 1.5,
+        "flags.vol_percentile_gate": 0.0,
+        "param_overrides.be_trigger_r": 1.0,
+        "flags.block_counter_regime": true,
+        "flags.bear_structure_override": true,
+        "flags.correction_regime_override": true,
+        "flags.min_hold_period": true,
+        "param_overrides.min_hold_bars": 12,
+        "param_overrides.tp1_r_aligned": 2.4,
+        "param_overrides.tp1_r_emerging": 1.8,
+        "param_overrides.be_stop_buffer_mult": 0.08,
+        "flags.breakdown_engine": false,
+        "flags.momentum_signal": true,
+        "param_overrides.momentum_roc_threshold": -0.003,
+        "param_overrides.momentum_cooldown_bars": 24,
+        "flags.progressive_sma": true,
+        "param_overrides.progressive_sma_min": 100,
+        "param_overrides.friction_min_atr_pctl": 0.05
+      },
+      "base_score": 0.8451589599791903,
+      "final_score": 0.8649418383363359,
+      "kept_features": [
+        "r3_hold_12",
+        "r3_friction_005",
+        "r3_be_100",
+        "r3_chand_lb24"
+      ],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 56,
+          "best_name": "r3_hold_12",
+          "best_score": 0.8548517304914317,
+          "best_delta_pct": 1.146857688461356,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 46,
+          "best_name": "r3_friction_005",
+          "best_score": 0.8604125433228865,
+          "best_delta_pct": 0.65050027193114,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 3,
+          "candidates_tested": 44,
+          "best_name": "r3_be_100",
+          "best_score": 0.8638223237264011,
+          "best_delta_pct": 0.3962959896361015,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 4,
+          "candidates_tested": 43,
+          "best_name": "r3_chand_lb24",
+          "best_score": 0.8649418383363359,
+          "best_delta_pct": 0.12960010168588115,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 5,
+          "candidates_tested": 42,
+          "best_name": "rev_relax_div_threshold_0.08",
+          "best_score": 0.8649418383363359,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 118,
+        "profit_factor": 2.668270304852042,
+        "max_dd_pct": 0.0789657433498148,
+        "calmar": 6.432683780249744,
+        "sharpe": 1.6630698849224181,
+        "net_return_pct": 131.42499999999998,
+        "win_rate": 0.5169491525423728,
+        "reversal_trades": 3,
+        "reversal_wr": 0.3333333333333333,
+        "reversal_avg_r": -0.24821855545590624,
+        "breakdown_trades": 0,
+        "breakdown_wr": 0.0,
+        "breakdown_avg_r": 0.0,
+        "fade_trades": 115,
+        "fade_wr": 0.5217391304347826,
+        "fade_avg_r": 0.4015749128049672,
+        "momentum_trades": 59,
+        "momentum_wr": 0.5254237288135594,
+        "momentum_avg_r": 0.4066290347314699,
+        "median_hold_5m": 13.5,
+        "correction_pnl_pct": 128.3416,
+        "bear_regime_pnl": -477.44000000000005,
+        "signal_to_entry_ratio": 0.5064377682403434,
+        "regime_detection_latency": 0.0,
+        "exit_efficiency": 0.7510414836216718,
+        "bear_capture_ratio": 0.10433499650312951,
+        "correction_capture_ratio": 0.30351998982728584,
+        "sortino": 2.8634230325980567,
+        "correction_coverage": 0.5714285714285714,
+        "exit_quality": 2.625875008426435,
+        "tp_hit_rates": {
+          "reversal_tp1": 0.0,
+          "reversal_tp2": 0.0,
+          "reversal_tp3": 0.0,
+          "fade_tp1": 0.3217391304347826,
+          "fade_tp2": 0.0,
+          "fade_tp3": 0.0
+        },
+        "avg_mfe_capture": 0.7510414836216718,
+        "low_mfe_trade_rate": 0.4406779661016949,
+        "low_mfe_loss_pct": -63.81720000000001
+      },
+      "accepted_count": 4,
+      "elapsed_seconds": 3896.4251255989075,
+      "suggested_experiments": [
+        {
+          "name": "rev_relax_div_threshold_0.10",
+          "mutations": {
+            "param_overrides.divergence_mag_threshold": 0.1
+          }
+        }
+      ],
+      "analysis": {
+        "phase": 2,
+        "goal_progress": {
+          "correction_pnl_pct": {
+            "target": 60.0,
+            "actual": 128.3416,
+            "pct_of_target": 200.0
+          },
+          "profit_factor": {
+            "target": 2.0,
+            "actual": 2.668270304852042,
+            "pct_of_target": 133.4135152426021
+          },
+          "net_return_pct": {
+            "target": 50.0,
+            "actual": 131.42499999999998,
+            "pct_of_target": 200.0
+          },
+          "max_dd_pct": {
+            "target": 20.0,
+            "actual": 0.0789657433498148,
+            "pct_of_target": 200.0
+          },
+          "calmar": {
+            "target": 2.0,
+            "actual": 6.432683780249744,
+            "pct_of_target": 200.0
+          },
+          "exit_efficiency": {
+            "target": 0.35,
+            "actual": 0.7510414836216718,
+            "pct_of_target": 200.0
+          },
+          "total_trades": {
+            "target": 60.0,
+            "actual": 118.0,
+            "pct_of_target": 196.66666666666666
+          },
+          "correction_coverage": {
+            "target": 0.75,
+            "actual": 0.5714285714285714,
+            "pct_of_target": 76.19047619047619
+          },
+          "correction_capture_ratio": {
+            "target": 0.25,
+            "actual": 0.30351998982728584,
+            "pct_of_target": 121.40799593091434
+          }
+        },
+        "strengths": [
+          "correction_pnl_pct: 128.3416 (200% of 60.0000)",
+          "profit_factor: 2.6683 (133% of 2.0000)",
+          "net_return_pct: 131.4250 (200% of 50.0000)",
+          "max_dd_pct: 0.0790 (200% of 20.0000)",
+          "calmar: 6.4327 (200% of 2.0000)",
+          "exit_efficiency: 0.7510 (200% of 0.3500)",
+          "total_trades: 118.0000 (197% of 60.0000)",
+          "correction_capture_ratio: 0.3035 (121% of 0.2500)"
+        ],
+        "weaknesses": [],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "TP2/TP3 never hit \u2014 exit schedule may be unreachable"
+        ],
+        "suggested_experiments": [
+          {
+            "name": "rev_relax_div_threshold_0.10",
+            "mutations": {
+              "param_overrides.divergence_mag_threshold": 0.1
+            }
+          }
+        ],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + correction_pnl_pct: 128.3416 (200% of 60.0000)\n  + profit_factor: 2.6683 (133% of 2.0000)\n  + net_return_pct: 131.4250 (200% of 50.0000)\n  + max_dd_pct: 0.0790 (200% of 20.0000)\n  + calmar: 6.4327 (200% of 2.0000)\n  + exit_efficiency: 0.7510 (200% of 0.3500)\n  + total_trades: 118.0000 (197% of 60.0000)\n  + correction_capture_ratio: 0.3035 (121% of 0.2500)\n\nDiagnostic Gaps:\n  ! TP2/TP3 never hit \u2014 exit schedule may be unreachable\n\nSuggested Experiments (1):\n  - rev_relax_div_threshold_0.10: {\"param_overrides.divergence_mag_threshold\": 0.1}\n\nExtra Analysis:\n  Engine health: reversal=underperforming, breakdown=insufficient_data, fade=healthy\n  Correction attribution: corr_pnl=12834, non_corr_pnl=308, ratio=0.98\n\nGoal Progress:\n  correction_pnl_pct: 128.3416 / 60.0000 (200%)\n  profit_factor: 2.6683 / 2.0000 (133%)\n  net_return_pct: 131.4250 / 50.0000 (200%)\n  max_dd_pct: 0.0790 / 20.0000 (200%)\n  calmar: 6.4327 / 2.0000 (200%)\n  exit_efficiency: 0.7510 / 0.3500 (200%)\n  total_trades: 118.0000 / 60.0000 (197%)\n  correction_coverage: 0.5714 / 0.7500 (76%)\n  correction_capture_ratio: 0.3035 / 0.2500 (121%)",
+        "scoring_weight_overrides": null,
+        "extra": {
+          "engine_health": {
+            "reversal": "underperforming",
+            "breakdown": "insufficient_data",
+            "fade": "healthy"
+          },
+          "correction_attribution": {
+            "correction_pnl": 12834.16,
+            "non_correction_pnl": 308.33999999999986,
+            "ratio": 0.9765387102910406
+          }
+        }
+      },
+      "new_mutations": {
+        "param_overrides.chandelier_lookback": 24,
+        "param_overrides.be_trigger_r": 1.0,
+        "param_overrides.min_hold_bars": 12,
+        "param_overrides.friction_min_atr_pctl": 0.05
+      },
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "flags.drawdown_regime_override": true,
+        "param_overrides.drawdown_lookback": 10,
+        "param_overrides.adx_range_threshold": 18,
+        "param_overrides.divergence_mag_threshold": 0.05,
+        "param_overrides.adx_trending_threshold": 22,
+        "param_overrides.ema_fast_period": 20,
+        "param_overrides.base_risk_pct": 0.0064,
+        "param_overrides.regime_mult_counter": 0.2,
+        "flags.chandelier_trailing": true,
+        "param_overrides.chandelier_lookback": 24,
+        "param_overrides.profit_floor_r_threshold": 1.5,
+        "flags.vol_percentile_gate": 0.0,
+        "param_overrides.be_trigger_r": 1.0,
+        "flags.block_counter_regime": true,
+        "flags.bear_structure_override": true,
+        "flags.correction_regime_override": true,
+        "flags.min_hold_period": true,
+        "param_overrides.min_hold_bars": 12,
+        "param_overrides.tp1_r_aligned": 2.4,
+        "param_overrides.tp1_r_emerging": 1.8,
+        "param_overrides.be_stop_buffer_mult": 0.08,
+        "flags.breakdown_engine": false,
+        "flags.momentum_signal": true,
+        "param_overrides.momentum_roc_threshold": -0.003,
+        "param_overrides.momentum_cooldown_bars": 24,
+        "flags.progressive_sma": true,
+        "param_overrides.progressive_sma_min": 100,
+        "param_overrides.friction_min_atr_pctl": 0.05
+      },
+      "attempted_final_score": 0.8649418383363359,
+      "attempted_final_metrics": {
+        "total_trades": 118,
+        "profit_factor": 2.668270304852042,
+        "max_dd_pct": 0.0789657433498148,
+        "calmar": 6.432683780249744,
+        "sharpe": 1.6630698849224181,
+        "net_return_pct": 131.42499999999998,
+        "win_rate": 0.5169491525423728,
+        "reversal_trades": 3,
+        "reversal_wr": 0.3333333333333333,
+        "reversal_avg_r": -0.24821855545590624,
+        "breakdown_trades": 0,
+        "breakdown_wr": 0.0,
+        "breakdown_avg_r": 0.0,
+        "fade_trades": 115,
+        "fade_wr": 0.5217391304347826,
+        "fade_avg_r": 0.4015749128049672,
+        "momentum_trades": 59,
+        "momentum_wr": 0.5254237288135594,
+        "momentum_avg_r": 0.4066290347314699,
+        "median_hold_5m": 13.5,
+        "correction_pnl_pct": 128.3416,
+        "bear_regime_pnl": -477.44000000000005,
+        "signal_to_entry_ratio": 0.5064377682403434,
+        "regime_detection_latency": 0.0,
+        "exit_efficiency": 0.7510414836216718,
+        "bear_capture_ratio": 0.10433499650312951,
+        "correction_capture_ratio": 0.30351998982728584,
+        "sortino": 2.8634230325980567,
+        "correction_coverage": 0.5714285714285714,
+        "exit_quality": 2.625875008426435,
+        "tp_hit_rates": {
+          "reversal_tp1": 0.0,
+          "reversal_tp2": 0.0,
+          "reversal_tp3": 0.0,
+          "fade_tp1": 0.3217391304347826,
+          "fade_tp2": 0.0,
+          "fade_tp3": 0.0
+        },
+        "avg_mfe_capture": 0.7510414836216718,
+        "low_mfe_trade_rate": 0.4406779661016949,
+        "low_mfe_loss_pct": -63.81720000000001
+      },
+      "attempted_kept_features": [
+        "r3_hold_12",
+        "r3_friction_005",
+        "r3_be_100",
+        "r3_chand_lb24"
+      ],
+      "attempted_accepted_count": 4
+    },
+    "3": {
+      "focus": "Trade Management",
+      "base_mutations": {
+        "flags.drawdown_regime_override": true,
+        "param_overrides.drawdown_lookback": 10,
+        "param_overrides.adx_range_threshold": 18,
+        "param_overrides.divergence_mag_threshold": 0.05,
+        "param_overrides.adx_trending_threshold": 22,
+        "param_overrides.ema_fast_period": 20,
+        "param_overrides.base_risk_pct": 0.0064,
+        "param_overrides.regime_mult_counter": 0.2,
+        "flags.chandelier_trailing": true,
+        "param_overrides.chandelier_lookback": 24,
+        "param_overrides.profit_floor_r_threshold": 1.5,
+        "flags.vol_percentile_gate": 0.0,
+        "param_overrides.be_trigger_r": 1.0,
+        "flags.block_counter_regime": true,
+        "flags.bear_structure_override": true,
+        "flags.correction_regime_override": true,
+        "flags.min_hold_period": true,
+        "param_overrides.min_hold_bars": 12,
+        "param_overrides.tp1_r_aligned": 2.4,
+        "param_overrides.tp1_r_emerging": 1.8,
+        "param_overrides.be_stop_buffer_mult": 0.08,
+        "flags.breakdown_engine": false,
+        "flags.momentum_signal": true,
+        "param_overrides.momentum_roc_threshold": -0.003,
+        "param_overrides.momentum_cooldown_bars": 24,
+        "flags.progressive_sma": true,
+        "param_overrides.progressive_sma_min": 100,
+        "param_overrides.friction_min_atr_pctl": 0.05
+      },
+      "final_mutations": {
+        "flags.drawdown_regime_override": true,
+        "param_overrides.drawdown_lookback": 10,
+        "param_overrides.adx_range_threshold": 18,
+        "param_overrides.divergence_mag_threshold": 0.1,
+        "param_overrides.adx_trending_threshold": 22,
+        "param_overrides.ema_fast_period": 20,
+        "param_overrides.base_risk_pct": 0.0064,
+        "param_overrides.regime_mult_counter": 0.2,
+        "flags.chandelier_trailing": true,
+        "param_overrides.chandelier_lookback": 22,
+        "param_overrides.profit_floor_r_threshold": 1.5,
+        "flags.vol_percentile_gate": 0.0,
+        "param_overrides.be_trigger_r": 0.9,
+        "flags.block_counter_regime": true,
+        "flags.bear_structure_override": true,
+        "flags.correction_regime_override": true,
+        "flags.min_hold_period": true,
+        "param_overrides.min_hold_bars": 12,
+        "param_overrides.tp1_r_aligned": 2.4,
+        "param_overrides.tp1_r_emerging": 1.8,
+        "param_overrides.be_stop_buffer_mult": 0.08,
+        "flags.breakdown_engine": false,
+        "flags.momentum_signal": true,
+        "param_overrides.momentum_roc_threshold": -0.003,
+        "param_overrides.momentum_cooldown_bars": 24,
+        "flags.progressive_sma": true,
+        "param_overrides.progressive_sma_min": 100,
+        "param_overrides.friction_min_atr_pctl": 0.05
+      },
+      "base_score": 0.8609202526161945,
+      "final_score": 0.8797993670367159,
+      "kept_features": [
+        "finetune_param_overrides_chandelier_lookback_m10",
+        "rev_relax_div_threshold_0.10",
+        "finetune_param_overrides_be_trigger_r_m10"
+      ],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 41,
+          "best_name": "finetune_param_overrides_chandelier_lookback_m10",
+          "best_score": 0.8715909737235508,
+          "best_delta_pct": 1.2394552311819438,
+          "kept": true,
+          "rejected_count": 1
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 39,
+          "best_name": "rev_relax_div_threshold_0.10",
+          "best_score": 0.8775629791899199,
+          "best_delta_pct": 0.6851844094777534,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 3,
+          "candidates_tested": 38,
+          "best_name": "finetune_param_overrides_be_trigger_r_m10",
+          "best_score": 0.8797993670367159,
+          "best_delta_pct": 0.254840723666402,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 4,
+          "candidates_tested": 37,
+          "best_name": "finetune_param_overrides_min_hold_bars_p10",
+          "best_score": 0.8804953295644756,
+          "best_delta_pct": 0.07910468611767883,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 114,
+        "profit_factor": 2.8806849732696014,
+        "max_dd_pct": 0.07138800289520794,
+        "calmar": 7.481347286066781,
+        "sharpe": 1.7593909037883786,
+        "net_return_pct": 138.18220000000002,
+        "win_rate": 0.5175438596491229,
+        "reversal_trades": 0,
+        "reversal_wr": 0.0,
+        "reversal_avg_r": 0.0,
+        "breakdown_trades": 0,
+        "breakdown_wr": 0.0,
+        "breakdown_avg_r": 0.0,
+        "fade_trades": 114,
+        "fade_wr": 0.5175438596491229,
+        "fade_avg_r": 0.42506206559995596,
+        "momentum_trades": 59,
+        "momentum_wr": 0.5254237288135594,
+        "momentum_avg_r": 0.3929221795883971,
+        "median_hold_5m": 15.0,
+        "correction_pnl_pct": 132.6154,
+        "bear_regime_pnl": -363.4400000000001,
+        "signal_to_entry_ratio": 0.6909090909090909,
+        "regime_detection_latency": 0.0,
+        "exit_efficiency": 0.7563573031025143,
+        "bear_capture_ratio": 0.10582490707161815,
+        "correction_capture_ratio": 0.30785427511743463,
+        "sortino": 2.9870777408141675,
+        "correction_coverage": 0.5714285714285714,
+        "exit_quality": 2.805664649734,
+        "tp_hit_rates": {
+          "fade_tp1": 0.34210526315789475,
+          "fade_tp2": 0.0,
+          "fade_tp3": 0.0
+        },
+        "avg_mfe_capture": 0.7563573031025143,
+        "low_mfe_trade_rate": 0.41228070175438597,
+        "low_mfe_loss_pct": -60.35520000000001
+      },
+      "accepted_count": 3,
+      "elapsed_seconds": 2211.0017805099487,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 3,
+        "goal_progress": {
+          "correction_pnl_pct": {
+            "target": 60.0,
+            "actual": 132.6154,
+            "pct_of_target": 200.0
+          },
+          "profit_factor": {
+            "target": 2.0,
+            "actual": 2.8806849732696014,
+            "pct_of_target": 144.03424866348007
+          },
+          "net_return_pct": {
+            "target": 50.0,
+            "actual": 138.18220000000002,
+            "pct_of_target": 200.0
+          },
+          "max_dd_pct": {
+            "target": 20.0,
+            "actual": 0.07138800289520794,
+            "pct_of_target": 200.0
+          },
+          "calmar": {
+            "target": 2.0,
+            "actual": 7.481347286066781,
+            "pct_of_target": 200.0
+          },
+          "exit_efficiency": {
+            "target": 0.35,
+            "actual": 0.7563573031025143,
+            "pct_of_target": 200.0
+          },
+          "total_trades": {
+            "target": 60.0,
+            "actual": 114.0,
+            "pct_of_target": 190.0
+          },
+          "correction_coverage": {
+            "target": 0.75,
+            "actual": 0.5714285714285714,
+            "pct_of_target": 76.19047619047619
+          },
+          "correction_capture_ratio": {
+            "target": 0.25,
+            "actual": 0.30785427511743463,
+            "pct_of_target": 123.14171004697386
+          }
+        },
+        "strengths": [
+          "correction_pnl_pct: 132.6154 (200% of 60.0000)",
+          "profit_factor: 2.8807 (144% of 2.0000)",
+          "net_return_pct: 138.1822 (200% of 50.0000)",
+          "max_dd_pct: 0.0714 (200% of 20.0000)",
+          "calmar: 7.4813 (200% of 2.0000)",
+          "exit_efficiency: 0.7564 (200% of 0.3500)",
+          "total_trades: 114.0000 (190% of 60.0000)",
+          "correction_capture_ratio: 0.3079 (123% of 0.2500)"
+        ],
+        "weaknesses": [],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "Reversal engine dead (0 trades) \u2014 pivot detection or gate configuration issue",
+          "TP2/TP3 never hit \u2014 exit schedule may be unreachable"
+        ],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 3 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + correction_pnl_pct: 132.6154 (200% of 60.0000)\n  + profit_factor: 2.8807 (144% of 2.0000)\n  + net_return_pct: 138.1822 (200% of 50.0000)\n  + max_dd_pct: 0.0714 (200% of 20.0000)\n  + calmar: 7.4813 (200% of 2.0000)\n  + exit_efficiency: 0.7564 (200% of 0.3500)\n  + total_trades: 114.0000 (190% of 60.0000)\n  + correction_capture_ratio: 0.3079 (123% of 0.2500)\n\nDiagnostic Gaps:\n  ! Reversal engine dead (0 trades) \u2014 pivot detection or gate configuration issue\n  ! TP2/TP3 never hit \u2014 exit schedule may be unreachable\n\nExtra Analysis:\n  Engine health: reversal=insufficient_data, breakdown=insufficient_data, fade=healthy\n  Correction attribution: corr_pnl=13262, non_corr_pnl=557, ratio=0.96\n\nGoal Progress:\n  correction_pnl_pct: 132.6154 / 60.0000 (200%)\n  profit_factor: 2.8807 / 2.0000 (144%)\n  net_return_pct: 138.1822 / 50.0000 (200%)\n  max_dd_pct: 0.0714 / 20.0000 (200%)\n  calmar: 7.4813 / 2.0000 (200%)\n  exit_efficiency: 0.7564 / 0.3500 (200%)\n  total_trades: 114.0000 / 60.0000 (190%)\n  correction_coverage: 0.5714 / 0.7500 (76%)\n  correction_capture_ratio: 0.3079 / 0.2500 (123%)",
+        "scoring_weight_overrides": null,
+        "extra": {
+          "engine_health": {
+            "reversal": "insufficient_data",
+            "breakdown": "insufficient_data",
+            "fade": "healthy"
+          },
+          "correction_attribution": {
+            "correction_pnl": 13261.539999999999,
+            "non_correction_pnl": 556.6799999999998,
+            "ratio": 0.9597140586848378
+          }
+        }
+      },
+      "new_mutations": {
+        "param_overrides.divergence_mag_threshold": 0.1,
+        "param_overrides.chandelier_lookback": 22,
+        "param_overrides.be_trigger_r": 0.9
+      },
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "flags.drawdown_regime_override": true,
+        "param_overrides.drawdown_lookback": 10,
+        "param_overrides.adx_range_threshold": 18,
+        "param_overrides.divergence_mag_threshold": 0.1,
+        "param_overrides.adx_trending_threshold": 22,
+        "param_overrides.ema_fast_period": 20,
+        "param_overrides.base_risk_pct": 0.0064,
+        "param_overrides.regime_mult_counter": 0.2,
+        "flags.chandelier_trailing": true,
+        "param_overrides.chandelier_lookback": 22,
+        "param_overrides.profit_floor_r_threshold": 1.5,
+        "flags.vol_percentile_gate": 0.0,
+        "param_overrides.be_trigger_r": 0.9,
+        "flags.block_counter_regime": true,
+        "flags.bear_structure_override": true,
+        "flags.correction_regime_override": true,
+        "flags.min_hold_period": true,
+        "param_overrides.min_hold_bars": 12,
+        "param_overrides.tp1_r_aligned": 2.4,
+        "param_overrides.tp1_r_emerging": 1.8,
+        "param_overrides.be_stop_buffer_mult": 0.08,
+        "flags.breakdown_engine": false,
+        "flags.momentum_signal": true,
+        "param_overrides.momentum_roc_threshold": -0.003,
+        "param_overrides.momentum_cooldown_bars": 24,
+        "flags.progressive_sma": true,
+        "param_overrides.progressive_sma_min": 100,
+        "param_overrides.friction_min_atr_pctl": 0.05
+      },
+      "attempted_final_score": 0.8797993670367159,
+      "attempted_final_metrics": {
+        "total_trades": 114,
+        "profit_factor": 2.8806849732696014,
+        "max_dd_pct": 0.07138800289520794,
+        "calmar": 7.481347286066781,
+        "sharpe": 1.7593909037883786,
+        "net_return_pct": 138.18220000000002,
+        "win_rate": 0.5175438596491229,
+        "reversal_trades": 0,
+        "reversal_wr": 0.0,
+        "reversal_avg_r": 0.0,
+        "breakdown_trades": 0,
+        "breakdown_wr": 0.0,
+        "breakdown_avg_r": 0.0,
+        "fade_trades": 114,
+        "fade_wr": 0.5175438596491229,
+        "fade_avg_r": 0.42506206559995596,
+        "momentum_trades": 59,
+        "momentum_wr": 0.5254237288135594,
+        "momentum_avg_r": 0.3929221795883971,
+        "median_hold_5m": 15.0,
+        "correction_pnl_pct": 132.6154,
+        "bear_regime_pnl": -363.4400000000001,
+        "signal_to_entry_ratio": 0.6909090909090909,
+        "regime_detection_latency": 0.0,
+        "exit_efficiency": 0.7563573031025143,
+        "bear_capture_ratio": 0.10582490707161815,
+        "correction_capture_ratio": 0.30785427511743463,
+        "sortino": 2.9870777408141675,
+        "correction_coverage": 0.5714285714285714,
+        "exit_quality": 2.805664649734,
+        "tp_hit_rates": {
+          "fade_tp1": 0.34210526315789475,
+          "fade_tp2": 0.0,
+          "fade_tp3": 0.0
+        },
+        "avg_mfe_capture": 0.7563573031025143,
+        "low_mfe_trade_rate": 0.41228070175438597,
+        "low_mfe_loss_pct": -60.35520000000001
+      },
+      "attempted_kept_features": [
+        "finetune_param_overrides_chandelier_lookback_m10",
+        "rev_relax_div_threshold_0.10",
+        "finetune_param_overrides_be_trigger_r_m10"
+      ],
+      "attempted_accepted_count": 3
+    }
+  },
+  "phase_gate_results": {
+    "1": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "hard_min_trades",
+          "target": 50.0,
+          "actual": 118.0,
+          "passed": true
+        },
+        {
+          "name": "hard_max_dd_pct",
+          "target": 0.22,
+          "actual": 0.07035685678091393,
+          "passed": true
+        },
+        {
+          "name": "hard_correction_pnl_pct",
+          "target": 0.0,
+          "actual": 121.523,
+          "passed": true
+        },
+        {
+          "name": "net_return_pct",
+          "target": 50.0,
+          "actual": 121.01639999999998,
+          "passed": true
+        },
+        {
+          "name": "correction_pnl_pct",
+          "target": 45.0,
+          "actual": 121.523,
+          "passed": true
+        },
+        {
+          "name": "total_trades",
+          "target": 90.0,
+          "actual": 118.0,
+          "passed": true
+        },
+        {
+          "name": "correction_coverage",
+          "target": 0.4,
+          "actual": 0.5714285714285714,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "2": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "hard_min_trades",
+          "target": 50.0,
+          "actual": 118.0,
+          "passed": true
+        },
+        {
+          "name": "hard_max_dd_pct",
+          "target": 0.22,
+          "actual": 0.0789657433498148,
+          "passed": true
+        },
+        {
+          "name": "hard_correction_pnl_pct",
+          "target": 0.0,
+          "actual": 128.3416,
+          "passed": true
+        },
+        {
+          "name": "profit_factor",
+          "target": 1.7,
+          "actual": 2.668270304852042,
+          "passed": true
+        },
+        {
+          "name": "correction_capture_ratio",
+          "target": 0.12,
+          "actual": 0.30351998982728584,
+          "passed": true
+        },
+        {
+          "name": "low_mfe_trade_rate",
+          "target": 0.5,
+          "actual": 0.4406779661016949,
+          "passed": true
+        },
+        {
+          "name": "correction_pnl_pct",
+          "target": 45.0,
+          "actual": 128.3416,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "3": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "hard_min_trades",
+          "target": 50.0,
+          "actual": 114.0,
+          "passed": true
+        },
+        {
+          "name": "hard_max_dd_pct",
+          "target": 0.22,
+          "actual": 0.07138800289520794,
+          "passed": true
+        },
+        {
+          "name": "hard_correction_pnl_pct",
+          "target": 0.0,
+          "actual": 132.6154,
+          "passed": true
+        },
+        {
+          "name": "max_dd_pct",
+          "target": 0.15,
+          "actual": 0.07138800289520794,
+          "passed": true
+        },
+        {
+          "name": "profit_factor",
+          "target": 1.7,
+          "actual": 2.8806849732696014,
+          "passed": true
+        },
+        {
+          "name": "calmar",
+          "target": 1.5,
+          "actual": 7.481347286066781,
+          "passed": true
+        },
+        {
+          "name": "net_return_pct",
+          "target": 55.0,
+          "actual": 138.18220000000002,
+          "passed": true
+        },
+        {
+          "name": "no_regress_correction_pnl_pct",
+          "target": 115.50744,
+          "actual": 132.6154,
+          "passed": true
+        },
+        {
+          "name": "no_regress_profit_factor",
+          "target": 2.4014432743668377,
+          "actual": 2.8806849732696014,
+          "passed": true
+        },
+        {
+          "name": "no_regress_net_return_pct",
+          "target": 118.28249999999998,
+          "actual": 138.18220000000002,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    }
+  },
+  "retry_count": {},
+  "scoring_retries": {},
+  "diagnostic_retries": {},
+  "phase_timestamps": {
+    "1": {
+      "started": "2026-04-30T12:14:49.050525+00:00",
+      "completed": "2026-04-30T12:33:51.113979+00:00"
+    },
+    "2": {
+      "started": "2026-04-30T12:33:51.151721+00:00",
+      "completed": "2026-04-30T13:39:04.217794+00:00"
+    },
+    "3": {
+      "started": "2026-04-30T13:39:04.238312+00:00",
+      "completed": "2026-04-30T14:16:21.315301+00:00"
+    }
+  },
+  "round_name": ""
+}

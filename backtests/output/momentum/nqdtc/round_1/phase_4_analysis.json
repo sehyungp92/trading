@@ -1,0 +1,76 @@
+{
+  "phase": 4,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 150.0,
+      "actual": 161.9211999999994,
+      "pct_of_target": 107.94746666666626
+    },
+    "profit_factor": {
+      "target": 2.0,
+      "actual": 1.5918849531319705,
+      "pct_of_target": 79.59424765659853
+    },
+    "max_dd_pct": {
+      "target": 0.15,
+      "actual": 0.1900153381462966,
+      "pct_of_target": 78.94099574451828
+    },
+    "calmar": {
+      "target": 5.0,
+      "actual": 8.52148050676483,
+      "pct_of_target": 170.42961013529657
+    },
+    "total_trades": {
+      "target": 120.0,
+      "actual": 122.0,
+      "pct_of_target": 101.66666666666666
+    },
+    "capture_ratio": {
+      "target": 0.4,
+      "actual": 0.3951714688836772,
+      "pct_of_target": 98.7928672209193
+    },
+    "win_rate": {
+      "target": 0.52,
+      "actual": 0.5573770491803278,
+      "pct_of_target": 107.18789407313996
+    },
+    "sharpe": {
+      "target": 1.5,
+      "actual": 1.3618414254331859,
+      "pct_of_target": 90.78942836221239
+    }
+  },
+  "strengths": [
+    "net_return_pct: 161.9212 (108% of 150.0000)",
+    "calmar: 8.5215 (170% of 5.0000)",
+    "total_trades: 122.0000 (102% of 120.0000)",
+    "capture_ratio: 0.3952 (99% of 0.4000)",
+    "win_rate: 0.5574 (107% of 0.5200)",
+    "sharpe: 1.3618 (91% of 1.5000)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 4 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + net_return_pct: 161.9212 (108% of 150.0000)\n  + calmar: 8.5215 (170% of 5.0000)\n  + total_trades: 122.0000 (102% of 120.0000)\n  + capture_ratio: 0.3952 (99% of 0.4000)\n  + win_rate: 0.5574 (107% of 0.5200)\n  + sharpe: 1.3618 (91% of 1.5000)\n\nExtra Analysis:\n  Session/direction: ETH short WR=0.0% (0 trades), Range regime=73.8%\n  Exit efficiency: capture=0.40, TP1=53.3%, TP2=0.0%\n  Clustering: burst_trade_pct=1.6%\n\nGoal Progress:\n  net_return_pct: 161.9212 / 150.0000 (108%)\n  profit_factor: 1.5919 / 2.0000 (80%)\n  max_dd_pct: 0.1900 / 0.1500 (79%)\n  calmar: 8.5215 / 5.0000 (170%)\n  total_trades: 122.0000 / 120.0000 (102%)\n  capture_ratio: 0.3952 / 0.4000 (99%)\n  win_rate: 0.5574 / 0.5200 (107%)\n  sharpe: 1.3618 / 1.5000 (91%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "session_direction": {
+      "eth_short_wr": 0.0,
+      "eth_short_trades": 0,
+      "range_regime_pct": 0.7377049180327869
+    },
+    "exit_efficiency": {
+      "capture_ratio": 0.3951714688836772,
+      "tp1_hit_rate": 0.5327868852459017,
+      "tp2_hit_rate": 0.0
+    },
+    "clustering": {
+      "burst_trade_pct": 0.01639344262295082
+    }
+  }
+}

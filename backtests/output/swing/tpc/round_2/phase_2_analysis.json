@@ -1,0 +1,67 @@
+{
+  "phase": 2,
+  "goal_progress": {
+    "total_r": {
+      "target": 90.0,
+      "actual": 230.17321829483032,
+      "pct_of_target": 200.0
+    },
+    "r_per_month": {
+      "target": 1.5,
+      "actual": 4.164057924908797,
+      "pct_of_target": 200.0
+    },
+    "avg_r": {
+      "target": 0.45,
+      "actual": 0.8852816088262705,
+      "pct_of_target": 196.7292464058379
+    },
+    "trades_per_month": {
+      "target": 4.0,
+      "actual": 4.70365348539163,
+      "pct_of_target": 117.59133713479075
+    },
+    "total_trades": {
+      "target": 220.0,
+      "actual": 260.0,
+      "pct_of_target": 118.18181818181819
+    },
+    "excellent_trades": {
+      "target": 120.0,
+      "actual": 110.0,
+      "pct_of_target": 91.66666666666666
+    },
+    "profit_factor": {
+      "target": 1.8,
+      "actual": 1.9659065808744782,
+      "pct_of_target": 109.21703227080435
+    },
+    "never_worked_rate": {
+      "target": 0.2,
+      "actual": 0.3346153846153846,
+      "pct_of_target": 167.3076923076923
+    }
+  },
+  "strengths": [
+    "total_r: 230.1732 (200% of 90.0000)",
+    "r_per_month: 4.1641 (200% of 1.5000)",
+    "avg_r: 0.8853 (197% of 0.4500)",
+    "trades_per_month: 4.7037 (118% of 4.0000)",
+    "total_trades: 260.0000 (118% of 220.0000)",
+    "excellent_trades: 110.0000 (92% of 120.0000)",
+    "profit_factor: 1.9659 (109% of 1.8000)",
+    "never_worked_rate: 0.3346 (167% of 0.2000)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [
+    "MFE realization is weak; prefer T1, trail, profit-floor, and runner-time experiments over raw loosening.",
+    "False-positive rate is high; tighten confirmation, value-hit, and regime-quality gates before accepting more fill conversion."
+  ],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + total_r: 230.1732 (200% of 90.0000)\n  + r_per_month: 4.1641 (200% of 1.5000)\n  + avg_r: 0.8853 (197% of 0.4500)\n  + trades_per_month: 4.7037 (118% of 4.0000)\n  + total_trades: 260.0000 (118% of 220.0000)\n  + excellent_trades: 110.0000 (92% of 120.0000)\n  + profit_factor: 1.9659 (109% of 1.8000)\n  + never_worked_rate: 0.3346 (167% of 0.2000)\n\nDiagnostic Gaps:\n  ! MFE realization is weak; prefer T1, trail, profit-floor, and runner-time experiments over raw loosening.\n  ! False-positive rate is high; tighten confirmation, value-hit, and regime-quality gates before accepting more fill conversion.\n\nGoal Progress:\n  total_r: 230.1732 / 90.0000 (200%)\n  r_per_month: 4.1641 / 1.5000 (200%)\n  avg_r: 0.8853 / 0.4500 (197%)\n  trades_per_month: 4.7037 / 4.0000 (118%)\n  total_trades: 260.0000 / 220.0000 (118%)\n  excellent_trades: 110.0000 / 120.0000 (92%)\n  profit_factor: 1.9659 / 1.8000 (109%)\n  never_worked_rate: 0.3346 / 0.2000 (167%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

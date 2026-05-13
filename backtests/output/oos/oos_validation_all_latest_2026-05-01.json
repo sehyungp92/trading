@@ -1,0 +1,297 @@
+[
+  {
+    "strategy": "iaric",
+    "family": "stock",
+    "assessment": "GREEN",
+    "action": "No action needed -- edge persists",
+    "config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\iaric\\round_3\\optimized_config.json",
+    "warnings": [],
+    "error": null,
+    "is_metrics": {
+      "total_trades": 1470,
+      "winning_trades": 1172,
+      "win_rate": 0.7972789115646258,
+      "profit_factor": 2.2898020514152244,
+      "net_r": 225.01342635794938,
+      "avg_r": 0.15307035806663224,
+      "max_drawdown_r": 5.449514727659391,
+      "trades_per_month": 55.24296296296296,
+      "months": 26.609724047306177
+    },
+    "oos_metrics": {
+      "total_trades": 34,
+      "winning_trades": 26,
+      "win_rate": 0.7647058823529411,
+      "profit_factor": 2.582717102859498,
+      "net_r": 5.875922464416169,
+      "avg_r": 0.17282124895341672,
+      "max_drawdown_r": 2.1909046867144912,
+      "trades_per_month": 25.242926829268292,
+      "months": 1.3469119579500657
+    }
+  },
+  {
+    "strategy": "alcb",
+    "family": "stock",
+    "assessment": "GREEN",
+    "action": "No action needed -- edge persists",
+    "config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_3\\optimized_config.json",
+    "warnings": [
+      "IS trade count does not reproduce stored round summary (546 vs 511)."
+    ],
+    "error": null,
+    "is_metrics": {
+      "total_trades": 546,
+      "winning_trades": 343,
+      "win_rate": 0.6282051282051282,
+      "profit_factor": 2.0510142051188796,
+      "net_r": 151.92543743478538,
+      "avg_r": 0.27825171691352635,
+      "max_drawdown_r": 5.456038925150466,
+      "trades_per_month": 20.518814814814814,
+      "months": 26.609724047306177
+    },
+    "oos_metrics": {
+      "total_trades": 65,
+      "winning_trades": 44,
+      "win_rate": 0.676923076923077,
+      "profit_factor": 3.0666066137644656,
+      "net_r": 27.83134025180786,
+      "avg_r": 0.4281744654124286,
+      "max_drawdown_r": 5.647171680940149,
+      "trades_per_month": 48.25853658536585,
+      "months": 1.3469119579500657
+    }
+  },
+  {
+    "strategy": "helix_swing",
+    "family": "swing",
+    "assessment": "GREY",
+    "action": "Positive sign only -- sample too small for validation",
+    "config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\round_5\\optimized_config.json",
+    "warnings": [
+      "Stored round summary appears to include post-cutoff trades (325 vs reproduced IS 145); assessment uses reproduced IS metrics."
+    ],
+    "error": null,
+    "is_metrics": {
+      "total_trades": 145,
+      "winning_trades": 77,
+      "win_rate": 0.5310344827586206,
+      "profit_factor": 2.186696946693428,
+      "net_r": 78.90931490500957,
+      "avg_r": 0.5442021717586867,
+      "max_drawdown_r": 7.3109623667614,
+      "trades_per_month": 5.449135802469136,
+      "months": 26.609724047306177
+    },
+    "oos_metrics": {
+      "total_trades": 8,
+      "winning_trades": 4,
+      "win_rate": 0.5,
+      "profit_factor": 8.485851105075248,
+      "net_r": 12.085376341758517,
+      "avg_r": 1.5106720427198146,
+      "max_drawdown_r": 1.2311277438757386,
+      "trades_per_month": 5.939512195121951,
+      "months": 1.3469119579500657
+    }
+  },
+  {
+    "strategy": "atrss",
+    "family": "swing",
+    "assessment": "GREY",
+    "action": "Inconclusive -- extend monitoring to 4+ months",
+    "config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\atrss\\round_3\\optimized_config.json",
+    "warnings": [],
+    "error": null,
+    "is_metrics": {
+      "total_trades": 130,
+      "winning_trades": 111,
+      "win_rate": 0.8538461538461538,
+      "profit_factor": 8.561020250684166,
+      "net_r": 130.3462778619536,
+      "avg_r": 1.0026636758611815,
+      "max_drawdown_r": 1.923227667673821,
+      "trades_per_month": 4.885432098765432,
+      "months": 26.609724047306177
+    },
+    "oos_metrics": {
+      "total_trades": 2,
+      "winning_trades": 2,
+      "win_rate": 1.0,
+      "profit_factor": Infinity,
+      "net_r": 1.1784033903917621,
+      "avg_r": 0.5892016951958811,
+      "max_drawdown_r": 0.0,
+      "trades_per_month": 1.4848780487804878,
+      "months": 1.3469119579500657
+    }
+  },
+  {
+    "strategy": "tpc",
+    "family": "swing",
+    "assessment": "GREY",
+    "action": "Inconclusive -- extend monitoring to 4+ months",
+    "config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_8\\optimized_config.json",
+    "warnings": [
+      "NQ_1h.parquet ends 2026-02-06, before requested 2026-05-01.",
+      "NQ_1d.parquet ends 2026-02-06, before requested 2026-05-01.",
+      "GC_1h.parquet ends 2026-02-06, before requested 2026-05-01.",
+      "GC_1d.parquet ends 2026-02-06, before requested 2026-05-01.",
+      "Stored round summary appears to include post-cutoff trades (127 vs reproduced IS 50); assessment uses reproduced IS metrics.",
+      "IS profit factor does not reproduce stored round summary (3.33 vs 2.34)."
+    ],
+    "error": null,
+    "is_metrics": {
+      "total_trades": 50,
+      "winning_trades": 34,
+      "win_rate": 0.68,
+      "profit_factor": 3.331716528224671,
+      "net_r": 41.5795547491197,
+      "avg_r": 0.831591094982394,
+      "max_drawdown_r": 3.1150032537470373,
+      "trades_per_month": 1.8790123456790122,
+      "months": 26.609724047306177
+    },
+    "oos_metrics": {
+      "total_trades": 4,
+      "winning_trades": 3,
+      "win_rate": 0.75,
+      "profit_factor": 4.414552485129208,
+      "net_r": 3.5212471288755434,
+      "avg_r": 0.8803117822188858,
+      "max_drawdown_r": 0.0,
+      "trades_per_month": 2.9697560975609756,
+      "months": 1.3469119579500657
+    }
+  },
+  {
+    "strategy": "vdubus",
+    "family": "momentum",
+    "assessment": "YELLOW",
+    "action": "Positive expectancy with marginal sample -- monitor",
+    "config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\vdubus\\round_3\\optimized_config.json",
+    "warnings": [
+      "Stored round summary appears to include post-cutoff trades (198 vs reproduced IS 188); assessment uses reproduced IS metrics."
+    ],
+    "error": null,
+    "is_metrics": {
+      "total_trades": 188,
+      "winning_trades": 98,
+      "win_rate": 0.5212765957446809,
+      "profit_factor": 2.8938307694809793,
+      "net_r": 80.01656392341208,
+      "avg_r": 0.4256200208692132,
+      "max_drawdown_r": 5.434349341857853,
+      "trades_per_month": 7.0650864197530865,
+      "months": 26.609724047306177
+    },
+    "oos_metrics": {
+      "total_trades": 15,
+      "winning_trades": 8,
+      "win_rate": 0.5333333333333333,
+      "profit_factor": 4.420641938304234,
+      "net_r": 11.16075227594633,
+      "avg_r": 0.7440501517297553,
+      "max_drawdown_r": 1.226611226611226,
+      "trades_per_month": 11.136585365853659,
+      "months": 1.3469119579500657
+    }
+  },
+  {
+    "strategy": "nqdtc",
+    "family": "momentum",
+    "assessment": "GREY",
+    "action": "Inconclusive -- extend monitoring to 4+ months",
+    "config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_4\\optimized_config.json",
+    "warnings": [],
+    "error": null,
+    "is_metrics": {
+      "total_trades": 117,
+      "winning_trades": 68,
+      "win_rate": 0.5811965811965812,
+      "profit_factor": 2.2325342381054316,
+      "net_r": 61.262256088303175,
+      "avg_r": 0.5236090263957537,
+      "max_drawdown_r": 4.963537403436497,
+      "trades_per_month": 4.396888888888888,
+      "months": 26.609724047306177
+    },
+    "oos_metrics": {
+      "total_trades": 7,
+      "winning_trades": 5,
+      "win_rate": 0.7142857142857143,
+      "profit_factor": 4.6891655012191125,
+      "net_r": 7.401847565672317,
+      "avg_r": 1.0574067950960453,
+      "max_drawdown_r": 1.0028901734104048,
+      "trades_per_month": 5.1970731707317075,
+      "months": 1.3469119579500657
+    }
+  },
+  {
+    "strategy": "downturn",
+    "family": "momentum",
+    "assessment": "GREY",
+    "action": "Positive sign only -- sample too small for validation",
+    "config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\downturn\\round_4\\optimized_config.json",
+    "warnings": [
+      "Stored round summary appears to include post-cutoff trades (127 vs reproduced IS 117); assessment uses reproduced IS metrics.",
+      "IS profit factor does not reproduce stored round summary (2.09 vs 3.14)."
+    ],
+    "error": null,
+    "is_metrics": {
+      "total_trades": 117,
+      "winning_trades": 63,
+      "win_rate": 0.5384615384615384,
+      "profit_factor": 2.090460214822151,
+      "net_r": 49.05531294878129,
+      "avg_r": 0.4192761790494128,
+      "max_drawdown_r": 6.521240881962864,
+      "trades_per_month": 4.396888888888888,
+      "months": 26.609724047306177
+    },
+    "oos_metrics": {
+      "total_trades": 10,
+      "winning_trades": 6,
+      "win_rate": 0.6,
+      "profit_factor": 2.3144527580486725,
+      "net_r": 2.888288620272861,
+      "avg_r": 0.2888288620272861,
+      "max_drawdown_r": 1.0555555555555556,
+      "trades_per_month": 7.424390243902439,
+      "months": 1.3469119579500657
+    }
+  },
+  {
+    "strategy": "nq_regime",
+    "family": "momentum",
+    "assessment": "GREEN",
+    "action": "No action needed -- edge persists",
+    "config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nq_regime\\round_6\\optimized_config.json",
+    "warnings": [],
+    "error": null,
+    "is_metrics": {
+      "total_trades": 681,
+      "winning_trades": 501,
+      "win_rate": 0.73568281938326,
+      "profit_factor": 7.458001487967126,
+      "net_r": 622.9426404535485,
+      "avg_r": 0.9147469022812753,
+      "max_drawdown_r": 3.7456167012078936,
+      "trades_per_month": 25.592148148148148,
+      "months": 26.609724047306177
+    },
+    "oos_metrics": {
+      "total_trades": 33,
+      "winning_trades": 21,
+      "win_rate": 0.6363636363636364,
+      "profit_factor": 8.354252777644572,
+      "net_r": 35.44051490988773,
+      "avg_r": 1.0739549972693252,
+      "max_drawdown_r": 1.066842737094838,
+      "trades_per_month": 24.50048780487805,
+      "months": 1.3469119579500657
+    }
+  }
+]

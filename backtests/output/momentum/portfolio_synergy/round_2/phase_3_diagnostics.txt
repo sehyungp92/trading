@@ -1,0 +1,11 @@
+==============================================================================
+PHASE 3 MOMENTUM PORTFOLIO DIAGNOSTICS
+==============================================================================
+Accepted candidate: heat_6_75_contracts_24
+Current score: 0.9941
+Net profit: $195,165.09
+Trades/month: 38.56
+Win rate: 66.61%
+Profit factor: 3.59
+MTM max DD: 7.07%
+Block rate: 11.04%

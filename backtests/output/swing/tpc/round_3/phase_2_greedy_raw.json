@@ -1,0 +1,84 @@
+{
+  "base_score": 35.2529993901551,
+  "final_score": 38.69896269499865,
+  "final_mutations": {
+    "all.trail_after_t1_30m_bars": 3,
+    "all.trail_use_vwap_after_t1": true,
+    "QQQ.t1_r": 1.25,
+    "GLD.t1_r": 1.1,
+    "all.max_hold_bars_15m": 52,
+    "all.time_stop_min_mfe_r": 0.5,
+    "all.initial_stop_source": "signal",
+    "all.signal_stop_buffer_atr_mult": 0.12,
+    "all.entry_order_model": "structure_stop",
+    "all.entry_stop_limit_atr_mult": 0.08,
+    "all.fib_a_low": 0.33,
+    "all.fib_a_high": 0.8,
+    "all.type_a_value_hits_min": 1,
+    "all.confirmation_required": 1,
+    "all.confirmation_combo_mode": "structure_or_vwap",
+    "all.type_c_enabled": false,
+    "all.type_c_requires_a_plus": false,
+    "all.max_position_notional_pct": 8.0,
+    "QQQ.primary_windows_et": [
+      [
+        9,
+        35,
+        15,
+        45
+      ]
+    ],
+    "GLD.entry_order_model": "market_next_bar",
+    "all.entry_order_ttl_hours": 4.0,
+    "GLD.daily_room_min_r": 2.5,
+    "GLD.confirmation_required": 2,
+    "GLD.confirmation_combo_mode": "structure_or_vwap",
+    "GLD.score_a_min": 15,
+    "GLD.score_b_min": 15,
+    "QQQ.min_short_score": 17,
+    "all.t1_stop_r": 0.1,
+    "all.max_risk_pct": 0.02,
+    "all.risk_a_pct": 0.013,
+    "all.risk_a_plus_pct": 0.02,
+    "all.risk_b_pct": 0.008,
+    "all.min_stop_atr_mult": 0.0,
+    "QQQ.shorts_enabled": false
+  },
+  "kept_features": [
+    "qqq_longs_only",
+    "disable_shallow_type_c"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 18,
+      "best_name": "qqq_longs_only",
+      "best_score": 38.38338781442159,
+      "best_delta_pct": 8.879778964682075,
+      "kept": true,
+      "rejected_count": 5
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 8,
+      "best_name": "disable_shallow_type_c",
+      "best_score": 38.69896269499865,
+      "best_delta_pct": 0.8221652609269958,
+      "kept": true,
+      "rejected_count": 4
+    },
+    {
+      "round_num": 3,
+      "candidates_tested": 2,
+      "best_name": "all_score_floor_15",
+      "best_score": 38.69896269499865,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 18,
+  "accepted_count": 2,
+  "elapsed_seconds": 1076.7975766658783
+}

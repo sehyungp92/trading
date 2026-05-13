@@ -1,0 +1,33 @@
+[
+  {
+    "strategy": "helix_swing",
+    "family": "swing",
+    "assessment": "GREY",
+    "action": "Positive sign only -- sample too small for validation",
+    "config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\round_5\\optimized_config.json",
+    "warnings": [],
+    "error": null,
+    "is_metrics": {
+      "total_trades": 145,
+      "winning_trades": 77,
+      "win_rate": 0.5310344827586206,
+      "profit_factor": 2.186696946693428,
+      "net_r": 78.90931490500957,
+      "avg_r": 0.5442021717586867,
+      "max_drawdown_r": 7.3109623667614,
+      "trades_per_month": 5.449135802469136,
+      "months": 26.609724047306177
+    },
+    "oos_metrics": {
+      "total_trades": 8,
+      "winning_trades": 4,
+      "win_rate": 0.5,
+      "profit_factor": 8.485851105075248,
+      "net_r": 12.085376341758517,
+      "avg_r": 1.5106720427198146,
+      "max_drawdown_r": 1.2311277438757386,
+      "trades_per_month": 5.939512195121951,
+      "months": 1.3469119579500657
+    }
+  }
+]

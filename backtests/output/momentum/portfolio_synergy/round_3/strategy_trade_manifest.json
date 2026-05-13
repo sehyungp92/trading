@@ -1,0 +1,22 @@
+{
+  "downturn": {
+    "mtime": 1777929243.4969475,
+    "path": "backtests\\output\\momentum\\downturn\\round_4\\optimized_config.json",
+    "size": 1349
+  },
+  "nq_regime": {
+    "mtime": 1777940591.4233613,
+    "path": "backtests\\output\\momentum\\nq_regime\\round_6\\optimized_config.json",
+    "size": 5249
+  },
+  "nqdtc": {
+    "mtime": 1777939054.2680645,
+    "path": "backtests\\output\\momentum\\nqdtc\\round_4\\optimized_config.json",
+    "size": 709
+  },
+  "vdubus": {
+    "mtime": 1777516498.1346672,
+    "path": "backtests\\output\\momentum\\vdubus\\round_3\\optimized_config.json",
+    "size": 1241
+  }
+}

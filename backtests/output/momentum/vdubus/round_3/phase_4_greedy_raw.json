@@ -1,0 +1,69 @@
+{
+  "base_score": 0.7579488166416961,
+  "final_score": 0.7812925764060261,
+  "final_mutations": {
+    "flags.plus_1r_partial": false,
+    "param_overrides.CHOP_THRESHOLD": 32.0,
+    "flags.early_kill": false,
+    "param_overrides.MAX_POSITION_BARS_15M": 51.2,
+    "flags.vwap_fail_evening": true,
+    "flags.evening_vwap_cap": true,
+    "param_overrides.VWAP_CAP_EVENING": 0.05,
+    "flags.dow_sizing": true,
+    "param_overrides.DOW_SIZE_MULT": {
+      "0": 0.6,
+      "3": 0.75
+    },
+    "flags.hourly_bypass_quality": true,
+    "param_overrides.HOURLY_BYPASS_ALLOWED_WINDOWS": [
+      "OPEN",
+      "CLOSE"
+    ],
+    "param_overrides.HOURLY_BYPASS_EQS_MIN": 2,
+    "param_overrides.HOURLY_BYPASS_MAX_CHOP": 32.0,
+    "param_overrides.HOURLY_BYPASS_SIZE_MULT": 0.5,
+    "flags.slope_bypass_quality": true,
+    "param_overrides.SLOPE_BYPASS_ALLOWED_WINDOWS": [
+      "OPEN",
+      "CORE",
+      "CLOSE"
+    ],
+    "param_overrides.SLOPE_BYPASS_EQS_MIN": 4,
+    "param_overrides.SLOPE_BYPASS_MAX_CHOP": 36.0,
+    "param_overrides.SLOPE_BYPASS_SIZE_MULT": 1.0,
+    "param_overrides.VWAP_CAP_OPEN_EVE": 0.85,
+    "param_overrides.BUFFER_TICKS": 2,
+    "flags.mfe_rescue_stop": true,
+    "param_overrides.MFE_RESCUE_MIN_R": 0.5,
+    "param_overrides.MFE_RESCUE_AFTER_BARS": 5,
+    "param_overrides.MFE_RESCUE_TRIGGER_R": 0.1,
+    "param_overrides.MFE_RESCUE_LOCK_R": 0.1
+  },
+  "kept_features": [
+    "mfe_rescue_lock010"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 14,
+      "best_name": "mfe_rescue_lock010",
+      "best_score": 0.7812925764060261,
+      "best_delta_pct": 3.079859649067209,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 10,
+      "best_name": "stale_bars_10",
+      "best_score": 0.7812925764060261,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 14,
+  "accepted_count": 1,
+  "elapsed_seconds": 415.3238203525543
+}

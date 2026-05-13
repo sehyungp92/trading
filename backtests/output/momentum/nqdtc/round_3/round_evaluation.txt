@@ -1,0 +1,49 @@
+======================================================================
+NQDTC END-OF-ROUND EVALUATION
+======================================================================
+
+Phase Progression Summary:
+  Phase 1: score 0.7372 -> 0.7452 (1 accepted)
+  Phase 2: score 0.7452 -> 0.7614 (2 accepted)
+  Phase 3: score 0.7614 -> 0.7614 (0 accepted)
+  Phase 4: score 0.7614 -> 0.7614 (0 accepted)
+
+Cumulative Mutations Applied:
+  flags.block_05_et: False
+  flags.block_09_et: False
+  flags.block_eth_shorts: True
+  flags.displacement_threshold: False
+  flags.max_loss_cap: True
+  flags.max_stop_width: True
+  param_overrides.BLOCK_ALIGNED_REGIME: True
+  param_overrides.BLOCK_CAUTION_REGIME: True
+  param_overrides.BLOCK_NEUTRAL_REGIME: True
+  param_overrides.LOSS_STREAK_THRESHOLD: 2
+  param_overrides.MIN_BOX_WIDTH: 150
+  param_overrides.MIN_INTER_TRADE_GAP_MINUTES: 30
+  param_overrides.RATCHET_THRESHOLD_R: 0.75
+  param_overrides.RVOL_SCORE_THRESH: 1.5
+  param_overrides.SCORE_NORMAL: 1.5
+  param_overrides.TP1_PARTIAL_PCT: 0.55
+  param_overrides.TP1_R: 1.4
+
+Signal Extraction / Alpha Capture
+Net return 322.1% with 100 trades, robust return 261.2%, PF=2.14, DD=14.5%. Later recovery and interaction phases did not find a valid incremental mutation above the robust score hurdle.
+
+Signal Discrimination
+Win rate 58.0%, avg R=0.511, capture ratio 0.44; Range trades are 100.0% of the book and ETH shorts remain blocked (0 trades).
+
+Entry Mechanism
+Entry expansion came from reopening the 05:00 and 09:00 ET Range windows while preserving the prior score, RVOL, box-width, cooldown, and regime blocks. Guarded session/regime recovery candidates were tested but did not improve the objective.
+
+Trade Management
+Calmar=22.18, Sharpe=1.96, Sortino=24.80; burst trades are 4.0% and the accepted ratchet threshold reduced drawdown without sacrificing the frequency harvest.
+
+Exit Mechanism
+TP1 hit rate 54.0%, TP2 hit rate 0.0%, avg hold 8.5h, largest win share 18.9%.
+
+Timing
+Burst trade pct 4.0%, ETH short WR 0.0% (0 trades), Range regime 100.0% of trades.
+
+Overall Verdict
+NQDTC optimized to 322.1% return, PF=2.14, DD=14.5%, 100 trades. Robust return 261.2%, capture ratio improved to 0.44.

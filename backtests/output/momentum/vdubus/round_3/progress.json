@@ -1,0 +1,143 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-04-30T00:08:21.444691+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 19,
+      "base_score": 0.6771353169338056,
+      "final_score": 0.7183788393467887,
+      "kept_features": [
+        "hourly_bypass_oc_eqs2_tiny",
+        "slope_bypass_eqs4_fullsize"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Blocked-Gate Alpha Conversion",
+      "candidate_count": 12
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-04-30T00:16:47.276162+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 19,
+      "base_score": 0.7183788393467887,
+      "final_score": 0.7183788393467887,
+      "kept_features": [],
+      "gate_passed": false,
+      "failure_category": "candidates_exhausted",
+      "scoring_retries": 2,
+      "diagnostic_retries": 1,
+      "focus": "No-Signal Continuation Entries",
+      "candidate_count": 26
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-04-30T00:33:37.991471+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 21,
+      "base_score": 0.7183788393467887,
+      "final_score": 0.7579488166416961,
+      "kept_features": [
+        "vwap_cap_open_085",
+        "buffer_2"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Entry Frequency & Fill Mechanics",
+      "candidate_count": 20
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-04-30T00:40:33.458301+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 26,
+      "base_score": 0.7579488166416961,
+      "final_score": 0.7812925764060261,
+      "kept_features": [
+        "mfe_rescue_lock010"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Exit Capture & Slow-Death Rescue",
+      "candidate_count": 14
+    },
+    "5": {
+      "status": "completed",
+      "updated_at": "2026-04-30T00:52:54.059433+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "current_phase": 5,
+      "total_mutations": 26,
+      "base_score": 0.7812925764060261,
+      "final_score": 0.794736631254161,
+      "kept_features": [
+        "dow_monday_thu_harder",
+        "evening_cap_035"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Session & Cohort Composition",
+      "candidate_count": 15
+    },
+    "6": {
+      "status": "completed",
+      "updated_at": "2026-04-30T02:34:58.052675+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "current_phase": 6,
+      "total_mutations": 26,
+      "base_score": 0.794736631254161,
+      "final_score": 0.8477206195294378,
+      "kept_features": [
+        "finetune_vwap_cap_open_eve_p10",
+        "finetune_hourly_bypass_max_chop_p10"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Structural Interactions & Fine Tune",
+      "candidate_count": 65
+    }
+  },
+  "last_updated": "2026-04-30T02:34:58.073665+00:00",
+  "current_phase": 6
+}

@@ -1,0 +1,29 @@
+OOS Repair Diagnostic Summary
+============================================================================================
+The OOS window is used for diagnosis/selection in this run; it is no longer an untouched holdout.
+Data end: 2026-05-01
+
+Strategy: helix_swing
+--------------------------------------------------------------------------------------------
+Baseline IS: trades=140 PF=2.17 avgR=0.532 netR=74.5
+Baseline OOS: trades=7 PF=4.96 avgR=0.914 netR=6.4
+Candidates evaluated: 244
+Top objective candidates:
+  targeted/target_freq_d_short0_sep4_daily_rts030: obj=+22.64%, passed=False, OOS trades=8 netR=12.1 avgR=1.510, IS trades=141 netR=67.2
+  targeted/target_d_short0_sep4_dailyext300: obj=+22.63%, passed=False, OOS trades=8 netR=12.1 avgR=1.510, IS trades=141 netR=67.1
+  targeted/target_d_short0_dailyext300: obj=+18.68%, passed=False, OOS trades=9 netR=11.1 avgR=1.230, IS trades=146 netR=62.6
+  targeted/target_freq_d_short0_sep4_classc_rts035: obj=+17.56%, passed=False, OOS trades=9 netR=9.7 avgR=1.083, IS trades=157 netR=75.1
+  ablation/ablate_cluster_round_3_phase_1_adx: obj=+10.55%, passed=True, OOS trades=10 netR=8.2 avgR=0.822, IS trades=155 netR=70.6
+  targeted/target_entry_d_short_adx_0: obj=+10.55%, passed=True, OOS trades=10 netR=8.2 avgR=0.822, IS trades=155 netR=70.6
+  perturbation/perturb_ADD_RISK_FRAC_2p471: obj=+4.44%, passed=True, OOS trades=7 netR=7.2 avgR=1.036, IS trades=141 netR=77.6
+  targeted/target_d_sep4_age20: obj=+4.35%, passed=True, OOS trades=6 netR=7.4 avgR=1.233, IS trades=129 netR=79.0
+Top OOS-net candidates:
+  targeted/target_freq_d_short0_sep4_daily_rts030: OOS trades=8 netR=12.1 avgR=1.510, IS trades=141 netR=67.2, obj=+22.64%
+  targeted/target_d_short0_sep4_dailyext300: OOS trades=8 netR=12.1 avgR=1.510, IS trades=141 netR=67.1, obj=+22.63%
+  targeted/target_d_short0_dailyext300: OOS trades=9 netR=11.1 avgR=1.230, IS trades=146 netR=62.6, obj=+18.68%
+  targeted/target_freq_d_short0_sep4_classc_rts035: OOS trades=9 netR=9.7 avgR=1.083, IS trades=157 netR=75.1, obj=+17.56%
+  ablation/ablate_cluster_round_3_phase_1_adx: OOS trades=10 netR=8.2 avgR=0.822, IS trades=155 netR=70.6, obj=+10.55%
+  targeted/target_entry_d_short_adx_0: OOS trades=10 netR=8.2 avgR=0.822, IS trades=155 netR=70.6, obj=+10.55%
+  perturbation/perturb_R_PARTIAL_2P5_2p16: OOS trades=7 netR=8.1 avgR=1.164, IS trades=140 netR=55.3, obj=-0.45%
+  targeted/target_d_sep4_age20: OOS trades=6 netR=7.4 avgR=1.233, IS trades=129 netR=79.0, obj=+4.35%
+

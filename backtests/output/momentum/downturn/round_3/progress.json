@@ -1,0 +1,76 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-04-30T12:33:51.124458+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 27,
+      "base_score": 0.6808347201395365,
+      "final_score": 0.846041190342234,
+      "kept_features": [
+        "r3_momentum_roc003_cd24",
+        "r3_vol_gate_off",
+        "r3_psma_min100"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Alpha Extraction",
+      "candidate_count": 18
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-04-30T13:39:04.224351+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 28,
+      "base_score": 0.8451589599791903,
+      "final_score": 0.8649418383363359,
+      "kept_features": [
+        "r3_hold_12",
+        "r3_friction_005",
+        "r3_be_100",
+        "r3_chand_lb24"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Entry Discrimination",
+      "candidate_count": 56
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-04-30T14:16:21.331275+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 28,
+      "base_score": 0.8609202526161945,
+      "final_score": 0.8797993670367159,
+      "kept_features": [
+        "finetune_param_overrides_chandelier_lookback_m10",
+        "rev_relax_div_threshold_0.10",
+        "finetune_param_overrides_be_trigger_r_m10"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Trade Management",
+      "candidate_count": 41
+    }
+  },
+  "last_updated": "2026-04-30T14:16:21.344307+00:00",
+  "current_phase": 3
+}

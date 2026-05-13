@@ -1,0 +1,17 @@
+{
+  "family": "swing",
+  "strategy": "atrss",
+  "strategy_name": "atrss",
+  "round": 2,
+  "description": "Round 2 phased auto optimization from the round 1 optimized baseline",
+  "generated_at_utc": "2026-04-30T12:35:09.816847+00:00",
+  "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\atrss\\round_1\\optimized_config.json",
+  "baseline_mutation_count": 4,
+  "baseline_mutations": {
+    "flags.early_stall_exit": true,
+    "param_overrides.early_stall_check_hours": 12,
+    "param_overrides.early_stall_mfe_threshold": 0.2,
+    "param_overrides.max_hold_hours": 80
+  },
+  "scoring_weights": {}
+}

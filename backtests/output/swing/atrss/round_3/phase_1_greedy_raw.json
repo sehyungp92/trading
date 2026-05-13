@@ -1,0 +1,42 @@
+{
+  "base_score": 0.5147196807300879,
+  "final_score": 0.6858945574212445,
+  "final_mutations": {
+    "flags.early_stall_exit": false,
+    "param_overrides.early_stall_check_hours": 12,
+    "param_overrides.early_stall_mfe_threshold": 0.2,
+    "param_overrides.max_hold_hours": 88,
+    "param_overrides.adx_on": 14,
+    "param_overrides.recovery_tolerance_atr_trend": 0.55,
+    "fixed_qty": null,
+    "flags.addon_b": false,
+    "param_overrides.base_risk_pct": 0.0225
+  },
+  "kept_features": [
+    "risk_sized_225bp"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 10,
+      "best_name": "risk_sized_225bp",
+      "best_score": 0.6858945574212445,
+      "best_delta_pct": 33.255941651261324,
+      "kept": true,
+      "rejected_count": 3
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 6,
+      "best_name": "risk_225bp_heat055_guarded",
+      "best_score": 0.6858945574212445,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 10,
+  "accepted_count": 1,
+  "elapsed_seconds": 75.2427659034729
+}

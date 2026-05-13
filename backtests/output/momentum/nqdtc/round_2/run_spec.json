@@ -1,0 +1,26 @@
+{
+  "family": "momentum",
+  "strategy": "nqdtc",
+  "strategy_name": "nqdtc",
+  "round": 2,
+  "description": "Round 2",
+  "generated_at_utc": "2026-04-30T17:36:24.998639+00:00",
+  "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_1\\optimized_config.json",
+  "baseline_mutation_count": 13,
+  "baseline_mutations": {
+    "flags.max_loss_cap": true,
+    "flags.max_stop_width": true,
+    "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+    "param_overrides.BLOCK_CAUTION_REGIME": true,
+    "flags.displacement_threshold": false,
+    "param_overrides.SCORE_NORMAL": 1.5,
+    "param_overrides.RVOL_SCORE_THRESH": 1.5,
+    "param_overrides.MIN_BOX_WIDTH": 150,
+    "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+    "flags.block_eth_shorts": true,
+    "param_overrides.TP1_R": 1.2,
+    "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+    "param_overrides.TP1_PARTIAL_PCT": 0.5
+  },
+  "scoring_weights": {}
+}

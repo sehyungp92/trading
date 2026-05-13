@@ -1,0 +1,138 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:25:06.046781+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 44,
+      "base_score": 0.0,
+      "final_score": 0.20709561349401276,
+      "kept_features": [
+        "struct_retest_ttl90_offset2"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_2 Structural Fill Causality And Conversion",
+      "candidate_count": 7
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:33:20.305799+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 61,
+      "base_score": 0.0,
+      "final_score": 0.966305703030691,
+      "kept_features": [
+        "struct_hybrid_score8_stop45",
+        "struct_adaptive_retest_score8_sample"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_2 Sample-Floor Standalone Alpha",
+      "candidate_count": 8
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:38:07.892218+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 61,
+      "base_score": 0.966305703030691,
+      "final_score": 0.966305703030691,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_2 Signal Discrimination",
+      "candidate_count": 8
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:41:35.702468+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 61,
+      "base_score": 0.966305703030691,
+      "final_score": 0.966305703030691,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_2 Reproducible Edge Validation",
+      "candidate_count": 7
+    },
+    "5": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:49:04.806945+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "current_phase": 5,
+      "total_mutations": 64,
+      "base_score": 0.966305703030691,
+      "final_score": 0.9797036208472766,
+      "kept_features": [
+        "struct_floor_0p50_lock0p10"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_2 Trade Management And Leakage",
+      "candidate_count": 7
+    },
+    "6": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:55:14.990906+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "current_phase": 6,
+      "total_mutations": 64,
+      "base_score": 0.9797036208472766,
+      "final_score": 0.9830587960261287,
+      "kept_features": [
+        "struct_final_quality_daycap3"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_2 Final Alpha Guardrails",
+      "candidate_count": 7
+    }
+  },
+  "last_updated": "2026-05-01T18:55:14.999901+00:00",
+  "current_phase": 6
+}

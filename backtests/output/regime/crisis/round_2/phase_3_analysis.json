@@ -1,0 +1,69 @@
+{
+  "phase": 3,
+  "goal_progress": {
+    "avg_latency": {
+      "target": 20.0,
+      "actual": 21.285714285714285,
+      "pct_of_target": 93.95973154362417
+    },
+    "warning_fp_rate": {
+      "target": 0.05,
+      "actual": 0.05121403795143848,
+      "pct_of_target": 102.42807590287694
+    },
+    "crisis_fp_rate": {
+      "target": 0.02,
+      "actual": 0.013670679453172822,
+      "pct_of_target": 68.35339726586412
+    },
+    "crises_detected": {
+      "target": 7.0,
+      "actual": 7.0,
+      "pct_of_target": 100.0
+    },
+    "transitions_per_year": {
+      "target": 20.0,
+      "actual": 8.230715774843642,
+      "pct_of_target": 41.15357887421821
+    }
+  },
+  "strengths": [
+    "avg_latency: 21.2857 (94% of 20.0000)",
+    "warning_fp_rate: 0.0512 (102% of 0.0500)",
+    "crises_detected: 7.0000 (100% of 7.0000)"
+  ],
+  "weaknesses": [
+    "transitions_per_year: 8.2307 (41% of 20.0000)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 3 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + avg_latency: 21.2857 (94% of 20.0000)\n  + warning_fp_rate: 0.0512 (102% of 0.0500)\n  + crises_detected: 7.0000 (100% of 7.0000)\n\nWeaknesses:\n  - transitions_per_year: 8.2307 (41% of 20.0000)\n\nExtra Analysis:\n  Detection: 7/7 crises, avg latency 21.3d\n  Corrections: 2/2, avg latency 0.5d\n  FP rates: WARNING=5.12%, CRISIS=1.37%\n  Distribution: NORMAL=0.2%, WATCH=89.8%, WARNING=5.5%, CRISIS=4.6%\n\nGoal Progress:\n  avg_latency: 21.2857 / 20.0000 (94%)\n  warning_fp_rate: 0.0512 / 0.0500 (102%)\n  crisis_fp_rate: 0.0137 / 0.0200 (68%)\n  crises_detected: 7.0000 / 7.0000 (100%)\n  transitions_per_year: 8.2307 / 20.0000 (41%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "detection": {
+      "crises_detected": 7,
+      "total_crises": 7,
+      "avg_latency": 21.285714285714285,
+      "gfc_latency": 14.0,
+      "covid_latency": 10.0
+    },
+    "corrections": {
+      "corrections_detected": 2,
+      "total_corrections": 2,
+      "correction_avg_latency": 0.5
+    },
+    "fp_rates": {
+      "warning": 0.05121403795143848,
+      "crisis": 0.013670679453172822
+    },
+    "distribution": {
+      "pct_normal": 0.001911049339819319,
+      "pct_watch": 0.8976719944405838,
+      "pct_warning": 0.05472550382209868,
+      "pct_crisis": 0.045691452397498264
+    }
+  }
+}

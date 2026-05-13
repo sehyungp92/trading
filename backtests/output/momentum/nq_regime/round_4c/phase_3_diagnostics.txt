@@ -1,0 +1,409 @@
+NQ_REGIME phase 3: score 0.9057->1.1917, trades=305, PF=9.87, DD=2.3%.
+
+NQ_REGIME diagnostics
+=====================
+Baseline profile: strict spec baseline, all three modules enabled, completed 5m replay, 15m context only at completed boundaries.
+Trades: 305 (liquidity_reversion=276, structural_expansion=29)
+Net: $+16212.40 | PF=9.87 | WR=70.5% | avgR=+0.948 | totalR=+289.23 | DD=2.3%
+Frequency: 6.42/month | expectancy=$+53.16
+
+=== Strength / Weakness Snapshot ===
+  Strengths
+    - nq_3 Liquidity Reversion: N=276, avgR=+1.045, PF=12.24
+    - Best exit cohort: hard_flatten N=5, avgR=+7.869
+    - Positive sampled years 3/4
+    - Top 5 winners contribute 13% of gross wins
+  Weaknesses
+    - nq_2 Structural Expansion: N=29, avgR=+0.032, PF=1.24
+    - Weakest exit cohort: stop N=258, avgR=+0.820
+    - Liquidity Reversion leakage after +2.0R: 1/61 finish <=0R, avg giveback +2.40R
+    - Module coverage 67%; min module trades 0
+
+=== Component Edge Scorecard ===
+  Each row is cohort-pure: only trades actually routed to that module are counted.
+  Spec   Component                   N     WR     PF     AvgR     TotR     MFE     MAE EdgeRead
+  ---------------------------------------------------------------------------------------------
+  nq_1   Second-Wind Continuation    0    0%   0.00   +0.000    +0.00   +0.00   +0.00 NO_SAMPLE
+         Edge thesis: AM trend + compression + PM squeeze fire.
+  nq_2   Structural Expansion       29   41%   1.24   +0.032    +0.93   +0.43   -0.33 NEEDS_OPT
+         Edge thesis: clean 15m IB acceptance with VWAP alignment.
+  nq_3   Liquidity Reversion       276   74%  12.24   +1.045  +288.30   +1.74   -0.11 EDGE_PRESENT
+         Edge thesis: failed sweep + reclaim/loss back toward value.
+  Module coverage: 67%; minimum module trades: 0.
+
+=== Regime Routing Quality ===
+  Routing decisions: 46893
+  Selected rate: 4.5%
+  Avg blocked candidates/decision: 0.17
+  News vetoes: 0; size blocks: 47; session blocks: 1116.
+  Reason distribution:
+    no_valid_candidate               44778 (95.5%)
+    selected_liquidity_reversion      1700 ( 3.6%)
+    selected_structural_expansion      415 ( 0.9%)
+
+=== Regime Confidence And Threshold Pressure ===
+  Confidence/margin describe the classifier state before execution quality is considered.
+  Selected decisions: n=2115, avg_conf=0.848, p25_margin=0.071, avg_margin=0.212
+  No-trade decisions: n=44778, avg_conf=0.691, p25_margin=0.023, avg_margin=0.176
+  Strict-threshold pressure: confidence<0.65 on 10824/46893 (23.1%); margin<0.15 on 26109/46893 (55.7%).
+  Regime                        N    Sel%  AvgConf AvgMargin
+  TRANSITION                27857   3.7%    0.595     0.062
+  LIQUIDITY_REVERSION        8591   8.1%    0.770     0.354
+  PM_CONTINUATION            7305   3.1%    0.920     0.326
+  STRUCTURAL_EXPANSION       3084   5.5%    0.902     0.373
+  DEAD_CHOP                    56   0.0%    0.845     0.181
+
+=== Candidate Opportunity Funnel ===
+  Candidate counts are pre-fill opportunities; executed trades are filled/closed outcomes.
+  Spec   Module                   Cand  Valid    Sel   Exec  Sel/Cand  Exec/Sel  AvgScore  AvgRoom Top Block / Veto
+  -----------------------------------------------------------------------------------------------------------------
+  nq_1   Second-Wind Continuati      0      0      0      0     0.0%     0.0%      0.00     0.00 none / none
+  nq_2   Structural Expansion     5860    426    415     29     7.1%     7.0%      6.43     6.15 veto_active:5434 / weak_breakout_candle:4373
+  nq_3   Liquidity Reversion      4111   1701   1700    276    41.4%    16.2%     12.17    18.56 veto_active:2391 / penetration_too_deep:1673
+  Watch: Second-Wind Continuation produced no candidates; optimise upstream formation gates before routing or exits.
+  Watch: Structural Expansion has low selected-to-executed conversion; inspect entry model, order TTL, and retest distance.
+  Watch: Liquidity Reversion has low selected-to-executed conversion; inspect entry model, order TTL, and retest distance.
+
+=== nq_2 Structural Expansion Diagnostics ===
+  Intended edge: confirmed 15m acceptance outside the 30m IB, not wick-only breakout chasing.
+
+  IB type:
+    Bucket                          N     WR     PF     AvgR     TotR
+    wide                           21   48%   2.15   +0.231    +4.84
+    normal                          6   33%   0.33   -0.462    -2.77
+    narrow                          2    0%   0.00   -0.570    -1.14
+
+  Entry model:
+    Bucket                          N     WR     PF     AvgR     TotR
+    retest                         29   41%   1.24   +0.032    +0.93
+  Score: mean=9.103, median=9.000, p25=9.000, p75=9.000
+  Target room R: mean=5.832, median=2.099, p25=1.494, p75=4.596
+  Stop distance pts: mean=14.672, median=12.500, p25=10.250, p75=20.250
+
+=== nq_3 Liquidity Reversion Diagnostics ===
+  Intended edge: failed sweep after liquidity is taken, then reclaim/loss back toward VWAP or midpoint.
+
+  Value factors:
+    Bucket                          N     WR     PF     AvgR     TotR
+    2                             148   73%  12.18   +1.026  +151.88
+    1                              75   72%  10.25   +0.810   +60.75
+    3                              32   84%  22.76   +1.159   +37.08
+    0                              21   67%   8.86   +1.838   +38.59
+
+  Penetration bucket:
+    Bucket                          N     WR     PF     AvgR     TotR
+    <= 8 pt                       137   74%   8.82   +0.826  +113.19
+    <= 12 pt                       80   74%  10.41   +0.702   +56.16
+    <= 4 pt                        59   73%  24.98   +2.016  +118.95
+  VWAP room R: mean=9.636, median=4.615, p25=2.351, p75=13.108
+  Penetration pts: mean=6.568, median=6.625, p25=4.500, p75=8.500
+  Stop distance pts: mean=6.887, median=7.000, p25=4.750, p75=8.750
+
+=== nq_1 Second-Wind Continuation Diagnostics ===
+  No second-wind trades. Check PM continuation regime confidence, squeeze duration, trigger close, and 45-point stop cap.
+
+=== Setup Quality Breakdowns ===
+
+  Grade:
+    Bucket                          N     WR     PF     AvgR     TotR
+    A+                            247   73%  11.41   +0.976  +241.05
+    A                              53   60%   5.07   +0.925   +49.03
+    B                               5   40%   0.67   -0.169    -0.85
+
+  Setup type:
+    Bucket                          N     WR     PF     AvgR     TotR
+    failed_liquidity_sweep        276   74%  12.24   +1.045  +288.30
+    ib_acceptance_breakout         29   41%   1.24   +0.032    +0.93
+
+  Entry model:
+    Bucket                          N     WR     PF     AvgR     TotR
+    swept_level_retest            276   74%  12.24   +1.045  +288.30
+    retest                         29   41%   1.24   +0.032    +0.93
+
+  Side:
+    Bucket                          N     WR     PF     AvgR     TotR
+    BUY                           245   71%  10.76   +0.976  +239.14
+    SELL                           60   67%   7.50   +0.835   +50.10
+  Setup score: mean=12.856, median=14.000, p25=11.000, p75=15.000
+
+=== Risk Room And Stop Quality ===
+  These buckets test whether the baseline is paid for stricter room/stop filters.
+
+  Target room R:
+    Bucket                          N     WR     PF     AvgR     TotR
+    > 5 R                         194   74%  12.88   +1.103  +214.06
+    <= 5 R                         58   66%   5.47   +0.644   +37.38
+    <= 3 R                         20   60%   6.62   +0.668   +13.35
+    <= 2 R                         18   67%   7.16   +0.811   +14.60
+    <= 1.5 R                       15   67%  10.92   +0.656    +9.84
+
+  Stop distance:
+    Bucket                          N     WR     PF     AvgR     TotR
+    <= 8 pt                       180   72%  11.61   +1.221  +219.82
+    <= 12 pt                      110   71%   9.07   +0.623   +68.56
+    <= 45 pt                       12   50%   1.60   +0.165    +1.98
+    <= 15 pt                        2   50%   0.88   -0.288    -0.58
+    <= 20 pt                        1    0%   0.00   -0.556    -0.56
+
+  Initial target R:
+    Bucket                          N     WR     PF     AvgR     TotR
+    <= 1 R                        256   72%   9.69   +0.877  +224.61
+    <= 0.75 R                      44   61%   7.02   +0.633   +27.87
+    <= 1.5 R                        2   50%   6.05   +1.398    +2.80
+    > 2 R                           2  100%  10.00  +15.594   +31.19
+    <= 2 R                          1  100%  10.00   +2.766    +2.77
+
+=== Direction Asymmetry By Module ===
+  Long / BUY               N=245 WR=  71% PF=10.76 AvgR= +0.976 TotR=+239.14
+  Short / SELL             N= 60 WR=  67% PF= 7.50 AvgR= +0.835 TotR= +50.10
+  Directional edge (long minus short avgR): +0.141R
+
+  Module x direction:
+  Module                   L_N   L_WR   L_AvgR   S_N   S_WR   S_AvgR     Edge
+  ---------------------------------------------------------------------------
+  Second-Wind Continuati     0    0%   +0.000     0    0%   +0.000   +0.000
+  Structural Expansion      17   53%   +0.253    12   25%   -0.281   +0.534
+  Liquidity Reversion      228   73%   +1.030    48   77%   +1.114   -0.084
+
+=== Winner / Loser Entry Profile ===
+  Winners: 215; losers: 90.
+  Metric               WinMean  LossMean     Delta Signal
+  -------------------------------------------------------
+  setup_score           13.074    12.333    +0.741 WEAK
+  target_room_r         14.662    14.059    +0.604 
+  initial_target_r       0.940     0.887    +0.052 WEAK
+  stop_distance          7.353     8.281    -0.927 WEAK
+  vwap_room_r            8.961     8.144    +0.817 
+  penetration            6.226     5.269    +0.956 WEAK
+  value_factors          1.633     1.289    +0.344 WEAK
+  mfe_r                  2.258     0.087    +2.171 STRONG
+  mae_r                 -0.021    -0.397    +0.376 STRONG
+
+  Winner/loser module mix:
+    Structural Expansion     wins= 12 losses= 17 WR=41.4%
+    Liquidity Reversion      wins=203 losses= 73 WR=73.6%
+
+=== Exit, MFE, MAE, Capture ===
+
+  Exit reason:
+    Bucket                          N     WR     PF     AvgR     TotR
+    stop                          258   71%   9.08   +0.820  +211.61
+    reversion_vwap_rejection       39   62%  11.01   +0.916   +35.72
+    hard_flatten                    5   80%  40.13   +7.869   +39.34
+    target_1                        3  100%  10.00   +0.855    +2.57
+  MFE R: mean=1.618, median=0.714, p25=0.023, p75=1.688
+  MAE R: mean=-0.132, median=0.000, p25=-0.100, p75=0.000
+  Winner capture ratio: mean=0.79, median=0.90, n=215
+  Losers reaching at least +0.5R MFE: 2/90 (2.2%)
+
+=== Excursion Data Integrity ===
+  Validates recorded price MFE/MAE before leaning on capture and giveback reads.
+  Net final R is compared with commission/tolerance adjustment because MAE/MFE are price excursions.
+  Cohort                      N   R>MFE   R<MAE Tol/Comm Win MFE<=0  Avg +Gap
+  ---------------------------------------------------------------------------
+  All trades                305       0       0       71          0    +0.000
+  Second-Wind Continuati      0       0       0        0          0    +0.000
+  Structural Expansion       29       0       0        9          0    +0.000
+  Liquidity Reversion       276       0       0       62          0    +0.000
+  Excursion bounds are internally consistent within tolerance.
+
+=== Module Exit Efficiency And Edge Leakage ===
+  Positive capture clips negative final R to zero; giveback is MFE minus final R.
+  Spec   Module                    N     AvgR     MFE     MAE     Cap    Give  +0.5R Losers   Stop% TopExit
+  ---------------------------------------------------------------------------------------------------------
+  nq_1   Second-Wind Continuati    0   +0.000   +0.00   +0.00      0%   +0.00           0/0      0% none
+  nq_2   Structural Expansion     29   +0.032   +0.43   -0.33  85.6%   +0.16 0/17        100.0% stop
+  nq_3   Liquidity Reversion     276   +1.045   +1.74   -0.11  73.2%   +0.77 2/73         83.0% stop
+
+=== MFE Threshold Retention ===
+  Shows trades that reached useful open-profit thresholds but still gave back edge.
+  Effective MFE is max(recorded MFE, final R) to avoid exit-bar undercounts.
+  Trigger Cohort                    Hit   Hit%   Fin<=0   Stop%     AvgR    Give
+  ------------------------------------------------------------------------------
+    +0.5R All trades                175   57%   2/175  85.7%   +1.823   +0.93
+    +0.5R Second-Wind Continuati      0    0%   0/0     0.0%   +0.000   +0.00
+    +0.5R Structural Expansion       10   34%   0/10  100.0%   +1.116   +0.04
+    +0.5R Liquidity Reversion       165   60%   2/165  84.8%   +1.866   +0.98
+    +1.0R All trades                125   41%   1/125  84.8%   +2.313   +1.24
+    +1.0R Second-Wind Continuati      0    0%   0/0     0.0%   +0.000   +0.00
+    +1.0R Structural Expansion        5   17%   0/5   100.0%   +1.565   +0.05
+    +1.0R Liquidity Reversion       120   43%   1/120  84.2%   +2.344   +1.29
+    +2.0R All trades                 62   20%   1/62   74.2%   +3.349   +2.36
+    +2.0R Second-Wind Continuati      0    0%   0/0     0.0%   +0.000   +0.00
+    +2.0R Structural Expansion        1    3%   0/1   100.0%   +2.379   +0.06
+    +2.0R Liquidity Reversion        61   22%   1/61   73.8%   +3.365   +2.40
+  Largest leakage read: Liquidity Reversion after +2.0R MFE finished <=0R on 1/61 hits with avg giveback +2.40R.
+
+=== Profit Floor Sensitivity From Recorded MFE ===
+  Idealized floor scenarios use recorded/effective MFE only; replay is still required before adopting a rule.
+  Trigger    Lock Touched Raised LossCuts     AvgR     TotR   DeltaR Top Lift
+  ---------------------------------------------------------------------------
+   +0.50R  +0.00R     175      2        2   +0.951  +289.99    +0.75 Liquidity Reversio +0.75R
+   +0.50R  +0.25R     175      5        2   +0.954  +290.89    +1.66 Liquidity Reversio +1.66R
+   +0.75R  +0.25R     150      4        1   +0.951  +290.19    +0.95 Liquidity Reversio +0.95R
+   +1.00R  +0.25R     125      1        1   +0.950  +289.78    +0.55 Liquidity Reversio +0.55R
+   +1.00R  +0.50R     125      2        1   +0.952  +290.22    +0.99 Liquidity Reversio +0.99R
+   +2.00R  +1.00R      62      2        1   +0.953  +290.60    +1.37 Liquidity Reversio +1.37R
+
+=== Hold Duration Efficiency ===
+  Hold minutes: mean=8.1, median=5.0, p75=5.0, p90=10.0, R-corr=+0.46
+  Bucket          N     WR     PF     AvgR     MFE     MAE        PnL
+  -------------------------------------------------------------------
+  <= 15 min     288   69%   8.76   +0.790   +1.11   -0.10  +13792.56
+  <= 30 min       5  100%  10.00   +1.353   +3.17   -0.37    +320.70
+  <= 60 min       7   86%  25.96   +2.632   +7.71   -0.08    +784.82
+  <= 120 min      5   80%  74.43   +7.294  +21.01   -1.57   +1314.32
+  Best sampled hold bucket: <= 120 min avgR=+7.294; weakest: <= 15 min avgR=+0.790.
+
+=== Time Breakdowns ===
+
+  Entry hour ET/UTC stored:
+    Bucket                          N     WR     PF     AvgR     TotR
+    18                             76   72%   8.22   +0.696   +52.91
+    15                             65   66%  11.36   +1.125   +73.13
+    14                             44   80%  19.53   +1.258   +55.37
+    19                             42   74%  11.79   +1.296   +54.44
+    17                             39   64%   6.23   +0.579   +22.58
+    16                             28   61%   4.65   +0.580   +16.25
+    20                             11   82%  15.96   +1.323   +14.56
+
+  Day of week:
+    Bucket                          N     WR     PF     AvgR     TotR
+    Tue                            77   73%   9.80   +0.966   +74.35
+    Mon                            70   67%   9.77   +0.767   +53.69
+    Thu                            60   73%   9.58   +1.208   +72.49
+    Wed                            51   65%   8.04   +0.841   +42.88
+    Fri                            47   74%  15.26   +0.975   +45.82
+
+  Month:
+    Bucket                          N     WR     PF     AvgR     TotR
+    2024-05                        19   58%   5.38   +0.345    +6.55
+    2025-07                        19   79%   7.14   +0.896   +17.02
+    2024-10                        18   83%  18.56   +0.998   +17.96
+    2024-06                        16   56%   5.44   +0.767   +12.28
+    2025-02                        16   75%  14.87   +1.069   +17.10
+    2025-06                        16   62%   4.47   +0.408    +6.52
+    2024-08                        14   79%  50.31   +1.074   +15.04
+    2024-11                        14   71%  10.64   +0.809   +11.32
+    2024-09                        13   77%  16.25   +1.139   +14.81
+    2025-10                        13   92%  23.33   +1.401   +18.21
+    2026-01                        13   69%  11.57   +0.622    +8.08
+    2025-05                        12   67%   9.62   +1.075   +12.90
+
+=== Monthly P&L Consistency ===
+  Month       N     WR     AvgR     NetPnL     CumPnL
+  ---------------------------------------------------
+  2023-12     2    0%   -0.377     -49.34     -49.34
+  2024-01     2   50%  +13.850    +840.36    +791.02
+  2024-02     2   50%   +0.940     +90.80    +881.82
+  2024-03    11   64%   +0.700    +323.20   +1205.02
+  2024-04     9   67%   +0.552    +278.34   +1483.36
+  2024-05    19   58%   +0.345    +381.76   +1865.12
+  2024-06    16   56%   +0.767    +656.34   +2521.46
+  2024-07    11   73%   +1.019    +719.44   +3240.90
+  2024-08    14   79%   +1.074    +919.12   +4160.02
+  2024-09    13   77%   +1.139    +928.30   +5088.32
+  2024-10    18   83%   +0.998   +1245.58   +6333.90
+  2024-11    14   71%   +0.809    +683.52   +7017.42
+  2024-12     9   67%   +0.780    +464.70   +7482.12
+  2025-01     8   62%   +1.064    +574.90   +8057.02
+  2025-02    16   75%   +1.069    +818.52   +8875.54
+  2025-03     8   88%   +1.349    +670.36   +9545.90
+  2025-04     5   40%   +0.543    +182.70   +9728.60
+  2025-05    12   67%   +1.075    +795.50  +10524.10
+  2025-06    16   62%   +0.408    +346.50  +10870.60
+  2025-07    19   79%   +0.896    +971.76  +11842.36
+  2025-08    11   64%   +1.101    +807.66  +12650.02
+  2025-09    12   67%   +0.381    +298.46  +12948.48
+  2025-10    13   92%   +1.401   +1054.56  +14003.04
+  2025-11     5  100%   +0.681    +204.08  +14207.12
+  2025-12     9   67%   +0.896    +337.08  +14544.20
+  2026-01    13   69%   +0.622    +328.88  +14873.08
+  2026-02    11   73%   +1.075    +726.76  +15599.84
+  2026-03     7   86%   +1.388    +612.56  +16212.40
+  Winning months: 27/28 (96.4%); best=2024-10 $+1245.58; worst=2023-12 $-49.34.
+
+=== Year And Module Stability ===
+  Year      N     WR     PF     AvgR     TotR              Best module              Weak module
+  ---------------------------------------------------------------------------------------------
+  2023      2    0%   0.00   -0.377    -0.75  Liquidity Reve 2/-0.38R  Liquidity Reve 2/-0.38R
+  2024    138   69%  10.22   +1.003  +138.45 Liquidity Reve 124/+1.14R Structural Exp 14/-0.25R
+  2025    134   72%   9.53   +0.910  +121.92 Liquidity Reve 123/+0.97R Structural Exp 11/+0.21R
+  2026     31   74%  13.62   +0.956   +29.62 Liquidity Reve 27/+1.02R  Structural Exp 4/+0.53R
+
+  Year x module cells show N/avgR:
+  Year           Structural          Liquidity         SecondWind
+  ---------------------------------------------------------------
+  2023                    -           2/-0.38R                  -
+  2024            14/-0.25R         124/+1.14R                  -
+  2025            11/+0.21R         123/+0.97R                  -
+  2026             4/+0.53R          27/+1.02R                  -
+  Positive years: 3/4 (75.0%).
+
+=== Trade Gap And Opportunity Density ===
+  Gap hours: mean=65.2, median=27.5, p75=94.9, p90=167.9, max=720.8
+  Largest dry spells:
+     30.0 days from 2023-12-19 to 2024-01-18; next=liquidity_reversion +28.69R
+     21.0 days from 2025-11-03 to 2025-11-24; next=liquidity_reversion +0.66R
+     17.0 days from 2025-04-14 to 2025-05-01; next=structural_expansion -0.09R
+     14.0 days from 2024-01-31 to 2024-02-14; next=structural_expansion -0.62R
+     12.8 days from 2024-01-18 to 2024-01-31; next=structural_expansion -0.99R
+  Weekly density: active_weeks=105/119, zero_weeks=14, longest_zero_week_run=3, mean_trades_per_active_week=2.90
+
+=== Daily Sequencing And After-Loss Behavior ===
+  Trading days: 215; days with a second trade: 87 (40.5%).
+  First trade of day       N=215 WR=  70% PF=10.04 AvgR= +1.011 TotR=+217.45
+  Second trade of day      N= 87 WR=  72% PF= 9.20 AvgR= +0.809 TotR= +70.37
+  Trade after prior win    N= 61 WR=  66% PF= 8.15 AvgR= +0.854 TotR= +52.08
+  Trade after prior loss   N= 29 WR=  86% PF=16.56 AvgR= +0.679 TotR= +19.70
+
+=== Trade Autocorrelation And Loss Clustering ===
+  Lag-1 R autocorrelation: -0.06
+  After win: next win=68.8% (148/215); after loss: next win=75.3% (67/89).
+  After 1 prior losses     N= 67 WR=  73% PF= 8.11 AvgR= +0.748 TotR= +50.09
+  After 2 prior losses     N= 18 WR=  78% PF=43.80 AvgR= +2.644 TotR= +47.58
+  After 3 prior losses     N=  4 WR= 100% PF=10.00 AvgR= +0.722 TotR=  +2.89
+
+=== Rolling Expectancy (20-Trade Windows) ===
+  Rolling avgR: min=+0.306, max=+1.899, current=+1.200; negative_windows=0/286 (0.0%).
+  Sample drift: first_half_avgR=+1.009, second_half_avgR=+0.888.
+  Best window: 2024-01-18 to 2024-04-16, avgR=+1.899, pnl=$+1358.30.
+  Worst window: 2025-06-17 to 2025-07-21, avgR=+0.306, pnl=$+336.06.
+
+=== R Distribution And Streaks ===
+  R: mean=+0.948, median=+0.597, p25=-0.105, p75=+1.514, p90=+2.733
+  >= -1.0R:  297 (97.4%)
+  >= -0.5R:  276 (90.5%)
+  >= +0.0R:  215 (70.5%)
+  >= +0.5R:  161 (52.8%)
+  >= +1.0R:  112 (36.7%)
+  >= +2.0R:   55 (18.0%)
+  Max win streak: 12; max loss streak: 3.
+
+=== Drawdown Profile ===
+  Max DD: 2.32% at 2023-12-19 18:10:00+00:00
+  Bars underwater: 44936/53557 (83.9%)
+  Ending equity: $26,212.40
+
+=== Closed-Trade Drawdown Anatomy ===
+  Rank Start      Trough     End        Trades        DD$     NetR Worst Trade
+  ----------------------------------------------------------------------------
+     1 2024-11-28 2024-12-03 2024-12-05      3     110.18     2.09 structural_expansion -1.16R
+       Module mix to trough: structural_expansion=2
+     2 2024-06-18 2024-06-19 2024-06-27      7      99.82     2.07 liquidity_reversion -1.12R
+       Module mix to trough: liquidity_reversion=3
+     3 2025-07-17 2025-07-21 2025-07-24      5      96.60     1.24 liquidity_reversion -0.87R
+       Module mix to trough: liquidity_reversion=3
+
+=== Accounting Reconciliation ===
+  Trade ledger net: $+16212.40; metrics net: $+16212.40; gap=$+0.0000.
+  Equity final: $26,212.40; inferred initial=$10,000.00; equity_delta=$+16212.40; equity-metric gap=$+0.0000.
+  Total recorded commission: $1661.60; avg/trade=$5.45.
+
+=== Baseline Readiness For Phased Auto-Optimization ===
+  PASS  minimum trade sample
+  PASS  positive expectancy
+  PASS  PF above 1.10
+  PASS  DD below 25%
+  PASS  at least two modules active
+  Interpretation: phase 1 should isolate module edges; later phases should improve routing, quality gates, risk, exits, and final frequency without diluting component expectancy.

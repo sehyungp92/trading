@@ -1,0 +1,27 @@
+{
+  "headline": {
+    "trades": 28.0,
+    "net_return_pct": -24.974839999999865,
+    "avg_r": -0.5494062048791356,
+    "win_rate": 0.17857142857142858,
+    "low_mfe_loss_rate": 0.6428571428571429,
+    "max_dd_pct": 28.3479099999998
+  },
+  "cohort_findings": {
+    "long_pnl": -26434.749999999935,
+    "long_avg_r": -0.9202663828213862,
+    "long_win_rate": 0.05263157894736842,
+    "short_pnl": 1459.9100000000467,
+    "short_avg_r": 0.2335208374433935,
+    "qqq_pnl": -9756.209999999917,
+    "qqq_avg_r": -1.0352680633424132,
+    "gld_pnl": -15218.629999999974,
+    "gld_avg_r": -0.4168984252982418
+  },
+  "interpretation": [
+    "OOS loss is broad across the long book, not a single-tail-event problem.",
+    "QQQ OOS sample has zero winning trades; GLD contributes more trades and more dollars lost.",
+    "Shorts are comparatively resilient; blanket long removal is diagnostic, not a deployable repair because it crushes in-sample supply.",
+    "The highest-value repair family should filter weak 4h trend quality before entry, then check whether exits/sizing merely mitigate dollars."
+  ]
+}

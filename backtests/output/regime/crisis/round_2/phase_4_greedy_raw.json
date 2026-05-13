@@ -1,0 +1,49 @@
+{
+  "base_score": 0.8193403385679697,
+  "final_score": 0.8511994015981507,
+  "final_mutations": {
+    "VIX_CRISIS": 38.0,
+    "HYBRID_WARNING_MIN_CRISIS": 1,
+    "HYBRID_WARNING_MIN_PRIMARY": 2,
+    "SPY_DD_WARNING": -0.0576,
+    "VIX_WATCH": 27.0,
+    "VIX_WARNING": 34.56
+  },
+  "kept_features": [
+    "finetune_vix_warning_p08",
+    "finetune_spy_dd_warning_m04"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 19,
+      "best_name": "finetune_vix_warning_p08",
+      "best_score": 0.843994493820223,
+      "best_delta_pct": 3.009024954800026,
+      "kept": true,
+      "rejected_count": 2
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 16,
+      "best_name": "finetune_spy_dd_warning_m04",
+      "best_score": 0.8511994015981507,
+      "best_delta_pct": 0.8536676282466842,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 3,
+      "candidates_tested": 14,
+      "best_name": "finetune_vix_crisis_p08",
+      "best_score": 0.8524791072879332,
+      "best_delta_pct": 0.15034146962272832,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 19,
+  "accepted_count": 2,
+  "elapsed_seconds": 0.3620119094848633
+}

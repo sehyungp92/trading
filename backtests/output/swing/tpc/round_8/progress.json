@@ -1,0 +1,89 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-06T22:32:28.989370+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 96,
+      "base_score": 64.78562411230384,
+      "final_score": 65.19370302536512,
+      "kept_features": [
+        "add_pb30_orderly"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "ADDITIVE_SCALED_30M_PULLBACK_CONTROL",
+      "candidate_count": 10
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-06T23:39:34.527518+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 96,
+      "base_score": 65.19370302536512,
+      "final_score": 65.19370302536512,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "PB30_TRUE_MA_TRANSITION_FILTERS",
+      "candidate_count": 10
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-06T23:50:01.708813+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 96,
+      "base_score": 65.19370302536512,
+      "final_score": 65.19370302536512,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "PB30_RECLAIM_VS_MA_TRANSITION_INTERACTIONS",
+      "candidate_count": 15
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-06T23:55:57.301813+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 96,
+      "base_score": 65.19370302536512,
+      "final_score": 65.19370302536512,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "RISK_EXIT_AFTER_REJECTION_EVIDENCE",
+      "candidate_count": 9,
+      "post_holdout_removed_features": [
+        "evidence_t2_extend_300"
+      ]
+    }
+  },
+  "last_updated": "2026-05-06T23:55:57.308811+00:00",
+  "current_phase": 4
+}

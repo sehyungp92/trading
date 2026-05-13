@@ -1,0 +1,30 @@
+{"timestamp": "2026-04-30T15:42:09.102002+00:00", "phase": 1, "action": "phase_start", "focus": "Dynamic Risk Exposure Sweep", "candidate_count": 10}
+{"timestamp": "2026-04-30T15:42:09.110002+00:00", "phase": 1, "action": "greedy_start", "candidate_count": 10, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-04-30T15:43:28.677007+00:00", "phase": 1, "action": "greedy_complete", "base_score": 0.5147196807300879, "final_score": 0.6858945574212445, "accepted_count": 1}
+{"timestamp": "2026-04-30T15:43:28.697005+00:00", "phase": 1, "action": "gate_check", "passed": true, "failure_category": null}
+{"timestamp": "2026-04-30T15:43:28.711053+00:00", "phase": 1, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-30T15:43:28.727021+00:00", "phase": 1, "action": "analysis_complete", "recommendation": "advance", "reason": "Gate passed."}
+{"timestamp": "2026-04-30T15:43:28.757016+00:00", "phase": 1, "action": "decision_advance", "reason": "Gate passed.", "gate_passed": true, "applied_phase_mutations": true, "new_mutation_count": 3}
+{"timestamp": "2026-04-30T15:43:28.766016+00:00", "phase": 2, "action": "phase_start", "focus": "Risk & Heat Calibration", "candidate_count": 18}
+{"timestamp": "2026-04-30T15:43:28.781016+00:00", "phase": 2, "action": "greedy_start", "candidate_count": 18, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-04-30T15:48:14.282025+00:00", "phase": 2, "action": "greedy_complete", "base_score": 0.6858945574212445, "final_score": 0.7047274905412665, "accepted_count": 2}
+{"timestamp": "2026-04-30T15:48:14.310044+00:00", "phase": 2, "action": "gate_check", "passed": true, "failure_category": null}
+{"timestamp": "2026-04-30T15:48:14.330072+00:00", "phase": 2, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-30T15:48:14.355026+00:00", "phase": 2, "action": "analysis_complete", "recommendation": "advance", "reason": "Gate passed."}
+{"timestamp": "2026-04-30T15:48:14.407029+00:00", "phase": 2, "action": "decision_advance", "reason": "Gate passed.", "gate_passed": true, "applied_phase_mutations": true, "new_mutation_count": 3}
+{"timestamp": "2026-04-30T15:48:14.419028+00:00", "phase": 3, "action": "phase_start", "focus": "Winner Lean-In Add-ons", "candidate_count": 11}
+{"timestamp": "2026-04-30T15:48:14.441029+00:00", "phase": 3, "action": "greedy_start", "candidate_count": 11, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-04-30T15:49:39.759430+00:00", "phase": 3, "action": "greedy_complete", "base_score": 0.7047274905412665, "final_score": 0.7149482994301555, "accepted_count": 1}
+{"timestamp": "2026-04-30T15:49:39.786430+00:00", "phase": 3, "action": "gate_check", "passed": true, "failure_category": null}
+{"timestamp": "2026-04-30T15:49:39.805432+00:00", "phase": 3, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-30T15:49:39.831430+00:00", "phase": 3, "action": "analysis_complete", "recommendation": "advance", "reason": "Gate passed."}
+{"timestamp": "2026-04-30T15:49:39.875431+00:00", "phase": 3, "action": "decision_advance", "reason": "Gate passed.", "gate_passed": true, "applied_phase_mutations": true, "new_mutation_count": 2}
+{"timestamp": "2026-04-30T15:49:39.889432+00:00", "phase": 4, "action": "phase_start", "focus": "Aggression Guardrails", "candidate_count": 39}
+{"timestamp": "2026-04-30T15:49:39.907432+00:00", "phase": 4, "action": "greedy_start", "candidate_count": 39, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-04-30T15:56:15.282842+00:00", "phase": 4, "action": "greedy_complete", "base_score": 0.7149482994301555, "final_score": 0.734583733470985, "accepted_count": 1}
+{"timestamp": "2026-04-30T15:56:15.306799+00:00", "phase": 4, "action": "gate_check", "passed": true, "failure_category": null}
+{"timestamp": "2026-04-30T15:56:15.324794+00:00", "phase": 4, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-30T15:56:15.346793+00:00", "phase": 4, "action": "analysis_complete", "recommendation": "advance", "reason": "Gate passed."}
+{"timestamp": "2026-04-30T15:56:15.392795+00:00", "phase": 4, "action": "decision_advance", "reason": "Gate passed.", "gate_passed": true, "applied_phase_mutations": true, "new_mutation_count": 1}
+{"timestamp": "2026-04-30T15:56:15.425797+00:00", "phase": 4, "action": "end_of_round", "completed_phases": [1, 2, 3, 4]}
+{"timestamp": "2026-05-02T17:05:05.408752+00:00", "phase": 4, "action": "end_of_round", "completed_phases": [1, 2, 3, 4]}

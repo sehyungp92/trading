@@ -1,0 +1,40 @@
+======================================================================
+CRISIS END-OF-ROUND EVALUATION
+======================================================================
+
+Phase Progression Summary:
+  Phase 1: score 0.8410 -> 0.8635 (1 accepted)
+  Phase 2: score 0.8635 -> 0.8746 (2 accepted)
+  Phase 3: score 0.8746 -> 0.8746 (0 accepted)
+  Phase 4: score 0.8746 -> 0.8746 (0 accepted)
+
+Cumulative Mutations Applied:
+  ACCEL_DEESCALATE_NORMAL_DAYS: 3
+  DEESCALATE_CRISIS_DAYS: 1
+  DEESCALATE_WARNING_DAYS: 1
+  DEESCALATE_WATCH_DAYS: 1
+  HYBRID_WARNING_MIN_CRISIS: 1
+  HYBRID_WARNING_MIN_PRIMARY: 2
+  SPY_DD_CRISIS: -0.1
+  SPY_DD_WARNING: -0.0576
+  VIX_CRISIS: 42.0
+  VIX_WARNING: 37.0
+  VIX_WATCH: 29.0
+
+Signal Extraction / Alpha Capture
+No report provided.
+
+Signal Discrimination
+No report provided.
+
+Entry Mechanism
+No report provided.
+
+Trade Management
+No report provided.
+
+Exit Mechanism
+No report provided.
+
+Overall Verdict
+Crisis detection optimized: 7/7 crises detected, 2/2 corrections detected, avg latency 18.1d, WARNING FP 2.98%, CRISIS FP 0.57%, avg recovery 6.4d.

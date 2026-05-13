@@ -1,0 +1,49 @@
+{
+  "base_score": 0.6380876041091461,
+  "final_score": 0.6380876041091461,
+  "final_mutations": {
+    "param_overrides.ADX_UPPER_GATE": 60.5,
+    "flags.disable_class_a": true,
+    "param_overrides.CLASS_B_MOM_LOOKBACK": 5,
+    "param_overrides.TRAIL_STALL_ONSET": 5,
+    "param_overrides.CLASS_B_BAIL_BARS": 9,
+    "param_overrides.ADD_RISK_FRAC": 1.43,
+    "param_overrides.ADD_1H_R": 0.72,
+    "param_overrides.ADD_4H_R": 0.25,
+    "param_overrides.BE_ATR1H_OFFSET": 0.1,
+    "param_overrides.PARTIAL_2P5_FRAC": 0.968,
+    "param_overrides.EXTREME_VOL_PCT": 999.0,
+    "param_overrides.CLASS_B_MIN_ADX": 28.0,
+    "param_overrides.TTL_1H_HOURS": 6,
+    "param_overrides.R_PARTIAL_2P5": 1.8,
+    "param_overrides.ADD_MIN_BARS": 2,
+    "param_overrides.R_BE_1H": 0.945,
+    "param_overrides.EARLY_STALE_BARS": 24,
+    "flags.disable_class_c": true,
+    "param_overrides.TRAIL_STALL_RATE": 0.12,
+    "param_overrides.TRAIL_FADE_PENALTY": 1.0,
+    "param_overrides.TRAIL_TIMEDECAY_ONSET": 25,
+    "param_overrides.STALE_R_THRESH": 0.24,
+    "param_overrides.R_PARTIAL_5": 6.0,
+    "param_overrides.CLASS_B_BAIL_R_THRESH": -0.35,
+    "param_overrides.ADD_MAX_BARS": 22,
+    "flags.disable_circuit_breaker": true,
+    "param_overrides.TRAIL_R_DIV": 7.0
+  },
+  "kept_features": [],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 24,
+      "best_name": "vol_vf_min_030",
+      "best_score": 0.6380876041091461,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 5
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 24,
+  "accepted_count": 0,
+  "elapsed_seconds": 305.20042610168457
+}

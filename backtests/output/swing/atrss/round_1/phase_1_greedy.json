@@ -1,0 +1,87 @@
+{
+  "base_score": 0.6644986248431998,
+  "final_score": 0.7150944648057511,
+  "final_mutations": {
+    "flags.early_stall_exit": false,
+    "param_overrides.be_trigger_r": 0.75,
+    "param_overrides.profit_floor": {
+      "1.0": 0.2,
+      "1.5": 0.5,
+      "2.0": 1.0,
+      "3.0": 1.8,
+      "4.0": 2.8
+    },
+    "flags.stall_exit": true
+  },
+  "kept_features": [
+    "disable_early_stall",
+    "be_trigger_075r",
+    "floor_tight_all",
+    "reenable_full_stall"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 26,
+      "best_name": "disable_early_stall",
+      "best_score": 0.6746041134233449,
+      "best_delta_pct": 1.5207689229649979,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 22,
+      "best_name": "be_trigger_075r",
+      "best_score": 0.6903180612148597,
+      "best_delta_pct": 2.3293584309429765,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 3,
+      "candidates_tested": 20,
+      "best_name": "floor_tight_all",
+      "best_score": 0.7104270701392543,
+      "best_delta_pct": 2.913006345076016,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 4,
+      "candidates_tested": 19,
+      "best_name": "reenable_full_stall",
+      "best_score": 0.7150944648057511,
+      "best_delta_pct": 0.6569843496506846,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 5,
+      "candidates_tested": 15,
+      "best_name": "tp1_frac_025",
+      "best_score": 0.71580551030446,
+      "best_delta_pct": 0.09943378584283656,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {
+    "total_trades": 268,
+    "win_rate": 0.8097014925373134,
+    "profit_factor": 5.749755135279698,
+    "max_dd_pct": 0.030789413965828336,
+    "calmar": 1.5743228374678147,
+    "sharpe": 1.6030094835384643,
+    "net_return_pct": 27.47590000000013,
+    "total_r": 219.16890147041227,
+    "max_dd_r": 3.184579894256629,
+    "calmar_r": 68.82191960882567,
+    "avg_r": 0.8177944084716876,
+    "mfe_capture": 0.6703630762154938,
+    "trades_per_month": 4.6216145784156355
+  },
+  "total_candidates": 26,
+  "accepted_count": 4,
+  "elapsed_seconds": 403.6301054954529
+}

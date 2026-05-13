@@ -88,8 +88,8 @@ overlay_state.json
 # Backtest output (regenerated per run)
 **/backtest/output/
 
-# Output directories (regenerated per run)
-**/output*/
+# Backtest output archives
+backtests/output/**/archive/
 
 # Local references & scratch
 _references/

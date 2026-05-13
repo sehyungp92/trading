@@ -1,0 +1,473 @@
+[
+  {
+    "fold": 1,
+    "train": "2003-01-01-2007-12-31",
+    "test": "2008-01-01-2010-12-31",
+    "is_score": 0.5851243851618756,
+    "is_sharpe": 1.2096269321457405,
+    "is_cagr": 0.08463136367477397,
+    "is_max_dd": 0.08234503092066983,
+    "oos_score": 0.6620559427434735,
+    "oos_sharpe": 1.2911790250813637,
+    "oos_cagr": 0.08443140197052945,
+    "oos_max_dd": 0.05294517694467429,
+    "oos_sortino": 2.0414569369434195,
+    "oos_calmar": 1.5946948682173088,
+    "oos_is_sharpe_ratio": 1.0674192106412175,
+    "n_mutations": 19,
+    "mutations": [
+      "sticky_diag",
+      "use_warm_start",
+      "use_expanding_window",
+      "rolling_window_years",
+      "refit_ll_tolerance",
+      "refit_freq",
+      "z_minp",
+      "posterior_ema_alpha",
+      "per_strat_max",
+      "base_target_vol_annual",
+      "kappa_totalvol_cap",
+      "crisis_logit_a",
+      "stability_weight",
+      "weight_smoothing_alpha",
+      "L_max",
+      "delta_rho_exempt",
+      "sigma_floor_annual",
+      "delta_rho_threshold",
+      "crisis_weights"
+    ],
+    "oos_regime_dist": {
+      "G": 0.4228187919463087,
+      "D": 0.2483221476510067,
+      "R": 0.16778523489932887,
+      "S": 0.1610738255033557
+    },
+    "oos_yearly": [
+      {
+        "year": 2008,
+        "return": 0.10622668674725211,
+        "max_dd": 0.05294517694467429,
+        "sharpe": 1.2425976279162356
+      },
+      {
+        "year": 2009,
+        "return": 0.07934981791925777,
+        "max_dd": 0.029037042282095492,
+        "sharpe": 1.616287005409027
+      },
+      {
+        "year": 2010,
+        "return": 0.06690800043603606,
+        "max_dd": 0.032178456547735074,
+        "sharpe": 1.3316522052584958
+      }
+    ],
+    "crisis_analysis": [
+      {
+        "name": "GFC",
+        "period": "2008-09-01 to 2009-03-01",
+        "expected_regime": "D",
+        "dominant_regime": "D",
+        "correct_regime": true,
+        "avg_posteriors": {
+          "G": 0.33653846646153845,
+          "R": 1.2871241697521966e-165,
+          "S": 0.0,
+          "D": 0.6634615335384615
+        },
+        "p_defensive": 0.6634615335384615,
+        "max_dd": 0.03438136021829515,
+        "return": 0.08207183161126275
+      }
+    ]
+  },
+  {
+    "fold": 2,
+    "train": "2003-01-01-2010-12-31",
+    "test": "2011-01-01-2013-12-31",
+    "is_score": 0.5973640770350928,
+    "is_sharpe": 1.2415006206887742,
+    "is_cagr": 0.08626615188225495,
+    "is_max_dd": 0.08234503092066983,
+    "oos_score": 0.5008651417688056,
+    "oos_sharpe": 0.8516280098685357,
+    "oos_cagr": 0.06360647951721976,
+    "oos_max_dd": 0.05108048280409278,
+    "oos_sortino": 1.1891299944586935,
+    "oos_calmar": 1.245220797171544,
+    "oos_is_sharpe_ratio": 0.6859666404323339,
+    "n_mutations": 19,
+    "mutations": [
+      "sticky_diag",
+      "use_warm_start",
+      "use_expanding_window",
+      "rolling_window_years",
+      "refit_ll_tolerance",
+      "refit_freq",
+      "z_minp",
+      "posterior_ema_alpha",
+      "per_strat_max",
+      "base_target_vol_annual",
+      "kappa_totalvol_cap",
+      "crisis_logit_a",
+      "stability_weight",
+      "weight_smoothing_alpha",
+      "L_max",
+      "delta_rho_exempt",
+      "sigma_floor_annual",
+      "delta_rho_threshold",
+      "crisis_weights"
+    ],
+    "oos_regime_dist": {
+      "G": 0.49019607843137253,
+      "S": 0.33986928104575165,
+      "R": 0.16993464052287582
+    },
+    "oos_yearly": [
+      {
+        "year": 2011,
+        "return": 0.07574374302296216,
+        "max_dd": 0.05108048280409278,
+        "sharpe": 0.9709978938662096
+      },
+      {
+        "year": 2012,
+        "return": -0.00510131302395489,
+        "max_dd": 0.0504674835086206,
+        "sharpe": 0.01070210538251152
+      },
+      {
+        "year": 2013,
+        "return": 0.10003404462625243,
+        "max_dd": 0.038907101455518595,
+        "sharpe": 1.3083290252165585
+      }
+    ],
+    "crisis_analysis": [
+      {
+        "name": "Euro Crisis",
+        "period": "2011-07-01 to 2011-12-31",
+        "expected_regime": "D",
+        "dominant_regime": "S",
+        "correct_regime": false,
+        "avg_posteriors": {
+          "G": 0.4722222222298074,
+          "R": 2.572938376243273e-66,
+          "S": 0.5277777777701926,
+          "D": 3.1107952101362063e-25
+        },
+        "p_defensive": 0.5277777777701926,
+        "max_dd": 0.037037989746895955,
+        "return": 0.03651708715825719
+      }
+    ]
+  },
+  {
+    "fold": 3,
+    "train": "2003-01-01-2013-12-31",
+    "test": "2014-01-01-2016-12-31",
+    "is_score": 0.5541570931081704,
+    "is_sharpe": 1.125130600735269,
+    "is_cagr": 0.08036854331731735,
+    "is_max_dd": 0.08234503092066983,
+    "oos_score": 0.48877598536632094,
+    "oos_sharpe": 0.8781400616377997,
+    "oos_cagr": 0.07853134101957449,
+    "oos_max_dd": 0.07955041021927609,
+    "oos_sortino": 1.2593653708560288,
+    "oos_calmar": 0.9871896424305973,
+    "oos_is_sharpe_ratio": 0.7804783383048494,
+    "n_mutations": 19,
+    "mutations": [
+      "sticky_diag",
+      "use_warm_start",
+      "use_expanding_window",
+      "rolling_window_years",
+      "refit_ll_tolerance",
+      "refit_freq",
+      "z_minp",
+      "posterior_ema_alpha",
+      "per_strat_max",
+      "base_target_vol_annual",
+      "kappa_totalvol_cap",
+      "crisis_logit_a",
+      "stability_weight",
+      "weight_smoothing_alpha",
+      "L_max",
+      "delta_rho_exempt",
+      "sigma_floor_annual",
+      "delta_rho_threshold",
+      "crisis_weights"
+    ],
+    "oos_regime_dist": {
+      "D": 0.48,
+      "S": 0.18,
+      "G": 0.17333333333333334,
+      "R": 0.16666666666666666
+    },
+    "oos_yearly": [
+      {
+        "year": 2014,
+        "return": 0.12571182821963256,
+        "max_dd": 0.04424981145195115,
+        "sharpe": 1.254739690560235
+      },
+      {
+        "year": 2015,
+        "return": -0.02162888509904426,
+        "max_dd": 0.07955041021927563,
+        "sharpe": -0.12717741589603362
+      },
+      {
+        "year": 2016,
+        "return": 0.12244758235410291,
+        "max_dd": 0.06700787887500449,
+        "sharpe": 1.4423588093470385
+      }
+    ],
+    "crisis_analysis": []
+  },
+  {
+    "fold": 4,
+    "train": "2003-01-01-2016-12-31",
+    "test": "2017-01-01-2019-12-31",
+    "is_score": 0.5346793681171378,
+    "is_sharpe": 1.0592833680688216,
+    "is_cagr": 0.07945930701830828,
+    "is_max_dd": 0.08234503092066983,
+    "oos_score": 0.7921130453003977,
+    "oos_sharpe": 2.4537797567630526,
+    "oos_cagr": 0.20471825968520974,
+    "oos_max_dd": 0.08981576656118898,
+    "oos_sortino": 4.009581738089748,
+    "oos_calmar": 2.279313170986977,
+    "oos_is_sharpe_ratio": 2.3164526421636693,
+    "n_mutations": 19,
+    "mutations": [
+      "sticky_diag",
+      "use_warm_start",
+      "use_expanding_window",
+      "rolling_window_years",
+      "refit_ll_tolerance",
+      "refit_freq",
+      "z_minp",
+      "posterior_ema_alpha",
+      "per_strat_max",
+      "base_target_vol_annual",
+      "kappa_totalvol_cap",
+      "crisis_logit_a",
+      "stability_weight",
+      "weight_smoothing_alpha",
+      "L_max",
+      "delta_rho_exempt",
+      "sigma_floor_annual",
+      "delta_rho_threshold",
+      "crisis_weights"
+    ],
+    "oos_regime_dist": {
+      "S": 0.5751633986928104,
+      "R": 0.24836601307189543,
+      "D": 0.17647058823529413
+    },
+    "oos_yearly": [
+      {
+        "year": 2017,
+        "return": 0.2422553025198113,
+        "max_dd": 0.051148248410058245,
+        "sharpe": 2.943162997669879
+      },
+      {
+        "year": 2018,
+        "return": 0.008874788112970933,
+        "max_dd": 0.08981576656118966,
+        "sharpe": 0.3391034281843523
+      },
+      {
+        "year": 2019,
+        "return": 0.3674607758412096,
+        "max_dd": 0.02815794440844149,
+        "sharpe": 3.8816191270900573
+      }
+    ],
+    "crisis_analysis": []
+  },
+  {
+    "fold": 5,
+    "train": "2003-01-01-2019-12-31",
+    "test": "2020-01-01-2022-12-31",
+    "is_score": 0.6255702369078955,
+    "is_sharpe": 1.3144983342860739,
+    "is_cagr": 0.10125061544515335,
+    "is_max_dd": 0.0898157665611895,
+    "oos_score": 0.4199605231076914,
+    "oos_sharpe": 0.8302653728510155,
+    "oos_cagr": 0.053625364755748306,
+    "oos_max_dd": 0.09184907812036382,
+    "oos_sortino": 1.163443803576848,
+    "oos_calmar": 0.5838421664447718,
+    "oos_is_sharpe_ratio": 0.6316214720058558,
+    "n_mutations": 19,
+    "mutations": [
+      "sticky_diag",
+      "use_warm_start",
+      "use_expanding_window",
+      "rolling_window_years",
+      "refit_ll_tolerance",
+      "refit_freq",
+      "z_minp",
+      "posterior_ema_alpha",
+      "per_strat_max",
+      "base_target_vol_annual",
+      "kappa_totalvol_cap",
+      "crisis_logit_a",
+      "stability_weight",
+      "weight_smoothing_alpha",
+      "L_max",
+      "delta_rho_exempt",
+      "sigma_floor_annual",
+      "delta_rho_threshold",
+      "crisis_weights"
+    ],
+    "oos_regime_dist": {
+      "R": 0.3333333333333333,
+      "G": 0.2733333333333333,
+      "D": 0.25333333333333335,
+      "S": 0.14
+    },
+    "oos_yearly": [
+      {
+        "year": 2020,
+        "return": 0.1264214622976476,
+        "max_dd": 0.047262744139315555,
+        "sharpe": 2.049423687864684
+      },
+      {
+        "year": 2021,
+        "return": 0.09901815912142098,
+        "max_dd": 0.044055405685852346,
+        "sharpe": 1.1346590377552128
+      },
+      {
+        "year": 2022,
+        "return": -0.05184375874374436,
+        "max_dd": 0.07758770274781439,
+        "sharpe": -0.8346481862739701
+      }
+    ],
+    "crisis_analysis": [
+      {
+        "name": "COVID",
+        "period": "2020-02-15 to 2020-04-15",
+        "expected_regime": "D",
+        "dominant_regime": "G",
+        "correct_regime": false,
+        "avg_posteriors": {
+          "G": 0.5642929333982047,
+          "R": 0.1142857142857143,
+          "S": 0.32142135231608104,
+          "D": 9.031444365326974e-25
+        },
+        "p_defensive": 0.32142135231608104,
+        "max_dd": 0.047262744139315326,
+        "return": -0.0026205251524550333
+      },
+      {
+        "name": "2022 Inflation",
+        "period": "2022-01-01 to 2022-10-01",
+        "expected_regime": "S",
+        "dominant_regime": "D",
+        "correct_regime": false,
+        "avg_posteriors": {
+          "G": 0.31578947367882104,
+          "R": 5.38947365772017e-12,
+          "S": 7.407236198887665e-38,
+          "D": 0.6842105263157895
+        },
+        "p_defensive": 0.6842105263157895,
+        "max_dd": 0.06918335342031912,
+        "return": -0.06342754179118648
+      }
+    ]
+  },
+  {
+    "fold": 6,
+    "train": "2003-01-01-2022-12-31",
+    "test": "2023-01-01-2025-12-31",
+    "is_score": 0.5938352940633833,
+    "is_sharpe": 1.2462351272467187,
+    "is_cagr": 0.09451527736738541,
+    "is_max_dd": 0.09184907812036226,
+    "oos_score": 0.8257245611775629,
+    "oos_sharpe": 2.1252067281547737,
+    "oos_cagr": 0.1713388201702044,
+    "oos_max_dd": 0.06646407215806995,
+    "oos_sortino": 3.259627402923733,
+    "oos_calmar": 2.5779163780803755,
+    "oos_is_sharpe_ratio": 1.7053015772793603,
+    "n_mutations": 19,
+    "mutations": [
+      "sticky_diag",
+      "use_warm_start",
+      "use_expanding_window",
+      "rolling_window_years",
+      "refit_ll_tolerance",
+      "refit_freq",
+      "z_minp",
+      "posterior_ema_alpha",
+      "per_strat_max",
+      "base_target_vol_annual",
+      "kappa_totalvol_cap",
+      "crisis_logit_a",
+      "stability_weight",
+      "weight_smoothing_alpha",
+      "L_max",
+      "delta_rho_exempt",
+      "sigma_floor_annual",
+      "delta_rho_threshold",
+      "crisis_weights"
+    ],
+    "oos_regime_dist": {
+      "S": 0.34210526315789475,
+      "G": 0.3355263157894737,
+      "R": 0.3223684210526316
+    },
+    "oos_yearly": [
+      {
+        "year": 2023,
+        "return": 0.17231456265141687,
+        "max_dd": 0.06646407215806995,
+        "sharpe": 2.278810167597818
+      },
+      {
+        "year": 2024,
+        "return": 0.2735170324351732,
+        "max_dd": 0.04225158735095482,
+        "sharpe": 2.8003584503038788
+      },
+      {
+        "year": 2025,
+        "return": 0.07542998706153314,
+        "max_dd": 0.05567602872248676,
+        "sharpe": 1.124542125323161
+      }
+    ],
+    "crisis_analysis": [
+      {
+        "name": "2025 Tariff",
+        "period": "2025-03-01 to 2025-05-31",
+        "expected_regime": "D",
+        "dominant_regime": "R",
+        "correct_regime": false,
+        "avg_posteriors": {
+          "G": 0.35416661333333344,
+          "R": 0.6458333866666667,
+          "S": 8.738133297541894e-18,
+          "D": 6.589405489071973e-61
+        },
+        "p_defensive": 8.738133297541894e-18,
+        "max_dd": 0.033858481629452805,
+        "return": -0.010728378652032466
+      }
+    ]
+  }
+]

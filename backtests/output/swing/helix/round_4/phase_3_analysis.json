@@ -1,0 +1,78 @@
+{
+  "phase": 3,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 250.0,
+      "actual": 109.47973600000238,
+      "pct_of_target": 43.791894400000956
+    },
+    "win_rate": {
+      "target": 55.0,
+      "actual": 50.18315018315018,
+      "pct_of_target": 91.24209124209123
+    },
+    "profit_factor": {
+      "target": 3.5,
+      "actual": 2.313657540508459,
+      "pct_of_target": 66.10450115738455
+    },
+    "max_r_dd": {
+      "target": 8.0,
+      "actual": 6.598457994727667,
+      "pct_of_target": 121.24044748624907
+    },
+    "exit_efficiency": {
+      "target": 0.65,
+      "actual": 0.4453063191608911,
+      "pct_of_target": 68.50866448629094
+    },
+    "waste_ratio": {
+      "target": 0.85,
+      "actual": 0.7181330116690934,
+      "pct_of_target": 84.48623666695217
+    },
+    "tail_pct": {
+      "target": 0.85,
+      "actual": 0.8186715948229077,
+      "pct_of_target": 96.31430527328327
+    },
+    "min_side_pf": {
+      "target": 3.5,
+      "actual": 2.1972436069534287,
+      "pct_of_target": 62.77838877009796
+    },
+    "total_trades": {
+      "target": 420.0,
+      "actual": 273.0,
+      "pct_of_target": 65.0
+    },
+    "winning_trades": {
+      "target": 230.0,
+      "actual": 137.0,
+      "pct_of_target": 59.56521739130435
+    }
+  },
+  "strengths": [
+    "win_rate: 50.1832 (91% of 55.0000)",
+    "max_r_dd: 6.5985 (121% of 8.0000)",
+    "waste_ratio: 0.7181 (84% of 0.8500)",
+    "tail_pct: 0.8187 (96% of 0.8500)"
+  ],
+  "weaknesses": [
+    "net_return_pct: 109.4797 (44% of 250.0000)",
+    "winning_trades: 137.0000 (60% of 230.0000)"
+  ],
+  "scoring_assessment": "MISALIGNED",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Retry budget exhausted; advance with current best mutations.",
+  "report": "======================================================================\nPHASE 3 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Retry budget exhausted; advance with current best mutations.\nScoring assessment: MISALIGNED\n\nStrengths:\n  + win_rate: 50.1832 (91% of 55.0000)\n  + max_r_dd: 6.5985 (121% of 8.0000)\n  + waste_ratio: 0.7181 (84% of 0.8500)\n  + tail_pct: 0.8187 (96% of 0.8500)\n\nWeaknesses:\n  - net_return_pct: 109.4797 (44% of 250.0000)\n  - winning_trades: 137.0000 (60% of 230.0000)\n\nExtra Analysis:\n  Class R attribution: B=+49.1R, D=+110.7R\n\nGoal Progress:\n  net_return_pct: 109.4797 / 250.0000 (44%)\n  win_rate: 50.1832 / 55.0000 (91%)\n  profit_factor: 2.3137 / 3.5000 (66%)\n  max_r_dd: 6.5985 / 8.0000 (121%)\n  exit_efficiency: 0.4453 / 0.6500 (69%)\n  waste_ratio: 0.7181 / 0.8500 (84%)\n  tail_pct: 0.8187 / 0.8500 (96%)\n  min_side_pf: 2.1972 / 3.5000 (63%)\n  total_trades: 273.0000 / 420.0000 (65%)\n  winning_trades: 137.0000 / 230.0000 (60%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "class_attribution": {
+      "D": 110.65909403707387,
+      "B": 49.12171857883736
+    }
+  }
+}

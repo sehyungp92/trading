@@ -1,0 +1,347 @@
+======================================================================
+  REGIME PORTFOLIO DIAGNOSTICS
+======================================================================
+
+
+  1. PORTFOLIO OVERVIEW
+  ----------------------------------------
+    Initial equity:    $     100,000
+    Final equity:      $   1,896,920
+    Total return:           1796.9%
+    CAGR:                    13.53%
+    Sharpe:                   1.912
+    Sortino:                  3.098
+    Calmar:                   1.830
+    Max drawdown:              7.4%
+    Max DD duration:            348 days
+    Avg annual TO:            22.62
+    Rebalances:                5723
+
+    Composite Score Breakdown:
+      Sharpe  (w=0.25):  1.0000
+      Calmar  (w=0.25):  0.3661
+      Inv DD  (w=0.20):  0.7044
+      CAGR    (w=0.15):  0.9076
+      Sortino (w=0.15):  1.0000
+      TOTAL:             0.7685
+
+  2. REGIME DISTRIBUTION
+  ----------------------------------------
+    Regime          Weeks       %  AvgP(dom)  AvgP(all)
+    ───────────────────────────────────────────────
+    Recovery (G)     1272   22.2%      0.998      0.222
+    Reflation (R)    1069   18.7%      0.997      0.186
+    Infl Hedge (S)   1432   25.0%      1.000      0.251
+    Defensive (D)    1950   34.1%      0.999      0.341
+
+    Total weeks:       5723
+    Transitions:       46
+    Transition rate:   0.008 /week
+    Avg spell length:  121.8 weeks
+
+  3. PER-REGIME PERFORMANCE
+  ----------------------------------------
+    Regime           AnnRet   AnnVol   Sharpe    MaxDD  Contrib
+    ──────────────────────────────────────────────────────
+    Recovery (G)     +9.5%    5.7%    +1.68    4.1%    +3.2%
+    Reflation (R)   +17.0%    6.1%    +2.81    3.2%    +5.3%
+    Infl Hedge (S)  +21.5%    7.1%    +3.03    5.1%   +11.3%
+    Defensive (D)    +9.6%    7.6%    +1.26    7.4%    +5.7%
+
+  4. PER-REGIME ALLOCATIONS
+  ----------------------------------------
+    Regime            CASH     EFA     GLD    IBIT     SPY     TLT
+    ──────────────────────────────────────────────────────────────
+    Recovery (G)     0.126   0.109   0.027   0.042   0.270   0.024
+    Reflation (R)    0.130   0.135   0.149   0.029   0.290   0.004
+    Infl Hedge (S)   0.323   0.078   0.364   0.000   0.141   0.089
+    Defensive (D)    0.533   0.023   0.103   0.000   0.042   0.632
+    ──────────────────────────────────────────────────────────────
+    Overall          0.315   0.077   0.160   0.015   0.164   0.244
+
+  5. REGIME PROBABILITY HEATMAP (yearly avg)
+  ----------------------------------------
+    Year         G       R       S       D  Dominant
+    ────────────────────────────────────────────────
+    2003    0.000   0.000   0.994*  0.006   S
+    2004    0.000   0.000   0.000   1.000*  D
+    2005    0.000   0.000   0.000   1.000*  D
+    2006    0.000   0.000   0.000   1.000*  D
+    2007    0.000   0.000   0.000   1.000*  D
+    2008    0.255   0.000   0.000   0.745*  D
+    2009    0.488   0.003   0.509*  0.000   S
+    2010    0.503*  0.497   0.000   0.000   G
+    2011    0.249   0.242   0.509*  0.000   S
+    2012    0.506*  0.000   0.494   0.000   G
+    2013    0.746*  0.254   0.000   0.000   G
+    2014    0.239   0.249   0.003   0.509*  D
+    2015    0.000   0.000   0.239   0.761*  D
+    2016    0.253   0.249   0.259*  0.239   S
+    2017    0.000   0.250   0.499*  0.251   S
+    2018    0.000   0.003   0.746*  0.251   S
+    2019    0.000   0.491   0.509*  0.000   S
+    2020    0.067   0.504*  0.429   0.000   R
+    2021    0.507*  0.493   0.000   0.000   G
+    2022    0.243   0.003   0.000   0.754*  D
+    2023    0.499*  0.245   0.256   0.000   G
+    2024    0.257   0.000   0.743*  0.000   S
+    2025    0.237   0.759*  0.000   0.004   R
+    2026    0.000   0.000   0.000   1.000*  D
+
+  6. CRISIS OVERLAY
+  ----------------------------------------
+    Mean p_crisis:     0.4404
+    Median:            0.3272
+    Std:               0.3656
+    Max:               0.9999
+
+    Severity distribution:
+      none      2939 weeks (51.4%)
+      elevated   800 weeks (14.0%)
+      acute     1984 weeks (34.7%)
+
+    Activation frequency:
+      p_crisis > 0.3:  2957 weeks (51.7%)
+      p_crisis > 0.5:  2397 weeks (41.9%)
+      p_crisis > 0.7:  1855 weeks (32.4%)
+      p_crisis > 0.9:  1161 weeks (20.3%)
+
+    Avg leverage (crisis p>0.5):  0.995
+    Avg leverage (normal):        0.959
+    Leverage reduction:           -3.7%
+
+    Top 5 crisis spikes:
+      2025-10-10:  0.9999
+      2019-08-05:  0.9999
+      2020-01-27:  0.9999
+      2025-04-04:  0.9998
+      2018-10-10:  0.9998
+
+  6b. CRISIS CHANNEL DECOMPOSITION
+  ----------------------------------------
+    vix            mean=-0.0105  max= 0.8646
+    spread         mean=-0.0712  max= 1.5268
+    realized_vol   mean=-0.0375  max= 0.8797
+    spy_tlt_corr   mean= 0.0415  max= 0.5245
+    legacy_pairwise mean= 0.0000  max= 0.0000
+
+    Positive SPY/TLT corr weeks: 1527 (26.7%)
+
+    Top 5 composite readings:
+      2025-10-10:  3.1169
+      2019-08-05:  3.1103
+      2020-01-27:  2.9509
+      2025-04-04:  2.8784
+      2018-10-10:  2.8720
+
+  6c. ENSEMBLE DISAGREEMENT
+  ----------------------------------------
+    Mean consensus:    1.0000
+    Min consensus:     1.0000
+    Mean trend (4w):   +0.0000
+    Mean disagreement: 0.0000
+
+    Uncertainty distribution:
+      low       5723 weeks (100.0%)
+      moderate     0 weeks (0.0%)
+      high         0 weeks (0.0%)
+
+    Minority regime frequency:
+      D         1950
+      S         1432
+      G         1272
+      R         1069
+
+    Per-regime posterior std:
+      G: 0.0000
+      R: 0.0000
+      S: 0.0000
+      D: 0.0000
+
+    Mean disagreement adj: 1.0000
+    Warning weeks:            0 (0.0%)
+
+  7. LEVERAGE ANALYSIS
+  ----------------------------------------
+    Mean:       0.9745
+    Median:     1.0032
+    Std:        0.5298
+    Min:        0.0337
+    Max:        1.6000
+
+    Percentile distribution:
+      P10   0.2148
+      P25   0.4798
+      P50   1.0032
+      P75   1.5200
+      P90   1.5993
+
+    Mean leverage components:
+      HMM base    0.9977
+      Crisis adj  0.8355
+      Scanner adj 1.0000
+      Disagree adj 1.0000
+
+    DD ladder band counts (trading days):
+      0% to -8%          5846 days (100.0%)
+      -8% to -12%           0 days (  0.0%)
+      -12% to -16%          0 days (  0.0%)
+      -16% to -20%          0 days (  0.0%)
+      Below -20%            0 days (  0.0%)
+
+    Per-regime average leverage:
+      Recovery (G):  0.5981
+      Reflation (R):  0.7385
+      Infl Hedge (S):  0.9961
+      Defensive (D):  1.3334
+
+    Leverage vs weekly return corr: +0.122
+
+  8. CONFIDENCE CALIBRATION
+  ----------------------------------------
+    Mean:       0.9945
+    Median:     1.0000
+    Std:        0.0502
+    Min:        0.4400
+    Max:        1.0000
+    Posterior-only mean:  0.9945
+
+    Distribution:
+      [0.0, 0.3)       0 weeks (  0.0%)
+      [0.3, 0.5)      46 weeks (  0.8%)
+      [0.5, 0.7)       0 weeks (  0.0%)
+      [0.7, 0.9)      28 weeks (  0.5%)
+      [0.9, 1.0]    5649 weeks ( 98.7%)
+
+  9. DRAWDOWN EPISODES (Top 5)
+  ----------------------------------------
+    #           Peak       Trough    Depth   Days  Recov Regime
+    ─────────────────────────────────────────────────────
+    1     2005-09-21   2006-06-28    -7.4%    276     84 D    
+    2     2004-03-09   2004-05-13    -6.9%    131     86 D    
+    3     2021-11-08   2022-10-24    -6.3%    348    108 D    
+    4     2015-01-30   2015-06-09    -5.6%    138     50 D    
+    5     2007-03-07   2007-06-12    -5.3%    119     53 D    
+
+  10. YEARLY RETURNS
+  ----------------------------------------
+    Year     Return    MaxDD    EndEquity  Regime Mix
+    ────────────────────────────────────────────────────────────
+    2003     +9.2%    1.6% $    109,212  S:128 D:1
+    2004     +7.4%    6.9% $    117,283  D:252
+    2005     +7.7%    5.7% $    126,268  D:252
+    2006     +2.9%    6.4% $    129,903  D:251
+    2007    +10.9%    5.3% $    144,092  D:251
+    2008    +18.5%    3.1% $    170,762  G:65 D:188
+    2009     +9.8%    2.0% $    187,559  G:123 R:1 S:128
+    2010    +11.8%    1.6% $    209,777  G:127 R:125
+    2011    +22.2%    2.7% $    256,416  G:63 R:61 S:128
+    2012     +1.5%    4.7% $    260,370  G:127 S:123
+    2013    +19.3%    3.6% $    310,654  G:188 R:64
+    2014    +18.2%    3.8% $    367,302  G:60 R:63 S:1 D:128
+    2015     +4.6%    5.6% $    384,115  S:60 D:192
+    2016    +16.0%    4.6% $    445,693  G:64 R:63 S:65 D:60
+    2017    +18.5%    3.7% $    528,129  R:63 S:125 D:63
+    2018     +8.3%    4.9% $    572,037  R:1 S:187 D:63
+    2019    +30.5%    2.7% $    746,354  R:124 S:128
+    2020    +22.0%    1.8% $    910,420  G:17 R:128 S:108
+    2021    +12.9%    3.0% $  1,027,782  G:128 R:124
+    2022     -2.6%    6.2% $  1,001,228  G:61 R:1 D:189
+    2023    +21.2%    4.1% $  1,213,007  G:125 R:61 S:64
+    2024    +31.6%    3.1% $  1,596,480  G:65 S:187
+    2025    +16.2%    2.7% $  1,855,899  G:59 R:190 D:1
+    2026     +2.2%    2.2% $  1,896,920  D:59
+
+  11. BENCHMARK COMPARISON (60/40 SPY/TLT)
+  ----------------------------------------
+    Metric                   Regime      60/40      Delta
+    ──────────────────────────────────────────────────
+    Total Return            1796.9%     588.4%   +1208.5%
+    CAGR                     13.53%      8.67%     +4.85%
+    Sharpe                    1.912      0.819     +1.092
+    Sortino                   3.098      1.177     +1.922
+    Calmar                    1.830      0.290     +1.540
+    Max DD                     7.4%      29.9%     -22.5%
+    Max DD Duration            348d       692d      -344d
+    Avg Annual TO             22.62       0.00     +22.62
+
+    Daily return correlation:  +0.361
+    Tracking error (ann):      0.106
+    Information ratio:         +0.375
+
+    Year     Regime    60/40   Excess
+    ──────────────────────────────
+    2003     +9.2%  +17.6%   -8.4%
+    2004     +7.4%  +10.2%   -2.8%
+    2005     +7.7%   +6.6%   +1.1%
+    2006     +2.9%   +9.7%   -6.8%
+    2007    +10.9%   +7.8%   +3.1%
+    2008    +18.5%  -11.8%  +30.4%
+    2009     +9.8%   +6.0%   +3.8%
+    2010    +11.8%  +13.8%   -2.0%
+    2011    +22.2%  +15.9%   +6.3%
+    2012     +1.5%  +11.1%   -9.6%
+    2013    +19.3%  +12.2%   +7.1%
+    2014    +18.2%  +19.3%   -1.1%
+    2015     +4.6%   +0.8%   +3.8%
+    2016    +16.0%   +8.1%   +7.9%
+    2017    +18.5%  +16.8%   +1.7%
+    2018     +8.3%   -2.9%  +11.2%
+    2019    +30.5%  +24.7%   +5.7%
+    2020    +22.0%  +21.5%   +0.4%
+    2021    +12.9%  +14.8%   -1.9%
+    2022     -2.6%  -22.8%  +20.2%
+    2023    +21.2%  +16.9%   +4.3%
+    2024    +31.6%  +10.9%  +20.7%
+    2025    +16.2%  +12.8%   +3.5%
+    2026     +2.2%   -4.5%   +6.7%
+
+
+======================================================================
+ PHASE 3 DIAGNOSTICS
+======================================================================
+
+--- 1. Phase Delta ---
+  Current phase 3 results:
+    Sharpe:           1.9116
+    CAGR:             13.53%
+    Max DD:           7.39%
+    Calmar:           1.8303
+    Active regimes:   4
+    Regime entropy:   0.9819
+    Transition rate:  0.0080
+    Crisis response:  0.2265
+
+  Previous phase 2 score: 0.6711122636617424
+
+  Regime distribution:
+    G:  22.2%  ###########
+    R:  18.7%  #########
+    S:  25.0%  ############
+    D:  34.1%  #################
+
+--- 2. Mutation Analysis ---
+  Accepted 1 mutations:
+    Round 1: crisis_w_vol_focus  delta=+0.0050  (0.6035 -> 0.6085)
+
+  By category:
+    Crisis overlay: crisis_w_vol_focus
+
+--- 3. Gate Assessment ---
+  Overall: PASSED
+    [PASS] sharpe: 1.9116 (target: 0.8000)
+    [PASS] calmar: 1.8303 (target: 0.5000)
+    [PASS] max_dd: 0.0739 (target: 0.2000)
+    [PASS] alloc_differentiation: 0.2947 (target: 0.0150)
+    [PASS] crisis_accuracy: 0.5594 (target: 0.3000)
+
+--- 4. Crisis Audit ---
+  Overall crisis response: 0.2265
+
+  Expected crisis assignments:
+    GFC (2008-09-01 to 2009-03-01): expected D
+    COVID (2020-02-15 to 2020-04-15): expected D
+    Inflation (2022-01-01 to 2022-10-01): expected S
+
+--- 5. Recommendations ---
+  - Only 1 mutation accepted — candidates may be too narrow; consider wider ranges

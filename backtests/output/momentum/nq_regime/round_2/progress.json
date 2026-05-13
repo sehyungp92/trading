@@ -1,0 +1,141 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-04-30T23:31:54.421055+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 32,
+      "base_score": 0.407170481366095,
+      "final_score": 0.5098782910452745,
+      "kept_features": [
+        "reactivate_structural_a_breakout",
+        "ttl_retest_90",
+        "target_room_1p00"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Engine Concert Activation",
+      "candidate_count": 9
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-01T00:45:01.815418+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 35,
+      "base_score": 0.5098782910452745,
+      "final_score": 0.6611940328603967,
+      "kept_features": [
+        "reversion_penetration_2_to_12",
+        "mfe_ratchet_1r_65pct",
+        "reversion_vwap_reaction_exit"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Reversion Quality And Capture",
+      "candidate_count": 9
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-01T01:15:18.741411+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 36,
+      "base_score": 0.6611940328603967,
+      "final_score": 0.6693450770406743,
+      "kept_features": [
+        "structural_reenable_retest_only_strict"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Structural Reactivation",
+      "candidate_count": 6
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-01T01:50:11.203984+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 38,
+      "base_score": 0.6693450770406743,
+      "final_score": 0.6956700588468016,
+      "kept_features": [
+        "second_wind_frequency_score7"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Second-Wind Activation",
+      "candidate_count": 6
+    },
+    "5": {
+      "status": "completed",
+      "updated_at": "2026-05-01T02:10:42.134535+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "current_phase": 5,
+      "total_mutations": 38,
+      "base_score": 0.6956700588468016,
+      "final_score": 0.6956700588468016,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Unified Routing Concert",
+      "candidate_count": 8
+    },
+    "6": {
+      "status": "completed",
+      "updated_at": "2026-05-01T02:43:50.383256+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "current_phase": 6,
+      "total_mutations": 38,
+      "base_score": 0.6956700588468016,
+      "final_score": 0.6956700588468016,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Final Risk And Frequency",
+      "candidate_count": 6
+    }
+  },
+  "last_updated": "2026-05-01T02:43:50.394798+00:00",
+  "current_phase": 6
+}

@@ -1,0 +1,11 @@
+==============================================================================
+PHASE 4 MOMENTUM PORTFOLIO DIAGNOSTICS
+==============================================================================
+Accepted candidate: dynamic_frequency_frontier
+Current score: 0.9956
+Net profit: $196,777.61
+Trades/month: 38.53
+Win rate: 66.67%
+Profit factor: 3.58
+MTM max DD: 7.07%
+Block rate: 11.12%

@@ -1,0 +1,72 @@
+{
+  "base_score": 0.6771353169338056,
+  "final_score": 0.7183788393467887,
+  "final_mutations": {
+    "flags.plus_1r_partial": false,
+    "param_overrides.CHOP_THRESHOLD": 32.0,
+    "flags.early_kill": false,
+    "param_overrides.MAX_POSITION_BARS_15M": 51.2,
+    "flags.vwap_fail_evening": true,
+    "flags.evening_vwap_cap": true,
+    "param_overrides.VWAP_CAP_EVENING": 0.05,
+    "flags.dow_sizing": true,
+    "param_overrides.DOW_SIZE_MULT": {
+      "0": 0.6,
+      "3": 0.75
+    },
+    "flags.hourly_bypass_quality": true,
+    "param_overrides.HOURLY_BYPASS_ALLOWED_WINDOWS": [
+      "OPEN",
+      "CLOSE"
+    ],
+    "param_overrides.HOURLY_BYPASS_EQS_MIN": 2,
+    "param_overrides.HOURLY_BYPASS_MAX_CHOP": 32.0,
+    "param_overrides.HOURLY_BYPASS_SIZE_MULT": 0.5,
+    "flags.slope_bypass_quality": true,
+    "param_overrides.SLOPE_BYPASS_ALLOWED_WINDOWS": [
+      "OPEN",
+      "CORE",
+      "CLOSE"
+    ],
+    "param_overrides.SLOPE_BYPASS_EQS_MIN": 4,
+    "param_overrides.SLOPE_BYPASS_MAX_CHOP": 36.0,
+    "param_overrides.SLOPE_BYPASS_SIZE_MULT": 1.0
+  },
+  "kept_features": [
+    "hourly_bypass_oc_eqs2_tiny",
+    "slope_bypass_eqs4_fullsize"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 12,
+      "best_name": "hourly_bypass_oc_eqs2_tiny",
+      "best_score": 0.7014047653955057,
+      "best_delta_pct": 3.5841356749189606,
+      "kept": true,
+      "rejected_count": 2
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 7,
+      "best_name": "slope_bypass_eqs4_fullsize",
+      "best_score": 0.7183788393467887,
+      "best_delta_pct": 2.420011210176445,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 3,
+      "candidates_tested": 5,
+      "best_name": "slope_bypass_strong_mom",
+      "best_score": 0.7155474417811243,
+      "best_delta_pct": -0.3941371057420017,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 12,
+  "accepted_count": 2,
+  "elapsed_seconds": 395.45436692237854
+}

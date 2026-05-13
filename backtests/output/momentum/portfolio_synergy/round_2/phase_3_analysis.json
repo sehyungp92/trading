@@ -1,0 +1,55 @@
+{
+  "diagnostic_gaps": [],
+  "extra": {
+    "source_artifact": "phase_3.json"
+  },
+  "goal_progress": {
+    "block_rate": {
+      "actual": 0.11040508339952343,
+      "pct_of_target": 135.86330935251797,
+      "target": 0.15
+    },
+    "max_drawdown_pct": {
+      "actual": 0.07068225044042235,
+      "pct_of_target": 200.0,
+      "target": 0.18
+    },
+    "net_profit": {
+      "actual": 195165.08614474421,
+      "pct_of_target": 88.71140279306556,
+      "target": 220000.0
+    },
+    "profit_factor": {
+      "actual": 3.5891384274026574,
+      "pct_of_target": 128.18351526438065,
+      "target": 2.8
+    },
+    "total_trades": {
+      "actual": 1120.0,
+      "pct_of_target": 101.81818181818181,
+      "target": 1100.0
+    },
+    "trades_per_month": {
+      "actual": 38.56334841628959,
+      "pct_of_target": 96.40837104072398,
+      "target": 40.0
+    }
+  },
+  "phase": 3,
+  "recommendation": "advance",
+  "recommendation_reason": "Accepted heat_6_75_contracts_24.",
+  "report": "======================================================================\nPHASE 3 MOMENTUM PORTFOLIO STANDARDIZED ANALYSIS\n======================================================================\nRecommendation: advance\nReason: Accepted heat_6_75_contracts_24.\nScore: 0.9941\nNet profit: $195,165.09\nTrades/month: 38.56\nMTM max DD: 7.07%\n",
+  "scoring_assessment": "EFFECTIVE",
+  "scoring_weight_overrides": null,
+  "strengths": [
+    "total_trades: 1120.0000 (102% of target)",
+    "max_drawdown_pct: 0.0707 (200% of target)",
+    "profit_factor: 3.5891 (128% of target)",
+    "block_rate: 0.1104 (136% of target)"
+  ],
+  "suggested_experiments": [],
+  "weaknesses": [
+    "trades_per_month: 38.5633 (96% of target)",
+    "net_profit: 195165.0861 (89% of target)"
+  ]
+}

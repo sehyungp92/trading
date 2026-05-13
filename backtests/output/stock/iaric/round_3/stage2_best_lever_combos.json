@@ -1,0 +1,329 @@
+{
+  "elapsed_seconds": 1322.8,
+  "rows": [
+    {
+      "name": "floor66_partial01",
+      "patch": {
+        "param_overrides.pb_v2_signal_floor": 66.0,
+        "param_overrides.pb_v2_partial_profit_trigger_r": 0.1
+      },
+      "is": {
+        "total_trades": 1470,
+        "winning_trades": 1172,
+        "win_rate": 0.7972789115646258,
+        "profit_factor": 2.2898020514152244,
+        "net_r": 225.01342635794938,
+        "avg_r": 0.15307035806663224,
+        "max_drawdown_r": 5.449514727659391,
+        "trades_per_month": 55.31124845488257,
+        "months": 26.576872536136662
+      },
+      "oos": {
+        "total_trades": 34,
+        "winning_trades": 26,
+        "win_rate": 0.7647058823529411,
+        "profit_factor": 2.582717102859498,
+        "net_r": 5.875922464416169,
+        "avg_r": 0.17282124895341672,
+        "max_drawdown_r": 2.1909046867144912,
+        "trades_per_month": 25.242926829268292,
+        "months": 1.3469119579500657
+      },
+      "elapsed_seconds": 214.25,
+      "delta": {
+        "oos_trades": 22,
+        "oos_net_r": 7.600874951690135,
+        "is_trades": 515,
+        "is_net_r": 122.08075613679686
+      }
+    },
+    {
+      "name": "floor68_partial01",
+      "patch": {
+        "param_overrides.pb_v2_signal_floor": 68.0,
+        "param_overrides.pb_v2_partial_profit_trigger_r": 0.1
+      },
+      "is": {
+        "total_trades": 1303,
+        "winning_trades": 1033,
+        "win_rate": 0.7927858787413661,
+        "profit_factor": 2.2458567292777283,
+        "net_r": 196.9564532730434,
+        "avg_r": 0.15115614218959586,
+        "max_drawdown_r": 6.25293057876037,
+        "trades_per_month": 49.02758961681088,
+        "months": 26.576872536136662
+      },
+      "oos": {
+        "total_trades": 25,
+        "winning_trades": 21,
+        "win_rate": 0.84,
+        "profit_factor": 3.7635511547995666,
+        "net_r": 5.378596350103998,
+        "avg_r": 0.21514385400415992,
+        "max_drawdown_r": 1.1304494944897,
+        "trades_per_month": 18.5609756097561,
+        "months": 1.3469119579500657
+      },
+      "elapsed_seconds": 192.55,
+      "delta": {
+        "oos_trades": 13,
+        "oos_net_r": 7.103548837377964,
+        "is_trades": 348,
+        "is_net_r": 94.02378305189087
+      }
+    },
+    {
+      "name": "floor70_partial01",
+      "patch": {
+        "param_overrides.pb_v2_signal_floor": 70.0,
+        "param_overrides.pb_v2_partial_profit_trigger_r": 0.1
+      },
+      "is": {
+        "total_trades": 1114,
+        "winning_trades": 891,
+        "win_rate": 0.7998204667863554,
+        "profit_factor": 2.3478920429827768,
+        "net_r": 177.30776549113324,
+        "avg_r": 0.15916316471376413,
+        "max_drawdown_r": 5.537203279213266,
+        "trades_per_month": 41.9161433868974,
+        "months": 26.576872536136662
+      },
+      "oos": {
+        "total_trades": 19,
+        "winning_trades": 15,
+        "win_rate": 0.7894736842105263,
+        "profit_factor": 2.726947147434406,
+        "net_r": 3.3610927041757197,
+        "avg_r": 0.17689961600924842,
+        "max_drawdown_r": 1.1304494944897001,
+        "trades_per_month": 14.106341463414635,
+        "months": 1.3469119579500657
+      },
+      "elapsed_seconds": 168.08,
+      "delta": {
+        "oos_trades": 7,
+        "oos_net_r": 5.086045191449686,
+        "is_trades": 159,
+        "is_net_r": 74.37509526998072
+      }
+    },
+    {
+      "name": "floor70_partial01_gap25_slots6",
+      "patch": {
+        "param_overrides.pb_v2_signal_floor": 70.0,
+        "param_overrides.pb_v2_partial_profit_trigger_r": 0.1,
+        "param_overrides.pb_v2_gap_max_pct": 2.5,
+        "param_overrides.pb_v2_open_scored_max_slots": 6
+      },
+      "is": {
+        "total_trades": 1131,
+        "winning_trades": 903,
+        "win_rate": 0.7984084880636605,
+        "profit_factor": 2.3022537142530397,
+        "net_r": 175.86898408980537,
+        "avg_r": 0.15549865967268378,
+        "max_drawdown_r": 5.54833124110224,
+        "trades_per_month": 42.555797280593325,
+        "months": 26.576872536136662
+      },
+      "oos": {
+        "total_trades": 19,
+        "winning_trades": 15,
+        "win_rate": 0.7894736842105263,
+        "profit_factor": 2.7236553662600578,
+        "net_r": 3.3546860334763404,
+        "avg_r": 0.17656242281454423,
+        "max_drawdown_r": 1.1304494944897001,
+        "trades_per_month": 14.106341463414635,
+        "months": 1.3469119579500657
+      },
+      "elapsed_seconds": 128.65,
+      "delta": {
+        "oos_trades": 7,
+        "oos_net_r": 5.079638520750306,
+        "is_trades": 176,
+        "is_net_r": 72.93631386865285
+      }
+    },
+    {
+      "name": "floor70_partial01_sector3",
+      "patch": {
+        "param_overrides.pb_v2_signal_floor": 70.0,
+        "param_overrides.pb_v2_partial_profit_trigger_r": 0.1,
+        "max_per_sector": 3
+      },
+      "is": {
+        "total_trades": 1062,
+        "winning_trades": 854,
+        "win_rate": 0.8041431261770244,
+        "profit_factor": 2.3995754255894846,
+        "net_r": 172.21349026764221,
+        "avg_r": 0.1621595953555953,
+        "max_drawdown_r": 5.934841510028775,
+        "trades_per_month": 39.95955500618047,
+        "months": 26.576872536136662
+      },
+      "oos": {
+        "total_trades": 19,
+        "winning_trades": 15,
+        "win_rate": 0.7894736842105263,
+        "profit_factor": 2.708782669171426,
+        "net_r": 3.325739858863944,
+        "avg_r": 0.17503893994020758,
+        "max_drawdown_r": 1.1304494944897001,
+        "trades_per_month": 14.106341463414635,
+        "months": 1.3469119579500657
+      },
+      "elapsed_seconds": 83.03,
+      "delta": {
+        "oos_trades": 7,
+        "oos_net_r": 5.05069234613791,
+        "is_trades": 107,
+        "is_net_r": 69.2808200464897
+      }
+    },
+    {
+      "name": "floor70_partial01_carry50_mfe20",
+      "patch": {
+        "param_overrides.pb_v2_signal_floor": 70.0,
+        "param_overrides.pb_v2_partial_profit_trigger_r": 0.1,
+        "param_overrides.pb_open_scored_carry_close_pct_min": 0.5,
+        "param_overrides.pb_open_scored_carry_mfe_gate_r": 0.2
+      },
+      "is": {
+        "total_trades": 1114,
+        "winning_trades": 889,
+        "win_rate": 0.7980251346499102,
+        "profit_factor": 2.3141922034319746,
+        "net_r": 174.54067535437932,
+        "avg_r": 0.15667924179028664,
+        "max_drawdown_r": 5.586774049323125,
+        "trades_per_month": 41.9161433868974,
+        "months": 26.576872536136662
+      },
+      "oos": {
+        "total_trades": 19,
+        "winning_trades": 15,
+        "win_rate": 0.7894736842105263,
+        "profit_factor": 2.496955482663596,
+        "net_r": 3.161727657602259,
+        "avg_r": 0.16640671882117153,
+        "max_drawdown_r": 1.173057533948515,
+        "trades_per_month": 14.106341463414635,
+        "months": 1.3469119579500657
+      },
+      "elapsed_seconds": 198.52,
+      "delta": {
+        "oos_trades": 7,
+        "oos_net_r": 4.886680144876225,
+        "is_trades": 159,
+        "is_net_r": 71.6080051332268
+      }
+    },
+    {
+      "name": "floor70",
+      "patch": {
+        "param_overrides.pb_v2_signal_floor": 70.0
+      },
+      "is": {
+        "total_trades": 1103,
+        "winning_trades": 781,
+        "win_rate": 0.7080689029918404,
+        "profit_factor": 1.6004409340494599,
+        "net_r": 106.6083765212535,
+        "avg_r": 0.09665310654692068,
+        "max_drawdown_r": 10.49370703619704,
+        "trades_per_month": 41.50224969097651,
+        "months": 26.576872536136662
+      },
+      "oos": {
+        "total_trades": 19,
+        "winning_trades": 13,
+        "win_rate": 0.6842105263157895,
+        "profit_factor": 1.4223550978065342,
+        "net_r": 1.3216999513196424,
+        "avg_r": 0.06956315533261276,
+        "max_drawdown_r": 2.1523424824562243,
+        "trades_per_month": 14.106341463414635,
+        "months": 1.3469119579500657
+      },
+      "elapsed_seconds": 149.45,
+      "delta": {
+        "oos_trades": 7,
+        "oos_net_r": 3.0466524385936085,
+        "is_trades": 148,
+        "is_net_r": 3.675706300100984
+      }
+    },
+    {
+      "name": "partial01",
+      "patch": {
+        "param_overrides.pb_v2_partial_profit_trigger_r": 0.1
+      },
+      "is": {
+        "total_trades": 961,
+        "winning_trades": 781,
+        "win_rate": 0.8126951092611863,
+        "profit_factor": 2.6352277296093787,
+        "net_r": 167.88524936880418,
+        "avg_r": 0.17469849049823535,
+        "max_drawdown_r": 4.090650292078671,
+        "trades_per_month": 36.159258343634114,
+        "months": 26.576872536136662
+      },
+      "oos": {
+        "total_trades": 12,
+        "winning_trades": 8,
+        "win_rate": 0.6666666666666666,
+        "profit_factor": 1.342044931003494,
+        "net_r": 0.6657092684070102,
+        "avg_r": 0.05547577236725085,
+        "max_drawdown_r": 0.8158131396442043,
+        "trades_per_month": 8.909268292682928,
+        "months": 1.3469119579500657
+      },
+      "elapsed_seconds": 111.57,
+      "delta": {
+        "oos_trades": 0,
+        "oos_net_r": 2.390661755680976,
+        "is_trades": 6,
+        "is_net_r": 64.95257914765166
+      }
+    },
+    {
+      "name": "current",
+      "patch": {},
+      "is": {
+        "total_trades": 955,
+        "winning_trades": 684,
+        "win_rate": 0.7162303664921466,
+        "profit_factor": 1.7064110714618548,
+        "net_r": 102.93267022115252,
+        "avg_r": 0.10778290075513353,
+        "max_drawdown_r": 7.831544713825302,
+        "trades_per_month": 35.93349814585908,
+        "months": 26.576872536136662
+      },
+      "oos": {
+        "total_trades": 12,
+        "winning_trades": 6,
+        "win_rate": 0.5,
+        "profit_factor": 0.448783760832546,
+        "net_r": -1.724952487273966,
+        "avg_r": -0.14374604060616383,
+        "max_drawdown_r": 2.0469456835263813,
+        "trades_per_month": 8.909268292682928,
+        "months": 1.3469119579500657
+      },
+      "elapsed_seconds": 76.69,
+      "delta": {
+        "oos_trades": 0,
+        "oos_net_r": 0.0,
+        "is_trades": 0,
+        "is_net_r": 0.0
+      }
+    }
+  ]
+}

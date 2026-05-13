@@ -1,0 +1,1395 @@
+{
+  "current_phase": 4,
+  "completed_phases": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "cumulative_mutations": {
+    "VIX_CRISIS": 42.0,
+    "HYBRID_WARNING_MIN_CRISIS": 1,
+    "HYBRID_WARNING_MIN_PRIMARY": 2,
+    "SPY_DD_WARNING": -0.0576,
+    "VIX_WATCH": 29.0,
+    "VIX_WARNING": 37.0,
+    "ACCEL_DEESCALATE_NORMAL_DAYS": 3,
+    "DEESCALATE_CRISIS_DAYS": 2,
+    "DEESCALATE_WARNING_DAYS": 1,
+    "DEESCALATE_WATCH_DAYS": 1,
+    "SPY_DD_CRISIS": -0.1,
+    "SHOCK_SPY_3D_RETURN": -0.025,
+    "SHOCK_SPY_5D_RETURN": -0.043199999999999995,
+    "SHOCK_VIX_3D_CHANGE": 5.0,
+    "SHOCK_MIN_VIX": 22.0,
+    "SHOCK_CORR_MIN": 0.45,
+    "SHOCK_CORR_SPY_5D_RETURN": -0.02
+  },
+  "phase_results": {
+    "1": {
+      "focus": "Recovery + Early Action Architecture",
+      "base_mutations": {
+        "VIX_CRISIS": 42.0,
+        "HYBRID_WARNING_MIN_CRISIS": 1,
+        "HYBRID_WARNING_MIN_PRIMARY": 2,
+        "SPY_DD_WARNING": -0.0576,
+        "VIX_WATCH": 29.0,
+        "VIX_WARNING": 37.0,
+        "ACCEL_DEESCALATE_NORMAL_DAYS": 3,
+        "DEESCALATE_CRISIS_DAYS": 1,
+        "DEESCALATE_WARNING_DAYS": 1,
+        "DEESCALATE_WATCH_DAYS": 1,
+        "SPY_DD_CRISIS": -0.1
+      },
+      "final_mutations": {
+        "VIX_CRISIS": 42.0,
+        "HYBRID_WARNING_MIN_CRISIS": 1,
+        "HYBRID_WARNING_MIN_PRIMARY": 2,
+        "SPY_DD_WARNING": -0.0576,
+        "VIX_WATCH": 29.0,
+        "VIX_WARNING": 37.0,
+        "ACCEL_DEESCALATE_NORMAL_DAYS": 3,
+        "DEESCALATE_CRISIS_DAYS": 2,
+        "DEESCALATE_WARNING_DAYS": 1,
+        "DEESCALATE_WATCH_DAYS": 1,
+        "SPY_DD_CRISIS": -0.1,
+        "SHOCK_SPY_3D_RETURN": -0.025,
+        "SHOCK_SPY_5D_RETURN": -0.045,
+        "SHOCK_VIX_3D_CHANGE": 5.0,
+        "SHOCK_MIN_VIX": 22.0,
+        "SHOCK_CORR_MIN": 0.45,
+        "SHOCK_CORR_SPY_5D_RETURN": -0.02
+      },
+      "base_score": 0.8242417200893385,
+      "final_score": 0.830978246848067,
+      "kept_features": [
+        "shock_early_equity_vol",
+        "deesc_crisis_2d"
+      ],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 45,
+          "best_name": "shock_early_equity_vol",
+          "best_score": 0.8283788106733787,
+          "best_delta_pct": 0.5019268599497488,
+          "kept": true,
+          "rejected_count": 1
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 43,
+          "best_name": "deesc_crisis_2d",
+          "best_score": 0.830978246848067,
+          "best_delta_pct": 0.31379800414924003,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 3,
+          "candidates_tested": 42,
+          "best_name": "grind_strict",
+          "best_score": 0.832867147072511,
+          "best_delta_pct": 0.22731042979869362,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "avg_latency": 18.142857142857142,
+        "max_latency": 34.0,
+        "avg_action_latency": 14.857142857142858,
+        "max_action_latency": 26.0,
+        "avg_advisory_latency": 6.714285714285714,
+        "max_advisory_latency": 17.0,
+        "gfc_latency": 14.0,
+        "covid_latency": 10.0,
+        "crises_detected": 7,
+        "total_crises": 7,
+        "corrections_detected": 2,
+        "total_corrections": 2,
+        "correction_avg_latency": 0.5,
+        "warning_fp_rate": 0.03060599877576005,
+        "crisis_fp_rate": 0.008161599673536014,
+        "advisory_fp_rate": 0.4239951030401959,
+        "preaction_fp_rate": 0.0669251173229953,
+        "avg_peak_level": 3.0,
+        "total_transitions": 196,
+        "transitions_per_year": 8.580958999305073,
+        "pct_normal": 0.0020847810979847115,
+        "pct_watch": 0.9287699791521891,
+        "pct_warning": 0.034051424600416956,
+        "pct_crisis": 0.03509381514940931,
+        "pct_advisory_watch": 0.40462126476719945,
+        "pct_preaction_watch": 0.05472550382209868,
+        "avg_recovery_days": 6.428571428571429,
+        "max_recovery_days": 36.0
+      },
+      "total_candidates": 45,
+      "accepted_count": 2,
+      "elapsed_seconds": 4.892781734466553,
+      "suggested_experiments": [
+        {
+          "name": "suggest_raise_vix",
+          "mutations": {
+            "VIX_WATCH": 27.0,
+            "VIX_WARNING": 32.0,
+            "VIX_CRISIS": 38.0
+          }
+        },
+        {
+          "name": "suggest_tighten_conjunction",
+          "mutations": {
+            "WARNING_MIN_PRIMARY": 2,
+            "CRISIS_MIN_PRIMARY": 3
+          }
+        },
+        {
+          "name": "suggest_preaction_more_sensitive",
+          "mutations": {
+            "STRESS_FORMATION_MIN_SCORE": 1,
+            "SHOCK_SPY_3D_RETURN": -0.035,
+            "SHOCK_SPY_5D_RETURN": -0.055
+          }
+        },
+        {
+          "name": "suggest_preaction_less_noisy",
+          "mutations": {
+            "STRESS_FORMATION_MIN_SCORE": 3,
+            "GRIND_SPREAD_20D_CHANGE_BPS": 100.0,
+            "GRIND_VIX_PERSIST_DAYS": 7
+          }
+        },
+        {
+          "name": "suggest_slow_hysteresis",
+          "mutations": {
+            "DEESCALATE_CRISIS_DAYS": 5,
+            "DEESCALATE_WARNING_DAYS": 7,
+            "DEESCALATE_WATCH_DAYS": 3
+          }
+        }
+      ],
+      "analysis": {
+        "phase": 1,
+        "goal_progress": {
+          "avg_latency": {
+            "target": 16.0,
+            "actual": 18.142857142857142,
+            "pct_of_target": 88.18897637795276
+          },
+          "avg_action_latency": {
+            "target": 12.0,
+            "actual": 14.857142857142858,
+            "pct_of_target": 80.76923076923077
+          },
+          "avg_advisory_latency": {
+            "target": 8.0,
+            "actual": 6.714285714285714,
+            "pct_of_target": 119.14893617021276
+          },
+          "warning_fp_rate": {
+            "target": 0.04,
+            "actual": 0.03060599877576005,
+            "pct_of_target": 76.51499693940012
+          },
+          "crisis_fp_rate": {
+            "target": 0.015,
+            "actual": 0.008161599673536014,
+            "pct_of_target": 54.41066449024009
+          },
+          "advisory_fp_rate": {
+            "target": 0.45,
+            "actual": 0.4239951030401959,
+            "pct_of_target": 94.22113400893241
+          },
+          "preaction_fp_rate": {
+            "target": 0.1,
+            "actual": 0.0669251173229953,
+            "pct_of_target": 66.92511732299529
+          },
+          "pct_preaction_watch": {
+            "target": 0.05,
+            "actual": 0.05472550382209868,
+            "pct_of_target": 109.45100764419735
+          },
+          "crises_detected": {
+            "target": 7.0,
+            "actual": 7.0,
+            "pct_of_target": 100.0
+          },
+          "transitions_per_year": {
+            "target": 20.0,
+            "actual": 8.580958999305073,
+            "pct_of_target": 42.90479499652536
+          },
+          "avg_recovery_days": {
+            "target": 10.0,
+            "actual": 6.428571428571429,
+            "pct_of_target": 64.28571428571429
+          }
+        },
+        "strengths": [
+          "avg_latency: 18.1429 (88% of 16.0000)",
+          "avg_action_latency: 14.8571 (81% of 12.0000)",
+          "avg_advisory_latency: 6.7143 (119% of 8.0000)",
+          "advisory_fp_rate: 0.4240 (94% of 0.4500)",
+          "pct_preaction_watch: 0.0547 (109% of 0.0500)",
+          "crises_detected: 7.0000 (100% of 7.0000)"
+        ],
+        "weaknesses": [
+          "crisis_fp_rate: 0.0082 (54% of 0.0150)",
+          "transitions_per_year: 8.5810 (43% of 20.0000)"
+        ],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "Average portfolio action latency 14.9d -- early action too slow"
+        ],
+        "suggested_experiments": [
+          {
+            "name": "suggest_raise_vix",
+            "mutations": {
+              "VIX_WATCH": 27.0,
+              "VIX_WARNING": 32.0,
+              "VIX_CRISIS": 38.0
+            }
+          },
+          {
+            "name": "suggest_tighten_conjunction",
+            "mutations": {
+              "WARNING_MIN_PRIMARY": 2,
+              "CRISIS_MIN_PRIMARY": 3
+            }
+          },
+          {
+            "name": "suggest_preaction_more_sensitive",
+            "mutations": {
+              "STRESS_FORMATION_MIN_SCORE": 1,
+              "SHOCK_SPY_3D_RETURN": -0.035,
+              "SHOCK_SPY_5D_RETURN": -0.055
+            }
+          },
+          {
+            "name": "suggest_preaction_less_noisy",
+            "mutations": {
+              "STRESS_FORMATION_MIN_SCORE": 3,
+              "GRIND_SPREAD_20D_CHANGE_BPS": 100.0,
+              "GRIND_VIX_PERSIST_DAYS": 7
+            }
+          },
+          {
+            "name": "suggest_slow_hysteresis",
+            "mutations": {
+              "DEESCALATE_CRISIS_DAYS": 5,
+              "DEESCALATE_WARNING_DAYS": 7,
+              "DEESCALATE_WATCH_DAYS": 3
+            }
+          }
+        ],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + avg_latency: 18.1429 (88% of 16.0000)\n  + avg_action_latency: 14.8571 (81% of 12.0000)\n  + avg_advisory_latency: 6.7143 (119% of 8.0000)\n  + advisory_fp_rate: 0.4240 (94% of 0.4500)\n  + pct_preaction_watch: 0.0547 (109% of 0.0500)\n  + crises_detected: 7.0000 (100% of 7.0000)\n\nWeaknesses:\n  - crisis_fp_rate: 0.0082 (54% of 0.0150)\n  - transitions_per_year: 8.5810 (43% of 20.0000)\n\nDiagnostic Gaps:\n  ! Average portfolio action latency 14.9d -- early action too slow\n\nSuggested Experiments (5):\n  - suggest_raise_vix: {\"VIX_WATCH\": 27.0, \"VIX_WARNING\": 32.0, \"VIX_CRISIS\": 38.0}\n  - suggest_tighten_conjunction: {\"WARNING_MIN_PRIMARY\": 2, \"CRISIS_MIN_PRIMARY\": 3}\n  - suggest_preaction_more_sensitive: {\"STRESS_FORMATION_MIN_SCORE\": 1, \"SHOCK_SPY_3D_RETURN\": -0.035, \"SHOCK_SPY_5D_RETURN\": -0.055}\n  - suggest_preaction_less_noisy: {\"STRESS_FORMATION_MIN_SCORE\": 3, \"GRIND_SPREAD_20D_CHANGE_BPS\": 100.0, \"GRIND_VIX_PERSIST_DAYS\": 7}\n  - suggest_slow_hysteresis: {\"DEESCALATE_CRISIS_DAYS\": 5, \"DEESCALATE_WARNING_DAYS\": 7, \"DEESCALATE_WATCH_DAYS\": 3}\n\nExtra Analysis:\n  Detection: 7/7 crises, hard/action/advisory latency 18.1d/14.9d/6.7d\n  Corrections: 2/2, avg latency 0.5d\n  FP rates: WARNING=3.06%, CRISIS=0.82%, ADVISORY=42.40%, PREACTION=6.69%\n  Distribution: NORMAL=0.2%, WATCH=92.9%, WARNING=3.4%, CRISIS=3.5%, PREACTION_WATCH=5.5%\n  Recovery: avg 6.4d, max 36.0d post-crisis elevated\n\nGoal Progress:\n  avg_latency: 18.1429 / 16.0000 (88%)\n  avg_action_latency: 14.8571 / 12.0000 (81%)\n  avg_advisory_latency: 6.7143 / 8.0000 (119%)\n  warning_fp_rate: 0.0306 / 0.0400 (77%)\n  crisis_fp_rate: 0.0082 / 0.0150 (54%)\n  advisory_fp_rate: 0.4240 / 0.4500 (94%)\n  preaction_fp_rate: 0.0669 / 0.1000 (67%)\n  pct_preaction_watch: 0.0547 / 0.0500 (109%)\n  crises_detected: 7.0000 / 7.0000 (100%)\n  transitions_per_year: 8.5810 / 20.0000 (43%)\n  avg_recovery_days: 6.4286 / 10.0000 (64%)",
+        "scoring_weight_overrides": null,
+        "extra": {
+          "detection": {
+            "crises_detected": 7,
+            "total_crises": 7,
+            "avg_latency": 18.142857142857142,
+            "avg_action_latency": 14.857142857142858,
+            "avg_advisory_latency": 6.714285714285714,
+            "gfc_latency": 14.0,
+            "covid_latency": 10.0
+          },
+          "corrections": {
+            "corrections_detected": 2,
+            "total_corrections": 2,
+            "correction_avg_latency": 0.5
+          },
+          "fp_rates": {
+            "warning": 0.03060599877576005,
+            "crisis": 0.008161599673536014,
+            "advisory": 0.4239951030401959,
+            "preaction": 0.0669251173229953
+          },
+          "distribution": {
+            "pct_normal": 0.0020847810979847115,
+            "pct_watch": 0.9287699791521891,
+            "pct_warning": 0.034051424600416956,
+            "pct_crisis": 0.03509381514940931,
+            "pct_advisory_watch": 0.40462126476719945,
+            "pct_preaction_watch": 0.05472550382209868
+          },
+          "recovery": {
+            "avg_recovery_days": 6.428571428571429,
+            "max_recovery_days": 36.0
+          }
+        }
+      },
+      "new_mutations": {
+        "DEESCALATE_CRISIS_DAYS": 2,
+        "SHOCK_SPY_3D_RETURN": -0.025,
+        "SHOCK_SPY_5D_RETURN": -0.045,
+        "SHOCK_VIX_3D_CHANGE": 5.0,
+        "SHOCK_MIN_VIX": 22.0,
+        "SHOCK_CORR_MIN": 0.45,
+        "SHOCK_CORR_SPY_5D_RETURN": -0.02
+      },
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "VIX_CRISIS": 42.0,
+        "HYBRID_WARNING_MIN_CRISIS": 1,
+        "HYBRID_WARNING_MIN_PRIMARY": 2,
+        "SPY_DD_WARNING": -0.0576,
+        "VIX_WATCH": 29.0,
+        "VIX_WARNING": 37.0,
+        "ACCEL_DEESCALATE_NORMAL_DAYS": 3,
+        "DEESCALATE_CRISIS_DAYS": 2,
+        "DEESCALATE_WARNING_DAYS": 1,
+        "DEESCALATE_WATCH_DAYS": 1,
+        "SPY_DD_CRISIS": -0.1,
+        "SHOCK_SPY_3D_RETURN": -0.025,
+        "SHOCK_SPY_5D_RETURN": -0.045,
+        "SHOCK_VIX_3D_CHANGE": 5.0,
+        "SHOCK_MIN_VIX": 22.0,
+        "SHOCK_CORR_MIN": 0.45,
+        "SHOCK_CORR_SPY_5D_RETURN": -0.02
+      },
+      "attempted_final_score": 0.830978246848067,
+      "attempted_final_metrics": {
+        "avg_latency": 18.142857142857142,
+        "max_latency": 34.0,
+        "avg_action_latency": 14.857142857142858,
+        "max_action_latency": 26.0,
+        "avg_advisory_latency": 6.714285714285714,
+        "max_advisory_latency": 17.0,
+        "gfc_latency": 14.0,
+        "covid_latency": 10.0,
+        "crises_detected": 7,
+        "total_crises": 7,
+        "corrections_detected": 2,
+        "total_corrections": 2,
+        "correction_avg_latency": 0.5,
+        "warning_fp_rate": 0.03060599877576005,
+        "crisis_fp_rate": 0.008161599673536014,
+        "advisory_fp_rate": 0.4239951030401959,
+        "preaction_fp_rate": 0.0669251173229953,
+        "avg_peak_level": 3.0,
+        "total_transitions": 196,
+        "transitions_per_year": 8.580958999305073,
+        "pct_normal": 0.0020847810979847115,
+        "pct_watch": 0.9287699791521891,
+        "pct_warning": 0.034051424600416956,
+        "pct_crisis": 0.03509381514940931,
+        "pct_advisory_watch": 0.40462126476719945,
+        "pct_preaction_watch": 0.05472550382209868,
+        "avg_recovery_days": 6.428571428571429,
+        "max_recovery_days": 36.0
+      },
+      "attempted_kept_features": [
+        "shock_early_equity_vol",
+        "deesc_crisis_2d"
+      ],
+      "attempted_accepted_count": 2
+    },
+    "2": {
+      "focus": "Threshold Re-optimization",
+      "base_mutations": {
+        "VIX_CRISIS": 42.0,
+        "HYBRID_WARNING_MIN_CRISIS": 1,
+        "HYBRID_WARNING_MIN_PRIMARY": 2,
+        "SPY_DD_WARNING": -0.0576,
+        "VIX_WATCH": 29.0,
+        "VIX_WARNING": 37.0,
+        "ACCEL_DEESCALATE_NORMAL_DAYS": 3,
+        "DEESCALATE_CRISIS_DAYS": 2,
+        "DEESCALATE_WARNING_DAYS": 1,
+        "DEESCALATE_WATCH_DAYS": 1,
+        "SPY_DD_CRISIS": -0.1,
+        "SHOCK_SPY_3D_RETURN": -0.025,
+        "SHOCK_SPY_5D_RETURN": -0.045,
+        "SHOCK_VIX_3D_CHANGE": 5.0,
+        "SHOCK_MIN_VIX": 22.0,
+        "SHOCK_CORR_MIN": 0.45,
+        "SHOCK_CORR_SPY_5D_RETURN": -0.02
+      },
+      "final_mutations": {
+        "VIX_CRISIS": 42.0,
+        "HYBRID_WARNING_MIN_CRISIS": 1,
+        "HYBRID_WARNING_MIN_PRIMARY": 2,
+        "SPY_DD_WARNING": -0.0576,
+        "VIX_WATCH": 29.0,
+        "VIX_WARNING": 37.0,
+        "ACCEL_DEESCALATE_NORMAL_DAYS": 3,
+        "DEESCALATE_CRISIS_DAYS": 2,
+        "DEESCALATE_WARNING_DAYS": 1,
+        "DEESCALATE_WATCH_DAYS": 1,
+        "SPY_DD_CRISIS": -0.1,
+        "SHOCK_SPY_3D_RETURN": -0.025,
+        "SHOCK_SPY_5D_RETURN": -0.045,
+        "SHOCK_VIX_3D_CHANGE": 5.0,
+        "SHOCK_MIN_VIX": 22.0,
+        "SHOCK_CORR_MIN": 0.45,
+        "SHOCK_CORR_SPY_5D_RETURN": -0.02
+      },
+      "base_score": 0.830978246848067,
+      "final_score": 0.830978246848067,
+      "kept_features": [],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 40,
+          "best_name": "spread_crisis_500",
+          "best_score": 0.8326414143257654,
+          "best_delta_pct": 0.20014572992818003,
+          "kept": false,
+          "rejected_count": 9
+        }
+      ],
+      "final_metrics": {
+        "avg_latency": 18.142857142857142,
+        "max_latency": 34.0,
+        "avg_action_latency": 14.857142857142858,
+        "max_action_latency": 26.0,
+        "avg_advisory_latency": 6.714285714285714,
+        "max_advisory_latency": 17.0,
+        "gfc_latency": 14.0,
+        "covid_latency": 10.0,
+        "crises_detected": 7,
+        "total_crises": 7,
+        "corrections_detected": 2,
+        "total_corrections": 2,
+        "correction_avg_latency": 0.5,
+        "warning_fp_rate": 0.03060599877576005,
+        "crisis_fp_rate": 0.008161599673536014,
+        "advisory_fp_rate": 0.4239951030401959,
+        "preaction_fp_rate": 0.0669251173229953,
+        "avg_peak_level": 3.0,
+        "total_transitions": 196,
+        "transitions_per_year": 8.580958999305073,
+        "pct_normal": 0.0020847810979847115,
+        "pct_watch": 0.9287699791521891,
+        "pct_warning": 0.034051424600416956,
+        "pct_crisis": 0.03509381514940931,
+        "pct_advisory_watch": 0.40462126476719945,
+        "pct_preaction_watch": 0.05472550382209868,
+        "avg_recovery_days": 6.428571428571429,
+        "max_recovery_days": 36.0
+      },
+      "total_candidates": 40,
+      "accepted_count": 0,
+      "elapsed_seconds": 0.8545441627502441,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 2,
+        "goal_progress": {
+          "avg_latency": {
+            "target": 16.0,
+            "actual": 18.142857142857142,
+            "pct_of_target": 88.18897637795276
+          },
+          "avg_action_latency": {
+            "target": 12.0,
+            "actual": 14.857142857142858,
+            "pct_of_target": 80.76923076923077
+          },
+          "avg_advisory_latency": {
+            "target": 8.0,
+            "actual": 6.714285714285714,
+            "pct_of_target": 119.14893617021276
+          },
+          "warning_fp_rate": {
+            "target": 0.04,
+            "actual": 0.03060599877576005,
+            "pct_of_target": 76.51499693940012
+          },
+          "crisis_fp_rate": {
+            "target": 0.015,
+            "actual": 0.008161599673536014,
+            "pct_of_target": 54.41066449024009
+          },
+          "advisory_fp_rate": {
+            "target": 0.45,
+            "actual": 0.4239951030401959,
+            "pct_of_target": 94.22113400893241
+          },
+          "preaction_fp_rate": {
+            "target": 0.1,
+            "actual": 0.0669251173229953,
+            "pct_of_target": 66.92511732299529
+          },
+          "pct_preaction_watch": {
+            "target": 0.05,
+            "actual": 0.05472550382209868,
+            "pct_of_target": 109.45100764419735
+          },
+          "crises_detected": {
+            "target": 7.0,
+            "actual": 7.0,
+            "pct_of_target": 100.0
+          },
+          "transitions_per_year": {
+            "target": 20.0,
+            "actual": 8.580958999305073,
+            "pct_of_target": 42.90479499652536
+          },
+          "avg_recovery_days": {
+            "target": 10.0,
+            "actual": 6.428571428571429,
+            "pct_of_target": 64.28571428571429
+          }
+        },
+        "strengths": [
+          "avg_latency: 18.1429 (88% of 16.0000)",
+          "avg_action_latency: 14.8571 (81% of 12.0000)",
+          "avg_advisory_latency: 6.7143 (119% of 8.0000)",
+          "advisory_fp_rate: 0.4240 (94% of 0.4500)",
+          "pct_preaction_watch: 0.0547 (109% of 0.0500)",
+          "crises_detected: 7.0000 (100% of 7.0000)"
+        ],
+        "weaknesses": [
+          "crisis_fp_rate: 0.0082 (54% of 0.0150)",
+          "transitions_per_year: 8.5810 (43% of 20.0000)"
+        ],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "Average portfolio action latency 14.9d -- early action too slow"
+        ],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + avg_latency: 18.1429 (88% of 16.0000)\n  + avg_action_latency: 14.8571 (81% of 12.0000)\n  + avg_advisory_latency: 6.7143 (119% of 8.0000)\n  + advisory_fp_rate: 0.4240 (94% of 0.4500)\n  + pct_preaction_watch: 0.0547 (109% of 0.0500)\n  + crises_detected: 7.0000 (100% of 7.0000)\n\nWeaknesses:\n  - crisis_fp_rate: 0.0082 (54% of 0.0150)\n  - transitions_per_year: 8.5810 (43% of 20.0000)\n\nDiagnostic Gaps:\n  ! Average portfolio action latency 14.9d -- early action too slow\n\nExtra Analysis:\n  Detection: 7/7 crises, hard/action/advisory latency 18.1d/14.9d/6.7d\n  Corrections: 2/2, avg latency 0.5d\n  FP rates: WARNING=3.06%, CRISIS=0.82%, ADVISORY=42.40%, PREACTION=6.69%\n  Distribution: NORMAL=0.2%, WATCH=92.9%, WARNING=3.4%, CRISIS=3.5%, PREACTION_WATCH=5.5%\n  Recovery: avg 6.4d, max 36.0d post-crisis elevated\n\nGoal Progress:\n  avg_latency: 18.1429 / 16.0000 (88%)\n  avg_action_latency: 14.8571 / 12.0000 (81%)\n  avg_advisory_latency: 6.7143 / 8.0000 (119%)\n  warning_fp_rate: 0.0306 / 0.0400 (77%)\n  crisis_fp_rate: 0.0082 / 0.0150 (54%)\n  advisory_fp_rate: 0.4240 / 0.4500 (94%)\n  preaction_fp_rate: 0.0669 / 0.1000 (67%)\n  pct_preaction_watch: 0.0547 / 0.0500 (109%)\n  crises_detected: 7.0000 / 7.0000 (100%)\n  transitions_per_year: 8.5810 / 20.0000 (43%)\n  avg_recovery_days: 6.4286 / 10.0000 (64%)",
+        "scoring_weight_overrides": null,
+        "extra": {
+          "detection": {
+            "crises_detected": 7,
+            "total_crises": 7,
+            "avg_latency": 18.142857142857142,
+            "avg_action_latency": 14.857142857142858,
+            "avg_advisory_latency": 6.714285714285714,
+            "gfc_latency": 14.0,
+            "covid_latency": 10.0
+          },
+          "corrections": {
+            "corrections_detected": 2,
+            "total_corrections": 2,
+            "correction_avg_latency": 0.5
+          },
+          "fp_rates": {
+            "warning": 0.03060599877576005,
+            "crisis": 0.008161599673536014,
+            "advisory": 0.4239951030401959,
+            "preaction": 0.0669251173229953
+          },
+          "distribution": {
+            "pct_normal": 0.0020847810979847115,
+            "pct_watch": 0.9287699791521891,
+            "pct_warning": 0.034051424600416956,
+            "pct_crisis": 0.03509381514940931,
+            "pct_advisory_watch": 0.40462126476719945,
+            "pct_preaction_watch": 0.05472550382209868
+          },
+          "recovery": {
+            "avg_recovery_days": 6.428571428571429,
+            "max_recovery_days": 36.0
+          }
+        }
+      },
+      "new_mutations": {},
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "VIX_CRISIS": 42.0,
+        "HYBRID_WARNING_MIN_CRISIS": 1,
+        "HYBRID_WARNING_MIN_PRIMARY": 2,
+        "SPY_DD_WARNING": -0.0576,
+        "VIX_WATCH": 29.0,
+        "VIX_WARNING": 37.0,
+        "ACCEL_DEESCALATE_NORMAL_DAYS": 3,
+        "DEESCALATE_CRISIS_DAYS": 2,
+        "DEESCALATE_WARNING_DAYS": 1,
+        "DEESCALATE_WATCH_DAYS": 1,
+        "SPY_DD_CRISIS": -0.1,
+        "SHOCK_SPY_3D_RETURN": -0.025,
+        "SHOCK_SPY_5D_RETURN": -0.045,
+        "SHOCK_VIX_3D_CHANGE": 5.0,
+        "SHOCK_MIN_VIX": 22.0,
+        "SHOCK_CORR_MIN": 0.45,
+        "SHOCK_CORR_SPY_5D_RETURN": -0.02
+      },
+      "attempted_final_score": 0.830978246848067,
+      "attempted_final_metrics": {
+        "avg_latency": 18.142857142857142,
+        "max_latency": 34.0,
+        "avg_action_latency": 14.857142857142858,
+        "max_action_latency": 26.0,
+        "avg_advisory_latency": 6.714285714285714,
+        "max_advisory_latency": 17.0,
+        "gfc_latency": 14.0,
+        "covid_latency": 10.0,
+        "crises_detected": 7,
+        "total_crises": 7,
+        "corrections_detected": 2,
+        "total_corrections": 2,
+        "correction_avg_latency": 0.5,
+        "warning_fp_rate": 0.03060599877576005,
+        "crisis_fp_rate": 0.008161599673536014,
+        "advisory_fp_rate": 0.4239951030401959,
+        "preaction_fp_rate": 0.0669251173229953,
+        "avg_peak_level": 3.0,
+        "total_transitions": 196,
+        "transitions_per_year": 8.580958999305073,
+        "pct_normal": 0.0020847810979847115,
+        "pct_watch": 0.9287699791521891,
+        "pct_warning": 0.034051424600416956,
+        "pct_crisis": 0.03509381514940931,
+        "pct_advisory_watch": 0.40462126476719945,
+        "pct_preaction_watch": 0.05472550382209868,
+        "avg_recovery_days": 6.428571428571429,
+        "max_recovery_days": 36.0
+      },
+      "attempted_kept_features": [],
+      "attempted_accepted_count": 0
+    },
+    "3": {
+      "focus": "Correlation + Yield + Conjunction",
+      "base_mutations": {
+        "VIX_CRISIS": 42.0,
+        "HYBRID_WARNING_MIN_CRISIS": 1,
+        "HYBRID_WARNING_MIN_PRIMARY": 2,
+        "SPY_DD_WARNING": -0.0576,
+        "VIX_WATCH": 29.0,
+        "VIX_WARNING": 37.0,
+        "ACCEL_DEESCALATE_NORMAL_DAYS": 3,
+        "DEESCALATE_CRISIS_DAYS": 2,
+        "DEESCALATE_WARNING_DAYS": 1,
+        "DEESCALATE_WATCH_DAYS": 1,
+        "SPY_DD_CRISIS": -0.1,
+        "SHOCK_SPY_3D_RETURN": -0.025,
+        "SHOCK_SPY_5D_RETURN": -0.045,
+        "SHOCK_VIX_3D_CHANGE": 5.0,
+        "SHOCK_MIN_VIX": 22.0,
+        "SHOCK_CORR_MIN": 0.45,
+        "SHOCK_CORR_SPY_5D_RETURN": -0.02
+      },
+      "final_mutations": {
+        "VIX_CRISIS": 42.0,
+        "HYBRID_WARNING_MIN_CRISIS": 1,
+        "HYBRID_WARNING_MIN_PRIMARY": 2,
+        "SPY_DD_WARNING": -0.0576,
+        "VIX_WATCH": 29.0,
+        "VIX_WARNING": 37.0,
+        "ACCEL_DEESCALATE_NORMAL_DAYS": 3,
+        "DEESCALATE_CRISIS_DAYS": 2,
+        "DEESCALATE_WARNING_DAYS": 1,
+        "DEESCALATE_WATCH_DAYS": 1,
+        "SPY_DD_CRISIS": -0.1,
+        "SHOCK_SPY_3D_RETURN": -0.025,
+        "SHOCK_SPY_5D_RETURN": -0.045,
+        "SHOCK_VIX_3D_CHANGE": 5.0,
+        "SHOCK_MIN_VIX": 22.0,
+        "SHOCK_CORR_MIN": 0.45,
+        "SHOCK_CORR_SPY_5D_RETURN": -0.02
+      },
+      "base_score": 0.830978246848067,
+      "final_score": 0.830978246848067,
+      "kept_features": [],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 43,
+          "best_name": "slope_lookback_120",
+          "best_score": 0.8311990767076403,
+          "best_delta_pct": 0.026574685969325395,
+          "kept": false,
+          "rejected_count": 3
+        }
+      ],
+      "final_metrics": {
+        "avg_latency": 18.142857142857142,
+        "max_latency": 34.0,
+        "avg_action_latency": 14.857142857142858,
+        "max_action_latency": 26.0,
+        "avg_advisory_latency": 6.714285714285714,
+        "max_advisory_latency": 17.0,
+        "gfc_latency": 14.0,
+        "covid_latency": 10.0,
+        "crises_detected": 7,
+        "total_crises": 7,
+        "corrections_detected": 2,
+        "total_corrections": 2,
+        "correction_avg_latency": 0.5,
+        "warning_fp_rate": 0.03060599877576005,
+        "crisis_fp_rate": 0.008161599673536014,
+        "advisory_fp_rate": 0.4239951030401959,
+        "preaction_fp_rate": 0.0669251173229953,
+        "avg_peak_level": 3.0,
+        "total_transitions": 196,
+        "transitions_per_year": 8.580958999305073,
+        "pct_normal": 0.0020847810979847115,
+        "pct_watch": 0.9287699791521891,
+        "pct_warning": 0.034051424600416956,
+        "pct_crisis": 0.03509381514940931,
+        "pct_advisory_watch": 0.40462126476719945,
+        "pct_preaction_watch": 0.05472550382209868,
+        "avg_recovery_days": 6.428571428571429,
+        "max_recovery_days": 36.0
+      },
+      "total_candidates": 43,
+      "accepted_count": 0,
+      "elapsed_seconds": 0.8595569133758545,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 3,
+        "goal_progress": {
+          "avg_latency": {
+            "target": 16.0,
+            "actual": 18.142857142857142,
+            "pct_of_target": 88.18897637795276
+          },
+          "avg_action_latency": {
+            "target": 12.0,
+            "actual": 14.857142857142858,
+            "pct_of_target": 80.76923076923077
+          },
+          "avg_advisory_latency": {
+            "target": 8.0,
+            "actual": 6.714285714285714,
+            "pct_of_target": 119.14893617021276
+          },
+          "warning_fp_rate": {
+            "target": 0.04,
+            "actual": 0.03060599877576005,
+            "pct_of_target": 76.51499693940012
+          },
+          "crisis_fp_rate": {
+            "target": 0.015,
+            "actual": 0.008161599673536014,
+            "pct_of_target": 54.41066449024009
+          },
+          "advisory_fp_rate": {
+            "target": 0.45,
+            "actual": 0.4239951030401959,
+            "pct_of_target": 94.22113400893241
+          },
+          "preaction_fp_rate": {
+            "target": 0.1,
+            "actual": 0.0669251173229953,
+            "pct_of_target": 66.92511732299529
+          },
+          "pct_preaction_watch": {
+            "target": 0.05,
+            "actual": 0.05472550382209868,
+            "pct_of_target": 109.45100764419735
+          },
+          "crises_detected": {
+            "target": 7.0,
+            "actual": 7.0,
+            "pct_of_target": 100.0
+          },
+          "transitions_per_year": {
+            "target": 20.0,
+            "actual": 8.580958999305073,
+            "pct_of_target": 42.90479499652536
+          },
+          "avg_recovery_days": {
+            "target": 10.0,
+            "actual": 6.428571428571429,
+            "pct_of_target": 64.28571428571429
+          }
+        },
+        "strengths": [
+          "avg_latency: 18.1429 (88% of 16.0000)",
+          "avg_action_latency: 14.8571 (81% of 12.0000)",
+          "avg_advisory_latency: 6.7143 (119% of 8.0000)",
+          "advisory_fp_rate: 0.4240 (94% of 0.4500)",
+          "pct_preaction_watch: 0.0547 (109% of 0.0500)",
+          "crises_detected: 7.0000 (100% of 7.0000)"
+        ],
+        "weaknesses": [
+          "crisis_fp_rate: 0.0082 (54% of 0.0150)",
+          "transitions_per_year: 8.5810 (43% of 20.0000)"
+        ],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "Average portfolio action latency 14.9d -- early action too slow"
+        ],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 3 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + avg_latency: 18.1429 (88% of 16.0000)\n  + avg_action_latency: 14.8571 (81% of 12.0000)\n  + avg_advisory_latency: 6.7143 (119% of 8.0000)\n  + advisory_fp_rate: 0.4240 (94% of 0.4500)\n  + pct_preaction_watch: 0.0547 (109% of 0.0500)\n  + crises_detected: 7.0000 (100% of 7.0000)\n\nWeaknesses:\n  - crisis_fp_rate: 0.0082 (54% of 0.0150)\n  - transitions_per_year: 8.5810 (43% of 20.0000)\n\nDiagnostic Gaps:\n  ! Average portfolio action latency 14.9d -- early action too slow\n\nExtra Analysis:\n  Detection: 7/7 crises, hard/action/advisory latency 18.1d/14.9d/6.7d\n  Corrections: 2/2, avg latency 0.5d\n  FP rates: WARNING=3.06%, CRISIS=0.82%, ADVISORY=42.40%, PREACTION=6.69%\n  Distribution: NORMAL=0.2%, WATCH=92.9%, WARNING=3.4%, CRISIS=3.5%, PREACTION_WATCH=5.5%\n  Recovery: avg 6.4d, max 36.0d post-crisis elevated\n\nGoal Progress:\n  avg_latency: 18.1429 / 16.0000 (88%)\n  avg_action_latency: 14.8571 / 12.0000 (81%)\n  avg_advisory_latency: 6.7143 / 8.0000 (119%)\n  warning_fp_rate: 0.0306 / 0.0400 (77%)\n  crisis_fp_rate: 0.0082 / 0.0150 (54%)\n  advisory_fp_rate: 0.4240 / 0.4500 (94%)\n  preaction_fp_rate: 0.0669 / 0.1000 (67%)\n  pct_preaction_watch: 0.0547 / 0.0500 (109%)\n  crises_detected: 7.0000 / 7.0000 (100%)\n  transitions_per_year: 8.5810 / 20.0000 (43%)\n  avg_recovery_days: 6.4286 / 10.0000 (64%)",
+        "scoring_weight_overrides": null,
+        "extra": {
+          "detection": {
+            "crises_detected": 7,
+            "total_crises": 7,
+            "avg_latency": 18.142857142857142,
+            "avg_action_latency": 14.857142857142858,
+            "avg_advisory_latency": 6.714285714285714,
+            "gfc_latency": 14.0,
+            "covid_latency": 10.0
+          },
+          "corrections": {
+            "corrections_detected": 2,
+            "total_corrections": 2,
+            "correction_avg_latency": 0.5
+          },
+          "fp_rates": {
+            "warning": 0.03060599877576005,
+            "crisis": 0.008161599673536014,
+            "advisory": 0.4239951030401959,
+            "preaction": 0.0669251173229953
+          },
+          "distribution": {
+            "pct_normal": 0.0020847810979847115,
+            "pct_watch": 0.9287699791521891,
+            "pct_warning": 0.034051424600416956,
+            "pct_crisis": 0.03509381514940931,
+            "pct_advisory_watch": 0.40462126476719945,
+            "pct_preaction_watch": 0.05472550382209868
+          },
+          "recovery": {
+            "avg_recovery_days": 6.428571428571429,
+            "max_recovery_days": 36.0
+          }
+        }
+      },
+      "new_mutations": {},
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "VIX_CRISIS": 42.0,
+        "HYBRID_WARNING_MIN_CRISIS": 1,
+        "HYBRID_WARNING_MIN_PRIMARY": 2,
+        "SPY_DD_WARNING": -0.0576,
+        "VIX_WATCH": 29.0,
+        "VIX_WARNING": 37.0,
+        "ACCEL_DEESCALATE_NORMAL_DAYS": 3,
+        "DEESCALATE_CRISIS_DAYS": 2,
+        "DEESCALATE_WARNING_DAYS": 1,
+        "DEESCALATE_WATCH_DAYS": 1,
+        "SPY_DD_CRISIS": -0.1,
+        "SHOCK_SPY_3D_RETURN": -0.025,
+        "SHOCK_SPY_5D_RETURN": -0.045,
+        "SHOCK_VIX_3D_CHANGE": 5.0,
+        "SHOCK_MIN_VIX": 22.0,
+        "SHOCK_CORR_MIN": 0.45,
+        "SHOCK_CORR_SPY_5D_RETURN": -0.02
+      },
+      "attempted_final_score": 0.830978246848067,
+      "attempted_final_metrics": {
+        "avg_latency": 18.142857142857142,
+        "max_latency": 34.0,
+        "avg_action_latency": 14.857142857142858,
+        "max_action_latency": 26.0,
+        "avg_advisory_latency": 6.714285714285714,
+        "max_advisory_latency": 17.0,
+        "gfc_latency": 14.0,
+        "covid_latency": 10.0,
+        "crises_detected": 7,
+        "total_crises": 7,
+        "corrections_detected": 2,
+        "total_corrections": 2,
+        "correction_avg_latency": 0.5,
+        "warning_fp_rate": 0.03060599877576005,
+        "crisis_fp_rate": 0.008161599673536014,
+        "advisory_fp_rate": 0.4239951030401959,
+        "preaction_fp_rate": 0.0669251173229953,
+        "avg_peak_level": 3.0,
+        "total_transitions": 196,
+        "transitions_per_year": 8.580958999305073,
+        "pct_normal": 0.0020847810979847115,
+        "pct_watch": 0.9287699791521891,
+        "pct_warning": 0.034051424600416956,
+        "pct_crisis": 0.03509381514940931,
+        "pct_advisory_watch": 0.40462126476719945,
+        "pct_preaction_watch": 0.05472550382209868,
+        "avg_recovery_days": 6.428571428571429,
+        "max_recovery_days": 36.0
+      },
+      "attempted_kept_features": [],
+      "attempted_accepted_count": 0
+    },
+    "4": {
+      "focus": "Fine-Tuning",
+      "base_mutations": {
+        "VIX_CRISIS": 42.0,
+        "HYBRID_WARNING_MIN_CRISIS": 1,
+        "HYBRID_WARNING_MIN_PRIMARY": 2,
+        "SPY_DD_WARNING": -0.0576,
+        "VIX_WATCH": 29.0,
+        "VIX_WARNING": 37.0,
+        "ACCEL_DEESCALATE_NORMAL_DAYS": 3,
+        "DEESCALATE_CRISIS_DAYS": 2,
+        "DEESCALATE_WARNING_DAYS": 1,
+        "DEESCALATE_WATCH_DAYS": 1,
+        "SPY_DD_CRISIS": -0.1,
+        "SHOCK_SPY_3D_RETURN": -0.025,
+        "SHOCK_SPY_5D_RETURN": -0.045,
+        "SHOCK_VIX_3D_CHANGE": 5.0,
+        "SHOCK_MIN_VIX": 22.0,
+        "SHOCK_CORR_MIN": 0.45,
+        "SHOCK_CORR_SPY_5D_RETURN": -0.02
+      },
+      "final_mutations": {
+        "VIX_CRISIS": 42.0,
+        "HYBRID_WARNING_MIN_CRISIS": 1,
+        "HYBRID_WARNING_MIN_PRIMARY": 2,
+        "SPY_DD_WARNING": -0.0576,
+        "VIX_WATCH": 29.0,
+        "VIX_WARNING": 37.0,
+        "ACCEL_DEESCALATE_NORMAL_DAYS": 3,
+        "DEESCALATE_CRISIS_DAYS": 2,
+        "DEESCALATE_WARNING_DAYS": 1,
+        "DEESCALATE_WATCH_DAYS": 1,
+        "SPY_DD_CRISIS": -0.1,
+        "SHOCK_SPY_3D_RETURN": -0.025,
+        "SHOCK_SPY_5D_RETURN": -0.043199999999999995,
+        "SHOCK_VIX_3D_CHANGE": 5.0,
+        "SHOCK_MIN_VIX": 22.0,
+        "SHOCK_CORR_MIN": 0.45,
+        "SHOCK_CORR_SPY_5D_RETURN": -0.02
+      },
+      "base_score": 0.830978246848067,
+      "final_score": 0.835156840138066,
+      "kept_features": [
+        "finetune_shock_spy_5d_return_m04"
+      ],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 53,
+          "best_name": "finetune_shock_spy_5d_return_m04",
+          "best_score": 0.835156840138066,
+          "best_delta_pct": 0.5028523076083641,
+          "kept": true,
+          "rejected_count": 3
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 49,
+          "best_name": "finetune_vix_warning_p04",
+          "best_score": 0.8370322314282505,
+          "best_delta_pct": 0.22455558046730492,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "avg_latency": 18.142857142857142,
+        "max_latency": 34.0,
+        "avg_action_latency": 13.428571428571429,
+        "max_action_latency": 26.0,
+        "avg_advisory_latency": 6.714285714285714,
+        "max_advisory_latency": 17.0,
+        "gfc_latency": 14.0,
+        "covid_latency": 10.0,
+        "crises_detected": 7,
+        "total_crises": 7,
+        "corrections_detected": 2,
+        "total_corrections": 2,
+        "correction_avg_latency": 0.5,
+        "warning_fp_rate": 0.03060599877576005,
+        "crisis_fp_rate": 0.008161599673536014,
+        "advisory_fp_rate": 0.4244031830238727,
+        "preaction_fp_rate": 0.06774127729034891,
+        "avg_peak_level": 3.0,
+        "total_transitions": 196,
+        "transitions_per_year": 8.580958999305073,
+        "pct_normal": 0.0020847810979847115,
+        "pct_watch": 0.9287699791521891,
+        "pct_warning": 0.034051424600416956,
+        "pct_crisis": 0.03509381514940931,
+        "pct_advisory_watch": 0.40496872828353025,
+        "pct_preaction_watch": 0.05559416261292564,
+        "avg_recovery_days": 6.428571428571429,
+        "max_recovery_days": 36.0
+      },
+      "total_candidates": 53,
+      "accepted_count": 1,
+      "elapsed_seconds": 1.5549297332763672,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 4,
+        "goal_progress": {
+          "avg_latency": {
+            "target": 16.0,
+            "actual": 18.142857142857142,
+            "pct_of_target": 88.18897637795276
+          },
+          "avg_action_latency": {
+            "target": 12.0,
+            "actual": 13.428571428571429,
+            "pct_of_target": 89.36170212765957
+          },
+          "avg_advisory_latency": {
+            "target": 8.0,
+            "actual": 6.714285714285714,
+            "pct_of_target": 119.14893617021276
+          },
+          "warning_fp_rate": {
+            "target": 0.04,
+            "actual": 0.03060599877576005,
+            "pct_of_target": 76.51499693940012
+          },
+          "crisis_fp_rate": {
+            "target": 0.015,
+            "actual": 0.008161599673536014,
+            "pct_of_target": 54.41066449024009
+          },
+          "advisory_fp_rate": {
+            "target": 0.45,
+            "actual": 0.4244031830238727,
+            "pct_of_target": 94.31181844974948
+          },
+          "preaction_fp_rate": {
+            "target": 0.1,
+            "actual": 0.06774127729034891,
+            "pct_of_target": 67.7412772903489
+          },
+          "pct_preaction_watch": {
+            "target": 0.05,
+            "actual": 0.05559416261292564,
+            "pct_of_target": 111.18832522585127
+          },
+          "crises_detected": {
+            "target": 7.0,
+            "actual": 7.0,
+            "pct_of_target": 100.0
+          },
+          "transitions_per_year": {
+            "target": 20.0,
+            "actual": 8.580958999305073,
+            "pct_of_target": 42.90479499652536
+          },
+          "avg_recovery_days": {
+            "target": 10.0,
+            "actual": 6.428571428571429,
+            "pct_of_target": 64.28571428571429
+          }
+        },
+        "strengths": [
+          "avg_latency: 18.1429 (88% of 16.0000)",
+          "avg_action_latency: 13.4286 (89% of 12.0000)",
+          "avg_advisory_latency: 6.7143 (119% of 8.0000)",
+          "advisory_fp_rate: 0.4244 (94% of 0.4500)",
+          "pct_preaction_watch: 0.0556 (111% of 0.0500)",
+          "crises_detected: 7.0000 (100% of 7.0000)"
+        ],
+        "weaknesses": [
+          "crisis_fp_rate: 0.0082 (54% of 0.0150)",
+          "transitions_per_year: 8.5810 (43% of 20.0000)"
+        ],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 4 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + avg_latency: 18.1429 (88% of 16.0000)\n  + avg_action_latency: 13.4286 (89% of 12.0000)\n  + avg_advisory_latency: 6.7143 (119% of 8.0000)\n  + advisory_fp_rate: 0.4244 (94% of 0.4500)\n  + pct_preaction_watch: 0.0556 (111% of 0.0500)\n  + crises_detected: 7.0000 (100% of 7.0000)\n\nWeaknesses:\n  - crisis_fp_rate: 0.0082 (54% of 0.0150)\n  - transitions_per_year: 8.5810 (43% of 20.0000)\n\nExtra Analysis:\n  Detection: 7/7 crises, hard/action/advisory latency 18.1d/13.4d/6.7d\n  Corrections: 2/2, avg latency 0.5d\n  FP rates: WARNING=3.06%, CRISIS=0.82%, ADVISORY=42.44%, PREACTION=6.77%\n  Distribution: NORMAL=0.2%, WATCH=92.9%, WARNING=3.4%, CRISIS=3.5%, PREACTION_WATCH=5.6%\n  Recovery: avg 6.4d, max 36.0d post-crisis elevated\n\nGoal Progress:\n  avg_latency: 18.1429 / 16.0000 (88%)\n  avg_action_latency: 13.4286 / 12.0000 (89%)\n  avg_advisory_latency: 6.7143 / 8.0000 (119%)\n  warning_fp_rate: 0.0306 / 0.0400 (77%)\n  crisis_fp_rate: 0.0082 / 0.0150 (54%)\n  advisory_fp_rate: 0.4244 / 0.4500 (94%)\n  preaction_fp_rate: 0.0677 / 0.1000 (68%)\n  pct_preaction_watch: 0.0556 / 0.0500 (111%)\n  crises_detected: 7.0000 / 7.0000 (100%)\n  transitions_per_year: 8.5810 / 20.0000 (43%)\n  avg_recovery_days: 6.4286 / 10.0000 (64%)",
+        "scoring_weight_overrides": null,
+        "extra": {
+          "detection": {
+            "crises_detected": 7,
+            "total_crises": 7,
+            "avg_latency": 18.142857142857142,
+            "avg_action_latency": 13.428571428571429,
+            "avg_advisory_latency": 6.714285714285714,
+            "gfc_latency": 14.0,
+            "covid_latency": 10.0
+          },
+          "corrections": {
+            "corrections_detected": 2,
+            "total_corrections": 2,
+            "correction_avg_latency": 0.5
+          },
+          "fp_rates": {
+            "warning": 0.03060599877576005,
+            "crisis": 0.008161599673536014,
+            "advisory": 0.4244031830238727,
+            "preaction": 0.06774127729034891
+          },
+          "distribution": {
+            "pct_normal": 0.0020847810979847115,
+            "pct_watch": 0.9287699791521891,
+            "pct_warning": 0.034051424600416956,
+            "pct_crisis": 0.03509381514940931,
+            "pct_advisory_watch": 0.40496872828353025,
+            "pct_preaction_watch": 0.05559416261292564
+          },
+          "recovery": {
+            "avg_recovery_days": 6.428571428571429,
+            "max_recovery_days": 36.0
+          }
+        }
+      },
+      "new_mutations": {
+        "SHOCK_SPY_5D_RETURN": -0.043199999999999995
+      },
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "VIX_CRISIS": 42.0,
+        "HYBRID_WARNING_MIN_CRISIS": 1,
+        "HYBRID_WARNING_MIN_PRIMARY": 2,
+        "SPY_DD_WARNING": -0.0576,
+        "VIX_WATCH": 29.0,
+        "VIX_WARNING": 37.0,
+        "ACCEL_DEESCALATE_NORMAL_DAYS": 3,
+        "DEESCALATE_CRISIS_DAYS": 2,
+        "DEESCALATE_WARNING_DAYS": 1,
+        "DEESCALATE_WATCH_DAYS": 1,
+        "SPY_DD_CRISIS": -0.1,
+        "SHOCK_SPY_3D_RETURN": -0.025,
+        "SHOCK_SPY_5D_RETURN": -0.043199999999999995,
+        "SHOCK_VIX_3D_CHANGE": 5.0,
+        "SHOCK_MIN_VIX": 22.0,
+        "SHOCK_CORR_MIN": 0.45,
+        "SHOCK_CORR_SPY_5D_RETURN": -0.02
+      },
+      "attempted_final_score": 0.835156840138066,
+      "attempted_final_metrics": {
+        "avg_latency": 18.142857142857142,
+        "max_latency": 34.0,
+        "avg_action_latency": 13.428571428571429,
+        "max_action_latency": 26.0,
+        "avg_advisory_latency": 6.714285714285714,
+        "max_advisory_latency": 17.0,
+        "gfc_latency": 14.0,
+        "covid_latency": 10.0,
+        "crises_detected": 7,
+        "total_crises": 7,
+        "corrections_detected": 2,
+        "total_corrections": 2,
+        "correction_avg_latency": 0.5,
+        "warning_fp_rate": 0.03060599877576005,
+        "crisis_fp_rate": 0.008161599673536014,
+        "advisory_fp_rate": 0.4244031830238727,
+        "preaction_fp_rate": 0.06774127729034891,
+        "avg_peak_level": 3.0,
+        "total_transitions": 196,
+        "transitions_per_year": 8.580958999305073,
+        "pct_normal": 0.0020847810979847115,
+        "pct_watch": 0.9287699791521891,
+        "pct_warning": 0.034051424600416956,
+        "pct_crisis": 0.03509381514940931,
+        "pct_advisory_watch": 0.40496872828353025,
+        "pct_preaction_watch": 0.05559416261292564,
+        "avg_recovery_days": 6.428571428571429,
+        "max_recovery_days": 36.0
+      },
+      "attempted_kept_features": [
+        "finetune_shock_spy_5d_return_m04"
+      ],
+      "attempted_accepted_count": 1
+    }
+  },
+  "phase_gate_results": {
+    "1": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "crises_detected",
+          "target": 7.0,
+          "actual": 7.0,
+          "passed": true
+        },
+        {
+          "name": "avg_latency",
+          "target": 30.0,
+          "actual": 18.142857142857142,
+          "passed": true
+        },
+        {
+          "name": "avg_action_latency",
+          "target": 20.0,
+          "actual": 14.857142857142858,
+          "passed": true
+        },
+        {
+          "name": "warning_fp_rate",
+          "target": 0.12,
+          "actual": 0.03060599877576005,
+          "passed": true
+        },
+        {
+          "name": "preaction_fp_rate",
+          "target": 0.2,
+          "actual": 0.0669251173229953,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "2": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "crises_detected",
+          "target": 7.0,
+          "actual": 7.0,
+          "passed": true
+        },
+        {
+          "name": "avg_latency",
+          "target": 22.0,
+          "actual": 18.142857142857142,
+          "passed": true
+        },
+        {
+          "name": "avg_action_latency",
+          "target": 18.0,
+          "actual": 14.857142857142858,
+          "passed": true
+        },
+        {
+          "name": "warning_fp_rate",
+          "target": 0.08,
+          "actual": 0.03060599877576005,
+          "passed": true
+        },
+        {
+          "name": "preaction_fp_rate",
+          "target": 0.16,
+          "actual": 0.0669251173229953,
+          "passed": true
+        },
+        {
+          "name": "avg_recovery_days",
+          "target": 20.0,
+          "actual": 6.428571428571429,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "3": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "crises_detected",
+          "target": 7.0,
+          "actual": 7.0,
+          "passed": true
+        },
+        {
+          "name": "avg_latency",
+          "target": 20.0,
+          "actual": 18.142857142857142,
+          "passed": true
+        },
+        {
+          "name": "avg_action_latency",
+          "target": 17.0,
+          "actual": 14.857142857142858,
+          "passed": true
+        },
+        {
+          "name": "warning_fp_rate",
+          "target": 0.06,
+          "actual": 0.03060599877576005,
+          "passed": true
+        },
+        {
+          "name": "preaction_fp_rate",
+          "target": 0.14,
+          "actual": 0.0669251173229953,
+          "passed": true
+        },
+        {
+          "name": "crisis_fp_rate",
+          "target": 0.03,
+          "actual": 0.008161599673536014,
+          "passed": true
+        },
+        {
+          "name": "avg_recovery_days",
+          "target": 15.0,
+          "actual": 6.428571428571429,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "4": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "crises_detected",
+          "target": 7.0,
+          "actual": 7.0,
+          "passed": true
+        },
+        {
+          "name": "avg_latency",
+          "target": 18.5,
+          "actual": 18.142857142857142,
+          "passed": true
+        },
+        {
+          "name": "avg_action_latency",
+          "target": 16.5,
+          "actual": 13.428571428571429,
+          "passed": true
+        },
+        {
+          "name": "avg_advisory_latency",
+          "target": 8.0,
+          "actual": 6.714285714285714,
+          "passed": true
+        },
+        {
+          "name": "warning_fp_rate",
+          "target": 0.05,
+          "actual": 0.03060599877576005,
+          "passed": true
+        },
+        {
+          "name": "preaction_fp_rate",
+          "target": 0.12,
+          "actual": 0.06774127729034891,
+          "passed": true
+        },
+        {
+          "name": "advisory_fp_rate",
+          "target": 0.45,
+          "actual": 0.4244031830238727,
+          "passed": true
+        },
+        {
+          "name": "crisis_fp_rate",
+          "target": 0.02,
+          "actual": 0.008161599673536014,
+          "passed": true
+        },
+        {
+          "name": "avg_recovery_days",
+          "target": 10.0,
+          "actual": 6.428571428571429,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    }
+  },
+  "retry_count": {},
+  "scoring_retries": {},
+  "diagnostic_retries": {},
+  "phase_timestamps": {
+    "1": {
+      "started": "2026-05-06T03:18:53.363345+00:00",
+      "completed": "2026-05-06T03:20:25.735146+00:00"
+    },
+    "2": {
+      "started": "2026-05-06T03:20:25.780148+00:00",
+      "completed": "2026-05-06T03:20:26.970574+00:00"
+    },
+    "3": {
+      "started": "2026-05-06T03:20:27.031577+00:00",
+      "completed": "2026-05-06T03:20:28.187828+00:00"
+    },
+    "4": {
+      "started": "2026-05-06T03:20:28.241827+00:00",
+      "completed": "2026-05-06T03:21:49.886830+00:00"
+    }
+  },
+  "round_name": ""
+}

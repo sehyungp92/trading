@@ -1,0 +1,39 @@
+{
+  "base_score": 0.6299551004878143,
+  "final_score": 0.6644083101664948,
+  "final_mutations": {
+    "flags.early_stall_exit": true,
+    "param_overrides.early_stall_check_hours": 12,
+    "param_overrides.early_stall_mfe_threshold": 0.2,
+    "param_overrides.max_hold_hours": 80,
+    "param_overrides.adx_on": 14,
+    "param_overrides.recovery_tolerance_atr_trend": 0.55
+  },
+  "kept_features": [
+    "recov_trend_055"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 27,
+      "best_name": "recov_trend_055",
+      "best_score": 0.6644083101664948,
+      "best_delta_pct": 5.469153222507631,
+      "kept": true,
+      "rejected_count": 1
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 22,
+      "best_name": "ema_pull_strong_50",
+      "best_score": 0.6645363027550469,
+      "best_delta_pct": 0.019264146247665585,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 27,
+  "accepted_count": 1,
+  "elapsed_seconds": 470.61351227760315
+}

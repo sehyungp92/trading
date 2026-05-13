@@ -1,0 +1,15 @@
+==============================================================================
+MOMENTUM PORTFOLIO ROUND EVALUATION
+==============================================================================
+Verdict: PASS
+Result preservation: replayed current optimized config into standardized round output.
+Final score: 1.1256
+Validation score: 0.9175
+Accepted/blocked: 1219/40
+Net profit: $297,274.95
+Net return: 594.55%
+MTM max DD: 7.07%
+PF / WR: 3.54 / 65.05%
+Replay contract: completed_source_trade_replay_live_portfolio_rules.v1
+Evidence scope: portfolio_sizing_evidence_not_full_source_execution_simulation
+Source artifacts fingerprint: 1383395b9c3c9c8319c062d2d32c1df7530637a70738c2665fabcd67c3424400

@@ -1,0 +1,116 @@
+# Momentum Family Portfolio Diagnostics
+
+## Executive Read
+
+Final local-best tested portfolio fired 1259 candidates, accepted 1219, and blocked 40 (3.2% block rate).
+Net profit was $297,274.95, return 594.5%, PF 3.54, win rate 65.1%, bar-close MTM max DD 7.07%, and 41.97 trades/month.
+Key ratios: Sharpe 5.87, Sortino 11.63, Calmar 17.36.
+
+Portfolio max DD is reported on a bar-close mark-to-market basis, matching the individual momentum strategy diagnostics. The prior daily realized-only DD for this same run was 1.96%.
+
+This is a local optimum for the tested seven-component portfolio score, not proof of a global optimum.
+
+## Portfolio Risk Basis
+
+| Basis | Max DD | Final Equity | Net Return | Calmar | Points | Source |
+|---|---:|---:|---:|---:|---:|---|
+| Bar-close MTM | 7.07% | $347,275 | 594.5% | 17.36 | 170268 | backtests\momentum\data\raw\NQ_5m.parquet |
+| Daily realized legacy | 1.96% | $348,012 | 596.0% | 62.72 | 885 | closed-trade daily curve |
+
+## Scenario Comparison
+
+| Scenario | Trades | Blocked | Block Rate | Net Profit | Trades/Mo | Win Rate | PF | MTM Max DD | Sharpe | Sortino | Calmar |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| optimized_live_rules | 1219 | 40 | 3.2% | $297,275 | 41.97 | 65.1% | 3.54 | 7.07% | 5.87 | 11.63 | 17.36 |
+| same_allocations_relaxed_shared_caps | 1246 | 13 | 1.0% | $384,161 | 42.90 | 65.2% | 4.13 | 7.61% | 5.80 | 14.38 | 18.96 |
+| live_rules_risk_1_5x | 1218 | 41 | 3.3% | $309,368 | 41.94 | 65.0% | 3.54 | 10.70% | 5.46 | 10.20 | 11.76 |
+| live_rules_risk_2_0x | 1218 | 41 | 3.3% | $311,196 | 41.94 | 65.0% | 3.54 | 12.79% | 5.34 | 9.98 | 9.88 |
+
+## Fired, Accepted, Blocked By Strategy
+
+| Strategy | Fired | Accepted | Blocked | Accept Rate | Accepted WR | Blocked Raw WR | Adjusted PnL | Blocked Raw PnL | Avg Accepted R | Avg Blocked R |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| NQ_REGIME | 800 | 785 | 15 | 98.1% | 72.0% | 66.7% | $221,617 | $1,641 | 0.82 | 0.38 |
+| VdubusNQ_v4 | 210 | 209 | 1 | 99.5% | 51.2% | 100.0% | $40,559 | $469 | 0.43 | 0.20 |
+| NQDTC_v2.1 | 124 | 121 | 3 | 97.6% | 57.9% | 100.0% | $23,123 | $8,504 | 0.46 | 4.00 |
+| DownturnDominator_v1 | 125 | 104 | 21 | 83.2% | 49.0% | 81.0% | $11,976 | $8,556 | 0.38 | 0.85 |
+
+## Block Reasons
+
+| Reason | Count | Raw PnL Of Blocked | Raw WR | Avg Blocked R | Avg Open Positions | Main Strategies |
+|---|---:|---:|---:|---:|---:|---|
+| portfolio_daily_stop | 20 | $11,045 | 75.0% | 1.00 | 0.00 | NQ_REGIME:15, NQDTC_v2.1:2, DownturnDominator_v1:2, VdubusNQ_v4:1 |
+| dynamic_capacity_floor | 13 | $7,177 | 84.6% | 0.81 | 0.15 | DownturnDominator_v1:13 |
+| strategy_daily_stop | 7 | $948 | 71.4% | 0.74 | 0.14 | DownturnDominator_v1:6, NQDTC_v2.1:1 |
+
+## Candidate Size Pressure
+
+| Reason | Avg Current Heat R | Avg Base Risk R | Avg Current MNQ-eq | Avg Base MNQ-eq | Single Order > Heat Cap | Single Order > Contract Cap |
+|---|---:|---:|---:|---:|---:|---:|
+| portfolio_daily_stop | 0.00 | 0.00 | 0.0 | 0.0 | 0.0% | 0.0% |
+| dynamic_capacity_floor | 2.57 | 0.00 | 8.2 | 0.0 | 0.0% | 0.0% |
+| strategy_daily_stop | 0.00 | 0.00 | 0.0 | 0.0 | 0.0% | 0.0% |
+
+## Signal Crowding
+
+- Candidates with another family signal within 15m: 17.7%
+- Candidates with another family signal within 60m: 50.1%
+- Blocked candidates with an accepted position already open: 7.5%
+- Average accepted open positions at blocked entry time: 0.07
+
+Top within-15m strategy pairs:
+- NQ_REGIME / NQ_REGIME: 86
+- NQ_REGIME / VdubusNQ_v4: 15
+- NQDTC_v2.1 / NQ_REGIME: 7
+- DownturnDominator_v1 / NQ_REGIME: 4
+- DownturnDominator_v1 / NQDTC_v2.1: 2
+- NQDTC_v2.1 / VdubusNQ_v4: 2
+- DownturnDominator_v1 / DownturnDominator_v1: 2
+
+## Individual Strategy Reference
+
+| Strategy | Individual Trades | Individual Return | PF | Max DD | Trades/Mo | High-value diagnostic note |
+|---|---:|---:|---:|---:|---:|---|
+| NQDTC_v2.1 | 123 | 372.2% | 2.10 | 16.3% |  |  |
+| VdubusNQ_v4 | 198 | 1166.0% | 2.78 | 18.1% | 6.05 | Net return 1166.0% with 198 trades, PF=2.78, DD=18.1%. R/month throughput is 2.66 (0.440 avgR x 6.0 trades/month). |
+| DownturnDominator_v1 | 127 | 145.6% | 3.14 | 7.3% |  | Correction PnL is 134.0% with coverage 57.1%. Bear capture ratio is 11.1%. |
+| NQ_REGIME | 681 |  | 7.46 |  | 25.59 |  |
+
+## Tested Frontier
+
+| Phase | Candidate | Score | Net Profit | Trades/Mo | Trades | PF | MTM Max DD | Block Rate |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|
+| 3 | capacity_10_00_contracts_40_positions_8_risk_2_0 | 1.1256 | $297,275 | 41.97 | 1219 | 3.54 | 7.07% | 3.2% |
+| 4 | filter_vdubus_close_after_capacity | 1.1194 | $292,685 | 41.32 | 1200 | 3.57 | 7.07% | 4.7% |
+| 4 | filter_nqdtc_score_2_5_after_capacity | 1.1181 | $303,023 | 41.18 | 1196 | 3.77 | 7.07% | 5.0% |
+| 4 | filter_nq_regime_wide_ib_after_capacity | 1.1161 | $306,391 | 40.97 | 1190 | 3.69 | 6.55% | 5.5% |
+| 3 | capacity_10_00_contracts_40_positions_8_risk_1_75 | 1.1090 | $270,814 | 41.97 | 1219 | 3.72 | 7.07% | 3.2% |
+| 4 | filter_nq_regime_wide_and_nqdtc_low_score | 1.1086 | $312,166 | 40.18 | 1167 | 3.94 | 6.51% | 7.3% |
+| 3 | capacity_9_00_contracts_34_positions_7_risk_1_75 | 1.0878 | $251,292 | 41.97 | 1219 | 3.55 | 7.07% | 3.2% |
+| 3 | capacity_8_25_contracts_30_positions_7_risk_1_5 | 1.0633 | $226,522 | 42.25 | 1227 | 3.62 | 7.07% | 2.5% |
+| 3 | capacity_7_25_contracts_26_risk_1_5 | 1.0462 | $210,813 | 42.25 | 1227 | 3.47 | 7.07% | 2.5% |
+| 3 | capacity_6_75_contracts_24_risk_1_5 | 1.0363 | $201,712 | 42.25 | 1227 | 3.39 | 7.07% | 2.5% |
+
+## Implementation Safeguards
+
+| Safeguard | Status |
+|---|---|
+| Replay contract | completed_source_trade_replay_live_portfolio_rules.v1 |
+| Evidence scope | portfolio_sizing_evidence_not_full_source_execution_simulation |
+| Live portfolio rules | yes |
+| Shared capital ledger | yes |
+| Source artifact hashes recorded | yes |
+| Source artifacts fingerprint | 1383395b9c3c9c8319c062d2d32c1df7530637a70738c2665fabcd67c3424400 |
+| Headline risk basis | bar_close_mark_to_market |
+| Decision stream status | not_provided_completed_trade_replay |
+| Full source execution simulation | no |
+
+The portfolio result is official for shared-capital sizing/routing evidence. It does not replace source-strategy live/backtest parity tests for fills, order paths, or intrabar execution.
+
+## Interpretation
+
+- The lower portfolio profit is not mainly because the individual strategies lost their edge. The relaxed shared-cap scenario demonstrates much more gross opportunity, but it requires position stacking that the live engine should not allow.
+- The current local optimum is mainly a capital/risk-budget and simultaneous-signal problem: high-value signals cluster, then the live heat, directional, contract, and per-strategy concurrency rules decide which one gets the slot.
+- Optimized live rules captured 77.4% of relaxed-cap net profit and 97.8% of relaxed-cap trades.
+- The most blocked strategy was DownturnDominator_v1.
+- Frequency clears the 24 trades/month target; the remaining improvement problem is alpha per accepted slot and reducing avoidable max-concurrent blocks.

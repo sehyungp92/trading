@@ -1,0 +1,68 @@
+{
+  "base_score": 0.7146228613842385,
+  "final_score": 0.7372229792796393,
+  "final_mutations": {
+    "flags.max_loss_cap": true,
+    "flags.max_stop_width": true,
+    "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+    "param_overrides.BLOCK_CAUTION_REGIME": true,
+    "flags.displacement_threshold": false,
+    "param_overrides.SCORE_NORMAL": 1.5,
+    "param_overrides.RVOL_SCORE_THRESH": 1.5,
+    "param_overrides.MIN_BOX_WIDTH": 150,
+    "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+    "flags.block_eth_shorts": true,
+    "param_overrides.TP1_R": 1.4,
+    "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+    "param_overrides.TP1_PARTIAL_PCT": 0.5,
+    "param_overrides.BLOCK_ALIGNED_REGIME": true
+  },
+  "kept_features": [
+    "tp1_1.4_p50"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 33,
+      "best_name": "tp1_1.4_p50",
+      "best_score": 0.7372229792796393,
+      "best_delta_pct": 3.162523775355293,
+      "kept": true,
+      "rejected_count": 1
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 26,
+      "best_name": "chandelier_tighter_mid",
+      "best_score": 0.7399007184418099,
+      "best_delta_pct": 0.3632197092916331,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {
+    "total_trades": 89,
+    "win_rate": 0.5842696629213483,
+    "profit_factor": 2.1932120175867107,
+    "max_dd_pct": 0.15096239289761393,
+    "net_return_pct": 296.4326000000012,
+    "calmar": 19.63618847781834,
+    "sharpe": 1.8597752173193296,
+    "sortino": 38.88465610135131,
+    "avg_r": 0.5187420280832196,
+    "capture_ratio": 0.41358675546636753,
+    "burst_trade_pct": 0.011235955056179775,
+    "eth_short_wr": 0.0,
+    "eth_short_trades": 0,
+    "range_regime_pct": 1.0,
+    "tp1_hit_rate": 0.550561797752809,
+    "tp2_hit_rate": 0.0,
+    "avg_hold_hours": 8.324906367041198,
+    "avg_winner_r": 1.5989333313762788,
+    "avg_loser_r": -0.9993646684367555,
+    "avg_mfe_r": 2.569093248114446
+  },
+  "total_candidates": 33,
+  "accepted_count": 1,
+  "elapsed_seconds": 665.381397485733
+}

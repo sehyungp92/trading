@@ -1,0 +1,113 @@
+======================================================================
+ALCB END-OF-ROUND EVALUATION
+======================================================================
+
+Phase Progression Summary:
+  Phase 1: score 0.4862 -> 0.4862 (0 accepted)
+  Phase 2: score 0.5181 -> 0.5181 (0 accepted)
+  Phase 3: score 0.5014 -> 0.5014 (0 accepted)
+  Phase 4: score 0.4913 -> 0.6362 (2 accepted)
+  Phase 5: score 0.5669 -> 0.6827 (2 accepted)
+  Phase 6: score 0.7098 -> 0.8048 (1 accepted)
+
+Cumulative Mutations Applied:
+  ablation.use_adaptive_trail: True
+  ablation.use_breakout_distance_cap: True
+  ablation.use_combined_quality_gate: True
+  ablation.use_mfe_conviction_exit: True
+  ablation.use_or_width_min: True
+  ablation.use_orb_entry_range_gate: True
+  ablation.use_partial_takes: False
+  ablation.use_quick_exit_stage1: True
+  param_overrides.adaptive_trail_late_activate_r: 0.25
+  param_overrides.adaptive_trail_late_distance_r: 0.15
+  param_overrides.adaptive_trail_start_bars: 25
+  param_overrides.adaptive_trail_tighten_bars: 25
+  param_overrides.block_combined_regime_b: True
+  param_overrides.breakout_distance_cap_r: 1.0
+  param_overrides.carry_min_cpr: 0.6
+  param_overrides.carry_min_r: 0.5
+  param_overrides.combined_avwap_cap_pct: 0.003
+  param_overrides.combined_breakout_min_rvol: 2.5
+  param_overrides.combined_breakout_score_min: 5
+  param_overrides.entry_score_blocklist: ['COMBINED_BREAKOUT:5']
+  param_overrides.entry_score_size_mults: {'OR_BREAKOUT:5': 0.75, 'COMBINED_BREAKOUT:7': 1.15, 'PDH_BREAKOUT:6': 0.5}
+  param_overrides.entry_window_end: 12:30:00
+  param_overrides.flow_reversal_min_hold_bars: 12
+  param_overrides.fr_cpr_threshold: 0.3
+  param_overrides.fr_mfe_grace_r: 0.2
+  param_overrides.fr_trailing_activate_r: 0
+  param_overrides.mfe_conviction_check_bars: 16
+  param_overrides.mfe_conviction_floor_r: -0.15
+  param_overrides.mfe_conviction_min_r: 0.2
+  param_overrides.opening_range_bars: 6
+  param_overrides.or_width_min_pct: 0.0015
+  param_overrides.orb_entry_range_cap_r: 1.1
+  param_overrides.pdh_avwap_cap_pct: 0.005
+  param_overrides.pdh_size_mult: 0.75
+  param_overrides.qe_stage1_bars: 10
+  param_overrides.qe_stage1_min_r: -0.5
+  param_overrides.regime_mult_b: 0.7
+  param_overrides.rvol_threshold: 2
+  param_overrides.stop_atr_multiple: 0.8
+
+Signal Extraction / Alpha Capture
+No report provided.
+
+Signal Discrimination
+No report provided.
+
+Entry Mechanism
+No report provided.
+
+Trade Management
+No report provided.
+
+Exit Mechanism
+No report provided.
+
+Qe Replacement
+======================================================================
+QUICK EXIT REPLACEMENT TRADE ANALYSIS
+======================================================================
+
+  Max positions: 10  |  QE window: 30 min
+
+  --- Classification ---
+  Total trades:        510
+  QE exits:            30 (5.9% of all exits)
+  QE-enabled entries:  0 (0.0% of all entries)
+  Organic entries:     510 (100.0% of all entries)
+
+  QE-enabled = entered a slot freed by QE while positions were at max capacity.
+
+  --- Performance by Category ---
+  All trades:          n= 510  WR=62.0%  mean_R=+0.255  med_R=+0.250  total_R=+130.1  PF=1.89
+  QE exits themselves: n=  30  WR=0.0%  mean_R=-0.725  med_R=-0.714  total_R=-21.8  PF=0.00
+  QE-enabled entries:  n=   0  WR=0.0%  mean_R=+0.000  med_R=+0.000  total_R=+0.0  PF=0.00
+  Organic entries:     n= 510  WR=62.0%  mean_R=+0.255  med_R=+0.250  total_R=+130.1  PF=1.89
+
+  --- QE-Enabled Breakdown by Their Own Exit ---
+  exited via QE (churn):  n=   0  WR=0.0%  mean_R=+0.000  med_R=+0.000  total_R=+0.0  PF=0.00
+  exited via other:       n=   0  WR=0.0%  mean_R=+0.000  med_R=+0.000  total_R=+0.0  PF=0.00
+
+  --- Entry Type Distribution ---
+  Type                       QE-En N    Avg R    Org N    Avg R
+  COMBINED_BREAKOUT                0        —       62   +0.227
+  OR_BREAKOUT                      0        —      417   +0.243
+  PDH_BREAKOUT                     0        —       31   +0.469
+
+  --- Entry Time Distribution (30-min buckets) ---
+  Time      QE-En N    Avg R    Org N    Avg R
+  10:00           0        —      315   +0.269
+  10:30           0        —       71   +0.317
+  11:00           0        —       55   +0.165
+  11:30           0        —       34   +0.225
+  12:00           0        —       29   +0.095
+  12:30           0        —        6   +0.585
+
+  --- Verdict ---
+  No QE-enabled trades (QE never fires at max capacity).
+
+Overall Verdict
+Final 6-phase bundle finished at expectancy $+20.10, expected_total_r +130.07, 19.70 trades/month, PF 2.100, signal_quality 0.607, timing_quality 0.641, and max DD 2.8%.

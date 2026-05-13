@@ -1,0 +1,78 @@
+{
+  "phase": 4,
+  "goal_progress": {
+    "avg_latency": {
+      "target": 16.0,
+      "actual": 18.142857142857142,
+      "pct_of_target": 88.18897637795276
+    },
+    "warning_fp_rate": {
+      "target": 0.04,
+      "actual": 0.02978983880840645,
+      "pct_of_target": 74.47459702101612
+    },
+    "crisis_fp_rate": {
+      "target": 0.015,
+      "actual": 0.005713119771475209,
+      "pct_of_target": 38.08746514316807
+    },
+    "crises_detected": {
+      "target": 7.0,
+      "actual": 7.0,
+      "pct_of_target": 100.0
+    },
+    "transitions_per_year": {
+      "target": 20.0,
+      "actual": 9.456567060458651,
+      "pct_of_target": 47.28283530229326
+    },
+    "avg_recovery_days": {
+      "target": 10.0,
+      "actual": 6.428571428571429,
+      "pct_of_target": 64.28571428571429
+    }
+  },
+  "strengths": [
+    "avg_latency: 18.1429 (88% of 16.0000)",
+    "crises_detected: 7.0000 (100% of 7.0000)"
+  ],
+  "weaknesses": [
+    "crisis_fp_rate: 0.0057 (38% of 0.0150)",
+    "transitions_per_year: 9.4566 (47% of 20.0000)"
+  ],
+  "scoring_assessment": "INEFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Retry budget exhausted; advance with current best mutations.",
+  "report": "======================================================================\nPHASE 4 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Retry budget exhausted; advance with current best mutations.\nScoring assessment: INEFFECTIVE\n\nStrengths:\n  + avg_latency: 18.1429 (88% of 16.0000)\n  + crises_detected: 7.0000 (100% of 7.0000)\n\nWeaknesses:\n  - crisis_fp_rate: 0.0057 (38% of 0.0150)\n  - transitions_per_year: 9.4566 (47% of 20.0000)\n\nExtra Analysis:\n  Detection: 7/7 crises, avg latency 18.1d\n  Corrections: 2/2, avg latency 0.5d\n  FP rates: WARNING=2.98%, CRISIS=0.57%\n  Distribution: NORMAL=0.2%, WATCH=93.0%, WARNING=3.8%, CRISIS=3.0%\n  Recovery: avg 6.4d, max 36.0d post-crisis elevated\n\nGoal Progress:\n  avg_latency: 18.1429 / 16.0000 (88%)\n  warning_fp_rate: 0.0298 / 0.0400 (74%)\n  crisis_fp_rate: 0.0057 / 0.0150 (38%)\n  crises_detected: 7.0000 / 7.0000 (100%)\n  transitions_per_year: 9.4566 / 20.0000 (47%)\n  avg_recovery_days: 6.4286 / 10.0000 (64%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "detection": {
+      "crises_detected": 7,
+      "total_crises": 7,
+      "avg_latency": 18.142857142857142,
+      "gfc_latency": 14.0,
+      "covid_latency": 10.0
+    },
+    "corrections": {
+      "corrections_detected": 2,
+      "total_corrections": 2,
+      "correction_avg_latency": 0.5
+    },
+    "fp_rates": {
+      "warning": 0.02978983880840645,
+      "crisis": 0.005713119771475209
+    },
+    "distribution": {
+      "pct_normal": 0.0020847810979847115,
+      "pct_watch": 0.9301598332175122,
+      "pct_warning": 0.037526059763724806,
+      "pct_crisis": 0.03022932592077832
+    },
+    "recovery": {
+      "avg_recovery_days": 6.428571428571429,
+      "max_recovery_days": 36.0
+    }
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "phase": 3,
+  "goal_progress": {
+    "sharpe": {
+      "current": 1.9677,
+      "target": 1.0,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "calmar": {
+      "current": 1.1334,
+      "target": 1.0,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "cagr": {
+      "current": 0.1005,
+      "target": 0.08,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "sortino": {
+      "current": 3.1957,
+      "target": 1.5,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "max_drawdown": {
+      "current": 0.0887,
+      "target": 0.15,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "n_active_regimes": {
+      "current": 4,
+      "target": 4,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "regime_entropy": {
+      "current": 0.9914,
+      "target": 0.85,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "crisis_response": {
+      "current": 0.1409,
+      "target": 0.5,
+      "pct_progress": 28.2,
+      "status": "IN_PROGRESS"
+    },
+    "transition_rate": {
+      "current": 0.00804,
+      "target": "0.005-0.025",
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    }
+  },
+  "strengths": [
+    "All 4 regimes active (G/R/S/D)",
+    "Excellent regime entropy (0.991)",
+    "Well-balanced regime distribution (min share 19.9%)",
+    "Strong Sharpe ratio (1.968)",
+    "Good risk-adjusted returns (Calmar=1.133)",
+    "Well-controlled drawdowns (8.9%)",
+    "Strong CAGR (10.05%)"
+  ],
+  "weaknesses": [
+    "Very poor crisis detection (0.141) - model misses major regime shifts",
+    "REGRESSION: Max DD worsened from 7.3% to 8.9%"
+  ],
+  "scoring_assessment": "MARGINAL: Score improved by only 0.0011 across 1 mutations. The scoring function may not be sensitive enough to meaningful improvements. Consider increasing weight on the weakest metrics.",
+  "suggested_experiments": [
+    {
+      "name": "exp_crisis_vix_80",
+      "mutations": {
+        "crisis_weights": [
+          0.8,
+          0.15,
+          0.05
+        ]
+      }
+    },
+    {
+      "name": "exp_crisis_logit_steep",
+      "mutations": {
+        "crisis_logit_a": 3.0,
+        "crisis_logit_b": -0.3
+      }
+    },
+    {
+      "name": "exp_crisis_spread_heavy",
+      "mutations": {
+        "crisis_weights": [
+          0.3,
+          0.6,
+          0.1
+        ]
+      }
+    },
+    {
+      "name": "exp_stability_weight_0.6",
+      "mutations": {
+        "stability_weight": 0.6
+      }
+    },
+    {
+      "name": "exp_conf_floor_0.5",
+      "mutations": {
+        "conf_floor": 0.5
+      }
+    }
+  ],
+  "recommendation": "expand_and_proceed",
+  "recommendation_reason": "Gate passed but with metric regressions: REGRESSION: Max DD worsened from 7.3% to 8.9%. Adding compensating experiments to next phase."
+}

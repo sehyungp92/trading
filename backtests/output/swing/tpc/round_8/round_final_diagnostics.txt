@@ -1,0 +1,25 @@
+TPC ROUND 8 FINAL TRAIN-ONLY DIAGNOSTICS
+
+Updated: 2026-05-09 20:21:31
+Promotion source: OOS-selected candidate top3_pb30_qqq_no_mfe.
+Promoted changes: PB30 duration 5-18, QQQ T1 1.0R, MFE giveback disabled.
+Training window end: 2025-11-01
+Holdout policy: excluded from in-sample scoring; selection OOS was used only for repair/selection and is not an untouched holdout.
+
+Score components: alpha_quality, false_positive_control, risk_quality, frequency_floor, symbol_balance, stability.
+Additive evidence gates apply only when an additive lane actually trades: each active additive route needs min 5 trades, avgR >= +0.12, totalR >= +1.00, low-MFE loss rate <= 50%.
+
+net=+160.59%, avgR=+0.733, totalR=+92.36, trades=126, trades/month=2.22, PF=2.28, DD=13.85%
+
+Kept/promoted round features:
+- add_pb30_orderly
+- pb30_duration_5_18
+- qqq_t1_r_100
+- disable_mfe_giveback
+
+Structural guardrails:
+- The canonical round-7 replay bundle remains the baseline; completed 30m bars are read through the normal bar_input.bars_30m path.
+- True 30m MA slope/transition filters qualify the completed-30m pullback route; EMA20 touch/reclaim geometry remains a separate context layer.
+- Hard rejects penalise tiny samples, weak PF/expectancy, high false positives, high drawdown, high top-winner concentration, poor worst-year behaviour, and additive lanes without enough direct evidence.
+
+See full_diagnostics_in_sample.txt for the regenerated full cohort, funnel, stability, excursion, and final mutation diagnostics.

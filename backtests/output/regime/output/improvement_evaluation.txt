@@ -1,0 +1,387 @@
+======================================================================
+  REGIME PREDICTOR IMPROVEMENTS -- CRITICAL EVALUATION
+  Evaluated: 2026-03-30
+======================================================================
+
+This evaluates whether the 5 improvements in regime-predictor-improvements.md
+have been optimally achieved, and whether the model's value as a conditioning
+signal for downstream stock, swing, and momentum strategies has notably improved.
+
+NOTE ON COMPARABILITY: The "full_diagnostics_optimal.txt" (Sharpe 1.536) uses
+DAILY rebalancing (5723 rebalances). The EMA-only diagnostics uses WEEKLY
+rebalancing (1148). For fair comparison, this evaluation uses the optimizer's
+Phase 4 final metrics, which are ALL weekly-evaluated.
+
+
+======================================================================
+  1. THREE-VERSION COMPARISON (Weekly Eval, Comparable)
+======================================================================
+
+Metric                   Pre-Improvements    Full Calibration       EMA-Only
+                          (15 mutations)      (19 mutations)     (19 mutations)
+                          [baseline]          [temp+dirichlet]    [ema only]
+---------------------------------------------------------------------------
+Sharpe                        1.311               1.479              1.442
+Sortino                       1.954               2.211              2.163
+Calmar                        0.690               1.014              1.275  <-- best
+MaxDD                        12.75%              10.66%              8.72%  <-- best
+CAGR                          8.80%              10.81%             11.11%  <-- best
+Total Return                607.1%              982.2%            1051.6%   <-- best
+Composite Score               0.593               0.671              0.682  <-- best
+AvgP(dominant)                1.000               ~0.95*             0.990
+Turnover (ann)                9.53x              10.18x             10.93x
+
+* Full Calibration posteriors estimated from temp=2.5 + eps=0.01 + ema=0.7
+
+Key mutations that DIFFER:
+  Parameter               Pre-Imp      Full Cal     EMA-Only
+  ----------------------------------------------------------------
+  sticky_diag                12.0         12.0         15.0
+  posterior_temperature        --          2.5           --
+  posterior_smoothing_eps      --         0.01           --
+  posterior_ema_alpha          --          0.7          0.8
+  base_target_vol_annual     0.08         0.07         0.08
+  sigma_floor_annual         0.08           --         0.09
+  stability_weight            0.8           --          0.8
+  conf_floor                   --          0.5           --
+  ventilator_lambda           1.0          0.5           --
+  crisis_weights               --   [0.8,0.15,0.05]  [0.3,0.6,0.1]
+  delta_rho_exempt             --           --          0.0
+  delta_rho_threshold          --           --         0.15
+  crisis_logit_b              0.5           --           --
+
+
+======================================================================
+  2. IMPROVEMENT-BY-IMPROVEMENT GOAL ASSESSMENT
+======================================================================
+
+----------------------------------------------------------------------
+  IMP 1: POSTERIOR CALIBRATION (rated HIGHEST IMPACT)
+----------------------------------------------------------------------
+
+  GOAL:     AvgP(dom) in [0.60, 0.95], entropy > 0.15, Sharpe >= 1.3
+  RESULT:   AvgP(dom) = 0.990, entropy = 0.029, Sharpe = 1.442
+  VERDICT:  ** MOSTLY FAILED **
+
+  The temperature + Dirichlet approach (Full Calibration) was found in the
+  previous session to permanently dilute allocations with ~23% suboptimal
+  regime weights -- i.e. it was HARMFUL to allocation quality. This is a
+  legitimate finding: forced softening of inherently high-conviction posteriors
+  is counterproductive.
+
+  The EMA-only fallback (alpha=0.8) provides minimal softening:
+    - Min P(dom) = 0.800 (vs 1.000 before) -- only at transition points
+    - 98% of weeks still have P(dom) > 0.95
+    - blend_policy_portfolios() and confidence_fallback() remain near-no-ops
+    - Normalized entropy = 0.021 (target was > 0.15)
+
+  CONSEQUENCE: The core problem -- instantaneous allocation flips with zero
+  transition warning -- is barely mitigated. The ~3-week EMA fade provides
+  some smoothing at regime boundaries but no meaningful probabilistic blending.
+
+  SHARPE CHECK: 1.442 >= 1.3 target -- PASSED.
+
+----------------------------------------------------------------------
+  IMP 2: LABEL ANCHORING ACROSS REFITS (rated HIGH IMPACT)
+----------------------------------------------------------------------
+
+  GOAL:     State mean vectors correlate >= 0.8 across consecutive refits
+  RESULT:   NOT IMPLEMENTED
+  VERDICT:  ** NOT DONE **
+
+  label_continuity_weight was never added to the config or optimizer.
+  Evidence of label instability persists in year-by-year data:
+    - 2013: G=72% -> 2014: D=50% (abrupt identity shift at refit)
+    - 2023: G=49% -> 2024: S=74% (same pattern)
+    - 2008: D=74% -> 2009: G=51% (but this one is a genuine macro shift)
+
+  Some of these may reflect real economic transitions, but without anchoring
+  metrics there is no way to distinguish real shifts from refit artifacts.
+
+----------------------------------------------------------------------
+  IMP 3: REGIME TRANSITION MOMENTUM (rated HIGH IMPACT)
+----------------------------------------------------------------------
+
+  GOAL:     risk_momentum turns negative >= 2 weeks before major crises
+  RESULT:   Signal exists but has WRONG SIGN during 3 of 4 crises
+  VERDICT:  ** FAILED **
+
+  Crisis period risk_momentum:
+    GFC (2008-09 to 2009-03):      +0.267  (should be negative)
+    Euro Crisis (2011-08 to 2011):  +0.471  (should be negative)
+    COVID (2020-02 to 2020-04):     +1.128  (should be negative)
+    Rate Hike (2022-01 to 2022-10): -0.191  (correct, but marginal)
+    SVB (2023-03):                   0.000  (no signal)
+
+  ROOT CAUSE: With AvgP(dom)=0.990, posteriors are still near-binary.
+  The regime switch happens INSTANTANEOUSLY (one week), then the EMA
+  creates a brief ~3-week smoothing period. By the time the defined
+  crisis window starts, the model has ALREADY switched to defensive
+  and risk_momentum is measuring the STABILIZATION (positive) not the
+  INCOMING SHIFT (negative).
+
+  This confirms the plan's own prerequisite: "Improvement 1 must be done
+  first. Binary posteriors have zero gradient -- momentum is always 0."
+  Since Imp 1 failed to achieve meaningful posterior softening, Imp 3
+  is structurally incapable of providing advance warning.
+
+  The signal IS working mechanically (delta of posteriors over 4 weeks)
+  but its utility as an EARLY WARNING system is zero with binary posteriors.
+
+----------------------------------------------------------------------
+  IMP 4: FEATURE ENGINEERING (rated MEDIUM-HIGH)
+----------------------------------------------------------------------
+
+  GOAL:     VIX feature improves regime entropy and/or Sharpe vs baseline
+  RESULT:   Framework implemented but NO new features accepted by optimizer
+  VERDICT:  ** NO IMPACT **
+
+  The auto-optimizer was given candidates including add_vix, add_realized_vol,
+  add_trend_div, but none were selected. This means none produced positive
+  delta in the composite scoring function. The existing 4-feature set
+  (growth, inflation, slope, spread) remains the best configuration found.
+
+----------------------------------------------------------------------
+  IMP 5: WEIGHT SMOOTHING (rated MEDIUM)
+----------------------------------------------------------------------
+
+  GOAL:     Week-over-week allocation weight variance reduced >= 30%
+  RESULT:   weight_smoothing_alpha = 0.5 accepted by optimizer
+  VERDICT:  ** LIKELY MET **
+
+  With alpha=0.5 (50% new, 50% previous), week-over-week weight changes
+  are mechanically dampened. Current stability metrics:
+    w_SPY: avg_abs_change=0.0233
+    w_TLT: avg_abs_change=0.0168
+    w_GLD: avg_abs_change=0.0285
+    w_CASH: avg_abs_change=0.0323
+
+  Without pre-smoothing baseline for exact comparison, the ~50% dampening
+  factor from alpha=0.5 likely exceeds the 30% reduction target.
+
+  BONUS: Composite score improved from Full Cal (0.671) to EMA-Only (0.682)
+  partly because weight smoothing + stability_weight=0.8 jointly improved
+  the scoring function's stability components.
+
+
+======================================================================
+  3. SCORECARD SUMMARY
+======================================================================
+
+  Improvement                  Status         Goal Met?    Value Added
+  -----------------------------------------------------------------------
+  1. Posterior Calibration     Partial (EMA)  NO           Marginal
+  2. Label Anchoring           Not Done       NO           None
+  3. Transition Momentum       Implemented    NO           None (wrong sign)
+  4. Feature Engineering       Tested         NO           None
+  5. Weight Smoothing          Implemented    YES          Moderate
+
+  Overall: 1 of 5 goals met. 2 implemented but ineffective. 2 not done.
+
+
+======================================================================
+  4. NET IMPROVEMENT vs BASELINE (the metric that actually matters)
+======================================================================
+
+  vs Pre-Improvements Baseline:
+    Sharpe:     1.311 -> 1.442  (+10.0%)    BETTER
+    MaxDD:     12.75% -> 8.72%  (-31.6%)    MUCH BETTER
+    CAGR:       8.80% -> 11.11% (+26.3%)    MUCH BETTER
+    Calmar:     0.690 -> 1.275  (+84.8%)    MUCH BETTER
+    Composite:  0.593 -> 0.682  (+15.0%)    BETTER
+
+  vs Full Calibration:
+    Sharpe:     1.479 -> 1.442  (-2.5%)     SLIGHTLY WORSE
+    MaxDD:     10.66% -> 8.72%  (-18.2%)    BETTER
+    CAGR:      10.81% -> 11.11% (+2.8%)     SLIGHTLY BETTER
+    Calmar:     1.014 -> 1.275  (+25.7%)    MUCH BETTER
+    Composite:  0.671 -> 0.682  (+1.6%)     SLIGHTLY BETTER
+
+  The EMA-Only model is the BEST VERSION on composite score, drawdown
+  control, and total return. The Full Calibration had a slightly higher
+  Sharpe (+2.5%) but at the cost of worse drawdowns and lower CAGR.
+
+  IMPORTANT: The improvement vs baseline is largely from Phase 3-4
+  crisis/portfolio/leverage tuning (L_max=1.6, sigma_floor=0.09,
+  crisis_weights, delta_rho_threshold), NOT from the 5 planned
+  improvements. The EMA smoothing (alpha=0.8) and weight smoothing
+  (alpha=0.5) contribute marginally.
+
+
+======================================================================
+  5. VALUE AS DOWNSTREAM CONDITIONING SIGNAL
+======================================================================
+
+  The regime predictor was intended to provide conditioning signals for
+  stock, swing, and momentum families to set portfolio-level configs,
+  risk allocation, sizing, and priority rules.
+
+  WHAT THE MODEL CAN RELIABLY PROVIDE TODAY:
+  -------------------------------------------
+
+  a) CATEGORICAL REGIME LABEL (G/R/S/D)
+     - Changes ~2x per year (47 transitions over 22 years)
+     - Stable within regime (avg spell ~116 weeks in daily, ~24 weeks)
+     - Per-regime allocation profiles are economically sensible:
+         G (22%): SPY-heavy, moderate cash      (growth/recovery)
+         R (19%): SPY+EFA, some GLD             (reflation/expansion)
+         S (25%): GLD+CASH heavy, low equity    (stress/inflation hedge)
+         D (34%): TLT+CASH dominant, minimal eq (defensive/deleveraging)
+     - USEFUL FOR: Binary risk-on/risk-off decisions, broad allocation tilts
+
+  b) CRISIS OVERLAY (p_crisis)
+     - Correctly spikes during GFC (0.967), COVID (0.877), 2022 (0.910)
+     - Active >50%: 35.3% of weeks (overly broad? was 21.7% in optimal)
+     - THE MOST VALUABLE SIGNAL for real-time risk management
+     - USEFUL FOR: Emergency leverage reduction, position sizing caps
+
+  c) LEVERAGE SIGNAL (L)
+     - Range: 0.048 to 1.600 (with L_max=1.6)
+     - Avg: 1.026, meaningfully varies by regime and crisis state
+     - Responds well to crisis overlay (L=0.434 during GFC, 0.316 Euro)
+     - USEFUL FOR: Direct leverage/sizing multiplier for strategies
+
+  d) ALLOCATION WEIGHTS (w_SPY, w_EFA, w_TLT, w_GLD, w_CASH, w_IBIT)
+     - Smoothed (alpha=0.5) for signal stability
+     - Weekly avg_abs_change ~2-3% per asset
+     - USEFUL FOR: Portfolio-level asset allocation guidance
+
+  WHAT THE MODEL CANNOT PROVIDE (despite being planned):
+  ------------------------------------------------------
+
+  a) GRADUAL TRANSITION SIGNALS
+     - Posteriors are still 99% binary -> no gradient for continuous adjustment
+     - A strategy wanting to "gradually reduce equity exposure as we approach
+       a defensive regime" gets NO advance signal -- it sees 100% G one week
+       and 100% D the next
+     - blend_policy_portfolios() and confidence_fallback() remain no-ops
+
+  b) ADVANCE WARNING OF REGIME SHIFTS
+     - risk_momentum has wrong sign during crises (measures stabilization,
+       not incoming shift)
+     - No 2-4 week lead time as intended
+     - Downstream strategies get ZERO warning before regime flips
+
+  c) PROBABILITY-WEIGHTED BLENDING
+     - With P(dom) ~= 1.0, there is no meaningful way to blend regime-specific
+       configs proportionally
+     - Strategies must use binary if/else on dominant regime, not weighted mix
+
+  d) CONFIDENCE-BASED CAUTION
+     - Confidence avg = 0.970, rarely drops below 0.9
+     - No ability to signal "low conviction, be cautious" periods
+     - confidence_fallback() essentially never triggers
+
+
+======================================================================
+  6. REGIME CLASSIFICATION ACCURACY (for what it's worth)
+======================================================================
+
+  The plan says "label accuracy is not the concern" but allocation signal
+  quality IS. The regime labels determine allocation weights, so misclassified
+  periods get suboptimal allocations. Key concerns from critical_evaluation.txt:
+
+  MISMATCHES (from optimal version, similar pattern in EMA-only):
+    - 2003-2007 pre-GFC bull: classified D (88%), expected G
+      -> Model held TLT+CASH during equity bull -> missed returns
+      -> 2003-2007 returns: +11.2%, +2.5%, +2.6%, +0.4%, +6.5%
+         vs 60/40:          +17.6%, +10.2%, +6.6%, +9.7%, +7.8%
+      -> Underperformed 60/40 by cumulative -28.7% over 5 years
+
+    - 2013-2019 expansion: too much S (32%), should be more G
+      -> Some equity underweight during expansion
+      -> But still outperformed: +17.8%, +11.1%, -2.1%, +9.8%, +11.8%,
+         +2.1%, +23.8% (mixed vs 60/40)
+
+    - 2020 COVID: classified S/R, expected D
+      -> Allocation stayed more risk-on during crash
+      -> But only -2.8% max drawdown (vs 60/40 at -17.8%) due to crisis overlay
+      -> CRISIS OVERLAY compensated for regime misclassification
+
+    - 2022 rate hikes: classified D (71%), expected S
+      -> Held TLT during rate hikes (wrong!) but cash + low leverage saved it
+      -> Only -4.6% return (vs 60/40 at -22.8%)
+      -> Again, CRISIS OVERLAY + LEVERAGE did the heavy lifting
+
+  INSIGHT: The crisis overlay (p_crisis) and leverage governor are doing most
+  of the risk management work. The regime labels themselves are often wrong,
+  but the PORTFOLIO-LEVEL controls (crisis deleverage, sigma floor, vol cap)
+  compensate. This means the regime labels' direct conditioning value is
+  LIMITED -- the real value is in the crisis + leverage signals.
+
+
+======================================================================
+  7. CRITICAL ASSESSMENT: HAS THE MODEL'S DOWNSTREAM VALUE IMPROVED?
+======================================================================
+
+  HONEST ANSWER: MARGINALLY.
+
+  The improvements plan identified 4 key structural weaknesses:
+    1. Binary posteriors -> allocation flips are instantaneous        UNRESOLVED
+    2. Label instability across refits                               UNRESOLVED
+    3. No transition momentum signal                                 INEFFECTIVE
+    4. Untested OOS robustness                                       UNTESTED
+
+  What DID improve (but from Phase 3-4 tuning, not from the 5 improvements):
+    - MaxDD: 12.75% -> 8.72% (excellent drawdown control)
+    - CAGR: 8.80% -> 11.11% (strong return improvement)
+    - Calmar: 0.690 -> 1.275 (dramatically better risk-adjusted return)
+
+  These gains come from crisis_weights, delta_rho_threshold, L_max, sigma_floor,
+  stability_weight, weight_smoothing -- standard portfolio/leverage tuning, NOT
+  from posterior calibration, label anchoring, or momentum signals.
+
+  FOR DOWNSTREAM STRATEGIES, the practical improvement is:
+    - BETTER drawdown control -> strategies can trust the leverage signal more
+    - SMOOTHER weights -> less noisy allocation signal
+    - SAME binary regime switching -> no new gradual-adjustment capability
+    - SAME lack of advance warning -> no new early detection capability
+
+  The model remains a GOOD binary risk-on/risk-off switch with strong crisis
+  response, but it has NOT become the nuanced conditioning signal envisioned
+  in the improvements plan.
+
+
+======================================================================
+  8. RECOMMENDATIONS
+======================================================================
+
+  A. ACCEPT THE EMA-ONLY MODEL AS THE CURRENT BEST
+     - Highest composite score (0.682), best drawdown control (8.72%)
+     - Marginal Sharpe difference vs Full Cal (-2.5%) offset by much
+       better tail risk (MaxDD -18.2%)
+
+  B. ABANDON POSTERIOR CALIBRATION VIA TEMPERATURE/DIRICHLET
+     - The HMM's well-separated emission means produce inherently binary
+       posteriors. Post-hoc softening dilutes allocations without adding
+       information. This is a fundamental architectural limitation.
+
+  C. FOR MEANINGFUL POSTERIOR UNCERTAINTY, CONSIDER ARCHITECTURAL CHANGES:
+     - Bayesian HMM (MCMC/VI) that outputs true posterior uncertainty
+     - Ensemble of HMMs with different initializations (disagreement = uncertainty)
+     - Mixture-of-experts approach where multiple models vote
+     - These are fundamentally different from the current hmmlearn approach
+
+  D. PRIORITIZE WHAT ACTUALLY WORKS:
+     - The CRISIS OVERLAY (p_crisis) is the most valuable signal -- invest
+       in making it more responsive and accurate
+     - The LEVERAGE GOVERNOR effectively manages risk -- refine its parameters
+     - The WEIGHT SMOOTHING improves signal quality -- keep alpha=0.5
+     - Stop trying to extract gradual transitions from a binary classifier
+
+  E. RUN WALK-FORWARD VALIDATION
+     - The 4th structural weakness (untested OOS robustness) remains
+     - Run: python -m research.backtests.regime.cli walk-forward --test-years 3
+     - This is the MOST IMPORTANT remaining validation step
+     - If OOS/IS ratio < 0.60, the in-sample metrics above are unreliable
+
+  F. FOR DOWNSTREAM STRATEGY CONDITIONING, USE:
+     - Dominant regime label (G/R/S/D) for broad allocation tier selection
+     - p_crisis for real-time risk scaling (the model's strongest signal)
+     - Leverage (L) as a direct sizing multiplier
+     - DO NOT rely on risk_momentum, posterior entropy, or confidence
+       (all near-degenerate with binary posteriors)
+     - Consider adding a simple 4-week rolling volatility signal OUTSIDE
+       the HMM as a more reliable transition indicator
+
+======================================================================

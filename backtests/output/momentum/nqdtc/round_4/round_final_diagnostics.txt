@@ -1,0 +1,3 @@
+NQDTC round 4 promoted from refined positive-OOS repair diagnostics.
+Candidate: refine_nrm2p25_cd45_p025_tp1_1p35.
+Source: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\momentum\nqdtc\narrow_oos_repair_refine_20260504\summary.json

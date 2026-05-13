@@ -1,0 +1,103 @@
+{
+  "base_score": 83.91753197657323,
+  "final_score": 84.3997003132506,
+  "final_mutations": {
+    "all.trail_after_t1_30m_bars": 3,
+    "all.trail_use_vwap_after_t1": true,
+    "QQQ.t1_r": 1.25,
+    "GLD.t1_r": 1.1,
+    "all.max_hold_bars_15m": 52,
+    "all.time_stop_min_mfe_r": 0.5,
+    "all.initial_stop_source": "signal",
+    "all.signal_stop_buffer_atr_mult": 0.12,
+    "all.entry_order_model": "structure_stop",
+    "all.entry_stop_limit_atr_mult": 0.08,
+    "all.fib_a_low": 0.33,
+    "all.fib_a_high": 0.8,
+    "all.type_a_value_hits_min": 1,
+    "all.confirmation_required": 1,
+    "all.confirmation_combo_mode": "structure_or_vwap",
+    "all.type_c_enabled": true,
+    "all.type_c_requires_a_plus": false,
+    "all.max_position_notional_pct": 0.3,
+    "QQQ.primary_windows_et": [
+      [
+        9,
+        35,
+        15,
+        45
+      ]
+    ],
+    "GLD.entry_order_model": "market_next_bar",
+    "all.entry_order_ttl_hours": 4.0,
+    "GLD.daily_room_min_r": 2.5,
+    "GLD.confirmation_required": 2,
+    "GLD.confirmation_combo_mode": "structure_or_vwap",
+    "GLD.score_a_min": 15,
+    "GLD.score_b_min": 15,
+    "QQQ.min_short_score": 17,
+    "all.t1_stop_r": 0.1
+  },
+  "kept_features": [
+    "trail_after_t1_30m_3_vwap",
+    "t1_stop_010"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 13,
+      "best_name": "trail_after_t1_30m_3_vwap",
+      "best_score": 84.25221456920866,
+      "best_delta_pct": 0.39882320744235267,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 12,
+      "best_name": "t1_stop_010",
+      "best_score": 84.3997003132506,
+      "best_delta_pct": 0.1750526615781625,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 3,
+      "candidates_tested": 11,
+      "best_name": "qqq_t1_110",
+      "best_score": 84.4543984535699,
+      "best_delta_pct": 0.06480845324838347,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {
+    "total_trades": 249.0,
+    "net_return_pct": 4.597069999998566,
+    "profit_factor": 2.797185960334223,
+    "avg_r": 1.2384099849581054,
+    "total_r": 308.36408625456824,
+    "r_per_month": 5.578606958003482,
+    "win_rate": 0.46987951807228917,
+    "max_dd_pct": 1.5915837884716793,
+    "sharpe": 0.6275133924209968,
+    "trades_per_month": 4.504652761009677,
+    "expectancy_frequency": 2.628422066363824,
+    "mfe_capture": 0.34772291500985686,
+    "avg_mfe_r": 4.335461951310296,
+    "avg_mae_r": 1.126257867038696,
+    "excellent_trades": 112.0,
+    "excellent_trades_per_month": 2.0261891937071637,
+    "never_worked_rate": 0.3373493975903614,
+    "right_then_lost_rate": 0.08032128514056225,
+    "top5_winner_share": 0.6243744042392054,
+    "entry_requests": 257.0,
+    "request_fill_rate": 0.9688715953307393,
+    "order_terminal_rate": 0.0311284046692607,
+    "worst_symbol_avg_r": 0.2894408181537584,
+    "worst_year_avg_r": -0.719713055042618
+  },
+  "total_candidates": 13,
+  "accepted_count": 2,
+  "elapsed_seconds": 2559.061503648758
+}

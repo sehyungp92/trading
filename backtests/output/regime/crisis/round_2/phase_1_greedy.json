@@ -1,0 +1,66 @@
+{
+  "base_score": 0.6556836546991901,
+  "final_score": 0.7900015391282353,
+  "final_mutations": {
+    "VIX_CRISIS": 33.0,
+    "HYBRID_WARNING_MIN_CRISIS": 1,
+    "HYBRID_WARNING_MIN_PRIMARY": 2,
+    "SPY_DD_WARNING": -0.06
+  },
+  "kept_features": [
+    "hybrid_1_2",
+    "spy_dd_warning_0.06"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 24,
+      "best_name": "hybrid_1_2",
+      "best_score": 0.7686014917396957,
+      "best_delta_pct": 17.221389648993043,
+      "kept": true,
+      "rejected_count": 3
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 20,
+      "best_name": "spy_dd_warning_0.06",
+      "best_score": 0.7900015391282353,
+      "best_delta_pct": 2.784283873831881,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 3,
+      "candidates_tested": 16,
+      "best_name": "spy_dd_watch_0.03",
+      "best_score": 0.7900015391282353,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 1
+    }
+  ],
+  "final_metrics": {
+    "avg_latency": 21.142857142857142,
+    "max_latency": 34.0,
+    "gfc_latency": 14.0,
+    "covid_latency": 10.0,
+    "crises_detected": 7,
+    "total_crises": 7,
+    "corrections_detected": 2,
+    "total_corrections": 2,
+    "correction_avg_latency": 0.5,
+    "warning_fp_rate": 0.0630483574780657,
+    "crisis_fp_rate": 0.026525198938992044,
+    "avg_peak_level": 3.0,
+    "total_transitions": 189,
+    "transitions_per_year": 8.27449617790132,
+    "pct_normal": 0.001911049339819319,
+    "pct_watch": 0.8829047949965254,
+    "pct_warning": 0.04881862404447533,
+    "pct_crisis": 0.06636553161917999
+  },
+  "total_candidates": 24,
+  "accepted_count": 2,
+  "elapsed_seconds": 0.4080810546875
+}

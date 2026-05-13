@@ -1,0 +1,59 @@
+{
+  "phase": 4,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 20.0,
+      "actual": 4.924994999999515,
+      "pct_of_target": 24.624974999997576
+    },
+    "avg_r": {
+      "target": 0.2,
+      "actual": 0.4511659811188835,
+      "pct_of_target": 200.0
+    },
+    "trades_per_month": {
+      "target": 1.25,
+      "actual": 1.5377328702241868,
+      "pct_of_target": 123.01862961793495
+    },
+    "total_trades": {
+      "target": 70.0,
+      "actual": 85.0,
+      "pct_of_target": 121.42857142857142
+    },
+    "profit_factor": {
+      "target": 1.35,
+      "actual": 1.898129975555991,
+      "pct_of_target": 140.60222041155487
+    },
+    "mfe_capture": {
+      "target": 0.3,
+      "actual": 0.39130387775100245,
+      "pct_of_target": 130.4346259170008
+    },
+    "never_worked_rate": {
+      "target": 0.25,
+      "actual": 0.2235294117647059,
+      "pct_of_target": 89.41176470588236
+    }
+  },
+  "strengths": [
+    "avg_r: 0.4512 (200% of 0.2000)",
+    "trades_per_month: 1.5377 (123% of 1.2500)",
+    "total_trades: 85.0000 (121% of 70.0000)",
+    "profit_factor: 1.8981 (141% of 1.3500)",
+    "mfe_capture: 0.3913 (130% of 0.3000)",
+    "never_worked_rate: 0.2235 (89% of 0.2500)"
+  ],
+  "weaknesses": [
+    "net_return_pct: 4.9250 (25% of 20.0000)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 4 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + avg_r: 0.4512 (200% of 0.2000)\n  + trades_per_month: 1.5377 (123% of 1.2500)\n  + total_trades: 85.0000 (121% of 70.0000)\n  + profit_factor: 1.8981 (141% of 1.3500)\n  + mfe_capture: 0.3913 (130% of 0.3000)\n  + never_worked_rate: 0.2235 (89% of 0.2500)\n\nWeaknesses:\n  - net_return_pct: 4.9250 (25% of 20.0000)\n\nGoal Progress:\n  net_return_pct: 4.9250 / 20.0000 (25%)\n  avg_r: 0.4512 / 0.2000 (200%)\n  trades_per_month: 1.5377 / 1.2500 (123%)\n  total_trades: 85.0000 / 70.0000 (121%)\n  profit_factor: 1.8981 / 1.3500 (141%)\n  mfe_capture: 0.3913 / 0.3000 (130%)\n  never_worked_rate: 0.2235 / 0.2500 (89%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

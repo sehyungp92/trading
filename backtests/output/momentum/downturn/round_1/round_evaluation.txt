@@ -1,0 +1,43 @@
+======================================================================
+DOWNTURN END-OF-ROUND EVALUATION
+======================================================================
+
+Phase Progression Summary:
+  Phase 1: score 0.2350 -> 0.3522 (5 accepted)
+  Phase 2: score 0.3763 -> 0.4337 (3 accepted)
+  Phase 3: score 0.3049 -> 0.3228 (1 accepted)
+  Phase 4: score 0.0000 -> 0.0000 (0 accepted)
+  Phase 5: score 0.0000 -> 0.0000 (0 accepted)
+
+Cumulative Mutations Applied:
+  flags.chandelier_trailing: True
+  flags.drawdown_regime_override: True
+  flags.vol_percentile_gate: 40.0
+  param_overrides.adx_range_threshold: 20
+  param_overrides.adx_trending_threshold: 18
+  param_overrides.base_risk_pct: 0.008
+  param_overrides.be_trigger_r: 0.8
+  param_overrides.chandelier_lookback: 8
+  param_overrides.divergence_mag_threshold: 0.05
+  param_overrides.drawdown_lookback: 10
+  param_overrides.ema_fast_period: 15
+  param_overrides.profit_floor_r_threshold: 1.5
+  param_overrides.regime_mult_counter: 0.2
+
+Signal Extraction / Alpha Capture
+Correction PnL is 51.8% with coverage 52.9%. Bear capture ratio is 3.6%.
+
+Signal Discrimination
+Signal-to-entry ratio is 0.10. Engine health summary: reversal=underperforming, breakdown=healthy, fade=healthy.
+
+Entry Mechanism
+Total trades reached 119; reversal/breakdown/fade split is 8/35/76.
+
+Trade Management
+Max drawdown is 29.2%, calmar is 0.31, sharpe is -0.40.
+
+Exit Mechanism
+Exit efficiency is 0.77; average MFE capture is 0.77. Median hold is 20.0 bars.
+
+Overall Verdict
+Signal extraction is capturing correction-window PnL at the target level (51.8%). Discrimination quality is anchored by signal-to-entry 0.10 and engine health reversal=underperforming, breakdown=healthy, fade=healthy. Final trade-management and exit quality should be judged from the full diagnostics with DD 29.2%, calmar 0.31, and exit efficiency 0.77.

@@ -1,0 +1,156 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-06T18:43:00.216942+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 86,
+      "base_score": 71.29646870609383,
+      "final_score": 71.29646870609383,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "GLD_SIGNAL_DISCRIMINATION",
+      "candidate_count": 13
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-06T18:56:51.288629+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 89,
+      "base_score": 71.29646870609383,
+      "final_score": 78.39646484461103,
+      "kept_features": [
+        "qqq_context_min_neg010",
+        "gld_ma50_004_ma100_006_di"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "REGIME_ROOM_DISCRIMINATION",
+      "candidate_count": 16
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-06T19:00:51.735417+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 89,
+      "base_score": 78.39646484461103,
+      "final_score": 78.39646484461103,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "SESSION_SYMBOL_BALANCE",
+      "candidate_count": 7
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-06T19:07:02.283185+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 89,
+      "base_score": 78.39646484461103,
+      "final_score": 78.39646484461103,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "ENTRY_QUALITY_DISCRIMINATION",
+      "candidate_count": 11
+    },
+    "5": {
+      "status": "completed",
+      "updated_at": "2026-05-06T19:13:12.926057+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "current_phase": 5,
+      "total_mutations": 89,
+      "base_score": 78.39646484461103,
+      "final_score": 78.39646484461103,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "PULLBACK_PURITY",
+      "candidate_count": 11
+    },
+    "6": {
+      "status": "completed",
+      "updated_at": "2026-05-06T19:17:28.471473+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "current_phase": 6,
+      "total_mutations": 89,
+      "base_score": 78.39646484461103,
+      "final_score": 78.39646484461103,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "DISCRIMINATION_COMBOS",
+      "candidate_count": 8
+    },
+    "7": {
+      "status": "completed",
+      "updated_at": "2026-05-06T19:24:44.086333+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "current_phase": 7,
+      "total_mutations": 89,
+      "base_score": 78.39646484461103,
+      "final_score": 78.39646484461103,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "QQQ_EXCELLENT_SUPPLY",
+      "candidate_count": 13
+    }
+  },
+  "last_updated": "2026-05-06T19:24:44.094387+00:00",
+  "current_phase": 7
+}

@@ -1,0 +1,76 @@
+{
+  "sources": {
+    "full_stack": {
+      "type": "json",
+      "label": "research\\backtests\\regime\\auto\\output\\r8_two_model\\r8_optimized.json",
+      "preset_name": null,
+      "requested_preset": "recommended_full_stack"
+    },
+    "r3_reference": {
+      "type": "preset",
+      "label": "r3_reference",
+      "preset_name": "r3_reference",
+      "requested_preset": "r3_reference"
+    }
+  },
+  "scenarios": {
+    "full_stack": {
+      "first_jan_alert": "2022-01-21",
+      "p_crisis_feb25": 0.8106432552768738,
+      "p_crisis_peak_feb": 0.9966484708998886,
+      "return_2022": -0.04993328248790818,
+      "max_dd_2022": 0.07529105721859886,
+      "max_dd_full_window": 0.08902794153862599
+    },
+    "scanner_off": {
+      "first_jan_alert": null,
+      "p_crisis_feb25": 0.8106432552768738,
+      "p_crisis_peak_feb": 0.9966484708998886,
+      "return_2022": -0.049933282487883646,
+      "max_dd_2022": 0.0752910572185751,
+      "max_dd_full_window": 0.08902794153862423
+    },
+    "crisis_off": {
+      "first_jan_alert": "2022-01-21",
+      "p_crisis_feb25": 0.8106432552768738,
+      "p_crisis_peak_feb": 0.9966484708998886,
+      "return_2022": -0.04993328248788187,
+      "max_dd_2022": 0.07529105721857288,
+      "max_dd_full_window": 0.08902794153862227
+    },
+    "r3_reference": {
+      "first_jan_alert": null,
+      "p_crisis_feb25": 0.47114275654440596,
+      "p_crisis_peak_feb": 0.9993885643652792,
+      "return_2022": -0.01633863329529428,
+      "max_dd_2022": 0.052592767776447835,
+      "max_dd_full_window": 0.06048856115522332
+    }
+  },
+  "verdict": {
+    "alert_ok": true,
+    "crisis_ok": true,
+    "dd_2022_ok": false,
+    "dd_full_window_ok": false,
+    "dd_ok": false,
+    "return_ok": false,
+    "passed": false
+  },
+  "deltas": {
+    "vs_scanner_off": {
+      "max_dd_2022": 2.375877272697835e-14,
+      "max_dd_full_window": 1.762479051592436e-15,
+      "return_2022": -2.453592884421596e-14
+    },
+    "vs_crisis_off": {
+      "max_dd_2022": 2.5979218776228663e-14,
+      "max_dd_full_window": 3.7192471324942744e-15,
+      "return_2022": -2.631228568361621e-14
+    },
+    "vs_r3_reference": {
+      "max_dd_2022": 0.02269828944215102,
+      "max_dd_full_window": 0.028539380383402674,
+      "return_2022": -0.0335946491926139
+    }
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "baseline_score": 0.0,
+  "final_score": 0.5936695784545354,
+  "accepted_mutations": {
+    "sticky_diag": 15.0,
+    "use_warm_start": false,
+    "use_expanding_window": false,
+    "rolling_window_years": 7,
+    "refit_ll_tolerance": 5.0,
+    "refit_freq": "QE",
+    "z_minp": 30,
+    "posterior_ema_alpha": 0.6,
+    "per_strat_max": 0.5,
+    "base_target_vol_annual": 0.07,
+    "kappa_totalvol_cap": 1.5,
+    "crisis_logit_a": 3.0,
+    "stability_weight": 0.6,
+    "weight_smoothing_alpha": 0.5,
+    "L_max": 1.7,
+    "delta_rho_exempt": 0.0,
+    "sigma_floor_annual": 0.09,
+    "delta_rho_threshold": 0.15,
+    "crisis_weights": [
+      0.8,
+      0.15,
+      0.05
+    ],
+    "scanner_enabled": true,
+    "n_ensemble_models": 5,
+    "posterior_temperature": 1.2,
+    "posterior_smoothing_eps": 0.01,
+    "crisis_z_window": 21,
+    "posterior_ema_risk_off_alpha": 1.0,
+    "warm_start_perturb_std": 0.3,
+    "rebalance_freq": "W-FRI"
+  },
+  "total_candidates_tested": 143,
+  "elapsed_seconds": 9712.34215092659,
+  "final_metrics": {
+    "total_return": 3.114416972869,
+    "cagr": 0.062871147444433,
+    "sharpe": 1.3365680441617804,
+    "sortino": 2.0044781696268985,
+    "calmar": 1.1271070399448921,
+    "max_drawdown_pct": 0.05578099081654833,
+    "max_drawdown_duration": 427,
+    "avg_annual_turnover": 11.541659505152337,
+    "n_rebalances": 1148
+  },
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidate_id": "exp_crisis_vix_80",
+      "candidate_mutations": {
+        "crisis_weights": [
+          0.8,
+          0.15,
+          0.05
+        ]
+      },
+      "score_before": 0.0,
+      "score_after": 0.5702911714100778,
+      "delta": 0.5702911714100778,
+      "accepted": true
+    },
+    {
+      "round_num": 2,
+      "candidate_id": "fine_base_target_vol_annual_0.07",
+      "candidate_mutations": {
+        "base_target_vol_annual": 0.07
+      },
+      "score_before": 0.5702911714100778,
+      "score_after": 0.5873293847762107,
+      "delta": 0.01703821336613287,
+      "accepted": true
+    },
+    {
+      "round_num": 3,
+      "candidate_id": "fine_L_max_1.7",
+      "candidate_mutations": {
+        "L_max": 1.7
+      },
+      "score_before": 0.5873293847762107,
+      "score_after": 0.5936695784545354,
+      "delta": 0.006340193678324724,
+      "accepted": true
+    }
+  ]
+}

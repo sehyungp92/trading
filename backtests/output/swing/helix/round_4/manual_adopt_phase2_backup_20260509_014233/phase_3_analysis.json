@@ -1,0 +1,85 @@
+{
+  "phase": 3,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 250.0,
+      "actual": 114.58087600000246,
+      "pct_of_target": 45.83235040000099
+    },
+    "win_rate": {
+      "target": 55.0,
+      "actual": 38.148148148148145,
+      "pct_of_target": 69.36026936026936
+    },
+    "profit_factor": {
+      "target": 3.5,
+      "actual": 2.370576050456337,
+      "pct_of_target": 67.73074429875248
+    },
+    "max_r_dd": {
+      "target": 8.0,
+      "actual": 6.773643264725349,
+      "pct_of_target": 118.10483202829809
+    },
+    "exit_efficiency": {
+      "target": 0.65,
+      "actual": 0.45403976548917024,
+      "pct_of_target": 69.8522716137185
+    },
+    "waste_ratio": {
+      "target": 0.85,
+      "actual": 0.7156612123608579,
+      "pct_of_target": 84.19543674833622
+    },
+    "tail_pct": {
+      "target": 0.85,
+      "actual": 0.7976600147716284,
+      "pct_of_target": 93.8423546790151
+    },
+    "min_side_pf": {
+      "target": 3.5,
+      "actual": 2.2841560553593254,
+      "pct_of_target": 65.26160158169502
+    },
+    "total_trades": {
+      "target": 420.0,
+      "actual": 270.0,
+      "pct_of_target": 64.28571428571429
+    },
+    "winning_trades": {
+      "target": 230.0,
+      "actual": 0.0,
+      "pct_of_target": 0.0
+    }
+  },
+  "strengths": [
+    "max_r_dd: 6.7736 (118% of 8.0000)",
+    "waste_ratio: 0.7157 (84% of 0.8500)",
+    "tail_pct: 0.7977 (94% of 0.8500)"
+  ],
+  "weaknesses": [
+    "net_return_pct: 114.5809 (46% of 250.0000)",
+    "winning_trades: 0.0000 (0% of 230.0000)"
+  ],
+  "scoring_assessment": "INEFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "improve_scoring",
+  "recommendation_reason": "Greedy score is not aligned strongly enough with phase goals.",
+  "report": "======================================================================\nPHASE 3 ANALYSIS\n======================================================================\n\nRecommendation: improve_scoring\nReason: Greedy score is not aligned strongly enough with phase goals.\nScoring assessment: INEFFECTIVE\n\nStrengths:\n  + max_r_dd: 6.7736 (118% of 8.0000)\n  + waste_ratio: 0.7157 (84% of 0.8500)\n  + tail_pct: 0.7977 (94% of 0.8500)\n\nWeaknesses:\n  - net_return_pct: 114.5809 (46% of 250.0000)\n  - winning_trades: 0.0000 (0% of 230.0000)\n\nExtra Analysis:\n  Class R attribution: B=+49.8R, D=+117.1R\n\nGoal Progress:\n  net_return_pct: 114.5809 / 250.0000 (46%)\n  win_rate: 38.1481 / 55.0000 (69%)\n  profit_factor: 2.3706 / 3.5000 (68%)\n  max_r_dd: 6.7736 / 8.0000 (118%)\n  exit_efficiency: 0.4540 / 0.6500 (70%)\n  waste_ratio: 0.7157 / 0.8500 (84%)\n  tail_pct: 0.7977 / 0.8500 (94%)\n  min_side_pf: 2.2842 / 3.5000 (65%)\n  total_trades: 270.0000 / 420.0000 (64%)\n  winning_trades: 0.0000 / 230.0000 (0%)",
+  "scoring_weight_overrides": {
+    "net_profit": 0.3417412530512612,
+    "win_rate": 0.20748576078112288,
+    "frequency": 0.07323026851098455,
+    "winning_trades": 0.1903986981285598,
+    "pf": 0.08950366151342556,
+    "exit_quality": 0.06509357200976404,
+    "inv_dd": 0.03254678600488202
+  },
+  "extra": {
+    "class_attribution": {
+      "D": 117.08921906668508,
+      "B": 49.8390286387516
+    }
+  }
+}

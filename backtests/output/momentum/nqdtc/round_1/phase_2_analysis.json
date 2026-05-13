@@ -1,0 +1,93 @@
+{
+  "phase": 2,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 150.0,
+      "actual": 106.85759999999918,
+      "pct_of_target": 71.23839999999946
+    },
+    "profit_factor": {
+      "target": 2.0,
+      "actual": 1.4034043910664171,
+      "pct_of_target": 70.17021955332086
+    },
+    "max_dd_pct": {
+      "target": 0.15,
+      "actual": 0.22589955452554444,
+      "pct_of_target": 66.40119336005073
+    },
+    "calmar": {
+      "target": 5.0,
+      "actual": 4.730314773060601,
+      "pct_of_target": 94.60629546121201
+    },
+    "total_trades": {
+      "target": 120.0,
+      "actual": 178.0,
+      "pct_of_target": 148.33333333333334
+    },
+    "capture_ratio": {
+      "target": 0.4,
+      "actual": 0.34594748812355225,
+      "pct_of_target": 86.48687203088807
+    },
+    "win_rate": {
+      "target": 0.52,
+      "actual": 0.550561797752809,
+      "pct_of_target": 105.87726879861712
+    },
+    "sharpe": {
+      "target": 1.5,
+      "actual": 0.46933945512178193,
+      "pct_of_target": 31.289297008118794
+    }
+  },
+  "strengths": [
+    "calmar: 4.7303 (95% of 5.0000)",
+    "total_trades: 178.0000 (148% of 120.0000)",
+    "capture_ratio: 0.3459 (86% of 0.4000)",
+    "win_rate: 0.5506 (106% of 0.5200)"
+  ],
+  "weaknesses": [
+    "sharpe: 0.4693 (31% of 1.5000)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [
+    "Low MFE capture ratio -- exits leave alpha on the table",
+    "Elevated drawdown -- risk controls or regime filtering needed",
+    "Low profit factor -- edge may be degraded by filters"
+  ],
+  "suggested_experiments": [
+    {
+      "name": "suggest_tp1_r_1.2",
+      "mutations": {
+        "param_overrides.TP1_R": 1.2
+      }
+    },
+    {
+      "name": "suggest_chandelier_1.5",
+      "mutations": {
+        "param_overrides.CHANDELIER_ATR_MULT": 1.5
+      }
+    }
+  ],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + calmar: 4.7303 (95% of 5.0000)\n  + total_trades: 178.0000 (148% of 120.0000)\n  + capture_ratio: 0.3459 (86% of 0.4000)\n  + win_rate: 0.5506 (106% of 0.5200)\n\nWeaknesses:\n  - sharpe: 0.4693 (31% of 1.5000)\n\nDiagnostic Gaps:\n  ! Low MFE capture ratio -- exits leave alpha on the table\n  ! Elevated drawdown -- risk controls or regime filtering needed\n  ! Low profit factor -- edge may be degraded by filters\n\nSuggested Experiments (2):\n  - suggest_tp1_r_1.2: {\"param_overrides.TP1_R\": 1.2}\n  - suggest_chandelier_1.5: {\"param_overrides.CHANDELIER_ATR_MULT\": 1.5}\n\nExtra Analysis:\n  Session/direction: ETH short WR=46.5% (43 trades), Range regime=70.8%\n  Exit efficiency: capture=0.35, TP1=53.9%, TP2=1.1%\n  Clustering: burst_trade_pct=10.1%\n\nGoal Progress:\n  net_return_pct: 106.8576 / 150.0000 (71%)\n  profit_factor: 1.4034 / 2.0000 (70%)\n  max_dd_pct: 0.2259 / 0.1500 (66%)\n  calmar: 4.7303 / 5.0000 (95%)\n  total_trades: 178.0000 / 120.0000 (148%)\n  capture_ratio: 0.3459 / 0.4000 (86%)\n  win_rate: 0.5506 / 0.5200 (106%)\n  sharpe: 0.4693 / 1.5000 (31%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "session_direction": {
+      "eth_short_wr": 0.46511627906976744,
+      "eth_short_trades": 43,
+      "range_regime_pct": 0.7078651685393258
+    },
+    "exit_efficiency": {
+      "capture_ratio": 0.34594748812355225,
+      "tp1_hit_rate": 0.5393258426966292,
+      "tp2_hit_rate": 0.011235955056179775
+    },
+    "clustering": {
+      "burst_trade_pct": 0.10112359550561797
+    }
+  }
+}

@@ -1,0 +1,58 @@
+========================================================================
+IARIC V5R1 ROUND 2 HYBRID CLOSURE EVALUATION
+========================================================================
+
+Selection policy:
+  Single constrained greedy pass from the conservative round-1 baseline.
+  Candidate set was limited to mutations accepted by archived old round 2 and direct post-fix round 2.
+  Open-scored timing remained explicitly fixed at next_5m_open.
+
+Why the archived old mutations beat the direct post-fix run:
+  The direct post-fix optimizer was path-dependent and the V5R1 score is R-based; it does not directly reward dollar PnL.
+  It accepted sizing dampeners that helped score/DD tradeoffs but suppressed net dollars.
+  The archived path preserved high-value route hygiene: CDD cap, route quarantine, and afternoon/VWAP tail-route shutdown.
+  Under the fixed fill model those old route controls were still valid rather than stale.
+
+Static comparison on the fixed engine:
+  Variant                              Score  Trades       Net PnL    PF  Sharpe  Max DD  ExpR
+  --------------------------------------------------------------------------------------------
+  Timed round-1 baseline              0.317     669     $3,829.84  1.36    1.85   5.75%   38.1
+  Archived old R2 on fixed engine     0.628    1004    $13,451.87  1.73    4.05   3.86%  110.0
+  Direct post-fix R2                  0.633     979    $11,094.55  1.71    3.98   3.67%  111.8
+  Full old+new accepted union         0.643    1005    $11,788.98  1.73    4.12   3.69%  113.9
+  Constrained greedy hybrid           0.645    1001    $13,625.20  1.76    4.22   3.84%  114.1
+
+Accepted by constrained greedy:
+  - p4_partial_remainder_070
+  - p4_partial_profit_020
+  - p1_signal_floor_72_gap_max_1
+  - p1_gap_max_2
+  - p3_sector_cap_4
+  - p1_cdd_max_6
+  - p4_stale_bars_4_mfe_008
+  - p5_combo_route_quarantine
+
+Important rejected / not adopted items:
+  - gap_min_neg8: not needed once old route hygiene and final gap_max=2 were retained.
+  - secular_size_050 and tier_b_size_060: improved some score/DD balance but gave back dollar PnL.
+  - ema_min_008: lost value after stale-exit and route-quarantine interactions were in place.
+  - missing_5m_disallow: no incremental effect under conservative no-post-open-bar rejection semantics.
+
+Official promoted round-2 metrics:
+  Trades: 1001
+  Net PnL: $13,625.20
+  Profit factor: 1.763
+  Sharpe: 4.223
+  Max drawdown: 3.84%
+  Expected total R: 114.06
+  Score: 0.645049
+
+Conclusion:
+  The best capture is not a full re-optimization; it is the constrained accepted-mutation greedy hybrid.
+  It preserves the archived route-quality discoveries, adds the useful post-fix stale-exit improvement, and avoids the post-fix sizing dampeners that caused the net-PnL regression.
+
+Artifacts:
+  - hybrid_static_eval.json: fixed-engine parent/union comparison.
+  - hybrid_greedy.json: constrained greedy transcript and final mutation set.
+  - round_final_diagnostics.txt: full regenerated official diagnostics for the promoted hybrid.
+  - run_summary.json / optimized_config.json / rounds_manifest.json: official promoted round-2 outputs.

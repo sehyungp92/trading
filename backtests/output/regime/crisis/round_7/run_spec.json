@@ -1,0 +1,26 @@
+﻿{
+    "family":  "regime",
+    "strategy":  "crisis",
+    "strategy_name":  "crisis",
+    "round":  7,
+    "description":  "Round 7",
+    "generated_at_utc":  "2026-05-06T03:18:53.347345+00:00",
+    "baseline_source":  "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\regime\\crisis\\round_6\\optimized_config.json",
+    "baseline_mutation_count":  11,
+    "baseline_mutations":  {
+                               "VIX_CRISIS":  42.0,
+                               "HYBRID_WARNING_MIN_CRISIS":  1,
+                               "HYBRID_WARNING_MIN_PRIMARY":  2,
+                               "SPY_DD_WARNING":  -0.0576,
+                               "VIX_WATCH":  29.0,
+                               "VIX_WARNING":  37.0,
+                               "ACCEL_DEESCALATE_NORMAL_DAYS":  3,
+                               "DEESCALATE_CRISIS_DAYS":  1,
+                               "DEESCALATE_WARNING_DAYS":  1,
+                               "DEESCALATE_WATCH_DAYS":  1,
+                               "SPY_DD_CRISIS":  -0.1
+                           },
+    "scoring_weights":  {
+
+                        }
+}

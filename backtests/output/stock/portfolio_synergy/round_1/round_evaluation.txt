@@ -1,0 +1,57 @@
+======================================================================
+STOCK_PORTFOLIO_SYNERGY END-OF-ROUND EVALUATION
+======================================================================
+
+Phase Progression Summary:
+  Phase 1: score 0.7560 -> 0.7560 (0 accepted)
+  Phase 2: score 0.7560 -> 0.8118 (3 accepted)
+  Phase 3: score 0.8118 -> 0.8118 (0 accepted)
+  Phase 4: score 0.8118 -> 0.8118 (0 accepted)
+  Phase 5: score 0.8118 -> 0.8118 (0 accepted)
+  Phase 6: score 0.8118 -> 0.8118 (0 accepted)
+  Phase 7: score 0.8118 -> 0.8118 (0 accepted)
+
+Cumulative Mutations Applied:
+  cross_strategy_rules: {'priority_order': ['IARIC_V5R1', 'ALCB_R3'], 'candidate_rank_mode': 'diagnostic_alpha_score', 'same_symbol_policy': 'half_size', 'same_symbol_size_mult': 0.5, 'same_sector_heat_cap_R': 3.8, 'iaric_priority_headroom_R': 1.15}
+  dynamic_allocation: {'enabled': True, 'lookback_trades': 60, 'min_mult': 0.65, 'max_mult': 1.22, 'positive_expectancy_boost': 0.1, 'negative_expectancy_cut': 0.18, 'drawdown_risk_floor': 0.4}
+  initial_equity: 25000.0
+  portfolio_rules: {'reference_risk_pct': 0.006, 'heat_cap_R': 6.0, 'max_total_active_positions': 12, 'max_symbol_heat_R': 2.2, 'max_long_heat_R': 6.25, 'portfolio_daily_stop_R': 3.5, 'portfolio_weekly_stop_R': 8.0, 'max_single_strategy_trade_share': 0.72, 'max_single_strategy_risk_share': 0.72, 'drawdown_tiers': [[0.04, 1.0], [0.07, 0.75], [0.1, 0.4], [0.13, 0.0]]}
+  portfolio_rules.heat_cap_R: 6.5
+  portfolio_rules.max_single_strategy_risk_share: 0.82
+  portfolio_rules.max_single_strategy_trade_share: 0.85
+  risk_stance: aggressive_controlled
+  strategy_allocations: {'IARIC_V5R1': {'unit_risk_pct': 0.008, 'max_heat_R': 4.6, 'max_concurrent': 9, 'daily_stop_R': 2.75, 'priority': 0, 'role': 'primary pullback alpha and frequency engine'}, 'ALCB_R3': {'unit_risk_pct': 0.0065, 'max_heat_R': 3.25, 'max_concurrent': 6, 'daily_stop_R': 2.35, 'priority': 1, 'role': 'intraday momentum complement and early-session alpha sleeve'}}
+  strategy_allocations.ALCB_R3.max_heat_R: 4.0
+  strategy_allocations.IARIC_V5R1.max_heat_R: 5.4
+  strategy_filters: {'ALCB_R3': {'financials_size_mult': 0.65, 'pdh_size_mult': 1.1, 'score5_no_surge_mult': 0.7}, 'IARIC_V5R1': {'delayed_confirm_min_quality': 0.0, 'gap_up_size_mult': 0.85, 'carry_route_size_mult': 0.75}}
+  validation: {'walk_forward_required': True, 'min_positive_slices': 4, 'completed_bar_and_fee_parity_required': True}
+
+Signal Extraction / Alpha Capture
+No report provided.
+
+Signal Discrimination
+No report provided.
+
+Entry Mechanism
+No report provided.
+
+Trade Management
+No report provided.
+
+Exit Mechanism
+No report provided.
+
+Score Components
+- alpha_return: 1.0000 (weight 0.27)
+- trade_frequency: 1.0000 (weight 0.23)
+- drawdown_control: 0.6762 (weight 0.19)
+- profit_factor_quality: 0.4737 (weight 0.12)
+- synergy_capture: 0.3973 (weight 0.08)
+- allocation_balance: 0.8800 (weight 0.06)
+- robustness: 0.8372 (weight 0.05)
+
+Execution Note
+Replay starts from latest stock ALCB round 3 and IARIC V5R1 round 2 trades, then applies portfolio-level dynamic allocation, routing, and heat controls.
+
+Overall Verdict
+REVIEW

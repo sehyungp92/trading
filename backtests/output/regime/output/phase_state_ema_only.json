@@ -1,0 +1,176 @@
+{
+  "current_phase": 4,
+  "completed_phases": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "cumulative_mutations": {
+    "sticky_diag": 15.0,
+    "use_warm_start": false,
+    "use_expanding_window": false,
+    "rolling_window_years": 7,
+    "refit_ll_tolerance": 5.0,
+    "refit_freq": "QE",
+    "z_minp": 30,
+    "posterior_ema_alpha": 0.8,
+    "per_strat_max": 0.5,
+    "base_target_vol_annual": 0.08,
+    "kappa_totalvol_cap": 1.5,
+    "crisis_logit_a": 3.0,
+    "stability_weight": 0.8,
+    "weight_smoothing_alpha": 0.5,
+    "L_max": 1.6,
+    "delta_rho_exempt": 0.0,
+    "sigma_floor_annual": 0.09,
+    "delta_rho_threshold": 0.15,
+    "crisis_weights": [
+      0.3,
+      0.6,
+      0.1
+    ]
+  },
+  "phase_results": {
+    "1": {
+      "baseline_score": 0.0,
+      "final_score": 0.718,
+      "final_metrics": {},
+      "n_rounds": 3,
+      "max_rounds": 20,
+      "rounds": [
+        "combo_sd10_cold",
+        "combo_aggressive_7y",
+        "sticky_diag_15"
+      ],
+      "elapsed_seconds": 0
+    },
+    "2": {
+      "baseline_score": 0.618,
+      "final_score": 0.65,
+      "final_metrics": {},
+      "n_rounds": 2,
+      "max_rounds": 20,
+      "rounds": [
+        "z_minp_30",
+        "posterior_ema_0.7"
+      ],
+      "elapsed_seconds": 0
+    },
+    "3": {
+      "baseline_score": 0.627426111936455,
+      "final_score": 0.694434375507485,
+      "final_metrics": {
+        "total_return": 10.10860806028441,
+        "cagr": 0.10936540960831476,
+        "sharpe": 1.4231699025455355,
+        "sortino": 2.124998489856274,
+        "calmar": 1.1510651238816016,
+        "max_drawdown_pct": 0.0950123562422903,
+        "max_drawdown_duration": 394,
+        "avg_annual_turnover": 10.490050821268298,
+        "n_rebalances": 1148
+      },
+      "n_rounds": 6,
+      "max_rounds": 20,
+      "rounds": [
+        "stability_weight_0.8",
+        "weight_smooth_0.5",
+        "L_max_1.5",
+        "delta_rho_exempt_0.0",
+        "sigma_floor_0.08",
+        "delta_rho_thresh_0.15"
+      ],
+      "elapsed_seconds": 20404.225111961365
+    },
+    "4": {
+      "baseline_score": 0.6669765799401832,
+      "final_score": 0.6816636291758267,
+      "final_metrics": {
+        "total_return": 10.51582250607284,
+        "cagr": 0.1110883720232938,
+        "sharpe": 1.4424123912175446,
+        "sortino": 2.1631803864055534,
+        "calmar": 1.2745186141728118,
+        "max_drawdown_pct": 0.08716104322681265,
+        "max_drawdown_duration": 384,
+        "avg_annual_turnover": 10.928452309608266,
+        "n_rebalances": 1148
+      },
+      "n_rounds": 4,
+      "max_rounds": 20,
+      "rounds": [
+        "fine_L_max_1.6",
+        "exp_crisis_spread_heavy",
+        "fine_sigma_floor_annual_0.09",
+        "fine_posterior_ema_alpha_0.8"
+      ],
+      "elapsed_seconds": 13145.887378692627
+    }
+  },
+  "phase_gate_results": {
+    "1": {
+      "passed": true,
+      "criteria": [],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "2": {
+      "passed": true,
+      "criteria": [],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "3": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "sharpe",
+          "target": 0.8,
+          "actual": 1.8908873525661172,
+          "passed": true
+        },
+        {
+          "name": "calmar",
+          "target": 0.5,
+          "actual": 1.8995992960929464,
+          "passed": true
+        },
+        {
+          "name": "max_dd",
+          "target": 0.2,
+          "actual": 0.07236787060476137,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "4": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "sharpe",
+          "target": 0.9,
+          "actual": 1.9297712734677264,
+          "passed": true
+        },
+        {
+          "name": "calmar",
+          "target": 0.8,
+          "actual": 1.855909568955411,
+          "passed": true
+        },
+        {
+          "name": "max_dd",
+          "target": 0.15,
+          "actual": 0.07538584812847371,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    }
+  },
+  "retry_count": {}
+}

@@ -1,0 +1,9 @@
+{"timestamp": "2026-05-01T02:16:40.056815+00:00", "phase": 6, "action": "phase_reset", "discarded_phases": [6], "resuming_from_phase": 6}
+{"timestamp": "2026-05-01T02:16:40.090415+00:00", "phase": 6, "action": "phase_start", "focus": "Final Risk And Frequency", "candidate_count": 6}
+{"timestamp": "2026-05-01T02:16:40.132323+00:00", "phase": 6, "action": "greedy_start", "candidate_count": 6, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-05-01T02:43:49.612553+00:00", "phase": 6, "action": "greedy_complete", "base_score": 0.6956700588468016, "final_score": 0.6956700588468016, "accepted_count": 0}
+{"timestamp": "2026-05-01T02:43:49.650819+00:00", "phase": 6, "action": "gate_check", "passed": true, "failure_category": null}
+{"timestamp": "2026-05-01T02:43:50.314296+00:00", "phase": 6, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-01T02:43:50.348550+00:00", "phase": 6, "action": "analysis_complete", "recommendation": "advance", "reason": "Gate passed."}
+{"timestamp": "2026-05-01T02:43:50.403099+00:00", "phase": 6, "action": "decision_advance", "reason": "Gate passed.", "gate_passed": true, "applied_phase_mutations": true, "new_mutation_count": 0}
+{"timestamp": "2026-05-01T02:43:51.197649+00:00", "phase": 6, "action": "end_of_round", "completed_phases": [1, 2, 3, 4, 5, 6]}

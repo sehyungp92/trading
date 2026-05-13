@@ -1,0 +1,55 @@
+{
+  "base_score": 0.5730206766580699,
+  "final_score": 0.6771353169338056,
+  "final_mutations": {
+    "flags.plus_1r_partial": false,
+    "param_overrides.CHOP_THRESHOLD": 32.0,
+    "flags.early_kill": false,
+    "param_overrides.MAX_POSITION_BARS_15M": 51.2,
+    "flags.vwap_fail_evening": true,
+    "flags.evening_vwap_cap": true,
+    "param_overrides.VWAP_CAP_EVENING": 0.05,
+    "flags.dow_sizing": true,
+    "param_overrides.DOW_SIZE_MULT": {
+      "0": 0.6,
+      "3": 0.75
+    }
+  },
+  "kept_features": [
+    "evening_near_block",
+    "dow_monday_thu_cut"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 17,
+      "best_name": "evening_near_block",
+      "best_score": 0.627929513113173,
+      "best_delta_pct": 9.582348192972463,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 13,
+      "best_name": "dow_monday_thu_cut",
+      "best_score": 0.6771353169338056,
+      "best_delta_pct": 7.836198616732973,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 3,
+      "candidates_tested": 11,
+      "best_name": "evening_vwap_cap_035",
+      "best_score": 0.6786513230779267,
+      "best_delta_pct": 0.22388525693592987,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 17,
+  "accepted_count": 2,
+  "elapsed_seconds": 720.6089434623718
+}

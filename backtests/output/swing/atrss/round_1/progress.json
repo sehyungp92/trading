@@ -1,0 +1,86 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-04-12T20:35:53.027205+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 4,
+      "base_score": 0.6644986248431998,
+      "final_score": 0.7150944648057511,
+      "kept_features": [
+        "disable_early_stall",
+        "be_trigger_075r",
+        "floor_tight_all",
+        "reenable_full_stall"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-04-12T20:38:46.230883+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 5,
+      "base_score": 0.7150944648057511,
+      "final_score": 0.7190885323033369,
+      "kept_features": [
+        "recovery_trend_035"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-04-12T20:40:09.888880+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 5,
+      "base_score": 0.7190885323033369,
+      "final_score": 0.7190885323033369,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-04-12T20:45:46.456706+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 6,
+      "base_score": 0.7190885323033369,
+      "final_score": 0.7384693776242179,
+      "kept_features": [
+        "addon_a_150r",
+        "recovery_tolerance_atr_trend_minus10"
+      ],
+      "gate_passed": false,
+      "failure_category": "scoring_ineffective",
+      "scoring_retries": 2,
+      "diagnostic_retries": 0
+    }
+  },
+  "last_updated": "2026-04-12T20:45:46.464490+00:00",
+  "current_phase": 4
+}

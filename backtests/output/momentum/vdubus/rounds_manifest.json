@@ -1,0 +1,100 @@
+{
+  "family": "momentum",
+  "strategy": "vdubus",
+  "rounds": [
+    {
+      "round": 1,
+      "timestamp": "2026-04-29T21:31:54.374002+00:00",
+      "mutations_count": 4,
+      "mutations": {
+        "flags.plus_1r_partial": false,
+        "param_overrides.CHOP_THRESHOLD": 32.0,
+        "flags.early_kill": false,
+        "param_overrides.MAX_POSITION_BARS_15M": 51.2
+      },
+      "total_trades": 174,
+      "win_rate": 46.55172413793103,
+      "profit_factor": 1.9544579883619144,
+      "max_drawdown_pct": 20.782611893641104,
+      "net_return_pct": 752.5770000000063,
+      "sharpe_ratio": 1.6604832640187106,
+      "calmar_ratio": 36.2118584445237
+    },
+    {
+      "round": 2,
+      "timestamp": "2026-04-29T23:22:16.232792+00:00",
+      "mutations_count": 9,
+      "mutations": {
+        "flags.plus_1r_partial": false,
+        "param_overrides.CHOP_THRESHOLD": 32.0,
+        "flags.early_kill": false,
+        "param_overrides.MAX_POSITION_BARS_15M": 51.2,
+        "flags.vwap_fail_evening": true,
+        "flags.evening_vwap_cap": true,
+        "param_overrides.VWAP_CAP_EVENING": 0.05,
+        "flags.dow_sizing": true,
+        "param_overrides.DOW_SIZE_MULT": {
+          "0": 0.6,
+          "3": 0.75
+        }
+      },
+      "total_trades": 159,
+      "win_rate": 47.79874213836478,
+      "profit_factor": 2.3577704500699292,
+      "max_drawdown_pct": 18.64301442048537,
+      "net_return_pct": 841.7264000000035,
+      "sharpe_ratio": 1.7605005097269317,
+      "calmar_ratio": 45.14969419725897
+    },
+    {
+      "round": 3,
+      "timestamp": "2026-04-30T02:34:58.142674+00:00",
+      "mutations_count": 26,
+      "mutations": {
+        "flags.plus_1r_partial": false,
+        "param_overrides.CHOP_THRESHOLD": 32.0,
+        "flags.early_kill": false,
+        "param_overrides.MAX_POSITION_BARS_15M": 51.2,
+        "flags.vwap_fail_evening": true,
+        "flags.evening_vwap_cap": true,
+        "param_overrides.VWAP_CAP_EVENING": 0.35,
+        "flags.dow_sizing": true,
+        "param_overrides.DOW_SIZE_MULT": {
+          "0": 0.5,
+          "3": 0.65
+        },
+        "flags.hourly_bypass_quality": true,
+        "param_overrides.HOURLY_BYPASS_ALLOWED_WINDOWS": [
+          "OPEN",
+          "CLOSE"
+        ],
+        "param_overrides.HOURLY_BYPASS_EQS_MIN": 2,
+        "param_overrides.HOURLY_BYPASS_MAX_CHOP": 35.2,
+        "param_overrides.HOURLY_BYPASS_SIZE_MULT": 0.5,
+        "flags.slope_bypass_quality": true,
+        "param_overrides.SLOPE_BYPASS_ALLOWED_WINDOWS": [
+          "OPEN",
+          "CORE",
+          "CLOSE"
+        ],
+        "param_overrides.SLOPE_BYPASS_EQS_MIN": 4,
+        "param_overrides.SLOPE_BYPASS_MAX_CHOP": 36.0,
+        "param_overrides.SLOPE_BYPASS_SIZE_MULT": 1.0,
+        "param_overrides.VWAP_CAP_OPEN_EVE": 0.935,
+        "param_overrides.BUFFER_TICKS": 2,
+        "flags.mfe_rescue_stop": true,
+        "param_overrides.MFE_RESCUE_MIN_R": 0.5,
+        "param_overrides.MFE_RESCUE_AFTER_BARS": 5,
+        "param_overrides.MFE_RESCUE_TRIGGER_R": 0.1,
+        "param_overrides.MFE_RESCUE_LOCK_R": 0.1
+      },
+      "total_trades": 198,
+      "win_rate": 52.02020202020202,
+      "profit_factor": 2.780844271826482,
+      "max_drawdown_pct": 18.10610678141057,
+      "net_return_pct": 1166.0174000000002,
+      "sharpe_ratio": 2.336424418275617,
+      "calmar_ratio": 64.39912312884088
+    }
+  ]
+}

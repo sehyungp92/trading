@@ -1,0 +1,110 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-07T18:42:45.952501+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 18,
+      "base_score": 0.44909289318441403,
+      "final_score": 0.4757936934906836,
+      "kept_features": [
+        "entry_b_mom_lookback_5",
+        "prune_no_class_c"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "SIGNAL_PRUNING + ENTRY_GATES",
+      "candidate_count": 20
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-07T20:33:06.927345+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 24,
+      "base_score": 0.4782309908456923,
+      "final_score": 0.55311278208123,
+      "kept_features": [
+        "ttl_1h_8",
+        "stall_rate_012",
+        "fade_penalty_100",
+        "timedecay_onset_15",
+        "stale_r_thresh_03",
+        "partial_5_r_40",
+        "bail_b_r_neg035"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "EXIT_MANAGEMENT",
+      "candidate_count": 66
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-07T20:42:12.304555+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 25,
+      "base_score": 0.5002815679891864,
+      "final_score": 0.5020041404319039,
+      "kept_features": [
+        "addon_max_bars_25"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "VOLATILITY + ADDON",
+      "candidate_count": 24
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-08T00:58:51.482946+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 26,
+      "base_score": 0.5156251839546125,
+      "final_score": 0.6220925099220502,
+      "kept_features": [
+        "finetune_param_overrides.TTL_1H_HOURS_m20",
+        "finetune_param_overrides.ADX_UPPER_GATE_p10",
+        "finetune_param_overrides.ADD_MAX_BARS_m10",
+        "finetune_param_overrides.CLASS_B_BAIL_BARS_m10",
+        "circuit_disable",
+        "finetune_param_overrides.BE_ATR1H_OFFSET_p10",
+        "finetune_param_overrides.R_PARTIAL_2P5_m20",
+        "finetune_param_overrides.ADD_1H_R_m20",
+        "finetune_param_overrides.R_BE_1H_m10",
+        "finetune_param_overrides.BE_ATR1H_OFFSET_m10",
+        "finetune_param_overrides.STALE_R_THRESH_m20",
+        "finetune_param_overrides.PARTIAL_2P5_FRAC_p10"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "SIZING + FINETUNE",
+      "candidate_count": 94
+    }
+  },
+  "last_updated": "2026-05-08T00:58:51.492987+00:00",
+  "current_phase": 4
+}

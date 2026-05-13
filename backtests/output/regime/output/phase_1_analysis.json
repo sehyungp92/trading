@@ -1,0 +1,111 @@
+{
+  "phase": 1,
+  "goal_progress": {
+    "sharpe": {
+      "current": 1.4489,
+      "target": 1.0,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "calmar": {
+      "current": 0.9657,
+      "target": 1.0,
+      "pct_progress": 96.6,
+      "status": "IN_PROGRESS"
+    },
+    "cagr": {
+      "current": 0.0984,
+      "target": 0.08,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "sortino": {
+      "current": 2.2015,
+      "target": 1.5,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "max_drawdown": {
+      "current": 0.1019,
+      "target": 0.15,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "n_active_regimes": {
+      "current": 4,
+      "target": 4,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "regime_entropy": {
+      "current": 0.9883,
+      "target": 0.85,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "crisis_response": {
+      "current": 0.0538,
+      "target": 0.5,
+      "pct_progress": 10.8,
+      "status": "IN_PROGRESS"
+    },
+    "transition_rate": {
+      "current": 0.00926,
+      "target": "0.005-0.025",
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    }
+  },
+  "strengths": [
+    "All 4 regimes active (G/R/S/D)",
+    "Excellent regime entropy (0.988)",
+    "Well-balanced regime distribution (min share 19.8%)",
+    "Strong Sharpe ratio (1.449)",
+    "Good risk-adjusted returns (Calmar=0.966)",
+    "Well-controlled drawdowns (10.2%)",
+    "Strong CAGR (9.84%)"
+  ],
+  "weaknesses": [
+    "Very poor crisis detection (0.054) - model misses major regime shifts"
+  ],
+  "scoring_assessment": "EFFECTIVE: Score improved by 0.7180 with 3 accepted mutations. Financial metrics (Sharpe=1.449, Calmar=0.966) and regime health (entropy=0.988) are progressing together.",
+  "suggested_experiments": [
+    {
+      "name": "exp_crisis_rolling_5y_cold",
+      "mutations": {
+        "use_expanding_window": false,
+        "rolling_window_years": 5,
+        "use_warm_start": false
+      }
+    },
+    {
+      "name": "exp_crisis_refit_QE",
+      "mutations": {
+        "refit_freq": "QE"
+      }
+    },
+    {
+      "name": "exp_crisis_ll_tol_3",
+      "mutations": {
+        "refit_ll_tolerance": 3.0
+      }
+    },
+    {
+      "name": "exp_crisis_sticky_3",
+      "mutations": {
+        "sticky_diag": 3.0
+      }
+    },
+    {
+      "name": "exp_crisis_combo_fast",
+      "mutations": {
+        "sticky_diag": 3.0,
+        "refit_freq": "QE",
+        "use_expanding_window": false,
+        "rolling_window_years": 5
+      }
+    }
+  ],
+  "recommendation": "proceed",
+  "recommendation_reason": "Phase 1 gate passed. Score improved by 0.7180 with 3 accepted mutation(s). Proceeding to next phase."
+}

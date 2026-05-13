@@ -1,0 +1,45 @@
+============================================================
+Crisis Detection Phase 1 Diagnostics
+============================================================
+
+--- D1: Detection Performance ---
+Crises detected: 7/7
+Avg latency:     13.4 days
+Max latency:     23.0 days
+Action latency:  10.7 days avg
+Advisory latency:6.7 days avg
+GFC latency:     4 days
+COVID latency:   10 days
+
+--- D2: False Positive Rates ---
+WARNING FP rate: 3.86%
+CRISIS FP rate:  0.69%
+Advisory FP rate:31.54%
+Pre-action FP:   8.47%
+Avg peak level:  3.00
+
+--- D3: Alert Level Distribution ---
+NORMAL:          0.2%
+WATCH:           92.0%
+WARNING:         4.4%
+CRISIS:          3.4%
+Advisory WATCH:  29.0%
+Pre-action WATCH:5.9%
+Elevated total:  7.8% (target ~7%)
+
+--- D4: Stability ---
+Total transitions:   265
+Transitions/year:    11.6
+
+--- D5: Greedy Result ---
+Base score:      0.8181
+Final score:     0.8334
+Accepted:        1
+Total candidates:54
+Kept features:   hard_credit_impulse_warning_p3
+
+--- D6: Recovery Speed ---
+Avg post-crisis elevated days: 5.3 [MODERATE]
+Max post-crisis elevated days: 30.0
+
+============================================================

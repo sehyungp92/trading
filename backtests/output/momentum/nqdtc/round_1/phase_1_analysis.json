@@ -1,0 +1,114 @@
+{
+  "phase": 1,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 150.0,
+      "actual": 65.18319999999949,
+      "pct_of_target": 43.455466666666325
+    },
+    "profit_factor": {
+      "target": 2.0,
+      "actual": 1.2879787622317822,
+      "pct_of_target": 64.3989381115891
+    },
+    "max_dd_pct": {
+      "target": 0.15,
+      "actual": 0.22973013222349514,
+      "pct_of_target": 65.2940032498963
+    },
+    "calmar": {
+      "target": 5.0,
+      "actual": 2.8373813817590716,
+      "pct_of_target": 56.74762763518143
+    },
+    "total_trades": {
+      "target": 120.0,
+      "actual": 157.0,
+      "pct_of_target": 130.83333333333334
+    },
+    "capture_ratio": {
+      "target": 0.4,
+      "actual": 0.3607310268305392,
+      "pct_of_target": 90.1827567076348
+    },
+    "win_rate": {
+      "target": 0.52,
+      "actual": 0.5286624203821656,
+      "pct_of_target": 101.66585007349337
+    },
+    "sharpe": {
+      "target": 1.5,
+      "actual": 0.17895812516947376,
+      "pct_of_target": 11.930541677964918
+    }
+  },
+  "strengths": [
+    "total_trades: 157.0000 (131% of 120.0000)",
+    "capture_ratio: 0.3607 (90% of 0.4000)",
+    "win_rate: 0.5287 (102% of 0.5200)"
+  ],
+  "weaknesses": [
+    "net_return_pct: 65.1832 (43% of 150.0000)",
+    "calmar: 2.8374 (57% of 5.0000)",
+    "sharpe: 0.1790 (12% of 1.5000)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [
+    "Elevated drawdown -- risk controls or regime filtering needed",
+    "Low profit factor -- edge may be degraded by filters"
+  ],
+  "suggested_experiments": [
+    {
+      "name": "suggest_block_neutral",
+      "mutations": {
+        "param_overrides.BLOCK_NEUTRAL_REGIME": true
+      }
+    },
+    {
+      "name": "suggest_block_neutral_aligned",
+      "mutations": {
+        "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+        "param_overrides.BLOCK_ALIGNED_REGIME": true
+      }
+    },
+    {
+      "name": "suggest_score_non_range_2x",
+      "mutations": {
+        "param_overrides.SCORE_NON_RANGE_MULT": 2.0
+      }
+    },
+    {
+      "name": "suggest_lower_risk_0.006",
+      "mutations": {
+        "param_overrides.BASE_RISK_PCT": 0.006
+      }
+    },
+    {
+      "name": "suggest_range_only",
+      "mutations": {
+        "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+        "param_overrides.BLOCK_ALIGNED_REGIME": true,
+        "param_overrides.BLOCK_CAUTION_REGIME": true
+      }
+    }
+  ],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + total_trades: 157.0000 (131% of 120.0000)\n  + capture_ratio: 0.3607 (90% of 0.4000)\n  + win_rate: 0.5287 (102% of 0.5200)\n\nWeaknesses:\n  - net_return_pct: 65.1832 (43% of 150.0000)\n  - calmar: 2.8374 (57% of 5.0000)\n  - sharpe: 0.1790 (12% of 1.5000)\n\nDiagnostic Gaps:\n  ! Elevated drawdown -- risk controls or regime filtering needed\n  ! Low profit factor -- edge may be degraded by filters\n\nSuggested Experiments (5):\n  - suggest_block_neutral: {\"param_overrides.BLOCK_NEUTRAL_REGIME\": true}\n  - suggest_block_neutral_aligned: {\"param_overrides.BLOCK_NEUTRAL_REGIME\": true, \"param_overrides.BLOCK_ALIGNED_REGIME\": true}\n  - suggest_score_non_range_2x: {\"param_overrides.SCORE_NON_RANGE_MULT\": 2.0}\n  - suggest_lower_risk_0.006: {\"param_overrides.BASE_RISK_PCT\": 0.006}\n  - suggest_range_only: {\"param_overrides.BLOCK_NEUTRAL_REGIME\": true, \"param_overrides.BLOCK_ALIGNED_REGIME\": true, \"param_overrides.BLOCK_CAUTION_REGIME\": true}\n\nExtra Analysis:\n  Session/direction: ETH short WR=43.2% (37 trades), Range regime=71.3%\n  Exit efficiency: capture=0.36, TP1=51.0%, TP2=0.6%\n  Clustering: burst_trade_pct=10.2%\n\nGoal Progress:\n  net_return_pct: 65.1832 / 150.0000 (43%)\n  profit_factor: 1.2880 / 2.0000 (64%)\n  max_dd_pct: 0.2297 / 0.1500 (65%)\n  calmar: 2.8374 / 5.0000 (57%)\n  total_trades: 157.0000 / 120.0000 (131%)\n  capture_ratio: 0.3607 / 0.4000 (90%)\n  win_rate: 0.5287 / 0.5200 (102%)\n  sharpe: 0.1790 / 1.5000 (12%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "session_direction": {
+      "eth_short_wr": 0.43243243243243246,
+      "eth_short_trades": 37,
+      "range_regime_pct": 0.7133757961783439
+    },
+    "exit_efficiency": {
+      "capture_ratio": 0.3607310268305392,
+      "tp1_hit_rate": 0.5095541401273885,
+      "tp2_hit_rate": 0.006369426751592357
+    },
+    "clustering": {
+      "burst_trade_pct": 0.10191082802547771
+    }
+  }
+}

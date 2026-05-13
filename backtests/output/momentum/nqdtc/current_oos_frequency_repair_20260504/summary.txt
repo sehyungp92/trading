@@ -1,0 +1,56 @@
+NQDTC Current OOS Frequency Repair Summary
+================================================================================================
+The OOS window is used for diagnosis/selection in this run; it is no longer an untouched holdout.
+Config: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\momentum\nqdtc\round_4\optimized_config.json
+Data end: 2026-05-01
+
+Baseline IS: trades=117 PF=2.30 netR=63.68 avgR=0.544
+Baseline OOS: trades=6 PF=3.07 netR=4.16 avgR=0.693
+Candidates evaluated: 153
+
+Balanced frequency uplifts:
+  perturbation/perturb_RATCHET_THRESHOLD_R_0p5: obj=+8.76%, passed=True, OOS trades=7 netR=5.05 avgR=0.722, IS trades=117 netR=63.7, reasons=[]
+  ablation/ablate_cluster_round_1_phase_3_block: obj=+9.62%, passed=False, OOS trades=7 netR=5.03 avgR=0.719, IS trades=147 netR=60.9, reasons=['fold_robust_deterioration']
+  perturbation/flip_flag_block_eth_shorts: obj=+9.62%, passed=False, OOS trades=7 netR=5.03 avgR=0.719, IS trades=147 netR=60.9, reasons=['fold_robust_deterioration']
+
+Top objective candidates:
+  ablation/ablate_round4_key_prior_SCORE_NON_RANGE_MULT: obj=+16.31%, passed=False, OOS trades=7 netR=6.46 avgR=0.923, IS trades=168 netR=46.0, reasons=['development_net_r_floor', 'development_avg_r_floor', 'fold_robust_deterioration', 'development_dd_expansion']
+  perturbation/perturb_MIN_INTER_TRADE_GAP_MINUTES_60: obj=+14.85%, passed=False, OOS trades=6 netR=6.84 avgR=1.141, IS trades=116 netR=55.5, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  targeted/open_flag_block_04_et_rvol_1p75: obj=+11.76%, passed=False, OOS trades=7 netR=5.99 avgR=0.856, IS trades=122 netR=56.6, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  perturbation/perturb_MIN_INTER_TRADE_GAP_MINUTES_50: obj=+10.44%, passed=True, OOS trades=6 netR=5.86 avgR=0.976, IS trades=117 netR=60.4, reasons=[]
+  ablation/ablate_cluster_round_1_phase_3_block: obj=+9.62%, passed=False, OOS trades=7 netR=5.03 avgR=0.719, IS trades=147 netR=60.9, reasons=['fold_robust_deterioration']
+  perturbation/flip_flag_block_eth_shorts: obj=+9.62%, passed=False, OOS trades=7 netR=5.03 avgR=0.719, IS trades=147 netR=60.9, reasons=['fold_robust_deterioration']
+  targeted/aligned_open_nrm_2p25_cd30: obj=+9.47%, passed=False, OOS trades=13 netR=2.91 avgR=0.223, IS trades=137 netR=65.4, reasons=['selection_oos_net_r_floor', 'fold_robust_deterioration']
+  targeted/open_flag_block_12_et: obj=+8.86%, passed=True, OOS trades=6 netR=5.57 avgR=0.928, IS trades=122 netR=60.7, reasons=[]
+  perturbation/perturb_RATCHET_THRESHOLD_R_0p5: obj=+8.76%, passed=True, OOS trades=7 netR=5.05 avgR=0.722, IS trades=117 netR=63.7, reasons=[]
+  ablation/ablate_key_prior_flag_block_05_et: obj=+7.25%, passed=True, OOS trades=5 netR=5.62 avgR=1.125, IS trades=107 netR=58.0, reasons=[]
+  perturbation/flip_flag_block_05_et: obj=+7.25%, passed=True, OOS trades=5 netR=5.62 avgR=1.125, IS trades=107 netR=58.0, reasons=[]
+  perturbation/perturb_SCORE_NORMAL_1p25: obj=+6.16%, passed=True, OOS trades=6 netR=5.24 avgR=0.873, IS trades=118 netR=60.9, reasons=[]
+
+Top frequency candidates:
+  targeted/aligned_open_nrm_2p25_cd30: obj=+9.47%, passed=False, OOS trades=13 netR=2.91 avgR=0.223, IS trades=137 netR=65.4, reasons=['selection_oos_net_r_floor', 'fold_robust_deterioration']
+  perturbation/flip_BLOCK_ALIGNED_REGIME: obj=-0.11%, passed=False, OOS trades=12 netR=2.21 avgR=0.184, IS trades=130 netR=62.1, reasons=['selection_oos_net_r_floor', 'fold_robust_deterioration']
+  targeted/aligned_open_nrm_2p25_maxstop175: obj=-0.11%, passed=False, OOS trades=12 netR=2.21 avgR=0.184, IS trades=130 netR=62.1, reasons=['selection_oos_net_r_floor', 'fold_robust_deterioration']
+  targeted/aligned_open_nrm_2p25_maxstop200: obj=-0.11%, passed=False, OOS trades=12 netR=2.21 avgR=0.184, IS trades=130 netR=62.1, reasons=['selection_oos_net_r_floor', 'fold_robust_deterioration']
+  targeted/aligned_open_nrm_2p25_maxstop225: obj=-0.11%, passed=False, OOS trades=12 netR=2.21 avgR=0.184, IS trades=130 netR=62.1, reasons=['selection_oos_net_r_floor', 'fold_robust_deterioration']
+  targeted/aligned_open_nrm_2p25_maxstop250: obj=-0.11%, passed=False, OOS trades=12 netR=2.21 avgR=0.184, IS trades=130 netR=62.1, reasons=['selection_oos_net_r_floor', 'fold_robust_deterioration']
+  targeted/aligned_open_nrm_2p25_cd60: obj=+5.83%, passed=False, OOS trades=11 netR=4.02 avgR=0.365, IS trades=129 netR=54.8, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  targeted/aligned_open_nrm_2p75_cd30: obj=-41.92%, passed=False, OOS trades=10 netR=-2.69 avgR=-0.269, IS trades=109 netR=58.1, reasons=['selection_oos_net_r_floor', 'fold_robust_deterioration']
+  targeted/aligned_open_nrm_3_cd30: obj=-41.92%, passed=False, OOS trades=10 netR=-2.69 avgR=-0.269, IS trades=109 netR=58.1, reasons=['selection_oos_net_r_floor', 'fold_robust_deterioration']
+  targeted/aligned_open_nrm_2p5_cd30: obj=-40.81%, passed=False, OOS trades=9 netR=-1.55 avgR=-0.173, IS trades=118 netR=48.4, reasons=['development_net_r_floor', 'selection_oos_net_r_floor', 'fold_robust_deterioration']
+  targeted/aligned_open_nrm_2p75: obj=-50.39%, passed=False, OOS trades=9 netR=-3.39 avgR=-0.376, IS trades=103 netR=56.4, reasons=['development_net_r_floor', 'selection_oos_net_r_floor', 'fold_robust_deterioration']
+  targeted/aligned_open_nrm_2p75_maxstop175: obj=-50.39%, passed=False, OOS trades=9 netR=-3.39 avgR=-0.376, IS trades=103 netR=56.4, reasons=['development_net_r_floor', 'selection_oos_net_r_floor', 'fold_robust_deterioration']
+
+Top OOS-net candidates:
+  perturbation/perturb_MIN_INTER_TRADE_GAP_MINUTES_60: obj=+14.85%, passed=False, OOS trades=6 netR=6.84 avgR=1.141, IS trades=116 netR=55.5, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  ablation/ablate_round4_key_prior_SCORE_NON_RANGE_MULT: obj=+16.31%, passed=False, OOS trades=7 netR=6.46 avgR=0.923, IS trades=168 netR=46.0, reasons=['development_net_r_floor', 'development_avg_r_floor', 'fold_robust_deterioration', 'development_dd_expansion']
+  targeted/open_flag_block_04_et_rvol_1p75: obj=+11.76%, passed=False, OOS trades=7 netR=5.99 avgR=0.856, IS trades=122 netR=56.6, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  targeted/a_entry_enabled: obj=+5.20%, passed=False, OOS trades=7 netR=5.98 avgR=0.855, IS trades=188 netR=25.9, reasons=['development_net_r_floor', 'development_avg_r_floor', 'fold_robust_deterioration', 'development_dd_expansion']
+  targeted/a_entry_enabled_maxstop175: obj=+5.20%, passed=False, OOS trades=7 netR=5.98 avgR=0.855, IS trades=188 netR=25.9, reasons=['development_net_r_floor', 'development_avg_r_floor', 'fold_robust_deterioration', 'development_dd_expansion']
+  perturbation/perturb_MIN_INTER_TRADE_GAP_MINUTES_50: obj=+10.44%, passed=True, OOS trades=6 netR=5.86 avgR=0.976, IS trades=117 netR=60.4, reasons=[]
+  ablation/ablate_key_prior_flag_block_05_et: obj=+7.25%, passed=True, OOS trades=5 netR=5.62 avgR=1.125, IS trades=107 netR=58.0, reasons=[]
+  perturbation/flip_flag_block_05_et: obj=+7.25%, passed=True, OOS trades=5 netR=5.62 avgR=1.125, IS trades=107 netR=58.0, reasons=[]
+  ablation/ablate_cluster_round_3_phase_1_block: obj=+6.10%, passed=True, OOS trades=5 netR=5.62 avgR=1.125, IS trades=100 netR=57.4, reasons=[]
+  targeted/open_flag_block_12_et: obj=+8.86%, passed=True, OOS trades=6 netR=5.57 avgR=0.928, IS trades=122 netR=60.7, reasons=[]
+  perturbation/perturb_RVOL_SCORE_THRESH_1p75: obj=+5.95%, passed=False, OOS trades=6 netR=5.57 avgR=0.928, IS trades=112 netR=57.5, reasons=['fold_robust_deterioration']
+  perturbation/perturb_RVOL_SCORE_THRESH_2: obj=+5.95%, passed=False, OOS trades=6 netR=5.57 avgR=0.928, IS trades=112 netR=57.5, reasons=['fold_robust_deterioration']

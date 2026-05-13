@@ -1,0 +1,134 @@
+{
+  "phase": 2,
+  "goal_progress": {
+    "sharpe": {
+      "current": 2.0377,
+      "target": 1.0,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "calmar": {
+      "current": 1.7469,
+      "target": 1.0,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "cagr": {
+      "current": 0.1375,
+      "target": 0.08,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "sortino": {
+      "current": 3.3244,
+      "target": 1.5,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "max_drawdown": {
+      "current": 0.0787,
+      "target": 0.15,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "n_active_regimes": {
+      "current": 4,
+      "target": 4,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "regime_entropy": {
+      "current": 0.9913,
+      "target": 0.85,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "crisis_response": {
+      "current": 0.1454,
+      "target": 0.5,
+      "pct_progress": 29.1,
+      "status": "IN_PROGRESS"
+    },
+    "transition_rate": {
+      "current": 0.02778,
+      "target": "0.005-0.025",
+      "pct_progress": 90.0,
+      "status": "IN_PROGRESS"
+    }
+  },
+  "strengths": [
+    "Score improved 0.5846 -> 0.6464 (+0.0618)",
+    "All 4 regimes active (G/R/S/D)",
+    "Excellent regime entropy (0.991)",
+    "Well-balanced regime distribution (min share 20.9%)",
+    "Strong Sharpe ratio (2.038)",
+    "Good risk-adjusted returns (Calmar=1.747)",
+    "Well-controlled drawdowns (7.9%)",
+    "Strong CAGR (13.75%)"
+  ],
+  "weaknesses": [
+    "High transition rate (0.0278) - noisy regime switching",
+    "Very poor crisis detection (0.145) - model misses major regime shifts"
+  ],
+  "scoring_assessment": "MISALIGNED: Score improved (+0.0192) but key phase focus metrics lagging: Crisis response still poor (0.145). Scoring may be over-weighting non-priority dimensions. Consider rebalancing phase scorer weights toward focus areas.",
+  "suggested_experiments": [
+    {
+      "name": "exp_sticky_25",
+      "mutations": {
+        "sticky_diag": 25.0
+      }
+    },
+    {
+      "name": "exp_sticky_15",
+      "mutations": {
+        "sticky_diag": 15.0
+      }
+    },
+    {
+      "name": "exp_z_window_504",
+      "mutations": {
+        "z_window": 504
+      }
+    },
+    {
+      "name": "exp_expanding_window",
+      "mutations": {
+        "use_expanding_window": true
+      }
+    },
+    {
+      "name": "exp_crisis_add_commodity",
+      "mutations": {
+        "use_commodity_feature": true
+      }
+    },
+    {
+      "name": "exp_crisis_add_both_features",
+      "mutations": {
+        "use_commodity_feature": true,
+        "use_real_rates_feature": true
+      }
+    },
+    {
+      "name": "exp_crisis_drop_noisy_add_commodity",
+      "mutations": {
+        "use_commodity_feature": true,
+        "drop_momentum_breadth": true
+      }
+    },
+    {
+      "name": "exp_crisis_z_window_126",
+      "mutations": {
+        "z_window": 126
+      }
+    },
+    {
+      "name": "exp_crisis_cov_diag",
+      "mutations": {
+        "covariance_type": "diag"
+      }
+    }
+  ],
+  "recommendation": "expand_and_proceed",
+  "recommendation_reason": "Scoring function improved score but not key focus metrics. Adding suggested experiments to next phase whose scoring better targets the lagging dimensions."
+}

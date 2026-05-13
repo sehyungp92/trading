@@ -1,0 +1,57 @@
+{
+  "phase": 2,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 200.0,
+      "actual": 110.83757400000248,
+      "pct_of_target": 55.41878700000124
+    },
+    "profit_factor": {
+      "target": 2.5,
+      "actual": 2.2987349594669566,
+      "pct_of_target": 91.94939837867825
+    },
+    "max_r_dd": {
+      "target": 8.0,
+      "actual": 7.615636909022925,
+      "pct_of_target": 105.04702489849123
+    },
+    "exit_efficiency": {
+      "target": 0.35,
+      "actual": 0.43416644932556325,
+      "pct_of_target": 124.04755695016094
+    },
+    "min_side_pf": {
+      "target": 1.6,
+      "actual": 2.206113208275808,
+      "pct_of_target": 137.88207551723798
+    },
+    "total_trades": {
+      "target": 400.0,
+      "actual": 272.0,
+      "pct_of_target": 68.0
+    }
+  },
+  "strengths": [
+    "profit_factor: 2.2987 (92% of 2.5000)",
+    "max_r_dd: 7.6156 (105% of 8.0000)",
+    "exit_efficiency: 0.4342 (124% of 0.3500)",
+    "min_side_pf: 2.2061 (138% of 1.6000)"
+  ],
+  "weaknesses": [
+    "net_return_pct: 110.8376 (55% of 200.0000)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + profit_factor: 2.2987 (92% of 2.5000)\n  + max_r_dd: 7.6156 (105% of 8.0000)\n  + exit_efficiency: 0.4342 (124% of 0.3500)\n  + min_side_pf: 2.2061 (138% of 1.6000)\n\nWeaknesses:\n  - net_return_pct: 110.8376 (55% of 200.0000)\n\nExtra Analysis:\n  Class R attribution: B=+45.8R, D=+114.3R\n\nGoal Progress:\n  net_return_pct: 110.8376 / 200.0000 (55%)\n  profit_factor: 2.2987 / 2.5000 (92%)\n  max_r_dd: 7.6156 / 8.0000 (105%)\n  exit_efficiency: 0.4342 / 0.3500 (124%)\n  min_side_pf: 2.2061 / 1.6000 (138%)\n  total_trades: 272.0000 / 400.0000 (68%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "class_attribution": {
+      "D": 114.25119213794454,
+      "B": 45.7502563442213
+    }
+  }
+}

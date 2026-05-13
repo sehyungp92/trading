@@ -1,0 +1,39 @@
+{
+  "base_score": 0.7900015391282353,
+  "final_score": 0.8193403385679697,
+  "final_mutations": {
+    "VIX_CRISIS": 38.0,
+    "HYBRID_WARNING_MIN_CRISIS": 1,
+    "HYBRID_WARNING_MIN_PRIMARY": 2,
+    "SPY_DD_WARNING": -0.06,
+    "VIX_WATCH": 27.0,
+    "VIX_WARNING": 32.0
+  },
+  "kept_features": [
+    "vix_loose"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 36,
+      "best_name": "vix_loose",
+      "best_score": 0.8193403385679697,
+      "best_delta_pct": 3.7137648455862093,
+      "kept": true,
+      "rejected_count": 8
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 24,
+      "best_name": "spread_crisis_650",
+      "best_score": 0.8196495052382993,
+      "best_delta_pct": 0.037733607852128724,
+      "kept": false,
+      "rejected_count": 4
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 36,
+  "accepted_count": 1,
+  "elapsed_seconds": 0.31500935554504395
+}

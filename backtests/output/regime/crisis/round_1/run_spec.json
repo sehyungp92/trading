@@ -1,0 +1,12 @@
+{
+  "family": "regime",
+  "strategy": "crisis",
+  "strategy_name": "crisis",
+  "round": 1,
+  "description": "Round 1",
+  "generated_at_utc": "2026-05-05T18:54:06.070748+00:00",
+  "baseline_source": null,
+  "baseline_mutation_count": 0,
+  "baseline_mutations": {},
+  "scoring_weights": {}
+}

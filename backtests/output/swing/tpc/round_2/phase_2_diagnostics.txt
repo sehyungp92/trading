@@ -1,0 +1,1 @@
+tpc phase 2: net=+3.60%, avgR=+0.885, trades=260, trades/month=4.70, excellent=110, R/month=+4.16, PF=1.97, MFE capture=+0.28, never-worked=33%, DD=2.37%, accepted=1

@@ -1,0 +1,39 @@
+{
+  "family": "swing",
+  "strategy": "tpc",
+  "strategy_name": "tpc",
+  "round": 2,
+  "description": "Round 2",
+  "generated_at_utc": "2026-05-05T14:24:46.811812+00:00",
+  "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_1\\optimized_config.json",
+  "baseline_mutation_count": 19,
+  "baseline_mutations": {
+    "all.trail_after_t1_30m_bars": 4,
+    "all.trail_use_vwap_after_t1": true,
+    "QQQ.t1_r": 1.25,
+    "GLD.t1_r": 1.1,
+    "all.max_hold_bars_15m": 52,
+    "all.time_stop_min_mfe_r": 0.5,
+    "all.initial_stop_source": "signal",
+    "all.signal_stop_buffer_atr_mult": 0.12,
+    "all.entry_order_model": "structure_stop",
+    "all.entry_stop_limit_atr_mult": 0.08,
+    "all.fib_a_low": 0.33,
+    "all.fib_a_high": 0.7,
+    "all.type_a_value_hits_min": 1,
+    "all.confirmation_required": 1,
+    "all.confirmation_combo_mode": "structure_or_vwap",
+    "all.type_c_enabled": true,
+    "all.type_c_requires_a_plus": false,
+    "all.max_position_notional_pct": 0.3,
+    "QQQ.primary_windows_et": [
+      [
+        9,
+        35,
+        15,
+        45
+      ]
+    ]
+  },
+  "scoring_weights": {}
+}

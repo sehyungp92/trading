@@ -1,0 +1,25 @@
+Active round_1 vs phase-5 discriminator blend validation comparison
+Generated: 2026-05-06T17:28:34.639097+00:00
+
+Cutoff check:
+  stock_portfolio_synergy_optimization_end: 2026-03-01
+  iaric_round_3_summary_is_end: 2026-03-20
+  available_raw_data_end: 2026-05-01
+  note: The portfolio overlay was optimized to 2026-03-01; IARIC round_3 artifacts define IS to 2026-03-20 and OOS from 2026-03-21.
+
+portfolio_overlay_oos_if_is_ends_2026_03_01: 2026-03-02 -> 2026-05-01
+  Validation after the stock portfolio synergy optimization/diagnostics cutoff.
+  active_round_1: score=0.7300, pnl=$+6,431.40, return=+25.73%, trades=117, tpm=59.34, R/mo=17.77, PF=3.03, DD=3.93%, capture=85.40%, pos_block=14.14%, disc=0.456
+  phase5_discriminator_blend: score=0.7653, pnl=$+6,138.06, return=+24.55%, trades=124, tpm=62.89, R/mo=20.11, PF=3.07, DD=4.00%, capture=90.51%, pos_block=9.09%, disc=0.788
+  phase5-active delta: score=+0.0353, pnl=$-293.34, trades=+7, tpm=+3.55, R/mo=+2.34, PF=+0.04, DD=+0.07%, pos_block=-5.05%, disc=+0.332
+  winner_by_score: phase5_discriminator_blend
+  production_preference: active_round_1
+
+latest_strategy_oos_if_is_ends_2026_03_20: 2026-03-21 -> 2026-05-01
+  Validation after the IARIC round_3 IS window noted in its OOS diagnostics.
+  active_round_1: score=0.8160, pnl=$+4,575.22, return=+18.30%, trades=86, tpm=108.83, R/mo=34.89, PF=2.77, DD=4.57%, capture=87.76%, pos_block=13.04%, disc=0.204
+  phase5_discriminator_blend: score=0.8607, pnl=$+4,361.34, return=+17.45%, trades=93, tpm=117.69, R/mo=41.01, PF=2.90, DD=3.84%, capture=94.90%, pos_block=5.80%, disc=0.700
+  phase5-active delta: score=+0.0446, pnl=$-213.88, trades=+7, tpm=+8.86, R/mo=+6.12, PF=+0.13, DD=-0.73%, pos_block=-7.25%, disc=+0.496
+  winner_by_score: phase5_discriminator_blend
+  production_preference: active_round_1
+

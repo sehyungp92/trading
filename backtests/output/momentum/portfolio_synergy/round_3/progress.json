@@ -1,0 +1,84 @@
+{
+  "phases": {
+    "1": {
+      "base_score": 0.9955784162045334,
+      "candidate_count": 3,
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "diagnostic_retries": 0,
+      "failure_category": null,
+      "final_score": 0.9955784162045334,
+      "focus": "No candidate improved the current score under MTM risk and validation gates.",
+      "gate_passed": true,
+      "kept_features": [],
+      "scoring_retries": 0,
+      "status": "completed",
+      "total_mutations": 14,
+      "updated_at": "2026-05-11T13:50:29.658042+00:00"
+    },
+    "2": {
+      "base_score": 0.9955784162045334,
+      "candidate_count": 3,
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "diagnostic_retries": 0,
+      "failure_category": null,
+      "final_score": 0.9955784162045334,
+      "focus": "No candidate improved the current score under MTM risk and validation gates.",
+      "gate_passed": true,
+      "kept_features": [],
+      "scoring_retries": 0,
+      "status": "completed",
+      "total_mutations": 14,
+      "updated_at": "2026-05-11T13:50:29.691586+00:00"
+    },
+    "3": {
+      "base_score": 0.9955784162045334,
+      "candidate_count": 7,
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "diagnostic_retries": 0,
+      "failure_category": null,
+      "final_score": 1.1256155581491243,
+      "focus": "Accepted capacity_10_00_contracts_40_positions_8_risk_2_0.",
+      "gate_passed": true,
+      "kept_features": [
+        "capacity_10_00_contracts_40_positions_8_risk_2_0"
+      ],
+      "scoring_retries": 0,
+      "status": "completed",
+      "total_mutations": 14,
+      "updated_at": "2026-05-11T13:50:29.738154+00:00"
+    },
+    "4": {
+      "base_score": 1.1256155581491243,
+      "candidate_count": 4,
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "diagnostic_retries": 0,
+      "failure_category": null,
+      "final_score": 1.1256155581491243,
+      "focus": "No candidate improved the current score under MTM risk and validation gates.",
+      "gate_passed": true,
+      "kept_features": [],
+      "scoring_retries": 0,
+      "status": "completed",
+      "total_mutations": 14,
+      "updated_at": "2026-05-11T13:50:29.790237+00:00"
+    }
+  }
+}

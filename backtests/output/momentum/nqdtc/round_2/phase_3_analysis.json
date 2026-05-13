@@ -1,0 +1,91 @@
+{
+  "phase": 3,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 220.0,
+      "actual": 296.4326000000012,
+      "pct_of_target": 134.74209090909144
+    },
+    "profit_factor": {
+      "target": 2.0,
+      "actual": 2.1932120175867107,
+      "pct_of_target": 109.66060087933553
+    },
+    "max_dd_pct": {
+      "target": 0.15,
+      "actual": 0.15096239289761393,
+      "pct_of_target": 99.36249493722144
+    },
+    "calmar": {
+      "target": 10.0,
+      "actual": 19.63618847781834,
+      "pct_of_target": 196.3618847781834
+    },
+    "total_trades": {
+      "target": 180.0,
+      "actual": 89.0,
+      "pct_of_target": 49.44444444444444
+    },
+    "capture_ratio": {
+      "target": 0.5,
+      "actual": 0.41358675546636753,
+      "pct_of_target": 82.7173510932735
+    },
+    "avg_r": {
+      "target": 0.35,
+      "actual": 0.5187420280832196,
+      "pct_of_target": 148.21200802377703
+    },
+    "win_rate": {
+      "target": 0.56,
+      "actual": 0.5842696629213483,
+      "pct_of_target": 104.33386837881218
+    },
+    "sharpe": {
+      "target": 2.0,
+      "actual": 1.8597752173193296,
+      "pct_of_target": 92.98876086596648
+    },
+    "sortino": {
+      "target": 6.0,
+      "actual": 38.88465610135131,
+      "pct_of_target": 200.0
+    }
+  },
+  "strengths": [
+    "net_return_pct: 296.4326 (135% of 220.0000)",
+    "profit_factor: 2.1932 (110% of 2.0000)",
+    "max_dd_pct: 0.1510 (99% of 0.1500)",
+    "calmar: 19.6362 (196% of 10.0000)",
+    "capture_ratio: 0.4136 (83% of 0.5000)",
+    "avg_r: 0.5187 (148% of 0.3500)",
+    "win_rate: 0.5843 (104% of 0.5600)",
+    "sharpe: 1.8598 (93% of 2.0000)",
+    "sortino: 38.8847 (200% of 6.0000)"
+  ],
+  "weaknesses": [
+    "total_trades: 89.0000 (49% of 180.0000)"
+  ],
+  "scoring_assessment": "INEFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Retry budget exhausted; advance with current best mutations.",
+  "report": "======================================================================\nPHASE 3 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Retry budget exhausted; advance with current best mutations.\nScoring assessment: INEFFECTIVE\n\nStrengths:\n  + net_return_pct: 296.4326 (135% of 220.0000)\n  + profit_factor: 2.1932 (110% of 2.0000)\n  + max_dd_pct: 0.1510 (99% of 0.1500)\n  + calmar: 19.6362 (196% of 10.0000)\n  + capture_ratio: 0.4136 (83% of 0.5000)\n  + avg_r: 0.5187 (148% of 0.3500)\n  + win_rate: 0.5843 (104% of 0.5600)\n  + sharpe: 1.8598 (93% of 2.0000)\n  + sortino: 38.8847 (200% of 6.0000)\n\nWeaknesses:\n  - total_trades: 89.0000 (49% of 180.0000)\n\nExtra Analysis:\n  Session/direction: ETH short WR=0.0% (0 trades), Range regime=100.0%\n  Exit efficiency: capture=0.41, TP1=55.1%, TP2=0.0%\n  Clustering: burst_trade_pct=1.1%\n\nGoal Progress:\n  net_return_pct: 296.4326 / 220.0000 (135%)\n  profit_factor: 2.1932 / 2.0000 (110%)\n  max_dd_pct: 0.1510 / 0.1500 (99%)\n  calmar: 19.6362 / 10.0000 (196%)\n  total_trades: 89.0000 / 180.0000 (49%)\n  capture_ratio: 0.4136 / 0.5000 (83%)\n  avg_r: 0.5187 / 0.3500 (148%)\n  win_rate: 0.5843 / 0.5600 (104%)\n  sharpe: 1.8598 / 2.0000 (93%)\n  sortino: 38.8847 / 6.0000 (200%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "session_direction": {
+      "eth_short_wr": 0.0,
+      "eth_short_trades": 0,
+      "range_regime_pct": 1.0
+    },
+    "exit_efficiency": {
+      "capture_ratio": 0.41358675546636753,
+      "tp1_hit_rate": 0.550561797752809,
+      "tp2_hit_rate": 0.0
+    },
+    "clustering": {
+      "burst_trade_pct": 0.011235955056179775
+    }
+  }
+}

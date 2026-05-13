@@ -1,0 +1,1 @@
+tpc phase 1: net=+63.13%, net/month=+1.142%, avgR=+1.243, trades=249, trades/month=4.50, excellent=112, R/month=+5.60, $PF=1.24, RPF=2.80, MFE capture=+0.35, never-worked=34%, DD=30.61%, accepted=1

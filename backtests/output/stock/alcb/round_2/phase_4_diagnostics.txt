@@ -1,0 +1,11 @@
+======================================================================
+ALCB ROUND-2 STRUCTURAL ALPHA PHASE 4 SNAPSHOT
+======================================================================
+Focus: Stop geometry and entry-risk control
+Score 0.4913 -> 0.6362 with 2 accepted mutations.
+
+Core: trades=506, net_profit=+9235.69, expectancy_dollar=+18.25, expected_total_r=+111.84, pf=1.901, dd=2.9%, trades/month=19.54
+Quality: signal_quality=0.599, timing_quality=0.633, extended_avwap_inverse=0.383, bar9_inverse=0.534, late_entry_quality=0.983, score_monotonicity=0.428
+Management: profit_protection=0.662, short24_inv=0.411, flow_mfe_inv=0.779, mfe_capture_eff=0.766, sizing_alignment=1.000, long_hold_capture=0.985, inv_dd=0.755
+Focus metric deltas: expected_total_r=+108.099->+111.843, net_profit=+8749.170->+9235.690, profit_factor=+1.749->+1.901, mfe_capture_efficiency=+0.769->+0.766, profit_protection=+0.598->+0.662, timing_quality=+0.515->+0.633, inv_dd=+0.711->+0.755
+Hard floors: max_dd_pct=4.50%, min_expectancy_dollar=13.3884, min_expected_total_r=101.6126, min_flow_mfe_exit_inverse=0.6571, min_mfe_capture_efficiency=0.7000, min_net_profit=8049.2364, min_pf=1.6087, min_profit_protection=0.5082, min_short_hold_24_drag_inverse=0.2411, min_trades_per_month=19.5000

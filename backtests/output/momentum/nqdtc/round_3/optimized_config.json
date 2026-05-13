@@ -1,0 +1,19 @@
+{
+  "flags.max_loss_cap": true,
+  "flags.max_stop_width": true,
+  "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+  "param_overrides.BLOCK_CAUTION_REGIME": true,
+  "flags.displacement_threshold": false,
+  "param_overrides.SCORE_NORMAL": 1.5,
+  "param_overrides.RVOL_SCORE_THRESH": 1.5,
+  "param_overrides.MIN_BOX_WIDTH": 150,
+  "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+  "flags.block_eth_shorts": true,
+  "param_overrides.TP1_R": 1.4,
+  "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+  "param_overrides.TP1_PARTIAL_PCT": 0.55,
+  "param_overrides.BLOCK_ALIGNED_REGIME": true,
+  "flags.block_05_et": false,
+  "flags.block_09_et": false,
+  "param_overrides.RATCHET_THRESHOLD_R": 0.75
+}

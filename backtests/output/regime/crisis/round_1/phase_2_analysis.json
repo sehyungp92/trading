@@ -1,0 +1,72 @@
+{
+  "phase": 2,
+  "goal_progress": {
+    "avg_latency": {
+      "target": 3.0,
+      "actual": 31.571428571428573,
+      "pct_of_target": 9.502262443438914
+    },
+    "warning_fp_rate": {
+      "target": 0.05,
+      "actual": 0.05611099775556009,
+      "pct_of_target": 112.22199551112017
+    },
+    "crisis_fp_rate": {
+      "target": 0.02,
+      "actual": 0.023668639053254437,
+      "pct_of_target": 118.34319526627219
+    },
+    "crises_detected": {
+      "target": 7.0,
+      "actual": 7.0,
+      "pct_of_target": 100.0
+    },
+    "transitions_per_year": {
+      "target": 20.0,
+      "actual": 6.654621264767199,
+      "pct_of_target": 33.273106323836
+    }
+  },
+  "strengths": [
+    "warning_fp_rate: 0.0561 (112% of 0.0500)",
+    "crisis_fp_rate: 0.0237 (118% of 0.0200)",
+    "crises_detected: 7.0000 (100% of 7.0000)"
+  ],
+  "weaknesses": [
+    "avg_latency: 31.5714 (10% of 3.0000)",
+    "transitions_per_year: 6.6546 (33% of 20.0000)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [
+    "Average detection latency 31.6d -- too slow"
+  ],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + warning_fp_rate: 0.0561 (112% of 0.0500)\n  + crisis_fp_rate: 0.0237 (118% of 0.0200)\n  + crises_detected: 7.0000 (100% of 7.0000)\n\nWeaknesses:\n  - avg_latency: 31.5714 (10% of 3.0000)\n  - transitions_per_year: 6.6546 (33% of 20.0000)\n\nDiagnostic Gaps:\n  ! Average detection latency 31.6d -- too slow\n\nExtra Analysis:\n  Detection: 7/7 crises, avg latency 31.6d\n  Corrections: 2/2, avg latency 0.5d\n  FP rates: WARNING=5.61%, CRISIS=2.37%\n  Distribution: NORMAL=0.2%, WATCH=89.6%, WARNING=4.5%, CRISIS=5.7%\n\nGoal Progress:\n  avg_latency: 31.5714 / 3.0000 (10%)\n  warning_fp_rate: 0.0561 / 0.0500 (112%)\n  crisis_fp_rate: 0.0237 / 0.0200 (118%)\n  crises_detected: 7.0000 / 7.0000 (100%)\n  transitions_per_year: 6.6546 / 20.0000 (33%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "detection": {
+      "crises_detected": 7,
+      "total_crises": 7,
+      "avg_latency": 31.571428571428573,
+      "gfc_latency": 14.0,
+      "covid_latency": 12.0
+    },
+    "corrections": {
+      "corrections_detected": 2,
+      "total_corrections": 2,
+      "correction_avg_latency": 0.5
+    },
+    "fp_rates": {
+      "warning": 0.05611099775556009,
+      "crisis": 0.023668639053254437
+    },
+    "distribution": {
+      "pct_normal": 0.001911049339819319,
+      "pct_watch": 0.8962821403752605,
+      "pct_warning": 0.045170257123002086,
+      "pct_crisis": 0.056636553161918
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "base_score": 0.7742830664888747,
+  "final_score": 0.7742830664888747,
+  "final_mutations": {
+    "VIX_CRISIS": 33.0
+  },
+  "kept_features": [],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 38,
+      "best_name": "slope_lookback_60",
+      "best_score": 0.7753134657796963,
+      "best_delta_pct": 0.13307785426512483,
+      "kept": false,
+      "rejected_count": 1
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 38,
+  "accepted_count": 0,
+  "elapsed_seconds": 0.7141942977905273
+}

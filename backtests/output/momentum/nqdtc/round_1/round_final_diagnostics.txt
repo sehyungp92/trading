@@ -1,0 +1,275 @@
+======================================================================
+NQDTC POST-AUDIT FULL DIAGNOSTICS
+======================================================================
+Date:       2026-04-28
+Reference:  docs/momentum-backtest-audit-2026-04-24.md
+Runner:     backtests/momentum/auto/runners/run_nqdtc_post_audit.py
+Equity:     $10,000 (fixed_qty=10 MNQ contracts)
+Data:       backtests/momentum/data/raw/ (5m NQ + resampled HTFs)
+
+======================================================================
+SECTION 1: AUDIT FINDING VERIFICATION
+======================================================================
+
+The momentum backtest audit (2026-04-24) identified three high-confidence
+findings affecting NQDTC. Each is verified as fixed below.
+
+--- Finding 1: HTF Lookahead Leak ---
+STATUS: FIXED
+
+The audit found that pandas resample() with default left-edge labeling
+caused intraday bars to see incomplete higher-timeframe bars.
+
+Current state (verified in code):
+  - resample_5m_to_30m:  label="right"  (preprocessing.py:279)
+  - resample_5m_to_1h:   label="right"  (preprocessing.py:288)
+  - resample_5m_to_4h:   label="right"  (preprocessing.py:297)
+  - resample_5m_to_daily: RTH-session resample (preprocessing.py:301-319)
+  - Daily alignment: align_daily_to_5m() calls
+    align_completed_daily_session_indices() from
+    libs/config/completed_bar_policy.py, which normalizes timestamps to
+    datetime64[D] and uses searchsorted(side="left") - 1 to map to the
+    PREVIOUS day's completed bar. (completed_bar_policy.py:52-56)
+  - Intraday HTF alignment: align_higher_tf_to_5m() uses the same
+    searchsorted(side="left") - 1 pattern against right-labeled bars,
+    ensuring only completed bars are visible. (preprocessing.py:322-332)
+  - replay_cache.py uses align_daily_to_5m for daily/ES daily maps,
+    and align_higher_tf_to_5m for 30m/1h/4h maps. (replay_cache.py:75-107)
+
+--- Finding 2: Realized-Only Equity Curve ---
+STATUS: FIXED
+
+The audit found NQDTC equity curves used realized equity only,
+understating drawdown and inflating Sharpe/Calmar.
+
+Current state (verified in code):
+  - nqdtc_engine.py:963-969: "Equity snapshot (every 30m, mark-to-market)"
+  - Calculation:
+      mtm = self.equity  (realized)
+      for each open position:
+          unrealized = (Cl - entry_price) * direction * point_value * qty_open
+          mtm += unrealized
+  - Peak tracking uses MTM: self._peak_equity updated from mtm
+  - Early termination (max_dd_abort) uses MTM drawdown
+  - Scoring extracts metrics from this MTM equity_curve (scoring.py:203-214)
+
+--- Finding 3: Commission Handling ---
+STATUS: FIXED
+
+The audit found commission was reported cumulatively (not per-trade delta)
+and some exits skipped slippage/commission.
+
+Current state (verified in code):
+  - Per-trade commission delta: record.commission = self._total_commission
+    - self._active.commission_at_start  (nqdtc_engine.py:2534)
+  - _close_via_market_exit applies BOTH slippage AND exit commission:
+    slip = cfg.slippage.slip_ticks_normal * tick  (line 2562)
+    commission = cfg.slippage.commission_per_contract * qty_open  (line 2579)
+  - Commission deducted from equity at every fill (lines 2016-2019,
+    2214-2216, 2236-2238)
+  - Scoring computes net PnL per trade:
+    net_pnls = [t.pnl_dollars - t.commission for t in trades]  (scoring.py:192)
+  - Return metrics derived from equity curve (commissions already deducted)
+
+--- Mutation Safety ---
+STATUS: NO REGRESSION RISK
+
+None of the 13 accepted mutations affect data alignment, equity
+calculation, or commission handling. All are parameter-level changes:
+  - Entry filters (regime blocking, score thresholds, box width)
+  - Timing controls (cooldown, loss streak, ETH short blocking)
+  - Exit management (TP1 R-target, TP1 partial percentage)
+
+--- Performance Sanity Check ---
+
+  Pre-audit (leaked):    PF=3.04, Return=847%, DD=13.7%, 194 trades
+  Clean baseline:        PF=0.98, Return~-2%, DD=67.6%, 243 trades
+  Post-audit optimized:  PF=1.59, Return=162%, DD=19.0%, 122 trades
+
+The optimized result (PF=1.59) is 48% lower than the leaked result
+(PF=3.04), consistent with the fixes being in place. The clean baseline
+collapsed to PF<1.0 (unprofitable), confirming the pre-audit alpha was
+substantially inflated by lookahead. The optimization recovered real
+signal through parameter tuning, not through re-introducing leaks.
+
+======================================================================
+SECTION 2: PHASE-BY-PHASE RESULTS
+======================================================================
+
+--- Phase 1: Regime Filtering ---
+Focus:           Block low-edge regime states
+Base score:      0.156
+Final score:     0.316  (+103%)
+Rounds:          2 (19+18 candidates, 4 rejected)
+Accepted:        block_neutral_caution
+Mutations:       BLOCK_NEUTRAL_REGIME=True, BLOCK_CAUTION_REGIME=True
+Gate:            PASSED
+Recommendation:  advance
+
+Phase 1 metrics:
+  Trades: 157, WR: 52.9%, PF: 1.29
+  Return: 65.2%, Max DD: 23.0%
+  Sharpe: 0.18, Sortino: 0.33, Calmar: 2.8
+  Capture: 0.361, Avg R: +0.037
+
+--- Phase 2: Signal Quality ---
+Focus:           Improve entry selectivity
+Base score:      0.319
+Final score:     0.388  (+22%)
+Rounds:          5 (22+12+11+10+7 candidates, 1 rejected)
+Accepted:        disable_disp_gate, score_normal_1.5,
+                 rvol_thresh_1.5, min_box_150
+Mutations:       displacement_threshold=False, SCORE_NORMAL=1.5,
+                 RVOL_SCORE_THRESH=1.5, MIN_BOX_WIDTH=150
+Gate:            PASSED
+Recommendation:  advance
+
+Phase 2 metrics:
+  Trades: 178, WR: 55.1%, PF: 1.40
+  Return: 106.9%, Max DD: 22.6%
+  Sharpe: 0.47, Sortino: 0.90, Calmar: 4.7
+  Capture: 0.346, Avg R: +0.092
+
+--- Phase 3: Timing & Exit ---
+Focus:           Cooldowns, session filters, exit management
+Base score:      0.412
+Final score:     0.658  (+60%)
+Rounds:          6 (19+13+11+9+6+5 candidates, 0 rejected)
+Accepted:        cooldown_30m, block_eth_shorts, suggest_tp1_r_1.2,
+                 loss_streak_2, tp1_partial_0.50
+Mutations:       MIN_INTER_TRADE_GAP_MINUTES=30, block_eth_shorts=True,
+                 TP1_R=1.2, LOSS_STREAK_THRESHOLD=2, TP1_PARTIAL_PCT=0.5
+Gate:            PASSED
+Recommendation:  advance
+
+Phase 3 metrics:
+  Trades: 122, WR: 55.7%, PF: 1.59
+  Return: 161.9%, Max DD: 19.0%
+  Sharpe: 1.36, Sortino: 5.19, Calmar: 8.5
+  Capture: 0.395, Avg R: +0.317
+
+--- Phase 4: Fine-Tune ---
+Focus:           Parameter sensitivity sweeps
+Base score:      0.626
+Final score:     0.626  (+0%)
+Rounds:          1 (32 candidates, 0 rejected)
+Accepted:        (none -- already at local optimum)
+Gate:            PASSED
+Recommendation:  advance
+
+Phase 4 metrics:  (unchanged from Phase 3)
+  Trades: 122, WR: 55.7%, PF: 1.59
+  Return: 161.9%, Max DD: 19.0%
+  Sharpe: 1.36, Sortino: 5.19, Calmar: 8.5
+  Capture: 0.395, Avg R: +0.317
+
+======================================================================
+SECTION 3: FINAL CONFIGURATION
+======================================================================
+
+--- Cumulative Mutations (13 total) ---
+
+Flags:
+  max_loss_cap:             True    (force exit at -3R)
+  max_stop_width:           True    (reject stop > 200 pts)
+  displacement_threshold:   False   (disable displacement gate)
+  block_eth_shorts:         True    (block ETH short entries)
+
+Param Overrides:
+  BLOCK_NEUTRAL_REGIME:     True
+  BLOCK_CAUTION_REGIME:     True
+  SCORE_NORMAL:             1.5     (live default: 0.5)
+  RVOL_SCORE_THRESH:        1.5     (live default: 1.2)
+  MIN_BOX_WIDTH:            150     (live default: 180)
+  MIN_INTER_TRADE_GAP_MINUTES: 30   (live default: 0)
+  TP1_R:                    1.2     (live default: from config)
+  LOSS_STREAK_THRESHOLD:    2       (live default: 3)
+  TP1_PARTIAL_PCT:          0.5     (live default: from config)
+
+--- Unchanged from defaults ---
+All other NQDTCAblationFlags and config parameters remain at their
+default values as defined in strategies/momentum/nqdtc/config.py.
+
+======================================================================
+SECTION 4: FINAL PERFORMANCE DIAGNOSTICS
+======================================================================
+
+--- D1: Core Performance ---
+Total trades:    122
+Win rate:        55.7%
+Profit factor:   1.59
+Net return:      161.9%  ($10,000 -> $26,190)
+Max drawdown:    19.00%
+Calmar:          8.52
+Sharpe:          1.36
+Sortino:         5.19
+Avg R:           +0.317
+
+--- D2: Exit Efficiency ---
+Capture ratio:   0.395 (winners exit_R / MFE)
+TP1 hit rate:    53.3%
+TP2 hit rate:    0.0%
+Avg winner R:    +1.417
+Avg loser R:     -1.068
+Avg MFE R:       +2.274
+Avg hold hours:  7.1
+
+--- D3: Regime Analysis ---
+Range regime:    73.8% of trades
+  Aligned:       32 trades, WR=44%, avgR=-0.143, PnL=$-1,071
+  Range:         90 trades, WR=60%, avgR=+0.481, PnL=$+16,863
+
+Edge is concentrated in Range regime (+$16.9K) with Aligned regime
+a net drag (-$1.1K). This is consistent with blocking neutral/caution.
+
+--- D4: Session/Direction Asymmetry ---
+ETH short:       0 trades (blocked by mutation)
+  ETH_LONG:      49 trades, WR=61%, avgR=+0.572, PnL=$+9,537
+  RTH_LONG:      46 trades, WR=50%, avgR=+0.037, PnL=$-267
+  RTH_SHORT:     27 trades, WR=56%, avgR=+0.332, PnL=$+6,523
+
+ETH longs are the strongest edge ($9.5K). RTH longs are breakeven.
+RTH shorts contribute meaningfully ($6.5K).
+
+--- D5: Trade Clustering ---
+Burst trade pct: 1.6%
+  Burst trades:  2, avgR=-0.185, PnL=$-247
+  Isolated:      120, avgR=+0.325, PnL=$+16,040
+
+Minimal burst trading (1.6%) -- cooldown mutation effective.
+
+--- D6: Risk Profile ---
+Commission model:  $0.62/contract/side (MNQ)
+Slippage model:    SimBroker with tick-based adverse slippage
+Equity tracking:   Mark-to-market (30m snapshots, includes unrealized)
+Max DD basis:      MTM equity peak-to-trough
+
+======================================================================
+SECTION 5: KNOWN LIMITATIONS
+======================================================================
+
+1. Fixed quantity (10 contracts) on $10K equity represents significant
+   leverage. Live sizing should use dynamic risk-based position sizing.
+
+2. The 161.9% return is over the full data period. Annualized returns
+   depend on the exact date range in the data.
+
+3. TP2 hit rate is 0.0% -- the TP2 target is not being reached. This
+   suggests TP2 is effectively inactive and the chandelier trailing
+   stop captures remaining upside after TP1.
+
+4. Aligned regime trades (32) lose money on average. Consider whether
+   the regime classification boundary could be tightened further, or
+   whether these residual aligned trades serve as diversification.
+
+5. RTH longs (46 trades, avgR=+0.037) are essentially breakeven. The
+   edge is in ETH longs and RTH shorts. This asymmetry may warrant
+   further investigation.
+
+6. pnl_dollars in trade records is gross of commission. Net PnL per
+   trade = pnl_dollars - commission. The equity curve and return
+   metrics are commission-net (commissions deducted from self.equity).
+
+======================================================================
+END OF DIAGNOSTICS
+======================================================================

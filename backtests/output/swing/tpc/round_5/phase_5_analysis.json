@@ -1,0 +1,68 @@
+{
+  "phase": 5,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 180.0,
+      "actual": 131.8163799999995,
+      "pct_of_target": 73.23132222222193
+    },
+    "net_return_per_month": {
+      "target": 3.0,
+      "actual": 2.384686827764251,
+      "pct_of_target": 79.48956092547502
+    },
+    "total_trades": {
+      "target": 300.0,
+      "actual": 214.0,
+      "pct_of_target": 71.33333333333334
+    },
+    "trades_per_month": {
+      "target": 5.25,
+      "actual": 3.871468637976188,
+      "pct_of_target": 73.74225977097501
+    },
+    "excellent_trades": {
+      "target": 150.0,
+      "actual": 104.0,
+      "pct_of_target": 69.33333333333334
+    },
+    "dollar_profit_factor": {
+      "target": 1.85,
+      "actual": 1.5216554288558968,
+      "pct_of_target": 82.25164480302143
+    },
+    "avg_r": {
+      "target": 0.75,
+      "actual": 1.4229339265799916,
+      "pct_of_target": 189.72452354399888
+    },
+    "never_worked_rate": {
+      "target": 0.26,
+      "actual": 0.3130841121495327,
+      "pct_of_target": 120.41696621135873
+    },
+    "low_mfe_loss_rate": {
+      "target": 0.38,
+      "actual": 0.43457943925233644,
+      "pct_of_target": 114.36301032956221
+    }
+  },
+  "strengths": [
+    "dollar_profit_factor: 1.5217 (82% of 1.8500)",
+    "avg_r: 1.4229 (190% of 0.7500)",
+    "never_worked_rate: 0.3131 (120% of 0.2600)",
+    "low_mfe_loss_rate: 0.4346 (114% of 0.3800)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [
+    "Frequency is still below the 200+ trade ambition; broaden only causal entry paths and thesis-consistent supply that preserve dollar PF.",
+    "False-positive and sub-1R failure rates are high; tighten confirmation, value-hit, and regime-quality gates before accepting more fill conversion."
+  ],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 5 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + dollar_profit_factor: 1.5217 (82% of 1.8500)\n  + avg_r: 1.4229 (190% of 0.7500)\n  + never_worked_rate: 0.3131 (120% of 0.2600)\n  + low_mfe_loss_rate: 0.4346 (114% of 0.3800)\n\nDiagnostic Gaps:\n  ! Frequency is still below the 200+ trade ambition; broaden only causal entry paths and thesis-consistent supply that preserve dollar PF.\n  ! False-positive and sub-1R failure rates are high; tighten confirmation, value-hit, and regime-quality gates before accepting more fill conversion.\n\nGoal Progress:\n  net_return_pct: 131.8164 / 180.0000 (73%)\n  net_return_per_month: 2.3847 / 3.0000 (79%)\n  total_trades: 214.0000 / 300.0000 (71%)\n  trades_per_month: 3.8715 / 5.2500 (74%)\n  excellent_trades: 104.0000 / 150.0000 (69%)\n  dollar_profit_factor: 1.5217 / 1.8500 (82%)\n  avg_r: 1.4229 / 0.7500 (190%)\n  never_worked_rate: 0.3131 / 0.2600 (120%)\n  low_mfe_loss_rate: 0.4346 / 0.3800 (114%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

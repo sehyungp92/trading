@@ -1,0 +1,144 @@
+{
+  "base_score": 0.756047988504457,
+  "final_score": 0.8117716694164114,
+  "final_mutations": {
+    "initial_equity": 25000.0,
+    "risk_stance": "aggressive_controlled",
+    "portfolio_rules": {
+      "reference_risk_pct": 0.006,
+      "heat_cap_R": 6.0,
+      "max_total_active_positions": 12,
+      "max_symbol_heat_R": 2.2,
+      "max_long_heat_R": 6.25,
+      "portfolio_daily_stop_R": 3.5,
+      "portfolio_weekly_stop_R": 8.0,
+      "max_single_strategy_trade_share": 0.72,
+      "max_single_strategy_risk_share": 0.72,
+      "drawdown_tiers": [
+        [
+          0.04,
+          1.0
+        ],
+        [
+          0.07,
+          0.75
+        ],
+        [
+          0.1,
+          0.4
+        ],
+        [
+          0.13,
+          0.0
+        ]
+      ]
+    },
+    "strategy_allocations": {
+      "IARIC_V5R1": {
+        "unit_risk_pct": 0.008,
+        "max_heat_R": 4.6,
+        "max_concurrent": 9,
+        "daily_stop_R": 2.75,
+        "priority": 0,
+        "role": "primary pullback alpha and frequency engine"
+      },
+      "ALCB_R3": {
+        "unit_risk_pct": 0.0065,
+        "max_heat_R": 3.25,
+        "max_concurrent": 6,
+        "daily_stop_R": 2.35,
+        "priority": 1,
+        "role": "intraday momentum complement and early-session alpha sleeve"
+      }
+    },
+    "dynamic_allocation": {
+      "enabled": true,
+      "lookback_trades": 60,
+      "min_mult": 0.65,
+      "max_mult": 1.22,
+      "positive_expectancy_boost": 0.1,
+      "negative_expectancy_cut": 0.18,
+      "drawdown_risk_floor": 0.4
+    },
+    "cross_strategy_rules": {
+      "priority_order": [
+        "IARIC_V5R1",
+        "ALCB_R3"
+      ],
+      "candidate_rank_mode": "diagnostic_alpha_score",
+      "same_symbol_policy": "half_size",
+      "same_symbol_size_mult": 0.5,
+      "same_sector_heat_cap_R": 3.8,
+      "iaric_priority_headroom_R": 1.15
+    },
+    "strategy_filters": {
+      "ALCB_R3": {
+        "financials_size_mult": 0.65,
+        "pdh_size_mult": 1.1,
+        "score5_no_surge_mult": 0.7
+      },
+      "IARIC_V5R1": {
+        "delayed_confirm_min_quality": 0.0,
+        "gap_up_size_mult": 0.85,
+        "carry_route_size_mult": 0.75
+      }
+    },
+    "validation": {
+      "walk_forward_required": true,
+      "min_positive_slices": 4,
+      "completed_bar_and_fee_parity_required": true
+    },
+    "portfolio_rules.max_single_strategy_trade_share": 0.85,
+    "portfolio_rules.max_single_strategy_risk_share": 0.82,
+    "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+    "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+    "portfolio_rules.heat_cap_R": 6.5
+  },
+  "kept_features": [
+    "share_cap_85_actual_balance_guard",
+    "strategy_heat_5_4_4_0",
+    "heat_cap_6_5"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 7,
+      "best_name": "share_cap_85_actual_balance_guard",
+      "best_score": 0.7865931576800198,
+      "best_delta_pct": 4.040109839586295,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 6,
+      "best_name": "strategy_heat_5_4_4_0",
+      "best_score": 0.7987672227078839,
+      "best_delta_pct": 1.5476952613941286,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 3,
+      "candidates_tested": 5,
+      "best_name": "heat_cap_6_5",
+      "best_score": 0.8117716694164114,
+      "best_delta_pct": 1.628064639963745,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 4,
+      "candidates_tested": 4,
+      "best_name": "positions_13_capacity",
+      "best_score": 0.8117716694164114,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 7,
+  "accepted_count": 3,
+  "elapsed_seconds": 2128.2977480888367
+}

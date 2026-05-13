@@ -1,0 +1,9 @@
+======================================================================
+IARIC T3 V4R1 PHASE 2 SNAPSHOT
+======================================================================
+Focus: Tier B Full Grid
+Score 0.5779 -> 0.5779 with 0 accepted mutations.
+
+Core: trades=758, avg_r=+0.054, exp_total_r=+41.29, pf=1.61, sharpe=2.48, dd=2.9%
+Edges: rsi_depth=-0.027, trend_band=-0.021, late_rank=+0.019
+Exit capture: managed=95.8%, carry=49.3%, carry_avg_r=-0.032, eod=4.2%, stop_cost=+0.99R

@@ -1,0 +1,92 @@
+{
+  "baseline_score": 0.6287271523008924,
+  "final_score": 0.6926445855926702,
+  "accepted_mutations": {
+    "sticky_diag": 3.0,
+    "use_warm_start": false,
+    "use_expanding_window": false,
+    "rolling_window_years": 7,
+    "refit_ll_tolerance": 5.0,
+    "refit_freq": "QE",
+    "n_ensemble_models": 10,
+    "use_forward_only": true,
+    "rebalance_freq": "W-FRI",
+    "posterior_temperature": 2.0,
+    "posterior_smoothing_eps": 0.01,
+    "posterior_ema_alpha": 0.5,
+    "drop_momentum_breadth": true
+  },
+  "total_candidates_tested": 167,
+  "elapsed_seconds": 24709.312041282654,
+  "final_metrics": {
+    "total_return": 4.54610198794464,
+    "cagr": 0.07664031021773843,
+    "sharpe": 1.1256953162769519,
+    "sortino": 1.6436454918973433,
+    "calmar": 0.6015803953253566,
+    "max_drawdown_pct": 0.1273982842746871,
+    "max_drawdown_duration": 581,
+    "avg_annual_turnover": 6.79758856097024,
+    "n_rebalances": 1148
+  },
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidate_id": "posterior_temp_3.0",
+      "candidate_mutations": {
+        "posterior_temperature": 3.0,
+        "posterior_smoothing_eps": 0.01
+      },
+      "score_before": 0.6287271523008924,
+      "score_after": 0.6765390444710501,
+      "delta": 0.04781189217015769,
+      "accepted": true
+    },
+    {
+      "round_num": 2,
+      "candidate_id": "posterior_ema_0.3",
+      "candidate_mutations": {
+        "posterior_ema_alpha": 0.3
+      },
+      "score_before": 0.6765390444710501,
+      "score_after": 0.6849356421058653,
+      "delta": 0.008396597634815262,
+      "accepted": true
+    },
+    {
+      "round_num": 3,
+      "candidate_id": "drop_momentum_breadth",
+      "candidate_mutations": {
+        "drop_momentum_breadth": true
+      },
+      "score_before": 0.6849356421058653,
+      "score_after": 0.687596101540452,
+      "delta": 0.002660459434586704,
+      "accepted": true
+    },
+    {
+      "round_num": 4,
+      "candidate_id": "exp_crisis_sticky_3",
+      "candidate_mutations": {
+        "sticky_diag": 3.0
+      },
+      "score_before": 0.687596101540452,
+      "score_after": 0.6896028027930481,
+      "delta": 0.002006701252596055,
+      "accepted": true
+    },
+    {
+      "round_num": 5,
+      "candidate_id": "posterior_full_cal",
+      "candidate_mutations": {
+        "posterior_temperature": 2.0,
+        "posterior_smoothing_eps": 0.01,
+        "posterior_ema_alpha": 0.5
+      },
+      "score_before": 0.6896028027930481,
+      "score_after": 0.6926445855926702,
+      "delta": 0.0030417827996220836,
+      "accepted": true
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+======================================================================
+DOWNTURN END-OF-ROUND EVALUATION
+======================================================================
+
+Phase Progression Summary:
+  Phase 1: score 0.6808 -> 0.8460 (3 accepted)
+  Phase 2: score 0.8452 -> 0.8649 (4 accepted)
+  Phase 3: score 0.8609 -> 0.8798 (3 accepted)
+
+Cumulative Mutations Applied:
+  flags.bear_structure_override: True
+  flags.block_counter_regime: True
+  flags.breakdown_engine: False
+  flags.chandelier_trailing: True
+  flags.correction_regime_override: True
+  flags.drawdown_regime_override: True
+  flags.min_hold_period: True
+  flags.momentum_signal: True
+  flags.progressive_sma: True
+  flags.vol_percentile_gate: 0.0
+  param_overrides.adx_range_threshold: 18
+  param_overrides.adx_trending_threshold: 22
+  param_overrides.base_risk_pct: 0.0064
+  param_overrides.be_stop_buffer_mult: 0.08
+  param_overrides.be_trigger_r: 0.9
+  param_overrides.chandelier_lookback: 22
+  param_overrides.divergence_mag_threshold: 0.1
+  param_overrides.drawdown_lookback: 10
+  param_overrides.ema_fast_period: 20
+  param_overrides.friction_min_atr_pctl: 0.05
+  param_overrides.min_hold_bars: 12
+  param_overrides.momentum_cooldown_bars: 24
+  param_overrides.momentum_roc_threshold: -0.003
+  param_overrides.profit_floor_r_threshold: 1.5
+  param_overrides.progressive_sma_min: 100
+  param_overrides.regime_mult_counter: 0.2
+  param_overrides.tp1_r_aligned: 2.4
+  param_overrides.tp1_r_emerging: 1.8
+
+Signal Extraction / Alpha Capture
+Correction PnL is 132.6% with coverage 57.1%. Bear capture ratio is 10.6%.
+
+Signal Discrimination
+Signal-to-entry ratio is 0.69. Engine health summary: reversal=insufficient_data, breakdown=insufficient_data, fade=healthy.
+
+Entry Mechanism
+Total trades reached 114; reversal/breakdown/fade split is 0/0/114.
+
+Trade Management
+Max drawdown is 7.1%, calmar is 7.48.
+
+Exit Mechanism
+Exit efficiency is 0.76; average MFE capture is 0.76. Median hold is 15.0 bars.
+
+Overall Verdict
+Correction-capture specialist: correction PnL 132.6% (meets target of 60%). Correction attribution ratio 0.96. PF=2.88, DD=7.1%, Calmar=7.48. Exit efficiency 0.76.

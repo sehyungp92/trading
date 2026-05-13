@@ -37,6 +37,7 @@ from backtests.shared.data.ibkr.ticks import download_tick_windows, session_wind
 logger = logging.getLogger(__name__)
 
 SCALP_SYMBOLS = ("NQ", "ES")
+SCALP_REQUIRED_TICK_SYMBOLS = ("NQ",)
 SCALP_TIMEFRAMES = ("1m", "5m", "1h", "4h", "1d")
 SCALP_DIRECT_TIMEFRAMES = ("1m", "5m", "1h", "1d")
 SCALP_DERIVED_TIMEFRAMES = {
@@ -60,6 +61,7 @@ async def download_scalp_data(
     include_micro: bool = False,
     include_bid_ask: bool = True,
     tick_mode: str = "recent-gaps",
+    tick_symbols: list[str] | None = None,
     tick_days: int = 5,
     merge_ticks: bool = False,
 ) -> list[DownloadResult]:
@@ -68,6 +70,7 @@ async def download_scalp_data(
     requested_symbols = [symbol.upper() for symbol in (symbols or list(SCALP_SYMBOLS))]
     if include_micro and "MNQ" not in requested_symbols:
         requested_symbols.append("MNQ")
+    requested_tick_symbols = _normalize_tick_symbols(tick_symbols, requested_symbols)
 
     end = datetime.now(timezone.utc)
     start = end - timedelta(days=365 * years)
@@ -136,7 +139,7 @@ async def download_scalp_data(
                             dry_run=dry_run,
                         )
                     )
-            if tick_mode != "none":
+            if tick_mode != "none" and symbol in requested_tick_symbols:
                 results.extend(
                     await _download_symbol_ticks(
                         ib,
@@ -158,6 +161,7 @@ async def download_scalp_data(
                     "timeframes": list(SCALP_TIMEFRAMES),
                     "bid_ask_timeframes": list(SCALP_BID_ASK_TIMEFRAMES if include_bid_ask else ()),
                     "tick_mode": tick_mode,
+                    "tick_symbols": requested_tick_symbols,
                 }
             )
     finally:
@@ -175,6 +179,19 @@ async def download_scalp_data(
             },
         )
     return results
+
+
+def _normalize_tick_symbols(tick_symbols: list[str] | None, requested_symbols: list[str]) -> list[str]:
+    requested = {symbol.upper() for symbol in requested_symbols}
+    if tick_symbols is None:
+        candidates = SCALP_REQUIRED_TICK_SYMBOLS
+    else:
+        candidates = tuple(symbol.upper() for symbol in tick_symbols)
+    normalized: list[str] = []
+    for symbol in candidates:
+        if symbol in requested and symbol not in normalized:
+            normalized.append(symbol)
+    return normalized
 
 
 async def _download_symbol_timeframe(
@@ -378,8 +395,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--include-micro", action="store_true")
     parser.add_argument("--skip-bid-ask", action="store_true")
     parser.add_argument("--ticks", choices=["none", "recent-gaps"], default="recent-gaps")
+    parser.add_argument(
+        "--tick-symbols",
+        default="NQ",
+        help="Comma-separated symbols for tick downloads; use NQ,ES to include optional ES ticks.",
+    )
     parser.add_argument("--tick-days", type=int, default=5)
     parser.add_argument("--merge-ticks", action="store_true")
+    parser.add_argument(
+        "--strict-alignment",
+        action="store_true",
+        help="Exit non-zero if derived 5m/1h/4h files do not align with the 1m source.",
+    )
     return parser
 
 
@@ -388,6 +415,7 @@ async def async_main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     symbols = [item.strip().upper() for item in args.symbols.split(",") if item.strip()]
+    tick_symbols = [item.strip().upper() for item in args.tick_symbols.split(",") if item.strip()]
     results = await download_scalp_data(
         output_dir=args.output_dir,
         symbols=symbols,
@@ -400,6 +428,7 @@ async def async_main(argv: list[str] | None = None) -> int:
         include_micro=args.include_micro,
         include_bid_ask=not args.skip_bid_ask,
         tick_mode=args.ticks,
+        tick_symbols=tick_symbols,
         tick_days=args.tick_days,
         merge_ticks=args.merge_ticks,
     )
@@ -407,7 +436,22 @@ async def async_main(argv: list[str] | None = None) -> int:
         prefix = "DRY-RUN" if result.dry_run else "OK"
         detail = "; ".join(result.messages) if result.messages else f"{result.rows} rows"
         print(f"{prefix} {detail}")
+    failed_alignment = _failed_alignment_messages(results)
+    if args.strict_alignment and failed_alignment:
+        for message in failed_alignment:
+            print(f"ERROR alignment failed: {message}")
+        return 1
     return 0
+
+
+def _failed_alignment_messages(results: list[DownloadResult]) -> list[str]:
+    return [
+        message
+        for result in results
+        if result.what_to_show == "ALIGNMENT"
+        for message in result.messages
+        if not message.startswith("OK ")
+    ]
 
 
 def main(argv: list[str] | None = None) -> int:

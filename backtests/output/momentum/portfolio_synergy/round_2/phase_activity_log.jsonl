@@ -1,0 +1,12 @@
+{"timestamp": "2026-05-11T12:59:56.566666+00:00", "phase": 1, "action": "phase_start", "candidate_count": 5}
+{"timestamp": "2026-05-11T12:59:56.566666+00:00", "phase": 1, "action": "greedy_complete", "base_score": 0.6376871538565225, "final_score": 0.9584903144943085, "accepted_count": 1}
+{"timestamp": "2026-05-11T12:59:56.566666+00:00", "phase": 1, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-11T12:59:56.588633+00:00", "phase": 2, "action": "phase_start", "candidate_count": 4}
+{"timestamp": "2026-05-11T12:59:56.588633+00:00", "phase": 2, "action": "greedy_complete", "base_score": 0.9584903144943085, "final_score": 0.9830396277198608, "accepted_count": 1}
+{"timestamp": "2026-05-11T12:59:56.588633+00:00", "phase": 2, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-11T12:59:56.609764+00:00", "phase": 3, "action": "phase_start", "candidate_count": 6}
+{"timestamp": "2026-05-11T12:59:56.610273+00:00", "phase": 3, "action": "greedy_complete", "base_score": 0.9830396277198608, "final_score": 0.9941463331734304, "accepted_count": 1}
+{"timestamp": "2026-05-11T12:59:56.610273+00:00", "phase": 3, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-11T12:59:56.625452+00:00", "phase": 4, "action": "phase_start", "candidate_count": 3}
+{"timestamp": "2026-05-11T12:59:56.625452+00:00", "phase": 4, "action": "greedy_complete", "base_score": 0.9941463331734304, "final_score": 0.9955784162045334, "accepted_count": 1}
+{"timestamp": "2026-05-11T12:59:56.625452+00:00", "phase": 4, "action": "diagnostics_run", "enhanced": false}

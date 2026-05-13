@@ -1,0 +1,99 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-08T01:36:00.250011+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 26,
+      "base_score": 0.6491537980659506,
+      "final_score": 0.6491537980659506,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "SIGNAL_PRUNING + ENTRY_GATES",
+      "candidate_count": 20
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-08T04:22:43.396900+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 27,
+      "base_score": 0.648524844448825,
+      "final_score": 0.6753264853374377,
+      "kept_features": [
+        "stop_be_offset_010",
+        "timedecay_onset_25",
+        "trail_r_div_70",
+        "partial_5_r_60",
+        "sug_stall_onset_5"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 1,
+      "diagnostic_retries": 0,
+      "focus": "EXIT_MANAGEMENT",
+      "candidate_count": 66
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-08T04:27:48.733286+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 27,
+      "base_score": 0.6380876041091461,
+      "final_score": 0.6380876041091461,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "VOLATILITY + ADDON",
+      "candidate_count": 24
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-08T07:01:23.973897+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 27,
+      "base_score": 0.6468343433990468,
+      "final_score": 0.7008598082124974,
+      "kept_features": [
+        "finetune_param_overrides.ADD_MAX_BARS_m20",
+        "finetune_param_overrides.ADD_RISK_FRAC_p20",
+        "finetune_param_overrides.ADD_1H_R_m10",
+        "finetune_param_overrides.BE_ATR1H_OFFSET_m20",
+        "finetune_param_overrides.TRAIL_R_DIV_p20",
+        "finetune_param_overrides.TRAIL_FADE_PENALTY_p10",
+        "finetune_param_overrides.TRAIL_STALL_RATE_p20",
+        "finetune_param_overrides.R_PARTIAL_5_p10"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "SIZING + FINETUNE",
+      "candidate_count": 100
+    }
+  },
+  "last_updated": "2026-05-08T07:01:23.973897+00:00",
+  "current_phase": 4
+}

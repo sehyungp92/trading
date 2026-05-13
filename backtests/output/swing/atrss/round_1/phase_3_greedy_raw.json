@@ -1,0 +1,33 @@
+{
+  "base_score": 0.7190885323033369,
+  "final_score": 0.7190885323033369,
+  "final_mutations": {
+    "flags.early_stall_exit": false,
+    "param_overrides.be_trigger_r": 0.75,
+    "param_overrides.profit_floor": {
+      "1.0": 0.2,
+      "1.5": 0.5,
+      "2.0": 1.0,
+      "3.0": 1.8,
+      "4.0": 2.8
+    },
+    "flags.stall_exit": true,
+    "param_overrides.recovery_tolerance_atr_trend": 0.35
+  },
+  "kept_features": [],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 20,
+      "best_name": "recov_strong_060",
+      "best_score": 0.7198149180787358,
+      "best_delta_pct": 0.10101479063671637,
+      "kept": false,
+      "rejected_count": 3
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 20,
+  "accepted_count": 0,
+  "elapsed_seconds": 83.61261439323425
+}

@@ -1,0 +1,36 @@
+============================================================
+NQDTC Phase 1 Diagnostics
+============================================================
+
+--- D1: Core Performance ---
+Total trades:    90
+Win rate:        60.0%
+Profit factor:   1.96
+Net return:      246.0%
+Max drawdown:    15.22%
+Calmar:          16.16
+Sharpe:          1.76
+Sortino:         40.83
+Avg R:           0.476
+
+--- D2: Exit Efficiency ---
+Capture ratio:   0.397 (winners exit_R / MFE)
+TP1 hit rate:    56.7%
+TP2 hit rate:    0.0%
+Avg winner R:    1.462
+Avg loser R:     -1.002
+Avg MFE R:       2.472
+Avg hold hours:  8.2
+
+--- D3: Regime Analysis ---
+Range regime:    100.0% of trades
+  Range       :  90 trades, WR=60%, avgR=+0.476, PnL=$+24,021
+
+--- D6: Greedy Result ---
+Base score:      0.5687
+Final score:     0.7146
+Accepted:        1
+Total candidates:27
+Kept features:   block_aligned
+
+============================================================

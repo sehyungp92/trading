@@ -1,0 +1,90 @@
+{
+  "phases": {
+    "1": {
+      "base_score": 0.6376871538565225,
+      "candidate_count": 5,
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "diagnostic_retries": 0,
+      "failure_category": null,
+      "final_score": 0.9584903144943085,
+      "focus": "Accepted capacity_fit_conservative.",
+      "gate_passed": true,
+      "kept_features": [
+        "capacity_fit_conservative"
+      ],
+      "scoring_retries": 0,
+      "status": "completed",
+      "total_mutations": 14,
+      "updated_at": "2026-05-11T12:59:56.566666+00:00"
+    },
+    "2": {
+      "base_score": 0.9584903144943085,
+      "candidate_count": 4,
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "diagnostic_retries": 0,
+      "failure_category": null,
+      "final_score": 0.9830396277198608,
+      "focus": "Accepted frequency_rebalance.",
+      "gate_passed": true,
+      "kept_features": [
+        "frequency_rebalance"
+      ],
+      "scoring_retries": 0,
+      "status": "completed",
+      "total_mutations": 14,
+      "updated_at": "2026-05-11T12:59:56.588633+00:00"
+    },
+    "3": {
+      "base_score": 0.9830396277198608,
+      "candidate_count": 6,
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "diagnostic_retries": 0,
+      "failure_category": null,
+      "final_score": 0.9941463331734304,
+      "focus": "Accepted heat_6_75_contracts_24.",
+      "gate_passed": true,
+      "kept_features": [
+        "heat_6_75_contracts_24"
+      ],
+      "scoring_retries": 0,
+      "status": "completed",
+      "total_mutations": 14,
+      "updated_at": "2026-05-11T12:59:56.609764+00:00"
+    },
+    "4": {
+      "base_score": 0.9941463331734304,
+      "candidate_count": 3,
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "diagnostic_retries": 0,
+      "failure_category": null,
+      "final_score": 0.9955784162045334,
+      "focus": "Accepted dynamic_frequency_frontier.",
+      "gate_passed": true,
+      "kept_features": [
+        "dynamic_frequency_frontier"
+      ],
+      "scoring_retries": 0,
+      "status": "completed",
+      "total_mutations": 14,
+      "updated_at": "2026-05-11T12:59:56.625452+00:00"
+    }
+  }
+}

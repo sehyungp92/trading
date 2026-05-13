@@ -1,0 +1,23 @@
+--- ATRSS Phase 4 Diagnostics ---
+
+  Trades:        256
+  Win Rate:      84.0%
+  Profit Factor: 6.98
+  Total R:       +227.1
+  Max DD (pct):  3.47%
+  Max DD (R):    3.18
+  Calmar (R):    71.3
+  Sharpe:        1.74
+  MFE Capture:   0.674
+  Trades/Month:  4.4
+  Avg R:         +0.887
+
+  Phase 4 Focus (Sizing & Fine-tune):
+    [OK] Calmar R: 71.3
+
+  Greedy result:
+    Base score:  0.7191
+    Final score: 0.7385
+    Accepted: 2 experiments
+      + addon_a_150r
+      + recovery_tolerance_atr_trend_minus10

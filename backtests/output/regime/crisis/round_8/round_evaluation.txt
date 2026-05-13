@@ -1,0 +1,56 @@
+======================================================================
+CRISIS END-OF-ROUND EVALUATION
+======================================================================
+
+Phase Progression Summary:
+  Phase 1: score 0.8352 -> 0.8410 (2 accepted)
+  Phase 2: score 0.8410 -> 0.8427 (1 accepted)
+  Phase 3: score 0.8427 -> 0.8427 (0 accepted)
+  Phase 4: score 0.8427 -> 0.8467 (2 accepted)
+
+Cumulative Mutations Applied:
+  ACCEL_DEESCALATE_NORMAL_DAYS: 3
+  CREDIT_IMPULSE_MIN_VIX: 18.0
+  CREDIT_IMPULSE_SPREAD_BPS: 500.0
+  CREDIT_IMPULSE_SPY_3D_RETURN: -0.015
+  DEESCALATE_CRISIS_DAYS: 2
+  DEESCALATE_WARNING_DAYS: 1
+  DEESCALATE_WATCH_DAYS: 1
+  GRIND_SPREAD_20D_CHANGE_BPS: 100.0
+  GRIND_SPREAD_CONFIRM_BPS: 300.0
+  GRIND_SPY_20D_RETURN: -0.08
+  GRIND_SPY_CONFIRM_20D_RETURN: -0.05
+  GRIND_VIX_MIN: 28.0
+  GRIND_VIX_PERSIST_DAYS: 7
+  HYBRID_WARNING_MIN_CRISIS: 1
+  HYBRID_WARNING_MIN_PRIMARY: 2
+  SHOCK_CORR_MIN: 0.45
+  SHOCK_CORR_SPY_5D_RETURN: -0.02
+  SHOCK_MIN_VIX: 22.0
+  SHOCK_SPY_3D_RETURN: -0.025
+  SHOCK_SPY_5D_RETURN: -0.043199999999999995
+  SHOCK_VIX_3D_CHANGE: 5.0
+  SPREAD_CRISIS_BPS: 500.0
+  SPY_DD_CRISIS: -0.1
+  SPY_DD_WARNING: -0.055296
+  VIX_CRISIS: 42.0
+  VIX_WARNING: 38.480000000000004
+  VIX_WATCH: 29.0
+
+Signal Extraction / Alpha Capture
+No report provided.
+
+Signal Discrimination
+No report provided.
+
+Entry Mechanism
+No report provided.
+
+Trade Management
+No report provided.
+
+Exit Mechanism
+No report provided.
+
+Overall Verdict
+Crisis detection optimized: 7/7 crises detected, 2/2 corrections detected, avg latency 18.0d, action latency 10.7d, WARNING FP 3.00%, CRISIS FP 0.69%, pre-action FP 8.47%, avg recovery 5.1d.

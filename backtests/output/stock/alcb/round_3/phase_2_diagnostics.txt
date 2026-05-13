@@ -1,0 +1,11 @@
+======================================================================
+ALCB ROUND-3 RESIDUAL ALPHA PHASE 2 SNAPSHOT
+======================================================================
+Focus: Early-failure protective stop tightening
+Score 0.3715 -> 0.4050 with 1 accepted mutations.
+
+Core: trades=508, net_profit=+10361.35, expectancy_dollar=+20.40, expected_total_r=+130.37, pf=2.128, dd=2.7%, trades/month=19.62
+Quality: signal_quality=0.616, timing_quality=0.662, extended_avwap_inverse=0.280, bar9_inverse=0.706, late_entry_quality=1.000, score_monotonicity=0.452
+Management: profit_protection=0.736, short24_inv=0.415, flow_mfe_inv=0.990, mfe_capture_eff=0.808, sizing_alignment=1.000, long_hold_capture=0.990, inv_dd=0.771
+Focus metric deltas: expected_total_r=+132.528->+130.371, net_profit=+10254.880->+10361.350, profit_factor=+2.102->+2.128, profit_protection=+0.690->+0.736, short_hold_24_drag_inverse=+0.422->+0.415, mfe_capture_efficiency=+0.804->+0.808, trades_per_month=+19.699->+19.622
+Hard floors: max_dd_pct=4.70%, min_expectancy_dollar=18.0968, min_expected_total_r=125.9012, min_flow_mfe_exit_inverse=0.7600, min_mfe_capture_efficiency=0.7400, min_net_profit=9639.5872, min_pf=1.9756, min_profit_protection=0.5861, min_short_hold_24_drag_inverse=0.3378, min_trades_per_month=19.4000

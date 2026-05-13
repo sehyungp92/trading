@@ -1,0 +1,171 @@
+{
+  "context": {
+    "code_fix": "daily and ISO-week circuit breaker realized-R buckets now reset on bucket rollover before gate/update checks",
+    "data_policy": "in_sample_only_excluding_holdout",
+    "end_date": "2026-03-20",
+    "initial_equity": 25000.0,
+    "round_1_config": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\round_1\\optimized_config.json",
+    "start_date": null
+  },
+  "delta_enable_minus_disable_independent": {
+    "avg_loss_r": -2.479148703693479e-05,
+    "avg_win_r": -7.381425630370586e-05,
+    "bear_pf": 0.0032847815288729043,
+    "big_winner_r": -0.005740867058449339,
+    "bull_pf": -0.035542547226409704,
+    "calmar_r": -0.001384143884868294,
+    "exit_efficiency": -3.381883328995583e-05,
+    "gross_loss_r": 0.005825999453662689,
+    "gross_win_r": -0.009152967781687948,
+    "max_r_dd": 0.0,
+    "min_regime_pf": 0.0032847815288729043,
+    "net_return_pct": -2.8645119999999196,
+    "profit_factor": -0.022958618346819115,
+    "sharpe": -0.028849619162591433,
+    "short_hold_r": 0.005298925860344639,
+    "stale_r": 0.005825999453659136,
+    "tail_pct": 1.2066937415955437e-06,
+    "total_r": -0.014978967235350638,
+    "total_trades": 0,
+    "waste_ratio": -5.168189336657303e-05,
+    "win_rate": 0.0
+  },
+  "delta_enable_minus_disable_synchronized": {
+    "avg_heat_pct": -0.0006199786756563019,
+    "calmar": -0.4881431105053755,
+    "max_drawdown_dollars": 806.8159999999807,
+    "max_drawdown_pct": 2.265641513535595,
+    "max_heat_pct": -0.0016782267499171333,
+    "max_r_dd": 0.0003728325444285474,
+    "net_return_pct": -5.076374000000129,
+    "pct_time_at_limit": 0.0,
+    "profit_factor": -0.020761716118076423,
+    "sharpe": -0.028877845599090235,
+    "sortino": -0.01993715939458618,
+    "total_commissions": -5.106499999999983,
+    "total_trades": 0,
+    "win_rate_pct": 0.0
+  },
+  "variants": {
+    "disable_circuit_breaker_current": {
+      "has_disable_flag": true,
+      "independent_optimizer_metrics": {
+        "avg_loss_r": -0.7723215636165318,
+        "avg_win_r": 2.31154333501016,
+        "bear_pf": 0.8938366135844394,
+        "big_winner_r": 190.61013658364794,
+        "bull_pf": 1.9593487201978474,
+        "calmar_r": 9.7151613189038,
+        "exit_efficiency": 0.23737085762615318,
+        "gross_loss_r": 181.495567449885,
+        "gross_win_r": 286.63137354125985,
+        "max_r_dd": 10.821828134423377,
+        "min_regime_pf": 0.8938366135844394,
+        "net_return_pct": 76.13622800000329,
+        "profit_factor": 1.6333288175710863,
+        "sharpe": 1.0259059168869358,
+        "short_hold_r": 95.09031968893173,
+        "stale_r": 20.40983902582622,
+        "tail_pct": 0.6650009530663261,
+        "total_r": 105.13580609137486,
+        "total_trades": 359,
+        "waste_ratio": 0.5970428593081699,
+        "win_rate": 34.540389972144844
+      },
+      "mutation_count": 26,
+      "synchronized_portfolio_metrics": {
+        "avg_heat_pct": 0.18362937908307553,
+        "calmar": 1.9204222770994128,
+        "exit_reason_counts": {
+          "END_OF_DATA": 1,
+          "STALE": 88,
+          "STOP": 270
+        },
+        "max_drawdown_dollars": 2766.0714999998636,
+        "max_drawdown_pct": 7.8054192025388645,
+        "max_heat_pct": 1.6645465074923087,
+        "max_r_dd": 10.476379198589303,
+        "net_return_pct": 104.17054400000305,
+        "pct_time_at_limit": 0.0,
+        "profit_factor": 1.6144444428453117,
+        "sharpe": 1.0054446911146608,
+        "sortino": 0.6147809459893392,
+        "symbol_stats": {
+          "GLD": {
+            "net_pnl": 14733.481000000013,
+            "net_r": 57.08057819531263,
+            "trades": 168
+          },
+          "QQQ": {
+            "net_pnl": 11309.15500000008,
+            "net_r": 44.773100367043,
+            "trades": 191
+          }
+        },
+        "total_commissions": 515.1439999999999,
+        "total_trades": 359,
+        "win_rate_pct": 34.540389972144844
+      }
+    },
+    "enable_circuit_breaker_fixed": {
+      "has_disable_flag": false,
+      "independent_optimizer_metrics": {
+        "avg_loss_r": -0.7723463551035687,
+        "avg_win_r": 2.3114695207538563,
+        "bear_pf": 0.8971213951133123,
+        "big_winner_r": 190.6043957165895,
+        "bull_pf": 1.9238061729714377,
+        "calmar_r": 9.713777175018931,
+        "exit_efficiency": 0.23733703879286322,
+        "gross_loss_r": 181.50139344933865,
+        "gross_win_r": 286.62222057347816,
+        "max_r_dd": 10.821828134423377,
+        "min_regime_pf": 0.8971213951133123,
+        "net_return_pct": 73.27171600000337,
+        "profit_factor": 1.6103701992242672,
+        "sharpe": 0.9970562977243443,
+        "short_hold_r": 95.09561861479207,
+        "stale_r": 20.41566502527988,
+        "tail_pct": 0.6650021597600677,
+        "total_r": 105.12082712413951,
+        "total_trades": 359,
+        "waste_ratio": 0.5969911774148033,
+        "win_rate": 34.540389972144844
+      },
+      "mutation_count": 25,
+      "synchronized_portfolio_metrics": {
+        "avg_heat_pct": 0.18300940040741923,
+        "calmar": 1.4322791665940373,
+        "exit_reason_counts": {
+          "END_OF_DATA": 1,
+          "STALE": 88,
+          "STOP": 270
+        },
+        "max_drawdown_dollars": 3572.8874999998443,
+        "max_drawdown_pct": 10.07106071607446,
+        "max_heat_pct": 1.6628682807423916,
+        "max_r_dd": 10.476752031133731,
+        "net_return_pct": 99.09417000000292,
+        "pct_time_at_limit": 0.0,
+        "profit_factor": 1.5936827267272353,
+        "sharpe": 0.9765668455155706,
+        "sortino": 0.594843786594753,
+        "symbol_stats": {
+          "GLD": {
+            "net_pnl": 14339.904500000006,
+            "net_r": 57.14962850945914,
+            "trades": 168
+          },
+          "QQQ": {
+            "net_pnl": 10433.638000000097,
+            "net_r": 44.829768360754144,
+            "trades": 191
+          }
+        },
+        "total_commissions": 510.0374999999999,
+        "total_trades": 359,
+        "win_rate_pct": 34.540389972144844
+      }
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "phase": 3,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 20.0,
+      "actual": 2.748009999998787,
+      "pct_of_target": 13.740049999993936
+    },
+    "avg_r": {
+      "target": 0.2,
+      "actual": 0.43540639366158534,
+      "pct_of_target": 200.0
+    },
+    "trades_per_month": {
+      "target": 1.25,
+      "actual": 1.519641895280373,
+      "pct_of_target": 121.57135162242984
+    },
+    "total_trades": {
+      "target": 70.0,
+      "actual": 84.0,
+      "pct_of_target": 120.0
+    },
+    "profit_factor": {
+      "target": 1.35,
+      "actual": 1.8543377837848232,
+      "pct_of_target": 137.35835435443133
+    },
+    "mfe_capture": {
+      "target": 0.3,
+      "actual": 0.43948232299800716,
+      "pct_of_target": 146.4941076660024
+    },
+    "never_worked_rate": {
+      "target": 0.25,
+      "actual": 0.25,
+      "pct_of_target": 100.0
+    }
+  },
+  "strengths": [
+    "avg_r: 0.4354 (200% of 0.2000)",
+    "trades_per_month: 1.5196 (122% of 1.2500)",
+    "total_trades: 84.0000 (120% of 70.0000)",
+    "profit_factor: 1.8543 (137% of 1.3500)",
+    "mfe_capture: 0.4395 (146% of 0.3000)",
+    "never_worked_rate: 0.2500 (100% of 0.2500)"
+  ],
+  "weaknesses": [
+    "net_return_pct: 2.7480 (14% of 20.0000)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 3 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + avg_r: 0.4354 (200% of 0.2000)\n  + trades_per_month: 1.5196 (122% of 1.2500)\n  + total_trades: 84.0000 (120% of 70.0000)\n  + profit_factor: 1.8543 (137% of 1.3500)\n  + mfe_capture: 0.4395 (146% of 0.3000)\n  + never_worked_rate: 0.2500 (100% of 0.2500)\n\nWeaknesses:\n  - net_return_pct: 2.7480 (14% of 20.0000)\n\nGoal Progress:\n  net_return_pct: 2.7480 / 20.0000 (14%)\n  avg_r: 0.4354 / 0.2000 (200%)\n  trades_per_month: 1.5196 / 1.2500 (122%)\n  total_trades: 84.0000 / 70.0000 (120%)\n  profit_factor: 1.8543 / 1.3500 (137%)\n  mfe_capture: 0.4395 / 0.3000 (146%)\n  never_worked_rate: 0.2500 / 0.2500 (100%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

@@ -1,0 +1,72 @@
+{"timestamp": "2026-04-05T16:45:43.032635+00:00", "phase": 1, "action": "phase_start", "focus": "V2R4 Structural Ablation", "candidate_count": 15}
+{"timestamp": "2026-04-05T16:45:43.033638+00:00", "phase": 1, "action": "greedy_start", "candidate_count": 15, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-04-05T16:48:34.936420+00:00", "phase": 1, "action": "greedy_complete", "base_score": 0.5904085284900562, "final_score": 0.601006448653151, "accepted_count": 1}
+{"timestamp": "2026-04-05T16:48:34.942408+00:00", "phase": 1, "action": "gate_check", "passed": false, "failure_category": "structural_issue"}
+{"timestamp": "2026-04-05T16:48:34.944460+00:00", "phase": 1, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-05T16:48:34.947449+00:00", "phase": 1, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-04-05T16:48:34.953404+00:00", "phase": 1, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "new_mutation_count": 1}
+{"timestamp": "2026-04-05T16:48:34.959406+00:00", "phase": 2, "action": "phase_start", "focus": "Tier B Full Grid", "candidate_count": 11}
+{"timestamp": "2026-04-05T16:48:34.960451+00:00", "phase": 2, "action": "greedy_start", "candidate_count": 11, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-04-05T16:49:55.002829+00:00", "phase": 2, "action": "greedy_complete", "base_score": 0.601006448653151, "final_score": 0.601006448653151, "accepted_count": 0}
+{"timestamp": "2026-04-05T16:49:55.006830+00:00", "phase": 2, "action": "gate_check", "passed": false, "failure_category": "structural_issue"}
+{"timestamp": "2026-04-05T16:49:55.008829+00:00", "phase": 2, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-05T16:49:55.012669+00:00", "phase": 2, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-04-05T16:49:55.023708+00:00", "phase": 2, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "new_mutation_count": 0}
+{"timestamp": "2026-04-05T16:49:55.030901+00:00", "phase": 3, "action": "phase_start", "focus": "Multiphase Feature Adoption", "candidate_count": 18}
+{"timestamp": "2026-04-05T16:49:55.030901+00:00", "phase": 3, "action": "greedy_start", "candidate_count": 18, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-04-05T16:54:17.465780+00:00", "phase": 3, "action": "greedy_complete", "base_score": 0.601006448653151, "final_score": 0.6616960903908703, "accepted_count": 5}
+{"timestamp": "2026-04-05T16:54:17.470575+00:00", "phase": 3, "action": "gate_check", "passed": false, "failure_category": "scoring_ineffective"}
+{"timestamp": "2026-04-05T16:54:17.472624+00:00", "phase": 3, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-05T16:54:17.475789+00:00", "phase": 3, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-04-05T16:54:17.483976+00:00", "phase": 3, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "new_mutation_count": 14}
+{"timestamp": "2026-04-05T16:54:17.493023+00:00", "phase": 4, "action": "phase_start", "focus": "Exit Mechanics Tuning", "candidate_count": 20}
+{"timestamp": "2026-04-05T16:54:17.493976+00:00", "phase": 4, "action": "greedy_start", "candidate_count": 20, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-04-05T16:57:39.863680+00:00", "phase": 4, "action": "greedy_complete", "base_score": 0.6616960903908703, "final_score": 0.905016946894054, "accepted_count": 3}
+{"timestamp": "2026-04-05T16:57:39.869680+00:00", "phase": 4, "action": "gate_check", "passed": false, "failure_category": "structural_issue"}
+{"timestamp": "2026-04-05T16:57:39.871691+00:00", "phase": 4, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-05T16:57:39.874682+00:00", "phase": 4, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-04-05T16:57:39.883963+00:00", "phase": 4, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "new_mutation_count": 3}
+{"timestamp": "2026-04-05T16:57:39.892674+00:00", "phase": 5, "action": "phase_start", "focus": "Signal Threshold Sweep", "candidate_count": 10}
+{"timestamp": "2026-04-05T16:57:39.893673+00:00", "phase": 5, "action": "greedy_start", "candidate_count": 10, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-04-05T16:58:52.439779+00:00", "phase": 5, "action": "greedy_complete", "base_score": 0.905016946894054, "final_score": 0.905016946894054, "accepted_count": 0}
+{"timestamp": "2026-04-05T16:58:52.448770+00:00", "phase": 5, "action": "gate_check", "passed": false, "failure_category": "candidates_exhausted"}
+{"timestamp": "2026-04-05T16:58:52.450768+00:00", "phase": 5, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-05T16:58:52.454768+00:00", "phase": 5, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-04-05T16:58:52.467779+00:00", "phase": 5, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "new_mutation_count": 0}
+{"timestamp": "2026-04-05T17:04:47.722613+00:00", "phase": 5, "action": "end_of_round", "completed_phases": [1, 2, 3, 4, 5]}
+{"timestamp": "2026-04-08T15:48:55.764255+00:00", "phase": 1, "action": "phase_start", "focus": "V2R4 Structural Ablation", "candidate_count": 15}
+{"timestamp": "2026-04-08T15:48:55.769425+00:00", "phase": 1, "action": "greedy_start", "candidate_count": 15, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-04-08T16:12:29.919899+00:00", "phase": 1, "action": "greedy_complete", "base_score": 0.5559561277815372, "final_score": 0.5778511789457552, "accepted_count": 2}
+{"timestamp": "2026-04-08T16:12:29.934242+00:00", "phase": 1, "action": "gate_check", "passed": false, "failure_category": "structural_issue"}
+{"timestamp": "2026-04-08T16:12:29.938317+00:00", "phase": 1, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-08T16:12:29.951618+00:00", "phase": 1, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-04-08T16:12:29.977562+00:00", "phase": 1, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "new_mutation_count": 2}
+{"timestamp": "2026-04-08T16:12:30.001299+00:00", "phase": 2, "action": "phase_start", "focus": "Tier B Full Grid", "candidate_count": 11}
+{"timestamp": "2026-04-08T16:12:30.003303+00:00", "phase": 2, "action": "greedy_start", "candidate_count": 11, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-04-08T16:24:10.369566+00:00", "phase": 2, "action": "greedy_complete", "base_score": 0.5778511789457552, "final_score": 0.5778511789457552, "accepted_count": 0}
+{"timestamp": "2026-04-08T16:24:10.435421+00:00", "phase": 2, "action": "gate_check", "passed": false, "failure_category": "structural_issue"}
+{"timestamp": "2026-04-08T16:24:10.455202+00:00", "phase": 2, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-08T16:24:10.530552+00:00", "phase": 2, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-04-08T16:24:10.655992+00:00", "phase": 2, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "new_mutation_count": 0}
+{"timestamp": "2026-04-08T16:24:10.756159+00:00", "phase": 3, "action": "phase_start", "focus": "Multiphase Feature Adoption", "candidate_count": 18}
+{"timestamp": "2026-04-08T16:24:10.762250+00:00", "phase": 3, "action": "greedy_start", "candidate_count": 18, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-04-08T16:47:14.121590+00:00", "phase": 3, "action": "greedy_complete", "base_score": 0.5778511789457552, "final_score": 0.6544463433292672, "accepted_count": 2}
+{"timestamp": "2026-04-08T16:47:14.146692+00:00", "phase": 3, "action": "gate_check", "passed": false, "failure_category": "scoring_ineffective"}
+{"timestamp": "2026-04-08T16:47:14.151693+00:00", "phase": 3, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-08T16:47:14.166496+00:00", "phase": 3, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-04-08T16:47:14.206218+00:00", "phase": 3, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "new_mutation_count": 2}
+{"timestamp": "2026-04-08T16:47:14.236450+00:00", "phase": 4, "action": "phase_start", "focus": "Exit Mechanics Tuning", "candidate_count": 20}
+{"timestamp": "2026-04-08T16:47:14.236984+00:00", "phase": 4, "action": "greedy_start", "candidate_count": 20, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-04-08T17:10:01.051441+00:00", "phase": 4, "action": "greedy_complete", "base_score": 0.6544463433292672, "final_score": 0.8919735058459008, "accepted_count": 1}
+{"timestamp": "2026-04-08T17:10:01.070749+00:00", "phase": 4, "action": "gate_check", "passed": false, "failure_category": "structural_issue"}
+{"timestamp": "2026-04-08T17:10:01.073747+00:00", "phase": 4, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-08T17:10:01.081267+00:00", "phase": 4, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-04-08T17:10:01.101049+00:00", "phase": 4, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "new_mutation_count": 1}
+{"timestamp": "2026-04-08T17:10:01.120566+00:00", "phase": 5, "action": "phase_start", "focus": "Signal Threshold Sweep", "candidate_count": 10}
+{"timestamp": "2026-04-08T17:10:01.121073+00:00", "phase": 5, "action": "greedy_start", "candidate_count": 10, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-04-08T17:16:21.284190+00:00", "phase": 5, "action": "greedy_complete", "base_score": 0.8919735058459008, "final_score": 0.8919735058459008, "accepted_count": 0}
+{"timestamp": "2026-04-08T17:16:21.306784+00:00", "phase": 5, "action": "gate_check", "passed": false, "failure_category": "candidates_exhausted"}
+{"timestamp": "2026-04-08T17:16:21.309771+00:00", "phase": 5, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-08T17:16:21.320164+00:00", "phase": 5, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-04-08T17:16:21.354021+00:00", "phase": 5, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "new_mutation_count": 0}
+{"timestamp": "2026-04-08T17:19:30.141696+00:00", "phase": 5, "action": "end_of_round", "completed_phases": [1, 2, 3, 4, 5]}

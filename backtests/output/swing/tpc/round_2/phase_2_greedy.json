@@ -1,0 +1,86 @@
+{
+  "base_score": 71.55239378810191,
+  "final_score": 76.63149865813446,
+  "final_mutations": {
+    "all.trail_after_t1_30m_bars": 4,
+    "all.trail_use_vwap_after_t1": true,
+    "QQQ.t1_r": 1.25,
+    "GLD.t1_r": 1.1,
+    "all.max_hold_bars_15m": 52,
+    "all.time_stop_min_mfe_r": 0.5,
+    "all.initial_stop_source": "signal",
+    "all.signal_stop_buffer_atr_mult": 0.12,
+    "all.entry_order_model": "structure_stop",
+    "all.entry_stop_limit_atr_mult": 0.08,
+    "all.fib_a_low": 0.33,
+    "all.fib_a_high": 0.8,
+    "all.type_a_value_hits_min": 1,
+    "all.confirmation_required": 1,
+    "all.confirmation_combo_mode": "structure_or_vwap",
+    "all.type_c_enabled": true,
+    "all.type_c_requires_a_plus": false,
+    "all.max_position_notional_pct": 0.3,
+    "QQQ.primary_windows_et": [
+      [
+        9,
+        35,
+        15,
+        45
+      ]
+    ],
+    "GLD.entry_order_model": "market_next_bar",
+    "all.entry_order_ttl_hours": 4.0
+  },
+  "kept_features": [
+    "type_a_deep_33_80"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 12,
+      "best_name": "type_a_deep_33_80",
+      "best_score": 76.63149865813446,
+      "best_delta_pct": 7.0984415770547304,
+      "kept": true,
+      "rejected_count": 3
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 11,
+      "best_name": "qqq_regime_rsi_wider",
+      "best_score": 76.63149865813446,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 3
+    }
+  ],
+  "final_metrics": {
+    "total_trades": 260.0,
+    "net_return_pct": 3.6019799999985116,
+    "profit_factor": 1.9659065808744782,
+    "avg_r": 0.8852816088262705,
+    "total_r": 230.17321829483032,
+    "r_per_month": 4.164057924908797,
+    "win_rate": 0.43846153846153846,
+    "max_dd_pct": 2.366988556155376,
+    "sharpe": 0.47174961056217696,
+    "trades_per_month": 4.70365348539163,
+    "expectancy_frequency": 1.9199905986772543,
+    "mfe_capture": 0.277806270351716,
+    "avg_mfe_r": 4.235294126158991,
+    "avg_mae_r": 1.3441637634563504,
+    "excellent_trades": 110.0,
+    "excellent_trades_per_month": 1.990007243819536,
+    "never_worked_rate": 0.3346153846153846,
+    "right_then_lost_rate": 0.1,
+    "top5_winner_share": 0.6302721338922689,
+    "entry_requests": 270.0,
+    "request_fill_rate": 0.9629629629629629,
+    "order_terminal_rate": 0.037037037037037035,
+    "worst_symbol_avg_r": 0.27466739047699634,
+    "worst_year_avg_r": -0.9906542513718364
+  },
+  "total_candidates": 12,
+  "accepted_count": 1,
+  "elapsed_seconds": 1142.2446529865265
+}

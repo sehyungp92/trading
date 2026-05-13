@@ -1,0 +1,11 @@
+======================================================================
+ALCB ROUND-2 STRUCTURAL ALPHA PHASE 2 SNAPSHOT
+======================================================================
+Focus: Conditional entry discrimination matrix
+Score 0.5181 -> 0.5181 with 0 accepted mutations.
+
+Core: trades=562, net_profit=+8749.17, expectancy_dollar=+15.57, expected_total_r=+108.10, pf=1.749, dd=3.5%, trades/month=21.71
+Quality: signal_quality=0.653, timing_quality=0.515, extended_avwap_inverse=0.459, bar9_inverse=0.449, late_entry_quality=0.637, score_monotonicity=0.610
+Management: profit_protection=0.598, short24_inv=0.301, flow_mfe_inv=0.773, mfe_capture_eff=0.769, sizing_alignment=1.000, long_hold_capture=0.983, inv_dd=0.711
+Focus metric deltas: expected_total_r=+108.099->+108.099, trades_per_month=+21.708->+21.708, profit_factor=+1.749->+1.749, score_monotonicity=+0.610->+0.610, bar9_inverse=+0.449->+0.449, sizing_alignment=+1.000->+1.000, signal_quality=+0.653->+0.653
+Hard floors: max_dd_pct=4.70%, min_expectancy_dollar=14.0111, min_expected_total_r=102.6936, min_net_profit=8224.2198, min_pf=1.6437, min_score_monotonicity=0.5488, min_sizing_alignment=0.9000, min_trades_per_month=19.5372

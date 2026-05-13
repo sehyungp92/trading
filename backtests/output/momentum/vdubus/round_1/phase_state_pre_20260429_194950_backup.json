@@ -1,0 +1,15 @@
+{
+  "current_phase": 0,
+  "completed_phases": [],
+  "cumulative_mutations": {
+    "flags.plus_1r_partial": false,
+    "param_overrides.CHOP_THRESHOLD": 40
+  },
+  "phase_results": {},
+  "phase_gate_results": {},
+  "retry_count": {},
+  "scoring_retries": {},
+  "diagnostic_retries": {},
+  "phase_timestamps": {},
+  "round_name": ""
+}

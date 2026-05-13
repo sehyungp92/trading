@@ -1,0 +1,93 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-04-30T15:43:28.745005+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 9,
+      "base_score": 0.5147196807300879,
+      "final_score": 0.6858945574212445,
+      "kept_features": [
+        "risk_sized_225bp"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Dynamic Risk Exposure Sweep",
+      "candidate_count": 10
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-04-30T15:48:14.386032+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 11,
+      "base_score": 0.6858945574212445,
+      "final_score": 0.7047274905412665,
+      "kept_features": [
+        "risk_sized_230bp",
+        "dynamic_scale_defensive_115_080"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Risk & Heat Calibration",
+      "candidate_count": 18
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-04-30T15:49:39.855436+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 13,
+      "base_score": 0.7047274905412665,
+      "final_score": 0.7149482994301555,
+      "kept_features": [
+        "addon_a_150r_050"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Winner Lean-In Add-ons",
+      "candidate_count": 11
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-04-30T15:56:15.373795+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 13,
+      "base_score": 0.7149482994301555,
+      "final_score": 0.734583733470985,
+      "kept_features": [
+        "risk_pct_plus10bp"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Aggression Guardrails",
+      "candidate_count": 39
+    }
+  },
+  "last_updated": "2026-04-30T15:56:15.386794+00:00",
+  "current_phase": 4
+}

@@ -1,0 +1,40 @@
+--- ATRSS Round 3 Final Diagnostics ---
+
+Post-structural-repair regeneration
+  Generated UTC: 2026-05-07T11:37:19.366975+00:00
+  Basis: current shared ATRSS replay code after timestamp repair and 7-component scoring consolidation.
+  Explicit repair mutation: param_overrides.pullback_touch_tolerance_pct = 0.005
+
+Full Replay Metrics:
+  Trades:        264
+  Win Rate:      83.3%
+  Profit Factor: 6.58
+  Total R:       +234.8
+  Max DD (pct):  7.82%
+  Max DD (R):    3.18
+  Calmar (R):    73.7
+  Sharpe:        1.97
+  MFE Capture:   0.674
+  Trades/Month:  4.4
+  Avg R:         +0.889
+
+Strict IS/OOS Split:
+  IS:  130 trades, PF=8.56, AvgR=1.003, NetR=+130.3
+  OOS: 2 trades, PF=inf, AvgR=0.589, NetR=+1.2
+
+Seven-Component Score Snapshot:
+  return: 0.7381
+  profit_factor: 0.7975
+  risk: 0.5537
+  frequency: 0.5907
+  mfe_capture: 0.8431
+  avg_r: 0.7411
+  win_rate: 0.9804
+  total: 0.7128
+
+OOS Trade Examples:
+  QQQ 2026-04-21 19:00:00+00:00 -> 2026-04-23 17:00:00+00:00 STOP R=+0.078 MFE=0.761 MAE=0.357
+  QQQ 2026-04-24 15:00:00+00:00 -> 2026-05-01 14:00:00+00:00 TP1 R=+1.100 MFE=1.099 MAE=0.516
+
+Caution:
+  This updates final round_3 headline artifacts under current code. Original phase search files remain historical and were not rewritten as if the April 30 run had used the repaired code.

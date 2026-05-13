@@ -1,0 +1,69 @@
+======================================================================
+NQ_REGIME END-OF-ROUND EVALUATION
+======================================================================
+
+Phase Progression Summary:
+  Phase 1: score 0.4072 -> 0.5099 (3 accepted)
+  Phase 2: score 0.5099 -> 0.6612 (3 accepted)
+  Phase 3: score 0.6612 -> 0.6693 (1 accepted)
+  Phase 4: score 0.6693 -> 0.6957 (1 accepted)
+  Phase 5: score 0.6957 -> 0.6957 (0 accepted)
+  Phase 6: score 0.6957 -> 0.6957 (0 accepted)
+
+Cumulative Mutations Applied:
+  flags.enable_liquidity_reversion: True
+  flags.enable_second_wind: True
+  flags.enable_structural_expansion: True
+  param_overrides.ENTRY_TTL_MOMENTUM_MINUTES: 15
+  param_overrides.ENTRY_TTL_RETEST_MINUTES: 60
+  param_overrides.MAX_DAILY_REALIZED_R_LOSS: -2.0
+  param_overrides.MAX_FULL_RISK_TRADES: 2
+  param_overrides.MAX_TRADES_PER_DAY: 2
+  param_overrides.MFE_RATCHET_ENABLED: True
+  param_overrides.MFE_RATCHET_FLOOR_PCT: 0.65
+  param_overrides.MFE_RATCHET_TRIGGER_R: 1.0
+  param_overrides.PROFIT_FLOOR_ENABLED: False
+  param_overrides.REGIME_MIN_CONFIDENCE: 0.65
+  param_overrides.REGIME_MIN_MARGIN: 0.15
+  param_overrides.REVERSION_A_PLUS_SCORE: 11
+  param_overrides.REVERSION_A_PLUS_STOP_CAP: 12.0
+  param_overrides.REVERSION_A_SCORE: 8
+  param_overrides.REVERSION_ENTRY_MODEL: swept_level_retest
+  param_overrides.REVERSION_MAX_PENETRATION_PTS: 12.0
+  param_overrides.REVERSION_MIN_PENETRATION_PTS: 2.0
+  param_overrides.REVERSION_MIN_SCORE: 7
+  param_overrides.REVERSION_RETEST_OFFSET_TICKS: 1
+  param_overrides.REVERSION_STANDARD_STOP_CAP: 10.0
+  param_overrides.REVERSION_VWAP_REACTION_EXIT_ENABLED: True
+  param_overrides.SECOND_WIND_ATR_STOP_MULT: 0.75
+  param_overrides.SECOND_WIND_A_PLUS_SCORE: 10
+  param_overrides.SECOND_WIND_A_SCORE: 8
+  param_overrides.SECOND_WIND_ENTRY_MODEL: trigger_midpoint
+  param_overrides.SECOND_WIND_MIN_SCORE: 7
+  param_overrides.SECOND_WIND_STOP_CAP: 55.0
+  param_overrides.STRUCTURAL_A_PLUS_SCORE: 10
+  param_overrides.STRUCTURAL_ENTRY_MODE: retest
+  param_overrides.STRUCTURAL_MIN_BODY_PCT: 0.55
+  param_overrides.STRUCTURAL_MIN_CLOSE_LOCATION: 0.75
+  param_overrides.STRUCTURAL_MIN_SCORE: 9
+  param_overrides.STRUCTURAL_RETEST_OFFSET_TICKS: 1
+  param_overrides.TARGET_ROOM_MIN_R: 1.0
+  param_overrides.TIME_STOP_ENABLED: False
+
+Signal Extraction / Alpha Capture
+No report provided.
+
+Signal Discrimination
+No report provided.
+
+Entry Mechanism
+No report provided.
+
+Trade Management
+No report provided.
+
+Exit Mechanism
+No report provided.
+
+Overall Verdict
+NQ_REGIME finished with net $7158.68.

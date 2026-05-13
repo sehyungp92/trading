@@ -1,0 +1,1003 @@
+{
+  "current_phase": 3,
+  "completed_phases": [
+    1,
+    2,
+    3
+  ],
+  "cumulative_mutations": {
+    "flags.drawdown_regime_override": true,
+    "param_overrides.drawdown_lookback": 10,
+    "param_overrides.adx_range_threshold": 18,
+    "param_overrides.divergence_mag_threshold": 0.05,
+    "param_overrides.adx_trending_threshold": 22,
+    "param_overrides.ema_fast_period": 20,
+    "param_overrides.base_risk_pct": 0.0064,
+    "param_overrides.regime_mult_counter": 0.2,
+    "flags.chandelier_trailing": true,
+    "param_overrides.chandelier_lookback": 20,
+    "param_overrides.profit_floor_r_threshold": 1.5,
+    "flags.vol_percentile_gate": 40.0,
+    "param_overrides.be_trigger_r": 0.8,
+    "flags.block_counter_regime": true,
+    "flags.bear_structure_override": true,
+    "flags.correction_regime_override": true,
+    "flags.min_hold_period": true,
+    "param_overrides.min_hold_bars": 14,
+    "param_overrides.tp1_r_aligned": 2.4,
+    "param_overrides.tp1_r_emerging": 1.8,
+    "param_overrides.be_stop_buffer_mult": 0.08,
+    "flags.breakdown_engine": false
+  },
+  "phase_results": {
+    "1": {
+      "focus": "Regime Purification",
+      "base_mutations": {
+        "flags.drawdown_regime_override": true,
+        "param_overrides.drawdown_lookback": 10,
+        "param_overrides.adx_range_threshold": 20,
+        "param_overrides.divergence_mag_threshold": 0.05,
+        "param_overrides.adx_trending_threshold": 18,
+        "param_overrides.ema_fast_period": 15,
+        "param_overrides.base_risk_pct": 0.008,
+        "param_overrides.regime_mult_counter": 0.2,
+        "flags.chandelier_trailing": true,
+        "param_overrides.chandelier_lookback": 8,
+        "param_overrides.profit_floor_r_threshold": 1.5,
+        "flags.vol_percentile_gate": 40.0,
+        "param_overrides.be_trigger_r": 0.8
+      },
+      "final_mutations": {
+        "flags.drawdown_regime_override": true,
+        "param_overrides.drawdown_lookback": 10,
+        "param_overrides.adx_range_threshold": 20,
+        "param_overrides.divergence_mag_threshold": 0.05,
+        "param_overrides.adx_trending_threshold": 22,
+        "param_overrides.ema_fast_period": 20,
+        "param_overrides.base_risk_pct": 0.008,
+        "param_overrides.regime_mult_counter": 0.2,
+        "flags.chandelier_trailing": true,
+        "param_overrides.chandelier_lookback": 8,
+        "param_overrides.profit_floor_r_threshold": 1.5,
+        "flags.vol_percentile_gate": 40.0,
+        "param_overrides.be_trigger_r": 0.8,
+        "flags.block_counter_regime": true,
+        "flags.bear_structure_override": true,
+        "flags.correction_regime_override": true
+      },
+      "base_score": 0.45701233619968573,
+      "final_score": 0.6103229145698,
+      "kept_features": [
+        "r2_block_bear_struct",
+        "r2_block_corr_override",
+        "r2_adx_trending_22",
+        "r2_ema_fast_20"
+      ],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 106,
+          "best_name": "r2_block_bear_struct",
+          "best_score": 0.5648639032364222,
+          "best_delta_pct": 23.599268224044636,
+          "kept": true,
+          "rejected_count": 4
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 86,
+          "best_name": "r2_block_corr_override",
+          "best_score": 0.5726723071199947,
+          "best_delta_pct": 1.382351366202334,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 3,
+          "candidates_tested": 77,
+          "best_name": "r2_adx_trending_22",
+          "best_score": 0.6016933974910426,
+          "best_delta_pct": 5.067660861234365,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 4,
+          "candidates_tested": 76,
+          "best_name": "r2_ema_fast_20",
+          "best_score": 0.6103229145698,
+          "best_delta_pct": 1.434205047743763,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 5,
+          "candidates_tested": 62,
+          "best_name": "r2_counter_mult_0",
+          "best_score": 0.6103229145698,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 125,
+        "profit_factor": 1.621037190357282,
+        "max_dd_pct": 0.22290835589115235,
+        "calmar": 0.7093146958523067,
+        "sharpe": 0.47082136668020474,
+        "net_return_pct": 52.32759999999998,
+        "win_rate": 0.472,
+        "reversal_trades": 0,
+        "reversal_wr": 0.0,
+        "reversal_avg_r": 0.0,
+        "breakdown_trades": 23,
+        "breakdown_wr": 0.43478260869565216,
+        "breakdown_avg_r": -0.11077766476862715,
+        "fade_trades": 102,
+        "fade_wr": 0.4803921568627451,
+        "fade_avg_r": 0.16726660771588028,
+        "momentum_trades": 0,
+        "momentum_wr": 0.0,
+        "momentum_avg_r": 0.0,
+        "median_hold_5m": 13.0,
+        "correction_pnl_pct": 53.691799999999986,
+        "bear_regime_pnl": 1660.02,
+        "signal_to_entry_ratio": 0.2042483660130719,
+        "regime_detection_latency": 0.0,
+        "exit_efficiency": 0.8187781279669138,
+        "bear_capture_ratio": 0.032822176341792145,
+        "correction_capture_ratio": 0.1734886463780442,
+        "sortino": 0.5398114174470846,
+        "correction_coverage": 0.29411764705882354,
+        "exit_quality": 1.6480951086389604,
+        "tp_hit_rates": {
+          "breakdown_tp1": 0.43478260869565216,
+          "breakdown_tp2": 0.0,
+          "breakdown_tp3": 0.0,
+          "fade_tp1": 0.38235294117647056,
+          "fade_tp2": 0.00980392156862745,
+          "fade_tp3": 0.0
+        },
+        "avg_mfe_capture": 0.8187781279669138
+      },
+      "accepted_count": 4,
+      "elapsed_seconds": 7496.975035429001,
+      "suggested_experiments": [
+        {
+          "name": "rev_relax_div_threshold_0.08",
+          "mutations": {
+            "param_overrides.divergence_mag_threshold": 0.08
+          }
+        },
+        {
+          "name": "rev_relax_trend_gate",
+          "mutations": {
+            "flags.reversal_trend_weakness_gate": false
+          }
+        },
+        {
+          "name": "rev_relax_extension_gate",
+          "mutations": {
+            "flags.reversal_extension_gate": false
+          }
+        },
+        {
+          "name": "rev_relax_corridor_cap",
+          "mutations": {
+            "flags.reversal_corridor_cap": false
+          }
+        }
+      ],
+      "analysis": {
+        "phase": 1,
+        "goal_progress": {
+          "correction_pnl_pct": {
+            "target": 60.0,
+            "actual": 53.691799999999986,
+            "pct_of_target": 89.4863333333333
+          },
+          "profit_factor": {
+            "target": 2.0,
+            "actual": 1.621037190357282,
+            "pct_of_target": 81.0518595178641
+          },
+          "net_return_pct": {
+            "target": 50.0,
+            "actual": 52.32759999999998,
+            "pct_of_target": 104.65519999999997
+          },
+          "max_dd_pct": {
+            "target": 20.0,
+            "actual": 0.22290835589115235,
+            "pct_of_target": 200.0
+          },
+          "calmar": {
+            "target": 2.0,
+            "actual": 0.7093146958523067,
+            "pct_of_target": 35.465734792615336
+          },
+          "exit_efficiency": {
+            "target": 0.35,
+            "actual": 0.8187781279669138,
+            "pct_of_target": 200.0
+          },
+          "total_trades": {
+            "target": 60.0,
+            "actual": 125.0,
+            "pct_of_target": 200.0
+          }
+        },
+        "strengths": [
+          "correction_pnl_pct: 53.6918 (89% of 60.0000)",
+          "profit_factor: 1.6210 (81% of 2.0000)",
+          "net_return_pct: 52.3276 (105% of 50.0000)",
+          "max_dd_pct: 0.2229 (200% of 20.0000)",
+          "exit_efficiency: 0.8188 (200% of 0.3500)",
+          "total_trades: 125.0000 (200% of 60.0000)"
+        ],
+        "weaknesses": [
+          "calmar: 0.7093 (35% of 2.0000)"
+        ],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "Reversal engine dead (0 trades) \u2014 pivot detection or gate configuration issue",
+          "TP2/TP3 never hit \u2014 exit schedule may be unreachable"
+        ],
+        "suggested_experiments": [
+          {
+            "name": "rev_relax_div_threshold_0.08",
+            "mutations": {
+              "param_overrides.divergence_mag_threshold": 0.08
+            }
+          },
+          {
+            "name": "rev_relax_trend_gate",
+            "mutations": {
+              "flags.reversal_trend_weakness_gate": false
+            }
+          },
+          {
+            "name": "rev_relax_extension_gate",
+            "mutations": {
+              "flags.reversal_extension_gate": false
+            }
+          },
+          {
+            "name": "rev_relax_corridor_cap",
+            "mutations": {
+              "flags.reversal_corridor_cap": false
+            }
+          }
+        ],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + correction_pnl_pct: 53.6918 (89% of 60.0000)\n  + profit_factor: 1.6210 (81% of 2.0000)\n  + net_return_pct: 52.3276 (105% of 50.0000)\n  + max_dd_pct: 0.2229 (200% of 20.0000)\n  + exit_efficiency: 0.8188 (200% of 0.3500)\n  + total_trades: 125.0000 (200% of 60.0000)\n\nWeaknesses:\n  - calmar: 0.7093 (35% of 2.0000)\n\nDiagnostic Gaps:\n  ! Reversal engine dead (0 trades) \u2014 pivot detection or gate configuration issue\n  ! TP2/TP3 never hit \u2014 exit schedule may be unreachable\n\nSuggested Experiments (4):\n  - rev_relax_div_threshold_0.08: {\"param_overrides.divergence_mag_threshold\": 0.08}\n  - rev_relax_trend_gate: {\"flags.reversal_trend_weakness_gate\": false}\n  - rev_relax_extension_gate: {\"flags.reversal_extension_gate\": false}\n  - rev_relax_corridor_cap: {\"flags.reversal_corridor_cap\": false}\n\nExtra Analysis:\n  Engine health: reversal=insufficient_data, breakdown=healthy, fade=healthy\n  Correction attribution: corr_pnl=5369, non_corr_pnl=-136, ratio=1.03\n\nGoal Progress:\n  correction_pnl_pct: 53.6918 / 60.0000 (89%)\n  profit_factor: 1.6210 / 2.0000 (81%)\n  net_return_pct: 52.3276 / 50.0000 (105%)\n  max_dd_pct: 0.2229 / 20.0000 (200%)\n  calmar: 0.7093 / 2.0000 (35%)\n  exit_efficiency: 0.8188 / 0.3500 (200%)\n  total_trades: 125.0000 / 60.0000 (200%)",
+        "scoring_weight_overrides": null,
+        "extra": {
+          "engine_health": {
+            "reversal": "insufficient_data",
+            "breakdown": "healthy",
+            "fade": "healthy"
+          },
+          "correction_attribution": {
+            "correction_pnl": 5369.179999999999,
+            "non_correction_pnl": -136.42000000000021,
+            "ratio": 1.0260703720407587
+          }
+        }
+      },
+      "new_mutations": {
+        "param_overrides.adx_trending_threshold": 22,
+        "param_overrides.ema_fast_period": 20,
+        "flags.block_counter_regime": true,
+        "flags.bear_structure_override": true,
+        "flags.correction_regime_override": true
+      }
+    },
+    "2": {
+      "focus": "Capture Optimization",
+      "base_mutations": {
+        "flags.drawdown_regime_override": true,
+        "param_overrides.drawdown_lookback": 10,
+        "param_overrides.adx_range_threshold": 20,
+        "param_overrides.divergence_mag_threshold": 0.05,
+        "param_overrides.adx_trending_threshold": 22,
+        "param_overrides.ema_fast_period": 20,
+        "param_overrides.base_risk_pct": 0.008,
+        "param_overrides.regime_mult_counter": 0.2,
+        "flags.chandelier_trailing": true,
+        "param_overrides.chandelier_lookback": 8,
+        "param_overrides.profit_floor_r_threshold": 1.5,
+        "flags.vol_percentile_gate": 40.0,
+        "param_overrides.be_trigger_r": 0.8,
+        "flags.block_counter_regime": true,
+        "flags.bear_structure_override": true,
+        "flags.correction_regime_override": true
+      },
+      "final_mutations": {
+        "flags.drawdown_regime_override": true,
+        "param_overrides.drawdown_lookback": 10,
+        "param_overrides.adx_range_threshold": 20,
+        "param_overrides.divergence_mag_threshold": 0.05,
+        "param_overrides.adx_trending_threshold": 22,
+        "param_overrides.ema_fast_period": 20,
+        "param_overrides.base_risk_pct": 0.008,
+        "param_overrides.regime_mult_counter": 0.2,
+        "flags.chandelier_trailing": true,
+        "param_overrides.chandelier_lookback": 20,
+        "param_overrides.profit_floor_r_threshold": 1.5,
+        "flags.vol_percentile_gate": 40.0,
+        "param_overrides.be_trigger_r": 0.8,
+        "flags.block_counter_regime": true,
+        "flags.bear_structure_override": true,
+        "flags.correction_regime_override": true,
+        "flags.min_hold_period": true,
+        "param_overrides.min_hold_bars": 12,
+        "param_overrides.tp1_r_aligned": 2.0,
+        "param_overrides.tp1_r_emerging": 1.5,
+        "param_overrides.be_stop_buffer_mult": 0.1
+      },
+      "base_score": 0.5722294343738932,
+      "final_score": 0.7368452902330772,
+      "kept_features": [
+        "trail_chand_hold12",
+        "exit_tp1_aligned_2.0",
+        "exit_tp1_emerg_1.5",
+        "exit_chand_lb_20",
+        "exit_be_buffer_0.1"
+      ],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 125,
+          "best_name": "trail_chand_hold12",
+          "best_score": 0.6274324169504893,
+          "best_delta_pct": 9.647001580230963,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 91,
+          "best_name": "exit_tp1_aligned_2.0",
+          "best_score": 0.6689392634844609,
+          "best_delta_pct": 6.615349384672744,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 3,
+          "candidates_tested": 84,
+          "best_name": "exit_tp1_emerg_1.5",
+          "best_score": 0.708198927671793,
+          "best_delta_pct": 5.868943016265955,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 4,
+          "candidates_tested": 83,
+          "best_name": "exit_chand_lb_20",
+          "best_score": 0.7328302058418863,
+          "best_delta_pct": 3.4780168689422735,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 5,
+          "candidates_tested": 81,
+          "best_name": "exit_be_buffer_0.1",
+          "best_score": 0.7368452902330772,
+          "best_delta_pct": 0.547887404092238,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 6,
+          "candidates_tested": 80,
+          "best_name": "rev_relax_div_threshold_0.08",
+          "best_score": 0.7368452902330772,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 124,
+        "profit_factor": 2.0602221576883983,
+        "max_dd_pct": 0.1302612307787819,
+        "calmar": 2.0324857913330105,
+        "sharpe": 0.8670964243801184,
+        "net_return_pct": 87.621,
+        "win_rate": 0.5161290322580645,
+        "reversal_trades": 0,
+        "reversal_wr": 0.0,
+        "reversal_avg_r": 0.0,
+        "breakdown_trades": 23,
+        "breakdown_wr": 0.4782608695652174,
+        "breakdown_avg_r": 0.06052356143317732,
+        "fade_trades": 101,
+        "fade_wr": 0.5247524752475248,
+        "fade_avg_r": 0.2867730717523331,
+        "momentum_trades": 0,
+        "momentum_wr": 0.0,
+        "momentum_avg_r": 0.0,
+        "median_hold_5m": 12.0,
+        "correction_pnl_pct": 71.34419999999999,
+        "bear_regime_pnl": 2383.64,
+        "signal_to_entry_ratio": 0.2080536912751678,
+        "regime_detection_latency": 0.0,
+        "exit_efficiency": 0.7508908033383147,
+        "bear_capture_ratio": 0.0468157012173572,
+        "correction_capture_ratio": 0.24745442072031665,
+        "sortino": 1.0856876803583044,
+        "correction_coverage": 0.29411764705882354,
+        "exit_quality": 2.448303188676769,
+        "tp_hit_rates": {
+          "breakdown_tp1": 0.4782608695652174,
+          "breakdown_tp2": 0.0,
+          "breakdown_tp3": 0.0,
+          "fade_tp1": 0.33663366336633666,
+          "fade_tp2": 0.0,
+          "fade_tp3": 0.0
+        },
+        "avg_mfe_capture": 0.7508908033383147
+      },
+      "accepted_count": 5,
+      "elapsed_seconds": 11809.411106824875,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 2,
+        "goal_progress": {
+          "correction_pnl_pct": {
+            "target": 60.0,
+            "actual": 71.34419999999999,
+            "pct_of_target": 118.90699999999998
+          },
+          "profit_factor": {
+            "target": 2.0,
+            "actual": 2.0602221576883983,
+            "pct_of_target": 103.01110788441991
+          },
+          "net_return_pct": {
+            "target": 50.0,
+            "actual": 87.621,
+            "pct_of_target": 175.242
+          },
+          "max_dd_pct": {
+            "target": 20.0,
+            "actual": 0.1302612307787819,
+            "pct_of_target": 200.0
+          },
+          "calmar": {
+            "target": 2.0,
+            "actual": 2.0324857913330105,
+            "pct_of_target": 101.62428956665053
+          },
+          "exit_efficiency": {
+            "target": 0.35,
+            "actual": 0.7508908033383147,
+            "pct_of_target": 200.0
+          },
+          "total_trades": {
+            "target": 60.0,
+            "actual": 124.0,
+            "pct_of_target": 200.0
+          }
+        },
+        "strengths": [
+          "correction_pnl_pct: 71.3442 (119% of 60.0000)",
+          "profit_factor: 2.0602 (103% of 2.0000)",
+          "net_return_pct: 87.6210 (175% of 50.0000)",
+          "max_dd_pct: 0.1303 (200% of 20.0000)",
+          "calmar: 2.0325 (102% of 2.0000)",
+          "exit_efficiency: 0.7509 (200% of 0.3500)",
+          "total_trades: 124.0000 (200% of 60.0000)"
+        ],
+        "weaknesses": [],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "Reversal engine dead (0 trades) \u2014 pivot detection or gate configuration issue",
+          "TP2/TP3 never hit \u2014 exit schedule may be unreachable"
+        ],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + correction_pnl_pct: 71.3442 (119% of 60.0000)\n  + profit_factor: 2.0602 (103% of 2.0000)\n  + net_return_pct: 87.6210 (175% of 50.0000)\n  + max_dd_pct: 0.1303 (200% of 20.0000)\n  + calmar: 2.0325 (102% of 2.0000)\n  + exit_efficiency: 0.7509 (200% of 0.3500)\n  + total_trades: 124.0000 (200% of 60.0000)\n\nDiagnostic Gaps:\n  ! Reversal engine dead (0 trades) \u2014 pivot detection or gate configuration issue\n  ! TP2/TP3 never hit \u2014 exit schedule may be unreachable\n\nExtra Analysis:\n  Engine health: reversal=insufficient_data, breakdown=healthy, fade=healthy\n  Correction attribution: corr_pnl=7134, non_corr_pnl=1628, ratio=0.81\n\nGoal Progress:\n  correction_pnl_pct: 71.3442 / 60.0000 (119%)\n  profit_factor: 2.0602 / 2.0000 (103%)\n  net_return_pct: 87.6210 / 50.0000 (175%)\n  max_dd_pct: 0.1303 / 20.0000 (200%)\n  calmar: 2.0325 / 2.0000 (102%)\n  exit_efficiency: 0.7509 / 0.3500 (200%)\n  total_trades: 124.0000 / 60.0000 (200%)",
+        "scoring_weight_overrides": null,
+        "extra": {
+          "engine_health": {
+            "reversal": "insufficient_data",
+            "breakdown": "healthy",
+            "fade": "healthy"
+          },
+          "correction_attribution": {
+            "correction_pnl": 7134.419999999999,
+            "non_correction_pnl": 1627.6799999999998,
+            "ratio": 0.814236313212586
+          }
+        }
+      },
+      "new_mutations": {
+        "param_overrides.chandelier_lookback": 20,
+        "flags.min_hold_period": true,
+        "param_overrides.min_hold_bars": 12,
+        "param_overrides.tp1_r_aligned": 2.0,
+        "param_overrides.tp1_r_emerging": 1.5,
+        "param_overrides.be_stop_buffer_mult": 0.1
+      }
+    },
+    "3": {
+      "focus": "Risk Tuning",
+      "base_mutations": {
+        "flags.drawdown_regime_override": true,
+        "param_overrides.drawdown_lookback": 10,
+        "param_overrides.adx_range_threshold": 20,
+        "param_overrides.divergence_mag_threshold": 0.05,
+        "param_overrides.adx_trending_threshold": 22,
+        "param_overrides.ema_fast_period": 20,
+        "param_overrides.base_risk_pct": 0.008,
+        "param_overrides.regime_mult_counter": 0.2,
+        "flags.chandelier_trailing": true,
+        "param_overrides.chandelier_lookback": 20,
+        "param_overrides.profit_floor_r_threshold": 1.5,
+        "flags.vol_percentile_gate": 40.0,
+        "param_overrides.be_trigger_r": 0.8,
+        "flags.block_counter_regime": true,
+        "flags.bear_structure_override": true,
+        "flags.correction_regime_override": true,
+        "flags.min_hold_period": true,
+        "param_overrides.min_hold_bars": 12,
+        "param_overrides.tp1_r_aligned": 2.0,
+        "param_overrides.tp1_r_emerging": 1.5,
+        "param_overrides.be_stop_buffer_mult": 0.1
+      },
+      "final_mutations": {
+        "flags.drawdown_regime_override": true,
+        "param_overrides.drawdown_lookback": 10,
+        "param_overrides.adx_range_threshold": 18,
+        "param_overrides.divergence_mag_threshold": 0.05,
+        "param_overrides.adx_trending_threshold": 22,
+        "param_overrides.ema_fast_period": 20,
+        "param_overrides.base_risk_pct": 0.0064,
+        "param_overrides.regime_mult_counter": 0.2,
+        "flags.chandelier_trailing": true,
+        "param_overrides.chandelier_lookback": 20,
+        "param_overrides.profit_floor_r_threshold": 1.5,
+        "flags.vol_percentile_gate": 40.0,
+        "param_overrides.be_trigger_r": 0.8,
+        "flags.block_counter_regime": true,
+        "flags.bear_structure_override": true,
+        "flags.correction_regime_override": true,
+        "flags.min_hold_period": true,
+        "param_overrides.min_hold_bars": 14,
+        "param_overrides.tp1_r_aligned": 2.4,
+        "param_overrides.tp1_r_emerging": 1.8,
+        "param_overrides.be_stop_buffer_mult": 0.08,
+        "flags.breakdown_engine": false
+      },
+      "base_score": 0.713448665421485,
+      "final_score": 0.784366549173048,
+      "kept_features": [
+        "r2_disable_breakdown",
+        "finetune_param_overrides_tp1_r_emerging_p10",
+        "finetune_param_overrides_tp1_r_aligned_p20",
+        "finetune_param_overrides_adx_range_threshold_m10",
+        "finetune_param_overrides_min_hold_bars_p20",
+        "finetune_param_overrides_tp1_r_emerging_p20",
+        "finetune_param_overrides_base_risk_pct_m20",
+        "finetune_param_overrides_be_stop_buffer_mult_m20"
+      ],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 103,
+          "best_name": "r2_disable_breakdown",
+          "best_score": 0.7590210392389453,
+          "best_delta_pct": 6.387617781937739,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 94,
+          "best_name": "finetune_param_overrides_tp1_r_emerging_p10",
+          "best_score": 0.7718032735490119,
+          "best_delta_pct": 1.68404216079216,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 3,
+          "candidates_tested": 92,
+          "best_name": "finetune_param_overrides_tp1_r_aligned_p20",
+          "best_score": 0.777746791492614,
+          "best_delta_pct": 0.7700819816780317,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 4,
+          "candidates_tested": 91,
+          "best_name": "finetune_param_overrides_adx_range_threshold_m10",
+          "best_score": 0.7804101508419823,
+          "best_delta_pct": 0.34244555921045233,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 5,
+          "candidates_tested": 90,
+          "best_name": "finetune_param_overrides_min_hold_bars_p20",
+          "best_score": 0.781534183977175,
+          "best_delta_pct": 0.1440310757080746,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 6,
+          "candidates_tested": 89,
+          "best_name": "finetune_param_overrides_tp1_r_emerging_p20",
+          "best_score": 0.782649935859637,
+          "best_delta_pct": 0.1427643096536174,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 7,
+          "candidates_tested": 88,
+          "best_name": "finetune_param_overrides_base_risk_pct_m20",
+          "best_score": 0.7835533668310921,
+          "best_delta_pct": 0.11543231910736272,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 8,
+          "candidates_tested": 87,
+          "best_name": "finetune_param_overrides_be_stop_buffer_mult_m20",
+          "best_score": 0.784366549173048,
+          "best_delta_pct": 0.10378136019562614,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 9,
+          "candidates_tested": 86,
+          "best_name": "finetune_param_overrides_drawdown_lookback_m20",
+          "best_score": 0.784366549173048,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 110,
+        "profit_factor": 2.4119673877726813,
+        "max_dd_pct": 0.06173308109716665,
+        "calmar": 3.658492503120096,
+        "sharpe": 1.0351754395497397,
+        "net_return_pct": 74.74559999999997,
+        "win_rate": 0.5272727272727272,
+        "reversal_trades": 0,
+        "reversal_wr": 0.0,
+        "reversal_avg_r": 0.0,
+        "breakdown_trades": 0,
+        "breakdown_wr": 0.0,
+        "breakdown_avg_r": 0.0,
+        "fade_trades": 110,
+        "fade_wr": 0.5272727272727272,
+        "fade_avg_r": 0.32029782260595646,
+        "momentum_trades": 0,
+        "momentum_wr": 0.0,
+        "momentum_avg_r": 0.0,
+        "median_hold_5m": 14.0,
+        "correction_pnl_pct": 53.48179999999999,
+        "bear_regime_pnl": 950.2399999999999,
+        "signal_to_entry_ratio": 0.7746478873239436,
+        "regime_detection_latency": 0.0,
+        "exit_efficiency": 0.7555029012520821,
+        "bear_capture_ratio": 0.032516669593023594,
+        "correction_capture_ratio": 0.17187382499169615,
+        "sortino": 1.5525099919720715,
+        "correction_coverage": 0.29411764705882354,
+        "exit_quality": 3.0967971348183267,
+        "tp_hit_rates": {
+          "fade_tp1": 0.34545454545454546,
+          "fade_tp2": 0.0,
+          "fade_tp3": 0.0
+        },
+        "avg_mfe_capture": 0.7555029012520821
+      },
+      "accepted_count": 8,
+      "elapsed_seconds": 0.08917427062988281,
+      "suggested_experiments": [
+        {
+          "name": "bd_relax_containment_0.60",
+          "mutations": {
+            "param_overrides.box_containment_min": 0.6
+          }
+        },
+        {
+          "name": "bd_no_chop_filter",
+          "mutations": {
+            "flags.breakdown_chop_filter": false
+          }
+        },
+        {
+          "name": "bd_relax_displacement_0.50",
+          "mutations": {
+            "param_overrides.displacement_quantile": 0.5
+          }
+        }
+      ],
+      "analysis": {
+        "phase": 3,
+        "goal_progress": {
+          "correction_pnl_pct": {
+            "target": 60.0,
+            "actual": 53.48179999999999,
+            "pct_of_target": 89.13633333333331
+          },
+          "profit_factor": {
+            "target": 2.0,
+            "actual": 2.4119673877726813,
+            "pct_of_target": 120.59836938863407
+          },
+          "net_return_pct": {
+            "target": 50.0,
+            "actual": 74.74559999999997,
+            "pct_of_target": 149.49119999999994
+          },
+          "max_dd_pct": {
+            "target": 20.0,
+            "actual": 0.06173308109716665,
+            "pct_of_target": 200.0
+          },
+          "calmar": {
+            "target": 2.0,
+            "actual": 3.658492503120096,
+            "pct_of_target": 182.9246251560048
+          },
+          "exit_efficiency": {
+            "target": 0.35,
+            "actual": 0.7555029012520821,
+            "pct_of_target": 200.0
+          },
+          "total_trades": {
+            "target": 60.0,
+            "actual": 110.0,
+            "pct_of_target": 183.33333333333331
+          }
+        },
+        "strengths": [
+          "correction_pnl_pct: 53.4818 (89% of 60.0000)",
+          "profit_factor: 2.4120 (121% of 2.0000)",
+          "net_return_pct: 74.7456 (149% of 50.0000)",
+          "max_dd_pct: 0.0617 (200% of 20.0000)",
+          "calmar: 3.6585 (183% of 2.0000)",
+          "exit_efficiency: 0.7555 (200% of 0.3500)",
+          "total_trades: 110.0000 (183% of 60.0000)"
+        ],
+        "weaknesses": [],
+        "scoring_assessment": "MISALIGNED",
+        "diagnostic_gaps": [],
+        "suggested_experiments": [
+          {
+            "name": "bd_relax_containment_0.60",
+            "mutations": {
+              "param_overrides.box_containment_min": 0.6
+            }
+          },
+          {
+            "name": "bd_no_chop_filter",
+            "mutations": {
+              "flags.breakdown_chop_filter": false
+            }
+          },
+          {
+            "name": "bd_relax_displacement_0.50",
+            "mutations": {
+              "param_overrides.displacement_quantile": 0.5
+            }
+          }
+        ],
+        "recommendation": "advance",
+        "recommendation_reason": "Retry budget exhausted; carry suggested experiments into the next phase.",
+        "report": "======================================================================\nPHASE 3 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Retry budget exhausted; carry suggested experiments into the next phase.\nScoring assessment: MISALIGNED\n\nStrengths:\n  + correction_pnl_pct: 53.4818 (89% of 60.0000)\n  + profit_factor: 2.4120 (121% of 2.0000)\n  + net_return_pct: 74.7456 (149% of 50.0000)\n  + max_dd_pct: 0.0617 (200% of 20.0000)\n  + calmar: 3.6585 (183% of 2.0000)\n  + exit_efficiency: 0.7555 (200% of 0.3500)\n  + total_trades: 110.0000 (183% of 60.0000)\n\nSuggested Experiments (3):\n  - bd_relax_containment_0.60: {\"param_overrides.box_containment_min\": 0.6}\n  - bd_no_chop_filter: {\"flags.breakdown_chop_filter\": false}\n  - bd_relax_displacement_0.50: {\"param_overrides.displacement_quantile\": 0.5}\n\nExtra Analysis:\n  Engine health: reversal=insufficient_data, breakdown=insufficient_data, fade=healthy\n  Correction attribution: corr_pnl=5348, non_corr_pnl=2126, ratio=0.72\n\nGoal Progress:\n  correction_pnl_pct: 53.4818 / 60.0000 (89%)\n  profit_factor: 2.4120 / 2.0000 (121%)\n  net_return_pct: 74.7456 / 50.0000 (149%)\n  max_dd_pct: 0.0617 / 20.0000 (200%)\n  calmar: 3.6585 / 2.0000 (183%)\n  exit_efficiency: 0.7555 / 0.3500 (200%)\n  total_trades: 110.0000 / 60.0000 (183%)",
+        "scoring_weight_overrides": null,
+        "extra": {
+          "engine_health": {
+            "reversal": "insufficient_data",
+            "breakdown": "insufficient_data",
+            "fade": "healthy"
+          },
+          "correction_attribution": {
+            "correction_pnl": 5348.179999999999,
+            "non_correction_pnl": 2126.3799999999997,
+            "ratio": 0.7155177027142734
+          }
+        }
+      },
+      "new_mutations": {
+        "param_overrides.adx_range_threshold": 18,
+        "param_overrides.base_risk_pct": 0.0064,
+        "param_overrides.min_hold_bars": 14,
+        "param_overrides.tp1_r_aligned": 2.4,
+        "param_overrides.tp1_r_emerging": 1.8,
+        "param_overrides.be_stop_buffer_mult": 0.08,
+        "flags.breakdown_engine": false
+      }
+    }
+  },
+  "phase_gate_results": {
+    "1": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "hard_min_trades",
+          "target": 10.0,
+          "actual": 125.0,
+          "passed": true
+        },
+        {
+          "name": "hard_max_dd_pct",
+          "target": 0.3,
+          "actual": 0.22290835589115235,
+          "passed": true
+        },
+        {
+          "name": "hard_correction_pnl_pct",
+          "target": 0.0,
+          "actual": 53.691799999999986,
+          "passed": true
+        },
+        {
+          "name": "correction_pnl_pct",
+          "target": 40.0,
+          "actual": 53.691799999999986,
+          "passed": true
+        },
+        {
+          "name": "total_trades",
+          "target": 20.0,
+          "actual": 125.0,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "2": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "hard_min_trades",
+          "target": 10.0,
+          "actual": 124.0,
+          "passed": true
+        },
+        {
+          "name": "hard_max_dd_pct",
+          "target": 0.3,
+          "actual": 0.1302612307787819,
+          "passed": true
+        },
+        {
+          "name": "hard_correction_pnl_pct",
+          "target": 0.0,
+          "actual": 71.34419999999999,
+          "passed": true
+        },
+        {
+          "name": "profit_factor",
+          "target": 1.5,
+          "actual": 2.0602221576883983,
+          "passed": true
+        },
+        {
+          "name": "exit_efficiency",
+          "target": 0.25,
+          "actual": 0.7508908033383147,
+          "passed": true
+        },
+        {
+          "name": "correction_pnl_pct",
+          "target": 50.0,
+          "actual": 71.34419999999999,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "3": {
+      "passed": false,
+      "criteria": [
+        {
+          "name": "hard_min_trades",
+          "target": 10.0,
+          "actual": 110.0,
+          "passed": true
+        },
+        {
+          "name": "hard_max_dd_pct",
+          "target": 0.3,
+          "actual": 0.06173308109716665,
+          "passed": true
+        },
+        {
+          "name": "hard_correction_pnl_pct",
+          "target": 0.0,
+          "actual": 53.48179999999999,
+          "passed": true
+        },
+        {
+          "name": "max_dd_pct",
+          "target": 0.25,
+          "actual": 0.06173308109716665,
+          "passed": true
+        },
+        {
+          "name": "profit_factor",
+          "target": 1.3,
+          "actual": 2.4119673877726813,
+          "passed": true
+        },
+        {
+          "name": "calmar",
+          "target": 0.5,
+          "actual": 3.658492503120096,
+          "passed": true
+        },
+        {
+          "name": "no_regress_correction_pnl_pct",
+          "target": 64.20978,
+          "actual": 53.48179999999999,
+          "passed": false
+        },
+        {
+          "name": "no_regress_profit_factor",
+          "target": 1.8541999419195585,
+          "actual": 2.4119673877726813,
+          "passed": true
+        },
+        {
+          "name": "no_regress_exit_efficiency",
+          "target": 0.6758017230044833,
+          "actual": 0.7555029012520821,
+          "passed": true
+        }
+      ],
+      "failure_category": "scoring_ineffective",
+      "recommendations": [
+        "Score moved more than gate metrics; rebalance scoring weights toward failing criteria."
+      ]
+    }
+  },
+  "retry_count": {
+    "3": 3
+  },
+  "scoring_retries": {
+    "3": 2
+  },
+  "diagnostic_retries": {
+    "3": 1
+  },
+  "phase_timestamps": {
+    "1": {
+      "started": "2026-04-28T15:15:33.627920+00:00",
+      "completed": "2026-04-28T17:21:01.348387+00:00"
+    },
+    "2": {
+      "started": "2026-04-28T17:21:01.387386+00:00",
+      "completed": "2026-04-28T20:38:33.565901+00:00"
+    },
+    "3": {
+      "started": "2026-04-28T20:38:33.607884+00:00",
+      "completed": "2026-04-29T01:59:07.055398+00:00"
+    }
+  },
+  "round_name": ""
+}

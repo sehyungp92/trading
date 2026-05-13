@@ -1,0 +1,9 @@
+======================================================================
+IARIC T3 V4R1 PHASE 5 SNAPSHOT
+======================================================================
+Focus: Signal Threshold Sweep
+Score 0.8920 -> 0.8920 with 0 accepted mutations.
+
+Core: trades=691, avg_r=+0.152, exp_total_r=+104.99, pf=2.22, sharpe=4.18, dd=3.6%
+Edges: rsi_depth=-0.017, trend_band=-0.010, late_rank=+0.026
+Exit capture: managed=97.3%, carry=13.5%, carry_avg_r=-0.100, eod=2.7%, stop_cost=+61.63R

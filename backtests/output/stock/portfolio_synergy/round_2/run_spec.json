@@ -1,0 +1,23 @@
+{
+  "family": "stock",
+  "strategy": "portfolio_synergy",
+  "strategy_name": "stock_portfolio_synergy",
+  "round": 2,
+  "description": "Phase-5 discriminator blend promoted and size-calibrated with a 1.08 global risk/reference scalar.",
+  "generated_at_utc": "2026-05-06T18:05:36.447213+00:00",
+  "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\portfolio_synergy\\round_1\\phase_5_greedy.json",
+  "calibration_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\portfolio_synergy\\round_1\\validation_checks\\phase5_size_calibration\\phase5_global_size_calibration_fast_sweep.json",
+  "calibration_method": "Smallest global scalar preserving phase-5 routing metrics and beating active round_1 dollar PnL on IS and both validation cuts.",
+  "selected_scalar": 1.08,
+  "optimized_config": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\portfolio_synergy\\round_2\\optimized_config.json",
+  "optimized_config_sha256": "c99396c7d4953889ec9039364431bf8fe0e51b5d5c33654a5893c90fac31ba27",
+  "scoring_weights": {
+    "alpha_return": 0.27,
+    "trade_frequency": 0.23,
+    "drawdown_control": 0.19,
+    "profit_factor_quality": 0.12,
+    "synergy_capture": 0.08,
+    "allocation_balance": 0.06,
+    "robustness": 0.05
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "flags.early_stall_exit": true,
+  "param_overrides.early_stall_check_hours": 12,
+  "param_overrides.early_stall_mfe_threshold": 0.2,
+  "param_overrides.max_hold_hours": 80
+}

@@ -1,0 +1,1593 @@
+{
+  "current_phase": 4,
+  "completed_phases": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "cumulative_mutations": {
+    "all.trail_after_t1_30m_bars": 6,
+    "all.trail_use_vwap_after_t1": true,
+    "QQQ.t1_r": 1.25,
+    "GLD.t1_r": 1.1,
+    "all.max_hold_bars_15m": 52,
+    "all.time_stop_min_mfe_r": 0.5,
+    "all.initial_stop_source": "signal",
+    "all.signal_stop_buffer_atr_mult": 0.12,
+    "all.entry_order_model": "structure_stop",
+    "all.entry_stop_limit_atr_mult": 0.08,
+    "all.fib_a_low": 0.33,
+    "all.fib_a_high": 0.8,
+    "all.type_a_value_hits_min": 1,
+    "all.confirmation_required": 1,
+    "all.confirmation_combo_mode": "structure_or_vwap",
+    "all.type_c_enabled": true,
+    "all.type_c_requires_a_plus": false,
+    "all.max_position_notional_pct": 8.0,
+    "QQQ.primary_windows_et": [
+      [
+        9,
+        35,
+        15,
+        45
+      ]
+    ],
+    "GLD.entry_order_model": "market_next_bar",
+    "all.entry_order_ttl_hours": 4.0,
+    "GLD.daily_room_min_r": 2.5,
+    "GLD.confirmation_required": 2,
+    "GLD.confirmation_combo_mode": "structure_or_vwap",
+    "GLD.score_a_min": 15,
+    "GLD.score_b_min": 15,
+    "QQQ.min_short_score": 17,
+    "all.t1_stop_r": 0.2,
+    "all.max_risk_pct": 0.02,
+    "all.risk_a_pct": 0.013,
+    "all.risk_a_plus_pct": 0.02,
+    "all.risk_b_pct": 0.008,
+    "all.min_stop_atr_mult": 0.0,
+    "QQQ.shorts_enabled": false,
+    "all.type_c_mode": "real_reentry",
+    "all.second_entry_min_wait_bars_15m": 1,
+    "all.second_entry_max_wait_bars_15m": 16,
+    "all.second_entry_require_vwap": true,
+    "all.second_entry_require_structure": true,
+    "all.second_entry_score_min": 14,
+    "all.stall_exit_bars_15m": 52,
+    "all.stall_exit_min_mfe_r": 1.0,
+    "all.stall_exit_max_current_r": 0.2,
+    "all.t2_r": 2.0
+  },
+  "phase_results": {
+    "1": {
+      "focus": "CAPITAL_AND_STOP_NORMALISATION",
+      "base_mutations": {
+        "all.trail_after_t1_30m_bars": 3,
+        "all.trail_use_vwap_after_t1": true,
+        "QQQ.t1_r": 1.25,
+        "GLD.t1_r": 1.1,
+        "all.max_hold_bars_15m": 52,
+        "all.time_stop_min_mfe_r": 0.5,
+        "all.initial_stop_source": "signal",
+        "all.signal_stop_buffer_atr_mult": 0.12,
+        "all.entry_order_model": "structure_stop",
+        "all.entry_stop_limit_atr_mult": 0.08,
+        "all.fib_a_low": 0.33,
+        "all.fib_a_high": 0.8,
+        "all.type_a_value_hits_min": 1,
+        "all.confirmation_required": 1,
+        "all.confirmation_combo_mode": "structure_or_vwap",
+        "all.type_c_enabled": true,
+        "all.type_c_requires_a_plus": false,
+        "all.max_position_notional_pct": 0.3,
+        "QQQ.primary_windows_et": [
+          [
+            9,
+            35,
+            15,
+            45
+          ]
+        ],
+        "GLD.entry_order_model": "market_next_bar",
+        "all.entry_order_ttl_hours": 4.0,
+        "GLD.daily_room_min_r": 2.5,
+        "GLD.confirmation_required": 2,
+        "GLD.confirmation_combo_mode": "structure_or_vwap",
+        "GLD.score_a_min": 15,
+        "GLD.score_b_min": 15,
+        "QQQ.min_short_score": 17,
+        "all.t1_stop_r": 0.1
+      },
+      "final_mutations": {
+        "all.trail_after_t1_30m_bars": 3,
+        "all.trail_use_vwap_after_t1": true,
+        "QQQ.t1_r": 1.25,
+        "GLD.t1_r": 1.1,
+        "all.max_hold_bars_15m": 52,
+        "all.time_stop_min_mfe_r": 0.5,
+        "all.initial_stop_source": "signal",
+        "all.signal_stop_buffer_atr_mult": 0.12,
+        "all.entry_order_model": "structure_stop",
+        "all.entry_stop_limit_atr_mult": 0.08,
+        "all.fib_a_low": 0.33,
+        "all.fib_a_high": 0.8,
+        "all.type_a_value_hits_min": 1,
+        "all.confirmation_required": 1,
+        "all.confirmation_combo_mode": "structure_or_vwap",
+        "all.type_c_enabled": true,
+        "all.type_c_requires_a_plus": false,
+        "all.max_position_notional_pct": 8.0,
+        "QQQ.primary_windows_et": [
+          [
+            9,
+            35,
+            15,
+            45
+          ]
+        ],
+        "GLD.entry_order_model": "market_next_bar",
+        "all.entry_order_ttl_hours": 4.0,
+        "GLD.daily_room_min_r": 2.5,
+        "GLD.confirmation_required": 2,
+        "GLD.confirmation_combo_mode": "structure_or_vwap",
+        "GLD.score_a_min": 15,
+        "GLD.score_b_min": 15,
+        "QQQ.min_short_score": 17,
+        "all.t1_stop_r": 0.1,
+        "all.max_risk_pct": 0.02,
+        "all.risk_a_pct": 0.013,
+        "all.risk_a_plus_pct": 0.02,
+        "all.risk_b_pct": 0.008,
+        "all.min_stop_atr_mult": 0.0
+      },
+      "base_score": 27.45279944595776,
+      "final_score": 35.2529993901551,
+      "kept_features": [
+        "risk_020_notional_800"
+      ],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 12,
+          "best_name": "risk_020_notional_800",
+          "best_score": 35.2529993901551,
+          "best_delta_pct": 28.41313127119306,
+          "kept": true,
+          "rejected_count": 2
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 11,
+          "best_name": "stopfloor_010_risk_020_notional_800",
+          "best_score": 35.2529993901551,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 2
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 249.0,
+        "net_return_pct": 63.126169999995795,
+        "net_return_per_month": 1.1420139597688646,
+        "total_pnl_dollars": 63126.1699999972,
+        "pnl_per_trade": 253.51875502006905,
+        "profit_factor": 2.8035464581303096,
+        "dollar_profit_factor": 1.2441859012284764,
+        "avg_r": 1.242735235571281,
+        "total_r": 309.441073657249,
+        "r_per_month": 5.598090710120182,
+        "win_rate": 0.46987951807228917,
+        "max_dd_pct": 30.611813350769555,
+        "sharpe": 0.4568556821590017,
+        "trades_per_month": 4.504652761009677,
+        "expectancy_frequency": 2.6376020506116165,
+        "mfe_capture": 0.34842391366809006,
+        "avg_mfe_r": 4.335461951310296,
+        "avg_mae_r": 1.126257867038696,
+        "excellent_trades": 112.0,
+        "excellent_trades_per_month": 2.0261891937071637,
+        "never_worked_rate": 0.3373493975903614,
+        "right_then_lost_rate": 0.08032128514056225,
+        "top5_winner_share": 0.6245371517685441,
+        "dollar_top5_winner_share": 0.14089716605695393,
+        "entry_requests": 257.0,
+        "request_fill_rate": 0.9688715953307393,
+        "order_terminal_rate": 0.0311284046692607,
+        "worst_symbol_avg_r": 0.2909145625794817,
+        "worst_year_avg_r": -0.7195787779863206,
+        "worst_symbol_pnl": 24825.739999996993,
+        "worst_symbol_pnl_pct": 24.825739999996994,
+        "worst_year_pnl": -31430.220000000823,
+        "worst_year_pnl_pct": -31.430220000000826
+      },
+      "total_candidates": 12,
+      "accepted_count": 1,
+      "elapsed_seconds": 645.5347764492035,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 1,
+        "goal_progress": {
+          "net_return_pct": {
+            "target": 180.0,
+            "actual": 63.126169999995795,
+            "pct_of_target": 35.070094444442105
+          },
+          "net_return_per_month": {
+            "target": 3.0,
+            "actual": 1.1420139597688646,
+            "pct_of_target": 38.06713199229549
+          },
+          "total_trades": {
+            "target": 300.0,
+            "actual": 249.0,
+            "pct_of_target": 83.0
+          },
+          "trades_per_month": {
+            "target": 5.25,
+            "actual": 4.504652761009677,
+            "pct_of_target": 85.80290973351765
+          },
+          "excellent_trades": {
+            "target": 150.0,
+            "actual": 112.0,
+            "pct_of_target": 74.66666666666667
+          },
+          "dollar_profit_factor": {
+            "target": 1.85,
+            "actual": 1.2441859012284764,
+            "pct_of_target": 67.25329195829602
+          },
+          "avg_r": {
+            "target": 0.75,
+            "actual": 1.242735235571281,
+            "pct_of_target": 165.69803140950415
+          },
+          "never_worked_rate": {
+            "target": 0.26,
+            "actual": 0.3373493975903614,
+            "pct_of_target": 129.74976830398515
+          }
+        },
+        "strengths": [
+          "total_trades: 249.0000 (83% of 300.0000)",
+          "trades_per_month: 4.5047 (86% of 5.2500)",
+          "avg_r: 1.2427 (166% of 0.7500)",
+          "never_worked_rate: 0.3373 (130% of 0.2600)"
+        ],
+        "weaknesses": [
+          "net_return_pct: 63.1262 (35% of 180.0000)",
+          "net_return_per_month: 1.1420 (38% of 3.0000)"
+        ],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "Realized dollars still lag the Helix/ATRSS swing cohort; prioritize monetizable sizing, dollar PF, and symbol balance over raw R-multiple expansion.",
+          "False-positive rate is high; tighten confirmation, value-hit, and regime-quality gates before accepting more fill conversion."
+        ],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + total_trades: 249.0000 (83% of 300.0000)\n  + trades_per_month: 4.5047 (86% of 5.2500)\n  + avg_r: 1.2427 (166% of 0.7500)\n  + never_worked_rate: 0.3373 (130% of 0.2600)\n\nWeaknesses:\n  - net_return_pct: 63.1262 (35% of 180.0000)\n  - net_return_per_month: 1.1420 (38% of 3.0000)\n\nDiagnostic Gaps:\n  ! Realized dollars still lag the Helix/ATRSS swing cohort; prioritize monetizable sizing, dollar PF, and symbol balance over raw R-multiple expansion.\n  ! False-positive rate is high; tighten confirmation, value-hit, and regime-quality gates before accepting more fill conversion.\n\nGoal Progress:\n  net_return_pct: 63.1262 / 180.0000 (35%)\n  net_return_per_month: 1.1420 / 3.0000 (38%)\n  total_trades: 249.0000 / 300.0000 (83%)\n  trades_per_month: 4.5047 / 5.2500 (86%)\n  excellent_trades: 112.0000 / 150.0000 (75%)\n  dollar_profit_factor: 1.2442 / 1.8500 (67%)\n  avg_r: 1.2427 / 0.7500 (166%)\n  never_worked_rate: 0.3373 / 0.2600 (130%)",
+        "scoring_weight_overrides": null,
+        "extra": {}
+      },
+      "new_mutations": {
+        "all.max_position_notional_pct": 8.0,
+        "all.max_risk_pct": 0.02,
+        "all.risk_a_pct": 0.013,
+        "all.risk_a_plus_pct": 0.02,
+        "all.risk_b_pct": 0.008,
+        "all.min_stop_atr_mult": 0.0
+      },
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "all.trail_after_t1_30m_bars": 3,
+        "all.trail_use_vwap_after_t1": true,
+        "QQQ.t1_r": 1.25,
+        "GLD.t1_r": 1.1,
+        "all.max_hold_bars_15m": 52,
+        "all.time_stop_min_mfe_r": 0.5,
+        "all.initial_stop_source": "signal",
+        "all.signal_stop_buffer_atr_mult": 0.12,
+        "all.entry_order_model": "structure_stop",
+        "all.entry_stop_limit_atr_mult": 0.08,
+        "all.fib_a_low": 0.33,
+        "all.fib_a_high": 0.8,
+        "all.type_a_value_hits_min": 1,
+        "all.confirmation_required": 1,
+        "all.confirmation_combo_mode": "structure_or_vwap",
+        "all.type_c_enabled": true,
+        "all.type_c_requires_a_plus": false,
+        "all.max_position_notional_pct": 8.0,
+        "QQQ.primary_windows_et": [
+          [
+            9,
+            35,
+            15,
+            45
+          ]
+        ],
+        "GLD.entry_order_model": "market_next_bar",
+        "all.entry_order_ttl_hours": 4.0,
+        "GLD.daily_room_min_r": 2.5,
+        "GLD.confirmation_required": 2,
+        "GLD.confirmation_combo_mode": "structure_or_vwap",
+        "GLD.score_a_min": 15,
+        "GLD.score_b_min": 15,
+        "QQQ.min_short_score": 17,
+        "all.t1_stop_r": 0.1,
+        "all.max_risk_pct": 0.02,
+        "all.risk_a_pct": 0.013,
+        "all.risk_a_plus_pct": 0.02,
+        "all.risk_b_pct": 0.008,
+        "all.min_stop_atr_mult": 0.0
+      },
+      "attempted_final_score": 35.2529993901551,
+      "attempted_final_metrics": {
+        "total_trades": 249.0,
+        "net_return_pct": 63.126169999995795,
+        "net_return_per_month": 1.1420139597688646,
+        "total_pnl_dollars": 63126.1699999972,
+        "pnl_per_trade": 253.51875502006905,
+        "profit_factor": 2.8035464581303096,
+        "dollar_profit_factor": 1.2441859012284764,
+        "avg_r": 1.242735235571281,
+        "total_r": 309.441073657249,
+        "r_per_month": 5.598090710120182,
+        "win_rate": 0.46987951807228917,
+        "max_dd_pct": 30.611813350769555,
+        "sharpe": 0.4568556821590017,
+        "trades_per_month": 4.504652761009677,
+        "expectancy_frequency": 2.6376020506116165,
+        "mfe_capture": 0.34842391366809006,
+        "avg_mfe_r": 4.335461951310296,
+        "avg_mae_r": 1.126257867038696,
+        "excellent_trades": 112.0,
+        "excellent_trades_per_month": 2.0261891937071637,
+        "never_worked_rate": 0.3373493975903614,
+        "right_then_lost_rate": 0.08032128514056225,
+        "top5_winner_share": 0.6245371517685441,
+        "dollar_top5_winner_share": 0.14089716605695393,
+        "entry_requests": 257.0,
+        "request_fill_rate": 0.9688715953307393,
+        "order_terminal_rate": 0.0311284046692607,
+        "worst_symbol_avg_r": 0.2909145625794817,
+        "worst_year_avg_r": -0.7195787779863206,
+        "worst_symbol_pnl": 24825.739999996993,
+        "worst_symbol_pnl_pct": 24.825739999996994,
+        "worst_year_pnl": -31430.220000000823,
+        "worst_year_pnl_pct": -31.430220000000826
+      },
+      "attempted_kept_features": [
+        "risk_020_notional_800"
+      ],
+      "attempted_accepted_count": 1
+    },
+    "2": {
+      "focus": "STRUCTURAL_ALPHA_DISCRIMINATION",
+      "base_mutations": {
+        "all.trail_after_t1_30m_bars": 3,
+        "all.trail_use_vwap_after_t1": true,
+        "QQQ.t1_r": 1.25,
+        "GLD.t1_r": 1.1,
+        "all.max_hold_bars_15m": 52,
+        "all.time_stop_min_mfe_r": 0.5,
+        "all.initial_stop_source": "signal",
+        "all.signal_stop_buffer_atr_mult": 0.12,
+        "all.entry_order_model": "structure_stop",
+        "all.entry_stop_limit_atr_mult": 0.08,
+        "all.fib_a_low": 0.33,
+        "all.fib_a_high": 0.8,
+        "all.type_a_value_hits_min": 1,
+        "all.confirmation_required": 1,
+        "all.confirmation_combo_mode": "structure_or_vwap",
+        "all.type_c_enabled": true,
+        "all.type_c_requires_a_plus": false,
+        "all.max_position_notional_pct": 8.0,
+        "QQQ.primary_windows_et": [
+          [
+            9,
+            35,
+            15,
+            45
+          ]
+        ],
+        "GLD.entry_order_model": "market_next_bar",
+        "all.entry_order_ttl_hours": 4.0,
+        "GLD.daily_room_min_r": 2.5,
+        "GLD.confirmation_required": 2,
+        "GLD.confirmation_combo_mode": "structure_or_vwap",
+        "GLD.score_a_min": 15,
+        "GLD.score_b_min": 15,
+        "QQQ.min_short_score": 17,
+        "all.t1_stop_r": 0.1,
+        "all.max_risk_pct": 0.02,
+        "all.risk_a_pct": 0.013,
+        "all.risk_a_plus_pct": 0.02,
+        "all.risk_b_pct": 0.008,
+        "all.min_stop_atr_mult": 0.0
+      },
+      "final_mutations": {
+        "all.trail_after_t1_30m_bars": 3,
+        "all.trail_use_vwap_after_t1": true,
+        "QQQ.t1_r": 1.25,
+        "GLD.t1_r": 1.1,
+        "all.max_hold_bars_15m": 52,
+        "all.time_stop_min_mfe_r": 0.5,
+        "all.initial_stop_source": "signal",
+        "all.signal_stop_buffer_atr_mult": 0.12,
+        "all.entry_order_model": "structure_stop",
+        "all.entry_stop_limit_atr_mult": 0.08,
+        "all.fib_a_low": 0.33,
+        "all.fib_a_high": 0.8,
+        "all.type_a_value_hits_min": 1,
+        "all.confirmation_required": 1,
+        "all.confirmation_combo_mode": "structure_or_vwap",
+        "all.type_c_enabled": false,
+        "all.type_c_requires_a_plus": false,
+        "all.max_position_notional_pct": 8.0,
+        "QQQ.primary_windows_et": [
+          [
+            9,
+            35,
+            15,
+            45
+          ]
+        ],
+        "GLD.entry_order_model": "market_next_bar",
+        "all.entry_order_ttl_hours": 4.0,
+        "GLD.daily_room_min_r": 2.5,
+        "GLD.confirmation_required": 2,
+        "GLD.confirmation_combo_mode": "structure_or_vwap",
+        "GLD.score_a_min": 15,
+        "GLD.score_b_min": 15,
+        "QQQ.min_short_score": 17,
+        "all.t1_stop_r": 0.1,
+        "all.max_risk_pct": 0.02,
+        "all.risk_a_pct": 0.013,
+        "all.risk_a_plus_pct": 0.02,
+        "all.risk_b_pct": 0.008,
+        "all.min_stop_atr_mult": 0.0,
+        "QQQ.shorts_enabled": false
+      },
+      "base_score": 35.2529993901551,
+      "final_score": 38.69896269499865,
+      "kept_features": [
+        "qqq_longs_only",
+        "disable_shallow_type_c"
+      ],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 18,
+          "best_name": "qqq_longs_only",
+          "best_score": 38.38338781442159,
+          "best_delta_pct": 8.879778964682075,
+          "kept": true,
+          "rejected_count": 5
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 8,
+          "best_name": "disable_shallow_type_c",
+          "best_score": 38.69896269499865,
+          "best_delta_pct": 0.8221652609269958,
+          "kept": true,
+          "rejected_count": 4
+        },
+        {
+          "round_num": 3,
+          "candidates_tested": 2,
+          "best_name": "all_score_floor_15",
+          "best_score": 38.69896269499865,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 224.0,
+        "net_return_pct": 62.97863999999763,
+        "net_return_per_month": 1.139344998235437,
+        "total_pnl_dollars": 62978.63999999738,
+        "pnl_per_trade": 281.15464285713114,
+        "profit_factor": 2.98250937815211,
+        "dollar_profit_factor": 1.290480238591899,
+        "avg_r": 1.3775448046174177,
+        "total_r": 308.57003623430154,
+        "r_per_month": 5.582332793926516,
+        "win_rate": 0.47767857142857145,
+        "max_dd_pct": 19.939657724025867,
+        "sharpe": 0.4839064623631282,
+        "trades_per_month": 4.052378387414327,
+        "expectancy_frequency": 2.7730693352166487,
+        "mfe_capture": 0.3441968470902709,
+        "avg_mfe_r": 4.674485905626294,
+        "avg_mae_r": 1.1387955068963478,
+        "excellent_trades": 102.0,
+        "excellent_trades_per_month": 1.8452794442690241,
+        "never_worked_rate": 0.32589285714285715,
+        "right_then_lost_rate": 0.08035714285714286,
+        "top5_winner_share": 0.6470990559325984,
+        "dollar_top5_winner_share": 0.15626486731904554,
+        "entry_requests": 230.0,
+        "request_fill_rate": 0.9739130434782609,
+        "order_terminal_rate": 0.02608695652173913,
+        "worst_symbol_avg_r": 0.4246486987019207,
+        "worst_year_avg_r": -0.6508460516613281,
+        "worst_symbol_pnl": 26929.02999999711,
+        "worst_symbol_pnl_pct": 26.929029999997113,
+        "worst_year_pnl": -11969.64000000079,
+        "worst_year_pnl_pct": -11.96964000000079
+      },
+      "total_candidates": 18,
+      "accepted_count": 2,
+      "elapsed_seconds": 1076.7975766658783,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 2,
+        "goal_progress": {
+          "net_return_pct": {
+            "target": 180.0,
+            "actual": 62.97863999999763,
+            "pct_of_target": 34.988133333332016
+          },
+          "net_return_per_month": {
+            "target": 3.0,
+            "actual": 1.139344998235437,
+            "pct_of_target": 37.978166607847896
+          },
+          "total_trades": {
+            "target": 300.0,
+            "actual": 224.0,
+            "pct_of_target": 74.66666666666667
+          },
+          "trades_per_month": {
+            "target": 5.25,
+            "actual": 4.052378387414327,
+            "pct_of_target": 77.1881597602729
+          },
+          "excellent_trades": {
+            "target": 150.0,
+            "actual": 102.0,
+            "pct_of_target": 68.0
+          },
+          "dollar_profit_factor": {
+            "target": 1.85,
+            "actual": 1.290480238591899,
+            "pct_of_target": 69.75568857253508
+          },
+          "avg_r": {
+            "target": 0.75,
+            "actual": 1.3775448046174177,
+            "pct_of_target": 183.6726406156557
+          },
+          "never_worked_rate": {
+            "target": 0.26,
+            "actual": 0.32589285714285715,
+            "pct_of_target": 125.3434065934066
+          }
+        },
+        "strengths": [
+          "avg_r: 1.3775 (184% of 0.7500)",
+          "never_worked_rate: 0.3259 (125% of 0.2600)"
+        ],
+        "weaknesses": [
+          "net_return_pct: 62.9786 (35% of 180.0000)",
+          "net_return_per_month: 1.1393 (38% of 3.0000)"
+        ],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "Realized dollars still lag the Helix/ATRSS swing cohort; prioritize monetizable sizing, dollar PF, and symbol balance over raw R-multiple expansion.",
+          "False-positive rate is high; tighten confirmation, value-hit, and regime-quality gates before accepting more fill conversion."
+        ],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + avg_r: 1.3775 (184% of 0.7500)\n  + never_worked_rate: 0.3259 (125% of 0.2600)\n\nWeaknesses:\n  - net_return_pct: 62.9786 (35% of 180.0000)\n  - net_return_per_month: 1.1393 (38% of 3.0000)\n\nDiagnostic Gaps:\n  ! Realized dollars still lag the Helix/ATRSS swing cohort; prioritize monetizable sizing, dollar PF, and symbol balance over raw R-multiple expansion.\n  ! False-positive rate is high; tighten confirmation, value-hit, and regime-quality gates before accepting more fill conversion.\n\nGoal Progress:\n  net_return_pct: 62.9786 / 180.0000 (35%)\n  net_return_per_month: 1.1393 / 3.0000 (38%)\n  total_trades: 224.0000 / 300.0000 (75%)\n  trades_per_month: 4.0524 / 5.2500 (77%)\n  excellent_trades: 102.0000 / 150.0000 (68%)\n  dollar_profit_factor: 1.2905 / 1.8500 (70%)\n  avg_r: 1.3775 / 0.7500 (184%)\n  never_worked_rate: 0.3259 / 0.2600 (125%)",
+        "scoring_weight_overrides": null,
+        "extra": {}
+      },
+      "new_mutations": {
+        "all.type_c_enabled": false,
+        "QQQ.shorts_enabled": false
+      },
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "all.trail_after_t1_30m_bars": 3,
+        "all.trail_use_vwap_after_t1": true,
+        "QQQ.t1_r": 1.25,
+        "GLD.t1_r": 1.1,
+        "all.max_hold_bars_15m": 52,
+        "all.time_stop_min_mfe_r": 0.5,
+        "all.initial_stop_source": "signal",
+        "all.signal_stop_buffer_atr_mult": 0.12,
+        "all.entry_order_model": "structure_stop",
+        "all.entry_stop_limit_atr_mult": 0.08,
+        "all.fib_a_low": 0.33,
+        "all.fib_a_high": 0.8,
+        "all.type_a_value_hits_min": 1,
+        "all.confirmation_required": 1,
+        "all.confirmation_combo_mode": "structure_or_vwap",
+        "all.type_c_enabled": false,
+        "all.type_c_requires_a_plus": false,
+        "all.max_position_notional_pct": 8.0,
+        "QQQ.primary_windows_et": [
+          [
+            9,
+            35,
+            15,
+            45
+          ]
+        ],
+        "GLD.entry_order_model": "market_next_bar",
+        "all.entry_order_ttl_hours": 4.0,
+        "GLD.daily_room_min_r": 2.5,
+        "GLD.confirmation_required": 2,
+        "GLD.confirmation_combo_mode": "structure_or_vwap",
+        "GLD.score_a_min": 15,
+        "GLD.score_b_min": 15,
+        "QQQ.min_short_score": 17,
+        "all.t1_stop_r": 0.1,
+        "all.max_risk_pct": 0.02,
+        "all.risk_a_pct": 0.013,
+        "all.risk_a_plus_pct": 0.02,
+        "all.risk_b_pct": 0.008,
+        "all.min_stop_atr_mult": 0.0,
+        "QQQ.shorts_enabled": false
+      },
+      "attempted_final_score": 38.69896269499865,
+      "attempted_final_metrics": {
+        "total_trades": 224.0,
+        "net_return_pct": 62.97863999999763,
+        "net_return_per_month": 1.139344998235437,
+        "total_pnl_dollars": 62978.63999999738,
+        "pnl_per_trade": 281.15464285713114,
+        "profit_factor": 2.98250937815211,
+        "dollar_profit_factor": 1.290480238591899,
+        "avg_r": 1.3775448046174177,
+        "total_r": 308.57003623430154,
+        "r_per_month": 5.582332793926516,
+        "win_rate": 0.47767857142857145,
+        "max_dd_pct": 19.939657724025867,
+        "sharpe": 0.4839064623631282,
+        "trades_per_month": 4.052378387414327,
+        "expectancy_frequency": 2.7730693352166487,
+        "mfe_capture": 0.3441968470902709,
+        "avg_mfe_r": 4.674485905626294,
+        "avg_mae_r": 1.1387955068963478,
+        "excellent_trades": 102.0,
+        "excellent_trades_per_month": 1.8452794442690241,
+        "never_worked_rate": 0.32589285714285715,
+        "right_then_lost_rate": 0.08035714285714286,
+        "top5_winner_share": 0.6470990559325984,
+        "dollar_top5_winner_share": 0.15626486731904554,
+        "entry_requests": 230.0,
+        "request_fill_rate": 0.9739130434782609,
+        "order_terminal_rate": 0.02608695652173913,
+        "worst_symbol_avg_r": 0.4246486987019207,
+        "worst_year_avg_r": -0.6508460516613281,
+        "worst_symbol_pnl": 26929.02999999711,
+        "worst_symbol_pnl_pct": 26.929029999997113,
+        "worst_year_pnl": -11969.64000000079,
+        "worst_year_pnl_pct": -11.96964000000079
+      },
+      "attempted_kept_features": [
+        "qqq_longs_only",
+        "disable_shallow_type_c"
+      ],
+      "attempted_accepted_count": 2
+    },
+    "3": {
+      "focus": "ENTRY_GEOMETRY_AND_SUPPLY",
+      "base_mutations": {
+        "all.trail_after_t1_30m_bars": 3,
+        "all.trail_use_vwap_after_t1": true,
+        "QQQ.t1_r": 1.25,
+        "GLD.t1_r": 1.1,
+        "all.max_hold_bars_15m": 52,
+        "all.time_stop_min_mfe_r": 0.5,
+        "all.initial_stop_source": "signal",
+        "all.signal_stop_buffer_atr_mult": 0.12,
+        "all.entry_order_model": "structure_stop",
+        "all.entry_stop_limit_atr_mult": 0.08,
+        "all.fib_a_low": 0.33,
+        "all.fib_a_high": 0.8,
+        "all.type_a_value_hits_min": 1,
+        "all.confirmation_required": 1,
+        "all.confirmation_combo_mode": "structure_or_vwap",
+        "all.type_c_enabled": false,
+        "all.type_c_requires_a_plus": false,
+        "all.max_position_notional_pct": 8.0,
+        "QQQ.primary_windows_et": [
+          [
+            9,
+            35,
+            15,
+            45
+          ]
+        ],
+        "GLD.entry_order_model": "market_next_bar",
+        "all.entry_order_ttl_hours": 4.0,
+        "GLD.daily_room_min_r": 2.5,
+        "GLD.confirmation_required": 2,
+        "GLD.confirmation_combo_mode": "structure_or_vwap",
+        "GLD.score_a_min": 15,
+        "GLD.score_b_min": 15,
+        "QQQ.min_short_score": 17,
+        "all.t1_stop_r": 0.1,
+        "all.max_risk_pct": 0.02,
+        "all.risk_a_pct": 0.013,
+        "all.risk_a_plus_pct": 0.02,
+        "all.risk_b_pct": 0.008,
+        "all.min_stop_atr_mult": 0.0,
+        "QQQ.shorts_enabled": false
+      },
+      "final_mutations": {
+        "all.trail_after_t1_30m_bars": 3,
+        "all.trail_use_vwap_after_t1": true,
+        "QQQ.t1_r": 1.25,
+        "GLD.t1_r": 1.1,
+        "all.max_hold_bars_15m": 52,
+        "all.time_stop_min_mfe_r": 0.5,
+        "all.initial_stop_source": "signal",
+        "all.signal_stop_buffer_atr_mult": 0.12,
+        "all.entry_order_model": "structure_stop",
+        "all.entry_stop_limit_atr_mult": 0.08,
+        "all.fib_a_low": 0.33,
+        "all.fib_a_high": 0.8,
+        "all.type_a_value_hits_min": 1,
+        "all.confirmation_required": 1,
+        "all.confirmation_combo_mode": "structure_or_vwap",
+        "all.type_c_enabled": true,
+        "all.type_c_requires_a_plus": false,
+        "all.max_position_notional_pct": 8.0,
+        "QQQ.primary_windows_et": [
+          [
+            9,
+            35,
+            15,
+            45
+          ]
+        ],
+        "GLD.entry_order_model": "market_next_bar",
+        "all.entry_order_ttl_hours": 4.0,
+        "GLD.daily_room_min_r": 2.5,
+        "GLD.confirmation_required": 2,
+        "GLD.confirmation_combo_mode": "structure_or_vwap",
+        "GLD.score_a_min": 15,
+        "GLD.score_b_min": 15,
+        "QQQ.min_short_score": 17,
+        "all.t1_stop_r": 0.1,
+        "all.max_risk_pct": 0.02,
+        "all.risk_a_pct": 0.013,
+        "all.risk_a_plus_pct": 0.02,
+        "all.risk_b_pct": 0.008,
+        "all.min_stop_atr_mult": 0.0,
+        "QQQ.shorts_enabled": false,
+        "all.type_c_mode": "real_reentry",
+        "all.second_entry_min_wait_bars_15m": 1,
+        "all.second_entry_max_wait_bars_15m": 16,
+        "all.second_entry_require_vwap": true,
+        "all.second_entry_require_structure": true,
+        "all.second_entry_score_min": 14
+      },
+      "base_score": 38.69896269499865,
+      "final_score": 39.334153940391836,
+      "kept_features": [
+        "real_second_entry_strict"
+      ],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 16,
+          "best_name": "real_second_entry_strict",
+          "best_score": 39.334153940391836,
+          "best_delta_pct": 1.6413650422606234,
+          "kept": true,
+          "rejected_count": 4
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 10,
+          "best_name": "real_second_entry_short_window",
+          "best_score": 39.334153940391836,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 4
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 224.0,
+        "net_return_pct": 64.94125999999655,
+        "net_return_per_month": 1.1748507074796455,
+        "total_pnl_dollars": 64941.25999999739,
+        "pnl_per_trade": 289.91633928570263,
+        "profit_factor": 2.9824981095587093,
+        "dollar_profit_factor": 1.3006726760835043,
+        "avg_r": 1.3775369746457342,
+        "total_r": 308.56828232064447,
+        "r_per_month": 5.582301063918492,
+        "win_rate": 0.47767857142857145,
+        "max_dd_pct": 19.938815118068838,
+        "sharpe": 0.4964368705760457,
+        "trades_per_month": 4.052378387414327,
+        "expectancy_frequency": 2.7730535730764276,
+        "mfe_capture": 0.3441868660531694,
+        "avg_mfe_r": 4.674485905626294,
+        "avg_mae_r": 1.1387955068963478,
+        "excellent_trades": 102.0,
+        "excellent_trades_per_month": 1.8452794442690241,
+        "never_worked_rate": 0.32589285714285715,
+        "right_then_lost_rate": 0.08035714285714286,
+        "top5_winner_share": 0.6471101335261142,
+        "dollar_top5_winner_share": 0.15712921713736946,
+        "entry_requests": 230.0,
+        "request_fill_rate": 0.9739130434782609,
+        "order_terminal_rate": 0.02608695652173913,
+        "worst_symbol_avg_r": 0.4245291145617231,
+        "worst_year_avg_r": -0.6509529293579315,
+        "worst_symbol_pnl": 28798.96999999712,
+        "worst_symbol_pnl_pct": 28.79896999999712,
+        "worst_year_pnl": -12029.850000000795,
+        "worst_year_pnl_pct": -12.029850000000796
+      },
+      "total_candidates": 16,
+      "accepted_count": 1,
+      "elapsed_seconds": 816.1661832332611,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 3,
+        "goal_progress": {
+          "net_return_pct": {
+            "target": 180.0,
+            "actual": 64.94125999999655,
+            "pct_of_target": 36.07847777777586
+          },
+          "net_return_per_month": {
+            "target": 3.0,
+            "actual": 1.1748507074796455,
+            "pct_of_target": 39.161690249321516
+          },
+          "total_trades": {
+            "target": 300.0,
+            "actual": 224.0,
+            "pct_of_target": 74.66666666666667
+          },
+          "trades_per_month": {
+            "target": 5.25,
+            "actual": 4.052378387414327,
+            "pct_of_target": 77.1881597602729
+          },
+          "excellent_trades": {
+            "target": 150.0,
+            "actual": 102.0,
+            "pct_of_target": 68.0
+          },
+          "dollar_profit_factor": {
+            "target": 1.85,
+            "actual": 1.3006726760835043,
+            "pct_of_target": 70.30663113964889
+          },
+          "avg_r": {
+            "target": 0.75,
+            "actual": 1.3775369746457342,
+            "pct_of_target": 183.67159661943123
+          },
+          "never_worked_rate": {
+            "target": 0.26,
+            "actual": 0.32589285714285715,
+            "pct_of_target": 125.3434065934066
+          }
+        },
+        "strengths": [
+          "avg_r: 1.3775 (184% of 0.7500)",
+          "never_worked_rate: 0.3259 (125% of 0.2600)"
+        ],
+        "weaknesses": [
+          "net_return_pct: 64.9413 (36% of 180.0000)",
+          "net_return_per_month: 1.1749 (39% of 3.0000)"
+        ],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "Realized dollars still lag the Helix/ATRSS swing cohort; prioritize monetizable sizing, dollar PF, and symbol balance over raw R-multiple expansion.",
+          "False-positive rate is high; tighten confirmation, value-hit, and regime-quality gates before accepting more fill conversion."
+        ],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 3 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + avg_r: 1.3775 (184% of 0.7500)\n  + never_worked_rate: 0.3259 (125% of 0.2600)\n\nWeaknesses:\n  - net_return_pct: 64.9413 (36% of 180.0000)\n  - net_return_per_month: 1.1749 (39% of 3.0000)\n\nDiagnostic Gaps:\n  ! Realized dollars still lag the Helix/ATRSS swing cohort; prioritize monetizable sizing, dollar PF, and symbol balance over raw R-multiple expansion.\n  ! False-positive rate is high; tighten confirmation, value-hit, and regime-quality gates before accepting more fill conversion.\n\nGoal Progress:\n  net_return_pct: 64.9413 / 180.0000 (36%)\n  net_return_per_month: 1.1749 / 3.0000 (39%)\n  total_trades: 224.0000 / 300.0000 (75%)\n  trades_per_month: 4.0524 / 5.2500 (77%)\n  excellent_trades: 102.0000 / 150.0000 (68%)\n  dollar_profit_factor: 1.3007 / 1.8500 (70%)\n  avg_r: 1.3775 / 0.7500 (184%)\n  never_worked_rate: 0.3259 / 0.2600 (125%)",
+        "scoring_weight_overrides": null,
+        "extra": {}
+      },
+      "new_mutations": {
+        "all.type_c_enabled": true,
+        "all.type_c_mode": "real_reentry",
+        "all.second_entry_min_wait_bars_15m": 1,
+        "all.second_entry_max_wait_bars_15m": 16,
+        "all.second_entry_require_vwap": true,
+        "all.second_entry_require_structure": true,
+        "all.second_entry_score_min": 14
+      },
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "all.trail_after_t1_30m_bars": 3,
+        "all.trail_use_vwap_after_t1": true,
+        "QQQ.t1_r": 1.25,
+        "GLD.t1_r": 1.1,
+        "all.max_hold_bars_15m": 52,
+        "all.time_stop_min_mfe_r": 0.5,
+        "all.initial_stop_source": "signal",
+        "all.signal_stop_buffer_atr_mult": 0.12,
+        "all.entry_order_model": "structure_stop",
+        "all.entry_stop_limit_atr_mult": 0.08,
+        "all.fib_a_low": 0.33,
+        "all.fib_a_high": 0.8,
+        "all.type_a_value_hits_min": 1,
+        "all.confirmation_required": 1,
+        "all.confirmation_combo_mode": "structure_or_vwap",
+        "all.type_c_enabled": true,
+        "all.type_c_requires_a_plus": false,
+        "all.max_position_notional_pct": 8.0,
+        "QQQ.primary_windows_et": [
+          [
+            9,
+            35,
+            15,
+            45
+          ]
+        ],
+        "GLD.entry_order_model": "market_next_bar",
+        "all.entry_order_ttl_hours": 4.0,
+        "GLD.daily_room_min_r": 2.5,
+        "GLD.confirmation_required": 2,
+        "GLD.confirmation_combo_mode": "structure_or_vwap",
+        "GLD.score_a_min": 15,
+        "GLD.score_b_min": 15,
+        "QQQ.min_short_score": 17,
+        "all.t1_stop_r": 0.1,
+        "all.max_risk_pct": 0.02,
+        "all.risk_a_pct": 0.013,
+        "all.risk_a_plus_pct": 0.02,
+        "all.risk_b_pct": 0.008,
+        "all.min_stop_atr_mult": 0.0,
+        "QQQ.shorts_enabled": false,
+        "all.type_c_mode": "real_reentry",
+        "all.second_entry_min_wait_bars_15m": 1,
+        "all.second_entry_max_wait_bars_15m": 16,
+        "all.second_entry_require_vwap": true,
+        "all.second_entry_require_structure": true,
+        "all.second_entry_score_min": 14
+      },
+      "attempted_final_score": 39.334153940391836,
+      "attempted_final_metrics": {
+        "total_trades": 224.0,
+        "net_return_pct": 64.94125999999655,
+        "net_return_per_month": 1.1748507074796455,
+        "total_pnl_dollars": 64941.25999999739,
+        "pnl_per_trade": 289.91633928570263,
+        "profit_factor": 2.9824981095587093,
+        "dollar_profit_factor": 1.3006726760835043,
+        "avg_r": 1.3775369746457342,
+        "total_r": 308.56828232064447,
+        "r_per_month": 5.582301063918492,
+        "win_rate": 0.47767857142857145,
+        "max_dd_pct": 19.938815118068838,
+        "sharpe": 0.4964368705760457,
+        "trades_per_month": 4.052378387414327,
+        "expectancy_frequency": 2.7730535730764276,
+        "mfe_capture": 0.3441868660531694,
+        "avg_mfe_r": 4.674485905626294,
+        "avg_mae_r": 1.1387955068963478,
+        "excellent_trades": 102.0,
+        "excellent_trades_per_month": 1.8452794442690241,
+        "never_worked_rate": 0.32589285714285715,
+        "right_then_lost_rate": 0.08035714285714286,
+        "top5_winner_share": 0.6471101335261142,
+        "dollar_top5_winner_share": 0.15712921713736946,
+        "entry_requests": 230.0,
+        "request_fill_rate": 0.9739130434782609,
+        "order_terminal_rate": 0.02608695652173913,
+        "worst_symbol_avg_r": 0.4245291145617231,
+        "worst_year_avg_r": -0.6509529293579315,
+        "worst_symbol_pnl": 28798.96999999712,
+        "worst_symbol_pnl_pct": 28.79896999999712,
+        "worst_year_pnl": -12029.850000000795,
+        "worst_year_pnl_pct": -12.029850000000796
+      },
+      "attempted_kept_features": [
+        "real_second_entry_strict"
+      ],
+      "attempted_accepted_count": 1
+    },
+    "4": {
+      "focus": "EXIT_REALIZATION_FINETUNE",
+      "base_mutations": {
+        "all.trail_after_t1_30m_bars": 3,
+        "all.trail_use_vwap_after_t1": true,
+        "QQQ.t1_r": 1.25,
+        "GLD.t1_r": 1.1,
+        "all.max_hold_bars_15m": 52,
+        "all.time_stop_min_mfe_r": 0.5,
+        "all.initial_stop_source": "signal",
+        "all.signal_stop_buffer_atr_mult": 0.12,
+        "all.entry_order_model": "structure_stop",
+        "all.entry_stop_limit_atr_mult": 0.08,
+        "all.fib_a_low": 0.33,
+        "all.fib_a_high": 0.8,
+        "all.type_a_value_hits_min": 1,
+        "all.confirmation_required": 1,
+        "all.confirmation_combo_mode": "structure_or_vwap",
+        "all.type_c_enabled": true,
+        "all.type_c_requires_a_plus": false,
+        "all.max_position_notional_pct": 8.0,
+        "QQQ.primary_windows_et": [
+          [
+            9,
+            35,
+            15,
+            45
+          ]
+        ],
+        "GLD.entry_order_model": "market_next_bar",
+        "all.entry_order_ttl_hours": 4.0,
+        "GLD.daily_room_min_r": 2.5,
+        "GLD.confirmation_required": 2,
+        "GLD.confirmation_combo_mode": "structure_or_vwap",
+        "GLD.score_a_min": 15,
+        "GLD.score_b_min": 15,
+        "QQQ.min_short_score": 17,
+        "all.t1_stop_r": 0.1,
+        "all.max_risk_pct": 0.02,
+        "all.risk_a_pct": 0.013,
+        "all.risk_a_plus_pct": 0.02,
+        "all.risk_b_pct": 0.008,
+        "all.min_stop_atr_mult": 0.0,
+        "QQQ.shorts_enabled": false,
+        "all.type_c_mode": "real_reentry",
+        "all.second_entry_min_wait_bars_15m": 1,
+        "all.second_entry_max_wait_bars_15m": 16,
+        "all.second_entry_require_vwap": true,
+        "all.second_entry_require_structure": true,
+        "all.second_entry_score_min": 14
+      },
+      "final_mutations": {
+        "all.trail_after_t1_30m_bars": 6,
+        "all.trail_use_vwap_after_t1": true,
+        "QQQ.t1_r": 1.25,
+        "GLD.t1_r": 1.1,
+        "all.max_hold_bars_15m": 52,
+        "all.time_stop_min_mfe_r": 0.5,
+        "all.initial_stop_source": "signal",
+        "all.signal_stop_buffer_atr_mult": 0.12,
+        "all.entry_order_model": "structure_stop",
+        "all.entry_stop_limit_atr_mult": 0.08,
+        "all.fib_a_low": 0.33,
+        "all.fib_a_high": 0.8,
+        "all.type_a_value_hits_min": 1,
+        "all.confirmation_required": 1,
+        "all.confirmation_combo_mode": "structure_or_vwap",
+        "all.type_c_enabled": true,
+        "all.type_c_requires_a_plus": false,
+        "all.max_position_notional_pct": 8.0,
+        "QQQ.primary_windows_et": [
+          [
+            9,
+            35,
+            15,
+            45
+          ]
+        ],
+        "GLD.entry_order_model": "market_next_bar",
+        "all.entry_order_ttl_hours": 4.0,
+        "GLD.daily_room_min_r": 2.5,
+        "GLD.confirmation_required": 2,
+        "GLD.confirmation_combo_mode": "structure_or_vwap",
+        "GLD.score_a_min": 15,
+        "GLD.score_b_min": 15,
+        "QQQ.min_short_score": 17,
+        "all.t1_stop_r": 0.2,
+        "all.max_risk_pct": 0.02,
+        "all.risk_a_pct": 0.013,
+        "all.risk_a_plus_pct": 0.02,
+        "all.risk_b_pct": 0.008,
+        "all.min_stop_atr_mult": 0.0,
+        "QQQ.shorts_enabled": false,
+        "all.type_c_mode": "real_reentry",
+        "all.second_entry_min_wait_bars_15m": 1,
+        "all.second_entry_max_wait_bars_15m": 16,
+        "all.second_entry_require_vwap": true,
+        "all.second_entry_require_structure": true,
+        "all.second_entry_score_min": 14,
+        "all.stall_exit_bars_15m": 52,
+        "all.stall_exit_min_mfe_r": 1.0,
+        "all.stall_exit_max_current_r": 0.2,
+        "all.t2_r": 2.0
+      },
+      "base_score": 39.334153940391836,
+      "final_score": 47.39078634777581,
+      "kept_features": [
+        "trail_after_t1_30m_6_vwap",
+        "stall_exit_1r_2d",
+        "t1_stop_020",
+        "t2_quicker_200"
+      ],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 19,
+          "best_name": "trail_after_t1_30m_6_vwap",
+          "best_score": 44.521294479329086,
+          "best_delta_pct": 13.187370311302486,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 9,
+          "best_name": "stall_exit_1r_2d",
+          "best_score": 46.52670228176528,
+          "best_delta_pct": 4.504378917749778,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 3,
+          "candidates_tested": 6,
+          "best_name": "t1_stop_020",
+          "best_score": 47.0441377968954,
+          "best_delta_pct": 1.1121259185672183,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 4,
+          "candidates_tested": 5,
+          "best_name": "t2_quicker_200",
+          "best_score": 47.39078634777581,
+          "best_delta_pct": 0.7368581232735151,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 5,
+          "candidates_tested": 4,
+          "best_name": "runner_time_stop_4d",
+          "best_score": 47.39078634777581,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 221.0,
+        "net_return_pct": 85.13351999999857,
+        "net_return_per_month": 1.540148377198659,
+        "total_pnl_dollars": 85133.51999999757,
+        "pnl_per_trade": 385.21954751130124,
+        "profit_factor": 3.097313954558363,
+        "dollar_profit_factor": 1.3844866220626904,
+        "avg_r": 1.4288494797540596,
+        "total_r": 315.7757350256472,
+        "r_per_month": 5.7126909102134205,
+        "win_rate": 0.497737556561086,
+        "max_dd_pct": 17.834095208040562,
+        "sharpe": 0.5962473269446966,
+        "trades_per_month": 3.9981054625828856,
+        "expectancy_frequency": 2.857022127155159,
+        "mfe_capture": 0.3313827829878055,
+        "avg_mfe_r": 4.914841696651704,
+        "avg_mae_r": 1.1228645892172204,
+        "excellent_trades": 105.0,
+        "excellent_trades_per_month": 1.899552369100466,
+        "never_worked_rate": 0.3167420814479638,
+        "right_then_lost_rate": 0.06787330316742081,
+        "top5_winner_share": 0.6412772985553313,
+        "dollar_top5_winner_share": 0.17280652594576912,
+        "entry_requests": 226.0,
+        "request_fill_rate": 0.9778761061946902,
+        "order_terminal_rate": 0.022123893805309734,
+        "worst_symbol_avg_r": 0.47097811058941186,
+        "worst_year_avg_r": -0.6018918411549473,
+        "worst_symbol_pnl": 39801.90000000036,
+        "worst_symbol_pnl_pct": 39.80190000000036,
+        "worst_year_pnl": -11363.140000000729,
+        "worst_year_pnl_pct": -11.36314000000073
+      },
+      "total_candidates": 19,
+      "accepted_count": 4,
+      "elapsed_seconds": 1787.5959491729736,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 4,
+        "goal_progress": {
+          "net_return_pct": {
+            "target": 180.0,
+            "actual": 85.13351999999857,
+            "pct_of_target": 47.2963999999992
+          },
+          "net_return_per_month": {
+            "target": 3.0,
+            "actual": 1.540148377198659,
+            "pct_of_target": 51.3382792399553
+          },
+          "total_trades": {
+            "target": 300.0,
+            "actual": 221.0,
+            "pct_of_target": 73.66666666666667
+          },
+          "trades_per_month": {
+            "target": 5.25,
+            "actual": 3.9981054625828856,
+            "pct_of_target": 76.15438976348354
+          },
+          "excellent_trades": {
+            "target": 150.0,
+            "actual": 105.0,
+            "pct_of_target": 70.0
+          },
+          "dollar_profit_factor": {
+            "target": 1.85,
+            "actual": 1.3844866220626904,
+            "pct_of_target": 74.83711470609137
+          },
+          "avg_r": {
+            "target": 0.75,
+            "actual": 1.4288494797540596,
+            "pct_of_target": 190.51326396720796
+          },
+          "never_worked_rate": {
+            "target": 0.26,
+            "actual": 0.3167420814479638,
+            "pct_of_target": 121.82387747998607
+          }
+        },
+        "strengths": [
+          "avg_r: 1.4288 (191% of 0.7500)",
+          "never_worked_rate: 0.3167 (122% of 0.2600)"
+        ],
+        "weaknesses": [
+          "net_return_pct: 85.1335 (47% of 180.0000)",
+          "net_return_per_month: 1.5401 (51% of 3.0000)"
+        ],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "Realized dollars still lag the Helix/ATRSS swing cohort; prioritize monetizable sizing, dollar PF, and symbol balance over raw R-multiple expansion.",
+          "Frequency is still below the 200+ trade ambition; broaden only causal entry paths and thesis-consistent supply that preserve dollar PF.",
+          "False-positive rate is high; tighten confirmation, value-hit, and regime-quality gates before accepting more fill conversion."
+        ],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 4 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + avg_r: 1.4288 (191% of 0.7500)\n  + never_worked_rate: 0.3167 (122% of 0.2600)\n\nWeaknesses:\n  - net_return_pct: 85.1335 (47% of 180.0000)\n  - net_return_per_month: 1.5401 (51% of 3.0000)\n\nDiagnostic Gaps:\n  ! Realized dollars still lag the Helix/ATRSS swing cohort; prioritize monetizable sizing, dollar PF, and symbol balance over raw R-multiple expansion.\n  ! Frequency is still below the 200+ trade ambition; broaden only causal entry paths and thesis-consistent supply that preserve dollar PF.\n  ! False-positive rate is high; tighten confirmation, value-hit, and regime-quality gates before accepting more fill conversion.\n\nGoal Progress:\n  net_return_pct: 85.1335 / 180.0000 (47%)\n  net_return_per_month: 1.5401 / 3.0000 (51%)\n  total_trades: 221.0000 / 300.0000 (74%)\n  trades_per_month: 3.9981 / 5.2500 (76%)\n  excellent_trades: 105.0000 / 150.0000 (70%)\n  dollar_profit_factor: 1.3845 / 1.8500 (75%)\n  avg_r: 1.4288 / 0.7500 (191%)\n  never_worked_rate: 0.3167 / 0.2600 (122%)",
+        "scoring_weight_overrides": null,
+        "extra": {}
+      },
+      "new_mutations": {
+        "all.trail_after_t1_30m_bars": 6,
+        "all.t1_stop_r": 0.2,
+        "all.stall_exit_bars_15m": 52,
+        "all.stall_exit_min_mfe_r": 1.0,
+        "all.stall_exit_max_current_r": 0.2,
+        "all.t2_r": 2.0
+      },
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "all.trail_after_t1_30m_bars": 6,
+        "all.trail_use_vwap_after_t1": true,
+        "QQQ.t1_r": 1.25,
+        "GLD.t1_r": 1.1,
+        "all.max_hold_bars_15m": 52,
+        "all.time_stop_min_mfe_r": 0.5,
+        "all.initial_stop_source": "signal",
+        "all.signal_stop_buffer_atr_mult": 0.12,
+        "all.entry_order_model": "structure_stop",
+        "all.entry_stop_limit_atr_mult": 0.08,
+        "all.fib_a_low": 0.33,
+        "all.fib_a_high": 0.8,
+        "all.type_a_value_hits_min": 1,
+        "all.confirmation_required": 1,
+        "all.confirmation_combo_mode": "structure_or_vwap",
+        "all.type_c_enabled": true,
+        "all.type_c_requires_a_plus": false,
+        "all.max_position_notional_pct": 8.0,
+        "QQQ.primary_windows_et": [
+          [
+            9,
+            35,
+            15,
+            45
+          ]
+        ],
+        "GLD.entry_order_model": "market_next_bar",
+        "all.entry_order_ttl_hours": 4.0,
+        "GLD.daily_room_min_r": 2.5,
+        "GLD.confirmation_required": 2,
+        "GLD.confirmation_combo_mode": "structure_or_vwap",
+        "GLD.score_a_min": 15,
+        "GLD.score_b_min": 15,
+        "QQQ.min_short_score": 17,
+        "all.t1_stop_r": 0.2,
+        "all.max_risk_pct": 0.02,
+        "all.risk_a_pct": 0.013,
+        "all.risk_a_plus_pct": 0.02,
+        "all.risk_b_pct": 0.008,
+        "all.min_stop_atr_mult": 0.0,
+        "QQQ.shorts_enabled": false,
+        "all.type_c_mode": "real_reentry",
+        "all.second_entry_min_wait_bars_15m": 1,
+        "all.second_entry_max_wait_bars_15m": 16,
+        "all.second_entry_require_vwap": true,
+        "all.second_entry_require_structure": true,
+        "all.second_entry_score_min": 14,
+        "all.stall_exit_bars_15m": 52,
+        "all.stall_exit_min_mfe_r": 1.0,
+        "all.stall_exit_max_current_r": 0.2,
+        "all.t2_r": 2.0
+      },
+      "attempted_final_score": 47.39078634777581,
+      "attempted_final_metrics": {
+        "total_trades": 221.0,
+        "net_return_pct": 85.13351999999857,
+        "net_return_per_month": 1.540148377198659,
+        "total_pnl_dollars": 85133.51999999757,
+        "pnl_per_trade": 385.21954751130124,
+        "profit_factor": 3.097313954558363,
+        "dollar_profit_factor": 1.3844866220626904,
+        "avg_r": 1.4288494797540596,
+        "total_r": 315.7757350256472,
+        "r_per_month": 5.7126909102134205,
+        "win_rate": 0.497737556561086,
+        "max_dd_pct": 17.834095208040562,
+        "sharpe": 0.5962473269446966,
+        "trades_per_month": 3.9981054625828856,
+        "expectancy_frequency": 2.857022127155159,
+        "mfe_capture": 0.3313827829878055,
+        "avg_mfe_r": 4.914841696651704,
+        "avg_mae_r": 1.1228645892172204,
+        "excellent_trades": 105.0,
+        "excellent_trades_per_month": 1.899552369100466,
+        "never_worked_rate": 0.3167420814479638,
+        "right_then_lost_rate": 0.06787330316742081,
+        "top5_winner_share": 0.6412772985553313,
+        "dollar_top5_winner_share": 0.17280652594576912,
+        "entry_requests": 226.0,
+        "request_fill_rate": 0.9778761061946902,
+        "order_terminal_rate": 0.022123893805309734,
+        "worst_symbol_avg_r": 0.47097811058941186,
+        "worst_year_avg_r": -0.6018918411549473,
+        "worst_symbol_pnl": 39801.90000000036,
+        "worst_symbol_pnl_pct": 39.80190000000036,
+        "worst_year_pnl": -11363.140000000729,
+        "worst_year_pnl_pct": -11.36314000000073
+      },
+      "attempted_kept_features": [
+        "trail_after_t1_30m_6_vwap",
+        "stall_exit_1r_2d",
+        "t1_stop_020",
+        "t2_quicker_200"
+      ],
+      "attempted_accepted_count": 4
+    }
+  },
+  "phase_gate_results": {
+    "1": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "total_trades",
+          "target": 150.0,
+          "actual": 249.0,
+          "passed": true
+        },
+        {
+          "name": "trades_per_month",
+          "target": 2.75,
+          "actual": 4.504652761009677,
+          "passed": true
+        },
+        {
+          "name": "excellent_trades",
+          "target": 70.0,
+          "actual": 112.0,
+          "passed": true
+        },
+        {
+          "name": "net_return_pct",
+          "target": 4.5,
+          "actual": 63.126169999995795,
+          "passed": true
+        },
+        {
+          "name": "dollar_profit_factor",
+          "target": 1.15,
+          "actual": 1.2441859012284764,
+          "passed": true
+        },
+        {
+          "name": "avg_r",
+          "target": 0.3,
+          "actual": 1.242735235571281,
+          "passed": true
+        },
+        {
+          "name": "max_dd_pct",
+          "target": 35.0,
+          "actual": 30.611813350769555,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "2": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "total_trades",
+          "target": 150.0,
+          "actual": 224.0,
+          "passed": true
+        },
+        {
+          "name": "trades_per_month",
+          "target": 2.75,
+          "actual": 4.052378387414327,
+          "passed": true
+        },
+        {
+          "name": "excellent_trades",
+          "target": 70.0,
+          "actual": 102.0,
+          "passed": true
+        },
+        {
+          "name": "net_return_pct",
+          "target": 4.5,
+          "actual": 62.97863999999763,
+          "passed": true
+        },
+        {
+          "name": "dollar_profit_factor",
+          "target": 1.15,
+          "actual": 1.290480238591899,
+          "passed": true
+        },
+        {
+          "name": "avg_r",
+          "target": 0.3,
+          "actual": 1.3775448046174177,
+          "passed": true
+        },
+        {
+          "name": "max_dd_pct",
+          "target": 35.0,
+          "actual": 19.939657724025867,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "3": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "total_trades",
+          "target": 150.0,
+          "actual": 224.0,
+          "passed": true
+        },
+        {
+          "name": "trades_per_month",
+          "target": 2.75,
+          "actual": 4.052378387414327,
+          "passed": true
+        },
+        {
+          "name": "excellent_trades",
+          "target": 70.0,
+          "actual": 102.0,
+          "passed": true
+        },
+        {
+          "name": "net_return_pct",
+          "target": 4.5,
+          "actual": 64.94125999999655,
+          "passed": true
+        },
+        {
+          "name": "dollar_profit_factor",
+          "target": 1.15,
+          "actual": 1.3006726760835043,
+          "passed": true
+        },
+        {
+          "name": "avg_r",
+          "target": 0.3,
+          "actual": 1.3775369746457342,
+          "passed": true
+        },
+        {
+          "name": "max_dd_pct",
+          "target": 35.0,
+          "actual": 19.938815118068838,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "4": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "total_trades",
+          "target": 150.0,
+          "actual": 221.0,
+          "passed": true
+        },
+        {
+          "name": "trades_per_month",
+          "target": 2.75,
+          "actual": 3.9981054625828856,
+          "passed": true
+        },
+        {
+          "name": "excellent_trades",
+          "target": 70.0,
+          "actual": 105.0,
+          "passed": true
+        },
+        {
+          "name": "net_return_pct",
+          "target": 4.5,
+          "actual": 85.13351999999857,
+          "passed": true
+        },
+        {
+          "name": "dollar_profit_factor",
+          "target": 1.15,
+          "actual": 1.3844866220626904,
+          "passed": true
+        },
+        {
+          "name": "avg_r",
+          "target": 0.3,
+          "actual": 1.4288494797540596,
+          "passed": true
+        },
+        {
+          "name": "max_dd_pct",
+          "target": 35.0,
+          "actual": 17.834095208040562,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    }
+  },
+  "retry_count": {},
+  "scoring_retries": {},
+  "diagnostic_retries": {},
+  "phase_timestamps": {
+    "1": {
+      "started": "2026-05-05T21:00:18.248351+00:00",
+      "completed": "2026-05-05T21:11:04.404145+00:00"
+    },
+    "2": {
+      "started": "2026-05-05T21:11:04.426183+00:00",
+      "completed": "2026-05-05T21:29:01.335701+00:00"
+    },
+    "3": {
+      "started": "2026-05-05T21:29:01.359703+00:00",
+      "completed": "2026-05-05T21:42:37.629112+00:00"
+    },
+    "4": {
+      "started": "2026-05-05T21:42:37.646960+00:00",
+      "completed": "2026-05-05T22:12:25.532751+00:00"
+    }
+  },
+  "round_name": ""
+}

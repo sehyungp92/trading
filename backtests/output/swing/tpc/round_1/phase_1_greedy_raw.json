@@ -1,0 +1,50 @@
+{
+  "base_score": 23.666813021159438,
+  "final_score": 41.61326587126543,
+  "final_mutations": {
+    "all.trail_after_t1_30m_bars": 4,
+    "all.trail_use_vwap_after_t1": true,
+    "QQQ.t1_r": 1.25,
+    "GLD.t1_r": 1.1,
+    "all.max_hold_bars_15m": 52,
+    "all.time_stop_min_mfe_r": 0.5
+  },
+  "kept_features": [
+    "trail_after_t1_30m_vwap",
+    "t1_asset_quicker",
+    "time_stop_2d_no_mfe"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 14,
+      "best_name": "trail_after_t1_30m_vwap",
+      "best_score": 35.322280767689044,
+      "best_delta_pct": 49.24815071682433,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 1,
+      "candidates_tested": 13,
+      "best_name": "t1_asset_quicker",
+      "best_score": 38.65229641998252,
+      "best_delta_pct": 9.427521609362207,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 12,
+      "best_name": "time_stop_2d_no_mfe",
+      "best_score": 41.61326587126543,
+      "best_delta_pct": 7.660526606517866,
+      "kept": true,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 14,
+  "accepted_count": 3,
+  "elapsed_seconds": 881.2806282043457
+}

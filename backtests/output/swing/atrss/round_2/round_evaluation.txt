@@ -1,0 +1,35 @@
+======================================================================
+ATRSS END-OF-ROUND EVALUATION
+======================================================================
+
+Phase Progression Summary:
+  Phase 1: score 0.6139 -> 0.6300 (1 accepted)
+  Phase 2: score 0.6300 -> 0.6644 (1 accepted)
+  Phase 3: score 0.6644 -> 0.6644 (0 accepted)
+  Phase 4: score 0.6644 -> 0.6825 (2 accepted)
+
+Cumulative Mutations Applied:
+  flags.early_stall_exit: False
+  param_overrides.adx_on: 14
+  param_overrides.early_stall_check_hours: 12
+  param_overrides.early_stall_mfe_threshold: 0.2
+  param_overrides.max_hold_hours: 88
+  param_overrides.recovery_tolerance_atr_trend: 0.55
+
+Signal Extraction / Alpha Capture
+PF=5.93, WR=83.3%, 276 trades (4.8/month).
+
+Signal Discrimination
+No report provided.
+
+Entry Mechanism
+No report provided.
+
+Trade Management
+No report provided.
+
+Exit Mechanism
+No report provided.
+
+Overall Verdict
+ATRSS (sync): 276 trades, PF=5.93, +228.7R, DD=2.31%, Calmar R=76.1, MFE capture=0.679.

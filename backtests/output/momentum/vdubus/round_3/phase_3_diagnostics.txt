@@ -1,0 +1,37 @@
+============================================================
+VdubusNQ Phase 3 Diagnostics
+============================================================
+
+--- D1: Core Performance ---
+Total trades:    179
+Win rate:        50.8%
+Profit factor:   2.44
+Net return:      981.1%
+Max drawdown:    18.85%
+Calmar:          52.06
+Sharpe:          2.07
+Sortino:         9.12
+Avg R:           0.418
+
+--- D2: Exit Efficiency ---
+Capture ratio:   0.522 (winners exit_R / MFE)
+Stale exit pct:  46.4%
+Multi-session:   24.6%
+Fast deaths:     23.5% (<=4 bars)
+Avg winner R:    1.297
+Avg loser R:     -0.491
+Avg MFE R:       1.214
+Avg hold hours:  11.0
+
+--- D3: Session Breakdown ---
+Evening trades:  1.7% of total
+Evening avg R:   +0.320
+
+--- D6: Greedy Result ---
+Base score:      0.7184
+Final score:     0.7579
+Accepted:        2
+Total candidates:20
+Kept features:   vwap_cap_open_085, buffer_2
+
+============================================================

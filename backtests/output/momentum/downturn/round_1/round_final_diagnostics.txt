@@ -1,0 +1,388 @@
+======================================================================
+DOWNTURN DOMINATOR R8 -- PHASED AUTO-OPTIMIZATION RESULTS
+======================================================================
+Equity: $10,000 | MNQ (point_value=$2.00)
+R8 = 4-phase greedy optimization (13 mutations)
+Data: 93570 5m bars
+
+Phase Progression:
+  Phase 1 (Signal Detection): 0.2350 -> 0.3522 (5 accepted)
+  Phase 2 (Capture): 0.3763 -> 0.4337 (3 accepted)
+  Phase 3 (Risk Control): 0.3049 -> 0.3228 (1 accepted)
+  Phase 4 (Fine-tuning): 0.0000 -> 0.0000 (0 accepted)
+  Phase 5 (Exit Management): 0.0000 -> 0.0000 (0 accepted)
+
+Cumulative mutations:
+  flags.drawdown_regime_override: True
+  param_overrides.drawdown_lookback: 10
+  param_overrides.adx_range_threshold: 20
+  param_overrides.divergence_mag_threshold: 0.05
+  param_overrides.adx_trending_threshold: 18
+  param_overrides.ema_fast_period: 15
+  param_overrides.base_risk_pct: 0.008
+  param_overrides.regime_mult_counter: 0.2
+  flags.chandelier_trailing: True
+  param_overrides.chandelier_lookback: 8
+  param_overrides.profit_floor_r_threshold: 1.5
+  flags.vol_percentile_gate: 40.0
+  param_overrides.be_trigger_r: 0.8
+
+                     Metric              R8
+  -------------------------  --------------
+                     Trades             119
+                   Win Rate           42.0%
+              Profit Factor            1.27
+               Net Return %           30.0%
+                   Max DD %          29.20%
+                     Calmar            0.31
+                     Sharpe           -0.40
+                    Sortino           -0.33
+           Correction PnL %           51.8%
+            Exit Efficiency           0.772
+            Avg MFE Capture           0.772
+            Signal-to-Entry           0.098
+
+               Final Equity  $       13,001
+                    Net PnL  $        3,001
+
+--- Position Size Distribution (R8) ---
+  Mean: 1.0  Median: 1  Min: 1  Max: 4
+
+
+======================================================================
+DOWNTURN DOMINATOR BACKTEST REPORT
+======================================================================
+
+--- Summary ---
+  Total trades:     119
+  Win rate:         42.0%
+  Profit factor:    1.27
+  Net return:       30.0%
+  Max drawdown:     29.20%
+  Calmar:           0.31
+  Sharpe:           -0.40
+  Sortino:          -0.33
+
+--- Per-Engine Breakdown ---
+  Reversal      trades=   8  WR=25.0%  avgR=-0.40
+  Breakdown     trades=  35  WR=40.0%  avgR=-0.11
+  Fade          trades=  76  WR=44.7%  avgR=-0.28
+  Momentum      trades=   0  WR=0.0%  avgR=+0.00
+
+--- Correction PnL ---
+  Correction PnL:      51.75%
+  Bear regime PnL:     $1,853
+  Bear capture ratio:  0.036
+  Corr capture ratio:  0.132
+
+--- Signal Quality ---
+  Signal-to-entry ratio:  0.10
+  Exit efficiency:     0.77
+  Avg MFE capture:     0.77
+
+--- TP Hit Rates ---
+  breakdown_tp1              40.0%
+  breakdown_tp2              0.0%
+  breakdown_tp3              0.0%
+  fade_tp1                   38.2%
+  fade_tp2                   1.3%
+  fade_tp3                   0.0%
+  reversal_tp1               25.0%
+  reversal_tp2               0.0%
+  reversal_tp3               0.0%
+
+
+--- Engine Signal Counters ---
+
+Reversal:
+  signals_detected: 46
+  entries_placed: 46
+  entries_filled: 8
+  gates_blocked: 0
+
+Breakdown:
+  signals_detected: 1045
+  entries_placed: 1045
+  entries_filled: 35
+  gates_blocked: 616
+
+Fade:
+  signals_detected: 120
+  entries_placed: 120
+  entries_filled: 76
+  gates_blocked: 0
+
+--- Correction Windows ---
+  Total windows:       37
+  Windows with trades: 10
+  Coverage:            10/37 (52.9%)
+  Windows without trades: 27
+
+--- Per-Correction-Window Detail ---
+  Window  1: 2023-02-10 to 2023-02-10  drop=4.2%  NO TRADES
+  Window  2: 2023-02-17 to 2023-03-14  drop=7.7%  NO TRADES
+  Window  3: 2023-04-25 to 2023-04-26  drop=4.1%  NO TRADES
+  Window  4: 2023-06-26 to 2023-06-26  drop=3.6%  NO TRADES
+  Window  5: 2023-07-21 to 2023-07-24  drop=3.3%  NO TRADES
+  Window  6: 2023-07-27 to 2023-07-27  drop=3.0%  NO TRADES
+  Window  7: 2023-08-02 to 2023-08-28  drop=8.7%  NO TRADES
+  Window  8: 2023-09-15 to 2023-10-10  drop=8.0%  NO TRADES
+  Window  9: 2023-10-18 to 2023-11-02  drop=9.3%  NO TRADES
+  Window 10: 2024-01-03 to 2024-01-05  drop=4.7%  1 trades, PnL=$+212
+  Window 11: 2024-01-31 to 2024-01-31  drop=3.4%  NO TRADES
+  Window 12: 2024-02-20 to 2024-02-21  drop=3.6%  NO TRADES
+  Window 13: 2024-04-04 to 2024-04-04  drop=3.7%  NO TRADES
+  Window 14: 2024-04-12 to 2024-05-03  drop=8.9%  1 trades, PnL=$+332
+  Window 15: 2024-06-24 to 2024-06-24  drop=3.2%  NO TRADES
+  Window 16: 2024-07-17 to 2024-08-14  drop=15.3%  7 trades, PnL=$-659
+  Window 17: 2024-08-28 to 2024-08-29  drop=3.4%  NO TRADES
+  Window 18: 2024-09-03 to 2024-09-12  drop=8.4%  8 trades, PnL=$-89
+  Window 19: 2024-10-31 to 2024-11-04  drop=3.9%  2 trades, PnL=$-53
+  Window 20: 2024-11-15 to 2024-11-18  drop=4.2%  NO TRADES
+  Window 21: 2024-12-18 to 2024-12-23  drop=4.9%  NO TRADES
+  Window 22: 2024-12-27 to 2025-01-16  drop=7.1%  6 trades, PnL=$+56
+  Window 23: 2025-01-27 to 2025-01-27  drop=3.9%  NO TRADES
+  Window 24: 2025-02-03 to 2025-02-03  drop=3.2%  NO TRADES
+  Window 25: 2025-02-24 to 2025-04-24  drop=22.8%  26 trades, PnL=$+3,415
+  Window 26: 2025-08-01 to 2025-08-01  drop=4.1%  NO TRADES
+  Window 27: 2025-08-05 to 2025-08-05  drop=3.1%  NO TRADES
+  Window 28: 2025-08-20 to 2025-08-21  drop=3.6%  1 trades, PnL=$+502
+  Window 29: 2025-09-02 to 2025-09-02  drop=3.4%  NO TRADES
+  Window 30: 2025-10-10 to 2025-10-10  drop=4.0%  NO TRADES
+  Window 31: 2025-11-04 to 2025-11-04  drop=3.2%  NO TRADES
+  Window 32: 2025-11-06 to 2025-11-07  drop=4.7%  NO TRADES
+  Window 33: 2025-11-13 to 2025-12-01  drop=8.7%  NO TRADES
+  Window 34: 2026-01-20 to 2026-01-20  drop=3.5%  NO TRADES
+  Window 35: 2026-02-03 to 2026-03-03  drop=6.4%  15 trades, PnL=$-502
+  Window 36: 2026-03-06 to 2026-03-06  drop=3.2%  NO TRADES
+  Window 37: 2026-03-12 to 2026-03-27  drop=10.4%  8 trades, PnL=$+1,960
+
+======================================================================
+EXPANDED DIAGNOSTICS
+======================================================================
+
+--- Yearly P&L Breakdown ---
+    Year  Trades      WR      PF     Net PnL    AvgR     MaxDD
+    2023       1   0.0%    0.00  $      -94  -0.35  $      0
+    2024      40  35.0%    0.62  $   -1,272  -0.86  $  1,780
+    2025      50  42.0%    1.21  $    1,147  +0.02  $  2,810
+    2026      28  53.6%    2.62  $    3,221  +0.20  $    975
+
+--- Quarterly P&L Breakdown ---
+   Quarter  Trades      WR      PF     Net PnL    AvgR
+    2023Q4       1   0.0%    0.00  $      -94  -0.35
+    2024Q1       8  37.5%    0.58  $     -344  -0.10
+    2024Q2       2  50.0%    1.47  $      106  +0.18
+    2024Q3      18  27.8%    0.45  $     -959  -1.87
+    2024Q4      12  41.7%    0.87  $      -75  -0.03
+    2025Q1      18  50.0%    1.98  $    1,030  -0.09
+    2025Q2      23  43.5%    1.14  $      484  +0.24
+    2025Q3       6  33.3%    1.03  $       19  -0.24
+    2025Q4       3   0.0%    0.00  $     -386  -0.48
+    2026Q1      28  53.6%    2.62  $    3,221  +0.20
+
+--- MFE Distribution (R-multiples) ---
+  Count:    94
+  Mean:     +1.02R
+  Median:   +0.99R
+  P25:      +0.42R
+  P75:      +1.24R
+  P90:      +1.49R
+  P95:      +1.84R
+  Max:      +9.44R
+
+  Avg give-back:  +0.67R (MFE minus actual)
+  Total give-back PnL estimate: $5,030
+
+--- MAE Distribution (R-multiples) ---
+  Mean:     -0.82R
+  Median:   -0.54R
+  P90:      +0.00R
+  Max:      +0.00R (worst adverse excursion)
+
+--- Trade Duration (hold_bars = 5-min bars) ---
+  Mean:     0.4 hours (4 bars)
+  Median:   0.2 hours (3 bars)
+  P25:      0.2 hours
+  P75:      0.5 hours
+  P90:      0.8 hours
+  Max:      2.1 hours (25 bars)
+
+  Duration Buckets:
+       <6h:   85 (100.0%)  avgR=-0.35
+     6-12h:    0 ( 0.0%)  avgR=+0.00
+    12-24h:    0 ( 0.0%)  avgR=+0.00
+      1-2d:    0 ( 0.0%)  avgR=+0.00
+      2-4d:    0 ( 0.0%)  avgR=+0.00
+       >4d:    0 ( 0.0%)  avgR=+0.00
+
+--- Exit Path Breakdown ---
+             Exit Type  Count       %    AvgR      WR         PnL
+                  stop     73  61.3%  -1.38   5.5%  $  -10,943
+                   tp1     45  37.8%  +1.41  100.0%  $   13,613
+                   tp2      1   0.8%  +9.28  100.0%  $      331
+
+--- Regime at Entry ---
+                Regime  Count       %    AvgR      WR         PnL
+          aligned_bear     11   9.2%  +1.11  54.5%  $    1,853
+               counter     78  65.5%  -0.56  35.9%  $     -892
+               neutral      4   3.4%  -0.34  25.0%  $     -481
+                 range     26  21.8%  +0.17  57.7%  $    2,520
+
+--- Drawdown Analysis ---
+  Max DD:           29.20%
+  Max DD $ amount:  $3,702
+  Peak equity:      $12,678
+  Trough equity:    $8,977
+  Recovery:         Yes (within equity curve)
+
+  Top 5 Drawdown Periods:
+    #1: 29.20% over ~183 trading days
+    #2: 18.51% over ~237 trading days
+    #3: 4.21% over ~0 trading days
+    #4: 3.25% over ~20 trading days
+    #5: 1.69% over ~1 trading days
+
+--- Win/Loss R-Multiple Distribution ---
+  Winners (50):
+    Mean:   +1.48R
+    Median: +1.21R
+    Max:    +9.28R
+  Losers (69):
+    Mean:   -1.48R
+    Median: -1.01R
+    Min:    -33.50R
+  Avg win / Avg loss: 1.00x
+  Expectancy: -0.237R per trade
+
+--- Correction vs Non-Correction Performance ---
+  In Correction:  75 trades, WR=46.7%, PF=2.05, AvgR=-0.22, PnL=$+5,175
+  Outside Correction:  44 trades, WR=34.1%, PF=0.64, AvgR=-0.26, PnL=$-2,174
+
+--- Streak Analysis ---
+  Max consecutive wins:   5
+  Max consecutive losses: 8
+
+======================================================================
+REGIME FORENSICS -- Why Do 24/37 Windows Have Zero Trades?
+======================================================================
+
+  Win            Dates             Drop  Trades             Regime Snapshot (mid-window)           
+  ---  -------------------------  -----  ------  --------------------------------------------------
+    1  2023-02-10 - 2023-02-10   4.2%  NO TRADES  N/A
+    2  2023-02-17 - 2023-03-14   7.7%  NO TRADES  N/A
+    3  2023-04-25 - 2023-04-26   4.1%  NO TRADES  N/A
+    4  2023-06-26 - 2023-06-26   3.6%  NO TRADES  N/A
+    5  2023-07-21 - 2023-07-24   3.3%  NO TRADES  N/A
+    6  2023-07-27 - 2023-07-27   3.0%  NO TRADES  N/A
+    7  2023-08-02 - 2023-08-28   8.7%  NO TRADES  N/A
+    8  2023-09-15 - 2023-10-10   8.0%  NO TRADES  N/A
+    9  2023-10-18 - 2023-11-02   9.3%  NO TRADES  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=28.6 close>SMA200
+   10  2024-01-03 - 2024-01-05   4.7%  1 trades  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=41.0 close>SMA200
+   11  2024-01-31 - 2024-01-31   3.4%  NO TRADES  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=24.9 close>SMA200
+   12  2024-02-20 - 2024-02-21   3.6%  NO TRADES  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=23.1 close>SMA200
+   13  2024-04-04 - 2024-04-04   3.7%  NO TRADES  4H=range         daily_trend=+1 short=+0 -> range           fade=NO  ADX=17.6 close>SMA200
+   14  2024-04-12 - 2024-05-03   8.9%  1 trades  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=37.3 close>SMA200
+   15  2024-06-24 - 2024-06-24   3.2%  NO TRADES  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=35.1 close>SMA200
+   16  2024-07-17 - 2024-08-14  15.3%  7 trades  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=36.3 close>SMA200
+   17  2024-08-28 - 2024-08-29   3.4%  NO TRADES  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=23.3 close>SMA200
+   18  2024-09-03 - 2024-09-12   8.4%  8 trades  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=36.8 close>SMA200
+   19  2024-10-31 - 2024-11-04   3.9%  2 trades  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=20.6 close>SMA200
+   20  2024-11-15 - 2024-11-18   4.2%  NO TRADES  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=31.0 close>SMA200
+   21  2024-12-18 - 2024-12-23   4.9%  NO TRADES  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=41.0 close>SMA200
+   22  2024-12-27 - 2025-01-16   7.1%  6 trades  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=24.8 close>SMA200
+   23  2025-01-27 - 2025-01-27   3.9%  NO TRADES  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=25.4 close>SMA200
+   24  2025-02-03 - 2025-02-03   3.2%  NO TRADES  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=26.0 close>SMA200
+   25  2025-02-24 - 2025-04-24  22.8%  26 trades  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=18.1 close>SMA200
+   26  2025-08-01 - 2025-08-01   4.1%  NO TRADES  4H=range         daily_trend=+1 short=+0 -> range           fade=NO  ADX=13.7 close>SMA200
+   27  2025-08-05 - 2025-08-05   3.1%  NO TRADES  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=19.7 close>SMA200
+   28  2025-08-20 - 2025-08-21   3.6%  1 trades  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=23.9 close>SMA200
+   29  2025-09-02 - 2025-09-02   3.4%  NO TRADES  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=27.4 close>SMA200
+   30  2025-10-10 - 2025-10-10   4.0%  NO TRADES  4H=range         daily_trend=+1 short=+0 -> range           fade=NO  ADX=11.9 close>SMA200
+   31  2025-11-04 - 2025-11-04   3.2%  NO TRADES  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=21.1 close>SMA200
+   32  2025-11-06 - 2025-11-07   4.7%  NO TRADES  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=19.0 close>SMA200
+   33  2025-11-13 - 2025-12-01   8.7%  NO TRADES  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=35.5 close>SMA200
+   34  2026-01-20 - 2026-01-20   3.5%  NO TRADES  4H=range         daily_trend=+1 short=+0 -> range           fade=NO  ADX=14.3 close>SMA200
+   35  2026-02-03 - 2026-03-03   6.4%  15 trades  4H=trending      daily_trend=+1 short=+0 -> counter         fade=NO  ADX=29.3 close>SMA200
+   36  2026-03-06 - 2026-03-06   3.2%  NO TRADES  4H=range         daily_trend=+1 short=+0 -> range           fade=NO  ADX=17.9 close>SMA200
+   37  2026-03-12 - 2026-03-27  10.4%  8 trades  4H=range         daily_trend=-1 short=+0 -> range           fade=NO  ADX=14.1 close<SMA200
+
+--- Regime Failure Summary ---
+  19 windows: Bull trend (close > SMA200, close > short SMA) -- no bear regime
+
+======================================================================
+MFE vs CAPTURED R -- Top 30 Trades by MFE
+======================================================================
+
+    #          Date           Regime     MFE   Actual   Capture  Give-back    Hold        Exit  Corr
+  ---          ----           ------     ---   ------   -------  ---------    ----        ----  ----
+    1    2025-04-02     aligned_bear    9.4R   +9.28R    98.2%     +0.17R    0.0h         tp2     Y
+    2    2024-07-19          counter    6.9R   +6.43R    92.8%     +0.50R    0.0h         tp1     Y
+    3    2025-04-17            range    2.8R   +2.79R    99.9%     +0.00R    0.2h         tp1     Y
+    4    2026-03-06            range    2.3R   +2.25R    99.9%     +0.00R    0.6h         tp1     N
+    5    2026-02-05          counter    1.9R   +1.90R   100.0%     +0.00R    0.1h         tp1     Y
+    6    2025-03-21     aligned_bear    1.8R   +1.80R    99.8%     +0.00R    0.3h         tp1     Y
+    7    2025-03-31     aligned_bear    1.6R   +1.60R    98.8%     +0.02R    0.2h         tp1     Y
+    8    2025-04-03     aligned_bear    1.6R   +1.58R    99.9%     +0.00R    0.8h         tp1     Y
+    9    2024-11-18          counter    1.6R   +0.88R    56.0%     +0.69R    0.0h        stop     N
+   10    2025-04-02     aligned_bear    1.5R   +1.51R    99.6%     +0.01R    0.1h         tp1     Y
+   11    2025-02-26          counter    1.4R   +1.41R    98.6%     +0.02R    0.2h         tp1     Y
+   12    2024-09-05          counter    1.4R   +1.39R    98.8%     +0.02R    0.0h         tp1     Y
+   13    2025-04-17            range    1.4R   +1.39R    99.1%     +0.01R    0.2h         tp1     Y
+   14    2024-09-05          counter    1.4R   +1.38R    99.1%     +0.01R    0.2h         tp1     Y
+   15    2024-04-15            range    1.4R   +1.36R    98.5%     +0.02R    0.0h         tp1     Y
+   16    2025-08-15          counter    1.3R   +1.32R    99.1%     +0.01R    0.1h         tp1     N
+   17    2024-11-18          counter    1.3R   +1.31R   100.9%     -0.01R    0.2h         tp1     N
+   18    2026-01-21            range    1.3R   +1.28R    98.7%     +0.02R    0.1h         tp1     N
+   19    2024-08-22          counter    1.3R   +1.29R    99.5%     +0.01R    0.1h         tp1     N
+   20    2025-08-20          counter    1.3R   +1.29R    99.8%     +0.00R    0.3h         tp1     Y
+   21    2024-02-12          counter    1.3R   +1.46R   113.6%     -0.17R    0.2h         tp1     N
+   22    2026-03-25            range    1.3R   +1.28R   100.2%     -0.00R    0.5h         tp1     Y
+   23    2024-10-01          counter    1.3R   +1.25R    99.8%     +0.00R    0.0h         tp1     N
+   24    2025-02-27          counter    1.2R   +1.24R    99.6%     +0.01R    0.3h         tp1     Y
+   25    2026-03-12            range    1.2R   +1.24R   100.0%     +0.00R    0.4h         tp1     Y
+   26    2025-04-21            range    1.2R   +1.22R    99.3%     +0.01R    0.3h         tp1     Y
+   27    2024-11-01          counter    1.2R   +1.18R    96.7%     +0.04R    0.1h         tp1     Y
+   28    2025-02-18            range    1.2R   +1.19R    98.7%     +0.02R    0.2h         tp1     N
+   29    2025-01-10          counter    1.2R   +1.20R   100.4%     -0.00R    0.1h         tp1     Y
+   30    2026-02-16          counter    1.1R   +1.12R    99.5%     +0.01R    0.3h         tp1     Y
+
+--- MFE Capture by Bucket ---
+    Bucket  Count   Avg MFE  Avg Captured   Capture %   Avg Give-back
+     <0.5R     27     0.21R        -0.78R     -369.0%          +0.99R
+    0.5-1R     20     0.74R        -0.99R     -132.9%          +1.73R
+      1-2R     43     1.25R        +1.23R       98.6%          +0.02R
+      2-5R      2     2.52R        +2.52R       99.9%          +0.00R
+     5-10R      2     8.19R        +7.85R       95.9%          +0.33R
+
+--- Rolling Edge Stability (30-trade window) ---
+  AvgR range:  [-1.30, +0.50]
+  AvgR mean:   -0.23
+  AvgR std:    0.54
+  WR range:    [26.7%, 60.0%]
+  WR mean:     40.2%
+
+  Worst 30-trade stretch: 2024-07-23 to 2025-01-13
+    AvgR=-1.30, WR=33.3%, PnL=$-648
+  Best 30-trade stretch:  2024-11-18 to 2025-04-21
+    AvgR=+0.50, WR=60.0%, PnL=$+3,946
+
+--- Optimized Configuration (R5) ---
+Equity: $10,000
+
+Flags changed from default:
+  drawdown_regime_override: False -> True
+  vol_percentile_gate: 0.0 -> 40.0
+
+Param overrides (10):
+  adx_range_threshold: 20.0
+  adx_trending_threshold: 18.0
+  base_risk_pct: 0.008
+  be_trigger_r: 0.8
+  chandelier_lookback: 8.0
+  divergence_mag_threshold: 0.05
+  drawdown_lookback: 10.0
+  ema_fast_period: 15.0
+  profit_floor_r_threshold: 1.5
+  regime_mult_counter: 0.2
+

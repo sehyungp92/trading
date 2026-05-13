@@ -1,0 +1,23 @@
+{
+  "base_score": 0.7742830664888747,
+  "final_score": 0.7742830664888747,
+  "final_mutations": {
+    "VIX_CRISIS": 33.0
+  },
+  "kept_features": [],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 4,
+      "best_name": "finetune_vix_crisis_p08",
+      "best_score": 0.7732180075079883,
+      "best_delta_pct": -0.137554213308071,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 4,
+  "accepted_count": 0,
+  "elapsed_seconds": 0.1487257480621338
+}

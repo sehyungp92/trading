@@ -1,0 +1,926 @@
+{
+  "block_summary": {
+    "dynamic_capacity_floor": {
+      "avg_base_mnq_eq": 0.0,
+      "avg_base_qty": 0.0,
+      "avg_base_risk_R": 0.0,
+      "avg_current_family_mnq_eq": 7.590909090909091,
+      "avg_current_heat_R": 2.005,
+      "avg_open_positions_at_block": 0.22727272727272727,
+      "avg_r_multiple": 0.6564494525103419,
+      "by_strategy": {
+        "DownturnDominator_v1": 21,
+        "NQ_REGIME": 1
+      },
+      "count": 22,
+      "negative_raw_pnl_count": 5,
+      "pct_single_order_exceeds_family_contract_cap": 0.0,
+      "pct_single_order_exceeds_heat_cap": 0.0,
+      "pct_with_existing_open_position": 0.22727272727272727,
+      "positive_raw_pnl_count": 17,
+      "raw_pnl_dollars": 9042.92,
+      "raw_win_rate": 0.7727272727272727
+    },
+    "max_concurrent": {
+      "avg_base_mnq_eq": 0.0,
+      "avg_base_qty": 0.0,
+      "avg_base_risk_R": 0.0,
+      "avg_current_family_mnq_eq": 0.0,
+      "avg_current_heat_R": 0.0,
+      "avg_open_positions_at_block": 0.1111111111111111,
+      "avg_r_multiple": 0.24488983329823985,
+      "by_strategy": {
+        "VdubusNQ_v4": 108
+      },
+      "count": 108,
+      "negative_raw_pnl_count": 55,
+      "pct_single_order_exceeds_family_contract_cap": 0.0,
+      "pct_single_order_exceeds_heat_cap": 0.0,
+      "pct_with_existing_open_position": 0.10185185185185185,
+      "positive_raw_pnl_count": 53,
+      "raw_pnl_dollars": 35956.14,
+      "raw_win_rate": 0.49074074074074076
+    },
+    "portfolio_daily_stop": {
+      "avg_base_mnq_eq": 0.0,
+      "avg_base_qty": 0.0,
+      "avg_base_risk_R": 0.0,
+      "avg_current_family_mnq_eq": 0.0,
+      "avg_current_heat_R": 0.0,
+      "avg_open_positions_at_block": 0.0,
+      "avg_r_multiple": 0.8755955012924159,
+      "by_strategy": {
+        "NQ_REGIME": 5
+      },
+      "count": 5,
+      "negative_raw_pnl_count": 1,
+      "pct_single_order_exceeds_family_contract_cap": 0.0,
+      "pct_single_order_exceeds_heat_cap": 0.0,
+      "pct_with_existing_open_position": 0.0,
+      "positive_raw_pnl_count": 4,
+      "raw_pnl_dollars": 1486.82,
+      "raw_win_rate": 0.8
+    },
+    "strategy_daily_stop": {
+      "avg_base_mnq_eq": 0.0,
+      "avg_base_qty": 0.0,
+      "avg_base_risk_R": 0.0,
+      "avg_current_family_mnq_eq": 0.0,
+      "avg_current_heat_R": 0.0,
+      "avg_open_positions_at_block": 0.2,
+      "avg_r_multiple": 0.8630550052300663,
+      "by_strategy": {
+        "DownturnDominator_v1": 4,
+        "NQDTC_v2.1": 1
+      },
+      "count": 5,
+      "negative_raw_pnl_count": 1,
+      "pct_single_order_exceeds_family_contract_cap": 0.0,
+      "pct_single_order_exceeds_heat_cap": 0.0,
+      "pct_with_existing_open_position": 0.2,
+      "positive_raw_pnl_count": 4,
+      "raw_pnl_dollars": 876.6999999999941,
+      "raw_win_rate": 0.8
+    }
+  },
+  "config": {
+    "allocations": {
+      "DownturnDominator_v1": {
+        "base_risk_pct": 0.004,
+        "daily_stop_R": 2.0,
+        "max_concurrent": 1,
+        "priority": 1
+      },
+      "NQDTC_v2.1": {
+        "base_risk_pct": 0.0045,
+        "daily_stop_R": 2.5,
+        "max_concurrent": 1,
+        "priority": 1
+      },
+      "NQ_REGIME": {
+        "base_risk_pct": 0.006,
+        "daily_stop_R": 3.0,
+        "max_concurrent": 2,
+        "priority": 0
+      },
+      "VdubusNQ_v4": {
+        "base_risk_pct": 0.0065,
+        "daily_stop_R": 2.5,
+        "max_concurrent": 1,
+        "priority": 0
+      }
+    },
+    "directional_cap_long_R": 4.25,
+    "directional_cap_short_R": 4.75,
+    "dynamic_risk": {
+      "daily_loss_mult": 1.0,
+      "daily_loss_threshold_R": -999.0,
+      "enabled": true,
+      "existing_position_mult": 0.85,
+      "fit_to_remaining_directional_cap": true,
+      "fit_to_remaining_family_cap": true,
+      "fit_to_remaining_heat": true,
+      "heat_pressure_mult": 0.65,
+      "heat_pressure_threshold": 0.65,
+      "max_trade_risk_R": 1.5,
+      "min_qty": 1,
+      "min_trade_risk_R": 0.0,
+      "same_direction_pressure_mult": 0.7,
+      "same_direction_pressure_threshold": 0.65,
+      "strategy_multipliers": {
+        "DownturnDominator_v1": 1.0,
+        "NQDTC_v2.1": 1.0,
+        "NQ_REGIME": 0.75,
+        "VdubusNQ_v4": 0.95
+      }
+    },
+    "heat_cap_R": 6.75,
+    "initial_equity": 50000.0,
+    "max_family_contracts_mnq_eq": 24,
+    "max_total_positions": 7,
+    "portfolio_daily_stop_R": 2.75,
+    "portfolio_weekly_stop_R": 9.0,
+    "reference_unit_risk_dollars": 250.0
+  },
+  "diagnostic_equity": {
+    "cagr": 0.9337567451690683,
+    "calmar": 13.210625572202547,
+    "end_time": "2026-05-01T20:10:00+00:00",
+    "final_equity": 246777.61217954275,
+    "max_drawdown_dollar": 4925.1999999999825,
+    "max_drawdown_pct": 0.07068225044042235,
+    "net_return_pct": 3.9355522435908545,
+    "points": 170268,
+    "price_source": "backtests\\momentum\\data\\raw\\NQ_5m.parquet",
+    "realized_daily_calmar": 54.76104946888172,
+    "realized_daily_final_equity": 247311.29217954335,
+    "realized_daily_max_drawdown_pct": 0.01708868626838392,
+    "realized_daily_net_return_pct": 3.9462258435908666,
+    "realized_daily_points": 885,
+    "risk_basis": "bar_close_mark_to_market",
+    "same_timestamp_adjusted_pnl": -533.6800000000001,
+    "same_timestamp_trade_count": 2,
+    "start_time": "2023-11-29T15:00:00+00:00",
+    "timeframe": "5m"
+  },
+  "generated_at_utc": "2026-05-11T12:59:56.475650+00:00",
+  "headline": {
+    "accepted_trades": 1119,
+    "block_rate": 0.11119936457505956,
+    "blocked_trades": 140,
+    "calmar": 13.210625572202547,
+    "fired_trades": 1259,
+    "max_drawdown_pct": 0.07068225044042235,
+    "net_profit": 196777.61217954275,
+    "net_return_pct": 3.9355522435908545,
+    "profit_factor": 3.5834089278163934,
+    "risk_basis": "bar_close_mark_to_market",
+    "score": 0.9955784162045334,
+    "sharpe": 5.60238166760748,
+    "sortino": 10.368971783467876,
+    "trades_per_month": 38.52891685520362,
+    "win_rate": 0.6666666666666666
+  },
+  "individual_strategy_reference": {
+    "DownturnDominator_v1": {
+      "avg_r": null,
+      "calmar": 7.407808305713719,
+      "high_value_notes": [
+        "Correction PnL is 134.0% with coverage 57.1%. Bear capture ratio is 11.1%.",
+        "Signal-to-entry ratio is 0.69. Engine health summary: reversal=insufficient_data, breakdown=insufficient_data, fade=healthy.",
+        "Total trades reached 127; reversal/breakdown/fade split is 0/0/127.",
+        "Max drawdown is 7.3%, calmar is 7.41.",
+        "Correction-capture specialist: correction PnL 134.0% (meets target of 60%). Correction attribution ratio 0.92. PF=3.14, DD=7.3%, Calmar=7.41. Exit efficiency 0.73."
+      ],
+      "max_drawdown_pct": 0.07328236072937497,
+      "net_profit": null,
+      "net_return_pct": 145.6248,
+      "profit_factor": 3.1399173568292293,
+      "source": "backtests\\output\\momentum\\downturn\\round_4\\run_summary.json",
+      "total_trades": 127,
+      "trades_per_month": null,
+      "win_rate": 0.5433070866141733
+    },
+    "NQDTC_v2.1": {
+      "avg_r": 0.5515825473654875,
+      "calmar": 22.784532154216663,
+      "high_value_notes": [],
+      "max_drawdown_pct": 0.16336890197287401,
+      "net_profit": null,
+      "net_return_pct": 372.2284000000018,
+      "profit_factor": 2.1044640852480594,
+      "source": "backtests\\output\\momentum\\nqdtc\\round_4\\run_summary.json",
+      "total_trades": 123,
+      "trades_per_month": null,
+      "win_rate": 0.5853658536585366
+    },
+    "NQ_REGIME": {
+      "avg_r": 0.9147469022812753,
+      "calmar": null,
+      "high_value_notes": [],
+      "max_drawdown_pct": null,
+      "net_profit": null,
+      "net_return_pct": null,
+      "profit_factor": 7.458001487967126,
+      "source": "backtests\\output\\momentum\\nq_regime\\round_6\\run_summary.json",
+      "total_trades": 681,
+      "trades_per_month": 25.592148148148148,
+      "win_rate": 0.73568281938326
+    },
+    "VdubusNQ_v4": {
+      "avg_r": 0.4403595556805709,
+      "calmar": 64.39912312884088,
+      "high_value_notes": [
+        "Net return 1166.0% with 198 trades, PF=2.78, DD=18.1%. R/month throughput is 2.66 (0.440 avgR x 6.0 trades/month).",
+        "Win rate 52.0%, avg R=0.440, capture ratio 0.52. Negative evening flow is contained by the current caps: 5.1% evening trades at +0.126 avgR.",
+        "Fast deaths 23.7%, evening trades 5.1% (avgR=+0.126), trades/month 6.0.",
+        "Calmar=64.40, Sharpe=2.34, Sortino=10.01.",
+        "VdubusNQ optimized to 1166.0% return, PF=2.78, DD=18.1%, 198 trades. Capture ratio improved to 0.52."
+      ],
+      "max_drawdown_pct": 0.1810610678141057,
+      "net_profit": null,
+      "net_return_pct": 1166.0174000000002,
+      "profit_factor": 2.780844271826482,
+      "source": "backtests\\output\\momentum\\vdubus\\round_3\\run_summary.json",
+      "total_trades": 198,
+      "trades_per_month": 6.049996549452618,
+      "win_rate": 0.5202020202020202
+    }
+  },
+  "interpretation": {
+    "blocked_positive_raw_pnl_dollars": 47362.579999999994,
+    "blocked_with_existing_position_pct": 0.12142857142857143,
+    "dominant_constraints": [
+      "max_concurrent",
+      "dynamic_capacity_floor",
+      "portfolio_daily_stop",
+      "strategy_daily_stop"
+    ],
+    "frequency_target_met": true,
+    "is_globally_optimal": false,
+    "is_local_objective_best_in_tested_phase_space": true,
+    "optimized_vs_relaxed_net_capture": 0.6837737890665664,
+    "optimized_vs_relaxed_trade_capture": 0.9031476997578692,
+    "risk_2x_block_rate": 0.11199364575059571,
+    "risk_2x_net_profit": 199788.06067160622,
+    "strategy_most_blocked": "VdubusNQ_v4",
+    "why_not_equal_to_sum_of_individual_runs": [
+      "Individual strategy diagnostics use each strategy's own sizing/account assumptions; the family replay uses one 50,000 equity ledger and per-strategy risk budgets.",
+      "The live-rule replay rejected shared-book conflicts instead of allowing each strategy to maintain an independent position stack.",
+      "The same-allocation relaxed-cap scenario shows the signal set has more gross opportunity than the live-rule result, but that opportunity requires accepting unrealistic concurrent heat."
+    ]
+  },
+  "overlap_summary": {
+    "blocked_avg_existing_open_positions": 0.12857142857142856,
+    "blocked_avg_opposite_direction_open_positions": 0.02142857142857143,
+    "blocked_avg_same_direction_open_positions": 0.10714285714285714,
+    "blocked_pct_with_existing_open_position": 0.12142857142857143,
+    "candidates_in_exact_timestamp_collisions": 12,
+    "exact_timestamp_collision_groups": 6,
+    "pct_blocked_with_other_signal_within_15m": 0.11428571428571428,
+    "pct_blocked_with_other_signal_within_60m": 0.3357142857142857,
+    "pct_candidates_with_other_signal_within_15m": 0.17712470214455917,
+    "pct_candidates_with_other_signal_within_60m": 0.5011914217633042,
+    "top_strategy_pairs_within_15m": {
+      "DownturnDominator_v1 / DownturnDominator_v1": 2,
+      "DownturnDominator_v1 / NQDTC_v2.1": 2,
+      "DownturnDominator_v1 / NQ_REGIME": 4,
+      "NQDTC_v2.1 / NQ_REGIME": 7,
+      "NQDTC_v2.1 / VdubusNQ_v4": 2,
+      "NQ_REGIME / NQ_REGIME": 86,
+      "NQ_REGIME / VdubusNQ_v4": 15
+    },
+    "top_strategy_pairs_within_60m": {
+      "DownturnDominator_v1 / DownturnDominator_v1": 5,
+      "DownturnDominator_v1 / NQDTC_v2.1": 8,
+      "DownturnDominator_v1 / NQ_REGIME": 16,
+      "DownturnDominator_v1 / VdubusNQ_v4": 4,
+      "NQDTC_v2.1 / NQDTC_v2.1": 10,
+      "NQDTC_v2.1 / NQ_REGIME": 16,
+      "NQDTC_v2.1 / VdubusNQ_v4": 11,
+      "NQ_REGIME / NQ_REGIME": 262,
+      "NQ_REGIME / VdubusNQ_v4": 52
+    }
+  },
+  "phase_frontier": [
+    {
+      "block_rate": 0.11119936457505956,
+      "calmar": 13.210625572202547,
+      "max_drawdown_pct": 0.07068225044042235,
+      "name": "dynamic_frequency_frontier",
+      "net_profit": 196777.61217954275,
+      "phase": 4,
+      "profit_factor": 3.5834089278163934,
+      "score": 0.9955784162045334,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ],
+      "total_trades": 1119.0,
+      "trades_per_month": 38.52891685520362
+    },
+    {
+      "block_rate": 0.11040508339952343,
+      "calmar": 13.136637870215111,
+      "max_drawdown_pct": 0.07068225044042235,
+      "name": "heat_6_75_contracts_24",
+      "net_profit": 195165.08614474421,
+      "phase": 3,
+      "profit_factor": 3.5891384274026574,
+      "score": 0.9941463331734304,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ],
+      "total_trades": 1120.0,
+      "trades_per_month": 38.56334841628959
+    },
+    {
+      "block_rate": 0.1096108022239873,
+      "calmar": 12.678868230068208,
+      "max_drawdown_pct": 0.07068225044042235,
+      "name": "direction_caps_5_75_6_25",
+      "net_profit": 185325.81781230535,
+      "phase": 3,
+      "profit_factor": 3.4717834188752508,
+      "score": 0.9837396221812653,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ],
+      "total_trades": 1121.0,
+      "trades_per_month": 38.597779977375566
+    },
+    {
+      "block_rate": 0.11040508339952343,
+      "calmar": 12.662762271119952,
+      "max_drawdown_pct": 0.07068225044042235,
+      "name": "frequency_rebalance",
+      "net_profit": 184983.939478972,
+      "phase": 2,
+      "profit_factor": 3.488378123709926,
+      "score": 0.9830396277198608,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ],
+      "total_trades": 1120.0,
+      "trades_per_month": 38.56334841628959
+    },
+    {
+      "block_rate": 0.11040508339952343,
+      "calmar": 12.662762271119952,
+      "max_drawdown_pct": 0.07068225044042235,
+      "name": "heat_6_25_contracts_22",
+      "net_profit": 184983.939478972,
+      "phase": 3,
+      "profit_factor": 3.488378123709926,
+      "score": 0.9830396277198608,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ],
+      "total_trades": 1120.0,
+      "trades_per_month": 38.56334841628959
+    },
+    {
+      "block_rate": 0.11040508339952343,
+      "calmar": 12.662762271119952,
+      "max_drawdown_pct": 0.07068225044042235,
+      "name": "max_positions_7",
+      "net_profit": 184983.939478972,
+      "phase": 3,
+      "profit_factor": 3.488378123709926,
+      "score": 0.9830396277198608,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ],
+      "total_trades": 1120.0,
+      "trades_per_month": 38.56334841628959
+    },
+    {
+      "block_rate": 0.11040508339952343,
+      "calmar": 12.662762271119952,
+      "max_drawdown_pct": 0.07068225044042235,
+      "name": "daily_stop_2_75",
+      "net_profit": 184983.939478972,
+      "phase": 3,
+      "profit_factor": 3.488378123709926,
+      "score": 0.9830396277198608,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ],
+      "total_trades": 1120.0,
+      "trades_per_month": 38.56334841628959
+    },
+    {
+      "block_rate": 0.11119936457505956,
+      "calmar": 10.921172250049933,
+      "max_drawdown_pct": 0.08273926661084108,
+      "name": "blocked_alpha_recovery",
+      "net_profit": 187566.98706138958,
+      "phase": 2,
+      "profit_factor": 3.464106352803764,
+      "score": 0.9814215616139228,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ],
+      "total_trades": 1119.0,
+      "trades_per_month": 38.52891685520362
+    },
+    {
+      "block_rate": 0.11199364575059571,
+      "calmar": 10.904735916313937,
+      "max_drawdown_pct": 0.08273926661084108,
+      "name": "edge_balance_multipliers",
+      "net_profit": 187156.3367836118,
+      "phase": 2,
+      "profit_factor": 3.4692601281572117,
+      "score": 0.9806465432131243,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ],
+      "total_trades": 1118.0,
+      "trades_per_month": 38.494485294117645
+    },
+    {
+      "block_rate": 0.12470214455917394,
+      "calmar": 11.154323394212446,
+      "max_drawdown_pct": 0.08273926661084108,
+      "name": "dynamic_guarded_capacity",
+      "net_profit": 193437.08010735447,
+      "phase": 4,
+      "profit_factor": 3.2194785834105755,
+      "score": 0.9757414741019137,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ],
+      "total_trades": 1102.0,
+      "trades_per_month": 37.94358031674208
+    },
+    {
+      "block_rate": 0.1199364575059571,
+      "calmar": 12.406298265656522,
+      "max_drawdown_pct": 0.07068225044042235,
+      "name": "daily_stop_2_00",
+      "net_profit": 179579.27614563867,
+      "phase": 3,
+      "profit_factor": 3.434930975376138,
+      "score": 0.9732191960011878,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ],
+      "total_trades": 1108.0,
+      "trades_per_month": 38.150169683257914
+    },
+    {
+      "block_rate": 0.11119936457505956,
+      "calmar": 9.597023922953662,
+      "max_drawdown_pct": 0.0942977657383024,
+      "name": "capacity_fit_conservative",
+      "net_profit": 187980.5345613896,
+      "phase": 1,
+      "profit_factor": 3.4624417082494263,
+      "score": 0.9584903144943085,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ],
+      "total_trades": 1119.0,
+      "trades_per_month": 38.52891685520362
+    },
+    {
+      "block_rate": 0.11596505162827642,
+      "calmar": 9.625491194312328,
+      "max_drawdown_pct": 0.0942977657383024,
+      "name": "capacity_fit_balanced",
+      "net_profit": 188793.18011474275,
+      "phase": 1,
+      "profit_factor": 3.3070608524524188,
+      "score": 0.9553837393157295,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ],
+      "total_trades": 1113.0,
+      "trades_per_month": 38.32232748868778
+    },
+    {
+      "block_rate": 0.13026211278792693,
+      "calmar": 9.733924899707695,
+      "max_drawdown_pct": 0.0942977657383024,
+      "name": "aggressive_alpha_rebalance",
+      "net_profit": 191903.5049294768,
+      "phase": 2,
+      "profit_factor": 3.252489811801127,
+      "score": 0.9519830180213688,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ],
+      "total_trades": 1095.0,
+      "trades_per_month": 37.70255938914027
+    },
+    {
+      "block_rate": 0.13026211278792693,
+      "calmar": 9.678651953645549,
+      "max_drawdown_pct": 0.0942977657383024,
+      "name": "capacity_fit_aggressive",
+      "net_profit": 190315.0975485244,
+      "phase": 1,
+      "profit_factor": 3.237873522653519,
+      "score": 0.9487425023537781,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ],
+      "total_trades": 1095.0,
+      "trades_per_month": 37.70255938914027
+    }
+  ],
+  "rule_blocks": {
+    "dynamic_capacity_floor": 22,
+    "max_concurrent": 108,
+    "portfolio_daily_stop": 5,
+    "strategy_daily_stop": 5
+  },
+  "run_dir": "backtests\\output\\momentum\\portfolio_synergy\\round_2",
+  "scenario_comparison": {
+    "live_rules_risk_1_5x": {
+      "diagnostic_equity": {
+        "cagr": 0.9430526286568197,
+        "calmar": 8.948383823112426,
+        "end_time": "2026-05-01T20:10:00+00:00",
+        "final_equity": 249659.28067160622,
+        "max_drawdown_dollar": 6272.419999999998,
+        "max_drawdown_pct": 0.10538803959448481,
+        "net_return_pct": 3.993185613432124,
+        "points": 170268,
+        "price_source": "backtests\\momentum\\data\\raw\\NQ_5m.parquet",
+        "realized_daily_calmar": 42.07048107270702,
+        "realized_daily_final_equity": 250192.96067160676,
+        "realized_daily_max_drawdown_pct": 0.02246426241392468,
+        "realized_daily_net_return_pct": 4.003859213432135,
+        "realized_daily_points": 885,
+        "risk_basis": "bar_close_mark_to_market",
+        "same_timestamp_adjusted_pnl": -533.6800000000001,
+        "same_timestamp_trade_count": 2,
+        "start_time": "2023-11-29T15:00:00+00:00",
+        "timeframe": "5m"
+      },
+      "metrics": {
+        "active_strategies": 4.0,
+        "block_rate": 0.11199364575059571,
+        "blocked_trades": 141.0,
+        "cagr": 0.9430526286568197,
+        "calmar": 8.948383823112426,
+        "calmar_mtm": 8.948383823112426,
+        "calmar_r": 64.53737617467976,
+        "calmar_realized": 42.07048107270702,
+        "max_concurrent": 3.0,
+        "max_drawdown_pct": 0.10538803959448481,
+        "max_drawdown_pct_mtm": 0.10538803959448481,
+        "max_drawdown_pct_realized": 0.02246426241392468,
+        "max_drawdown_r": 12.374799999999965,
+        "min_strategy_trades": 100.0,
+        "net_profit": 199659.28067160622,
+        "net_return_pct": 3.993185613432124,
+        "profit_factor": 3.5636083742394593,
+        "risk_basis": "bar_close_mark_to_market",
+        "sharpe": 5.3206008016867194,
+        "sortino": 9.345313292596556,
+        "total_r": 798.6371226864248,
+        "total_r_per_month": 27.49832287530323,
+        "total_trades": 1118.0,
+        "trades_per_month": 38.494485294117645,
+        "win_rate": 0.6663685152057245
+      },
+      "rule_blocks": {
+        "dynamic_capacity_floor": 22,
+        "max_concurrent": 108,
+        "portfolio_daily_stop": 6,
+        "strategy_daily_stop": 5
+      },
+      "strategy_blocked_counts": {
+        "DownturnDominator_v1": 25,
+        "NQDTC_v2.1": 1,
+        "NQ_REGIME": 7,
+        "VdubusNQ_v4": 108
+      },
+      "strategy_trade_counts": {
+        "DownturnDominator_v1": 100,
+        "NQDTC_v2.1": 123,
+        "NQ_REGIME": 793,
+        "VdubusNQ_v4": 102
+      }
+    },
+    "live_rules_risk_2_0x": {
+      "diagnostic_equity": {
+        "cagr": 0.943466582340792,
+        "calmar": 8.952311723143255,
+        "end_time": "2026-05-01T20:10:00+00:00",
+        "final_equity": 249788.06067160622,
+        "max_drawdown_dollar": 6272.419999999998,
+        "max_drawdown_pct": 0.10538803959448481,
+        "net_return_pct": 3.9957612134321243,
+        "points": 170268,
+        "price_source": "backtests\\momentum\\data\\raw\\NQ_5m.parquet",
+        "realized_daily_calmar": 42.17461568486209,
+        "realized_daily_final_equity": 250321.7406716068,
+        "realized_daily_max_drawdown_pct": 0.022418602146518782,
+        "realized_daily_net_return_pct": 4.0064348134321355,
+        "realized_daily_points": 885,
+        "risk_basis": "bar_close_mark_to_market",
+        "same_timestamp_adjusted_pnl": -533.6800000000001,
+        "same_timestamp_trade_count": 2,
+        "start_time": "2023-11-29T15:00:00+00:00",
+        "timeframe": "5m"
+      },
+      "metrics": {
+        "active_strategies": 4.0,
+        "block_rate": 0.11199364575059571,
+        "blocked_trades": 141.0,
+        "cagr": 0.943466582340792,
+        "calmar": 8.952311723143255,
+        "calmar_mtm": 8.952311723143255,
+        "calmar_r": 64.57900270601765,
+        "calmar_realized": 42.17461568486209,
+        "max_concurrent": 3.0,
+        "max_drawdown_pct": 0.10538803959448481,
+        "max_drawdown_pct_mtm": 0.10538803959448481,
+        "max_drawdown_pct_realized": 0.022418602146518782,
+        "max_drawdown_r": 12.374799999999965,
+        "min_strategy_trades": 100.0,
+        "net_profit": 199788.06067160622,
+        "net_return_pct": 3.9957612134321243,
+        "profit_factor": 3.5641925265570373,
+        "risk_basis": "bar_close_mark_to_market",
+        "sharpe": 5.308940107041239,
+        "sortino": 9.316274215276616,
+        "total_r": 799.1522426864249,
+        "total_r_per_month": 27.516059261049836,
+        "total_trades": 1118.0,
+        "trades_per_month": 38.494485294117645,
+        "win_rate": 0.6663685152057245
+      },
+      "rule_blocks": {
+        "dynamic_capacity_floor": 22,
+        "max_concurrent": 108,
+        "portfolio_daily_stop": 6,
+        "strategy_daily_stop": 5
+      },
+      "strategy_blocked_counts": {
+        "DownturnDominator_v1": 25,
+        "NQDTC_v2.1": 1,
+        "NQ_REGIME": 7,
+        "VdubusNQ_v4": 108
+      },
+      "strategy_trade_counts": {
+        "DownturnDominator_v1": 100,
+        "NQDTC_v2.1": 123,
+        "NQ_REGIME": 793,
+        "VdubusNQ_v4": 102
+      }
+    },
+    "optimized_live_rules": {
+      "diagnostic_equity": {
+        "cagr": 0.9337567451690683,
+        "calmar": 13.210625572202547,
+        "end_time": "2026-05-01T20:10:00+00:00",
+        "final_equity": 246777.61217954275,
+        "max_drawdown_dollar": 4925.1999999999825,
+        "max_drawdown_pct": 0.07068225044042235,
+        "net_return_pct": 3.9355522435908545,
+        "points": 170268,
+        "price_source": "backtests\\momentum\\data\\raw\\NQ_5m.parquet",
+        "realized_daily_calmar": 54.76104946888172,
+        "realized_daily_final_equity": 247311.29217954335,
+        "realized_daily_max_drawdown_pct": 0.01708868626838392,
+        "realized_daily_net_return_pct": 3.9462258435908666,
+        "realized_daily_points": 885,
+        "risk_basis": "bar_close_mark_to_market",
+        "same_timestamp_adjusted_pnl": -533.6800000000001,
+        "same_timestamp_trade_count": 2,
+        "start_time": "2023-11-29T15:00:00+00:00",
+        "timeframe": "5m"
+      },
+      "metrics": {
+        "active_strategies": 4.0,
+        "block_rate": 0.11119936457505956,
+        "blocked_trades": 140.0,
+        "cagr": 0.9337567451690683,
+        "calmar": 13.210625572202547,
+        "calmar_mtm": 13.210625572202547,
+        "calmar_r": 63.605912719249865,
+        "calmar_realized": 54.76104946888172,
+        "max_concurrent": 3.0,
+        "max_drawdown_pct": 0.07068225044042235,
+        "max_drawdown_pct_mtm": 0.07068225044042235,
+        "max_drawdown_pct_realized": 0.01708868626838392,
+        "max_drawdown_r": 12.374799999999965,
+        "min_strategy_trades": 100.0,
+        "net_profit": 196777.61217954275,
+        "net_return_pct": 3.9355522435908545,
+        "profit_factor": 3.5834089278163934,
+        "risk_basis": "bar_close_mark_to_market",
+        "sharpe": 5.60238166760748,
+        "sortino": 10.368971783467876,
+        "total_r": 787.110448718171,
+        "total_r_per_month": 27.101441496447205,
+        "total_trades": 1119.0,
+        "trades_per_month": 38.52891685520362,
+        "win_rate": 0.6666666666666666
+      },
+      "rule_blocks": {
+        "dynamic_capacity_floor": 22,
+        "max_concurrent": 108,
+        "portfolio_daily_stop": 5,
+        "strategy_daily_stop": 5
+      },
+      "strategy_blocked_counts": {
+        "DownturnDominator_v1": 25,
+        "NQDTC_v2.1": 1,
+        "NQ_REGIME": 6,
+        "VdubusNQ_v4": 108
+      },
+      "strategy_trade_counts": {
+        "DownturnDominator_v1": 100,
+        "NQDTC_v2.1": 123,
+        "NQ_REGIME": 794,
+        "VdubusNQ_v4": 102
+      }
+    },
+    "same_allocations_relaxed_shared_caps": {
+      "diagnostic_equity": {
+        "cagr": 1.2014912053211315,
+        "calmar": 16.99848544485523,
+        "end_time": "2026-05-01T20:10:00+00:00",
+        "final_equity": 337781.74204098684,
+        "max_drawdown_dollar": 8635.320000000007,
+        "max_drawdown_pct": 0.07068225044042235,
+        "net_return_pct": 5.755634840819737,
+        "points": 170268,
+        "price_source": "backtests\\momentum\\data\\raw\\NQ_5m.parquet",
+        "realized_daily_calmar": 63.04470042340595,
+        "realized_daily_final_equity": 338315.4220409883,
+        "realized_daily_max_drawdown_pct": 0.019087267655126583,
+        "realized_daily_net_return_pct": 5.766308440819766,
+        "realized_daily_points": 885,
+        "risk_basis": "bar_close_mark_to_market",
+        "same_timestamp_adjusted_pnl": -533.6800000000001,
+        "same_timestamp_trade_count": 2,
+        "start_time": "2023-11-29T15:00:00+00:00",
+        "timeframe": "5m"
+      },
+      "metrics": {
+        "active_strategies": 4.0,
+        "block_rate": 0.015885623510722795,
+        "blocked_trades": 20.0,
+        "cagr": 1.2014912053211315,
+        "calmar": 16.99848544485523,
+        "calmar_mtm": 16.99848544485523,
+        "calmar_r": 111.52558781007126,
+        "calmar_realized": 63.04470042340595,
+        "max_concurrent": 3.0,
+        "max_drawdown_pct": 0.07068225044042235,
+        "max_drawdown_pct_mtm": 0.07068225044042235,
+        "max_drawdown_pct_realized": 0.019087267655126583,
+        "max_drawdown_r": 10.32164000000003,
+        "min_strategy_trades": 105.0,
+        "net_profit": 287781.74204098684,
+        "net_return_pct": 5.755634840819737,
+        "profit_factor": 4.220531215910331,
+        "risk_basis": "bar_close_mark_to_market",
+        "sharpe": 5.624737434255163,
+        "sortino": 13.660389498814933,
+        "total_r": 1151.1269681639474,
+        "total_r_per_month": 39.63509852204768,
+        "total_trades": 1239.0,
+        "trades_per_month": 42.66070418552036,
+        "win_rate": 0.6521388216303471
+      },
+      "rule_blocks": {
+        "dynamic_capacity_floor": 20
+      },
+      "strategy_blocked_counts": {
+        "DownturnDominator_v1": 20
+      },
+      "strategy_trade_counts": {
+        "DownturnDominator_v1": 105,
+        "NQDTC_v2.1": 124,
+        "NQ_REGIME": 800,
+        "VdubusNQ_v4": 210
+      }
+    }
+  },
+  "strategy_summary": {
+    "DownturnDominator_v1": {
+      "accept_rate": 0.8,
+      "accepted": 100,
+      "accepted_adjusted_pnl": 9919.21,
+      "accepted_raw_pnl": 6647.86,
+      "accepted_win_rate": 0.49,
+      "adjusted_to_raw_pnl_ratio": 1.4920906878303695,
+      "avg_accepted_base_qty": 3.24,
+      "avg_accepted_base_risk_R": 1.20448,
+      "avg_accepted_r": 0.3936054419706851,
+      "avg_blocked_base_qty": 0.0,
+      "avg_blocked_base_risk_R": 0.0,
+      "avg_blocked_r": 0.7071311976176876,
+      "avg_portfolio_qty": 3.24,
+      "avg_portfolio_risk_R": 1.20448,
+      "block_reasons": {
+        "dynamic_capacity_floor": 21,
+        "strategy_daily_stop": 4
+      },
+      "blocked": 25,
+      "blocked_rate": 0.2,
+      "blocked_raw_pnl": 9395.699999999999,
+      "blocked_raw_win_rate": 0.76,
+      "fired": 125,
+      "fired_raw_pnl": 16043.56
+    },
+    "NQDTC_v2.1": {
+      "accept_rate": 0.9919354838709677,
+      "accepted": 123,
+      "accepted_adjusted_pnl": 22516.28500000003,
+      "accepted_raw_pnl": 48464.30000000003,
+      "accepted_win_rate": 0.5853658536585366,
+      "adjusted_to_raw_pnl_ratio": 0.464595279411856,
+      "avg_accepted_base_qty": 6.276422764227642,
+      "avg_accepted_base_risk_R": 1.306130081300813,
+      "avg_accepted_r": 0.5441633031689146,
+      "avg_blocked_base_qty": 0.0,
+      "avg_blocked_base_risk_R": 0.0,
+      "avg_blocked_r": 0.8454385964912179,
+      "avg_portfolio_qty": 6.276422764227642,
+      "avg_portfolio_risk_R": 1.306130081300813,
+      "block_reasons": {
+        "strategy_daily_stop": 1
+      },
+      "blocked": 1,
+      "blocked_rate": 0.008064516129032258,
+      "blocked_raw_pnl": 481.8999999999942,
+      "blocked_raw_win_rate": 1.0,
+      "fired": 124,
+      "fired_raw_pnl": 48946.200000000026
+    },
+    "NQ_REGIME": {
+      "accept_rate": 0.9925,
+      "accepted": 794,
+      "accepted_adjusted_pnl": 146658.45717954272,
+      "accepted_raw_pnl": 184737.88,
+      "accepted_win_rate": 0.7178841309823678,
+      "adjusted_to_raw_pnl_ratio": 0.7938732282710114,
+      "avg_accepted_base_qty": 13.741813602015114,
+      "avg_accepted_base_risk_R": 1.169609571788413,
+      "avg_accepted_r": 0.811531470959728,
+      "avg_blocked_base_qty": 0.0,
+      "avg_blocked_base_risk_R": 0.0,
+      "avg_blocked_r": 0.7685703251510874,
+      "avg_portfolio_qty": 13.741813602015114,
+      "avg_portfolio_risk_R": 1.169609571788413,
+      "block_reasons": {
+        "dynamic_capacity_floor": 1,
+        "portfolio_daily_stop": 5
+      },
+      "blocked": 6,
+      "blocked_rate": 0.0075,
+      "blocked_raw_pnl": 1528.84,
+      "blocked_raw_win_rate": 0.8333333333333334,
+      "fired": 800,
+      "fired_raw_pnl": 186266.72
+    },
+    "VdubusNQ_v4": {
+      "accept_rate": 0.4857142857142857,
+      "accepted": 102,
+      "accepted_adjusted_pnl": 17683.66,
+      "accepted_raw_pnl": 92141.76,
+      "accepted_win_rate": 0.5392156862745098,
+      "adjusted_to_raw_pnl_ratio": 0.19191797508534678,
+      "avg_accepted_base_qty": 1.7843137254901962,
+      "avg_accepted_base_risk_R": 1.0710980392156861,
+      "avg_accepted_r": 0.6326488184765352,
+      "avg_blocked_base_qty": 0.0,
+      "avg_blocked_base_risk_R": 0.0,
+      "avg_blocked_r": 0.24488983329823985,
+      "avg_portfolio_qty": 1.7843137254901962,
+      "avg_portfolio_risk_R": 1.0710980392156861,
+      "block_reasons": {
+        "max_concurrent": 108
+      },
+      "blocked": 108,
+      "blocked_rate": 0.5142857142857142,
+      "blocked_raw_pnl": 35956.14,
+      "blocked_raw_win_rate": 0.49074074074074076,
+      "fired": 210,
+      "fired_raw_pnl": 128097.9
+    }
+  }
+}

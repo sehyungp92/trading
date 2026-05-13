@@ -1,0 +1,27 @@
+{
+  "base_score": 0.5730206766580699,
+  "final_score": 0.5730206766580699,
+  "final_mutations": {
+    "flags.plus_1r_partial": false,
+    "param_overrides.CHOP_THRESHOLD": 32.0,
+    "flags.early_kill": false,
+    "param_overrides.MAX_POSITION_BARS_15M": 51.2,
+    "flags.vwap_fail_evening": true
+  },
+  "kept_features": [],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 14,
+      "best_name": "type_b_close_only",
+      "best_score": 0.574092454854581,
+      "best_delta_pct": 0.1870400563487363,
+      "kept": false,
+      "rejected_count": 8
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 14,
+  "accepted_count": 0,
+  "elapsed_seconds": 255.20038962364197
+}

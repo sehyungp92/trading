@@ -1,0 +1,47 @@
+{
+  "base_score": 0.6556836546991901,
+  "final_score": 0.7900015391282353,
+  "final_mutations": {
+    "VIX_CRISIS": 33.0,
+    "HYBRID_WARNING_MIN_CRISIS": 1,
+    "HYBRID_WARNING_MIN_PRIMARY": 2,
+    "SPY_DD_WARNING": -0.06
+  },
+  "kept_features": [
+    "hybrid_1_2",
+    "spy_dd_warning_0.06"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 24,
+      "best_name": "hybrid_1_2",
+      "best_score": 0.7686014917396957,
+      "best_delta_pct": 17.221389648993043,
+      "kept": true,
+      "rejected_count": 3
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 20,
+      "best_name": "spy_dd_warning_0.06",
+      "best_score": 0.7900015391282353,
+      "best_delta_pct": 2.784283873831881,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 3,
+      "candidates_tested": 16,
+      "best_name": "spy_dd_watch_0.03",
+      "best_score": 0.7900015391282353,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 1
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 24,
+  "accepted_count": 2,
+  "elapsed_seconds": 0.4080810546875
+}

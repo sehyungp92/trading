@@ -1,0 +1,33 @@
+{
+  "base_score": 0.8746371845994889,
+  "final_score": 0.8746371845994889,
+  "final_mutations": {
+    "VIX_CRISIS": 42.0,
+    "HYBRID_WARNING_MIN_CRISIS": 1,
+    "HYBRID_WARNING_MIN_PRIMARY": 2,
+    "SPY_DD_WARNING": -0.0576,
+    "VIX_WATCH": 29.0,
+    "VIX_WARNING": 37.0,
+    "ACCEL_DEESCALATE_NORMAL_DAYS": 3,
+    "DEESCALATE_CRISIS_DAYS": 1,
+    "DEESCALATE_WARNING_DAYS": 1,
+    "DEESCALATE_WATCH_DAYS": 1,
+    "SPY_DD_CRISIS": -0.1
+  },
+  "kept_features": [],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 43,
+      "best_name": "crisis_alt_4",
+      "best_score": 0.8762357855734482,
+      "best_delta_pct": 0.18277304030828262,
+      "kept": false,
+      "rejected_count": 3
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 43,
+  "accepted_count": 0,
+  "elapsed_seconds": 0.3110198974609375
+}

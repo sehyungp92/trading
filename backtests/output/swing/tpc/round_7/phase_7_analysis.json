@@ -1,0 +1,70 @@
+{
+  "phase": 7,
+  "goal_progress": {
+    "false_positive_never_worked_rate": {
+      "target": 0.26,
+      "actual": 0.23577235772357724,
+      "pct_of_target": 110.27586206896551
+    },
+    "false_positive_low_mfe_loss_rate": {
+      "target": 0.36,
+      "actual": 0.3252032520325203,
+      "pct_of_target": 110.7
+    },
+    "right_then_lost_rate": {
+      "target": 0.07,
+      "actual": 0.07317073170731707,
+      "pct_of_target": 95.66666666666667
+    },
+    "max_symbol_trade_share": {
+      "target": 0.78,
+      "actual": 0.7398373983739838,
+      "pct_of_target": 105.42857142857143
+    },
+    "qqq_excellent_trades": {
+      "target": 13.0,
+      "actual": 25.0,
+      "pct_of_target": 192.30769230769232
+    },
+    "total_r": {
+      "target": 90.0,
+      "actual": 83.8156343813017,
+      "pct_of_target": 93.12848264589078
+    },
+    "trades_per_month": {
+      "target": 2.3,
+      "actual": 2.2251899180891175,
+      "pct_of_target": 96.74738774300512
+    },
+    "avg_r": {
+      "target": 0.7,
+      "actual": 0.6814279217992009,
+      "pct_of_target": 97.34684597131441
+    },
+    "dollar_profit_factor": {
+      "target": 2.05,
+      "actual": 2.1238396931200114,
+      "pct_of_target": 103.60193624975666
+    }
+  },
+  "strengths": [
+    "false_positive_never_worked_rate: 0.2358 (110% of 0.2600)",
+    "false_positive_low_mfe_loss_rate: 0.3252 (111% of 0.3600)",
+    "right_then_lost_rate: 0.0732 (96% of 0.0700)",
+    "max_symbol_trade_share: 0.7398 (105% of 0.7800)",
+    "qqq_excellent_trades: 25.0000 (192% of 13.0000)",
+    "total_r: 83.8156 (93% of 90.0000)",
+    "trades_per_month: 2.2252 (97% of 2.3000)",
+    "avg_r: 0.6814 (97% of 0.7000)",
+    "dollar_profit_factor: 2.1238 (104% of 2.0500)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 7 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + false_positive_never_worked_rate: 0.2358 (110% of 0.2600)\n  + false_positive_low_mfe_loss_rate: 0.3252 (111% of 0.3600)\n  + right_then_lost_rate: 0.0732 (96% of 0.0700)\n  + max_symbol_trade_share: 0.7398 (105% of 0.7800)\n  + qqq_excellent_trades: 25.0000 (192% of 13.0000)\n  + total_r: 83.8156 (93% of 90.0000)\n  + trades_per_month: 2.2252 (97% of 2.3000)\n  + avg_r: 0.6814 (97% of 0.7000)\n  + dollar_profit_factor: 2.1238 (104% of 2.0500)\n\nGoal Progress:\n  false_positive_never_worked_rate: 0.2358 / 0.2600 (110%)\n  false_positive_low_mfe_loss_rate: 0.3252 / 0.3600 (111%)\n  right_then_lost_rate: 0.0732 / 0.0700 (96%)\n  max_symbol_trade_share: 0.7398 / 0.7800 (105%)\n  qqq_excellent_trades: 25.0000 / 13.0000 (192%)\n  total_r: 83.8156 / 90.0000 (93%)\n  trades_per_month: 2.2252 / 2.3000 (97%)\n  avg_r: 0.6814 / 0.7000 (97%)\n  dollar_profit_factor: 2.1238 / 2.0500 (104%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

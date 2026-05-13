@@ -1,0 +1,42 @@
+{
+  "family": "swing",
+  "strategy": "atrss",
+  "round": 1,
+  "generated_at_utc": "2026-04-28T11:44:25.965386+00:00",
+  "completed_phases": [
+    1
+  ],
+  "mutation_count": 4,
+  "cumulative_mutations": {
+    "flags.early_stall_exit": true,
+    "param_overrides.early_stall_check_hours": 12,
+    "param_overrides.early_stall_mfe_threshold": 0.2,
+    "param_overrides.max_hold_hours": 80
+  },
+  "headline_metrics": {
+    "total_trades": 274,
+    "win_rate": 79.60000000000001,
+    "profit_factor": 5.27,
+    "max_drawdown_pct": 2.29,
+    "net_return_pct": 25.2,
+    "sharpe_ratio": 1.56,
+    "calmar_ratio": 0
+  },
+  "final_metrics": {
+    "total_trades": 274,
+    "win_rate": 0.796,
+    "profit_factor": 5.27,
+    "max_dd_pct": 0.0229,
+    "calmar": 0.0,
+    "sharpe": 1.56,
+    "net_return_pct": 25.2,
+    "total_r": 206.8,
+    "max_dd_r": 0.0,
+    "calmar_r": 47.4,
+    "avg_r": 0.0,
+    "mfe_capture": 0.67,
+    "trades_per_month": 4.7
+  },
+  "source_diagnostics": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\swing\\auto\\atrss\\output\\r9_phase1_full_diagnostics.txt",
+  "source_phase_state": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\swing\\auto\\atrss\\output\\phase_state.json"
+}

@@ -1,0 +1,58 @@
+{
+  "phase": 1,
+  "goal_progress": {
+    "active_strategy_count": {
+      "target": 2.0,
+      "actual": 2.0,
+      "pct_of_target": 100.0
+    },
+    "active_trades_per_month": {
+      "target": 52.0,
+      "actual": 48.16817021781708,
+      "pct_of_target": 92.63109657272514
+    },
+    "total_r_per_month": {
+      "target": 13.0,
+      "actual": 10.139870210444373,
+      "pct_of_target": 77.99900161880286
+    },
+    "profit_factor": {
+      "target": 2.6,
+      "actual": 2.2235357613051967,
+      "pct_of_target": 85.52060620404602
+    },
+    "max_drawdown_pct": {
+      "target": 0.08,
+      "actual": 0.03030019718169129,
+      "pct_of_target": 200.0
+    },
+    "trade_capture_ratio": {
+      "target": 0.84,
+      "actual": 0.5596977329974812,
+      "pct_of_target": 66.63068249970014
+    },
+    "positive_slices": {
+      "target": 4.0,
+      "actual": 4.0,
+      "pct_of_target": 100.0
+    }
+  },
+  "strengths": [
+    "active_strategy_count: 2.0000 (100% of 2.0000)",
+    "active_trades_per_month: 48.1682 (93% of 52.0000)",
+    "profit_factor: 2.2235 (86% of 2.6000)",
+    "max_drawdown_pct: 0.0303 (200% of 0.0800)",
+    "positive_slices: 4.0000 (100% of 4.0000)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [
+    "Positive blocked candidates are too frequent; inspect ranking and heat scarcity."
+  ],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + active_strategy_count: 2.0000 (100% of 2.0000)\n  + active_trades_per_month: 48.1682 (93% of 52.0000)\n  + profit_factor: 2.2235 (86% of 2.6000)\n  + max_drawdown_pct: 0.0303 (200% of 0.0800)\n  + positive_slices: 4.0000 (100% of 4.0000)\n\nDiagnostic Gaps:\n  ! Positive blocked candidates are too frequent; inspect ranking and heat scarcity.\n\nGoal Progress:\n  active_strategy_count: 2.0000 / 2.0000 (100%)\n  active_trades_per_month: 48.1682 / 52.0000 (93%)\n  total_r_per_month: 10.1399 / 13.0000 (78%)\n  profit_factor: 2.2235 / 2.6000 (86%)\n  max_drawdown_pct: 0.0303 / 0.0800 (200%)\n  trade_capture_ratio: 0.5597 / 0.8400 (67%)\n  positive_slices: 4.0000 / 4.0000 (100%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

@@ -1,0 +1,89 @@
+{
+  "phase": 1,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 200.0,
+      "actual": 76.13622800000329,
+      "pct_of_target": 38.06811400000164
+    },
+    "profit_factor": {
+      "target": 2.5,
+      "actual": 1.6333288175710863,
+      "pct_of_target": 65.33315270284345
+    },
+    "max_r_dd": {
+      "target": 8.0,
+      "actual": 10.821828134423377,
+      "pct_of_target": 73.92466319579253
+    },
+    "exit_efficiency": {
+      "target": 0.35,
+      "actual": 0.23737085762615318,
+      "pct_of_target": 67.82024503604377
+    },
+    "total_trades": {
+      "target": 400.0,
+      "actual": 359.0,
+      "pct_of_target": 89.75
+    }
+  },
+  "strengths": [
+    "total_trades: 359.0000 (90% of 400.0000)"
+  ],
+  "weaknesses": [
+    "net_return_pct: 76.1362 (38% of 200.0000)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [
+    "Exit efficiency is very low (0.237); run enhanced D2 to analyze right-then-stopped leakage by class/hold time.",
+    "Min regime PF is weak (0.89); one regime is significantly underperforming."
+  ],
+  "suggested_experiments": [
+    {
+      "name": "sug_trail_base_30",
+      "mutations": {
+        "param_overrides.TRAIL_BASE": 3.0
+      }
+    },
+    {
+      "name": "sug_fade_floor_10",
+      "mutations": {
+        "param_overrides.TRAIL_FADE_FLOOR": 1.0
+      }
+    },
+    {
+      "name": "sug_stall_onset_5",
+      "mutations": {
+        "param_overrides.TRAIL_STALL_ONSET": 5
+      }
+    },
+    {
+      "name": "sug_prune_class_a",
+      "mutations": {
+        "flags.disable_class_a": true
+      }
+    },
+    {
+      "name": "sug_adx_cap_40",
+      "mutations": {
+        "param_overrides.ADX_UPPER_GATE": 40
+      }
+    },
+    {
+      "name": "sug_div_mag_floor_08",
+      "mutations": {
+        "param_overrides.DIV_MAG_FLOOR": 0.08
+      }
+    }
+  ],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + total_trades: 359.0000 (90% of 400.0000)\n\nWeaknesses:\n  - net_return_pct: 76.1362 (38% of 200.0000)\n\nDiagnostic Gaps:\n  ! Exit efficiency is very low (0.237); run enhanced D2 to analyze right-then-stopped leakage by class/hold time.\n  ! Min regime PF is weak (0.89); one regime is significantly underperforming.\n\nSuggested Experiments (6):\n  - sug_trail_base_30: {\"param_overrides.TRAIL_BASE\": 3.0}\n  - sug_fade_floor_10: {\"param_overrides.TRAIL_FADE_FLOOR\": 1.0}\n  - sug_stall_onset_5: {\"param_overrides.TRAIL_STALL_ONSET\": 5}\n  - sug_prune_class_a: {\"flags.disable_class_a\": true}\n  - sug_adx_cap_40: {\"param_overrides.ADX_UPPER_GATE\": 40}\n  - sug_div_mag_floor_08: {\"param_overrides.DIV_MAG_FLOOR\": 0.08}\n\nExtra Analysis:\n  Class R attribution: B=+39.4R, D=+68.4R\n\nGoal Progress:\n  net_return_pct: 76.1362 / 200.0000 (38%)\n  profit_factor: 1.6333 / 2.5000 (65%)\n  max_r_dd: 10.8218 / 8.0000 (74%)\n  exit_efficiency: 0.2374 / 0.3500 (68%)\n  total_trades: 359.0000 / 400.0000 (90%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "class_attribution": {
+      "D": 68.42917738543545,
+      "B": 39.40377090377229
+    }
+  }
+}

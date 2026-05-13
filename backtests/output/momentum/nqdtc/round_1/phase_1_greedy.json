@@ -1,0 +1,58 @@
+{
+  "base_score": 0.1560150123333255,
+  "final_score": 0.31629023185017363,
+  "final_mutations": {
+    "flags.max_loss_cap": true,
+    "flags.max_stop_width": true,
+    "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+    "param_overrides.BLOCK_CAUTION_REGIME": true
+  },
+  "kept_features": [
+    "block_neutral_caution"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 19,
+      "best_name": "block_neutral_caution",
+      "best_score": 0.31629023185017363,
+      "best_delta_pct": 102.73063926336829,
+      "kept": true,
+      "rejected_count": 3
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 18,
+      "best_name": "block_neutral",
+      "best_score": 0.31629023185017363,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 1
+    }
+  ],
+  "final_metrics": {
+    "total_trades": 157,
+    "win_rate": 0.5286624203821656,
+    "profit_factor": 1.2879787622317822,
+    "max_dd_pct": 0.22973013222349514,
+    "net_return_pct": 65.18319999999949,
+    "calmar": 2.8373813817590716,
+    "sharpe": 0.17895812516947376,
+    "sortino": 0.3340867970682586,
+    "avg_r": 0.037120305726625134,
+    "capture_ratio": 0.3607310268305392,
+    "burst_trade_pct": 0.10191082802547771,
+    "eth_short_wr": 0.43243243243243246,
+    "eth_short_trades": 37,
+    "range_regime_pct": 0.7133757961783439,
+    "tp1_hit_rate": 0.5095541401273885,
+    "tp2_hit_rate": 0.006369426751592357,
+    "avg_hold_hours": 4.468152866242038,
+    "avg_winner_r": 1.1201525083608326,
+    "avg_loser_r": -1.177632029660391,
+    "avg_mfe_r": 1.833022274580134
+  },
+  "total_candidates": 19,
+  "accepted_count": 1,
+  "elapsed_seconds": 2212.9205133914948
+}

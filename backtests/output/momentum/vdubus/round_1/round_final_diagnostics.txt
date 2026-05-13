@@ -1,0 +1,617 @@
+========================================================================
+  Vdubus Strength / Weakness Snapshot
+========================================================================
+
+  Strengths
+    - Best entry type: A (n=174, WR=46.6%, avgR=+0.34, fee-net=$+74,253, PF=1.95)
+    - Best sub-window: CORE (n=67, WR=52.2%, avgR=+0.53, fee-net=$+48,287, PF=2.83)
+    - Best exit reason: MAX_DURATION (n=12, WR=100.0%, avgR=+3.42, fee-net=$+68,687, PF=inf)
+    - Positive fee-net PnL is reasonably distributed: top 5 winners drive 34% of gains.
+
+  Weaknesses
+    - Worst sub-window: EVENING (n=18, WR=33.3%, avgR=-0.12, fee-net=$-6,145, PF=0.35)
+    - Worst exit reason: STOP (n=21, WR=0.0%, avgR=-1.02, fee-net=$-34,921, PF=0.00)
+
+  Notes
+    - Fee-net trade count: 174 with 94 non-positive outcomes and 80 positive outcomes.
+
+========================================================================
+
+  VDUBUS ROUND 1 -- FULL DIAGNOSTICS
+
+  Equity: $10,000  Fixed qty: 10 MNQ
+
+  Config: {"MOM_N": 50, "MAX_POSITION_BARS_15M": 51.2, "EARLY_KILL_R": -0.25, "EARLY_KILL_ENABLED": false, "PLUS_1R_PARTIAL_ENABLED": false, "CHOP_THRESHOLD": 32.0, "BASE_RISK_PCT": 0.02}
+
+  Score: 0.5755
+
+========================================================================
+
+=== VdubusNQ v4.0 Performance Report: NQ ===
+Total trades:       174
+Win rate:           46.0%
+Profit factor:      1.95
+Expectancy (R):     +0.327
+Expectancy ($):     +426.74
+Net profit:         $+74,253.30
+CAGR:               119.4%
+Sharpe:             0.88
+Sortino:            0.31
+Calmar:             5.75
+Max drawdown:       20.8% ($14,805.62)
+Avg hold (15m bars):14.1
+Trades/month:       5.3
+Total commissions:  $2,008.80
+
+=== VdubusNQ Signal Funnel ===
+  15m evaluations:  14120
+  Regime passed:    3615
+  Signals found:    328
+  Entries placed:   251
+  Entries filled:   174
+  Trades completed: 174
+
+Trades=174  WR=46%  PF=1.95  E[R]=+0.327  CAGR=119.4%  Sharpe=0.88  MaxDD=20.8%  $/mo=74253
+
+=== VdubusNQ Signal Funnel ===
+  15m evaluations:          14089
+  All gates passed:         297
+  Gates blocked:            13792
+  Block reason distribution:
+    daily_trend                   5504  ( 39.9%)
+    evening_20h_block             3112  ( 22.6%)
+    hourly_align                  1889  ( 13.7%)
+    slope                         1158  (  8.4%)
+    no_signal                     1120  (  8.1%)
+    long_cap                       970  (  7.0%)
+    short_cap                       39  (  0.3%)
+  Trades completed:         174
+
+=== Entry Type Breakdown ===
+  Type             N  WinR    AvgR    AvgPnL AvgBars
+  --------------------------------------------------
+  A              174   47%  +0.338 $    +438   14.1
+
+=== Session / Sub-Window Breakdown ===
+  SubWindow      N  WinR    AvgR   TotalPnL
+  -----------------------------------------
+  OPEN          72   46%  +0.292 $   +21938
+  CORE          67   52%  +0.530 $   +49058
+  CLOSE         17   41%  +0.256 $   +11195
+  EVENING       18   33%  -0.118 $    -5929
+
+=== Regime Breakdown (DailyTrend x VolState) ===
+  Regime                   N  WinR    AvgR   TotalPnL
+  ---------------------------------------------------
+  DT=+1/High              15   27%  -0.124 $    -2294
+  DT=+1/Normal           152   49%  +0.340 $   +59677
+  DT=-1/High               1  100%  +3.888 $    +9344
+  DT=-1/Normal             6   33%  +0.847 $    +9535
+
+=== Decision Gate Analysis ===
+  HOLD:        0
+  FLATTEN:     0
+  No gate:   174
+
+=== Position Lifecycle ===
+  ACTIVE_RISK      N= 174 ( 100%)  AvgR=+0.338
+
+=== Exit Reason Breakdown ===
+  STALE                    90  AvgR=-0.010
+  VWAP_FAIL                31  AvgR=-0.411
+  STOP                     21  AvgR=-1.018
+  VWAP_A_FAIL              20  AvgR=+2.637
+  MAX_DURATION             12  AvgR=+3.418
+
+=== Flip Entry Analysis ===
+  Normal entries: 174
+  Flip entries:   0
+
+=== Predator Overlay Impact ===
+  With predator:    N=   0
+  Without predator: N= 174
+    AvgR=+0.338  WinR=47%
+
+=== MFE / MAE Analysis ===
+  MFE (R) distribution:
+    Mean=1.105  Median=0.489  P25=0.221  P75=1.311  P90=2.929
+  MAE (R) distribution:
+    Mean=0.490  Median=0.384  P25=0.246  P75=0.697  P90=0.935
+
+  Edge ratio (avgMFE / |avgMAE|): 2.26
+
+  MFE of losers:
+    Mean=0.425  Median=0.247
+    Losers reaching >= 0.5R MFE: 25/93 (27%)
+
+  MAE of winners (heat absorbed):
+    Mean=0.381  Median=0.306
+
+  Winner capture ratio (R / MFE):
+    Mean=0.51  Median=0.49
+
+  By entry_type:
+    Type             N  AvgMFE  AvgMAE  EdgeR
+    A              174  +1.105  +0.490   2.26
+
+  By regime (DT/VolState):
+    Regime                   N  AvgMFE  AvgMAE  EdgeR
+    DT=+1/High              15  +0.566  +0.462   1.22
+    DT=+1/Normal           152  +1.084  +0.493   2.20
+    DT=-1/High               1  +7.202  +0.301  23.89
+    DT=-1/Normal             6  +1.959  +0.511   3.83
+
+  By sub_window:
+    SubWindow      N  AvgMFE  AvgMAE  EdgeR
+    OPEN          72  +1.213  +0.518   2.34
+    CORE          67  +1.221  +0.482   2.53
+    CLOSE         17  +1.067  +0.592   1.80
+    EVENING       18  +0.276  +0.310   0.89
+
+=== R-Multiple Distribution ===
+  Mean:   +0.338
+  Median: -0.048
+  Std:    1.619
+  Skew:   POSITIVE (mean > median — letting winners run)
+
+  Cumulative distribution:
+    >= -2R:    174 (100.0%)
+    >= -1R:    152 ( 87.4%)
+    >= +0R:     83 ( 47.7%)
+    >= +1R:     27 ( 15.5%)
+    >= +2R:     15 (  8.6%)
+    >= +3R:     13 (  7.5%)
+    >= +5R:      6 (  3.4%)
+
+=== Direction Breakdown ===
+  Direction      N   WinR    AvgR     PF   TotalPnL
+  -------------------------------------------------
+  Long         167    47%  +0.298   1.78 $   +57383
+  Short          7    43%  +1.282   7.24 $   +18879
+
+=== Streak Analysis ===
+  Max consecutive wins:   5
+  Max consecutive losses: 6
+  Worst consecutive-loss P&L: $-6,503
+  Worst consecutive-loss R:   -3.58R
+  Avg win streak length:  1.8
+  Avg loss streak length: 2.2
+
+=== Drawdown Profile ===
+  Max drawdown: -20.78%
+    Peak:   bar 14646 (2025-03-31)
+    Trough: bar 17215 (2025-07-02)
+    Duration: 2569 bars (~642 hours)
+
+  Drawdown episode counts:
+    Exceeding -2%: 73 episodes
+    Exceeding -5%: 63 episodes
+    Exceeding -10%: 35 episodes
+    Exceeding -15%: 21 episodes
+
+  Time underwater (below HWM): 90.9% of bars
+
+=== Monthly P&L ===
+  Month          N     WR    AvgR     NetPnL     CumPnL
+  -----------------------------------------------------
+  2023-12        4    50%  +0.028 $     +750 $     +750
+  2024-01        3    67%  +0.725 $    +5231 $    +5982
+  2024-02        5   100%  +0.695 $    +5114 $   +11096
+  2024-03        6    17%  -0.552 $    -3699 $    +7397
+  2024-04        2    50%  +0.122 $     +693 $    +8090
+  2024-05        7    57%  +0.702 $    +4326 $   +12415
+  2024-06       13    38%  +0.495 $    +3813 $   +16228
+  2024-07        5    40%  +0.279 $    +2649 $   +18878
+  2024-09        6    17%  -0.268 $    -2592 $   +16286
+  2024-10        8    50%  +1.089 $    +4530 $   +20816
+  2024-11        8    38%  +0.361 $    +7400 $   +28216
+  2024-12        5    80%  +1.247 $   +12542 $   +40757
+  2025-01        7    57%  +0.275 $    +3187 $   +43944
+  2025-02        5    40%  +0.622 $    +1005 $   +44949
+  2025-03        1   100%  +3.888 $    +9344 $   +54293
+  2025-05        5     0%  -0.358 $    -3541 $   +50752
+  2025-06       10    40%  -0.126 $    -2769 $   +47983
+  2025-07       12    42%  +1.135 $   +12241 $   +60224
+  2025-08        8    50%  -0.027 $     +345 $   +60570
+  2025-09       14    50%  +0.062 $    +2678 $   +63248
+  2025-10        5    60%  +0.015 $    +2059 $   +65307
+  2025-11        6    50%  +0.793 $    +8168 $   +73475
+  2025-12       10    40%  -0.100 $    -2097 $   +71378
+  2026-01        7    71%  +0.195 $    +2162 $   +73539
+  2026-02        3    67%  -0.214 $     -749 $   +72791
+  2026-03        9    33%  +0.262 $    +3471 $   +76262
+
+  Winning months: 20/26 (77%)
+  Best month:  2024-12 ($+12,542)
+  Worst month: 2024-03 ($-3,699)
+
+=== Day-of-Week Analysis ===
+  Day            N     WR    AvgR   TotalPnL
+  ------------------------------------------
+  Monday        41    46%  -0.042 $    -2217
+  Tuesday       40    42%  +0.595 $   +34780
+  Wednesday     35    49%  +0.330 $    +8056
+  Thursday      32    44%  +0.070 $    +3356
+  Friday        26    54%  +0.878 $   +32288
+
+=== Hourly Performance (ET) ===
+  Hour       N     WR    AvgR   TotalPnL
+  --------------------------------------
+  10:00   123    48%  +0.411 $   +61659
+  11:00     3   100%  +0.224 $    +1311
+  15:00    30    43%  +0.321 $   +19221
+  19:00    14    29%  -0.156 $    -6064
+  20:00     4    50%  +0.017 $     +135
+
+=== Cross-Tab Breakdowns ===
+
+  1) Entry Type x Regime (DT/VolState)
+    Type                    DT=+1/High          DT=+1/Normal            DT=-1/High          DT=-1/Normal
+    ------------------------------------------------------------------------------------------------------
+    A              15  27% -0.12         152  49% +0.34 *STRONG    1 100% +3.89           6  33% +0.85 *STRONG
+
+  2) Entry Type x Sub-Window
+    Type                          OPEN                  CORE                 CLOSE               EVENING
+    ------------------------------------------------------------------------------------------------------
+    A              72  46% +0.29          67  52% +0.53 *STRONG   17  41% +0.26          18  33% -0.12       
+
+  3) Direction x Regime (DT/VolState)
+    Dir                   DT=+1/High          DT=+1/Normal            DT=-1/High          DT=-1/Normal
+    ----------------------------------------------------------------------------------------------------
+    Long         15  27% -0.12         152  49% +0.34 *STRONG                    --                    --
+    Short                         --                    --    1 100% +3.89           6  33% +0.85 *STRONG
+
+    *STRONG: A x DT=+1/Normal (N=152, avgR=+0.340)
+    *STRONG: A x DT=-1/Normal (N=6, avgR=+0.847)
+    *STRONG: A x CORE (N=67, avgR=+0.530)
+    *STRONG: Long x DT=+1/Normal (N=152, avgR=+0.340)
+    *STRONG: Short x DT=-1/Normal (N=6, avgR=+0.847)
+
+=== Stop Distance Analysis ===
+  Stop distance (points):
+    Mean=100.40  Median=120.25  P25=79.88  P75=120.25  Max=120.50
+
+  Protective stop hit: 21/174 (12%)
+    Avg R at stop exit: -1.018 (ideal ~ -1.0R)
+
+  Non-stop exits (153 trades):
+    Avg distance from initial stop at exit: +144.16 pts
+    Median: +110.25 pts
+
+=== Entry Efficiency ===
+  Adverse slippage (positive = worse fill):
+    Mean:   +0.22 pts  (+0.9 ticks)  +0.2% of initial risk
+    Median: +0.25 pts  (+1.0 ticks)
+
+  By sub_window:
+    SubWindow      N   MeanSlip  MeanTicks
+    OPEN          72      +0.25       +1.0
+    CORE          67      +0.10       +0.4
+    CLOSE         17      +0.25       +1.0
+    EVENING       18      +0.50       +2.0
+
+=== Hold Time Optimization ===
+  Bars         N     WR    AvgR  AvgMFE  AvgMAE
+  ---------------------------------------------
+  1-4         38     0%  -0.683  +0.303  +0.700
+  5-8         72    36%  -0.053  +0.419  +0.399
+  9-16        23    74%  +0.119  +1.087  +0.405
+  17-32       16    81%  +1.009  +2.318  +0.664
+  33-64       25   100%  +2.785  +3.540  +0.397
+
+  ** Optimal hold bucket: 33-64 bars (AvgR=+2.785)
+  Avg hold (winners): 23.2 bars
+  Avg hold (losers):  6.1 bars
+
+=== Trade Autocorrelation ===
+  Lag-1 autocorrelation (R-multiples): -0.092
+  Lag-1 autocorrelation (win/loss):    +0.000
+  Interpretation: INDEPENDENT (no significant serial dependency)
+
+=== Winner Give-Back Analysis ===
+  Winners: 81
+  Give-back (MFE - exit R):
+    Mean=0.618R  Median=0.378R  P75=0.954R  P90=1.310R
+  Give-back as % of MFE:
+    Mean=48.8%  Median=51.0%
+  Capture ratio (exit R / MFE):
+    Mean=0.51  Median=0.49
+
+  Give-back by exit reason:
+    ExitReason            N  AvgGB_R  AvgCapt   AvgMFE
+    --------------------------------------------------
+    MAX_DURATION         12   +0.782     0.80   +4.200
+    VWAP_A_FAIL          20   +0.646     0.73   +3.283
+    STALE                49   +0.566     0.35   +0.749
+
+  Give-back by sub_window:
+    SubWindow     N  AvgGB_R  AvgCapt   AvgMFE
+    ------------------------------------------
+    OPEN         33   +0.807     0.48   +2.035
+    CORE         35   +0.522     0.53   +1.980
+    CLOSE         7   +0.584     0.56   +1.905
+    EVENING       6   +0.181     0.52   +0.498
+
+  Top 5 worst give-backs:
+    2025-03-28 14:15  MFE=+7.20R  Exit=+3.89R  GaveBack=3.31R  via MAX_DURATION  [OPEN]
+    2024-10-10 14:15  MFE=+2.82R  Exit=+0.23R  GaveBack=2.59R  via STALE  [OPEN]
+    2024-02-13 15:30  MFE=+2.34R  Exit=+0.28R  GaveBack=2.07R  via STALE  [CORE]
+    2024-10-29 14:15  MFE=+3.56R  Exit=+1.77R  GaveBack=1.79R  via VWAP_A_FAIL  [OPEN]
+    2024-01-17 15:45  MFE=+1.88R  Exit=+0.22R  GaveBack=1.66R  via STALE  [CORE]
+
+=== Loser Autopsy ===
+  Total losers: 93
+
+  Fast deaths (1-4 bars): 38 trades (41% of losers)
+    AvgR=-0.683  TotalPnL=$-41,351
+    AvgMFE=+0.303R  AvgMAE=+0.700R
+    Reached >=0.3R profit: 14/38 (37%)
+    Sub-windows: CORE=17  OPEN=16  CLOSE=4  EVENING=1
+    Exit reasons: VWAP_FAIL=22  STOP=16
+
+  Slow deaths (5+ bars): 55 trades (59% of losers)
+    AvgR=-0.328  TotalPnL=$-35,357
+    AvgMFE=+0.509R  AvgMAE=+0.505R
+    Reached >=0.3R profit: 24/55 (44%)
+    Sub-windows: OPEN=23  CORE=15  EVENING=11  CLOSE=6
+    Exit reasons: STALE=41  VWAP_FAIL=9  STOP=5
+
+  Diagnosis:
+    ** 31% of slow deaths reached 0.5R+ before failing — EXIT TIMING issue
+       Consider earlier profit protection or tighter trailing for these cases.
+
+=== VWAP Distance at Entry ===
+  Distance from VWAP at entry (points):
+    Mean=29.1  Median=24.9  P25=17.4  P75=37.2
+  Distance as fraction of R:
+    Mean=0.31R  Median=0.26R
+
+  Performance by VWAP distance (fraction of R):
+    Distance        N   WinR    AvgR  AvgMFE  EdgeR
+    -----------------------------------------------
+    0.0-0.2R       58    43%  +0.221  +0.660   2.00
+    0.2-0.4R       75    43%  +0.186  +1.014   2.12
+    0.4-0.6R       22    50%  +0.602  +1.882   2.55
+    0.6-1.0R       17    65%  +0.943  +1.879   2.49
+    1.0R+           1   100%  +1.089  +2.264   2.36
+
+  Correlation (VWAP distance vs R-multiple): +0.108
+    No significant relationship between distance and outcome.
+
+=== P&L Development Curve ===
+  (Approximated from MFE/MAE timing and hold duration)
+
+  Outcome by minimum hold duration:
+     MinBars  Alive   WinR    AvgR  AvgMFE  AvgMAE
+    ----------------------------------------------
+           1    174    47%  +0.338  +1.105  +0.490
+           2    164    49%  +0.419  +1.153  +0.475
+           3    155    52%  +0.483  +1.200  +0.457
+           4    140    58%  +0.588  +1.301  +0.437
+           6    129    63%  +0.681  +1.380  +0.426
+           8    123    65%  +0.696  +1.386  +0.416
+          12     52    87%  +1.664  +2.643  +0.469
+          16     44    91%  +1.970  +2.919  +0.493
+          24     33    97%  +2.532  +3.405  +0.509
+          32     25   100%  +2.785  +3.540  +0.397
+          48     13   100%  +3.222  +3.986  +0.315
+
+  Exit timing distribution (when trades close):
+      ExitBars    N   WinR    AvgR    Verdict
+    -----------------------------------------
+           1-2   19     0%  -0.850       DRAG
+           3-4   19     0%  -0.516       DRAG
+           5-8   72    36%  -0.053           
+          9-16   23    74%  +0.119           
+         17-32   16    81%  +1.009 SWEET SPOT
+           33+   25   100%  +2.785 SWEET SPOT
+
+=== Exit Reason x Sub-Window ===
+    ExitReason                      OPEN                CORE               CLOSE             EVENING
+    --------------------------------------------------------------------------------------------------
+    MAX_DURATION        4 +3.61R $ +19761    7 +3.12R $ +37646    1 +4.75R $ +11414                  --
+    STALE              32 +0.02R $  +2134   34 +0.06R $  +3292    9 -0.24R $  -3166   15 -0.09R $  -3176
+    STOP               11 -1.02R $ -16640    8 -1.02R $ -13195                  --    2 -1.00R $  -4852
+    VWAP_A_FAIL        11 +2.06R $ +27611    5 +4.95R $ +29559    3 +1.34R $  +7930    1 +1.25R $  +2099
+    VWAP_FAIL          14 -0.40R $ -10928   13 -0.38R $  -8245    4 -0.57R $  -4982                  --
+
+  Identified drags:
+    !DRAG: STOP in OPEN (N=11, AvgR=-1.019, $-16,640)
+    !DRAG: STOP in CORE (N=8, AvgR=-1.021, $-13,195)
+    !DRAG: VWAP_FAIL in OPEN (N=14, AvgR=-0.396, $-10,928)
+    !DRAG: VWAP_FAIL in CORE (N=13, AvgR=-0.380, $-8,245)
+    !DRAG: VWAP_FAIL in CLOSE (N=4, AvgR=-0.567, $-4,982)
+
+=== Rolling Performance Stability ===
+  Window: 20 trades
+  Periods: 155
+
+  Rolling Win Rate:
+    Min=25%  Max=65%  Current=50%  Avg=45%
+  Rolling Avg R:
+    Min=-0.218  Max=+0.899  Current=+0.104  Avg=+0.340
+  Rolling Profit Factor:
+    Min=0.36  Max=4.02  Current=1.26  Avg=2.03
+  Rolling 20-Trade P&L:
+    Min=$-8,724  Max=$+27,243  Current=$+3,453
+
+  Trend detection:
+    First half avg R:  +0.453
+    Second half avg R: +0.229
+    Delta:             -0.224
+    STABLE — no significant trend
+
+  Worst 20-trade window:
+    Trades 151-170  (2025-12-18 to 2026-03-16)
+    P&L=$-8,724  WR=45%  AvgR=-0.211
+
+=== MAE Recovery Analysis ===
+  Trades reaching MAE threshold — recovery rate:
+      MAE >=     N  Recovered  RecovR%  AvgR_rec  AvgR_die
+    ------------------------------------------------------
+       0.25R   130    49/130     37.7%    +1.509    -0.521
+       0.50R    69    21/69      30.4%    +1.540    -0.641
+       0.75R    39    10/39      25.6%    +1.900    -0.716
+       1.00R     8     2/8       25.0%    +5.977    -0.975
+
+  Heat absorbed comparison:
+    Winners (N=81): AvgMAE=0.381R  MedianMAE=0.306R
+    Losers  (N=93):  AvgMAE=0.585R  MedianMAE=0.510R
+
+  Winners absorbing >0.5R heat: 21/81 (26%)
+    These trades needed wide stops to survive.
+    AvgR=+1.540  AvgMFE=+2.412
+
+  Stop exit diagnostic:
+    Stop exits: 21 trades
+    Avg R at stop: -1.018
+    ** Most stops hitting near -1.0R — initial stop too tight, no trail benefit
+
+=== Stale Exit Deep Dive ===
+  Stale exits: 90/174 (52% of all trades)
+
+  Sub-window clustering:
+    OPEN        32 trades  AvgR=+0.019  AvgMFE=+0.868
+    CORE        34 trades  AvgR=+0.059  AvgMFE=+0.640
+    CLOSE        9 trades  AvgR=-0.241  AvgMFE=+0.667
+    EVENING     15 trades  AvgR=-0.090  AvgMFE=+0.206
+
+  MFE reached before stale exit:
+    Mean=+0.652R  Median=+0.459R  P75=+0.844R  P90=+1.405R
+    Reached >=0.5R MFE: 43/90 (48%)
+    Reached >=1.0R MFE: 18/90 (20%)
+
+  R-at-exit distribution:
+    Winners: 49  Losers: 41  WR: 54%
+    Mean=-0.010R  Median=+0.046R
+
+  Hold time (15m bars):
+    Mean=10.7  Median=8  P25=8  P75=10
+
+  Stale vs non-stale comparison:
+                      Stale  Non-stale
+    AvgR             -0.010     +0.710
+    WinRate             54%        38%
+    AvgMFE           +0.652     +1.591
+
+  Stale by direction:
+    Long:  88 trades  AvgR=-0.004
+    Short: 2 trades  AvgR=-0.276
+
+  ** Interpretation:
+     52% stale rate is very high -- strategy enters many low-conviction trades
+     that drift sideways. Consider tighter entry filters or adaptive stale timers.
+     48% of stale trades reached 0.5R MFE -- partial-take
+     or MFE-triggered floor stop could capture some of this dead alpha.
+
+=== Overnight Risk Analysis ===
+  Single-session: 139 trades  Multi-session: 35 trades
+
+  Single-session (139 trades):
+    WR=34%  AvgR=-0.244  PnL=$-59,119
+    AvgMFE=+0.512  AvgMAE=+0.489
+    AvgHold=7.5 bars
+
+  Multi-session (35 trades):
+    WR=97%  AvgR=+2.649  PnL=$+135,381
+    AvgMFE=+3.459  AvgMAE=+0.492
+    AvgHold=40.1 bars
+
+  Overnight sessions distribution:
+    2 sessions: 34 trades  AvgR=+2.689
+    3 sessions: 1 trades  AvgR=+1.289
+
+  Overnight MAE (gap risk proxy):
+    Mean=+0.492R  Max=+2.692R
+    Trades with MAE > 0.7R: 6/35 (17%)
+
+  Multi-session entry window:
+    OPEN        16 trades  AvgR=+2.338
+    CORE        13 trades  AvgR=+3.586
+    CLOSE        5 trades  AvgR=+1.486
+    EVENING      1 trades  AvgR=+1.247
+
+  ** Interpretation:
+     Multi-session trades outperform by +2.893R.
+     Holding winners overnight is adding significant alpha.
+
+=== R-per-Bar Efficiency ===
+  Bars        N     AvgR    R/Bar    TotalR      CumR
+  ----------------------------------------------------
+  1-2        19   -0.850  -0.5769     -16.2     -16.2
+  3-4        19   -0.516  -0.1608      -9.8     -26.0
+  5-8        72   -0.053  -0.0070      -3.8     -29.8
+  9-16       23   +0.119  +0.0101      +2.7     -27.0
+  17-32      16   +1.009  +0.0435     +16.1     -10.9
+  33-64      25   +2.785  +0.0596     +69.6     +58.7
+
+  Best R/bar:  33-64 (+0.0596 R/bar)
+  Worst R/bar: 1-2 (-0.5769 R/bar)
+
+  Marginal hold analysis:
+    Short (1-4)       38 trades  WR=0%  AvgR=-0.683  PnL=$-41,351
+    Medium (5-16)     95 trades  WR=45%  AvgR=-0.011  PnL=$-6,918
+    Long (17+)        41 trades  WR=93%  AvgR=+2.092  PnL=$+124,531
+
+  Short-hold drag:
+    1-4 bar trades contribute -26.0R ($-41,351)
+    ** Eliminating these would improve net R by 26.0R
+
+  ** Interpretation:
+     Short holds (1-4 bars) are a significant drag.
+     Either the entry signal is wrong or the position needs more time to develop.
+     Consider minimum hold time or entry filter tightening.
+     Long holds (17+ bars) are where the alpha lives.
+     Strategy's edge comes from holding winners -- protect this at all costs.
+
+============================================================
+  VdubusNQ v4.0 GATING ATTRIBUTION REPORT
+============================================================
+
+  Total 15m evaluations:     14089
+  Passed all gates:          297
+  Blocked by gates:          13792
+  Completed trades:          174
+
+  Per-Gate Attribution (with shadow trade simulation):
+
+  Gate                     Blocked WouldFill    AvgR   1R%  >1R%    NetEV  Verdict
+  --------------------------------------------------------------------------------
+  daily_trend                 5504      3455  -0.242   27%    0%   -834.5     KEEP
+  evening_20h_block           3112      1998  -0.217   29%    1%   -433.0     KEEP
+  hourly_align                1889      1272  +0.636   30%    2%   +808.7   REVIEW
+  slope                       1158       651  +0.302   21%    1%   +196.9   REVIEW
+  no_signal                   1120       817  +0.259   23%    1%   +211.7   REVIEW
+  long_cap                     970       707  -0.036   22%    1%    -25.6     KEEP
+  short_cap                     39        35  +0.157   43%    6%     +5.5   REVIEW
+
+  Verdict interpretation:
+    KEEP   = gate prevents more loss than it misses (net EV < 0)
+    REVIEW = gate may be blocking profitable trades (net EV > 0)
+
+  Rejections by Session:
+    RTH: 7645
+    EVENING: 6147
+
+  Rejections by Sub-Window:
+    EVENING: 6147
+    CORE: 2875
+    OPEN: 2853
+    CLOSE: 1917
+
+  Rejections by Direction:
+    SHORT: 7047
+    LONG: 6745
+
+=== VdubusNQ Shadow Trade Summary ===
+  Gate                       Rej Filled    AvgR   1R%  >1R%  MissedEV  Avoided
+  ----------------------------------------------------------------------------
+  daily_trend               5504   3455  -0.242   27%    0%    +335.2   1169.7
+  evening_20h_block         3112   1998  -0.217   29%    1%    +232.1    665.1
+  hourly_align              1889   1272  +0.636   30%    2%   +1199.5    390.8
+  slope                     1158    651  +0.302   21%    1%    +363.6    166.7
+  no_signal                 1120    817  +0.259   23%    1%    +377.3    165.6
+  long_cap                   970    707  -0.036   22%    1%     +80.5    106.1
+  short_cap                   39     35  +0.157   43%    6%     +11.1      5.6
+
+  Total rejections: 13792  Filled in sim: 8935

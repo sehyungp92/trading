@@ -1,0 +1,89 @@
+{
+  "phase": 1,
+  "goal_progress": {
+    "avg_r": {
+      "target": 0.17,
+      "actual": 0.051314058115277984,
+      "pct_of_target": 30.18474006781058
+    },
+    "expected_total_r": {
+      "target": 125.0,
+      "actual": 44.23271809536962,
+      "pct_of_target": 35.38617447629569
+    },
+    "profit_factor": {
+      "target": 2.35,
+      "actual": 1.3123883855257508,
+      "pct_of_target": 55.84631427769152
+    },
+    "sharpe": {
+      "target": 4.75,
+      "actual": 1.8080579094946547,
+      "pct_of_target": 38.06437704199273
+    },
+    "max_drawdown_pct": {
+      "target": 0.04,
+      "actual": 0.04469789104481218,
+      "pct_of_target": 89.48968075450748
+    },
+    "total_trades": {
+      "target": 800.0,
+      "actual": 862.0,
+      "pct_of_target": 107.74999999999999
+    },
+    "managed_exit_share": {
+      "target": 0.97,
+      "actual": 0.9640371229698376,
+      "pct_of_target": 99.38527040926161
+    },
+    "eod_flatten_inverse": {
+      "target": 0.98,
+      "actual": 0.9640371229698376,
+      "pct_of_target": 98.37113499692221
+    }
+  },
+  "strengths": [
+    "max_drawdown_pct: 0.0447 (89% of 0.0400)",
+    "total_trades: 862.0000 (108% of 800.0000)",
+    "managed_exit_share: 0.9640 (99% of 0.9700)",
+    "eod_flatten_inverse: 0.9640 (98% of 0.9800)"
+  ],
+  "weaknesses": [
+    "avg_r: 0.0513 (30% of 0.1700)",
+    "expected_total_r: 44.2327 (35% of 125.0000)",
+    "profit_factor: 1.3124 (56% of 2.3500)",
+    "sharpe: 1.8081 (38% of 4.7500)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + max_drawdown_pct: 0.0447 (89% of 0.0400)\n  + total_trades: 862.0000 (108% of 800.0000)\n  + managed_exit_share: 0.9640 (99% of 0.9700)\n  + eod_flatten_inverse: 0.9640 (98% of 0.9800)\n\nWeaknesses:\n  - avg_r: 0.0513 (30% of 0.1700)\n  - expected_total_r: 44.2327 (35% of 125.0000)\n  - profit_factor: 1.3124 (56% of 2.3500)\n  - sharpe: 1.8081 (38% of 4.7500)\n\nExtra Analysis:\n  Signal model: signal_score_edge=+0.045, crowded_day_discrimination=+0.030, crowded_day_missed_alpha_inverse=+0.395, crowded_day_missed_alpha_days=+312.000, expected_total_r=+44.233\n  Route shape: route_score_monotonicity=66.7%, route_middle_bucket_deficit=+0.000, delayed_confirm_share=3.2%, routes_with_min_10_trades=+2.000, route_diversity=66.7%\n  Exit capture: managed_exit_share=96.4%, eod_flatten_share=3.6%, carry_avg_r=-0.118, binary_carried_share=0.0%, carried_underperformed_flatten_share=50.0%, protection_candidate_share=10.0%, stop_hit_total_r=+49.18\n\nGoal Progress:\n  avg_r: 0.0513 / 0.1700 (30%)\n  expected_total_r: 44.2327 / 125.0000 (35%)\n  profit_factor: 1.3124 / 2.3500 (56%)\n  sharpe: 1.8081 / 4.7500 (38%)\n  max_drawdown_pct: 0.0447 / 0.0400 (89%)\n  total_trades: 862.0000 / 800.0000 (108%)\n  managed_exit_share: 0.9640 / 0.9700 (99%)\n  eod_flatten_inverse: 0.9640 / 0.9800 (98%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "signal_model": {
+      "signal_score_edge": 0.04510255907811388,
+      "crowded_day_discrimination": 0.029616662037911586,
+      "crowded_day_missed_alpha_inverse": 0.39534883720930236,
+      "crowded_day_missed_alpha_days": 312.0,
+      "expected_total_r": 44.23271809536962
+    },
+    "route_shape": {
+      "route_score_monotonicity": 0.6666666666666666,
+      "route_middle_bucket_deficit": 0.0,
+      "delayed_confirm_share": 0.03248259860788863,
+      "routes_with_min_10_trades": 2.0,
+      "route_diversity": 0.6666666666666666
+    },
+    "exit_capture": {
+      "managed_exit_share": 0.9640371229698376,
+      "eod_flatten_share": 0.03596287703016241,
+      "carry_avg_r": -0.11846765707972894,
+      "binary_carried_share": 0.0,
+      "carried_underperformed_flatten_share": 0.5,
+      "protection_candidate_share": 0.09976798143851508,
+      "stop_hit_total_r": 49.175310240240016
+    }
+  }
+}

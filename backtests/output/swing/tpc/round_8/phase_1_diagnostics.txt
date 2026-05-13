@@ -1,0 +1,1 @@
+tpc round8 phase 1: net=+133.01%, avgR=+0.681, totalR=+86.47, trades=127, trades/month=2.30, $PF=2.08, never-worked=24%, low-MFE losses=33%, additive=6 trades/+0.701 avgR/+4.21R, routes=pb30 6/pb30ema 0/ema1h 0, QQQ=33, GLD share=74%, top5$=24%, worst-year=-2.25%, DD=13.68%, accepted=1

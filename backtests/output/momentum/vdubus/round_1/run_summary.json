@@ -1,0 +1,52 @@
+{
+  "family": "momentum",
+  "strategy": "vdubus",
+  "round": 1,
+  "generated_at_utc": "2026-04-29T21:31:54.359762+00:00",
+  "completed_phases": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "mutation_count": 4,
+  "cumulative_mutations": {
+    "flags.plus_1r_partial": false,
+    "param_overrides.CHOP_THRESHOLD": 32.0,
+    "flags.early_kill": false,
+    "param_overrides.MAX_POSITION_BARS_15M": 51.2
+  },
+  "headline_metrics": {
+    "total_trades": 174,
+    "win_rate": 46.55172413793103,
+    "profit_factor": 1.9544579883619144,
+    "max_drawdown_pct": 20.782611893641104,
+    "net_return_pct": 752.5770000000063,
+    "sharpe_ratio": 1.6604832640187106,
+    "calmar_ratio": 36.2118584445237
+  },
+  "final_metrics": {
+    "total_trades": 174,
+    "win_rate": 0.46551724137931033,
+    "profit_factor": 1.9544579883619144,
+    "max_dd_pct": 0.20782611893641104,
+    "net_return_pct": 752.5770000000063,
+    "calmar": 36.2118584445237,
+    "sharpe": 1.6604832640187106,
+    "sortino": 7.31857648749699,
+    "avg_r": 0.3375001287717325,
+    "capture_ratio": 0.5120285460338511,
+    "stale_exit_pct": 0.5172413793103449,
+    "multi_session_pct": 0.20114942528735633,
+    "trades_per_month": 5.316663634367452,
+    "avg_hold_hours": 9.270114942528735,
+    "avg_winner_r": 1.2680952224042634,
+    "avg_loser_r": -0.47301817858563305,
+    "avg_mfe_r": 1.1050326886225206,
+    "evening_trade_pct": 0.10344827586206896,
+    "evening_avg_r": -0.11760943057571589,
+    "fast_death_pct": 0.21839080459770116
+  },
+  "source_diagnostics": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\vdubus\\round_1\\round_final_diagnostics.txt",
+  "source_phase_state": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\vdubus\\round_1\\phase_state.json"
+}

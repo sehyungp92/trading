@@ -1,0 +1,384 @@
+{
+  "family": "swing",
+  "strategy": "atrss",
+  "round": 3,
+  "generated_at_utc": "2026-05-07T11:37:19.366975+00:00",
+  "completed_phases": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "mutation_count": 14,
+  "cumulative_mutations": {
+    "fixed_qty": null,
+    "flags.addon_b": false,
+    "flags.early_stall_exit": false,
+    "param_overrides.addon_a_r": 1.5,
+    "param_overrides.addon_a_size_mult": 0.5,
+    "param_overrides.adx_on": 14,
+    "param_overrides.base_risk_pct": 0.024,
+    "param_overrides.dynamic_risk_strong_trend_mult": 1.15,
+    "param_overrides.dynamic_risk_weak_trend_mult": 0.8,
+    "param_overrides.early_stall_check_hours": 12,
+    "param_overrides.early_stall_mfe_threshold": 0.2,
+    "param_overrides.max_hold_hours": 88,
+    "param_overrides.pullback_touch_tolerance_pct": 0.005,
+    "param_overrides.recovery_tolerance_atr_trend": 0.55
+  },
+  "headline_metrics": {
+    "basis": "current-code final optimized config replay",
+    "initial_equity": 100000.0,
+    "total_trades": 264,
+    "win_rate": 83.33333333333334,
+    "profit_factor": 2.553927702731657,
+    "profit_factor_basis": "net_pnl_dollars",
+    "max_drawdown_pct": 7.869367570195819,
+    "net_return_pct": 234.0807950000001,
+    "sharpe_ratio": 1.9951326753887264,
+    "sortino_ratio": 0.5083721939007939,
+    "calmar_ratio": 29.745820475656764
+  },
+  "final_metrics": {
+    "total_trades": 264.0,
+    "win_rate": 0.8333333333333334,
+    "profit_factor": 6.5825101580783,
+    "max_dd_pct": 7.869367570195819,
+    "calmar": 29.745820475656764,
+    "sharpe": 1.9951326753887264,
+    "net_return_pct": 234.0807950000001,
+    "total_r": 234.78196932774728,
+    "max_dd_r": 3.184521281121558,
+    "calmar_r": 73.7259853528312,
+    "avg_r": 0.889325641392982,
+    "mfe_capture": 0.6744713804041249,
+    "trades_per_month": null,
+    "selection_oos_repair": {
+      "basis": "strict_oos_split_after_post_structural_repair",
+      "is_period": [
+        "2024-01-01",
+        "2026-03-21"
+      ],
+      "oos_period": [
+        "2026-03-21",
+        "2026-05-02"
+      ],
+      "is_metrics": {
+        "total_trades": 130,
+        "winning_trades": 111,
+        "win_rate": 0.8538461538461538,
+        "profit_factor": 8.561020250684166,
+        "net_r": 130.3462778619536,
+        "avg_r": 1.0026636758611815,
+        "max_drawdown_r": 2.2874367144482335,
+        "trades_per_month": 4.885432098765432,
+        "months": 26.609724047306177,
+        "by_symbol": {
+          "QQQ": 71,
+          "GLD": 59
+        },
+        "by_entry": {
+          "PULLBACK": 130
+        },
+        "by_exit": {
+          "TP1": 37,
+          "STOP": 65,
+          "TP2": 22,
+          "PARTIAL": 5,
+          "FLATTEN_TIME_DECAY": 1
+        }
+      },
+      "oos_metrics": {
+        "total_trades": 2,
+        "winning_trades": 2,
+        "win_rate": 1.0,
+        "profit_factor": 999.0,
+        "net_r": 1.1784033903917621,
+        "avg_r": 0.5892016951958811,
+        "max_drawdown_r": 0.0,
+        "trades_per_month": 1.4495238095238097,
+        "months": 1.3797634691195795,
+        "by_symbol": {
+          "QQQ": 2
+        },
+        "by_entry": {
+          "PULLBACK": 2
+        },
+        "by_exit": {
+          "STOP": 1,
+          "TP1": 1
+        }
+      }
+    },
+    "basis": "current-code final optimized config replay",
+    "initial_equity": 100000.0,
+    "win_rate_pct": 83.33333333333334,
+    "profit_factor_net_pnl": 2.553927702731657,
+    "total_pnl_dollars": 234171.88950000016,
+    "final_equity": 334080.7950000001,
+    "max_drawdown_dollars": 12630.842999999935,
+    "sortino": 0.5083721939007939,
+    "avg_hold_bars": 32.92045454545455,
+    "avg_win_r": null,
+    "avg_loss_r": null
+  },
+  "source_diagnostics": "backtests\\output\\swing\\atrss\\round_3\\full_diagnostics.txt",
+  "source_phase_state": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\atrss\\round_3\\phase_state.json",
+  "post_structural_repair": {
+    "kind": "post_structural_repair_regeneration",
+    "generated_at_utc": "2026-05-07T11:37:19.366975+00:00",
+    "reason": "Reflect ATRSS synchronized timestamp repair, seven-component scoring, and structural ETF pullback-touch tolerance expansion.",
+    "code_changes": [
+      "backtests/swing/engine/backtest_engine.py:_to_datetime handles numeric nanosecond timestamps",
+      "backtests/swing/engine/portfolio_engine.py preserves np.datetime64 timestamp keys",
+      "strategies/swing/atrss/config.py sets PULLBACK_TOUCH_TOLERANCE_PCT=0.005",
+      "backtests/swing/auto/atrss/scoring.py exposes seven active score components"
+    ],
+    "explicit_mutation_added": {
+      "param_overrides.pullback_touch_tolerance_pct": 0.005
+    },
+    "strict_validation": {
+      "is_period": [
+        "2024-01-01",
+        "2026-03-21"
+      ],
+      "oos_period": [
+        "2026-03-21",
+        "2026-05-02"
+      ],
+      "is_metrics": {
+        "total_trades": 130,
+        "winning_trades": 111,
+        "win_rate": 0.8538461538461538,
+        "profit_factor": 8.561020250684166,
+        "net_r": 130.3462778619536,
+        "avg_r": 1.0026636758611815,
+        "max_drawdown_r": 2.2874367144482335,
+        "trades_per_month": 4.885432098765432,
+        "months": 26.609724047306177,
+        "by_symbol": {
+          "QQQ": 71,
+          "GLD": 59
+        },
+        "by_entry": {
+          "PULLBACK": 130
+        },
+        "by_exit": {
+          "TP1": 37,
+          "STOP": 65,
+          "TP2": 22,
+          "PARTIAL": 5,
+          "FLATTEN_TIME_DECAY": 1
+        }
+      },
+      "pre_oos_metrics": {
+        "total_trades": 10,
+        "winning_trades": 7,
+        "win_rate": 0.7,
+        "profit_factor": 5.665737263178887,
+        "net_r": 10.868194875746475,
+        "avg_r": 1.0868194875746475,
+        "max_drawdown_r": 1.3287578522515417,
+        "trades_per_month": 3.8531645569620254,
+        "months": 2.59526938239159,
+        "by_symbol": {
+          "GLD": 10
+        },
+        "by_entry": {
+          "PULLBACK": 10
+        },
+        "by_exit": {
+          "TP2": 1,
+          "PARTIAL": 1,
+          "STOP": 6,
+          "TP1": 2
+        }
+      },
+      "oos_metrics": {
+        "total_trades": 2,
+        "winning_trades": 2,
+        "win_rate": 1.0,
+        "profit_factor": 999.0,
+        "net_r": 1.1784033903917621,
+        "avg_r": 0.5892016951958811,
+        "max_drawdown_r": 0.0,
+        "trades_per_month": 1.4495238095238097,
+        "months": 1.3797634691195795,
+        "by_symbol": {
+          "QQQ": 2
+        },
+        "by_entry": {
+          "PULLBACK": 2
+        },
+        "by_exit": {
+          "STOP": 1,
+          "TP1": 1
+        }
+      },
+      "oos_examples": [
+        {
+          "symbol": "QQQ",
+          "entry_time": "2026-04-21 19:00:00+00:00",
+          "exit_time": "2026-04-23 17:00:00+00:00",
+          "entry_type": "PULLBACK",
+          "direction": 1,
+          "r_multiple": 0.07832699619772533,
+          "mfe_r": 0.7612167300380235,
+          "mae_r": 0.35741444866919697,
+          "exit_reason": "STOP",
+          "qty": 59
+        },
+        {
+          "symbol": "QQQ",
+          "entry_time": "2026-04-24 15:00:00+00:00",
+          "exit_time": "2026-05-01 14:00:00+00:00",
+          "entry_type": "PULLBACK",
+          "direction": 1,
+          "r_multiple": 1.1000763941940368,
+          "mfe_r": 1.099312452253625,
+          "mae_r": 0.5164247517188761,
+          "exit_reason": "TP1",
+          "qty": 19
+        }
+      ]
+    },
+    "score_snapshot": {
+      "profile": "r11_risk_allocation",
+      "total": 0.712836112984713,
+      "components": {
+        "return": 0.738098948405246,
+        "profit_factor": 0.7975014511540428,
+        "risk": 0.553708308942276,
+        "frequency": 0.5906769570011026,
+        "mfe_capture": 0.8430892255051561,
+        "avg_r": 0.7411047011608184,
+        "win_rate": 0.9803921568627452
+      }
+    },
+    "artifact_note": "Historical phase search outputs remain original; final round_3 headline artifacts are regenerated under current code."
+  },
+  "selection_oos_repair": {
+    "basis": "strict_oos_split_after_post_structural_repair",
+    "is_period": [
+      "2024-01-01",
+      "2026-03-21"
+    ],
+    "oos_period": [
+      "2026-03-21",
+      "2026-05-02"
+    ],
+    "is_metrics": {
+      "total_trades": 130,
+      "winning_trades": 111,
+      "win_rate": 0.8538461538461538,
+      "profit_factor": 8.561020250684166,
+      "net_r": 130.3462778619536,
+      "avg_r": 1.0026636758611815,
+      "max_drawdown_r": 2.2874367144482335,
+      "trades_per_month": 4.885432098765432,
+      "months": 26.609724047306177,
+      "by_symbol": {
+        "QQQ": 71,
+        "GLD": 59
+      },
+      "by_entry": {
+        "PULLBACK": 130
+      },
+      "by_exit": {
+        "TP1": 37,
+        "STOP": 65,
+        "TP2": 22,
+        "PARTIAL": 5,
+        "FLATTEN_TIME_DECAY": 1
+      }
+    },
+    "oos_metrics": {
+      "total_trades": 2,
+      "winning_trades": 2,
+      "win_rate": 1.0,
+      "profit_factor": 999.0,
+      "net_r": 1.1784033903917621,
+      "avg_r": 0.5892016951958811,
+      "max_drawdown_r": 0.0,
+      "trades_per_month": 1.4495238095238097,
+      "months": 1.3797634691195795,
+      "by_symbol": {
+        "QQQ": 2
+      },
+      "by_entry": {
+        "PULLBACK": 2
+      },
+      "by_exit": {
+        "STOP": 1,
+        "TP1": 1
+      }
+    }
+  },
+  "full_diagnostics": {
+    "generated_at_utc": "2026-05-07T14:50:44.953889+00:00",
+    "comparable_basis": "current-code final optimized config replay",
+    "initial_equity": 100000.0,
+    "text_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\atrss\\round_3\\full_diagnostics.txt",
+    "summary_json_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\atrss\\round_3\\full_diagnostics_summary.json",
+    "execution_mode": "synchronized",
+    "execution_mode_label": "synchronized/shared-capital",
+    "phase_result": "current",
+    "total_trades": 264,
+    "win_rate_pct": 83.33333333333334,
+    "profit_factor_net_pnl": 2.553927702731657,
+    "total_r": 234.78196932774728,
+    "total_pnl": 234171.88950000016,
+    "final_equity": 334080.7950000001,
+    "net_return_pct": 234.0807950000001,
+    "max_drawdown_fraction": 0.07869367570195819,
+    "max_drawdown_pct": 7.869367570195819,
+    "max_drawdown_dollars": 12630.842999999935,
+    "sharpe": 1.9951326753887264,
+    "sortino": 0.5083721939007939,
+    "calmar": 29.745820475656764,
+    "avg_r": 0.889325641392982,
+    "avg_win_r": null,
+    "avg_loss_r": null,
+    "avg_hold_bars": 32.92045454545455,
+    "trades_per_month": null,
+    "mutation_count": 14,
+    "note": "Comparable headline metrics come from the regenerated full replay, not the historical optimizer phase-search reference."
+  },
+  "source_full_diagnostics_summary": "backtests\\output\\swing\\atrss\\round_3\\full_diagnostics_summary.json",
+  "comparable_full_diagnostics": {
+    "generated_at_utc": "2026-05-07T14:50:44.953889+00:00",
+    "comparable_basis": "current-code final optimized config replay",
+    "initial_equity": 100000.0,
+    "text_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\atrss\\round_3\\full_diagnostics.txt",
+    "summary_json_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\atrss\\round_3\\full_diagnostics_summary.json",
+    "execution_mode": "synchronized",
+    "execution_mode_label": "synchronized/shared-capital",
+    "phase_result": "current",
+    "total_trades": 264,
+    "win_rate_pct": 83.33333333333334,
+    "profit_factor_net_pnl": 2.553927702731657,
+    "total_r": 234.78196932774728,
+    "total_pnl": 234171.88950000016,
+    "final_equity": 334080.7950000001,
+    "net_return_pct": 234.0807950000001,
+    "max_drawdown_fraction": 0.07869367570195819,
+    "max_drawdown_pct": 7.869367570195819,
+    "max_drawdown_dollars": 12630.842999999935,
+    "sharpe": 1.9951326753887264,
+    "sortino": 0.5083721939007939,
+    "calmar": 29.745820475656764,
+    "avg_r": 0.889325641392982,
+    "avg_win_r": null,
+    "avg_loss_r": null,
+    "avg_hold_bars": 32.92045454545455,
+    "trades_per_month": null,
+    "mutation_count": 14,
+    "note": "Comparable headline metrics come from the regenerated full replay, not the historical optimizer phase-search reference."
+  },
+  "metrics_basis": {
+    "basis": "current-code final optimized config replay",
+    "initial_equity": 100000.0,
+    "profit_factor_basis": "net PnL dollars from regenerated full replay",
+    "updated_at_utc": "2026-05-07T14:50:44.959833+00:00"
+  }
+}

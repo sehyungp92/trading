@@ -1,0 +1,532 @@
+{
+  "GFC": {
+    "start": "2008-09-01",
+    "end": "2009-03-01",
+    "period_type": "D",
+    "detect_threshold": "WARNING",
+    "detected": true,
+    "detected_at": "2008-09-15",
+    "latency_days": 14,
+    "first_raw_conjunction_at": "2008-09-15",
+    "raw_latency_days": 14,
+    "first_external_advisory_at": "2008-09-02",
+    "external_advisory_latency_days": 1,
+    "first_portfolio_action_at": "2008-09-03",
+    "portfolio_action_latency_days": 2,
+    "first_stress_formation_at": "2008-09-03",
+    "stress_formation_latency_days": 2,
+    "max_level": 3,
+    "peak_level": "CRISIS",
+    "bottleneck_channel": "SPY_DRAWDOWN",
+    "bottleneck_date": "2008-09-15",
+    "channels_confirming_by_detection": [
+      {
+        "channel": "CREDIT_SPREAD",
+        "first_confirmed_at": "2008-09-02"
+      },
+      {
+        "channel": "SPY_DRAWDOWN",
+        "first_confirmed_at": "2008-09-15"
+      }
+    ],
+    "channel_firsts": {
+      "VIX": {
+        "WATCH": "2008-09-15",
+        "WARNING": "2008-09-29",
+        "CRISIS": "2008-09-29"
+      },
+      "CREDIT_SPREAD": {
+        "WATCH": "2008-09-02",
+        "WARNING": "2008-09-02",
+        "CRISIS": "2008-09-02"
+      },
+      "YIELD_CURVE": {
+        "WATCH": null,
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "SPY_TLT_CORR": {
+        "WATCH": null,
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "SPY_DRAWDOWN": {
+        "WATCH": "2008-09-15",
+        "WARNING": "2008-09-15",
+        "CRISIS": "2008-10-03"
+      }
+    }
+  },
+  "Euro Crisis": {
+    "start": "2011-07-01",
+    "end": "2011-12-31",
+    "period_type": "D",
+    "detect_threshold": "WARNING",
+    "detected": true,
+    "detected_at": "2011-08-04",
+    "latency_days": 34,
+    "first_raw_conjunction_at": "2011-08-04",
+    "raw_latency_days": 34,
+    "first_external_advisory_at": "2011-07-01",
+    "external_advisory_latency_days": 0,
+    "first_portfolio_action_at": "2011-07-11",
+    "portfolio_action_latency_days": 10,
+    "first_stress_formation_at": "2011-07-11",
+    "stress_formation_latency_days": 10,
+    "max_level": 3,
+    "peak_level": "CRISIS",
+    "bottleneck_channel": "SPY_DRAWDOWN",
+    "bottleneck_date": "2011-08-04",
+    "channels_confirming_by_detection": [
+      {
+        "channel": "CREDIT_SPREAD",
+        "first_confirmed_at": "2011-07-01"
+      },
+      {
+        "channel": "SPY_DRAWDOWN",
+        "first_confirmed_at": "2011-08-04"
+      }
+    ],
+    "channel_firsts": {
+      "VIX": {
+        "WATCH": "2011-08-04",
+        "WARNING": "2011-08-08",
+        "CRISIS": "2011-08-08"
+      },
+      "CREDIT_SPREAD": {
+        "WATCH": "2011-07-01",
+        "WARNING": "2011-07-01",
+        "CRISIS": "2011-07-01"
+      },
+      "YIELD_CURVE": {
+        "WATCH": null,
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "SPY_TLT_CORR": {
+        "WATCH": null,
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "SPY_DRAWDOWN": {
+        "WATCH": "2011-08-02",
+        "WARNING": "2011-08-04",
+        "CRISIS": "2011-08-04"
+      }
+    }
+  },
+  "2015 China": {
+    "start": "2015-08-01",
+    "end": "2016-03-01",
+    "period_type": "D",
+    "detect_threshold": "WARNING",
+    "detected": true,
+    "detected_at": "2015-08-24",
+    "latency_days": 23,
+    "first_raw_conjunction_at": "2015-08-24",
+    "raw_latency_days": 23,
+    "first_external_advisory_at": "2015-08-03",
+    "external_advisory_latency_days": 2,
+    "first_portfolio_action_at": "2015-08-20",
+    "portfolio_action_latency_days": 19,
+    "first_stress_formation_at": "2015-08-20",
+    "stress_formation_latency_days": 19,
+    "max_level": 3,
+    "peak_level": "CRISIS",
+    "bottleneck_channel": "SPY_DRAWDOWN",
+    "bottleneck_date": "2015-08-24",
+    "channels_confirming_by_detection": [
+      {
+        "channel": "CREDIT_SPREAD",
+        "first_confirmed_at": "2015-08-03"
+      },
+      {
+        "channel": "VIX",
+        "first_confirmed_at": "2015-08-24"
+      },
+      {
+        "channel": "SPY_DRAWDOWN",
+        "first_confirmed_at": "2015-08-24"
+      }
+    ],
+    "channel_firsts": {
+      "VIX": {
+        "WATCH": "2015-08-24",
+        "WARNING": "2015-08-24",
+        "CRISIS": null
+      },
+      "CREDIT_SPREAD": {
+        "WATCH": "2015-08-03",
+        "WARNING": "2015-08-03",
+        "CRISIS": "2015-08-03"
+      },
+      "YIELD_CURVE": {
+        "WATCH": null,
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "SPY_TLT_CORR": {
+        "WATCH": null,
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "SPY_DRAWDOWN": {
+        "WATCH": "2015-08-24",
+        "WARNING": "2015-08-24",
+        "CRISIS": "2015-08-24"
+      }
+    }
+  },
+  "2018 Q4": {
+    "start": "2018-10-01",
+    "end": "2019-01-01",
+    "period_type": "D",
+    "detect_threshold": "WARNING",
+    "detected": true,
+    "detected_at": "2018-10-11",
+    "latency_days": 10,
+    "first_raw_conjunction_at": "2018-10-11",
+    "raw_latency_days": 10,
+    "first_external_advisory_at": "2018-10-10",
+    "external_advisory_latency_days": 9,
+    "first_portfolio_action_at": "2018-10-10",
+    "portfolio_action_latency_days": 9,
+    "first_stress_formation_at": "2018-10-10",
+    "stress_formation_latency_days": 9,
+    "max_level": 3,
+    "peak_level": "CRISIS",
+    "bottleneck_channel": "SPY_DRAWDOWN",
+    "bottleneck_date": "2018-10-11",
+    "channels_confirming_by_detection": [
+      {
+        "channel": "CREDIT_SPREAD",
+        "first_confirmed_at": "2018-10-09"
+      },
+      {
+        "channel": "SPY_DRAWDOWN",
+        "first_confirmed_at": "2018-10-11"
+      }
+    ],
+    "channel_firsts": {
+      "VIX": {
+        "WATCH": "2018-12-21",
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "CREDIT_SPREAD": {
+        "WATCH": "2018-10-01",
+        "WARNING": "2018-10-09",
+        "CRISIS": "2018-12-20"
+      },
+      "YIELD_CURVE": {
+        "WATCH": null,
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "SPY_TLT_CORR": {
+        "WATCH": null,
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "SPY_DRAWDOWN": {
+        "WATCH": "2018-10-11",
+        "WARNING": "2018-10-11",
+        "CRISIS": "2018-12-24"
+      }
+    }
+  },
+  "COVID": {
+    "start": "2020-02-15",
+    "end": "2020-04-15",
+    "period_type": "D",
+    "detect_threshold": "WARNING",
+    "detected": true,
+    "detected_at": "2020-02-25",
+    "latency_days": 10,
+    "first_raw_conjunction_at": "2020-02-25",
+    "raw_latency_days": 10,
+    "first_external_advisory_at": "2020-02-24",
+    "external_advisory_latency_days": 9,
+    "first_portfolio_action_at": "2020-02-24",
+    "portfolio_action_latency_days": 9,
+    "first_stress_formation_at": "2020-02-24",
+    "stress_formation_latency_days": 9,
+    "max_level": 3,
+    "peak_level": "CRISIS",
+    "bottleneck_channel": "SPY_DRAWDOWN",
+    "bottleneck_date": "2020-02-25",
+    "channels_confirming_by_detection": [
+      {
+        "channel": "CREDIT_SPREAD",
+        "first_confirmed_at": "2020-02-18"
+      },
+      {
+        "channel": "SPY_DRAWDOWN",
+        "first_confirmed_at": "2020-02-25"
+      }
+    ],
+    "channel_firsts": {
+      "VIX": {
+        "WATCH": "2020-02-27",
+        "WARNING": "2020-02-27",
+        "CRISIS": "2020-03-09"
+      },
+      "CREDIT_SPREAD": {
+        "WATCH": "2020-02-18",
+        "WARNING": "2020-02-18",
+        "CRISIS": "2020-02-28"
+      },
+      "YIELD_CURVE": {
+        "WATCH": null,
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "SPY_TLT_CORR": {
+        "WATCH": null,
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "SPY_DRAWDOWN": {
+        "WATCH": "2020-02-25",
+        "WARNING": "2020-02-25",
+        "CRISIS": "2020-02-27"
+      }
+    }
+  },
+  "2022 Inflation": {
+    "start": "2022-01-01",
+    "end": "2022-10-01",
+    "period_type": "S",
+    "detect_threshold": "WARNING",
+    "detected": true,
+    "detected_at": "2022-01-24",
+    "latency_days": 23,
+    "first_raw_conjunction_at": "2022-01-24",
+    "raw_latency_days": 23,
+    "first_external_advisory_at": "2022-01-18",
+    "external_advisory_latency_days": 17,
+    "first_portfolio_action_at": "2022-01-18",
+    "portfolio_action_latency_days": 17,
+    "first_stress_formation_at": "2022-01-18",
+    "stress_formation_latency_days": 17,
+    "max_level": 3,
+    "peak_level": "CRISIS",
+    "bottleneck_channel": "CREDIT_SPREAD",
+    "bottleneck_date": "2022-01-24",
+    "channels_confirming_by_detection": [
+      {
+        "channel": "SPY_DRAWDOWN",
+        "first_confirmed_at": "2022-01-21"
+      },
+      {
+        "channel": "CREDIT_SPREAD",
+        "first_confirmed_at": "2022-01-24"
+      }
+    ],
+    "channel_firsts": {
+      "VIX": {
+        "WATCH": "2022-01-24",
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "CREDIT_SPREAD": {
+        "WATCH": "2022-01-03",
+        "WARNING": "2022-01-24",
+        "CRISIS": "2022-06-16"
+      },
+      "YIELD_CURVE": {
+        "WATCH": "2022-09-21",
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "SPY_TLT_CORR": {
+        "WATCH": "2022-04-25",
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "SPY_DRAWDOWN": {
+        "WATCH": "2022-01-19",
+        "WARNING": "2022-01-21",
+        "CRISIS": "2022-06-16"
+      }
+    }
+  },
+  "2023 SVB": {
+    "start": "2023-03-01",
+    "end": "2023-05-31",
+    "period_type": "C",
+    "detect_threshold": "WATCH",
+    "detected": true,
+    "detected_at": "2023-03-01",
+    "latency_days": 0,
+    "first_raw_conjunction_at": "2023-03-01",
+    "raw_latency_days": 0,
+    "first_external_advisory_at": "2023-03-01",
+    "external_advisory_latency_days": 0,
+    "first_portfolio_action_at": "2023-03-01",
+    "portfolio_action_latency_days": 0,
+    "first_stress_formation_at": "2023-03-10",
+    "stress_formation_latency_days": 9,
+    "max_level": 2,
+    "peak_level": "WARNING",
+    "bottleneck_channel": "SPY_TLT_CORR",
+    "bottleneck_date": "2023-03-01",
+    "channels_confirming_by_detection": [
+      {
+        "channel": "CREDIT_SPREAD",
+        "first_confirmed_at": "2023-03-01"
+      },
+      {
+        "channel": "YIELD_CURVE",
+        "first_confirmed_at": "2023-03-01"
+      },
+      {
+        "channel": "SPY_TLT_CORR",
+        "first_confirmed_at": "2023-03-01"
+      }
+    ],
+    "channel_firsts": {
+      "VIX": {
+        "WATCH": null,
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "CREDIT_SPREAD": {
+        "WATCH": "2023-03-01",
+        "WARNING": "2023-03-01",
+        "CRISIS": "2023-03-13"
+      },
+      "YIELD_CURVE": {
+        "WATCH": "2023-03-01",
+        "WARNING": "2023-04-04",
+        "CRISIS": null
+      },
+      "SPY_TLT_CORR": {
+        "WATCH": "2023-03-01",
+        "WARNING": "2023-03-01",
+        "CRISIS": null
+      },
+      "SPY_DRAWDOWN": {
+        "WATCH": null,
+        "WARNING": null,
+        "CRISIS": null
+      }
+    }
+  },
+  "2025 Tariff": {
+    "start": "2025-03-01",
+    "end": "2025-05-31",
+    "period_type": "D",
+    "detect_threshold": "WARNING",
+    "detected": true,
+    "detected_at": "2025-03-13",
+    "latency_days": 12,
+    "first_raw_conjunction_at": "2025-03-13",
+    "raw_latency_days": 12,
+    "first_external_advisory_at": "2025-03-10",
+    "external_advisory_latency_days": 9,
+    "first_portfolio_action_at": "2025-03-10",
+    "portfolio_action_latency_days": 9,
+    "first_stress_formation_at": "2025-03-10",
+    "stress_formation_latency_days": 9,
+    "max_level": 3,
+    "peak_level": "CRISIS",
+    "bottleneck_channel": "CREDIT_SPREAD",
+    "bottleneck_date": "2025-03-13",
+    "channels_confirming_by_detection": [
+      {
+        "channel": "SPY_DRAWDOWN",
+        "first_confirmed_at": "2025-03-04"
+      },
+      {
+        "channel": "CREDIT_SPREAD",
+        "first_confirmed_at": "2025-03-13"
+      }
+    ],
+    "channel_firsts": {
+      "VIX": {
+        "WATCH": "2025-04-03",
+        "WARNING": "2025-04-04",
+        "CRISIS": "2025-04-04"
+      },
+      "CREDIT_SPREAD": {
+        "WATCH": "2025-03-03",
+        "WARNING": "2025-03-13",
+        "CRISIS": null
+      },
+      "YIELD_CURVE": {
+        "WATCH": null,
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "SPY_TLT_CORR": {
+        "WATCH": "2025-05-05",
+        "WARNING": "2025-05-08",
+        "CRISIS": null
+      },
+      "SPY_DRAWDOWN": {
+        "WATCH": "2025-03-04",
+        "WARNING": "2025-03-04",
+        "CRISIS": "2025-04-04"
+      }
+    }
+  },
+  "2026 Iran": {
+    "start": "2026-02-01",
+    "end": "2026-03-27",
+    "period_type": "C",
+    "detect_threshold": "WATCH",
+    "detected": true,
+    "detected_at": "2026-02-02",
+    "latency_days": 1,
+    "first_raw_conjunction_at": "2026-02-02",
+    "raw_latency_days": 1,
+    "first_external_advisory_at": "2026-03-27",
+    "external_advisory_latency_days": 54,
+    "first_portfolio_action_at": "2026-03-27",
+    "portfolio_action_latency_days": 54,
+    "first_stress_formation_at": "2026-03-27",
+    "stress_formation_latency_days": 54,
+    "max_level": 1,
+    "peak_level": "WATCH",
+    "bottleneck_channel": "SPY_TLT_CORR",
+    "bottleneck_date": "2026-02-02",
+    "channels_confirming_by_detection": [
+      {
+        "channel": "CREDIT_SPREAD",
+        "first_confirmed_at": "2026-02-02"
+      },
+      {
+        "channel": "SPY_TLT_CORR",
+        "first_confirmed_at": "2026-02-02"
+      }
+    ],
+    "channel_firsts": {
+      "VIX": {
+        "WATCH": "2026-03-06",
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "CREDIT_SPREAD": {
+        "WATCH": "2026-02-02",
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "YIELD_CURVE": {
+        "WATCH": null,
+        "WARNING": null,
+        "CRISIS": null
+      },
+      "SPY_TLT_CORR": {
+        "WATCH": "2026-02-02",
+        "WARNING": "2026-02-02",
+        "CRISIS": null
+      },
+      "SPY_DRAWDOWN": {
+        "WATCH": null,
+        "WARNING": null,
+        "CRISIS": null
+      }
+    }
+  }
+}

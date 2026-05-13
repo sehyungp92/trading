@@ -1,0 +1,50 @@
+{"timestamp": "2026-05-06T13:36:46.137124+00:00", "phase": 1, "action": "phase_start", "focus": "Latest diagnostics ingestion and two-strategy baseline integrity", "candidate_count": 3}
+{"timestamp": "2026-05-06T13:36:46.146453+00:00", "phase": 1, "action": "greedy_start", "candidate_count": 3, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-05-06T14:06:26.763870+00:00", "phase": 1, "action": "greedy_complete", "base_score": 0.756047988504457, "final_score": 0.756047988504457, "accepted_count": 0}
+{"timestamp": "2026-05-06T14:06:26.820864+00:00", "phase": 1, "action": "gate_check", "passed": true, "failure_category": null}
+{"timestamp": "2026-05-06T14:06:26.869867+00:00", "phase": 1, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-06T14:06:26.927867+00:00", "phase": 1, "action": "analysis_complete", "recommendation": "advance", "reason": "Gate passed."}
+{"timestamp": "2026-05-06T14:06:27.022876+00:00", "phase": 1, "action": "decision_advance", "reason": "Gate passed.", "gate_passed": true, "applied_phase_mutations": true, "new_mutation_count": 0}
+{"timestamp": "2026-05-06T14:06:27.053869+00:00", "phase": 2, "action": "phase_start", "focus": "Alpha/frequency capacity expansion under heat caps", "candidate_count": 7}
+{"timestamp": "2026-05-06T14:06:27.095870+00:00", "phase": 2, "action": "greedy_start", "candidate_count": 7, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-05-06T14:41:55.483528+00:00", "phase": 2, "action": "greedy_complete", "base_score": 0.756047988504457, "final_score": 0.8117716694164114, "accepted_count": 3}
+{"timestamp": "2026-05-06T14:41:55.589140+00:00", "phase": 2, "action": "gate_check", "passed": true, "failure_category": null}
+{"timestamp": "2026-05-06T14:41:55.722358+00:00", "phase": 2, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-06T14:41:55.870579+00:00", "phase": 2, "action": "analysis_complete", "recommendation": "advance", "reason": "Gate passed."}
+{"timestamp": "2026-05-06T14:41:56.035307+00:00", "phase": 2, "action": "decision_advance", "reason": "Gate passed.", "gate_passed": true, "applied_phase_mutations": true, "new_mutation_count": 5}
+{"timestamp": "2026-05-06T14:41:56.097716+00:00", "phase": 3, "action": "phase_start", "focus": "Dynamic synergistic unit-risk allocation", "candidate_count": 5}
+{"timestamp": "2026-05-06T14:41:56.154395+00:00", "phase": 3, "action": "greedy_start", "candidate_count": 5, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-05-06T14:49:12.412663+00:00", "phase": 3, "action": "greedy_complete", "base_score": 0.8117716694164114, "final_score": 0.8117716694164114, "accepted_count": 0}
+{"timestamp": "2026-05-06T14:49:12.467660+00:00", "phase": 3, "action": "gate_check", "passed": false, "failure_category": "candidates_exhausted"}
+{"timestamp": "2026-05-06T14:49:12.501665+00:00", "phase": 3, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-06T14:49:12.545663+00:00", "phase": 3, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-05-06T14:49:12.641663+00:00", "phase": 3, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "applied_phase_mutations": false, "new_mutation_count": 0}
+{"timestamp": "2026-05-06T14:49:12.675663+00:00", "phase": 4, "action": "phase_start", "focus": "Cross-strategy routing, symbol collision, and sector heat", "candidate_count": 6}
+{"timestamp": "2026-05-06T14:49:12.703661+00:00", "phase": 4, "action": "greedy_start", "candidate_count": 6, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-05-06T14:56:16.401463+00:00", "phase": 4, "action": "greedy_complete", "base_score": 0.8117716694164114, "final_score": 0.8117716694164114, "accepted_count": 0}
+{"timestamp": "2026-05-06T14:56:16.454703+00:00", "phase": 4, "action": "gate_check", "passed": false, "failure_category": "candidates_exhausted"}
+{"timestamp": "2026-05-06T14:56:16.495247+00:00", "phase": 4, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-06T14:56:16.538248+00:00", "phase": 4, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-05-06T14:56:16.630244+00:00", "phase": 4, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "applied_phase_mutations": false, "new_mutation_count": 0}
+{"timestamp": "2026-05-06T14:56:16.654247+00:00", "phase": 5, "action": "phase_start", "focus": "Blocked-candidate discrimination using live-known quality proxies", "candidate_count": 6}
+{"timestamp": "2026-05-06T14:56:16.686252+00:00", "phase": 5, "action": "greedy_start", "candidate_count": 6, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-05-06T15:11:25.022871+00:00", "phase": 5, "action": "greedy_complete", "base_score": 0.8117716694164114, "final_score": 0.8269116646688465, "accepted_count": 2}
+{"timestamp": "2026-05-06T15:11:25.081408+00:00", "phase": 5, "action": "gate_check", "passed": false, "failure_category": "diagnostic_needed"}
+{"timestamp": "2026-05-06T15:11:25.119412+00:00", "phase": 5, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-06T15:11:25.170408+00:00", "phase": 5, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-05-06T15:11:25.270408+00:00", "phase": 5, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "applied_phase_mutations": false, "new_mutation_count": 0}
+{"timestamp": "2026-05-06T15:11:25.305412+00:00", "phase": 6, "action": "phase_start", "focus": "Aggressive drawdown governors and cascade containment", "candidate_count": 4}
+{"timestamp": "2026-05-06T15:11:25.335410+00:00", "phase": 6, "action": "greedy_start", "candidate_count": 4, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-05-06T15:17:38.175894+00:00", "phase": 6, "action": "greedy_complete", "base_score": 0.8117716694164114, "final_score": 0.8117716694164114, "accepted_count": 0}
+{"timestamp": "2026-05-06T15:17:38.275893+00:00", "phase": 6, "action": "gate_check", "passed": true, "failure_category": null}
+{"timestamp": "2026-05-06T15:17:38.321896+00:00", "phase": 6, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-06T15:17:38.367890+00:00", "phase": 6, "action": "analysis_complete", "recommendation": "advance", "reason": "Gate passed."}
+{"timestamp": "2026-05-06T15:17:38.490892+00:00", "phase": 6, "action": "decision_advance", "reason": "Gate passed.", "gate_passed": true, "applied_phase_mutations": true, "new_mutation_count": 0}
+{"timestamp": "2026-05-06T15:17:38.536892+00:00", "phase": 7, "action": "phase_start", "focus": "Final blend, robustness gates, and no-overfit acceptance", "candidate_count": 3}
+{"timestamp": "2026-05-06T15:17:38.574891+00:00", "phase": 7, "action": "greedy_start", "candidate_count": 3, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-05-06T15:22:30.816670+00:00", "phase": 7, "action": "greedy_complete", "base_score": 0.8117716694164114, "final_score": 0.8117716694164114, "accepted_count": 0}
+{"timestamp": "2026-05-06T15:22:30.902671+00:00", "phase": 7, "action": "gate_check", "passed": false, "failure_category": "candidates_exhausted"}
+{"timestamp": "2026-05-06T15:22:30.943669+00:00", "phase": 7, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-06T15:22:30.997670+00:00", "phase": 7, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-05-06T15:22:31.116669+00:00", "phase": 7, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "applied_phase_mutations": false, "new_mutation_count": 0}
+{"timestamp": "2026-05-06T15:22:31.237668+00:00", "phase": 7, "action": "end_of_round", "completed_phases": [1, 2, 3, 4, 5, 6, 7]}

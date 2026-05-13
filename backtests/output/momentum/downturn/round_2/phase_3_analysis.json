@@ -1,0 +1,88 @@
+{
+  "phase": 3,
+  "goal_progress": {
+    "correction_pnl_pct": {
+      "target": 60.0,
+      "actual": 53.48179999999999,
+      "pct_of_target": 89.13633333333331
+    },
+    "profit_factor": {
+      "target": 2.0,
+      "actual": 2.4119673877726813,
+      "pct_of_target": 120.59836938863407
+    },
+    "net_return_pct": {
+      "target": 50.0,
+      "actual": 74.74559999999997,
+      "pct_of_target": 149.49119999999994
+    },
+    "max_dd_pct": {
+      "target": 20.0,
+      "actual": 0.06173308109716665,
+      "pct_of_target": 200.0
+    },
+    "calmar": {
+      "target": 2.0,
+      "actual": 3.658492503120096,
+      "pct_of_target": 182.9246251560048
+    },
+    "exit_efficiency": {
+      "target": 0.35,
+      "actual": 0.7555029012520821,
+      "pct_of_target": 200.0
+    },
+    "total_trades": {
+      "target": 60.0,
+      "actual": 110.0,
+      "pct_of_target": 183.33333333333331
+    }
+  },
+  "strengths": [
+    "correction_pnl_pct: 53.4818 (89% of 60.0000)",
+    "profit_factor: 2.4120 (121% of 2.0000)",
+    "net_return_pct: 74.7456 (149% of 50.0000)",
+    "max_dd_pct: 0.0617 (200% of 20.0000)",
+    "calmar: 3.6585 (183% of 2.0000)",
+    "exit_efficiency: 0.7555 (200% of 0.3500)",
+    "total_trades: 110.0000 (183% of 60.0000)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "MISALIGNED",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [
+    {
+      "name": "bd_relax_containment_0.60",
+      "mutations": {
+        "param_overrides.box_containment_min": 0.6
+      }
+    },
+    {
+      "name": "bd_no_chop_filter",
+      "mutations": {
+        "flags.breakdown_chop_filter": false
+      }
+    },
+    {
+      "name": "bd_relax_displacement_0.50",
+      "mutations": {
+        "param_overrides.displacement_quantile": 0.5
+      }
+    }
+  ],
+  "recommendation": "advance",
+  "recommendation_reason": "Retry budget exhausted; carry suggested experiments into the next phase.",
+  "report": "======================================================================\nPHASE 3 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Retry budget exhausted; carry suggested experiments into the next phase.\nScoring assessment: MISALIGNED\n\nStrengths:\n  + correction_pnl_pct: 53.4818 (89% of 60.0000)\n  + profit_factor: 2.4120 (121% of 2.0000)\n  + net_return_pct: 74.7456 (149% of 50.0000)\n  + max_dd_pct: 0.0617 (200% of 20.0000)\n  + calmar: 3.6585 (183% of 2.0000)\n  + exit_efficiency: 0.7555 (200% of 0.3500)\n  + total_trades: 110.0000 (183% of 60.0000)\n\nSuggested Experiments (3):\n  - bd_relax_containment_0.60: {\"param_overrides.box_containment_min\": 0.6}\n  - bd_no_chop_filter: {\"flags.breakdown_chop_filter\": false}\n  - bd_relax_displacement_0.50: {\"param_overrides.displacement_quantile\": 0.5}\n\nExtra Analysis:\n  Engine health: reversal=insufficient_data, breakdown=insufficient_data, fade=healthy\n  Correction attribution: corr_pnl=5348, non_corr_pnl=2126, ratio=0.72\n\nGoal Progress:\n  correction_pnl_pct: 53.4818 / 60.0000 (89%)\n  profit_factor: 2.4120 / 2.0000 (121%)\n  net_return_pct: 74.7456 / 50.0000 (149%)\n  max_dd_pct: 0.0617 / 20.0000 (200%)\n  calmar: 3.6585 / 2.0000 (183%)\n  exit_efficiency: 0.7555 / 0.3500 (200%)\n  total_trades: 110.0000 / 60.0000 (183%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "engine_health": {
+      "reversal": "insufficient_data",
+      "breakdown": "insufficient_data",
+      "fade": "healthy"
+    },
+    "correction_attribution": {
+      "correction_pnl": 5348.179999999999,
+      "non_correction_pnl": 2126.3799999999997,
+      "ratio": 0.7155177027142734
+    }
+  }
+}

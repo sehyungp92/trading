@@ -1,0 +1,45 @@
+================================================================================
+OOS VALIDATION REPORT
+IS Period: 2024-01-01 to 2026-03-20 (~26.6 months)
+OOS Period: 2026-03-21 to 2026-05-01
+Assessment basis: reproduced IS metrics from the same frozen replay
+Ref PF: stored guide/run-summary baseline, shown for audit context only
+================================================================================
+
+Strategy            OOS#  OOS WR  OOS PF OOS AvgR Repro IS PF  Ref PF Warn Assessment Action
+--------------------------------------------------------------------------------------------
+iaric                 34  76.5%    2.58    0.173        2.29    1.78    0 GREEN    No action needed -- edge persists
+alcb                  65  67.7%    3.07    0.428        2.05    2.20    1 GREEN    No action needed -- edge persists
+
+================================================================================
+DETAILED BREAKDOWN
+================================================================================
+
+Strategy: iaric (stock)
+------------------------------------------------------------
+                       IS (26 mo)          OOS      Delta
+Trades:                      1470           34
+Win Rate:                  79.7%       76.5%     -3.3%
+Profit Factor:               2.29         2.58      +0.29
+Avg R/trade:                0.153        0.173     +0.020
+Net R:                      225.0          5.9
+Max DD (R):                  5.45         2.19
+Trades/month:                55.2         25.2
+Config:              C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\stock\iaric\round_3\optimized_config.json
+Assessment:          GREEN
+Action:              No action needed -- edge persists
+
+Strategy: alcb (stock)
+------------------------------------------------------------
+                       IS (26 mo)          OOS      Delta
+Trades:                       546           65
+Win Rate:                  62.8%       67.7%     +4.9%
+Profit Factor:               2.05         3.07      +1.02
+Avg R/trade:                0.278        0.428     +0.150
+Net R:                      151.9         27.8
+Max DD (R):                  5.46         5.65
+Trades/month:                20.5         48.3
+Config:              C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\stock\alcb\round_3\optimized_config.json
+Warnings:            IS trade count does not reproduce stored round summary (546 vs 511).
+Assessment:          GREEN
+Action:              No action needed -- edge persists

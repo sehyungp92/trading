@@ -1,0 +1,134 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-04-29T22:43:43.573916+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 5,
+      "base_score": 0.5585716810143284,
+      "final_score": 0.5730206766580699,
+      "kept_features": [
+        "disable_vwap_fail_evening"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Runner Protection & Exit Capture",
+      "candidate_count": 19
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-04-29T22:52:49.057886+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 5,
+      "base_score": 0.5730206766580699,
+      "final_score": 0.5730206766580699,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Execution & Fill Recovery",
+      "candidate_count": 28
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-04-29T23:00:54.543846+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 5,
+      "base_score": 0.5730206766580699,
+      "final_score": 0.5730206766580699,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Entry Precision & Stop Geometry",
+      "candidate_count": 26
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-04-29T23:05:09.885286+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 5,
+      "base_score": 0.5730206766580699,
+      "final_score": 0.5730206766580699,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Alpha Expansion",
+      "candidate_count": 14
+    },
+    "5": {
+      "status": "completed",
+      "updated_at": "2026-04-29T23:17:10.646282+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "current_phase": 5,
+      "total_mutations": 9,
+      "base_score": 0.5730206766580699,
+      "final_score": 0.6771353169338056,
+      "kept_features": [
+        "evening_near_block",
+        "dow_monday_thu_cut"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Session & Regime Composition",
+      "candidate_count": 17
+    },
+    "6": {
+      "status": "completed",
+      "updated_at": "2026-04-29T23:22:16.173298+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "current_phase": 6,
+      "total_mutations": 9,
+      "base_score": 0.6771353169338056,
+      "final_score": 0.6771353169338056,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Interactions & Fine Tune",
+      "candidate_count": 14
+    }
+  },
+  "last_updated": "2026-04-29T23:22:16.187007+00:00",
+  "current_phase": 6
+}

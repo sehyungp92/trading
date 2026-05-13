@@ -1,0 +1,86 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-05T18:55:05.091127+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 1,
+      "base_score": 0.7689980723693302,
+      "final_score": 0.7742830664888747,
+      "kept_features": [
+        "vix_crisis_33"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "VIX + Credit Spread + Conjunction Baseline",
+      "candidate_count": 39
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-05T18:55:06.208137+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 1,
+      "base_score": 0.7742830664888747,
+      "final_score": 0.7742830664888747,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Yield Curve + Correlation Tuning",
+      "candidate_count": 38
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-05T18:55:08.255077+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 1,
+      "base_score": 0.7742830664888747,
+      "final_score": 0.7742830664888747,
+      "kept_features": [],
+      "gate_passed": false,
+      "failure_category": "candidates_exhausted",
+      "scoring_retries": 2,
+      "diagnostic_retries": 1,
+      "focus": "Hysteresis + Stability Tuning",
+      "candidate_count": 19
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-05T18:55:08.650945+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 1,
+      "base_score": 0.7742830664888747,
+      "final_score": 0.7742830664888747,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Threshold Fine-Tuning",
+      "candidate_count": 4
+    }
+  },
+  "last_updated": "2026-05-05T18:55:08.668350+00:00",
+  "current_phase": 4
+}

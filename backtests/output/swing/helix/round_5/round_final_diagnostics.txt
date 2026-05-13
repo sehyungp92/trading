@@ -1,0 +1,596 @@
+================================================================================
+HELIX ROUND 5 FINAL DIAGNOSTICS WITH OOS REPAIR + TRAIL_FADE_PENALTY_p20 (SYNCHRONIZED / FEE-NET)
+Generated: 2026-05-09 11:46
+Initial Equity: $25,000
+Data window: beginning through 2026-05-01
+Symbols: QQQ, GLD
+Execution mode: synchronized/shared-capital
+Comparable basis: current-code final optimized config replay
+Mutation source: backtests\output\swing\helix\round_5\phase_state.json
+  flags.disable_circuit_breaker: True
+  flags.disable_class_a: True
+  flags.disable_class_c: True
+  param_overrides.ADD_1H_R: 0.7776
+  param_overrides.ADD_4H_R: 0.25
+  param_overrides.ADD_MAX_BARS: 18
+  param_overrides.ADD_MIN_BARS: 2
+  param_overrides.ADD_RISK_FRAC: 2.0592
+  param_overrides.ADX_UPPER_GATE: 60.5
+  param_overrides.BE_ATR1H_OFFSET: 0.08
+  param_overrides.CLASS_B_BAIL_BARS: 9
+  param_overrides.CLASS_B_BAIL_R_THRESH: -0.35
+  param_overrides.CLASS_B_MIN_ADX: 28.0
+  param_overrides.CLASS_B_MOM_LOOKBACK: 5
+  param_overrides.CLASS_D_MAX_DAILY_EXTENSION_ATR: 3.5
+  param_overrides.CLASS_D_MIN_PIVOT_SEP_BARS: 4
+  param_overrides.CLASS_D_REGIME_STREAK_MIN: 2
+  param_overrides.CLASS_D_SHORT_MIN_ADX: 0.0
+  param_overrides.EARLY_STALE_BARS: 24
+  param_overrides.EXTREME_VOL_PCT: 999.0
+  param_overrides.HIGH_VOL_PCT: 68
+  param_overrides.PARTIAL_2P5_FRAC: 0.968
+  param_overrides.RTS_GUARD_FLOOR_R: 0.05
+  param_overrides.RTS_GUARD_MFE_R: 0.25
+  param_overrides.RTS_GUARD_MIN_BARS: 10
+  param_overrides.RTS_GUARD_MIN_GIVEBACK_R: 0.05
+  param_overrides.R_BE_1H: 0.756
+  param_overrides.R_PARTIAL_2P5: 1.8
+  param_overrides.R_PARTIAL_5: 6.6
+  param_overrides.STALE_1H_BARS: 24
+  param_overrides.STALE_R_THRESH: 0.3
+  param_overrides.TRAIL_FADE_MIN_R: 0.5
+  param_overrides.TRAIL_FADE_PENALTY: 1.32
+  param_overrides.TRAIL_PROFIT_DELAY_BARS: 6
+  param_overrides.TRAIL_R_DIV: 8.4
+  param_overrides.TRAIL_STALL_ONSET: 5
+  param_overrides.TRAIL_STALL_RATE: 0.1584
+  param_overrides.TRAIL_TIMEDECAY_ONSET: 25
+  param_overrides.TTL_1H_HOURS: 6
+
+Optimizer reference (historical phase-search basis; not the current full replay headline):
+================================================================================
+
+================================================================================
+  Swing Helix Strength / Weakness Snapshot
+================================================================================
+
+  Strengths
+    - Best symbol: GLD (n=146, WR=50.0%, avgR=+0.67, fee-net=$+28,046, PF=2.70)
+    - Best setup class: D (n=295, WR=49.8%, avgR=+0.41, fee-net=$+33,556, PF=1.92)
+    - Best exit reason: STOP (n=266, WR=53.4%, avgR=+0.66, fee-net=$+49,327, PF=2.42)
+    - Positive fee-net PnL is reasonably distributed: top 5 winners drive 15% of gains.
+
+  Weaknesses
+    - Worst exit reason: STALE (n=58, WR=36.2%, avgR=-0.23, fee-net=$-3,522, PF=0.20)
+
+  Notes
+    - Fee-net trade count: 325 with 162 non-positive outcomes and 163 positive outcomes.
+
+Total trades: 325
+Total PnL: $45,728.03
+Total R (fee-net): +158.76
+Win Rate: 50.2%
+Profit Factor: 2.17
+Avg Win R: +1.85  Avg Loss R: -0.88  Win/Loss Ratio: 2.10
+Total Commission: $510.12
+Risk Basis: actual initial dollars-at-risk after fill, rounding, and caps
+Sizing Utilization: mean=99.2% median=99.5% min=89.7% max=100.0% under98=23 under90=1 over102=0
+
+Final Equity: $70,728.03
+Net Return: +182.9%
+Max Drawdown: 5.96% ($2,668)
+Sharpe: 1.33  Sortino: 0.79
+Calmar: 30.68
+
+================================================================================
+A) PER-SYMBOL TRADE SUMMARY
+================================================================================
+  GLD                             n=146  WR= 50.0%  avgR=+0.67  totR=+97.40  PF=2.70  PnL=$+28,046
+     Setups: detected=298 armed=259 filled=146 expired=94  Fill rate: 49.0%
+  QQQ                             n=179  WR= 50.3%  avgR=+0.34  totR=+61.36  PF=1.78  PnL=$+17,682
+     Setups: detected=272 armed=262 filled=179 expired=59  Fill rate: 65.8%
+
+================================================================================
+B) PER-CLASS BREAKDOWN (A = divergence, D = momentum)
+================================================================================
+  Class B                         n= 30  WR= 53.3%  avgR=+1.36  totR=+40.69  PF=5.13  PnL=$+12,172
+  Class D                         n=295  WR= 49.8%  avgR=+0.40  totR=+118.07  PF=1.92  PnL=$+33,556
+
+================================================================================
+C) PER-REGIME BREAKDOWN
+================================================================================
+  BEAR                            n= 89  WR= 48.3%  avgR=+0.26  totR=+23.25  PF=1.65  PnL=$+6,509
+  BULL                            n=236  WR= 50.8%  avgR=+0.57  totR=+135.51  PF=2.35  PnL=$+39,219
+
+  Regime time distribution:
+    GLD: BULL=622d (50%) BEAR=295d (24%) CHOP=336d (27%)
+    QQQ: BULL=666d (53%) BEAR=273d (22%) CHOP=314d (25%)
+
+================================================================================
+D) PER-DIRECTION BREAKDOWN
+================================================================================
+  LONG                            n=236  WR= 50.8%  avgR=+0.57  totR=+135.51  PF=2.35  PnL=$+39,219
+  SHORT                           n= 89  WR= 48.3%  avgR=+0.26  totR=+23.25  PF=1.65  PnL=$+6,509
+
+================================================================================
+E) REGIME x DIRECTION CROSS-TAB
+================================================================================
+  BULL-LONG                       n=236  WR= 50.8%  avgR=+0.57  totR=+135.51  PF=2.35  PnL=$+39,219
+  BULL-SHORT                      n=  0  (no trades)
+  BEAR-LONG                       n=  0  (no trades)
+  BEAR-SHORT                      n= 89  WR= 48.3%  avgR=+0.26  totR=+23.25  PF=1.65  PnL=$+6,509
+  CHOP-LONG                       n=  0  (no trades)
+  CHOP-SHORT                      n=  0  (no trades)
+
+================================================================================
+F) 4H REGIME ALIGNMENT
+================================================================================
+  No 4H regime data.
+
+================================================================================
+G) ORIGIN TIMEFRAME BREAKDOWN
+================================================================================
+  TF: 1H                          n=325  WR= 50.2%  avgR=+0.49  totR=+158.76  PF=2.17  PnL=$+45,728
+
+================================================================================
+H) EXIT REASON ANALYSIS
+================================================================================
+  END_OF_DATA                     n=  1  WR=  0.0%  avgR=-0.15  totR=-0.15  PF=0.00  PnL=$-77
+  STALE                           n= 58  WR= 36.2%  avgR=-0.23  totR=-13.61  PF=0.20  PnL=$-3,522
+  STOP                            n=266  WR= 53.4%  avgR=+0.65  totR=+172.52  PF=2.42  PnL=$+49,327
+
+================================================================================
+I) PARTIAL EXIT & ADD-ON ANALYSIS
+================================================================================
+  Trades hitting +2.5R partial: 69/325 (21.2%)
+    Avg final R: +3.83  Avg MFE: 3.20R
+  Trades hitting +5R partial:   1/325 (0.3%)
+    Avg final R: +10.37  Avg MFE: 7.89R
+  Trades with add-ons:          121/325 (37.2%)
+    Avg final R: +2.02  Avg add-on qty: 199
+
+================================================================================
+J) STOP EFFICIENCY & MFE ANALYSIS
+================================================================================
+  Stop distance (pts): mean=4.01  median=2.89  max=22.65
+  Stop distance (%%):  mean=1.16%  median=0.88%
+
+  MFE capture (winners, n=163):
+    Mean: 72.0%  Median: 60.2%
+    Captures < 50%: 73 (45%)
+
+  Loser classification (n=162):
+    Right-then-stopped (MFE >= 0.5R): 65 (40%)
+      Avg MFE: 1.02R  Avg final R: -0.96
+    Immediately wrong (MFE < 0.5R):   97 (60%)
+    Stopped at ~1R: 84 (52%)
+
+================================================================================
+K) DIVERGENCE MAGNITUDE ANALYSIS (Class A)
+================================================================================
+  No Class A trades.
+
+================================================================================
+L) ADX AT ENTRY ANALYSIS
+================================================================================
+  n=325  mean=26.1  median=25.8  min=9.4  max=57.7
+  Weak (<20)                      n=101  WR= 47.5%  avgR=+0.27  totR=+27.01  PF=1.72  PnL=$+9,107
+  Moderate (20-30)                n=112  WR= 54.5%  avgR=+0.66  totR=+74.00  PF=2.59  PnL=$+20,311
+  Strong (30-40)                  n= 91  WR= 47.3%  avgR=+0.50  totR=+45.49  PF=2.13  PnL=$+12,670
+  Very Strong (>40)               n= 21  WR= 52.4%  avgR=+0.58  totR=+12.26  PF=2.40  PnL=$+3,640
+
+  Correlation(ADX, R): +0.099
+
+================================================================================
+M) CRISIS WINDOW ANALYSIS
+================================================================================
+  2022 Bear                  2022-01-03 -> 2022-10-13  trades= 49  totR=+30.47  first_entry=2022-01-04 00:00
+    QQQ   D   LONG  BULL   entry=2022-01-04 00:00 R=-1.01  PnL=$-143  bars=7
+    QQQ   D   SHORT BEAR   entry=2022-01-14 13:00 R=-1.01  PnL=$-177  bars=1
+    QQQ   D   SHORT BEAR   entry=2022-01-18 16:00 R=+0.04  PnL=$+8  bars=30
+    GLD   D   LONG  BULL   entry=2022-01-20 16:00 R=-1.03  PnL=$-214  bars=7
+    GLD   D   LONG  BULL   entry=2022-01-24 23:00 R=-0.07  PnL=$-16  bars=8
+    QQQ   D   SHORT BEAR   entry=2022-01-27 13:00 R=-1.01  PnL=$-143  bars=23
+    QQQ   D   SHORT BEAR   entry=2022-02-02 23:00 R=+0.28  PnL=$+40  bars=24
+    QQQ   B   SHORT BEAR   entry=2022-02-07 18:00 R=-0.45  PnL=$-89  bars=16
+    GLD   D   LONG  BULL   entry=2022-02-16 15:00 R=+4.47  PnL=$+926  bars=14
+    QQQ   D   SHORT BEAR   entry=2022-02-17 17:00 R=+4.45  PnL=$+916  bars=28
+    GLD   D   LONG  BULL   entry=2022-03-01 11:00 R=-1.51  PnL=$-247  bars=15
+    GLD   D   LONG  BULL   entry=2022-03-03 12:00 R=+5.27  PnL=$+771  bars=32
+    QQQ   D   SHORT BEAR   entry=2022-03-04 10:00 R=+3.01  PnL=$+515  bars=39
+    GLD   D   LONG  BULL   entry=2022-03-07 13:00 R=+1.17  PnL=$+168  bars=27
+    QQQ   D   LONG  BULL   entry=2022-04-04 11:00 R=+3.23  PnL=$+747  bars=18
+    GLD   D   LONG  BULL   entry=2022-04-11 09:00 R=+0.79  PnL=$+164  bars=47
+    QQQ   D   SHORT BEAR   entry=2022-04-22 09:00 R=+0.29  PnL=$+86  bars=27
+    QQQ   D   SHORT BEAR   entry=2022-05-05 15:00 R=+0.98  PnL=$+202  bars=42
+    GLD   D   SHORT BEAR   entry=2022-05-09 17:00 R=-1.38  PnL=$-329  bars=24
+    GLD   D   SHORT BEAR   entry=2022-05-13 13:00 R=+0.02  PnL=$+4  bars=16
+    GLD   D   SHORT BEAR   entry=2022-05-18 11:00 R=-1.04  PnL=$-251  bars=4
+    QQQ   D   SHORT BEAR   entry=2022-05-18 13:00 R=+3.52  PnL=$+798  bars=16
+    GLD   D   SHORT BEAR   entry=2022-05-20 13:00 R=-1.03  PnL=$-250  bars=8
+    QQQ   D   SHORT BEAR   entry=2022-05-24 15:00 R=-0.58  PnL=$-113  bars=24
+    GLD   D   SHORT BEAR   entry=2022-06-09 15:00 R=-1.02  PnL=$-245  bars=14
+    QQQ   D   SHORT BEAR   entry=2022-06-13 09:00 R=+0.05  PnL=$+10  bars=15
+    QQQ   D   SHORT BEAR   entry=2022-06-16 15:00 R=-0.26  PnL=$-59  bars=24
+    GLD   D   SHORT BEAR   entry=2022-06-22 09:00 R=-1.02  PnL=$-223  bars=2
+    GLD   D   SHORT BEAR   entry=2022-06-29 09:00 R=-1.03  PnL=$-255  bars=1
+    GLD   D   SHORT BEAR   entry=2022-06-30 11:00 R=-1.02  PnL=$-250  bars=1
+    GLD   D   SHORT BEAR   entry=2022-07-05 15:00 R=+0.90  PnL=$+223  bars=94
+    QQQ   D   SHORT BEAR   entry=2022-07-13 13:00 R=-0.81  PnL=$-186  bars=24
+    QQQ   D   LONG  BULL   entry=2022-07-27 15:00 R=+1.24  PnL=$+288  bars=29
+    QQQ   D   LONG  BULL   entry=2022-08-08 10:00 R=-1.01  PnL=$-236  bars=6
+    QQQ   D   LONG  BULL   entry=2022-08-10 11:00 R=-1.02  PnL=$-238  bars=1
+    QQQ   B   LONG  BULL   entry=2022-08-12 15:00 R=+3.93  PnL=$+1,138  bars=27
+    GLD   D   SHORT BEAR   entry=2022-08-19 09:00 R=+3.07  PnL=$+782  bars=19
+    GLD   D   SHORT BEAR   entry=2022-08-26 09:00 R=+4.43  PnL=$+1,091  bars=20
+    GLD   D   SHORT BEAR   entry=2022-08-31 09:00 R=+1.04  PnL=$+264  bars=28
+    GLD   D   SHORT BEAR   entry=2022-09-06 12:00 R=-0.53  PnL=$-145  bars=18
+    GLD   D   SHORT BEAR   entry=2022-09-15 10:00 R=+2.01  PnL=$+523  bars=17
+    QQQ   D   SHORT BEAR   entry=2022-09-15 20:00 R=-1.53  PnL=$-364  bars=17
+    GLD   D   SHORT BEAR   entry=2022-09-23 10:00 R=+3.32  PnL=$+817  bars=30
+    QQQ   D   SHORT BEAR   entry=2022-09-23 11:00 R=+0.02  PnL=$+4  bars=24
+    GLD   D   SHORT BEAR   entry=2022-09-28 09:00 R=-1.02  PnL=$-265  bars=3
+    QQQ   D   SHORT BEAR   entry=2022-09-29 15:00 R=+0.27  PnL=$+65  bars=30
+    QQQ   D   SHORT BEAR   entry=2022-10-05 15:00 R=-1.01  PnL=$-242  bars=4
+    QQQ   D   SHORT BEAR   entry=2022-10-07 13:00 R=+4.07  PnL=$+1,017  bars=31
+    QQQ   D   SHORT BEAR   entry=2022-10-11 15:00 R=-0.05  PnL=$-11  bars=24
+  SVB                        2023-03-08 -> 2023-03-15  trades=  0  totR=+0.00  first_entry=N/A
+  Aug 2024 Unwind            2024-08-01 -> 2024-08-05  trades=  0  totR=+0.00  first_entry=N/A
+  Tariff Shock               2025-02-21 -> 2025-04-07  trades= 11  totR=-0.11  first_entry=2025-02-27 00:00
+    GLD   D   LONG  BULL   entry=2025-02-27 00:00 R=-2.65  PnL=$-676  bars=1
+    QQQ   D   SHORT BEAR   entry=2025-03-04 12:00 R=-1.00  PnL=$-265  bars=8
+    QQQ   D   SHORT BEAR   entry=2025-03-13 13:00 R=+0.01  PnL=$+2  bars=11
+    GLD   D   LONG  BULL   entry=2025-03-13 15:00 R=+1.38  PnL=$+351  bars=54
+    QQQ   D   SHORT BEAR   entry=2025-03-18 09:00 R=+1.29  PnL=$+290  bars=16
+    QQQ   D   SHORT BEAR   entry=2025-03-21 16:00 R=-1.01  PnL=$-309  bars=3
+    GLD   D   LONG  BULL   entry=2025-03-24 10:00 R=-1.02  PnL=$-281  bars=2
+    GLD   D   LONG  BULL   entry=2025-03-25 10:00 R=-0.20  PnL=$-55  bars=24
+    QQQ   D   SHORT BEAR   entry=2025-03-28 15:00 R=+0.37  PnL=$+101  bars=17
+    GLD   B   LONG  BULL   entry=2025-04-02 09:00 R=-0.13  PnL=$-50  bars=15
+    QQQ   D   SHORT BEAR   entry=2025-04-03 14:00 R=+2.84  PnL=$+673  bars=32
+  Mar 2026 Slow Burn         2026-03-05 -> 2026-03-27  trades=  8  totR=+0.02  first_entry=2026-03-10 15:00
+    GLD   D   LONG  BULL   entry=2026-03-10 15:00 R=-1.01  PnL=$-301  bars=23
+    QQQ   D   SHORT BEAR   entry=2026-03-11 11:00 R=-1.01  PnL=$-378  bars=3
+    QQQ   D   SHORT BEAR   entry=2026-03-12 15:00 R=+0.05  PnL=$+21  bars=11
+    QQQ   D   SHORT BEAR   entry=2026-03-18 21:00 R=+0.05  PnL=$+19  bars=14
+    QQQ   D   SHORT BEAR   entry=2026-03-20 15:00 R=-1.63  PnL=$-703  bars=12
+    QQQ   B   SHORT BEAR   entry=2026-03-24 12:00 R=-0.38  PnL=$-199  bars=13
+    GLD   D   SHORT BEAR   entry=2026-03-26 09:00 R=-0.08  PnL=$-35  bars=15
+    QQQ   D   SHORT BEAR   entry=2026-03-26 16:00 R=+4.03  PnL=$+1,804  bars=27
+
+================================================================================
+N) TRADE GAP ANALYSIS (top 10 longest gaps)
+================================================================================
+  # 1  gap=  35.0d  exit=2025-10-29 (QQQ  ) -> entry=2025-12-03 (GLD  )
+  # 2  gap=  29.8d  exit=2023-02-14 (QQQ  ) -> entry=2023-03-16 (QQQ  )
+  # 3  gap=  28.3d  exit=2025-04-29 (GLD  ) -> entry=2025-05-27 (QQQ  )
+  # 4  gap=  26.5d  exit=2022-03-09 (GLD  ) -> entry=2022-04-04 (QQQ  )
+  # 5  gap=  24.9d  exit=2022-10-21 (QQQ  ) -> entry=2022-11-15 (GLD  )
+  # 6  gap=  22.8d  exit=2024-12-30 (GLD  ) -> entry=2025-01-22 (QQQ  )
+  # 7  gap=  21.4d  exit=2024-11-01 (GLD  ) -> entry=2024-11-23 (QQQ  )
+  # 8  gap=  21.0d  exit=2023-12-28 (GLD  ) -> entry=2024-01-18 (QQQ  )
+  # 9  gap=  18.8d  exit=2024-02-16 (QQQ  ) -> entry=2024-03-06 (QQQ  )
+  #10  gap=  18.2d  exit=2023-08-21 (GLD  ) -> entry=2023-09-08 (QQQ  )
+
+================================================================================
+O) QUARTERLY TRADE DISTRIBUTION
+================================================================================
+  2021-Q2   n= 10  WR= 60.0%  totR=+14.90  ##########
+  2021-Q3   n= 12  WR= 41.7%  totR= +0.14  ############
+  2021-Q4   n= 16  WR= 43.8%  totR= +9.42  ################
+  2022-Q1   n= 14  WR= 50.0%  totR=+12.61  ##############
+  2022-Q2   n= 16  WR= 43.8%  totR= +0.51  ################
+  2022-Q3   n= 16  WR= 62.5%  totR=+14.33  ################
+  2022-Q4   n= 20  WR= 45.0%  totR= +7.00  ####################
+  2023-Q1   n= 15  WR= 33.3%  totR= +1.23  ###############
+  2023-Q2   n= 23  WR= 43.5%  totR= +4.31  #######################
+  2023-Q3   n= 12  WR= 50.0%  totR= +0.94  ############
+  2023-Q4   n= 18  WR= 55.6%  totR= +8.52  ##################
+  2024-Q1   n= 15  WR= 53.3%  totR= +3.15  ###############
+  2024-Q2   n= 16  WR= 37.5%  totR= -0.62  ################
+  2024-Q3   n= 14  WR= 42.9%  totR= +1.41  ##############
+  2024-Q4   n= 17  WR= 52.9%  totR= +3.28  #################
+  2025-Q1   n= 17  WR= 52.9%  totR= +1.97  #################
+  2025-Q2   n= 16  WR= 62.5%  totR=+15.87  ################
+  2025-Q3   n= 18  WR= 66.7%  totR=+18.65  ##################
+  2025-Q4   n= 13  WR= 53.8%  totR= +8.22  #############
+  2026-Q1   n= 22  WR= 50.0%  totR=+24.68  ######################
+  2026-Q2   n=  5  WR= 60.0%  totR= +8.23  #####
+
+================================================================================
+P) CUMULATIVE R CURVE & DRAWDOWN
+================================================================================
+  Total R: +158.76  Peak R: +158.92
+  Max R drawdown: -7.49 (after trade #29)
+  Longest drawdown: 22 trades
+
+  Month-by-month R:
+    Month Trades        R     CumR
+  2021-05      4    +7.14    +7.14
+  2021-06      6    +7.76   +14.90
+  2021-07      4    +0.63   +15.53
+  2021-08      5    -0.38   +15.15
+  2021-09      3    -0.12   +15.03
+  2021-10      6    -3.65   +11.38
+  2021-11      7   +15.05   +26.44
+  2021-12      3    -1.98   +24.45
+  2022-01      6    -4.08   +20.38
+  2022-02      4    +8.74   +29.12
+  2022-03      4    +7.94   +37.06
+  2022-04      3    +4.31   +41.37
+  2022-05      7    +0.50   +41.87
+  2022-06      6    -4.30   +37.57
+  2022-07      3    +1.34   +38.91
+  2022-08      5    +9.41   +48.32
+  2022-09      7    +3.32   +51.64
+  2022-10      7    +1.95   +53.58
+  2022-11      5    +0.00   +53.59
+  2022-12      9    +5.32   +58.90
+  2023-01      4    -0.75   +58.16
+  2023-02      4    -1.52   +56.64
+  2023-03      6    +4.26   +60.90
+  2023-04      8    -1.12   +59.78
+  2023-05      7    +5.27   +65.04
+  2023-06      9    -0.59   +64.45
+  2023-07      8    -1.07   +63.38
+  2023-08      2    +1.05   +64.43
+  2023-09      2    +0.95   +65.39
+  2023-10      3    -1.56   +63.83
+  2023-11      4    +1.19   +65.02
+  2023-12     11    +8.89   +73.91
+  2024-01      3    +1.10   +75.01
+  2024-02      5    -2.13   +72.87
+  2024-03      6    +4.24   +77.12
+  2024-04      6    +0.43   +77.54
+  2024-05      6    +0.13   +77.67
+  2024-06      5    -1.23   +76.44
+  2024-07      5    +2.73   +79.18
+  2024-08      4    +1.09   +80.26
+  2024-09      5    -2.41   +77.85
+  2024-10      9    -0.37   +77.48
+  2024-11      2    -1.06   +76.42
+  2024-12      6    +4.72   +81.14
+  2025-01      3    +4.70   +85.84
+  2025-02      6    -2.56   +83.28
+  2025-03      8    -0.17   +83.11
+  2025-04      8   +18.71  +101.82
+  2025-05      2    -0.96  +100.86
+  2025-06      6    -1.88   +98.98
+  2025-07      6    +5.49  +104.47
+  2025-08      3    +3.30  +107.77
+  2025-09      9    +9.86  +117.63
+  2025-10      8   +11.63  +129.26
+  2025-12      5    -3.41  +125.85
+  2026-01      7   +18.04  +143.89
+  2026-02      5    -1.88  +142.00
+  2026-03     10    +8.52  +150.53
+  2026-04      4    +8.39  +158.92
+  2026-05      1    -0.15  +158.76
+
+  Positive months: 36/60 (60%)
+  Best month:  +18.71R
+  Worst month: -4.30R
+
+================================================================================
+Q) WIN/LOSS STREAK ANALYSIS
+================================================================================
+  Win streaks:  max=7  avg=1.8  count=92
+  Loss streaks: max=4  avg=1.7  count=93
+  Post-3+-loss recovery: 20 trades, WR=100%, avgR=+1.554
+
+================================================================================
+R) HOLD TIME ANALYSIS
+================================================================================
+  Bars held: mean=17.9  median=17  min=1  max=94
+  Short (1-10)                    n= 91  WR= 11.0%  avgR=-0.70  totR=-63.72  PF=0.23  PnL=$-16,529
+  Medium (11-30)                  n=204  WR= 60.3%  avgR=+0.67  totR=+137.56  PF=3.20  PnL=$+39,153
+  Long (31-60)                    n= 27  WR=100.0%  avgR=+2.94  totR=+79.30  PF=inf  PnL=$+21,445
+  Very Long (>60)                 n=  3  WR=100.0%  avgR=+1.87  totR=+5.62  PF=inf  PnL=$+1,659
+
+  Correlation(bars_held, R): +0.477
+
+================================================================================
+S) SIZE MULTIPLIER ANALYSIS
+================================================================================
+  mult=0.8                        n=295  WR= 49.8%  avgR=+0.40  totR=+118.07  PF=1.92  PnL=$+33,556
+  mult=1.0 (default)              n= 30  WR= 53.3%  avgR=+1.36  totR=+40.69  PF=5.13  PnL=$+12,172
+
+================================================================================
+T) TOP 10 BEST & WORST TRADES
+================================================================================
+  Best trades:
+    # 1  QQQ   B   BULL   2021-11-03 R= +10.37  PnL=$+2,489  MFE=7.89R  bars=31
+    # 2  GLD   D   BULL   2026-02-27 R=  +9.36  PnL=$+2,092  MFE=4.30R  bars=17
+    # 3  GLD   D   BULL   2025-10-03 R=  +6.85  PnL=$+2,046  MFE=4.01R  bars=30
+    # 4  GLD   B   BULL   2025-04-17 R=  +6.65  PnL=$+1,593  MFE=5.69R  bars=22
+    # 5  GLD   D   BULL   2026-01-08 R=  +6.58  PnL=$+2,614  MFE=2.99R  bars=23
+    # 6  GLD   D   BULL   2025-08-28 R=  +5.84  PnL=$+2,171  MFE=6.64R  bars=57
+    # 7  GLD   D   BEAR   2026-04-27 R=  +5.68  PnL=$+2,767  MFE=2.89R  bars=20
+    # 8  GLD   D   BULL   2022-03-03 R=  +5.27  PnL=$+771  MFE=5.94R  bars=32
+    # 9  QQQ   D   BULL   2023-05-18 R=  +5.12  PnL=$+1,382  MFE=4.94R  bars=18
+    #10  GLD   D   BEAR   2021-06-28 R=  +4.96  PnL=$+785  MFE=2.92R  bars=25
+
+  Worst trades:
+    # 1  GLD   D   BULL   2025-02-27 R=  -2.65  PnL=$-676  MFE=0.14R  MAE=0.59R  reason=STOP
+    # 2  QQQ   D   BULL   2024-09-25 R=  -2.32  PnL=$-797  MFE=1.58R  MAE=0.19R  reason=STOP
+    # 3  QQQ   D   BULL   2025-02-12 R=  -2.25  PnL=$-693  MFE=0.05R  MAE=2.46R  reason=STOP
+    # 4  QQQ   D   BULL   2024-01-29 R=  -2.19  PnL=$-644  MFE=1.38R  MAE=0.17R  reason=STOP
+    # 5  QQQ   D   BULL   2022-11-23 R=  -2.13  PnL=$-559  MFE=1.78R  MAE=0.61R  reason=STOP
+    # 6  GLD   D   BULL   2025-12-26 R=  -2.07  PnL=$-933  MFE=0.83R  MAE=0.47R  reason=STOP
+    # 7  GLD   D   BULL   2024-05-14 R=  -2.07  PnL=$-483  MFE=1.29R  MAE=0.32R  reason=STOP
+    # 8  QQQ   D   BULL   2023-07-25 R=  -2.06  PnL=$-576  MFE=1.19R  MAE=0.25R  reason=STOP
+    # 9  QQQ   D   BULL   2024-10-14 R=  -1.84  PnL=$-568  MFE=1.55R  MAE=0.76R  reason=STOP
+    #10  QQQ   D   BULL   2021-08-30 R=  -1.78  PnL=$-363  MFE=1.06R  MAE=0.08R  reason=STOP
+
+================================================================================
+U) EXPECTANCY STABILITY (rolling 30-trade window)
+================================================================================
+  Rolling expectancy (n=296 windows):
+    Mean: +0.446  Stdev: 0.326
+    Min:  -0.082  Max: +1.248
+    Negative expectancy windows: 11/296 (4%)
+    Negative expectancy zones: 4
+      Trades 100-130: 2022-12-20 to 2023-05-16  worst avgR=-0.012
+      Trades 174-203: 2024-01-24 to 2024-06-26  worst avgR=-0.054
+      Trades 191-222: 2024-04-24 to 2024-10-18  worst avgR=-0.030
+      Trades 196-229: 2024-05-20 to 2024-12-03  worst avgR=-0.082
+
+  Rolling WR:
+    Mean: 50.1%  Min: 36.7%  Max: 70.0%
+
+================================================================================
+V) MFE/MAE EFFICIENCY FRONTIER
+================================================================================
+  MFE: mean=1.23R  median=0.83R  max=7.89R
+  MAE: mean=0.55R  median=0.58R  max=2.46R
+
+  Edge ratios:
+    Winners: MFE/MAE = 4.32  (MFE=1.93R, MAE=0.45R)
+    Losers:  MFE/MAE = 0.81  (MFE=0.53R, MAE=0.66R)
+
+  Stop tightening simulation (what-if):
+      Stop  Saved   Lost     NetR  NewWR    Delta
+      0.50R     86     94   +29.20  29.5%  -129.56
+      0.75R     58     46   +71.68  40.0%   -87.09
+      1.00R      5      3  +153.16  49.5%    -5.60
+      1.25R      1      1  +156.36  49.8%    -2.40
+      1.50R      1      1  +155.86  49.8%    -2.90
+      2.00R      1      0  +159.01  50.2%    +0.25
+
+================================================================================
+W) REGIME TRANSITION ANALYSIS (daily vs 4H disagreement)
+================================================================================
+  No regime-disagreement trades detected.
+
+================================================================================
+X) LOSING TRADE DETAIL (worst 20)
+================================================================================
+  Total losers: 162/325 (50%)
+  Total loss: $-39,244
+
+    # Entry        Sym   Cls Dir   Regime   ADX       R    MFE    MAE Reason          Bars
+  ------------------------------------------------------------------------------------------
+    1 2025-02-27   GLD   D   LONG  BULL    29.7  -2.650   0.14   0.59 STOP               1
+    2 2024-09-25   QQQ   D   LONG  BULL    18.7  -2.318   1.58   0.19 STOP               7
+    3 2025-02-12   QQQ   D   LONG  BULL     9.9  -2.246   0.05   2.46 STOP               1
+    4 2024-01-29   QQQ   D   LONG  BULL    36.0  -2.188   1.38   0.17 STOP              16
+    5 2022-11-23   QQQ   D   LONG  BULL    22.3  -2.125   1.78   0.61 STOP              13
+    6 2025-12-26   GLD   D   LONG  BULL    32.9  -2.074   0.83   0.47 STOP              11
+    7 2024-05-14   GLD   D   LONG  BULL    33.5  -2.073   1.29   0.32 STOP              14
+    8 2023-07-25   QQQ   D   LONG  BULL    36.6  -2.063   1.19   0.25 STOP               7
+    9 2024-10-14   QQQ   D   LONG  BULL    21.1  -1.838   1.55   0.76 STOP              20
+   10 2021-08-30   QQQ   D   LONG  BULL    15.0  -1.775   1.06   0.08 STOP              15
+   11 2023-06-08   QQQ   D   LONG  BULL    40.7  -1.760   1.11   0.34 STOP              12
+   12 2024-04-24   QQQ   D   SHORT BEAR    17.2  -1.635   1.23   0.57 STOP              13
+   13 2026-03-20   QQQ   D   SHORT BEAR    24.8  -1.628   1.10   0.54 STOP              12
+   14 2024-03-25   GLD   D   LONG  BULL    40.7  -1.594   1.19   0.41 STOP              13
+   15 2023-07-17   QQQ   B   LONG  BULL    36.3  -1.574   1.17   0.15 STOP              14
+   16 2022-09-15   QQQ   D   SHORT BEAR    22.7  -1.526   0.88   0.24 STOP              17
+   17 2022-03-01   GLD   D   LONG  BULL    31.4  -1.513   0.96   0.78 STOP              15
+   18 2024-02-14   QQQ   D   LONG  BULL    32.5  -1.477   1.01   0.62 STOP              21
+   19 2024-07-16   GLD   D   LONG  BULL    15.4  -1.465   1.08   0.01 STOP              17
+   20 2022-05-09   GLD   D   SHORT BEAR    16.3  -1.376   1.11   0.44 STALE             24
+
+================================================================================
+Y) SIGNAL FUNNEL / FILTER SUMMARY
+================================================================================
+  No filter summary data.
+
+================================================================================
+Z) PROFIT CONCENTRATION (Pareto analysis)
+================================================================================
+  Top 30 trades (9%) generate 50% of gross R
+  Top 52 trades (16%) generate 75% of gross R
+  Top 72 trades (22%) generate 90% of gross R
+
+  Big winners (>=3R): 50 trades, totR=+220.51 (73% of gross wins)
+  Small winners (<1R): 83 trades, totR=+19.29 (6% of gross wins)
+
+================================================================================
+AA) RIGHT-THEN-STOPPED DEEP DIVE
+================================================================================
+  65 trades went right (MFE >= 0.5R) then lost
+  Total R leaked (MFE - final R): +128.66R
+  Avg MFE before reversal: 1.02R
+  Avg final R: -0.96
+
+  By exit reason:
+    STOP             n= 61  avgMFE=1.03R  avgR=-0.98  leaked=+122.67R
+    STALE            n=  4  avgMFE=0.89R  avgR=-0.61  leaked=+5.99R
+
+  By MFE reached:
+    MFE 0.5-1.0R  n= 32  avgR=-0.91  leaked=+53.13R
+    MFE 1.0-2.0R  n= 33  avgR=-1.01  leaked=+75.52R
+
+  By class:
+    Class B: n=  3  avgMFE=1.10R  avgR=-0.65
+    Class D: n= 62  avgMFE=1.01R  avgR=-0.98
+
+  By hold time:
+    1-10 bars     n= 24  avgMFE=0.89R  avgR=-0.85
+    11-30 bars    n= 41  avgMFE=1.09R  avgR=-1.03
+
+================================================================================
+AB) CLASS x SYMBOL CROSS-TAB
+================================================================================
+  Class Symbol  Count     WR    AvgR     TotR     PF        PnL
+  --------------------------------------------------------------
+
+  B     GLD        18    56%  +1.424   +25.63   6.49     +7,965
+  B     QQQ        12    50%  +1.255   +15.06   3.81     +4,207
+
+
+  D     GLD       128    49%  +0.561   +71.77   2.33    +20,081
+  D     QQQ       167    50%  +0.277   +46.31   1.63    +13,475
+
+================================================================================
+AC) ANNUAL PERFORMANCE SUMMARY
+================================================================================
+  Year Trades     WR    AvgR     TotR     PF        PnL  MaxDD_R
+  --------------------------------------------------------------
+  2021     38    47%  +0.644   +24.45   2.40     +5,123    -7.49
+  2022     66    50%  +0.522   +34.45   2.11     +7,878    -6.59
+  2023     68    46%  +0.221   +15.00   1.52     +4,015    -6.20
+  2024     62    47%  +0.117    +7.23   1.21     +1,916    -5.18
+  2025     64    59%  +0.699   +44.71   2.63    +13,369    -4.67
+  2026     27    52%  +1.219   +32.91   4.63    +13,428    -4.86
+
+================================================================================
+AD) EXIT TIMING WHAT-IF (partial target sensitivity)
+================================================================================
+  Simulates what if winners were exited at different R thresholds:
+    Target  HitRate     CapR  vs_Actual
+       1.0R    44.6%   +39.30    -119.47
+       1.5R    29.5%   +21.00    -137.77
+       2.0R    20.0%   +38.82    -119.94
+       2.5R    12.9%   +90.68     -68.09
+       3.0R     7.7%  +120.42     -38.35
+       4.0R     4.6%  +138.42     -20.34
+       5.0R     2.8%  +156.11      -2.65
+
+================================================================================
+AE) PER-SYMBOL ANNUAL CONSISTENCY
+================================================================================
+  GLD:
+    Year    N     WR    AvgR     TotR     PF
+    2021   14    57%  +0.691    +9.67   2.42
+    2022   33    52%  +0.656   +21.64   2.39
+    2023   25    52%  +0.307    +7.68   2.00
+    2024   28    39%  +0.166    +4.64   1.37
+    2025   32    53%  +0.858   +27.47   2.70
+    2026   14    50%  +1.879   +26.30   7.80
+    Positive years: 6/6
+
+  QQQ:
+    Year    N     WR    AvgR     TotR     PF
+    2021   24    42%  +0.616   +14.79   2.40
+    2022   33    48%  +0.388   +12.81   1.84
+    2023   43    42%  +0.170    +7.32   1.35
+    2024   34    53%  +0.076    +2.59   1.10
+    2025   32    66%  +0.539   +17.25   2.53
+    2026   13    54%  +0.509    +6.61   2.46
+    Positive years: 6/6
+
+================================================================================
+HELIX DIAGNOSTICS COMPLETE
+================================================================================

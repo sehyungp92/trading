@@ -1,0 +1,26 @@
+{
+  "sticky_diag": 25.0,
+  "use_warm_start": false,
+  "use_expanding_window": false,
+  "rolling_window_years": 7,
+  "refit_ll_tolerance": 5.0,
+  "refit_freq": "QE",
+  "n_ensemble_models": 10,
+  "use_forward_only": true,
+  "posterior_temperature": 2.0,
+  "posterior_smoothing_eps": 0.01,
+  "posterior_ema_alpha": 0.4,
+  "drop_momentum_breadth": true,
+  "crisis_logit_a": 3.0,
+  "crisis_z_window": 63,
+  "posterior_ema_risk_off_alpha": 1.0,
+  "crisis_weights": [
+    0.8,
+    0.15,
+    0.05
+  ],
+  "ventilator_lambda": 1.0,
+  "crisis_logit_b": 0.5,
+  "sigma_floor_annual": 0.09,
+  "L_max": 1.2
+}

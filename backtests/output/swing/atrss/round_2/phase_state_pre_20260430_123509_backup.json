@@ -1,0 +1,17 @@
+{
+  "current_phase": 0,
+  "completed_phases": [],
+  "cumulative_mutations": {
+    "flags.early_stall_exit": true,
+    "param_overrides.early_stall_check_hours": 12,
+    "param_overrides.early_stall_mfe_threshold": 0.2,
+    "param_overrides.max_hold_hours": 80
+  },
+  "phase_results": {},
+  "phase_gate_results": {},
+  "retry_count": {},
+  "scoring_retries": {},
+  "diagnostic_retries": {},
+  "phase_timestamps": {},
+  "round_name": ""
+}

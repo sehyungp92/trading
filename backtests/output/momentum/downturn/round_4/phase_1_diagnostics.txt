@@ -1,0 +1,28 @@
+======================================================================
+DOWNTURN DOMINATOR PHASE 1 DIAGNOSTICS
+======================================================================
+
+--- D1: Regime Accuracy ---
+  aligned_bear          trades=   8  PnL=$      -142  avg=$     -18
+  emerging_bear         trades=  22  PnL=$      -571  avg=$     -26
+  neutral               trades=  50  PnL=$     9,546  avg=$     191
+  range                 trades=  41  PnL=$     5,064  avg=$     124
+
+  Correction trades:     81  PnL=$    13,378
+  Non-correction trades: 40  PnL=$       518
+
+--- D2: Signal Quality ---
+  Signal→entry ratio:  0.665
+  Reversal      n=   0  WR=0.0%  avgR=+0.000
+  Breakdown     n=   0  WR=0.0%  avgR=+0.000
+  Fade          n= 121  WR=52.9%  avgR=+0.427
+
+--- D6: Phase Delta ---
+  No prior phase for delta.
+
+--- Gate Assessment ---
+  Gate passed: True
+  [PASS] signal_to_entry: 0.665 (target: 0.150)
+  [PASS] total_trades: 121.000 (target: 15.000)
+  [PASS] correction_pnl_pct: 133.785 (target: 5.000)
+

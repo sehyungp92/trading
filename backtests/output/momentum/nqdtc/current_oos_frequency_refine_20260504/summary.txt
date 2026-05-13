@@ -1,0 +1,65 @@
+NQDTC Current OOS Frequency Repair Summary
+================================================================================================
+The OOS window is used for diagnosis/selection in this run; it is no longer an untouched holdout.
+Config: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\momentum\nqdtc\round_4\optimized_config.json
+Data end: 2026-05-01
+
+Baseline IS: trades=117 PF=2.30 netR=63.68 avgR=0.544
+Baseline OOS: trades=6 PF=3.07 netR=4.16 avgR=0.693
+Candidates evaluated: 67
+
+Balanced frequency uplifts:
+  refine/ratchet_0p45_cooldown_55: obj=+24.15%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=117 netR=61.3, reasons=[]
+  refine/ratchet_0p5_cooldown_55: obj=+24.15%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=117 netR=61.3, reasons=[]
+  refine/ratchet_0p55_cooldown_55: obj=+24.15%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=117 netR=61.3, reasons=[]
+  refine/ratchet_0p6_cooldown_55: obj=+24.15%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=117 netR=61.3, reasons=[]
+  refine/ratchet_0p45_open12_cd55: obj=+24.23%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=119 netR=60.9, reasons=[]
+  refine/ratchet_0p5_open12_cd55: obj=+24.23%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=119 netR=60.9, reasons=[]
+  refine/ratchet_0p55_open12_cd55: obj=+24.23%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=119 netR=60.9, reasons=[]
+  refine/ratchet_0p6_open12_cd55: obj=+24.23%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=119 netR=60.9, reasons=[]
+  refine/ratchet_0p45_cooldown_50: obj=+16.71%, passed=True, OOS trades=7 netR=6.41 avgR=0.916, IS trades=117 netR=60.6, reasons=[]
+  refine/ratchet_0p5_cooldown_50: obj=+16.71%, passed=True, OOS trades=7 netR=6.41 avgR=0.916, IS trades=117 netR=60.6, reasons=[]
+  refine/ratchet_0p55_cooldown_50: obj=+16.71%, passed=True, OOS trades=7 netR=6.41 avgR=0.916, IS trades=117 netR=60.6, reasons=[]
+  refine/ratchet_0p6_cooldown_50: obj=+16.71%, passed=True, OOS trades=7 netR=6.41 avgR=0.916, IS trades=117 netR=60.6, reasons=[]
+
+Top objective candidates:
+  refine/ratchet_0p45_open12_cd55: obj=+24.23%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=119 netR=60.9, reasons=[]
+  refine/ratchet_0p5_open12_cd55: obj=+24.23%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=119 netR=60.9, reasons=[]
+  refine/ratchet_0p55_open12_cd55: obj=+24.23%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=119 netR=60.9, reasons=[]
+  refine/ratchet_0p6_open12_cd55: obj=+24.23%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=119 netR=60.9, reasons=[]
+  refine/ratchet_0p45_cooldown_55: obj=+24.15%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=117 netR=61.3, reasons=[]
+  refine/ratchet_0p5_cooldown_55: obj=+24.15%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=117 netR=61.3, reasons=[]
+  refine/ratchet_0p55_cooldown_55: obj=+24.15%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=117 netR=61.3, reasons=[]
+  refine/ratchet_0p6_cooldown_55: obj=+24.15%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=117 netR=61.3, reasons=[]
+  refine/ratchet_0p45_cooldown_60: obj=+20.96%, passed=False, OOS trades=7 netR=7.40 avgR=1.057, IS trades=116 netR=55.5, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  refine/ratchet_0p5_cooldown_60: obj=+20.96%, passed=False, OOS trades=7 netR=7.40 avgR=1.057, IS trades=116 netR=55.5, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  refine/ratchet_0p55_cooldown_60: obj=+20.96%, passed=False, OOS trades=7 netR=7.40 avgR=1.057, IS trades=116 netR=55.5, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  refine/ratchet_0p6_cooldown_60: obj=+20.96%, passed=False, OOS trades=7 netR=7.40 avgR=1.057, IS trades=116 netR=55.5, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+
+Top frequency candidates:
+  refine/ratchet_0p45_open04_rvol175: obj=+20.91%, passed=False, OOS trades=8 netR=6.95 avgR=0.869, IS trades=122 netR=56.6, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  refine/ratchet_0p5_open04_rvol175: obj=+20.91%, passed=False, OOS trades=8 netR=6.95 avgR=0.869, IS trades=122 netR=56.6, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  refine/ratchet_0p55_open04_rvol175: obj=+20.91%, passed=False, OOS trades=8 netR=6.95 avgR=0.869, IS trades=122 netR=56.6, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  refine/ratchet_0p6_open04_rvol175: obj=+20.91%, passed=False, OOS trades=8 netR=6.95 avgR=0.869, IS trades=122 netR=56.6, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  refine/ratchet_0p45_open04_rvol175_open12: obj=+19.93%, passed=False, OOS trades=8 netR=6.95 avgR=0.869, IS trades=125 netR=54.1, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  refine/ratchet_0p5_open04_rvol175_open12: obj=+19.93%, passed=False, OOS trades=8 netR=6.95 avgR=0.869, IS trades=125 netR=54.1, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  refine/ratchet_0p55_open04_rvol175_open12: obj=+19.93%, passed=False, OOS trades=8 netR=6.95 avgR=0.869, IS trades=125 netR=54.1, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  refine/ratchet_0p6_open04_rvol175_open12: obj=+19.93%, passed=False, OOS trades=8 netR=6.95 avgR=0.869, IS trades=125 netR=54.1, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  refine/ratchet_0p45_eth_shorts_open: obj=+18.35%, passed=False, OOS trades=8 netR=5.93 avgR=0.741, IS trades=147 netR=60.9, reasons=['fold_robust_deterioration']
+  refine/ratchet_0p5_eth_shorts_open: obj=+18.35%, passed=False, OOS trades=8 netR=5.93 avgR=0.741, IS trades=147 netR=60.9, reasons=['fold_robust_deterioration']
+  refine/ratchet_0p55_eth_shorts_open: obj=+18.35%, passed=False, OOS trades=8 netR=5.93 avgR=0.741, IS trades=147 netR=60.9, reasons=['fold_robust_deterioration']
+  refine/ratchet_0p6_eth_shorts_open: obj=+18.35%, passed=False, OOS trades=8 netR=5.93 avgR=0.741, IS trades=147 netR=60.9, reasons=['fold_robust_deterioration']
+
+Top OOS-net candidates:
+  refine/ratchet_0p45_cooldown_55: obj=+24.15%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=117 netR=61.3, reasons=[]
+  refine/ratchet_0p5_cooldown_55: obj=+24.15%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=117 netR=61.3, reasons=[]
+  refine/ratchet_0p55_cooldown_55: obj=+24.15%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=117 netR=61.3, reasons=[]
+  refine/ratchet_0p6_cooldown_55: obj=+24.15%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=117 netR=61.3, reasons=[]
+  refine/ratchet_0p45_open12_cd55: obj=+24.23%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=119 netR=60.9, reasons=[]
+  refine/ratchet_0p5_open12_cd55: obj=+24.23%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=119 netR=60.9, reasons=[]
+  refine/ratchet_0p55_open12_cd55: obj=+24.23%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=119 netR=60.9, reasons=[]
+  refine/ratchet_0p6_open12_cd55: obj=+24.23%, passed=True, OOS trades=7 netR=7.40 avgR=1.057, IS trades=119 netR=60.9, reasons=[]
+  refine/ratchet_0p45_cooldown_60: obj=+20.96%, passed=False, OOS trades=7 netR=7.40 avgR=1.057, IS trades=116 netR=55.5, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  refine/ratchet_0p5_cooldown_60: obj=+20.96%, passed=False, OOS trades=7 netR=7.40 avgR=1.057, IS trades=116 netR=55.5, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  refine/ratchet_0p55_cooldown_60: obj=+20.96%, passed=False, OOS trades=7 netR=7.40 avgR=1.057, IS trades=116 netR=55.5, reasons=['development_net_r_floor', 'fold_robust_deterioration']
+  refine/ratchet_0p6_cooldown_60: obj=+20.96%, passed=False, OOS trades=7 netR=7.40 avgR=1.057, IS trades=116 netR=55.5, reasons=['development_net_r_floor', 'fold_robust_deterioration']

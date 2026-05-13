@@ -1,0 +1,86 @@
+NQ_REGIME Current OOS Frequency Repair Summary
+====================================================================================================
+The OOS window is used for diagnosis/selection in this run; it is no longer an untouched holdout.
+Config: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\momentum\nq_regime\round_5\optimized_config.json
+Data end: 2026-05-01
+
+Baseline IS: trades=473 PF=6.79 netR=386.60 avgR=0.817
+Baseline OOS: trades=17 PF=12.81 netR=21.82 avgR=1.284
+Candidates screened: 423; full replays: 17
+
+Baseline OOS module mix:
+  liquidity_reversion: trades=12 netR=15.92 avgR=1.326
+  second_wind: trades=5 netR=5.90 avgR=1.180
+Baseline OOS routing bottlenecks:
+  structural_expansion: cand=300 valid=3 selected=0 top_veto=['weak_breakout_candle', 195] top_block=['veto_active', 297]
+  liquidity_reversion: cand=219 valid=92 selected=86 top_veto=['penetration_too_deep', 90] top_block=['veto_active', 127]
+  second_wind: cand=318 valid=25 selected=18 top_veto=['weak_volume', 256] top_block=['veto_active', 293]
+
+Balanced Full-Replay Frequency Uplifts:
+  perturbation/perturb_REVERSION_SWING_RADIUS_1: obj=+31.81%, passed=True, OOS trades=25 netR=28.53 avgR=1.141, IS trades=554 netR=548.2, reasons=[]
+  perturbation/perturb_REVERSION_SWING_RADIUS_0: obj=+31.81%, passed=True, OOS trades=25 netR=28.53 avgR=1.141, IS trades=554 netR=548.2, reasons=[]
+  perturbation/perturb_SECOND_WIND_MIN_VOLUME_MULTIPLE_0p8: obj=+28.64%, passed=True, OOS trades=27 netR=25.89 avgR=0.959, IS trades=631 netR=469.0, reasons=[]
+  perturbation/perturb_STRUCTURAL_ENTRY_MODE_structure_shift: obj=+6.22%, passed=True, OOS trades=18 netR=24.07 avgR=1.337, IS trades=465 netR=383.0, reasons=[]
+  ablation/ablate_cluster_round_5_phase_5_reversion: obj=+5.81%, passed=True, OOS trades=18 netR=23.98 avgR=1.332, IS trades=464 netR=375.5, reasons=[]
+  ablation/ablate_key_prior_REVERSION_SWING_LOOKBACK_BARS: obj=+5.81%, passed=True, OOS trades=18 netR=23.98 avgR=1.332, IS trades=464 netR=375.5, reasons=[]
+  ablation/ablate_cluster_round_4a_phase_3_entry: obj=+8.69%, passed=False, OOS trades=18 netR=25.05 avgR=1.392, IS trades=475 netR=384.3, reasons=['is_dd_expansion']
+  perturbation/perturb_REVERSION_ENTRY_MODEL_adaptive_reclaim_retest: obj=+7.64%, passed=False, OOS trades=18 netR=24.33 avgR=1.352, IS trades=490 netR=398.1, reasons=['is_dd_expansion']
+
+Top Full-Replay Objective Candidates:
+  perturbation/perturb_REVERSION_SWING_RADIUS_1: obj=+31.81%, passed=True, OOS trades=25 netR=28.53 avgR=1.141, IS trades=554 netR=548.2, reasons=[]
+  perturbation/perturb_REVERSION_SWING_RADIUS_0: obj=+31.81%, passed=True, OOS trades=25 netR=28.53 avgR=1.141, IS trades=554 netR=548.2, reasons=[]
+  perturbation/perturb_SECOND_WIND_MIN_VOLUME_MULTIPLE_0p8: obj=+28.64%, passed=True, OOS trades=27 netR=25.89 avgR=0.959, IS trades=631 netR=469.0, reasons=[]
+  perturbation/perturb_STRUCTURAL_ENTRY_MODE_structure_shift: obj=+6.22%, passed=True, OOS trades=18 netR=24.07 avgR=1.337, IS trades=465 netR=383.0, reasons=[]
+  ablation/ablate_cluster_round_5_phase_5_reversion: obj=+5.81%, passed=True, OOS trades=18 netR=23.98 avgR=1.332, IS trades=464 netR=375.5, reasons=[]
+  ablation/ablate_key_prior_REVERSION_SWING_LOOKBACK_BARS: obj=+5.81%, passed=True, OOS trades=18 netR=23.98 avgR=1.332, IS trades=464 netR=375.5, reasons=[]
+  targeted/struct_continuation_guarded: obj=+2.80%, passed=True, OOS trades=21 netR=20.52 avgR=0.977, IS trades=500 netR=374.0, reasons=[]
+  perturbation/perturb_STRUCTURAL_SHORT_MIN_SCORE_8: obj=+2.80%, passed=True, OOS trades=20 netR=21.16 avgR=1.058, IS trades=494 netR=380.3, reasons=[]
+  targeted/native_r5_reversion_reaction_floor: obj=+9.11%, passed=False, OOS trades=16 netR=26.98 avgR=1.687, IS trades=429 netR=341.2, reasons=['oos_trade_regression', 'is_net_r_floor']
+  ablation/ablate_cluster_round_4a_phase_3_entry: obj=+8.69%, passed=False, OOS trades=18 netR=25.05 avgR=1.392, IS trades=475 netR=384.3, reasons=['is_dd_expansion']
+  perturbation/flip_REVERSION_VWAP_TOUCH_EXIT_ENABLED: obj=+8.31%, passed=False, OOS trades=16 netR=26.67 avgR=1.667, IS trades=420 netR=344.6, reasons=['oos_trade_regression', 'is_trade_floor', 'is_net_r_floor']
+  perturbation/perturb_REVERSION_ENTRY_MODEL_adaptive_reclaim_retest: obj=+7.64%, passed=False, OOS trades=18 netR=24.33 avgR=1.352, IS trades=490 netR=398.1, reasons=['is_dd_expansion']
+
+Top Full-Replay Frequency Candidates:
+  perturbation/perturb_SECOND_WIND_MIN_VOLUME_MULTIPLE_0p8: obj=+28.64%, passed=True, OOS trades=27 netR=25.89 avgR=0.959, IS trades=631 netR=469.0, reasons=[]
+  perturbation/perturb_REVERSION_SWING_RADIUS_1: obj=+31.81%, passed=True, OOS trades=25 netR=28.53 avgR=1.141, IS trades=554 netR=548.2, reasons=[]
+  perturbation/perturb_REVERSION_SWING_RADIUS_0: obj=+31.81%, passed=True, OOS trades=25 netR=28.53 avgR=1.141, IS trades=554 netR=548.2, reasons=[]
+  perturbation/perturb_SECOND_WIND_MIN_VOLUME_MULTIPLE_0p9: obj=-1.94%, passed=False, OOS trades=23 netR=15.07 avgR=0.655, IS trades=597 netR=464.2, reasons=['oos_net_r_regression']
+  targeted/sw_stop40_volume10: obj=+4.98%, passed=False, OOS trades=22 netR=19.48 avgR=0.886, IS trades=570 netR=440.5, reasons=['oos_net_r_regression']
+  targeted/sw_room05_volume10: obj=-0.31%, passed=False, OOS trades=22 netR=17.20 avgR=0.782, IS trades=563 netR=434.0, reasons=['oos_net_r_regression']
+  targeted/struct_continuation_guarded: obj=+2.80%, passed=True, OOS trades=21 netR=20.52 avgR=0.977, IS trades=500 netR=374.0, reasons=[]
+  perturbation/perturb_SECOND_WIND_MIN_VOLUME_MULTIPLE_1: obj=+0.24%, passed=False, OOS trades=21 netR=18.24 avgR=0.868, IS trades=552 netR=436.4, reasons=['oos_net_r_regression']
+  perturbation/perturb_STRUCTURAL_SHORT_MIN_SCORE_8: obj=+2.80%, passed=True, OOS trades=20 netR=21.16 avgR=1.058, IS trades=494 netR=380.3, reasons=[]
+  targeted/struct_unlock_soft_candle_stop55: obj=+6.44%, passed=False, OOS trades=19 netR=23.48 avgR=1.236, IS trades=510 netR=363.7, reasons=['is_net_r_floor']
+  ablation/ablate_cluster_round_4a_phase_3_entry: obj=+8.69%, passed=False, OOS trades=18 netR=25.05 avgR=1.392, IS trades=475 netR=384.3, reasons=['is_dd_expansion']
+  perturbation/perturb_REVERSION_ENTRY_MODEL_adaptive_reclaim_retest: obj=+7.64%, passed=False, OOS trades=18 netR=24.33 avgR=1.352, IS trades=490 netR=398.1, reasons=['is_dd_expansion']
+
+Top Full-Replay OOS-Net Candidates:
+  perturbation/perturb_REVERSION_SWING_RADIUS_1: obj=+31.81%, passed=True, OOS trades=25 netR=28.53 avgR=1.141, IS trades=554 netR=548.2, reasons=[]
+  perturbation/perturb_REVERSION_SWING_RADIUS_0: obj=+31.81%, passed=True, OOS trades=25 netR=28.53 avgR=1.141, IS trades=554 netR=548.2, reasons=[]
+  targeted/native_r5_reversion_reaction_floor: obj=+9.11%, passed=False, OOS trades=16 netR=26.98 avgR=1.687, IS trades=429 netR=341.2, reasons=['oos_trade_regression', 'is_net_r_floor']
+  perturbation/flip_REVERSION_VWAP_TOUCH_EXIT_ENABLED: obj=+8.31%, passed=False, OOS trades=16 netR=26.67 avgR=1.667, IS trades=420 netR=344.6, reasons=['oos_trade_regression', 'is_trade_floor', 'is_net_r_floor']
+  perturbation/perturb_SECOND_WIND_MIN_VOLUME_MULTIPLE_0p8: obj=+28.64%, passed=True, OOS trades=27 netR=25.89 avgR=0.959, IS trades=631 netR=469.0, reasons=[]
+  ablation/ablate_cluster_round_4a_phase_3_entry: obj=+8.69%, passed=False, OOS trades=18 netR=25.05 avgR=1.392, IS trades=475 netR=384.3, reasons=['is_dd_expansion']
+  perturbation/perturb_REVERSION_ENTRY_MODEL_adaptive_reclaim_retest: obj=+7.64%, passed=False, OOS trades=18 netR=24.33 avgR=1.352, IS trades=490 netR=398.1, reasons=['is_dd_expansion']
+  perturbation/perturb_STRUCTURAL_ENTRY_MODE_structure_shift: obj=+6.22%, passed=True, OOS trades=18 netR=24.07 avgR=1.337, IS trades=465 netR=383.0, reasons=[]
+  ablation/ablate_cluster_round_5_phase_5_reversion: obj=+5.81%, passed=True, OOS trades=18 netR=23.98 avgR=1.332, IS trades=464 netR=375.5, reasons=[]
+  ablation/ablate_key_prior_REVERSION_SWING_LOOKBACK_BARS: obj=+5.81%, passed=True, OOS trades=18 netR=23.98 avgR=1.332, IS trades=464 netR=375.5, reasons=[]
+  targeted/struct_unlock_soft_candle_stop55: obj=+6.44%, passed=False, OOS trades=19 netR=23.48 avgR=1.236, IS trades=510 netR=363.7, reasons=['is_net_r_floor']
+  perturbation/perturb_STRUCTURAL_SHORT_MIN_SCORE_8: obj=+2.80%, passed=True, OOS trades=20 netR=21.16 avgR=1.058, IS trades=494 netR=380.3, reasons=[]
+
+Top OOS-Screen Candidates:
+  perturbation/perturb_REVERSION_SWING_RADIUS_0: obj=+26.26%, passed=True, OOS trades=25 netR=28.53 avgR=1.141, IS trades=0 netR=0.0, reasons=[]
+  perturbation/perturb_REVERSION_SWING_RADIUS_1: obj=+26.26%, passed=True, OOS trades=25 netR=28.53 avgR=1.141, IS trades=0 netR=0.0, reasons=[]
+  perturbation/perturb_SECOND_WIND_MIN_VOLUME_MULTIPLE_0p8: obj=+23.84%, passed=True, OOS trades=27 netR=25.89 avgR=0.959, IS trades=0 netR=0.0, reasons=[]
+  targeted/native_r5_reversion_reaction_floor: obj=+11.02%, passed=False, OOS trades=16 netR=26.98 avgR=1.687, IS trades=0 netR=0.0, reasons=['oos_trade_regression']
+  perturbation/flip_REVERSION_VWAP_TOUCH_EXIT_ENABLED: obj=+10.29%, passed=False, OOS trades=16 netR=26.67 avgR=1.667, IS trades=0 netR=0.0, reasons=['oos_trade_regression']
+  ablation/ablate_cluster_round_4a_phase_3_entry: obj=+8.71%, passed=True, OOS trades=18 netR=25.05 avgR=1.392, IS trades=0 netR=0.0, reasons=[]
+  perturbation/perturb_REVERSION_ENTRY_MODEL_adaptive_reclaim_retest: obj=+7.05%, passed=True, OOS trades=18 netR=24.33 avgR=1.352, IS trades=0 netR=0.0, reasons=[]
+  perturbation/perturb_STRUCTURAL_ENTRY_MODE_structure_shift: obj=+6.45%, passed=True, OOS trades=18 netR=24.07 avgR=1.337, IS trades=0 netR=0.0, reasons=[]
+  targeted/struct_unlock_soft_candle_stop55: obj=+6.41%, passed=True, OOS trades=19 netR=23.48 avgR=1.236, IS trades=0 netR=0.0, reasons=[]
+  ablation/ablate_cluster_round_5_phase_5_reversion: obj=+6.25%, passed=True, OOS trades=18 netR=23.98 avgR=1.332, IS trades=0 netR=0.0, reasons=[]
+  ablation/ablate_key_prior_REVERSION_SWING_LOOKBACK_BARS: obj=+6.25%, passed=True, OOS trades=18 netR=23.98 avgR=1.332, IS trades=0 netR=0.0, reasons=[]
+  targeted/native_r5_final_frequency_stack: obj=+6.25%, passed=True, OOS trades=18 netR=23.98 avgR=1.332, IS trades=0 netR=0.0, reasons=[]
+
+Recommended repair candidate: perturbation/perturb_REVERSION_SWING_RADIUS_1
+Recommended config written to recommended_config.json

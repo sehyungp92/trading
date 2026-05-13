@@ -1,0 +1,84 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-06T02:55:54.242533+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 11,
+      "base_score": 0.8746371845994889,
+      "final_score": 0.8746371845994889,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Recovery Architecture",
+      "candidate_count": 25
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-06T02:55:54.777191+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 11,
+      "base_score": 0.8746371845994889,
+      "final_score": 0.8746371845994889,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Threshold Re-optimization",
+      "candidate_count": 38
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-06T02:55:55.269255+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 11,
+      "base_score": 0.8746371845994889,
+      "final_score": 0.8746371845994889,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Correlation + Yield + Conjunction",
+      "candidate_count": 43
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-06T02:55:56.699193+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 11,
+      "base_score": 0.8746371845994889,
+      "final_score": 0.8746371845994889,
+      "kept_features": [],
+      "gate_passed": false,
+      "failure_category": "candidates_exhausted",
+      "scoring_retries": 2,
+      "diagnostic_retries": 0,
+      "focus": "Fine-Tuning",
+      "candidate_count": 28
+    }
+  },
+  "last_updated": "2026-05-06T02:55:56.722200+00:00",
+  "current_phase": 4
+}

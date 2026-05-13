@@ -1,0 +1,133 @@
+{
+  "kind": "post_structural_repair_regeneration",
+  "generated_at_utc": "2026-05-07T11:37:19.366975+00:00",
+  "reason": "Reflect ATRSS synchronized timestamp repair, seven-component scoring, and structural ETF pullback-touch tolerance expansion.",
+  "code_changes": [
+    "backtests/swing/engine/backtest_engine.py:_to_datetime handles numeric nanosecond timestamps",
+    "backtests/swing/engine/portfolio_engine.py preserves np.datetime64 timestamp keys",
+    "strategies/swing/atrss/config.py sets PULLBACK_TOUCH_TOLERANCE_PCT=0.005",
+    "backtests/swing/auto/atrss/scoring.py exposes seven active score components"
+  ],
+  "explicit_mutation_added": {
+    "param_overrides.pullback_touch_tolerance_pct": 0.005
+  },
+  "strict_validation": {
+    "is_period": [
+      "2024-01-01",
+      "2026-03-21"
+    ],
+    "oos_period": [
+      "2026-03-21",
+      "2026-05-02"
+    ],
+    "is_metrics": {
+      "total_trades": 130,
+      "winning_trades": 111,
+      "win_rate": 0.8538461538461538,
+      "profit_factor": 8.561020250684166,
+      "net_r": 130.3462778619536,
+      "avg_r": 1.0026636758611815,
+      "max_drawdown_r": 2.2874367144482335,
+      "trades_per_month": 4.885432098765432,
+      "months": 26.609724047306177,
+      "by_symbol": {
+        "QQQ": 71,
+        "GLD": 59
+      },
+      "by_entry": {
+        "PULLBACK": 130
+      },
+      "by_exit": {
+        "TP1": 37,
+        "STOP": 65,
+        "TP2": 22,
+        "PARTIAL": 5,
+        "FLATTEN_TIME_DECAY": 1
+      }
+    },
+    "pre_oos_metrics": {
+      "total_trades": 10,
+      "winning_trades": 7,
+      "win_rate": 0.7,
+      "profit_factor": 5.665737263178887,
+      "net_r": 10.868194875746475,
+      "avg_r": 1.0868194875746475,
+      "max_drawdown_r": 1.3287578522515417,
+      "trades_per_month": 3.8531645569620254,
+      "months": 2.59526938239159,
+      "by_symbol": {
+        "GLD": 10
+      },
+      "by_entry": {
+        "PULLBACK": 10
+      },
+      "by_exit": {
+        "TP2": 1,
+        "PARTIAL": 1,
+        "STOP": 6,
+        "TP1": 2
+      }
+    },
+    "oos_metrics": {
+      "total_trades": 2,
+      "winning_trades": 2,
+      "win_rate": 1.0,
+      "profit_factor": 999.0,
+      "net_r": 1.1784033903917621,
+      "avg_r": 0.5892016951958811,
+      "max_drawdown_r": 0.0,
+      "trades_per_month": 1.4495238095238097,
+      "months": 1.3797634691195795,
+      "by_symbol": {
+        "QQQ": 2
+      },
+      "by_entry": {
+        "PULLBACK": 2
+      },
+      "by_exit": {
+        "STOP": 1,
+        "TP1": 1
+      }
+    },
+    "oos_examples": [
+      {
+        "symbol": "QQQ",
+        "entry_time": "2026-04-21 19:00:00+00:00",
+        "exit_time": "2026-04-23 17:00:00+00:00",
+        "entry_type": "PULLBACK",
+        "direction": 1,
+        "r_multiple": 0.07832699619772533,
+        "mfe_r": 0.7612167300380235,
+        "mae_r": 0.35741444866919697,
+        "exit_reason": "STOP",
+        "qty": 59
+      },
+      {
+        "symbol": "QQQ",
+        "entry_time": "2026-04-24 15:00:00+00:00",
+        "exit_time": "2026-05-01 14:00:00+00:00",
+        "entry_type": "PULLBACK",
+        "direction": 1,
+        "r_multiple": 1.1000763941940368,
+        "mfe_r": 1.099312452253625,
+        "mae_r": 0.5164247517188761,
+        "exit_reason": "TP1",
+        "qty": 19
+      }
+    ]
+  },
+  "score_snapshot": {
+    "profile": "r11_risk_allocation",
+    "total": 0.712836112984713,
+    "components": {
+      "return": 0.738098948405246,
+      "profit_factor": 0.7975014511540428,
+      "risk": 0.553708308942276,
+      "frequency": 0.5906769570011026,
+      "mfe_capture": 0.8430892255051561,
+      "avg_r": 0.7411047011608184,
+      "win_rate": 0.9803921568627452
+    }
+  },
+  "artifact_note": "Historical phase search outputs remain original; final round_3 headline artifacts are regenerated under current code."
+}

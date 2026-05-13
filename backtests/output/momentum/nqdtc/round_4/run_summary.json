@@ -1,0 +1,246 @@
+{
+  "family": "momentum",
+  "strategy": "nqdtc",
+  "round": 4,
+  "generated_at_utc": "2026-05-04T21:26:22.537184+00:00",
+  "completed_phases": [
+    1,
+    2
+  ],
+  "mutation_count": 17,
+  "cumulative_mutations": {
+    "flags.max_loss_cap": true,
+    "flags.max_stop_width": true,
+    "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+    "param_overrides.BLOCK_CAUTION_REGIME": true,
+    "flags.displacement_threshold": true,
+    "param_overrides.SCORE_NORMAL": 1.5,
+    "param_overrides.RVOL_SCORE_THRESH": 1.5,
+    "param_overrides.MIN_BOX_WIDTH": 150,
+    "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 45,
+    "flags.block_eth_shorts": true,
+    "param_overrides.TP1_R": 1.35,
+    "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+    "param_overrides.BLOCK_ALIGNED_REGIME": true,
+    "flags.block_05_et": false,
+    "flags.block_09_et": false,
+    "param_overrides.RATCHET_THRESHOLD_R": 0.75,
+    "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+  },
+  "headline_metrics": {
+    "total_trades": 123,
+    "win_rate": 58.536585365853654,
+    "profit_factor": 2.1044640852480594,
+    "max_drawdown_pct": 16.336890197287403,
+    "net_return_pct": 372.2284000000018,
+    "sharpe_ratio": 1.7134219973890379,
+    "calmar_ratio": 22.784532154216663
+  },
+  "final_metrics": {
+    "total_trades": 123,
+    "win_rate": 0.5853658536585366,
+    "profit_factor": 2.1044640852480594,
+    "max_dd_pct": 0.16336890197287401,
+    "net_return_pct": 372.2284000000018,
+    "calmar": 22.784532154216663,
+    "sharpe": 1.7134219973890379,
+    "sortino": 15.743650540977317,
+    "avg_r": 0.5515825473654875,
+    "capture_ratio": 0.3600575142786658,
+    "burst_trade_pct": 0.024390243902439025,
+    "eth_short_wr": 0.0,
+    "eth_short_trades": 0,
+    "range_regime_pct": 0.7560975609756098,
+    "tp1_hit_rate": 0.5691056910569106,
+    "tp2_hit_rate": 0.0,
+    "avg_hold_hours": 7.307588075880759,
+    "avg_winner_r": 1.6481440841675967,
+    "avg_loser_r": -0.9965043281198427,
+    "avg_mfe_r": 2.4825434423326755,
+    "robust_net_return_pct": 262.86830000000185,
+    "largest_win_return_pct": 109.36009999999993,
+    "largest_win_pnl_share": 0.2937983775552844,
+    "largest_winner_r": 12.23424581005586,
+    "repair_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\narrow_oos_repair_refine_20260504\\summary.json",
+    "repair_candidate": "refine_nrm2p25_cd45_p025_tp1_1p35",
+    "selection_oos_repair": {
+      "strategy": "nqdtc",
+      "mutations": {
+        "flags.max_loss_cap": true,
+        "flags.max_stop_width": true,
+        "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+        "param_overrides.BLOCK_CAUTION_REGIME": true,
+        "flags.displacement_threshold": true,
+        "param_overrides.SCORE_NORMAL": 1.5,
+        "param_overrides.RVOL_SCORE_THRESH": 1.5,
+        "param_overrides.MIN_BOX_WIDTH": 150,
+        "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 45,
+        "flags.block_eth_shorts": true,
+        "param_overrides.TP1_R": 1.35,
+        "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+        "param_overrides.BLOCK_ALIGNED_REGIME": true,
+        "flags.block_05_et": false,
+        "flags.block_09_et": false,
+        "param_overrides.RATCHET_THRESHOLD_R": 0.75,
+        "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+      },
+      "is_metrics": {
+        "total_trades": 117,
+        "winning_trades": 68,
+        "win_rate": 0.5811965811965812,
+        "profit_factor": 2.304588318376596,
+        "net_r": 63.68393046240086,
+        "avg_r": 0.5443070979692382,
+        "max_drawdown_r": 5.190186716791981,
+        "trades_per_month": 4.396888888888888,
+        "months": 26.609724047306177
+      },
+      "oos_metrics": {
+        "total_trades": 6,
+        "winning_trades": 4,
+        "win_rate": 0.6666666666666666,
+        "profit_factor": 3.073751872376379,
+        "net_r": 4.160722863554134,
+        "avg_r": 0.6934538105923557,
+        "max_drawdown_r": 1.0028901734104048,
+        "trades_per_month": 4.454634146341464,
+        "months": 1.3469119579500657
+      },
+      "fold_metrics": [
+        {
+          "name": "F01_20240401_20240630",
+          "start": "2024-04-01",
+          "end": "2024-06-30",
+          "metrics": {
+            "total_trades": 12,
+            "winning_trades": 9,
+            "win_rate": 0.75,
+            "profit_factor": 4.734487495193204,
+            "net_r": 11.333079010627332,
+            "avg_r": 0.944423250885611,
+            "max_drawdown_r": 1.0158730158730158,
+            "trades_per_month": 4.014065934065934,
+            "months": 2.9894875164257555
+          }
+        },
+        {
+          "name": "F02_20240701_20240930",
+          "start": "2024-07-01",
+          "end": "2024-09-30",
+          "metrics": {
+            "total_trades": 10,
+            "winning_trades": 5,
+            "win_rate": 0.5,
+            "profit_factor": 2.4670699153711446,
+            "net_r": 7.38721435402248,
+            "avg_r": 0.738721435402248,
+            "max_drawdown_r": 3.020431189772017,
+            "trades_per_month": 3.3086956521739133,
+            "months": 3.0223390275952693
+          }
+        },
+        {
+          "name": "F03_20241001_20241231",
+          "start": "2024-10-01",
+          "end": "2024-12-31",
+          "metrics": {
+            "total_trades": 18,
+            "winning_trades": 12,
+            "win_rate": 0.6666666666666666,
+            "profit_factor": 2.1855918992011962,
+            "net_r": 7.464568485886841,
+            "avg_r": 0.4146982492159356,
+            "max_drawdown_r": 5.190186716791981,
+            "trades_per_month": 5.955652173913044,
+            "months": 3.0223390275952693
+          }
+        },
+        {
+          "name": "F04_20250101_20250331",
+          "start": "2025-01-01",
+          "end": "2025-03-31",
+          "metrics": {
+            "total_trades": 12,
+            "winning_trades": 6,
+            "win_rate": 0.5,
+            "profit_factor": 1.3657748869517734,
+            "net_r": 2.115795502214295,
+            "avg_r": 0.17631629185119124,
+            "max_drawdown_r": 3.6481408430453746,
+            "trades_per_month": 4.058666666666666,
+            "months": 2.9566360052562417
+          }
+        },
+        {
+          "name": "F05_20250401_20250630",
+          "start": "2025-04-01",
+          "end": "2025-06-30",
+          "metrics": {
+            "total_trades": 14,
+            "winning_trades": 8,
+            "win_rate": 0.5714285714285714,
+            "profit_factor": 2.1387255269071783,
+            "net_r": 6.886864866513575,
+            "avg_r": 0.4919189190366839,
+            "max_drawdown_r": 3.4975941426502457,
+            "trades_per_month": 4.683076923076923,
+            "months": 2.9894875164257555
+          }
+        },
+        {
+          "name": "F06_20250701_20250930",
+          "start": "2025-07-01",
+          "end": "2025-09-30",
+          "metrics": {
+            "total_trades": 16,
+            "winning_trades": 10,
+            "win_rate": 0.625,
+            "profit_factor": 3.740319163444941,
+            "net_r": 14.140742964691288,
+            "avg_r": 0.8837964352932055,
+            "max_drawdown_r": 3.025107122645323,
+            "trades_per_month": 5.293913043478261,
+            "months": 3.0223390275952693
+          }
+        },
+        {
+          "name": "F07_20251001_20251231",
+          "start": "2025-10-01",
+          "end": "2025-12-31",
+          "metrics": {
+            "total_trades": 13,
+            "winning_trades": 9,
+            "win_rate": 0.6923076923076923,
+            "profit_factor": 4.6932082980729275,
+            "net_r": 14.88697515560157,
+            "avg_r": 1.1451519350462747,
+            "max_drawdown_r": 1.0076923076923077,
+            "trades_per_month": 4.301304347826087,
+            "months": 3.0223390275952693
+          }
+        },
+        {
+          "name": "F08_20260101_20260320",
+          "start": "2026-01-01",
+          "end": "2026-03-20",
+          "metrics": {
+            "total_trades": 14,
+            "winning_trades": 5,
+            "win_rate": 0.35714285714285715,
+            "profit_factor": 0.9034471005137394,
+            "net_r": -0.7813518565164945,
+            "avg_r": -0.05581084689403532,
+            "max_drawdown_r": 3.0034948284350778,
+            "trades_per_month": 5.394430379746836,
+            "months": 2.59526938239159
+          }
+        }
+      ],
+      "assessment": "GREY",
+      "action": "Inconclusive -- extend monitoring to 4+ months",
+      "error": ""
+    }
+  },
+  "source_diagnostics": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\narrow_oos_repair_refine_20260504\\summary.json",
+  "source_phase_state": null
+}

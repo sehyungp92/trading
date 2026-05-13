@@ -1,0 +1,25 @@
+--- ATRSS Phase 1 Diagnostics ---
+
+  Trades:        268
+  Win Rate:      81.0%
+  Profit Factor: 5.75
+  Total R:       +219.2
+  Max DD (pct):  3.08%
+  Max DD (R):    3.18
+  Calmar (R):    68.8
+  Sharpe:        1.60
+  MFE Capture:   0.670
+  Trades/Month:  4.6
+  Avg R:         +0.818
+
+  Phase 1 Focus (Exit Cleanup):
+    [OK] MFE capture above 40%
+
+  Greedy result:
+    Base score:  0.6645
+    Final score: 0.7151
+    Accepted: 4 experiments
+      + disable_early_stall
+      + be_trigger_075r
+      + floor_tight_all
+      + reenable_full_stall

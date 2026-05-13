@@ -7,12 +7,13 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from backtests.scalp.data.downloader import download_scalp_data
+from backtests.scalp.data.downloader import _failed_alignment_messages, download_scalp_data
 from backtests.scalp.data.preprocessing import load_bar_data
 from backtests.momentum.data.downloader import derive_aligned_momentum_timeframes, check_aligned_momentum_timeframes
 from backtests.shared.data.ibkr.alignment import check_symbol_alignment, compare_timeframe_alignment
 from backtests.shared.data.ibkr.bars import download_contract_bars
 from backtests.shared.data.ibkr.contracts import generate_quarterly_contracts, roll_schedule
+from backtests.shared.data.ibkr.models import DownloadResult
 from backtests.shared.data.ibkr.pacing import RequestPacer, request_weight
 from backtests.shared.data.ibkr.stitch import stitch_panama
 from backtests.shared.data.ibkr.store import write_compatibility_bars, write_parquet_atomic
@@ -182,6 +183,40 @@ async def test_scalp_downloader_dry_run_plans_without_ibkr(tmp_path: Path) -> No
     assert any("NQ 5m: derived from 1m" in message for message in messages)
     assert any("NQ 4h: derived from 1m" in message for message in messages)
     assert all(result.dry_run for result in results)
+
+
+@pytest.mark.asyncio
+async def test_scalp_downloader_defaults_ticks_to_required_nq_only(tmp_path: Path) -> None:
+    results = await download_scalp_data(
+        output_dir=tmp_path,
+        symbols=["NQ", "ES"],
+        years=2,
+        dry_run=True,
+        tick_mode="recent-gaps",
+    )
+
+    tick_messages = [
+        message
+        for result in results
+        if result.what_to_show in {"TRADES", "BID_ASK"}
+        for message in result.messages
+        if "tick windows" in message
+    ]
+
+    assert any(message.startswith("NQ") for message in tick_messages)
+    assert not any(message.startswith("ES") for message in tick_messages)
+
+
+def test_failed_alignment_messages_detects_non_ok_alignment() -> None:
+    messages = _failed_alignment_messages(
+        [
+            DownloadResult(symbol="NQ", what_to_show="ALIGNMENT", messages=["OK NQ 1m->5m: compared=10"]),
+            DownloadResult(symbol="ES", what_to_show="ALIGNMENT", messages=["MISMATCH ES 1m->5m: compared=10"]),
+            DownloadResult(symbol="NQ", what_to_show="TRADES", messages=["MISMATCH should not count"]),
+        ]
+    )
+
+    assert messages == ["MISMATCH ES 1m->5m: compared=10"]
 
 
 @pytest.mark.asyncio

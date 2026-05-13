@@ -1,0 +1,62 @@
+{
+  "phase": 1,
+  "goal_progress": {
+    "total_r": {
+      "target": 300.0,
+      "actual": 215.15610307015595,
+      "pct_of_target": 71.71870102338531
+    },
+    "profit_factor": {
+      "target": 6.0,
+      "actual": 5.394264158446627,
+      "pct_of_target": 89.90440264077712
+    },
+    "max_dd_pct": {
+      "target": 0.012,
+      "actual": 0.021861988563815295,
+      "pct_of_target": 54.88979177247265
+    },
+    "calmar_r": {
+      "target": 60.0,
+      "actual": 49.3686867802188,
+      "pct_of_target": 82.281144633698
+    },
+    "total_trades": {
+      "target": 400,
+      "actual": 275.0,
+      "pct_of_target": 68.75
+    },
+    "mfe_capture": {
+      "target": 0.8,
+      "actual": 0.6743261828992073,
+      "pct_of_target": 84.29077286240091
+    },
+    "win_rate": {
+      "target": 0.85,
+      "actual": 0.7890909090909091,
+      "pct_of_target": 92.83422459893048
+    },
+    "trades_per_month": {
+      "target": 7.5,
+      "actual": 4.742328392030969,
+      "pct_of_target": 63.23104522707958
+    }
+  },
+  "strengths": [
+    "profit_factor: 5.3943 (90% of 6.0000)",
+    "calmar_r: 49.3687 (82% of 60.0000)",
+    "mfe_capture: 0.6743 (84% of 0.8000)",
+    "win_rate: 0.7891 (93% of 0.8500)"
+  ],
+  "weaknesses": [
+    "max_dd_pct: 0.0219 (55% of 0.0120)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + profit_factor: 5.3943 (90% of 6.0000)\n  + calmar_r: 49.3687 (82% of 60.0000)\n  + mfe_capture: 0.6743 (84% of 0.8000)\n  + win_rate: 0.7891 (93% of 0.8500)\n\nWeaknesses:\n  - max_dd_pct: 0.0219 (55% of 0.0120)\n\nGoal Progress:\n  total_r: 215.1561 / 300.0000 (72%)\n  profit_factor: 5.3943 / 6.0000 (90%)\n  max_dd_pct: 0.0219 / 0.0120 (55%)\n  calmar_r: 49.3687 / 60.0000 (82%)\n  total_trades: 275.0000 / 400.0000 (69%)\n  mfe_capture: 0.6743 / 0.8000 (84%)\n  win_rate: 0.7891 / 0.8500 (93%)\n  trades_per_month: 4.7423 / 7.5000 (63%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

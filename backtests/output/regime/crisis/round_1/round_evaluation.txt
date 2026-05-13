@@ -1,0 +1,30 @@
+======================================================================
+CRISIS END-OF-ROUND EVALUATION
+======================================================================
+
+Phase Progression Summary:
+  Phase 1: score 0.7690 -> 0.7743 (1 accepted)
+  Phase 2: score 0.7743 -> 0.7743 (0 accepted)
+  Phase 3: score 0.7743 -> 0.7743 (0 accepted)
+  Phase 4: score 0.7743 -> 0.7743 (0 accepted)
+
+Cumulative Mutations Applied:
+  VIX_CRISIS: 33.0
+
+Signal Extraction / Alpha Capture
+No report provided.
+
+Signal Discrimination
+No report provided.
+
+Entry Mechanism
+No report provided.
+
+Trade Management
+No report provided.
+
+Exit Mechanism
+No report provided.
+
+Overall Verdict
+Crisis detection optimized: 7/7 crises detected, 2/2 corrections detected, avg latency 31.6d, WARNING FP 5.61%, CRISIS FP 2.37%.

@@ -1,0 +1,103 @@
+{
+  "phase": 3,
+  "goal_progress": {
+    "sharpe": {
+      "current": 1.9116,
+      "target": 1.0,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "calmar": {
+      "current": 1.8303,
+      "target": 1.0,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "cagr": {
+      "current": 0.1353,
+      "target": 0.08,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "sortino": {
+      "current": 3.0984,
+      "target": 1.5,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "max_drawdown": {
+      "current": 0.0739,
+      "target": 0.15,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "n_active_regimes": {
+      "current": 4,
+      "target": 4,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "regime_entropy": {
+      "current": 0.9819,
+      "target": 0.85,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "crisis_response": {
+      "current": 0.2265,
+      "target": 0.5,
+      "pct_progress": 45.3,
+      "status": "IN_PROGRESS"
+    },
+    "transition_rate": {
+      "current": 0.00804,
+      "target": "0.005-0.025",
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    }
+  },
+  "strengths": [
+    "All 4 regimes active (G/R/S/D)",
+    "Excellent regime entropy (0.982)",
+    "Well-balanced regime distribution (min share 18.7%)",
+    "Strong Sharpe ratio (1.912)",
+    "Good risk-adjusted returns (Calmar=1.830)",
+    "Well-controlled drawdowns (7.4%)",
+    "Strong CAGR (13.53%)"
+  ],
+  "weaknesses": [
+    "Weak crisis detection (0.226) - slow adaptation to stress"
+  ],
+  "scoring_assessment": "MARGINAL: Score improved by only 0.0050 across 1 mutations. The scoring function may not be sensitive enough to meaningful improvements. Consider increasing weight on the weakest metrics.",
+  "suggested_experiments": [
+    {
+      "name": "exp_crisis_vix_80",
+      "mutations": {
+        "crisis_weights": [
+          0.8,
+          0.15,
+          0.05
+        ]
+      }
+    },
+    {
+      "name": "exp_crisis_logit_steep",
+      "mutations": {
+        "crisis_logit_a": 3.0,
+        "crisis_logit_b": -0.3
+      }
+    },
+    {
+      "name": "exp_crisis_spread_heavy",
+      "mutations": {
+        "crisis_weights": [
+          0.3,
+          0.6,
+          0.1
+        ]
+      }
+    }
+  ],
+  "recommendation": "proceed",
+  "recommendation_reason": "Phase 3 gate passed. Score improved by 0.0050 with 1 accepted mutation(s). Proceeding to next phase."
+}

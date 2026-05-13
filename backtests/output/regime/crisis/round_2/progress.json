@@ -1,0 +1,92 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-05T20:30:17.828653+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 4,
+      "base_score": 0.6556836546991901,
+      "final_score": 0.7900015391282353,
+      "kept_features": [
+        "hybrid_1_2",
+        "spy_dd_warning_0.06"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "SPY DD + Hybrid Conjunction",
+      "candidate_count": 24
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-05T20:30:55.990560+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 6,
+      "base_score": 0.7900015391282353,
+      "final_score": 0.8193403385679697,
+      "kept_features": [
+        "vix_loose"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "VIX + Credit Spread Re-optimization",
+      "candidate_count": 36
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-05T20:30:56.399007+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 6,
+      "base_score": 0.8193403385679697,
+      "final_score": 0.8193403385679697,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Correlation + Yield Curve + Hysteresis",
+      "candidate_count": 53
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-05T20:31:24.695870+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 6,
+      "base_score": 0.8193403385679697,
+      "final_score": 0.8511994015981507,
+      "kept_features": [
+        "finetune_vix_warning_p08",
+        "finetune_spy_dd_warning_m04"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Threshold Fine-Tuning",
+      "candidate_count": 19
+    }
+  },
+  "last_updated": "2026-05-05T20:31:24.716875+00:00",
+  "current_phase": 4
+}

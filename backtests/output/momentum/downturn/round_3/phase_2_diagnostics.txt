@@ -1,0 +1,84 @@
+======================================================================
+DOWNTURN DOMINATOR PHASE 2 DIAGNOSTICS
+======================================================================
+
+--- D1: Regime Accuracy ---
+  aligned_bear          trades=   8  PnL=$      -350  avg=$     -44
+  emerging_bear         trades=  21  PnL=$      -128  avg=$      -6
+  neutral               trades=  48  PnL=$     8,417  avg=$     175
+  range                 trades=  41  PnL=$     5,203  avg=$     127
+
+  Correction trades:     75  PnL=$    12,834
+  Non-correction trades: 43  PnL=$       308
+
+--- D2: Signal Quality ---
+  Signal→entry ratio:  0.506
+  Reversal      n=   3  WR=33.3%  avgR=-0.248
+  Breakdown     n=   0  WR=0.0%  avgR=+0.000
+  Fade          n= 115  WR=52.2%  avgR=+0.402
+
+--- D3: Exit Efficiency ---
+  stop                  n=  81  avgR=-0.371
+  tp1                   n=  37  avgR=+2.041
+
+  Per-engine exit breakdown:
+    reversal:
+      stop                n=  3  avgR=-0.248
+    fade:
+      stop                n= 78  avgR=-0.376
+      tp1                 n= 37  avgR=+2.041
+
+  Positive MFE capture: 0.75
+  Low-MFE trades (<0.5R): 52/118 (44%)  PnL=$-6,382
+
+--- D4: Drawdown Attribution ---
+  Max DD: 7.90%
+  Worst 5 trades:
+    1. fade       PnL=$    -848  R=-1.00  stop
+    2. fade       PnL=$    -742  R=-1.26  stop
+    3. fade       PnL=$    -408  R=-1.00  stop
+    4. fade       PnL=$    -399  R=-1.00  stop
+    5. fade       PnL=$    -380  R=-1.00  stop
+  reversal     total loss: $      -294 (2 losing trades)
+  breakdown    total loss: $         0 (0 losing trades)
+  fade         total loss: $    -7,583 (55 losing trades)
+
+--- D5: Hold Time & Conviction ---
+  reversal      avgHold=  8.3  medR=-0.36  maxR=+0.12  minR=-0.50
+  fade          avgHold=  3.9  medR=+0.11  maxR=+10.47  minR=-3.43
+
+--- D6: Phase Delta ---
+  No prior phase for delta.
+
+--- D8: Per-Engine Exit & MFE Analysis ---
+
+  REVERSAL (3 trades):
+    WR=1/3 (33%)  PnL=$-265  avgR=-0.25  medR=-0.36
+    Hold: avg=8 bars  med=10  max=12
+    MFE distribution (R):  p25=0.07  p50=0.12  p75=0.16  p90=0.19  p95=0.20
+    MFE: avg=0.12  max=0.21
+    MAE: avg=-0.26  worst=-0.37
+    Positive MFE capture: 0.49
+    Low-MFE trades (<0.5R): 3/3 (100%)
+
+  FADE (115 trades):
+    WR=60/115 (52%)  PnL=$+13,407  avgR=+0.40  medR=+0.11
+    Hold: avg=4 bars  med=1  max=44
+    MFE distribution (R):  p25=0.38  p50=1.00  p75=1.81  p90=1.98  p95=2.36
+    MFE: avg=1.19  max=10.48
+    Reached  0.5R:  66/97 (68%)
+    Reached  1.0R:  49/97 (51%)
+    Reached  1.5R:  28/97 (29%)
+    Reached  2.0R:  10/97 (10%)
+    Reached  3.0R:   4/97 (4%)
+    Reached  5.0R:   3/97 (3%)
+    MAE: avg=-0.45  worst=-3.36
+    Positive MFE capture: 0.75
+    Low-MFE trades (<0.5R): 49/115 (43%)
+
+--- Gate Assessment ---
+  Gate passed: True
+  [PASS] exit_efficiency: 0.751 (target: 0.200)
+  [PASS] profit_factor: 2.668 (target: 1.300)
+  [PASS] correction_pnl_pct: 128.342 (target: 10.000)
+

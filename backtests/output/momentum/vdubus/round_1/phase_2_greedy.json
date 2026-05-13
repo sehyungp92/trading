@@ -1,0 +1,47 @@
+{
+  "base_score": 0.5122574895795727,
+  "final_score": 0.5122574895795727,
+  "final_mutations": {
+    "flags.plus_1r_partial": false,
+    "param_overrides.CHOP_THRESHOLD": 40,
+    "flags.early_kill": false,
+    "param_overrides.MAX_POSITION_BARS_15M": 64
+  },
+  "kept_features": [],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 25,
+      "best_name": "suggest_stale_bars_10",
+      "best_score": 0.5122574895795727,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 4
+    }
+  ],
+  "final_metrics": {
+    "total_trades": 174,
+    "win_rate": 0.46551724137931033,
+    "profit_factor": 1.9141434030644524,
+    "max_dd_pct": 0.2192978792168805,
+    "net_return_pct": 717.0002000000063,
+    "calmar": 32.69526374629961,
+    "sharpe": 1.572468661411145,
+    "sortino": 6.997078640552174,
+    "avg_r": 0.32107203993936795,
+    "capture_ratio": 0.4917444556500918,
+    "stale_exit_pct": 0.5172413793103449,
+    "multi_session_pct": 0.20114942528735633,
+    "trades_per_month": 5.316663634367452,
+    "avg_hold_hours": 9.44683908045977,
+    "avg_winner_r": 1.2360872445772622,
+    "avg_loser_r": -0.47587668668073335,
+    "avg_mfe_r": 1.109741627149667,
+    "evening_trade_pct": 0.10344827586206896,
+    "evening_avg_r": -0.11031587230409005,
+    "fast_death_pct": 0.22413793103448276
+  },
+  "total_candidates": 25,
+  "accepted_count": 0,
+  "elapsed_seconds": 390.2072412967682
+}

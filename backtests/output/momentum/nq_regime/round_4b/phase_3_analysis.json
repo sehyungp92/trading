@@ -1,0 +1,58 @@
+{
+  "phase": 3,
+  "goal_progress": {
+    "module_structural_expansion_trades": {
+      "target": 60.0,
+      "actual": 82.0,
+      "pct_of_target": 136.66666666666666
+    },
+    "module_structural_expansion_total_r": {
+      "target": 8.0,
+      "actual": 14.692843207116534,
+      "pct_of_target": 183.66054008895668
+    },
+    "module_structural_expansion_avg_r": {
+      "target": 0.1,
+      "actual": 0.17918101472093337,
+      "pct_of_target": 179.18101472093335
+    },
+    "module_structural_expansion_profit_factor": {
+      "target": 1.35,
+      "actual": 2.1533172226512867,
+      "pct_of_target": 159.50497945565084
+    },
+    "module_structural_expansion_mfe_capture": {
+      "target": 0.55,
+      "actual": 0.7473643031394506,
+      "pct_of_target": 135.88441875262737
+    },
+    "routing_structural_expansion_selected": {
+      "target": 220.0,
+      "actual": 233.0,
+      "pct_of_target": 105.9090909090909
+    },
+    "max_drawdown_pct": {
+      "target": 0.12,
+      "actual": 0.015647171450089575,
+      "pct_of_target": 200.0
+    }
+  },
+  "strengths": [
+    "module_structural_expansion_trades: 82.0000 (137% of 60.0000)",
+    "module_structural_expansion_total_r: 14.6928 (184% of 8.0000)",
+    "module_structural_expansion_avg_r: 0.1792 (179% of 0.1000)",
+    "module_structural_expansion_profit_factor: 2.1533 (160% of 1.3500)",
+    "module_structural_expansion_mfe_capture: 0.7474 (136% of 0.5500)",
+    "routing_structural_expansion_selected: 233.0000 (106% of 220.0000)",
+    "max_drawdown_pct: 0.0156 (200% of 0.1200)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 3 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + module_structural_expansion_trades: 82.0000 (137% of 60.0000)\n  + module_structural_expansion_total_r: 14.6928 (184% of 8.0000)\n  + module_structural_expansion_avg_r: 0.1792 (179% of 0.1000)\n  + module_structural_expansion_profit_factor: 2.1533 (160% of 1.3500)\n  + module_structural_expansion_mfe_capture: 0.7474 (136% of 0.5500)\n  + routing_structural_expansion_selected: 233.0000 (106% of 220.0000)\n  + max_drawdown_pct: 0.0156 (200% of 0.1200)\n\nGoal Progress:\n  module_structural_expansion_trades: 82.0000 / 60.0000 (137%)\n  module_structural_expansion_total_r: 14.6928 / 8.0000 (184%)\n  module_structural_expansion_avg_r: 0.1792 / 0.1000 (179%)\n  module_structural_expansion_profit_factor: 2.1533 / 1.3500 (160%)\n  module_structural_expansion_mfe_capture: 0.7474 / 0.5500 (136%)\n  routing_structural_expansion_selected: 233.0000 / 220.0000 (106%)\n  max_drawdown_pct: 0.0156 / 0.1200 (200%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

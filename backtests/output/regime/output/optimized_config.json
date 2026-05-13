@@ -1,0 +1,87 @@
+{
+  "rebalance_freq": "W-FRI",
+  "cash_col": "CASH",
+  "ann_factor": 252.0,
+  "z_window": 252,
+  "z_minp": 30,
+  "n_states": 4,
+  "covariance_type": "full",
+  "n_iter_first_fit": 400,
+  "n_iter_refit": 200,
+  "tol": 0.001,
+  "min_covar": 1e-06,
+  "random_state": 7,
+  "sticky_diag": 15.0,
+  "sticky_offdiag": 2.0,
+  "refit_freq": "QE",
+  "use_expanding_window": false,
+  "use_warm_start": false,
+  "refit_validation_window": 63,
+  "refit_ll_tolerance": 5.0,
+  "crisis_weights": [
+    0.3,
+    0.6,
+    0.1
+  ],
+  "crisis_logit_a": 3.0,
+  "crisis_logit_b": 0.0,
+  "conf_floor": 0.3,
+  "stability_weight": 0.8,
+  "sigma_floor_annual": 0.09,
+  "per_strat_max": 0.5,
+  "strat_vol_span": 63,
+  "cov_window": 63,
+  "shrinkage_target": "ledoit_wolf",
+  "ventilator_lambda": 0.8,
+  "ventilator_vmin": 0.2,
+  "rho_short_window": 20,
+  "rho_long_window": 60,
+  "delta_rho_threshold": 0.15,
+  "delta_rho_exempt": 0.0,
+  "pnl_confirm_days": 10,
+  "risk_on_set": [
+    "SPY",
+    "EFA",
+    "IBIT"
+  ],
+  "L_max": 1.6,
+  "kappa_totalvol_cap": 1.5,
+  "base_target_vol_annual": 0.08,
+  "ewma_downside_span": 20,
+  "ewma_total_span": 60,
+  "s_floor": 0.3,
+  "gamma": 0.1,
+  "dd_ladder": [
+    [
+      -0.08,
+      1.0
+    ],
+    [
+      -0.12,
+      0.7
+    ],
+    [
+      -0.16,
+      0.5
+    ],
+    [
+      -0.2,
+      0.3
+    ]
+  ],
+  "rolling_window_years": 7,
+  "warm_start_perturb_std": 0.0,
+  "use_commodity_feature": false,
+  "use_real_rates_feature": false,
+  "drop_momentum_breadth": false,
+  "drop_eq_bond_corr": false,
+  "posterior_temperature": 1.0,
+  "posterior_smoothing_eps": 0.0,
+  "posterior_ema_alpha": 0.8,
+  "label_continuity_weight": 0.0,
+  "regime_momentum_lookback": 4,
+  "use_vix_feature": false,
+  "use_realized_vol_feature": false,
+  "use_trend_divergence_feature": false,
+  "weight_smoothing_alpha": 0.5
+}

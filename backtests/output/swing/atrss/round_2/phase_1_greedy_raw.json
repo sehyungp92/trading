@@ -1,0 +1,38 @@
+{
+  "base_score": 0.6139069886062933,
+  "final_score": 0.6299551004878143,
+  "final_mutations": {
+    "flags.early_stall_exit": true,
+    "param_overrides.early_stall_check_hours": 12,
+    "param_overrides.early_stall_mfe_threshold": 0.2,
+    "param_overrides.max_hold_hours": 80,
+    "param_overrides.adx_on": 14
+  },
+  "kept_features": [
+    "adx_on_14"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 21,
+      "best_name": "adx_on_14",
+      "best_score": 0.6299551004878143,
+      "best_delta_pct": 2.6140949979986083,
+      "kept": true,
+      "rejected_count": 2
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 14,
+      "best_name": "confirm_days_0",
+      "best_score": 0.6299551004878143,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 21,
+  "accepted_count": 1,
+  "elapsed_seconds": 330.51885056495667
+}

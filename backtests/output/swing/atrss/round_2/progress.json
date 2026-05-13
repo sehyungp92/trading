@@ -1,0 +1,91 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-04-30T12:40:43.504597+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 5,
+      "base_score": 0.6139069886062933,
+      "final_score": 0.6299551004878143,
+      "kept_features": [
+        "adx_on_14"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Opportunity Surface",
+      "candidate_count": 21
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-04-30T12:48:34.318444+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 6,
+      "base_score": 0.6299551004878143,
+      "final_score": 0.6644083101664948,
+      "kept_features": [
+        "recov_trend_055"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Signal Geometry",
+      "candidate_count": 27
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-04-30T12:53:04.837463+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 6,
+      "base_score": 0.6644083101664948,
+      "final_score": 0.6644083101664948,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Execution & Stops",
+      "candidate_count": 19
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-04-30T13:11:00.913619+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 6,
+      "base_score": 0.6644083101664948,
+      "final_score": 0.6824708002450192,
+      "kept_features": [
+        "disable_early_stall",
+        "max_hold_hours_plus10"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Exits, Add-ons & Allocation",
+      "candidate_count": 47
+    }
+  },
+  "last_updated": "2026-04-30T13:11:00.931175+00:00",
+  "current_phase": 4
+}

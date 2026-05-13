@@ -1,0 +1,15 @@
+SWING PORTFOLIO SYNERGY PHASE 2 DIAGNOSTICS
+======================================================================
+Score: 0.8203 -> 0.8480
+Kept: tpc_lower_unit_more_heat
+Comparable return: +392.42%
+Compounded MTM return: +394.08%
+Max DD: 7.97%
+PF: 3.33
+Trades: 675
+Heat max: 4.18R
+
+Per Strategy
+  ATRSS      trades= 230 signals= 382 requests= 382 accepted= 250 blocked= 132 suppressed= 488 static_pnl=$+146,623.20
+  AKC_HELIX  trades= 317 signals= 325 requests= 325 accepted= 317 blocked=   8 suppressed=   0 static_pnl=$+37,839.40
+  TPC        trades= 128 signals= 137 requests= 137 accepted= 128 blocked=   9 suppressed=   0 static_pnl=$+11,748.95

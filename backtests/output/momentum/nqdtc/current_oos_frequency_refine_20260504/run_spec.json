@@ -1,0 +1,10 @@
+{
+  "generated_at_utc": "2026-05-04T23:26:00.857872+00:00",
+  "strategy": "nqdtc",
+  "config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_4\\optimized_config.json",
+  "prior_config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_3\\optimized_config.json",
+  "data_end": "2026-05-01",
+  "max_workers": 4,
+  "stages": "refine",
+  "selection_oos_note": "The OOS window is used for diagnosis/selection in this run; it is no longer an untouched holdout."
+}

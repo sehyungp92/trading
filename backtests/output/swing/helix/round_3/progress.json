@@ -1,0 +1,125 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-08T10:27:45.294279+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 29,
+      "base_score": 0.6530982415962113,
+      "final_score": 0.7949948218437917,
+      "kept_features": [
+        "entry_d_short_adx24_streak2"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "SIGNAL_PRUNING + ENTRY_GATES",
+      "candidate_count": 30
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-08T11:18:41.766039+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 33,
+      "base_score": 0.8064139387363252,
+      "final_score": 0.8153682861364747,
+      "kept_features": [
+        "fade_min_r_05",
+        "rts_guard_mfe050_be"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "EXIT_MANAGEMENT",
+      "candidate_count": 73
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-08T11:26:37.066100+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 33,
+      "base_score": 0.7918445352084148,
+      "final_score": 0.7918445352084148,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "VOLATILITY + ADDON",
+      "candidate_count": 34
+    },
+    "4": {
+      "status": "completed_manual_finalization",
+      "updated_at": "2026-05-08T13:40:23.724533+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 33,
+      "base_score": 0.7918445352084148,
+      "final_score": 0.8095738490237109,
+      "kept_features": [
+        "finetune_param_overrides.RTS_GUARD_MFE_R_p20",
+        "finetune_param_overrides.R_BE_1H_m20",
+        "finetune_param_overrides.ADD_1H_R_p20",
+        "finetune_param_overrides.ADD_RISK_FRAC_p20",
+        "finetune_param_overrides.TRAIL_STALL_RATE_p10"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "SIZING + FINETUNE",
+      "candidate_count": 120,
+      "manual_finalization": true
+    },
+    "5": {
+      "status": "completed",
+      "updated_at": "2026-05-08T14:33:14.751377+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "current_phase": 5,
+      "total_mutations": 34,
+      "base_score": 0.555066568475345,
+      "final_score": 0.5676955329759867,
+      "kept_features": [
+        "stale_24_thresh010"
+      ],
+      "accepted_mutations": {
+        "param_overrides.STALE_1H_BARS": 24,
+        "param_overrides.STALE_R_THRESH": 0.1
+      },
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "WIN_RATE_REPAIR",
+      "candidate_count": 55,
+      "promoted_to_round_final": true
+    }
+  },
+  "last_updated": "2026-05-08T14:33:14.751377+00:00",
+  "current_phase": 5
+}

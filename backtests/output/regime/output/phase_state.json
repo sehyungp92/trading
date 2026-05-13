@@ -1,0 +1,63 @@
+{
+  "current_phase": 1,
+  "completed_phases": [
+    1
+  ],
+  "cumulative_mutations": {
+    "sticky_diag": 15,
+    "use_warm_start": false,
+    "use_expanding_window": false,
+    "rolling_window_years": 7,
+    "refit_ll_tolerance": 2.0,
+    "refit_freq": "QE",
+    "z_minp": 30,
+    "posterior_temperature": 1.5,
+    "posterior_smoothing_eps": 0.01,
+    "posterior_ema_alpha": 0.7,
+    "stability_weight": 0.8,
+    "per_strat_max": 0.5,
+    "base_target_vol_annual": 0.08,
+    "kappa_totalvol_cap": 1.5,
+    "crisis_logit_a": 3,
+    "weight_smoothing_alpha": 0.5,
+    "L_max": 1.6,
+    "delta_rho_exempt": 0,
+    "sigma_floor_annual": 0.09,
+    "delta_rho_threshold": 0.15,
+    "crisis_weights": [
+      0.25,
+      0.5,
+      0.1,
+      0.15
+    ],
+    "scanner_enabled": true,
+    "n_ensemble_models": 5,
+    "crisis_z_window": 21,
+    "posterior_ema_risk_off_alpha": 1
+  },
+  "phase_results": {
+    "1": {
+      "baseline_score": 0.5866818833149929,
+      "final_score": 0.5884751261962424,
+      "final_metrics": {
+        "total_return": 3.75015783934154,
+        "cagr": 0.06947452926040354,
+        "sharpe": 1.2570967659049403,
+        "sortino": 1.852701370251522,
+        "calmar": 0.9395294552893543,
+        "max_drawdown_pct": 0.0739460895763049,
+        "max_drawdown_duration": 334,
+        "avg_annual_turnover": 11.698596915796358,
+        "n_rebalances": 1148
+      },
+      "n_rounds": 1,
+      "max_rounds": 20,
+      "rounds": [
+        "ll_tol_2.0"
+      ],
+      "elapsed_seconds": 10701.581219434738
+    }
+  },
+  "phase_gate_results": {},
+  "retry_count": {}
+}

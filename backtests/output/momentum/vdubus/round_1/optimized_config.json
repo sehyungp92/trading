@@ -1,0 +1,6 @@
+{
+  "flags.plus_1r_partial": false,
+  "param_overrides.CHOP_THRESHOLD": 32.0,
+  "flags.early_kill": false,
+  "param_overrides.MAX_POSITION_BARS_15M": 51.2
+}

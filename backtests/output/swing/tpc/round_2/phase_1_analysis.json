@@ -1,0 +1,65 @@
+{
+  "phase": 1,
+  "goal_progress": {
+    "total_r": {
+      "target": 90.0,
+      "actual": 251.831146373956,
+      "pct_of_target": 200.0
+    },
+    "r_per_month": {
+      "target": 1.5,
+      "actual": 4.555870959123184,
+      "pct_of_target": 200.0
+    },
+    "avg_r": {
+      "target": 0.45,
+      "actual": 1.430858786215659,
+      "pct_of_target": 200.0
+    },
+    "trades_per_month": {
+      "target": 4.0,
+      "actual": 3.1840115901112576,
+      "pct_of_target": 79.60028975278144
+    },
+    "total_trades": {
+      "target": 220.0,
+      "actual": 176.0,
+      "pct_of_target": 80.0
+    },
+    "excellent_trades": {
+      "target": 120.0,
+      "actual": 82.0,
+      "pct_of_target": 68.33333333333333
+    },
+    "profit_factor": {
+      "target": 1.8,
+      "actual": 2.480019743215025,
+      "pct_of_target": 137.77887462305694
+    },
+    "never_worked_rate": {
+      "target": 0.2,
+      "actual": 0.2727272727272727,
+      "pct_of_target": 136.36363636363635
+    }
+  },
+  "strengths": [
+    "total_r: 251.8311 (200% of 90.0000)",
+    "r_per_month: 4.5559 (200% of 1.5000)",
+    "avg_r: 1.4309 (200% of 0.4500)",
+    "total_trades: 176.0000 (80% of 220.0000)",
+    "profit_factor: 2.4800 (138% of 1.8000)",
+    "never_worked_rate: 0.2727 (136% of 0.2000)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [
+    "MFE realization is weak; prefer T1, trail, profit-floor, and runner-time experiments over raw loosening.",
+    "Winner concentration is high; robustness needs top-winner removal and symbol/year stability checks."
+  ],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + total_r: 251.8311 (200% of 90.0000)\n  + r_per_month: 4.5559 (200% of 1.5000)\n  + avg_r: 1.4309 (200% of 0.4500)\n  + total_trades: 176.0000 (80% of 220.0000)\n  + profit_factor: 2.4800 (138% of 1.8000)\n  + never_worked_rate: 0.2727 (136% of 0.2000)\n\nDiagnostic Gaps:\n  ! MFE realization is weak; prefer T1, trail, profit-floor, and runner-time experiments over raw loosening.\n  ! Winner concentration is high; robustness needs top-winner removal and symbol/year stability checks.\n\nGoal Progress:\n  total_r: 251.8311 / 90.0000 (200%)\n  r_per_month: 4.5559 / 1.5000 (200%)\n  avg_r: 1.4309 / 0.4500 (200%)\n  trades_per_month: 3.1840 / 4.0000 (80%)\n  total_trades: 176.0000 / 220.0000 (80%)\n  excellent_trades: 82.0000 / 120.0000 (68%)\n  profit_factor: 2.4800 / 1.8000 (138%)\n  never_worked_rate: 0.2727 / 0.2000 (136%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

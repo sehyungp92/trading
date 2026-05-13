@@ -1,0 +1,155 @@
+{
+  "phase": 1,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 320.0,
+      "actual": 326.5642000000013,
+      "pct_of_target": 102.05131250000039
+    },
+    "robust_net_return_pct": {
+      "target": 240.0,
+      "actual": 253.52920000000114,
+      "pct_of_target": 105.63716666666714
+    },
+    "profit_factor": {
+      "target": 2.0,
+      "actual": 2.1293035442905284,
+      "pct_of_target": 106.46517721452642
+    },
+    "max_dd_pct": {
+      "target": 0.15,
+      "actual": 0.16632157833763847,
+      "pct_of_target": 90.1867343367166
+    },
+    "calmar": {
+      "target": 10.0,
+      "actual": 19.634505832855,
+      "pct_of_target": 196.34505832855004
+    },
+    "total_trades": {
+      "target": 115.0,
+      "actual": 99.0,
+      "pct_of_target": 86.08695652173914
+    },
+    "capture_ratio": {
+      "target": 0.5,
+      "actual": 0.4136712479830253,
+      "pct_of_target": 82.73424959660505
+    },
+    "avg_r": {
+      "target": 0.5,
+      "actual": 0.5443071628507024,
+      "pct_of_target": 108.86143257014047
+    },
+    "win_rate": {
+      "target": 0.56,
+      "actual": 0.5757575757575758,
+      "pct_of_target": 102.8138528138528
+    },
+    "sharpe": {
+      "target": 2.0,
+      "actual": 1.8611492172175252,
+      "pct_of_target": 93.05746086087626
+    },
+    "sortino": {
+      "target": 6.0,
+      "actual": 45.89017633014993,
+      "pct_of_target": 200.0
+    }
+  },
+  "strengths": [
+    "net_return_pct: 326.5642 (102% of 320.0000)",
+    "robust_net_return_pct: 253.5292 (106% of 240.0000)",
+    "profit_factor: 2.1293 (106% of 2.0000)",
+    "max_dd_pct: 0.1663 (90% of 0.1500)",
+    "calmar: 19.6345 (196% of 10.0000)",
+    "total_trades: 99.0000 (86% of 115.0000)",
+    "capture_ratio: 0.4137 (83% of 0.5000)",
+    "avg_r: 0.5443 (109% of 0.5000)",
+    "win_rate: 0.5758 (103% of 0.5600)",
+    "sharpe: 1.8611 (93% of 2.0000)",
+    "sortino: 45.8902 (200% of 6.0000)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [
+    "Low MFE capture ratio -- exits leave alpha on the table",
+    "Low trade frequency -- signal gates may be too restrictive"
+  ],
+  "suggested_experiments": [
+    {
+      "name": "suggest_tp2_2.25_p15",
+      "mutations": {
+        "param_overrides.TP1_R": 1.2,
+        "param_overrides.TP1_PARTIAL_PCT": 0.5,
+        "param_overrides.TP2_R": 2.25,
+        "param_overrides.TP2_PARTIAL_PCT": 0.15
+      }
+    },
+    {
+      "name": "suggest_tp2_2.5_p20",
+      "mutations": {
+        "param_overrides.TP1_R": 1.2,
+        "param_overrides.TP1_PARTIAL_PCT": 0.5,
+        "param_overrides.TP2_R": 2.5,
+        "param_overrides.TP2_PARTIAL_PCT": 0.2
+      }
+    },
+    {
+      "name": "suggest_ratchet_0.45",
+      "mutations": {
+        "param_overrides.RATCHET_LOCK_PCT": 0.45
+      }
+    },
+    {
+      "name": "suggest_allow_05_et",
+      "mutations": {
+        "flags.block_05_et": false
+      }
+    },
+    {
+      "name": "suggest_allow_05_score_1.75",
+      "mutations": {
+        "flags.block_05_et": false,
+        "param_overrides.SCORE_NORMAL": 1.75
+      }
+    },
+    {
+      "name": "suggest_allow_09_et",
+      "mutations": {
+        "flags.block_09_et": false
+      }
+    },
+    {
+      "name": "suggest_rvol_1.35",
+      "mutations": {
+        "param_overrides.RVOL_SCORE_THRESH": 1.35
+      }
+    }
+  ],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + net_return_pct: 326.5642 (102% of 320.0000)\n  + robust_net_return_pct: 253.5292 (106% of 240.0000)\n  + profit_factor: 2.1293 (106% of 2.0000)\n  + max_dd_pct: 0.1663 (90% of 0.1500)\n  + calmar: 19.6345 (196% of 10.0000)\n  + total_trades: 99.0000 (86% of 115.0000)\n  + capture_ratio: 0.4137 (83% of 0.5000)\n  + avg_r: 0.5443 (109% of 0.5000)\n  + win_rate: 0.5758 (103% of 0.5600)\n  + sharpe: 1.8611 (93% of 2.0000)\n  + sortino: 45.8902 (200% of 6.0000)\n\nDiagnostic Gaps:\n  ! Low MFE capture ratio -- exits leave alpha on the table\n  ! Low trade frequency -- signal gates may be too restrictive\n\nSuggested Experiments (7):\n  - suggest_tp2_2.25_p15: {\"param_overrides.TP1_R\": 1.2, \"param_overrides.TP1_PARTIAL_PCT\": 0.5, \"param_overrides.TP2_R\": 2.25, \"param_overrides.TP2_PARTIAL_PCT\": 0.15}\n  - suggest_tp2_2.5_p20: {\"param_overrides.TP1_R\": 1.2, \"param_overrides.TP1_PARTIAL_PCT\": 0.5, \"param_overrides.TP2_R\": 2.5, \"param_overrides.TP2_PARTIAL_PCT\": 0.2}\n  - suggest_ratchet_0.45: {\"param_overrides.RATCHET_LOCK_PCT\": 0.45}\n  - suggest_allow_05_et: {\"flags.block_05_et\": false}\n  - suggest_allow_05_score_1.75: {\"flags.block_05_et\": false, \"param_overrides.SCORE_NORMAL\": 1.75}\n  - suggest_allow_09_et: {\"flags.block_09_et\": false}\n  - suggest_rvol_1.35: {\"param_overrides.RVOL_SCORE_THRESH\": 1.35}\n\nExtra Analysis:\n  Session/direction: ETH short WR=0.0% (0 trades), Range regime=100.0%\n  Exit efficiency: capture=0.41, TP1=53.5%, TP2=0.0%\n  Return robustness: robust=253.5%, largest_win_share=22.4%, largest_win=8.18R\n  Clustering: burst_trade_pct=4.0%\n\nGoal Progress:\n  net_return_pct: 326.5642 / 320.0000 (102%)\n  robust_net_return_pct: 253.5292 / 240.0000 (106%)\n  profit_factor: 2.1293 / 2.0000 (106%)\n  max_dd_pct: 0.1663 / 0.1500 (90%)\n  calmar: 19.6345 / 10.0000 (196%)\n  total_trades: 99.0000 / 115.0000 (86%)\n  capture_ratio: 0.4137 / 0.5000 (83%)\n  avg_r: 0.5443 / 0.5000 (109%)\n  win_rate: 0.5758 / 0.5600 (103%)\n  sharpe: 1.8611 / 2.0000 (93%)\n  sortino: 45.8902 / 6.0000 (200%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "session_direction": {
+      "eth_short_wr": 0.0,
+      "eth_short_trades": 0,
+      "range_regime_pct": 1.0
+    },
+    "exit_efficiency": {
+      "capture_ratio": 0.4136712479830253,
+      "tp1_hit_rate": 0.5353535353535354,
+      "tp2_hit_rate": 0.0
+    },
+    "return_robustness": {
+      "robust_net_return_pct": 253.52920000000114,
+      "largest_win_return_pct": 73.03500000000015,
+      "largest_win_pnl_share": 0.2236466826431062,
+      "largest_winner_r": 8.177653631284933
+    },
+    "clustering": {
+      "burst_trade_pct": 0.04040404040404041
+    }
+  }
+}

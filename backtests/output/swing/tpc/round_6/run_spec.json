@@ -1,0 +1,11 @@
+{
+  "generated_at_utc": "2026-05-06T03:56:56.254651+00:00",
+  "train_end": "2025-11-01",
+  "data_end": "2026-05-01 23:00:00+00:00",
+  "config": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_5\\optimized_config.json",
+  "stage1_oos": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_5\\oos_ablation_perturbation.jsonl",
+  "max_workers": 6,
+  "shortlist": 50,
+  "targeted_limit": 320,
+  "selection_oos_note": "The OOS window was used for diagnosis/selection; validate on fresh data before promotion."
+}

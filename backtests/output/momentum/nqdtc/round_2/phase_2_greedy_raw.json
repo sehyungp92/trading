@@ -1,0 +1,47 @@
+{
+  "base_score": 0.7146228613842385,
+  "final_score": 0.7372229792796393,
+  "final_mutations": {
+    "flags.max_loss_cap": true,
+    "flags.max_stop_width": true,
+    "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+    "param_overrides.BLOCK_CAUTION_REGIME": true,
+    "flags.displacement_threshold": false,
+    "param_overrides.SCORE_NORMAL": 1.5,
+    "param_overrides.RVOL_SCORE_THRESH": 1.5,
+    "param_overrides.MIN_BOX_WIDTH": 150,
+    "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+    "flags.block_eth_shorts": true,
+    "param_overrides.TP1_R": 1.4,
+    "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+    "param_overrides.TP1_PARTIAL_PCT": 0.5,
+    "param_overrides.BLOCK_ALIGNED_REGIME": true
+  },
+  "kept_features": [
+    "tp1_1.4_p50"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 33,
+      "best_name": "tp1_1.4_p50",
+      "best_score": 0.7372229792796393,
+      "best_delta_pct": 3.162523775355293,
+      "kept": true,
+      "rejected_count": 1
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 26,
+      "best_name": "chandelier_tighter_mid",
+      "best_score": 0.7399007184418099,
+      "best_delta_pct": 0.3632197092916331,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 33,
+  "accepted_count": 1,
+  "elapsed_seconds": 665.381397485733
+}

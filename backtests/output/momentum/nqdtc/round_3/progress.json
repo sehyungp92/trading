@@ -1,0 +1,89 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-04-30T19:33:43.911006+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 16,
+      "base_score": 0.7372024246708185,
+      "final_score": 0.7452221505863175,
+      "kept_features": [
+        "allow_05_09_et"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Session Frequency Harvest",
+      "candidate_count": 16
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-04-30T19:44:36.143128+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 17,
+      "base_score": 0.7452221505863175,
+      "final_score": 0.7613567218436196,
+      "kept_features": [
+        "tp1_partial_0.55",
+        "ratchet_threshold_0.75"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Robust Return Protection",
+      "candidate_count": 23
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-04-30T19:55:38.718828+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 17,
+      "base_score": 0.7613567218436196,
+      "final_score": 0.7613567218436196,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Selective Alpha Recovery",
+      "candidate_count": 16
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-04-30T20:00:14.123489+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 17,
+      "base_score": 0.7613567218436196,
+      "final_score": 0.7613567218436196,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Interaction Fine-Tune",
+      "candidate_count": 22
+    }
+  },
+  "last_updated": "2026-04-30T20:00:14.133455+00:00",
+  "current_phase": 4
+}

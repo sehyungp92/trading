@@ -1,0 +1,40 @@
+======================================================================
+VDUBUS END-OF-ROUND EVALUATION
+======================================================================
+
+Phase Progression Summary:
+  Phase 1: score 0.5586 -> 0.5730 (1 accepted)
+  Phase 2: score 0.5730 -> 0.5730 (0 accepted)
+  Phase 3: score 0.5730 -> 0.5730 (0 accepted)
+  Phase 4: score 0.5730 -> 0.5730 (0 accepted)
+  Phase 5: score 0.5730 -> 0.6771 (2 accepted)
+  Phase 6: score 0.6771 -> 0.6771 (0 accepted)
+
+Cumulative Mutations Applied:
+  flags.dow_sizing: True
+  flags.early_kill: False
+  flags.evening_vwap_cap: True
+  flags.plus_1r_partial: False
+  flags.vwap_fail_evening: True
+  param_overrides.CHOP_THRESHOLD: 32.0
+  param_overrides.DOW_SIZE_MULT: {'0': 0.6, '3': 0.75}
+  param_overrides.MAX_POSITION_BARS_15M: 51.2
+  param_overrides.VWAP_CAP_EVENING: 0.05
+
+Signal Extraction / Alpha Capture
+Net return 841.7% with 159 trades, PF=2.36, DD=18.6%. R/month throughput is 1.89 (0.389 avgR x 4.9 trades/month).
+
+Signal Discrimination
+Win rate 47.8%, avg R=0.389, capture ratio 0.52. Negative evening flow is contained by the current caps: 1.9% evening trades at +0.322 avgR.
+
+Entry Mechanism
+Fast deaths 24.5%, evening trades 1.9% (avgR=+0.322), trades/month 4.9.
+
+Trade Management
+Calmar=45.15, Sharpe=1.76, Sortino=8.04.
+
+Exit Mechanism
+Stale exit pct 47.2%, multi-session 22.0%, avg hold 9.9h.
+
+Overall Verdict
+VdubusNQ optimized to 841.7% return, PF=2.36, DD=18.6%, 159 trades. Capture ratio improved to 0.52.

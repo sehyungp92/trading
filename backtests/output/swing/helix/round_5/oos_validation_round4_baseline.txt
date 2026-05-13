@@ -1,0 +1,30 @@
+================================================================================
+OOS VALIDATION REPORT
+IS Period: 2024-01-01 to 2026-03-20 (~26.6 months)
+OOS Period: 2026-03-21 to 2026-05-01
+Assessment basis: reproduced IS metrics from the same frozen replay
+Ref PF: stored guide/run-summary baseline, shown for audit context only
+================================================================================
+
+Strategy            OOS#  OOS WR  OOS PF OOS AvgR Repro IS PF  Ref PF Warn Assessment Action
+--------------------------------------------------------------------------------------------
+helix_swing            7  42.9%    4.96    0.914        2.17    4.01    1 GREY     Inconclusive -- extend monitoring to 4+ months
+
+================================================================================
+DETAILED BREAKDOWN
+================================================================================
+
+Strategy: helix_swing (swing)
+------------------------------------------------------------
+                       IS (26 mo)          OOS      Delta
+Trades:                       140            7
+Win Rate:                  51.4%       42.9%     -8.6%
+Profit Factor:               2.17         4.96      +2.79
+Avg R/trade:                0.532        0.914     +0.382
+Net R:                       74.5          6.4
+Max DD (R):                  6.35         1.23
+Trades/month:                 5.3          5.2
+Config:              C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\swing\helix\round_4\optimized_config.json
+Warnings:            Stored round summary appears to include post-cutoff trades (275 vs reproduced IS 140); assessment uses reproduced IS metrics.
+Assessment:          GREY
+Action:              Inconclusive -- extend monitoring to 4+ months

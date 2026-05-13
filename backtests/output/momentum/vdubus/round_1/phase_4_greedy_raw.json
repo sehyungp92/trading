@@ -1,0 +1,47 @@
+{
+  "base_score": 0.5493268790186201,
+  "final_score": 0.5755049553344568,
+  "final_mutations": {
+    "flags.plus_1r_partial": false,
+    "param_overrides.CHOP_THRESHOLD": 32.0,
+    "flags.early_kill": false,
+    "param_overrides.MAX_POSITION_BARS_15M": 51.2
+  },
+  "kept_features": [
+    "finetune_max_position_bars_15m_m20",
+    "finetune_chop_threshold_m20"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 10,
+      "best_name": "finetune_max_position_bars_15m_m20",
+      "best_score": 0.5732021816526274,
+      "best_delta_pct": 4.346283341652757,
+      "kept": true,
+      "rejected_count": 2
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 7,
+      "best_name": "finetune_chop_threshold_m20",
+      "best_score": 0.5755049553344568,
+      "best_delta_pct": 0.40173847126508944,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 3,
+      "candidates_tested": 6,
+      "best_name": "base_risk_008",
+      "best_score": 0.5755049553344568,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 10,
+  "accepted_count": 2,
+  "elapsed_seconds": 325.4132523536682
+}

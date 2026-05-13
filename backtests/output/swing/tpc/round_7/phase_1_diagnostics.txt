@@ -1,0 +1,1 @@
+tpc phase 1: avgR=+0.634, totalR=+80.47, trades=127, trades/month=2.30, excellent=70, QQQ=30, QQQ excellent=23, GLD share=76%, $PF=2.01, RPF=2.21, MFE capture=+0.34, never-worked=25%, low-MFE losses=35%, DD=13.68%, accepted=0

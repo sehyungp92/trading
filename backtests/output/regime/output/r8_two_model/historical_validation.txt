@@ -1,0 +1,39 @@
+Model is not converging.  Current: -239.1916684363575 is not greater than -239.18988569669565. Delta is -0.001782739661848609
+Model is not converging.  Current: 1674.371112030712 is not greater than 4245.348016038092. Delta is -2570.97690400738
+Model is not converging.  Current: -1315.4199028773712 is not greater than -1315.419858205361. Delta is -4.467201029001444e-05
+Model is not converging.  Current: -4074.332758243478 is not greater than -4074.3323564625866. Delta is -0.0004017808914795751
+Model is not converging.  Current: -13009.797130260744 is not greater than -13009.794857938685. Delta is -0.002272322059070575
+Model is not converging.  Current: -12946.307242480205 is not greater than -12946.30703143319. Delta is -0.0002110470140905818
+Model is not converging.  Current: -12648.843243115653 is not greater than -12648.838604032977. Delta is -0.004639082675566897
+Model is not converging.  Current: -12134.576968901774 is not greater than -12134.576576593372. Delta is -0.00039230840229720343
+Model is not converging.  Current: -12295.153748176788 is not greater than -12295.151500572687. Delta is -0.0022476041012851056
+Model is not converging.  Current: -12458.774058270961 is not greater than -12458.770195666788. Delta is -0.003862604173264117
+Model is not converging.  Current: -12526.360355165847 is not greater than -12526.349186236035. Delta is -0.011168929811901762
+Model is not converging.  Current: -13465.20645221479 is not greater than -13465.206321574813. Delta is -0.00013063997721474152
+Model is not converging.  Current: -12933.848594566754 is not greater than -12933.846973972431. Delta is -0.0016205943229579134
+Model is not converging.  Current: -12672.550589792792 is not greater than -12672.522429076986. Delta is -0.028160715806734515
+Model is not converging.  Current: -12419.39554646661 is not greater than -12419.39356245116. Delta is -0.0019840154509438435
+Historical validation config: research\backtests\regime\auto\output\r8_two_model\r8_optimized.json (overrides preset 'recommended_full_stack')
+Running signal engine...
+
+=== Historical Validation ===
+  Alignment score:  0.3788 (target: >0.5)
+  Per-period:
+    2003-01_2007-06_G: 0.0000
+    2007-07_2009-02_D: 0.7412
+    2009-03_2010-12_R: 0.2778
+    2011-01_2011-09_S: 0.6579
+    2011-10_2014-06_G: 0.6214
+    2014-07_2016-01_D: 0.8333
+    2016-02_2018-01_R: 0.2549
+    2018-02_2018-12_S: 0.7021
+    2019-01_2020-01_G: 0.0000
+    2020-02_2020-03_D: 0.0000
+    2020-04_2021-12_R: 0.5698
+    2022-01_2022-10_S: 0.0000
+    2022-11_2024-12_G: 0.3423
+
+  Transition latency:
+    GFC_onset: 0.7 weeks (<8 weeks)
+    COVID_onset: 110.9 weeks (<8 weeks)
+    Inflation_2022: 90.9 weeks (<8 weeks)

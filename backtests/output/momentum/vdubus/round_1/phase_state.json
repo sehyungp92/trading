@@ -1,0 +1,1011 @@
+{
+  "current_phase": 4,
+  "completed_phases": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "cumulative_mutations": {
+    "flags.plus_1r_partial": false,
+    "param_overrides.CHOP_THRESHOLD": 32.0,
+    "flags.early_kill": false,
+    "param_overrides.MAX_POSITION_BARS_15M": 51.2
+  },
+  "phase_results": {
+    "1": {
+      "focus": "Trail Rehabilitation & Exit Management",
+      "base_mutations": {
+        "flags.plus_1r_partial": false,
+        "param_overrides.CHOP_THRESHOLD": 40
+      },
+      "final_mutations": {
+        "flags.plus_1r_partial": false,
+        "param_overrides.CHOP_THRESHOLD": 40,
+        "flags.early_kill": false,
+        "param_overrides.MAX_POSITION_BARS_15M": 64
+      },
+      "base_score": 0.5124687704025083,
+      "final_score": 0.5213821740444244,
+      "kept_features": [
+        "suggest_disable_early_kill",
+        "max_duration_64"
+      ],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 31,
+          "best_name": "suggest_disable_early_kill",
+          "best_score": 0.5173327586701915,
+          "best_delta_pct": 0.9491287174168435,
+          "kept": true,
+          "rejected_count": 9
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 18,
+          "best_name": "max_duration_64",
+          "best_score": 0.5213821740444244,
+          "best_delta_pct": 0.7827486866754848,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 3,
+          "candidates_tested": 17,
+          "best_name": "stale_bars_6",
+          "best_score": 0.5213821740444244,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 174,
+        "win_rate": 0.46551724137931033,
+        "profit_factor": 1.9141434030644524,
+        "max_dd_pct": 0.2192978792168805,
+        "net_return_pct": 717.0002000000063,
+        "calmar": 32.69526374629961,
+        "sharpe": 1.572468661411145,
+        "sortino": 6.997078640552174,
+        "avg_r": 0.32107203993936795,
+        "capture_ratio": 0.4917444556500918,
+        "stale_exit_pct": 0.5172413793103449,
+        "multi_session_pct": 0.20114942528735633,
+        "trades_per_month": 5.316663634367452,
+        "avg_hold_hours": 9.44683908045977,
+        "avg_winner_r": 1.2360872445772622,
+        "avg_loser_r": -0.47587668668073335,
+        "avg_mfe_r": 1.109741627149667,
+        "evening_trade_pct": 0.10344827586206896,
+        "evening_avg_r": -0.11031587230409005,
+        "fast_death_pct": 0.22413793103448276
+      },
+      "accepted_count": 2,
+      "elapsed_seconds": 1571.0419492721558,
+      "suggested_experiments": [
+        {
+          "name": "suggest_stale_bars_10",
+          "mutations": {
+            "param_overrides.STALE_BARS_15M": 10
+          }
+        },
+        {
+          "name": "suggest_mfe_exempt_default",
+          "mutations": {
+            "flags.stale_mfe_exempt": true
+          }
+        },
+        {
+          "name": "suggest_disable_early_kill",
+          "mutations": {
+            "flags.early_kill": false
+          }
+        },
+        {
+          "name": "suggest_vwap_cap_065",
+          "mutations": {
+            "param_overrides.VWAP_CAP_CORE": 0.65
+          }
+        },
+        {
+          "name": "suggest_lower_risk_008",
+          "mutations": {
+            "param_overrides.BASE_RISK_PCT": 0.008
+          }
+        }
+      ],
+      "analysis": {
+        "phase": 1,
+        "goal_progress": {
+          "net_return_pct": {
+            "target": 1000.0,
+            "actual": 717.0002000000063,
+            "pct_of_target": 71.70002000000063
+          },
+          "profit_factor": {
+            "target": 2.5,
+            "actual": 1.9141434030644524,
+            "pct_of_target": 76.5657361225781
+          },
+          "max_dd_pct": {
+            "target": 0.15,
+            "actual": 0.2192978792168805,
+            "pct_of_target": 68.40011428092905
+          },
+          "calmar": {
+            "target": 45.0,
+            "actual": 32.69526374629961,
+            "pct_of_target": 72.65614165844357
+          },
+          "total_trades": {
+            "target": 170.0,
+            "actual": 174.0,
+            "pct_of_target": 102.35294117647058
+          },
+          "capture_ratio": {
+            "target": 0.55,
+            "actual": 0.4917444556500918,
+            "pct_of_target": 89.40808284547123
+          },
+          "sharpe": {
+            "target": 1.8,
+            "actual": 1.572468661411145,
+            "pct_of_target": 87.35937007839694
+          }
+        },
+        "strengths": [
+          "total_trades: 174.0000 (102% of 170.0000)",
+          "capture_ratio: 0.4917 (89% of 0.5500)",
+          "sharpe: 1.5725 (87% of 1.8000)"
+        ],
+        "weaknesses": [],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "High stale exit rate -- trail/MFE protection needed",
+          "Many fast deaths (<=4 bars) -- entry precision issue",
+          "Elevated drawdown -- risk controls may need tightening",
+          "Low profit factor -- edge may be degraded",
+          "Evening trades losing -- consider blocking or tightening"
+        ],
+        "suggested_experiments": [
+          {
+            "name": "suggest_stale_bars_10",
+            "mutations": {
+              "param_overrides.STALE_BARS_15M": 10
+            }
+          },
+          {
+            "name": "suggest_mfe_exempt_default",
+            "mutations": {
+              "flags.stale_mfe_exempt": true
+            }
+          },
+          {
+            "name": "suggest_disable_early_kill",
+            "mutations": {
+              "flags.early_kill": false
+            }
+          },
+          {
+            "name": "suggest_vwap_cap_065",
+            "mutations": {
+              "param_overrides.VWAP_CAP_CORE": 0.65
+            }
+          },
+          {
+            "name": "suggest_lower_risk_008",
+            "mutations": {
+              "param_overrides.BASE_RISK_PCT": 0.008
+            }
+          }
+        ],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + total_trades: 174.0000 (102% of 170.0000)\n  + capture_ratio: 0.4917 (89% of 0.5500)\n  + sharpe: 1.5725 (87% of 1.8000)\n\nDiagnostic Gaps:\n  ! High stale exit rate -- trail/MFE protection needed\n  ! Many fast deaths (<=4 bars) -- entry precision issue\n  ! Elevated drawdown -- risk controls may need tightening\n  ! Low profit factor -- edge may be degraded\n  ! Evening trades losing -- consider blocking or tightening\n\nSuggested Experiments (5):\n  - suggest_stale_bars_10: {\"param_overrides.STALE_BARS_15M\": 10}\n  - suggest_mfe_exempt_default: {\"flags.stale_mfe_exempt\": true}\n  - suggest_disable_early_kill: {\"flags.early_kill\": false}\n  - suggest_vwap_cap_065: {\"param_overrides.VWAP_CAP_CORE\": 0.65}\n  - suggest_lower_risk_008: {\"param_overrides.BASE_RISK_PCT\": 0.008}\n\nExtra Analysis:\n  Exit profile: stale=51.7%, capture=0.49, multi-session=20.1%\n  Entry quality: fast_deaths=22.4%, evening=10.3% (avgR=-0.110)\n\nGoal Progress:\n  net_return_pct: 717.0002 / 1000.0000 (72%)\n  profit_factor: 1.9141 / 2.5000 (77%)\n  max_dd_pct: 0.2193 / 0.1500 (68%)\n  calmar: 32.6953 / 45.0000 (73%)\n  total_trades: 174.0000 / 170.0000 (102%)\n  capture_ratio: 0.4917 / 0.5500 (89%)\n  sharpe: 1.5725 / 1.8000 (87%)",
+        "scoring_weight_overrides": null,
+        "extra": {
+          "exit_profile": {
+            "stale_exit_pct": 0.5172413793103449,
+            "capture_ratio": 0.4917444556500918,
+            "multi_session_pct": 0.20114942528735633
+          },
+          "entry_quality": {
+            "fast_death_pct": 0.22413793103448276,
+            "evening_trade_pct": 0.10344827586206896,
+            "evening_avg_r": -0.11031587230409005
+          }
+        }
+      },
+      "new_mutations": {
+        "flags.early_kill": false,
+        "param_overrides.MAX_POSITION_BARS_15M": 64
+      },
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "flags.plus_1r_partial": false,
+        "param_overrides.CHOP_THRESHOLD": 40,
+        "flags.early_kill": false,
+        "param_overrides.MAX_POSITION_BARS_15M": 64
+      },
+      "attempted_final_score": 0.5213821740444244,
+      "attempted_final_metrics": {
+        "total_trades": 174,
+        "win_rate": 0.46551724137931033,
+        "profit_factor": 1.9141434030644524,
+        "max_dd_pct": 0.2192978792168805,
+        "net_return_pct": 717.0002000000063,
+        "calmar": 32.69526374629961,
+        "sharpe": 1.572468661411145,
+        "sortino": 6.997078640552174,
+        "avg_r": 0.32107203993936795,
+        "capture_ratio": 0.4917444556500918,
+        "stale_exit_pct": 0.5172413793103449,
+        "multi_session_pct": 0.20114942528735633,
+        "trades_per_month": 5.316663634367452,
+        "avg_hold_hours": 9.44683908045977,
+        "avg_winner_r": 1.2360872445772622,
+        "avg_loser_r": -0.47587668668073335,
+        "avg_mfe_r": 1.109741627149667,
+        "evening_trade_pct": 0.10344827586206896,
+        "evening_avg_r": -0.11031587230409005,
+        "fast_death_pct": 0.22413793103448276
+      },
+      "attempted_kept_features": [
+        "suggest_disable_early_kill",
+        "max_duration_64"
+      ],
+      "attempted_accepted_count": 2
+    },
+    "2": {
+      "focus": "Entry Precision & Filter Tuning",
+      "base_mutations": {
+        "flags.plus_1r_partial": false,
+        "param_overrides.CHOP_THRESHOLD": 40,
+        "flags.early_kill": false,
+        "param_overrides.MAX_POSITION_BARS_15M": 64
+      },
+      "final_mutations": {
+        "flags.plus_1r_partial": false,
+        "param_overrides.CHOP_THRESHOLD": 40,
+        "flags.early_kill": false,
+        "param_overrides.MAX_POSITION_BARS_15M": 64
+      },
+      "base_score": 0.5122574895795727,
+      "final_score": 0.5122574895795727,
+      "kept_features": [],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 25,
+          "best_name": "suggest_stale_bars_10",
+          "best_score": 0.5122574895795727,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 4
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 174,
+        "win_rate": 0.46551724137931033,
+        "profit_factor": 1.9141434030644524,
+        "max_dd_pct": 0.2192978792168805,
+        "net_return_pct": 717.0002000000063,
+        "calmar": 32.69526374629961,
+        "sharpe": 1.572468661411145,
+        "sortino": 6.997078640552174,
+        "avg_r": 0.32107203993936795,
+        "capture_ratio": 0.4917444556500918,
+        "stale_exit_pct": 0.5172413793103449,
+        "multi_session_pct": 0.20114942528735633,
+        "trades_per_month": 5.316663634367452,
+        "avg_hold_hours": 9.44683908045977,
+        "avg_winner_r": 1.2360872445772622,
+        "avg_loser_r": -0.47587668668073335,
+        "avg_mfe_r": 1.109741627149667,
+        "evening_trade_pct": 0.10344827586206896,
+        "evening_avg_r": -0.11031587230409005,
+        "fast_death_pct": 0.22413793103448276
+      },
+      "accepted_count": 0,
+      "elapsed_seconds": 390.2072412967682,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 2,
+        "goal_progress": {
+          "net_return_pct": {
+            "target": 1000.0,
+            "actual": 717.0002000000063,
+            "pct_of_target": 71.70002000000063
+          },
+          "profit_factor": {
+            "target": 2.5,
+            "actual": 1.9141434030644524,
+            "pct_of_target": 76.5657361225781
+          },
+          "max_dd_pct": {
+            "target": 0.15,
+            "actual": 0.2192978792168805,
+            "pct_of_target": 68.40011428092905
+          },
+          "calmar": {
+            "target": 45.0,
+            "actual": 32.69526374629961,
+            "pct_of_target": 72.65614165844357
+          },
+          "total_trades": {
+            "target": 170.0,
+            "actual": 174.0,
+            "pct_of_target": 102.35294117647058
+          },
+          "capture_ratio": {
+            "target": 0.55,
+            "actual": 0.4917444556500918,
+            "pct_of_target": 89.40808284547123
+          },
+          "sharpe": {
+            "target": 1.8,
+            "actual": 1.572468661411145,
+            "pct_of_target": 87.35937007839694
+          }
+        },
+        "strengths": [
+          "total_trades: 174.0000 (102% of 170.0000)",
+          "capture_ratio: 0.4917 (89% of 0.5500)",
+          "sharpe: 1.5725 (87% of 1.8000)"
+        ],
+        "weaknesses": [],
+        "scoring_assessment": "INEFFECTIVE",
+        "diagnostic_gaps": [],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Retry budget exhausted; advance with current best mutations.",
+        "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Retry budget exhausted; advance with current best mutations.\nScoring assessment: INEFFECTIVE\n\nStrengths:\n  + total_trades: 174.0000 (102% of 170.0000)\n  + capture_ratio: 0.4917 (89% of 0.5500)\n  + sharpe: 1.5725 (87% of 1.8000)\n\nExtra Analysis:\n  Exit profile: stale=51.7%, capture=0.49, multi-session=20.1%\n  Entry quality: fast_deaths=22.4%, evening=10.3% (avgR=-0.110)\n\nGoal Progress:\n  net_return_pct: 717.0002 / 1000.0000 (72%)\n  profit_factor: 1.9141 / 2.5000 (77%)\n  max_dd_pct: 0.2193 / 0.1500 (68%)\n  calmar: 32.6953 / 45.0000 (73%)\n  total_trades: 174.0000 / 170.0000 (102%)\n  capture_ratio: 0.4917 / 0.5500 (89%)\n  sharpe: 1.5725 / 1.8000 (87%)",
+        "scoring_weight_overrides": null,
+        "extra": {
+          "exit_profile": {
+            "stale_exit_pct": 0.5172413793103449,
+            "capture_ratio": 0.4917444556500918,
+            "multi_session_pct": 0.20114942528735633
+          },
+          "entry_quality": {
+            "fast_death_pct": 0.22413793103448276,
+            "evening_trade_pct": 0.10344827586206896,
+            "evening_avg_r": -0.11031587230409005
+          }
+        }
+      },
+      "new_mutations": {},
+      "applied_phase_mutations": false,
+      "attempted_final_mutations": {
+        "flags.plus_1r_partial": false,
+        "param_overrides.CHOP_THRESHOLD": 40,
+        "flags.early_kill": false,
+        "param_overrides.MAX_POSITION_BARS_15M": 64
+      },
+      "attempted_final_score": 0.5122574895795727,
+      "attempted_final_metrics": {
+        "total_trades": 174,
+        "win_rate": 0.46551724137931033,
+        "profit_factor": 1.9141434030644524,
+        "max_dd_pct": 0.2192978792168805,
+        "net_return_pct": 717.0002000000063,
+        "calmar": 32.69526374629961,
+        "sharpe": 1.572468661411145,
+        "sortino": 6.997078640552174,
+        "avg_r": 0.32107203993936795,
+        "capture_ratio": 0.4917444556500918,
+        "stale_exit_pct": 0.5172413793103449,
+        "multi_session_pct": 0.20114942528735633,
+        "trades_per_month": 5.316663634367452,
+        "avg_hold_hours": 9.44683908045977,
+        "avg_winner_r": 1.2360872445772622,
+        "avg_loser_r": -0.47587668668073335,
+        "avg_mfe_r": 1.109741627149667,
+        "evening_trade_pct": 0.10344827586206896,
+        "evening_avg_r": -0.11031587230409005,
+        "fast_death_pct": 0.22413793103448276
+      },
+      "attempted_kept_features": [],
+      "attempted_accepted_count": 0
+    },
+    "3": {
+      "focus": "Signal Discrimination & Regime",
+      "base_mutations": {
+        "flags.plus_1r_partial": false,
+        "param_overrides.CHOP_THRESHOLD": 40,
+        "flags.early_kill": false,
+        "param_overrides.MAX_POSITION_BARS_15M": 64
+      },
+      "final_mutations": {
+        "flags.plus_1r_partial": false,
+        "param_overrides.CHOP_THRESHOLD": 40,
+        "flags.early_kill": false,
+        "param_overrides.MAX_POSITION_BARS_15M": 64
+      },
+      "base_score": 0.45831149685051253,
+      "final_score": 0.45831149685051253,
+      "kept_features": [],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 18,
+          "best_name": "enable_vwap_fail_evening",
+          "best_score": 0.46392509863402837,
+          "best_delta_pct": 1.2248441992165036,
+          "kept": true,
+          "rejected_count": 3
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 13,
+          "best_name": "max_longs_3",
+          "best_score": 0.46392509863402837,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 174,
+        "win_rate": 0.46551724137931033,
+        "profit_factor": 1.9141434030644524,
+        "max_dd_pct": 0.2192978792168805,
+        "net_return_pct": 717.0002000000063,
+        "calmar": 32.69526374629961,
+        "sharpe": 1.572468661411145,
+        "sortino": 6.997078640552174,
+        "avg_r": 0.32107203993936795,
+        "capture_ratio": 0.4917444556500918,
+        "stale_exit_pct": 0.5172413793103449,
+        "multi_session_pct": 0.20114942528735633,
+        "trades_per_month": 5.316663634367452,
+        "avg_hold_hours": 9.44683908045977,
+        "avg_winner_r": 1.2360872445772622,
+        "avg_loser_r": -0.47587668668073335,
+        "avg_mfe_r": 1.109741627149667,
+        "evening_trade_pct": 0.10344827586206896,
+        "evening_avg_r": -0.11031587230409005,
+        "fast_death_pct": 0.22413793103448276
+      },
+      "accepted_count": 0,
+      "elapsed_seconds": 440.25771832466125,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 3,
+        "goal_progress": {
+          "net_return_pct": {
+            "target": 1000.0,
+            "actual": 723.9158000000062,
+            "pct_of_target": 72.39158000000062
+          },
+          "profit_factor": {
+            "target": 2.5,
+            "actual": 1.929421882062316,
+            "pct_of_target": 77.17687528249265
+          },
+          "max_dd_pct": {
+            "target": 0.15,
+            "actual": 0.2178298435427797,
+            "pct_of_target": 68.86108788419591
+          },
+          "calmar": {
+            "target": 45.0,
+            "actual": 33.233086349705616,
+            "pct_of_target": 73.85130299934582
+          },
+          "total_trades": {
+            "target": 170.0,
+            "actual": 174.0,
+            "pct_of_target": 102.35294117647058
+          },
+          "capture_ratio": {
+            "target": 0.55,
+            "actual": 0.4917444556500918,
+            "pct_of_target": 89.40808284547123
+          },
+          "sharpe": {
+            "target": 1.8,
+            "actual": 1.5922648702808253,
+            "pct_of_target": 88.45915946004584
+          }
+        },
+        "strengths": [
+          "total_trades: 174.0000 (102% of 170.0000)",
+          "capture_ratio: 0.4917 (89% of 0.5500)",
+          "sharpe: 1.5923 (88% of 1.8000)"
+        ],
+        "weaknesses": [],
+        "scoring_assessment": "MISALIGNED",
+        "diagnostic_gaps": [],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Retry budget exhausted; advance with current best mutations.",
+        "report": "======================================================================\nPHASE 3 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Retry budget exhausted; advance with current best mutations.\nScoring assessment: MISALIGNED\n\nStrengths:\n  + total_trades: 174.0000 (102% of 170.0000)\n  + capture_ratio: 0.4917 (89% of 0.5500)\n  + sharpe: 1.5923 (88% of 1.8000)\n\nExtra Analysis:\n  Exit profile: stale=48.9%, capture=0.49, multi-session=20.1%\n  Entry quality: fast_deaths=24.1%, evening=10.3% (avgR=-0.075)\n\nGoal Progress:\n  net_return_pct: 723.9158 / 1000.0000 (72%)\n  profit_factor: 1.9294 / 2.5000 (77%)\n  max_dd_pct: 0.2178 / 0.1500 (69%)\n  calmar: 33.2331 / 45.0000 (74%)\n  total_trades: 174.0000 / 170.0000 (102%)\n  capture_ratio: 0.4917 / 0.5500 (89%)\n  sharpe: 1.5923 / 1.8000 (88%)",
+        "scoring_weight_overrides": null,
+        "extra": {
+          "exit_profile": {
+            "stale_exit_pct": 0.4885057471264368,
+            "capture_ratio": 0.4917444556500918,
+            "multi_session_pct": 0.20114942528735633
+          },
+          "entry_quality": {
+            "fast_death_pct": 0.2413793103448276,
+            "evening_trade_pct": 0.10344827586206896,
+            "evening_avg_r": -0.0745064851451857
+          }
+        }
+      },
+      "new_mutations": {},
+      "applied_phase_mutations": false,
+      "attempted_final_mutations": {
+        "flags.plus_1r_partial": false,
+        "param_overrides.CHOP_THRESHOLD": 40,
+        "flags.early_kill": false,
+        "param_overrides.MAX_POSITION_BARS_15M": 64,
+        "flags.vwap_fail_evening": true
+      },
+      "attempted_final_score": 0.46392509863402837,
+      "attempted_final_metrics": {
+        "total_trades": 174,
+        "win_rate": 0.46551724137931033,
+        "profit_factor": 1.929421882062316,
+        "max_dd_pct": 0.2178298435427797,
+        "net_return_pct": 723.9158000000062,
+        "calmar": 33.233086349705616,
+        "sharpe": 1.5922648702808253,
+        "sortino": 7.053495294024719,
+        "avg_r": 0.3247764593006339,
+        "capture_ratio": 0.4917444556500918,
+        "stale_exit_pct": 0.4885057471264368,
+        "multi_session_pct": 0.20114942528735633,
+        "trades_per_month": 5.316663634367452,
+        "avg_hold_hours": 9.418103448275861,
+        "avg_winner_r": 1.2360872445772622,
+        "avg_loser_r": -0.46894583755320346,
+        "avg_mfe_r": 1.109741627149667,
+        "evening_trade_pct": 0.10344827586206896,
+        "evening_avg_r": -0.0745064851451857,
+        "fast_death_pct": 0.2413793103448276
+      },
+      "attempted_kept_features": [
+        "enable_vwap_fail_evening"
+      ],
+      "attempted_accepted_count": 1
+    },
+    "4": {
+      "focus": "Fine-tune & Interaction",
+      "base_mutations": {
+        "flags.plus_1r_partial": false,
+        "param_overrides.CHOP_THRESHOLD": 40,
+        "flags.early_kill": false,
+        "param_overrides.MAX_POSITION_BARS_15M": 64
+      },
+      "final_mutations": {
+        "flags.plus_1r_partial": false,
+        "param_overrides.CHOP_THRESHOLD": 32.0,
+        "flags.early_kill": false,
+        "param_overrides.MAX_POSITION_BARS_15M": 51.2
+      },
+      "base_score": 0.5493268790186201,
+      "final_score": 0.5755049553344568,
+      "kept_features": [
+        "finetune_max_position_bars_15m_m20",
+        "finetune_chop_threshold_m20"
+      ],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 10,
+          "best_name": "finetune_max_position_bars_15m_m20",
+          "best_score": 0.5732021816526274,
+          "best_delta_pct": 4.346283341652757,
+          "kept": true,
+          "rejected_count": 2
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 7,
+          "best_name": "finetune_chop_threshold_m20",
+          "best_score": 0.5755049553344568,
+          "best_delta_pct": 0.40173847126508944,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 3,
+          "candidates_tested": 6,
+          "best_name": "base_risk_008",
+          "best_score": 0.5755049553344568,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 174,
+        "win_rate": 0.46551724137931033,
+        "profit_factor": 1.9544579883619144,
+        "max_dd_pct": 0.20782611893641104,
+        "net_return_pct": 752.5770000000063,
+        "calmar": 36.2118584445237,
+        "sharpe": 1.6604832640187106,
+        "sortino": 7.31857648749699,
+        "avg_r": 0.3375001287717325,
+        "capture_ratio": 0.5120285460338511,
+        "stale_exit_pct": 0.5172413793103449,
+        "multi_session_pct": 0.20114942528735633,
+        "trades_per_month": 5.316663634367452,
+        "avg_hold_hours": 9.270114942528735,
+        "avg_winner_r": 1.2680952224042634,
+        "avg_loser_r": -0.47301817858563305,
+        "avg_mfe_r": 1.1050326886225206,
+        "evening_trade_pct": 0.10344827586206896,
+        "evening_avg_r": -0.11760943057571589,
+        "fast_death_pct": 0.21839080459770116
+      },
+      "accepted_count": 2,
+      "elapsed_seconds": 325.4132523536682,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 4,
+        "goal_progress": {
+          "net_return_pct": {
+            "target": 1000.0,
+            "actual": 752.5770000000063,
+            "pct_of_target": 75.25770000000063
+          },
+          "profit_factor": {
+            "target": 2.5,
+            "actual": 1.9544579883619144,
+            "pct_of_target": 78.17831953447659
+          },
+          "max_dd_pct": {
+            "target": 0.15,
+            "actual": 0.20782611893641104,
+            "pct_of_target": 72.17572111130833
+          },
+          "calmar": {
+            "target": 45.0,
+            "actual": 36.2118584445237,
+            "pct_of_target": 80.470796543386
+          },
+          "total_trades": {
+            "target": 170.0,
+            "actual": 174.0,
+            "pct_of_target": 102.35294117647058
+          },
+          "capture_ratio": {
+            "target": 0.55,
+            "actual": 0.5120285460338511,
+            "pct_of_target": 93.09609927888201
+          },
+          "sharpe": {
+            "target": 1.8,
+            "actual": 1.6604832640187106,
+            "pct_of_target": 92.2490702232617
+          }
+        },
+        "strengths": [
+          "calmar: 36.2119 (80% of 45.0000)",
+          "total_trades: 174.0000 (102% of 170.0000)",
+          "capture_ratio: 0.5120 (93% of 0.5500)",
+          "sharpe: 1.6605 (92% of 1.8000)"
+        ],
+        "weaknesses": [],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "High stale exit rate -- trail/MFE protection needed",
+          "Many fast deaths (<=4 bars) -- entry precision issue",
+          "Elevated drawdown -- risk controls may need tightening",
+          "Low profit factor -- edge may be degraded",
+          "Evening trades losing -- consider blocking or tightening"
+        ],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 4 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + calmar: 36.2119 (80% of 45.0000)\n  + total_trades: 174.0000 (102% of 170.0000)\n  + capture_ratio: 0.5120 (93% of 0.5500)\n  + sharpe: 1.6605 (92% of 1.8000)\n\nDiagnostic Gaps:\n  ! High stale exit rate -- trail/MFE protection needed\n  ! Many fast deaths (<=4 bars) -- entry precision issue\n  ! Elevated drawdown -- risk controls may need tightening\n  ! Low profit factor -- edge may be degraded\n  ! Evening trades losing -- consider blocking or tightening\n\nExtra Analysis:\n  Exit profile: stale=51.7%, capture=0.51, multi-session=20.1%\n  Entry quality: fast_deaths=21.8%, evening=10.3% (avgR=-0.118)\n\nGoal Progress:\n  net_return_pct: 752.5770 / 1000.0000 (75%)\n  profit_factor: 1.9545 / 2.5000 (78%)\n  max_dd_pct: 0.2078 / 0.1500 (72%)\n  calmar: 36.2119 / 45.0000 (80%)\n  total_trades: 174.0000 / 170.0000 (102%)\n  capture_ratio: 0.5120 / 0.5500 (93%)\n  sharpe: 1.6605 / 1.8000 (92%)",
+        "scoring_weight_overrides": null,
+        "extra": {
+          "exit_profile": {
+            "stale_exit_pct": 0.5172413793103449,
+            "capture_ratio": 0.5120285460338511,
+            "multi_session_pct": 0.20114942528735633
+          },
+          "entry_quality": {
+            "fast_death_pct": 0.21839080459770116,
+            "evening_trade_pct": 0.10344827586206896,
+            "evening_avg_r": -0.11760943057571589
+          }
+        }
+      },
+      "new_mutations": {
+        "param_overrides.CHOP_THRESHOLD": 32.0,
+        "param_overrides.MAX_POSITION_BARS_15M": 51.2
+      },
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "flags.plus_1r_partial": false,
+        "param_overrides.CHOP_THRESHOLD": 32.0,
+        "flags.early_kill": false,
+        "param_overrides.MAX_POSITION_BARS_15M": 51.2
+      },
+      "attempted_final_score": 0.5755049553344568,
+      "attempted_final_metrics": {
+        "total_trades": 174,
+        "win_rate": 0.46551724137931033,
+        "profit_factor": 1.9544579883619144,
+        "max_dd_pct": 0.20782611893641104,
+        "net_return_pct": 752.5770000000063,
+        "calmar": 36.2118584445237,
+        "sharpe": 1.6604832640187106,
+        "sortino": 7.31857648749699,
+        "avg_r": 0.3375001287717325,
+        "capture_ratio": 0.5120285460338511,
+        "stale_exit_pct": 0.5172413793103449,
+        "multi_session_pct": 0.20114942528735633,
+        "trades_per_month": 5.316663634367452,
+        "avg_hold_hours": 9.270114942528735,
+        "avg_winner_r": 1.2680952224042634,
+        "avg_loser_r": -0.47301817858563305,
+        "avg_mfe_r": 1.1050326886225206,
+        "evening_trade_pct": 0.10344827586206896,
+        "evening_avg_r": -0.11760943057571589,
+        "fast_death_pct": 0.21839080459770116
+      },
+      "attempted_kept_features": [
+        "finetune_max_position_bars_15m_m20",
+        "finetune_chop_threshold_m20"
+      ],
+      "attempted_accepted_count": 2
+    }
+  },
+  "phase_gate_results": {
+    "1": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "hard_min_trades",
+          "target": 60.0,
+          "actual": 174.0,
+          "passed": true
+        },
+        {
+          "name": "hard_max_dd_pct",
+          "target": 0.28,
+          "actual": 0.2192978792168805,
+          "passed": true
+        },
+        {
+          "name": "hard_min_pf",
+          "target": 1.2,
+          "actual": 1.9141434030644524,
+          "passed": true
+        },
+        {
+          "name": "profit_factor",
+          "target": 1.8,
+          "actual": 1.9141434030644524,
+          "passed": true
+        },
+        {
+          "name": "capture_ratio",
+          "target": 0.45,
+          "actual": 0.4917444556500918,
+          "passed": true
+        },
+        {
+          "name": "net_return_pct",
+          "target": 500.0,
+          "actual": 717.0002000000063,
+          "passed": true
+        },
+        {
+          "name": "sharpe",
+          "target": 1.0,
+          "actual": 1.572468661411145,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "2": {
+      "passed": false,
+      "criteria": [
+        {
+          "name": "hard_min_trades",
+          "target": 60.0,
+          "actual": 174.0,
+          "passed": true
+        },
+        {
+          "name": "hard_max_dd_pct",
+          "target": 0.28,
+          "actual": 0.2192978792168805,
+          "passed": true
+        },
+        {
+          "name": "hard_min_pf",
+          "target": 1.2,
+          "actual": 1.9141434030644524,
+          "passed": true
+        },
+        {
+          "name": "total_trades",
+          "target": 120.0,
+          "actual": 174.0,
+          "passed": true
+        },
+        {
+          "name": "win_rate",
+          "target": 0.46,
+          "actual": 0.46551724137931033,
+          "passed": true
+        },
+        {
+          "name": "profit_factor",
+          "target": 2.0,
+          "actual": 1.9141434030644524,
+          "passed": false
+        },
+        {
+          "name": "sharpe",
+          "target": 1.2,
+          "actual": 1.572468661411145,
+          "passed": true
+        }
+      ],
+      "failure_category": "candidates_exhausted",
+      "recommendations": [
+        "No candidates were accepted; expand or reshape the experiment pool."
+      ]
+    },
+    "3": {
+      "passed": false,
+      "criteria": [
+        {
+          "name": "hard_min_trades",
+          "target": 60.0,
+          "actual": 174.0,
+          "passed": true
+        },
+        {
+          "name": "hard_max_dd_pct",
+          "target": 0.28,
+          "actual": 0.2178298435427797,
+          "passed": true
+        },
+        {
+          "name": "hard_min_pf",
+          "target": 1.2,
+          "actual": 1.929421882062316,
+          "passed": true
+        },
+        {
+          "name": "calmar",
+          "target": 35.0,
+          "actual": 33.233086349705616,
+          "passed": false
+        },
+        {
+          "name": "max_dd_pct",
+          "target": 0.18,
+          "actual": 0.2178298435427797,
+          "passed": false
+        },
+        {
+          "name": "net_return_pct",
+          "target": 700.0,
+          "actual": 723.9158000000062,
+          "passed": true
+        },
+        {
+          "name": "capture_ratio",
+          "target": 0.48,
+          "actual": 0.4917444556500918,
+          "passed": true
+        }
+      ],
+      "failure_category": "scoring_ineffective",
+      "recommendations": [
+        "Score moved more than gate metrics; rebalance scoring weights toward failing criteria."
+      ]
+    },
+    "4": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "hard_min_trades",
+          "target": 60.0,
+          "actual": 174.0,
+          "passed": true
+        },
+        {
+          "name": "hard_max_dd_pct",
+          "target": 0.28,
+          "actual": 0.20782611893641104,
+          "passed": true
+        },
+        {
+          "name": "hard_min_pf",
+          "target": 1.2,
+          "actual": 1.9544579883619144,
+          "passed": true
+        },
+        {
+          "name": "no_regress_profit_factor",
+          "target": 1.7227290627580072,
+          "actual": 1.9544579883619144,
+          "passed": true
+        },
+        {
+          "name": "no_regress_calmar",
+          "target": 29.425737371669648,
+          "actual": 36.2118584445237,
+          "passed": true
+        },
+        {
+          "name": "no_regress_sharpe",
+          "target": 1.4152217952700306,
+          "actual": 1.6604832640187106,
+          "passed": true
+        },
+        {
+          "name": "no_regress_net_return_pct",
+          "target": 645.3001800000058,
+          "actual": 752.5770000000063,
+          "passed": true
+        },
+        {
+          "name": "no_regress_total_trades",
+          "target": 156.6,
+          "actual": 174.0,
+          "passed": true
+        },
+        {
+          "name": "no_regress_capture_ratio",
+          "target": 0.4425700100850826,
+          "actual": 0.5120285460338511,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    }
+  },
+  "retry_count": {
+    "1": 1,
+    "2": 3,
+    "3": 3
+  },
+  "scoring_retries": {
+    "1": 1,
+    "2": 2,
+    "3": 2
+  },
+  "diagnostic_retries": {
+    "2": 1,
+    "3": 1
+  },
+  "phase_timestamps": {
+    "1": {
+      "started": "2026-04-29T19:49:50.907439+00:00",
+      "completed": "2026-04-29T20:37:51.159871+00:00"
+    },
+    "2": {
+      "started": "2026-04-29T20:37:51.186884+00:00",
+      "completed": "2026-04-29T21:03:47.463227+00:00"
+    },
+    "3": {
+      "started": "2026-04-29T21:03:47.472230+00:00",
+      "completed": "2026-04-29T21:26:28.712512+00:00"
+    },
+    "4": {
+      "started": "2026-04-29T21:26:28.735787+00:00",
+      "completed": "2026-04-29T21:31:54.309807+00:00"
+    }
+  },
+  "round_name": ""
+}

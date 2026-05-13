@@ -1,0 +1,13 @@
+========================================================================
+IARIC V5R1 PHASE 0 ABLATION
+========================================================================
+Adopted: False (__baseline__)
+Score: 0.3098 -> 0.3098
+
+__baseline__: score=0.3098 trades=669 avg_r=+0.057 expR=+38.25 PF=1.38 Sharpe=1.91 DD=5.7% open_scored=97.2%
+open_scored_slots_2: score=0.3098 trades=669 avg_r=+0.057 expR=+38.25 PF=1.38 Sharpe=1.91 DD=5.7% open_scored=97.2%
+open_scored_min_55: score=0.3098 trades=669 avg_r=+0.057 expR=+38.25 PF=1.38 Sharpe=1.91 DD=5.7% open_scored=97.2%
+open_scored_rank_75: score=0.0000 trades=178 avg_r=+0.067 expR=+12.01 PF=1.45 Sharpe=1.26 DD=3.6% open_scored=75.8%
+  rejected: phase1_too_few_trades (178 < 450)
+open_scored_off: score=0.0000 trades=175 avg_r=+0.058 expR=+10.22 PF=1.40 Sharpe=1.10 DD=5.7% open_scored=0.0%
+  rejected: phase1_too_few_trades (175 < 450)

@@ -1,0 +1,111 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-08T23:56:10.778695+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 34,
+      "base_score": 0.25546569413058157,
+      "final_score": 0.25546569413058157,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "SIGNAL_PRUNING + ENTRY_GATES",
+      "candidate_count": 47
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-09T00:33:26.643163+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 34,
+      "base_score": 0.1348273356163612,
+      "final_score": 0.1348273356163612,
+      "kept_features": [],
+      "gate_passed": false,
+      "failure_category": "diagnostic_needed",
+      "scoring_retries": 2,
+      "diagnostic_retries": 1,
+      "focus": "EXIT_LEAKAGE + STALE",
+      "candidate_count": 38
+    },
+    "3": {
+      "status": "greedy_running",
+      "updated_at": "2026-05-09T00:40:52.113681+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 3,
+      "phase": 3,
+      "focus": "STOP_TRAILING + PAYOFF",
+      "candidate_count": 41,
+      "phase_started_at": "2026-05-09T00:33:26.653634+00:00",
+      "scoring_retries": 1,
+      "diagnostic_retries": 0,
+      "total_mutations": 34,
+      "last_event": "chunk_start",
+      "greedy_progress": {
+        "event": "chunk_start",
+        "chunk_index": 1,
+        "total_chunks": 1,
+        "chunk_size": 39,
+        "chunk_candidate_names": [
+          "stop_1h_std_060",
+          "stop_1h_std_070",
+          "stop_1h_highvol_090",
+          "stop_1h_highvol_100",
+          "stop_4h_mult_090",
+          "stop_4h_mult_100",
+          "stop_be_offset_010",
+          "stop_be_offset_020",
+          "stop_emergency_neg15",
+          "stop_emergency_neg25",
+          "trail_base_30",
+          "trail_base_35",
+          "trail_base_50",
+          "trail_min_15",
+          "trail_min_25",
+          "trail_r_div_30",
+          "trail_r_div_40",
+          "trail_r_div_70",
+          "trail_mom_bonus_025",
+          "trail_mom_bonus_075",
+          "trail_delay_2",
+          "trail_delay_6",
+          "fade_penalty_050",
+          "fade_penalty_100",
+          "fade_floor_10",
+          "fade_floor_20",
+          "fade_min_r_15",
+          "timedecay_onset_15",
+          "timedecay_rate_008",
+          "stall_onset_6",
+          "stall_onset_12",
+          "stall_rate_012",
+          "class_d_trail_base_30",
+          "class_d_trail_base_35",
+          "class_d_trail_rdiv_60",
+          "class_d_trail_rdiv_75",
+          "class_d_stall_onset_4",
+          "class_d_stall_onset_6",
+          "class_d_tighter_fade"
+        ],
+        "total_candidates": 41,
+        "pending_candidates": 39,
+        "cached_candidates": 2,
+        "completed_candidates": 2
+      }
+    }
+  },
+  "last_updated": "2026-05-09T00:40:52.121751+00:00",
+  "current_phase": 3
+}

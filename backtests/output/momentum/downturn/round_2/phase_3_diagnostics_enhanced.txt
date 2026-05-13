@@ -1,0 +1,75 @@
+======================================================================
+DOWNTURN DOMINATOR PHASE 3 DIAGNOSTICS
+======================================================================
+
+--- D1: Regime Accuracy ---
+  aligned_bear          trades=   6  PnL=$     1,333  avg=$     222
+  emerging_bear         trades=  14  PnL=$      -383  avg=$     -27
+  neutral               trades=  36  PnL=$     2,623  avg=$      73
+  range                 trades=  54  PnL=$     3,902  avg=$      72
+
+  Correction trades:     66  PnL=$     5,348
+  Non-correction trades: 44  PnL=$     2,126
+
+--- D2: Signal Quality ---
+  Signal→entry ratio:  0.775
+  Reversal      n=   0  WR=0.0%  avgR=+0.000
+  Breakdown     n=   0  WR=0.0%  avgR=+0.000
+  Fade          n= 110  WR=52.7%  avgR=+0.320
+
+--- D3: Exit Efficiency ---
+  stop                  n=  72  avgR=-0.584
+  tp1                   n=  38  avgR=+2.034
+
+  Per-engine exit breakdown:
+    fade:
+      stop                n= 72  avgR=-0.584
+      tp1                 n= 38  avgR=+2.034
+
+  Avg MFE capture: -1.84
+
+--- D4: Drawdown Attribution ---
+  Max DD: 6.17%
+  Worst 5 trades:
+    1. fade       PnL=$    -332  R=-2.83  stop
+    2. fade       PnL=$    -252  R=-1.00  stop
+    3. fade       PnL=$    -220  R=-1.00  stop
+    4. fade       PnL=$    -220  R=-1.00  stop
+    5. fade       PnL=$    -200  R=-1.01  stop
+  reversal     total loss: $         0 (0 losing trades)
+  breakdown    total loss: $         0 (0 losing trades)
+  fade         total loss: $    -5,294 (52 losing trades)
+
+--- D5: Hold Time & Conviction ---
+  fade          avgHold=  1.6  medR=+0.08  maxR=+11.50  minR=-3.43
+
+--- D6: Phase Delta ---
+  No prior phase for delta.
+
+--- D7: Correction-Window Detail ---
+  Correction PnL: 53.48%
+  Bear capture ratio: 3.3%
+  fade          n= 66  PnL=$   5,348  WR=48.5%
+
+--- D8: Per-Engine Exit & MFE Analysis ---
+
+  FADE (110 trades):
+    WR=58/110 (53%)  PnL=$+7,475  avgR=+0.32  medR=+0.08
+    Hold: avg=2 bars  med=1  max=10
+    MFE distribution (R):  p25=0.27  p50=0.90  p75=1.79  p90=2.39  p95=2.73
+    MFE: avg=1.24  max=11.54
+    Reached  0.5R:  59/94 (63%)
+    Reached  1.0R:  44/94 (47%)
+    Reached  1.5R:  26/94 (28%)
+    Reached  2.0R:  16/94 (17%)
+    Reached  3.0R:   4/94 (4%)
+    Reached  5.0R:   3/94 (3%)
+    MAE: avg=-0.55  worst=-3.36
+    MFE capture: -1.84 (1.0 = perfect exit at MFE)
+
+--- Gate Assessment ---
+  Gate passed: True
+  [PASS] calmar: 3.658 (target: 1.000)
+  [PASS] max_dd_pct: 0.062 (target: 0.220)
+  [PASS] sharpe: 1.035 (target: 0.600)
+

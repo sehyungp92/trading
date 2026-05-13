@@ -1,0 +1,66 @@
+[
+  {
+    "strategy": "iaric",
+    "family": "stock",
+    "assessment": "GREEN",
+    "action": "No action needed -- edge persists",
+    "config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\iaric\\round_3\\optimized_config.json",
+    "warnings": [],
+    "error": null,
+    "is_metrics": {
+      "total_trades": 1470,
+      "winning_trades": 1172,
+      "win_rate": 0.7972789115646258,
+      "profit_factor": 2.2898020514152244,
+      "net_r": 225.01342635794938,
+      "avg_r": 0.15307035806663224,
+      "max_drawdown_r": 5.449514727659391,
+      "trades_per_month": 55.24296296296296,
+      "months": 26.609724047306177
+    },
+    "oos_metrics": {
+      "total_trades": 34,
+      "winning_trades": 26,
+      "win_rate": 0.7647058823529411,
+      "profit_factor": 2.582717102859498,
+      "net_r": 5.875922464416169,
+      "avg_r": 0.17282124895341672,
+      "max_drawdown_r": 2.1909046867144912,
+      "trades_per_month": 25.242926829268292,
+      "months": 1.3469119579500657
+    }
+  },
+  {
+    "strategy": "alcb",
+    "family": "stock",
+    "assessment": "GREEN",
+    "action": "No action needed -- edge persists",
+    "config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_3\\optimized_config.json",
+    "warnings": [
+      "IS trade count does not reproduce stored round summary (546 vs 511)."
+    ],
+    "error": null,
+    "is_metrics": {
+      "total_trades": 546,
+      "winning_trades": 343,
+      "win_rate": 0.6282051282051282,
+      "profit_factor": 2.0510142051188796,
+      "net_r": 151.92543743478538,
+      "avg_r": 0.27825171691352635,
+      "max_drawdown_r": 5.456038925150466,
+      "trades_per_month": 20.518814814814814,
+      "months": 26.609724047306177
+    },
+    "oos_metrics": {
+      "total_trades": 65,
+      "winning_trades": 44,
+      "win_rate": 0.676923076923077,
+      "profit_factor": 3.0666066137644656,
+      "net_r": 27.83134025180786,
+      "avg_r": 0.4281744654124286,
+      "max_drawdown_r": 5.647171680940149,
+      "trades_per_month": 48.25853658536585,
+      "months": 1.3469119579500657
+    }
+  }
+]

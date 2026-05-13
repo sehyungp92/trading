@@ -1,0 +1,88 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-04-30T17:46:58.430937+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 14,
+      "base_score": 0.5686782566119096,
+      "final_score": 0.7146228613842385,
+      "kept_features": [
+        "block_aligned"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Residual Discrimination",
+      "candidate_count": 27
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-04-30T17:58:40.075241+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 14,
+      "base_score": 0.7146228613842385,
+      "final_score": 0.7372229792796393,
+      "kept_features": [
+        "tp1_1.4_p50"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Exit Capture",
+      "candidate_count": 33
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-04-30T18:08:31.292016+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 14,
+      "base_score": 0.7372229792796393,
+      "final_score": 0.7372229792796393,
+      "kept_features": [],
+      "gate_passed": false,
+      "failure_category": "candidates_exhausted",
+      "scoring_retries": 2,
+      "diagnostic_retries": 1,
+      "focus": "Entry Frequency",
+      "candidate_count": 31
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-04-30T18:16:11.736384+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 14,
+      "base_score": 0.7372229792796393,
+      "final_score": 0.7372229792796393,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Interaction Fine-Tune",
+      "candidate_count": 26
+    }
+  },
+  "last_updated": "2026-04-30T18:16:11.748380+00:00",
+  "current_phase": 4
+}

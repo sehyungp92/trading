@@ -1,0 +1,161 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-01T19:40:26.461659+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 92,
+      "base_score": 0.8945254015951852,
+      "final_score": 0.9053913815984549,
+      "kept_features": [
+        "r5_router_score9_room025"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "All-Module Seed And Router Balance",
+      "candidate_count": 7
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-01T19:42:46.443588+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 92,
+      "base_score": 0.9053913815984549,
+      "final_score": 0.9053913815984549,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Daily Capacity And Opportunity Density",
+      "candidate_count": 7
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-01T19:45:35.743876+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 92,
+      "base_score": 0.9053913815984549,
+      "final_score": 0.9053913815984549,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "PM Continuation Vs Reversion Conflict Resolution",
+      "candidate_count": 7
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-01T19:50:32.275218+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 92,
+      "base_score": 0.8919013314753345,
+      "final_score": 0.9006829550983929,
+      "kept_features": [
+        "r5_struct_hybrid_close_score8"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Structural Expansion Integration",
+      "candidate_count": 8
+    },
+    "5": {
+      "status": "completed",
+      "updated_at": "2026-05-01T19:55:09.213124+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "current_phase": 5,
+      "total_mutations": 92,
+      "base_score": 0.9150071792961092,
+      "final_score": 0.9240434728653698,
+      "kept_features": [
+        "r5_reversion_swing_broad"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Liquidity Reversion Quality/Frequency",
+      "candidate_count": 7
+    },
+    "6": {
+      "status": "completed",
+      "updated_at": "2026-05-01T20:00:11.613076+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "current_phase": 6,
+      "total_mutations": 92,
+      "base_score": 0.9240434728653698,
+      "final_score": 0.9298563788504712,
+      "kept_features": [
+        "r5_global_floor_0p5_lock0p25"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Unified Exit Capture",
+      "candidate_count": 7
+    },
+    "7": {
+      "status": "completed",
+      "updated_at": "2026-05-01T20:03:05.870173+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "current_phase": 7,
+      "total_mutations": 92,
+      "base_score": 0.9411292020198995,
+      "final_score": 0.9411292020198995,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Final Synergy Alpha/Frequency Stack",
+      "candidate_count": 7
+    }
+  },
+  "last_updated": "2026-05-01T20:03:05.877209+00:00",
+  "current_phase": 7
+}

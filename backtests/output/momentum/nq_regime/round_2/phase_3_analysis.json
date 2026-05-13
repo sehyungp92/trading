@@ -1,0 +1,64 @@
+{
+  "phase": 3,
+  "goal_progress": {
+    "profit_factor": {
+      "target": 1.35,
+      "actual": 19.970916270878913,
+      "pct_of_target": 200.0
+    },
+    "net_return_pct": {
+      "target": 35.0,
+      "actual": 71.0992,
+      "pct_of_target": 200.0
+    },
+    "max_drawdown_pct": {
+      "target": 0.16,
+      "actual": 0.014304144172753195,
+      "pct_of_target": 200.0
+    },
+    "trades_per_month": {
+      "target": 4.0,
+      "actual": 1.621865596790371,
+      "pct_of_target": 40.54663991975927
+    },
+    "avg_r": {
+      "target": 0.2,
+      "actual": 1.3927057109601155,
+      "pct_of_target": 200.0
+    },
+    "mfe_capture": {
+      "target": 0.35,
+      "actual": 0.3095668842049859,
+      "pct_of_target": 88.44768120142456
+    },
+    "execution_conversion": {
+      "target": 0.25,
+      "actual": 0.19201995012468828,
+      "pct_of_target": 76.80798004987531
+    },
+    "module_coverage": {
+      "target": 0.67,
+      "actual": 0.6666666666666666,
+      "pct_of_target": 99.50248756218905
+    }
+  },
+  "strengths": [
+    "profit_factor: 19.9709 (200% of 1.3500)",
+    "net_return_pct: 71.0992 (200% of 35.0000)",
+    "max_drawdown_pct: 0.0143 (200% of 0.1600)",
+    "avg_r: 1.3927 (200% of 0.2000)",
+    "mfe_capture: 0.3096 (88% of 0.3500)",
+    "module_coverage: 0.6667 (100% of 0.6700)"
+  ],
+  "weaknesses": [
+    "trades_per_month: 1.6219 (41% of 4.0000)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 3 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + profit_factor: 19.9709 (200% of 1.3500)\n  + net_return_pct: 71.0992 (200% of 35.0000)\n  + max_drawdown_pct: 0.0143 (200% of 0.1600)\n  + avg_r: 1.3927 (200% of 0.2000)\n  + mfe_capture: 0.3096 (88% of 0.3500)\n  + module_coverage: 0.6667 (100% of 0.6700)\n\nWeaknesses:\n  - trades_per_month: 1.6219 (41% of 4.0000)\n\nGoal Progress:\n  profit_factor: 19.9709 / 1.3500 (200%)\n  net_return_pct: 71.0992 / 35.0000 (200%)\n  max_drawdown_pct: 0.0143 / 0.1600 (200%)\n  trades_per_month: 1.6219 / 4.0000 (41%)\n  avg_r: 1.3927 / 0.2000 (200%)\n  mfe_capture: 0.3096 / 0.3500 (88%)\n  execution_conversion: 0.1920 / 0.2500 (77%)\n  module_coverage: 0.6667 / 0.6700 (100%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

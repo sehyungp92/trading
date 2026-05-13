@@ -1,0 +1,97 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-05T14:44:05.272612+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 21,
+      "base_score": 40.570143745620996,
+      "final_score": 71.55239378810191,
+      "kept_features": [
+        "gld_market_next_bar",
+        "pending_ttl_4h"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "ENTRY_CONVERSION_ALPHA",
+      "candidate_count": 12
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-05T15:03:07.714529+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 21,
+      "base_score": 71.55239378810191,
+      "final_score": 76.63149865813446,
+      "kept_features": [
+        "type_a_deep_33_80"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "SIGNAL_SUPPLY_EXPANSION",
+      "candidate_count": 12
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-05T15:30:21.820231+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 27,
+      "base_score": 76.63149865813446,
+      "final_score": 83.91753197657323,
+      "kept_features": [
+        "gld_daily_room_250",
+        "gld_confirm_2_structure_or_vwap",
+        "gld_score_floor_15",
+        "qqq_short_score_floor_17"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "FALSE_POSITIVE_REPAIR",
+      "candidate_count": 12
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-05T16:13:01.498777+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 28,
+      "base_score": 83.91753197657323,
+      "final_score": 84.3997003132506,
+      "kept_features": [
+        "trail_after_t1_30m_3_vwap",
+        "t1_stop_010"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "EXIT_AND_RUNNER_CAPTURE",
+      "candidate_count": 13
+    }
+  },
+  "last_updated": "2026-05-05T16:13:01.537779+00:00",
+  "current_phase": 4
+}

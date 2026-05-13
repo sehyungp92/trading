@@ -1,0 +1,260 @@
+{
+  "current_phase": 4,
+  "completed_phases": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "cumulative_mutations": {
+    "sticky_diag": 15.0,
+    "use_warm_start": false,
+    "use_expanding_window": false,
+    "rolling_window_years": 7,
+    "refit_ll_tolerance": 5.0,
+    "refit_freq": "QE",
+    "z_minp": 30,
+    "posterior_ema_alpha": 0.6,
+    "per_strat_max": 0.5,
+    "base_target_vol_annual": 0.08,
+    "kappa_totalvol_cap": 1.5,
+    "crisis_logit_a": 3.0,
+    "stability_weight": 0.8,
+    "weight_smoothing_alpha": 0.5,
+    "L_max": 1.6,
+    "delta_rho_exempt": 0.0,
+    "sigma_floor_annual": 0.09,
+    "delta_rho_threshold": 0.15,
+    "crisis_weights": [
+      0.2,
+      0.4,
+      0.2,
+      0.2
+    ],
+    "scanner_enabled": false,
+    "n_ensemble_models": 1,
+    "posterior_temperature": 1.0,
+    "posterior_smoothing_eps": 0.0,
+    "stress_model_enabled": true,
+    "stress_sticky_diag": 50.0,
+    "stress_sticky_offdiag": 2.0,
+    "stress_stressed_sticky": 10.0,
+    "stress_reduction_max": 0.05,
+    "stress_blend_threshold": 1.01,
+    "stress_onset_threshold": 0.5,
+    "stress_n_iter": 200,
+    "stress_n_iter_first_fit": 400,
+    "stress_refit_guard_tol": 2.0
+  },
+  "phase_results": {
+    "1": {
+      "baseline_score": 0.5663727217990819,
+      "final_score": 0.5707253471975469,
+      "final_metrics": {
+        "total_return": 9.794610308066735,
+        "cagr": 0.10799507590875224,
+        "sharpe": 1.4315418096042112,
+        "sortino": 2.144465558953715,
+        "calmar": 1.1817665894297615,
+        "max_drawdown_pct": 0.09138443824246475,
+        "max_drawdown_duration": 398,
+        "avg_annual_turnover": 11.066166206534314,
+        "n_rebalances": 1148
+      },
+      "n_rounds": 1,
+      "max_rounds": 20,
+      "rounds": [
+        "stress_red_0.05"
+      ],
+      "elapsed_seconds": 1936.0511469841003
+    },
+    "2": {
+      "baseline_score": 0.6711122636617424,
+      "final_score": 0.6711122636617424,
+      "final_metrics": {
+        "total_return": 9.794610308066448,
+        "cagr": 0.10799507590875113,
+        "sharpe": 1.4315418096042005,
+        "sortino": 2.144465558953699,
+        "calmar": 1.181766589429495,
+        "max_drawdown_pct": 0.0913844382424844,
+        "max_drawdown_duration": 398,
+        "avg_annual_turnover": 11.066166206534264,
+        "n_rebalances": 1148
+      },
+      "n_rounds": 0,
+      "max_rounds": 20,
+      "rounds": [],
+      "elapsed_seconds": 1069.9575655460358
+    },
+    "3": {
+      "baseline_score": 0.6034901212598087,
+      "final_score": 0.6084760827971922,
+      "final_metrics": {
+        "total_return": 9.906604995635536,
+        "cagr": 0.10848816273136452,
+        "sharpe": 1.4376081925671274,
+        "sortino": 2.154031800249929,
+        "calmar": 1.2230837469268336,
+        "max_drawdown_pct": 0.08870051867172299,
+        "max_drawdown_duration": 397,
+        "avg_annual_turnover": 11.025714119274042,
+        "n_rebalances": 1148
+      },
+      "n_rounds": 1,
+      "max_rounds": 1,
+      "rounds": [
+        "crisis_w_vol_focus"
+      ],
+      "elapsed_seconds": 871.6493048667908
+    },
+    "4": {
+      "baseline_score": 0.6113589509033783,
+      "final_score": 0.6168639219441938,
+      "final_metrics": {
+        "total_return": 9.758845284581074,
+        "cagr": 0.1078365791098046,
+        "sharpe": 1.4237114727932438,
+        "sortino": 2.1318605831238684,
+        "calmar": 1.2112666792707325,
+        "max_drawdown_pct": 0.08902794153862945,
+        "max_drawdown_duration": 396,
+        "avg_annual_turnover": 11.041699038653974,
+        "n_rebalances": 1148
+      },
+      "n_rounds": 1,
+      "max_rounds": 1,
+      "rounds": [
+        "ema_alpha_0.6"
+      ],
+      "elapsed_seconds": 1433.9336841106415
+    }
+  },
+  "phase_gate_results": {
+    "1": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "regimes_above_5pct",
+          "target": 3.0,
+          "actual": 4.0,
+          "passed": true
+        },
+        {
+          "name": "transition_rate",
+          "target": 0.008,
+          "actual": 0.008037742442774769,
+          "passed": true
+        },
+        {
+          "name": "sharpe",
+          "target": 0.4,
+          "actual": 1.9085280105282698,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "2": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "all_4_regimes_above_3pct",
+          "target": 4.0,
+          "actual": 4.0,
+          "passed": true
+        },
+        {
+          "name": "sharpe",
+          "target": 0.6,
+          "actual": 1.9085280105282185,
+          "passed": true
+        },
+        {
+          "name": "alloc_differentiation",
+          "target": 0.015,
+          "actual": 0.29476428115845343,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "3": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "sharpe",
+          "target": 0.8,
+          "actual": 1.911574296557694,
+          "passed": true
+        },
+        {
+          "name": "calmar",
+          "target": 0.5,
+          "actual": 1.8302639806536447,
+          "passed": true
+        },
+        {
+          "name": "max_dd",
+          "target": 0.2,
+          "actual": 0.0738972727186413,
+          "passed": true
+        },
+        {
+          "name": "alloc_differentiation",
+          "target": 0.015,
+          "actual": 0.29469343641660334,
+          "passed": true
+        },
+        {
+          "name": "crisis_accuracy",
+          "target": 0.3,
+          "actual": 0.5593802439602205,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "4": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "sharpe",
+          "target": 0.9,
+          "actual": 1.9152595584744887,
+          "passed": true
+        },
+        {
+          "name": "calmar",
+          "target": 0.8,
+          "actual": 1.8357414505694252,
+          "passed": true
+        },
+        {
+          "name": "max_dd",
+          "target": 0.15,
+          "actual": 0.07389727271864097,
+          "passed": true
+        },
+        {
+          "name": "alloc_differentiation",
+          "target": 0.015,
+          "actual": 0.2934191643195549,
+          "passed": true
+        },
+        {
+          "name": "crisis_accuracy",
+          "target": 0.3,
+          "actual": 0.5638880436394623,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    }
+  },
+  "retry_count": {}
+}

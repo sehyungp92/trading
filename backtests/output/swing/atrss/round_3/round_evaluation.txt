@@ -1,0 +1,43 @@
+======================================================================
+ATRSS END-OF-ROUND EVALUATION
+======================================================================
+
+Phase Progression Summary:
+  Phase 1: score 0.5147 -> 0.6859 (1 accepted)
+  Phase 2: score 0.6859 -> 0.7047 (2 accepted)
+  Phase 3: score 0.7047 -> 0.7149 (1 accepted)
+  Phase 4: score 0.7149 -> 0.7346 (1 accepted)
+
+Cumulative Mutations Applied:
+  fixed_qty: None
+  flags.addon_b: False
+  flags.early_stall_exit: False
+  param_overrides.addon_a_r: 1.5
+  param_overrides.addon_a_size_mult: 0.5
+  param_overrides.adx_on: 14
+  param_overrides.base_risk_pct: 0.024
+  param_overrides.dynamic_risk_strong_trend_mult: 1.15
+  param_overrides.dynamic_risk_weak_trend_mult: 0.8
+  param_overrides.early_stall_check_hours: 12
+  param_overrides.early_stall_mfe_threshold: 0.2
+  param_overrides.max_hold_hours: 88
+  param_overrides.pullback_touch_tolerance_pct: 0.005
+  param_overrides.recovery_tolerance_atr_trend: 0.55
+
+Signal Extraction / Alpha Capture
+PF=6.58, WR=83.3%, 264 trades (4.4/month). Strict OOS: 2 trades, +1.2R.
+
+Signal Discrimination
+Structural pullback-touch tolerance expanded to 50bps; QQQ shorts and weak GLD shorts remain rejected as low-quality OOS frequency.
+
+Entry Mechanism
+Synchronized replay timestamps now preserve historical submit times; stale wall-clock order expiry no longer contaminates fills.
+
+Trade Management
+MFE capture=0.674, avg R=+0.889.
+
+Exit Mechanism
+No report provided.
+
+Overall Verdict
+ATRSS round_3 post-structural repair: 264 full-replay trades, PF=6.58, +234.8R, DD=7.82%; strict OOS 2 trades, +1.2R.

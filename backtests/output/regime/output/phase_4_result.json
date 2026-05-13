@@ -1,0 +1,79 @@
+{
+  "baseline_score": 0.5921066843671153,
+  "final_score": 0.6046286924151325,
+  "accepted_mutations": {
+    "sticky_diag": 25.0,
+    "use_warm_start": false,
+    "use_expanding_window": false,
+    "rolling_window_years": 7,
+    "refit_ll_tolerance": 5.0,
+    "refit_freq": "QE",
+    "n_ensemble_models": 10,
+    "use_forward_only": true,
+    "posterior_temperature": 2.0,
+    "posterior_smoothing_eps": 0.01,
+    "posterior_ema_alpha": 0.4,
+    "drop_momentum_breadth": true,
+    "crisis_logit_a": 3.0,
+    "crisis_z_window": 63,
+    "posterior_ema_risk_off_alpha": 1.0,
+    "crisis_weights": [
+      0.8,
+      0.15,
+      0.05
+    ],
+    "ventilator_lambda": 1.0,
+    "crisis_logit_b": 0.5,
+    "sigma_floor_annual": 0.09,
+    "rebalance_freq": "W-FRI",
+    "L_max": 1.2
+  },
+  "total_candidates_tested": 130,
+  "elapsed_seconds": 10241.04819560051,
+  "final_metrics": {
+    "total_return": 8.960810657120778,
+    "cagr": 0.10416223092328702,
+    "sharpe": 1.2754917935430685,
+    "sortino": 1.87948107563749,
+    "calmar": 0.730643351121032,
+    "max_drawdown_pct": 0.14256234695555647,
+    "max_drawdown_duration": 482,
+    "avg_annual_turnover": 11.267553611355279,
+    "n_rebalances": 1148
+  },
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidate_id": "fine_L_max_1.2",
+      "candidate_mutations": {
+        "L_max": 1.2
+      },
+      "score_before": 0.5921066843671153,
+      "score_after": 0.5977778391057575,
+      "delta": 0.0056711547386422145,
+      "accepted": true
+    },
+    {
+      "round_num": 2,
+      "candidate_id": "fine_sigma_floor_annual_0.09",
+      "candidate_mutations": {
+        "sigma_floor_annual": 0.09
+      },
+      "score_before": 0.5977778391057575,
+      "score_after": 0.5992564045299386,
+      "delta": 0.0014785654241810109,
+      "accepted": true
+    },
+    {
+      "round_num": 3,
+      "candidate_id": "fine_posterior_ema_alpha_0.4",
+      "candidate_mutations": {
+        "posterior_ema_alpha": 0.4
+      },
+      "score_before": 0.5992564045299386,
+      "score_after": 0.6046286924151325,
+      "delta": 0.005372287885193949,
+      "accepted": true
+    }
+  ]
+}

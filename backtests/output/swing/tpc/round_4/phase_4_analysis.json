@@ -1,0 +1,64 @@
+{
+  "phase": 4,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 180.0,
+      "actual": 107.28258999999842,
+      "pct_of_target": 59.60143888888801
+    },
+    "net_return_per_month": {
+      "target": 3.0,
+      "actual": 1.9408466475974377,
+      "pct_of_target": 64.69488825324792
+    },
+    "total_trades": {
+      "target": 300.0,
+      "actual": 221.0,
+      "pct_of_target": 73.66666666666667
+    },
+    "trades_per_month": {
+      "target": 5.25,
+      "actual": 3.9981054625828856,
+      "pct_of_target": 76.15438976348354
+    },
+    "excellent_trades": {
+      "target": 150.0,
+      "actual": 105.0,
+      "pct_of_target": 70.0
+    },
+    "dollar_profit_factor": {
+      "target": 1.85,
+      "actual": 1.4176569884029644,
+      "pct_of_target": 76.63010748124131
+    },
+    "avg_r": {
+      "target": 0.75,
+      "actual": 1.3621041270949235,
+      "pct_of_target": 181.61388361265648
+    },
+    "never_worked_rate": {
+      "target": 0.26,
+      "actual": 0.3167420814479638,
+      "pct_of_target": 121.82387747998607
+    }
+  },
+  "strengths": [
+    "avg_r: 1.3621 (182% of 0.7500)",
+    "never_worked_rate: 0.3167 (122% of 0.2600)"
+  ],
+  "weaknesses": [
+    "net_return_pct: 107.2826 (60% of 180.0000)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [
+    "Realized dollars still lag the Helix/ATRSS swing cohort; prioritize monetizable sizing, dollar PF, and symbol balance over raw R-multiple expansion.",
+    "Frequency is still below the 200+ trade ambition; broaden only causal entry paths and thesis-consistent supply that preserve dollar PF.",
+    "False-positive rate is high; tighten confirmation, value-hit, and regime-quality gates before accepting more fill conversion."
+  ],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 4 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + avg_r: 1.3621 (182% of 0.7500)\n  + never_worked_rate: 0.3167 (122% of 0.2600)\n\nWeaknesses:\n  - net_return_pct: 107.2826 (60% of 180.0000)\n\nDiagnostic Gaps:\n  ! Realized dollars still lag the Helix/ATRSS swing cohort; prioritize monetizable sizing, dollar PF, and symbol balance over raw R-multiple expansion.\n  ! Frequency is still below the 200+ trade ambition; broaden only causal entry paths and thesis-consistent supply that preserve dollar PF.\n  ! False-positive rate is high; tighten confirmation, value-hit, and regime-quality gates before accepting more fill conversion.\n\nGoal Progress:\n  net_return_pct: 107.2826 / 180.0000 (60%)\n  net_return_per_month: 1.9408 / 3.0000 (65%)\n  total_trades: 221.0000 / 300.0000 (74%)\n  trades_per_month: 3.9981 / 5.2500 (76%)\n  excellent_trades: 105.0000 / 150.0000 (70%)\n  dollar_profit_factor: 1.4177 / 1.8500 (77%)\n  avg_r: 1.3621 / 0.7500 (182%)\n  never_worked_rate: 0.3167 / 0.2600 (122%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

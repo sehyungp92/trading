@@ -1,0 +1,1 @@
+tpc phase 5: avgR=+0.681, totalR=+83.82, trades=123, trades/month=2.23, excellent=70, QQQ=32, QQQ excellent=25, GLD share=74%, $PF=2.12, RPF=2.35, MFE capture=+0.34, never-worked=24%, low-MFE losses=33%, DD=13.68%, accepted=0

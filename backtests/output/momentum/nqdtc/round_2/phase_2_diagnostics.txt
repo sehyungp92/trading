@@ -1,0 +1,47 @@
+============================================================
+NQDTC Phase 2 Diagnostics
+============================================================
+
+--- D1: Core Performance ---
+Total trades:    89
+Win rate:        58.4%
+Profit factor:   2.19
+Net return:      296.4%
+Max drawdown:    15.10%
+Calmar:          19.64
+Sharpe:          1.86
+Sortino:         38.88
+Avg R:           0.519
+
+--- D2: Exit Efficiency ---
+Capture ratio:   0.414 (winners exit_R / MFE)
+TP1 hit rate:    55.1%
+TP2 hit rate:    0.0%
+Avg winner R:    1.599
+Avg loser R:     -0.999
+Avg MFE R:       2.569
+Avg hold hours:  8.3
+
+--- D3: Regime Analysis ---
+Range regime:    100.0% of trades
+  Range       :  89 trades, WR=58%, avgR=+0.519, PnL=$+29,310
+
+--- D4: Session/Direction Asymmetry ---
+ETH short WR:    0.0% (0 trades)
+  ETH_LONG       :  34 trades, WR=59%, avgR=+0.696, PnL=$+16,371
+  RTH_LONG       :  30 trades, WR=57%, avgR=+0.293, PnL=$+4,789
+  RTH_SHORT      :  25 trades, WR=60%, avgR=+0.549, PnL=$+8,150
+
+--- D5: Trade Clustering ---
+Burst trade pct: 1.1%
+  Burst trades:    1, avgR=+0.741, PnL=$+303
+  Isolated trades: 88, avgR=+0.516, PnL=$+29,007
+
+--- D6: Greedy Result ---
+Base score:      0.7146
+Final score:     0.7372
+Accepted:        1
+Total candidates:33
+Kept features:   tp1_1.4_p50
+
+============================================================

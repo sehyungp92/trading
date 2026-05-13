@@ -1,0 +1,168 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:26:59.311585+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 46,
+      "base_score": 0.23164998738378928,
+      "final_score": 0.2677601582863112,
+      "kept_features": [
+        "nq1_score8_volume1p2",
+        "nq1_stop_cap30_score8"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_1 Integrity And Discrimination",
+      "candidate_count": 9
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:34:11.127917+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 51,
+      "base_score": 0.2677601582863112,
+      "final_score": 0.7809628988890658,
+      "kept_features": [
+        "nq1_all_family_score8_stop30"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_1 Continuation Signal Expansion",
+      "candidate_count": 7
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:39:13.307707+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 51,
+      "base_score": 0.7809628988890658,
+      "final_score": 1.2214114049537521,
+      "kept_features": [
+        "nq1_midpoint_ttl120"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_1 Entry And Fill Conversion",
+      "candidate_count": 7
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:46:58.906590+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 55,
+      "base_score": 1.2214114049537521,
+      "final_score": 1.2318254634883798,
+      "kept_features": [
+        "nq1_capacity3_candidate_led"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_1 Routing And Session Activation",
+      "candidate_count": 8
+    },
+    "5": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:53:21.512793+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "current_phase": 5,
+      "total_mutations": 57,
+      "base_score": 1.2318254634883798,
+      "final_score": 1.240666136899626,
+      "kept_features": [
+        "nq1_ema_trail_after_partial"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_1 Trade Management",
+      "candidate_count": 7
+    },
+    "6": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:57:52.247433+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "current_phase": 6,
+      "total_mutations": 57,
+      "base_score": 1.240666136899626,
+      "final_score": 1.2545522408424774,
+      "kept_features": [
+        "nq1_frequency_stack_capacity4"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_1 Alpha/Frequency Stack",
+      "candidate_count": 7
+    },
+    "7": {
+      "status": "completed",
+      "updated_at": "2026-05-01T19:03:15.435357+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "current_phase": 7,
+      "total_mutations": 63,
+      "base_score": 1.2553256574428322,
+      "final_score": 1.271216743272846,
+      "kept_features": [
+        "nq1_selective_vwap_strict_second_leg_off"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_1 Weak Subfamily Selectivity",
+      "candidate_count": 11
+    }
+  },
+  "last_updated": "2026-05-01T19:03:15.456372+00:00",
+  "current_phase": 7
+}

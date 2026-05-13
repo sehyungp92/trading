@@ -1,0 +1,81 @@
+{
+  "base_score": 0.8609202526161945,
+  "final_score": 0.8797993670367159,
+  "final_mutations": {
+    "flags.drawdown_regime_override": true,
+    "param_overrides.drawdown_lookback": 10,
+    "param_overrides.adx_range_threshold": 18,
+    "param_overrides.divergence_mag_threshold": 0.1,
+    "param_overrides.adx_trending_threshold": 22,
+    "param_overrides.ema_fast_period": 20,
+    "param_overrides.base_risk_pct": 0.0064,
+    "param_overrides.regime_mult_counter": 0.2,
+    "flags.chandelier_trailing": true,
+    "param_overrides.chandelier_lookback": 22,
+    "param_overrides.profit_floor_r_threshold": 1.5,
+    "flags.vol_percentile_gate": 0.0,
+    "param_overrides.be_trigger_r": 0.9,
+    "flags.block_counter_regime": true,
+    "flags.bear_structure_override": true,
+    "flags.correction_regime_override": true,
+    "flags.min_hold_period": true,
+    "param_overrides.min_hold_bars": 12,
+    "param_overrides.tp1_r_aligned": 2.4,
+    "param_overrides.tp1_r_emerging": 1.8,
+    "param_overrides.be_stop_buffer_mult": 0.08,
+    "flags.breakdown_engine": false,
+    "flags.momentum_signal": true,
+    "param_overrides.momentum_roc_threshold": -0.003,
+    "param_overrides.momentum_cooldown_bars": 24,
+    "flags.progressive_sma": true,
+    "param_overrides.progressive_sma_min": 100,
+    "param_overrides.friction_min_atr_pctl": 0.05
+  },
+  "kept_features": [
+    "finetune_param_overrides_chandelier_lookback_m10",
+    "rev_relax_div_threshold_0.10",
+    "finetune_param_overrides_be_trigger_r_m10"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 41,
+      "best_name": "finetune_param_overrides_chandelier_lookback_m10",
+      "best_score": 0.8715909737235508,
+      "best_delta_pct": 1.2394552311819438,
+      "kept": true,
+      "rejected_count": 1
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 39,
+      "best_name": "rev_relax_div_threshold_0.10",
+      "best_score": 0.8775629791899199,
+      "best_delta_pct": 0.6851844094777534,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 3,
+      "candidates_tested": 38,
+      "best_name": "finetune_param_overrides_be_trigger_r_m10",
+      "best_score": 0.8797993670367159,
+      "best_delta_pct": 0.254840723666402,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 4,
+      "candidates_tested": 37,
+      "best_name": "finetune_param_overrides_min_hold_bars_p10",
+      "best_score": 0.8804953295644756,
+      "best_delta_pct": 0.07910468611767883,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 41,
+  "accepted_count": 3,
+  "elapsed_seconds": 2211.0017805099487
+}

@@ -1,0 +1,24 @@
+{
+  "generated_at_utc": "2026-05-09T05:27:53.372680+00:00",
+  "strategies": [
+    "helix_swing"
+  ],
+  "data_end": "2026-05-01",
+  "max_workers": 4,
+  "stage_sequence": "helix_oos",
+  "max_stage_rounds": 1,
+  "max_candidates_per_stage": null,
+  "max_ablation_candidates": 0,
+  "max_perturbation_candidates": 0,
+  "max_targeted_candidates": 0,
+  "resolved_stage_candidate_limits": {
+    "ablation": 0,
+    "helix_oos": 0,
+    "perturbation": 0,
+    "targeted": 0
+  },
+  "selection_oos_note": "The OOS window is used for tuning/selection in this repair run; it is no longer an untouched holdout.",
+  "config_overrides": {
+    "helix_swing": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\round_4\\optimized_config.json"
+  }
+}

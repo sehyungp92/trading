@@ -1,0 +1,18 @@
+{
+  "decision": "no_holdout_negative_accepted_mutations_found",
+  "removed_from_final_accepted_mutations": [],
+  "kept_effective_accepted_mutations": {
+    "QQQ.asset_context_min_score": -0.1,
+    "GLD.min_ma50_slope_atr_4h": 0.04
+  },
+  "kept_redundant_noop_overrides": {
+    "GLD.min_ma100_slope_atr_4h": 0.06,
+    "GLD.require_di_alignment": true
+  },
+  "rationale": "All 15 non-empty subsets of the four accepted round-7 keys had exactly zero holdout delta versus corrected round 6 for net return, trade count, avgR, dollar PF, and QQQ excellent-trade count. The two redundant GLD overrides are already implied by all.min_ma100_slope_atr_4h=0.06 and all.require_di_alignment=True in the corrected baseline; they are not harmful but are not incremental.",
+  "artifact_inputs": {
+    "granular_report": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_7\\holdout_ablation_accepted_mutations\\granular_key_ablation_report.md",
+    "granular_results": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_7\\holdout_ablation_accepted_mutations\\granular_key_ablation_results.json",
+    "group_report": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_7\\holdout_ablation_accepted_mutations\\ablation_report.md"
+  }
+}

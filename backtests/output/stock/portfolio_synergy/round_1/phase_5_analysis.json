@@ -1,0 +1,60 @@
+{
+  "phase": 5,
+  "goal_progress": {
+    "active_strategy_count": {
+      "target": 2.0,
+      "actual": 2.0,
+      "pct_of_target": 100.0
+    },
+    "active_trades_per_month": {
+      "target": 52.0,
+      "actual": 65.29366727995726,
+      "pct_of_target": 125.56474476914859
+    },
+    "total_r_per_month": {
+      "target": 13.0,
+      "actual": 13.140786642725953,
+      "pct_of_target": 101.08297417481502
+    },
+    "profit_factor": {
+      "target": 2.6,
+      "actual": 2.4324991566578325,
+      "pct_of_target": 93.55765987145509
+    },
+    "max_drawdown_pct": {
+      "target": 0.08,
+      "actual": 0.02963254020229236,
+      "pct_of_target": 200.0
+    },
+    "trade_capture_ratio": {
+      "target": 0.84,
+      "actual": 0.7586901763224181,
+      "pct_of_target": 90.32025908600215
+    },
+    "positive_slices": {
+      "target": 4.0,
+      "actual": 4.0,
+      "pct_of_target": 100.0
+    }
+  },
+  "strengths": [
+    "active_strategy_count: 2.0000 (100% of 2.0000)",
+    "active_trades_per_month: 65.2937 (126% of 52.0000)",
+    "total_r_per_month: 13.1408 (101% of 13.0000)",
+    "profit_factor: 2.4325 (94% of 2.6000)",
+    "max_drawdown_pct: 0.0296 (200% of 0.0800)",
+    "trade_capture_ratio: 0.7587 (90% of 0.8400)",
+    "positive_slices: 4.0000 (100% of 4.0000)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "MISALIGNED",
+  "diagnostic_gaps": [
+    "Positive blocked candidates are too frequent; inspect ranking and heat scarcity."
+  ],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Retry budget exhausted; advance with current best mutations.",
+  "report": "======================================================================\nPHASE 5 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Retry budget exhausted; advance with current best mutations.\nScoring assessment: MISALIGNED\n\nStrengths:\n  + active_strategy_count: 2.0000 (100% of 2.0000)\n  + active_trades_per_month: 65.2937 (126% of 52.0000)\n  + total_r_per_month: 13.1408 (101% of 13.0000)\n  + profit_factor: 2.4325 (94% of 2.6000)\n  + max_drawdown_pct: 0.0296 (200% of 0.0800)\n  + trade_capture_ratio: 0.7587 (90% of 0.8400)\n  + positive_slices: 4.0000 (100% of 4.0000)\n\nDiagnostic Gaps:\n  ! Positive blocked candidates are too frequent; inspect ranking and heat scarcity.\n\nGoal Progress:\n  active_strategy_count: 2.0000 / 2.0000 (100%)\n  active_trades_per_month: 65.2937 / 52.0000 (126%)\n  total_r_per_month: 13.1408 / 13.0000 (101%)\n  profit_factor: 2.4325 / 2.6000 (94%)\n  max_drawdown_pct: 0.0296 / 0.0800 (200%)\n  trade_capture_ratio: 0.7587 / 0.8400 (90%)\n  positive_slices: 4.0000 / 4.0000 (100%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

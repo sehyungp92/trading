@@ -1,0 +1,35 @@
+{
+  "base_score": 0.6258904348325388,
+  "final_score": 0.6258904348325388,
+  "final_mutations": {
+    "flags.max_loss_cap": true,
+    "flags.max_stop_width": true,
+    "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+    "param_overrides.BLOCK_CAUTION_REGIME": true,
+    "flags.displacement_threshold": false,
+    "param_overrides.SCORE_NORMAL": 1.5,
+    "param_overrides.RVOL_SCORE_THRESH": 1.5,
+    "param_overrides.MIN_BOX_WIDTH": 150,
+    "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+    "flags.block_eth_shorts": true,
+    "param_overrides.TP1_R": 1.2,
+    "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+    "param_overrides.TP1_PARTIAL_PCT": 0.5
+  },
+  "kept_features": [],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 32,
+      "best_name": "finetune_SCORE_NORMAL_m20",
+      "best_score": 0.6258904348325388,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 32,
+  "accepted_count": 0,
+  "elapsed_seconds": 599.2226338386536
+}

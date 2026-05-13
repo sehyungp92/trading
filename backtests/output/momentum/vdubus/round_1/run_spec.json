@@ -1,0 +1,15 @@
+{
+  "family": "momentum",
+  "strategy": "vdubus",
+  "strategy_name": "vdubus",
+  "round": 1,
+  "description": "Round 1",
+  "generated_at_utc": "2026-04-29T19:49:50.901440+00:00",
+  "baseline_source": null,
+  "baseline_mutation_count": 2,
+  "baseline_mutations": {
+    "flags.plus_1r_partial": false,
+    "param_overrides.CHOP_THRESHOLD": 40
+  },
+  "scoring_weights": {}
+}

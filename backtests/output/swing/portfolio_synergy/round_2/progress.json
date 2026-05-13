@@ -1,0 +1,112 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-09T12:38:29.281886+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 165,
+      "base_score": 0.8187234136875302,
+      "final_score": 0.8187234136875302,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "phase_1_guarded_dynamic_risk_expansion",
+      "candidate_count": 5
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-09T12:48:57.836563+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 165,
+      "base_score": 0.8187234136875302,
+      "final_score": 0.8698795607139058,
+      "kept_features": [
+        "balanced_units_plus"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "phase_2_sleeve_risk_barbell",
+      "candidate_count": 6
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-09T12:53:54.107167+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 165,
+      "base_score": 0.8698795607139058,
+      "final_score": 0.8698795607139058,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "phase_3_selective_blocked_entry_unlocks",
+      "candidate_count": 6
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-09T13:03:18.375822+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 165,
+      "base_score": 0.8698795607139058,
+      "final_score": 0.8749012628188914,
+      "kept_features": [
+        "atrss_source_risk_016"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "phase_4_broad_winner_loser_discrimination",
+      "candidate_count": 8
+    },
+    "5": {
+      "status": "completed",
+      "updated_at": "2026-05-09T13:10:49.506660+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "current_phase": 5,
+      "total_mutations": 165,
+      "base_score": 0.8749012628188914,
+      "final_score": 0.8906839795293519,
+      "kept_features": [
+        "max_alpha_guarded"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "phase_5_final_combo_refinement",
+      "candidate_count": 5
+    }
+  },
+  "last_updated": "2026-05-09T13:10:49.517174+00:00",
+  "current_phase": 5
+}

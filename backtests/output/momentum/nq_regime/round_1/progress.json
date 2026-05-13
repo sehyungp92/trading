@@ -1,0 +1,140 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-04-30T17:17:03.791577+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 29,
+      "base_score": 0.31687857929376584,
+      "final_score": 0.8644239943297038,
+      "kept_features": [
+        "mfe_ratchet_1r_50pct"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Exit Capture",
+      "candidate_count": 6
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-04-30T17:53:37.009140+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 30,
+      "base_score": 0.8644239943297038,
+      "final_score": 0.966041392377784,
+      "kept_features": [
+        "structural_breakout_close_entry",
+        "ttl_retest_45",
+        "reversion_retest_offset_1tick"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Entry Conversion",
+      "candidate_count": 6
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-04-30T18:41:46.953104+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 30,
+      "base_score": 0.966041392377784,
+      "final_score": 1.0259500109270423,
+      "kept_features": [
+        "reversion_tight_stop_10",
+        "disable_structural_until_profitable"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Signal Quality",
+      "candidate_count": 7
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-04-30T18:57:24.168437+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 30,
+      "base_score": 1.0259500109270423,
+      "final_score": 1.0259500109270423,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Second-Wind Activation",
+      "candidate_count": 5
+    },
+    "5": {
+      "status": "completed",
+      "updated_at": "2026-04-30T19:27:14.408361+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "current_phase": 5,
+      "total_mutations": 30,
+      "base_score": 1.0259500109270423,
+      "final_score": 1.030598370403694,
+      "kept_features": [
+        "no_full_risk_daily_lockout"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Routing And Frequency",
+      "candidate_count": 6
+    },
+    "6": {
+      "status": "completed",
+      "updated_at": "2026-04-30T19:46:32.397072+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "current_phase": 6,
+      "total_mutations": 30,
+      "base_score": 1.030598370403694,
+      "final_score": 1.030598370403694,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Risk And Final Sizing",
+      "candidate_count": 5
+    }
+  },
+  "last_updated": "2026-04-30T19:46:32.411081+00:00",
+  "current_phase": 6
+}

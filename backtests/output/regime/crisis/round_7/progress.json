@@ -1,0 +1,89 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-06T03:20:25.745146+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 17,
+      "base_score": 0.8242417200893385,
+      "final_score": 0.830978246848067,
+      "kept_features": [
+        "shock_early_equity_vol",
+        "deesc_crisis_2d"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Recovery + Early Action Architecture",
+      "candidate_count": 45
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-06T03:20:26.987576+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 17,
+      "base_score": 0.830978246848067,
+      "final_score": 0.830978246848067,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Threshold Re-optimization",
+      "candidate_count": 40
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-06T03:20:28.202825+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 17,
+      "base_score": 0.830978246848067,
+      "final_score": 0.830978246848067,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Correlation + Yield + Conjunction",
+      "candidate_count": 43
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-06T03:21:49.944839+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 17,
+      "base_score": 0.830978246848067,
+      "final_score": 0.835156840138066,
+      "kept_features": [
+        "finetune_shock_spy_5d_return_m04"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Fine-Tuning",
+      "candidate_count": 53
+    }
+  },
+  "last_updated": "2026-05-06T03:21:50.036839+00:00",
+  "current_phase": 4
+}

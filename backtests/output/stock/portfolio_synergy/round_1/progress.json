@@ -1,0 +1,157 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-06T14:06:26.983871+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 8,
+      "base_score": 0.756047988504457,
+      "final_score": 0.756047988504457,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Latest diagnostics ingestion and two-strategy baseline integrity",
+      "candidate_count": 3
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-06T14:41:55.937803+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 13,
+      "base_score": 0.756047988504457,
+      "final_score": 0.8117716694164114,
+      "kept_features": [
+        "share_cap_85_actual_balance_guard",
+        "strategy_heat_5_4_4_0",
+        "heat_cap_6_5"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Alpha/frequency capacity expansion under heat caps",
+      "candidate_count": 7
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-06T14:49:12.608661+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 13,
+      "base_score": 0.8117716694164114,
+      "final_score": 0.8117716694164114,
+      "kept_features": [],
+      "gate_passed": false,
+      "failure_category": "candidates_exhausted",
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Dynamic synergistic unit-risk allocation",
+      "candidate_count": 5
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-06T14:56:16.598247+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 13,
+      "base_score": 0.8117716694164114,
+      "final_score": 0.8117716694164114,
+      "kept_features": [],
+      "gate_passed": false,
+      "failure_category": "candidates_exhausted",
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Cross-strategy routing, symbol collision, and sector heat",
+      "candidate_count": 6
+    },
+    "5": {
+      "status": "completed",
+      "updated_at": "2026-05-06T15:11:25.239412+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "current_phase": 5,
+      "total_mutations": 13,
+      "base_score": 0.8117716694164114,
+      "final_score": 0.8117716694164114,
+      "kept_features": [],
+      "gate_passed": false,
+      "failure_category": "diagnostic_needed",
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Blocked-candidate discrimination using live-known quality proxies",
+      "candidate_count": 6
+    },
+    "6": {
+      "status": "completed",
+      "updated_at": "2026-05-06T15:17:38.450893+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "current_phase": 6,
+      "total_mutations": 13,
+      "base_score": 0.8117716694164114,
+      "final_score": 0.8117716694164114,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Aggressive drawdown governors and cascade containment",
+      "candidate_count": 4
+    },
+    "7": {
+      "status": "completed",
+      "updated_at": "2026-05-06T15:22:31.082671+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "current_phase": 7,
+      "total_mutations": 13,
+      "base_score": 0.8117716694164114,
+      "final_score": 0.8117716694164114,
+      "kept_features": [],
+      "gate_passed": false,
+      "failure_category": "candidates_exhausted",
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Final blend, robustness gates, and no-overfit acceptance",
+      "candidate_count": 3
+    }
+  },
+  "last_updated": "2026-05-06T15:22:31.104670+00:00",
+  "current_phase": 7
+}

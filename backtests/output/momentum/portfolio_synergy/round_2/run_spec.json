@@ -1,0 +1,189 @@
+{
+  "baseline_mutation_count": 14,
+  "baseline_mutations": {
+    "commission_per_side": 0.62,
+    "dynamic_risk": {
+      "daily_loss_mult": 1.0,
+      "daily_loss_threshold_R": -999.0,
+      "enabled": true,
+      "existing_position_mult": 0.85,
+      "fit_to_remaining_directional_cap": true,
+      "fit_to_remaining_family_cap": true,
+      "fit_to_remaining_heat": true,
+      "heat_pressure_mult": 0.65,
+      "heat_pressure_threshold": 0.65,
+      "max_trade_risk_R": 1.5,
+      "min_qty": 1,
+      "min_trade_risk_R": 0.0,
+      "same_direction_pressure_mult": 0.7,
+      "same_direction_pressure_threshold": 0.65,
+      "strategy_multipliers": [
+        [
+          "NQ_REGIME",
+          0.75
+        ],
+        [
+          "VdubusNQ_v4",
+          0.95
+        ],
+        [
+          "NQDTC_v2.1",
+          1.0
+        ],
+        [
+          "DownturnDominator_v1",
+          1.0
+        ]
+      ]
+    },
+    "end_date": null,
+    "heat_cap_R": 6.75,
+    "initial_equity": 50000.0,
+    "max_total_positions": 7,
+    "point_value": 2.0,
+    "portfolio_daily_stop_R": 2.75,
+    "portfolio_weekly_stop_R": 9.0,
+    "reference_unit_risk_dollars": 250.0,
+    "rules": {
+      "cooldown_session_only": true,
+      "dd_tiers": [
+        [
+          0.1,
+          1.0
+        ],
+        [
+          0.15,
+          0.6
+        ],
+        [
+          0.2,
+          0.3
+        ],
+        [
+          1.0,
+          0.0
+        ]
+      ],
+      "directional_cap_R": 4.25,
+      "directional_cap_long_R": 4.25,
+      "directional_cap_short_R": 4.75,
+      "disabled_strategies": [],
+      "dynamic_allocation_enabled": false,
+      "dynamic_lookback_trades": 60,
+      "dynamic_max_mult": 1.22,
+      "dynamic_min_mult": 0.65,
+      "dynamic_negative_expectancy_cut": 0.18,
+      "dynamic_positive_expectancy_boost": 0.1,
+      "family_strategy_ids": [
+        "NQ_REGIME",
+        "VdubusNQ_v4",
+        "NQDTC_v2.1",
+        "DownturnDominator_v1"
+      ],
+      "initial_equity": 50000.0,
+      "max_family_contracts_mnq_eq": 24,
+      "max_single_strategy_trade_share": 1.0,
+      "max_symbol_heat_R": 0.0,
+      "max_total_active_positions": 0,
+      "nqdtc_agree_size_mult": 1.25,
+      "nqdtc_direction_filter_enabled": false,
+      "nqdtc_oppose_size_mult": 0.5,
+      "nqdtc_strategy_id": "NQDTC_v2.1",
+      "priority_headroom_R": 1.0,
+      "priority_reserve_threshold": 1,
+      "reference_unit_risk_dollars": 250.0,
+      "regime_unit_risk_long_mult": 1.0,
+      "regime_unit_risk_mult": 1.0,
+      "regime_unit_risk_short_mult": 1.0,
+      "same_sector_heat_cap_R": 0.0,
+      "strategy_priorities": [
+        [
+          "VdubusNQ_v4",
+          0
+        ],
+        [
+          "NQ_REGIME",
+          0
+        ],
+        [
+          "NQDTC_v2.1",
+          1
+        ],
+        [
+          "DownturnDominator_v1",
+          1
+        ]
+      ],
+      "strategy_trade_share_min_total": 50,
+      "symbol_collision_action": "none",
+      "symbol_collision_pairs": [],
+      "symbol_sector_map": [],
+      "vdubus_strategy_id": "VdubusNQ_v4"
+    },
+    "signal_filter_rules": [],
+    "start_date": null,
+    "strategy_allocations": [
+      {
+        "base_risk_pct": 0.006,
+        "daily_stop_R": 3.0,
+        "enabled": true,
+        "max_concurrent": 2,
+        "max_contracts": 0,
+        "priority": 0,
+        "strategy_id": "NQ_REGIME"
+      },
+      {
+        "base_risk_pct": 0.0065,
+        "daily_stop_R": 2.5,
+        "enabled": true,
+        "max_concurrent": 1,
+        "max_contracts": 0,
+        "priority": 0,
+        "strategy_id": "VdubusNQ_v4"
+      },
+      {
+        "base_risk_pct": 0.0045,
+        "daily_stop_R": 2.5,
+        "enabled": true,
+        "max_concurrent": 1,
+        "max_contracts": 0,
+        "priority": 1,
+        "strategy_id": "NQDTC_v2.1"
+      },
+      {
+        "base_risk_pct": 0.004,
+        "daily_stop_R": 2.0,
+        "enabled": true,
+        "max_concurrent": 1,
+        "max_contracts": 0,
+        "priority": 1,
+        "strategy_id": "DownturnDominator_v1"
+      }
+    ]
+  },
+  "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\portfolio_synergy\\round_2\\optimized_portfolio_config.json",
+  "description": "Standardized shared-output replay of the current optimized momentum portfolio result. The richer momentum replay and diagnostics artifacts are preserved alongside the shared phased-auto files.",
+  "execution_context": {
+    "decision_count": 0,
+    "max_workers": 2,
+    "replay_architecture": "canonical_replay_bundle_live_rule_adapter",
+    "replay_source_fingerprint": "509a29c954612bdf9aa04d4cb8caac469b0cd6498e6285110991e12d0548e075",
+    "risk_basis": "bar_close_mark_to_market",
+    "source_round_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\portfolio_synergy\\round_2",
+    "trade_outcome_count": 1259
+  },
+  "family": "momentum",
+  "generated_at_utc": "2026-05-11T12:59:21.635816+00:00",
+  "round": 2,
+  "scoring_weights": {
+    "drawdown_control": 0.18,
+    "expected_return": 0.24,
+    "live_rule_health": 0.05,
+    "profit_quality": 0.13,
+    "risk_efficiency": 0.12,
+    "strategy_balance": 0.1,
+    "trade_frequency": 0.18
+  },
+  "strategy": "portfolio_synergy",
+  "strategy_name": "momentum_portfolio_synergy"
+}

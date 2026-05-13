@@ -1,0 +1,43 @@
+======================================================================
+NQDTC END-OF-ROUND EVALUATION
+======================================================================
+
+Phase Progression Summary:
+  Phase 1: score 0.5687 -> 0.7146 (1 accepted)
+  Phase 2: score 0.7146 -> 0.7372 (1 accepted)
+  Phase 3: score 0.7372 -> 0.7372 (0 accepted)
+  Phase 4: score 0.7372 -> 0.7372 (0 accepted)
+
+Cumulative Mutations Applied:
+  flags.block_eth_shorts: True
+  flags.displacement_threshold: False
+  flags.max_loss_cap: True
+  flags.max_stop_width: True
+  param_overrides.BLOCK_ALIGNED_REGIME: True
+  param_overrides.BLOCK_CAUTION_REGIME: True
+  param_overrides.BLOCK_NEUTRAL_REGIME: True
+  param_overrides.LOSS_STREAK_THRESHOLD: 2
+  param_overrides.MIN_BOX_WIDTH: 150
+  param_overrides.MIN_INTER_TRADE_GAP_MINUTES: 30
+  param_overrides.RVOL_SCORE_THRESH: 1.5
+  param_overrides.SCORE_NORMAL: 1.5
+  param_overrides.TP1_PARTIAL_PCT: 0.5
+  param_overrides.TP1_R: 1.4
+
+Signal Extraction / Alpha Capture
+No report provided.
+
+Signal Discrimination
+No report provided.
+
+Entry Mechanism
+No report provided.
+
+Trade Management
+No report provided.
+
+Exit Mechanism
+TP1 hit rate 55.1%, TP2 hit rate 0.0%, avg hold 8.3h.
+
+Overall Verdict
+NQDTC optimized to 296.4% return, PF=2.19, DD=15.1%, 89 trades. Capture ratio improved to 0.41.

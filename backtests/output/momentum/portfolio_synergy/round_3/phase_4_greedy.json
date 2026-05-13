@@ -1,0 +1,249 @@
+{
+  "accepted_count": 0,
+  "base_score": 1.1256155581491243,
+  "elapsed_seconds": 0.0,
+  "final_metrics": {
+    "active_strategies": 4.0,
+    "block_rate": 0.03177124702144559,
+    "blocked_trades": 40.0,
+    "cagr": 1.2292281868209853,
+    "calmar": 17.35713620347989,
+    "calmar_mtm": 17.35713620347989,
+    "calmar_r": 78.93023737001361,
+    "calmar_realized": 62.724400144714146,
+    "final_equity": 347274.9530066824,
+    "max_concurrent": 3.0,
+    "max_drawdown_pct": 0.07068225044042235,
+    "max_drawdown_pct_mtm": 0.07068225044042235,
+    "max_drawdown_pct_realized": 0.019597288837916033,
+    "max_drawdown_r": 15.065200000000004,
+    "min_strategy_trades": 104.0,
+    "net_profit": 297274.9530066824,
+    "net_return_pct": 5.945499060133648,
+    "net_return_pct_realized": 5.9602446601336565,
+    "profit_factor": 3.5446110817321452,
+    "risk_basis": "bar_close_mark_to_market",
+    "sharpe": 5.866823806214394,
+    "sortino": 11.628034760105582,
+    "total_r": 1189.0998120267295,
+    "total_r_per_month": 40.94256281511717,
+    "total_trades": 1219.0,
+    "trades_per_month": 41.972072963800905,
+    "win_rate": 0.6505332239540607
+  },
+  "final_mutations": {
+    "commission_per_side": 0.62,
+    "dynamic_risk": {
+      "daily_loss_mult": 1.0,
+      "daily_loss_threshold_R": -999.0,
+      "enabled": true,
+      "existing_position_mult": 0.85,
+      "fit_to_remaining_directional_cap": true,
+      "fit_to_remaining_family_cap": true,
+      "fit_to_remaining_heat": true,
+      "heat_pressure_mult": 0.65,
+      "heat_pressure_threshold": 0.65,
+      "max_trade_risk_R": 2.0,
+      "min_qty": 1,
+      "min_trade_risk_R": 0.0,
+      "same_direction_pressure_mult": 0.7,
+      "same_direction_pressure_threshold": 0.65,
+      "strategy_multipliers": [
+        [
+          "NQ_REGIME",
+          0.75
+        ],
+        [
+          "VdubusNQ_v4",
+          0.95
+        ],
+        [
+          "NQDTC_v2.1",
+          1.0
+        ],
+        [
+          "DownturnDominator_v1",
+          1.0
+        ]
+      ]
+    },
+    "end_date": null,
+    "heat_cap_R": 10.0,
+    "initial_equity": 50000.0,
+    "max_total_positions": 8,
+    "point_value": 2.0,
+    "portfolio_daily_stop_R": 2.75,
+    "portfolio_weekly_stop_R": 9.0,
+    "reference_unit_risk_dollars": 250.0,
+    "rules": {
+      "cooldown_session_only": true,
+      "dd_tiers": [
+        [
+          0.1,
+          1.0
+        ],
+        [
+          0.15,
+          0.6
+        ],
+        [
+          0.2,
+          0.3
+        ],
+        [
+          1.0,
+          0.0
+        ]
+      ],
+      "directional_cap_R": 4.25,
+      "directional_cap_long_R": 10.0,
+      "directional_cap_short_R": 10.5,
+      "disabled_strategies": [],
+      "dynamic_allocation_enabled": false,
+      "dynamic_lookback_trades": 60,
+      "dynamic_max_mult": 1.22,
+      "dynamic_min_mult": 0.65,
+      "dynamic_negative_expectancy_cut": 0.18,
+      "dynamic_positive_expectancy_boost": 0.1,
+      "existing_position_mult": 1.0,
+      "family_strategy_ids": [
+        "NQ_REGIME",
+        "VdubusNQ_v4",
+        "NQDTC_v2.1",
+        "DownturnDominator_v1"
+      ],
+      "fit_to_remaining_directional_cap": false,
+      "fit_to_remaining_family_cap": false,
+      "fit_to_remaining_heat": false,
+      "heat_pressure_mult": 1.0,
+      "heat_pressure_threshold": 1.0,
+      "initial_equity": 50000.0,
+      "max_family_contracts_mnq_eq": 40,
+      "max_single_strategy_trade_share": 1.0,
+      "max_strategy_active_positions": [],
+      "max_symbol_heat_R": 0.0,
+      "max_total_active_positions": 0,
+      "max_trade_risk_R": 0.0,
+      "min_qty": 1,
+      "nqdtc_agree_size_mult": 1.25,
+      "nqdtc_direction_filter_enabled": false,
+      "nqdtc_oppose_size_mult": 0.5,
+      "nqdtc_strategy_id": "NQDTC_v2.1",
+      "portfolio_heat_cap_R": 0.0,
+      "priority_headroom_R": 1.0,
+      "priority_reserve_threshold": 1,
+      "reference_unit_risk_dollars": 250.0,
+      "regime_unit_risk_long_mult": 1.0,
+      "regime_unit_risk_mult": 1.0,
+      "regime_unit_risk_short_mult": 1.0,
+      "same_direction_pressure_mult": 1.0,
+      "same_direction_pressure_threshold": 1.0,
+      "same_sector_heat_cap_R": 0.0,
+      "strategy_priorities": [
+        [
+          "VdubusNQ_v4",
+          0
+        ],
+        [
+          "NQ_REGIME",
+          0
+        ],
+        [
+          "NQDTC_v2.1",
+          1
+        ],
+        [
+          "DownturnDominator_v1",
+          1
+        ]
+      ],
+      "strategy_size_multipliers": [],
+      "strategy_trade_share_min_total": 50,
+      "symbol_collision_action": "none",
+      "symbol_collision_pairs": [],
+      "symbol_sector_map": [],
+      "vdubus_strategy_id": "VdubusNQ_v4"
+    },
+    "signal_filter_rules": [],
+    "start_date": null,
+    "strategy_allocations": [
+      {
+        "base_risk_pct": 0.006,
+        "daily_stop_R": 3.0,
+        "enabled": true,
+        "max_concurrent": 3,
+        "max_contracts": 0,
+        "priority": 0,
+        "strategy_id": "NQ_REGIME"
+      },
+      {
+        "base_risk_pct": 0.0065,
+        "daily_stop_R": 2.5,
+        "enabled": true,
+        "max_concurrent": 2,
+        "max_contracts": 0,
+        "priority": 0,
+        "strategy_id": "VdubusNQ_v4"
+      },
+      {
+        "base_risk_pct": 0.0045,
+        "daily_stop_R": 2.5,
+        "enabled": true,
+        "max_concurrent": 2,
+        "max_contracts": 0,
+        "priority": 1,
+        "strategy_id": "NQDTC_v2.1"
+      },
+      {
+        "base_risk_pct": 0.004,
+        "daily_stop_R": 2.0,
+        "enabled": true,
+        "max_concurrent": 2,
+        "max_contracts": 0,
+        "priority": 1,
+        "strategy_id": "DownturnDominator_v1"
+      }
+    ]
+  },
+  "final_score": 1.1256155581491243,
+  "kept_features": [],
+  "rounds": [
+    {
+      "best_delta_pct": -0.0062136893121411685,
+      "best_name": "filter_vdubus_close_after_capacity",
+      "best_score": 1.1194018688369831,
+      "candidates_tested": 4,
+      "kept": false,
+      "rejected_count": 0,
+      "round_num": 1
+    },
+    {
+      "best_delta_pct": -0.007521834430486818,
+      "best_name": "filter_nqdtc_score_2_5_after_capacity",
+      "best_score": 1.1180937237186375,
+      "candidates_tested": 4,
+      "kept": false,
+      "rejected_count": 0,
+      "round_num": 2
+    },
+    {
+      "best_delta_pct": -0.00948405210800507,
+      "best_name": "filter_nq_regime_wide_ib_after_capacity",
+      "best_score": 1.1161315060411192,
+      "candidates_tested": 4,
+      "kept": false,
+      "rejected_count": 0,
+      "round_num": 3
+    },
+    {
+      "best_delta_pct": -0.017005886538491666,
+      "best_name": "filter_nq_regime_wide_and_nqdtc_low_score",
+      "best_score": 1.1086096716106326,
+      "candidates_tested": 4,
+      "kept": false,
+      "rejected_count": 0,
+      "round_num": 4
+    }
+  ],
+  "total_candidates": 4
+}

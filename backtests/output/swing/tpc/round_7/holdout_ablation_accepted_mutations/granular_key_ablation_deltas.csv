@@ -1,0 +1,16 @@
+variant,n_keys,holdout_net_delta,holdout_trades_delta,holdout_avg_r_delta,holdout_pf_delta,holdout_qqq_excellent_delta,train_net_delta,train_trades_delta,train_avg_r_delta,train_pf_delta,train_qqq_excellent_delta
+QQQ.asset_context_min_score,1,0.0,0.0,0.0,0.0,0.0,10.316020000001544,2.0,0.0043903653439236745,0.055662362387851605,2.0
+GLD.min_ma50_slope_atr_4h,1,0.0,0.0,0.0,0.0,0.0,1.4029499999995494,-6.0,0.04387033171819532,0.053767875093417405,0.0
+GLD.min_ma100_slope_atr_4h,1,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+GLD.require_di_alignment,1,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+QQQ.asset_context_min_score + GLD.min_ma50_slope_atr_4h,2,0.0,0.0,0.0,0.0,0.0,11.785470000000572,-4.0,0.047802860788693446,0.11091465409988954,2.0
+QQQ.asset_context_min_score + GLD.min_ma100_slope_atr_4h,2,0.0,0.0,0.0,0.0,0.0,10.316020000001544,2.0,0.0043903653439236745,0.055662362387851605,2.0
+QQQ.asset_context_min_score + GLD.require_di_alignment,2,0.0,0.0,0.0,0.0,0.0,10.316020000001544,2.0,0.0043903653439236745,0.055662362387851605,2.0
+GLD.min_ma50_slope_atr_4h + GLD.min_ma100_slope_atr_4h,2,0.0,0.0,0.0,0.0,0.0,1.4029499999995494,-6.0,0.04387033171819532,0.053767875093417405,0.0
+GLD.min_ma50_slope_atr_4h + GLD.require_di_alignment,2,0.0,0.0,0.0,0.0,0.0,1.4029499999995494,-6.0,0.04387033171819532,0.053767875093417405,0.0
+GLD.min_ma100_slope_atr_4h + GLD.require_di_alignment,2,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+QQQ.asset_context_min_score + GLD.min_ma50_slope_atr_4h + GLD.min_ma100_slope_atr_4h,3,0.0,0.0,0.0,0.0,0.0,11.785470000000572,-4.0,0.047802860788693446,0.11091465409988954,2.0
+QQQ.asset_context_min_score + GLD.min_ma50_slope_atr_4h + GLD.require_di_alignment,3,0.0,0.0,0.0,0.0,0.0,11.785470000000572,-4.0,0.047802860788693446,0.11091465409988954,2.0
+QQQ.asset_context_min_score + GLD.min_ma100_slope_atr_4h + GLD.require_di_alignment,3,0.0,0.0,0.0,0.0,0.0,10.316020000001544,2.0,0.0043903653439236745,0.055662362387851605,2.0
+GLD.min_ma50_slope_atr_4h + GLD.min_ma100_slope_atr_4h + GLD.require_di_alignment,3,0.0,0.0,0.0,0.0,0.0,1.4029499999995494,-6.0,0.04387033171819532,0.053767875093417405,0.0
+QQQ.asset_context_min_score + GLD.min_ma50_slope_atr_4h + GLD.min_ma100_slope_atr_4h + GLD.require_di_alignment,4,0.0,0.0,0.0,0.0,0.0,11.785470000000572,-4.0,0.047802860788693446,0.11091465409988954,2.0

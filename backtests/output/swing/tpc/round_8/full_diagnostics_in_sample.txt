@@ -1,0 +1,250 @@
+TPC ROUND 8 PROMOTED CONFIG FULL DIAGNOSTICS - IN SAMPLE
+================================================================================
+Generated: 2026-05-09 20:21:30
+Training window: 2021-02-08T09:00:00+00:00 -> 2025-11-01T00:00:00+00:00
+Latest common intraday data: 2026-05-01T23:00:00+00:00
+Holdout: most recent 6 months
+Initial equity: $100,000
+Promotion source: OOS-selected candidate top3_pb30_qqq_no_mfe (PB30 5-18, QQQ T1 1.0, MFE giveback disabled).
+Selection OOS was used for repair/selection, not as an untouched holdout.
+Comparable basis: current-code final optimized config replay
+
+OPTIMISED CONFIG RESULT
+--------------------------------------------------------------------------------
+Trades=126, net=+160.59%, PF=2.28, avgR=+0.733, totalR=+92.36
+MaxDD=13.85% ($22,963.14), Sharpe=1.44, trades/month=2.22
+Avg hold=35.3 15m bars, top-5 winner share=23.4%
+
+DATA READINESS
+--------------------------------------------------------------------------------
+QQQ: PASS | 15m=83,952, 1h=20,994, 4h=5,698, leaks 30m/1h/4h/daily=0/0/0/0
+GLD: PASS | 15m=83,432, 1h=20,930, 4h=5,697, leaks 30m/1h/4h/daily=0/0/0/0
+
+TPC BESPOKE CONTINUATION DIAGNOSTICS
+--------------------------------------------------------------------------------
+Spec chain: 4h trend regime -> 1h controlled value pullback -> 15m/30m continuation confirmation -> T1/T2/runner.
+  PASS | Expected-return capture: net=+160.59%, avgR=+0.733
+  PASS | Optimisable frequency: 2.22 trades/month
+  PASS | Raw continuation movement: avg MFE=+3.13R
+  PASS | Realisation quality: right-then-lost=10, never-worked=29
+
+Signal funnel summary:
+  no_signal=145,193, entries=130, partials=109, stops=125, events=293,988
+  entry density=0.0442%, partials per entry=0.84, stops per entry=0.96
+
+TPC pullback model coverage:
+  Cohort                       N     WR      PF     AvgR      TotR         PnL
+  classic_38_62              126   60%    2.28   +0.733    +92.36 $+160,591.17
+
+TPC setup grade coverage:
+  Cohort                       N     WR      PF     AvgR      TotR         PnL
+  valid                      103   54%    1.64   +0.630    +64.88 $+75,385.26
+  a_plus                      23   83%   13.15   +1.195    +27.48 $+85,205.92
+
+TPC symbol x pullback model:
+  Cohort                       N     WR      PF     AvgR      TotR         PnL
+  GLD:classic_38_62           95   54%    1.83   +0.727    +69.06 $+84,601.27
+  QQQ:classic_38_62           31   77%    4.28   +0.752    +23.30 $+75,989.91
+
+TPC MFE realisation buckets:
+  Bucket                   N     WR      PF     AvgR      TotR         PnL
+  never_0_0.5R            29    0%    0.00   -1.355    -39.30 $-64,441.86
+  worked_0.5_1R           12    0%    0.00   -1.078    -12.93 $-36,116.50
+  worked_1_2R             36   75%    2.80   +0.350    +12.59 $+38,785.29
+  worked_2R_plus          49   98%   67.27   +2.694   +132.00 $+222,364.24
+
+TPC targeted diagnosis:
+  + Strength to preserve: Classic value pullbacks are active, but alternative continuation branches are not adding sample yet.
+  - Main weakness to repair: false positives still matter (29 never-worked losers, 23.0% of trades) and 10 trades still gave back >=1R MFE.
+  - Phase-auto priority: broaden Type B/second-entry sampling only where MFE, avgR, and false-positive control hold together, then continue exit capture tuning.
+
+GENERAL DIAGNOSTICS
+--------------------------------------------------------------------------------
+TPC DIAGNOSTICS
+--------------------------------------------------------------------------------
+Alpha thesis: Trend continuation after a 4h trend regime and a controlled 1h pullback into value.
+Net=$+160,591.17, PF=2.28, avgR=+0.733, trades/month=2.22, maxDD=13.85%
+Rolling 20-trade avgR=+0.926, min=-0.701, slope=+0.00063
+Winner concentration: top 5 winners = 23.4% of gross wins
+
+Alpha capture assessment:
+  Verdict: ALPHA_CAPTURED_CONFIG
+  Strengths:
+    + Expected return and per-trade expectancy are positive on the current training window.
+    + Trade frequency is usable for optimisation at 2.22 trades/month.
+    + Signals are finding favourable movement: average MFE is +3.13R.
+  Weaknesses:
+    - 10 trades moved at least +1R before finishing flat or worse, highlighting exit or stop-management giveback.
+    - The pullback mix is narrow; the current config is not yet testing both Type A and Type B continuation edges well.
+    - Most trades end via stop, so pullback entries are not being converted into the intended T1/T2/runner pathway.
+  Optimisation implication: Focus first on entry filters and false-positive rejection.
+
+By symbol:
+  Cohort                       N     WR      PF     AvgR      TotR         PnL
+  GLD                         95   54%    1.83   +0.727    +69.06 $+84,601.27
+  QQQ                         31   77%    4.28   +0.752    +23.30 $+75,989.91
+
+By setup type:
+  Cohort                       N     WR      PF     AvgR      TotR         PnL
+  classic_38_62              126   60%    2.28   +0.733    +92.36 $+160,591.17
+
+By setup grade:
+  Cohort                       N     WR      PF     AvgR      TotR         PnL
+  valid                      103   54%    1.64   +0.630    +64.88 $+75,385.26
+  a_plus                      23   83%   13.15   +1.195    +27.48 $+85,205.92
+
+By entry model:
+  Cohort                       N     WR      PF     AvgR      TotR         PnL
+  confirmation_close          95   54%    1.83   +0.727    +69.06 $+84,601.27
+  structure_stop              31   77%    4.28   +0.752    +23.30 $+75,989.91
+
+By exit reason:
+  Cohort                       N     WR      PF     AvgR      TotR         PnL
+  STOP                       125   59%    2.28   +0.739    +92.34 $+160,552.26
+  STALL_EXIT                   1  100%     inf   +0.016     +0.02 $    +38.91
+
+Time stability:
+  Year:
+    2021     N= 26 avgR=+0.262 totR=+6.81 PnL=$+3,351.99
+    2022     N= 36 avgR=+1.407 totR=+50.66 PnL=$+52,944.84
+    2023     N= 21 avgR=-0.324 totR=-6.81 PnL=$-4,124.05
+    2024     N= 24 avgR=+1.019 totR=+24.45 PnL=$+53,271.09
+    2025     N= 19 avgR=+0.908 totR=+17.26 PnL=$+55,147.30
+  Worst months:
+    2023-06  N=  3 avgR=-1.177 totR=-3.53 PnL=$-6,032.60
+    2023-05  N=  2 avgR=-1.963 totR=-3.93 PnL=$-5,612.52
+    2023-07  N=  1 avgR=-2.029 totR=-2.03 PnL=$-4,720.56
+    2021-07  N=  7 avgR=-0.430 totR=-3.01 PnL=$-4,168.51
+    2022-09  N=  5 avgR=-0.207 totR=-1.04 PnL=$-4,147.87
+    2021-05  N=  2 avgR=-1.089 totR=-2.18 PnL=$-3,724.02
+
+Excursion quality:
+  Avg MFE=+3.131R, avg MAE=+0.901R, median MFE=+1.630R
+  Right-then-lost trades (MFE >= 1R and final <= 0R): 10
+  Never-worked losers (MFE < 0.5R and final <= 0R): 29
+
+Decision event funnel:
+  SETUP_REJECTED             146431 ( 49.8%)
+  NO_SIGNAL                  145193 ( 49.4%)
+  MANAGING_POSITION            1768 (  0.6%)
+  ENTRY_REQUESTED               130 (  0.0%)
+  ENTRY_FILLED                  126 (  0.0%)
+  STOP_FILLED                   125 (  0.0%)
+  PARTIAL_EXIT_FILLED           109 (  0.0%)
+  ENTRY_PENDING                 101 (  0.0%)
+  ORDER_TERMINAL                  4 (  0.0%)
+  EXIT_FILLED                     1 (  0.0%)
+  Entries requested by symbol: GLD=95, QQQ=35
+
+OPTIMISATION READINESS
+--------------------------------------------------------------------------------
+Promotable optimised config: YES
+Verdict: ALPHA_CAPTURED_CONFIG
+Next optimisation focus: Focus first on entry filters and false-positive rejection.
+  PASS | Positive net return: +160.59%
+  PASS | Positive avgR: +0.733R
+  PASS | PF >= 1.20: 2.28
+  PASS | Frequency >= 1.00/month: 2.22/month
+  PASS | Sample >= 30 trades: 126
+  PASS | MaxDD <= 15%: 13.85%
+
+FINAL OPTIMISED CONFIG MUTATIONS
+--------------------------------------------------------------------------------
+GLD.asset_context_enabled: True
+GLD.confirmation_combo_mode: structure_or_vwap
+GLD.confirmation_required: 2
+GLD.daily_room_min_r: 3.0
+GLD.entry_order_model: market_next_bar
+GLD.max_extension_atr_mult: 1.5
+GLD.min_ma100_slope_atr_4h: 0.06
+GLD.min_ma50_slope_atr_4h: 0.04
+GLD.require_di_alignment: True
+GLD.require_structure_confirmation: True
+GLD.score_a_min: 11
+GLD.score_b_min: 10
+GLD.t1_r: 1.1
+QQQ.addon_min_score: 12
+QQQ.asset_context_enabled: True
+QQQ.asset_context_min_score: -0.1
+QQQ.confirmation_required: 2
+QQQ.daily_room_min_r: 1.6
+QQQ.fib_b_high: 0.38
+QQQ.fib_b_low: 0.2
+QQQ.max_extension_atr_mult: 2.25
+QQQ.min_ma100_slope_atr_4h: 0.03
+QQQ.min_short_score: 12
+QQQ.primary_windows_et: [[9, 35, 12, 15], [13, 30, 15, 45]]
+QQQ.require_di_alignment: False
+QQQ.score_a_min: 10
+QQQ.score_b_min: 9
+QQQ.shorts_enabled: True
+QQQ.shorts_require_a_plus: True
+QQQ.t1_partial_pct: 0.7
+QQQ.t1_r: 1.0
+QQQ.t1_stop_r: 0.35
+QQQ.type_b_enabled: True
+QQQ.type_b_requires_a_plus: False
+all.addon_enabled: False
+all.addon_max_notional_pct: 0.0
+all.addon_max_total_risk_pct: 0.03
+all.addon_min_score: 17
+all.addon_require_structure_hold: True
+all.addon_require_vwap_hold: True
+all.addon_requires_t1: True
+all.addon_size_mult: 0.25
+all.addon_trigger_r: 1.75
+all.avoid_windows_et: [[11, 0, 12, 0]]
+all.confirmation_combo_mode: structure_or_vwap
+all.confirmation_required: 1
+all.entry_order_model: structure_stop
+all.entry_order_ttl_hours: 4.0
+all.entry_stop_limit_atr_mult: 0.08
+all.fib_a_high: 0.8
+all.fib_a_low: 0.33
+all.initial_stop_source: signal
+all.max_hold_bars_15m: 36
+all.max_position_notional_pct: 8.0
+all.max_risk_pct: 0.025
+all.mfe_giveback_after_t1_only: False
+all.mfe_giveback_lock_r: 0.5
+all.mfe_giveback_retain_frac: 0.4
+all.mfe_giveback_trigger_r: 0.0
+all.min_ma100_slope_atr_4h: 0.06
+all.min_stop_atr_mult: 0.15
+all.pb30_confirmation_combo_mode: structure_or_vwap
+all.pb30_confirmation_required: 1
+all.pb30_entry_order_model: 
+all.pb30_pullback_enabled: True
+all.pb30_pullback_max_bars_30m: 18
+all.pb30_pullback_min_bars_30m: 5
+all.pb30_pullback_orderly_required: True
+all.require_di_alignment: True
+all.risk_a_pct: 0.016
+all.risk_a_plus_pct: 0.025
+all.risk_b_pct: 0.01
+all.score_a_min: 10
+all.score_a_plus_min: 13
+all.score_b_min: 9
+all.score_model: alpha7
+all.second_entry_max_wait_bars_15m: 16
+all.second_entry_min_source_score: 16.0
+all.second_entry_min_wait_bars_15m: 1
+all.second_entry_require_structure: True
+all.second_entry_require_vwap: True
+all.second_entry_score_min: 15
+all.signal_stop_buffer_atr_mult: 0.12
+all.stall_exit_bars_15m: 52
+all.stall_exit_max_current_r: 0.2
+all.stall_exit_min_mfe_r: 1.0
+all.t1_stop_r: 0.4
+all.t2_r: 2.0
+all.time_stop_min_mfe_r: 0.5
+all.trail_after_t1_30m_bars: 8
+all.trail_use_vwap_after_t1: True
+all.type_a_value_hits_min: 1
+all.type_b_enabled: False
+all.type_c_enabled: True
+all.type_c_mode: real_reentry
+all.type_c_requires_a_plus: False
+
+Replay source fingerprint: 28c758b72dda668a2a0de404b7ec1703827c88a0b54461c028a6f0cc0128ae42

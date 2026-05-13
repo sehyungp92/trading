@@ -1,0 +1,66 @@
+{
+  "phase": 4,
+  "goal_progress": {
+    "total_r": {
+      "target": 90.0,
+      "actual": 308.36408625456824,
+      "pct_of_target": 200.0
+    },
+    "r_per_month": {
+      "target": 1.5,
+      "actual": 5.578606958003482,
+      "pct_of_target": 200.0
+    },
+    "avg_r": {
+      "target": 0.45,
+      "actual": 1.2384099849581054,
+      "pct_of_target": 200.0
+    },
+    "trades_per_month": {
+      "target": 4.0,
+      "actual": 4.504652761009677,
+      "pct_of_target": 112.61631902524192
+    },
+    "total_trades": {
+      "target": 220.0,
+      "actual": 249.0,
+      "pct_of_target": 113.18181818181819
+    },
+    "excellent_trades": {
+      "target": 120.0,
+      "actual": 112.0,
+      "pct_of_target": 93.33333333333333
+    },
+    "profit_factor": {
+      "target": 1.8,
+      "actual": 2.797185960334223,
+      "pct_of_target": 155.39922001856795
+    },
+    "never_worked_rate": {
+      "target": 0.2,
+      "actual": 0.3373493975903614,
+      "pct_of_target": 168.67469879518072
+    }
+  },
+  "strengths": [
+    "total_r: 308.3641 (200% of 90.0000)",
+    "r_per_month: 5.5786 (200% of 1.5000)",
+    "avg_r: 1.2384 (200% of 0.4500)",
+    "trades_per_month: 4.5047 (113% of 4.0000)",
+    "total_trades: 249.0000 (113% of 220.0000)",
+    "excellent_trades: 112.0000 (93% of 120.0000)",
+    "profit_factor: 2.7972 (155% of 1.8000)",
+    "never_worked_rate: 0.3373 (169% of 0.2000)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [
+    "False-positive rate is high; tighten confirmation, value-hit, and regime-quality gates before accepting more fill conversion."
+  ],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 4 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + total_r: 308.3641 (200% of 90.0000)\n  + r_per_month: 5.5786 (200% of 1.5000)\n  + avg_r: 1.2384 (200% of 0.4500)\n  + trades_per_month: 4.5047 (113% of 4.0000)\n  + total_trades: 249.0000 (113% of 220.0000)\n  + excellent_trades: 112.0000 (93% of 120.0000)\n  + profit_factor: 2.7972 (155% of 1.8000)\n  + never_worked_rate: 0.3373 (169% of 0.2000)\n\nDiagnostic Gaps:\n  ! False-positive rate is high; tighten confirmation, value-hit, and regime-quality gates before accepting more fill conversion.\n\nGoal Progress:\n  total_r: 308.3641 / 90.0000 (200%)\n  r_per_month: 5.5786 / 1.5000 (200%)\n  avg_r: 1.2384 / 0.4500 (200%)\n  trades_per_month: 4.5047 / 4.0000 (113%)\n  total_trades: 249.0000 / 220.0000 (113%)\n  excellent_trades: 112.0000 / 120.0000 (93%)\n  profit_factor: 2.7972 / 1.8000 (155%)\n  never_worked_rate: 0.3373 / 0.2000 (169%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

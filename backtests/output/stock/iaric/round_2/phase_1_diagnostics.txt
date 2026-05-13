@@ -1,0 +1,9 @@
+======================================================================
+IARIC T3 V5R1 PHASE 1 SNAPSHOT
+======================================================================
+Focus: Signal Alpha Recovery and Rejection
+Score 0.3098 -> 0.3601 with 4 accepted mutations.
+
+Core: trades=862, avg_r=+0.051, exp_total_r=+44.23, pf=1.31, sharpe=1.81, dd=4.5%
+Edges: rsi_depth=-0.036, trend_band=+0.017, late_rank=+0.063
+Exit capture: managed=96.4%, carry=21.3%, carry_avg_r=-0.118, eod=3.6%, stop_cost=+49.18R

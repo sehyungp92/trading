@@ -1,0 +1,71 @@
+{
+  "baseline_score": 0.6113589509033783,
+  "final_score": 0.6168639219441938,
+  "accepted_mutations": {
+    "sticky_diag": 15.0,
+    "use_warm_start": false,
+    "use_expanding_window": false,
+    "rolling_window_years": 7,
+    "refit_ll_tolerance": 5.0,
+    "refit_freq": "QE",
+    "z_minp": 30,
+    "posterior_ema_alpha": 0.6,
+    "per_strat_max": 0.5,
+    "base_target_vol_annual": 0.08,
+    "kappa_totalvol_cap": 1.5,
+    "crisis_logit_a": 3.0,
+    "stability_weight": 0.8,
+    "weight_smoothing_alpha": 0.5,
+    "L_max": 1.6,
+    "delta_rho_exempt": 0.0,
+    "sigma_floor_annual": 0.09,
+    "delta_rho_threshold": 0.15,
+    "crisis_weights": [
+      0.2,
+      0.4,
+      0.2,
+      0.2
+    ],
+    "scanner_enabled": false,
+    "n_ensemble_models": 1,
+    "posterior_temperature": 1.0,
+    "posterior_smoothing_eps": 0.0,
+    "stress_model_enabled": true,
+    "stress_sticky_diag": 50.0,
+    "stress_sticky_offdiag": 2.0,
+    "stress_stressed_sticky": 10.0,
+    "stress_reduction_max": 0.05,
+    "stress_blend_threshold": 1.01,
+    "stress_onset_threshold": 0.5,
+    "stress_n_iter": 200,
+    "stress_n_iter_first_fit": 400,
+    "stress_refit_guard_tol": 2.0,
+    "rebalance_freq": "W-FRI"
+  },
+  "total_candidates_tested": 12,
+  "elapsed_seconds": 1433.9336841106415,
+  "final_metrics": {
+    "total_return": 9.758845284581074,
+    "cagr": 0.1078365791098046,
+    "sharpe": 1.4237114727932438,
+    "sortino": 2.1318605831238684,
+    "calmar": 1.2112666792707325,
+    "max_drawdown_pct": 0.08902794153862945,
+    "max_drawdown_duration": 396,
+    "avg_annual_turnover": 11.041699038653974,
+    "n_rebalances": 1148
+  },
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidate_id": "ema_alpha_0.6",
+      "candidate_mutations": {
+        "posterior_ema_alpha": 0.6
+      },
+      "score_before": 0.6113589509033783,
+      "score_after": 0.6168639219441938,
+      "delta": 0.005504971040815487,
+      "accepted": true
+    }
+  ]
+}

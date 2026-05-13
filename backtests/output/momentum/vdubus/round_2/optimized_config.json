@@ -1,0 +1,14 @@
+{
+  "flags.plus_1r_partial": false,
+  "param_overrides.CHOP_THRESHOLD": 32.0,
+  "flags.early_kill": false,
+  "param_overrides.MAX_POSITION_BARS_15M": 51.2,
+  "flags.vwap_fail_evening": true,
+  "flags.evening_vwap_cap": true,
+  "param_overrides.VWAP_CAP_EVENING": 0.05,
+  "flags.dow_sizing": true,
+  "param_overrides.DOW_SIZE_MULT": {
+    "0": 0.6,
+    "3": 0.75
+  }
+}

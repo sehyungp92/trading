@@ -1,0 +1,22 @@
+--- ATRSS Phase 2 Diagnostics ---
+
+  Trades:        261
+  Win Rate:      82.0%
+  Profit Factor: 6.21
+  Total R:       +221.3
+  Max DD (pct):  3.48%
+  Max DD (R):    3.18
+  Calmar (R):    69.5
+  Sharpe:        1.67
+  MFE Capture:   0.673
+  Trades/Month:  4.5
+  Avg R:         +0.848
+
+  Phase 2 Focus (Signal & Filtering):
+    [OK] Frequency improved: 4.5 TPM
+
+  Greedy result:
+    Base score:  0.7151
+    Final score: 0.7191
+    Accepted: 1 experiments
+      + recovery_trend_035

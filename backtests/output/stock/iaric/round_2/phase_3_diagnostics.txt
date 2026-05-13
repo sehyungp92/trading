@@ -1,0 +1,9 @@
+======================================================================
+IARIC T3 V5R1 PHASE 3 SNAPSHOT
+======================================================================
+Focus: Capacity and Frequency Expansion
+Score 0.3638 -> 0.3854 with 2 accepted mutations.
+
+Core: trades=975, avg_r=+0.049, exp_total_r=+47.33, pf=1.28, sharpe=1.77, dd=4.3%
+Edges: rsi_depth=-0.030, trend_band=+0.010, late_rank=+0.048
+Exit capture: managed=96.5%, carry=21.1%, carry_avg_r=-0.094, eod=3.5%, stop_cost=+47.44R

@@ -1,0 +1,66 @@
+{"timestamp": "2026-05-09T01:11:37.317745+00:00", "phase": 3, "action": "phase_reset", "discarded_phases": [3], "resuming_from_phase": 3}
+{"timestamp": "2026-05-09T01:11:37.320191+00:00", "phase": 3, "action": "phase_start", "focus": "STOP_TRAILING + PAYOFF", "candidate_count": 41}
+{"timestamp": "2026-05-09T01:11:37.336777+00:00", "phase": 3, "action": "greedy_start", "candidate_count": 41, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-05-09T01:21:03.725993+00:00", "phase": 3, "action": "greedy_complete", "base_score": 0.37212055784774284, "final_score": 0.40639196803387956, "accepted_count": 1}
+{"timestamp": "2026-05-09T01:21:03.741781+00:00", "phase": 3, "action": "gate_check", "passed": false, "failure_category": "diagnostic_needed"}
+{"timestamp": "2026-05-09T01:21:03.757682+00:00", "phase": 3, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-09T01:21:03.779572+00:00", "phase": 3, "action": "analysis_complete", "recommendation": "improve_diagnostics", "reason": "Multiple gate criteria are near target; rerun enhanced diagnostics before changing the score."}
+{"timestamp": "2026-05-09T01:21:03.789383+00:00", "phase": 3, "action": "decision_improve_diagnostics", "retry": 1}
+{"timestamp": "2026-05-09T01:21:03.812038+00:00", "phase": 3, "action": "diagnostics_run", "enhanced": true}
+{"timestamp": "2026-05-09T01:21:03.821066+00:00", "phase": 3, "action": "analysis_complete", "recommendation": "improve_scoring", "reason": "Greedy score is not aligned strongly enough with phase goals."}
+{"timestamp": "2026-05-09T01:21:03.836846+00:00", "phase": 3, "action": "decision_improve_scoring", "retry": 1, "weight_overrides": {"net_profit": 0.38532110091743116, "win_rate": 0.1559633027522936, "frequency": 0.08256880733944953, "winning_trades": 0.16513761467889906, "pf": 0.10091743119266054, "exit_quality": 0.07339449541284403, "inv_dd": 0.03669724770642201}, "candidate_count": 41}
+{"timestamp": "2026-05-09T01:21:03.859465+00:00", "phase": 3, "action": "greedy_start", "candidate_count": 41, "scoring_retry": 1, "diagnostic_retry": 1}
+{"timestamp": "2026-05-09T01:33:02.906074+00:00", "phase": 3, "action": "greedy_complete", "base_score": 0.341395007199764, "final_score": 0.3728366679209904, "accepted_count": 1}
+{"timestamp": "2026-05-09T01:33:02.917106+00:00", "phase": 3, "action": "gate_check", "passed": false, "failure_category": "diagnostic_needed"}
+{"timestamp": "2026-05-09T01:33:02.932123+00:00", "phase": 3, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-09T01:33:02.948121+00:00", "phase": 3, "action": "analysis_complete", "recommendation": "improve_scoring", "reason": "Greedy score is not aligned strongly enough with phase goals."}
+{"timestamp": "2026-05-09T01:33:02.966642+00:00", "phase": 3, "action": "decision_improve_scoring", "retry": 2, "weight_overrides": {"net_profit": 0.34285714285714286, "win_rate": 0.13877551020408166, "frequency": 0.11020408163265306, "winning_trades": 0.22040816326530613, "pf": 0.08979591836734695, "exit_quality": 0.0653061224489796, "inv_dd": 0.0326530612244898}, "candidate_count": 41}
+{"timestamp": "2026-05-09T01:33:02.979642+00:00", "phase": 3, "action": "greedy_start", "candidate_count": 41, "scoring_retry": 2, "diagnostic_retry": 1}
+{"timestamp": "2026-05-09T01:46:11.926708+00:00", "phase": 3, "action": "greedy_complete", "base_score": 0.30377188395734106, "final_score": 0.33174854533377923, "accepted_count": 1}
+{"timestamp": "2026-05-09T01:46:11.951708+00:00", "phase": 3, "action": "gate_check", "passed": false, "failure_category": "diagnostic_needed"}
+{"timestamp": "2026-05-09T01:46:11.978757+00:00", "phase": 3, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-09T01:46:12.001709+00:00", "phase": 3, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-05-09T01:46:39.839470+00:00", "phase": 3, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "applied_phase_mutations": true, "adoption_reason": "incremental_frontier_improvement:win_rate,winning_trades", "new_mutation_count": 1}
+{"timestamp": "2026-05-09T01:46:39.850467+00:00", "phase": 4, "action": "phase_start", "focus": "VOLATILITY + ADDON", "candidate_count": 34}
+{"timestamp": "2026-05-09T01:46:39.865471+00:00", "phase": 4, "action": "greedy_start", "candidate_count": 34, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-05-09T01:58:14.627120+00:00", "phase": 4, "action": "greedy_complete", "base_score": 0.40992722297511064, "final_score": 0.4127142447099355, "accepted_count": 1}
+{"timestamp": "2026-05-09T01:58:14.649121+00:00", "phase": 4, "action": "gate_check", "passed": false, "failure_category": "diagnostic_needed"}
+{"timestamp": "2026-05-09T01:58:14.665275+00:00", "phase": 4, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-09T01:58:14.683275+00:00", "phase": 4, "action": "analysis_complete", "recommendation": "improve_diagnostics", "reason": "Multiple gate criteria are near target; rerun enhanced diagnostics before changing the score."}
+{"timestamp": "2026-05-09T01:58:14.703273+00:00", "phase": 4, "action": "decision_improve_diagnostics", "retry": 1}
+{"timestamp": "2026-05-09T01:58:14.720226+00:00", "phase": 4, "action": "diagnostics_run", "enhanced": true}
+{"timestamp": "2026-05-09T01:58:14.738604+00:00", "phase": 4, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-05-09T01:58:35.570814+00:00", "phase": 4, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "applied_phase_mutations": true, "adoption_reason": "incremental_frontier_improvement:net_return_pct,total_r,total_trades,profit_factor", "new_mutation_count": 1}
+{"timestamp": "2026-05-09T01:58:35.582816+00:00", "phase": 5, "action": "phase_start", "focus": "EXIT-SENSITIVE FINETUNE", "candidate_count": 87}
+{"timestamp": "2026-05-09T01:58:35.598812+00:00", "phase": 5, "action": "greedy_start", "candidate_count": 87, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-05-09T02:36:35.847880+00:00", "phase": 5, "action": "greedy_complete", "base_score": 0.4230614685301746, "final_score": 0.43085468086039325, "accepted_count": 3}
+{"timestamp": "2026-05-09T02:36:35.873912+00:00", "phase": 5, "action": "gate_check", "passed": false, "failure_category": "diagnostic_needed"}
+{"timestamp": "2026-05-09T02:36:35.896912+00:00", "phase": 5, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-09T02:36:35.918912+00:00", "phase": 5, "action": "analysis_complete", "recommendation": "improve_diagnostics", "reason": "Multiple gate criteria are near target; rerun enhanced diagnostics before changing the score."}
+{"timestamp": "2026-05-09T02:36:35.941915+00:00", "phase": 5, "action": "decision_improve_diagnostics", "retry": 1}
+{"timestamp": "2026-05-09T02:36:35.959740+00:00", "phase": 5, "action": "diagnostics_run", "enhanced": true}
+{"timestamp": "2026-05-09T02:36:35.978201+00:00", "phase": 5, "action": "analysis_complete", "recommendation": "improve_scoring", "reason": "Greedy score is not aligned strongly enough with phase goals."}
+{"timestamp": "2026-05-09T02:36:36.000201+00:00", "phase": 5, "action": "decision_improve_scoring", "retry": 1, "weight_overrides": {"net_profit": 0.4279069767441861, "win_rate": 0.13953488372093023, "frequency": 0.06976744186046513, "winning_trades": 0.13953488372093026, "pf": 0.10232558139534884, "exit_quality": 0.08372093023255814, "inv_dd": 0.037209302325581395}, "candidate_count": 87}
+{"timestamp": "2026-05-09T02:36:36.014202+00:00", "phase": 5, "action": "greedy_start", "candidate_count": 87, "scoring_retry": 1, "diagnostic_retry": 1}
+{"timestamp": "2026-05-09T03:13:13.914121+00:00", "phase": 5, "action": "greedy_complete", "base_score": 0.39354555212109266, "final_score": 0.40079505196315657, "accepted_count": 3}
+{"timestamp": "2026-05-09T03:13:13.935404+00:00", "phase": 5, "action": "gate_check", "passed": false, "failure_category": "diagnostic_needed"}
+{"timestamp": "2026-05-09T03:13:13.951115+00:00", "phase": 5, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-09T03:13:13.982344+00:00", "phase": 5, "action": "analysis_complete", "recommendation": "improve_scoring", "reason": "Greedy score is not aligned strongly enough with phase goals."}
+{"timestamp": "2026-05-09T03:13:14.013790+00:00", "phase": 5, "action": "decision_improve_scoring", "retry": 2, "weight_overrides": {"net_profit": 0.3873684210526316, "win_rate": 0.1263157894736842, "frequency": 0.09473684210526316, "winning_trades": 0.18947368421052632, "pf": 0.0926315789473684, "exit_quality": 0.07578947368421052, "inv_dd": 0.03368421052631578}, "candidate_count": 87}
+{"timestamp": "2026-05-09T03:13:14.030134+00:00", "phase": 5, "action": "greedy_start", "candidate_count": 87, "scoring_retry": 2, "diagnostic_retry": 1}
+{"timestamp": "2026-05-09T03:46:06.260349+00:00", "phase": 5, "action": "greedy_complete", "base_score": 0.3562622892885681, "final_score": 0.36282499440875216, "accepted_count": 3}
+{"timestamp": "2026-05-09T03:46:06.277051+00:00", "phase": 5, "action": "gate_check", "passed": false, "failure_category": "diagnostic_needed"}
+{"timestamp": "2026-05-09T03:46:06.293694+00:00", "phase": 5, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-09T03:46:06.310983+00:00", "phase": 5, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-05-09T03:46:26.641545+00:00", "phase": 5, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "applied_phase_mutations": false, "adoption_reason": "gate_failed_material_harm:net_return_pct,total_r", "new_mutation_count": 0}
+{"timestamp": "2026-05-09T03:46:26.657209+00:00", "phase": 6, "action": "phase_start", "focus": "SIZING + REMAINING FINETUNE", "candidate_count": 52}
+{"timestamp": "2026-05-09T03:46:26.658858+00:00", "phase": 6, "action": "greedy_start", "candidate_count": 52, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-05-09T03:59:45.492936+00:00", "phase": 6, "action": "greedy_complete", "base_score": 0.4230614685301746, "final_score": 0.4251144196642264, "accepted_count": 1}
+{"timestamp": "2026-05-09T03:59:45.526957+00:00", "phase": 6, "action": "gate_check", "passed": false, "failure_category": "diagnostic_needed"}
+{"timestamp": "2026-05-09T03:59:45.542639+00:00", "phase": 6, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-09T03:59:45.559293+00:00", "phase": 6, "action": "analysis_complete", "recommendation": "improve_diagnostics", "reason": "Multiple gate criteria are near target; rerun enhanced diagnostics before changing the score."}
+{"timestamp": "2026-05-09T03:59:45.593072+00:00", "phase": 6, "action": "decision_improve_diagnostics", "retry": 1}
+{"timestamp": "2026-05-09T03:59:45.610207+00:00", "phase": 6, "action": "diagnostics_run", "enhanced": true}
+{"timestamp": "2026-05-09T03:59:45.625977+00:00", "phase": 6, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-05-09T04:00:06.890524+00:00", "phase": 6, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "applied_phase_mutations": true, "adoption_reason": "incremental_frontier_improvement:net_return_pct,total_r,total_trades", "new_mutation_count": 1}
+{"timestamp": "2026-05-09T04:00:54.199226+00:00", "phase": 6, "action": "end_of_round", "completed_phases": [1, 2, 3, 4, 5, 6]}

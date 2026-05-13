@@ -1,0 +1,44 @@
+{
+  "phase": 5,
+  "recommendation": "advance",
+  "recommendation_reason": "Phase 5 win-rate repair improved win rate, preserved trade count, and improved optimizer-basis net return; accepted stale_24_thresh010.",
+  "scoring_assessment": "EFFECTIVE_BUT_INCREMENTAL",
+  "goal_progress": {
+    "baseline_win_rate": 37.77777777777778,
+    "final_win_rate": 38.148148148148145,
+    "target_win_rate": 50.0,
+    "baseline_trades": 270,
+    "final_trades": 270,
+    "baseline_net_return_pct": 114.44827600000251,
+    "final_net_return_pct": 114.58087600000246
+  },
+  "strengths": [
+    "Accepted mutation preserves frequency and slightly improves optimizer-basis return/PF.",
+    "Stale exit repair reduces one low-quality stale-loss pocket without suppressing tail share."
+  ],
+  "weaknesses": [
+    "Win rate remains well below the >50% goal.",
+    "Higher win-rate BE/RTS candidates were rejected because they reduced net return."
+  ],
+  "diagnostic_gaps": [],
+  "suggested_experiments": [
+    "Structural Class D entry discrimination is required for further win-rate gains without clipping tail expectancy."
+  ],
+  "report": "Phase 5 was run as a separate win-rate repair pass and promoted into the official Round 3 final artifacts.",
+  "scoring_weight_overrides": {
+    "win_rate": 0.42,
+    "net_return": 0.22,
+    "frequency": 0.14,
+    "profit_factor": 0.1,
+    "inv_drawdown": 0.07,
+    "exit_efficiency": 0.05
+  },
+  "extra": {
+    "promoted_to_round_final": true,
+    "accepted_mutations": {
+      "param_overrides.STALE_1H_BARS": 24,
+      "param_overrides.STALE_R_THRESH": 0.1
+    },
+    "source_result": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\round_3\\phase_5_winrate_repair\\winrate_repair_result.json"
+  }
+}

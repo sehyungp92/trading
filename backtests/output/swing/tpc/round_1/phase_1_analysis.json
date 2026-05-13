@@ -1,0 +1,62 @@
+{
+  "phase": 1,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 20.0,
+      "actual": 0.3747099999995553,
+      "pct_of_target": 1.8735499999977763
+    },
+    "avg_r": {
+      "target": 0.2,
+      "actual": -0.18924231827562865,
+      "pct_of_target": -94.62115913781433
+    },
+    "trades_per_month": {
+      "target": 1.25,
+      "actual": 0.7417299726963724,
+      "pct_of_target": 59.3383978157098
+    },
+    "total_trades": {
+      "target": 70.0,
+      "actual": 41.0,
+      "pct_of_target": 58.57142857142858
+    },
+    "profit_factor": {
+      "target": 1.35,
+      "actual": 0.7197520282030685,
+      "pct_of_target": 53.314965052079145
+    },
+    "mfe_capture": {
+      "target": 0.3,
+      "actual": 0.5052001787746974,
+      "pct_of_target": 168.4000595915658
+    },
+    "never_worked_rate": {
+      "target": 0.25,
+      "actual": 0.36585365853658536,
+      "pct_of_target": 146.34146341463415
+    }
+  },
+  "strengths": [
+    "mfe_capture: 0.5052 (168% of 0.3000)",
+    "never_worked_rate: 0.3659 (146% of 0.2500)"
+  ],
+  "weaknesses": [
+    "net_return_pct: 0.3747 (2% of 20.0000)",
+    "avg_r: -0.1892 (-95% of 0.2000)",
+    "trades_per_month: 0.7417 (59% of 1.2500)",
+    "total_trades: 41.0000 (59% of 70.0000)",
+    "profit_factor: 0.7198 (53% of 1.3500)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [
+    "False-positive rate is high; tighten confirmation quality before expanding Type B frequency.",
+    "Frequency is still thin; add only thesis-consistent Type B/entry-mechanics candidates after expectancy improves."
+  ],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + mfe_capture: 0.5052 (168% of 0.3000)\n  + never_worked_rate: 0.3659 (146% of 0.2500)\n\nWeaknesses:\n  - net_return_pct: 0.3747 (2% of 20.0000)\n  - avg_r: -0.1892 (-95% of 0.2000)\n  - trades_per_month: 0.7417 (59% of 1.2500)\n  - total_trades: 41.0000 (59% of 70.0000)\n  - profit_factor: 0.7198 (53% of 1.3500)\n\nDiagnostic Gaps:\n  ! False-positive rate is high; tighten confirmation quality before expanding Type B frequency.\n  ! Frequency is still thin; add only thesis-consistent Type B/entry-mechanics candidates after expectancy improves.\n\nGoal Progress:\n  net_return_pct: 0.3747 / 20.0000 (2%)\n  avg_r: -0.1892 / 0.2000 (-95%)\n  trades_per_month: 0.7417 / 1.2500 (59%)\n  total_trades: 41.0000 / 70.0000 (59%)\n  profit_factor: 0.7198 / 1.3500 (53%)\n  mfe_capture: 0.5052 / 0.3000 (168%)\n  never_worked_rate: 0.3659 / 0.2500 (146%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

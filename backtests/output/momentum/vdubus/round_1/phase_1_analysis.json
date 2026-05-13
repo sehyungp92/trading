@@ -1,0 +1,102 @@
+{
+  "phase": 1,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 1000.0,
+      "actual": 717.0002000000063,
+      "pct_of_target": 71.70002000000063
+    },
+    "profit_factor": {
+      "target": 2.5,
+      "actual": 1.9141434030644524,
+      "pct_of_target": 76.5657361225781
+    },
+    "max_dd_pct": {
+      "target": 0.15,
+      "actual": 0.2192978792168805,
+      "pct_of_target": 68.40011428092905
+    },
+    "calmar": {
+      "target": 45.0,
+      "actual": 32.69526374629961,
+      "pct_of_target": 72.65614165844357
+    },
+    "total_trades": {
+      "target": 170.0,
+      "actual": 174.0,
+      "pct_of_target": 102.35294117647058
+    },
+    "capture_ratio": {
+      "target": 0.55,
+      "actual": 0.4917444556500918,
+      "pct_of_target": 89.40808284547123
+    },
+    "sharpe": {
+      "target": 1.8,
+      "actual": 1.572468661411145,
+      "pct_of_target": 87.35937007839694
+    }
+  },
+  "strengths": [
+    "total_trades: 174.0000 (102% of 170.0000)",
+    "capture_ratio: 0.4917 (89% of 0.5500)",
+    "sharpe: 1.5725 (87% of 1.8000)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [
+    "High stale exit rate -- trail/MFE protection needed",
+    "Many fast deaths (<=4 bars) -- entry precision issue",
+    "Elevated drawdown -- risk controls may need tightening",
+    "Low profit factor -- edge may be degraded",
+    "Evening trades losing -- consider blocking or tightening"
+  ],
+  "suggested_experiments": [
+    {
+      "name": "suggest_stale_bars_10",
+      "mutations": {
+        "param_overrides.STALE_BARS_15M": 10
+      }
+    },
+    {
+      "name": "suggest_mfe_exempt_default",
+      "mutations": {
+        "flags.stale_mfe_exempt": true
+      }
+    },
+    {
+      "name": "suggest_disable_early_kill",
+      "mutations": {
+        "flags.early_kill": false
+      }
+    },
+    {
+      "name": "suggest_vwap_cap_065",
+      "mutations": {
+        "param_overrides.VWAP_CAP_CORE": 0.65
+      }
+    },
+    {
+      "name": "suggest_lower_risk_008",
+      "mutations": {
+        "param_overrides.BASE_RISK_PCT": 0.008
+      }
+    }
+  ],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + total_trades: 174.0000 (102% of 170.0000)\n  + capture_ratio: 0.4917 (89% of 0.5500)\n  + sharpe: 1.5725 (87% of 1.8000)\n\nDiagnostic Gaps:\n  ! High stale exit rate -- trail/MFE protection needed\n  ! Many fast deaths (<=4 bars) -- entry precision issue\n  ! Elevated drawdown -- risk controls may need tightening\n  ! Low profit factor -- edge may be degraded\n  ! Evening trades losing -- consider blocking or tightening\n\nSuggested Experiments (5):\n  - suggest_stale_bars_10: {\"param_overrides.STALE_BARS_15M\": 10}\n  - suggest_mfe_exempt_default: {\"flags.stale_mfe_exempt\": true}\n  - suggest_disable_early_kill: {\"flags.early_kill\": false}\n  - suggest_vwap_cap_065: {\"param_overrides.VWAP_CAP_CORE\": 0.65}\n  - suggest_lower_risk_008: {\"param_overrides.BASE_RISK_PCT\": 0.008}\n\nExtra Analysis:\n  Exit profile: stale=51.7%, capture=0.49, multi-session=20.1%\n  Entry quality: fast_deaths=22.4%, evening=10.3% (avgR=-0.110)\n\nGoal Progress:\n  net_return_pct: 717.0002 / 1000.0000 (72%)\n  profit_factor: 1.9141 / 2.5000 (77%)\n  max_dd_pct: 0.2193 / 0.1500 (68%)\n  calmar: 32.6953 / 45.0000 (73%)\n  total_trades: 174.0000 / 170.0000 (102%)\n  capture_ratio: 0.4917 / 0.5500 (89%)\n  sharpe: 1.5725 / 1.8000 (87%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "exit_profile": {
+      "stale_exit_pct": 0.5172413793103449,
+      "capture_ratio": 0.4917444556500918,
+      "multi_session_pct": 0.20114942528735633
+    },
+    "entry_quality": {
+      "fast_death_pct": 0.22413793103448276,
+      "evening_trade_pct": 0.10344827586206896,
+      "evening_avg_r": -0.11031587230409005
+    }
+  }
+}

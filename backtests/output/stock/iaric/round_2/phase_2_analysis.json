@@ -1,0 +1,92 @@
+{
+  "phase": 2,
+  "goal_progress": {
+    "avg_r": {
+      "target": 0.17,
+      "actual": 0.052427535509404835,
+      "pct_of_target": 30.839726770238133
+    },
+    "expected_total_r": {
+      "target": 125.0,
+      "actual": 45.19253560910697,
+      "pct_of_target": 36.15402848728558
+    },
+    "profit_factor": {
+      "target": 2.35,
+      "actual": 1.3223244836856898,
+      "pct_of_target": 56.269126965348505
+    },
+    "sharpe": {
+      "target": 4.75,
+      "actual": 1.853617624039502,
+      "pct_of_target": 39.02352892714741
+    },
+    "max_drawdown_pct": {
+      "target": 0.04,
+      "actual": 0.04520378381880017,
+      "pct_of_target": 88.4881676284897
+    },
+    "total_trades": {
+      "target": 800.0,
+      "actual": 862.0,
+      "pct_of_target": 107.74999999999999
+    },
+    "managed_exit_share": {
+      "target": 0.97,
+      "actual": 0.9640371229698376,
+      "pct_of_target": 99.38527040926161
+    },
+    "eod_flatten_inverse": {
+      "target": 0.98,
+      "actual": 0.9640371229698376,
+      "pct_of_target": 98.37113499692221
+    }
+  },
+  "strengths": [
+    "max_drawdown_pct: 0.0452 (88% of 0.0400)",
+    "total_trades: 862.0000 (108% of 800.0000)",
+    "managed_exit_share: 0.9640 (99% of 0.9700)",
+    "eod_flatten_inverse: 0.9640 (98% of 0.9800)"
+  ],
+  "weaknesses": [
+    "avg_r: 0.0524 (31% of 0.1700)",
+    "expected_total_r: 45.1925 (36% of 125.0000)",
+    "profit_factor: 1.3223 (56% of 2.3500)",
+    "sharpe: 1.8536 (39% of 4.7500)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [
+    "Daily signal score is not separating high-alpha pullbacks from weak ones.",
+    "Crowded-day ranking is still skipping too much positive shadow alpha."
+  ],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + max_drawdown_pct: 0.0452 (88% of 0.0400)\n  + total_trades: 862.0000 (108% of 800.0000)\n  + managed_exit_share: 0.9640 (99% of 0.9700)\n  + eod_flatten_inverse: 0.9640 (98% of 0.9800)\n\nWeaknesses:\n  - avg_r: 0.0524 (31% of 0.1700)\n  - expected_total_r: 45.1925 (36% of 125.0000)\n  - profit_factor: 1.3223 (56% of 2.3500)\n  - sharpe: 1.8536 (39% of 4.7500)\n\nDiagnostic Gaps:\n  ! Daily signal score is not separating high-alpha pullbacks from weak ones.\n  ! Crowded-day ranking is still skipping too much positive shadow alpha.\n\nExtra Analysis:\n  Signal model: signal_score_edge=+0.042, crowded_day_discrimination=+0.030, crowded_day_missed_alpha_inverse=+0.395, crowded_day_missed_alpha_days=+312.000, expected_total_r=+45.193\n  Route shape: route_score_monotonicity=66.7%, route_middle_bucket_deficit=+0.044, delayed_confirm_share=3.4%, routes_with_min_10_trades=+2.000, route_diversity=66.7%\n  Exit capture: managed_exit_share=96.4%, eod_flatten_share=3.6%, carry_avg_r=-0.113, binary_carried_share=0.0%, carried_underperformed_flatten_share=50.0%, protection_candidate_share=10.1%, stop_hit_total_r=+49.87\n\nGoal Progress:\n  avg_r: 0.0524 / 0.1700 (31%)\n  expected_total_r: 45.1925 / 125.0000 (36%)\n  profit_factor: 1.3223 / 2.3500 (56%)\n  sharpe: 1.8536 / 4.7500 (39%)\n  max_drawdown_pct: 0.0452 / 0.0400 (88%)\n  total_trades: 862.0000 / 800.0000 (108%)\n  managed_exit_share: 0.9640 / 0.9700 (99%)\n  eod_flatten_inverse: 0.9640 / 0.9800 (98%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "signal_model": {
+      "signal_score_edge": 0.04205247568795965,
+      "crowded_day_discrimination": 0.029959210429003277,
+      "crowded_day_missed_alpha_inverse": 0.39534883720930236,
+      "crowded_day_missed_alpha_days": 312.0,
+      "expected_total_r": 45.19253560910697
+    },
+    "route_shape": {
+      "route_score_monotonicity": 0.6666666666666666,
+      "route_middle_bucket_deficit": 0.043988003993891585,
+      "delayed_confirm_share": 0.033642691415313224,
+      "routes_with_min_10_trades": 2.0,
+      "route_diversity": 0.6666666666666666
+    },
+    "exit_capture": {
+      "managed_exit_share": 0.9640371229698376,
+      "eod_flatten_share": 0.03596287703016241,
+      "carry_avg_r": -0.11341309767072455,
+      "binary_carried_share": 0.0,
+      "carried_underperformed_flatten_share": 0.5,
+      "protection_candidate_share": 0.10092807424593968,
+      "stop_hit_total_r": 49.87215447962686
+    }
+  }
+}

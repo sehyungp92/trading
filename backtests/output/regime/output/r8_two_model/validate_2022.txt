@@ -1,0 +1,84 @@
+Model is not converging.  Current: -239.1916684363575 is not greater than -239.18988569669565. Delta is -0.001782739661848609
+Model is not converging.  Current: 1674.371112030712 is not greater than 4245.348016038092. Delta is -2570.97690400738
+Model is not converging.  Current: -1315.4199028773712 is not greater than -1315.419858205361. Delta is -4.467201029001444e-05
+Model is not converging.  Current: -4074.332758243478 is not greater than -4074.3323564625866. Delta is -0.0004017808914795751
+Model is not converging.  Current: -13009.797130260684 is not greater than -13009.79485793961. Delta is -0.0022723210731783183
+Model is not converging.  Current: -12946.307242480205 is not greater than -12946.30703143319. Delta is -0.0002110470140905818
+Model is not converging.  Current: -12648.843243118166 is not greater than -12648.838604033035. Delta is -0.004639085131202592
+Model is not converging.  Current: -12134.576968900239 is not greater than -12134.576576595058. Delta is -0.00039230518086696975
+Model is not converging.  Current: -12295.153748176788 is not greater than -12295.151500572687. Delta is -0.0022476041012851056
+Model is not converging.  Current: -12458.774058270983 is not greater than -12458.770195667239. Delta is -0.0038626037439826177
+Model is not converging.  Current: -12526.360355165847 is not greater than -12526.349186236035. Delta is -0.011168929811901762
+Model is not converging.  Current: -13465.206452215589 is not greater than -13465.206321574267. Delta is -0.00013064132144791074
+Model is not converging.  Current: -12933.848594568211 is not greater than -12933.846973971933. Delta is -0.0016205962783715222
+Model is not converging.  Current: -12672.55058979451 is not greater than -12672.522429075101. Delta is -0.028160719408333534
+Model is not converging.  Current: -12419.395546467844 is not greater than -12419.393562451141. Delta is -0.001984016702408553
+Model is not converging.  Current: -239.1916684363575 is not greater than -239.18988569669565. Delta is -0.001782739661848609
+Model is not converging.  Current: 1674.371112030712 is not greater than 4245.348016038092. Delta is -2570.97690400738
+Model is not converging.  Current: -1315.4199028773712 is not greater than -1315.419858205361. Delta is -4.467201029001444e-05
+Model is not converging.  Current: -4074.332758243478 is not greater than -4074.3323564625866. Delta is -0.0004017808914795751
+Model is not converging.  Current: -13009.797130263087 is not greater than -13009.794857937819. Delta is -0.002272325267767883
+Model is not converging.  Current: -12946.307242478377 is not greater than -12946.307031436621. Delta is -0.00021104175539221615
+Model is not converging.  Current: -12648.843243117988 is not greater than -12648.838604033062. Delta is -0.004639084925656789
+Model is not converging.  Current: -12134.576968901774 is not greater than -12134.576576593372. Delta is -0.00039230840229720343
+Model is not converging.  Current: -12295.153748176788 is not greater than -12295.151500572687. Delta is -0.0022476041012851056
+Model is not converging.  Current: -12458.774058271363 is not greater than -12458.77019566496. Delta is -0.0038626064033451257
+Model is not converging.  Current: -12526.360355165847 is not greater than -12526.349186236035. Delta is -0.011168929811901762
+Model is not converging.  Current: -13465.20645221479 is not greater than -13465.206321574813. Delta is -0.00013063997721474152
+Model is not converging.  Current: -12933.848594566754 is not greater than -12933.846973972431. Delta is -0.0016205943229579134
+Model is not converging.  Current: -12672.550589794424 is not greater than -12672.52242907802. Delta is -0.02816071640336304
+Model is not converging.  Current: -12419.395546466707 is not greater than -12419.39356245141. Delta is -0.001984015296329744
+Model is not converging.  Current: -239.1916684363575 is not greater than -239.18988569669565. Delta is -0.001782739661848609
+Model is not converging.  Current: 1674.371112030712 is not greater than 4245.348016038092. Delta is -2570.97690400738
+Model is not converging.  Current: -1315.4199028773712 is not greater than -1315.419858205361. Delta is -4.467201029001444e-05
+Model is not converging.  Current: -4074.332758243478 is not greater than -4074.3323564625866. Delta is -0.0004017808914795751
+Model is not converging.  Current: -13009.797130263087 is not greater than -13009.794857937819. Delta is -0.002272325267767883
+Model is not converging.  Current: -12946.307242480205 is not greater than -12946.30703143319. Delta is -0.0002110470140905818
+Model is not converging.  Current: -12648.843243118588 is not greater than -12648.838604033393. Delta is -0.004639085194867221
+Model is not converging.  Current: -12134.576968901774 is not greater than -12134.576576593372. Delta is -0.00039230840229720343
+Model is not converging.  Current: -12295.153748176788 is not greater than -12295.151500572687. Delta is -0.0022476041012851056
+Model is not converging.  Current: -12458.774058271194 is not greater than -12458.770195666071. Delta is -0.0038626051227765856
+Model is not converging.  Current: -12526.36035516464 is not greater than -12526.349186237156. Delta is -0.011168927483595326
+Model is not converging.  Current: -13465.206452215589 is not greater than -13465.206321574267. Delta is -0.00013064132144791074
+Model is not converging.  Current: -12933.848594567897 is not greater than -12933.846973971824. Delta is -0.0016205960728257196
+Model is not converging.  Current: -12672.550589793096 is not greater than -12672.522429076205. Delta is -0.0281607168908522
+Model is not converging.  Current: -12419.395546466707 is not greater than -12419.39356245141. Delta is -0.001984015296329744
+Model is not converging.  Current: -239.1916684363575 is not greater than -239.18988569669565. Delta is -0.001782739661848609
+Model is not converging.  Current: -1315.4199028773712 is not greater than -1315.419858205361. Delta is -4.467201029001444e-05
+Model is not converging.  Current: -4074.332758243478 is not greater than -4074.3323564625866. Delta is -0.0004017808914795751
+Model is not converging.  Current: -13009.797130262928 is not greater than -13009.794857938567. Delta is -0.00227232436191116
+Model is not converging.  Current: -12946.307242480523 is not greater than -12946.307031434173. Delta is -0.0002110463501594495
+Model is not converging.  Current: -12648.843243115653 is not greater than -12648.838604032977. Delta is -0.004639082675566897
+Model is not converging.  Current: -12134.576968901774 is not greater than -12134.576576593372. Delta is -0.00039230840229720343
+Model is not converging.  Current: -12295.153748175433 is not greater than -12295.151500573911. Delta is -0.0022476015219581313
+Model is not converging.  Current: -12458.774058270852 is not greater than -12458.77019566538. Delta is -0.003862605472022551
+Model is not converging.  Current: -12526.360355165847 is not greater than -12526.349186236035. Delta is -0.011168929811901762
+Model is not converging.  Current: -13465.206452214736 is not greater than -13465.206321575344. Delta is -0.00013063939150015358
+Model is not converging.  Current: -12933.848594567897 is not greater than -12933.846973971824. Delta is -0.0016205960728257196
+Model is not converging.  Current: -12672.5505897946 is not greater than -12672.522429077871. Delta is -0.028160716728962143
+Model is not converging.  Current: -12419.395546468331 is not greater than -12419.39356245. Delta is -0.0019840183304040693
+Validate-2022 full stack: research\backtests\regime\auto\output\r8_two_model\r8_optimized.json (overrides preset 'recommended_full_stack')
+Validate-2022 R3 reference: preset 'r3_reference'
+
+=== Validate 2022 ===
+Scenario         FirstAlert  pCrisis  PeakFeb   Ret2022   DD2022   FullDD
+----------------------------------------------------------------------------------
+full_stack       2022-01-21    0.811    0.997    -5.0%    7.5%    8.9%
+scanner_off               -    0.811    0.997    -5.0%    7.5%    8.9%
+crisis_off       2022-01-21    0.811    0.997    -5.0%    7.5%    8.9%
+r3_reference              -    0.471    0.999    -1.6%    5.3%    6.0%
+
+Acceptance:
+  Jan alert in target window: True
+  p_crisis >= 0.5 by 2022-02-25: True
+  Full stack beats both ablations on 2022 max DD: False
+  Full stack beats both ablations on full-window max DD: False
+  Full stack beats R3 on 2022 return: False
+  PASS: False
+
+Deltas vs comparisons:
+  vs scanner_off: FullDD +0.00%, Ret2022 -0.00%
+  vs crisis_off: FullDD +0.00%, Ret2022 -0.00%
+  vs r3_reference: FullDD +2.85%, Ret2022 -3.36%
+
+Saved to research\backtests\regime\auto\output\validate_2022.json

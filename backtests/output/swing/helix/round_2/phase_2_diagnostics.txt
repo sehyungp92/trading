@@ -1,0 +1,72 @@
+======================================================================
+HELIX PHASE 2 DIAGNOSTICS
+======================================================================
+
+SUMMARY
+----------------------------------------
+  Trades:          353
+  Profit Factor:   1.69
+  Net Return:      82.0%
+  Max R DD:        10.24
+  Exit Efficiency: 0.259
+  Waste Ratio:     0.620
+  Tail Pct:        0.678
+  Bull PF:         1.98
+  Bear PF:         0.99
+  Min Regime PF:   0.99
+  Sharpe:          1.09
+  Calmar (R):      11.27
+  Win Rate:        36.0%
+  Total R:         115.39
+  Stale R:         19.32
+  Short Hold R:    92.76
+
+GREEDY RESULT
+----------------------------------------
+  Base Score:      0.6485
+  Final Score:     0.6753
+  Accepted:        5
+  Total Candidates:66
+  Kept Features:   stop_be_offset_010, timedecay_onset_25, trail_r_div_70, partial_5_r_60, sug_stall_onset_5
+
+D1: CLASS ATTRIBUTION
+----------------------------------------
+  Class        N    WR%     PF     TotR    AvgR     MFE    Pct
+  ------------------------------------------------------------
+  B           29  48.3%   5.33   +39.4R  +1.36   2.10  36.5%
+  D          330  33.3%   1.40   +68.4R  +0.21   1.16  63.5%
+
+D2: EXIT EFFICIENCY
+----------------------------------------
+  Reason              N     TotR    AvgR  AvgMFE  Capture
+  -------------------------------------------------------
+  END_OF_DATA         1    +0.7R  +0.73   1.66   43.8%
+  STALE              89   -20.0R  -0.22   0.53  -42.4%
+  STOP              269  +127.1R  +0.47   1.47   32.2%
+
+  Right-then-stopped: 59 trades, leaked 118.1R
+  (MFE >= 1R but exited at < 0.5R)
+
+D3: TIMEFRAME / SYMBOL BREAKDOWN
+----------------------------------------
+  By Origin Timeframe:
+    1H: 359 trades, +107.8R, PF=1.60
+
+  By Symbol:
+    GLD: 168 trades, +60.0R, PF=1.75
+    QQQ: 191 trades, +47.8R, PF=1.48
+
+D4: STALE / WASTE ANALYSIS
+----------------------------------------
+  Stale trades:      89 (-20.0R)
+  Short-hold losers: 96 (-94.5R, <=10 bars)
+  Gross win R:       287.8R
+  Waste as % of gross: 39.8%
+
+  Short-hold losers by class:
+    B: 8 trades, -5.3R
+    D: 88 trades, -89.3R
+
+D6: PHASE DELTA
+----------------------------------------
+  No phase result available.

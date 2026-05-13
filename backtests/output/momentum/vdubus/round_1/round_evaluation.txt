@@ -1,0 +1,33 @@
+======================================================================
+VDUBUS END-OF-ROUND EVALUATION
+======================================================================
+
+Phase Progression Summary:
+  Phase 1: score 0.5125 -> 0.5214 (2 accepted)
+  Phase 2: score 0.5123 -> 0.5123 (0 accepted)
+  Phase 3: score 0.4583 -> 0.4583 (0 accepted)
+  Phase 4: score 0.5493 -> 0.5755 (2 accepted)
+
+Cumulative Mutations Applied:
+  flags.early_kill: False
+  flags.plus_1r_partial: False
+  param_overrides.CHOP_THRESHOLD: 32.0
+  param_overrides.MAX_POSITION_BARS_15M: 51.2
+
+Signal Extraction / Alpha Capture
+No report provided.
+
+Signal Discrimination
+No report provided.
+
+Entry Mechanism
+No report provided.
+
+Trade Management
+No report provided.
+
+Exit Mechanism
+Stale exit pct 51.7%, multi-session 20.1%, avg hold 9.3h.
+
+Overall Verdict
+VdubusNQ optimized to 752.6% return, PF=1.95, DD=20.8%, 174 trades. Capture ratio improved to 0.51.

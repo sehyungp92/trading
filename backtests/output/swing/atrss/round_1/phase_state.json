@@ -1,0 +1,58 @@
+{
+  "current_phase": 1,
+  "completed_phases": [
+    1
+  ],
+  "cumulative_mutations": {
+    "flags.early_stall_exit": true,
+    "param_overrides.early_stall_check_hours": 12,
+    "param_overrides.early_stall_mfe_threshold": 0.2,
+    "param_overrides.max_hold_hours": 80
+  },
+  "phase_results": {
+    "1": {
+      "focus": "Structural Fixes (R9)",
+      "base_mutations": {},
+      "final_mutations": {
+        "flags.early_stall_exit": true,
+        "param_overrides.early_stall_check_hours": 12,
+        "param_overrides.early_stall_mfe_threshold": 0.2,
+        "param_overrides.max_hold_hours": 80
+      },
+      "base_score": 0.5036,
+      "final_score": 0.5321,
+      "kept_features": [
+        "stall_12h_mfe02",
+        "max_hold_80h"
+      ],
+      "final_metrics": {
+        "total_trades": 274,
+        "win_rate": 0.796,
+        "profit_factor": 5.27,
+        "max_dd_pct": 0.0229,
+        "calmar": 0.0,
+        "sharpe": 1.56,
+        "net_return_pct": 25.2,
+        "total_r": 206.8,
+        "max_dd_r": 0.0,
+        "calmar_r": 47.4,
+        "avg_r": 0.0,
+        "mfe_capture": 0.67,
+        "trades_per_month": 4.7
+      },
+      "accepted_count": 2,
+      "elapsed_seconds": 334.3
+    }
+  },
+  "phase_gate_results": {},
+  "retry_count": {},
+  "scoring_retries": {},
+  "diagnostic_retries": {},
+  "phase_timestamps": {
+    "1": {
+      "started": "2026-04-27T23:31:01+00:00",
+      "completed": "2026-04-27T23:36:35+00:00"
+    }
+  },
+  "round_name": "r9"
+}

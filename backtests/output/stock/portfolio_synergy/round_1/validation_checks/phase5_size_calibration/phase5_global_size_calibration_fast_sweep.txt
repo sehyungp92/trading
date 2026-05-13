@@ -1,0 +1,67 @@
+Phase-5 Global Size Calibration Fast Sweep
+Generated: 2026-05-06T17:56:37.105824+00:00
+Fast replay-only sweep without repeated MTM; chosen candidate is then verified with full diagnostics.
+
+is_portfolio_overlay: 2024-01-01 -> 2026-03-01
+  active_round_1           pnl=$+169,199.58 score=0.8261 trades=1391 PF=2.30 DD=2.55% capture=70.08% pos_block=30.37% disc=0.641
+  phase5_unscaled          pnl=$+146,698.79 score=0.8414 trades=1506 PF=2.43 DD=2.27% capture=75.87% pos_block=24.68% disc=0.600
+  phase5_global_scalar_1.00  pnl=$+146,698.79 score=0.8414 trades=1506 PF=2.43 DD=2.27% capture=75.87% pos_block=24.68% disc=0.600
+  phase5_global_scalar_1.04  pnl=$+160,310.69 score=0.8395 trades=1506 PF=2.43 DD=2.36% capture=75.87% pos_block=24.68% disc=0.600
+  phase5_global_scalar_1.06  pnl=$+167,511.82 score=0.8386 trades=1506 PF=2.43 DD=2.40% capture=75.87% pos_block=24.68% disc=0.600
+ *phase5_global_scalar_1.08  pnl=$+174,989.81 score=0.8377 trades=1506 PF=2.43 DD=2.45% capture=75.87% pos_block=24.68% disc=0.600
+  phase5_global_scalar_1.10  pnl=$+182,755.19 score=0.8368 trades=1506 PF=2.43 DD=2.49% capture=75.87% pos_block=24.68% disc=0.600
+  phase5_global_scalar_1.12  pnl=$+190,818.89 score=0.8359 trades=1506 PF=2.43 DD=2.54% capture=75.87% pos_block=24.68% disc=0.600
+  phase5_global_scalar_1.14  pnl=$+199,192.25 score=0.8350 trades=1506 PF=2.43 DD=2.58% capture=75.87% pos_block=24.68% disc=0.600
+  phase5_global_scalar_1.15  pnl=$+203,498.71 score=0.8345 trades=1506 PF=2.43 DD=2.61% capture=75.87% pos_block=24.68% disc=0.600
+  phase5_global_scalar_1.16  pnl=$+207,887.02 score=0.8341 trades=1506 PF=2.43 DD=2.63% capture=75.87% pos_block=24.68% disc=0.600
+  phase5_global_scalar_1.17  pnl=$+212,358.74 score=0.8336 trades=1506 PF=2.43 DD=2.65% capture=75.87% pos_block=24.68% disc=0.600
+  phase5_global_scalar_1.18  pnl=$+216,915.42 score=0.8331 trades=1506 PF=2.43 DD=2.67% capture=75.87% pos_block=24.68% disc=0.600
+  phase5_global_scalar_1.20  pnl=$+226,290.11 score=0.8322 trades=1506 PF=2.43 DD=2.72% capture=75.87% pos_block=24.68% disc=0.600
+
+validation_after_portfolio_overlay: 2026-03-02 -> 2026-05-01
+  active_round_1           pnl=$+6,431.40 score=0.7502 trades=117 PF=3.03 DD=2.96% capture=85.40% pos_block=14.14% disc=0.456
+  phase5_unscaled          pnl=$+6,138.06 score=0.7843 trades=124 PF=3.07 DD=3.09% capture=90.51% pos_block=9.09% disc=0.788
+  phase5_global_scalar_1.00  pnl=$+6,138.06 score=0.7843 trades=124 PF=3.07 DD=3.09% capture=90.51% pos_block=9.09% disc=0.788
+  phase5_global_scalar_1.04  pnl=$+6,409.91 score=0.7823 trades=124 PF=3.07 DD=3.21% capture=90.51% pos_block=9.09% disc=0.788
+  phase5_global_scalar_1.06  pnl=$+6,546.65 score=0.7813 trades=124 PF=3.07 DD=3.27% capture=90.51% pos_block=9.09% disc=0.788
+ *phase5_global_scalar_1.08  pnl=$+6,683.92 score=0.7804 trades=124 PF=3.07 DD=3.33% capture=90.51% pos_block=9.09% disc=0.788
+  phase5_global_scalar_1.10  pnl=$+6,821.74 score=0.7794 trades=124 PF=3.07 DD=3.39% capture=90.51% pos_block=9.09% disc=0.788
+  phase5_global_scalar_1.12  pnl=$+6,960.11 score=0.7784 trades=124 PF=3.07 DD=3.45% capture=90.51% pos_block=9.09% disc=0.788
+  phase5_global_scalar_1.14  pnl=$+7,099.02 score=0.7774 trades=124 PF=3.06 DD=3.52% capture=90.51% pos_block=9.09% disc=0.788
+  phase5_global_scalar_1.15  pnl=$+7,168.68 score=0.7769 trades=124 PF=3.06 DD=3.55% capture=90.51% pos_block=9.09% disc=0.788
+  phase5_global_scalar_1.16  pnl=$+7,238.48 score=0.7765 trades=124 PF=3.06 DD=3.58% capture=90.51% pos_block=9.09% disc=0.788
+  phase5_global_scalar_1.17  pnl=$+7,308.42 score=0.7760 trades=124 PF=3.06 DD=3.61% capture=90.51% pos_block=9.09% disc=0.788
+  phase5_global_scalar_1.18  pnl=$+7,378.49 score=0.7755 trades=124 PF=3.06 DD=3.64% capture=90.51% pos_block=9.09% disc=0.788
+  phase5_global_scalar_1.20  pnl=$+7,519.05 score=0.7745 trades=124 PF=3.06 DD=3.70% capture=90.51% pos_block=9.09% disc=0.788
+
+validation_after_latest_strategy_is: 2026-03-21 -> 2026-05-01
+  active_round_1           pnl=$+4,575.22 score=0.8347 trades=86 PF=2.77 DD=3.67% capture=87.76% pos_block=13.04% disc=0.204
+  phase5_unscaled          pnl=$+4,361.34 score=0.8781 trades=93 PF=2.90 DD=3.00% capture=94.90% pos_block=5.80% disc=0.700
+  phase5_global_scalar_1.00  pnl=$+4,361.34 score=0.8781 trades=93 PF=2.90 DD=3.00% capture=94.90% pos_block=5.80% disc=0.700
+  phase5_global_scalar_1.04  pnl=$+4,548.55 score=0.8756 trades=93 PF=2.90 DD=3.12% capture=94.90% pos_block=5.80% disc=0.700
+  phase5_global_scalar_1.06  pnl=$+4,642.54 score=0.8744 trades=93 PF=2.90 DD=3.18% capture=94.90% pos_block=5.80% disc=0.700
+ *phase5_global_scalar_1.08  pnl=$+4,736.79 score=0.8731 trades=93 PF=2.90 DD=3.24% capture=94.90% pos_block=5.80% disc=0.700
+  phase5_global_scalar_1.10  pnl=$+4,831.29 score=0.8719 trades=93 PF=2.90 DD=3.29% capture=94.90% pos_block=5.80% disc=0.700
+  phase5_global_scalar_1.12  pnl=$+4,926.05 score=0.8707 trades=93 PF=2.90 DD=3.35% capture=94.90% pos_block=5.80% disc=0.700
+  phase5_global_scalar_1.14  pnl=$+5,021.06 score=0.8694 trades=93 PF=2.90 DD=3.41% capture=94.90% pos_block=5.80% disc=0.700
+  phase5_global_scalar_1.15  pnl=$+5,068.67 score=0.8688 trades=93 PF=2.90 DD=3.44% capture=94.90% pos_block=5.80% disc=0.700
+  phase5_global_scalar_1.16  pnl=$+5,116.34 score=0.8682 trades=93 PF=2.90 DD=3.47% capture=94.90% pos_block=5.80% disc=0.700
+  phase5_global_scalar_1.17  pnl=$+5,164.07 score=0.8675 trades=93 PF=2.90 DD=3.50% capture=94.90% pos_block=5.80% disc=0.700
+  phase5_global_scalar_1.18  pnl=$+5,211.87 score=0.8669 trades=93 PF=2.90 DD=3.53% capture=94.90% pos_block=5.80% disc=0.700
+  phase5_global_scalar_1.20  pnl=$+5,307.66 score=0.8657 trades=93 PF=2.90 DD=3.59% capture=94.90% pos_block=5.80% disc=0.700
+
+Eligibility:
+  phase5_global_scalar_1.00: FAIL - is_portfolio_overlay: pnl 146698.79 < active 169199.58; validation_after_portfolio_overlay: pnl 6138.06 < active 6431.40; validation_after_latest_strategy_is: pnl 4361.34 < active 4575.22
+  phase5_global_scalar_1.04: FAIL - is_portfolio_overlay: pnl 160310.69 < active 169199.58; validation_after_portfolio_overlay: pnl 6409.91 < active 6431.40; validation_after_latest_strategy_is: pnl 4548.55 < active 4575.22
+  phase5_global_scalar_1.06: FAIL - is_portfolio_overlay: pnl 167511.82 < active 169199.58
+  phase5_global_scalar_1.08: PASS - passes dollar, routing, and DD gates
+  phase5_global_scalar_1.10: PASS - passes dollar, routing, and DD gates
+  phase5_global_scalar_1.12: PASS - passes dollar, routing, and DD gates
+  phase5_global_scalar_1.14: PASS - passes dollar, routing, and DD gates
+  phase5_global_scalar_1.15: PASS - passes dollar, routing, and DD gates
+  phase5_global_scalar_1.16: PASS - passes dollar, routing, and DD gates
+  phase5_global_scalar_1.17: PASS - passes dollar, routing, and DD gates
+  phase5_global_scalar_1.18: PASS - passes dollar, routing, and DD gates
+  phase5_global_scalar_1.20: PASS - passes dollar, routing, and DD gates
+
+Chosen: phase5_global_scalar_1.08

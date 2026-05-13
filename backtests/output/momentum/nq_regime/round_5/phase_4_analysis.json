@@ -1,0 +1,70 @@
+{
+  "phase": 4,
+  "goal_progress": {
+    "total_r_per_month": {
+      "target": 12.0,
+      "actual": 12.027720928822683,
+      "pct_of_target": 100.23100774018903
+    },
+    "trades_per_month": {
+      "target": 10.0,
+      "actual": 10.342026078234705,
+      "pct_of_target": 103.42026078234706
+    },
+    "avg_r": {
+      "target": 1.1,
+      "actual": 1.1629946432000982,
+      "pct_of_target": 105.72678574546346
+    },
+    "module_coverage": {
+      "target": 1.0,
+      "actual": 1.0,
+      "pct_of_target": 100.0
+    },
+    "min_module_trades": {
+      "target": 60.0,
+      "actual": 66.0,
+      "pct_of_target": 110.00000000000001
+    },
+    "module_second_wind_total_r_per_month": {
+      "target": 5.0,
+      "actual": 5.074404712542738,
+      "pct_of_target": 101.48809425085477
+    },
+    "module_structural_expansion_trades": {
+      "target": 60.0,
+      "actual": 66.0,
+      "pct_of_target": 110.00000000000001
+    },
+    "module_liquidity_reversion_total_r_per_month": {
+      "target": 6.5,
+      "actual": 6.605856571818004,
+      "pct_of_target": 101.62856264335392
+    },
+    "max_drawdown_pct": {
+      "target": 0.06,
+      "actual": 0.03172737751059173,
+      "pct_of_target": 189.1111232876712
+    }
+  },
+  "strengths": [
+    "total_r_per_month: 12.0277 (100% of 12.0000)",
+    "trades_per_month: 10.3420 (103% of 10.0000)",
+    "avg_r: 1.1630 (106% of 1.1000)",
+    "module_coverage: 1.0000 (100% of 1.0000)",
+    "min_module_trades: 66.0000 (110% of 60.0000)",
+    "module_second_wind_total_r_per_month: 5.0744 (101% of 5.0000)",
+    "module_structural_expansion_trades: 66.0000 (110% of 60.0000)",
+    "module_liquidity_reversion_total_r_per_month: 6.6059 (102% of 6.5000)",
+    "max_drawdown_pct: 0.0317 (189% of 0.0600)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 4 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + total_r_per_month: 12.0277 (100% of 12.0000)\n  + trades_per_month: 10.3420 (103% of 10.0000)\n  + avg_r: 1.1630 (106% of 1.1000)\n  + module_coverage: 1.0000 (100% of 1.0000)\n  + min_module_trades: 66.0000 (110% of 60.0000)\n  + module_second_wind_total_r_per_month: 5.0744 (101% of 5.0000)\n  + module_structural_expansion_trades: 66.0000 (110% of 60.0000)\n  + module_liquidity_reversion_total_r_per_month: 6.6059 (102% of 6.5000)\n  + max_drawdown_pct: 0.0317 (189% of 0.0600)\n\nGoal Progress:\n  total_r_per_month: 12.0277 / 12.0000 (100%)\n  trades_per_month: 10.3420 / 10.0000 (103%)\n  avg_r: 1.1630 / 1.1000 (106%)\n  module_coverage: 1.0000 / 1.0000 (100%)\n  min_module_trades: 66.0000 / 60.0000 (110%)\n  module_second_wind_total_r_per_month: 5.0744 / 5.0000 (101%)\n  module_structural_expansion_trades: 66.0000 / 60.0000 (110%)\n  module_liquidity_reversion_total_r_per_month: 6.6059 / 6.5000 (102%)\n  max_drawdown_pct: 0.0317 / 0.0600 (189%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

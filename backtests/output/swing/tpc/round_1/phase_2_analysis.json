@@ -1,0 +1,57 @@
+{
+  "phase": 2,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 20.0,
+      "actual": 0.6543549999994721,
+      "pct_of_target": 3.2717749999973607
+    },
+    "avg_r": {
+      "target": 0.2,
+      "actual": 0.2026877823069183,
+      "pct_of_target": 101.34389115345914
+    },
+    "trades_per_month": {
+      "target": 1.25,
+      "actual": 0.7598209476401865,
+      "pct_of_target": 60.78567581121492
+    },
+    "total_trades": {
+      "target": 70.0,
+      "actual": 42.0,
+      "pct_of_target": 60.0
+    },
+    "profit_factor": {
+      "target": 1.35,
+      "actual": 1.338201737505822,
+      "pct_of_target": 99.12605463006088
+    },
+    "mfe_capture": {
+      "target": 0.3,
+      "actual": 0.3461183816245569,
+      "pct_of_target": 115.3727938748523
+    },
+    "never_worked_rate": {
+      "target": 0.25,
+      "actual": 0.2619047619047619,
+      "pct_of_target": 104.76190476190477
+    }
+  },
+  "strengths": [
+    "avg_r: 0.2027 (101% of 0.2000)",
+    "profit_factor: 1.3382 (99% of 1.3500)",
+    "mfe_capture: 0.3461 (115% of 0.3000)",
+    "never_worked_rate: 0.2619 (105% of 0.2500)"
+  ],
+  "weaknesses": [
+    "net_return_pct: 0.6544 (3% of 20.0000)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + avg_r: 0.2027 (101% of 0.2000)\n  + profit_factor: 1.3382 (99% of 1.3500)\n  + mfe_capture: 0.3461 (115% of 0.3000)\n  + never_worked_rate: 0.2619 (105% of 0.2500)\n\nWeaknesses:\n  - net_return_pct: 0.6544 (3% of 20.0000)\n\nGoal Progress:\n  net_return_pct: 0.6544 / 20.0000 (3%)\n  avg_r: 0.2027 / 0.2000 (101%)\n  trades_per_month: 0.7598 / 1.2500 (61%)\n  total_trades: 42.0000 / 70.0000 (60%)\n  profit_factor: 1.3382 / 1.3500 (99%)\n  mfe_capture: 0.3461 / 0.3000 (115%)\n  never_worked_rate: 0.2619 / 0.2500 (105%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

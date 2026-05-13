@@ -1,0 +1,495 @@
+{
+  "current_phase": 4,
+  "completed_phases": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "cumulative_mutations": {
+    "initial_equity": 50000.0,
+    "strategy_allocations": [
+      {
+        "strategy_id": "NQ_REGIME",
+        "enabled": true,
+        "base_risk_pct": 0.006,
+        "daily_stop_R": 3.0,
+        "max_concurrent": 3,
+        "priority": 0,
+        "max_contracts": 0
+      },
+      {
+        "strategy_id": "VdubusNQ_v4",
+        "enabled": true,
+        "base_risk_pct": 0.0065,
+        "daily_stop_R": 2.5,
+        "max_concurrent": 2,
+        "priority": 0,
+        "max_contracts": 0
+      },
+      {
+        "strategy_id": "NQDTC_v2.1",
+        "enabled": true,
+        "base_risk_pct": 0.0045,
+        "daily_stop_R": 2.5,
+        "max_concurrent": 2,
+        "priority": 1,
+        "max_contracts": 0
+      },
+      {
+        "strategy_id": "DownturnDominator_v1",
+        "enabled": true,
+        "base_risk_pct": 0.004,
+        "daily_stop_R": 2.0,
+        "max_concurrent": 2,
+        "priority": 1,
+        "max_contracts": 0
+      }
+    ],
+    "rules": {
+      "cooldown_session_only": true,
+      "nqdtc_strategy_id": "NQDTC_v2.1",
+      "nqdtc_direction_filter_enabled": false,
+      "nqdtc_agree_size_mult": 1.25,
+      "nqdtc_oppose_size_mult": 0.5,
+      "vdubus_strategy_id": "VdubusNQ_v4",
+      "directional_cap_R": 4.25,
+      "directional_cap_long_R": 10.0,
+      "directional_cap_short_R": 10.5,
+      "dd_tiers": [
+        [
+          0.1,
+          1.0
+        ],
+        [
+          0.15,
+          0.6
+        ],
+        [
+          0.2,
+          0.3
+        ],
+        [
+          1.0,
+          0.0
+        ]
+      ],
+      "initial_equity": 50000.0,
+      "family_strategy_ids": [
+        "NQ_REGIME",
+        "VdubusNQ_v4",
+        "NQDTC_v2.1",
+        "DownturnDominator_v1"
+      ],
+      "symbol_collision_action": "none",
+      "symbol_collision_pairs": [],
+      "max_family_contracts_mnq_eq": 40,
+      "strategy_priorities": [
+        [
+          "VdubusNQ_v4",
+          0
+        ],
+        [
+          "NQ_REGIME",
+          0
+        ],
+        [
+          "NQDTC_v2.1",
+          1
+        ],
+        [
+          "DownturnDominator_v1",
+          1
+        ]
+      ],
+      "priority_headroom_R": 1.0,
+      "priority_reserve_threshold": 1,
+      "reference_unit_risk_dollars": 250.0,
+      "max_total_active_positions": 0,
+      "max_symbol_heat_R": 0.0,
+      "same_sector_heat_cap_R": 0.0,
+      "symbol_sector_map": [],
+      "max_single_strategy_trade_share": 1.0,
+      "strategy_trade_share_min_total": 50,
+      "dynamic_allocation_enabled": false,
+      "dynamic_lookback_trades": 60,
+      "dynamic_min_mult": 0.65,
+      "dynamic_max_mult": 1.22,
+      "dynamic_positive_expectancy_boost": 0.1,
+      "dynamic_negative_expectancy_cut": 0.18,
+      "max_strategy_active_positions": [],
+      "strategy_size_multipliers": [],
+      "existing_position_mult": 1.0,
+      "portfolio_heat_cap_R": 0.0,
+      "heat_pressure_threshold": 1.0,
+      "heat_pressure_mult": 1.0,
+      "same_direction_pressure_threshold": 1.0,
+      "same_direction_pressure_mult": 1.0,
+      "max_trade_risk_R": 0.0,
+      "min_qty": 1,
+      "fit_to_remaining_heat": false,
+      "fit_to_remaining_directional_cap": false,
+      "fit_to_remaining_family_cap": false,
+      "regime_unit_risk_mult": 1.0,
+      "regime_unit_risk_long_mult": 1.0,
+      "regime_unit_risk_short_mult": 1.0,
+      "disabled_strategies": []
+    },
+    "heat_cap_R": 10.0,
+    "portfolio_daily_stop_R": 2.75,
+    "portfolio_weekly_stop_R": 9.0,
+    "max_total_positions": 8,
+    "point_value": 2.0,
+    "commission_per_side": 0.62,
+    "reference_unit_risk_dollars": 250.0,
+    "start_date": null,
+    "end_date": null,
+    "dynamic_risk": {
+      "enabled": true,
+      "strategy_multipliers": [
+        [
+          "NQ_REGIME",
+          0.75
+        ],
+        [
+          "VdubusNQ_v4",
+          0.95
+        ],
+        [
+          "NQDTC_v2.1",
+          1.0
+        ],
+        [
+          "DownturnDominator_v1",
+          1.0
+        ]
+      ],
+      "fit_to_remaining_heat": true,
+      "fit_to_remaining_directional_cap": true,
+      "fit_to_remaining_family_cap": true,
+      "min_qty": 1,
+      "min_trade_risk_R": 0.0,
+      "max_trade_risk_R": 2.0,
+      "heat_pressure_threshold": 0.65,
+      "heat_pressure_mult": 0.65,
+      "same_direction_pressure_threshold": 0.65,
+      "same_direction_pressure_mult": 0.7,
+      "existing_position_mult": 0.85,
+      "daily_loss_threshold_R": -999.0,
+      "daily_loss_mult": 1.0
+    },
+    "signal_filter_rules": []
+  },
+  "phase_results": {
+    "1": {
+      "base_score": 0.9955784162045334,
+      "final_score": 0.9955784162045334,
+      "kept_features": [],
+      "final_metrics": {
+        "total_trades": 1219.0,
+        "blocked_trades": 40.0,
+        "block_rate": 0.03177124702144559,
+        "active_strategies": 4.0,
+        "min_strategy_trades": 104.0,
+        "net_profit": 297274.9530066824,
+        "net_return_pct": 5.945499060133648,
+        "profit_factor": 3.5446110817321452,
+        "win_rate": 0.6505332239540607,
+        "max_drawdown_pct": 0.07068225044042235,
+        "max_drawdown_r": 15.065200000000004,
+        "sharpe": 5.866823806214394,
+        "sortino": 11.628034760105582,
+        "cagr": 1.2292281868209853,
+        "calmar": 17.35713620347989,
+        "calmar_r": 78.93023737001361,
+        "total_r": 1189.0998120267295,
+        "total_r_per_month": 40.94256281511717,
+        "trades_per_month": 41.972072963800905,
+        "max_concurrent": 3.0,
+        "risk_basis": "bar_close_mark_to_market",
+        "final_equity": 347274.9530066824,
+        "net_return_pct_realized": 5.9602446601336565,
+        "max_drawdown_pct_mtm": 0.07068225044042235,
+        "calmar_mtm": 17.35713620347989,
+        "max_drawdown_pct_realized": 0.019597288837916033,
+        "calmar_realized": 62.724400144714146
+      },
+      "total_candidates": 3
+    },
+    "2": {
+      "base_score": 0.9955784162045334,
+      "final_score": 0.9955784162045334,
+      "kept_features": [],
+      "final_metrics": {
+        "total_trades": 1219.0,
+        "blocked_trades": 40.0,
+        "block_rate": 0.03177124702144559,
+        "active_strategies": 4.0,
+        "min_strategy_trades": 104.0,
+        "net_profit": 297274.9530066824,
+        "net_return_pct": 5.945499060133648,
+        "profit_factor": 3.5446110817321452,
+        "win_rate": 0.6505332239540607,
+        "max_drawdown_pct": 0.07068225044042235,
+        "max_drawdown_r": 15.065200000000004,
+        "sharpe": 5.866823806214394,
+        "sortino": 11.628034760105582,
+        "cagr": 1.2292281868209853,
+        "calmar": 17.35713620347989,
+        "calmar_r": 78.93023737001361,
+        "total_r": 1189.0998120267295,
+        "total_r_per_month": 40.94256281511717,
+        "trades_per_month": 41.972072963800905,
+        "max_concurrent": 3.0,
+        "risk_basis": "bar_close_mark_to_market",
+        "final_equity": 347274.9530066824,
+        "net_return_pct_realized": 5.9602446601336565,
+        "max_drawdown_pct_mtm": 0.07068225044042235,
+        "calmar_mtm": 17.35713620347989,
+        "max_drawdown_pct_realized": 0.019597288837916033,
+        "calmar_realized": 62.724400144714146
+      },
+      "total_candidates": 3
+    },
+    "3": {
+      "base_score": 0.9955784162045334,
+      "final_score": 1.1256155581491243,
+      "kept_features": [
+        "capacity_10_00_contracts_40_positions_8_risk_2_0"
+      ],
+      "final_metrics": {
+        "active_strategies": 4.0,
+        "block_rate": 0.03177124702144559,
+        "blocked_trades": 40.0,
+        "cagr": 1.2292281868209853,
+        "calmar": 17.35713620347989,
+        "calmar_mtm": 17.35713620347989,
+        "calmar_r": 78.93023737001361,
+        "calmar_realized": 62.724400144714146,
+        "final_equity": 347274.9530066824,
+        "max_concurrent": 3.0,
+        "max_drawdown_pct": 0.07068225044042235,
+        "max_drawdown_pct_mtm": 0.07068225044042235,
+        "max_drawdown_pct_realized": 0.019597288837916033,
+        "max_drawdown_r": 15.065200000000004,
+        "min_strategy_trades": 104.0,
+        "net_profit": 297274.9530066824,
+        "net_return_pct": 5.945499060133648,
+        "net_return_pct_realized": 5.9602446601336565,
+        "profit_factor": 3.5446110817321452,
+        "risk_basis": "bar_close_mark_to_market",
+        "sharpe": 5.866823806214394,
+        "sortino": 11.628034760105582,
+        "total_r": 1189.0998120267295,
+        "total_r_per_month": 40.94256281511717,
+        "total_trades": 1219.0,
+        "trades_per_month": 41.972072963800905,
+        "win_rate": 0.6505332239540607
+      },
+      "total_candidates": 7
+    },
+    "4": {
+      "base_score": 1.1256155581491243,
+      "final_score": 1.1256155581491243,
+      "kept_features": [],
+      "final_metrics": {
+        "total_trades": 1219.0,
+        "blocked_trades": 40.0,
+        "block_rate": 0.03177124702144559,
+        "active_strategies": 4.0,
+        "min_strategy_trades": 104.0,
+        "net_profit": 297274.9530066824,
+        "net_return_pct": 5.945499060133648,
+        "profit_factor": 3.5446110817321452,
+        "win_rate": 0.6505332239540607,
+        "max_drawdown_pct": 0.07068225044042235,
+        "max_drawdown_r": 15.065200000000004,
+        "sharpe": 5.866823806214394,
+        "sortino": 11.628034760105582,
+        "cagr": 1.2292281868209853,
+        "calmar": 17.35713620347989,
+        "calmar_r": 78.93023737001361,
+        "total_r": 1189.0998120267295,
+        "total_r_per_month": 40.94256281511717,
+        "trades_per_month": 41.972072963800905,
+        "max_concurrent": 3.0,
+        "risk_basis": "bar_close_mark_to_market",
+        "final_equity": 347274.9530066824,
+        "net_return_pct_realized": 5.9602446601336565,
+        "max_drawdown_pct_mtm": 0.07068225044042235,
+        "calmar_mtm": 17.35713620347989,
+        "max_drawdown_pct_realized": 0.019597288837916033,
+        "calmar_realized": 62.724400144714146
+      },
+      "total_candidates": 4
+    }
+  },
+  "phase_gate_results": {
+    "1": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "min_active_strategies",
+          "target": 4.0,
+          "actual": 4.0,
+          "passed": true
+        },
+        {
+          "name": "min_trades_per_month",
+          "target": 40.0,
+          "actual": 41.972072963800905,
+          "passed": true
+        },
+        {
+          "name": "max_drawdown_pct",
+          "target": 0.18,
+          "actual": 0.07068225044042235,
+          "passed": true
+        },
+        {
+          "name": "min_profit_factor",
+          "target": 2.8,
+          "actual": 3.5446110817321452,
+          "passed": true
+        },
+        {
+          "name": "max_block_rate",
+          "target": 0.15,
+          "actual": 0.03177124702144559,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "2": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "min_active_strategies",
+          "target": 4.0,
+          "actual": 4.0,
+          "passed": true
+        },
+        {
+          "name": "min_trades_per_month",
+          "target": 40.0,
+          "actual": 41.972072963800905,
+          "passed": true
+        },
+        {
+          "name": "max_drawdown_pct",
+          "target": 0.18,
+          "actual": 0.07068225044042235,
+          "passed": true
+        },
+        {
+          "name": "min_profit_factor",
+          "target": 2.8,
+          "actual": 3.5446110817321452,
+          "passed": true
+        },
+        {
+          "name": "max_block_rate",
+          "target": 0.15,
+          "actual": 0.03177124702144559,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "3": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "min_active_strategies",
+          "target": 4.0,
+          "actual": 4.0,
+          "passed": true
+        },
+        {
+          "name": "min_trades_per_month",
+          "target": 40.0,
+          "actual": 41.972072963800905,
+          "passed": true
+        },
+        {
+          "name": "max_drawdown_pct",
+          "target": 0.18,
+          "actual": 0.07068225044042235,
+          "passed": true
+        },
+        {
+          "name": "min_profit_factor",
+          "target": 2.8,
+          "actual": 3.5446110817321452,
+          "passed": true
+        },
+        {
+          "name": "max_block_rate",
+          "target": 0.15,
+          "actual": 0.03177124702144559,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "4": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "min_active_strategies",
+          "target": 4.0,
+          "actual": 4.0,
+          "passed": true
+        },
+        {
+          "name": "min_trades_per_month",
+          "target": 40.0,
+          "actual": 41.972072963800905,
+          "passed": true
+        },
+        {
+          "name": "max_drawdown_pct",
+          "target": 0.18,
+          "actual": 0.07068225044042235,
+          "passed": true
+        },
+        {
+          "name": "min_profit_factor",
+          "target": 2.8,
+          "actual": 3.5446110817321452,
+          "passed": true
+        },
+        {
+          "name": "max_block_rate",
+          "target": 0.15,
+          "actual": 0.03177124702144559,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    }
+  },
+  "retry_count": {},
+  "scoring_retries": {},
+  "diagnostic_retries": {},
+  "phase_timestamps": {
+    "1": {
+      "completed": "2026-05-11T13:50:29.658042+00:00"
+    },
+    "2": {
+      "completed": "2026-05-11T13:50:29.691586+00:00"
+    },
+    "3": {
+      "completed": "2026-05-11T13:50:29.738154+00:00"
+    },
+    "4": {
+      "completed": "2026-05-11T13:50:29.790237+00:00"
+    }
+  },
+  "round_name": "round_3_momentum_portfolio_synergy_standardized"
+}

@@ -1,0 +1,35 @@
+[
+  {
+    "strategy": "helix_swing",
+    "family": "swing",
+    "assessment": "GREY",
+    "action": "Inconclusive -- extend monitoring to 4+ months",
+    "config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\round_4\\optimized_config.json",
+    "warnings": [
+      "Stored round summary appears to include post-cutoff trades (275 vs reproduced IS 140); assessment uses reproduced IS metrics."
+    ],
+    "error": null,
+    "is_metrics": {
+      "total_trades": 140,
+      "winning_trades": 72,
+      "win_rate": 0.5142857142857142,
+      "profit_factor": 2.1706811958616856,
+      "net_r": 74.51936540199608,
+      "avg_r": 0.5322811814428292,
+      "max_drawdown_r": 6.346610122845057,
+      "trades_per_month": 5.2612345679012344,
+      "months": 26.609724047306177
+    },
+    "oos_metrics": {
+      "total_trades": 7,
+      "winning_trades": 3,
+      "win_rate": 0.42857142857142855,
+      "profit_factor": 4.961211225361487,
+      "net_r": 6.397471919474408,
+      "avg_r": 0.9139245599249154,
+      "max_drawdown_r": 1.2317278109156202,
+      "trades_per_month": 5.1970731707317075,
+      "months": 1.3469119579500657
+    }
+  }
+]

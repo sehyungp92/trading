@@ -1,0 +1,82 @@
+======================================================================
+TPC END-OF-ROUND EVALUATION
+======================================================================
+
+Phase Progression Summary:
+  Phase 1: score 47.3908 -> 50.8750 (1 accepted)
+  Phase 2: score 50.8750 -> 50.8750 (0 accepted)
+  Phase 3: score 50.8750 -> 50.8750 (0 accepted)
+  Phase 4: score 50.8750 -> 52.4754 (1 accepted)
+
+Cumulative Mutations Applied:
+  GLD.confirmation_combo_mode: structure_or_vwap
+  GLD.confirmation_required: 2
+  GLD.daily_room_min_r: 2.5
+  GLD.entry_order_model: market_next_bar
+  GLD.score_a_min: 15
+  GLD.score_b_min: 15
+  GLD.t1_r: 1.1
+  QQQ.min_short_score: 17
+  QQQ.primary_windows_et: [[9, 35, 15, 45]]
+  QQQ.shorts_enabled: False
+  QQQ.t1_r: 1.25
+  all.addon_enabled: True
+  all.addon_max_notional_pct: 0.0
+  all.addon_max_total_risk_pct: 0.03
+  all.addon_min_score: 17
+  all.addon_require_structure_hold: True
+  all.addon_require_vwap_hold: True
+  all.addon_requires_t1: True
+  all.addon_size_mult: 0.25
+  all.addon_trigger_r: 1.25
+  all.confirmation_combo_mode: structure_or_vwap
+  all.confirmation_required: 1
+  all.entry_order_model: structure_stop
+  all.entry_order_ttl_hours: 4.0
+  all.entry_stop_limit_atr_mult: 0.08
+  all.fib_a_high: 0.8
+  all.fib_a_low: 0.33
+  all.initial_stop_source: signal
+  all.max_hold_bars_15m: 52
+  all.max_position_notional_pct: 8.0
+  all.max_risk_pct: 0.025
+  all.min_stop_atr_mult: 0.0
+  all.risk_a_pct: 0.016
+  all.risk_a_plus_pct: 0.025
+  all.risk_b_pct: 0.01
+  all.second_entry_max_wait_bars_15m: 16
+  all.second_entry_min_wait_bars_15m: 1
+  all.second_entry_require_structure: True
+  all.second_entry_require_vwap: True
+  all.second_entry_score_min: 14
+  all.signal_stop_buffer_atr_mult: 0.12
+  all.stall_exit_bars_15m: 52
+  all.stall_exit_max_current_r: 0.2
+  all.stall_exit_min_mfe_r: 1.0
+  all.t1_stop_r: 0.2
+  all.t2_r: 2.0
+  all.time_stop_min_mfe_r: 0.5
+  all.trail_after_t1_30m_bars: 6
+  all.trail_use_vwap_after_t1: True
+  all.type_a_value_hits_min: 1
+  all.type_c_enabled: True
+  all.type_c_mode: real_reentry
+  all.type_c_requires_a_plus: False
+
+Signal Extraction / Alpha Capture
+No report provided.
+
+Signal Discrimination
+No report provided.
+
+Entry Mechanism
+No report provided.
+
+Trade Management
+No report provided.
+
+Exit Mechanism
+No report provided.
+
+Overall Verdict
+Validate on untouched holdout and stress passive fills before promotion.

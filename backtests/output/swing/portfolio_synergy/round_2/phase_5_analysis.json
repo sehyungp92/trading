@@ -1,0 +1,46 @@
+{
+  "phase": 5,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 560.0,
+      "actual": 490.8721323467421,
+      "pct_of_target": 87.65573791906108
+    },
+    "total_trades": {
+      "target": 710.0,
+      "actual": 716.0,
+      "pct_of_target": 100.84507042253522
+    },
+    "profit_factor": {
+      "target": 2.4,
+      "actual": 3.638225537956754,
+      "pct_of_target": 151.5927307481981
+    },
+    "max_drawdown_pct": {
+      "target": 16.0,
+      "actual": 7.916411650900734,
+      "pct_of_target": 200.0
+    },
+    "heat_max_R": {
+      "target": 4.75,
+      "actual": 4.9372904356636935,
+      "pct_of_target": 103.9429565402883
+    }
+  },
+  "strengths": [
+    "net_return_pct: 490.8721 (88% of 560.0000)",
+    "total_trades: 716.0000 (101% of 710.0000)",
+    "profit_factor: 3.6382 (152% of 2.4000)",
+    "max_drawdown_pct: 7.9164 (200% of 16.0000)",
+    "heat_max_R: 4.9373 (104% of 4.7500)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 5 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + net_return_pct: 490.8721 (88% of 560.0000)\n  + total_trades: 716.0000 (101% of 710.0000)\n  + profit_factor: 3.6382 (152% of 2.4000)\n  + max_drawdown_pct: 7.9164 (200% of 16.0000)\n  + heat_max_R: 4.9373 (104% of 4.7500)\n\nGoal Progress:\n  net_return_pct: 490.8721 / 560.0000 (88%)\n  total_trades: 716.0000 / 710.0000 (101%)\n  profit_factor: 3.6382 / 2.4000 (152%)\n  max_drawdown_pct: 7.9164 / 16.0000 (200%)\n  heat_max_R: 4.9373 / 4.7500 (104%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

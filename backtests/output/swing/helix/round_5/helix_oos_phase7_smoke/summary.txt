@@ -1,0 +1,29 @@
+OOS Repair Diagnostic Summary
+============================================================================================
+The OOS window is used for diagnosis/selection in this run; it is no longer an untouched holdout.
+Data end: 2026-05-01
+
+Strategy: helix_swing
+--------------------------------------------------------------------------------------------
+Baseline IS: trades=140 PF=2.17 avgR=0.532 netR=74.5
+Baseline OOS: trades=7 PF=4.96 avgR=0.914 netR=6.4
+Candidates evaluated: 52
+Top objective candidates:
+  helix_oos/helix_oos_oos_d_short0_sep4_dailyext350: obj=+29.59%, passed=True, OOS trades=8 netR=12.1 avgR=1.510, IS trades=145 netR=75.8
+  helix_oos/helix_oos_oos_d_short0_sep4_dailyext300_highvol69: obj=+27.19%, passed=False, OOS trades=8 netR=12.4 avgR=1.554, IS trades=140 netR=68.4
+  helix_oos/helix_oos_oos_d_short0_sep4_dailyext300_trailstall3: obj=+26.81%, passed=False, OOS trades=8 netR=12.1 avgR=1.512, IS trades=141 netR=70.2
+  helix_oos/helix_oos_oos_d_short12_sep4_dailyext300: obj=+25.24%, passed=False, OOS trades=8 netR=12.1 avgR=1.510, IS trades=140 netR=67.1
+  helix_oos/helix_oos_oos_d_short0_sep4_dailyext300_hist: obj=+25.23%, passed=False, OOS trades=8 netR=12.1 avgR=1.510, IS trades=140 netR=67.2
+  helix_oos/helix_oos_oos_d_short0_sep4_age20_dailyext300: obj=+25.09%, passed=False, OOS trades=8 netR=12.1 avgR=1.510, IS trades=133 netR=70.1
+  helix_oos/helix_oos_oos_d_short0_sep4_age24_dailyext300: obj=+25.09%, passed=False, OOS trades=8 netR=12.1 avgR=1.510, IS trades=133 netR=70.1
+  helix_oos/helix_oos_oos_d_short0_sep4_dailyext300_pullback025: obj=+23.45%, passed=False, OOS trades=8 netR=12.1 avgR=1.510, IS trades=141 netR=62.8
+Top OOS-net candidates:
+  helix_oos/helix_oos_oos_d_short0_sep4_dailyext300_highvol69: OOS trades=8 netR=12.4 avgR=1.554, IS trades=140 netR=68.4, obj=+27.19%
+  helix_oos/helix_oos_oos_d_short0_sep4_dailyext300_trailstall3: OOS trades=8 netR=12.1 avgR=1.512, IS trades=141 netR=70.2, obj=+26.81%
+  helix_oos/helix_oos_oos_d_short0_sep4_dailyext350: OOS trades=8 netR=12.1 avgR=1.510, IS trades=145 netR=75.8, obj=+29.59%
+  helix_oos/helix_oos_oos_d_short0_sep4_age20_dailyext300: OOS trades=8 netR=12.1 avgR=1.510, IS trades=133 netR=70.1, obj=+25.09%
+  helix_oos/helix_oos_oos_d_short0_sep4_age24_dailyext300: OOS trades=8 netR=12.1 avgR=1.510, IS trades=133 netR=70.1, obj=+25.09%
+  helix_oos/helix_oos_oos_d_short0_sep4_dailyext300_hist: OOS trades=8 netR=12.1 avgR=1.510, IS trades=140 netR=67.2, obj=+25.23%
+  helix_oos/helix_oos_oos_d_short12_sep4_dailyext300: OOS trades=8 netR=12.1 avgR=1.510, IS trades=140 netR=67.1, obj=+25.24%
+  helix_oos/helix_oos_oos_d_short0_sep4_dailyext300_pullback025: OOS trades=8 netR=12.1 avgR=1.510, IS trades=141 netR=62.8, obj=+23.45%
+

@@ -1,0 +1,144 @@
+{
+  "phase": 5,
+  "goal_progress": {
+    "expectancy_dollar": {
+      "target": 16.0,
+      "actual": 19.704280078895405,
+      "pct_of_target": 123.15175049309627
+    },
+    "expected_total_r": {
+      "target": 112.0,
+      "actual": 119.92777215664195,
+      "pct_of_target": 107.07836799700175
+    },
+    "trades_per_month": {
+      "target": 23.5,
+      "actual": 19.58351840101523,
+      "pct_of_target": 83.33412085538396
+    },
+    "profit_factor": {
+      "target": 1.82,
+      "actual": 1.9480052647611121,
+      "pct_of_target": 107.0332563055556
+    },
+    "signal_quality": {
+      "target": 0.72,
+      "actual": 0.573697032120828,
+      "pct_of_target": 79.680143350115
+    },
+    "timing_quality": {
+      "target": 0.58,
+      "actual": 0.7265829225169694,
+      "pct_of_target": 125.27291767533957
+    },
+    "profit_protection": {
+      "target": 0.7,
+      "actual": 0.6800383990735632,
+      "pct_of_target": 97.14834272479476
+    },
+    "short_hold_24_drag_inverse": {
+      "target": 0.45,
+      "actual": 0.4137350485330863,
+      "pct_of_target": 91.9411218962414
+    },
+    "flow_mfe_exit_inverse": {
+      "target": 0.82,
+      "actual": 0.8382626685839976,
+      "pct_of_target": 102.22715470536556
+    },
+    "mfe_capture_efficiency": {
+      "target": 0.79,
+      "actual": 0.8012859684999256,
+      "pct_of_target": 101.42860360758552
+    },
+    "sizing_alignment": {
+      "target": 1.0,
+      "actual": 1.0,
+      "pct_of_target": 100.0
+    },
+    "inv_dd": {
+      "target": 0.72,
+      "actual": 0.7748500547787489,
+      "pct_of_target": 92.92120398773014
+    }
+  },
+  "strengths": [
+    "expectancy_dollar: 19.7043 (123% of 16.0000)",
+    "expected_total_r: 119.9278 (107% of 112.0000)",
+    "trades_per_month: 19.5835 (83% of 23.5000)",
+    "profit_factor: 1.9480 (107% of 1.8200)",
+    "timing_quality: 0.7266 (125% of 0.5800)",
+    "profit_protection: 0.6800 (97% of 0.7000)",
+    "short_hold_24_drag_inverse: 0.4137 (92% of 0.4500)",
+    "flow_mfe_exit_inverse: 0.8383 (102% of 0.8200)",
+    "mfe_capture_efficiency: 0.8013 (101% of 0.7900)",
+    "sizing_alignment: 1.0000 (100% of 1.0000)",
+    "inv_dd: 0.7749 (93% of 0.7200)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 5 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + expectancy_dollar: 19.7043 (123% of 16.0000)\n  + expected_total_r: 119.9278 (107% of 112.0000)\n  + trades_per_month: 19.5835 (83% of 23.5000)\n  + profit_factor: 1.9480 (107% of 1.8200)\n  + timing_quality: 0.7266 (125% of 0.5800)\n  + profit_protection: 0.6800 (97% of 0.7000)\n  + short_hold_24_drag_inverse: 0.4137 (92% of 0.4500)\n  + flow_mfe_exit_inverse: 0.8383 (102% of 0.8200)\n  + mfe_capture_efficiency: 0.8013 (101% of 0.7900)\n  + sizing_alignment: 1.0000 (100% of 1.0000)\n  + inv_dd: 0.7749 (93% of 0.7200)\n\nExtra Analysis:\n  Focus deltas: expected_total_r=111.843->119.928 (+8.085), trades_per_month=19.545->19.584 (+0.039), profit_protection=0.662->0.680 (+0.018), short_hold_24_drag_inverse=0.411->0.414 (+0.003), flow_mfe_exit_inverse=0.779->0.838 (+0.059), mfe_capture_efficiency=0.766->0.801 (+0.035), long_hold_capture=0.985->0.988 (+0.002)\n  Core: net_profit=+9990.07, expectancy_dollar=+19.70, expected_total_r=+119.93, trades_per_month=19.58, profit_factor=1.948, max_drawdown_pct=2.70%, signal_quality=0.574, timing_quality=0.727, profit_protection=0.680, short24_inv=0.414, flow_mfe_inv=0.838, mfe_capture_eff=0.801, sizing_alignment=1.000, extended_avwap_inverse=0.351, bar9_inverse=0.829, late_entry_quality=1.000, score_monotonicity=0.391\n\nGoal Progress:\n  expectancy_dollar: 19.7043 / 16.0000 (123%)\n  expected_total_r: 119.9278 / 112.0000 (107%)\n  trades_per_month: 19.5835 / 23.5000 (83%)\n  profit_factor: 1.9480 / 1.8200 (107%)\n  signal_quality: 0.5737 / 0.7200 (80%)\n  timing_quality: 0.7266 / 0.5800 (125%)\n  profit_protection: 0.6800 / 0.7000 (97%)\n  short_hold_24_drag_inverse: 0.4137 / 0.4500 (92%)\n  flow_mfe_exit_inverse: 0.8383 / 0.8200 (102%)\n  mfe_capture_efficiency: 0.8013 / 0.7900 (101%)\n  sizing_alignment: 1.0000 / 1.0000 (100%)\n  inv_dd: 0.7749 / 0.7200 (93%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "focus_deltas": {
+      "expected_total_r": {
+        "base": 111.84303464311813,
+        "final": 119.92777215664195,
+        "delta": 8.08473751352382
+      },
+      "trades_per_month": {
+        "base": 19.544892131979697,
+        "final": 19.58351840101523,
+        "delta": 0.038626269035532346
+      },
+      "profit_protection": {
+        "base": 0.6617080621574452,
+        "final": 0.6800383990735632,
+        "delta": 0.018330336916118073
+      },
+      "short_hold_24_drag_inverse": {
+        "base": 0.41062372804482505,
+        "final": 0.4137350485330863,
+        "delta": 0.0031113204882612377
+      },
+      "flow_mfe_exit_inverse": {
+        "base": 0.7788759755227841,
+        "final": 0.8382626685839976,
+        "delta": 0.05938669306121347
+      },
+      "mfe_capture_efficiency": {
+        "base": 0.7659756069567194,
+        "final": 0.8012859684999256,
+        "delta": 0.035310361543206215
+      },
+      "long_hold_capture": {
+        "base": 0.9854990522483769,
+        "final": 0.987796108908708,
+        "delta": 0.002297056660331087
+      }
+    },
+    "core": {
+      "net_profit": 9990.06999999997,
+      "expectancy_dollar": 19.704280078895405,
+      "expected_total_r": 119.92777215664195,
+      "trades_per_month": 19.58351840101523,
+      "profit_factor": 1.9480052647611121,
+      "max_drawdown_pct": 0.027017993426550126,
+      "signal_quality": 0.573697032120828,
+      "timing_quality": 0.7265829225169694,
+      "profit_protection": 0.6800383990735632,
+      "short_hold_24_drag_inverse": 0.4137350485330863,
+      "flow_mfe_exit_inverse": 0.8382626685839976,
+      "mfe_capture_efficiency": 0.8012859684999256,
+      "sizing_alignment": 1.0,
+      "extended_avwap_inverse": 0.3508940417758858,
+      "bar9_inverse": 0.8288547257750225,
+      "late_entry_quality": 1.0,
+      "score_monotonicity": 0.39099576017261145
+    }
+  }
+}

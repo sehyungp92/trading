@@ -1,0 +1,98 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-05T12:19:54.246519+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 6,
+      "base_score": 23.666813021159438,
+      "final_score": 41.61326587126543,
+      "kept_features": [
+        "trail_after_t1_30m_vwap",
+        "t1_asset_quicker",
+        "time_stop_2d_no_mfe"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "EXIT_CAPTURE_AND_TIME_RELEASE",
+      "candidate_count": 14
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-05T12:30:20.478329+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 10,
+      "base_score": 41.61326587126543,
+      "final_score": 59.171075274766224,
+      "kept_features": [
+        "stop_signal_wide",
+        "structure_stop_entry"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "ENTRY_AND_STOP_GEOMETRY",
+      "candidate_count": 12
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-05T12:55:19.033770+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 17,
+      "base_score": 59.171075274766224,
+      "final_score": 78.1245126227741,
+      "kept_features": [
+        "classic_wide_one_value",
+        "confirmation_one_structure_or_vwap",
+        "second_entry_valid"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "ENTRY_SIGNAL_EXPANSION",
+      "candidate_count": 12
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-05T13:15:36.689703+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 19,
+      "base_score": 78.1245126227741,
+      "final_score": 79.97313134574652,
+      "kept_features": [
+        "notional_cap_30",
+        "qqq_full_rth_minus_edges"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "FREQUENCY_AND_ALLOCATION",
+      "candidate_count": 12
+    }
+  },
+  "last_updated": "2026-05-05T13:15:36.706711+00:00",
+  "current_phase": 4
+}

@@ -1,0 +1,1083 @@
+{
+  "baseline_policy": {
+    "name": "current_live",
+    "warning_mult": 0.65,
+    "crisis_mult": 0.3,
+    "advisory_mult": 1.0,
+    "shock_mult": 0.8,
+    "grind_mult": 0.9,
+    "credit_impulse_mult": 0.75
+  },
+  "optimized_policy": {
+    "name": "shock_0.75",
+    "warning_mult": 0.65,
+    "crisis_mult": 0.3,
+    "advisory_mult": 1.0,
+    "shock_mult": 0.75,
+    "grind_mult": 0.9,
+    "credit_impulse_mult": 0.75
+  },
+  "base_score": 0.8718151337031198,
+  "optimized_score": 0.8785978999126793,
+  "accepted": [
+    "shock_0.75"
+  ],
+  "rounds": [
+    {
+      "round": 1,
+      "best_name": "shock_0.75",
+      "best_score": 0.8785978999126793,
+      "delta": 0.006782766209559532,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round": 2,
+      "best_name": "grind_0.95",
+      "best_score": 0.8760538027372229,
+      "delta": -0.00254409717545645,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "optimized_evaluation": {
+    "policy": {
+      "name": "shock_0.75",
+      "warning_mult": 0.65,
+      "crisis_mult": 0.3,
+      "advisory_mult": 1.0,
+      "shock_mult": 0.75,
+      "grind_mult": 0.9,
+      "credit_impulse_mult": 0.75
+    },
+    "score": 0.8785978999126793,
+    "rejected": false,
+    "reject_reason": "",
+    "action_day_share": 0.136726893676164,
+    "avg_exposure": 0.9496612230715775,
+    "min_exposure": 0.3,
+    "n_exposure_transitions": 521,
+    "portfolio_results": {
+      "regime_proxy": {
+        "base_metrics": {
+          "total_return": 8.15106447089646,
+          "cagr": 0.10177677867837143,
+          "sharpe": 0.9793404008946829,
+          "sortino": 1.4149005173967792,
+          "calmar": 0.44937603153731787,
+          "max_drawdown_pct": 0.22648466214406787,
+          "max_drawdown_duration": 598,
+          "avg_annual_turnover": 0.0,
+          "n_rebalances": 0
+        },
+        "overlay_metrics": {
+          "total_return": 12.329350700320076,
+          "cagr": 0.12006851941068986,
+          "sharpe": 1.3257346021189782,
+          "sortino": 1.991094287315794,
+          "calmar": 0.7167205084346064,
+          "max_drawdown_pct": 0.16752488312763958,
+          "max_drawdown_duration": 422,
+          "avg_annual_turnover": 5.846872828353022,
+          "n_rebalances": 521
+        },
+        "period_diagnostics": {
+          "avg_crisis_dd_reduction": 0.04631162774427505,
+          "worst_crisis_dd_reduction": 9.71445146547012e-17,
+          "avg_missed_rebound_drag": 0.007458474626873387,
+          "max_missed_rebound_drag": 0.050203695537363036
+        },
+        "score": {
+          "calmar_component": 0.7673444768972886,
+          "sortino_component": 0.8841291799460098,
+          "maxdd_component": 1.0,
+          "crisis_dd_component": 0.7894476734017191,
+          "cagr_component": 0.8048623455386406,
+          "recovery_component": 1.0,
+          "friction_component": 0.3508305074625323,
+          "total": 0.8340017063255513,
+          "rejected": false,
+          "reject_reason": ""
+        },
+        "deltas": {
+          "total_return": 4.178286229423616,
+          "cagr": 0.01829174073231843,
+          "sharpe": 0.3463942012242953,
+          "sortino": 0.5761937699190147,
+          "calmar": 0.2673444768972886,
+          "max_drawdown_pct": -0.05895977901642829,
+          "max_drawdown_duration": -176.0
+        }
+      },
+      "balanced_60_40": {
+        "base_metrics": {
+          "total_return": 3.6562889550783018,
+          "cagr": 0.06966320549976213,
+          "sharpe": 0.6702482159813201,
+          "sortino": 0.9432389253930645,
+          "calmar": 0.20130625105952665,
+          "max_drawdown_pct": 0.34605584840563436,
+          "max_drawdown_duration": 896,
+          "avg_annual_turnover": 0.0,
+          "n_rebalances": 0
+        },
+        "overlay_metrics": {
+          "total_return": 9.965688122346865,
+          "cagr": 0.1105374036241431,
+          "sharpe": 1.2546715678500615,
+          "sortino": 1.8594831855267413,
+          "calmar": 0.5724194118145288,
+          "max_drawdown_pct": 0.19310561686534597,
+          "max_drawdown_duration": 502,
+          "avg_annual_turnover": 5.846872828353022,
+          "n_rebalances": 521
+        },
+        "period_diagnostics": {
+          "avg_crisis_dd_reduction": 0.07727513697733053,
+          "worst_crisis_dd_reduction": 0.024540501980276616,
+          "avg_missed_rebound_drag": 0.006977178366019521,
+          "max_missed_rebound_drag": 0.04506922197945995
+        },
+        "score": {
+          "calmar_component": 0.8711131607550022,
+          "sortino_component": 1.0,
+          "maxdd_component": 1.0,
+          "crisis_dd_component": 0.9829696061083157,
+          "cagr_component": 1.0,
+          "recovery_component": 1.0,
+          "friction_component": 0.3604564326796096,
+          "total": 0.9276537304713127,
+          "rejected": false,
+          "reject_reason": ""
+        },
+        "deltas": {
+          "total_return": 6.309399167268563,
+          "cagr": 0.04087419812438098,
+          "sharpe": 0.5844233518687414,
+          "sortino": 0.9162442601336768,
+          "calmar": 0.37111316075500217,
+          "max_drawdown_pct": -0.1529502315402884,
+          "max_drawdown_duration": -394.0
+        }
+      },
+      "spy": {
+        "base_metrics": {
+          "total_return": 5.8696211672224115,
+          "cagr": 0.08803096344504446,
+          "sharpe": 0.5467273786502944,
+          "sortino": 0.7579659742500789,
+          "calmar": 0.1477624939157293,
+          "max_drawdown_pct": 0.5957598651200999,
+          "max_drawdown_duration": 1410,
+          "avg_annual_turnover": 0.0,
+          "n_rebalances": 0
+        },
+        "overlay_metrics": {
+          "total_return": 39.96007663110869,
+          "cagr": 0.17649423651604668,
+          "sharpe": 1.2315816274328502,
+          "sortino": 1.8229323710965346,
+          "calmar": 0.8170700102291742,
+          "max_drawdown_pct": 0.21600870709542142,
+          "max_drawdown_duration": 294,
+          "avg_annual_turnover": 5.846872828353022,
+          "n_rebalances": 521
+        },
+        "period_diagnostics": {
+          "avg_crisis_dd_reduction": 0.13199094437363726,
+          "worst_crisis_dd_reduction": 0.03883948196906291,
+          "avg_missed_rebound_drag": 0.011669349884569533,
+          "max_missed_rebound_drag": 0.07524982950150583
+        },
+        "score": {
+          "calmar_component": 1.0,
+          "sortino_component": 1.0,
+          "maxdd_component": 1.0,
+          "crisis_dd_component": 1.0,
+          "cagr_component": 1.0,
+          "recovery_component": 1.0,
+          "friction_component": 0.2666130023086093,
+          "total": 0.9633306501154304,
+          "rejected": false,
+          "reject_reason": ""
+        },
+        "deltas": {
+          "total_return": 34.09045546388628,
+          "cagr": 0.08846327307100221,
+          "sharpe": 0.6848542487825557,
+          "sortino": 1.0649663968464558,
+          "calmar": 0.669307516313445,
+          "max_drawdown_pct": -0.3797511580246785,
+          "max_drawdown_duration": -1116.0
+        }
+      }
+    }
+  },
+  "standard_scenarios": {
+    "A_no_crisis": {
+      "policy": {
+        "name": "A_no_crisis",
+        "warning_mult": 1.0,
+        "crisis_mult": 1.0,
+        "advisory_mult": 1.0,
+        "shock_mult": 1.0,
+        "grind_mult": 1.0,
+        "credit_impulse_mult": 1.0
+      },
+      "score": 0.525,
+      "rejected": false,
+      "reject_reason": "",
+      "action_day_share": 0.0,
+      "avg_exposure": 1.0,
+      "min_exposure": 1.0,
+      "n_exposure_transitions": 0,
+      "portfolio_results": {
+        "regime_proxy": {
+          "base_metrics": {
+            "total_return": 8.15106447089646,
+            "cagr": 0.10177677867837143,
+            "sharpe": 0.9793404008946829,
+            "sortino": 1.4149005173967792,
+            "calmar": 0.44937603153731787,
+            "max_drawdown_pct": 0.22648466214406787,
+            "max_drawdown_duration": 598,
+            "avg_annual_turnover": 0.0,
+            "n_rebalances": 0
+          },
+          "overlay_metrics": {
+            "total_return": 8.15106447089646,
+            "cagr": 0.10177677867837143,
+            "sharpe": 0.9793404008946829,
+            "sortino": 1.4149005173967792,
+            "calmar": 0.44937603153731787,
+            "max_drawdown_pct": 0.22648466214406787,
+            "max_drawdown_duration": 598,
+            "avg_annual_turnover": 0.0,
+            "n_rebalances": 0
+          },
+          "period_diagnostics": {
+            "avg_crisis_dd_reduction": 0.0,
+            "worst_crisis_dd_reduction": 0.0,
+            "avg_missed_rebound_drag": 0.0,
+            "max_missed_rebound_drag": 0.0
+          },
+          "score": {
+            "calmar_component": 0.5,
+            "sortino_component": 0.5,
+            "maxdd_component": 0.5,
+            "crisis_dd_component": 0.5,
+            "cagr_component": 0.5,
+            "recovery_component": 0.5,
+            "friction_component": 1.0,
+            "total": 0.525,
+            "rejected": false,
+            "reject_reason": ""
+          },
+          "deltas": {
+            "total_return": 0.0,
+            "cagr": 0.0,
+            "sharpe": 0.0,
+            "sortino": 0.0,
+            "calmar": 0.0,
+            "max_drawdown_pct": 0.0,
+            "max_drawdown_duration": 0.0
+          }
+        },
+        "balanced_60_40": {
+          "base_metrics": {
+            "total_return": 3.6562889550783018,
+            "cagr": 0.06966320549976213,
+            "sharpe": 0.6702482159813201,
+            "sortino": 0.9432389253930645,
+            "calmar": 0.20130625105952665,
+            "max_drawdown_pct": 0.34605584840563436,
+            "max_drawdown_duration": 896,
+            "avg_annual_turnover": 0.0,
+            "n_rebalances": 0
+          },
+          "overlay_metrics": {
+            "total_return": 3.6562889550783018,
+            "cagr": 0.06966320549976213,
+            "sharpe": 0.6702482159813201,
+            "sortino": 0.9432389253930645,
+            "calmar": 0.20130625105952665,
+            "max_drawdown_pct": 0.34605584840563436,
+            "max_drawdown_duration": 896,
+            "avg_annual_turnover": 0.0,
+            "n_rebalances": 0
+          },
+          "period_diagnostics": {
+            "avg_crisis_dd_reduction": 0.0,
+            "worst_crisis_dd_reduction": 0.0,
+            "avg_missed_rebound_drag": 0.0,
+            "max_missed_rebound_drag": 0.0
+          },
+          "score": {
+            "calmar_component": 0.5,
+            "sortino_component": 0.5,
+            "maxdd_component": 0.5,
+            "crisis_dd_component": 0.5,
+            "cagr_component": 0.5,
+            "recovery_component": 0.5,
+            "friction_component": 1.0,
+            "total": 0.525,
+            "rejected": false,
+            "reject_reason": ""
+          },
+          "deltas": {
+            "total_return": 0.0,
+            "cagr": 0.0,
+            "sharpe": 0.0,
+            "sortino": 0.0,
+            "calmar": 0.0,
+            "max_drawdown_pct": 0.0,
+            "max_drawdown_duration": 0.0
+          }
+        },
+        "spy": {
+          "base_metrics": {
+            "total_return": 5.8696211672224115,
+            "cagr": 0.08803096344504446,
+            "sharpe": 0.5467273786502944,
+            "sortino": 0.7579659742500789,
+            "calmar": 0.1477624939157293,
+            "max_drawdown_pct": 0.5957598651200999,
+            "max_drawdown_duration": 1410,
+            "avg_annual_turnover": 0.0,
+            "n_rebalances": 0
+          },
+          "overlay_metrics": {
+            "total_return": 5.8696211672224115,
+            "cagr": 0.08803096344504446,
+            "sharpe": 0.5467273786502944,
+            "sortino": 0.7579659742500789,
+            "calmar": 0.1477624939157293,
+            "max_drawdown_pct": 0.5957598651200999,
+            "max_drawdown_duration": 1410,
+            "avg_annual_turnover": 0.0,
+            "n_rebalances": 0
+          },
+          "period_diagnostics": {
+            "avg_crisis_dd_reduction": 0.0,
+            "worst_crisis_dd_reduction": 0.0,
+            "avg_missed_rebound_drag": 0.0,
+            "max_missed_rebound_drag": 0.0
+          },
+          "score": {
+            "calmar_component": 0.5,
+            "sortino_component": 0.5,
+            "maxdd_component": 0.5,
+            "crisis_dd_component": 0.5,
+            "cagr_component": 0.5,
+            "recovery_component": 0.5,
+            "friction_component": 1.0,
+            "total": 0.525,
+            "rejected": false,
+            "reject_reason": ""
+          },
+          "deltas": {
+            "total_return": 0.0,
+            "cagr": 0.0,
+            "sharpe": 0.0,
+            "sortino": 0.0,
+            "calmar": 0.0,
+            "max_drawdown_pct": 0.0,
+            "max_drawdown_duration": 0.0
+          }
+        }
+      }
+    },
+    "B_threshold_only": {
+      "policy": {
+        "name": "B_threshold_only",
+        "warning_mult": 0.65,
+        "crisis_mult": 0.3,
+        "advisory_mult": 1.0,
+        "shock_mult": 1.0,
+        "grind_mult": 1.0,
+        "credit_impulse_mult": 1.0
+      },
+      "score": 0.7545783996258418,
+      "rejected": false,
+      "reject_reason": "",
+      "action_day_share": 0.06914523974982627,
+      "avg_exposure": 0.9640027797081306,
+      "min_exposure": 0.3,
+      "n_exposure_transitions": 198,
+      "portfolio_results": {
+        "regime_proxy": {
+          "base_metrics": {
+            "total_return": 8.15106447089646,
+            "cagr": 0.10177677867837143,
+            "sharpe": 0.9793404008946829,
+            "sortino": 1.4149005173967792,
+            "calmar": 0.44937603153731787,
+            "max_drawdown_pct": 0.22648466214406787,
+            "max_drawdown_duration": 598,
+            "avg_annual_turnover": 0.0,
+            "n_rebalances": 0
+          },
+          "overlay_metrics": {
+            "total_return": 9.372564133151707,
+            "cagr": 0.10783709789404528,
+            "sharpe": 1.159180094580149,
+            "sortino": 1.6934157465469704,
+            "calmar": 0.5642019077027334,
+            "max_drawdown_pct": 0.1911321043438628,
+            "max_drawdown_duration": 579,
+            "avg_annual_turnover": 3.1565670604586513,
+            "n_rebalances": 198
+          },
+          "period_diagnostics": {
+            "avg_crisis_dd_reduction": 0.04052336864949736,
+            "worst_crisis_dd_reduction": -2.636779683484747e-16,
+            "avg_missed_rebound_drag": 0.007374397489643414,
+            "max_missed_rebound_drag": 0.04790063486996643
+          },
+          "score": {
+            "calmar_component": 0.6148258761654155,
+            "sortino_component": 0.6856768194334607,
+            "maxdd_component": 0.8535255780020508,
+            "crisis_dd_component": 0.7532710540593586,
+            "cagr_component": 0.6010053202612308,
+            "recovery_component": 0.5791666666666666,
+            "friction_component": 0.3525120502071317,
+            "total": 0.6742998156124759,
+            "rejected": false,
+            "reject_reason": ""
+          },
+          "deltas": {
+            "total_return": 1.2214996622552476,
+            "cagr": 0.006060319215673848,
+            "sharpe": 0.17983969368546604,
+            "sortino": 0.2785152291501911,
+            "calmar": 0.11482587616541551,
+            "max_drawdown_pct": -0.035352557800205076,
+            "max_drawdown_duration": -19.0
+          }
+        },
+        "balanced_60_40": {
+          "base_metrics": {
+            "total_return": 3.6562889550783018,
+            "cagr": 0.06966320549976213,
+            "sharpe": 0.6702482159813201,
+            "sortino": 0.9432389253930645,
+            "calmar": 0.20130625105952665,
+            "max_drawdown_pct": 0.34605584840563436,
+            "max_drawdown_duration": 896,
+            "avg_annual_turnover": 0.0,
+            "n_rebalances": 0
+          },
+          "overlay_metrics": {
+            "total_return": 6.820301249110036,
+            "cagr": 0.09422260928246784,
+            "sharpe": 1.0555315815572892,
+            "sortino": 1.52852455993447,
+            "calmar": 0.42571483540650457,
+            "max_drawdown_pct": 0.22132799105414544,
+            "max_drawdown_duration": 612,
+            "avg_annual_turnover": 3.1565670604586513,
+            "n_rebalances": 198
+          },
+          "period_diagnostics": {
+            "avg_crisis_dd_reduction": 0.06738445977461126,
+            "worst_crisis_dd_reduction": 0.015750214082005047,
+            "avg_missed_rebound_drag": 0.007577208676348146,
+            "max_missed_rebound_drag": 0.04480734031506106
+          },
+          "score": {
+            "calmar_component": 0.7244085843469779,
+            "sortino_component": 0.8901904230276037,
+            "maxdd_component": 1.0,
+            "crisis_dd_component": 0.9211528735913204,
+            "cagr_component": 0.9093233963784286,
+            "recovery_component": 1.0,
+            "friction_component": 0.3484558264730371,
+            "total": 0.845831078230241,
+            "rejected": false,
+            "reject_reason": ""
+          },
+          "deltas": {
+            "total_return": 3.1640122940317346,
+            "cagr": 0.024559403782705713,
+            "sharpe": 0.3852833655759691,
+            "sortino": 0.5852856345414054,
+            "calmar": 0.2244085843469779,
+            "max_drawdown_pct": -0.12472785735148892,
+            "max_drawdown_duration": -284.0
+          }
+        },
+        "spy": {
+          "base_metrics": {
+            "total_return": 5.8696211672224115,
+            "cagr": 0.08803096344504446,
+            "sharpe": 0.5467273786502944,
+            "sortino": 0.7579659742500789,
+            "calmar": 0.1477624939157293,
+            "max_drawdown_pct": 0.5957598651200999,
+            "max_drawdown_duration": 1410,
+            "avg_annual_turnover": 0.0,
+            "n_rebalances": 0
+          },
+          "overlay_metrics": {
+            "total_return": 18.785058879137228,
+            "cagr": 0.13960454215762264,
+            "sharpe": 0.9710723018322116,
+            "sortino": 1.3926096958912728,
+            "calmar": 0.501959354709111,
+            "max_drawdown_pct": 0.27811921592441374,
+            "max_drawdown_duration": 491,
+            "avg_annual_turnover": 3.1565670604586513,
+            "n_rebalances": 198
+          },
+          "period_diagnostics": {
+            "avg_crisis_dd_reduction": 0.11418087892184015,
+            "worst_crisis_dd_reduction": 0.012343295286271067,
+            "avg_missed_rebound_drag": 0.011716748061966875,
+            "max_missed_rebound_drag": 0.07182844137613298
+          },
+          "score": {
+            "calmar_component": 0.8541968607933818,
+            "sortino_component": 0.9230958144274626,
+            "maxdd_component": 1.0,
+            "crisis_dd_component": 1.0,
+            "cagr_component": 1.0,
+            "recovery_component": 1.0,
+            "friction_component": 0.2656650387606625,
+            "total": 0.9041614730615403,
+            "rejected": false,
+            "reject_reason": ""
+          },
+          "deltas": {
+            "total_return": 12.915437711914816,
+            "cagr": 0.05157357871257817,
+            "sharpe": 0.4243449231819172,
+            "sortino": 0.6346437216411939,
+            "calmar": 0.35419686079338175,
+            "max_drawdown_pct": -0.3176406491956862,
+            "max_drawdown_duration": -919.0
+          }
+        }
+      }
+    },
+    "C_current_live": {
+      "policy": {
+        "name": "C_current_live",
+        "warning_mult": 0.65,
+        "crisis_mult": 0.3,
+        "advisory_mult": 1.0,
+        "shock_mult": 0.8,
+        "grind_mult": 0.9,
+        "credit_impulse_mult": 0.75
+      },
+      "score": 0.8718151337031198,
+      "rejected": false,
+      "reject_reason": "",
+      "action_day_share": 0.136726893676164,
+      "avg_exposure": 0.9500868658790829,
+      "min_exposure": 0.3,
+      "n_exposure_transitions": 526,
+      "portfolio_results": {
+        "regime_proxy": {
+          "base_metrics": {
+            "total_return": 8.15106447089646,
+            "cagr": 0.10177677867837143,
+            "sharpe": 0.9793404008946829,
+            "sortino": 1.4149005173967792,
+            "calmar": 0.44937603153731787,
+            "max_drawdown_pct": 0.22648466214406787,
+            "max_drawdown_duration": 598,
+            "avg_annual_turnover": 0.0,
+            "n_rebalances": 0
+          },
+          "overlay_metrics": {
+            "total_return": 12.1599131382965,
+            "cagr": 0.11944135926162947,
+            "sharpe": 1.3177171050968528,
+            "sortino": 1.9763395605923768,
+            "calmar": 0.6958314276630658,
+            "max_drawdown_pct": 0.17165272293430403,
+            "max_drawdown_duration": 431,
+            "avg_annual_turnover": 5.743988881167477,
+            "n_rebalances": 526
+          },
+          "period_diagnostics": {
+            "avg_crisis_dd_reduction": 0.04597543940317145,
+            "worst_crisis_dd_reduction": -2.0122792321330962e-16,
+            "avg_missed_rebound_drag": 0.007458474626873387,
+            "max_missed_rebound_drag": 0.050203695537363036
+          },
+          "score": {
+            "calmar_component": 0.746455396125748,
+            "sortino_component": 0.8742926954637318,
+            "maxdd_component": 1.0,
+            "crisis_dd_component": 0.7873464962698216,
+            "cagr_component": 0.794409676387634,
+            "recovery_component": 1.0,
+            "friction_component": 0.3508305074625323,
+            "total": 0.824512300569343,
+            "rejected": false,
+            "reject_reason": ""
+          },
+          "deltas": {
+            "total_return": 4.00884866740004,
+            "cagr": 0.017664580583258038,
+            "sharpe": 0.3383767042021699,
+            "sortino": 0.5614390431955976,
+            "calmar": 0.24645539612574796,
+            "max_drawdown_pct": -0.05483193920976384,
+            "max_drawdown_duration": -167.0
+          }
+        },
+        "balanced_60_40": {
+          "base_metrics": {
+            "total_return": 3.6562889550783018,
+            "cagr": 0.06966320549976213,
+            "sharpe": 0.6702482159813201,
+            "sortino": 0.9432389253930645,
+            "calmar": 0.20130625105952665,
+            "max_drawdown_pct": 0.34605584840563436,
+            "max_drawdown_duration": 896,
+            "avg_annual_turnover": 0.0,
+            "n_rebalances": 0
+          },
+          "overlay_metrics": {
+            "total_return": 9.735615896578754,
+            "cagr": 0.10950693207209428,
+            "sharpe": 1.2418868207234466,
+            "sortino": 1.8371764753477542,
+            "calmar": 0.5568317061496362,
+            "max_drawdown_pct": 0.1966607340471139,
+            "max_drawdown_duration": 526,
+            "avg_annual_turnover": 5.743988881167477,
+            "n_rebalances": 526
+          },
+          "period_diagnostics": {
+            "avg_crisis_dd_reduction": 0.07604425364980183,
+            "worst_crisis_dd_reduction": 0.02454050198027633,
+            "avg_missed_rebound_drag": 0.006977178366019521,
+            "max_missed_rebound_drag": 0.04506922197945995
+          },
+          "score": {
+            "calmar_component": 0.8555254550901095,
+            "sortino_component": 1.0,
+            "maxdd_component": 1.0,
+            "crisis_dd_component": 0.9752765853112615,
+            "cagr_component": 1.0,
+            "recovery_component": 1.0,
+            "friction_component": 0.3604564326796096,
+            "total": 0.9222081166921396,
+            "rejected": false,
+            "reject_reason": ""
+          },
+          "deltas": {
+            "total_return": 6.079326941500452,
+            "cagr": 0.03984372657233215,
+            "sharpe": 0.5716386047421265,
+            "sortino": 0.8939375499546897,
+            "calmar": 0.3555254550901095,
+            "max_drawdown_pct": -0.14939511435852046,
+            "max_drawdown_duration": -370.0
+          }
+        },
+        "spy": {
+          "base_metrics": {
+            "total_return": 5.8696211672224115,
+            "cagr": 0.08803096344504446,
+            "sharpe": 0.5467273786502944,
+            "sortino": 0.7579659742500789,
+            "calmar": 0.1477624939157293,
+            "max_drawdown_pct": 0.5957598651200999,
+            "max_drawdown_duration": 1410,
+            "avg_annual_turnover": 0.0,
+            "n_rebalances": 0
+          },
+          "overlay_metrics": {
+            "total_return": 38.39503895432123,
+            "cagr": 0.1744893239725409,
+            "sharpe": 1.2172769866113833,
+            "sortino": 1.7981153819760827,
+            "calmar": 0.8077883818612046,
+            "max_drawdown_pct": 0.21600870709542083,
+            "max_drawdown_duration": 294,
+            "avg_annual_turnover": 5.743988881167477,
+            "n_rebalances": 526
+          },
+          "period_diagnostics": {
+            "avg_crisis_dd_reduction": 0.13000245367983979,
+            "worst_crisis_dd_reduction": 0.03883948196906299,
+            "avg_missed_rebound_drag": 0.011669349884569533,
+            "max_missed_rebound_drag": 0.07524982950150583
+          },
+          "score": {
+            "calmar_component": 1.0,
+            "sortino_component": 1.0,
+            "maxdd_component": 1.0,
+            "crisis_dd_component": 1.0,
+            "cagr_component": 1.0,
+            "recovery_component": 1.0,
+            "friction_component": 0.2666130023086093,
+            "total": 0.9633306501154304,
+            "rejected": false,
+            "reject_reason": ""
+          },
+          "deltas": {
+            "total_return": 32.52541778709882,
+            "cagr": 0.08645836052749645,
+            "sharpe": 0.6705496079610889,
+            "sortino": 1.0401494077260036,
+            "calmar": 0.6600258879454753,
+            "max_drawdown_pct": -0.37975115802467907,
+            "max_drawdown_duration": -1116.0
+          }
+        }
+      }
+    },
+    "D_advisory_light": {
+      "policy": {
+        "name": "D_advisory_light",
+        "warning_mult": 0.65,
+        "crisis_mult": 0.3,
+        "advisory_mult": 0.95,
+        "shock_mult": 0.8,
+        "grind_mult": 0.9,
+        "credit_impulse_mult": 0.75
+      },
+      "score": 0.8526249996575109,
+      "rejected": false,
+      "reject_reason": "",
+      "action_day_share": 0.3676164002779708,
+      "avg_exposure": 0.9385423905489924,
+      "min_exposure": 0.3,
+      "n_exposure_transitions": 574,
+      "portfolio_results": {
+        "regime_proxy": {
+          "base_metrics": {
+            "total_return": 8.15106447089646,
+            "cagr": 0.10177677867837143,
+            "sharpe": 0.9793404008946829,
+            "sortino": 1.4149005173967792,
+            "calmar": 0.44937603153731787,
+            "max_drawdown_pct": 0.22648466214406787,
+            "max_drawdown_duration": 598,
+            "avg_annual_turnover": 0.0,
+            "n_rebalances": 0
+          },
+          "overlay_metrics": {
+            "total_return": 11.121641569693992,
+            "cagr": 0.11542084541454489,
+            "sharpe": 1.2965969739354972,
+            "sortino": 1.9360686402173175,
+            "calmar": 0.6715639174404003,
+            "max_drawdown_pct": 0.17186874162992566,
+            "max_drawdown_duration": 516,
+            "avg_annual_turnover": 5.277727588603196,
+            "n_rebalances": 574
+          },
+          "period_diagnostics": {
+            "avg_crisis_dd_reduction": 0.04619562551441947,
+            "worst_crisis_dd_reduction": 0.0017750505831646765,
+            "avg_missed_rebound_drag": 0.008520070683154588,
+            "max_missed_rebound_drag": 0.053362165377004
+          },
+          "score": {
+            "calmar_component": 0.7221878859030825,
+            "sortino_component": 0.8474454152136921,
+            "maxdd_component": 1.0,
+            "crisis_dd_component": 0.7887226594651217,
+            "cagr_component": 0.7274011122695578,
+            "recovery_component": 0.8416666666666667,
+            "friction_component": 0.3295985863369082,
+            "total": 0.79632108863731,
+            "rejected": false,
+            "reject_reason": ""
+          },
+          "deltas": {
+            "total_return": 2.9705770987975324,
+            "cagr": 0.013644066736173466,
+            "sharpe": 0.31725657304081434,
+            "sortino": 0.5211681228205383,
+            "calmar": 0.22218788590308247,
+            "max_drawdown_pct": -0.05461592051414221,
+            "max_drawdown_duration": -82.0
+          }
+        },
+        "balanced_60_40": {
+          "base_metrics": {
+            "total_return": 3.6562889550783018,
+            "cagr": 0.06966320549976213,
+            "sharpe": 0.6702482159813201,
+            "sortino": 0.9432389253930645,
+            "calmar": 0.20130625105952665,
+            "max_drawdown_pct": 0.34605584840563436,
+            "max_drawdown_duration": 896,
+            "avg_annual_turnover": 0.0,
+            "n_rebalances": 0
+          },
+          "overlay_metrics": {
+            "total_return": 8.794607307350585,
+            "cagr": 0.10505987927983229,
+            "sharpe": 1.2079446230012234,
+            "sortino": 1.780026627233404,
+            "calmar": 0.5283125745516342,
+            "max_drawdown_pct": 0.198859319918694,
+            "max_drawdown_duration": 526,
+            "avg_annual_turnover": 5.277727588603196,
+            "n_rebalances": 574
+          },
+          "period_diagnostics": {
+            "avg_crisis_dd_reduction": 0.07598303104165403,
+            "worst_crisis_dd_reduction": 0.024979461441516096,
+            "avg_missed_rebound_drag": 0.0078576610777737,
+            "max_missed_rebound_drag": 0.04666767514848558
+          },
+          "score": {
+            "calmar_component": 0.8270063234921075,
+            "sortino_component": 1.0,
+            "maxdd_component": 1.0,
+            "crisis_dd_component": 0.9748939440103377,
+            "cagr_component": 1.0,
+            "recovery_component": 1.0,
+            "friction_component": 0.34284677844452593,
+            "total": 0.9127336303708923,
+            "rejected": false,
+            "reject_reason": ""
+          },
+          "deltas": {
+            "total_return": 5.138318352272283,
+            "cagr": 0.035396673780070165,
+            "sharpe": 0.5376964070199033,
+            "sortino": 0.8367877018403395,
+            "calmar": 0.3270063234921075,
+            "max_drawdown_pct": -0.14719652848694037,
+            "max_drawdown_duration": -370.0
+          }
+        },
+        "spy": {
+          "base_metrics": {
+            "total_return": 5.8696211672224115,
+            "cagr": 0.08803096344504446,
+            "sharpe": 0.5467273786502944,
+            "sortino": 0.7579659742500789,
+            "calmar": 0.1477624939157293,
+            "max_drawdown_pct": 0.5957598651200999,
+            "max_drawdown_duration": 1410,
+            "avg_annual_turnover": 0.0,
+            "n_rebalances": 0
+          },
+          "overlay_metrics": {
+            "total_return": 32.14088093241662,
+            "cagr": 0.16563384994527075,
+            "sharpe": 1.1781731337754666,
+            "sortino": 1.7296021975562275,
+            "calmar": 0.7587314590725139,
+            "max_drawdown_pct": 0.2183036540329359,
+            "max_drawdown_duration": 296,
+            "avg_annual_turnover": 5.277727588603196,
+            "n_rebalances": 574
+          },
+          "period_diagnostics": {
+            "avg_crisis_dd_reduction": 0.130018345749383,
+            "worst_crisis_dd_reduction": 0.03790729977690756,
+            "avg_missed_rebound_drag": 0.013571897995267352,
+            "max_missed_rebound_drag": 0.07991034350701942
+          },
+          "score": {
+            "calmar_component": 1.0,
+            "sortino_component": 1.0,
+            "maxdd_component": 1.0,
+            "crisis_dd_component": 1.0,
+            "cagr_component": 1.0,
+            "recovery_component": 1.0,
+            "friction_component": 0.22856204009465297,
+            "total": 0.9614281020047326,
+            "rejected": false,
+            "reject_reason": ""
+          },
+          "deltas": {
+            "total_return": 26.27125976519421,
+            "cagr": 0.07760288650022629,
+            "sharpe": 0.6314457551251722,
+            "sortino": 0.9716362233061485,
+            "calmar": 0.6109689651567847,
+            "max_drawdown_pct": -0.37745621108716404,
+            "max_drawdown_duration": -1114.0
+          }
+        }
+      }
+    },
+    "E_legacy_r5_threshold": {
+      "policy": {
+        "name": "E_legacy_r5_threshold",
+        "warning_mult": 0.75,
+        "crisis_mult": 0.5,
+        "advisory_mult": 1.0,
+        "shock_mult": 1.0,
+        "grind_mult": 1.0,
+        "credit_impulse_mult": 1.0
+      },
+      "score": 0.7015533531453899,
+      "rejected": false,
+      "reject_reason": "",
+      "action_day_share": 0.06914523974982627,
+      "avg_exposure": 0.9742876997915219,
+      "min_exposure": 0.5,
+      "n_exposure_transitions": 198,
+      "portfolio_results": {
+        "regime_proxy": {
+          "base_metrics": {
+            "total_return": 8.15106447089646,
+            "cagr": 0.10177677867837143,
+            "sharpe": 0.9793404008946829,
+            "sortino": 1.4149005173967792,
+            "calmar": 0.44937603153731787,
+            "max_drawdown_pct": 0.22648466214406787,
+            "max_drawdown_duration": 598,
+            "avg_annual_turnover": 0.0,
+            "n_rebalances": 0
+          },
+          "overlay_metrics": {
+            "total_return": 9.035818134442213,
+            "cagr": 0.10623752065560454,
+            "sharpe": 1.1160457349904171,
+            "sortino": 1.625502609866333,
+            "calmar": 0.5330286464363881,
+            "max_drawdown_pct": 0.19930921417800943,
+            "max_drawdown_duration": 580,
+            "avg_annual_turnover": 2.2546907574704655,
+            "n_rebalances": 198
+          },
+          "period_diagnostics": {
+            "avg_crisis_dd_reduction": 0.028787311812208637,
+            "worst_crisis_dd_reduction": -1.734723475976807e-16,
+            "avg_missed_rebound_drag": 0.005213651647538857,
+            "max_missed_rebound_drag": 0.03383831327738762
+          },
+          "score": {
+            "calmar_component": 0.5836526148990703,
+            "sortino_component": 0.6404013949797025,
+            "maxdd_component": 0.7717544796605844,
+            "crisis_dd_component": 0.679920698826304,
+            "cagr_component": 0.5743456996205519,
+            "recovery_component": 0.575,
+            "friction_component": 0.39572696704922283,
+            "total": 0.6314899475949254,
+            "rejected": false,
+            "reject_reason": ""
+          },
+          "deltas": {
+            "total_return": 0.8847536635457534,
+            "cagr": 0.004460741977233118,
+            "sharpe": 0.13670533409573427,
+            "sortino": 0.21060209246955375,
+            "calmar": 0.08365261489907028,
+            "max_drawdown_pct": -0.027175447966058447,
+            "max_drawdown_duration": -18.0
+          }
+        },
+        "balanced_60_40": {
+          "base_metrics": {
+            "total_return": 3.6562889550783018,
+            "cagr": 0.06966320549976213,
+            "sharpe": 0.6702482159813201,
+            "sortino": 0.9432389253930645,
+            "calmar": 0.20130625105952665,
+            "max_drawdown_pct": 0.34605584840563436,
+            "max_drawdown_duration": 896,
+            "avg_annual_turnover": 0.0,
+            "n_rebalances": 0
+          },
+          "overlay_metrics": {
+            "total_return": 5.775382448585579,
+            "cagr": 0.08737318094296787,
+            "sharpe": 0.945950798871298,
+            "sortino": 1.3591248781179694,
+            "calmar": 0.36299528016844596,
+            "max_drawdown_pct": 0.2407005978216103,
+            "max_drawdown_duration": 632,
+            "avg_annual_turnover": 2.2546907574704655,
+            "n_rebalances": 198
+          },
+          "period_diagnostics": {
+            "avg_crisis_dd_reduction": 0.04902372230543101,
+            "worst_crisis_dd_reduction": 0.014388096060336662,
+            "avg_missed_rebound_drag": 0.005394696039385931,
+            "max_missed_rebound_drag": 0.0318820719761479
+          },
+          "score": {
+            "calmar_component": 0.6616890291089192,
+            "sortino_component": 0.7772573018166034,
+            "maxdd_component": 1.0,
+            "crisis_dd_component": 0.8063982644089438,
+            "cagr_component": 0.7951662573867624,
+            "recovery_component": 1.0,
+            "friction_component": 0.39210607921228136,
+            "total": 0.7837199252361813,
+            "rejected": false,
+            "reject_reason": ""
+          },
+          "deltas": {
+            "total_return": 2.119093493507277,
+            "cagr": 0.01770997544320574,
+            "sharpe": 0.27570258288997784,
+            "sortino": 0.4158859527249049,
+            "calmar": 0.1616890291089193,
+            "max_drawdown_pct": -0.10535525058402406,
+            "max_drawdown_duration": -264.0
+          }
+        },
+        "spy": {
+          "base_metrics": {
+            "total_return": 5.8696211672224115,
+            "cagr": 0.08803096344504446,
+            "sharpe": 0.5467273786502944,
+            "sortino": 0.7579659742500789,
+            "calmar": 0.1477624939157293,
+            "max_drawdown_pct": 0.5957598651200999,
+            "max_drawdown_duration": 1410,
+            "avg_annual_turnover": 0.0,
+            "n_rebalances": 0
+          },
+          "overlay_metrics": {
+            "total_return": 13.860013284899992,
+            "cagr": 0.12541182183065502,
+            "sharpe": 0.845682706202041,
+            "sortino": 1.2007118994361496,
+            "calmar": 0.3271596879864798,
+            "max_drawdown_pct": 0.3833351920663214,
+            "max_drawdown_duration": 631,
+            "avg_annual_turnover": 2.2546907574704655,
+            "n_rebalances": 198
+          },
+          "period_diagnostics": {
+            "avg_crisis_dd_reduction": 0.08281225560503169,
+            "worst_crisis_dd_reduction": 0.00881846063628508,
+            "avg_missed_rebound_drag": 0.008274950540042696,
+            "max_missed_rebound_drag": 0.05064694302484529
+          },
+          "score": {
+            "calmar_component": 0.6793971940707505,
+            "sortino_component": 0.7951639501240471,
+            "maxdd_component": 1.0,
+            "crisis_dd_component": 1.0,
+            "cagr_component": 1.0,
+            "recovery_component": 1.0,
+            "friction_component": 0.33450098919914606,
+            "total": 0.8295769977059919,
+            "rejected": false,
+            "reject_reason": ""
+          },
+          "deltas": {
+            "total_return": 7.9903921176775805,
+            "cagr": 0.03738085838561056,
+            "sharpe": 0.2989553275517466,
+            "sortino": 0.4427459251860707,
+            "calmar": 0.17939719407075053,
+            "max_drawdown_pct": -0.21242467305377855,
+            "max_drawdown_duration": -779.0
+          }
+        }
+      }
+    }
+  }
+}

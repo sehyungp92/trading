@@ -1,0 +1,396 @@
+[
+  {
+    "round": 1,
+    "phase": 1,
+    "kept_features": [
+      "trail_after_t1_30m_vwap",
+      "t1_asset_quicker",
+      "time_stop_2d_no_mfe"
+    ],
+    "name": "round1_phase1::trail_after_t1_30m_vwap+t1_asset_quicker+time_stop_2d_no_mfe",
+    "mutations": {
+      "all.trail_after_t1_30m_bars": 4,
+      "all.trail_use_vwap_after_t1": true,
+      "QQQ.t1_r": 1.25,
+      "GLD.t1_r": 1.1,
+      "all.max_hold_bars_15m": 52,
+      "all.time_stop_min_mfe_r": 0.5
+    },
+    "previous_values": {
+      "all.trail_after_t1_30m_bars": "__TPC_REPAIR_MISSING__",
+      "all.trail_use_vwap_after_t1": "__TPC_REPAIR_MISSING__",
+      "QQQ.t1_r": "__TPC_REPAIR_MISSING__",
+      "GLD.t1_r": "__TPC_REPAIR_MISSING__",
+      "all.max_hold_bars_15m": "__TPC_REPAIR_MISSING__",
+      "all.time_stop_min_mfe_r": "__TPC_REPAIR_MISSING__"
+    }
+  },
+  {
+    "round": 1,
+    "phase": 2,
+    "kept_features": [
+      "stop_signal_wide",
+      "structure_stop_entry"
+    ],
+    "name": "round1_phase2::stop_signal_wide+structure_stop_entry",
+    "mutations": {
+      "all.initial_stop_source": "signal",
+      "all.signal_stop_buffer_atr_mult": 0.12,
+      "all.entry_order_model": "structure_stop",
+      "all.entry_stop_limit_atr_mult": 0.08
+    },
+    "previous_values": {
+      "all.initial_stop_source": "__TPC_REPAIR_MISSING__",
+      "all.signal_stop_buffer_atr_mult": "__TPC_REPAIR_MISSING__",
+      "all.entry_order_model": "__TPC_REPAIR_MISSING__",
+      "all.entry_stop_limit_atr_mult": "__TPC_REPAIR_MISSING__"
+    }
+  },
+  {
+    "round": 1,
+    "phase": 3,
+    "kept_features": [
+      "classic_wide_one_value",
+      "confirmation_one_structure_or_vwap",
+      "second_entry_valid"
+    ],
+    "name": "round1_phase3::classic_wide_one_value+confirmation_one_structure_or_vwap+second_entry_valid",
+    "mutations": {
+      "all.fib_a_low": 0.33,
+      "all.fib_a_high": 0.7,
+      "all.type_a_value_hits_min": 1,
+      "all.confirmation_required": 1,
+      "all.confirmation_combo_mode": "structure_or_vwap",
+      "all.type_c_enabled": true,
+      "all.type_c_requires_a_plus": false
+    },
+    "previous_values": {
+      "all.fib_a_low": "__TPC_REPAIR_MISSING__",
+      "all.fib_a_high": "__TPC_REPAIR_MISSING__",
+      "all.type_a_value_hits_min": "__TPC_REPAIR_MISSING__",
+      "all.confirmation_required": "__TPC_REPAIR_MISSING__",
+      "all.confirmation_combo_mode": "__TPC_REPAIR_MISSING__",
+      "all.type_c_enabled": "__TPC_REPAIR_MISSING__",
+      "all.type_c_requires_a_plus": "__TPC_REPAIR_MISSING__"
+    }
+  },
+  {
+    "round": 1,
+    "phase": 4,
+    "kept_features": [
+      "notional_cap_30",
+      "qqq_full_rth_minus_edges"
+    ],
+    "name": "round1_phase4::notional_cap_30+qqq_full_rth_minus_edges",
+    "mutations": {
+      "all.max_position_notional_pct": 0.3,
+      "QQQ.primary_windows_et": [
+        [
+          9,
+          35,
+          15,
+          45
+        ]
+      ]
+    },
+    "previous_values": {
+      "all.max_position_notional_pct": "__TPC_REPAIR_MISSING__",
+      "QQQ.primary_windows_et": "__TPC_REPAIR_MISSING__"
+    }
+  },
+  {
+    "round": 2,
+    "phase": 1,
+    "kept_features": [
+      "gld_market_next_bar",
+      "pending_ttl_4h"
+    ],
+    "name": "round2_phase1::gld_market_next_bar+pending_ttl_4h",
+    "mutations": {
+      "GLD.entry_order_model": "market_next_bar",
+      "all.entry_order_ttl_hours": 4.0
+    },
+    "previous_values": {
+      "GLD.entry_order_model": "__TPC_REPAIR_MISSING__",
+      "all.entry_order_ttl_hours": "__TPC_REPAIR_MISSING__"
+    }
+  },
+  {
+    "round": 2,
+    "phase": 2,
+    "kept_features": [
+      "type_a_deep_33_80"
+    ],
+    "name": "round2_phase2::type_a_deep_33_80",
+    "mutations": {
+      "all.fib_a_high": 0.8
+    },
+    "previous_values": {
+      "all.fib_a_high": 0.7
+    }
+  },
+  {
+    "round": 2,
+    "phase": 3,
+    "kept_features": [
+      "gld_daily_room_250",
+      "gld_confirm_2_structure_or_vwap",
+      "gld_score_floor_15",
+      "qqq_short_score_floor_17"
+    ],
+    "name": "round2_phase3::gld_daily_room_250+gld_confirm_2_structure_or_vwap+gld_score_floor_15+qqq_short_score_floor_17",
+    "mutations": {
+      "GLD.daily_room_min_r": 2.5,
+      "GLD.confirmation_required": 2,
+      "GLD.confirmation_combo_mode": "structure_or_vwap",
+      "GLD.score_a_min": 15,
+      "GLD.score_b_min": 15,
+      "QQQ.min_short_score": 17
+    },
+    "previous_values": {
+      "GLD.daily_room_min_r": "__TPC_REPAIR_MISSING__",
+      "GLD.confirmation_required": "__TPC_REPAIR_MISSING__",
+      "GLD.confirmation_combo_mode": "__TPC_REPAIR_MISSING__",
+      "GLD.score_a_min": "__TPC_REPAIR_MISSING__",
+      "GLD.score_b_min": "__TPC_REPAIR_MISSING__",
+      "QQQ.min_short_score": "__TPC_REPAIR_MISSING__"
+    }
+  },
+  {
+    "round": 2,
+    "phase": 4,
+    "kept_features": [
+      "trail_after_t1_30m_3_vwap",
+      "t1_stop_010"
+    ],
+    "name": "round2_phase4::trail_after_t1_30m_3_vwap+t1_stop_010",
+    "mutations": {
+      "all.trail_after_t1_30m_bars": 3,
+      "all.t1_stop_r": 0.1
+    },
+    "previous_values": {
+      "all.trail_after_t1_30m_bars": 4,
+      "all.t1_stop_r": "__TPC_REPAIR_MISSING__"
+    }
+  },
+  {
+    "round": 3,
+    "phase": 1,
+    "kept_features": [
+      "risk_020_notional_800"
+    ],
+    "name": "round3_phase1::risk_020_notional_800",
+    "mutations": {
+      "all.max_position_notional_pct": 8.0,
+      "all.max_risk_pct": 0.02,
+      "all.risk_a_pct": 0.013,
+      "all.risk_a_plus_pct": 0.02,
+      "all.risk_b_pct": 0.008,
+      "all.min_stop_atr_mult": 0.0
+    },
+    "previous_values": {
+      "all.max_position_notional_pct": 0.3,
+      "all.max_risk_pct": "__TPC_REPAIR_MISSING__",
+      "all.risk_a_pct": "__TPC_REPAIR_MISSING__",
+      "all.risk_a_plus_pct": "__TPC_REPAIR_MISSING__",
+      "all.risk_b_pct": "__TPC_REPAIR_MISSING__",
+      "all.min_stop_atr_mult": "__TPC_REPAIR_MISSING__"
+    }
+  },
+  {
+    "round": 3,
+    "phase": 2,
+    "kept_features": [
+      "qqq_longs_only",
+      "disable_shallow_type_c"
+    ],
+    "name": "round3_phase2::qqq_longs_only+disable_shallow_type_c",
+    "mutations": {
+      "all.type_c_enabled": false,
+      "QQQ.shorts_enabled": false
+    },
+    "previous_values": {
+      "all.type_c_enabled": true,
+      "QQQ.shorts_enabled": "__TPC_REPAIR_MISSING__"
+    }
+  },
+  {
+    "round": 3,
+    "phase": 3,
+    "kept_features": [
+      "real_second_entry_strict"
+    ],
+    "name": "round3_phase3::real_second_entry_strict",
+    "mutations": {
+      "all.type_c_enabled": true,
+      "all.type_c_mode": "real_reentry",
+      "all.second_entry_min_wait_bars_15m": 1,
+      "all.second_entry_max_wait_bars_15m": 16,
+      "all.second_entry_require_vwap": true,
+      "all.second_entry_require_structure": true,
+      "all.second_entry_score_min": 14
+    },
+    "previous_values": {
+      "all.type_c_enabled": false,
+      "all.type_c_mode": "__TPC_REPAIR_MISSING__",
+      "all.second_entry_min_wait_bars_15m": "__TPC_REPAIR_MISSING__",
+      "all.second_entry_max_wait_bars_15m": "__TPC_REPAIR_MISSING__",
+      "all.second_entry_require_vwap": "__TPC_REPAIR_MISSING__",
+      "all.second_entry_require_structure": "__TPC_REPAIR_MISSING__",
+      "all.second_entry_score_min": "__TPC_REPAIR_MISSING__"
+    }
+  },
+  {
+    "round": 3,
+    "phase": 4,
+    "kept_features": [
+      "trail_after_t1_30m_6_vwap",
+      "stall_exit_1r_2d",
+      "t1_stop_020",
+      "t2_quicker_200"
+    ],
+    "name": "round3_phase4::trail_after_t1_30m_6_vwap+stall_exit_1r_2d+t1_stop_020+t2_quicker_200",
+    "mutations": {
+      "all.trail_after_t1_30m_bars": 6,
+      "all.t1_stop_r": 0.2,
+      "all.stall_exit_bars_15m": 52,
+      "all.stall_exit_min_mfe_r": 1.0,
+      "all.stall_exit_max_current_r": 0.2,
+      "all.t2_r": 2.0
+    },
+    "previous_values": {
+      "all.trail_after_t1_30m_bars": 3,
+      "all.t1_stop_r": 0.1,
+      "all.stall_exit_bars_15m": "__TPC_REPAIR_MISSING__",
+      "all.stall_exit_min_mfe_r": "__TPC_REPAIR_MISSING__",
+      "all.stall_exit_max_current_r": "__TPC_REPAIR_MISSING__",
+      "all.t2_r": "__TPC_REPAIR_MISSING__"
+    }
+  },
+  {
+    "round": 4,
+    "phase": 1,
+    "kept_features": [
+      "risk_025_notional_800"
+    ],
+    "name": "round4_phase1::risk_025_notional_800",
+    "mutations": {
+      "all.max_risk_pct": 0.025,
+      "all.risk_a_pct": 0.016,
+      "all.risk_a_plus_pct": 0.025,
+      "all.risk_b_pct": 0.01
+    },
+    "previous_values": {
+      "all.max_risk_pct": 0.02,
+      "all.risk_a_pct": 0.013,
+      "all.risk_a_plus_pct": 0.02,
+      "all.risk_b_pct": 0.008
+    }
+  },
+  {
+    "round": 4,
+    "phase": 4,
+    "kept_features": [
+      "addon_t1_125r_25pct_score17"
+    ],
+    "name": "round4_phase4::addon_t1_125r_25pct_score17",
+    "mutations": {
+      "all.addon_enabled": true,
+      "all.addon_trigger_r": 1.25,
+      "all.addon_size_mult": 0.25,
+      "all.addon_min_score": 17,
+      "all.addon_requires_t1": true,
+      "all.addon_require_vwap_hold": true,
+      "all.addon_require_structure_hold": true,
+      "all.addon_max_total_risk_pct": 0.03,
+      "all.addon_max_notional_pct": 0.0
+    },
+    "previous_values": {
+      "all.addon_enabled": "__TPC_REPAIR_MISSING__",
+      "all.addon_trigger_r": "__TPC_REPAIR_MISSING__",
+      "all.addon_size_mult": "__TPC_REPAIR_MISSING__",
+      "all.addon_min_score": "__TPC_REPAIR_MISSING__",
+      "all.addon_requires_t1": "__TPC_REPAIR_MISSING__",
+      "all.addon_require_vwap_hold": "__TPC_REPAIR_MISSING__",
+      "all.addon_require_structure_hold": "__TPC_REPAIR_MISSING__",
+      "all.addon_max_total_risk_pct": "__TPC_REPAIR_MISSING__",
+      "all.addon_max_notional_pct": "__TPC_REPAIR_MISSING__"
+    }
+  },
+  {
+    "round": 5,
+    "phase": 1,
+    "kept_features": [
+      "disable_shallow_type_b"
+    ],
+    "name": "round5_phase1::disable_shallow_type_b",
+    "mutations": {
+      "all.type_b_enabled": false
+    },
+    "previous_values": {
+      "all.type_b_enabled": "__TPC_REPAIR_MISSING__"
+    }
+  },
+  {
+    "round": 5,
+    "phase": 2,
+    "kept_features": [
+      "qqq_extended_session_plus_strict",
+      "qqq_type_b_valid_23_42_score14_confirm2"
+    ],
+    "name": "round5_phase2::qqq_extended_session_plus_strict+qqq_type_b_valid_23_42_score14_confirm2",
+    "mutations": {
+      "QQQ.primary_windows_et": [
+        [
+          9,
+          35,
+          11,
+          30
+        ],
+        [
+          13,
+          30,
+          15,
+          45
+        ]
+      ],
+      "QQQ.confirmation_required": 2,
+      "QQQ.type_b_requires_a_plus": false,
+      "QQQ.fib_b_low": 0.23,
+      "QQQ.fib_b_high": 0.42,
+      "QQQ.score_b_min": 14
+    },
+    "previous_values": {
+      "QQQ.primary_windows_et": [
+        [
+          9,
+          35,
+          15,
+          45
+        ]
+      ],
+      "QQQ.confirmation_required": "__TPC_REPAIR_MISSING__",
+      "QQQ.type_b_requires_a_plus": "__TPC_REPAIR_MISSING__",
+      "QQQ.fib_b_low": "__TPC_REPAIR_MISSING__",
+      "QQQ.fib_b_high": "__TPC_REPAIR_MISSING__",
+      "QQQ.score_b_min": "__TPC_REPAIR_MISSING__"
+    }
+  },
+  {
+    "round": 5,
+    "phase": 4,
+    "kept_features": [
+      "time_stop_36b_mfe050",
+      "t1_stop_030"
+    ],
+    "name": "round5_phase4::time_stop_36b_mfe050+t1_stop_030",
+    "mutations": {
+      "all.max_hold_bars_15m": 36,
+      "all.t1_stop_r": 0.3
+    },
+    "previous_values": {
+      "all.max_hold_bars_15m": 52,
+      "all.t1_stop_r": 0.2
+    }
+  }
+]

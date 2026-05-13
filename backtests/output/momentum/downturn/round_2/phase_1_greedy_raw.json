@@ -1,0 +1,79 @@
+{
+  "base_score": 0.45701233619968573,
+  "final_score": 0.6103229145698,
+  "final_mutations": {
+    "flags.drawdown_regime_override": true,
+    "param_overrides.drawdown_lookback": 10,
+    "param_overrides.adx_range_threshold": 20,
+    "param_overrides.divergence_mag_threshold": 0.05,
+    "param_overrides.adx_trending_threshold": 22,
+    "param_overrides.ema_fast_period": 20,
+    "param_overrides.base_risk_pct": 0.008,
+    "param_overrides.regime_mult_counter": 0.2,
+    "flags.chandelier_trailing": true,
+    "param_overrides.chandelier_lookback": 8,
+    "param_overrides.profit_floor_r_threshold": 1.5,
+    "flags.vol_percentile_gate": 40.0,
+    "param_overrides.be_trigger_r": 0.8,
+    "flags.block_counter_regime": true,
+    "flags.bear_structure_override": true,
+    "flags.correction_regime_override": true
+  },
+  "kept_features": [
+    "r2_block_bear_struct",
+    "r2_block_corr_override",
+    "r2_adx_trending_22",
+    "r2_ema_fast_20"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 106,
+      "best_name": "r2_block_bear_struct",
+      "best_score": 0.5648639032364222,
+      "best_delta_pct": 23.599268224044636,
+      "kept": true,
+      "rejected_count": 4
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 86,
+      "best_name": "r2_block_corr_override",
+      "best_score": 0.5726723071199947,
+      "best_delta_pct": 1.382351366202334,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 3,
+      "candidates_tested": 77,
+      "best_name": "r2_adx_trending_22",
+      "best_score": 0.6016933974910426,
+      "best_delta_pct": 5.067660861234365,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 4,
+      "candidates_tested": 76,
+      "best_name": "r2_ema_fast_20",
+      "best_score": 0.6103229145698,
+      "best_delta_pct": 1.434205047743763,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 5,
+      "candidates_tested": 62,
+      "best_name": "r2_counter_mult_0",
+      "best_score": 0.6103229145698,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 106,
+  "accepted_count": 4,
+  "elapsed_seconds": 7496.975035429001
+}

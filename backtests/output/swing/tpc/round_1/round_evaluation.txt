@@ -1,0 +1,48 @@
+======================================================================
+TPC END-OF-ROUND EVALUATION
+======================================================================
+
+Phase Progression Summary:
+  Phase 1: score 23.6668 -> 41.6133 (3 accepted)
+  Phase 2: score 41.6133 -> 59.1711 (2 accepted)
+  Phase 3: score 59.1711 -> 78.1245 (3 accepted)
+  Phase 4: score 78.1245 -> 79.9731 (2 accepted)
+
+Cumulative Mutations Applied:
+  GLD.t1_r: 1.1
+  QQQ.primary_windows_et: ((9, 35, 15, 45),)
+  QQQ.t1_r: 1.25
+  all.confirmation_combo_mode: structure_or_vwap
+  all.confirmation_required: 1
+  all.entry_order_model: structure_stop
+  all.entry_stop_limit_atr_mult: 0.08
+  all.fib_a_high: 0.7
+  all.fib_a_low: 0.33
+  all.initial_stop_source: signal
+  all.max_hold_bars_15m: 52
+  all.max_position_notional_pct: 0.3
+  all.signal_stop_buffer_atr_mult: 0.12
+  all.time_stop_min_mfe_r: 0.5
+  all.trail_after_t1_30m_bars: 4
+  all.trail_use_vwap_after_t1: True
+  all.type_a_value_hits_min: 1
+  all.type_c_enabled: True
+  all.type_c_requires_a_plus: False
+
+Signal Extraction / Alpha Capture
+No report provided.
+
+Signal Discrimination
+No report provided.
+
+Entry Mechanism
+No report provided.
+
+Trade Management
+No report provided.
+
+Exit Mechanism
+No report provided.
+
+Overall Verdict
+Validate on untouched holdout and stress passive fills before promotion.

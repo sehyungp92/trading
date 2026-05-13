@@ -1,0 +1,83 @@
+{
+  "phase": 3,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 1200.0,
+      "actual": 981.1214000000039,
+      "pct_of_target": 81.76011666666699
+    },
+    "profit_factor": {
+      "target": 2.4,
+      "actual": 2.4418280999687663,
+      "pct_of_target": 101.74283749869859
+    },
+    "max_dd_pct": {
+      "target": 0.15,
+      "actual": 0.1884544347074313,
+      "pct_of_target": 79.59483693385594
+    },
+    "calmar": {
+      "target": 45.0,
+      "actual": 52.06146523021118,
+      "pct_of_target": 115.69214495602485
+    },
+    "total_trades": {
+      "target": 220.0,
+      "actual": 179.0,
+      "pct_of_target": 81.36363636363636
+    },
+    "capture_ratio": {
+      "target": 0.6,
+      "actual": 0.5219123630034521,
+      "pct_of_target": 86.98539383390869
+    },
+    "sharpe": {
+      "target": 2.0,
+      "actual": 2.0682866625376612,
+      "pct_of_target": 103.41433312688307
+    },
+    "trades_per_month": {
+      "target": 7.0,
+      "actual": 5.469441325010195,
+      "pct_of_target": 78.13487607157423
+    },
+    "avg_r": {
+      "target": 0.4,
+      "actual": 0.41786518988872273,
+      "pct_of_target": 104.46629747218068
+    }
+  },
+  "strengths": [
+    "net_return_pct: 981.1214 (82% of 1200.0000)",
+    "profit_factor: 2.4418 (102% of 2.4000)",
+    "calmar: 52.0615 (116% of 45.0000)",
+    "total_trades: 179.0000 (81% of 220.0000)",
+    "capture_ratio: 0.5219 (87% of 0.6000)",
+    "sharpe: 2.0683 (103% of 2.0000)",
+    "avg_r: 0.4179 (104% of 0.4000)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [
+    "High stale exit rate -- trail/MFE protection needed",
+    "Many fast deaths (<=4 bars) -- entry precision issue",
+    "Elevated drawdown -- risk controls may need tightening"
+  ],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 3 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + net_return_pct: 981.1214 (82% of 1200.0000)\n  + profit_factor: 2.4418 (102% of 2.4000)\n  + calmar: 52.0615 (116% of 45.0000)\n  + total_trades: 179.0000 (81% of 220.0000)\n  + capture_ratio: 0.5219 (87% of 0.6000)\n  + sharpe: 2.0683 (103% of 2.0000)\n  + avg_r: 0.4179 (104% of 0.4000)\n\nDiagnostic Gaps:\n  ! High stale exit rate -- trail/MFE protection needed\n  ! Many fast deaths (<=4 bars) -- entry precision issue\n  ! Elevated drawdown -- risk controls may need tightening\n\nExtra Analysis:\n  Exit profile: stale=46.4%, capture=0.52, multi-session=24.6%\n  Entry quality: fast_deaths=23.5%, evening=1.7% (avgR=+0.320)\n\nGoal Progress:\n  net_return_pct: 981.1214 / 1200.0000 (82%)\n  profit_factor: 2.4418 / 2.4000 (102%)\n  max_dd_pct: 0.1885 / 0.1500 (80%)\n  calmar: 52.0615 / 45.0000 (116%)\n  total_trades: 179.0000 / 220.0000 (81%)\n  capture_ratio: 0.5219 / 0.6000 (87%)\n  sharpe: 2.0683 / 2.0000 (103%)\n  trades_per_month: 5.4694 / 7.0000 (78%)\n  avg_r: 0.4179 / 0.4000 (104%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "exit_profile": {
+      "stale_exit_pct": 0.46368715083798884,
+      "capture_ratio": 0.5219123630034521,
+      "multi_session_pct": 0.24581005586592178
+    },
+    "entry_quality": {
+      "fast_death_pct": 0.2346368715083799,
+      "evening_trade_pct": 0.01675977653631285,
+      "evening_avg_r": 0.32019363762102354
+    }
+  }
+}

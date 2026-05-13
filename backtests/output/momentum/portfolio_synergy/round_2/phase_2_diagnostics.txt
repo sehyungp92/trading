@@ -1,0 +1,11 @@
+==============================================================================
+PHASE 2 MOMENTUM PORTFOLIO DIAGNOSTICS
+==============================================================================
+Accepted candidate: frequency_rebalance
+Current score: 0.9830
+Net profit: $184,983.94
+Trades/month: 38.56
+Win rate: 66.61%
+Profit factor: 3.49
+MTM max DD: 7.07%
+Block rate: 11.04%

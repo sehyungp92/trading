@@ -1,0 +1,11 @@
+==============================================================================
+PHASE 3 MOMENTUM PORTFOLIO DIAGNOSTICS
+==============================================================================
+Accepted candidate: capacity_10_00_contracts_40_positions_8_risk_2_0
+Current score: 1.1256
+Net profit: $297,274.95
+Trades/month: 41.97
+Win rate: 65.05%
+Profit factor: 3.54
+MTM max DD: 7.07%
+Block rate: 3.18%

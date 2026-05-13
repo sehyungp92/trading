@@ -1,0 +1,15 @@
+{
+  "generated_at_utc": "2026-05-09T05:13:06.457589+00:00",
+  "strategies": [
+    "helix_swing"
+  ],
+  "data_end": "2026-05-01",
+  "max_workers": 4,
+  "max_perturbation_candidates": 48,
+  "max_targeted_candidates": 0,
+  "top_n": 30,
+  "selection_oos_note": "The OOS window is used for diagnosis/selection in this run; it is no longer an untouched holdout.",
+  "config_overrides": {
+    "helix_swing": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\round_4\\optimized_config.json"
+  }
+}

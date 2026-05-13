@@ -1,0 +1,70 @@
+{
+  "phase": 2,
+  "goal_progress": {
+    "total_r": {
+      "target": 225.0,
+      "actual": 228.69747043926296,
+      "pct_of_target": 101.64332019522797
+    },
+    "profit_factor": {
+      "target": 5.5,
+      "actual": 5.9334476849265805,
+      "pct_of_target": 107.8808669986651
+    },
+    "max_dd_pct": {
+      "target": 0.07,
+      "actual": 0.07523394073871882,
+      "pct_of_target": 93.04311234088368
+    },
+    "calmar_r": {
+      "target": 70.0,
+      "actual": 76.1182637952559,
+      "pct_of_target": 108.74037685036558
+    },
+    "total_trades": {
+      "target": 270,
+      "actual": 276.0,
+      "pct_of_target": 102.22222222222221
+    },
+    "mfe_capture": {
+      "target": 0.7,
+      "actual": 0.6786527055715562,
+      "pct_of_target": 96.95038651022232
+    },
+    "win_rate": {
+      "target": 0.82,
+      "actual": 0.8333333333333334,
+      "pct_of_target": 101.62601626016261
+    },
+    "trades_per_month": {
+      "target": 4.7,
+      "actual": 4.759573222547446,
+      "pct_of_target": 101.26751537334991
+    },
+    "net_return_pct": {
+      "target": 140.0,
+      "actual": 162.7498349999999,
+      "pct_of_target": 116.24988214285707
+    }
+  },
+  "strengths": [
+    "total_r: 228.6975 (102% of 225.0000)",
+    "profit_factor: 5.9334 (108% of 5.5000)",
+    "max_dd_pct: 0.0752 (93% of 0.0700)",
+    "calmar_r: 76.1183 (109% of 70.0000)",
+    "total_trades: 276.0000 (102% of 270.0000)",
+    "mfe_capture: 0.6787 (97% of 0.7000)",
+    "win_rate: 0.8333 (102% of 0.8200)",
+    "trades_per_month: 4.7596 (101% of 4.7000)",
+    "net_return_pct: 162.7498 (116% of 140.0000)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + total_r: 228.6975 (102% of 225.0000)\n  + profit_factor: 5.9334 (108% of 5.5000)\n  + max_dd_pct: 0.0752 (93% of 0.0700)\n  + calmar_r: 76.1183 (109% of 70.0000)\n  + total_trades: 276.0000 (102% of 270.0000)\n  + mfe_capture: 0.6787 (97% of 0.7000)\n  + win_rate: 0.8333 (102% of 0.8200)\n  + trades_per_month: 4.7596 (101% of 4.7000)\n  + net_return_pct: 162.7498 (116% of 140.0000)\n\nGoal Progress:\n  total_r: 228.6975 / 225.0000 (102%)\n  profit_factor: 5.9334 / 5.5000 (108%)\n  max_dd_pct: 0.0752 / 0.0700 (93%)\n  calmar_r: 76.1183 / 70.0000 (109%)\n  total_trades: 276.0000 / 270.0000 (102%)\n  mfe_capture: 0.6787 / 0.7000 (97%)\n  win_rate: 0.8333 / 0.8200 (102%)\n  trades_per_month: 4.7596 / 4.7000 (101%)\n  net_return_pct: 162.7498 / 140.0000 (116%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

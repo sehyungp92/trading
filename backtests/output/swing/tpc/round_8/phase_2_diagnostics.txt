@@ -1,0 +1,13 @@
+tpc round8 phase 2: net=+133.01%, avgR=+0.681, totalR=+86.47, trades=127, trades/month=2.30, $PF=2.08, never-worked=24%, low-MFE losses=33%, additive=6 trades/+0.701 avgR/+4.21R, routes=pb30 6/pb30ema 0/ema1h 0, QQQ=33, GLD share=74%, top5$=24%, worst-year=-2.25%, DD=13.68%, accepted=0
+Rejected-bar forward MFE/MAE diagnostics:
+  Cohort: base PB30 setup bars; forward window=32 completed 15m bars; entry proxy=next 15m open for market entries; no same-bar fill credit.
+  pb30_ma_fast_slope_6_000: rejected 2/105 (2%), rej MFE/MAE/terminal=+3.28/17.14/-15.16R, rej hit1R/stop=50%/100%; kept 103, kept MFE/MAE/terminal=+8.13/14.43/-3.29R; symbols=GLD:2
+  pb30_ma_fast_slope_6_002: rejected 2/105 (2%), rej MFE/MAE/terminal=+3.28/17.14/-15.16R, rej hit1R/stop=50%/100%; kept 103, kept MFE/MAE/terminal=+8.13/14.43/-3.29R; symbols=GLD:2
+  pb30_ma_fast_slope_8_002: rejected 0/105 (0%), rej MFE/MAE/terminal=+0.00/0.00/+0.00R, rej hit1R/stop=0%/0%; kept 105, kept MFE/MAE/terminal=+8.03/14.48/-3.52R; symbols=none
+  pb30_ma_stack: rejected 0/105 (0%), rej MFE/MAE/terminal=+0.00/0.00/+0.00R, rej hit1R/stop=0%/0%; kept 105, kept MFE/MAE/terminal=+8.03/14.48/-3.52R; symbols=none
+  pb30_ma_slope_stack_6_000: rejected 2/105 (2%), rej MFE/MAE/terminal=+3.28/17.14/-15.16R, rej hit1R/stop=50%/100%; kept 103, kept MFE/MAE/terminal=+8.13/14.43/-3.29R; symbols=GLD:2
+  pb30_ma_slope_stack_6_002: rejected 2/105 (2%), rej MFE/MAE/terminal=+3.28/17.14/-15.16R, rej hit1R/stop=50%/100%; kept 103, kept MFE/MAE/terminal=+8.13/14.43/-3.29R; symbols=GLD:2
+  pb30_ma_fast_slow_slope_8_000: rejected 0/105 (0%), rej MFE/MAE/terminal=+0.00/0.00/+0.00R, rej hit1R/stop=0%/0%; kept 105, kept MFE/MAE/terminal=+8.03/14.48/-3.52R; symbols=none
+  pb30_ma_transition_12: rejected 2/105 (2%), rej MFE/MAE/terminal=+3.28/17.14/-15.16R, rej hit1R/stop=50%/100%; kept 103, kept MFE/MAE/terminal=+8.13/14.43/-3.29R; symbols=GLD:2
+  pb30_ma_transition_16_002: rejected 0/105 (0%), rej MFE/MAE/terminal=+0.00/0.00/+0.00R, rej hit1R/stop=0%/0%; kept 105, kept MFE/MAE/terminal=+8.03/14.48/-3.52R; symbols=none
+  pb30_ma_transition_only_12: rejected 101/105 (96%), rej MFE/MAE/terminal=+7.79/15.03/-3.80R, rej hit1R/stop=73%/59%; kept 4, kept MFE/MAE/terminal=+14.12/0.61/+3.64R; symbols=GLD:51, QQQ:50

@@ -1,0 +1,21 @@
+--- ATRSS Phase 3 Diagnostics ---
+
+  Trades:        261
+  Win Rate:      82.0%
+  Profit Factor: 6.21
+  Total R:       +221.3
+  Max DD (pct):  3.48%
+  Max DD (R):    3.18
+  Calmar (R):    69.5
+  Sharpe:        1.67
+  MFE Capture:   0.673
+  Trades/Month:  4.5
+  Avg R:         +0.848
+
+  Phase 3 Focus (Entry & Fill):
+    [OK] Trade count: 261
+
+  Greedy result:
+    Base score:  0.7191
+    Final score: 0.7191
+    Accepted: 0 experiments

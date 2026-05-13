@@ -1,0 +1,115 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-09T11:59:37.957226+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 162,
+      "base_score": 0.651086317134383,
+      "final_score": 0.8203489997303555,
+      "kept_features": [
+        "overlay_off_dd_probe",
+        "strict_dd_recovery_throttle"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "phase_1_controlled_aggressive_seed",
+      "candidate_count": 6
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-09T12:04:58.782208+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 162,
+      "base_score": 0.8203489997303555,
+      "final_score": 0.8480069028777566,
+      "kept_features": [
+        "tpc_lower_unit_more_heat"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "phase_2_dynamic_sleeve_allocation",
+      "candidate_count": 4
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-09T12:11:04.379082+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 165,
+      "base_score": 0.8480069028777566,
+      "final_score": 0.8533748834083291,
+      "kept_features": [
+        "tpc_middle_priority_lowrisk"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "phase_3_blocked_alpha_routing",
+      "candidate_count": 6
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-09T12:18:53.179402+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 165,
+      "base_score": 0.8533748834083291,
+      "final_score": 0.8708093255901186,
+      "kept_features": [
+        "atrss_source_risk_1_8"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "phase_4_winner_loser_discrimination",
+      "candidate_count": 8
+    },
+    "5": {
+      "status": "completed",
+      "updated_at": "2026-05-09T12:22:39.121958+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "current_phase": 5,
+      "total_mutations": 165,
+      "base_score": 0.8708093255901186,
+      "final_score": 0.8708093255901186,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "phase_5_final_aggressive_refinement",
+      "candidate_count": 5
+    }
+  },
+  "last_updated": "2026-05-09T12:22:39.121958+00:00",
+  "current_phase": 5
+}

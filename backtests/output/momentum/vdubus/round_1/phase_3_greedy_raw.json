@@ -1,0 +1,38 @@
+{
+  "base_score": 0.45831149685051253,
+  "final_score": 0.46392509863402837,
+  "final_mutations": {
+    "flags.plus_1r_partial": false,
+    "param_overrides.CHOP_THRESHOLD": 40,
+    "flags.early_kill": false,
+    "param_overrides.MAX_POSITION_BARS_15M": 64,
+    "flags.vwap_fail_evening": true
+  },
+  "kept_features": [
+    "enable_vwap_fail_evening"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 18,
+      "best_name": "enable_vwap_fail_evening",
+      "best_score": 0.46392509863402837,
+      "best_delta_pct": 1.2248441992165036,
+      "kept": true,
+      "rejected_count": 3
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 13,
+      "best_name": "max_longs_3",
+      "best_score": 0.46392509863402837,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 18,
+  "accepted_count": 1,
+  "elapsed_seconds": 440.25771832466125
+}

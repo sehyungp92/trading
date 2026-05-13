@@ -1,0 +1,59 @@
+{
+  "phase": 1,
+  "goal_progress": {
+    "module_structural_expansion_trades": {
+      "target": 60.0,
+      "actual": 29.0,
+      "pct_of_target": 48.333333333333336
+    },
+    "module_structural_expansion_total_r": {
+      "target": 8.0,
+      "actual": -0.867061563032122,
+      "pct_of_target": -10.838269537901525
+    },
+    "module_structural_expansion_avg_r": {
+      "target": 0.1,
+      "actual": -0.029898674587314534,
+      "pct_of_target": -29.898674587314535
+    },
+    "module_structural_expansion_profit_factor": {
+      "target": 1.35,
+      "actual": 1.1179942693409741,
+      "pct_of_target": 82.81439032155363
+    },
+    "module_structural_expansion_mfe_capture": {
+      "target": 0.55,
+      "actual": 0.8111207799357063,
+      "pct_of_target": 147.47650544285568
+    },
+    "routing_structural_expansion_selected": {
+      "target": 220.0,
+      "actual": 449.0,
+      "pct_of_target": 200.0
+    },
+    "max_drawdown_pct": {
+      "target": 0.12,
+      "actual": 0.01621253677524593,
+      "pct_of_target": 200.0
+    }
+  },
+  "strengths": [
+    "module_structural_expansion_profit_factor: 1.1180 (83% of 1.3500)",
+    "module_structural_expansion_mfe_capture: 0.8111 (147% of 0.5500)",
+    "routing_structural_expansion_selected: 449.0000 (200% of 220.0000)",
+    "max_drawdown_pct: 0.0162 (200% of 0.1200)"
+  ],
+  "weaknesses": [
+    "module_structural_expansion_trades: 29.0000 (48% of 60.0000)",
+    "module_structural_expansion_total_r: -0.8671 (-11% of 8.0000)",
+    "module_structural_expansion_avg_r: -0.0299 (-30% of 0.1000)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + module_structural_expansion_profit_factor: 1.1180 (83% of 1.3500)\n  + module_structural_expansion_mfe_capture: 0.8111 (147% of 0.5500)\n  + routing_structural_expansion_selected: 449.0000 (200% of 220.0000)\n  + max_drawdown_pct: 0.0162 (200% of 0.1200)\n\nWeaknesses:\n  - module_structural_expansion_trades: 29.0000 (48% of 60.0000)\n  - module_structural_expansion_total_r: -0.8671 (-11% of 8.0000)\n  - module_structural_expansion_avg_r: -0.0299 (-30% of 0.1000)\n\nGoal Progress:\n  module_structural_expansion_trades: 29.0000 / 60.0000 (48%)\n  module_structural_expansion_total_r: -0.8671 / 8.0000 (-11%)\n  module_structural_expansion_avg_r: -0.0299 / 0.1000 (-30%)\n  module_structural_expansion_profit_factor: 1.1180 / 1.3500 (83%)\n  module_structural_expansion_mfe_capture: 0.8111 / 0.5500 (147%)\n  routing_structural_expansion_selected: 449.0000 / 220.0000 (200%)\n  max_drawdown_pct: 0.0162 / 0.1200 (200%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

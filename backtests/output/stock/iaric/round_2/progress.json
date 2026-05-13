@@ -1,0 +1,121 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-02T19:45:12.126324+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 48,
+      "base_score": 0.30983683932847805,
+      "final_score": 0.3600578763264194,
+      "kept_features": [
+        "signal_floor_72_gap_max_1",
+        "gap_max_2",
+        "gap_min_neg8",
+        "secular_size_050"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Signal Alpha Recovery and Rejection",
+      "candidate_count": 17
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-02T20:00:10.850556+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 48,
+      "base_score": 0.3600578763264194,
+      "final_score": 0.3638125762232363,
+      "kept_features": [
+        "vwap_bounce_off"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Entry Route Quality and Timing",
+      "candidate_count": 15
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-02T20:19:59.171901+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 49,
+      "base_score": 0.3638125762232363,
+      "final_score": 0.3854387815701016,
+      "kept_features": [
+        "sector_cap_4",
+        "tier_b_size_060"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Capacity and Frequency Expansion",
+      "candidate_count": 14
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-02T21:16:02.612403+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 50,
+      "base_score": 0.3854387815701016,
+      "final_score": 0.6331296620443911,
+      "kept_features": [
+        "partial_remainder_070",
+        "partial_profit_020",
+        "stale_bars_4_mfe_008",
+        "ema_min_008"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Carry, Management, and Exit Capture",
+      "candidate_count": 21
+    },
+    "5": {
+      "status": "completed",
+      "updated_at": "2026-05-02T21:22:05.733285+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "current_phase": 5,
+      "total_mutations": 50,
+      "base_score": 0.6331296620443911,
+      "final_score": 0.6331296620443911,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Robust Interaction Bundles",
+      "candidate_count": 10
+    }
+  },
+  "last_updated": "2026-05-02T21:22:05.742470+00:00",
+  "current_phase": 5
+}

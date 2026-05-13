@@ -1,0 +1,83 @@
+{
+  "phase": 3,
+  "goal_progress": {
+    "correction_pnl_pct": {
+      "target": 60.0,
+      "actual": 133.9948,
+      "pct_of_target": 200.0
+    },
+    "profit_factor": {
+      "target": 2.0,
+      "actual": 3.1399173568292293,
+      "pct_of_target": 156.99586784146146
+    },
+    "net_return_pct": {
+      "target": 50.0,
+      "actual": 145.6248,
+      "pct_of_target": 200.0
+    },
+    "max_dd_pct": {
+      "target": 20.0,
+      "actual": 0.07328236072937497,
+      "pct_of_target": 200.0
+    },
+    "calmar": {
+      "target": 2.0,
+      "actual": 7.407808305713719,
+      "pct_of_target": 200.0
+    },
+    "exit_efficiency": {
+      "target": 0.35,
+      "actual": 0.7304169694620349,
+      "pct_of_target": 200.0
+    },
+    "total_trades": {
+      "target": 60.0,
+      "actual": 127.0,
+      "pct_of_target": 200.0
+    },
+    "correction_coverage": {
+      "target": 0.75,
+      "actual": 0.5714285714285714,
+      "pct_of_target": 76.19047619047619
+    },
+    "correction_capture_ratio": {
+      "target": 0.25,
+      "actual": 0.3223683744449104,
+      "pct_of_target": 128.94734977796415
+    }
+  },
+  "strengths": [
+    "correction_pnl_pct: 133.9948 (200% of 60.0000)",
+    "profit_factor: 3.1399 (157% of 2.0000)",
+    "net_return_pct: 145.6248 (200% of 50.0000)",
+    "max_dd_pct: 0.0733 (200% of 20.0000)",
+    "calmar: 7.4078 (200% of 2.0000)",
+    "exit_efficiency: 0.7304 (200% of 0.3500)",
+    "total_trades: 127.0000 (200% of 60.0000)",
+    "correction_capture_ratio: 0.3224 (129% of 0.2500)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [
+    "Reversal engine dead (0 trades) \u2014 pivot detection or gate configuration issue",
+    "TP2/TP3 never hit \u2014 exit schedule may be unreachable"
+  ],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 3 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + correction_pnl_pct: 133.9948 (200% of 60.0000)\n  + profit_factor: 3.1399 (157% of 2.0000)\n  + net_return_pct: 145.6248 (200% of 50.0000)\n  + max_dd_pct: 0.0733 (200% of 20.0000)\n  + calmar: 7.4078 (200% of 2.0000)\n  + exit_efficiency: 0.7304 (200% of 0.3500)\n  + total_trades: 127.0000 (200% of 60.0000)\n  + correction_capture_ratio: 0.3224 (129% of 0.2500)\n\nDiagnostic Gaps:\n  ! Reversal engine dead (0 trades) \u2014 pivot detection or gate configuration issue\n  ! TP2/TP3 never hit \u2014 exit schedule may be unreachable\n\nExtra Analysis:\n  Engine health: reversal=insufficient_data, breakdown=insufficient_data, fade=healthy\n  Correction attribution: corr_pnl=13399, non_corr_pnl=1163, ratio=0.92\n\nGoal Progress:\n  correction_pnl_pct: 133.9948 / 60.0000 (200%)\n  profit_factor: 3.1399 / 2.0000 (157%)\n  net_return_pct: 145.6248 / 50.0000 (200%)\n  max_dd_pct: 0.0733 / 20.0000 (200%)\n  calmar: 7.4078 / 2.0000 (200%)\n  exit_efficiency: 0.7304 / 0.3500 (200%)\n  total_trades: 127.0000 / 60.0000 (200%)\n  correction_coverage: 0.5714 / 0.7500 (76%)\n  correction_capture_ratio: 0.3224 / 0.2500 (129%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "engine_health": {
+      "reversal": "insufficient_data",
+      "breakdown": "insufficient_data",
+      "fade": "healthy"
+    },
+    "correction_attribution": {
+      "correction_pnl": 13399.48,
+      "non_correction_pnl": 1162.9999999999998,
+      "ratio": 0.9201372293730189
+    }
+  }
+}

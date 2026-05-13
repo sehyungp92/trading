@@ -1,0 +1,45 @@
+============================================================
+Crisis Detection Phase 4 Diagnostics
+============================================================
+
+--- D1: Detection Performance ---
+Crises detected: 7/7
+Avg latency:     18.0 days
+Max latency:     34.0 days
+Action latency:  10.7 days avg
+Advisory latency:6.7 days avg
+GFC latency:     14 days
+COVID latency:   10 days
+
+--- D2: False Positive Rates ---
+WARNING FP rate: 3.00%
+CRISIS FP rate:  0.69%
+Advisory FP rate:31.54%
+Pre-action FP:   8.47%
+Avg peak level:  3.00
+
+--- D3: Alert Level Distribution ---
+NORMAL:          0.2%
+WATCH:           92.9%
+WARNING:         3.5%
+CRISIS:          3.4%
+Advisory WATCH:  29.8%
+Pre-action WATCH:6.8%
+Elevated total:  6.9% (target ~7%)
+
+--- D4: Stability ---
+Total transitions:   200
+Transitions/year:    8.8
+
+--- D5: Greedy Result ---
+Base score:      0.8427
+Final score:     0.8467
+Accepted:        2
+Total candidates:91
+Kept features:   finetune_vix_warning_p04, finetune_spy_dd_warning_m04
+
+--- D6: Recovery Speed ---
+Avg post-crisis elevated days: 5.1 [MODERATE]
+Max post-crisis elevated days: 29.0
+
+============================================================

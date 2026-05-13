@@ -1,0 +1,14 @@
+{
+  "family": "regime",
+  "strategy": "crisis",
+  "strategy_name": "crisis",
+  "round": 2,
+  "description": "Round 2",
+  "generated_at_utc": "2026-05-05T20:29:32.523227+00:00",
+  "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\regime\\crisis\\round_1\\optimized_config.json",
+  "baseline_mutation_count": 1,
+  "baseline_mutations": {
+    "VIX_CRISIS": 33.0
+  },
+  "scoring_weights": {}
+}

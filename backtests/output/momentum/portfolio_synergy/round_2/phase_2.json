@@ -1,0 +1,848 @@
+{
+  "accepted": true,
+  "accepted_candidate": "frequency_rebalance",
+  "current_score": 0.9830396277198608,
+  "evaluations": [
+    {
+      "components": {
+        "drawdown_control": 1.0,
+        "expected_return": 0.8408360885407818,
+        "live_rule_health": 0.43407797193539843,
+        "profit_quality": 1.2,
+        "risk_efficiency": 1.25,
+        "strategy_balance": 1.0,
+        "trade_frequency": 0.9640837104072398
+      },
+      "config": {
+        "commission_per_side": 0.62,
+        "dynamic_risk": {
+          "daily_loss_mult": 1.0,
+          "daily_loss_threshold_R": -999.0,
+          "enabled": true,
+          "existing_position_mult": 0.9,
+          "fit_to_remaining_directional_cap": true,
+          "fit_to_remaining_family_cap": true,
+          "fit_to_remaining_heat": true,
+          "heat_pressure_mult": 0.65,
+          "heat_pressure_threshold": 0.7,
+          "max_trade_risk_R": 1.5,
+          "min_qty": 1,
+          "min_trade_risk_R": 0.0,
+          "same_direction_pressure_mult": 0.75,
+          "same_direction_pressure_threshold": 0.7,
+          "strategy_multipliers": [
+            [
+              "NQ_REGIME",
+              0.65
+            ],
+            [
+              "VdubusNQ_v4",
+              0.85
+            ],
+            [
+              "NQDTC_v2.1",
+              0.95
+            ],
+            [
+              "DownturnDominator_v1",
+              0.95
+            ]
+          ]
+        },
+        "end_date": null,
+        "heat_cap_R": 6.25,
+        "initial_equity": 50000.0,
+        "max_total_positions": 5,
+        "point_value": 2.0,
+        "portfolio_daily_stop_R": 2.75,
+        "portfolio_weekly_stop_R": 9.0,
+        "reference_unit_risk_dollars": 250.0,
+        "rules": {
+          "cooldown_session_only": true,
+          "dd_tiers": [
+            [
+              0.1,
+              1.0
+            ],
+            [
+              0.15,
+              0.6
+            ],
+            [
+              0.2,
+              0.3
+            ],
+            [
+              1.0,
+              0.0
+            ]
+          ],
+          "directional_cap_R": 4.25,
+          "directional_cap_long_R": 4.25,
+          "directional_cap_short_R": 4.75,
+          "disabled_strategies": [],
+          "dynamic_allocation_enabled": false,
+          "dynamic_lookback_trades": 60,
+          "dynamic_max_mult": 1.22,
+          "dynamic_min_mult": 0.65,
+          "dynamic_negative_expectancy_cut": 0.18,
+          "dynamic_positive_expectancy_boost": 0.1,
+          "family_strategy_ids": [
+            "NQ_REGIME",
+            "VdubusNQ_v4",
+            "NQDTC_v2.1",
+            "DownturnDominator_v1"
+          ],
+          "initial_equity": 50000.0,
+          "max_family_contracts_mnq_eq": 22,
+          "max_single_strategy_trade_share": 1.0,
+          "max_symbol_heat_R": 0.0,
+          "max_total_active_positions": 0,
+          "nqdtc_agree_size_mult": 1.25,
+          "nqdtc_direction_filter_enabled": false,
+          "nqdtc_oppose_size_mult": 0.5,
+          "nqdtc_strategy_id": "NQDTC_v2.1",
+          "priority_headroom_R": 1.0,
+          "priority_reserve_threshold": 1,
+          "reference_unit_risk_dollars": 250.0,
+          "regime_unit_risk_long_mult": 1.0,
+          "regime_unit_risk_mult": 1.0,
+          "regime_unit_risk_short_mult": 1.0,
+          "same_sector_heat_cap_R": 0.0,
+          "strategy_priorities": [
+            [
+              "VdubusNQ_v4",
+              0
+            ],
+            [
+              "NQ_REGIME",
+              0
+            ],
+            [
+              "NQDTC_v2.1",
+              1
+            ],
+            [
+              "DownturnDominator_v1",
+              1
+            ]
+          ],
+          "strategy_trade_share_min_total": 50,
+          "symbol_collision_action": "none",
+          "symbol_collision_pairs": [],
+          "symbol_sector_map": [],
+          "vdubus_strategy_id": "VdubusNQ_v4"
+        },
+        "signal_filter_rules": [],
+        "start_date": null,
+        "strategy_allocations": [
+          {
+            "base_risk_pct": 0.006,
+            "daily_stop_R": 3.0,
+            "enabled": true,
+            "max_concurrent": 2,
+            "max_contracts": 0,
+            "priority": 0,
+            "strategy_id": "NQ_REGIME"
+          },
+          {
+            "base_risk_pct": 0.0065,
+            "daily_stop_R": 2.5,
+            "enabled": true,
+            "max_concurrent": 1,
+            "max_contracts": 0,
+            "priority": 0,
+            "strategy_id": "VdubusNQ_v4"
+          },
+          {
+            "base_risk_pct": 0.0045,
+            "daily_stop_R": 2.5,
+            "enabled": true,
+            "max_concurrent": 1,
+            "max_contracts": 0,
+            "priority": 1,
+            "strategy_id": "NQDTC_v2.1"
+          },
+          {
+            "base_risk_pct": 0.004,
+            "daily_stop_R": 2.0,
+            "enabled": true,
+            "max_concurrent": 1,
+            "max_contracts": 0,
+            "priority": 1,
+            "strategy_id": "DownturnDominator_v1"
+          }
+        ]
+      },
+      "description": "Prioritize accepted count and strategy breadth over large single tickets",
+      "metrics": {
+        "active_strategies": 4.0,
+        "block_rate": 0.11040508339952343,
+        "blocked_trades": 139.0,
+        "cagr": 0.8971049207548645,
+        "calmar": 12.662762271119952,
+        "calmar_mtm": 12.662762271119952,
+        "calmar_r": 61.22336204317534,
+        "calmar_realized": 53.45666737639079,
+        "final_equity": 234983.939478972,
+        "max_concurrent": 3.0,
+        "max_drawdown_pct": 0.07068225044042235,
+        "max_drawdown_pct_mtm": 0.07068225044042235,
+        "max_drawdown_pct_realized": 0.016781908876554324,
+        "max_drawdown_r": 12.085839999999962,
+        "min_strategy_trades": 100.0,
+        "net_profit": 184983.939478972,
+        "net_return_pct": 3.6996787895794396,
+        "net_return_pct_realized": 3.7103523895794925,
+        "profit_factor": 3.488378123709926,
+        "risk_basis": "bar_close_mark_to_market",
+        "sharpe": 5.5193682653386364,
+        "sortino": 10.319068902494013,
+        "total_r": 739.935757915888,
+        "total_r_per_month": 25.477143248376514,
+        "total_trades": 1120.0,
+        "trades_per_month": 38.56334841628959,
+        "win_rate": 0.6660714285714285
+      },
+      "name": "frequency_rebalance",
+      "reject_reason": "",
+      "rejected": false,
+      "score": 0.9830396277198608,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ]
+    },
+    {
+      "components": {
+        "drawdown_control": 0.977172778242991,
+        "expected_return": 0.8525772139154072,
+        "live_rule_health": 0.4306360868414085,
+        "profit_quality": 1.2,
+        "risk_efficiency": 1.25,
+        "strategy_balance": 1.0,
+        "trade_frequency": 0.9632229213800905
+      },
+      "config": {
+        "commission_per_side": 0.62,
+        "dynamic_risk": {
+          "daily_loss_mult": 1.0,
+          "daily_loss_threshold_R": -999.0,
+          "enabled": true,
+          "existing_position_mult": 0.9,
+          "fit_to_remaining_directional_cap": true,
+          "fit_to_remaining_family_cap": true,
+          "fit_to_remaining_heat": true,
+          "heat_pressure_mult": 0.65,
+          "heat_pressure_threshold": 0.7,
+          "max_trade_risk_R": 1.5,
+          "min_qty": 1,
+          "min_trade_risk_R": 0.0,
+          "same_direction_pressure_mult": 0.75,
+          "same_direction_pressure_threshold": 0.7,
+          "strategy_multipliers": [
+            [
+              "NQ_REGIME",
+              0.9
+            ],
+            [
+              "VdubusNQ_v4",
+              1.0
+            ],
+            [
+              "NQDTC_v2.1",
+              1.0
+            ],
+            [
+              "DownturnDominator_v1",
+              1.0
+            ]
+          ]
+        },
+        "end_date": null,
+        "heat_cap_R": 6.25,
+        "initial_equity": 50000.0,
+        "max_total_positions": 5,
+        "point_value": 2.0,
+        "portfolio_daily_stop_R": 2.75,
+        "portfolio_weekly_stop_R": 9.0,
+        "reference_unit_risk_dollars": 250.0,
+        "rules": {
+          "cooldown_session_only": true,
+          "dd_tiers": [
+            [
+              0.1,
+              1.0
+            ],
+            [
+              0.15,
+              0.6
+            ],
+            [
+              0.2,
+              0.3
+            ],
+            [
+              1.0,
+              0.0
+            ]
+          ],
+          "directional_cap_R": 4.25,
+          "directional_cap_long_R": 4.25,
+          "directional_cap_short_R": 4.75,
+          "disabled_strategies": [],
+          "dynamic_allocation_enabled": false,
+          "dynamic_lookback_trades": 60,
+          "dynamic_max_mult": 1.22,
+          "dynamic_min_mult": 0.65,
+          "dynamic_negative_expectancy_cut": 0.18,
+          "dynamic_positive_expectancy_boost": 0.1,
+          "family_strategy_ids": [
+            "NQ_REGIME",
+            "VdubusNQ_v4",
+            "NQDTC_v2.1",
+            "DownturnDominator_v1"
+          ],
+          "initial_equity": 50000.0,
+          "max_family_contracts_mnq_eq": 22,
+          "max_single_strategy_trade_share": 1.0,
+          "max_symbol_heat_R": 0.0,
+          "max_total_active_positions": 0,
+          "nqdtc_agree_size_mult": 1.25,
+          "nqdtc_direction_filter_enabled": false,
+          "nqdtc_oppose_size_mult": 0.5,
+          "nqdtc_strategy_id": "NQDTC_v2.1",
+          "priority_headroom_R": 1.0,
+          "priority_reserve_threshold": 1,
+          "reference_unit_risk_dollars": 250.0,
+          "regime_unit_risk_long_mult": 1.0,
+          "regime_unit_risk_mult": 1.0,
+          "regime_unit_risk_short_mult": 1.0,
+          "same_sector_heat_cap_R": 0.0,
+          "strategy_priorities": [
+            [
+              "VdubusNQ_v4",
+              0
+            ],
+            [
+              "NQ_REGIME",
+              0
+            ],
+            [
+              "NQDTC_v2.1",
+              1
+            ],
+            [
+              "DownturnDominator_v1",
+              1
+            ]
+          ],
+          "strategy_trade_share_min_total": 50,
+          "symbol_collision_action": "none",
+          "symbol_collision_pairs": [],
+          "symbol_sector_map": [],
+          "vdubus_strategy_id": "VdubusNQ_v4"
+        },
+        "signal_filter_rules": [],
+        "start_date": null,
+        "strategy_allocations": [
+          {
+            "base_risk_pct": 0.006,
+            "daily_stop_R": 3.0,
+            "enabled": true,
+            "max_concurrent": 2,
+            "max_contracts": 0,
+            "priority": 0,
+            "strategy_id": "NQ_REGIME"
+          },
+          {
+            "base_risk_pct": 0.0065,
+            "daily_stop_R": 2.5,
+            "enabled": true,
+            "max_concurrent": 1,
+            "max_contracts": 0,
+            "priority": 0,
+            "strategy_id": "VdubusNQ_v4"
+          },
+          {
+            "base_risk_pct": 0.0045,
+            "daily_stop_R": 2.5,
+            "enabled": true,
+            "max_concurrent": 1,
+            "max_contracts": 0,
+            "priority": 1,
+            "strategy_id": "NQDTC_v2.1"
+          },
+          {
+            "base_risk_pct": 0.004,
+            "daily_stop_R": 2.0,
+            "enabled": true,
+            "max_concurrent": 1,
+            "max_contracts": 0,
+            "priority": 1,
+            "strategy_id": "DownturnDominator_v1"
+          }
+        ]
+      },
+      "description": "Recover blocked NQ edge through smaller but still meaningful entries",
+      "metrics": {
+        "active_strategies": 4.0,
+        "block_rate": 0.11119936457505956,
+        "blocked_trades": 140.0,
+        "cagr": 0.9056742450906266,
+        "calmar": 10.921172250049933,
+        "calmar_mtm": 10.921172250049933,
+        "calmar_r": 62.07826251593275,
+        "calmar_realized": 50.2273177520023,
+        "final_equity": 237566.98706138958,
+        "max_concurrent": 3.0,
+        "max_drawdown_pct": 0.08273926661084108,
+        "max_drawdown_pct_mtm": 0.08273926661084108,
+        "max_drawdown_pct_realized": 0.018031507267865645,
+        "max_drawdown_r": 12.085839999999962,
+        "min_strategy_trades": 100.0,
+        "net_profit": 187566.98706138958,
+        "net_return_pct": 3.751339741227792,
+        "net_return_pct_realized": 3.7620133412278447,
+        "profit_factor": 3.464106352803764,
+        "risk_basis": "bar_close_mark_to_market",
+        "sharpe": 5.470120211022171,
+        "sortino": 9.818482143781818,
+        "total_r": 750.2679482455583,
+        "total_r_per_month": 25.832896690864455,
+        "total_trades": 1119.0,
+        "trades_per_month": 38.52891685520362,
+        "win_rate": 0.6666666666666666
+      },
+      "name": "blocked_alpha_recovery",
+      "reject_reason": "",
+      "rejected": false,
+      "score": 0.9814215616139228,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ]
+    },
+    {
+      "components": {
+        "drawdown_control": 0.977172778242991,
+        "expected_return": 0.8507106217436899,
+        "live_rule_health": 0.4271942017474185,
+        "profit_quality": 1.2,
+        "risk_efficiency": 1.25,
+        "strategy_balance": 1.0,
+        "trade_frequency": 0.9623621323529411
+      },
+      "config": {
+        "commission_per_side": 0.62,
+        "dynamic_risk": {
+          "daily_loss_mult": 1.0,
+          "daily_loss_threshold_R": -999.0,
+          "enabled": true,
+          "existing_position_mult": 0.9,
+          "fit_to_remaining_directional_cap": true,
+          "fit_to_remaining_family_cap": true,
+          "fit_to_remaining_heat": true,
+          "heat_pressure_mult": 0.65,
+          "heat_pressure_threshold": 0.7,
+          "max_trade_risk_R": 1.5,
+          "min_qty": 1,
+          "min_trade_risk_R": 0.0,
+          "same_direction_pressure_mult": 0.75,
+          "same_direction_pressure_threshold": 0.7,
+          "strategy_multipliers": [
+            [
+              "NQ_REGIME",
+              0.8
+            ],
+            [
+              "VdubusNQ_v4",
+              1.1
+            ],
+            [
+              "NQDTC_v2.1",
+              1.1
+            ],
+            [
+              "DownturnDominator_v1",
+              1.0
+            ]
+          ]
+        },
+        "end_date": null,
+        "heat_cap_R": 6.25,
+        "initial_equity": 50000.0,
+        "max_total_positions": 5,
+        "point_value": 2.0,
+        "portfolio_daily_stop_R": 2.75,
+        "portfolio_weekly_stop_R": 9.0,
+        "reference_unit_risk_dollars": 250.0,
+        "rules": {
+          "cooldown_session_only": true,
+          "dd_tiers": [
+            [
+              0.1,
+              1.0
+            ],
+            [
+              0.15,
+              0.6
+            ],
+            [
+              0.2,
+              0.3
+            ],
+            [
+              1.0,
+              0.0
+            ]
+          ],
+          "directional_cap_R": 4.25,
+          "directional_cap_long_R": 4.25,
+          "directional_cap_short_R": 4.75,
+          "disabled_strategies": [],
+          "dynamic_allocation_enabled": false,
+          "dynamic_lookback_trades": 60,
+          "dynamic_max_mult": 1.22,
+          "dynamic_min_mult": 0.65,
+          "dynamic_negative_expectancy_cut": 0.18,
+          "dynamic_positive_expectancy_boost": 0.1,
+          "family_strategy_ids": [
+            "NQ_REGIME",
+            "VdubusNQ_v4",
+            "NQDTC_v2.1",
+            "DownturnDominator_v1"
+          ],
+          "initial_equity": 50000.0,
+          "max_family_contracts_mnq_eq": 22,
+          "max_single_strategy_trade_share": 1.0,
+          "max_symbol_heat_R": 0.0,
+          "max_total_active_positions": 0,
+          "nqdtc_agree_size_mult": 1.25,
+          "nqdtc_direction_filter_enabled": false,
+          "nqdtc_oppose_size_mult": 0.5,
+          "nqdtc_strategy_id": "NQDTC_v2.1",
+          "priority_headroom_R": 1.0,
+          "priority_reserve_threshold": 1,
+          "reference_unit_risk_dollars": 250.0,
+          "regime_unit_risk_long_mult": 1.0,
+          "regime_unit_risk_mult": 1.0,
+          "regime_unit_risk_short_mult": 1.0,
+          "same_sector_heat_cap_R": 0.0,
+          "strategy_priorities": [
+            [
+              "VdubusNQ_v4",
+              0
+            ],
+            [
+              "NQ_REGIME",
+              0
+            ],
+            [
+              "NQDTC_v2.1",
+              1
+            ],
+            [
+              "DownturnDominator_v1",
+              1
+            ]
+          ],
+          "strategy_trade_share_min_total": 50,
+          "symbol_collision_action": "none",
+          "symbol_collision_pairs": [],
+          "symbol_sector_map": [],
+          "vdubus_strategy_id": "VdubusNQ_v4"
+        },
+        "signal_filter_rules": [],
+        "start_date": null,
+        "strategy_allocations": [
+          {
+            "base_risk_pct": 0.006,
+            "daily_stop_R": 3.0,
+            "enabled": true,
+            "max_concurrent": 2,
+            "max_contracts": 0,
+            "priority": 0,
+            "strategy_id": "NQ_REGIME"
+          },
+          {
+            "base_risk_pct": 0.0065,
+            "daily_stop_R": 2.5,
+            "enabled": true,
+            "max_concurrent": 1,
+            "max_contracts": 0,
+            "priority": 0,
+            "strategy_id": "VdubusNQ_v4"
+          },
+          {
+            "base_risk_pct": 0.0045,
+            "daily_stop_R": 2.5,
+            "enabled": true,
+            "max_concurrent": 1,
+            "max_contracts": 0,
+            "priority": 1,
+            "strategy_id": "NQDTC_v2.1"
+          },
+          {
+            "base_risk_pct": 0.004,
+            "daily_stop_R": 2.0,
+            "enabled": true,
+            "max_concurrent": 1,
+            "max_contracts": 0,
+            "priority": 1,
+            "strategy_id": "DownturnDominator_v1"
+          }
+        ]
+      },
+      "description": "Lean into accepted-edge strategies and temper chronic cap pressure",
+      "metrics": {
+        "active_strategies": 4.0,
+        "block_rate": 0.11199364575059571,
+        "blocked_trades": 141.0,
+        "cagr": 0.9043155623779127,
+        "calmar": 10.904735916313937,
+        "calmar_mtm": 10.904735916313937,
+        "calmar_r": 61.94235130817962,
+        "calmar_realized": 49.3419526381104,
+        "final_equity": 237156.3367836118,
+        "max_concurrent": 3.0,
+        "max_drawdown_pct": 0.08273926661084108,
+        "max_drawdown_pct_mtm": 0.08273926661084108,
+        "max_drawdown_pct_realized": 0.01832751875489102,
+        "max_drawdown_r": 12.085839999999962,
+        "min_strategy_trades": 100.0,
+        "net_profit": 187156.3367836118,
+        "net_return_pct": 3.743126735672236,
+        "net_return_pct_realized": 3.753800335672288,
+        "profit_factor": 3.4692601281572117,
+        "risk_basis": "bar_close_mark_to_market",
+        "sharpe": 5.444059949123842,
+        "sortino": 9.705108304628489,
+        "total_r": 748.6253471344472,
+        "total_r_per_month": 25.77633937036735,
+        "total_trades": 1118.0,
+        "trades_per_month": 38.494485294117645,
+        "win_rate": 0.6663685152057245
+      },
+      "name": "edge_balance_multipliers",
+      "reject_reason": "",
+      "rejected": false,
+      "score": 0.9806465432131243,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ]
+    },
+    {
+      "components": {
+        "drawdown_control": 0.8808519521808134,
+        "expected_return": 0.8722886587703491,
+        "live_rule_health": 0.3480308445856499,
+        "profit_quality": 1.1616035042146882,
+        "risk_efficiency": 1.2167406124634619,
+        "strategy_balance": 1.0,
+        "trade_frequency": 0.9425639847285068
+      },
+      "config": {
+        "commission_per_side": 0.62,
+        "dynamic_risk": {
+          "daily_loss_mult": 1.0,
+          "daily_loss_threshold_R": -999.0,
+          "enabled": true,
+          "existing_position_mult": 0.9,
+          "fit_to_remaining_directional_cap": true,
+          "fit_to_remaining_family_cap": true,
+          "fit_to_remaining_heat": true,
+          "heat_pressure_mult": 0.65,
+          "heat_pressure_threshold": 0.7,
+          "max_trade_risk_R": 2.75,
+          "min_qty": 1,
+          "min_trade_risk_R": 0.0,
+          "same_direction_pressure_mult": 0.75,
+          "same_direction_pressure_threshold": 0.7,
+          "strategy_multipliers": [
+            [
+              "NQ_REGIME",
+              1.05
+            ],
+            [
+              "VdubusNQ_v4",
+              1.1
+            ],
+            [
+              "NQDTC_v2.1",
+              1.05
+            ],
+            [
+              "DownturnDominator_v1",
+              1.0
+            ]
+          ]
+        },
+        "end_date": null,
+        "heat_cap_R": 6.25,
+        "initial_equity": 50000.0,
+        "max_total_positions": 5,
+        "point_value": 2.0,
+        "portfolio_daily_stop_R": 2.75,
+        "portfolio_weekly_stop_R": 9.0,
+        "reference_unit_risk_dollars": 250.0,
+        "rules": {
+          "cooldown_session_only": true,
+          "dd_tiers": [
+            [
+              0.1,
+              1.0
+            ],
+            [
+              0.15,
+              0.6
+            ],
+            [
+              0.2,
+              0.3
+            ],
+            [
+              1.0,
+              0.0
+            ]
+          ],
+          "directional_cap_R": 4.25,
+          "directional_cap_long_R": 4.25,
+          "directional_cap_short_R": 4.75,
+          "disabled_strategies": [],
+          "dynamic_allocation_enabled": false,
+          "dynamic_lookback_trades": 60,
+          "dynamic_max_mult": 1.22,
+          "dynamic_min_mult": 0.65,
+          "dynamic_negative_expectancy_cut": 0.18,
+          "dynamic_positive_expectancy_boost": 0.1,
+          "family_strategy_ids": [
+            "NQ_REGIME",
+            "VdubusNQ_v4",
+            "NQDTC_v2.1",
+            "DownturnDominator_v1"
+          ],
+          "initial_equity": 50000.0,
+          "max_family_contracts_mnq_eq": 22,
+          "max_single_strategy_trade_share": 1.0,
+          "max_symbol_heat_R": 0.0,
+          "max_total_active_positions": 0,
+          "nqdtc_agree_size_mult": 1.25,
+          "nqdtc_direction_filter_enabled": false,
+          "nqdtc_oppose_size_mult": 0.5,
+          "nqdtc_strategy_id": "NQDTC_v2.1",
+          "priority_headroom_R": 1.0,
+          "priority_reserve_threshold": 1,
+          "reference_unit_risk_dollars": 250.0,
+          "regime_unit_risk_long_mult": 1.0,
+          "regime_unit_risk_mult": 1.0,
+          "regime_unit_risk_short_mult": 1.0,
+          "same_sector_heat_cap_R": 0.0,
+          "strategy_priorities": [
+            [
+              "VdubusNQ_v4",
+              0
+            ],
+            [
+              "NQ_REGIME",
+              0
+            ],
+            [
+              "NQDTC_v2.1",
+              1
+            ],
+            [
+              "DownturnDominator_v1",
+              1
+            ]
+          ],
+          "strategy_trade_share_min_total": 50,
+          "symbol_collision_action": "none",
+          "symbol_collision_pairs": [],
+          "symbol_sector_map": [],
+          "vdubus_strategy_id": "VdubusNQ_v4"
+        },
+        "signal_filter_rules": [],
+        "start_date": null,
+        "strategy_allocations": [
+          {
+            "base_risk_pct": 0.006,
+            "daily_stop_R": 3.0,
+            "enabled": true,
+            "max_concurrent": 2,
+            "max_contracts": 0,
+            "priority": 0,
+            "strategy_id": "NQ_REGIME"
+          },
+          {
+            "base_risk_pct": 0.0065,
+            "daily_stop_R": 2.5,
+            "enabled": true,
+            "max_concurrent": 1,
+            "max_contracts": 0,
+            "priority": 0,
+            "strategy_id": "VdubusNQ_v4"
+          },
+          {
+            "base_risk_pct": 0.0045,
+            "daily_stop_R": 2.5,
+            "enabled": true,
+            "max_concurrent": 1,
+            "max_contracts": 0,
+            "priority": 1,
+            "strategy_id": "NQDTC_v2.1"
+          },
+          {
+            "base_risk_pct": 0.004,
+            "daily_stop_R": 2.0,
+            "enabled": true,
+            "max_concurrent": 1,
+            "max_contracts": 0,
+            "priority": 1,
+            "strategy_id": "DownturnDominator_v1"
+          }
+        ]
+      },
+      "description": "Aggressive but cap-fitted risk for all primary alpha sources",
+      "metrics": {
+        "active_strategies": 4.0,
+        "block_rate": 0.13026211278792693,
+        "blocked_trades": 164.0,
+        "cagr": 0.9209731761393962,
+        "calmar": 9.733924899707695,
+        "calmar_mtm": 9.733924899707695,
+        "calmar_r": 56.6015239746807,
+        "calmar_realized": 50.25146801417066,
+        "final_equity": 241903.5049294768,
+        "max_concurrent": 3.0,
+        "max_drawdown_pct": 0.0942977657383024,
+        "max_drawdown_pct_mtm": 0.0942977657383024,
+        "max_drawdown_pct_realized": 0.018327288983471815,
+        "max_drawdown_r": 13.561720000000008,
+        "min_strategy_trades": 97.0,
+        "net_profit": 191903.5049294768,
+        "net_return_pct": 3.8380700985895357,
+        "net_return_pct_realized": 3.855067698589518,
+        "profit_factor": 3.252489811801127,
+        "risk_basis": "bar_close_mark_to_market",
+        "sharpe": 4.726789689541533,
+        "sortino": 8.547017340731738,
+        "total_r": 767.6140197179072,
+        "total_r_per_month": 26.43014901036629,
+        "total_trades": 1095.0,
+        "trades_per_month": 37.70255938914027,
+        "win_rate": 0.6730593607305936
+      },
+      "name": "aggressive_alpha_rebalance",
+      "reject_reason": "",
+      "rejected": false,
+      "score": 0.9519830180213688,
+      "soft_warnings": [
+        "frequency_below_target",
+        "net_profit_below_target"
+      ]
+    }
+  ],
+  "phase": 2
+}

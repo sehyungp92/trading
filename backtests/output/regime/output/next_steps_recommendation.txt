@@ -1,0 +1,302 @@
+======================================================================
+  REGIME PREDICTOR: RECOMMENDED NEXT STEPS
+  2026-03-30
+======================================================================
+
+
+1. WHICH CONFIG TO USE NOW
+======================================================================
+
+  USE THE EMA-ONLY CONFIG as the production baseline.
+
+  On comparable weekly-eval metrics, it is the best of the three:
+    - Highest composite score (0.682 vs 0.671 vs 0.593)
+    - Best drawdown control (8.72% vs 10.66% vs 12.75%)
+    - Best CAGR (11.11% vs 10.81% vs 8.80%)
+    - Best Calmar (1.275 vs 1.014 vs 0.690)
+    - Slightly lower Sharpe than Full Cal (1.442 vs 1.479, -2.5%)
+      but this is compensated by dramatically better tail risk
+
+  The Full Calibration config (temp=2.5, eps=0.01) is NOT recommended
+  because temperature scaling permanently dilutes allocations. The
+  pre-improvements baseline is strictly dominated on all metrics.
+
+  However: the EMA-Only model still has the same fundamental limitation
+  as all three versions -- near-binary posteriors. The improvements below
+  address this at the architectural level.
+
+
+2. THE ROOT CAUSE AND WHY PARAMETER TUNING CANNOT FIX IT
+======================================================================
+
+  hmmlearn's predict_proba() uses the FORWARD-BACKWARD algorithm.
+  With well-separated Gaussian emission means, even a single observation
+  provides overwhelming evidence for one state. The backward pass (using
+  future data) CONFIRMS this, producing degenerate one-hot posteriors.
+
+  No amount of post-processing (temperature, Dirichlet, EMA) fixes this
+  because the information has already been destroyed -- the raw posteriors
+  are [1.0, 0.0, 0.0, 0.0] with exact zeros that no log-space operation
+  can recover meaningfully.
+
+  This is NOT a parameter problem. It is an ALGORITHMIC problem.
+  The solution must change HOW posteriors are computed, not how they
+  are post-processed.
+
+
+3. RECOMMENDED IMPROVEMENTS (in priority order)
+======================================================================
+
+----------------------------------------------------------------------
+  STEP 1: HMM ENSEMBLE (highest impact, lowest risk)
+----------------------------------------------------------------------
+
+  WHAT: Fit N=10-15 GaussianHMMs with different random seeds at each
+  quarterly refit. Average their posteriors at inference time.
+
+  WHY IT WORKS: During stable regimes, all models agree -- the averaged
+  posterior is still sharp (~1.0). During transition periods, models
+  disagree on timing and state assignment -- the averaged posterior
+  naturally softens. This is GENUINE uncertainty, not artificial dilution.
+
+  KEY DIFFERENCE FROM TEMPERATURE SCALING: Temperature softens ALL
+  posteriors uniformly (harmful). Ensemble softens ONLY where models
+  disagree (transitions), preserving sharpness where models agree
+  (stable regimes). This is exactly what was wanted.
+
+  IMPLEMENTATION (~80 lines):
+
+  A) In regime/hmm.py, modify fit_or_refit_hmm() to return a list
+     of models instead of a single model:
+
+     def fit_ensemble_hmm(X_train, cfg, growth_idx, infl_idx,
+                          n_models=10, prev_means=None):
+         models = []
+         for seed in range(n_models):
+             model = GaussianHMM(
+                 n_components=cfg.n_states,
+                 covariance_type=cfg.covariance_type,
+                 n_iter=cfg.n_iter_first_fit,
+                 random_state=seed,
+                 params="stmc", init_params="stmc",
+             )
+             # Apply sticky prior
+             model.transmat_prior = build_transmat_prior(cfg)
+             model.fit(X_train)
+             align_hmm_inplace(model, growth_idx, infl_idx,
+                               prev_means=prev_means,
+                               continuity_weight=cfg.label_continuity_weight)
+             models.append(model)
+         return models
+
+  B) In the engine loop, replace predict_proba() with ensemble average:
+
+     P_grsd = np.mean([m.predict_proba(x_dt)[0] for m in ensemble], axis=0)
+
+  C) Config addition: n_ensemble_models: int = 1 (default=1 = no ensemble,
+     backward compatible). IS in HMM_AFFECTING_PARAMS.
+
+  D) In cached_engine.py, cache the ensemble (list of models per refit date)
+     instead of a single model. run_from_cache averages at inference time.
+
+  COST: ~10-15x slower fitting per refit. With quarterly refits over 22
+  years (~88 refits) and ~5 seconds per fit, that's ~88 * 15 * 5 = ~110
+  minutes for a full backtest. Cached eval (run_from_cache) is unaffected
+  -- inference is fast regardless of ensemble size.
+
+  OPTIMIZER CANDIDATES (Phase 1 -- HMM affecting):
+    "ensemble_5"  -> {"n_ensemble_models": 5}
+    "ensemble_10" -> {"n_ensemble_models": 10}
+    "ensemble_15" -> {"n_ensemble_models": 15}
+
+----------------------------------------------------------------------
+  STEP 2: FORWARD-ONLY FILTERING (complements ensemble)
+----------------------------------------------------------------------
+
+  WHAT: Use only the forward pass of the HMM (no backward smoothing)
+  when computing posteriors. This gives P(state_t | x_1:t) instead of
+  P(state_t | x_1:T) -- causal posteriors that don't use future data.
+
+  WHY: The forward-backward algorithm's backward pass is what makes
+  posteriors so sharp -- it uses future observations to CONFIRM past
+  state assignments. Forward-only filtering naturally produces softer
+  posteriors during transitions because the model hasn't yet seen the
+  data that confirms the new regime.
+
+  IMPLEMENTATION (~30 lines):
+
+  def forward_only_posteriors(model, X):
+      """Extract forward-only filtered posteriors from fitted HMM."""
+      log_startprob = np.log(model.startprob_)
+      log_transmat = np.log(model.transmat_)
+      framelogprob = model._compute_log_likelihood(X)
+
+      n_samples, n_components = framelogprob.shape
+      fwdlattice = np.zeros((n_samples, n_components))
+
+      # Initialize
+      fwdlattice[0] = log_startprob + framelogprob[0]
+
+      # Forward pass only
+      for t in range(1, n_samples):
+          for j in range(n_components):
+              fwdlattice[t, j] = (
+                  logsumexp(fwdlattice[t-1] + log_transmat[:, j])
+                  + framelogprob[t, j]
+              )
+
+      # Normalize to probabilities
+      posteriors = np.exp(fwdlattice - logsumexp(fwdlattice, axis=1, keepdims=True))
+      return posteriors
+
+  Then use posteriors[-1] (last row) for the current date's posterior.
+
+  CONFIG: use_forward_only: bool = False (backward-compatible)
+  NOT in HMM_AFFECTING_PARAMS -- uses same fitted model, just different
+  inference. Fast eval via run_from_cache.
+
+  BEST USED WITH ENSEMBLE: Fit N models, then for each model use
+  forward-only filtering, then average. Double uncertainty source:
+  model disagreement + causal-only inference.
+
+  OPTIMIZER CANDIDATES (Phase 2 -- non-HMM, fast eval):
+    "forward_only" -> {"use_forward_only": True}
+    "ensemble_10_forward" -> {"n_ensemble_models": 10, "use_forward_only": True}
+
+----------------------------------------------------------------------
+  STEP 3: LABEL ANCHORING (already coded, just needs activation)
+----------------------------------------------------------------------
+
+  WHAT: align_hmm_inplace() already has label_continuity_weight and
+  prev_means support. It's in HMM_AFFECTING_PARAMS. The code is there
+  but label_continuity_weight=0.0 means it's never active.
+
+  WHY: With ensembles, label stability across refits becomes even more
+  important -- each of N models needs consistent state-regime mapping.
+
+  WHAT TO DO: Add optimizer candidates to Phase 1:
+    "label_anchor_0.3" -> {"label_continuity_weight": 0.3}
+    "label_anchor_0.5" -> {"label_continuity_weight": 0.5}
+    "label_anchor_1.0" -> {"label_continuity_weight": 1.0}
+
+  And combination candidates:
+    "ensemble_10_anchor_0.5" -> {"n_ensemble_models": 10, "label_continuity_weight": 0.5}
+
+  COST: Zero -- the code already exists. Just needs candidates.
+
+----------------------------------------------------------------------
+  STEP 4: WALK-FORWARD VALIDATION (critical, overdue)
+----------------------------------------------------------------------
+
+  WHAT: Run the existing walk-forward validation to test OOS robustness.
+  The infrastructure is already built in cli.py:cmd_walk_forward().
+
+  WHY: All three optimized configs are in-sample only. Without OOS
+  validation, we don't know if the improvements are real or overfit.
+  This is the 4th structural weakness from the improvements plan and
+  has NEVER been tested.
+
+  COMMAND:
+    python -m research.backtests.regime.cli walk-forward --test-years 3
+
+  ACCEPTANCE: OOS/IS ratio >= 0.60 (STABLE verdict)
+
+  WHEN: Run AFTER implementing ensemble (Step 1) so we validate the
+  improved model, not the binary-posterior version.
+
+----------------------------------------------------------------------
+  STEP 5: RE-OPTIMIZE WITH ENSEMBLE POSTERIORS
+----------------------------------------------------------------------
+
+  After Steps 1-3 are implemented, re-run the full 4-phase optimizer:
+
+    python -m research.backtests.regime.cli phase-auto --max-workers 1
+
+  WHY: All existing mutations were optimized against binary posteriors.
+  With soft ensemble posteriors, the optimal values for crisis_weights,
+  stability_weight, weight_smoothing_alpha, posterior_ema_alpha, etc.
+  may be very different. The posterior EMA (alpha=0.8) was tuned for
+  binary posteriors -- with soft ensemble posteriors, it may need to be
+  much lighter (alpha=0.95) or even disabled (alpha=1.0) since the
+  ensemble already provides natural softening.
+
+  START FRESH: Reset phase_state.json to phases 1-4 with zero mutations.
+  The ensemble + label anchoring candidates replace the current Phase 1-2
+  candidates.
+
+
+4. WHY NOT THE OTHER APPROACHES
+======================================================================
+
+  - statsmodels MarkovRegression (Hamilton filter):
+    Better long-term but requires replacing hmmlearn entirely.
+    The ensemble approach gets 80% of the benefit with 20% of the effort
+    because it preserves the entire existing infrastructure (cached engine,
+    phase candidates, scoring).
+
+  - Bayesian HMM (pyhsmm, ssm):
+    Theoretically ideal but pyhsmm is dated and ssm requires a full port.
+    Save for v2 if ensemble + forward-only doesn't achieve target entropy.
+
+  - BOCPD (changepoint detection):
+    Wrong abstraction -- gives changepoint locations, not soft regime
+    probabilities. Overkill for this problem.
+
+  - More temperature/Dirichlet tuning:
+    Already proven harmful. Do not revisit.
+
+
+5. EXPECTED OUTCOMES
+======================================================================
+
+  With ensemble (N=10) + forward-only filtering + label anchoring:
+
+  a) POSTERIOR QUALITY:
+     - AvgP(dom) should drop from 0.990 to ~0.70-0.85 range
+     - Posterior entropy should increase from 0.029 to >0.20
+     - Transitions should show ~2-4 weeks of gradual probability shift
+     - Stable regimes should maintain P(dom) > 0.90
+
+  b) BLEND/CONFIDENCE ACTIVATION:
+     - blend_policy_portfolios() will produce genuinely blended weights
+       during transitions (not just the dominant regime's weights)
+     - confidence_fallback() will trigger during low-conviction periods
+     - These mechanisms exist in the code but have never been active
+
+  c) RISK MOMENTUM:
+     - With soft posteriors, regime momentum becomes a meaningful
+       4-week leading indicator
+     - risk_momentum should turn negative 2-4 weeks BEFORE crisis
+       regime shifts (the stated goal)
+     - This enables downstream strategies to gradually reduce exposure
+       before the full regime switch
+
+  d) DOWNSTREAM CONDITIONING VALUE:
+     - Strategies get a GRADIENT signal (0.0-1.0) not a BINARY signal
+     - "Recovery probability dropping from 0.8 to 0.5" is actionable
+       for gradual position reduction
+     - Priority rules can be proportional to regime confidence
+     - Risk allocation can smoothly transition between regime profiles
+
+  e) PERFORMANCE:
+     - Sharpe should be maintained >= 1.3 (the original target)
+     - MaxDD may slightly increase (softer posteriors = slower crisis
+       response) but crisis overlay + leverage governor compensate
+     - The composite score optimization will find the optimal tradeoff
+
+
+6. IMPLEMENTATION PLAN
+======================================================================
+
+  Phase A: Implement ensemble + forward-only + label anchoring candidates
+  Phase B: Run phase-auto optimization (fresh, all 4 phases)
+  Phase C: Run walk-forward validation
+  Phase D: Generate full diagnostics and compare to current EMA-Only
+
+  Total estimated work:
+    - Code: ~150 lines across 4 files (hmm.py, engine.py, cached_engine.py, phase_candidates.py)
+    - Config: ~3 new MetaConfig fields
+    - Optimization: ~10-12 hours (slower due to ensemble fitting)
+    - Validation: ~2 hours (walk-forward)
+
+======================================================================

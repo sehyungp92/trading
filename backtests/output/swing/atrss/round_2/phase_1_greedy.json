@@ -1,0 +1,52 @@
+{
+  "base_score": 0.6139069886062933,
+  "final_score": 0.6299551004878143,
+  "final_mutations": {
+    "flags.early_stall_exit": true,
+    "param_overrides.early_stall_check_hours": 12,
+    "param_overrides.early_stall_mfe_threshold": 0.2,
+    "param_overrides.max_hold_hours": 80,
+    "param_overrides.adx_on": 14
+  },
+  "kept_features": [
+    "adx_on_14"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 21,
+      "best_name": "adx_on_14",
+      "best_score": 0.6299551004878143,
+      "best_delta_pct": 2.6140949979986083,
+      "kept": true,
+      "rejected_count": 2
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 14,
+      "best_name": "confirm_days_0",
+      "best_score": 0.6299551004878143,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {
+    "total_trades": 275,
+    "win_rate": 0.7890909090909091,
+    "profit_factor": 5.394264158446627,
+    "max_dd_pct": 0.021861988563815295,
+    "calmar": 2.0925648083001064e-09,
+    "sharpe": 1.6081208538368639,
+    "net_return_pct": 26.442799999999334,
+    "total_r": 215.15610307015595,
+    "max_dd_r": 4.358149205547946,
+    "calmar_r": 49.3686867802188,
+    "avg_r": 0.7823858293460216,
+    "mfe_capture": 0.6743261828992073,
+    "trades_per_month": 4.742328392030969
+  },
+  "total_candidates": 21,
+  "accepted_count": 1,
+  "elapsed_seconds": 330.51885056495667
+}

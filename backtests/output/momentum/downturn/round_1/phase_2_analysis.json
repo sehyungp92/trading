@@ -1,0 +1,94 @@
+{
+  "phase": 2,
+  "goal_progress": {
+    "correction_pnl_pct": {
+      "target": 15.0,
+      "actual": 52.8958,
+      "pct_of_target": 200.0
+    },
+    "profit_factor": {
+      "target": 1.5,
+      "actual": 1.2505502082433733,
+      "pct_of_target": 83.37001388289154
+    },
+    "net_return_pct": {
+      "target": 30.0,
+      "actual": 28.779599999999995,
+      "pct_of_target": 95.93199999999999
+    },
+    "max_dd_pct": {
+      "target": 20.0,
+      "actual": 0.30890953087190687,
+      "pct_of_target": 200.0
+    },
+    "calmar": {
+      "target": 1.0,
+      "actual": 0.28150618143958195,
+      "pct_of_target": 28.150618143958194
+    },
+    "sharpe": {
+      "target": 0.6,
+      "actual": -0.38650720642448905,
+      "pct_of_target": -64.41786773741485
+    },
+    "exit_efficiency": {
+      "target": 0.3,
+      "actual": 0.7961319785807341,
+      "pct_of_target": 200.0
+    },
+    "signal_to_entry_ratio": {
+      "target": 0.2,
+      "actual": 0.09776304888152444,
+      "pct_of_target": 48.88152444076222
+    },
+    "total_trades": {
+      "target": 80.0,
+      "actual": 118.0,
+      "pct_of_target": 147.5
+    },
+    "correction_capture_ratio": {
+      "target": 0.15,
+      "actual": 0.1298604370541195,
+      "pct_of_target": 86.57362470274634
+    },
+    "sortino": {
+      "target": 1.0,
+      "actual": -0.3118624234223346,
+      "pct_of_target": -31.186242342233463
+    }
+  },
+  "strengths": [
+    "correction_pnl_pct: 52.8958 (200% of 15.0000)",
+    "profit_factor: 1.2506 (83% of 1.5000)",
+    "net_return_pct: 28.7796 (96% of 30.0000)",
+    "max_dd_pct: 0.3089 (200% of 20.0000)",
+    "exit_efficiency: 0.7961 (200% of 0.3000)",
+    "total_trades: 118.0000 (148% of 80.0000)",
+    "correction_capture_ratio: 0.1299 (87% of 0.1500)"
+  ],
+  "weaknesses": [
+    "calmar: 0.2815 (28% of 1.0000)",
+    "sharpe: -0.3865 (-64% of 0.6000)",
+    "signal_to_entry_ratio: 0.0978 (49% of 0.2000)",
+    "sortino: -0.3119 (-31% of 1.0000)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Retry budget exhausted; advance with current best mutations.",
+  "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Retry budget exhausted; advance with current best mutations.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + correction_pnl_pct: 52.8958 (200% of 15.0000)\n  + profit_factor: 1.2506 (83% of 1.5000)\n  + net_return_pct: 28.7796 (96% of 30.0000)\n  + max_dd_pct: 0.3089 (200% of 20.0000)\n  + exit_efficiency: 0.7961 (200% of 0.3000)\n  + total_trades: 118.0000 (148% of 80.0000)\n  + correction_capture_ratio: 0.1299 (87% of 0.1500)\n\nWeaknesses:\n  - calmar: 0.2815 (28% of 1.0000)\n  - sharpe: -0.3865 (-64% of 0.6000)\n  - signal_to_entry_ratio: 0.0978 (49% of 0.2000)\n  - sortino: -0.3119 (-31% of 1.0000)\n\nExtra Analysis:\n  Engine health: reversal=underperforming, breakdown=healthy, fade=healthy\n  Correction attribution: corr_pnl=5290, non_corr_pnl=-2412, ratio=1.84\n\nGoal Progress:\n  correction_pnl_pct: 52.8958 / 15.0000 (200%)\n  profit_factor: 1.2506 / 1.5000 (83%)\n  net_return_pct: 28.7796 / 30.0000 (96%)\n  max_dd_pct: 0.3089 / 20.0000 (200%)\n  calmar: 0.2815 / 1.0000 (28%)\n  sharpe: -0.3865 / 0.6000 (-64%)\n  exit_efficiency: 0.7961 / 0.3000 (200%)\n  signal_to_entry_ratio: 0.0978 / 0.2000 (49%)\n  total_trades: 118.0000 / 80.0000 (148%)\n  correction_capture_ratio: 0.1299 / 0.1500 (87%)\n  sortino: -0.3119 / 1.0000 (-31%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "engine_health": {
+      "reversal": "underperforming",
+      "breakdown": "healthy",
+      "fade": "healthy"
+    },
+    "correction_attribution": {
+      "correction_pnl": 5289.58,
+      "non_correction_pnl": -2411.6200000000003,
+      "ratio": 1.8379616116971746
+    }
+  }
+}

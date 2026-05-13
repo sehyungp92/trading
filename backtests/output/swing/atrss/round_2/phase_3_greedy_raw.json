@@ -1,0 +1,28 @@
+{
+  "base_score": 0.6644083101664948,
+  "final_score": 0.6644083101664948,
+  "final_mutations": {
+    "flags.early_stall_exit": true,
+    "param_overrides.early_stall_check_hours": 12,
+    "param_overrides.early_stall_mfe_threshold": 0.2,
+    "param_overrides.max_hold_hours": 80,
+    "param_overrides.adx_on": 14,
+    "param_overrides.recovery_tolerance_atr_trend": 0.55
+  },
+  "kept_features": [],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 19,
+      "best_name": "expiry_6h",
+      "best_score": 0.6644083101664948,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 4
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 19,
+  "accepted_count": 0,
+  "elapsed_seconds": 270.33702206611633
+}

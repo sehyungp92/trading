@@ -1,0 +1,29 @@
+{"timestamp": "2026-05-08T10:14:09.419294+00:00", "phase": 1, "action": "phase_start", "focus": "SIGNAL_PRUNING + ENTRY_GATES", "candidate_count": 30}
+{"timestamp": "2026-05-08T10:14:09.423278+00:00", "phase": 1, "action": "greedy_start", "candidate_count": 30, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-05-08T10:27:45.223325+00:00", "phase": 1, "action": "greedy_complete", "base_score": 0.6530982415962113, "final_score": 0.7949948218437917, "accepted_count": 1}
+{"timestamp": "2026-05-08T10:27:45.236326+00:00", "phase": 1, "action": "gate_check", "passed": true, "failure_category": null}
+{"timestamp": "2026-05-08T10:27:45.256278+00:00", "phase": 1, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-08T10:27:45.275278+00:00", "phase": 1, "action": "analysis_complete", "recommendation": "advance", "reason": "Gate passed."}
+{"timestamp": "2026-05-08T10:27:45.308328+00:00", "phase": 1, "action": "decision_advance", "reason": "Gate passed.", "gate_passed": true, "applied_phase_mutations": true, "new_mutation_count": 2}
+{"timestamp": "2026-05-08T10:27:45.317278+00:00", "phase": 2, "action": "phase_start", "focus": "EXIT_MANAGEMENT", "candidate_count": 73}
+{"timestamp": "2026-05-08T10:27:45.331281+00:00", "phase": 2, "action": "greedy_start", "candidate_count": 73, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-05-08T11:18:41.677046+00:00", "phase": 2, "action": "greedy_complete", "base_score": 0.8064139387363252, "final_score": 0.8153682861364747, "accepted_count": 2}
+{"timestamp": "2026-05-08T11:18:41.700047+00:00", "phase": 2, "action": "gate_check", "passed": true, "failure_category": null}
+{"timestamp": "2026-05-08T11:18:41.720053+00:00", "phase": 2, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-08T11:18:41.741051+00:00", "phase": 2, "action": "analysis_complete", "recommendation": "advance", "reason": "Gate passed."}
+{"timestamp": "2026-05-08T11:18:41.780052+00:00", "phase": 2, "action": "decision_advance", "reason": "Gate passed.", "gate_passed": true, "applied_phase_mutations": true, "new_mutation_count": 4}
+{"timestamp": "2026-05-08T11:18:41.792039+00:00", "phase": 3, "action": "phase_start", "focus": "VOLATILITY + ADDON", "candidate_count": 34}
+{"timestamp": "2026-05-08T11:18:41.808039+00:00", "phase": 3, "action": "greedy_start", "candidate_count": 34, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-05-08T11:26:37.001147+00:00", "phase": 3, "action": "greedy_complete", "base_score": 0.7918445352084148, "final_score": 0.7918445352084148, "accepted_count": 0}
+{"timestamp": "2026-05-08T11:26:37.017146+00:00", "phase": 3, "action": "gate_check", "passed": true, "failure_category": null}
+{"timestamp": "2026-05-08T11:26:37.032101+00:00", "phase": 3, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-05-08T11:26:37.048111+00:00", "phase": 3, "action": "analysis_complete", "recommendation": "advance", "reason": "Gate passed."}
+{"timestamp": "2026-05-08T11:26:37.078109+00:00", "phase": 3, "action": "decision_advance", "reason": "Gate passed.", "gate_passed": true, "applied_phase_mutations": true, "new_mutation_count": 0}
+{"timestamp": "2026-05-08T11:26:37.086103+00:00", "phase": 4, "action": "phase_start", "focus": "SIZING + FINETUNE", "candidate_count": 120}
+{"timestamp": "2026-05-08T11:26:37.099144+00:00", "phase": 4, "action": "greedy_start", "candidate_count": 120, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-05-08T14:33:14.751377+00:00", "phase": 5, "action": "phase_start", "focus": "WIN_RATE_REPAIR", "candidate_count": 55, "source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\round_3\\phase_5_winrate_repair\\winrate_repair_result.json"}
+{"timestamp": "2026-05-08T14:33:14.751377+00:00", "phase": 5, "action": "greedy_complete", "base_score": 0.555066568475345, "final_score": 0.5676955329759867, "accepted_count": 1}
+{"timestamp": "2026-05-08T14:33:14.751377+00:00", "phase": 5, "action": "gate_check", "passed": true, "failure_category": null}
+{"timestamp": "2026-05-08T14:33:14.751377+00:00", "phase": 5, "action": "diagnostics_run", "enhanced": true, "diagnostics_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\round_3\\round_final_diagnostics.txt"}
+{"timestamp": "2026-05-08T14:33:14.751377+00:00", "phase": 5, "action": "decision_advance", "reason": "Phase 5 win-rate repair promoted to official Round 3 final artifacts.", "gate_passed": true, "applied_phase_mutations": true, "new_mutation_count": 2}
+{"timestamp": "2026-05-08T14:33:14.751377+00:00", "phase": 5, "action": "promotion_complete", "optimized_config": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\round_3\\optimized_config.json", "manifest": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\rounds_manifest.json"}

@@ -1,0 +1,96 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-05T21:11:04.409150+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 33,
+      "base_score": 27.45279944595776,
+      "final_score": 35.2529993901551,
+      "kept_features": [
+        "risk_020_notional_800"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "CAPITAL_AND_STOP_NORMALISATION",
+      "candidate_count": 12
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-05T21:29:01.341660+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 34,
+      "base_score": 35.2529993901551,
+      "final_score": 38.69896269499865,
+      "kept_features": [
+        "qqq_longs_only",
+        "disable_shallow_type_c"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "STRUCTURAL_ALPHA_DISCRIMINATION",
+      "candidate_count": 18
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-05T21:42:37.634110+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 40,
+      "base_score": 38.69896269499865,
+      "final_score": 39.334153940391836,
+      "kept_features": [
+        "real_second_entry_strict"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "ENTRY_GEOMETRY_AND_SUPPLY",
+      "candidate_count": 16
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-05T22:12:25.556752+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 44,
+      "base_score": 39.334153940391836,
+      "final_score": 47.39078634777581,
+      "kept_features": [
+        "trail_after_t1_30m_6_vwap",
+        "stall_exit_1r_2d",
+        "t1_stop_020",
+        "t2_quicker_200"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "EXIT_REALIZATION_FINETUNE",
+      "candidate_count": 19
+    }
+  },
+  "last_updated": "2026-05-05T22:12:25.582750+00:00",
+  "current_phase": 4
+}

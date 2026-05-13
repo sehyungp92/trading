@@ -1,0 +1,65 @@
+{"timestamp": "2026-04-29T19:49:50.911460+00:00", "phase": 1, "action": "phase_start", "focus": "Trail Rehabilitation & Exit Management", "candidate_count": 28}
+{"timestamp": "2026-04-29T19:49:50.916437+00:00", "phase": 1, "action": "greedy_start", "candidate_count": 28, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-04-29T20:11:39.896087+00:00", "phase": 1, "action": "greedy_complete", "base_score": 0.5271062412822176, "final_score": 0.5329021677729356, "accepted_count": 2}
+{"timestamp": "2026-04-29T20:11:39.922069+00:00", "phase": 1, "action": "gate_check", "passed": false, "failure_category": "scoring_ineffective"}
+{"timestamp": "2026-04-29T20:11:39.942068+00:00", "phase": 1, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-29T20:11:39.963088+00:00", "phase": 1, "action": "analysis_complete", "recommendation": "improve_scoring", "reason": "Greedy score is not aligned strongly enough with phase goals."}
+{"timestamp": "2026-04-29T20:11:39.984084+00:00", "phase": 1, "action": "decision_improve_scoring", "retry": 1, "weight_overrides": {"net_profit": 0.11428571428571428, "pf": 0.23809523809523808, "calmar": 0.07619047619047618, "inv_dd": 0.14285714285714285, "capture": 0.23809523809523808, "frequency": 0.07619047619047618, "sharpe": 0.11428571428571428}, "candidate_count": 31}
+{"timestamp": "2026-04-29T20:11:40.001088+00:00", "phase": 1, "action": "greedy_start", "candidate_count": 31, "scoring_retry": 1, "diagnostic_retry": 0}
+{"timestamp": "2026-04-29T20:37:51.066017+00:00", "phase": 1, "action": "greedy_complete", "base_score": 0.5124687704025083, "final_score": 0.5213821740444244, "accepted_count": 2}
+{"timestamp": "2026-04-29T20:37:51.097008+00:00", "phase": 1, "action": "gate_check", "passed": true, "failure_category": null}
+{"timestamp": "2026-04-29T20:37:51.117047+00:00", "phase": 1, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-29T20:37:51.141872+00:00", "phase": 1, "action": "analysis_complete", "recommendation": "advance", "reason": "Gate passed."}
+{"timestamp": "2026-04-29T20:37:51.182922+00:00", "phase": 1, "action": "decision_advance", "reason": "Gate passed.", "gate_passed": true, "applied_phase_mutations": true, "new_mutation_count": 2}
+{"timestamp": "2026-04-29T20:37:51.192868+00:00", "phase": 2, "action": "phase_start", "focus": "Entry Precision & Filter Tuning", "candidate_count": 25}
+{"timestamp": "2026-04-29T20:37:51.212931+00:00", "phase": 2, "action": "greedy_start", "candidate_count": 25, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-04-29T20:49:06.599570+00:00", "phase": 2, "action": "greedy_complete", "base_score": 0.5473680423827383, "final_score": 0.5473680423827383, "accepted_count": 0}
+{"timestamp": "2026-04-29T20:49:06.629581+00:00", "phase": 2, "action": "gate_check", "passed": false, "failure_category": "candidates_exhausted"}
+{"timestamp": "2026-04-29T20:49:06.650572+00:00", "phase": 2, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-29T20:49:06.677565+00:00", "phase": 2, "action": "analysis_complete", "recommendation": "improve_scoring", "reason": "Greedy score is not aligned strongly enough with phase goals."}
+{"timestamp": "2026-04-29T20:49:06.706566+00:00", "phase": 2, "action": "decision_improve_scoring", "retry": 1, "weight_overrides": {"net_profit": 0.1137440758293839, "pf": 0.26066350710900477, "calmar": 0.07582938388625593, "inv_dd": 0.09478672985781991, "capture": 0.09478672985781991, "frequency": 0.18957345971563982, "sharpe": 0.17061611374407584}, "candidate_count": 25}
+{"timestamp": "2026-04-29T20:49:06.727570+00:00", "phase": 2, "action": "greedy_start", "candidate_count": 25, "scoring_retry": 1, "diagnostic_retry": 0}
+{"timestamp": "2026-04-29T20:57:17.007910+00:00", "phase": 2, "action": "greedy_complete", "base_score": 0.5307464589335303, "final_score": 0.5307464589335303, "accepted_count": 0}
+{"timestamp": "2026-04-29T20:57:17.025912+00:00", "phase": 2, "action": "gate_check", "passed": false, "failure_category": "candidates_exhausted"}
+{"timestamp": "2026-04-29T20:57:17.041222+00:00", "phase": 2, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-29T20:57:17.058563+00:00", "phase": 2, "action": "analysis_complete", "recommendation": "improve_scoring", "reason": "Greedy score is not aligned strongly enough with phase goals."}
+{"timestamp": "2026-04-29T20:57:17.076560+00:00", "phase": 2, "action": "decision_improve_scoring", "retry": 2, "weight_overrides": {"net_profit": 0.1067853170189099, "pf": 0.3058954393770857, "calmar": 0.07119021134593995, "inv_dd": 0.08898776418242492, "capture": 0.08898776418242492, "frequency": 0.17797552836484984, "sharpe": 0.16017797552836485}, "candidate_count": 25}
+{"timestamp": "2026-04-29T20:57:17.087782+00:00", "phase": 2, "action": "greedy_start", "candidate_count": 25, "scoring_retry": 2, "diagnostic_retry": 0}
+{"timestamp": "2026-04-29T21:03:47.322360+00:00", "phase": 2, "action": "greedy_complete", "base_score": 0.5122574895795727, "final_score": 0.5122574895795727, "accepted_count": 0}
+{"timestamp": "2026-04-29T21:03:47.339360+00:00", "phase": 2, "action": "gate_check", "passed": false, "failure_category": "candidates_exhausted"}
+{"timestamp": "2026-04-29T21:03:47.353361+00:00", "phase": 2, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-29T21:03:47.375362+00:00", "phase": 2, "action": "analysis_complete", "recommendation": "improve_diagnostics", "reason": "Phase weaknesses need deeper diagnostics."}
+{"timestamp": "2026-04-29T21:03:47.404324+00:00", "phase": 2, "action": "decision_improve_diagnostics", "retry": 1}
+{"timestamp": "2026-04-29T21:03:47.424672+00:00", "phase": 2, "action": "diagnostics_run", "enhanced": true}
+{"timestamp": "2026-04-29T21:03:47.448223+00:00", "phase": 2, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-04-29T21:03:47.472230+00:00", "phase": 2, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "applied_phase_mutations": false, "new_mutation_count": 0}
+{"timestamp": "2026-04-29T21:03:47.495270+00:00", "phase": 3, "action": "phase_start", "focus": "Signal Discrimination & Regime", "candidate_count": 18}
+{"timestamp": "2026-04-29T21:03:47.510428+00:00", "phase": 3, "action": "greedy_start", "candidate_count": 18, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-04-29T21:11:52.829313+00:00", "phase": 3, "action": "greedy_complete", "base_score": 0.5249023156912574, "final_score": 0.5296575694537086, "accepted_count": 1}
+{"timestamp": "2026-04-29T21:11:52.837520+00:00", "phase": 3, "action": "gate_check", "passed": false, "failure_category": "scoring_ineffective"}
+{"timestamp": "2026-04-29T21:11:52.862391+00:00", "phase": 3, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-29T21:11:52.882679+00:00", "phase": 3, "action": "analysis_complete", "recommendation": "improve_scoring", "reason": "Greedy score is not aligned strongly enough with phase goals."}
+{"timestamp": "2026-04-29T21:11:52.887819+00:00", "phase": 3, "action": "decision_improve_scoring", "retry": 1, "weight_overrides": {"net_profit": 0.16693794082049998, "pf": 0.10016276449229998, "calmar": 0.264429698259672, "inv_dd": 0.2347564792788281, "capture": 0.08346897041024999, "frequency": 0.06677517632819999, "sharpe": 0.08346897041024999}, "candidate_count": 18}
+{"timestamp": "2026-04-29T21:11:52.914116+00:00", "phase": 3, "action": "greedy_start", "candidate_count": 18, "scoring_retry": 1, "diagnostic_retry": 0}
+{"timestamp": "2026-04-29T21:19:08.219134+00:00", "phase": 3, "action": "greedy_complete", "base_score": 0.49253790196773994, "final_score": 0.49772758131664613, "accepted_count": 1}
+{"timestamp": "2026-04-29T21:19:08.242462+00:00", "phase": 3, "action": "gate_check", "passed": false, "failure_category": "scoring_ineffective"}
+{"timestamp": "2026-04-29T21:19:08.258406+00:00", "phase": 3, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-29T21:19:08.278618+00:00", "phase": 3, "action": "analysis_complete", "recommendation": "improve_scoring", "reason": "Greedy score is not aligned strongly enough with phase goals."}
+{"timestamp": "2026-04-29T21:19:08.298620+00:00", "phase": 3, "action": "decision_improve_scoring", "retry": 2, "weight_overrides": {"net_profit": 0.1337215604537206, "pf": 0.08023293627223235, "calmar": 0.30501353053251856, "inv_dd": 0.2938217881063197, "capture": 0.0668607802268603, "frequency": 0.05348862418148824, "sharpe": 0.0668607802268603}, "candidate_count": 18}
+{"timestamp": "2026-04-29T21:19:08.312855+00:00", "phase": 3, "action": "greedy_start", "candidate_count": 18, "scoring_retry": 2, "diagnostic_retry": 0}
+{"timestamp": "2026-04-29T21:26:28.587797+00:00", "phase": 3, "action": "greedy_complete", "base_score": 0.45831149685051253, "final_score": 0.46392509863402837, "accepted_count": 1}
+{"timestamp": "2026-04-29T21:26:28.621228+00:00", "phase": 3, "action": "gate_check", "passed": false, "failure_category": "scoring_ineffective"}
+{"timestamp": "2026-04-29T21:26:28.633232+00:00", "phase": 3, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-29T21:26:28.637406+00:00", "phase": 3, "action": "analysis_complete", "recommendation": "improve_diagnostics", "reason": "Phase weaknesses need deeper diagnostics."}
+{"timestamp": "2026-04-29T21:26:28.662717+00:00", "phase": 3, "action": "decision_improve_diagnostics", "retry": 1}
+{"timestamp": "2026-04-29T21:26:28.680769+00:00", "phase": 3, "action": "diagnostics_run", "enhanced": true}
+{"timestamp": "2026-04-29T21:26:28.687957+00:00", "phase": 3, "action": "analysis_complete", "recommendation": "advance", "reason": "Retry budget exhausted; advance with current best mutations."}
+{"timestamp": "2026-04-29T21:26:28.732653+00:00", "phase": 3, "action": "decision_advance", "reason": "Retry budget exhausted; advance with current best mutations.", "gate_passed": false, "applied_phase_mutations": false, "new_mutation_count": 0}
+{"timestamp": "2026-04-29T21:26:28.737805+00:00", "phase": 4, "action": "phase_start", "focus": "Fine-tune & Interaction", "candidate_count": 10}
+{"timestamp": "2026-04-29T21:26:28.757865+00:00", "phase": 4, "action": "greedy_start", "candidate_count": 10, "scoring_retry": 0, "diagnostic_retry": 0}
+{"timestamp": "2026-04-29T21:31:54.203518+00:00", "phase": 4, "action": "greedy_complete", "base_score": 0.5493268790186201, "final_score": 0.5755049553344568, "accepted_count": 2}
+{"timestamp": "2026-04-29T21:31:54.236533+00:00", "phase": 4, "action": "gate_check", "passed": true, "failure_category": null}
+{"timestamp": "2026-04-29T21:31:54.262917+00:00", "phase": 4, "action": "diagnostics_run", "enhanced": false}
+{"timestamp": "2026-04-29T21:31:54.288071+00:00", "phase": 4, "action": "analysis_complete", "recommendation": "advance", "reason": "Gate passed."}
+{"timestamp": "2026-04-29T21:31:54.337679+00:00", "phase": 4, "action": "decision_advance", "reason": "Gate passed.", "gate_passed": true, "applied_phase_mutations": true, "new_mutation_count": 2}
+{"timestamp": "2026-04-29T21:31:54.380062+00:00", "phase": 4, "action": "end_of_round", "completed_phases": [1, 2, 3, 4]}

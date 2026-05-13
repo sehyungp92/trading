@@ -1,0 +1,35 @@
+============================================================
+Crisis Detection Phase 2 Diagnostics
+============================================================
+
+--- D1: Detection Performance ---
+Crises detected: 7/7
+Avg latency:     21.3 days
+Max latency:     34.0 days
+GFC latency:     14 days
+COVID latency:   10 days
+
+--- D2: False Positive Rates ---
+WARNING FP rate: 5.12%
+CRISIS FP rate:  1.37%
+Avg peak level:  3.00
+
+--- D3: Alert Level Distribution ---
+NORMAL:          0.2%
+WATCH:           89.8%
+WARNING:         5.5%
+CRISIS:          4.6%
+Elevated total:  10.0% (target ~7%)
+
+--- D4: Stability ---
+Total transitions:   188
+Transitions/year:    8.2
+
+--- D5: Greedy Result ---
+Base score:      0.7900
+Final score:     0.8193
+Accepted:        1
+Total candidates:36
+Kept features:   vix_loose
+
+============================================================

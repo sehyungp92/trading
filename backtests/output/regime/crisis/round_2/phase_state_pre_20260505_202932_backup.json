@@ -1,0 +1,14 @@
+{
+  "current_phase": 0,
+  "completed_phases": [],
+  "cumulative_mutations": {
+    "VIX_CRISIS": 33.0
+  },
+  "phase_results": {},
+  "phase_gate_results": {},
+  "retry_count": {},
+  "scoring_retries": {},
+  "diagnostic_retries": {},
+  "phase_timestamps": {},
+  "round_name": ""
+}

@@ -1,0 +1,9 @@
+======================================================================
+IARIC T3 V4R1 PHASE 3 SNAPSHOT
+======================================================================
+Focus: Multiphase Feature Adoption
+Score 0.5779 -> 0.6544 with 2 accepted mutations.
+
+Core: trades=687, avg_r=+0.088, exp_total_r=+60.79, pf=1.53, sharpe=2.50, dd=3.7%
+Edges: rsi_depth=-0.044, trend_band=-0.038, late_rank=+0.060
+Exit capture: managed=96.4%, carry=25.6%, carry_avg_r=-0.024, eod=3.6%, stop_cost=-1.97R

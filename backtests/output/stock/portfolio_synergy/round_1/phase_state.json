@@ -1,0 +1,3853 @@
+﻿{
+  "current_phase": 7,
+  "completed_phases": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "cumulative_mutations": {
+    "initial_equity": 25000.0,
+    "risk_stance": "aggressive_controlled",
+    "portfolio_rules": {
+      "reference_risk_pct": 0.006,
+      "heat_cap_R": 6.0,
+      "max_total_active_positions": 12,
+      "max_symbol_heat_R": 2.2,
+      "max_long_heat_R": 6.25,
+      "portfolio_daily_stop_R": 3.5,
+      "portfolio_weekly_stop_R": 8.0,
+      "max_single_strategy_trade_share": 0.72,
+      "max_single_strategy_risk_share": 0.72,
+      "drawdown_tiers": [
+        [
+          0.04,
+          1.0
+        ],
+        [
+          0.07,
+          0.75
+        ],
+        [
+          0.1,
+          0.4
+        ],
+        [
+          0.13,
+          0.0
+        ]
+      ]
+    },
+    "strategy_allocations": {
+      "IARIC_V5R1": {
+        "unit_risk_pct": 0.008,
+        "max_heat_R": 4.6,
+        "max_concurrent": 9,
+        "daily_stop_R": 2.75,
+        "priority": 0,
+        "role": "primary pullback alpha and frequency engine"
+      },
+      "ALCB_R3": {
+        "unit_risk_pct": 0.0065,
+        "max_heat_R": 3.25,
+        "max_concurrent": 6,
+        "daily_stop_R": 2.35,
+        "priority": 1,
+        "role": "intraday momentum complement and early-session alpha sleeve"
+      }
+    },
+    "dynamic_allocation": {
+      "enabled": true,
+      "lookback_trades": 60,
+      "min_mult": 0.65,
+      "max_mult": 1.22,
+      "positive_expectancy_boost": 0.1,
+      "negative_expectancy_cut": 0.18,
+      "drawdown_risk_floor": 0.4
+    },
+    "cross_strategy_rules": {
+      "priority_order": [
+        "IARIC_V5R1",
+        "ALCB_R3"
+      ],
+      "candidate_rank_mode": "diagnostic_alpha_score",
+      "same_symbol_policy": "half_size",
+      "same_symbol_size_mult": 0.5,
+      "same_sector_heat_cap_R": 3.8,
+      "iaric_priority_headroom_R": 1.15
+    },
+    "strategy_filters": {
+      "ALCB_R3": {
+        "financials_size_mult": 0.65,
+        "pdh_size_mult": 1.1,
+        "score5_no_surge_mult": 0.7
+      },
+      "IARIC_V5R1": {
+        "delayed_confirm_min_quality": 0.0,
+        "gap_up_size_mult": 0.85,
+        "carry_route_size_mult": 0.75
+      }
+    },
+    "validation": {
+      "walk_forward_required": true,
+      "min_positive_slices": 4,
+      "completed_bar_and_fee_parity_required": true
+    },
+    "portfolio_rules.max_single_strategy_trade_share": 0.85,
+    "portfolio_rules.max_single_strategy_risk_share": 0.82,
+    "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+    "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+    "portfolio_rules.heat_cap_R": 6.5
+  },
+  "phase_results": {
+    "1": {
+      "focus": "Latest diagnostics ingestion and two-strategy baseline integrity",
+      "base_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        }
+      },
+      "final_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        }
+      },
+      "base_score": 0.756047988504457,
+      "final_score": 0.756047988504457,
+      "kept_features": [],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 3,
+          "best_name": "seed_controlled_aggressive_25k",
+          "best_score": 0.756047988504457,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "initial_equity": 25000.0,
+        "final_equity": 128261.51560657927,
+        "net_pnl": 103261.51560657927,
+        "net_return_pct": 4.130460624263171,
+        "total_trades": 1111.0,
+        "entry_signals_fired": 1985.0,
+        "entries_accepted_by_portfolio": 1111.0,
+        "entries_blocked_by_portfolio": 874.0,
+        "entry_accept_rate": 0.5596977329974812,
+        "active_trades_per_month": 48.16817021781708,
+        "total_r": 233.87634931660128,
+        "total_r_per_month": 10.139870210444373,
+        "profit_factor": 2.2235357613051967,
+        "win_rate": 0.72997299729973,
+        "expectancy_r": 0.2105097653614773,
+        "sharpe": 4.662195367487659,
+        "sortino": 5.015523823995708,
+        "calmar": 44.24464127726507,
+        "max_drawdown_pct": 0.03030019718169129,
+        "max_drawdown_dollar": 2611.360740414806,
+        "active_strategy_count": 2.0,
+        "max_strategy_trade_share": 0.5868586858685868,
+        "max_strategy_risk_share": 0.6366992168134898,
+        "trade_capture_ratio": 0.5596977329974812,
+        "positive_alpha_block_rate": 0.45752508361204014,
+        "blocked_positive_count": 684.0,
+        "blocked_nonpositive_count": 190.0,
+        "blocked_positive_fraction": 0.782608695652174,
+        "blocked_avg_r": 0.1566184221732152,
+        "accepted_avg_r": 0.21050976536147728,
+        "blocked_positive_avg_r": 0.3644594940231472,
+        "candidate_discrimination": 0.5898189053137701,
+        "positive_slices": 4.0,
+        "max_daily_loss_R": 2.981773900720437,
+        "max_weekly_loss_R": 2.311867454625175,
+        "trades_IARIC_V5R1": 652.0,
+        "trades_ALCB_R3": 459.0,
+        "pnl_IARIC_V5R1": 47806.95972489829,
+        "pnl_ALCB_R3": 55454.55588168097,
+        "risk_share_IARIC_V5R1": 0.6366992168134898,
+        "risk_share_ALCB_R3": 0.3633007831865101,
+        "blocked_reason_symbol_heat_cap": 22.0,
+        "blocked_reason_strategy_heat_cap": 424.0,
+        "blocked_reason_strategy_trade_share_cap": 384.0,
+        "blocked_reason_sector_heat_cap": 34.0,
+        "blocked_reason_portfolio_heat_cap": 10.0,
+        "risk_basis": "bar_close_mark_to_market",
+        "max_drawdown_pct_mtm": 0.03030019718169129,
+        "calmar_mtm": 44.24464127726507,
+        "max_drawdown_pct_realized": 0.02794136031411907,
+        "calmar_realized": 47.98052143018729,
+        "mtm_points": 92215.0,
+        "score_alpha_return": 1.0,
+        "score_trade_frequency": 0.802802836963618,
+        "score_drawdown_control": 0.6969980281830871,
+        "score_profit_factor_quality": 0.4449220950200715,
+        "score_synergy_capture": 0.20643661685981954,
+        "score_allocation_balance": 0.9633007831865101,
+        "score_robustness": 0.8254016581130708,
+        "score_total": 0.756047988504457
+      },
+      "total_candidates": 3,
+      "accepted_count": 0,
+      "elapsed_seconds": 307.45636320114136,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 1,
+        "goal_progress": {
+          "active_strategy_count": {
+            "target": 2.0,
+            "actual": 2.0,
+            "pct_of_target": 100.0
+          },
+          "active_trades_per_month": {
+            "target": 52.0,
+            "actual": 48.16817021781708,
+            "pct_of_target": 92.63109657272514
+          },
+          "total_r_per_month": {
+            "target": 13.0,
+            "actual": 10.139870210444373,
+            "pct_of_target": 77.99900161880286
+          },
+          "profit_factor": {
+            "target": 2.6,
+            "actual": 2.2235357613051967,
+            "pct_of_target": 85.52060620404602
+          },
+          "max_drawdown_pct": {
+            "target": 0.08,
+            "actual": 0.03030019718169129,
+            "pct_of_target": 200.0
+          },
+          "trade_capture_ratio": {
+            "target": 0.84,
+            "actual": 0.5596977329974812,
+            "pct_of_target": 66.63068249970014
+          },
+          "positive_slices": {
+            "target": 4.0,
+            "actual": 4.0,
+            "pct_of_target": 100.0
+          }
+        },
+        "strengths": [
+          "active_strategy_count: 2.0000 (100% of 2.0000)",
+          "active_trades_per_month: 48.1682 (93% of 52.0000)",
+          "profit_factor: 2.2235 (86% of 2.6000)",
+          "max_drawdown_pct: 0.0303 (200% of 0.0800)",
+          "positive_slices: 4.0000 (100% of 4.0000)"
+        ],
+        "weaknesses": [],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "Positive blocked candidates are too frequent; inspect ranking and heat scarcity."
+        ],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + active_strategy_count: 2.0000 (100% of 2.0000)\n  + active_trades_per_month: 48.1682 (93% of 52.0000)\n  + profit_factor: 2.2235 (86% of 2.6000)\n  + max_drawdown_pct: 0.0303 (200% of 0.0800)\n  + positive_slices: 4.0000 (100% of 4.0000)\n\nDiagnostic Gaps:\n  ! Positive blocked candidates are too frequent; inspect ranking and heat scarcity.\n\nGoal Progress:\n  active_strategy_count: 2.0000 / 2.0000 (100%)\n  active_trades_per_month: 48.1682 / 52.0000 (93%)\n  total_r_per_month: 10.1399 / 13.0000 (78%)\n  profit_factor: 2.2235 / 2.6000 (86%)\n  max_drawdown_pct: 0.0303 / 0.0800 (200%)\n  trade_capture_ratio: 0.5597 / 0.8400 (67%)\n  positive_slices: 4.0000 / 4.0000 (100%)",
+        "scoring_weight_overrides": null,
+        "extra": {}
+      },
+      "new_mutations": {},
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        }
+      },
+      "attempted_final_score": 0.756047988504457,
+      "attempted_final_metrics": {
+        "initial_equity": 25000.0,
+        "final_equity": 128261.51560657927,
+        "net_pnl": 103261.51560657927,
+        "net_return_pct": 4.130460624263171,
+        "total_trades": 1111.0,
+        "entry_signals_fired": 1985.0,
+        "entries_accepted_by_portfolio": 1111.0,
+        "entries_blocked_by_portfolio": 874.0,
+        "entry_accept_rate": 0.5596977329974812,
+        "active_trades_per_month": 48.16817021781708,
+        "total_r": 233.87634931660128,
+        "total_r_per_month": 10.139870210444373,
+        "profit_factor": 2.2235357613051967,
+        "win_rate": 0.72997299729973,
+        "expectancy_r": 0.2105097653614773,
+        "sharpe": 4.662195367487659,
+        "sortino": 5.015523823995708,
+        "calmar": 44.24464127726507,
+        "max_drawdown_pct": 0.03030019718169129,
+        "max_drawdown_dollar": 2611.360740414806,
+        "active_strategy_count": 2.0,
+        "max_strategy_trade_share": 0.5868586858685868,
+        "max_strategy_risk_share": 0.6366992168134898,
+        "trade_capture_ratio": 0.5596977329974812,
+        "positive_alpha_block_rate": 0.45752508361204014,
+        "blocked_positive_count": 684.0,
+        "blocked_nonpositive_count": 190.0,
+        "blocked_positive_fraction": 0.782608695652174,
+        "blocked_avg_r": 0.1566184221732152,
+        "accepted_avg_r": 0.21050976536147728,
+        "blocked_positive_avg_r": 0.3644594940231472,
+        "candidate_discrimination": 0.5898189053137701,
+        "positive_slices": 4.0,
+        "max_daily_loss_R": 2.981773900720437,
+        "max_weekly_loss_R": 2.311867454625175,
+        "trades_IARIC_V5R1": 652.0,
+        "trades_ALCB_R3": 459.0,
+        "pnl_IARIC_V5R1": 47806.95972489829,
+        "pnl_ALCB_R3": 55454.55588168097,
+        "risk_share_IARIC_V5R1": 0.6366992168134898,
+        "risk_share_ALCB_R3": 0.3633007831865101,
+        "blocked_reason_symbol_heat_cap": 22.0,
+        "blocked_reason_strategy_heat_cap": 424.0,
+        "blocked_reason_strategy_trade_share_cap": 384.0,
+        "blocked_reason_sector_heat_cap": 34.0,
+        "blocked_reason_portfolio_heat_cap": 10.0,
+        "risk_basis": "bar_close_mark_to_market",
+        "max_drawdown_pct_mtm": 0.03030019718169129,
+        "calmar_mtm": 44.24464127726507,
+        "max_drawdown_pct_realized": 0.02794136031411907,
+        "calmar_realized": 47.98052143018729,
+        "mtm_points": 92215.0,
+        "score_alpha_return": 1.0,
+        "score_trade_frequency": 0.802802836963618,
+        "score_drawdown_control": 0.6969980281830871,
+        "score_profit_factor_quality": 0.4449220950200715,
+        "score_synergy_capture": 0.20643661685981954,
+        "score_allocation_balance": 0.9633007831865101,
+        "score_robustness": 0.8254016581130708,
+        "score_total": 0.756047988504457
+      },
+      "attempted_kept_features": [],
+      "attempted_accepted_count": 0
+    },
+    "2": {
+      "focus": "Alpha/frequency capacity expansion under heat caps",
+      "base_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        }
+      },
+      "final_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        },
+        "portfolio_rules.max_single_strategy_trade_share": 0.85,
+        "portfolio_rules.max_single_strategy_risk_share": 0.82,
+        "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+        "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+        "portfolio_rules.heat_cap_R": 6.5
+      },
+      "base_score": 0.756047988504457,
+      "final_score": 0.8117716694164114,
+      "kept_features": [
+        "share_cap_85_actual_balance_guard",
+        "strategy_heat_5_4_4_0",
+        "heat_cap_6_5"
+      ],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 7,
+          "best_name": "share_cap_85_actual_balance_guard",
+          "best_score": 0.7865931576800198,
+          "best_delta_pct": 4.040109839586295,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 6,
+          "best_name": "strategy_heat_5_4_4_0",
+          "best_score": 0.7987672227078839,
+          "best_delta_pct": 1.5476952613941286,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 3,
+          "candidates_tested": 5,
+          "best_name": "heat_cap_6_5",
+          "best_score": 0.8117716694164114,
+          "best_delta_pct": 1.628064639963745,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 4,
+          "candidates_tested": 4,
+          "best_name": "positions_13_capacity",
+          "best_score": 0.8117716694164114,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "initial_equity": 25000.0,
+        "final_equity": 194199.57565212026,
+        "net_pnl": 169199.57565212026,
+        "net_return_pct": 6.76798302608481,
+        "total_trades": 1391.0,
+        "entry_signals_fired": 1985.0,
+        "entries_accepted_by_portfolio": 1391.0,
+        "entries_blocked_by_portfolio": 594.0,
+        "entry_accept_rate": 0.7007556675062973,
+        "active_trades_per_month": 60.307763071992404,
+        "total_r": 295.0814181842045,
+        "total_r_per_month": 12.793458127103174,
+        "profit_factor": 2.3025857715675593,
+        "win_rate": 0.7483824586628325,
+        "expectancy_r": 0.2121361741079831,
+        "sharpe": 4.895613994979087,
+        "sortino": 4.953366767331787,
+        "calmar": 58.81111371470752,
+        "max_drawdown_pct": 0.03237781124490394,
+        "max_drawdown_dollar": 3118.0531513847527,
+        "active_strategy_count": 2.0,
+        "max_strategy_trade_share": 0.6513299784327822,
+        "max_strategy_risk_share": 0.6686526984033064,
+        "trade_capture_ratio": 0.7007556675062973,
+        "positive_alpha_block_rate": 0.3036789297658863,
+        "blocked_positive_count": 454.0,
+        "blocked_nonpositive_count": 140.0,
+        "blocked_positive_fraction": 0.7643097643097643,
+        "blocked_avg_r": 0.12740645136664452,
+        "accepted_avg_r": 0.2121361741079831,
+        "blocked_positive_avg_r": 0.3472193996522154,
+        "candidate_discrimination": 0.6412162045688976,
+        "positive_slices": 4.0,
+        "max_daily_loss_R": 3.4191038562682032,
+        "max_weekly_loss_R": 1.8164869534332295,
+        "trades_IARIC_V5R1": 906.0,
+        "trades_ALCB_R3": 485.0,
+        "pnl_IARIC_V5R1": 82113.51471370281,
+        "pnl_ALCB_R3": 87086.06093841759,
+        "risk_share_IARIC_V5R1": 0.6686526984033064,
+        "risk_share_ALCB_R3": 0.33134730159669357,
+        "blocked_reason_symbol_heat_cap": 32.0,
+        "blocked_reason_strategy_heat_cap": 286.0,
+        "blocked_reason_portfolio_heat_cap": 40.0,
+        "blocked_reason_sector_heat_cap": 77.0,
+        "blocked_reason_strategy_trade_share_cap": 152.0,
+        "blocked_reason_long_heat_cap": 7.0,
+        "risk_basis": "bar_close_mark_to_market",
+        "max_drawdown_pct_mtm": 0.03237781124490394,
+        "calmar_mtm": 58.81111371470752,
+        "max_drawdown_pct_realized": 0.025493488750791986,
+        "calmar_realized": 74.69380806033294,
+        "mtm_points": 92215.0,
+        "score_alpha_return": 1.0,
+        "score_trade_frequency": 1.0,
+        "score_drawdown_control": 0.6762218875509607,
+        "score_profit_factor_quality": 0.47366755329729426,
+        "score_synergy_capture": 0.39733712708044144,
+        "score_allocation_balance": 0.8800173231639115,
+        "score_robustness": 0.8372278965956705,
+        "score_total": 0.8117716694164114
+      },
+      "total_candidates": 7,
+      "accepted_count": 3,
+      "elapsed_seconds": 2128.2977480888367,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 2,
+        "goal_progress": {
+          "active_strategy_count": {
+            "target": 2.0,
+            "actual": 2.0,
+            "pct_of_target": 100.0
+          },
+          "active_trades_per_month": {
+            "target": 52.0,
+            "actual": 60.307763071992404,
+            "pct_of_target": 115.97646744613922
+          },
+          "total_r_per_month": {
+            "target": 13.0,
+            "actual": 12.793458127103174,
+            "pct_of_target": 98.4112163623321
+          },
+          "profit_factor": {
+            "target": 2.6,
+            "actual": 2.3025857715675593,
+            "pct_of_target": 88.56099121413689
+          },
+          "max_drawdown_pct": {
+            "target": 0.08,
+            "actual": 0.03237781124490394,
+            "pct_of_target": 200.0
+          },
+          "trade_capture_ratio": {
+            "target": 0.84,
+            "actual": 0.7007556675062973,
+            "pct_of_target": 83.42329375074968
+          },
+          "positive_slices": {
+            "target": 4.0,
+            "actual": 4.0,
+            "pct_of_target": 100.0
+          }
+        },
+        "strengths": [
+          "active_strategy_count: 2.0000 (100% of 2.0000)",
+          "active_trades_per_month: 60.3078 (116% of 52.0000)",
+          "total_r_per_month: 12.7935 (98% of 13.0000)",
+          "profit_factor: 2.3026 (89% of 2.6000)",
+          "max_drawdown_pct: 0.0324 (200% of 0.0800)",
+          "trade_capture_ratio: 0.7008 (83% of 0.8400)",
+          "positive_slices: 4.0000 (100% of 4.0000)"
+        ],
+        "weaknesses": [],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "Positive blocked candidates are too frequent; inspect ranking and heat scarcity."
+        ],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + active_strategy_count: 2.0000 (100% of 2.0000)\n  + active_trades_per_month: 60.3078 (116% of 52.0000)\n  + total_r_per_month: 12.7935 (98% of 13.0000)\n  + profit_factor: 2.3026 (89% of 2.6000)\n  + max_drawdown_pct: 0.0324 (200% of 0.0800)\n  + trade_capture_ratio: 0.7008 (83% of 0.8400)\n  + positive_slices: 4.0000 (100% of 4.0000)\n\nDiagnostic Gaps:\n  ! Positive blocked candidates are too frequent; inspect ranking and heat scarcity.\n\nGoal Progress:\n  active_strategy_count: 2.0000 / 2.0000 (100%)\n  active_trades_per_month: 60.3078 / 52.0000 (116%)\n  total_r_per_month: 12.7935 / 13.0000 (98%)\n  profit_factor: 2.3026 / 2.6000 (89%)\n  max_drawdown_pct: 0.0324 / 0.0800 (200%)\n  trade_capture_ratio: 0.7008 / 0.8400 (83%)\n  positive_slices: 4.0000 / 4.0000 (100%)",
+        "scoring_weight_overrides": null,
+        "extra": {}
+      },
+      "new_mutations": {
+        "portfolio_rules.max_single_strategy_trade_share": 0.85,
+        "portfolio_rules.max_single_strategy_risk_share": 0.82,
+        "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+        "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+        "portfolio_rules.heat_cap_R": 6.5
+      },
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        },
+        "portfolio_rules.max_single_strategy_trade_share": 0.85,
+        "portfolio_rules.max_single_strategy_risk_share": 0.82,
+        "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+        "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+        "portfolio_rules.heat_cap_R": 6.5
+      },
+      "attempted_final_score": 0.8117716694164114,
+      "attempted_final_metrics": {
+        "initial_equity": 25000.0,
+        "final_equity": 194199.57565212026,
+        "net_pnl": 169199.57565212026,
+        "net_return_pct": 6.76798302608481,
+        "total_trades": 1391.0,
+        "entry_signals_fired": 1985.0,
+        "entries_accepted_by_portfolio": 1391.0,
+        "entries_blocked_by_portfolio": 594.0,
+        "entry_accept_rate": 0.7007556675062973,
+        "active_trades_per_month": 60.307763071992404,
+        "total_r": 295.0814181842045,
+        "total_r_per_month": 12.793458127103174,
+        "profit_factor": 2.3025857715675593,
+        "win_rate": 0.7483824586628325,
+        "expectancy_r": 0.2121361741079831,
+        "sharpe": 4.895613994979087,
+        "sortino": 4.953366767331787,
+        "calmar": 58.81111371470752,
+        "max_drawdown_pct": 0.03237781124490394,
+        "max_drawdown_dollar": 3118.0531513847527,
+        "active_strategy_count": 2.0,
+        "max_strategy_trade_share": 0.6513299784327822,
+        "max_strategy_risk_share": 0.6686526984033064,
+        "trade_capture_ratio": 0.7007556675062973,
+        "positive_alpha_block_rate": 0.3036789297658863,
+        "blocked_positive_count": 454.0,
+        "blocked_nonpositive_count": 140.0,
+        "blocked_positive_fraction": 0.7643097643097643,
+        "blocked_avg_r": 0.12740645136664452,
+        "accepted_avg_r": 0.2121361741079831,
+        "blocked_positive_avg_r": 0.3472193996522154,
+        "candidate_discrimination": 0.6412162045688976,
+        "positive_slices": 4.0,
+        "max_daily_loss_R": 3.4191038562682032,
+        "max_weekly_loss_R": 1.8164869534332295,
+        "trades_IARIC_V5R1": 906.0,
+        "trades_ALCB_R3": 485.0,
+        "pnl_IARIC_V5R1": 82113.51471370281,
+        "pnl_ALCB_R3": 87086.06093841759,
+        "risk_share_IARIC_V5R1": 0.6686526984033064,
+        "risk_share_ALCB_R3": 0.33134730159669357,
+        "blocked_reason_symbol_heat_cap": 32.0,
+        "blocked_reason_strategy_heat_cap": 286.0,
+        "blocked_reason_portfolio_heat_cap": 40.0,
+        "blocked_reason_sector_heat_cap": 77.0,
+        "blocked_reason_strategy_trade_share_cap": 152.0,
+        "blocked_reason_long_heat_cap": 7.0,
+        "risk_basis": "bar_close_mark_to_market",
+        "max_drawdown_pct_mtm": 0.03237781124490394,
+        "calmar_mtm": 58.81111371470752,
+        "max_drawdown_pct_realized": 0.025493488750791986,
+        "calmar_realized": 74.69380806033294,
+        "mtm_points": 92215.0,
+        "score_alpha_return": 1.0,
+        "score_trade_frequency": 1.0,
+        "score_drawdown_control": 0.6762218875509607,
+        "score_profit_factor_quality": 0.47366755329729426,
+        "score_synergy_capture": 0.39733712708044144,
+        "score_allocation_balance": 0.8800173231639115,
+        "score_robustness": 0.8372278965956705,
+        "score_total": 0.8117716694164114
+      },
+      "attempted_kept_features": [
+        "share_cap_85_actual_balance_guard",
+        "strategy_heat_5_4_4_0",
+        "heat_cap_6_5"
+      ],
+      "attempted_accepted_count": 3
+    },
+    "3": {
+      "focus": "Dynamic synergistic unit-risk allocation",
+      "base_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        },
+        "portfolio_rules.max_single_strategy_trade_share": 0.85,
+        "portfolio_rules.max_single_strategy_risk_share": 0.82,
+        "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+        "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+        "portfolio_rules.heat_cap_R": 6.5
+      },
+      "final_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        },
+        "portfolio_rules.max_single_strategy_trade_share": 0.85,
+        "portfolio_rules.max_single_strategy_risk_share": 0.82,
+        "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+        "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+        "portfolio_rules.heat_cap_R": 6.5
+      },
+      "base_score": 0.8117716694164114,
+      "final_score": 0.8117716694164114,
+      "kept_features": [],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 5,
+          "best_name": "dynamic_allocation_tighter_bounds",
+          "best_score": 0.8117716694164114,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "initial_equity": 25000.0,
+        "final_equity": 194199.57565212026,
+        "net_pnl": 169199.57565212026,
+        "net_return_pct": 6.76798302608481,
+        "total_trades": 1391.0,
+        "entry_signals_fired": 1985.0,
+        "entries_accepted_by_portfolio": 1391.0,
+        "entries_blocked_by_portfolio": 594.0,
+        "entry_accept_rate": 0.7007556675062973,
+        "active_trades_per_month": 60.307763071992404,
+        "total_r": 295.0814181842045,
+        "total_r_per_month": 12.793458127103174,
+        "profit_factor": 2.3025857715675593,
+        "win_rate": 0.7483824586628325,
+        "expectancy_r": 0.2121361741079831,
+        "sharpe": 4.895613994979087,
+        "sortino": 4.953366767331787,
+        "calmar": 58.81111371470752,
+        "max_drawdown_pct": 0.03237781124490394,
+        "max_drawdown_dollar": 3118.0531513847527,
+        "active_strategy_count": 2.0,
+        "max_strategy_trade_share": 0.6513299784327822,
+        "max_strategy_risk_share": 0.6686526984033064,
+        "trade_capture_ratio": 0.7007556675062973,
+        "positive_alpha_block_rate": 0.3036789297658863,
+        "blocked_positive_count": 454.0,
+        "blocked_nonpositive_count": 140.0,
+        "blocked_positive_fraction": 0.7643097643097643,
+        "blocked_avg_r": 0.12740645136664452,
+        "accepted_avg_r": 0.2121361741079831,
+        "blocked_positive_avg_r": 0.3472193996522154,
+        "candidate_discrimination": 0.6412162045688976,
+        "positive_slices": 4.0,
+        "max_daily_loss_R": 3.4191038562682032,
+        "max_weekly_loss_R": 1.8164869534332295,
+        "trades_IARIC_V5R1": 906.0,
+        "trades_ALCB_R3": 485.0,
+        "pnl_IARIC_V5R1": 82113.51471370281,
+        "pnl_ALCB_R3": 87086.06093841759,
+        "risk_share_IARIC_V5R1": 0.6686526984033064,
+        "risk_share_ALCB_R3": 0.33134730159669357,
+        "blocked_reason_symbol_heat_cap": 32.0,
+        "blocked_reason_strategy_heat_cap": 286.0,
+        "blocked_reason_portfolio_heat_cap": 40.0,
+        "blocked_reason_sector_heat_cap": 77.0,
+        "blocked_reason_strategy_trade_share_cap": 152.0,
+        "blocked_reason_long_heat_cap": 7.0,
+        "risk_basis": "bar_close_mark_to_market",
+        "max_drawdown_pct_mtm": 0.03237781124490394,
+        "calmar_mtm": 58.81111371470752,
+        "max_drawdown_pct_realized": 0.025493488750791986,
+        "calmar_realized": 74.69380806033294,
+        "mtm_points": 92215.0,
+        "score_alpha_return": 1.0,
+        "score_trade_frequency": 1.0,
+        "score_drawdown_control": 0.6762218875509607,
+        "score_profit_factor_quality": 0.47366755329729426,
+        "score_synergy_capture": 0.39733712708044144,
+        "score_allocation_balance": 0.8800173231639115,
+        "score_robustness": 0.8372278965956705,
+        "score_total": 0.8117716694164114
+      },
+      "total_candidates": 5,
+      "accepted_count": 0,
+      "elapsed_seconds": 436.19352984428406,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 3,
+        "goal_progress": {
+          "active_strategy_count": {
+            "target": 2.0,
+            "actual": 2.0,
+            "pct_of_target": 100.0
+          },
+          "active_trades_per_month": {
+            "target": 52.0,
+            "actual": 60.307763071992404,
+            "pct_of_target": 115.97646744613922
+          },
+          "total_r_per_month": {
+            "target": 13.0,
+            "actual": 12.793458127103174,
+            "pct_of_target": 98.4112163623321
+          },
+          "profit_factor": {
+            "target": 2.6,
+            "actual": 2.3025857715675593,
+            "pct_of_target": 88.56099121413689
+          },
+          "max_drawdown_pct": {
+            "target": 0.08,
+            "actual": 0.03237781124490394,
+            "pct_of_target": 200.0
+          },
+          "trade_capture_ratio": {
+            "target": 0.84,
+            "actual": 0.7007556675062973,
+            "pct_of_target": 83.42329375074968
+          },
+          "positive_slices": {
+            "target": 4.0,
+            "actual": 4.0,
+            "pct_of_target": 100.0
+          }
+        },
+        "strengths": [
+          "active_strategy_count: 2.0000 (100% of 2.0000)",
+          "active_trades_per_month: 60.3078 (116% of 52.0000)",
+          "total_r_per_month: 12.7935 (98% of 13.0000)",
+          "profit_factor: 2.3026 (89% of 2.6000)",
+          "max_drawdown_pct: 0.0324 (200% of 0.0800)",
+          "trade_capture_ratio: 0.7008 (83% of 0.8400)",
+          "positive_slices: 4.0000 (100% of 4.0000)"
+        ],
+        "weaknesses": [],
+        "scoring_assessment": "INEFFECTIVE",
+        "diagnostic_gaps": [
+          "Positive blocked candidates are too frequent; inspect ranking and heat scarcity."
+        ],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Retry budget exhausted; advance with current best mutations.",
+        "report": "======================================================================\nPHASE 3 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Retry budget exhausted; advance with current best mutations.\nScoring assessment: INEFFECTIVE\n\nStrengths:\n  + active_strategy_count: 2.0000 (100% of 2.0000)\n  + active_trades_per_month: 60.3078 (116% of 52.0000)\n  + total_r_per_month: 12.7935 (98% of 13.0000)\n  + profit_factor: 2.3026 (89% of 2.6000)\n  + max_drawdown_pct: 0.0324 (200% of 0.0800)\n  + trade_capture_ratio: 0.7008 (83% of 0.8400)\n  + positive_slices: 4.0000 (100% of 4.0000)\n\nDiagnostic Gaps:\n  ! Positive blocked candidates are too frequent; inspect ranking and heat scarcity.\n\nGoal Progress:\n  active_strategy_count: 2.0000 / 2.0000 (100%)\n  active_trades_per_month: 60.3078 / 52.0000 (116%)\n  total_r_per_month: 12.7935 / 13.0000 (98%)\n  profit_factor: 2.3026 / 2.6000 (89%)\n  max_drawdown_pct: 0.0324 / 0.0800 (200%)\n  trade_capture_ratio: 0.7008 / 0.8400 (83%)\n  positive_slices: 4.0000 / 4.0000 (100%)",
+        "scoring_weight_overrides": null,
+        "extra": {}
+      },
+      "new_mutations": {},
+      "applied_phase_mutations": false,
+      "attempted_final_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        },
+        "portfolio_rules.max_single_strategy_trade_share": 0.85,
+        "portfolio_rules.max_single_strategy_risk_share": 0.82,
+        "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+        "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+        "portfolio_rules.heat_cap_R": 6.5
+      },
+      "attempted_final_score": 0.8117716694164114,
+      "attempted_final_metrics": {
+        "initial_equity": 25000.0,
+        "final_equity": 194199.57565212026,
+        "net_pnl": 169199.57565212026,
+        "net_return_pct": 6.76798302608481,
+        "total_trades": 1391.0,
+        "entry_signals_fired": 1985.0,
+        "entries_accepted_by_portfolio": 1391.0,
+        "entries_blocked_by_portfolio": 594.0,
+        "entry_accept_rate": 0.7007556675062973,
+        "active_trades_per_month": 60.307763071992404,
+        "total_r": 295.0814181842045,
+        "total_r_per_month": 12.793458127103174,
+        "profit_factor": 2.3025857715675593,
+        "win_rate": 0.7483824586628325,
+        "expectancy_r": 0.2121361741079831,
+        "sharpe": 4.895613994979087,
+        "sortino": 4.953366767331787,
+        "calmar": 58.81111371470752,
+        "max_drawdown_pct": 0.03237781124490394,
+        "max_drawdown_dollar": 3118.0531513847527,
+        "active_strategy_count": 2.0,
+        "max_strategy_trade_share": 0.6513299784327822,
+        "max_strategy_risk_share": 0.6686526984033064,
+        "trade_capture_ratio": 0.7007556675062973,
+        "positive_alpha_block_rate": 0.3036789297658863,
+        "blocked_positive_count": 454.0,
+        "blocked_nonpositive_count": 140.0,
+        "blocked_positive_fraction": 0.7643097643097643,
+        "blocked_avg_r": 0.12740645136664452,
+        "accepted_avg_r": 0.2121361741079831,
+        "blocked_positive_avg_r": 0.3472193996522154,
+        "candidate_discrimination": 0.6412162045688976,
+        "positive_slices": 4.0,
+        "max_daily_loss_R": 3.4191038562682032,
+        "max_weekly_loss_R": 1.8164869534332295,
+        "trades_IARIC_V5R1": 906.0,
+        "trades_ALCB_R3": 485.0,
+        "pnl_IARIC_V5R1": 82113.51471370281,
+        "pnl_ALCB_R3": 87086.06093841759,
+        "risk_share_IARIC_V5R1": 0.6686526984033064,
+        "risk_share_ALCB_R3": 0.33134730159669357,
+        "blocked_reason_symbol_heat_cap": 32.0,
+        "blocked_reason_strategy_heat_cap": 286.0,
+        "blocked_reason_portfolio_heat_cap": 40.0,
+        "blocked_reason_sector_heat_cap": 77.0,
+        "blocked_reason_strategy_trade_share_cap": 152.0,
+        "blocked_reason_long_heat_cap": 7.0,
+        "risk_basis": "bar_close_mark_to_market",
+        "max_drawdown_pct_mtm": 0.03237781124490394,
+        "calmar_mtm": 58.81111371470752,
+        "max_drawdown_pct_realized": 0.025493488750791986,
+        "calmar_realized": 74.69380806033294,
+        "mtm_points": 92215.0,
+        "score_alpha_return": 1.0,
+        "score_trade_frequency": 1.0,
+        "score_drawdown_control": 0.6762218875509607,
+        "score_profit_factor_quality": 0.47366755329729426,
+        "score_synergy_capture": 0.39733712708044144,
+        "score_allocation_balance": 0.8800173231639115,
+        "score_robustness": 0.8372278965956705,
+        "score_total": 0.8117716694164114
+      },
+      "attempted_kept_features": [],
+      "attempted_accepted_count": 0
+    },
+    "4": {
+      "focus": "Cross-strategy routing, symbol collision, and sector heat",
+      "base_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        },
+        "portfolio_rules.max_single_strategy_trade_share": 0.85,
+        "portfolio_rules.max_single_strategy_risk_share": 0.82,
+        "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+        "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+        "portfolio_rules.heat_cap_R": 6.5
+      },
+      "final_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        },
+        "portfolio_rules.max_single_strategy_trade_share": 0.85,
+        "portfolio_rules.max_single_strategy_risk_share": 0.82,
+        "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+        "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+        "portfolio_rules.heat_cap_R": 6.5
+      },
+      "base_score": 0.8117716694164114,
+      "final_score": 0.8117716694164114,
+      "kept_features": [],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 6,
+          "best_name": "same_symbol_best_rank_only",
+          "best_score": 0.8119348783331906,
+          "best_delta_pct": 0.020105273801493337,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "initial_equity": 25000.0,
+        "final_equity": 194199.57565212026,
+        "net_pnl": 169199.57565212026,
+        "net_return_pct": 6.76798302608481,
+        "total_trades": 1391.0,
+        "entry_signals_fired": 1985.0,
+        "entries_accepted_by_portfolio": 1391.0,
+        "entries_blocked_by_portfolio": 594.0,
+        "entry_accept_rate": 0.7007556675062973,
+        "active_trades_per_month": 60.307763071992404,
+        "total_r": 295.0814181842045,
+        "total_r_per_month": 12.793458127103174,
+        "profit_factor": 2.3025857715675593,
+        "win_rate": 0.7483824586628325,
+        "expectancy_r": 0.2121361741079831,
+        "sharpe": 4.895613994979087,
+        "sortino": 4.953366767331787,
+        "calmar": 58.81111371470752,
+        "max_drawdown_pct": 0.03237781124490394,
+        "max_drawdown_dollar": 3118.0531513847527,
+        "active_strategy_count": 2.0,
+        "max_strategy_trade_share": 0.6513299784327822,
+        "max_strategy_risk_share": 0.6686526984033064,
+        "trade_capture_ratio": 0.7007556675062973,
+        "positive_alpha_block_rate": 0.3036789297658863,
+        "blocked_positive_count": 454.0,
+        "blocked_nonpositive_count": 140.0,
+        "blocked_positive_fraction": 0.7643097643097643,
+        "blocked_avg_r": 0.12740645136664452,
+        "accepted_avg_r": 0.2121361741079831,
+        "blocked_positive_avg_r": 0.3472193996522154,
+        "candidate_discrimination": 0.6412162045688976,
+        "positive_slices": 4.0,
+        "max_daily_loss_R": 3.4191038562682032,
+        "max_weekly_loss_R": 1.8164869534332295,
+        "trades_IARIC_V5R1": 906.0,
+        "trades_ALCB_R3": 485.0,
+        "pnl_IARIC_V5R1": 82113.51471370281,
+        "pnl_ALCB_R3": 87086.06093841759,
+        "risk_share_IARIC_V5R1": 0.6686526984033064,
+        "risk_share_ALCB_R3": 0.33134730159669357,
+        "blocked_reason_symbol_heat_cap": 32.0,
+        "blocked_reason_strategy_heat_cap": 286.0,
+        "blocked_reason_portfolio_heat_cap": 40.0,
+        "blocked_reason_sector_heat_cap": 77.0,
+        "blocked_reason_strategy_trade_share_cap": 152.0,
+        "blocked_reason_long_heat_cap": 7.0,
+        "risk_basis": "bar_close_mark_to_market",
+        "max_drawdown_pct_mtm": 0.03237781124490394,
+        "calmar_mtm": 58.81111371470752,
+        "max_drawdown_pct_realized": 0.025493488750791986,
+        "calmar_realized": 74.69380806033294,
+        "mtm_points": 92215.0,
+        "score_alpha_return": 1.0,
+        "score_trade_frequency": 1.0,
+        "score_drawdown_control": 0.6762218875509607,
+        "score_profit_factor_quality": 0.47366755329729426,
+        "score_synergy_capture": 0.39733712708044144,
+        "score_allocation_balance": 0.8800173231639115,
+        "score_robustness": 0.8372278965956705,
+        "score_total": 0.8117716694164114
+      },
+      "total_candidates": 6,
+      "accepted_count": 0,
+      "elapsed_seconds": 423.63867831230164,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 4,
+        "goal_progress": {
+          "active_strategy_count": {
+            "target": 2.0,
+            "actual": 2.0,
+            "pct_of_target": 100.0
+          },
+          "active_trades_per_month": {
+            "target": 52.0,
+            "actual": 60.307763071992404,
+            "pct_of_target": 115.97646744613922
+          },
+          "total_r_per_month": {
+            "target": 13.0,
+            "actual": 12.793458127103174,
+            "pct_of_target": 98.4112163623321
+          },
+          "profit_factor": {
+            "target": 2.6,
+            "actual": 2.3025857715675593,
+            "pct_of_target": 88.56099121413689
+          },
+          "max_drawdown_pct": {
+            "target": 0.08,
+            "actual": 0.03237781124490394,
+            "pct_of_target": 200.0
+          },
+          "trade_capture_ratio": {
+            "target": 0.84,
+            "actual": 0.7007556675062973,
+            "pct_of_target": 83.42329375074968
+          },
+          "positive_slices": {
+            "target": 4.0,
+            "actual": 4.0,
+            "pct_of_target": 100.0
+          }
+        },
+        "strengths": [
+          "active_strategy_count: 2.0000 (100% of 2.0000)",
+          "active_trades_per_month: 60.3078 (116% of 52.0000)",
+          "total_r_per_month: 12.7935 (98% of 13.0000)",
+          "profit_factor: 2.3026 (89% of 2.6000)",
+          "max_drawdown_pct: 0.0324 (200% of 0.0800)",
+          "trade_capture_ratio: 0.7008 (83% of 0.8400)",
+          "positive_slices: 4.0000 (100% of 4.0000)"
+        ],
+        "weaknesses": [],
+        "scoring_assessment": "INEFFECTIVE",
+        "diagnostic_gaps": [
+          "Positive blocked candidates are too frequent; inspect ranking and heat scarcity."
+        ],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Retry budget exhausted; advance with current best mutations.",
+        "report": "======================================================================\nPHASE 4 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Retry budget exhausted; advance with current best mutations.\nScoring assessment: INEFFECTIVE\n\nStrengths:\n  + active_strategy_count: 2.0000 (100% of 2.0000)\n  + active_trades_per_month: 60.3078 (116% of 52.0000)\n  + total_r_per_month: 12.7935 (98% of 13.0000)\n  + profit_factor: 2.3026 (89% of 2.6000)\n  + max_drawdown_pct: 0.0324 (200% of 0.0800)\n  + trade_capture_ratio: 0.7008 (83% of 0.8400)\n  + positive_slices: 4.0000 (100% of 4.0000)\n\nDiagnostic Gaps:\n  ! Positive blocked candidates are too frequent; inspect ranking and heat scarcity.\n\nGoal Progress:\n  active_strategy_count: 2.0000 / 2.0000 (100%)\n  active_trades_per_month: 60.3078 / 52.0000 (116%)\n  total_r_per_month: 12.7935 / 13.0000 (98%)\n  profit_factor: 2.3026 / 2.6000 (89%)\n  max_drawdown_pct: 0.0324 / 0.0800 (200%)\n  trade_capture_ratio: 0.7008 / 0.8400 (83%)\n  positive_slices: 4.0000 / 4.0000 (100%)",
+        "scoring_weight_overrides": null,
+        "extra": {}
+      },
+      "new_mutations": {},
+      "applied_phase_mutations": false,
+      "attempted_final_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        },
+        "portfolio_rules.max_single_strategy_trade_share": 0.85,
+        "portfolio_rules.max_single_strategy_risk_share": 0.82,
+        "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+        "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+        "portfolio_rules.heat_cap_R": 6.5
+      },
+      "attempted_final_score": 0.8117716694164114,
+      "attempted_final_metrics": {
+        "initial_equity": 25000.0,
+        "final_equity": 194199.57565212026,
+        "net_pnl": 169199.57565212026,
+        "net_return_pct": 6.76798302608481,
+        "total_trades": 1391.0,
+        "entry_signals_fired": 1985.0,
+        "entries_accepted_by_portfolio": 1391.0,
+        "entries_blocked_by_portfolio": 594.0,
+        "entry_accept_rate": 0.7007556675062973,
+        "active_trades_per_month": 60.307763071992404,
+        "total_r": 295.0814181842045,
+        "total_r_per_month": 12.793458127103174,
+        "profit_factor": 2.3025857715675593,
+        "win_rate": 0.7483824586628325,
+        "expectancy_r": 0.2121361741079831,
+        "sharpe": 4.895613994979087,
+        "sortino": 4.953366767331787,
+        "calmar": 58.81111371470752,
+        "max_drawdown_pct": 0.03237781124490394,
+        "max_drawdown_dollar": 3118.0531513847527,
+        "active_strategy_count": 2.0,
+        "max_strategy_trade_share": 0.6513299784327822,
+        "max_strategy_risk_share": 0.6686526984033064,
+        "trade_capture_ratio": 0.7007556675062973,
+        "positive_alpha_block_rate": 0.3036789297658863,
+        "blocked_positive_count": 454.0,
+        "blocked_nonpositive_count": 140.0,
+        "blocked_positive_fraction": 0.7643097643097643,
+        "blocked_avg_r": 0.12740645136664452,
+        "accepted_avg_r": 0.2121361741079831,
+        "blocked_positive_avg_r": 0.3472193996522154,
+        "candidate_discrimination": 0.6412162045688976,
+        "positive_slices": 4.0,
+        "max_daily_loss_R": 3.4191038562682032,
+        "max_weekly_loss_R": 1.8164869534332295,
+        "trades_IARIC_V5R1": 906.0,
+        "trades_ALCB_R3": 485.0,
+        "pnl_IARIC_V5R1": 82113.51471370281,
+        "pnl_ALCB_R3": 87086.06093841759,
+        "risk_share_IARIC_V5R1": 0.6686526984033064,
+        "risk_share_ALCB_R3": 0.33134730159669357,
+        "blocked_reason_symbol_heat_cap": 32.0,
+        "blocked_reason_strategy_heat_cap": 286.0,
+        "blocked_reason_portfolio_heat_cap": 40.0,
+        "blocked_reason_sector_heat_cap": 77.0,
+        "blocked_reason_strategy_trade_share_cap": 152.0,
+        "blocked_reason_long_heat_cap": 7.0,
+        "risk_basis": "bar_close_mark_to_market",
+        "max_drawdown_pct_mtm": 0.03237781124490394,
+        "calmar_mtm": 58.81111371470752,
+        "max_drawdown_pct_realized": 0.025493488750791986,
+        "calmar_realized": 74.69380806033294,
+        "mtm_points": 92215.0,
+        "score_alpha_return": 1.0,
+        "score_trade_frequency": 1.0,
+        "score_drawdown_control": 0.6762218875509607,
+        "score_profit_factor_quality": 0.47366755329729426,
+        "score_synergy_capture": 0.39733712708044144,
+        "score_allocation_balance": 0.8800173231639115,
+        "score_robustness": 0.8372278965956705,
+        "score_total": 0.8117716694164114
+      },
+      "attempted_kept_features": [],
+      "attempted_accepted_count": 0
+    },
+    "5": {
+      "focus": "Blocked-candidate discrimination using live-known quality proxies",
+      "base_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        },
+        "portfolio_rules.max_single_strategy_trade_share": 0.85,
+        "portfolio_rules.max_single_strategy_risk_share": 0.82,
+        "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+        "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+        "portfolio_rules.heat_cap_R": 6.5
+      },
+      "final_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        },
+        "portfolio_rules.max_single_strategy_trade_share": 0.85,
+        "portfolio_rules.max_single_strategy_risk_share": 0.82,
+        "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+        "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+        "portfolio_rules.heat_cap_R": 6.5
+      },
+      "base_score": 0.8117716694164114,
+      "final_score": 0.8117716694164114,
+      "kept_features": [],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 6,
+          "best_name": "iaric_gap_up_60_dampen",
+          "best_score": 0.8203463661929095,
+          "best_delta_pct": 1.0562941649173883,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 5,
+          "best_name": "alcb_score45_no_surge_dampen",
+          "best_score": 0.8269116646688465,
+          "best_delta_pct": 0.8003081072212781,
+          "kept": true,
+          "rejected_count": 0
+        },
+        {
+          "round_num": 3,
+          "candidates_tested": 4,
+          "best_name": "blocked_alpha_ranker",
+          "best_score": 0.8269116646688465,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "initial_equity": 25000.0,
+        "final_equity": 194199.57565212026,
+        "net_pnl": 169199.57565212026,
+        "net_return_pct": 6.76798302608481,
+        "total_trades": 1391.0,
+        "entry_signals_fired": 1985.0,
+        "entries_accepted_by_portfolio": 1391.0,
+        "entries_blocked_by_portfolio": 594.0,
+        "entry_accept_rate": 0.7007556675062973,
+        "active_trades_per_month": 60.307763071992404,
+        "total_r": 295.0814181842045,
+        "total_r_per_month": 12.793458127103174,
+        "profit_factor": 2.3025857715675593,
+        "win_rate": 0.7483824586628325,
+        "expectancy_r": 0.2121361741079831,
+        "sharpe": 4.895613994979087,
+        "sortino": 4.953366767331787,
+        "calmar": 58.81111371470752,
+        "max_drawdown_pct": 0.03237781124490394,
+        "max_drawdown_dollar": 3118.0531513847527,
+        "active_strategy_count": 2.0,
+        "max_strategy_trade_share": 0.6513299784327822,
+        "max_strategy_risk_share": 0.6686526984033064,
+        "trade_capture_ratio": 0.7007556675062973,
+        "positive_alpha_block_rate": 0.3036789297658863,
+        "blocked_positive_count": 454.0,
+        "blocked_nonpositive_count": 140.0,
+        "blocked_positive_fraction": 0.7643097643097643,
+        "blocked_avg_r": 0.12740645136664452,
+        "accepted_avg_r": 0.2121361741079831,
+        "blocked_positive_avg_r": 0.3472193996522154,
+        "candidate_discrimination": 0.6412162045688976,
+        "positive_slices": 4.0,
+        "max_daily_loss_R": 3.4191038562682032,
+        "max_weekly_loss_R": 1.8164869534332295,
+        "trades_IARIC_V5R1": 906.0,
+        "trades_ALCB_R3": 485.0,
+        "pnl_IARIC_V5R1": 82113.51471370281,
+        "pnl_ALCB_R3": 87086.06093841759,
+        "risk_share_IARIC_V5R1": 0.6686526984033064,
+        "risk_share_ALCB_R3": 0.33134730159669357,
+        "blocked_reason_symbol_heat_cap": 32.0,
+        "blocked_reason_strategy_heat_cap": 286.0,
+        "blocked_reason_portfolio_heat_cap": 40.0,
+        "blocked_reason_sector_heat_cap": 77.0,
+        "blocked_reason_strategy_trade_share_cap": 152.0,
+        "blocked_reason_long_heat_cap": 7.0,
+        "risk_basis": "bar_close_mark_to_market",
+        "max_drawdown_pct_mtm": 0.03237781124490394,
+        "calmar_mtm": 58.81111371470752,
+        "max_drawdown_pct_realized": 0.025493488750791986,
+        "calmar_realized": 74.69380806033294,
+        "mtm_points": 92215.0,
+        "score_alpha_return": 1.0,
+        "score_trade_frequency": 1.0,
+        "score_drawdown_control": 0.6762218875509607,
+        "score_profit_factor_quality": 0.47366755329729426,
+        "score_synergy_capture": 0.39733712708044144,
+        "score_allocation_balance": 0.8800173231639115,
+        "score_robustness": 0.8372278965956705,
+        "score_total": 0.8117716694164114
+      },
+      "total_candidates": 6,
+      "accepted_count": 0,
+      "elapsed_seconds": 908.2876267433167,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 5,
+        "goal_progress": {
+          "active_strategy_count": {
+            "target": 2.0,
+            "actual": 2.0,
+            "pct_of_target": 100.0
+          },
+          "active_trades_per_month": {
+            "target": 52.0,
+            "actual": 65.29366727995726,
+            "pct_of_target": 125.56474476914859
+          },
+          "total_r_per_month": {
+            "target": 13.0,
+            "actual": 13.140786642725953,
+            "pct_of_target": 101.08297417481502
+          },
+          "profit_factor": {
+            "target": 2.6,
+            "actual": 2.4324991566578325,
+            "pct_of_target": 93.55765987145509
+          },
+          "max_drawdown_pct": {
+            "target": 0.08,
+            "actual": 0.02963254020229236,
+            "pct_of_target": 200.0
+          },
+          "trade_capture_ratio": {
+            "target": 0.84,
+            "actual": 0.7586901763224181,
+            "pct_of_target": 90.32025908600215
+          },
+          "positive_slices": {
+            "target": 4.0,
+            "actual": 4.0,
+            "pct_of_target": 100.0
+          }
+        },
+        "strengths": [
+          "active_strategy_count: 2.0000 (100% of 2.0000)",
+          "active_trades_per_month: 65.2937 (126% of 52.0000)",
+          "total_r_per_month: 13.1408 (101% of 13.0000)",
+          "profit_factor: 2.4325 (94% of 2.6000)",
+          "max_drawdown_pct: 0.0296 (200% of 0.0800)",
+          "trade_capture_ratio: 0.7587 (90% of 0.8400)",
+          "positive_slices: 4.0000 (100% of 4.0000)"
+        ],
+        "weaknesses": [],
+        "scoring_assessment": "MISALIGNED",
+        "diagnostic_gaps": [
+          "Positive blocked candidates are too frequent; inspect ranking and heat scarcity."
+        ],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Retry budget exhausted; advance with current best mutations.",
+        "report": "======================================================================\nPHASE 5 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Retry budget exhausted; advance with current best mutations.\nScoring assessment: MISALIGNED\n\nStrengths:\n  + active_strategy_count: 2.0000 (100% of 2.0000)\n  + active_trades_per_month: 65.2937 (126% of 52.0000)\n  + total_r_per_month: 13.1408 (101% of 13.0000)\n  + profit_factor: 2.4325 (94% of 2.6000)\n  + max_drawdown_pct: 0.0296 (200% of 0.0800)\n  + trade_capture_ratio: 0.7587 (90% of 0.8400)\n  + positive_slices: 4.0000 (100% of 4.0000)\n\nDiagnostic Gaps:\n  ! Positive blocked candidates are too frequent; inspect ranking and heat scarcity.\n\nGoal Progress:\n  active_strategy_count: 2.0000 / 2.0000 (100%)\n  active_trades_per_month: 65.2937 / 52.0000 (126%)\n  total_r_per_month: 13.1408 / 13.0000 (101%)\n  profit_factor: 2.4325 / 2.6000 (94%)\n  max_drawdown_pct: 0.0296 / 0.0800 (200%)\n  trade_capture_ratio: 0.7587 / 0.8400 (90%)\n  positive_slices: 4.0000 / 4.0000 (100%)",
+        "scoring_weight_overrides": null,
+        "extra": {}
+      },
+      "new_mutations": {},
+      "applied_phase_mutations": false,
+      "attempted_final_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        },
+        "portfolio_rules.max_single_strategy_trade_share": 0.85,
+        "portfolio_rules.max_single_strategy_risk_share": 0.82,
+        "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+        "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+        "portfolio_rules.heat_cap_R": 6.5,
+        "strategy_filters.IARIC_V5R1.gap_up_size_mult": 0.6,
+        "strategy_filters.ALCB_R3.score5_no_surge_mult": 0.45
+      },
+      "attempted_final_score": 0.8269116646688465,
+      "attempted_final_metrics": {
+        "initial_equity": 25000.0,
+        "final_equity": 171698.7920461844,
+        "net_pnl": 146698.7920461844,
+        "net_return_pct": 5.867951681847376,
+        "total_trades": 1506.0,
+        "entry_signals_fired": 1985.0,
+        "entries_accepted_by_portfolio": 1506.0,
+        "entries_blocked_by_portfolio": 479.0,
+        "entry_accept_rate": 0.7586901763224181,
+        "active_trades_per_month": 65.29366727995726,
+        "total_r": 303.0925587177133,
+        "total_r_per_month": 13.140786642725953,
+        "profit_factor": 2.4324991566578325,
+        "win_rate": 0.747675962815405,
+        "expectancy_r": 0.20125667909542716,
+        "sharpe": 4.749980808670341,
+        "sortino": 4.957801636629329,
+        "calmar": 58.179667284439915,
+        "max_drawdown_pct": 0.02963254020229236,
+        "max_drawdown_dollar": 2461.241466072621,
+        "active_strategy_count": 2.0,
+        "max_strategy_trade_share": 0.6646746347941567,
+        "max_strategy_risk_share": 0.6832305642805525,
+        "trade_capture_ratio": 0.7586901763224181,
+        "positive_alpha_block_rate": 0.2468227424749164,
+        "blocked_positive_count": 369.0,
+        "blocked_nonpositive_count": 110.0,
+        "blocked_positive_fraction": 0.7703549060542797,
+        "blocked_avg_r": 0.14126991978763684,
+        "accepted_avg_r": 0.20125667909542716,
+        "blocked_positive_avg_r": 0.34820104725181544,
+        "candidate_discrimination": 0.5999779321796506,
+        "positive_slices": 4.0,
+        "max_daily_loss_R": 3.4191038562682032,
+        "max_weekly_loss_R": 1.288750591940429,
+        "trades_IARIC_V5R1": 1001.0,
+        "trades_ALCB_R3": 505.0,
+        "pnl_IARIC_V5R1": 73222.44323863235,
+        "pnl_ALCB_R3": 73476.34880755197,
+        "risk_share_IARIC_V5R1": 0.6832305642805525,
+        "risk_share_ALCB_R3": 0.3167694357194475,
+        "blocked_reason_symbol_heat_cap": 10.0,
+        "blocked_reason_strategy_heat_cap": 169.0,
+        "blocked_reason_portfolio_heat_cap": 42.0,
+        "blocked_reason_sector_heat_cap": 59.0,
+        "blocked_reason_strategy_trade_share_cap": 198.0,
+        "blocked_reason_strategy_max_concurrent": 1.0,
+        "risk_basis": "bar_close_mark_to_market",
+        "max_drawdown_pct_mtm": 0.02963254020229236,
+        "calmar_mtm": 58.179667284439915,
+        "max_drawdown_pct_realized": 0.022671054117839,
+        "calmar_realized": 76.04579447379446,
+        "mtm_points": 92215.0,
+        "score_alpha_return": 1.0,
+        "score_trade_frequency": 1.0,
+        "score_drawdown_control": 0.7036745979770764,
+        "score_profit_factor_quality": 0.5209087842392118,
+        "score_synergy_capture": 0.4729087969068378,
+        "score_allocation_balance": 0.8520948009252907,
+        "score_robustness": 0.8349209027286411,
+        "score_total": 0.8269116646688465
+      },
+      "attempted_kept_features": [
+        "iaric_gap_up_60_dampen",
+        "alcb_score45_no_surge_dampen"
+      ],
+      "attempted_accepted_count": 2
+    },
+    "6": {
+      "focus": "Aggressive drawdown governors and cascade containment",
+      "base_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        },
+        "portfolio_rules.max_single_strategy_trade_share": 0.85,
+        "portfolio_rules.max_single_strategy_risk_share": 0.82,
+        "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+        "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+        "portfolio_rules.heat_cap_R": 6.5
+      },
+      "final_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        },
+        "portfolio_rules.max_single_strategy_trade_share": 0.85,
+        "portfolio_rules.max_single_strategy_risk_share": 0.82,
+        "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+        "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+        "portfolio_rules.heat_cap_R": 6.5
+      },
+      "base_score": 0.8117716694164114,
+      "final_score": 0.8117716694164114,
+      "kept_features": [],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 4,
+          "best_name": "daily_stop_3_25",
+          "best_score": 0.8117716694164114,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "initial_equity": 25000.0,
+        "final_equity": 194199.57565212026,
+        "net_pnl": 169199.57565212026,
+        "net_return_pct": 6.76798302608481,
+        "total_trades": 1391.0,
+        "entry_signals_fired": 1985.0,
+        "entries_accepted_by_portfolio": 1391.0,
+        "entries_blocked_by_portfolio": 594.0,
+        "entry_accept_rate": 0.7007556675062973,
+        "active_trades_per_month": 60.307763071992404,
+        "total_r": 295.0814181842045,
+        "total_r_per_month": 12.793458127103174,
+        "profit_factor": 2.3025857715675593,
+        "win_rate": 0.7483824586628325,
+        "expectancy_r": 0.2121361741079831,
+        "sharpe": 4.895613994979087,
+        "sortino": 4.953366767331787,
+        "calmar": 58.81111371470752,
+        "max_drawdown_pct": 0.03237781124490394,
+        "max_drawdown_dollar": 3118.0531513847527,
+        "active_strategy_count": 2.0,
+        "max_strategy_trade_share": 0.6513299784327822,
+        "max_strategy_risk_share": 0.6686526984033064,
+        "trade_capture_ratio": 0.7007556675062973,
+        "positive_alpha_block_rate": 0.3036789297658863,
+        "blocked_positive_count": 454.0,
+        "blocked_nonpositive_count": 140.0,
+        "blocked_positive_fraction": 0.7643097643097643,
+        "blocked_avg_r": 0.12740645136664452,
+        "accepted_avg_r": 0.2121361741079831,
+        "blocked_positive_avg_r": 0.3472193996522154,
+        "candidate_discrimination": 0.6412162045688976,
+        "positive_slices": 4.0,
+        "max_daily_loss_R": 3.4191038562682032,
+        "max_weekly_loss_R": 1.8164869534332295,
+        "trades_IARIC_V5R1": 906.0,
+        "trades_ALCB_R3": 485.0,
+        "pnl_IARIC_V5R1": 82113.51471370281,
+        "pnl_ALCB_R3": 87086.06093841759,
+        "risk_share_IARIC_V5R1": 0.6686526984033064,
+        "risk_share_ALCB_R3": 0.33134730159669357,
+        "blocked_reason_symbol_heat_cap": 32.0,
+        "blocked_reason_strategy_heat_cap": 286.0,
+        "blocked_reason_portfolio_heat_cap": 40.0,
+        "blocked_reason_sector_heat_cap": 77.0,
+        "blocked_reason_strategy_trade_share_cap": 152.0,
+        "blocked_reason_long_heat_cap": 7.0,
+        "risk_basis": "bar_close_mark_to_market",
+        "max_drawdown_pct_mtm": 0.03237781124490394,
+        "calmar_mtm": 58.81111371470752,
+        "max_drawdown_pct_realized": 0.025493488750791986,
+        "calmar_realized": 74.69380806033294,
+        "mtm_points": 92215.0,
+        "score_alpha_return": 1.0,
+        "score_trade_frequency": 1.0,
+        "score_drawdown_control": 0.6762218875509607,
+        "score_profit_factor_quality": 0.47366755329729426,
+        "score_synergy_capture": 0.39733712708044144,
+        "score_allocation_balance": 0.8800173231639115,
+        "score_robustness": 0.8372278965956705,
+        "score_total": 0.8117716694164114
+      },
+      "total_candidates": 4,
+      "accepted_count": 0,
+      "elapsed_seconds": 372.7674865722656,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 6,
+        "goal_progress": {
+          "active_strategy_count": {
+            "target": 2.0,
+            "actual": 2.0,
+            "pct_of_target": 100.0
+          },
+          "active_trades_per_month": {
+            "target": 52.0,
+            "actual": 60.307763071992404,
+            "pct_of_target": 115.97646744613922
+          },
+          "total_r_per_month": {
+            "target": 13.0,
+            "actual": 12.793458127103174,
+            "pct_of_target": 98.4112163623321
+          },
+          "profit_factor": {
+            "target": 2.6,
+            "actual": 2.3025857715675593,
+            "pct_of_target": 88.56099121413689
+          },
+          "max_drawdown_pct": {
+            "target": 0.08,
+            "actual": 0.03237781124490394,
+            "pct_of_target": 200.0
+          },
+          "trade_capture_ratio": {
+            "target": 0.84,
+            "actual": 0.7007556675062973,
+            "pct_of_target": 83.42329375074968
+          },
+          "positive_slices": {
+            "target": 4.0,
+            "actual": 4.0,
+            "pct_of_target": 100.0
+          }
+        },
+        "strengths": [
+          "active_strategy_count: 2.0000 (100% of 2.0000)",
+          "active_trades_per_month: 60.3078 (116% of 52.0000)",
+          "total_r_per_month: 12.7935 (98% of 13.0000)",
+          "profit_factor: 2.3026 (89% of 2.6000)",
+          "max_drawdown_pct: 0.0324 (200% of 0.0800)",
+          "trade_capture_ratio: 0.7008 (83% of 0.8400)",
+          "positive_slices: 4.0000 (100% of 4.0000)"
+        ],
+        "weaknesses": [],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "Positive blocked candidates are too frequent; inspect ranking and heat scarcity."
+        ],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 6 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + active_strategy_count: 2.0000 (100% of 2.0000)\n  + active_trades_per_month: 60.3078 (116% of 52.0000)\n  + total_r_per_month: 12.7935 (98% of 13.0000)\n  + profit_factor: 2.3026 (89% of 2.6000)\n  + max_drawdown_pct: 0.0324 (200% of 0.0800)\n  + trade_capture_ratio: 0.7008 (83% of 0.8400)\n  + positive_slices: 4.0000 (100% of 4.0000)\n\nDiagnostic Gaps:\n  ! Positive blocked candidates are too frequent; inspect ranking and heat scarcity.\n\nGoal Progress:\n  active_strategy_count: 2.0000 / 2.0000 (100%)\n  active_trades_per_month: 60.3078 / 52.0000 (116%)\n  total_r_per_month: 12.7935 / 13.0000 (98%)\n  profit_factor: 2.3026 / 2.6000 (89%)\n  max_drawdown_pct: 0.0324 / 0.0800 (200%)\n  trade_capture_ratio: 0.7008 / 0.8400 (83%)\n  positive_slices: 4.0000 / 4.0000 (100%)",
+        "scoring_weight_overrides": null,
+        "extra": {}
+      },
+      "new_mutations": {},
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        },
+        "portfolio_rules.max_single_strategy_trade_share": 0.85,
+        "portfolio_rules.max_single_strategy_risk_share": 0.82,
+        "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+        "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+        "portfolio_rules.heat_cap_R": 6.5
+      },
+      "attempted_final_score": 0.8117716694164114,
+      "attempted_final_metrics": {
+        "initial_equity": 25000.0,
+        "final_equity": 194199.57565212026,
+        "net_pnl": 169199.57565212026,
+        "net_return_pct": 6.76798302608481,
+        "total_trades": 1391.0,
+        "entry_signals_fired": 1985.0,
+        "entries_accepted_by_portfolio": 1391.0,
+        "entries_blocked_by_portfolio": 594.0,
+        "entry_accept_rate": 0.7007556675062973,
+        "active_trades_per_month": 60.307763071992404,
+        "total_r": 295.0814181842045,
+        "total_r_per_month": 12.793458127103174,
+        "profit_factor": 2.3025857715675593,
+        "win_rate": 0.7483824586628325,
+        "expectancy_r": 0.2121361741079831,
+        "sharpe": 4.895613994979087,
+        "sortino": 4.953366767331787,
+        "calmar": 58.81111371470752,
+        "max_drawdown_pct": 0.03237781124490394,
+        "max_drawdown_dollar": 3118.0531513847527,
+        "active_strategy_count": 2.0,
+        "max_strategy_trade_share": 0.6513299784327822,
+        "max_strategy_risk_share": 0.6686526984033064,
+        "trade_capture_ratio": 0.7007556675062973,
+        "positive_alpha_block_rate": 0.3036789297658863,
+        "blocked_positive_count": 454.0,
+        "blocked_nonpositive_count": 140.0,
+        "blocked_positive_fraction": 0.7643097643097643,
+        "blocked_avg_r": 0.12740645136664452,
+        "accepted_avg_r": 0.2121361741079831,
+        "blocked_positive_avg_r": 0.3472193996522154,
+        "candidate_discrimination": 0.6412162045688976,
+        "positive_slices": 4.0,
+        "max_daily_loss_R": 3.4191038562682032,
+        "max_weekly_loss_R": 1.8164869534332295,
+        "trades_IARIC_V5R1": 906.0,
+        "trades_ALCB_R3": 485.0,
+        "pnl_IARIC_V5R1": 82113.51471370281,
+        "pnl_ALCB_R3": 87086.06093841759,
+        "risk_share_IARIC_V5R1": 0.6686526984033064,
+        "risk_share_ALCB_R3": 0.33134730159669357,
+        "blocked_reason_symbol_heat_cap": 32.0,
+        "blocked_reason_strategy_heat_cap": 286.0,
+        "blocked_reason_portfolio_heat_cap": 40.0,
+        "blocked_reason_sector_heat_cap": 77.0,
+        "blocked_reason_strategy_trade_share_cap": 152.0,
+        "blocked_reason_long_heat_cap": 7.0,
+        "risk_basis": "bar_close_mark_to_market",
+        "max_drawdown_pct_mtm": 0.03237781124490394,
+        "calmar_mtm": 58.81111371470752,
+        "max_drawdown_pct_realized": 0.025493488750791986,
+        "calmar_realized": 74.69380806033294,
+        "mtm_points": 92215.0,
+        "score_alpha_return": 1.0,
+        "score_trade_frequency": 1.0,
+        "score_drawdown_control": 0.6762218875509607,
+        "score_profit_factor_quality": 0.47366755329729426,
+        "score_synergy_capture": 0.39733712708044144,
+        "score_allocation_balance": 0.8800173231639115,
+        "score_robustness": 0.8372278965956705,
+        "score_total": 0.8117716694164114
+      },
+      "attempted_kept_features": [],
+      "attempted_accepted_count": 0
+    },
+    "7": {
+      "focus": "Final blend, robustness gates, and no-overfit acceptance",
+      "base_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        },
+        "portfolio_rules.max_single_strategy_trade_share": 0.85,
+        "portfolio_rules.max_single_strategy_risk_share": 0.82,
+        "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+        "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+        "portfolio_rules.heat_cap_R": 6.5
+      },
+      "final_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        },
+        "portfolio_rules.max_single_strategy_trade_share": 0.85,
+        "portfolio_rules.max_single_strategy_risk_share": 0.82,
+        "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+        "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+        "portfolio_rules.heat_cap_R": 6.5
+      },
+      "base_score": 0.8117716694164114,
+      "final_score": 0.8117716694164114,
+      "kept_features": [],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 3,
+          "best_name": "final_walk_forward_required",
+          "best_score": 0.8117716694164114,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "initial_equity": 25000.0,
+        "final_equity": 194199.57565212026,
+        "net_pnl": 169199.57565212026,
+        "net_return_pct": 6.76798302608481,
+        "total_trades": 1391.0,
+        "entry_signals_fired": 1985.0,
+        "entries_accepted_by_portfolio": 1391.0,
+        "entries_blocked_by_portfolio": 594.0,
+        "entry_accept_rate": 0.7007556675062973,
+        "active_trades_per_month": 60.307763071992404,
+        "total_r": 295.0814181842045,
+        "total_r_per_month": 12.793458127103174,
+        "profit_factor": 2.3025857715675593,
+        "win_rate": 0.7483824586628325,
+        "expectancy_r": 0.2121361741079831,
+        "sharpe": 4.895613994979087,
+        "sortino": 4.953366767331787,
+        "calmar": 58.81111371470752,
+        "max_drawdown_pct": 0.03237781124490394,
+        "max_drawdown_dollar": 3118.0531513847527,
+        "active_strategy_count": 2.0,
+        "max_strategy_trade_share": 0.6513299784327822,
+        "max_strategy_risk_share": 0.6686526984033064,
+        "trade_capture_ratio": 0.7007556675062973,
+        "positive_alpha_block_rate": 0.3036789297658863,
+        "blocked_positive_count": 454.0,
+        "blocked_nonpositive_count": 140.0,
+        "blocked_positive_fraction": 0.7643097643097643,
+        "blocked_avg_r": 0.12740645136664452,
+        "accepted_avg_r": 0.2121361741079831,
+        "blocked_positive_avg_r": 0.3472193996522154,
+        "candidate_discrimination": 0.6412162045688976,
+        "positive_slices": 4.0,
+        "max_daily_loss_R": 3.4191038562682032,
+        "max_weekly_loss_R": 1.8164869534332295,
+        "trades_IARIC_V5R1": 906.0,
+        "trades_ALCB_R3": 485.0,
+        "pnl_IARIC_V5R1": 82113.51471370281,
+        "pnl_ALCB_R3": 87086.06093841759,
+        "risk_share_IARIC_V5R1": 0.6686526984033064,
+        "risk_share_ALCB_R3": 0.33134730159669357,
+        "blocked_reason_symbol_heat_cap": 32.0,
+        "blocked_reason_strategy_heat_cap": 286.0,
+        "blocked_reason_portfolio_heat_cap": 40.0,
+        "blocked_reason_sector_heat_cap": 77.0,
+        "blocked_reason_strategy_trade_share_cap": 152.0,
+        "blocked_reason_long_heat_cap": 7.0,
+        "risk_basis": "bar_close_mark_to_market",
+        "max_drawdown_pct_mtm": 0.03237781124490394,
+        "calmar_mtm": 58.81111371470752,
+        "max_drawdown_pct_realized": 0.025493488750791986,
+        "calmar_realized": 74.69380806033294,
+        "mtm_points": 92215.0,
+        "score_alpha_return": 1.0,
+        "score_trade_frequency": 1.0,
+        "score_drawdown_control": 0.6762218875509607,
+        "score_profit_factor_quality": 0.47366755329729426,
+        "score_synergy_capture": 0.39733712708044144,
+        "score_allocation_balance": 0.8800173231639115,
+        "score_robustness": 0.8372278965956705,
+        "score_total": 0.8117716694164114
+      },
+      "total_candidates": 3,
+      "accepted_count": 0,
+      "elapsed_seconds": 292.1737756729126,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 7,
+        "goal_progress": {
+          "active_strategy_count": {
+            "target": 2.0,
+            "actual": 2.0,
+            "pct_of_target": 100.0
+          },
+          "active_trades_per_month": {
+            "target": 52.0,
+            "actual": 60.307763071992404,
+            "pct_of_target": 115.97646744613922
+          },
+          "total_r_per_month": {
+            "target": 13.0,
+            "actual": 12.793458127103174,
+            "pct_of_target": 98.4112163623321
+          },
+          "profit_factor": {
+            "target": 2.6,
+            "actual": 2.3025857715675593,
+            "pct_of_target": 88.56099121413689
+          },
+          "max_drawdown_pct": {
+            "target": 0.08,
+            "actual": 0.03237781124490394,
+            "pct_of_target": 200.0
+          },
+          "trade_capture_ratio": {
+            "target": 0.84,
+            "actual": 0.7007556675062973,
+            "pct_of_target": 83.42329375074968
+          },
+          "positive_slices": {
+            "target": 4.0,
+            "actual": 4.0,
+            "pct_of_target": 100.0
+          }
+        },
+        "strengths": [
+          "active_strategy_count: 2.0000 (100% of 2.0000)",
+          "active_trades_per_month: 60.3078 (116% of 52.0000)",
+          "total_r_per_month: 12.7935 (98% of 13.0000)",
+          "profit_factor: 2.3026 (89% of 2.6000)",
+          "max_drawdown_pct: 0.0324 (200% of 0.0800)",
+          "trade_capture_ratio: 0.7008 (83% of 0.8400)",
+          "positive_slices: 4.0000 (100% of 4.0000)"
+        ],
+        "weaknesses": [],
+        "scoring_assessment": "INEFFECTIVE",
+        "diagnostic_gaps": [
+          "Positive blocked candidates are too frequent; inspect ranking and heat scarcity."
+        ],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Retry budget exhausted; advance with current best mutations.",
+        "report": "======================================================================\nPHASE 7 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Retry budget exhausted; advance with current best mutations.\nScoring assessment: INEFFECTIVE\n\nStrengths:\n  + active_strategy_count: 2.0000 (100% of 2.0000)\n  + active_trades_per_month: 60.3078 (116% of 52.0000)\n  + total_r_per_month: 12.7935 (98% of 13.0000)\n  + profit_factor: 2.3026 (89% of 2.6000)\n  + max_drawdown_pct: 0.0324 (200% of 0.0800)\n  + trade_capture_ratio: 0.7008 (83% of 0.8400)\n  + positive_slices: 4.0000 (100% of 4.0000)\n\nDiagnostic Gaps:\n  ! Positive blocked candidates are too frequent; inspect ranking and heat scarcity.\n\nGoal Progress:\n  active_strategy_count: 2.0000 / 2.0000 (100%)\n  active_trades_per_month: 60.3078 / 52.0000 (116%)\n  total_r_per_month: 12.7935 / 13.0000 (98%)\n  profit_factor: 2.3026 / 2.6000 (89%)\n  max_drawdown_pct: 0.0324 / 0.0800 (200%)\n  trade_capture_ratio: 0.7008 / 0.8400 (83%)\n  positive_slices: 4.0000 / 4.0000 (100%)",
+        "scoring_weight_overrides": null,
+        "extra": {}
+      },
+      "new_mutations": {},
+      "applied_phase_mutations": false,
+      "attempted_final_mutations": {
+        "initial_equity": 25000.0,
+        "risk_stance": "aggressive_controlled",
+        "portfolio_rules": {
+          "reference_risk_pct": 0.006,
+          "heat_cap_R": 6.0,
+          "max_total_active_positions": 12,
+          "max_symbol_heat_R": 2.2,
+          "max_long_heat_R": 6.25,
+          "portfolio_daily_stop_R": 3.5,
+          "portfolio_weekly_stop_R": 8.0,
+          "max_single_strategy_trade_share": 0.72,
+          "max_single_strategy_risk_share": 0.72,
+          "drawdown_tiers": [
+            [
+              0.04,
+              1.0
+            ],
+            [
+              0.07,
+              0.75
+            ],
+            [
+              0.1,
+              0.4
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        "strategy_allocations": {
+          "IARIC_V5R1": {
+            "unit_risk_pct": 0.008,
+            "max_heat_R": 4.6,
+            "max_concurrent": 9,
+            "daily_stop_R": 2.75,
+            "priority": 0,
+            "role": "primary pullback alpha and frequency engine"
+          },
+          "ALCB_R3": {
+            "unit_risk_pct": 0.0065,
+            "max_heat_R": 3.25,
+            "max_concurrent": 6,
+            "daily_stop_R": 2.35,
+            "priority": 1,
+            "role": "intraday momentum complement and early-session alpha sleeve"
+          }
+        },
+        "dynamic_allocation": {
+          "enabled": true,
+          "lookback_trades": 60,
+          "min_mult": 0.65,
+          "max_mult": 1.22,
+          "positive_expectancy_boost": 0.1,
+          "negative_expectancy_cut": 0.18,
+          "drawdown_risk_floor": 0.4
+        },
+        "cross_strategy_rules": {
+          "priority_order": [
+            "IARIC_V5R1",
+            "ALCB_R3"
+          ],
+          "candidate_rank_mode": "diagnostic_alpha_score",
+          "same_symbol_policy": "half_size",
+          "same_symbol_size_mult": 0.5,
+          "same_sector_heat_cap_R": 3.8,
+          "iaric_priority_headroom_R": 1.15
+        },
+        "strategy_filters": {
+          "ALCB_R3": {
+            "financials_size_mult": 0.65,
+            "pdh_size_mult": 1.1,
+            "score5_no_surge_mult": 0.7
+          },
+          "IARIC_V5R1": {
+            "delayed_confirm_min_quality": 0.0,
+            "gap_up_size_mult": 0.85,
+            "carry_route_size_mult": 0.75
+          }
+        },
+        "validation": {
+          "walk_forward_required": true,
+          "min_positive_slices": 4,
+          "completed_bar_and_fee_parity_required": true
+        },
+        "portfolio_rules.max_single_strategy_trade_share": 0.85,
+        "portfolio_rules.max_single_strategy_risk_share": 0.82,
+        "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
+        "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
+        "portfolio_rules.heat_cap_R": 6.5
+      },
+      "attempted_final_score": 0.8117716694164114,
+      "attempted_final_metrics": {
+        "initial_equity": 25000.0,
+        "final_equity": 194199.57565212026,
+        "net_pnl": 169199.57565212026,
+        "net_return_pct": 6.76798302608481,
+        "total_trades": 1391.0,
+        "entry_signals_fired": 1985.0,
+        "entries_accepted_by_portfolio": 1391.0,
+        "entries_blocked_by_portfolio": 594.0,
+        "entry_accept_rate": 0.7007556675062973,
+        "active_trades_per_month": 60.307763071992404,
+        "total_r": 295.0814181842045,
+        "total_r_per_month": 12.793458127103174,
+        "profit_factor": 2.3025857715675593,
+        "win_rate": 0.7483824586628325,
+        "expectancy_r": 0.2121361741079831,
+        "sharpe": 4.895613994979087,
+        "sortino": 4.953366767331787,
+        "calmar": 58.81111371470752,
+        "max_drawdown_pct": 0.03237781124490394,
+        "max_drawdown_dollar": 3118.0531513847527,
+        "active_strategy_count": 2.0,
+        "max_strategy_trade_share": 0.6513299784327822,
+        "max_strategy_risk_share": 0.6686526984033064,
+        "trade_capture_ratio": 0.7007556675062973,
+        "positive_alpha_block_rate": 0.3036789297658863,
+        "blocked_positive_count": 454.0,
+        "blocked_nonpositive_count": 140.0,
+        "blocked_positive_fraction": 0.7643097643097643,
+        "blocked_avg_r": 0.12740645136664452,
+        "accepted_avg_r": 0.2121361741079831,
+        "blocked_positive_avg_r": 0.3472193996522154,
+        "candidate_discrimination": 0.6412162045688976,
+        "positive_slices": 4.0,
+        "max_daily_loss_R": 3.4191038562682032,
+        "max_weekly_loss_R": 1.8164869534332295,
+        "trades_IARIC_V5R1": 906.0,
+        "trades_ALCB_R3": 485.0,
+        "pnl_IARIC_V5R1": 82113.51471370281,
+        "pnl_ALCB_R3": 87086.06093841759,
+        "risk_share_IARIC_V5R1": 0.6686526984033064,
+        "risk_share_ALCB_R3": 0.33134730159669357,
+        "blocked_reason_symbol_heat_cap": 32.0,
+        "blocked_reason_strategy_heat_cap": 286.0,
+        "blocked_reason_portfolio_heat_cap": 40.0,
+        "blocked_reason_sector_heat_cap": 77.0,
+        "blocked_reason_strategy_trade_share_cap": 152.0,
+        "blocked_reason_long_heat_cap": 7.0,
+        "risk_basis": "bar_close_mark_to_market",
+        "max_drawdown_pct_mtm": 0.03237781124490394,
+        "calmar_mtm": 58.81111371470752,
+        "max_drawdown_pct_realized": 0.025493488750791986,
+        "calmar_realized": 74.69380806033294,
+        "mtm_points": 92215.0,
+        "score_alpha_return": 1.0,
+        "score_trade_frequency": 1.0,
+        "score_drawdown_control": 0.6762218875509607,
+        "score_profit_factor_quality": 0.47366755329729426,
+        "score_synergy_capture": 0.39733712708044144,
+        "score_allocation_balance": 0.8800173231639115,
+        "score_robustness": 0.8372278965956705,
+        "score_total": 0.8117716694164114
+      },
+      "attempted_kept_features": [],
+      "attempted_accepted_count": 0
+    }
+  },
+  "phase_gate_results": {
+    "1": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "min_active_strategies",
+          "target": 2.0,
+          "actual": 2.0,
+          "passed": true
+        },
+        {
+          "name": "min_active_trades_per_month",
+          "target": 40.0,
+          "actual": 48.16817021781708,
+          "passed": true
+        },
+        {
+          "name": "hard_max_drawdown_pct",
+          "target": 0.1,
+          "actual": 0.03030019718169129,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "2": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "min_active_trades_per_month",
+          "target": 44.0,
+          "actual": 60.307763071992404,
+          "passed": true
+        },
+        {
+          "name": "min_total_r_per_month",
+          "target": 12.5,
+          "actual": 12.793458127103174,
+          "passed": true
+        },
+        {
+          "name": "hard_max_drawdown_pct",
+          "target": 0.1,
+          "actual": 0.03237781124490394,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "3": {
+      "passed": false,
+      "criteria": [
+        {
+          "name": "min_total_r_per_month",
+          "target": 13.0,
+          "actual": 12.793458127103174,
+          "passed": false
+        },
+        {
+          "name": "max_single_strategy_risk_share",
+          "target": 0.72,
+          "actual": 0.6686526984033064,
+          "passed": true
+        },
+        {
+          "name": "target_max_drawdown_pct",
+          "target": 0.08,
+          "actual": 0.03237781124490394,
+          "passed": true
+        }
+      ],
+      "failure_category": "candidates_exhausted",
+      "recommendations": [
+        "No candidates were accepted; expand or reshape the experiment pool."
+      ]
+    },
+    "4": {
+      "passed": false,
+      "criteria": [
+        {
+          "name": "min_trade_capture_ratio",
+          "target": 0.78,
+          "actual": 0.7007556675062973,
+          "passed": false
+        },
+        {
+          "name": "max_positive_alpha_block_rate",
+          "target": 0.24,
+          "actual": 0.3036789297658863,
+          "passed": false
+        },
+        {
+          "name": "min_profit_factor",
+          "target": 2.55,
+          "actual": 2.3025857715675593,
+          "passed": false
+        }
+      ],
+      "failure_category": "candidates_exhausted",
+      "recommendations": [
+        "No candidates were accepted; expand or reshape the experiment pool."
+      ]
+    },
+    "5": {
+      "passed": false,
+      "criteria": [
+        {
+          "name": "max_positive_alpha_block_rate",
+          "target": 0.22,
+          "actual": 0.2468227424749164,
+          "passed": false
+        },
+        {
+          "name": "min_candidate_discrimination",
+          "target": 0.58,
+          "actual": 0.5999779321796506,
+          "passed": true
+        },
+        {
+          "name": "min_trade_capture_ratio",
+          "target": 0.78,
+          "actual": 0.7586901763224181,
+          "passed": false
+        }
+      ],
+      "failure_category": "diagnostic_needed",
+      "recommendations": [
+        "Multiple criteria are close to target; inspect deeper diagnostics before re-scoring.",
+        "max_positive_alpha_block_rate: actual=0.2468, target=0.2200",
+        "min_trade_capture_ratio: actual=0.7587, target=0.7800"
+      ]
+    },
+    "6": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "target_max_drawdown_pct",
+          "target": 0.08,
+          "actual": 0.03237781124490394,
+          "passed": true
+        },
+        {
+          "name": "max_daily_loss_R",
+          "target": 3.5,
+          "actual": 3.4191038562682032,
+          "passed": true
+        },
+        {
+          "name": "max_weekly_loss_R",
+          "target": 8.0,
+          "actual": 1.8164869534332295,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "7": {
+      "passed": false,
+      "criteria": [
+        {
+          "name": "min_active_strategies",
+          "target": 2.0,
+          "actual": 2.0,
+          "passed": true
+        },
+        {
+          "name": "min_active_trades_per_month",
+          "target": 52.0,
+          "actual": 60.307763071992404,
+          "passed": true
+        },
+        {
+          "name": "min_total_r_per_month",
+          "target": 13.0,
+          "actual": 12.793458127103174,
+          "passed": false
+        },
+        {
+          "name": "min_profit_factor",
+          "target": 2.6,
+          "actual": 2.3025857715675593,
+          "passed": false
+        },
+        {
+          "name": "hard_max_drawdown_pct",
+          "target": 0.1,
+          "actual": 0.03237781124490394,
+          "passed": true
+        },
+        {
+          "name": "max_single_strategy_trade_share",
+          "target": 0.72,
+          "actual": 0.6513299784327822,
+          "passed": true
+        },
+        {
+          "name": "max_single_strategy_risk_share",
+          "target": 0.72,
+          "actual": 0.6686526984033064,
+          "passed": true
+        },
+        {
+          "name": "min_trade_capture_ratio",
+          "target": 0.82,
+          "actual": 0.7007556675062973,
+          "passed": false
+        },
+        {
+          "name": "max_positive_alpha_block_rate",
+          "target": 0.18,
+          "actual": 0.3036789297658863,
+          "passed": false
+        },
+        {
+          "name": "min_candidate_discrimination",
+          "target": 0.58,
+          "actual": 0.6412162045688976,
+          "passed": true
+        },
+        {
+          "name": "min_positive_slices",
+          "target": 4.0,
+          "actual": 4.0,
+          "passed": true
+        }
+      ],
+      "failure_category": "candidates_exhausted",
+      "recommendations": [
+        "No candidates were accepted; expand or reshape the experiment pool."
+      ]
+    }
+  },
+  "retry_count": {},
+  "scoring_retries": {},
+  "diagnostic_retries": {},
+  "phase_timestamps": {
+    "1": {
+      "started": "2026-05-06T13:36:46.124343+00:00",
+      "completed": "2026-05-06T14:06:26.965868+00:00"
+    },
+    "2": {
+      "started": "2026-05-06T14:06:27.030870+00:00",
+      "completed": "2026-05-06T14:41:55.908581+00:00"
+    },
+    "3": {
+      "started": "2026-05-06T14:41:56.044327+00:00",
+      "completed": "2026-05-06T14:49:12.579660+00:00"
+    },
+    "4": {
+      "started": "2026-05-06T14:49:12.646664+00:00",
+      "completed": "2026-05-06T14:56:16.566244+00:00"
+    },
+    "5": {
+      "started": "2026-05-06T14:56:16.635247+00:00",
+      "completed": "2026-05-06T15:11:25.206411+00:00"
+    },
+    "6": {
+      "started": "2026-05-06T15:11:25.276412+00:00",
+      "completed": "2026-05-06T15:17:38.403892+00:00"
+    },
+    "7": {
+      "started": "2026-05-06T15:17:38.497893+00:00",
+      "completed": "2026-05-06T15:22:31.029671+00:00"
+    }
+  },
+  "round_name": "round_1_dynamic_stock_synergy"
+}

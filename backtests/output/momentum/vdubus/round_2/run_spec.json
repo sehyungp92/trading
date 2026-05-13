@@ -1,0 +1,17 @@
+{
+  "family": "momentum",
+  "strategy": "vdubus",
+  "strategy_name": "vdubus",
+  "round": 2,
+  "description": "Round 2",
+  "generated_at_utc": "2026-04-29T22:35:41.288339+00:00",
+  "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\vdubus\\round_1\\optimized_config.json",
+  "baseline_mutation_count": 4,
+  "baseline_mutations": {
+    "flags.plus_1r_partial": false,
+    "param_overrides.CHOP_THRESHOLD": 32.0,
+    "flags.early_kill": false,
+    "param_overrides.MAX_POSITION_BARS_15M": 51.2
+  },
+  "scoring_weights": {}
+}

@@ -1,0 +1,55 @@
+{
+  "diagnostic_gaps": [],
+  "extra": {
+    "source_artifact": "phase_1.json"
+  },
+  "goal_progress": {
+    "block_rate": {
+      "actual": 0.11119936457505956,
+      "pct_of_target": 134.89285714285714,
+      "target": 0.15
+    },
+    "max_drawdown_pct": {
+      "actual": 0.0942977657383024,
+      "pct_of_target": 190.88469232615824,
+      "target": 0.18
+    },
+    "net_profit": {
+      "actual": 187980.5345613896,
+      "pct_of_target": 85.44569752790436,
+      "target": 220000.0
+    },
+    "profit_factor": {
+      "actual": 3.4624417082494263,
+      "pct_of_target": 123.65863243747953,
+      "target": 2.8
+    },
+    "total_trades": {
+      "actual": 1119.0,
+      "pct_of_target": 101.72727272727273,
+      "target": 1100.0
+    },
+    "trades_per_month": {
+      "actual": 38.52891685520362,
+      "pct_of_target": 96.32229213800905,
+      "target": 40.0
+    }
+  },
+  "phase": 1,
+  "recommendation": "advance",
+  "recommendation_reason": "Accepted capacity_fit_conservative.",
+  "report": "======================================================================\nPHASE 1 MOMENTUM PORTFOLIO STANDARDIZED ANALYSIS\n======================================================================\nRecommendation: advance\nReason: Accepted capacity_fit_conservative.\nScore: 0.9585\nNet profit: $187,980.53\nTrades/month: 38.53\nMTM max DD: 9.43%\n",
+  "scoring_assessment": "EFFECTIVE",
+  "scoring_weight_overrides": null,
+  "strengths": [
+    "total_trades: 1119.0000 (102% of target)",
+    "max_drawdown_pct: 0.0943 (191% of target)",
+    "profit_factor: 3.4624 (124% of target)",
+    "block_rate: 0.1112 (135% of target)"
+  ],
+  "suggested_experiments": [],
+  "weaknesses": [
+    "trades_per_month: 38.5289 (96% of target)",
+    "net_profit: 187980.5346 (85% of target)"
+  ]
+}

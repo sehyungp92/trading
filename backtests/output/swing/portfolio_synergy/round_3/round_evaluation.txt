@@ -1,0 +1,16 @@
+SWING PORTFOLIO SYNERGY ROUND 3 PROMOTION EVALUATION
+======================================================================
+Candidate: balanced_509_77_atrss_71
+Source smoke candidate: focused_helix_tpc_heavier
+OOS comparison: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\swing\portfolio_synergy\oos\candidate_oos_compare_20260509_151131.txt
+
+Round 2 vs Promoted Round 3
+  Return: +490.87% -> +509.77%
+  Max DD: 7.92% -> 8.56%
+  PF: 3.64 -> 3.35
+  Trades: 716 -> 716
+
+Strategy Shares
+  ATRSS      share=71.19% trades=259 static_pnl=$+181,443.89
+  AKC_HELIX  share=21.04% trades=323 static_pnl=$+53,622.80
+  TPC        share=7.78% trades=134 static_pnl=$+19,817.66

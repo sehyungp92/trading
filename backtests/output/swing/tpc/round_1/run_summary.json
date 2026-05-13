@@ -1,0 +1,68 @@
+{
+  "family": "swing",
+  "strategy": "tpc",
+  "round": 1,
+  "generated_at_utc": "2026-05-05T13:15:36.750703+00:00",
+  "completed_phases": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "mutation_count": 19,
+  "cumulative_mutations": {
+    "all.trail_after_t1_30m_bars": 4,
+    "all.trail_use_vwap_after_t1": true,
+    "QQQ.t1_r": 1.25,
+    "GLD.t1_r": 1.1,
+    "all.max_hold_bars_15m": 52,
+    "all.time_stop_min_mfe_r": 0.5,
+    "all.initial_stop_source": "signal",
+    "all.signal_stop_buffer_atr_mult": 0.12,
+    "all.entry_order_model": "structure_stop",
+    "all.entry_stop_limit_atr_mult": 0.08,
+    "all.fib_a_low": 0.33,
+    "all.fib_a_high": 0.7,
+    "all.type_a_value_hits_min": 1,
+    "all.confirmation_required": 1,
+    "all.confirmation_combo_mode": "structure_or_vwap",
+    "all.type_c_enabled": true,
+    "all.type_c_requires_a_plus": false,
+    "all.max_position_notional_pct": 0.3,
+    "QQQ.primary_windows_et": [
+      [
+        9,
+        35,
+        15,
+        45
+      ]
+    ]
+  },
+  "headline_metrics": {
+    "total_trades": 85,
+    "win_rate": 52.94117647058824,
+    "profit_factor": 1.898129975555991,
+    "max_drawdown_pct": 1.0877142174501477,
+    "net_return_pct": 4.924994999999515,
+    "sharpe_ratio": 0.8002026960794731,
+    "calmar_ratio": null
+  },
+  "final_metrics": {
+    "total_trades": 85.0,
+    "net_return_pct": 4.924994999999515,
+    "profit_factor": 1.898129975555991,
+    "avg_r": 0.4511659811188835,
+    "total_r": 38.3491083951051,
+    "win_rate": 0.5294117647058824,
+    "max_dd_pct": 1.0877142174501477,
+    "sharpe": 0.8002026960794731,
+    "trades_per_month": 1.5377328702241868,
+    "expectancy_frequency": 0.5594699880511483,
+    "mfe_capture": 0.39130387775100245,
+    "never_worked_rate": 0.2235294117647059,
+    "right_then_lost_rate": 0.09411764705882353,
+    "top5_winner_share": 0.22198081500040842
+  },
+  "source_diagnostics": null,
+  "source_phase_state": null
+}

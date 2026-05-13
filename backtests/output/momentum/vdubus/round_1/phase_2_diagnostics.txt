@@ -1,0 +1,36 @@
+============================================================
+VdubusNQ Phase 2 Diagnostics
+============================================================
+
+--- D1: Core Performance ---
+Total trades:    174
+Win rate:        46.6%
+Profit factor:   1.91
+Net return:      717.0%
+Max drawdown:    21.93%
+Calmar:          32.70
+Sharpe:          1.57
+Sortino:         7.00
+Avg R:           0.321
+
+--- D2: Exit Efficiency ---
+Capture ratio:   0.492 (winners exit_R / MFE)
+Stale exit pct:  51.7%
+Multi-session:   20.1%
+Fast deaths:     22.4% (<=4 bars)
+Avg winner R:    1.236
+Avg loser R:     -0.476
+Avg MFE R:       1.110
+Avg hold hours:  9.4
+
+--- D3: Session Breakdown ---
+Evening trades:  10.3% of total
+Evening avg R:   -0.110
+
+--- D6: Greedy Result ---
+Base score:      0.5123
+Final score:     0.5123
+Accepted:        0
+Total candidates:25
+
+============================================================

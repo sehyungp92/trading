@@ -1,0 +1,346 @@
+{
+  "baseline_mutation_count": 14,
+  "baseline_mutations": {
+    "commission_per_side": 0.62,
+    "dynamic_risk": {
+      "daily_loss_mult": 1.0,
+      "daily_loss_threshold_R": -999.0,
+      "enabled": true,
+      "existing_position_mult": 0.85,
+      "fit_to_remaining_directional_cap": true,
+      "fit_to_remaining_family_cap": true,
+      "fit_to_remaining_heat": true,
+      "heat_pressure_mult": 0.65,
+      "heat_pressure_threshold": 0.65,
+      "max_trade_risk_R": 2.0,
+      "min_qty": 1,
+      "min_trade_risk_R": 0.0,
+      "same_direction_pressure_mult": 0.7,
+      "same_direction_pressure_threshold": 0.65,
+      "strategy_multipliers": [
+        [
+          "NQ_REGIME",
+          0.75
+        ],
+        [
+          "VdubusNQ_v4",
+          0.95
+        ],
+        [
+          "NQDTC_v2.1",
+          1.0
+        ],
+        [
+          "DownturnDominator_v1",
+          1.0
+        ]
+      ]
+    },
+    "end_date": null,
+    "heat_cap_R": 10.0,
+    "initial_equity": 50000.0,
+    "max_total_positions": 8,
+    "point_value": 2.0,
+    "portfolio_daily_stop_R": 2.75,
+    "portfolio_weekly_stop_R": 9.0,
+    "reference_unit_risk_dollars": 250.0,
+    "rules": {
+      "cooldown_session_only": true,
+      "dd_tiers": [
+        [
+          0.1,
+          1.0
+        ],
+        [
+          0.15,
+          0.6
+        ],
+        [
+          0.2,
+          0.3
+        ],
+        [
+          1.0,
+          0.0
+        ]
+      ],
+      "directional_cap_R": 4.25,
+      "directional_cap_long_R": 10.0,
+      "directional_cap_short_R": 10.5,
+      "disabled_strategies": [],
+      "dynamic_allocation_enabled": false,
+      "dynamic_lookback_trades": 60,
+      "dynamic_max_mult": 1.22,
+      "dynamic_min_mult": 0.65,
+      "dynamic_negative_expectancy_cut": 0.18,
+      "dynamic_positive_expectancy_boost": 0.1,
+      "existing_position_mult": 1.0,
+      "family_strategy_ids": [
+        "NQ_REGIME",
+        "VdubusNQ_v4",
+        "NQDTC_v2.1",
+        "DownturnDominator_v1"
+      ],
+      "fit_to_remaining_directional_cap": false,
+      "fit_to_remaining_family_cap": false,
+      "fit_to_remaining_heat": false,
+      "heat_pressure_mult": 1.0,
+      "heat_pressure_threshold": 1.0,
+      "initial_equity": 50000.0,
+      "max_family_contracts_mnq_eq": 40,
+      "max_single_strategy_trade_share": 1.0,
+      "max_strategy_active_positions": [],
+      "max_symbol_heat_R": 0.0,
+      "max_total_active_positions": 0,
+      "max_trade_risk_R": 0.0,
+      "min_qty": 1,
+      "nqdtc_agree_size_mult": 1.25,
+      "nqdtc_direction_filter_enabled": false,
+      "nqdtc_oppose_size_mult": 0.5,
+      "nqdtc_strategy_id": "NQDTC_v2.1",
+      "portfolio_heat_cap_R": 0.0,
+      "priority_headroom_R": 1.0,
+      "priority_reserve_threshold": 1,
+      "reference_unit_risk_dollars": 250.0,
+      "regime_unit_risk_long_mult": 1.0,
+      "regime_unit_risk_mult": 1.0,
+      "regime_unit_risk_short_mult": 1.0,
+      "same_direction_pressure_mult": 1.0,
+      "same_direction_pressure_threshold": 1.0,
+      "same_sector_heat_cap_R": 0.0,
+      "strategy_priorities": [
+        [
+          "VdubusNQ_v4",
+          0
+        ],
+        [
+          "NQ_REGIME",
+          0
+        ],
+        [
+          "NQDTC_v2.1",
+          1
+        ],
+        [
+          "DownturnDominator_v1",
+          1
+        ]
+      ],
+      "strategy_size_multipliers": [],
+      "strategy_trade_share_min_total": 50,
+      "symbol_collision_action": "none",
+      "symbol_collision_pairs": [],
+      "symbol_sector_map": [],
+      "vdubus_strategy_id": "VdubusNQ_v4"
+    },
+    "signal_filter_rules": [],
+    "start_date": null,
+    "strategy_allocations": [
+      {
+        "base_risk_pct": 0.006,
+        "daily_stop_R": 3.0,
+        "enabled": true,
+        "max_concurrent": 3,
+        "max_contracts": 0,
+        "priority": 0,
+        "strategy_id": "NQ_REGIME"
+      },
+      {
+        "base_risk_pct": 0.0065,
+        "daily_stop_R": 2.5,
+        "enabled": true,
+        "max_concurrent": 2,
+        "max_contracts": 0,
+        "priority": 0,
+        "strategy_id": "VdubusNQ_v4"
+      },
+      {
+        "base_risk_pct": 0.0045,
+        "daily_stop_R": 2.5,
+        "enabled": true,
+        "max_concurrent": 2,
+        "max_contracts": 0,
+        "priority": 1,
+        "strategy_id": "NQDTC_v2.1"
+      },
+      {
+        "base_risk_pct": 0.004,
+        "daily_stop_R": 2.0,
+        "enabled": true,
+        "max_concurrent": 2,
+        "max_contracts": 0,
+        "priority": 1,
+        "strategy_id": "DownturnDominator_v1"
+      }
+    ]
+  },
+  "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\portfolio_synergy\\round_3\\optimized_portfolio_config.json",
+  "description": "Standardized shared-output replay of the current optimized momentum portfolio result. The richer momentum replay and diagnostics artifacts are preserved alongside the shared phased-auto files.",
+  "execution_context": {
+    "decision_count": 0,
+    "max_workers": 2,
+    "replay_architecture": "canonical_replay_bundle_live_rule_adapter",
+    "replay_contract": {
+      "architecture": "canonical_replay_bundle_live_rule_adapter",
+      "candidate_source": "legacy_strategy_trades",
+      "cost_lineage": "Source trade net PnL and commission are carried into canonical TradeOutcome; the portfolio layer applies sizing/routing effects and does not fabricate zero-cost closes.",
+      "decision_event_count": 0,
+      "decision_stream_status": "not_provided_completed_trade_replay",
+      "entry_timing_lineage": "Portfolio candidate timestamps come from source strategy trade artifacts; the portfolio layer does not improve source fill timing.",
+      "evidence_label": "portfolio_sizing_evidence_not_full_source_execution_simulation",
+      "known_limitation": "The portfolio layer replays completed source trade outcomes. It cannot discover source-strategy fill, order-path, or intrabar execution defects.",
+      "live_rule_checker": "libs.oms.risk.portfolio_rules.PortfolioRuleChecker",
+      "mtm_risk_is_headline": true,
+      "replay_source_fingerprint": "509a29c954612bdf9aa04d4cb8caac469b0cd6498e6285110991e12d0548e075",
+      "risk_basis": "bar_close_mark_to_market",
+      "scope": "portfolio_sizing_routing_and_live_risk_overlay",
+      "source_artifacts_fingerprint": "1383395b9c3c9c8319c062d2d32c1df7530637a70738c2665fabcd67c3424400",
+      "source_strategy_execution_simulation": false,
+      "source_strategy_parity_prerequisite": "Each source momentum strategy must maintain its own live/backtest parity through shared-core or equivalent source-engine tests.",
+      "trade_outcome_count": 1259,
+      "uses_live_portfolio_rules": true,
+      "uses_shared_capital_ledger": true,
+      "version": "completed_source_trade_replay_live_portfolio_rules.v1"
+    },
+    "replay_source_fingerprint": "509a29c954612bdf9aa04d4cb8caac469b0cd6498e6285110991e12d0548e075",
+    "risk_basis": "bar_close_mark_to_market",
+    "source_artifacts_fingerprint": "1383395b9c3c9c8319c062d2d32c1df7530637a70738c2665fabcd67c3424400",
+    "source_round_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\portfolio_synergy\\round_3",
+    "trade_outcome_count": 1259
+  },
+  "family": "momentum",
+  "generated_at_utc": "2026-05-11T13:49:34.549858+00:00",
+  "round": 3,
+  "scoring_weights": {
+    "drawdown_control": 0.18,
+    "expected_return": 0.24,
+    "live_rule_health": 0.05,
+    "profit_quality": 0.13,
+    "risk_efficiency": 0.12,
+    "strategy_balance": 0.1,
+    "trade_frequency": 0.18
+  },
+  "source_artifact_lineage": {
+    "contract": "source_artifact_lineage.v1",
+    "fingerprint": "1383395b9c3c9c8319c062d2d32c1df7530637a70738c2665fabcd67c3424400",
+    "portfolio_source_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\portfolio_synergy\\round_3",
+    "source_round_config": {
+      "exists": true,
+      "mtime": 1778507370.3850553,
+      "path": "backtests\\output\\momentum\\portfolio_synergy\\round_3\\optimized_portfolio_config.json",
+      "sha256": "5983a2298b68944b861e0cc8b234b049e83d95c1c7a92c163b3f49aebb12cd24",
+      "size": 3290
+    },
+    "source_round_summary": {
+      "exists": true,
+      "hash_excluded_reason": "self_finalizing_output_not_a_stable_source_input",
+      "path": "backtests\\output\\momentum\\portfolio_synergy\\round_3\\run_summary.json"
+    },
+    "source_strategy_configs": {
+      "downturn": {
+        "exists": true,
+        "mtime": 1777929243.4969475,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\downturn\\round_4\\optimized_config.json",
+        "sha256": "4fd3a3a7e07da910b95124c232c29f051329f66d101431409b863f992b4ff48a",
+        "size": 1349
+      },
+      "nq_regime": {
+        "exists": true,
+        "mtime": 1777940591.4233613,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nq_regime\\round_6\\optimized_config.json",
+        "sha256": "91dacd67b09a05b019ab72038ae604764426b83e011dcfbd35a9e79abdc35c72",
+        "size": 5249
+      },
+      "nqdtc": {
+        "exists": true,
+        "mtime": 1777939054.2680645,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_4\\optimized_config.json",
+        "sha256": "a502aa4f51e32e86efaebf00518a3e30545673ff435633f9cafc68ef62b4b76f",
+        "size": 709
+      },
+      "vdubus": {
+        "exists": true,
+        "mtime": 1777516498.1346672,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\vdubus\\round_3\\optimized_config.json",
+        "sha256": "460258e3459cae4ab9cc57c2c7335281b3727c7a8437c7f086b65e8fcfddab6f",
+        "size": 1241
+      }
+    },
+    "source_strategy_diagnostics": {
+      "downturn": {
+        "exists": true,
+        "mtime": 1777929243.4729464,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\downturn\\round_4\\round_final_diagnostics.txt",
+        "sha256": "202700e6b0855d6d52bf176967ea3e38b1d280f76aeea2c4d933311c5daec933",
+        "size": 2676
+      },
+      "nq_regime": {
+        "exists": true,
+        "mtime": 1777940591.4373617,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nq_regime\\round_6\\round_final_diagnostics.txt",
+        "sha256": "b502aa664a537a9858df205b7689694467d5ec26c3c552c18c30474696b8edff",
+        "size": 945
+      },
+      "nqdtc": {
+        "exists": true,
+        "mtime": 1777929982.5660315,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_4\\round_final_diagnostics.txt",
+        "sha256": "d209985248a05dd8bbfb23c30e7cba8d428373eca0642408168f46892e283c97",
+        "size": 253
+      },
+      "vdubus": {
+        "exists": true,
+        "mtime": 1777516498.0906692,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\vdubus\\round_3\\round_final_diagnostics.txt",
+        "sha256": "b0b3ab9a99e4d42a7ed5024d8b31d219da960c7ae6b7475b4e07c566f1ae1b27",
+        "size": 1762
+      }
+    },
+    "source_strategy_summaries": {
+      "downturn": {
+        "exists": true,
+        "mtime": 1777929243.4899457,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\downturn\\round_4\\run_summary.json",
+        "sha256": "25a03c29c509e18ef06e1e088579cd2ed7888b685c621701678918a18e4eb817",
+        "size": 3367
+      },
+      "nq_regime": {
+        "exists": true,
+        "mtime": 1777940591.43436,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nq_regime\\round_6\\run_summary.json",
+        "sha256": "006b5ad1abef7cb798820cdd726ff150b0e47c60b6e7556b879ed30a6c04195c",
+        "size": 14459
+      },
+      "nqdtc": {
+        "exists": true,
+        "mtime": 1777929982.5448785,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_4\\run_summary.json",
+        "sha256": "e04ce64921c30f13b5bfb721276cedbade30764da68f479c9bf8b110dee3c7d4",
+        "size": 8920
+      },
+      "vdubus": {
+        "exists": true,
+        "mtime": 1777516498.1256754,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\vdubus\\round_3\\run_summary.json",
+        "sha256": "2b9921512a3c1906a8f82f64ebfbbb9e915a98f009df271e6e673cb736333de5",
+        "size": 2762
+      }
+    },
+    "strategy_trade_manifest": {
+      "exists": true,
+      "mtime": 1778077392.6401317,
+      "path": "backtests\\output\\momentum\\portfolio_synergy\\round_3\\strategy_trade_manifest.json",
+      "sha256": "c3577fd8a91eb853274fef7772c84b22abf6bc573fa45416941868ad2949ae65",
+      "size": 638
+    },
+    "strategy_trades": {
+      "exists": true,
+      "mtime": 1778077392.628138,
+      "path": "backtests\\output\\momentum\\portfolio_synergy\\round_3\\strategy_trades.pkl",
+      "sha256": "344c9a06d13fdd8935813b06fc7e3a745a85e592d1d53f15b72f09fdce2ff2c2",
+      "size": 642442
+    }
+  },
+  "strategy": "portfolio_synergy",
+  "strategy_name": "momentum_portfolio_synergy"
+}

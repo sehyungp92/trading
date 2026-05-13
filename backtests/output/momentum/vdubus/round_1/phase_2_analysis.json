@@ -1,0 +1,65 @@
+{
+  "phase": 2,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 1000.0,
+      "actual": 717.0002000000063,
+      "pct_of_target": 71.70002000000063
+    },
+    "profit_factor": {
+      "target": 2.5,
+      "actual": 1.9141434030644524,
+      "pct_of_target": 76.5657361225781
+    },
+    "max_dd_pct": {
+      "target": 0.15,
+      "actual": 0.2192978792168805,
+      "pct_of_target": 68.40011428092905
+    },
+    "calmar": {
+      "target": 45.0,
+      "actual": 32.69526374629961,
+      "pct_of_target": 72.65614165844357
+    },
+    "total_trades": {
+      "target": 170.0,
+      "actual": 174.0,
+      "pct_of_target": 102.35294117647058
+    },
+    "capture_ratio": {
+      "target": 0.55,
+      "actual": 0.4917444556500918,
+      "pct_of_target": 89.40808284547123
+    },
+    "sharpe": {
+      "target": 1.8,
+      "actual": 1.572468661411145,
+      "pct_of_target": 87.35937007839694
+    }
+  },
+  "strengths": [
+    "total_trades: 174.0000 (102% of 170.0000)",
+    "capture_ratio: 0.4917 (89% of 0.5500)",
+    "sharpe: 1.5725 (87% of 1.8000)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "INEFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Retry budget exhausted; advance with current best mutations.",
+  "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Retry budget exhausted; advance with current best mutations.\nScoring assessment: INEFFECTIVE\n\nStrengths:\n  + total_trades: 174.0000 (102% of 170.0000)\n  + capture_ratio: 0.4917 (89% of 0.5500)\n  + sharpe: 1.5725 (87% of 1.8000)\n\nExtra Analysis:\n  Exit profile: stale=51.7%, capture=0.49, multi-session=20.1%\n  Entry quality: fast_deaths=22.4%, evening=10.3% (avgR=-0.110)\n\nGoal Progress:\n  net_return_pct: 717.0002 / 1000.0000 (72%)\n  profit_factor: 1.9141 / 2.5000 (77%)\n  max_dd_pct: 0.2193 / 0.1500 (68%)\n  calmar: 32.6953 / 45.0000 (73%)\n  total_trades: 174.0000 / 170.0000 (102%)\n  capture_ratio: 0.4917 / 0.5500 (89%)\n  sharpe: 1.5725 / 1.8000 (87%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "exit_profile": {
+      "stale_exit_pct": 0.5172413793103449,
+      "capture_ratio": 0.4917444556500918,
+      "multi_session_pct": 0.20114942528735633
+    },
+    "entry_quality": {
+      "fast_death_pct": 0.22413793103448276,
+      "evening_trade_pct": 0.10344827586206896,
+      "evening_avg_r": -0.11031587230409005
+    }
+  }
+}

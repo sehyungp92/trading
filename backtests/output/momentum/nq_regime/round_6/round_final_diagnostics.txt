@@ -1,0 +1,20 @@
+NQ_REGIME ROUND 6 ADOPTION
+========================================================================================
+Generated UTC: 2026-05-05T00:23:11.420362+00:00
+Source candidate: current_oos_combo_probe_20260504 / combo_radius1_sw_volume08_struct_structure_shift
+Baseline: round_5 optimized_config.json
+
+Accepted mutation deltas:
+  param_overrides.REVERSION_SWING_RADIUS: 2 -> 1
+  param_overrides.SECOND_WIND_MIN_VOLUME_MULTIPLE: 1.2 -> 0.8
+  param_overrides.STRUCTURAL_ENTRY_MODE: 'hybrid_close_adaptive' -> 'structure_shift'
+
+Round 5 baseline split replay:
+  IS:  trades=473 netR=386.60 PF=6.79 avgR=0.817
+  OOS: trades=17 netR=21.82 PF=12.81 avgR=1.284
+
+Round 6 combo split replay:
+  IS:  trades=681 netR=622.94 PF=7.46 avgR=0.915
+  OOS: trades=33 netR=35.44 PF=8.35 avgR=1.074
+
+Note: this OOS window was used for diagnosis/selection; round_6 should be forward-monitored before treating it as fresh holdout validation.

@@ -1,0 +1,9 @@
+======================================================================
+IARIC T3 V5R1 PHASE 2 SNAPSHOT
+======================================================================
+Focus: Entry Route Quality and Timing
+Score 0.3601 -> 0.3638 with 1 accepted mutations.
+
+Core: trades=862, avg_r=+0.052, exp_total_r=+45.19, pf=1.32, sharpe=1.85, dd=4.5%
+Edges: rsi_depth=-0.033, trend_band=+0.014, late_rank=+0.064
+Exit capture: managed=96.4%, carry=21.6%, carry_avg_r=-0.113, eod=3.6%, stop_cost=+49.87R

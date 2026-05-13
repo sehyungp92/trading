@@ -1,0 +1,11 @@
+{
+  "generated_at_utc": "2026-05-06T12:51:37.783833+00:00",
+  "train_end": "2025-11-01",
+  "data_end": "2026-05-01 23:00:00+00:00",
+  "config": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_6\\optimized_config.json",
+  "summary": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_6\\run_summary.json",
+  "candidate_limit": 1500,
+  "shortlist": 160,
+  "max_workers": 6,
+  "selection_oos_note": "The six-month OOS window was used for mutation selection; use fresh data before promotion."
+}

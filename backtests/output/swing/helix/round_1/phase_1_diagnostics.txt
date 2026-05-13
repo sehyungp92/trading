@@ -1,0 +1,52 @@
+======================================================================
+HELIX PHASE 1 DIAGNOSTICS
+======================================================================
+
+SUMMARY
+----------------------------------------
+  Trades:          371
+  Profit Factor:   1.25
+  Net Return:      35.3%
+  Max R DD:        17.16
+  Exit Efficiency: 0.112
+  Waste Ratio:     0.565
+  Tail Pct:        0.729
+  Bull PF:         1.44
+  Bear PF:         0.78
+  Min Regime PF:   0.78
+  Sharpe:          0.46
+  Calmar (R):      3.04
+  Win Rate:        33.2%
+  Total R:         52.15
+  Stale R:         17.44
+  Short Hold R:    95.06
+
+GREEDY RESULT
+----------------------------------------
+  Base Score:      0.4491
+  Final Score:     0.4758
+  Accepted:        2
+  Total Candidates:20
+  Kept Features:   entry_b_mom_lookback_5, prune_no_class_c
+
+D1: CLASS ATTRIBUTION
+----------------------------------------
+  Class        N    WR%     PF     TotR    AvgR     MFE    Pct
+  ------------------------------------------------------------
+  B           28  46.4%   3.70   +24.8R  +0.89   1.70  58.0%
+  C           18  27.8%   0.38    -3.8R  -0.21   0.33  -8.8%
+  D          338  32.5%   1.11   +21.8R  +0.06   1.17  50.8%
+
+D3: TIMEFRAME / SYMBOL BREAKDOWN
+----------------------------------------
+  By Origin Timeframe:
+    1H: 366 trades, +46.6R, PF=1.23
+    4H: 18 trades, -3.8R, PF=0.38
+
+  By Symbol:
+    GLD: 180 trades, +29.3R, PF=1.30
+    QQQ: 204 trades, +13.5R, PF=1.12
+
+D6: PHASE DELTA
+----------------------------------------
+  No phase result available.

@@ -1,0 +1,256 @@
+{
+  "accepted_count": 1,
+  "base_score": 0.9830396277198608,
+  "elapsed_seconds": 0.0,
+  "final_metrics": {
+    "active_strategies": 4.0,
+    "block_rate": 0.11040508339952343,
+    "blocked_trades": 139.0,
+    "cagr": 0.9305693145730354,
+    "calmar": 13.136637870215111,
+    "calmar_mtm": 13.136637870215111,
+    "calmar_r": 63.084683758846936,
+    "calmar_realized": 54.09003062407061,
+    "final_equity": 245165.08614474421,
+    "max_concurrent": 3.0,
+    "max_drawdown_pct": 0.07068225044042235,
+    "max_drawdown_pct_mtm": 0.07068225044042235,
+    "max_drawdown_pct_realized": 0.017204081858273577,
+    "max_drawdown_r": 12.374799999999965,
+    "min_strategy_trades": 100.0,
+    "net_profit": 195165.08614474421,
+    "net_return_pct": 3.9033017228948843,
+    "net_return_pct_realized": 3.9139753228948964,
+    "profit_factor": 3.5891384274026574,
+    "risk_basis": "bar_close_mark_to_market",
+    "sharpe": 5.61268881596895,
+    "sortino": 10.526979579604031,
+    "total_r": 780.6603445789768,
+    "total_r_per_month": 26.879354341767655,
+    "total_trades": 1120.0,
+    "trades_per_month": 38.56334841628959,
+    "win_rate": 0.6660714285714285
+  },
+  "final_mutations": {
+    "commission_per_side": 0.62,
+    "dynamic_risk": {
+      "daily_loss_mult": 1.0,
+      "daily_loss_threshold_R": -999.0,
+      "enabled": true,
+      "existing_position_mult": 0.85,
+      "fit_to_remaining_directional_cap": true,
+      "fit_to_remaining_family_cap": true,
+      "fit_to_remaining_heat": true,
+      "heat_pressure_mult": 0.65,
+      "heat_pressure_threshold": 0.65,
+      "max_trade_risk_R": 1.5,
+      "min_qty": 1,
+      "min_trade_risk_R": 0.0,
+      "same_direction_pressure_mult": 0.7,
+      "same_direction_pressure_threshold": 0.65,
+      "strategy_multipliers": [
+        [
+          "NQ_REGIME",
+          0.75
+        ],
+        [
+          "VdubusNQ_v4",
+          0.95
+        ],
+        [
+          "NQDTC_v2.1",
+          1.0
+        ],
+        [
+          "DownturnDominator_v1",
+          1.0
+        ]
+      ]
+    },
+    "end_date": null,
+    "heat_cap_R": 6.75,
+    "initial_equity": 50000.0,
+    "max_total_positions": 7,
+    "point_value": 2.0,
+    "portfolio_daily_stop_R": 2.75,
+    "portfolio_weekly_stop_R": 9.0,
+    "reference_unit_risk_dollars": 250.0,
+    "rules": {
+      "cooldown_session_only": true,
+      "dd_tiers": [
+        [
+          0.1,
+          1.0
+        ],
+        [
+          0.15,
+          0.6
+        ],
+        [
+          0.2,
+          0.3
+        ],
+        [
+          1.0,
+          0.0
+        ]
+      ],
+      "directional_cap_R": 4.25,
+      "directional_cap_long_R": 4.25,
+      "directional_cap_short_R": 4.75,
+      "disabled_strategies": [],
+      "dynamic_allocation_enabled": false,
+      "dynamic_lookback_trades": 60,
+      "dynamic_max_mult": 1.22,
+      "dynamic_min_mult": 0.65,
+      "dynamic_negative_expectancy_cut": 0.18,
+      "dynamic_positive_expectancy_boost": 0.1,
+      "family_strategy_ids": [
+        "NQ_REGIME",
+        "VdubusNQ_v4",
+        "NQDTC_v2.1",
+        "DownturnDominator_v1"
+      ],
+      "initial_equity": 50000.0,
+      "max_family_contracts_mnq_eq": 24,
+      "max_single_strategy_trade_share": 1.0,
+      "max_symbol_heat_R": 0.0,
+      "max_total_active_positions": 0,
+      "nqdtc_agree_size_mult": 1.25,
+      "nqdtc_direction_filter_enabled": false,
+      "nqdtc_oppose_size_mult": 0.5,
+      "nqdtc_strategy_id": "NQDTC_v2.1",
+      "priority_headroom_R": 1.0,
+      "priority_reserve_threshold": 1,
+      "reference_unit_risk_dollars": 250.0,
+      "regime_unit_risk_long_mult": 1.0,
+      "regime_unit_risk_mult": 1.0,
+      "regime_unit_risk_short_mult": 1.0,
+      "same_sector_heat_cap_R": 0.0,
+      "strategy_priorities": [
+        [
+          "VdubusNQ_v4",
+          0
+        ],
+        [
+          "NQ_REGIME",
+          0
+        ],
+        [
+          "NQDTC_v2.1",
+          1
+        ],
+        [
+          "DownturnDominator_v1",
+          1
+        ]
+      ],
+      "strategy_trade_share_min_total": 50,
+      "symbol_collision_action": "none",
+      "symbol_collision_pairs": [],
+      "symbol_sector_map": [],
+      "vdubus_strategy_id": "VdubusNQ_v4"
+    },
+    "signal_filter_rules": [],
+    "start_date": null,
+    "strategy_allocations": [
+      {
+        "base_risk_pct": 0.006,
+        "daily_stop_R": 3.0,
+        "enabled": true,
+        "max_concurrent": 2,
+        "max_contracts": 0,
+        "priority": 0,
+        "strategy_id": "NQ_REGIME"
+      },
+      {
+        "base_risk_pct": 0.0065,
+        "daily_stop_R": 2.5,
+        "enabled": true,
+        "max_concurrent": 1,
+        "max_contracts": 0,
+        "priority": 0,
+        "strategy_id": "VdubusNQ_v4"
+      },
+      {
+        "base_risk_pct": 0.0045,
+        "daily_stop_R": 2.5,
+        "enabled": true,
+        "max_concurrent": 1,
+        "max_contracts": 0,
+        "priority": 1,
+        "strategy_id": "NQDTC_v2.1"
+      },
+      {
+        "base_risk_pct": 0.004,
+        "daily_stop_R": 2.0,
+        "enabled": true,
+        "max_concurrent": 1,
+        "max_contracts": 0,
+        "priority": 1,
+        "strategy_id": "DownturnDominator_v1"
+      }
+    ]
+  },
+  "final_score": 0.9941463331734304,
+  "kept_features": [
+    "heat_6_75_contracts_24"
+  ],
+  "rounds": [
+    {
+      "best_delta_pct": 0.01110670545356962,
+      "best_name": "heat_6_75_contracts_24",
+      "best_score": 0.9941463331734304,
+      "candidates_tested": 6,
+      "kept": true,
+      "rejected_count": 0,
+      "round_num": 1
+    },
+    {
+      "best_delta_pct": 0.0006999944614045628,
+      "best_name": "direction_caps_5_75_6_25",
+      "best_score": 0.9837396221812653,
+      "candidates_tested": 6,
+      "kept": false,
+      "rejected_count": 0,
+      "round_num": 2
+    },
+    {
+      "best_delta_pct": 0.0,
+      "best_name": "heat_6_25_contracts_22",
+      "best_score": 0.9830396277198608,
+      "candidates_tested": 6,
+      "kept": false,
+      "rejected_count": 0,
+      "round_num": 3
+    },
+    {
+      "best_delta_pct": 0.0,
+      "best_name": "max_positions_7",
+      "best_score": 0.9830396277198608,
+      "candidates_tested": 6,
+      "kept": false,
+      "rejected_count": 0,
+      "round_num": 4
+    },
+    {
+      "best_delta_pct": 0.0,
+      "best_name": "daily_stop_2_75",
+      "best_score": 0.9830396277198608,
+      "candidates_tested": 6,
+      "kept": false,
+      "rejected_count": 0,
+      "round_num": 5
+    },
+    {
+      "best_delta_pct": -0.009820431718672973,
+      "best_name": "daily_stop_2_00",
+      "best_score": 0.9732191960011878,
+      "candidates_tested": 6,
+      "kept": false,
+      "rejected_count": 0,
+      "round_num": 6
+    }
+  ],
+  "total_candidates": 6
+}

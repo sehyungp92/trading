@@ -1,0 +1,85 @@
+{
+  "base_score": 0.407170481366095,
+  "final_score": 0.5098782910452745,
+  "final_mutations": {
+    "flags.enable_structural_expansion": true,
+    "flags.enable_liquidity_reversion": true,
+    "flags.enable_second_wind": true,
+    "param_overrides.REGIME_MIN_CONFIDENCE": 0.65,
+    "param_overrides.REGIME_MIN_MARGIN": 0.15,
+    "param_overrides.STRUCTURAL_MIN_SCORE": 9,
+    "param_overrides.STRUCTURAL_A_PLUS_SCORE": 10,
+    "param_overrides.REVERSION_MIN_SCORE": 7,
+    "param_overrides.REVERSION_A_SCORE": 8,
+    "param_overrides.REVERSION_A_PLUS_SCORE": 11,
+    "param_overrides.SECOND_WIND_MIN_SCORE": 8,
+    "param_overrides.SECOND_WIND_A_SCORE": 9,
+    "param_overrides.SECOND_WIND_A_PLUS_SCORE": 10,
+    "param_overrides.TARGET_ROOM_MIN_R": 1.0,
+    "param_overrides.REVERSION_STANDARD_STOP_CAP": 10.0,
+    "param_overrides.REVERSION_A_PLUS_STOP_CAP": 12.0,
+    "param_overrides.SECOND_WIND_STOP_CAP": 45.0,
+    "param_overrides.MAX_TRADES_PER_DAY": 2,
+    "param_overrides.MAX_FULL_RISK_TRADES": 2,
+    "param_overrides.MAX_DAILY_REALIZED_R_LOSS": -2.0,
+    "param_overrides.PROFIT_FLOOR_ENABLED": false,
+    "param_overrides.MFE_RATCHET_ENABLED": true,
+    "param_overrides.TIME_STOP_ENABLED": false,
+    "param_overrides.STRUCTURAL_ENTRY_MODE": "breakout_close",
+    "param_overrides.REVERSION_ENTRY_MODEL": "swept_level_retest",
+    "param_overrides.ENTRY_TTL_RETEST_MINUTES": 90,
+    "param_overrides.ENTRY_TTL_MOMENTUM_MINUTES": 15,
+    "param_overrides.MFE_RATCHET_TRIGGER_R": 1.0,
+    "param_overrides.MFE_RATCHET_FLOOR_PCT": 0.5,
+    "param_overrides.REVERSION_RETEST_OFFSET_TICKS": 1,
+    "param_overrides.STRUCTURAL_MIN_BODY_PCT": 0.55,
+    "param_overrides.STRUCTURAL_MIN_CLOSE_LOCATION": 0.75
+  },
+  "kept_features": [
+    "reactivate_structural_a_breakout",
+    "ttl_retest_90",
+    "target_room_1p00"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 9,
+      "best_name": "reactivate_structural_a_breakout",
+      "best_score": 0.46347980520999177,
+      "best_delta_pct": 13.829421930335842,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 8,
+      "best_name": "ttl_retest_90",
+      "best_score": 0.49389358430699803,
+      "best_delta_pct": 6.562050547860763,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 3,
+      "candidates_tested": 6,
+      "best_name": "target_room_1p00",
+      "best_score": 0.5098782910452745,
+      "best_delta_pct": 3.2364677829749984,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 4,
+      "candidates_tested": 5,
+      "best_name": "activate_second_wind_midpoint",
+      "best_score": 0.5097475834816635,
+      "best_delta_pct": -0.02563505171852723,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 9,
+  "accepted_count": 3,
+  "elapsed_seconds": 4356.137765645981
+}

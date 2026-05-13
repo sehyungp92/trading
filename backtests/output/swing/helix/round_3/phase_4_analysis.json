@@ -1,0 +1,16 @@
+{
+  "phase": 4,
+  "recommendation": "advance",
+  "recommendation_reason": "Manual finalization requested; checkpoint accepted mutations preserved.",
+  "scoring_assessment": "EFFECTIVE",
+  "goal_progress": {},
+  "strengths": [],
+  "weaknesses": [],
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "report": "Phase 4 manually finalized from phase_4_greedy_checkpoint.json after user request.",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "manual_finalization": true
+  }
+}

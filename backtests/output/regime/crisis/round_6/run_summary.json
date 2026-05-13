@@ -1,0 +1,59 @@
+{
+  "family": "regime",
+  "strategy": "crisis",
+  "round": 6,
+  "generated_at_utc": "2026-05-06T02:55:56.751191+00:00",
+  "completed_phases": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "mutation_count": 11,
+  "cumulative_mutations": {
+    "VIX_CRISIS": 42.0,
+    "HYBRID_WARNING_MIN_CRISIS": 1,
+    "HYBRID_WARNING_MIN_PRIMARY": 2,
+    "SPY_DD_WARNING": -0.0576,
+    "VIX_WATCH": 29.0,
+    "VIX_WARNING": 37.0,
+    "ACCEL_DEESCALATE_NORMAL_DAYS": 3,
+    "DEESCALATE_CRISIS_DAYS": 1,
+    "DEESCALATE_WARNING_DAYS": 1,
+    "DEESCALATE_WATCH_DAYS": 1,
+    "SPY_DD_CRISIS": -0.1
+  },
+  "headline_metrics": {
+    "total_trades": null,
+    "win_rate": null,
+    "profit_factor": null,
+    "max_drawdown_pct": null,
+    "net_return_pct": null,
+    "sharpe_ratio": null,
+    "calmar_ratio": null
+  },
+  "final_metrics": {
+    "avg_latency": 18.142857142857142,
+    "max_latency": 34.0,
+    "gfc_latency": 14.0,
+    "covid_latency": 10.0,
+    "crises_detected": 7,
+    "total_crises": 7,
+    "corrections_detected": 2,
+    "total_corrections": 2,
+    "correction_avg_latency": 0.5,
+    "warning_fp_rate": 0.02978983880840645,
+    "crisis_fp_rate": 0.005713119771475209,
+    "avg_peak_level": 3.0,
+    "total_transitions": 216,
+    "transitions_per_year": 9.456567060458651,
+    "pct_normal": 0.0020847810979847115,
+    "pct_watch": 0.9301598332175122,
+    "pct_warning": 0.037526059763724806,
+    "pct_crisis": 0.03022932592077832,
+    "avg_recovery_days": 6.428571428571429,
+    "max_recovery_days": 36.0
+  },
+  "source_diagnostics": null,
+  "source_phase_state": null
+}

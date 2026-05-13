@@ -1,0 +1,109 @@
+{
+  "phase": 2,
+  "goal_progress": {
+    "sharpe": {
+      "current": 1.9085,
+      "target": 1.0,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "calmar": {
+      "current": 1.8255,
+      "target": 1.0,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "cagr": {
+      "current": 0.1349,
+      "target": 0.08,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "sortino": {
+      "current": 3.0923,
+      "target": 1.5,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "max_drawdown": {
+      "current": 0.0739,
+      "target": 0.15,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "n_active_regimes": {
+      "current": 4,
+      "target": 4,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "regime_entropy": {
+      "current": 0.9819,
+      "target": 0.85,
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    },
+    "crisis_response": {
+      "current": 0.2265,
+      "target": 0.5,
+      "pct_progress": 45.3,
+      "status": "IN_PROGRESS"
+    },
+    "transition_rate": {
+      "current": 0.00804,
+      "target": "0.005-0.025",
+      "pct_progress": 100.0,
+      "status": "ACHIEVED"
+    }
+  },
+  "strengths": [
+    "Score improved 0.5707 -> 0.6711 (+0.1004)",
+    "All 4 regimes active (G/R/S/D)",
+    "Excellent regime entropy (0.982)",
+    "Well-balanced regime distribution (min share 18.7%)",
+    "Strong Sharpe ratio (1.909)",
+    "Good risk-adjusted returns (Calmar=1.826)",
+    "Well-controlled drawdowns (7.4%)",
+    "Strong CAGR (13.49%)"
+  ],
+  "weaknesses": [
+    "Weak crisis detection (0.226) - slow adaptation to stress"
+  ],
+  "scoring_assessment": "INEFFECTIVE: No candidates accepted. The scoring function may be too strict or candidates don't address the current bottleneck. Consider adjusting scorer weights or expanding candidate ranges.",
+  "suggested_experiments": [
+    {
+      "name": "exp_crisis_add_commodity",
+      "mutations": {
+        "use_commodity_feature": true
+      }
+    },
+    {
+      "name": "exp_crisis_add_both_features",
+      "mutations": {
+        "use_commodity_feature": true,
+        "use_real_rates_feature": true
+      }
+    },
+    {
+      "name": "exp_crisis_drop_noisy_add_commodity",
+      "mutations": {
+        "use_commodity_feature": true,
+        "drop_momentum_breadth": true
+      }
+    },
+    {
+      "name": "exp_crisis_z_window_126",
+      "mutations": {
+        "z_window": 126
+      }
+    },
+    {
+      "name": "exp_crisis_cov_diag",
+      "mutations": {
+        "covariance_type": "diag"
+      }
+    }
+  ],
+  "recommendation": "rerun",
+  "recommendation_reason": "Scoring function failed to identify improvements. Adjust phase scorer weights to better target current weaknesses, then rerun this phase."
+}

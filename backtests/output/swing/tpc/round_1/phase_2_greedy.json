@@ -1,0 +1,59 @@
+{
+  "base_score": 41.61326587126543,
+  "final_score": 59.171075274766224,
+  "final_mutations": {
+    "all.trail_after_t1_30m_bars": 4,
+    "all.trail_use_vwap_after_t1": true,
+    "QQQ.t1_r": 1.25,
+    "GLD.t1_r": 1.1,
+    "all.max_hold_bars_15m": 52,
+    "all.time_stop_min_mfe_r": 0.5,
+    "all.initial_stop_source": "signal",
+    "all.signal_stop_buffer_atr_mult": 0.12,
+    "all.entry_order_model": "structure_stop",
+    "all.entry_stop_limit_atr_mult": 0.08
+  },
+  "kept_features": [
+    "stop_signal_wide",
+    "structure_stop_entry"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 12,
+      "best_name": "stop_signal_wide",
+      "best_score": 50.582739753838744,
+      "best_delta_pct": 21.554361799723253,
+      "kept": true,
+      "rejected_count": 2
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 9,
+      "best_name": "structure_stop_entry",
+      "best_score": 59.171075274766224,
+      "best_delta_pct": 16.978786761497446,
+      "kept": true,
+      "rejected_count": 1
+    }
+  ],
+  "final_metrics": {
+    "total_trades": 42.0,
+    "net_return_pct": 0.6543549999994721,
+    "profit_factor": 1.338201737505822,
+    "avg_r": 0.2026877823069183,
+    "total_r": 8.51288685689057,
+    "win_rate": 0.42857142857142855,
+    "max_dd_pct": 0.48067132490086245,
+    "sharpe": 0.2789538310692015,
+    "trades_per_month": 0.7598209476401865,
+    "expectancy_frequency": 0.17667829607491045,
+    "mfe_capture": 0.3461183816245569,
+    "never_worked_rate": 0.2619047619047619,
+    "right_then_lost_rate": 0.09523809523809523,
+    "top5_winner_share": 0.4655576855123035
+  },
+  "total_candidates": 12,
+  "accepted_count": 2,
+  "elapsed_seconds": 626.0676782131195
+}

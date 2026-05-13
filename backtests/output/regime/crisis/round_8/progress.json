@@ -1,0 +1,92 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-06T04:05:13.102824+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 26,
+      "base_score": 0.835156840138066,
+      "final_score": 0.8410394442713334,
+      "kept_features": [
+        "credit_impulse_strict_spread",
+        "grind_strict"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Recovery + Early Action Architecture",
+      "candidate_count": 50
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-06T04:05:52.754039+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 27,
+      "base_score": 0.8410394442713334,
+      "final_score": 0.8427240359481747,
+      "kept_features": [
+        "spread_crisis_500"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Threshold Re-optimization",
+      "candidate_count": 38
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-06T04:05:53.260040+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 27,
+      "base_score": 0.8427240359481747,
+      "final_score": 0.8427240359481747,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Correlation + Yield + Conjunction",
+      "candidate_count": 43
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-06T04:06:39.016599+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 27,
+      "base_score": 0.8427240359481747,
+      "final_score": 0.8466506190553368,
+      "kept_features": [
+        "finetune_vix_warning_p04",
+        "finetune_spy_dd_warning_m04"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Fine-Tuning",
+      "candidate_count": 91
+    }
+  },
+  "last_updated": "2026-05-06T04:06:39.030599+00:00",
+  "current_phase": 4
+}

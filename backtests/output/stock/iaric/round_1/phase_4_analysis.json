@@ -1,0 +1,90 @@
+{
+  "phase": 4,
+  "goal_progress": {
+    "avg_r": {
+      "target": 0.1,
+      "actual": 0.1519440230740391,
+      "pct_of_target": 151.94402307403908
+    },
+    "expected_total_r": {
+      "target": 65.0,
+      "actual": 104.99331994416102,
+      "pct_of_target": 161.5281845294785
+    },
+    "profit_factor": {
+      "target": 1.8,
+      "actual": 2.218156713546052,
+      "pct_of_target": 123.23092853033621
+    },
+    "sharpe": {
+      "target": 2.5,
+      "actual": 4.180752001018541,
+      "pct_of_target": 167.23008004074163
+    },
+    "max_drawdown_pct": {
+      "target": 0.035,
+      "actual": 0.035760319601766205,
+      "pct_of_target": 97.87384561929741
+    },
+    "total_trades": {
+      "target": 700.0,
+      "actual": 691.0,
+      "pct_of_target": 98.71428571428571
+    },
+    "managed_exit_share": {
+      "target": 0.95,
+      "actual": 0.9725036179450073,
+      "pct_of_target": 102.36880188894814
+    },
+    "eod_flatten_inverse": {
+      "target": 0.95,
+      "actual": 0.9725036179450073,
+      "pct_of_target": 102.36880188894814
+    }
+  },
+  "strengths": [
+    "avg_r: 0.1519 (152% of 0.1000)",
+    "expected_total_r: 104.9933 (162% of 65.0000)",
+    "profit_factor: 2.2182 (123% of 1.8000)",
+    "sharpe: 4.1808 (167% of 2.5000)",
+    "max_drawdown_pct: 0.0358 (98% of 0.0350)",
+    "total_trades: 691.0000 (99% of 700.0000)",
+    "managed_exit_share: 0.9725 (102% of 0.9500)",
+    "eod_flatten_inverse: 0.9725 (102% of 0.9500)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [
+    "Carry quality is below target; calibration needs tightening."
+  ],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Retry budget exhausted; advance with current best mutations.",
+  "report": "======================================================================\nPHASE 4 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Retry budget exhausted; advance with current best mutations.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + avg_r: 0.1519 (152% of 0.1000)\n  + expected_total_r: 104.9933 (162% of 65.0000)\n  + profit_factor: 2.2182 (123% of 1.8000)\n  + sharpe: 4.1808 (167% of 2.5000)\n  + max_drawdown_pct: 0.0358 (98% of 0.0350)\n  + total_trades: 691.0000 (99% of 700.0000)\n  + managed_exit_share: 0.9725 (102% of 0.9500)\n  + eod_flatten_inverse: 0.9725 (102% of 0.9500)\n\nDiagnostic Gaps:\n  ! Carry quality is below target; calibration needs tightening.\n\nExtra Analysis:\n  Signal model: signal_score_edge=-0.012, crowded_day_discrimination=+0.102, crowded_day_missed_alpha_inverse=+0.461, crowded_day_missed_alpha_days=+278.000, expected_total_r=+104.993\n  Route shape: route_score_monotonicity=66.7%, route_middle_bucket_deficit=+0.000, delayed_confirm_share=4.8%, routes_with_min_10_trades=+2.000, route_diversity=66.7%\n  Exit capture: managed_exit_share=97.3%, eod_flatten_share=2.7%, carry_avg_r=-0.100, binary_carried_share=0.0%, carried_underperformed_flatten_share=48.4%, protection_candidate_share=7.2%, stop_hit_total_r=+61.63\n\nGoal Progress:\n  avg_r: 0.1519 / 0.1000 (152%)\n  expected_total_r: 104.9933 / 65.0000 (162%)\n  profit_factor: 2.2182 / 1.8000 (123%)\n  sharpe: 4.1808 / 2.5000 (167%)\n  max_drawdown_pct: 0.0358 / 0.0350 (98%)\n  total_trades: 691.0000 / 700.0000 (99%)\n  managed_exit_share: 0.9725 / 0.9500 (102%)\n  eod_flatten_inverse: 0.9725 / 0.9500 (102%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "signal_model": {
+      "signal_score_edge": -0.012114826004642948,
+      "crowded_day_discrimination": 0.10219639278075732,
+      "crowded_day_missed_alpha_inverse": 0.4612403100775194,
+      "crowded_day_missed_alpha_days": 278.0,
+      "expected_total_r": 104.99331994416102
+    },
+    "route_shape": {
+      "route_score_monotonicity": 0.6666666666666666,
+      "route_middle_bucket_deficit": 0.0,
+      "delayed_confirm_share": 0.04775687409551375,
+      "routes_with_min_10_trades": 2.0,
+      "route_diversity": 0.6666666666666666
+    },
+    "exit_capture": {
+      "managed_exit_share": 0.9725036179450073,
+      "eod_flatten_share": 0.027496382054992764,
+      "carry_avg_r": -0.10044514626793688,
+      "binary_carried_share": 0.0,
+      "carried_underperformed_flatten_share": 0.4838709677419355,
+      "protection_candidate_share": 0.0723589001447178,
+      "stop_hit_total_r": 61.63483195092985
+    }
+  }
+}

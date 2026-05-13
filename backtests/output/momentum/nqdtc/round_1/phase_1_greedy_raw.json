@@ -1,0 +1,37 @@
+{
+  "base_score": 0.1560150123333255,
+  "final_score": 0.31629023185017363,
+  "final_mutations": {
+    "flags.max_loss_cap": true,
+    "flags.max_stop_width": true,
+    "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+    "param_overrides.BLOCK_CAUTION_REGIME": true
+  },
+  "kept_features": [
+    "block_neutral_caution"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 19,
+      "best_name": "block_neutral_caution",
+      "best_score": 0.31629023185017363,
+      "best_delta_pct": 102.73063926336829,
+      "kept": true,
+      "rejected_count": 3
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 18,
+      "best_name": "block_neutral",
+      "best_score": 0.31629023185017363,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 1
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 19,
+  "accepted_count": 1,
+  "elapsed_seconds": 2212.9205133914948
+}

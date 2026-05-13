@@ -1,0 +1,9 @@
+======================================================================
+IARIC T3 V5R1 PHASE 5 SNAPSHOT
+======================================================================
+Focus: Robust Interaction Bundles
+Score 0.6331 -> 0.6331 with 0 accepted mutations.
+
+Core: trades=979, avg_r=+0.114, exp_total_r=+111.82, pf=1.71, sharpe=3.98, dd=3.7%
+Edges: rsi_depth=-0.023, trend_band=-0.028, late_rank=+0.045
+Exit capture: managed=96.8%, carry=13.7%, carry_avg_r=-0.209, eod=3.2%, stop_cost=+130.60R

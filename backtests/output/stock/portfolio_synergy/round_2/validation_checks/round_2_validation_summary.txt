@@ -1,0 +1,13 @@
+Round 2 phase-5 size-calibrated validation comparison
+Generated: 2026-05-06T18:05:36.447213+00:00
+Selected scalar: 1.08
+
+in_sample_portfolio_overlay: 2024-01-01 -> 2026-03-01
+  round_2: score=0.8221, pnl=$+174,989.81, return=+699.96%, trades=1506, tpm=65.29, R/mo=13.14, PF=2.43, DD=3.20%, capture=75.87%, pos_block=24.68%, disc=0.600
+
+validation_after_portfolio_overlay: 2026-03-02 -> 2026-05-01
+  round_2: score=0.7599, pnl=$+6,683.92, return=+26.74%, trades=124, tpm=62.89, R/mo=20.11, PF=3.07, DD=4.32%, capture=90.51%, pos_block=9.09%, disc=0.788
+
+validation_after_latest_strategy_is: 2026-03-21 -> 2026-05-01
+  round_2: score=0.8543, pnl=$+4,736.79, return=+18.95%, trades=93, tpm=117.69, R/mo=41.01, PF=2.90, DD=4.14%, capture=94.90%, pos_block=5.80%, disc=0.700
+

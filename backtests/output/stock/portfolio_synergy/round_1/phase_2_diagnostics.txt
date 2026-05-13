@@ -1,0 +1,63 @@
+﻿==============================================================================
+PHASE 2 STOCK PORTFOLIO SYNERGY
+==============================================================================
+Round: round_1_dynamic_stock_synergy
+Initial equity: $25,000
+Date range: 2024-01-01 -> 2026-03-01
+Risk stance: aggressive-controlled
+Score components: 7 (alpha_return, trade_frequency, drawdown_control, profit_factor_quality, synergy_capture, allocation_balance, robustness)
+
+Headline:
+  Final equity: $194,199.58
+  Net PnL: $+169,199.58
+  Net return: +676.80%
+  Active trades/month: 60.31
+  Total R/month: 12.79
+  Profit factor: 2.30
+  Win rate: 74.84%
+  Max DD: 3.24%
+  Sharpe: 4.90
+  Sortino: 4.95
+  Calmar: 58.81
+  Risk basis: bar_close_mark_to_market
+  Realized-only Max DD: 2.55%
+  Realized-only Calmar: 74.69
+  Active sleeves: 2/2
+
+Sleeve contribution:
+  IARIC_V5R1   trades=   906 pnl=$  +82,113.51 risk_share= 66.9%
+  ALCB_R3      trades=   485 pnl=$  +87,086.06 risk_share= 33.1%
+
+Routing and blocked-candidate discrimination:
+  Fired entries: 1985
+  Accepted entries: 1391
+  Blocked entries: 594
+  Trade capture ratio: 70.08%
+  Positive-alpha block rate: 30.37%
+  Blocked winners: 454 / 594 (76.43%)
+  Accepted avg R: +0.212
+  Blocked avg R: +0.127
+  Candidate discrimination: 0.641
+  Max strategy trade share: 65.13%
+  Max strategy risk share: 66.87%
+  Positive slices: 4/4
+
+Risk governors:
+  Max daily loss: 3.42R
+  Max weekly loss: 1.82R
+
+Score:
+  alpha_return           component=1.0000 weight=0.27
+  trade_frequency        component=1.0000 weight=0.23
+  drawdown_control       component=0.6762 weight=0.19
+  profit_factor_quality  component=0.4737 weight=0.12
+  synergy_capture        component=0.3973 weight=0.08
+  allocation_balance     component=0.8800 weight=0.06
+  robustness             component=0.8372 weight=0.05
+  total                  0.8118
+
+Greedy:
+  Base score: 0.7560
+  Final score: 0.8118
+  Accepted: 3
+  Kept: share_cap_85_actual_balance_guard, strategy_heat_5_4_4_0, heat_cap_6_5

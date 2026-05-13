@@ -1,0 +1,190 @@
+======================================================================
+REGIME PREDICTOR - FULL DIAGNOSTICS (EMA-Only Optimization)
+======================================================================
+
+Mutations (19):
+{
+  "sticky_diag": 15.0,
+  "use_warm_start": false,
+  "use_expanding_window": false,
+  "rolling_window_years": 7,
+  "refit_ll_tolerance": 5.0,
+  "refit_freq": "QE",
+  "z_minp": 30,
+  "posterior_ema_alpha": 0.8,
+  "per_strat_max": 0.5,
+  "base_target_vol_annual": 0.08,
+  "kappa_totalvol_cap": 1.5,
+  "crisis_logit_a": 3.0,
+  "stability_weight": 0.8,
+  "weight_smoothing_alpha": 0.5,
+  "L_max": 1.6,
+  "delta_rho_exempt": 0.0,
+  "sigma_floor_annual": 0.09,
+  "delta_rho_threshold": 0.15,
+  "crisis_weights": [
+    0.3,
+    0.6,
+    0.1
+  ]
+}
+
+Phase 1: 0.0000 -> 0.7180 | rounds: ['combo_sd10_cold', 'combo_aggressive_7y', 'sticky_diag_15']
+  Sharpe=0.000 Sortino=0.000 MaxDD=0.0% CAGR=0.00% Return=0.0%
+Phase 2: 0.6180 -> 0.6500 | rounds: ['z_minp_30', 'posterior_ema_0.7']
+  Sharpe=0.000 Sortino=0.000 MaxDD=0.0% CAGR=0.00% Return=0.0%
+Phase 3: 0.6274 -> 0.6944 | rounds: ['stability_weight_0.8', 'weight_smooth_0.5', 'L_max_1.5', 'delta_rho_exempt_0.0', 'sigma_floor_0.08', 'delta_rho_thresh_0.15']
+  Sharpe=1.423 Sortino=2.125 MaxDD=9.5% CAGR=10.94% Return=1010.9%
+Phase 4: 0.6670 -> 0.6817 | rounds: ['fine_L_max_1.6', 'exp_crisis_spread_heavy', 'fine_sigma_floor_annual_0.09', 'fine_posterior_ema_alpha_0.8']
+  Sharpe=1.442 Sortino=2.163 MaxDD=8.7% CAGR=11.11% Return=1051.6%
+
+Signals: 1148 rows, 2003-07-11 to 2026-03-27
+
+=== Posterior Analysis ===
+Avg P(dominant): 0.9900
+Min P(dominant): 0.8000
+Max P(dominant): 1.0000
+Std P(dominant): 0.0396
+Avg posterior entropy: 0.0293 (max=1.3863)
+Normalized entropy: 0.0211
+
+=== Regime Distribution ===
+  P_G: 22.3% dominant (256 wks), avg_prob=0.2230, AvgP(dom)=0.9873
+  P_R: 18.6% dominant (213 wks), avg_prob=0.1855, AvgP(dom)=0.9847
+  P_S: 25.2% dominant (289 wks), avg_prob=0.2520, AvgP(dom)=0.9896
+  P_D: 34.0% dominant (390 wks), avg_prob=0.3395, AvgP(dom)=0.9949
+
+=== Confidence ===
+Avg=0.9697 Std=0.1090 Min=0.4606 Max=1.0000
+
+=== Regime Momentum ===
+Avg=0.000000 Std=0.612340 Min=-1.996800 Max=1.996800
+risk_mom < -0.05: 90 (7.8%)  |  risk_mom > +0.05: 90 (7.8%)
+
+=== Crisis Overlay ===
+Avg=0.3815 Max=1.0000
+Weeks p_crisis > 0.5: 405 (35.3%)
+
+=== Leverage ===
+Avg=1.0264 Std=0.5423 Min=0.0480 Max=1.6000
+
+=== Portfolio Performance ===
+  metrics: {'total_return': 9.145508899817921, 'cagr': 0.10503705152014065, 'sharpe': 1.3697676517891972, 'sortino': 2.0464366100914555, 'calmar': 1.156358112764463, 'max_drawdown_pct': 0.09083436208964056, 'max_drawdown_duration': 396, 'avg_annual_turnover': 10.928452309608266, 'n_rebalances': 1148}
+  equity_curve: date
+2003-01-02    1.000000e+05
+2003-01-03    1.000000e+05
+2003-01-06    1.000000e+05
+2003-01-07    1.000000e+05
+2003-01-08    1.000000e+05
+                  ...     
+2026-03-23    1.018327e+06
+2026-03-24    1.016544e+06
+2026-03-25    1.021202e+06
+2026-03-26    1.016287e+06
+2026-03-27    1.014551e+06
+Name: equity, Length: 5846, dtype: float64
+  daily_returns: date
+2003-01-02    0.000000
+2003-01-03    0.000000
+2003-01-06    0.000000
+2003-01-07    0.000000
+2003-01-08    0.000000
+                ...   
+2026-03-23    0.002647
+2026-03-24   -0.001751
+2026-03-25    0.004583
+2026-03-26   -0.004814
+2026-03-27   -0.001708
+Name: portfolio_return, Length: 5846, dtype: float64
+  weight_history:                  SPY       EFA       TLT       GLD      CASH      IBIT
+date                                                                  
+2003-01-02  0.000000  0.000000  0.000000  0.000000  1.000000  0.000000
+2003-01-03  0.000000  0.000000  0.000000  0.000000  1.000000  0.000000
+2003-01-06  0.000000  0.000000  0.000000  0.000000  1.000000  0.000000
+2003-01-07  0.000000  0.000000  0.000000  0.000000  1.000000  0.000000
+2003-01-08  0.000000  0.000000  0.000000  0.000000  1.000000  0.000000
+...              ...       ...       ...       ...       ...       ...
+2026-03-23  0.031944  0.021372  0.353158  0.023814  0.289361  0.000005
+2026-03-24  0.031944  0.021372  0.353158  0.023814  0.289361  0.000005
+2026-03-25  0.031944  0.021372  0.353158  0.023814  0.289361  0.000005
+2026-03-26  0.031944  0.021372  0.353158  0.023814  0.289361  0.000005
+2026-03-27  0.049253  0.032110  0.359691  0.037590  0.305123  0.000003
+
+[5846 rows x 6 columns]
+  turnover_series: date
+2003-07-11    0.395942
+2003-07-18    0.303916
+2003-07-25    0.458553
+2003-08-01    0.697701
+2003-08-08    0.379673
+                ...   
+2026-02-27    0.504000
+2026-03-06    0.050739
+2026-03-13    0.336000
+2026-03-20    0.177082
+2026-03-27    0.064120
+Name: turnover, Length: 1148, dtype: float64
+
+=== Average Allocation Weights ===
+  w_SPY: 0.2311
+  w_EFA: 0.1110
+  w_TLT: 0.1957
+  w_GLD: 0.1793
+  w_CASH: 0.2572
+  w_IBIT: 0.0257
+
+=== Weight Stability (week-over-week) ===
+  w_SPY: avg_abs_change=0.0233 std=0.0490
+  w_EFA: avg_abs_change=0.0193 std=0.0369
+  w_TLT: avg_abs_change=0.0168 std=0.0446
+  w_GLD: avg_abs_change=0.0285 std=0.0600
+  w_CASH: avg_abs_change=0.0323 std=0.0580
+  w_IBIT: avg_abs_change=0.0088 std=0.0215
+
+=== Regime Transitions ===
+Total=47 Rate=0.0409 (2.1/year)
+
+=== Year-by-Year Dominant Regime ===
+  2003: S=100%
+  2004: D=100%
+  2005: D=100%
+  2006: D=100%
+  2007: D=100%
+  2008: D=74%, G=26%
+  2009: G=51%, S=48%
+  2010: R=50%, G=50%
+  2011: S=50%, G=25%, R=23%
+  2012: S=50%, G=49%
+  2013: G=72%, R=27%
+  2014: D=50%, G=26%, R=24%
+  2015: D=73%, S=26%
+  2016: S=27%, G=25%, R=25%, D=21%
+  2017: S=49%, D=25%, R=25%
+  2018: S=72%, D=27%
+  2019: S=50%, R=49%
+  2020: R=48%, S=42%, G=8%
+  2021: R=50%, G=50%
+  2022: D=74%, G=23%, R=1%
+  2023: G=49%, S=27%, R=23%
+  2024: S=74%, G=25%
+  2025: R=74%, G=26%
+  2026: D=100%
+
+=== Crisis Period Performance ===
+  GFC (2008-09 to 2009-03):
+    Regimes: D=56%, G=43%
+    p_crisis=0.967 L=0.434 risk_momentum=0.2666
+  Euro Crisis (2011-08 to 2011-11):
+    Regimes: G=52%, S=47%
+    p_crisis=0.977 L=0.316 risk_momentum=0.4706
+  COVID (2020-02 to 2020-04):
+    Regimes: G=57%, S=28%, R=14%
+    p_crisis=0.877 L=0.418 risk_momentum=1.1280
+  Rate Hike (2022-01 to 2022-10):
+    Regimes: D=71%, G=28%
+    p_crisis=0.910 L=0.522 risk_momentum=-0.1905
+  SVB (2023-03):
+    Regimes: R=80%, G=20%
+    p_crisis=0.457 L=0.512 risk_momentum=0.0000
+
+Saved: optimized_config.json

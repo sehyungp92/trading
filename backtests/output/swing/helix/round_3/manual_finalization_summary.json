@@ -1,0 +1,52 @@
+{
+  "manual_finalization": true,
+  "generated_at_utc": "2026-05-08T13:41:02.941015+00:00",
+  "source_checkpoint": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\round_3\\phase_4_greedy_checkpoint.json",
+  "accepted_phase4_features": [
+    "finetune_param_overrides.RTS_GUARD_MFE_R_p20",
+    "finetune_param_overrides.R_BE_1H_m20",
+    "finetune_param_overrides.ADD_1H_R_p20",
+    "finetune_param_overrides.ADD_RISK_FRAC_p20",
+    "finetune_param_overrides.TRAIL_STALL_RATE_p10"
+  ],
+  "new_phase4_mutations": {
+    "param_overrides.ADD_RISK_FRAC": 2.0592,
+    "param_overrides.ADD_1H_R": 0.7776,
+    "param_overrides.R_BE_1H": 0.756,
+    "param_overrides.TRAIL_STALL_RATE": 0.1584,
+    "param_overrides.RTS_GUARD_MFE_R": 0.6
+  },
+  "final_score": 0.8095738490237109,
+  "independent_optimizer_metrics": {
+    "total_trades": 270,
+    "profit_factor": 2.361295084643264,
+    "net_return_pct": 114.44827600000251,
+    "max_r_dd": 6.712240310858647,
+    "exit_efficiency": 0.45325492947100726,
+    "waste_ratio": 0.7203636143477106,
+    "tail_pct": 0.7962851339542352,
+    "bull_pf": 2.2801449451003815,
+    "bear_pf": 3.249438388696948,
+    "min_regime_pf": 2.2801449451003815,
+    "long_pf": 2.2801449451003815,
+    "short_pf": 3.249438388696948,
+    "min_side_pf": 2.2801449451003815,
+    "long_trades": 236,
+    "short_trades": 34,
+    "class_d_short_pf": 3.390377457947386,
+    "class_d_short_trades": 33,
+    "total_r": 164.51580927933483,
+    "gross_win_r": 291.4492061016164,
+    "gross_loss_r": 126.9333968222816,
+    "stale_r": 12.213688625973138,
+    "short_hold_r": 69.28611396951207,
+    "big_winner_r": 232.07667012148113,
+    "sharpe": 1.4751584773089454,
+    "calmar_r": 24.509821111915695,
+    "win_rate": 37.77777777777778,
+    "avg_win_r": 2.8573451578589846,
+    "avg_loss_r": -0.7555559334659618
+  },
+  "diagnostics": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\round_3\\round_final_diagnostics.txt",
+  "diagnostics_summary": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\round_3\\diagnostics_summary.json"
+}

@@ -1,0 +1,429 @@
+{
+  "generated_at_utc": "2026-05-06T15:51:27.748280+00:00",
+  "source_output_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_6\\qqq_alpha_search_20260506_140538",
+  "candidate_count": 611,
+  "validated_count": 611,
+  "baseline": {
+    "name": "BASE_R6",
+    "stage": "baseline",
+    "changed_mutations": {},
+    "train": {
+      "net_return_pct": 96.90008999999951,
+      "qqq_trade_count": 20.0,
+      "qqq_excellent_trades": 14.0,
+      "qqq_excellent_rate": 0.7,
+      "qqq_avg_r": 0.6540577803433286
+    },
+    "oos": {
+      "net_return_pct": 3.577790000000023,
+      "qqq_trade_count": 2.0,
+      "qqq_excellent_trades": 0.0,
+      "qqq_excellent_rate": 0.0,
+      "qqq_avg_r": -1.023500170278813
+    },
+    "passed_qqq_alpha_gate": false,
+    "real_alpha_evidence": false,
+    "score_component_count": 7
+  },
+  "score_model": {
+    "new_model": "alpha7",
+    "max_components": 7,
+    "candidate_objective_components": [
+      "train_qqq_excellent_count",
+      "oos_qqq_excellent_count",
+      "train_qqq_alpha_quality",
+      "oos_qqq_alpha_quality",
+      "qqq_supply",
+      "train_book_preservation",
+      "oos_book_preservation"
+    ],
+    "notes": "Baseline remains legacy for reproducibility; QQQ structural candidates use alpha7 score-model mutations through the shared TPC core."
+  },
+  "gate_counts": {
+    "count_increase_train_and_oos": 46,
+    "passed_positive_qqq_oos_avg_r_gate": 0
+  },
+  "recommendation": null,
+  "decision": "Do not promote a QQQ mutation from this run. Count increases were available, but none showed positive OOS QQQ average R while meeting the train/OOS excellent-trade requirement.",
+  "frontier_rejected_candidates": [
+    {
+      "name": "alpha7_balanced_pair_shorts_score12__t1r110_partial65_stop040",
+      "stage": "qqq_structure_exit_pair",
+      "changed_mutations": {
+        "QQQ.t1_r": 1.1,
+        "GLD.score_a_min": 11,
+        "GLD.score_b_min": 10,
+        "QQQ.min_short_score": 12,
+        "QQQ.shorts_enabled": true,
+        "QQQ.score_b_min": 9,
+        "all.score_model": "alpha7",
+        "all.score_a_plus_min": 13,
+        "all.score_a_min": 10,
+        "all.score_b_min": 9,
+        "QQQ.score_a_min": 10,
+        "QQQ.addon_min_score": 12,
+        "QQQ.t1_partial_pct": 0.65,
+        "QQQ.t1_stop_r": 0.4
+      },
+      "train": {
+        "net_return_pct": 65.68708999999838,
+        "qqq_trade_count": 43.0,
+        "qqq_excellent_trades": 22.0,
+        "qqq_excellent_rate": 0.5116279069767442,
+        "qqq_avg_r": 0.05398036825155424
+      },
+      "oos": {
+        "net_return_pct": 6.383039999999631,
+        "qqq_trade_count": 4.0,
+        "qqq_excellent_trades": 1.0,
+        "qqq_excellent_rate": 0.25,
+        "qqq_avg_r": -0.2818951990051167
+      },
+      "passed_qqq_alpha_gate": false,
+      "real_alpha_evidence": false,
+      "score_component_count": 7
+    },
+    {
+      "name": "alpha7_strict_pair_shorts_score12__t1r110_partial65_stop040",
+      "stage": "qqq_structure_exit_pair",
+      "changed_mutations": {
+        "QQQ.t1_r": 1.1,
+        "GLD.score_a_min": 12,
+        "GLD.score_b_min": 11,
+        "QQQ.min_short_score": 12,
+        "QQQ.shorts_enabled": true,
+        "QQQ.score_b_min": 10,
+        "all.score_model": "alpha7",
+        "all.score_a_plus_min": 14,
+        "all.score_a_min": 11,
+        "all.score_b_min": 10,
+        "QQQ.score_a_min": 11,
+        "QQQ.addon_min_score": 13,
+        "QQQ.t1_partial_pct": 0.65,
+        "QQQ.t1_stop_r": 0.4
+      },
+      "train": {
+        "net_return_pct": 61.282199999998085,
+        "qqq_trade_count": 43.0,
+        "qqq_excellent_trades": 22.0,
+        "qqq_excellent_rate": 0.5116279069767442,
+        "qqq_avg_r": 0.056856155590269165
+      },
+      "oos": {
+        "net_return_pct": 6.383039999999631,
+        "qqq_trade_count": 4.0,
+        "qqq_excellent_trades": 1.0,
+        "qqq_excellent_rate": 0.25,
+        "qqq_avg_r": -0.2818951990051167
+      },
+      "passed_qqq_alpha_gate": false,
+      "real_alpha_evidence": false,
+      "score_component_count": 7
+    },
+    {
+      "name": "alpha7_supply_pair_shorts_score12__t1r110_partial65_stop040",
+      "stage": "qqq_structure_exit_pair",
+      "changed_mutations": {
+        "QQQ.t1_r": 1.1,
+        "GLD.score_a_min": 11,
+        "GLD.score_b_min": 10,
+        "QQQ.min_short_score": 12,
+        "QQQ.shorts_enabled": true,
+        "QQQ.score_b_min": 8,
+        "all.score_model": "alpha7",
+        "all.score_a_plus_min": 13,
+        "all.score_a_min": 9,
+        "all.score_b_min": 8,
+        "QQQ.score_a_min": 9,
+        "QQQ.addon_min_score": 12,
+        "QQQ.t1_partial_pct": 0.65,
+        "QQQ.t1_stop_r": 0.4
+      },
+      "train": {
+        "net_return_pct": 65.68708999999838,
+        "qqq_trade_count": 43.0,
+        "qqq_excellent_trades": 22.0,
+        "qqq_excellent_rate": 0.5116279069767442,
+        "qqq_avg_r": 0.05398036825155424
+      },
+      "oos": {
+        "net_return_pct": 6.383039999999631,
+        "qqq_trade_count": 4.0,
+        "qqq_excellent_trades": 1.0,
+        "qqq_excellent_rate": 0.25,
+        "qqq_avg_r": -0.2818951990051167
+      },
+      "passed_qqq_alpha_gate": false,
+      "real_alpha_evidence": false,
+      "score_component_count": 7
+    },
+    {
+      "name": "alpha7_balanced_pair_shorts_score12__value_hits2",
+      "stage": "qqq_structure_quality_pair",
+      "changed_mutations": {
+        "GLD.score_a_min": 11,
+        "GLD.score_b_min": 10,
+        "QQQ.min_short_score": 12,
+        "QQQ.shorts_enabled": true,
+        "QQQ.score_b_min": 9,
+        "all.score_model": "alpha7",
+        "all.score_a_plus_min": 13,
+        "all.score_a_min": 10,
+        "all.score_b_min": 9,
+        "QQQ.score_a_min": 10,
+        "QQQ.addon_min_score": 12,
+        "QQQ.type_a_value_hits_min": 2
+      },
+      "train": {
+        "net_return_pct": 66.34150999999844,
+        "qqq_trade_count": 36.0,
+        "qqq_excellent_trades": 16.0,
+        "qqq_excellent_rate": 0.4444444444444444,
+        "qqq_avg_r": 0.08935054374609001
+      },
+      "oos": {
+        "net_return_pct": 7.246400000000228,
+        "qqq_trade_count": 3.0,
+        "qqq_excellent_trades": 1.0,
+        "qqq_excellent_rate": 0.3333333333333333,
+        "qqq_avg_r": -0.31200836803636517
+      },
+      "passed_qqq_alpha_gate": false,
+      "real_alpha_evidence": false,
+      "score_component_count": 7
+    },
+    {
+      "name": "alpha7_strict_pair_shorts_score12__value_hits2",
+      "stage": "qqq_structure_quality_pair",
+      "changed_mutations": {
+        "GLD.score_a_min": 12,
+        "GLD.score_b_min": 11,
+        "QQQ.min_short_score": 12,
+        "QQQ.shorts_enabled": true,
+        "QQQ.score_b_min": 10,
+        "all.score_model": "alpha7",
+        "all.score_a_plus_min": 14,
+        "all.score_a_min": 11,
+        "all.score_b_min": 10,
+        "QQQ.score_a_min": 11,
+        "QQQ.addon_min_score": 13,
+        "QQQ.type_a_value_hits_min": 2
+      },
+      "train": {
+        "net_return_pct": 58.82023999999784,
+        "qqq_trade_count": 36.0,
+        "qqq_excellent_trades": 16.0,
+        "qqq_excellent_rate": 0.4444444444444444,
+        "qqq_avg_r": 0.0846876436212462
+      },
+      "oos": {
+        "net_return_pct": 7.246400000000228,
+        "qqq_trade_count": 3.0,
+        "qqq_excellent_trades": 1.0,
+        "qqq_excellent_rate": 0.3333333333333333,
+        "qqq_avg_r": -0.31200836803636517
+      },
+      "passed_qqq_alpha_gate": false,
+      "real_alpha_evidence": false,
+      "score_component_count": 7
+    },
+    {
+      "name": "alpha7_supply_pair_shorts_score12__value_hits2",
+      "stage": "qqq_structure_quality_pair",
+      "changed_mutations": {
+        "GLD.score_a_min": 11,
+        "GLD.score_b_min": 10,
+        "QQQ.min_short_score": 12,
+        "QQQ.shorts_enabled": true,
+        "QQQ.score_b_min": 8,
+        "all.score_model": "alpha7",
+        "all.score_a_plus_min": 13,
+        "all.score_a_min": 9,
+        "all.score_b_min": 8,
+        "QQQ.score_a_min": 9,
+        "QQQ.addon_min_score": 12,
+        "QQQ.type_a_value_hits_min": 2
+      },
+      "train": {
+        "net_return_pct": 66.34150999999844,
+        "qqq_trade_count": 36.0,
+        "qqq_excellent_trades": 16.0,
+        "qqq_excellent_rate": 0.4444444444444444,
+        "qqq_avg_r": 0.08935054374609001
+      },
+      "oos": {
+        "net_return_pct": 7.246400000000228,
+        "qqq_trade_count": 3.0,
+        "qqq_excellent_trades": 1.0,
+        "qqq_excellent_rate": 0.3333333333333333,
+        "qqq_avg_r": -0.31200836803636517
+      },
+      "passed_qqq_alpha_gate": false,
+      "real_alpha_evidence": false,
+      "score_component_count": 7
+    },
+    {
+      "name": "alpha7_balanced_pair_shorts_score12__mfe_giveback_200_045_050",
+      "stage": "qqq_structure_exit_pair",
+      "changed_mutations": {
+        "GLD.score_a_min": 11,
+        "GLD.score_b_min": 10,
+        "QQQ.min_short_score": 12,
+        "QQQ.shorts_enabled": true,
+        "QQQ.score_b_min": 9,
+        "all.score_model": "alpha7",
+        "all.score_a_plus_min": 13,
+        "all.score_a_min": 10,
+        "all.score_b_min": 9,
+        "QQQ.score_a_min": 10,
+        "QQQ.addon_min_score": 12,
+        "QQQ.mfe_giveback_trigger_r": 2.0,
+        "QQQ.mfe_giveback_retain_frac": 0.45,
+        "QQQ.mfe_giveback_lock_r": 0.5,
+        "QQQ.mfe_giveback_after_t1_only": true
+      },
+      "train": {
+        "net_return_pct": 85.76446999999555,
+        "qqq_trade_count": 42.0,
+        "qqq_excellent_trades": 21.0,
+        "qqq_excellent_rate": 0.5,
+        "qqq_avg_r": 0.15757155504781845
+      },
+      "oos": {
+        "net_return_pct": 5.05917000000013,
+        "qqq_trade_count": 4.0,
+        "qqq_excellent_trades": 1.0,
+        "qqq_excellent_rate": 0.25,
+        "qqq_avg_r": -0.4035598467688756
+      },
+      "passed_qqq_alpha_gate": false,
+      "real_alpha_evidence": false,
+      "score_component_count": 7
+    },
+    {
+      "name": "alpha7_supply_pair_shorts_score12__mfe_giveback_200_045_050",
+      "stage": "qqq_structure_exit_pair",
+      "changed_mutations": {
+        "GLD.score_a_min": 11,
+        "GLD.score_b_min": 10,
+        "QQQ.min_short_score": 12,
+        "QQQ.shorts_enabled": true,
+        "QQQ.score_b_min": 8,
+        "all.score_model": "alpha7",
+        "all.score_a_plus_min": 13,
+        "all.score_a_min": 9,
+        "all.score_b_min": 8,
+        "QQQ.score_a_min": 9,
+        "QQQ.addon_min_score": 12,
+        "QQQ.mfe_giveback_trigger_r": 2.0,
+        "QQQ.mfe_giveback_retain_frac": 0.45,
+        "QQQ.mfe_giveback_lock_r": 0.5,
+        "QQQ.mfe_giveback_after_t1_only": true
+      },
+      "train": {
+        "net_return_pct": 85.76446999999555,
+        "qqq_trade_count": 42.0,
+        "qqq_excellent_trades": 21.0,
+        "qqq_excellent_rate": 0.5,
+        "qqq_avg_r": 0.15757155504781845
+      },
+      "oos": {
+        "net_return_pct": 5.05917000000013,
+        "qqq_trade_count": 4.0,
+        "qqq_excellent_trades": 1.0,
+        "qqq_excellent_rate": 0.25,
+        "qqq_avg_r": -0.4035598467688756
+      },
+      "passed_qqq_alpha_gate": false,
+      "real_alpha_evidence": false,
+      "score_component_count": 7
+    },
+    {
+      "name": "alpha7_strict_pair_shorts_score12__mfe_giveback_200_045_050",
+      "stage": "qqq_structure_exit_pair",
+      "changed_mutations": {
+        "GLD.score_a_min": 12,
+        "GLD.score_b_min": 11,
+        "QQQ.min_short_score": 12,
+        "QQQ.shorts_enabled": true,
+        "QQQ.score_b_min": 10,
+        "all.score_model": "alpha7",
+        "all.score_a_plus_min": 14,
+        "all.score_a_min": 11,
+        "all.score_b_min": 10,
+        "QQQ.score_a_min": 11,
+        "QQQ.addon_min_score": 13,
+        "QQQ.mfe_giveback_trigger_r": 2.0,
+        "QQQ.mfe_giveback_retain_frac": 0.45,
+        "QQQ.mfe_giveback_lock_r": 0.5,
+        "QQQ.mfe_giveback_after_t1_only": true
+      },
+      "train": {
+        "net_return_pct": 75.7202899999961,
+        "qqq_trade_count": 42.0,
+        "qqq_excellent_trades": 21.0,
+        "qqq_excellent_rate": 0.5,
+        "qqq_avg_r": 0.153497949529522
+      },
+      "oos": {
+        "net_return_pct": 5.05917000000013,
+        "qqq_trade_count": 4.0,
+        "qqq_excellent_trades": 1.0,
+        "qqq_excellent_rate": 0.25,
+        "qqq_avg_r": -0.4035598467688756
+      },
+      "passed_qqq_alpha_gate": false,
+      "real_alpha_evidence": false,
+      "score_component_count": 7
+    },
+    {
+      "name": "alpha7_balanced_pair_shorts_score12__profit_floor_runner",
+      "stage": "qqq_structure_exit_pair",
+      "changed_mutations": {
+        "GLD.score_a_min": 11,
+        "GLD.score_b_min": 10,
+        "QQQ.min_short_score": 12,
+        "QQQ.shorts_enabled": true,
+        "QQQ.score_b_min": 9,
+        "all.score_model": "alpha7",
+        "all.score_a_plus_min": 13,
+        "all.score_a_min": 10,
+        "all.score_b_min": 9,
+        "QQQ.score_a_min": 10,
+        "QQQ.addon_min_score": 12,
+        "QQQ.profit_floor_ladder": [
+          [
+            1.25,
+            0.2
+          ],
+          [
+            2.0,
+            0.75
+          ],
+          [
+            3.0,
+            1.5
+          ]
+        ]
+      },
+      "train": {
+        "net_return_pct": 85.82575999999814,
+        "qqq_trade_count": 44.0,
+        "qqq_excellent_trades": 23.0,
+        "qqq_excellent_rate": 0.5227272727272727,
+        "qqq_avg_r": 0.1542989775874726
+      },
+      "oos": {
+        "net_return_pct": 4.872569999999963,
+        "qqq_trade_count": 4.0,
+        "qqq_excellent_trades": 1.0,
+        "qqq_excellent_rate": 0.25,
+        "qqq_avg_r": -0.4318760891719926
+      },
+      "passed_qqq_alpha_gate": false,
+      "real_alpha_evidence": false,
+      "score_component_count": 7
+    }
+  ],
+  "selection_oos_note": "OOS is selection OOS and QQQ OOS trade sample is small; use fresh holdout/forward evidence before any promotion."
+}

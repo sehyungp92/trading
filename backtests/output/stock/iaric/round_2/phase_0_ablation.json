@@ -1,0 +1,104 @@
+{
+  "purpose": "Conservative open-scored timing phase-0 ablation of inherited V5R1 baseline settings.",
+  "adopted": false,
+  "adopted_name": "__baseline__",
+  "baseline_score": 0.30983683932847805,
+  "best_score": 0.30983683932847805,
+  "min_delta": 0.003,
+  "signature": "29d73da4df88cb6bedf51f610498a5af5f3735bd1a7f48071fd0850d17285ee3",
+  "records": [
+    {
+      "name": "__baseline__",
+      "score": 0.30983683932847805,
+      "rejected": false,
+      "reject_reason": "",
+      "mutations": {},
+      "metrics": {
+        "total_trades": 669.0,
+        "avg_r": 0.05718067498523252,
+        "expected_total_r": 38.253871565120555,
+        "profit_factor": 1.3770086609054386,
+        "sharpe": 1.913864957690169,
+        "max_drawdown_pct": 0.05665124310921274,
+        "open_scored_share": 0.9715994020926756
+      }
+    },
+    {
+      "name": "open_scored_slots_2",
+      "score": 0.30983683932847805,
+      "delta_vs_baseline": 0.0,
+      "rejected": false,
+      "reject_reason": "",
+      "mutations": {
+        "param_overrides.pb_v2_open_scored_max_slots": 2
+      },
+      "metrics": {
+        "total_trades": 669.0,
+        "avg_r": 0.05718067498523252,
+        "expected_total_r": 38.253871565120555,
+        "profit_factor": 1.3770086609054386,
+        "sharpe": 1.913864957690169,
+        "max_drawdown_pct": 0.05665124310921274,
+        "open_scored_share": 0.9715994020926756
+      }
+    },
+    {
+      "name": "open_scored_min_55",
+      "score": 0.30983683932847805,
+      "delta_vs_baseline": 0.0,
+      "rejected": false,
+      "reject_reason": "",
+      "mutations": {
+        "param_overrides.pb_v2_open_scored_min_score": 55.0
+      },
+      "metrics": {
+        "total_trades": 669.0,
+        "avg_r": 0.05718067498523252,
+        "expected_total_r": 38.253871565120555,
+        "profit_factor": 1.3770086609054386,
+        "sharpe": 1.913864957690169,
+        "max_drawdown_pct": 0.05665124310921274,
+        "open_scored_share": 0.9715994020926756
+      }
+    },
+    {
+      "name": "open_scored_rank_75",
+      "score": 0.0,
+      "delta_vs_baseline": -0.30983683932847805,
+      "rejected": true,
+      "reject_reason": "phase1_too_few_trades (178 < 450)",
+      "mutations": {
+        "param_overrides.pb_v2_open_scored_rank_pct_max": 75.0
+      },
+      "metrics": {
+        "total_trades": 178.0,
+        "avg_r": 0.06746233140741772,
+        "expected_total_r": 12.008294990520355,
+        "profit_factor": 1.4511523939539255,
+        "sharpe": 1.257358365378188,
+        "max_drawdown_pct": 0.035668569170773747,
+        "open_scored_share": 0.7584269662921348
+      }
+    },
+    {
+      "name": "open_scored_off",
+      "score": 0.0,
+      "delta_vs_baseline": -0.30983683932847805,
+      "rejected": true,
+      "reject_reason": "phase1_too_few_trades (175 < 450)",
+      "mutations": {
+        "param_overrides.pb_v2_open_scored_enabled": false,
+        "param_overrides.pb_open_scored_enabled": false
+      },
+      "metrics": {
+        "total_trades": 175.0,
+        "avg_r": 0.05837942973147002,
+        "expected_total_r": 10.216400203007254,
+        "profit_factor": 1.400747174451049,
+        "sharpe": 1.0959005410734626,
+        "max_drawdown_pct": 0.05696877997379184,
+        "open_scored_share": 0.0
+      }
+    }
+  ]
+}

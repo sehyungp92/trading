@@ -1,0 +1,14 @@
+NQ_REGIME Combo Probe
+========================================================================================
+Baseline IS trades=473 netR=386.60; OOS trades=17 netR=21.82
+
+combo_radius1_sw_volume08_struct_structure_shift: passed=True obj=+63.26% OOS trades=33 netR=35.44 avgR=1.074; IS trades=681 netR=622.9 avgR=0.915; reasons=[]
+combo_radius1_sw_volume08_rev_lookback36: passed=True obj=+61.25% OOS trades=34 netR=33.69 avgR=0.991; IS trades=685 netR=615.1 avgR=0.898; reasons=[]
+combo_radius1_sw_volume08: passed=True obj=+56.67% OOS trades=33 netR=32.14 avgR=0.974; IS trades=691 netR=622.7 avgR=0.901; reasons=[]
+combo_radius1_sw_volume08_struct_short8: passed=True obj=+60.38% OOS trades=36 netR=31.49 avgR=0.875; IS trades=701 netR=610.0 avgR=0.870; reasons=[]
+combo_radius1_struct_structure_shift: passed=True obj=+38.07% OOS trades=26 netR=30.78 avgR=1.184; IS trades=545 netR=550.9 avgR=1.011; reasons=[]
+combo_radius1_rev_pen15_stop15: passed=True obj=+38.34% OOS trades=26 netR=30.34 avgR=1.167; IS trades=601 netR=560.1 avgR=0.932; reasons=[]
+combo_radius1_reversion_lookback36: passed=True obj=+36.33% OOS trades=26 netR=30.08 avgR=1.157; IS trades=548 netR=538.7 avgR=0.983; reasons=[]
+combo_radius1_reversion_round5_ablation: passed=True obj=+36.33% OOS trades=26 netR=30.08 avgR=1.157; IS trades=548 netR=538.7 avgR=0.983; reasons=[]
+combo_radius1_struct_continuation_guarded: passed=True obj=+32.84% OOS trades=26 netR=28.36 avgR=1.091; IS trades=573 netR=528.8 avgR=0.923; reasons=[]
+combo_radius1_struct_short8: passed=True obj=+35.42% OOS trades=28 netR=27.88 avgR=0.996; IS trades=574 netR=542.9 avgR=0.946; reasons=[]

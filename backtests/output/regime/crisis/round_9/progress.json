@@ -1,0 +1,89 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-06T12:57:28.576443+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 29,
+      "base_score": 0.8180688533876362,
+      "final_score": 0.8333699060156332,
+      "kept_features": [
+        "hard_credit_impulse_warning_p3"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Recovery + Early Action Architecture",
+      "candidate_count": 54
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-06T12:57:29.015438+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 29,
+      "base_score": 0.8333699060156332,
+      "final_score": 0.8333699060156332,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Threshold Re-optimization",
+      "candidate_count": 41
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-06T12:57:29.510465+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 29,
+      "base_score": 0.8333699060156332,
+      "final_score": 0.8333699060156332,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Correlation + Yield + Conjunction",
+      "candidate_count": 43
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-06T12:58:12.944407+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 29,
+      "base_score": 0.8333699060156332,
+      "final_score": 0.8393030055162594,
+      "kept_features": [
+        "finetune_vix_warning_p08",
+        "finetune_credit_impulse_spread_bps_p08"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Fine-Tuning",
+      "candidate_count": 94
+    }
+  },
+  "last_updated": "2026-05-06T12:58:12.960408+00:00",
+  "current_phase": 4
+}

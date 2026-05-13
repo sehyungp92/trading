@@ -1,0 +1,15 @@
+SWING PORTFOLIO SYNERGY PHASE 1 DIAGNOSTICS
+======================================================================
+Score: 0.6511 -> 0.8203
+Kept: overlay_off_dd_probe, strict_dd_recovery_throttle
+Comparable return: +391.09%
+Compounded MTM return: +392.75%
+Max DD: 8.04%
+PF: 3.50
+Trades: 575
+Heat max: 4.18R
+
+Per Strategy
+  ATRSS      trades= 230 signals= 382 requests= 382 accepted= 250 blocked= 132 suppressed= 488 static_pnl=$+146,623.20
+  AKC_HELIX  trades= 317 signals= 325 requests= 325 accepted= 317 blocked=   8 suppressed=   0 static_pnl=$+37,896.65
+  TPC        trades=  28 signals= 137 requests= 137 accepted=  28 blocked= 109 suppressed=   0 static_pnl=$+11,025.80

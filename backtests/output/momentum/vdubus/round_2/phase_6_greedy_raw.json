@@ -1,0 +1,34 @@
+{
+  "base_score": 0.6771353169338056,
+  "final_score": 0.6771353169338056,
+  "final_mutations": {
+    "flags.plus_1r_partial": false,
+    "param_overrides.CHOP_THRESHOLD": 32.0,
+    "flags.early_kill": false,
+    "param_overrides.MAX_POSITION_BARS_15M": 51.2,
+    "flags.vwap_fail_evening": true,
+    "flags.evening_vwap_cap": true,
+    "param_overrides.VWAP_CAP_EVENING": 0.05,
+    "flags.dow_sizing": true,
+    "param_overrides.DOW_SIZE_MULT": {
+      "0": 0.6,
+      "3": 0.75
+    }
+  },
+  "kept_features": [],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 14,
+      "best_name": "combo_evening_reform",
+      "best_score": 0.6786513230779267,
+      "best_delta_pct": 0.22388525693592987,
+      "kept": false,
+      "rejected_count": 1
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 14,
+  "accepted_count": 0,
+  "elapsed_seconds": 305.3005919456482
+}

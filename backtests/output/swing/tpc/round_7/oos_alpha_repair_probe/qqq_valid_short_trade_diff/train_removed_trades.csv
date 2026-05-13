@@ -1,0 +1,1 @@
+symbol,direction,entry_type,entry_time,exit_time,entry_price,exit_price,qty,initial_stop,exit_reason,pnl_points,pnl_dollars,r_multiple,mfe_r,mae_r,bars_held,commission,addon_a_qty,addon_b_qty,leg_type,adx_entry,score_entry,touch_distance_atr,di_agrees,quality_score,regime_entry,signal_time,fill_time,signal_bar_index,fill_bar_index,campaign_id,key

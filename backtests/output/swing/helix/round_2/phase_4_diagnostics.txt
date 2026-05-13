@@ -1,0 +1,90 @@
+======================================================================
+HELIX PHASE 4 DIAGNOSTICS
+======================================================================
+
+SUMMARY
+----------------------------------------
+  Trades:          354
+  Profit Factor:   1.82
+  Net Return:      100.5%
+  Max R DD:        10.66
+  Exit Efficiency: 0.317
+  Waste Ratio:     0.632
+  Tail Pct:        0.752
+  Bull PF:         2.08
+  Bear PF:         1.16
+  Min Regime PF:   1.16
+  Sharpe:          1.23
+  Calmar (R):      13.28
+  Win Rate:        35.6%
+  Total R:         141.61
+  Stale R:         19.40
+  Short Hold R:    100.88
+
+GREEDY RESULT
+----------------------------------------
+  Base Score:      0.6468
+  Final Score:     0.7009
+  Accepted:        8
+  Total Candidates:100
+  Kept Features:   finetune_param_overrides.ADD_MAX_BARS_m20, finetune_param_overrides.ADD_RISK_FRAC_p20, finetune_param_overrides.ADD_1H_R_m10, finetune_param_overrides.BE_ATR1H_OFFSET_m20, finetune_param_overrides.TRAIL_R_DIV_p20, finetune_param_overrides.TRAIL_FADE_PENALTY_p10, finetune_param_overrides.TRAIL_STALL_RATE_p20, finetune_param_overrides.R_PARTIAL_5_p10
+
+D1: CLASS ATTRIBUTION
+----------------------------------------
+  Class        N    WR%     PF     TotR    AvgR     MFE    Pct
+  ------------------------------------------------------------
+  B           29  48.3%   5.33   +39.4R  +1.36   2.10  36.5%
+  D          330  33.3%   1.40   +68.4R  +0.21   1.16  63.5%
+
+D2: EXIT EFFICIENCY
+----------------------------------------
+  Reason              N     TotR    AvgR  AvgMFE  Capture
+  -------------------------------------------------------
+  END_OF_DATA         1    +0.7R  +0.73   1.66   43.8%
+  STALE              89   -20.0R  -0.22   0.53  -42.4%
+  STOP              269  +127.1R  +0.47   1.47   32.2%
+
+  Right-then-stopped: 59 trades, leaked 118.1R
+  (MFE >= 1R but exited at < 0.5R)
+
+D3: TIMEFRAME / SYMBOL BREAKDOWN
+----------------------------------------
+  By Origin Timeframe:
+    1H: 359 trades, +107.8R, PF=1.60
+
+  By Symbol:
+    GLD: 168 trades, +60.0R, PF=1.75
+    QQQ: 191 trades, +47.8R, PF=1.48
+
+D4: STALE / WASTE ANALYSIS
+----------------------------------------
+  Stale trades:      89 (-20.0R)
+  Short-hold losers: 96 (-94.5R, <=10 bars)
+  Gross win R:       287.8R
+  Waste as % of gross: 39.8%
+
+  Short-hold losers by class:
+    B: 8 trades, -5.3R
+    D: 88 trades, -89.3R
+
+D5: TAIL / BIG WINNER ANALYSIS
+----------------------------------------
+  Total winners:     124
+  Big (>=3R):        49 (191.2R, 66% of gross)
+  Huge (>=5R):       5 (29.0R)
+
+  Top 10 winners:
+    QQQ B +7.59R (MFE=7.89R, held=31b)
+    GLD D +5.61R (MFE=4.01R, held=30b)
+    GLD D +5.39R (MFE=2.99R, held=23b)
+    GLD D +5.35R (MFE=3.01R, held=19b)
+    GLD B +5.05R (MFE=5.64R, held=18b)
+    GLD D +4.91R (MFE=6.64R, held=56b)
+    GLD D +4.89R (MFE=4.01R, held=21b)
+    GLD B +4.73R (MFE=5.69R, held=22b)
+    GLD D +4.64R (MFE=2.61R, held=24b)
+    QQQ D +4.58R (MFE=2.47R, held=28b)
+
+D6: PHASE DELTA
+----------------------------------------
+  No phase result available.

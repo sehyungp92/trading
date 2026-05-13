@@ -1,0 +1,57 @@
+{
+  "phase": 5,
+  "goal_progress": {
+    "profit_factor": {
+      "target": 1.35,
+      "actual": 16.317700387917885,
+      "pct_of_target": 200.0
+    },
+    "net_return_pct": {
+      "target": 35.0,
+      "actual": 70.2868,
+      "pct_of_target": 200.0
+    },
+    "max_drawdown_pct": {
+      "target": 0.16,
+      "actual": 0.03715084200585783,
+      "pct_of_target": 200.0
+    },
+    "trades_per_month": {
+      "target": 4.0,
+      "actual": 1.4954864593781343,
+      "pct_of_target": 37.38716148445336
+    },
+    "avg_r": {
+      "target": 0.2,
+      "actual": 1.5360051627816826,
+      "pct_of_target": 200.0
+    },
+    "mfe_capture": {
+      "target": 0.35,
+      "actual": 0.23103737613991537,
+      "pct_of_target": 66.01067889711868
+    },
+    "execution_conversion": {
+      "target": 0.25,
+      "actual": 0.1748768472906404,
+      "pct_of_target": 69.95073891625616
+    }
+  },
+  "strengths": [
+    "profit_factor: 16.3177 (200% of 1.3500)",
+    "net_return_pct: 70.2868 (200% of 35.0000)",
+    "max_drawdown_pct: 0.0372 (200% of 0.1600)",
+    "avg_r: 1.5360 (200% of 0.2000)"
+  ],
+  "weaknesses": [
+    "trades_per_month: 1.4955 (37% of 4.0000)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 5 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + profit_factor: 16.3177 (200% of 1.3500)\n  + net_return_pct: 70.2868 (200% of 35.0000)\n  + max_drawdown_pct: 0.0372 (200% of 0.1600)\n  + avg_r: 1.5360 (200% of 0.2000)\n\nWeaknesses:\n  - trades_per_month: 1.4955 (37% of 4.0000)\n\nGoal Progress:\n  profit_factor: 16.3177 / 1.3500 (200%)\n  net_return_pct: 70.2868 / 35.0000 (200%)\n  max_drawdown_pct: 0.0372 / 0.1600 (200%)\n  trades_per_month: 1.4955 / 4.0000 (37%)\n  avg_r: 1.5360 / 0.2000 (200%)\n  mfe_capture: 0.2310 / 0.3500 (66%)\n  execution_conversion: 0.1749 / 0.2500 (70%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

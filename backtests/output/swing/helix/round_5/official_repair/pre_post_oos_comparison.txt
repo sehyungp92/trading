@@ -1,0 +1,30 @@
+====================================================================================================================
+SWING INCUMBENT REPAIR PRE/POST OOS COMPARISON
+IS Period: 2024-01-01 to 2026-03-20 (~26.6 months)
+Selection OOS Period: 2026-03-21 to 2026-05-01
+The OOS window is used for tuning/selection in this repair run; it is no longer an untouched holdout.
+====================================================================================================================
+
+Strategy         Pre OOS#   Pre PF  Pre AvgR Post OOS#  Post PF  Post AvgR Pre IS PF Post IS PF Accepted Assessment       
+--------------------------------------------------------------------------------------------------------------------------
+helix_swing             7     4.96     0.914         8     8.48      1.510      2.17       2.14        1 GREY->GREY       
+
+====================================================================================================================
+DETAIL
+====================================================================================================================
+
+Strategy: helix_swing (swing)
+------------------------------------------------------------------------
+                         Pre IS    Post IS    Pre OOS   Post OOS
+Trades:                     140        145          7          8
+Win Rate:                51.4%     51.7%     42.9%     50.0%
+Profit Factor:             2.17       2.14       4.96       8.48
+Avg R/trade:              0.532      0.523      0.914      1.510
+Net R:                     74.5       75.8        6.4       12.1
+Max DD (R):                6.35       7.31       1.23       1.23
+Trades/month:               5.3        5.4        5.2        5.9
+Accepted repair candidates:
+  helix_oos/helix_oos_oos_d_short0_sep4_dailyext350: objective +29.34%
+Pre config:  C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\swing\helix\round_4\optimized_config.json
+Post config: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\swing\helix\round_5\official_repair\helix_swing\optimized_config.json
+Assessment:  GREY -> GREY

@@ -1,0 +1,32 @@
+{
+    "sticky_diag":  15,
+    "use_warm_start":  false,
+    "use_expanding_window":  false,
+    "rolling_window_years":  7,
+    "refit_ll_tolerance":  5,
+    "refit_freq":  "QE",
+    "z_minp":  30,
+    "posterior_temperature":  1.5,
+    "posterior_smoothing_eps":  0.01,
+    "posterior_ema_alpha":  0.7,
+    "stability_weight":  0.8,
+    "per_strat_max":  0.5,
+    "base_target_vol_annual":  0.08,
+    "kappa_totalvol_cap":  1.5,
+    "crisis_logit_a":  3,
+    "weight_smoothing_alpha":  0.5,
+    "L_max":  1.6,
+    "delta_rho_exempt":  0,
+    "sigma_floor_annual":  0.09,
+    "delta_rho_threshold":  0.15,
+    "crisis_weights":  [
+                           0.25,
+                           0.5,
+                           0.1,
+                           0.15
+                       ],
+    "scanner_enabled":  true,
+    "n_ensemble_models":  5,
+    "crisis_z_window":  21,
+    "posterior_ema_risk_off_alpha":  1
+}

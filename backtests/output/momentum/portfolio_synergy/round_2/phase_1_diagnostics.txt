@@ -1,0 +1,11 @@
+==============================================================================
+PHASE 1 MOMENTUM PORTFOLIO DIAGNOSTICS
+==============================================================================
+Accepted candidate: capacity_fit_conservative
+Current score: 0.9585
+Net profit: $187,980.53
+Trades/month: 38.53
+Win rate: 66.67%
+Profit factor: 3.46
+MTM max DD: 9.43%
+Block rate: 11.12%

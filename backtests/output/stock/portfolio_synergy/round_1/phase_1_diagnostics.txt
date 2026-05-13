@@ -1,0 +1,63 @@
+﻿==============================================================================
+PHASE 1 STOCK PORTFOLIO SYNERGY
+==============================================================================
+Round: round_1_dynamic_stock_synergy
+Initial equity: $25,000
+Date range: 2024-01-01 -> 2026-03-01
+Risk stance: aggressive-controlled
+Score components: 7 (alpha_return, trade_frequency, drawdown_control, profit_factor_quality, synergy_capture, allocation_balance, robustness)
+
+Headline:
+  Final equity: $128,261.52
+  Net PnL: $+103,261.52
+  Net return: +413.05%
+  Active trades/month: 48.17
+  Total R/month: 10.14
+  Profit factor: 2.22
+  Win rate: 73.00%
+  Max DD: 3.03%
+  Sharpe: 4.66
+  Sortino: 5.02
+  Calmar: 44.24
+  Risk basis: bar_close_mark_to_market
+  Realized-only Max DD: 2.79%
+  Realized-only Calmar: 47.98
+  Active sleeves: 2/2
+
+Sleeve contribution:
+  IARIC_V5R1   trades=   652 pnl=$  +47,806.96 risk_share= 63.7%
+  ALCB_R3      trades=   459 pnl=$  +55,454.56 risk_share= 36.3%
+
+Routing and blocked-candidate discrimination:
+  Fired entries: 1985
+  Accepted entries: 1111
+  Blocked entries: 874
+  Trade capture ratio: 55.97%
+  Positive-alpha block rate: 45.75%
+  Blocked winners: 684 / 874 (78.26%)
+  Accepted avg R: +0.211
+  Blocked avg R: +0.157
+  Candidate discrimination: 0.590
+  Max strategy trade share: 58.69%
+  Max strategy risk share: 63.67%
+  Positive slices: 4/4
+
+Risk governors:
+  Max daily loss: 2.98R
+  Max weekly loss: 2.31R
+
+Score:
+  alpha_return           component=1.0000 weight=0.27
+  trade_frequency        component=0.8028 weight=0.23
+  drawdown_control       component=0.6970 weight=0.19
+  profit_factor_quality  component=0.4449 weight=0.12
+  synergy_capture        component=0.2064 weight=0.08
+  allocation_balance     component=0.9633 weight=0.06
+  robustness             component=0.8254 weight=0.05
+  total                  0.7560
+
+Greedy:
+  Base score: 0.7560
+  Final score: 0.7560
+  Accepted: 0
+  Kept: none

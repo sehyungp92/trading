@@ -1,0 +1,46 @@
+{
+  "base_score": 0.7149482994301555,
+  "final_score": 0.734583733470985,
+  "final_mutations": {
+    "flags.early_stall_exit": false,
+    "param_overrides.early_stall_check_hours": 12,
+    "param_overrides.early_stall_mfe_threshold": 0.2,
+    "param_overrides.max_hold_hours": 88,
+    "param_overrides.adx_on": 14,
+    "param_overrides.recovery_tolerance_atr_trend": 0.55,
+    "fixed_qty": null,
+    "flags.addon_b": false,
+    "param_overrides.base_risk_pct": 0.024,
+    "param_overrides.dynamic_risk_strong_trend_mult": 1.15,
+    "param_overrides.dynamic_risk_weak_trend_mult": 0.8,
+    "param_overrides.addon_a_r": 1.5,
+    "param_overrides.addon_a_size_mult": 0.5
+  },
+  "kept_features": [
+    "risk_pct_plus10bp"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 39,
+      "best_name": "risk_pct_plus10bp",
+      "best_score": 0.734583733470985,
+      "best_delta_pct": 2.7464131401501133,
+      "kept": true,
+      "rejected_count": 8
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 27,
+      "best_name": "floor_guardrail",
+      "best_score": 0.7353607627015741,
+      "best_delta_pct": 0.10577817002801622,
+      "kept": false,
+      "rejected_count": 1
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 39,
+  "accepted_count": 1,
+  "elapsed_seconds": 395.33937907218933
+}

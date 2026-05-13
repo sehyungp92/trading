@@ -1,0 +1,62 @@
+{
+  "base_score": 0.31687857929376584,
+  "final_score": 0.8644239943297038,
+  "final_mutations": {
+    "flags.enable_structural_expansion": true,
+    "flags.enable_liquidity_reversion": true,
+    "flags.enable_second_wind": true,
+    "param_overrides.REGIME_MIN_CONFIDENCE": 0.65,
+    "param_overrides.REGIME_MIN_MARGIN": 0.15,
+    "param_overrides.STRUCTURAL_MIN_SCORE": 7,
+    "param_overrides.STRUCTURAL_A_PLUS_SCORE": 10,
+    "param_overrides.REVERSION_MIN_SCORE": 7,
+    "param_overrides.REVERSION_A_SCORE": 8,
+    "param_overrides.REVERSION_A_PLUS_SCORE": 11,
+    "param_overrides.SECOND_WIND_MIN_SCORE": 8,
+    "param_overrides.SECOND_WIND_A_SCORE": 9,
+    "param_overrides.SECOND_WIND_A_PLUS_SCORE": 10,
+    "param_overrides.TARGET_ROOM_MIN_R": 1.5,
+    "param_overrides.REVERSION_STANDARD_STOP_CAP": 12.0,
+    "param_overrides.REVERSION_A_PLUS_STOP_CAP": 15.0,
+    "param_overrides.SECOND_WIND_STOP_CAP": 45.0,
+    "param_overrides.MAX_TRADES_PER_DAY": 2,
+    "param_overrides.MAX_FULL_RISK_TRADES": 1,
+    "param_overrides.MAX_DAILY_REALIZED_R_LOSS": -2.0,
+    "param_overrides.PROFIT_FLOOR_ENABLED": false,
+    "param_overrides.MFE_RATCHET_ENABLED": true,
+    "param_overrides.TIME_STOP_ENABLED": false,
+    "param_overrides.STRUCTURAL_ENTRY_MODE": "auto",
+    "param_overrides.REVERSION_ENTRY_MODEL": "swept_level_retest",
+    "param_overrides.ENTRY_TTL_RETEST_MINUTES": 30,
+    "param_overrides.ENTRY_TTL_MOMENTUM_MINUTES": 15,
+    "param_overrides.MFE_RATCHET_TRIGGER_R": 1.0,
+    "param_overrides.MFE_RATCHET_FLOOR_PCT": 0.5
+  },
+  "kept_features": [
+    "mfe_ratchet_1r_50pct"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 6,
+      "best_name": "mfe_ratchet_1r_50pct",
+      "best_score": 0.8644239943297038,
+      "best_delta_pct": 172.7934454440765,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 5,
+      "best_name": "time_stop_6bars_no_0p5mfe",
+      "best_score": 0.8644239943297038,
+      "best_delta_pct": 0.0,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {},
+  "total_candidates": 6,
+  "accepted_count": 1,
+  "elapsed_seconds": 1005.3007125854492
+}

@@ -1,0 +1,9 @@
+{
+  "category": "combo",
+  "output_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_8\\in_sample_smoke_20260509_fresh_4w",
+  "config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_8\\optimized_config.json",
+  "train_end": "2025-11-01",
+  "max_workers": 4,
+  "probe_count": 5,
+  "elapsed_seconds": 221.46275424957275
+}

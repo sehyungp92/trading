@@ -1,0 +1,19 @@
+{
+  "family": "swing",
+  "strategy": "atrss",
+  "strategy_name": "atrss",
+  "round": 3,
+  "description": "Round 3",
+  "generated_at_utc": "2026-04-30T15:42:09.083007+00:00",
+  "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\atrss\\round_2\\optimized_config.json",
+  "baseline_mutation_count": 6,
+  "baseline_mutations": {
+    "flags.early_stall_exit": false,
+    "param_overrides.early_stall_check_hours": 12,
+    "param_overrides.early_stall_mfe_threshold": 0.2,
+    "param_overrides.max_hold_hours": 88,
+    "param_overrides.adx_on": 14,
+    "param_overrides.recovery_tolerance_atr_trend": 0.55
+  },
+  "scoring_weights": {}
+}

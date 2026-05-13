@@ -1,0 +1,233 @@
+{
+  "current_phase": 4,
+  "completed_phases": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "cumulative_mutations": {
+    "sticky_diag": 12.0,
+    "use_warm_start": false,
+    "use_expanding_window": false,
+    "rolling_window_years": 7,
+    "refit_ll_tolerance": 5.0,
+    "refit_freq": "QE",
+    "posterior_temperature": 2.5,
+    "posterior_smoothing_eps": 0.01,
+    "z_minp": 30,
+    "posterior_ema_alpha": 0.7,
+    "crisis_logit_a": 3.0,
+    "L_max": 1.6,
+    "base_target_vol_annual": 0.07,
+    "kappa_totalvol_cap": 1.5,
+    "weight_smoothing_alpha": 0.5,
+    "per_strat_max": 0.5,
+    "conf_floor": 0.5,
+    "ventilator_lambda": 0.5,
+    "crisis_weights": [
+      0.8,
+      0.15,
+      0.05
+    ]
+  },
+  "phase_results": {
+    "1": {
+      "baseline_score": 0.0,
+      "final_score": 0.7180354336249524,
+      "final_metrics": {
+        "total_return": 5.581508842129493,
+        "cagr": 0.08461364300880203,
+        "sharpe": 1.239409087109578,
+        "sortino": 1.8179860068207376,
+        "calmar": 0.5237792831375369,
+        "max_drawdown_pct": 0.16154446296911618,
+        "max_drawdown_duration": 579,
+        "avg_annual_turnover": 8.778520064399672,
+        "n_rebalances": 1148
+      },
+      "n_rounds": 3,
+      "max_rounds": 20,
+      "rounds": [
+        "combo_sd10_cold",
+        "combo_aggressive_7y",
+        "sticky_diag_15"
+      ],
+      "elapsed_seconds": 10435.143036603928
+    },
+    "2": {
+      "baseline_score": 0.6175556629463551,
+      "final_score": 0.6919381812244656,
+      "final_metrics": {
+        "total_return": 5.980242593893907,
+        "cagr": 0.08736717348978895,
+        "sharpe": 1.258827467640168,
+        "sortino": 1.848168219933596,
+        "calmar": 0.5626514328374133,
+        "max_drawdown_pct": 0.15527761663949238,
+        "max_drawdown_duration": 576,
+        "avg_annual_turnover": 5.607417296259939,
+        "n_rebalances": 1148
+      },
+      "n_rounds": 3,
+      "max_rounds": 20,
+      "rounds": [
+        "posterior_temp_3.0",
+        "z_minp_30",
+        "posterior_ema_0.7"
+      ],
+      "elapsed_seconds": 3610.90829706192
+    },
+    "3": {
+      "baseline_score": 0.5464095864108267,
+      "final_score": 0.6109697520071613,
+      "final_metrics": {
+        "total_return": 12.210012196708075,
+        "cagr": 0.11768159585305127,
+        "sharpe": 1.4027338026806122,
+        "sortino": 2.066178342829739,
+        "calmar": 0.8250342694998014,
+        "max_drawdown_pct": 0.14263843358215753,
+        "max_drawdown_duration": 507,
+        "avg_annual_turnover": 9.40693236409202,
+        "n_rebalances": 1148
+      },
+      "n_rounds": 9,
+      "max_rounds": 20,
+      "rounds": [
+        "crisis_logit_a_3.0",
+        "L_max_1.3",
+        "target_vol_0.08",
+        "L_max_1.5",
+        "kappa_cap_1.5",
+        "weight_smooth_0.5",
+        "per_strat_max_0.5",
+        "conf_floor_0.5",
+        "vent_lambda_0.5"
+      ],
+      "elapsed_seconds": 10643.317950963974
+    },
+    "4": {
+      "baseline_score": 0.633293338195243,
+      "final_score": 0.6705064596701337,
+      "final_metrics": {
+        "total_return": 9.821865158351525,
+        "cagr": 0.10811552188788887,
+        "sharpe": 1.4789559980905904,
+        "sortino": 2.2105721771796025,
+        "calmar": 1.0137722005135255,
+        "max_drawdown_pct": 0.10664676130705007,
+        "max_drawdown_duration": 421,
+        "avg_annual_turnover": 10.177084128554267,
+        "n_rebalances": 1148
+      },
+      "n_rounds": 5,
+      "max_rounds": 20,
+      "rounds": [
+        "fine_base_target_vol_annual_0.07",
+        "fine_posterior_temperature_2.5",
+        "fine_L_max_1.6",
+        "exp_crisis_vix_80",
+        "fine_sticky_12"
+      ],
+      "elapsed_seconds": 3978.748484134674
+    }
+  },
+  "phase_gate_results": {
+    "1": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "regimes_above_5pct",
+          "target": 3.0,
+          "actual": 4.0,
+          "passed": true
+        },
+        {
+          "name": "transition_rate",
+          "target": 0.008,
+          "actual": 0.00926087716232745,
+          "passed": true
+        },
+        {
+          "name": "sharpe",
+          "target": 0.4,
+          "actual": 1.4489358220426363,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "2": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "all_4_regimes_above_3pct",
+          "target": 4.0,
+          "actual": 4.0,
+          "passed": true
+        },
+        {
+          "name": "sharpe",
+          "target": 0.6,
+          "actual": 1.4856259730032695,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "3": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "sharpe",
+          "target": 0.8,
+          "actual": 2.0700532510871827,
+          "passed": true
+        },
+        {
+          "name": "calmar",
+          "target": 0.5,
+          "actual": 1.8445087497839854,
+          "passed": true
+        },
+        {
+          "name": "max_dd",
+          "target": 0.2,
+          "actual": 0.09146670629422544,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "4": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "sharpe",
+          "target": 0.9,
+          "actual": 2.166496275908527,
+          "passed": true
+        },
+        {
+          "name": "calmar",
+          "target": 0.8,
+          "actual": 2.1868298081780098,
+          "passed": true
+        },
+        {
+          "name": "max_dd",
+          "target": 0.15,
+          "actual": 0.06904907203274005,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    }
+  },
+  "retry_count": {}
+}

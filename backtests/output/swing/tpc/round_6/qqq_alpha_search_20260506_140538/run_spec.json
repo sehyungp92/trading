@@ -1,0 +1,19 @@
+{
+  "generated_at_utc": "2026-05-06T15:49:17.410141+00:00",
+  "train_end": "2025-11-01",
+  "data_end": "2026-05-01 23:00:00+00:00",
+  "config": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_6\\optimized_config.json",
+  "candidate_limit": 640,
+  "max_workers": 6,
+  "score_model_note": "Structural score-model candidates use alpha7, a seven-component setup score implemented in the shared TPC core.",
+  "objective_components": [
+    "train_qqq_excellent_count",
+    "oos_qqq_excellent_count",
+    "train_qqq_alpha_quality",
+    "oos_qqq_alpha_quality",
+    "qqq_supply",
+    "train_book_preservation",
+    "oos_book_preservation"
+  ],
+  "selection_oos_note": "OOS is selection OOS. QQQ OOS sample is small; require fresh holdout/forward validation."
+}

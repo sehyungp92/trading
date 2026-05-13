@@ -1,0 +1,139 @@
+{
+  "base_score": 0.4782309908456923,
+  "final_score": 0.55311278208123,
+  "final_mutations": {
+    "param_overrides.ADX_UPPER_GATE": 55.0,
+    "flags.disable_class_a": true,
+    "param_overrides.CLASS_B_MOM_LOOKBACK": 5,
+    "param_overrides.TRAIL_STALL_ONSET": 4,
+    "param_overrides.CLASS_B_BAIL_BARS": 10,
+    "param_overrides.ADD_RISK_FRAC": 1.43,
+    "param_overrides.ADD_1H_R": 0.9,
+    "param_overrides.ADD_4H_R": 0.25,
+    "param_overrides.BE_ATR1H_OFFSET": 0.3,
+    "param_overrides.PARTIAL_2P5_FRAC": 0.88,
+    "param_overrides.EXTREME_VOL_PCT": 999.0,
+    "param_overrides.CLASS_B_MIN_ADX": 28.0,
+    "param_overrides.TTL_1H_HOURS": 8,
+    "param_overrides.R_PARTIAL_2P5": 2.25,
+    "param_overrides.ADD_MIN_BARS": 2,
+    "param_overrides.R_BE_1H": 1.05,
+    "param_overrides.EARLY_STALE_BARS": 24,
+    "flags.disable_class_c": true,
+    "param_overrides.TRAIL_STALL_RATE": 0.12,
+    "param_overrides.TRAIL_FADE_PENALTY": 1.0,
+    "param_overrides.TRAIL_TIMEDECAY_ONSET": 15,
+    "param_overrides.STALE_R_THRESH": 0.3,
+    "param_overrides.R_PARTIAL_5": 4.0,
+    "param_overrides.CLASS_B_BAIL_R_THRESH": -0.35
+  },
+  "kept_features": [
+    "ttl_1h_8",
+    "stall_rate_012",
+    "fade_penalty_100",
+    "timedecay_onset_15",
+    "stale_r_thresh_03",
+    "partial_5_r_40",
+    "bail_b_r_neg035"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 66,
+      "best_name": "ttl_1h_8",
+      "best_score": 0.50224019015908,
+      "best_delta_pct": 5.020418955059841,
+      "kept": true,
+      "rejected_count": 5
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 59,
+      "best_name": "stall_rate_012",
+      "best_score": 0.5190364184430556,
+      "best_delta_pct": 3.344262090744987,
+      "kept": true,
+      "rejected_count": 9
+    },
+    {
+      "round_num": 1,
+      "candidates_tested": 46,
+      "best_name": "fade_penalty_100",
+      "best_score": 0.5304603539734853,
+      "best_delta_pct": 2.20098920316573,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 44,
+      "best_name": "timedecay_onset_15",
+      "best_score": 0.5399966232879508,
+      "best_delta_pct": 1.7977345984544886,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 3,
+      "candidates_tested": 42,
+      "best_name": "stale_r_thresh_03",
+      "best_score": 0.5466016821777324,
+      "best_delta_pct": 1.2231667023331476,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 4,
+      "candidates_tested": 41,
+      "best_name": "partial_5_r_40",
+      "best_score": 0.5499394310722728,
+      "best_delta_pct": 0.6106364110045158,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 5,
+      "candidates_tested": 39,
+      "best_name": "bail_b_r_neg035",
+      "best_score": 0.55311278208123,
+      "best_delta_pct": 0.5770364570457895,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 6,
+      "candidates_tested": 37,
+      "best_name": "bail_b_bars_6",
+      "best_score": 0.5536573840008866,
+      "best_delta_pct": 0.09846127901932501,
+      "kept": false,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {
+    "total_trades": 353,
+    "profit_factor": 1.4037624564912232,
+    "net_return_pct": 50.72924800000281,
+    "max_r_dd": 14.144253777106151,
+    "exit_efficiency": 0.17547830742691967,
+    "waste_ratio": 0.5702526931328179,
+    "tail_pct": 0.6842883220142556,
+    "bull_pf": 1.5770559257242436,
+    "bear_pf": 0.9590311444143392,
+    "min_regime_pf": 0.9590311444143392,
+    "total_r": 78.45583522125257,
+    "gross_win_r": 266.24970377572276,
+    "gross_loss_r": 187.7938685544702,
+    "stale_r": 19.104529339069472,
+    "short_hold_r": 95.31556381273239,
+    "big_winner_r": 182.19156303348194,
+    "sharpe": 0.673827056010573,
+    "calmar_r": 5.546834527830727,
+    "win_rate": 34.844192634560905,
+    "avg_win_r": 2.1646317380140063,
+    "avg_loss_r": -0.8164950806716096
+  },
+  "total_candidates": 66,
+  "accepted_count": 7,
+  "elapsed_seconds": 4030.547951221466
+}

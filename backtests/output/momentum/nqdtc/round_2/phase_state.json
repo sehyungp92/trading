@@ -1,0 +1,1216 @@
+{
+  "current_phase": 4,
+  "completed_phases": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "cumulative_mutations": {
+    "flags.max_loss_cap": true,
+    "flags.max_stop_width": true,
+    "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+    "param_overrides.BLOCK_CAUTION_REGIME": true,
+    "flags.displacement_threshold": false,
+    "param_overrides.SCORE_NORMAL": 1.5,
+    "param_overrides.RVOL_SCORE_THRESH": 1.5,
+    "param_overrides.MIN_BOX_WIDTH": 150,
+    "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+    "flags.block_eth_shorts": true,
+    "param_overrides.TP1_R": 1.4,
+    "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+    "param_overrides.TP1_PARTIAL_PCT": 0.5,
+    "param_overrides.BLOCK_ALIGNED_REGIME": true
+  },
+  "phase_results": {
+    "1": {
+      "focus": "Residual Discrimination",
+      "base_mutations": {
+        "flags.max_loss_cap": true,
+        "flags.max_stop_width": true,
+        "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+        "param_overrides.BLOCK_CAUTION_REGIME": true,
+        "flags.displacement_threshold": false,
+        "param_overrides.SCORE_NORMAL": 1.5,
+        "param_overrides.RVOL_SCORE_THRESH": 1.5,
+        "param_overrides.MIN_BOX_WIDTH": 150,
+        "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+        "flags.block_eth_shorts": true,
+        "param_overrides.TP1_R": 1.2,
+        "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+        "param_overrides.TP1_PARTIAL_PCT": 0.5
+      },
+      "final_mutations": {
+        "flags.max_loss_cap": true,
+        "flags.max_stop_width": true,
+        "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+        "param_overrides.BLOCK_CAUTION_REGIME": true,
+        "flags.displacement_threshold": false,
+        "param_overrides.SCORE_NORMAL": 1.5,
+        "param_overrides.RVOL_SCORE_THRESH": 1.5,
+        "param_overrides.MIN_BOX_WIDTH": 150,
+        "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+        "flags.block_eth_shorts": true,
+        "param_overrides.TP1_R": 1.2,
+        "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+        "param_overrides.TP1_PARTIAL_PCT": 0.5,
+        "param_overrides.BLOCK_ALIGNED_REGIME": true
+      },
+      "base_score": 0.5686782566119096,
+      "final_score": 0.7146228613842385,
+      "kept_features": [
+        "block_aligned"
+      ],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 27,
+          "best_name": "block_aligned",
+          "best_score": 0.7146228613842385,
+          "best_delta_pct": 25.66382714223021,
+          "kept": true,
+          "rejected_count": 3
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 9,
+          "best_name": "range_only",
+          "best_score": 0.7146228613842385,
+          "best_delta_pct": 0.0,
+          "kept": false,
+          "rejected_count": 1
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 90,
+        "win_rate": 0.6,
+        "profit_factor": 1.9633524903446236,
+        "max_dd_pct": 0.15223931061275311,
+        "net_return_pct": 245.96420000000086,
+        "calmar": 16.15641840533902,
+        "sharpe": 1.7649736865609122,
+        "sortino": 40.830770721767564,
+        "avg_r": 0.47627575133438393,
+        "capture_ratio": 0.39660455707654313,
+        "burst_trade_pct": 0.011111111111111112,
+        "eth_short_wr": 0.0,
+        "eth_short_trades": 0,
+        "range_regime_pct": 1.0,
+        "tp1_hit_rate": 0.5666666666666667,
+        "tp2_hit_rate": 0.0,
+        "avg_hold_hours": 8.208333333333334,
+        "avg_winner_r": 1.4615882836784122,
+        "avg_loser_r": -1.0016930471816587,
+        "avg_mfe_r": 2.4715810035983123
+      },
+      "accepted_count": 1,
+      "elapsed_seconds": 600.4090001583099,
+      "suggested_experiments": [
+        {
+          "name": "suggest_tp2_2.25_p15",
+          "mutations": {
+            "param_overrides.TP1_R": 1.2,
+            "param_overrides.TP1_PARTIAL_PCT": 0.5,
+            "param_overrides.TP2_R": 2.25,
+            "param_overrides.TP2_PARTIAL_PCT": 0.15
+          }
+        },
+        {
+          "name": "suggest_tp2_2.5_p20",
+          "mutations": {
+            "param_overrides.TP1_R": 1.2,
+            "param_overrides.TP1_PARTIAL_PCT": 0.5,
+            "param_overrides.TP2_R": 2.5,
+            "param_overrides.TP2_PARTIAL_PCT": 0.2
+          }
+        },
+        {
+          "name": "suggest_ratchet_0.45",
+          "mutations": {
+            "param_overrides.RATCHET_LOCK_PCT": 0.45
+          }
+        },
+        {
+          "name": "suggest_cooldown_15m",
+          "mutations": {
+            "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 15
+          }
+        },
+        {
+          "name": "suggest_cooldown_0m",
+          "mutations": {
+            "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 0
+          }
+        },
+        {
+          "name": "suggest_rvol_1.35",
+          "mutations": {
+            "param_overrides.RVOL_SCORE_THRESH": 1.35
+          }
+        }
+      ],
+      "analysis": {
+        "phase": 1,
+        "goal_progress": {
+          "net_return_pct": {
+            "target": 220.0,
+            "actual": 245.96420000000086,
+            "pct_of_target": 111.80190909090948
+          },
+          "profit_factor": {
+            "target": 2.0,
+            "actual": 1.9633524903446236,
+            "pct_of_target": 98.16762451723118
+          },
+          "max_dd_pct": {
+            "target": 0.15,
+            "actual": 0.15223931061275311,
+            "pct_of_target": 98.52908515958195
+          },
+          "calmar": {
+            "target": 10.0,
+            "actual": 16.15641840533902,
+            "pct_of_target": 161.56418405339022
+          },
+          "total_trades": {
+            "target": 180.0,
+            "actual": 90.0,
+            "pct_of_target": 50.0
+          },
+          "capture_ratio": {
+            "target": 0.5,
+            "actual": 0.39660455707654313,
+            "pct_of_target": 79.32091141530863
+          },
+          "avg_r": {
+            "target": 0.35,
+            "actual": 0.47627575133438393,
+            "pct_of_target": 136.07878609553828
+          },
+          "win_rate": {
+            "target": 0.56,
+            "actual": 0.6,
+            "pct_of_target": 107.14285714285714
+          },
+          "sharpe": {
+            "target": 2.0,
+            "actual": 1.7649736865609122,
+            "pct_of_target": 88.24868432804561
+          },
+          "sortino": {
+            "target": 6.0,
+            "actual": 40.830770721767564,
+            "pct_of_target": 200.0
+          }
+        },
+        "strengths": [
+          "net_return_pct: 245.9642 (112% of 220.0000)",
+          "profit_factor: 1.9634 (98% of 2.0000)",
+          "max_dd_pct: 0.1522 (99% of 0.1500)",
+          "calmar: 16.1564 (162% of 10.0000)",
+          "avg_r: 0.4763 (136% of 0.3500)",
+          "win_rate: 0.6000 (107% of 0.5600)",
+          "sharpe: 1.7650 (88% of 2.0000)",
+          "sortino: 40.8308 (200% of 6.0000)"
+        ],
+        "weaknesses": [
+          "total_trades: 90.0000 (50% of 180.0000)"
+        ],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "Low MFE capture ratio -- exits leave alpha on the table",
+          "Low trade frequency -- signal gates may be too restrictive"
+        ],
+        "suggested_experiments": [
+          {
+            "name": "suggest_tp2_2.25_p15",
+            "mutations": {
+              "param_overrides.TP1_R": 1.2,
+              "param_overrides.TP1_PARTIAL_PCT": 0.5,
+              "param_overrides.TP2_R": 2.25,
+              "param_overrides.TP2_PARTIAL_PCT": 0.15
+            }
+          },
+          {
+            "name": "suggest_tp2_2.5_p20",
+            "mutations": {
+              "param_overrides.TP1_R": 1.2,
+              "param_overrides.TP1_PARTIAL_PCT": 0.5,
+              "param_overrides.TP2_R": 2.5,
+              "param_overrides.TP2_PARTIAL_PCT": 0.2
+            }
+          },
+          {
+            "name": "suggest_ratchet_0.45",
+            "mutations": {
+              "param_overrides.RATCHET_LOCK_PCT": 0.45
+            }
+          },
+          {
+            "name": "suggest_cooldown_15m",
+            "mutations": {
+              "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 15
+            }
+          },
+          {
+            "name": "suggest_cooldown_0m",
+            "mutations": {
+              "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 0
+            }
+          },
+          {
+            "name": "suggest_rvol_1.35",
+            "mutations": {
+              "param_overrides.RVOL_SCORE_THRESH": 1.35
+            }
+          }
+        ],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + net_return_pct: 245.9642 (112% of 220.0000)\n  + profit_factor: 1.9634 (98% of 2.0000)\n  + max_dd_pct: 0.1522 (99% of 0.1500)\n  + calmar: 16.1564 (162% of 10.0000)\n  + avg_r: 0.4763 (136% of 0.3500)\n  + win_rate: 0.6000 (107% of 0.5600)\n  + sharpe: 1.7650 (88% of 2.0000)\n  + sortino: 40.8308 (200% of 6.0000)\n\nWeaknesses:\n  - total_trades: 90.0000 (50% of 180.0000)\n\nDiagnostic Gaps:\n  ! Low MFE capture ratio -- exits leave alpha on the table\n  ! Low trade frequency -- signal gates may be too restrictive\n\nSuggested Experiments (6):\n  - suggest_tp2_2.25_p15: {\"param_overrides.TP1_R\": 1.2, \"param_overrides.TP1_PARTIAL_PCT\": 0.5, \"param_overrides.TP2_R\": 2.25, \"param_overrides.TP2_PARTIAL_PCT\": 0.15}\n  - suggest_tp2_2.5_p20: {\"param_overrides.TP1_R\": 1.2, \"param_overrides.TP1_PARTIAL_PCT\": 0.5, \"param_overrides.TP2_R\": 2.5, \"param_overrides.TP2_PARTIAL_PCT\": 0.2}\n  - suggest_ratchet_0.45: {\"param_overrides.RATCHET_LOCK_PCT\": 0.45}\n  - suggest_cooldown_15m: {\"param_overrides.MIN_INTER_TRADE_GAP_MINUTES\": 15}\n  - suggest_cooldown_0m: {\"param_overrides.MIN_INTER_TRADE_GAP_MINUTES\": 0}\n  - suggest_rvol_1.35: {\"param_overrides.RVOL_SCORE_THRESH\": 1.35}\n\nExtra Analysis:\n  Session/direction: ETH short WR=0.0% (0 trades), Range regime=100.0%\n  Exit efficiency: capture=0.40, TP1=56.7%, TP2=0.0%\n  Clustering: burst_trade_pct=1.1%\n\nGoal Progress:\n  net_return_pct: 245.9642 / 220.0000 (112%)\n  profit_factor: 1.9634 / 2.0000 (98%)\n  max_dd_pct: 0.1522 / 0.1500 (99%)\n  calmar: 16.1564 / 10.0000 (162%)\n  total_trades: 90.0000 / 180.0000 (50%)\n  capture_ratio: 0.3966 / 0.5000 (79%)\n  avg_r: 0.4763 / 0.3500 (136%)\n  win_rate: 0.6000 / 0.5600 (107%)\n  sharpe: 1.7650 / 2.0000 (88%)\n  sortino: 40.8308 / 6.0000 (200%)",
+        "scoring_weight_overrides": null,
+        "extra": {
+          "session_direction": {
+            "eth_short_wr": 0.0,
+            "eth_short_trades": 0,
+            "range_regime_pct": 1.0
+          },
+          "exit_efficiency": {
+            "capture_ratio": 0.39660455707654313,
+            "tp1_hit_rate": 0.5666666666666667,
+            "tp2_hit_rate": 0.0
+          },
+          "clustering": {
+            "burst_trade_pct": 0.011111111111111112
+          }
+        }
+      },
+      "new_mutations": {
+        "param_overrides.BLOCK_ALIGNED_REGIME": true
+      },
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "flags.max_loss_cap": true,
+        "flags.max_stop_width": true,
+        "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+        "param_overrides.BLOCK_CAUTION_REGIME": true,
+        "flags.displacement_threshold": false,
+        "param_overrides.SCORE_NORMAL": 1.5,
+        "param_overrides.RVOL_SCORE_THRESH": 1.5,
+        "param_overrides.MIN_BOX_WIDTH": 150,
+        "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+        "flags.block_eth_shorts": true,
+        "param_overrides.TP1_R": 1.2,
+        "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+        "param_overrides.TP1_PARTIAL_PCT": 0.5,
+        "param_overrides.BLOCK_ALIGNED_REGIME": true
+      },
+      "attempted_final_score": 0.7146228613842385,
+      "attempted_final_metrics": {
+        "total_trades": 90,
+        "win_rate": 0.6,
+        "profit_factor": 1.9633524903446236,
+        "max_dd_pct": 0.15223931061275311,
+        "net_return_pct": 245.96420000000086,
+        "calmar": 16.15641840533902,
+        "sharpe": 1.7649736865609122,
+        "sortino": 40.830770721767564,
+        "avg_r": 0.47627575133438393,
+        "capture_ratio": 0.39660455707654313,
+        "burst_trade_pct": 0.011111111111111112,
+        "eth_short_wr": 0.0,
+        "eth_short_trades": 0,
+        "range_regime_pct": 1.0,
+        "tp1_hit_rate": 0.5666666666666667,
+        "tp2_hit_rate": 0.0,
+        "avg_hold_hours": 8.208333333333334,
+        "avg_winner_r": 1.4615882836784122,
+        "avg_loser_r": -1.0016930471816587,
+        "avg_mfe_r": 2.4715810035983123
+      },
+      "attempted_kept_features": [
+        "block_aligned"
+      ],
+      "attempted_accepted_count": 1
+    },
+    "2": {
+      "focus": "Exit Capture",
+      "base_mutations": {
+        "flags.max_loss_cap": true,
+        "flags.max_stop_width": true,
+        "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+        "param_overrides.BLOCK_CAUTION_REGIME": true,
+        "flags.displacement_threshold": false,
+        "param_overrides.SCORE_NORMAL": 1.5,
+        "param_overrides.RVOL_SCORE_THRESH": 1.5,
+        "param_overrides.MIN_BOX_WIDTH": 150,
+        "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+        "flags.block_eth_shorts": true,
+        "param_overrides.TP1_R": 1.2,
+        "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+        "param_overrides.TP1_PARTIAL_PCT": 0.5,
+        "param_overrides.BLOCK_ALIGNED_REGIME": true
+      },
+      "final_mutations": {
+        "flags.max_loss_cap": true,
+        "flags.max_stop_width": true,
+        "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+        "param_overrides.BLOCK_CAUTION_REGIME": true,
+        "flags.displacement_threshold": false,
+        "param_overrides.SCORE_NORMAL": 1.5,
+        "param_overrides.RVOL_SCORE_THRESH": 1.5,
+        "param_overrides.MIN_BOX_WIDTH": 150,
+        "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+        "flags.block_eth_shorts": true,
+        "param_overrides.TP1_R": 1.4,
+        "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+        "param_overrides.TP1_PARTIAL_PCT": 0.5,
+        "param_overrides.BLOCK_ALIGNED_REGIME": true
+      },
+      "base_score": 0.7146228613842385,
+      "final_score": 0.7372229792796393,
+      "kept_features": [
+        "tp1_1.4_p50"
+      ],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 33,
+          "best_name": "tp1_1.4_p50",
+          "best_score": 0.7372229792796393,
+          "best_delta_pct": 3.162523775355293,
+          "kept": true,
+          "rejected_count": 1
+        },
+        {
+          "round_num": 2,
+          "candidates_tested": 26,
+          "best_name": "chandelier_tighter_mid",
+          "best_score": 0.7399007184418099,
+          "best_delta_pct": 0.3632197092916331,
+          "kept": false,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 89,
+        "win_rate": 0.5842696629213483,
+        "profit_factor": 2.1932120175867107,
+        "max_dd_pct": 0.15096239289761393,
+        "net_return_pct": 296.4326000000012,
+        "calmar": 19.63618847781834,
+        "sharpe": 1.8597752173193296,
+        "sortino": 38.88465610135131,
+        "avg_r": 0.5187420280832196,
+        "capture_ratio": 0.41358675546636753,
+        "burst_trade_pct": 0.011235955056179775,
+        "eth_short_wr": 0.0,
+        "eth_short_trades": 0,
+        "range_regime_pct": 1.0,
+        "tp1_hit_rate": 0.550561797752809,
+        "tp2_hit_rate": 0.0,
+        "avg_hold_hours": 8.324906367041198,
+        "avg_winner_r": 1.5989333313762788,
+        "avg_loser_r": -0.9993646684367555,
+        "avg_mfe_r": 2.569093248114446
+      },
+      "accepted_count": 1,
+      "elapsed_seconds": 665.381397485733,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 2,
+        "goal_progress": {
+          "net_return_pct": {
+            "target": 220.0,
+            "actual": 296.4326000000012,
+            "pct_of_target": 134.74209090909144
+          },
+          "profit_factor": {
+            "target": 2.0,
+            "actual": 2.1932120175867107,
+            "pct_of_target": 109.66060087933553
+          },
+          "max_dd_pct": {
+            "target": 0.15,
+            "actual": 0.15096239289761393,
+            "pct_of_target": 99.36249493722144
+          },
+          "calmar": {
+            "target": 10.0,
+            "actual": 19.63618847781834,
+            "pct_of_target": 196.3618847781834
+          },
+          "total_trades": {
+            "target": 180.0,
+            "actual": 89.0,
+            "pct_of_target": 49.44444444444444
+          },
+          "capture_ratio": {
+            "target": 0.5,
+            "actual": 0.41358675546636753,
+            "pct_of_target": 82.7173510932735
+          },
+          "avg_r": {
+            "target": 0.35,
+            "actual": 0.5187420280832196,
+            "pct_of_target": 148.21200802377703
+          },
+          "win_rate": {
+            "target": 0.56,
+            "actual": 0.5842696629213483,
+            "pct_of_target": 104.33386837881218
+          },
+          "sharpe": {
+            "target": 2.0,
+            "actual": 1.8597752173193296,
+            "pct_of_target": 92.98876086596648
+          },
+          "sortino": {
+            "target": 6.0,
+            "actual": 38.88465610135131,
+            "pct_of_target": 200.0
+          }
+        },
+        "strengths": [
+          "net_return_pct: 296.4326 (135% of 220.0000)",
+          "profit_factor: 2.1932 (110% of 2.0000)",
+          "max_dd_pct: 0.1510 (99% of 0.1500)",
+          "calmar: 19.6362 (196% of 10.0000)",
+          "capture_ratio: 0.4136 (83% of 0.5000)",
+          "avg_r: 0.5187 (148% of 0.3500)",
+          "win_rate: 0.5843 (104% of 0.5600)",
+          "sharpe: 1.8598 (93% of 2.0000)",
+          "sortino: 38.8847 (200% of 6.0000)"
+        ],
+        "weaknesses": [
+          "total_trades: 89.0000 (49% of 180.0000)"
+        ],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "Low MFE capture ratio -- exits leave alpha on the table",
+          "Low trade frequency -- signal gates may be too restrictive"
+        ],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + net_return_pct: 296.4326 (135% of 220.0000)\n  + profit_factor: 2.1932 (110% of 2.0000)\n  + max_dd_pct: 0.1510 (99% of 0.1500)\n  + calmar: 19.6362 (196% of 10.0000)\n  + capture_ratio: 0.4136 (83% of 0.5000)\n  + avg_r: 0.5187 (148% of 0.3500)\n  + win_rate: 0.5843 (104% of 0.5600)\n  + sharpe: 1.8598 (93% of 2.0000)\n  + sortino: 38.8847 (200% of 6.0000)\n\nWeaknesses:\n  - total_trades: 89.0000 (49% of 180.0000)\n\nDiagnostic Gaps:\n  ! Low MFE capture ratio -- exits leave alpha on the table\n  ! Low trade frequency -- signal gates may be too restrictive\n\nExtra Analysis:\n  Session/direction: ETH short WR=0.0% (0 trades), Range regime=100.0%\n  Exit efficiency: capture=0.41, TP1=55.1%, TP2=0.0%\n  Clustering: burst_trade_pct=1.1%\n\nGoal Progress:\n  net_return_pct: 296.4326 / 220.0000 (135%)\n  profit_factor: 2.1932 / 2.0000 (110%)\n  max_dd_pct: 0.1510 / 0.1500 (99%)\n  calmar: 19.6362 / 10.0000 (196%)\n  total_trades: 89.0000 / 180.0000 (49%)\n  capture_ratio: 0.4136 / 0.5000 (83%)\n  avg_r: 0.5187 / 0.3500 (148%)\n  win_rate: 0.5843 / 0.5600 (104%)\n  sharpe: 1.8598 / 2.0000 (93%)\n  sortino: 38.8847 / 6.0000 (200%)",
+        "scoring_weight_overrides": null,
+        "extra": {
+          "session_direction": {
+            "eth_short_wr": 0.0,
+            "eth_short_trades": 0,
+            "range_regime_pct": 1.0
+          },
+          "exit_efficiency": {
+            "capture_ratio": 0.41358675546636753,
+            "tp1_hit_rate": 0.550561797752809,
+            "tp2_hit_rate": 0.0
+          },
+          "clustering": {
+            "burst_trade_pct": 0.011235955056179775
+          }
+        }
+      },
+      "new_mutations": {
+        "param_overrides.TP1_R": 1.4
+      },
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "flags.max_loss_cap": true,
+        "flags.max_stop_width": true,
+        "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+        "param_overrides.BLOCK_CAUTION_REGIME": true,
+        "flags.displacement_threshold": false,
+        "param_overrides.SCORE_NORMAL": 1.5,
+        "param_overrides.RVOL_SCORE_THRESH": 1.5,
+        "param_overrides.MIN_BOX_WIDTH": 150,
+        "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+        "flags.block_eth_shorts": true,
+        "param_overrides.TP1_R": 1.4,
+        "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+        "param_overrides.TP1_PARTIAL_PCT": 0.5,
+        "param_overrides.BLOCK_ALIGNED_REGIME": true
+      },
+      "attempted_final_score": 0.7372229792796393,
+      "attempted_final_metrics": {
+        "total_trades": 89,
+        "win_rate": 0.5842696629213483,
+        "profit_factor": 2.1932120175867107,
+        "max_dd_pct": 0.15096239289761393,
+        "net_return_pct": 296.4326000000012,
+        "calmar": 19.63618847781834,
+        "sharpe": 1.8597752173193296,
+        "sortino": 38.88465610135131,
+        "avg_r": 0.5187420280832196,
+        "capture_ratio": 0.41358675546636753,
+        "burst_trade_pct": 0.011235955056179775,
+        "eth_short_wr": 0.0,
+        "eth_short_trades": 0,
+        "range_regime_pct": 1.0,
+        "tp1_hit_rate": 0.550561797752809,
+        "tp2_hit_rate": 0.0,
+        "avg_hold_hours": 8.324906367041198,
+        "avg_winner_r": 1.5989333313762788,
+        "avg_loser_r": -0.9993646684367555,
+        "avg_mfe_r": 2.569093248114446
+      },
+      "attempted_kept_features": [
+        "tp1_1.4_p50"
+      ],
+      "attempted_accepted_count": 1
+    },
+    "3": {
+      "focus": "Entry Frequency",
+      "base_mutations": {
+        "flags.max_loss_cap": true,
+        "flags.max_stop_width": true,
+        "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+        "param_overrides.BLOCK_CAUTION_REGIME": true,
+        "flags.displacement_threshold": false,
+        "param_overrides.SCORE_NORMAL": 1.5,
+        "param_overrides.RVOL_SCORE_THRESH": 1.5,
+        "param_overrides.MIN_BOX_WIDTH": 150,
+        "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+        "flags.block_eth_shorts": true,
+        "param_overrides.TP1_R": 1.4,
+        "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+        "param_overrides.TP1_PARTIAL_PCT": 0.5,
+        "param_overrides.BLOCK_ALIGNED_REGIME": true
+      },
+      "final_mutations": {
+        "flags.max_loss_cap": true,
+        "flags.max_stop_width": true,
+        "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+        "param_overrides.BLOCK_CAUTION_REGIME": true,
+        "flags.displacement_threshold": false,
+        "param_overrides.SCORE_NORMAL": 1.5,
+        "param_overrides.RVOL_SCORE_THRESH": 1.5,
+        "param_overrides.MIN_BOX_WIDTH": 150,
+        "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+        "flags.block_eth_shorts": true,
+        "param_overrides.TP1_R": 1.4,
+        "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+        "param_overrides.TP1_PARTIAL_PCT": 0.5,
+        "param_overrides.BLOCK_ALIGNED_REGIME": true
+      },
+      "base_score": 0.7372229792796393,
+      "final_score": 0.7372229792796393,
+      "kept_features": [],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 31,
+          "best_name": "allow_09_et",
+          "best_score": 0.7403507912323598,
+          "best_delta_pct": 0.42426945993690596,
+          "kept": false,
+          "rejected_count": 2
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 89,
+        "win_rate": 0.5842696629213483,
+        "profit_factor": 2.1932120175867107,
+        "max_dd_pct": 0.15096239289761393,
+        "net_return_pct": 296.4326000000012,
+        "calmar": 19.63618847781834,
+        "sharpe": 1.8597752173193296,
+        "sortino": 38.88465610135131,
+        "avg_r": 0.5187420280832196,
+        "capture_ratio": 0.41358675546636753,
+        "burst_trade_pct": 0.011235955056179775,
+        "eth_short_wr": 0.0,
+        "eth_short_trades": 0,
+        "range_regime_pct": 1.0,
+        "tp1_hit_rate": 0.550561797752809,
+        "tp2_hit_rate": 0.0,
+        "avg_hold_hours": 8.324906367041198,
+        "avg_winner_r": 1.5989333313762788,
+        "avg_loser_r": -0.9993646684367555,
+        "avg_mfe_r": 2.569093248114446
+      },
+      "accepted_count": 0,
+      "elapsed_seconds": 0.1689908504486084,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 3,
+        "goal_progress": {
+          "net_return_pct": {
+            "target": 220.0,
+            "actual": 296.4326000000012,
+            "pct_of_target": 134.74209090909144
+          },
+          "profit_factor": {
+            "target": 2.0,
+            "actual": 2.1932120175867107,
+            "pct_of_target": 109.66060087933553
+          },
+          "max_dd_pct": {
+            "target": 0.15,
+            "actual": 0.15096239289761393,
+            "pct_of_target": 99.36249493722144
+          },
+          "calmar": {
+            "target": 10.0,
+            "actual": 19.63618847781834,
+            "pct_of_target": 196.3618847781834
+          },
+          "total_trades": {
+            "target": 180.0,
+            "actual": 89.0,
+            "pct_of_target": 49.44444444444444
+          },
+          "capture_ratio": {
+            "target": 0.5,
+            "actual": 0.41358675546636753,
+            "pct_of_target": 82.7173510932735
+          },
+          "avg_r": {
+            "target": 0.35,
+            "actual": 0.5187420280832196,
+            "pct_of_target": 148.21200802377703
+          },
+          "win_rate": {
+            "target": 0.56,
+            "actual": 0.5842696629213483,
+            "pct_of_target": 104.33386837881218
+          },
+          "sharpe": {
+            "target": 2.0,
+            "actual": 1.8597752173193296,
+            "pct_of_target": 92.98876086596648
+          },
+          "sortino": {
+            "target": 6.0,
+            "actual": 38.88465610135131,
+            "pct_of_target": 200.0
+          }
+        },
+        "strengths": [
+          "net_return_pct: 296.4326 (135% of 220.0000)",
+          "profit_factor: 2.1932 (110% of 2.0000)",
+          "max_dd_pct: 0.1510 (99% of 0.1500)",
+          "calmar: 19.6362 (196% of 10.0000)",
+          "capture_ratio: 0.4136 (83% of 0.5000)",
+          "avg_r: 0.5187 (148% of 0.3500)",
+          "win_rate: 0.5843 (104% of 0.5600)",
+          "sharpe: 1.8598 (93% of 2.0000)",
+          "sortino: 38.8847 (200% of 6.0000)"
+        ],
+        "weaknesses": [
+          "total_trades: 89.0000 (49% of 180.0000)"
+        ],
+        "scoring_assessment": "INEFFECTIVE",
+        "diagnostic_gaps": [],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Retry budget exhausted; advance with current best mutations.",
+        "report": "======================================================================\nPHASE 3 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Retry budget exhausted; advance with current best mutations.\nScoring assessment: INEFFECTIVE\n\nStrengths:\n  + net_return_pct: 296.4326 (135% of 220.0000)\n  + profit_factor: 2.1932 (110% of 2.0000)\n  + max_dd_pct: 0.1510 (99% of 0.1500)\n  + calmar: 19.6362 (196% of 10.0000)\n  + capture_ratio: 0.4136 (83% of 0.5000)\n  + avg_r: 0.5187 (148% of 0.3500)\n  + win_rate: 0.5843 (104% of 0.5600)\n  + sharpe: 1.8598 (93% of 2.0000)\n  + sortino: 38.8847 (200% of 6.0000)\n\nWeaknesses:\n  - total_trades: 89.0000 (49% of 180.0000)\n\nExtra Analysis:\n  Session/direction: ETH short WR=0.0% (0 trades), Range regime=100.0%\n  Exit efficiency: capture=0.41, TP1=55.1%, TP2=0.0%\n  Clustering: burst_trade_pct=1.1%\n\nGoal Progress:\n  net_return_pct: 296.4326 / 220.0000 (135%)\n  profit_factor: 2.1932 / 2.0000 (110%)\n  max_dd_pct: 0.1510 / 0.1500 (99%)\n  calmar: 19.6362 / 10.0000 (196%)\n  total_trades: 89.0000 / 180.0000 (49%)\n  capture_ratio: 0.4136 / 0.5000 (83%)\n  avg_r: 0.5187 / 0.3500 (148%)\n  win_rate: 0.5843 / 0.5600 (104%)\n  sharpe: 1.8598 / 2.0000 (93%)\n  sortino: 38.8847 / 6.0000 (200%)",
+        "scoring_weight_overrides": null,
+        "extra": {
+          "session_direction": {
+            "eth_short_wr": 0.0,
+            "eth_short_trades": 0,
+            "range_regime_pct": 1.0
+          },
+          "exit_efficiency": {
+            "capture_ratio": 0.41358675546636753,
+            "tp1_hit_rate": 0.550561797752809,
+            "tp2_hit_rate": 0.0
+          },
+          "clustering": {
+            "burst_trade_pct": 0.011235955056179775
+          }
+        }
+      },
+      "new_mutations": {},
+      "applied_phase_mutations": false,
+      "attempted_final_mutations": {
+        "flags.max_loss_cap": true,
+        "flags.max_stop_width": true,
+        "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+        "param_overrides.BLOCK_CAUTION_REGIME": true,
+        "flags.displacement_threshold": false,
+        "param_overrides.SCORE_NORMAL": 1.5,
+        "param_overrides.RVOL_SCORE_THRESH": 1.5,
+        "param_overrides.MIN_BOX_WIDTH": 150,
+        "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+        "flags.block_eth_shorts": true,
+        "param_overrides.TP1_R": 1.4,
+        "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+        "param_overrides.TP1_PARTIAL_PCT": 0.5,
+        "param_overrides.BLOCK_ALIGNED_REGIME": true
+      },
+      "attempted_final_score": 0.7372229792796393,
+      "attempted_final_metrics": {
+        "total_trades": 89,
+        "win_rate": 0.5842696629213483,
+        "profit_factor": 2.1932120175867107,
+        "max_dd_pct": 0.15096239289761393,
+        "net_return_pct": 296.4326000000012,
+        "calmar": 19.63618847781834,
+        "sharpe": 1.8597752173193296,
+        "sortino": 38.88465610135131,
+        "avg_r": 0.5187420280832196,
+        "capture_ratio": 0.41358675546636753,
+        "burst_trade_pct": 0.011235955056179775,
+        "eth_short_wr": 0.0,
+        "eth_short_trades": 0,
+        "range_regime_pct": 1.0,
+        "tp1_hit_rate": 0.550561797752809,
+        "tp2_hit_rate": 0.0,
+        "avg_hold_hours": 8.324906367041198,
+        "avg_winner_r": 1.5989333313762788,
+        "avg_loser_r": -0.9993646684367555,
+        "avg_mfe_r": 2.569093248114446
+      },
+      "attempted_kept_features": [],
+      "attempted_accepted_count": 0
+    },
+    "4": {
+      "focus": "Interaction Fine-Tune",
+      "base_mutations": {
+        "flags.max_loss_cap": true,
+        "flags.max_stop_width": true,
+        "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+        "param_overrides.BLOCK_CAUTION_REGIME": true,
+        "flags.displacement_threshold": false,
+        "param_overrides.SCORE_NORMAL": 1.5,
+        "param_overrides.RVOL_SCORE_THRESH": 1.5,
+        "param_overrides.MIN_BOX_WIDTH": 150,
+        "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+        "flags.block_eth_shorts": true,
+        "param_overrides.TP1_R": 1.4,
+        "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+        "param_overrides.TP1_PARTIAL_PCT": 0.5,
+        "param_overrides.BLOCK_ALIGNED_REGIME": true
+      },
+      "final_mutations": {
+        "flags.max_loss_cap": true,
+        "flags.max_stop_width": true,
+        "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+        "param_overrides.BLOCK_CAUTION_REGIME": true,
+        "flags.displacement_threshold": false,
+        "param_overrides.SCORE_NORMAL": 1.5,
+        "param_overrides.RVOL_SCORE_THRESH": 1.5,
+        "param_overrides.MIN_BOX_WIDTH": 150,
+        "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+        "flags.block_eth_shorts": true,
+        "param_overrides.TP1_R": 1.4,
+        "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+        "param_overrides.TP1_PARTIAL_PCT": 0.5,
+        "param_overrides.BLOCK_ALIGNED_REGIME": true
+      },
+      "base_score": 0.7372229792796393,
+      "final_score": 0.7372229792796393,
+      "kept_features": [],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 26,
+          "best_name": "combo_tighter_exit_more_frequency",
+          "best_score": 0.7402535977391558,
+          "best_delta_pct": 0.411085729107056,
+          "kept": false,
+          "rejected_count": 5
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 89,
+        "win_rate": 0.5842696629213483,
+        "profit_factor": 2.1932120175867107,
+        "max_dd_pct": 0.15096239289761393,
+        "net_return_pct": 296.4326000000012,
+        "calmar": 19.63618847781834,
+        "sharpe": 1.8597752173193296,
+        "sortino": 38.88465610135131,
+        "avg_r": 0.5187420280832196,
+        "capture_ratio": 0.41358675546636753,
+        "burst_trade_pct": 0.011235955056179775,
+        "eth_short_wr": 0.0,
+        "eth_short_trades": 0,
+        "range_regime_pct": 1.0,
+        "tp1_hit_rate": 0.550561797752809,
+        "tp2_hit_rate": 0.0,
+        "avg_hold_hours": 8.324906367041198,
+        "avg_winner_r": 1.5989333313762788,
+        "avg_loser_r": -0.9993646684367555,
+        "avg_mfe_r": 2.569093248114446
+      },
+      "accepted_count": 0,
+      "elapsed_seconds": 460.262362241745,
+      "suggested_experiments": [],
+      "analysis": {
+        "phase": 4,
+        "goal_progress": {
+          "net_return_pct": {
+            "target": 220.0,
+            "actual": 296.4326000000012,
+            "pct_of_target": 134.74209090909144
+          },
+          "profit_factor": {
+            "target": 2.0,
+            "actual": 2.1932120175867107,
+            "pct_of_target": 109.66060087933553
+          },
+          "max_dd_pct": {
+            "target": 0.15,
+            "actual": 0.15096239289761393,
+            "pct_of_target": 99.36249493722144
+          },
+          "calmar": {
+            "target": 10.0,
+            "actual": 19.63618847781834,
+            "pct_of_target": 196.3618847781834
+          },
+          "total_trades": {
+            "target": 180.0,
+            "actual": 89.0,
+            "pct_of_target": 49.44444444444444
+          },
+          "capture_ratio": {
+            "target": 0.5,
+            "actual": 0.41358675546636753,
+            "pct_of_target": 82.7173510932735
+          },
+          "avg_r": {
+            "target": 0.35,
+            "actual": 0.5187420280832196,
+            "pct_of_target": 148.21200802377703
+          },
+          "win_rate": {
+            "target": 0.56,
+            "actual": 0.5842696629213483,
+            "pct_of_target": 104.33386837881218
+          },
+          "sharpe": {
+            "target": 2.0,
+            "actual": 1.8597752173193296,
+            "pct_of_target": 92.98876086596648
+          },
+          "sortino": {
+            "target": 6.0,
+            "actual": 38.88465610135131,
+            "pct_of_target": 200.0
+          }
+        },
+        "strengths": [
+          "net_return_pct: 296.4326 (135% of 220.0000)",
+          "profit_factor: 2.1932 (110% of 2.0000)",
+          "max_dd_pct: 0.1510 (99% of 0.1500)",
+          "calmar: 19.6362 (196% of 10.0000)",
+          "capture_ratio: 0.4136 (83% of 0.5000)",
+          "avg_r: 0.5187 (148% of 0.3500)",
+          "win_rate: 0.5843 (104% of 0.5600)",
+          "sharpe: 1.8598 (93% of 2.0000)",
+          "sortino: 38.8847 (200% of 6.0000)"
+        ],
+        "weaknesses": [
+          "total_trades: 89.0000 (49% of 180.0000)"
+        ],
+        "scoring_assessment": "EFFECTIVE",
+        "diagnostic_gaps": [
+          "Low MFE capture ratio -- exits leave alpha on the table",
+          "Low trade frequency -- signal gates may be too restrictive"
+        ],
+        "suggested_experiments": [],
+        "recommendation": "advance",
+        "recommendation_reason": "Gate passed.",
+        "report": "======================================================================\nPHASE 4 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + net_return_pct: 296.4326 (135% of 220.0000)\n  + profit_factor: 2.1932 (110% of 2.0000)\n  + max_dd_pct: 0.1510 (99% of 0.1500)\n  + calmar: 19.6362 (196% of 10.0000)\n  + capture_ratio: 0.4136 (83% of 0.5000)\n  + avg_r: 0.5187 (148% of 0.3500)\n  + win_rate: 0.5843 (104% of 0.5600)\n  + sharpe: 1.8598 (93% of 2.0000)\n  + sortino: 38.8847 (200% of 6.0000)\n\nWeaknesses:\n  - total_trades: 89.0000 (49% of 180.0000)\n\nDiagnostic Gaps:\n  ! Low MFE capture ratio -- exits leave alpha on the table\n  ! Low trade frequency -- signal gates may be too restrictive\n\nExtra Analysis:\n  Session/direction: ETH short WR=0.0% (0 trades), Range regime=100.0%\n  Exit efficiency: capture=0.41, TP1=55.1%, TP2=0.0%\n  Clustering: burst_trade_pct=1.1%\n\nGoal Progress:\n  net_return_pct: 296.4326 / 220.0000 (135%)\n  profit_factor: 2.1932 / 2.0000 (110%)\n  max_dd_pct: 0.1510 / 0.1500 (99%)\n  calmar: 19.6362 / 10.0000 (196%)\n  total_trades: 89.0000 / 180.0000 (49%)\n  capture_ratio: 0.4136 / 0.5000 (83%)\n  avg_r: 0.5187 / 0.3500 (148%)\n  win_rate: 0.5843 / 0.5600 (104%)\n  sharpe: 1.8598 / 2.0000 (93%)\n  sortino: 38.8847 / 6.0000 (200%)",
+        "scoring_weight_overrides": null,
+        "extra": {
+          "session_direction": {
+            "eth_short_wr": 0.0,
+            "eth_short_trades": 0,
+            "range_regime_pct": 1.0
+          },
+          "exit_efficiency": {
+            "capture_ratio": 0.41358675546636753,
+            "tp1_hit_rate": 0.550561797752809,
+            "tp2_hit_rate": 0.0
+          },
+          "clustering": {
+            "burst_trade_pct": 0.011235955056179775
+          }
+        }
+      },
+      "new_mutations": {},
+      "applied_phase_mutations": true,
+      "attempted_final_mutations": {
+        "flags.max_loss_cap": true,
+        "flags.max_stop_width": true,
+        "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+        "param_overrides.BLOCK_CAUTION_REGIME": true,
+        "flags.displacement_threshold": false,
+        "param_overrides.SCORE_NORMAL": 1.5,
+        "param_overrides.RVOL_SCORE_THRESH": 1.5,
+        "param_overrides.MIN_BOX_WIDTH": 150,
+        "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+        "flags.block_eth_shorts": true,
+        "param_overrides.TP1_R": 1.4,
+        "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+        "param_overrides.TP1_PARTIAL_PCT": 0.5,
+        "param_overrides.BLOCK_ALIGNED_REGIME": true
+      },
+      "attempted_final_score": 0.7372229792796393,
+      "attempted_final_metrics": {
+        "total_trades": 89,
+        "win_rate": 0.5842696629213483,
+        "profit_factor": 2.1932120175867107,
+        "max_dd_pct": 0.15096239289761393,
+        "net_return_pct": 296.4326000000012,
+        "calmar": 19.63618847781834,
+        "sharpe": 1.8597752173193296,
+        "sortino": 38.88465610135131,
+        "avg_r": 0.5187420280832196,
+        "capture_ratio": 0.41358675546636753,
+        "burst_trade_pct": 0.011235955056179775,
+        "eth_short_wr": 0.0,
+        "eth_short_trades": 0,
+        "range_regime_pct": 1.0,
+        "tp1_hit_rate": 0.550561797752809,
+        "tp2_hit_rate": 0.0,
+        "avg_hold_hours": 8.324906367041198,
+        "avg_winner_r": 1.5989333313762788,
+        "avg_loser_r": -0.9993646684367555,
+        "avg_mfe_r": 2.569093248114446
+      },
+      "attempted_kept_features": [],
+      "attempted_accepted_count": 0
+    }
+  },
+  "phase_gate_results": {
+    "1": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "hard_min_trades",
+          "target": 85.0,
+          "actual": 90.0,
+          "passed": true
+        },
+        {
+          "name": "hard_max_dd_pct",
+          "target": 0.3,
+          "actual": 0.15223931061275311,
+          "passed": true
+        },
+        {
+          "name": "hard_min_pf",
+          "target": 1.2,
+          "actual": 1.9633524903446236,
+          "passed": true
+        },
+        {
+          "name": "profit_factor",
+          "target": 1.5,
+          "actual": 1.9633524903446236,
+          "passed": true
+        },
+        {
+          "name": "avg_r",
+          "target": 0.2,
+          "actual": 0.47627575133438393,
+          "passed": true
+        },
+        {
+          "name": "net_return_pct",
+          "target": 140.0,
+          "actual": 245.96420000000086,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "2": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "hard_min_trades",
+          "target": 85.0,
+          "actual": 89.0,
+          "passed": true
+        },
+        {
+          "name": "hard_max_dd_pct",
+          "target": 0.28,
+          "actual": 0.15096239289761393,
+          "passed": true
+        },
+        {
+          "name": "hard_min_pf",
+          "target": 1.25,
+          "actual": 2.1932120175867107,
+          "passed": true
+        },
+        {
+          "name": "capture_ratio",
+          "target": 0.38,
+          "actual": 0.41358675546636753,
+          "passed": true
+        },
+        {
+          "name": "tp1_hit_rate",
+          "target": 0.48,
+          "actual": 0.550561797752809,
+          "passed": true
+        },
+        {
+          "name": "net_return_pct",
+          "target": 145.0,
+          "actual": 296.4326000000012,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    },
+    "3": {
+      "passed": false,
+      "criteria": [
+        {
+          "name": "hard_min_trades",
+          "target": 85.0,
+          "actual": 89.0,
+          "passed": true
+        },
+        {
+          "name": "hard_max_dd_pct",
+          "target": 0.28,
+          "actual": 0.15096239289761393,
+          "passed": true
+        },
+        {
+          "name": "hard_min_pf",
+          "target": 1.25,
+          "actual": 2.1932120175867107,
+          "passed": true
+        },
+        {
+          "name": "total_trades",
+          "target": 110.0,
+          "actual": 89.0,
+          "passed": false
+        },
+        {
+          "name": "profit_factor",
+          "target": 1.45,
+          "actual": 2.1932120175867107,
+          "passed": true
+        },
+        {
+          "name": "avg_r",
+          "target": 0.18,
+          "actual": 0.5187420280832196,
+          "passed": true
+        },
+        {
+          "name": "net_return_pct",
+          "target": 145.0,
+          "actual": 296.4326000000012,
+          "passed": true
+        }
+      ],
+      "failure_category": "candidates_exhausted",
+      "recommendations": [
+        "No candidates were accepted; expand or reshape the experiment pool."
+      ]
+    },
+    "4": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "hard_min_trades",
+          "target": 85.0,
+          "actual": 89.0,
+          "passed": true
+        },
+        {
+          "name": "hard_max_dd_pct",
+          "target": 0.27,
+          "actual": 0.15096239289761393,
+          "passed": true
+        },
+        {
+          "name": "hard_min_pf",
+          "target": 1.3,
+          "actual": 2.1932120175867107,
+          "passed": true
+        },
+        {
+          "name": "hard_min_capture",
+          "target": 0.32,
+          "actual": 0.41358675546636753,
+          "passed": true
+        },
+        {
+          "name": "no_regress_profit_factor",
+          "target": 1.9738908158280397,
+          "actual": 2.1932120175867107,
+          "passed": true
+        },
+        {
+          "name": "no_regress_net_return_pct",
+          "target": 266.78934000000106,
+          "actual": 296.4326000000012,
+          "passed": true
+        },
+        {
+          "name": "no_regress_total_trades",
+          "target": 80.10000000000001,
+          "actual": 89.0,
+          "passed": true
+        },
+        {
+          "name": "no_regress_avg_r",
+          "target": 0.4668678252748976,
+          "actual": 0.5187420280832196,
+          "passed": true
+        },
+        {
+          "name": "no_regress_capture_ratio",
+          "target": 0.3722280799197308,
+          "actual": 0.41358675546636753,
+          "passed": true
+        },
+        {
+          "name": "no_regress_max_dd_pct",
+          "target": 0.17360675183225602,
+          "actual": 0.15096239289761393,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    }
+  },
+  "retry_count": {
+    "3": 3
+  },
+  "scoring_retries": {
+    "3": 2
+  },
+  "diagnostic_retries": {
+    "3": 1
+  },
+  "phase_timestamps": {
+    "1": {
+      "started": "2026-04-30T17:36:25.006642+00:00",
+      "completed": "2026-04-30T17:46:58.425936+00:00"
+    },
+    "2": {
+      "started": "2026-04-30T17:46:58.449935+00:00",
+      "completed": "2026-04-30T17:58:40.067239+00:00"
+    },
+    "3": {
+      "started": "2026-04-30T17:58:40.096238+00:00",
+      "completed": "2026-04-30T18:08:31.283013+00:00"
+    },
+    "4": {
+      "started": "2026-04-30T18:08:31.318014+00:00",
+      "completed": "2026-04-30T18:16:11.725383+00:00"
+    }
+  },
+  "round_name": ""
+}

@@ -1,0 +1,76 @@
+{
+  "base_score": 59.171075274766224,
+  "final_score": 78.1245126227741,
+  "final_mutations": {
+    "all.trail_after_t1_30m_bars": 4,
+    "all.trail_use_vwap_after_t1": true,
+    "QQQ.t1_r": 1.25,
+    "GLD.t1_r": 1.1,
+    "all.max_hold_bars_15m": 52,
+    "all.time_stop_min_mfe_r": 0.5,
+    "all.initial_stop_source": "signal",
+    "all.signal_stop_buffer_atr_mult": 0.12,
+    "all.entry_order_model": "structure_stop",
+    "all.entry_stop_limit_atr_mult": 0.08,
+    "all.fib_a_low": 0.33,
+    "all.fib_a_high": 0.7,
+    "all.type_a_value_hits_min": 1,
+    "all.confirmation_required": 1,
+    "all.confirmation_combo_mode": "structure_or_vwap",
+    "all.type_c_enabled": true,
+    "all.type_c_requires_a_plus": false
+  },
+  "kept_features": [
+    "classic_wide_one_value",
+    "confirmation_one_structure_or_vwap",
+    "second_entry_valid"
+  ],
+  "rounds": [
+    {
+      "round_num": 1,
+      "candidates_tested": 12,
+      "best_name": "classic_wide_one_value",
+      "best_score": 73.18909420745649,
+      "best_delta_pct": 23.69066113400227,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 10,
+      "best_name": "confirmation_one_structure_or_vwap",
+      "best_score": 77.54460782205355,
+      "best_delta_pct": 5.951041834526925,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 3,
+      "candidates_tested": 9,
+      "best_name": "second_entry_valid",
+      "best_score": 78.1245126227741,
+      "best_delta_pct": 0.7478338172156332,
+      "kept": true,
+      "rejected_count": 0
+    }
+  ],
+  "final_metrics": {
+    "total_trades": 84.0,
+    "net_return_pct": 2.748009999998787,
+    "profit_factor": 1.8543377837848232,
+    "avg_r": 0.43540639366158534,
+    "total_r": 36.57413706757317,
+    "win_rate": 0.5238095238095238,
+    "max_dd_pct": 0.6708494144646132,
+    "sharpe": 0.7868022358940177,
+    "trades_per_month": 1.519641895280373,
+    "expectancy_frequency": 0.5367418159392834,
+    "mfe_capture": 0.43948232299800716,
+    "never_worked_rate": 0.25,
+    "right_then_lost_rate": 0.07142857142857142,
+    "top5_winner_share": 0.2350518826985356
+  },
+  "total_candidates": 12,
+  "accepted_count": 3,
+  "elapsed_seconds": 1137.0589282512665
+}

@@ -1,0 +1,89 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-04-27T21:24:50.843720+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 4,
+      "base_score": 0.1560150123333255,
+      "final_score": 0.31629023185017363,
+      "kept_features": [
+        "block_neutral_caution"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-04-27T22:31:20.613138+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 8,
+      "base_score": 0.31896593323487615,
+      "final_score": 0.38815200021316315,
+      "kept_features": [
+        "disable_disp_gate",
+        "score_normal_1.5",
+        "rvol_thresh_1.5",
+        "min_box_150"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-04-28T00:04:29.492707+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 13,
+      "base_score": 0.4114787176119505,
+      "final_score": 0.6580688025514695,
+      "kept_features": [
+        "cooldown_30m",
+        "block_eth_shorts",
+        "suggest_tp1_r_1.2",
+        "loss_streak_2",
+        "tp1_partial_0.50"
+      ],
+      "gate_passed": false,
+      "failure_category": "scoring_ineffective",
+      "scoring_retries": 2,
+      "diagnostic_retries": 0
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-04-28T00:14:28.808324+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 13,
+      "base_score": 0.6258904348325388,
+      "final_score": 0.6258904348325388,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0
+    }
+  },
+  "last_updated": "2026-04-28T00:14:28.824324+00:00",
+  "current_phase": 4
+}

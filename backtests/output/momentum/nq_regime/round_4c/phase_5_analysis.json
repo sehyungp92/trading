@@ -1,0 +1,50 @@
+{
+  "phase": 5,
+  "goal_progress": {
+    "module_liquidity_reversion_trades": {
+      "target": 120.0,
+      "actual": 296.0,
+      "pct_of_target": 200.0
+    },
+    "module_liquidity_reversion_total_r_per_month": {
+      "target": 4.0,
+      "actual": 6.56441816322301,
+      "pct_of_target": 164.11045408057527
+    },
+    "module_liquidity_reversion_avg_r": {
+      "target": 1.4,
+      "actual": 1.0528836725761488,
+      "pct_of_target": 75.20597661258206
+    },
+    "module_liquidity_reversion_mfe_capture": {
+      "target": 0.8,
+      "actual": 0.8020087872843121,
+      "pct_of_target": 100.25109841053902
+    },
+    "routing_liquidity_reversion_request_to_fill_rate": {
+      "target": 0.45,
+      "actual": 0.3325842696629214,
+      "pct_of_target": 73.90761548064918
+    },
+    "max_drawdown_pct": {
+      "target": 0.12,
+      "actual": 0.010374915855767141,
+      "pct_of_target": 200.0
+    }
+  },
+  "strengths": [
+    "module_liquidity_reversion_trades: 296.0000 (200% of 120.0000)",
+    "module_liquidity_reversion_total_r_per_month: 6.5644 (164% of 4.0000)",
+    "module_liquidity_reversion_mfe_capture: 0.8020 (100% of 0.8000)",
+    "max_drawdown_pct: 0.0104 (200% of 0.1200)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 5 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + module_liquidity_reversion_trades: 296.0000 (200% of 120.0000)\n  + module_liquidity_reversion_total_r_per_month: 6.5644 (164% of 4.0000)\n  + module_liquidity_reversion_mfe_capture: 0.8020 (100% of 0.8000)\n  + max_drawdown_pct: 0.0104 (200% of 0.1200)\n\nGoal Progress:\n  module_liquidity_reversion_trades: 296.0000 / 120.0000 (200%)\n  module_liquidity_reversion_total_r_per_month: 6.5644 / 4.0000 (164%)\n  module_liquidity_reversion_avg_r: 1.0529 / 1.4000 (75%)\n  module_liquidity_reversion_mfe_capture: 0.8020 / 0.8000 (100%)\n  routing_liquidity_reversion_request_to_fill_rate: 0.3326 / 0.4500 (74%)\n  max_drawdown_pct: 0.0104 / 0.1200 (200%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}

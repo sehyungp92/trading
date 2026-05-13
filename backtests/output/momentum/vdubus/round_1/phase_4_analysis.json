@@ -1,0 +1,72 @@
+{
+  "phase": 4,
+  "goal_progress": {
+    "net_return_pct": {
+      "target": 1000.0,
+      "actual": 752.5770000000063,
+      "pct_of_target": 75.25770000000063
+    },
+    "profit_factor": {
+      "target": 2.5,
+      "actual": 1.9544579883619144,
+      "pct_of_target": 78.17831953447659
+    },
+    "max_dd_pct": {
+      "target": 0.15,
+      "actual": 0.20782611893641104,
+      "pct_of_target": 72.17572111130833
+    },
+    "calmar": {
+      "target": 45.0,
+      "actual": 36.2118584445237,
+      "pct_of_target": 80.470796543386
+    },
+    "total_trades": {
+      "target": 170.0,
+      "actual": 174.0,
+      "pct_of_target": 102.35294117647058
+    },
+    "capture_ratio": {
+      "target": 0.55,
+      "actual": 0.5120285460338511,
+      "pct_of_target": 93.09609927888201
+    },
+    "sharpe": {
+      "target": 1.8,
+      "actual": 1.6604832640187106,
+      "pct_of_target": 92.2490702232617
+    }
+  },
+  "strengths": [
+    "calmar: 36.2119 (80% of 45.0000)",
+    "total_trades: 174.0000 (102% of 170.0000)",
+    "capture_ratio: 0.5120 (93% of 0.5500)",
+    "sharpe: 1.6605 (92% of 1.8000)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [
+    "High stale exit rate -- trail/MFE protection needed",
+    "Many fast deaths (<=4 bars) -- entry precision issue",
+    "Elevated drawdown -- risk controls may need tightening",
+    "Low profit factor -- edge may be degraded",
+    "Evening trades losing -- consider blocking or tightening"
+  ],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 4 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + calmar: 36.2119 (80% of 45.0000)\n  + total_trades: 174.0000 (102% of 170.0000)\n  + capture_ratio: 0.5120 (93% of 0.5500)\n  + sharpe: 1.6605 (92% of 1.8000)\n\nDiagnostic Gaps:\n  ! High stale exit rate -- trail/MFE protection needed\n  ! Many fast deaths (<=4 bars) -- entry precision issue\n  ! Elevated drawdown -- risk controls may need tightening\n  ! Low profit factor -- edge may be degraded\n  ! Evening trades losing -- consider blocking or tightening\n\nExtra Analysis:\n  Exit profile: stale=51.7%, capture=0.51, multi-session=20.1%\n  Entry quality: fast_deaths=21.8%, evening=10.3% (avgR=-0.118)\n\nGoal Progress:\n  net_return_pct: 752.5770 / 1000.0000 (75%)\n  profit_factor: 1.9545 / 2.5000 (78%)\n  max_dd_pct: 0.2078 / 0.1500 (72%)\n  calmar: 36.2119 / 45.0000 (80%)\n  total_trades: 174.0000 / 170.0000 (102%)\n  capture_ratio: 0.5120 / 0.5500 (93%)\n  sharpe: 1.6605 / 1.8000 (92%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "exit_profile": {
+      "stale_exit_pct": 0.5172413793103449,
+      "capture_ratio": 0.5120285460338511,
+      "multi_session_pct": 0.20114942528735633
+    },
+    "entry_quality": {
+      "fast_death_pct": 0.21839080459770116,
+      "evening_trade_pct": 0.10344827586206896,
+      "evening_avg_r": -0.11760943057571589
+    }
+  }
+}

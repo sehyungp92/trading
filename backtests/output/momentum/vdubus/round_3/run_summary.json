@@ -1,0 +1,86 @@
+{
+  "family": "momentum",
+  "strategy": "vdubus",
+  "round": 3,
+  "generated_at_utc": "2026-04-30T02:34:58.122677+00:00",
+  "completed_phases": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "mutation_count": 26,
+  "cumulative_mutations": {
+    "flags.plus_1r_partial": false,
+    "param_overrides.CHOP_THRESHOLD": 32.0,
+    "flags.early_kill": false,
+    "param_overrides.MAX_POSITION_BARS_15M": 51.2,
+    "flags.vwap_fail_evening": true,
+    "flags.evening_vwap_cap": true,
+    "param_overrides.VWAP_CAP_EVENING": 0.35,
+    "flags.dow_sizing": true,
+    "param_overrides.DOW_SIZE_MULT": {
+      "0": 0.5,
+      "3": 0.65
+    },
+    "flags.hourly_bypass_quality": true,
+    "param_overrides.HOURLY_BYPASS_ALLOWED_WINDOWS": [
+      "OPEN",
+      "CLOSE"
+    ],
+    "param_overrides.HOURLY_BYPASS_EQS_MIN": 2,
+    "param_overrides.HOURLY_BYPASS_MAX_CHOP": 35.2,
+    "param_overrides.HOURLY_BYPASS_SIZE_MULT": 0.5,
+    "flags.slope_bypass_quality": true,
+    "param_overrides.SLOPE_BYPASS_ALLOWED_WINDOWS": [
+      "OPEN",
+      "CORE",
+      "CLOSE"
+    ],
+    "param_overrides.SLOPE_BYPASS_EQS_MIN": 4,
+    "param_overrides.SLOPE_BYPASS_MAX_CHOP": 36.0,
+    "param_overrides.SLOPE_BYPASS_SIZE_MULT": 1.0,
+    "param_overrides.VWAP_CAP_OPEN_EVE": 0.935,
+    "param_overrides.BUFFER_TICKS": 2,
+    "flags.mfe_rescue_stop": true,
+    "param_overrides.MFE_RESCUE_MIN_R": 0.5,
+    "param_overrides.MFE_RESCUE_AFTER_BARS": 5,
+    "param_overrides.MFE_RESCUE_TRIGGER_R": 0.1,
+    "param_overrides.MFE_RESCUE_LOCK_R": 0.1
+  },
+  "headline_metrics": {
+    "total_trades": 198,
+    "win_rate": 52.02020202020202,
+    "profit_factor": 2.780844271826482,
+    "max_drawdown_pct": 18.10610678141057,
+    "net_return_pct": 1166.0174000000002,
+    "sharpe_ratio": 2.336424418275617,
+    "calmar_ratio": 64.39912312884088
+  },
+  "final_metrics": {
+    "total_trades": 198,
+    "win_rate": 0.5202020202020202,
+    "profit_factor": 2.780844271826482,
+    "max_dd_pct": 0.1810610678141057,
+    "net_return_pct": 1166.0174000000002,
+    "calmar": 64.39912312884088,
+    "sharpe": 2.336424418275617,
+    "sortino": 10.010037330667991,
+    "avg_r": 0.4403595556805709,
+    "capture_ratio": 0.5173043892510965,
+    "stale_exit_pct": 0.43434343434343436,
+    "multi_session_pct": 0.24242424242424243,
+    "trades_per_month": 6.049996549452618,
+    "avg_hold_hours": 11.257575757575758,
+    "avg_winner_r": 1.2672266135247325,
+    "avg_loser_r": -0.45613841229783597,
+    "avg_mfe_r": 1.197875308165461,
+    "evening_trade_pct": 0.050505050505050504,
+    "evening_avg_r": 0.12598285788331623,
+    "fast_death_pct": 0.23737373737373738
+  },
+  "source_diagnostics": null,
+  "source_phase_state": null
+}

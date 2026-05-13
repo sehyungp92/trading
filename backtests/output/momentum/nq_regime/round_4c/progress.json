@@ -1,0 +1,163 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:04:15.814020+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 44,
+      "base_score": 0.8741032507563307,
+      "final_score": 0.8798854219304475,
+      "kept_features": [
+        "nq3_priority_disable_second_wind"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_3 Capacity And Routing Priority",
+      "candidate_count": 7
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:10:55.527744+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 44,
+      "base_score": 0.8798854219304475,
+      "final_score": 0.9057006779553394,
+      "kept_features": [
+        "nq3_retest_offset0_ttl90"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_3 Entry Conversion",
+      "candidate_count": 7
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:19:27.545108+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 48,
+      "base_score": 0.9057006779553394,
+      "final_score": 1.19168412608319,
+      "kept_features": [
+        "nq3_swing_levels_conservative"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_3 Level And Session Expansion",
+      "candidate_count": 7
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:24:40.374897+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 48,
+      "base_score": 1.19168412608319,
+      "final_score": 1.19168412608319,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_3 Discrimination And Stop Quality",
+      "candidate_count": 7
+    },
+    "5": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:33:33.246413+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "current_phase": 5,
+      "total_mutations": 49,
+      "base_score": 1.19168412608319,
+      "final_score": 1.2386330116861082,
+      "kept_features": [
+        "nq3_vwap_touch_exit"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_3 Reversion Trade Management",
+      "candidate_count": 7
+    },
+    "6": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:40:48.189635+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "current_phase": 6,
+      "total_mutations": 52,
+      "base_score": 1.2386330116861082,
+      "final_score": 1.2548844412768192,
+      "kept_features": [
+        "nq3_only_final_stack"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_3 Final Alpha/Frequency Stack",
+      "candidate_count": 7
+    },
+    "7": {
+      "status": "completed",
+      "updated_at": "2026-05-01T18:48:03.102929+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "current_phase": 7,
+      "total_mutations": 52,
+      "base_score": 1.2579351519592377,
+      "final_score": 1.2579351519592377,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "nq_3 Exit Capture And Trade Management",
+      "candidate_count": 12
+    }
+  },
+  "last_updated": "2026-05-01T18:48:03.115915+00:00",
+  "current_phase": 7
+}

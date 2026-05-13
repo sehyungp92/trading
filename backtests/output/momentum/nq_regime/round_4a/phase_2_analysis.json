@@ -1,0 +1,53 @@
+{
+  "phase": 2,
+  "goal_progress": {
+    "module_second_wind_trades": {
+      "target": 120.0,
+      "actual": 180.0,
+      "pct_of_target": 150.0
+    },
+    "module_second_wind_total_r_per_month": {
+      "target": 3.0,
+      "actual": 0.8958306689833003,
+      "pct_of_target": 29.861022299443345
+    },
+    "module_second_wind_avg_r": {
+      "target": 0.6,
+      "actual": 0.23628126375035727,
+      "pct_of_target": 39.38021062505955
+    },
+    "module_second_wind_mfe_capture": {
+      "target": 0.45,
+      "actual": 0.5020991771588427,
+      "pct_of_target": 111.57759492418727
+    },
+    "routing_second_wind_request_to_fill_rate": {
+      "target": 0.35,
+      "actual": 0.45685279187817257,
+      "pct_of_target": 130.5293691080493
+    },
+    "max_drawdown_pct": {
+      "target": 0.12,
+      "actual": 0.027089324401446936,
+      "pct_of_target": 200.0
+    }
+  },
+  "strengths": [
+    "module_second_wind_trades: 180.0000 (150% of 120.0000)",
+    "module_second_wind_mfe_capture: 0.5021 (112% of 0.4500)",
+    "routing_second_wind_request_to_fill_rate: 0.4569 (131% of 0.3500)",
+    "max_drawdown_pct: 0.0271 (200% of 0.1200)"
+  ],
+  "weaknesses": [
+    "module_second_wind_total_r_per_month: 0.8958 (30% of 3.0000)",
+    "module_second_wind_avg_r: 0.2363 (39% of 0.6000)"
+  ],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + module_second_wind_trades: 180.0000 (150% of 120.0000)\n  + module_second_wind_mfe_capture: 0.5021 (112% of 0.4500)\n  + routing_second_wind_request_to_fill_rate: 0.4569 (131% of 0.3500)\n  + max_drawdown_pct: 0.0271 (200% of 0.1200)\n\nWeaknesses:\n  - module_second_wind_total_r_per_month: 0.8958 (30% of 3.0000)\n  - module_second_wind_avg_r: 0.2363 (39% of 0.6000)\n\nGoal Progress:\n  module_second_wind_trades: 180.0000 / 120.0000 (150%)\n  module_second_wind_total_r_per_month: 0.8958 / 3.0000 (30%)\n  module_second_wind_avg_r: 0.2363 / 0.6000 (39%)\n  module_second_wind_mfe_capture: 0.5021 / 0.4500 (112%)\n  routing_second_wind_request_to_fill_rate: 0.4569 / 0.3500 (131%)\n  max_drawdown_pct: 0.0271 / 0.1200 (200%)",
+  "scoring_weight_overrides": null,
+  "extra": {}
+}
