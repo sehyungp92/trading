@@ -117,5 +117,99 @@
   "round": 6,
   "selection_note": "OOS window was used for diagnosis/selection; forward monitoring is required before treating it as an untouched holdout.",
   "strategy": "nq_regime",
-  "strategy_name": "nq_regime"
+  "strategy_name": "nq_regime",
+  "provenance": {
+    "schema_version": 1,
+    "selection_fingerprint": "fa1334613d4930b248c262d5ebc0aaab0daa9e62b37d3ad9535ac3cf0bbe4611",
+    "diagnostics_fingerprint": "fa1334613d4930b248c262d5ebc0aaab0daa9e62b37d3ad9535ac3cf0bbe4611",
+    "items": [
+      {
+        "name": "data_dir",
+        "kind": "tree_contents",
+        "fingerprint": "cced7806698e11c2896637a43a7235da1e077b221cea3568356afb6a06711419",
+        "paths": [
+          "backtests/momentum/data/raw"
+        ],
+        "scope": "data",
+        "notes": "Content fingerprint for selection-relevant replay data files."
+      },
+      {
+        "name": "code:backtests/momentum/auto/config_mutator.py",
+        "kind": "file_contents",
+        "fingerprint": "5ddc4e4ec20135fc734d667b53aefed0d77fb52534ff1cb1aff2206b7e0563dd",
+        "paths": [
+          "backtests/momentum/auto/config_mutator.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/auto/nq_regime/current_oos_frequency_repair.py",
+        "kind": "file_contents",
+        "fingerprint": "648630ccb5049cd8e3fac5f8e421fd1be11a948a7f966fb294bb82eff061571a",
+        "paths": [
+          "backtests/momentum/auto/nq_regime/current_oos_frequency_repair.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/config_regime.py",
+        "kind": "file_contents",
+        "fingerprint": "e09df0617b81553f7f2aed55ef822b3aee0a59ac188547cf7d5be1dd46c01d4d",
+        "paths": [
+          "backtests/momentum/config_regime.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/engine/regime_engine.py",
+        "kind": "file_contents",
+        "fingerprint": "374d22382b86d4a71284c11afa11b8abfce99c776ce781cedfd7707e40528ffd",
+        "paths": [
+          "backtests/momentum/engine/regime_engine.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "plugin",
+        "kind": "plugin_identity",
+        "fingerprint": "bfb850391fbbd479ac5ef1d55c8a7e1e7d54507a4ada8cadbba541d20d633698",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "selection_context",
+        "kind": "stable_json",
+        "fingerprint": "7ac8945406a4eadf6dd0ae95a679cf8478f926e60cb5998b0bd2153f565cf8e5",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:backtests/momentum/auto/nq_regime",
+        "kind": "tree_contents",
+        "fingerprint": "416ef76bf4240fb801a0e1280346faf4e10c7e4f049398fe3ffb33913ebc2c2c",
+        "paths": [
+          "backtests/momentum/auto/nq_regime"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "shared_auto_package",
+        "kind": "tree_contents",
+        "fingerprint": "d9d2fccedd37282a0908da4eacb176f90033de491d7babdfc8d654ce376d5f37",
+        "paths": [
+          "backtests/shared/auto"
+        ],
+        "scope": "selection",
+        "notes": ""
+      }
+    ]
+  },
+  "provenance_status": "complete"
 }

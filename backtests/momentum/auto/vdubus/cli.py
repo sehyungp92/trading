@@ -31,7 +31,12 @@ ROUND_MANAGER = RoundManager("momentum", "vdubus")
 PHASE_CHOICES = list(range(1, VdubusPlugin.num_phases + 1))
 
 
-def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseRunner:
+def _build_runner(
+    args: argparse.Namespace,
+    *,
+    for_write: bool = True,
+    allow_selection_drift: bool = False,
+) -> PhaseRunner:
     plugin = VdubusPlugin(
         data_dir=Path(args.data_dir),
         initial_equity=args.equity,
@@ -44,7 +49,13 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseR
         expected_phases=plugin.num_phases if for_write else None,
     )
     if round_num > 1:
-        plugin.initial_mutations = ROUND_MANAGER.get_previous_mutations(round_num)
+        if for_write:
+            plugin.initial_mutations = ROUND_MANAGER.get_previous_mutations(
+                round_num,
+                current_provenance=plugin.build_provenance(),
+            )
+        else:
+            plugin.initial_mutations = ROUND_MANAGER.get_previous_mutations(round_num)
     return PhaseRunner(
         plugin=plugin,
         output_dir=round_dir,
@@ -53,6 +64,7 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseR
         max_retries=getattr(args, "max_retries", 2),
         round_manager=ROUND_MANAGER,
         round_num=round_num,
+        allow_selection_drift=allow_selection_drift,
     )
 
 
@@ -81,7 +93,8 @@ def cmd_phase_gate(args: argparse.Namespace) -> None:
         return
 
     plugin = runner.plugin
-    phase_mutations = _mutations_through_phase(state, args.phase)
+    phase_mutations = dict(getattr(runner.plugin, "initial_mutations", None) or {})
+    phase_mutations.update(_mutations_through_phase(state, args.phase))
     metrics = plugin.compute_final_metrics(phase_mutations)
     spec = plugin.get_phase_spec(args.phase, state)
     gate = evaluate_gate(spec.gate_criteria_fn(metrics))
@@ -110,6 +123,15 @@ def cmd_phase_diagnostics(args: argparse.Namespace) -> None:
         print(f"No diagnostics found at {diag_path}.")
         return
     print(diag_path.read_text(encoding="utf-8"))
+
+
+def cmd_final_diagnostics(args: argparse.Namespace) -> None:
+    runner = _build_runner(args, for_write=False, allow_selection_drift=True)
+    state = runner.load_state()
+    runner.run_end_of_round(state)
+    print("VdubusNQ final diagnostics regenerated.")
+    print(f"Diagnostics: {runner.output_dir / 'round_final_diagnostics.txt'}")
+    print(f"Evaluation:  {runner.output_dir / 'round_evaluation.txt'}")
 
 
 def main() -> None:
@@ -143,6 +165,9 @@ def main() -> None:
     phase_diag.add_argument("--phase", type=int, required=True, choices=PHASE_CHOICES)
     phase_diag.add_argument("--round", type=int, default=None)
 
+    final_diag = sub.add_parser("final-diagnostics", help="Regenerate latest VdubusNQ round diagnostics")
+    add_common(final_diag)
+
     args = parser.parse_args()
     if args.command == "phase-run":
         cmd_phase_run(args)
@@ -152,6 +177,8 @@ def main() -> None:
         cmd_phase_gate(args)
     elif args.command == "phase-diagnostics":
         cmd_phase_diagnostics(args)
+    elif args.command == "final-diagnostics":
+        cmd_final_diagnostics(args)
     else:
         parser.print_help()
 

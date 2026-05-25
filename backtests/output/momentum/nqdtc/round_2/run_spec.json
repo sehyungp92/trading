@@ -4,7 +4,7 @@
   "strategy_name": "nqdtc",
   "round": 2,
   "description": "Round 2",
-  "generated_at_utc": "2026-04-30T17:36:24.998639+00:00",
+  "generated_at_utc": "2026-05-22T18:31:54.293809+00:00",
   "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_1\\optimized_config.json",
   "baseline_mutation_count": 13,
   "baseline_mutations": {
@@ -22,5 +22,114 @@
     "param_overrides.LOSS_STREAK_THRESHOLD": 2,
     "param_overrides.TP1_PARTIAL_PCT": 0.5
   },
-  "scoring_weights": {}
+  "scoring_weights": {},
+  "execution_context": {
+    "data_dir": "backtests\\momentum\\data\\raw",
+    "initial_equity": 10000.0,
+    "max_workers": 1
+  },
+  "provenance": {
+    "schema_version": 1,
+    "selection_fingerprint": "7464e9e5f6d0c41ce7e9609b85c2b13cab1f28c9bb4bd15728d1be9aad7708d4",
+    "diagnostics_fingerprint": "7464e9e5f6d0c41ce7e9609b85c2b13cab1f28c9bb4bd15728d1be9aad7708d4",
+    "items": [
+      {
+        "name": "data_dir",
+        "kind": "tree_contents",
+        "fingerprint": "cced7806698e11c2896637a43a7235da1e077b221cea3568356afb6a06711419",
+        "paths": [
+          "backtests/momentum/data/raw"
+        ],
+        "scope": "data",
+        "notes": "Content fingerprint for selection-relevant replay data files."
+      },
+      {
+        "name": "code:backtests/momentum/auto/config_mutator.py",
+        "kind": "file_contents",
+        "fingerprint": "5ddc4e4ec20135fc734d667b53aefed0d77fb52534ff1cb1aff2206b7e0563dd",
+        "paths": [
+          "backtests/momentum/auto/config_mutator.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/config_nqdtc.py",
+        "kind": "file_contents",
+        "fingerprint": "c75a8750e5204a6d705964a3c860a6f695e7f060023b2cea914a51cde7e23651",
+        "paths": [
+          "backtests/momentum/config_nqdtc.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/data/replay_cache.py",
+        "kind": "file_contents",
+        "fingerprint": "52f01bbd08103c238d77eabeeddd2fc690974b6dfe8b6a23bc8d26f60c607808",
+        "paths": [
+          "backtests/momentum/data/replay_cache.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/engine/nqdtc_engine.py",
+        "kind": "file_contents",
+        "fingerprint": "c5759b7e3b351d7224a5268f3e93844ec5983e29e14074fc8b7eda822eb0467e",
+        "paths": [
+          "backtests/momentum/engine/nqdtc_engine.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/engine/sim_broker.py",
+        "kind": "file_contents",
+        "fingerprint": "9b411d5185842fa2c1d88f8836f87643b872bdff0bd632fee1ca6185208537db",
+        "paths": [
+          "backtests/momentum/engine/sim_broker.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "plugin",
+        "kind": "plugin_identity",
+        "fingerprint": "e782cae55f8e77f557ff004538960b4638ff0871d42e1355bc5a39ae01ceeed9",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "selection_context",
+        "kind": "stable_json",
+        "fingerprint": "9fb562e438f6cfd0c484bb81fed4c9dd01f26a3dc4d4e28a7d20c7ca25fe054b",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:backtests/momentum/auto/nqdtc",
+        "kind": "tree_contents",
+        "fingerprint": "6e6b73090516b08e9b2746e78f4ec2a981329e5b11fef5682588b0fa828f9f5b",
+        "paths": [
+          "backtests/momentum/auto/nqdtc"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "shared_auto_package",
+        "kind": "tree_contents",
+        "fingerprint": "d9d2fccedd37282a0908da4eacb176f90033de491d7babdfc8d654ce376d5f37",
+        "paths": [
+          "backtests/shared/auto"
+        ],
+        "scope": "selection",
+        "notes": ""
+      }
+    ]
+  },
+  "provenance_status": "complete"
 }

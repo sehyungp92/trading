@@ -312,6 +312,7 @@ async def test_downturn_engine_entry_fill_routes_through_shared_core(tmp_path) -
 
 
 @pytest.mark.asyncio
+@pytest.mark.parity_smoke
 async def test_downturn_live_wrapper_entry_fill_matches_replay_core_state(tmp_path, monkeypatch) -> None:
     engine = DownturnEngine(
         ib_session=_DummyIB(),

@@ -56,10 +56,16 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True):
         )
         if round_num == 2:
             plugin.initial_mutations = sanitize_round2_seed(
-                round_manager.get_previous_mutations(round_num)
+                round_manager.get_previous_mutations(
+                    round_num,
+                    current_provenance=plugin.build_provenance(),
+                )
             )
         elif round_num > 2:
-            plugin.initial_mutations = round_manager.get_previous_mutations(round_num)
+            plugin.initial_mutations = round_manager.get_previous_mutations(
+                round_num,
+                current_provenance=plugin.build_provenance(),
+            )
 
     return PhaseRunner(
         plugin=plugin,
@@ -111,7 +117,8 @@ def cmd_phase_gate(args: argparse.Namespace) -> None:
         print(f"Phase {args.phase} has not been completed yet.")
         return
 
-    phase_mutations = _mutations_through_phase(state, args.phase)
+    phase_mutations = dict(getattr(runner.plugin, "initial_mutations", None) or {})
+    phase_mutations.update(_mutations_through_phase(state, args.phase))
     metrics = runner.plugin.compute_final_metrics(phase_mutations)
     spec = runner.plugin.get_phase_spec(args.phase, state)
     gate = evaluate_gate(spec.gate_criteria_fn(metrics))

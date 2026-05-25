@@ -29,6 +29,10 @@ from libs.oms.models.order import (
 from libs.oms.risk.calculator import RiskCalculator
 from libs.services.trade_recorder import TradeRecorder
 from strategies.core.actions import FlattenPosition, ReplaceProtectiveStop, SubmitAddOnEntry, SubmitEntry, SubmitPartialExit, SubmitProtectiveStop
+from strategies.core.idle_market import (
+    maybe_record_idle_market_observation,
+    remember_idle_market_bars,
+)
 
 from . import allocator, signals, stops
 from .core import logic as atrss_core_logic
@@ -147,6 +151,7 @@ class ATRSSEngine:
         kit: Any | None = None,
         equity_offset: float = 0.0,
         equity_alloc_pct: float = 1.0,
+        disable_background_tasks: bool = False,
     ) -> None:
         self._ib = ib_session
         self._oms = oms_service
@@ -158,6 +163,7 @@ class ATRSSEngine:
         self._equity_alloc_pct = equity_alloc_pct
         self._market_cal = market_calendar
         self._kit = kit
+        self._disable_background_tasks = bool(disable_background_tasks)
 
         # Wire drawdown tracker with initial equity
         if self._kit and self._kit.ctx and self._kit.ctx.drawdown_tracker:
@@ -201,6 +207,17 @@ class ATRSSEngine:
         self._symbol_last_bar_ts: dict[str, datetime] = {}
 
     def _record_decision(self, code: str, details: dict | None = None) -> None:
+        if maybe_record_idle_market_observation(
+            self,
+            code,
+            strategy_id=STRATEGY_ID,
+            build_core_state=lambda: build_core_runtime_state(self),
+            apply_core_state=lambda state: apply_core_runtime_state(self, state),
+            on_bar=atrss_core_logic.on_bar,
+            default_symbol="",
+            default_timeframe="1h",
+        ):
+            return
         self._last_decision_code = code
         self._last_decision_details = details or {}
 
@@ -302,11 +319,12 @@ class ATRSSEngine:
             self.reentry_states.setdefault(sym, ReentryState())
             self.breakout_arm_states.setdefault(sym, BreakoutArmState())
 
-        # Load initial bar history and compute initial daily states
-        await self._load_initial_bars()
+        if not self._disable_background_tasks:
+            # Load initial bar history and compute initial daily states
+            await self._load_initial_bars()
 
-        # Start hourly cycle scheduler
-        self._cycle_task = asyncio.create_task(self._hourly_scheduler())
+            # Start hourly cycle scheduler
+            self._cycle_task = asyncio.create_task(self._hourly_scheduler())
         logger.info("ATRSS engine started for %s", list(self._config.keys()))
 
     async def stop(self) -> None:
@@ -1745,7 +1763,7 @@ class ATRSSEngine:
         etype = event.event_type
         oms_id = event.oms_order_id
 
-        if etype == OMSEventType.FILL or etype == OMSEventType.ORDER_FILLED:
+        if etype == OMSEventType.FILL:
             await self._on_fill(oms_id, event.payload or {})
         elif etype == OMSEventType.RISK_HALT:
             await self._on_risk_halt((event.payload or {}).get("reason", ""))
@@ -2264,6 +2282,7 @@ class ATRSSEngine:
             if not bars:
                 return None, None, None, None
 
+            remember_idle_market_bars(self, bars, symbol=sym, timeframe="1h")
             closes = np.array([b.close for b in bars], dtype=float)
             highs = np.array([b.high for b in bars], dtype=float)
             lows = np.array([b.low for b in bars], dtype=float)

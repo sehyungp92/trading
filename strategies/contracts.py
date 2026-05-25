@@ -1,7 +1,9 @@
 """Strategy contracts for the compatibility-first kernel scaffold."""
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 from libs.config.models import PortfolioConfig, StrategyManifest, StrategyRegistryConfig
@@ -30,6 +32,32 @@ class RuntimeContext:
     crisis_service: Any = None
     trade_recorder: Any = None
     heartbeat: Any = None
+    runtime_overrides: Any = None
+
+
+@dataclass(slots=True)
+class CoordinatorRuntimeOverrides:
+    """Optional offline/test providers for family coordinators.
+
+    Production runtime leaves this unset. Parity tests use it to keep the
+    deployed coordinator wiring offline without changing production configs.
+    """
+
+    adapter_factory: Callable[..., Any] | None = None
+    calendar_factory: Callable[[], Any] | None = None
+    equity_provider: Callable[[], float] | None = None
+    build_oms_service: Callable[..., Any] | None = None
+    build_multi_strategy_oms: Callable[..., Any] | None = None
+    strategy_ids: Sequence[str] | None = None
+    strategy_ids_provider: Callable[[], Sequence[str]] | None = None
+    portfolio_rules_provider: Callable[[], Any] | None = None
+    stock_artifact_provider: Callable[[], dict[str, Any]] | None = None
+    overlay_rebalance_provider: Callable[[], dict[str, Any]] | None = None
+    state_dir_overrides: dict[str, Path] = field(default_factory=dict)
+    instrumentation_data_dir: Path | None = None
+    disable_instrumentation: bool = False
+    disable_market_data: bool = False
+    disable_background_tasks: bool = False
 
 
 @runtime_checkable
@@ -63,4 +91,3 @@ class StrategyPlugin(Protocol):
     async def on_fill_event(self, event: Any) -> None:
         """Handle fill notification (optional)."""
         ...
-

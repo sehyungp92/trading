@@ -10,6 +10,7 @@ import numpy as np
 from backtests.shared.auto.phase_state import PhaseState
 from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.provenance import AutoRunProvenance, build_phase_auto_provenance
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
@@ -28,25 +29,18 @@ from .phase_candidates import (
     R5_BASE_MUTATIONS,
     R5_PHASE_FOCUS,
     V2R1_BASE_MUTATIONS,
-    V2R1_PHASE_CANDIDATES,
     V2R1_PHASE_FOCUS,
     V2R2_BASE_MUTATIONS,
-    V2R2_PHASE_CANDIDATES,
     V2R2_PHASE_FOCUS,
     V2R3_BASE_MUTATIONS,
-    V2R3_PHASE_CANDIDATES,
     V2R3_PHASE_FOCUS,
     V2R4_BASE_MUTATIONS,
-    V2R4_PHASE_CANDIDATES,
     V2R4_PHASE_FOCUS,
     V3R1_BASE_MUTATIONS,
-    V3R1_PHASE_CANDIDATES,
     V3R1_PHASE_FOCUS,
     V4R1_BASE_MUTATIONS,
-    V4R1_PHASE_CANDIDATES,
     V4R1_PHASE_FOCUS,
     V5R1_BASE_MUTATIONS,
-    V5R1_PHASE_CANDIDATES,
     V5R1_PHASE_FOCUS,
     V5R2_BASE_MUTATIONS,
     V5R2_PHASE_FOCUS,
@@ -404,6 +398,38 @@ class IARICPullbackPlugin:
             self.ultimate_targets = dict(ULTIMATE_TARGETS)
             self._phase_hard_rejects = PHASE_HARD_REJECTS_BY_PROFILE[self.profile]
             self._phase_scoring_weights = get_phase_scoring_weights(self.profile)
+        self._provenance: AutoRunProvenance | None = None
+
+    def build_provenance(self) -> AutoRunProvenance:
+        if self._provenance is None:
+            repo_root = Path(__file__).resolve().parents[4]
+            self._provenance = build_phase_auto_provenance(
+                self.name,
+                repo_root=repo_root,
+                code_dirs=(Path(__file__).resolve().parent,),
+                code_paths=(
+                    repo_root / "backtests/stock/engine/iaric_pullback_engine.py",
+                    repo_root / "backtests/stock/config_iaric.py",
+                    repo_root / "backtests/stock/auto/config_mutator.py",
+                    repo_root / "backtests/stock/data/replay_cache.py",
+                    repo_root / "strategies/stock/iaric/core/logic.py",
+                    repo_root / "strategies/stock/iaric/artifact_store.py",
+                ),
+                data_dir=self.data_dir,
+                selection_context={
+                    "round_name": self._round_name,
+                    "profile": self.profile,
+                    "start_date": self.start_date,
+                    "end_date": self.end_date,
+                    "initial_equity": self.initial_equity,
+                    "num_phases": self.num_phases,
+                    "phase_scoring_weights": self._phase_scoring_weights,
+                    "phase_hard_rejects": self._phase_hard_rejects,
+                    "ultimate_targets": self.ultimate_targets,
+                    "round_baseline_policy": "run_spec.baseline_mutations",
+                },
+            )
+        return self._provenance
 
     def _baseline_metrics(self) -> dict[str, float]:
         if self._baseline_metrics_cache is None:

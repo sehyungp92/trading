@@ -13,7 +13,7 @@ from libs.oms.engine.timeout_monitor import OrderTimeoutMonitor
 from libs.oms.execution.router import ExecutionRouter, OrderPriority
 from libs.oms.intent.handler import IntentHandler
 from libs.oms.models.instrument import Instrument
-from libs.oms.models.intent import Intent, IntentResult, IntentType
+from libs.oms.models.intent import Intent, IntentResult, IntentType, PreapprovedFamilyDecision
 from libs.oms.models.order import OMSOrder, OrderRole, OrderSide, OrderStatus, OrderType, RiskContext
 from libs.oms.models.risk_state import PortfolioRiskState
 from libs.oms.persistence.in_memory import InMemoryRepository
@@ -56,6 +56,27 @@ def _entry_order(symbol: str = "QQQ") -> OMSOrder:
         limit_price=100.0,
         role=OrderRole.ENTRY,
         status=OrderStatus.CREATED,
+    )
+
+
+def _preapproved_decision(
+    order: OMSOrder,
+    *,
+    original_qty: int,
+    approved_qty: int,
+    status: str = "accepted",
+) -> PreapprovedFamilyDecision:
+    return PreapprovedFamilyDecision(
+        candidate_key=f"{order.strategy_id}|{order.instrument.symbol}|ENTRY|{order.side.value}|1",
+        family_surface="unit_test_family_replay",
+        strategy_id=order.strategy_id,
+        symbol=order.instrument.symbol,
+        side=order.side.value,
+        role=order.role.value,
+        sequence=1,
+        original_qty=original_qty,
+        approved_qty=approved_qty,
+        status=status,
     )
 
 
@@ -207,6 +228,156 @@ async def test_intent_handler_approval_uses_atomic_helper() -> None:
     risk.check_entry.assert_awaited_once()
     assert risk.check_entry.await_args.kwargs["skip_account_gate"] is True
     risk.check_account_gate.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_intent_handler_preapproved_order_uses_public_submission_path() -> None:
+    risk = MagicMock()
+    risk.check_entry = AsyncMock()
+    risk.check_preapproved_entry = AsyncMock(return_value=None)
+    risk.check_account_gate = AsyncMock(return_value=None)
+    router = MagicMock()
+    router.route = AsyncMock()
+    repo = InMemoryRepository()
+    bus = MagicMock()
+    bus.emit_risk_denial = MagicMock()
+    bus.emit_order_event = MagicMock()
+
+    handler = IntentHandler(risk, router, repo, bus)
+    order = _entry_order("MSFT")
+    order.risk_context = RiskContext(
+        stop_for_risk=99.0,
+        planned_entry_price=100.0,
+        risk_dollars=10.0,
+        portfolio_size_mult=0.5,
+    )
+
+    receipt = await handler.submit(
+        Intent(
+            intent_type=IntentType.PREAPPROVED_ORDER,
+            strategy_id="TEST",
+            order=order,
+            preapproved_family_decision=_preapproved_decision(order, original_qty=10, approved_qty=10),
+        )
+    )
+
+    assert receipt.result == IntentResult.ACCEPTED
+    assert order.qty == 10
+    risk.check_entry.assert_not_awaited()
+    risk.check_preapproved_entry.assert_awaited_once_with(order)
+    risk.check_account_gate.assert_awaited_once()
+    router.route.assert_awaited_once_with(order)
+    saved = await repo.get_order(order.oms_order_id)
+    assert saved is not None
+    assert saved.status == OrderStatus.RISK_APPROVED
+    assert [event["event_type"] for event in repo._events] == ["RISK_APPROVED"]
+    bus.emit_order_event.assert_called_once_with(order)
+
+
+@pytest.mark.asyncio
+async def test_intent_handler_preapproved_order_requires_family_decision() -> None:
+    risk = MagicMock()
+    risk.check_preapproved_entry = AsyncMock(return_value=None)
+    risk.check_account_gate = AsyncMock(return_value=None)
+    router = MagicMock()
+    router.route = AsyncMock()
+    repo = InMemoryRepository()
+    bus = MagicMock()
+
+    handler = IntentHandler(risk, router, repo, bus)
+    order = _entry_order("MSFT")
+
+    receipt = await handler.submit(
+        Intent(
+            intent_type=IntentType.PREAPPROVED_ORDER,
+            strategy_id="TEST",
+            order=order,
+        )
+    )
+
+    assert receipt.result == IntentResult.DENIED
+    assert "preapproved_family_decision" in (receipt.denial_reason or "")
+    risk.check_preapproved_entry.assert_not_awaited()
+    router.route.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_intent_handler_preapproved_order_rejects_inconsistent_decision() -> None:
+    risk = MagicMock()
+    risk.check_preapproved_entry = AsyncMock(return_value=None)
+    risk.check_account_gate = AsyncMock(return_value=None)
+    router = MagicMock()
+    router.route = AsyncMock()
+    repo = InMemoryRepository()
+    bus = MagicMock()
+
+    handler = IntentHandler(risk, router, repo, bus)
+    order = _entry_order("MSFT")
+
+    receipt = await handler.submit(
+        Intent(
+            intent_type=IntentType.PREAPPROVED_ORDER,
+            strategy_id="TEST",
+            order=order,
+            preapproved_family_decision=_preapproved_decision(
+                order,
+                original_qty=10,
+                approved_qty=9,
+                status="accepted",
+            ),
+        )
+    )
+
+    assert receipt.result == IntentResult.DENIED
+    assert "preserve quantity" in (receipt.denial_reason or "")
+    risk.check_preapproved_entry.assert_not_awaited()
+    router.route.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("status", "original_qty", "approved_qty", "expected_reason"),
+    [
+        ("reduced", 10, 10, "must reduce"),
+        ("rejected", 10, 1, "Invalid preapproved family decision status"),
+        ("accepted", 10, 9, "preserve quantity"),
+    ],
+)
+async def test_intent_handler_preapproved_order_rejects_invalid_family_payloads(
+    status: str,
+    original_qty: int,
+    approved_qty: int,
+    expected_reason: str,
+) -> None:
+    risk = MagicMock()
+    risk.check_preapproved_entry = AsyncMock(return_value=None)
+    risk.check_account_gate = AsyncMock(return_value=None)
+    router = MagicMock()
+    router.route = AsyncMock()
+    repo = InMemoryRepository()
+    bus = MagicMock()
+
+    handler = IntentHandler(risk, router, repo, bus)
+    order = _entry_order("MSFT")
+
+    receipt = await handler.submit(
+        Intent(
+            intent_type=IntentType.PREAPPROVED_ORDER,
+            strategy_id="TEST",
+            order=order,
+            preapproved_family_decision=_preapproved_decision(
+                order,
+                original_qty=original_qty,
+                approved_qty=approved_qty,
+                status=status,
+            ),
+        )
+    )
+
+    assert receipt.result == IntentResult.DENIED
+    assert expected_reason in (receipt.denial_reason or "")
+    risk.check_preapproved_entry.assert_not_awaited()
+    router.route.assert_not_awaited()
 
 
 @pytest.mark.asyncio

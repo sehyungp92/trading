@@ -5,6 +5,7 @@ All methods take immutable inputs, deepcopy state, and return
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any
@@ -16,6 +17,7 @@ from strategies.core.actions import (
     SubmitExit,
 )
 from strategies.core.events import DecisionEvent
+from strategies.core.idle_market import idle_market_details
 from strategies.momentum.vdub.config import STRATEGY_ID
 from strategies.momentum.vdub.models import (
     Direction,
@@ -82,6 +84,9 @@ def on_bar(
     partial_exit_done: VdubPartialExitDone | None = None,
     decision_code: str = "",
     decision_details: dict[str, Any] | None = None,
+    idle_market_bars: Sequence[object] | None = None,
+    idle_market_symbol: str = "",
+    idle_market_timeframe: str = "15m",
 ) -> tuple[VdubCoreState, list[NeutralAction], list[DecisionEvent]]:
     """Process a bar tick: register entries, update stops, flatten positions."""
     next_state = deepcopy(state)
@@ -182,6 +187,22 @@ def on_bar(
             symbol=STRATEGY_ID,
             timeframe="15m",
             details=dict(decision_details or {}),
+        ))
+
+    if idle_market_bars is not None and not actions and not events:
+        details = idle_market_details(
+            idle_market_bars,
+            symbol=idle_market_symbol or STRATEGY_ID,
+            timeframe=idle_market_timeframe,
+        )
+        next_state.last_decision_code = "IDLE_MARKET_OBSERVED"
+        next_state.last_decision_details = details
+        events.append(DecisionEvent(
+            code="IDLE_MARKET_OBSERVED",
+            ts=bar_ts or datetime.now(timezone.utc),
+            symbol=idle_market_symbol or STRATEGY_ID,
+            timeframe=idle_market_timeframe,
+            details=details,
         ))
 
     return next_state, actions, events

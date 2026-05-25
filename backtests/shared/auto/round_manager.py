@@ -3,10 +3,18 @@ from __future__ import annotations
 import json
 import re
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from .phase_state import _atomic_write_json, _utc_now_iso, load_phase_state
+from .provenance import (
+    AutoRunProvenance,
+    ProvenanceValidationError,
+    ProvenanceValidationResult,
+    coerce_provenance,
+    diff_provenance_items,
+)
 
 _PHASE_OUTPUT_RE = re.compile(r"^phase_\d+.*\.(?:json|txt|log)$")
 _ROUND_DIR_RE = re.compile(r"^round_(\d+)$")
@@ -21,7 +29,7 @@ _CANONICAL_METRIC_KEYS = {
     "calmar_ratio": ("calmar_ratio", "calmar", "calmar_r"),
 }
 
-_PERCENT_RATIO_METRICS = {"win_rate"}
+_PERCENT_RATIO_METRICS = {"max_drawdown_pct", "net_return_pct", "win_rate"}
 _BOOTSTRAP_EXTRA_FILES = {
     "phase_activity_log.jsonl",
     "phase_run_manifest.json",
@@ -217,10 +225,25 @@ class RoundManager:
             return latest, self.get_round_dir(latest)
         return latest + 1, self.get_round_dir(latest + 1)
 
-    def get_previous_mutations(self, current_round: int | None = None) -> dict[str, Any]:
+    def get_previous_mutations(
+        self,
+        current_round: int | None = None,
+        *,
+        current_provenance: AutoRunProvenance | dict[str, Any] | None = None,
+        allow_diagnostics_only_drift: bool = True,
+    ) -> dict[str, Any]:
         previous_round = self.get_latest_round() if current_round is None else current_round - 1
         if previous_round < 1:
             raise FileNotFoundError(f"No previous round exists for {self.family}/{self.strategy}.")
+        if current_provenance is not None:
+            validation_round = current_round if current_round is not None else previous_round + 1
+            result = self.validate_previous_round_provenance(
+                validation_round,
+                current_provenance,
+                allow_diagnostics_only_drift=allow_diagnostics_only_drift,
+            )
+            if not result.valid:
+                raise ProvenanceValidationError(result)
 
         config_path = self.optimized_config_path(self.round_path(previous_round))
         if not config_path.exists():
@@ -235,6 +258,154 @@ class RoundManager:
             return dict(data)
         raise TypeError(f"Unexpected optimized config payload in {config_path}")
 
+    def validate_previous_round_provenance(
+        self,
+        current_round: int,
+        current: AutoRunProvenance | dict[str, Any],
+        *,
+        allow_diagnostics_only_drift: bool = True,
+    ) -> ProvenanceValidationResult:
+        current_provenance = coerce_provenance(current)
+        if current_provenance is None:
+            raise ValueError("Current provenance is required for prior-round validation.")
+
+        previous_round = current_round - 1
+        if previous_round < 1:
+            return ProvenanceValidationResult(
+                valid=True,
+                status="no_previous_round",
+                previous_round=None,
+                current_round=current_round,
+                message=f"Round {current_round} has no prior round to validate.",
+            )
+
+        previous = self.load_round_provenance(previous_round)
+        if previous is None:
+            return ProvenanceValidationResult(
+                valid=False,
+                status="missing_previous_provenance",
+                previous_round=previous_round,
+                current_round=current_round,
+                selection_drift=True,
+                message=(
+                    f"Round {previous_round} for {self.family}/{self.strategy} has no saved provenance; "
+                    f"refusing to reuse its optimized config for round {current_round}."
+                ),
+            )
+
+        if previous.schema_version != current_provenance.schema_version:
+            return ProvenanceValidationResult(
+                valid=False,
+                status="schema_version_drift",
+                previous_round=previous_round,
+                current_round=current_round,
+                selection_drift=True,
+                changed_items=("provenance_schema_version",),
+                message=(
+                    f"Round {previous_round} provenance schema {previous.schema_version} does not match "
+                    f"current schema {current_provenance.schema_version}."
+                ),
+            )
+
+        if previous.selection_fingerprint != current_provenance.selection_fingerprint:
+            changed_items = diff_provenance_items(previous, current_provenance, include_diagnostics=False)
+            return ProvenanceValidationResult(
+                valid=False,
+                status="selection_drift",
+                previous_round=previous_round,
+                current_round=current_round,
+                selection_drift=True,
+                changed_items=changed_items,
+                message=(
+                    f"Selection provenance changed between round {previous_round} and round {current_round}; "
+                    f"changed items: {', '.join(changed_items) if changed_items else 'selection_fingerprint'}."
+                ),
+            )
+
+        if previous.diagnostics_fingerprint != current_provenance.diagnostics_fingerprint:
+            changed_items = diff_provenance_items(previous, current_provenance, include_diagnostics=True)
+            return ProvenanceValidationResult(
+                valid=allow_diagnostics_only_drift,
+                status="diagnostics_drift",
+                previous_round=previous_round,
+                current_round=current_round,
+                diagnostics_drift=True,
+                changed_items=changed_items,
+                message=(
+                    f"Diagnostics provenance changed between round {previous_round} and round {current_round}; "
+                    f"changed items: {', '.join(changed_items) if changed_items else 'diagnostics_fingerprint'}."
+                ),
+            )
+
+        return ProvenanceValidationResult(
+            valid=True,
+            status="current",
+            previous_round=previous_round,
+            current_round=current_round,
+            message=f"Round {previous_round} provenance matches current round {current_round}.",
+        )
+
+    def load_round_provenance(self, round_num: int) -> AutoRunProvenance | None:
+        round_dir = self.round_path(round_num)
+        for path in (self.run_summary_path(round_dir), self.run_spec_path(round_dir)):
+            if not path.exists():
+                continue
+            payload = json.loads(path.read_text(encoding="utf-8-sig"))
+            provenance = coerce_provenance(payload.get("provenance"))
+            if provenance is not None:
+                return provenance
+
+        manifest_entry = self._active_manifest_entry(round_num)
+        if not manifest_entry:
+            return None
+        if not manifest_entry.get("selection_fingerprint") or not manifest_entry.get("diagnostics_fingerprint"):
+            return None
+        return AutoRunProvenance(
+            schema_version=int(manifest_entry.get("provenance_schema_version", 1)),
+            selection_fingerprint=str(manifest_entry["selection_fingerprint"]),
+            diagnostics_fingerprint=str(manifest_entry["diagnostics_fingerprint"]),
+            items=(),
+        )
+
+    def archive_rounds(
+        self,
+        round_nums: Iterable[int],
+        *,
+        reason: str,
+        archive_root: Path | None = None,
+    ) -> Path:
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        archive_base = Path(archive_root) if archive_root is not None else self.strategy_dir / "archived_rounds"
+        archive_dir = archive_base / f"{timestamp}_{_slug(reason)}"
+        archive_dir.mkdir(parents=True, exist_ok=True)
+
+        manifest = self.load_manifest()
+        requested = {int(round_num) for round_num in round_nums}
+        for entry in manifest.setdefault("rounds", []):
+            try:
+                entry_round = int(entry.get("round", 0))
+            except (TypeError, ValueError):
+                continue
+            if entry_round in requested and not entry.get("archived"):
+                entry["archived"] = True
+                entry["archived_at_utc"] = _utc_now_iso()
+                entry["archive_reason"] = reason
+
+        for round_num in sorted(requested):
+            source = self.round_path(round_num)
+            if not source.exists():
+                continue
+            target = archive_dir / source.name
+            suffix = 1
+            while target.exists():
+                target = archive_dir / f"{source.name}_{suffix}"
+                suffix += 1
+            shutil.move(str(source), str(target))
+
+        self.strategy_dir.mkdir(parents=True, exist_ok=True)
+        _atomic_write_json(manifest, self.manifest_path)
+        return archive_dir
+
     def write_run_spec(
         self,
         round_dir: Path,
@@ -246,12 +417,16 @@ class RoundManager:
         baseline_mutations: dict[str, Any] | None = None,
         baseline_source: Path | str | None = None,
         execution_context: dict[str, Any] | None = None,
+        provenance: AutoRunProvenance | dict[str, Any] | None = None,
+        provenance_status: str | None = None,
         overwrite: bool = False,
     ) -> Path:
         path = self.run_spec_path(round_dir)
         if path.exists() and not overwrite:
+            self._validate_existing_provenance_file(path, provenance)
             return path
 
+        provenance_payload = _provenance_payload(provenance)
         payload = {
             "family": self.family,
             "strategy": self.strategy,
@@ -268,6 +443,10 @@ class RoundManager:
             "scoring_weights": dict(scoring_weights or {}),
             "execution_context": dict(execution_context or {}),
         }
+        if provenance_payload is not None:
+            payload["provenance"] = provenance_payload
+        if provenance_status is not None:
+            payload["provenance_status"] = provenance_status
         _atomic_write_json(payload, path)
         return path
 
@@ -281,8 +460,12 @@ class RoundManager:
         round_num: int | None = None,
         source_diagnostics: Path | str | None = None,
         source_phase_state: Path | str | None = None,
+        provenance: AutoRunProvenance | dict[str, Any] | None = None,
+        provenance_status: str | None = None,
+        provenance_validation: ProvenanceValidationResult | dict[str, Any] | None = None,
     ) -> Path:
         resolved_round = round_num if round_num is not None else self._round_num_from_dir(round_dir)
+        provenance_payload = _provenance_payload(provenance)
         payload = {
             "family": self.family,
             "strategy": self.strategy,
@@ -296,6 +479,16 @@ class RoundManager:
             "source_diagnostics": str(Path(source_diagnostics).resolve()) if source_diagnostics else None,
             "source_phase_state": str(Path(source_phase_state).resolve()) if source_phase_state else None,
         }
+        if provenance_payload is not None:
+            payload["provenance"] = provenance_payload
+        if provenance_status is not None:
+            payload["provenance_status"] = provenance_status
+        if provenance_validation is not None:
+            payload["provenance_validation"] = (
+                provenance_validation.to_dict()
+                if isinstance(provenance_validation, ProvenanceValidationResult)
+                else dict(provenance_validation)
+            )
         path = self.run_summary_path(round_dir)
         _atomic_write_json(payload, path)
         return path
@@ -310,8 +503,12 @@ class RoundManager:
         round_num: int,
         cumulative_mutations: dict[str, Any],
         final_metrics: dict[str, Any] | None,
+        *,
+        provenance: AutoRunProvenance | dict[str, Any] | None = None,
+        provenance_status: str | None = None,
     ) -> Path:
         manifest = self.load_manifest()
+        current_provenance = coerce_provenance(provenance)
         entry = {
             "round": round_num,
             "timestamp": _utc_now_iso(),
@@ -319,6 +516,16 @@ class RoundManager:
             "mutations": dict(cumulative_mutations),
         }
         entry.update(canonicalize_metrics(final_metrics))
+        if current_provenance is not None:
+            entry.update(
+                {
+                    "selection_fingerprint": current_provenance.selection_fingerprint,
+                    "diagnostics_fingerprint": current_provenance.diagnostics_fingerprint,
+                    "provenance_schema_version": current_provenance.schema_version,
+                }
+            )
+        if provenance_status is not None:
+            entry["provenance_status"] = provenance_status
 
         rounds = manifest.setdefault("rounds", [])
         replaced = False
@@ -334,6 +541,61 @@ class RoundManager:
         self.strategy_dir.mkdir(parents=True, exist_ok=True)
         _atomic_write_json(manifest, self.manifest_path)
         return self.manifest_path
+
+    def _validate_existing_provenance_file(
+        self,
+        path: Path,
+        provenance: AutoRunProvenance | dict[str, Any] | None,
+    ) -> None:
+        current = coerce_provenance(provenance)
+        if current is None:
+            return
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+        existing = coerce_provenance(payload.get("provenance"))
+        if existing is None:
+            result = ProvenanceValidationResult(
+                valid=False,
+                status="missing_existing_spec_provenance",
+                selection_drift=True,
+                message=f"Existing run spec {path} has no provenance and cannot be reused silently.",
+            )
+            raise ProvenanceValidationError(result)
+        if existing.selection_fingerprint != current.selection_fingerprint:
+            changed_items = diff_provenance_items(existing, current, include_diagnostics=False)
+            result = ProvenanceValidationResult(
+                valid=False,
+                status="existing_spec_selection_drift",
+                selection_drift=True,
+                changed_items=changed_items,
+                message=(
+                    f"Existing run spec {path} was created with different selection provenance; "
+                    f"changed items: {', '.join(changed_items) if changed_items else 'selection_fingerprint'}."
+                ),
+            )
+            raise ProvenanceValidationError(result)
+        if existing.diagnostics_fingerprint != current.diagnostics_fingerprint:
+            changed_items = diff_provenance_items(existing, current, include_diagnostics=True)
+            result = ProvenanceValidationResult(
+                valid=False,
+                status="existing_spec_diagnostics_drift",
+                diagnostics_drift=True,
+                changed_items=changed_items,
+                message=(
+                    f"Existing run spec {path} was created with different diagnostics provenance; "
+                    f"changed items: {', '.join(changed_items) if changed_items else 'diagnostics_fingerprint'}."
+                ),
+            )
+            raise ProvenanceValidationError(result)
+
+    def _active_manifest_entry(self, round_num: int) -> dict[str, Any] | None:
+        for entry in self.load_manifest().get("rounds", []):
+            try:
+                entry_round = int(entry.get("round", 0))
+            except (TypeError, ValueError):
+                continue
+            if entry_round == round_num and not entry.get("archived"):
+                return entry
+        return None
 
     @classmethod
     def bootstrap_round_1(
@@ -436,3 +698,13 @@ class RoundManager:
         if not match:
             raise ValueError(f"Could not infer round number from directory: {round_dir}")
         return int(match.group(1))
+
+
+def _provenance_payload(provenance: AutoRunProvenance | dict[str, Any] | None) -> dict[str, Any] | None:
+    current = coerce_provenance(provenance)
+    return current.to_dict() if current is not None else None
+
+
+def _slug(value: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip()).strip("_")
+    return slug[:80] or "archived"

@@ -13,6 +13,14 @@ from backtests.stock.config_iaric import IARICAblationFlags, IARICBacktestConfig
 from backtests.stock.config_portfolio import PortfolioBacktestConfig
 
 
+_IARIC_LEGACY_TOP_LEVEL_PARAM_ALIASES = {
+    "max_per_sector": "max_positions_per_sector",
+    "max_positions_tier_a": "max_positions_tier_a",
+    "max_positions_tier_b": "max_positions_tier_b",
+    "sector_risk_cap_pct": "sector_risk_cap_pct",
+}
+
+
 def mutate_alcb_config(
     base: ALCBBacktestConfig,
     mutations: dict,
@@ -77,6 +85,8 @@ def mutate_iaric_config(
             param_changes[key.split(".", 1)[1]] = value
         elif key.startswith("slippage."):
             slippage_changes[key.split(".", 1)[1]] = value
+        elif key in _IARIC_LEGACY_TOP_LEVEL_PARAM_ALIASES:
+            param_changes[_IARIC_LEGACY_TOP_LEVEL_PARAM_ALIASES[key]] = value
         else:
             top_level[key] = value
 

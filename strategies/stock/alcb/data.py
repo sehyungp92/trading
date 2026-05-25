@@ -238,12 +238,8 @@ def aggregate_bars(bars: list[Bar], bars_per_chunk: int) -> list[Bar]:
     if bars_per_chunk <= 1:
         return bars[:]
     produced: list[Bar] = []
-    sessions: dict[tuple[str, Any], list[Bar]] = {}
-    for bar in bars:
-        et_bar = bar.start_time.astimezone(ET)
-        sessions.setdefault((bar.symbol, et_bar.date()), []).append(bar)
-    for session_bars in sessions.values():
-        session_bars.sort(key=lambda row: row.start_time)
+
+    def emit_session(session_bars: list[Bar]) -> None:
         for index in range(0, len(session_bars), bars_per_chunk):
             chunk = session_bars[index : index + bars_per_chunk]
             complete = len(chunk) == bars_per_chunk
@@ -262,6 +258,19 @@ def aggregate_bars(bars: list[Bar], bars_per_chunk: int) -> list[Bar]:
                     volume=sum(bar.volume for bar in chunk),
                 )
             )
+
+    current_key: tuple[str, Any] | None = None
+    session_bars: list[Bar] = []
+    for bar in bars:
+        et_bar = bar.start_time.astimezone(ET)
+        key = (bar.symbol, et_bar.date())
+        if current_key is not None and key != current_key:
+            emit_session(session_bars)
+            session_bars = []
+        current_key = key
+        session_bars.append(bar)
+    if session_bars:
+        emit_session(session_bars)
     return produced
 
 

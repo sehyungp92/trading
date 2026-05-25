@@ -246,7 +246,7 @@ class StrategySettings:
     pdh_breakout_min_rvol: float = 0.0         # Min RVOL for PDH entries (0=use global)
     pdh_entry_window_end: time = time(15, 30)  # Extra PDH-specific entry cutoff
     pdh_avwap_cap_pct: float = 0.005           # Max AVWAP premium for PDH entries (0=disabled)
-    pdh_size_mult: float = 1.10                # Size multiplier for PDH entries
+    pdh_size_mult: float = 0.75                # Size multiplier for PDH entries
 
     # --- Phase 10: MFE Conviction Exit ---
     mfe_conviction_check_bars: int = 16        # Bar at which to check MFE (0=disabled)
@@ -276,7 +276,7 @@ class StrategySettings:
     entry_score_blocklist: tuple[str, ...] = ("COMBINED_BREAKOUT:5",)
     entry_score_size_mults: dict = field(default_factory=lambda: {"OR_BREAKOUT:5": 0.75, "COMBINED_BREAKOUT:7": 1.15, "PDH_BREAKOUT:6": 0.5})
     entry_detail_blocklist: tuple[str, ...] = ()
-    entry_detail_size_mults: dict = field(default_factory=lambda: {"OR_BREAKOUT:5:!bar_vol_surge": 0.45})
+    entry_detail_size_mults: dict = field(default_factory=lambda: {"OR_BREAKOUT:5:!bar_vol_surge": 0.55})
     sector_entry_blocklist: tuple[str, ...] = ()
     sector_entry_size_mults: dict = field(default_factory=dict)
 

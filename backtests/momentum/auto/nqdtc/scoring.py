@@ -2,11 +2,11 @@
 
 Components (BASE_WEIGHTS):
   returns       (22%): raw + largest-winner-robust log-scaled net return
-  pf            (16%): profit factor quality, 1.0 at PF=2.0
-  expectancy    (12%): average R per trade, 1.0 at +0.50R
-  frequency     (16%): trade count throughput, 1.0 at 200 trades
-  risk          (14%): drawdown + Calmar blend
-  exit_capture  (12%): winner MFE capture + TP1 conversion blend
+  pf            (12%): profit factor quality, 1.0 at PF=2.1
+  expectancy    (14%): average R per trade, 1.0 at +0.55R
+  frequency     (18%): trade count throughput, 1.0 at 155 trades
+  risk          (10%): drawdown + Calmar blend
+  exit_capture  (16%): winner MFE capture + TP1/TP2 conversion blend
   stability     ( 8%): Sharpe + Sortino blend
 
 Hard rejects (configurable per-phase): min_trades, max_dd_pct, min_pf,
@@ -16,8 +16,7 @@ max_largest_win_pnl_share.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -86,11 +85,11 @@ class NQDTCCompositeScore:
 
 BASE_WEIGHTS = {
     "returns": 0.22,
-    "pf": 0.16,
-    "expectancy": 0.12,
-    "frequency": 0.16,
-    "risk": 0.14,
-    "exit_capture": 0.12,
+    "pf": 0.12,
+    "expectancy": 0.14,
+    "frequency": 0.18,
+    "risk": 0.10,
+    "exit_capture": 0.16,
     "stability": 0.08,
 }
 
@@ -144,32 +143,33 @@ def composite_score(
             rejected=True, reject_reason=f"outlier_concentration ({metrics.largest_win_pnl_share:.1%})",
         )
 
-    # --- Components (round-2 calibrated scales) ---
+    # --- Components (round-3 calibrated scales) ---
 
     # Returns: blend raw return with largest-winner-robust return so a single
     # outsized trade cannot dominate the expected-return objective.
-    raw_return_c = _clip01(math.log(1 + max(metrics.net_return_pct, 0) / 100) / math.log(3.5))
-    robust_return_c = _clip01(math.log(1 + max(metrics.robust_net_return_pct, 0) / 100) / math.log(3.5))
+    raw_return_c = _clip01(math.log(1 + max(metrics.net_return_pct, 0) / 100) / math.log(4.0))
+    robust_return_c = _clip01(math.log(1 + max(metrics.robust_net_return_pct, 0) / 100) / math.log(3.2))
     returns_c = (0.60 * raw_return_c) + (0.40 * robust_return_c)
 
-    # Profit factor: 0 at PF=1.20, 1.0 at PF=2.0.
-    pf_c = _clip01((metrics.profit_factor - 1.20) / 0.80)
+    # Profit factor: 0 at PF=1.20, 1.0 at PF=2.10.
+    pf_c = _clip01((metrics.profit_factor - 1.20) / 0.90)
 
-    # Expectancy: 0 at +0.10R, 1.0 at +0.50R.
-    expectancy_c = _clip01((metrics.avg_r - 0.10) / 0.40)
+    # Expectancy: 0 at +0.10R, 1.0 at +0.55R.
+    expectancy_c = _clip01((metrics.avg_r - 0.10) / 0.45)
 
-    # Frequency: reward useful throughput without giving low-quality churn a pass.
-    frequency_c = _clip01((metrics.total_trades - 90.0) / 110.0)
+    # Frequency: baseline should stay in play while genuine extra fills matter.
+    frequency_c = _clip01((metrics.total_trades - 75.0) / 80.0)
 
     # Risk: combine drawdown containment and return-per-drawdown efficiency.
-    dd_c = _clip01(1 - metrics.max_dd_pct / 0.25)
-    calmar_c = _clip01(metrics.calmar / 10.0)
+    dd_c = _clip01(1 - metrics.max_dd_pct / 0.28)
+    calmar_c = _clip01(metrics.calmar / 9.0)
     risk_c = (0.50 * dd_c) + (0.50 * calmar_c)
 
     # Exit capture: the structural weakness is leaving winner MFE on the table.
-    capture_c = _clip01((metrics.capture_ratio - 0.30) / 0.30)
+    capture_c = _clip01((metrics.capture_ratio - 0.28) / 0.34)
     tp1_c = _clip01(metrics.tp1_hit_rate / 0.65)
-    exit_capture_c = (0.70 * capture_c) + (0.30 * tp1_c)
+    tp2_c = _clip01(metrics.tp2_hit_rate / 0.18)
+    exit_capture_c = (0.60 * capture_c) + (0.25 * tp1_c) + (0.15 * tp2_c)
 
     # Stability: keep a smaller reward for path quality after hard risk gates.
     sharpe_c = _clip01(metrics.sharpe / 2.0)

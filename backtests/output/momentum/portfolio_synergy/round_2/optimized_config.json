@@ -10,7 +10,7 @@
     "fit_to_remaining_heat": true,
     "heat_pressure_mult": 0.65,
     "heat_pressure_threshold": 0.65,
-    "max_trade_risk_R": 1.5,
+    "max_trade_risk_R": 2.0,
     "min_qty": 1,
     "min_trade_risk_R": 0.0,
     "same_direction_pressure_mult": 0.7,
@@ -35,9 +35,9 @@
     ]
   },
   "end_date": null,
-  "heat_cap_R": 6.75,
+  "heat_cap_R": 10.0,
   "initial_equity": 50000.0,
-  "max_total_positions": 7,
+  "max_total_positions": 8,
   "point_value": 2.0,
   "portfolio_daily_stop_R": 2.75,
   "portfolio_weekly_stop_R": 9.0,
@@ -63,15 +63,9 @@
       ]
     ],
     "directional_cap_R": 4.25,
-    "directional_cap_long_R": 4.25,
-    "directional_cap_short_R": 4.75,
+    "directional_cap_long_R": 10.0,
+    "directional_cap_short_R": 10.5,
     "disabled_strategies": [],
-    "dynamic_allocation_enabled": false,
-    "dynamic_lookback_trades": 60,
-    "dynamic_max_mult": 1.22,
-    "dynamic_min_mult": 0.65,
-    "dynamic_negative_expectancy_cut": 0.18,
-    "dynamic_positive_expectancy_boost": 0.1,
     "family_strategy_ids": [
       "NQ_REGIME",
       "VdubusNQ_v4",
@@ -79,10 +73,7 @@
       "DownturnDominator_v1"
     ],
     "initial_equity": 50000.0,
-    "max_family_contracts_mnq_eq": 24,
-    "max_single_strategy_trade_share": 1.0,
-    "max_symbol_heat_R": 0.0,
-    "max_total_active_positions": 0,
+    "max_family_contracts_mnq_eq": 40,
     "nqdtc_agree_size_mult": 1.25,
     "nqdtc_direction_filter_enabled": false,
     "nqdtc_oppose_size_mult": 0.5,
@@ -90,10 +81,7 @@
     "priority_headroom_R": 1.0,
     "priority_reserve_threshold": 1,
     "reference_unit_risk_dollars": 250.0,
-    "regime_unit_risk_long_mult": 1.0,
     "regime_unit_risk_mult": 1.0,
-    "regime_unit_risk_short_mult": 1.0,
-    "same_sector_heat_cap_R": 0.0,
     "strategy_priorities": [
       [
         "VdubusNQ_v4",
@@ -112,10 +100,8 @@
         1
       ]
     ],
-    "strategy_trade_share_min_total": 50,
     "symbol_collision_action": "none",
     "symbol_collision_pairs": [],
-    "symbol_sector_map": [],
     "vdubus_strategy_id": "VdubusNQ_v4"
   },
   "signal_filter_rules": [],
@@ -125,7 +111,7 @@
       "base_risk_pct": 0.006,
       "daily_stop_R": 3.0,
       "enabled": true,
-      "max_concurrent": 2,
+      "max_concurrent": 3,
       "max_contracts": 0,
       "priority": 0,
       "strategy_id": "NQ_REGIME"
@@ -134,7 +120,7 @@
       "base_risk_pct": 0.0065,
       "daily_stop_R": 2.5,
       "enabled": true,
-      "max_concurrent": 1,
+      "max_concurrent": 2,
       "max_contracts": 0,
       "priority": 0,
       "strategy_id": "VdubusNQ_v4"
@@ -143,7 +129,7 @@
       "base_risk_pct": 0.0045,
       "daily_stop_R": 2.5,
       "enabled": true,
-      "max_concurrent": 1,
+      "max_concurrent": 2,
       "max_contracts": 0,
       "priority": 1,
       "strategy_id": "NQDTC_v2.1"
@@ -152,7 +138,7 @@
       "base_risk_pct": 0.004,
       "daily_stop_R": 2.0,
       "enabled": true,
-      "max_concurrent": 1,
+      "max_concurrent": 2,
       "max_contracts": 0,
       "priority": 1,
       "strategy_id": "DownturnDominator_v1"

@@ -378,6 +378,22 @@ def coerce_intraday_state_snapshot(
             rsi14_daily=float(data.get("rsi14_daily", 0.0)),
             stopped_out_today=bool(data.get("stopped_out_today", False)),
             flush_bar_idx=int(data.get("flush_bar_idx", 0)),
+            ready_bar_idx=int(data.get("ready_bar_idx", -1)),
+            target_entry_price=float(data.get("target_entry_price", 0.0)),
+            improvement_expires=int(data.get("improvement_expires", 0)),
+            invalid_reason=str(data.get("invalid_reason", "")),
+            invalid_reset_bar=int(data.get("invalid_reset_bar", 0)),
+            ready_cpr=float(data.get("ready_cpr", 0.0)),
+            ready_volume_ratio=float(data.get("ready_volume_ratio", 0.0)),
+            ready_timestamp=_as_datetime(data.get("ready_timestamp")),
+            accepted_bar_idx=int(data.get("accepted_bar_idx", -1)),
+            accepted_timestamp=_as_datetime(data.get("accepted_timestamp")),
+            accepted_entry_price=float(data.get("accepted_entry_price", 0.0)),
+            accepted_entry_trigger=str(data.get("accepted_entry_trigger", "")),
+            accepted_route_family=str(data.get("accepted_route_family", "")),
+            accepted_score=float(data.get("accepted_score", 0.0)),
+            accepted_session_atr=float(data.get("accepted_session_atr", 0.0)),
+            accepted_score_components=dict(data.get("accepted_score_components", {})),
         )
 
     symbols = []

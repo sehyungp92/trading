@@ -14,10 +14,11 @@ def assess_goal_progress(metrics: VdubusMetrics) -> dict[str, dict]:
     """Assess progress toward ultimate targets."""
     progress: dict[str, dict] = {}
     mapping = {
-        "net_return_pct": metrics.net_return_pct,
         "profit_factor": metrics.profit_factor,
         "max_dd_pct": metrics.max_dd_pct,
-        "calmar": metrics.calmar,
+        "max_r_drawdown": metrics.max_r_drawdown,
+        "r_calmar": metrics.r_calmar,
+        "r_per_month": metrics.r_per_month,
         "total_trades": float(metrics.total_trades),
         "capture_ratio": metrics.capture_ratio,
         "sharpe": metrics.sharpe,
@@ -26,8 +27,8 @@ def assess_goal_progress(metrics: VdubusMetrics) -> dict[str, dict]:
         target = ULTIMATE_TARGETS.get(key, 0.0)
         if target == 0:
             continue
-        # For max_dd_pct, lower is better
-        if key == "max_dd_pct":
+        # For drawdown metrics, lower is better.
+        if key in {"max_dd_pct", "max_r_drawdown"}:
             pct = (1 - actual / target) * 100 if target > 0 else 0
             met = actual <= target
         else:
@@ -68,10 +69,15 @@ def identify_strengths_weaknesses(metrics: VdubusMetrics) -> tuple[list[str], li
     if metrics.fast_death_pct > 0.20:
         weaknesses.append(f"Many fast deaths ({metrics.fast_death_pct:.1%})")
 
-    if metrics.calmar >= 15.0:
-        strengths.append(f"Excellent calmar ({metrics.calmar:.1f})")
-    elif metrics.calmar < 8.0:
-        weaknesses.append(f"Low calmar ({metrics.calmar:.1f})")
+    if metrics.r_per_month >= 2.5:
+        strengths.append(f"Strong R throughput ({metrics.r_per_month:.2f} R/month)")
+    elif metrics.r_per_month < 1.5:
+        weaknesses.append(f"Low R throughput ({metrics.r_per_month:.2f} R/month)")
+
+    if metrics.r_calmar >= 5.0:
+        strengths.append(f"Strong R-Calmar ({metrics.r_calmar:.1f})")
+    elif metrics.r_calmar < 3.0:
+        weaknesses.append(f"Low R-Calmar ({metrics.r_calmar:.1f})")
 
     if metrics.sharpe >= 2.0:
         strengths.append(f"Strong sharpe ({metrics.sharpe:.2f})")

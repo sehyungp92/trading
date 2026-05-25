@@ -2,8 +2,10 @@
 import json
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
-from typing import AsyncIterator
+from dataclasses import replace
+from datetime import date, datetime, timezone
+from decimal import Decimal
+from typing import Any, AsyncIterator
 from typing import Optional
 
 from ..models.fill import Fill
@@ -19,6 +21,14 @@ from ..models.order import (
     RiskContext,
 )
 from ..models.position import Position
+from .schema import (
+    AdapterStateRow,
+    RiskDailyPortfolioRow,
+    RiskDailyStrategyRow,
+    StrategyStateRow,
+    TradeMarksRow,
+    TradeRow,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +43,13 @@ class InMemoryRepository:
         self._events: list[dict] = []
         self._fills: dict[str, Fill] = {}
         self._positions: dict[tuple[str, str, str], Position] = {}  # (strategy, account, symbol)
+        self._risk_daily_strategy: dict[tuple[date, str], RiskDailyStrategyRow] = {}
+        self._risk_daily_portfolio: dict[tuple[date, str], RiskDailyPortfolioRow] = {}
+        self._trades: dict[str, TradeRow] = {}
+        self._trade_marks: dict[str, TradeMarksRow] = {}
+        self._strategy_state: dict[str, StrategyStateRow] = {}
+        self._adapter_state: dict[str, AdapterStateRow] = {}
+        self._strategy_signals: dict[str, dict[str, Any]] = {}
 
     @asynccontextmanager
     async def transaction(self, conn=None) -> AsyncIterator[None]:
@@ -94,6 +111,15 @@ class InMemoryRepository:
         """Look up oms_order_id by client_order_id for idempotency."""
         for order in self._orders.values():
             if order.strategy_id == strategy_id and order.client_order_id == client_order_id:
+                return order.oms_order_id
+        return None
+
+    async def get_order_id_by_broker_order_id(
+        self, broker_order_id: int
+    ) -> Optional[str]:
+        """Resolve an OMS order ID from a persisted broker order ID."""
+        for order in self._orders.values():
+            if str(order.broker_order_id or "") == str(broker_order_id):
                 return order.oms_order_id
         return None
 
@@ -174,3 +200,503 @@ class InMemoryRepository:
     async def get_all_positions(self) -> list[Position]:
         """Get all positions across all strategies."""
         return list(self._positions.values())
+
+    async def get_positions_for_strategies(
+        self, strategy_ids: list[str],
+    ) -> list[Position]:
+        """Get positions for specific strategies only (family-scoped)."""
+        ids = set(strategy_ids or [])
+        if not ids:
+            return []
+        return [pos for pos in self._positions.values() if pos.strategy_id in ids]
+
+    async def get_pending_entry_risk_R_for_strategies(
+        self,
+        strategy_ids: list[str],
+        unit_risk_dollars: float,
+    ) -> float:
+        """Sum working ENTRY risk-R for a strategy family."""
+        if not strategy_ids or unit_risk_dollars <= 0:
+            return 0.0
+        risk = self._pending_entry_risk_dollars(strategy_ids=set(strategy_ids))
+        return risk / unit_risk_dollars
+
+    async def get_directional_risk_R(self, direction: str) -> float:
+        """Sum open risk R for all positions in a given direction."""
+        return self._open_position_risk_R(direction=direction)
+
+    async def get_directional_risk_R_for_strategies(
+        self,
+        direction: str,
+        strategy_ids: list[str],
+    ) -> float:
+        """Sum open risk R for a direction, filtered to strategy IDs."""
+        if not strategy_ids:
+            return 0.0
+        return self._open_position_risk_R(direction=direction, strategy_ids=set(strategy_ids))
+
+    async def get_directional_risk_dollars_for_strategies(
+        self,
+        direction: str,
+        strategy_ids: list[str],
+    ) -> float:
+        """Sum active risk dollars in a direction, including pending entries."""
+        if not strategy_ids:
+            return 0.0
+        ids = set(strategy_ids)
+        return (
+            self._open_position_risk_dollars(direction=direction, strategy_ids=ids)
+            + self._pending_entry_risk_dollars(direction=direction, strategy_ids=ids)
+        )
+
+    async def get_sibling_positions_for_symbol(
+        self,
+        strategy_ids: list[str],
+        symbol: str,
+    ) -> bool:
+        """Check if any sibling strategy holds an open position in the given symbol."""
+        ids = set(strategy_ids or [])
+        return any(
+            pos.strategy_id in ids
+            and pos.instrument_symbol == symbol
+            and pos.net_qty != 0
+            for pos in self._positions.values()
+        )
+
+    async def get_open_position_count_for_strategies(
+        self,
+        strategy_ids: list[str],
+    ) -> int:
+        """Count family open positions plus pending entry orders."""
+        if not strategy_ids:
+            return 0
+        ids = set(strategy_ids)
+        open_positions = sum(
+            1
+            for pos in self._positions.values()
+            if pos.strategy_id in ids and pos.net_qty != 0
+        )
+        pending_entries = sum(
+            1
+            for order in self._orders.values()
+            if order.strategy_id in ids
+            and order.role == OrderRole.ENTRY
+            and order.status in self._working_statuses()
+        )
+        return open_positions + pending_entries
+
+    async def get_symbol_open_risk_dollars_for_strategies(
+        self,
+        strategy_ids: list[str],
+        symbol: str,
+    ) -> float:
+        """Sum open risk dollars for one symbol within a strategy family."""
+        if not strategy_ids or not symbol:
+            return 0.0
+        ids = set(strategy_ids)
+        return sum(
+            float(pos.open_risk_dollars or 0.0)
+            for pos in self._positions.values()
+            if pos.strategy_id in ids
+            and pos.instrument_symbol == symbol
+            and pos.net_qty != 0
+        )
+
+    async def get_symbols_open_risk_dollars_for_strategies(
+        self,
+        strategy_ids: list[str],
+        symbols: list[str],
+    ) -> float:
+        """Sum open risk dollars for a set of symbols within a strategy family."""
+        if not strategy_ids or not symbols:
+            return 0.0
+        ids = set(strategy_ids)
+        symbol_set = set(symbols)
+        return sum(
+            float(pos.open_risk_dollars or 0.0)
+            for pos in self._positions.values()
+            if pos.strategy_id in ids
+            and pos.instrument_symbol in symbol_set
+            and pos.net_qty != 0
+        )
+
+    async def get_active_risk_dollars_for_strategies(
+        self,
+        strategy_ids: list[str],
+    ) -> float:
+        """Sum open position risk plus pending entry risk for a family."""
+        if not strategy_ids:
+            return 0.0
+        ids = set(strategy_ids)
+        return (
+            self._open_position_risk_dollars(strategy_ids=ids)
+            + self._pending_entry_risk_dollars(strategy_ids=ids)
+        )
+
+    async def get_completed_trade_counts_for_strategies(
+        self,
+        strategy_ids: list[str],
+    ) -> dict[str, int]:
+        """Count completed trades per strategy for family balance rules."""
+        ids = set(strategy_ids or [])
+        counts: dict[str, int] = {}
+        for trade in self._trades.values():
+            if trade.strategy_id in ids and trade.exit_ts is not None:
+                counts[trade.strategy_id] = counts.get(trade.strategy_id, 0) + 1
+        return counts
+
+    async def get_recent_strategy_r_multiples(
+        self,
+        strategy_id: str,
+        limit: int,
+    ) -> list[float]:
+        """Most recent completed trade R values for live dynamic allocation."""
+        if not strategy_id or limit <= 0:
+            return []
+        rows = [
+            trade
+            for trade in self._trades.values()
+            if trade.strategy_id == strategy_id
+            and trade.exit_ts is not None
+            and trade.realized_r is not None
+        ]
+        rows.sort(key=lambda trade: trade.exit_ts or datetime.min, reverse=True)
+        return [float(trade.realized_r) for trade in rows[:limit]]
+
+    async def get_family_aggregate_mnq_eq(self, strategy_ids: list[str]) -> int:
+        """Sum open and pending contracts, converting NQ to 10x MNQ-eq."""
+        if not strategy_ids:
+            return 0
+        ids = set(strategy_ids)
+        total = 0
+        for pos in self._positions.values():
+            if pos.strategy_id in ids and pos.net_qty != 0:
+                qty = int(abs(pos.net_qty))
+                total += qty * 10 if pos.instrument_symbol == "NQ" else qty
+        for order in self._orders.values():
+            if (
+                order.strategy_id in ids
+                and order.role == OrderRole.ENTRY
+                and order.status in self._working_statuses()
+            ):
+                qty = int(order.remaining_qty if order.remaining_qty > 0 else order.qty)
+                symbol = self._order_symbol(order)
+                total += qty * 10 if symbol == "NQ" else qty
+        return total
+
+    async def upsert_strategy_signal(
+        self,
+        strategy_id: str,
+        direction: str,
+        entry_ts: datetime,
+    ) -> None:
+        """Record a strategy's latest entry direction and time."""
+        today = entry_ts.date()
+        existing = self._strategy_signals.get(strategy_id)
+        same_day_count = (
+            int(existing.get("daily_entry_count", 0))
+            if existing and existing.get("signal_date") == today
+            else 0
+        )
+        self._strategy_signals[strategy_id] = {
+            "strategy_id": strategy_id,
+            "last_entry_ts": entry_ts,
+            "last_direction": direction,
+            "daily_entry_count": same_day_count + 1,
+            "signal_date": today,
+            "chop_score": int(existing.get("chop_score", 0)) if existing else 0,
+        }
+
+    async def update_chop_score(self, strategy_id: str, chop_score: int) -> None:
+        """Update NQDTC chop score for cross-strategy throttling."""
+        existing = self._strategy_signals.get(strategy_id)
+        if existing is not None:
+            existing["chop_score"] = int(chop_score)
+
+    async def get_strategy_signal(self, strategy_id: str) -> Optional[dict]:
+        """Get a strategy's latest signal."""
+        signal = self._strategy_signals.get(strategy_id)
+        return dict(signal) if signal is not None else None
+
+    async def get_all_strategy_signals(self) -> list[dict]:
+        """Get all strategy signals for cross-strategy checks."""
+        return [dict(signal) for signal in self._strategy_signals.values()]
+
+    async def upsert_risk_daily_strategy(self, row: RiskDailyStrategyRow) -> None:
+        self._risk_daily_strategy[(row.trade_date, row.strategy_id)] = row
+
+    async def get_risk_daily_strategy(
+        self,
+        strategy_id: str,
+        trade_date: date,
+    ) -> Optional[RiskDailyStrategyRow]:
+        return self._risk_daily_strategy.get((trade_date, strategy_id))
+
+    async def get_risk_daily_strategies_for_date(
+        self,
+        trade_date: date,
+        strategy_ids: list[str] | None = None,
+    ) -> list[RiskDailyStrategyRow]:
+        ids = set(strategy_ids or [])
+        rows = [
+            row
+            for (row_date, strategy_id), row in self._risk_daily_strategy.items()
+            if row_date == trade_date and (not ids or strategy_id in ids)
+        ]
+        return sorted(rows, key=lambda row: row.strategy_id)
+
+    async def get_risk_daily_strategy_totals(
+        self,
+        start_date: date,
+        end_date: date,
+        strategy_ids: list[str] | None = None,
+    ) -> dict[str, Decimal]:
+        ids = set(strategy_ids or [])
+        rows = [
+            row
+            for (row_date, strategy_id), row in self._risk_daily_strategy.items()
+            if start_date <= row_date <= end_date and (not ids or strategy_id in ids)
+        ]
+        return {
+            "total_r": sum((row.daily_realized_r for row in rows), Decimal("0")),
+            "total_usd": sum(
+                ((row.daily_realized_usd or Decimal("0")) for row in rows),
+                Decimal("0"),
+            ),
+        }
+
+    async def halt_strategy(
+        self,
+        strategy_id: str,
+        reason: str,
+        trade_date: date,
+    ) -> None:
+        key = (trade_date, strategy_id)
+        row = self._risk_daily_strategy.get(key)
+        if row is not None:
+            self._risk_daily_strategy[key] = replace(
+                row,
+                halted=True,
+                halt_reason=reason,
+                last_update_at=datetime.now(timezone.utc),
+            )
+
+    async def upsert_risk_daily_portfolio(self, row: RiskDailyPortfolioRow) -> None:
+        self._risk_daily_portfolio[(row.trade_date, row.family_id)] = row
+
+    async def get_risk_daily_portfolio(
+        self,
+        trade_date: date,
+        family_id: str = "unknown",
+    ) -> Optional[RiskDailyPortfolioRow]:
+        return self._risk_daily_portfolio.get((trade_date, family_id))
+
+    async def halt_portfolio(
+        self,
+        reason: str,
+        trade_date: date,
+        family_id: str = "unknown",
+    ) -> None:
+        key = (trade_date, family_id)
+        row = self._risk_daily_portfolio.get(key)
+        if row is not None:
+            self._risk_daily_portfolio[key] = replace(
+                row,
+                halted=True,
+                halt_reason=reason,
+                last_update_at=datetime.now(timezone.utc),
+            )
+
+    async def save_trade(self, row: TradeRow) -> None:
+        existing = self._trades.get(row.trade_id)
+        if existing is None:
+            self._trades[row.trade_id] = row
+            return
+        self._trades[row.trade_id] = replace(
+            existing,
+            exit_ts=row.exit_ts,
+            exit_price=row.exit_price,
+            realized_r=row.realized_r,
+            realized_usd=row.realized_usd,
+            exit_reason=row.exit_reason,
+            notes=row.notes,
+            meta_json=row.meta_json,
+        )
+
+    async def get_trades_since(self, since: datetime) -> list[TradeRow]:
+        rows = [trade for trade in self._trades.values() if trade.entry_ts >= since]
+        return sorted(rows, key=lambda trade: trade.entry_ts)
+
+    async def get_open_trades(self) -> list[TradeRow]:
+        rows = [trade for trade in self._trades.values() if trade.exit_ts is None]
+        return sorted(rows, key=lambda trade: trade.entry_ts)
+
+    async def save_trade_marks(self, row: TradeMarksRow) -> None:
+        self._trade_marks[row.trade_id] = row
+
+    async def upsert_strategy_state(self, row: StrategyStateRow) -> None:
+        existing = self._strategy_state.get(row.strategy_id)
+        if existing is None:
+            self._strategy_state[row.strategy_id] = row
+            return
+        decision_code = row.last_decision_code or existing.last_decision_code
+        details_json = row.last_decision_details_json
+        if not row.last_decision_code and details_json == "{}":
+            details_json = existing.last_decision_details_json
+        self._strategy_state[row.strategy_id] = replace(
+            existing,
+            instance_id=row.instance_id,
+            last_heartbeat_ts=row.last_heartbeat_ts,
+            mode=row.mode,
+            stand_down_reason=row.stand_down_reason,
+            last_decision_code=decision_code,
+            last_decision_details_json=details_json,
+            last_error_ts=row.last_error_ts,
+            last_error=row.last_error,
+            last_seen_bar_ts=row.last_seen_bar_ts,
+            heat_r=row.heat_r,
+            daily_pnl_r=row.daily_pnl_r,
+        )
+
+    async def record_strategy_decision(
+        self,
+        strategy_id: str,
+        decision_code: str,
+        details: Optional[dict] = None,
+        last_seen_bar_ts: Optional[datetime] = None,
+    ) -> None:
+        if not decision_code:
+            return
+        existing = self._strategy_state.get(strategy_id)
+        row = StrategyStateRow(
+            strategy_id=strategy_id,
+            instance_id=existing.instance_id if existing else "primary",
+            last_heartbeat_ts=existing.last_heartbeat_ts if existing else datetime.now(timezone.utc),
+            mode=existing.mode if existing else "RUNNING",
+            stand_down_reason=existing.stand_down_reason if existing else None,
+            last_decision_code=decision_code,
+            last_decision_details_json=json.dumps(details or {}, default=str),
+            last_error_ts=existing.last_error_ts if existing else None,
+            last_error=existing.last_error if existing else None,
+            last_seen_bar_ts=last_seen_bar_ts or (existing.last_seen_bar_ts if existing else None),
+            heat_r=existing.heat_r if existing else Decimal("0"),
+            daily_pnl_r=existing.daily_pnl_r if existing else Decimal("0"),
+        )
+        self._strategy_state[strategy_id] = row
+
+    async def get_strategy_states(self) -> list[StrategyStateRow]:
+        return list(self._strategy_state.values())
+
+    async def upsert_adapter_state(self, row: AdapterStateRow) -> None:
+        self._adapter_state[row.adapter_id] = row
+
+    async def record_adapter_disconnect(
+        self,
+        adapter_id: str,
+        error_code: str = None,
+        error_msg: str = None,
+    ) -> None:
+        row = self._adapter_state.get(adapter_id)
+        if row is not None:
+            self._adapter_state[adapter_id] = replace(
+                row,
+                connected=False,
+                last_disconnect_ts=datetime.now(timezone.utc),
+                disconnect_count_24h=row.disconnect_count_24h + 1,
+                last_error_code=error_code or row.last_error_code,
+                last_error_message=error_msg or row.last_error_message,
+            )
+
+    async def record_adapter_connect(self, adapter_id: str) -> None:
+        row = self._adapter_state.get(adapter_id)
+        if row is not None:
+            self._adapter_state[adapter_id] = replace(
+                row,
+                connected=True,
+                last_heartbeat_ts=datetime.now(timezone.utc),
+            )
+
+    @staticmethod
+    def _working_statuses() -> set[OrderStatus]:
+        return {
+            OrderStatus.RISK_APPROVED,
+            OrderStatus.ROUTED,
+            OrderStatus.ACKED,
+            OrderStatus.WORKING,
+            OrderStatus.PARTIALLY_FILLED,
+        }
+
+    @staticmethod
+    def _direction_matches_qty(net_qty: float, direction: str | None) -> bool:
+        if direction is None:
+            return True
+        direction_upper = direction.upper()
+        if direction_upper == "LONG":
+            return net_qty > 0
+        return net_qty < 0
+
+    @staticmethod
+    def _direction_matches_side(side: OrderSide, direction: str | None) -> bool:
+        if direction is None:
+            return True
+        return side == (OrderSide.BUY if direction.upper() == "LONG" else OrderSide.SELL)
+
+    @staticmethod
+    def _order_symbol(order: OMSOrder) -> str:
+        return order.instrument.symbol if order.instrument else ""
+
+    @staticmethod
+    def _risk_context_value(risk_context: RiskContext | dict | None, key: str) -> float:
+        if risk_context is None:
+            return 0.0
+        if isinstance(risk_context, dict):
+            return float(risk_context.get(key, 0.0) or 0.0)
+        return float(getattr(risk_context, key, 0.0) or 0.0)
+
+    def _open_position_risk_R(
+        self,
+        *,
+        direction: str | None = None,
+        strategy_ids: set[str] | None = None,
+    ) -> float:
+        return sum(
+            float(pos.open_risk_R or 0.0)
+            for pos in self._positions.values()
+            if pos.net_qty != 0
+            and (strategy_ids is None or pos.strategy_id in strategy_ids)
+            and self._direction_matches_qty(pos.net_qty, direction)
+        )
+
+    def _open_position_risk_dollars(
+        self,
+        *,
+        direction: str | None = None,
+        strategy_ids: set[str] | None = None,
+    ) -> float:
+        return sum(
+            float(pos.open_risk_dollars or 0.0)
+            for pos in self._positions.values()
+            if pos.net_qty != 0
+            and (strategy_ids is None or pos.strategy_id in strategy_ids)
+            and self._direction_matches_qty(pos.net_qty, direction)
+        )
+
+    def _pending_entry_risk_dollars(
+        self,
+        *,
+        direction: str | None = None,
+        strategy_ids: set[str] | None = None,
+    ) -> float:
+        total = 0.0
+        for order in self._orders.values():
+            if order.role != OrderRole.ENTRY or order.status not in self._working_statuses():
+                continue
+            if strategy_ids is not None and order.strategy_id not in strategy_ids:
+                continue
+            if not self._direction_matches_side(order.side, direction):
+                continue
+            risk = self._risk_context_value(order.risk_context, "risk_dollars")
+            if order.qty > 0 and order.remaining_qty > 0:
+                risk *= order.remaining_qty / order.qty
+            total += risk
+        return total

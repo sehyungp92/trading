@@ -4,9 +4,9 @@
   "strategy_name": "alcb",
   "round": 2,
   "description": "alcb",
-  "generated_at_utc": "2026-04-29T22:53:21.569308+00:00",
+  "generated_at_utc": "2026-05-23T21:46:42.923856+00:00",
   "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_1\\optimized_config.json",
-  "baseline_mutation_count": 29,
+  "baseline_mutation_count": 35,
   "baseline_mutations": {
     "ablation.use_adaptive_trail": true,
     "ablation.use_combined_quality_gate": true,
@@ -27,16 +27,160 @@
     "param_overrides.flow_reversal_min_hold_bars": 12,
     "param_overrides.fr_cpr_threshold": 0.3,
     "param_overrides.fr_mfe_grace_r": 0.2,
-    "param_overrides.fr_trailing_activate_r": 0,
+    "param_overrides.fr_trailing_activate_r": 0.0,
     "param_overrides.mfe_conviction_check_bars": 16,
     "param_overrides.mfe_conviction_floor_r": -0.15,
     "param_overrides.mfe_conviction_min_r": 0.2,
     "param_overrides.opening_range_bars": 6,
     "param_overrides.or_width_min_pct": 0.0015,
-    "param_overrides.regime_mult_b": 0.7,
-    "param_overrides.rvol_threshold": 2,
     "param_overrides.pdh_avwap_cap_pct": 0.005,
-    "param_overrides.pdh_size_mult": 0.75
+    "param_overrides.pdh_size_mult": 0.75,
+    "param_overrides.regime_mult_b": 0.7,
+    "param_overrides.rvol_threshold": 2.0,
+    "param_overrides.entry_detail_size_mults": {
+      "OR_BREAKOUT:5:!bar_vol_surge": 0.65,
+      "*:5:!adx_trending": 0.85
+    },
+    "param_overrides.entry_score_size_mults": {
+      "OR_BREAKOUT:5": 0.7,
+      "COMBINED_BREAKOUT:7": 1.15,
+      "PDH_BREAKOUT:6": 0.65
+    },
+    "param_overrides.failure_stop_bars": 10,
+    "param_overrides.failure_stop_mfe_max_r": 0.2,
+    "param_overrides.failure_stop_current_r_max": 0.0,
+    "param_overrides.failure_stop_to_r": -0.25
   },
-  "scoring_weights": {}
+  "scoring_weights": {},
+  "execution_context": {
+    "data_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\stock\\data\\raw",
+    "initial_equity": 10000.0,
+    "start_date": "2024-01-01",
+    "end_date": "2026-03-01",
+    "max_workers": 1
+  },
+  "provenance": {
+    "schema_version": 1,
+    "selection_fingerprint": "039ca8aae69a9d9214c252642ebb4cedb65ac14667d21f40de0ba85ab3c0e8ec",
+    "diagnostics_fingerprint": "039ca8aae69a9d9214c252642ebb4cedb65ac14667d21f40de0ba85ab3c0e8ec",
+    "items": [
+      {
+        "name": "data_dir",
+        "kind": "tree_contents",
+        "fingerprint": "3e7834170767b1c4a57550d5241863253af0fde2317d2a6893e3735dda63779c",
+        "paths": [
+          "backtests/stock/data/raw"
+        ],
+        "scope": "data",
+        "notes": "Content fingerprint for selection-relevant replay data files."
+      },
+      {
+        "name": "code:backtests/stock/auto/config_mutator.py",
+        "kind": "file_contents",
+        "fingerprint": "aeda4efdc185062e2a1531df4254fbc58d5564cb798e12e57fd8465118da39c2",
+        "paths": [
+          "backtests/stock/auto/config_mutator.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/stock/config_alcb.py",
+        "kind": "file_contents",
+        "fingerprint": "7c183316397cc568f7b737832bdeff2c5426d26743cce93d410755fbf5c29a92",
+        "paths": [
+          "backtests/stock/config_alcb.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/stock/data/replay_cache.py",
+        "kind": "file_contents",
+        "fingerprint": "a22a7f855ed5f31aa4447f2a54c1599f21dd0c35c3608a80316bc680bd304cdd",
+        "paths": [
+          "backtests/stock/data/replay_cache.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/stock/engine/alcb_engine.py",
+        "kind": "file_contents",
+        "fingerprint": "0027f3f47ab7a2fafe0512c312fae0a7bee2932c62f19f876ffca830f7786268",
+        "paths": [
+          "backtests/stock/engine/alcb_engine.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:strategies/stock/alcb/artifact_store.py",
+        "kind": "file_contents",
+        "fingerprint": "97cbde7c3fd4a687ad517ccc85340aa5346d3fd662d03ff1773af32d6830982d",
+        "paths": [
+          "strategies/stock/alcb/artifact_store.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:strategies/stock/alcb/core/logic.py",
+        "kind": "file_contents",
+        "fingerprint": "17ed09f67c2baf96931d2d91c6a071e9cb061612833f323d230952d07e5a5dc3",
+        "paths": [
+          "strategies/stock/alcb/core/logic.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "plugin",
+        "kind": "plugin_identity",
+        "fingerprint": "4f08ee9bf7412b26340bb23d9e1d74ffdeb578ae432f14f615e1a7574d201d84",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "selection_context",
+        "kind": "stable_json",
+        "fingerprint": "1bd06866fefdad72a3947437eedc03ab8ca90776e40e0249399150fd2897cff8",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:backtests/stock/auto/alcb",
+        "kind": "tree_contents",
+        "fingerprint": "205bef7d54a504b931e29f9ea60a208644a06ee1d500cc25f91af4a388c0469b",
+        "paths": [
+          "backtests/stock/auto/alcb"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:strategies/stock/alcb",
+        "kind": "tree_contents",
+        "fingerprint": "d71d20ae54d843bbe48ef63086ada1df9dc7ddb34bb037a4c549daac22157889",
+        "paths": [
+          "strategies/stock/alcb"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "shared_auto_package",
+        "kind": "tree_contents",
+        "fingerprint": "b58cff0ef3381b09a3e6abcacca3dbbcc093afc7c8583a6e34c39a8886dd6f3c",
+        "paths": [
+          "backtests/shared/auto"
+        ],
+        "scope": "selection",
+        "notes": ""
+      }
+    ]
+  },
+  "provenance_status": "complete"
 }

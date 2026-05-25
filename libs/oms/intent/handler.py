@@ -11,7 +11,7 @@ from libs.market_data.futures_roll import (
     with_contract_expiry_for_order,
 )
 
-from ..models.intent import Intent, IntentType, IntentReceipt, IntentResult
+from ..models.intent import Intent, IntentType, IntentReceipt, IntentResult, PreapprovedFamilyDecision
 from ..models.order import OMSOrder, OrderRole, OrderStatus
 from ..engine.state_machine import transition
 
@@ -71,6 +71,8 @@ class IntentHandler:
 
         if intent.intent_type == IntentType.NEW_ORDER:
             return await self._handle_new_order(intent, intent_id)
+        elif intent.intent_type == IntentType.PREAPPROVED_ORDER:
+            return await self._handle_new_order(intent, intent_id, preapproved=True)
         elif intent.intent_type == IntentType.CANCEL_ORDER:
             return await self._handle_cancel(intent, intent_id)
         elif intent.intent_type == IntentType.REPLACE_ORDER:
@@ -83,13 +85,22 @@ class IntentHandler:
             )
 
     async def _handle_new_order(
-        self, intent: Intent, intent_id: str
+        self, intent: Intent, intent_id: str, *, preapproved: bool = False
     ) -> IntentReceipt:
         order = intent.order
         if not order:
             return IntentReceipt(
                 IntentResult.DENIED, intent_id, denial_reason="No order in intent"
             )
+        if preapproved:
+            denial = self._validate_preapproved_family_decision(
+                intent.preapproved_family_decision,
+                order,
+            )
+            if denial:
+                return IntentReceipt(
+                    IntentResult.DENIED, intent_id, denial_reason=denial
+                )
 
         # OMS-7: stamp the configured account_id on orders that didn't set
         # one. Swing+momentum builders historically left this blank, so DB
@@ -201,10 +212,13 @@ class IntentHandler:
             )
 
         async def _risk_check_and_route():
-            denial = await self._risk.check_entry(
-                order,
-                skip_account_gate=order.role == OrderRole.ENTRY,
-            )
+            if preapproved:
+                denial = await self._risk.check_preapproved_entry(order)
+            else:
+                denial = await self._risk.check_entry(
+                    order,
+                    skip_account_gate=order.role == OrderRole.ENTRY,
+                )
             if denial:
                 _rollback_idempotency()
                 order.status = OrderStatus.REJECTED
@@ -218,7 +232,8 @@ class IntentHandler:
                     IntentResult.DENIED, intent_id, denial_reason=denial
                 )
 
-            _apply_portfolio_multiplier()
+            if not preapproved:
+                _apply_portfolio_multiplier()
 
             # Approve and persist
             if order.role == OrderRole.ENTRY:
@@ -271,6 +286,47 @@ class IntentHandler:
         return IntentReceipt(
             IntentResult.ACCEPTED, intent_id, oms_order_id=order.oms_order_id
         )
+
+    @staticmethod
+    def _validate_preapproved_family_decision(
+        decision: PreapprovedFamilyDecision | None,
+        order: OMSOrder,
+    ) -> str | None:
+        if decision is None:
+            return "PREAPPROVED_ORDER requires preapproved_family_decision"
+        status = str(decision.status).lower()
+        if status not in {"accepted", "reduced"}:
+            return f"Invalid preapproved family decision status: {decision.status}"
+        if not decision.candidate_key:
+            return "Preapproved family decision missing candidate_key"
+        if not decision.family_surface:
+            return "Preapproved family decision missing family_surface"
+        if decision.original_qty <= 0:
+            return "Preapproved family decision original_qty must be > 0"
+        if decision.approved_qty <= 0:
+            return "Preapproved family decision approved_qty must be > 0"
+        if decision.approved_qty > decision.original_qty:
+            return "Preapproved family decision approved_qty exceeds original_qty"
+        if status == "accepted" and decision.approved_qty != decision.original_qty:
+            return "Accepted preapproved decision must preserve quantity"
+        if status == "reduced" and decision.approved_qty >= decision.original_qty:
+            return "Reduced preapproved decision must reduce quantity"
+        if order.role != OrderRole.ENTRY:
+            return "PREAPPROVED_ORDER is only valid for ENTRY orders"
+        symbol = order.instrument.symbol if order.instrument is not None else ""
+        if str(order.strategy_id) != str(decision.strategy_id):
+            return "Preapproved family decision strategy_id mismatch"
+        if str(symbol).upper() != str(decision.symbol).upper():
+            return "Preapproved family decision symbol mismatch"
+        if str(order.side.value).upper() != str(decision.side).upper():
+            return "Preapproved family decision side mismatch"
+        if str(order.role.value).upper() != str(decision.role).upper():
+            return "Preapproved family decision role mismatch"
+        if int(order.qty) != int(decision.approved_qty):
+            return "Preapproved family decision approved_qty mismatch"
+        if decision.sequence <= 0:
+            return "Preapproved family decision sequence must be > 0"
+        return None
 
     async def _handle_cancel(self, intent: Intent, intent_id: str) -> IntentReceipt:
         """Cancel a working order."""

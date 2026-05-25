@@ -12,7 +12,7 @@
       "fit_to_remaining_heat": true,
       "heat_pressure_mult": 0.65,
       "heat_pressure_threshold": 0.65,
-      "max_trade_risk_R": 1.5,
+      "max_trade_risk_R": 2.0,
       "min_qty": 1,
       "min_trade_risk_R": 0.0,
       "same_direction_pressure_mult": 0.7,
@@ -37,9 +37,9 @@
       ]
     },
     "end_date": null,
-    "heat_cap_R": 6.75,
+    "heat_cap_R": 10.0,
     "initial_equity": 50000.0,
-    "max_total_positions": 7,
+    "max_total_positions": 8,
     "point_value": 2.0,
     "portfolio_daily_stop_R": 2.75,
     "portfolio_weekly_stop_R": 9.0,
@@ -65,8 +65,8 @@
         ]
       ],
       "directional_cap_R": 4.25,
-      "directional_cap_long_R": 4.25,
-      "directional_cap_short_R": 4.75,
+      "directional_cap_long_R": 10.0,
+      "directional_cap_short_R": 10.5,
       "disabled_strategies": [],
       "dynamic_allocation_enabled": false,
       "dynamic_lookback_trades": 60,
@@ -74,27 +74,41 @@
       "dynamic_min_mult": 0.65,
       "dynamic_negative_expectancy_cut": 0.18,
       "dynamic_positive_expectancy_boost": 0.1,
+      "existing_position_mult": 1.0,
       "family_strategy_ids": [
         "NQ_REGIME",
         "VdubusNQ_v4",
         "NQDTC_v2.1",
         "DownturnDominator_v1"
       ],
+      "fit_to_remaining_directional_cap": false,
+      "fit_to_remaining_family_cap": false,
+      "fit_to_remaining_heat": false,
+      "heat_pressure_mult": 1.0,
+      "heat_pressure_threshold": 1.0,
       "initial_equity": 50000.0,
-      "max_family_contracts_mnq_eq": 24,
+      "max_family_contracts_mnq_eq": 40,
       "max_single_strategy_trade_share": 1.0,
+      "max_strategy_active_positions": [],
+      "max_strategy_heat_R": [],
       "max_symbol_heat_R": 0.0,
       "max_total_active_positions": 0,
+      "max_trade_risk_R": 0.0,
+      "min_qty": 1,
       "nqdtc_agree_size_mult": 1.25,
       "nqdtc_direction_filter_enabled": false,
       "nqdtc_oppose_size_mult": 0.5,
       "nqdtc_strategy_id": "NQDTC_v2.1",
+      "portfolio_heat_cap_R": 0.0,
       "priority_headroom_R": 1.0,
       "priority_reserve_threshold": 1,
       "reference_unit_risk_dollars": 250.0,
+      "reference_unit_risk_pct": 0.0,
       "regime_unit_risk_long_mult": 1.0,
       "regime_unit_risk_mult": 1.0,
       "regime_unit_risk_short_mult": 1.0,
+      "same_direction_pressure_mult": 1.0,
+      "same_direction_pressure_threshold": 1.0,
       "same_sector_heat_cap_R": 0.0,
       "strategy_priorities": [
         [
@@ -114,6 +128,7 @@
           1
         ]
       ],
+      "strategy_size_multipliers": [],
       "strategy_trade_share_min_total": 50,
       "symbol_collision_action": "none",
       "symbol_collision_pairs": [],
@@ -127,7 +142,7 @@
         "base_risk_pct": 0.006,
         "daily_stop_R": 3.0,
         "enabled": true,
-        "max_concurrent": 2,
+        "max_concurrent": 3,
         "max_contracts": 0,
         "priority": 0,
         "strategy_id": "NQ_REGIME"
@@ -136,7 +151,7 @@
         "base_risk_pct": 0.0065,
         "daily_stop_R": 2.5,
         "enabled": true,
-        "max_concurrent": 1,
+        "max_concurrent": 2,
         "max_contracts": 0,
         "priority": 0,
         "strategy_id": "VdubusNQ_v4"
@@ -145,7 +160,7 @@
         "base_risk_pct": 0.0045,
         "daily_stop_R": 2.5,
         "enabled": true,
-        "max_concurrent": 1,
+        "max_concurrent": 2,
         "max_contracts": 0,
         "priority": 1,
         "strategy_id": "NQDTC_v2.1"
@@ -154,7 +169,7 @@
         "base_risk_pct": 0.004,
         "daily_stop_R": 2.0,
         "enabled": true,
-        "max_concurrent": 1,
+        "max_concurrent": 2,
         "max_contracts": 0,
         "priority": 1,
         "strategy_id": "DownturnDominator_v1"
@@ -167,13 +182,270 @@
     "decision_count": 0,
     "max_workers": 2,
     "replay_architecture": "canonical_replay_bundle_live_rule_adapter",
-    "replay_source_fingerprint": "509a29c954612bdf9aa04d4cb8caac469b0cd6498e6285110991e12d0548e075",
+    "replay_contract": {
+      "architecture": "canonical_replay_bundle_live_rule_adapter",
+      "candidate_source": "legacy_strategy_trades",
+      "cost_lineage": "Source trade net PnL and commission are carried into canonical TradeOutcome; the portfolio layer applies sizing/routing effects and does not fabricate zero-cost closes.",
+      "decision_event_count": 0,
+      "decision_stream_status": "not_provided_completed_trade_replay",
+      "entry_timing_lineage": "Portfolio candidate timestamps come from source strategy trade artifacts; the portfolio layer does not improve source fill timing.",
+      "evidence_label": "portfolio_sizing_evidence_not_full_source_execution_simulation",
+      "known_limitation": "The portfolio layer replays completed source trade outcomes. It cannot discover source-strategy fill, order-path, or intrabar execution defects.",
+      "live_rule_checker": "libs.oms.risk.portfolio_rules.PortfolioRuleChecker",
+      "mtm_risk_is_headline": true,
+      "replay_source_fingerprint": "602a9f8866bbb9696405b30ee4d89705dc3f6fc5ff920567202fcddd5a3f4710",
+      "risk_basis": "bar_close_mark_to_market",
+      "scope": "portfolio_sizing_routing_and_live_risk_overlay",
+      "source_artifacts_fingerprint": "544f777ad2c435c9597006568740bf1580beed558fe76464069dc7c70d1b1f4f",
+      "source_strategy_execution_simulation": false,
+      "source_strategy_parity_prerequisite": "Each source momentum strategy must maintain its own live/backtest parity through shared-core or equivalent source-engine tests.",
+      "trade_outcome_count": 1295,
+      "uses_live_portfolio_rules": true,
+      "uses_shared_capital_ledger": true,
+      "version": "completed_source_trade_replay_live_portfolio_rules.v1"
+    },
+    "replay_source_fingerprint": "602a9f8866bbb9696405b30ee4d89705dc3f6fc5ff920567202fcddd5a3f4710",
     "risk_basis": "bar_close_mark_to_market",
+    "source_artifacts_fingerprint": "544f777ad2c435c9597006568740bf1580beed558fe76464069dc7c70d1b1f4f",
     "source_round_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\portfolio_synergy\\round_2",
-    "trade_outcome_count": 1259
+    "trade_outcome_count": 1295
   },
   "family": "momentum",
-  "generated_at_utc": "2026-05-11T12:59:21.635816+00:00",
+  "generated_at_utc": "2026-05-25T11:21:11.539787+00:00",
+  "provenance": {
+    "diagnostics_fingerprint": "a3814cec4ad166a74ac61321ab0b15795156e4b7ef2cb481e0dd0a7375a1433c",
+    "items": [
+      {
+        "fingerprint": "cced7806698e11c2896637a43a7235da1e077b221cea3568356afb6a06711419",
+        "kind": "tree_contents",
+        "name": "data_dir",
+        "notes": "Content fingerprint for selection-relevant replay data files.",
+        "paths": [
+          "backtests/momentum/data/raw"
+        ],
+        "scope": "data"
+      },
+      {
+        "fingerprint": "04075755ee5022d304a8dde83e269f4f6be06bc53220756200e2b97862fcc1ab",
+        "kind": "file_contents",
+        "name": "code:backtests/momentum/auto/portfolio_synergy/standard_artifacts.py",
+        "notes": "",
+        "paths": [
+          "backtests/momentum/auto/portfolio_synergy/standard_artifacts.py"
+        ],
+        "scope": "selection"
+      },
+      {
+        "fingerprint": "de1d32a5b30a53499e86494409026332860cb7f14f8be59a971a2771c15a57fa",
+        "kind": "file_contents",
+        "name": "code:backtests/momentum/engine/family_portfolio_engine.py",
+        "notes": "",
+        "paths": [
+          "backtests/momentum/engine/family_portfolio_engine.py"
+        ],
+        "scope": "selection"
+      },
+      {
+        "fingerprint": "edcbd6dcb34810ecda91d76a690b0efe462d49932be353a29043d8d3547584d4",
+        "kind": "file_contents",
+        "name": "code:libs/oms/risk/portfolio_rules.py",
+        "notes": "",
+        "paths": [
+          "libs/oms/risk/portfolio_rules.py"
+        ],
+        "scope": "selection"
+      },
+      {
+        "fingerprint": "511e57d0cc4fd7f71c3606a3395c44e5372b7b6451b6915ddc9442265a45aad9",
+        "kind": "plugin_identity",
+        "name": "plugin",
+        "notes": "",
+        "paths": [],
+        "scope": "selection"
+      },
+      {
+        "fingerprint": "eaae02aa3d013e044199cffdacd8cc1c9d6507569ff3942c79c56b88580b961b",
+        "kind": "stable_json",
+        "name": "selection_context",
+        "notes": "",
+        "paths": [],
+        "scope": "selection"
+      },
+      {
+        "fingerprint": "dff73cd011bbbc07e3844ef902e465e5b1689b847cd61111f86c24706794b00d",
+        "kind": "tree_contents",
+        "name": "code_tree:backtests/momentum/auto/portfolio_synergy",
+        "notes": "",
+        "paths": [
+          "backtests/momentum/auto/portfolio_synergy"
+        ],
+        "scope": "selection"
+      },
+      {
+        "fingerprint": "b58cff0ef3381b09a3e6abcacca3dbbcc093afc7c8583a6e34c39a8886dd6f3c",
+        "kind": "tree_contents",
+        "name": "shared_auto_package",
+        "notes": "",
+        "paths": [
+          "backtests/shared/auto"
+        ],
+        "scope": "selection"
+      },
+      {
+        "fingerprint": "558cf0adf3504d16bdc04a184f82cfe13283fb081006318472c20e76c706200b",
+        "kind": "source_artifact_contents",
+        "name": "source_artifact:source_round_config",
+        "notes": "",
+        "paths": [
+          "backtests/output/momentum/portfolio_synergy/round_2/optimized_portfolio_config.json"
+        ],
+        "scope": "source_artifact"
+      },
+      {
+        "fingerprint": "94aca30f3d1ee76589f0fb295252b3951f37ac2cc4122c7a8dd69074e7861a0d",
+        "kind": "source_artifact_contents",
+        "name": "source_artifact:source_strategy_configs:downturn",
+        "notes": "",
+        "paths": [
+          "backtests/output/momentum/downturn/round_4/optimized_config.json"
+        ],
+        "scope": "source_artifact"
+      },
+      {
+        "fingerprint": "860c519b1554e8796682cb0069b7674298ebfd3dc8fa12255caaa974ad005bf4",
+        "kind": "source_artifact_contents",
+        "name": "source_artifact:source_strategy_configs:nq_regime",
+        "notes": "",
+        "paths": [
+          "backtests/output/momentum/nq_regime/round_6/optimized_config.json"
+        ],
+        "scope": "source_artifact"
+      },
+      {
+        "fingerprint": "7c57a0db437cbe3811e34ea9b43148d5d07a2ae8592066c308e5dbc7edd2950c",
+        "kind": "source_artifact_contents",
+        "name": "source_artifact:source_strategy_configs:nqdtc",
+        "notes": "",
+        "paths": [
+          "backtests/output/momentum/nqdtc/round_5/optimized_config.json"
+        ],
+        "scope": "source_artifact"
+      },
+      {
+        "fingerprint": "80ea91967b2e707e0a3f7518bc99ba55fde91a175ab58d0ff4411a743bbb8c2a",
+        "kind": "source_artifact_contents",
+        "name": "source_artifact:source_strategy_configs:vdubus",
+        "notes": "",
+        "paths": [
+          "backtests/output/momentum/vdubus/round_3/optimized_config.json"
+        ],
+        "scope": "source_artifact"
+      },
+      {
+        "fingerprint": "b3cf1c079d232351eb8ceb1c9be3aefc96c0e09ab4f9b7c0d73c8887f1b18af4",
+        "kind": "source_artifact_contents",
+        "name": "source_artifact:source_strategy_diagnostics:downturn",
+        "notes": "",
+        "paths": [
+          "backtests/output/momentum/downturn/round_4/round_final_diagnostics.txt"
+        ],
+        "scope": "source_artifact"
+      },
+      {
+        "fingerprint": "735c0df173c670718d92c14c72fcd539a3af7eac68ebadb9ead4104ffbe15923",
+        "kind": "source_artifact_contents",
+        "name": "source_artifact:source_strategy_diagnostics:nq_regime",
+        "notes": "",
+        "paths": [
+          "backtests/output/momentum/nq_regime/round_6/round_final_diagnostics.txt"
+        ],
+        "scope": "source_artifact"
+      },
+      {
+        "fingerprint": "ee7ca294b90b65494eed443e294ba244067a573745b768d6b61823f5c128b90b",
+        "kind": "source_artifact_contents",
+        "name": "source_artifact:source_strategy_diagnostics:nqdtc",
+        "notes": "",
+        "paths": [
+          "backtests/output/momentum/nqdtc/round_5/round_final_diagnostics.txt"
+        ],
+        "scope": "source_artifact"
+      },
+      {
+        "fingerprint": "847aeb2aa10d36109bad88126f627d78a121389a0465463dff2b55287698047c",
+        "kind": "source_artifact_contents",
+        "name": "source_artifact:source_strategy_diagnostics:vdubus",
+        "notes": "",
+        "paths": [
+          "backtests/output/momentum/vdubus/round_3/round_final_diagnostics.txt"
+        ],
+        "scope": "source_artifact"
+      },
+      {
+        "fingerprint": "bb459e4f366244a07e34adfd6b3b1c41372d6211c08cc945acdab7be67a7c08f",
+        "kind": "source_artifact_contents",
+        "name": "source_artifact:source_strategy_summaries:downturn",
+        "notes": "",
+        "paths": [
+          "backtests/output/momentum/downturn/round_4/run_summary.json"
+        ],
+        "scope": "source_artifact"
+      },
+      {
+        "fingerprint": "62cdd8fc0b411b43ec12f5e0c7d27ffc1220b9bc01cbc98ef9a660092332dc53",
+        "kind": "source_artifact_contents",
+        "name": "source_artifact:source_strategy_summaries:nq_regime",
+        "notes": "",
+        "paths": [
+          "backtests/output/momentum/nq_regime/round_6/run_summary.json"
+        ],
+        "scope": "source_artifact"
+      },
+      {
+        "fingerprint": "9ee42fe1e26d1dc28c757ab99907da3cd62dda004df88b6c8aca9ce1a27d6a47",
+        "kind": "source_artifact_contents",
+        "name": "source_artifact:source_strategy_summaries:nqdtc",
+        "notes": "",
+        "paths": [
+          "backtests/output/momentum/nqdtc/round_5/run_summary.json"
+        ],
+        "scope": "source_artifact"
+      },
+      {
+        "fingerprint": "9d605579d6406b8d0746783a6c656bb3407cc07976dfdaee14bfcd3c55cf2c71",
+        "kind": "source_artifact_contents",
+        "name": "source_artifact:source_strategy_summaries:vdubus",
+        "notes": "",
+        "paths": [
+          "backtests/output/momentum/vdubus/round_3/run_summary.json"
+        ],
+        "scope": "source_artifact"
+      },
+      {
+        "fingerprint": "558f4d3541c50c6c6cf6313d248cfb6e26d4d8f5b008d1e219109446af0799ed",
+        "kind": "source_artifact_contents",
+        "name": "source_artifact:strategy_trade_manifest",
+        "notes": "",
+        "paths": [
+          "backtests/output/momentum/portfolio_synergy/round_2/strategy_trade_manifest.json"
+        ],
+        "scope": "source_artifact"
+      },
+      {
+        "fingerprint": "ba73550c4c4cad2c5723bcadc0c0b53a232dcee51dfb3d355ca9055295c9865d",
+        "kind": "source_artifact_contents",
+        "name": "source_artifact:strategy_trades",
+        "notes": "",
+        "paths": [
+          "backtests/output/momentum/portfolio_synergy/round_2/strategy_trades.pkl"
+        ],
+        "scope": "source_artifact"
+      }
+    ],
+    "schema_version": 1,
+    "selection_fingerprint": "a3814cec4ad166a74ac61321ab0b15795156e4b7ef2cb481e0dd0a7375a1433c"
+  },
+  "provenance_status": "complete",
   "round": 2,
   "scoring_weights": {
     "drawdown_control": 0.18,
@@ -183,6 +455,127 @@
     "risk_efficiency": 0.12,
     "strategy_balance": 0.1,
     "trade_frequency": 0.18
+  },
+  "source_artifact_lineage": {
+    "contract": "source_artifact_lineage.v1",
+    "fingerprint": "544f777ad2c435c9597006568740bf1580beed558fe76464069dc7c70d1b1f4f",
+    "portfolio_source_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\portfolio_synergy\\round_2",
+    "source_round_config": {
+      "exists": true,
+      "mtime": 1779708067.3569415,
+      "path": "backtests\\output\\momentum\\portfolio_synergy\\round_2\\optimized_portfolio_config.json",
+      "sha256": "5983a2298b68944b861e0cc8b234b049e83d95c1c7a92c163b3f49aebb12cd24",
+      "size": 3290
+    },
+    "source_round_summary": {
+      "exists": true,
+      "hash_excluded_reason": "self_finalizing_output_not_a_stable_source_input",
+      "path": "backtests\\output\\momentum\\portfolio_synergy\\round_2\\run_summary.json"
+    },
+    "source_strategy_configs": {
+      "downturn": {
+        "exists": true,
+        "mtime": 1777929243.4969475,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\downturn\\round_4\\optimized_config.json",
+        "sha256": "4fd3a3a7e07da910b95124c232c29f051329f66d101431409b863f992b4ff48a",
+        "size": 1349
+      },
+      "nq_regime": {
+        "exists": true,
+        "mtime": 1777940591.4233613,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nq_regime\\round_6\\optimized_config.json",
+        "sha256": "91dacd67b09a05b019ab72038ae604764426b83e011dcfbd35a9e79abdc35c72",
+        "size": 5249
+      },
+      "nqdtc": {
+        "exists": true,
+        "mtime": 1779707528.3112116,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_5\\optimized_config.json",
+        "sha256": "1baec4d83ebc9d4438c68bf1c7692d06e9864faf5eb7de6a91385b648792ae85",
+        "size": 982
+      },
+      "vdubus": {
+        "exists": true,
+        "mtime": 1779556388.542642,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\vdubus\\round_3\\optimized_config.json",
+        "sha256": "556ff21a697a8e80f5a49033e1aa9dc490ab9631d63f1b626d414b8be3111d26",
+        "size": 1391
+      }
+    },
+    "source_strategy_diagnostics": {
+      "downturn": {
+        "exists": true,
+        "mtime": 1777929243.4729464,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\downturn\\round_4\\round_final_diagnostics.txt",
+        "sha256": "202700e6b0855d6d52bf176967ea3e38b1d280f76aeea2c4d933311c5daec933",
+        "size": 2676
+      },
+      "nq_regime": {
+        "exists": true,
+        "mtime": 1777940591.4373617,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nq_regime\\round_6\\round_final_diagnostics.txt",
+        "sha256": "b502aa664a537a9858df205b7689694467d5ec26c3c552c18c30474696b8edff",
+        "size": 945
+      },
+      "nqdtc": {
+        "exists": true,
+        "mtime": 1779707525.403677,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_5\\round_final_diagnostics.txt",
+        "sha256": "8fa1c6ad316c7dc3c84d26197cc2a737b0273c037ddfcb1589159685de8bc790",
+        "size": 1544
+      },
+      "vdubus": {
+        "exists": true,
+        "mtime": 1779556387.6756403,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\vdubus\\round_3\\round_final_diagnostics.txt",
+        "sha256": "666d0c734bfa576821d1b5359d98d3a84d55d812816b3f7480f3d9653a7ab817",
+        "size": 2576
+      }
+    },
+    "source_strategy_summaries": {
+      "downturn": {
+        "exists": true,
+        "mtime": 1779494008.0059536,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\downturn\\round_4\\run_summary.json",
+        "sha256": "fcb55465cb87f85e50e64325d71459adb9b576fe2af06a93f30c36689a03b0ba",
+        "size": 6921
+      },
+      "nq_regime": {
+        "exists": true,
+        "mtime": 1779494008.1999533,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nq_regime\\round_6\\run_summary.json",
+        "sha256": "018d9cd071835b7fd20ceb11fef15c81487d9c1adfe0b6d5eaf01b1ebbde3eb2",
+        "size": 17710
+      },
+      "nqdtc": {
+        "exists": true,
+        "mtime": 1779707528.300211,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_5\\run_summary.json",
+        "sha256": "b351324f89638586022642d489d8d1fbb7bef57fb0c53d09307fa729d834bb6e",
+        "size": 6352
+      },
+      "vdubus": {
+        "exists": true,
+        "mtime": 1779556388.5306392,
+        "path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\vdubus\\round_3\\run_summary.json",
+        "sha256": "a08a8ad9517dab918f7daf2d94de62fe79b7303df5b0e07afeac87678780c456",
+        "size": 7667
+      }
+    },
+    "strategy_trade_manifest": {
+      "exists": true,
+      "mtime": 1779708053.732473,
+      "path": "backtests\\output\\momentum\\portfolio_synergy\\round_2\\strategy_trade_manifest.json",
+      "sha256": "4592201c0974d2e41d3aa5932bb9d987ef6aeeee13c4ec8082e9b087af2a164c",
+      "size": 20686
+    },
+    "strategy_trades": {
+      "exists": true,
+      "mtime": 1779708053.7254715,
+      "path": "backtests\\output\\momentum\\portfolio_synergy\\round_2\\strategy_trades.pkl",
+      "sha256": "9305d03943c06715573d77c37161dea8d1506a9c639b3582cd2eb117dcc8a938",
+      "size": 654076
+    }
   },
   "strategy": "portfolio_synergy",
   "strategy_name": "momentum_portfolio_synergy"

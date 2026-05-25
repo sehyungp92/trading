@@ -38,7 +38,10 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseR
         expected_phases=plugin.num_phases if for_write else None,
     )
     if round_num > 1:
-        plugin.initial_mutations = ROUND_MANAGER.get_previous_mutations(round_num)
+        plugin.initial_mutations = ROUND_MANAGER.get_previous_mutations(
+            round_num,
+            current_provenance=plugin.build_provenance(),
+        )
     return PhaseRunner(
         plugin=plugin,
         output_dir=round_dir,

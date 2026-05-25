@@ -2,14 +2,14 @@
   "phases": {
     "1": {
       "status": "completed",
-      "updated_at": "2026-05-06T14:06:26.983871+00:00",
+      "updated_at": "2026-05-24T01:11:00.723471+00:00",
       "completed_phases": [
         1
       ],
       "current_phase": 1,
       "total_mutations": 8,
-      "base_score": 0.756047988504457,
-      "final_score": 0.756047988504457,
+      "base_score": 0.7336639622040549,
+      "final_score": 0.7336639622040549,
       "kept_features": [],
       "gate_passed": true,
       "failure_category": null,
@@ -20,19 +20,18 @@
     },
     "2": {
       "status": "completed",
-      "updated_at": "2026-05-06T14:41:55.937803+00:00",
+      "updated_at": "2026-05-24T01:31:24.485569+00:00",
       "completed_phases": [
         1,
         2
       ],
       "current_phase": 2,
-      "total_mutations": 13,
-      "base_score": 0.756047988504457,
-      "final_score": 0.8117716694164114,
+      "total_mutations": 12,
+      "base_score": 0.7336639622040549,
+      "final_score": 0.7946323578579929,
       "kept_features": [
         "share_cap_85_actual_balance_guard",
-        "strategy_heat_5_4_4_0",
-        "heat_cap_6_5"
+        "strategy_heat_5_4_4_0"
       ],
       "gate_passed": true,
       "failure_category": null,
@@ -43,19 +42,19 @@
     },
     "3": {
       "status": "completed",
-      "updated_at": "2026-05-06T14:49:12.608661+00:00",
+      "updated_at": "2026-05-24T01:38:30.521899+00:00",
       "completed_phases": [
         1,
         2,
         3
       ],
       "current_phase": 3,
-      "total_mutations": 13,
-      "base_score": 0.8117716694164114,
-      "final_score": 0.8117716694164114,
+      "total_mutations": 12,
+      "base_score": 0.7946323578579929,
+      "final_score": 0.7946323578579929,
       "kept_features": [],
-      "gate_passed": false,
-      "failure_category": "candidates_exhausted",
+      "gate_passed": true,
+      "failure_category": null,
       "scoring_retries": 0,
       "diagnostic_retries": 0,
       "focus": "Dynamic synergistic unit-risk allocation",
@@ -63,7 +62,7 @@
     },
     "4": {
       "status": "completed",
-      "updated_at": "2026-05-06T14:56:16.598247+00:00",
+      "updated_at": "2026-05-24T01:48:24.932129+00:00",
       "completed_phases": [
         1,
         2,
@@ -71,9 +70,9 @@
         4
       ],
       "current_phase": 4,
-      "total_mutations": 13,
-      "base_score": 0.8117716694164114,
-      "final_score": 0.8117716694164114,
+      "total_mutations": 12,
+      "base_score": 0.7946323578579929,
+      "final_score": 0.7946323578579929,
       "kept_features": [],
       "gate_passed": false,
       "failure_category": "candidates_exhausted",
@@ -84,7 +83,7 @@
     },
     "5": {
       "status": "completed",
-      "updated_at": "2026-05-06T15:11:25.239412+00:00",
+      "updated_at": "2026-05-24T02:08:08.124646+00:00",
       "completed_phases": [
         1,
         2,
@@ -93,12 +92,15 @@
         5
       ],
       "current_phase": 5,
-      "total_mutations": 13,
-      "base_score": 0.8117716694164114,
-      "final_score": 0.8117716694164114,
-      "kept_features": [],
-      "gate_passed": false,
-      "failure_category": "diagnostic_needed",
+      "total_mutations": 14,
+      "base_score": 0.7946323578579929,
+      "final_score": 0.8112751822823976,
+      "kept_features": [
+        "iaric_gap_up_60_dampen",
+        "alcb_score45_no_surge_dampen"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
       "scoring_retries": 0,
       "diagnostic_retries": 0,
       "focus": "Blocked-candidate discrimination using live-known quality proxies",
@@ -106,7 +108,7 @@
     },
     "6": {
       "status": "completed",
-      "updated_at": "2026-05-06T15:17:38.450893+00:00",
+      "updated_at": "2026-05-24T02:14:52.670684+00:00",
       "completed_phases": [
         1,
         2,
@@ -116,12 +118,12 @@
         6
       ],
       "current_phase": 6,
-      "total_mutations": 13,
-      "base_score": 0.8117716694164114,
-      "final_score": 0.8117716694164114,
+      "total_mutations": 14,
+      "base_score": 0.8112751822823976,
+      "final_score": 0.8112751822823976,
       "kept_features": [],
-      "gate_passed": true,
-      "failure_category": null,
+      "gate_passed": false,
+      "failure_category": "candidates_exhausted",
       "scoring_retries": 0,
       "diagnostic_retries": 0,
       "focus": "Aggressive drawdown governors and cascade containment",
@@ -129,7 +131,7 @@
     },
     "7": {
       "status": "completed",
-      "updated_at": "2026-05-06T15:22:31.082671+00:00",
+      "updated_at": "2026-05-24T02:18:31.893981+00:00",
       "completed_phases": [
         1,
         2,
@@ -140,9 +142,9 @@
         7
       ],
       "current_phase": 7,
-      "total_mutations": 13,
-      "base_score": 0.8117716694164114,
-      "final_score": 0.8117716694164114,
+      "total_mutations": 14,
+      "base_score": 0.8112751822823976,
+      "final_score": 0.8112751822823976,
       "kept_features": [],
       "gate_passed": false,
       "failure_category": "candidates_exhausted",
@@ -152,6 +154,6 @@
       "candidate_count": 3
     }
   },
-  "last_updated": "2026-05-06T15:22:31.104670+00:00",
+  "last_updated": "2026-05-24T02:18:31.913016+00:00",
   "current_phase": 7
 }

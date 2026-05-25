@@ -285,6 +285,13 @@ class ALCBIntradayEngine:
                 continue
 
             sym_items = {item.symbol: item for item in artifact.tradable}
+            daily_indicators: dict[str, tuple[float, float]] = {}
+            for sym, item in sym_items.items():
+                daily_bars = item.daily_bars
+                daily_indicators[sym] = (
+                    atr_from_bars(daily_bars, 14) if len(daily_bars) >= 2 else 0.0,
+                    adx_from_bars(daily_bars, 14) if len(daily_bars) >= 16 else 0.0,
+                )
             pending_entries: dict[str, _PendingEntry] = {}
             arm_states: dict[str, _BreakoutArmState] = {
                 sym: _BreakoutArmState() for sym in sym_items
@@ -346,12 +353,16 @@ class ALCBIntradayEngine:
             or_bars: dict[str, list] = {}
             or_data: dict[str, tuple[float, float, float]] = {}
             session_bars: dict[str, list] = {}
+            session_pv_vol: dict[str, tuple[float, float]] = {}
+            session_avwap: dict[str, float] = {}
             qe_phantom_slots = [0]  # QE no-recycle: mutable counter for freed slots
 
             for sym in today_symbols:
                 or_built[sym] = False
                 or_bars[sym] = []
                 session_bars[sym] = []
+                session_pv_vol[sym] = (0.0, 0.0)
+                session_avwap[sym] = 0.0
 
             # Gather 5m bars per symbol
             all_bars: dict[str, list] = {}
@@ -377,6 +388,14 @@ class ALCBIntradayEngine:
                     if sym not in session_bars:
                         session_bars[sym] = []
                     session_bars[sym].append(bar)
+                    cum_pv, cum_vol = session_pv_vol.get(sym, (0.0, 0.0))
+                    volume = float(getattr(bar, "volume", 0.0) or 0.0)
+                    if volume > 0.0:
+                        typical_price = (float(bar.high) + float(bar.low) + float(bar.close)) / 3.0
+                        cum_pv += typical_price * volume
+                        cum_vol += volume
+                        session_pv_vol[sym] = (cum_pv, cum_vol)
+                        session_avwap[sym] = cum_pv / cum_vol
 
                     # Update shadow tracker for ALL symbols on every bar
                     if shadow:
@@ -443,6 +462,7 @@ class ALCBIntradayEngine:
                         sym,
                         bar,
                         session_bars,
+                        session_avwap,
                         or_data,
                         prior_day,
                         sym_items,
@@ -453,6 +473,7 @@ class ALCBIntradayEngine:
                     self._try_entry(
                         sym, bar, current, session_bars, or_data, sym_items,
                         prior_day, positions, pending_entries, arm_states,
+                        daily_indicators, session_avwap,
                         regime_tier, equity, settings, ablation, shadow,
                         qe_phantom_slots, bar_idx, bar_idx + 1 < len(bars),
                     )
@@ -921,6 +942,7 @@ class ALCBIntradayEngine:
         sym: str,
         bar,
         session_bars: dict[str, list],
+        session_avwap: dict[str, float],
         or_data: dict[str, tuple[float, float, float]],
         prior_day: dict[str, tuple[float, float, float]],
         sym_items: dict[str, CandidateItem],
@@ -934,7 +956,7 @@ class ALCBIntradayEngine:
         sb = session_bars.get(sym, [])
         if not sb:
             return
-        avwap = compute_session_avwap(sb, len(sb) - 1)
+        avwap = session_avwap.get(sym, 0.0)
         if avwap <= 0 or bar.close > avwap:
             return
 
@@ -1483,6 +1505,8 @@ class ALCBIntradayEngine:
         positions: dict[str, _Position],
         pending_entries: dict[str, _PendingEntry],
         arm_states: dict[str, _BreakoutArmState],
+        daily_indicators: dict[str, tuple[float, float]],
+        session_avwap: dict[str, float],
         regime_tier: str,
         equity: float,
         settings: StrategySettings,
@@ -1521,12 +1545,8 @@ class ALCBIntradayEngine:
         cpr = close_location_value(bar)
 
         sb = session_bars.get(sym, [])
-        avwap = compute_session_avwap(sb, len(sb) - 1) if sb else 0.0
-
-        daily_bars = item.daily_bars
-        # adx_from_bars and atr_from_bars work with ResearchDailyBar via duck typing
-        daily_atr = atr_from_bars(daily_bars, 14) if len(daily_bars) >= 2 else 0.0
-        adx_val = adx_from_bars(daily_bars, 14) if len(daily_bars) >= 16 else 0.0
+        avwap = session_avwap.get(sym, 0.0) if sb else 0.0
+        daily_atr, adx_val = daily_indicators.get(sym, (0.0, 0.0))
 
         # Sector flow not available in CandidateItem; max momentum score is 7/8
         sector_flow = 0.0

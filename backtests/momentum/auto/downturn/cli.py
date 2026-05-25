@@ -39,7 +39,10 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseR
         expected_phases=plugin.num_phases if for_write else None,
     )
     if round_num > 1:
-        plugin.initial_mutations = ROUND_MANAGER.get_previous_mutations(round_num)
+        plugin.initial_mutations = ROUND_MANAGER.get_previous_mutations(
+            round_num,
+            current_provenance=plugin.build_provenance(),
+        )
     return PhaseRunner(
         plugin=plugin,
         output_dir=round_dir,
@@ -76,7 +79,8 @@ def cmd_phase_gate(args: argparse.Namespace) -> None:
         return
 
     plugin = runner.plugin
-    phase_mutations = _mutations_through_phase(state, args.phase)
+    phase_mutations = dict(getattr(runner.plugin, "initial_mutations", None) or {})
+    phase_mutations.update(_mutations_through_phase(state, args.phase))
     metrics = plugin.compute_final_metrics(phase_mutations)
     spec = plugin.get_phase_spec(args.phase, state)
     gate = evaluate_gate(spec.gate_criteria_fn(metrics))

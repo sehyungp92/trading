@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any
@@ -13,6 +14,7 @@ from strategies.core.actions import (
     SubmitProtectiveStop,
 )
 from strategies.core.events import DecisionEvent
+from strategies.core.idle_market import idle_market_details
 from strategies.swing.akc_helix.allocator import apply_initial_risk_basis
 from strategies.swing.akc_helix.models import Direction, SetupInstance, SetupState
 
@@ -98,6 +100,9 @@ def on_bar(
     stop_update: AKCHelixStopUpdateRequest | None = None,
     partial_exit_request: AKCHelixPartialExitRequest | None = None,
     flatten_request: AKCHelixFlattenRequest | None = None,
+    idle_market_bars: Sequence[object] | None = None,
+    idle_market_symbol: str = "",
+    idle_market_timeframe: str = "1h",
 ) -> tuple[
     AKCHelixCoreState,
     list[SubmitEntry | SubmitAddOnEntry | ReplaceProtectiveStop | SubmitPartialExit | FlattenPosition],
@@ -241,6 +246,20 @@ def on_bar(
                     details={"setup_id": setup.setup_id, "reason": flatten_request.reason},
                 )
             )
+
+    if idle_market_bars is not None and not actions and not events:
+        events.append(
+            _event(
+                code="IDLE_MARKET_OBSERVED",
+                ts=event_ts,
+                symbol=idle_market_symbol,
+                details=idle_market_details(
+                    idle_market_bars,
+                    symbol=idle_market_symbol,
+                    timeframe=idle_market_timeframe,
+                ),
+            )
+        )
 
     _update_last_decision(next_state, events)
     return next_state, actions, events

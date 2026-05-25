@@ -92,6 +92,7 @@ class ReplayCandidate:
     heat_r: float
     quality: float
     size_mult: float
+    portfolio_size_mult: float = 1.0
 
 
 @dataclass(frozen=True)

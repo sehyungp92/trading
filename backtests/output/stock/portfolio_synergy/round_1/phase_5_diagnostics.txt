@@ -1,4 +1,4 @@
-﻿==============================================================================
+==============================================================================
 PHASE 5 STOCK PORTFOLIO SYNERGY
 ==============================================================================
 Round: round_1_dynamic_stock_synergy
@@ -8,56 +8,56 @@ Risk stance: aggressive-controlled
 Score components: 7 (alpha_return, trade_frequency, drawdown_control, profit_factor_quality, synergy_capture, allocation_balance, robustness)
 
 Headline:
-  Final equity: $171,698.79
-  Net PnL: $+146,698.79
-  Net return: +586.80%
-  Active trades/month: 65.29
-  Total R/month: 13.14
-  Profit factor: 2.43
-  Win rate: 74.77%
-  Max DD: 2.96%
-  Sharpe: 4.75
-  Sortino: 4.96
-  Calmar: 58.18
+  Final equity: $175,849.61
+  Net PnL: $+150,849.61
+  Net return: +603.40%
+  Active trades/month: 69.67
+  Total R/month: 13.60
+  Profit factor: 2.25
+  Win rate: 74.36%
+  Max DD: 3.53%
+  Sharpe: 4.38
+  Sortino: 4.44
+  Calmar: 49.74
   Risk basis: bar_close_mark_to_market
-  Realized-only Max DD: 2.27%
-  Realized-only Calmar: 76.05
+  Realized-only Max DD: 2.91%
+  Realized-only Calmar: 60.34
   Active sleeves: 2/2
 
 Sleeve contribution:
-  IARIC_V5R1   trades=  1001 pnl=$  +73,222.44 risk_share= 68.3%
-  ALCB_R3      trades=   505 pnl=$  +73,476.35 risk_share= 31.7%
+  IARIC_V5R1   trades=  1045 pnl=$  +75,955.13 risk_share= 65.8%
+  ALCB_R3      trades=   562 pnl=$  +74,894.48 risk_share= 34.2%
 
 Routing and blocked-candidate discrimination:
-  Fired entries: 1985
-  Accepted entries: 1506
-  Blocked entries: 479
-  Trade capture ratio: 75.87%
-  Positive-alpha block rate: 24.68%
-  Blocked winners: 369 / 479 (77.04%)
-  Accepted avg R: +0.201
-  Blocked avg R: +0.141
-  Candidate discrimination: 0.600
-  Max strategy trade share: 66.47%
-  Max strategy risk share: 68.32%
+  Fired entries: 2046
+  Accepted entries: 1607
+  Blocked entries: 439
+  Trade capture ratio: 78.54%
+  Positive-alpha block rate: 21.90%
+  Blocked winners: 335 / 439 (76.31%)
+  Accepted avg R: +0.195
+  Blocked avg R: +0.143
+  Candidate discrimination: 0.588
+  Max strategy trade share: 65.03%
+  Max strategy risk share: 65.81%
   Positive slices: 4/4
 
 Risk governors:
-  Max daily loss: 3.42R
-  Max weekly loss: 1.29R
+  Max daily loss: 3.50R
+  Max weekly loss: 1.92R
 
 Score:
   alpha_return           component=1.0000 weight=0.27
   trade_frequency        component=1.0000 weight=0.23
-  drawdown_control       component=0.7037 weight=0.19
-  profit_factor_quality  component=0.5209 weight=0.12
-  synergy_capture        component=0.4729 weight=0.08
-  allocation_balance     component=0.8521 weight=0.06
-  robustness             component=0.8349 weight=0.05
-  total                  0.8269
+  drawdown_control       component=0.6465 weight=0.19
+  profit_factor_quality  component=0.4562 weight=0.12
+  synergy_capture        component=0.5122 weight=0.08
+  allocation_balance     component=0.8917 weight=0.06
+  robustness             component=0.7842 weight=0.05
+  total                  0.8113
 
 Greedy:
-  Base score: 0.8118
-  Final score: 0.8269
+  Base score: 0.7946
+  Final score: 0.8113
   Accepted: 2
   Kept: iaric_gap_up_60_dampen, alcb_score45_no_surge_dampen

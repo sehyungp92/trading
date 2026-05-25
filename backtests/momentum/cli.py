@@ -12,8 +12,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
-import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -48,8 +47,8 @@ def _log_live_parity_caveats(strategy: str, fixed_qty: int | None) -> None:
 
     if strategy == "NQDTC":
         logger.warning(
-            "NQDTC backtest still models B-sweep as MARKET, while live submits it "
-            "as a marketable IOC LIMIT."
+            "NQDTC backtest models B-sweep as a marketable IOC LIMIT, matching "
+            "the live entry intent; single-strategy OMS gating caveats still apply."
         )
     elif strategy == "Vdubus":
         logger.warning(

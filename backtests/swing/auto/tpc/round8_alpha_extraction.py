@@ -44,7 +44,11 @@ def main() -> None:
     else:
         round_num, round_dir = manager.resolve_round(args.round, for_write=True, expected_phases=plugin.num_phases)
 
-    previous_mutations = manager.get_previous_mutations(round_num)
+    provenance = plugin.build_provenance()
+    previous_mutations = manager.get_previous_mutations(
+        round_num,
+        current_provenance=provenance,
+    )
     initial_mutations = dict(previous_mutations)
     initial_mutations.update(ROUND8_STRUCTURAL_SEED)
     plugin.initial_mutations = initial_mutations
@@ -61,6 +65,8 @@ def main() -> None:
         scoring_weights=ROUND8_SCORING_WEIGHTS,
         baseline_mutations=initial_mutations,
         baseline_source=manager.optimized_config_path(manager.round_path(round_num - 1)),
+        provenance=provenance,
+        provenance_status="complete",
     )
 
     runner = PhaseRunner(

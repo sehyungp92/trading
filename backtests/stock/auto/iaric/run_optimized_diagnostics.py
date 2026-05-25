@@ -19,6 +19,7 @@ if sys.stdout.encoding != "utf-8":
 
 from backtests.shared.diagnostics.snapshot import build_group_snapshot
 from backtests.shared.auto.round_manager import RoundManager
+from backtests.stock.auto.iaric.plugin import IARICPullbackPlugin
 
 
 DATA_DIR = Path("backtests/stock/data/raw")
@@ -125,6 +126,14 @@ def main() -> None:
 
     # Build config with mutations applied
     data_dir = Path(DATA_DIR)
+    provenance_plugin = IARICPullbackPlugin(
+        data_dir,
+        start_date=args.start,
+        end_date=args.end,
+        initial_equity=float(args.equity),
+        max_workers=1,
+    )
+    provenance = provenance_plugin.build_provenance()
     replay = ResearchReplayEngine(data_dir=data_dir)
     print("Loading bar data...")
     replay.load_all_data()
@@ -224,7 +233,12 @@ def main() -> None:
         round_num,
         "iaric",
         description="Optimized diagnostics replay",
-        baseline_mutations=ROUND_MANAGER.get_previous_mutations(round_num) if round_num > 1 else {},
+        baseline_mutations=(
+            ROUND_MANAGER.get_previous_mutations(round_num, current_provenance=provenance)
+            if round_num > 1 else {}
+        ),
+        provenance=provenance,
+        provenance_status="complete",
     )
     ROUND_MANAGER.write_run_summary(
         round_dir,
@@ -234,9 +248,17 @@ def main() -> None:
         round_num=round_num,
         source_diagnostics=round_output_path,
         source_phase_state=phase_state_path,
+        provenance=provenance,
+        provenance_status="complete",
     )
     ROUND_MANAGER.write_optimized_config(round_dir, mutations)
-    ROUND_MANAGER.append_to_manifest(round_num, mutations, metrics_payload)
+    ROUND_MANAGER.append_to_manifest(
+        round_num,
+        mutations,
+        metrics_payload,
+        provenance=provenance,
+        provenance_status="complete",
+    )
     print(f"Summary saved to {round_summary_path}")
 
 

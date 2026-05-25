@@ -1,11 +1,11 @@
 ======================================================================
-ALCB ROUND-2 STRUCTURAL ALPHA PHASE 2 SNAPSHOT
+ALCB ROUND-3 RESIDUAL ALPHA PHASE 2 SNAPSHOT
 ======================================================================
-Focus: Late-entry decay and timing cleanup
+Focus: Early-failure protective stop tightening
 Score 0.0000 -> 0.0000 with 0 accepted mutations.
 
-Core: trades=570, net_profit=+7344.63, expectancy_dollar=+12.89, expected_total_r=+109.22, pf=1.660, dd=4.3%, trades/month=22.02
-Quality: signal_quality=0.651, timing_quality=0.488, extended_avwap_inverse=0.430, bar9_inverse=0.337, late_entry_quality=0.697, score_monotonicity=0.602
-Management: profit_protection=0.595, short24_inv=0.293, flow_mfe_inv=0.781, mfe_capture_eff=0.768, sizing_alignment=1.000, long_hold_capture=0.982, inv_dd=0.643
-Focus metric deltas: expected_total_r=+109.222->+109.222, trades_per_month=+22.017->+22.017, profit_factor=+1.660->+1.660, timing_quality=+0.488->+0.488, bar9_inverse=+0.337->+0.337, late_entry_quality=+0.697->+0.697
-Hard floors: max_dd_pct=5.28%, min_bar9_inverse=0.4400, min_expectancy_dollar=12.5000, min_expected_total_r=107.0380, min_late_entry_quality=0.8000, min_net_profit=7050.8448, min_pf=1.6098, min_signal_quality=0.6184, min_trades_per_month=20.9161
+Core: trades=592, net_profit=+11545.90, expectancy_dollar=+19.50, expected_total_r=+144.38, pf=2.042, dd=3.2%, trades/month=22.87
+Quality: signal_quality=0.533, timing_quality=0.938, extended_avwap_inverse=1.000, bar9_inverse=0.819, late_entry_quality=0.994, score_monotonicity=0.333
+Management: profit_protection=0.667, short24_inv=0.308, flow_mfe_inv=0.983, mfe_capture_eff=0.768, sizing_alignment=1.000, long_hold_capture=0.989, inv_dd=0.733
+Focus metric deltas: expected_total_r=+144.378->+144.378, net_profit=+11545.900->+11545.900, profit_factor=+2.042->+2.042, profit_protection=+0.667->+0.667, short_hold_24_drag_inverse=+0.308->+0.308, mfe_capture_efficiency=+0.768->+0.768, trades_per_month=+22.867->+22.867
+Hard floors: max_dd_pct=4.70%, min_expectancy_dollar=17.5529, min_expected_total_r=137.1590, min_flow_mfe_exit_inverse=0.8359, min_mfe_capture_efficiency=0.7400, min_net_profit=10853.1460, min_pf=1.9192, min_profit_protection=0.5668, min_short_hold_24_drag_inverse=0.3200, min_trades_per_month=21.0374

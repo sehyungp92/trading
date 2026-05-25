@@ -27,35 +27,25 @@
     "param_overrides.mfe_conviction_min_r": 0.2,
     "param_overrides.opening_range_bars": 6,
     "param_overrides.or_width_min_pct": 0.0015,
-    "param_overrides.regime_mult_b": 0.7,
-    "param_overrides.rvol_threshold": 2.0,
-    "param_overrides.sector_mult_consumer_disc": 1.0,
-    "param_overrides.sector_mult_financials": 1.0,
-    "param_overrides.sector_mult_industrials": 1.0,
     "param_overrides.pdh_avwap_cap_pct": 0.005,
     "param_overrides.pdh_size_mult": 0.75,
-    "param_overrides.momentum_size_mult_score_3": 1.0,
-    "param_overrides.momentum_size_mult_score_4": 1.0,
-    "param_overrides.momentum_size_mult_score_5": 1.0,
-    "param_overrides.momentum_size_mult_score_6": 1.0,
-    "param_overrides.momentum_size_mult_score_7_plus": 1.0,
-    "param_overrides.sector_mult_communication": 1.0,
-    "param_overrides.sector_mult_healthcare": 1.0
+    "param_overrides.regime_mult_b": 0.7,
+    "param_overrides.rvol_threshold": 2.0
   },
   "kept_features": [],
   "rounds": [
     {
       "round_num": 1,
-      "candidates_tested": 8,
+      "candidates_tested": 5,
       "best_name": "",
       "best_score": 0.0,
       "best_delta_pct": 0.0,
       "kept": false,
-      "rejected_count": 8
+      "rejected_count": 5
     }
   ],
   "final_metrics": {},
-  "total_candidates": 8,
+  "total_candidates": 5,
   "accepted_count": 0,
-  "elapsed_seconds": 897.8926079273224
+  "elapsed_seconds": 1089.6292397975922
 }

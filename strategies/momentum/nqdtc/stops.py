@@ -197,12 +197,47 @@ def stale_exit_check(
 # TP1-only cap for DEGRADED / RANGE (Section 17.7, fix #3)
 # ---------------------------------------------------------------------------
 
-def should_cap_tp1_only(chop_mode: str, regime_4h: str) -> bool:
+def should_cap_tp1_only(chop_mode: str, regime_4h: str, mode: str | None = None) -> bool:
     """Return True if exits should be capped at TP1 only.
 
     Section 17.7: RANGE and DEGRADED cap at TP1 only + shortened stale timer.
     """
+    cap_mode = mode or C.TP1_ONLY_CAP_MODE
+    if cap_mode == "off":
+        return False
+    if cap_mode == "degraded_only":
+        return chop_mode == "DEGRADED"
+    if cap_mode == "range_only":
+        return regime_4h == "RANGE"
     return chop_mode == "DEGRADED" or regime_4h == "RANGE"
+
+
+def compute_mfe_ratcheted_stop(
+    direction: Direction,
+    entry_price: float,
+    initial_r_points: float,
+    peak_r_initial: float,
+    tick_size: float = 0.25,
+) -> float | None:
+    """Return a stop that locks fixed R at configured MFE tiers, if enabled."""
+    if not C.MFE_RATCHET_TIERS_ENABLED or initial_r_points <= 0:
+        return None
+    lock_r = 0.0
+    tiers = (
+        (C.MFE_RATCHET_T1_R, C.MFE_RATCHET_T1_LOCK_R),
+        (C.MFE_RATCHET_T2_R, C.MFE_RATCHET_T2_LOCK_R),
+        (C.MFE_RATCHET_T3_R, C.MFE_RATCHET_T3_LOCK_R),
+    )
+    for trigger_r, tier_lock_r in tiers:
+        if peak_r_initial >= trigger_r:
+            lock_r = max(lock_r, tier_lock_r)
+    if lock_r <= 0:
+        return None
+    if direction == Direction.LONG:
+        raw = entry_price + lock_r * initial_r_points
+        return round_to_tick(raw, tick_size, "down")
+    raw = entry_price - lock_r * initial_r_points
+    return round_to_tick(raw, tick_size, "up")
 
 
 # ---------------------------------------------------------------------------

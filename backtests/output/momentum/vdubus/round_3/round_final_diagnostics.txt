@@ -3,49 +3,65 @@ VdubusNQ Phase 6 Diagnostics
 ============================================================
 
 --- D1: Core Performance ---
-Total trades:    198
-Win rate:        52.0%
-Profit factor:   2.78
-Net return:      1166.0%
-Max drawdown:    18.11%
-Calmar:          64.40
+Total trades:    212
+Win rate:        46.2%
+Profit factor:   2.65
+Fixed-qty return: 1373.6% (diagnostic only)
+Fixed-qty DD:    17.46%
+Fixed-qty Calmar: 78.69
 Sharpe:          2.34
-Sortino:         10.01
-Avg R:           0.440
+Sortino:         6.73
+Avg R:           0.414
+Total R:         87.82
+R/month:         2.59
+Annualized R:    31.10
+Max R DD:        6.56R
+R-Calmar:        4.74
+Fixed $/R:       $1,564
+Avg fixed risk:  $1,620/trade
+Median risk:     $1,443/trade
+Norm return:     22.0% @0.25%R, 43.9% @0.50%R, 87.8% @1.00%R
+Current score:   0.8003 (R-normalized 7-component)
 
 --- D2: Exit Efficiency ---
-Capture ratio:   0.517 (winners exit_R / MFE)
-Stale exit pct:  43.4%
-Multi-session:   24.2%
-Fast deaths:     23.7% (<=4 bars)
-Avg winner R:    1.267
-Avg loser R:     -0.456
-Avg MFE R:       1.198
-Avg hold hours:  11.3
+Capture ratio:   0.621 (winners exit_R / MFE)
+Stale exit pct:  26.4%
+Multi-session:   32.1%
+Fast deaths:     25.5% (<=4 bars)
+Avg winner R:    1.456
+Avg loser R:     -0.481
+Avg MFE R:       1.199
+Avg hold hours:  12.7
 
 --- D3: Session Breakdown ---
-Evening trades:  5.1% of total
-Evening avg R:   +0.126
-  UNKNOWN     : 198 trades, WR=52%, avgR=+0.440, PnL=$+115,657
+Evening trades:  4.7% of total
+Evening avg R:   +0.070
+  CLOSE       :  18 trades, WR=39%, avgR=+0.307, PnL=$+11,380
+  CORE        :  80 trades, WR=48%, avgR=+0.509, PnL=$+70,840
+  EVENING     :  10 trades, WR=60%, avgR=+0.070, PnL=$+598
+  OPEN        : 104 trades, WR=45%, avgR=+0.393, PnL=$+53,497
 
 --- D4: Exit Reasons ---
-  MAX_DURATION      :  13 trades, avgR=+3.286, avgMFE=4.075, PnL=$+73,658
-  STALE             :  86 trades, avgR=+0.052, avgMFE=0.721, PnL=$+3,983
-  STOP              :  28 trades, avgR=-0.766, avgMFE=0.639, PnL=$-27,422
-  VWAP_A_FAIL       :  31 trades, avgR=+2.479, avgMFE=3.095, PnL=$+92,315
-  VWAP_FAIL         :  40 trades, avgR=-0.385, avgMFE=0.210, PnL=$-26,877
+  EARLY_KILL        :  25 trades, avgR=-0.530, avgMFE=0.204, PnL=$-23,198
+  MAX_DURATION      :  15 trades, avgR=+3.315, avgMFE=3.977, PnL=$+90,015
+  STALE             :  56 trades, avgR=-0.006, avgMFE=0.310, PnL=$-3,630
+  STOP              :  39 trades, avgR=-0.313, avgMFE=1.099, PnL=$-20,193
+  VWAP_A_FAIL       :  51 trades, avgR=+1.578, avgMFE=2.286, PnL=$+114,102
+  VWAP_FAIL         :  26 trades, avgR=-0.639, avgMFE=0.487, PnL=$-20,781
 
 --- D5: Hold Duration ---
-  1-4 bars    :  47 trades, WR=2%, avgR=-0.497, PnL=$-36,591
-  5-12 bars   :  88 trades, WR=49%, avgR=+0.016, PnL=$+2,256
-  13-32 bars  :  29 trades, WR=86%, avgR=+0.931, PnL=$+24,793
-  33+ bars    :  34 trades, WR=100%, avgR=+2.415, PnL=$+125,199
+  1-4 bars    :  54 trades, WR=6%, avgR=-0.412, PnL=$-39,560
+  5-12 bars   :  77 trades, WR=38%, avgR=-0.023, PnL=$-2,337
+  13-32 bars  :  30 trades, WR=53%, avgR=+0.746, PnL=$+25,296
+  33+ bars    :  51 trades, WR=98%, avgR=+1.754, PnL=$+152,917
 
 --- D6: Greedy Result ---
-Base score:      0.7947
-Final score:     0.8477
+Stored base score:  0.8620
+Stored final score: 0.8741
+Stored scores are from the completed phase run; current score above uses the active scorer.
+Score components: R/mo=0.864, PF=0.905, R-Calmar=0.790, invRDD=0.573, capture=0.955, freq=0.502, sharpe=0.973
 Accepted:        2
-Total candidates:3
-Kept features:   finetune_vwap_cap_open_eve_p10, finetune_hourly_bypass_max_chop_p10
+Total candidates:65
+Kept features:   finetune_mfe_rescue_after_bars_p20, finetune_hourly_bypass_size_mult_p20
 
 ============================================================

@@ -150,7 +150,11 @@
       "max_drawdown_pct": 7.3282360729374965,
       "net_return_pct": 145.6248,
       "sharpe_ratio": 1.6740949753522878,
-      "calmar_ratio": 7.407808305713719
+      "calmar_ratio": 7.407808305713719,
+      "selection_fingerprint": "1fbeca396f943327dbbabc74b88e59ab30eb3721a0e9120fad02e4d2206f0cba",
+      "diagnostics_fingerprint": "1fbeca396f943327dbbabc74b88e59ab30eb3721a0e9120fad02e4d2206f0cba",
+      "provenance_schema_version": 1,
+      "provenance_status": "complete"
     }
   ]
 }

@@ -6,7 +6,7 @@
   "initial_equity": 100000.0,
   "max_drawdown_dollars": 12630.842999999935,
   "max_drawdown_fraction": 0.07869367570195819,
-  "max_drawdown_pct": 7.869367570195819,
+  "max_drawdown_pct": 11.17839987275162,
   "mutations": {
     "fixed_qty": null,
     "flags.addon_b": false,
@@ -23,16 +23,160 @@
     "param_overrides.pullback_touch_tolerance_pct": 0.005,
     "param_overrides.recovery_tolerance_atr_trend": 0.55
   },
-  "net_return_pct": 234.0807950000001,
+  "net_return_pct": 238.97109450000013,
   "phase_label": "CURRENT OPTIMIZED BASELINE",
   "phase_result": "current",
-  "profit_factor": 2.553927702731657,
-  "sharpe": 1.9951326753887264,
+  "profit_factor": 6.5825101580783,
+  "sharpe": 1.8328062795813067,
   "sortino": 0.5083721939007939,
   "state_path": "backtests\\output\\swing\\atrss\\round_3\\phase_state.json",
   "strategy": "atrss",
   "total_pnl": 234171.88950000016,
   "total_r": 234.78196932774728,
   "total_trades": 264,
-  "win_rate_pct": 83.33333333333334
+  "win_rate_pct": 83.33333333333334,
+  "family": "swing",
+  "round": 3,
+  "generated_at_utc": "2026-05-23T00:05:33.016614+00:00",
+  "headline_metrics": {
+    "total_trades": 264,
+    "win_rate": 83.33333333333334,
+    "profit_factor": 6.5825101580783,
+    "max_drawdown_pct": 11.17839987275162,
+    "net_return_pct": 238.97109450000013,
+    "sharpe_ratio": 1.8328062795813067,
+    "calmar_ratio": 73.7259853528312
+  },
+  "final_metrics": {
+    "total_trades": 264,
+    "win_rate": 0.8333333333333334,
+    "profit_factor": 6.5825101580783,
+    "max_dd_pct": 0.1117839987275162,
+    "calmar": 73.7259853528312,
+    "sharpe": 1.8328062795813067,
+    "net_return_pct": 238.97109450000013,
+    "total_r": 234.78196932774725,
+    "max_dd_r": 3.184521281121558,
+    "calmar_r": 73.7259853528312,
+    "avg_r": 0.889325641392982,
+    "mfe_capture": 0.6744713804041249,
+    "trades_per_month": 4.430077177508269,
+    "max_drawdown_pct": 0.1117839987275162,
+    "sharpe_ratio": 1.8328062795813067,
+    "calmar_ratio": 73.7259853528312,
+    "initial_equity": 100000.0,
+    "data_dir": "backtests\\swing\\data\\raw"
+  },
+  "provenance": {
+    "schema_version": 1,
+    "selection_fingerprint": "616501fb590aae91447723807b797258a3a32c4081772c3c97d07e52c8c98792",
+    "diagnostics_fingerprint": "616501fb590aae91447723807b797258a3a32c4081772c3c97d07e52c8c98792",
+    "items": [
+      {
+        "name": "data_dir",
+        "kind": "tree_contents",
+        "fingerprint": "c87d92af3db4f9b38ef15ff383a4a8ba442c108398cfd228fe5df1e7ab7ef36a",
+        "paths": [
+          "backtests/swing/data/raw"
+        ],
+        "scope": "data",
+        "notes": "Content fingerprint for selection-relevant replay data files."
+      },
+      {
+        "name": "code:backtests/swing/analysis/atrss_full_diagnostics.py",
+        "kind": "file_contents",
+        "fingerprint": "f58043014e68467e22c0913924113bb2a5ec32c448caa9483775bd3e161eb513",
+        "paths": [
+          "backtests/swing/analysis/atrss_full_diagnostics.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/swing/data/replay_cache.py",
+        "kind": "file_contents",
+        "fingerprint": "fcc15800317e45287feefe3fada8527ebb002ec29be8c5c764fa18ff6767c6de",
+        "paths": [
+          "backtests/swing/data/replay_cache.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "plugin",
+        "kind": "plugin_identity",
+        "fingerprint": "241d37dbf8ab3271820b22660d135f7eba83c620d8025f39175c36c70f294daf",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "selection_context",
+        "kind": "stable_json",
+        "fingerprint": "b717d09636c1efb8880231f5e19013b6b1f5ca4b5743f3fa61ef42d6a58cfb65",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:backtests/swing/auto/atrss",
+        "kind": "tree_contents",
+        "fingerprint": "66565880685c672b2b83869dbc33f410da716b862adb26c557c958c5f0785690",
+        "paths": [
+          "backtests/swing/auto/atrss"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:strategies/swing/atrss",
+        "kind": "tree_contents",
+        "fingerprint": "f67e6056c9e96275a2e42bdbd7c3c029503bdf36c193762c8e91eb79a4f44c7e",
+        "paths": [
+          "strategies/swing/atrss"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "shared_auto_package",
+        "kind": "tree_contents",
+        "fingerprint": "d9d2fccedd37282a0908da4eacb176f90033de491d7babdfc8d654ce376d5f37",
+        "paths": [
+          "backtests/shared/auto"
+        ],
+        "scope": "selection",
+        "notes": ""
+      }
+    ]
+  },
+  "provenance_status": "complete",
+  "selection_status": "stale_selected_after_current_code_replay",
+  "diagnostics_refresh": {
+    "status": "stale_selected_after_current_code_replay",
+    "updated_saved_metrics": true,
+    "deltas": {
+      "net_return_pct": {
+        "saved": 234.0807950000001,
+        "current": 238.97109450000013
+      },
+      "max_drawdown_pct": {
+        "saved": 7.869367570195819,
+        "current": 11.17839987275162
+      },
+      "sharpe": {
+        "saved": 1.9951326753887264,
+        "current": 1.8328062795813067
+      },
+      "calmar": {
+        "saved": 29.745820475656764,
+        "current": 73.7259853528312
+      }
+    },
+    "basis": "current-code optimized-config replay"
+  },
+  "win_rate": 83.33333333333334,
+  "sharpe_ratio": 1.8328062795813067,
+  "calmar_ratio": 73.7259853528312,
+  "calmar": 73.7259853528312
 }

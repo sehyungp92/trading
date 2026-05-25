@@ -11,6 +11,7 @@ from typing import Any
 from backtests.shared.auto.phase_state import PhaseState
 from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.provenance import AutoRunProvenance, build_phase_auto_provenance
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
@@ -337,6 +338,41 @@ class ALCBP16Plugin:
         self._last_context: dict[str, Any] = {}
         self._phase_runtime_context: dict[int, dict[str, Any]] = {}
         self._shared_pool: mp.Pool | None = None
+        self._provenance: AutoRunProvenance | None = None
+
+    def build_provenance(self) -> AutoRunProvenance:
+        if self._provenance is None:
+            repo_root = Path(__file__).resolve().parents[4]
+            self._provenance = build_phase_auto_provenance(
+                self.name,
+                repo_root=repo_root,
+                code_dirs=(
+                    Path(__file__).resolve().parent,
+                    repo_root / "strategies/stock/alcb",
+                ),
+                code_paths=(
+                    repo_root / "backtests/stock/engine/alcb_engine.py",
+                    repo_root / "backtests/stock/config_alcb.py",
+                    repo_root / "backtests/stock/auto/config_mutator.py",
+                    repo_root / "backtests/stock/data/replay_cache.py",
+                    repo_root / "strategies/stock/alcb/core/logic.py",
+                    repo_root / "strategies/stock/alcb/artifact_store.py",
+                ),
+                data_dir=self.data_dir,
+                selection_context={
+                    "start_date": self.start_date,
+                    "end_date": self.end_date,
+                    "initial_equity": self.initial_equity,
+                    "num_phases": self.num_phases,
+                    "experiment_names": sorted(self.experiment_names),
+                    "phase_scoring_weights": PHASE_SCORING_WEIGHTS,
+                    "phase_hard_rejects": PHASE_STATIC_HARD_REJECTS,
+                    "phase_focus": PHASE_FOCUS,
+                    "ultimate_targets": ULTIMATE_TARGETS,
+                    "round_baseline_policy": "run_spec.baseline_mutations",
+                },
+            )
+        return self._provenance
 
     def _replay_bundle(self):
         from backtests.stock.data.replay_cache import load_research_replay_bundle

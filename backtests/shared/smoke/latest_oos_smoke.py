@@ -74,9 +74,22 @@ class AggregateMetrics:
 STRATEGY_PROBES: dict[str, tuple[str, ...]] = {
     "iaric": ("backtests/stock/data/raw/*_5m.parquet",),
     "alcb": ("backtests/stock/data/raw/*_5m.parquet",),
+    "stock_portfolio": ("backtests/stock/data/raw/*_5m.parquet",),
     "helix_swing": ("backtests/swing/data/raw/*_1h.parquet", "backtests/swing/data/raw/*_1d.parquet"),
     "atrss": ("backtests/swing/data/raw/*_1h.parquet", "backtests/swing/data/raw/*_1d.parquet"),
     "tpc": (
+        "backtests/swing/data/raw/QQQ_15m.parquet",
+        "backtests/swing/data/raw/QQQ_1h.parquet",
+        "backtests/swing/data/raw/QQQ_1d.parquet",
+        "backtests/swing/data/raw/GLD_15m.parquet",
+        "backtests/swing/data/raw/GLD_1h.parquet",
+        "backtests/swing/data/raw/GLD_1d.parquet",
+        "backtests/swing/data/raw/NQ_1h.parquet",
+        "backtests/swing/data/raw/NQ_1d.parquet",
+        "backtests/swing/data/raw/GC_1h.parquet",
+        "backtests/swing/data/raw/GC_1d.parquet",
+    ),
+    "swing_portfolio": (
         "backtests/swing/data/raw/QQQ_15m.parquet",
         "backtests/swing/data/raw/QQQ_1h.parquet",
         "backtests/swing/data/raw/QQQ_1d.parquet",
@@ -95,6 +108,7 @@ STRATEGY_PROBES: dict[str, tuple[str, ...]] = {
     "nqdtc": ("backtests/momentum/data/raw/NQ_5m.parquet", "backtests/momentum/data/raw/ES_1d.parquet"),
     "downturn": ("backtests/momentum/data/raw/NQ_5m.parquet", "backtests/momentum/data/raw/ES_1d.parquet"),
     "nq_regime": ("backtests/momentum/data/raw/NQ_5m.parquet",),
+    "momentum_portfolio": ("backtests/momentum/data/raw/NQ_5m.parquet", "backtests/momentum/data/raw/ES_1d.parquet"),
 }
 
 
@@ -591,7 +605,7 @@ def main() -> int:
         "--strategy",
         nargs="+",
         default=["all"],
-        help="Strategy names or groups: all, stock, swing, momentum, or individual registered names.",
+        help="Strategy names or groups: all, stock, swing, momentum, portfolios, or individual registered names.",
     )
     parser.add_argument("--period", default="1mo", help="Latest OOS period: e.g. 1mo, 3m, 4w, 30d, 1y.")
     parser.add_argument("--data-end", default=None, help="Override latest data end date as YYYY-MM-DD.")

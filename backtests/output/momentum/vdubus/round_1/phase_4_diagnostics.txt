@@ -3,35 +3,34 @@ VdubusNQ Phase 4 Diagnostics
 ============================================================
 
 --- D1: Core Performance ---
-Total trades:    174
-Win rate:        46.6%
-Profit factor:   1.95
-Net return:      752.6%
-Max drawdown:    20.78%
-Calmar:          36.21
-Sharpe:          1.66
-Sortino:         7.32
-Avg R:           0.338
+Total trades:    218
+Win rate:        45.9%
+Profit factor:   1.93
+Net return:      1187.1%
+Max drawdown:    16.56%
+Calmar:          71.69
+Sharpe:          1.93
+Sortino:         6.10
+Avg R:           0.378
 
 --- D2: Exit Efficiency ---
-Capture ratio:   0.512 (winners exit_R / MFE)
-Stale exit pct:  51.7%
-Multi-session:   20.1%
-Fast deaths:     21.8% (<=4 bars)
-Avg winner R:    1.268
-Avg loser R:     -0.473
-Avg MFE R:       1.105
-Avg hold hours:  9.3
+Capture ratio:   0.619 (winners exit_R / MFE)
+Stale exit pct:  27.5%
+Multi-session:   35.8%
+Fast deaths:     23.9% (<=4 bars)
+Avg winner R:    1.550
+Avg loser R:     -0.615
+Avg MFE R:       1.249
+Avg hold hours:  14.1
 
 --- D3: Session Breakdown ---
-Evening trades:  10.3% of total
-Evening avg R:   -0.118
+Evening trades:  7.8% of total
+Evening avg R:   -0.001
 
 --- D6: Greedy Result ---
-Base score:      0.5493
-Final score:     0.5755
-Accepted:        2
-Total candidates:10
-Kept features:   finetune_max_position_bars_15m_m20, finetune_chop_threshold_m20
+Base score:      0.7888
+Final score:     0.7888
+Accepted:        0
+Total candidates:14
 
 ============================================================

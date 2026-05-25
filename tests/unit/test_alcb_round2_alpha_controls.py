@@ -1,21 +1,26 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from backtests.stock.auto.alcb.time_utils import hydrate_time_mutations
 from backtests.stock.auto.alcb.phase_candidates import (
     PHASE_FOCUS,
     get_phase_candidates,
     is_small_sample_overfit_candidate,
     sanitize_round2_seed,
 )
+from backtests.stock.auto.config_mutator import mutate_alcb_config
 from backtests.stock.auto.alcb.phase_scoring import (
     compute_alcb_phase_metrics,
     enrich_alcb_phase_metrics,
     score_alcb_phase,
 )
+from backtests.stock.config_alcb import ALCBBacktestConfig
 from backtests.stock.auto.alcb.worker import phase_reject_reason
 from backtests.stock.engine.alcb_engine import ALCBIntradayEngine, _PendingEntry
 from strategies.stock.alcb.config import StrategySettings
@@ -114,6 +119,26 @@ def test_round2_candidates_exclude_small_sample_sector_and_weekday_fits():
     )
     assert "r2_consumer_disc_120_fin025" not in {name for name, _ in all_candidates}
     assert "r2_tuesday075_fin025" not in {name for name, _ in all_candidates}
+
+
+def test_round2_optimized_param_overrides_match_live_defaults():
+    optimized_path = Path("backtests/output/stock/alcb/round_2/optimized_config.json")
+    optimized = json.loads(optimized_path.read_text(encoding="utf-8"))
+    backtest_config = mutate_alcb_config(ALCBBacktestConfig(), hydrate_time_mutations(optimized))
+    backtest_settings = StrategySettings(**backtest_config.param_overrides)
+    live_settings = StrategySettings()
+
+    mismatches = {}
+    for key in optimized:
+        if not key.startswith("param_overrides."):
+            continue
+        field = key.split(".", 1)[1]
+        backtest_value = getattr(backtest_settings, field)
+        live_value = getattr(live_settings, field)
+        if backtest_value != live_value:
+            mismatches[field] = (backtest_value, live_value)
+
+    assert mismatches == {}
 
 
 def test_conditional_entry_blocklist_uses_completed_bar_cohorts():

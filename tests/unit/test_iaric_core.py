@@ -21,12 +21,20 @@ from strategies.stock.iaric.core.state import (
     IARICOrderUpdate,
     IARICPartialExitRequest,
 )
+from strategies.stock.iaric.exits import check_v2_partial
 from backtests.stock.engine.iaric_pullback_intraday_hybrid_engine import _PBHybridState
 from strategies.stock.iaric.diagnostics import JsonlDiagnostics
 from strategies.stock.iaric.engine import IARICEngine
 from strategies.stock.iaric.models import Bar, MarketSnapshot, PBSymbolState, PendingOrderState, PositionState, RegimeSnapshot, WatchlistArtifact
 
 UTC = timezone.utc
+
+
+def test_v2_partial_requires_positive_profit_trigger() -> None:
+    assert check_v2_partial(0.5, already_taken=False, trigger_r=0.5)
+    assert not check_v2_partial(0.5, already_taken=False, trigger_r=0.0)
+    assert not check_v2_partial(0.5, already_taken=False, trigger_r=-0.1)
+    assert not check_v2_partial(1.0, already_taken=True, trigger_r=0.5)
 
 
 def _state(*symbols: PBSymbolState) -> IARICCoreState:
@@ -430,6 +438,7 @@ def test_iaric_shared_reset_route_state_uses_strategy_specific_reset_defaults() 
 
 
 @pytest.mark.asyncio
+@pytest.mark.parity_smoke
 async def test_iaric_live_wrapper_entry_fill_matches_replay_core_state(monkeypatch, tmp_path) -> None:
     artifact = WatchlistArtifact(
         trade_date=date(2026, 4, 26),

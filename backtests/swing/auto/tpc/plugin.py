@@ -13,6 +13,7 @@ import pandas as pd
 from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.phase_state import PhaseState
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.provenance import AutoRunProvenance, build_phase_auto_provenance
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
@@ -125,6 +126,35 @@ class TPCPlugin(ETFPhasePlugin):
         self._cache_source_fingerprint = ""
         self._holdout_warmup_15m: int | None = None
         self.score_holdout = bool(score_holdout)
+        self._provenance: AutoRunProvenance | None = None
+
+    def build_provenance(self) -> AutoRunProvenance:
+        if self._provenance is None:
+            repo_root = Path(__file__).resolve().parents[4]
+            self._provenance = build_phase_auto_provenance(
+                self.name,
+                repo_root=repo_root,
+                code_dirs=(
+                    Path(__file__).resolve().parent,
+                    repo_root / "strategies/swing/tpc",
+                ),
+                code_paths=(
+                    repo_root / "backtests/swing/engine/tpc_engine.py",
+                    repo_root / "backtests/swing/config_tpc.py",
+                    repo_root / "backtests/swing/data/replay_cache.py",
+                ),
+                data_dir=self.data_dir,
+                selection_context={
+                    "start_date": self.start_date,
+                    "end_date": self.end_date,
+                    "initial_equity": self.initial_equity,
+                    "num_phases": self.num_phases,
+                    "score_holdout": self.score_holdout,
+                    "scoring_weights": TPC_SCORING_WEIGHTS,
+                    "round_baseline_policy": "run_spec.baseline_mutations",
+                },
+            )
+        return self._provenance
 
     @property
     def ultimate_targets(self) -> dict[str, float]:
@@ -713,7 +743,6 @@ def _tpc_composite_score(
             return TPCScore(0.0, True, reason)
 
     max_dd = metrics.get("max_dd_pct", 0.0)
-    mfe_mae_ratio = metrics.get("avg_mfe_r", 0.0) / max(metrics.get("avg_mae_r", 0.0), 1e-9)
     false_positive_control = (
         0.45 * (1.0 - _scale(metrics.get("never_worked_rate", 1.0), 0.24, 0.34))
         + 0.30 * (1.0 - _scale(metrics.get("low_mfe_loss_rate", 1.0), 0.34, 0.44))
@@ -807,8 +836,6 @@ def _tpc_oos_repair_score(
 
     train_dd = metrics.get("max_dd_pct", 0.0)
     oos_dd = metrics.get("oos_max_dd_pct", 0.0)
-    oos_return_to_dd = metrics.get("oos_net_return_pct", 0.0) / max(oos_dd, 1e-9)
-    train_return_to_dd = metrics.get("net_return_pct", 0.0) / max(train_dd, 1e-9)
     components = {
         "false_positive_control": (
             0.40 * (1.0 - _scale(metrics.get("oos_low_mfe_loss_rate", 1.0), 0.48, 0.58))

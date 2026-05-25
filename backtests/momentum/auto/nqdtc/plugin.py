@@ -1,13 +1,15 @@
 """NQDTC phased auto-optimization plugin.
 
 Implements the StrategyPlugin protocol for the shared PhaseRunner framework.
-4 phases targeting regime filtering, signal quality, timing/exit,
-and fine-tuning with no-regression protection.
+5 phases targeting regime filtering, signal quality, timing/exit,
+fine-tuning, and evidence-guided frequency expansion with no-regression
+protection.
 """
 from __future__ import annotations
 
 import multiprocessing as mp
 from dataclasses import MISSING, asdict
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -17,6 +19,7 @@ if TYPE_CHECKING:
 from backtests.shared.auto.phase_state import PhaseState
 from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.provenance import AutoRunProvenance, build_phase_auto_provenance
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
@@ -45,80 +48,91 @@ logger = logging.getLogger(__name__)
 
 IMMUTABLE_SCORE_WEIGHTS: dict[str, float] = {
     "returns": 0.22,
-    "pf": 0.16,
-    "expectancy": 0.12,
-    "frequency": 0.16,
-    "risk": 0.14,
-    "exit_capture": 0.12,
+    "pf": 0.12,
+    "expectancy": 0.14,
+    "frequency": 0.18,
+    "risk": 0.10,
+    "exit_capture": 0.16,
     "stability": 0.08,
 }
 
 PHASE_WEIGHTS: dict[int, dict[str, float] | None] = {
-    phase: dict(IMMUTABLE_SCORE_WEIGHTS) for phase in range(1, 5)
+    phase: dict(IMMUTABLE_SCORE_WEIGHTS) for phase in range(1, 6)
 }
 
 PHASE_HARD_REJECTS: dict[int, dict[str, float]] = {
     1: {
-        "max_dd_pct": 0.18,
-        "min_trades": 89,
-        "min_pf": 2.00,
-        "min_avg_r": 0.45,
-        "min_capture": 0.39,
-        "min_net_return_pct": 296.0,
-        "min_robust_net_return_pct": 220.0,
-        "max_largest_win_pnl_share": 0.30,
+        "max_dd_pct": 0.24,
+        "min_trades": 70,
+        "min_pf": 1.45,
+        "min_avg_r": 0.20,
+        "min_capture": 0.28,
+        "min_net_return_pct": 110.0,
+        "min_robust_net_return_pct": 80.0,
+        "max_largest_win_pnl_share": 0.42,
     },
     2: {
-        "max_dd_pct": 0.18,
-        "min_trades": 89,
-        "min_pf": 2.00,
-        "min_avg_r": 0.45,
-        "min_capture": 0.39,
-        "min_net_return_pct": 296.0,
-        "min_robust_net_return_pct": 220.0,
-        "max_largest_win_pnl_share": 0.30,
+        "max_dd_pct": 0.24,
+        "min_trades": 70,
+        "min_pf": 1.45,
+        "min_avg_r": 0.20,
+        "min_capture": 0.30,
+        "min_net_return_pct": 110.0,
+        "min_robust_net_return_pct": 80.0,
+        "max_largest_win_pnl_share": 0.42,
     },
     3: {
-        "max_dd_pct": 0.20,
-        "min_trades": 89,
-        "min_pf": 1.90,
-        "min_avg_r": 0.42,
-        "min_capture": 0.38,
-        "min_net_return_pct": 296.0,
-        "min_robust_net_return_pct": 210.0,
-        "max_largest_win_pnl_share": 0.32,
+        "max_dd_pct": 0.26,
+        "min_trades": 75,
+        "min_pf": 1.40,
+        "min_avg_r": 0.16,
+        "min_capture": 0.28,
+        "min_net_return_pct": 100.0,
+        "min_robust_net_return_pct": 70.0,
+        "max_largest_win_pnl_share": 0.45,
     },
     4: {
-        "max_dd_pct": 0.20,
-        "min_trades": 89,
-        "min_pf": 1.90,
-        "min_avg_r": 0.42,
-        "min_capture": 0.38,
-        "min_net_return_pct": 296.0,
-        "min_robust_net_return_pct": 210.0,
-        "max_largest_win_pnl_share": 0.32,
+        "max_dd_pct": 0.26,
+        "min_trades": 75,
+        "min_pf": 1.40,
+        "min_avg_r": 0.16,
+        "min_capture": 0.28,
+        "min_net_return_pct": 100.0,
+        "min_robust_net_return_pct": 70.0,
+        "max_largest_win_pnl_share": 0.45,
+    },
+    5: {
+        "max_dd_pct": 0.26,
+        "min_trades": 80,
+        "min_pf": 1.40,
+        "min_avg_r": 0.16,
+        "min_capture": 0.28,
+        "min_net_return_pct": 100.0,
+        "min_robust_net_return_pct": 70.0,
+        "max_largest_win_pnl_share": 0.45,
     },
 }
 
 PHASE_FOCUS = {
-    1: ("Session Frequency Harvest", ["total_trades", "net_return_pct", "profit_factor"]),
-    2: ("Robust Return Protection", ["robust_net_return_pct", "largest_win_pnl_share", "max_dd_pct"]),
-    3: ("Selective Alpha Recovery", ["total_trades", "net_return_pct", "avg_r"]),
-    4: ("Interaction Fine-Tune", ["net_return_pct", "robust_net_return_pct", "total_trades"]),
+    1: ("Exit Monetization", ["capture_ratio", "tp2_hit_rate", "net_return_pct"]),
+    2: ("Conditional Signal Discrimination", ["profit_factor", "avg_r", "total_trades"]),
+    3: ("Entry Diversification", ["total_trades", "net_return_pct", "profit_factor"]),
+    4: ("Frequency And Interaction Fine-Tune", ["total_trades", "net_return_pct", "robust_net_return_pct"]),
+    5: ("Evidence-Guided Frequency Expansion", ["total_trades", "net_return_pct", "profit_factor"]),
 }
 
 ULTIMATE_TARGETS = {
-    "net_return_pct": 320.0,
-    "robust_net_return_pct": 240.0,
-    "profit_factor": 2.0,
-    "max_dd_pct": 0.15,
-    "calmar": 10.0,
-    "total_trades": 115.0,
-    "capture_ratio": 0.50,
-    "avg_r": 0.50,
+    "net_return_pct": 260.0,
+    "robust_net_return_pct": 185.0,
+    "profit_factor": 1.75,
+    "max_dd_pct": 0.20,
+    "calmar": 8.0,
+    "total_trades": 130.0,
+    "capture_ratio": 0.48,
+    "avg_r": 0.38,
     "win_rate": 0.56,
-    "sharpe": 2.0,
-    "sortino": 6.0,
+    "sharpe": 1.8,
+    "sortino": 5.0,
 }
 
 
@@ -131,8 +145,16 @@ def score_phase_metrics(
     from .scoring import composite_score
 
     rejects = hard_rejects or PHASE_HARD_REJECTS.get(phase, {})
-    weights = PHASE_WEIGHTS.get(phase)
+    weights = weight_overrides or PHASE_WEIGHTS.get(phase)
     return composite_score(metrics, weights, hard_rejects=rejects)
+
+
+def _format_end_date(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat()
 
 
 class _SequentialBatchEvaluator:
@@ -140,12 +162,14 @@ class _SequentialBatchEvaluator:
         self,
         data_dir: Path,
         initial_equity: float,
+        end_date: datetime | None,
         phase: int,
         scoring_weights: dict[str, float] | None,
         hard_rejects: dict[str, float] | None,
     ):
         self._data_dir = data_dir
         self._initial_equity = initial_equity
+        self._end_date = end_date
         self._phase = phase
         self._scoring_weights = scoring_weights
         self._hard_rejects = hard_rejects
@@ -155,7 +179,7 @@ class _SequentialBatchEvaluator:
         if self._initialised:
             return
         from .worker import init_worker
-        init_worker(str(self._data_dir), self._initial_equity)
+        init_worker(str(self._data_dir), self._initial_equity, _format_end_date(self._end_date))
         self._initialised = True
 
     def __call__(self, candidates: list[Experiment], current_mutations: dict[str, Any]):
@@ -183,7 +207,7 @@ _INITIAL_MUTATIONS = {"flags.max_loss_cap": True, "flags.max_stop_width": True}
 
 class NQDTCPlugin:
     name = "nqdtc"
-    num_phases = 4
+    num_phases = 5
     ultimate_targets = ULTIMATE_TARGETS
     initial_mutations = _INITIAL_MUTATIONS
 
@@ -193,7 +217,8 @@ class NQDTCPlugin:
         initial_equity: float = 10_000.0,
         max_workers: int | None = 3,
         *,
-        num_phases: int = 4,
+        num_phases: int = 5,
+        end_date: datetime | None = None,
     ):
         if not 1 <= num_phases <= max(PHASE_FOCUS):
             raise ValueError(f"NQDTCPlugin supports 1-{max(PHASE_FOCUS)} phases, got {num_phases}.")
@@ -201,6 +226,7 @@ class NQDTCPlugin:
         self.initial_equity = initial_equity
         self.max_workers = max_workers
         self.num_phases = num_phases
+        self.end_date = end_date
         self._cached_bundle = None
         self._last_context: dict[str, Any] = {}
         self._pool: mp.Pool | None = None
@@ -208,6 +234,35 @@ class NQDTCPlugin:
         self._evaluation_cache: dict[str, Any] = {}
         self._metrics_cache: dict[str, dict[str, float]] = {}
         self._cache_source_fingerprint: str = ""
+        self._provenance: AutoRunProvenance | None = None
+
+    def build_provenance(self) -> AutoRunProvenance:
+        if self._provenance is None:
+            repo_root = Path(__file__).resolve().parents[4]
+            self._provenance = build_phase_auto_provenance(
+                self.name,
+                repo_root=repo_root,
+                code_dirs=(Path(__file__).resolve().parent,),
+                code_paths=(
+                    repo_root / "backtests/momentum/engine/nqdtc_engine.py",
+                    repo_root / "backtests/momentum/engine/sim_broker.py",
+                    repo_root / "backtests/momentum/config_nqdtc.py",
+                    repo_root / "backtests/momentum/auto/config_mutator.py",
+                    repo_root / "backtests/momentum/data/replay_cache.py",
+                ),
+                data_dir=self.data_dir,
+                selection_context={
+                    "initial_equity": self.initial_equity,
+                    "end_date": _format_end_date(self.end_date),
+                    "num_phases": self.num_phases,
+                    "phase_weights": PHASE_WEIGHTS,
+                    "phase_hard_rejects": PHASE_HARD_REJECTS,
+                    "phase_focus": PHASE_FOCUS,
+                    "ultimate_targets": ULTIMATE_TARGETS,
+                    "round_baseline_policy": "run_spec.baseline_mutations",
+                },
+            )
+        return self._provenance
 
     def get_phase_spec(self, phase: int, state: PhaseState) -> PhaseSpec:
         focus, focus_metrics = PHASE_FOCUS[phase]
@@ -249,14 +304,17 @@ class NQDTCPlugin:
         scoring_weights: dict[str, float] | None = None,
         hard_rejects: dict[str, float] | None = None,
     ):
+        evaluation_extra = {
+            "phase": phase,
+            "scoring_weights": scoring_weights or {},
+            "hard_rejects": hard_rejects or {},
+        }
+        if self.end_date is not None:
+            evaluation_extra["end_date"] = _format_end_date(self.end_date)
         evaluation_key = build_cache_key(
             "nqdtc.evaluation",
             source_fingerprint=self._replay_bundle().cache_source_fingerprint,
-            extra={
-                "phase": phase,
-                "scoring_weights": scoring_weights or {},
-                "hard_rejects": hard_rejects or {},
-            },
+            extra=evaluation_extra,
         )
 
         def make_parallel():
@@ -277,7 +335,7 @@ class NQDTCPlugin:
 
         def make_sequential():
             return _SequentialBatchEvaluator(
-                self.data_dir, self.initial_equity, phase,
+                self.data_dir, self.initial_equity, self.end_date, phase,
                 scoring_weights, hard_rejects,
             )
 
@@ -320,7 +378,7 @@ class NQDTCPlugin:
         self._pool = create_process_pool(
             self.max_workers,
             initializer=init_worker,
-            initargs=(str(self.data_dir), self.initial_equity),
+            initargs=(str(self.data_dir), self.initial_equity, _format_end_date(self.end_date)),
             logger=logger,
             description=f"{self.name} evaluation",
         )
@@ -352,11 +410,14 @@ class NQDTCPlugin:
         if self._last_context.get("mutation_signature") == metrics_sig:
             return dict(self._last_context["metrics"])
 
+        final_extra = {"initial_equity": self.initial_equity}
+        if self.end_date is not None:
+            final_extra["end_date"] = _format_end_date(self.end_date)
         cache_key = build_cache_key(
             "nqdtc.final_metrics",
             source_fingerprint=replay_bundle.cache_source_fingerprint,
             mutations=mutations,
-            extra={"initial_equity": self.initial_equity},
+            extra=final_extra,
         )
         cached = self._final_metrics_cache.get(cache_key)
         if cached is not None:
@@ -364,7 +425,12 @@ class NQDTCPlugin:
             return dict(cached["metrics"])
 
         config = mutate_nqdtc_config(
-            NQDTCBacktestConfig(initial_equity=self.initial_equity, data_dir=self.data_dir, fixed_qty=10),
+            NQDTCBacktestConfig(
+                initial_equity=self.initial_equity,
+                data_dir=self.data_dir,
+                fixed_qty=10,
+                end_date=self.end_date,
+            ),
             mutations,
         )
         engine = NQDTCEngine("MNQ", config)
@@ -425,8 +491,8 @@ class NQDTCPlugin:
             f"Net return {m.net_return_pct:.1f}% with {m.total_trades} trades, "
             f"robust return {m.robust_net_return_pct:.1f}%, "
             f"PF={m.profit_factor:.2f}, DD={m.max_dd_pct:.1%}. "
-            "Later recovery and interaction phases did not find a valid "
-            "incremental mutation above the robust score hurdle."
+            "The round prioritized MFE monetization, contextual signal filters, "
+            "and entry diversification over broad gate relaxation."
         )
         discrimination = (
             f"Win rate {m.win_rate:.1%}, avg R={m.avg_r:.3f}, "
@@ -435,16 +501,15 @@ class NQDTCPlugin:
             f"blocked ({m.eth_short_trades} trades)."
         )
         entry = (
-            "Entry expansion came from reopening the 05:00 and 09:00 ET "
-            "Range windows while preserving the prior score, RVOL, box-width, "
-            "cooldown, and regime blocks. Guarded session/regime recovery "
-            "candidates were tested but did not improve the objective."
+            "Entry experiments targeted A-latch, B-range sweep, and guarded "
+            "C-continuation paths so frequency gains had an explicit mechanism "
+            "and live/backtest parity hook."
         )
         management = (
             f"Calmar={m.calmar:.2f}, Sharpe={m.sharpe:.2f}, "
             f"Sortino={m.sortino:.2f}; burst trades are {m.burst_trade_pct:.1%} "
-            "and the accepted ratchet threshold reduced drawdown without "
-            "sacrificing the frequency harvest."
+            "with MFE ratchets and cooldown interactions available as selected "
+            "trade-management controls."
         )
         exits = (
             f"TP1 hit rate {m.tp1_hit_rate:.1%}, TP2 hit rate {m.tp2_hit_rate:.1%}, "
@@ -498,32 +563,53 @@ class NQDTCPlugin:
 
         weakness_text = " ".join(weaknesses).lower()
 
-        # Residual non-Range drag: round 1 left Aligned negative while Range carried edge.
-        if m.profit_factor < 1.6 or m.avg_r < 0.30 or "profit_factor" in weakness_text:
-            add("suggest_block_aligned", {"param_overrides.BLOCK_ALIGNED_REGIME": True})
-            add("suggest_score_non_range_2x", {"param_overrides.SCORE_NON_RANGE_MULT": 2.0})
-            add("suggest_score_non_range_2.5x", {"param_overrides.SCORE_NON_RANGE_MULT": 2.5})
+        context = {
+            "param_overrides.WEAK_SCORE_BAND_FILTER_ENABLED": True,
+            "param_overrides.WEAK_SCORE_BAND_MAX_BOX_WIDTH": 225.0,
+            "param_overrides.WEAK_SCORE_BAND_MIN_RVOL": 1.75,
+            "param_overrides.WIDE_BOX_SCORE_FILTER_ENABLED": True,
+            "param_overrides.WIDE_BOX_MIN_WIDTH": 275.0,
+            "param_overrides.WIDE_BOX_MIN_SCORE": 3.0,
+            "param_overrides.WIDE_BOX_MIN_RVOL": 1.75,
+        }
 
-        # High drawdown
-        if m.max_dd_pct > 0.20 or "drawdown" in weakness_text:
+        if m.profit_factor < 1.55 or m.avg_r < 0.25 or "profit_factor" in weakness_text:
+            add("suggest_score_context_full", context)
+            add("suggest_aligned_score_3_context", {
+                **context,
+                "param_overrides.BLOCK_ALIGNED_REGIME": False,
+                "param_overrides.SCORE_NON_RANGE_MULT": 3.0,
+            })
+
+        if m.max_dd_pct > 0.22 or "drawdown" in weakness_text:
+            add("suggest_mfe_tiers_fast_lock", {
+                "param_overrides.MFE_RATCHET_TIERS_ENABLED": True,
+                "param_overrides.MFE_RATCHET_T1_R": 1.75,
+                "param_overrides.MFE_RATCHET_T1_LOCK_R": 0.75,
+                "param_overrides.MFE_RATCHET_T2_R": 2.75,
+                "param_overrides.MFE_RATCHET_T2_LOCK_R": 1.30,
+                "param_overrides.MFE_RATCHET_T3_R": 3.75,
+                "param_overrides.MFE_RATCHET_T3_LOCK_R": 1.90,
+            })
             add("suggest_max_stop_width_175", {"param_overrides.MAX_STOP_WIDTH_PTS": 175})
-            add("suggest_max_stop_atr_0.60", {"param_overrides.MAX_STOP_ATR_MULT": 0.60})
 
-        # Capture ratio low / TP2 inactive
         if m.capture_ratio < 0.45 or m.tp2_hit_rate == 0:
-            add("suggest_tp2_2.25_p15", {
+            add("suggest_tp2_degraded_only", {
                 "param_overrides.TP1_R": 1.2,
-                "param_overrides.TP1_PARTIAL_PCT": 0.5,
-                "param_overrides.TP2_R": 2.25,
+                "param_overrides.TP1_PARTIAL_PCT": 0.45,
+                "param_overrides.TP2_R": 2.50,
                 "param_overrides.TP2_PARTIAL_PCT": 0.15,
+                "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
             })
-            add("suggest_tp2_2.5_p20", {
-                "param_overrides.TP1_R": 1.2,
-                "param_overrides.TP1_PARTIAL_PCT": 0.5,
-                "param_overrides.TP2_R": 2.5,
-                "param_overrides.TP2_PARTIAL_PCT": 0.20,
+            add("suggest_mfe_tiers_balanced", {
+                "param_overrides.MFE_RATCHET_TIERS_ENABLED": True,
+                "param_overrides.MFE_RATCHET_T1_R": 2.0,
+                "param_overrides.MFE_RATCHET_T1_LOCK_R": 0.8,
+                "param_overrides.MFE_RATCHET_T2_R": 3.0,
+                "param_overrides.MFE_RATCHET_T2_LOCK_R": 1.35,
+                "param_overrides.MFE_RATCHET_T3_R": 4.0,
+                "param_overrides.MFE_RATCHET_T3_LOCK_R": 2.0,
             })
-            add("suggest_ratchet_0.45", {"param_overrides.RATCHET_LOCK_PCT": 0.45})
 
         # Burst clustering
         if m.burst_trade_pct > 0.15 or "burst" in weakness_text:
@@ -535,20 +621,32 @@ class NQDTCPlugin:
             add("suggest_block_eth_shorts", {"flags.block_eth_shorts": True})
             add("suggest_eth_short_half", {"param_overrides.ETH_SHORT_SIZE_MULT": 0.50})
 
-        # Frequency is now a first-class score component; prefer session-specific
-        # recovery over broad gate relaxation.
-        if m.total_trades < 100:
-            add("suggest_allow_05_et", {"flags.block_05_et": False})
-            add("suggest_allow_05_score_1.75", {
-                "flags.block_05_et": False,
-                "param_overrides.SCORE_NORMAL": 1.75,
+        if m.total_trades < 110:
+            add("suggest_b_range_p85", {
+                "param_overrides.B_ALLOW_RANGE": True,
+                "param_overrides.B_MIN_DISP_Q": 0.85,
             })
-            add("suggest_allow_09_et", {"flags.block_09_et": False})
-            add("suggest_rvol_1.35", {"param_overrides.RVOL_SCORE_THRESH": 1.35})
+            add("suggest_c_cont_mfe_0.50", {
+                "flags.entry_c_continuation": True,
+                "param_overrides.C_CONT_ENTRY_ENABLED": True,
+                "param_overrides.C_CONT_MFE_GATE_R": 0.50,
+            })
+            add("suggest_cooldown_15_context", {
+                **context,
+                "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 15,
+            })
 
         if m.largest_win_pnl_share > 0.30 or m.robust_net_return_pct < 220:
-            add("suggest_outlier_guard_score_1.75", {"param_overrides.SCORE_NORMAL": 1.75})
-            add("suggest_outlier_guard_max_stop_175", {"param_overrides.MAX_STOP_WIDTH_PTS": 175})
+            add("suggest_outlier_guard_context", context)
+            add("suggest_outlier_guard_mfe", {
+                "param_overrides.MFE_RATCHET_TIERS_ENABLED": True,
+                "param_overrides.MFE_RATCHET_T1_R": 2.0,
+                "param_overrides.MFE_RATCHET_T1_LOCK_R": 0.8,
+                "param_overrides.MFE_RATCHET_T2_R": 3.0,
+                "param_overrides.MFE_RATCHET_T2_LOCK_R": 1.35,
+                "param_overrides.MFE_RATCHET_T3_R": 4.0,
+                "param_overrides.MFE_RATCHET_T3_LOCK_R": 2.0,
+            })
 
         return suggestions
 

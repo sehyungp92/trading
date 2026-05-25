@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from copy import deepcopy
 from datetime import datetime, timezone
 
@@ -11,6 +12,7 @@ from strategies.core.actions import (
     SubmitExit,
 )
 from strategies.core.events import DecisionEvent
+from strategies.core.idle_market import idle_market_details
 from strategies.momentum.downturn.models import ActivePosition, WorkingEntry
 
 from .state import (
@@ -41,6 +43,9 @@ def on_bar(
     stop_update: DownturnStopUpdateRequest | None = None,
     flatten_reason: str | None = None,
     expire_entries: bool = False,
+    idle_market_bars: Sequence[object] | None = None,
+    idle_market_symbol: str = "",
+    idle_market_timeframe: str = "5m",
 ) -> tuple[
     DownturnCoreState,
     list[SubmitEntry | ReplaceProtectiveStop | CancelAction | FlattenPosition],
@@ -157,6 +162,22 @@ def on_bar(
             else:
                 still_active.append(entry)
         next_state.working_entries = still_active
+
+    if idle_market_bars is not None and not actions and not events:
+        observed_symbol = idle_market_symbol or next_state.symbol
+        events.append(
+            DecisionEvent(
+                code="IDLE_MARKET_OBSERVED",
+                ts=event_ts,
+                symbol=observed_symbol,
+                timeframe=idle_market_timeframe,
+                details=idle_market_details(
+                    idle_market_bars,
+                    symbol=observed_symbol,
+                    timeframe=idle_market_timeframe,
+                ),
+            )
+        )
 
     _update_last_decision(next_state, events)
     return next_state, actions, events

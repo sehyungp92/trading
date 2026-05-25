@@ -1987,7 +1987,7 @@ class IARICPullbackDailyEngine:
 
                 sector = str(candidate["sector"])
                 sec_count = sector_counts.get(sector, 0)
-                if sec_count >= cfg.max_per_sector:
+                if sec_count >= settings.max_positions_per_sector:
                     if record is not None:
                         self._record_rejection(record, "sector_cap_reject", rejection_log, shadow_outcomes, funnel_counters)
                     continue

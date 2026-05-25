@@ -56,28 +56,28 @@ LATEST_ROUNDS: tuple[LatestRoundSource, ...] = (
     LatestRoundSource(
         "iaric",
         "IARIC_V5R1",
-        "round_2",
-        "backtests/output/stock/iaric/round_2/run_summary.json",
-        "backtests/output/stock/iaric/round_2/round_final_diagnostics.txt",
+        "round_1",
+        "backtests/output/stock/iaric/round_1/run_summary.json",
+        "backtests/output/stock/iaric/round_1/round_final_diagnostics.txt",
     ),
     LatestRoundSource(
         "alcb",
         "ALCB_R3",
-        "round_3",
-        "backtests/output/stock/alcb/round_3/run_summary.json",
-        "backtests/output/stock/alcb/round_3/round_final_diagnostics.txt",
+        "round_2",
+        "backtests/output/stock/alcb/round_2/run_summary.json",
+        "backtests/output/stock/alcb/round_2/round_final_diagnostics.txt",
     ),
 )
 
 STRATEGY_READS = {
     "iaric": (
-        "Best latest all-round profile: 1015 trades, avg R +0.243, PF 3.32, Sharpe 7.54, max DD 2.2%.",
-        "Carry remains negative and most alpha is open-scored; avoid blindly adding overnight risk.",
+        "Latest active IARIC artifact from the manifest supplies the pullback/frequency sleeve.",
+        "Current-code parity metrics must drive sizing; avoid inheriting stale archived expectations.",
         "primary_overweight",
     ),
     "alcb": (
-        "High expected R at useful frequency: 511 trades, avg R +0.271, PF 2.19, max DD 2.3%.",
-        "Score monotonicity is weak and short-hold losers remain a drag; use as a sized complement, not the sole driver.",
+        "Latest active ALCB artifact from the manifest supplies the intraday momentum sleeve.",
+        "Use as a sized complement with explicit heat and single-strategy share controls.",
         "alpha_complement",
     ),
 }
@@ -85,7 +85,8 @@ STRATEGY_READS = {
 
 def build_round_design(repo_root: Path | None = None) -> dict[str, Any]:
     root = Path(repo_root) if repo_root else Path(__file__).resolve().parents[4]
-    assessments = _load_strategy_assessments(root)
+    latest_rounds = _latest_round_sources(root)
+    assessments = _load_strategy_assessments(root, latest_rounds)
     assessment_map = {item.strategy_id: item for item in assessments}
     ordered = [assessment_map[strategy_id] for strategy_id in STRATEGY_ORDER]
 
@@ -101,8 +102,8 @@ def build_round_design(repo_root: Path | None = None) -> dict[str, Any]:
         "status": "designed_not_executed",
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "description": (
-            "Two-strategy stock phase-auto design using latest ALCB round 3 and "
-            "IARIC V5R1 round 2 diagnostics."
+            "Two-strategy stock phase-auto design using the latest active ALCB and "
+            "IARIC diagnostics from their rounds manifests."
         ),
         "risk_stance": RISK_STANCE,
         "initial_equity": INITIAL_EQUITY,
@@ -111,7 +112,7 @@ def build_round_design(repo_root: Path | None = None) -> dict[str, Any]:
             "US equities threshold for frequent intraday stock trading while still making "
             "50-90 bp unit-risk choices meaningful."
         ),
-        "diagnostic_sources": [asdict(source) for source in LATEST_ROUNDS],
+        "diagnostic_sources": [asdict(source) for source in latest_rounds],
         "diagnostic_assessments": [asdict(item) for item in ordered],
         "diagnostic_portfolio_baseline": {
             "isolated_trades_per_month": isolated_trades_per_month,
@@ -249,9 +250,44 @@ def write_round_design(output_dir: Path, repo_root: Path | None = None) -> dict[
     return paths
 
 
-def _load_strategy_assessments(repo_root: Path) -> list[StrategyAssessment]:
-    assessments: list[StrategyAssessment] = []
+def _latest_round_sources(repo_root: Path) -> tuple[LatestRoundSource, ...]:
+    sources: list[LatestRoundSource] = []
     for source in LATEST_ROUNDS:
+        round_num = _active_manifest_round(repo_root / "backtests" / "output" / "stock" / source.key)
+        if round_num is None:
+            sources.append(source)
+            continue
+        round_name = f"round_{round_num}"
+        sources.append(
+            LatestRoundSource(
+                source.key,
+                source.strategy_id,
+                round_name,
+                f"backtests/output/stock/{source.key}/{round_name}/run_summary.json",
+                f"backtests/output/stock/{source.key}/{round_name}/round_final_diagnostics.txt",
+            )
+        )
+    return tuple(sources)
+
+
+def _active_manifest_round(strategy_dir: Path) -> int | None:
+    manifest_path = strategy_dir / "rounds_manifest.json"
+    if not manifest_path.exists():
+        return None
+    rounds = _load_json(manifest_path).get("rounds", [])
+    active = [
+        int(entry["round"])
+        for entry in rounds
+        if not entry.get("archived")
+        and entry.get("round") is not None
+        and (strategy_dir / f"round_{int(entry['round'])}" / "run_summary.json").exists()
+    ]
+    return max(active) if active else None
+
+
+def _load_strategy_assessments(repo_root: Path, sources: tuple[LatestRoundSource, ...]) -> list[StrategyAssessment]:
+    assessments: list[StrategyAssessment] = []
+    for source in sources:
         summary_path = repo_root / source.summary_path
         diagnostics_path = repo_root / source.diagnostics_path
         metrics = _load_json(summary_path).get("final_metrics", {})
@@ -314,4 +350,3 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, dict):
         return {key: _jsonable(item) for key, item in value.items()}
     return value
-

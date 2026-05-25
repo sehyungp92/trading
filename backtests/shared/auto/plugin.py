@@ -14,6 +14,7 @@ from .types import (
     PhaseDecision,
     ScoredCandidate,
 )
+from .provenance import AutoRunProvenance
 
 DiagnosticGapFn = Callable[[int, dict[str, float]], list[str]]
 SuggestExperimentsFn = Callable[[int, dict[str, float], list[str], PhaseState], list[Experiment]]
@@ -96,3 +97,7 @@ class StrategyPlugin(Protocol):
     ) -> str: ...
 
     def build_end_of_round_artifacts(self, state: PhaseState) -> EndOfRoundArtifacts: ...
+
+
+class ProvenanceAwarePlugin(Protocol):
+    def build_provenance(self) -> AutoRunProvenance: ...

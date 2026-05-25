@@ -2,14 +2,18 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime
+from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pytest
 
+from backtests.shared.parity.decision_capture import normalize_decision_stream
+from backtests.shared.parity.replay_driver import ReplayStep, run_replay
 from backtests.momentum.config_regime import NqRegimeBacktestConfig
 from backtests.momentum.engine.regime_engine import NqRegimeTradeRecord, _TradeLedger, _extract_metrics, load_nq_regime_data
 from backtests.momentum.engine.sim_broker import FillResult, FillStatus, OrderSide, OrderType, SimBroker, SimOrder
+from libs.oms.models.events import OMSEventType
 from strategies.core.actions import CancelAction, FlattenPosition, ReplaceProtectiveStop, SubmitEntry, SubmitProfitTarget, SubmitProtectiveStop
 from strategies.momentum.nq_regime import config as nq_config
 from strategies.momentum.nq_regime.config import Grade, ModuleId, StrategyRuntimeSettings, TradeSide
@@ -21,6 +25,7 @@ from strategies.momentum.nq_regime.core.regime import Regime, RegimeResult, Regi
 from strategies.momentum.nq_regime.core.serializers import hydrate_state, snapshot_state
 from strategies.momentum.nq_regime.core.session import SessionPhase
 from strategies.momentum.nq_regime.core.state import BarData, BarEvent, FillEvent, OrderUpdateEvent, RegimeCoreState
+from strategies.momentum.nq_regime.engine import NQRegimeEngine
 from strategies.momentum.nq_regime.modules import second_wind as second_wind_module
 from strategies.momentum.nq_regime.modules.base import SetupCandidate
 from strategies.momentum.nq_regime.modules.structural_expansion import evaluate as evaluate_structural
@@ -240,6 +245,86 @@ def test_entry_fill_places_protective_orders_and_partial_r_uses_full_trade_risk(
     assert any(isinstance(action, SubmitProfitTarget) and action.role == "target_2" for action in partial_actions)
     assert state.qty_open == 10 - target.qty
     assert state.daily_realized_r == pytest.approx(target.qty / 10, abs=1e-9)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parity_smoke
+async def test_nq_regime_live_wrapper_entry_fill_matches_replay_core_state(tmp_path, monkeypatch) -> None:
+    ts = _dt(10, 15)
+    engine = NQRegimeEngine(
+        ib_session=None,
+        oms_service=None,
+        instruments={},
+        state_dir=tmp_path,
+        instrumentation=None,
+    )
+    engine._settings = StrategyRuntimeSettings(
+        initial_equity=100_000,
+        max_contracts=10,
+        enable_liquidity_reversion=False,
+        enable_second_wind=False,
+    )
+    state = _ready_state(ts)
+    candidate = _candidate(ts)
+    monkeypatch.setattr(
+        "strategies.momentum.nq_regime.core.logic.classify_regime",
+        lambda *args, **kwargs: RegimeResult(Regime.STRUCTURAL_EXPANSION, RegimeScores(expansion=1.0), 1.0, 1.0),
+    )
+    monkeypatch.setattr(
+        "strategies.momentum.nq_regime.modules.structural_expansion.evaluate",
+        lambda *args, **kwargs: candidate,
+    )
+    state, entry_actions, _ = on_bar(
+        state,
+        BarEvent(ts=ts, bar_5m=_bar(10, 15, 20020, 20040, 20010, 20030, 2_000)),
+        settings=engine._settings,
+    )
+    entry = next(action for action in entry_actions if isinstance(action, SubmitEntry))
+    engine._state = hydrate_state(snapshot_state(state))
+    initial_state = hydrate_state(snapshot_state(engine._state))
+    fill_time = _dt(10, 20)
+    wrapper_events = []
+    record_events = engine._record_events
+
+    def _capture_recorded_events(events):
+        wrapper_events.extend(events)
+        record_events(events)
+
+    monkeypatch.setattr(engine, "_record_events", _capture_recorded_events)
+
+    await engine._handle_oms_event(
+        SimpleNamespace(
+            event_type=OMSEventType.FILL,
+            oms_order_id=entry.client_order_id,
+            payload={"price": 20000, "qty": 10, "commission": 0.0},
+            timestamp=fill_time,
+        )
+    )
+
+    wrapper_snapshot = snapshot_state(engine._state)
+    replay = run_replay(
+        initial_state,
+        steps=[
+            ReplayStep(
+                fills=[
+                    FillEvent(
+                        entry.client_order_id,
+                        fill_price=20000,
+                        fill_qty=10,
+                        fill_time=fill_time,
+                        symbol="MNQ",
+                    )
+                ]
+            )
+        ],
+        on_bar=lambda replay_state, event: on_bar(replay_state, event, settings=engine._settings),
+        on_order_update=on_order_update,
+        on_fill=on_fill,
+    )
+
+    assert replay.events[-1].code == engine.health_status()["last_decision_code"] == "ENTRY_FILLED"
+    assert normalize_decision_stream(wrapper_events) == normalize_decision_stream(replay.events)
+    assert snapshot_state(replay.state) == wrapper_snapshot
 
 
 def test_ib_lock_includes_1000_close_bar(monkeypatch) -> None:

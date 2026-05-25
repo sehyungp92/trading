@@ -16,8 +16,9 @@ from backtests.swing.engine.backtest_engine import BacktestEngine
 from backtests.swing.engine.sim_broker import FillResult, FillStatus, OrderSide, OrderType, SimOrder
 from backtests.momentum.analysis.downturn_diagnostics import DownturnMetrics
 from backtests.momentum.auto.downturn.plugin import _metrics_from_dict
+from backtests.momentum.auto.nqdtc.plugin import PHASE_HARD_REJECTS, PHASE_WEIGHTS
 from backtests.momentum.auto.nqdtc.phase_diagnostics import generate_phase_diagnostics as generate_nqdtc_phase_diagnostics
-from backtests.momentum.auto.nqdtc.scoring import extract_nqdtc_metrics
+from backtests.momentum.auto.nqdtc.scoring import NQDTCMetrics, composite_score as nqdtc_composite_score, extract_nqdtc_metrics
 from backtests.momentum.auto.vdubus.phase_diagnostics import generate_phase_diagnostics as generate_vdubus_phase_diagnostics
 from backtests.momentum.auto.vdubus.scoring import extract_vdubus_metrics
 from backtests.swing.analysis.atrss_diagnostics import atrss_entry_type_drilldown
@@ -300,6 +301,32 @@ def test_nqdtc_and_vdubus_scorers_accept_numpy_timestamps():
 
     assert nqdtc.sharpe != 0.0
     assert vdubus.trades_per_month > 0.0
+
+
+def test_nqdtc_round2_baseline_stays_in_phase_selection_pool():
+    metrics = NQDTCMetrics(
+        total_trades=97,
+        win_rate=0.588,
+        profit_factor=1.89,
+        max_dd_pct=0.1519,
+        net_return_pct=241.2,
+        calmar=15.88,
+        sharpe=2.0,
+        sortino=6.0,
+        avg_r=0.429,
+        capture_ratio=0.406,
+        tp1_hit_rate=0.557,
+        tp2_hit_rate=0.0,
+        avg_mfe_r=2.356,
+        robust_net_return_pct=195.4,
+        largest_win_pnl_share=0.19,
+        largest_winner_r=6.0,
+    )
+
+    for phase, hard_rejects in PHASE_HARD_REJECTS.items():
+        score = nqdtc_composite_score(metrics, PHASE_WEIGHTS[phase], hard_rejects=hard_rejects)
+        assert not score.rejected, f"phase {phase} rejected baseline: {score.reject_reason}"
+        assert score.total > 0.40
 
 
 def test_helix_scoring_uses_fee_net_profit_factor():

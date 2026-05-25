@@ -22,6 +22,7 @@ sys.path.insert(0, str(ROOT))
 from backtests.shared.auto.cache_keys import build_cache_key, fingerprint_paths, fingerprint_tree, stable_signature
 from backtests.shared.auto.phase_runner import PhaseRunner
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.provenance import AutoRunProvenance, build_phase_auto_provenance
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
@@ -442,6 +443,46 @@ class PortfolioSynergyPhasePlugin:
         self._cache_source_fingerprint = ""
         self._metrics_cache: dict[str, dict[str, Any]] = {}
         self._score_cache: dict[str, ScoredCandidate] = {}
+        self._provenance: AutoRunProvenance | None = None
+
+    def build_provenance(self) -> AutoRunProvenance:
+        if self._provenance is None:
+            source_artifacts = {
+                f"{sid}:optimized_config": path
+                for sid, path in PHASE_SOURCE_CONFIGS.items()
+            }
+            source_artifacts.update(
+                {
+                    f"{sid}:diagnostics": path
+                    for sid, path in PHASE_SOURCE_DIAGNOSTICS.items()
+                }
+            )
+            self._provenance = build_phase_auto_provenance(
+                self.name,
+                repo_root=ROOT,
+                code_dirs=(Path(__file__).resolve().parent,),
+                code_paths=(
+                    Path(__file__).resolve(),
+                    ROOT / "backtests/swing/engine/unified_portfolio_engine.py",
+                    ROOT / "strategies/swing/overlay/engine.py",
+                    ROOT / "libs/oms/risk/portfolio_rules.py",
+                    ROOT / "libs/oms/risk/swing_portfolio_adapter.py",
+                ),
+                data_dir=self.data_dir,
+                source_artifacts=source_artifacts,
+                selection_context={
+                    "initial_equity": self.initial_equity,
+                    "base_source": self.base_source,
+                    "risk_stance": RISK_STANCE,
+                    "score_profile": SCORE_PROFILE,
+                    "return_basis": OPTIMIZATION_RETURN_BASIS,
+                    "replay_architecture": REPLAY_ARCHITECTURE,
+                    "phase_scoring_kwargs": PHASE_SCORING_KWARGS,
+                    "phase_count": self.num_phases,
+                    "round_baseline_policy": "run_spec.baseline_mutations",
+                },
+            )
+        return self._provenance
 
     @property
     def ultimate_targets(self) -> dict[str, float]:
@@ -996,6 +1037,18 @@ def _file_sha256(path: Path) -> str:
 def _metric_value(summary: dict[str, Any], key: str) -> Any:
     headline = summary.get("headline_metrics", {}) or {}
     final = summary.get("final_metrics", {}) or {}
+    aliases = {
+        "max_drawdown_pct": ("max_drawdown_pct", "max_dd_pct"),
+        "sharpe": ("sharpe", "sharpe_ratio"),
+        "calmar": ("calmar", "calmar_ratio"),
+    }
+    for candidate in aliases.get(key, (key,)):
+        if candidate in headline:
+            return headline[candidate]
+        if candidate in final:
+            return final[candidate]
+        if candidate in summary:
+            return summary[candidate]
     if key in summary:
         return summary[key]
     if key in headline:
@@ -1019,6 +1072,7 @@ def _source_artifact_records() -> dict[str, dict[str, Any]]:
             )
             if diagnostic_path.exists():
                 summary = _load_json(diagnostic_path)
+                provenance = summary.get("provenance") or {}
                 record["diagnostic_metrics"] = {
                     key: _metric_value(summary, key)
                     for key in (
@@ -1032,6 +1086,12 @@ def _source_artifact_records() -> dict[str, dict[str, Any]]:
                     )
                     if _metric_value(summary, key) is not None
                 }
+                record["provenance_status"] = summary.get("provenance_status")
+                record["selection_status"] = summary.get("selection_status")
+                record["selection_fingerprint"] = provenance.get("selection_fingerprint")
+                record["diagnostics_fingerprint"] = provenance.get("diagnostics_fingerprint")
+                if summary.get("diagnostics_refresh"):
+                    record["diagnostics_refresh"] = summary["diagnostics_refresh"]
                 generated_at = summary.get("generated_at_utc")
                 if generated_at is not None:
                     record["diagnostic_generated_at_utc"] = generated_at

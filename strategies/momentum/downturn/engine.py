@@ -27,6 +27,10 @@ from libs.oms.models.order import (
 )
 from libs.oms.risk.calculator import RiskCalculator
 from strategies.core.actions import CancelAction, SubmitEntry, SubmitExit
+from strategies.core.idle_market import (
+    maybe_record_idle_market_observation,
+    remember_idle_market_bars,
+)
 
 # Pure-function modules (shared with backtests)
 from .indicators import (
@@ -141,6 +145,7 @@ class DownturnEngine:
         state_dir: Path | None = None,
         instrumentation: Any = None,
         equity_alloc_pct: float = 1.0,
+        disable_background_tasks: bool = False,
     ) -> None:
         self._ib = ib_session
         self._oms = oms_service
@@ -151,6 +156,7 @@ class DownturnEngine:
         self._symbol = symbol
         self._state_dir = state_dir or Path(".")
         self._instr = instrumentation
+        self._disable_background_tasks = bool(disable_background_tasks)
         self._running = False
 
         # R7c configuration
@@ -271,6 +277,17 @@ class DownturnEngine:
         self._symbol_last_bar_ts: dict[str, datetime] = {}
 
     def _record_decision(self, code: str, details: dict | None = None) -> None:
+        if maybe_record_idle_market_observation(
+            self,
+            code,
+            strategy_id=C.STRATEGY_ID,
+            build_core_state=self._build_core_state,
+            apply_core_state=self._apply_core_state,
+            on_bar=downturn_core_logic.on_bar,
+            default_symbol=self._symbol,
+            default_timeframe="5m",
+        ):
+            return
         self._last_decision_code = code
         self._last_decision_details = details or {}
 
@@ -285,11 +302,12 @@ class DownturnEngine:
         self._event_queue = self._oms.stream_events(C.STRATEGY_ID)
         self._event_task = asyncio.create_task(self._process_events())
 
-        # Initial bar fetch + state initialization
-        await self._fetch_bars(request_kind="startup")
-        self._initialize_boundaries()
+        if not self._disable_background_tasks:
+            # Initial bar fetch + state initialization
+            await self._fetch_bars(request_kind="startup")
+            self._initialize_boundaries()
 
-        self._cycle_task = asyncio.create_task(self._5m_scheduler())
+            self._cycle_task = asyncio.create_task(self._5m_scheduler())
         logger.info("Downturn engine started (symbol=%s)", self._symbol)
 
     async def stop(self) -> None:
@@ -649,6 +667,8 @@ class DownturnEngine:
                     request_kind=request_kind,
                 )
                 if bars:
+                    if tf_label == "5m":
+                        remember_idle_market_bars(self, bars, symbol=self._symbol, timeframe="5m")
                     setattr(self, attr, self._bars_to_arrays(bars))
             except Exception:
                 logger.exception("Error fetching %s bars for %s", tf_label, self._symbol)

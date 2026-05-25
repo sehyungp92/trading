@@ -385,6 +385,45 @@ class _PortfolioRuleExposure:
     qty: int
 
 
+@dataclass(frozen=True)
+class SwingFamilyReplayCandidate:
+    """Candidate input for the unified swing family replay decision surface."""
+
+    candidate_key: str
+    strategy_id: str
+    symbol: str
+    direction: str
+    risk_dollars: float
+    qty: int
+    entry_time: datetime | None = None
+
+
+@dataclass(frozen=True)
+class SwingFamilyReplayExposure:
+    """Existing swing-family exposure consumed by the replay decision surface."""
+
+    strategy_id: str
+    symbol: str
+    direction: str
+    risk_dollars: float
+    risk_R: float
+    qty: int
+
+
+@dataclass(frozen=True)
+class SwingFamilyReplayDecision:
+    """Authoritative replay decision emitted by unified swing portfolio rules."""
+
+    candidate_key: str
+    strategy_id: str
+    symbol: str
+    original_qty: int
+    approved_qty: int
+    status: str
+    reason: str = ""
+    size_multiplier: float = 1.0
+
+
 def _direction_label(direction: object) -> str:
     value = getattr(direction, "value", direction)
     try:
@@ -544,6 +583,104 @@ class _SwingPortfolioRuleReplayAdapter:
             if self._skip_current is not None and (exp.strategy_id, exp.symbol) == self._skip_current:
                 continue
             yield exp
+
+
+def replay_swing_family_candidates(
+    config: UnifiedBacktestConfig,
+    candidates: list[SwingFamilyReplayCandidate],
+    *,
+    initial_exposures: list[SwingFamilyReplayExposure] | None = None,
+    initial_equity: float | None = None,
+    current_equity: float | None = None,
+) -> list[SwingFamilyReplayDecision]:
+    """Replay swing family portfolio admission for generated child candidates.
+
+    This is the public parity adapter over the same portfolio-rule replay
+    checker used by ``run_unified``. It returns matcher-level decisions so the
+    parity OMS timeline is driven by family replay outcomes instead of raw
+    child actions.
+    """
+
+    equity = float(initial_equity if initial_equity is not None else config.initial_equity)
+    active_equity = float(current_equity if current_equity is not None else equity)
+    replay = _SwingPortfolioRuleReplayAdapter(config, equity)
+    exposures = [
+        _PortfolioRuleExposure(
+            strategy_id=item.strategy_id,
+            symbol=item.symbol,
+            direction=_direction_label(item.direction),
+            risk_dollars=float(item.risk_dollars),
+            risk_R=float(item.risk_R),
+            qty=int(item.qty),
+        )
+        for item in (initial_exposures or [])
+        if float(item.risk_dollars) > 0.0 and int(item.qty) > 0
+    ]
+    decisions: list[SwingFamilyReplayDecision] = []
+    try:
+        for candidate in candidates:
+            qty = max(0, int(candidate.qty))
+            risk_dollars = max(0.0, float(candidate.risk_dollars))
+            replay.refresh(
+                equity=active_equity,
+                unit_equity=active_equity,
+                exposures=exposures,
+            )
+            result = replay.check_entry(
+                strategy_id=candidate.strategy_id,
+                direction=_direction_label(candidate.direction),
+                risk_dollars=risk_dollars,
+                symbol=candidate.symbol,
+                qty=qty,
+            )
+            if not result.approved:
+                decisions.append(
+                    SwingFamilyReplayDecision(
+                        candidate_key=candidate.candidate_key,
+                        strategy_id=candidate.strategy_id,
+                        symbol=candidate.symbol,
+                        original_qty=qty,
+                        approved_qty=0,
+                        status="rejected",
+                        reason=str(result.denial_reason or "portfolio_rule"),
+                        size_multiplier=0.0,
+                    )
+                )
+                continue
+
+            size_multiplier = max(float(result.size_multiplier or 1.0), 0.0)
+            approved_qty = max(1, int(qty * size_multiplier)) if qty > 0 else 0
+            status = "reduced" if 0 < approved_qty < qty else "accepted"
+            decisions.append(
+                SwingFamilyReplayDecision(
+                    candidate_key=candidate.candidate_key,
+                    strategy_id=candidate.strategy_id,
+                    symbol=candidate.symbol,
+                    original_qty=qty,
+                    approved_qty=approved_qty,
+                    status=status,
+                    reason="",
+                    size_multiplier=size_multiplier,
+                )
+            )
+            if approved_qty <= 0:
+                continue
+            risk_ratio = (approved_qty / qty) if qty > 0 else 0.0
+            adjusted_risk = risk_dollars * risk_ratio
+            unit = _strategy_unit_risk(config, candidate.strategy_id, active_equity)
+            exposures.append(
+                _PortfolioRuleExposure(
+                    strategy_id=candidate.strategy_id,
+                    symbol=candidate.symbol,
+                    direction=_direction_label(candidate.direction),
+                    risk_dollars=adjusted_risk,
+                    risk_R=adjusted_risk / unit if unit > 0 else 0.0,
+                    qty=approved_qty,
+                )
+            )
+    finally:
+        replay.close()
+    return decisions
 
 
 # ---------------------------------------------------------------------------

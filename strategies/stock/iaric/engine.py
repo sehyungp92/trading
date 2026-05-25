@@ -32,7 +32,6 @@ from .core import logic as iaric_core_logic
 from .core.logic import apply_core_state as apply_core_runtime_state
 from .core.logic import build_core_state as build_core_runtime_state
 from .core.state import (
-    IARICEntryRequest,
     IARICFill,
     IARICFlattenRequest,
     IARICOrderUpdate,
@@ -41,6 +40,7 @@ from .core.state import (
 )
 from .data import CanonicalBarBuilder
 from .diagnostics import JsonlDiagnostics
+from .entry_request import build_ready_entry_request
 from .execution import build_entry_order, build_market_exit, build_stock_instrument, build_stop_order
 from .exits import (
     _route_param,
@@ -64,7 +64,7 @@ from .models import (
     VWAPLedger,
     WatchlistArtifact,
 )
-from .risk import adjust_qty_for_portfolio_constraints, compute_order_quantity, timing_gate_allows_entry, weekday_sizing_multiplier
+from .risk import timing_gate_allows_entry
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +85,7 @@ class IARICEngine:
         trade_recorder=None,
         diagnostics: JsonlDiagnostics | None = None,
         instrumentation=None,
+        disable_background_tasks: bool = False,
     ) -> None:
         self._oms = oms_service
         self._artifact = artifact
@@ -94,6 +95,7 @@ class IARICEngine:
         self._trade_recorder = trade_recorder
         self._diagnostics = diagnostics or JsonlDiagnostics(self._settings.diagnostics_dir, enabled=False)
         self._instrumentation = instrumentation
+        self._disable_background_tasks = bool(disable_background_tasks)
 
         self._symbols: dict[str, PBSymbolState] = {}
         self._markets: dict[str, MarketSnapshot] = {}
@@ -225,7 +227,8 @@ class IARICEngine:
         self._running = True
         self._event_queue = self._oms.stream_events(STRATEGY_ID)
         self._event_task = asyncio.create_task(self._event_loop())
-        self._pulse_task = asyncio.create_task(self._pulse_loop())
+        if not self._disable_background_tasks:
+            self._pulse_task = asyncio.create_task(self._pulse_loop())
 
     async def stop(self) -> None:
         self._running = False
@@ -841,7 +844,8 @@ class IARICEngine:
                 )
 
         # V2 partial profit (triggers on MFE, not unrealized -- research parity)
-        if check_v2_partial(max_mfe_r, state.v2_partial_taken, self._settings.pb_v2_partial_profit_trigger_r):
+        partial_trigger_r = float(self._settings.pb_v2_partial_profit_trigger_r)
+        if check_v2_partial(max_mfe_r, state.v2_partial_taken, partial_trigger_r):
             partial_qty = max(1, position.qty_open // 2)
             self._diagnostics.log_decision("V2_PARTIAL", {
                 "symbol": symbol, "mfe_r": round(max_mfe_r, 3),
@@ -983,61 +987,28 @@ class IARICEngine:
                 state.active_order_id = None
             return
 
-        entry_price = market.ask if market.ask > 0 else market.last_price + item.tick_size
-
-        # Compute sizing -- secular/rescue discounts already baked into
-        # state.sizing_mult from daily selection (research.py), do NOT re-apply.
-        # No timing_multiplier (research engine does not use it).
-        # Note: regime_risk_multiplier NOT applied here (research parity --
-        # backtest sizing uses v2_score_sizing_mult + dow_mult only).
-        sizing_mult = state.sizing_mult
-        gap_up_mult = (
-            max(0.0, float(self._settings.pb_gap_up_size_mult))
-            if item.entry_gap_pct > 0
-            else 1.0
-        )
-        dow_mult = weekday_sizing_multiplier(now, self._settings)
-        risk_unit = sizing_mult * dow_mult * gap_up_mult
-        qty = compute_order_quantity(
-            account_equity=self._portfolio.account_equity,
-            base_risk_fraction=self._portfolio.base_risk_fraction,
-            final_risk_unit=risk_unit,
-            entry_price=entry_price,
-            stop_level=state.stop_level,
-        )
-        qty, reason = adjust_qty_for_portfolio_constraints(
-            portfolio=self._portfolio,
+        request_build = build_ready_entry_request(
+            symbol=symbol,
+            state=state,
             item=item,
-            intended_qty=qty,
-            entry_price=entry_price,
-            stop_level=state.stop_level,
+            market=market,
+            portfolio=self._portfolio,
             symbol_to_sector=self._symbol_to_sector,
             settings=self._settings,
+            now=now,
+            route=route,
         )
-        if qty <= 0:
-            self._diagnostics.log_decision("ENTRY_BLOCKED", {"symbol": symbol, "reason": reason, "route": route})
+        if request_build.entry_request is None:
+            self._diagnostics.log_decision("ENTRY_BLOCKED", {"symbol": symbol, "reason": request_build.reason, "route": route})
             self._log_missed(symbol=symbol, blocked_by="portfolio_constraints",
-                             block_reason=reason, exchange_timestamp=now, route=route)
+                             block_reason=request_build.reason, exchange_timestamp=now, route=route)
             if state.active_order_id == "SUBMITTING_ENTRY":
                 state.active_order_id = None
             return
 
+        entry_price = request_build.entry_price
         state.risk_per_share = max(entry_price - state.stop_level, 0.01)
-        entry_request = IARICEntryRequest(
-            client_order_id=f"{symbol}-entry-{int(now.timestamp())}",
-            symbol=symbol,
-            route=route,
-            qty=qty,
-            limit_price=entry_price,
-            stop_price=state.stop_level,
-            metadata={
-                "daily_signal_score": state.daily_signal_score,
-                "route": route,
-                "sizing_mult": round(sizing_mult, 6),
-                "entry_gap_pct": round(item.entry_gap_pct, 6),
-                "gap_up_size_mult": round(gap_up_mult, 6),
-            },
-        )
+        entry_request = request_build.entry_request
         core_state = build_core_runtime_state(self)
         new_state, actions, _events = iaric_core_logic.on_bar(
             core_state,
@@ -1074,7 +1045,7 @@ class IARICEngine:
             self._record_decision("ENTRY_SUBMITTED", {"symbol": symbol, "qty": submit_action.qty, "price": submit_action.limit_price or entry_price, "route": route})
             self._diagnostics.log_order(symbol, "submit_entry", {
                 "qty": submit_action.qty, "limit_price": submit_action.limit_price or entry_price, "route": route,
-                "sizing_mult": round(sizing_mult, 3), "gap_up_size_mult": round(gap_up_mult, 3),
+                "sizing_mult": round(request_build.sizing_mult, 3), "gap_up_size_mult": round(request_build.gap_up_mult, 3),
                 "daily_score": state.daily_signal_score,
             })
             kit = self._instr_kit

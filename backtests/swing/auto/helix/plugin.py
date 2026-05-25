@@ -14,6 +14,7 @@ from typing import Any
 from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.phase_state import PhaseState
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.provenance import AutoRunProvenance, build_phase_auto_provenance
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
@@ -32,7 +33,6 @@ from backtests.shared.auto.types import (
     GateCriterion,
     GateResult,
     GreedyResult,
-    PhaseDecision,
     ScoredCandidate,
 )
 
@@ -283,6 +283,38 @@ class HelixPlugin:
         self._round_artifact_output_dir: Path | None = None
         self._round_artifact_state_path: Path | None = None
         self._round_artifact_round_num: int | None = None
+        self._provenance: AutoRunProvenance | None = None
+
+    def build_provenance(self) -> AutoRunProvenance:
+        if self._provenance is None:
+            repo_root = Path(__file__).resolve().parents[4]
+            self._provenance = build_phase_auto_provenance(
+                self.name,
+                repo_root=repo_root,
+                code_dirs=(
+                    Path(__file__).resolve().parent,
+                    repo_root / "strategies/swing/akc_helix",
+                ),
+                code_paths=(
+                    repo_root / "backtests/swing/engine/helix_engine.py",
+                    repo_root / "backtests/swing/engine/helix_portfolio_engine.py",
+                    repo_root / "backtests/swing/config_helix.py",
+                    repo_root / "backtests/swing/data/replay_cache.py",
+                ),
+                data_dir=self.data_dir,
+                selection_context={
+                    "start_date": self.start_date,
+                    "end_date": self.end_date,
+                    "initial_equity": self.initial_equity,
+                    "num_phases": self.num_phases,
+                    "phase_weights": PHASE_WEIGHTS,
+                    "phase_hard_rejects": PHASE_HARD_REJECTS,
+                    "phase_focus": PHASE_FOCUS,
+                    "ultimate_targets": ULTIMATE_TARGETS,
+                    "round_baseline_policy": "run_spec.baseline_mutations",
+                },
+            )
+        return self._provenance
 
     def set_round_artifact_context(
         self,
@@ -620,7 +652,6 @@ class HelixPlugin:
     def build_end_of_round_artifacts(self, state: PhaseState) -> EndOfRoundArtifacts:
         metrics = self.compute_final_metrics(state.cumulative_mutations)
         metrics_obj = _metrics_from_dict(metrics)
-        final_greedy = greedy_result_from_state(state, phase=self.num_phases, final_metrics=metrics)
         final_diagnostics_text = self._build_full_round_diagnostics(state)
 
         dimension_reports = {

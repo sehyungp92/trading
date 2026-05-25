@@ -3,31 +3,48 @@ VDUBUS END-OF-ROUND EVALUATION
 ======================================================================
 
 Phase Progression Summary:
-  Phase 1: score 0.5125 -> 0.5214 (2 accepted)
-  Phase 2: score 0.5123 -> 0.5123 (0 accepted)
-  Phase 3: score 0.4583 -> 0.4583 (0 accepted)
-  Phase 4: score 0.5493 -> 0.5755 (2 accepted)
+  Phase 1: score 0.6758 -> 0.7251 (2 accepted)
+  Phase 2: score 0.7251 -> 0.7888 (3 accepted)
+  Phase 3: score 0.7888 -> 0.7888 (0 accepted)
+  Phase 4: score 0.7888 -> 0.7888 (0 accepted)
+  Phase 5: score 0.7888 -> 0.8164 (2 accepted)
+  Phase 6: score 0.8164 -> 0.8329 (1 accepted)
 
 Cumulative Mutations Applied:
-  flags.early_kill: False
+  flags.dow_sizing: True
+  flags.hourly_bypass_quality: True
   flags.plus_1r_partial: False
-  param_overrides.CHOP_THRESHOLD: 32.0
-  param_overrides.MAX_POSITION_BARS_15M: 51.2
+  flags.slope_bypass_quality: True
+  flags.stale_mfe_exempt: True
+  flags.type_c_enabled: True
+  param_overrides.CHOP_THRESHOLD: 28
+  param_overrides.DOW_SIZE_MULT: {0: 0.5, 3: 0.65}
+  param_overrides.HOURLY_BYPASS_ALLOWED_WINDOWS: ['OPEN', 'CLOSE']
+  param_overrides.HOURLY_BYPASS_EQS_MIN: 2
+  param_overrides.HOURLY_BYPASS_MAX_CHOP: 33.6
+  param_overrides.HOURLY_BYPASS_SIZE_MULT: 0.5
+  param_overrides.SLOPE_BYPASS_ALLOWED_WINDOWS: ['OPEN', 'CORE', 'CLOSE']
+  param_overrides.SLOPE_BYPASS_EQS_MIN: 4
+  param_overrides.SLOPE_BYPASS_MAX_CHOP: 36.0
+  param_overrides.SLOPE_BYPASS_SIZE_MULT: 1.0
+  param_overrides.TYPE_C_ALLOWED_WINDOWS: ['OPEN']
+  param_overrides.TYPE_C_MAX_VWAP_DIST_ATR: 2.4
+  param_overrides.USE_TYPE_C: True
 
 Signal Extraction / Alpha Capture
-No report provided.
+Net return 1217.5% with 220 trades, PF=2.18, DD=16.7%. R/month throughput is 2.73 (0.421 avgR x 6.5 trades/month).
 
 Signal Discrimination
-No report provided.
+Win rate 46.4%, avg R=0.421, capture ratio 0.63. Negative evening flow is contained by the current caps: 7.7% evening trades at -0.009 avgR.
 
 Entry Mechanism
-No report provided.
+Fast deaths 24.1%, evening trades 7.7% (avgR=-0.009), trades/month 6.5.
 
 Trade Management
-No report provided.
+Calmar=72.79, Sharpe=2.14, Sortino=6.98.
 
 Exit Mechanism
-Stale exit pct 51.7%, multi-session 20.1%, avg hold 9.3h.
+Stale exit pct 27.3%, multi-session 36.4%, avg hold 14.4h.
 
 Overall Verdict
-VdubusNQ optimized to 752.6% return, PF=1.95, DD=20.8%, 174 trades. Capture ratio improved to 0.51.
+VdubusNQ optimized to 1217.5% return, PF=2.18, DD=16.7%, 220 trades. Capture ratio improved to 0.63.

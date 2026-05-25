@@ -2,83 +2,84 @@
   "phase": 2,
   "goal_progress": {
     "net_return_pct": {
-      "target": 320.0,
-      "actual": 322.09900000000056,
-      "pct_of_target": 100.65593750000016
+      "target": 260.0,
+      "actual": 252.99779999999998,
+      "pct_of_target": 97.30684615384615
     },
     "robust_net_return_pct": {
-      "target": 240.0,
-      "actual": 261.2022000000004,
-      "pct_of_target": 108.83425000000018
+      "target": 185.0,
+      "actual": 213.23549999999992,
+      "pct_of_target": 115.26243243243239
     },
     "profit_factor": {
-      "target": 2.0,
-      "actual": 2.144741321054935,
-      "pct_of_target": 107.23706605274674
+      "target": 1.75,
+      "actual": 1.994802564332609,
+      "pct_of_target": 113.98871796186339
     },
     "max_dd_pct": {
-      "target": 0.15,
-      "actual": 0.1452308831621662,
-      "pct_of_target": 103.28381728045306
+      "target": 0.2,
+      "actual": 0.15621931919097046,
+      "pct_of_target": 128.02513865491235
     },
     "calmar": {
-      "target": 10.0,
-      "actual": 22.178409508144473,
+      "target": 8.0,
+      "actual": 16.19503921219389,
       "pct_of_target": 200.0
     },
     "total_trades": {
-      "target": 115.0,
-      "actual": 100.0,
-      "pct_of_target": 86.95652173913044
+      "target": 130.0,
+      "actual": 94.0,
+      "pct_of_target": 72.3076923076923
     },
     "capture_ratio": {
-      "target": 0.5,
-      "actual": 0.4368180252800776,
-      "pct_of_target": 87.36360505601553
+      "target": 0.48,
+      "actual": 0.41299231386274143,
+      "pct_of_target": 86.04006538807113
     },
     "avg_r": {
-      "target": 0.5,
-      "actual": 0.5111119654463242,
-      "pct_of_target": 102.22239308926484
+      "target": 0.38,
+      "actual": 0.4605424971029589,
+      "pct_of_target": 121.19539397446286
     },
     "win_rate": {
       "target": 0.56,
-      "actual": 0.58,
-      "pct_of_target": 103.57142857142856
+      "actual": 0.5957446808510638,
+      "pct_of_target": 106.38297872340424
     },
     "sharpe": {
-      "target": 2.0,
-      "actual": 1.9629587598728744,
-      "pct_of_target": 98.14793799364372
+      "target": 1.8,
+      "actual": 1.8475667566913074,
+      "pct_of_target": 102.64259759396153
     },
     "sortino": {
-      "target": 6.0,
-      "actual": 24.803346489756258,
+      "target": 5.0,
+      "actual": 18.76379750767877,
       "pct_of_target": 200.0
     }
   },
   "strengths": [
-    "net_return_pct: 322.0990 (101% of 320.0000)",
-    "robust_net_return_pct: 261.2022 (109% of 240.0000)",
-    "profit_factor: 2.1447 (107% of 2.0000)",
-    "max_dd_pct: 0.1452 (103% of 0.1500)",
-    "calmar: 22.1784 (200% of 10.0000)",
-    "total_trades: 100.0000 (87% of 115.0000)",
-    "capture_ratio: 0.4368 (87% of 0.5000)",
-    "avg_r: 0.5111 (102% of 0.5000)",
-    "win_rate: 0.5800 (104% of 0.5600)",
-    "sharpe: 1.9630 (98% of 2.0000)",
-    "sortino: 24.8033 (200% of 6.0000)"
+    "net_return_pct: 252.9978 (97% of 260.0000)",
+    "robust_net_return_pct: 213.2355 (115% of 185.0000)",
+    "profit_factor: 1.9948 (114% of 1.7500)",
+    "max_dd_pct: 0.1562 (128% of 0.2000)",
+    "calmar: 16.1950 (200% of 8.0000)",
+    "capture_ratio: 0.4130 (86% of 0.4800)",
+    "avg_r: 0.4605 (121% of 0.3800)",
+    "win_rate: 0.5957 (106% of 0.5600)",
+    "sharpe: 1.8476 (103% of 1.8000)",
+    "sortino: 18.7638 (200% of 5.0000)"
   ],
   "weaknesses": [],
   "scoring_assessment": "EFFECTIVE",
   "diagnostic_gaps": [
-    "Low trade frequency -- signal gates may be too restrictive"
+    "Low MFE capture ratio -- exits leave alpha on the table",
+    "Low trade frequency -- signal gates may be too restrictive",
+    "Low robust return after removing largest winner"
   ],
   "suggested_experiments": [],
   "recommendation": "advance",
   "recommendation_reason": "Gate passed.",
-  "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + net_return_pct: 322.0990 (101% of 320.0000)\n  + robust_net_return_pct: 261.2022 (109% of 240.0000)\n  + profit_factor: 2.1447 (107% of 2.0000)\n  + max_dd_pct: 0.1452 (103% of 0.1500)\n  + calmar: 22.1784 (200% of 10.0000)\n  + total_trades: 100.0000 (87% of 115.0000)\n  + capture_ratio: 0.4368 (87% of 0.5000)\n  + avg_r: 0.5111 (102% of 0.5000)\n  + win_rate: 0.5800 (104% of 0.5600)\n  + sharpe: 1.9630 (98% of 2.0000)\n  + sortino: 24.8033 (200% of 6.0000)\n\nDiagnostic Gaps:\n  ! Low trade frequency -- signal gates may be too restrictive\n\nExtra Analysis:\n  Session/direction: ETH short WR=0.0% (0 trades), Range regime=100.0%\n  Exit efficiency: capture=0.44, TP1=54.0%, TP2=0.0%\n  Return robustness: robust=261.2%, largest_win_share=18.9%, largest_win=6.82R\n  Clustering: burst_trade_pct=4.0%\n\nGoal Progress:\n  net_return_pct: 322.0990 / 320.0000 (101%)\n  robust_net_return_pct: 261.2022 / 240.0000 (109%)\n  profit_factor: 2.1447 / 2.0000 (107%)\n  max_dd_pct: 0.1452 / 0.1500 (103%)\n  calmar: 22.1784 / 10.0000 (200%)\n  total_trades: 100.0000 / 115.0000 (87%)\n  capture_ratio: 0.4368 / 0.5000 (87%)\n  avg_r: 0.5111 / 0.5000 (102%)\n  win_rate: 0.5800 / 0.5600 (104%)\n  sharpe: 1.9630 / 2.0000 (98%)\n  sortino: 24.8033 / 6.0000 (200%)",
+  "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + net_return_pct: 252.9978 (97% of 260.0000)\n  + robust_net_return_pct: 213.2355 (115% of 185.0000)\n  + profit_factor: 1.9948 (114% of 1.7500)\n  + max_dd_pct: 0.1562 (128% of 0.2000)\n  + calmar: 16.1950 (200% of 8.0000)\n  + capture_ratio: 0.4130 (86% of 0.4800)\n  + avg_r: 0.4605 (121% of 0.3800)\n  + win_rate: 0.5957 (106% of 0.5600)\n  + sharpe: 1.8476 (103% of 1.8000)\n  + sortino: 18.7638 (200% of 5.0000)\n\nDiagnostic Gaps:\n  ! Low MFE capture ratio -- exits leave alpha on the table\n  ! Low trade frequency -- signal gates may be too restrictive\n  ! Low robust return after removing largest winner\n\nExtra Analysis:\n  Session/direction: ETH short WR=0.0% (0 trades), Range regime=100.0%\n  Exit efficiency: capture=0.41, TP1=56.4%, TP2=31.9%\n  Return robustness: robust=213.2%, largest_win_share=15.7%, largest_win=5.74R\n  Clustering: burst_trade_pct=4.3%\n\nGoal Progress:\n  net_return_pct: 252.9978 / 260.0000 (97%)\n  robust_net_return_pct: 213.2355 / 185.0000 (115%)\n  profit_factor: 1.9948 / 1.7500 (114%)\n  max_dd_pct: 0.1562 / 0.2000 (128%)\n  calmar: 16.1950 / 8.0000 (200%)\n  total_trades: 94.0000 / 130.0000 (72%)\n  capture_ratio: 0.4130 / 0.4800 (86%)\n  avg_r: 0.4605 / 0.3800 (121%)\n  win_rate: 0.5957 / 0.5600 (106%)\n  sharpe: 1.8476 / 1.8000 (103%)\n  sortino: 18.7638 / 5.0000 (200%)",
   "scoring_weight_overrides": null,
   "extra": {
     "session_direction": {
@@ -87,18 +88,18 @@
       "range_regime_pct": 1.0
     },
     "exit_efficiency": {
-      "capture_ratio": 0.4368180252800776,
-      "tp1_hit_rate": 0.54,
-      "tp2_hit_rate": 0.0
+      "capture_ratio": 0.41299231386274143,
+      "tp1_hit_rate": 0.5638297872340425,
+      "tp2_hit_rate": 0.3191489361702128
     },
     "return_robustness": {
-      "robust_net_return_pct": 261.2022000000004,
-      "largest_win_return_pct": 60.89680000000017,
-      "largest_win_pnl_share": 0.18906236902318876,
-      "largest_winner_r": 6.822122905027952
+      "robust_net_return_pct": 213.23549999999992,
+      "largest_win_return_pct": 39.76230000000006,
+      "largest_win_pnl_share": 0.1571646077554827,
+      "largest_winner_r": 5.744388489208641
     },
     "clustering": {
-      "burst_trade_pct": 0.04
+      "burst_trade_pct": 0.0425531914893617
     }
   }
 }

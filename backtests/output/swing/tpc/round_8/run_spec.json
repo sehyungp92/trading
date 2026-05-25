@@ -125,5 +125,116 @@
     "frequency_floor": 0.14,
     "symbol_balance": 0.11,
     "stability": 0.08
+  },
+  "provenance": {
+    "schema_version": 1,
+    "selection_fingerprint": "51e21f62082e2bf6c05124febd1e5d17238a5ca2a92f4c8772a5c479d72df7e1",
+    "diagnostics_fingerprint": "51e21f62082e2bf6c05124febd1e5d17238a5ca2a92f4c8772a5c479d72df7e1",
+    "items": [
+      {
+        "name": "data_dir",
+        "kind": "tree_contents",
+        "fingerprint": "c87d92af3db4f9b38ef15ff383a4a8ba442c108398cfd228fe5df1e7ab7ef36a",
+        "paths": [
+          "backtests/swing/data/raw"
+        ],
+        "scope": "data",
+        "notes": "Content fingerprint for selection-relevant replay data files."
+      },
+      {
+        "name": "code:backtests/swing/auto/tpc/round8_plugin.py",
+        "kind": "file_contents",
+        "fingerprint": "a71140ea0efac4c08aaf003b282bffc13477cc83fad611742020692a6a47cd6c",
+        "paths": [
+          "backtests/swing/auto/tpc/round8_plugin.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/swing/config_tpc.py",
+        "kind": "file_contents",
+        "fingerprint": "1d16c46fc52418c57e6fcbf8159f3390b432e418975a58fdb537f62f78817d65",
+        "paths": [
+          "backtests/swing/config_tpc.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/swing/data/replay_cache.py",
+        "kind": "file_contents",
+        "fingerprint": "fcc15800317e45287feefe3fada8527ebb002ec29be8c5c764fa18ff6767c6de",
+        "paths": [
+          "backtests/swing/data/replay_cache.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/swing/engine/tpc_engine.py",
+        "kind": "file_contents",
+        "fingerprint": "292babf4da067d23152fe38634a5363f204c0ecc80611e7a34269fe6bcec21cc",
+        "paths": [
+          "backtests/swing/engine/tpc_engine.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "plugin",
+        "kind": "plugin_identity",
+        "fingerprint": "16cd1f16a47287fba49d0cc473fb32e513efd072c2132e7e7069db7cd4e1151e",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "selection_context",
+        "kind": "stable_json",
+        "fingerprint": "b2b218dd0f7cfd20536d3bbbafadee3cf520f758c07441854142724be40e1f8a",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:backtests/swing/auto/tpc",
+        "kind": "tree_contents",
+        "fingerprint": "aadf356a6b2b9654ce475ba6046a137c0626fc8c4d5be3d552fcd7caafa4e10a",
+        "paths": [
+          "backtests/swing/auto/tpc"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:strategies/swing/tpc",
+        "kind": "tree_contents",
+        "fingerprint": "e5d7c1ba373037b1dab2dca58ad4722794e7e576681c06d783ae5aa6c37a04b3",
+        "paths": [
+          "strategies/swing/tpc"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "shared_auto_package",
+        "kind": "tree_contents",
+        "fingerprint": "d9d2fccedd37282a0908da4eacb176f90033de491d7babdfc8d654ce376d5f37",
+        "paths": [
+          "backtests/shared/auto"
+        ],
+        "scope": "selection",
+        "notes": ""
+      }
+    ]
+  },
+  "provenance_status": "complete",
+  "selection_status": "current_code_replayed_without_material_drift",
+  "diagnostics_refresh": {
+    "status": "current_code_replayed_without_material_drift",
+    "updated_saved_metrics": true,
+    "deltas": {},
+    "basis": "current-code optimized-config replay"
   }
 }

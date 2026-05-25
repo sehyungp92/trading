@@ -139,6 +139,19 @@ SCORE_NORMAL = 1.5
 SCORE_DEGRADED = 2.5
 RVOL_SCORE_THRESH = 1.5
 
+# Contextual score filters.
+# Score and displacement are weak alone; these gates only act on score bands
+# that diagnostics showed need box/RVOL context rather than a blunt threshold.
+WEAK_SCORE_BAND_FILTER_ENABLED = False
+WEAK_SCORE_BAND_LOW = 2.5
+WEAK_SCORE_BAND_HIGH = 3.0
+WEAK_SCORE_BAND_MAX_BOX_WIDTH = 225.0
+WEAK_SCORE_BAND_MIN_RVOL = 1.75
+WIDE_BOX_SCORE_FILTER_ENABLED = False
+WIDE_BOX_MIN_WIDTH = 275.0
+WIDE_BOX_MIN_SCORE = 3.0
+WIDE_BOX_MIN_RVOL = 1.75
+
 # ---------------------------------------------------------------------------
 # Sizing (Section 15)
 # ---------------------------------------------------------------------------
@@ -152,23 +165,36 @@ BLOCK_NEUTRAL_REGIME = False
 BLOCK_ALIGNED_REGIME = True
 BLOCK_CAUTION_REGIME = True
 SCORE_NON_RANGE_MULT = 2.25    # score threshold multiplier for non-Range regimes
+DISPLACEMENT_THRESHOLD_ENABLED = False
 
 # ---------------------------------------------------------------------------
 # Entries (Section 16)
 # ---------------------------------------------------------------------------
-A_ENTRY_ENABLED = False      # Phase 1.2: disable A_retest (17% WR, negative expectancy)
+A_ENTRY_ENABLED = True
+A_ENTRY_RETEST_ENABLED = True
+A_ENTRY_LATCH_ENABLED = False
 C_CONT_ENTRY_ENABLED = False # nqdtc_v4 step 1: 5 trades, 40% WR, -0.341 avg R
 
 # Entry A
 A_STOP_ATR_MULT = 0.40
 A1_OFFSET_TICKS = 2
 A2_BUFFER_TICKS = 8
-A_TTL_5M_BARS = 6
+A_TTL_5M_BARS = 12
 A_CANCEL_DEPTH_ATR = 0.15
+A_MAX_BOX_WIDTH = 225.0
+A_MIN_SCORE = 0.0      # <=0 disables the subtype-specific A score floor
+A_BLOCK_WEAK_SCORE_BAND = False
+A_WEAK_SCORE_BAND_LOW = 2.5
+A_WEAK_SCORE_BAND_HIGH = 3.0
 
 # Entry B
 B_STOP_ATR_MULT = 0.40
 B_SWEEP_DEPTH_ATR = 0.20
+B_ALLOW_ALIGNED = True
+B_ALLOW_RANGE = False
+B_ALLOW_NEUTRAL = False
+B_ALLOW_CAUTION = False
+B_MIN_DISP_Q = 0.90
 
 # Regime x subtype blocks (Phase 4)
 BLOCK_CONT_ALIGNED = True    # block C_continuation when composite = Aligned
@@ -181,7 +207,7 @@ C_CONT_MFE_GATE_R = 0.50            # require prior trade in breakout to have re
 # Entry C
 C_HOLD_BARS = 1
 C_ENTRY_OFFSET_ATR = 0.10
-C_ENTRY_OFFSET_ATR_STANDARD = 0.18     # wider offset for high-value C_standard entries
+C_ENTRY_OFFSET_ATR_STANDARD = 0.248    # wider offset for high-value C_standard entries
 C_ENTRY_OFFSET_ATR_CONTINUATION = 0.08 # tighter offset for C_continuation
 C_CONT_PAUSE_ATR_MULT = 0.40
 
@@ -203,11 +229,11 @@ MM_DURATION_MAX = 1.4
 # Exit tiers (Phase 2.3: widened Caution/Neutral, reduced TP1 fractions)
 # nqdtc_v4 step 6: collapse TP2/TP3 — chandelier runner captures post-TP1 at +1.928 avg R
 # Caution (TP1+runner) was +0.847R; Neutral/Aligned had TP2 diluting runner gains
-TP1_R = 1.35
+TP1_R = 1.6
 EXIT_TIERS = {
-    "Aligned": [(TP1_R, 0.55), (5.0, 0.25)],
-    "Neutral":  [(TP1_R, 0.55), (5.0, 0.25)],
-    "Caution":  [(TP1_R, 0.55), (5.0, 0.25)],
+    "Aligned": [(TP1_R, 0.45), (2.25, 0.20)],
+    "Neutral":  [(TP1_R, 0.45), (2.25, 0.20)],
+    "Caution":  [(TP1_R, 0.45), (2.25, 0.20)],
 }
 
 # Profit-funded
@@ -220,6 +246,20 @@ EARLY_BE_MFE_R = 0.8             # disabled via flag — clips winners that retr
 # Post-TP1 ratchet floor (Section 17.4b)
 RATCHET_LOCK_PCT = 0.35          # exit-opt: lock 35% of peak R (was 25%)
 RATCHET_THRESHOLD_R = 0.5
+
+# TP1-only cap mode. "range_degraded" is the historical behavior.
+# Other supported values: "degraded_only", "range_only", "off".
+TP1_ONLY_CAP_MODE = "degraded_only"
+
+# Optional MFE-tier stop ratchet. Disabled by default; optimization probes this
+# because diagnostics show strong MFE followed by STOP exits.
+MFE_RATCHET_TIERS_ENABLED = False
+MFE_RATCHET_T1_R = 2.0
+MFE_RATCHET_T1_LOCK_R = 0.80
+MFE_RATCHET_T2_R = 3.0
+MFE_RATCHET_T2_LOCK_R = 1.35
+MFE_RATCHET_T3_R = 4.0
+MFE_RATCHET_T3_LOCK_R = 2.00
 
 # Post-TP1 chandelier tightening (Improvement 4 — REVERTED: cut winners too aggressively)
 CHANDELIER_POST_TP1_MULT_DECAY = 0.0    # disabled
@@ -318,9 +358,9 @@ ATR14_5M_PERIOD = 14
 # ---------------------------------------------------------------------------
 # Auto-optimization param_overrides defaults (Prereq 4)
 # ---------------------------------------------------------------------------
-MIN_INTER_TRADE_GAP_MINUTES = 55
+MIN_INTER_TRADE_GAP_MINUTES = 30
 ETH_SHORT_SIZE_MULT = 1.0            # no reduction by default (ETH short sizing)
-MIN_BOX_WIDTH = 150
+MIN_BOX_WIDTH = 100
 MAX_BOX_WIDTH = 99999                # no filter by default (box width gate)
 LOSS_STREAK_THRESHOLD = 2
 LOSS_STREAK_SKIP_BARS = 6            # 5m bars to skip after streak (6 = 30 min)

@@ -136,10 +136,21 @@ async def _run_portfolio_replay_async(
                 )
                 continue
 
-            # Scale source commission by risk ratio (pnl already net via r_multiple)
-            source_risk = float(candidate.trade.risk_per_share * candidate.trade.quantity)
-            scale = candidate.risk_dollars / source_risk if source_risk > 0 else 0.0
-            scaled_commission = candidate.trade.commission * scale
+            requested_qty = max(1, int(round(float(candidate.trade.quantity) * candidate.size_mult)))
+            approved_qty = max(1, int(requested_qty * float(candidate.portfolio_size_mult)))
+            qty_ratio = approved_qty / requested_qty if requested_qty > 0 else 0.0
+            approved_risk_dollars = candidate.risk_dollars * qty_ratio
+            approved_pnl = candidate.pnl * qty_ratio
+            price_scale = approved_qty / float(candidate.trade.quantity) if candidate.trade.quantity else 0.0
+            scaled_commission = candidate.trade.commission * price_scale
+            metadata = dict(candidate.trade.metadata or {})
+            metadata.update(
+                {
+                    "portfolio_requested_qty": requested_qty,
+                    "portfolio_approved_qty": approved_qty,
+                    "portfolio_size_mult": float(candidate.portfolio_size_mult),
+                }
+            )
             position = PortfolioPosition(
                 strategy=candidate.strategy,
                 symbol=candidate.trade.symbol,
@@ -149,18 +160,18 @@ async def _run_portfolio_replay_async(
                 decision_time=candidate.trade.entry_time,
                 fill_time=candidate.trade.fill_time or candidate.trade.entry_time,
                 exit_time=candidate.trade.exit_time,
-                risk_dollars=candidate.risk_dollars,
-                pnl=candidate.pnl,
+                risk_dollars=approved_risk_dollars,
+                pnl=approved_pnl,
                 r_multiple=candidate.r_multiple,
                 quality=candidate.quality,
                 entry_price=float(candidate.trade.entry_price),
                 exit_price=float(candidate.trade.exit_price),
-                quantity=float(candidate.trade.quantity) * scale,
-                price_scale=scale,
+                quantity=float(approved_qty),
+                price_scale=price_scale,
                 commission=scaled_commission,
                 exit_reason=candidate.trade.exit_reason,
                 entry_type=candidate.trade.entry_type,
-                metadata=dict(candidate.trade.metadata or {}),
+                metadata=metadata,
             )
             action = PortfolioAction(
                 action_type=PortfolioActionType.SUBMIT_ENTRY,
@@ -223,6 +234,7 @@ class _StockPortfolioLiveRuleReplayAdapter:
             get_directional_risk_R=self._get_directional_risk_R,
             get_current_equity=lambda: float(self._state.equity),
             get_directional_risk_R_for_strategies=self._get_directional_risk_R_for_strategies,
+            get_sibling_positions_for_symbol=self._get_sibling_positions_for_symbol,
             get_directional_risk_dollars_for_strategies=(
                 self._get_directional_risk_dollars_for_strategies
             ),
@@ -258,6 +270,7 @@ class _StockPortfolioLiveRuleReplayAdapter:
         )
         if not result.approved:
             return _legacy_block_reason(result.denial_reason or "")
+        candidate.portfolio_size_mult = float(result.size_multiplier)
         return self._custom_replay_block_reason(candidate)
 
     def _portfolio_rules_config(
@@ -272,6 +285,8 @@ class _StockPortfolioLiveRuleReplayAdapter:
             for index, strategy in enumerate(STRATEGY_ORDER)
             if strategy in allocations
         )
+        same_symbol_policy = str(cross.get("same_symbol_policy", "half_size"))
+        collision_action = same_symbol_policy if same_symbol_policy in {"none", "block", "half_size"} else "none"
         return PortfolioRulesConfig(
             nqdtc_direction_filter_enabled=False,
             directional_cap_R=0.0,
@@ -280,7 +295,12 @@ class _StockPortfolioLiveRuleReplayAdapter:
             dd_tiers=((1.0, 1.0),),
             initial_equity=float(self._state.equity),
             family_strategy_ids=tuple(STRATEGY_ORDER),
-            symbol_collision_action="none",
+            symbol_collision_action=collision_action,
+            symbol_collision_pairs=tuple(
+                (str(row[0]), str(row[1]), str(row[2]))
+                for row in cross.get("symbol_collision_pairs", ()) or ()
+                if len(row) >= 3
+            ),
             strategy_priorities=strategy_priorities,
             priority_headroom_R=0.0,
             reference_unit_risk_dollars=self._reference_risk_dollars(),
@@ -362,6 +382,13 @@ class _StockPortfolioLiveRuleReplayAdapter:
     async def _get_open_position_count_for_strategies(self, strategy_ids: list[str]) -> int:
         ids = set(strategy_ids)
         return sum(1 for position in self._state.active_positions if position.strategy in ids)
+
+    async def _get_sibling_positions_for_symbol(self, strategy_ids: list[str], symbol: str) -> bool:
+        ids = set(strategy_ids)
+        return any(
+            position.strategy in ids and position.symbol == symbol
+            for position in self._state.active_positions
+        )
 
     async def _get_symbol_open_risk_dollars_for_strategies(
         self,
@@ -484,6 +511,7 @@ def _candidate_metadata(candidate: ReplayCandidate) -> dict[str, Any]:
         "quality": float(candidate.quality),
         "r_multiple": float(candidate.r_multiple),
         "size_mult": float(candidate.size_mult),
+        "portfolio_size_mult": float(candidate.portfolio_size_mult),
     }
 
 

@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.phase_state import PhaseState
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.provenance import AutoRunProvenance, build_phase_auto_provenance
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
@@ -65,15 +66,16 @@ PHASE_FOCUS = {
     2: ("No-Signal Continuation Entries", ["total_trades", "trades_per_month", "avg_r", "profit_factor"]),
     3: ("Entry Frequency & Fill Mechanics", ["total_trades", "trades_per_month", "avg_r", "profit_factor"]),
     4: ("Exit Capture & Slow-Death Rescue", ["capture_ratio", "stale_exit_pct", "fast_death_pct", "profit_factor"]),
-    5: ("Session & Cohort Composition", ["evening_avg_r", "evening_trade_pct", "max_dd_pct", "calmar"]),
-    6: ("Structural Interactions & Fine Tune", ["calmar", "avg_r", "capture_ratio", "trades_per_month"]),
+    5: ("Session & Cohort Composition", ["evening_avg_r", "evening_trade_pct", "max_dd_pct", "r_calmar"]),
+    6: ("Structural Interactions & Fine Tune", ["r_calmar", "avg_r", "capture_ratio", "trades_per_month"]),
 }
 
 ULTIMATE_TARGETS = {
-    "net_return_pct": 1200.0,
     "profit_factor": 2.4,
     "max_dd_pct": 0.15,
-    "calmar": 45.0,
+    "max_r_drawdown": 5.5,
+    "r_calmar": 6.0,
+    "r_per_month": 3.0,
     "total_trades": 220.0,
     "capture_ratio": 0.60,
     "sharpe": 2.0,
@@ -181,6 +183,34 @@ class VdubusPlugin:
         self._evaluation_cache: dict[str, Any] = {}
         self._metrics_cache: dict[str, dict[str, float]] = {}
         self._cache_source_fingerprint: str = ""
+        self._provenance: AutoRunProvenance | None = None
+
+    def build_provenance(self) -> AutoRunProvenance:
+        if self._provenance is None:
+            repo_root = Path(__file__).resolve().parents[4]
+            self._provenance = build_phase_auto_provenance(
+                self.name,
+                repo_root=repo_root,
+                code_dirs=(Path(__file__).resolve().parent,),
+                code_paths=(
+                    repo_root / "backtests/momentum/engine/vdubus_engine.py",
+                    repo_root / "backtests/momentum/engine/sim_broker.py",
+                    repo_root / "backtests/momentum/config_vdubus.py",
+                    repo_root / "backtests/momentum/auto/config_mutator.py",
+                    repo_root / "backtests/momentum/data/replay_cache.py",
+                ),
+                data_dir=self.data_dir,
+                selection_context={
+                    "initial_equity": self.initial_equity,
+                    "num_phases": self.num_phases,
+                    "phase_weights": PHASE_WEIGHTS,
+                    "phase_hard_rejects": PHASE_HARD_REJECTS,
+                    "phase_focus": PHASE_FOCUS,
+                    "ultimate_targets": ULTIMATE_TARGETS,
+                    "round_baseline_policy": "run_spec.baseline_mutations",
+                },
+            )
+        return self._provenance
 
     def get_phase_spec(self, phase: int, state: PhaseState) -> PhaseSpec:
         focus, focus_metrics = PHASE_FOCUS[phase]
@@ -370,21 +400,27 @@ class VdubusPlugin:
         )
 
     def build_end_of_round_artifacts(self, state: PhaseState) -> EndOfRoundArtifacts:
+        from .scoring import composite_score
+
         metrics = self.compute_final_metrics(state.cumulative_mutations)
         m = _metrics_from_dict(metrics)
+        score = composite_score(m)
         final_greedy = greedy_result_from_state(state, phase=self.num_phases, final_metrics=metrics)
         final_diagnostics_text = self.run_enhanced_diagnostics(self.num_phases, state, metrics, final_greedy)
 
         extraction = (
-            f"Net return {m.net_return_pct:.1f}% with {m.total_trades} trades, "
-            f"PF={m.profit_factor:.2f}, DD={m.max_dd_pct:.1%}."
+            f"Fixed-qty headline return is {m.net_return_pct:.1f}% with {m.total_trades} trades, "
+            f"PF={m.profit_factor:.2f}, fixed-qty DD={m.max_dd_pct:.1%}; "
+            f"deployable comparison should use {m.total_r:.1f} total R and "
+            f"{m.r_per_month:.2f} R/month."
         )
         discrimination = (
             f"Win rate {m.win_rate:.1%}, avg R={m.avg_r:.3f}, "
             f"capture ratio {m.capture_ratio:.2f}."
         )
         management = (
-            f"Calmar={m.calmar:.2f}, Sharpe={m.sharpe:.2f}, Sortino={m.sortino:.2f}."
+            f"R-Calmar={m.r_calmar:.2f}, max R drawdown={m.max_r_drawdown:.2f}R, "
+            f"Sharpe={m.sharpe:.2f}, Sortino={m.sortino:.2f}."
         )
         exits = (
             f"Stale exit pct {m.stale_exit_pct:.1%}, multi-session {m.multi_session_pct:.1%}, "
@@ -395,18 +431,24 @@ class VdubusPlugin:
             f"evening trades {m.evening_trade_pct:.1%} (avgR={m.evening_avg_r:+.3f}), "
             f"trades/month {m.trades_per_month:.1f}."
         )
-        r_per_month = max(m.avg_r, 0.0) * max(m.trades_per_month, 0.0)
         overall = (
-            f"VdubusNQ optimized to {m.net_return_pct:.1f}% return, PF={m.profit_factor:.2f}, "
-            f"DD={m.max_dd_pct:.1%}, {m.total_trades} trades. "
-            f"Capture ratio {'improved to' if m.capture_ratio > 0.47 else 'at'} {m.capture_ratio:.2f}."
+            f"VdubusNQ finishes the round at {m.r_per_month:.2f} R/month "
+            f"({m.total_r:.1f} total R, {m.avg_r:.3f} avgR, {m.total_trades} trades) "
+            f"with R-normalized score {score.total:.4f}. Fixed-qty return is "
+            f"{m.net_return_pct:.1f}%, but that should be treated as a sizing diagnostic, "
+            f"not the like-for-like profitability basis. Capture ratio "
+            f"{'improved to' if m.capture_ratio > 0.47 else 'is'} {m.capture_ratio:.2f}."
         )
         return EndOfRoundArtifacts(
             final_diagnostics_text=final_diagnostics_text,
             dimension_reports={
                 "signal_extraction": (
-                    f"{extraction} R/month throughput is {r_per_month:.2f} "
-                    f"({m.avg_r:.3f} avgR x {m.trades_per_month:.1f} trades/month)."
+                    f"{extraction} Normalized simple return would be "
+                    f"{m.norm_return_25bp_pct:.1f}% at 0.25% risk/R, "
+                    f"{m.norm_return_50bp_pct:.1f}% at 0.50% risk/R, and "
+                    f"{m.norm_return_100bp_pct:.1f}% at 1.00% risk/R over the sample. "
+                    f"The fixed-qty run implies about ${m.fixed_dollars_per_r:,.0f} per R, "
+                    "which is why raw return is not comparable to dynamically sized strategies."
                 ),
                 "signal_discrimination": (
                     f"{discrimination} Negative evening flow is contained by the current "
@@ -417,6 +459,13 @@ class VdubusPlugin:
                 "exit_mechanism": exits,
             },
             overall_verdict=overall,
+            extra_sections={
+                "score_basis": (
+                    "Current diagnostics use the active seven-component R-normalized scorer: "
+                    "R/month, PF, R-Calmar, inverse R drawdown, MFE capture, frequency, and trade-R Sharpe. "
+                    "Phase progression scores remain the stored scores from the completed optimization run."
+                ),
+            },
         )
 
     def get_diagnostic_gaps(self, phase: int, metrics: dict[str, float]) -> list[str]:

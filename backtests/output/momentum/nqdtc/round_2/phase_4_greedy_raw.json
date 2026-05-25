@@ -1,6 +1,6 @@
 {
-  "base_score": 0.7372229792796393,
-  "final_score": 0.7372229792796393,
+  "base_score": 0.0,
+  "final_score": 0.0,
   "final_mutations": {
     "flags.max_loss_cap": true,
     "flags.max_stop_width": true,
@@ -12,25 +12,24 @@
     "param_overrides.MIN_BOX_WIDTH": 150,
     "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
     "flags.block_eth_shorts": true,
-    "param_overrides.TP1_R": 1.4,
+    "param_overrides.TP1_R": 1.2,
     "param_overrides.LOSS_STREAK_THRESHOLD": 2,
-    "param_overrides.TP1_PARTIAL_PCT": 0.5,
-    "param_overrides.BLOCK_ALIGNED_REGIME": true
+    "param_overrides.TP1_PARTIAL_PCT": 0.5
   },
   "kept_features": [],
   "rounds": [
     {
       "round_num": 1,
-      "candidates_tested": 26,
-      "best_name": "combo_tighter_exit_more_frequency",
-      "best_score": 0.7402535977391558,
-      "best_delta_pct": 0.411085729107056,
+      "candidates_tested": 20,
+      "best_name": "",
+      "best_score": 0.0,
+      "best_delta_pct": 0.0,
       "kept": false,
-      "rejected_count": 5
+      "rejected_count": 20
     }
   ],
   "final_metrics": {},
-  "total_candidates": 26,
+  "total_candidates": 20,
   "accepted_count": 0,
-  "elapsed_seconds": 460.262362241745
+  "elapsed_seconds": 0.13298749923706055
 }

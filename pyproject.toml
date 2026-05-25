@@ -47,4 +47,8 @@ testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
 norecursedirs = ["venv", ".venv", "node_modules", "_references", "research", "backtests", ".git"]
-
+markers = [
+  "parity_smoke: deterministic live/backtest parity checks that should run on every push",
+  "parity_nightly: deeper live-shadow and family-level parity checks",
+  "parity_calibration: calibration checks comparing deterministic fills to observed broker fills",
+]

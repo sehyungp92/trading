@@ -349,6 +349,93 @@ class RiskGateway:
 
         return None  # Approved
 
+    async def check_preapproved_entry(self, order: OMSOrder) -> Optional[str]:
+        """Validate an entry whose family portfolio decision is already final.
+
+        Replay/backtest family surfaces can be authoritative for accept/reduce/
+        reject decisions, but the order should still travel through the OMS
+        service and handler path. This check keeps non-family controls intact
+        while deliberately skipping heat, directional, and family portfolio
+        approval checks that have already been applied upstream.
+        """
+
+        if order.role != OrderRole.ENTRY:
+            return None
+        if not order.risk_context:
+            return "ENTRY order missing risk_context"
+
+        strat_cfg = self._config.strategy_configs.get(order.strategy_id)
+        if not strat_cfg:
+            return f"No risk config for strategy {order.strategy_id}"
+
+        validation_error = self._validate_entry_order(order)
+        if validation_error:
+            return validation_error
+        if not math.isfinite(strat_cfg.unit_risk_dollars) or strat_cfg.unit_risk_dollars <= 0:
+            return (
+                "Strategy unit_risk_dollars must be positive: "
+                f"{strat_cfg.unit_risk_dollars}"
+            )
+
+        now_utc = datetime.now(timezone.utc)
+        if self._config.global_standdown:
+            return "Global stand-down active"
+        if self._calendar.is_blocked(now_utc):
+            return "Event blackout active"
+        if self._market_cal:
+            from libs.config.market_calendar import AssetClass
+
+            instrument = order.instrument
+            asset_class = (
+                AssetClass.CME_FUTURES
+                if instrument and instrument.venue in ("CME", "COMEX", "NYMEX")
+                else AssetClass.EQUITY
+            )
+            holiday_block = self._market_cal.is_entry_blocked(now_utc, asset_class)
+            if holiday_block:
+                return holiday_block
+
+        session_block = strat_cfg.check_session_block(now_utc)
+        if session_block:
+            return session_block
+
+        strat_risk = await self._get_strat_risk(order.strategy_id)
+        if strat_risk.halted:
+            return f"Strategy halted: {strat_risk.halt_reason}"
+        if self._portfolio_risk_adapter is None and strat_risk.daily_realized_R <= -strat_cfg.daily_stop_R:
+            return (
+                f"Strategy daily stop: realized {strat_risk.daily_realized_R:.2f}R "
+                f"<= -{strat_cfg.daily_stop_R}R"
+            )
+
+        port_risk = await self._get_port_risk()
+        if port_risk.halted:
+            return f"Portfolio halted: {port_risk.halt_reason}"
+        if self._portfolio_risk_adapter is None and port_risk.daily_realized_R <= -self._config.portfolio_daily_stop_R:
+            return f"Portfolio daily stop: {port_risk.daily_realized_R:.2f}R"
+        if (
+            self._config.portfolio_weekly_stop_R > 0
+            and port_risk.weekly_realized_R <= -self._config.portfolio_weekly_stop_R
+        ):
+            return (
+                f"Portfolio weekly stop: {port_risk.weekly_realized_R:.2f}R "
+                f"<= -{self._config.portfolio_weekly_stop_R}R"
+            )
+
+        if self._get_working_count and strat_cfg.max_working_orders > 0:
+            working = await self._get_working_count(order.strategy_id)
+            if working >= strat_cfg.max_working_orders:
+                return f"Max working orders ({strat_cfg.max_working_orders}) reached: {working} active"
+
+        if not strat_cfg.is_order_type_allowed(order.role, order.order_type):
+            return f"Order type {order.order_type} not allowed for role {order.role}"
+
+        risk_ctx = order.risk_context
+        if not math.isfinite(risk_ctx.risk_dollars) or risk_ctx.risk_dollars <= 0:
+            risk_ctx.risk_dollars = self._entry_risk_dollars(order)
+        risk_ctx.unit_risk_dollars = strat_cfg.unit_risk_dollars
+        return None
+
     async def check_account_gate(self, order: OMSOrder, conn=None) -> Optional[str]:
         """Run only the account-global reservation gate for an approved ENTRY."""
         if order.role != OrderRole.ENTRY or self._account_gate is None:

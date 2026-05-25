@@ -25,6 +25,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from collections.abc import Awaitable, Callable
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -77,6 +78,9 @@ class TPCEngine(ETFCoreLiveEngine):
         equity_alloc_pct: float = 1.0,
         coordinator: Any | None = None,
         state_dir: Path | str | None = None,
+        bar_input_provider: Callable[[str, str], Any | Awaitable[Any]] | None = None,
+        disable_scheduler: bool = False,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         super().__init__(
             strategy_id=STRATEGY_ID,
@@ -101,6 +105,9 @@ class TPCEngine(ETFCoreLiveEngine):
         self._event_task: asyncio.Task | None = None
         self._event_queue: Any = None
         self._state_dir = Path(state_dir) if state_dir else Path("data/tpc_state")
+        self._bar_input_provider = bar_input_provider
+        self._disable_scheduler = bool(disable_scheduler)
+        self._clock = clock or (lambda: datetime.now(timezone.utc))
         # Map oms_order_id -> setup_id so OMS event callbacks know which
         # setup to update. Populated when SubmitEntry/Stop/TP receipts arrive.
         self._oms_order_to_setup: dict[str, str] = {}
@@ -236,7 +243,8 @@ class TPCEngine(ETFCoreLiveEngine):
             await self._cycle_once(request_kind="startup")
         except Exception:
             logger.exception("TPC initial 15m cycle failed")
-        self._cycle_task = asyncio.create_task(self._15m_scheduler())
+        if not self._disable_scheduler:
+            self._cycle_task = asyncio.create_task(self._15m_scheduler())
         logger.info("TPC live shell active (symbols=%s)", list(self._config.keys()))
 
     async def stop(self) -> None:
@@ -256,7 +264,7 @@ class TPCEngine(ETFCoreLiveEngine):
 
     async def _15m_scheduler(self) -> None:
         while self._running:
-            now = datetime.now(timezone.utc)
+            now = self._clock()
             minute = now.minute
             next_15 = ((minute // 15) + 1) * 15
             if next_15 >= 60:
@@ -366,6 +374,11 @@ class TPCEngine(ETFCoreLiveEngine):
     async def _build_bar_input(
         self, symbol: str, request_kind: str,
     ) -> ETFBarInput | None:
+        if self._bar_input_provider is not None:
+            value = self._bar_input_provider(symbol, request_kind)
+            if asyncio.iscoroutine(value):
+                value = await value
+            return value
         if self._ib is None or not getattr(self._ib, "ib", None):
             return None
         if not self._ib.ib.isConnected():
@@ -614,28 +627,30 @@ class TPCEngine(ETFCoreLiveEngine):
                 symbol = payload.get("symbol", "")
                 role = self._oms_order_role.get(oms_order_id, "")
 
-                if etype in (OMSEventType.FILL, OMSEventType.ORDER_FILLED):
+                if etype == OMSEventType.FILL:
                     fill = ETFFill(
                         oms_order_id=oms_order_id,
                         fill_price=float(payload.get("price", 0.0)),
                         fill_qty=int(payload.get("qty", 0)),
                         symbol=symbol,
-                        fill_time=datetime.now(timezone.utc),
+                        fill_time=self._clock(),
                         commission=float(payload.get("commission", 0.0)),
                         order_role=role or payload.get("role", "").lower() or "entry",
                     )
                     self.process_fill(fill)
                     self._persist_state()
                 elif etype in (
-                    OMSEventType.ORDER_ACK,
+                    OMSEventType.ORDER_ACKED,
                     OMSEventType.ORDER_CANCELLED,
                     OMSEventType.ORDER_REJECTED,
+                    OMSEventType.ORDER_EXPIRED,
+                    OMSEventType.ORDER_FILLED,
                 ):
                     update = ETFOrderUpdate(
                         oms_order_id=oms_order_id,
                         status=str(etype.value if hasattr(etype, "value") else etype),
                         symbol=symbol,
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=self._clock(),
                         order_role=role,
                     )
                     self.process_order_update(update)

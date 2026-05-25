@@ -413,6 +413,7 @@ def test_alcb_carry_roll_increments_only_held_symbols() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parity_smoke
 async def test_alcb_live_wrapper_entry_fill_matches_replay_core_state(monkeypatch) -> None:
     artifact = _artifact(date(2026, 4, 25))
     engine = ALCBT2Engine(

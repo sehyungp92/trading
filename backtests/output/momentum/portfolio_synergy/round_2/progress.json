@@ -1,28 +1,26 @@
 {
   "phases": {
     "1": {
-      "base_score": 0.6376871538565225,
-      "candidate_count": 5,
+      "base_score": 0.9955784162045334,
+      "candidate_count": 3,
       "completed_phases": [
         1
       ],
       "current_phase": 1,
       "diagnostic_retries": 0,
       "failure_category": null,
-      "final_score": 0.9584903144943085,
-      "focus": "Accepted capacity_fit_conservative.",
+      "final_score": 0.9955784162045334,
+      "focus": "No candidate improved the current score under MTM risk and validation gates.",
       "gate_passed": true,
-      "kept_features": [
-        "capacity_fit_conservative"
-      ],
+      "kept_features": [],
       "scoring_retries": 0,
       "status": "completed",
       "total_mutations": 14,
-      "updated_at": "2026-05-11T12:59:56.566666+00:00"
+      "updated_at": "2026-05-25T11:22:01.170183+00:00"
     },
     "2": {
-      "base_score": 0.9584903144943085,
-      "candidate_count": 4,
+      "base_score": 0.9955784162045334,
+      "candidate_count": 3,
       "completed_phases": [
         1,
         2
@@ -30,20 +28,18 @@
       "current_phase": 2,
       "diagnostic_retries": 0,
       "failure_category": null,
-      "final_score": 0.9830396277198608,
-      "focus": "Accepted frequency_rebalance.",
+      "final_score": 0.9955784162045334,
+      "focus": "No candidate improved the current score under MTM risk and validation gates.",
       "gate_passed": true,
-      "kept_features": [
-        "frequency_rebalance"
-      ],
+      "kept_features": [],
       "scoring_retries": 0,
       "status": "completed",
       "total_mutations": 14,
-      "updated_at": "2026-05-11T12:59:56.588633+00:00"
+      "updated_at": "2026-05-25T11:22:01.201189+00:00"
     },
     "3": {
-      "base_score": 0.9830396277198608,
-      "candidate_count": 6,
+      "base_score": 0.9955784162045334,
+      "candidate_count": 7,
       "completed_phases": [
         1,
         2,
@@ -52,20 +48,20 @@
       "current_phase": 3,
       "diagnostic_retries": 0,
       "failure_category": null,
-      "final_score": 0.9941463331734304,
-      "focus": "Accepted heat_6_75_contracts_24.",
+      "final_score": 1.1256155581491243,
+      "focus": "Accepted capacity_10_00_contracts_40_positions_8_risk_2_0.",
       "gate_passed": true,
       "kept_features": [
-        "heat_6_75_contracts_24"
+        "capacity_10_00_contracts_40_positions_8_risk_2_0"
       ],
       "scoring_retries": 0,
       "status": "completed",
       "total_mutations": 14,
-      "updated_at": "2026-05-11T12:59:56.609764+00:00"
+      "updated_at": "2026-05-25T11:22:01.246187+00:00"
     },
     "4": {
-      "base_score": 0.9941463331734304,
-      "candidate_count": 3,
+      "base_score": 1.1256155581491243,
+      "candidate_count": 4,
       "completed_phases": [
         1,
         2,
@@ -75,16 +71,14 @@
       "current_phase": 4,
       "diagnostic_retries": 0,
       "failure_category": null,
-      "final_score": 0.9955784162045334,
-      "focus": "Accepted dynamic_frequency_frontier.",
+      "final_score": 1.1256155581491243,
+      "focus": "No candidate improved the current score under MTM risk and validation gates.",
       "gate_passed": true,
-      "kept_features": [
-        "dynamic_frequency_frontier"
-      ],
+      "kept_features": [],
       "scoring_retries": 0,
       "status": "completed",
       "total_mutations": 14,
-      "updated_at": "2026-05-11T12:59:56.625452+00:00"
+      "updated_at": "2026-05-25T11:22:01.283186+00:00"
     }
   }
 }

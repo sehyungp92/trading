@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -67,6 +68,8 @@ class NQRegimeEngine:
         trade_symbol: str = config.TRADE_SYMBOL,
         state_dir: Path | str | None = None,
         equity_alloc_pct: float = 1.0,
+        clock: Callable[[], datetime] | None = None,
+        disable_scheduler: bool = False,
         **_: Any,
     ) -> None:
         self._ib = ib_session
@@ -92,6 +95,8 @@ class NQRegimeEngine:
         # NQDTC_STATE_DIR convention.
         self._cycle_task: asyncio.Task | None = None
         self._state_dir = Path(state_dir) if state_dir else Path("data/nq_regime_state")
+        self._clock = clock or (lambda: datetime.now(timezone.utc))
+        self._disable_scheduler = bool(disable_scheduler)
         self._running = False
 
         # Instrumentation kit
@@ -140,12 +145,12 @@ class NQRegimeEngine:
             self._event_queue = self._oms.stream_events(config.STRATEGY_ID)
             self._event_task = asyncio.create_task(self._event_loop())
 
-        # Initial bars + scheduler
-        try:
-            await self._fetch_and_emit_bar(request_kind="startup")
-        except Exception:
-            logger.exception("NQ_REGIME initial bar fetch failed")
-        self._cycle_task = asyncio.create_task(self._5m_scheduler())
+        if not self._disable_scheduler:
+            try:
+                await self._fetch_and_emit_bar(request_kind="startup")
+            except Exception:
+                logger.exception("NQ_REGIME initial bar fetch failed")
+            self._cycle_task = asyncio.create_task(self._5m_scheduler())
         logger.info(
             "NQ_REGIME engine started (analysis=%s, trade=%s)",
             self._settings.analysis_symbol, self._settings.trade_symbol,
@@ -249,7 +254,7 @@ class NQRegimeEngine:
         request can return the still-open bar.
         """
         while self._running:
-            now = datetime.now(timezone.utc)
+            now = self._clock()
             minute = now.minute
             next_5 = ((minute // 5) + 1) * 5
             if next_5 >= 60:
@@ -457,7 +462,7 @@ class NQRegimeEngine:
 
     async def _handle_oms_event(self, event: Any) -> None:
         etype = getattr(event, "event_type", None)
-        if etype in (OMSEventType.FILL, OMSEventType.ORDER_FILLED):
+        if etype == OMSEventType.FILL:
             payload = getattr(event, "payload", {}) or {}
 
             # Capture pre-fill state for instrumentation

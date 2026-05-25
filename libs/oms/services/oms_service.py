@@ -121,6 +121,24 @@ class OMSService:
                     logger.debug("on_intent_denied callback failed", exc_info=True)
         return receipt
 
+    async def submit_preapproved_family_intent(
+        self,
+        *,
+        strategy_id: str,
+        order: "OMSOrder",
+        decision: "PreapprovedFamilyDecision",
+    ) -> "IntentReceipt":
+        from ..models.intent import Intent, IntentType
+
+        return await self.submit_intent(
+            Intent(
+                intent_type=IntentType.PREAPPROVED_ORDER,
+                strategy_id=strategy_id,
+                order=order,
+                preapproved_family_decision=decision,
+            )
+        )
+
     def stream_events(self, strategy_id: str) -> "asyncio.Queue":
         """Returns an asyncio.Queue that receives OMSEvent objects for this strategy."""
         return self._bus.subscribe(strategy_id)

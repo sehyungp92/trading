@@ -242,6 +242,61 @@ def score_threshold(mode: ChopMode) -> float:
     return C.SCORE_NORMAL
 
 
+def contextual_score_filter_pass(
+    *,
+    score: float,
+    box_width: float,
+    rvol: float,
+) -> tuple[bool, str]:
+    """Return whether score has enough box/RVOL context to be tradable."""
+    if (
+        C.WEAK_SCORE_BAND_FILTER_ENABLED
+        and C.WEAK_SCORE_BAND_LOW <= score < C.WEAK_SCORE_BAND_HIGH
+        and (
+            box_width > C.WEAK_SCORE_BAND_MAX_BOX_WIDTH
+            or rvol < C.WEAK_SCORE_BAND_MIN_RVOL
+        )
+    ):
+        return False, "weak_score_context"
+    if (
+        C.WIDE_BOX_SCORE_FILTER_ENABLED
+        and box_width >= C.WIDE_BOX_MIN_WIDTH
+        and (score < C.WIDE_BOX_MIN_SCORE or rvol < C.WIDE_BOX_MIN_RVOL)
+    ):
+        return False, "wide_box_context"
+    return True, ""
+
+
+def b_entry_regime_allowed(composite_regime: CompositeRegime | str) -> bool:
+    """Shared B-entry regime permission used by live and backtest."""
+    value = getattr(composite_regime, "value", composite_regime)
+    return (
+        (value == CompositeRegime.ALIGNED.value and C.B_ALLOW_ALIGNED)
+        or (value == CompositeRegime.RANGE.value and C.B_ALLOW_RANGE)
+        or (value == CompositeRegime.NEUTRAL.value and C.B_ALLOW_NEUTRAL)
+        or (value == CompositeRegime.CAUTION.value and C.B_ALLOW_CAUTION)
+    )
+
+
+def a_entry_context_allowed(*, score: float, box_width: float) -> tuple[bool, str]:
+    """Shared A-entry context gate used by live and backtest."""
+    max_box = getattr(C, "A_MAX_BOX_WIDTH", 0.0)
+    if max_box > 0 and box_width > max_box:
+        return False, "a_box_width"
+
+    min_score = getattr(C, "A_MIN_SCORE", 0.0)
+    if min_score > 0 and score < min_score:
+        return False, "a_min_score"
+
+    if (
+        getattr(C, "A_BLOCK_WEAK_SCORE_BAND", False)
+        and getattr(C, "A_WEAK_SCORE_BAND_LOW", 2.5) <= score < getattr(C, "A_WEAK_SCORE_BAND_HIGH", 3.0)
+    ):
+        return False, "a_weak_score_band"
+
+    return True, ""
+
+
 
 # ---------------------------------------------------------------------------
 # Dirty-wick reclaim (Section G, fix #6)

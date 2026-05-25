@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from copy import deepcopy
 from datetime import datetime, timezone
 
@@ -11,6 +12,7 @@ from strategies.core.actions import (
     SubmitExit,
 )
 from strategies.core.events import DecisionEvent
+from strategies.core.idle_market import idle_market_details
 from strategies.momentum.nqdtc.models import PositionState, WorkingOrder
 
 from .state import (
@@ -42,6 +44,9 @@ def on_bar(
     cancel_order_ids: list[str] | None = None,
     flatten_request: NQDTCSimpleRequest | None = None,
     expire_orders: bool = False,
+    idle_market_bars: Sequence[object] | None = None,
+    idle_market_symbol: str = "",
+    idle_market_timeframe: str = "5m",
 ) -> tuple[
     NQDTCCoreState,
     list[SubmitEntry | ReplaceProtectiveStop | CancelAction | FlattenPosition],
@@ -175,6 +180,22 @@ def on_bar(
             else:
                 active_orders.append(order)
         next_state.working_orders = active_orders
+
+    if idle_market_bars is not None and not actions and not events:
+        observed_symbol = idle_market_symbol or next_state.symbol
+        events.append(
+            DecisionEvent(
+                code="IDLE_MARKET_OBSERVED",
+                ts=event_ts,
+                symbol=observed_symbol,
+                timeframe=idle_market_timeframe,
+                details=idle_market_details(
+                    idle_market_bars,
+                    symbol=observed_symbol,
+                    timeframe=idle_market_timeframe,
+                ),
+            )
+        )
 
     _update_last_decision(next_state, events)
     return next_state, actions, events

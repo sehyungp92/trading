@@ -27,7 +27,7 @@ from backtests.momentum.engine.family_portfolio_engine import (
 
 
 STRATEGY_OUTPUTS = {
-    "NQDTC_v2.1": ("nqdtc", "round_4"),
+    "NQDTC_v2.1": ("nqdtc", "round_5"),
     "VdubusNQ_v4": ("vdubus", "round_3"),
     "DownturnDominator_v1": ("downturn", "round_4"),
     "NQ_REGIME": ("nq_regime", "round_6"),

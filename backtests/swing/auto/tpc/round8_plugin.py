@@ -18,12 +18,12 @@ import numpy as np
 from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.phase_state import PhaseState
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.provenance import AutoRunProvenance, build_phase_auto_provenance
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
     SharedPoolBatchEvaluator,
     create_process_pool,
-    mutation_signature,
     shutdown_process_pool,
 )
 from backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion, ScoredCandidate
@@ -141,6 +141,35 @@ class Round8TPCPlugin(TPCPlugin):
             score_holdout=False,
         )
         self.candidates_fn = get_round8_phase_candidates
+
+    def build_provenance(self) -> AutoRunProvenance:
+        if self._provenance is None:
+            repo_root = Path(__file__).resolve().parents[4]
+            self._provenance = build_phase_auto_provenance(
+                self.name,
+                repo_root=repo_root,
+                code_dirs=(
+                    Path(__file__).resolve().parent,
+                    repo_root / "strategies/swing/tpc",
+                ),
+                code_paths=(
+                    Path(__file__).resolve(),
+                    repo_root / "backtests/swing/engine/tpc_engine.py",
+                    repo_root / "backtests/swing/config_tpc.py",
+                    repo_root / "backtests/swing/data/replay_cache.py",
+                ),
+                data_dir=self.data_dir,
+                selection_context={
+                    "start_date": self.start_date,
+                    "end_date": self.end_date,
+                    "initial_equity": self.initial_equity,
+                    "num_phases": self.num_phases,
+                    "scoring_weights": ROUND8_SCORING_WEIGHTS,
+                    "hard_rejects": ROUND8_HARD_REJECTS,
+                    "round_baseline_policy": "run_spec.baseline_mutations",
+                },
+            )
+        return self._provenance
 
     @property
     def ultimate_targets(self) -> dict[str, float]:

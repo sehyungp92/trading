@@ -1,6 +1,6 @@
 {
-  "base_score": 0.5559561277815372,
-  "final_score": 0.5778511789457552,
+  "base_score": 0.8367152904825312,
+  "final_score": 0.8989484320544519,
   "final_mutations": {
     "param_overrides.pb_v2_enabled": true,
     "param_overrides.pb_execution_mode": "intraday_hybrid",
@@ -21,13 +21,13 @@
     "param_overrides.pb_v2_open_scored_rank_pct_max": 100.0,
     "param_overrides.pb_v2_open_scored_min_score": 45.0,
     "param_overrides.pb_delayed_confirm_enabled": true,
-    "param_overrides.pb_v2_vwap_bounce_enabled": true,
-    "param_overrides.pb_v2_afternoon_retest_enabled": true,
+    "param_overrides.pb_v2_vwap_bounce_enabled": false,
+    "param_overrides.pb_v2_afternoon_retest_enabled": false,
     "param_overrides.pb_atr_stop_mult": 2.0,
-    "param_overrides.pb_v2_partial_profit_trigger_r": 0.5,
+    "param_overrides.pb_v2_partial_profit_trigger_r": 0.1,
     "param_overrides.pb_v2_ema_reversion_min_r": 0.03,
-    "param_overrides.pb_v2_stale_mfe_thresh": 0.05,
-    "param_overrides.pb_v2_stale_bars": 6,
+    "param_overrides.pb_v2_stale_mfe_thresh": 0.08,
+    "param_overrides.pb_v2_stale_bars": 4,
     "param_overrides.pb_v2_mfe_stage1_stop_r": -0.1,
     "param_overrides.pb_v2_mfe_stage2_trigger": 0.6,
     "param_overrides.pb_opening_reclaim_enabled": false,
@@ -44,46 +44,62 @@
     "param_overrides.pb_open_scored_flow_reversal_lookback": 2,
     "param_overrides.pb_max_hold_days": 2,
     "param_overrides.pb_max_positions": 10,
-    "max_per_sector": 3,
+    "param_overrides.max_positions_per_sector": 5,
     "param_overrides.pb_open_scored_max_hold_days": 2,
     "param_overrides.pb_carry_close_pct_min": 0.0,
-    "param_overrides.pb_carry_mfe_gate_r": 0.0
+    "param_overrides.pb_carry_mfe_gate_r": 0.0,
+    "param_overrides.pb_open_scored_fill_timing": "next_5m_open",
+    "param_overrides.pb_v2_partial_profit_remainder_stop_r": 0.7,
+    "param_overrides.pb_v2_gap_max_pct": 2.0,
+    "param_overrides.pb_cdd_max": 6,
+    "param_overrides.pb_delayed_confirm_after_bar": 5,
+    "param_overrides.pb_delayed_confirm_score_min": 52.0
   },
   "kept_features": [
-    "reduce_sector_3",
-    "ablate_opening_reclaim"
+    "ablate_v2_signal_floor",
+    "ablate_atr_stop_mult",
+    "ablate_max_positions_per_sector"
   ],
   "rounds": [
     {
       "round_num": 1,
-      "candidates_tested": 15,
-      "best_name": "reduce_sector_3",
-      "best_score": 0.5684898438826012,
-      "best_delta_pct": 2.2544433768682244,
+      "candidates_tested": 9,
+      "best_name": "ablate_v2_signal_floor",
+      "best_score": 0.8715298022927956,
+      "best_delta_pct": 4.160855216376765,
       "kept": true,
-      "rejected_count": 4
+      "rejected_count": 1
     },
     {
       "round_num": 2,
-      "candidates_tested": 14,
-      "best_name": "ablate_opening_reclaim",
-      "best_score": 0.5778511789457552,
-      "best_delta_pct": 1.646702252272298,
+      "candidates_tested": 7,
+      "best_name": "ablate_atr_stop_mult",
+      "best_score": 0.8972668849551878,
+      "best_delta_pct": 2.953092664724004,
       "kept": true,
-      "rejected_count": 4
+      "rejected_count": 0
     },
     {
       "round_num": 3,
-      "candidates_tested": 9,
-      "best_name": "ablate_vwap_bounce",
-      "best_score": 0.5781896030886038,
-      "best_delta_pct": 0.05856596909017281,
+      "candidates_tested": 6,
+      "best_name": "ablate_max_positions_per_sector",
+      "best_score": 0.8989484320544519,
+      "best_delta_pct": 0.18740768521152193,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 4,
+      "candidates_tested": 5,
+      "best_name": "ablate_opening_reclaim_enabled",
+      "best_score": 0.8989484320544519,
+      "best_delta_pct": 0.0,
       "kept": false,
       "rejected_count": 0
     }
   ],
   "final_metrics": {},
-  "total_candidates": 15,
-  "accepted_count": 2,
-  "elapsed_seconds": 1223.3655560016632
+  "total_candidates": 9,
+  "accepted_count": 3,
+  "elapsed_seconds": 1841.648567199707
 }

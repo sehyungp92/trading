@@ -180,12 +180,6 @@ def composite_score(
         + 0.15 * (1.0 - _scale(metrics.false_positive_rate, 0.25, 0.75))
         + 0.10 * (1.0 - _scale(metrics.right_then_lost_rate, 0.00, 0.30))
     )
-    mfe_mae_ratio = metrics.avg_mfe_r / max(metrics.avg_mae_r, 1e-9)
-    excursion_quality = (
-        0.45 * _scale(metrics.avg_mfe_r, 0.25, 1.60)
-        + 0.30 * _scale(metrics.median_mfe_r, 0.20, 1.10)
-        + 0.25 * _scale(mfe_mae_ratio, 0.25, 1.50)
-    )
     false_positive_control = (
         0.55 * (1.0 - _scale(metrics.false_positive_rate, 0.0, 0.80))
         + 0.30 * (1.0 - _scale(metrics.stop_rate, 0.20, 1.00))
@@ -565,7 +559,10 @@ def run_plugin_cli(plugin_cls: type, prog: str) -> None:
             expected_phases=plugin.num_phases if for_write else None,
         )
         if round_num > 1:
-            plugin.initial_mutations = manager.get_previous_mutations(round_num)
+            plugin.initial_mutations = manager.get_previous_mutations(
+                round_num,
+                current_provenance=plugin.build_provenance(),
+            )
         return PhaseRunner(
             plugin=plugin,
             output_dir=round_dir,
@@ -586,7 +583,8 @@ def run_plugin_cli(plugin_cls: type, prog: str) -> None:
     elif args.command == "phase-gate":
         runner = build_runner(for_write=False)
         state = runner.load_state()
-        muts = _mutations_through_phase(state, args.phase)
+        muts = dict(getattr(runner.plugin, "initial_mutations", None) or {})
+        muts.update(_mutations_through_phase(state, args.phase))
         metrics = runner.plugin.compute_final_metrics(muts)
         spec = runner.plugin.get_phase_spec(args.phase, state)
         gate = evaluate_gate(spec.gate_criteria_fn(metrics))

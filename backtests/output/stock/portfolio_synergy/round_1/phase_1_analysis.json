@@ -8,28 +8,28 @@
     },
     "active_trades_per_month": {
       "target": 52.0,
-      "actual": 48.16817021781708,
-      "pct_of_target": 92.63109657272514
+      "actual": 50.89781646430426,
+      "pct_of_target": 97.8804162775082
     },
     "total_r_per_month": {
       "target": 13.0,
-      "actual": 10.139870210444373,
-      "pct_of_target": 77.99900161880286
+      "actual": 10.782603518856595,
+      "pct_of_target": 82.94310399120458
     },
     "profit_factor": {
       "target": 2.6,
-      "actual": 2.2235357613051967,
-      "pct_of_target": 85.52060620404602
+      "actual": 2.118140111814093,
+      "pct_of_target": 81.46692737746511
     },
     "max_drawdown_pct": {
       "target": 0.08,
-      "actual": 0.03030019718169129,
-      "pct_of_target": 200.0
+      "actual": 0.0442633338897258,
+      "pct_of_target": 180.736498970696
     },
     "trade_capture_ratio": {
       "target": 0.84,
-      "actual": 0.5596977329974812,
-      "pct_of_target": 66.63068249970014
+      "actual": 0.5738025415444771,
+      "pct_of_target": 68.3098263743425
     },
     "positive_slices": {
       "target": 4.0,
@@ -39,9 +39,10 @@
   },
   "strengths": [
     "active_strategy_count: 2.0000 (100% of 2.0000)",
-    "active_trades_per_month: 48.1682 (93% of 52.0000)",
-    "profit_factor: 2.2235 (86% of 2.6000)",
-    "max_drawdown_pct: 0.0303 (200% of 0.0800)",
+    "active_trades_per_month: 50.8978 (98% of 52.0000)",
+    "total_r_per_month: 10.7826 (83% of 13.0000)",
+    "profit_factor: 2.1181 (81% of 2.6000)",
+    "max_drawdown_pct: 0.0443 (181% of 0.0800)",
     "positive_slices: 4.0000 (100% of 4.0000)"
   ],
   "weaknesses": [],
@@ -52,7 +53,7 @@
   "suggested_experiments": [],
   "recommendation": "advance",
   "recommendation_reason": "Gate passed.",
-  "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + active_strategy_count: 2.0000 (100% of 2.0000)\n  + active_trades_per_month: 48.1682 (93% of 52.0000)\n  + profit_factor: 2.2235 (86% of 2.6000)\n  + max_drawdown_pct: 0.0303 (200% of 0.0800)\n  + positive_slices: 4.0000 (100% of 4.0000)\n\nDiagnostic Gaps:\n  ! Positive blocked candidates are too frequent; inspect ranking and heat scarcity.\n\nGoal Progress:\n  active_strategy_count: 2.0000 / 2.0000 (100%)\n  active_trades_per_month: 48.1682 / 52.0000 (93%)\n  total_r_per_month: 10.1399 / 13.0000 (78%)\n  profit_factor: 2.2235 / 2.6000 (86%)\n  max_drawdown_pct: 0.0303 / 0.0800 (200%)\n  trade_capture_ratio: 0.5597 / 0.8400 (67%)\n  positive_slices: 4.0000 / 4.0000 (100%)",
+  "report": "======================================================================\nPHASE 1 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + active_strategy_count: 2.0000 (100% of 2.0000)\n  + active_trades_per_month: 50.8978 (98% of 52.0000)\n  + total_r_per_month: 10.7826 (83% of 13.0000)\n  + profit_factor: 2.1181 (81% of 2.6000)\n  + max_drawdown_pct: 0.0443 (181% of 0.0800)\n  + positive_slices: 4.0000 (100% of 4.0000)\n\nDiagnostic Gaps:\n  ! Positive blocked candidates are too frequent; inspect ranking and heat scarcity.\n\nGoal Progress:\n  active_strategy_count: 2.0000 / 2.0000 (100%)\n  active_trades_per_month: 50.8978 / 52.0000 (98%)\n  total_r_per_month: 10.7826 / 13.0000 (83%)\n  profit_factor: 2.1181 / 2.6000 (81%)\n  max_drawdown_pct: 0.0443 / 0.0800 (181%)\n  trade_capture_ratio: 0.5738 / 0.8400 (68%)\n  positive_slices: 4.0000 / 4.0000 (100%)",
   "scoring_weight_overrides": null,
   "extra": {}
 }

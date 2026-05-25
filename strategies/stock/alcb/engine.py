@@ -39,6 +39,10 @@ from .core.state import (
     ALCBPartialExitRequest,
     ALCBStopUpdateRequest,
 )
+from strategies.core.idle_market import (
+    maybe_record_idle_market_observation,
+    remember_idle_market_bars,
+)
 from strategies.core.actions import (
     FlattenPosition,
     ReplaceProtectiveStop,
@@ -167,6 +171,17 @@ class ALCBT2Engine:
 
     def _record_decision(self, code: str, details: dict | None = None) -> None:
         """Record the latest decision for diagnostic pulse reporting."""
+        if maybe_record_idle_market_observation(
+            self,
+            code,
+            strategy_id=STRATEGY_ID,
+            build_core_state=lambda: build_core_runtime_state(self),
+            apply_core_state=lambda state: apply_core_runtime_state(self, state),
+            on_bar=alcb_core_logic.on_bar,
+            default_symbol="",
+            default_timeframe="5m",
+        ):
+            return
         self._last_decision_code = code
         self._last_decision_details = details or {}
 
@@ -372,6 +387,7 @@ class ALCBT2Engine:
 
         # Track session bars
         self._session_bars_5m.setdefault(symbol, []).append(bar)
+        remember_idle_market_bars(self, [bar], symbol=symbol, timeframe="5m")
 
         # --- Position management ---
         if symbol in self._positions:

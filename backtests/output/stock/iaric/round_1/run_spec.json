@@ -1,12 +1,12 @@
 {
   "family": "stock",
   "strategy": "iaric",
-  "strategy_name": "iaric",
+  "strategy_name": "iaric_live_aligned_ablation_perturbation_mainline",
   "round": 1,
-  "description": "Round 1 bootstrap from latest post-fix optimized results",
-  "generated_at_utc": "2026-04-28T11:44:26.200390+00:00",
-  "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\stock\\auto\\iaric_pullback\\output_v4r1\\phase_state.json",
-  "baseline_mutation_count": 46,
+  "description": "live_aligned_ablation_perturbation",
+  "generated_at_utc": "2026-05-23T19:48:55.577243+00:00",
+  "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\iaric\\archived_rounds\\20260522T191359Z_selection_stale_after_current_code_source_recompute_drift\\round_3\\optimized_config.json",
+  "baseline_mutation_count": 52,
   "baseline_mutations": {
     "param_overrides.pb_v2_enabled": true,
     "param_overrides.pb_execution_mode": "intraday_hybrid",
@@ -18,7 +18,7 @@
     "param_overrides.pb_backtest_intraday_universe_only": true,
     "param_overrides.pb_min_candidates_day": 8,
     "param_overrides.pb_signal_rank_gate_mode": "score_rank",
-    "param_overrides.pb_v2_signal_floor": 75.0,
+    "param_overrides.pb_v2_signal_floor": 66.0,
     "param_overrides.pb_v2_allow_secular": true,
     "param_overrides.pb_v2_secular_sizing_mult": 0.65,
     "param_overrides.pb_v2_open_scored_enabled": true,
@@ -27,13 +27,13 @@
     "param_overrides.pb_v2_open_scored_rank_pct_max": 100.0,
     "param_overrides.pb_v2_open_scored_min_score": 45.0,
     "param_overrides.pb_delayed_confirm_enabled": true,
-    "param_overrides.pb_v2_vwap_bounce_enabled": true,
-    "param_overrides.pb_v2_afternoon_retest_enabled": true,
+    "param_overrides.pb_v2_vwap_bounce_enabled": false,
+    "param_overrides.pb_v2_afternoon_retest_enabled": false,
     "param_overrides.pb_atr_stop_mult": 1.0,
-    "param_overrides.pb_v2_partial_profit_trigger_r": 0.3,
+    "param_overrides.pb_v2_partial_profit_trigger_r": 0.1,
     "param_overrides.pb_v2_ema_reversion_min_r": 0.03,
-    "param_overrides.pb_v2_stale_mfe_thresh": 0.05,
-    "param_overrides.pb_v2_stale_bars": 6,
+    "param_overrides.pb_v2_stale_mfe_thresh": 0.08,
+    "param_overrides.pb_v2_stale_bars": 4,
     "param_overrides.pb_v2_mfe_stage1_stop_r": -0.1,
     "param_overrides.pb_v2_mfe_stage2_trigger": 0.6,
     "param_overrides.pb_opening_reclaim_enabled": false,
@@ -50,10 +50,157 @@
     "param_overrides.pb_open_scored_flow_reversal_lookback": 2,
     "param_overrides.pb_max_hold_days": 2,
     "param_overrides.pb_max_positions": 10,
-    "max_per_sector": 2,
+    "param_overrides.max_positions_per_sector": 4,
     "param_overrides.pb_open_scored_max_hold_days": 2,
     "param_overrides.pb_carry_close_pct_min": 0.0,
-    "param_overrides.pb_carry_mfe_gate_r": 0.0
+    "param_overrides.pb_carry_mfe_gate_r": 0.0,
+    "param_overrides.pb_open_scored_fill_timing": "next_5m_open",
+    "param_overrides.pb_v2_partial_profit_remainder_stop_r": 0.7,
+    "param_overrides.pb_v2_gap_max_pct": 2.0,
+    "param_overrides.pb_cdd_max": 6,
+    "param_overrides.pb_delayed_confirm_after_bar": 5,
+    "param_overrides.pb_delayed_confirm_score_min": 52.0
   },
-  "scoring_weights": {}
+  "scoring_weights": {},
+  "execution_context": {
+    "data_dir": "backtests\\stock\\data\\raw",
+    "initial_equity": 10000.0,
+    "start_date": "2024-01-01",
+    "end_date": "2026-03-01",
+    "max_workers": 4
+  },
+  "provenance": {
+    "schema_version": 1,
+    "selection_fingerprint": "4d6162ed8fba1ba46a2c059d53f51f906a339b245baaf488d173ce422b8507b5",
+    "diagnostics_fingerprint": "4d6162ed8fba1ba46a2c059d53f51f906a339b245baaf488d173ce422b8507b5",
+    "items": [
+      {
+        "name": "data_dir",
+        "kind": "tree_contents",
+        "fingerprint": "3e7834170767b1c4a57550d5241863253af0fde2317d2a6893e3735dda63779c",
+        "paths": [
+          "backtests/stock/data/raw"
+        ],
+        "scope": "data",
+        "notes": "Content fingerprint for selection-relevant replay data files."
+      },
+      {
+        "name": "code:backtests/stock/auto/config_mutator.py",
+        "kind": "file_contents",
+        "fingerprint": "aeda4efdc185062e2a1531df4254fbc58d5564cb798e12e57fd8465118da39c2",
+        "paths": [
+          "backtests/stock/auto/config_mutator.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/stock/auto/runners/run_live_aligned_ablation_perturbation.py",
+        "kind": "file_contents",
+        "fingerprint": "720ae3acec30a9594c88ca82d690404ed05fd5e90816817ec2536584f095dbdb",
+        "paths": [
+          "backtests/stock/auto/runners/run_live_aligned_ablation_perturbation.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/stock/config_iaric.py",
+        "kind": "file_contents",
+        "fingerprint": "e5ecffa6e6c146e06a06fe033a13d6df291e836753a33e8cf2d694773dbe0fbd",
+        "paths": [
+          "backtests/stock/config_iaric.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/stock/data/replay_cache.py",
+        "kind": "file_contents",
+        "fingerprint": "a22a7f855ed5f31aa4447f2a54c1599f21dd0c35c3608a80316bc680bd304cdd",
+        "paths": [
+          "backtests/stock/data/replay_cache.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/stock/engine/iaric_pullback_engine.py",
+        "kind": "file_contents",
+        "fingerprint": "45f1a21d86dd589cba252b1d69bde6255cef5ce475132c363fe0bd87b2f5c8eb",
+        "paths": [
+          "backtests/stock/engine/iaric_pullback_engine.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:strategies/stock/iaric/artifact_store.py",
+        "kind": "file_contents",
+        "fingerprint": "8bc8871b8aa2ea53ad4c768f704548736406e5de5e4e3069b789a40b97d8a07d",
+        "paths": [
+          "strategies/stock/iaric/artifact_store.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:strategies/stock/iaric/core/logic.py",
+        "kind": "file_contents",
+        "fingerprint": "eaacc0f18b69ebe9751ceea8c09273ecac8d60a3972d3e15d8799a96b2ee8547",
+        "paths": [
+          "strategies/stock/iaric/core/logic.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "plugin",
+        "kind": "plugin_identity",
+        "fingerprint": "f5bcfe146a65978544a58d50df9a108efa31536ab891ca21f01a5fa4f6465210",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "selection_context",
+        "kind": "stable_json",
+        "fingerprint": "6ad46ef1998d5902cb346b56fe77c50115f02f1b3aa6bbb2a68b574f8a829922",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:backtests/stock/auto/iaric",
+        "kind": "tree_contents",
+        "fingerprint": "e5cc7c89143c389b71bff5c3e6ec585db7579df6f730282be45899348fef3348",
+        "paths": [
+          "backtests/stock/auto/iaric"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "shared_auto_package",
+        "kind": "tree_contents",
+        "fingerprint": "b58cff0ef3381b09a3e6abcacca3dbbcc093afc7c8583a6e34c39a8886dd6f3c",
+        "paths": [
+          "backtests/shared/auto"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:baseline_config",
+        "kind": "source_artifact_contents",
+        "fingerprint": "2e570c4eff6e9b8cc8c1a7392b604f365835950433fc4dee861a09b8528d3770",
+        "paths": [
+          "backtests/output/stock/iaric/archived_rounds/20260522T191359Z_selection_stale_after_current_code_source_recompute_drift/round_3/optimized_config.json"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      }
+    ]
+  },
+  "provenance_status": "complete"
 }

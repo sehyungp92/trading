@@ -8,28 +8,28 @@
     },
     "active_trades_per_month": {
       "target": 52.0,
-      "actual": 60.307763071992404,
-      "pct_of_target": 115.97646744613922
+      "actual": 64.55438561784416,
+      "pct_of_target": 124.14304926508493
     },
     "total_r_per_month": {
       "target": 13.0,
-      "actual": 12.793458127103174,
-      "pct_of_target": 98.4112163623321
+      "actual": 13.039055067703833,
+      "pct_of_target": 100.3004235977218
     },
     "profit_factor": {
       "target": 2.6,
-      "actual": 2.3025857715675593,
-      "pct_of_target": 88.56099121413689
+      "actual": 2.145250731588501,
+      "pct_of_target": 82.50964352263466
     },
     "max_drawdown_pct": {
       "target": 0.08,
-      "actual": 0.03237781124490394,
+      "actual": 0.038620934822830334,
       "pct_of_target": 200.0
     },
     "trade_capture_ratio": {
       "target": 0.84,
-      "actual": 0.7007556675062973,
-      "pct_of_target": 83.42329375074968
+      "actual": 0.727761485826002,
+      "pct_of_target": 86.6382721221431
     },
     "positive_slices": {
       "target": 4.0,
@@ -39,11 +39,11 @@
   },
   "strengths": [
     "active_strategy_count: 2.0000 (100% of 2.0000)",
-    "active_trades_per_month: 60.3078 (116% of 52.0000)",
-    "total_r_per_month: 12.7935 (98% of 13.0000)",
-    "profit_factor: 2.3026 (89% of 2.6000)",
-    "max_drawdown_pct: 0.0324 (200% of 0.0800)",
-    "trade_capture_ratio: 0.7008 (83% of 0.8400)",
+    "active_trades_per_month: 64.5544 (124% of 52.0000)",
+    "total_r_per_month: 13.0391 (100% of 13.0000)",
+    "profit_factor: 2.1453 (83% of 2.6000)",
+    "max_drawdown_pct: 0.0386 (200% of 0.0800)",
+    "trade_capture_ratio: 0.7278 (87% of 0.8400)",
     "positive_slices: 4.0000 (100% of 4.0000)"
   ],
   "weaknesses": [],
@@ -54,7 +54,7 @@
   "suggested_experiments": [],
   "recommendation": "advance",
   "recommendation_reason": "Gate passed.",
-  "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + active_strategy_count: 2.0000 (100% of 2.0000)\n  + active_trades_per_month: 60.3078 (116% of 52.0000)\n  + total_r_per_month: 12.7935 (98% of 13.0000)\n  + profit_factor: 2.3026 (89% of 2.6000)\n  + max_drawdown_pct: 0.0324 (200% of 0.0800)\n  + trade_capture_ratio: 0.7008 (83% of 0.8400)\n  + positive_slices: 4.0000 (100% of 4.0000)\n\nDiagnostic Gaps:\n  ! Positive blocked candidates are too frequent; inspect ranking and heat scarcity.\n\nGoal Progress:\n  active_strategy_count: 2.0000 / 2.0000 (100%)\n  active_trades_per_month: 60.3078 / 52.0000 (116%)\n  total_r_per_month: 12.7935 / 13.0000 (98%)\n  profit_factor: 2.3026 / 2.6000 (89%)\n  max_drawdown_pct: 0.0324 / 0.0800 (200%)\n  trade_capture_ratio: 0.7008 / 0.8400 (83%)\n  positive_slices: 4.0000 / 4.0000 (100%)",
+  "report": "======================================================================\nPHASE 2 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + active_strategy_count: 2.0000 (100% of 2.0000)\n  + active_trades_per_month: 64.5544 (124% of 52.0000)\n  + total_r_per_month: 13.0391 (100% of 13.0000)\n  + profit_factor: 2.1453 (83% of 2.6000)\n  + max_drawdown_pct: 0.0386 (200% of 0.0800)\n  + trade_capture_ratio: 0.7278 (87% of 0.8400)\n  + positive_slices: 4.0000 (100% of 4.0000)\n\nDiagnostic Gaps:\n  ! Positive blocked candidates are too frequent; inspect ranking and heat scarcity.\n\nGoal Progress:\n  active_strategy_count: 2.0000 / 2.0000 (100%)\n  active_trades_per_month: 64.5544 / 52.0000 (124%)\n  total_r_per_month: 13.0391 / 13.0000 (100%)\n  profit_factor: 2.1453 / 2.6000 (83%)\n  max_drawdown_pct: 0.0386 / 0.0800 (200%)\n  trade_capture_ratio: 0.7278 / 0.8400 (87%)\n  positive_slices: 4.0000 / 4.0000 (100%)",
   "scoring_weight_overrides": null,
   "extra": {}
 }

@@ -1,3 +1,49 @@
-NQDTC round 4 promoted from refined positive-OOS repair diagnostics.
-Candidate: refine_nrm2p25_cd45_p025_tp1_1p35.
-Source: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\momentum\nqdtc\narrow_oos_repair_refine_20260504\summary.json
+============================================================
+NQDTC Phase 5 Diagnostics
+============================================================
+
+--- D1: Core Performance ---
+Total trades:    129
+Win rate:        58.1%
+Profit factor:   2.28
+Net return:      368.3%
+Robust return:   328.1% (ex largest winner)
+Max drawdown:    14.71%
+Calmar:          25.03
+Sharpe:          2.20
+Sortino:         15.21
+Avg R:           0.529
+
+--- D2: Exit Efficiency ---
+Capture ratio:   0.434 (winners exit_R / MFE)
+TP1 hit rate:    51.9%
+TP2 hit rate:    31.0%
+Avg winner R:    1.627
+Avg loser R:     -0.995
+Avg MFE R:       2.607
+Avg hold hours:  6.8
+Largest win:     6.198R, 10.9% of net profit
+
+--- D3: Regime Analysis ---
+Range regime:    100.0% of trades
+  Range       : 129 trades, WR=58%, avgR=+0.529, PnL=$+36,413
+
+--- D4: Session/Direction Asymmetry ---
+ETH short WR:    0.0% (0 trades)
+  ETH_LONG       :  74 trades, WR=57%, avgR=+0.633, PnL=$+24,810
+  RTH_LONG       :  27 trades, WR=56%, avgR=+0.276, PnL=$+2,505
+  RTH_SHORT      :  28 trades, WR=64%, avgR=+0.500, PnL=$+9,099
+
+--- D5: Trade Clustering ---
+Burst trade pct: 9.3%
+  Burst trades:    12, avgR=+0.092, PnL=$+1,417
+  Isolated trades: 117, avgR=+0.574, PnL=$+34,996
+
+--- D6: Greedy Result ---
+Base score:      0.7550
+Final score:     0.8483
+Accepted:        1
+Total candidates:10
+Kept features:   a_retest_box225_boxmin50
+
+============================================================

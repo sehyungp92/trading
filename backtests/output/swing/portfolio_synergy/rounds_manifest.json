@@ -444,7 +444,7 @@
     },
     {
       "round": 3,
-      "timestamp": "2026-05-09T15:46:56.391638+00:00",
+      "timestamp": "2026-05-23T00:15:52.497522+00:00",
       "mutations_count": 165,
       "mutations": {
         "heat_cap_R": 5.5,
@@ -660,7 +660,11 @@
       "max_drawdown_pct": 8.555451299897042,
       "net_return_pct": 509.7686984065371,
       "sharpe_ratio": 2.1245668391908747,
-      "calmar_ratio": null
+      "calmar_ratio": null,
+      "selection_fingerprint": "1674bb057ed26c365fa2cae40ceba4a75ab6a1287e5c05363689458df9e4a97f",
+      "diagnostics_fingerprint": "1674bb057ed26c365fa2cae40ceba4a75ab6a1287e5c05363689458df9e4a97f",
+      "provenance_schema_version": 1,
+      "provenance_status": "complete"
     }
   ]
 }

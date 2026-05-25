@@ -422,6 +422,21 @@ PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
             },
         ),
         (
+            "r3_archived_value_tune",
+            {
+                "param_overrides.adaptive_trail_late_activate_r": 0.22,
+                "param_overrides.adaptive_trail_late_distance_r": 0.12,
+                "param_overrides.entry_detail_size_mults": {
+                    "OR_BREAKOUT:5:!bar_vol_surge": 0.55,
+                },
+                "param_overrides.entry_score_size_mults": {
+                    "OR_BREAKOUT:5": 0.75,
+                    "COMBINED_BREAKOUT:7": 1.15,
+                    "PDH_BREAKOUT:6": 0.50,
+                },
+            },
+        ),
+        (
             "r3_failstop_latefreq_combo",
             {
                 "param_overrides.failure_stop_bars": 12,

@@ -8,10 +8,11 @@ from typing import Any
 from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.phase_state import PhaseState
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.provenance import AutoRunProvenance, build_phase_auto_provenance
 from backtests.shared.auto.plugin_utils import CachedBatchEvaluator, mutation_signature
 from backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion, ScoredCandidate
 
-from .evaluator import evaluate_portfolio, load_evaluation_bundle
+from .evaluator import evaluate_portfolio, load_evaluation_bundle, _latest_optimized_config_path, _load_stock_price_bars
 from .phase_candidates import (
     DEFAULT_PROFILE,
     ROUND_NAME,
@@ -36,6 +37,14 @@ FOCUS_METRICS: dict[int, list[str]] = {
     6: ["max_drawdown_pct", "max_daily_loss_R", "max_weekly_loss_R"],
     7: ["net_return_pct", "active_trades_per_month", "positive_slices"],
 }
+
+
+def _latest_source_artifact(repo_root: Path, strategy: str) -> Path:
+    strategy_dir = "alcb" if "ALCB" in strategy.upper() else "iaric"
+    try:
+        return _latest_optimized_config_path(repo_root, strategy_dir)
+    except FileNotFoundError:
+        return repo_root / "backtests" / "output" / "stock" / strategy_dir / "__missing_optimized_config__.json"
 
 
 class _PortfolioBatchEvaluator:
@@ -144,7 +153,45 @@ class StockPortfolioSynergyPlugin:
         self._cache_source_fingerprint = ""
         self._evaluation_cache: dict[str, ScoredCandidate] = {}
         self._metrics_cache: dict[str, dict[str, float]] = {}
+        self._price_bars_cache: dict[str, Any] | None = None
         self._metrics_lock = Lock()
+        self._provenance: AutoRunProvenance | None = None
+
+    def build_provenance(self) -> AutoRunProvenance:
+        if self._provenance is None:
+            repo_root = Path(__file__).resolve().parents[4]
+            source_artifacts = {
+                strategy: _latest_source_artifact(repo_root, strategy)
+                for strategy in STRATEGY_ORDER
+            }
+            self._provenance = build_phase_auto_provenance(
+                self.name,
+                repo_root=repo_root,
+                code_dirs=(Path(__file__).resolve().parent,),
+                code_paths=(
+                    repo_root / "backtests/stock/auto/portfolio_synergy/core/logic.py",
+                    repo_root / "backtests/stock/auto/portfolio_synergy/core/state.py",
+                    repo_root / "backtests/stock/auto/portfolio_synergy/evaluator.py",
+                    repo_root / "libs/oms/risk/portfolio_rules.py",
+                ),
+                data_dir=self.data_dir,
+                source_artifacts=source_artifacts,
+                selection_context={
+                    "round_profile": self.round_profile,
+                    "start_date": self.start_date,
+                    "end_date": self.end_date,
+                    "initial_equity": self.initial_equity,
+                    "score_components": SCORE_COMPONENTS,
+                    "score_weights": self.score_weights,
+                    "round_targets": self.round_targets,
+                    "phase_gates": {
+                        phase: get_phase_gates(phase, profile=self.round_profile)
+                        for phase in range(1, self.num_phases + 1)
+                    },
+                    "round_baseline_policy": "run_spec.baseline_mutations",
+                },
+            )
+        return self._provenance
 
     def get_phase_spec(self, phase: int, state: PhaseState) -> PhaseSpec:
         del state
@@ -251,7 +298,7 @@ class StockPortfolioSynergyPlugin:
             extra_sections={
                 "Score Components": score_section,
                 "Execution Note": (
-                    "Replay starts from latest stock ALCB round 3 and IARIC V5R1 round 2 trades, "
+                    "Replay starts from latest active stock ALCB and IARIC optimized trades, "
                     "then applies portfolio-level dynamic allocation, routing, and heat controls."
                 ),
             },
@@ -271,10 +318,22 @@ class StockPortfolioSynergyPlugin:
             with self._metrics_lock:
                 self._metrics_cache.clear()
             self._evaluation_cache.clear()
+            self._price_bars_cache = None
             self._cache_source_fingerprint = bundle.cache_source_fingerprint
         self._cached_bundle = bundle
         self._evaluation_data = bundle.data
         return bundle
+
+    def _ensure_price_bars(self) -> dict[str, Any]:
+        if self._price_bars_cache is None:
+            self._ensure_evaluation_data()
+            assert self._evaluation_data is not None
+            symbols = {
+                trade.symbol
+                for trade in (*self._evaluation_data.alcb_trades, *self._evaluation_data.iaric_trades)
+            }
+            self._price_bars_cache = _load_stock_price_bars(self.data_dir, symbols)
+        return self._price_bars_cache
 
     def _compute_metrics_raw(self, mutations: dict[str, Any]) -> dict[str, float]:
         sig = mutation_signature(mutations)
@@ -290,6 +349,7 @@ class StockPortfolioSynergyPlugin:
             start_date=self.start_date,
             end_date=self.end_date,
             evaluation_data=self._evaluation_data,
+            price_bars_by_symbol=self._ensure_price_bars(),
         )
         with self._metrics_lock:
             self._metrics_cache[sig] = dict(metrics)

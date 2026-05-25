@@ -65,7 +65,7 @@ def summarize_optimizer_reference(reference: dict[str, Any] | None) -> list[str]
     metrics = reference.get("final_metrics", {})
     score = reference.get("final_score")
 
-    lines = ["Optimizer reference (historical phase-search basis; not the current full replay headline):"]
+    lines = ["Optimizer reference (historical independent fast-path phase-search basis; not the current full replay headline):"]
     if score is not None:
         lines.append(f"  Score: {float(score):.4f}")
     if metrics:

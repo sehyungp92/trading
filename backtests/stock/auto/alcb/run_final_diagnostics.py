@@ -73,6 +73,7 @@ def main() -> None:
         initial_equity=float(args.equity),
         max_workers=max(1, int(args.max_workers)),
     )
+    provenance = plugin.build_provenance()
     _hydrate_final_phase_runtime_context(plugin, state)
     diagnostics_text = plugin.render_final_diagnostics_text(state)
     round_output_path.write_text(diagnostics_text, encoding="utf-8")
@@ -87,7 +88,12 @@ def main() -> None:
         round_num,
         "alcb",
         description="Final diagnostics replay",
-        baseline_mutations=ROUND_MANAGER.get_previous_mutations(round_num) if round_num > 1 else {},
+        baseline_mutations=(
+            ROUND_MANAGER.get_previous_mutations(round_num, current_provenance=provenance)
+            if round_num > 1 else {}
+        ),
+        provenance=provenance,
+        provenance_status="complete",
     )
     ROUND_MANAGER.write_run_summary(
         round_dir,
@@ -97,9 +103,17 @@ def main() -> None:
         round_num=round_num,
         source_diagnostics=round_output_path,
         source_phase_state=phase_state_path,
+        provenance=provenance,
+        provenance_status="complete",
     )
     ROUND_MANAGER.write_optimized_config(round_dir, state.cumulative_mutations)
-    ROUND_MANAGER.append_to_manifest(round_num, state.cumulative_mutations, final_metrics)
+    ROUND_MANAGER.append_to_manifest(
+        round_num,
+        state.cumulative_mutations,
+        final_metrics,
+        provenance=provenance,
+        provenance_status="complete",
+    )
     print(f"Saved final diagnostics to {round_output_path}")
 
 

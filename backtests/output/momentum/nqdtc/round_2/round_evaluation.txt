@@ -3,17 +3,16 @@ NQDTC END-OF-ROUND EVALUATION
 ======================================================================
 
 Phase Progression Summary:
-  Phase 1: score 0.5687 -> 0.7146 (1 accepted)
-  Phase 2: score 0.7146 -> 0.7372 (1 accepted)
-  Phase 3: score 0.7372 -> 0.7372 (0 accepted)
-  Phase 4: score 0.7372 -> 0.7372 (0 accepted)
+  Phase 1: score 0.0000 -> 0.0000 (0 accepted)
+  Phase 2: score 0.0000 -> 0.0000 (0 accepted)
+  Phase 3: score 0.0000 -> 0.0000 (0 accepted)
+  Phase 4: score 0.0000 -> 0.0000 (0 accepted)
 
 Cumulative Mutations Applied:
   flags.block_eth_shorts: True
   flags.displacement_threshold: False
   flags.max_loss_cap: True
   flags.max_stop_width: True
-  param_overrides.BLOCK_ALIGNED_REGIME: True
   param_overrides.BLOCK_CAUTION_REGIME: True
   param_overrides.BLOCK_NEUTRAL_REGIME: True
   param_overrides.LOSS_STREAK_THRESHOLD: 2
@@ -22,22 +21,25 @@ Cumulative Mutations Applied:
   param_overrides.RVOL_SCORE_THRESH: 1.5
   param_overrides.SCORE_NORMAL: 1.5
   param_overrides.TP1_PARTIAL_PCT: 0.5
-  param_overrides.TP1_R: 1.4
+  param_overrides.TP1_R: 1.2
 
 Signal Extraction / Alpha Capture
-No report provided.
+Net return 241.2% with 97 trades, robust return 195.4%, PF=1.89, DD=15.2%. Later recovery and interaction phases did not find a valid incremental mutation above the robust score hurdle.
 
 Signal Discrimination
-No report provided.
+Win rate 58.8%, avg R=0.429, capture ratio 0.41; Range trades are 100.0% of the book and ETH shorts remain blocked (0 trades).
 
 Entry Mechanism
-No report provided.
+Entry expansion came from reopening the 05:00 and 09:00 ET Range windows while preserving the prior score, RVOL, box-width, cooldown, and regime blocks. Guarded session/regime recovery candidates were tested but did not improve the objective.
 
 Trade Management
-No report provided.
+Calmar=15.88, Sharpe=1.65, Sortino=39.57; burst trades are 4.1% and the accepted ratchet threshold reduced drawdown without sacrificing the frequency harvest.
 
 Exit Mechanism
-TP1 hit rate 55.1%, TP2 hit rate 0.0%, avg hold 8.3h.
+TP1 hit rate 55.7%, TP2 hit rate 0.0%, avg hold 7.6h, largest win share 19.0%.
+
+Timing
+Burst trade pct 4.1%, ETH short WR 0.0% (0 trades), Range regime 100.0% of trades.
 
 Overall Verdict
-NQDTC optimized to 296.4% return, PF=2.19, DD=15.1%, 89 trades. Capture ratio improved to 0.41.
+NQDTC optimized to 241.2% return, PF=1.89, DD=15.2%, 97 trades. Robust return 195.4%, capture ratio improved to 0.41.

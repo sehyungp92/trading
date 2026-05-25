@@ -236,10 +236,10 @@ def _make_portfolio_rule_logger(data_dir: str = "", family_id: str = "") -> Call
         rule_dir = Path(f"strategies/{family_id}/instrumentation/data/portfolio_rules")
     else:
         rule_dir = Path("instrumentation/data/portfolio_rules")
-    rule_dir.mkdir(parents=True, exist_ok=True)
 
     def _log_rule(event: dict) -> None:
         try:
+            rule_dir.mkdir(parents=True, exist_ok=True)
             event["timestamp"] = datetime.now(timezone.utc).isoformat()
             today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             path = rule_dir / f"rules_{today}.jsonl"
@@ -265,10 +265,10 @@ def _make_intent_denial_logger(data_dir: str = "", family_id: str = "") -> Calla
         denial_dir = Path(f"strategies/{family_id}/instrumentation/data/risk_denials")
     else:
         denial_dir = Path("instrumentation/data/risk_denials")
-    denial_dir.mkdir(parents=True, exist_ok=True)
 
     def _log_denial(event: dict) -> None:
         try:
+            denial_dir.mkdir(parents=True, exist_ok=True)
             today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             path = denial_dir / f"denials_{today}.jsonl"
             with open(path, "a", encoding="utf-8") as f:
@@ -308,6 +308,9 @@ async def build_oms_service(
     recon_interval_s: float = 120.0,
     live_equity: Optional[list] = None,  # mutable [float] ref for live equity updates
     family_strategy_ids: Optional[list[str]] = None,
+    instrumentation_data_dir: str = "",
+    event_clock: Optional[Callable[[], datetime]] = None,
+    repository: Optional[object] = None,
 ) -> OMSService:
     """Build a fully wired OMS service.
 
@@ -344,10 +347,13 @@ async def build_oms_service(
         Fully initialized OMSService ready for start()
     """
     # Event bus
-    bus = EventBus()
+    bus = EventBus(clock=event_clock)
 
     # Repository: use PostgreSQL if pool provided, otherwise in-memory
-    if db_pool is not None:
+    if repository is not None:
+        repo = repository
+        logger.info(f"Using provided repository for strategy {strategy_id}")
+    elif db_pool is not None:
         repo = OMSRepository(db_pool)
         logger.info(f"Using PostgreSQL repository for strategy {strategy_id}")
     else:
@@ -438,8 +444,6 @@ async def build_oms_service(
     open_positions: dict[tuple[str, str], dict] = {}
 
     async def _sync_strategy_risk_from_repo(state: StrategyRiskState) -> None:
-        if db_pool is None:
-            return
         positions = await repo.get_positions(state.strategy_id)
         if not positions:
             state.daily_realized_pnl = 0.0
@@ -494,8 +498,6 @@ async def build_oms_service(
         )
 
     async def _sync_portfolio_open_risk_from_repo() -> None:
-        if db_pool is None:
-            return
         positions = await repo.get_positions_for_strategies(_family_sids)
         open_pos = [pos for pos in positions if pos.net_qty != 0]
         portfolio_risk_state.open_risk_dollars = sum(
@@ -645,27 +647,31 @@ async def build_oms_service(
     # Fill processor for OMS order state updates
     fill_proc = FillProcessor(repo)
 
-    # Portfolio rules checker (cross-strategy coordination via shared DB)
+    # Portfolio rules checker (cross-strategy coordination via shared store)
     portfolio_checker = None
-    if portfolio_rules_config is not None and db_pool is not None:
+    if portfolio_rules_config is not None:
         from ..risk.portfolio_rules import PortfolioRuleChecker
 
+        rules_store = pg_store if pg_store is not None else repo
         portfolio_checker = PortfolioRuleChecker(
             config=portfolio_rules_config,
-            get_strategy_signal=pg_store.get_strategy_signal,
-            get_directional_risk_R=pg_store.get_directional_risk_R,
+            get_strategy_signal=rules_store.get_strategy_signal,
+            get_directional_risk_R=rules_store.get_directional_risk_R,
             get_current_equity=get_current_equity or (lambda: 10_000.0),
-            on_rule_event=_make_portfolio_rule_logger(family_id=family_id),
-            get_directional_risk_R_for_strategies=pg_store.get_directional_risk_R_for_strategies,
-            get_sibling_positions_for_symbol=pg_store.get_sibling_positions_for_symbol,
-            get_family_aggregate_mnq_eq=pg_store.get_family_aggregate_mnq_eq,
-            get_directional_risk_dollars_for_strategies=pg_store.get_directional_risk_dollars_for_strategies,
-            get_open_position_count_for_strategies=pg_store.get_open_position_count_for_strategies,
-            get_symbol_open_risk_dollars_for_strategies=pg_store.get_symbol_open_risk_dollars_for_strategies,
-            get_symbols_open_risk_dollars_for_strategies=pg_store.get_symbols_open_risk_dollars_for_strategies,
-            get_active_risk_dollars_for_strategies=pg_store.get_active_risk_dollars_for_strategies,
-            get_completed_trade_counts_for_strategies=pg_store.get_completed_trade_counts_for_strategies,
-            get_recent_strategy_r_multiples=pg_store.get_recent_strategy_r_multiples,
+            on_rule_event=_make_portfolio_rule_logger(
+                data_dir=instrumentation_data_dir,
+                family_id=family_id,
+            ),
+            get_directional_risk_R_for_strategies=rules_store.get_directional_risk_R_for_strategies,
+            get_sibling_positions_for_symbol=rules_store.get_sibling_positions_for_symbol,
+            get_family_aggregate_mnq_eq=rules_store.get_family_aggregate_mnq_eq,
+            get_directional_risk_dollars_for_strategies=rules_store.get_directional_risk_dollars_for_strategies,
+            get_open_position_count_for_strategies=rules_store.get_open_position_count_for_strategies,
+            get_symbol_open_risk_dollars_for_strategies=rules_store.get_symbol_open_risk_dollars_for_strategies,
+            get_symbols_open_risk_dollars_for_strategies=rules_store.get_symbols_open_risk_dollars_for_strategies,
+            get_active_risk_dollars_for_strategies=rules_store.get_active_risk_dollars_for_strategies,
+            get_completed_trade_counts_for_strategies=rules_store.get_completed_trade_counts_for_strategies,
+            get_recent_strategy_r_multiples=rules_store.get_recent_strategy_r_multiples,
         )
         logger.info("Portfolio rules enabled for %s", strategy_id)
 
@@ -715,14 +721,14 @@ async def build_oms_service(
     # fill callback can fire. Without this, an exit fill arriving after a
     # restart would land in the `pos is None` branch and silently lose the
     # realized P&L update.
-    if db_pool is not None:
+    if db_pool is not None or repository is not None:
         await _hydrate_open_positions_from_repo(
             open_positions=open_positions,
             repo=repo,
             strategy_ids=[strategy_id],
             unit_risk_dollars_for=lambda _sid: unit_risk_dollars,
             portfolio_unit_risk_dollars=portfolio_urd,
-            strict=True,
+            strict=db_pool is not None,
         )
 
     # Wire adapter callbacks to bus (with risk state updates)
@@ -754,23 +760,28 @@ async def build_oms_service(
         timeout_monitor=timeout_monitor,
         get_portfolio_risk=get_portfolio_risk,
         get_strategy_risk=get_strategy_risk,
-        on_intent_denied=_make_intent_denial_logger(family_id=family_id),
+        on_intent_denied=_make_intent_denial_logger(
+            data_dir=instrumentation_data_dir,
+            family_id=family_id,
+        ),
     )
     oms._portfolio_checker = portfolio_checker  # for coordinator regime updates
     oms._portfolio_risk_state = portfolio_risk_state  # for coordinator heartbeat queries
     oms._strategy_risk_states = strategy_risk_states  # for per-strategy heartbeat metrics
 
-    if pg_store is not None:
+    if pg_store is not None or repository is not None:
         seed_state = strategy_risk_states.setdefault(
             strategy_id,
             StrategyRiskState(strategy_id=strategy_id, trade_date=_trade_date_for()),
         )
         await _sync_strategy_risk_from_repo(seed_state)
-        await _load_strategy_risk_from_store(seed_state)
         seed_ts = datetime.now(timezone.utc)
-        await _persist_strategy_risk_state(seed_state, seed_ts)
-        await _load_portfolio_risk_from_store(seed_state.trade_date)
-        await _persist_portfolio_risk_state(seed_ts)
+        await _sync_portfolio_open_risk_from_repo()
+        if pg_store is not None:
+            await _load_strategy_risk_from_store(seed_state)
+            await _persist_strategy_risk_state(seed_state, seed_ts)
+            await _load_portfolio_risk_from_store(seed_state.trade_date)
+            await _persist_portfolio_risk_state(seed_ts)
 
     logger.info(f"OMS factory built for strategy {strategy_id}")
     return oms
@@ -794,11 +805,15 @@ async def build_multi_strategy_oms(
     account_gate: Optional[object] = None,
     halt_trading: Optional[Callable] = None,
     portfolio_rules_config=None,
+    portfolio_unit_risk_dollars: Optional[float] = None,
     get_current_equity: Optional[Callable[[], float]] = None,
     live_equity: Optional[list] = None,  # mutable [float] ref for live equity updates
     paper_equity_pool: Optional[asyncpg.Pool] = None,
     paper_equity_scope: str = "paper",
     paper_initial_equity: float = 10_000.0,
+    instrumentation_data_dir: str = "",
+    event_clock: Optional[Callable[[], datetime]] = None,
+    repository: Optional[object] = None,
 ) -> tuple["OMSService", "StrategyCoordinator"]:
     """Build a shared OMS service for multiple strategies.
 
@@ -815,15 +830,19 @@ async def build_multi_strategy_oms(
         calendar: Optional event calendar for blackouts
         recon_interval_s: Reconciliation interval in seconds
         db_pool: Optional asyncpg pool for PostgreSQL persistence
+        portfolio_unit_risk_dollars: Optional shared portfolio 1R base.
 
     Returns:
         Tuple of (OMSService, StrategyCoordinator) ready for start()
     """
     # Event bus (shared)
-    bus = EventBus()
+    bus = EventBus(clock=event_clock)
 
     # Repository (shared)
-    if db_pool is not None:
+    if repository is not None:
+        repo = repository
+        logger.info("Using provided repository for multi-strategy OMS")
+    elif db_pool is not None:
         repo = OMSRepository(db_pool)
         logger.info("Using PostgreSQL repository for multi-strategy OMS")
     else:
@@ -850,9 +869,13 @@ async def build_multi_strategy_oms(
         strategy_configs[sid] = cfg
         unit_risk_map[sid] = urd
 
-    # Use highest-priority strategy's URD as portfolio normalization base.
+    # Use the explicit portfolio URD when supplied. Otherwise preserve the
+    # historic multi-strategy default of using the highest-priority strategy.
     _sorted_cfgs = sorted(strategy_configs.values(), key=lambda c: c.priority)
-    portfolio_urd = _sorted_cfgs[0].unit_risk_dollars if _sorted_cfgs else 1.0
+    if portfolio_unit_risk_dollars is not None and portfolio_unit_risk_dollars > 0:
+        portfolio_urd = float(portfolio_unit_risk_dollars)
+    else:
+        portfolio_urd = _sorted_cfgs[0].unit_risk_dollars if _sorted_cfgs else 1.0
 
     risk_config = RiskConfig(
         heat_cap_R=heat_cap_R,
@@ -874,8 +897,6 @@ async def build_multi_strategy_oms(
     # -- DB-backed risk state helpers (mirroring build_oms_service) ----------
 
     async def _sync_strategy_risk_from_repo(state: StrategyRiskState) -> None:
-        if db_pool is None:
-            return
         urd = unit_risk_map.get(state.strategy_id, 1.0)
         positions = await repo.get_positions(state.strategy_id)
         if not positions:
@@ -910,8 +931,6 @@ async def build_multi_strategy_oms(
         )
 
     async def _sync_portfolio_open_risk_from_repo() -> None:
-        if db_pool is None:
-            return
         positions = await repo.get_positions_for_strategies(_family_sids)
         open_pos = [pos for pos in positions if pos.net_qty != 0]
         portfolio_risk_state.open_risk_dollars = sum(
@@ -1043,27 +1062,31 @@ async def build_multi_strategy_oms(
     # Fill processor (shared)
     fill_proc = FillProcessor(repo)
 
-    # Portfolio rules checker (cross-strategy coordination via shared DB)
+    # Portfolio rules checker (cross-strategy coordination via shared store)
     portfolio_checker = None
-    if portfolio_rules_config is not None and db_pool is not None:
+    if portfolio_rules_config is not None:
         from ..risk.portfolio_rules import PortfolioRuleChecker
 
+        rules_store = pg_store if pg_store is not None else repo
         portfolio_checker = PortfolioRuleChecker(
             config=portfolio_rules_config,
-            get_strategy_signal=pg_store.get_strategy_signal,
-            get_directional_risk_R=pg_store.get_directional_risk_R,
+            get_strategy_signal=rules_store.get_strategy_signal,
+            get_directional_risk_R=rules_store.get_directional_risk_R,
             get_current_equity=get_current_equity or (lambda: 10_000.0),
-            on_rule_event=_make_portfolio_rule_logger(family_id=family_id),
-            get_directional_risk_R_for_strategies=pg_store.get_directional_risk_R_for_strategies,
-            get_sibling_positions_for_symbol=pg_store.get_sibling_positions_for_symbol,
-            get_family_aggregate_mnq_eq=pg_store.get_family_aggregate_mnq_eq,
-            get_directional_risk_dollars_for_strategies=pg_store.get_directional_risk_dollars_for_strategies,
-            get_open_position_count_for_strategies=pg_store.get_open_position_count_for_strategies,
-            get_symbol_open_risk_dollars_for_strategies=pg_store.get_symbol_open_risk_dollars_for_strategies,
-            get_symbols_open_risk_dollars_for_strategies=pg_store.get_symbols_open_risk_dollars_for_strategies,
-            get_active_risk_dollars_for_strategies=pg_store.get_active_risk_dollars_for_strategies,
-            get_completed_trade_counts_for_strategies=pg_store.get_completed_trade_counts_for_strategies,
-            get_recent_strategy_r_multiples=pg_store.get_recent_strategy_r_multiples,
+            on_rule_event=_make_portfolio_rule_logger(
+                data_dir=instrumentation_data_dir,
+                family_id=family_id,
+            ),
+            get_directional_risk_R_for_strategies=rules_store.get_directional_risk_R_for_strategies,
+            get_sibling_positions_for_symbol=rules_store.get_sibling_positions_for_symbol,
+            get_family_aggregate_mnq_eq=rules_store.get_family_aggregate_mnq_eq,
+            get_directional_risk_dollars_for_strategies=rules_store.get_directional_risk_dollars_for_strategies,
+            get_open_position_count_for_strategies=rules_store.get_open_position_count_for_strategies,
+            get_symbol_open_risk_dollars_for_strategies=rules_store.get_symbol_open_risk_dollars_for_strategies,
+            get_symbols_open_risk_dollars_for_strategies=rules_store.get_symbols_open_risk_dollars_for_strategies,
+            get_active_risk_dollars_for_strategies=rules_store.get_active_risk_dollars_for_strategies,
+            get_completed_trade_counts_for_strategies=rules_store.get_completed_trade_counts_for_strategies,
+            get_recent_strategy_r_multiples=rules_store.get_recent_strategy_r_multiples,
         )
         logger.info("Portfolio rules enabled for multi-strategy OMS (%s)", family_id)
 
@@ -1123,14 +1146,14 @@ async def build_multi_strategy_oms(
     # any fill callback can fire. Same intent as the single-OMS path; the
     # multi version also seeds risk_per_contract_portfolio_R because the
     # multi callback's exit branch uses portfolio R for cross-family caps.
-    if db_pool is not None:
+    if db_pool is not None or repository is not None:
         await _hydrate_open_positions_from_repo(
             open_positions=open_positions,
             repo=repo,
             strategy_ids=list(unit_risk_map.keys()),
             unit_risk_dollars_for=lambda sid: unit_risk_map.get(sid, 0.0),
             portfolio_unit_risk_dollars=portfolio_urd,
-            strict=True,
+            strict=db_pool is not None,
         )
 
     # Wire adapter callbacks (multi-strategy aware, with DB persistence)
@@ -1158,26 +1181,35 @@ async def build_multi_strategy_oms(
         timeout_monitor=timeout_monitor,
         get_portfolio_risk=get_portfolio_risk,
         get_strategy_risk=get_strategy_risk,
-        on_intent_denied=_make_intent_denial_logger(family_id=family_id),
+        on_intent_denied=_make_intent_denial_logger(
+            data_dir=instrumentation_data_dir,
+            family_id=family_id,
+        ),
     )
     oms._portfolio_checker = portfolio_checker  # for coordinator regime updates
     oms._swing_portfolio_risk_adapter = portfolio_risk_adapter
     oms._portfolio_risk_state = portfolio_risk_state  # for coordinator deployed-capital queries
     oms._strategy_risk_states = strategy_risk_states  # for per-strategy heartbeat metrics
 
-    # Seed risk state from DB on startup
-    if pg_store is not None:
+    # Seed risk state from the configured repository on startup. Persistence
+    # remains Postgres-only; offline parity can still hydrate behavior from an
+    # in-memory repository before the first decision is evaluated.
+    if pg_store is not None or repository is not None:
+        seed_ts = datetime.now(timezone.utc)
         for s in strategies:
             sid = s["id"]
             seed_state = strategy_risk_states.setdefault(
                 sid, StrategyRiskState(strategy_id=sid, trade_date=_trade_date_for()),
             )
             await _sync_strategy_risk_from_repo(seed_state)
+            if pg_store is None:
+                continue
             await _load_strategy_risk_from_store(seed_state)
-            seed_ts = datetime.now(timezone.utc)
             await _persist_strategy_risk_state(seed_state, seed_ts)
-        await _load_portfolio_risk_from_store(_trade_date_for())
-        await _persist_portfolio_risk_state(datetime.now(timezone.utc))
+        await _sync_portfolio_open_risk_from_repo()
+        if pg_store is not None:
+            await _load_portfolio_risk_from_store(_trade_date_for())
+            await _persist_portfolio_risk_state(seed_ts)
 
     strategy_ids = [s["id"] for s in strategies]
     logger.info(f"Multi-strategy OMS factory built for: {strategy_ids}")

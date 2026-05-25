@@ -52,10 +52,10 @@
     "param_overrides.TRAIL_TIMEDECAY_ONSET": 25,
     "param_overrides.TTL_1H_HOURS": 6
   },
-  "net_return_pct": 182.9121140000014,
+  "net_return_pct": 114.68418400000286,
   "phase_label": "CURRENT OPTIMIZED BASELINE",
   "phase_result": "current",
-  "profit_factor": 2.16522113432275,
+  "profit_factor": 2.1586381200826636,
   "r_basis": "fee_net_actual_initial_risk",
   "risk_basis": {
     "actual_initial_risk_total": 91204.019786468,
@@ -70,7 +70,7 @@
     "underfilled_90pct_count": 1,
     "underfilled_98pct_count": 23
   },
-  "sharpe": 1.3291670971193734,
+  "sharpe": 1.3365289549100519,
   "sortino": 0.788504227778223,
   "start_date": null,
   "state_path": "backtests\\output\\swing\\helix\\round_5\\phase_state.json",
@@ -79,5 +79,179 @@
   "total_pnl": 45728.028499999906,
   "total_r": 158.7633654421816,
   "total_trades": 325,
-  "win_rate_pct": 50.153846153846146
+  "win_rate_pct": 50.153846153846146,
+  "family": "swing",
+  "round": 5,
+  "generated_at_utc": "2026-05-23T00:06:01.439933+00:00",
+  "headline_metrics": {
+    "total_trades": 325,
+    "win_rate": 49.84615384615385,
+    "profit_factor": 2.1586381200826636,
+    "max_drawdown_pct": null,
+    "net_return_pct": 114.68418400000286,
+    "sharpe_ratio": 1.3365289549100519,
+    "calmar_ratio": 19.323548057309754
+  },
+  "final_metrics": {
+    "total_trades": 325,
+    "profit_factor": 2.1586381200826636,
+    "net_return_pct": 114.68418400000286,
+    "max_r_dd": 8.733122182030996,
+    "exit_efficiency": 0.4210772769127355,
+    "waste_ratio": 0.7071861819361137,
+    "tail_pct": 0.785081870335486,
+    "bull_pf": 2.313655824600111,
+    "bear_pf": 1.7120329250145565,
+    "min_regime_pf": 1.7120329250145565,
+    "long_pf": 2.313655824600111,
+    "short_pf": 1.7120329250145565,
+    "min_side_pf": 1.7120329250145565,
+    "long_trades": 236,
+    "short_trades": 89,
+    "class_d_short_pf": 1.752649116035443,
+    "class_d_short_trades": 87,
+    "total_r": 168.7549061748338,
+    "gross_win_r": 316.7575490127784,
+    "gross_loss_r": 148.0026428379446,
+    "stale_r": 13.682539815277309,
+    "short_hold_r": 79.06844751171293,
+    "big_winner_r": 248.68060902183646,
+    "sharpe": 1.3365289549100519,
+    "calmar_r": 19.323548057309754,
+    "win_rate": 49.84615384615385,
+    "winning_trades": 162.0,
+    "avg_win_r": 1.9552935124245578,
+    "avg_loss_r": -0.9079916738524209,
+    "sharpe_ratio": 1.3365289549100519,
+    "initial_equity": 25000.0,
+    "data_dir": "backtests\\swing\\data\\raw"
+  },
+  "provenance": {
+    "schema_version": 1,
+    "selection_fingerprint": "04527b29d5a7ec8b6b631c756c53cccedb21156e034e04ecbbd3d40117e25092",
+    "diagnostics_fingerprint": "04527b29d5a7ec8b6b631c756c53cccedb21156e034e04ecbbd3d40117e25092",
+    "items": [
+      {
+        "name": "data_dir",
+        "kind": "tree_contents",
+        "fingerprint": "c87d92af3db4f9b38ef15ff383a4a8ba442c108398cfd228fe5df1e7ab7ef36a",
+        "paths": [
+          "backtests/swing/data/raw"
+        ],
+        "scope": "data",
+        "notes": "Content fingerprint for selection-relevant replay data files."
+      },
+      {
+        "name": "code:backtests/swing/config_helix.py",
+        "kind": "file_contents",
+        "fingerprint": "4bd3869ef12d48e35df89516bfc518c347e3b3fb994b27a1fd913a81ec79838d",
+        "paths": [
+          "backtests/swing/config_helix.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/swing/data/replay_cache.py",
+        "kind": "file_contents",
+        "fingerprint": "fcc15800317e45287feefe3fada8527ebb002ec29be8c5c764fa18ff6767c6de",
+        "paths": [
+          "backtests/swing/data/replay_cache.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/swing/engine/helix_engine.py",
+        "kind": "file_contents",
+        "fingerprint": "d4fefafcc68c8618d3d1a2c4a081b0822e7e521cf32a4da3e2f63b4f6bb7fc06",
+        "paths": [
+          "backtests/swing/engine/helix_engine.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/swing/engine/helix_portfolio_engine.py",
+        "kind": "file_contents",
+        "fingerprint": "63f5567abc3ed601d265b1dbea04da0485bf9b01b87b05e554552f98934125b4",
+        "paths": [
+          "backtests/swing/engine/helix_portfolio_engine.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "plugin",
+        "kind": "plugin_identity",
+        "fingerprint": "d110dd6424c6bea0e8f81dacdf24624f47dedaf4325048d9ef66793086c8965f",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "selection_context",
+        "kind": "stable_json",
+        "fingerprint": "f6e68a6eaf89a73ff092f01d4f16208fec217ab408f68d9f99525270e05929b0",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:backtests/swing/auto/helix",
+        "kind": "tree_contents",
+        "fingerprint": "83724c6b04b456fa060018147c4e8d19b962d8d5052c2aa104c0b730cb7dd952",
+        "paths": [
+          "backtests/swing/auto/helix"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:strategies/swing/akc_helix",
+        "kind": "tree_contents",
+        "fingerprint": "229dde2eac095c5fcbde3d7d62b2252fb553d88af84c76f2815ac2835f87702c",
+        "paths": [
+          "strategies/swing/akc_helix"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "shared_auto_package",
+        "kind": "tree_contents",
+        "fingerprint": "d9d2fccedd37282a0908da4eacb176f90033de491d7babdfc8d654ce376d5f37",
+        "paths": [
+          "backtests/shared/auto"
+        ],
+        "scope": "selection",
+        "notes": ""
+      }
+    ]
+  },
+  "provenance_status": "complete",
+  "selection_status": "stale_selected_after_current_code_replay",
+  "diagnostics_refresh": {
+    "status": "stale_selected_after_current_code_replay",
+    "updated_saved_metrics": true,
+    "deltas": {
+      "net_return_pct": {
+        "saved": 182.9121140000014,
+        "current": 114.68418400000286
+      },
+      "win_rate": {
+        "saved": 50.153846153846146,
+        "current": 49.84615384615385
+      },
+      "sharpe": {
+        "saved": 1.3291670971193734,
+        "current": 1.3365289549100519
+      }
+    },
+    "basis": "current-code optimized-config replay"
+  },
+  "win_rate": 49.84615384615385,
+  "sharpe_ratio": 1.3365289549100519,
+  "calmar_ratio": 19.323548057309754,
+  "max_r_dd": 8.733122182030996
 }

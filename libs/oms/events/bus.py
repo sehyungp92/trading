@@ -26,9 +26,18 @@ _STATUS_TO_EVENT: dict[OrderStatus, OMSEventType] = {
 class EventBus:
     """Simple async event bus. Strategies subscribe by strategy_id."""
 
-    def __init__(self):
+    def __init__(self, clock=None):
         self._subscribers: dict[str, list[asyncio.Queue]] = defaultdict(list)
         self._global_subscribers: list[asyncio.Queue] = []
+        self._clock = clock
+
+    def _now(self) -> datetime:
+        if self._clock is None:
+            return datetime.now(timezone.utc)
+        ts = self._clock()
+        if ts.tzinfo is None:
+            return ts.replace(tzinfo=timezone.utc)
+        return ts.astimezone(timezone.utc)
 
     def subscribe(self, strategy_id: str) -> asyncio.Queue:
         """Returns an asyncio.Queue that receives OMSEvent objects for this strategy."""
@@ -64,7 +73,7 @@ class EventBus:
 
         event = OMSEvent(
             event_type=event_type,
-            timestamp=order.last_update_at or order.created_at or datetime.now(timezone.utc),
+            timestamp=order.last_update_at or order.created_at or self._now(),
             strategy_id=order.strategy_id,
             oms_order_id=order.oms_order_id,
             payload={
@@ -89,7 +98,7 @@ class EventBus:
     ) -> None:
         event = OMSEvent(
             event_type=OMSEventType.FILL,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=self._now(),
             strategy_id=strategy_id,
             oms_order_id=oms_order_id,
             payload=fill_data,
@@ -101,7 +110,7 @@ class EventBus:
     ) -> None:
         event = OMSEvent(
             event_type=OMSEventType.RISK_DENIAL,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=self._now(),
             strategy_id=strategy_id,
             oms_order_id=oms_order_id,
             payload={"reason": reason},
@@ -111,7 +120,7 @@ class EventBus:
     def emit_risk_halt(self, strategy_id: str, reason: str) -> None:
         event = OMSEvent(
             event_type=OMSEventType.RISK_HALT,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=self._now(),
             strategy_id=strategy_id,
             payload={"reason": reason},
         )
@@ -123,7 +132,7 @@ class EventBus:
         """Emit a coordination event to a specific strategy."""
         event = OMSEvent(
             event_type=OMSEventType.COORDINATION,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=self._now(),
             strategy_id=target_strategy,
             payload={"coordination_type": event_type, **kwargs},
         )

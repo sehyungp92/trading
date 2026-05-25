@@ -6,8 +6,11 @@ Phase Progression Summary:
   Phase 1: score 0.0000 -> 0.0000 (0 accepted)
   Phase 2: score 0.0000 -> 0.0000 (0 accepted)
   Phase 3: score 0.0000 -> 0.0000 (0 accepted)
-  Phase 4: score 0.0000 -> 0.0000 (0 accepted)
-  Phase 5: score 0.0000 -> 0.0000 (0 accepted)
+  Phase 4: score 0.6506 -> 0.6506 (0 accepted)
+  Phase 5: score 0.6949 -> 0.6949 (0 accepted)
+  Phase 6: score 0.5907 -> 0.6236 (1 accepted)
+  Phase 7: score 0.0000 -> 0.0000 (0 accepted)
+  Phase 8: score 0.0000 -> 0.0000 (0 accepted)
 
 Cumulative Mutations Applied:
   ablation.use_adaptive_trail: True
@@ -25,7 +28,13 @@ Cumulative Mutations Applied:
   param_overrides.combined_avwap_cap_pct: 0.003
   param_overrides.combined_breakout_min_rvol: 2.5
   param_overrides.combined_breakout_score_min: 5
+  param_overrides.entry_detail_size_mults: {'OR_BREAKOUT:5:!bar_vol_surge': 0.65, '*:5:!adx_trending': 0.85}
+  param_overrides.entry_score_size_mults: {'OR_BREAKOUT:5': 0.7, 'COMBINED_BREAKOUT:7': 1.15, 'PDH_BREAKOUT:6': 0.65}
   param_overrides.entry_window_end: 12:30:00
+  param_overrides.failure_stop_bars: 10
+  param_overrides.failure_stop_current_r_max: 0.0
+  param_overrides.failure_stop_mfe_max_r: 0.2
+  param_overrides.failure_stop_to_r: -0.25
   param_overrides.flow_reversal_min_hold_bars: 12
   param_overrides.fr_cpr_threshold: 0.3
   param_overrides.fr_mfe_grace_r: 0.2
@@ -33,22 +42,12 @@ Cumulative Mutations Applied:
   param_overrides.mfe_conviction_check_bars: 16
   param_overrides.mfe_conviction_floor_r: -0.15
   param_overrides.mfe_conviction_min_r: 0.2
-  param_overrides.momentum_size_mult_score_3: 1.0
-  param_overrides.momentum_size_mult_score_4: 1.0
-  param_overrides.momentum_size_mult_score_5: 1.0
-  param_overrides.momentum_size_mult_score_6: 1.0
-  param_overrides.momentum_size_mult_score_7_plus: 1.0
   param_overrides.opening_range_bars: 6
   param_overrides.or_width_min_pct: 0.0015
   param_overrides.pdh_avwap_cap_pct: 0.005
   param_overrides.pdh_size_mult: 0.75
   param_overrides.regime_mult_b: 0.7
   param_overrides.rvol_threshold: 2.0
-  param_overrides.sector_mult_communication: 1.0
-  param_overrides.sector_mult_consumer_disc: 1.0
-  param_overrides.sector_mult_financials: 1.0
-  param_overrides.sector_mult_healthcare: 1.0
-  param_overrides.sector_mult_industrials: 1.0
 
 Signal Extraction / Alpha Capture
 No report provided.
@@ -73,18 +72,18 @@ QUICK EXIT REPLACEMENT TRADE ANALYSIS
   Max positions: 10  |  QE window: 30 min
 
   --- Classification ---
-  Total trades:        570
+  Total trades:        591
   QE exits:            0 (0.0% of all exits)
   QE-enabled entries:  0 (0.0% of all entries)
-  Organic entries:     570 (100.0% of all entries)
+  Organic entries:     591 (100.0% of all entries)
 
   QE-enabled = entered a slot freed by QE while positions were at max capacity.
 
   --- Performance by Category ---
-  All trades:          n= 570  WR=59.3%  mean_R=+0.192  med_R=+0.168  total_R=+109.2  PF=1.61
+  All trades:          n= 591  WR=61.9%  mean_R=+0.250  med_R=+0.214  total_R=+147.5  PF=1.86
   QE exits themselves: n=   0  WR=0.0%  mean_R=+0.000  med_R=+0.000  total_R=+0.0  PF=0.00
   QE-enabled entries:  n=   0  WR=0.0%  mean_R=+0.000  med_R=+0.000  total_R=+0.0  PF=0.00
-  Organic entries:     n= 570  WR=59.3%  mean_R=+0.192  med_R=+0.168  total_R=+109.2  PF=1.61
+  Organic entries:     n= 591  WR=61.9%  mean_R=+0.250  med_R=+0.214  total_R=+147.5  PF=1.86
 
   --- QE-Enabled Breakdown by Their Own Exit ---
   exited via QE (churn):  n=   0  WR=0.0%  mean_R=+0.000  med_R=+0.000  total_R=+0.0  PF=0.00
@@ -92,21 +91,21 @@ QUICK EXIT REPLACEMENT TRADE ANALYSIS
 
   --- Entry Type Distribution ---
   Type                       QE-En N    Avg R    Org N    Avg R
-  COMBINED_BREAKOUT                0        —       79   +0.160
-  OR_BREAKOUT                      0        —      440   +0.196
-  PDH_BREAKOUT                     0        —       51   +0.206
+  COMBINED_BREAKOUT                0        —       81   +0.209
+  OR_BREAKOUT                      0        —      452   +0.240
+  PDH_BREAKOUT                     0        —       58   +0.379
 
   --- Entry Time Distribution (30-min buckets) ---
   Time      QE-En N    Avg R    Org N    Avg R
-  10:00           0        —      357   +0.197
-  10:30           0        —       82   +0.339
-  11:00           0        —       55   +0.058
-  11:30           0        —       39   +0.144
-  12:00           0        —       32   -0.003
-  12:30           0        —        5   +0.502
+  10:00           0        —      377   +0.251
+  10:30           0        —       74   +0.303
+  11:00           0        —       56   +0.299
+  11:30           0        —       46   +0.337
+  12:00           0        —       33   -0.087
+  12:30           0        —        5   +0.211
 
   --- Verdict ---
   No QE-enabled trades (QE never fires at max capacity).
 
 Overall Verdict
-Final 5-phase bundle finished at expectancy $+12.89, expected_total_r +109.22, 22.02 trades/month, PF 1.660, signal_quality 0.651, timing_quality 0.488, and max DD 4.3%.
+Final 8-phase bundle finished at expectancy $+19.80, expected_total_r +147.47, 22.83 trades/month, PF 2.069, signal_quality 0.533, timing_quality 0.947, and max DD 3.2%.

@@ -19,6 +19,7 @@ from typing import Any
 from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.phase_state import PhaseState
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.provenance import AutoRunProvenance, build_phase_auto_provenance
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
@@ -51,9 +52,8 @@ from .phase_scoring import (
     RISK_ALLOCATION_ULTIMATE_TARGETS,
     PHASE_WEIGHTS,
     ULTIMATE_TARGETS,
-    score_phase_metrics,
 )
-from .scoring import ATRSSMetrics, composite_score, extract_atrss_metrics
+from .scoring import ATRSSMetrics, extract_atrss_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -153,8 +153,42 @@ class ATRSSPlugin:
         self._evaluation_cache: dict[str, Any] = {}
         self._metrics_cache: dict[str, dict[str, float]] = {}
         self._cache_source_fingerprint: str = ""
+        self._provenance: AutoRunProvenance | None = None
 
     # -- PhaseSpec -------------------------------------------------------------
+
+    def build_provenance(self) -> AutoRunProvenance:
+        if self._provenance is None:
+            repo_root = Path(__file__).resolve().parents[4]
+            self._provenance = build_phase_auto_provenance(
+                self.name,
+                repo_root=repo_root,
+                code_dirs=(
+                    Path(__file__).resolve().parent,
+                    repo_root / "strategies/swing/atrss",
+                ),
+                code_paths=(
+                    repo_root / "backtests/swing/data/replay_cache.py",
+                    repo_root / "backtests/swing/analysis/atrss_full_diagnostics.py",
+                ),
+                data_dir=self.data_dir,
+                selection_context={
+                    "initial_equity": self.initial_equity,
+                    "mode": self.mode,
+                    "candidate_profile": self.candidate_profile,
+                    "scoring_profile": self._scoring_profile,
+                    "symbols": self.symbols,
+                    "data_symbols": self.data_symbols,
+                    "num_phases": self.num_phases,
+                    "phase_weights": PHASE_WEIGHTS,
+                    "phase_focus": PHASE_FOCUS,
+                    "risk_phase_focus": RISK_ALLOCATION_PHASE_FOCUS,
+                    "phase_hard_rejects": PHASE_HARD_REJECTS,
+                    "risk_phase_hard_rejects": RISK_ALLOCATION_PHASE_HARD_REJECTS,
+                    "round_baseline_policy": "run_spec.baseline_mutations",
+                },
+            )
+        return self._provenance
 
     def get_phase_spec(self, phase: int, state: PhaseState) -> PhaseSpec:
         active_profile = self._set_active_candidate_profile(self._candidate_profile_for_state(state))

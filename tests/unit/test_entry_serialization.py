@@ -43,7 +43,7 @@ async def test_concurrent_entries_serialized():
     call_count = 0
     shared_risk = {"open_R": 0.0}
 
-    async def _risk_check(order):
+    async def _risk_check(order, **_kwargs):
         nonlocal call_count
         call_count += 1
         # 1. Read current risk (simulate DB query)
@@ -59,6 +59,7 @@ async def test_concurrent_entries_serialized():
 
     risk = MagicMock()
     risk.check_entry = AsyncMock(side_effect=_risk_check)
+    risk.check_account_gate = AsyncMock(return_value=None)
 
     router = MagicMock()
     router.route = AsyncMock()

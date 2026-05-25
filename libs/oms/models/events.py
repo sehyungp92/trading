@@ -12,6 +12,8 @@ class OMSEventType(Enum):
     ORDER_ACKED = "ORDER_ACKED"
     ORDER_WORKING = "ORDER_WORKING"
     ORDER_PARTIALLY_FILLED = "ORDER_PARTIALLY_FILLED"
+    # Status event emitted when an order reaches FILLED. This is not a fill
+    # payload; consumers that mutate trade state must wait for FILL.
     ORDER_FILLED = "ORDER_FILLED"
     ORDER_CANCELLED = "ORDER_CANCELLED"
     ORDER_REJECTED = "ORDER_REJECTED"

@@ -8,28 +8,28 @@
     },
     "active_trades_per_month": {
       "target": 52.0,
-      "actual": 60.307763071992404,
-      "pct_of_target": 115.97646744613922
+      "actual": 69.670179776948,
+      "pct_of_target": 133.98111495566926
     },
     "total_r_per_month": {
       "target": 13.0,
-      "actual": 12.793458127103174,
-      "pct_of_target": 98.4112163623321
+      "actual": 13.60296896069524,
+      "pct_of_target": 104.63822277457876
     },
     "profit_factor": {
       "target": 2.6,
-      "actual": 2.3025857715675593,
-      "pct_of_target": 88.56099121413689
+      "actual": 2.2545708700588225,
+      "pct_of_target": 86.71426423303163
     },
     "max_drawdown_pct": {
       "target": 0.08,
-      "actual": 0.03237781124490394,
+      "actual": 0.03534646932456749,
       "pct_of_target": 200.0
     },
     "trade_capture_ratio": {
       "target": 0.84,
-      "actual": 0.7007556675062973,
-      "pct_of_target": 83.42329375074968
+      "actual": 0.7854349951124144,
+      "pct_of_target": 93.50416608481125
     },
     "positive_slices": {
       "target": 4.0,
@@ -39,22 +39,22 @@
   },
   "strengths": [
     "active_strategy_count: 2.0000 (100% of 2.0000)",
-    "active_trades_per_month: 60.3078 (116% of 52.0000)",
-    "total_r_per_month: 12.7935 (98% of 13.0000)",
-    "profit_factor: 2.3026 (89% of 2.6000)",
-    "max_drawdown_pct: 0.0324 (200% of 0.0800)",
-    "trade_capture_ratio: 0.7008 (83% of 0.8400)",
+    "active_trades_per_month: 69.6702 (134% of 52.0000)",
+    "total_r_per_month: 13.6030 (105% of 13.0000)",
+    "profit_factor: 2.2546 (87% of 2.6000)",
+    "max_drawdown_pct: 0.0353 (200% of 0.0800)",
+    "trade_capture_ratio: 0.7854 (94% of 0.8400)",
     "positive_slices: 4.0000 (100% of 4.0000)"
   ],
   "weaknesses": [],
-  "scoring_assessment": "EFFECTIVE",
+  "scoring_assessment": "INEFFECTIVE",
   "diagnostic_gaps": [
     "Positive blocked candidates are too frequent; inspect ranking and heat scarcity."
   ],
   "suggested_experiments": [],
   "recommendation": "advance",
-  "recommendation_reason": "Gate passed.",
-  "report": "======================================================================\nPHASE 6 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + active_strategy_count: 2.0000 (100% of 2.0000)\n  + active_trades_per_month: 60.3078 (116% of 52.0000)\n  + total_r_per_month: 12.7935 (98% of 13.0000)\n  + profit_factor: 2.3026 (89% of 2.6000)\n  + max_drawdown_pct: 0.0324 (200% of 0.0800)\n  + trade_capture_ratio: 0.7008 (83% of 0.8400)\n  + positive_slices: 4.0000 (100% of 4.0000)\n\nDiagnostic Gaps:\n  ! Positive blocked candidates are too frequent; inspect ranking and heat scarcity.\n\nGoal Progress:\n  active_strategy_count: 2.0000 / 2.0000 (100%)\n  active_trades_per_month: 60.3078 / 52.0000 (116%)\n  total_r_per_month: 12.7935 / 13.0000 (98%)\n  profit_factor: 2.3026 / 2.6000 (89%)\n  max_drawdown_pct: 0.0324 / 0.0800 (200%)\n  trade_capture_ratio: 0.7008 / 0.8400 (83%)\n  positive_slices: 4.0000 / 4.0000 (100%)",
+  "recommendation_reason": "Retry budget exhausted; advance with current best mutations.",
+  "report": "======================================================================\nPHASE 6 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Retry budget exhausted; advance with current best mutations.\nScoring assessment: INEFFECTIVE\n\nStrengths:\n  + active_strategy_count: 2.0000 (100% of 2.0000)\n  + active_trades_per_month: 69.6702 (134% of 52.0000)\n  + total_r_per_month: 13.6030 (105% of 13.0000)\n  + profit_factor: 2.2546 (87% of 2.6000)\n  + max_drawdown_pct: 0.0353 (200% of 0.0800)\n  + trade_capture_ratio: 0.7854 (94% of 0.8400)\n  + positive_slices: 4.0000 (100% of 4.0000)\n\nDiagnostic Gaps:\n  ! Positive blocked candidates are too frequent; inspect ranking and heat scarcity.\n\nGoal Progress:\n  active_strategy_count: 2.0000 / 2.0000 (100%)\n  active_trades_per_month: 69.6702 / 52.0000 (134%)\n  total_r_per_month: 13.6030 / 13.0000 (105%)\n  profit_factor: 2.2546 / 2.6000 (87%)\n  max_drawdown_pct: 0.0353 / 0.0800 (200%)\n  trade_capture_ratio: 0.7854 / 0.8400 (94%)\n  positive_slices: 4.0000 / 4.0000 (100%)",
   "scoring_weight_overrides": null,
   "extra": {}
 }

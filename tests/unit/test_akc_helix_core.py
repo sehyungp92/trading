@@ -235,6 +235,7 @@ def test_akc_helix_snapshot_hydrate_continue_matches_uninterrupted_core() -> Non
 
 
 @pytest.mark.asyncio
+@pytest.mark.parity_smoke
 async def test_akc_helix_live_wrapper_entry_fill_matches_replay_core_state(monkeypatch) -> None:
     setup = _setup()
     receipt_log: list[object] = []

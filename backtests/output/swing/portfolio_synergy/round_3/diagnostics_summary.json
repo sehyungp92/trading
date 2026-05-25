@@ -3,9 +3,9 @@
   "strategy": "portfolio_synergy",
   "round": 3,
   "label": "balanced_509_77_atrss_71 promoted optimized config",
-  "generated_at_utc": "2026-05-09T15:46:56.313646+00:00",
+  "generated_at_utc": "2026-05-23T00:15:52.454516+00:00",
   "initial_equity": 50000.0,
-  "data_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\swing\\data\\raw",
+  "data_dir": "backtests\\swing\\data\\raw",
   "config_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\portfolio_synergy\\round_2\\optimized_config.json + balanced_509_77_atrss_71",
   "candidate_name": "balanced_509_77_atrss_71",
   "candidate_source_name": "focused_helix_tpc_heavier",
@@ -165,8 +165,8 @@
       }
     },
     "replay_architecture": "unified_bar_replay_shared_swing_live_risk_adapters",
-    "replay_source_fingerprint": "b1dba40bfc2c46d55d518713c6bbd534fdd9adb962ab55604fba4e0a700a2623",
-    "replay_cache_key": "a69ffad872044287cbf0f55edecee94297c09934f36b6366e56dc0177d32c535",
+    "replay_source_fingerprint": "7f73330ad341fd7037ce42a8e3351c4f6da20b2f581252680af249d8eea8c859",
+    "replay_cache_key": "f4494ba6985ab963ade9398167efaa25592dbcb19e581e44d01ce3eb2d4a8512",
     "live_swing_risk_adapter": "libs.oms.risk.swing_portfolio_adapter.evaluate_swing_entry",
     "live_portfolio_rule_checker": "libs.oms.risk.portfolio_rules.PortfolioRuleChecker",
     "live_strategy_coordinator": "libs.oms.coordination.coordinator.StrategyCoordinator",
@@ -178,48 +178,110 @@
         "optimized_config_sha256": "b4c105aead4a4957eb6eed61a4ad18c721c45d6a5df5fe191b2fa6b58af555d1",
         "diagnostic_scope": "current-code synchronized round_3 full diagnostics",
         "diagnostic_summary_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\atrss\\round_3\\full_diagnostics_summary.json",
-        "diagnostic_summary_sha256": "8d7d20555b5eecc91a0e0e2155b62946b851450642f4a76e3742575b448d795c",
+        "diagnostic_summary_sha256": "bcf692c0880afe132f3951a16ff27820950e7e47765b091a45152fe30bbb456c",
         "diagnostic_metrics": {
           "total_trades": 264,
-          "total_r": 234.78196932774728,
-          "net_return_pct": 234.0807950000001,
-          "profit_factor": 2.553927702731657,
-          "max_drawdown_pct": 7.869367570195819,
-          "sharpe": 1.9951326753887264,
+          "total_r": 234.78196932774725,
+          "net_return_pct": 238.97109450000013,
+          "profit_factor": 6.5825101580783,
+          "max_drawdown_pct": 11.17839987275162,
+          "sharpe": 1.8328062795813067,
           "initial_equity": 100000.0
-        }
+        },
+        "provenance_status": "complete",
+        "selection_status": "stale_selected_after_current_code_replay",
+        "selection_fingerprint": "616501fb590aae91447723807b797258a3a32c4081772c3c97d07e52c8c98792",
+        "diagnostics_fingerprint": "616501fb590aae91447723807b797258a3a32c4081772c3c97d07e52c8c98792",
+        "diagnostics_refresh": {
+          "status": "stale_selected_after_current_code_replay",
+          "updated_saved_metrics": true,
+          "deltas": {
+            "net_return_pct": {
+              "saved": 234.0807950000001,
+              "current": 238.97109450000013
+            },
+            "max_drawdown_pct": {
+              "saved": 7.869367570195819,
+              "current": 11.17839987275162
+            },
+            "sharpe": {
+              "saved": 1.9951326753887264,
+              "current": 1.8328062795813067
+            },
+            "calmar": {
+              "saved": 29.745820475656764,
+              "current": 73.7259853528312
+            }
+          },
+          "basis": "current-code optimized-config replay"
+        },
+        "diagnostic_generated_at_utc": "2026-05-23T00:05:33.016614+00:00"
       },
       "AKC_HELIX": {
         "optimized_config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\round_5\\optimized_config.json",
         "optimized_config_sha256": "f5a1355ef4c3e17c40303f80a6f8f97680336d578f4d0540ad6cdaa5241c7d71",
         "diagnostic_scope": "current-code synchronized round_5 final diagnostics",
         "diagnostic_summary_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\round_5\\diagnostics_summary.json",
-        "diagnostic_summary_sha256": "4abb1be5f72237aa6ebef70f040a3711fddc1a06cba932ce93fbd7d9fb1da1c8",
+        "diagnostic_summary_sha256": "451c0e0bba0aa0e54dbab556964c2cf1d729d4e40841892870ab434b1a816a75",
         "diagnostic_metrics": {
           "total_trades": 325,
-          "total_r": 158.7633654421816,
-          "net_return_pct": 182.9121140000014,
-          "profit_factor": 2.16522113432275,
-          "max_drawdown_pct": 5.961993585357276,
-          "sharpe": 1.3291670971193734,
+          "total_r": 168.7549061748338,
+          "net_return_pct": 114.68418400000286,
+          "profit_factor": 2.1586381200826636,
+          "sharpe": 1.3365289549100519,
           "initial_equity": 25000.0
-        }
+        },
+        "provenance_status": "complete",
+        "selection_status": "stale_selected_after_current_code_replay",
+        "selection_fingerprint": "04527b29d5a7ec8b6b631c756c53cccedb21156e034e04ecbbd3d40117e25092",
+        "diagnostics_fingerprint": "04527b29d5a7ec8b6b631c756c53cccedb21156e034e04ecbbd3d40117e25092",
+        "diagnostics_refresh": {
+          "status": "stale_selected_after_current_code_replay",
+          "updated_saved_metrics": true,
+          "deltas": {
+            "net_return_pct": {
+              "saved": 182.9121140000014,
+              "current": 114.68418400000286
+            },
+            "win_rate": {
+              "saved": 50.153846153846146,
+              "current": 49.84615384615385
+            },
+            "sharpe": {
+              "saved": 1.3291670971193734,
+              "current": 1.3365289549100519
+            }
+          },
+          "basis": "current-code optimized-config replay"
+        },
+        "diagnostic_generated_at_utc": "2026-05-23T00:06:01.439933+00:00"
       },
       "TPC": {
         "optimized_config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_8\\optimized_config.json",
-        "optimized_config_sha256": "5d7fdbd249d7912c896ba9eb86917dead47fa3da21d1e6d81e87980d0149e1e2",
+        "optimized_config_sha256": "95cfa8ec405722357d80e4f2731ab74f95eb2d2cdb3d290adaf7bfde46ac2991",
         "diagnostic_scope": "round_8 train-only source diagnostics; portfolio replay applies the optimized config to its configured replay window",
         "diagnostic_summary_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_8\\run_summary.json",
-        "diagnostic_summary_sha256": "e155b0b596ab1f1917e72506c0507a3b31301880cf0833e2d54503ce5f694fe3",
+        "diagnostic_summary_sha256": "2a3cb55a4f1e9f59e352a8d915c65c1470f2579738cc8591e4b5e827c14e13db",
         "diagnostic_metrics": {
-          "total_trades": 127,
-          "total_r": 86.47412856965774,
-          "net_return_pct": 133.0099349999961,
-          "profit_factor": 2.3437155111274803,
-          "max_drawdown_pct": 13.68037642663078,
-          "sharpe": 0.880936399330928
+          "total_trades": 126,
+          "total_r": 92.35903541812152,
+          "net_return_pct": 160.59117499999803,
+          "profit_factor": 2.4405470265536504,
+          "max_drawdown_pct": 13.846465000000082,
+          "sharpe": 0.9857809721796249,
+          "initial_equity": 100000.0
         },
-        "diagnostic_generated_at_utc": "2026-05-06T23:55:57.323811+00:00"
+        "provenance_status": "complete",
+        "selection_status": "current_code_replayed_without_material_drift",
+        "selection_fingerprint": "51e21f62082e2bf6c05124febd1e5d17238a5ca2a92f4c8772a5c479d72df7e1",
+        "diagnostics_fingerprint": "51e21f62082e2bf6c05124febd1e5d17238a5ca2a92f4c8772a5c479d72df7e1",
+        "diagnostics_refresh": {
+          "status": "current_code_replayed_without_material_drift",
+          "updated_saved_metrics": true,
+          "deltas": {},
+          "basis": "current-code optimized-config replay"
+        },
+        "diagnostic_generated_at_utc": "2026-05-23T00:05:26.181315+00:00"
       }
     },
     "thin_layer_assessment": {
@@ -485,6 +547,293 @@
       "status": "thin_source_replay",
       "evidence": "TPC live and backtest both use the ETF shared core path; the backtest drives core on_bar/on_fill/on_order_update and translates neutral actions into SimBroker orders.",
       "remaining_gap": "In the portfolio engine, completed source trades are replayed for admission/sizing evidence rather than stepping the TPC core inside the family timeline."
+    }
+  },
+  "provenance": {
+    "schema_version": 1,
+    "selection_fingerprint": "1674bb057ed26c365fa2cae40ceba4a75ab6a1287e5c05363689458df9e4a97f",
+    "diagnostics_fingerprint": "1674bb057ed26c365fa2cae40ceba4a75ab6a1287e5c05363689458df9e4a97f",
+    "items": [
+      {
+        "name": "data_dir",
+        "kind": "tree_contents",
+        "fingerprint": "c87d92af3db4f9b38ef15ff383a4a8ba442c108398cfd228fe5df1e7ab7ef36a",
+        "paths": [
+          "backtests/swing/data/raw"
+        ],
+        "scope": "data",
+        "notes": "Content fingerprint for selection-relevant replay data files."
+      },
+      {
+        "name": "code:backtests/swing/auto/portfolio_synergy/run_phase_auto_from_latest.py",
+        "kind": "file_contents",
+        "fingerprint": "1e59b3b763e35e964404a273ac9bc784ddc74ade1257ea2dbe2be7cd851edeb8",
+        "paths": [
+          "backtests/swing/auto/portfolio_synergy/run_phase_auto_from_latest.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/swing/engine/unified_portfolio_engine.py",
+        "kind": "file_contents",
+        "fingerprint": "5b68d652dce3cc93f0d78a30c4f425a03990988fa1d10b9b3683bdc114da075f",
+        "paths": [
+          "backtests/swing/engine/unified_portfolio_engine.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:libs/oms/risk/portfolio_rules.py",
+        "kind": "file_contents",
+        "fingerprint": "edcbd6dcb34810ecda91d76a690b0efe462d49932be353a29043d8d3547584d4",
+        "paths": [
+          "libs/oms/risk/portfolio_rules.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:libs/oms/risk/swing_portfolio_adapter.py",
+        "kind": "file_contents",
+        "fingerprint": "ec9ce8f770756fb6e4530a2694bd2c44779254d4de5cecdc53361f7d26e1d714",
+        "paths": [
+          "libs/oms/risk/swing_portfolio_adapter.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:strategies/swing/overlay/engine.py",
+        "kind": "file_contents",
+        "fingerprint": "e390077dea093c2a195fcd17cfcb3f943cc42dbf6fe96e1795791806453bf840",
+        "paths": [
+          "strategies/swing/overlay/engine.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "plugin",
+        "kind": "plugin_identity",
+        "fingerprint": "26c442780e4eefdb008cd2268184443250f0a339fbec717001541c4118364f88",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "selection_context",
+        "kind": "stable_json",
+        "fingerprint": "86d87dcd51bf5bcc1d678be0c7c51d85a1bd74ed896709c15d500f2f5d35e4ef",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:backtests/swing/auto/portfolio_synergy",
+        "kind": "tree_contents",
+        "fingerprint": "c8f520d10728ce86e531b5830b90d6b736e356411e9acea2617c93a4f1f75874",
+        "paths": [
+          "backtests/swing/auto/portfolio_synergy"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "shared_auto_package",
+        "kind": "tree_contents",
+        "fingerprint": "d9d2fccedd37282a0908da4eacb176f90033de491d7babdfc8d654ce376d5f37",
+        "paths": [
+          "backtests/shared/auto"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:AKC_HELIX:diagnostics",
+        "kind": "source_artifact_contents",
+        "fingerprint": "c9032921355e33cd7aa2437d458e6ece4e0853e46b4d6479f0ff9b53cfc0afb4",
+        "paths": [
+          "backtests/output/swing/helix/round_5/diagnostics_summary.json"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:AKC_HELIX:optimized_config",
+        "kind": "source_artifact_contents",
+        "fingerprint": "24bf6a8357ee24626067d4701aeaa9269634d7d6246b7e3c138650129fa8bd7d",
+        "paths": [
+          "backtests/output/swing/helix/round_5/optimized_config.json"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:ATRSS:diagnostics",
+        "kind": "source_artifact_contents",
+        "fingerprint": "eddb01d19bff5a1963cd31e43775abf1340578a17422f9409b8802e61ca0bb1f",
+        "paths": [
+          "backtests/output/swing/atrss/round_3/full_diagnostics_summary.json"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:ATRSS:optimized_config",
+        "kind": "source_artifact_contents",
+        "fingerprint": "428f428257b80ab4af4e9df1094a5459898635ba876909e9f0a40cb2fd96523e",
+        "paths": [
+          "backtests/output/swing/atrss/round_3/optimized_config.json"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:TPC:diagnostics",
+        "kind": "source_artifact_contents",
+        "fingerprint": "c4d1fbfca49a760a8a3821128fc4b78b72325af4e83112b2bf709b3af1744a1e",
+        "paths": [
+          "backtests/output/swing/tpc/round_8/run_summary.json"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:TPC:optimized_config",
+        "kind": "source_artifact_contents",
+        "fingerprint": "58998fa58c15ac3bf7fabb6991fc16846f6eef0264b6d046ddc892485e15c7ab",
+        "paths": [
+          "backtests/output/swing/tpc/round_8/optimized_config.json"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      }
+    ]
+  },
+  "provenance_status": "complete",
+  "selection_status": "current_code_replayed_without_material_drift",
+  "diagnostics_refresh": {
+    "status": "no_material_drift",
+    "updated_saved_metrics": true,
+    "material_thresholds": {
+      "profit_factor_rel": 0.005,
+      "net_return_pct_abs": 0.5,
+      "max_drawdown_pct_abs": 0.25
+    },
+    "deltas": {}
+  },
+  "source_strategy_artifacts": {
+    "ATRSS": {
+      "optimized_config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\atrss\\round_3\\optimized_config.json",
+      "optimized_config_sha256": "b4c105aead4a4957eb6eed61a4ad18c721c45d6a5df5fe191b2fa6b58af555d1",
+      "diagnostic_scope": "current-code synchronized round_3 full diagnostics",
+      "diagnostic_summary_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\atrss\\round_3\\full_diagnostics_summary.json",
+      "diagnostic_summary_sha256": "bcf692c0880afe132f3951a16ff27820950e7e47765b091a45152fe30bbb456c",
+      "diagnostic_metrics": {
+        "total_trades": 264,
+        "total_r": 234.78196932774725,
+        "net_return_pct": 238.97109450000013,
+        "profit_factor": 6.5825101580783,
+        "max_drawdown_pct": 11.17839987275162,
+        "sharpe": 1.8328062795813067,
+        "initial_equity": 100000.0
+      },
+      "provenance_status": "complete",
+      "selection_status": "stale_selected_after_current_code_replay",
+      "selection_fingerprint": "616501fb590aae91447723807b797258a3a32c4081772c3c97d07e52c8c98792",
+      "diagnostics_fingerprint": "616501fb590aae91447723807b797258a3a32c4081772c3c97d07e52c8c98792",
+      "diagnostics_refresh": {
+        "status": "stale_selected_after_current_code_replay",
+        "updated_saved_metrics": true,
+        "deltas": {
+          "net_return_pct": {
+            "saved": 234.0807950000001,
+            "current": 238.97109450000013
+          },
+          "max_drawdown_pct": {
+            "saved": 7.869367570195819,
+            "current": 11.17839987275162
+          },
+          "sharpe": {
+            "saved": 1.9951326753887264,
+            "current": 1.8328062795813067
+          },
+          "calmar": {
+            "saved": 29.745820475656764,
+            "current": 73.7259853528312
+          }
+        },
+        "basis": "current-code optimized-config replay"
+      },
+      "diagnostic_generated_at_utc": "2026-05-23T00:05:33.016614+00:00"
+    },
+    "AKC_HELIX": {
+      "optimized_config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\round_5\\optimized_config.json",
+      "optimized_config_sha256": "f5a1355ef4c3e17c40303f80a6f8f97680336d578f4d0540ad6cdaa5241c7d71",
+      "diagnostic_scope": "current-code synchronized round_5 final diagnostics",
+      "diagnostic_summary_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\round_5\\diagnostics_summary.json",
+      "diagnostic_summary_sha256": "451c0e0bba0aa0e54dbab556964c2cf1d729d4e40841892870ab434b1a816a75",
+      "diagnostic_metrics": {
+        "total_trades": 325,
+        "total_r": 168.7549061748338,
+        "net_return_pct": 114.68418400000286,
+        "profit_factor": 2.1586381200826636,
+        "sharpe": 1.3365289549100519,
+        "initial_equity": 25000.0
+      },
+      "provenance_status": "complete",
+      "selection_status": "stale_selected_after_current_code_replay",
+      "selection_fingerprint": "04527b29d5a7ec8b6b631c756c53cccedb21156e034e04ecbbd3d40117e25092",
+      "diagnostics_fingerprint": "04527b29d5a7ec8b6b631c756c53cccedb21156e034e04ecbbd3d40117e25092",
+      "diagnostics_refresh": {
+        "status": "stale_selected_after_current_code_replay",
+        "updated_saved_metrics": true,
+        "deltas": {
+          "net_return_pct": {
+            "saved": 182.9121140000014,
+            "current": 114.68418400000286
+          },
+          "win_rate": {
+            "saved": 50.153846153846146,
+            "current": 49.84615384615385
+          },
+          "sharpe": {
+            "saved": 1.3291670971193734,
+            "current": 1.3365289549100519
+          }
+        },
+        "basis": "current-code optimized-config replay"
+      },
+      "diagnostic_generated_at_utc": "2026-05-23T00:06:01.439933+00:00"
+    },
+    "TPC": {
+      "optimized_config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_8\\optimized_config.json",
+      "optimized_config_sha256": "95cfa8ec405722357d80e4f2731ab74f95eb2d2cdb3d290adaf7bfde46ac2991",
+      "diagnostic_scope": "round_8 train-only source diagnostics; portfolio replay applies the optimized config to its configured replay window",
+      "diagnostic_summary_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_8\\run_summary.json",
+      "diagnostic_summary_sha256": "2a3cb55a4f1e9f59e352a8d915c65c1470f2579738cc8591e4b5e827c14e13db",
+      "diagnostic_metrics": {
+        "total_trades": 126,
+        "total_r": 92.35903541812152,
+        "net_return_pct": 160.59117499999803,
+        "profit_factor": 2.4405470265536504,
+        "max_drawdown_pct": 13.846465000000082,
+        "sharpe": 0.9857809721796249,
+        "initial_equity": 100000.0
+      },
+      "provenance_status": "complete",
+      "selection_status": "current_code_replayed_without_material_drift",
+      "selection_fingerprint": "51e21f62082e2bf6c05124febd1e5d17238a5ca2a92f4c8772a5c479d72df7e1",
+      "diagnostics_fingerprint": "51e21f62082e2bf6c05124febd1e5d17238a5ca2a92f4c8772a5c479d72df7e1",
+      "diagnostics_refresh": {
+        "status": "current_code_replayed_without_material_drift",
+        "updated_saved_metrics": true,
+        "deltas": {},
+        "basis": "current-code optimized-config replay"
+      },
+      "diagnostic_generated_at_utc": "2026-05-23T00:05:26.181315+00:00"
     }
   }
 }

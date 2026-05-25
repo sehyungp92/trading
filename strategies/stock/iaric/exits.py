@@ -201,6 +201,8 @@ def check_v2_partial(
     """Check if partial profit trigger is met (based on MFE, not current price)."""
     if already_taken:
         return False
+    if trigger_r <= 0:
+        return False
     return mfe_r >= trigger_r
 
 

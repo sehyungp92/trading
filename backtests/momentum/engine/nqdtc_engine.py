@@ -111,6 +111,18 @@ _PATCHABLE_SCALAR_KEYS = [
     'STALE_R_THRESHOLD', 'DAILY_STOP_R', 'WEEKLY_STOP_R', 'MONTHLY_STOP_R',
     'BASE_RISK_PCT', 'RISK_PCT', 'CHOP_SIZE_MULT', 'FRICTION_CAP',
     'A_ENTRY_ENABLED', 'C_CONT_ENTRY_ENABLED',
+    'WEAK_SCORE_BAND_FILTER_ENABLED', 'WEAK_SCORE_BAND_LOW',
+    'WEAK_SCORE_BAND_HIGH', 'WEAK_SCORE_BAND_MAX_BOX_WIDTH',
+    'WEAK_SCORE_BAND_MIN_RVOL', 'WIDE_BOX_SCORE_FILTER_ENABLED',
+    'WIDE_BOX_MIN_WIDTH', 'WIDE_BOX_MIN_SCORE', 'WIDE_BOX_MIN_RVOL',
+    'B_ALLOW_ALIGNED', 'B_ALLOW_RANGE', 'B_ALLOW_NEUTRAL',
+    'B_ALLOW_CAUTION', 'B_MIN_DISP_Q',
+    'A_STOP_ATR_MULT', 'C_CONT_MFE_GATE_R', 'C_ENTRY_OFFSET_ATR_STANDARD',
+    'C_ENTRY_OFFSET_ATR_CONTINUATION', 'C_ENTRY_OFFSET_ATR', 'C_HOLD_BARS',
+    'A_TTL_5M_BARS', 'A2_BUFFER_TICKS', 'A_CANCEL_DEPTH_ATR',
+    'B_SWEEP_DEPTH_ATR', 'RESCUE_MAX_SLIP_ATR', 'C_CONT_PAUSE_ATR_MULT',
+    'A_MAX_BOX_WIDTH', 'A_MIN_SCORE', 'A_BLOCK_WEAK_SCORE_BAND',
+    'A_WEAK_SCORE_BAND_LOW', 'A_WEAK_SCORE_BAND_HIGH',
     'LOSS_STREAK_THRESHOLD', 'LOSS_STREAK_SKIP_BARS',
     'PROFIT_BE_R', 'MIN_INTER_TRADE_GAP_MINUTES',
     'ETH_SHORT_SIZE_MULT', 'MIN_BOX_WIDTH', 'MAX_BOX_WIDTH',
@@ -127,6 +139,10 @@ _PATCHABLE_SCALAR_KEYS = [
     'CHANDELIER_GRACE_BARS_30M',
     'CHANDELIER_POST_TP1_MULT_DECAY', 'CHANDELIER_POST_TP1_FLOOR_MULT',
     'RATCHET_LOCK_PCT', 'RATCHET_THRESHOLD_R',
+    'TP1_ONLY_CAP_MODE', 'MFE_RATCHET_TIERS_ENABLED',
+    'MFE_RATCHET_T1_R', 'MFE_RATCHET_T1_LOCK_R',
+    'MFE_RATCHET_T2_R', 'MFE_RATCHET_T2_LOCK_R',
+    'MFE_RATCHET_T3_R', 'MFE_RATCHET_T3_LOCK_R',
     'BE_BUFFER_ATR_5M',
 ]
 
@@ -171,6 +187,14 @@ def _get_et():
 
 def _to_ny(dt_utc: datetime) -> datetime:
     return dt_utc.astimezone(_get_et())
+
+
+def _to_utc_aware(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 def _minutes(h: int, m: int) -> int:
@@ -574,8 +598,8 @@ class NQDTCEngine:
             if k in po:
                 C.REGIME_MULT[regime] = po[k]
         # EXIT_TIERS (TP structure) -- rebuild schedule from individual params
-        if 'TP1_R' in po:
-            schedule = [(po['TP1_R'], po.get('TP1_PARTIAL_PCT', 0.25))]
+        if {'TP1_R', 'TP1_PARTIAL_PCT', 'TP2_R', 'TP2_PARTIAL_PCT'} & set(po):
+            schedule = [(po.get('TP1_R', C.TP1_R), po.get('TP1_PARTIAL_PCT', 0.55))]
             if 'TP2_R' in po:
                 schedule.append((po['TP2_R'], po.get('TP2_PARTIAL_PCT', 0.25)))
             C.EXIT_TIERS = {tier: list(schedule) for tier in C.EXIT_TIERS}
@@ -671,6 +695,8 @@ class NQDTCEngine:
         if _bar_times_idx.tz is None:
             _bar_times_idx = _bar_times_idx.tz_localize("UTC")
         self._bar_times = _bar_times_idx.to_pydatetime()
+        end_dt = _to_utc_aware(self.cfg.end_date)
+        last_processed_t: int | None = None
 
         # -- Pre-compute NY times, sessions, daily dates, entry windows --
         _et = _get_et()
@@ -702,6 +728,8 @@ class NQDTCEngine:
 
         for t in range(n):
             bar_time = self._bar_times[t]
+            if end_dt is not None and bar_time >= end_dt:
+                break
             O = five_min_bars.opens[t]
             H = five_min_bars.highs[t]
             L = five_min_bars.lows[t]
@@ -723,13 +751,15 @@ class NQDTCEngine:
                 m30_idx, h_idx, fh_idx, d_idx, es_d_idx,
                 wu_d, wu_30m, wu_1h, wu_4h,
             )
+            last_processed_t = t
             if self._abort:
                 break
 
         # Close any remaining position at last bar
         if self._active and self._active.pos.open:
-            last_close = float(five_min_bars.closes[-1])
-            last_time = self._bar_times[-1]
+            final_t = last_processed_t if last_processed_t is not None else n - 1
+            last_close = float(five_min_bars.closes[final_t])
+            last_time = self._bar_times[final_t]
             self._close_position_market(last_close, last_time, "END_OF_DATA")
 
         # Shadow simulation
@@ -1330,6 +1360,17 @@ class NQDTCEngine:
             self._record_signal_event(evt, sess, direction, bar_time)
             return
 
+        context_ok, context_reason = sig.contextual_score_filter_pass(
+            score=score,
+            box_width=sess.box.box_width,
+            rvol=rvol,
+        )
+        if self.flags.score_threshold and not context_ok:
+            evt.score_pass = False
+            evt.first_block_reason = context_reason
+            self._record_signal_event(evt, sess, direction, bar_time)
+            return
+
         # 5b. Box width filter (Prereq 3)
         min_bw = getattr(C, 'MIN_BOX_WIDTH', 0)
         max_bw = getattr(C, 'MAX_BOX_WIDTH', 99999)
@@ -1576,7 +1617,12 @@ class NQDTCEngine:
 
         # --- Entry A: limit (A1 retest) + stop_limit (A2 latch) ---
         # Phase 1.2: gated by A_ENTRY_ENABLED
-        if C.A_ENTRY_ENABLED and not has_a_working and (self.flags.entry_a_retest or self.flags.entry_a_latch):
+        if (
+            C.A_ENTRY_ENABLED
+            and not has_a_working
+            and (self.flags.entry_a_retest or self.flags.entry_a_latch)
+            and sig.a_entry_context_allowed(score=sess.last_score, box_width=sess.box.box_width)[0]
+        ):
             a1_price, a2_price = sig.entry_a_trigger(
                 Cl, L, H, vwap_val,
                 sess.breakout.breakout_bar_high, sess.breakout.breakout_bar_low,
@@ -1659,14 +1705,14 @@ class NQDTCEngine:
                         bar_time=bar_time, sess=sess,
                     )
 
-        # --- Entry B: sweep + reclaim → MARKET ---
-        # Permission gates (spec §16.1): Aligned only + p90 displacement + not continuation
+        # --- Entry B: sweep + reclaim as live-style marketable IOC LIMIT ---
+        # Permission gates are shared config, plus high displacement and no continuation.
         if self.flags.entry_b_sweep and sess.atr14_30m > 0:
             b_permitted = (
-                self.regime.composite == CompositeRegime.ALIGNED
+                sig.b_entry_regime_allowed(self.regime.composite)
                 and not sess.breakout.continuation_mode
                 and len(sess.disp_hist.data) > 10
-                and sess.last_disp_metric >= ind.rolling_quantile_past_only(sess.disp_hist.data, 0.90)
+                and sess.last_disp_metric >= ind.rolling_quantile_past_only(sess.disp_hist.data, C.B_MIN_DISP_Q)
             )
             b_triggered = b_permitted and sig.entry_b_trigger(
                 L, H, Cl, vwap_val, sess.atr14_30m, direction,
@@ -1690,17 +1736,24 @@ class NQDTCEngine:
                     qty = self.cfg.fixed_qty
                 qty = self._apply_dd_throttle(qty) if qty >= 1 else qty
                 if qty is not None and qty >= 1:
+                    slip_cap = C.RESCUE_MAX_SLIP_ATR * sess.atr14_30m
+                    if direction == Direction.LONG:
+                        limit_price = round_to_tick(Cl + slip_cap, tick, "up")
+                    else:
+                        limit_price = round_to_tick(Cl - slip_cap, tick, "down")
                     self._submit_entry(
                         direction=direction, qty=qty,
-                        order_type=OrderType.MARKET,
+                        order_type=OrderType.LIMIT,
+                        limit_price=limit_price,
                         subtype=EntrySubtype.B_SWEEP,
                         stop_for_risk=stop_price,
                         quality_mult=quality_mult,
                         disp_norm=disp_norm,
                         oca_group=oca_group,
                         bar_time=bar_time, sess=sess,
+                        ioc_bar=(O, H, L, Cl),
                     )
-                    return  # B is MARKET → immediate fill, skip C eval
+                    return  # B is IOC/immediate, skip C eval
 
         # --- Entry C: hold check ---
         if (self.flags.entry_c_standard or self.flags.entry_c_continuation) and len(self._5m_closes) >= C.C_HOLD_BARS:
@@ -1714,12 +1767,13 @@ class NQDTCEngine:
             )
             if c_triggered:
                 is_cont = sess.breakout.continuation_mode and self.flags.continuation_mode
-                subtype = EntrySubtype.C_CONTINUATION if (is_cont and self.flags.entry_c_continuation) else EntrySubtype.C_STANDARD
+                c_cont_enabled = self.flags.entry_c_continuation and C.C_CONT_ENTRY_ENABLED
+                subtype = EntrySubtype.C_CONTINUATION if (is_cont and c_cont_enabled) else EntrySubtype.C_STANDARD
                 if (subtype == EntrySubtype.C_STANDARD and not self.flags.entry_c_standard):
                     pass
-                elif (subtype == EntrySubtype.C_CONTINUATION and not self.flags.entry_c_continuation):
+                elif (subtype == EntrySubtype.C_CONTINUATION and not c_cont_enabled):
                     pass
-                elif is_cont and not self.flags.entry_c_continuation:
+                elif is_cont and not c_cont_enabled:
                     pass  # block continuation entries even when reclassified as C_STANDARD
                 else:
                     # Phase 4: regime x subtype blocks
@@ -1857,6 +1911,7 @@ class NQDTCEngine:
         oca_group: str = "",
         bar_time: datetime,
         sess: SessionEngineState,
+        ioc_bar: tuple[float, float, float, float] | None = None,
     ) -> None:
         """Submit entry order via SimBroker."""
         side = OrderSide.BUY if direction == Direction.LONG else OrderSide.SELL
@@ -1872,7 +1927,7 @@ class NQDTCEngine:
             direction=direction,
             qty=qty,
             stop_for_risk=stop_for_risk,
-            tif="DAY",
+            tif="IOC" if ioc_bar is not None else "DAY",
             order_type=order_type.name,
             price=limit_price or stop_price or None,
             limit_price=limit_price or None,
@@ -1903,7 +1958,8 @@ class NQDTCEngine:
         order.tag = subtype.value
         order.oca_group = oca_group
         order.ttl_minutes = ttl_minutes
-        self.broker.submit_order(order)
+        if ioc_bar is None:
+            self.broker.submit_order(order)
         self._replay_core_step(
             order_updates=[
                 NQDTCOrderUpdate(
@@ -1932,6 +1988,18 @@ class NQDTCEngine:
         )
         self._working[order_id] = wo
         self._entries_placed += 1
+        if ioc_bar is not None:
+            O, H, L, Cl = ioc_bar
+            fill = self.broker.fill_marketable_ioc_limit(
+                order,
+                bar_time,
+                O,
+                H,
+                L,
+                Cl,
+                self.tick,
+            )
+            self._handle_fill(fill, bar_time, Cl)
 
     # ------------------------------------------------------------------
     # Fill handling
@@ -1993,7 +2061,9 @@ class NQDTCEngine:
                     )
                 ]
             )
-            pass  # Keep in working for stop-limit re-eval
+            if order.tag == EntrySubtype.B_SWEEP.value:
+                self._working.pop(order.order_id, None)
+            # Keep other rejected stop-limit orders working for re-eval.
 
     def _on_entry_fill(self, wo: WorkingOrder, fill: FillResult, bar_time: datetime) -> None:
         # Block fills during 05:00 ET hour
@@ -2038,7 +2108,7 @@ class NQDTCEngine:
         r_points = abs(fill_price - stop_price)
 
         # Max stop width gate: reject entries with outsized stop distance
-        if self.flags.max_stop_width and r_points > 200.0:
+        if self.flags.max_stop_width and r_points > C.MAX_STOP_WIDTH_PTS:
             return
 
         # Min stop distance gate: reject entries with pathologically tight stops
@@ -2342,9 +2412,26 @@ class NQDTCEngine:
                 ratchet_stop = pos.entry_price - C.RATCHET_LOCK_PCT * pos.peak_r_initial * init_r_points
             ratchet_stop = round_to_tick(ratchet_stop, self.tick)
             if pos.direction == Direction.LONG and ratchet_stop > pos.stop_price:
+                pos.stop_source = "RATCHET"
                 self._update_stop_price(ratchet_stop, bar_time)
             elif pos.direction == Direction.SHORT and ratchet_stop < pos.stop_price:
+                pos.stop_source = "RATCHET"
                 self._update_stop_price(ratchet_stop, bar_time)
+
+        mfe_ratchet_stop = stops.compute_mfe_ratcheted_stop(
+            pos.direction,
+            pos.entry_price,
+            init_r_points,
+            pos.peak_r_initial,
+            self.tick,
+        )
+        if mfe_ratchet_stop is not None:
+            if pos.direction == Direction.LONG and mfe_ratchet_stop > pos.stop_price:
+                pos.stop_source = "MFE_RATCHET"
+                self._update_stop_price(mfe_ratchet_stop, bar_time)
+            elif pos.direction == Direction.SHORT and mfe_ratchet_stop < pos.stop_price:
+                pos.stop_source = "MFE_RATCHET"
+                self._update_stop_price(mfe_ratchet_stop, bar_time)
 
         # Chandelier trailing stop (use initial-stop R for tier selection)
         _grace_ok = pos.bars_since_entry_30m >= getattr(C, 'CHANDELIER_GRACE_BARS_30M', 0)

@@ -50,6 +50,12 @@ PROFILE = "mainline"
 NUM_PHASES = 5
 
 
+def _previous_round_lineage(round_num: int) -> tuple[str, int]:
+    if round_num == 2:
+        return "v4r1", 5
+    return "v5r1", NUM_PHASES
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--start-date", default=START_DATE)
@@ -278,6 +284,7 @@ def main() -> None:
     args = _parse_args()
     round_manager = None
     round_num = None
+    previous_round_provenance = None
     baseline_source = "V5R1_BASE_MUTATIONS"
     base_mutations = dict(V5R1_BASE_MUTATIONS)
     if args.output_dir:
@@ -291,7 +298,22 @@ def main() -> None:
             expected_phases=args.num_phases,
         )
         if round_num and round_num > 1:
-            base_mutations = round_manager.get_previous_mutations(round_num)
+            previous_round_name, previous_num_phases = _previous_round_lineage(round_num)
+            provenance_probe = IARICPullbackPlugin(
+                DATA_DIR,
+                start_date=args.start_date,
+                end_date=args.end_date,
+                initial_equity=INITIAL_EQUITY,
+                max_workers=args.max_workers,
+                num_phases=previous_num_phases,
+                profile=args.profile,
+                round_name=previous_round_name,
+            ).build_provenance()
+            previous_round_provenance = provenance_probe
+            base_mutations = round_manager.get_previous_mutations(
+                round_num,
+                current_provenance=provenance_probe,
+            )
             baseline_source = str(round_manager.optimized_config_path(round_manager.round_path(round_num - 1)).resolve())
     base_mutations.setdefault("param_overrides.pb_open_scored_fill_timing", "next_5m_open")
 
@@ -325,6 +347,7 @@ def main() -> None:
         round_name="v5r1",
     )
     plugin.initial_mutations = base_mutations
+    plugin.previous_round_provenance = previous_round_provenance
     if args.phase0_ablation:
         base_mutations = _run_phase0_ablation(plugin, base_mutations, output_dir)
         plugin.initial_mutations = base_mutations

@@ -111,6 +111,13 @@ def _positive_finite(value: Any) -> bool:
     return math.isfinite(number) and number > 0
 
 
+def _call_override_factory(factory, **kwargs):
+    try:
+        return factory(**kwargs)
+    except TypeError:
+        return factory()
+
+
 class SwingFamilyCoordinator:
     """Orchestrates swing strategies sharing one OMS instance.
 
@@ -146,7 +153,7 @@ class SwingFamilyCoordinator:
     async def start(self) -> None:
         """Build shared OMS, create engines, wire overlay, and start."""
         # -- Lazy imports (keep module-level lightweight) ------------------
-        from libs.oms.services.factory import build_multi_strategy_oms
+        from libs.oms.services.factory import build_multi_strategy_oms as default_build_multi_strategy_oms
         from libs.oms.risk.calculator import RiskCalculator
         from libs.config.capital_bootstrap import bootstrap_capital
 
@@ -172,9 +179,22 @@ class SwingFamilyCoordinator:
         from strategies.swing.tpc.engine import TPCEngine
 
         ctx = self._ctx
+        overrides = getattr(ctx, "runtime_overrides", None)
+        build_multi_strategy_oms = (
+            getattr(overrides, "build_multi_strategy_oms", None)
+            or default_build_multi_strategy_oms
+        )
         session = ctx.session
         db_pool = getattr(ctx, "db_pool", None)
-        strategy_ids = [ATRSS_ID, HELIX_ID, TPC_ID]
+        override_strategy_ids = None
+        if overrides is not None:
+            provider = getattr(overrides, "strategy_ids_provider", None)
+            override_strategy_ids = provider() if provider is not None else getattr(overrides, "strategy_ids", None)
+        strategy_ids = (
+            list(dict.fromkeys(str(sid) for sid in override_strategy_ids))
+            if override_strategy_ids is not None
+            else [ATRSS_ID, HELIX_ID, TPC_ID]
+        )
 
         # -- Config dir (needed for adapter + capital bootstrap) -----------
         config_dir = Path(
@@ -187,7 +207,11 @@ class SwingFamilyCoordinator:
         # -- Build execution adapter (same pattern as momentum/stock) ------
         adapter = None
         contract_factory = None
-        if session is not None:
+        adapter_factory = getattr(overrides, "adapter_factory", None)
+        if adapter_factory is not None:
+            adapter = _call_override_factory(adapter_factory, session=session)
+            ibkr_config = None
+        elif session is not None:
             from libs.broker_ibkr.config.loader import IBKRConfig
             from libs.broker_ibkr.mapping.contract_factory import ContractFactory
             from libs.broker_ibkr.adapters.execution_adapter import IBKRExecutionAdapter
@@ -224,7 +248,8 @@ class SwingFamilyCoordinator:
 
         # -- Market calendar -----------------------------------------------
         from libs.config.market_calendar import MarketCalendar
-        market_cal = MarketCalendar()
+        calendar_factory = getattr(overrides, "calendar_factory", None)
+        market_cal = calendar_factory() if calendar_factory is not None else MarketCalendar()
 
         # -- Equity & paper capital ----------------------------------------
         from libs.oms.persistence.db_config import get_environment
@@ -233,7 +258,9 @@ class SwingFamilyCoordinator:
         _env = os.getenv("PAPER_INITIAL_EQUITY")
         _paper_account_seed = float(_env) if _env else ctx.portfolio.capital.paper_initial_equity
 
-        if paper_mode:
+        if getattr(overrides, "equity_provider", None) is not None:
+            account_equity = float(overrides.equity_provider())
+        elif paper_mode:
             account_equity = _paper_account_seed
         else:
             # SWING-1: live equity from NetLiquidation. The previous literal
@@ -245,13 +272,14 @@ class SwingFamilyCoordinator:
             account_equity = await resolve_live_nlv(session, account_id=account_id)
 
         account_allocs: dict[str, Any] | None = None
-        try:
-            account_allocs = bootstrap_capital(account_equity, config_dir)
-        except Exception as exc:
-            logger.warning(
-                "bootstrap_capital failed (%s), using configured swing family allocation fallback",
-                exc,
-            )
+        if getattr(overrides, "equity_provider", None) is None:
+            try:
+                account_allocs = bootstrap_capital(account_equity, config_dir)
+            except Exception as exc:
+                logger.warning(
+                    "bootstrap_capital failed (%s), using configured swing family allocation fallback",
+                    exc,
+                )
 
         _seed_equity = _swing_family_nav(
             account_equity,
@@ -260,7 +288,11 @@ class SwingFamilyCoordinator:
             ctx,
         )
         equity = _seed_equity
-        if paper_mode and db_pool is not None:
+        if (
+            paper_mode
+            and db_pool is not None
+            and getattr(overrides, "equity_provider", None) is None
+        ):
             from libs.persistence.paper_equity import PaperEquityManager
             _pem = PaperEquityManager(db_pool, account_scope=self.family_id, initial_equity=_seed_equity)
             equity = await _pem.load()
@@ -282,7 +314,16 @@ class SwingFamilyCoordinator:
         # -- Compute unit risk dollars per strategy ------------------------
         urds: dict[str, float] = {}
         for sid in strategy_ids:
-            params = _RISK_PARAMS[sid]
+            params = _RISK_PARAMS.get(
+                sid,
+                {
+                    "unit_risk_pct": 0.005,
+                    "daily_stop_R": 2.0,
+                    "priority": 99,
+                    "max_heat_R": 4.0,
+                    "max_working_orders": 3,
+                },
+            )
             urds[sid] = RiskCalculator.compute_unit_risk_dollars(
                 nav=equity,
                 unit_risk_pct=params["unit_risk_pct"],
@@ -296,14 +337,16 @@ class SwingFamilyCoordinator:
 
         # Portfolio rules: directional cap + symbol collision for swing family
         from libs.oms.risk.portfolio_rules import PortfolioRulesConfig
-        portfolio_rules = PortfolioRulesConfig(
+        override_rules_provider = getattr(overrides, "portfolio_rules_provider", None)
+        override_portfolio_rules = override_rules_provider() if override_rules_provider is not None else None
+        portfolio_rules = override_portfolio_rules or PortfolioRulesConfig(
             directional_cap_R=_SWING_FAMILY_HEAT_CAP_R,
             directional_cap_long_R=4.0,
             directional_cap_short_R=4.0,
             initial_equity=family_initial_nav,
             family_strategy_ids=tuple(strategy_ids),
             symbol_collision_action="half_size",
-            strategy_priorities=tuple((sid, _RISK_PARAMS[sid]["priority"]) for sid in strategy_ids),
+            strategy_priorities=tuple((sid, _RISK_PARAMS.get(sid, {"priority": 99})["priority"]) for sid in strategy_ids),
             priority_headroom_R=0.75,
             priority_reserve_threshold=1,
             reference_unit_risk_dollars=urds[ATRSS_ID],
@@ -318,10 +361,10 @@ class SwingFamilyCoordinator:
                 {
                     "id": sid,
                     "unit_risk_dollars": urds[sid],
-                    "daily_stop_R": _RISK_PARAMS[sid]["daily_stop_R"],
-                    "priority": _RISK_PARAMS[sid]["priority"],
-                    "max_heat_R": _RISK_PARAMS[sid]["max_heat_R"],
-                    "max_working_orders": _RISK_PARAMS[sid]["max_working_orders"],
+                    "daily_stop_R": _RISK_PARAMS.get(sid, {"daily_stop_R": 2.0})["daily_stop_R"],
+                    "priority": _RISK_PARAMS.get(sid, {"priority": 99})["priority"],
+                    "max_heat_R": _RISK_PARAMS.get(sid, {"max_heat_R": 4.0})["max_heat_R"],
+                    "max_working_orders": _RISK_PARAMS.get(sid, {"max_working_orders": 3})["max_working_orders"],
                 }
                 for sid in strategy_ids
             ],
@@ -358,13 +401,15 @@ class SwingFamilyCoordinator:
 
         # Wire post-reconnect reconciliation. Use add_reconnect_callback so we
         # don't clobber stock/momentum callbacks (CONN-1).
-        if hasattr(session, "add_reconnect_callback") and hasattr(self._oms, "_reconciler"):
+        if session is not None and hasattr(session, "add_reconnect_callback") and hasattr(self._oms, "_reconciler"):
             session.add_reconnect_callback(self._oms._reconciler.on_reconnect_reconciliation)
             logger.info("Swing post-reconnect reconciliation callback wired")
 
         # -- Bootstrap instrumentation kits --------------------------------
         _data_provider = None
         try:
+            if getattr(overrides, "disable_instrumentation", False):
+                raise RuntimeError("instrumentation disabled by runtime overrides")
             import asyncio as _asyncio
             from .instrumentation.src.ibkr_provider import IBKRHistoricalProvider
             _ib = getattr(session, "ib", None)
@@ -380,15 +425,18 @@ class SwingFamilyCoordinator:
         except Exception:
             logger.debug("IBKRHistoricalProvider creation skipped", exc_info=True)
 
-        self._kits = self._bootstrap_instrumentation_kits(
-            strategy_ids,
-            {
-                ATRSS_ID: ATRSS_CONFIGS,
-                HELIX_ID: HELIX_CONFIGS,
-                TPC_ID: TPC_CONFIGS,
-            },
-            data_provider=_data_provider,
-        )
+        if getattr(overrides, "disable_instrumentation", False):
+            self._kits = {}
+        else:
+            self._kits = self._bootstrap_instrumentation_kits(
+                strategy_ids,
+                {
+                    ATRSS_ID: ATRSS_CONFIGS,
+                    HELIX_ID: HELIX_CONFIGS,
+                    TPC_ID: TPC_CONFIGS,
+                },
+                data_provider=_data_provider,
+            )
 
         # SWING-3: now that _bootstrap_instrumentation_kits has populated
         # self._instrumentation_ctx, wire the coordinator action logger.
@@ -426,20 +474,21 @@ class SwingFamilyCoordinator:
             ib_session=session,
             oms_service=oms,
             instruments=atrss_instruments,
-            config=ATRSS_CONFIGS,
+            config=dict(ATRSS_CONFIGS),
             trade_recorder=trade_recorder,
             equity=equity,
             market_calendar=market_cal,
             kit=self._kits.get(ATRSS_ID),
             equity_offset=paper_equity_offset,
             equity_alloc_pct=1.0,
+            disable_background_tasks=getattr(overrides, "disable_background_tasks", False),
         )
 
         helix_engine = HelixEngine(
             ib_session=session,
             oms_service=oms,
             instruments=helix_instruments,
-            config=HELIX_CONFIGS,
+            config=dict(HELIX_CONFIGS),
             trade_recorder=trade_recorder,
             equity=equity,
             coordinator=coordinator,  # enables ATRSS->Helix cross-strategy rules
@@ -447,13 +496,15 @@ class SwingFamilyCoordinator:
             instrumentation_kit=self._kits.get(HELIX_ID),
             equity_offset=paper_equity_offset,
             equity_alloc_pct=1.0,
+            disable_background_tasks=getattr(overrides, "disable_background_tasks", False),
         )
 
         # STRAT-1: TPCEngine now has a live execution shell (15m scheduler +
         # action dispatcher + OMS event loop + state hydration). state_dir
         # defaults to data/tpc_state but can be overridden via TPC_STATE_DIR.
         tpc_state_dir = Path(
-            os.environ.get("TPC_STATE_DIR")
+            (getattr(overrides, "state_dir_overrides", {}) or {}).get(TPC_ID)
+            or os.environ.get("TPC_STATE_DIR")
             or (
                 ctx.registry.strategies.get(TPC_ID).engine_config.get("state_dir")
                 if ctx.registry and TPC_ID in ctx.registry.strategies
@@ -466,7 +517,7 @@ class SwingFamilyCoordinator:
             ib_session=session,
             oms_service=oms,
             instruments=tpc_instruments,
-            config=TPC_CONFIGS,
+            config=dict(TPC_CONFIGS),
             trade_recorder=trade_recorder,
             equity=equity,
             market_calendar=market_cal,
@@ -475,6 +526,7 @@ class SwingFamilyCoordinator:
             equity_alloc_pct=1.0,
             coordinator=coordinator,
             state_dir=tpc_state_dir,
+            disable_scheduler=getattr(overrides, "disable_background_tasks", False),
         )
 
         # Store engines in priority order.
@@ -493,6 +545,7 @@ class SwingFamilyCoordinator:
             market_cal=market_cal,
             paper_equity_offset=paper_equity_offset,
             equity_alloc_pct=1.0,
+            disable_scheduler=getattr(overrides, "disable_background_tasks", False),
         )
 
         # -- Wire overlay state provider to all instrumentation kits -------
@@ -515,7 +568,8 @@ class SwingFamilyCoordinator:
             logger.info("Overlay engine started")
 
         # -- Heartbeat background task --------------------------------------
-        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+        if not getattr(overrides, "disable_background_tasks", False):
+            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
 
         logger.info(
             "Swing family coordinator active -- %d engines + overlay",
@@ -926,6 +980,7 @@ class SwingFamilyCoordinator:
         market_cal: Any,
         paper_equity_offset: float,
         equity_alloc_pct: float = 1.0,
+        disable_scheduler: bool = False,
     ) -> Any | None:
         """Create OverlayEngine for idle-capital EMA crossover (QQQ, GLD)."""
         try:
@@ -933,6 +988,29 @@ class SwingFamilyCoordinator:
             from strategies.swing.overlay.engine import OverlayEngine
 
             overlay_config = OverlayConfig()
+            overrides = getattr(self._ctx, "runtime_overrides", None)
+            rebalance_provider = getattr(overrides, "overlay_rebalance_provider", None)
+            if rebalance_provider is not None:
+                payload = dict(rebalance_provider() or {})
+                target_weights = dict(payload.get("target_weights", {}) or {})
+                symbols = list(payload.get("symbols", []) or target_weights.keys())
+                if symbols:
+                    overlay_config.symbols = [str(symbol) for symbol in symbols]
+                if target_weights:
+                    overlay_config.weights = {str(symbol): float(weight) for symbol, weight in target_weights.items()}
+                ema_overrides = payload.get("ema_overrides", {}) or {}
+                if ema_overrides:
+                    overlay_config.ema_overrides = {
+                        str(symbol): (int(periods[0]), int(periods[1]))
+                        for symbol, periods in ema_overrides.items()
+                        if len(periods) >= 2
+                    }
+                overlay_config.max_equity_pct = float(payload.get("max_equity_pct", overlay_config.max_equity_pct))
+                state_dir = (getattr(overrides, "state_dir_overrides", {}) or {}).get("OVERLAY")
+                if state_dir is not None:
+                    Path(state_dir).mkdir(parents=True, exist_ok=True)
+                    overlay_config.state_file = str(Path(state_dir) / "overlay_state.json")
+                overlay_config.enabled = True
             self._base_overlay_max_equity_pct = overlay_config.max_equity_pct
 
             if not overlay_config.enabled:
@@ -947,6 +1025,7 @@ class SwingFamilyCoordinator:
                 get_deployed_capital=self._get_swing_deployed_capital,
                 instrumentation=self._kits.get("OVERLAY"),
                 equity_alloc_pct=equity_alloc_pct,
+                disable_scheduler=disable_scheduler,
             )
             return engine
 
@@ -956,6 +1035,50 @@ class SwingFamilyCoordinator:
         except Exception:
             logger.warning("OverlayEngine creation failed", exc_info=True)
             return None
+
+    async def run_overlay_rebalance_once(self, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Drive one deterministic overlay rebalance from a fixture payload.
+
+        Production overlay scheduling and IB order placement remain unchanged.
+        Parity overrides use this hook to exercise coordinator-owned overlay
+        state without live market data or broker access.
+        """
+
+        overrides = getattr(self._ctx, "runtime_overrides", None)
+        if payload is None:
+            provider = getattr(overrides, "overlay_rebalance_provider", None)
+            payload = dict(provider() or {}) if provider is not None else {}
+        if self._overlay_engine is None or not payload:
+            return {}
+
+        engine = self._overlay_engine
+        symbols = [str(symbol) for symbol in payload.get("symbols", []) or engine._config.symbols]
+        target_weights = {
+            str(symbol): float(weight)
+            for symbol, weight in (payload.get("target_weights", {}) or {}).items()
+        }
+        starting = {
+            str(symbol): int(qty)
+            for symbol, qty in (payload.get("starting_holdings", {}) or {}).items()
+        }
+        if starting:
+            engine._shares.update(starting)
+
+        engine._config.symbols = symbols
+        engine._config.weights = target_weights or engine._config.weights
+        engine._config.max_equity_pct = float(payload.get("max_equity_pct", engine._config.max_equity_pct))
+        equity = float(payload.get("equity", getattr(engine, "_equity", 0.0)) or 0.0)
+        engine._equity = equity
+        plan = engine.build_rebalance_plan_from_bars(
+            payload.get("daily_bars", {}) or {},
+            equity=equity,
+            min_bars=0,
+        )
+        return engine.apply_rebalance_plan_dry_run(
+            plan,
+            timestamp=payload.get("timestamp", ""),
+            reason=str(payload.get("rebalance_reason", "fixture")),
+        )
 
     def _apply_overlay_crisis_multiplier(self, multiplier: float) -> float | None:
         """Apply crisis as a total overlay exposure throttle.

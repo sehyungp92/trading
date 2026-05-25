@@ -217,6 +217,17 @@ def parse_diagnostic_metrics(
             "max_drawdown_pct": _extract_labeled_number(block, "Max drawdown"),
             "correction_pnl_pct": _extract_labeled_number(text, "Correction PnL"),
         }
+    if parser_kind == "nqdtc_round_final_diagnostics":
+        block = _section_between(text, "--- D1: Core Performance ---", ["--- D2: Exit Efficiency ---"])
+        return {
+            "total_trades": _extract_labeled_number(block, "Total trades"),
+            "win_rate_pct": _extract_labeled_number(block, "Win rate"),
+            "profit_factor": _extract_labeled_number(block, "Profit factor"),
+            "net_return_pct": _extract_labeled_number(block, "Net return"),
+            "max_drawdown_pct": _extract_labeled_number(block, "Max drawdown"),
+            "sharpe": _extract_labeled_number(block, "Sharpe"),
+            "calmar": _extract_labeled_number(block, "Calmar"),
+        }
     if parser_kind == "stock_alcb_round_summary":
         core = _require_match(
             re.search(

@@ -52,24 +52,29 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 STATIC_OPTIMIZED_CONFIG_PATHS = {
     "iaric": "backtests/output/stock/iaric/round_2/optimized_config.json",
     "alcb": "backtests/output/stock/alcb/round_3/optimized_config.json",
+    "stock_portfolio": "backtests/output/stock/portfolio_synergy/round_3/optimized_config.json",
     "helix_swing": "backtests/output/swing/helix/round_2/optimized_config.json",
     "atrss": "backtests/output/swing/atrss/round_3/optimized_config.json",
     "tpc": "backtests/output/swing/tpc/round_8/optimized_config.json",
+    "swing_portfolio": "backtests/output/swing/portfolio_synergy/round_3/optimized_config.json",
     "breakout": "backtests/output/swing/breakout/round_5/optimized_config.json",
     "brs": "backtests/output/swing/brs/round_1/optimized_config.json",
     "helix_momentum": "backtests/output/momentum/helix/round_5/optimized_config.json",
     "vdubus": "backtests/output/momentum/vdubus/round_3/optimized_config.json",
-    "nqdtc": "backtests/output/momentum/nqdtc/round_3/optimized_config.json",
+    "nqdtc": "backtests/output/momentum/nqdtc/round_5/optimized_config.json",
     "downturn": "backtests/output/momentum/downturn/round_3/optimized_config.json",
     "nq_regime": "backtests/output/momentum/nq_regime/round_5/optimized_config.json",
+    "momentum_portfolio": "backtests/output/momentum/portfolio_synergy/round_2/optimized_config.json",
 }
 
 STRATEGY_FAMILIES = {
     "iaric": "stock",
     "alcb": "stock",
+    "stock_portfolio": "stock",
     "helix_swing": "swing",
     "atrss": "swing",
     "tpc": "swing",
+    "swing_portfolio": "swing",
     "breakout": "swing",
     "brs": "swing",
     "helix_momentum": "momentum",
@@ -77,6 +82,7 @@ STRATEGY_FAMILIES = {
     "nqdtc": "momentum",
     "downturn": "momentum",
     "nq_regime": "momentum",
+    "momentum_portfolio": "momentum",
 }
 
 CONFIG_ROOT = PROJECT_ROOT / "backtests" / "output"
@@ -1097,6 +1103,150 @@ def run_nq_regime(data_end: str) -> OOSResult:
     )
 
 
+def run_stock_portfolio(data_end: str) -> OOSResult:
+    """Run Stock portfolio-synergy frozen-config OOS validation."""
+    from backtests.stock.auto.portfolio_synergy.core.logic import run_portfolio_replay
+    from backtests.stock.auto.portfolio_synergy.evaluator import (
+        build_effective_portfolio_config,
+        load_evaluation_bundle,
+    )
+    from backtests.stock.auto.portfolio_synergy.phase_candidates import INITIAL_EQUITY
+
+    data_dir = PROJECT_ROOT / "backtests" / "stock" / "data" / "raw"
+    config_path = resolve_optimized_config_path("stock_portfolio")
+    mutations = _load_mutations_file(config_path)
+    initial_equity = float(mutations.get("initial_equity", INITIAL_EQUITY))
+    bundle = load_evaluation_bundle(
+        data_dir,
+        initial_equity=initial_equity,
+        start_date=BACKTEST_START_DATE.isoformat(),
+        end_date=data_end,
+    )
+    effective = build_effective_portfolio_config(mutations, initial_equity=initial_equity)
+    result = run_portfolio_replay(bundle.data.alcb_trades, bundle.data.iaric_trades, effective)
+    trades = [
+        {"entry_time": trade.entry_time, "r_multiple": float(trade.r_multiple)}
+        for trade in result.trade_outcomes
+    ]
+
+    is_months = _window_months(BACKTEST_START_DATE, OOS_CUTOFF_DATE)
+    oos_months = _compute_oos_months(data_end)
+    is_m, oos_m = _split_and_analyze(trades, is_months, oos_months)
+    assessment, action = _assess("stock_portfolio", is_m, oos_m)
+    warnings = _audit_stock_intraday(data_dir, data_end) + _baseline_warnings("stock_portfolio", config_path, is_m)
+
+    return OOSResult(
+        strategy="stock_portfolio", family="stock",
+        is_metrics=is_m, oos_metrics=oos_m,
+        assessment=assessment, action=action,
+        config_path=str(config_path),
+        warnings=warnings,
+    )
+
+
+def run_swing_portfolio(data_end: str) -> OOSResult:
+    """Run Swing portfolio-synergy frozen-config OOS validation."""
+    from backtests.swing.auto.config_mutator import mutate_unified_config
+    from backtests.swing.config_unified import UnifiedBacktestConfig
+    from backtests.swing.engine.unified_portfolio_engine import load_unified_data, run_unified
+
+    data_dir = PROJECT_ROOT / "backtests" / "swing" / "data" / "raw"
+    config_path = resolve_optimized_config_path("swing_portfolio")
+    mutations = _load_mutations_file(config_path)
+    initial_equity = float(mutations.get("initial_equity", 50_000.0))
+    base_config = UnifiedBacktestConfig(
+        initial_equity=initial_equity,
+        data_dir=data_dir,
+        start_date=BACKTEST_START_DATE.isoformat(),
+        end_date=data_end,
+    )
+    config = mutate_unified_config(base_config, mutations)
+    data = load_unified_data(config)
+    result = run_unified(data, config)
+    trades: list[Any] = []
+    for attr in ("atrss_trades", "helix_trades", "tpc_trades"):
+        trades.extend(getattr(result, attr, []) or [])
+
+    is_months = _window_months(BACKTEST_START_DATE, OOS_CUTOFF_DATE)
+    oos_months = _compute_oos_months(data_end)
+    is_m, oos_m = _split_and_analyze(trades, is_months, oos_months)
+    assessment, action = _assess("swing_portfolio", is_m, oos_m)
+    warnings = _audit_paths(
+        [
+            data_dir / f"{symbol}_{tf}.parquet"
+            for symbol in ("QQQ", "GLD")
+            for tf in ("15m", "1h", "1d")
+        ]
+        + [
+            data_dir / f"{symbol}_{tf}.parquet"
+            for symbol in ("NQ", "GC")
+            for tf in ("1h", "1d")
+        ],
+        data_end,
+    ) + _baseline_warnings("swing_portfolio", config_path, is_m)
+
+    return OOSResult(
+        strategy="swing_portfolio", family="swing",
+        is_metrics=is_m, oos_metrics=oos_m,
+        assessment=assessment, action=action,
+        config_path=str(config_path),
+        warnings=warnings,
+    )
+
+
+def run_momentum_portfolio(data_end: str) -> OOSResult:
+    """Run Momentum portfolio-synergy frozen-config OOS validation."""
+    from dataclasses import replace as dc_replace
+
+    from backtests.momentum.auto.portfolio_synergy.family_phase_auto import (
+        load_or_build_latest_strategy_trades,
+    )
+    from backtests.momentum.engine.family_portfolio_engine import (
+        FamilyPortfolioBacktester,
+        family_config_from_dict,
+    )
+
+    data_dir = PROJECT_ROOT / "backtests" / "momentum" / "data" / "raw"
+    config_path = resolve_optimized_config_path("momentum_portfolio")
+    config_payload = _load_mutations_file(config_path)
+    config = family_config_from_dict(config_payload)
+    config = dc_replace(
+        config,
+        start_date=BACKTEST_START,
+        end_date=datetime.combine(date.fromisoformat(data_end), datetime.min.time()),
+    )
+    trades_by_strategy = load_or_build_latest_strategy_trades(
+        data_dir=data_dir,
+        output_dir=config_path.parent,
+        initial_equity=float(config.initial_equity),
+    )
+    result = FamilyPortfolioBacktester(config).run(trades_by_strategy)
+    reference_risk = max(float(config.reference_unit_risk_dollars), 1e-9)
+    trades = [
+        {
+            "entry_time": trade.entry_time,
+            "r_multiple": float(trade.adjusted_pnl) / reference_risk,
+        }
+        for trade in result.trades
+    ]
+
+    is_months = _window_months(BACKTEST_START_DATE, OOS_CUTOFF_DATE)
+    oos_months = _compute_oos_months(data_end)
+    is_m, oos_m = _split_and_analyze(trades, is_months, oos_months)
+    assessment, action = _assess("momentum_portfolio", is_m, oos_m)
+    warnings = _audit_paths([data_dir / "NQ_5m.parquet", data_dir / "ES_1d.parquet"], data_end) + _baseline_warnings(
+        "momentum_portfolio", config_path, is_m
+    )
+
+    return OOSResult(
+        strategy="momentum_portfolio", family="momentum",
+        is_metrics=is_m, oos_metrics=oos_m,
+        assessment=assessment, action=action,
+        config_path=str(config_path),
+        warnings=warnings,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -1141,23 +1291,26 @@ def _detect_data_end() -> str:
 # ---------------------------------------------------------------------------
 
 STRATEGY_ORDER = [
-    "iaric", "alcb",
-    "helix_swing", "atrss", "tpc",
-    "vdubus", "nqdtc", "downturn", "nq_regime",
+    "iaric", "alcb", "stock_portfolio",
+    "helix_swing", "atrss", "tpc", "swing_portfolio",
+    "vdubus", "nqdtc", "downturn", "nq_regime", "momentum_portfolio",
 ]
 STRATEGY_GROUPS = {
     "all": STRATEGY_ORDER,
     "stock": [s for s in STRATEGY_ORDER if STRATEGY_FAMILIES.get(s) == "stock"],
     "swing": [s for s in STRATEGY_ORDER if STRATEGY_FAMILIES.get(s) == "swing"],
     "momentum": [s for s in STRATEGY_ORDER if STRATEGY_FAMILIES.get(s) == "momentum"],
+    "portfolios": ["stock_portfolio", "swing_portfolio", "momentum_portfolio"],
 }
 
 RUNNERS = {
     "iaric": run_iaric,
     "alcb": run_alcb,
+    "stock_portfolio": run_stock_portfolio,
     "helix_swing": run_helix_swing,
     "atrss": run_atrss,
     "tpc": run_tpc,
+    "swing_portfolio": run_swing_portfolio,
     "breakout": run_breakout,
     "brs": run_brs,
     "helix_momentum": run_helix_momentum,
@@ -1165,6 +1318,7 @@ RUNNERS = {
     "nqdtc": run_nqdtc,
     "downturn": run_downturn,
     "nq_regime": run_nq_regime,
+    "momentum_portfolio": run_momentum_portfolio,
 }
 
 
@@ -1290,7 +1444,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="OOS Validation Runner")
     parser.add_argument(
         "--strategy", nargs="+", default=["all"],
-        help="Strategy names or groups to validate: all, stock, swing, momentum, or individual names",
+        help="Strategy names or groups to validate: all, stock, swing, momentum, portfolios, or individual names",
     )
     parser.add_argument(
         "--family", nargs="+", choices=["all", "stock", "swing", "momentum"], default=[],

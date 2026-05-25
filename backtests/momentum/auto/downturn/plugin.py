@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 from backtests.shared.auto.phase_state import PhaseState
 from backtests.shared.auto.cache_keys import build_cache_key
 from backtests.shared.auto.plugin import PhaseAnalysisPolicy, PhaseSpec
+from backtests.shared.auto.provenance import AutoRunProvenance, build_phase_auto_provenance
 from backtests.shared.auto.plugin_utils import (
     CachedBatchEvaluator,
     ResilientBatchEvaluator,
@@ -176,6 +177,34 @@ class DownturnPlugin:
         self._evaluation_cache: dict[str, Any] = {}
         self._metrics_cache: dict[str, dict[str, float]] = {}
         self._cache_source_fingerprint: str = ""
+        self._provenance: AutoRunProvenance | None = None
+
+    def build_provenance(self) -> AutoRunProvenance:
+        if self._provenance is None:
+            repo_root = Path(__file__).resolve().parents[4]
+            self._provenance = build_phase_auto_provenance(
+                self.name,
+                repo_root=repo_root,
+                code_dirs=(Path(__file__).resolve().parent,),
+                code_paths=(
+                    repo_root / "backtests/momentum/engine/downturn_engine.py",
+                    repo_root / "backtests/momentum/engine/sim_broker.py",
+                    repo_root / "backtests/momentum/config_downturn.py",
+                    repo_root / "backtests/momentum/auto/config_mutator.py",
+                    repo_root / "backtests/momentum/data/replay_cache.py",
+                ),
+                data_dir=self.data_dir,
+                selection_context={
+                    "initial_equity": self.initial_equity,
+                    "num_phases": self.num_phases,
+                    "phase_weights": PHASE_WEIGHTS,
+                    "phase_hard_rejects": PHASE_HARD_REJECTS,
+                    "phase_focus": PHASE_FOCUS,
+                    "ultimate_targets": ULTIMATE_TARGETS,
+                    "round_baseline_policy": "run_spec.baseline_mutations",
+                },
+            )
+        return self._provenance
 
     def get_phase_spec(self, phase: int, state: PhaseState) -> PhaseSpec:
         focus, focus_metrics = PHASE_FOCUS[phase]

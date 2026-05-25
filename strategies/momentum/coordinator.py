@@ -37,6 +37,22 @@ _OPTIMIZED_REFERENCE_UNIT_RISK_DOLLARS = 250.0
 _REFERENCE_UNIT_RISK_PCT = _OPTIMIZED_REFERENCE_UNIT_RISK_DOLLARS / _OPTIMIZED_INITIAL_EQUITY
 _MAX_TOTAL_POSITIONS = 8
 _MAX_FAMILY_CONTRACTS_MNQ_EQ = 40
+_DIRECTIONAL_CAP_R = 4.25
+_DIRECTIONAL_CAP_LONG_R = 10.0
+_DIRECTIONAL_CAP_SHORT_R = 10.5
+_NQDTC_DIRECTION_FILTER_ENABLED = False
+_NQDTC_AGREE_SIZE_MULT = 1.25
+_NQDTC_OPPOSE_SIZE_MULT = 0.50
+_DYNAMIC_EXISTING_POSITION_MULT = 0.85
+_DYNAMIC_HEAT_PRESSURE_THRESHOLD = 0.65
+_DYNAMIC_HEAT_PRESSURE_MULT = 0.65
+_DYNAMIC_SAME_DIRECTION_PRESSURE_THRESHOLD = 0.65
+_DYNAMIC_SAME_DIRECTION_PRESSURE_MULT = 0.70
+_DYNAMIC_MAX_TRADE_RISK_R = 2.0
+_DYNAMIC_MIN_QTY = 1
+_DYNAMIC_FIT_TO_REMAINING_HEAT = True
+_DYNAMIC_FIT_TO_REMAINING_DIRECTIONAL_CAP = True
+_DYNAMIC_FIT_TO_REMAINING_FAMILY_CAP = True
 _DD_TIERS = (
     (0.10, 1.00),
     (0.15, 0.60),
@@ -106,6 +122,20 @@ def _positive_finite(value: Any) -> bool:
     return math.isfinite(number) and number > 0
 
 
+def _call_override_factory(factory, **kwargs):
+    try:
+        return factory(**kwargs)
+    except TypeError:
+        return factory()
+
+
+def _override_portfolio_rules(overrides: Any) -> Any | None:
+    provider = getattr(overrides, "portfolio_rules_provider", None)
+    if provider is None:
+        return None
+    return provider()
+
+
 class MomentumFamilyCoordinator:
     """Lifecycle manager for four momentum strategies.
 
@@ -136,34 +166,42 @@ class MomentumFamilyCoordinator:
         from libs.broker_ibkr.config.loader import IBKRConfig
         from libs.broker_ibkr.mapping.contract_factory import ContractFactory
         from libs.broker_ibkr.adapters.execution_adapter import IBKRExecutionAdapter
-        from libs.oms.services.factory import build_oms_service
+        from libs.oms.services.factory import build_oms_service as default_build_oms_service
         from libs.oms.risk.calculator import RiskCalculator
         from libs.oms.risk.portfolio_rules import PortfolioRulesConfig
         from libs.config.capital_bootstrap import bootstrap_capital
 
         ctx = self._ctx
+        overrides = getattr(ctx, "runtime_overrides", None)
+        build_oms_service = (
+            getattr(overrides, "build_oms_service", None) or default_build_oms_service
+        )
+        adapter_factory = getattr(overrides, "adapter_factory", None)
         session = ctx.session
         db_pool = ctx.db_pool
         account_gate = ctx.account_gate
 
-        if session is None:
+        if session is None and adapter_factory is None:
             raise RuntimeError(
                 "Momentum family requires an IB session (connect_ib=True)"
             )
 
         # ── Execution adapter (shared IB session, one adapter instance) ──
         config_dir = Path(os.environ.get("CONFIG_DIR", str(Path(__file__).resolve().parent.parent.parent / "config")))
-        try:
-            ibkr_config = IBKRConfig(config_dir)
-        except Exception as exc:
-            raise RuntimeError(
-                f"IBKRConfig load failed — ensure config/ibkr_profiles.yaml exists: {exc}"
-            ) from exc
-        contract_factory = ContractFactory(
-            ib=session.ib,
-            templates=ibkr_config.contracts,
-            routes=ibkr_config.routes,
-        )
+        ibkr_config = None
+        contract_factory = None
+        if adapter_factory is None:
+            try:
+                ibkr_config = IBKRConfig(config_dir)
+            except Exception as exc:
+                raise RuntimeError(
+                    f"IBKRConfig load failed: ensure config/ibkr_profiles.yaml exists: {exc}"
+                ) from exc
+            contract_factory = ContractFactory(
+                ib=session.ib,
+                templates=ibkr_config.contracts,
+                routes=ibkr_config.routes,
+            )
 
         # ── Resolve equity ───────────────────────────────────────────
         paper_mode = get_environment() == "paper"
@@ -173,7 +211,9 @@ class MomentumFamilyCoordinator:
             float(_env) if _env else ctx.portfolio.capital.paper_initial_equity
         )
 
-        if paper_mode:
+        if getattr(overrides, "equity_provider", None) is not None:
+            base_equity = float(overrides.equity_provider())
+        elif paper_mode:
             base_equity = _paper_seed
         else:
             # EQUITY-1: hard-fail in live mode if NetLiquidation can't be
@@ -185,20 +225,24 @@ class MomentumFamilyCoordinator:
             )
 
         # ── Capital allocation ───────────────────────────────────────
-        try:
-            allocs = bootstrap_capital(base_equity, config_dir)
-        except Exception as exc:
-            logger.warning(
-                "bootstrap_capital failed (%s), using configured momentum family allocation fallback",
-                exc,
-            )
+        if getattr(overrides, "equity_provider", None) is not None:
             allocs = {}
+        else:
+            try:
+                allocs = bootstrap_capital(base_equity, config_dir)
+            except Exception as exc:
+                logger.warning(
+                    "bootstrap_capital failed (%s), using configured momentum family allocation fallback",
+                    exc,
+                )
+                allocs = {}
 
         descriptors = self._build_strategy_descriptors()
         all_strategy_ids = tuple(d["strategy_id"] for d in descriptors)
+        override_portfolio_rules = _override_portfolio_rules(overrides)
         family_initial_nav = _momentum_family_nav(base_equity, allocs, all_strategy_ids, ctx)
         family_current_nav = family_initial_nav
-        if paper_mode:
+        if paper_mode and getattr(overrides, "equity_provider", None) is None:
             from libs.persistence.paper_equity import PaperEquityManager
 
             pem = PaperEquityManager(
@@ -230,6 +274,8 @@ class MomentumFamilyCoordinator:
 
         # ── Dynamic MNQ contract cap ──────────────────────────────────
         try:
+            if getattr(overrides, "disable_market_data", False) or session is None:
+                raise RuntimeError("market data disabled by runtime overrides")
             from ib_async import ContFuture
             mnq_cont = ContFuture("MNQ", "CME")
             await session.ib.qualifyContractsAsync(mnq_cont)
@@ -256,11 +302,14 @@ class MomentumFamilyCoordinator:
             self._strategy_ids.append(sid)
 
             # Per-strategy adapter (same session, own adapter instance)
-            adapter = IBKRExecutionAdapter(
-                session=session,
-                contract_factory=contract_factory,
-                account=ibkr_config.profile.account_id,
-            )
+            if adapter_factory is not None:
+                adapter = _call_override_factory(adapter_factory, strategy_id=sid, session=session)
+            else:
+                adapter = IBKRExecutionAdapter(
+                    session=session,
+                    contract_factory=contract_factory,
+                    account=ibkr_config.profile.account_id,
+                )
 
             # Resolve optimized family NAV.
             alloc = allocs.get(sid)
@@ -289,50 +338,50 @@ class MomentumFamilyCoordinator:
                     desc["daily_stop_R"] * reference_unit_risk / unit_risk
                 )
 
-            portfolio_rules = PortfolioRulesConfig(
-                initial_equity=initial_nav,
-                directional_cap_R=4.25,
-                directional_cap_long_R=10.0,
-                directional_cap_short_R=10.5,
-                max_total_active_positions=_MAX_TOTAL_POSITIONS,
-                max_strategy_active_positions=tuple(
-                    (strategy_id, cap)
-                    for strategy_id, cap in _MAX_STRATEGY_ACTIVE_POSITIONS
-                    if strategy_id in all_strategy_ids
-                ),
-                max_family_contracts_mnq_eq=max_family_contracts,
-                family_strategy_ids=all_strategy_ids,
-                symbol_collision_action="none",
-                cooldown_session_only=True,
-                nqdtc_direction_filter_enabled=False,
-                nqdtc_agree_size_mult=1.25,
-                nqdtc_oppose_size_mult=0.50,
-                strategy_priorities=tuple(
-                    (strategy_id, priority)
-                    for strategy_id, priority in _STRATEGY_PRIORITIES
-                    if strategy_id in all_strategy_ids
-                ),
-                strategy_size_multipliers=tuple(
-                    (strategy_id, multiplier)
-                    for strategy_id, multiplier in _STRATEGY_SIZE_MULTIPLIERS
-                    if strategy_id in all_strategy_ids
-                ),
-                priority_headroom_R=1.0,
-                priority_reserve_threshold=1,
-                reference_unit_risk_dollars=reference_unit_risk,
-                portfolio_heat_cap_R=_PORTFOLIO_HEAT_CAP_R,
-                existing_position_mult=0.85,
-                heat_pressure_threshold=0.65,
-                heat_pressure_mult=0.65,
-                same_direction_pressure_threshold=0.65,
-                same_direction_pressure_mult=0.70,
-                max_trade_risk_R=2.0,
-                min_qty=1,
-                fit_to_remaining_heat=True,
-                fit_to_remaining_directional_cap=True,
-                fit_to_remaining_family_cap=True,
-                dd_tiers=_DD_TIERS,
-            )
+            portfolio_rules = override_portfolio_rules or PortfolioRulesConfig(
+                    initial_equity=initial_nav,
+                    directional_cap_R=_DIRECTIONAL_CAP_R,
+                    directional_cap_long_R=_DIRECTIONAL_CAP_LONG_R,
+                    directional_cap_short_R=_DIRECTIONAL_CAP_SHORT_R,
+                    max_total_active_positions=_MAX_TOTAL_POSITIONS,
+                    max_strategy_active_positions=tuple(
+                        (strategy_id, cap)
+                        for strategy_id, cap in _MAX_STRATEGY_ACTIVE_POSITIONS
+                        if strategy_id in all_strategy_ids
+                    ),
+                    max_family_contracts_mnq_eq=max_family_contracts,
+                    family_strategy_ids=all_strategy_ids,
+                    symbol_collision_action="none",
+                    cooldown_session_only=True,
+                    nqdtc_direction_filter_enabled=_NQDTC_DIRECTION_FILTER_ENABLED,
+                    nqdtc_agree_size_mult=_NQDTC_AGREE_SIZE_MULT,
+                    nqdtc_oppose_size_mult=_NQDTC_OPPOSE_SIZE_MULT,
+                    strategy_priorities=tuple(
+                        (strategy_id, priority)
+                        for strategy_id, priority in _STRATEGY_PRIORITIES
+                        if strategy_id in all_strategy_ids
+                    ),
+                    strategy_size_multipliers=tuple(
+                        (strategy_id, multiplier)
+                        for strategy_id, multiplier in _STRATEGY_SIZE_MULTIPLIERS
+                        if strategy_id in all_strategy_ids
+                    ),
+                    priority_headroom_R=1.0,
+                    priority_reserve_threshold=1,
+                    reference_unit_risk_dollars=reference_unit_risk,
+                    portfolio_heat_cap_R=_PORTFOLIO_HEAT_CAP_R,
+                    existing_position_mult=_DYNAMIC_EXISTING_POSITION_MULT,
+                    heat_pressure_threshold=_DYNAMIC_HEAT_PRESSURE_THRESHOLD,
+                    heat_pressure_mult=_DYNAMIC_HEAT_PRESSURE_MULT,
+                    same_direction_pressure_threshold=_DYNAMIC_SAME_DIRECTION_PRESSURE_THRESHOLD,
+                    same_direction_pressure_mult=_DYNAMIC_SAME_DIRECTION_PRESSURE_MULT,
+                    max_trade_risk_R=_DYNAMIC_MAX_TRADE_RISK_R,
+                    min_qty=_DYNAMIC_MIN_QTY,
+                    fit_to_remaining_heat=_DYNAMIC_FIT_TO_REMAINING_HEAT,
+                    fit_to_remaining_directional_cap=_DYNAMIC_FIT_TO_REMAINING_DIRECTIONAL_CAP,
+                    fit_to_remaining_family_cap=_DYNAMIC_FIT_TO_REMAINING_FAMILY_CAP,
+                    dd_tiers=_DD_TIERS,
+                )
 
             if self._base_portfolio_rules is None:
                 self._base_portfolio_rules = portfolio_rules
@@ -367,6 +416,8 @@ class MomentumFamilyCoordinator:
             # Instrumentation (non-fatal) — share ONE sidecar across all strategies
             instr = None
             try:
+                if getattr(overrides, "disable_instrumentation", False):
+                    raise RuntimeError("instrumentation disabled by runtime overrides")
                 from libs.oms.persistence.postgres import PgStore
                 from .instrumentation.src.bootstrap import InstrumentationManager
                 _pg_store = PgStore(db_pool) if db_pool is not None else None
@@ -400,6 +451,13 @@ class MomentumFamilyCoordinator:
                 equity_alloc_pct=1.0,
             )
             engine_kwargs.update(desc.get("engine_extra_kwargs", {}))
+            if getattr(overrides, "disable_background_tasks", False):
+                if sid == "NQ_REGIME":
+                    engine_kwargs["disable_scheduler"] = True
+                if sid == "NQDTC_v2.1":
+                    engine_kwargs["disable_background_tasks"] = True
+                if sid in {"VdubusNQ_v4", "DownturnDominator_v1"}:
+                    engine_kwargs["disable_background_tasks"] = True
 
             engine = engine_cls(**engine_kwargs)
             await engine.start()
@@ -427,11 +485,12 @@ class MomentumFamilyCoordinator:
                 len(self._oms_services),
             )
 
-        if hasattr(session, "add_reconnect_callback"):
+        if session is not None and hasattr(session, "add_reconnect_callback"):
             session.add_reconnect_callback(_on_reconnect)
 
         # ── Heartbeat background task ──────────────────────────────────
-        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+        if not getattr(overrides, "disable_background_tasks", False):
+            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
 
         logger.info(
             "MomentumFamilyCoordinator started %d strategies", len(self._engines),
@@ -723,6 +782,10 @@ class MomentumFamilyCoordinator:
         # config/strategies.yaml over env-var-only. This makes YAML edits
         # actually take effect (previously the YAML key was decorative).
         def _resolve_state_dir(strategy_id: str, env_var: str, default: str) -> Path:
+            overrides = getattr(ctx, "runtime_overrides", None)
+            override_dirs = getattr(overrides, "state_dir_overrides", {}) or {}
+            if strategy_id in override_dirs:
+                return Path(override_dirs[strategy_id])
             manifest = None
             if ctx.registry is not None and strategy_id in ctx.registry.strategies:
                 manifest = ctx.registry.strategies[strategy_id]
@@ -768,7 +831,7 @@ class MomentumFamilyCoordinator:
 
         daily_stops = dict(_STRATEGY_DAILY_STOPS_R)
 
-        return [
+        descriptors = [
             # ── NQDTC_v2.1 ─────────────────────────────────────────
             {
                 "strategy_id": NQDTC_ID,
@@ -830,3 +893,12 @@ class MomentumFamilyCoordinator:
                 },
             },
         ]
+        overrides = getattr(ctx, "runtime_overrides", None)
+        override_strategy_ids = None
+        if overrides is not None:
+            provider = getattr(overrides, "strategy_ids_provider", None)
+            override_strategy_ids = provider() if provider is not None else getattr(overrides, "strategy_ids", None)
+        if override_strategy_ids is not None:
+            active = {str(strategy_id) for strategy_id in override_strategy_ids}
+            descriptors = [desc for desc in descriptors if desc["strategy_id"] in active]
+        return descriptors

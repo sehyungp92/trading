@@ -17,6 +17,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT))
 
+from backtests.shared.auto.provenance import AutoRunProvenance, build_phase_auto_provenance
 from backtests.shared.auto.round_manager import RoundManager, canonicalize_metrics
 from backtests.swing.auto.portfolio_synergy.run_latest_two_rounds import _json_default
 from backtests.swing.auto.portfolio_synergy.run_phase_auto_from_latest import (
@@ -24,6 +25,9 @@ from backtests.swing.auto.portfolio_synergy.run_phase_auto_from_latest import (
     LIVE_STRATEGY_COORDINATOR,
     LIVE_SWING_RISK_ADAPTER,
     OPTIMIZATION_RETURN_BASIS,
+    PHASE_SCORING_KWARGS,
+    PHASE_SOURCE_CONFIGS,
+    PHASE_SOURCE_DIAGNOSTICS,
     PORTFOLIO_REPLAY_SCOPE,
     REPLAY_ARCHITECTURE,
     RISK_STANCE,
@@ -261,6 +265,54 @@ def _diagnostics_summary(
     }
 
 
+def _build_provenance(
+    *,
+    round_num: int,
+    data_dir: Path,
+    config_source: str,
+    candidate_deltas: dict[str, Any] | None,
+) -> AutoRunProvenance:
+    source_artifacts = {
+        f"{sid}:optimized_config": path
+        for sid, path in PHASE_SOURCE_CONFIGS.items()
+    }
+    source_artifacts.update(
+        {
+            f"{sid}:diagnostics": path
+            for sid, path in PHASE_SOURCE_DIAGNOSTICS.items()
+        }
+    )
+    source_artifacts["baseline_config"] = Path(config_source)
+    if OOS_REPORT.exists():
+        source_artifacts["oos_candidate_report"] = OOS_REPORT
+
+    return build_phase_auto_provenance(
+        "portfolio_synergy",
+        repo_root=ROOT,
+        code_dirs=(Path(__file__).resolve().parent,),
+        code_paths=(
+            Path(__file__).resolve(),
+            ROOT / "backtests/swing/engine/unified_portfolio_engine.py",
+            ROOT / "strategies/swing/overlay/engine.py",
+            ROOT / "libs/oms/risk/portfolio_rules.py",
+            ROOT / "libs/oms/risk/swing_portfolio_adapter.py",
+        ),
+        data_dir=data_dir,
+        source_artifacts=source_artifacts,
+        selection_context={
+            "round": round_num,
+            "candidate_name": CANDIDATE_NAME if candidate_deltas else None,
+            "candidate_source_name": CANDIDATE_SOURCE_NAME if candidate_deltas else None,
+            "candidate_deltas": dict(candidate_deltas or {}),
+            "risk_stance": RISK_STANCE,
+            "score_profile": SCORE_PROFILE,
+            "return_basis": OPTIMIZATION_RETURN_BASIS,
+            "replay_architecture": REPLAY_ARCHITECTURE,
+            "phase_scoring_kwargs": PHASE_SCORING_KWARGS,
+        },
+    )
+
+
 def _write_round_outputs(
     *,
     manager: RoundManager,
@@ -296,6 +348,14 @@ def _write_round_outputs(
         data_dir=data_dir,
         candidate_deltas=candidate_deltas,
     )
+    provenance = _build_provenance(
+        round_num=round_num,
+        data_dir=data_dir,
+        config_source=config_source,
+        candidate_deltas=candidate_deltas,
+    )
+    summary["provenance"] = provenance.to_dict()
+    summary["provenance_status"] = "complete"
     diagnostics_summary_path = manager.diagnostics_summary_path(round_dir)
     _write_json(diagnostics_summary_path, summary)
 
@@ -307,8 +367,10 @@ def _write_round_outputs(
         completed_phases,
         round_num=round_num,
         source_diagnostics=diagnostics_path,
+        provenance=provenance,
+        provenance_status="complete",
     )
-    manager.append_to_manifest(round_num, mutations, metrics)
+    manager.append_to_manifest(round_num, mutations, metrics, provenance=provenance, provenance_status="complete")
     return {
         "diagnostics": diagnostics_path,
         "diagnostics_summary": diagnostics_summary_path,
@@ -373,6 +435,12 @@ def promote(args: argparse.Namespace) -> dict[str, Any]:
         config_source=str(round2_config_path),
         completed_phases=[1, 2, 3, 4, 5],
     )
+    round3_provenance = _build_provenance(
+        round_num=3,
+        data_dir=data_dir,
+        config_source=str(round2_config_path),
+        candidate_deltas=CANDIDATE_DELTAS,
+    )
 
     manager.write_run_spec(
         round3_dir,
@@ -400,6 +468,8 @@ def promote(args: argparse.Namespace) -> dict[str, Any]:
             "risk_stance": RISK_STANCE,
             "return_basis": OPTIMIZATION_RETURN_BASIS,
         },
+        provenance=round3_provenance,
+        provenance_status="complete",
         overwrite=True,
     )
 

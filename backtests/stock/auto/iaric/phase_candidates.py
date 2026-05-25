@@ -17,7 +17,7 @@ DAILY_BASE_MUTATIONS: dict[str, Any] = {
     "param_overrides.pb_daily_rescue_min_score": 52.0,
     "param_overrides.pb_rescue_size_mult": 0.65,
     "param_overrides.pb_signal_rank_gate_mode": "score_rank",
-    "max_per_sector": 5,
+    "param_overrides.max_positions_per_sector": 5,
     "param_overrides.pb_wednesday_mult": 1.0,
     "param_overrides.pb_thursday_mult": 1.0,
     "param_overrides.pb_friday_mult": 1.0,
@@ -42,7 +42,7 @@ BASE_MUTATIONS: dict[str, Any] = {
     "param_overrides.pb_backtest_intraday_universe_only": True,
     "param_overrides.pb_cdd_max": 5,
     "param_overrides.pb_sma_dist_max_pct": 10.0,
-    "max_per_sector": 2,
+    "param_overrides.max_positions_per_sector": 2,
     # Sizing
     "param_overrides.pb_wednesday_mult": 1.0,
     "param_overrides.pb_thursday_mult": 0.5,
@@ -84,7 +84,7 @@ PHASE_FOCUS: dict[int, tuple[str, list[str]]] = {
 
 
 PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
-    # ── Phase 1: EOD Flatten Mitigation + MFE Protection ──
+    # -- Phase 1: EOD Flatten Mitigation + MFE Protection --
     1: [
         # MFE protection variants (primary lever)
         (
@@ -201,7 +201,7 @@ PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
             {
                 "param_overrides.pb_delayed_confirm_mfe_protect_trigger_r": 0.50,
                 "param_overrides.pb_delayed_confirm_mfe_protect_stop_r": 0.30,
-                "max_per_sector": 3,
+                "param_overrides.max_positions_per_sector": 3,
             },
         ),
         (
@@ -228,7 +228,7 @@ PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
                 "param_overrides.pb_delayed_confirm_mfe_protect_stop_r": 0.30,
                 "param_overrides.pb_daily_signal_min_score": 51.0,
                 "param_overrides.pb_entry_rank_pct_max": 65.0,
-                "max_per_sector": 3,
+                "param_overrides.max_positions_per_sector": 3,
             },
         ),
         (
@@ -240,7 +240,7 @@ PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
             },
         ),
     ],
-    # ── Phase 2: Signal Aperture + Recalibration ──
+    # -- Phase 2: Signal Aperture + Recalibration --
     2: [
         # Raise signal floor to skip Q2 dead zone
         (
@@ -407,7 +407,7 @@ PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
             },
         ),
     ],
-    # ── Phase 3: Route Diversification + Capacity Expansion ──
+    # -- Phase 3: Route Diversification + Capacity Expansion --
     3: [
         # Open-scored entry
         (
@@ -509,13 +509,13 @@ PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         (
             "sector_cap_3",
             {
-                "max_per_sector": 3,
+                "param_overrides.max_positions_per_sector": 3,
             },
         ),
         (
             "sector_cap_4",
             {
-                "max_per_sector": 4,
+                "param_overrides.max_positions_per_sector": 4,
             },
         ),
         (
@@ -549,14 +549,14 @@ PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         (
             "sector4_positions12",
             {
-                "max_per_sector": 4,
+                "param_overrides.max_positions_per_sector": 4,
                 "param_overrides.pb_max_positions": 12,
             },
         ),
         (
             "combo_capacity_routes",
             {
-                "max_per_sector": 3,
+                "param_overrides.max_positions_per_sector": 3,
                 "param_overrides.pb_max_positions": 10,
                 "param_overrides.pb_open_scored_enabled": True,
                 "param_overrides.pb_open_scored_min_score": 62.0,
@@ -574,7 +574,7 @@ PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
             },
         ),
     ],
-    # ── Phase 4: Carry Calibration + Rescue ──
+    # -- Phase 4: Carry Calibration + Rescue --
     4: [
         # Flow reversal lookback (baseline default 2)
         (
@@ -700,7 +700,7 @@ PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
             },
         ),
     ],
-    # ── Phase 5: Robustness Overlays + Frequency Validation ──
+    # -- Phase 5: Robustness Overlays + Frequency Validation --
     5: [
         # Thursday/Friday sizing
         ("thu_full_risk", {"param_overrides.pb_thursday_mult": 1.0}),
@@ -713,8 +713,8 @@ PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         ),
         ("fri_075", {"param_overrides.pb_friday_mult": 0.75}),
         # Sector caps
-        ("sector_cap_3", {"max_per_sector": 3}),
-        ("sector_cap_4", {"max_per_sector": 4}),
+        ("sector_cap_3", {"param_overrides.max_positions_per_sector": 3}),
+        ("sector_cap_4", {"param_overrides.max_positions_per_sector": 4}),
         # ATR stop mult (baseline 1.25)
         ("atr_stop_150", {"param_overrides.pb_atr_stop_mult": 1.50}),
         ("atr_stop_100", {"param_overrides.pb_atr_stop_mult": 1.00}),
@@ -727,13 +727,13 @@ PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         # Reserve slots
         ("reserve_2", {"param_overrides.pb_intraday_priority_reserve_slots": 2}),
         # Frequency validation
-        ("sector_cap_5", {"max_per_sector": 5}),
+        ("sector_cap_5", {"param_overrides.max_positions_per_sector": 5}),
         ("atr_stop_200", {"param_overrides.pb_atr_stop_mult": 2.00}),
         ("profit_target_150", {"param_overrides.pb_profit_target_r": 1.50}),
         (
             "combo_robustness_freq",
             {
-                "max_per_sector": 4,
+                "param_overrides.max_positions_per_sector": 4,
                 "param_overrides.pb_max_positions": 10,
                 "param_overrides.pb_sma_dist_max_pct": 15.0,
                 "param_overrides.pb_cdd_max": 7,
@@ -824,7 +824,7 @@ AGGRESSIVE_ONLY_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
                 "param_overrides.pb_max_reentries_per_day": 2,
             },
         ),
-        ("sector_cap_6", {"max_per_sector": 6}),
+        ("sector_cap_6", {"param_overrides.max_positions_per_sector": 6}),
     ],
 }
 
@@ -864,10 +864,9 @@ def get_phase_candidate_lookup(
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════
+# ==========================================================================
 # R5 -- Exploit Unexplored Parameter Space
-# ═══════════════════════════════════════════════════════════════════════
-
+# ==========================================================================
 R5_BASE_MUTATIONS: dict[str, Any] = {
     # Daily signal
     "param_overrides.pb_min_candidates_day": 8,
@@ -885,7 +884,7 @@ R5_BASE_MUTATIONS: dict[str, Any] = {
     "param_overrides.pb_backtest_intraday_universe_only": True,
     "param_overrides.pb_cdd_max": 5,
     "param_overrides.pb_sma_dist_max_pct": 10.0,
-    "max_per_sector": 2,
+    "param_overrides.max_positions_per_sector": 2,
     # Sizing
     "param_overrides.pb_wednesday_mult": 1.0,
     "param_overrides.pb_thursday_mult": 0.5,
@@ -926,7 +925,7 @@ R5_PHASE_FOCUS: dict[int, tuple[str, list[str]]] = {
 
 
 R5_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
-    # ── Phase 1: Signal Model Selection (9 candidates) ──
+    # -- Phase 1: Signal Model Selection (9 candidates) --
     1: [
         ("family_balanced_v1", {"param_overrides.pb_daily_signal_family": "balanced_v1"}),
         ("family_trend_guard", {"param_overrides.pb_daily_signal_family": "trend_guard"}),
@@ -938,7 +937,7 @@ R5_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         ("sweetspot_lower_floor_48", {"param_overrides.pb_daily_signal_min_score": 48.0}),
         ("sweetspot_higher_floor_60", {"param_overrides.pb_daily_signal_min_score": 60.0}),
     ],
-    # ── Phase 2: Threshold Calibration (12 candidates) ──
+    # -- Phase 2: Threshold Calibration (12 candidates) --
     2: [
         ("confirm_score_41", {"param_overrides.pb_delayed_confirm_score_min": 41.0}),
         ("confirm_score_51", {"param_overrides.pb_delayed_confirm_score_min": 51.0}),
@@ -953,7 +952,7 @@ R5_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         ("rank_pct_max_65", {"param_overrides.pb_entry_rank_pct_max": 65.0}),
         ("rank_pct_max_80", {"param_overrides.pb_entry_rank_pct_max": 80.0}),
     ],
-    # ── Phase 3: FSM & Entry Mechanics (14 candidates) ──
+    # -- Phase 3: FSM & Entry Mechanics (14 candidates) --
     3: [
         ("flush_window_6", {"param_overrides.pb_flush_window_bars": 6}),
         ("flush_window_12", {"param_overrides.pb_flush_window_bars": 12}),
@@ -970,7 +969,7 @@ R5_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         ("delayed_after_bar_6", {"param_overrides.pb_delayed_confirm_after_bar": 6}),
         ("or_signal_floor_50", {"param_overrides.pb_opening_reclaim_min_daily_signal_score": 50.0}),
     ],
-    # ── Phase 4: Carry & Exit (11 candidates) ──
+    # -- Phase 4: Carry & Exit (11 candidates) --
     4: [
         ("carry_min_r_015", {"param_overrides.pb_carry_min_r": 0.15}),
         ("carry_min_r_010", {"param_overrides.pb_carry_min_r": 0.10}),
@@ -984,14 +983,14 @@ R5_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         ("rsi_exit_75", {"param_overrides.pb_rsi_exit": 75.0}),
         ("dc_rsi_exit_55", {"param_overrides.pb_delayed_confirm_rsi_exit": 55.0}),
     ],
-    # ── Phase 5: Robustness & Scaling (11 candidates) ──
+    # -- Phase 5: Robustness & Scaling (11 candidates) --
     5: [
         ("atr_stop_1.2", {"param_overrides.pb_atr_stop_mult": 1.2}),
         ("atr_stop_0.8", {"param_overrides.pb_atr_stop_mult": 0.8}),
         ("max_pos_10", {"param_overrides.pb_max_positions": 10}),
         ("max_pos_6", {"param_overrides.pb_max_positions": 6}),
-        ("sector_cap_4", {"max_per_sector": 4}),
-        ("sector_cap_3", {"max_per_sector": 3}),
+        ("sector_cap_4", {"param_overrides.max_positions_per_sector": 4}),
+        ("sector_cap_3", {"param_overrides.max_positions_per_sector": 3}),
         ("thursday_075", {"param_overrides.pb_thursday_mult": 0.75}),
         ("tuesday_115", {"param_overrides.pb_tuesday_mult": 1.15}),
         ("breakeven_060", {"param_overrides.pb_breakeven_r": 0.60}),
@@ -1077,7 +1076,7 @@ R5_AGGRESSIVE_ONLY_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
             "capacity_expansion_combo",
             {
                 "param_overrides.pb_max_positions": 10,
-                "max_per_sector": 4,
+                "param_overrides.max_positions_per_sector": 4,
                 "param_overrides.pb_thursday_mult": 0.75,
             },
         ),
@@ -1128,11 +1127,10 @@ def get_r5_phase_candidate_lookup(
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════
+# ==========================================================================
 # V2R1 -- Phased Auto-Optimization for V2 Hybrid Engine
 # Baseline: 815 trades, PF 1.37, avg_r +0.054, DD 3.3%, Sharpe 1.80
-# ═══════════════════════════════════════════════════════════════════════
-
+# ==========================================================================
 V2R1_BASE_MUTATIONS: dict[str, Any] = {
     # Engine mode
     "param_overrides.pb_v2_enabled": True,
@@ -1188,7 +1186,7 @@ V2R1_BASE_MUTATIONS: dict[str, Any] = {
     "param_overrides.pb_open_scored_flow_reversal_lookback": 2,
     "param_overrides.pb_max_hold_days": 5,
     "param_overrides.pb_max_positions": 8,
-    "max_per_sector": 5,
+    "param_overrides.max_positions_per_sector": 5,
 }
 
 
@@ -1202,7 +1200,7 @@ V2R1_PHASE_FOCUS: dict[int, tuple[str, list[str]]] = {
 
 
 V2R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
-    # ── Phase 1: Stop, MFE Protection & Exit Priority (41 candidates) ──
+    # -- Phase 1: Stop, MFE Protection & Exit Priority (41 candidates) --
     1: [
         # EMA reversion min R -- baseline 0.10
         ("ema_min_005", {"param_overrides.pb_v2_ema_reversion_min_r": 0.05}),
@@ -1282,7 +1280,7 @@ V2R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         }),
     ],
 
-    # ── Phase 2: Signal & Scoring (31 candidates) ──
+    # -- Phase 2: Signal & Scoring (31 candidates) --
     2: [
         # Signal floor -- baseline 75.0
         ("floor_65", {"param_overrides.pb_v2_signal_floor": 65.0}),
@@ -1336,7 +1334,7 @@ V2R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         }),
     ],
 
-    # ── Phase 3: Route Diversification (22 candidates) ──
+    # -- Phase 3: Route Diversification (22 candidates) --
     3: [
         # DELAYED_CONFIRM relaxation -- currently 14 trades, +0.196R
         ("delayed_close_030", {"param_overrides.pb_v2_delayed_confirm_min_close_pct": 0.30}),
@@ -1399,7 +1397,7 @@ V2R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         }),
     ],
 
-    # ── Phase 4: Carry & Overnight (22 candidates) ──
+    # -- Phase 4: Carry & Overnight (22 candidates) --
     4: [
         # Flatten loss threshold -- baseline -0.50R
         ("flatten_loss_030", {"param_overrides.pb_v2_flatten_loss_r": -0.30}),
@@ -1457,7 +1455,7 @@ V2R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         }),
     ],
 
-    # ── Phase 5: Robustness & Sizing (15 candidates) ──
+    # -- Phase 5: Robustness & Sizing (15 candidates) --
     5: [
         # Day-of-week sizing
         ("dow_thu_080", {"param_overrides.pb_thursday_mult": 0.80}),
@@ -1467,9 +1465,9 @@ V2R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         ("max_pos_10", {"param_overrides.pb_max_positions": 10}),
         ("max_pos_12", {"param_overrides.pb_max_positions": 12}),
         # Sector cap
-        ("sector_max_3", {"max_per_sector": 3}),
-        ("sector_max_4", {"max_per_sector": 4}),
-        ("sector_max_2", {"max_per_sector": 2}),
+        ("sector_max_3", {"param_overrides.max_positions_per_sector": 3}),
+        ("sector_max_4", {"param_overrides.max_positions_per_sector": 4}),
+        ("sector_max_2", {"param_overrides.max_positions_per_sector": 2}),
         # Secular trend sizing -- baseline 0.65
         ("secular_050", {"param_overrides.pb_v2_secular_sizing_mult": 0.50}),
         ("secular_080", {"param_overrides.pb_v2_secular_sizing_mult": 0.80}),
@@ -1528,12 +1526,11 @@ def get_v2r1_phase_candidate_lookup(
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════
+# ==========================================================================
 # V2R2 -- Alpha-Maximizing Phased Optimization (Post-Phase-3 Restart)
 # Baseline: 810 trades, PF 1.55, avg_r +0.052, DD 1.9%, Sharpe 2.30
 # 3 phases, 55 candidates, immutable alpha-focused scoring
-# ═══════════════════════════════════════════════════════════════════════
-
+# ==========================================================================
 V2R2_BASE_MUTATIONS: dict[str, Any] = {
     # Engine mode
     "param_overrides.pb_v2_enabled": True,
@@ -1594,7 +1591,7 @@ V2R2_BASE_MUTATIONS: dict[str, Any] = {
     "param_overrides.pb_open_scored_flow_reversal_lookback": 2,
     "param_overrides.pb_max_hold_days": 5,
     "param_overrides.pb_max_positions": 8,
-    "max_per_sector": 5,
+    "param_overrides.max_positions_per_sector": 5,
 }
 
 
@@ -1606,7 +1603,7 @@ V2R2_PHASE_FOCUS: dict[int, tuple[str, list[str]]] = {
 
 
 V2R2_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
-    # ── Phase 1: Smart Carry & Exit Optimization (20 candidates) ──
+    # -- Phase 1: Smart Carry & Exit Optimization (20 candidates) --
     1: [
         # Carry close_pct gate -- baseline 0.55
         ("carry_close_060", {"param_overrides.pb_open_scored_carry_close_pct_min": 0.60}),
@@ -1658,7 +1655,7 @@ V2R2_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         }),
     ],
 
-    # ── Phase 2: Signal Quality & Frequency (21 candidates) ──
+    # -- Phase 2: Signal Quality & Frequency (21 candidates) --
     2: [
         # Signal floor -- baseline 75.0
         ("floor_65", {"param_overrides.pb_v2_signal_floor": 65.0}),
@@ -1704,7 +1701,7 @@ V2R2_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         }),
     ],
 
-    # ── Phase 3: Route Expansion & Profit Capture (14 candidates) ──
+    # -- Phase 3: Route Expansion & Profit Capture (14 candidates) --
     3: [
         # DELAYED_CONFIRM expansion -- +0.196R avg, 78.6% WR
         ("delayed_close_030", {"param_overrides.pb_v2_delayed_confirm_min_close_pct": 0.30}),
@@ -1777,13 +1774,12 @@ def get_v2r2_phase_candidate_lookup(
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════
+# ==========================================================================
 # V2R3 -- Structural Engine Fixes + Re-optimization
 # Baseline: V2R2 final (832 trades, PF 1.55, avg_r +0.055, DD 2.1%)
 # 2 phases: carry quality tuning (12), route expansion (10)
 # Key change: V2 carry quality gate now active, DELAYED_CONFIRM rescue
-# ═══════════════════════════════════════════════════════════════════════
-
+# ==========================================================================
 V2R3_BASE_MUTATIONS: dict[str, Any] = {
     # Inherit entire V2R2 base
     **V2R2_BASE_MUTATIONS,
@@ -1806,7 +1802,7 @@ V2R3_PHASE_FOCUS: dict[int, tuple[str, list[str]]] = {
 
 
 V2R3_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
-    # ── Phase 1: Route Expansion (10 candidates) ──
+    # -- Phase 1: Route Expansion (10 candidates) --
     1: [
         # DELAYED_CONFIRM rescue unlock
         ("delayed_rescue", {"param_overrides.pb_v2_delayed_confirm_allow_rescue": True}),
@@ -1877,11 +1873,10 @@ def get_v2r3_phase_candidate_lookup(
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════
+# ==========================================================================
 # V2R4 -- Overnight Profit Lock + Intraday Protection
 # Baseline: V2R3 final (832 trades, PF 1.58, avg_r +0.054, DD 2.1%)
-# ═══════════════════════════════════════════════════════════════════════
-
+# ==========================================================================
 V2R4_BASE_MUTATIONS: dict[str, Any] = {
     **V2R3_BASE_MUTATIONS,
 }
@@ -1894,7 +1889,7 @@ V2R4_PHASE_FOCUS: dict[int, tuple[str, list[str]]] = {
 
 
 V2R4_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
-    # ── Phase 1: Overnight Profit Lock (11 candidates) ──
+    # -- Phase 1: Overnight Profit Lock (11 candidates) --
     1: [
         # Pure profit lock variants (parameterize the hardcoded 0.75 threshold)
         ("lock_000", {"param_overrides.pb_v2_carry_profit_lock_r": 0.00}),
@@ -1919,7 +1914,7 @@ V2R4_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
             "param_overrides.pb_v2_carry_overnight_stop_atr": 0.50,
         }),
     ],
-    # ── Phase 2: Intraday Protection + Capacity (10 candidates) ──
+    # -- Phase 2: Intraday Protection + Capacity (10 candidates) --
     2: [
         # Individual MFE stage knobs (V2R2 tested combos, not individuals)
         ("mfe1_035", {"param_overrides.pb_v2_mfe_stage1_trigger": 0.35}),
@@ -1975,15 +1970,14 @@ def get_v2r4_phase_candidate_lookup(
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════
+# ==========================================================================
 # V3R1 -- Ablation-First Integration (Multiphase + V2R4 + Tier B)
 # Baseline: multiphase final + tier B (634 trades, PF 1.42, avg_r +0.082, 51.89R)
 # Phase 1 tests REMOVING subsystems; Phases 2-4 add V2R4 enhancements
-# ═══════════════════════════════════════════════════════════════════════
-
+# ==========================================================================
 V3R1_BASE_MUTATIONS: dict[str, Any] = {
     # Multiphase r4_hybrid cumulative mutations (64 params)
-    "max_per_sector": 2,
+    "param_overrides.max_positions_per_sector": 2,
     "param_overrides.pb_atr_stop_mult": 1.0,
     "param_overrides.pb_backtest_intraday_universe_only": True,
     "param_overrides.pb_carry_enabled": True,
@@ -2061,7 +2055,7 @@ V3R1_PHASE_FOCUS: dict[int, tuple[str, list[str]]] = {
 
 
 V3R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
-    # ── Phase 1: Ablation -- Structural Pruning (13 candidates) ──
+    # -- Phase 1: Ablation -- Structural Pruning (13 candidates) --
     # Test if removing multiphase subsystems IMPROVES the combined score.
     # Each candidate reverts a param group to engine defaults.
     1: [
@@ -2079,10 +2073,10 @@ V3R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         ("loosen_rank_pct", {"param_overrides.pb_entry_rank_pct_max": 80.0}),
         ("remove_sma_gate", {"param_overrides.pb_sma_dist_max_pct": 99.0}),
         # Structural
-        ("widen_sector", {"max_per_sector": 5}),
+        ("widen_sector", {"param_overrides.max_positions_per_sector": 5}),
         ("remove_tier_b", {"param_overrides.t2_regime_b_sizing_mult": 1.0}),
     ],
-    # ── Phase 2: V2R4 Exit Mechanics (14 candidates) ──
+    # -- Phase 2: V2R4 Exit Mechanics (14 candidates) --
     2: [
         # MFE staged protection (V2R4 core)
         ("mfe1_trigger_050", {"param_overrides.pb_v2_mfe_stage1_trigger": 0.5}),
@@ -2107,7 +2101,7 @@ V3R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         ("secular_065", {"param_overrides.pb_v2_secular_sizing_mult": 0.65}),
         ("secular_080", {"param_overrides.pb_v2_secular_sizing_mult": 0.80}),
     ],
-    # ── Phase 3: Carry + Signal Refinement (12 candidates) ──
+    # -- Phase 3: Carry + Signal Refinement (12 candidates) --
     3: [
         ("atr_stop_150", {"param_overrides.pb_atr_stop_mult": 1.5}),
         ("atr_stop_200", {"param_overrides.pb_atr_stop_mult": 2.0}),
@@ -2122,7 +2116,7 @@ V3R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         ("overnight_stop_125", {"param_overrides.pb_v2_carry_overnight_stop_atr": 1.25}),
         ("hold_days_3", {"param_overrides.pb_max_hold_days": 3}),
     ],
-    # ── Phase 4: Tier B + Capacity (14 candidates) ──
+    # -- Phase 4: Tier B + Capacity (14 candidates) --
     4: [
         # Tier B sizing (0.7 already in base; test alternatives)
         ("sizing_b_050", {"param_overrides.t2_regime_b_sizing_mult": 0.5}),
@@ -2134,8 +2128,8 @@ V3R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         ("carry_b_030", {"param_overrides.regime_b_carry_mult": 0.3}),
         ("carry_b_000", {"param_overrides.regime_b_carry_mult": 0.0}),
         # Tier B position limits
-        ("max_pos_b_4", {"max_positions_tier_b": 4}),
-        ("max_pos_b_7", {"max_positions_tier_b": 7}),
+        ("max_pos_b_4", {"param_overrides.max_positions_tier_b": 4}),
+        ("max_pos_b_7", {"param_overrides.max_positions_tier_b": 7}),
         # Capacity
         ("max_pos_8", {"param_overrides.pb_max_positions": 8}),
         ("max_pos_12", {"param_overrides.pb_max_positions": 12}),
@@ -2182,12 +2176,11 @@ def get_v3r1_phase_candidate_lookup(
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════
+# ==========================================================================
 # V4R1 -- Comprehensive Auto-Optimization (V2R4 base + all lineages)
 # Baseline: V2R4 cumulative (46 keys) -- 634 trades, PF 1.42, avg_r +0.082, 51.89R
 # 5 phases: ablation, tier B grid, multiphase adoption, exit tuning, signal sweep
-# ═══════════════════════════════════════════════════════════════════════
-
+# ==========================================================================
 V4R1_BASE_MUTATIONS: dict[str, Any] = {
     # V2R4 cumulative mutations (46 keys) -- verbatim from output_v2r4/phase_state.json
     "param_overrides.pb_v2_enabled": True,
@@ -2232,7 +2225,7 @@ V4R1_BASE_MUTATIONS: dict[str, Any] = {
     "param_overrides.pb_open_scored_flow_reversal_lookback": 2,
     "param_overrides.pb_max_hold_days": 2,
     "param_overrides.pb_max_positions": 10,
-    "max_per_sector": 5,
+    "param_overrides.max_positions_per_sector": 5,
     "param_overrides.pb_open_scored_max_hold_days": 2,
     "param_overrides.pb_carry_close_pct_min": 0.0,
     "param_overrides.pb_carry_mfe_gate_r": 0.0,
@@ -2249,7 +2242,7 @@ V4R1_PHASE_FOCUS: dict[int, tuple[str, list[str]]] = {
 
 
 V4R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
-    # ── Phase 1: V2R4 Structural Ablation (15 candidates) ──
+    # -- Phase 1: V2R4 Structural Ablation (15 candidates) --
     # Each candidate REMOVES a feature. If score improves, the feature was hurting.
     1: [
         ("ablate_delayed_confirm", {"param_overrides.pb_delayed_confirm_enabled": False}),
@@ -2265,15 +2258,15 @@ V4R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         ("ablate_hold_limit", {"param_overrides.pb_max_hold_days": 999}),
         ("reduce_max_pos_6", {"param_overrides.pb_max_positions": 6}),
         ("reduce_max_pos_8", {"param_overrides.pb_max_positions": 8}),
-        ("reduce_sector_3", {"max_per_sector": 3}),
+        ("reduce_sector_3", {"param_overrides.max_positions_per_sector": 3}),
         ("widen_atr_stop_3", {"param_overrides.pb_atr_stop_mult": 3.0}),
     ],
-    # ── Phase 2: Tier B Full Grid (11 candidates) ──
+    # -- Phase 2: Tier B Full Grid (11 candidates) --
     # Re-test ALL tier B options on the (potentially pruned) V2R4 base.
     2: [
-        ("tier_b_max_pos_3", {"max_positions_tier_b": 3}),
-        ("tier_b_max_pos_4", {"max_positions_tier_b": 4}),
-        ("tier_b_max_pos_6", {"max_positions_tier_b": 6}),
+        ("tier_b_max_pos_3", {"param_overrides.max_positions_tier_b": 3}),
+        ("tier_b_max_pos_4", {"param_overrides.max_positions_tier_b": 4}),
+        ("tier_b_max_pos_6", {"param_overrides.max_positions_tier_b": 6}),
         ("tier_b_floor_78", {"param_overrides.pb_v2_signal_floor_tier_b": 78.0}),
         ("tier_b_floor_80", {"param_overrides.pb_v2_signal_floor_tier_b": 80.0}),
         ("tier_b_carry_0", {"param_overrides.regime_b_carry_mult": 0.0}),
@@ -2281,9 +2274,9 @@ V4R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         ("tier_b_sizing_05", {"param_overrides.t2_regime_b_sizing_mult": 0.5}),
         ("tier_b_sizing_07", {"param_overrides.t2_regime_b_sizing_mult": 0.7}),
         ("tier_b_no_delayed", {"param_overrides.pb_delayed_confirm_enabled": False}),
-        ("tier_b_best_combo", {"max_positions_tier_b": 6, "param_overrides.t2_regime_b_sizing_mult": 0.7}),
+        ("tier_b_best_combo", {"param_overrides.max_positions_tier_b": 6, "param_overrides.t2_regime_b_sizing_mult": 0.7}),
     ],
-    # ── Phase 3: Multiphase Feature Adoption (19 candidates) ──
+    # -- Phase 3: Multiphase Feature Adoption (19 candidates) --
     # Test multiphase-unique features on the pruned V2R4 + tier B base.
     3: [
         ("mp_entry_rank_gating", {
@@ -2298,7 +2291,7 @@ V4R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
             "param_overrides.pb_min_candidates_day_hard_gate": False,
         }),
         ("mp_sma_dist_cap", {"param_overrides.pb_sma_dist_max_pct": 10.0}),
-        ("mp_sector_tight", {"max_per_sector": 2}),
+        ("mp_sector_tight", {"param_overrides.max_positions_per_sector": 2}),
         ("mp_thursday_discount", {
             "param_overrides.pb_wednesday_mult": 1.0,
             "param_overrides.pb_thursday_mult": 0.5,
@@ -2363,7 +2356,7 @@ V4R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         ("mp_priority_reserve", {"param_overrides.pb_intraday_priority_reserve_slots": 1}),
         ("mp_no_rescue_flow", {"param_overrides.pb_rescue_flow_enabled": False}),
     ],
-    # ── Phase 4: Exit Mechanics Tuning (20 candidates) ──
+    # -- Phase 4: Exit Mechanics Tuning (20 candidates) --
     4: [
         # MFE staged protection
         ("mfe_s1_trigger_03", {"param_overrides.pb_v2_mfe_stage1_trigger": 0.3}),
@@ -2392,7 +2385,7 @@ V4R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         ("stale_mfe_003", {"param_overrides.pb_v2_stale_mfe_thresh": 0.03}),
         ("stale_mfe_008", {"param_overrides.pb_v2_stale_mfe_thresh": 0.08}),
     ],
-    # ── Phase 5: Signal Threshold Sweep (10 candidates) ──
+    # -- Phase 5: Signal Threshold Sweep (10 candidates) --
     5: [
         ("signal_floor_72", {"param_overrides.pb_v2_signal_floor": 72.0}),
         ("signal_floor_78", {"param_overrides.pb_v2_signal_floor": 78.0}),
@@ -2519,7 +2512,7 @@ V5R1_BASE_MUTATIONS: dict[str, Any] = {
     "param_overrides.pb_open_scored_flow_reversal_lookback": 2,
     "param_overrides.pb_max_hold_days": 2,
     "param_overrides.pb_max_positions": 10,
-    "max_per_sector": 2,
+    "param_overrides.max_positions_per_sector": 2,
     "param_overrides.pb_open_scored_max_hold_days": 2,
     "param_overrides.pb_carry_close_pct_min": 0.0,
     "param_overrides.pb_carry_mfe_gate_r": 0.0,
@@ -2616,16 +2609,16 @@ V5R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         }),
     ],
     3: [
-        ("sector_cap_3", {"max_per_sector": 3}),
-        ("sector_cap_4", {"max_per_sector": 4}),
+        ("sector_cap_3", {"param_overrides.max_positions_per_sector": 3}),
+        ("sector_cap_4", {"param_overrides.max_positions_per_sector": 4}),
         ("max_pos_11", {"param_overrides.pb_max_positions": 11}),
         ("max_pos_12", {"param_overrides.pb_max_positions": 12}),
         ("sector3_pos12", {
-            "max_per_sector": 3,
+            "param_overrides.max_positions_per_sector": 3,
             "param_overrides.pb_max_positions": 12,
         }),
-        ("tier_b_cap_6", {"max_positions_tier_b": 6}),
-        ("tier_b_cap_7", {"max_positions_tier_b": 7}),
+        ("tier_b_cap_6", {"param_overrides.max_positions_tier_b": 6}),
+        ("tier_b_cap_7", {"param_overrides.max_positions_tier_b": 7}),
         ("tier_b_floor_72", {"param_overrides.pb_v2_signal_floor_tier_b": 72.0}),
         ("tier_b_floor_78", {"param_overrides.pb_v2_signal_floor_tier_b": 78.0}),
         ("tier_b_size_060", {"param_overrides.t2_regime_b_sizing_mult": 0.60}),
@@ -2633,7 +2626,7 @@ V5R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         ("leverage_250", {"param_overrides.intraday_leverage": 2.5}),
         ("leverage_300", {"param_overrides.intraday_leverage": 3.0}),
         ("capacity_quality_bundle", {
-            "max_per_sector": 3,
+            "param_overrides.max_positions_per_sector": 3,
             "param_overrides.pb_max_positions": 12,
             "param_overrides.pb_v2_open_scored_min_score": 50.0,
         }),
@@ -2690,13 +2683,13 @@ V5R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
     5: [
         ("combo_gap_capacity", {
             "param_overrides.pb_v2_gap_max_pct": 1.0,
-            "max_per_sector": 3,
+            "param_overrides.max_positions_per_sector": 3,
             "param_overrides.pb_max_positions": 12,
         }),
         ("combo_floor72_gap_capacity", {
             "param_overrides.pb_v2_signal_floor": 72.0,
             "param_overrides.pb_v2_gap_max_pct": 1.0,
-            "max_per_sector": 3,
+            "param_overrides.max_positions_per_sector": 3,
             "param_overrides.pb_max_positions": 12,
         }),
         ("combo_route_quarantine", {
@@ -2736,7 +2729,7 @@ V5R1_PHASE_CANDIDATES: dict[int, list[tuple[str, dict[str, Any]]]] = {
         }),
         ("combo_no_secular_capacity", {
             "param_overrides.pb_v2_allow_secular": False,
-            "max_per_sector": 3,
+            "param_overrides.max_positions_per_sector": 3,
             "param_overrides.pb_max_positions": 12,
         }),
         ("combo_missing5m_strict_open", {
@@ -2956,3 +2949,4 @@ def get_v5r2_phase_candidate_lookup(
             accepted_mutations=accepted_mutations,
         )
     }
+

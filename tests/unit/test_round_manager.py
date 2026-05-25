@@ -3,7 +3,17 @@ from __future__ import annotations
 import json
 
 from backtests.shared.auto.phase_state import PhaseState, save_phase_state
+from backtests.shared.auto.provenance import build_auto_run_provenance, build_json_item
 from backtests.shared.auto.round_manager import RoundManager, canonicalize_metrics
+
+
+def _provenance(selection_value: str, diagnostics_value: str = "diag"):
+    return build_auto_run_provenance(
+        [
+            build_json_item("selection_inputs", {"value": selection_value}),
+            build_json_item("diagnostics_inputs", {"value": diagnostics_value}, scope="diagnostics"),
+        ]
+    )
 
 
 def test_bootstrap_round_1_writes_canonical_artifacts(tmp_path) -> None:
@@ -135,3 +145,119 @@ def test_resolve_round_detects_missing_directory_for_manifest_round(tmp_path) ->
         assert False, "Expected FileNotFoundError when latest manifest round has no directory."
     except FileNotFoundError:
         pass
+
+
+def test_manifest_entries_persist_provenance_fields(tmp_path) -> None:
+    manager = RoundManager("momentum", "sample", base_dir=tmp_path / "output")
+    provenance = _provenance("current")
+
+    manager.append_to_manifest(
+        1,
+        {"flags.enabled": True},
+        {"total_trades": 8},
+        provenance=provenance,
+        provenance_status="complete",
+    )
+
+    entry = manager.load_manifest()["rounds"][0]
+    assert entry["selection_fingerprint"] == provenance.selection_fingerprint
+    assert entry["diagnostics_fingerprint"] == provenance.diagnostics_fingerprint
+    assert entry["provenance_schema_version"] == provenance.schema_version
+    assert entry["provenance_status"] == "complete"
+
+
+def test_validate_previous_round_provenance_rejects_selection_drift(tmp_path) -> None:
+    manager = RoundManager("momentum", "sample", base_dir=tmp_path / "output")
+    round_dir = manager.get_round_dir(1)
+    previous = _provenance("old")
+    manager.write_run_summary(
+        round_dir,
+        {"flags.enabled": True},
+        {"total_trades": 8},
+        [1],
+        round_num=1,
+        provenance=previous,
+        provenance_status="complete",
+    )
+    manager.write_optimized_config(round_dir, {"flags.enabled": True})
+    manager.append_to_manifest(
+        1,
+        {"flags.enabled": True},
+        {"total_trades": 8},
+        provenance=previous,
+        provenance_status="complete",
+    )
+
+    result = manager.validate_previous_round_provenance(2, _provenance("new"))
+
+    assert not result.valid
+    assert result.status == "selection_drift"
+    assert result.selection_drift
+    assert result.changed_items == ("changed selection:stable_json:selection_inputs",)
+
+
+def test_get_previous_mutations_validates_provenance_when_supplied(tmp_path) -> None:
+    manager = RoundManager("momentum", "sample", base_dir=tmp_path / "output")
+    round_dir = manager.get_round_dir(1)
+    previous = _provenance("old")
+    manager.write_run_summary(
+        round_dir,
+        {"flags.enabled": True},
+        {"total_trades": 8},
+        [1],
+        round_num=1,
+        provenance=previous,
+        provenance_status="complete",
+    )
+    manager.write_optimized_config(round_dir, {"flags.enabled": True})
+    manager.append_to_manifest(
+        1,
+        {"flags.enabled": True},
+        {"total_trades": 8},
+        provenance=previous,
+        provenance_status="complete",
+    )
+
+    try:
+        manager.get_previous_mutations(2, current_provenance=_provenance("new"))
+        assert False, "Expected provenance validation failure before loading previous mutations."
+    except RuntimeError as exc:
+        assert "Selection provenance changed" in str(exc)
+
+
+def test_validate_previous_round_provenance_allows_diagnostics_only_drift(tmp_path) -> None:
+    manager = RoundManager("momentum", "sample", base_dir=tmp_path / "output")
+    round_dir = manager.get_round_dir(1)
+    previous = _provenance("same", "old_diag")
+    manager.write_run_summary(
+        round_dir,
+        {"flags.enabled": True},
+        {"total_trades": 8},
+        [1],
+        round_num=1,
+        provenance=previous,
+        provenance_status="complete",
+    )
+
+    result = manager.validate_previous_round_provenance(2, _provenance("same", "new_diag"))
+
+    assert result.valid
+    assert result.status == "diagnostics_drift"
+    assert result.diagnostics_drift
+    assert result.changed_items == ("changed diagnostics:stable_json:diagnostics_inputs",)
+
+
+def test_archive_rounds_marks_manifest_and_moves_canonical_dirs(tmp_path) -> None:
+    manager = RoundManager("momentum", "sample", base_dir=tmp_path / "output")
+    round_dir = manager.get_round_dir(1)
+    (round_dir / "optimized_config.json").write_text('{"flags.enabled": true}', encoding="utf-8")
+    manager.append_to_manifest(1, {"flags.enabled": True}, {"total_trades": 8})
+
+    archive_dir = manager.archive_rounds([1], reason="selection_stale_after_test")
+
+    assert not round_dir.exists()
+    assert (archive_dir / "round_1" / "optimized_config.json").exists()
+    assert manager.get_latest_round() == 0
+    entry = manager.load_manifest()["rounds"][0]
+    assert entry["archived"] is True
+    assert entry["archive_reason"] == "selection_stale_after_test"

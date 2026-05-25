@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 
 class IntentType(Enum):
     NEW_ORDER = "NEW_ORDER"
+    PREAPPROVED_ORDER = "PREAPPROVED_ORDER"
     CANCEL_ORDER = "CANCEL_ORDER"
     REPLACE_ORDER = "REPLACE_ORDER"
     FLATTEN = "FLATTEN"
@@ -17,6 +18,23 @@ class IntentType(Enum):
 class IntentResult(Enum):
     ACCEPTED = "ACCEPTED"
     DENIED = "DENIED"
+
+
+@dataclass(frozen=True)
+class PreapprovedFamilyDecision:
+    """Authoritative family replay approval used to bypass only family risk."""
+
+    candidate_key: str
+    family_surface: str
+    strategy_id: str
+    symbol: str
+    side: str
+    role: str
+    sequence: int
+    original_qty: int
+    approved_qty: int
+    status: str
+    reason: str = ""
 
 
 @dataclass
@@ -33,6 +51,9 @@ class Intent:
     new_stop_price: Optional[float] = None
     # For FLATTEN: optional instrument filter
     instrument_symbol: Optional[str] = None
+    # For PREAPPROVED_ORDER: provenance and approval contract from a family
+    # replay/backtest surface. Generic PREAPPROVED_ORDER submissions are denied.
+    preapproved_family_decision: Optional[PreapprovedFamilyDecision] = None
 
 
 @dataclass

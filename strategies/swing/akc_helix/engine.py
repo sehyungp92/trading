@@ -27,6 +27,10 @@ from libs.oms.models.order import (
 )
 from libs.oms.risk.calculator import RiskCalculator
 from libs.services.trade_recorder import TradeRecorder
+from strategies.core.idle_market import (
+    maybe_record_idle_market_observation,
+    remember_idle_market_bars,
+)
 
 from . import allocator, gates, signals, stops
 from .circuit import roll_circuit_breaker_window
@@ -204,6 +208,7 @@ class HelixEngine:
         instrumentation_kit: Any | None = None,
         equity_offset: float = 0.0,
         equity_alloc_pct: float = 1.0,
+        disable_background_tasks: bool = False,
     ) -> None:
         self._ib = ib_session
         self._oms = oms_service
@@ -217,6 +222,7 @@ class HelixEngine:
         self._coordinator = coordinator
         self._market_cal = market_calendar
         self._kit = instrumentation_kit
+        self._disable_background_tasks = bool(disable_background_tasks)
 
         # Wire drawdown tracker with initial equity
         if self._kit and self._kit.ctx and self._kit.ctx.drawdown_tracker:
@@ -275,6 +281,17 @@ class HelixEngine:
         self._symbol_last_bar_ts: dict[str, datetime] = {}
 
     def _record_decision(self, code: str, details: dict | None = None) -> None:
+        if maybe_record_idle_market_observation(
+            self,
+            code,
+            strategy_id=STRATEGY_ID,
+            build_core_state=lambda: build_core_runtime_state(self),
+            apply_core_state=lambda state: apply_core_runtime_state(self, state),
+            on_bar=akc_helix_core_logic.on_bar,
+            default_symbol="",
+            default_timeframe="1h",
+        ):
+            return
         self._last_decision_code = code
         self._last_decision_details = details or {}
 
@@ -460,37 +477,38 @@ class HelixEngine:
             self.regime_4h.setdefault(sym, Regime.CHOP)
             self.circuit_breakers.setdefault(sym, CircuitBreakerState())
 
-        # Subscribe to live market data for spread gate + trigger detection
-        for sym in self._config:
-            contract = self._get_contract(sym)
-            if contract:
-                try:
-                    if not getattr(contract, "conId", 0):
-                        qualified = await self._ib.ib.qualifyContractsAsync(contract)
-                        if not qualified:
-                            logger.warning("Could not qualify contract for %s", sym)
-                            continue
-                        contract = qualified[0]
-                        self._cache_contract(sym, contract)
-                    self._tickers[sym] = self._ib.ib.reqMktData(contract, '', False, False)
-                except Exception as e:
-                    logger.warning("Could not subscribe mkt data for %s: %s", sym, e)
+        if not self._disable_background_tasks:
+            # Subscribe to live market data for spread gate + trigger detection
+            for sym in self._config:
+                contract = self._get_contract(sym)
+                if contract:
+                    try:
+                        if not getattr(contract, "conId", 0):
+                            qualified = await self._ib.ib.qualifyContractsAsync(contract)
+                            if not qualified:
+                                logger.warning("Could not qualify contract for %s", sym)
+                                continue
+                            contract = qualified[0]
+                            self._cache_contract(sym, contract)
+                        self._tickers[sym] = self._ib.ib.reqMktData(contract, '', False, False)
+                    except Exception as e:
+                        logger.warning("Could not subscribe mkt data for %s: %s", sym, e)
 
-        # Load initial bar history and compute initial states
-        await self._load_initial_bars()
+            # Load initial bar history and compute initial states
+            await self._load_initial_bars()
 
-        # Register ticker-update callback as primary trigger detector
-        self._ib.ib.pendingTickersEvent += self._on_ticker_update
+            # Register ticker-update callback as primary trigger detector
+            self._ib.ib.pendingTickersEvent += self._on_ticker_update
 
-        # Register farm-recovery handler for automatic market data resubscription
-        self._ib.register_farm_recovery_callback("default", self._on_farm_recovery)
+            # Register farm-recovery handler for automatic market data resubscription
+            self._ib.register_farm_recovery_callback("default", self._on_farm_recovery)
 
-        # Start hourly cycle scheduler
-        self._cycle_task = asyncio.create_task(self._hourly_scheduler())
-        # Start fallback trigger monitor (15s safety net if ticker events lag)
-        self._trigger_task = asyncio.create_task(self._trigger_monitor())
-        # Start window-close scheduler (spec s1.2: cancel at 15:45 ET immediately)
-        self._window_close_task: asyncio.Task | None = asyncio.create_task(self._window_close_scheduler())
+            # Start hourly cycle scheduler
+            self._cycle_task = asyncio.create_task(self._hourly_scheduler())
+            # Start fallback trigger monitor (15s safety net if ticker events lag)
+            self._trigger_task = asyncio.create_task(self._trigger_monitor())
+            # Start window-close scheduler (spec s1.2: cancel at 15:45 ET immediately)
+            self._window_close_task: asyncio.Task | None = asyncio.create_task(self._window_close_scheduler())
         logger.info("Helix engine started for %s", list(self._config.keys()))
 
     async def stop(self) -> None:
@@ -2528,7 +2546,7 @@ class HelixEngine:
             await self._handle_coordination(event.payload or {})
             return
 
-        if etype == OMSEventType.FILL or etype == OMSEventType.ORDER_FILLED:
+        if etype == OMSEventType.FILL:
             await self._on_fill_core_routed(oms_id, event)
         elif etype == OMSEventType.RISK_HALT:
             await self._on_risk_halt((event.payload or {}).get("reason", ""))
@@ -3434,10 +3452,27 @@ class HelixEngine:
                 request_kind=request_kind,
                 completed_only=True,
             )
+            if bars and self._bar_size_to_idle_timeframe(bar_size) == "1h":
+                remember_idle_market_bars(self, bars, symbol=sym, timeframe="1h")
             return bars if bars else None
         except Exception:
             logger.exception("Error fetching %s bars for %s", bar_size, sym)
             return None
+
+    @staticmethod
+    def _bar_size_to_idle_timeframe(bar_size: str) -> str:
+        text = str(bar_size).lower()
+        if "day" in text:
+            return "1d"
+        if "hour" in text:
+            return "4h" if text.startswith("4") else "1h"
+        if "30" in text:
+            return "30m"
+        if "15" in text:
+            return "15m"
+        if "5" in text:
+            return "5m"
+        return ""
 
     def _get_contract(self, sym: str) -> Any | None:
         """Get the IB contract for a symbol from cache or build a generic one."""

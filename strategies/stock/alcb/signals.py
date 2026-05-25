@@ -83,6 +83,8 @@ def _true_ranges(bars: list[ResearchDailyBar | Bar]) -> list[float]:
 
 
 def atr_from_bars(bars: list[ResearchDailyBar | Bar], period: int) -> float:
+    if period > 0 and len(bars) > period + 1:
+        bars = bars[-(period + 1):]
     true_ranges = _true_ranges(bars)
     if len(true_ranges) < period:
         if not true_ranges:
@@ -114,6 +116,7 @@ def intraday_rvol_30m(bars: list[Bar], lookback: int = 20) -> float:
 def adx_from_bars(bars: list[Bar], period: int = 14) -> float:
     if len(bars) < period + 2:
         return 0.0
+    bars = bars[-(period + 1):]
     true_ranges: list[float] = []
     plus_dm: list[float] = []
     minus_dm: list[float] = []

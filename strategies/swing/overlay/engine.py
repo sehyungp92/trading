@@ -54,6 +54,7 @@ class OverlayEngine:
         db_pool: Any | None = None,
         get_deployed_capital: Any | None = None,
         equity_alloc_pct: float = 1.0,
+        disable_scheduler: bool = False,
     ) -> None:
         self._ib = ib_session
         self._equity = equity
@@ -64,6 +65,7 @@ class OverlayEngine:
         self._db_pool = db_pool
         self._get_deployed_capital = get_deployed_capital  # callback: () -> float (swing OMS notional)
         self._equity_alloc_pct = equity_alloc_pct
+        self._disable_scheduler = bool(disable_scheduler)
 
         # Resolved IB contracts: symbol -> Contract
         self._contracts: dict[str, Any] = {}
@@ -106,6 +108,140 @@ class OverlayEngine:
             "symbol_freshness": {},
         }
 
+    def build_rebalance_plan_from_bars(
+        self,
+        daily_bars: dict[str, Any],
+        *,
+        equity: float | None = None,
+        deployed_capital: float | None = None,
+        min_bars: int = 50,
+    ) -> dict[str, Any]:
+        """Plan an overlay rebalance from daily bars without placing orders."""
+
+        base_equity = float(equity if equity is not None else self._equity)
+        deployed = (
+            float(deployed_capital)
+            if deployed_capital is not None
+            else self._resolve_deployed_capital()
+        )
+        net_equity = max(base_equity - deployed, 0.0)
+        available = max(net_equity * self._config.max_equity_pct, 0.0)
+        signals: dict[str, bool] = {}
+        prices: dict[str, float] = {}
+        ema_cache: dict[str, tuple[float, float, int, int]] = {}
+
+        for sym in self._config.symbols:
+            rows = daily_bars.get(sym) or daily_bars.get(str(sym).upper()) or []
+            if not rows or len(rows) < min_bars:
+                logger.warning("Overlay: insufficient bars for %s (%d)", sym, len(rows) if rows else 0)
+                signals[sym] = False
+                continue
+
+            closes = np.array([self._bar_close(row) for row in rows], dtype=float)
+            prices[sym] = float(closes[-1])
+            fast, slow = self._config.ema_overrides.get(
+                sym,
+                (self._config.ema_fast, self._config.ema_slow),
+            )
+            ema_fast = _compute_ema(closes, fast)
+            ema_slow = _compute_ema(closes, slow)
+            if np.isnan(ema_fast[-1]) or np.isnan(ema_slow[-1]):
+                signals[sym] = False
+            else:
+                signals[sym] = bool(ema_fast[-1] > ema_slow[-1])
+                ema_cache[sym] = (float(ema_fast[-1]), float(ema_slow[-1]), fast, slow)
+            logger.info(
+                "Overlay: %s EMA(%d)=%.2f EMA(%d)=%.2f -> %s",
+                sym, fast, ema_fast[-1], slow, ema_slow[-1],
+                "BULLISH" if signals[sym] else "BEARISH",
+            )
+
+        target_shares = allocate_weighted_targets(
+            self._config.symbols,
+            signals=signals,
+            prices=prices,
+            portfolio_equity=net_equity,
+            max_equity_pct=self._config.max_equity_pct,
+            weights=self._config.weights,
+        )
+        bullish_w = {s: 1.0 for s in self._config.symbols if signals.get(s)}
+        if self._config.weights is not None:
+            bullish_w = {
+                s: self._config.weights.get(s, 1.0)
+                for s in self._config.symbols if signals.get(s)
+            }
+        return {
+            "signals": signals,
+            "prices": prices,
+            "ema_cache": ema_cache,
+            "target_shares": target_shares,
+            "bullish_weights": bullish_w,
+            "total_weight": sum(bullish_w.values()),
+            "equity": base_equity,
+            "deployed_capital": deployed,
+            "net_equity": net_equity,
+            "available_capital": available,
+        }
+
+    def apply_rebalance_plan_dry_run(
+        self,
+        plan: dict[str, Any],
+        *,
+        timestamp: str | datetime | None = None,
+        reason: str = "fixture",
+    ) -> dict[str, Any]:
+        """Apply a planned rebalance to state without broker orders."""
+
+        target_shares = plan.get("target_shares", {}) or {}
+        for symbol in self._config.symbols:
+            self._shares[symbol] = int(target_shares.get(symbol, 0))
+        self._last_signals = dict(plan.get("signals", {}) or {})
+        self._last_rebalance_date = str(timestamp or datetime.now(timezone.utc))[:10]
+        self._rebalances_completed += 1
+        active_symbols = [symbol for symbol in self._config.symbols if self._shares.get(symbol, 0) > 0]
+        self._record_decision(
+            "MANAGING_POSITION" if active_symbols else "NO_SIGNAL",
+            {
+                "reason": reason,
+                "target_shares": {
+                    symbol: int(target_shares.get(symbol, 0))
+                    for symbol in self._config.symbols
+                },
+                "prices": {
+                    symbol: (plan.get("prices", {}) or {}).get(symbol)
+                    for symbol in self._config.symbols
+                    if symbol in (plan.get("prices", {}) or {})
+                },
+                "equity": plan.get("equity"),
+                "deployed_capital": plan.get("deployed_capital"),
+                "net_equity": plan.get("net_equity"),
+                "available_capital": plan.get("available_capital"),
+            },
+        )
+        return {
+            "positions": self.get_positions(),
+            "signals": self.get_signals(),
+            "last_rebalance_date": self._last_rebalance_date,
+            "last_decision_code": self._last_decision_code,
+            "last_decision_details": dict(self._last_decision_details),
+            "rebalances_completed": self._rebalances_completed,
+        }
+
+    def _resolve_deployed_capital(self) -> float:
+        if self._get_deployed_capital is None:
+            return 0.0
+        try:
+            return float(self._get_deployed_capital())
+        except Exception:
+            logger.warning("Overlay: could not query deployed capital, assuming $0")
+            return 0.0
+
+    @staticmethod
+    def _bar_close(row: Any) -> float:
+        if isinstance(row, dict):
+            return float(row["close"])
+        return float(row.close)
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
@@ -115,27 +251,29 @@ class OverlayEngine:
         logger.info("Overlay engine starting …")
         self._running = True
 
-        # Resolve ETF contracts through the shared contract factory when available.
-        cf = getattr(self._ib, "_contract_factory", None)
-        for sym in self._config.symbols:
-            try:
-                if cf is not None:
-                    contract, _ = await cf.resolve(sym)
-                    self._contracts[sym] = contract
-                    continue
-                from ib_async import Stock
-                contract = Stock(sym, "SMART", "USD")
-                qualified = await self._ib.ib.qualifyContractsAsync(contract)
-                if qualified:
-                    self._contracts[sym] = qualified[0]
-            except Exception as e:
-                logger.warning("Overlay: could not resolve contract for %s: %s", sym, e)
+        if not self._disable_scheduler:
+            # Resolve ETF contracts through the shared contract factory when available.
+            cf = getattr(self._ib, "_contract_factory", None)
+            for sym in self._config.symbols:
+                try:
+                    if cf is not None:
+                        contract, _ = await cf.resolve(sym)
+                        self._contracts[sym] = contract
+                        continue
+                    from ib_async import Stock
+                    contract = Stock(sym, "SMART", "USD")
+                    qualified = await self._ib.ib.qualifyContractsAsync(contract)
+                    if qualified:
+                        self._contracts[sym] = qualified[0]
+                except Exception as e:
+                    logger.warning("Overlay: could not resolve contract for %s: %s", sym, e)
 
         # Load persisted state
         self._load_state()
 
         # Launch daily scheduler
-        self._daily_task = asyncio.create_task(self._daily_scheduler())
+        if not self._disable_scheduler:
+            self._daily_task = asyncio.create_task(self._daily_scheduler())
 
         logger.info(
             "Overlay engine started (symbols: %s, shares: %s)",
@@ -200,28 +338,20 @@ class OverlayEngine:
         # 1. Refresh equity from IB
         await self._refresh_equity()
 
-        # Subtract capital deployed by swing strategies to avoid double-counting
-        deployed = 0.0
-        if self._get_deployed_capital:
-            try:
-                deployed = self._get_deployed_capital()
-            except Exception:
-                logger.warning("Overlay: could not query deployed capital, assuming $0")
+        deployed = self._resolve_deployed_capital()
         net_equity = max(self._equity - deployed, 0.0)
         available = max(net_equity * self._config.max_equity_pct, 0.0)
         if deployed > 0:
             logger.info("Overlay: equity=$%.2f deployed=$%.2f net=$%.2f available=$%.2f",
                         self._equity, deployed, net_equity, available)
 
-        # 2-3. Fetch bars and compute EMAs per symbol
-        signals: dict[str, bool] = {}
-        prices: dict[str, float] = {}
-        ema_cache: dict[str, tuple[float, float, int, int]] = {}  # sym → (fast_val, slow_val, fast_p, slow_p)
+        # 2-3. Fetch bars; the shared planner computes EMAs and targets.
+        daily_bars: dict[str, Any] = {}
 
         for sym in self._config.symbols:
             contract = self._contracts.get(sym)
             if not contract:
-                signals[sym] = False
+                daily_bars[sym] = []
                 continue
 
             try:
@@ -232,40 +362,23 @@ class OverlayEngine:
                 )
             except Exception:
                 logger.warning("Overlay: failed to fetch bars for %s", sym)
-                signals[sym] = False
+                daily_bars[sym] = []
                 continue
 
-            if not bars or len(bars) < 50:
-                logger.warning(
-                    "Overlay: insufficient bars for %s (%d)",
-                    sym, len(bars) if bars else 0,
-                )
-                signals[sym] = False
-                continue
+            daily_bars[sym] = list(bars or [])
 
-            closes = np.array([b.close for b in bars], dtype=float)
-            prices[sym] = float(closes[-1])
-
-            # Get EMA periods (per-symbol override or default)
-            fast, slow = self._config.ema_overrides.get(
-                sym, (self._config.ema_fast, self._config.ema_slow),
-            )
-
-            ema_fast = _compute_ema(closes, fast)
-            ema_slow = _compute_ema(closes, slow)
-
-            # 4. Determine bullish: fast EMA > slow EMA at latest bar
-            if np.isnan(ema_fast[-1]) or np.isnan(ema_slow[-1]):
-                signals[sym] = False
-            else:
-                signals[sym] = bool(ema_fast[-1] > ema_slow[-1])
-                ema_cache[sym] = (float(ema_fast[-1]), float(ema_slow[-1]), fast, slow)
-
-            logger.info(
-                "Overlay: %s EMA(%d)=%.2f EMA(%d)=%.2f → %s",
-                sym, fast, ema_fast[-1], slow, ema_slow[-1],
-                "BULLISH" if signals[sym] else "BEARISH",
-            )
+        plan = self.build_rebalance_plan_from_bars(
+            daily_bars,
+            equity=self._equity,
+            deployed_capital=deployed,
+            min_bars=50,
+        )
+        signals = plan["signals"]
+        prices = plan["prices"]
+        ema_cache = plan["ema_cache"]
+        target_shares = plan["target_shares"]
+        bullish_w = plan["bullish_weights"]
+        total_w = plan["total_weight"]
 
         # 4b. Log signal transitions via coordination logger
         if self._last_signals:
@@ -291,23 +404,6 @@ class OverlayEngine:
                     except Exception:
                         pass
         self._last_signals = dict(signals)
-
-        # 5. Compute target shares from the shared decision/allocation helper.
-        target_shares = allocate_weighted_targets(
-            self._config.symbols,
-            signals=signals,
-            prices=prices,
-            portfolio_equity=net_equity,
-            max_equity_pct=self._config.max_equity_pct,
-            weights=self._config.weights,
-        )
-        bullish_w = {s: 1.0 for s in self._config.symbols if signals.get(s)}
-        if self._config.weights is not None:
-            bullish_w = {
-                s: self._config.weights.get(s, 1.0)
-                for s in self._config.symbols if signals.get(s)
-            }
-        total_w = sum(bullish_w.values())
 
         # 6-8. Compute deltas and place orders
         for sym in self._config.symbols:

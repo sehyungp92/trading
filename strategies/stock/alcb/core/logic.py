@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Iterable
 
 from strategies.core.actions import FlattenPosition, ReplaceProtectiveStop, SubmitEntry, SubmitExit, SubmitPartialExit
 from strategies.core.events import DecisionEvent
+from strategies.core.idle_market import idle_market_details
 from strategies.stock.alcb.models import Direction, EntryType, PositionPlan, T2PositionState
 
 from .state import (
@@ -78,6 +80,9 @@ def on_bar(
     stop_update: ALCBStopUpdateRequest | None = None,
     partial_exit_request: ALCBPartialExitRequest | None = None,
     flatten_request: ALCBFlattenRequest | None = None,
+    idle_market_bars: Sequence[object] | None = None,
+    idle_market_symbol: str = "",
+    idle_market_timeframe: str = "5m",
 ) -> tuple[
     ALCBCoreState,
     list[SubmitEntry | ReplaceProtectiveStop | SubmitPartialExit | FlattenPosition],
@@ -194,6 +199,21 @@ def on_bar(
                     details={"reason": flatten_request.reason},
                 )
             )
+
+    if idle_market_bars is not None and not actions and not events:
+        events.append(
+            DecisionEvent(
+                code="IDLE_MARKET_OBSERVED",
+                ts=event_ts,
+                symbol=idle_market_symbol,
+                timeframe=idle_market_timeframe,
+                details=idle_market_details(
+                    idle_market_bars,
+                    symbol=idle_market_symbol,
+                    timeframe=idle_market_timeframe,
+                ),
+            )
+        )
 
     _update_last_decision(next_state, events)
     return next_state, actions, events

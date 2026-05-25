@@ -69,6 +69,7 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseR
     )
     round_label = _round_label(round_num)
     plugin.diagnostic_round_label = round_label
+    provenance = plugin.build_provenance()
     baseline_source = None
     baseline_config = getattr(args, "baseline_config", None)
     if baseline_config:
@@ -78,22 +79,22 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseR
         plugin.initial_mutations = _load_config(baseline_path)
         baseline_source = baseline_path
     elif round_num > 1:
-        plugin.initial_mutations = (
-            _existing_run_spec_baseline(round_dir)
-            or ROUND_MANAGER.get_previous_mutations(round_num)
-        )
-
-    if for_write:
-        ROUND_MANAGER.write_run_spec(
-            round_dir,
-            round_num,
-            plugin.name,
-            description=f"{round_label} ({plugin.round_profile}) executed with latest stock diagnostics",
-            scoring_weights=plugin.score_weights,
-            baseline_mutations=plugin.initial_mutations or {},
-            baseline_source=baseline_source,
-            overwrite=True,
-        )
+        existing_baseline = _existing_run_spec_baseline(round_dir)
+        if existing_baseline is not None:
+            ROUND_MANAGER.write_run_spec(
+                round_dir,
+                round_num,
+                plugin.name,
+                provenance=provenance,
+            )
+            plugin.initial_mutations = existing_baseline
+        else:
+            plugin.initial_mutations = ROUND_MANAGER.get_previous_mutations(
+                round_num,
+                current_provenance=provenance,
+            )
+    if baseline_source is not None:
+        plugin.initial_mutations_source = baseline_source
 
     return PhaseRunner(
         plugin=plugin,
@@ -105,6 +106,7 @@ def _build_runner(args: argparse.Namespace, *, for_write: bool = True) -> PhaseR
         max_diagnostic_retries=getattr(args, "max_diagnostic_retries", 0),
         round_manager=ROUND_MANAGER,
         round_num=round_num,
+        allow_selection_drift=bool(baseline_config),
     )
 
 
@@ -140,7 +142,8 @@ def cmd_phase_gate(args: argparse.Namespace) -> None:
         print(f"Phase {args.phase} has not been completed yet.")
         return
 
-    phase_mutations = _mutations_through_phase(state, args.phase)
+    phase_mutations = dict(getattr(runner.plugin, "initial_mutations", None) or {})
+    phase_mutations.update(_mutations_through_phase(state, args.phase))
     metrics = runner.plugin.compute_final_metrics(phase_mutations)
     spec = runner.plugin.get_phase_spec(args.phase, state)
     gate = evaluate_gate(spec.gate_criteria_fn(metrics))

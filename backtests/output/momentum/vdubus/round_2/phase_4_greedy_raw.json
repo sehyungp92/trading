@@ -1,27 +1,53 @@
 {
-  "base_score": 0.5730206766580699,
-  "final_score": 0.5730206766580699,
+  "base_score": 0.8328794444443348,
+  "final_score": 0.8328794444443348,
   "final_mutations": {
     "flags.plus_1r_partial": false,
-    "param_overrides.CHOP_THRESHOLD": 32.0,
-    "flags.early_kill": false,
-    "param_overrides.MAX_POSITION_BARS_15M": 51.2,
-    "flags.vwap_fail_evening": true
+    "param_overrides.CHOP_THRESHOLD": 28,
+    "flags.hourly_bypass_quality": true,
+    "param_overrides.HOURLY_BYPASS_ALLOWED_WINDOWS": [
+      "OPEN",
+      "CLOSE"
+    ],
+    "param_overrides.HOURLY_BYPASS_EQS_MIN": 2,
+    "param_overrides.HOURLY_BYPASS_MAX_CHOP": 33.6,
+    "param_overrides.HOURLY_BYPASS_SIZE_MULT": 0.5,
+    "flags.slope_bypass_quality": true,
+    "param_overrides.SLOPE_BYPASS_ALLOWED_WINDOWS": [
+      "OPEN",
+      "CORE",
+      "CLOSE"
+    ],
+    "param_overrides.SLOPE_BYPASS_EQS_MIN": 4,
+    "param_overrides.SLOPE_BYPASS_MAX_CHOP": 36.0,
+    "param_overrides.SLOPE_BYPASS_SIZE_MULT": 1.0,
+    "flags.stale_mfe_exempt": true,
+    "flags.type_c_enabled": true,
+    "param_overrides.USE_TYPE_C": true,
+    "param_overrides.TYPE_C_ALLOWED_WINDOWS": [
+      "OPEN"
+    ],
+    "param_overrides.TYPE_C_MAX_VWAP_DIST_ATR": 2.4,
+    "flags.dow_sizing": true,
+    "param_overrides.DOW_SIZE_MULT": {
+      "0": 0.5,
+      "3": 0.65
+    }
   },
   "kept_features": [],
   "rounds": [
     {
       "round_num": 1,
       "candidates_tested": 14,
-      "best_name": "type_b_close_only",
-      "best_score": 0.574092454854581,
-      "best_delta_pct": 0.1870400563487363,
+      "best_name": "late_trail_fast_capture",
+      "best_score": 0.8352873277666201,
+      "best_delta_pct": 0.28910346369416057,
       "kept": false,
-      "rejected_count": 8
+      "rejected_count": 0
     }
   ],
   "final_metrics": {},
   "total_candidates": 14,
   "accepted_count": 0,
-  "elapsed_seconds": 255.20038962364197
+  "elapsed_seconds": 490.20904207229614
 }

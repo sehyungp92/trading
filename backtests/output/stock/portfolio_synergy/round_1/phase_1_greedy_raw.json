@@ -1,6 +1,6 @@
 {
-  "base_score": 0.756047988504457,
-  "final_score": 0.756047988504457,
+  "base_score": 0.7336639622040549,
+  "final_score": 0.7336639622040549,
   "final_mutations": {
     "initial_equity": 25000.0,
     "risk_stance": "aggressive_controlled",
@@ -95,7 +95,7 @@
       "round_num": 1,
       "candidates_tested": 3,
       "best_name": "seed_controlled_aggressive_25k",
-      "best_score": 0.756047988504457,
+      "best_score": 0.7336639622040549,
       "best_delta_pct": 0.0,
       "kept": false,
       "rejected_count": 0
@@ -104,5 +104,5 @@
   "final_metrics": {},
   "total_candidates": 3,
   "accepted_count": 0,
-  "elapsed_seconds": 307.45636320114136
+  "elapsed_seconds": 186.020525932312
 }

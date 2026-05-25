@@ -1,38 +1,48 @@
 {
-  "base_score": 0.45831149685051253,
-  "final_score": 0.46392509863402837,
+  "base_score": 0.7888242744065732,
+  "final_score": 0.7888242744065732,
   "final_mutations": {
     "flags.plus_1r_partial": false,
     "param_overrides.CHOP_THRESHOLD": 40,
-    "flags.early_kill": false,
-    "param_overrides.MAX_POSITION_BARS_15M": 64,
-    "flags.vwap_fail_evening": true
+    "flags.hourly_bypass_quality": true,
+    "param_overrides.HOURLY_BYPASS_ALLOWED_WINDOWS": [
+      "OPEN",
+      "CLOSE"
+    ],
+    "param_overrides.HOURLY_BYPASS_EQS_MIN": 2,
+    "param_overrides.HOURLY_BYPASS_MAX_CHOP": 32.0,
+    "param_overrides.HOURLY_BYPASS_SIZE_MULT": 0.5,
+    "flags.slope_bypass_quality": true,
+    "param_overrides.SLOPE_BYPASS_ALLOWED_WINDOWS": [
+      "OPEN",
+      "CORE",
+      "CLOSE"
+    ],
+    "param_overrides.SLOPE_BYPASS_EQS_MIN": 4,
+    "param_overrides.SLOPE_BYPASS_MAX_CHOP": 36.0,
+    "param_overrides.SLOPE_BYPASS_SIZE_MULT": 1.0,
+    "flags.stale_mfe_exempt": true,
+    "flags.type_c_enabled": true,
+    "param_overrides.USE_TYPE_C": true,
+    "param_overrides.TYPE_C_ALLOWED_WINDOWS": [
+      "OPEN"
+    ],
+    "param_overrides.TYPE_C_MAX_VWAP_DIST_ATR": 2.4
   },
-  "kept_features": [
-    "enable_vwap_fail_evening"
-  ],
+  "kept_features": [],
   "rounds": [
     {
       "round_num": 1,
-      "candidates_tested": 18,
-      "best_name": "enable_vwap_fail_evening",
-      "best_score": 0.46392509863402837,
-      "best_delta_pct": 1.2248441992165036,
-      "kept": true,
-      "rejected_count": 3
-    },
-    {
-      "round_num": 2,
-      "candidates_tested": 13,
-      "best_name": "max_longs_3",
-      "best_score": 0.46392509863402837,
+      "candidates_tested": 20,
+      "best_name": "buffer_2",
+      "best_score": 0.7888242744065732,
       "best_delta_pct": 0.0,
       "kept": false,
-      "rejected_count": 0
+      "rejected_count": 2
     }
   ],
   "final_metrics": {},
-  "total_candidates": 18,
-  "accepted_count": 1,
-  "elapsed_seconds": 440.25771832466125
+  "total_candidates": 20,
+  "accepted_count": 0,
+  "elapsed_seconds": 455.15152382850647
 }

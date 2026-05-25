@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import logging
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from backtests.shared.auto.types import ScoredCandidate
@@ -16,7 +17,16 @@ _worker_config = None
 _worker_data_dir_key: str | None = None
 
 
-def init_worker(data_dir_str: str, equity: float) -> None:
+def _parse_end_date(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    dt = datetime.fromisoformat(value)
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def init_worker(data_dir_str: str, equity: float, end_date_iso: str | None = None) -> None:
     """Initialize worker: load data once, reuse across all phases/tasks.
 
     Phase, scoring weights, and hard rejects are passed per-task in
@@ -38,6 +48,7 @@ def init_worker(data_dir_str: str, equity: float) -> None:
     _worker_config = NQDTCBacktestConfig(
         initial_equity=equity,
         data_dir=data_dir,
+        end_date=_parse_end_date(end_date_iso),
         fixed_qty=10,
         track_signals=False,
         track_shadows=False,

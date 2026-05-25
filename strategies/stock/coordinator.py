@@ -99,6 +99,20 @@ def _positive_finite(value: Any) -> bool:
     return math.isfinite(number) and number > 0
 
 
+def _call_override_factory(factory, **kwargs):
+    try:
+        return factory(**kwargs)
+    except TypeError:
+        return factory()
+
+
+def _override_portfolio_rules(overrides: Any) -> Any | None:
+    provider = getattr(overrides, "portfolio_rules_provider", None)
+    if provider is None:
+        return None
+    return provider()
+
+
 class StockFamilyCoordinator:
     """Lifecycle manager for the configured stock strategies.
 
@@ -130,22 +144,31 @@ class StockFamilyCoordinator:
 
     async def start(self) -> None:
         """Import, build OMS, and start all enabled stock engines."""
-        from libs.oms.services.factory import build_oms_service
+        from libs.oms.services.factory import build_oms_service as default_build_oms_service
         from libs.oms.risk.calculator import RiskCalculator
         from libs.oms.risk.portfolio_rules import PortfolioRulesConfig
         from libs.config.capital_bootstrap import bootstrap_capital
         from .live_universe import LIVE_STOCK_UNIVERSE
 
+        overrides = getattr(self._ctx, "runtime_overrides", None)
+        build_oms_service = (
+            getattr(overrides, "build_oms_service", None) or default_build_oms_service
+        )
         active_strategy_ids = self._enabled_stock_strategy_ids()
         if not active_strategy_ids:
             logger.warning("No enabled stock strategies remain after registry filtering")
             return
 
-        artifacts, readiness_failures = validate_stock_readiness(
-            self._ctx.registry,
-            live=get_environment() == "live",
-            strategy_ids=active_strategy_ids,
-        )
+        artifact_provider = getattr(overrides, "stock_artifact_provider", None)
+        if getattr(overrides, "disable_market_data", False) and artifact_provider is not None:
+            artifacts = dict(artifact_provider() or {})
+            readiness_failures = []
+        else:
+            artifacts, readiness_failures = validate_stock_readiness(
+                self._ctx.registry,
+                live=get_environment() == "live",
+                strategy_ids=active_strategy_ids,
+            )
         if readiness_failures:
             detail = "; ".join(
                 f"{failure.check_name}={failure.detail}" for failure in readiness_failures
@@ -173,7 +196,9 @@ class StockFamilyCoordinator:
             float(_env) if _env else ctx.portfolio.capital.paper_initial_equity
         )
 
-        if paper_mode:
+        if getattr(overrides, "equity_provider", None) is not None:
+            base_equity = float(overrides.equity_provider())
+        elif paper_mode:
             base_equity = _paper_seed
         else:
             # EQUITY-1: hard-fail in live mode if NetLiquidation can't be
@@ -191,12 +216,17 @@ class StockFamilyCoordinator:
                 account_id=ibkr_config.profile.account_id,
             )
 
-        # Capital allocation per strategy
-        try:
-            allocs = bootstrap_capital(base_equity, config_dir)
-        except Exception as exc:
-            logger.warning("bootstrap_capital failed (%s), using equal split", exc)
+        # Capital allocation per strategy. Runtime parity/diagnostic overrides
+        # provide an explicit equity source and family allocation in the context;
+        # avoid loading the user's configured bootstrap file in that offline path.
+        if getattr(overrides, "equity_provider", None) is not None:
             allocs = {}
+        else:
+            try:
+                allocs = bootstrap_capital(base_equity, config_dir)
+            except Exception as exc:
+                logger.warning("bootstrap_capital failed (%s), using equal split", exc)
+                allocs = {}
 
         # ── Strategy descriptors ─────────────────────────────────────
         _strategies = self._build_strategy_descriptors(artifacts, active_strategy_ids)
@@ -206,7 +236,7 @@ class StockFamilyCoordinator:
 
         family_initial_nav = _stock_family_nav(base_equity, allocs, active_strategy_ids, ctx)
         family_current_nav = family_initial_nav
-        if paper_mode:
+        if paper_mode and getattr(overrides, "equity_provider", None) is None:
             from libs.persistence.paper_equity import PaperEquityManager
 
             pem = PaperEquityManager(
@@ -240,6 +270,7 @@ class StockFamilyCoordinator:
         rule_inputs = self._portfolio_rule_inputs(
             tuple(d["strategy_id"] for d in _strategies)
         )
+        override_portfolio_rules = _override_portfolio_rules(overrides)
         all_strategy_ids = rule_inputs["family_strategy_ids"]
         collision_pairs = rule_inputs["symbol_collision_pairs"]
         strategy_priorities = rule_inputs["strategy_priorities"]
@@ -295,48 +326,48 @@ class StockFamilyCoordinator:
             # Per-strategy OMS instances share the same stock portfolio equity
             # basis so optimized unit_risk_pct values are not multiplied by a
             # legacy per-strategy capital split.
-            portfolio_rules = PortfolioRulesConfig(
-                directional_cap_R=_STOCK_DIRECTIONAL_CAP_R,
-                directional_cap_long_R=_STOCK_DIRECTIONAL_LONG_CAP_R,
-                max_total_active_positions=_STOCK_MAX_TOTAL_ACTIVE_POSITIONS,
-                max_symbol_heat_R=_STOCK_MAX_SYMBOL_HEAT_R,
-                same_sector_heat_cap_R=_STOCK_SAME_SECTOR_HEAT_CAP_R,
-                symbol_sector_map=symbol_sector_map,
-                max_single_strategy_trade_share=_STOCK_MAX_SINGLE_STRATEGY_TRADE_SHARE,
-                dynamic_allocation_enabled=True,
-                dynamic_lookback_trades=_STOCK_DYNAMIC_LOOKBACK_TRADES,
-                dynamic_min_mult=_STOCK_DYNAMIC_MIN_MULT,
-                dynamic_max_mult=_STOCK_DYNAMIC_MAX_MULT,
-                dynamic_positive_expectancy_boost=_STOCK_DYNAMIC_POSITIVE_BOOST,
-                dynamic_negative_expectancy_cut=_STOCK_DYNAMIC_NEGATIVE_CUT,
-                initial_equity=initial_nav,
-                family_strategy_ids=all_strategy_ids,
-                symbol_collision_action="half_size",
-                symbol_collision_pairs=collision_pairs,
-                strategy_priorities=strategy_priorities,
-                priority_headroom_R=_STOCK_PRIORITY_HEADROOM_R,
-                priority_reserve_threshold=1,  # priority 0-1 can use reserved headroom
-                reference_unit_risk_dollars=reference_unit_risk,
-                reference_unit_risk_pct=_STOCK_REFERENCE_RISK_PCT,
-                dd_tiers=_STOCK_DD_TIERS,
-                portfolio_heat_cap_R=_STOCK_DIRECTIONAL_CAP_R,
-                max_strategy_active_positions=tuple(
-                    (
-                        item["strategy_id"],
-                        int(item.get("max_concurrent", 0) or 0),
-                    )
-                    for item in _strategies
-                    if item["strategy_id"] in all_strategy_ids
-                ),
-                max_strategy_heat_R=tuple(
-                    (
-                        item["strategy_id"],
-                        float(item.get("heat_cap_R", 0.0) or 0.0),
-                    )
-                    for item in _strategies
-                    if item["strategy_id"] in all_strategy_ids
-                ),
-            )
+            portfolio_rules = override_portfolio_rules or PortfolioRulesConfig(
+                    directional_cap_R=_STOCK_DIRECTIONAL_CAP_R,
+                    directional_cap_long_R=_STOCK_DIRECTIONAL_LONG_CAP_R,
+                    max_total_active_positions=_STOCK_MAX_TOTAL_ACTIVE_POSITIONS,
+                    max_symbol_heat_R=_STOCK_MAX_SYMBOL_HEAT_R,
+                    same_sector_heat_cap_R=_STOCK_SAME_SECTOR_HEAT_CAP_R,
+                    symbol_sector_map=symbol_sector_map,
+                    max_single_strategy_trade_share=_STOCK_MAX_SINGLE_STRATEGY_TRADE_SHARE,
+                    dynamic_allocation_enabled=True,
+                    dynamic_lookback_trades=_STOCK_DYNAMIC_LOOKBACK_TRADES,
+                    dynamic_min_mult=_STOCK_DYNAMIC_MIN_MULT,
+                    dynamic_max_mult=_STOCK_DYNAMIC_MAX_MULT,
+                    dynamic_positive_expectancy_boost=_STOCK_DYNAMIC_POSITIVE_BOOST,
+                    dynamic_negative_expectancy_cut=_STOCK_DYNAMIC_NEGATIVE_CUT,
+                    initial_equity=initial_nav,
+                    family_strategy_ids=all_strategy_ids,
+                    symbol_collision_action="half_size",
+                    symbol_collision_pairs=collision_pairs,
+                    strategy_priorities=strategy_priorities,
+                    priority_headroom_R=_STOCK_PRIORITY_HEADROOM_R,
+                    priority_reserve_threshold=1,  # priority 0-1 can use reserved headroom
+                    reference_unit_risk_dollars=reference_unit_risk,
+                    reference_unit_risk_pct=_STOCK_REFERENCE_RISK_PCT,
+                    dd_tiers=_STOCK_DD_TIERS,
+                    portfolio_heat_cap_R=_STOCK_DIRECTIONAL_CAP_R,
+                    max_strategy_active_positions=tuple(
+                        (
+                            item["strategy_id"],
+                            int(item.get("max_concurrent", 0) or 0),
+                        )
+                        for item in _strategies
+                        if item["strategy_id"] in all_strategy_ids
+                    ),
+                    max_strategy_heat_R=tuple(
+                        (
+                            item["strategy_id"],
+                            float(item.get("heat_cap_R", 0.0) or 0.0),
+                        )
+                        for item in _strategies
+                        if item["strategy_id"] in all_strategy_ids
+                    ),
+                )
             # Save first portfolio_rules as base template for regime updates
             if self._base_portfolio_rules is None:
                 self._base_portfolio_rules = portfolio_rules
@@ -389,6 +420,8 @@ class StockFamilyCoordinator:
             # Instrumentation (non-fatal) — share ONE sidecar across all strategies
             instr = None
             try:
+                if getattr(overrides, "disable_instrumentation", False):
+                    raise RuntimeError("instrumentation disabled by runtime overrides")
                 from libs.oms.persistence.postgres import PgStore
                 from .instrumentation.src.bootstrap import InstrumentationManager
                 _pg_store = PgStore(db_pool) if db_pool is not None else None
@@ -445,6 +478,8 @@ class StockFamilyCoordinator:
             )
             # Strategy-specific data source (artifact or cache)
             engine_kwargs[desc["data_key"]] = desc["data_value"]
+            if getattr(overrides, "disable_background_tasks", False) and sid == "IARIC_v1":
+                engine_kwargs["disable_background_tasks"] = True
 
             engine = engine_cls(**engine_kwargs)
             await engine.start()
@@ -454,7 +489,7 @@ class StockFamilyCoordinator:
 
             # ── Market data source per engine ──────────────────────────
             md_source = None
-            if self._contract_factory is not None:
+            if not getattr(overrides, "disable_market_data", False) and self._contract_factory is not None:
                 try:
                     MarketDataCls = desc["market_data_cls"]()
                     md_source = MarketDataCls(
@@ -480,7 +515,11 @@ class StockFamilyCoordinator:
                         ) from exc
             else:
                 logger.warning("No contract factory — market data NOT wired for %s", sid)
-            if self._contract_factory is None and strict_market_data:
+            if (
+                self._contract_factory is None
+                and strict_market_data
+                and not getattr(overrides, "disable_market_data", False)
+            ):
                 await self.stop()
                 raise RuntimeError(
                     f"Stock market data not wired for {sid} in {runtime_env} mode"
@@ -517,14 +556,16 @@ class StockFamilyCoordinator:
                 "subscription invalidation complete"
             )
 
-        if hasattr(session, "add_reconnect_callback"):
+        if session is not None and hasattr(session, "add_reconnect_callback"):
             session.add_reconnect_callback(_on_reconnect)
 
         # ── Background market data refresh loop ────────────────────
-        self._market_data_task = asyncio.create_task(self._market_data_loop())
+        if not getattr(overrides, "disable_market_data", False):
+            self._market_data_task = asyncio.create_task(self._market_data_loop())
 
         # ── Heartbeat background task ──────────────────────────────────
-        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+        if not getattr(overrides, "disable_background_tasks", False):
+            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
 
         logger.info(
             "StockFamilyCoordinator started %d strategies with market data", len(self._engines),
@@ -887,6 +928,12 @@ class StockFamilyCoordinator:
 
     def _enabled_stock_strategy_ids(self) -> tuple[str, ...]:
         """Return enabled stock strategy IDs for the current runtime environment."""
+        overrides = getattr(self._ctx, "runtime_overrides", None)
+        if overrides is not None:
+            provider = getattr(overrides, "strategy_ids_provider", None)
+            override_strategy_ids = provider() if provider is not None else getattr(overrides, "strategy_ids", None)
+            if override_strategy_ids is not None:
+                return tuple(dict.fromkeys(str(strategy_id) for strategy_id in override_strategy_ids))
         registry = getattr(self._ctx, "registry", None)
         if registry is None:
             return ()
@@ -925,23 +972,35 @@ class StockFamilyCoordinator:
         removed disabled package cannot break coordinator startup.
         """
         ctx = self._ctx
+        overrides = getattr(ctx, "runtime_overrides", None)
+        adapter_factory = getattr(overrides, "adapter_factory", None)
+        offline_overrides = bool(
+            adapter_factory is not None
+            or getattr(overrides, "disable_market_data", False)
+        )
 
-        # --- IBKR config (loaded once, shared across strategies) --------------
-        from libs.broker_ibkr.config.loader import IBKRConfig
-        from libs.broker_ibkr.mapping.contract_factory import ContractFactory
-        from libs.broker_ibkr.adapters.execution_adapter import IBKRExecutionAdapter
+        ibkr_config = None
+        account_id = str((getattr(ctx, "contracts", {}) or {}).get("account_id", ""))
+        ContractFactory = None
+        IBKRExecutionAdapter = None
+        if not offline_overrides:
+            from libs.broker_ibkr.config.loader import IBKRConfig
+            from libs.broker_ibkr.mapping.contract_factory import ContractFactory
+            from libs.broker_ibkr.adapters.execution_adapter import IBKRExecutionAdapter
 
-        config_dir = Path(os.environ.get("CONFIG_DIR", str(Path(__file__).resolve().parent.parent.parent / "config")))
-        try:
-            ibkr_config = IBKRConfig(config_dir)
-            account_id = ibkr_config.profile.account_id
-        except Exception:
-            ibkr_config = None
-            account_id = ""
+            config_dir = Path(os.environ.get("CONFIG_DIR", str(Path(__file__).resolve().parent.parent.parent / "config")))
+            try:
+                ibkr_config = IBKRConfig(config_dir)
+                account_id = ibkr_config.profile.account_id
+            except Exception:
+                ibkr_config = None
+                account_id = ""
+        elif not account_id:
+            account_id = "ACCT-PARITY"
 
         # Build ContractFactory once, reuse for adapters and market data sources
         session = ctx.session
-        if ibkr_config is not None:
+        if ibkr_config is not None and session is not None and ContractFactory is not None:
             self._contract_factory = ContractFactory(
                 ib=session.ib,
                 templates=ibkr_config.contracts,
@@ -950,8 +1009,12 @@ class StockFamilyCoordinator:
 
         def _make_adapter(session: Any) -> Any:
             """Build an IBKRExecutionAdapter from the IB session."""
+            if adapter_factory is not None:
+                return _call_override_factory(adapter_factory, session=session)
             if self._contract_factory is None:
                 raise RuntimeError("IBKRConfig not available")
+            if IBKRExecutionAdapter is None:
+                raise RuntimeError("IBKRExecutionAdapter not available")
             return IBKRExecutionAdapter(
                 session=session,
                 contract_factory=self._contract_factory,

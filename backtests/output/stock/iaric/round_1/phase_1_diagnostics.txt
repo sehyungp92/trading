@@ -1,9 +1,9 @@
 ======================================================================
-IARIC T3 V4R1 PHASE 1 SNAPSHOT
+IARIC T3 LIVE_ALIGNED_ABLATION_PERTURBATION PHASE 1 SNAPSHOT
 ======================================================================
-Focus: V2R4 Structural Ablation
-Score 0.5560 -> 0.5779 with 2 accepted mutations.
+Focus: Protected Widening + MFE Protection
+Score 0.8367 -> 0.8989 with 3 accepted mutations.
 
-Core: trades=758, avg_r=+0.054, exp_total_r=+41.29, pf=1.61, sharpe=2.48, dd=2.9%
-Edges: rsi_depth=-0.027, trend_band=-0.021, late_rank=+0.019
-Exit capture: managed=95.8%, carry=49.3%, carry_avg_r=-0.032, eod=4.2%, stop_cost=+0.99R
+Core: trades=706, avg_r=+0.153, exp_total_r=+108.04, pf=3.04, sharpe=6.41, dd=1.3%
+Edges: rsi_depth=+0.002, trend_band=-0.022, late_rank=+0.007
+Exit capture: managed=97.9%, carry=24.9%, carry_avg_r=-0.178, eod=2.1%, stop_cost=+134.49R

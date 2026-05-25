@@ -156,7 +156,10 @@ def main() -> None:
         round_name="v4r1",
     )
     if round_manager and round_num and round_num > 1:
-        plugin.initial_mutations = round_manager.get_previous_mutations(round_num)
+        plugin.initial_mutations = round_manager.get_previous_mutations(
+            round_num,
+            current_provenance=plugin.build_provenance(),
+        )
     runner = PhaseRunner(
         plugin=plugin,
         output_dir=output_dir,

@@ -2,7 +2,7 @@
   "family": "momentum",
   "strategy": "vdubus",
   "round": 3,
-  "generated_at_utc": "2026-04-30T02:34:58.122677+00:00",
+  "generated_at_utc": "2026-05-23T17:13:08.526638+00:00",
   "completed_phases": [
     1,
     2,
@@ -11,28 +11,18 @@
     5,
     6
   ],
-  "mutation_count": 26,
+  "mutation_count": 29,
   "cumulative_mutations": {
     "flags.plus_1r_partial": false,
-    "param_overrides.CHOP_THRESHOLD": 32.0,
-    "flags.early_kill": false,
-    "param_overrides.MAX_POSITION_BARS_15M": 51.2,
-    "flags.vwap_fail_evening": true,
-    "flags.evening_vwap_cap": true,
-    "param_overrides.VWAP_CAP_EVENING": 0.35,
-    "flags.dow_sizing": true,
-    "param_overrides.DOW_SIZE_MULT": {
-      "0": 0.5,
-      "3": 0.65
-    },
+    "param_overrides.CHOP_THRESHOLD": 28,
     "flags.hourly_bypass_quality": true,
     "param_overrides.HOURLY_BYPASS_ALLOWED_WINDOWS": [
       "OPEN",
       "CLOSE"
     ],
     "param_overrides.HOURLY_BYPASS_EQS_MIN": 2,
-    "param_overrides.HOURLY_BYPASS_MAX_CHOP": 35.2,
-    "param_overrides.HOURLY_BYPASS_SIZE_MULT": 0.5,
+    "param_overrides.HOURLY_BYPASS_MAX_CHOP": 33.6,
+    "param_overrides.HOURLY_BYPASS_SIZE_MULT": 0.72,
     "flags.slope_bypass_quality": true,
     "param_overrides.SLOPE_BYPASS_ALLOWED_WINDOWS": [
       "OPEN",
@@ -42,45 +32,189 @@
     "param_overrides.SLOPE_BYPASS_EQS_MIN": 4,
     "param_overrides.SLOPE_BYPASS_MAX_CHOP": 36.0,
     "param_overrides.SLOPE_BYPASS_SIZE_MULT": 1.0,
-    "param_overrides.VWAP_CAP_OPEN_EVE": 0.935,
-    "param_overrides.BUFFER_TICKS": 2,
+    "flags.stale_mfe_exempt": true,
+    "flags.type_c_enabled": true,
+    "param_overrides.USE_TYPE_C": true,
+    "param_overrides.TYPE_C_ALLOWED_WINDOWS": [
+      "OPEN"
+    ],
+    "param_overrides.TYPE_C_MAX_VWAP_DIST_ATR": 2.4,
+    "flags.dow_sizing": true,
+    "param_overrides.DOW_SIZE_MULT": {
+      "0": 0.5,
+      "3": 0.65
+    },
+    "flags.evening_vwap_cap": true,
+    "param_overrides.VWAP_CAP_EVENING": 0.35,
+    "flags.late_trail": true,
+    "param_overrides.STALE_MFE_EXEMPT_R": 0.5,
+    "param_overrides.LATE_TRAIL_ACTIVATE_R": 1.5,
     "flags.mfe_rescue_stop": true,
-    "param_overrides.MFE_RESCUE_MIN_R": 0.5,
-    "param_overrides.MFE_RESCUE_AFTER_BARS": 5,
-    "param_overrides.MFE_RESCUE_TRIGGER_R": 0.1,
-    "param_overrides.MFE_RESCUE_LOCK_R": 0.1
+    "param_overrides.MFE_RESCUE_MIN_R": 0.75,
+    "param_overrides.MFE_RESCUE_AFTER_BARS": 8.4,
+    "param_overrides.MFE_RESCUE_TRIGGER_R": 0.0,
+    "param_overrides.MFE_RESCUE_LOCK_R": 0.05
   },
   "headline_metrics": {
-    "total_trades": 198,
-    "win_rate": 52.02020202020202,
-    "profit_factor": 2.780844271826482,
-    "max_drawdown_pct": 18.10610678141057,
-    "net_return_pct": 1166.0174000000002,
-    "sharpe_ratio": 2.336424418275617,
-    "calmar_ratio": 64.39912312884088
+    "total_trades": 212,
+    "win_rate": 46.22641509433962,
+    "profit_factor": 2.6473596372605535,
+    "max_drawdown_pct": 17.456174189225823,
+    "net_return_pct": 1373.649199999998,
+    "sharpe_ratio": 2.3359519170204384,
+    "calmar_ratio": 78.69130916715028
   },
   "final_metrics": {
-    "total_trades": 198,
-    "win_rate": 0.5202020202020202,
-    "profit_factor": 2.780844271826482,
-    "max_dd_pct": 0.1810610678141057,
-    "net_return_pct": 1166.0174000000002,
-    "calmar": 64.39912312884088,
-    "sharpe": 2.336424418275617,
-    "sortino": 10.010037330667991,
-    "avg_r": 0.4403595556805709,
-    "capture_ratio": 0.5173043892510965,
-    "stale_exit_pct": 0.43434343434343436,
-    "multi_session_pct": 0.24242424242424243,
-    "trades_per_month": 6.049996549452618,
-    "avg_hold_hours": 11.257575757575758,
-    "avg_winner_r": 1.2672266135247325,
-    "avg_loser_r": -0.45613841229783597,
-    "avg_mfe_r": 1.197875308165461,
-    "evening_trade_pct": 0.050505050505050504,
-    "evening_avg_r": 0.12598285788331623,
-    "fast_death_pct": 0.23737373737373738
+    "total_trades": 212,
+    "win_rate": 0.46226415094339623,
+    "profit_factor": 2.6473596372605535,
+    "max_dd_pct": 0.17456174189225823,
+    "net_return_pct": 1373.649199999998,
+    "calmar": 78.69130916715028,
+    "sharpe": 2.3359519170204384,
+    "sortino": 6.728417589403216,
+    "avg_r": 0.41424024573216256,
+    "total_r": 87.81893209521846,
+    "r_per_month": 2.592280535025619,
+    "annualized_r": 31.104811610318897,
+    "max_r_drawdown": 6.564165745810882,
+    "r_calmar": 4.738578033342525,
+    "fixed_dollars_per_r": 1564.1834479501604,
+    "avg_trade_risk_dollars": 1619.7806603773586,
+    "median_trade_risk_dollars": 1443.0,
+    "norm_return_25bp_pct": 21.954733023804614,
+    "norm_return_50bp_pct": 43.90946604760923,
+    "norm_return_100bp_pct": 87.81893209521846,
+    "capture_ratio": 0.6209067524726336,
+    "stale_exit_pct": 0.2641509433962264,
+    "multi_session_pct": 0.32075471698113206,
+    "trades_per_month": 6.257915694414983,
+    "avg_hold_hours": 12.663915094339623,
+    "avg_winner_r": 1.4556445124200523,
+    "avg_loser_r": -0.4810020186135671,
+    "avg_mfe_r": 1.1992203818207814,
+    "evening_trade_pct": 0.04716981132075472,
+    "evening_avg_r": 0.06993791058814343,
+    "fast_death_pct": 0.25471698113207547
   },
   "source_diagnostics": null,
-  "source_phase_state": null
+  "source_phase_state": null,
+  "provenance": {
+    "schema_version": 1,
+    "selection_fingerprint": "474c585b5cfbe31cba76924645b066324a8de075ba2a98c97e43367a36ccb8a5",
+    "diagnostics_fingerprint": "474c585b5cfbe31cba76924645b066324a8de075ba2a98c97e43367a36ccb8a5",
+    "items": [
+      {
+        "name": "data_dir",
+        "kind": "tree_contents",
+        "fingerprint": "cced7806698e11c2896637a43a7235da1e077b221cea3568356afb6a06711419",
+        "paths": [
+          "backtests/momentum/data/raw"
+        ],
+        "scope": "data",
+        "notes": "Content fingerprint for selection-relevant replay data files."
+      },
+      {
+        "name": "code:backtests/momentum/auto/config_mutator.py",
+        "kind": "file_contents",
+        "fingerprint": "5ddc4e4ec20135fc734d667b53aefed0d77fb52534ff1cb1aff2206b7e0563dd",
+        "paths": [
+          "backtests/momentum/auto/config_mutator.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/config_vdubus.py",
+        "kind": "file_contents",
+        "fingerprint": "5e9e4f92de971f31221316cdda5202763844059e7d704da56261c9834ed8a52f",
+        "paths": [
+          "backtests/momentum/config_vdubus.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/data/replay_cache.py",
+        "kind": "file_contents",
+        "fingerprint": "52f01bbd08103c238d77eabeeddd2fc690974b6dfe8b6a23bc8d26f60c607808",
+        "paths": [
+          "backtests/momentum/data/replay_cache.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/engine/sim_broker.py",
+        "kind": "file_contents",
+        "fingerprint": "9b411d5185842fa2c1d88f8836f87643b872bdff0bd632fee1ca6185208537db",
+        "paths": [
+          "backtests/momentum/engine/sim_broker.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/engine/vdubus_engine.py",
+        "kind": "file_contents",
+        "fingerprint": "cc9060bb67fb208b663019e6d2086ca87315f2bddf73006d6fd90a73fcccf98c",
+        "paths": [
+          "backtests/momentum/engine/vdubus_engine.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "plugin",
+        "kind": "plugin_identity",
+        "fingerprint": "abbaa46ca51fc51a731828c6f8245369f57b9596321e8fc8b05494606a7c8bb3",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "selection_context",
+        "kind": "stable_json",
+        "fingerprint": "5d68842a9fa4453a86036cd57a6c74545584c281bd0f70615d366e9b6adf2b18",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:backtests/momentum/auto/vdubus",
+        "kind": "tree_contents",
+        "fingerprint": "3ad7ef261a72b568002bc75ff694803a9ff2887f06cac39f2cdca03b2d9d6cfd",
+        "paths": [
+          "backtests/momentum/auto/vdubus"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "shared_auto_package",
+        "kind": "tree_contents",
+        "fingerprint": "547c7e20216abcb5ba28b3132da31f4a14be527d969a126803263c687638e0fa",
+        "paths": [
+          "backtests/shared/auto"
+        ],
+        "scope": "selection",
+        "notes": ""
+      }
+    ]
+  },
+  "provenance_status": "selection_drift_accepted",
+  "provenance_validation": {
+    "valid": false,
+    "status": "selection_drift",
+    "previous_round": 2,
+    "current_round": 3,
+    "selection_drift": true,
+    "diagnostics_drift": false,
+    "changed_items": [
+      "changed selection:stable_json:selection_context",
+      "changed selection:tree_contents:code_tree:backtests/momentum/auto/vdubus",
+      "changed selection:tree_contents:shared_auto_package"
+    ],
+    "message": "Selection provenance changed between round 2 and round 3; changed items: changed selection:stable_json:selection_context, changed selection:tree_contents:code_tree:backtests/momentum/auto/vdubus, changed selection:tree_contents:shared_auto_package."
+  }
 }

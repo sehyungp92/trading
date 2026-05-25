@@ -1903,8 +1903,9 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
 
             max_pos = settings.pb_max_positions
             if regime_tier == "B":
-                tier_b_cap = getattr(self._config, "max_positions_tier_b", max_pos)
+                tier_b_cap = settings.max_positions_tier_b
                 max_pos = min(max_pos, tier_b_cap)
+            sector_cap = settings.max_positions_per_sector
             available_slots = max(max_pos - len(carry_positions), 0)
             sector_counts: dict[str, int] = {}
             for position in carry_positions.values():
@@ -1949,7 +1950,7 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                         if missing_5m:
                             record["disposition"] = "intraday_priority_reserve" if open_scored_cap_reason == "intraday_priority_reserve" else "position_cap_reject"
                     continue
-                if sector_counts.get(sector, 0) >= cfg.max_per_sector:
+                if sector_counts.get(sector, 0) >= sector_cap:
                     if record is not None and missing_5m:
                         record["blocked_by_capacity_reason"] = "sector_cap"
                         self._record_rejection(record, "sector_cap_reject", rejection_log, shadow_outcomes, funnel_counters)
@@ -2158,7 +2159,7 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                             max_bars + 1,
                         )
                         continue
-                    if sector_counts.get(sector, 0) >= cfg.max_per_sector:
+                    if sector_counts.get(sector, 0) >= sector_cap:
                         state.priority_skip_count += 1
                         if record is not None and not record.get("blocked_by_capacity_reason"):
                             record["blocked_by_capacity_reason"] = "sector_cap"
@@ -2454,10 +2455,10 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                                     exit_reason = "EMA_REVERSION"
 
 
-                    # V2: partial profit at 1.50R MFE
+                    # V2: partial profit at configured MFE
                     if exit_price is None and _v2 and not position.v2_partial_taken:
-                        v2_partial_r = settings.pb_v2_partial_profit_trigger_r
-                        if position.mfe_r() >= v2_partial_r:
+                        v2_partial_r = float(settings.pb_v2_partial_profit_trigger_r)
+                        if v2_partial_r > 0 and position.mfe_r() >= v2_partial_r:
                             original_qty = position.quantity + position.partial_qty_exited
                             min_remaining = max(1, int(floor(original_qty * settings.minimum_remaining_size_pct)))
                             partial_qty = min(
@@ -2479,7 +2480,6 @@ class IARICPullbackIntradayHybridEngine(IARICPullbackDailyEngine):
                                 position.realized_partial_pnl += partial_pnl
                                 position.quantity -= partial_qty
                                 equity += partial_pnl - partial_commission
-                                # Move stop to +0.50R for remainder
                                 remainder_stop = position.entry_price + settings.pb_v2_partial_profit_remainder_stop_r * position.risk_per_share
                                 position.current_stop = max(position.current_stop, remainder_stop)
                                 if funnel_counters is not None:

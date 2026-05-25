@@ -360,6 +360,7 @@ def test_atrss_on_bar_flatten_emits_flatten_action() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parity_smoke
 async def test_atrss_live_wrapper_entry_fill_matches_replay_core_state(monkeypatch) -> None:
     pending_order = {
         "symbol": "QQQ",

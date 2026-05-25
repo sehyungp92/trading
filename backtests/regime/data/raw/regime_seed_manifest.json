@@ -1,15 +1,15 @@
 {
-  "data_as_of": "2026-05-08",
+  "data_as_of": "2026-05-13",
   "files": {
     "macro_df.parquet": {
       "columns": [
         "GROWTH",
         "INFLATION"
       ],
-      "end": "2026-05-08",
-      "latest_required_as_of": "2026-05-08",
-      "row_count": 5875,
-      "sha256": "c882c54ef781234da273235c06135a10c8a4aac20d28542ee42b571dbb02c4be",
+      "end": "2026-05-13",
+      "latest_required_as_of": "2026-05-13",
+      "row_count": 5878,
+      "sha256": "03852aaf62a495949e7737189c0197a18de70015b4f92c2d91cf48024674f988",
       "start": "2003-01-02"
     },
     "market_df.parquet": {
@@ -20,10 +20,10 @@
         "REAL_RATE_10Y",
         "DBC"
       ],
-      "end": "2026-05-08",
-      "latest_required_as_of": "2026-05-08",
-      "row_count": 5875,
-      "sha256": "f27a7b9ee0ecdd86d8eb658660682e6a7f35555199a5e649a3b6ce145351e3c2",
+      "end": "2026-05-13",
+      "latest_required_as_of": "2026-05-13",
+      "row_count": 5878,
+      "sha256": "3768eb5e7cf746ac56516208a2ff364c88f63dd81f89bf1239d809c6e4474d34",
       "start": "2003-01-02"
     },
     "strat_ret_df.parquet": {
@@ -34,14 +34,14 @@
         "GLD",
         "CASH"
       ],
-      "end": "2026-05-08",
-      "latest_required_as_of": "2026-05-08",
-      "row_count": 5875,
-      "sha256": "52469b9a54b6094d4568a31cf232212b6ed43eba5d284dd473a38f65bf16594d",
+      "end": "2026-05-13",
+      "latest_required_as_of": "2026-05-13",
+      "row_count": 5878,
+      "sha256": "4ec025af078ed2ebe2fdd4044bd559c71803fd8c512bf023f6cfb74cdf24ddd1",
       "start": "2003-01-02"
     }
   },
-  "generated_at": "2026-05-11T15:40:03.161395+00:00",
+  "generated_at": "2026-05-14T11:10:11.718858+00:00",
   "generated_by": "backtests.regime.data.downloader.build_all_data",
   "required_columns": {
     "macro_df.parquet": [
@@ -62,9 +62,9 @@
     ]
   },
   "row_counts": {
-    "macro_df.parquet": 5875,
-    "market_df.parquet": 5875,
-    "strat_ret_df.parquet": 5875
+    "macro_df.parquet": 5878,
+    "market_df.parquet": 5878,
+    "strat_ret_df.parquet": 5878
   },
   "schema_version": 1,
   "source_versions": {

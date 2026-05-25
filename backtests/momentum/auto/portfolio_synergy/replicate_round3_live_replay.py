@@ -37,11 +37,11 @@ DEFAULT_METRIC_KEYS: tuple[str, ...] = (
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Replicate momentum round 3 through the neutral-action live-rule replay.",
+        description="Replicate the active momentum portfolio through the neutral-action live-rule replay.",
     )
     parser.add_argument(
         "--round-dir",
-        default="backtests/output/momentum/portfolio_synergy/round_3",
+        default="backtests/output/momentum/portfolio_synergy/round_2",
     )
     parser.add_argument("--abs-tolerance", type=float, default=1e-6)
     parser.add_argument("--rel-tolerance", type=float, default=1e-9)
@@ -52,7 +52,7 @@ def main(argv: list[str] | None = None) -> None:
         abs_tolerance=args.abs_tolerance,
         rel_tolerance=args.rel_tolerance,
     )
-    print(f"Round 3 live-rule replay matched: {report['matched']}")
+    print(f"Momentum portfolio live-rule replay matched: {report['matched']}")
     print(f"Architecture: {report['replay_architecture']}")
     print(f"Action count: {report['action_count']}")
     print(f"Replay fingerprint: {report['replay_source_fingerprint']}")

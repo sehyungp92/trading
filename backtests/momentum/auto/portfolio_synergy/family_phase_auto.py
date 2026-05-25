@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import pickle
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -17,6 +18,7 @@ from backtests.momentum.engine.family_portfolio_engine import (
     make_controlled_aggressive_family_config,
     update_allocation,
 )
+from backtests.shared.auto.round_manager import RoundManager
 
 
 _PRICE_BARS_UNSET = object()
@@ -414,33 +416,106 @@ def _run_nq_regime(data_dir: Path, initial_equity: float) -> list:
 
 
 def _latest_optimized_mutations(strategy_dir_name: str) -> dict[str, Any]:
-    root = Path("backtests/output/momentum") / strategy_dir_name
-    candidates = sorted(
-        root.glob("round_*/optimized_config.json"),
-        key=lambda path: path.stat().st_mtime,
-        reverse=True,
-    )
-    if not candidates:
-        return {}
-    return json.loads(candidates[0].read_text(encoding="utf-8"))
+    path, _ = _latest_optimized_config_path(strategy_dir_name)
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _strategy_source_manifest() -> dict[str, Any]:
     manifest: dict[str, Any] = {}
     for name in ("nqdtc", "vdubus", "downturn", "nq_regime"):
-        root = Path("backtests/output/momentum") / name
-        paths = sorted(root.glob("round_*/optimized_config.json"))
-        latest = max(paths, key=lambda path: path.stat().st_mtime, default=None)
-        if latest is None:
+        try:
+            latest, selection_method = _latest_optimized_config_path(name)
+        except FileNotFoundError:
             manifest[name] = None
-        else:
-            stat = latest.stat()
-            manifest[name] = {
-                "path": str(latest),
-                "mtime": stat.st_mtime,
-                "size": stat.st_size,
-            }
+            continue
+        stat = latest.stat()
+        manifest[name] = {
+            "path": str(latest),
+            "round": _round_num_from_config_path(latest),
+            "selection_method": selection_method,
+            "mtime": stat.st_mtime,
+            "size": stat.st_size,
+            "sha256": _file_sha256(latest),
+            "source_provenance": _strategy_artifact_provenance(name, latest),
+        }
     return manifest
+
+
+def _latest_optimized_config_path(strategy_dir_name: str) -> tuple[Path, str]:
+    manager = RoundManager("momentum", strategy_dir_name, base_dir=Path("backtests/output"))
+    if manager.manifest_path.exists():
+        latest_round = manager.get_latest_round()
+        if latest_round < 1:
+            raise FileNotFoundError(f"No active manifest round for momentum/{strategy_dir_name}.")
+        path = manager.optimized_config_path(manager.round_path(latest_round))
+        if not path.exists():
+            raise FileNotFoundError(f"Active manifest round {latest_round} is missing {path}.")
+        return path, "active_manifest_latest"
+
+    root = Path("backtests/output/momentum") / strategy_dir_name
+    candidates: list[tuple[int, Path]] = []
+    for path in root.glob("round_*/optimized_config.json"):
+        round_num = _round_num_from_config_path(path)
+        if round_num is not None:
+            candidates.append((round_num, path))
+    if not candidates:
+        raise FileNotFoundError(f"No optimized momentum config found for {strategy_dir_name} under {root}.")
+    return max(candidates, key=lambda item: item[0])[1], "filesystem_latest_round_fallback"
+
+
+def _round_num_from_config_path(path: Path) -> int | None:
+    try:
+        return int(path.parent.name.removeprefix("round_"))
+    except ValueError:
+        return None
+
+
+def _strategy_artifact_provenance(strategy_name: str, config_path: Path) -> dict[str, Any]:
+    round_dir = config_path.parent
+    runner_paths = {
+        "downturn": Path("backtests/momentum/auto/downturn/plugin.py"),
+        "nq_regime": Path("backtests/momentum/auto/nq_regime/current_oos_frequency_repair.py"),
+    }
+    record: dict[str, Any] = {
+        "contract": "momentum_source_artifact_provenance.v1",
+        "strategy": strategy_name,
+        "optimized_config": _artifact_record(config_path),
+        "run_summary": _artifact_record(round_dir / "run_summary.json"),
+        "round_final_diagnostics": _artifact_record(round_dir / "round_final_diagnostics.txt"),
+    }
+    summary_path = round_dir / "run_summary.json"
+    if summary_path.exists():
+        summary = json.loads(summary_path.read_text(encoding="utf-8-sig"))
+        if isinstance(summary, dict) and isinstance(summary.get("provenance"), dict):
+            record["saved_provenance"] = summary["provenance"]
+            record["saved_provenance_status"] = summary.get("provenance_status", "complete")
+        else:
+            record["saved_provenance_status"] = "artifact_hash_recorded_no_saved_provenance"
+    else:
+        record["saved_provenance_status"] = "missing_run_summary"
+
+    runner_path = runner_paths.get(strategy_name)
+    if runner_path is not None:
+        record["runner"] = _artifact_record(runner_path)
+        if strategy_name == "nq_regime":
+            record["runner_role"] = "actual_is_oos_split_repair_runner"
+    return record
+
+
+def _artifact_record(path: Path) -> dict[str, Any]:
+    return {
+        "path": str(path),
+        "exists": path.exists(),
+        "sha256": _file_sha256(path) if path.exists() and path.is_file() else "",
+    }
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _load_mtm_price_bars_for_scoring(data_dir: Path) -> dict[str, Any] | None:

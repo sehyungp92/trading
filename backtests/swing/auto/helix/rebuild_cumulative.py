@@ -63,7 +63,10 @@ def main() -> None:
         baseline_source = Path(args.seed)
         plugin.initial_mutations = _load_mutations(baseline_source)
     elif round_num > 1:
-        plugin.initial_mutations = manager.get_previous_mutations(round_num)
+        plugin.initial_mutations = manager.get_previous_mutations(
+            round_num,
+            current_provenance=plugin.build_provenance(),
+        )
 
     description = (
         f"Round {round_num} Helix cumulative rebuild/optimization "
@@ -76,6 +79,8 @@ def main() -> None:
         description=description,
         baseline_mutations=dict(plugin.initial_mutations or {}),
         baseline_source=baseline_source,
+        provenance=plugin.build_provenance(),
+        provenance_status="complete",
         execution_context={
             "data_dir": str(Path(args.data_dir)),
             "initial_equity": args.equity,

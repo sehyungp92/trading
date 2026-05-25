@@ -18,9 +18,17 @@ from backtests.stock.auto.iaric.phase_candidates import (
     BASE_MUTATIONS,
     PHASE_CANDIDATES,
     PHASE_FOCUS,
+    V4R1_BASE_MUTATIONS,
+    V4R1_PHASE_CANDIDATES,
+    V5R1_BASE_MUTATIONS,
+    V5R1_PHASE_CANDIDATES,
+    V5R2_BASE_MUTATIONS,
+    V5R2_PHASE_CANDIDATES,
     get_phase_candidate_lookup,
     get_phase_candidates,
 )
+from backtests.stock.auto.config_mutator import mutate_iaric_config
+from backtests.stock.config_iaric import IARICBacktestConfig
 from backtests.stock.auto.iaric.phase_scoring import (
     V5R1_PHASE_HARD_REJECTS,
     V5R2_PHASE_SCORING_WEIGHTS,
@@ -28,6 +36,7 @@ from backtests.stock.auto.iaric.phase_scoring import (
 )
 
 from backtests.stock.auto.iaric.plugin import IARICPullbackPlugin, select_pullback_branch
+from backtests.stock.auto.runners.run_live_aligned_ablation_perturbation import _perturbation_candidates
 from backtests.stock.auto.scoring import IARIC_NORM, composite_score
 from backtests.stock.engine.iaric_pullback_engine import (
     _build_selection_attribution,
@@ -53,6 +62,20 @@ def test_select_pullback_branch_obeys_round3_selection_rule():
 
     assert aggressive_win["selected_profile"] == "aggressive"
     assert mainline_win["selected_profile"] == "mainline"
+
+
+def test_live_aligned_perturbations_skip_zero_partial_trigger():
+    candidates = dict(
+        _perturbation_candidates(
+            {
+                "param_overrides.pb_v2_partial_profit_trigger_r": 0.1,
+                "param_overrides.pb_v2_partial_profit_remainder_stop_r": 0.7,
+            }
+        )
+    )
+
+    assert "perturb_v2_partial_profit_trigger_r_down" not in candidates
+    assert candidates["perturb_v2_partial_profit_trigger_r_up"]["param_overrides.pb_v2_partial_profit_trigger_r"] == pytest.approx(0.2)
 
 
 def test_plugin_suggests_structural_experiments_for_weak_signal_and_route_metrics():
@@ -155,6 +178,37 @@ def test_v5r2_score_stays_normalized_and_limited_to_seven_components():
     for weights in V5R2_PHASE_SCORING_WEIGHTS.values():
         assert len(weights) <= 7
         assert sum(weights.values()) == pytest.approx(1.0)
+
+
+def test_iaric_current_round_candidates_target_strategy_settings_surface():
+    settings_fields = set(StrategySettings.__dataclass_fields__)
+    stale_top_level_keys = {"max_per_sector", "max_positions_tier_b"}
+
+    for base_mutations, phase_candidates in (
+        (V4R1_BASE_MUTATIONS, V4R1_PHASE_CANDIDATES),
+        (V5R1_BASE_MUTATIONS, V5R1_PHASE_CANDIDATES),
+        (V5R2_BASE_MUTATIONS, V5R2_PHASE_CANDIDATES),
+    ):
+        mutation_sets = [base_mutations]
+        mutation_sets.extend(mutations for candidates in phase_candidates.values() for _, mutations in candidates)
+        for mutations in mutation_sets:
+            assert not stale_top_level_keys.intersection(mutations)
+            for key in mutations:
+                if key.startswith("param_overrides."):
+                    assert key.split(".", 1)[1] in settings_fields
+
+
+def test_iaric_legacy_capacity_mutations_map_to_strategy_settings():
+    config = mutate_iaric_config(
+        IARICBacktestConfig(),
+        {
+            "max_per_sector": 3,
+            "max_positions_tier_b": 6,
+        },
+    )
+
+    assert config.param_overrides["max_positions_per_sector"] == 3
+    assert config.param_overrides["max_positions_tier_b"] == 6
 
 
 def test_v5r1_gate_allows_avg_r_tradeoff_when_expected_total_r_improves():

@@ -4,14 +4,20 @@ import pytest
 
 from backtests.shared.parity.diagnostic_baselines import (
     collect_baseline_snapshot,
+    default_manifest_path,
     load_manifest,
     repo_root,
     validate_manifest_entry,
 )
 
 
-_MANIFEST = load_manifest()
+_MANIFEST_PATH = default_manifest_path()
+_MANIFEST = load_manifest() if _MANIFEST_PATH.exists() else {"artifacts": []}
 _REPO_ROOT = repo_root()
+
+
+def test_canonical_backtest_baseline_manifest_is_present() -> None:
+    assert _MANIFEST_PATH.exists(), f"missing canonical backtest baseline manifest: {_MANIFEST_PATH}"
 
 
 @pytest.mark.parametrize("entry", _MANIFEST["artifacts"], ids=lambda entry: entry["id"])

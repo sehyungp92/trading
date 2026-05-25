@@ -1,6 +1,6 @@
 {
-  "base_score": 0.7452221505863175,
-  "final_score": 0.7613567218436196,
+  "base_score": 0.7126765206284036,
+  "final_score": 0.7126765206284036,
   "final_mutations": {
     "flags.max_loss_cap": true,
     "flags.max_stop_width": true,
@@ -12,49 +12,27 @@
     "param_overrides.MIN_BOX_WIDTH": 150,
     "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
     "flags.block_eth_shorts": true,
-    "param_overrides.TP1_R": 1.4,
+    "param_overrides.TP1_R": 1.2,
     "param_overrides.LOSS_STREAK_THRESHOLD": 2,
-    "param_overrides.TP1_PARTIAL_PCT": 0.55,
-    "param_overrides.BLOCK_ALIGNED_REGIME": true,
-    "flags.block_05_et": false,
-    "flags.block_09_et": false,
-    "param_overrides.RATCHET_THRESHOLD_R": 0.75
+    "param_overrides.TP1_PARTIAL_PCT": 0.45,
+    "param_overrides.TP2_R": 2.25,
+    "param_overrides.TP2_PARTIAL_PCT": 0.2,
+    "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only"
   },
-  "kept_features": [
-    "tp1_partial_0.55",
-    "ratchet_threshold_0.75"
-  ],
+  "kept_features": [],
   "rounds": [
     {
       "round_num": 1,
-      "candidates_tested": 23,
-      "best_name": "tp1_partial_0.55",
-      "best_score": 0.7568321683992433,
-      "best_delta_pct": 1.5579270964760523,
-      "kept": true,
-      "rejected_count": 9
-    },
-    {
-      "round_num": 2,
-      "candidates_tested": 13,
-      "best_name": "ratchet_threshold_0.75",
-      "best_score": 0.7613567218436196,
-      "best_delta_pct": 0.5978278452336493,
-      "kept": true,
-      "rejected_count": 1
-    },
-    {
-      "round_num": 3,
-      "candidates_tested": 11,
-      "best_name": "suggest_allow_05_et",
-      "best_score": 0.7613567218436196,
+      "candidates_tested": 19,
+      "best_name": "suggest_b_range_p85",
+      "best_score": 0.7126765206284036,
       "best_delta_pct": 0.0,
       "kept": false,
-      "rejected_count": 1
+      "rejected_count": 13
     }
   ],
   "final_metrics": {},
-  "total_candidates": 23,
-  "accepted_count": 2,
-  "elapsed_seconds": 620.6278352737427
+  "total_candidates": 19,
+  "accepted_count": 0,
+  "elapsed_seconds": 695.9525785446167
 }

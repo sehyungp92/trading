@@ -9,11 +9,11 @@
   "param_overrides.MIN_BOX_WIDTH": 150,
   "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
   "flags.block_eth_shorts": true,
-  "param_overrides.TP1_R": 1.4,
+  "param_overrides.TP1_R": 1.2,
   "param_overrides.LOSS_STREAK_THRESHOLD": 2,
-  "param_overrides.TP1_PARTIAL_PCT": 0.55,
-  "param_overrides.BLOCK_ALIGNED_REGIME": true,
-  "flags.block_05_et": false,
-  "flags.block_09_et": false,
-  "param_overrides.RATCHET_THRESHOLD_R": 0.75
+  "param_overrides.TP1_PARTIAL_PCT": 0.45,
+  "param_overrides.TP2_R": 2.25,
+  "param_overrides.TP2_PARTIAL_PCT": 0.2,
+  "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+  "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.24
 }

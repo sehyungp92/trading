@@ -131,6 +131,56 @@ class SimBroker:
         self.pending_orders = remaining
         return cancelled
 
+    def fill_marketable_ioc_limit(
+        self,
+        order: SimOrder,
+        bar_time: datetime,
+        O: float,
+        H: float,
+        L: float,
+        C: float,
+        tick_size: float,
+    ) -> FillResult:
+        """Evaluate an immediate marketable IOC limit at the decision reference.
+
+        The order is never queued. It is modeled as a taker order sent after
+        the completed signal bar, so the only causal price reference available
+        to this deterministic backtest is the completed-bar close. High/low are
+        accepted for call-site symmetry with other bar fill helpers but are not
+        used to decide a post-close IOC fill.
+        """
+        del O, H, L
+        slip_ticks = self._get_slippage_ticks(bar_time, 0, C, tick_size)
+        if order.side == OrderSide.BUY:
+            fill = round_to_tick(C + slip_ticks * tick_size, tick_size, "up")
+            if fill > order.limit_price:
+                return FillResult(
+                    order=order,
+                    status=FillStatus.REJECTED,
+                    fill_price=order.limit_price,
+                    fill_time=bar_time,
+                )
+        else:
+            fill = round_to_tick(C - slip_ticks * tick_size, tick_size, "down")
+            if fill < order.limit_price:
+                return FillResult(
+                    order=order,
+                    status=FillStatus.REJECTED,
+                    fill_price=order.limit_price,
+                    fill_time=bar_time,
+                )
+
+        commission = self.slippage_config.commission_per_contract * order.qty
+        return FillResult(
+            order=order,
+            status=FillStatus.FILLED,
+            fill_price=fill,
+            fill_time=bar_time,
+            slippage_ticks=slip_ticks,
+            commission=commission,
+            filled_at_open=False,
+        )
+
     def is_halted(self, symbol: str) -> bool:
         return self._halted.get(symbol, False)
 

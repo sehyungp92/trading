@@ -1,5 +1,6 @@
-from pathlib import Path
+import json
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pandas as pd
 
@@ -14,6 +15,7 @@ from backtests.stock.auto.portfolio_synergy.core.serializers import (
 from backtests.stock.auto.portfolio_synergy.core.state import PortfolioActionType
 from backtests.stock.auto.portfolio_synergy.evaluator import (
     _stock_portfolio_mtm_metrics,
+    _latest_optimized_config_path,
     _latest_strategy_mutation_paths,
     build_effective_portfolio_config,
     replay_trade_streams,
@@ -185,6 +187,28 @@ def test_stock_portfolio_uses_latest_individual_strategy_configs(tmp_path: Path)
 
     assert alcb_path.as_posix().endswith("stock/alcb/round_3/optimized_config.json")
     assert iaric_path.as_posix().endswith("stock/iaric/round_4/optimized_config.json")
+
+
+def test_stock_portfolio_prefers_active_manifest_round_over_archived_directory(tmp_path: Path) -> None:
+    strategy_root = tmp_path / "backtests" / "output" / "stock" / "alcb"
+    for round_num in (3, 4):
+        path = strategy_root / f"round_{round_num}" / "optimized_config.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}", encoding="utf-8")
+    (strategy_root / "rounds_manifest.json").write_text(
+        json.dumps(
+            {
+                "family": "stock",
+                "strategy": "alcb",
+                "rounds": [{"round": 3}, {"round": 4, "archived": True}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    path = _latest_optimized_config_path(tmp_path, "alcb")
+
+    assert path.as_posix().endswith("stock/alcb/round_3/optimized_config.json")
 
 
 def test_stock_portfolio_synergy_final_metrics_add_total_score_from_cache() -> None:

@@ -25,6 +25,10 @@ from libs.services.trade_recorder import TradeRecorder
 
 from libs.risk.drawdown_throttle import DrawdownThrottle
 
+from strategies.core.idle_market import (
+    maybe_record_idle_market_observation,
+    remember_idle_market_bars,
+)
 from . import config as C
 from .core import logic as vdub_core_logic
 from .core.logic import apply_core_state as apply_core_runtime_state
@@ -167,6 +171,7 @@ class VdubNQv4Engine:
         equity: float = 100_000.0,
         instrumentation=None,
         equity_alloc_pct: float = 1.0,
+        disable_background_tasks: bool = False,
     ) -> None:
         self._ib = ib_session
         self._oms = oms_service
@@ -176,6 +181,7 @@ class VdubNQv4Engine:
         self._equity_alloc_pct = equity_alloc_pct
         self._symbol = C.DEFAULT_SYMBOL
         self._instr = instrumentation
+        self._disable_background_tasks = bool(disable_background_tasks)
 
         # Sync NQ_SPEC for MNQ trading (matches backtest engine L318-321).
         # TRADING_SYMBOL defaults to NQ (price data) but we trade MNQ contracts.
@@ -260,6 +266,17 @@ class VdubNQv4Engine:
         self._symbol_last_bar_ts: dict[str, datetime] = {}
 
     def _record_decision(self, code: str, details: dict | None = None) -> None:
+        if maybe_record_idle_market_observation(
+            self,
+            code,
+            strategy_id=C.STRATEGY_ID,
+            build_core_state=lambda: build_core_runtime_state(self),
+            apply_core_state=lambda state: apply_core_runtime_state(self, state),
+            on_bar=vdub_core_logic.on_bar,
+            default_symbol=self._symbol,
+            default_timeframe="15m",
+        ):
+            return
         self._last_decision_code = code
         self._last_decision_details = details or {}
 
@@ -471,8 +488,9 @@ class VdubNQv4Engine:
         self._running = True
         self._event_queue = self._oms.stream_events(C.STRATEGY_ID)
         self._event_task = asyncio.create_task(self._process_events())
-        await self._load_initial_bars()
-        self._cycle_task = asyncio.create_task(self._15m_scheduler())
+        if not self._disable_background_tasks:
+            await self._load_initial_bars()
+            self._cycle_task = asyncio.create_task(self._15m_scheduler())
         logger.info("Engine started")
 
     def get_position_snapshot(self) -> list[dict]:
@@ -664,8 +682,14 @@ class VdubNQv4Engine:
             self._bar_route_decision("CIRCUIT_BREAKER", {"reason": "daily_loss_cap_halt"})
             return
 
+        decision_before = self._last_decision_code
         for direction in (Direction.LONG, Direction.SHORT):
             await self._evaluate_direction(direction, session, sub_window, now)
+        if self._last_decision_code == decision_before and not self.positions and not self.working_entries:
+            self._bar_route_decision(
+                "NO_SIGNAL",
+                {"session": session.value, "reason": "no_direction_eligible"},
+            )
 
     # ------------------------------------------------------------------
     # Daily reset (09:30 ET)
@@ -838,6 +862,14 @@ class VdubNQv4Engine:
 
         # Momentum confirmation (Section 7)
         if len(self._mom15) == 0:
+            self._bar_route_decision(
+                "NO_SIGNAL",
+                {
+                    "direction": direction.name,
+                    "session": session.value,
+                    "reason": "insufficient_momentum_history",
+                },
+            )
             return
         long_ok, short_ok = sig.slope_ok(self._mom15)
         if direction == Direction.LONG and not long_ok:
@@ -848,6 +880,14 @@ class VdubNQv4Engine:
         atr15_val = self._safe_atr15()
         atr1h_val = self._safe_atr1h()
         if atr15_val == 0:
+            self._bar_route_decision(
+                "NO_SIGNAL",
+                {
+                    "direction": direction.name,
+                    "session": session.value,
+                    "reason": "insufficient_atr_history",
+                },
+            )
             return
 
         # Signal: Type A priority, then Type B (Section 9.3)
@@ -1575,7 +1615,7 @@ class VdubNQv4Engine:
         etype = event.event_type
         oms_id = event.oms_order_id
 
-        if etype in (OMSEventType.FILL, OMSEventType.ORDER_FILLED):
+        if etype == OMSEventType.FILL:
             await self._on_fill(oms_id, event.payload or {})
         elif etype in (OMSEventType.ORDER_CANCELLED, OMSEventType.ORDER_EXPIRED,
                        OMSEventType.ORDER_REJECTED):
@@ -1970,6 +2010,7 @@ class VdubNQv4Engine:
         # 15m NQ
         bars = await self._req_bars(nq, "30 D", "15 mins", request_kind=request_kind)
         if bars:
+            remember_idle_market_bars(self, bars, symbol=self._symbol, timeframe="15m")
             self._c15 = np.array([b.close for b in bars], dtype=float)
             self._h15 = np.array([b.high for b in bars], dtype=float)
             self._l15 = np.array([b.low for b in bars], dtype=float)
@@ -2009,7 +2050,7 @@ class VdubNQv4Engine:
         try:
             bars = await req_panama_adjusted_historical_data(
                 self._ib, contract,
-                symbol=self._symbol,
+                symbol=getattr(self, "_symbol", C.DEFAULT_SYMBOL),
                 endDateTime="", durationStr=duration,
                 barSizeSetting=bar_size, whatToShow="TRADES",
                 useRTH=use_rth, formatDate=1, request_kind=request_kind,

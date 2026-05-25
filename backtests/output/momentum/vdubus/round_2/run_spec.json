@@ -4,14 +4,150 @@
   "strategy_name": "vdubus",
   "round": 2,
   "description": "Round 2",
-  "generated_at_utc": "2026-04-29T22:35:41.288339+00:00",
+  "generated_at_utc": "2026-05-23T02:02:35.965670+00:00",
   "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\vdubus\\round_1\\optimized_config.json",
-  "baseline_mutation_count": 4,
+  "baseline_mutation_count": 19,
   "baseline_mutations": {
     "flags.plus_1r_partial": false,
-    "param_overrides.CHOP_THRESHOLD": 32.0,
-    "flags.early_kill": false,
-    "param_overrides.MAX_POSITION_BARS_15M": 51.2
+    "param_overrides.CHOP_THRESHOLD": 28,
+    "flags.hourly_bypass_quality": true,
+    "param_overrides.HOURLY_BYPASS_ALLOWED_WINDOWS": [
+      "OPEN",
+      "CLOSE"
+    ],
+    "param_overrides.HOURLY_BYPASS_EQS_MIN": 2,
+    "param_overrides.HOURLY_BYPASS_MAX_CHOP": 33.6,
+    "param_overrides.HOURLY_BYPASS_SIZE_MULT": 0.5,
+    "flags.slope_bypass_quality": true,
+    "param_overrides.SLOPE_BYPASS_ALLOWED_WINDOWS": [
+      "OPEN",
+      "CORE",
+      "CLOSE"
+    ],
+    "param_overrides.SLOPE_BYPASS_EQS_MIN": 4,
+    "param_overrides.SLOPE_BYPASS_MAX_CHOP": 36.0,
+    "param_overrides.SLOPE_BYPASS_SIZE_MULT": 1.0,
+    "flags.stale_mfe_exempt": true,
+    "flags.type_c_enabled": true,
+    "param_overrides.USE_TYPE_C": true,
+    "param_overrides.TYPE_C_ALLOWED_WINDOWS": [
+      "OPEN"
+    ],
+    "param_overrides.TYPE_C_MAX_VWAP_DIST_ATR": 2.4,
+    "flags.dow_sizing": true,
+    "param_overrides.DOW_SIZE_MULT": {
+      "0": 0.5,
+      "3": 0.65
+    }
   },
-  "scoring_weights": {}
+  "scoring_weights": {},
+  "execution_context": {
+    "data_dir": "backtests\\momentum\\data\\raw",
+    "initial_equity": 10000.0,
+    "max_workers": 1
+  },
+  "provenance": {
+    "schema_version": 1,
+    "selection_fingerprint": "a6e1b4eb41c288bfe68642e4980a47f4d51e120b3ef67b0f3a5876a577b00274",
+    "diagnostics_fingerprint": "a6e1b4eb41c288bfe68642e4980a47f4d51e120b3ef67b0f3a5876a577b00274",
+    "items": [
+      {
+        "name": "data_dir",
+        "kind": "tree_contents",
+        "fingerprint": "cced7806698e11c2896637a43a7235da1e077b221cea3568356afb6a06711419",
+        "paths": [
+          "backtests/momentum/data/raw"
+        ],
+        "scope": "data",
+        "notes": "Content fingerprint for selection-relevant replay data files."
+      },
+      {
+        "name": "code:backtests/momentum/auto/config_mutator.py",
+        "kind": "file_contents",
+        "fingerprint": "5ddc4e4ec20135fc734d667b53aefed0d77fb52534ff1cb1aff2206b7e0563dd",
+        "paths": [
+          "backtests/momentum/auto/config_mutator.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/config_vdubus.py",
+        "kind": "file_contents",
+        "fingerprint": "5e9e4f92de971f31221316cdda5202763844059e7d704da56261c9834ed8a52f",
+        "paths": [
+          "backtests/momentum/config_vdubus.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/data/replay_cache.py",
+        "kind": "file_contents",
+        "fingerprint": "52f01bbd08103c238d77eabeeddd2fc690974b6dfe8b6a23bc8d26f60c607808",
+        "paths": [
+          "backtests/momentum/data/replay_cache.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/engine/sim_broker.py",
+        "kind": "file_contents",
+        "fingerprint": "9b411d5185842fa2c1d88f8836f87643b872bdff0bd632fee1ca6185208537db",
+        "paths": [
+          "backtests/momentum/engine/sim_broker.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/engine/vdubus_engine.py",
+        "kind": "file_contents",
+        "fingerprint": "cc9060bb67fb208b663019e6d2086ca87315f2bddf73006d6fd90a73fcccf98c",
+        "paths": [
+          "backtests/momentum/engine/vdubus_engine.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "plugin",
+        "kind": "plugin_identity",
+        "fingerprint": "abbaa46ca51fc51a731828c6f8245369f57b9596321e8fc8b05494606a7c8bb3",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "selection_context",
+        "kind": "stable_json",
+        "fingerprint": "9d767d6856776418e1e3c11ded12bb1d04acd74472f323e1e54ef31be9ffc26b",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:backtests/momentum/auto/vdubus",
+        "kind": "tree_contents",
+        "fingerprint": "6ddd90d537d0b8f695888e64a6720f535ef6c8c8447d5018863acb95515679bc",
+        "paths": [
+          "backtests/momentum/auto/vdubus"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "shared_auto_package",
+        "kind": "tree_contents",
+        "fingerprint": "d9d2fccedd37282a0908da4eacb176f90033de491d7babdfc8d654ce376d5f37",
+        "paths": [
+          "backtests/shared/auto"
+        ],
+        "scope": "selection",
+        "notes": ""
+      }
+    ]
+  },
+  "provenance_status": "complete"
 }

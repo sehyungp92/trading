@@ -404,7 +404,11 @@
       "sharpe_ratio": null,
       "timestamp": "2026-05-05T00:23:11.420362+00:00",
       "total_trades": 681,
-      "win_rate": 73.568281938326
+      "win_rate": 73.568281938326,
+      "selection_fingerprint": "fa1334613d4930b248c262d5ebc0aaab0daa9e62b37d3ad9535ac3cf0bbe4611",
+      "diagnostics_fingerprint": "fa1334613d4930b248c262d5ebc0aaab0daa9e62b37d3ad9535ac3cf0bbe4611",
+      "provenance_schema_version": 1,
+      "provenance_status": "complete"
     }
   ],
   "strategy": "nq_regime"

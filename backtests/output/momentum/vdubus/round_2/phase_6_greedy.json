@@ -1,55 +1,101 @@
 {
-  "base_score": 0.6771353169338056,
-  "final_score": 0.6771353169338056,
+  "base_score": 0.8356306914427679,
+  "final_score": 0.845446966453359,
   "final_mutations": {
     "flags.plus_1r_partial": false,
-    "param_overrides.CHOP_THRESHOLD": 32.0,
-    "flags.early_kill": false,
-    "param_overrides.MAX_POSITION_BARS_15M": 51.2,
-    "flags.vwap_fail_evening": true,
-    "flags.evening_vwap_cap": true,
-    "param_overrides.VWAP_CAP_EVENING": 0.05,
+    "param_overrides.CHOP_THRESHOLD": 28,
+    "flags.hourly_bypass_quality": true,
+    "param_overrides.HOURLY_BYPASS_ALLOWED_WINDOWS": [
+      "OPEN",
+      "CLOSE"
+    ],
+    "param_overrides.HOURLY_BYPASS_EQS_MIN": 2,
+    "param_overrides.HOURLY_BYPASS_MAX_CHOP": 33.6,
+    "param_overrides.HOURLY_BYPASS_SIZE_MULT": 0.6,
+    "flags.slope_bypass_quality": true,
+    "param_overrides.SLOPE_BYPASS_ALLOWED_WINDOWS": [
+      "OPEN",
+      "CORE",
+      "CLOSE"
+    ],
+    "param_overrides.SLOPE_BYPASS_EQS_MIN": 4,
+    "param_overrides.SLOPE_BYPASS_MAX_CHOP": 36.0,
+    "param_overrides.SLOPE_BYPASS_SIZE_MULT": 1.0,
+    "flags.stale_mfe_exempt": true,
+    "flags.type_c_enabled": true,
+    "param_overrides.USE_TYPE_C": true,
+    "param_overrides.TYPE_C_ALLOWED_WINDOWS": [
+      "OPEN",
+      "CLOSE"
+    ],
+    "param_overrides.TYPE_C_MAX_VWAP_DIST_ATR": 2.4,
     "flags.dow_sizing": true,
     "param_overrides.DOW_SIZE_MULT": {
-      "0": 0.6,
-      "3": 0.75
-    }
+      "0": 0.5,
+      "3": 0.65
+    },
+    "flags.evening_vwap_cap": true,
+    "param_overrides.VWAP_CAP_EVENING": 0.35,
+    "flags.late_trail": true,
+    "param_overrides.STALE_MFE_EXEMPT_R": 0.5,
+    "param_overrides.LATE_TRAIL_ACTIVATE_R": 1.5
   },
-  "kept_features": [],
+  "kept_features": [
+    "combo_runner_guarded_expansion",
+    "finetune_hourly_bypass_size_mult_p20"
+  ],
   "rounds": [
     {
       "round_num": 1,
-      "candidates_tested": 14,
-      "best_name": "combo_evening_reform",
-      "best_score": 0.6786513230779267,
-      "best_delta_pct": 0.22388525693592987,
-      "kept": false,
+      "candidates_tested": 45,
+      "best_name": "combo_runner_guarded_expansion",
+      "best_score": 0.8426800979737779,
+      "best_delta_pct": 0.8436031135762502,
+      "kept": true,
       "rejected_count": 1
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 38,
+      "best_name": "finetune_hourly_bypass_size_mult_p20",
+      "best_score": 0.845446966453359,
+      "best_delta_pct": 0.3283415006755368,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 3,
+      "candidates_tested": 37,
+      "best_name": "finetune_chop_threshold_p20",
+      "best_score": 0.846403857481084,
+      "best_delta_pct": 0.11318167380020912,
+      "kept": false,
+      "rejected_count": 0
     }
   ],
   "final_metrics": {
-    "total_trades": 159,
-    "win_rate": 0.4779874213836478,
-    "profit_factor": 2.3577704500699292,
-    "max_dd_pct": 0.18643014420485368,
-    "net_return_pct": 841.7264000000035,
-    "calmar": 45.14969419725897,
-    "sharpe": 1.7605005097269317,
-    "sortino": 8.036233236644186,
-    "avg_r": 0.38873457318174504,
-    "capture_ratio": 0.5167387120921197,
-    "stale_exit_pct": 0.4716981132075472,
-    "multi_session_pct": 0.22012578616352202,
-    "trades_per_month": 4.858330562439224,
-    "avg_hold_hours": 9.891509433962264,
-    "avg_winner_r": 1.342893622522394,
-    "avg_loser_r": -0.4849532310337889,
-    "avg_mfe_r": 1.1865209906198002,
-    "evening_trade_pct": 0.018867924528301886,
-    "evening_avg_r": 0.32226832641770403,
-    "fast_death_pct": 0.24528301886792453
+    "total_trades": 214,
+    "win_rate": 0.4672897196261682,
+    "profit_factor": 2.4084421823755298,
+    "max_dd_pct": 0.17640121888559043,
+    "net_return_pct": 1266.1523999999997,
+    "calmar": 71.77685097636403,
+    "sharpe": 2.2370741737825064,
+    "sortino": 6.425726825608287,
+    "avg_r": 0.3955632379757911,
+    "capture_ratio": 0.6136297876850716,
+    "stale_exit_pct": 0.26635514018691586,
+    "multi_session_pct": 0.3317757009345794,
+    "trades_per_month": 6.316952634928332,
+    "avg_hold_hours": 13.621495327102803,
+    "avg_winner_r": 1.4284650941051231,
+    "avg_loser_r": -0.5104910217867809,
+    "avg_mfe_r": 1.2008850406573992,
+    "evening_trade_pct": 0.04672897196261682,
+    "evening_avg_r": 0.06993791058814343,
+    "fast_death_pct": 0.2570093457943925
   },
-  "total_candidates": 14,
-  "accepted_count": 0,
-  "elapsed_seconds": 305.3005919456482
+  "total_candidates": 45,
+  "accepted_count": 2,
+  "elapsed_seconds": 5226.307931661606
 }

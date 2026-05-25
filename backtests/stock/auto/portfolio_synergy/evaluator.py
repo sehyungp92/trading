@@ -12,6 +12,7 @@ import numpy as np
 
 from backtests.shared.auto.cache_keys import build_cache_key, fingerprint_paths, stable_signature
 from backtests.shared.auto.replay_bundle import ReplayBundle
+from backtests.shared.auto.round_manager import RoundManager
 from backtests.stock.analysis.metrics import compute_cagr, compute_max_drawdown
 from backtests.stock.auto.alcb.time_utils import hydrate_time_mutations
 from backtests.stock.auto.config_mutator import mutate_alcb_config, mutate_iaric_config
@@ -25,6 +26,15 @@ from .core.state import PortfolioPosition
 
 from .core.logic import replay_trade_streams, run_portfolio_replay
 from .phase_candidates import INITIAL_EQUITY, SEED_PORTFOLIO_CONFIG
+
+__all__ = [
+    "StrategyTradeBundle",
+    "build_effective_portfolio_config",
+    "evaluate_portfolio",
+    "load_evaluation_bundle",
+    "load_evaluation_data",
+    "replay_trade_streams",
+]
 
 
 @dataclass(frozen=True)
@@ -134,6 +144,7 @@ def evaluate_portfolio(
     start_date: str = "2024-01-01",
     end_date: str = "2026-03-01",
     evaluation_data: StrategyTradeBundle | None = None,
+    price_bars_by_symbol: dict[str, Any] | None = None,
 ) -> dict[str, float]:
     effective = build_effective_portfolio_config(mutations, initial_equity=initial_equity)
     data = evaluation_data or load_evaluation_data(
@@ -150,6 +161,7 @@ def evaluate_portfolio(
             metrics,
             initial_equity=initial_equity,
             data_dir=data_dir,
+            price_bars_by_symbol=price_bars_by_symbol,
         )
     )
     return metrics
@@ -161,6 +173,7 @@ def _headline_mtm_metrics(
     *,
     initial_equity: float,
     data_dir: Path,
+    price_bars_by_symbol: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     realized_dd = float(realized_metrics.get("max_drawdown_pct", 0.0) or 0.0)
     realized_calmar = float(realized_metrics.get("calmar", 0.0) or 0.0)
@@ -168,6 +181,7 @@ def _headline_mtm_metrics(
         positions,
         initial_equity=initial_equity,
         data_dir=data_dir,
+        price_bars_by_symbol=price_bars_by_symbol,
     )
     mtm_dd = float(mtm.get("max_drawdown_pct", realized_dd) or 0.0)
     mtm_calmar = float(mtm.get("calmar", realized_calmar) or 0.0)
@@ -395,6 +409,16 @@ def _latest_strategy_mutation_paths(repo_root: Path) -> tuple[Path, Path]:
 
 def _latest_optimized_config_path(repo_root: Path, strategy: str) -> Path:
     strategy_dir = repo_root / "backtests" / "output" / "stock" / strategy
+    manager = RoundManager("stock", strategy, base_dir=repo_root / "backtests" / "output")
+    if manager.manifest_path.exists():
+        latest_round = manager.get_latest_round()
+        if latest_round < 1:
+            raise FileNotFoundError(f"No active manifest round for stock/{strategy} under {strategy_dir}")
+        path = manager.optimized_config_path(manager.round_path(latest_round))
+        if not path.exists():
+            raise FileNotFoundError(f"Active manifest round {latest_round} is missing {path}")
+        return path
+
     candidates: list[tuple[int, Path]] = []
     for path in strategy_dir.glob("round_*/optimized_config.json"):
         try:

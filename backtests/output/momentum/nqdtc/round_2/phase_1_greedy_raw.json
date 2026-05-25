@@ -1,6 +1,6 @@
 {
-  "base_score": 0.5686782566119096,
-  "final_score": 0.7146228613842385,
+  "base_score": 0.0,
+  "final_score": 0.0,
   "final_mutations": {
     "flags.max_loss_cap": true,
     "flags.max_stop_width": true,
@@ -14,34 +14,22 @@
     "flags.block_eth_shorts": true,
     "param_overrides.TP1_R": 1.2,
     "param_overrides.LOSS_STREAK_THRESHOLD": 2,
-    "param_overrides.TP1_PARTIAL_PCT": 0.5,
-    "param_overrides.BLOCK_ALIGNED_REGIME": true
+    "param_overrides.TP1_PARTIAL_PCT": 0.5
   },
-  "kept_features": [
-    "block_aligned"
-  ],
+  "kept_features": [],
   "rounds": [
     {
       "round_num": 1,
-      "candidates_tested": 27,
-      "best_name": "block_aligned",
-      "best_score": 0.7146228613842385,
-      "best_delta_pct": 25.66382714223021,
-      "kept": true,
-      "rejected_count": 3
-    },
-    {
-      "round_num": 2,
-      "candidates_tested": 9,
-      "best_name": "range_only",
-      "best_score": 0.7146228613842385,
+      "candidates_tested": 25,
+      "best_name": "",
+      "best_score": 0.0,
       "best_delta_pct": 0.0,
       "kept": false,
-      "rejected_count": 1
+      "rejected_count": 25
     }
   ],
   "final_metrics": {},
-  "total_candidates": 27,
-  "accepted_count": 1,
-  "elapsed_seconds": 600.4090001583099
+  "total_candidates": 25,
+  "accepted_count": 0,
+  "elapsed_seconds": 0.10100102424621582
 }

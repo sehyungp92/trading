@@ -24,6 +24,10 @@ from libs.oms.models.order import (
 from libs.oms.risk.calculator import RiskCalculator
 from libs.services.trade_recorder import TradeRecorder
 from strategies.core.actions import CancelAction, SubmitEntry, SubmitExit
+from strategies.core.idle_market import (
+    maybe_record_idle_market_observation,
+    remember_idle_market_bars,
+)
 
 from libs.risk.drawdown_throttle import DrawdownThrottle, DrawdownThrottleConfig
 from . import box as box_mod
@@ -171,6 +175,7 @@ class NQDTCEngine:
         state_dir: Path | None = None,
         instrumentation=None,
         equity_alloc_pct: float = 1.0,
+        disable_background_tasks: bool = False,
     ) -> None:
         self._ib = ib_session
         self._oms = oms_service
@@ -181,6 +186,7 @@ class NQDTCEngine:
         self._symbol = symbol
         self._state_dir = state_dir or Path(".")
         self._instr = instrumentation
+        self._disable_background_tasks = bool(disable_background_tasks)
         self._instr_trade_id: str = ""  # current trade ID for instrumentation
 
         from strategies.momentum.instrumentation.src.facade import InstrumentationKit
@@ -204,6 +210,7 @@ class NQDTCEngine:
         # Consecutive-loss cooldown state
         self._consec_losses: int = 0
         self._cooldown_bars: int = 0  # 5m bars remaining in cooldown (6 = 30 min)
+        self._last_fill_time: datetime | None = None
 
         # Drawdown throttle (daily cap disabled — NQDTC has own DailyRiskState)
         self._throttle = DrawdownThrottle(
@@ -262,6 +269,17 @@ class NQDTCEngine:
         self._symbol_last_bar_ts: dict[str, datetime] = {}
 
     def _record_decision(self, code: str, details: dict | None = None) -> None:
+        if maybe_record_idle_market_observation(
+            self,
+            code,
+            strategy_id=C.STRATEGY_ID,
+            build_core_state=self._build_core_state,
+            apply_core_state=self._apply_core_state,
+            on_bar=nqdtc_core_logic.on_bar,
+            default_symbol=self._symbol,
+            default_timeframe="5m",
+        ):
+            return
         self._last_decision_code = code
         self._last_decision_details = details or {}
 
@@ -336,10 +354,11 @@ class NQDTCEngine:
         self._event_queue = self._oms.stream_events(C.STRATEGY_ID)
         self._event_task = asyncio.create_task(self._process_events())
 
-        await self._fetch_bars(request_kind="startup")
-        self._update_regime()
+        if not self._disable_background_tasks:
+            await self._fetch_bars(request_kind="startup")
+            self._update_regime()
 
-        self._cycle_task = asyncio.create_task(self._5m_scheduler())
+            self._cycle_task = asyncio.create_task(self._5m_scheduler())
         logger.info("NQDTC engine started (symbol=%s)", self._symbol)
 
     def get_position_snapshot(self) -> list[dict]:
@@ -771,7 +790,7 @@ class NQDTCEngine:
         engine.disp_hist.append(disp)
         engine.last_disp_metric = disp
         engine.last_disp_threshold = threshold
-        if not passed:
+        if C.DISPLACEMENT_THRESHOLD_ENABLED and not passed:
             self._log_telemetry("breakout_blocked", engine, direction, reason="displacement_fail",
                                 disp=disp, threshold=threshold)
             return
@@ -815,8 +834,27 @@ class NQDTCEngine:
         engine.last_score = score
 
         min_score = sig.score_threshold(engine.mode)
+        if self._regime.composite != CompositeRegime.RANGE and C.SCORE_NON_RANGE_MULT != 1.0:
+            min_score *= C.SCORE_NON_RANGE_MULT
         if score < min_score:
             self._log_telemetry("breakout_score_fail", engine, direction, score=score, threshold=min_score)
+            return
+
+        context_ok, context_reason = sig.contextual_score_filter_pass(
+            score=score,
+            box_width=engine.box.box_width,
+            rvol=rvol,
+        )
+        if not context_ok:
+            self._log_telemetry(
+                "breakout_score_fail",
+                engine,
+                direction,
+                reason=context_reason,
+                score=score,
+                rvol=rvol,
+                box_width=engine.box.box_width,
+            )
             return
 
         # Exit-opt: reject narrow/wide boxes
@@ -957,6 +995,12 @@ class NQDTCEngine:
         if self._cooldown_bars > 0:
             return
 
+        gap_min = getattr(C, "MIN_INTER_TRADE_GAP_MINUTES", 0)
+        if gap_min > 0 and self._last_fill_time is not None:
+            elapsed = (now - self._last_fill_time).total_seconds() / 60.0
+            if elapsed < gap_min:
+                return
+
         # Block entries during 04:00 ET hour (thin pre-dawn liquidity)
         if C.BLOCK_04_ET and _to_ny(now).hour == 4:
             return
@@ -1038,6 +1082,13 @@ class NQDTCEngine:
             self._log_missed(direction, "BREAKOUT", "", "regime_hard_block", "4H regime opposes direction")
             return
 
+        if (
+            (C.BLOCK_NEUTRAL_REGIME and composite == CompositeRegime.NEUTRAL)
+            or (C.BLOCK_ALIGNED_REGIME and composite == CompositeRegime.ALIGNED)
+            or (C.BLOCK_CAUTION_REGIME and composite == CompositeRegime.CAUTION)
+        ):
+            self._log_missed(direction, "BREAKOUT", "", "regime_composite_block", composite.value)
+            return
 
         # Sizing
         disp_norm = sizing.compute_disp_norm(
@@ -1105,17 +1156,34 @@ class NQDTCEngine:
         oca_group = existing_oca or f"ENTRY_{uuid.uuid4().hex[:8]}"
 
         # Entry A: place OCO if not already placed (Phase 1.2: gated by A_ENTRY_ENABLED)
-        if C.A_ENTRY_ENABLED and not self._has_active_a_orders():
-            await self._place_entry_a(engine, direction, vwap_val, quality_mult, exit_tier, final_risk_pct, now)
+        if (
+            C.A_ENTRY_ENABLED
+            and (C.A_ENTRY_RETEST_ENABLED or C.A_ENTRY_LATCH_ENABLED)
+            and not self._has_active_a_orders()
+        ):
+            a_allowed, a_reason = sig.a_entry_context_allowed(
+                score=engine.last_score,
+                box_width=engine.box.box_width,
+            )
+            if a_allowed:
+                await self._place_entry_a(engine, direction, vwap_val, quality_mult, exit_tier, final_risk_pct, now)
+            else:
+                self._log_missed(
+                    direction,
+                    EntrySubtype.A_RETEST.value,
+                    f"A_{direction.name}",
+                    a_reason,
+                    f"score={engine.last_score:.2f}, box={engine.box.box_width:.1f}",
+                )
 
         # Entry B: sweep specialist
-        # Permission gates (spec §16.1): Aligned only + p90 displacement + not continuation
+        # Permission gates are shared config, plus high displacement and no continuation.
         if engine.atr14_30m > 0:
             b_permitted = (
-                composite == CompositeRegime.ALIGNED
+                sig.b_entry_regime_allowed(composite)
                 and not engine.breakout.continuation_mode
                 and len(engine.disp_hist.data) > 10
-                and engine.last_disp_metric >= ind.rolling_quantile_past_only(engine.disp_hist.data, 0.90)
+                and engine.last_disp_metric >= ind.rolling_quantile_past_only(engine.disp_hist.data, C.B_MIN_DISP_Q)
             )
             if b_permitted and sig.entry_b_trigger(float(l5[-1]), float(h5[-1]), close_5m, vwap_val, engine.atr14_30m, direction):
                 await self._place_entry_b(engine, direction, close_5m, quality_mult, exit_tier, final_risk_pct, now, oca_group=oca_group)
@@ -1178,6 +1246,16 @@ class NQDTCEngine:
     # Entry placement
     # ------------------------------------------------------------------
 
+    def _apply_dd_throttle(self, qty: int) -> int | None:
+        """Apply drawdown-based live sizing throttle."""
+        dd_mult = self._throttle.dd_size_mult
+        if dd_mult <= 0.0:
+            self._throttle.entries_blocked_dd += 1
+            return None
+        if dd_mult < 1.0:
+            return max(1, int(qty * dd_mult))
+        return qty
+
     async def _place_entry_a(
         self, engine: SessionEngineState, direction: Direction,
         vwap_session: float, quality_mult: float, exit_tier: ExitTier,
@@ -1218,16 +1296,20 @@ class NQDTCEngine:
         # Sizing (with drawdown throttle)
         qty_a1 = sizing.compute_contracts(self._symbol, a1_price, stop_a1, self._equity, final_risk_pct)
         qty_a2 = sizing.compute_contracts(self._symbol, a2_price, stop_a2, self._equity, final_risk_pct)
-        if dd_mult < 1.0:
-            qty_a1 = max(1, int(qty_a1 * dd_mult)) if qty_a1 >= 1 else 0
-            qty_a2 = max(1, int(qty_a2 * dd_mult)) if qty_a2 >= 1 else 0
-        if qty_a1 < 1 and qty_a2 < 1:
+        qty_a1 = self._apply_dd_throttle(qty_a1) if qty_a1 >= 1 else qty_a1
+        qty_a2 = self._apply_dd_throttle(qty_a2) if qty_a2 >= 1 else qty_a2
+        qty_a1 = qty_a1 or 0
+        qty_a2 = qty_a2 or 0
+        if (
+            (not C.A_ENTRY_RETEST_ENABLED or qty_a1 < 1)
+            and (not C.A_ENTRY_LATCH_ENABLED or qty_a2 < 1)
+        ):
             return
 
         oca_group = f"A_OCO_{uuid.uuid4().hex[:8]}"
 
         # A1 limit
-        if qty_a1 >= 1:
+        if C.A_ENTRY_RETEST_ENABLED and qty_a1 >= 1:
             await self._submit_order(
                 subtype=EntrySubtype.A_RETEST,
                 direction=direction,
@@ -1242,7 +1324,7 @@ class NQDTCEngine:
             )
 
         # A2 stop-limit (trigger at a2_price, limit buffer above/below)
-        if qty_a2 >= 1:
+        if C.A_ENTRY_LATCH_ENABLED and qty_a2 >= 1:
             if direction == Direction.LONG:
                 a2_limit = round_to_tick(a2_price + C.A2_BUFFER_TICKS * tick, tick)
             else:
@@ -1277,8 +1359,9 @@ class NQDTCEngine:
             engine.atr14_30m, tick_size=tick,
         )
         qty = sizing.compute_contracts(self._symbol, close_5m, stop_b, self._equity, final_risk_pct)
-        if dd_mult < 1.0:
-            qty = max(1, int(qty * dd_mult))
+        qty = self._apply_dd_throttle(qty) if qty >= 1 else qty
+        if qty is None:
+            return
         if qty < 1:
             return
 
@@ -1330,8 +1413,9 @@ class NQDTCEngine:
             engine.atr14_30m, hold_ref=hold_ref, tick_size=tick,
         )
         qty = sizing.compute_contracts(self._symbol, entry_price, stop_c, self._equity, final_risk_pct)
-        if dd_mult < 1.0:
-            qty = max(1, int(qty * dd_mult))
+        qty = self._apply_dd_throttle(qty) if qty >= 1 else qty
+        if qty is None:
+            return
         if qty < 1:
             return
 
@@ -1362,11 +1446,9 @@ class NQDTCEngine:
             engine.atr14_30m, tick_size=tick,
         )
         qty = sizing.compute_contracts(self._symbol, close_5m, stop_price, self._equity, final_risk_pct)
-        dd_mult = self._throttle.dd_size_mult
-        if dd_mult <= 0.0:
+        qty = self._apply_dd_throttle(qty) if qty >= 1 else qty
+        if qty is None:
             return
-        if dd_mult < 1.0:
-            qty = max(1, int(qty * dd_mult))
         if qty < 1:
             return
 
@@ -1619,6 +1701,25 @@ class NQDTCEngine:
                 pos.stop_price = ratchet_stop
                 pos.stop_source = "RATCHET"
                 await self._update_stop(ratchet_stop, old_stop=_old, source="RATCHET")
+
+        mfe_ratchet_stop = stops.compute_mfe_ratcheted_stop(
+            pos.direction,
+            pos.entry_price,
+            init_r_points,
+            pos.peak_r_initial,
+            tick,
+        )
+        if mfe_ratchet_stop is not None:
+            if pos.direction == Direction.LONG and mfe_ratchet_stop > pos.stop_price:
+                _old = pos.stop_price
+                pos.stop_price = mfe_ratchet_stop
+                pos.stop_source = "MFE_RATCHET"
+                await self._update_stop(mfe_ratchet_stop, old_stop=_old, source="MFE_RATCHET")
+            elif pos.direction == Direction.SHORT and mfe_ratchet_stop < pos.stop_price:
+                _old = pos.stop_price
+                pos.stop_price = mfe_ratchet_stop
+                pos.stop_source = "MFE_RATCHET"
+                await self._update_stop(mfe_ratchet_stop, old_stop=_old, source="MFE_RATCHET")
 
         # TP targets (use initial stop distance, not migrated stop)
         tp_r_points = init_r_points if init_r_points > 0 else r_points
@@ -2005,8 +2106,8 @@ class NQDTCEngine:
         # Consecutive-loss cooldown tracking
         if open_r <= 0:
             self._consec_losses += 1
-            if self._consec_losses >= 3:
-                self._cooldown_bars = 6
+            if self._consec_losses >= C.LOSS_STREAK_THRESHOLD:
+                self._cooldown_bars = C.LOSS_STREAK_SKIP_BARS
                 logger.info("Cooldown activated: %d consecutive losses", self._consec_losses)
         else:
             self._consec_losses = 0
@@ -2180,6 +2281,8 @@ class NQDTCEngine:
         price = payload.get("price", 0.0)
         qty = payload.get("qty", 0)
         fill_time = getattr(event, "timestamp", None) or datetime.now(timezone.utc)
+        if fill_time.tzinfo is None:
+            fill_time = fill_time.replace(tzinfo=timezone.utc)
 
         # Flatten fill confirmation -- broker executed the pre-booked exit
         if self._last_flatten_oms_id and oms_id == self._last_flatten_oms_id:
@@ -2206,8 +2309,8 @@ class NQDTCEngine:
                     stop_r = -1.0
                 if stop_r <= 0:
                     self._consec_losses += 1
-                    if self._consec_losses >= 3:
-                        self._cooldown_bars = 6
+                    if self._consec_losses >= C.LOSS_STREAK_THRESHOLD:
+                        self._cooldown_bars = C.LOSS_STREAK_SKIP_BARS
                         logger.info("Cooldown activated: %d consecutive losses (stop fill)", self._consec_losses)
                 else:
                     self._consec_losses = 0
@@ -2337,6 +2440,20 @@ class NQDTCEngine:
         )
         exit_tier = stops.determine_exit_tier(composite.value, wo.quality_mult)
 
+        if (
+            (C.BLOCK_NEUTRAL_REGIME and composite == CompositeRegime.NEUTRAL)
+            or (C.BLOCK_ALIGNED_REGIME and composite == CompositeRegime.ALIGNED)
+            or (C.BLOCK_CAUTION_REGIME and composite == CompositeRegime.CAUTION)
+        ):
+            logger.info("Composite regime fill block: %s", composite.value)
+            await self._reject_filled_entry(
+                oms_id,
+                sibling_order_ids,
+                reason="REGIME_COMPOSITE_BLOCK",
+                details={"composite": composite.value, "subtype": wo.subtype.value},
+            )
+            return
+
         # Check TP1-only cap at entry time (fix #3)
         tp1_cap = stops.should_cap_tp1_only(engine.mode.value, self._regime.regime_4h.value)
 
@@ -2344,6 +2461,8 @@ class NQDTCEngine:
         tp_levels = stops.compute_tp_levels(
             wo.direction, price, r_points, exit_tier, qty, tick,
         )
+        if tp1_cap and len(tp_levels) > 1:
+            tp_levels = tp_levels[:1]
 
         core_state, actions, events = nqdtc_core_logic.on_fill(
             self._build_core_state(),
@@ -2377,6 +2496,7 @@ class NQDTCEngine:
                 details={"oms_order_id": oms_id, "fill_price": price, "qty": qty, "subtype": wo.subtype.value},
             )
             return
+        self._last_fill_time = fill_time
         self._position.symbol = self._symbol
         self._position.R_dollars = r_points * (inst.point_value if inst else 20.0) * qty
 
@@ -2589,7 +2709,7 @@ class NQDTCEngine:
         bars = await req_panama_adjusted_historical_data(
             self._ib,
             contract,
-            symbol=self._symbol,
+            symbol=getattr(self, "_symbol", C.DEFAULT_SYMBOL),
             endDateTime="",
             durationStr=duration,
             barSizeSetting=bar_size,
@@ -2619,6 +2739,7 @@ class NQDTCEngine:
         try:
             bars_5m = await self._req_completed_bars(contract, "2 D", "5 mins", request_kind=request_kind)
             if bars_5m:
+                remember_idle_market_bars(self, bars_5m, symbol=self._symbol, timeframe="5m")
                 self._bars_5m = self._bars_to_arrays(bars_5m)
         except Exception:
             logger.exception("Error fetching 5m bars")

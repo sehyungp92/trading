@@ -1,27 +1,17 @@
 {
-  "base_score": 0.7183788393467887,
-  "final_score": 0.7183788393467887,
+  "base_score": 0.845446966453359,
+  "final_score": 0.8520673259971715,
   "final_mutations": {
     "flags.plus_1r_partial": false,
-    "param_overrides.CHOP_THRESHOLD": 32.0,
-    "flags.early_kill": false,
-    "param_overrides.MAX_POSITION_BARS_15M": 51.2,
-    "flags.vwap_fail_evening": true,
-    "flags.evening_vwap_cap": true,
-    "param_overrides.VWAP_CAP_EVENING": 0.05,
-    "flags.dow_sizing": true,
-    "param_overrides.DOW_SIZE_MULT": {
-      "0": 0.6,
-      "3": 0.75
-    },
+    "param_overrides.CHOP_THRESHOLD": 28,
     "flags.hourly_bypass_quality": true,
     "param_overrides.HOURLY_BYPASS_ALLOWED_WINDOWS": [
       "OPEN",
       "CLOSE"
     ],
     "param_overrides.HOURLY_BYPASS_EQS_MIN": 2,
-    "param_overrides.HOURLY_BYPASS_MAX_CHOP": 32.0,
-    "param_overrides.HOURLY_BYPASS_SIZE_MULT": 0.5,
+    "param_overrides.HOURLY_BYPASS_MAX_CHOP": 33.6,
+    "param_overrides.HOURLY_BYPASS_SIZE_MULT": 0.6,
     "flags.slope_bypass_quality": true,
     "param_overrides.SLOPE_BYPASS_ALLOWED_WINDOWS": [
       "OPEN",
@@ -30,43 +20,71 @@
     ],
     "param_overrides.SLOPE_BYPASS_EQS_MIN": 4,
     "param_overrides.SLOPE_BYPASS_MAX_CHOP": 36.0,
-    "param_overrides.SLOPE_BYPASS_SIZE_MULT": 1.0
+    "param_overrides.SLOPE_BYPASS_SIZE_MULT": 1.0,
+    "flags.stale_mfe_exempt": true,
+    "flags.type_c_enabled": true,
+    "param_overrides.USE_TYPE_C": true,
+    "param_overrides.TYPE_C_ALLOWED_WINDOWS": [
+      "OPEN"
+    ],
+    "param_overrides.TYPE_C_MAX_VWAP_DIST_ATR": 2.4,
+    "flags.dow_sizing": true,
+    "param_overrides.DOW_SIZE_MULT": {
+      "0": 0.5,
+      "3": 0.65
+    },
+    "flags.evening_vwap_cap": true,
+    "param_overrides.VWAP_CAP_EVENING": 0.35,
+    "flags.late_trail": true,
+    "param_overrides.STALE_MFE_EXEMPT_R": 0.5,
+    "param_overrides.LATE_TRAIL_ACTIVATE_R": 1.5
   },
-  "kept_features": [],
+  "kept_features": [
+    "type_c_open_only"
+  ],
   "rounds": [
     {
       "round_num": 1,
-      "candidates_tested": 26,
-      "best_name": "suggest_stale_bars_10",
-      "best_score": 0.7183788393467887,
-      "best_delta_pct": 0.0,
+      "candidates_tested": 21,
+      "best_name": "type_c_open_only",
+      "best_score": 0.8520673259971715,
+      "best_delta_pct": 0.783060299049247,
+      "kept": true,
+      "rejected_count": 0
+    },
+    {
+      "round_num": 2,
+      "candidates_tested": 17,
+      "best_name": "type_c_looser_close",
+      "best_score": 0.853391921760061,
+      "best_delta_pct": 0.15545670189140134,
       "kept": false,
-      "rejected_count": 13
+      "rejected_count": 0
     }
   ],
   "final_metrics": {
-    "total_trades": 164,
-    "win_rate": 0.49390243902439024,
-    "profit_factor": 2.4717660279238918,
-    "max_dd_pct": 0.1806424501758751,
-    "net_return_pct": 909.5194000000035,
-    "calmar": 50.34915099493432,
-    "sharpe": 1.8797927562095342,
-    "sortino": 8.505661523189787,
-    "avg_r": 0.40956414931740565,
-    "capture_ratio": 0.5056731247707034,
-    "stale_exit_pct": 0.47560975609756095,
-    "multi_session_pct": 0.23170731707317074,
-    "trades_per_month": 5.011108253081966,
-    "avg_hold_hours": 10.638719512195122,
-    "avg_winner_r": 1.3338577608075142,
-    "avg_loser_r": -0.49245732695607375,
-    "avg_mfe_r": 1.233421126792981,
-    "evening_trade_pct": 0.018292682926829267,
-    "evening_avg_r": 0.32226832641770403,
-    "fast_death_pct": 0.23780487804878048
+    "total_trades": 212,
+    "win_rate": 0.4669811320754717,
+    "profit_factor": 2.472123029283579,
+    "max_dd_pct": 0.17640121888559043,
+    "net_return_pct": 1302.008199999999,
+    "calmar": 73.80947865470534,
+    "sharpe": 2.2535037469609724,
+    "sortino": 6.468232963484171,
+    "avg_r": 0.4018054597124709,
+    "capture_ratio": 0.61608091946032,
+    "stale_exit_pct": 0.2641509433962264,
+    "multi_session_pct": 0.33490566037735847,
+    "trades_per_month": 6.257915694414983,
+    "avg_hold_hours": 13.418632075471699,
+    "avg_winner_r": 1.442411033966619,
+    "avg_loser_r": -0.5098755301208092,
+    "avg_mfe_r": 1.2110177379577602,
+    "evening_trade_pct": 0.04716981132075472,
+    "evening_avg_r": 0.06993791058814343,
+    "fast_death_pct": 0.25471698113207547
   },
-  "total_candidates": 26,
-  "accepted_count": 0,
-  "elapsed_seconds": 0.10819625854492188
+  "total_candidates": 21,
+  "accepted_count": 1,
+  "elapsed_seconds": 1295.3948895931244
 }

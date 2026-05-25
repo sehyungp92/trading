@@ -3,46 +3,47 @@ NQDTC Phase 3 Diagnostics
 ============================================================
 
 --- D1: Core Performance ---
-Total trades:    100
-Win rate:        58.0%
-Profit factor:   2.14
-Net return:      322.1%
-Robust return:   261.2% (ex largest winner)
-Max drawdown:    14.52%
-Calmar:          22.18
-Sharpe:          1.96
-Sortino:         24.80
-Avg R:           0.511
+Total trades:    94
+Win rate:        60.6%
+Profit factor:   2.27
+Net return:      307.7%
+Robust return:   267.5% (ex largest winner)
+Max drawdown:    13.89%
+Calmar:          22.16
+Sharpe:          2.01
+Sortino:         13.72
+Avg R:           0.487
 
 --- D2: Exit Efficiency ---
-Capture ratio:   0.437 (winners exit_R / MFE)
-TP1 hit rate:    54.0%
-TP2 hit rate:    0.0%
-Avg winner R:    1.598
-Avg loser R:     -0.990
-Avg MFE R:       2.614
-Avg hold hours:  8.5
-Largest win:     6.822R, 18.9% of net profit
+Capture ratio:   0.410 (winners exit_R / MFE)
+TP1 hit rate:    58.5%
+TP2 hit rate:    31.9%
+Avg winner R:    1.425
+Avg loser R:     -0.958
+Avg MFE R:       2.373
+Avg hold hours:  8.1
+Largest win:     5.236R, 13.1% of net profit
 
 --- D3: Regime Analysis ---
 Range regime:    100.0% of trades
-  Range       : 100 trades, WR=58%, avgR=+0.511, PnL=$+31,813
+  Range       :  94 trades, WR=61%, avgR=+0.487, PnL=$+30,346
 
 --- D4: Session/Direction Asymmetry ---
 ETH short WR:    0.0% (0 trades)
-  ETH_LONG       :  45 trades, WR=58%, avgR=+0.655, PnL=$+21,019
-  RTH_LONG       :  29 trades, WR=55%, avgR=+0.264, PnL=$+2,650
-  RTH_SHORT      :  26 trades, WR=62%, avgR=+0.538, PnL=$+8,143
+  ETH_LONG       :  36 trades, WR=64%, avgR=+0.649, PnL=$+16,384
+  RTH_LONG       :  30 trades, WR=53%, avgR=+0.280, PnL=$+4,415
+  RTH_SHORT      :  28 trades, WR=64%, avgR=+0.500, PnL=$+9,547
 
 --- D5: Trade Clustering ---
-Burst trade pct: 4.0%
-  Burst trades:    4, avgR=+0.923, PnL=$+1,530
-  Isolated trades: 96, avgR=+0.494, PnL=$+30,283
+Burst trade pct: 5.3%
+  Burst trades:    5, avgR=+0.751, PnL=$+1,898
+  Isolated trades: 89, avgR=+0.472, PnL=$+28,448
 
 --- D6: Greedy Result ---
-Base score:      0.7614
-Final score:     0.7614
-Accepted:        0
-Total candidates:16
+Base score:      0.7127
+Final score:     0.7550
+Accepted:        1
+Total candidates:12
+Kept features:   c_standard_wider_offset
 
 ============================================================

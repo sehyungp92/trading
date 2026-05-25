@@ -15,7 +15,7 @@ def gate_criteria_for_phase(
 
     Phase 4 uses *prior_phase_metrics* (from phase 3) for 90% no-regression.
     """
-    r_per_month = metrics.avg_r * metrics.trades_per_month
+    r_per_month = metrics.r_per_month if metrics.r_per_month else metrics.avg_r * metrics.trades_per_month
 
     # Hard floors (all phases)
     criteria: list[GateCriterion] = [
@@ -56,14 +56,14 @@ def gate_criteria_for_phase(
     elif phase == 5:
         criteria.extend([
             GateCriterion("evening_avg_r_floor", -0.20, metrics.evening_avg_r, metrics.evening_avg_r >= -0.20),
-            GateCriterion("calmar", 30.0, metrics.calmar, metrics.calmar >= 30.0),
+            GateCriterion("r_calmar", 4.0, metrics.r_calmar, metrics.r_calmar >= 4.0),
             GateCriterion("max_dd_pct", 0.24, metrics.max_dd_pct, metrics.max_dd_pct <= 0.24),
             GateCriterion("r_per_month", 1.50, r_per_month, r_per_month >= 1.50),
         ])
     elif phase == 6:
         # 90% no-regression floor on P3 metrics
         if prior_phase_metrics:
-            for key in ["profit_factor", "calmar", "sharpe", "net_return_pct", "total_trades", "capture_ratio", "trades_per_month", "avg_r"]:
+            for key in ["profit_factor", "r_calmar", "r_per_month", "sharpe", "total_trades", "capture_ratio", "trades_per_month", "avg_r"]:
                 target = float(prior_phase_metrics.get(key, 0.0)) * 0.90
                 actual = float(getattr(metrics, key, 0.0))
                 criteria.append(GateCriterion(f"no_regress_{key}", target, actual, actual >= target))

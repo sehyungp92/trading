@@ -1048,7 +1048,7 @@
     },
     {
       "round": 8,
-      "timestamp": "2026-05-09T19:15:23.997752+00:00",
+      "timestamp": "2026-05-23T00:05:26.198218+00:00",
       "mutations_count": 96,
       "mutations": {
         "all.trail_after_t1_30m_bars": 8,
@@ -1175,22 +1175,10 @@
       "net_return_pct": 160.59117499999803,
       "sharpe_ratio": 0.9857809721796249,
       "calmar_ratio": null,
-      "selection_oos": {
-        "train_end": "2025-11-01",
-        "data_end": "2026-05-01 23:00:00+00:00",
-        "net_return_pct": 11.316720000000059,
-        "total_trades": 10,
-        "avg_r": 0.6790717228686377,
-        "win_rate": 70.0,
-        "dollar_profit_factor": 3.3413822710956094,
-        "max_drawdown_pct": 3.461484110083319,
-        "note": "Selection OOS used for repair; not an untouched holdout."
-      },
-      "promotion_note": "Updated to OOS-selected top3_pb30_qqq_no_mfe stack: PB30 5-18, QQQ T1 1.0, MFE giveback disabled.",
-      "promoted_candidate": "top3_pb30_qqq_no_mfe",
-      "oos_candidate_report": "backtests\\output\\swing\\tpc\\round_8\\oos_candidate_check_20260509_final_4w\\oos_candidate_report.md",
-      "oos_decision": "backtests\\output\\swing\\tpc\\round_8\\oos_candidate_check_20260509_final_4w\\oos_optimal_configuration_decision.md",
-      "optimized_config_source": "backtests\\output\\swing\\tpc\\round_8\\oos_candidate_check_20260509_final_4w\\recommended_config.json"
+      "selection_fingerprint": "51e21f62082e2bf6c05124febd1e5d17238a5ca2a92f4c8772a5c479d72df7e1",
+      "diagnostics_fingerprint": "51e21f62082e2bf6c05124febd1e5d17238a5ca2a92f4c8772a5c479d72df7e1",
+      "provenance_schema_version": 1,
+      "provenance_status": "complete"
     }
   ]
 }

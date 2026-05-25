@@ -1,6 +1,6 @@
 {
-  "base_score": 0.8117716694164114,
-  "final_score": 0.8117716694164114,
+  "base_score": 0.7946323578579929,
+  "final_score": 0.7946323578579929,
   "final_mutations": {
     "initial_equity": 25000.0,
     "risk_stance": "aggressive_controlled",
@@ -91,17 +91,16 @@
     "portfolio_rules.max_single_strategy_trade_share": 0.85,
     "portfolio_rules.max_single_strategy_risk_share": 0.82,
     "strategy_allocations.IARIC_V5R1.max_heat_R": 5.4,
-    "strategy_allocations.ALCB_R3.max_heat_R": 4.0,
-    "portfolio_rules.heat_cap_R": 6.5
+    "strategy_allocations.ALCB_R3.max_heat_R": 4.0
   },
   "kept_features": [],
   "rounds": [
     {
       "round_num": 1,
       "candidates_tested": 6,
-      "best_name": "same_symbol_best_rank_only",
-      "best_score": 0.8119348783331906,
-      "best_delta_pct": 0.020105273801493337,
+      "best_name": "rank_expected_alpha_per_heat",
+      "best_score": 0.796227811071994,
+      "best_delta_pct": 0.2007787876020824,
       "kept": false,
       "rejected_count": 0
     }
@@ -109,5 +108,5 @@
   "final_metrics": {},
   "total_candidates": 6,
   "accepted_count": 0,
-  "elapsed_seconds": 423.63867831230164
+  "elapsed_seconds": 593.8102221488953
 }

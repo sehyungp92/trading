@@ -1,213 +1,211 @@
 {
   "abs_tolerance": 1e-06,
-  "accepted_trades": 979,
-  "action_count": 2114,
-  "blocked_trades": 78,
+  "accepted_trades": 1238,
+  "action_count": 2590,
+  "blocked_trades": 57,
   "comparison_basis": "realized_replay_metrics",
   "comparisons": {
     "active_strategies": {
-      "abs_diff": 0.0,
-      "actual": 5.0,
-      "expected": 5.0,
-      "matched": true,
-      "rel_diff": 0.0
-    },
-    "block_rate": {
-      "abs_diff": 0.0,
-      "actual": 0.07379375591296121,
-      "expected": 0.07379375591296121,
-      "matched": true,
-      "rel_diff": 0.0
-    },
-    "blocked_trades": {
-      "abs_diff": 0.0,
-      "actual": 78.0,
-      "expected": 78.0,
-      "matched": true,
-      "rel_diff": 0.0
-    },
-    "cagr": {
-      "abs_diff": 0.0,
-      "actual": 0.9288969715053832,
-      "expected": 0.9288969715053832,
-      "matched": true,
-      "rel_diff": 0.0
-    },
-    "calmar": {
-      "abs_diff": 0.0,
-      "actual": 43.00496228200444,
-      "expected": 43.00496228200444,
-      "matched": true,
-      "rel_diff": 0.0
-    },
-    "max_concurrent": {
       "abs_diff": 0.0,
       "actual": 4.0,
       "expected": 4.0,
       "matched": true,
       "rel_diff": 0.0
     },
+    "block_rate": {
+      "abs_diff": 0.0,
+      "actual": 0.044015444015444015,
+      "expected": 0.044015444015444015,
+      "matched": true,
+      "rel_diff": 0.0
+    },
+    "blocked_trades": {
+      "abs_diff": 0.0,
+      "actual": 57.0,
+      "expected": 57.0,
+      "matched": true,
+      "rel_diff": 0.0
+    },
+    "cagr": {
+      "abs_diff": 0.0,
+      "actual": 1.2405202281529366,
+      "expected": 1.2405202281529366,
+      "matched": true,
+      "rel_diff": 0.0
+    },
+    "calmar": {
+      "abs_diff": 0.0,
+      "actual": 66.11081873733129,
+      "expected": 66.11081873733129,
+      "matched": true,
+      "rel_diff": 0.0
+    },
+    "max_concurrent": {
+      "abs_diff": 0.0,
+      "actual": 3.0,
+      "expected": 3.0,
+      "matched": true,
+      "rel_diff": 0.0
+    },
     "max_drawdown_pct": {
       "abs_diff": 0.0,
-      "actual": 0.021599762497503294,
-      "expected": 0.021599762497503294,
+      "actual": 0.01876425450245472,
+      "expected": 0.01876425450245472,
       "matched": true,
       "rel_diff": 0.0
     },
     "min_strategy_trades": {
       "abs_diff": 0.0,
-      "actual": 88.0,
-      "expected": 88.0,
+      "actual": 104.0,
+      "expected": 104.0,
       "matched": true,
       "rel_diff": 0.0
     },
     "net_profit": {
       "abs_diff": 0.0,
-      "actual": 179107.073076992,
-      "expected": 179107.073076992,
+      "actual": 301556.8379883672,
+      "expected": 301556.8379883672,
       "matched": true,
       "rel_diff": 0.0
     },
     "net_return_pct": {
       "abs_diff": 0.0,
-      "actual": 3.6044990615398538,
-      "expected": 3.6044990615398538,
+      "actual": 6.045882359767352,
+      "expected": 6.045882359767352,
       "matched": true,
       "rel_diff": 0.0
     },
     "profit_factor": {
       "abs_diff": 0.0,
-      "actual": 3.307723775861553,
-      "expected": 3.307723775861553,
+      "actual": 3.4032364656016414,
+      "expected": 3.4032364656016414,
       "matched": true,
       "rel_diff": 0.0
     },
     "sharpe": {
       "abs_diff": 0.0,
-      "actual": 5.114872429076661,
-      "expected": 5.114872429076661,
+      "actual": 5.980101660451219,
+      "expected": 5.980101660451219,
       "matched": true,
       "rel_diff": 0.0
     },
     "sortino": {
       "abs_diff": 0.0,
-      "actual": 9.574871691097094,
-      "expected": 9.574871691097094,
+      "actual": 10.692045578116023,
+      "expected": 10.692045578116023,
       "matched": true,
       "rel_diff": 0.0
     },
     "total_r": {
       "abs_diff": 0.0,
-      "actual": 716.428292307968,
-      "expected": 716.428292307968,
+      "actual": 1206.2273519534688,
+      "expected": 1206.2273519534688,
       "matched": true,
       "rel_diff": 0.0
     },
     "total_r_per_month": {
       "abs_diff": 0.0,
-      "actual": 25.68467155138254,
-      "expected": 25.68467155138254,
+      "actual": 41.532290752357135,
+      "expected": 41.532290752357135,
       "matched": true,
       "rel_diff": 0.0
     },
     "total_trades": {
       "abs_diff": 0.0,
-      "actual": 979.0,
-      "expected": 979.0,
+      "actual": 1238.0,
+      "expected": 1238.0,
       "matched": true,
       "rel_diff": 0.0
     },
     "trades_per_month": {
       "abs_diff": 0.0,
-      "actual": 35.09813015312132,
-      "expected": 35.09813015312132,
+      "actual": 42.626272624434385,
+      "expected": 42.626272624434385,
       "matched": true,
       "rel_diff": 0.0
     },
     "win_rate": {
       "abs_diff": 0.0,
-      "actual": 0.609805924412666,
-      "expected": 0.609805924412666,
+      "actual": 0.6348949919224556,
+      "expected": 0.6348949919224556,
       "matched": true,
       "rel_diff": 0.0
     }
   },
   "decision_count": 0,
   "expected_headline_metrics": {
-    "active_strategies": 5.0,
-    "block_rate": 0.07379375591296121,
-    "blocked_trades": 78.0,
-    "cagr": 0.9288969715053832,
-    "calmar": 11.149552696269813,
-    "calmar_mtm": 11.149552696269813,
-    "calmar_r": 43.3723708995215,
-    "calmar_realized": 43.00496228200444,
-    "max_concurrent": 4.0,
-    "max_drawdown_pct": 0.08293302950320333,
-    "max_drawdown_pct_mtm": 0.08293302950320333,
-    "max_drawdown_pct_realized": 0.021599762497503294,
-    "max_drawdown_r": 16.518079999999998,
-    "min_strategy_trades": 88.0,
-    "net_profit": 179107.073076992,
-    "net_return_pct": 3.6044990615398538,
-    "profit_factor": 3.307723775861553,
+    "active_strategies": 4.0,
+    "block_rate": 0.044015444015444015,
+    "blocked_trades": 57.0,
+    "cagr": 1.2405202281529366,
+    "calmar": 16.39310689186779,
+    "calmar_mtm": 16.39310689186779,
+    "calmar_r": 80.06713166459579,
+    "calmar_realized": 66.11081873733129,
+    "final_equity": 351556.8379883672,
+    "max_concurrent": 3.0,
+    "max_drawdown_pct": 0.0755282394349325,
+    "max_drawdown_pct_mtm": 0.0755282394349325,
+    "max_drawdown_pct_realized": 0.01876425450245472,
+    "max_drawdown_r": 15.065200000000004,
+    "min_strategy_trades": 104.0,
+    "net_profit": 301556.8379883672,
+    "net_return_pct": 6.031136759767343,
+    "net_return_pct_realized": 6.045882359767352,
+    "profit_factor": 3.4032364656016414,
     "risk_basis": "bar_close_mark_to_market",
-    "sharpe": 5.114872429076661,
-    "sortino": 9.574871691097094,
-    "total_r": 716.428292307968,
-    "total_r_per_month": 25.68467155138254,
-    "total_trades": 979.0,
-    "trades_per_month": 35.09813015312132,
-    "win_rate": 0.609805924412666
+    "sharpe": 5.980101660451219,
+    "sortino": 10.692045578116023,
+    "total_r": 1206.2273519534688,
+    "total_r_per_month": 41.532290752357135,
+    "total_trades": 1238.0,
+    "trades_per_month": 42.626272624434385,
+    "win_rate": 0.6348949919224556
   },
   "matched": true,
   "metrics": {
-    "active_strategies": 5.0,
-    "block_rate": 0.07379375591296121,
-    "blocked_trades": 78.0,
-    "cagr": 0.9288969715053832,
-    "calmar": 43.00496228200444,
-    "calmar_r": 43.3723708995215,
-    "max_concurrent": 4.0,
-    "max_drawdown_pct": 0.021599762497503294,
-    "max_drawdown_r": 16.518079999999998,
-    "min_strategy_trades": 88.0,
-    "net_profit": 179107.073076992,
-    "net_return_pct": 3.6044990615398538,
-    "profit_factor": 3.307723775861553,
-    "sharpe": 5.114872429076661,
-    "sortino": 9.574871691097094,
-    "total_r": 716.428292307968,
-    "total_r_per_month": 25.68467155138254,
-    "total_trades": 979.0,
-    "trades_per_month": 35.09813015312132,
-    "win_rate": 0.609805924412666
+    "active_strategies": 4.0,
+    "block_rate": 0.044015444015444015,
+    "blocked_trades": 57.0,
+    "cagr": 1.2405202281529366,
+    "calmar": 66.11081873733129,
+    "calmar_r": 80.06713166459579,
+    "max_concurrent": 3.0,
+    "max_drawdown_pct": 0.01876425450245472,
+    "max_drawdown_r": 15.065200000000004,
+    "min_strategy_trades": 104.0,
+    "net_profit": 301556.8379883672,
+    "net_return_pct": 6.045882359767352,
+    "profit_factor": 3.4032364656016414,
+    "sharpe": 5.980101660451219,
+    "sortino": 10.692045578116023,
+    "total_r": 1206.2273519534688,
+    "total_r_per_month": 41.532290752357135,
+    "total_trades": 1238.0,
+    "trades_per_month": 42.626272624434385,
+    "win_rate": 0.6348949919224556
   },
   "rel_tolerance": 1e-09,
   "replay_architecture": "canonical_replay_bundle_live_rule_adapter",
-  "replay_source_fingerprint": "a277100aa4c5e96a219d2cdc64553d23e6ce4649e4524ca9e6cbf12896343e77",
-  "round_dir": "backtests\\output\\momentum\\portfolio_synergy\\round_3",
+  "replay_source_fingerprint": "602a9f8866bbb9696405b30ee4d89705dc3f6fc5ff920567202fcddd5a3f4710",
+  "round_dir": "backtests\\output\\momentum\\portfolio_synergy\\round_2",
   "rule_blocks": {
-    "dynamic_capacity_floor": 31,
-    "max_concurrent": 10,
-    "portfolio_daily_stop": 14,
-    "portfolio_weekly_stop": 15,
-    "proximity_cooldown": 5,
-    "strategy_daily_stop": 3
+    "dynamic_capacity_floor": 13,
+    "portfolio_daily_stop": 30,
+    "portfolio_weekly_stop": 4,
+    "strategy_daily_stop": 10
   },
   "strategy_blocked_counts": {
-    "AKC_Helix_v40": 34,
-    "DownturnDominator_v1": 25,
-    "NQDTC_v2.1": 4,
-    "NQ_REGIME": 13,
-    "VdubusNQ_v4": 2
+    "DownturnDominator_v1": 21,
+    "NQDTC_v2.1": 6,
+    "NQ_REGIME": 25,
+    "VdubusNQ_v4": 5
   },
   "strategy_trade_counts": {
-    "AKC_Helix_v40": 96,
-    "DownturnDominator_v1": 88,
-    "NQDTC_v2.1": 96,
-    "NQ_REGIME": 503,
-    "VdubusNQ_v4": 196
+    "DownturnDominator_v1": 104,
+    "NQDTC_v2.1": 152,
+    "NQ_REGIME": 775,
+    "VdubusNQ_v4": 207
   },
-  "trade_outcome_count": 1057
+  "trade_outcome_count": 1295
 }

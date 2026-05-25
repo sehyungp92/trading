@@ -3,8 +3,8 @@
   "strategy": "nqdtc",
   "strategy_name": "nqdtc",
   "round": 4,
-  "description": "Promote refined positive-OOS NQDTC repair as round 4.",
-  "generated_at_utc": "2026-05-04T21:26:22.523644+00:00",
+  "description": "Round 4",
+  "generated_at_utc": "2026-05-23T16:16:02.979846+00:00",
   "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_3\\optimized_config.json",
   "baseline_mutation_count": 17,
   "baseline_mutations": {
@@ -18,14 +18,123 @@
     "param_overrides.MIN_BOX_WIDTH": 150,
     "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
     "flags.block_eth_shorts": true,
-    "param_overrides.TP1_R": 1.4,
+    "param_overrides.TP1_R": 1.2,
     "param_overrides.LOSS_STREAK_THRESHOLD": 2,
-    "param_overrides.TP1_PARTIAL_PCT": 0.55,
-    "param_overrides.BLOCK_ALIGNED_REGIME": true,
-    "flags.block_05_et": false,
-    "flags.block_09_et": false,
-    "param_overrides.RATCHET_THRESHOLD_R": 0.75
+    "param_overrides.TP1_PARTIAL_PCT": 0.45,
+    "param_overrides.TP2_R": 2.25,
+    "param_overrides.TP2_PARTIAL_PCT": 0.2,
+    "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+    "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.24
   },
   "scoring_weights": {},
-  "promotion_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\narrow_oos_repair_refine_20260504\\summary.json"
+  "execution_context": {
+    "data_dir": "backtests\\momentum\\data\\raw",
+    "initial_equity": 10000.0,
+    "end_date": "2026-03-21T00:00:00+00:00",
+    "max_workers": 2
+  },
+  "provenance": {
+    "schema_version": 1,
+    "selection_fingerprint": "3fd10ec4ac5d75f62f921557606022fda2d00352905b255ed86df2d63ed833e3",
+    "diagnostics_fingerprint": "3fd10ec4ac5d75f62f921557606022fda2d00352905b255ed86df2d63ed833e3",
+    "items": [
+      {
+        "name": "data_dir",
+        "kind": "tree_contents",
+        "fingerprint": "cced7806698e11c2896637a43a7235da1e077b221cea3568356afb6a06711419",
+        "paths": [
+          "backtests/momentum/data/raw"
+        ],
+        "scope": "data",
+        "notes": "Content fingerprint for selection-relevant replay data files."
+      },
+      {
+        "name": "code:backtests/momentum/auto/config_mutator.py",
+        "kind": "file_contents",
+        "fingerprint": "5ddc4e4ec20135fc734d667b53aefed0d77fb52534ff1cb1aff2206b7e0563dd",
+        "paths": [
+          "backtests/momentum/auto/config_mutator.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/config_nqdtc.py",
+        "kind": "file_contents",
+        "fingerprint": "c75a8750e5204a6d705964a3c860a6f695e7f060023b2cea914a51cde7e23651",
+        "paths": [
+          "backtests/momentum/config_nqdtc.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/data/replay_cache.py",
+        "kind": "file_contents",
+        "fingerprint": "52f01bbd08103c238d77eabeeddd2fc690974b6dfe8b6a23bc8d26f60c607808",
+        "paths": [
+          "backtests/momentum/data/replay_cache.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/engine/nqdtc_engine.py",
+        "kind": "file_contents",
+        "fingerprint": "69fcaccf70930144304c12b9debb34576691cf778fb748897a4b0647a7ba2791",
+        "paths": [
+          "backtests/momentum/engine/nqdtc_engine.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/engine/sim_broker.py",
+        "kind": "file_contents",
+        "fingerprint": "9b411d5185842fa2c1d88f8836f87643b872bdff0bd632fee1ca6185208537db",
+        "paths": [
+          "backtests/momentum/engine/sim_broker.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "plugin",
+        "kind": "plugin_identity",
+        "fingerprint": "e782cae55f8e77f557ff004538960b4638ff0871d42e1355bc5a39ae01ceeed9",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "selection_context",
+        "kind": "stable_json",
+        "fingerprint": "c5847c5523ce3c2f0e7ed763a24bfd567875d6eb7cb02efbc01074067952decf",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:backtests/momentum/auto/nqdtc",
+        "kind": "tree_contents",
+        "fingerprint": "27d1435cf4ffb228a5514621cbf4d40ebcf86d2a4d744c7c4c808b5b2c47c2db",
+        "paths": [
+          "backtests/momentum/auto/nqdtc"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "shared_auto_package",
+        "kind": "tree_contents",
+        "fingerprint": "547c7e20216abcb5ba28b3132da31f4a14be527d969a126803263c687638e0fa",
+        "paths": [
+          "backtests/shared/auto"
+        ],
+        "scope": "selection",
+        "notes": ""
+      }
+    ]
+  },
+  "provenance_status": "selection_drift_accepted"
 }

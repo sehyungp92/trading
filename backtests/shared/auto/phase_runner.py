@@ -12,8 +12,31 @@ from .phase_gates import evaluate_gate
 from .phase_logging import PhaseLogger
 from .phase_state import PhaseState, _utc_now_iso, load_phase_state, save_phase_state
 from .plugin import StrategyPlugin
+from .provenance import (
+    AutoRunProvenance,
+    ProvenanceValidationError,
+    ProvenanceValidationResult,
+    build_fallback_provenance,
+    coerce_provenance,
+)
 from .round_manager import RoundManager
 from .types import GateResult, GreedyResult, PhaseAnalysis
+
+_PROVENANCE_STATUS_COMPLETE = "complete"
+_PROVENANCE_STATUS_FALLBACK_INCOMPLETE = "fallback_incomplete"
+
+_STRICT_PROVENANCE_SURFACES = {
+    ("momentum", "nqdtc"),
+    ("momentum", "vdubus"),
+    ("momentum", "portfolio_synergy"),
+    ("stock", "alcb"),
+    ("stock", "iaric"),
+    ("stock", "portfolio_synergy"),
+    ("swing", "tpc"),
+    ("swing", "atrss"),
+    ("swing", "helix"),
+    ("swing", "portfolio_synergy"),
+}
 
 
 def _to_dict(value: Any) -> Any:
@@ -50,6 +73,7 @@ class PhaseRunner:
         max_diagnostic_retries: int = 1,
         round_manager: RoundManager | None = None,
         round_num: int | None = None,
+        allow_selection_drift: bool = False,
     ):
         self.plugin = plugin
         self.output_dir = Path(output_dir)
@@ -61,6 +85,10 @@ class PhaseRunner:
         self.max_diagnostic_retries = max_diagnostic_retries
         self._round_manager = round_manager
         self._round_num = round_num
+        self._provenance: AutoRunProvenance | None = None
+        self._provenance_status: str | None = None
+        self._provenance_validation: ProvenanceValidationResult | None = None
+        self._allow_selection_drift = allow_selection_drift
         self.state_path = (
             self._round_manager.phase_state_path(self.output_dir)
             if self._round_manager else self.output_dir / "phase_state.json"
@@ -70,21 +98,34 @@ class PhaseRunner:
     def _ensure_round_spec(self, state: PhaseState) -> None:
         if not self._round_manager or self._round_num is None:
             return
+        provenance = self._current_provenance()
+        self._validate_provenance_before_round_start(provenance)
+        previous_validation_provenance = self._previous_round_validation_provenance(provenance)
+
         baseline_mutations = getattr(self.plugin, "initial_mutations", None)
         if baseline_mutations is None:
             if self._round_num > 1:
-                baseline_mutations = self._round_manager.get_previous_mutations(self._round_num)
+                baseline_mutations = self._round_manager.get_previous_mutations(
+                    self._round_num,
+                    current_provenance=previous_validation_provenance,
+                )
             else:
                 baseline_mutations = {}
         baseline_source = getattr(self.plugin, "initial_mutations_source", None)
+        scoring_weights = getattr(self.plugin, "score_weights", None)
+        if scoring_weights is None:
+            scoring_weights = getattr(self.plugin, "scoring_weights", None)
         self._round_manager.write_run_spec(
             self.output_dir,
             self._round_num,
             self.plugin.name,
             description=self.round_name or f"Round {self._round_num}",
+            scoring_weights=dict(scoring_weights or {}),
             baseline_mutations=dict(baseline_mutations),
             baseline_source=baseline_source,
             execution_context=_plugin_execution_context(self.plugin),
+            provenance=provenance,
+            provenance_status=self._provenance_status,
         )
 
     def load_state(self) -> PhaseState:
@@ -556,18 +597,25 @@ class PhaseRunner:
         final_metrics = dict(self.plugin.compute_final_metrics(state.cumulative_mutations) or {})
 
         if self._round_manager and self._round_num is not None:
+            provenance = self._current_provenance()
+            self._validate_provenance_before_round_start(provenance)
             self._round_manager.write_run_summary(
                 self.output_dir,
                 state.cumulative_mutations,
                 final_metrics,
                 state.completed_phases,
                 round_num=self._round_num,
+                provenance=provenance,
+                provenance_status=self._provenance_status,
+                provenance_validation=self._provenance_validation,
             )
             self._round_manager.write_optimized_config(self.output_dir, state.cumulative_mutations)
             self._round_manager.append_to_manifest(
                 self._round_num,
                 state.cumulative_mutations,
                 final_metrics,
+                provenance=provenance,
+                provenance_status=self._provenance_status,
             )
 
         self.phase_logger.log_activity(
@@ -576,6 +624,64 @@ class PhaseRunner:
             {"completed_phases": state.completed_phases},
         )
         return report
+
+    def _current_provenance(self) -> AutoRunProvenance:
+        if self._provenance is not None:
+            return self._provenance
+
+        build_provenance = getattr(self.plugin, "build_provenance", None)
+        if callable(build_provenance):
+            provenance = coerce_provenance(build_provenance())
+            if provenance is None:
+                raise ValueError(f"{self.plugin.name}.build_provenance() returned no provenance.")
+            self._provenance = provenance
+            self._provenance_status = getattr(self.plugin, "provenance_status", None) or _PROVENANCE_STATUS_COMPLETE
+            return self._provenance
+
+        context = _plugin_execution_context(self.plugin)
+        self._provenance = build_fallback_provenance(
+            plugin_name=self.plugin.name,
+            execution_context=context,
+            shared_auto_dir=Path(__file__).resolve().parent,
+        )
+        self._provenance_status = _PROVENANCE_STATUS_FALLBACK_INCOMPLETE
+        return self._provenance
+
+    def _validate_provenance_before_round_start(self, provenance: AutoRunProvenance) -> None:
+        if not self._round_manager or self._round_num is None:
+            return
+
+        surface = (self._round_manager.family, self._round_manager.strategy)
+        if self._provenance_status == _PROVENANCE_STATUS_FALLBACK_INCOMPLETE and surface in _STRICT_PROVENANCE_SURFACES:
+            raise RuntimeError(
+                f"{self._round_manager.family}/{self._round_manager.strategy} requires complete provenance before "
+                "new rounds can be accepted; implement build_provenance() for this plugin."
+            )
+
+        if self._round_num <= 1 or self._provenance_validation is not None:
+            return
+
+        validation_provenance = self._previous_round_validation_provenance(provenance)
+        result = self._round_manager.validate_previous_round_provenance(
+            self._round_num,
+            validation_provenance,
+            allow_diagnostics_only_drift=True,
+        )
+        self._provenance_validation = result
+        if not result.valid:
+            if self._allow_selection_drift:
+                self._provenance_status = "selection_drift_accepted"
+                return
+            raise ProvenanceValidationError(result)
+
+    def _previous_round_validation_provenance(self, provenance: AutoRunProvenance) -> AutoRunProvenance:
+        override = getattr(self.plugin, "previous_round_provenance", None)
+        if override is None:
+            return provenance
+        validation_provenance = coerce_provenance(override)
+        if validation_provenance is None:
+            raise ValueError(f"{self.plugin.name}.previous_round_provenance could not be coerced to provenance.")
+        return validation_provenance
 
 
 def _gate_to_dict(gate_result: GateResult) -> dict:

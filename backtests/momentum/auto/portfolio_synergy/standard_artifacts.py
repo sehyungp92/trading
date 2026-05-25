@@ -26,6 +26,7 @@ from backtests.momentum.engine.family_portfolio_engine import (
     family_config_to_dict,
 )
 from backtests.shared.auto.phase_state import PhaseState, save_phase_state
+from backtests.shared.auto.provenance import AutoRunProvenance, build_phase_auto_provenance
 from backtests.shared.auto.round_manager import canonicalize_metrics
 
 
@@ -40,11 +41,11 @@ def main(argv: list[str] | None = None) -> None:
             "artifact contract while preserving the rich portfolio diagnostics."
         ),
     )
-    parser.add_argument("--source-dir", default="backtests/output/momentum/portfolio_synergy/round_3")
-    parser.add_argument("--output-dir", default="backtests/output/momentum/portfolio_synergy/round_3")
+    parser.add_argument("--source-dir", default="backtests/output/momentum/portfolio_synergy/round_2")
+    parser.add_argument("--output-dir", default="backtests/output/momentum/portfolio_synergy/round_2")
     parser.add_argument("--data-dir", default="backtests/momentum/data/raw")
     parser.add_argument("--momentum-output-root", default="backtests/output/momentum")
-    parser.add_argument("--round", type=int, default=3)
+    parser.add_argument("--round", type=int, default=2)
     args = parser.parse_args(argv)
 
     summary = finalize_standard_round(
@@ -100,6 +101,13 @@ def finalize_standard_round(
         source_lineage=source_lineage,
         risk_basis=metric_package["headline_metrics"].get("risk_basis", "bar_close_mark_to_market"),
     )
+    provenance = _build_provenance(
+        round_num=round_num,
+        data_dir=data_dir,
+        source_dir=source_dir,
+        source_lineage=source_lineage,
+        replay_source_fingerprint=replay_bundle.source_fingerprint,
+    )
 
     summary = {
         **source_summary,
@@ -139,6 +147,8 @@ def finalize_standard_round(
         "strategy_trade_counts": result.strategy_trade_counts,
         "strategy_blocked_counts": result.strategy_blocked_counts,
         "rule_blocks": result.rule_blocks,
+        "provenance": provenance.to_dict(),
+        "provenance_status": "complete",
     }
     _write_json(output_dir / "run_summary.json", summary)
 
@@ -154,7 +164,7 @@ def finalize_standard_round(
         _round_evaluation(summary, diagnostics),
         encoding="utf-8",
     )
-    _write_run_spec(output_dir, source_dir, summary, config_dict)
+    _write_run_spec(output_dir, source_dir, summary, config_dict, provenance)
     _write_phase_compatibility_artifacts(output_dir, source_summary, summary, config_dict)
     _write_manifest(output_dir.parent, round_num, summary, config_dict)
     return summary
@@ -211,6 +221,52 @@ def _source_artifact_lineage(output_dir: Path, source_dir: Path) -> dict[str, An
     }
     lineage["fingerprint"] = _lineage_fingerprint(lineage)
     return lineage
+
+
+def _build_provenance(
+    *,
+    round_num: int,
+    data_dir: Path,
+    source_dir: Path,
+    source_lineage: dict[str, Any],
+    replay_source_fingerprint: str,
+) -> AutoRunProvenance:
+    return build_phase_auto_provenance(
+        STRATEGY_NAME,
+        repo_root=REPO_ROOT,
+        code_dirs=(Path(__file__).resolve().parent,),
+        code_paths=(
+            Path(__file__).resolve(),
+            REPO_ROOT / "backtests/momentum/engine/family_portfolio_engine.py",
+            REPO_ROOT / "libs/oms/risk/portfolio_rules.py",
+        ),
+        data_dir=data_dir,
+        source_artifacts=_lineage_source_artifacts(source_lineage),
+        selection_context={
+            "round": round_num,
+            "source_dir": str(source_dir),
+            "score_weights": SCORE_WEIGHTS,
+            "targets": TARGETS,
+            "replay_source_fingerprint": replay_source_fingerprint,
+            "source_artifacts_fingerprint": source_lineage.get("fingerprint", ""),
+        },
+    )
+
+
+def _lineage_source_artifacts(source_lineage: dict[str, Any]) -> dict[str, Path]:
+    artifacts: dict[str, Path] = {}
+    for key in ("strategy_trades", "strategy_trade_manifest", "source_round_config"):
+        info = source_lineage.get(key, {})
+        if isinstance(info, dict) and info.get("path") and not info.get("hash_excluded_reason"):
+            artifacts[key] = Path(str(info["path"]))
+    for group in ("source_strategy_configs", "source_strategy_summaries", "source_strategy_diagnostics"):
+        records = source_lineage.get(group, {})
+        if not isinstance(records, dict):
+            continue
+        for name, info in records.items():
+            if isinstance(info, dict) and info.get("path"):
+                artifacts[f"{group}:{name}"] = Path(str(info["path"]))
+    return artifacts
 
 
 def _replay_contract(
@@ -320,6 +376,7 @@ def _write_run_spec(
     source_dir: Path,
     summary: dict[str, Any],
     config_dict: dict[str, Any],
+    provenance: AutoRunProvenance,
 ) -> None:
     payload = {
         "family": "momentum",
@@ -348,6 +405,8 @@ def _write_run_spec(
             "replay_contract": summary.get("replay_contract", {}),
         },
         "source_artifact_lineage": summary.get("source_artifact_lineage", {}),
+        "provenance": provenance.to_dict(),
+        "provenance_status": "complete",
     }
     _write_json(output_dir / "run_spec.json", payload)
 
@@ -628,6 +687,7 @@ def _write_manifest(
             round_summary = summary
             metrics = summary["final_metrics"]
         accepted_trace = _accepted_mutation_trace(round_summary)
+        provenance = round_summary.get("provenance", {})
         rounds.append({
             "round": inferred_round,
             "timestamp": _utc_now(),
@@ -640,6 +700,10 @@ def _write_manifest(
             "completed_phases": round_summary.get("completed_phases", _completed_phases(round_summary)),
             "source_round_dir": round_summary.get("source_round_dir"),
             "source_artifacts_fingerprint": round_summary.get("source_artifacts_fingerprint", ""),
+            "selection_fingerprint": provenance.get("selection_fingerprint", ""),
+            "diagnostics_fingerprint": provenance.get("diagnostics_fingerprint", ""),
+            "provenance_schema_version": provenance.get("schema_version"),
+            "provenance_status": round_summary.get("provenance_status", ""),
             "replay_contract": round_summary.get("replay_contract", {}),
             **canonicalize_metrics(metrics),
         })
