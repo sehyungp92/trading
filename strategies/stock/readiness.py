@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from libs.config.models import StrategyRegistryConfig
 
 _ET = ZoneInfo("America/New_York")
+_ACCOUNT_PLACEHOLDER_TOKENS = ("PLACEHOLDER", "YOUR_ACCOUNT", "CHANGEME")
 
 
 @dataclass(frozen=True)
@@ -99,7 +100,15 @@ def _account_config_reason(account_id: str | None) -> str | None:
     value = str(account_id).strip()
     if value.startswith("${") and value.endswith("}"):
         return f"account_id is unresolved placeholder {value}"
+    if any(token in value.upper() for token in _ACCOUNT_PLACEHOLDER_TOKENS):
+        return f"account_id is placeholder-like {_redact_account_id(value)}"
     return None
+
+
+def _redact_account_id(account_id: str) -> str:
+    if len(account_id) <= 4:
+        return "***"
+    return f"{account_id[:2]}...{account_id[-2:]}"
 
 
 def _load_artifact(*, artifact_type: str, trade_date: date) -> Any:

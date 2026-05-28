@@ -37,6 +37,54 @@ _FAMILY_COORDINATORS: dict[str, str] = {
 
 _PAPER_PORTS = {4002, 7497}
 _LIVE_PORTS = {4001, 7496}
+_ACCOUNT_PLACEHOLDER_TOKENS = ("PLACEHOLDER", "YOUR_ACCOUNT", "CHANGEME")
+
+
+def _ib_mode_port_mismatch(runtime_env: str, port: int) -> bool:
+    return (
+        (runtime_env == "live" and port in _PAPER_PORTS)
+        or (runtime_env == "paper" and port in _LIVE_PORTS)
+    )
+
+
+def _redact_account_id(account_id: str | None) -> str:
+    value = str(account_id or "").strip()
+    if not value:
+        return "<blank>"
+    if value.startswith("${") and value.endswith("}"):
+        return value
+    if len(value) <= 4:
+        return "***"
+    return f"{value[:2]}...{value[-2:]}"
+
+
+def _is_placeholder_account_id(account_id: str | None) -> bool:
+    value = str(account_id or "").strip().upper()
+    return value.startswith("${") or any(
+        token in value for token in _ACCOUNT_PLACEHOLDER_TOKENS
+    )
+
+
+def _ib_mode_account_ok(runtime_env: str, account_id: str | None) -> bool:
+    value = str(account_id or "").strip().upper()
+    if runtime_env == "paper":
+        return value.startswith("DU") and not _is_placeholder_account_id(value)
+    if runtime_env == "live":
+        return (
+            value.startswith("U")
+            and not value.startswith("DU")
+            and not _is_placeholder_account_id(value)
+        )
+    return True
+
+
+def _ib_mode_account_detail(runtime_env: str, account_id: str | None) -> str:
+    detail = f"env={runtime_env} account_id={_redact_account_id(account_id)}"
+    if runtime_env == "paper":
+        return f"{detail} expected_prefix=DU"
+    if runtime_env == "live":
+        return f"{detail} expected_prefix=U"
+    return detail
 
 
 def _import_coordinator(family: str) -> type:
@@ -80,6 +128,29 @@ class RuntimeShell:
             if getattr(self, attr) is None:
                 raise RuntimeError(f"config not loaded — call load() first (missing: {attr})")
 
+    def _ib_mode_checks(self, runtime_env: str) -> list[PreflightCheck]:
+        if self.registry is None:
+            return []
+        checks: list[PreflightCheck] = []
+        for group_name, group_cfg in self.registry.connection_groups.items():
+            port = getattr(group_cfg, "port", 0)
+            checks.append(
+                PreflightCheck(
+                    name=f"ib-mode-port:{group_name}",
+                    ok=not _ib_mode_port_mismatch(runtime_env, port),
+                    detail=f"env={runtime_env} port={port}",
+                )
+            )
+            account_id = getattr(group_cfg, "account_id", None)
+            checks.append(
+                PreflightCheck(
+                    name=f"ib-mode-account:{group_name}",
+                    ok=_ib_mode_account_ok(runtime_env, account_id),
+                    detail=_ib_mode_account_detail(runtime_env, account_id),
+                )
+            )
+        return checks
+
     def run_preflight(self) -> list[PreflightCheck]:
         self.load()
         self._require_loaded()
@@ -101,19 +172,7 @@ class RuntimeShell:
                 detail=f"{len(enabled)} strategies enabled",
             )
         )
-        for group_name, group_cfg in self.registry.connection_groups.items():
-            port = getattr(group_cfg, "port", 0)
-            mismatch = (
-                (runtime_env == "live" and port in _PAPER_PORTS)
-                or (runtime_env == "paper" and port in _LIVE_PORTS)
-            )
-            checks.append(
-                PreflightCheck(
-                    name=f"ib-mode-port:{group_name}",
-                    ok=not mismatch,
-                    detail=f"env={runtime_env} port={port}",
-                )
-            )
+        checks.extend(self._ib_mode_checks(runtime_env))
 
         missing_contracts: list[str] = []
         missing_routes: list[str] = []
@@ -271,19 +330,7 @@ class RuntimeShell:
                     detail=f"Coordinator import failed: {exc}",
                 ))
 
-        if self.registry is not None:
-            runtime_env = get_environment()
-            for group_name, group_cfg in self.registry.connection_groups.items():
-                port = getattr(group_cfg, "port", 0)
-                mismatch = (
-                    (runtime_env == "live" and port in _PAPER_PORTS)
-                    or (runtime_env == "paper" and port in _LIVE_PORTS)
-                )
-                checks.append(PreflightCheck(
-                    name=f"ib-mode-port:{group_name}",
-                    ok=not mismatch,
-                    detail=f"env={runtime_env} port={port}",
-                ))
+        checks.extend(self._ib_mode_checks(get_environment()))
 
         # 1b. Database connectivity
         try:
@@ -429,12 +476,12 @@ class RuntimeShell:
             "import",
             "database",
             "ib-gateway",
+            "ib-mode-account",
             "ib-mode-port",
         }
-        # Stock readiness should hard-fail only when stock is the requested
-        # runtime target. In mixed-family runs, stock startup is isolated later
-        # at the coordinator boundary so other families can continue.
-        if enabled_families == {"stock"}:
+        if "stock" in enabled_families and (
+            runtime_env in {"paper", "live"} or enabled_families == {"stock"}
+        ):
             critical_prefixes.update({
                 "stock-account-config",
                 "stock-artifact-readiness",

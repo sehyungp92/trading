@@ -30,7 +30,7 @@ mkdir -p "$(dirname "$LOG")"
   if timeout 3600 docker compose run --rm runtime python -m strategies.stock.artifact_generator; then
     echo "Artifact generation OK"
   else
-    echo "Artifact generation FAILED (exit=$?) -- stock family will be skipped until artifacts are regenerated"
+    echo "Artifact generation FAILED (exit=$?) -- stock-enabled runtime preflight/startup will fail until artifacts are regenerated or stock is deliberately disabled"
   fi
 
   # Restart runtime (loads pre-generated artifacts from shared volume)

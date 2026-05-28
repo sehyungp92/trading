@@ -30,6 +30,19 @@ def test_strategy_registry_loads_expected_inventory() -> None:
     assert "S5_DUAL" not in registry.strategies
 
 
+def test_strategy_registry_connection_group_is_env_driven(monkeypatch) -> None:
+    monkeypatch.setenv("IB_HOST", "10.0.0.12")
+    monkeypatch.setenv("IB_PORT", "4001")
+    monkeypatch.setenv("IB_ACCOUNT_ID", "U1234567")
+
+    registry = load_strategy_registry(CONFIG_DIR)
+    group = registry.connection_groups["default"]
+
+    assert group.host == "10.0.0.12"
+    assert group.port == 4001
+    assert group.account_id == "U1234567"
+
+
 def test_registry_artifact_contains_all_strategies() -> None:
     registry = load_strategy_registry(CONFIG_DIR)
 
@@ -99,6 +112,43 @@ def test_runtime_preflight_flags_mode_port_mismatch(monkeypatch) -> None:
     by_name = {check.name: check for check in checks}
     assert "ib-mode-port:default" in by_name
     assert not by_name["ib-mode-port:default"].ok
+
+
+def test_runtime_preflight_flags_mode_account_mismatch(monkeypatch) -> None:
+    monkeypatch.setenv("IB_ACCOUNT_ID", "U1234567")
+    monkeypatch.setattr("apps.runtime.runtime.get_environment", lambda: "paper")
+    shell = RuntimeShell(CONFIG_DIR)
+
+    checks = shell.run_preflight()
+
+    by_name = {check.name: check for check in checks}
+    assert "ib-mode-account:default" in by_name
+    assert not by_name["ib-mode-account:default"].ok
+
+
+def test_runtime_preflight_rejects_placeholder_account(monkeypatch) -> None:
+    monkeypatch.setenv("IB_ACCOUNT_ID", "DU_PLACEHOLDER")
+    monkeypatch.setattr("apps.runtime.runtime.get_environment", lambda: "paper")
+    shell = RuntimeShell(CONFIG_DIR)
+
+    checks = shell.run_preflight()
+
+    by_name = {check.name: check for check in checks}
+    assert not by_name["ib-mode-account:default"].ok
+    assert not by_name["stock-account-config:default"].ok
+
+
+def test_runtime_preflight_accepts_live_account_and_port(monkeypatch) -> None:
+    monkeypatch.setenv("IB_PORT", "4001")
+    monkeypatch.setenv("IB_ACCOUNT_ID", "U1234567")
+    monkeypatch.setattr("apps.runtime.runtime.get_environment", lambda: "live")
+    shell = RuntimeShell(CONFIG_DIR)
+
+    checks = shell.run_preflight()
+
+    by_name = {check.name: check for check in checks}
+    assert by_name["ib-mode-port:default"].ok
+    assert by_name["ib-mode-account:default"].ok
 
 
 def test_trading_assistant_momentum_membership_is_current() -> None:
@@ -184,7 +234,7 @@ async def test_runtime_run_filters_paper_mode_only_in_live(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_runtime_run_allows_mixed_family_startup_with_stock_readiness_warnings(monkeypatch) -> None:
+async def test_runtime_run_allows_dev_mixed_family_stock_readiness_warnings(monkeypatch) -> None:
     class DummyRegistry:
         connection_groups = {}
 
@@ -202,6 +252,7 @@ async def test_runtime_run_allows_mixed_family_startup_with_stock_readiness_warn
     shell.routes = object()
     shell.event_calendar = object()
     monkeypatch.setattr(shell, "load", lambda: None)
+    monkeypatch.setattr("apps.runtime.runtime.get_environment", lambda: "dev")
     monkeypatch.setattr(
         shell,
         "_run_async_preflight",
@@ -220,6 +271,42 @@ async def test_runtime_run_allows_mixed_family_startup_with_stock_readiness_warn
     )
 
     await shell.run(once=True, connect_ib=False)
+
+
+@pytest.mark.asyncio
+async def test_runtime_run_hard_fails_paper_mixed_family_stock_readiness(monkeypatch) -> None:
+    class DummyRegistry:
+        connection_groups = {}
+
+        @staticmethod
+        def enabled_strategies(*, live: bool = False):
+            return [
+                SimpleNamespace(family="swing"),
+                SimpleNamespace(family="stock"),
+            ]
+
+    shell = RuntimeShell(CONFIG_DIR)
+    shell.registry = DummyRegistry()
+    shell.portfolio = object()
+    shell.contracts = object()
+    shell.routes = object()
+    shell.event_calendar = object()
+    monkeypatch.setattr(shell, "load", lambda: None)
+    monkeypatch.setattr("apps.runtime.runtime.get_environment", lambda: "paper")
+    monkeypatch.setattr(
+        shell,
+        "_run_async_preflight",
+        AsyncMock(return_value=[
+            SimpleNamespace(
+                name="stock-artifact-readiness:IARIC_v1",
+                ok=False,
+                detail="watchlist unavailable",
+            ),
+        ]),
+    )
+
+    with pytest.raises(RuntimeError, match="Preflight failed: 1 critical check"):
+        await shell.run(once=True, connect_ib=False)
 
 
 @pytest.mark.asyncio
