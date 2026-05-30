@@ -5,11 +5,11 @@
   "last_decision_code": "IDLE_MARKET_OBSERVED",
   "last_decision_details": {
     "bar_count": 1,
-    "close_delta": 1.8,
+    "close_delta": 3.05,
     "first_bar_ts": "2026-05-20T14:30:00+00:00",
     "last_bar_ts": "2026-05-20T14:30:00+00:00",
     "last_ohlcv": {
-      "close": 412,
+      "close": 413.25,
       "high": 412.4,
       "low": 410.1,
       "open": 410.2,
@@ -29,6 +29,6 @@
   "pending_exits": {},
   "pending_plans": {},
   "positions": {},
-  "saved_at": "2026-05-25T15:00:11.706463+00:00",
+  "saved_at": "2026-05-27T23:39:25.974408+00:00",
   "trade_date": "2026-05-20"
 }

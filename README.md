@@ -195,6 +195,7 @@ apps/
   runtime/        # RuntimeShell -- loads all families via --family flag
   relay/          # Webhook event ingestion (HMAC auth, rate limiting)
   dashboard/      # Next.js portfolio viewer
+  watchdog/       # Telegram alerter (9 health checks, market-hours gated)
 strategies/
   swing/          # 3 strategies + overlay + coordinator + instrumentation
   momentum/       # 4 strategies + coordinator + instrumentation

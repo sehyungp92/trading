@@ -1321,3 +1321,19 @@
 {"ts": "2026-05-25T14:59:08.354755+00:00", "symbol": "MSFT", "action": "submit_stop", "qty": 1, "stop_price": 410.0}
 {"ts": "2026-05-25T15:00:11.686464+00:00", "symbol": "MSFT", "action": "submit_entry", "qty": 3, "limit_price": 412.01, "route": "OPENING_RECLAIM", "sizing_mult": 1.0, "gap_up_size_mult": 1.0, "daily_score": 82.0}
 {"ts": "2026-05-25T15:00:11.697465+00:00", "symbol": "MSFT", "action": "submit_stop", "qty": 1, "stop_price": 410.0}
+{"ts": "2026-05-27T23:39:19.940808+00:00", "symbol": "MSFT", "action": "submit_entry", "qty": 3, "limit_price": 412.01, "route": "OPENING_RECLAIM", "sizing_mult": 1.0, "gap_up_size_mult": 1.0, "daily_score": 82.0}
+{"ts": "2026-05-27T23:39:19.959179+00:00", "symbol": "MSFT", "action": "submit_stop", "qty": 1, "stop_price": 410.0}
+{"ts": "2026-05-27T23:39:22.110308+00:00", "symbol": "MSFT", "action": "submit_entry", "qty": 3, "limit_price": 412.01, "route": "OPENING_RECLAIM", "sizing_mult": 1.0, "gap_up_size_mult": 1.0, "daily_score": 82.0}
+{"ts": "2026-05-27T23:39:22.120657+00:00", "symbol": "MSFT", "action": "submit_stop", "qty": 1, "stop_price": 410.0}
+{"ts": "2026-05-27T23:39:22.896059+00:00", "symbol": "MSFT", "action": "submit_entry", "qty": 3, "limit_price": 412.01, "route": "OPENING_RECLAIM", "sizing_mult": 1.0, "gap_up_size_mult": 1.0, "daily_score": 82.0}
+{"ts": "2026-05-27T23:39:22.912681+00:00", "symbol": "MSFT", "action": "submit_stop", "qty": 1, "stop_price": 410.0}
+{"ts": "2026-05-27T23:39:23.090496+00:00", "symbol": "MSFT", "action": "submit_entry", "qty": 3, "limit_price": 412.01, "route": "OPENING_RECLAIM", "sizing_mult": 1.0, "gap_up_size_mult": 1.0, "daily_score": 82.0}
+{"ts": "2026-05-27T23:39:23.102931+00:00", "symbol": "MSFT", "action": "submit_stop", "qty": 1, "stop_price": 410.0}
+{"ts": "2026-05-27T23:39:24.558038+00:00", "symbol": "MSFT", "action": "submit_entry", "qty": 3, "limit_price": 412.01, "route": "OPENING_RECLAIM", "sizing_mult": 1.0, "gap_up_size_mult": 1.0, "daily_score": 82.0}
+{"ts": "2026-05-27T23:39:24.568079+00:00", "symbol": "MSFT", "action": "submit_stop", "qty": 1, "stop_price": 410.0}
+{"ts": "2026-05-27T23:39:24.994320+00:00", "symbol": "MSFT", "action": "submit_entry", "qty": 3, "limit_price": 412.01, "route": "OPENING_RECLAIM", "sizing_mult": 1.0, "gap_up_size_mult": 1.0, "daily_score": 82.0}
+{"ts": "2026-05-27T23:39:25.000559+00:00", "symbol": "MSFT", "action": "submit_stop", "qty": 1, "stop_price": 410.0}
+{"ts": "2026-05-27T23:39:25.878933+00:00", "symbol": "MSFT", "action": "submit_entry", "qty": 3, "limit_price": 412.01, "route": "OPENING_RECLAIM", "sizing_mult": 1.0, "gap_up_size_mult": 1.0, "daily_score": 82.0}
+{"ts": "2026-05-27T23:39:25.885740+00:00", "symbol": "MSFT", "action": "submit_stop", "qty": 1, "stop_price": 410.0}
+{"ts": "2026-05-27T23:39:25.956590+00:00", "symbol": "MSFT", "action": "submit_entry", "qty": 3, "limit_price": 412.01, "route": "OPENING_RECLAIM", "sizing_mult": 1.0, "gap_up_size_mult": 1.0, "daily_score": 82.0}
+{"ts": "2026-05-27T23:39:25.967325+00:00", "symbol": "MSFT", "action": "submit_stop", "qty": 1, "stop_price": 410.0}

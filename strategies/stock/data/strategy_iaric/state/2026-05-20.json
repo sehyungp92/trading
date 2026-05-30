@@ -7,7 +7,7 @@
     ],
     "base_risk_fraction": 0.0002,
     "expected_stop_cancels": [],
-    "last_bar_ts": "2026-05-25T15:00:11.678461+00:00",
+    "last_bar_ts": "2026-05-27T23:39:25.951572+00:00",
     "last_decision_details": {
       "price": 412.01,
       "qty": 1,
@@ -15,7 +15,7 @@
       "stop_price": 410.0
     },
     "order_index": {
-      "b9bd8deb-63b9-408b-bf01-d95a865762dc": [
+      "2a6b32a3-2f74-4037-af8f-4c04f17bcd7e": [
         "MSFT",
         "STOP"
       ]
@@ -23,7 +23,7 @@
     "pending_entry_risk": {},
     "regime_allows_no_new_entries": false
   },
-  "saved_at": "2026-05-25T15:00:11.714463+00:00",
+  "saved_at": "2026-05-27T23:39:25.981406+00:00",
   "symbols": [
     {
       "acceptance_count": 0,
@@ -89,7 +89,7 @@
         "qty_open": 1,
         "realized_pnl_usd": 0.0,
         "setup_tag": "PB_OPENING_RECLAIM",
-        "stop_order_id": "b9bd8deb-63b9-408b-bf01-d95a865762dc",
+        "stop_order_id": "2a6b32a3-2f74-4037-af8f-4c04f17bcd7e",
         "time_stop_deadline": null,
         "trade_id": ""
       },
