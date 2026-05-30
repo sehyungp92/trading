@@ -85,6 +85,10 @@ overlay_state.json
 !backtests/regime/data/raw/*.parquet
 **/backtest/data/raw/**/*_chunks/
 
+# Local scalp strategy
+strategies/scalp/
+data/raw/scalp/
+
 # Backtest output (regenerated per run)
 **/backtest/output/
 **/backtests/output/
