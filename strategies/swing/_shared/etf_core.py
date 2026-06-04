@@ -173,6 +173,11 @@ class ETFFill:
     commission: float = 0.0
     order_role: str = "entry"
     exit_type: str = ""
+    fill_id: str = ""
+    intent_id: str = ""
+    risk_decision_ref: str = ""
+    portfolio_decision_ref: str = ""
+    runtime_payload: dict[str, Any] = field(default_factory=dict)
     decision_code: str = ""
     decision_details: dict[str, Any] = field(default_factory=dict)
 
@@ -314,9 +319,15 @@ def on_bar_common(
                 "stop_for_risk": setup.stop_price,
                 "planned_entry_price": setup.entry_price,
                 "risk_pct": setup.risk_pct,
+                "signal_id": setup.setup_id,
+                "bar_id": f"{symbol}:{setup.created_ts.isoformat()}",
+                "exchange_timestamp": setup.created_ts.isoformat(),
             },
             metadata={
                 "setup_id": setup.setup_id,
+                "signal_id": setup.setup_id,
+                "bar_id": f"{symbol}:{setup.created_ts.isoformat()}",
+                "exchange_timestamp": setup.created_ts.isoformat(),
                 "setup_type": setup.setup_type,
                 "entry_model": setup.entry_model,
                 "grade": setup.grade,

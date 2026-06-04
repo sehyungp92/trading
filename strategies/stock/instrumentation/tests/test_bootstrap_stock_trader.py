@@ -1,8 +1,11 @@
 import asyncio
+import json
 from unittest.mock import MagicMock
 
 import pytest
 
+from libs.instrumentation.lineage import lineage_from_config
+from libs.oms.risk.portfolio_rules import PortfolioRulesConfig
 from strategies.stock.instrumentation.src.bootstrap import InstrumentationManager, _load_config
 
 
@@ -59,6 +62,28 @@ def test_manager_maps_config_modules_and_attachs_provider():
     assert manager.snapshot_service._data_provider is provider
     assert manager.regime_classifier.data_provider is provider
     assert manager.config["sidecar"]["hmac_secret_env"] == "INSTRUMENTATION_HMAC_SECRET"
+
+
+def test_manager_lineage_includes_applied_portfolio_rules_config():
+    rules = PortfolioRulesConfig(same_sector_heat_cap_R=2.75)
+    config = _load_config("IARIC_v1", "strategy_iaric")
+    config["family_id"] = "stock"
+    expected = lineage_from_config(
+        config,
+        family_id="stock",
+        strategy_id="IARIC_v1",
+        portfolio_rules_config=rules,
+    ).risk_config_version
+
+    manager = InstrumentationManager(
+        oms=_DummyOMS(),
+        strategy_id="IARIC_v1",
+        strategy_type="strategy_iaric",
+        get_applied_config=lambda: rules,
+    )
+
+    assert manager.lineage.risk_config_version == expected
+    assert manager.trade_logger._lineage.risk_config_version == expected
 
 
 def test_manager_maps_alcb_config_module():
@@ -131,7 +156,7 @@ def test_periodic_loop_checkpoints_daily_snapshot():
     asyncio.run(_run())
 
 
-def test_start_requires_sidecar_auth_in_paper(monkeypatch):
+def test_start_missing_sidecar_auth_in_paper_disables_forwarding_but_keeps_local_startup(monkeypatch, tmp_path):
     async def _run():
         monkeypatch.setenv("TRADING_MODE", "paper")
         monkeypatch.delenv("INSTRUMENTATION_HMAC_SECRET", raising=False)
@@ -140,10 +165,73 @@ def test_start_requires_sidecar_auth_in_paper(monkeypatch):
             oms=_DummyOMS(),
             strategy_id="ALCB_v1",
             strategy_type="strategy_alcb",
+            write_daily_closeout_on_stop=False,
+            stop_sidecar_on_stop=False,
         )
+        manager._config["data_dir"] = str(tmp_path)
+        manager.sidecar.start = MagicMock()
 
-        with pytest.raises(RuntimeError, match="HMAC secret"):
-            await manager.start()
-        assert manager._running is False
+        await manager.start()
+
+        assert manager._running is True
+        manager.sidecar.start.assert_not_called()
+        assert list((tmp_path / "deployments").glob("*.jsonl"))
+        await manager.stop()
+
+    asyncio.run(_run())
+
+
+def test_startup_events_use_hydrated_oms_state(tmp_path):
+    class FakeRepo:
+        async def get_positions_for_strategies(self, strategy_ids):
+            return [{
+                "strategy_id": "IARIC_v1",
+                "instrument_symbol": "AAPL",
+                "net_qty": 2,
+                "avg_price": 100.0,
+                "open_risk_R": 0.5,
+            }]
+
+    class HydratedOMS(_DummyOMS):
+        def __init__(self) -> None:
+            super().__init__()
+            self._family_strategy_ids = ["IARIC_v1"]
+            self._oms_repo = FakeRepo()
+            self._portfolio_risk_state = {"open_risk_R": 0.5}
+            self._allocation_targets = {"strategies": {"IARIC_v1": 1.0}}
+            self._account_state_provider = lambda: {"equity": 100_000.0, "raw_nav": 100_000.0}
+
+    async def _run():
+        manager = InstrumentationManager(
+            oms=HydratedOMS(),
+            strategy_id="IARIC_v1",
+            strategy_type="strategy_iaric",
+            family_strategy_ids=["IARIC_v1"],
+            write_daily_closeout_on_stop=False,
+            stop_sidecar_on_stop=False,
+        )
+        manager._config["data_dir"] = str(tmp_path)
+        manager.sidecar.validate_configuration = MagicMock()
+        manager.sidecar.start = MagicMock()
+
+        await manager.start()
+
+        [positions_path] = (tmp_path / "positions").glob("*.jsonl")
+        [portfolio_path] = (tmp_path / "portfolio").glob("*.jsonl")
+        [allocation_path] = (tmp_path / "allocations").glob("*.jsonl")
+        position_event = json.loads(positions_path.read_text(encoding="utf-8").splitlines()[0])
+        portfolio_event = json.loads(portfolio_path.read_text(encoding="utf-8").splitlines()[0])
+        allocation_event = json.loads(allocation_path.read_text(encoding="utf-8").splitlines()[0])
+
+        assert position_event["symbol"] == "AAPL"
+        assert position_event["qty"] == 2.0
+        assert position_event["open_risk_R"] == 0.5
+        assert "positions" not in position_event
+        assert portfolio_event["portfolio_heat_R"] == 0.5
+        assert portfolio_event["reconciliation_status"] == "startup_snapshot"
+        assert "portfolio_state" not in portfolio_event
+        assert allocation_event["strategy_target_weights"]["IARIC_v1"] == 1.0
+        assert "allocation_state" not in allocation_event
+        await manager.stop()
 
     asyncio.run(_run())

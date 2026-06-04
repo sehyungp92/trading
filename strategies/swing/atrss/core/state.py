@@ -116,6 +116,11 @@ class ATRSSFill:
     fill_time: datetime | None = None
     commission: float = 0.0
     exit_type: str = ""
+    fill_id: str = ""
+    intent_id: str = ""
+    risk_decision_ref: str = ""
+    portfolio_decision_ref: str = ""
+    runtime_payload: dict[str, Any] = field(default_factory=dict)
     timeframe: str = ""
     decision_code: str = ""
     decision_details: dict[str, Any] = field(default_factory=dict)

@@ -15,6 +15,24 @@ class DecisionEvent:
     strategy_id: str = ""
     state_ref: str = ""
     emitted_actions: tuple[str, ...] = field(default_factory=tuple)
+    schema_version: str = "decision_event_v1"
+    event_type: str = "decision_event"
+    bot_id: str = ""
+    family_id: str = ""
+    portfolio_id: str = ""
+    strategy_version: str = ""
+    config_version: str = ""
+    portfolio_config_version: str = ""
+    risk_config_version: str = ""
+    allocation_version: str = ""
+    strategy_registry_version: str = ""
+    deployment_id: str = ""
+    parameter_set_id: str = ""
+    code_sha: str = ""
+    trace_id: str = ""
+    bar_id: str = ""
+    decision_kind: str = ""
+    sequence: int = 0
 
 
 @dataclass(slots=True, frozen=True)

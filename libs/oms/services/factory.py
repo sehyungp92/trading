@@ -6,6 +6,8 @@ Merged from swing_trader, momentum_trader, and stock_trader families.
 """
 import json
 import logging
+import math
+from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -33,11 +35,72 @@ from ..reconciliation.orchestrator import ReconciliationOrchestrator
 from ..risk.calendar import EventCalendar
 from ..risk.gateway import RiskGateway
 from .oms_service import OMSService
+from libs.instrumentation.event_contract import COMMON_LINEAGE_FIELDS, enrich_payload
+from libs.instrumentation.lineage import LineageContext, lineage_from_runtime, lineage_to_payload
 
 if TYPE_CHECKING:
     from libs.config.market_calendar import MarketCalendar
 
 logger = logging.getLogger(__name__)
+
+
+def _make_oms_lineage(
+    *,
+    bot_id: str,
+    strategy_id: str = "",
+    family_id: str = "",
+    portfolio_id: str = "",
+    account_alias: str = "",
+    portfolio_config=None,
+    portfolio_rules_config=None,
+    strategy_manifest=None,
+    effective_strategy_config=None,
+    parameter_set=None,
+) -> LineageContext:
+    try:
+        return lineage_from_runtime(
+            bot_id=bot_id,
+            strategy_id=strategy_id,
+            family_id=family_id,
+            portfolio_id=portfolio_id,
+            account_alias=account_alias,
+            portfolio_config=portfolio_config,
+            portfolio_rules_config=portfolio_rules_config,
+            strategy_manifest=strategy_manifest,
+            effective_strategy_config=effective_strategy_config,
+            parameter_set=parameter_set,
+        )
+    except Exception as exc:
+        logger.warning("OMS lineage computation failed; continuing with partial lineage: %s", exc)
+        return LineageContext(
+            bot_id=bot_id,
+            strategy_id=strategy_id,
+            family_id=family_id,
+            portfolio_id=portfolio_id,
+            account_alias=account_alias,
+        )
+
+
+def _resolve_lineage(lineage):
+    if callable(lineage):
+        try:
+            return lineage()
+        except Exception:
+            return None
+    return lineage
+
+
+def _overlay_lineage_fields(payload: dict, lineage) -> dict:
+    lineage_payload = lineage_to_payload(lineage)
+    for field in COMMON_LINEAGE_FIELDS:
+        if field in {"scope", "schema_version"}:
+            continue
+        value = lineage_payload.get(field)
+        if value not in (None, "", [], {}):
+            payload[field] = value
+    if lineage_payload.get("bot_id"):
+        payload["bot_id"] = lineage_payload["bot_id"]
+    return payload
 
 
 # OMS-5: Hydrate the per-strategy in-memory `open_positions` cache from the
@@ -223,7 +286,7 @@ def _build_portfolio_daily_row(
     )
 
 
-def _make_portfolio_rule_logger(data_dir: str = "", family_id: str = "") -> Callable:
+def _make_portfolio_rule_logger(data_dir: str = "", family_id: str = "", lineage=None) -> Callable:
     """Create a JSONL-writing callback for portfolio rule events.
 
     Args:
@@ -240,7 +303,18 @@ def _make_portfolio_rule_logger(data_dir: str = "", family_id: str = "") -> Call
     def _log_rule(event: dict) -> None:
         try:
             rule_dir.mkdir(parents=True, exist_ok=True)
-            event["timestamp"] = datetime.now(timezone.utc).isoformat()
+            payload = dict(event)
+            payload.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
+            if family_id:
+                payload.setdefault("family_id", family_id)
+            current_lineage = _resolve_lineage(lineage)
+            payload = _overlay_lineage_fields(payload, current_lineage)
+            event = enrich_payload(
+                payload,
+                lineage=current_lineage,
+                event_type="portfolio_rule_check",
+                scope="portfolio",
+            )
             today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             path = rule_dir / f"rules_{today}.jsonl"
             with open(path, "a", encoding="utf-8") as f:
@@ -251,7 +325,7 @@ def _make_portfolio_rule_logger(data_dir: str = "", family_id: str = "") -> Call
     return _log_rule
 
 
-def _make_intent_denial_logger(data_dir: str = "", family_id: str = "") -> Callable:
+def _make_intent_denial_logger(data_dir: str = "", family_id: str = "", lineage=None) -> Callable:
     """Create a JSONL-writing callback for intent-denial forensic events.
 
     Counterpart to :func:`_make_portfolio_rule_logger`. The OMS service
@@ -269,6 +343,20 @@ def _make_intent_denial_logger(data_dir: str = "", family_id: str = "") -> Calla
     def _log_denial(event: dict) -> None:
         try:
             denial_dir.mkdir(parents=True, exist_ok=True)
+            payload = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                **dict(event),
+            }
+            if family_id:
+                payload.setdefault("family_id", family_id)
+            current_lineage = _resolve_lineage(lineage)
+            payload = _overlay_lineage_fields(payload, current_lineage)
+            event = enrich_payload(
+                payload,
+                lineage=current_lineage,
+                event_type="risk_denial",
+                scope="oms",
+            )
             today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             path = denial_dir / f"denials_{today}.jsonl"
             with open(path, "a", encoding="utf-8") as f:
@@ -282,6 +370,239 @@ def _make_intent_denial_logger(data_dir: str = "", family_id: str = "") -> Calla
 # ---------------------------------------------------------------------------
 # build_oms_service  — unified single-strategy factory
 # ---------------------------------------------------------------------------
+
+def _default_instrumentation_data_dir(data_dir: str = "", family_id: str = "") -> str:
+    if data_dir:
+        return data_dir
+    if family_id and family_id != "unknown":
+        repo_root = Path(__file__).resolve().parents[3]
+        return str(repo_root / "strategies" / family_id / "instrumentation" / "data")
+    return ""
+
+
+def _risk_state_payload(state) -> dict:
+    from libs.oms.instrumentation._shared import plain
+
+    return plain(state) if state is not None else {}
+
+
+def _order_payload(order, *, family_id: str = "") -> dict:
+    from libs.oms.instrumentation._shared import account_alias_for, plain
+
+    instrument = getattr(order, "instrument", None)
+    risk_context = getattr(order, "risk_context", None)
+    account_alias = account_alias_for(getattr(order, "account_id", ""))
+    return {
+        "oms_order_id": getattr(order, "oms_order_id", ""),
+        "client_order_id": getattr(order, "client_order_id", ""),
+        "broker_order_id": getattr(order, "broker_order_id", ""),
+        "perm_id": getattr(order, "perm_id", ""),
+        "strategy_id": getattr(order, "strategy_id", ""),
+        "family_id": family_id,
+        "account_alias": account_alias,
+        "symbol": getattr(instrument, "symbol", "") if instrument else "",
+        "root": getattr(instrument, "root", "") if instrument else "",
+        "asset_class": getattr(instrument, "sec_type", "") if instrument else "",
+        "side": getattr(getattr(order, "side", None), "value", getattr(order, "side", "")),
+        "order_type": getattr(getattr(order, "order_type", None), "value", getattr(order, "order_type", "")),
+        "role": getattr(getattr(order, "role", None), "value", getattr(order, "role", "")),
+        "status": getattr(getattr(order, "status", None), "value", getattr(order, "status", "")),
+        "requested_qty": getattr(order, "qty", 0),
+        "filled_qty": getattr(order, "filled_qty", 0.0),
+        "remaining_qty": getattr(order, "remaining_qty", 0.0),
+        "avg_fill_price": getattr(order, "avg_fill_price", 0.0),
+        "limit_price": getattr(order, "limit_price", None),
+        "stop_price": getattr(order, "stop_price", None),
+        "risk_context": plain(risk_context) if risk_context is not None else {},
+    }
+
+
+def _allocation_targets_payload(
+    allocation_targets: Optional[dict],
+    *,
+    family_id: str = "",
+    strategy_ids: Optional[list[str]] = None,
+) -> dict:
+    from libs.oms.instrumentation._shared import plain
+
+    ids = [str(strategy_id) for strategy_id in list(strategy_ids or []) if str(strategy_id)]
+    targets = plain(dict(allocation_targets or {}))
+    families = dict(targets.get("families", targets.get("family_target_weights", {})) or {})
+    strategies = dict(targets.get("strategies", targets.get("strategy_target_weights", {})) or {})
+    if family_id and not families:
+        families = {family_id: 1.0}
+    if ids and not strategies:
+        each = 1.0 / len(ids)
+        strategies = {strategy_id: each for strategy_id in ids}
+        targets.setdefault("source", "equal_family_fallback")
+    return {
+        **targets,
+        "families": families,
+        "strategies": strategies,
+        "target_scope": targets.get("target_scope") or "family",
+        "active_strategy_ids": targets.get("active_strategy_ids") or ids,
+    }
+
+
+def _finite_float(value, default: float = 0.0) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    return number if math.isfinite(number) else default
+
+
+def _ref_value(ref) -> float:
+    if ref is None:
+        return 0.0
+    try:
+        if isinstance(ref, (list, tuple)):
+            return _finite_float(ref[0] if ref else 0.0)
+    except Exception:
+        return 0.0
+    return _finite_float(ref)
+
+
+def _make_account_state_provider(
+    *,
+    get_current_equity: Optional[Callable[[], float]] = None,
+    live_equity=None,
+    paper_equity=None,
+    fallback_equity: float = 0.0,
+    family_id: str = "",
+    account_id: str = "",
+    paper_equity_scope: str = "",
+) -> Callable[[], dict]:
+    """Return the authoritative NAV/account state used by lifecycle snapshots."""
+    from libs.oms.instrumentation._shared import account_alias_for
+
+    account_alias = account_alias_for(account_id)
+
+    def _provider() -> dict:
+        source = ""
+        equity = _ref_value(live_equity)
+        if equity > 0:
+            source = "live_equity_ref"
+        if equity <= 0:
+            equity = _ref_value(paper_equity)
+            if equity > 0:
+                source = "paper_equity_ref"
+        if equity <= 0 and get_current_equity is not None:
+            try:
+                equity = _finite_float(get_current_equity())
+            except Exception:
+                equity = 0.0
+            if equity > 0:
+                source = "current_equity_provider"
+        if equity <= 0:
+            equity = _finite_float(fallback_equity)
+            if equity > 0:
+                source = "fallback_initial_equity"
+
+        state = {
+            "equity": equity,
+            "net_liquidation": equity,
+            "raw_nav": equity,
+            "allocated_nav": equity,
+            "currency": "USD",
+            "source": source or "unknown",
+            "family_id": family_id,
+            "account_alias": account_alias,
+        }
+        if paper_equity_scope:
+            state["paper_equity_scope"] = paper_equity_scope
+        return state
+
+    return _provider
+
+
+def _account_state_snapshot(provider: Optional[Callable[[], dict]]) -> dict:
+    if provider is None:
+        return {}
+    try:
+        state = provider()
+    except Exception as exc:
+        logger.warning("Account state provider failed: %s", exc)
+        return {}
+    return dict(state or {}) if isinstance(state, dict) else {}
+
+
+def _nav_from_account_state(account_state: dict, key: str = "raw_nav") -> float:
+    value = _finite_float(account_state.get(key))
+    if value > 0:
+        return value
+    for fallback_key in ("equity", "net_liquidation", "allocated_nav", "raw_nav"):
+        value = _finite_float(account_state.get(fallback_key))
+        if value > 0:
+            return value
+    return 0.0
+
+
+def _position_payload(
+    position: Position,
+    *,
+    family_id: str = "",
+    portfolio_id: str = "",
+    mark_price: float = 0.0,
+) -> dict:
+    from libs.oms.instrumentation._shared import account_alias_for
+
+    return {
+        "account_alias": account_alias_for(position.account_id),
+        "portfolio_id": portfolio_id,
+        "family_id": family_id,
+        "strategy_id": position.strategy_id,
+        "symbol": position.instrument_symbol,
+        "instrument_symbol": position.instrument_symbol,
+        "qty": position.net_qty,
+        "net_qty": position.net_qty,
+        "avg_price": position.avg_price,
+        "mark_price": mark_price or position.avg_price,
+        "realized_pnl": position.realized_pnl,
+        "unrealized_pnl": position.unrealized_pnl,
+        "open_risk_dollars": position.open_risk_dollars,
+        "open_risk_R": position.open_risk_R,
+        "last_update_at": position.last_update_at.isoformat() if position.last_update_at else "",
+    }
+
+
+def _resolve_lifecycle_lineage(lineage):
+    if callable(lineage):
+        try:
+            return lineage()
+        except Exception:
+            logger.debug("Failed to resolve lifecycle lineage", exc_info=True)
+            return None
+    return lineage
+
+
+def _make_fill_lifecycle_writer(data_dir: str = "", lineage=None) -> Callable:
+    def _write(payload: dict) -> None:
+        if not data_dir:
+            return
+        try:
+            from libs.oms.instrumentation.lifecycle import write_fill_lifecycle_snapshots
+
+            write_fill_lifecycle_snapshots(data_dir, _resolve_lifecycle_lineage(lineage), payload)
+        except Exception as exc:
+            logger.warning("Fill lifecycle instrumentation failed: %s", exc)
+
+    return _write
+
+
+def _make_reconciliation_lifecycle_writer(data_dir: str = "", lineage=None) -> Callable:
+    def _write(payload: dict) -> None:
+        if not data_dir:
+            return
+        try:
+            from libs.oms.instrumentation.lifecycle import write_reconciliation_lifecycle_event
+
+            write_reconciliation_lifecycle_event(data_dir, _resolve_lifecycle_lineage(lineage), payload)
+        except Exception as exc:
+            logger.warning("Reconciliation lifecycle instrumentation failed: %s", exc)
+
+    return _write
+
 
 async def build_oms_service(
     adapter,  # IBKRExecutionAdapter
@@ -311,6 +632,12 @@ async def build_oms_service(
     instrumentation_data_dir: str = "",
     event_clock: Optional[Callable[[], datetime]] = None,
     repository: Optional[object] = None,
+    allocation_targets: Optional[dict] = None,
+    portfolio_id: str = "",
+    account_alias: str = "",
+    portfolio_config=None,
+    strategy_manifest=None,
+    parameter_set=None,
 ) -> OMSService:
     """Build a fully wired OMS service.
 
@@ -346,6 +673,10 @@ async def build_oms_service(
     Returns:
         Fully initialized OMSService ready for start()
     """
+    instrumentation_data_dir = _default_instrumentation_data_dir(
+        instrumentation_data_dir, family_id
+    )
+
     # Event bus
     bus = EventBus(clock=event_clock)
 
@@ -509,6 +840,11 @@ async def build_oms_service(
         )
 
     _family_sids = list(family_strategy_ids) if family_strategy_ids else [strategy_id]
+    _allocation_targets = _allocation_targets_payload(
+        allocation_targets,
+        family_id=family_id,
+        strategy_ids=_family_sids,
+    )
 
     async def _load_portfolio_risk_from_store(trade_day: date) -> None:
         if pg_store is None:
@@ -646,6 +982,67 @@ async def build_oms_service(
 
     # Fill processor for OMS order state updates
     fill_proc = FillProcessor(repo)
+    _adapter_account = getattr(adapter, "_account", "") or ""
+    try:
+        from libs.oms.instrumentation._shared import account_alias_for
+
+        lineage_account_alias = account_alias or account_alias_for(_adapter_account) or str(paper_equity_scope or "")
+    except Exception:
+        lineage_account_alias = account_alias or str(paper_equity_scope or "")
+    lineage_portfolio_id = portfolio_id or "paper_default"
+    oms_effective_config = {
+        "strategy_id": strategy_id,
+        "unit_risk_dollars": unit_risk_dollars,
+        "daily_stop_R": daily_stop_R,
+        "heat_cap_R": heat_cap_R,
+        "portfolio_daily_stop_R": portfolio_daily_stop_R,
+        "portfolio_weekly_stop_R": portfolio_weekly_stop_R,
+        "family_id": family_id,
+        "portfolio_id": lineage_portfolio_id,
+        "account_alias": lineage_account_alias,
+    }
+    oms_parameter_set = parameter_set or {
+        "effective_strategy_config": oms_effective_config,
+        "allocation_targets": _allocation_targets,
+    }
+    oms_lineage = _make_oms_lineage(
+        bot_id=f"{family_id}_oms" if family_id else "oms",
+        strategy_id=strategy_id,
+        family_id=family_id,
+        portfolio_id=lineage_portfolio_id,
+        account_alias=lineage_account_alias,
+        portfolio_config=portfolio_config,
+        portfolio_rules_config=portfolio_rules_config,
+        strategy_manifest=strategy_manifest,
+        effective_strategy_config=oms_effective_config,
+        parameter_set=oms_parameter_set,
+    )
+    oms_lineage_state = {"value": oms_lineage}
+
+    def _current_oms_lineage(strategy_id: str = ""):
+        return oms_lineage_state["value"]
+
+    bus._current_oms_lineage = _current_oms_lineage
+
+    def _refresh_oms_lineage(rules_config) -> None:
+        current = oms_lineage_state["value"]
+        refreshed = _make_oms_lineage(
+            bot_id=f"{family_id}_oms" if family_id else "oms",
+            strategy_id=strategy_id,
+            family_id=family_id,
+            portfolio_id=lineage_portfolio_id,
+            account_alias=lineage_account_alias,
+            portfolio_config=portfolio_config,
+            portfolio_rules_config=rules_config,
+            strategy_manifest=strategy_manifest,
+            effective_strategy_config=oms_effective_config,
+            parameter_set=oms_parameter_set,
+        )
+        oms_lineage_state["value"] = replace(
+            refreshed,
+            deployment_id=current.deployment_id or refreshed.deployment_id,
+            trace_id=current.trace_id or refreshed.trace_id,
+        )
 
     # Portfolio rules checker (cross-strategy coordination via shared store)
     portfolio_checker = None
@@ -661,6 +1058,7 @@ async def build_oms_service(
             on_rule_event=_make_portfolio_rule_logger(
                 data_dir=instrumentation_data_dir,
                 family_id=family_id,
+                lineage=_current_oms_lineage,
             ),
             get_directional_risk_R_for_strategies=rules_store.get_directional_risk_R_for_strategies,
             get_sibling_positions_for_symbol=rules_store.get_sibling_positions_for_symbol,
@@ -672,6 +1070,7 @@ async def build_oms_service(
             get_active_risk_dollars_for_strategies=rules_store.get_active_risk_dollars_for_strategies,
             get_completed_trade_counts_for_strategies=rules_store.get_completed_trade_counts_for_strategies,
             get_recent_strategy_r_multiples=rules_store.get_recent_strategy_r_multiples,
+            on_config_update=_refresh_oms_lineage,
         )
         logger.info("Portfolio rules enabled for %s", strategy_id)
 
@@ -687,6 +1086,7 @@ async def build_oms_service(
         account_gate=account_gate,
         family_id=family_id,
     )
+    risk_gateway._current_oms_lineage = _current_oms_lineage
 
     # Execution router
     router = ExecutionRouter(adapter, repo, bus=bus)
@@ -694,10 +1094,18 @@ async def build_oms_service(
     # Intent handler
     # OMS-7: pass adapter's configured IB account so the handler can stamp
     # account_id on swing/momentum orders (which leave it blank by default).
-    _adapter_account = getattr(adapter, "_account", "") or ""
     handler = IntentHandler(
         risk_gateway, router, repo, bus,
         default_account_id=_adapter_account,
+    )
+    account_state_provider = _make_account_state_provider(
+        get_current_equity=get_current_equity,
+        live_equity=live_equity,
+        paper_equity=_paper_equity,
+        fallback_equity=paper_initial_equity,
+        family_id=family_id,
+        account_id=_adapter_account,
+        paper_equity_scope=paper_equity_scope,
     )
 
     # Reconciler — wire halt_trading if provided, else use internal _halt_trading
@@ -710,6 +1118,9 @@ async def build_oms_service(
         fill_processor=fill_proc,
         offline_fill_importer=lambda oms_id, exec_report: _import_fill_through_adapter_callback(
             adapter, repo, oms_id, exec_report,
+        ),
+        lifecycle_event_writer=_make_reconciliation_lifecycle_writer(
+            instrumentation_data_dir, _current_oms_lineage,
         ),
     )
 
@@ -748,6 +1159,14 @@ async def build_oms_service(
         paper_equity_scope=paper_equity_scope,
         paper_initial_equity=paper_initial_equity,
         halt_trading=_halt_cb,
+        family_id=family_id,
+        family_strategy_ids=_family_sids,
+        portfolio_id=getattr(oms_lineage, "portfolio_id", ""),
+        allocation_targets=_allocation_targets,
+        account_state_provider=account_state_provider,
+        on_position_update=_make_fill_lifecycle_writer(
+            instrumentation_data_dir, _current_oms_lineage,
+        ),
     )
 
     # Build OMS service
@@ -763,11 +1182,19 @@ async def build_oms_service(
         on_intent_denied=_make_intent_denial_logger(
             data_dir=instrumentation_data_dir,
             family_id=family_id,
+            lineage=_current_oms_lineage,
         ),
     )
     oms._portfolio_checker = portfolio_checker  # for coordinator regime updates
+    oms._oms_lineage = _current_oms_lineage
+    oms._refresh_oms_lineage = _refresh_oms_lineage
     oms._portfolio_risk_state = portfolio_risk_state  # for coordinator heartbeat queries
     oms._strategy_risk_states = strategy_risk_states  # for per-strategy heartbeat metrics
+    oms._oms_repo = repo  # instrumentation daily reconciliation hook
+    oms._family_strategy_ids = list(_family_sids)
+    oms._family_id = family_id
+    oms._allocation_targets = _allocation_targets
+    oms._account_state_provider = account_state_provider
 
     if pg_store is not None or repository is not None:
         seed_state = strategy_risk_states.setdefault(
@@ -814,6 +1241,14 @@ async def build_multi_strategy_oms(
     instrumentation_data_dir: str = "",
     event_clock: Optional[Callable[[], datetime]] = None,
     repository: Optional[object] = None,
+    allocation_targets: Optional[dict] = None,
+    portfolio_id: str = "",
+    account_alias: str = "",
+    portfolio_config=None,
+    strategy_manifest=None,
+    strategy_manifests=None,
+    parameter_set=None,
+    parameter_sets=None,
 ) -> tuple["OMSService", "StrategyCoordinator"]:
     """Build a shared OMS service for multiple strategies.
 
@@ -835,6 +1270,10 @@ async def build_multi_strategy_oms(
     Returns:
         Tuple of (OMSService, StrategyCoordinator) ready for start()
     """
+    instrumentation_data_dir = _default_instrumentation_data_dir(
+        instrumentation_data_dir, family_id
+    )
+
     # Event bus (shared)
     bus = EventBus(clock=event_clock)
 
@@ -942,6 +1381,11 @@ async def build_multi_strategy_oms(
         )
 
     _family_sids = [s["id"] for s in strategies]
+    _allocation_targets = _allocation_targets_payload(
+        allocation_targets,
+        family_id=family_id,
+        strategy_ids=_family_sids,
+    )
 
     async def _load_portfolio_risk_from_store(trade_day: date) -> None:
         if pg_store is None:
@@ -1061,6 +1505,136 @@ async def build_multi_strategy_oms(
 
     # Fill processor (shared)
     fill_proc = FillProcessor(repo)
+    _adapter_account = getattr(adapter, "_account", "") or ""
+    try:
+        from libs.oms.instrumentation._shared import account_alias_for
+
+        lineage_account_alias = account_alias or account_alias_for(_adapter_account) or str(paper_equity_scope or "")
+    except Exception:
+        lineage_account_alias = account_alias or str(paper_equity_scope or "")
+    lineage_portfolio_id = portfolio_id or "paper_default"
+    oms_effective_config = {
+        "strategies": strategies,
+        "unit_risk_map": unit_risk_map,
+        "family_id": family_id,
+        "portfolio_daily_stop_R": portfolio_daily_stop_R,
+        "portfolio_weekly_stop_R": portfolio_weekly_stop_R,
+        "portfolio_id": lineage_portfolio_id,
+        "account_alias": lineage_account_alias,
+    }
+    oms_parameter_set = parameter_set or {
+        "effective_strategy_config": oms_effective_config,
+        "allocation_targets": _allocation_targets,
+    }
+    strategy_by_id = {str(item.get("id", "")): dict(item) for item in strategies if item.get("id")}
+
+    def _strategy_mapping_value(source, sid: str):
+        if not isinstance(source, dict):
+            return None
+        if sid in source:
+            return source[sid]
+        nested = source.get("strategies")
+        if isinstance(nested, dict) and sid in nested:
+            return nested[sid]
+        return None
+
+    def _strategy_manifest_for(sid: str):
+        return (
+            _strategy_mapping_value(strategy_manifests, sid)
+            or _strategy_mapping_value(strategy_manifest, sid)
+            or strategy_manifest
+        )
+
+    def _strategy_effective_config_for(sid: str) -> dict:
+        return {
+            "strategy": strategy_by_id.get(sid, {"id": sid}),
+            "family_effective_config": oms_effective_config,
+        }
+
+    def _strategy_parameter_set_for(sid: str):
+        return (
+            _strategy_mapping_value(parameter_sets, sid)
+            or _strategy_mapping_value(parameter_set, sid)
+            or {
+                "effective_strategy_config": _strategy_effective_config_for(sid),
+                "allocation_targets": _allocation_targets,
+            }
+        )
+
+    oms_lineage = _make_oms_lineage(
+        bot_id=f"{family_id}_oms" if family_id else "oms",
+        family_id=family_id,
+        portfolio_id=lineage_portfolio_id,
+        account_alias=lineage_account_alias,
+        portfolio_config=portfolio_config,
+        portfolio_rules_config=portfolio_rules_config,
+        strategy_manifest=strategy_manifest,
+        effective_strategy_config=oms_effective_config,
+        parameter_set=oms_parameter_set,
+    )
+    def _make_strategy_oms_lineage(sid: str, rules_config) -> LineageContext:
+        return _make_oms_lineage(
+            bot_id=f"{family_id}_oms" if family_id else "oms",
+            strategy_id=sid,
+            family_id=family_id,
+            portfolio_id=lineage_portfolio_id,
+            account_alias=lineage_account_alias,
+            portfolio_config=portfolio_config,
+            portfolio_rules_config=rules_config,
+            strategy_manifest=_strategy_manifest_for(sid),
+            effective_strategy_config=_strategy_effective_config_for(sid),
+            parameter_set=_strategy_parameter_set_for(sid),
+        )
+
+    def _make_strategy_oms_lineages(rules_config, previous: dict[str, LineageContext] | None = None) -> dict[str, LineageContext]:
+        result: dict[str, LineageContext] = {}
+        for sid in strategy_by_id:
+            lineage = _make_strategy_oms_lineage(sid, rules_config)
+            current = (previous or {}).get(sid)
+            if current is not None:
+                lineage = replace(
+                    lineage,
+                    deployment_id=current.deployment_id or lineage.deployment_id,
+                    trace_id=current.trace_id or lineage.trace_id,
+                )
+            result[sid] = lineage
+        return result
+
+    oms_lineage_state = {
+        "value": oms_lineage,
+        "strategies": _make_strategy_oms_lineages(portfolio_rules_config),
+    }
+
+    def _current_oms_lineage(strategy_id: str = ""):
+        sid = str(strategy_id or "")
+        if sid:
+            return oms_lineage_state["strategies"].get(sid, oms_lineage_state["value"])
+        return oms_lineage_state["value"]
+
+    bus._current_oms_lineage = _current_oms_lineage
+
+    def _refresh_oms_lineage(rules_config) -> None:
+        current = oms_lineage_state["value"]
+        refreshed = _make_oms_lineage(
+            bot_id=f"{family_id}_oms" if family_id else "oms",
+            family_id=family_id,
+            portfolio_id=lineage_portfolio_id,
+            account_alias=lineage_account_alias,
+            portfolio_config=portfolio_config,
+            portfolio_rules_config=rules_config,
+            strategy_manifest=strategy_manifest,
+            effective_strategy_config=oms_effective_config,
+            parameter_set=oms_parameter_set,
+        )
+        oms_lineage_state["value"] = replace(
+            refreshed,
+            deployment_id=current.deployment_id or refreshed.deployment_id,
+            trace_id=current.trace_id or refreshed.trace_id,
+        )
+        oms_lineage_state["strategies"] = _make_strategy_oms_lineages(
+            rules_config,
+            previous=oms_lineage_state.get("strategies", {}),
+        )
 
     # Portfolio rules checker (cross-strategy coordination via shared store)
     portfolio_checker = None
@@ -1076,6 +1650,7 @@ async def build_multi_strategy_oms(
             on_rule_event=_make_portfolio_rule_logger(
                 data_dir=instrumentation_data_dir,
                 family_id=family_id,
+                lineage=_current_oms_lineage,
             ),
             get_directional_risk_R_for_strategies=rules_store.get_directional_risk_R_for_strategies,
             get_sibling_positions_for_symbol=rules_store.get_sibling_positions_for_symbol,
@@ -1087,6 +1662,7 @@ async def build_multi_strategy_oms(
             get_active_risk_dollars_for_strategies=rules_store.get_active_risk_dollars_for_strategies,
             get_completed_trade_counts_for_strategies=rules_store.get_completed_trade_counts_for_strategies,
             get_recent_strategy_r_multiples=rules_store.get_recent_strategy_r_multiples,
+            on_config_update=_refresh_oms_lineage,
         )
         logger.info("Portfolio rules enabled for multi-strategy OMS (%s)", family_id)
 
@@ -1109,6 +1685,7 @@ async def build_multi_strategy_oms(
         account_gate=account_gate,
         family_id=family_id,
     )
+    risk_gateway._current_oms_lineage = _current_oms_lineage
 
     # Execution router (shared)
     router = ExecutionRouter(adapter, repo, bus=bus)
@@ -1116,13 +1693,33 @@ async def build_multi_strategy_oms(
     # Intent handler (shared)
     # OMS-7: pass adapter's configured IB account so the handler can stamp
     # account_id on swing/momentum orders (which leave it blank by default).
-    _adapter_account = getattr(adapter, "_account", "") or ""
     handler = IntentHandler(
         risk_gateway, router, repo, bus,
         default_account_id=_adapter_account,
     )
 
-    # Reconciler (shared) — with halt callback
+    # Account/NAV provider for fill and closeout lifecycle snapshots.
+    if paper_equity_pool is not None and not live_equity:
+        from libs.persistence.paper_equity import load_paper_equity
+
+        live_equity = [
+            await load_paper_equity(
+                paper_equity_pool,
+                account_scope=paper_equity_scope,
+                initial_equity=paper_initial_equity,
+            )
+        ]
+
+    account_state_provider = _make_account_state_provider(
+        get_current_equity=get_current_equity,
+        live_equity=live_equity,
+        fallback_equity=paper_initial_equity,
+        family_id=family_id,
+        account_id=_adapter_account,
+        paper_equity_scope=paper_equity_scope,
+    )
+
+    # Reconciler (shared) with halt callback.
     _halt_cb = halt_trading if halt_trading is not None else _internal_halt_trading
     reconciler = ReconciliationOrchestrator(
         adapter,
@@ -1132,6 +1729,9 @@ async def build_multi_strategy_oms(
         fill_processor=fill_proc,
         offline_fill_importer=lambda oms_id, exec_report: _import_fill_through_adapter_callback(
             adapter, repo, oms_id, exec_report,
+        ),
+        lifecycle_event_writer=_make_reconciliation_lifecycle_writer(
+            instrumentation_data_dir, _current_oms_lineage,
         ),
     )
 
@@ -1169,6 +1769,14 @@ async def build_multi_strategy_oms(
         paper_equity_scope=paper_equity_scope,
         paper_initial_equity=paper_initial_equity,
         halt_trading=_halt_cb,
+        family_id=family_id,
+        family_strategy_ids=_family_sids,
+        portfolio_id=getattr(oms_lineage, "portfolio_id", ""),
+        allocation_targets=_allocation_targets,
+        account_state_provider=account_state_provider,
+        on_position_update=_make_fill_lifecycle_writer(
+            instrumentation_data_dir, _current_oms_lineage,
+        ),
     )
 
     # Build OMS service
@@ -1184,12 +1792,20 @@ async def build_multi_strategy_oms(
         on_intent_denied=_make_intent_denial_logger(
             data_dir=instrumentation_data_dir,
             family_id=family_id,
+            lineage=_current_oms_lineage,
         ),
     )
     oms._portfolio_checker = portfolio_checker  # for coordinator regime updates
+    oms._oms_lineage = _current_oms_lineage
+    oms._refresh_oms_lineage = _refresh_oms_lineage
     oms._swing_portfolio_risk_adapter = portfolio_risk_adapter
     oms._portfolio_risk_state = portfolio_risk_state  # for coordinator deployed-capital queries
     oms._strategy_risk_states = strategy_risk_states  # for per-strategy heartbeat metrics
+    oms._oms_repo = repo  # instrumentation daily reconciliation hook
+    oms._family_strategy_ids = list(_family_sids)
+    oms._family_id = family_id
+    oms._allocation_targets = _allocation_targets
+    oms._account_state_provider = account_state_provider
 
     # Seed risk state from the configured repository on startup. Persistence
     # remains Postgres-only; offline parity can still hydrate behavior from an
@@ -1423,6 +2039,12 @@ def _wire_adapter_callbacks(
     paper_equity_scope="paper",
     paper_initial_equity=10_000.0,
     halt_trading=None,
+    family_id: str = "",
+    family_strategy_ids: Optional[list[str]] = None,
+    portfolio_id: str = "",
+    allocation_targets: Optional[dict] = None,
+    account_state_provider: Optional[Callable[[], dict]] = None,
+    on_position_update=None,
 ) -> None:
     """Wire IBKRExecutionAdapter callbacks to OMS event bus.
 
@@ -1458,6 +2080,70 @@ def _wire_adapter_callbacks(
     # H7 fix: retry config for pacing errors
     MAX_PACING_RETRIES = 3
     PACING_RETRY_BASE_DELAY_S = 2.0
+    family_scope = list(family_strategy_ids or [])
+
+    async def _emit_position_update_snapshot(
+        *,
+        order,
+        oms_pos: Position,
+        fill_data: dict,
+        fill_ts: datetime,
+        strat_risk,
+    ) -> None:
+        sid = getattr(order, "strategy_id", "")
+        instr_sym = order.instrument.symbol if order.instrument else ""
+        scope = family_scope or [sid]
+        try:
+            repo_positions = await repo.get_positions_for_strategies(scope)
+        except Exception as exc:
+            logger.warning("Failed to read positions for fill snapshot: %s", exc)
+            repo_positions = [oms_pos]
+        if not repo_positions:
+            repo_positions = [oms_pos]
+        positions = [
+            _position_payload(
+                pos,
+                family_id=family_id,
+                portfolio_id=portfolio_id,
+                mark_price=float(fill_data.get("price", 0.0) or 0.0)
+                if pos.instrument_symbol == instr_sym else 0.0,
+            )
+            for pos in repo_positions
+        ]
+        current = _position_payload(
+            oms_pos,
+            family_id=family_id,
+            portfolio_id=portfolio_id,
+            mark_price=float(fill_data.get("price", 0.0) or 0.0),
+        )
+        account_state = _account_state_snapshot(account_state_provider)
+        payload = {
+            "timestamp": fill_ts.isoformat(),
+            "snapshot_id": fill_data.get("exec_id") or "",
+            "source": "fill",
+            "position": current,
+            "positions": positions,
+            "fill": fill_data,
+            "order": _order_payload(order, family_id=family_id),
+            "strategy_risk": _risk_state_payload(strat_risk),
+            "portfolio_risk": _risk_state_payload(portfolio_risk_state),
+            "allocation_targets": allocation_targets or {},
+            "account_state": account_state,
+            "raw_nav": _nav_from_account_state(account_state, "raw_nav"),
+            "allocated_nav": _nav_from_account_state(account_state, "allocated_nav"),
+        }
+        try:
+            bus.emit_position_update(sid, getattr(order, "oms_order_id", ""), payload)
+        except Exception as exc:
+            logger.warning("Failed to emit position update event: %s", exc)
+        if on_position_update is None:
+            return
+        try:
+            result = on_position_update(payload)
+            if result is not None and hasattr(result, "__await__"):
+                await result
+        except Exception as exc:
+            logger.warning("Failed to write position lifecycle snapshot: %s", exc)
 
     def on_ack(oms_order_id: str, broker_ref) -> None:
         """Handle order acknowledgment from broker."""
@@ -1574,8 +2260,11 @@ def _wire_adapter_callbacks(
                 return False
 
             # 2. Emit fill event to strategy
+            risk_context = getattr(order, "risk_context", None)
             fill_data = {
                 "exec_id": exec_id,
+                "fill_id": exec_id,
+                "oms_order_id": oms_order_id,
                 "price": price,
                 "qty": qty,
                 "timestamp": timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp),
@@ -1586,6 +2275,9 @@ def _wire_adapter_callbacks(
                 "order_type": order.order_type.value if order.order_type else "",
                 "role": order.role.value if order.role else "",
                 "requested_qty": order.qty,
+                "intent_id": getattr(risk_context, "intent_id", ""),
+                "risk_decision_ref": getattr(risk_context, "risk_decision_ref", ""),
+                "portfolio_decision_ref": getattr(risk_context, "portfolio_decision_ref", ""),
             }
             bus.emit_fill_event(order.strategy_id, oms_order_id, fill_data)
 
@@ -1772,6 +2464,13 @@ def _wire_adapter_callbacks(
                 await persist_strategy_risk_state(strat_risk, fill_ts)
             if persist_portfolio_risk_state is not None:
                 await persist_portfolio_risk_state(fill_ts)
+            await _emit_position_update_snapshot(
+                order=order,
+                oms_pos=oms_pos,
+                fill_data=fill_data,
+                fill_ts=fill_ts,
+                strat_risk=strat_risk,
+            )
 
             logger.info(f"Adapter fill processed: {oms_order_id} {qty}@{price} for {sid}/{instr_sym}")
             return True
@@ -1829,6 +2528,12 @@ def _wire_adapter_callbacks_multi(
     paper_equity_scope: str = "paper",
     paper_initial_equity: float = 10_000.0,
     halt_trading=None,
+    family_id: str = "",
+    family_strategy_ids: Optional[list[str]] = None,
+    portfolio_id: str = "",
+    allocation_targets: Optional[dict] = None,
+    account_state_provider: Optional[Callable[[], dict]] = None,
+    on_position_update=None,
 ) -> None:
     """Wire IBKRExecutionAdapter callbacks for multi-strategy OMS.
 
@@ -1850,9 +2555,73 @@ def _wire_adapter_callbacks_multi(
 
     MAX_PACING_RETRIES = 3
     PACING_RETRY_BASE_DELAY_S = 2.0
+    family_scope = list(family_strategy_ids or [])
 
     # portfolio_urd: portfolio-level unit risk dollars for normalizing R across strategies
     # (highest-priority strategy's URD, passed from build_multi_strategy_oms).
+
+    async def _emit_position_update_snapshot(
+        *,
+        order,
+        oms_pos: Position,
+        fill_data: dict,
+        fill_ts: datetime,
+        strat_risk,
+    ) -> None:
+        sid = getattr(order, "strategy_id", "")
+        instr_sym = order.instrument.symbol if order.instrument else ""
+        scope = family_scope or list(unit_risk_map.keys()) or [sid]
+        try:
+            repo_positions = await repo.get_positions_for_strategies(scope)
+        except Exception as exc:
+            logger.warning("Failed to read positions for multi fill snapshot: %s", exc)
+            repo_positions = [oms_pos]
+        if not repo_positions:
+            repo_positions = [oms_pos]
+        positions = [
+            _position_payload(
+                pos,
+                family_id=family_id,
+                portfolio_id=portfolio_id,
+                mark_price=float(fill_data.get("price", 0.0) or 0.0)
+                if pos.instrument_symbol == instr_sym else 0.0,
+            )
+            for pos in repo_positions
+        ]
+        current = _position_payload(
+            oms_pos,
+            family_id=family_id,
+            portfolio_id=portfolio_id,
+            mark_price=float(fill_data.get("price", 0.0) or 0.0),
+        )
+        account_state = _account_state_snapshot(account_state_provider)
+        payload = {
+            "timestamp": fill_ts.isoformat(),
+            "snapshot_id": fill_data.get("exec_id") or "",
+            "source": "fill",
+            "position": current,
+            "positions": positions,
+            "fill": fill_data,
+            "order": _order_payload(order, family_id=family_id),
+            "strategy_risk": _risk_state_payload(strat_risk),
+            "portfolio_risk": _risk_state_payload(portfolio_risk_state),
+            "allocation_targets": allocation_targets or {},
+            "account_state": account_state,
+            "raw_nav": _nav_from_account_state(account_state, "raw_nav"),
+            "allocated_nav": _nav_from_account_state(account_state, "allocated_nav"),
+        }
+        try:
+            bus.emit_position_update(sid, getattr(order, "oms_order_id", ""), payload)
+        except Exception as exc:
+            logger.warning("Failed to emit multi position update event: %s", exc)
+        if on_position_update is None:
+            return
+        try:
+            result = on_position_update(payload)
+            if result is not None and hasattr(result, "__await__"):
+                await result
+        except Exception as exc:
+            logger.warning("Failed to write multi position lifecycle snapshot: %s", exc)
 
     def on_ack(oms_order_id: str, broker_ref) -> None:
         loop = _get_running_loop()
@@ -1949,8 +2718,11 @@ def _wire_adapter_callbacks_multi(
             if not inserted:
                 return False
 
+            risk_context = getattr(order, "risk_context", None)
             fill_data = {
                 "exec_id": exec_id,
+                "fill_id": exec_id,
+                "oms_order_id": oms_order_id,
                 "price": price,
                 "qty": qty,
                 "timestamp": timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp),
@@ -1961,6 +2733,9 @@ def _wire_adapter_callbacks_multi(
                 "order_type": order.order_type.value if order.order_type else "",
                 "role": order.role.value if order.role else "",
                 "requested_qty": order.qty,
+                "intent_id": getattr(risk_context, "intent_id", ""),
+                "risk_decision_ref": getattr(risk_context, "risk_decision_ref", ""),
+                "portfolio_decision_ref": getattr(risk_context, "portfolio_decision_ref", ""),
             }
             bus.emit_fill_event(order.strategy_id, oms_order_id, fill_data)
 
@@ -2144,6 +2919,13 @@ def _wire_adapter_callbacks_multi(
                 await persist_strategy_risk_state(strat_risk, fill_ts)
             if persist_portfolio_risk_state is not None:
                 await persist_portfolio_risk_state(fill_ts)
+            await _emit_position_update_snapshot(
+                order=order,
+                oms_pos=oms_pos,
+                fill_data=fill_data,
+                fill_ts=fill_ts,
+                strat_risk=strat_risk,
+            )
 
             logger.info(f"Multi-OMS fill: {oms_order_id} {qty}@{price} for {sid}/{instr_sym}")
             return True

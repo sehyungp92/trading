@@ -21,6 +21,7 @@ from typing import Any
 
 from libs.oms.models.events import OMSEventType
 from libs.oms.models.intent import Intent, IntentType
+from libs.oms.instrumentation.runtime_refs import fill_runtime_refs
 from .config import ET, STRATEGY_ID, StrategySettings
 from .data import CanonicalBarBuilder
 from .diagnostics import JsonlDiagnostics
@@ -1143,7 +1144,17 @@ class ALCBT2Engine:
             self._pending_entries.pop(symbol, None)
             return
         try:
-            order = build_entry_order(item, self._account_id, plan)
+            signal_ts = meta.get("signal_ts")
+            signal_ts_text = signal_ts.isoformat() if hasattr(signal_ts, "isoformat") else str(signal_ts or "")
+            entry_type = str(meta.get("entry_type") or plan.entry_type.value)
+            order = build_entry_order(
+                item,
+                self._account_id,
+                plan,
+                signal_id=f"{symbol}:{entry_type}:{signal_ts_text or meta.get('entry_bar_index', '')}",
+                bar_id=f"{symbol}:{signal_ts_text or meta.get('entry_bar_index', '')}",
+                exchange_timestamp=signal_ts if hasattr(signal_ts, "isoformat") else None,
+            )
             receipt = await self._oms.submit_intent(
                 Intent(intent_type=IntentType.NEW_ORDER, strategy_id=STRATEGY_ID, order=order)
             )
@@ -1724,6 +1735,7 @@ class ALCBT2Engine:
                     portfolio_state=self._portfolio_state_snapshot(),
                     concurrent_positions=len(self._positions),
                     session_type=self._session_type(fill_time),
+                    **fill_runtime_refs(oms_order_id or "", payload, fill_qty=fill_qty),
                 )
             except Exception:
                 pass
@@ -1833,6 +1845,7 @@ class ALCBT2Engine:
                     mae_r=round(mae_r, 4),
                     mfe_price=pos.max_favorable,
                     mae_price=pos.max_adverse,
+                    **fill_runtime_refs((payload or {}).get("oms_order_id", ""), payload, fill_qty=fill_qty, is_exit=True),
                 )
             except Exception:
                 pass

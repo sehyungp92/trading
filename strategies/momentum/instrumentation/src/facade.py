@@ -53,15 +53,35 @@ class InstrumentationKit:
                     from .indicator_logger import IndicatorLogger
                     from .filter_event_logger import FilterEventLogger
                     from .orderbook_logger import OrderBookLogger
-                    self._indicator_logger = IndicatorLogger(data_dir=data_dir, bot_id=bot_id)
-                    self._filter_event_logger = FilterEventLogger(data_dir=data_dir, bot_id=bot_id)
-                    self._orderbook_logger = OrderBookLogger(data_dir=data_dir, bot_id=bot_id)
+                    lineage = getattr(manager, "lineage", None)
+                    self._indicator_logger = IndicatorLogger(data_dir=data_dir, bot_id=bot_id, lineage=lineage)
+                    self._filter_event_logger = FilterEventLogger(data_dir=data_dir, bot_id=bot_id, lineage=lineage)
+                    self._orderbook_logger = OrderBookLogger(data_dir=data_dir, bot_id=bot_id, lineage=lineage)
+                register = getattr(manager, "_register_instrumentation_kit", None)
+                if callable(register):
+                    register(self)
             except Exception:
                 pass
 
     @property
     def active(self) -> bool:
         return self._mgr is not None
+
+    def refresh_lineage(self, lineage=None) -> None:
+        """Refresh lazy facade-owned loggers after runtime rule changes."""
+        lineage = lineage or getattr(self._mgr, "lineage", None)
+        if lineage is None:
+            return
+        for component in (
+            self._indicator_logger,
+            self._filter_event_logger,
+            self._orderbook_logger,
+        ):
+            if hasattr(component, "_lineage"):
+                component._lineage = lineage
+
+    def _sync_lineage(self) -> None:
+        self.refresh_lineage(getattr(self._mgr, "lineage", None))
 
     def _record_strategy_decision(
         self,
@@ -73,7 +93,25 @@ class InstrumentationKit:
             return
         pg_store = getattr(self._mgr, "_pg_store", None)
         strategy_id = getattr(self._mgr, "_strategy_id", "")
-        if pg_store is None or not strategy_id:
+        if not strategy_id:
+            return
+        try:
+            from libs.instrumentation.event_contract import write_strategy_decision_event
+
+            config = getattr(self._mgr, "_config", {}) or {}
+            data_dir = config.get("data_dir") or self._data_dir
+            if data_dir:
+                write_strategy_decision_event(
+                    data_dir,
+                    code=code,
+                    strategy_id=strategy_id,
+                    details=details or {},
+                    exchange_timestamp=exchange_timestamp,
+                    lineage=getattr(self._mgr, "lineage", None),
+                )
+        except Exception:
+            logger.debug("Failed to write strategy decision event", exc_info=True)
+        if pg_store is None:
             return
         async def _persist() -> None:
             try:
@@ -123,6 +161,7 @@ class InstrumentationKit:
         entry_latency_ms: Optional[int] = None,
         signal_evolution: Optional[list[dict]] = None,
         execution_timestamps: Optional[dict] = None,
+        **runtime_refs,
     ) -> None:
         if not self._mgr:
             return
@@ -200,6 +239,7 @@ class InstrumentationKit:
                 stress_level_at_entry=_stress,
                 experiment_id=exp_id,
                 experiment_variant=exp_var,
+                **runtime_refs,
             )
 
             # Safety net: patch enriched fields onto in-memory TradeEvent
@@ -269,6 +309,7 @@ class InstrumentationKit:
         mfe_price: Optional[float] = None,
         mae_price: Optional[float] = None,
         session_transitions: Optional[list] = None,
+        **runtime_refs,
     ) -> None:
         if not self._mgr:
             return
@@ -286,6 +327,7 @@ class InstrumentationKit:
                 mfe_price=mfe_price,
                 mae_price=mae_price,
                 session_transitions=session_transitions,
+                **runtime_refs,
             )
         except Exception as e:
             logger.warning("InstrumentationKit.log_exit failed: %s", e)
@@ -451,6 +493,16 @@ class InstrumentationKit:
             diag = self._mgr.get_sidecar_diagnostics()
             if diag:
                 heartbeat_data["sidecar"] = diag
+            try:
+                from libs.instrumentation.event_contract import enrich_payload
+                heartbeat_data = enrich_payload(
+                    heartbeat_data,
+                    lineage=getattr(self._mgr, "lineage", None),
+                    event_type="heartbeat",
+                    scope="strategy",
+                )
+            except Exception:
+                pass
 
             if not self._data_dir:
                 return
@@ -477,6 +529,7 @@ class InstrumentationKit:
     ) -> None:
         """Fire-and-forget indicator snapshot."""
         try:
+            self._sync_lineage()
             if self._indicator_logger:
                 self._indicator_logger.log_snapshot(
                     pair=pair, indicators=indicators,
@@ -513,6 +566,7 @@ class InstrumentationKit:
     ) -> None:
         """Emit all filter decisions from a signal evaluation as standalone events."""
         try:
+            self._sync_lineage()
             if self._filter_event_logger:
                 from .filter_decision import FilterDecision
                 fds = []
@@ -568,6 +622,7 @@ class InstrumentationKit:
     ) -> None:
         """Fire-and-forget order book context."""
         try:
+            self._sync_lineage()
             if self._orderbook_logger:
                 self._orderbook_logger.log_context(
                     pair=pair, best_bid=best_bid, best_ask=best_ask,
@@ -609,6 +664,16 @@ class InstrumentationKit:
                 "tightening_distance": round(abs(new_stop - old_stop), 6),
                 "metadata": metadata or {},
             }
+            try:
+                from libs.instrumentation.event_contract import enrich_payload
+                record = enrich_payload(
+                    record,
+                    lineage=getattr(self._mgr, "lineage", None),
+                    event_type="stop_adjustment",
+                    scope="strategy",
+                )
+            except Exception:
+                pass
             date_str = now.strftime("%Y-%m-%d")
             out_dir = Path(data_dir) / "stop_adjustments"
             out_dir.mkdir(parents=True, exist_ok=True)

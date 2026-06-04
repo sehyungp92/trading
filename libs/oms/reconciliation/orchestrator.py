@@ -29,6 +29,7 @@ class ReconciliationOrchestrator:
         halt_trading: Optional[Callable[[str], Awaitable[None]]] = None,
         fill_processor: Optional["FillProcessor"] = None,
         offline_fill_importer: Optional[Callable[[str, object], Awaitable[bool]]] = None,
+        lifecycle_event_writer: Optional[Callable[[dict], object]] = None,
     ):
         self._adapter = adapter  # IBKRExecutionAdapter
         self._repo = repo
@@ -38,6 +39,7 @@ class ReconciliationOrchestrator:
         # executions run through the same side-effect path as live fills.
         self._offline_fill_importer = offline_fill_importer
         self._fill_processor = fill_processor
+        self._lifecycle_event_writer = lifecycle_event_writer
         self._policy = DiscrepancyPolicy()
         self._reconciler = ReconcilerSync(self._policy)
 
@@ -49,6 +51,45 @@ class ReconciliationOrchestrator:
             return int(value)  # type: ignore[arg-type]
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _discrepancy_payload(d: Discrepancy) -> dict:
+        return {
+            "type": d.type,
+            "action": getattr(d.action, "value", str(d.action)),
+            "details": d.details,
+        }
+
+    def _emit_lifecycle(
+        self,
+        lifecycle_action: str,
+        *,
+        phase: str,
+        status: str,
+        details: dict | None = None,
+        discrepancies: list[Discrepancy] | None = None,
+    ) -> None:
+        payload = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "lifecycle_action": lifecycle_action,
+            "phase": phase,
+            "status": status,
+            "source": "reconciliation",
+            "details": details or {},
+            "discrepancies": [
+                self._discrepancy_payload(d) for d in list(discrepancies or [])
+            ],
+        }
+        if self._lifecycle_event_writer is not None:
+            try:
+                self._lifecycle_event_writer(payload)
+            except Exception as exc:
+                logger.warning("Reconciliation lifecycle writer failed: %s", exc)
+        try:
+            strategy_id = str((details or {}).get("strategy_id") or "")
+            self._bus.emit_reconciliation_event(payload, strategy_id=strategy_id)
+        except Exception as exc:
+            logger.warning("Reconciliation event bus emit failed: %s", exc)
 
     async def _working_order_context(self) -> tuple[list, set[int], dict[str, str]]:
         """Return working OMS orders, broker IDs, and exact repair refs."""
@@ -220,13 +261,26 @@ class ReconciliationOrchestrator:
         # fallback for older tests/callers.
         async def _fill_importer(oms_order_id: str, exec_report) -> bool:
             if self._offline_fill_importer is not None:
-                return await self._offline_fill_importer(oms_order_id, exec_report)
+                imported = await self._offline_fill_importer(oms_order_id, exec_report)
+                if imported:
+                    self._emit_lifecycle(
+                        "inferred_fill",
+                        phase="startup_reconciliation",
+                        status="imported",
+                        details={
+                            "oms_order_id": oms_order_id,
+                            "exec_id": getattr(exec_report, "exec_id", ""),
+                            "qty": getattr(exec_report, "qty", 0.0),
+                            "price": getattr(exec_report, "price", 0.0),
+                        },
+                    )
+                return imported
             if self._fill_processor is None:
                 return False
             ts = getattr(exec_report, "fill_time", None) or datetime.now(timezone.utc)
             commission = getattr(exec_report, "commission", 0.0) or 0.0
             try:
-                return await self._fill_processor.process_fill(
+                imported = await self._fill_processor.process_fill(
                     oms_order_id=oms_order_id,
                     broker_fill_id=exec_report.exec_id,
                     price=float(exec_report.price),
@@ -234,6 +288,19 @@ class ReconciliationOrchestrator:
                     timestamp=ts,
                     fees=float(commission),
                 )
+                if imported:
+                    self._emit_lifecycle(
+                        "inferred_fill",
+                        phase="startup_reconciliation",
+                        status="imported",
+                        details={
+                            "oms_order_id": oms_order_id,
+                            "exec_id": getattr(exec_report, "exec_id", ""),
+                            "qty": getattr(exec_report, "qty", 0.0),
+                            "price": getattr(exec_report, "price", 0.0),
+                        },
+                    )
+                return imported
             except Exception as e:
                 logger.exception(
                     "Offline fill import failed for exec_id=%s oms_order_id=%s: %s",
@@ -287,28 +354,90 @@ class ReconciliationOrchestrator:
 
         if all_discrepancies:
             logger.warning(f"Reconciliation found {len(all_discrepancies)} discrepancies")
+            self._emit_lifecycle(
+                "allocation_drift",
+                phase="startup_reconciliation",
+                status="detected",
+                details={
+                    "order_discrepancy_count": len(order_discrepancies),
+                    "position_discrepancy_count": len(position_discrepancies),
+                },
+                discrepancies=all_discrepancies,
+            )
             await self._apply_discrepancies(all_discrepancies)
         else:
             logger.info("Reconciliation complete: no discrepancies found")
+            self._emit_lifecycle(
+                "allocation_unfreeze",
+                phase="startup_reconciliation",
+                status="clean",
+                details={
+                    "broker_order_count": len(broker_orders),
+                    "broker_position_count": len(broker_positions),
+                    "broker_execution_count": len(broker_executions),
+                },
+            )
 
     async def _apply_discrepancies(self, discrepancies: list[Discrepancy]) -> None:
         """Apply policy-driven actions for each discrepancy."""
         for d in discrepancies:
             logger.warning(f"Discrepancy: type={d.type}, action={d.action.value}, details={d.details}")
+            self._emit_lifecycle(
+                "allocation_drift",
+                phase="apply_discrepancy",
+                status="detected",
+                details=self._discrepancy_payload(d),
+                discrepancies=[d],
+            )
 
             if d.action == DiscrepancyAction.HALT_AND_ALERT:
+                self._emit_lifecycle(
+                    "allocation_freeze",
+                    phase="apply_discrepancy",
+                    status="halted",
+                    details=self._discrepancy_payload(d),
+                    discrepancies=[d],
+                )
                 await self._halt_for_discrepancy(d)
                 continue
             if d.action == DiscrepancyAction.REPAIR_MAPPING:
                 await self._repair_order_mapping(d)
+                self._emit_lifecycle(
+                    "admin_correction",
+                    phase="apply_discrepancy",
+                    status="applied",
+                    details=self._discrepancy_payload(d),
+                    discrepancies=[d],
+                )
                 continue
             if d.action == DiscrepancyAction.IMPORT:
+                self._emit_lifecycle(
+                    "allocation_freeze",
+                    phase="apply_discrepancy",
+                    status="unsafe_import_blocked",
+                    details=self._discrepancy_payload(d),
+                    discrepancies=[d],
+                )
                 await self._halt_for_discrepancy(
                     d,
                     f"Reconciliation unsafe unknown tagged broker order: {d.details}",
                 )
                 continue
             if d.action == DiscrepancyAction.ADJUST_POSITION:
+                self._emit_lifecycle(
+                    "drift_assignment",
+                    phase="apply_discrepancy",
+                    status="assigned",
+                    details=self._discrepancy_payload(d),
+                    discrepancies=[d],
+                )
+                self._emit_lifecycle(
+                    "allocation_freeze",
+                    phase="apply_discrepancy",
+                    status="position_mismatch_halted",
+                    details=self._discrepancy_payload(d),
+                    discrepancies=[d],
+                )
                 await self._halt_for_discrepancy(
                     d,
                     "Reconciliation position mismatch: "
@@ -333,6 +462,16 @@ class ReconciliationOrchestrator:
                             if transition(order, OrderStatus.CANCELLED):
                                 await self._repo.save_order(order)
                                 self._bus.emit_order_event(order)
+                                self._emit_lifecycle(
+                                    "admin_correction",
+                                    phase="apply_discrepancy",
+                                    status="marked_cancelled",
+                                    details={
+                                        **self._discrepancy_payload(d),
+                                        "oms_order_id": oms_id,
+                                    },
+                                    discrepancies=[d],
+                                )
                                 logger.info(f"Marked missing order as cancelled: {oms_id}")
 
             elif d.action == DiscrepancyAction.CANCEL:
@@ -342,6 +481,13 @@ class ReconciliationOrchestrator:
                     try:
                         await self._adapter.cancel_order(
                             order_event.broker_order_id, order_event.perm_id
+                        )
+                        self._emit_lifecycle(
+                            "admin_correction",
+                            phase="apply_discrepancy",
+                            status="cancelled_orphan",
+                            details=self._discrepancy_payload(d),
+                            discrepancies=[d],
                         )
                         logger.info(f"Cancelled orphan broker order: {order_event.broker_order_id}")
                     except Exception as e:
@@ -372,6 +518,16 @@ class ReconciliationOrchestrator:
 
         if all_discrepancies:
             logger.warning(f"Periodic recon: {len(all_discrepancies)} discrepancies ({len(order_discrepancies)} order, {len(position_discrepancies)} position)")
+            self._emit_lifecycle(
+                "allocation_drift",
+                phase="periodic_reconciliation",
+                status="detected",
+                details={
+                    "order_discrepancy_count": len(order_discrepancies),
+                    "position_discrepancy_count": len(position_discrepancies),
+                },
+                discrepancies=all_discrepancies,
+            )
             await self._apply_discrepancies(all_discrepancies)
         else:
             logger.debug(

@@ -602,11 +602,29 @@ class TPCEngine(ETFCoreLiveEngine):
             action.metadata.get("risk_budget_tag")
             if isinstance(action.metadata, dict) else None
         ) or STRATEGY_ID
+        metadata = action.metadata if isinstance(action.metadata, dict) else {}
+        signal_id = str(
+            action.risk_context.get("signal_id")
+            or metadata.get("signal_id")
+            or metadata.get("setup_id")
+            or action.client_order_id
+            or ""
+        )
+        bar_id = str(action.risk_context.get("bar_id") or metadata.get("bar_id") or "")
+        exchange_timestamp = action.risk_context.get("exchange_timestamp") or metadata.get("exchange_timestamp")
+        if isinstance(exchange_timestamp, str) and exchange_timestamp:
+            try:
+                exchange_timestamp = datetime.fromisoformat(exchange_timestamp)
+            except ValueError:
+                exchange_timestamp = None
         return RiskContext(
             stop_for_risk=stop_for_risk,
             planned_entry_price=planned_entry,
             risk_budget_tag=str(budget_tag),
             risk_dollars=risk_dollars,
+            signal_id=signal_id,
+            bar_id=bar_id,
+            exchange_timestamp=exchange_timestamp,
         )
 
     # OMS event loop ---------------------------------------------------
@@ -636,6 +654,11 @@ class TPCEngine(ETFCoreLiveEngine):
                         fill_time=self._clock(),
                         commission=float(payload.get("commission", 0.0)),
                         order_role=role or payload.get("role", "").lower() or "entry",
+                        fill_id=str(payload.get("fill_id") or payload.get("exec_id") or ""),
+                        intent_id=str(payload.get("intent_id") or ""),
+                        risk_decision_ref=str(payload.get("risk_decision_ref") or ""),
+                        portfolio_decision_ref=str(payload.get("portfolio_decision_ref") or ""),
+                        runtime_payload={**payload, "oms_order_id": oms_order_id},
                     )
                     self.process_fill(fill)
                     self._persist_state()

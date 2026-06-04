@@ -15,6 +15,9 @@ from typing import Optional, List, Dict, Any
 
 from .event_metadata import EventMetadata, create_event_metadata
 from .market_snapshot import MarketSnapshot, MarketSnapshotService
+from libs.instrumentation.event_contract import enrich_payload, write_error_event
+from libs.instrumentation.trade_completion import enrich_trade_completion
+from libs.instrumentation.lineage import lineage_from_config
 from libs.oms.instrumentation.correlation_snapshot import (
     capture_concurrent_positions_from_coordinator,
 )
@@ -95,6 +98,16 @@ class TradeEvent:
     entry_latency_ms: Optional[int] = None
     exit_latency_ms: Optional[int] = None
     execution_timeline: Optional[dict] = None  # {signal_generated_at, oms_received_at, order_submitted_at, fill_confirmed_at}
+    execution_timestamps: Optional[dict] = None
+    runtime_join_refs: Optional[dict] = None
+    decision_ref: str = ""
+    action_ref: str = ""
+    portfolio_decision_ref: str = ""
+    intent_id: str = ""
+    order_ids: List[str] = field(default_factory=list)
+    fill_ids: List[str] = field(default_factory=list)
+    artifact_hash: str = ""
+    resource_plan_hash: str = ""
 
     # Excursion tracking (B5, B9)
     mfe_price: Optional[float] = None
@@ -178,6 +191,11 @@ class TradeLogger:
         self.snapshot_service = snapshot_service
         self.data_source_id = config.get("data_source_id", "ibkr_execution")
         self._coordinator = coordinator
+        self._lineage = lineage_from_config(
+            config,
+            family_id="swing",
+            strategy_id=self.strategy_id,
+        )
         self._open_trades: Dict[str, TradeEvent] = {}
 
     def log_entry(
@@ -225,6 +243,7 @@ class TradeLogger:
                 exchange_timestamp=exch_ts,
                 data_source_id=self.data_source_id,
                 bar_id=bar_id,
+                lineage=self._lineage,
             )
 
             trade = TradeEvent(
@@ -266,6 +285,7 @@ class TradeLogger:
             # Assemble entry fill details for FillQualityAnalyzer
             trade.entry_fill_details = {
                 "order_id": kwargs.get("fill_order_id"),
+                "fill_id": kwargs.get("fill_id") or kwargs.get("entry_fill_id") or kwargs.get("exec_id"),
                 "fill_qty": kwargs.get("fill_qty") or position_size,
                 "fill_price": entry_price,
                 "fill_time_ms": kwargs.get("fill_time_ms"),
@@ -345,6 +365,7 @@ class TradeLogger:
             # Assemble exit fill details for FillQualityAnalyzer
             trade.exit_fill_details = {
                 "order_id": kwargs.get("fill_order_id"),
+                "fill_id": kwargs.get("fill_id") or kwargs.get("exit_fill_id") or kwargs.get("exec_id"),
                 "fill_qty": kwargs.get("fill_qty") or trade.position_size,
                 "fill_price": exit_price,
                 "fill_time_ms": kwargs.get("fill_time_ms"),
@@ -361,6 +382,7 @@ class TradeLogger:
                 payload_key=f"{trade_id}_exit",
                 exchange_timestamp=exch_ts,
                 data_source_id=self.data_source_id,
+                lineage=self._lineage,
             ).to_dict()
 
             # Ensure bot_id is on the exit record
@@ -398,6 +420,13 @@ class TradeLogger:
             event = json.loads(lines[-1])
             if event.get("trade_id") == trade_id:
                 event.update(updates)
+                event = enrich_payload(
+                    event,
+                    lineage=self._lineage,
+                    event_type="trade",
+                    scope="strategy",
+                )
+                event = enrich_trade_completion(event)
                 lines[-1] = json.dumps(event, default=str)
                 filepath.write_text("\n".join(lines) + "\n", encoding="utf-8")
         except Exception as e:
@@ -408,27 +437,32 @@ class TradeLogger:
         try:
             today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             filepath = self.data_dir / f"trades_{today}.jsonl"
-            with open(filepath, "a") as f:
-                f.write(json.dumps(trade.to_dict(), default=str) + "\n")
+            event_type = "trade_entry" if str(trade.stage).lower() == "entry" else "trade"
+            payload = enrich_payload(
+                trade.to_dict(),
+                lineage=self._lineage,
+                event_type=event_type,
+                scope="strategy",
+            )
+            if event_type == "trade":
+                payload = enrich_trade_completion(payload)
+            with open(filepath, "a", encoding="utf-8") as f:
+                f.write(json.dumps(payload, default=str) + "\n")
         except Exception as e:
             logger.warning("Failed to write trade event: %s", e)
 
     def _write_error(self, method: str, trade_id: str, error: Exception) -> None:
         """Log instrumentation errors without crashing."""
         try:
-            error_dir = Path(self.data_dir).parent / "errors"
-            error_dir.mkdir(parents=True, exist_ok=True)
-            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-            filepath = error_dir / f"instrumentation_errors_{today}.jsonl"
-            entry = {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "component": "trade_logger",
-                "method": method,
-                "trade_id": trade_id,
-                "error": str(error),
-                "error_type": type(error).__name__,
-            }
-            with open(filepath, "a") as f:
-                f.write(json.dumps(entry) + "\n")
+            write_error_event(
+                Path(self.data_dir).parent,
+                self._lineage,
+                component="trade_logger",
+                method=method,
+                message=str(error),
+                error_type=type(error).__name__,
+                context={"trade_id": trade_id},
+                exc=error,
+            )
         except Exception:
             pass

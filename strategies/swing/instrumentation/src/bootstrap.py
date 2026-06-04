@@ -16,12 +16,23 @@ Usage::
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger("instrumentation.bootstrap")
 
 _CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "instrumentation_config.yaml"
+
+
+def _resolve_applied_portfolio_rules_config(get_applied_config) -> object | None:
+    if not callable(get_applied_config):
+        return None
+    try:
+        return get_applied_config()
+    except Exception as exc:
+        logger.warning("Failed to read applied portfolio rules config for instrumentation lineage: %s", exc)
+        return None
 
 
 def bootstrap_instrumentation(
@@ -54,10 +65,20 @@ def bootstrap_instrumentation(
     from .daily_snapshot import DailySnapshotBuilder
     from .regime_classifier import RegimeClassifier
     from .sidecar import Sidecar
+    from libs.instrumentation.lineage import lineage_from_config
 
     config = _load_config()
     if strategy_id:
         config["bot_id"] = strategy_id
+        config["strategy_id"] = strategy_id
+    config["family_id"] = "swing"
+    lineage = lineage_from_config(
+        config,
+        family_id="swing",
+        strategy_id=config.get("strategy_id", strategy_id or ""),
+        portfolio_rules_config=_resolve_applied_portfolio_rules_config(get_applied_config),
+    )
+    config["lineage"] = lineage
 
     # Populate symbols into config
     if symbols:
@@ -120,6 +141,7 @@ def bootstrap_instrumentation(
         post_exit_tracker=post_exit_tracker,
         bot_id=config.get("bot_id", "swing_multi_01"),
         data_dir=config["data_dir"],
+        lineage=lineage,
         get_regime_ctx=get_regime_ctx,
         get_applied_config=get_applied_config,
         pg_store=pg_store,
@@ -193,6 +215,16 @@ def _bootstrap_kit_from_shared(
 
     config = _load_config()
     config["bot_id"] = strategy_id
+    config["strategy_id"] = strategy_id
+    config["family_id"] = "swing"
+    from libs.instrumentation.lineage import lineage_from_config
+    lineage = lineage_from_config(
+        config,
+        family_id="swing",
+        strategy_id=strategy_id,
+        portfolio_rules_config=_resolve_applied_portfolio_rules_config(shared_ctx.get_applied_config),
+    )
+    config["lineage"] = lineage
 
     # Own loggers with strategy-specific bot_id
     trade_logger = TradeLogger(config, shared_ctx.snapshot_service, coordinator=coordinator)
@@ -218,6 +250,7 @@ def _bootstrap_kit_from_shared(
         pg_store=shared_ctx.pg_store,
         bot_id=strategy_id,
         data_dir=shared_ctx.data_dir,
+        lineage=lineage,
         get_regime_ctx=shared_ctx.get_regime_ctx,
         get_applied_config=shared_ctx.get_applied_config,
     )
@@ -238,8 +271,17 @@ def _load_config() -> dict:
 
     _default_data_dir = str(Path(__file__).resolve().parent.parent / "data")
     config.setdefault("bot_id", "swing_multi_01")
+    config.setdefault("family_id", "swing")
     config.setdefault("data_dir", _default_data_dir)
     config.setdefault("data_source_id", "ibkr_execution")
+    config["portfolio_id"] = config.get("portfolio_id") or os.environ.get("PORTFOLIO_ID") or "paper_default"
+    config["account_alias"] = (
+        config.get("account_alias")
+        or os.environ.get("ACCOUNT_ALIAS")
+        or os.environ.get("TRADING_ACCOUNT_ALIAS")
+        or os.environ.get("BROKER_ACCOUNT_ALIAS")
+        or "paper_ibkr_1"
+    )
     config.setdefault("market_snapshots", {})
     config["market_snapshots"].setdefault("interval_seconds", 60)
     config["market_snapshots"].setdefault("symbols", [])

@@ -25,6 +25,7 @@ from libs.oms.models.intent import Intent, IntentType
 from libs.oms.models.order import (
     OMSOrder, OrderRole, OrderSide, OrderType, RiskContext,
 )
+from libs.oms.instrumentation.runtime_refs import fill_runtime_refs
 from libs.oms.risk.calculator import RiskCalculator
 from strategies.core.actions import CancelAction, SubmitEntry, SubmitExit
 from strategies.core.idle_market import (
@@ -1491,6 +1492,11 @@ class DownturnEngine:
             neutral_order_type = "STOP_LIMIT"
             oms_order_type = OrderType.STOP_LIMIT
             limit_price = entry_price - 4 * self._tick_size
+        signal_context = self._entry_signal_context(
+            tag=tag,
+            signal_class=sig_class,
+            signal=signal,
+        )
 
         entry_request = DownturnEntryRequest(
             client_order_id=f"{C.STRATEGY_ID}:{tag.value}:{self._bar_count_5m}:{len(self._working_entries)}",
@@ -1531,6 +1537,7 @@ class DownturnEngine:
             risk_dollars=RiskCalculator.compute_order_risk_dollars(
                 entry_price, stop0, qty, self._point_value,
             ),
+            **signal_context,
         )
 
         order = OMSOrder(
@@ -1571,6 +1578,27 @@ class DownturnEngine:
             )
 
     # ── Order Helpers ─────────────────────────────────────────────────
+
+    def _entry_signal_context(
+        self,
+        *,
+        tag: EngineTag,
+        signal_class: str,
+        signal: Any = None,
+        bar_ts: datetime | None = None,
+    ) -> dict[str, Any]:
+        ts = (
+            bar_ts
+            or getattr(signal, "timestamp", None)
+            or self._last_bar_ts
+            or datetime.now(timezone.utc)
+        )
+        ts_text = ts.isoformat()
+        return {
+            "signal_id": f"{self._symbol}:{tag.value}:{signal_class}:{ts_text}",
+            "bar_id": f"{self._symbol}:5m:{ts_text}",
+            "exchange_timestamp": ts,
+        }
 
     async def _place_protective_stop(self, stop_price: float, qty: int) -> None:
         """Place protective BUY stop order (covers short position)."""
@@ -1822,20 +1850,21 @@ class DownturnEngine:
         # Check if this is an entry fill
         for we in list(self._working_entries):
             if we.oms_order_id == oms_order_id:
-                await self._on_entry_fill(we, fill_price, fill_qty, fill_commission, fill_time)
+                await self._on_entry_fill(we, fill_price, fill_qty, fill_commission, fill_time, payload)
                 return
 
         # Check if this is an exit fill (protective stop or flatten)
         if self._position is not None:
             if oms_order_id == self._position.stop_oms_order_id:
-                await self._on_exit_fill(fill_price, fill_qty, "stop", fill_commission, fill_time)
+                await self._on_exit_fill(fill_price, fill_qty, "stop", fill_commission, fill_time, oms_order_id, payload)
             else:
                 # Flatten or other exit — treat as market exit
-                await self._on_exit_fill(fill_price, fill_qty, "market_exit", fill_commission, fill_time)
+                await self._on_exit_fill(fill_price, fill_qty, "market_exit", fill_commission, fill_time, oms_order_id, payload)
 
     async def _on_entry_fill(
         self, we: WorkingEntry, fill_price: float, fill_qty: int,
         fill_commission: float = 0.0, fill_time: datetime | None = None,
+        payload: dict | None = None,
     ) -> None:
         """Create ActivePosition from filled entry order."""
         core_state, actions, events = downturn_core_logic.on_fill(
@@ -1930,6 +1959,7 @@ class DownturnEngine:
                     drawdown_tier=self._dd_tier_name(),
                     signal_evolution=self._build_signal_evolution(),
                     execution_timestamps={"fill_time": datetime.now(timezone.utc).isoformat()},
+                    **fill_runtime_refs(we.oms_order_id, payload, fill_qty=qty),
                 )
 
                 ba = self._get_bid_ask()
@@ -1947,6 +1977,8 @@ class DownturnEngine:
     async def _on_exit_fill(
         self, fill_price: float, fill_qty: int, exit_type: str,
         fill_commission: float = 0.0, fill_time: datetime | None = None,
+        oms_order_id: str = "",
+        payload: dict | None = None,
     ) -> None:
         """Process exit fill: record trade, update risk, clear position."""
         pos = self._position
@@ -1996,6 +2028,7 @@ class DownturnEngine:
                     mfe_price=pos.mfe_price,
                     mae_price=pos.mae_price,
                     session_transitions=None,
+                    **fill_runtime_refs(oms_order_id, payload, fill_qty=close_qty, is_exit=True),
                 )
 
                 ba = self._get_bid_ask()

@@ -14,7 +14,6 @@ that receives its dependencies via RuntimeContext.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import math
 import os
@@ -26,6 +25,7 @@ from typing import Any
 
 from libs.services.heartbeat import emit_family_heartbeats
 from strategies.contracts import RuntimeContext
+from strategies.core.capital import build_family_allocation_targets
 
 logger = logging.getLogger(__name__)
 
@@ -306,6 +306,12 @@ class SwingFamilyCoordinator:
             sid: equity
             for sid in strategy_ids
         }
+        allocation_targets = build_family_allocation_targets(
+            self.family_id,
+            strategy_ids,
+            allocations=account_allocs or {},
+            portfolio=getattr(ctx, "portfolio", None),
+        )
         logger.info(
             "Capital allocation (swing family): %s",
             {k: f"${v:,.2f}" for k, v in swing_nav.items()},
@@ -355,6 +361,21 @@ class SwingFamilyCoordinator:
         )
 
         self._live_equity = [equity]
+        strategy_lineage_manifests = {
+            sid: {
+                "family": self.family_id,
+                "artifact_config": {"version": f"{sid}.unversioned"},
+            }
+            for sid in strategy_ids
+        }
+        strategy_parameter_sets = {
+            sid: {
+                "risk_params": dict(_RISK_PARAMS.get(sid, {})),
+                "unit_risk_dollars": urds[sid],
+                "allocation_target": (allocation_targets or {}).get("strategies", {}).get(sid),
+            }
+            for sid in strategy_ids
+        }
         self._oms, self._coordinator = await build_multi_strategy_oms(
             adapter=adapter,
             strategies=[
@@ -381,6 +402,9 @@ class SwingFamilyCoordinator:
             paper_equity_pool=db_pool if paper_mode else None,
             paper_equity_scope=self.family_id,
             paper_initial_equity=_seed_equity,
+            allocation_targets=allocation_targets,
+            strategy_manifests=strategy_lineage_manifests,
+            parameter_sets=strategy_parameter_sets,
         )
         self._portfolio_checker = getattr(self._oms, '_portfolio_checker', None)
         self._base_portfolio_rules = portfolio_rules
@@ -609,7 +633,13 @@ class SwingFamilyCoordinator:
         # 3. Stop instrumentation sidecar
         if self._instrumentation_ctx is not None:
             try:
-                self._instrumentation_ctx.stop()
+                stop_async = getattr(self._instrumentation_ctx, "stop_async", None)
+                if callable(stop_async):
+                    await stop_async()
+                else:
+                    result = self._instrumentation_ctx.stop()
+                    if result is not None and hasattr(result, "__await__"):
+                        await result
                 logger.info("Instrumentation stopped")
             except Exception:
                 logger.debug("Instrumentation stop failed", exc_info=True)
@@ -736,8 +766,27 @@ class SwingFamilyCoordinator:
             if self._portfolio_checker is not None:
                 self._portfolio_checker.update_config(self._regime_adjusted_rules)
             self._apply_overlay_crisis_multiplier(1.0)
+            self._refresh_instrumentation_lineage()
             if prev_level not in ("NORMAL", "WATCH"):
                 logger.info("Swing crisis overlay removed (level=%s)", ctx.alert_level)
+                current_rules = self._current_portfolio_rules_config()
+                overlay_max = (
+                    self._overlay_engine._config.max_equity_pct
+                    if self._overlay_engine is not None else None
+                )
+                self._emit_crisis_event({
+                    "family": "swing",
+                    "alert_level": ctx.alert_level,
+                    "prev_level": prev_level,
+                    "crisis_action": "removed",
+                    "overlay_exposure_multiplier": 1.0,
+                    "overlay_max_equity_pct": overlay_max,
+                    "rules_applied": {
+                        "directional_cap_R": getattr(current_rules, "directional_cap_R", None),
+                        "regime_unit_risk_mult": getattr(current_rules, "regime_unit_risk_mult", None),
+                        "disabled_strategies": list(getattr(current_rules, "disabled_strategies", ()) or ()),
+                    },
+                })
             return
 
         tightened = apply_crisis_overlay(
@@ -776,8 +825,32 @@ class SwingFamilyCoordinator:
             "action_policy": action.to_dict(),
         })
 
-    def _emit_crisis_event(self, payload: dict) -> None:
-        """Write a crisis event to the shared data_dir for TA pipeline."""
+    def _current_portfolio_rules_config(self):
+        if self._portfolio_checker is not None:
+            return getattr(self._portfolio_checker, "_cfg", None)
+        return self._regime_adjusted_rules or self._base_portfolio_rules
+
+    def _refresh_instrumentation_lineage(self, rules_config=None) -> None:
+        rules_config = rules_config or self._current_portfolio_rules_config()
+        contexts: list[Any] = []
+        if self._instrumentation_ctx is not None:
+            contexts.append(self._instrumentation_ctx)
+        for kit in self._kits.values():
+            ctx = getattr(kit, "ctx", None) or getattr(kit, "shared_ctx", None)
+            if ctx is not None and all(id(ctx) != id(existing) for existing in contexts):
+                contexts.append(ctx)
+        for ctx in contexts:
+            try:
+                refresh = getattr(ctx, "refresh_lineage", None)
+                if callable(refresh):
+                    refresh(rules_config)
+            except Exception:
+                logger.debug("Failed to refresh swing instrumentation lineage", exc_info=True)
+
+    def _write_coordination_event(self, action_type: str, payload: dict) -> None:
+        from libs.instrumentation.event_contract import append_jsonl_event, enrich_payload
+        from libs.instrumentation.lineage import compute_risk_config_version, redact_config
+
         ctx = getattr(self, "_instrumentation_ctx", None)
         if ctx is None:
             return
@@ -785,34 +858,47 @@ class SwingFamilyCoordinator:
         if not data_dir:
             return
         now = datetime.now(timezone.utc)
-        record = {"timestamp": now.isoformat(), "event_type": "crisis_alert_change", **payload}
+        rules_config = self._current_portfolio_rules_config()
+        before_rules = getattr(self, "_last_coordination_rules_config", None) or self._base_portfolio_rules
+        before_version = (
+            compute_risk_config_version({}, before_rules, {}) if before_rules is not None else ""
+        )
+        after_version = (
+            compute_risk_config_version({}, rules_config, {}) if rules_config is not None else ""
+        )
+        self._refresh_instrumentation_lineage(rules_config)
+        record = {
+            "timestamp": now.isoformat(),
+            "action_type": action_type,
+            "portfolio_rule_config_version_before": before_version,
+            "portfolio_rule_config_version_after": after_version,
+            "risk_config_version_before": before_version,
+            "risk_config_version_after": after_version,
+            "effective_config_evidence": {
+                "portfolio_rules_config_before": redact_config(before_rules) if before_rules is not None else {},
+                "portfolio_rules_config_after": redact_config(rules_config) if rules_config is not None else {},
+            },
+            **payload,
+        }
         try:
-            out_dir = Path(data_dir) / "coordination_events"
-            out_dir.mkdir(parents=True, exist_ok=True)
-            date_str = now.strftime("%Y-%m-%d")
-            with open(out_dir / f"{date_str}.jsonl", "a") as f:
-                f.write(json.dumps(record, default=str) + "\n")
+            event = enrich_payload(
+                record,
+                lineage=getattr(ctx, "lineage", None),
+                event_type="coordinator_action",
+                scope="family",
+            )
+            append_jsonl_event(data_dir, "coordination_events", "coordination_events", event)
         except Exception:
-            logger.debug("Failed to emit crisis event", exc_info=True)
+            logger.debug("Failed to emit swing coordination event", exc_info=True)
+        self._last_coordination_rules_config = rules_config
+
+    def _emit_crisis_event(self, payload: dict) -> None:
+        """Write an enriched crisis event to the shared data_dir."""
+        self._write_coordination_event("crisis_alert_change", payload)
 
     def _emit_regime_event(self, payload: dict) -> None:
-        """Write a regime->rules event to the shared data_dir for TA pipeline."""
-        ctx = getattr(self, "_instrumentation_ctx", None)
-        if ctx is None:
-            return
-        data_dir = getattr(ctx, "data_dir", None)
-        if not data_dir:
-            return
-        now = datetime.now(timezone.utc)
-        record = {"timestamp": now.isoformat(), "event_type": "regime_rules_change", **payload}
-        try:
-            out_dir = Path(data_dir) / "coordination_events"
-            out_dir.mkdir(parents=True, exist_ok=True)
-            date_str = now.strftime("%Y-%m-%d")
-            with open(out_dir / f"{date_str}.jsonl", "a") as f:
-                f.write(json.dumps(record, default=str) + "\n")
-        except Exception:
-            logger.debug("Failed to emit regime event", exc_info=True)
+        """Write an enriched regime/rules event to the shared data_dir."""
+        self._write_coordination_event("regime_rules_change", payload)
 
     # ------------------------------------------------------------------
     # Heartbeat
@@ -912,6 +998,7 @@ class SwingFamilyCoordinator:
                 get_applied_config=lambda: self._portfolio_checker._cfg if self._portfolio_checker else None,
                 pg_store=getattr(self._ctx, "pg_store", None),
             )
+            self._instrumentation_ctx.oms = self._oms
             if self._instrumentation_ctx.pg_store is None and getattr(self._ctx, "db_pool", None) is not None:
                 from libs.oms.persistence.postgres import PgStore
 

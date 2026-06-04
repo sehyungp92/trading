@@ -8,6 +8,8 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+from libs.instrumentation.event_contract import enrich_payload
+from libs.instrumentation.lineage import lineage_from_config
 
 logger = logging.getLogger("instrumentation.order_logger")
 
@@ -65,6 +67,11 @@ class OrderLogger:
         self._experiment_variant = config.get("experiment_variant", "") or ""
         self._strategy_type = strategy_type
         self._data_source_id = config.get("data_source_id", "ibkr_cme_nq")
+        self._lineage = lineage_from_config(
+            config,
+            family_id="stock",
+            strategy_id=config.get("strategy_id", ""),
+        )
 
     def log_order(
         self,
@@ -105,6 +112,7 @@ class OrderLogger:
             exchange_timestamp=now,
             data_source_id=self._data_source_id,
             bar_id=bar_id,
+            lineage=self._lineage,
         )
 
         event = OrderEvent(
@@ -141,7 +149,13 @@ class OrderLogger:
                 timezone.utc
             ).strftime("%Y-%m-%d")
             filepath = self.data_dir / f"orders_{date_str}.jsonl"
+            payload = enrich_payload(
+                event.to_dict(),
+                lineage=self._lineage,
+                event_type="order",
+                scope="oms",
+            )
             with open(filepath, "a", encoding="utf-8") as f:
-                f.write(json.dumps(event.to_dict(), default=str) + "\n")
+                f.write(json.dumps(payload, default=str) + "\n")
         except Exception:
             logger.exception("Failed to write OrderEvent %s", event.order_id)

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
+from typing import Any
 
 from libs.oms.models.instrument import Instrument
 from libs.oms.models.instrument_registry import InstrumentRegistry
@@ -46,7 +48,17 @@ def _entry_limit_price(item: CandidateItem, plan: PositionPlan) -> float:
     return max(item.tick_size, plan.entry_price - offset)
 
 
-def build_entry_order(item: CandidateItem, account_id: str, plan: PositionPlan) -> OMSOrder:
+def build_entry_order(
+    item: CandidateItem,
+    account_id: str,
+    plan: PositionPlan,
+    *,
+    signal_id: str = "",
+    bar_id: str = "",
+    exchange_timestamp: datetime | None = None,
+    trace_id: str = "",
+    lineage_context: dict[str, Any] | None = None,
+) -> OMSOrder:
     instrument = build_stock_instrument(item)
     order_type = OrderType.LIMIT
     limit_price = _entry_limit_price(item, plan)
@@ -65,6 +77,11 @@ def build_entry_order(item: CandidateItem, account_id: str, plan: PositionPlan) 
             stop_for_risk=plan.stop_price,
             planned_entry_price=plan.entry_price,
             risk_budget_tag="ALCB",
+            signal_id=signal_id,
+            bar_id=bar_id,
+            exchange_timestamp=exchange_timestamp,
+            trace_id=trace_id,
+            lineage_context=dict(lineage_context or {}),
         ),
     )
 

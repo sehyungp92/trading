@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .alignment import check_symbol_alignment, format_alignment_result
-from .bars import connect_ib, download_historical_bars
+from .bars import connect_ib, download_historical_bars, download_physical_futures_panama_bars
 from .models import BarDownloadRequest, ConnectionSettings, DownloadResult
 from .pacing import RequestPacer
 from .requirements import family_bar_requirements
@@ -80,7 +80,7 @@ async def sync_families(
                 )
                 output_path = requirement.output_dir / f"{requirement.symbol}_{requirement.timeframe}.parquet"
                 if dry_run:
-                    result = await download_historical_bars(
+                    result = await _download_requirement(
                         None,
                         request,
                         output_path=output_path,
@@ -95,7 +95,7 @@ async def sync_families(
                         requirement.symbol, requirement.timeframe,
                         requirement.what_to_show,
                     )
-                    result = await download_historical_bars(
+                    result = await _download_requirement(
                         ib,
                         request,
                         output_path=output_path,
@@ -117,6 +117,34 @@ async def sync_families(
     if derive_momentum:
         results.extend(_derive_momentum_compatibility_files(dry_run=dry_run))
     return results
+
+
+async def _download_requirement(
+    ib,
+    request: BarDownloadRequest,
+    *,
+    output_path: Path,
+    pacer: RequestPacer,
+    dry_run: bool,
+    latest_only: bool,
+) -> DownloadResult:
+    if request.family == "momentum" and request.sec_type.upper() == "FUT":
+        return await download_physical_futures_panama_bars(
+            ib,
+            request,
+            output_path=output_path,
+            pacer=pacer,
+            dry_run=dry_run,
+            latest_only=latest_only,
+        )
+    return await download_historical_bars(
+        ib,
+        request,
+        output_path=output_path,
+        pacer=pacer,
+        dry_run=dry_run,
+        latest_only=latest_only,
+    )
 
 
 def _derive_momentum_compatibility_files(*, dry_run: bool) -> list[DownloadResult]:

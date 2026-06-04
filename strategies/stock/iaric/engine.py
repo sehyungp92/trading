@@ -24,6 +24,7 @@ from typing import Any
 from libs.oms.models.events import OMSEventType
 from libs.oms.models.intent import Intent, IntentType
 from libs.oms.models.order import OrderRole
+from libs.oms.instrumentation.runtime_refs import fill_runtime_refs
 from strategies.core.actions import CancelAction, FlattenPosition, ReplaceProtectiveStop, SubmitEntry, SubmitMarketExit, SubmitProtectiveStop
 
 from .artifact_store import IntradayStateSnapshot, load_intraday_state, persist_intraday_state
@@ -1029,6 +1030,9 @@ class IARICEngine:
             submit_action.qty,
             submit_action.limit_price or entry_price,
             float(submit_action.risk_context.get("stop_for_risk", state.stop_level)),
+            signal_id=f"{symbol}:{route}:{int(now.timestamp())}",
+            bar_id=f"{symbol}:{self._last_bar_ts.isoformat()}" if self._last_bar_ts else "",
+            exchange_timestamp=self._last_bar_ts or now,
         )
         receipt = await self._oms.submit_intent(Intent(intent_type=IntentType.NEW_ORDER, strategy_id=STRATEGY_ID, order=order))
         if receipt.oms_order_id:
@@ -1304,6 +1308,7 @@ class IARICEngine:
                 commission=commission, role=role,
                 pre_position=pre_position,
                 pre_sym_state=pre_sym_state,
+                payload=payload,
             )
 
     async def _record_entry_instrumentation(
@@ -1401,6 +1406,7 @@ class IARICEngine:
                     },
                     concurrent_positions=len(self._portfolio.open_positions),
                     session_type=self._current_session_type(event.timestamp),
+                    **fill_runtime_refs(event.oms_order_id or "", payload, fill_qty=fill_qty),
                 )
             except Exception:
                 pass
@@ -1409,6 +1415,7 @@ class IARICEngine:
         self, *, symbol: str, event, fill_price: float, fill_qty: int,
         commission: float, role: str,
         pre_position: PositionState, pre_sym_state: PBSymbolState,
+        payload: dict | None = None,
     ) -> None:
         # Compute final values from pre-fill state + this fill's contribution
         exit_qty = min(fill_qty, pre_position.qty_open)
@@ -1470,6 +1477,7 @@ class IARICEngine:
                         / max(pre_position.initial_risk_per_share, 1e-9), 4),
                     mfe_price=max_fav,
                     mae_price=max_adv,
+                    **fill_runtime_refs(event.oms_order_id or "", payload, fill_qty=fill_qty, is_exit=True),
                 )
             except Exception:
                 pass

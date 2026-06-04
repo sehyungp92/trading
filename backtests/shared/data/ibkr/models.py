@@ -31,6 +31,7 @@ class BarDownloadRequest:
     end: datetime | None = None
     output_dir: Path = Path("data/raw")
     family: str = ""
+    allow_contfuture_legacy: bool = False
 
     @property
     def ib_trading_class(self) -> str:
@@ -67,6 +68,7 @@ class DownloadResult:
     paths: list[Path] = field(default_factory=list)
     dry_run: bool = False
     messages: list[str] = field(default_factory=list)
+    metadata: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

@@ -14,12 +14,19 @@ Used by momentum family and stock family.
 from __future__ import annotations
 
 import logging
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Optional, Callable, Awaitable
+from typing import Any, Optional, Callable, Awaitable
 from zoneinfo import ZoneInfo
+from libs.oms.instrumentation.portfolio_rule_event import build_portfolio_rule_event
+from libs.instrumentation.lineage import stable_hash
 
 logger = logging.getLogger(__name__)
+_RULE_EVENT_CONTEXT: ContextVar[dict | None] = ContextVar(
+    "portfolio_rule_event_context",
+    default=None,
+)
 
 
 # ── Configuration ─────────────────────────────────────────────────────
@@ -142,6 +149,15 @@ class PortfolioRuleResult:
     approved: bool = True
     denial_reason: Optional[str] = None
     size_multiplier: float = 1.0  # Applied to position size
+    requested_qty: Optional[int] = None
+    approved_qty: Optional[int] = None
+    requested_risk_R: Optional[float] = None
+    approved_risk_R: Optional[float] = None
+    requested_risk_dollars: Optional[float] = None
+    approved_risk_dollars: Optional[float] = None
+    rule_trace_id: str = ""
+    applied_rules: tuple[str, ...] = ()
+    lineage_gap: bool = False
 
 
 # ── Checker ───────────────────────────────────────────────────────────
@@ -191,6 +207,7 @@ class PortfolioRuleChecker:
             Callable[[str, int], Awaitable[list[float]]]
         ] = None,
         now_provider: Optional[Callable[[], datetime]] = None,
+        on_config_update: Optional[Callable[[PortfolioRulesConfig], None]] = None,
     ):
         self._cfg = config
         self._get_signal = get_strategy_signal
@@ -205,6 +222,7 @@ class PortfolioRuleChecker:
         self._get_trade_counts = get_completed_trade_counts_for_strategies
         self._get_recent_r = get_recent_strategy_r_multiples
         self._now_provider = now_provider
+        self._on_config_update = on_config_update
         self._symbol_sector_map = dict(config.symbol_sector_map)
         self._strategy_size_multipliers = dict(config.strategy_size_multipliers)
         self._max_strategy_active_positions = dict(config.max_strategy_active_positions)
@@ -239,24 +257,31 @@ class PortfolioRuleChecker:
         self._strategy_size_multipliers = dict(new_cfg.strategy_size_multipliers)
         self._max_strategy_active_positions = dict(new_cfg.max_strategy_active_positions)
         self._max_strategy_heat_R = dict(new_cfg.max_strategy_heat_R)
+        if self._on_config_update is not None:
+            try:
+                self._on_config_update(new_cfg)
+            except Exception:
+                logger.debug("Portfolio rule config update callback failed", exc_info=True)
 
     def _emit(self, event: dict) -> None:
         if self._on_rule_event:
             try:
-                # Normalize to TA pipeline schema: rule_name, result, details
-                normalized = {
-                    "rule_name": event.get("rule", "unknown"),
-                    "result": "pass" if event.get("approved", True) else "block",
-                    "details": {},
-                }
-                details = normalized["details"]
-                if "denial_reason" in event:
-                    details["reason"] = event["denial_reason"]
-                if "symbol" in event:
-                    details["blocked_symbol"] = event["symbol"]
-                for k in ("strategy_id", "direction", "size_multiplier", "drawdown_pct"):
-                    if k in event:
-                        details[k] = event[k]
+                context = _RULE_EVENT_CONTEXT.get() or {}
+                check_sequence = int(context.get("check_sequence", 0) or 0) + 1
+                context["check_sequence"] = check_sequence
+                event = dict(event)
+                event.setdefault("check_sequence", check_sequence)
+                if event.get("rule"):
+                    context.setdefault("applied_rules", []).append(str(event["rule"]))
+                for key in ("trace_id", "rule_trace_id", "signal_id", "bar_id", "exchange_timestamp"):
+                    if context.get(key):
+                        event.setdefault(key, context[key])
+                normalized = build_portfolio_rule_event(
+                    event,
+                    portfolio_rules_config=self._cfg,
+                    request_context=context,
+                    lineage=context.get("lineage_context"),
+                )
                 self._on_rule_event(normalized)
             except Exception:
                 pass
@@ -286,16 +311,105 @@ class PortfolioRuleChecker:
         symbol: Optional[str] = None,
         new_qty: int = 0,
         new_risk_dollars: float = 0.0,
+        *,
+        trace_id: str = "",
+        signal_id: str = "",
+        bar_id: str = "",
+        exchange_timestamp: datetime | None = None,
+        lineage_context: Any = None,
     ) -> PortfolioRuleResult:
         """Run all portfolio rules. Returns result with approval and size multiplier."""
         result = PortfolioRuleResult()
+        try:
+            current_equity = float(self._get_equity())
+        except Exception:
+            current_equity = 0.0
+        rule_trace_id = stable_hash(
+            "rule_trace_",
+            {
+                "trace_id": trace_id,
+                "strategy_id": strategy_id,
+                "direction": direction,
+                "symbol": symbol or "",
+                "requested_qty": new_qty,
+                "requested_risk_R": new_risk_R,
+                "requested_risk_dollars": new_risk_dollars,
+            },
+        )
+        rule_context = {
+            "strategy_id": strategy_id,
+            "direction": direction,
+            "symbol": symbol or "",
+            "requested_sizing": {
+                "risk_R": new_risk_R,
+                "qty": new_qty,
+                "risk_dollars": new_risk_dollars,
+            },
+            "state_before": {
+                "current_equity": current_equity,
+                "drawdown_pct": self._current_dd_pct(),
+                "family_strategy_ids": list(self._cfg.family_strategy_ids),
+                "portfolio_heat_cap_R": self._cfg.portfolio_heat_cap_R,
+                "directional_cap_R": self._direction_cap_for(direction),
+            },
+            "current_size_multiplier": 1.0,
+            "trace_id": trace_id,
+            "rule_trace_id": rule_trace_id,
+            "signal_id": signal_id,
+            "bar_id": bar_id,
+            "exchange_timestamp": (
+                exchange_timestamp.isoformat()
+                if hasattr(exchange_timestamp, "isoformat")
+                else str(exchange_timestamp or "")
+            ),
+            "lineage_context": lineage_context,
+            "check_sequence": 0,
+            "applied_rules": [],
+        }
+        context_token = _RULE_EVENT_CONTEXT.set(rule_context)
+        context_active = True
+
+        def _result(
+            *,
+            approved: bool = True,
+            denial_reason: Optional[str] = None,
+            size_multiplier: Optional[float] = None,
+        ) -> PortfolioRuleResult:
+            nonlocal context_active
+            multiplier = result.size_multiplier if size_multiplier is None else size_multiplier
+            approved_qty = self._adjusted_qty(new_qty, multiplier) if approved else 0
+            if new_qty > 0:
+                approved_risk_R = new_risk_R * (approved_qty / new_qty)
+                approved_risk_dollars = new_risk_dollars * (approved_qty / new_qty)
+            else:
+                approved_risk_R = new_risk_R * multiplier if approved else 0.0
+                approved_risk_dollars = new_risk_dollars * multiplier if approved else 0.0
+            rule_result = PortfolioRuleResult(
+                approved=approved,
+                denial_reason=denial_reason,
+                size_multiplier=multiplier,
+                requested_qty=new_qty,
+                approved_qty=approved_qty,
+                requested_risk_R=new_risk_R,
+                approved_risk_R=approved_risk_R,
+                requested_risk_dollars=new_risk_dollars,
+                approved_risk_dollars=approved_risk_dollars,
+                rule_trace_id=rule_trace_id,
+                applied_rules=tuple(rule_context.get("applied_rules", ())),
+                lineage_gap=lineage_context is None,
+            )
+            if context_active:
+                _RULE_EVENT_CONTEXT.reset(context_token)
+                context_active = False
+            return rule_result
 
         # 0. Regime strategy disable
         if strategy_id in self._cfg.disabled_strategies:
             self._emit({"rule": "regime_disabled", "strategy_id": strategy_id, "approved": False})
-            return PortfolioRuleResult(
+            return _result(
                 approved=False,
                 denial_reason=f"regime_disabled: {strategy_id} blocked in current regime",
+                size_multiplier=1.0,
             )
 
         # 1. NQDTC direction filter (Vdubus only)
@@ -304,11 +418,12 @@ class PortfolioRuleChecker:
             reason = f"nqdtc_direction_filter: NQDTC opposes {direction}"
             self._emit({"rule": "nqdtc_direction_filter", "strategy_id": strategy_id,
                          "direction": direction, "approved": False, "denial_reason": reason})
-            return PortfolioRuleResult(approved=False, denial_reason=reason)
+            return _result(approved=False, denial_reason=reason, size_multiplier=1.0)
         if size_mult != 1.0:
             self._emit({"rule": "nqdtc_direction_filter", "strategy_id": strategy_id,
                          "direction": direction, "approved": True, "size_multiplier": size_mult})
         result.size_multiplier *= size_mult
+        rule_context["current_size_multiplier"] = result.size_multiplier
 
         # 2. Static optimized per-strategy multipliers.
         strategy_mult = self._strategy_size_multipliers.get(strategy_id, 1.0)
@@ -316,6 +431,7 @@ class PortfolioRuleChecker:
             self._emit({"rule": "strategy_size_multiplier", "strategy_id": strategy_id,
                         "approved": True, "size_multiplier": strategy_mult})
         result.size_multiplier *= strategy_mult
+        rule_context["current_size_multiplier"] = result.size_multiplier
 
         # 3. Drawdown tiers
         dd_mult = self._check_drawdown_tier()
@@ -324,12 +440,13 @@ class PortfolioRuleChecker:
             self._emit({"rule": "drawdown_tier", "strategy_id": strategy_id,
                          "approved": False, "denial_reason": reason,
                          "drawdown_pct": self._current_dd_pct(), "size_multiplier": 0.0})
-            return PortfolioRuleResult(approved=False, denial_reason=reason)
+            return _result(approved=False, denial_reason=reason, size_multiplier=1.0)
         if dd_mult < 1.0:
             self._emit({"rule": "drawdown_tier", "strategy_id": strategy_id,
                          "approved": True, "size_multiplier": dd_mult,
                          "drawdown_pct": self._current_dd_pct()})
         result.size_multiplier *= dd_mult
+        rule_context["current_size_multiplier"] = result.size_multiplier
 
         # 4b. Regime unit-risk multipliers
         regime_mult = self._cfg.regime_unit_risk_mult
@@ -337,6 +454,7 @@ class PortfolioRuleChecker:
             self._emit({"rule": "regime_unit_risk", "strategy_id": strategy_id,
                         "approved": True, "size_multiplier": regime_mult})
             result.size_multiplier *= regime_mult
+            rule_context["current_size_multiplier"] = result.size_multiplier
 
         direction_mult = self._directional_unit_risk_mult(direction)
         if direction_mult != 1.0:
@@ -344,12 +462,14 @@ class PortfolioRuleChecker:
                         "direction": direction, "approved": True,
                         "size_multiplier": direction_mult})
             result.size_multiplier *= direction_mult
+            rule_context["current_size_multiplier"] = result.size_multiplier
 
         dynamic_mult = await self._dynamic_allocation_mult(strategy_id)
         if dynamic_mult != 1.0:
             self._emit({"rule": "dynamic_allocation", "strategy_id": strategy_id,
                         "approved": True, "size_multiplier": dynamic_mult})
             result.size_multiplier *= dynamic_mult
+            rule_context["current_size_multiplier"] = result.size_multiplier
 
         momentum_mult = await self._momentum_dynamic_sizing_mult(
             strategy_id=strategy_id,
@@ -359,12 +479,13 @@ class PortfolioRuleChecker:
             reason = "dynamic_capacity_floor"
             self._emit({"rule": "dynamic_capacity_floor", "strategy_id": strategy_id,
                         "approved": False, "denial_reason": reason})
-            return PortfolioRuleResult(approved=False, denial_reason=reason)
+            return _result(approved=False, denial_reason=reason, size_multiplier=1.0)
         if momentum_mult != 1.0:
             self._emit({"rule": "momentum_dynamic_sizing", "strategy_id": strategy_id,
                         "direction": direction, "approved": True,
                         "size_multiplier": momentum_mult})
             result.size_multiplier *= momentum_mult
+            rule_context["current_size_multiplier"] = result.size_multiplier
 
         capacity_mult = await self._capacity_fit_mult(
             strategy_id=strategy_id,
@@ -378,11 +499,12 @@ class PortfolioRuleChecker:
             reason = "dynamic_capacity_floor"
             self._emit({"rule": "dynamic_capacity_floor", "strategy_id": strategy_id,
                         "approved": False, "denial_reason": reason})
-            return PortfolioRuleResult(approved=False, denial_reason=reason)
+            return _result(approved=False, denial_reason=reason, size_multiplier=1.0)
         if capacity_mult != 1.0:
             self._emit({"rule": "dynamic_capacity_fit", "strategy_id": strategy_id,
                         "approved": True, "size_multiplier": capacity_mult})
             result.size_multiplier *= capacity_mult
+            rule_context["current_size_multiplier"] = result.size_multiplier
 
         # 5. Symbol collision (stock family -- block/reduce when sibling holds same ticker)
         collision_result = await self._check_symbol_collision(strategy_id, symbol)
@@ -391,10 +513,11 @@ class PortfolioRuleChecker:
                 reason = f"symbol_collision: sibling strategy holds {symbol}"
                 self._emit({"rule": "symbol_collision", "strategy_id": strategy_id,
                              "symbol": symbol, "approved": False, "denial_reason": reason})
-                return PortfolioRuleResult(approved=False, denial_reason=reason)
+                return _result(approved=False, denial_reason=reason, size_multiplier=1.0)
             self._emit({"rule": "symbol_collision", "strategy_id": strategy_id,
                          "symbol": symbol, "approved": True, "size_multiplier": collision_result})
             result.size_multiplier *= collision_result
+            rule_context["current_size_multiplier"] = result.size_multiplier
 
         adjusted_qty = self._adjusted_qty(new_qty, result.size_multiplier)
         if new_qty > 0 and new_risk_dollars > 0:
@@ -413,19 +536,19 @@ class PortfolioRuleChecker:
         if denial:
             self._emit({"rule": "max_total_active_positions", "strategy_id": strategy_id,
                         "approved": False, "denial_reason": denial})
-            return PortfolioRuleResult(approved=False, denial_reason=denial)
+            return _result(approved=False, denial_reason=denial, size_multiplier=1.0)
 
         denial = await self._check_strategy_active_positions(strategy_id)
         if denial:
             self._emit({"rule": "max_strategy_active_positions", "strategy_id": strategy_id,
                         "approved": False, "denial_reason": denial})
-            return PortfolioRuleResult(approved=False, denial_reason=denial)
+            return _result(approved=False, denial_reason=denial, size_multiplier=1.0)
 
         denial = await self._check_portfolio_heat_cap(adjusted_risk_R, adjusted_risk_dollars)
         if denial:
             self._emit({"rule": "portfolio_heat_cap", "strategy_id": strategy_id,
                         "approved": False, "denial_reason": denial})
-            return PortfolioRuleResult(approved=False, denial_reason=denial)
+            return _result(approved=False, denial_reason=denial, size_multiplier=1.0)
 
         denial = await self._check_strategy_heat_cap(
             strategy_id, adjusted_risk_R, adjusted_risk_dollars,
@@ -433,13 +556,13 @@ class PortfolioRuleChecker:
         if denial:
             self._emit({"rule": "strategy_heat_cap", "strategy_id": strategy_id,
                         "approved": False, "denial_reason": denial})
-            return PortfolioRuleResult(approved=False, denial_reason=denial)
+            return _result(approved=False, denial_reason=denial, size_multiplier=1.0)
 
         denial = await self._check_strategy_trade_share(strategy_id)
         if denial:
             self._emit({"rule": "strategy_trade_share_cap", "strategy_id": strategy_id,
                         "approved": False, "denial_reason": denial})
-            return PortfolioRuleResult(approved=False, denial_reason=denial)
+            return _result(approved=False, denial_reason=denial, size_multiplier=1.0)
 
         denial = await self._check_directional_cap(
             strategy_id, direction, adjusted_risk_R, adjusted_risk_dollars,
@@ -447,7 +570,7 @@ class PortfolioRuleChecker:
         if denial:
             self._emit({"rule": "directional_cap", "strategy_id": strategy_id,
                          "direction": direction, "approved": False, "denial_reason": denial})
-            return PortfolioRuleResult(approved=False, denial_reason=denial)
+            return _result(approved=False, denial_reason=denial, size_multiplier=1.0)
 
         denial = await self._check_family_contract_cap(
             strategy_id, symbol or "", adjusted_qty,
@@ -455,21 +578,21 @@ class PortfolioRuleChecker:
         if denial:
             self._emit({"rule": "family_contract_cap", "strategy_id": strategy_id,
                          "approved": False, "denial_reason": denial})
-            return PortfolioRuleResult(approved=False, denial_reason=denial)
+            return _result(approved=False, denial_reason=denial, size_multiplier=1.0)
 
         denial = await self._check_symbol_heat_cap(symbol, adjusted_risk_R, adjusted_risk_dollars)
         if denial:
             self._emit({"rule": "symbol_heat_cap", "strategy_id": strategy_id,
                         "symbol": symbol, "approved": False, "denial_reason": denial})
-            return PortfolioRuleResult(approved=False, denial_reason=denial)
+            return _result(approved=False, denial_reason=denial, size_multiplier=1.0)
 
         denial = await self._check_sector_heat_cap(symbol, adjusted_risk_R, adjusted_risk_dollars)
         if denial:
             self._emit({"rule": "sector_heat_cap", "strategy_id": strategy_id,
                         "symbol": symbol, "approved": False, "denial_reason": denial})
-            return PortfolioRuleResult(approved=False, denial_reason=denial)
+            return _result(approved=False, denial_reason=denial, size_multiplier=1.0)
 
-        return result
+        return _result(approved=True, size_multiplier=result.size_multiplier)
 
     @staticmethod
     def _adjusted_qty(new_qty: int, size_multiplier: float) -> int:

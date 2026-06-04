@@ -8,6 +8,8 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+from libs.instrumentation.event_contract import enrich_payload
+from libs.instrumentation.lineage import LineageContext
 
 logger = logging.getLogger("instrumentation.indicator_logger")
 
@@ -41,10 +43,11 @@ class IndicatorSnapshot:
 class IndicatorLogger:
     """Writes IndicatorSnapshot events to daily JSONL files."""
 
-    def __init__(self, data_dir: str | Path, bot_id: str) -> None:
+    def __init__(self, data_dir: str | Path, bot_id: str, lineage: LineageContext | dict | None = None) -> None:
         self._data_dir = Path(data_dir) / "indicators"
         self._data_dir.mkdir(parents=True, exist_ok=True)
         self._bot_id = bot_id
+        self._lineage = lineage or {"bot_id": bot_id}
 
     def log_snapshot(
         self,
@@ -86,7 +89,13 @@ class IndicatorLogger:
         try:
             today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             filepath = self._data_dir / f"indicators_{today}.jsonl"
+            payload = enrich_payload(
+                snapshot.to_dict(),
+                lineage=self._lineage,
+                event_type="indicator_snapshot",
+                scope="strategy",
+            )
             with open(filepath, "a", encoding="utf-8") as f:
-                f.write(json.dumps(snapshot.to_dict(), default=str) + "\n")
+                f.write(json.dumps(payload, default=str) + "\n")
         except Exception as e:
             logger.debug("Failed to write indicator snapshot: %s", e)

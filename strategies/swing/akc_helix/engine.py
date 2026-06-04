@@ -25,6 +25,7 @@ from libs.oms.models.order import (
     OrderType,
     RiskContext,
 )
+from libs.oms.instrumentation.runtime_refs import fill_runtime_refs
 from libs.oms.risk.calculator import RiskCalculator
 from libs.services.trade_recorder import TradeRecorder
 from strategies.core.idle_market import (
@@ -1482,12 +1483,12 @@ class HelixEngine:
         else:
             trigger = round_to_tick(setup.bos_level, tick, "down")
 
-        risk_ctx = RiskContext(
-            stop_for_risk=setup.stop0,
+        risk_ctx = self._setup_entry_risk_context(
+            setup,
             planned_entry_price=trigger,
-            risk_dollars=RiskCalculator.compute_order_risk_dollars(
-                trigger, setup.stop0, setup.qty_planned, inst.point_value,
-            ),
+            stop_for_risk=setup.stop0,
+            qty=setup.qty_planned,
+            point_value=inst.point_value,
         )
 
         # ETF: Stop-Market (spec s11.1); Futures: Stop-Limit
@@ -1616,12 +1617,13 @@ class HelixEngine:
                     entry_policy=EntryPolicy(
                         ttl_seconds=CATCHUP_TTL_MIN * 60,
                     ),
-                    risk_context=RiskContext(
-                        stop_for_risk=setup.stop0,
+                    risk_context=self._setup_entry_risk_context(
+                        setup,
                         planned_entry_price=catchup_limit,
-                        risk_dollars=RiskCalculator.compute_order_risk_dollars(
-                            catchup_limit, setup.stop0, setup.qty_planned, inst.point_value,
-                        ),
+                        stop_for_risk=setup.stop0,
+                        qty=setup.qty_planned,
+                        point_value=inst.point_value,
+                        role="catchup",
                     ),
                     oca_group=setup.oca_group,
                     oca_type=1,
@@ -1648,6 +1650,49 @@ class HelixEngine:
             setup.symbol, setup.setup_class.value,
             "LONG" if setup.direction == Direction.LONG else "SHORT",
             setup.setup_id[:8], setup.qty_planned, trigger, setup.stop0,
+        )
+
+    def _setup_signal_context(
+        self,
+        setup: SetupInstance,
+        *,
+        role: str = "entry",
+        bar_ts: datetime | None = None,
+    ) -> dict[str, Any]:
+        ts = (
+            bar_ts
+            or setup.created_ts
+            or setup.armed_ts
+            or self._symbol_last_bar_ts.get(setup.symbol)
+            or self._last_bar_ts
+            or datetime.now(timezone.utc)
+        )
+        ts_text = ts.isoformat()
+        suffix = "" if role == "entry" else f":{role}"
+        return {
+            "signal_id": f"{setup.setup_id}{suffix}",
+            "bar_id": f"{setup.symbol}:{setup.origin_tf}:{ts_text}",
+            "exchange_timestamp": ts,
+        }
+
+    def _setup_entry_risk_context(
+        self,
+        setup: SetupInstance,
+        *,
+        planned_entry_price: float,
+        stop_for_risk: float,
+        qty: int,
+        point_value: float,
+        role: str = "entry",
+        bar_ts: datetime | None = None,
+    ) -> RiskContext:
+        return RiskContext(
+            stop_for_risk=stop_for_risk,
+            planned_entry_price=planned_entry_price,
+            risk_dollars=RiskCalculator.compute_order_risk_dollars(
+                planned_entry_price, stop_for_risk, qty, point_value,
+            ),
+            **self._setup_signal_context(setup, role=role, bar_ts=bar_ts),
         )
 
     # ------------------------------------------------------------------
@@ -1812,12 +1857,13 @@ class HelixEngine:
             tif="GTC",
             role=OrderRole.ENTRY,
             entry_policy=EntryPolicy(ttl_seconds=RESCUE_TTL_MIN * 60),
-            risk_context=RiskContext(
-                stop_for_risk=setup.stop0,
+            risk_context=self._setup_entry_risk_context(
+                setup,
                 planned_entry_price=rescue_limit,
-                risk_dollars=RiskCalculator.compute_order_risk_dollars(
-                    rescue_limit, setup.stop0, setup.qty_planned, inst.point_value,
-                ),
+                stop_for_risk=setup.stop0,
+                qty=setup.qty_planned,
+                point_value=inst.point_value,
+                role="rescue",
             ),
             oca_group=setup.oca_group,
             oca_type=1,
@@ -2275,12 +2321,13 @@ class HelixEngine:
                 tif="GTC",
                 role=OrderRole.ENTRY,
                 entry_policy=EntryPolicy(ttl_seconds=TTL_ADD_HOURS * 3600),
-                risk_context=RiskContext(
-                    stop_for_risk=add_stop,
+                risk_context=self._setup_entry_risk_context(
+                    setup,
                     planned_entry_price=trigger,
-                    risk_dollars=RiskCalculator.compute_order_risk_dollars(
-                        trigger, add_stop, add_qty, inst.point_value,
-                    ),
+                    stop_for_risk=add_stop,
+                    qty=add_qty,
+                    point_value=inst.point_value,
+                    role="add",
                 ),
             )
         else:
@@ -2307,12 +2354,14 @@ class HelixEngine:
                 tif="GTC",
                 role=OrderRole.ENTRY,
                 entry_policy=EntryPolicy(ttl_seconds=TTL_ADD_HOURS * 3600),
-                risk_context=RiskContext(
-                    stop_for_risk=setup.current_stop,
+                risk_context=self._setup_entry_risk_context(
+                    setup,
                     planned_entry_price=tf1h.close,
-                    risk_dollars=RiskCalculator.compute_order_risk_dollars(
-                        tf1h.close, setup.current_stop, add_qty, inst.point_value,
-                    ),
+                    stop_for_risk=setup.current_stop,
+                    qty=add_qty,
+                    point_value=inst.point_value,
+                    role="add",
+                    bar_ts=tf1h.bar_time,
                 ),
             )
 
@@ -2471,38 +2520,6 @@ class HelixEngine:
             )
         )
 
-        # Hook 5: Instrumentation trade exit (flatten)
-        if self._kit and setup.fill_price > 0:
-            tid = setup.trade_id or setup.setup_id
-            # Use last known price as exit price estimate
-            current_price = self._get_current_price(setup.symbol)
-            exit_price = current_price if current_price > 0 else setup.fill_price
-            # Compute MFE/MAE prices from R values
-            if setup.direction == Direction.LONG:
-                _mfe_price = setup.fill_price + setup.mfe_r_peak * setup.r_price if setup.r_price > 0 else setup.fill_price
-                _mae_price = setup.fill_price + setup.mae_r_trough * setup.r_price if setup.r_price > 0 else setup.fill_price
-                _pnl_pct = (exit_price - setup.fill_price) / setup.fill_price if setup.fill_price > 0 else None
-            else:
-                _mfe_price = setup.fill_price - setup.mfe_r_peak * setup.r_price if setup.r_price > 0 else setup.fill_price
-                _mae_price = setup.fill_price - setup.mae_r_trough * setup.r_price if setup.r_price > 0 else setup.fill_price
-                _pnl_pct = (setup.fill_price - exit_price) / setup.fill_price if setup.fill_price > 0 else None
-            _mfe_pct = abs(setup.mfe_r_peak * setup.r_price / setup.fill_price) if setup.fill_price > 0 and setup.r_price > 0 else None
-            _mae_pct = abs(setup.mae_r_trough * setup.r_price / setup.fill_price) if setup.fill_price > 0 and setup.r_price > 0 else None
-            self._kit.log_exit(
-                trade_id=tid,
-                exit_price=exit_price,
-                exit_reason=reason,
-                expected_exit_price=exit_price,
-                mfe_price=_mfe_price,
-                mae_price=_mae_price,
-                mfe_r=setup.mfe_r_peak,
-                mae_r=setup.mae_r_trough,
-                mfe_pct=_mfe_pct,
-                mae_pct=_mae_pct,
-                pnl_pct=_pnl_pct,
-                fill_qty=float(setup.qty_open),
-            )
-
         # Track flatten order for fill reconciliation
         if receipt.oms_order_id:
             self._order_to_setup[receipt.oms_order_id] = setup.setup_id
@@ -2639,6 +2656,11 @@ class HelixEngine:
             fill_time=fill_time,
             commission=float(payload.get("commission", 0) or 0),
             order_role=core_role,
+            fill_id=str(payload.get("fill_id") or payload.get("exec_id") or ""),
+            intent_id=str(payload.get("intent_id") or ""),
+            risk_decision_ref=str(payload.get("risk_decision_ref") or ""),
+            portfolio_decision_ref=str(payload.get("portfolio_decision_ref") or ""),
+            runtime_payload={**payload, "oms_order_id": oms_order_id},
         )
         core_state = build_core_runtime_state(self)
         # For stop fills not tracked in order_to_setup, inject temporary mapping
@@ -2740,7 +2762,7 @@ class HelixEngine:
 
                 # Instrumentation
                 self._record_akc_entry_instrumentation(
-                    setup, oms_order_id, fill_price, fill_qty, fill_time,
+                    setup, oms_order_id, fill_price, fill_qty, fill_time, payload,
                 )
 
             elif ev.code == "ADD_FILLED":
@@ -2769,9 +2791,14 @@ class HelixEngine:
                     reason = getattr(pre_setup, '_flatten_reason', 'FLATTEN')
                     logger.info("FLATTEN FILL %s @ %.4f (%s)",
                                 pre_setup.symbol, fill_price, reason)
+                    await self._process_stop_fill_effects(
+                        pre_setup, oms_order_id, fill_price, fill_time, fill_qty,
+                        payload=payload, exit_reason=reason,
+                    )
                 else:
                     await self._process_stop_fill_effects(
-                        pre_setup, oms_order_id, fill_price, fill_time,
+                        pre_setup, oms_order_id, fill_price, fill_time, fill_qty,
+                        payload=payload,
                     )
 
             elif ev.code == "PARTIAL_EXIT_FILLED":
@@ -2796,7 +2823,8 @@ class HelixEngine:
             elif ev.code == "EXIT_FILLED":
                 # Full close from partial exit reaching qty_open=0
                 await self._process_stop_fill_effects(
-                    pre_setup, oms_order_id, fill_price, fill_time,
+                    pre_setup, oms_order_id, fill_price, fill_time, fill_qty,
+                    payload=payload,
                 )
 
     async def _on_terminal_core_routed(self, oms_order_id: str | None, etype) -> None:
@@ -2852,6 +2880,10 @@ class HelixEngine:
         oms_order_id: str,
         fill_price: float,
         fill_time: datetime,
+        fill_qty: int,
+        *,
+        payload: dict,
+        exit_reason: str | None = None,
     ) -> None:
         """Engine-side effects for stop/exit fills (recording, circuit breaker, kit)."""
         setup = pre_setup
@@ -2873,7 +2905,7 @@ class HelixEngine:
                     trade_id=setup.trade_id,
                     exit_price=Decimal(str(fill_price)),
                     exit_ts=fill_time,
-                    exit_reason=f"STOP_{setup.stop_source}",
+                    exit_reason=exit_reason or f"STOP_{setup.stop_source}",
                     realized_r=Decimal(str(round(realized_r, 4))),
                     realized_usd=Decimal(str(round(pnl_usd, 2))),
                     duration_bars=setup.bars_held_1h,
@@ -2927,7 +2959,7 @@ class HelixEngine:
                 _pnl_pct = (setup.fill_price - fill_price) / setup.fill_price if setup.fill_price > 0 else None
             _mfe_pct = abs(setup.mfe_r_peak * setup.r_price / setup.fill_price) if setup.fill_price > 0 and setup.r_price > 0 else None
             _mae_pct = abs(setup.mae_r_trough * setup.r_price / setup.fill_price) if setup.fill_price > 0 and setup.r_price > 0 else None
-            stop_reason = f"STOP_{setup.stop_source}"
+            stop_reason = exit_reason or f"STOP_{setup.stop_source}"
             self._kit.log_exit(
                 trade_id=tid,
                 exit_price=fill_price,
@@ -2937,8 +2969,12 @@ class HelixEngine:
                 mfe_r=setup.mfe_r_peak, mae_r=setup.mae_r_trough,
                 mfe_pct=_mfe_pct, mae_pct=_mae_pct,
                 pnl_pct=_pnl_pct,
-                fill_order_id=oms_order_id,
-                fill_qty=float(setup.qty_open),
+                **fill_runtime_refs(
+                    oms_order_id,
+                    payload,
+                    fill_qty=float(fill_qty or setup.qty_open),
+                    is_exit=True,
+                ),
             )
             self._kit.on_order_event(
                 order_id=oms_order_id,
@@ -2964,6 +3000,7 @@ class HelixEngine:
         fill_price: float,
         fill_qty: int,
         fill_time: datetime,
+        payload: dict,
     ) -> None:
         """Record entry instrumentation for a filled primary entry."""
         if not self._kit:
@@ -3039,9 +3076,8 @@ class HelixEngine:
             signal_evolution=self._build_signal_evolution(setup.symbol),
             correlated_pairs_detail=correlated if correlated else None,
             concurrent_positions_strategy=len(self.active_setups),
-            fill_order_id=oms_order_id,
-            fill_qty=float(fill_qty),
             fill_time_ms=int(fill_time.timestamp() * 1000),
+            **fill_runtime_refs(oms_order_id, payload, fill_qty=float(fill_qty)),
         )
         self._kit.on_order_event(
             order_id=oms_order_id,

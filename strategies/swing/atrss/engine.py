@@ -26,6 +26,7 @@ from libs.oms.models.order import (
     OrderType,
     RiskContext,
 )
+from libs.oms.instrumentation.runtime_refs import fill_runtime_refs
 from libs.oms.risk.calculator import RiskCalculator
 from libs.services.trade_recorder import TradeRecorder
 from strategies.core.actions import FlattenPosition, ReplaceProtectiveStop, SubmitAddOnEntry, SubmitEntry, SubmitPartialExit, SubmitProtectiveStop
@@ -1285,6 +1286,7 @@ class ATRSSEngine:
         if submit_action is None:
             return
 
+        signal_context = self._candidate_signal_context(candidate)
         risk_ctx = RiskContext(
             stop_for_risk=candidate.initial_stop,
             planned_entry_price=candidate.trigger_price,
@@ -1294,6 +1296,7 @@ class ATRSSEngine:
                 candidate.qty,
                 inst.point_value,
             ),
+            **signal_context,
         )
 
         order = OMSOrder(
@@ -1457,12 +1460,14 @@ class ATRSSEngine:
             return
 
         side = OrderSide.BUY if pos.direction == Direction.LONG else OrderSide.SELL
+        signal_context = self._addon_signal_context(sym=sym, pos=pos, hourly=h)
         risk_ctx = RiskContext(
             stop_for_risk=pos.current_stop,
             planned_entry_price=h.close,
             risk_dollars=RiskCalculator.compute_order_risk_dollars(
                 h.close, pos.current_stop, qty, inst.point_value,
             ),
+            **signal_context,
         )
         order = OMSOrder(
             strategy_id=STRATEGY_ID,
@@ -1489,6 +1494,9 @@ class ATRSSEngine:
                 "initial_stop": pos.current_stop,
                 "qty": submit_action.qty,
                 "submitted_at": datetime.now(timezone.utc),
+                "signal_id": signal_context["signal_id"],
+                "bar_id": signal_context["bar_id"],
+                "exchange_timestamp": signal_context["exchange_timestamp"].isoformat(),
             }
             # C2: Track pending order ID to prevent re-triggering during async window.
             # Only set addon_a_done on fill, not submission.
@@ -1498,6 +1506,44 @@ class ATRSSEngine:
                 sym, "LONG" if pos.direction == Direction.LONG else "SHORT",
                 qty, receipt.oms_order_id,
             )
+
+    def _candidate_signal_context(self, candidate: Candidate) -> dict[str, Any]:
+        ts = (
+            candidate.time
+            or getattr(candidate.signal_bar, "time", None)
+            or self._symbol_last_bar_ts.get(candidate.symbol)
+            or self._last_bar_ts
+            or datetime.now(timezone.utc)
+        )
+        ts_text = ts.isoformat()
+        return {
+            "signal_id": (
+                f"{candidate.symbol}:{candidate.type.value}:"
+                f"{candidate.direction.name}:{ts_text}"
+            ),
+            "bar_id": f"{candidate.symbol}:1h:{ts_text}",
+            "exchange_timestamp": ts,
+        }
+
+    def _addon_signal_context(
+        self,
+        *,
+        sym: str,
+        pos: PositionBook,
+        hourly: HourlyState,
+    ) -> dict[str, Any]:
+        ts = (
+            hourly.time
+            or self._symbol_last_bar_ts.get(sym)
+            or self._last_bar_ts
+            or datetime.now(timezone.utc)
+        )
+        ts_text = ts.isoformat()
+        return {
+            "signal_id": f"{sym}:{CandidateType.ADDON_A.value}:{pos.direction.name}:{ts_text}",
+            "bar_id": f"{sym}:1h:{ts_text}",
+            "exchange_timestamp": ts,
+        }
 
     async def _cancel_symbol_orders(self, sym: str) -> None:
         """Cancel all pending entry orders for a symbol (M4)."""
@@ -1853,6 +1899,11 @@ class ATRSSEngine:
             symbol=symbol,
             fill_time=fill_time,
             commission=payload.get("commission", 0.0),
+            fill_id=str(payload.get("fill_id") or payload.get("exec_id") or ""),
+            intent_id=str(payload.get("intent_id") or ""),
+            risk_decision_ref=str(payload.get("risk_decision_ref") or ""),
+            portfolio_decision_ref=str(payload.get("portfolio_decision_ref") or ""),
+            runtime_payload={**payload, "oms_order_id": oms_order_id},
         )
         core_state = build_core_runtime_state(self)
         new_state, actions, events = atrss_core_logic.on_fill(core_state, fill)
@@ -1878,7 +1929,7 @@ class ATRSSEngine:
 
             if event.code == "ENTRY_FILLED" and meta:
                 await self._record_entry_instrumentation(
-                    ev_sym, meta, fill_price, fill_qty, fill_time, oms_order_id,
+                    ev_sym, meta, fill_price, fill_qty, fill_time, oms_order_id, payload,
                 )
             elif event.code == "ADD_ON_FILLED":
                 logger.info("ADD_ON FILL %s @ %.4f", ev_sym, fill_price)
@@ -1889,7 +1940,7 @@ class ATRSSEngine:
                 if pre_pos:
                     exit_reason = event.details.get("reason", "STOP") if event.details else "STOP"
                     await self._record_exit_instrumentation(
-                        ev_sym, pre_pos, fill_price, fill_time, exit_reason, oms_order_id,
+                        ev_sym, pre_pos, fill_price, fill_time, exit_reason, oms_order_id, payload,
                     )
                     # Cancel all pending orders for exited symbol (M4)
                     await self._cancel_symbol_orders(ev_sym)
@@ -1905,7 +1956,7 @@ class ATRSSEngine:
 
     async def _record_entry_instrumentation(
         self, sym: str, meta: dict,
-        fill_price: float, fill_qty: int, fill_time: datetime, oms_order_id: str,
+        fill_price: float, fill_qty: int, fill_time: datetime, oms_order_id: str, payload: dict,
     ) -> None:
         """Record trade entry + kit logging for a filled entry."""
         direction = meta["direction"]
@@ -2010,9 +2061,8 @@ class ATRSSEngine:
                 },
                 signal_evolution=self._build_signal_evolution(sym),
                 concurrent_positions_strategy=len(self.positions),
-                fill_order_id=oms_order_id,
-                fill_qty=float(fill_qty),
                 fill_time_ms=int(fill_time.timestamp() * 1000),
+                **fill_runtime_refs(oms_order_id, payload, fill_qty=float(fill_qty)),
             )
 
             self._kit.on_order_event(
@@ -2038,7 +2088,7 @@ class ATRSSEngine:
 
     async def _record_exit_instrumentation(
         self, sym: str, pre_pos: Any,
-        fill_price: float, fill_time: datetime, reason: str, oms_order_id: str,
+        fill_price: float, fill_time: datetime, reason: str, oms_order_id: str, payload: dict,
     ) -> None:
         """Record trade exits + kit logging for a stop or flatten fill."""
         # Record exits for all legs
@@ -2095,8 +2145,12 @@ class ATRSSEngine:
                     mfe_pct=_mfe_pct,
                     mae_pct=_mae_pct,
                     pnl_pct=_pnl_pct,
-                    fill_order_id=oms_order_id,
-                    fill_qty=float(pre_pos.total_qty),
+                    **fill_runtime_refs(
+                        oms_order_id,
+                        payload,
+                        fill_qty=float(pre_pos.total_qty),
+                        is_exit=True,
+                    ),
                 )
 
             self._kit.on_order_event(

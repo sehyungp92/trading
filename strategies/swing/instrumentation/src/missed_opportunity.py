@@ -16,6 +16,8 @@ from typing import Optional, List, Dict
 
 from .event_metadata import create_event_metadata
 from .market_snapshot import MarketSnapshot, MarketSnapshotService
+from libs.instrumentation.event_contract import enrich_payload, write_error_event
+from libs.instrumentation.lineage import lineage_from_config
 
 logger = logging.getLogger("instrumentation.missed_opportunity")
 
@@ -96,10 +98,16 @@ class MissedOpportunityLogger:
 
     def __init__(self, config: dict, snapshot_service: MarketSnapshotService):
         self.bot_id = config["bot_id"]
+        self.strategy_id = config.get("strategy_id", "")
         self.data_dir = Path(config["data_dir"]) / "missed"
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.snapshot_service = snapshot_service
         self.data_source_id = config.get("data_source_id", "ibkr_historical")
+        self._lineage = lineage_from_config(
+            config,
+            family_id="swing",
+            strategy_id=self.strategy_id,
+        )
 
         self.simulation_policies = self._load_simulation_policies(config)
         self._pending_backfills: List[Dict] = []
@@ -200,6 +208,7 @@ class MissedOpportunityLogger:
                 exchange_timestamp=exch_ts,
                 data_source_id=self.data_source_id,
                 bar_id=bar_id,
+                lineage=self._lineage,
             )
 
             event = MissedOpportunityEvent(
@@ -447,6 +456,12 @@ class MissedOpportunityLogger:
                     if event.get("event_metadata", {}).get("event_id") == event_id:
                         event.update(outcomes)
                         event["backfill_status"] = status
+                        event = enrich_payload(
+                            event,
+                            lineage=self._lineage,
+                            event_type="missed_opportunity",
+                            scope="strategy",
+                        )
                         updated = True
                     new_lines.append(json.dumps(event, default=str))
                 except json.JSONDecodeError:
@@ -460,25 +475,28 @@ class MissedOpportunityLogger:
         try:
             today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             filepath = self.data_dir / f"missed_{today}.jsonl"
-            with open(filepath, "a") as f:
-                f.write(json.dumps(event.to_dict(), default=str) + "\n")
+            payload = enrich_payload(
+                event.to_dict(),
+                lineage=self._lineage,
+                event_type="missed_opportunity",
+                scope="strategy",
+            )
+            with open(filepath, "a", encoding="utf-8") as f:
+                f.write(json.dumps(payload, default=str) + "\n")
         except Exception as e:
             logger.warning("Failed to write missed event: %s", e)
 
     def _write_error(self, method: str, context: str, error: Exception) -> None:
         try:
-            error_dir = Path(self.data_dir).parent / "errors"
-            error_dir.mkdir(parents=True, exist_ok=True)
-            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-            filepath = error_dir / f"instrumentation_errors_{today}.jsonl"
-            entry = {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "component": "missed_opportunity",
-                "method": method,
-                "context": context,
-                "error": str(error),
-            }
-            with open(filepath, "a") as f:
-                f.write(json.dumps(entry) + "\n")
+            write_error_event(
+                Path(self.data_dir).parent,
+                self._lineage,
+                component="missed_opportunity",
+                method=method,
+                message=str(error),
+                error_type=type(error).__name__,
+                context={"context": context},
+                exc=error,
+            )
         except Exception:
             pass

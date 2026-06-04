@@ -5,6 +5,8 @@ from dataclasses import dataclass, asdict
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional, Dict
+from libs.instrumentation.event_contract import enrich_payload
+from libs.instrumentation.lineage import lineage_from_config
 
 logger = logging.getLogger("instrumentation.market_snapshot")
 
@@ -59,6 +61,11 @@ class MarketSnapshotService:
         self._data_provider = data_provider
         self.data_provider = data_provider
         self.data_source_id = config.get("data_source_id", "ibkr_us_equities")
+        self._lineage = lineage_from_config(
+            config,
+            family_id="stock",
+            strategy_id=config.get("strategy_id", ""),
+        )
         self._cache: Dict[str, MarketSnapshot] = {}
 
     def set_data_provider(self, data_provider) -> None:
@@ -153,8 +160,14 @@ class MarketSnapshotService:
         try:
             today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             filepath = self.data_dir / f"snapshots_{today}.jsonl"
-            with open(filepath, "a") as f:
-                f.write(json.dumps(snapshot.to_dict()) + "\n")
+            payload = enrich_payload(
+                snapshot.to_dict(),
+                lineage=self._lineage,
+                event_type="market_snapshot",
+                scope="strategy",
+            )
+            with open(filepath, "a", encoding="utf-8") as f:
+                f.write(json.dumps(payload, default=str) + "\n")
         except Exception as e:
             logger.warning("Failed to write snapshot: %s", e)
 

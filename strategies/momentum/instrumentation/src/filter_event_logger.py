@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Optional
 
 from .filter_decision import FilterDecision
+from libs.instrumentation.event_contract import enrich_payload
+from libs.instrumentation.lineage import LineageContext
 
 logger = logging.getLogger("instrumentation.filter_event_logger")
 
@@ -16,10 +18,11 @@ logger = logging.getLogger("instrumentation.filter_event_logger")
 class FilterEventLogger:
     """Writes FilterDecision events as standalone JSONL entries."""
 
-    def __init__(self, data_dir: str | Path, bot_id: str) -> None:
+    def __init__(self, data_dir: str | Path, bot_id: str, lineage: LineageContext | dict | None = None) -> None:
         self._data_dir = Path(data_dir) / "filter_decisions"
         self._data_dir.mkdir(parents=True, exist_ok=True)
         self._bot_id = bot_id
+        self._lineage = lineage or {"bot_id": bot_id}
 
     def log_decision(
         self,
@@ -49,6 +52,12 @@ class FilterEventLogger:
             "strategy_type": strategy_type,
             "bar_id": bar_id,
         }
+        record = enrich_payload(
+            record,
+            lineage=self._lineage,
+            event_type="filter_decision",
+            scope="strategy",
+        )
 
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         filepath = self._data_dir / f"filter_decisions_{today}.jsonl"

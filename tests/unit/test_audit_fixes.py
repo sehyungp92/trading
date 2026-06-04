@@ -325,36 +325,36 @@ class TestCurrentDateRemoved:
 # ===========================================================================
 
 
-class TestHMACEnforcement:
-    """Sidecar HMAC must be enforced (raise on missing) in paper/live modes."""
+class TestHMACFailOpen:
+    """Sidecar HMAC gaps must disable forwarding, not local instrumentation."""
 
-    def test_swing_context_enforces_hmac(self):
-        """Swing InstrumentationContext.start() raises if HMAC missing in paper/live."""
+    def test_swing_context_disables_forwarding_without_hmac(self):
+        """Swing InstrumentationContext.start() warns and skips forwarding."""
         src = Path("strategies/swing/instrumentation/src/context.py").read_text(encoding="utf-8")
         assert 'env in ("paper", "live")' in src
-        assert "HMAC secret is required" in src
-        assert "RuntimeError" in src
+        assert "Sidecar forwarding disabled" in src
+        assert "Local startup instrumentation will continue" in src
 
-    def test_momentum_bootstrap_enforces_hmac(self):
-        """Momentum InstrumentationManager.start() raises if HMAC missing in paper/live."""
+    def test_momentum_bootstrap_disables_forwarding_without_hmac(self):
+        """Momentum InstrumentationManager.start() warns and skips forwarding."""
         src = Path("strategies/momentum/instrumentation/src/bootstrap.py").read_text(encoding="utf-8")
         assert 'env in ("paper", "live")' in src
-        assert "HMAC secret is required" in src
-        assert "RuntimeError" in src
+        assert "Sidecar forwarding disabled" in src
+        assert "Local startup instrumentation will continue" in src
 
-    def test_swing_hmac_check_before_sidecar_start(self):
-        """HMAC check must happen BEFORE sidecar.start() call."""
+    def test_swing_hmac_gate_before_sidecar_start(self):
+        """HMAC forwarding gate must happen before sidecar.start()."""
         src = Path("strategies/swing/instrumentation/src/context.py").read_text(encoding="utf-8")
-        hmac_pos = src.index("HMAC secret is required")
+        hmac_pos = src.index("Sidecar forwarding disabled")
         start_pos = src.index("self.sidecar.start()")
-        assert hmac_pos < start_pos, "HMAC check must precede sidecar.start()"
+        assert hmac_pos < start_pos, "HMAC forwarding gate must precede sidecar.start()"
 
-    def test_momentum_hmac_check_before_running_flag(self):
-        """HMAC check must happen BEFORE self._running = True."""
+    def test_momentum_hmac_gate_before_running_flag(self):
+        """HMAC forwarding gate must happen before self._running = True."""
         src = Path("strategies/momentum/instrumentation/src/bootstrap.py").read_text(encoding="utf-8")
-        hmac_pos = src.index("HMAC secret is required")
+        hmac_pos = src.index("Sidecar forwarding disabled")
         running_pos = src.index("self._running = True")
-        assert hmac_pos < running_pos, "HMAC check must precede _running = True"
+        assert hmac_pos < running_pos, "HMAC forwarding gate must precede _running = True"
 
 
 # ===========================================================================

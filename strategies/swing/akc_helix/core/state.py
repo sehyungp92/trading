@@ -111,6 +111,11 @@ class AKCHelixFill:
     commission: float = 0.0
     order_role: Literal["entry", "catchup", "rescue", "add", "partial", "stop", "flatten", "unknown"] = "unknown"
     exit_type: str = ""
+    fill_id: str = ""
+    intent_id: str = ""
+    risk_decision_ref: str = ""
+    portfolio_decision_ref: str = ""
+    runtime_payload: dict[str, Any] = field(default_factory=dict)
     timeframe: str = ""
     decision_code: str = ""
     decision_details: dict[str, Any] = field(default_factory=dict)

@@ -17,6 +17,7 @@ from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from typing import Any
 
+from libs.oms.instrumentation.runtime_refs import fill_runtime_refs
 from strategies.swing._shared.etf_core import (
     ETFCoreState,
     ETFFill,
@@ -209,6 +210,11 @@ def route_entry(
         expected_entry_price=setup.entry_price,
         exchange_timestamp=fill.fill_time,
         bar_id=bar_id,
+        **fill_runtime_refs(
+            fill.oms_order_id,
+            fill.runtime_payload,
+            fill_qty=fill_qty,
+        ),
     )
 
 
@@ -260,6 +266,12 @@ def route_exit(
         mfe_r=float(pre_position.mfe_r),
         mae_r=float(pre_position.mae_r),
         pnl_pct=float(pnl_pct),
+        **fill_runtime_refs(
+            fill.oms_order_id,
+            fill.runtime_payload,
+            fill_qty=fill.fill_qty,
+            is_exit=True,
+        ),
     )
 
 

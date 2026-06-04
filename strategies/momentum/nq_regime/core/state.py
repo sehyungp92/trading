@@ -182,6 +182,10 @@ class FillEvent:
     commission: float = 0.0
     order_role: Literal["entry", "stop", "target_1", "target_2", "partial", "flatten", "unknown"] = "unknown"
     exit_type: str = ""
+    fill_id: str = ""
+    intent_id: str = ""
+    risk_decision_ref: str = ""
+    portfolio_decision_ref: str = ""
 
 
 @dataclass(slots=True)

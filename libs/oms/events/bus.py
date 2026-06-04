@@ -105,6 +105,18 @@ class EventBus:
         )
         self._dispatch(event)
 
+    def emit_position_update(
+        self, strategy_id: str, oms_order_id: str, payload: dict
+    ) -> None:
+        event = OMSEvent(
+            event_type=OMSEventType.POSITION_UPDATE,
+            timestamp=self._now(),
+            strategy_id=strategy_id,
+            oms_order_id=oms_order_id,
+            payload=payload,
+        )
+        self._dispatch(event)
+
     def emit_risk_denial(
         self, strategy_id: str, oms_order_id: str, reason: str
     ) -> None:
@@ -117,12 +129,51 @@ class EventBus:
         )
         self._dispatch(event)
 
+    def emit_risk_decision(
+        self, strategy_id: str, oms_order_id: str, payload: dict
+    ) -> None:
+        event = OMSEvent(
+            event_type=OMSEventType.RISK_DECISION,
+            timestamp=self._now(),
+            strategy_id=strategy_id,
+            oms_order_id=oms_order_id,
+            payload=payload,
+        )
+        self._dispatch(event)
+
     def emit_risk_halt(self, strategy_id: str, reason: str) -> None:
+        payload = {
+            "reason": reason,
+            "strategy_id": strategy_id,
+            "halt_scope": "strategy" if strategy_id else "portfolio",
+        }
+        provider = getattr(self, "_current_oms_lineage", None)
+        if callable(provider):
+            try:
+                from libs.instrumentation.event_contract import enrich_payload
+
+                payload = enrich_payload(
+                    payload,
+                    lineage=provider(),
+                    event_type="risk_halt",
+                    scope="oms",
+                )
+            except Exception:
+                pass
         event = OMSEvent(
             event_type=OMSEventType.RISK_HALT,
             timestamp=self._now(),
             strategy_id=strategy_id,
-            payload={"reason": reason},
+            payload=payload,
+        )
+        self._dispatch(event)
+
+    def emit_reconciliation_event(self, payload: dict, strategy_id: str = "") -> None:
+        event = OMSEvent(
+            event_type=OMSEventType.RECONCILIATION_ALERT,
+            timestamp=self._now(),
+            strategy_id=strategy_id,
+            payload=payload,
         )
         self._dispatch(event)
 

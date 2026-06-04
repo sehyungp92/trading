@@ -95,7 +95,7 @@ class TestHeartbeatEnrichment:
             "total_positions": 3,
             "by_strategy": {
                 "nqdtc": {"positions": 2, "contracts": 3, "unrealized_pnl": 1500.0},
-                "nqdtc": {"positions": 1, "contracts": 2, "unrealized_pnl": 950.0},
+                "vdubus": {"positions": 1, "contracts": 2, "unrealized_pnl": 950.0},
             },
         }
         kit.emit_heartbeat(
@@ -109,7 +109,7 @@ class TestHeartbeatEnrichment:
         data = json.loads(hb_files[0].read_text().strip())
         by_st = data["portfolio_exposure"]["by_strategy"]
         assert by_st["nqdtc"]["positions"] == 2
-        assert by_st["nqdtc"]["contracts"] == 2
+        assert by_st["vdubus"]["contracts"] == 2
 
     def test_empty_positions(self):
         """No open trades → positions: [], portfolio_exposure with defaults."""

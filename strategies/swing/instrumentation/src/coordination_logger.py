@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import Optional
 
 from .event_metadata import create_event_metadata
+from libs.instrumentation.event_contract import enrich_payload
+from libs.instrumentation.lineage import lineage_from_config
 
 logger = logging.getLogger("instrumentation.coordination_logger")
 
@@ -59,6 +61,11 @@ class CoordinationLogger:
         self.data_dir = Path(config.get("data_dir", "instrumentation/data")) / "coordination"
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.data_source_id = config.get("data_source_id", "ibkr_execution")
+        self._lineage = lineage_from_config(
+            config,
+            family_id="swing",
+            strategy_id=config.get("strategy_id", ""),
+        )
         self._event_count = 0
 
     _ORDER_MODIFICATION_ACTIONS = frozenset({
@@ -97,6 +104,7 @@ class CoordinationLogger:
                 payload_key=f"{action}_{symbol}_{now.isoformat()}",
                 exchange_timestamp=now,
                 data_source_id=self.data_source_id,
+                lineage=self._lineage,
             )
 
             event = CoordinationEvent(
@@ -150,7 +158,13 @@ class CoordinationLogger:
         try:
             today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             filepath = self.data_dir / f"coordination_{today}.jsonl"
-            with open(filepath, "a") as f:
-                f.write(json.dumps(event.to_dict(), default=str) + "\n")
+            payload = enrich_payload(
+                event.to_dict(),
+                lineage=self._lineage,
+                event_type="coordinator_action",
+                scope="family",
+            )
+            with open(filepath, "a", encoding="utf-8") as f:
+                f.write(json.dumps(payload, default=str) + "\n")
         except Exception as e:
             logger.warning("Failed to write coordination event: %s", e)

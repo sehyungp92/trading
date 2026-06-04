@@ -99,6 +99,21 @@ class InstrumentationKit:
         if self.ctx is None or not code:
             return
         pg_store = getattr(self.ctx, "pg_store", None)
+        try:
+            from libs.instrumentation.event_contract import write_strategy_decision_event
+
+            data_dir = getattr(self.ctx, "data_dir", "")
+            if data_dir:
+                write_strategy_decision_event(
+                    data_dir,
+                    code=code,
+                    strategy_id=self.strategy_id,
+                    details=details or {},
+                    exchange_timestamp=exchange_timestamp,
+                    lineage=getattr(self.ctx, "lineage", None),
+                )
+        except Exception:
+            logger.debug("Failed to write strategy decision event", exc_info=True)
         if pg_store is None:
             return
         async def _persist() -> None:
@@ -145,6 +160,7 @@ class InstrumentationKit:
         correlated_pairs_detail: Optional[list] = None,
         execution_timeline: Optional[dict] = None,
         experiment_variant: Optional[str] = None,
+        **runtime_refs,
     ) -> Any:
         """Log a trade entry with full instrumentation and enriched data.
 
@@ -276,6 +292,7 @@ class InstrumentationKit:
                 correlated_pairs_detail=correlated_pairs_detail,
                 execution_timeline=execution_timeline,
                 experiment_variant=experiment_variant,
+                **runtime_refs,
                 **drawdown_ctx,
                 **session_ctx,
                 **gap_ctx,
@@ -333,6 +350,7 @@ class InstrumentationKit:
         mfe_r: Optional[float] = None,
         mae_r: Optional[float] = None,
         pnl_pct: Optional[float] = None,
+        **runtime_refs,
     ) -> Any:
         """Log a trade exit and auto-score the process quality.
 
@@ -381,6 +399,7 @@ class InstrumentationKit:
                 mfe_r=mfe_r,
                 mae_r=mae_r,
                 exit_efficiency=exit_efficiency,
+                **runtime_refs,
             )
 
             if trade_event is None:
@@ -847,6 +866,16 @@ class InstrumentationKit:
                 heartbeat_data["positions"] = positions
             if portfolio_exposure is not None:
                 heartbeat_data["portfolio_exposure"] = portfolio_exposure
+            try:
+                from libs.instrumentation.event_contract import enrich_payload
+                heartbeat_data = enrich_payload(
+                    heartbeat_data,
+                    lineage=getattr(self.ctx, "lineage", None),
+                    event_type="heartbeat",
+                    scope="strategy",
+                )
+            except Exception:
+                pass
 
             # Write to heartbeat JSONL
             hb_dir = Path(self.ctx.data_dir) / "heartbeat"
@@ -869,6 +898,16 @@ class InstrumentationKit:
                     "uptime_s": uptime_s,
                     "error_count_1h": error_count_1h,
                 }
+                try:
+                    from libs.instrumentation.event_contract import enrich_payload
+                    basic = enrich_payload(
+                        basic,
+                        lineage=getattr(self.ctx, "lineage", None),
+                        event_type="heartbeat",
+                        scope="strategy",
+                    )
+                except Exception:
+                    pass
                 with open(filepath, "a", encoding="utf-8") as f:
                     f.write(json.dumps(basic, default=str) + "\n")
             except Exception:
@@ -916,6 +955,16 @@ class InstrumentationKit:
                 "tightening_distance": round(abs(new_stop - old_stop), 6),
                 "metadata": metadata or {},
             }
+            try:
+                from libs.instrumentation.event_contract import enrich_payload
+                record = enrich_payload(
+                    record,
+                    lineage=getattr(self.ctx, "lineage", None),
+                    event_type="stop_adjustment",
+                    scope="strategy",
+                )
+            except Exception:
+                pass
             date_str = now.strftime("%Y-%m-%d")
             out_dir = Path(data_dir) / "stop_adjustments"
             out_dir.mkdir(parents=True, exist_ok=True)

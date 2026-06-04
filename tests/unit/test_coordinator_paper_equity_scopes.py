@@ -210,6 +210,12 @@ async def test_momentum_uses_family_paper_equity_scope_and_portfolio_nav_sizing(
         strategy_mults = dict(rules.strategy_size_multipliers)
         assert strategy_mults["NQ_REGIME"] == pytest.approx(0.75)
         assert strategy_mults["VdubusNQ_v4"] == pytest.approx(0.95)
+        targets = kwargs_by_sid[sid]["allocation_targets"]
+        assert targets["families"] == {"momentum": 1.0}
+        assert targets["strategies"] == {
+            "NQ_REGIME": pytest.approx(0.5),
+            "VdubusNQ_v4": pytest.approx(0.5),
+        }
 
 
 @pytest.mark.asyncio
@@ -336,6 +342,12 @@ async def test_stock_uses_family_paper_equity_scope_and_portfolio_nav_sizing(mon
         assert kwargs_by_sid[sid]["portfolio_rules_config"].dynamic_lookback_trades == 60
         assert kwargs_by_sid[sid]["portfolio_rules_config"].dynamic_min_mult == pytest.approx(0.65)
         assert kwargs_by_sid[sid]["portfolio_rules_config"].dynamic_max_mult == pytest.approx(1.22)
+        targets = kwargs_by_sid[sid]["allocation_targets"]
+        assert targets["families"] == {"stock": 1.0}
+        assert targets["strategies"] == {
+            "IARIC_v1": pytest.approx(0.5),
+            "ALCB_v1": pytest.approx(0.5),
+        }
 
 
 @pytest.mark.asyncio
@@ -444,6 +456,12 @@ async def test_swing_uses_family_paper_equity_scope_and_portfolio_nav_sizing(mon
     assert kwargs["heat_cap_R"] == pytest.approx(5.5)
     assert kwargs["portfolio_daily_stop_R"] == pytest.approx(3.75)
     assert kwargs["portfolio_weekly_stop_R"] == pytest.approx(9.0)
+    assert kwargs["allocation_targets"]["families"] == {"swing": 1.0}
+    assert kwargs["allocation_targets"]["strategies"] == {
+        "ATRSS": pytest.approx(1.0 / 3.0),
+        "AKC_HELIX": pytest.approx(1.0 / 3.0),
+        "TPC": pytest.approx(1.0 / 3.0),
+    }
     strategies = {item["id"]: item for item in kwargs["strategies"]}
     assert strategies["ATRSS"]["unit_risk_dollars"] == pytest.approx(198.0)
     assert strategies["ATRSS"]["max_heat_R"] == pytest.approx(2.15)

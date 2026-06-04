@@ -592,6 +592,41 @@ class TestInstrumentationKit:
         assert call_kwargs.get("entry_latency_ms") == 250
         assert call_kwargs.get("bar_id") == "bar_123"
 
+    def test_log_entry_forwards_fill_runtime_refs(self):
+        """Test live fill refs pass through to the trade logger."""
+        self.mock_trade_logger.log_entry.return_value = TradeEvent(
+            trade_id="t1",
+            event_metadata={},
+            entry_snapshot={},
+        )
+
+        self.kit.log_entry(
+            trade_id="t1",
+            pair="BTC/USDT",
+            side="LONG",
+            entry_price=50000,
+            position_size=1.0,
+            position_size_quote=50000,
+            entry_signal="EMA",
+            entry_signal_id="ema_123",
+            entry_signal_strength=0.8,
+            active_filters=[],
+            passed_filters=[],
+            strategy_params={},
+            fill_order_id="oms-entry",
+            fill_id="exec-entry",
+            fill_qty=1.0,
+            intent_id="intent_1",
+            portfolio_decision_ref="portfolio_rule_1",
+        )
+
+        call_kwargs = self.mock_trade_logger.log_entry.call_args[1]
+        assert call_kwargs["fill_order_id"] == "oms-entry"
+        assert call_kwargs["fill_id"] == "exec-entry"
+        assert call_kwargs["fill_qty"] == 1.0
+        assert call_kwargs["intent_id"] == "intent_1"
+        assert call_kwargs["portfolio_decision_ref"] == "portfolio_rule_1"
+
     def test_log_exit_with_all_optional_params(self):
         """Test log_exit with all optional parameters provided."""
         trade_event = TradeEvent(
@@ -617,3 +652,25 @@ class TestInstrumentationKit:
         assert call_kwargs.get("exchange_timestamp") == now
         assert call_kwargs.get("expected_exit_price") == 51050
         assert call_kwargs.get("exit_latency_ms") == 150
+
+    def test_log_exit_forwards_fill_runtime_refs(self):
+        """Test live exit fill refs pass through to the trade logger."""
+        self.mock_trade_logger.log_exit.return_value = TradeEvent(
+            trade_id="t1",
+            event_metadata={},
+            entry_snapshot={},
+        )
+
+        self.kit.log_exit(
+            trade_id="t1",
+            exit_price=51000,
+            exit_reason="TAKE_PROFIT",
+            fill_order_id="oms-exit",
+            exit_fill_id="exec-exit",
+            fill_qty=1.0,
+        )
+
+        call_kwargs = self.mock_trade_logger.log_exit.call_args[1]
+        assert call_kwargs["fill_order_id"] == "oms-exit"
+        assert call_kwargs["exit_fill_id"] == "exec-exit"
+        assert call_kwargs["fill_qty"] == 1.0

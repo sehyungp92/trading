@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Optional
 
 from .event_metadata import create_event_metadata
+from libs.instrumentation.event_contract import enrich_payload
+from libs.instrumentation.lineage import lineage_from_config
 
 logger = logging.getLogger("instrumentation.orderbook_logger")
 
@@ -57,6 +59,11 @@ class OrderBookLogger:
         self.data_dir = Path(config["data_dir"]) / "orderbook"
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.data_source_id = config.get("data_source_id", "ibkr_execution")
+        self._lineage = lineage_from_config(
+            config,
+            family_id="swing",
+            strategy_id=config.get("strategy_id", ""),
+        )
 
     def log_context(
         self,
@@ -85,6 +92,7 @@ class OrderBookLogger:
             payload_key=f"{pair}:{trade_context or 'snapshot'}:{ts_str}",
             exchange_timestamp=now if isinstance(now, datetime) else datetime.now(timezone.utc),
             data_source_id=self.data_source_id,
+            lineage=self._lineage,
         )
 
         ctx = OrderBookContext(
@@ -113,7 +121,13 @@ class OrderBookLogger:
                 datetime.now(timezone.utc).strftime("%Y-%m-%d")
             )
             filepath = self.data_dir / f"orderbook_{date_str}.jsonl"
+            payload = enrich_payload(
+                ctx.to_dict(),
+                lineage=self._lineage,
+                event_type="orderbook_context",
+                scope="strategy",
+            )
             with open(filepath, "a", encoding="utf-8") as f:
-                f.write(json.dumps(ctx.to_dict(), default=str) + "\n")
+                f.write(json.dumps(payload, default=str) + "\n")
         except Exception:
             logger.exception("Failed to write OrderBookContext")

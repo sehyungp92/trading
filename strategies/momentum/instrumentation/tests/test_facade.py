@@ -80,6 +80,45 @@ def test_log_exit_delegates(kit, mock_manager):
     assert kwargs["exit_reason"] == "TRAILING_STOP"
 
 
+def test_log_entry_and_exit_forward_runtime_refs(kit, mock_manager):
+    kit.log_entry(
+        trade_id="t_runtime",
+        pair="NQ",
+        side="LONG",
+        entry_price=21000.0,
+        position_size=2,
+        position_size_quote=42000.0,
+        entry_signal="setup",
+        entry_signal_id="decision_1",
+        entry_signal_strength=0.9,
+        strategy_params={},
+        fill_order_id="oms-entry",
+        fill_id="exec-entry",
+        fill_qty=2,
+        intent_id="intent_1",
+        portfolio_decision_ref="portfolio_rule_1",
+    )
+    entry_kwargs = mock_manager.trade_logger.log_entry.call_args[1]
+    assert entry_kwargs["fill_order_id"] == "oms-entry"
+    assert entry_kwargs["fill_id"] == "exec-entry"
+    assert entry_kwargs["fill_qty"] == 2
+    assert entry_kwargs["intent_id"] == "intent_1"
+    assert entry_kwargs["portfolio_decision_ref"] == "portfolio_rule_1"
+
+    kit.log_exit(
+        trade_id="t_runtime",
+        exit_price=21050.0,
+        exit_reason="TARGET",
+        fill_order_id="oms-exit",
+        exit_fill_id="exec-exit",
+        fill_qty=2,
+    )
+    exit_kwargs = mock_manager.trade_logger.log_exit.call_args[1]
+    assert exit_kwargs["fill_order_id"] == "oms-exit"
+    assert exit_kwargs["exit_fill_id"] == "exec-exit"
+    assert exit_kwargs["fill_qty"] == 2
+
+
 def test_log_missed_delegates_with_enriched_params(kit, mock_manager):
     kit.log_missed(
         pair="NQ",

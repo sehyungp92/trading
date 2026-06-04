@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import date, datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -11,12 +12,19 @@ from backtests.scalp.data.downloader import _failed_alignment_messages, download
 from backtests.scalp.data.preprocessing import load_bar_data
 from backtests.momentum.data.downloader import derive_aligned_momentum_timeframes, check_aligned_momentum_timeframes
 from backtests.shared.data.ibkr.alignment import check_symbol_alignment, compare_timeframe_alignment
-from backtests.shared.data.ibkr.bars import download_contract_bars
+from backtests.shared.data.ibkr.bars import (
+    SOURCE_KIND_IBKR_CONT_FUTURE_LEGACY,
+    SOURCE_KIND_IBKR_PHYSICAL_FUTURES_PANAMA,
+    download_contract_bars,
+    download_historical_bars,
+    download_physical_futures_panama_bars,
+)
 from backtests.shared.data.ibkr.contracts import generate_quarterly_contracts, roll_schedule
-from backtests.shared.data.ibkr.models import DownloadResult
+from backtests.shared.data.ibkr.models import BarDownloadRequest, DownloadResult
 from backtests.shared.data.ibkr.pacing import RequestPacer, request_weight
 from backtests.shared.data.ibkr.stitch import stitch_panama
 from backtests.shared.data.ibkr.store import write_compatibility_bars, write_parquet_atomic
+from backtests.shared.data.ibkr.sync import sync_families
 from backtests.shared.data.ibkr.ticks import ticks_to_frame
 
 
@@ -256,6 +264,135 @@ async def test_latest_dry_run_includes_existing_interior_gap(tmp_path: Path) -> 
     assert result.dry_run
     assert "IBKR bar requests" in result.messages[0]
     assert int(result.messages[0].split(": ")[1].split()[0]) > 1
+
+
+@pytest.mark.asyncio
+async def test_generic_futures_download_requires_explicit_legacy_flag(tmp_path: Path) -> None:
+    request = BarDownloadRequest(
+        symbol="NQ",
+        timeframe="5m",
+        sec_type="FUT",
+        exchange="CME",
+        trading_class="NQ",
+        end=datetime(2026, 4, 28, tzinfo=timezone.utc),
+        duration="1 M",
+    )
+
+    with pytest.raises(ValueError, match="download_physical_futures_panama_bars"):
+        await download_historical_bars(
+            None,
+            request,
+            output_path=tmp_path / "NQ_5m.parquet",
+            dry_run=True,
+        )
+
+
+@pytest.mark.asyncio
+async def test_legacy_contfuture_dry_run_is_marked_diagnostic(tmp_path: Path) -> None:
+    request = BarDownloadRequest(
+        symbol="NQ",
+        timeframe="5m",
+        sec_type="FUT",
+        exchange="CME",
+        trading_class="NQ",
+        end=datetime(2026, 4, 28, tzinfo=timezone.utc),
+        duration="1 M",
+        allow_contfuture_legacy=True,
+    )
+
+    result = await download_historical_bars(
+        None,
+        request,
+        output_path=tmp_path / "NQ_5m.parquet",
+        dry_run=True,
+    )
+
+    assert result.metadata["source_kind"] == SOURCE_KIND_IBKR_CONT_FUTURE_LEGACY
+    assert result.metadata["usable_for_authoritative_validation"] is False
+    assert "legacy ContFuture diagnostic" in result.messages[0]
+
+
+@pytest.mark.asyncio
+async def test_legacy_contfuture_output_writes_diagnostic_manifest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from backtests.shared.data.ibkr import bars as bars_module
+
+    frame = pd.DataFrame(
+        {
+            "open": [1.0],
+            "high": [1.5],
+            "low": [0.5],
+            "close": [1.25],
+            "volume": [100],
+        },
+        index=pd.DatetimeIndex([pd.Timestamp("2026-04-28T13:30:00Z")]),
+    )
+
+    async def fake_download_contfuture_diagnostic(*args, **kwargs) -> pd.DataFrame:
+        return frame
+
+    monkeypatch.setattr(
+        bars_module,
+        "download_contfuture_diagnostic",
+        fake_download_contfuture_diagnostic,
+    )
+    request = BarDownloadRequest(
+        symbol="NQ",
+        timeframe="5m",
+        sec_type="FUT",
+        exchange="CME",
+        trading_class="NQ",
+        end=datetime(2026, 4, 28, tzinfo=timezone.utc),
+        duration="1 M",
+        allow_contfuture_legacy=True,
+    )
+
+    result = await download_historical_bars(
+        None,
+        request,
+        output_path=tmp_path / "NQ_5m.parquet",
+    )
+    manifest = json.loads((tmp_path / "NQ_5m.manifest.json").read_text(encoding="utf-8"))
+
+    assert result.metadata["source_kind"] == SOURCE_KIND_IBKR_CONT_FUTURE_LEGACY
+    assert manifest["source_kind"] == SOURCE_KIND_IBKR_CONT_FUTURE_LEGACY
+    assert manifest["usable_for_authoritative_validation"] is False
+
+
+@pytest.mark.asyncio
+async def test_physical_futures_panama_dry_run_is_authoritative(tmp_path: Path) -> None:
+    request = BarDownloadRequest(
+        symbol="NQ",
+        timeframe="5m",
+        sec_type="FUT",
+        exchange="CME",
+        trading_class="NQ",
+        end=datetime(2026, 4, 28, tzinfo=timezone.utc),
+        duration="1 M",
+        family="momentum",
+    )
+
+    result = await download_physical_futures_panama_bars(
+        None,
+        request,
+        output_path=tmp_path / "NQ_5m.parquet",
+        dry_run=True,
+    )
+
+    assert result.metadata["source_kind"] == SOURCE_KIND_IBKR_PHYSICAL_FUTURES_PANAMA
+    assert result.metadata["usable_for_authoritative_validation"] is True
+    assert "physical futures/Panama" in result.messages[0]
+
+
+@pytest.mark.asyncio
+async def test_momentum_sync_dry_run_uses_physical_futures_authority() -> None:
+    results = await sync_families(families=["momentum"], years=1, dry_run=True)
+    source_kinds = [result.metadata.get("source_kind") for result in results if result.metadata]
+
+    assert SOURCE_KIND_IBKR_PHYSICAL_FUTURES_PANAMA in source_kinds
+    assert SOURCE_KIND_IBKR_CONT_FUTURE_LEGACY not in source_kinds
 
 
 def test_alignment_checker_passes_when_target_is_derived_from_base(tmp_path: Path) -> None:

@@ -9,6 +9,8 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
+from libs.instrumentation.event_contract import enrich_envelope
+from libs.instrumentation.sidecar_compat import install_legacy_sidecar_alias, requests_client
 
 try:
     import requests
@@ -16,6 +18,9 @@ except ImportError:
     requests = None
 
 logger = logging.getLogger("instrumentation.sidecar")
+
+
+install_legacy_sidecar_alias(__name__)
 
 _DIR_TO_EVENT_TYPE = {
     "trades": "trade",
@@ -27,6 +32,8 @@ _DIR_TO_EVENT_TYPE = {
     "heartbeats": "heartbeat",
     "portfolio_rules": "portfolio_rule_check",
     "risk_denials": "risk_denial",
+    "risk_decisions": "risk_decision",
+    "risk_halts": "risk_halt",
     # Phase 2B event types
     "indicators": "indicator_snapshot",
     "filter_decisions": "filter_decision",
@@ -36,6 +43,21 @@ _DIR_TO_EVENT_TYPE = {
     "post_exit": "post_exit",
     "coordination_events": "coordinator_action",
     "stop_adjustments": "stop_adjustment",
+    "positions": "position_snapshot",
+    "portfolio": "portfolio_snapshot",
+    "family": "family_daily_snapshot",
+    "allocations": "allocation_snapshot",
+    "reconciliation": "reconciliation_alert",
+    "allocation_drift": "allocation_drift",
+    "admin_corrections": "admin_correction",
+    "inferred_fills": "inferred_fill",
+    "exposure": "sector_exposure",
+    "correlation": "correlation_snapshot",
+    "deployments": "deployment",
+    "config_snapshots": "config_snapshot",
+    "decisions": "decision_event",
+    "regime_transitions": "regime_transition",
+    "pipeline_funnel": "pipeline_funnel",
 }
 
 _MUTABLE_JSONL_EVENT_TYPES = {"missed_opportunity"}
@@ -48,15 +70,39 @@ _EVENT_PRIORITY = {
     "missed_opportunity": 3,
     "order": 3,
     "portfolio_rule_check": 3,
-    "parameter_change": 3,
+    "parameter_change": 1,
     "process_quality": 4,
     "indicator_snapshot": 4,
-    "filter_decision": 4,
+    "filter_decision": 3,
     "orderbook_context": 4,
     "market_snapshot": 4,
     "post_exit": 4,
-    "stop_adjustment": 3,
+    "stop_adjustment": 4,
+    "risk_denial": 3,
+    "risk_decision": 3,
+    "risk_halt": 0,
+    "bot_error": 0,
+    "deployment": 1,
+    "config_snapshot": 1,
+    "allocation_snapshot": 4,
+    "position_snapshot": 4,
+    "portfolio_snapshot": 4,
+    "family_daily_snapshot": 1,
+    "reconciliation_alert": 1,
+    "allocation_freeze": 1,
+    "allocation_unfreeze": 1,
+    "allocation_drift": 3,
+    "drift_assignment": 3,
+    "admin_correction": 3,
+    "inferred_fill": 3,
+    "sector_exposure": 4,
+    "correlation_snapshot": 4,
+    "decision_event": 4,
+    "regime_transition": 4,
+    "pipeline_funnel": 4,
     "heartbeat": 5,
+    "coordinator_action": 3,
+    "trade_entry": 2,
 }
 
 
@@ -265,7 +311,7 @@ class Sidecar:
             raw_str = f"{self.bot_id}|{exchange_ts}|{forwarded_event_type}|{key}"
             event_id = hashlib.sha256(raw_str.encode()).hexdigest()[:16]
 
-        return {
+        wrapped = {
             "event_id": event_id,
             "bot_id": self.bot_id,
             "event_type": forwarded_event_type,
@@ -273,6 +319,7 @@ class Sidecar:
             "payload": json.dumps(raw_event, default=str),
             "exchange_timestamp": exchange_ts,
         }
+        return enrich_envelope(wrapped, raw_event)
 
     @staticmethod
     def _forward_event_type(raw_event: dict, event_type: str) -> str:
@@ -281,6 +328,14 @@ class Sidecar:
             stage = str(raw_event.get("stage", "")).strip().lower()
             if stage and stage != "exit":
                 return f"trade_{stage}"
+        payload_event_type = str(raw_event.get("event_type", "")).strip()
+        if payload_event_type and event_type in {
+            "reconciliation_alert",
+            "allocation_drift",
+            "admin_correction",
+            "inferred_fill",
+        }:
+            return payload_event_type
         return event_type
 
     def _sign_payload(self, canonical_json: str) -> str:
@@ -298,7 +353,8 @@ class Sidecar:
             logger.warning("No relay_url configured — skipping send")
             return False
 
-        if requests is None:
+        client = requests_client(requests)
+        if client is None:
             logger.error("requests library not installed — cannot forward events")
             return False
 
@@ -329,7 +385,7 @@ class Sidecar:
 
         for attempt in range(self.retry_max):
             try:
-                response = requests.post(
+                response = client.post(
                     self.relay_url,
                     data=body,
                     headers=headers,

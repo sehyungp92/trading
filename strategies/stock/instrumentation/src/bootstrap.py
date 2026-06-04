@@ -4,6 +4,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import weakref
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
@@ -14,6 +16,14 @@ if TYPE_CHECKING:
     from libs.oms.services.oms_service import OMSService
 
 from libs.oms.persistence.db_config import get_environment
+from libs.instrumentation.event_contract import (
+    append_jsonl_event,
+    enrich_payload,
+    write_risk_halt_event,
+    write_startup_events,
+)
+from libs.instrumentation.lineage import lineage_from_config
+from libs.instrumentation.startup_state import collect_startup_snapshot_state
 
 from .config_watcher import ConfigWatcher
 from .daily_snapshot import DailySnapshotBuilder
@@ -44,6 +54,16 @@ _BOT_NAME_MAP = {
 # Single bot_id for all strategies; strategy_id distinguishes them in events
 _BOT_ID = "stock_trader"
 _HMAC_SECRET_ENV = "INSTRUMENTATION_HMAC_SECRET"
+
+
+def _resolve_applied_portfolio_rules_config(get_applied_config) -> object | None:
+    if not callable(get_applied_config):
+        return None
+    try:
+        return get_applied_config()
+    except Exception as exc:
+        logger.warning("Failed to read applied portfolio rules config for instrumentation lineage: %s", exc)
+        return None
 # Pass strategy_ids through unchanged to match registry keys.
 _STRATEGY_ID_MAP = {
     "IARIC_v1": "IARIC_v1",
@@ -85,6 +105,14 @@ def _load_config(strategy_id: str, strategy_type: str) -> dict:
     config["strategy_type"] = normalized_strategy_type
     config["data_dir"] = data_dir
     config["data_source_id"] = config.get("data_source_id") or "ibkr_us_equities"
+    config["portfolio_id"] = config.get("portfolio_id") or os.environ.get("PORTFOLIO_ID") or "paper_default"
+    config["account_alias"] = (
+        config.get("account_alias")
+        or os.environ.get("ACCOUNT_ALIAS")
+        or os.environ.get("TRADING_ACCOUNT_ALIAS")
+        or os.environ.get("BROKER_ACCOUNT_ALIAS")
+        or "paper_ibkr_1"
+    )
 
     if not market_snapshots.get("symbols"):
         market_snapshots["symbols"] = ["SPY", "QQQ", "IWM"]
@@ -135,16 +163,29 @@ class InstrumentationManager:
         family_strategy_ids: list[str] | None = None,
         get_regime_ctx=None,
         get_applied_config=None,
+        write_daily_closeout_on_stop: bool = True,
+        stop_sidecar_on_stop: bool = True,
     ) -> None:
         self._oms = oms
         self._strategy_id = strategy_id
         self._strategy_type = _normalize_strategy_type(strategy_id, strategy_type)
         self._config = _load_config(strategy_id, self._strategy_type)
+        self._config["family_id"] = "stock"
+        self._get_regime_ctx = get_regime_ctx
+        self._get_applied_config = get_applied_config
+        portfolio_rules_config = _resolve_applied_portfolio_rules_config(get_applied_config)
+        self.lineage = lineage_from_config(
+            self._config,
+            family_id="stock",
+            strategy_id=self._config.get("strategy_id", strategy_id),
+            portfolio_rules_config=portfolio_rules_config,
+        )
+        self._config["lineage"] = self.lineage
         self.bot_id = self._config["bot_id"]
         self._pg_store = pg_store
         self._data_provider = None
-        self._get_regime_ctx = get_regime_ctx
-        self._get_applied_config = get_applied_config
+        self._family_strategy_ids = list(family_strategy_ids or [])
+        self._instrumentation_kits: weakref.WeakSet = weakref.WeakSet()
 
         self.error_logger = ErrorLogger(self._config)
         self.snapshot_service = MarketSnapshotService(self._config, None)
@@ -180,6 +221,7 @@ class InstrumentationManager:
                 bot_id=self.bot_id,
                 config_modules=config_modules,
                 data_dir=self._config["data_dir"],
+                lineage=self.lineage,
             )
         except Exception:
             self.config_watcher = None
@@ -189,6 +231,10 @@ class InstrumentationManager:
         self._snapshot_task: Optional[asyncio.Task] = None
         self._running = False
         self._last_snapshot_checkpoint_at: float = 0.0
+        self._write_daily_closeout_on_stop = write_daily_closeout_on_stop
+        self._stop_sidecar_on_stop = stop_sidecar_on_stop
+        self._daily_closeout_written = False
+        self._sidecar_forwarding_enabled = True
 
         if data_provider is not None:
             self.attach_data_provider(data_provider)
@@ -196,6 +242,56 @@ class InstrumentationManager:
     @property
     def config(self) -> dict:
         return self._config
+
+    def refresh_lineage(self, portfolio_rules_config=None) -> None:
+        """Refresh runtime lineage after dynamic portfolio-rule changes."""
+        try:
+            if portfolio_rules_config is None:
+                portfolio_rules_config = _resolve_applied_portfolio_rules_config(self._get_applied_config)
+            lineage_config = dict(self._config)
+            lineage_config.pop("lineage", None)
+            refreshed = lineage_from_config(
+                lineage_config,
+                family_id="stock",
+                strategy_id=lineage_config.get("strategy_id", self._strategy_id),
+                portfolio_rules_config=portfolio_rules_config,
+            )
+            refreshed = replace(
+                refreshed,
+                deployment_id=self.lineage.deployment_id or refreshed.deployment_id,
+                trace_id=self.lineage.trace_id or refreshed.trace_id,
+            )
+            self.lineage = refreshed
+            self._config["lineage"] = refreshed
+            for component in (
+                self.error_logger,
+                self.snapshot_service,
+                self.trade_logger,
+                self.missed_logger,
+                self.order_logger,
+                self.daily_builder,
+            ):
+                if hasattr(component, "_lineage"):
+                    component._lineage = refreshed
+            if self.config_watcher is not None and hasattr(self.config_watcher, "_lineage"):
+                self.config_watcher._lineage = refreshed
+            for kit in list(getattr(self, "_instrumentation_kits", ()) or ()):
+                refresh = getattr(kit, "refresh_lineage", None)
+                if callable(refresh):
+                    refresh(refreshed)
+        except Exception as exc:
+            logger.warning("Failed to refresh instrumentation lineage: %s", exc)
+
+    def _register_instrumentation_kit(self, kit) -> None:
+        """Track facade kits so runtime lineage refresh reaches lazy loggers."""
+        try:
+            kits = getattr(self, "_instrumentation_kits", None)
+            if kits is None:
+                kits = weakref.WeakSet()
+                self._instrumentation_kits = kits
+            kits.add(kit)
+        except Exception:
+            logger.debug("Failed to register instrumentation kit", exc_info=True)
 
     def attach_data_provider(self, data_provider) -> None:
         self._data_provider = data_provider
@@ -286,13 +382,48 @@ class InstrumentationManager:
 
         # Enforce HMAC auth in non-dev environments — relay will reject unsigned events
         env = get_environment()
+        sidecar_forwarding_enabled = True
         if env in ("paper", "live") and not self.sidecar.hmac_secret:
-            raise RuntimeError(
-                f"HMAC secret is required in {env} mode. "
-                f"Set {_HMAC_SECRET_ENV} environment variable."
+            sidecar_forwarding_enabled = False
+            logger.warning(
+                "Sidecar forwarding disabled in %s mode: missing %s. "
+                "Local startup instrumentation will continue.",
+                env,
+                _HMAC_SECRET_ENV,
             )
+        self._sidecar_forwarding_enabled = sidecar_forwarding_enabled
 
         self._running = True
+
+        try:
+            portfolio_rules_config = None
+            try:
+                if callable(self._get_applied_config):
+                    portfolio_rules_config = self._get_applied_config()
+            except Exception as exc:
+                logger.warning("Failed to read applied portfolio rules config for startup snapshot: %s", exc)
+            allocation_state, portfolio_state, positions = await collect_startup_snapshot_state(
+                self._oms,
+                strategy_ids=self._family_strategy_ids or [self._config.get("strategy_id", self._strategy_id)],
+                default_strategy_id=self._config.get("strategy_id", self._strategy_id),
+            )
+            write_startup_events(
+                self._config["data_dir"],
+                self.lineage,
+                effective_config={
+                    "bot_id": self.bot_id,
+                    "strategy_id": self._config.get("strategy_id", ""),
+                    "strategy_type": self._strategy_type,
+                    "market_snapshots": self._config.get("market_snapshots", {}),
+                    "data_source_id": self._config.get("data_source_id", ""),
+                },
+                allocation_state=allocation_state,
+                portfolio_state=portfolio_state,
+                positions=positions,
+                portfolio_rules_config=portfolio_rules_config,
+            )
+        except Exception as exc:
+            logger.warning("Failed to write startup instrumentation events: %s", exc)
 
         try:
             self._event_queue = self._oms.stream_all_events()
@@ -303,23 +434,24 @@ class InstrumentationManager:
         interval = self._config.get("market_snapshots", {}).get("interval_seconds", 60)
         self._snapshot_task = asyncio.create_task(self._periodic_snapshot_loop(interval))
 
-        try:
-            self.sidecar.validate_configuration(strict=False)
-            self.sidecar.start()
-        except Exception as exc:
-            logger.critical(
-                "Sidecar failed to start: %s — strategy will continue trading "
-                "WITHOUT event forwarding. Fix relay configuration ASAP.",
-                exc,
-            )
-            self.record_error(
-                error_type="sidecar_start_failure",
-                message=str(exc),
-                severity="critical",
-                category="config_error",
-                context={"component": "Sidecar.start", "environment": get_environment()},
-                exc=exc,
-            )
+        if sidecar_forwarding_enabled:
+            try:
+                self.sidecar.validate_configuration(strict=False)
+                self.sidecar.start()
+            except Exception as exc:
+                logger.critical(
+                    "Sidecar failed to start: %s - strategy will continue trading "
+                    "WITHOUT event forwarding. Fix relay configuration ASAP.",
+                    exc,
+                )
+                self.record_error(
+                    error_type="sidecar_start_failure",
+                    message=str(exc),
+                    severity="critical",
+                    category="config_error",
+                    context={"component": "Sidecar.start", "environment": get_environment()},
+                    exc=exc,
+                )
 
         logger.info("Instrumentation started for %s", self.bot_id)
 
@@ -347,21 +479,76 @@ class InstrumentationManager:
             except Exception:
                 pass
 
-        try:
-            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-            snapshot = self.daily_builder.build(today, snapshot_kind="final")
-            self.daily_builder.save(snapshot)
-            logger.info("Daily snapshot saved for %s", today)
-        except Exception as exc:
-            logger.warning("Failed to build daily snapshot: %s", exc)
+        if self._write_daily_closeout_on_stop:
+            await self.write_daily_closeout()
 
+        if self._stop_sidecar_on_stop and self._sidecar_forwarding_enabled:
+            self.flush_and_stop_sidecar()
+
+        logger.info("Instrumentation stopped for %s", self.bot_id)
+
+    def flush_and_stop_sidecar(self) -> None:
         try:
             self.sidecar.run_once()
             self.sidecar.stop()
         except Exception as exc:
             logger.warning("Sidecar stop error: %s", exc)
 
-        logger.info("Instrumentation stopped for %s", self.bot_id)
+    async def write_daily_closeout(
+        self,
+        *,
+        oms_services: list | None = None,
+        strategy_ids: list[str] | None = None,
+        family_id: str = "stock",
+    ) -> None:
+        if self._daily_closeout_written:
+            return
+        try:
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            snapshot = self.daily_builder.build(today, snapshot_kind="final")
+            self.daily_builder.save(snapshot)
+            await self._write_daily_reconciliation(
+                today,
+                snapshot,
+                oms_services=oms_services,
+                strategy_ids=strategy_ids,
+                family_id=family_id,
+            )
+            self._daily_closeout_written = True
+            logger.info("Daily snapshot saved for %s", today)
+        except Exception as exc:
+            logger.warning("Failed to build daily snapshot: %s", exc)
+
+    async def _write_daily_reconciliation(
+        self,
+        today: str,
+        snapshot,
+        *,
+        oms_services: list | None = None,
+        strategy_ids: list[str] | None = None,
+        family_id: str = "stock",
+    ) -> None:
+        try:
+            from libs.oms.instrumentation.daily_state import collect_family_daily_state
+            from libs.oms.instrumentation.lifecycle import write_daily_reconciliation
+
+            services = list(oms_services or [self._oms])
+            portfolio_state, _, allocation_state = await collect_family_daily_state(
+                services,
+                strategy_ids=list(strategy_ids or []),
+                default_strategy_id=self._strategy_id,
+            )
+            write_daily_reconciliation(
+                self._config["data_dir"],
+                replace(self.lineage, strategy_id=""),
+                date_str=today,
+                family_id=family_id,
+                daily_snapshot=snapshot.to_dict() if hasattr(snapshot, "to_dict") else dict(snapshot),
+                portfolio_state=portfolio_state,
+                allocation_state=allocation_state,
+            )
+        except Exception as exc:
+            logger.warning("Failed to write daily reconciliation bundle: %s", exc)
 
     async def _event_loop(self) -> None:
         """Process OMS events and fan them into instrumentation logs."""
@@ -395,8 +582,10 @@ class InstrumentationManager:
             try:
                 if event.event_type == OMSEventType.RISK_DENIAL:
                     self._handle_risk_denial(event)
+                elif event.event_type == OMSEventType.RISK_DECISION:
+                    self._handle_risk_decision(event)
                 elif event.event_type == OMSEventType.RISK_HALT:
-                    self._handle_order_status(event, "RISK_HALT")
+                    self._handle_risk_halt(event)
                 elif event.event_type in self._ORDER_STATUS_MAP:
                     self._handle_order_status(event, self._ORDER_STATUS_MAP[event.event_type])
                 elif event.event_type == OMSEventType.FILL:
@@ -434,6 +623,43 @@ class InstrumentationManager:
             )
         except Exception as exc:
             logger.warning("Failed to log risk denial as missed: %s", exc)
+
+    def _handle_risk_decision(self, event) -> None:
+        """Persist full OMS risk decisions for assistant audit."""
+        try:
+            timestamp = event.timestamp.isoformat() if hasattr(event.timestamp, "isoformat") else str(event.timestamp)
+            payload = enrich_payload(
+                {
+                    "timestamp": timestamp,
+                    **dict(event.payload or {}),
+                },
+                lineage=dict(event.payload or {}).get("lineage"),
+                event_type="risk_decision",
+                scope="oms",
+            )
+            append_jsonl_event(
+                self._config["data_dir"],
+                "risk_decisions",
+                "risk_decisions",
+                payload,
+            )
+        except Exception as exc:
+            logger.warning("Failed to log risk decision: %s", exc)
+
+    def _handle_risk_halt(self, event) -> None:
+        """Persist hard risk halts as first-class urgent events."""
+        try:
+            payload = dict(event.payload or {})
+            write_risk_halt_event(
+                self._config["data_dir"],
+                payload.get("lineage") or self.lineage,
+                reason=str(payload.get("reason") or "risk_halt"),
+                strategy_id=str(event.strategy_id or payload.get("strategy_id") or ""),
+                timestamp=getattr(event, "timestamp", None),
+                details=payload,
+            )
+        except Exception as exc:
+            logger.warning("Failed to log risk halt: %s", exc)
 
     def _handle_order_status(self, event, status_label: str) -> None:
         """Log order status transitions."""

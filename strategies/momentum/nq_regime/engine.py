@@ -13,6 +13,7 @@ from libs.market_data.live_futures import req_panama_adjusted_historical_data
 from libs.oms.models.events import OMSEventType
 from libs.oms.models.intent import Intent, IntentType
 from libs.oms.models.order import OMSOrder, OrderRole, OrderSide, OrderType, RiskContext
+from libs.oms.instrumentation.runtime_refs import fill_runtime_refs
 from strategies.core.actions import (
     CancelAction,
     FlattenPosition,
@@ -479,6 +480,10 @@ class NQRegimeEngine:
                 symbol=self._settings.trade_symbol,
                 commission=float(payload.get("commission", 0.0) or 0.0),
                 exit_type=str(payload.get("exit_type", "")),
+                fill_id=str(payload.get("fill_id") or payload.get("exec_id") or ""),
+                intent_id=str(payload.get("intent_id") or ""),
+                risk_decision_ref=str(payload.get("risk_decision_ref") or ""),
+                portfolio_decision_ref=str(payload.get("portfolio_decision_ref") or ""),
             )
             self._state, actions, events = core_on_fill(self._state, fill, settings=self._settings)
             if self._state.position_side is TradeSide.FLAT or self._state.qty_open <= 0:
@@ -751,6 +756,17 @@ class NQRegimeEngine:
                 session_type=state.phase.value,
                 concurrent_positions=1,
                 exchange_timestamp=fill.fill_time,
+                **fill_runtime_refs(
+                    fill.oms_order_id,
+                    {
+                        "fill_id": fill.fill_id,
+                        "qty": fill.fill_qty,
+                        "intent_id": fill.intent_id,
+                        "risk_decision_ref": fill.risk_decision_ref,
+                        "portfolio_decision_ref": fill.portfolio_decision_ref,
+                    },
+                    fill_qty=fill.fill_qty,
+                ),
             )
             # Reset tracking
             self._mfe_r = 0.0
@@ -772,6 +788,18 @@ class NQRegimeEngine:
                 exchange_timestamp=fill.fill_time,
                 mfe_r=self._mfe_r,
                 mae_r=self._mae_r,
+                **fill_runtime_refs(
+                    fill.oms_order_id,
+                    {
+                        "fill_id": fill.fill_id,
+                        "qty": fill.fill_qty,
+                        "intent_id": fill.intent_id,
+                        "risk_decision_ref": fill.risk_decision_ref,
+                        "portfolio_decision_ref": fill.portfolio_decision_ref,
+                    },
+                    fill_qty=fill.fill_qty,
+                    is_exit=True,
+                ),
             )
             if is_full:
                 self._entry_candidate = None
@@ -933,28 +961,32 @@ class NQRegimeEngine:
         self._mae_r = max(self._mae_r, max(0.0, mae))
 
     def _emit_regime_coordination(self, new_regime: Any) -> None:
-        """Write regime classification change to coordination_events dir for sidecar pickup."""
+        """Write enriched regime classification change for sidecar pickup."""
         try:
             data_dir = getattr(self._instrumentation, "_config", {}).get("data_dir") if self._instrumentation else None
             if not data_dir:
                 return
+            from libs.instrumentation.event_contract import append_jsonl_event, enrich_payload
+
             now = datetime.now(timezone.utc)
             record = {
                 "timestamp": now.isoformat(),
-                "event_type": "nq_regime_classification_change",
+                "action_type": "nq_regime_classification_change",
                 "strategy_id": config.STRATEGY_ID,
                 "prev_regime": self._prev_regime.name if self._prev_regime else None,
                 "new_regime": new_regime.name if new_regime else None,
                 "phase": self._state.phase.value,
                 "ib_type": self._state.ib_type.value,
             }
-            out_dir = Path(data_dir) / "coordination_events"
-            out_dir.mkdir(parents=True, exist_ok=True)
-            date_str = now.strftime("%Y-%m-%d")
-            with open(out_dir / f"{date_str}.jsonl", "a") as f:
-                f.write(json.dumps(record, default=str) + "\n")
+            event = enrich_payload(
+                record,
+                lineage=getattr(self._instrumentation, "lineage", None),
+                event_type="coordinator_action",
+                scope="family",
+            )
+            append_jsonl_event(data_dir, "coordination_events", "coordination_events", event)
         except Exception:
-            pass
+            logger.debug("Failed to emit NQ regime coordination event", exc_info=True)
 
     def _build_strategy_params(self, candidate: SetupCandidate | None) -> dict:
         state = self._state
@@ -1056,11 +1088,22 @@ class NQRegimeEngine:
         )
         stop_for_risk = float(action.risk_context.get("stop_for_risk", 0.0) or 0.0)
         planned_entry = float(action.risk_context.get("planned_entry_price", action.limit_price or action.price or 0.0) or 0.0)
+        signal_id = str(action.metadata.get("candidate_id") or action.client_order_id or "")
+        signal_ts_raw = action.metadata.get("signal_ts") or ""
+        signal_ts = None
+        if signal_ts_raw:
+            try:
+                signal_ts = datetime.fromisoformat(str(signal_ts_raw))
+            except ValueError:
+                signal_ts = None
         order.risk_context = RiskContext(
             stop_for_risk=stop_for_risk,
             planned_entry_price=planned_entry,
             risk_budget_tag=action.metadata.get("module", config.STRATEGY_ID),
             risk_dollars=abs(planned_entry - stop_for_risk) * action.qty * self._settings.trade_spec.point_value,
+            signal_id=signal_id,
+            bar_id=f"{action.symbol}:{signal_ts_raw}" if signal_ts_raw else signal_id,
+            exchange_timestamp=signal_ts,
         )
         return order
 

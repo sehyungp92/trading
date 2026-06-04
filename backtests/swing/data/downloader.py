@@ -11,7 +11,7 @@ import pandas as pd
 
 from backtests.shared.data.ibkr.bars import (
     bars_to_frame,
-    build_chunked_continuous_future,
+    build_legacy_chunked_contfuture_contract,
     download_historical_bars,
     duration_to_timedelta,
     request_bars_with_retry,
@@ -76,15 +76,21 @@ def _build_stock(symbol: str, exchange: str, currency: str = "USD"):
     return Stock(symbol=symbol, exchange=exchange, currency=currency)
 
 
-def _build_cont_future(ib, symbol: str, exchange: str, trading_class: str):
+def _build_legacy_contfuture(ib, symbol: str, exchange: str, trading_class: str):
     from ib_async import ContFuture
 
     return ContFuture(symbol=symbol, exchange=exchange, tradingClass=trading_class or symbol)
 
 
 async def _resolve_chunked_contract(ib, symbol: str, exchange: str, trading_class: str):
-    request = BarDownloadRequest(symbol=symbol, timeframe="1m", exchange=exchange, trading_class=trading_class)
-    return await build_chunked_continuous_future(ib, request)
+    request = BarDownloadRequest(
+        symbol=symbol,
+        timeframe="1m",
+        exchange=exchange,
+        trading_class=trading_class,
+        allow_contfuture_legacy=True,
+    )
+    return await build_legacy_chunked_contfuture_contract(ib, request)
 
 
 async def _request_with_retry(
@@ -119,7 +125,11 @@ async def download_historical(
     sec_type: str = "FUT",
     primary_exchange: str = "",
 ) -> pd.DataFrame:
-    """Download historical bars through the shared IBKR downloader."""
+    """Download historical bars through the shared IBKR downloader.
+
+    Futures calls here are legacy compatibility diagnostics. Family approval
+    refreshes must use explicit production-source paths instead.
+    """
     return await download_historical_bars(
         ib,
         BarDownloadRequest(
@@ -132,6 +142,7 @@ async def download_historical(
             output_dir=output_dir,
             sec_type=sec_type,
             primary_exchange=primary_exchange,
+            allow_contfuture_legacy=sec_type.upper() == "FUT",
         ),
         pacer=_PACER,
     )

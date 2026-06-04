@@ -85,6 +85,15 @@ class RiskContext:
     # gateway.py attaches strat_cfg.unit_risk_dollars after approval; without this
     # field, repository.__dict__ persistence + RiskContext(**rc_data) reload raises.
     unit_risk_dollars: float = 0.0
+    intent_id: str = ""
+    risk_decision_ref: str = ""
+    portfolio_decision_ref: str = ""
+    gateway_decision_context: dict = field(default_factory=dict)
+    trace_id: str = ""
+    signal_id: str = ""
+    bar_id: str = ""
+    exchange_timestamp: Optional[datetime] = None
+    lineage_context: dict = field(default_factory=dict)
 
 
 @dataclass

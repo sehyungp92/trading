@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from .event_metadata import create_event_metadata
+from libs.instrumentation.event_contract import enrich_payload
+from libs.instrumentation.lineage import lineage_from_config
 
 logger = logging.getLogger("instrumentation.error_logger")
 
@@ -42,6 +44,11 @@ class ErrorLogger:
         self.data_dir = Path(config["data_dir"]) / "errors"
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.data_source_id = config.get("data_source_id", "ibkr_us_equities")
+        self._lineage = lineage_from_config(
+            config,
+            family_id="stock",
+            strategy_id=config.get("strategy_id", ""),
+        )
         self._recent: deque[datetime] = deque()
 
     def log_error(
@@ -75,6 +82,7 @@ class ErrorLogger:
             payload_key=f"{error_type}:{source_file}:{source_line}:{ts.isoformat()}",
             exchange_timestamp=ts,
             data_source_id=self.data_source_id,
+            lineage=self._lineage,
         )
 
         record = ErrorRecord(
@@ -140,8 +148,14 @@ class ErrorLogger:
         try:
             today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             filepath = self.data_dir / f"instrumentation_errors_{today}.jsonl"
+            payload = enrich_payload(
+                record.to_dict(),
+                lineage=self._lineage,
+                event_type="error",
+                scope="strategy",
+            )
             with open(filepath, "a", encoding="utf-8") as handle:
-                handle.write(json.dumps(record.to_dict(), default=str) + "\n")
+                handle.write(json.dumps(payload, default=str) + "\n")
         except Exception as exc:
             logger.warning("Failed to write error record %s: %s", record.error_type, exc)
 

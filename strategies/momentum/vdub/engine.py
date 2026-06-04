@@ -20,6 +20,7 @@ from libs.oms.models.intent import Intent, IntentType
 from libs.oms.models.order import (
     EntryPolicy, OMSOrder, OrderRole, OrderSide, OrderType, RiskContext,
 )
+from libs.oms.instrumentation.runtime_refs import fill_runtime_refs
 from libs.oms.risk.calculator import RiskCalculator
 from libs.services.trade_recorder import TradeRecorder
 
@@ -252,6 +253,7 @@ class VdubNQv4Engine:
 
         # Flatten-order tracking (Rec 1/3: fill-authoritative flatten)
         self._last_flatten_oms_id: str | None = None
+        self._pending_flatten_instrumentation: dict[str, dict] = {}
 
         # Async
         self._event_task: asyncio.Task | None = None
@@ -1028,7 +1030,7 @@ class VdubNQv4Engine:
         await self._submit_entry(
             direction, qty, stop_entry, limit_entry, initial_stop,
             signal_type, is_flip, is_pyramid, class_mult, vwap_used,
-            session, filter_decisions=gate_fds,
+            session, filter_decisions=gate_fds, signal_id=_sig_id,
         )
 
     # ------------------------------------------------------------------
@@ -1356,6 +1358,7 @@ class VdubNQv4Engine:
         class_mult: float, vwap_used: float,
         session: SessionWindow = SessionWindow.RTH,
         filter_decisions: list[dict] | None = None,
+        signal_id: str = "",
     ) -> None:
         # Don't submit if we already have working orders
         if self.working_entries:
@@ -1365,11 +1368,17 @@ class VdubNQv4Engine:
         if inst is None:
             return
         side = OrderSide.BUY if direction == Direction.LONG else OrderSide.SELL
+        signal_context = self._entry_signal_context(
+            signal_type=signal_type,
+            direction=direction,
+            signal_id=signal_id,
+        )
         risk_ctx = RiskContext(
             stop_for_risk=initial_stop,
             planned_entry_price=stop_entry,
             risk_dollars=RiskCalculator.compute_order_risk_dollars(
                 stop_entry, initial_stop, qty, C.NQ_SPEC["point_value"]),
+            **signal_context,
         )
         order = OMSOrder(
             strategy_id=C.STRATEGY_ID, instrument=inst, side=side, qty=qty,
@@ -1399,6 +1408,9 @@ class VdubNQv4Engine:
             session=session,
             is_flip=is_flip, is_addon=is_pyramid,
             filter_decisions=filter_decisions,
+            signal_id=signal_context["signal_id"],
+            bar_id=signal_context["bar_id"],
+            exchange_timestamp=signal_context["exchange_timestamp"],
         )
         self.working_entries[receipt.oms_order_id] = we
 
@@ -1426,11 +1438,20 @@ class VdubNQv4Engine:
         if inst is None:
             return
         side = OrderSide.BUY if we.direction == Direction.LONG else OrderSide.SELL
+        signal_context = self._entry_signal_context(
+            signal_type=we.entry_type,
+            direction=we.direction,
+            signal_id=we.signal_id,
+            bar_id=we.bar_id,
+            bar_ts=we.exchange_timestamp,
+            bar_idx=we.submitted_bar_idx,
+        )
         risk_ctx = RiskContext(
             stop_for_risk=we.initial_stop,
             planned_entry_price=we.stop_entry,
             risk_dollars=RiskCalculator.compute_order_risk_dollars(
                 we.stop_entry, we.initial_stop, we.qty, C.NQ_SPEC["point_value"]),
+            **signal_context,
         )
         order = OMSOrder(
             strategy_id=C.STRATEGY_ID, instrument=inst, side=side, qty=we.qty,
@@ -1452,8 +1473,31 @@ class VdubNQv4Engine:
                 class_mult=we.class_mult, fallback_allowed=False,
                 session=we.session,
                 is_flip=we.is_flip, is_addon=we.is_addon,
+                signal_id=signal_context["signal_id"],
+                bar_id=signal_context["bar_id"],
+                exchange_timestamp=signal_context["exchange_timestamp"],
             )
             self.working_entries[receipt.oms_order_id] = fb
+
+    def _entry_signal_context(
+        self,
+        *,
+        signal_type: EntryType,
+        direction: Direction,
+        signal_id: str = "",
+        bar_id: str = "",
+        bar_ts: datetime | None = None,
+        bar_idx: int | None = None,
+    ) -> dict[str, Any]:
+        ts = bar_ts or self._last_bar_ts or datetime.now(timezone.utc)
+        ts_text = ts.isoformat()
+        idx = self._bar_idx if bar_idx is None else bar_idx
+        resolved_signal_id = signal_id or f"{signal_type.value}_{direction.name}_{idx}"
+        return {
+            "signal_id": resolved_signal_id,
+            "bar_id": bar_id or f"{self._symbol}:15m:{ts_text}",
+            "exchange_timestamp": ts,
+        }
 
     async def _submit_partial_exit(self, pos: PositionState, qty: int) -> None:
         inst = self._instruments.get(self._symbol)
@@ -1542,44 +1586,23 @@ class VdubNQv4Engine:
         r = pnl_pts / pos.r_points if pos.r_points > 0 else 0
         self._throttle.record_trade_close(r)
 
-        if self._recorder and pos.trade_id:
-            try:
-                await self._recorder.record_exit(
-                    trade_id=pos.trade_id,
-                    exit_price=Decimal(str(round(price, 2))),
-                    exit_ts=datetime.now(timezone.utc),
-                    exit_reason=reason,
-                    realized_r=Decimal(str(round(r, 4))),
-                    realized_usd=Decimal(str(round(realized_usd, 2))),
-                    duration_bars=pos.bars_since_entry,
-                )
-            except Exception:
-                logger.exception("Error recording exit")
-
         logger.info("FLATTEN %s reason=%s pnl=$%.2f", pos.trade_id, reason, realized_usd)
-        if self._kit.active and pos.trade_id:
-            try:
-                self._kit.log_exit(
-                    trade_id=pos.trade_id,
-                    exit_price=price,
-                    exit_reason=reason,
-                    expected_exit_price=pos.stop_price if reason == "STOP" else price,
-                    mfe_r=pos.peak_mfe_r,
-                    mae_r=pos.peak_mae_r,
-                    mfe_price=pos.highest_since_entry if pos.direction == Direction.LONG else pos.lowest_since_entry,
-                    mae_price=pos.lowest_since_entry if pos.direction == Direction.LONG else pos.highest_since_entry,
-                    session_transitions=getattr(pos, 'session_transitions_log', None) or None,
-                )
-                _ba = self._get_bid_ask()
-                self._kit.on_orderbook_context(
-                    pair=self._symbol,
-                    best_bid=_ba[0] if _ba else price,
-                    best_ask=_ba[1] if _ba else price,
-                    trade_context="exit",
-                    related_trade_id=pos.trade_id,
-                )
-            except Exception:
-                pass
+        if self._last_flatten_oms_id and pos.trade_id:
+            self._pending_flatten_instrumentation[self._last_flatten_oms_id] = {
+                "trade_id": pos.trade_id,
+                "direction": pos.direction,
+                "entry_price": pos.entry_price,
+                "qty_open": pos.qty_open,
+                "r_points": pos.r_points,
+                "reason": reason,
+                "expected_exit_price": pos.stop_price if reason == "STOP" else price,
+                "mfe_r": pos.peak_mfe_r,
+                "mae_r": pos.peak_mae_r,
+                "mfe_price": pos.highest_since_entry if pos.direction == Direction.LONG else pos.lowest_since_entry,
+                "mae_price": pos.lowest_since_entry if pos.direction == Direction.LONG else pos.highest_since_entry,
+                "duration_bars": pos.bars_since_entry,
+                "session_transitions": getattr(pos, "session_transitions_log", None) or None,
+            }
         pos.qty_open = 0
         pos.direction = Direction.FLAT
         self.positions = [p for p in self.positions if p.qty_open > 0]
@@ -1629,6 +1652,61 @@ class VdubNQv4Engine:
         fill_price = payload.get("price", 0.0)
         fill_qty = int(payload.get("qty", 0))
         fill_time = datetime.now(timezone.utc)
+
+        if self._last_flatten_oms_id and oms_id == self._last_flatten_oms_id:
+            pending = self._pending_flatten_instrumentation.pop(oms_id, {})
+            self._last_flatten_oms_id = None
+            if pending:
+                qty_open = int(pending.get("qty_open") or fill_qty or 0)
+                direction = pending.get("direction")
+                entry_price = float(pending.get("entry_price") or fill_price)
+                pnl_pts = (
+                    (fill_price - entry_price)
+                    if direction == Direction.LONG else
+                    (entry_price - fill_price)
+                )
+                realized_usd = pnl_pts * C.NQ_SPEC["point_value"] * qty_open
+                r_points = float(pending.get("r_points") or 0.0)
+                realized_r = pnl_pts / r_points if r_points > 0 else 0.0
+                trade_id = str(pending.get("trade_id") or "")
+                if self._recorder and trade_id:
+                    try:
+                        await self._recorder.record_exit(
+                            trade_id=trade_id,
+                            exit_price=Decimal(str(round(fill_price, 2))),
+                            exit_ts=fill_time,
+                            exit_reason=str(pending.get("reason") or "FLATTEN"),
+                            realized_r=Decimal(str(round(realized_r, 4))),
+                            realized_usd=Decimal(str(round(realized_usd, 2))),
+                            duration_bars=int(pending.get("duration_bars") or 0),
+                        )
+                    except Exception:
+                        logger.exception("Error recording flatten exit")
+                if self._kit.active and trade_id:
+                    try:
+                        self._kit.log_exit(
+                            trade_id=trade_id,
+                            exit_price=fill_price,
+                            exit_reason=str(pending.get("reason") or "FLATTEN"),
+                            expected_exit_price=pending.get("expected_exit_price") or fill_price,
+                            mfe_r=pending.get("mfe_r"),
+                            mae_r=pending.get("mae_r"),
+                            mfe_price=pending.get("mfe_price"),
+                            mae_price=pending.get("mae_price"),
+                            session_transitions=pending.get("session_transitions"),
+                            **fill_runtime_refs(oms_id, payload, fill_qty=fill_qty, is_exit=True),
+                        )
+                        _ba = self._get_bid_ask()
+                        self._kit.on_orderbook_context(
+                            pair=self._symbol,
+                            best_bid=_ba[0] if _ba else fill_price,
+                            best_ask=_ba[1] if _ba else fill_price,
+                            trade_context="exit",
+                            related_trade_id=trade_id,
+                        )
+                    except Exception:
+                        pass
+            return
 
         # Build fill object with entry context if applicable
         fill = VdubFill(
@@ -1708,7 +1786,7 @@ class VdubNQv4Engine:
                                 we.entry_type.value, we.direction.name,
                                 fill.fill_qty, fill.fill_price, pos.r_points)
                     await self._on_entry_fill_instrumentation(
-                        we, pos, fill.fill_price, fill.fill_qty, fill_time)
+                        we, pos, fill.fill_price, fill.fill_qty, fill_time, payload)
             elif event.code == "STOP_FILLED":
                 pre_pos = next(
                     (p for p in pre_positions
@@ -1722,7 +1800,7 @@ class VdubNQv4Engine:
                 logger.warning("Fill rejected: %s", event.details.get("reason", "unknown"))
 
     async def _on_entry_fill_instrumentation(
-        self, we, pos, fill_price: float, fill_qty: int, fill_time: datetime,
+        self, we, pos, fill_price: float, fill_qty: int, fill_time: datetime, payload: dict | None = None,
     ) -> None:
         """Instrumentation-only: log entry after core has created the position."""
         trade_id = pos.trade_id
@@ -1807,6 +1885,7 @@ class VdubNQv4Engine:
                 portfolio_state=portfolio_state,
                 signal_evolution=self._build_signal_evolution(),
                 execution_timestamps=exec_ts,
+                **fill_runtime_refs(getattr(we, "oms_order_id", ""), payload, fill_qty=fill_qty),
             )
 
             _ba = self._get_bid_ask()
@@ -1859,6 +1938,7 @@ class VdubNQv4Engine:
                     mfe_price=pre_pos.highest_since_entry if pre_pos.direction == Direction.LONG else pre_pos.lowest_since_entry,
                     mae_price=pre_pos.lowest_since_entry if pre_pos.direction == Direction.LONG else pre_pos.highest_since_entry,
                     session_transitions=getattr(pre_pos, 'session_transitions_log', None) or None,
+                    **fill_runtime_refs(payload.get("oms_order_id", ""), payload, fill_qty=payload.get("qty", pre_pos.qty_open), is_exit=True),
                 )
                 _ba = self._get_bid_ask()
                 self._kit.on_orderbook_context(
@@ -1891,6 +1971,7 @@ class VdubNQv4Engine:
                 if reason == "FLATTEN_RESUBMIT":
                     if not self.positions:
                         continue
+                    self._pending_flatten_instrumentation.pop(oms_id, None)
                     logger.critical(
                         "FLATTEN ORDER %s CANCELLED/REJECTED -- resubmitting emergency flatten",
                         oms_id,

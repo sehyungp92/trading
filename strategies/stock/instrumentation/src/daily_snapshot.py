@@ -6,6 +6,8 @@ from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
+from libs.instrumentation.event_contract import enrich_payload
+from libs.instrumentation.lineage import lineage_from_config
 
 logger = logging.getLogger("instrumentation.daily_snapshot")
 
@@ -103,6 +105,11 @@ class DailySnapshotBuilder:
         self._get_applied_config = get_applied_config
         self._heartbeat_interval_seconds = int(config.get("heartbeat_interval_seconds", 30) or 30)
         self._heartbeat_gap_multiplier = float(config.get("heartbeat_gap_multiplier", 2.5) or 2.5)
+        self._lineage = lineage_from_config(
+            config,
+            family_id="stock",
+            strategy_id=config.get("strategy_id", ""),
+        )
 
     def build(self, date_str: str = None, snapshot_kind: str = "final") -> DailySnapshot:
         if date_str is None:
@@ -349,8 +356,14 @@ class DailySnapshotBuilder:
         daily_dir = self.data_dir / "daily"
         daily_dir.mkdir(parents=True, exist_ok=True)
         filepath = daily_dir / f"daily_{snapshot.date}.json"
+        payload = enrich_payload(
+            snapshot.to_dict(),
+            lineage=self._lineage,
+            event_type="daily_snapshot",
+            scope="strategy",
+        )
         with open(filepath, "w") as f:
-            json.dump(snapshot.to_dict(), f, indent=2, default=str)
+            json.dump(payload, f, indent=2, default=str)
 
     def _load_jsonl(self, directory: str, prefix: str, date_str: str) -> list:
         filepath = self.data_dir / directory / f"{prefix}_{date_str}.jsonl"

@@ -108,7 +108,7 @@ class TestSidecar:
     def test_wrap_event_priority_error(self):
         raw = {"event_metadata": {"event_id": "err1"}}
         wrapped = self.sidecar._wrap_event(raw, "error")
-        assert wrapped["priority"] == 1
+        assert wrapped["priority"] == 0
 
     def test_wrap_event_priority_trade_exit(self):
         raw = {"event_metadata": {"event_id": "t1"}, "stage": "exit"}
@@ -118,12 +118,12 @@ class TestSidecar:
     def test_wrap_event_priority_trade_entry(self):
         raw = {"event_metadata": {"event_id": "t2"}, "stage": "entry"}
         wrapped = self.sidecar._wrap_event(raw, "trade")
-        assert wrapped["priority"] == 3
+        assert wrapped["priority"] == 2
 
     def test_wrap_event_priority_heartbeat(self):
         raw = {"event_metadata": {"event_id": "hb1"}}
         wrapped = self.sidecar._wrap_event(raw, "heartbeat")
-        assert wrapped["priority"] == 4
+        assert wrapped["priority"] == 5
 
     def test_compute_buffer_depth_empty(self):
         depth = self.sidecar._compute_buffer_depth()

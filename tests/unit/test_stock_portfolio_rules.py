@@ -9,7 +9,7 @@ Validates:
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 from unittest.mock import AsyncMock
 
 import pytest
@@ -425,6 +425,69 @@ async def test_risk_gateway_applies_portfolio_multiplier_before_heat_cap():
     assert denial is None
     assert order.risk_context.portfolio_size_mult == pytest.approx(0.5)
     assert order.risk_context.risk_dollars == pytest.approx(100.0)
+
+
+@pytest.mark.asyncio
+async def test_risk_gateway_threads_live_correlation_context_to_portfolio_checker():
+    class CapturingChecker:
+        def __init__(self):
+            self.kwargs = {}
+
+        async def check_entry(self, **kwargs):
+            self.kwargs = kwargs
+            return PortfolioRuleResult(approved=True)
+
+    checker = CapturingChecker()
+    gateway = RiskGateway(
+        config=RiskConfig(
+            heat_cap_R=5.0,
+            portfolio_urd=100.0,
+            strategy_configs={
+                "IARIC_v1": StrategyRiskConfig(
+                    strategy_id="IARIC_v1",
+                    unit_risk_dollars=100.0,
+                    daily_stop_R=3.0,
+                )
+            },
+        ),
+        calendar=EventCalendar(),
+        get_strategy_risk=AsyncMock(return_value=StrategyRiskState("IARIC_v1", date.today())),
+        get_portfolio_risk=AsyncMock(return_value=PortfolioRiskState(date.today())),
+        portfolio_checker=checker,
+    )
+    exchange_ts = datetime(2026, 6, 3, 14, 30, tzinfo=timezone.utc)
+    risk_context = RiskContext(planned_entry_price=100.0, stop_for_risk=95.0)
+    risk_context.trace_id = "trace_live"
+    risk_context.signal_id = "sig_live"
+    risk_context.bar_id = "bar_live"
+    risk_context.exchange_timestamp = exchange_ts
+    risk_context.lineage_context = {"deployment_id": "dep_live"}
+    order = OMSOrder(
+        strategy_id="IARIC_v1",
+        instrument=Instrument(
+            symbol="AAPL",
+            root="AAPL",
+            venue="SMART",
+            tick_size=0.01,
+            tick_value=0.01,
+            multiplier=1.0,
+            point_value=1.0,
+        ),
+        side=OrderSide.BUY,
+        qty=10,
+        order_type=OrderType.LIMIT,
+        role=OrderRole.ENTRY,
+        risk_context=risk_context,
+    )
+
+    denial = await gateway.check_entry(order)
+
+    assert denial is None
+    assert checker.kwargs["trace_id"] == "trace_live"
+    assert checker.kwargs["signal_id"] == "sig_live"
+    assert checker.kwargs["bar_id"] == "bar_live"
+    assert checker.kwargs["exchange_timestamp"] == exchange_ts
+    assert checker.kwargs["lineage_context"] == {"deployment_id": "dep_live"}
 
 
 @pytest.mark.asyncio

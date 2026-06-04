@@ -82,7 +82,20 @@ overlay_state.json
 # Market data (large binary files — download via scripts)
 **/backtest/data/raw/**/*.parquet
 **/backtests/**/data/raw/**/*.parquet
+!backtests/stock/data/raw/**
 !backtests/regime/data/raw/*.parquet
+!backtests/momentum/data/raw/NQ_5m.parquet
+!backtests/momentum/data/raw/ES_1d.parquet
+!backtests/swing/data/raw/GLD_1d.parquet
+!backtests/swing/data/raw/GLD_1h.parquet
+!backtests/swing/data/raw/GLD_15m.parquet
+!backtests/swing/data/raw/QQQ_1d.parquet
+!backtests/swing/data/raw/QQQ_1h.parquet
+!backtests/swing/data/raw/QQQ_15m.parquet
+!backtests/swing/data/raw/NQ_1d.parquet
+!backtests/swing/data/raw/NQ_1h.parquet
+!backtests/swing/data/raw/GC_1d.parquet
+!backtests/swing/data/raw/GC_1h.parquet
 **/backtest/data/raw/**/*_chunks/
 
 # Local scalp strategy

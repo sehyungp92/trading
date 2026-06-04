@@ -144,6 +144,9 @@ class WorkingEntry:
     is_flip: bool = False
     is_addon: bool = False
     filter_decisions: list[dict] | None = None
+    signal_id: str = ""
+    bar_id: str = ""
+    exchange_timestamp: Optional[datetime] = None
 
 
 @dataclass

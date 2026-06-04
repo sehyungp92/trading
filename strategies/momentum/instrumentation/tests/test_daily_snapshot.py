@@ -159,19 +159,19 @@ class TestDailySnapshotBuilder:
             {"stage": "exit", "trade_id": "t1", "pnl": 500, "fees_paid": 0,
              "strategy_type": "nqdtc"},
             {"stage": "exit", "trade_id": "t2", "pnl": -100, "fees_paid": 0,
-             "strategy_type": "nqdtc"},
+             "strategy_type": "vdubus"},
             {"stage": "exit", "trade_id": "t3", "pnl": 300, "fees_paid": 0,
-             "strategy_type": "nqdtc"},
+             "strategy_type": "vdubus"},
         ])
         builder = DailySnapshotBuilder(self.config)
         snapshot = builder.build(self.date_str)
         assert len(snapshot.per_strategy_summary) == 2
         assert snapshot.per_strategy_summary["nqdtc"]["trades"] == 1
         assert snapshot.per_strategy_summary["nqdtc"]["net_pnl"] == 500.0
-        assert snapshot.per_strategy_summary["nqdtc"]["trades"] == 2
-        assert snapshot.per_strategy_summary["nqdtc"]["net_pnl"] == 200.0
-        assert snapshot.per_strategy_summary["nqdtc"]["win_count"] == 1
-        assert snapshot.per_strategy_summary["nqdtc"]["loss_count"] == 1
+        assert snapshot.per_strategy_summary["vdubus"]["trades"] == 2
+        assert snapshot.per_strategy_summary["vdubus"]["net_pnl"] == 200.0
+        assert snapshot.per_strategy_summary["vdubus"]["win_count"] == 1
+        assert snapshot.per_strategy_summary["vdubus"]["loss_count"] == 1
 
     def test_per_strategy_summary_empty(self):
         builder = DailySnapshotBuilder(self.config)

@@ -12,7 +12,6 @@ Cross-strategy coordination is config-driven via PortfolioRulesConfig
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import math
 import os
@@ -26,6 +25,7 @@ from libs.oms.persistence.db_config import get_environment
 from libs.services.heartbeat import emit_family_heartbeats
 
 from strategies.contracts import RuntimeContext
+from strategies.core.capital import build_family_allocation_targets
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +158,7 @@ class MomentumFamilyCoordinator:
         self._regime_adjusted_rules: Any = None  # stored after apply_regime for crisis overlay
         self._crisis_ctx: Any = None
         self._heartbeat_task: asyncio.Task | None = None
+        self._shared_sidecar: Any = None
 
     # ── lifecycle ────────────────────────────────────────────────────
 
@@ -239,6 +240,12 @@ class MomentumFamilyCoordinator:
 
         descriptors = self._build_strategy_descriptors()
         all_strategy_ids = tuple(d["strategy_id"] for d in descriptors)
+        allocation_targets = build_family_allocation_targets(
+            self.family_id,
+            all_strategy_ids,
+            allocations=allocs,
+            portfolio=getattr(ctx, "portfolio", None),
+        )
         override_portfolio_rules = _override_portfolio_rules(overrides)
         family_initial_nav = _momentum_family_nav(base_equity, allocs, all_strategy_ids, ctx)
         family_current_nav = family_initial_nav
@@ -296,7 +303,7 @@ class MomentumFamilyCoordinator:
         )
 
         # ── Strategy descriptors ─────────────────────────────────────
-        _shared_sidecar = None  # one sidecar per family (Finding 8)
+        self._shared_sidecar = None
         for desc in descriptors:
             sid = desc["strategy_id"]
             self._strategy_ids.append(sid)
@@ -407,6 +414,7 @@ class MomentumFamilyCoordinator:
                 family_id=self.family_id,
                 account_gate=account_gate,
                 family_strategy_ids=list(all_strategy_ids),
+                allocation_targets=allocation_targets,
             )
             await oms.start()
             logger.info("OMS started for %s", sid)
@@ -427,11 +435,13 @@ class MomentumFamilyCoordinator:
                     family_strategy_ids=list(all_strategy_ids),
                     get_regime_ctx=lambda: self._regime_ctx,
                     get_applied_config=lambda: self._portfolio_checkers[0]._cfg if self._portfolio_checkers and self._portfolio_checkers[0] else None,
+                    write_daily_closeout_on_stop=False,
+                    stop_sidecar_on_stop=False,
                 )
-                if _shared_sidecar is None:
-                    _shared_sidecar = instr.sidecar
+                if self._shared_sidecar is None:
+                    self._shared_sidecar = instr.sidecar
                 else:
-                    instr.sidecar = _shared_sidecar
+                    instr.sidecar = self._shared_sidecar
                 await instr.start()
             except Exception as exc:
                 logger.warning(
@@ -522,6 +532,12 @@ class MomentumFamilyCoordinator:
             except Exception as exc:
                 logger.warning("Error stopping instrumentation %s: %s", sid, exc)
 
+        await self._write_family_daily_closeout()
+        self._flush_and_stop_shared_sidecar()
+
+        for i in reversed(range(len(self._oms_services))):
+            sid = self._strategy_ids[i] if i < len(self._strategy_ids) else "unknown"
+
             # Stop OMS
             try:
                 await self._oms_services[i].stop()
@@ -533,7 +549,34 @@ class MomentumFamilyCoordinator:
         self._oms_services.clear()
         self._instrumentations.clear()
         self._strategy_ids.clear()
+        self._shared_sidecar = None
         logger.info("MomentumFamilyCoordinator stopped")
+
+    async def _write_family_daily_closeout(self) -> None:
+        instr = next((item for item in self._instrumentations if item is not None), None)
+        if instr is None:
+            return
+        try:
+            await instr.write_daily_closeout(
+                oms_services=list(self._oms_services),
+                strategy_ids=list(self._strategy_ids),
+                family_id=self.family_id,
+            )
+        except Exception as exc:
+            logger.warning("Momentum family daily closeout failed: %s", exc)
+
+    def _flush_and_stop_shared_sidecar(self) -> None:
+        sidecar = self._shared_sidecar
+        if sidecar is None:
+            instr = next((item for item in self._instrumentations if item is not None), None)
+            sidecar = getattr(instr, "sidecar", None) if instr is not None else None
+        if sidecar is None:
+            return
+        try:
+            sidecar.run_once()
+            sidecar.stop()
+        except Exception as exc:
+            logger.warning("Momentum shared sidecar stop error: %s", exc)
 
     def health_status(self) -> dict[str, Any]:
         """Return health of all four momentum engines."""
@@ -628,8 +671,24 @@ class MomentumFamilyCoordinator:
                         self._regime_adjusted_rules,
                         initial_equity=checker._cfg.initial_equity,
                     ))
+            self._refresh_instrumentation_lineage()
             if prev_level not in ("NORMAL", "WATCH"):
                 logger.info("Momentum crisis overlay removed (level=%s)", ctx.alert_level)
+                current_rules = self._current_portfolio_rules_config()
+                self._emit_crisis_event({
+                    "family": "momentum",
+                    "alert_level": ctx.alert_level,
+                    "prev_level": prev_level,
+                    "crisis_action": "removed",
+                    "rules_applied": {
+                        "directional_cap_R": getattr(current_rules, "directional_cap_R", None),
+                        "directional_cap_long_R": getattr(current_rules, "directional_cap_long_R", None),
+                        "directional_cap_short_R": getattr(current_rules, "directional_cap_short_R", None),
+                        "regime_unit_risk_mult": getattr(current_rules, "regime_unit_risk_mult", None),
+                        "max_family_contracts_mnq_eq": getattr(current_rules, "max_family_contracts_mnq_eq", None),
+                        "disabled_strategies": list(getattr(current_rules, "disabled_strategies", ()) or ()),
+                    },
+                })
             return
 
         tightened = apply_crisis_overlay(
@@ -662,41 +721,72 @@ class MomentumFamilyCoordinator:
             "action_policy": action.to_dict(),
         })
 
-    def _emit_crisis_event(self, payload: dict) -> None:
-        """Write a crisis event to each strategy's data_dir for TA pipeline."""
+    def _current_portfolio_rules_config(self):
+        for checker in self._portfolio_checkers:
+            if checker is not None:
+                return getattr(checker, "_cfg", None)
+        return self._regime_adjusted_rules or self._base_portfolio_rules
+
+    def _refresh_instrumentation_lineage(self, rules_config=None) -> None:
+        rules_config = rules_config or self._current_portfolio_rules_config()
+        for instr in self._instrumentations:
+            try:
+                refresh = getattr(instr, "refresh_lineage", None)
+                if callable(refresh):
+                    refresh(rules_config)
+            except Exception:
+                logger.debug("Failed to refresh momentum instrumentation lineage", exc_info=True)
+
+    def _write_coordination_event(self, action_type: str, payload: dict) -> None:
+        from libs.instrumentation.event_contract import append_jsonl_event, enrich_payload
+        from libs.instrumentation.lineage import compute_risk_config_version, redact_config
+
         now = datetime.now(timezone.utc)
-        record = {"timestamp": now.isoformat(), "event_type": "crisis_alert_change", **payload}
+        rules_config = self._current_portfolio_rules_config()
+        before_rules = getattr(self, "_last_coordination_rules_config", None) or self._base_portfolio_rules
+        before_version = (
+            compute_risk_config_version({}, before_rules, {}) if before_rules is not None else ""
+        )
+        after_version = (
+            compute_risk_config_version({}, rules_config, {}) if rules_config is not None else ""
+        )
+        self._refresh_instrumentation_lineage(rules_config)
+        record = {
+            "timestamp": now.isoformat(),
+            "action_type": action_type,
+            "portfolio_rule_config_version_before": before_version,
+            "portfolio_rule_config_version_after": after_version,
+            "risk_config_version_before": before_version,
+            "risk_config_version_after": after_version,
+            "effective_config_evidence": {
+                "portfolio_rules_config_before": redact_config(before_rules) if before_rules is not None else {},
+                "portfolio_rules_config_after": redact_config(rules_config) if rules_config is not None else {},
+            },
+            **payload,
+        }
         for instr in self._instrumentations:
             try:
                 data_dir = getattr(instr, "_config", {}).get("data_dir")
                 if not data_dir:
                     continue
-                out_dir = Path(data_dir) / "coordination_events"
-                out_dir.mkdir(parents=True, exist_ok=True)
-                date_str = now.strftime("%Y-%m-%d")
-                with open(out_dir / f"{date_str}.jsonl", "a") as f:
-                    f.write(json.dumps(record, default=str) + "\n")
+                event = enrich_payload(
+                    record,
+                    lineage=getattr(instr, "lineage", None),
+                    event_type="coordinator_action",
+                    scope="family",
+                )
+                append_jsonl_event(data_dir, "coordination_events", "coordination_events", event)
             except Exception:
-                pass
+                logger.debug("Failed to emit momentum coordination event", exc_info=True)
+        self._last_coordination_rules_config = rules_config
+
+    def _emit_crisis_event(self, payload: dict) -> None:
+        """Write an enriched crisis event to each strategy's data_dir."""
+        self._write_coordination_event("crisis_alert_change", payload)
 
     def _emit_regime_event(self, payload: dict) -> None:
         """Write a regime→rules event to each strategy's data_dir for TA pipeline."""
-        now = datetime.now(timezone.utc)
-        record = {"timestamp": now.isoformat(), "event_type": "regime_rules_change", **payload}
-        for instr in self._instrumentations:
-            try:
-                # InstrumentationManager stores config as self._config dict,
-                # NOT as self._data_dir attribute.
-                data_dir = getattr(instr, "_config", {}).get("data_dir")
-                if not data_dir:
-                    continue
-                out_dir = Path(data_dir) / "coordination_events"
-                out_dir.mkdir(parents=True, exist_ok=True)
-                date_str = now.strftime("%Y-%m-%d")
-                with open(out_dir / f"{date_str}.jsonl", "a") as f:
-                    f.write(json.dumps(record, default=str) + "\n")
-            except Exception:
-                pass
+        self._write_coordination_event("regime_rules_change", payload)
 
     # ── heartbeat ──────────────────────────────────────────────────
 

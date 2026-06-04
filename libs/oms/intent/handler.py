@@ -10,6 +10,9 @@ from libs.market_data.futures_roll import (
     roll_blackout_reason,
     with_contract_expiry_for_order,
 )
+from libs.instrumentation.lineage import stable_hash
+from libs.instrumentation.event_contract import enrich_payload
+from libs.instrumentation.lineage import lineage_to_payload
 
 from ..models.intent import Intent, IntentType, IntentReceipt, IntentResult, PreapprovedFamilyDecision
 from ..models.order import OMSOrder, OrderRole, OrderStatus
@@ -66,6 +69,65 @@ class IntentHandler:
             key, _ = self._idempotency.popitem(last=False)
             self._idemp_locks.pop(key, None)
 
+    def _current_oms_lineage(self, strategy_id: str = ""):
+        provider = getattr(self._risk, "_current_oms_lineage", None)
+        if callable(provider):
+            try:
+                if strategy_id:
+                    return provider(strategy_id)
+                return provider()
+            except TypeError:
+                try:
+                    return provider()
+                except Exception:
+                    logger.debug("OMS lineage provider failed", exc_info=True)
+                    return None
+            except Exception:
+                logger.debug("OMS lineage provider failed", exc_info=True)
+                return None
+        return getattr(self._risk, "_oms_lineage", None)
+
+    def _stamp_order_correlation(self, order: OMSOrder, intent_id: str) -> None:
+        risk_ctx = getattr(order, "risk_context", None)
+        if risk_ctx is None:
+            return
+        risk_ctx.intent_id = intent_id
+        if not getattr(risk_ctx, "trace_id", ""):
+            risk_ctx.trace_id = stable_hash(
+                "trace_",
+                {
+                    "intent_id": intent_id,
+                    "client_order_id": getattr(order, "client_order_id", ""),
+                    "oms_order_id": getattr(order, "oms_order_id", ""),
+                    "strategy_id": getattr(order, "strategy_id", ""),
+                },
+            )
+        if not getattr(risk_ctx, "signal_id", ""):
+            risk_ctx.signal_id = (
+                getattr(order, "client_order_id", "")
+                or getattr(risk_ctx, "risk_budget_tag", "")
+                or intent_id
+            )
+        if not getattr(risk_ctx, "exchange_timestamp", None):
+            risk_ctx.exchange_timestamp = (
+                getattr(order, "created_at", None)
+                or getattr(order, "submitted_at", None)
+                or datetime.now(timezone.utc)
+            )
+        if not getattr(risk_ctx, "lineage_context", None):
+            risk_ctx.lineage_context = lineage_to_payload(
+                self._current_oms_lineage(getattr(order, "strategy_id", ""))
+            )
+
+    def _enrich_risk_decision_payload(self, payload: dict) -> dict:
+        strategy_id = str(payload.get("strategy_id") or "")
+        return enrich_payload(
+            payload,
+            lineage=self._current_oms_lineage(strategy_id) or payload.get("lineage"),
+            event_type="risk_decision",
+            scope="oms",
+        )
+
     async def submit(self, intent: Intent) -> IntentReceipt:
         intent_id = str(uuid.uuid4())
 
@@ -80,24 +142,116 @@ class IntentHandler:
         elif intent.intent_type == IntentType.FLATTEN:
             return await self._handle_flatten(intent, intent_id)
         else:
+            self._emit_intent_risk_decision(
+                intent,
+                intent_id,
+                decision="deny",
+                reason="Unknown intent type",
+            )
             return IntentReceipt(
                 IntentResult.DENIED, intent_id, denial_reason="Unknown intent type"
             )
+
+    def _emit_intent_risk_decision(
+        self,
+        intent: Intent,
+        intent_id: str,
+        *,
+        decision: str,
+        reason: str = "",
+        order: OMSOrder | None = None,
+        preapproved: bool = False,
+    ) -> dict:
+        order = order or intent.order
+        risk_ctx = getattr(order, "risk_context", None) if order is not None else None
+        instrument = getattr(order, "instrument", None) if order is not None else None
+        strategy_id = (
+            getattr(order, "strategy_id", "")
+            if order is not None
+            else getattr(intent, "strategy_id", "")
+        )
+        oms_order_id = getattr(order, "oms_order_id", "") if order is not None else ""
+        side = getattr(getattr(order, "side", None), "value", "") if order is not None else ""
+        role = getattr(getattr(order, "role", None), "value", "") if order is not None else ""
+        order_type = getattr(getattr(order, "order_type", None), "value", "") if order is not None else ""
+        requested_qty = int(getattr(order, "qty", 0) or 0) if order is not None else 0
+        gateway_context = dict(getattr(risk_ctx, "gateway_decision_context", {}) or {})
+        approved = decision in {"approve", "scale", "route"}
+        payload = {
+            **gateway_context,
+            "intent_id": intent_id,
+            "strategy_id": strategy_id,
+            "family_id": getattr(self._risk, "_family_id", ""),
+            "oms_order_id": oms_order_id,
+            "client_order_id": getattr(order, "client_order_id", "") if order is not None else "",
+            "symbol": getattr(instrument, "symbol", "") if instrument is not None else "",
+            "side": side,
+            "role": role,
+            "order_type": order_type,
+            "decision": decision,
+            "reason": reason,
+            "requested_qty": requested_qty,
+            "approved_qty": requested_qty if approved else 0,
+            "requested_risk_dollars": float(getattr(risk_ctx, "risk_dollars", 0.0) or 0.0) if risk_ctx else 0.0,
+            "approved_risk_dollars": float(getattr(risk_ctx, "risk_dollars", 0.0) or 0.0) if approved and risk_ctx else 0.0,
+            "requested_risk_R": 0.0,
+            "approved_risk_R": 0.0,
+            "portfolio_size_mult": getattr(risk_ctx, "portfolio_size_mult", 1.0) if risk_ctx else 1.0,
+            "preapproved": preapproved,
+            "portfolio_decision_ref": getattr(risk_ctx, "portfolio_decision_ref", "") if risk_ctx else "",
+            "signal_id": getattr(risk_ctx, "signal_id", "") if risk_ctx else "",
+            "bar_id": getattr(risk_ctx, "bar_id", "") if risk_ctx else "",
+            "exchange_timestamp": getattr(risk_ctx, "exchange_timestamp", None) if risk_ctx else None,
+        }
+        payload["risk_decision_ref"] = stable_hash(
+            "risk_decision_",
+            {
+                "intent_id": intent_id,
+                "oms_order_id": oms_order_id,
+                "decision": decision,
+                "reason": reason,
+            },
+        )
+        if risk_ctx is not None:
+            risk_ctx.intent_id = intent_id
+            risk_ctx.risk_decision_ref = payload["risk_decision_ref"]
+        payload = self._enrich_risk_decision_payload(payload)
+        try:
+            self._bus.emit_risk_decision(strategy_id, oms_order_id, payload)
+        except Exception as exc:
+            logger.debug("Risk decision event emission failed: %s", exc)
+        return payload
 
     async def _handle_new_order(
         self, intent: Intent, intent_id: str, *, preapproved: bool = False
     ) -> IntentReceipt:
         order = intent.order
         if not order:
+            self._emit_intent_risk_decision(
+                intent,
+                intent_id,
+                decision="deny",
+                reason="No order in intent",
+            )
             return IntentReceipt(
                 IntentResult.DENIED, intent_id, denial_reason="No order in intent"
             )
+        if order.risk_context is not None:
+            self._stamp_order_correlation(order, intent_id)
         if preapproved:
             denial = self._validate_preapproved_family_decision(
                 intent.preapproved_family_decision,
                 order,
             )
             if denial:
+                self._emit_intent_risk_decision(
+                    intent,
+                    intent_id,
+                    decision="deny",
+                    reason=denial,
+                    order=order,
+                    preapproved=True,
+                )
                 return IntentReceipt(
                     IntentResult.DENIED, intent_id, denial_reason=denial
                 )
@@ -127,6 +281,14 @@ class IntentHandler:
                     getattr(order.instrument, "symbol", ""),
                     denial,
                 )
+                self._emit_intent_risk_decision(
+                    intent,
+                    intent_id,
+                    decision="deny",
+                    reason=denial,
+                    order=order,
+                    preapproved=preapproved,
+                )
                 return IntentReceipt(
                     IntentResult.DENIED,
                     intent_id,
@@ -135,6 +297,14 @@ class IntentHandler:
 
         # M1: Validate qty > 0
         if order.qty <= 0:
+            self._emit_intent_risk_decision(
+                intent,
+                intent_id,
+                decision="deny",
+                reason="Order qty must be > 0",
+                order=order,
+                preapproved=preapproved,
+            )
             return IntentReceipt(
                 IntentResult.DENIED, intent_id, denial_reason="Order qty must be > 0"
             )
@@ -147,10 +317,19 @@ class IntentHandler:
             )
             open_qty = sum(abs(p.net_qty) for p in positions)
             if open_qty > 0 and order.qty > open_qty:
+                reason = f"Exit qty {order.qty} exceeds open position {open_qty}"
+                self._emit_intent_risk_decision(
+                    intent,
+                    intent_id,
+                    decision="deny",
+                    reason=reason,
+                    order=order,
+                    preapproved=preapproved,
+                )
                 return IntentReceipt(
                     IntentResult.DENIED,
                     intent_id,
-                    denial_reason=f"Exit qty {order.qty} exceeds open position {open_qty}",
+                    denial_reason=reason,
                 )
 
         # C1: Idempotency check under per-key lock to prevent race between
@@ -177,6 +356,8 @@ class IntentHandler:
         # Set timestamps
         order.created_at = now_utc
         order.remaining_qty = order.qty
+        self._stamp_order_correlation(order, intent_id)
+        original_qty = order.qty
 
         # 1C: Serialize ENTRY risk-check to persist to prevent concurrent entries
         # from both passing heat cap before either persists (swing shared OMS).
@@ -211,6 +392,84 @@ class IntentHandler:
                 mult, original_qty, order.qty, order.strategy_id,
             )
 
+        def _risk_decision_payload(decision: str, reason: str = "") -> dict:
+            risk_ctx = order.risk_context
+            requested_risk_dollars = 0.0
+            approved_risk_dollars = 0.0
+            requested_risk_R = 0.0
+            approved_risk_R = 0.0
+            unit_risk = 0.0
+            if risk_ctx is not None:
+                unit_risk = float(getattr(risk_ctx, "unit_risk_dollars", 0.0) or 0.0)
+                approved_risk_dollars = float(getattr(risk_ctx, "risk_dollars", 0.0) or 0.0)
+                if order.qty > 0:
+                    requested_risk_dollars = approved_risk_dollars * (original_qty / order.qty)
+                else:
+                    requested_risk_dollars = approved_risk_dollars
+                if unit_risk > 0:
+                    requested_risk_R = requested_risk_dollars / unit_risk
+                    approved_risk_R = approved_risk_dollars / unit_risk
+            side = getattr(getattr(order, "side", None), "value", "")
+            role = getattr(getattr(order, "role", None), "value", "")
+            order_type = getattr(getattr(order, "order_type", None), "value", "")
+            symbol = order.instrument.symbol if order.instrument else ""
+            approved = decision in {"approve", "scale", "route"}
+            gateway_context = dict(getattr(risk_ctx, "gateway_decision_context", {}) or {})
+            payload = {
+                **gateway_context,
+                "intent_id": intent_id,
+                "strategy_id": order.strategy_id,
+                "family_id": getattr(self._risk, "_family_id", ""),
+                "oms_order_id": order.oms_order_id,
+                "client_order_id": order.client_order_id,
+                "symbol": symbol,
+                "side": side,
+                "role": role,
+                "order_type": order_type,
+                "decision": decision,
+                "reason": reason,
+                "requested_qty": original_qty,
+                "approved_qty": order.qty if approved else 0,
+                "requested_risk_dollars": requested_risk_dollars,
+                "approved_risk_dollars": approved_risk_dollars if approved else 0.0,
+                "requested_risk_R": requested_risk_R,
+                "approved_risk_R": approved_risk_R if approved else 0.0,
+                "portfolio_size_mult": getattr(risk_ctx, "portfolio_size_mult", 1.0) if risk_ctx else 1.0,
+                "preapproved": preapproved,
+                "portfolio_decision_ref": getattr(risk_ctx, "portfolio_decision_ref", "") if risk_ctx else "",
+                "signal_id": getattr(risk_ctx, "signal_id", "") if risk_ctx else "",
+                "bar_id": getattr(risk_ctx, "bar_id", "") if risk_ctx else "",
+                "exchange_timestamp": getattr(risk_ctx, "exchange_timestamp", None) if risk_ctx else None,
+            }
+            payload["risk_decision_ref"] = stable_hash(
+                "risk_decision_",
+                {
+                    "intent_id": intent_id,
+                    "oms_order_id": order.oms_order_id,
+                    "decision": decision,
+                    "reason": reason,
+                },
+            )
+            return payload
+
+        def _stamp_risk_decision(decision: str, reason: str = "") -> dict:
+            payload = _risk_decision_payload(decision, reason)
+            if order.risk_context is not None and payload.get("risk_decision_ref"):
+                order.risk_context.risk_decision_ref = payload["risk_decision_ref"]
+            return payload
+
+        def _emit_risk_decision(decision: str, reason: str = "", payload: dict | None = None) -> None:
+            try:
+                payload = payload or _stamp_risk_decision(decision, reason)
+                payload = self._enrich_risk_decision_payload(payload)
+                self._bus.emit_risk_decision(
+                    order.strategy_id,
+                    order.oms_order_id,
+                    payload,
+                )
+            except Exception as exc:
+                logger.debug("Risk decision event emission failed: %s", exc)
+
         async def _risk_check_and_route():
             if preapproved:
                 denial = await self._risk.check_preapproved_entry(order)
@@ -222,11 +481,13 @@ class IntentHandler:
             if denial:
                 _rollback_idempotency()
                 order.status = OrderStatus.REJECTED
+                decision_payload = _stamp_risk_decision("deny", denial)
                 await self._repo.save_order_and_event(
                     order,
                     "RISK_DENIED",
                     {"reason": denial},
                 )
+                _emit_risk_decision("deny", denial, payload=decision_payload)
                 self._bus.emit_risk_denial(order.strategy_id, order.oms_order_id, denial)
                 return IntentReceipt(
                     IntentResult.DENIED, intent_id, denial_reason=denial
@@ -242,12 +503,14 @@ class IntentHandler:
                     if account_denial:
                         _rollback_idempotency()
                         order.status = OrderStatus.REJECTED
+                        decision_payload = _stamp_risk_decision("deny", account_denial)
                         await self._repo.save_order_and_event(
                             order,
                             "RISK_DENIED",
                             {"reason": account_denial},
                             conn=conn,
                         )
+                        _emit_risk_decision("deny", account_denial, payload=decision_payload)
                         self._bus.emit_risk_denial(
                             order.strategy_id,
                             order.oms_order_id,
@@ -258,6 +521,11 @@ class IntentHandler:
                             intent_id,
                             denial_reason=account_denial,
                         )
+                    decision = "scale" if (
+                        order.risk_context is not None
+                        and order.risk_context.portfolio_size_mult != 1.0
+                    ) else "approve"
+                    decision_payload = _stamp_risk_decision(decision)
                     order.status = OrderStatus.RISK_APPROVED
                     await self._repo.save_order_and_event(
                         order,
@@ -266,8 +534,15 @@ class IntentHandler:
                         conn=conn,
                     )
             else:
+                decision = "scale" if (
+                    order.risk_context is not None
+                    and order.risk_context.portfolio_size_mult != 1.0
+                ) else "approve"
+                decision_payload = _stamp_risk_decision(decision)
                 order.status = OrderStatus.RISK_APPROVED
                 await self._repo.save_order_and_event(order, "RISK_APPROVED", {})
+
+            _emit_risk_decision(decision, payload=decision_payload)
 
             # Route to execution
             await self._router.route(order)

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
+from typing import Any
 
 from libs.oms.models.instrument import Instrument
 from libs.oms.models.instrument_registry import InstrumentRegistry
@@ -29,7 +31,19 @@ def build_stock_instrument(item: WatchlistItem) -> Instrument:
     return instrument
 
 
-def build_entry_order(item: WatchlistItem, account_id: str, qty: int, limit_price: float, stop_for_risk: float) -> OMSOrder:
+def build_entry_order(
+    item: WatchlistItem,
+    account_id: str,
+    qty: int,
+    limit_price: float,
+    stop_for_risk: float,
+    *,
+    signal_id: str = "",
+    bar_id: str = "",
+    exchange_timestamp: datetime | None = None,
+    trace_id: str = "",
+    lineage_context: dict[str, Any] | None = None,
+) -> OMSOrder:
     instrument = build_stock_instrument(item)
     return OMSOrder(
         client_order_id=f"{item.symbol}-entry-{uuid.uuid4().hex[:12]}",
@@ -46,6 +60,11 @@ def build_entry_order(item: WatchlistItem, account_id: str, qty: int, limit_pric
             stop_for_risk=stop_for_risk,
             planned_entry_price=limit_price,
             risk_budget_tag="IARIC",
+            signal_id=signal_id,
+            bar_id=bar_id,
+            exchange_timestamp=exchange_timestamp,
+            trace_id=trace_id,
+            lineage_context=dict(lineage_context or {}),
         ),
     )
 

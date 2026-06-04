@@ -21,6 +21,7 @@ from libs.oms.models.intent import Intent, IntentType
 from libs.oms.models.order import (
     EntryPolicy, OMSOrder, OrderRole, OrderSide, OrderType, RiskContext,
 )
+from libs.oms.instrumentation.runtime_refs import fill_runtime_refs
 from libs.oms.risk.calculator import RiskCalculator
 from libs.services.trade_recorder import TradeRecorder
 from strategies.core.actions import CancelAction, SubmitEntry, SubmitExit
@@ -255,6 +256,7 @@ class NQDTCEngine:
 
         # Flatten-order tracking (Rec 1/3: fill-authoritative flatten)
         self._last_flatten_oms_id: str | None = None
+        self._pending_flatten_instrumentation: dict[str, dict] = {}
 
         # Async tasks
         self._event_task: Optional[asyncio.Task] = None
@@ -1549,6 +1551,7 @@ class NQDTCEngine:
 
         side = OrderSide.BUY if direction == Direction.LONG else OrderSide.SELL
         planned_entry = price or stop_price or 0.0
+        signal_context = self._entry_signal_context(subtype=subtype, direction=direction)
 
         entry_request = NQDTCEntryRequest(
             client_order_id=f"{C.STRATEGY_ID}:{subtype.value}:{self._bar_count_5m}:{len(self._working_orders)}",
@@ -1586,6 +1589,7 @@ class NQDTCEngine:
             risk_dollars=RiskCalculator.compute_order_risk_dollars(
                 planned_entry, stop_for_risk, qty, inst.point_value,
             ),
+            **signal_context,
         )
 
         order = OMSOrder(
@@ -1625,6 +1629,21 @@ class NQDTCEngine:
             self._apply_core_events(events)
             return receipt.oms_order_id
         return None
+
+    def _entry_signal_context(
+        self,
+        *,
+        subtype: EntrySubtype,
+        direction: Direction,
+        bar_ts: datetime | None = None,
+    ) -> dict[str, Any]:
+        ts = bar_ts or self._last_bar_ts or datetime.now(timezone.utc)
+        ts_text = ts.isoformat()
+        return {
+            "signal_id": f"{self._symbol}:{subtype.value}:{direction.name}:{ts_text}",
+            "bar_id": f"{self._symbol}:5m:{ts_text}",
+            "exchange_timestamp": ts,
+        }
 
     # ------------------------------------------------------------------
     # Position management (Section 17)
@@ -2112,35 +2131,22 @@ class NQDTCEngine:
         else:
             self._consec_losses = 0
 
-        if self._kit.active and self._instr_trade_id:
-            try:
-                r_pts = abs(pos.entry_price - pos.initial_stop_price)
-                if pos.direction == Direction.LONG:
-                    est_exit = pos.entry_price + open_r * r_pts if r_pts > 0 else pos.entry_price
-                else:
-                    est_exit = pos.entry_price - open_r * r_pts if r_pts > 0 else pos.entry_price
-                self._kit.log_exit(
-                    trade_id=self._instr_trade_id,
-                    exit_price=est_exit,
-                    exit_reason=reason,
-                    expected_exit_price=est_exit,
-                    mfe_r=pos.peak_mfe_r,
-                    mae_r=pos.peak_mae_r,
-                    mfe_price=pos.highest_since_entry if pos.direction == Direction.LONG else pos.lowest_since_entry,
-                    mae_price=pos.lowest_since_entry if pos.direction == Direction.LONG else pos.highest_since_entry,
-                    session_transitions=self._session_transitions or None,
-                )
-                _ba = self._get_bid_ask()
-                self._kit.on_orderbook_context(
-                    pair=self._symbol,
-                    best_bid=_ba[0] if _ba else est_exit,
-                    best_ask=_ba[1] if _ba else est_exit,
-                    trade_context="exit",
-                    related_trade_id=self._instr_trade_id,
-                )
-                self._instr_trade_id = ""
-            except Exception:
-                pass
+        if self._last_flatten_oms_id and self._instr_trade_id:
+            r_pts = abs(pos.entry_price - pos.initial_stop_price)
+            if pos.direction == Direction.LONG:
+                expected_exit = pos.entry_price + open_r * r_pts if r_pts > 0 else pos.entry_price
+            else:
+                expected_exit = pos.entry_price - open_r * r_pts if r_pts > 0 else pos.entry_price
+            self._pending_flatten_instrumentation[self._last_flatten_oms_id] = {
+                "trade_id": self._instr_trade_id,
+                "reason": reason,
+                "expected_exit_price": expected_exit,
+                "mfe_r": pos.peak_mfe_r,
+                "mae_r": pos.peak_mae_r,
+                "mfe_price": pos.highest_since_entry if pos.direction == Direction.LONG else pos.lowest_since_entry,
+                "mae_price": pos.lowest_since_entry if pos.direction == Direction.LONG else pos.highest_since_entry,
+                "session_transitions": self._session_transitions or None,
+            }
 
         self._accumulate_realized_pnl(open_r)
         self._clear_position()
@@ -2286,6 +2292,34 @@ class NQDTCEngine:
 
         # Flatten fill confirmation -- broker executed the pre-booked exit
         if self._last_flatten_oms_id and oms_id == self._last_flatten_oms_id:
+            pending = self._pending_flatten_instrumentation.pop(oms_id, {})
+            trade_id = str(pending.get("trade_id") or self._instr_trade_id or "")
+            if self._kit.active and trade_id:
+                try:
+                    self._kit.log_exit(
+                        trade_id=trade_id,
+                        exit_price=price,
+                        exit_reason=str(pending.get("reason") or "FLATTEN"),
+                        expected_exit_price=pending.get("expected_exit_price") or price,
+                        mfe_r=pending.get("mfe_r"),
+                        mae_r=pending.get("mae_r"),
+                        mfe_price=pending.get("mfe_price"),
+                        mae_price=pending.get("mae_price"),
+                        session_transitions=pending.get("session_transitions"),
+                        **fill_runtime_refs(oms_id, payload, fill_qty=qty, is_exit=True),
+                    )
+                    _ba = self._get_bid_ask()
+                    self._kit.on_orderbook_context(
+                        pair=self._symbol,
+                        best_bid=_ba[0] if _ba else price,
+                        best_ask=_ba[1] if _ba else price,
+                        trade_context="exit",
+                        related_trade_id=trade_id,
+                    )
+                    if self._instr_trade_id == trade_id:
+                        self._instr_trade_id = ""
+                except Exception:
+                    pass
             self._last_flatten_oms_id = None
             return
 
@@ -2328,6 +2362,7 @@ class NQDTCEngine:
                             mfe_price=self._position.highest_since_entry if self._position.direction == Direction.LONG else self._position.lowest_since_entry,
                             mae_price=self._position.lowest_since_entry if self._position.direction == Direction.LONG else self._position.highest_since_entry,
                             session_transitions=self._session_transitions or None,
+                            **fill_runtime_refs(oms_id, payload, fill_qty=qty, is_exit=True),
                         )
                         _ba = self._get_bid_ask()
                         self._kit.on_orderbook_context(
@@ -2608,6 +2643,7 @@ class NQDTCEngine:
                     portfolio_state=portfolio_state,
                     signal_evolution=self._build_signal_evolution(),
                     execution_timestamps=exec_ts,
+                    **fill_runtime_refs(oms_id, payload, fill_qty=qty),
                 )
 
                 # Phase 2B: emit orderbook context at entry
@@ -2676,6 +2712,7 @@ class NQDTCEngine:
         # Flatten order failed — resubmit emergency flatten (Rec 1/3)
         if self._last_flatten_oms_id and oms_id == self._last_flatten_oms_id:
             self._last_flatten_oms_id = None
+            self._pending_flatten_instrumentation.pop(oms_id, None)
             if not self._position.open:
                 return  # Position already closed (e.g. stop filled first)
             logger.critical(
