@@ -1,5 +1,5 @@
 'use client';
-import { PortfolioData, HealthData, SystemPnlSummary, PORTFOLIO_HEAT_CAP, SYSTEM_CONFIG } from '@/lib/types';
+import { PortfolioData, HealthData, SystemPnlSummary, SYSTEM_CONFIG } from '@/lib/types';
 import { fmtR, fmtUSD, toPercent } from '@/lib/formatters';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -12,12 +12,28 @@ interface Props {
   systemPnl?: SystemPnlSummary[] | null;
 }
 
+function formatGateLimitR(value: number | null): string {
+  return value != null && Number.isFinite(value) ? `${value.toFixed(2)}R` : '--';
+}
+
 export function PortfolioHeader({ portfolio, health, systemPnl }: Props) {
   const r = portfolio?.daily_realized_r ?? 0;
   const usd = portfolio?.daily_realized_usd ?? 0;
   const heatR = portfolio?.heat_r ?? 0;
-  const heatPct = toPercent(heatR, PORTFOLIO_HEAT_CAP);
+  const heatCapR = portfolio?.heat_cap_R ?? null;
+  const hasHeatCap = heatCapR != null && Number.isFinite(heatCapR) && heatCapR > 0;
+  const heatPct = hasHeatCap ? toPercent(heatR, heatCapR) : 0;
+  const heatCapLabel = hasHeatCap ? `${Number(heatCapR).toFixed(2)}R` : '--';
+  const dailyStopR = portfolio?.portfolio_daily_stop_R ?? null;
+  const weeklyStopR = portfolio?.portfolio_weekly_stop_R ?? null;
+  const globalStanddown = portfolio?.global_standdown ?? null;
+  const dailyStopLabel = formatGateLimitR(dailyStopR);
+  const weeklyStopLabel = formatGateLimitR(weeklyStopR);
+  const standdownLabel = globalStanddown == null ? '--' : globalStanddown ? 'ACTIVE' : 'CLEAR';
+  const standdownBadge =
+    globalStanddown == null ? 'warning' : globalStanddown ? 'danger' : 'success';
   const halted = portfolio?.halted ?? false;
+  const activeConfigWarnings = portfolio?.active_config_warnings ?? [];
   const halts = health?.halts ?? [];
   const adapters = health?.adapters ?? [];
 
@@ -34,6 +50,15 @@ export function PortfolioHeader({ portfolio, health, systemPnl }: Props) {
             {halts.length > 0
               ? halts.map(h => `${h.halt_level} [${h.entity}]: ${h.halt_reason}`).join(' | ')
               : `PORTFOLIO HALTED: ${portfolio?.halt_reason ?? 'unknown'}`}
+          </span>
+        </div>
+      )}
+
+      {activeConfigWarnings.length > 0 && (
+        <div className="flex items-center gap-2 rounded-md bg-amber-950/60 border border-amber-800 px-3 py-2">
+          <AlertTriangle className="h-4 w-4 text-amber-300 flex-shrink-0" />
+          <span className="text-amber-100 font-mono text-xs">
+            {activeConfigWarnings.join(' | ')}
           </span>
         </div>
       )}
@@ -55,9 +80,10 @@ export function PortfolioHeader({ portfolio, health, systemPnl }: Props) {
           <div className="flex justify-between items-center">
             <p className="text-xs text-gray-500 font-mono uppercase tracking-wider">Portfolio Heat</p>
             <span className={cn('text-sm font-mono font-semibold',
+              !hasHeatCap ? 'text-amber-300' :
               heatPct > 90 ? 'text-red-400' : heatPct > 60 ? 'text-amber-400' : 'text-green-400'
             )}>
-              {heatR.toFixed(2)}R / {PORTFOLIO_HEAT_CAP}R
+              {heatR.toFixed(2)}R / {heatCapLabel}
             </span>
           </div>
           <Progress value={heatPct} indicatorClassName={heatColor} className="h-3" />
@@ -98,6 +124,27 @@ export function PortfolioHeader({ portfolio, health, systemPnl }: Props) {
         <span className="text-xs text-gray-500 font-mono">
           Open Risk: <span className="text-amber-400">{(portfolio?.portfolio_open_risk_r ?? 0).toFixed(2)}R</span>
         </span>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 border-t border-gray-800">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs text-gray-500 font-mono uppercase tracking-wider">Daily Stop</span>
+          <span className={cn('text-sm font-mono font-semibold', dailyStopR == null ? 'text-amber-300' : 'text-red-300')}>
+            {dailyStopLabel}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs text-gray-500 font-mono uppercase tracking-wider">Weekly Stop</span>
+          <span className={cn('text-sm font-mono font-semibold', weeklyStopR == null ? 'text-amber-300' : 'text-red-300')}>
+            {weeklyStopLabel}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs text-gray-500 font-mono uppercase tracking-wider">Global Stand-down</span>
+          <Badge variant={standdownBadge} className="text-xs">
+            {standdownLabel}
+          </Badge>
+        </div>
       </div>
 
       {/* Per-system P&L badges */}

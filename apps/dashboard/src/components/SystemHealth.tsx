@@ -11,14 +11,16 @@ interface Props {
 
 function healthVariant(status: string): 'success' | 'danger' | 'warning' | 'default' {
   if (status === 'OK') return 'success';
-  if (status === 'DISCONNECTED') return 'danger';
-  if (status === 'STALE') return 'warning';
+  if (status === 'DISCONNECTED' || status === 'ERROR') return 'danger';
+  if (status === 'STALE' || status === 'WARNING' || status === 'UNKNOWN') return 'warning';
   return 'default';
 }
 
 export function SystemHealth({ health }: Props) {
   const strategies = health?.strategies ?? [];
   const adapters = health?.adapters ?? [];
+  const evidence = health?.evidence ?? null;
+  const evidenceWarnings = evidence?.warnings ?? [];
 
   return (
     <Card>
@@ -26,6 +28,65 @@ export function SystemHealth({ health }: Props) {
         <CardTitle>System Health</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Evidence pipeline */}
+        <div>
+          <div className="flex items-baseline justify-between mb-2">
+            <p className="text-xs text-gray-500 font-mono uppercase tracking-wider">Evidence Pipeline</p>
+            {evidence ? (
+              <Badge variant={healthVariant(evidence.status)}>{evidence.status}</Badge>
+            ) : (
+              <Badge variant="warning">UNKNOWN</Badge>
+            )}
+          </div>
+          {evidence ? (
+            <div className="space-y-2 text-xs font-mono">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Badge variant={healthVariant(evidence.relay.status)}>Relay</Badge>
+                  <span className="text-gray-300 truncate">
+                    {evidence.relay.reachable ? 'reachable' : 'unreachable'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0 text-gray-500">
+                  <span>{evidence.relay.pending_events ?? 0} pending</span>
+                  <span>oldest {fmtAge(evidence.relay.oldest_pending_age_seconds)}</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Badge variant={healthVariant(evidence.assistant.status)}>Assistant</Badge>
+                  <span className="text-gray-300 truncate">
+                    {evidence.assistant.required_bot_ids.length > 0
+                      ? `${evidence.assistant.required_bot_ids.length} required`
+                      : 'no required bot list'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0 text-gray-500">
+                  <span>{evidence.assistant.missing_bot_ids.length} missing</span>
+                  <span>{evidence.assistant.stale_bot_ids.length} stale</span>
+                </div>
+              </div>
+              {evidenceWarnings.length > 0 && (
+                <div className="space-y-1">
+                  {evidenceWarnings.slice(0, 3).map((warning, idx) => (
+                    <p
+                      key={`${warning}-${idx}`}
+                      className={cn(
+                        'truncate',
+                        evidence.status === 'ERROR' ? 'text-red-300' : 'text-amber-300',
+                      )}
+                    >
+                      {warning}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-600 font-mono">No evidence health data</p>
+          )}
+        </div>
+
         {/* Adapters */}
         <div>
           <div className="flex items-baseline justify-between mb-2">

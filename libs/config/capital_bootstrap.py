@@ -15,12 +15,15 @@ from .loader import load_portfolio_config, load_strategy_registry
 def bootstrap_capital(
     account_nav: float,
     config_dir: str | Path,
+    *,
+    live: bool = False,
 ) -> dict[str, StrategyCapitalAllocation]:
     """Load portfolio + registry configs and resolve per-strategy NAV.
 
     Args:
         account_nav: Total account equity (live or paper).
         config_dir: Directory containing strategies.yaml and portfolio.yaml.
+        live: If True, filter paper-only strategies exactly like runtime startup.
 
     Returns:
         Dict mapping strategy_id → StrategyCapitalAllocation with allocated_nav.
@@ -32,5 +35,5 @@ def bootstrap_capital(
         s.strategy_id: resolve_strategy_capital_allocation(
             s.strategy_id, account_nav, registry, portfolio
         )
-        for s in registry.enabled_strategies()
+        for s in registry.enabled_strategies(live=live)
     }

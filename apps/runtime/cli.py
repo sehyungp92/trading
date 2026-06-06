@@ -53,6 +53,14 @@ def build_parser() -> argparse.ArgumentParser:
             "that intentionally run a subset of families."
         ),
     )
+    run.add_argument(
+        "--allow-no-instrumentation",
+        action="store_true",
+        help=(
+            "Permit paper/live startup to continue without sidecar forwarding. "
+            "Use only for debugging; default paper/live behavior requires evidence."
+        ),
+    )
 
     return parser
 
@@ -101,6 +109,7 @@ def main(argv: list[str] | None = None) -> int:
                 family_filter=args.family,
                 allow_no_db=args.allow_no_db,
                 allow_partial_families=args.allow_partial_families,
+                allow_no_instrumentation=args.allow_no_instrumentation,
             ))
             return 0
         except KeyboardInterrupt:
@@ -111,4 +120,3 @@ def main(argv: list[str] | None = None) -> int:
 
     parser.error(f"Unknown command {args.command!r}")
     return 2
-

@@ -307,6 +307,7 @@ class InstrumentationManager:
             try:
                 self.sidecar.start()
             except Exception as e:
+                self._sidecar_forwarding_enabled = False
                 logger.warning("Failed to start sidecar: %s", e)
 
         logger.info("Instrumentation started for %s", self._strategy_id)

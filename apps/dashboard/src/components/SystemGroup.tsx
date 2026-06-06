@@ -4,7 +4,6 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import {
   StrategyData,
   SystemPnlSummary,
-  STRATEGY_CONFIG,
   SYSTEM_CONFIG,
   type SystemId,
 } from '@/lib/types';
@@ -27,11 +26,10 @@ export function SystemGroup({ system, strategies, systemPnl }: Props) {
   const healthyCount = systemPnl?.healthy_count ?? strategies.filter(s => s.health_status === 'OK').length;
   const totalCount = strategies.length;
   const filledEntries = systemPnl?.filled_entries ?? strategies.reduce((s, st) => s + st.filled_entries, 0);
-
-  // Sum of per-strategy heat caps for the group
-  const groupHeatCap = strategies.reduce((s, st) => {
-    return s + (STRATEGY_CONFIG[st.strategy_id]?.maxHeatR ?? 1.0);
-  }, 0);
+  const groupHeatCap = systemPnl?.active_heat_cap_R ?? null;
+  const hasHeatCap = groupHeatCap !== null && groupHeatCap > 0;
+  const heatPct = hasHeatCap ? Math.min(100, (heatR / groupHeatCap) * 100) : 0;
+  const configWarnings = systemPnl?.active_config_warnings ?? [];
 
   return (
     <div
@@ -64,12 +62,17 @@ export function SystemGroup({ system, strategies, systemPnl }: Props) {
           </span>
 
           {/* Heat mini-bar */}
-          <div className="flex items-center gap-2 w-24">
-            <span className="text-gray-500">{heatR.toFixed(1)}R</span>
+          <div className="flex items-center gap-2 w-32">
+            <span
+              className={cn(configWarnings.length > 0 ? 'text-amber-400' : 'text-gray-500')}
+              title={configWarnings.join('; ') || undefined}
+            >
+              {heatR.toFixed(1)}R{hasHeatCap ? `/${groupHeatCap.toFixed(1)}R` : ''}
+            </span>
             <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
               <div
                 className={cn('h-full rounded-full transition-all', cfg.dotColor)}
-                style={{ width: `${Math.min(100, groupHeatCap > 0 ? (heatR / groupHeatCap) * 100 : 0)}%` }}
+                style={{ width: `${heatPct}%` }}
               />
             </div>
           </div>
@@ -83,6 +86,12 @@ export function SystemGroup({ system, strategies, systemPnl }: Props) {
           )}>
             {healthyCount}/{totalCount} OK
           </span>
+
+          {configWarnings.length > 0 && (
+            <span className="text-amber-400" title={configWarnings.join('; ')}>
+              CONFIG
+            </span>
+          )}
         </div>
       </button>
 

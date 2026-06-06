@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -8,8 +8,9 @@ from types import SimpleNamespace
 import pytest
 
 from libs.oms.engine.fill_processor import FillProcessor
+from libs.oms.execution.router import ExecutionRouter, OrderPriority
 from libs.oms.models.instrument import Instrument
-from libs.oms.models.order import OMSOrder, OrderRole, OrderSide, OrderStatus, OrderType
+from libs.oms.models.order import OMSOrder, OrderRole, OrderSide, OrderStatus, OrderType, RiskContext
 from libs.oms.persistence.in_memory import InMemoryRepository
 from libs.oms.reconciliation.orchestrator import ReconciliationOrchestrator
 
@@ -88,6 +89,124 @@ async def test_fill_processor_walks_routed_to_acked_to_filled() -> None:
     assert order.remaining_qty == 0
 
 
+@pytest.mark.asyncio
+@pytest.mark.parity_nightly
+async def test_queued_order_resumes_after_router_restart() -> None:
+    repo = InMemoryRepository()
+    order = _order(status=OrderStatus.RISK_APPROVED)
+    order.broker_order_id = None
+    order.perm_id = None
+    order.risk_context = RiskContext(
+        stop_for_risk=95.0,
+        planned_entry_price=100.0,
+        risk_dollars=10.0,
+    )
+    await repo.save_order(order)
+
+    congested = _SubmitAdapter(is_congested=True)
+    router_before_restart = ExecutionRouter(congested, repo)
+    await router_before_restart.route(order)
+
+    queued = await repo.get_order(order.oms_order_id)
+    assert queued.status is OrderStatus.QUEUED
+    assert queued.queued_at is not None
+    assert queued.queue_priority == int(OrderPriority.NEW_ENTRY)
+
+    resumed = _SubmitAdapter(is_congested=False)
+    router_after_restart = ExecutionRouter(
+        resumed,
+        repo,
+        claimant_id="after-restart",
+        pre_submit_recheck=lambda _order, conn=None: None,
+    )
+    await router_after_restart.drain_queue()
+
+    routed = await repo.get_order(order.oms_order_id)
+    assert routed.status is OrderStatus.ROUTED
+    assert routed.queued_at == queued.queued_at
+    assert routed.dequeued_at is not None
+    assert routed.queue_claimed_by == ""
+    assert resumed.submitted == [order.oms_order_id]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parity_nightly
+async def test_inflight_queued_drain_restart_recovers_broker_ref_without_resubmit() -> None:
+    repo = InMemoryRepository()
+    order = _order(status=OrderStatus.RISK_APPROVED)
+    order.broker_order_id = None
+    order.perm_id = None
+    await repo.save_order(order)
+    queued_at = datetime.now(timezone.utc)
+    await repo.mark_order_queued(
+        order.oms_order_id,
+        int(OrderPriority.NEW_ENTRY),
+        "forced_replay_congestion",
+        queued_at,
+        queued_at + timedelta(seconds=300),
+    )
+    order.status = OrderStatus.ROUTED
+    order.dequeued_at = datetime.now(timezone.utc)
+    order.submitted_at = order.dequeued_at
+    order.broker_order_id = None
+    order.perm_id = None
+    await repo.save_order(order)
+
+    resumed = _SubmitAdapter(
+        is_congested=False,
+        broker_orders=[
+            SimpleNamespace(
+                order_ref=order.client_order_id,
+                broker_order_id=31001,
+                perm_id=41001,
+            )
+        ],
+    )
+    router_after_restart = ExecutionRouter(
+        resumed,
+        repo,
+        claimant_id="after-restart",
+        pre_submit_recheck=lambda _order, conn=None: None,
+    )
+    await router_after_restart.drain_queue()
+
+    routed = await repo.get_order(order.oms_order_id)
+    assert routed.status is OrderStatus.ROUTED
+    assert routed.broker_order_id == 31001
+    assert routed.perm_id == 41001
+    assert resumed.submitted == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parity_nightly
+async def test_queued_order_expiry_lifecycle_name_is_replayable() -> None:
+    repo = InMemoryRepository()
+    order = _order(status=OrderStatus.RISK_APPROVED)
+    order.broker_order_id = None
+    order.perm_id = None
+    await repo.save_order(order)
+    queued_at = datetime.now(timezone.utc)
+    await repo.mark_order_queued(
+        order.oms_order_id,
+        int(OrderPriority.NEW_ENTRY),
+        "forced_replay_congestion",
+        queued_at,
+        queued_at,
+    )
+
+    expired = await repo.expire_due_queued_orders(
+        queued_at.replace(microsecond=queued_at.microsecond + 1)
+        if queued_at.microsecond < 999999
+        else queued_at
+    )
+
+    assert [order.status.value for order in expired] == ["EXPIRED"]
+    assert [event["event_type"] for event in repo._events] == [
+        "ORDER_QUEUED",
+        "QUEUED_ORDER_EXPIRED",
+    ]
+
+
 def _order(*, status: OrderStatus) -> OMSOrder:
     return OMSOrder(
         oms_order_id="OMS-1",
@@ -137,3 +256,17 @@ class _Bus:
 
     def emit_order_event(self, *_args, **_kwargs) -> None:
         return None
+
+
+class _SubmitAdapter:
+    def __init__(self, *, is_congested: bool, broker_orders: list | None = None) -> None:
+        self.is_congested = is_congested
+        self.submitted: list[str] = []
+        self.broker_orders = list(broker_orders or [])
+
+    async def submit_order(self, **kwargs):
+        self.submitted.append(kwargs["oms_order_id"])
+        return SimpleNamespace(broker_order_id=30001, perm_id=40001)
+
+    async def request_open_orders(self):
+        return list(self.broker_orders)

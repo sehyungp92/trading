@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { getEvidencePipelineHealth } from '@/lib/evidence-health';
 import type { HealthData, StrategyHealthRow, AdapterHealthRow, HaltRow } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const [strategies, adapters, halts] = await Promise.all([
+    const [strategies, adapters, halts, evidence] = await Promise.all([
       // v_strategy_health: computes heartbeat_age_sec and health_status
       query<StrategyHealthRow>(
         `SELECT * FROM v_strategy_health ORDER BY strategy_id`
@@ -21,9 +22,10 @@ export async function GET() {
          FROM v_active_halts
          ORDER BY halt_level, entity`
       ),
+      getEvidencePipelineHealth(),
     ]);
 
-    const data: HealthData = { strategies, adapters, halts };
+    const data: HealthData = { strategies, adapters, halts, evidence };
 
     return NextResponse.json(data, {
       headers: { 'Cache-Control': 'no-store' },

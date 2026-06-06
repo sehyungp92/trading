@@ -146,6 +146,7 @@ class InstrumentationContext:
             if self.sidecar is not None and sidecar_forwarding_enabled:
                 self.sidecar.start()
         except Exception as e:
+            self._sidecar_forwarding_enabled = False
             logger.warning("Sidecar start failed: %s", e)
         try:
             if self.post_exit_tracker is not None:

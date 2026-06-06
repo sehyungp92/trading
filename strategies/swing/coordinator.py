@@ -23,6 +23,14 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from libs.oms.persistence.db_config import get_environment
+from libs.runtime.active_config import (
+    ActiveRuntimeConfigRecord,
+    active_config_expiry,
+    build_family_runtime_config,
+    build_strategy_runtime_config,
+    upsert_active_runtime_config,
+)
 from libs.services.heartbeat import emit_family_heartbeats
 from strategies.contracts import RuntimeContext
 from strategies.core.capital import build_family_allocation_targets
@@ -179,6 +187,7 @@ class SwingFamilyCoordinator:
         from strategies.swing.tpc.engine import TPCEngine
 
         ctx = self._ctx
+        require_instrumentation = bool(getattr(ctx, "require_instrumentation", False))
         overrides = getattr(ctx, "runtime_overrides", None)
         build_multi_strategy_oms = (
             getattr(overrides, "build_multi_strategy_oms", None)
@@ -245,6 +254,11 @@ class SwingFamilyCoordinator:
         else:
             logger.warning("No IB session -- swing adapter is None (shadow/test mode)")
             ibkr_config = None
+        active_account_id = str(
+            getattr(getattr(ibkr_config, "profile", None), "account_id", "")
+            or getattr(adapter, "_account", "")
+            or (getattr(ctx, "contracts", {}) or {}).get("account_id", "")
+        )
 
         # -- Market calendar -----------------------------------------------
         from libs.config.market_calendar import MarketCalendar
@@ -274,7 +288,11 @@ class SwingFamilyCoordinator:
         account_allocs: dict[str, Any] | None = None
         if getattr(overrides, "equity_provider", None) is None:
             try:
-                account_allocs = bootstrap_capital(account_equity, config_dir)
+                account_allocs = bootstrap_capital(
+                    account_equity,
+                    config_dir,
+                    live=get_environment() == "live",
+                )
             except Exception as exc:
                 logger.warning(
                     "bootstrap_capital failed (%s), using configured swing family allocation fallback",
@@ -333,6 +351,55 @@ class SwingFamilyCoordinator:
             urds[sid] = RiskCalculator.compute_unit_risk_dollars(
                 nav=equity,
                 unit_risk_pct=params["unit_risk_pct"],
+            )
+        capital_cfg = getattr(getattr(ctx, "portfolio", None), "capital", None)
+        family_allocation_pct = float(
+            (getattr(capital_cfg, "family_allocations", {}) or {}).get(self.family_id, 0.0)
+        )
+        await upsert_active_runtime_config(
+            db_pool,
+            ActiveRuntimeConfigRecord(
+                account_id=active_account_id,
+                config_scope="family",
+                scope_id=self.family_id,
+                runtime_env=get_environment(),
+                payload=build_family_runtime_config(
+                    account_id=active_account_id,
+                    family_id=self.family_id,
+                    family_allocation_pct=family_allocation_pct,
+                    family_nav=equity,
+                    family_heat_cap_R=_SWING_FAMILY_HEAT_CAP_R,
+                    family_daily_stop_R=_SWING_FAMILY_DAILY_STOP_R,
+                    family_weekly_stop_R=_SWING_FAMILY_WEEKLY_STOP_R,
+                    active_strategy_ids=list(strategy_ids),
+                ),
+                expires_at=active_config_expiry(),
+            ),
+        )
+        for sid in strategy_ids:
+            params = _RISK_PARAMS.get(sid, {"unit_risk_pct": 0.005, "daily_stop_R": 2.0})
+            await upsert_active_runtime_config(
+                db_pool,
+                ActiveRuntimeConfigRecord(
+                    account_id=active_account_id,
+                    config_scope="strategy",
+                    scope_id=sid,
+                    runtime_env=get_environment(),
+                    payload=build_strategy_runtime_config(
+                        account_id=active_account_id,
+                        strategy_id=sid,
+                        family_id=self.family_id,
+                        enabled=True,
+                        live=get_environment() == "live",
+                        allocated_nav=swing_nav.get(sid, equity),
+                        unit_risk_dollars=urds[sid],
+                        max_heat_R=float(params.get("max_heat_R", 0.0)),
+                        max_daily_loss_R=float(params.get("daily_stop_R", 2.0)),
+                        max_weekly_loss_R=_SWING_FAMILY_WEEKLY_STOP_R,
+                        risk_per_trade=float(params.get("unit_risk_pct", 0.005)),
+                    ),
+                    expires_at=active_config_expiry(),
+                ),
             )
 
         # -- Build shared multi-strategy OMS -------------------------------
@@ -461,6 +528,11 @@ class SwingFamilyCoordinator:
                 },
                 data_provider=_data_provider,
             )
+        if require_instrumentation:
+            if not self._kits or self._instrumentation_ctx is None:
+                raise RuntimeError("Required swing instrumentation failed to bootstrap")
+            if not getattr(self._instrumentation_ctx, "_sidecar_forwarding_enabled", True):
+                raise RuntimeError("Required swing instrumentation sidecar forwarding disabled")
 
         # SWING-3: now that _bootstrap_instrumentation_kits has populated
         # self._instrumentation_ctx, wire the coordinator action logger.

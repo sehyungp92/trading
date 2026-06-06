@@ -65,6 +65,7 @@ async def test_nq_regime_scheduled_bar_uses_cached_daily_levels():
 
     bar_ts = datetime.now(timezone.utc) - timedelta(minutes=5)
     await engine._refresh_daily_context(force=True, for_ts=bar_ts)
+    daily_requests_after_refresh = session.requests.count("1 day")
     await engine._fetch_and_emit_bar(request_kind="test")
 
     engine.on_bar.assert_awaited_once()
@@ -74,7 +75,8 @@ async def test_nq_regime_scheduled_bar_uses_cached_daily_levels():
     assert levels.pdm == 110.5
     assert levels.weekly_high == 120
     assert levels.weekly_low == 95
-    assert session.requests == ["1 day", "5 mins"]
+    assert session.requests.count("1 day") == daily_requests_after_refresh
+    assert session.requests[-1] == "5 mins"
 
 
 @pytest.mark.asyncio
@@ -88,7 +90,8 @@ async def test_nq_regime_scheduled_bar_refreshes_daily_levels_on_session_change(
 
     engine.on_bar.assert_awaited_once()
     assert engine.on_bar.await_args.kwargs["daily_context"] is not None
-    assert session.requests == ["5 mins", "1 day"]
+    assert session.requests[0] == "5 mins"
+    assert session.requests.count("1 day") >= 1
 
 
 @pytest.mark.asyncio

@@ -10,7 +10,8 @@ import pytest
 
 from libs.oms.engine.fill_processor import FillProcessor
 from libs.oms.engine.timeout_monitor import OrderTimeoutMonitor
-from libs.oms.execution.router import ExecutionRouter, OrderPriority
+from libs.oms.execution.router import ExecutionRouter, OrderPriority, QUEUE_TTL_SECONDS
+from libs.oms.engine.state_machine import transition
 from libs.oms.intent.handler import IntentHandler
 from libs.oms.models.instrument import Instrument
 from libs.oms.models.intent import Intent, IntentResult, IntentType, PreapprovedFamilyDecision
@@ -25,6 +26,7 @@ from libs.oms.services.factory import (
     _wire_adapter_callbacks_multi,
 )
 from libs.broker_ibkr.state.cache import IBCache
+from libs.broker_ibkr.throttler import CongestionError
 from libs.risk.account_risk_gate import AccountRiskGate
 
 
@@ -105,9 +107,11 @@ class _BrokenPool:
 
 
 class _AccountGateConn:
-    def __init__(self) -> None:
+    def __init__(self, *, daily_realized: float = 0.0, weekly_realized: float = 0.0) -> None:
         self.locked = False
         self.queries: list[str] = []
+        self.daily_realized = daily_realized
+        self.weekly_realized = weekly_realized
 
     async def execute(self, query, *args):
         if "pg_advisory_xact_lock" in query:
@@ -120,7 +124,9 @@ class _AccountGateConn:
         if "FROM orders" in query:
             return {"pending_entry_risk_dollars": 150.0}
         if "FROM risk_daily_portfolio" in query:
-            return {"total_daily_realized_dollars": 0.0}
+            if "total_weekly_realized_dollars" in query:
+                return {"total_weekly_realized_dollars": self.weekly_realized}
+            return {"total_daily_realized_dollars": self.daily_realized}
         raise AssertionError(query)
 
 
@@ -461,6 +467,77 @@ async def test_account_risk_gate_counts_pending_entry_reservations() -> None:
 
 
 @pytest.mark.asyncio
+async def test_account_risk_gate_subtracts_reserved_queued_order_on_recheck() -> None:
+    gate = AccountRiskGate(MagicMock(), heat_cap_R=2.0, daily_stop_R=3.0, account_urd=200.0)
+    conn = _AccountGateConn()
+
+    decision = await gate.check_entry(
+        "momentum",
+        risk_dollars=100.0,
+        conn=conn,
+        reserved_risk_dollars=150.0,
+    )
+
+    assert decision.approved
+
+
+@pytest.mark.asyncio
+async def test_account_risk_gate_denies_global_standdown_without_db_queries() -> None:
+    gate = AccountRiskGate(
+        MagicMock(),
+        heat_cap_R=2.0,
+        daily_stop_R=3.0,
+        weekly_stop_R=5.0,
+        account_urd=200.0,
+        global_standdown=True,
+    )
+    conn = _AccountGateConn()
+
+    decision = await gate.check_entry("stock", risk_dollars=100.0, conn=conn)
+
+    assert not decision.approved
+    assert decision.reason == "Global stand-down active"
+    assert conn.locked is False
+    assert conn.queries == []
+
+
+@pytest.mark.asyncio
+async def test_account_risk_gate_denies_account_weekly_stop() -> None:
+    gate = AccountRiskGate(
+        MagicMock(),
+        heat_cap_R=99.0,
+        daily_stop_R=3.0,
+        weekly_stop_R=5.0,
+        account_urd=200.0,
+    )
+    conn = _AccountGateConn(weekly_realized=-1_000.0)
+
+    decision = await gate.check_entry("swing", risk_dollars=100.0, conn=conn)
+
+    assert conn.locked is True
+    assert not decision.approved
+    assert "Account weekly stop" in (decision.reason or "")
+    assert "realized -5.00R" in (decision.reason or "")
+
+
+@pytest.mark.asyncio
+async def test_account_risk_gate_skips_disabled_daily_and_weekly_stops() -> None:
+    gate = AccountRiskGate(
+        MagicMock(),
+        heat_cap_R=99.0,
+        daily_stop_R=0.0,
+        weekly_stop_R=0.0,
+        account_urd=200.0,
+    )
+    conn = _AccountGateConn(daily_realized=-10_000.0, weekly_realized=-10_000.0)
+
+    decision = await gate.check_entry("momentum", risk_dollars=100.0, conn=conn)
+
+    assert decision.approved
+    assert not any("risk_daily_portfolio" in query for query in conn.queries)
+
+
+@pytest.mark.asyncio
 async def test_execution_router_queue_expiry_uses_atomic_helper() -> None:
     adapter = MagicMock()
     adapter.is_congested = True
@@ -485,6 +562,581 @@ async def test_execution_router_queue_expiry_uses_atomic_helper() -> None:
     assert order.status == OrderStatus.EXPIRED
     repo.save_order_and_event.assert_awaited_once()
     assert router._queue == []
+
+
+@pytest.mark.asyncio
+async def test_congested_entry_persists_as_queued() -> None:
+    adapter = MagicMock()
+    adapter.is_congested = True
+    adapter.submit_order = AsyncMock()
+    repo = InMemoryRepository()
+    bus = MagicMock()
+    bus.emit_order_event = MagicMock()
+    router = ExecutionRouter(adapter, repo, bus)
+    order = _entry_order("AAPL")
+    order.status = OrderStatus.RISK_APPROVED
+    order.risk_context = RiskContext(
+        stop_for_risk=95.0,
+        planned_entry_price=100.0,
+        risk_dollars=50.0,
+    )
+    await repo.save_order(order)
+
+    await router.route(order)
+
+    persisted = await repo.get_order(order.oms_order_id)
+    assert persisted.status == OrderStatus.QUEUED
+    assert persisted.queued_at is not None
+    assert persisted.queue_priority == int(OrderPriority.NEW_ENTRY)
+    assert persisted.queue_reason == "adapter_congested"
+    assert persisted.queue_expires_at is not None
+    adapter.submit_order.assert_not_awaited()
+    bus.emit_order_event.assert_called_with(order)
+
+
+@pytest.mark.asyncio
+async def test_queued_entry_reserves_pending_risk_and_working_capacity() -> None:
+    repo = InMemoryRepository()
+    order = _entry_order("AMD")
+    order.status = OrderStatus.QUEUED
+    order.risk_context = RiskContext(
+        stop_for_risk=95.0,
+        planned_entry_price=100.0,
+        risk_dollars=125.0,
+    )
+    await repo.save_order(order)
+
+    assert await repo.get_pending_entry_risk_R(25.0) == pytest.approx(5.0)
+    assert await repo.count_working_orders(order.strategy_id) == 1
+
+
+@pytest.mark.asyncio
+async def test_queued_entry_expires_from_repository_queue() -> None:
+    adapter = MagicMock()
+    adapter.is_congested = True
+    repo = InMemoryRepository()
+    bus = MagicMock()
+    bus.emit_order_event = MagicMock()
+    router = ExecutionRouter(adapter, repo, bus)
+    order = _entry_order("TSLA")
+    order.status = OrderStatus.RISK_APPROVED
+    await repo.save_order(order)
+    queued_at = datetime.now(timezone.utc) - timedelta(seconds=QUEUE_TTL_SECONDS + 1)
+    await repo.mark_order_queued(
+        order.oms_order_id,
+        int(OrderPriority.NEW_ENTRY),
+        "adapter_congested",
+        queued_at,
+        queued_at + timedelta(seconds=QUEUE_TTL_SECONDS),
+    )
+
+    await router._expire_stale_queued_orders()
+
+    persisted = await repo.get_order(order.oms_order_id)
+    assert persisted.status == OrderStatus.EXPIRED
+    assert persisted.queue_denial_reason == "queue TTL expired"
+    bus.emit_order_event.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_queued_entry_re_risk_denial_blocks_submit() -> None:
+    adapter = MagicMock()
+    adapter.is_congested = False
+    adapter.submit_order = AsyncMock()
+    repo = InMemoryRepository()
+    bus = MagicMock()
+    bus.emit_order_event = MagicMock()
+    bus.emit_risk_denial = MagicMock()
+
+    async def deny(_order, conn=None):
+        return "Global stand-down active"
+
+    router = ExecutionRouter(adapter, repo, bus, pre_submit_recheck=deny)
+    order = _entry_order("NVDA")
+    order.status = OrderStatus.RISK_APPROVED
+    await repo.save_order(order)
+    await repo.mark_order_queued(
+        order.oms_order_id,
+        int(OrderPriority.NEW_ENTRY),
+        "adapter_congested",
+        datetime.now(timezone.utc),
+        datetime.now(timezone.utc) + timedelta(seconds=QUEUE_TTL_SECONDS),
+    )
+
+    await router.drain_queue()
+
+    persisted = await repo.get_order(order.oms_order_id)
+    assert persisted.status == OrderStatus.REJECTED
+    assert persisted.reject_reason == "Global stand-down active"
+    adapter.submit_order.assert_not_awaited()
+    bus.emit_risk_denial.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_queued_entry_submit_preserves_audit_and_clears_claim() -> None:
+    adapter = MagicMock()
+    adapter.is_congested = False
+    adapter.submit_order = AsyncMock(
+        return_value=SimpleNamespace(broker_order_id=404, perm_id=505)
+    )
+    repo = InMemoryRepository()
+    router = ExecutionRouter(adapter, repo, pre_submit_recheck=AsyncMock(return_value=None))
+    order = _entry_order("META")
+    order.status = OrderStatus.RISK_APPROVED
+    await repo.save_order(order)
+    queued_at = datetime.now(timezone.utc)
+    await repo.mark_order_queued(
+        order.oms_order_id,
+        int(OrderPriority.NEW_ENTRY),
+        "adapter_congested",
+        queued_at,
+        queued_at + timedelta(seconds=QUEUE_TTL_SECONDS),
+    )
+
+    await router.drain_queue()
+
+    persisted = await repo.get_order(order.oms_order_id)
+    assert persisted.status == OrderStatus.ROUTED
+    assert persisted.queued_at == queued_at
+    assert persisted.dequeued_at is not None
+    assert persisted.queue_claimed_by == ""
+    assert persisted.queue_claimed_at is None
+    assert persisted.queue_claim_expires_at is None
+    adapter.submit_order.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_persisted_queue_drain_keeps_order_claimed_until_broker_ref_is_saved() -> None:
+    repo = InMemoryRepository()
+    order = _entry_order("IBM")
+    order.status = OrderStatus.RISK_APPROVED
+    await repo.save_order(order)
+    queued_at = datetime.now(timezone.utc)
+    await repo.mark_order_queued(
+        order.oms_order_id,
+        int(OrderPriority.NEW_ENTRY),
+        "adapter_congested",
+        queued_at,
+        queued_at + timedelta(seconds=QUEUE_TTL_SECONDS),
+    )
+
+    async def submit_order(**kwargs):
+        during_submit = await repo.get_order(kwargs["oms_order_id"])
+        assert during_submit.status is OrderStatus.QUEUED
+        assert during_submit.queue_claimed_by == "crash-safe-router"
+        assert during_submit.broker_order_id is None
+        return SimpleNamespace(broker_order_id=606, perm_id=707)
+
+    adapter = MagicMock()
+    adapter.is_congested = False
+    adapter.submit_order = AsyncMock(side_effect=submit_order)
+    router = ExecutionRouter(adapter, repo, claimant_id="crash-safe-router")
+
+    await router.drain_queue()
+
+    persisted = await repo.get_order(order.oms_order_id)
+    assert persisted.status is OrderStatus.ROUTED
+    assert persisted.broker_order_id == 606
+    assert persisted.queue_claimed_by == ""
+
+
+@pytest.mark.asyncio
+async def test_submit_inflight_queue_claim_cannot_be_stolen_or_expired_before_recovery() -> None:
+    repo = InMemoryRepository()
+    order = _entry_order("ORCL")
+    order.status = OrderStatus.RISK_APPROVED
+    await repo.save_order(order)
+    queued_at = datetime.now(timezone.utc)
+    await repo.mark_order_queued(
+        order.oms_order_id,
+        int(OrderPriority.NEW_ENTRY),
+        "adapter_congested",
+        queued_at,
+        queued_at + timedelta(seconds=QUEUE_TTL_SECONDS),
+    )
+    claimed = await repo.claim_queued_orders(
+        limit=1,
+        claimant_id="worker-a",
+        now=queued_at,
+    )
+    assert claimed
+    started = await repo.mark_queued_order_submit_started(
+        order.oms_order_id,
+        "worker-a",
+        queued_at,
+    )
+    assert started is not None
+    assert started.status is OrderStatus.QUEUED
+    assert started.submitted_at is not None
+
+    after_claim_ttl = queued_at + timedelta(seconds=31)
+    stolen = await repo.claim_queued_orders(
+        limit=1,
+        claimant_id="worker-b",
+        now=after_claim_ttl,
+    )
+    assert stolen == []
+
+    expired = await repo.expire_due_queued_orders(
+        queued_at + timedelta(seconds=QUEUE_TTL_SECONDS + 1)
+    )
+    assert expired == []
+    during_submit = await repo.get_order(order.oms_order_id)
+    assert during_submit.status is OrderStatus.QUEUED
+    assert during_submit.queue_claimed_by == "worker-a"
+    assert during_submit.submitted_at is not None
+
+    during_submit.queue_claim_expires_at = queued_at - timedelta(seconds=1)
+    adapter = MagicMock()
+    adapter.is_congested = False
+    adapter.request_open_orders = AsyncMock(
+        return_value=[
+            SimpleNamespace(
+                order_ref=order.client_order_id,
+                broker_order_id=6060,
+                perm_id=7070,
+            )
+        ]
+    )
+    adapter.submit_order = AsyncMock()
+    router = ExecutionRouter(adapter, repo, claimant_id="worker-b")
+
+    await router.drain_queue()
+
+    recovered = await repo.get_order(order.oms_order_id)
+    assert recovered.status is OrderStatus.ROUTED
+    assert recovered.broker_order_id == 6060
+    assert recovered.queue_claimed_by == ""
+    adapter.submit_order.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_submit_inflight_recovery_stays_pending_when_broker_snapshot_unavailable() -> None:
+    repo = InMemoryRepository()
+    order = _entry_order("SAP")
+    order.status = OrderStatus.RISK_APPROVED
+    await repo.save_order(order)
+    queued_at = datetime.now(timezone.utc)
+    await repo.mark_order_queued(
+        order.oms_order_id,
+        int(OrderPriority.NEW_ENTRY),
+        "adapter_congested",
+        queued_at,
+        queued_at + timedelta(seconds=QUEUE_TTL_SECONDS),
+    )
+    claimed = await repo.claim_queued_orders(
+        limit=1,
+        claimant_id="worker-a",
+        now=queued_at,
+    )
+    assert claimed
+    started = await repo.mark_queued_order_submit_started(
+        order.oms_order_id,
+        "worker-a",
+        queued_at,
+    )
+    assert started is not None
+    started.queue_claim_expires_at = queued_at - timedelta(seconds=1)
+
+    adapter = MagicMock()
+    adapter.is_congested = False
+    adapter.request_open_orders = AsyncMock(side_effect=RuntimeError("IB snapshot down"))
+    adapter.submit_order = AsyncMock()
+    router = ExecutionRouter(adapter, repo, claimant_id="worker-b")
+
+    await router.drain_queue()
+
+    pending = await repo.get_order(order.oms_order_id)
+    assert pending.status is OrderStatus.QUEUED
+    assert pending.broker_order_id is None
+    assert pending.submitted_at == queued_at
+    assert pending.reject_reason == ""
+    assert pending.queue_claimed_by == "worker-b"
+    adapter.request_open_orders.assert_awaited_once()
+    adapter.submit_order.assert_not_awaited()
+
+    pending.queue_claim_expires_at = queued_at - timedelta(seconds=1)
+    adapter.request_open_orders = AsyncMock(
+        return_value=[
+            SimpleNamespace(
+                order_ref=order.client_order_id,
+                broker_order_id=5151,
+                perm_id=6161,
+            )
+        ]
+    )
+    await router.drain_queue()
+
+    recovered = await repo.get_order(order.oms_order_id)
+    assert recovered.status is OrderStatus.ROUTED
+    assert recovered.broker_order_id == 5151
+    assert recovered.reject_reason == ""
+    adapter.submit_order.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_inflight_dequeued_order_recovers_after_restart_and_submits_once() -> None:
+    repo = InMemoryRepository()
+    order = _entry_order("ADBE")
+    order.status = OrderStatus.RISK_APPROVED
+    await repo.save_order(order)
+    queued_at = datetime.now(timezone.utc)
+    await repo.mark_order_queued(
+        order.oms_order_id,
+        int(OrderPriority.NEW_ENTRY),
+        "adapter_congested",
+        queued_at,
+        queued_at + timedelta(seconds=QUEUE_TTL_SECONDS),
+    )
+    claimed = await repo.claim_queued_orders(
+        limit=1,
+        claimant_id="before-crash",
+        now=datetime.now(timezone.utc),
+    )
+    assert claimed
+    await repo.mark_queued_order_dequeued(
+        order.oms_order_id,
+        "before-crash",
+        datetime.now(timezone.utc),
+    )
+
+    adapter = MagicMock()
+    adapter.is_congested = False
+    adapter.request_open_orders = AsyncMock(return_value=[])
+    adapter.submit_order = AsyncMock(
+        return_value=SimpleNamespace(broker_order_id=808, perm_id=909)
+    )
+    router = ExecutionRouter(adapter, repo, claimant_id="after-crash")
+
+    await router.drain_queue()
+
+    persisted = await repo.get_order(order.oms_order_id)
+    assert persisted.status is OrderStatus.ROUTED
+    assert persisted.broker_order_id == 808
+    adapter.submit_order.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_inflight_routed_without_broker_id_recovers_matching_broker_ref_without_resubmit() -> None:
+    repo = InMemoryRepository()
+    order = _entry_order("INTC")
+    order.status = OrderStatus.RISK_APPROVED
+    await repo.save_order(order)
+    queued_at = datetime.now(timezone.utc)
+    await repo.mark_order_queued(
+        order.oms_order_id,
+        int(OrderPriority.NEW_ENTRY),
+        "adapter_congested",
+        queued_at,
+        queued_at + timedelta(seconds=QUEUE_TTL_SECONDS),
+    )
+    order.status = OrderStatus.ROUTED
+    order.dequeued_at = datetime.now(timezone.utc)
+    order.submitted_at = order.dequeued_at
+    order.broker_order_id = None
+    order.perm_id = None
+    await repo.save_order(order)
+
+    adapter = MagicMock()
+    adapter.is_congested = False
+    adapter.request_open_orders = AsyncMock(
+        return_value=[
+            SimpleNamespace(
+                order_ref=order.client_order_id,
+                broker_order_id=1001,
+                perm_id=1002,
+            )
+        ]
+    )
+    adapter.submit_order = AsyncMock()
+    router = ExecutionRouter(adapter, repo, claimant_id="after-crash")
+
+    await router.drain_queue()
+
+    persisted = await repo.get_order(order.oms_order_id)
+    assert persisted.status is OrderStatus.ROUTED
+    assert persisted.broker_order_id == 1001
+    assert persisted.perm_id == 1002
+    adapter.submit_order.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_inflight_routed_without_broker_ref_rejects_instead_of_duplicate_submit() -> None:
+    repo = InMemoryRepository()
+    order = _entry_order("CSCO")
+    order.status = OrderStatus.RISK_APPROVED
+    await repo.save_order(order)
+    queued_at = datetime.now(timezone.utc)
+    await repo.mark_order_queued(
+        order.oms_order_id,
+        int(OrderPriority.NEW_ENTRY),
+        "adapter_congested",
+        queued_at,
+        queued_at + timedelta(seconds=QUEUE_TTL_SECONDS),
+    )
+    order.status = OrderStatus.ROUTED
+    order.dequeued_at = datetime.now(timezone.utc)
+    order.submitted_at = order.dequeued_at
+    order.broker_order_id = None
+    await repo.save_order(order)
+
+    adapter = MagicMock()
+    adapter.is_congested = False
+    adapter.request_open_orders = AsyncMock(return_value=[])
+    adapter.submit_order = AsyncMock()
+    router = ExecutionRouter(adapter, repo, claimant_id="after-crash")
+
+    await router.drain_queue()
+
+    persisted = await repo.get_order(order.oms_order_id)
+    assert persisted.status is OrderStatus.REJECTED
+    assert "avoid duplicate submit" in persisted.reject_reason
+    adapter.submit_order.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_duplicate_drain_workers_submit_claimed_order_once() -> None:
+    adapter = MagicMock()
+    adapter.is_congested = False
+    adapter.submit_order = AsyncMock(
+        return_value=SimpleNamespace(broker_order_id=707, perm_id=808)
+    )
+    repo = InMemoryRepository()
+    order = _entry_order("MSFT")
+    order.status = OrderStatus.RISK_APPROVED
+    await repo.save_order(order)
+    now = datetime.now(timezone.utc)
+    await repo.mark_order_queued(
+        order.oms_order_id,
+        int(OrderPriority.NEW_ENTRY),
+        "adapter_congested",
+        now,
+        now + timedelta(seconds=QUEUE_TTL_SECONDS),
+    )
+    router_a = ExecutionRouter(adapter, repo, claimant_id="worker-a")
+    router_b = ExecutionRouter(adapter, repo, claimant_id="worker-b")
+
+    await asyncio.gather(router_a.drain_queue(), router_b.drain_queue())
+
+    adapter.submit_order.assert_awaited_once()
+    persisted = await repo.get_order(order.oms_order_id)
+    assert persisted.status == OrderStatus.ROUTED
+
+
+@pytest.mark.asyncio
+async def test_queued_submit_failure_does_not_emit_submitted_audit() -> None:
+    adapter = MagicMock()
+    adapter.is_congested = False
+    adapter.submit_order = AsyncMock(side_effect=RuntimeError("submit exploded"))
+    repo = InMemoryRepository()
+    router = ExecutionRouter(adapter, repo, pre_submit_recheck=AsyncMock(return_value=None))
+    order = _entry_order("SHOP")
+    order.status = OrderStatus.RISK_APPROVED
+    await repo.save_order(order)
+    queued_at = datetime.now(timezone.utc)
+    await repo.mark_order_queued(
+        order.oms_order_id,
+        int(OrderPriority.NEW_ENTRY),
+        "adapter_congested",
+        queued_at,
+        queued_at + timedelta(seconds=QUEUE_TTL_SECONDS),
+    )
+
+    await router.drain_queue()
+
+    persisted = await repo.get_order(order.oms_order_id)
+    assert persisted.status == OrderStatus.REJECTED
+    assert persisted.reject_reason == "submit exploded"
+    assert "QUEUED_ORDER_SUBMITTED" not in [
+        event["event_type"] for event in repo._events
+    ]
+
+
+@pytest.mark.asyncio
+async def test_retryable_submit_congestion_requeues_entry() -> None:
+    adapter = MagicMock()
+    adapter.is_congested = False
+    adapter.submit_order = AsyncMock(side_effect=CongestionError("orders congested"))
+    repo = InMemoryRepository()
+    router = ExecutionRouter(adapter, repo)
+    order = _entry_order("CRM")
+    order.status = OrderStatus.RISK_APPROVED
+    await repo.save_order(order)
+
+    submitted = await router._submit_to_adapter(order)
+
+    persisted = await repo.get_order(order.oms_order_id)
+    assert submitted is False
+    assert persisted.status == OrderStatus.QUEUED
+    assert persisted.submitted_at is None
+    assert persisted.queue_reason == "adapter_congested_retry"
+    assert [event["event_type"] for event in repo._events] == [
+        "BROKER_SUBMIT_CONGESTED",
+        "ORDER_QUEUED",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_router_stop_releases_owned_queue_claims() -> None:
+    adapter = MagicMock()
+    adapter.is_congested = False
+    repo = InMemoryRepository()
+    order = _entry_order("ORCL")
+    order.status = OrderStatus.RISK_APPROVED
+    await repo.save_order(order)
+    queued_at = datetime.now(timezone.utc)
+    await repo.mark_order_queued(
+        order.oms_order_id,
+        int(OrderPriority.NEW_ENTRY),
+        "adapter_congested",
+        queued_at,
+        queued_at + timedelta(seconds=QUEUE_TTL_SECONDS),
+    )
+    claimed = await repo.claim_queued_orders(
+        limit=1,
+        claimant_id="router-a",
+        now=datetime.now(timezone.utc),
+    )
+    assert claimed[0].queue_claimed_by == "router-a"
+
+    await ExecutionRouter(adapter, repo, claimant_id="router-a").stop()
+
+    persisted = await repo.get_order(order.oms_order_id)
+    assert persisted.queue_claimed_by == ""
+    assert persisted.queue_claimed_at is None
+    assert persisted.queue_claim_expires_at is None
+
+
+@pytest.mark.asyncio
+async def test_protective_exit_bypasses_entry_queue_and_recheck() -> None:
+    adapter = MagicMock()
+    adapter.is_congested = True
+    adapter.submit_order = AsyncMock(
+        return_value=SimpleNamespace(broker_order_id=909, perm_id=1001)
+    )
+    repo = InMemoryRepository()
+    recheck = AsyncMock(return_value="should not run")
+    router = ExecutionRouter(adapter, repo, pre_submit_recheck=recheck)
+    order = _entry_order("SPY")
+    order.role = OrderRole.EXIT
+    order.status = OrderStatus.RISK_APPROVED
+    await repo.save_order(order)
+
+    await router.route(order)
+
+    persisted = await repo.get_order(order.oms_order_id)
+    assert persisted.status == OrderStatus.ROUTED
+    adapter.submit_order.assert_awaited_once()
+    recheck.assert_not_awaited()
+
+
+def test_order_state_machine_allows_queue_lifecycle_not_direct_fill() -> None:
+    order = _entry_order("QQQ")
+    order.status = OrderStatus.RISK_APPROVED
+
+    assert transition(order, OrderStatus.QUEUED)
+    assert not transition(order, OrderStatus.FILLED)
+    assert transition(order, OrderStatus.RISK_APPROVED)
 
 
 @pytest.mark.asyncio

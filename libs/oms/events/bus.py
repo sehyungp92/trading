@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 _STATUS_TO_EVENT: dict[OrderStatus, OMSEventType] = {
     OrderStatus.CREATED: OMSEventType.ORDER_CREATED,
     OrderStatus.RISK_APPROVED: OMSEventType.ORDER_RISK_APPROVED,
+    OrderStatus.QUEUED: OMSEventType.ORDER_QUEUED,
     OrderStatus.ROUTED: OMSEventType.ORDER_ROUTED,
     OrderStatus.ACKED: OMSEventType.ORDER_ACKED,
     OrderStatus.WORKING: OMSEventType.ORDER_WORKING,
@@ -89,6 +90,17 @@ class EventBus:
                 "side": order.side.value,
                 "order_type": order.order_type.value,
                 "role": order.role.value,
+                "queued_at": order.queued_at.isoformat() if order.queued_at else None,
+                "queue_reason": order.queue_reason,
+                "queue_priority": order.queue_priority,
+                "queue_attempt": order.queue_attempt,
+                "queue_expires_at": (
+                    order.queue_expires_at.isoformat()
+                    if order.queue_expires_at
+                    else None
+                ),
+                "dequeued_at": order.dequeued_at.isoformat() if order.dequeued_at else None,
+                "queue_denial_reason": order.queue_denial_reason,
             },
         )
         self._dispatch(event)

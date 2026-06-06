@@ -24,6 +24,17 @@ class ReconcilerSync:
         self._policy = policy
 
     @staticmethod
+    def _order_details(order: OrderStatusEvent, order_ref: str) -> dict:
+        return {
+            "order": order,
+            "broker_order_id": order.broker_order_id,
+            "perm_id": order.perm_id,
+            "order_ref": order_ref,
+            "account": getattr(order, "account", "") or "",
+            "client_id": getattr(order, "client_id", None),
+        }
+
+    @staticmethod
     def _int_or_none(value: object) -> int | None:
         if value in (None, ""):
             return None
@@ -38,6 +49,9 @@ class ReconcilerSync:
         oms_working_ids: set[int],
         known_order_refs: dict[str, str] | None = None,
         our_client_id_pattern: str = "",
+        managed_account_id: str = "",
+        managed_client_id: int | None = None,
+        owned_order_ref_prefixes: tuple[str, ...] = (),
     ) -> list[Discrepancy]:
         """Compare broker open orders vs OMS working orders."""
         discrepancies = []
@@ -58,6 +72,28 @@ class ReconcilerSync:
             broker_order_id = self._int_or_none(bo.broker_order_id)
             if broker_order_id not in oms_working_ids:
                 order_ref = (getattr(bo, "order_ref", "") or "").strip()
+                account = (getattr(bo, "account", "") or "").strip()
+                client_id = self._int_or_none(getattr(bo, "client_id", None))
+                details = self._order_details(bo, order_ref)
+                details["broker_order_id"] = broker_order_id
+                details["client_id"] = client_id
+
+                if managed_account_id and account and account != managed_account_id:
+                    details["managed_account_id"] = managed_account_id
+                    details["scope_mismatch"] = "account"
+                    discrepancies.append(
+                        Discrepancy("foreign_order", DiscrepancyAction.HALT_AND_ALERT, details)
+                    )
+                    continue
+
+                if managed_client_id is not None and client_id is not None and client_id != managed_client_id:
+                    details["managed_client_id"] = managed_client_id
+                    details["scope_mismatch"] = "client_id"
+                    discrepancies.append(
+                        Discrepancy("foreign_order", DiscrepancyAction.HALT_AND_ALERT, details)
+                    )
+                    continue
+
                 if order_ref and order_ref in known_order_refs:
                     discrepancies.append(
                         Discrepancy(
@@ -71,12 +107,17 @@ class ReconcilerSync:
                         )
                     )
                     continue
+                if owned_order_ref_prefixes and order_ref and not order_ref.startswith(owned_order_ref_prefixes):
+                    details["owned_order_ref_prefixes"] = list(owned_order_ref_prefixes)
+                    details["scope_mismatch"] = "order_ref_prefix"
+                    discrepancies.append(
+                        Discrepancy("foreign_order", DiscrepancyAction.HALT_AND_ALERT, details)
+                    )
+                    continue
                 if not order_ref:
                     action = self._policy.unknown_order_orphan
-                    details = {"order": bo, "order_ref": ""}
                 else:
                     action = self._policy.unknown_order_with_our_tag
-                    details = {"order": bo, "order_ref": order_ref}
                 discrepancies.append(
                     Discrepancy("unknown_order", action, details)
                 )

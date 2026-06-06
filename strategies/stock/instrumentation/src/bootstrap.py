@@ -439,6 +439,7 @@ class InstrumentationManager:
                 self.sidecar.validate_configuration(strict=False)
                 self.sidecar.start()
             except Exception as exc:
+                self._sidecar_forwarding_enabled = False
                 logger.critical(
                     "Sidecar failed to start: %s - strategy will continue trading "
                     "WITHOUT event forwarding. Fix relay configuration ASAP.",

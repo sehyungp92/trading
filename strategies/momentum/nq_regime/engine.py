@@ -757,15 +757,15 @@ class NQRegimeEngine:
                 concurrent_positions=1,
                 exchange_timestamp=fill.fill_time,
                 **fill_runtime_refs(
-                    fill.oms_order_id,
+                    getattr(fill, "oms_order_id", ""),
                     {
-                        "fill_id": fill.fill_id,
-                        "qty": fill.fill_qty,
-                        "intent_id": fill.intent_id,
-                        "risk_decision_ref": fill.risk_decision_ref,
-                        "portfolio_decision_ref": fill.portfolio_decision_ref,
+                        "fill_id": getattr(fill, "fill_id", ""),
+                        "qty": getattr(fill, "fill_qty", 0),
+                        "intent_id": getattr(fill, "intent_id", ""),
+                        "risk_decision_ref": getattr(fill, "risk_decision_ref", ""),
+                        "portfolio_decision_ref": getattr(fill, "portfolio_decision_ref", ""),
                     },
-                    fill_qty=fill.fill_qty,
+                    fill_qty=getattr(fill, "fill_qty", 0),
                 ),
             )
             # Reset tracking
@@ -789,15 +789,15 @@ class NQRegimeEngine:
                 mfe_r=self._mfe_r,
                 mae_r=self._mae_r,
                 **fill_runtime_refs(
-                    fill.oms_order_id,
+                    getattr(fill, "oms_order_id", ""),
                     {
-                        "fill_id": fill.fill_id,
-                        "qty": fill.fill_qty,
-                        "intent_id": fill.intent_id,
-                        "risk_decision_ref": fill.risk_decision_ref,
-                        "portfolio_decision_ref": fill.portfolio_decision_ref,
+                        "fill_id": getattr(fill, "fill_id", ""),
+                        "qty": getattr(fill, "fill_qty", 0),
+                        "intent_id": getattr(fill, "intent_id", ""),
+                        "risk_decision_ref": getattr(fill, "risk_decision_ref", ""),
+                        "portfolio_decision_ref": getattr(fill, "portfolio_decision_ref", ""),
                     },
-                    fill_qty=fill.fill_qty,
+                    fill_qty=getattr(fill, "fill_qty", 0),
                     is_exit=True,
                 ),
             )

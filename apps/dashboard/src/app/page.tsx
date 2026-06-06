@@ -67,12 +67,26 @@ export default function Dashboard() {
       setServerTime(data.serverTime);
     } else {
       // Fallback to defaults on error
-      setPortfolio(p => p ?? { daily_realized_r: 0, daily_realized_usd: 0, portfolio_open_risk_r: 0, unrealized_pnl: 0, halted: false, halt_reason: null, heat_r: 0 });
+      setPortfolio(p => p ?? {
+        daily_realized_r: 0,
+        daily_realized_usd: 0,
+        portfolio_open_risk_r: 0,
+        unrealized_pnl: 0,
+        halted: false,
+        halt_reason: null,
+        heat_r: 0,
+        heat_cap_R: null,
+        portfolio_daily_stop_R: null,
+        portfolio_weekly_stop_R: null,
+        global_standdown: null,
+        active_config_status: 'missing',
+        active_config_warnings: ['missing account active config'],
+      });
       setStrategies(s => s ?? []);
       setPositions(p => p ?? []);
       setTrades(t => t ?? []);
       setOrders(o => o ?? []);
-      setHealth(h => h ?? { strategies: [], adapters: [], halts: [] });
+      setHealth(h => h ?? { strategies: [], adapters: [], halts: [], evidence: null });
       setSystemPnl(sp => sp ?? []);
     }
 
@@ -150,9 +164,15 @@ export default function Dashboard() {
                 ? 'text-green-300 border-green-700 bg-green-950/50 animate-pulse'
                 : envData.mode === 'paper'
                 ? 'text-amber-300 border-amber-700 bg-amber-950/40'
+                : envData.mode === 'backtest'
+                ? 'text-blue-300 border-blue-700 bg-blue-950/40'
                 : 'text-gray-500 border-gray-700 bg-gray-900/40'
             )}>
-              {envData.mode === 'live' ? '\u25cf LIVE' : envData.mode === 'paper' ? '\u25c6 PAPER' : 'DEV'}
+              {envData.mode === 'live'
+                ? '\u25cf LIVE'
+                : envData.mode === 'paper'
+                ? '\u25c6 PAPER'
+                : envData.mode.toUpperCase()}
             </span>
           )}
           {envData?.account_id && (

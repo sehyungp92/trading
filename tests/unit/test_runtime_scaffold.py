@@ -152,7 +152,16 @@ def test_runtime_preflight_accepts_live_account_and_port(monkeypatch) -> None:
 
 
 def test_trading_assistant_momentum_membership_is_current() -> None:
-    path = CONFIG_DIR.parent / "_references" / "trading_assistant" / "data" / "bot_configs" / "momentum_trader.yaml"
+    path = (
+        CONFIG_DIR.parent
+        / "_references"
+        / "trading_assistant_agent"
+        / "packages"
+        / "trading_assistant"
+        / "data"
+        / "bot_configs"
+        / "momentum_nq_01.yaml"
+    )
     cfg = yaml.safe_load(path.read_text(encoding="utf-8"))
 
     assert "NQ_REGIME" in cfg["strategies"]
@@ -167,7 +176,16 @@ def test_trading_assistant_momentum_membership_is_current() -> None:
 
 
 def test_trading_assistant_stock_membership_is_current() -> None:
-    path = CONFIG_DIR.parent / "_references" / "trading_assistant" / "data" / "bot_configs" / "stock_trader.yaml"
+    path = (
+        CONFIG_DIR.parent
+        / "_references"
+        / "trading_assistant_agent"
+        / "packages"
+        / "trading_assistant"
+        / "data"
+        / "bot_configs"
+        / "stock_trader.yaml"
+    )
     cfg = yaml.safe_load(path.read_text(encoding="utf-8"))
 
     assert "IARIC_v1" in cfg["strategies"]

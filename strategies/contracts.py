@@ -33,6 +33,7 @@ class RuntimeContext:
     trade_recorder: Any = None
     heartbeat: Any = None
     runtime_overrides: Any = None
+    require_instrumentation: bool = False
 
 
 @dataclass(slots=True)

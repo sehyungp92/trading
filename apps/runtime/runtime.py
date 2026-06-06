@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from libs.broker_ibkr.session import UnifiedIBSession
 from libs.config.capital_allocation import resolve_strategy_capital_allocation
@@ -23,6 +24,12 @@ from libs.config.loader import (
 )
 from libs.config.registry import build_registry_artifact
 from libs.oms.persistence.db_config import get_environment
+from libs.runtime.active_config import (
+    ActiveRuntimeConfigRecord,
+    active_config_expiry,
+    build_account_runtime_config,
+    upsert_active_runtime_config,
+)
 from strategies.contracts import RuntimeContext
 from strategies.stock.readiness import validate_stock_readiness
 
@@ -38,6 +45,7 @@ _FAMILY_COORDINATORS: dict[str, str] = {
 _PAPER_PORTS = {4002, 7497}
 _LIVE_PORTS = {4001, 7496}
 _ACCOUNT_PLACEHOLDER_TOKENS = ("PLACEHOLDER", "YOUR_ACCOUNT", "CHANGEME")
+_WORKSPACE_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def _ib_mode_port_mismatch(runtime_env: str, port: int) -> bool:
@@ -296,6 +304,7 @@ class RuntimeShell:
         self,
         connect_ib: bool,
         families: set[str],
+        require_instrumentation: bool = False,
     ) -> list[PreflightCheck]:
         """Run async preflight checks before heavy startup.
 
@@ -303,7 +312,7 @@ class RuntimeShell:
           1a. Coordinator imports (CRITICAL)
           1b. Database connectivity (CRITICAL in paper/live)
           1c. IB Gateway reachability (CRITICAL when connect_ib=True)
-          1d. Instrumentation config parsability (WARNING only)
+          1d. Instrumentation config/evidence path readiness
         """
         checks: list[PreflightCheck] = []
 
@@ -403,31 +412,113 @@ class RuntimeShell:
                         detail=f"IB Gateway unreachable at {host}:{port}: {exc}",
                     ))
 
-        # 1d. Instrumentation config parsability (WARNING only)
+        # 1d. Instrumentation config/evidence path readiness
         for family in sorted(families):
             config_path = (
-                Path(__file__).resolve().parent.parent.parent
-                / "strategies" / family / "instrumentation" / "config" / "instrumentation_config.yaml"
+                _WORKSPACE_ROOT / "strategies" / family / "instrumentation" / "config" / "instrumentation_config.yaml"
             )
             if not config_path.exists():
-                continue  # missing is OK -- strategies use defaults
+                checks.append(PreflightCheck(
+                    name=f"instr-config:{family}",
+                    ok=not require_instrumentation,
+                    detail=(
+                        f"{config_path} missing"
+                        if require_instrumentation
+                        else "Instrumentation config missing; strategies will use defaults"
+                    ),
+                ))
+                continue
             try:
                 import yaml
-                with open(config_path) as f:
-                    yaml.safe_load(f)
+                with open(config_path, encoding="utf-8") as f:
+                    config = yaml.safe_load(f) or {}
                 checks.append(PreflightCheck(
                     name=f"instr-config:{family}",
                     ok=True,
                     detail="Instrumentation config parsed OK",
                 ))
+                checks.extend(
+                    self._instrumentation_readiness_checks(
+                        family,
+                        config,
+                        require_instrumentation=require_instrumentation,
+                    )
+                )
             except Exception as exc:
                 checks.append(PreflightCheck(
                     name=f"instr-config:{family}",
-                    ok=True,  # WARNING only, don't block startup
-                    detail=f"Instrumentation config parse error (non-fatal): {exc}",
+                    ok=not require_instrumentation,
+                    detail=(
+                        f"Instrumentation config parse error"
+                        f"{' (fatal with required instrumentation)' if require_instrumentation else ' (non-fatal)'}: {exc}"
+                    ),
                 ))
                 logger.warning("Instrumentation config for %s unparseable: %s", family, exc)
 
+        return checks
+
+    def _instrumentation_readiness_checks(
+        self,
+        family: str,
+        config: dict[str, Any],
+        *,
+        require_instrumentation: bool,
+    ) -> list[PreflightCheck]:
+        sidecar = config.get("sidecar") if isinstance(config.get("sidecar"), dict) else {}
+        relay_url = os.environ.get("INSTRUMENTATION_RELAY_URL") or str(
+            sidecar.get("relay_url") or ""
+        ).strip()
+        parsed = urlparse(relay_url)
+        relay_ok = bool(parsed.scheme in {"http", "https"} and parsed.netloc)
+
+        hmac_env = str(sidecar.get("hmac_secret_env") or "INSTRUMENTATION_HMAC_SECRET").strip()
+        hmac_secret = os.environ.get(hmac_env, "")
+
+        checks = [
+            PreflightCheck(
+                name=f"instrumentation-relay:{family}",
+                ok=relay_ok or not require_instrumentation,
+                detail=(
+                    f"Relay URL configured: {relay_url}"
+                    if relay_ok
+                    else f"Valid sidecar relay_url is required for {family}"
+                ),
+            ),
+            PreflightCheck(
+                name=f"instrumentation-hmac:{family}",
+                ok=bool(hmac_secret.strip()) or not require_instrumentation,
+                detail=(
+                    f"{hmac_env} configured"
+                    if hmac_secret.strip()
+                    else f"{hmac_env} is required when paper/live instrumentation is required"
+                ),
+            ),
+        ]
+
+        for check_name, raw_path in (
+            ("instrumentation-data-dir", config.get("data_dir")),
+            ("instrumentation-buffer-dir", sidecar.get("buffer_dir")),
+        ):
+            if not raw_path:
+                checks.append(PreflightCheck(
+                    name=f"{check_name}:{family}",
+                    ok=not require_instrumentation,
+                    detail=f"{check_name} missing from instrumentation config",
+                ))
+                continue
+            path = Path(str(raw_path))
+            if not path.is_absolute():
+                path = _WORKSPACE_ROOT / path
+            parent = path if path.exists() else path.parent
+            checks.append(PreflightCheck(
+                name=f"{check_name}:{family}",
+                ok=(parent.exists() and os.access(parent, os.W_OK)) or not require_instrumentation,
+                detail=(
+                    f"{path} parent writable"
+                    if parent.exists() and os.access(parent, os.W_OK)
+                    else f"{path} parent missing or not writable"
+                ),
+            ))
         return checks
 
     async def run(
@@ -438,6 +529,7 @@ class RuntimeShell:
         family_filter: str | None = None,
         allow_no_db: bool = False,
         allow_partial_families: bool = False,
+        allow_no_instrumentation: bool = False,
     ) -> None:
         self.load()
         self._require_loaded()
@@ -461,6 +553,11 @@ class RuntimeShell:
                 raise RuntimeError(f"No enabled strategies for family={family_filter!r}")
             logger.info("Family filter active: running %d strategies for '%s'", len(enabled), family_filter)
 
+        require_instrumentation = (
+            runtime_env in {"paper", "live"}
+            and not allow_no_instrumentation
+        )
+
         # ------------------------------------------------------------------
         # 1. Async preflight (fail-fast before heavy startup)
         # ------------------------------------------------------------------
@@ -468,6 +565,7 @@ class RuntimeShell:
         checks = await self._run_async_preflight(
             connect_ib=connect_ib,
             families=enabled_families,
+            require_instrumentation=require_instrumentation,
         )
         for c in checks:
             lvl = logging.INFO if c.ok else logging.WARNING
@@ -485,6 +583,14 @@ class RuntimeShell:
             critical_prefixes.update({
                 "stock-account-config",
                 "stock-artifact-readiness",
+            })
+        if require_instrumentation:
+            critical_prefixes.update({
+                "instr-config",
+                "instrumentation-relay",
+                "instrumentation-hmac",
+                "instrumentation-data-dir",
+                "instrumentation-buffer-dir",
             })
 
         critical_failures = [
@@ -556,14 +662,47 @@ class RuntimeShell:
                     db_pool,
                     heat_cap_R=risk_cfg.heat_cap_R,
                     daily_stop_R=risk_cfg.portfolio_daily_stop_R,
+                    weekly_stop_R=risk_cfg.portfolio_weekly_stop_R,
                     account_urd=_account_urd,
+                    global_standdown=risk_cfg.global_standdown,
+                )
+                account_id = next(
+                    (
+                        str(group.account_id).strip()
+                        for group in self.registry.connection_groups.values()
+                        if getattr(group, "account_id", None)
+                    ),
+                    "default",
+                )
+                account_payload = build_account_runtime_config(
+                    account_id=account_id,
+                    heat_cap_R=risk_cfg.heat_cap_R,
+                    portfolio_daily_stop_R=risk_cfg.portfolio_daily_stop_R,
+                    portfolio_weekly_stop_R=risk_cfg.portfolio_weekly_stop_R,
+                    global_standdown=risk_cfg.global_standdown,
+                    account_urd=_account_urd,
+                )
+                await upsert_active_runtime_config(
+                    db_pool,
+                    ActiveRuntimeConfigRecord(
+                        account_id=account_id,
+                        config_scope="account",
+                        scope_id=account_id,
+                        runtime_env=get_environment(),
+                        payload=account_payload,
+                        expires_at=active_config_expiry(),
+                    ),
                 )
                 logger.info(
                     "AccountRiskGate active: heat=%.1fR=$%.0f, "
-                    "daily_stop=%.1fR=$%.0f, urd=$%.0f",
+                    "daily_stop=%.1fR=$%.0f, weekly_stop=%.1fR=$%.0f, "
+                    "global_standdown=%s, urd=$%.0f",
                     risk_cfg.heat_cap_R, risk_cfg.heat_cap_R * _account_urd,
                     risk_cfg.portfolio_daily_stop_R,
                     risk_cfg.portfolio_daily_stop_R * _account_urd,
+                    risk_cfg.portfolio_weekly_stop_R,
+                    risk_cfg.portfolio_weekly_stop_R * _account_urd,
+                    risk_cfg.global_standdown,
                     _account_urd,
                 )
             except Exception as exc:
@@ -656,6 +795,7 @@ class RuntimeShell:
                 crisis_service=crisis_service,
                 trade_recorder=trade_recorder,
                 heartbeat=heartbeat,
+                require_instrumentation=require_instrumentation,
             )
 
             try:

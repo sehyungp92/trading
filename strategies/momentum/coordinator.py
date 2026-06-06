@@ -22,6 +22,13 @@ from pathlib import Path
 from typing import Any
 
 from libs.oms.persistence.db_config import get_environment
+from libs.runtime.active_config import (
+    ActiveRuntimeConfigRecord,
+    active_config_expiry,
+    build_family_runtime_config,
+    build_strategy_runtime_config,
+    upsert_active_runtime_config,
+)
 from libs.services.heartbeat import emit_family_heartbeats
 
 from strategies.contracts import RuntimeContext
@@ -181,6 +188,7 @@ class MomentumFamilyCoordinator:
         session = ctx.session
         db_pool = ctx.db_pool
         account_gate = ctx.account_gate
+        require_instrumentation = bool(getattr(ctx, "require_instrumentation", False))
 
         if session is None and adapter_factory is None:
             raise RuntimeError(
@@ -203,6 +211,10 @@ class MomentumFamilyCoordinator:
                 templates=ibkr_config.contracts,
                 routes=ibkr_config.routes,
             )
+        active_account_id = str(
+            getattr(getattr(ibkr_config, "profile", None), "account_id", "")
+            or (getattr(ctx, "contracts", {}) or {}).get("account_id", "")
+        )
 
         # ── Resolve equity ───────────────────────────────────────────
         paper_mode = get_environment() == "paper"
@@ -230,7 +242,11 @@ class MomentumFamilyCoordinator:
             allocs = {}
         else:
             try:
-                allocs = bootstrap_capital(base_equity, config_dir)
+                allocs = bootstrap_capital(
+                    base_equity,
+                    config_dir,
+                    live=get_environment() == "live",
+                )
             except Exception as exc:
                 logger.warning(
                     "bootstrap_capital failed (%s), using configured momentum family allocation fallback",
@@ -278,6 +294,32 @@ class MomentumFamilyCoordinator:
             base_equity,
             reference_unit_risk,
         )
+        family_allocation_pct = float(
+            getattr(getattr(ctx, "portfolio", None), "capital", None)
+            .family_allocations.get(self.family_id, 0.0)
+            if getattr(getattr(ctx, "portfolio", None), "capital", None) is not None
+            else 0.0
+        )
+        await upsert_active_runtime_config(
+            db_pool,
+            ActiveRuntimeConfigRecord(
+                account_id=active_account_id,
+                config_scope="family",
+                scope_id=self.family_id,
+                runtime_env=get_environment(),
+                payload=build_family_runtime_config(
+                    account_id=active_account_id,
+                    family_id=self.family_id,
+                    family_allocation_pct=family_allocation_pct,
+                    family_nav=family_current_nav,
+                    family_heat_cap_R=_PORTFOLIO_HEAT_CAP_R,
+                    family_daily_stop_R=_PORTFOLIO_DAILY_STOP_R,
+                    family_weekly_stop_R=_PORTFOLIO_WEEKLY_STOP_R,
+                    active_strategy_ids=list(all_strategy_ids),
+                ),
+                expires_at=active_config_expiry(),
+            ),
+        )
 
         # ── Dynamic MNQ contract cap ──────────────────────────────────
         try:
@@ -304,8 +346,10 @@ class MomentumFamilyCoordinator:
 
         # ── Strategy descriptors ─────────────────────────────────────
         self._shared_sidecar = None
+        authoritative_strategy_id = all_strategy_ids[0] if all_strategy_ids else ""
         for desc in descriptors:
             sid = desc["strategy_id"]
+            reconciliation_authoritative = sid == authoritative_strategy_id
             self._strategy_ids.append(sid)
 
             # Per-strategy adapter (same session, own adapter instance)
@@ -344,6 +388,29 @@ class MomentumFamilyCoordinator:
                 strategy_daily_stop_R = (
                     desc["daily_stop_R"] * reference_unit_risk / unit_risk
                 )
+            await upsert_active_runtime_config(
+                db_pool,
+                ActiveRuntimeConfigRecord(
+                    account_id=active_account_id,
+                    config_scope="strategy",
+                    scope_id=sid,
+                    runtime_env=get_environment(),
+                    payload=build_strategy_runtime_config(
+                        account_id=active_account_id,
+                        strategy_id=sid,
+                        family_id=self.family_id,
+                        enabled=True,
+                        live=get_environment() == "live",
+                        allocated_nav=allocated_nav,
+                        unit_risk_dollars=unit_risk,
+                        max_heat_R=0.0,
+                        max_daily_loss_R=strategy_daily_stop_R,
+                        max_weekly_loss_R=_PORTFOLIO_WEEKLY_STOP_R,
+                        risk_per_trade=float(desc["base_risk_pct"]),
+                    ),
+                    expires_at=active_config_expiry(),
+                ),
+            )
 
             portfolio_rules = override_portfolio_rules or PortfolioRulesConfig(
                     initial_equity=initial_nav,
@@ -415,9 +482,15 @@ class MomentumFamilyCoordinator:
                 account_gate=account_gate,
                 family_strategy_ids=list(all_strategy_ids),
                 allocation_targets=allocation_targets,
+                reconciliation_authoritative=reconciliation_authoritative,
+                reconciliation_owner_id=f"{self.family_id}:{sid}",
             )
             await oms.start()
-            logger.info("OMS started for %s", sid)
+            logger.info(
+                "OMS started for %s (reconciliation_authoritative=%s)",
+                sid,
+                reconciliation_authoritative,
+            )
             self._oms_services.append(oms)
             self._portfolio_checkers.append(getattr(oms, '_portfolio_checker', None))
 
@@ -443,7 +516,13 @@ class MomentumFamilyCoordinator:
                 else:
                     instr.sidecar = self._shared_sidecar
                 await instr.start()
+                if require_instrumentation and not getattr(instr, "_sidecar_forwarding_enabled", True):
+                    raise RuntimeError("sidecar forwarding disabled")
             except Exception as exc:
+                if require_instrumentation:
+                    raise RuntimeError(
+                        f"Required instrumentation init failed for {sid}: {exc}"
+                    ) from exc
                 logger.warning(
                     "Instrumentation init failed for %s (non-fatal): %s", sid, exc,
                 )
@@ -481,7 +560,7 @@ class MomentumFamilyCoordinator:
         async def _on_reconnect() -> None:
             for i, oms in enumerate(self._oms_services):
                 reconciler = getattr(oms, "_reconciler", None)
-                if reconciler is not None:
+                if reconciler is not None and getattr(reconciler, "is_authoritative", True):
                     try:
                         await reconciler.on_reconnect_reconciliation()
                     except Exception as exc:
@@ -491,8 +570,7 @@ class MomentumFamilyCoordinator:
                             sid, exc,
                         )
             logger.info(
-                "Momentum post-reconnect: %d OMS reconcilers fired",
-                len(self._oms_services),
+                "Momentum post-reconnect: authoritative OMS reconciler fired",
             )
 
         if session is not None and hasattr(session, "add_reconnect_callback"):

@@ -52,6 +52,16 @@ CREATE TABLE IF NOT EXISTS orders (
     reject_reason TEXT DEFAULT '',
     retry_count INT DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    queued_at TIMESTAMPTZ,
+    queue_priority INT,
+    queue_reason TEXT DEFAULT '',
+    queue_attempt INT NOT NULL DEFAULT 0,
+    queue_expires_at TIMESTAMPTZ,
+    queue_claimed_by TEXT,
+    queue_claimed_at TIMESTAMPTZ,
+    queue_claim_expires_at TIMESTAMPTZ,
+    dequeued_at TIMESTAMPTZ,
+    queue_denial_reason TEXT DEFAULT '',
     submitted_at TIMESTAMPTZ,
     acked_at TIMESTAMPTZ,
     last_update_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -67,6 +77,15 @@ CREATE INDEX IF NOT EXISTS idx_orders_instrument_status
     ON orders(instrument_symbol, status);
 CREATE INDEX IF NOT EXISTS idx_orders_strategy_created
     ON orders(strategy_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_orders_queued_ready
+    ON orders(queue_priority, queued_at)
+    WHERE status = 'QUEUED';
+CREATE INDEX IF NOT EXISTS idx_orders_queue_expiry
+    ON orders(queue_expires_at)
+    WHERE status = 'QUEUED';
+CREATE INDEX IF NOT EXISTS idx_orders_queue_claim_expiry
+    ON orders(queue_claim_expires_at)
+    WHERE status = 'QUEUED' AND queue_claimed_by IS NOT NULL;
 
 
 CREATE TABLE IF NOT EXISTS order_events (
@@ -288,6 +307,22 @@ CREATE TABLE IF NOT EXISTS recon_watermarks (
     PRIMARY KEY (broker, account_id)
 );
 
+CREATE TABLE IF NOT EXISTS reconciliation_authority_leases (
+    broker TEXT NOT NULL,
+    account_id TEXT NOT NULL,
+    client_id INT NOT NULL,
+    family_id TEXT NOT NULL,
+    recon_kind TEXT NOT NULL,
+    owner_id TEXT NOT NULL,
+    acquired_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    last_snapshot_id TEXT,
+    PRIMARY KEY (broker, account_id, client_id, family_id, recon_kind)
+);
+
+CREATE INDEX IF NOT EXISTS idx_recon_authority_expiry
+    ON reconciliation_authority_leases(expires_at);
+
 
 -- ============================================================
 -- Overlay Position Tracking (swing family)
@@ -319,8 +354,69 @@ CREATE TABLE IF NOT EXISTS paper_equity (
 
 
 -- ============================================================
+-- Active Runtime Config
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS active_runtime_config (
+    account_id TEXT NOT NULL DEFAULT '',
+    config_scope TEXT NOT NULL,
+    scope_id TEXT NOT NULL,
+    runtime_env TEXT NOT NULL,
+    config_version TEXT NOT NULL,
+    deployment_id TEXT,
+    source_hash TEXT,
+    payload JSONB NOT NULL,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at TIMESTAMPTZ,
+    PRIMARY KEY (account_id, config_scope, scope_id, runtime_env)
+);
+
+ALTER TABLE active_runtime_config
+    ADD COLUMN IF NOT EXISTS account_id TEXT NOT NULL DEFAULT '';
+
+UPDATE active_runtime_config
+SET account_id = COALESCE(
+    NULLIF(payload->>'account_id', ''),
+    CASE WHEN config_scope = 'account' THEN scope_id ELSE '' END
+)
+WHERE account_id = '';
+
+ALTER TABLE active_runtime_config
+    DROP CONSTRAINT IF EXISTS active_runtime_config_pkey;
+
+ALTER TABLE active_runtime_config
+    ADD CONSTRAINT active_runtime_config_pkey
+    PRIMARY KEY (account_id, config_scope, scope_id, runtime_env);
+
+CREATE INDEX IF NOT EXISTS idx_active_runtime_config_applied
+    ON active_runtime_config(account_id, runtime_env, applied_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_active_runtime_config_scope
+    ON active_runtime_config(account_id, config_scope, runtime_env);
+
+CREATE OR REPLACE VIEW v_active_runtime_config AS
+SELECT *
+FROM active_runtime_config
+WHERE expires_at IS NULL OR expires_at > now();
+
+
+-- ============================================================
 -- VIEWS: Dashboard Support
 -- ============================================================
+
+CREATE OR REPLACE VIEW v_portfolio_daily_summary AS
+SELECT
+    trade_date,
+    SUM(daily_realized_r) AS daily_realized_r,
+    SUM(daily_realized_usd) AS daily_realized_usd,
+    SUM(portfolio_open_risk_r) AS portfolio_open_risk_r,
+    BOOL_OR(halted) AS halted,
+    string_agg(DISTINCT halt_reason, '; ')
+        FILTER (WHERE halt_reason IS NOT NULL AND halt_reason != '') AS halt_reason,
+    MAX(last_update_at) AS last_update_at
+FROM risk_daily_portfolio
+GROUP BY trade_date;
+
 
 CREATE OR REPLACE VIEW v_live_positions AS
 SELECT
@@ -351,9 +447,16 @@ SELECT
     status,
     broker_order_id,
     created_at,
+    queued_at,
+    queue_priority,
+    queue_reason,
+    queue_attempt,
+    queue_expires_at,
+    dequeued_at,
+    queue_denial_reason,
     EXTRACT(EPOCH FROM (now() - created_at)) / 60 AS age_minutes
 FROM orders
-WHERE status IN ('CREATED', 'RISK_APPROVED', 'ROUTED', 'ACKED', 'WORKING', 'PARTIALLY_FILLED');
+WHERE status IN ('CREATED', 'RISK_APPROVED', 'QUEUED', 'ROUTED', 'ACKED', 'WORKING', 'PARTIALLY_FILLED');
 
 
 CREATE OR REPLACE VIEW v_today_risk AS
@@ -579,7 +682,57 @@ BEGIN
                    WHERE table_name='orders' AND column_name='retry_count') THEN
         ALTER TABLE orders ADD COLUMN retry_count INT DEFAULT 0;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='orders' AND column_name='queued_at') THEN
+        ALTER TABLE orders ADD COLUMN queued_at TIMESTAMPTZ;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='orders' AND column_name='queue_priority') THEN
+        ALTER TABLE orders ADD COLUMN queue_priority INT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='orders' AND column_name='queue_reason') THEN
+        ALTER TABLE orders ADD COLUMN queue_reason TEXT DEFAULT '';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='orders' AND column_name='queue_attempt') THEN
+        ALTER TABLE orders ADD COLUMN queue_attempt INT NOT NULL DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='orders' AND column_name='queue_expires_at') THEN
+        ALTER TABLE orders ADD COLUMN queue_expires_at TIMESTAMPTZ;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='orders' AND column_name='queue_claimed_by') THEN
+        ALTER TABLE orders ADD COLUMN queue_claimed_by TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='orders' AND column_name='queue_claimed_at') THEN
+        ALTER TABLE orders ADD COLUMN queue_claimed_at TIMESTAMPTZ;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='orders' AND column_name='queue_claim_expires_at') THEN
+        ALTER TABLE orders ADD COLUMN queue_claim_expires_at TIMESTAMPTZ;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='orders' AND column_name='dequeued_at') THEN
+        ALTER TABLE orders ADD COLUMN dequeued_at TIMESTAMPTZ;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='orders' AND column_name='queue_denial_reason') THEN
+        ALTER TABLE orders ADD COLUMN queue_denial_reason TEXT DEFAULT '';
+    END IF;
 END $$;
+
+CREATE INDEX IF NOT EXISTS idx_orders_queued_ready
+    ON orders(queue_priority, queued_at)
+    WHERE status = 'QUEUED';
+CREATE INDEX IF NOT EXISTS idx_orders_queue_expiry
+    ON orders(queue_expires_at)
+    WHERE status = 'QUEUED';
+CREATE INDEX IF NOT EXISTS idx_orders_queue_claim_expiry
+    ON orders(queue_claim_expires_at)
+    WHERE status = 'QUEUED' AND queue_claimed_by IS NOT NULL;
 """
 
 
@@ -590,6 +743,13 @@ class PgStore:
     from swing_trader, momentum_trader, and stock_trader PgStore classes.
     """
 
+    REQUIRED_VIEWS = (
+        "v_active_runtime_config",
+        "v_portfolio_daily_summary",
+        "v_strategy_diagnostics",
+        "v_daily_strategy_activity",
+    )
+
     def __init__(self, pool: asyncpg.Pool):
         self._pool = pool
 
@@ -597,6 +757,20 @@ class PgStore:
         """Initialize database schema."""
         async with self._pool.acquire() as conn:
             await conn.execute(DDL)
+            await self._verify_required_views(conn)
+
+    async def _verify_required_views(self, conn) -> None:
+        """Fail fast when canonical dashboard/watchdog views are missing."""
+        missing: list[str] = []
+        for view_name in self.REQUIRED_VIEWS:
+            exists = await conn.fetchval("SELECT to_regclass($1)", f"public.{view_name}")
+            if exists is None:
+                missing.append(view_name)
+        if missing:
+            raise RuntimeError(
+                "Database schema bootstrap missing required view(s): "
+                + ", ".join(missing)
+            )
 
     # ------------------------------------------------------------------
     # Strategy Signals (momentum / stock -- cross-strategy coordination)

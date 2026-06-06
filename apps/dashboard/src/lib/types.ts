@@ -1,6 +1,6 @@
-// ── System & Strategy constants ──────────────────────────────────────────────
+// System and strategy constants
 
-export type SystemId = 'swing_trader' | 'momentum_trader' | 'stock_trader';
+export type SystemId = 'swing_trader' | 'momentum_trader' | 'stock_trader' | 'unknown';
 
 export interface SystemConfig {
   label: string;
@@ -36,28 +36,33 @@ export const SYSTEM_CONFIG: Record<SystemId, SystemConfig> = {
     textColor: 'text-emerald-400',
     bgColor: 'bg-emerald-950/30',
   },
+  unknown: {
+    label: 'Unknown Strategy',
+    shortLabel: 'UNKNOWN',
+    color: 'border-amber-500',
+    dotColor: 'bg-amber-500',
+    textColor: 'text-amber-400',
+    bgColor: 'bg-amber-950/30',
+  },
 };
 
-export const SYSTEM_ORDER: SystemId[] = ['swing_trader', 'momentum_trader', 'stock_trader'];
+export const SYSTEM_ORDER: SystemId[] = ['swing_trader', 'momentum_trader', 'stock_trader', 'unknown'];
 
 export interface StrategyConfig {
   system: SystemId;
-  maxHeatR: number;
-  riskPct: number;
   priority: number;
-  dailyStopR: number;
 }
 
 export const STRATEGY_CONFIG: Record<string, StrategyConfig> = {
-  ATRSS:                { system: 'swing_trader',    maxHeatR: 2.15, riskPct: 1.65, priority: 0, dailyStopR: 2.25 },
-  TPC:                  { system: 'swing_trader',    maxHeatR: 4.00, riskPct: 0.50, priority: 1, dailyStopR: 2.0 },
-  AKC_HELIX:            { system: 'swing_trader',    maxHeatR: 2.10, riskPct: 1.30, priority: 2, dailyStopR: 2.5 },
-  'NQDTC_v2.1':         { system: 'momentum_trader', maxHeatR: 3.50, riskPct: 0.45, priority: 1, dailyStopR: 2.5 },
-  NQ_REGIME:            { system: 'momentum_trader', maxHeatR: 1.50, riskPct: 0.60, priority: 0, dailyStopR: 3.0 },
-  VdubusNQ_v4:          { system: 'momentum_trader', maxHeatR: 3.50, riskPct: 0.65, priority: 0, dailyStopR: 2.5 },
-  DownturnDominator_v1: { system: 'momentum_trader', maxHeatR: 3.50, riskPct: 0.40, priority: 1, dailyStopR: 2.0 },
-  IARIC_v1:             { system: 'stock_trader',    maxHeatR: 5.40, riskPct: 0.864, priority: 0, dailyStopR: 2.75 },
-  ALCB_v1:              { system: 'stock_trader',    maxHeatR: 4.00, riskPct: 0.702, priority: 1, dailyStopR: 2.35 },
+  ATRSS:                { system: 'swing_trader',    priority: 0 },
+  TPC:                  { system: 'swing_trader',    priority: 1 },
+  AKC_HELIX:            { system: 'swing_trader',    priority: 2 },
+  'NQDTC_v2.1':         { system: 'momentum_trader', priority: 1 },
+  NQ_REGIME:            { system: 'momentum_trader', priority: 0 },
+  VdubusNQ_v4:          { system: 'momentum_trader', priority: 0 },
+  DownturnDominator_v1: { system: 'momentum_trader', priority: 1 },
+  IARIC_v1:             { system: 'stock_trader',    priority: 0 },
+  ALCB_v1:              { system: 'stock_trader',    priority: 1 },
 };
 
 /** Map family_id from DB to SystemId */
@@ -67,24 +72,24 @@ const FAMILY_TO_SYSTEM: Record<string, SystemId> = {
   stock: 'stock_trader',
 };
 
-/** Runtime registry cache — populated by fetchRegistry() */
+/** Runtime registry cache populated by dashboard API queries. */
 let _registryCache: Record<string, SystemId> | null = null;
 
-/** Update the registry cache with strategy→family mappings from the DB */
+/** Update the registry cache with strategy-to-family mappings from the DB. */
 export function setRegistryCache(familyMap: Record<string, string>): void {
   _registryCache = {};
   for (const [strategyId, familyId] of Object.entries(familyMap)) {
-    _registryCache[strategyId] = FAMILY_TO_SYSTEM[familyId] ?? 'swing_trader';
+    _registryCache[strategyId] = FAMILY_TO_SYSTEM[familyId] ?? 'unknown';
   }
 }
 
 /** Get the system a strategy belongs to.
- *  Priority: 1) DB registry cache, 2) hardcoded STRATEGY_CONFIG, 3) 'swing_trader' fallback */
+ *  Priority: 1) DB registry cache, 2) hardcoded STRATEGY_CONFIG, 3) explicit unknown bucket */
 export function getSystem(strategyId: string): SystemId {
   if (_registryCache && strategyId in _registryCache) {
     return _registryCache[strategyId];
   }
-  return STRATEGY_CONFIG[strategyId]?.system ?? 'swing_trader';
+  return STRATEGY_CONFIG[strategyId]?.system ?? 'unknown';
 }
 
 /** Get the SystemConfig for a strategy */
@@ -113,10 +118,7 @@ export function groupBySystem<T extends { strategy_id: string }>(items: T[]): Ma
   return grouped;
 }
 
-export const PORTFOLIO_HEAT_CAP = 2.5;
-export const PORTFOLIO_DAILY_STOP = 3.0;
-
-// ── API Response Types ──────────────────────────────────────────────────────
+// API response types
 
 export interface PortfolioData {
   daily_realized_r: number;
@@ -126,10 +128,17 @@ export interface PortfolioData {
   halted: boolean;
   halt_reason: string | null;
   heat_r: number; // sum of strategy heat_r from positions
+  heat_cap_R: number | null;
+  portfolio_daily_stop_R: number | null;
+  portfolio_weekly_stop_R: number | null;
+  global_standdown: boolean | null;
+  active_config_status: 'fresh' | 'stale' | 'missing';
+  active_config_warnings: string[];
 }
 
 export interface StrategyData {
   strategy_id: string;
+  family_id: string | null;
   mode: string;
   last_heartbeat_ts: string | null;
   heartbeat_age_sec: number;
@@ -145,6 +154,14 @@ export interface StrategyData {
   filled_entries: number;
   halted: boolean;
   halt_reason: string | null;
+  active_config_status: 'fresh' | 'stale' | 'missing';
+  active_config_warnings: string[];
+  active_allocated_nav: number | null;
+  active_unit_risk_dollars: number | null;
+  active_risk_per_trade: number | null;
+  active_max_heat_R: number | null;
+  active_max_daily_loss_R: number | null;
+  active_max_weekly_loss_R: number | null;
 }
 
 export interface PositionRow {
@@ -192,13 +209,52 @@ export interface OrderRow {
   status: string;
   broker_order_id: string | null;
   created_at: string;
+  queued_at: string | null;
+  queue_priority: number | null;
+  queue_reason: string | null;
+  queue_attempt: number;
+  queue_expires_at: string | null;
+  dequeued_at: string | null;
+  queue_denial_reason: string | null;
   age_minutes: number;
+}
+
+export interface QueueSummary {
+  queued_count: number;
+  oldest_queued_at: string | null;
+  oldest_queued_age_seconds: number | null;
+}
+
+export type EvidenceHealthStatus = 'OK' | 'WARNING' | 'ERROR' | 'UNKNOWN';
+
+export interface EvidencePipelineHealth {
+  status: EvidenceHealthStatus;
+  checked_at: string;
+  warnings: string[];
+  relay: {
+    status: EvidenceHealthStatus;
+    url: string | null;
+    reachable: boolean;
+    pending_events: number | null;
+    oldest_pending_age_seconds: number | null;
+    per_bot_pending: Record<string, number>;
+    warnings: string[];
+  };
+  assistant: {
+    status: EvidenceHealthStatus;
+    required_bot_ids: string[];
+    missing_bot_ids: string[];
+    stale_bot_ids: string[];
+    last_event_per_bot: Record<string, string>;
+    warnings: string[];
+  };
 }
 
 export interface HealthData {
   strategies: StrategyHealthRow[];
   adapters: AdapterHealthRow[];
   halts: HaltRow[];
+  evidence: EvidencePipelineHealth | null;
 }
 
 export interface StrategyHealthRow {
@@ -275,18 +331,21 @@ export interface DailyPnlPoint {
 }
 
 export interface EnvData {
-  mode: 'paper' | 'live' | 'dev';
+  mode: string;
   account_id: string;
   ib_port: number;
 }
 
-// ── Batch API response types ────────────────────────────────────────────────
+// API response types
 
 export interface SystemPnlSummary {
   system: SystemId;
   daily_realized_r: number;
   daily_realized_usd: number;
   heat_r: number;
+  active_heat_cap_R: number | null;
+  active_config_status: 'fresh' | 'stale' | 'missing';
+  active_config_warnings: string[];
   filled_entries: number;
   strategy_count: number;
   healthy_count: number;
@@ -300,6 +359,7 @@ export interface LiveBatchResponse {
   orders: OrderRow[];
   health: HealthData;
   systemPnl: SystemPnlSummary[];
+  queue: QueueSummary;
   serverTime: string;
 }
 

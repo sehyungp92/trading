@@ -31,6 +31,7 @@ class OrderRole(Enum):
 class OrderStatus(Enum):
     CREATED = "CREATED"
     RISK_APPROVED = "RISK_APPROVED"
+    QUEUED = "QUEUED"
     ROUTED = "ROUTED"
     ACKED = "ACKED"
     WORKING = "WORKING"
@@ -140,6 +141,16 @@ class OMSOrder:
     # Status
     status: OrderStatus = OrderStatus.CREATED
     created_at: Optional[datetime] = None
+    queued_at: Optional[datetime] = None
+    queue_priority: Optional[int] = None
+    queue_reason: str = ""
+    queue_attempt: int = 0
+    queue_expires_at: Optional[datetime] = None
+    queue_claimed_by: str = ""
+    queue_claimed_at: Optional[datetime] = None
+    queue_claim_expires_at: Optional[datetime] = None
+    dequeued_at: Optional[datetime] = None
+    queue_denial_reason: str = ""
     submitted_at: Optional[datetime] = None
     acked_at: Optional[datetime] = None
     last_update_at: Optional[datetime] = None

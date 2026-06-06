@@ -1,12 +1,15 @@
 """Reconciliation orchestrator."""
 import logging
+import os
 from collections import defaultdict
+from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Awaitable, Callable, Optional
 
 from libs.broker_ibkr.models.types import BrokerOrderRef, BrokerOrderStatus, OrderStatusEvent
 from libs.broker_ibkr.reconciler.sync import ReconcilerSync, Discrepancy
 from libs.broker_ibkr.reconciler.discrepancy_policy import DiscrepancyAction, DiscrepancyPolicy
+from .authority import ReconciliationAuthorityScope
 
 if TYPE_CHECKING:
     from ..engine.fill_processor import FillProcessor
@@ -30,6 +33,10 @@ class ReconciliationOrchestrator:
         fill_processor: Optional["FillProcessor"] = None,
         offline_fill_importer: Optional[Callable[[str, object], Awaitable[bool]]] = None,
         lifecycle_event_writer: Optional[Callable[[dict], object]] = None,
+        family_id: str = "unknown",
+        owner_id: str = "",
+        reconciliation_authoritative: bool = True,
+        authority: object | None = None,
     ):
         self._adapter = adapter  # IBKRExecutionAdapter
         self._repo = repo
@@ -40,8 +47,61 @@ class ReconciliationOrchestrator:
         self._offline_fill_importer = offline_fill_importer
         self._fill_processor = fill_processor
         self._lifecycle_event_writer = lifecycle_event_writer
-        self._policy = DiscrepancyPolicy()
+        self.family_id = family_id or "unknown"
+        self.owner_id = owner_id or self.family_id
+        self.reconciliation_authoritative = bool(reconciliation_authoritative)
+        self._authority = authority
+        self._policy = DiscrepancyPolicy.from_environment()
         self._reconciler = ReconcilerSync(self._policy)
+
+    @property
+    def is_authoritative(self) -> bool:
+        return self.reconciliation_authoritative
+
+    async def _claim_mutation_authority(
+        self,
+        *,
+        recon_kind: str,
+        discrepancies: list[Discrepancy],
+    ) -> bool:
+        if self._authority is None:
+            return True
+        client_id = self._managed_client_id()
+        scope = ReconciliationAuthorityScope(
+            broker=str(getattr(self._adapter, "broker", "") or "IBKR"),
+            account_id=self._managed_account_id() or "unknown",
+            client_id=client_id if client_id is not None else -1,
+            family_id=self.family_id,
+            recon_kind=recon_kind,
+        )
+        lease = await self._authority.acquire(
+            scope,
+            self.owner_id,
+            ttl_seconds=120.0,
+        )
+        if lease is not None and self._authority.is_authoritative(lease):
+            return True
+        self._emit_lifecycle(
+            "reconciliation_skipped",
+            phase="apply_discrepancy",
+            status="authority_lease_unavailable",
+            details={
+                "reason": "authority_lease_unavailable",
+                "broker": scope.broker,
+                "account_id": scope.account_id,
+                "client_id": scope.client_id,
+                "recon_kind": scope.recon_kind,
+                "discrepancy_count": len(discrepancies),
+            },
+            discrepancies=discrepancies,
+        )
+        logger.info(
+            "Reconciliation authority lease unavailable: owner=%s family=%s kind=%s",
+            self.owner_id,
+            self.family_id,
+            recon_kind,
+        )
+        return False
 
     @staticmethod
     def _int_or_none(value: object) -> int | None:
@@ -54,10 +114,16 @@ class ReconciliationOrchestrator:
 
     @staticmethod
     def _discrepancy_payload(d: Discrepancy) -> dict:
+        details = {}
+        for key, value in d.details.items():
+            if is_dataclass(value):
+                details[key] = asdict(value)
+            else:
+                details[key] = value
         return {
             "type": d.type,
             "action": getattr(d.action, "value", str(d.action)),
-            "details": d.details,
+            "details": details,
         }
 
     def _emit_lifecycle(
@@ -75,7 +141,12 @@ class ReconciliationOrchestrator:
             "phase": phase,
             "status": status,
             "source": "reconciliation",
-            "details": details or {},
+            "details": {
+                "family_id": self.family_id,
+                "owner_id": self.owner_id,
+                "reconciliation_authoritative": self.reconciliation_authoritative,
+                **(details or {}),
+            },
             "discrepancies": [
                 self._discrepancy_payload(d) for d in list(discrepancies or [])
             ],
@@ -115,6 +186,25 @@ class ReconciliationOrchestrator:
                     known_order_refs[ref] = order.oms_order_id
 
         return oms_working_orders, oms_working_broker_ids, known_order_refs
+
+    def _managed_account_id(self) -> str:
+        return str(getattr(self._adapter, "account_id", "") or "").strip()
+
+    def _managed_client_id(self) -> int | None:
+        client_id = getattr(self._adapter, "client_id", None)
+        try:
+            return int(client_id) if client_id is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _owned_order_ref_prefixes() -> tuple[str, ...]:
+        raw = os.environ.get("OMS_OWNED_ORDER_REF_PREFIXES", "")
+        return tuple(
+            prefix.strip()
+            for prefix in raw.split(",")
+            if prefix.strip()
+        )
 
     async def _halt_for_discrepancy(self, d: Discrepancy, reason: str | None = None) -> None:
         reason = reason or f"Reconciliation: {d.type} - {d.details}"
@@ -254,6 +344,20 @@ class ReconciliationOrchestrator:
         3. Reconcile
         4. Apply discrepancy actions
         """
+        if not self.reconciliation_authoritative:
+            logger.info(
+                "Skipping startup reconciliation for non-authoritative owner=%s family=%s",
+                self.owner_id,
+                self.family_id,
+            )
+            self._emit_lifecycle(
+                "reconciliation_skipped",
+                phase="startup_reconciliation",
+                status="non_authoritative_skipped",
+                details={"reason": "non_authoritative"},
+            )
+            return
+
         logger.info("Starting reconciliation...")
 
         # OMS-3: import broker executions that are missing locally. Production
@@ -340,6 +444,9 @@ class ReconciliationOrchestrator:
             broker_orders,
             oms_working_broker_ids,
             known_order_refs=known_order_refs,
+            managed_account_id=self._managed_account_id(),
+            managed_client_id=self._managed_client_id(),
+            owned_order_ref_prefixes=self._owned_order_ref_prefixes(),
         )
 
         # Gather OMS position quantities by con_id
@@ -364,7 +471,10 @@ class ReconciliationOrchestrator:
                 },
                 discrepancies=all_discrepancies,
             )
-            await self._apply_discrepancies(all_discrepancies)
+            await self._apply_discrepancies(
+                all_discrepancies,
+                recon_kind="startup",
+            )
         else:
             logger.info("Reconciliation complete: no discrepancies found")
             self._emit_lifecycle(
@@ -378,8 +488,36 @@ class ReconciliationOrchestrator:
                 },
             )
 
-    async def _apply_discrepancies(self, discrepancies: list[Discrepancy]) -> None:
+    async def _apply_discrepancies(
+        self,
+        discrepancies: list[Discrepancy],
+        *,
+        recon_kind: str = "manual",
+    ) -> None:
         """Apply policy-driven actions for each discrepancy."""
+        if not self.reconciliation_authoritative:
+            self._emit_lifecycle(
+                "reconciliation_skipped",
+                phase="apply_discrepancy",
+                status="non_authoritative_skipped",
+                details={
+                    "reason": "mutating_actions_require_authority",
+                    "discrepancy_count": len(discrepancies),
+                },
+                discrepancies=discrepancies,
+            )
+            logger.info(
+                "Non-authoritative reconciler skipped %d discrepancy action(s): owner=%s family=%s",
+                len(discrepancies),
+                self.owner_id,
+                self.family_id,
+            )
+            return
+        if not await self._claim_mutation_authority(
+            recon_kind=recon_kind,
+            discrepancies=discrepancies,
+        ):
+            return
         for d in discrepancies:
             logger.warning(f"Discrepancy: type={d.type}, action={d.action.value}, details={d.details}")
             self._emit_lifecycle(
@@ -495,6 +633,14 @@ class ReconciliationOrchestrator:
 
     async def periodic_reconciliation(self) -> None:
         """Run every 60-180 seconds. Verifies open orders and positions."""
+        if not self.reconciliation_authoritative:
+            self._emit_lifecycle(
+                "reconciliation_skipped",
+                phase="periodic_reconciliation",
+                status="non_authoritative_skipped",
+                details={"reason": "non_authoritative"},
+            )
+            return
         broker_orders = await self._adapter.request_open_orders()
         broker_positions = await self._adapter.request_positions()
 
@@ -507,6 +653,9 @@ class ReconciliationOrchestrator:
             broker_orders,
             oms_working_broker_ids,
             known_order_refs=known_order_refs,
+            managed_account_id=self._managed_account_id(),
+            managed_client_id=self._managed_client_id(),
+            owned_order_ref_prefixes=self._owned_order_ref_prefixes(),
         )
 
         oms_position_map = await self._build_oms_position_map()
@@ -528,7 +677,10 @@ class ReconciliationOrchestrator:
                 },
                 discrepancies=all_discrepancies,
             )
-            await self._apply_discrepancies(all_discrepancies)
+            await self._apply_discrepancies(
+                all_discrepancies,
+                recon_kind="periodic",
+            )
         else:
             logger.debug(
                 f"Periodic recon: {len(broker_orders)} orders, "

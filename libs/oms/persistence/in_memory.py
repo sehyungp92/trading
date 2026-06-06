@@ -3,7 +3,7 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from dataclasses import replace
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, AsyncIterator
 from typing import Optional
@@ -31,6 +31,9 @@ from .schema import (
 )
 
 logger = logging.getLogger(__name__)
+
+QUEUE_CLAIM_TTL_SECONDS = 30
+QUEUE_SUBMIT_INFLIGHT_TTL_SECONDS = 300
 
 
 class InMemoryRepository:
@@ -127,6 +130,7 @@ class InMemoryRepository:
         """Sum risk_R of working ENTRY orders."""
         working_statuses = {
             OrderStatus.RISK_APPROVED,
+            OrderStatus.QUEUED,
             OrderStatus.ROUTED,
             OrderStatus.ACKED,
             OrderStatus.WORKING,
@@ -587,6 +591,396 @@ class InMemoryRepository:
     async def get_strategy_states(self) -> list[StrategyStateRow]:
         return list(self._strategy_state.values())
 
+    async def mark_order_queued(
+        self,
+        order_id: str,
+        priority: int,
+        reason: str,
+        queued_at: datetime,
+        expires_at: datetime | None,
+        conn=None,
+    ) -> Optional[OMSOrder]:
+        order = self._orders.get(order_id)
+        if order is None or order.status not in {OrderStatus.RISK_APPROVED, OrderStatus.QUEUED}:
+            return None
+        order.status = OrderStatus.QUEUED
+        order.queued_at = order.queued_at or queued_at
+        order.queue_priority = int(priority)
+        order.queue_reason = reason
+        order.queue_expires_at = expires_at
+        order.queue_claimed_by = ""
+        order.queue_claimed_at = None
+        order.queue_claim_expires_at = None
+        order.last_update_at = queued_at
+        await self.save_event(
+            order_id,
+            "ORDER_QUEUED",
+            {
+                "priority": priority,
+                "reason": reason,
+                "queued_at": queued_at.isoformat(),
+                "expires_at": expires_at.isoformat() if expires_at else None,
+            },
+        )
+        return order
+
+    async def claim_queued_orders(
+        self,
+        limit: int,
+        claimant_id: str,
+        now: datetime,
+        conn=None,
+    ) -> list[OMSOrder]:
+        if limit <= 0:
+            return []
+        ready = [
+            order
+            for order in self._orders.values()
+            if order.status == OrderStatus.QUEUED
+            and (
+                order.submitted_at is None
+                or order.queue_claimed_by == ""
+            )
+            and (
+                order.queue_claim_expires_at is None
+                or order.queue_claim_expires_at < now
+            )
+            and (
+                order.submitted_at is not None
+                or order.queue_expires_at is None
+                or order.queue_expires_at > now
+            )
+        ]
+        ready.sort(
+            key=lambda order: (
+                order.queue_priority if order.queue_priority is not None else 9999,
+                order.queued_at or datetime.min.replace(tzinfo=timezone.utc),
+            )
+        )
+        claimed = ready[:limit]
+        claim_expires_at = now + timedelta(seconds=QUEUE_CLAIM_TTL_SECONDS)
+        for order in claimed:
+            order.queue_claimed_by = claimant_id
+            order.queue_claimed_at = now
+            order.queue_claim_expires_at = claim_expires_at
+            order.queue_attempt = int(order.queue_attempt or 0) + 1
+            order.last_update_at = now
+        return claimed
+
+    async def release_queued_order(
+        self,
+        order_id: str,
+        claimant_id: str,
+        conn=None,
+    ) -> None:
+        order = self._orders.get(order_id)
+        if (
+            order is not None
+            and order.status == OrderStatus.QUEUED
+            and order.queue_claimed_by == claimant_id
+            and order.submitted_at is None
+        ):
+            order.queue_claimed_by = ""
+            order.queue_claimed_at = None
+            order.queue_claim_expires_at = None
+            order.last_update_at = datetime.now(timezone.utc)
+
+    async def release_queued_claims(
+        self,
+        claimant_id: str,
+        conn=None,
+    ) -> int:
+        released = 0
+        now = datetime.now(timezone.utc)
+        for order in self._orders.values():
+            if (
+                order.status == OrderStatus.QUEUED
+                and order.queue_claimed_by == claimant_id
+                and order.submitted_at is None
+            ):
+                order.queue_claimed_by = ""
+                order.queue_claimed_at = None
+                order.queue_claim_expires_at = None
+                order.last_update_at = now
+                released += 1
+        return released
+
+    async def clear_queue_claim(self, order_id: str, conn=None) -> None:
+        order = self._orders.get(order_id)
+        if order is not None:
+            order.queue_claimed_by = ""
+            order.queue_claimed_at = None
+            order.queue_claim_expires_at = None
+            order.last_update_at = datetime.now(timezone.utc)
+
+    async def mark_queued_order_expired(
+        self,
+        order_id: str,
+        reason: str,
+        conn=None,
+    ) -> Optional[OMSOrder]:
+        order = self._orders.get(order_id)
+        if (
+            order is None
+            or order.status != OrderStatus.QUEUED
+            or order.submitted_at is not None
+        ):
+            return None
+        now = datetime.now(timezone.utc)
+        order.status = OrderStatus.EXPIRED
+        order.queue_denial_reason = reason
+        order.queue_claimed_by = ""
+        order.queue_claimed_at = None
+        order.queue_claim_expires_at = None
+        order.last_update_at = now
+        await self.save_event(
+            order_id,
+            "QUEUED_ORDER_EXPIRED",
+            {"reason": reason, "expired_at": now.isoformat()},
+        )
+        return order
+
+    async def mark_queued_order_dequeued(
+        self,
+        order_id: str,
+        claimant_id: str,
+        dequeued_at: datetime,
+        conn=None,
+    ) -> Optional[OMSOrder]:
+        order = self._orders.get(order_id)
+        if (
+            order is None
+            or order.status != OrderStatus.QUEUED
+            or order.queue_claimed_by != claimant_id
+        ):
+            return None
+        order.status = OrderStatus.RISK_APPROVED
+        order.dequeued_at = dequeued_at
+        order.queue_claimed_by = ""
+        order.queue_claimed_at = None
+        order.queue_claim_expires_at = None
+        order.last_update_at = dequeued_at
+        await self.save_event(
+            order_id,
+            "QUEUED_ORDER_DEQUEUED",
+            {"claimant_id": claimant_id, "dequeued_at": dequeued_at.isoformat()},
+        )
+        return order
+
+    async def mark_queued_order_submit_started(
+        self,
+        order_id: str,
+        claimant_id: str,
+        started_at: datetime,
+        conn=None,
+    ) -> Optional[OMSOrder]:
+        order = self._orders.get(order_id)
+        if (
+            order is None
+            or order.status != OrderStatus.QUEUED
+            or order.queue_claimed_by != claimant_id
+        ):
+            return None
+        order.dequeued_at = order.dequeued_at or started_at
+        order.submitted_at = order.submitted_at or started_at
+        order.queue_claim_expires_at = started_at + timedelta(
+            seconds=QUEUE_SUBMIT_INFLIGHT_TTL_SECONDS
+        )
+        order.last_update_at = started_at
+        await self.save_event(
+            order_id,
+            "QUEUED_ORDER_SUBMIT_STARTED",
+            {"claimant_id": claimant_id, "started_at": started_at.isoformat()},
+        )
+        return order
+
+    async def mark_queued_order_submitted(
+        self,
+        order_id: str,
+        claimant_id: str,
+        broker_order_id: int | str | None,
+        perm_id: int | str | None,
+        submitted_at: datetime,
+        dequeued_at: datetime,
+        conn=None,
+    ) -> Optional[OMSOrder]:
+        if broker_order_id in (None, ""):
+            return None
+        order = self._orders.get(order_id)
+        if (
+            order is None
+            or order.status != OrderStatus.QUEUED
+            or order.queue_claimed_by != claimant_id
+            or order.broker_order_id is not None
+        ):
+            return None
+        order.status = OrderStatus.ROUTED
+        order.broker_order_id = int(broker_order_id)
+        order.perm_id = int(perm_id) if perm_id not in (None, "") else None
+        order.dequeued_at = order.dequeued_at or dequeued_at
+        order.submitted_at = submitted_at
+        order.queue_claimed_by = ""
+        order.queue_claimed_at = None
+        order.queue_claim_expires_at = None
+        order.last_update_at = submitted_at
+        await self.save_event(
+            order_id,
+            "QUEUED_ORDER_SUBMITTED",
+            {
+                "claimant_id": claimant_id,
+                "submitted_at": submitted_at.isoformat(),
+                "broker_order_id": str(broker_order_id),
+                "perm_id": int(perm_id) if perm_id not in (None, "") else None,
+            },
+        )
+        return order
+
+    async def mark_queued_order_denied(
+        self,
+        order_id: str,
+        claimant_id: str,
+        reason: str,
+        conn=None,
+    ) -> Optional[OMSOrder]:
+        order = self._orders.get(order_id)
+        if (
+            order is None
+            or order.status != OrderStatus.QUEUED
+            or order.queue_claimed_by != claimant_id
+        ):
+            return None
+        now = datetime.now(timezone.utc)
+        order.status = OrderStatus.REJECTED
+        order.reject_reason = reason
+        order.queue_denial_reason = reason
+        order.queue_claimed_by = ""
+        order.queue_claimed_at = None
+        order.queue_claim_expires_at = None
+        order.last_update_at = now
+        await self.save_event(
+            order_id,
+            "QUEUED_ORDER_DENIED",
+            {"claimant_id": claimant_id, "reason": reason, "denied_at": now.isoformat()},
+        )
+        return order
+
+    async def expire_due_queued_orders(
+        self,
+        now: datetime | None = None,
+    ) -> list[OMSOrder]:
+        now = now or datetime.now(timezone.utc)
+        expired: list[OMSOrder] = []
+        for order in list(self._orders.values()):
+            if (
+                order.status == OrderStatus.QUEUED
+                and order.queue_expires_at is not None
+                and order.queue_expires_at <= now
+                and order.submitted_at is None
+            ):
+                marked = await self.mark_queued_order_expired(
+                    order.oms_order_id,
+                    "queue TTL expired",
+                )
+                if marked is not None:
+                    expired.append(marked)
+        return expired
+
+    async def recover_inflight_queued_orders(
+        self,
+        now: datetime,
+        reason: str,
+        conn=None,
+    ) -> list[OMSOrder]:
+        recovered: list[OMSOrder] = []
+        for order in list(self._orders.values()):
+            if (
+                order.queued_at is None
+                or order.broker_order_id is not None
+            ):
+                continue
+            if order.status == OrderStatus.QUEUED:
+                if (
+                    order.submitted_at is None
+                    or not order.queue_claimed_by
+                    or (
+                        order.queue_claim_expires_at is not None
+                        and order.queue_claim_expires_at > now
+                    )
+                ):
+                    continue
+                order.queue_claimed_by = ""
+                order.queue_claimed_at = None
+                order.queue_claim_expires_at = None
+                order.queue_reason = order.queue_reason or reason
+                order.last_update_at = now
+                await self.save_event(
+                    order.oms_order_id,
+                    "QUEUED_ORDER_RECOVERED",
+                    {
+                        "reason": reason,
+                        "recovered_at": now.isoformat(),
+                        "submit_inflight": True,
+                    },
+                )
+                recovered.append(order)
+                continue
+            if order.status not in {OrderStatus.RISK_APPROVED, OrderStatus.ROUTED}:
+                continue
+            order.queue_claimed_by = ""
+            order.queue_claimed_at = None
+            order.queue_claim_expires_at = None
+            order.last_update_at = now
+            if (
+                order.submitted_at is None
+                and order.queue_expires_at is not None
+                and order.queue_expires_at <= now
+            ):
+                order.status = OrderStatus.EXPIRED
+                order.queue_denial_reason = "queue TTL expired during in-flight recovery"
+                await self.save_event(
+                    order.oms_order_id,
+                    "QUEUED_ORDER_EXPIRED",
+                    {
+                        "reason": "queue TTL expired during in-flight recovery",
+                        "expired_at": now.isoformat(),
+                    },
+                )
+            else:
+                order.status = OrderStatus.QUEUED
+                order.queue_reason = order.queue_reason or reason
+                await self.save_event(
+                    order.oms_order_id,
+                    "QUEUED_ORDER_RECOVERED",
+                    {"reason": reason, "recovered_at": now.isoformat()},
+                )
+            recovered.append(order)
+        return recovered
+
+    async def get_queued_order_summary(
+        self,
+        account_id: str | None = None,
+        family_id: str | None = None,
+    ) -> dict[str, Any]:
+        del family_id
+        queued = [
+            order
+            for order in self._orders.values()
+            if order.status == OrderStatus.QUEUED
+            and (account_id is None or order.account_id == account_id)
+        ]
+        oldest = min(
+            (order.queued_at for order in queued if order.queued_at is not None),
+            default=None,
+        )
+        now = datetime.now(timezone.utc)
+        return {
+            "queued_count": len(queued),
+            "oldest_queued_at": oldest,
+            "oldest_queued_age_seconds": (
+                (now - oldest).total_seconds() if oldest else None
+            ),
+        }
+
     async def upsert_adapter_state(self, row: AdapterStateRow) -> None:
         self._adapter_state[row.adapter_id] = row
 
@@ -620,6 +1014,7 @@ class InMemoryRepository:
     def _working_statuses() -> set[OrderStatus]:
         return {
             OrderStatus.RISK_APPROVED,
+            OrderStatus.QUEUED,
             OrderStatus.ROUTED,
             OrderStatus.ACKED,
             OrderStatus.WORKING,

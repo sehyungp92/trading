@@ -18,7 +18,8 @@ def _load_receiver_cls():
 
     path = (
         Path(__file__).resolve().parents[2]
-        / "_references/trading_assistant/orchestrator/adapters/vps_receiver.py"
+        / "_references/trading_assistant_agent/packages/trading_assistant/src/"
+        "trading_assistant/orchestrator/adapters/vps_receiver.py"
     )
     spec = importlib.util.spec_from_file_location("vps_receiver_under_test", path)
     module = importlib.util.module_from_spec(spec)

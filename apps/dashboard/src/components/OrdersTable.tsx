@@ -13,6 +13,7 @@ const statusColor: Record<string, string> = {
   PARTIALLY_FILLED: 'text-amber-400',
   ACKED: 'text-blue-400',
   ROUTED: 'text-blue-400',
+  QUEUED: 'text-amber-300',
   RISK_APPROVED: 'text-gray-400',
   CREATED: 'text-gray-500',
 };
@@ -42,7 +43,7 @@ export function OrdersTable({ orders }: Props) {
             <tbody>
               {orders == null ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-6 text-center text-gray-600">Loading…</td>
+                  <td colSpan={9} className="px-4 py-6 text-center text-gray-600">Loading...</td>
                 </tr>
               ) : orders.length === 0 ? (
                 <tr>
@@ -68,9 +69,31 @@ export function OrdersTable({ orders }: Props) {
                       ${(o.limit_price ?? o.stop_price ?? 0).toFixed(2)}
                     </td>
                     <td className={cn('px-4 py-2', statusColor[o.status] ?? 'text-gray-400')}>
-                      {o.status}
+                      <div className="flex flex-col">
+                        <span>{o.status}</span>
+                        {o.status === 'QUEUED' && o.queue_reason ? (
+                          <span className="max-w-[140px] truncate text-[10px] text-gray-500">
+                            {o.queue_reason}
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
-                    <td className="px-4 py-2 text-right text-gray-500">{fmtAge(o.age_minutes * 60)}</td>
+                    <td
+                      className={cn(
+                        'px-4 py-2 text-right',
+                        o.status === 'QUEUED' &&
+                          o.queued_at &&
+                          Date.now() - new Date(o.queued_at).getTime() > 150_000
+                          ? 'text-amber-300'
+                          : 'text-gray-500',
+                      )}
+                    >
+                      {fmtAge(
+                        o.status === 'QUEUED' && o.queued_at
+                          ? (Date.now() - new Date(o.queued_at).getTime()) / 1000
+                          : o.age_minutes * 60,
+                      )}
+                    </td>
                   </tr>
                 ))
               )}

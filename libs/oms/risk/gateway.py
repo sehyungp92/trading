@@ -289,6 +289,7 @@ class RiskGateway:
         order: OMSOrder,
         *,
         skip_account_gate: bool = False,
+        reserved_entry_risk_R: float = 0.0,
     ) -> Optional[str]:
         """Returns denial reason string, or None if approved.
 
@@ -415,6 +416,15 @@ class RiskGateway:
 
         # 6. Portfolio daily halt
         port_risk = await self._get_port_risk()
+        if reserved_entry_risk_R > 0:
+            port_risk = dataclasses.replace(
+                port_risk,
+                pending_entry_risk_R=max(
+                    0.0,
+                    float(port_risk.pending_entry_risk_R or 0.0)
+                    - reserved_entry_risk_R,
+                ),
+            )
         if port_risk.halted:
             return _deny(f"Portfolio halted: {port_risk.halt_reason}", "portfolio_halt")
         if self._portfolio_risk_adapter is None and port_risk.daily_realized_R <= -self._config.portfolio_daily_stop_R:
@@ -603,7 +613,12 @@ class RiskGateway:
         # 12. Account-level cross-family risk gate. IntentHandler can skip this
         # and call check_account_gate() inside the RISK_APPROVED transaction.
         if not skip_account_gate:
-            denial = await self.check_account_gate(order)
+            denial = await self.check_account_gate(
+                order,
+                reserved_entry_risk_dollars=(
+                    reserved_entry_risk_R * float(self._config.portfolio_urd or 0.0)
+                ),
+            )
             if denial:
                 return _deny(denial, "account_gate", account_gate_result=denial)
 
@@ -770,7 +785,13 @@ class RiskGateway:
         _approve()
         return None
 
-    async def check_account_gate(self, order: OMSOrder, conn=None) -> Optional[str]:
+    async def check_account_gate(
+        self,
+        order: OMSOrder,
+        conn=None,
+        *,
+        reserved_entry_risk_dollars: float = 0.0,
+    ) -> Optional[str]:
         """Run only the account-global reservation gate for an approved ENTRY."""
         if order.role != OrderRole.ENTRY or self._account_gate is None:
             return None
@@ -823,6 +844,7 @@ class RiskGateway:
             self._family_id,
             risk_dollars,
             conn=conn,
+            reserved_risk_dollars=reserved_entry_risk_dollars,
         )
         if not decision.approved:
             return _account_gate_denial(f"Account gate: {decision.reason}")

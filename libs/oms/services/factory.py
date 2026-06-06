@@ -4,6 +4,7 @@ Merged from swing_trader, momentum_trader, and stock_trader families.
 - build_oms_service(): unified single-strategy factory (union of all params)
 - build_multi_strategy_oms(): swing's coordinator pattern for cross-strategy OMS
 """
+import os
 import json
 import logging
 import math
@@ -31,17 +32,49 @@ from ..persistence.in_memory import InMemoryRepository
 from ..persistence.postgres import PgStore
 from ..persistence.repository import OMSRepository
 from ..persistence.schema import RiskDailyPortfolioRow, RiskDailyStrategyRow
+from ..reconciliation.authority import ReconciliationAuthority
 from ..reconciliation.orchestrator import ReconciliationOrchestrator
 from ..risk.calendar import EventCalendar
 from ..risk.gateway import RiskGateway
 from .oms_service import OMSService
 from libs.instrumentation.event_contract import COMMON_LINEAGE_FIELDS, enrich_payload
 from libs.instrumentation.lineage import LineageContext, lineage_from_runtime, lineage_to_payload
+from libs.oms.persistence.db_config import get_environment
+from libs.runtime.active_config import (
+    ActiveRuntimeConfigRecord,
+    active_config_expiry,
+    upsert_active_runtime_config,
+)
 
 if TYPE_CHECKING:
     from libs.config.market_calendar import MarketCalendar
 
 logger = logging.getLogger(__name__)
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _resolve_reconciliation_authority(
+    *,
+    db_pool,
+    provided_authority: object | None,
+    enable_lease: bool | None,
+) -> object | None:
+    if provided_authority is not None:
+        return provided_authority
+    leases_enabled = (
+        _env_flag("OMS_RECONCILIATION_AUTHORITY_LEASES")
+        if enable_lease is None
+        else enable_lease
+    )
+    if not leases_enabled or db_pool is None:
+        return None
+    return ReconciliationAuthority(db_pool)
 
 
 def _make_oms_lineage(
@@ -638,6 +671,10 @@ async def build_oms_service(
     portfolio_config=None,
     strategy_manifest=None,
     parameter_set=None,
+    reconciliation_authoritative: bool = True,
+    reconciliation_owner_id: str = "",
+    reconciliation_authority: Optional[object] = None,
+    enable_reconciliation_authority_lease: Optional[bool] = None,
 ) -> OMSService:
     """Build a fully wired OMS service.
 
@@ -1087,9 +1124,60 @@ async def build_oms_service(
         family_id=family_id,
     )
     risk_gateway._current_oms_lineage = _current_oms_lineage
+    await upsert_active_runtime_config(
+        db_pool,
+        ActiveRuntimeConfigRecord(
+            account_id=_adapter_account,
+            config_scope="oms",
+            scope_id=f"{family_id}:{strategy_id}",
+            runtime_env=get_environment(),
+            payload={
+                "account_id": _adapter_account,
+                "family_id": family_id,
+                "strategy_id": strategy_id,
+                "heat_cap_R": float(heat_cap_R),
+                "portfolio_daily_stop_R": float(portfolio_daily_stop_R),
+                "portfolio_weekly_stop_R": float(portfolio_weekly_stop_R),
+                "portfolio_urd": float(portfolio_urd),
+                "unit_risk_dollars": float(unit_risk_dollars),
+                "strategy_daily_stop_R": float(daily_stop_R),
+                "strategy_heat_cap_R": float(strategy_heat_cap_R),
+                "account_gate_enabled": account_gate is not None,
+                "source": "oms factory effective risk gateway config",
+            },
+            expires_at=active_config_expiry(),
+        ),
+    )
+
+    async def _pre_submit_recheck(order, conn=None) -> str | None:
+        reserved_risk_dollars = float(
+            getattr(getattr(order, "risk_context", None), "risk_dollars", 0.0)
+            or 0.0
+        )
+        reserved_entry_risk_R = (
+            reserved_risk_dollars / portfolio_urd if portfolio_urd > 0 else 0.0
+        )
+        denial = await risk_gateway.check_entry(
+            order,
+            skip_account_gate=True,
+            reserved_entry_risk_R=reserved_entry_risk_R,
+        )
+        if denial:
+            return denial
+        return await risk_gateway.check_account_gate(
+            order,
+            conn=conn,
+            reserved_entry_risk_dollars=reserved_risk_dollars,
+        )
 
     # Execution router
-    router = ExecutionRouter(adapter, repo, bus=bus)
+    router = ExecutionRouter(
+        adapter,
+        repo,
+        bus=bus,
+        pre_submit_recheck=_pre_submit_recheck,
+        claimant_id=f"{family_id}:{strategy_id}",
+    )
 
     # Intent handler
     # OMS-7: pass adapter's configured IB account so the handler can stamp
@@ -1110,6 +1198,11 @@ async def build_oms_service(
 
     # Reconciler — wire halt_trading if provided, else use internal _halt_trading
     _halt_cb = halt_trading if halt_trading is not None else _halt_trading
+    _reconciliation_authority = _resolve_reconciliation_authority(
+        db_pool=db_pool,
+        provided_authority=reconciliation_authority,
+        enable_lease=enable_reconciliation_authority_lease,
+    )
     reconciler = ReconciliationOrchestrator(
         adapter,
         repo,
@@ -1122,6 +1215,10 @@ async def build_oms_service(
         lifecycle_event_writer=_make_reconciliation_lifecycle_writer(
             instrumentation_data_dir, _current_oms_lineage,
         ),
+        family_id=family_id,
+        owner_id=reconciliation_owner_id or strategy_id,
+        reconciliation_authoritative=reconciliation_authoritative,
+        authority=_reconciliation_authority,
     )
 
     # C4 fix: Order timeout monitor for stuck ROUTED / CANCEL_REQUESTED states
@@ -1249,6 +1346,10 @@ async def build_multi_strategy_oms(
     strategy_manifests=None,
     parameter_set=None,
     parameter_sets=None,
+    reconciliation_authoritative: bool = True,
+    reconciliation_owner_id: str = "",
+    reconciliation_authority: Optional[object] = None,
+    enable_reconciliation_authority_lease: Optional[bool] = None,
 ) -> tuple["OMSService", "StrategyCoordinator"]:
     """Build a shared OMS service for multiple strategies.
 
@@ -1686,9 +1787,60 @@ async def build_multi_strategy_oms(
         family_id=family_id,
     )
     risk_gateway._current_oms_lineage = _current_oms_lineage
+    await upsert_active_runtime_config(
+        db_pool,
+        ActiveRuntimeConfigRecord(
+            account_id=_adapter_account,
+            config_scope="oms",
+            scope_id=f"{family_id}:multi",
+            runtime_env=get_environment(),
+            payload={
+                "account_id": _adapter_account,
+                "family_id": family_id,
+                "strategy_ids": list(unit_risk_map.keys()),
+                "heat_cap_R": float(heat_cap_R),
+                "portfolio_daily_stop_R": float(portfolio_daily_stop_R),
+                "portfolio_weekly_stop_R": float(portfolio_weekly_stop_R),
+                "portfolio_urd": float(portfolio_urd),
+                "unit_risk_dollars": {
+                    sid: float(value) for sid, value in unit_risk_map.items()
+                },
+                "account_gate_enabled": account_gate is not None,
+                "source": "multi-strategy oms factory effective risk gateway config",
+            },
+            expires_at=active_config_expiry(),
+        ),
+    )
 
     # Execution router (shared)
-    router = ExecutionRouter(adapter, repo, bus=bus)
+    async def _pre_submit_recheck(order, conn=None) -> str | None:
+        reserved_risk_dollars = float(
+            getattr(getattr(order, "risk_context", None), "risk_dollars", 0.0)
+            or 0.0
+        )
+        reserved_entry_risk_R = (
+            reserved_risk_dollars / portfolio_urd if portfolio_urd > 0 else 0.0
+        )
+        denial = await risk_gateway.check_entry(
+            order,
+            skip_account_gate=True,
+            reserved_entry_risk_R=reserved_entry_risk_R,
+        )
+        if denial:
+            return denial
+        return await risk_gateway.check_account_gate(
+            order,
+            conn=conn,
+            reserved_entry_risk_dollars=reserved_risk_dollars,
+        )
+
+    router = ExecutionRouter(
+        adapter,
+        repo,
+        bus=bus,
+        pre_submit_recheck=_pre_submit_recheck,
+        claimant_id=f"{family_id}:multi",
+    )
 
     # Intent handler (shared)
     # OMS-7: pass adapter's configured IB account so the handler can stamp
@@ -1721,6 +1873,11 @@ async def build_multi_strategy_oms(
 
     # Reconciler (shared) with halt callback.
     _halt_cb = halt_trading if halt_trading is not None else _internal_halt_trading
+    _reconciliation_authority = _resolve_reconciliation_authority(
+        db_pool=db_pool,
+        provided_authority=reconciliation_authority,
+        enable_lease=enable_reconciliation_authority_lease,
+    )
     reconciler = ReconciliationOrchestrator(
         adapter,
         repo,
@@ -1733,6 +1890,10 @@ async def build_multi_strategy_oms(
         lifecycle_event_writer=_make_reconciliation_lifecycle_writer(
             instrumentation_data_dir, _current_oms_lineage,
         ),
+        family_id=family_id,
+        owner_id=reconciliation_owner_id or f"{family_id}:multi",
+        reconciliation_authoritative=reconciliation_authoritative,
+        authority=_reconciliation_authority,
     )
 
     # Timeout monitor

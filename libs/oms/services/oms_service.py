@@ -63,13 +63,18 @@ class OMSService:
 
     async def start(self) -> None:
         """Start OMS: reconcile, start router, start timeout monitor, then accept intents."""
-        await self._reconciler.startup_reconciliation()
+        authoritative = bool(getattr(self._reconciler, "is_authoritative", True))
+        if authoritative:
+            await self._reconciler.startup_reconciliation()
+        else:
+            logger.info("OMS service skipping startup reconciliation (non-authoritative)")
         if self._router:
             await self._router.start()
         # C4 fix: start order timeout monitor
         if self._timeout_monitor:
             await self._timeout_monitor.start()
-        self._recon_task = asyncio.create_task(self._periodic_recon_loop())
+        if authoritative:
+            self._recon_task = asyncio.create_task(self._periodic_recon_loop())
         self._ready.set()
         logger.info("OMS service ready")
 

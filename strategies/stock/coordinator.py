@@ -24,6 +24,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from libs.oms.persistence.db_config import get_environment
+from libs.runtime.active_config import (
+    ActiveRuntimeConfigRecord,
+    active_config_expiry,
+    build_family_runtime_config,
+    build_strategy_runtime_config,
+    upsert_active_runtime_config,
+)
 from libs.services.heartbeat import emit_family_heartbeats
 
 from strategies.contracts import RuntimeContext
@@ -180,6 +187,7 @@ class StockFamilyCoordinator:
         session = ctx.session
         db_pool = ctx.db_pool
         account_gate = ctx.account_gate
+        require_instrumentation = bool(getattr(ctx, "require_instrumentation", False))
 
         config_dir = Path(
             os.environ.get(
@@ -224,7 +232,11 @@ class StockFamilyCoordinator:
             allocs = {}
         else:
             try:
-                allocs = bootstrap_capital(base_equity, config_dir)
+                allocs = bootstrap_capital(
+                    base_equity,
+                    config_dir,
+                    live=get_environment() == "live",
+                )
             except Exception as exc:
                 logger.warning("bootstrap_capital failed (%s), using equal split", exc)
                 allocs = {}
@@ -234,6 +246,16 @@ class StockFamilyCoordinator:
         if not _strategies:
             logger.warning("No enabled stock strategies remain after registry filtering")
             return
+        active_account_id = str(
+            next(
+                (
+                    desc.get("account_id", "")
+                    for desc in _strategies
+                    if desc.get("account_id")
+                ),
+                "",
+            )
+        )
 
         family_initial_nav = _stock_family_nav(base_equity, allocs, active_strategy_ids, ctx)
         family_current_nav = family_initial_nav
@@ -279,6 +301,38 @@ class StockFamilyCoordinator:
             allocations=allocs,
             portfolio=getattr(ctx, "portfolio", None),
         )
+        capital_cfg = getattr(getattr(ctx, "portfolio", None), "capital", None)
+        family_allocation_pct = float(
+            (getattr(capital_cfg, "family_allocations", {}) or {}).get(self.family_id, 0.0)
+        )
+        family_daily_stop_R = min(
+            (
+                float(desc["portfolio_daily_stop_R"])
+                for desc in _strategies
+                if desc.get("portfolio_daily_stop_R") is not None
+            ),
+            default=_STOCK_DIRECTIONAL_CAP_R,
+        )
+        await upsert_active_runtime_config(
+            db_pool,
+            ActiveRuntimeConfigRecord(
+                account_id=active_account_id,
+                config_scope="family",
+                scope_id=self.family_id,
+                runtime_env=get_environment(),
+                payload=build_family_runtime_config(
+                    account_id=active_account_id,
+                    family_id=self.family_id,
+                    family_allocation_pct=family_allocation_pct,
+                    family_nav=family_current_nav,
+                    family_heat_cap_R=_STOCK_DIRECTIONAL_CAP_R,
+                    family_daily_stop_R=family_daily_stop_R,
+                    family_weekly_stop_R=_STOCK_PORTFOLIO_WEEKLY_STOP_R,
+                    active_strategy_ids=list(all_strategy_ids),
+                ),
+                expires_at=active_config_expiry(),
+            ),
+        )
         collision_pairs = rule_inputs["symbol_collision_pairs"]
         strategy_priorities = rule_inputs["strategy_priorities"]
         symbol_sector_map = tuple(
@@ -315,8 +369,10 @@ class StockFamilyCoordinator:
             )
 
         self._shared_sidecar = None
+        authoritative_strategy_id = all_strategy_ids[0] if all_strategy_ids else ""
         for desc in _strategies:
             sid = desc["strategy_id"]
+            reconciliation_authoritative = sid == authoritative_strategy_id
 
             if desc.get("data_key") == "artifact" and desc.get("data_value") is None:
                 raise RuntimeError(
@@ -395,6 +451,29 @@ class StockFamilyCoordinator:
             unit_risk = RiskCalculator.compute_unit_risk_dollars(
                 nav=allocated_nav, unit_risk_pct=desc["base_risk_pct"],
             )
+            await upsert_active_runtime_config(
+                db_pool,
+                ActiveRuntimeConfigRecord(
+                    account_id=active_account_id,
+                    config_scope="strategy",
+                    scope_id=sid,
+                    runtime_env=get_environment(),
+                    payload=build_strategy_runtime_config(
+                        account_id=active_account_id,
+                        strategy_id=sid,
+                        family_id=self.family_id,
+                        enabled=True,
+                        live=get_environment() == "live",
+                        allocated_nav=allocated_nav,
+                        unit_risk_dollars=unit_risk,
+                        max_heat_R=float(desc["heat_cap_R"]),
+                        max_daily_loss_R=float(desc["daily_stop_R"]),
+                        max_weekly_loss_R=_STOCK_PORTFOLIO_WEEKLY_STOP_R,
+                        risk_per_trade=float(desc["base_risk_pct"]),
+                    ),
+                    expires_at=active_config_expiry(),
+                ),
+            )
 
             # Build per-strategy OMS with portfolio rules
             oms = await build_oms_service(
@@ -419,9 +498,15 @@ class StockFamilyCoordinator:
                 account_gate=account_gate,
                 family_strategy_ids=list(all_strategy_ids),
                 allocation_targets=allocation_targets,
+                reconciliation_authoritative=reconciliation_authoritative,
+                reconciliation_owner_id=f"{self.family_id}:{sid}",
             )
             await oms.start()
-            logger.info("OMS started for %s", sid)
+            logger.info(
+                "OMS started for %s (reconciliation_authoritative=%s)",
+                sid,
+                reconciliation_authoritative,
+            )
             self._oms_services.append(oms)
             self._portfolio_checkers.append(getattr(oms, '_portfolio_checker', None))
 
@@ -447,7 +532,13 @@ class StockFamilyCoordinator:
                 else:
                     instr.sidecar = self._shared_sidecar
                 await instr.start()
+                if require_instrumentation and not getattr(instr, "_sidecar_forwarding_enabled", True):
+                    raise RuntimeError("sidecar forwarding disabled")
             except Exception as exc:
+                if require_instrumentation:
+                    raise RuntimeError(
+                        f"Required instrumentation init failed for {sid}: {exc}"
+                    ) from exc
                 logger.warning(
                     "Instrumentation init failed for %s (non-fatal): %s", sid, exc,
                 )
@@ -553,7 +644,7 @@ class StockFamilyCoordinator:
                     md.invalidate_subscriptions()
             for i, oms in enumerate(self._oms_services):
                 reconciler = getattr(oms, "_reconciler", None)
-                if reconciler is not None:
+                if reconciler is not None and getattr(reconciler, "is_authoritative", True):
                     try:
                         await reconciler.on_reconnect_reconciliation()
                     except Exception as exc:
@@ -562,7 +653,7 @@ class StockFamilyCoordinator:
                             self._strategy_ids[i], exc,
                         )
             logger.info(
-                "Post-reconnect: per-engine + OMS reconciliation + "
+                "Post-reconnect: per-engine + authoritative OMS reconciliation + "
                 "subscription invalidation complete"
             )
 

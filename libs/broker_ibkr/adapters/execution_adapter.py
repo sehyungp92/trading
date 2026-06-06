@@ -263,6 +263,20 @@ class IBKRExecutionAdapter:
     def cache(self) -> IBCache:
         return self._cache
 
+    @property
+    def account_id(self) -> str:
+        return self._account
+
+    @property
+    def client_id(self) -> int | None:
+        first_group = next(iter(getattr(self._session, "groups", {}).values()), None)
+        config = getattr(first_group, "config", None)
+        value = getattr(config, "client_id", None)
+        try:
+            return int(value) if value is not None else None
+        except (TypeError, ValueError):
+            return None
+
     def _handle_order_status(self, trade: Trade) -> None:
         """Route IB orderStatus events to OMS callbacks."""
         oms_id = self._cache.lookup_oms_id(trade.order.orderId)
@@ -307,9 +321,13 @@ class IBKRExecutionAdapter:
         if self._cache.is_fill_seen(exec_id):
             return
 
-        self._cache.mark_fill_seen(exec_id)
         oms_id = self._cache.lookup_oms_id(trade.order.orderId)
         if not oms_id:
+            logger.warning(
+                "Received execution %s for unmapped broker_order_id=%s; leaving unmarked for replay",
+                exec_id,
+                trade.order.orderId,
+            )
             return
 
         trace_id = generate_trace_id(oms_id)
@@ -336,6 +354,7 @@ class IBKRExecutionAdapter:
             fill.execution.time,
             commission,
         )
+        self._cache.mark_fill_seen(exec_id)
 
     def _handle_error(self, reqId: int, errorCode: int, errorString: str, contract) -> None:
         """Route IB errors to OMS callbacks."""

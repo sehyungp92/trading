@@ -8,9 +8,16 @@ logger = logging.getLogger(__name__)
 TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.CREATED: {OrderStatus.RISK_APPROVED, OrderStatus.REJECTED},
     OrderStatus.RISK_APPROVED: {
+        OrderStatus.QUEUED,
         OrderStatus.ROUTED,
         OrderStatus.REJECTED,
         OrderStatus.CANCEL_REQUESTED,
+        OrderStatus.EXPIRED,
+    },
+    OrderStatus.QUEUED: {
+        OrderStatus.RISK_APPROVED,
+        OrderStatus.ROUTED,
+        OrderStatus.REJECTED,
         OrderStatus.EXPIRED,
     },
     # H3: CANCELLED added — broker can cancel before ACK (race condition)
