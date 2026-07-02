@@ -1,0 +1,58 @@
+NQDTC Round 5 Alpha Repair Refinement
+====================================================================================================
+Focused repair refinement; OOS is used for selection diagnostics and is not a fresh holdout.
+Data end: 2026-05-24; candidates: 246
+
+Top Split Rankings
+  min_box_100_tp2_2p5_pct_0p15: score=+2.527 IS n=155 netR=+78.47 PF=2.16 OOS n=7 netR=+6.79 PF=3.25 reasons=['IS netR below round5']
+  min_box_100_tp2_2p5_pct_0p2: score=+2.527 IS n=155 netR=+78.47 PF=2.16 OOS n=7 netR=+6.79 PF=3.25 reasons=['IS netR below round5']
+  min_box_100_tp2_2p5_pct_0p25: score=+2.527 IS n=155 netR=+78.47 PF=2.16 OOS n=7 netR=+6.79 PF=3.25 reasons=['IS netR below round5']
+  min_box_100_mfe_quality_tp2_2p5: score=+2.045 IS n=156 netR=+78.66 PF=2.16 OOS n=7 netR=+6.21 PF=3.06 reasons=['IS netR below round5', 'OOS netR below round5', 'OOS PF below round5']
+  min_box_100_tp2_2p5_pct_0p15_mfe_quality: score=+2.045 IS n=156 netR=+78.66 PF=2.16 OOS n=7 netR=+6.21 PF=3.06 reasons=['IS netR below round5', 'OOS netR below round5', 'OOS PF below round5']
+  min_box_100: score=+2.037 IS n=155 netR=+77.41 PF=2.16 OOS n=7 netR=+6.36 PF=3.11 reasons=['IS netR below round5']
+  min_box_100_tp2_2p25_pct_0p15: score=+2.037 IS n=155 netR=+77.41 PF=2.16 OOS n=7 netR=+6.36 PF=3.11 reasons=['IS netR below round5']
+  min_box_100_tp2_2p25_pct_0p25: score=+2.037 IS n=155 netR=+77.41 PF=2.16 OOS n=7 netR=+6.36 PF=3.11 reasons=['IS netR below round5']
+  min_box_100_tp1_1p6_pct_0p35: score=+2.037 IS n=155 netR=+77.41 PF=2.16 OOS n=7 netR=+6.36 PF=3.11 reasons=['IS netR below round5']
+  min_box_100_tp1_1p6_pct_0p4: score=+2.037 IS n=155 netR=+77.41 PF=2.16 OOS n=7 netR=+6.36 PF=3.11 reasons=['IS netR below round5']
+  min_box_90_mfe_quality: score=+2.034 IS n=159 netR=+81.06 PF=2.16 OOS n=7 netR=+5.91 PF=2.96 reasons=['OOS netR below round5', 'OOS PF below round5']
+  min_box_100_c_0p264: score=+2.031 IS n=155 netR=+77.37 PF=2.16 OOS n=7 netR=+6.36 PF=3.11 reasons=['IS netR below round5', 'OOS netR below round5', 'OOS PF below round5']
+  min_box_100_c_0p248: score=+1.945 IS n=152 netR=+80.59 PF=2.25 OOS n=7 netR=+5.57 PF=2.85 reasons=['OOS netR below round5', 'OOS PF below round5']
+  min_box_90_c_0p248: score=+1.927 IS n=155 netR=+81.54 PF=2.21 OOS n=7 netR=+5.57 PF=2.85 reasons=['OOS netR below round5', 'OOS PF below round5']
+  min_box_100_tp1_1p65_pct_0p35: score=+1.895 IS n=153 netR=+76.10 PF=2.12 OOS n=7 netR=+6.46 PF=3.14 reasons=['IS netR below round5']
+  min_box_100_tp1_1p65_pct_0p4: score=+1.895 IS n=153 netR=+76.10 PF=2.12 OOS n=7 netR=+6.46 PF=3.14 reasons=['IS netR below round5']
+  min_box_100_tp1_1p65_pct_0p45: score=+1.895 IS n=153 netR=+76.10 PF=2.12 OOS n=7 netR=+6.46 PF=3.14 reasons=['IS netR below round5']
+  min_box_100_mfe_fast_tp2_2p5: score=+1.868 IS n=155 netR=+78.98 PF=2.17 OOS n=7 netR=+5.95 PF=2.98 reasons=['OOS netR below round5', 'OOS PF below round5']
+  min_box_110_tp2_2p375_pct_0p15: score=+1.861 IS n=150 netR=+74.50 PF=2.13 OOS n=7 netR=+6.57 PF=3.18 reasons=['IS netR below round5']
+  min_box_110_tp2_2p375_pct_0p2: score=+1.861 IS n=150 netR=+74.50 PF=2.13 OOS n=7 netR=+6.57 PF=3.18 reasons=['IS netR below round5']
+
+Full Metrics
+  round4: trades=133 PF=2.07 net=+341.4% robust=+301.3% avgR=+0.498 DD=14.7%
+  round5: trades=173 PF=1.72 net=+305.5% robust=+268.9% avgR=+0.485 DD=17.2%
+  min_box_100_tp2_2p5_pct_0p15: trades=164 PF=1.75 net=+309.4% robust=+272.8% avgR=+0.511 DD=17.5%
+  min_box_100_tp2_2p5_pct_0p2: trades=164 PF=1.75 net=+309.4% robust=+272.8% avgR=+0.511 DD=17.5%
+  min_box_100_tp2_2p5_pct_0p25: trades=164 PF=1.75 net=+309.4% robust=+272.8% avgR=+0.511 DD=17.5%
+  min_box_100_mfe_quality_tp2_2p5: trades=165 PF=1.74 net=+308.5% robust=+271.9% avgR=+0.506 DD=17.4%
+  min_box_100_tp2_2p5_pct_0p15_mfe_quality: trades=165 PF=1.74 net=+308.5% robust=+271.9% avgR=+0.506 DD=17.4%
+  min_box_100: trades=164 PF=1.78 net=+313.6% robust=+277.0% avgR=+0.502 DD=17.5%
+  min_box_100_tp2_2p25_pct_0p15: trades=164 PF=1.78 net=+313.6% robust=+277.0% avgR=+0.502 DD=17.5%
+  min_box_100_tp2_2p25_pct_0p25: trades=164 PF=1.78 net=+313.6% robust=+277.0% avgR=+0.502 DD=17.5%
+  min_box_100_tp1_1p6_pct_0p35: trades=164 PF=1.78 net=+313.6% robust=+277.0% avgR=+0.502 DD=17.5%
+  min_box_100_tp1_1p6_pct_0p4: trades=164 PF=1.78 net=+313.6% robust=+277.0% avgR=+0.502 DD=17.5%
+  min_box_90_mfe_quality: trades=168 PF=1.72 net=+308.8% robust=+272.2% avgR=+0.509 DD=17.5%
+  min_box_100_c_0p264: trades=164 PF=1.78 net=+311.7% robust=+275.1% avgR=+0.502 DD=17.5%
+  min_box_100_c_0p248: trades=161 PF=1.87 net=+352.8% robust=+316.2% avgR=+0.526 DD=17.0%
+  min_box_90_c_0p248: trades=164 PF=1.81 net=+339.6% robust=+303.0% avgR=+0.523 DD=17.0%
+  min_box_100_tp1_1p65_pct_0p35: trades=162 PF=1.71 net=+281.5% robust=+244.7% avgR=+0.501 DD=16.7%
+  min_box_100_tp1_1p65_pct_0p4: trades=162 PF=1.71 net=+281.5% robust=+244.7% avgR=+0.501 DD=16.7%
+  min_box_100_tp1_1p65_pct_0p45: trades=162 PF=1.71 net=+281.5% robust=+244.7% avgR=+0.501 DD=16.7%
+  min_box_100_mfe_fast_tp2_2p5: trades=164 PF=1.76 net=+312.7% robust=+276.1% avgR=+0.509 DD=17.5%
+  min_box_110_tp2_2p375_pct_0p15: trades=159 PF=1.70 net=+283.8% robust=+247.2% avgR=+0.501 DD=17.5%
+  min_box_110_tp2_2p375_pct_0p2: trades=159 PF=1.70 net=+283.8% robust=+247.2% avgR=+0.501 DD=17.5%
+  min_box_110_tp2_2p375_pct_0p25: trades=159 PF=1.70 net=+283.8% robust=+247.2% avgR=+0.501 DD=17.5%
+  min_box_110_mfe_quality: trades=160 PF=1.70 net=+283.6% robust=+247.0% avgR=+0.515 DD=17.5%
+  min_box_110_tp1_1p65_pct_0p35: trades=157 PF=1.71 net=+272.4% robust=+235.6% avgR=+0.508 DD=16.7%
+  min_box_110_tp1_1p65_pct_0p4: trades=157 PF=1.71 net=+272.4% robust=+235.6% avgR=+0.508 DD=16.7%
+  min_box_110_tp1_1p65_pct_0p45: trades=157 PF=1.71 net=+272.4% robust=+235.6% avgR=+0.508 DD=16.7%
+  min_box_110_tp2_2p5_pct_0p15: trades=159 PF=1.74 net=+298.3% robust=+261.7% avgR=+0.508 DD=17.5%
+  min_box_110_tp2_2p5_pct_0p2: trades=159 PF=1.74 net=+298.3% robust=+261.7% avgR=+0.508 DD=17.5%
+  min_box_110_tp2_2p5_pct_0p25: trades=159 PF=1.74 net=+298.3% robust=+261.7% avgR=+0.508 DD=17.5%

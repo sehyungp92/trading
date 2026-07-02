@@ -1,0 +1,5 @@
+2026-05-04 20:50:30,612 INFO research.backtests.shared.auto.phase.0ad0aa4c3ed4.2: Starting phase 2 with 56 candidates
+2026-05-04 21:46:44,449 INFO research.backtests.shared.auto.phase.0ad0aa4c3ed4.2: Round 3 best candidate rev_relax_extension_gate did not clear min_delta 0.10%; stopping.
+2026-05-04 21:47:53,729 INFO research.backtests.shared.auto.phase.0ad0aa4c3ed4.2: Phase 2 complete: 0.8871 -> 0.9032 (2 accepted)
+2026-05-04 21:48:06,869 INFO research.backtests.shared.auto.phase.0ad0aa4c3ed4.2: Round 3 best candidate rev_relax_extension_gate did not clear min_delta 0.10%; stopping.
+2026-05-04 21:49:16,330 INFO research.backtests.shared.auto.phase.0ad0aa4c3ed4.2: Phase 2 complete: 0.8871 -> 0.9032 (2 accepted)

@@ -1,0 +1,10 @@
+{
+  "generated_at_utc": "2026-05-24T22:50:10.209443+00:00",
+  "data_end": "2026-05-24",
+  "oos_cutoff": "2026-03-21",
+  "round4_config": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_4\\optimized_config.json",
+  "round5_config": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_5\\optimized_config.json",
+  "max_workers": 1,
+  "top_n": 2,
+  "selection_oos_note": "The OOS window is used for diagnosis and repair selection here; any promotion still needs forward monitoring or a fresh holdout."
+}

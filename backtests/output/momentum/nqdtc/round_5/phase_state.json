@@ -1,0 +1,216 @@
+{
+  "current_phase": 5,
+  "completed_phases": [
+    5
+  ],
+  "cumulative_mutations": {
+    "flags.max_loss_cap": true,
+    "flags.max_stop_width": true,
+    "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+    "param_overrides.BLOCK_CAUTION_REGIME": true,
+    "flags.displacement_threshold": false,
+    "param_overrides.SCORE_NORMAL": 1.5,
+    "param_overrides.RVOL_SCORE_THRESH": 1.5,
+    "param_overrides.MIN_BOX_WIDTH": 100,
+    "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+    "flags.block_eth_shorts": true,
+    "param_overrides.TP1_R": 1.6,
+    "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+    "param_overrides.TP1_PARTIAL_PCT": 0.45,
+    "param_overrides.TP2_R": 2.25,
+    "param_overrides.TP2_PARTIAL_PCT": 0.2,
+    "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+    "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.248,
+    "param_overrides.A_ENTRY_ENABLED": true,
+    "flags.entry_a_retest": true,
+    "flags.entry_a_latch": false,
+    "param_overrides.A_TTL_5M_BARS": 12,
+    "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+    "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+  },
+  "phase_results": {
+    "5": {
+      "focus": "PF/net repair refinement adoption",
+      "base_mutations": {
+        "flags.max_loss_cap": true,
+        "flags.max_stop_width": true,
+        "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+        "param_overrides.BLOCK_CAUTION_REGIME": true,
+        "flags.displacement_threshold": false,
+        "param_overrides.SCORE_NORMAL": 1.5,
+        "param_overrides.RVOL_SCORE_THRESH": 1.5,
+        "param_overrides.MIN_BOX_WIDTH": 50,
+        "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+        "flags.block_eth_shorts": true,
+        "param_overrides.TP1_R": 1.2,
+        "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+        "param_overrides.TP1_PARTIAL_PCT": 0.45,
+        "param_overrides.TP2_R": 2.25,
+        "param_overrides.TP2_PARTIAL_PCT": 0.2,
+        "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+        "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.24,
+        "param_overrides.A_ENTRY_ENABLED": true,
+        "flags.entry_a_retest": true,
+        "flags.entry_a_latch": false,
+        "param_overrides.A_TTL_5M_BARS": 12,
+        "param_overrides.A_MAX_BOX_WIDTH": 225.0
+      },
+      "final_mutations": {
+        "flags.max_loss_cap": true,
+        "flags.max_stop_width": true,
+        "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+        "param_overrides.BLOCK_CAUTION_REGIME": true,
+        "flags.displacement_threshold": false,
+        "param_overrides.SCORE_NORMAL": 1.5,
+        "param_overrides.RVOL_SCORE_THRESH": 1.5,
+        "param_overrides.MIN_BOX_WIDTH": 100,
+        "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+        "flags.block_eth_shorts": true,
+        "param_overrides.TP1_R": 1.6,
+        "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+        "param_overrides.TP1_PARTIAL_PCT": 0.45,
+        "param_overrides.TP2_R": 2.25,
+        "param_overrides.TP2_PARTIAL_PCT": 0.2,
+        "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+        "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.248,
+        "param_overrides.A_ENTRY_ENABLED": true,
+        "flags.entry_a_retest": true,
+        "flags.entry_a_latch": false,
+        "param_overrides.A_TTL_5M_BARS": 12,
+        "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+        "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+      },
+      "base_score": 0.0,
+      "final_score": 0.8964270706148678,
+      "kept_features": [
+        "min_box_100_c_0p248"
+      ],
+      "rounds": [
+        {
+          "round_num": 1,
+          "candidates_tested": 1,
+          "best_name": "min_box_100_c_0p248",
+          "best_score": 0.8964270706148678,
+          "best_delta_pct": 0.0,
+          "kept": true,
+          "rejected_count": 0
+        }
+      ],
+      "final_metrics": {
+        "total_trades": 161,
+        "win_rate": 0.5527950310559007,
+        "profit_factor": 1.8681636685219964,
+        "max_dd_pct": 0.16985563899461698,
+        "net_return_pct": 352.80740000000065,
+        "calmar": 20.771014850509715,
+        "sharpe": 2.467569682877257,
+        "sortino": 18.88821188092298,
+        "avg_r": 0.5264204170374605,
+        "capture_ratio": 0.5307851502424517,
+        "burst_trade_pct": 0.062111801242236024,
+        "eth_short_wr": 0.0,
+        "eth_short_trades": 0,
+        "range_regime_pct": 0.6770186335403726,
+        "tp1_hit_rate": 0.4906832298136646,
+        "tp2_hit_rate": 0.37267080745341613,
+        "avg_hold_hours": 6.346273291925466,
+        "avg_winner_r": 1.7255147191156888,
+        "avg_loser_r": -0.9557933730314612,
+        "avg_mfe_r": 2.4873983801432673,
+        "robust_net_return_pct": 316.2002000000006,
+        "largest_win_return_pct": 36.607200000000056,
+        "largest_win_pnl_share": 0.10375972839571956,
+        "largest_winner_r": 6.358
+      },
+      "total_candidates": 1,
+      "accepted_count": 1,
+      "promoted_deltas": {
+        "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+        "param_overrides.SCORE_NON_RANGE_MULT": 2.25,
+        "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.248,
+        "param_overrides.TP1_R": 1.6,
+        "param_overrides.MIN_BOX_WIDTH": 100
+      },
+      "promoted_oos_evidence": {
+        "candidate": "min_box_100_c_0p248",
+        "is_trades": 152,
+        "is_net_r": 80.59,
+        "is_avg_r": 0.53,
+        "is_profit_factor": 2.25,
+        "oos_trades": 7,
+        "oos_net_r": 5.57,
+        "oos_avg_r": 0.796,
+        "oos_profit_factor": 2.85,
+        "note": "Evidence from focused round 5 alpha repair refinement through 2026-05-24; OOS was used for selection diagnostics and is not a fresh holdout."
+      }
+    }
+  },
+  "phase_gate_results": {
+    "5": {
+      "passed": true,
+      "criteria": [
+        {
+          "name": "hard_min_trades",
+          "target": 70.0,
+          "actual": 161.0,
+          "passed": true
+        },
+        {
+          "name": "hard_max_dd_pct",
+          "target": 0.26,
+          "actual": 0.16985563899461698,
+          "passed": true
+        },
+        {
+          "name": "hard_min_pf",
+          "target": 1.4,
+          "actual": 1.8681636685219964,
+          "passed": true
+        },
+        {
+          "name": "hard_min_avg_r",
+          "target": 0.16,
+          "actual": 0.5264204170374605,
+          "passed": true
+        },
+        {
+          "name": "hard_min_capture",
+          "target": 0.28,
+          "actual": 0.5307851502424517,
+          "passed": true
+        },
+        {
+          "name": "hard_max_largest_win_share",
+          "target": 0.45,
+          "actual": 0.10375972839571956,
+          "passed": true
+        },
+        {
+          "name": "frequency_floor",
+          "target": 90.0,
+          "actual": 161.0,
+          "passed": true
+        },
+        {
+          "name": "pf_quality_floor",
+          "target": 1.5,
+          "actual": 1.8681636685219964,
+          "passed": true
+        },
+        {
+          "name": "robust_return_floor",
+          "target": 100.0,
+          "actual": 316.2002000000006,
+          "passed": true
+        }
+      ],
+      "failure_category": null,
+      "recommendations": []
+    }
+  },
+  "retry_count": {},
+  "scoring_retries": {},
+  "diagnostic_retries": {},
+  "phase_timestamps": {},
+  "round_name": "round_5_pf_net_repair_refinement"
+}

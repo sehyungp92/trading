@@ -1,0 +1,50 @@
+============================================================
+NQDTC Phase 5 Diagnostics
+============================================================
+
+--- D1: Core Performance ---
+Total trades:    161
+Win rate:        55.3%
+Profit factor:   1.87
+Net return:      352.8%
+Robust return:   316.2% (ex largest winner)
+Max drawdown:    16.99%
+Calmar:          20.77
+Sharpe:          2.47
+Sortino:         18.89
+Avg R:           0.526
+
+--- D2: Exit Efficiency ---
+Capture ratio:   0.531 (winners exit_R / MFE)
+TP1 hit rate:    49.1%
+TP2 hit rate:    37.3%
+Avg winner R:    1.726
+Avg loser R:     -0.956
+Avg MFE R:       2.487
+Avg hold hours:  6.3
+Largest win:     6.358R, 10.4% of net profit
+
+--- D3: Regime Analysis ---
+Range regime:    67.7% of trades
+  Neutral     :  52 trades, WR=52%, avgR=+0.191, PnL=$+2,642
+  Range       : 109 trades, WR=57%, avgR=+0.687, PnL=$+32,370
+
+--- D4: Session/Direction Asymmetry ---
+ETH short WR:    0.0% (0 trades)
+  ETH_LONG       :  96 trades, WR=54%, avgR=+0.582, PnL=$+24,760
+  RTH_LONG       :  32 trades, WR=59%, avgR=+0.465, PnL=$+2,665
+  RTH_SHORT      :  33 trades, WR=55%, avgR=+0.425, PnL=$+7,586
+
+--- D5: Trade Clustering ---
+Burst trade pct: 6.2%
+  Burst trades:    10, avgR=-0.260, PnL=$-637
+  Isolated trades: 151, avgR=+0.578, PnL=$+35,649
+
+--- D6: Greedy Result ---
+Base score:      0.0000
+Final score:     0.8964
+Accepted:        1
+Total candidates:1
+Kept features:   min_box_100_c_0p248
+
+============================================================

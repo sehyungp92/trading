@@ -1,0 +1,4 @@
+2026-04-30 16:48:14,419 INFO research.backtests.shared.auto.phase.7a2a9bcee65e.3: Starting phase 3 with 11 candidates
+2026-04-30 16:49:24,631 INFO research.backtests.shared.auto.phase.7a2a9bcee65e.3:   Pruned 3 persistently-rejected candidates (1+ consecutive).
+2026-04-30 16:49:39,730 INFO research.backtests.shared.auto.phase.7a2a9bcee65e.3: Round 2 best candidate disable_addon_b did not clear min_delta 0.30%; stopping.
+2026-04-30 16:49:39,876 INFO research.backtests.shared.auto.phase.7a2a9bcee65e.3: Phase 3 complete: 0.7047 -> 0.7149 (1 accepted)

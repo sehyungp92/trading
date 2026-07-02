@@ -1,0 +1,36 @@
+[
+  {
+    "strategy": "nqdtc",
+    "family": "momentum",
+    "assessment": "GREY",
+    "action": "Inconclusive -- extend monitoring to 4+ months",
+    "config_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_5\\optimized_config.json",
+    "warnings": [
+      "Stored round summary appears to include post-cutoff trades (161 vs reproduced IS 152); assessment uses reproduced IS metrics.",
+      "IS profit factor does not reproduce stored round summary (2.25 vs 1.87)."
+    ],
+    "error": null,
+    "is_metrics": {
+      "total_trades": 152,
+      "winning_trades": 84,
+      "win_rate": 0.5526315789473685,
+      "profit_factor": 2.2532514841482194,
+      "net_r": 80.58958464537882,
+      "avg_r": 0.5301946358248607,
+      "max_drawdown_r": 7.823505077562288,
+      "trades_per_month": 5.712197530864198,
+      "months": 26.609724047306177
+    },
+    "oos_metrics": {
+      "total_trades": 6,
+      "winning_trades": 3,
+      "win_rate": 0.5,
+      "profit_factor": 1.6533848579224741,
+      "net_r": 1.9684675446102502,
+      "avg_r": 0.3280779241017084,
+      "max_drawdown_r": 2.006908978091738,
+      "trades_per_month": 4.454634146341464,
+      "months": 1.3469119579500657
+    }
+  }
+]

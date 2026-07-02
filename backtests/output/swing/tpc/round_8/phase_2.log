@@ -1,0 +1,3 @@
+2026-05-07 00:32:22,648 INFO research.backtests.shared.auto.phase.dba074c9a6aa.2: Starting phase 2 with 10 candidates
+2026-05-07 00:36:03,551 INFO research.backtests.shared.auto.phase.dba074c9a6aa.2: Round 1 best candidate pb30_ma_fast_slope_8_002 did not clear min_delta 0.40%; stopping.
+2026-05-07 00:39:34,541 INFO research.backtests.shared.auto.phase.dba074c9a6aa.2: Phase 2 complete: 65.1937 -> 65.1937 (0 accepted)

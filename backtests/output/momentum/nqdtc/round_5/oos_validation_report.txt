@@ -1,0 +1,33 @@
+================================================================================
+OOS VALIDATION REPORT
+IS Period: 2024-01-01 to 2026-03-20 (~26.6 months)
+OOS Period: 2026-03-21 to 2026-05-24
+Assessment basis: reproduced IS metrics from the same frozen replay
+Ref PF: stored guide/run-summary baseline, shown for audit context only
+================================================================================
+
+Strategy            OOS#  OOS WR  OOS PF OOS AvgR Repro IS PF  Ref PF Warn Assessment Action
+--------------------------------------------------------------------------------------------
+nqdtc                  7  57.1%    2.85    0.795        2.25    2.14    4 GREY     Inconclusive -- extend monitoring to 4+ months
+
+================================================================================
+DETAILED BREAKDOWN
+================================================================================
+
+Strategy: nqdtc (momentum)
+------------------------------------------------------------
+                       IS (26 mo)          OOS      Delta
+Trades:                       152            7
+Win Rate:                  55.3%       57.1%     +1.9%
+Profit Factor:               2.25         2.85      +0.59
+Avg R/trade:                0.530        0.795     +0.265
+Net R:                       80.6          5.6
+Max DD (R):                  7.82         2.01
+Trades/month:                 5.7          3.3
+Config:              C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\momentum\nqdtc\round_5\optimized_config.json
+Warnings:            NQ_5m.parquet ends 2026-05-01, before requested 2026-05-24.
+                     ES_1d.parquet ends 2026-05-01, before requested 2026-05-24.
+                     Stored round summary appears to include post-cutoff trades (161 vs reproduced IS 152); assessment uses reproduced IS metrics.
+                     IS profit factor does not reproduce stored round summary (2.25 vs 1.87).
+Assessment:          GREY
+Action:              Inconclusive -- extend monitoring to 4+ months

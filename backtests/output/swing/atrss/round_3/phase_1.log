@@ -1,0 +1,4 @@
+2026-04-30 16:42:09,101 INFO research.backtests.shared.auto.phase.7a2a9bcee65e.1: Starting phase 1 with 10 candidates
+2026-04-30 16:43:28,609 INFO research.backtests.shared.auto.phase.7a2a9bcee65e.1:   Pruned 3 persistently-rejected candidates (1+ consecutive).
+2026-04-30 16:43:28,658 INFO research.backtests.shared.auto.phase.7a2a9bcee65e.1: Round 2 best candidate risk_225bp_heat055_guarded did not clear min_delta 0.30%; stopping.
+2026-04-30 16:43:28,758 INFO research.backtests.shared.auto.phase.7a2a9bcee65e.1: Phase 1 complete: 0.5147 -> 0.6859 (1 accepted)

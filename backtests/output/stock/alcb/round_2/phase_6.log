@@ -1,0 +1,2 @@
+2026-05-23 22:23:01,126 INFO research.backtests.shared.auto.phase.08f6f983986e.6: Starting phase 6 with 1 candidates
+2026-05-23 22:31:34,278 INFO research.backtests.shared.auto.phase.08f6f983986e.6: Phase 6 complete: 0.6236 -> 0.7729 (1 accepted)

@@ -1,0 +1,467 @@
+{
+  "family": "momentum",
+  "strategy": "nqdtc",
+  "round": 5,
+  "generated_at_utc": "2026-05-25T10:41:01.954183+00:00",
+  "candidate": "min_box_100_c_0p248",
+  "promoted_deltas": {
+    "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+    "param_overrides.SCORE_NON_RANGE_MULT": 2.25,
+    "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.248,
+    "param_overrides.TP1_R": 1.6,
+    "param_overrides.MIN_BOX_WIDTH": 100
+  },
+  "promoted_oos_evidence": {
+    "candidate": "min_box_100_c_0p248",
+    "is_trades": 152,
+    "is_net_r": 80.59,
+    "is_avg_r": 0.53,
+    "is_profit_factor": 2.25,
+    "oos_trades": 7,
+    "oos_net_r": 5.57,
+    "oos_avg_r": 0.796,
+    "oos_profit_factor": 2.85,
+    "note": "Evidence from focused round 5 alpha repair refinement through 2026-05-24; OOS was used for selection diagnostics and is not a fresh holdout."
+  },
+  "headline_metrics": {
+    "total_trades": 161,
+    "win_rate": 55.27950310559007,
+    "profit_factor": 1.8681636685219964,
+    "max_drawdown_pct": 16.9855638994617,
+    "net_return_pct": 352.80740000000065,
+    "sharpe_ratio": 2.467569682877257,
+    "calmar_ratio": 20.771014850509715
+  },
+  "final_metrics": {
+    "total_trades": 161,
+    "win_rate": 0.5527950310559007,
+    "profit_factor": 1.8681636685219964,
+    "max_dd_pct": 0.16985563899461698,
+    "net_return_pct": 352.80740000000065,
+    "calmar": 20.771014850509715,
+    "sharpe": 2.467569682877257,
+    "sortino": 18.88821188092298,
+    "avg_r": 0.5264204170374605,
+    "capture_ratio": 0.5307851502424517,
+    "burst_trade_pct": 0.062111801242236024,
+    "eth_short_wr": 0.0,
+    "eth_short_trades": 0,
+    "range_regime_pct": 0.6770186335403726,
+    "tp1_hit_rate": 0.4906832298136646,
+    "tp2_hit_rate": 0.37267080745341613,
+    "avg_hold_hours": 6.346273291925466,
+    "avg_winner_r": 1.7255147191156888,
+    "avg_loser_r": -0.9557933730314612,
+    "avg_mfe_r": 2.4873983801432673,
+    "robust_net_return_pct": 316.2002000000006,
+    "largest_win_return_pct": 36.607200000000056,
+    "largest_win_pnl_share": 0.10375972839571956,
+    "largest_winner_r": 6.358
+  },
+  "round4_full_replay_metrics": {
+    "total_trades": 133,
+    "win_rate": 0.5714285714285714,
+    "profit_factor": 2.069548540140777,
+    "max_dd_pct": 0.1471263398940735,
+    "net_return_pct": 341.4224000000007,
+    "calmar": 23.206069031949987,
+    "sharpe": 2.0746203470757503,
+    "sortino": 14.635907060032084,
+    "avg_r": 0.4984373765879145,
+    "capture_ratio": 0.4335109051844213,
+    "burst_trade_pct": 0.09022556390977443,
+    "eth_short_wr": 0.0,
+    "eth_short_trades": 0,
+    "range_regime_pct": 1.0,
+    "tp1_hit_rate": 0.5112781954887218,
+    "tp2_hit_rate": 0.3082706766917293,
+    "avg_hold_hours": 6.573934837092732,
+    "avg_winner_r": 1.6189829728972516,
+    "avg_loser_r": -0.9956234184912023,
+    "avg_mfe_r": 2.5507697765904127,
+    "robust_net_return_pct": 301.26260000000065,
+    "largest_win_return_pct": 40.159800000000054,
+    "largest_win_pnl_share": 0.11762497129655224,
+    "largest_winner_r": 6.198
+  },
+  "metrics_subset": {
+    "total_trades": 161,
+    "win_rate": 0.5527950310559007,
+    "profit_factor": 1.8681636685219964,
+    "net_return_pct": 352.80740000000065,
+    "robust_net_return_pct": 316.2002000000006,
+    "max_dd_pct": 0.16985563899461698,
+    "calmar": 20.771014850509715,
+    "sharpe": 2.467569682877257,
+    "sortino": 18.88821188092298,
+    "avg_r": 0.5264204170374605,
+    "capture_ratio": 0.5307851502424517,
+    "range_regime_pct": 0.6770186335403726,
+    "tp1_hit_rate": 0.4906832298136646,
+    "tp2_hit_rate": 0.37267080745341613,
+    "avg_hold_hours": 6.346273291925466,
+    "largest_win_pnl_share": 0.10375972839571956,
+    "largest_winner_r": 6.358
+  },
+  "live_backtest_parity": {
+    "generated_at_utc": "2026-05-25T10:39:56.042549+00:00",
+    "round": 5,
+    "candidate": "min_box_100_c_0p248",
+    "checks": {
+      "BLOCK_NEUTRAL_REGIME": {
+        "expected_from_optimized_config": false,
+        "live_constant": false,
+        "matches": true
+      },
+      "BLOCK_CAUTION_REGIME": {
+        "expected_from_optimized_config": true,
+        "live_constant": true,
+        "matches": true
+      },
+      "SCORE_NON_RANGE_MULT": {
+        "expected_from_optimized_config": 2.25,
+        "live_constant": 2.25,
+        "matches": true
+      },
+      "DISPLACEMENT_THRESHOLD_ENABLED": {
+        "expected_from_optimized_config": false,
+        "live_constant": false,
+        "matches": true
+      },
+      "BLOCK_ETH_SHORTS": {
+        "expected_from_optimized_config": true,
+        "live_constant": true,
+        "matches": true
+      },
+      "A_ENTRY_ENABLED": {
+        "expected_from_optimized_config": true,
+        "live_constant": true,
+        "matches": true
+      },
+      "A_ENTRY_RETEST_ENABLED": {
+        "expected_from_optimized_config": true,
+        "live_constant": true,
+        "matches": true
+      },
+      "A_ENTRY_LATCH_ENABLED": {
+        "expected_from_optimized_config": false,
+        "live_constant": false,
+        "matches": true
+      },
+      "A_TTL_5M_BARS": {
+        "expected_from_optimized_config": 12,
+        "live_constant": 12,
+        "matches": true
+      },
+      "A_MAX_BOX_WIDTH": {
+        "expected_from_optimized_config": 225.0,
+        "live_constant": 225.0,
+        "matches": true
+      },
+      "C_ENTRY_OFFSET_ATR_STANDARD": {
+        "expected_from_optimized_config": 0.248,
+        "live_constant": 0.248,
+        "matches": true
+      },
+      "TP1_R": {
+        "expected_from_optimized_config": 1.6,
+        "live_constant": 1.6,
+        "matches": true
+      },
+      "TP1_PARTIAL_PCT": {
+        "expected_from_optimized_config": 0.45,
+        "live_constant": 0.45,
+        "matches": true
+      },
+      "TP2_R": {
+        "expected_from_optimized_config": 2.25,
+        "live_constant": 2.25,
+        "matches": true
+      },
+      "TP2_PARTIAL_PCT": {
+        "expected_from_optimized_config": 0.2,
+        "live_constant": 0.2,
+        "matches": true
+      },
+      "TP1_ONLY_CAP_MODE": {
+        "expected_from_optimized_config": "degraded_only",
+        "live_constant": "degraded_only",
+        "matches": true
+      },
+      "MIN_INTER_TRADE_GAP_MINUTES": {
+        "expected_from_optimized_config": 30,
+        "live_constant": 30,
+        "matches": true
+      },
+      "MIN_BOX_WIDTH": {
+        "expected_from_optimized_config": 100,
+        "live_constant": 100,
+        "matches": true
+      },
+      "LOSS_STREAK_THRESHOLD": {
+        "expected_from_optimized_config": 2,
+        "live_constant": 2,
+        "matches": true
+      }
+    },
+    "all_checks_passed": true,
+    "notes": [
+      "Backtest-only flags remain represented in optimized_config.json.",
+      "Live engine now honors A retest/latch selection, displacement disablement, composite regime blocks, inter-trade gap, and loss-streak threshold."
+    ]
+  },
+  "provenance": {
+    "schema_version": 1,
+    "selection_fingerprint": "339f15e2f6b4d0c0b457dea00a3114a9203f0a6ad2f5679d5375b0ce6f4ab995",
+    "diagnostics_fingerprint": "04af3a3cec8571640a807d610fce762f513cff158d1bbdc1f85f6dcfb7369515",
+    "items": [
+      {
+        "name": "data_dir",
+        "kind": "tree_contents",
+        "fingerprint": "cced7806698e11c2896637a43a7235da1e077b221cea3568356afb6a06711419",
+        "paths": [
+          "backtests/momentum/data/raw"
+        ],
+        "scope": "data",
+        "notes": "Content fingerprint for selection-relevant replay data files."
+      },
+      {
+        "name": "diagnostics:round5_final",
+        "kind": "file_contents",
+        "fingerprint": "ee7ca294b90b65494eed443e294ba244067a573745b768d6b61823f5c128b90b",
+        "paths": [
+          "backtests/output/momentum/nqdtc/round_5/round_final_diagnostics.txt"
+        ],
+        "scope": "diagnostics",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/auto/config_mutator.py",
+        "kind": "file_contents",
+        "fingerprint": "5ddc4e4ec20135fc734d667b53aefed0d77fb52534ff1cb1aff2206b7e0563dd",
+        "paths": [
+          "backtests/momentum/auto/config_mutator.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/config_nqdtc.py",
+        "kind": "file_contents",
+        "fingerprint": "c75a8750e5204a6d705964a3c860a6f695e7f060023b2cea914a51cde7e23651",
+        "paths": [
+          "backtests/momentum/config_nqdtc.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/data/replay_cache.py",
+        "kind": "file_contents",
+        "fingerprint": "52f01bbd08103c238d77eabeeddd2fc690974b6dfe8b6a23bc8d26f60c607808",
+        "paths": [
+          "backtests/momentum/data/replay_cache.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/engine/nqdtc_engine.py",
+        "kind": "file_contents",
+        "fingerprint": "69fcaccf70930144304c12b9debb34576691cf778fb748897a4b0647a7ba2791",
+        "paths": [
+          "backtests/momentum/engine/nqdtc_engine.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/engine/sim_broker.py",
+        "kind": "file_contents",
+        "fingerprint": "9b411d5185842fa2c1d88f8836f87643b872bdff0bd632fee1ca6185208537db",
+        "paths": [
+          "backtests/momentum/engine/sim_broker.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:strategies/momentum/nqdtc/config.py",
+        "kind": "file_contents",
+        "fingerprint": "620ea17b257824e73657ffbd1679a86caa4f30627c5417ddbb549d7619aba70a",
+        "paths": [
+          "strategies/momentum/nqdtc/config.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:strategies/momentum/nqdtc/engine.py",
+        "kind": "file_contents",
+        "fingerprint": "852c3d4d97bcf8cfed95eba9081bf96fd380f5364f9365b16b68cb8234cf7f7d",
+        "paths": [
+          "strategies/momentum/nqdtc/engine.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:strategies/momentum/nqdtc/signals.py",
+        "kind": "file_contents",
+        "fingerprint": "6b50a0470e70336886a5c7130156b00fbc4c00fc14e9af06f94dfbce00667829",
+        "paths": [
+          "strategies/momentum/nqdtc/signals.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:strategies/momentum/nqdtc/sizing.py",
+        "kind": "file_contents",
+        "fingerprint": "fe8ac148afa636c34049cc07ab9c9a250e13a15eb8c741197b0d280862a2fc2e",
+        "paths": [
+          "strategies/momentum/nqdtc/sizing.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:strategies/momentum/nqdtc/stops.py",
+        "kind": "file_contents",
+        "fingerprint": "db7202d9a8c6658db8cf62e2c109353e343277e3f9981711d78ca58975595acf",
+        "paths": [
+          "strategies/momentum/nqdtc/stops.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:tmp/promote_nqdtc_round5.py",
+        "kind": "file_contents",
+        "fingerprint": "edfa59deb3a2942cad27833514bffaa35dece04a187d89b7e39050d9f8dff482",
+        "paths": [
+          "tmp/promote_nqdtc_round5.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "plugin",
+        "kind": "plugin_identity",
+        "fingerprint": "e782cae55f8e77f557ff004538960b4638ff0871d42e1355bc5a39ae01ceeed9",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "selection_context",
+        "kind": "stable_json",
+        "fingerprint": "1d3ed3097392218b829c095f688c6a4e82f1757e464804bf6ec5756d3e0ad250",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:backtests/momentum/auto/nqdtc",
+        "kind": "tree_contents",
+        "fingerprint": "27d1435cf4ffb228a5514621cbf4d40ebcf86d2a4d744c7c4c808b5b2c47c2db",
+        "paths": [
+          "backtests/momentum/auto/nqdtc"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "shared_auto_package",
+        "kind": "tree_contents",
+        "fingerprint": "b58cff0ef3381b09a3e6abcacca3dbbcc093afc7c8583a6e34c39a8886dd6f3c",
+        "paths": [
+          "backtests/shared/auto"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:ablation_summary",
+        "kind": "source_artifact_contents",
+        "fingerprint": "e635431182d0d3c269225a1cdb3e34319a595b38bad249e1b294a5d338feab8d",
+        "paths": [
+          "backtests/output/momentum/nqdtc/round_4/oos_ablation_perturbation_repair_20260524/summary.txt"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:alpha_refine_summary",
+        "kind": "source_artifact_contents",
+        "fingerprint": "5f67bac90ddf2bb89475d6f947937e469c74f326d578d169a9f999ab60709c1b",
+        "paths": [
+          "backtests/output/momentum/nqdtc/round_5/alpha_refine_20260524/summary.json"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:alpha_refine_text",
+        "kind": "source_artifact_contents",
+        "fingerprint": "fa35c4e482fabd0bdeefd733d33f0bdf4e537f628ca925649011ffaf4498075f",
+        "paths": [
+          "backtests/output/momentum/nqdtc/round_5/alpha_refine_20260524/summary.txt"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:alpha_repair_summary",
+        "kind": "source_artifact_contents",
+        "fingerprint": "b48dedff0a43a801985093f998e8b6da87726edbdc67833d52bd3f216a726923",
+        "paths": [
+          "backtests/output/momentum/nqdtc/round_5/alpha_repair_20260524/summary.json"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:alpha_repair_text",
+        "kind": "source_artifact_contents",
+        "fingerprint": "314fc67adde048889c53393e8dc6c9cebd2ed337aef38cce345dcc55ac2436b9",
+        "paths": [
+          "backtests/output/momentum/nqdtc/round_5/alpha_repair_20260524/summary.txt"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:deep_dive_summary",
+        "kind": "source_artifact_contents",
+        "fingerprint": "cd22a61aa91b3b444e1e7d221aa62549900e1e68430b7e14d2f63b88e621e155",
+        "paths": [
+          "backtests/output/momentum/nqdtc/round_4/oos_deep_dive_20260524/summary.json"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:deep_dive_text",
+        "kind": "source_artifact_contents",
+        "fingerprint": "4ff3d6e4aaf75f813a38c57e93cfc8ed64d4dfff45a21b8af01902484bf36935",
+        "paths": [
+          "backtests/output/momentum/nqdtc/round_4/oos_deep_dive_20260524/summary.txt"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:round4_optimized_config",
+        "kind": "source_artifact_contents",
+        "fingerprint": "85665e82a791e780c0712ad6e3e6754d5751d543ba65e1dd3cf36421103f9327",
+        "paths": [
+          "backtests/output/momentum/nqdtc/round_4/optimized_config.json"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      }
+    ]
+  },
+  "provenance_status": "complete"
+}

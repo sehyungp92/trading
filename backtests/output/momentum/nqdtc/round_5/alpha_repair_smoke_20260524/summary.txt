@@ -1,0 +1,34 @@
+NQDTC Round 5 Alpha Repair Search
+================================================================================================================
+The OOS window is used for diagnosis and repair selection here; any promotion still needs forward monitoring or a fresh holdout.
+Data end: 2026-05-24; OOS starts 2026-03-21; candidates: 2
+
+Baselines
+  Round4: IS n=129 netR=+68.28 avgR=+0.529 PF=2.27; OOS n=4 netR=-1.99 avgR=-0.498 PF=0.34
+  Round5: IS n=164 netR=+78.90 avgR=+0.481 PF=2.08; OOS n=7 netR=+6.36 avgR=+0.909 PF=3.11
+
+Round5 vs Round4 Deltas
+  IS: trades +35, netR +10.61, avgR -0.048, PF -0.19
+  OOS: trades +3, netR +8.35, avgR +1.406, PF +2.77
+  FULL: trades +38, netR +18.96, avgR +0.000, PF -0.04
+
+Root Cause Signals
+  - Neutral expansion is materially lower expectancy than Range and dilutes PF/net.
+  - Losses are not concentrated in a few catastrophic tail events; the issue is ordinary low-expectancy flow.
+  - Round5 Neutral full: {"trades": 54, "wins": 27, "win_rate": 0.5, "net_r": 8.855514, "avg_r": 0.163991, "profit_factor": 1.362127, "min_r": -1.4375, "max_r": 3.598861}
+  - Round5 Range full:   {"trades": 117, "wins": 65, "win_rate": 0.5555555555555556, "net_r": 76.401631, "avg_r": 0.653005, "profit_factor": 2.486305, "min_r": -1.101695, "max_r": 6.358}
+
+Strict Uplifts
+  ablate_cluster_round_1_phase_1_block [ablation_all_rounds]: score=+3.317 IS n=164 netR=+78.90 PF=2.08 OOS n=7 netR=+6.36 PF=3.11 reasons=[]
+
+Repair Uplifts
+  ablate_cluster_round_1_phase_1_block [ablation_all_rounds]: score=+3.317 IS n=164 netR=+78.90 PF=2.08 OOS n=7 netR=+6.36 PF=3.11 reasons=[]
+
+Top Ranked
+  ablate_cluster_round_1_phase_1_block [ablation_all_rounds]: score=+3.317 IS n=164 netR=+78.90 PF=2.08 OOS n=7 netR=+6.36 PF=3.11 reasons=[]
+  round4_full_revert [baseline_compare]: score=-6.721 IS n=129 netR=+68.28 PF=2.27 OOS n=4 netR=-1.99 PF=0.34 reasons=['IS netR below round5', 'OOS netR below round5', 'OOS PF below round5']
+
+Full Metrics For Top Candidates
+  round4: trades=133 PF=2.07 net=+341.4% robust=+301.3% avgR=+0.498 DD=14.7%
+  round5: trades=173 PF=1.72 net=+305.5% robust=+268.9% avgR=+0.485 DD=17.2%
+  ablate_cluster_round_1_phase_1_block: trades=173 PF=1.72 net=+305.5% robust=+268.9% avgR=+0.485 DD=17.2%

@@ -1,0 +1,3653 @@
+{
+  "run_spec": {
+    "generated_at_utc": "2026-05-24T22:50:10.209443+00:00",
+    "data_end": "2026-05-24",
+    "oos_cutoff": "2026-03-21",
+    "round4_config": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_4\\optimized_config.json",
+    "round5_config": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_5\\optimized_config.json",
+    "max_workers": 1,
+    "top_n": 2,
+    "selection_oos_note": "The OOS window is used for diagnosis and repair selection here; any promotion still needs forward monitoring or a fresh holdout.",
+    "candidate_count": 2,
+    "elapsed_seconds": 339.44
+  },
+  "round4_baseline": {
+    "strategy": "nqdtc",
+    "mutations": {
+      "flags.max_loss_cap": true,
+      "flags.max_stop_width": true,
+      "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+      "param_overrides.BLOCK_CAUTION_REGIME": true,
+      "flags.displacement_threshold": false,
+      "param_overrides.SCORE_NORMAL": 1.5,
+      "param_overrides.RVOL_SCORE_THRESH": 1.5,
+      "param_overrides.MIN_BOX_WIDTH": 50,
+      "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+      "flags.block_eth_shorts": true,
+      "param_overrides.TP1_R": 1.2,
+      "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+      "param_overrides.TP1_PARTIAL_PCT": 0.45,
+      "param_overrides.TP2_R": 2.25,
+      "param_overrides.TP2_PARTIAL_PCT": 0.2,
+      "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+      "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.24,
+      "param_overrides.A_ENTRY_ENABLED": true,
+      "flags.entry_a_retest": true,
+      "flags.entry_a_latch": false,
+      "param_overrides.A_TTL_5M_BARS": 12,
+      "param_overrides.A_MAX_BOX_WIDTH": 225.0
+    },
+    "is_metrics": {
+      "total_trades": 129,
+      "winning_trades": 75,
+      "win_rate": 0.5813953488372093,
+      "profit_factor": 2.2706655948923835,
+      "net_r": 68.28278875461483,
+      "avg_r": 0.5293239438342234,
+      "max_drawdown_r": 8.771070648800354,
+      "trades_per_month": 4.847851851851852,
+      "months": 26.609724047306177
+    },
+    "oos_metrics": {
+      "total_trades": 4,
+      "winning_trades": 1,
+      "win_rate": 0.25,
+      "profit_factor": 0.33926294796110135,
+      "net_r": -1.9906176684222303,
+      "avg_r": -0.4976544171055576,
+      "max_drawdown_r": 2.006908978091738,
+      "trades_per_month": 1.9024999999999999,
+      "months": 2.102496714848883
+    },
+    "fold_metrics": [
+      {
+        "name": "F01_20240401_20240630",
+        "start": "2024-04-01",
+        "end": "2024-06-30",
+        "metrics": {
+          "total_trades": 10,
+          "winning_trades": 5,
+          "win_rate": 0.5,
+          "profit_factor": 2.948467927438261,
+          "net_r": 8.604686379482027,
+          "avg_r": 0.8604686379482027,
+          "max_drawdown_r": 2.0197368421052637,
+          "trades_per_month": 3.345054945054945,
+          "months": 2.9894875164257555
+        }
+      },
+      {
+        "name": "F02_20240701_20240930",
+        "start": "2024-07-01",
+        "end": "2024-09-30",
+        "metrics": {
+          "total_trades": 12,
+          "winning_trades": 6,
+          "win_rate": 0.5,
+          "profit_factor": 1.850736521653163,
+          "net_r": 5.160652264496518,
+          "avg_r": 0.4300543553747098,
+          "max_drawdown_r": 1.5172732950351753,
+          "trades_per_month": 3.9704347826086956,
+          "months": 3.0223390275952693
+        }
+      },
+      {
+        "name": "F03_20241001_20241231",
+        "start": "2024-10-01",
+        "end": "2024-12-31",
+        "metrics": {
+          "total_trades": 13,
+          "winning_trades": 9,
+          "win_rate": 0.6923076923076923,
+          "profit_factor": 3.74717024366839,
+          "net_r": 11.655948767961261,
+          "avg_r": 0.8966114436893278,
+          "max_drawdown_r": 3.154657477025898,
+          "trades_per_month": 4.301304347826087,
+          "months": 3.0223390275952693
+        }
+      },
+      {
+        "name": "F04_20250101_20250331",
+        "start": "2025-01-01",
+        "end": "2025-03-31",
+        "metrics": {
+          "total_trades": 12,
+          "winning_trades": 7,
+          "win_rate": 0.5833333333333334,
+          "profit_factor": 2.058987161981757,
+          "net_r": 5.058208917281639,
+          "avg_r": 0.4215174097734699,
+          "max_drawdown_r": 2.036255411255411,
+          "trades_per_month": 4.058666666666666,
+          "months": 2.9566360052562417
+        }
+      },
+      {
+        "name": "F05_20250401_20250630",
+        "start": "2025-04-01",
+        "end": "2025-06-30",
+        "metrics": {
+          "total_trades": 15,
+          "winning_trades": 8,
+          "win_rate": 0.5333333333333333,
+          "profit_factor": 1.3369955522036332,
+          "net_r": 2.3861225927831287,
+          "avg_r": 0.15907483951887524,
+          "max_drawdown_r": 3.131886569150283,
+          "trades_per_month": 5.0175824175824175,
+          "months": 2.9894875164257555
+        }
+      },
+      {
+        "name": "F06_20250701_20250930",
+        "start": "2025-07-01",
+        "end": "2025-09-30",
+        "metrics": {
+          "total_trades": 28,
+          "winning_trades": 16,
+          "win_rate": 0.5714285714285714,
+          "profit_factor": 2.17748753589939,
+          "net_r": 14.316887710154218,
+          "avg_r": 0.5113174182197935,
+          "max_drawdown_r": 5.587902028368028,
+          "trades_per_month": 9.264347826086956,
+          "months": 3.0223390275952693
+        }
+      },
+      {
+        "name": "F07_20251001_20251231",
+        "start": "2025-10-01",
+        "end": "2025-12-31",
+        "metrics": {
+          "total_trades": 16,
+          "winning_trades": 10,
+          "win_rate": 0.625,
+          "profit_factor": 2.502821300688608,
+          "net_r": 7.810468668306795,
+          "avg_r": 0.4881542917691747,
+          "max_drawdown_r": 2.0155048076923077,
+          "trades_per_month": 5.293913043478261,
+          "months": 3.0223390275952693
+        }
+      },
+      {
+        "name": "F08_20260101_20260320",
+        "start": "2026-01-01",
+        "end": "2026-03-20",
+        "metrics": {
+          "total_trades": 10,
+          "winning_trades": 6,
+          "win_rate": 0.6,
+          "profit_factor": 2.8289767426549375,
+          "net_r": 7.355425912414756,
+          "avg_r": 0.7355425912414756,
+          "max_drawdown_r": 2.0079956696566654,
+          "trades_per_month": 3.8531645569620254,
+          "months": 2.59526938239159
+        }
+      }
+    ],
+    "assessment": "GREY",
+    "action": "Inconclusive -- extend monitoring to 4+ months",
+    "error": ""
+  },
+  "round5_baseline": {
+    "strategy": "nqdtc",
+    "mutations": {
+      "flags.max_loss_cap": true,
+      "flags.max_stop_width": true,
+      "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+      "param_overrides.BLOCK_CAUTION_REGIME": true,
+      "flags.displacement_threshold": false,
+      "param_overrides.SCORE_NORMAL": 1.5,
+      "param_overrides.RVOL_SCORE_THRESH": 1.5,
+      "param_overrides.MIN_BOX_WIDTH": 50,
+      "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+      "flags.block_eth_shorts": true,
+      "param_overrides.TP1_R": 1.6,
+      "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+      "param_overrides.TP1_PARTIAL_PCT": 0.45,
+      "param_overrides.TP2_R": 2.25,
+      "param_overrides.TP2_PARTIAL_PCT": 0.2,
+      "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+      "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.252,
+      "param_overrides.A_ENTRY_ENABLED": true,
+      "flags.entry_a_retest": true,
+      "flags.entry_a_latch": false,
+      "param_overrides.A_TTL_5M_BARS": 12,
+      "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+      "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+    },
+    "is_metrics": {
+      "total_trades": 164,
+      "winning_trades": 88,
+      "win_rate": 0.5365853658536586,
+      "profit_factor": 2.0830642891271376,
+      "net_r": 78.89600716944081,
+      "avg_r": 0.4810732144478098,
+      "max_drawdown_r": 10.12906151150986,
+      "trades_per_month": 6.16316049382716,
+      "months": 26.609724047306177
+    },
+    "oos_metrics": {
+      "total_trades": 7,
+      "winning_trades": 4,
+      "win_rate": 0.5714285714285714,
+      "profit_factor": 3.1114247716690455,
+      "net_r": 6.361137827913632,
+      "avg_r": 0.9087339754162331,
+      "max_drawdown_r": 2.006908978091738,
+      "trades_per_month": 3.3293749999999998,
+      "months": 2.102496714848883
+    },
+    "fold_metrics": [
+      {
+        "name": "F01_20240401_20240630",
+        "start": "2024-04-01",
+        "end": "2024-06-30",
+        "metrics": {
+          "total_trades": 16,
+          "winning_trades": 10,
+          "win_rate": 0.625,
+          "profit_factor": 4.174476988024771,
+          "net_r": 13.625588984119092,
+          "avg_r": 0.8515993115074433,
+          "max_drawdown_r": 2.0197368421052637,
+          "trades_per_month": 5.352087912087912,
+          "months": 2.9894875164257555
+        }
+      },
+      {
+        "name": "F02_20240701_20240930",
+        "start": "2024-07-01",
+        "end": "2024-09-30",
+        "metrics": {
+          "total_trades": 14,
+          "winning_trades": 6,
+          "win_rate": 0.42857142857142855,
+          "profit_factor": 1.941126644660831,
+          "net_r": 6.654646020831392,
+          "avg_r": 0.47533185863081373,
+          "max_drawdown_r": 3.020431189772017,
+          "trades_per_month": 4.632173913043478,
+          "months": 3.0223390275952693
+        }
+      },
+      {
+        "name": "F03_20241001_20241231",
+        "start": "2024-10-01",
+        "end": "2024-12-31",
+        "metrics": {
+          "total_trades": 17,
+          "winning_trades": 10,
+          "win_rate": 0.5882352941176471,
+          "profit_factor": 2.68906157113381,
+          "net_r": 12.294387983042018,
+          "avg_r": 0.7231992931201187,
+          "max_drawdown_r": 5.136446648195615,
+          "trades_per_month": 5.624782608695653,
+          "months": 3.0223390275952693
+        }
+      },
+      {
+        "name": "F04_20250101_20250331",
+        "start": "2025-01-01",
+        "end": "2025-03-31",
+        "metrics": {
+          "total_trades": 13,
+          "winning_trades": 7,
+          "win_rate": 0.5384615384615384,
+          "profit_factor": 1.946086543192248,
+          "net_r": 5.4692318627635155,
+          "avg_r": 0.4207101432895012,
+          "max_drawdown_r": 3.0406964380648596,
+          "trades_per_month": 4.396888888888889,
+          "months": 2.9566360052562417
+        }
+      },
+      {
+        "name": "F05_20250401_20250630",
+        "start": "2025-04-01",
+        "end": "2025-06-30",
+        "metrics": {
+          "total_trades": 15,
+          "winning_trades": 8,
+          "win_rate": 0.5333333333333333,
+          "profit_factor": 1.492616295167126,
+          "net_r": 3.4880070783875743,
+          "avg_r": 0.23253380522583827,
+          "max_drawdown_r": 3.0504201680672267,
+          "trades_per_month": 5.0175824175824175,
+          "months": 2.9894875164257555
+        }
+      },
+      {
+        "name": "F06_20250701_20250930",
+        "start": "2025-07-01",
+        "end": "2025-09-30",
+        "metrics": {
+          "total_trades": 41,
+          "winning_trades": 21,
+          "win_rate": 0.5121951219512195,
+          "profit_factor": 1.7741936466473296,
+          "net_r": 15.67613179710703,
+          "avg_r": 0.38234467797822025,
+          "max_drawdown_r": 10.129061511509853,
+          "trades_per_month": 13.565652173913044,
+          "months": 3.0223390275952693
+        }
+      },
+      {
+        "name": "F07_20251001_20251231",
+        "start": "2025-10-01",
+        "end": "2025-12-31",
+        "metrics": {
+          "total_trades": 19,
+          "winning_trades": 11,
+          "win_rate": 0.5789473684210527,
+          "profit_factor": 2.2619251368774185,
+          "net_r": 8.897698421521305,
+          "avg_r": 0.46829991692217393,
+          "max_drawdown_r": 2.0155048076923077,
+          "trades_per_month": 6.286521739130435,
+          "months": 3.0223390275952693
+        }
+      },
+      {
+        "name": "F08_20260101_20260320",
+        "start": "2026-01-01",
+        "end": "2026-03-20",
+        "metrics": {
+          "total_trades": 12,
+          "winning_trades": 5,
+          "win_rate": 0.4166666666666667,
+          "profit_factor": 1.6499333214280631,
+          "net_r": 4.573922711765904,
+          "avg_r": 0.381160225980492,
+          "max_drawdown_r": 2.0529844602861997,
+          "trades_per_month": 4.6237974683544305,
+          "months": 2.59526938239159
+        }
+      }
+    ],
+    "assessment": "GREY",
+    "action": "Inconclusive -- extend monitoring to 4+ months",
+    "error": ""
+  },
+  "round5_vs_round4_diagnostics": {
+    "period_delta": {
+      "is": {
+        "trades_delta": 35,
+        "net_r_delta": 10.613218,
+        "avg_r_delta": -0.048251,
+        "pf_delta": -0.187601
+      },
+      "oos": {
+        "trades_delta": 3,
+        "net_r_delta": 8.351755,
+        "avg_r_delta": 1.406388,
+        "pf_delta": 2.772162
+      },
+      "full": {
+        "trades_delta": 38,
+        "net_r_delta": 18.964974,
+        "avg_r_delta": 0.000143,
+        "pf_delta": -0.044227
+      }
+    },
+    "root_cause": [
+      "Neutral expansion is materially lower expectancy than Range and dilutes PF/net.",
+      "Losses are not concentrated in a few catastrophic tail events; the issue is ordinary low-expectancy flow."
+    ],
+    "round4_full_regime": {
+      "Range": {
+        "trades": 133,
+        "wins": 76,
+        "win_rate": 0.5714285714285714,
+        "net_r": 66.292171,
+        "avg_r": 0.498437,
+        "profit_factor": 2.168133,
+        "min_r": -2.22807,
+        "max_r": 6.198
+      }
+    },
+    "round5_full_regime": {
+      "Range": {
+        "trades": 117,
+        "wins": 65,
+        "win_rate": 0.5555555555555556,
+        "net_r": 76.401631,
+        "avg_r": 0.653005,
+        "profit_factor": 2.486305,
+        "min_r": -1.101695,
+        "max_r": 6.358
+      },
+      "Neutral": {
+        "trades": 54,
+        "wins": 27,
+        "win_rate": 0.5,
+        "net_r": 8.855514,
+        "avg_r": 0.163991,
+        "profit_factor": 1.362127,
+        "min_r": -1.4375,
+        "max_r": 3.598861
+      }
+    },
+    "round5_neutral_full": {
+      "trades": 54,
+      "wins": 27,
+      "win_rate": 0.5,
+      "net_r": 8.855514,
+      "avg_r": 0.163991,
+      "profit_factor": 1.362127,
+      "min_r": -1.4375,
+      "max_r": 3.598861
+    },
+    "round5_range_full": {
+      "trades": 117,
+      "wins": 65,
+      "win_rate": 0.5555555555555556,
+      "net_r": 76.401631,
+      "avg_r": 0.653005,
+      "profit_factor": 2.486305,
+      "min_r": -1.101695,
+      "max_r": 6.358
+    },
+    "round5_neutral_is": {
+      "trades": 52,
+      "wins": 25,
+      "win_rate": 0.4807692307692308,
+      "net_r": 3.331653,
+      "avg_r": 0.06407,
+      "profit_factor": 1.136241,
+      "min_r": -1.4375,
+      "max_r": 1.925
+    },
+    "round5_neutral_oos": {
+      "trades": 2,
+      "wins": 2,
+      "win_rate": 1.0,
+      "net_r": 5.523861,
+      "avg_r": 2.76193,
+      "profit_factor": "inf",
+      "min_r": 1.925,
+      "max_r": 3.598861
+    }
+  },
+  "candidate_count": 2,
+  "strict_uplifts": [
+    {
+      "candidate": {
+        "name": "ablate_cluster_round_1_phase_1_block",
+        "stage": "ablation_all_rounds",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.6,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.252,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+          "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+        },
+        "intent": "Remove an accepted historical mutation cluster.",
+        "source": "round_1_phase_1_block"
+      },
+      "run": {
+        "strategy": "nqdtc",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.6,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.252,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+          "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+        },
+        "is_metrics": {
+          "total_trades": 164,
+          "winning_trades": 88,
+          "win_rate": 0.5365853658536586,
+          "profit_factor": 2.0830642891271376,
+          "net_r": 78.89600716944081,
+          "avg_r": 0.4810732144478098,
+          "max_drawdown_r": 10.12906151150986,
+          "trades_per_month": 6.16316049382716,
+          "months": 26.609724047306177
+        },
+        "oos_metrics": {
+          "total_trades": 7,
+          "winning_trades": 4,
+          "win_rate": 0.5714285714285714,
+          "profit_factor": 3.1114247716690455,
+          "net_r": 6.361137827913632,
+          "avg_r": 0.9087339754162331,
+          "max_drawdown_r": 2.006908978091738,
+          "trades_per_month": 3.3293749999999998,
+          "months": 2.102496714848883
+        },
+        "fold_metrics": [
+          {
+            "name": "F01_20240401_20240630",
+            "start": "2024-04-01",
+            "end": "2024-06-30",
+            "metrics": {
+              "total_trades": 16,
+              "winning_trades": 10,
+              "win_rate": 0.625,
+              "profit_factor": 4.174476988024771,
+              "net_r": 13.625588984119092,
+              "avg_r": 0.8515993115074433,
+              "max_drawdown_r": 2.0197368421052637,
+              "trades_per_month": 5.352087912087912,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F02_20240701_20240930",
+            "start": "2024-07-01",
+            "end": "2024-09-30",
+            "metrics": {
+              "total_trades": 14,
+              "winning_trades": 6,
+              "win_rate": 0.42857142857142855,
+              "profit_factor": 1.941126644660831,
+              "net_r": 6.654646020831392,
+              "avg_r": 0.47533185863081373,
+              "max_drawdown_r": 3.020431189772017,
+              "trades_per_month": 4.632173913043478,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F03_20241001_20241231",
+            "start": "2024-10-01",
+            "end": "2024-12-31",
+            "metrics": {
+              "total_trades": 17,
+              "winning_trades": 10,
+              "win_rate": 0.5882352941176471,
+              "profit_factor": 2.68906157113381,
+              "net_r": 12.294387983042018,
+              "avg_r": 0.7231992931201187,
+              "max_drawdown_r": 5.136446648195615,
+              "trades_per_month": 5.624782608695653,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F04_20250101_20250331",
+            "start": "2025-01-01",
+            "end": "2025-03-31",
+            "metrics": {
+              "total_trades": 13,
+              "winning_trades": 7,
+              "win_rate": 0.5384615384615384,
+              "profit_factor": 1.946086543192248,
+              "net_r": 5.4692318627635155,
+              "avg_r": 0.4207101432895012,
+              "max_drawdown_r": 3.0406964380648596,
+              "trades_per_month": 4.396888888888889,
+              "months": 2.9566360052562417
+            }
+          },
+          {
+            "name": "F05_20250401_20250630",
+            "start": "2025-04-01",
+            "end": "2025-06-30",
+            "metrics": {
+              "total_trades": 15,
+              "winning_trades": 8,
+              "win_rate": 0.5333333333333333,
+              "profit_factor": 1.492616295167126,
+              "net_r": 3.4880070783875743,
+              "avg_r": 0.23253380522583827,
+              "max_drawdown_r": 3.0504201680672267,
+              "trades_per_month": 5.0175824175824175,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F06_20250701_20250930",
+            "start": "2025-07-01",
+            "end": "2025-09-30",
+            "metrics": {
+              "total_trades": 41,
+              "winning_trades": 21,
+              "win_rate": 0.5121951219512195,
+              "profit_factor": 1.7741936466473296,
+              "net_r": 15.67613179710703,
+              "avg_r": 0.38234467797822025,
+              "max_drawdown_r": 10.129061511509853,
+              "trades_per_month": 13.565652173913044,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F07_20251001_20251231",
+            "start": "2025-10-01",
+            "end": "2025-12-31",
+            "metrics": {
+              "total_trades": 19,
+              "winning_trades": 11,
+              "win_rate": 0.5789473684210527,
+              "profit_factor": 2.2619251368774185,
+              "net_r": 8.897698421521305,
+              "avg_r": 0.46829991692217393,
+              "max_drawdown_r": 2.0155048076923077,
+              "trades_per_month": 6.286521739130435,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F08_20260101_20260320",
+            "start": "2026-01-01",
+            "end": "2026-03-20",
+            "metrics": {
+              "total_trades": 12,
+              "winning_trades": 5,
+              "win_rate": 0.4166666666666667,
+              "profit_factor": 1.6499333214280631,
+              "net_r": 4.573922711765904,
+              "avg_r": 0.381160225980492,
+              "max_drawdown_r": 2.0529844602861997,
+              "trades_per_month": 4.6237974683544305,
+              "months": 2.59526938239159
+            }
+          }
+        ],
+        "assessment": "GREY",
+        "action": "Inconclusive -- extend monitoring to 4+ months",
+        "error": ""
+      },
+      "score": 3.3167860510391827,
+      "strict_pass": true,
+      "repair_pass": true,
+      "reasons": [],
+      "deltas": {
+        "is_net_r_delta_r5": 0.0,
+        "is_pf_delta_r5": 0.0,
+        "is_avg_r_delta_r5": 0.0,
+        "is_trade_delta_r5": 0,
+        "oos_net_r_delta_r5": 0.0,
+        "oos_pf_delta_r5": 0.0,
+        "oos_avg_r_delta_r5": 0.0,
+        "oos_trade_delta_r5": 0,
+        "is_net_r_delta_r4": 10.61321841482598,
+        "is_pf_delta_r4": -0.18760130576524592,
+        "oos_net_r_delta_r4": 8.351755496335862,
+        "oos_pf_delta_r4": 2.772161823707944,
+        "positive_folds": 8,
+        "negative_folds": 0,
+        "min_fold_net_r": 3.4880070783875743,
+        "median_fold_pf": 1.9436065939265394
+      }
+    }
+  ],
+  "repair_uplifts": [
+    {
+      "candidate": {
+        "name": "ablate_cluster_round_1_phase_1_block",
+        "stage": "ablation_all_rounds",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.6,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.252,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+          "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+        },
+        "intent": "Remove an accepted historical mutation cluster.",
+        "source": "round_1_phase_1_block"
+      },
+      "run": {
+        "strategy": "nqdtc",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.6,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.252,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+          "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+        },
+        "is_metrics": {
+          "total_trades": 164,
+          "winning_trades": 88,
+          "win_rate": 0.5365853658536586,
+          "profit_factor": 2.0830642891271376,
+          "net_r": 78.89600716944081,
+          "avg_r": 0.4810732144478098,
+          "max_drawdown_r": 10.12906151150986,
+          "trades_per_month": 6.16316049382716,
+          "months": 26.609724047306177
+        },
+        "oos_metrics": {
+          "total_trades": 7,
+          "winning_trades": 4,
+          "win_rate": 0.5714285714285714,
+          "profit_factor": 3.1114247716690455,
+          "net_r": 6.361137827913632,
+          "avg_r": 0.9087339754162331,
+          "max_drawdown_r": 2.006908978091738,
+          "trades_per_month": 3.3293749999999998,
+          "months": 2.102496714848883
+        },
+        "fold_metrics": [
+          {
+            "name": "F01_20240401_20240630",
+            "start": "2024-04-01",
+            "end": "2024-06-30",
+            "metrics": {
+              "total_trades": 16,
+              "winning_trades": 10,
+              "win_rate": 0.625,
+              "profit_factor": 4.174476988024771,
+              "net_r": 13.625588984119092,
+              "avg_r": 0.8515993115074433,
+              "max_drawdown_r": 2.0197368421052637,
+              "trades_per_month": 5.352087912087912,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F02_20240701_20240930",
+            "start": "2024-07-01",
+            "end": "2024-09-30",
+            "metrics": {
+              "total_trades": 14,
+              "winning_trades": 6,
+              "win_rate": 0.42857142857142855,
+              "profit_factor": 1.941126644660831,
+              "net_r": 6.654646020831392,
+              "avg_r": 0.47533185863081373,
+              "max_drawdown_r": 3.020431189772017,
+              "trades_per_month": 4.632173913043478,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F03_20241001_20241231",
+            "start": "2024-10-01",
+            "end": "2024-12-31",
+            "metrics": {
+              "total_trades": 17,
+              "winning_trades": 10,
+              "win_rate": 0.5882352941176471,
+              "profit_factor": 2.68906157113381,
+              "net_r": 12.294387983042018,
+              "avg_r": 0.7231992931201187,
+              "max_drawdown_r": 5.136446648195615,
+              "trades_per_month": 5.624782608695653,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F04_20250101_20250331",
+            "start": "2025-01-01",
+            "end": "2025-03-31",
+            "metrics": {
+              "total_trades": 13,
+              "winning_trades": 7,
+              "win_rate": 0.5384615384615384,
+              "profit_factor": 1.946086543192248,
+              "net_r": 5.4692318627635155,
+              "avg_r": 0.4207101432895012,
+              "max_drawdown_r": 3.0406964380648596,
+              "trades_per_month": 4.396888888888889,
+              "months": 2.9566360052562417
+            }
+          },
+          {
+            "name": "F05_20250401_20250630",
+            "start": "2025-04-01",
+            "end": "2025-06-30",
+            "metrics": {
+              "total_trades": 15,
+              "winning_trades": 8,
+              "win_rate": 0.5333333333333333,
+              "profit_factor": 1.492616295167126,
+              "net_r": 3.4880070783875743,
+              "avg_r": 0.23253380522583827,
+              "max_drawdown_r": 3.0504201680672267,
+              "trades_per_month": 5.0175824175824175,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F06_20250701_20250930",
+            "start": "2025-07-01",
+            "end": "2025-09-30",
+            "metrics": {
+              "total_trades": 41,
+              "winning_trades": 21,
+              "win_rate": 0.5121951219512195,
+              "profit_factor": 1.7741936466473296,
+              "net_r": 15.67613179710703,
+              "avg_r": 0.38234467797822025,
+              "max_drawdown_r": 10.129061511509853,
+              "trades_per_month": 13.565652173913044,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F07_20251001_20251231",
+            "start": "2025-10-01",
+            "end": "2025-12-31",
+            "metrics": {
+              "total_trades": 19,
+              "winning_trades": 11,
+              "win_rate": 0.5789473684210527,
+              "profit_factor": 2.2619251368774185,
+              "net_r": 8.897698421521305,
+              "avg_r": 0.46829991692217393,
+              "max_drawdown_r": 2.0155048076923077,
+              "trades_per_month": 6.286521739130435,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F08_20260101_20260320",
+            "start": "2026-01-01",
+            "end": "2026-03-20",
+            "metrics": {
+              "total_trades": 12,
+              "winning_trades": 5,
+              "win_rate": 0.4166666666666667,
+              "profit_factor": 1.6499333214280631,
+              "net_r": 4.573922711765904,
+              "avg_r": 0.381160225980492,
+              "max_drawdown_r": 2.0529844602861997,
+              "trades_per_month": 4.6237974683544305,
+              "months": 2.59526938239159
+            }
+          }
+        ],
+        "assessment": "GREY",
+        "action": "Inconclusive -- extend monitoring to 4+ months",
+        "error": ""
+      },
+      "score": 3.3167860510391827,
+      "strict_pass": true,
+      "repair_pass": true,
+      "reasons": [],
+      "deltas": {
+        "is_net_r_delta_r5": 0.0,
+        "is_pf_delta_r5": 0.0,
+        "is_avg_r_delta_r5": 0.0,
+        "is_trade_delta_r5": 0,
+        "oos_net_r_delta_r5": 0.0,
+        "oos_pf_delta_r5": 0.0,
+        "oos_avg_r_delta_r5": 0.0,
+        "oos_trade_delta_r5": 0,
+        "is_net_r_delta_r4": 10.61321841482598,
+        "is_pf_delta_r4": -0.18760130576524592,
+        "oos_net_r_delta_r4": 8.351755496335862,
+        "oos_pf_delta_r4": 2.772161823707944,
+        "positive_folds": 8,
+        "negative_folds": 0,
+        "min_fold_net_r": 3.4880070783875743,
+        "median_fold_pf": 1.9436065939265394
+      }
+    }
+  ],
+  "ranked": [
+    {
+      "candidate": {
+        "name": "ablate_cluster_round_1_phase_1_block",
+        "stage": "ablation_all_rounds",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.6,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.252,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+          "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+        },
+        "intent": "Remove an accepted historical mutation cluster.",
+        "source": "round_1_phase_1_block"
+      },
+      "run": {
+        "strategy": "nqdtc",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.6,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.252,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+          "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+        },
+        "is_metrics": {
+          "total_trades": 164,
+          "winning_trades": 88,
+          "win_rate": 0.5365853658536586,
+          "profit_factor": 2.0830642891271376,
+          "net_r": 78.89600716944081,
+          "avg_r": 0.4810732144478098,
+          "max_drawdown_r": 10.12906151150986,
+          "trades_per_month": 6.16316049382716,
+          "months": 26.609724047306177
+        },
+        "oos_metrics": {
+          "total_trades": 7,
+          "winning_trades": 4,
+          "win_rate": 0.5714285714285714,
+          "profit_factor": 3.1114247716690455,
+          "net_r": 6.361137827913632,
+          "avg_r": 0.9087339754162331,
+          "max_drawdown_r": 2.006908978091738,
+          "trades_per_month": 3.3293749999999998,
+          "months": 2.102496714848883
+        },
+        "fold_metrics": [
+          {
+            "name": "F01_20240401_20240630",
+            "start": "2024-04-01",
+            "end": "2024-06-30",
+            "metrics": {
+              "total_trades": 16,
+              "winning_trades": 10,
+              "win_rate": 0.625,
+              "profit_factor": 4.174476988024771,
+              "net_r": 13.625588984119092,
+              "avg_r": 0.8515993115074433,
+              "max_drawdown_r": 2.0197368421052637,
+              "trades_per_month": 5.352087912087912,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F02_20240701_20240930",
+            "start": "2024-07-01",
+            "end": "2024-09-30",
+            "metrics": {
+              "total_trades": 14,
+              "winning_trades": 6,
+              "win_rate": 0.42857142857142855,
+              "profit_factor": 1.941126644660831,
+              "net_r": 6.654646020831392,
+              "avg_r": 0.47533185863081373,
+              "max_drawdown_r": 3.020431189772017,
+              "trades_per_month": 4.632173913043478,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F03_20241001_20241231",
+            "start": "2024-10-01",
+            "end": "2024-12-31",
+            "metrics": {
+              "total_trades": 17,
+              "winning_trades": 10,
+              "win_rate": 0.5882352941176471,
+              "profit_factor": 2.68906157113381,
+              "net_r": 12.294387983042018,
+              "avg_r": 0.7231992931201187,
+              "max_drawdown_r": 5.136446648195615,
+              "trades_per_month": 5.624782608695653,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F04_20250101_20250331",
+            "start": "2025-01-01",
+            "end": "2025-03-31",
+            "metrics": {
+              "total_trades": 13,
+              "winning_trades": 7,
+              "win_rate": 0.5384615384615384,
+              "profit_factor": 1.946086543192248,
+              "net_r": 5.4692318627635155,
+              "avg_r": 0.4207101432895012,
+              "max_drawdown_r": 3.0406964380648596,
+              "trades_per_month": 4.396888888888889,
+              "months": 2.9566360052562417
+            }
+          },
+          {
+            "name": "F05_20250401_20250630",
+            "start": "2025-04-01",
+            "end": "2025-06-30",
+            "metrics": {
+              "total_trades": 15,
+              "winning_trades": 8,
+              "win_rate": 0.5333333333333333,
+              "profit_factor": 1.492616295167126,
+              "net_r": 3.4880070783875743,
+              "avg_r": 0.23253380522583827,
+              "max_drawdown_r": 3.0504201680672267,
+              "trades_per_month": 5.0175824175824175,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F06_20250701_20250930",
+            "start": "2025-07-01",
+            "end": "2025-09-30",
+            "metrics": {
+              "total_trades": 41,
+              "winning_trades": 21,
+              "win_rate": 0.5121951219512195,
+              "profit_factor": 1.7741936466473296,
+              "net_r": 15.67613179710703,
+              "avg_r": 0.38234467797822025,
+              "max_drawdown_r": 10.129061511509853,
+              "trades_per_month": 13.565652173913044,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F07_20251001_20251231",
+            "start": "2025-10-01",
+            "end": "2025-12-31",
+            "metrics": {
+              "total_trades": 19,
+              "winning_trades": 11,
+              "win_rate": 0.5789473684210527,
+              "profit_factor": 2.2619251368774185,
+              "net_r": 8.897698421521305,
+              "avg_r": 0.46829991692217393,
+              "max_drawdown_r": 2.0155048076923077,
+              "trades_per_month": 6.286521739130435,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F08_20260101_20260320",
+            "start": "2026-01-01",
+            "end": "2026-03-20",
+            "metrics": {
+              "total_trades": 12,
+              "winning_trades": 5,
+              "win_rate": 0.4166666666666667,
+              "profit_factor": 1.6499333214280631,
+              "net_r": 4.573922711765904,
+              "avg_r": 0.381160225980492,
+              "max_drawdown_r": 2.0529844602861997,
+              "trades_per_month": 4.6237974683544305,
+              "months": 2.59526938239159
+            }
+          }
+        ],
+        "assessment": "GREY",
+        "action": "Inconclusive -- extend monitoring to 4+ months",
+        "error": ""
+      },
+      "score": 3.3167860510391827,
+      "strict_pass": true,
+      "repair_pass": true,
+      "reasons": [],
+      "deltas": {
+        "is_net_r_delta_r5": 0.0,
+        "is_pf_delta_r5": 0.0,
+        "is_avg_r_delta_r5": 0.0,
+        "is_trade_delta_r5": 0,
+        "oos_net_r_delta_r5": 0.0,
+        "oos_pf_delta_r5": 0.0,
+        "oos_avg_r_delta_r5": 0.0,
+        "oos_trade_delta_r5": 0,
+        "is_net_r_delta_r4": 10.61321841482598,
+        "is_pf_delta_r4": -0.18760130576524592,
+        "oos_net_r_delta_r4": 8.351755496335862,
+        "oos_pf_delta_r4": 2.772161823707944,
+        "positive_folds": 8,
+        "negative_folds": 0,
+        "min_fold_net_r": 3.4880070783875743,
+        "median_fold_pf": 1.9436065939265394
+      }
+    },
+    {
+      "candidate": {
+        "name": "round4_full_revert",
+        "stage": "baseline_compare",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+          "param_overrides.BLOCK_CAUTION_REGIME": true,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.2,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.24,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0
+        },
+        "intent": "Whole-config comparison candidate.",
+        "source": "round4"
+      },
+      "run": {
+        "strategy": "nqdtc",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+          "param_overrides.BLOCK_CAUTION_REGIME": true,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.2,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.24,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0
+        },
+        "is_metrics": {
+          "total_trades": 129,
+          "winning_trades": 75,
+          "win_rate": 0.5813953488372093,
+          "profit_factor": 2.2706655948923835,
+          "net_r": 68.28278875461483,
+          "avg_r": 0.5293239438342234,
+          "max_drawdown_r": 8.771070648800354,
+          "trades_per_month": 4.847851851851852,
+          "months": 26.609724047306177
+        },
+        "oos_metrics": {
+          "total_trades": 4,
+          "winning_trades": 1,
+          "win_rate": 0.25,
+          "profit_factor": 0.33926294796110135,
+          "net_r": -1.9906176684222303,
+          "avg_r": -0.4976544171055576,
+          "max_drawdown_r": 2.006908978091738,
+          "trades_per_month": 1.9024999999999999,
+          "months": 2.102496714848883
+        },
+        "fold_metrics": [
+          {
+            "name": "F01_20240401_20240630",
+            "start": "2024-04-01",
+            "end": "2024-06-30",
+            "metrics": {
+              "total_trades": 10,
+              "winning_trades": 5,
+              "win_rate": 0.5,
+              "profit_factor": 2.948467927438261,
+              "net_r": 8.604686379482027,
+              "avg_r": 0.8604686379482027,
+              "max_drawdown_r": 2.0197368421052637,
+              "trades_per_month": 3.345054945054945,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F02_20240701_20240930",
+            "start": "2024-07-01",
+            "end": "2024-09-30",
+            "metrics": {
+              "total_trades": 12,
+              "winning_trades": 6,
+              "win_rate": 0.5,
+              "profit_factor": 1.850736521653163,
+              "net_r": 5.160652264496518,
+              "avg_r": 0.4300543553747098,
+              "max_drawdown_r": 1.5172732950351753,
+              "trades_per_month": 3.9704347826086956,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F03_20241001_20241231",
+            "start": "2024-10-01",
+            "end": "2024-12-31",
+            "metrics": {
+              "total_trades": 13,
+              "winning_trades": 9,
+              "win_rate": 0.6923076923076923,
+              "profit_factor": 3.74717024366839,
+              "net_r": 11.655948767961261,
+              "avg_r": 0.8966114436893278,
+              "max_drawdown_r": 3.154657477025898,
+              "trades_per_month": 4.301304347826087,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F04_20250101_20250331",
+            "start": "2025-01-01",
+            "end": "2025-03-31",
+            "metrics": {
+              "total_trades": 12,
+              "winning_trades": 7,
+              "win_rate": 0.5833333333333334,
+              "profit_factor": 2.058987161981757,
+              "net_r": 5.058208917281639,
+              "avg_r": 0.4215174097734699,
+              "max_drawdown_r": 2.036255411255411,
+              "trades_per_month": 4.058666666666666,
+              "months": 2.9566360052562417
+            }
+          },
+          {
+            "name": "F05_20250401_20250630",
+            "start": "2025-04-01",
+            "end": "2025-06-30",
+            "metrics": {
+              "total_trades": 15,
+              "winning_trades": 8,
+              "win_rate": 0.5333333333333333,
+              "profit_factor": 1.3369955522036332,
+              "net_r": 2.3861225927831287,
+              "avg_r": 0.15907483951887524,
+              "max_drawdown_r": 3.131886569150283,
+              "trades_per_month": 5.0175824175824175,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F06_20250701_20250930",
+            "start": "2025-07-01",
+            "end": "2025-09-30",
+            "metrics": {
+              "total_trades": 28,
+              "winning_trades": 16,
+              "win_rate": 0.5714285714285714,
+              "profit_factor": 2.17748753589939,
+              "net_r": 14.316887710154218,
+              "avg_r": 0.5113174182197935,
+              "max_drawdown_r": 5.587902028368028,
+              "trades_per_month": 9.264347826086956,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F07_20251001_20251231",
+            "start": "2025-10-01",
+            "end": "2025-12-31",
+            "metrics": {
+              "total_trades": 16,
+              "winning_trades": 10,
+              "win_rate": 0.625,
+              "profit_factor": 2.502821300688608,
+              "net_r": 7.810468668306795,
+              "avg_r": 0.4881542917691747,
+              "max_drawdown_r": 2.0155048076923077,
+              "trades_per_month": 5.293913043478261,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F08_20260101_20260320",
+            "start": "2026-01-01",
+            "end": "2026-03-20",
+            "metrics": {
+              "total_trades": 10,
+              "winning_trades": 6,
+              "win_rate": 0.6,
+              "profit_factor": 2.8289767426549375,
+              "net_r": 7.355425912414756,
+              "avg_r": 0.7355425912414756,
+              "max_drawdown_r": 2.0079956696566654,
+              "trades_per_month": 3.8531645569620254,
+              "months": 2.59526938239159
+            }
+          }
+        ],
+        "assessment": "GREY",
+        "action": "Inconclusive -- extend monitoring to 4+ months",
+        "error": ""
+      },
+      "score": -6.72113814214719,
+      "strict_pass": false,
+      "repair_pass": false,
+      "reasons": [
+        "IS netR below round5",
+        "OOS netR below round5",
+        "OOS PF below round5"
+      ],
+      "deltas": {
+        "is_net_r_delta_r5": -10.61321841482598,
+        "is_pf_delta_r5": 0.18760130576524592,
+        "is_avg_r_delta_r5": 0.048250729386413616,
+        "is_trade_delta_r5": -35,
+        "oos_net_r_delta_r5": -8.351755496335862,
+        "oos_pf_delta_r5": -2.772161823707944,
+        "oos_avg_r_delta_r5": -1.4063883925217908,
+        "oos_trade_delta_r5": -3,
+        "is_net_r_delta_r4": 0.0,
+        "is_pf_delta_r4": 0.0,
+        "oos_net_r_delta_r4": 0.0,
+        "oos_pf_delta_r4": 0.0,
+        "positive_folds": 8,
+        "negative_folds": 0,
+        "min_fold_net_r": 2.3861225927831287,
+        "median_fold_pf": 2.340154418293999
+      }
+    }
+  ],
+  "is_pf_leaders": [
+    {
+      "candidate": {
+        "name": "round4_full_revert",
+        "stage": "baseline_compare",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+          "param_overrides.BLOCK_CAUTION_REGIME": true,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.2,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.24,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0
+        },
+        "intent": "Whole-config comparison candidate.",
+        "source": "round4"
+      },
+      "run": {
+        "strategy": "nqdtc",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+          "param_overrides.BLOCK_CAUTION_REGIME": true,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.2,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.24,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0
+        },
+        "is_metrics": {
+          "total_trades": 129,
+          "winning_trades": 75,
+          "win_rate": 0.5813953488372093,
+          "profit_factor": 2.2706655948923835,
+          "net_r": 68.28278875461483,
+          "avg_r": 0.5293239438342234,
+          "max_drawdown_r": 8.771070648800354,
+          "trades_per_month": 4.847851851851852,
+          "months": 26.609724047306177
+        },
+        "oos_metrics": {
+          "total_trades": 4,
+          "winning_trades": 1,
+          "win_rate": 0.25,
+          "profit_factor": 0.33926294796110135,
+          "net_r": -1.9906176684222303,
+          "avg_r": -0.4976544171055576,
+          "max_drawdown_r": 2.006908978091738,
+          "trades_per_month": 1.9024999999999999,
+          "months": 2.102496714848883
+        },
+        "fold_metrics": [
+          {
+            "name": "F01_20240401_20240630",
+            "start": "2024-04-01",
+            "end": "2024-06-30",
+            "metrics": {
+              "total_trades": 10,
+              "winning_trades": 5,
+              "win_rate": 0.5,
+              "profit_factor": 2.948467927438261,
+              "net_r": 8.604686379482027,
+              "avg_r": 0.8604686379482027,
+              "max_drawdown_r": 2.0197368421052637,
+              "trades_per_month": 3.345054945054945,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F02_20240701_20240930",
+            "start": "2024-07-01",
+            "end": "2024-09-30",
+            "metrics": {
+              "total_trades": 12,
+              "winning_trades": 6,
+              "win_rate": 0.5,
+              "profit_factor": 1.850736521653163,
+              "net_r": 5.160652264496518,
+              "avg_r": 0.4300543553747098,
+              "max_drawdown_r": 1.5172732950351753,
+              "trades_per_month": 3.9704347826086956,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F03_20241001_20241231",
+            "start": "2024-10-01",
+            "end": "2024-12-31",
+            "metrics": {
+              "total_trades": 13,
+              "winning_trades": 9,
+              "win_rate": 0.6923076923076923,
+              "profit_factor": 3.74717024366839,
+              "net_r": 11.655948767961261,
+              "avg_r": 0.8966114436893278,
+              "max_drawdown_r": 3.154657477025898,
+              "trades_per_month": 4.301304347826087,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F04_20250101_20250331",
+            "start": "2025-01-01",
+            "end": "2025-03-31",
+            "metrics": {
+              "total_trades": 12,
+              "winning_trades": 7,
+              "win_rate": 0.5833333333333334,
+              "profit_factor": 2.058987161981757,
+              "net_r": 5.058208917281639,
+              "avg_r": 0.4215174097734699,
+              "max_drawdown_r": 2.036255411255411,
+              "trades_per_month": 4.058666666666666,
+              "months": 2.9566360052562417
+            }
+          },
+          {
+            "name": "F05_20250401_20250630",
+            "start": "2025-04-01",
+            "end": "2025-06-30",
+            "metrics": {
+              "total_trades": 15,
+              "winning_trades": 8,
+              "win_rate": 0.5333333333333333,
+              "profit_factor": 1.3369955522036332,
+              "net_r": 2.3861225927831287,
+              "avg_r": 0.15907483951887524,
+              "max_drawdown_r": 3.131886569150283,
+              "trades_per_month": 5.0175824175824175,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F06_20250701_20250930",
+            "start": "2025-07-01",
+            "end": "2025-09-30",
+            "metrics": {
+              "total_trades": 28,
+              "winning_trades": 16,
+              "win_rate": 0.5714285714285714,
+              "profit_factor": 2.17748753589939,
+              "net_r": 14.316887710154218,
+              "avg_r": 0.5113174182197935,
+              "max_drawdown_r": 5.587902028368028,
+              "trades_per_month": 9.264347826086956,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F07_20251001_20251231",
+            "start": "2025-10-01",
+            "end": "2025-12-31",
+            "metrics": {
+              "total_trades": 16,
+              "winning_trades": 10,
+              "win_rate": 0.625,
+              "profit_factor": 2.502821300688608,
+              "net_r": 7.810468668306795,
+              "avg_r": 0.4881542917691747,
+              "max_drawdown_r": 2.0155048076923077,
+              "trades_per_month": 5.293913043478261,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F08_20260101_20260320",
+            "start": "2026-01-01",
+            "end": "2026-03-20",
+            "metrics": {
+              "total_trades": 10,
+              "winning_trades": 6,
+              "win_rate": 0.6,
+              "profit_factor": 2.8289767426549375,
+              "net_r": 7.355425912414756,
+              "avg_r": 0.7355425912414756,
+              "max_drawdown_r": 2.0079956696566654,
+              "trades_per_month": 3.8531645569620254,
+              "months": 2.59526938239159
+            }
+          }
+        ],
+        "assessment": "GREY",
+        "action": "Inconclusive -- extend monitoring to 4+ months",
+        "error": ""
+      },
+      "score": -6.72113814214719,
+      "strict_pass": false,
+      "repair_pass": false,
+      "reasons": [
+        "IS netR below round5",
+        "OOS netR below round5",
+        "OOS PF below round5"
+      ],
+      "deltas": {
+        "is_net_r_delta_r5": -10.61321841482598,
+        "is_pf_delta_r5": 0.18760130576524592,
+        "is_avg_r_delta_r5": 0.048250729386413616,
+        "is_trade_delta_r5": -35,
+        "oos_net_r_delta_r5": -8.351755496335862,
+        "oos_pf_delta_r5": -2.772161823707944,
+        "oos_avg_r_delta_r5": -1.4063883925217908,
+        "oos_trade_delta_r5": -3,
+        "is_net_r_delta_r4": 0.0,
+        "is_pf_delta_r4": 0.0,
+        "oos_net_r_delta_r4": 0.0,
+        "oos_pf_delta_r4": 0.0,
+        "positive_folds": 8,
+        "negative_folds": 0,
+        "min_fold_net_r": 2.3861225927831287,
+        "median_fold_pf": 2.340154418293999
+      }
+    },
+    {
+      "candidate": {
+        "name": "ablate_cluster_round_1_phase_1_block",
+        "stage": "ablation_all_rounds",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.6,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.252,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+          "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+        },
+        "intent": "Remove an accepted historical mutation cluster.",
+        "source": "round_1_phase_1_block"
+      },
+      "run": {
+        "strategy": "nqdtc",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.6,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.252,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+          "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+        },
+        "is_metrics": {
+          "total_trades": 164,
+          "winning_trades": 88,
+          "win_rate": 0.5365853658536586,
+          "profit_factor": 2.0830642891271376,
+          "net_r": 78.89600716944081,
+          "avg_r": 0.4810732144478098,
+          "max_drawdown_r": 10.12906151150986,
+          "trades_per_month": 6.16316049382716,
+          "months": 26.609724047306177
+        },
+        "oos_metrics": {
+          "total_trades": 7,
+          "winning_trades": 4,
+          "win_rate": 0.5714285714285714,
+          "profit_factor": 3.1114247716690455,
+          "net_r": 6.361137827913632,
+          "avg_r": 0.9087339754162331,
+          "max_drawdown_r": 2.006908978091738,
+          "trades_per_month": 3.3293749999999998,
+          "months": 2.102496714848883
+        },
+        "fold_metrics": [
+          {
+            "name": "F01_20240401_20240630",
+            "start": "2024-04-01",
+            "end": "2024-06-30",
+            "metrics": {
+              "total_trades": 16,
+              "winning_trades": 10,
+              "win_rate": 0.625,
+              "profit_factor": 4.174476988024771,
+              "net_r": 13.625588984119092,
+              "avg_r": 0.8515993115074433,
+              "max_drawdown_r": 2.0197368421052637,
+              "trades_per_month": 5.352087912087912,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F02_20240701_20240930",
+            "start": "2024-07-01",
+            "end": "2024-09-30",
+            "metrics": {
+              "total_trades": 14,
+              "winning_trades": 6,
+              "win_rate": 0.42857142857142855,
+              "profit_factor": 1.941126644660831,
+              "net_r": 6.654646020831392,
+              "avg_r": 0.47533185863081373,
+              "max_drawdown_r": 3.020431189772017,
+              "trades_per_month": 4.632173913043478,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F03_20241001_20241231",
+            "start": "2024-10-01",
+            "end": "2024-12-31",
+            "metrics": {
+              "total_trades": 17,
+              "winning_trades": 10,
+              "win_rate": 0.5882352941176471,
+              "profit_factor": 2.68906157113381,
+              "net_r": 12.294387983042018,
+              "avg_r": 0.7231992931201187,
+              "max_drawdown_r": 5.136446648195615,
+              "trades_per_month": 5.624782608695653,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F04_20250101_20250331",
+            "start": "2025-01-01",
+            "end": "2025-03-31",
+            "metrics": {
+              "total_trades": 13,
+              "winning_trades": 7,
+              "win_rate": 0.5384615384615384,
+              "profit_factor": 1.946086543192248,
+              "net_r": 5.4692318627635155,
+              "avg_r": 0.4207101432895012,
+              "max_drawdown_r": 3.0406964380648596,
+              "trades_per_month": 4.396888888888889,
+              "months": 2.9566360052562417
+            }
+          },
+          {
+            "name": "F05_20250401_20250630",
+            "start": "2025-04-01",
+            "end": "2025-06-30",
+            "metrics": {
+              "total_trades": 15,
+              "winning_trades": 8,
+              "win_rate": 0.5333333333333333,
+              "profit_factor": 1.492616295167126,
+              "net_r": 3.4880070783875743,
+              "avg_r": 0.23253380522583827,
+              "max_drawdown_r": 3.0504201680672267,
+              "trades_per_month": 5.0175824175824175,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F06_20250701_20250930",
+            "start": "2025-07-01",
+            "end": "2025-09-30",
+            "metrics": {
+              "total_trades": 41,
+              "winning_trades": 21,
+              "win_rate": 0.5121951219512195,
+              "profit_factor": 1.7741936466473296,
+              "net_r": 15.67613179710703,
+              "avg_r": 0.38234467797822025,
+              "max_drawdown_r": 10.129061511509853,
+              "trades_per_month": 13.565652173913044,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F07_20251001_20251231",
+            "start": "2025-10-01",
+            "end": "2025-12-31",
+            "metrics": {
+              "total_trades": 19,
+              "winning_trades": 11,
+              "win_rate": 0.5789473684210527,
+              "profit_factor": 2.2619251368774185,
+              "net_r": 8.897698421521305,
+              "avg_r": 0.46829991692217393,
+              "max_drawdown_r": 2.0155048076923077,
+              "trades_per_month": 6.286521739130435,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F08_20260101_20260320",
+            "start": "2026-01-01",
+            "end": "2026-03-20",
+            "metrics": {
+              "total_trades": 12,
+              "winning_trades": 5,
+              "win_rate": 0.4166666666666667,
+              "profit_factor": 1.6499333214280631,
+              "net_r": 4.573922711765904,
+              "avg_r": 0.381160225980492,
+              "max_drawdown_r": 2.0529844602861997,
+              "trades_per_month": 4.6237974683544305,
+              "months": 2.59526938239159
+            }
+          }
+        ],
+        "assessment": "GREY",
+        "action": "Inconclusive -- extend monitoring to 4+ months",
+        "error": ""
+      },
+      "score": 3.3167860510391827,
+      "strict_pass": true,
+      "repair_pass": true,
+      "reasons": [],
+      "deltas": {
+        "is_net_r_delta_r5": 0.0,
+        "is_pf_delta_r5": 0.0,
+        "is_avg_r_delta_r5": 0.0,
+        "is_trade_delta_r5": 0,
+        "oos_net_r_delta_r5": 0.0,
+        "oos_pf_delta_r5": 0.0,
+        "oos_avg_r_delta_r5": 0.0,
+        "oos_trade_delta_r5": 0,
+        "is_net_r_delta_r4": 10.61321841482598,
+        "is_pf_delta_r4": -0.18760130576524592,
+        "oos_net_r_delta_r4": 8.351755496335862,
+        "oos_pf_delta_r4": 2.772161823707944,
+        "positive_folds": 8,
+        "negative_folds": 0,
+        "min_fold_net_r": 3.4880070783875743,
+        "median_fold_pf": 1.9436065939265394
+      }
+    }
+  ],
+  "is_net_leaders": [
+    {
+      "candidate": {
+        "name": "ablate_cluster_round_1_phase_1_block",
+        "stage": "ablation_all_rounds",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.6,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.252,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+          "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+        },
+        "intent": "Remove an accepted historical mutation cluster.",
+        "source": "round_1_phase_1_block"
+      },
+      "run": {
+        "strategy": "nqdtc",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.6,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.252,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+          "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+        },
+        "is_metrics": {
+          "total_trades": 164,
+          "winning_trades": 88,
+          "win_rate": 0.5365853658536586,
+          "profit_factor": 2.0830642891271376,
+          "net_r": 78.89600716944081,
+          "avg_r": 0.4810732144478098,
+          "max_drawdown_r": 10.12906151150986,
+          "trades_per_month": 6.16316049382716,
+          "months": 26.609724047306177
+        },
+        "oos_metrics": {
+          "total_trades": 7,
+          "winning_trades": 4,
+          "win_rate": 0.5714285714285714,
+          "profit_factor": 3.1114247716690455,
+          "net_r": 6.361137827913632,
+          "avg_r": 0.9087339754162331,
+          "max_drawdown_r": 2.006908978091738,
+          "trades_per_month": 3.3293749999999998,
+          "months": 2.102496714848883
+        },
+        "fold_metrics": [
+          {
+            "name": "F01_20240401_20240630",
+            "start": "2024-04-01",
+            "end": "2024-06-30",
+            "metrics": {
+              "total_trades": 16,
+              "winning_trades": 10,
+              "win_rate": 0.625,
+              "profit_factor": 4.174476988024771,
+              "net_r": 13.625588984119092,
+              "avg_r": 0.8515993115074433,
+              "max_drawdown_r": 2.0197368421052637,
+              "trades_per_month": 5.352087912087912,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F02_20240701_20240930",
+            "start": "2024-07-01",
+            "end": "2024-09-30",
+            "metrics": {
+              "total_trades": 14,
+              "winning_trades": 6,
+              "win_rate": 0.42857142857142855,
+              "profit_factor": 1.941126644660831,
+              "net_r": 6.654646020831392,
+              "avg_r": 0.47533185863081373,
+              "max_drawdown_r": 3.020431189772017,
+              "trades_per_month": 4.632173913043478,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F03_20241001_20241231",
+            "start": "2024-10-01",
+            "end": "2024-12-31",
+            "metrics": {
+              "total_trades": 17,
+              "winning_trades": 10,
+              "win_rate": 0.5882352941176471,
+              "profit_factor": 2.68906157113381,
+              "net_r": 12.294387983042018,
+              "avg_r": 0.7231992931201187,
+              "max_drawdown_r": 5.136446648195615,
+              "trades_per_month": 5.624782608695653,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F04_20250101_20250331",
+            "start": "2025-01-01",
+            "end": "2025-03-31",
+            "metrics": {
+              "total_trades": 13,
+              "winning_trades": 7,
+              "win_rate": 0.5384615384615384,
+              "profit_factor": 1.946086543192248,
+              "net_r": 5.4692318627635155,
+              "avg_r": 0.4207101432895012,
+              "max_drawdown_r": 3.0406964380648596,
+              "trades_per_month": 4.396888888888889,
+              "months": 2.9566360052562417
+            }
+          },
+          {
+            "name": "F05_20250401_20250630",
+            "start": "2025-04-01",
+            "end": "2025-06-30",
+            "metrics": {
+              "total_trades": 15,
+              "winning_trades": 8,
+              "win_rate": 0.5333333333333333,
+              "profit_factor": 1.492616295167126,
+              "net_r": 3.4880070783875743,
+              "avg_r": 0.23253380522583827,
+              "max_drawdown_r": 3.0504201680672267,
+              "trades_per_month": 5.0175824175824175,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F06_20250701_20250930",
+            "start": "2025-07-01",
+            "end": "2025-09-30",
+            "metrics": {
+              "total_trades": 41,
+              "winning_trades": 21,
+              "win_rate": 0.5121951219512195,
+              "profit_factor": 1.7741936466473296,
+              "net_r": 15.67613179710703,
+              "avg_r": 0.38234467797822025,
+              "max_drawdown_r": 10.129061511509853,
+              "trades_per_month": 13.565652173913044,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F07_20251001_20251231",
+            "start": "2025-10-01",
+            "end": "2025-12-31",
+            "metrics": {
+              "total_trades": 19,
+              "winning_trades": 11,
+              "win_rate": 0.5789473684210527,
+              "profit_factor": 2.2619251368774185,
+              "net_r": 8.897698421521305,
+              "avg_r": 0.46829991692217393,
+              "max_drawdown_r": 2.0155048076923077,
+              "trades_per_month": 6.286521739130435,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F08_20260101_20260320",
+            "start": "2026-01-01",
+            "end": "2026-03-20",
+            "metrics": {
+              "total_trades": 12,
+              "winning_trades": 5,
+              "win_rate": 0.4166666666666667,
+              "profit_factor": 1.6499333214280631,
+              "net_r": 4.573922711765904,
+              "avg_r": 0.381160225980492,
+              "max_drawdown_r": 2.0529844602861997,
+              "trades_per_month": 4.6237974683544305,
+              "months": 2.59526938239159
+            }
+          }
+        ],
+        "assessment": "GREY",
+        "action": "Inconclusive -- extend monitoring to 4+ months",
+        "error": ""
+      },
+      "score": 3.3167860510391827,
+      "strict_pass": true,
+      "repair_pass": true,
+      "reasons": [],
+      "deltas": {
+        "is_net_r_delta_r5": 0.0,
+        "is_pf_delta_r5": 0.0,
+        "is_avg_r_delta_r5": 0.0,
+        "is_trade_delta_r5": 0,
+        "oos_net_r_delta_r5": 0.0,
+        "oos_pf_delta_r5": 0.0,
+        "oos_avg_r_delta_r5": 0.0,
+        "oos_trade_delta_r5": 0,
+        "is_net_r_delta_r4": 10.61321841482598,
+        "is_pf_delta_r4": -0.18760130576524592,
+        "oos_net_r_delta_r4": 8.351755496335862,
+        "oos_pf_delta_r4": 2.772161823707944,
+        "positive_folds": 8,
+        "negative_folds": 0,
+        "min_fold_net_r": 3.4880070783875743,
+        "median_fold_pf": 1.9436065939265394
+      }
+    },
+    {
+      "candidate": {
+        "name": "round4_full_revert",
+        "stage": "baseline_compare",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+          "param_overrides.BLOCK_CAUTION_REGIME": true,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.2,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.24,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0
+        },
+        "intent": "Whole-config comparison candidate.",
+        "source": "round4"
+      },
+      "run": {
+        "strategy": "nqdtc",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+          "param_overrides.BLOCK_CAUTION_REGIME": true,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.2,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.24,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0
+        },
+        "is_metrics": {
+          "total_trades": 129,
+          "winning_trades": 75,
+          "win_rate": 0.5813953488372093,
+          "profit_factor": 2.2706655948923835,
+          "net_r": 68.28278875461483,
+          "avg_r": 0.5293239438342234,
+          "max_drawdown_r": 8.771070648800354,
+          "trades_per_month": 4.847851851851852,
+          "months": 26.609724047306177
+        },
+        "oos_metrics": {
+          "total_trades": 4,
+          "winning_trades": 1,
+          "win_rate": 0.25,
+          "profit_factor": 0.33926294796110135,
+          "net_r": -1.9906176684222303,
+          "avg_r": -0.4976544171055576,
+          "max_drawdown_r": 2.006908978091738,
+          "trades_per_month": 1.9024999999999999,
+          "months": 2.102496714848883
+        },
+        "fold_metrics": [
+          {
+            "name": "F01_20240401_20240630",
+            "start": "2024-04-01",
+            "end": "2024-06-30",
+            "metrics": {
+              "total_trades": 10,
+              "winning_trades": 5,
+              "win_rate": 0.5,
+              "profit_factor": 2.948467927438261,
+              "net_r": 8.604686379482027,
+              "avg_r": 0.8604686379482027,
+              "max_drawdown_r": 2.0197368421052637,
+              "trades_per_month": 3.345054945054945,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F02_20240701_20240930",
+            "start": "2024-07-01",
+            "end": "2024-09-30",
+            "metrics": {
+              "total_trades": 12,
+              "winning_trades": 6,
+              "win_rate": 0.5,
+              "profit_factor": 1.850736521653163,
+              "net_r": 5.160652264496518,
+              "avg_r": 0.4300543553747098,
+              "max_drawdown_r": 1.5172732950351753,
+              "trades_per_month": 3.9704347826086956,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F03_20241001_20241231",
+            "start": "2024-10-01",
+            "end": "2024-12-31",
+            "metrics": {
+              "total_trades": 13,
+              "winning_trades": 9,
+              "win_rate": 0.6923076923076923,
+              "profit_factor": 3.74717024366839,
+              "net_r": 11.655948767961261,
+              "avg_r": 0.8966114436893278,
+              "max_drawdown_r": 3.154657477025898,
+              "trades_per_month": 4.301304347826087,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F04_20250101_20250331",
+            "start": "2025-01-01",
+            "end": "2025-03-31",
+            "metrics": {
+              "total_trades": 12,
+              "winning_trades": 7,
+              "win_rate": 0.5833333333333334,
+              "profit_factor": 2.058987161981757,
+              "net_r": 5.058208917281639,
+              "avg_r": 0.4215174097734699,
+              "max_drawdown_r": 2.036255411255411,
+              "trades_per_month": 4.058666666666666,
+              "months": 2.9566360052562417
+            }
+          },
+          {
+            "name": "F05_20250401_20250630",
+            "start": "2025-04-01",
+            "end": "2025-06-30",
+            "metrics": {
+              "total_trades": 15,
+              "winning_trades": 8,
+              "win_rate": 0.5333333333333333,
+              "profit_factor": 1.3369955522036332,
+              "net_r": 2.3861225927831287,
+              "avg_r": 0.15907483951887524,
+              "max_drawdown_r": 3.131886569150283,
+              "trades_per_month": 5.0175824175824175,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F06_20250701_20250930",
+            "start": "2025-07-01",
+            "end": "2025-09-30",
+            "metrics": {
+              "total_trades": 28,
+              "winning_trades": 16,
+              "win_rate": 0.5714285714285714,
+              "profit_factor": 2.17748753589939,
+              "net_r": 14.316887710154218,
+              "avg_r": 0.5113174182197935,
+              "max_drawdown_r": 5.587902028368028,
+              "trades_per_month": 9.264347826086956,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F07_20251001_20251231",
+            "start": "2025-10-01",
+            "end": "2025-12-31",
+            "metrics": {
+              "total_trades": 16,
+              "winning_trades": 10,
+              "win_rate": 0.625,
+              "profit_factor": 2.502821300688608,
+              "net_r": 7.810468668306795,
+              "avg_r": 0.4881542917691747,
+              "max_drawdown_r": 2.0155048076923077,
+              "trades_per_month": 5.293913043478261,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F08_20260101_20260320",
+            "start": "2026-01-01",
+            "end": "2026-03-20",
+            "metrics": {
+              "total_trades": 10,
+              "winning_trades": 6,
+              "win_rate": 0.6,
+              "profit_factor": 2.8289767426549375,
+              "net_r": 7.355425912414756,
+              "avg_r": 0.7355425912414756,
+              "max_drawdown_r": 2.0079956696566654,
+              "trades_per_month": 3.8531645569620254,
+              "months": 2.59526938239159
+            }
+          }
+        ],
+        "assessment": "GREY",
+        "action": "Inconclusive -- extend monitoring to 4+ months",
+        "error": ""
+      },
+      "score": -6.72113814214719,
+      "strict_pass": false,
+      "repair_pass": false,
+      "reasons": [
+        "IS netR below round5",
+        "OOS netR below round5",
+        "OOS PF below round5"
+      ],
+      "deltas": {
+        "is_net_r_delta_r5": -10.61321841482598,
+        "is_pf_delta_r5": 0.18760130576524592,
+        "is_avg_r_delta_r5": 0.048250729386413616,
+        "is_trade_delta_r5": -35,
+        "oos_net_r_delta_r5": -8.351755496335862,
+        "oos_pf_delta_r5": -2.772161823707944,
+        "oos_avg_r_delta_r5": -1.4063883925217908,
+        "oos_trade_delta_r5": -3,
+        "is_net_r_delta_r4": 0.0,
+        "is_pf_delta_r4": 0.0,
+        "oos_net_r_delta_r4": 0.0,
+        "oos_pf_delta_r4": 0.0,
+        "positive_folds": 8,
+        "negative_folds": 0,
+        "min_fold_net_r": 2.3861225927831287,
+        "median_fold_pf": 2.340154418293999
+      }
+    }
+  ],
+  "oos_net_leaders": [
+    {
+      "candidate": {
+        "name": "ablate_cluster_round_1_phase_1_block",
+        "stage": "ablation_all_rounds",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.6,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.252,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+          "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+        },
+        "intent": "Remove an accepted historical mutation cluster.",
+        "source": "round_1_phase_1_block"
+      },
+      "run": {
+        "strategy": "nqdtc",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.6,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.252,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+          "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+        },
+        "is_metrics": {
+          "total_trades": 164,
+          "winning_trades": 88,
+          "win_rate": 0.5365853658536586,
+          "profit_factor": 2.0830642891271376,
+          "net_r": 78.89600716944081,
+          "avg_r": 0.4810732144478098,
+          "max_drawdown_r": 10.12906151150986,
+          "trades_per_month": 6.16316049382716,
+          "months": 26.609724047306177
+        },
+        "oos_metrics": {
+          "total_trades": 7,
+          "winning_trades": 4,
+          "win_rate": 0.5714285714285714,
+          "profit_factor": 3.1114247716690455,
+          "net_r": 6.361137827913632,
+          "avg_r": 0.9087339754162331,
+          "max_drawdown_r": 2.006908978091738,
+          "trades_per_month": 3.3293749999999998,
+          "months": 2.102496714848883
+        },
+        "fold_metrics": [
+          {
+            "name": "F01_20240401_20240630",
+            "start": "2024-04-01",
+            "end": "2024-06-30",
+            "metrics": {
+              "total_trades": 16,
+              "winning_trades": 10,
+              "win_rate": 0.625,
+              "profit_factor": 4.174476988024771,
+              "net_r": 13.625588984119092,
+              "avg_r": 0.8515993115074433,
+              "max_drawdown_r": 2.0197368421052637,
+              "trades_per_month": 5.352087912087912,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F02_20240701_20240930",
+            "start": "2024-07-01",
+            "end": "2024-09-30",
+            "metrics": {
+              "total_trades": 14,
+              "winning_trades": 6,
+              "win_rate": 0.42857142857142855,
+              "profit_factor": 1.941126644660831,
+              "net_r": 6.654646020831392,
+              "avg_r": 0.47533185863081373,
+              "max_drawdown_r": 3.020431189772017,
+              "trades_per_month": 4.632173913043478,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F03_20241001_20241231",
+            "start": "2024-10-01",
+            "end": "2024-12-31",
+            "metrics": {
+              "total_trades": 17,
+              "winning_trades": 10,
+              "win_rate": 0.5882352941176471,
+              "profit_factor": 2.68906157113381,
+              "net_r": 12.294387983042018,
+              "avg_r": 0.7231992931201187,
+              "max_drawdown_r": 5.136446648195615,
+              "trades_per_month": 5.624782608695653,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F04_20250101_20250331",
+            "start": "2025-01-01",
+            "end": "2025-03-31",
+            "metrics": {
+              "total_trades": 13,
+              "winning_trades": 7,
+              "win_rate": 0.5384615384615384,
+              "profit_factor": 1.946086543192248,
+              "net_r": 5.4692318627635155,
+              "avg_r": 0.4207101432895012,
+              "max_drawdown_r": 3.0406964380648596,
+              "trades_per_month": 4.396888888888889,
+              "months": 2.9566360052562417
+            }
+          },
+          {
+            "name": "F05_20250401_20250630",
+            "start": "2025-04-01",
+            "end": "2025-06-30",
+            "metrics": {
+              "total_trades": 15,
+              "winning_trades": 8,
+              "win_rate": 0.5333333333333333,
+              "profit_factor": 1.492616295167126,
+              "net_r": 3.4880070783875743,
+              "avg_r": 0.23253380522583827,
+              "max_drawdown_r": 3.0504201680672267,
+              "trades_per_month": 5.0175824175824175,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F06_20250701_20250930",
+            "start": "2025-07-01",
+            "end": "2025-09-30",
+            "metrics": {
+              "total_trades": 41,
+              "winning_trades": 21,
+              "win_rate": 0.5121951219512195,
+              "profit_factor": 1.7741936466473296,
+              "net_r": 15.67613179710703,
+              "avg_r": 0.38234467797822025,
+              "max_drawdown_r": 10.129061511509853,
+              "trades_per_month": 13.565652173913044,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F07_20251001_20251231",
+            "start": "2025-10-01",
+            "end": "2025-12-31",
+            "metrics": {
+              "total_trades": 19,
+              "winning_trades": 11,
+              "win_rate": 0.5789473684210527,
+              "profit_factor": 2.2619251368774185,
+              "net_r": 8.897698421521305,
+              "avg_r": 0.46829991692217393,
+              "max_drawdown_r": 2.0155048076923077,
+              "trades_per_month": 6.286521739130435,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F08_20260101_20260320",
+            "start": "2026-01-01",
+            "end": "2026-03-20",
+            "metrics": {
+              "total_trades": 12,
+              "winning_trades": 5,
+              "win_rate": 0.4166666666666667,
+              "profit_factor": 1.6499333214280631,
+              "net_r": 4.573922711765904,
+              "avg_r": 0.381160225980492,
+              "max_drawdown_r": 2.0529844602861997,
+              "trades_per_month": 4.6237974683544305,
+              "months": 2.59526938239159
+            }
+          }
+        ],
+        "assessment": "GREY",
+        "action": "Inconclusive -- extend monitoring to 4+ months",
+        "error": ""
+      },
+      "score": 3.3167860510391827,
+      "strict_pass": true,
+      "repair_pass": true,
+      "reasons": [],
+      "deltas": {
+        "is_net_r_delta_r5": 0.0,
+        "is_pf_delta_r5": 0.0,
+        "is_avg_r_delta_r5": 0.0,
+        "is_trade_delta_r5": 0,
+        "oos_net_r_delta_r5": 0.0,
+        "oos_pf_delta_r5": 0.0,
+        "oos_avg_r_delta_r5": 0.0,
+        "oos_trade_delta_r5": 0,
+        "is_net_r_delta_r4": 10.61321841482598,
+        "is_pf_delta_r4": -0.18760130576524592,
+        "oos_net_r_delta_r4": 8.351755496335862,
+        "oos_pf_delta_r4": 2.772161823707944,
+        "positive_folds": 8,
+        "negative_folds": 0,
+        "min_fold_net_r": 3.4880070783875743,
+        "median_fold_pf": 1.9436065939265394
+      }
+    },
+    {
+      "candidate": {
+        "name": "round4_full_revert",
+        "stage": "baseline_compare",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+          "param_overrides.BLOCK_CAUTION_REGIME": true,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.2,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.24,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0
+        },
+        "intent": "Whole-config comparison candidate.",
+        "source": "round4"
+      },
+      "run": {
+        "strategy": "nqdtc",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+          "param_overrides.BLOCK_CAUTION_REGIME": true,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.2,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.24,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0
+        },
+        "is_metrics": {
+          "total_trades": 129,
+          "winning_trades": 75,
+          "win_rate": 0.5813953488372093,
+          "profit_factor": 2.2706655948923835,
+          "net_r": 68.28278875461483,
+          "avg_r": 0.5293239438342234,
+          "max_drawdown_r": 8.771070648800354,
+          "trades_per_month": 4.847851851851852,
+          "months": 26.609724047306177
+        },
+        "oos_metrics": {
+          "total_trades": 4,
+          "winning_trades": 1,
+          "win_rate": 0.25,
+          "profit_factor": 0.33926294796110135,
+          "net_r": -1.9906176684222303,
+          "avg_r": -0.4976544171055576,
+          "max_drawdown_r": 2.006908978091738,
+          "trades_per_month": 1.9024999999999999,
+          "months": 2.102496714848883
+        },
+        "fold_metrics": [
+          {
+            "name": "F01_20240401_20240630",
+            "start": "2024-04-01",
+            "end": "2024-06-30",
+            "metrics": {
+              "total_trades": 10,
+              "winning_trades": 5,
+              "win_rate": 0.5,
+              "profit_factor": 2.948467927438261,
+              "net_r": 8.604686379482027,
+              "avg_r": 0.8604686379482027,
+              "max_drawdown_r": 2.0197368421052637,
+              "trades_per_month": 3.345054945054945,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F02_20240701_20240930",
+            "start": "2024-07-01",
+            "end": "2024-09-30",
+            "metrics": {
+              "total_trades": 12,
+              "winning_trades": 6,
+              "win_rate": 0.5,
+              "profit_factor": 1.850736521653163,
+              "net_r": 5.160652264496518,
+              "avg_r": 0.4300543553747098,
+              "max_drawdown_r": 1.5172732950351753,
+              "trades_per_month": 3.9704347826086956,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F03_20241001_20241231",
+            "start": "2024-10-01",
+            "end": "2024-12-31",
+            "metrics": {
+              "total_trades": 13,
+              "winning_trades": 9,
+              "win_rate": 0.6923076923076923,
+              "profit_factor": 3.74717024366839,
+              "net_r": 11.655948767961261,
+              "avg_r": 0.8966114436893278,
+              "max_drawdown_r": 3.154657477025898,
+              "trades_per_month": 4.301304347826087,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F04_20250101_20250331",
+            "start": "2025-01-01",
+            "end": "2025-03-31",
+            "metrics": {
+              "total_trades": 12,
+              "winning_trades": 7,
+              "win_rate": 0.5833333333333334,
+              "profit_factor": 2.058987161981757,
+              "net_r": 5.058208917281639,
+              "avg_r": 0.4215174097734699,
+              "max_drawdown_r": 2.036255411255411,
+              "trades_per_month": 4.058666666666666,
+              "months": 2.9566360052562417
+            }
+          },
+          {
+            "name": "F05_20250401_20250630",
+            "start": "2025-04-01",
+            "end": "2025-06-30",
+            "metrics": {
+              "total_trades": 15,
+              "winning_trades": 8,
+              "win_rate": 0.5333333333333333,
+              "profit_factor": 1.3369955522036332,
+              "net_r": 2.3861225927831287,
+              "avg_r": 0.15907483951887524,
+              "max_drawdown_r": 3.131886569150283,
+              "trades_per_month": 5.0175824175824175,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F06_20250701_20250930",
+            "start": "2025-07-01",
+            "end": "2025-09-30",
+            "metrics": {
+              "total_trades": 28,
+              "winning_trades": 16,
+              "win_rate": 0.5714285714285714,
+              "profit_factor": 2.17748753589939,
+              "net_r": 14.316887710154218,
+              "avg_r": 0.5113174182197935,
+              "max_drawdown_r": 5.587902028368028,
+              "trades_per_month": 9.264347826086956,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F07_20251001_20251231",
+            "start": "2025-10-01",
+            "end": "2025-12-31",
+            "metrics": {
+              "total_trades": 16,
+              "winning_trades": 10,
+              "win_rate": 0.625,
+              "profit_factor": 2.502821300688608,
+              "net_r": 7.810468668306795,
+              "avg_r": 0.4881542917691747,
+              "max_drawdown_r": 2.0155048076923077,
+              "trades_per_month": 5.293913043478261,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F08_20260101_20260320",
+            "start": "2026-01-01",
+            "end": "2026-03-20",
+            "metrics": {
+              "total_trades": 10,
+              "winning_trades": 6,
+              "win_rate": 0.6,
+              "profit_factor": 2.8289767426549375,
+              "net_r": 7.355425912414756,
+              "avg_r": 0.7355425912414756,
+              "max_drawdown_r": 2.0079956696566654,
+              "trades_per_month": 3.8531645569620254,
+              "months": 2.59526938239159
+            }
+          }
+        ],
+        "assessment": "GREY",
+        "action": "Inconclusive -- extend monitoring to 4+ months",
+        "error": ""
+      },
+      "score": -6.72113814214719,
+      "strict_pass": false,
+      "repair_pass": false,
+      "reasons": [
+        "IS netR below round5",
+        "OOS netR below round5",
+        "OOS PF below round5"
+      ],
+      "deltas": {
+        "is_net_r_delta_r5": -10.61321841482598,
+        "is_pf_delta_r5": 0.18760130576524592,
+        "is_avg_r_delta_r5": 0.048250729386413616,
+        "is_trade_delta_r5": -35,
+        "oos_net_r_delta_r5": -8.351755496335862,
+        "oos_pf_delta_r5": -2.772161823707944,
+        "oos_avg_r_delta_r5": -1.4063883925217908,
+        "oos_trade_delta_r5": -3,
+        "is_net_r_delta_r4": 0.0,
+        "is_pf_delta_r4": 0.0,
+        "oos_net_r_delta_r4": 0.0,
+        "oos_pf_delta_r4": 0.0,
+        "positive_folds": 8,
+        "negative_folds": 0,
+        "min_fold_net_r": 2.3861225927831287,
+        "median_fold_pf": 2.340154418293999
+      }
+    }
+  ],
+  "stage_leaders": {
+    "ablation_all_rounds": [
+      {
+        "candidate": {
+          "name": "ablate_cluster_round_1_phase_1_block",
+          "stage": "ablation_all_rounds",
+          "mutations": {
+            "flags.max_loss_cap": true,
+            "flags.max_stop_width": true,
+            "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+            "flags.displacement_threshold": false,
+            "param_overrides.SCORE_NORMAL": 1.5,
+            "param_overrides.RVOL_SCORE_THRESH": 1.5,
+            "param_overrides.MIN_BOX_WIDTH": 50,
+            "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+            "flags.block_eth_shorts": true,
+            "param_overrides.TP1_R": 1.6,
+            "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+            "param_overrides.TP1_PARTIAL_PCT": 0.45,
+            "param_overrides.TP2_R": 2.25,
+            "param_overrides.TP2_PARTIAL_PCT": 0.2,
+            "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+            "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.252,
+            "param_overrides.A_ENTRY_ENABLED": true,
+            "flags.entry_a_retest": true,
+            "flags.entry_a_latch": false,
+            "param_overrides.A_TTL_5M_BARS": 12,
+            "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+            "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+          },
+          "intent": "Remove an accepted historical mutation cluster.",
+          "source": "round_1_phase_1_block"
+        },
+        "run": {
+          "strategy": "nqdtc",
+          "mutations": {
+            "flags.max_loss_cap": true,
+            "flags.max_stop_width": true,
+            "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+            "flags.displacement_threshold": false,
+            "param_overrides.SCORE_NORMAL": 1.5,
+            "param_overrides.RVOL_SCORE_THRESH": 1.5,
+            "param_overrides.MIN_BOX_WIDTH": 50,
+            "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+            "flags.block_eth_shorts": true,
+            "param_overrides.TP1_R": 1.6,
+            "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+            "param_overrides.TP1_PARTIAL_PCT": 0.45,
+            "param_overrides.TP2_R": 2.25,
+            "param_overrides.TP2_PARTIAL_PCT": 0.2,
+            "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+            "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.252,
+            "param_overrides.A_ENTRY_ENABLED": true,
+            "flags.entry_a_retest": true,
+            "flags.entry_a_latch": false,
+            "param_overrides.A_TTL_5M_BARS": 12,
+            "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+            "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+          },
+          "is_metrics": {
+            "total_trades": 164,
+            "winning_trades": 88,
+            "win_rate": 0.5365853658536586,
+            "profit_factor": 2.0830642891271376,
+            "net_r": 78.89600716944081,
+            "avg_r": 0.4810732144478098,
+            "max_drawdown_r": 10.12906151150986,
+            "trades_per_month": 6.16316049382716,
+            "months": 26.609724047306177
+          },
+          "oos_metrics": {
+            "total_trades": 7,
+            "winning_trades": 4,
+            "win_rate": 0.5714285714285714,
+            "profit_factor": 3.1114247716690455,
+            "net_r": 6.361137827913632,
+            "avg_r": 0.9087339754162331,
+            "max_drawdown_r": 2.006908978091738,
+            "trades_per_month": 3.3293749999999998,
+            "months": 2.102496714848883
+          },
+          "fold_metrics": [
+            {
+              "name": "F01_20240401_20240630",
+              "start": "2024-04-01",
+              "end": "2024-06-30",
+              "metrics": {
+                "total_trades": 16,
+                "winning_trades": 10,
+                "win_rate": 0.625,
+                "profit_factor": 4.174476988024771,
+                "net_r": 13.625588984119092,
+                "avg_r": 0.8515993115074433,
+                "max_drawdown_r": 2.0197368421052637,
+                "trades_per_month": 5.352087912087912,
+                "months": 2.9894875164257555
+              }
+            },
+            {
+              "name": "F02_20240701_20240930",
+              "start": "2024-07-01",
+              "end": "2024-09-30",
+              "metrics": {
+                "total_trades": 14,
+                "winning_trades": 6,
+                "win_rate": 0.42857142857142855,
+                "profit_factor": 1.941126644660831,
+                "net_r": 6.654646020831392,
+                "avg_r": 0.47533185863081373,
+                "max_drawdown_r": 3.020431189772017,
+                "trades_per_month": 4.632173913043478,
+                "months": 3.0223390275952693
+              }
+            },
+            {
+              "name": "F03_20241001_20241231",
+              "start": "2024-10-01",
+              "end": "2024-12-31",
+              "metrics": {
+                "total_trades": 17,
+                "winning_trades": 10,
+                "win_rate": 0.5882352941176471,
+                "profit_factor": 2.68906157113381,
+                "net_r": 12.294387983042018,
+                "avg_r": 0.7231992931201187,
+                "max_drawdown_r": 5.136446648195615,
+                "trades_per_month": 5.624782608695653,
+                "months": 3.0223390275952693
+              }
+            },
+            {
+              "name": "F04_20250101_20250331",
+              "start": "2025-01-01",
+              "end": "2025-03-31",
+              "metrics": {
+                "total_trades": 13,
+                "winning_trades": 7,
+                "win_rate": 0.5384615384615384,
+                "profit_factor": 1.946086543192248,
+                "net_r": 5.4692318627635155,
+                "avg_r": 0.4207101432895012,
+                "max_drawdown_r": 3.0406964380648596,
+                "trades_per_month": 4.396888888888889,
+                "months": 2.9566360052562417
+              }
+            },
+            {
+              "name": "F05_20250401_20250630",
+              "start": "2025-04-01",
+              "end": "2025-06-30",
+              "metrics": {
+                "total_trades": 15,
+                "winning_trades": 8,
+                "win_rate": 0.5333333333333333,
+                "profit_factor": 1.492616295167126,
+                "net_r": 3.4880070783875743,
+                "avg_r": 0.23253380522583827,
+                "max_drawdown_r": 3.0504201680672267,
+                "trades_per_month": 5.0175824175824175,
+                "months": 2.9894875164257555
+              }
+            },
+            {
+              "name": "F06_20250701_20250930",
+              "start": "2025-07-01",
+              "end": "2025-09-30",
+              "metrics": {
+                "total_trades": 41,
+                "winning_trades": 21,
+                "win_rate": 0.5121951219512195,
+                "profit_factor": 1.7741936466473296,
+                "net_r": 15.67613179710703,
+                "avg_r": 0.38234467797822025,
+                "max_drawdown_r": 10.129061511509853,
+                "trades_per_month": 13.565652173913044,
+                "months": 3.0223390275952693
+              }
+            },
+            {
+              "name": "F07_20251001_20251231",
+              "start": "2025-10-01",
+              "end": "2025-12-31",
+              "metrics": {
+                "total_trades": 19,
+                "winning_trades": 11,
+                "win_rate": 0.5789473684210527,
+                "profit_factor": 2.2619251368774185,
+                "net_r": 8.897698421521305,
+                "avg_r": 0.46829991692217393,
+                "max_drawdown_r": 2.0155048076923077,
+                "trades_per_month": 6.286521739130435,
+                "months": 3.0223390275952693
+              }
+            },
+            {
+              "name": "F08_20260101_20260320",
+              "start": "2026-01-01",
+              "end": "2026-03-20",
+              "metrics": {
+                "total_trades": 12,
+                "winning_trades": 5,
+                "win_rate": 0.4166666666666667,
+                "profit_factor": 1.6499333214280631,
+                "net_r": 4.573922711765904,
+                "avg_r": 0.381160225980492,
+                "max_drawdown_r": 2.0529844602861997,
+                "trades_per_month": 4.6237974683544305,
+                "months": 2.59526938239159
+              }
+            }
+          ],
+          "assessment": "GREY",
+          "action": "Inconclusive -- extend monitoring to 4+ months",
+          "error": ""
+        },
+        "score": 3.3167860510391827,
+        "strict_pass": true,
+        "repair_pass": true,
+        "reasons": [],
+        "deltas": {
+          "is_net_r_delta_r5": 0.0,
+          "is_pf_delta_r5": 0.0,
+          "is_avg_r_delta_r5": 0.0,
+          "is_trade_delta_r5": 0,
+          "oos_net_r_delta_r5": 0.0,
+          "oos_pf_delta_r5": 0.0,
+          "oos_avg_r_delta_r5": 0.0,
+          "oos_trade_delta_r5": 0,
+          "is_net_r_delta_r4": 10.61321841482598,
+          "is_pf_delta_r4": -0.18760130576524592,
+          "oos_net_r_delta_r4": 8.351755496335862,
+          "oos_pf_delta_r4": 2.772161823707944,
+          "positive_folds": 8,
+          "negative_folds": 0,
+          "min_fold_net_r": 3.4880070783875743,
+          "median_fold_pf": 1.9436065939265394
+        }
+      }
+    ],
+    "baseline_compare": [
+      {
+        "candidate": {
+          "name": "round4_full_revert",
+          "stage": "baseline_compare",
+          "mutations": {
+            "flags.max_loss_cap": true,
+            "flags.max_stop_width": true,
+            "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+            "param_overrides.BLOCK_CAUTION_REGIME": true,
+            "flags.displacement_threshold": false,
+            "param_overrides.SCORE_NORMAL": 1.5,
+            "param_overrides.RVOL_SCORE_THRESH": 1.5,
+            "param_overrides.MIN_BOX_WIDTH": 50,
+            "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+            "flags.block_eth_shorts": true,
+            "param_overrides.TP1_R": 1.2,
+            "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+            "param_overrides.TP1_PARTIAL_PCT": 0.45,
+            "param_overrides.TP2_R": 2.25,
+            "param_overrides.TP2_PARTIAL_PCT": 0.2,
+            "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+            "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.24,
+            "param_overrides.A_ENTRY_ENABLED": true,
+            "flags.entry_a_retest": true,
+            "flags.entry_a_latch": false,
+            "param_overrides.A_TTL_5M_BARS": 12,
+            "param_overrides.A_MAX_BOX_WIDTH": 225.0
+          },
+          "intent": "Whole-config comparison candidate.",
+          "source": "round4"
+        },
+        "run": {
+          "strategy": "nqdtc",
+          "mutations": {
+            "flags.max_loss_cap": true,
+            "flags.max_stop_width": true,
+            "param_overrides.BLOCK_NEUTRAL_REGIME": true,
+            "param_overrides.BLOCK_CAUTION_REGIME": true,
+            "flags.displacement_threshold": false,
+            "param_overrides.SCORE_NORMAL": 1.5,
+            "param_overrides.RVOL_SCORE_THRESH": 1.5,
+            "param_overrides.MIN_BOX_WIDTH": 50,
+            "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+            "flags.block_eth_shorts": true,
+            "param_overrides.TP1_R": 1.2,
+            "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+            "param_overrides.TP1_PARTIAL_PCT": 0.45,
+            "param_overrides.TP2_R": 2.25,
+            "param_overrides.TP2_PARTIAL_PCT": 0.2,
+            "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+            "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.24,
+            "param_overrides.A_ENTRY_ENABLED": true,
+            "flags.entry_a_retest": true,
+            "flags.entry_a_latch": false,
+            "param_overrides.A_TTL_5M_BARS": 12,
+            "param_overrides.A_MAX_BOX_WIDTH": 225.0
+          },
+          "is_metrics": {
+            "total_trades": 129,
+            "winning_trades": 75,
+            "win_rate": 0.5813953488372093,
+            "profit_factor": 2.2706655948923835,
+            "net_r": 68.28278875461483,
+            "avg_r": 0.5293239438342234,
+            "max_drawdown_r": 8.771070648800354,
+            "trades_per_month": 4.847851851851852,
+            "months": 26.609724047306177
+          },
+          "oos_metrics": {
+            "total_trades": 4,
+            "winning_trades": 1,
+            "win_rate": 0.25,
+            "profit_factor": 0.33926294796110135,
+            "net_r": -1.9906176684222303,
+            "avg_r": -0.4976544171055576,
+            "max_drawdown_r": 2.006908978091738,
+            "trades_per_month": 1.9024999999999999,
+            "months": 2.102496714848883
+          },
+          "fold_metrics": [
+            {
+              "name": "F01_20240401_20240630",
+              "start": "2024-04-01",
+              "end": "2024-06-30",
+              "metrics": {
+                "total_trades": 10,
+                "winning_trades": 5,
+                "win_rate": 0.5,
+                "profit_factor": 2.948467927438261,
+                "net_r": 8.604686379482027,
+                "avg_r": 0.8604686379482027,
+                "max_drawdown_r": 2.0197368421052637,
+                "trades_per_month": 3.345054945054945,
+                "months": 2.9894875164257555
+              }
+            },
+            {
+              "name": "F02_20240701_20240930",
+              "start": "2024-07-01",
+              "end": "2024-09-30",
+              "metrics": {
+                "total_trades": 12,
+                "winning_trades": 6,
+                "win_rate": 0.5,
+                "profit_factor": 1.850736521653163,
+                "net_r": 5.160652264496518,
+                "avg_r": 0.4300543553747098,
+                "max_drawdown_r": 1.5172732950351753,
+                "trades_per_month": 3.9704347826086956,
+                "months": 3.0223390275952693
+              }
+            },
+            {
+              "name": "F03_20241001_20241231",
+              "start": "2024-10-01",
+              "end": "2024-12-31",
+              "metrics": {
+                "total_trades": 13,
+                "winning_trades": 9,
+                "win_rate": 0.6923076923076923,
+                "profit_factor": 3.74717024366839,
+                "net_r": 11.655948767961261,
+                "avg_r": 0.8966114436893278,
+                "max_drawdown_r": 3.154657477025898,
+                "trades_per_month": 4.301304347826087,
+                "months": 3.0223390275952693
+              }
+            },
+            {
+              "name": "F04_20250101_20250331",
+              "start": "2025-01-01",
+              "end": "2025-03-31",
+              "metrics": {
+                "total_trades": 12,
+                "winning_trades": 7,
+                "win_rate": 0.5833333333333334,
+                "profit_factor": 2.058987161981757,
+                "net_r": 5.058208917281639,
+                "avg_r": 0.4215174097734699,
+                "max_drawdown_r": 2.036255411255411,
+                "trades_per_month": 4.058666666666666,
+                "months": 2.9566360052562417
+              }
+            },
+            {
+              "name": "F05_20250401_20250630",
+              "start": "2025-04-01",
+              "end": "2025-06-30",
+              "metrics": {
+                "total_trades": 15,
+                "winning_trades": 8,
+                "win_rate": 0.5333333333333333,
+                "profit_factor": 1.3369955522036332,
+                "net_r": 2.3861225927831287,
+                "avg_r": 0.15907483951887524,
+                "max_drawdown_r": 3.131886569150283,
+                "trades_per_month": 5.0175824175824175,
+                "months": 2.9894875164257555
+              }
+            },
+            {
+              "name": "F06_20250701_20250930",
+              "start": "2025-07-01",
+              "end": "2025-09-30",
+              "metrics": {
+                "total_trades": 28,
+                "winning_trades": 16,
+                "win_rate": 0.5714285714285714,
+                "profit_factor": 2.17748753589939,
+                "net_r": 14.316887710154218,
+                "avg_r": 0.5113174182197935,
+                "max_drawdown_r": 5.587902028368028,
+                "trades_per_month": 9.264347826086956,
+                "months": 3.0223390275952693
+              }
+            },
+            {
+              "name": "F07_20251001_20251231",
+              "start": "2025-10-01",
+              "end": "2025-12-31",
+              "metrics": {
+                "total_trades": 16,
+                "winning_trades": 10,
+                "win_rate": 0.625,
+                "profit_factor": 2.502821300688608,
+                "net_r": 7.810468668306795,
+                "avg_r": 0.4881542917691747,
+                "max_drawdown_r": 2.0155048076923077,
+                "trades_per_month": 5.293913043478261,
+                "months": 3.0223390275952693
+              }
+            },
+            {
+              "name": "F08_20260101_20260320",
+              "start": "2026-01-01",
+              "end": "2026-03-20",
+              "metrics": {
+                "total_trades": 10,
+                "winning_trades": 6,
+                "win_rate": 0.6,
+                "profit_factor": 2.8289767426549375,
+                "net_r": 7.355425912414756,
+                "avg_r": 0.7355425912414756,
+                "max_drawdown_r": 2.0079956696566654,
+                "trades_per_month": 3.8531645569620254,
+                "months": 2.59526938239159
+              }
+            }
+          ],
+          "assessment": "GREY",
+          "action": "Inconclusive -- extend monitoring to 4+ months",
+          "error": ""
+        },
+        "score": -6.72113814214719,
+        "strict_pass": false,
+        "repair_pass": false,
+        "reasons": [
+          "IS netR below round5",
+          "OOS netR below round5",
+          "OOS PF below round5"
+        ],
+        "deltas": {
+          "is_net_r_delta_r5": -10.61321841482598,
+          "is_pf_delta_r5": 0.18760130576524592,
+          "is_avg_r_delta_r5": 0.048250729386413616,
+          "is_trade_delta_r5": -35,
+          "oos_net_r_delta_r5": -8.351755496335862,
+          "oos_pf_delta_r5": -2.772161823707944,
+          "oos_avg_r_delta_r5": -1.4063883925217908,
+          "oos_trade_delta_r5": -3,
+          "is_net_r_delta_r4": 0.0,
+          "is_pf_delta_r4": 0.0,
+          "oos_net_r_delta_r4": 0.0,
+          "oos_pf_delta_r4": 0.0,
+          "positive_folds": 8,
+          "negative_folds": 0,
+          "min_fold_net_r": 2.3861225927831287,
+          "median_fold_pf": 2.340154418293999
+        }
+      }
+    ]
+  },
+  "full_metrics": [
+    {
+      "candidate": "round4",
+      "stage": "baseline",
+      "metrics": {
+        "total_trades": 133,
+        "win_rate": 0.5714285714285714,
+        "profit_factor": 2.069548540140777,
+        "max_dd_pct": 0.1471263398940735,
+        "net_return_pct": 341.4224000000007,
+        "calmar": 23.206069031949987,
+        "sharpe": 2.0746203470757503,
+        "sortino": 14.635907060032084,
+        "avg_r": 0.4984373765879145,
+        "capture_ratio": 0.4335109051844213,
+        "burst_trade_pct": 0.09022556390977443,
+        "eth_short_wr": 0.0,
+        "eth_short_trades": 0,
+        "range_regime_pct": 1.0,
+        "tp1_hit_rate": 0.5112781954887218,
+        "tp2_hit_rate": 0.3082706766917293,
+        "avg_hold_hours": 6.573934837092732,
+        "avg_winner_r": 1.6189829728972516,
+        "avg_loser_r": -0.9956234184912023,
+        "avg_mfe_r": 2.5507697765904127,
+        "robust_net_return_pct": 301.26260000000065,
+        "largest_win_return_pct": 40.159800000000054,
+        "largest_win_pnl_share": 0.11762497129655224,
+        "largest_winner_r": 6.198
+      }
+    },
+    {
+      "candidate": "round5",
+      "stage": "baseline",
+      "metrics": {
+        "total_trades": 173,
+        "win_rate": 0.5375722543352601,
+        "profit_factor": 1.7158809694508292,
+        "max_dd_pct": 0.1719708056487283,
+        "net_return_pct": 305.4952000000002,
+        "calmar": 17.764364064445452,
+        "sharpe": 2.3245256066598556,
+        "sortino": 18.371988501066394,
+        "avg_r": 0.4847047352075309,
+        "capture_ratio": 0.559543839287851,
+        "burst_trade_pct": 0.07514450867052024,
+        "eth_short_wr": 0.0,
+        "eth_short_trades": 0,
+        "range_regime_pct": 0.6763005780346821,
+        "tp1_hit_rate": 0.4624277456647399,
+        "tp2_hit_rate": 0.35260115606936415,
+        "avg_hold_hours": 5.53082851637765,
+        "avg_winner_r": 1.7334603941203062,
+        "avg_loser_r": -0.9669737182785703,
+        "avg_mfe_r": 2.381453410818812,
+        "robust_net_return_pct": 268.88800000000015,
+        "largest_win_return_pct": 36.607200000000056,
+        "largest_win_pnl_share": 0.11982905132388344,
+        "largest_winner_r": 6.358
+      }
+    },
+    {
+      "candidate": "ablate_cluster_round_1_phase_1_block",
+      "stage": "ablation_all_rounds",
+      "source": "round_1_phase_1_block",
+      "score": 3.3167860510391827,
+      "strict_pass": true,
+      "repair_pass": true,
+      "reasons": [],
+      "split_metrics": {
+        "strategy": "nqdtc",
+        "mutations": {
+          "flags.max_loss_cap": true,
+          "flags.max_stop_width": true,
+          "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+          "flags.displacement_threshold": false,
+          "param_overrides.SCORE_NORMAL": 1.5,
+          "param_overrides.RVOL_SCORE_THRESH": 1.5,
+          "param_overrides.MIN_BOX_WIDTH": 50,
+          "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+          "flags.block_eth_shorts": true,
+          "param_overrides.TP1_R": 1.6,
+          "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+          "param_overrides.TP1_PARTIAL_PCT": 0.45,
+          "param_overrides.TP2_R": 2.25,
+          "param_overrides.TP2_PARTIAL_PCT": 0.2,
+          "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+          "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.252,
+          "param_overrides.A_ENTRY_ENABLED": true,
+          "flags.entry_a_retest": true,
+          "flags.entry_a_latch": false,
+          "param_overrides.A_TTL_5M_BARS": 12,
+          "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+          "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+        },
+        "is_metrics": {
+          "total_trades": 164,
+          "winning_trades": 88,
+          "win_rate": 0.5365853658536586,
+          "profit_factor": 2.0830642891271376,
+          "net_r": 78.89600716944081,
+          "avg_r": 0.4810732144478098,
+          "max_drawdown_r": 10.12906151150986,
+          "trades_per_month": 6.16316049382716,
+          "months": 26.609724047306177
+        },
+        "oos_metrics": {
+          "total_trades": 7,
+          "winning_trades": 4,
+          "win_rate": 0.5714285714285714,
+          "profit_factor": 3.1114247716690455,
+          "net_r": 6.361137827913632,
+          "avg_r": 0.9087339754162331,
+          "max_drawdown_r": 2.006908978091738,
+          "trades_per_month": 3.3293749999999998,
+          "months": 2.102496714848883
+        },
+        "fold_metrics": [
+          {
+            "name": "F01_20240401_20240630",
+            "start": "2024-04-01",
+            "end": "2024-06-30",
+            "metrics": {
+              "total_trades": 16,
+              "winning_trades": 10,
+              "win_rate": 0.625,
+              "profit_factor": 4.174476988024771,
+              "net_r": 13.625588984119092,
+              "avg_r": 0.8515993115074433,
+              "max_drawdown_r": 2.0197368421052637,
+              "trades_per_month": 5.352087912087912,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F02_20240701_20240930",
+            "start": "2024-07-01",
+            "end": "2024-09-30",
+            "metrics": {
+              "total_trades": 14,
+              "winning_trades": 6,
+              "win_rate": 0.42857142857142855,
+              "profit_factor": 1.941126644660831,
+              "net_r": 6.654646020831392,
+              "avg_r": 0.47533185863081373,
+              "max_drawdown_r": 3.020431189772017,
+              "trades_per_month": 4.632173913043478,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F03_20241001_20241231",
+            "start": "2024-10-01",
+            "end": "2024-12-31",
+            "metrics": {
+              "total_trades": 17,
+              "winning_trades": 10,
+              "win_rate": 0.5882352941176471,
+              "profit_factor": 2.68906157113381,
+              "net_r": 12.294387983042018,
+              "avg_r": 0.7231992931201187,
+              "max_drawdown_r": 5.136446648195615,
+              "trades_per_month": 5.624782608695653,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F04_20250101_20250331",
+            "start": "2025-01-01",
+            "end": "2025-03-31",
+            "metrics": {
+              "total_trades": 13,
+              "winning_trades": 7,
+              "win_rate": 0.5384615384615384,
+              "profit_factor": 1.946086543192248,
+              "net_r": 5.4692318627635155,
+              "avg_r": 0.4207101432895012,
+              "max_drawdown_r": 3.0406964380648596,
+              "trades_per_month": 4.396888888888889,
+              "months": 2.9566360052562417
+            }
+          },
+          {
+            "name": "F05_20250401_20250630",
+            "start": "2025-04-01",
+            "end": "2025-06-30",
+            "metrics": {
+              "total_trades": 15,
+              "winning_trades": 8,
+              "win_rate": 0.5333333333333333,
+              "profit_factor": 1.492616295167126,
+              "net_r": 3.4880070783875743,
+              "avg_r": 0.23253380522583827,
+              "max_drawdown_r": 3.0504201680672267,
+              "trades_per_month": 5.0175824175824175,
+              "months": 2.9894875164257555
+            }
+          },
+          {
+            "name": "F06_20250701_20250930",
+            "start": "2025-07-01",
+            "end": "2025-09-30",
+            "metrics": {
+              "total_trades": 41,
+              "winning_trades": 21,
+              "win_rate": 0.5121951219512195,
+              "profit_factor": 1.7741936466473296,
+              "net_r": 15.67613179710703,
+              "avg_r": 0.38234467797822025,
+              "max_drawdown_r": 10.129061511509853,
+              "trades_per_month": 13.565652173913044,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F07_20251001_20251231",
+            "start": "2025-10-01",
+            "end": "2025-12-31",
+            "metrics": {
+              "total_trades": 19,
+              "winning_trades": 11,
+              "win_rate": 0.5789473684210527,
+              "profit_factor": 2.2619251368774185,
+              "net_r": 8.897698421521305,
+              "avg_r": 0.46829991692217393,
+              "max_drawdown_r": 2.0155048076923077,
+              "trades_per_month": 6.286521739130435,
+              "months": 3.0223390275952693
+            }
+          },
+          {
+            "name": "F08_20260101_20260320",
+            "start": "2026-01-01",
+            "end": "2026-03-20",
+            "metrics": {
+              "total_trades": 12,
+              "winning_trades": 5,
+              "win_rate": 0.4166666666666667,
+              "profit_factor": 1.6499333214280631,
+              "net_r": 4.573922711765904,
+              "avg_r": 0.381160225980492,
+              "max_drawdown_r": 2.0529844602861997,
+              "trades_per_month": 4.6237974683544305,
+              "months": 2.59526938239159
+            }
+          }
+        ],
+        "assessment": "GREY",
+        "action": "Inconclusive -- extend monitoring to 4+ months",
+        "error": ""
+      },
+      "metrics": {
+        "total_trades": 173,
+        "win_rate": 0.5375722543352601,
+        "profit_factor": 1.7158809694508292,
+        "max_dd_pct": 0.1719708056487283,
+        "net_return_pct": 305.4952000000002,
+        "calmar": 17.764364064445452,
+        "sharpe": 2.3245256066598556,
+        "sortino": 18.371988501066394,
+        "avg_r": 0.4847047352075309,
+        "capture_ratio": 0.559543839287851,
+        "burst_trade_pct": 0.07514450867052024,
+        "eth_short_wr": 0.0,
+        "eth_short_trades": 0,
+        "range_regime_pct": 0.6763005780346821,
+        "tp1_hit_rate": 0.4624277456647399,
+        "tp2_hit_rate": 0.35260115606936415,
+        "avg_hold_hours": 5.53082851637765,
+        "avg_winner_r": 1.7334603941203062,
+        "avg_loser_r": -0.9669737182785703,
+        "avg_mfe_r": 2.381453410818812,
+        "robust_net_return_pct": 268.88800000000015,
+        "largest_win_return_pct": 36.607200000000056,
+        "largest_win_pnl_share": 0.11982905132388344,
+        "largest_winner_r": 6.358
+      },
+      "mutations": {
+        "flags.max_loss_cap": true,
+        "flags.max_stop_width": true,
+        "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+        "flags.displacement_threshold": false,
+        "param_overrides.SCORE_NORMAL": 1.5,
+        "param_overrides.RVOL_SCORE_THRESH": 1.5,
+        "param_overrides.MIN_BOX_WIDTH": 50,
+        "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+        "flags.block_eth_shorts": true,
+        "param_overrides.TP1_R": 1.6,
+        "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+        "param_overrides.TP1_PARTIAL_PCT": 0.45,
+        "param_overrides.TP2_R": 2.25,
+        "param_overrides.TP2_PARTIAL_PCT": 0.2,
+        "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+        "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.252,
+        "param_overrides.A_ENTRY_ENABLED": true,
+        "flags.entry_a_retest": true,
+        "flags.entry_a_latch": false,
+        "param_overrides.A_TTL_5M_BARS": 12,
+        "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+        "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+      }
+    }
+  ]
+}

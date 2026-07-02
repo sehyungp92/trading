@@ -1,0 +1,54 @@
+NQDTC ROUND 5 PROMOTION EVALUATION
+======================================================================
+Generated UTC: 2026-05-25T10:41:01.957178+00:00
+Promoted candidate: min_box_100_c_0p248
+Baseline config: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\momentum\nqdtc\round_4\optimized_config.json
+Targeted OOS evidence: IS 152 trades, netR +80.59; OOS 7 trades, netR +5.57.
+
+Promoted Deltas
+  param_overrides.BLOCK_NEUTRAL_REGIME: False
+  param_overrides.SCORE_NON_RANGE_MULT: 2.25
+  param_overrides.C_ENTRY_OFFSET_ATR_STANDARD: 0.248
+  param_overrides.TP1_R: 1.6
+  param_overrides.MIN_BOX_WIDTH: 100
+
+Full Replay Metrics
+  Trades:        161
+  Win rate:      55.3%
+  PF:            1.87
+  Net return:    +352.8%
+  Robust return: +316.2%
+  Max DD:        16.99%
+  Avg R:         +0.526
+  Capture:       0.531
+
+Round 4 Full Replay Comparison
+  Trades:     133 -> 161 (+28)
+  Net return: +341.4% -> +352.8% (+11.4pp)
+  PF:         2.07 -> 1.87
+  Avg R:      +0.498 -> +0.526
+
+Live/Backtest Parity
+  Checks passed: True
+  OK       BLOCK_NEUTRAL_REGIME: live=False expected=False
+  OK       BLOCK_CAUTION_REGIME: live=True expected=True
+  OK       SCORE_NON_RANGE_MULT: live=2.25 expected=2.25
+  OK       DISPLACEMENT_THRESHOLD_ENABLED: live=False expected=False
+  OK       BLOCK_ETH_SHORTS: live=True expected=True
+  OK       A_ENTRY_ENABLED: live=True expected=True
+  OK       A_ENTRY_RETEST_ENABLED: live=True expected=True
+  OK       A_ENTRY_LATCH_ENABLED: live=False expected=False
+  OK       A_TTL_5M_BARS: live=12 expected=12
+  OK       A_MAX_BOX_WIDTH: live=225.0 expected=225.0
+  OK       C_ENTRY_OFFSET_ATR_STANDARD: live=0.248 expected=0.248
+  OK       TP1_R: live=1.6 expected=1.6
+  OK       TP1_PARTIAL_PCT: live=0.45 expected=0.45
+  OK       TP2_R: live=2.25 expected=2.25
+  OK       TP2_PARTIAL_PCT: live=0.2 expected=0.2
+  OK       TP1_ONLY_CAP_MODE: live=degraded_only expected=degraded_only
+  OK       MIN_INTER_TRADE_GAP_MINUTES: live=30 expected=30
+  OK       MIN_BOX_WIDTH: live=100 expected=100
+  OK       LOSS_STREAK_THRESHOLD: live=2 expected=2
+
+Mutation Count
+  23

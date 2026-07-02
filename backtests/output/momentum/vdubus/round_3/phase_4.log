@@ -1,0 +1,3 @@
+2026-05-23 05:58:28,223 INFO research.backtests.shared.auto.phase.1863035b98dc.4: Starting phase 4 with 14 candidates
+2026-05-23 06:08:53,565 INFO research.backtests.shared.auto.phase.1863035b98dc.4: Round 2 best candidate stale_mfe_exempt_050 did not clear min_delta 0.30%; stopping.
+2026-05-23 06:08:53,720 INFO research.backtests.shared.auto.phase.1863035b98dc.4: Phase 4 complete: 0.8521 -> 0.8620 (1 accepted)

@@ -1,0 +1,4 @@
+2026-04-30 16:49:39,889 INFO research.backtests.shared.auto.phase.7a2a9bcee65e.4: Starting phase 4 with 39 candidates
+2026-04-30 16:53:45,135 INFO research.backtests.shared.auto.phase.7a2a9bcee65e.4:   Pruned 8 persistently-rejected candidates (1+ consecutive).
+2026-04-30 16:56:15,255 INFO research.backtests.shared.auto.phase.7a2a9bcee65e.4: Round 2 best candidate floor_guardrail did not clear min_delta 0.30%; stopping.
+2026-04-30 16:56:15,393 INFO research.backtests.shared.auto.phase.7a2a9bcee65e.4: Phase 4 complete: 0.7149 -> 0.7346 (1 accepted)

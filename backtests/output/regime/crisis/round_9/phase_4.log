@@ -1,0 +1,5 @@
+2026-05-06 13:57:29,538 INFO research.backtests.shared.auto.phase.ebcbbdc07ef3.4: Starting phase 4 with 94 candidates
+2026-05-06 13:57:30,222 INFO research.backtests.shared.auto.phase.ebcbbdc07ef3.4:   Pruned 1 persistently-rejected candidates (1+ consecutive).
+2026-05-06 13:57:30,978 INFO research.backtests.shared.auto.phase.ebcbbdc07ef3.4:   Pruned 2 persistently-rejected candidates (1+ consecutive).
+2026-05-06 13:57:31,747 INFO research.backtests.shared.auto.phase.ebcbbdc07ef3.4: Round 3 best candidate finetune_vix_crisis_p08 did not clear min_delta 0.30%; stopping.
+2026-05-06 13:58:12,965 INFO research.backtests.shared.auto.phase.ebcbbdc07ef3.4: Phase 4 complete: 0.8334 -> 0.8393 (2 accepted)

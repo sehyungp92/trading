@@ -1,0 +1,176 @@
+{
+  "family": "momentum",
+  "strategy": "nqdtc",
+  "round": 5,
+  "generated_at_utc": "2026-05-25T11:12:08.293211+00:00",
+  "completed_phases": [
+    5
+  ],
+  "mutation_count": 23,
+  "cumulative_mutations": {
+    "flags.max_loss_cap": true,
+    "flags.max_stop_width": true,
+    "param_overrides.BLOCK_NEUTRAL_REGIME": false,
+    "param_overrides.BLOCK_CAUTION_REGIME": true,
+    "flags.displacement_threshold": false,
+    "param_overrides.SCORE_NORMAL": 1.5,
+    "param_overrides.RVOL_SCORE_THRESH": 1.5,
+    "param_overrides.MIN_BOX_WIDTH": 100,
+    "param_overrides.MIN_INTER_TRADE_GAP_MINUTES": 30,
+    "flags.block_eth_shorts": true,
+    "param_overrides.TP1_R": 1.6,
+    "param_overrides.LOSS_STREAK_THRESHOLD": 2,
+    "param_overrides.TP1_PARTIAL_PCT": 0.45,
+    "param_overrides.TP2_R": 2.25,
+    "param_overrides.TP2_PARTIAL_PCT": 0.2,
+    "param_overrides.TP1_ONLY_CAP_MODE": "degraded_only",
+    "param_overrides.C_ENTRY_OFFSET_ATR_STANDARD": 0.248,
+    "param_overrides.A_ENTRY_ENABLED": true,
+    "flags.entry_a_retest": true,
+    "flags.entry_a_latch": false,
+    "param_overrides.A_TTL_5M_BARS": 12,
+    "param_overrides.A_MAX_BOX_WIDTH": 225.0,
+    "param_overrides.SCORE_NON_RANGE_MULT": 2.25
+  },
+  "headline_metrics": {
+    "total_trades": 161,
+    "win_rate": 55.27950310559007,
+    "profit_factor": 1.8681636685219964,
+    "max_drawdown_pct": 16.9855638994617,
+    "net_return_pct": 352.80740000000065,
+    "sharpe_ratio": 2.467569682877257,
+    "calmar_ratio": 20.771014850509715
+  },
+  "final_metrics": {
+    "total_trades": 161,
+    "win_rate": 0.5527950310559007,
+    "profit_factor": 1.8681636685219964,
+    "max_dd_pct": 0.16985563899461698,
+    "net_return_pct": 352.80740000000065,
+    "calmar": 20.771014850509715,
+    "sharpe": 2.467569682877257,
+    "sortino": 18.88821188092298,
+    "avg_r": 0.5264204170374605,
+    "capture_ratio": 0.5307851502424517,
+    "burst_trade_pct": 0.062111801242236024,
+    "eth_short_wr": 0.0,
+    "eth_short_trades": 0,
+    "range_regime_pct": 0.6770186335403726,
+    "tp1_hit_rate": 0.4906832298136646,
+    "tp2_hit_rate": 0.37267080745341613,
+    "avg_hold_hours": 6.346273291925466,
+    "avg_winner_r": 1.7255147191156888,
+    "avg_loser_r": -0.9557933730314612,
+    "avg_mfe_r": 2.4873983801432673,
+    "robust_net_return_pct": 316.2002000000006,
+    "largest_win_return_pct": 36.607200000000056,
+    "largest_win_pnl_share": 0.10375972839571956,
+    "largest_winner_r": 6.358
+  },
+  "source_diagnostics": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_5\\round_final_diagnostics.txt",
+  "source_phase_state": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\nqdtc\\round_5\\phase_state.json",
+  "provenance": {
+    "schema_version": 1,
+    "selection_fingerprint": "51990078c3e3405a1f219ebd2ea8b06bde0246ee8cad7620b12f3e56d1fd820f",
+    "diagnostics_fingerprint": "51990078c3e3405a1f219ebd2ea8b06bde0246ee8cad7620b12f3e56d1fd820f",
+    "items": [
+      {
+        "name": "data_dir",
+        "kind": "tree_contents",
+        "fingerprint": "cced7806698e11c2896637a43a7235da1e077b221cea3568356afb6a06711419",
+        "paths": [
+          "backtests/momentum/data/raw"
+        ],
+        "scope": "data",
+        "notes": "Content fingerprint for selection-relevant replay data files."
+      },
+      {
+        "name": "code:backtests/momentum/auto/config_mutator.py",
+        "kind": "file_contents",
+        "fingerprint": "5ddc4e4ec20135fc734d667b53aefed0d77fb52534ff1cb1aff2206b7e0563dd",
+        "paths": [
+          "backtests/momentum/auto/config_mutator.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/config_nqdtc.py",
+        "kind": "file_contents",
+        "fingerprint": "c75a8750e5204a6d705964a3c860a6f695e7f060023b2cea914a51cde7e23651",
+        "paths": [
+          "backtests/momentum/config_nqdtc.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/data/replay_cache.py",
+        "kind": "file_contents",
+        "fingerprint": "52f01bbd08103c238d77eabeeddd2fc690974b6dfe8b6a23bc8d26f60c607808",
+        "paths": [
+          "backtests/momentum/data/replay_cache.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/engine/nqdtc_engine.py",
+        "kind": "file_contents",
+        "fingerprint": "69fcaccf70930144304c12b9debb34576691cf778fb748897a4b0647a7ba2791",
+        "paths": [
+          "backtests/momentum/engine/nqdtc_engine.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/momentum/engine/sim_broker.py",
+        "kind": "file_contents",
+        "fingerprint": "9b411d5185842fa2c1d88f8836f87643b872bdff0bd632fee1ca6185208537db",
+        "paths": [
+          "backtests/momentum/engine/sim_broker.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "plugin",
+        "kind": "plugin_identity",
+        "fingerprint": "e782cae55f8e77f557ff004538960b4638ff0871d42e1355bc5a39ae01ceeed9",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "selection_context",
+        "kind": "stable_json",
+        "fingerprint": "6bee1dde2931f1de5b0c976a1efaf7a7a5209648091f32ab6f27709c506756ec",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:backtests/momentum/auto/nqdtc",
+        "kind": "tree_contents",
+        "fingerprint": "27d1435cf4ffb228a5514621cbf4d40ebcf86d2a4d744c7c4c808b5b2c47c2db",
+        "paths": [
+          "backtests/momentum/auto/nqdtc"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "shared_auto_package",
+        "kind": "tree_contents",
+        "fingerprint": "b58cff0ef3381b09a3e6abcacca3dbbcc093afc7c8583a6e34c39a8886dd6f3c",
+        "paths": [
+          "backtests/shared/auto"
+        ],
+        "scope": "selection",
+        "notes": ""
+      }
+    ]
+  },
+  "provenance_status": "complete"
+}

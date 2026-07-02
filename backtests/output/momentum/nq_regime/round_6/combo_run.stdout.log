@@ -1,0 +1,13 @@
+[nq-regime-combo] evaluating 10 combo candidates
+[nq-regime-oos:full] 1/10 combo/combo_radius1_reversion_lookback36 obj=+36.325% OOS=26 +30.08R IS=548 +538.7R passed=True
+[nq-regime-oos:full] 2/10 combo/combo_radius1_struct_structure_shift obj=+38.071% OOS=26 +30.78R IS=545 +550.9R passed=True
+[nq-regime-oos:full] 3/10 combo/combo_radius1_reversion_round5_ablation obj=+36.325% OOS=26 +30.08R IS=548 +538.7R passed=True
+[nq-regime-oos:full] 4/10 combo/combo_radius1_sw_volume08 obj=+56.674% OOS=33 +32.14R IS=691 +622.7R passed=True
+[nq-regime-oos:full] 5/10 combo/combo_radius1_sw_volume08_struct_structure_shift obj=+63.258% OOS=33 +35.44R IS=681 +622.9R passed=True
+[nq-regime-oos:full] 6/10 combo/combo_radius1_struct_short8 obj=+35.419% OOS=28 +27.88R IS=574 +542.9R passed=True
+[nq-regime-oos:full] 7/10 combo/combo_radius1_sw_volume08_rev_lookback36 obj=+61.246% OOS=34 +33.69R IS=685 +615.1R passed=True
+[nq-regime-oos:full] 8/10 combo/combo_radius1_struct_continuation_guarded obj=+32.842% OOS=26 +28.36R IS=573 +528.8R passed=True
+[nq-regime-oos:full] 9/10 combo/combo_radius1_sw_volume08_struct_short8 obj=+60.380% OOS=36 +31.49R IS=701 +610.0R passed=True
+[nq-regime-oos:full] 10/10 combo/combo_radius1_rev_pen15_stop15 obj=+38.336% OOS=26 +30.34R IS=601 +560.1R passed=True
+[nq-regime-combo] complete in 8.9 min
+Output: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\momentum\nq_regime\current_oos_combo_probe_20260504

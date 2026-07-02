@@ -1,0 +1,3 @@
+2026-05-06 23:26:57,609 INFO research.backtests.shared.auto.phase.dba074c9a6aa.1: Starting phase 1 with 10 candidates
+2026-05-06 23:32:28,923 INFO research.backtests.shared.auto.phase.dba074c9a6aa.1: Round 2 best candidate add_pb30_duration_7_22 did not clear min_delta 0.40%; stopping.
+2026-05-06 23:32:29,001 INFO research.backtests.shared.auto.phase.dba074c9a6aa.1: Phase 1 complete: 64.7856 -> 65.1937 (1 accepted)

@@ -1,0 +1,56 @@
+[helix_swing] loading incumbent
+[helix_swing] baseline OOS trades=7 netR=6.397 avgR=0.914; evaluating 52 candidates
+[helix_swing] 1/52 helix_oos/helix_oos_oos_d_short_adx_20 obj=-15.006% oos=9 +2.54R passed=False
+[helix_swing] 2/52 helix_oos/helix_oos_oos_d_short_adx_18 obj=-15.726% oos=9 +2.54R passed=False
+[helix_swing] 3/52 helix_oos/helix_oos_oos_d_short_adx_16 obj=+7.632% oos=11 +5.63R passed=True
+[helix_swing] 4/52 helix_oos/helix_oos_oos_d_short_adx_12 obj=+14.338% oos=10 +8.22R passed=True
+[helix_swing] 5/52 helix_oos/helix_oos_oos_d_short_adx_22 obj=-14.054% oos=9 +2.54R passed=False
+[helix_swing] 6/52 helix_oos/helix_oos_oos_d_streak_1 obj=-10.529% oos=7 +3.31R passed=False
+[helix_swing] 7/52 helix_oos/helix_oos_oos_d_short20_streak1 obj=-25.667% oos=9 -0.55R passed=False
+[helix_swing] 8/52 helix_oos/helix_oos_oos_d_short16_streak1 obj=-2.983% oos=11 +2.54R passed=False
+[helix_swing] 9/52 helix_oos/helix_oos_oos_d_short20_sep4 obj=-10.382% oos=8 +3.54R passed=False
+[helix_swing] 10/52 helix_oos/helix_oos_oos_d_short16_sep4 obj=+12.210% oos=10 +6.63R passed=True
+[helix_swing] 11/52 helix_oos/helix_oos_oos_d_short20_dailyext300 obj=-8.878% oos=8 +5.40R passed=False
+[helix_swing] 12/52 helix_oos/helix_oos_oos_d_short16_dailyext300 obj=+13.830% oos=10 +8.48R passed=False
+[helix_swing] 13/52 helix_oos/helix_oos_oos_d_short20_sep4_dailyext300 obj=-4.258% oos=7 +6.40R passed=False
+[helix_swing] 14/52 helix_oos/helix_oos_oos_d_short16_sep4_dailyext300 obj=+18.437% oos=9 +9.49R passed=False
+[helix_swing] 15/52 helix_oos/helix_oos_oos_d_short12_sep4_dailyext300 obj=+25.243% oos=8 +12.08R passed=False
+[helix_swing] 16/52 helix_oos/helix_oos_oos_d_short20_age24 obj=-15.121% oos=9 +2.54R passed=False
+[helix_swing] 17/52 helix_oos/helix_oos_oos_d_short16_age24 obj=+7.480% oos=11 +5.63R passed=True
+[helix_swing] 18/52 helix_oos/helix_oos_oos_d_short20_sep4_age24 obj=-10.517% oos=8 +3.54R passed=False
+[helix_swing] 19/52 helix_oos/helix_oos_oos_d_short16_sep4_age24 obj=+12.059% oos=10 +6.63R passed=True
+[helix_swing] 20/52 helix_oos/helix_oos_oos_d_short20_hist obj=-15.052% oos=9 +2.54R passed=False
+[helix_swing] 21/52 helix_oos/helix_oos_oos_d_short16_hist obj=+7.598% oos=11 +5.63R passed=True
+[helix_swing] 22/52 helix_oos/helix_oos_oos_d_short20_hist_sep4 obj=-10.411% oos=8 +3.54R passed=False
+[helix_swing] 23/52 helix_oos/helix_oos_oos_d_short16_hist_sep4 obj=+12.180% oos=10 +6.63R passed=True
+[helix_swing] 24/52 helix_oos/helix_oos_oos_d_short20_fresh010 obj=-13.698% oos=8 +4.07R passed=False
+[helix_swing] 25/52 helix_oos/helix_oos_oos_d_short20_pullback_min025 obj=-16.916% oos=9 +2.54R passed=False
+[helix_swing] 26/52 helix_oos/helix_oos_oos_d_short16_fresh010 obj=+8.760% oos=10 +7.03R passed=False
+[helix_swing] 27/52 helix_oos/helix_oos_oos_d_short20_arm_overext100 obj=-47.612% oos=7 -1.28R passed=False
+[helix_swing] 28/52 helix_oos/helix_oos_oos_d_short16_pullback_min025 obj=+5.769% oos=11 +5.63R passed=False
+[helix_swing] 29/52 helix_oos/helix_oos_oos_d_short16_arm_overext100 obj=-42.425% oos=8 -1.18R passed=False
+[helix_swing] 30/52 helix_oos/helix_oos_oos_d_streak1_sep4_dailyext300 obj=+1.236% oos=6 +7.40R passed=False
+[helix_swing] 31/52 helix_oos/helix_oos_oos_d_short0_sep4_age20_dailyext300 obj=+25.092% oos=8 +12.08R passed=False
+[helix_swing] 32/52 helix_oos/helix_oos_oos_d_short0_sep4_age24_dailyext300 obj=+25.092% oos=8 +12.08R passed=False
+[helix_swing] 33/52 helix_oos/helix_oos_oos_d_short0_sep6_dailyext300 obj=-8.826% oos=7 +6.40R passed=False
+[helix_swing] 34/52 helix_oos/helix_oos_oos_d_short0_sep4_dailyext350 obj=+29.592% oos=8 +12.08R passed=True
+[helix_swing] 35/52 helix_oos/helix_oos_oos_d_short0_sep4_dailyext300_hist obj=+25.231% oos=8 +12.08R passed=False
+[helix_swing] 36/52 helix_oos/helix_oos_oos_d_short0_sep4_dailyext300_fresh010 obj=+18.602% oos=8 +11.41R passed=False
+[helix_swing] 37/52 helix_oos/helix_oos_oos_d_short0_sep4_dailyext300_pullback025 obj=+23.451% oos=8 +12.08R passed=False
+[helix_swing] 38/52 helix_oos/helix_oos_oos_d_short0_sep4_dailyext300_arm100 obj=-39.208% oos=5 +1.66R passed=False
+[helix_swing] 39/52 helix_oos/helix_oos_oos_d_short0_sep4_dailyext300_baild6 obj=+6.559% oos=9 +7.72R passed=False
+[helix_swing] 40/52 helix_oos/helix_oos_oos_d_short0_sep4_dailyext300_baild8 obj=+6.039% oos=9 +7.72R passed=False
+[helix_swing] 41/52 helix_oos/helix_oos_oos_d_short0_sep4_dailyext300_highvol69 obj=+27.191% oos=8 +12.43R passed=False
+[helix_swing] 42/52 helix_oos/helix_oos_oos_d_short0_sep4_dailyext300_trailstall3 obj=+26.812% oos=8 +12.10R passed=False
+[helix_swing] 43/52 helix_oos/helix_oos_oos_adx_upper_65 obj=+0.000% oos=7 +6.40R passed=True
+[helix_swing] 44/52 helix_oos/helix_oos_oos_adx_upper_70 obj=+0.000% oos=7 +6.40R passed=True
+[helix_swing] 45/52 helix_oos/helix_oos_oos_adx_upper_off obj=+0.000% oos=7 +6.40R passed=True
+[helix_swing] 46/52 helix_oos/helix_oos_oos_high_vol_62 obj=-0.542% oos=7 +6.41R passed=True
+[helix_swing] 47/52 helix_oos/helix_oos_oos_high_vol_65 obj=+0.046% oos=7 +6.41R passed=True
+[helix_swing] 48/52 helix_oos/helix_oos_oos_high_vol_70 obj=-0.257% oos=7 +6.75R passed=True
+[helix_swing] 49/52 helix_oos/helix_oos_oos_high_vol_72 obj=-0.317% oos=7 +6.75R passed=True
+[helix_swing] 50/52 helix_oos/helix_oos_oos_reenable_class_c obj=+2.462% oos=7 +6.74R passed=True
+[helix_swing] 51/52 helix_oos/helix_oos_oos_reenable_class_c_short20_sep4 obj=-7.804% oos=8 +3.89R passed=False
+[helix_swing] 52/52 helix_oos/helix_oos_oos_reenable_class_a obj=-22.365% oos=13 +2.31R passed=False
+[helix_swing] complete in 13.5 min; best=helix_oos_oos_d_short0_sep4_dailyext350
+Output: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\swing\helix\round_5\helix_oos_phase7_smoke

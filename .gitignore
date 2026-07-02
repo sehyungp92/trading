@@ -104,12 +104,60 @@ data/raw/scalp/
 
 # Backtest output (regenerated per run)
 **/backtest/output/
-**/backtests/output/
-backtests/output/
+**/backtests/output/**
+backtests/output/**
+!backtests/output/
+
+# Active latest phased auto-optimization outputs used for live config alignment
+!backtests/output/momentum/
+!backtests/output/momentum/downturn/
+!backtests/output/momentum/nqdtc/
+!backtests/output/momentum/nq_regime/
+!backtests/output/momentum/portfolio_synergy/
+!backtests/output/momentum/vdubus/
+!backtests/output/regime/
+!backtests/output/regime/crisis/
+!backtests/output/stock/
+!backtests/output/stock/alcb/
+!backtests/output/stock/iaric/
+!backtests/output/stock/portfolio_synergy/
+!backtests/output/swing/
+!backtests/output/swing/atrss/
+!backtests/output/swing/helix/
+!backtests/output/swing/portfolio_synergy/
+!backtests/output/swing/tpc/
+backtests/output/*/*/**
+!backtests/output/*/*/rounds_manifest.json
+!backtests/output/momentum/downturn/round_4/
+!backtests/output/momentum/downturn/round_4/**
+!backtests/output/momentum/nqdtc/round_5/
+!backtests/output/momentum/nqdtc/round_5/**
+!backtests/output/momentum/nq_regime/round_6/
+!backtests/output/momentum/nq_regime/round_6/**
+!backtests/output/momentum/portfolio_synergy/round_2/
+!backtests/output/momentum/portfolio_synergy/round_2/**
+!backtests/output/momentum/vdubus/round_3/
+!backtests/output/momentum/vdubus/round_3/**
+!backtests/output/regime/crisis/round_9/
+!backtests/output/regime/crisis/round_9/**
+!backtests/output/stock/alcb/round_2/
+!backtests/output/stock/alcb/round_2/**
+!backtests/output/stock/iaric/round_1/
+!backtests/output/stock/iaric/round_1/**
+!backtests/output/stock/portfolio_synergy/round_3/
+!backtests/output/stock/portfolio_synergy/round_3/**
+!backtests/output/swing/atrss/round_3/
+!backtests/output/swing/atrss/round_3/**
+!backtests/output/swing/helix/round_5/
+!backtests/output/swing/helix/round_5/**
+!backtests/output/swing/portfolio_synergy/round_3/
+!backtests/output/swing/portfolio_synergy/round_3/**
+!backtests/output/swing/tpc/round_8/
+!backtests/output/swing/tpc/round_8/**
 
 # Backtest output archives
-backtests/output/**/archive/
-backtests/output/**/archived_rounds/
+backtests/output/**/archive/**
+backtests/output/**/archived_rounds/**
 
 # Local references & scratch
 _references/

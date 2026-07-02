@@ -1,0 +1,4 @@
+2026-05-23 20:48:55,643 INFO research.backtests.shared.auto.phase.6bb2eee7f92c.1: Starting phase 1 with 9 candidates
+2026-05-23 21:08:15,565 INFO research.backtests.shared.auto.phase.6bb2eee7f92c.1:   Pruned 1 persistently-rejected candidates (1+ consecutive).
+2026-05-23 21:24:21,580 INFO research.backtests.shared.auto.phase.6bb2eee7f92c.1: Round 4 best candidate ablate_opening_reclaim_enabled did not clear min_delta 0.10%; stopping.
+2026-05-23 21:28:15,901 INFO research.backtests.shared.auto.phase.6bb2eee7f92c.1: Phase 1 complete: 0.8367 -> 0.8989 (3 accepted)

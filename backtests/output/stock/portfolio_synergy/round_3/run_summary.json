@@ -1,0 +1,301 @@
+{
+  "family": "stock",
+  "strategy": "portfolio_synergy",
+  "round": 3,
+  "generated_at_utc": "2026-05-24T14:54:39.107682+00:00",
+  "completed_phases": [],
+  "mutation_count": 8,
+  "cumulative_mutations": {
+    "initial_equity": 25000.0,
+    "risk_stance": "aggressive_controlled",
+    "portfolio_rules": {
+      "reference_risk_pct": 0.0075168,
+      "heat_cap_R": 6.5,
+      "max_total_active_positions": 12,
+      "max_symbol_heat_R": 2.2,
+      "max_long_heat_R": 6.25,
+      "portfolio_daily_stop_R": 3.5,
+      "portfolio_weekly_stop_R": 8.0,
+      "max_single_strategy_trade_share": 0.85,
+      "max_single_strategy_risk_share": 0.82,
+      "drawdown_tiers": [
+        [
+          0.04,
+          1.0
+        ],
+        [
+          0.07,
+          0.75
+        ],
+        [
+          0.1,
+          0.4
+        ],
+        [
+          0.13,
+          0.0
+        ]
+      ]
+    },
+    "strategy_allocations": {
+      "IARIC_V5R1": {
+        "unit_risk_pct": 0.00864,
+        "max_heat_R": 5.4,
+        "max_concurrent": 9,
+        "daily_stop_R": 2.75,
+        "priority": 0,
+        "role": "primary pullback alpha and frequency engine"
+      },
+      "ALCB_R3": {
+        "unit_risk_pct": 0.00702,
+        "max_heat_R": 4.0,
+        "max_concurrent": 6,
+        "daily_stop_R": 2.35,
+        "priority": 1,
+        "role": "intraday momentum complement and early-session alpha sleeve"
+      }
+    },
+    "dynamic_allocation": {
+      "enabled": true,
+      "lookback_trades": 60,
+      "min_mult": 0.65,
+      "max_mult": 1.22,
+      "positive_expectancy_boost": 0.1,
+      "negative_expectancy_cut": 0.18,
+      "drawdown_risk_floor": 0.4
+    },
+    "cross_strategy_rules": {
+      "priority_order": [
+        "IARIC_V5R1",
+        "ALCB_R3"
+      ],
+      "candidate_rank_mode": "diagnostic_alpha_score",
+      "same_symbol_policy": "half_size",
+      "same_symbol_size_mult": 0.5,
+      "same_sector_heat_cap_R": 3.8,
+      "iaric_priority_headroom_R": 1.15
+    },
+    "strategy_filters": {
+      "ALCB_R3": {
+        "financials_size_mult": 0.65,
+        "pdh_size_mult": 1.1,
+        "score5_no_surge_mult": 0.45
+      },
+      "IARIC_V5R1": {
+        "delayed_confirm_min_quality": 0.0,
+        "gap_up_size_mult": 0.6,
+        "carry_route_size_mult": 0.75
+      }
+    },
+    "validation": {
+      "walk_forward_required": true,
+      "min_positive_slices": 4,
+      "completed_bar_and_fee_parity_required": true,
+      "size_calibration_source": "phase5_discriminator_blend",
+      "size_calibration_scalar": 1.08,
+      "size_calibration_gate": "smallest global scalar beating active round_1 dollar PnL on IS, 2026-03-02 validation, and 2026-03-21 validation while preserving phase-5 routing metrics"
+    }
+  },
+  "headline_metrics": {
+    "total_trades": 1684,
+    "win_rate": 74.40617577197149,
+    "profit_factor": 2.241240261297979,
+    "max_drawdown_pct": 4.623062045722482,
+    "net_return_pct": 7.980608204189258,
+    "sharpe_ratio": 4.3729861216896495,
+    "calmar_ratio": 46.09727062478604
+  },
+  "final_metrics": {
+    "initial_equity": 25000.0,
+    "final_equity": 224515.20510473143,
+    "net_pnl": 199515.20510473143,
+    "net_return_pct": 7.980608204189258,
+    "total_trades": 1684.0,
+    "entry_signals_fired": 2046.0,
+    "entries_accepted_by_portfolio": 1684.0,
+    "entries_blocked_by_portfolio": 362.0,
+    "entry_accept_rate": 0.823069403714565,
+    "active_trades_per_month": 73.0084522367022,
+    "total_r": 328.0264886404411,
+    "total_r_per_month": 14.221321988289061,
+    "profit_factor": 2.241240261297979,
+    "win_rate": 0.744061757719715,
+    "expectancy_r": 0.1947900763898106,
+    "sharpe": 4.3729861216896495,
+    "sortino": 4.371880779228934,
+    "calmar": 46.09727062478604,
+    "max_drawdown_pct": 0.04623062045722482,
+    "max_drawdown_dollar": 5134.94278276671,
+    "active_strategy_count": 2.0,
+    "max_strategy_trade_share": 0.6538004750593824,
+    "max_strategy_risk_share": 0.6621041408699314,
+    "trade_capture_ratio": 0.823069403714565,
+    "positive_alpha_block_rate": 0.18104575163398692,
+    "blocked_positive_count": 277.0,
+    "blocked_nonpositive_count": 85.0,
+    "blocked_positive_fraction": 0.7651933701657458,
+    "blocked_avg_r": 0.13342828096061762,
+    "accepted_avg_r": 0.1947900763898106,
+    "blocked_positive_avg_r": 0.34342168475759594,
+    "candidate_discrimination": 0.6022696590486549,
+    "positive_slices": 4.0,
+    "max_daily_loss_R": 3.0243950090507843,
+    "max_weekly_loss_R": 1.6543451478817315,
+    "trades_IARIC_V5R1": 1101.0,
+    "trades_ALCB_R3": 583.0,
+    "pnl_IARIC_V5R1": 103521.269307668,
+    "pnl_ALCB_R3": 95993.93579706356,
+    "risk_share_IARIC_V5R1": 0.6621041408699314,
+    "risk_share_ALCB_R3": 0.3378958591300686,
+    "blocked_reason_symbol_heat_cap": 7.0,
+    "blocked_reason_strategy_heat_cap": 154.0,
+    "blocked_reason_sector_heat_cap": 25.0,
+    "blocked_reason_portfolio_heat_cap": 11.0,
+    "blocked_reason_strategy_trade_share_cap": 164.0,
+    "blocked_reason_long_heat_cap": 1.0,
+    "risk_basis": "bar_close_mark_to_market",
+    "max_drawdown_pct_mtm": 0.04623062045722482,
+    "calmar_mtm": 46.09727062478604,
+    "max_drawdown_pct_realized": 0.039200496391560646,
+    "calmar_realized": 54.365147143629144,
+    "mtm_points": 92251.0,
+    "score_alpha_return": 1.0,
+    "score_trade_frequency": 1.0,
+    "score_drawdown_control": 0.5376937954277519,
+    "score_profit_factor_quality": 0.45136009501744695,
+    "score_synergy_capture": 0.5768921826910647,
+    "score_allocation_balance": 0.8840953840706862,
+    "score_robustness": 0.7459826019925027,
+    "score_total": 0.7597396971944632
+  },
+  "source_diagnostics": null,
+  "source_phase_state": null,
+  "provenance": {
+    "schema_version": 1,
+    "selection_fingerprint": "ab980a4e3c8828331275ef37625fa4a7f1fc6ec777f3df8f7e30357d278d5219",
+    "diagnostics_fingerprint": "ab980a4e3c8828331275ef37625fa4a7f1fc6ec777f3df8f7e30357d278d5219",
+    "items": [
+      {
+        "name": "data_dir",
+        "kind": "tree_contents",
+        "fingerprint": "3e7834170767b1c4a57550d5241863253af0fde2317d2a6893e3735dda63779c",
+        "paths": [
+          "backtests/stock/data/raw"
+        ],
+        "scope": "data",
+        "notes": "Content fingerprint for selection-relevant replay data files."
+      },
+      {
+        "name": "code:backtests/stock/auto/portfolio_synergy/core/logic.py",
+        "kind": "file_contents",
+        "fingerprint": "a87afc3dc9c8a5178f8632e91ec562b588a48c84b5c2eaca7424fb4f63cf1e1e",
+        "paths": [
+          "backtests/stock/auto/portfolio_synergy/core/logic.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/stock/auto/portfolio_synergy/core/state.py",
+        "kind": "file_contents",
+        "fingerprint": "8d0ce0263083becd0ffe20e094fb5d09522b0d3a09da18f6893d0831d297abb8",
+        "paths": [
+          "backtests/stock/auto/portfolio_synergy/core/state.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/stock/auto/portfolio_synergy/evaluator.py",
+        "kind": "file_contents",
+        "fingerprint": "ebe3309b04cc0b51a31410471809113e2d8a40770f829b543543ff9b37387c94",
+        "paths": [
+          "backtests/stock/auto/portfolio_synergy/evaluator.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:libs/oms/risk/portfolio_rules.py",
+        "kind": "file_contents",
+        "fingerprint": "edcbd6dcb34810ecda91d76a690b0efe462d49932be353a29043d8d3547584d4",
+        "paths": [
+          "libs/oms/risk/portfolio_rules.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "plugin",
+        "kind": "plugin_identity",
+        "fingerprint": "fdf53b74afe8351d895c4b41d861994ea657ab1fd5efb284dd3663eaf4ed892a",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "selection_context",
+        "kind": "stable_json",
+        "fingerprint": "2d0415f59e4ecdd169a07a73659236d2a1dbd462c3828bc743c23a36368d63ce",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:backtests/stock/auto/portfolio_synergy",
+        "kind": "tree_contents",
+        "fingerprint": "8d31c231a52417690dc3d950b6fd471084cbf09d458e54d4a2e9782fcfa822c1",
+        "paths": [
+          "backtests/stock/auto/portfolio_synergy"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "shared_auto_package",
+        "kind": "tree_contents",
+        "fingerprint": "b58cff0ef3381b09a3e6abcacca3dbbcc093afc7c8583a6e34c39a8886dd6f3c",
+        "paths": [
+          "backtests/shared/auto"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:ALCB_R3",
+        "kind": "source_artifact_contents",
+        "fingerprint": "6cc28ae370bd858784cc5d5071fef9052881ddb1abe3a98bd4fdd929cadb6226",
+        "paths": [
+          "backtests/output/stock/alcb/round_2/optimized_config.json"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:IARIC_V5R1",
+        "kind": "source_artifact_contents",
+        "fingerprint": "b597e73aee96c61142833774e701fe6599452b11aa8e3649b95379110f773fd3",
+        "paths": [
+          "backtests/output/stock/iaric/round_1/optimized_config.json"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      }
+    ]
+  },
+  "provenance_status": "selection_drift_accepted",
+  "provenance_validation": {
+    "valid": false,
+    "status": "selection_drift",
+    "previous_round": 2,
+    "current_round": 3,
+    "selection_drift": true,
+    "diagnostics_drift": false,
+    "changed_items": [
+      "changed selection:file_contents:code:backtests/stock/auto/portfolio_synergy/evaluator.py",
+      "changed selection:stable_json:selection_context",
+      "changed selection:tree_contents:code_tree:backtests/stock/auto/portfolio_synergy"
+    ],
+    "message": "Selection provenance changed between round 2 and round 3; changed items: changed selection:file_contents:code:backtests/stock/auto/portfolio_synergy/evaluator.py, changed selection:stable_json:selection_context, changed selection:tree_contents:code_tree:backtests/stock/auto/portfolio_synergy."
+  }
+}

@@ -1,0 +1,3 @@
+2026-05-07 00:39:34,549 INFO research.backtests.shared.auto.phase.dba074c9a6aa.3: Starting phase 3 with 15 candidates
+2026-05-07 00:44:54,944 INFO research.backtests.shared.auto.phase.dba074c9a6aa.3: Round 1 best candidate qqq_pb30_ma_fast_slope_6_000 did not clear min_delta 0.40%; stopping.
+2026-05-07 00:50:01,722 INFO research.backtests.shared.auto.phase.dba074c9a6aa.3: Phase 3 complete: 65.1937 -> 65.1937 (0 accepted)

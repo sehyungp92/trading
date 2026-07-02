@@ -1,0 +1,73 @@
+NQDTC Round 5 Alpha Repair Search
+================================================================================================================
+The OOS window is used for diagnosis and repair selection here; any promotion still needs forward monitoring or a fresh holdout.
+Data end: 2026-05-24; OOS starts 2026-03-21; candidates: 893
+
+Baselines
+  Round4: IS n=129 netR=+68.28 avgR=+0.529 PF=2.27; OOS n=4 netR=-1.99 avgR=-0.498 PF=0.34
+  Round5: IS n=164 netR=+78.90 avgR=+0.481 PF=2.08; OOS n=7 netR=+6.36 avgR=+0.909 PF=3.11
+
+Round5 vs Round4 Deltas
+  IS: trades +35, netR +10.61, avgR -0.048, PF -0.19
+  OOS: trades +3, netR +8.35, avgR +1.406, PF +2.77
+  FULL: trades +38, netR +18.96, avgR +0.000, PF -0.04
+
+Root Cause Signals
+  - Neutral expansion is materially lower expectancy than Range and dilutes PF/net.
+  - Losses are not concentrated in a few catastrophic tail events; the issue is ordinary low-expectancy flow.
+  - Round5 Neutral full: {"trades": 54, "wins": 27, "win_rate": 0.5, "net_r": 8.855514, "avg_r": 0.163991, "profit_factor": 1.362127, "min_r": -1.4375, "max_r": 3.598861}
+  - Round5 Range full:   {"trades": 117, "wins": 65, "win_rate": 0.5555555555555556, "net_r": 76.401631, "avg_r": 0.653005, "profit_factor": 2.486305, "min_r": -1.101695, "max_r": 6.358}
+
+Strict Uplifts
+  None found that improved IS PF/net and OOS PF/net versus round5 simultaneously.
+
+Repair Uplifts
+  min_box_100 [box_filter]: score=+2.037 IS n=155 netR=+77.41 PF=2.16 OOS n=7 netR=+6.36 PF=3.11 reasons=['IS netR below round5']
+  mfe_quality [exit_protection]: score=+1.877 IS n=165 netR=+81.03 PF=2.11 OOS n=7 netR=+5.91 PF=2.96 reasons=['OOS netR below round5', 'OOS PF below round5']
+  target_mfe_tiers_fast_lock [native_targeted]: score=+1.411 IS n=164 netR=+79.37 PF=2.09 OOS n=7 netR=+5.65 PF=2.88 reasons=['OOS netR below round5', 'OOS PF below round5']
+  neutral_nrm_2p25_c_0p236_tp1_1p7 [neutral_exit_grid]: score=+1.306 IS n=162 netR=+80.04 PF=2.09 OOS n=7 netR=+5.44 PF=2.81 reasons=['OOS netR below round5', 'OOS PF below round5']
+  min_box_125 [box_filter]: score=+0.662 IS n=140 netR=+70.20 PF=2.18 OOS n=7 netR=+5.57 PF=2.85 reasons=['IS netR below round5', 'OOS netR below round5', 'OOS PF below round5']
+
+Top Ranked
+  min_box_100 [box_filter]: score=+2.037 IS n=155 netR=+77.41 PF=2.16 OOS n=7 netR=+6.36 PF=3.11 reasons=['IS netR below round5']
+  mfe_quality [exit_protection]: score=+1.877 IS n=165 netR=+81.03 PF=2.11 OOS n=7 netR=+5.91 PF=2.96 reasons=['OOS netR below round5', 'OOS PF below round5']
+  target_mfe_tiers_fast_lock [native_targeted]: score=+1.411 IS n=164 netR=+79.37 PF=2.09 OOS n=7 netR=+5.65 PF=2.88 reasons=['OOS netR below round5', 'OOS PF below round5']
+  neutral_nrm_2p25_c_0p236_tp1_1p7 [neutral_exit_grid]: score=+1.306 IS n=162 netR=+80.04 PF=2.09 OOS n=7 netR=+5.44 PF=2.81 reasons=['OOS netR below round5', 'OOS PF below round5']
+  min_box_125 [box_filter]: score=+0.662 IS n=140 netR=+70.20 PF=2.18 OOS n=7 netR=+5.57 PF=2.85 reasons=['IS netR below round5', 'OOS netR below round5', 'OOS PF below round5']
+  loss_streak_2_skip_9 [risk_filter]: score=+2.213 IS n=165 netR=+77.41 PF=2.02 OOS n=6 netR=+6.58 PF=4.27 reasons=['IS netR below round5', 'IS PF below round5']
+  tp2_2p5_pct_0p15 [exit_shape]: score=+1.328 IS n=163 netR=+77.29 PF=2.05 OOS n=7 netR=+6.79 PF=3.25 reasons=['IS netR below round5', 'IS PF below round5']
+  tp2_2p5_pct_0p2 [exit_shape]: score=+1.328 IS n=163 netR=+77.29 PF=2.05 OOS n=7 netR=+6.79 PF=3.25 reasons=['IS netR below round5', 'IS PF below round5']
+  tp2_2p5_pct_0p25 [exit_shape]: score=+1.328 IS n=163 netR=+77.29 PF=2.05 OOS n=7 netR=+6.79 PF=3.25 reasons=['IS netR below round5', 'IS PF below round5']
+  ablate_cluster_round_1_phase_2_score [ablation_all_rounds]: score=+1.317 IS n=164 netR=+78.90 PF=2.08 OOS n=7 netR=+6.36 PF=3.11 reasons=['No material uplift versus round5']
+  ablate_cluster_round_1_phase_1_block [ablation_all_rounds]: score=+1.317 IS n=164 netR=+78.90 PF=2.08 OOS n=7 netR=+6.36 PF=3.11 reasons=['No material uplift versus round5']
+  ablate_cluster_round_1_phase_2_vol [ablation_all_rounds]: score=+1.317 IS n=164 netR=+78.90 PF=2.08 OOS n=7 netR=+6.36 PF=3.11 reasons=['No material uplift versus round5']
+  ablate_cluster_round_1_phase_3_loss [ablation_all_rounds]: score=+1.317 IS n=164 netR=+78.90 PF=2.08 OOS n=7 netR=+6.36 PF=3.11 reasons=['No material uplift versus round5']
+  ablate_cluster_round_1_phase_3_min [ablation_all_rounds]: score=+1.317 IS n=164 netR=+78.90 PF=2.08 OOS n=7 netR=+6.36 PF=3.11 reasons=['No material uplift versus round5']
+  ablate_key_TP2_PARTIAL_PCT [ablation_all_rounds]: score=+1.317 IS n=164 netR=+78.90 PF=2.08 OOS n=7 netR=+6.36 PF=3.11 reasons=['No material uplift versus round5']
+  ablate_cluster_round_3_phase_1_tp1 [ablation_all_rounds]: score=+1.317 IS n=164 netR=+78.90 PF=2.08 OOS n=7 netR=+6.36 PF=3.11 reasons=['No material uplift versus round5']
+  ablate_key_A_ENTRY_ENABLED [ablation_all_rounds]: score=+1.317 IS n=164 netR=+78.90 PF=2.08 OOS n=7 netR=+6.36 PF=3.11 reasons=['No material uplift versus round5']
+  ablate_key_flag_entry_a_retest [ablation_all_rounds]: score=+1.317 IS n=164 netR=+78.90 PF=2.08 OOS n=7 netR=+6.36 PF=3.11 reasons=['No material uplift versus round5']
+  ablate_cluster_round_4_phase_5_a [ablation_all_rounds]: score=+1.317 IS n=164 netR=+78.90 PF=2.08 OOS n=7 netR=+6.36 PF=3.11 reasons=['No material uplift versus round5']
+  ablate_key_A_TTL_5M_BARS [ablation_all_rounds]: score=+1.317 IS n=164 netR=+78.90 PF=2.08 OOS n=7 netR=+6.36 PF=3.11 reasons=['No material uplift versus round5']
+
+Full Metrics For Top Candidates
+  round4: trades=133 PF=2.07 net=+341.4% robust=+301.3% avgR=+0.498 DD=14.7%
+  round5: trades=173 PF=1.72 net=+305.5% robust=+268.9% avgR=+0.485 DD=17.2%
+  min_box_100: trades=164 PF=1.78 net=+313.6% robust=+277.0% avgR=+0.502 DD=17.5%
+  mfe_quality: trades=174 PF=1.72 net=+309.2% robust=+272.6% avgR=+0.492 DD=17.2%
+  target_mfe_tiers_fast_lock: trades=173 PF=1.72 net=+308.6% robust=+272.0% avgR=+0.483 DD=17.2%
+  neutral_nrm_2p25_c_0p236_tp1_1p7: trades=171 PF=1.71 net=+309.6% robust=+272.6% avgR=+0.492 DD=17.2%
+  min_box_125: trades=149 PF=1.84 net=+342.2% robust=+305.6% avgR=+0.499 DD=17.1%
+  loss_streak_2_skip_9: trades=173 PF=1.73 net=+311.2% robust=+274.6% avgR=+0.477 DD=17.2%
+  tp2_2p5_pct_0p15: trades=172 PF=1.73 net=+320.4% robust=+283.8% avgR=+0.481 DD=17.1%
+  tp2_2p5_pct_0p2: trades=172 PF=1.73 net=+320.4% robust=+283.8% avgR=+0.481 DD=17.1%
+  tp2_2p5_pct_0p25: trades=172 PF=1.73 net=+320.4% robust=+283.8% avgR=+0.481 DD=17.1%
+  ablate_cluster_round_1_phase_2_score: trades=173 PF=1.72 net=+305.5% robust=+268.9% avgR=+0.485 DD=17.2%
+  ablate_cluster_round_1_phase_1_block: trades=173 PF=1.72 net=+305.5% robust=+268.9% avgR=+0.485 DD=17.2%
+  ablate_cluster_round_1_phase_2_vol: trades=173 PF=1.72 net=+305.5% robust=+268.9% avgR=+0.485 DD=17.2%
+  ablate_cluster_round_1_phase_3_loss: trades=173 PF=1.72 net=+305.5% robust=+268.9% avgR=+0.485 DD=17.2%
+  ablate_cluster_round_1_phase_3_min: trades=173 PF=1.72 net=+305.5% robust=+268.9% avgR=+0.485 DD=17.2%
+  ablate_key_TP2_PARTIAL_PCT: trades=173 PF=1.72 net=+305.5% robust=+268.9% avgR=+0.485 DD=17.2%
+  ablate_cluster_round_3_phase_1_tp1: trades=173 PF=1.72 net=+305.5% robust=+268.9% avgR=+0.485 DD=17.2%
+  ablate_key_A_ENTRY_ENABLED: trades=173 PF=1.72 net=+305.5% robust=+268.9% avgR=+0.485 DD=17.2%
+  ablate_key_flag_entry_a_retest: trades=173 PF=1.72 net=+305.5% robust=+268.9% avgR=+0.485 DD=17.2%

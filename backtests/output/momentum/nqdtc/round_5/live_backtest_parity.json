@@ -1,0 +1,107 @@
+{
+  "generated_at_utc": "2026-05-25T10:39:56.042549+00:00",
+  "round": 5,
+  "candidate": "min_box_100_c_0p248",
+  "checks": {
+    "BLOCK_NEUTRAL_REGIME": {
+      "expected_from_optimized_config": false,
+      "live_constant": false,
+      "matches": true
+    },
+    "BLOCK_CAUTION_REGIME": {
+      "expected_from_optimized_config": true,
+      "live_constant": true,
+      "matches": true
+    },
+    "SCORE_NON_RANGE_MULT": {
+      "expected_from_optimized_config": 2.25,
+      "live_constant": 2.25,
+      "matches": true
+    },
+    "DISPLACEMENT_THRESHOLD_ENABLED": {
+      "expected_from_optimized_config": false,
+      "live_constant": false,
+      "matches": true
+    },
+    "BLOCK_ETH_SHORTS": {
+      "expected_from_optimized_config": true,
+      "live_constant": true,
+      "matches": true
+    },
+    "A_ENTRY_ENABLED": {
+      "expected_from_optimized_config": true,
+      "live_constant": true,
+      "matches": true
+    },
+    "A_ENTRY_RETEST_ENABLED": {
+      "expected_from_optimized_config": true,
+      "live_constant": true,
+      "matches": true
+    },
+    "A_ENTRY_LATCH_ENABLED": {
+      "expected_from_optimized_config": false,
+      "live_constant": false,
+      "matches": true
+    },
+    "A_TTL_5M_BARS": {
+      "expected_from_optimized_config": 12,
+      "live_constant": 12,
+      "matches": true
+    },
+    "A_MAX_BOX_WIDTH": {
+      "expected_from_optimized_config": 225.0,
+      "live_constant": 225.0,
+      "matches": true
+    },
+    "C_ENTRY_OFFSET_ATR_STANDARD": {
+      "expected_from_optimized_config": 0.248,
+      "live_constant": 0.248,
+      "matches": true
+    },
+    "TP1_R": {
+      "expected_from_optimized_config": 1.6,
+      "live_constant": 1.6,
+      "matches": true
+    },
+    "TP1_PARTIAL_PCT": {
+      "expected_from_optimized_config": 0.45,
+      "live_constant": 0.45,
+      "matches": true
+    },
+    "TP2_R": {
+      "expected_from_optimized_config": 2.25,
+      "live_constant": 2.25,
+      "matches": true
+    },
+    "TP2_PARTIAL_PCT": {
+      "expected_from_optimized_config": 0.2,
+      "live_constant": 0.2,
+      "matches": true
+    },
+    "TP1_ONLY_CAP_MODE": {
+      "expected_from_optimized_config": "degraded_only",
+      "live_constant": "degraded_only",
+      "matches": true
+    },
+    "MIN_INTER_TRADE_GAP_MINUTES": {
+      "expected_from_optimized_config": 30,
+      "live_constant": 30,
+      "matches": true
+    },
+    "MIN_BOX_WIDTH": {
+      "expected_from_optimized_config": 100,
+      "live_constant": 100,
+      "matches": true
+    },
+    "LOSS_STREAK_THRESHOLD": {
+      "expected_from_optimized_config": 2,
+      "live_constant": 2,
+      "matches": true
+    }
+  },
+  "all_checks_passed": true,
+  "notes": [
+    "Backtest-only flags remain represented in optimized_config.json.",
+    "Live engine now honors A retest/latch selection, displacement disablement, composite regime blocks, inter-trade gap, and loss-streak threshold."
+  ]
+}
