@@ -20,11 +20,11 @@ from strategies.momentum.nq_regime.config import Grade, ModuleId, StrategyRuntim
 from strategies.momentum.nq_regime.core.data_policy import CompletedBarPolicy
 from strategies.momentum.nq_regime.core.indicators import IndicatorSnapshot
 from strategies.momentum.nq_regime.core.levels import KeyLevels, build_ib_levels
-from strategies.momentum.nq_regime.core.logic import _manage_open_position, on_bar, on_fill, on_order_update
+from strategies.momentum.nq_regime.core.logic import _manage_open_position, on_authorization, on_bar, on_fill, on_order_update
 from strategies.momentum.nq_regime.core.regime import Regime, RegimeResult, RegimeScores
 from strategies.momentum.nq_regime.core.serializers import hydrate_state, snapshot_state
 from strategies.momentum.nq_regime.core.session import SessionPhase
-from strategies.momentum.nq_regime.core.state import BarData, BarEvent, FillEvent, OrderUpdateEvent, RegimeCoreState
+from strategies.momentum.nq_regime.core.state import AuthorizationEvent, BarData, BarEvent, FillEvent, OrderUpdateEvent, RegimeCoreState
 from strategies.momentum.nq_regime.engine import NQRegimeEngine
 from strategies.momentum.nq_regime.modules import second_wind as second_wind_module
 from strategies.momentum.nq_regime.modules.base import SetupCandidate
@@ -205,6 +205,133 @@ def test_core_routes_valid_candidate_to_neutral_entry_and_snapshot_hydrates_cand
     assert next_state.working_entry_order_id
     hydrated = hydrate_state(snapshot_state(next_state))
     assert isinstance(next(iter(hydrated.pending_candidates.values())), SetupCandidate)
+
+
+def test_authorization_extraction_preserves_legacy_default_exactly(monkeypatch) -> None:
+    ts = _dt(10, 15)
+    settings = StrategyRuntimeSettings(
+        initial_equity=100_000,
+        max_contracts=5,
+        enable_liquidity_reversion=False,
+        enable_second_wind=False,
+    )
+    monkeypatch.setattr(
+        "strategies.momentum.nq_regime.core.logic.classify_regime",
+        lambda *args, **kwargs: RegimeResult(Regime.STRUCTURAL_EXPANSION, RegimeScores(expansion=1.0), 1.0, 1.0),
+    )
+    monkeypatch.setattr(
+        "strategies.momentum.nq_regime.modules.structural_expansion.evaluate",
+        lambda *args, **kwargs: _candidate(ts),
+    )
+    event = BarEvent(ts=ts, bar_5m=_bar(10, 15, 20020, 20040, 20010, 20030, 2_000))
+
+    implicit = on_bar(_ready_state(ts), event, settings=settings)
+    explicit = on_bar(
+        _ready_state(ts),
+        event,
+        settings=settings,
+        authorization_required=False,
+    )
+
+    assert snapshot_state(implicit[0]) == snapshot_state(explicit[0])
+    assert implicit[1] == explicit[1]
+    assert implicit[2] == explicit[2]
+
+    causal = on_bar(
+        _ready_state(ts),
+        event,
+        settings=settings,
+        authorization_required=True,
+    )
+    assert causal[1] == implicit[1]
+    assert causal[2] == implicit[2]
+    legacy_snapshot = snapshot_state(implicit[0])
+    causal_snapshot = snapshot_state(causal[0])
+    assert legacy_snapshot.pop("working_entry_order_id") == implicit[1][0].client_order_id
+    assert causal_snapshot.pop("working_entry_order_id") is None
+    assert legacy_snapshot.pop("order_to_role") == {implicit[1][0].client_order_id: "entry"}
+    assert causal_snapshot.pop("order_to_role") == {}
+    assert causal_snapshot == legacy_snapshot
+
+
+@pytest.mark.parametrize(
+    ("approved", "approved_qty", "expected_code"),
+    [
+        (False, 0, "ENTRY_DENIED"),
+        (True, 2, "ENTRY_AUTHORIZED"),
+    ],
+)
+def test_authorization_feedback_precedes_working_order_and_fill_state(
+    monkeypatch,
+    approved: bool,
+    approved_qty: int,
+    expected_code: str,
+) -> None:
+    ts = _dt(10, 15)
+    settings = StrategyRuntimeSettings(
+        initial_equity=100_000,
+        max_contracts=5,
+        enable_liquidity_reversion=False,
+        enable_second_wind=False,
+    )
+    monkeypatch.setattr(
+        "strategies.momentum.nq_regime.core.logic.classify_regime",
+        lambda *args, **kwargs: RegimeResult(Regime.STRUCTURAL_EXPANSION, RegimeScores(expansion=1.0), 1.0, 1.0),
+    )
+    monkeypatch.setattr(
+        "strategies.momentum.nq_regime.modules.structural_expansion.evaluate",
+        lambda *args, **kwargs: _candidate(ts),
+    )
+    proposed_state, proposals, _ = on_bar(
+        _ready_state(ts),
+        BarEvent(ts=ts, bar_5m=_bar(10, 15, 20020, 20040, 20010, 20030, 2_000)),
+        settings=settings,
+        authorization_required=True,
+    )
+    proposal = next(action for action in proposals if isinstance(action, SubmitEntry))
+
+    assert proposed_state.working_entry_order_id is None
+    authorized_state, submissions, feedback = on_authorization(
+        proposed_state,
+        AuthorizationEvent(
+            client_order_id=proposal.client_order_id,
+            approved=approved,
+            approved_qty=approved_qty,
+            requested_qty=proposal.qty,
+            timestamp=ts,
+            symbol=proposal.symbol,
+            denial_reason="fixture denial" if not approved else "",
+            portfolio_decision_ref="portfolio-r1a",
+        ),
+        settings=settings,
+    )
+
+    assert feedback[-1].code == expected_code
+    if not approved:
+        assert submissions == []
+        assert authorized_state.working_entry_order_id is None
+        assert authorized_state.pending_candidates == {}
+        assert authorized_state.position_side is TradeSide.FLAT
+        return
+
+    [submission] = submissions
+    assert submission.qty == approved_qty
+    assert authorized_state.working_entry_order_id == submission.client_order_id
+    filled_state, _, fill_events = on_fill(
+        authorized_state,
+        FillEvent(
+            submission.client_order_id,
+            fill_price=20_000.0,
+            fill_qty=submission.qty,
+            fill_time=ts,
+            symbol="MNQ",
+            order_role="entry",
+        ),
+        settings=settings,
+    )
+    assert fill_events[-1].code == "ENTRY_FILLED"
+    assert filled_state.qty_open == approved_qty
+    assert filled_state.position_side is TradeSide.LONG
 
 
 def test_entry_fill_places_protective_orders_and_partial_r_uses_full_trade_risk(monkeypatch) -> None:

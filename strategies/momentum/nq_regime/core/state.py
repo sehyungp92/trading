@@ -188,6 +188,18 @@ class FillEvent:
     portfolio_decision_ref: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class AuthorizationEvent:
+    client_order_id: str
+    approved: bool
+    approved_qty: int
+    requested_qty: int
+    timestamp: datetime
+    symbol: str = ""
+    denial_reason: str = ""
+    portfolio_decision_ref: str = ""
+
+
 @dataclass(slots=True)
 class OrderUpdateEvent:
     oms_order_id: str

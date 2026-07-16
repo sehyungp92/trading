@@ -160,6 +160,255 @@ class PortfolioRuleResult:
     lineage_gap: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class StaticPortfolioRuleEffect:
+    """One deterministic, provider-free sizing rule applied to an entry."""
+
+    rule: str
+    size_multiplier: float
+
+
+@dataclass(frozen=True, slots=True)
+class StaticPortfolioDecision:
+    """Provider-free entry decision shared by live and one-child replay.
+
+    R1A deliberately extracts only rules whose inputs are already immutable
+    scalar configuration plus the current equity snapshot.  Rules requiring
+    sibling positions, working orders, recent trades, or family heat remain in
+    ``PortfolioRuleChecker`` until the simultaneous-family R1B increment.
+    """
+
+    approved: bool
+    denial_reason: str | None
+    size_multiplier: float
+    effects: tuple[StaticPortfolioRuleEffect, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class DirectionalRiskSnapshot:
+    """Provider-neutral shared risk visible before one family decision."""
+
+    current_risk_R: float = 0.0
+    current_risk_dollars: float | None = None
+    reference_unit_risk_dollars: float = 0.0
+
+
+def evaluate_directional_cap(
+    config: PortfolioRulesConfig,
+    snapshot: DirectionalRiskSnapshot,
+    *,
+    strategy_id: str,
+    direction: str,
+    new_risk_R: float,
+    new_risk_dollars: float = 0.0,
+) -> str | None:
+    """Evaluate the existing directional cap from an explicit state snapshot."""
+
+    direction_u = (direction or "").upper()
+    cap_R = _direction_cap_for_config(config, direction_u)
+    if cap_R <= 0:
+        return None
+
+    use_dollars = (
+        snapshot.reference_unit_risk_dollars > 0
+        and snapshot.current_risk_dollars is not None
+    )
+    if use_dollars:
+        current_dollars = float(snapshot.current_risk_dollars or 0.0)
+        ref_urd = snapshot.reference_unit_risk_dollars
+        cap_dollars = cap_R * ref_urd
+        total_dollars = current_dollars + new_risk_dollars
+        if total_dollars > cap_dollars:
+            return (
+                f"directional_cap: {direction_u} risk ${current_dollars:.0f} + "
+                f"new ${new_risk_dollars:.0f} = ${total_dollars:.0f} > "
+                f"cap {cap_R}R * ${ref_urd:.0f} = ${cap_dollars:.0f}"
+            )
+        headroom_R = config.priority_headroom_R
+        if headroom_R > 0 and config.strategy_priorities:
+            remaining_dollars = cap_dollars - current_dollars
+            headroom_dollars = headroom_R * ref_urd
+            priority = dict(config.strategy_priorities).get(strategy_id, 99)
+            if (
+                remaining_dollars <= headroom_dollars
+                and priority > config.priority_reserve_threshold
+            ):
+                return (
+                    f"directional_cap_reserved: {direction_u} remaining "
+                    f"${remaining_dollars:.0f} <= headroom ${headroom_dollars:.0f}, "
+                    f"strategy {strategy_id} priority {priority} "
+                    f"> threshold {config.priority_reserve_threshold}"
+                )
+        return None
+
+    current_risk_R = snapshot.current_risk_R
+    total_R = current_risk_R + new_risk_R
+    if total_R > cap_R:
+        return (
+            f"directional_cap: {direction_u} risk {current_risk_R:.2f}R + "
+            f"new {new_risk_R:.2f}R = {total_R:.2f}R > cap {cap_R}R"
+        )
+    if config.priority_headroom_R <= 0 or not config.strategy_priorities:
+        return None
+    remaining_R = cap_R - current_risk_R
+    priority = dict(config.strategy_priorities).get(strategy_id, 99)
+    if (
+        remaining_R <= config.priority_headroom_R
+        and priority > config.priority_reserve_threshold
+    ):
+        return (
+            f"directional_cap_reserved: {direction_u} remaining "
+            f"{remaining_R:.2f}R <= headroom {config.priority_headroom_R:.1f}R, "
+            f"strategy {strategy_id} priority {priority} "
+            f"> threshold {config.priority_reserve_threshold}"
+        )
+    return None
+
+
+def evaluate_static_portfolio_entry(
+    config: PortfolioRulesConfig,
+    *,
+    strategy_id: str,
+    direction: str,
+    current_equity: float,
+) -> StaticPortfolioDecision:
+    """Evaluate the provider-free prefix of the existing portfolio rules.
+
+    The function is synchronous and pure so a replay candidate can call the
+    same decision authority as the live checker without starting an event loop
+    or constructing live repository providers.
+    """
+
+    if strategy_id in config.disabled_strategies:
+        return StaticPortfolioDecision(
+            approved=False,
+            denial_reason=f"regime_disabled: {strategy_id} blocked in current regime",
+            size_multiplier=1.0,
+        )
+
+    effects: list[StaticPortfolioRuleEffect] = []
+    multiplier = 1.0
+
+    strategy_multiplier = dict(config.strategy_size_multipliers).get(strategy_id, 1.0)
+    if strategy_multiplier != 1.0:
+        effects.append(StaticPortfolioRuleEffect("strategy_size_multiplier", strategy_multiplier))
+    multiplier *= strategy_multiplier
+
+    drawdown_multiplier = _drawdown_tier_multiplier(config, current_equity)
+    if drawdown_multiplier == 0.0:
+        return StaticPortfolioDecision(
+            approved=False,
+            denial_reason="drawdown_halt: equity drawdown exceeds maximum tier",
+            size_multiplier=1.0,
+            effects=tuple(effects),
+        )
+    if drawdown_multiplier != 1.0:
+        effects.append(StaticPortfolioRuleEffect("drawdown_tier", drawdown_multiplier))
+    multiplier *= drawdown_multiplier
+
+    if config.regime_unit_risk_mult != 1.0:
+        effects.append(StaticPortfolioRuleEffect("regime_unit_risk", config.regime_unit_risk_mult))
+    multiplier *= config.regime_unit_risk_mult
+
+    direction_multiplier = _directional_unit_risk_multiplier(config, direction)
+    if direction_multiplier != 1.0:
+        effects.append(StaticPortfolioRuleEffect("regime_directional_unit_risk", direction_multiplier))
+    multiplier *= direction_multiplier
+
+    return StaticPortfolioDecision(
+        approved=True,
+        denial_reason=None,
+        size_multiplier=multiplier,
+        effects=tuple(effects),
+    )
+
+
+def adjusted_entry_quantity(requested_qty: int, size_multiplier: float) -> int:
+    """Apply the existing integer sizing rule used by live and replay."""
+
+    if requested_qty <= 0 or size_multiplier <= 0:
+        return 0
+    return max(1, int(requested_qty * size_multiplier))
+
+
+def require_static_portfolio_config(config: PortfolioRulesConfig) -> None:
+    """Reject R1B state-dependent rules on the R1A synchronous path."""
+
+    unsupported: list[str] = []
+    if config.nqdtc_direction_filter_enabled:
+        unsupported.append("nqdtc_direction_filter")
+    if max(config.directional_cap_R, config.directional_cap_long_R, config.directional_cap_short_R) > 0:
+        unsupported.append("directional_cap")
+    if config.symbol_collision_action != "none" or config.symbol_collision_pairs:
+        unsupported.append("symbol_collision")
+    if config.max_family_contracts_mnq_eq > 0:
+        unsupported.append("family_contract_cap")
+    if config.max_total_active_positions > 0 or config.max_strategy_active_positions:
+        unsupported.append("active_position_caps")
+    if config.portfolio_heat_cap_R > 0 or config.max_strategy_heat_R:
+        unsupported.append("portfolio_heat")
+    if config.max_symbol_heat_R > 0 or config.same_sector_heat_cap_R > 0:
+        unsupported.append("symbol_or_sector_heat")
+    if config.max_single_strategy_trade_share < 1.0:
+        unsupported.append("completed_trade_share")
+    if config.dynamic_allocation_enabled:
+        unsupported.append("recent_trade_allocation")
+    if config.existing_position_mult != 1.0:
+        unsupported.append("existing_position_sizing")
+    if config.heat_pressure_mult != 1.0 or config.same_direction_pressure_mult != 1.0:
+        unsupported.append("heat_pressure_sizing")
+    if config.max_trade_risk_R > 0:
+        unsupported.append("max_trade_risk")
+    if config.fit_to_remaining_heat or config.fit_to_remaining_directional_cap or config.fit_to_remaining_family_cap:
+        unsupported.append("capacity_fit")
+    if unsupported:
+        raise ValueError(
+            "R1A synchronous replay cannot evaluate state-dependent portfolio rules: "
+            + ", ".join(unsupported)
+        )
+
+
+def _drawdown_pct(config: PortfolioRulesConfig, current_equity: float) -> float:
+    initial = config.initial_equity
+    if initial <= 0 or current_equity >= initial:
+        return 0.0
+    return (initial - current_equity) / initial
+
+
+def _drawdown_tier_multiplier(
+    config: PortfolioRulesConfig,
+    current_equity: float,
+) -> float:
+    if config.initial_equity <= 0 or current_equity >= config.initial_equity:
+        return 1.0
+    drawdown_pct = _drawdown_pct(config, current_equity)
+    for threshold, multiplier in config.dd_tiers:
+        if drawdown_pct < threshold:
+            return multiplier
+    return 0.0
+
+
+def _directional_unit_risk_multiplier(
+    config: PortfolioRulesConfig,
+    direction: str,
+) -> float:
+    direction_u = (direction or "").upper()
+    if direction_u == "LONG":
+        return config.regime_unit_risk_long_mult
+    if direction_u == "SHORT":
+        return config.regime_unit_risk_short_mult
+    return 1.0
+
+
+def _direction_cap_for_config(config: PortfolioRulesConfig, direction: str) -> float:
+    direction_u = (direction or "").upper()
+    if direction_u == "LONG" and config.directional_cap_long_R > 0:
+        return config.directional_cap_long_R
+    if direction_u == "SHORT" and config.directional_cap_short_R > 0:
+        return config.directional_cap_short_R
+    return config.directional_cap_R
+
+
 # ── Checker ───────────────────────────────────────────────────────────
 
 class PortfolioRuleChecker:
@@ -403,12 +652,19 @@ class PortfolioRuleChecker:
                 context_active = False
             return rule_result
 
+        static_decision = evaluate_static_portfolio_entry(
+            self._cfg,
+            strategy_id=strategy_id,
+            direction=direction,
+            current_equity=current_equity,
+        )
+
         # 0. Regime strategy disable
-        if strategy_id in self._cfg.disabled_strategies:
+        if not static_decision.approved and str(static_decision.denial_reason).startswith("regime_disabled:"):
             self._emit({"rule": "regime_disabled", "strategy_id": strategy_id, "approved": False})
             return _result(
                 approved=False,
-                denial_reason=f"regime_disabled: {strategy_id} blocked in current regime",
+                denial_reason=static_decision.denial_reason,
                 size_multiplier=1.0,
             )
 
@@ -425,8 +681,10 @@ class PortfolioRuleChecker:
         result.size_multiplier *= size_mult
         rule_context["current_size_multiplier"] = result.size_multiplier
 
+        static_effects = {effect.rule: effect.size_multiplier for effect in static_decision.effects}
+
         # 2. Static optimized per-strategy multipliers.
-        strategy_mult = self._strategy_size_multipliers.get(strategy_id, 1.0)
+        strategy_mult = static_effects.get("strategy_size_multiplier", 1.0)
         if strategy_mult != 1.0:
             self._emit({"rule": "strategy_size_multiplier", "strategy_id": strategy_id,
                         "approved": True, "size_multiplier": strategy_mult})
@@ -434,29 +692,29 @@ class PortfolioRuleChecker:
         rule_context["current_size_multiplier"] = result.size_multiplier
 
         # 3. Drawdown tiers
-        dd_mult = self._check_drawdown_tier()
-        if dd_mult == 0.0:
-            reason = "drawdown_halt: equity drawdown exceeds maximum tier"
+        if not static_decision.approved:
+            reason = str(static_decision.denial_reason or "drawdown_halt: equity drawdown exceeds maximum tier")
             self._emit({"rule": "drawdown_tier", "strategy_id": strategy_id,
                          "approved": False, "denial_reason": reason,
-                         "drawdown_pct": self._current_dd_pct(), "size_multiplier": 0.0})
+                         "drawdown_pct": _drawdown_pct(self._cfg, current_equity), "size_multiplier": 0.0})
             return _result(approved=False, denial_reason=reason, size_multiplier=1.0)
+        dd_mult = static_effects.get("drawdown_tier", 1.0)
         if dd_mult < 1.0:
             self._emit({"rule": "drawdown_tier", "strategy_id": strategy_id,
                          "approved": True, "size_multiplier": dd_mult,
-                         "drawdown_pct": self._current_dd_pct()})
+                         "drawdown_pct": _drawdown_pct(self._cfg, current_equity)})
         result.size_multiplier *= dd_mult
         rule_context["current_size_multiplier"] = result.size_multiplier
 
         # 4b. Regime unit-risk multipliers
-        regime_mult = self._cfg.regime_unit_risk_mult
+        regime_mult = static_effects.get("regime_unit_risk", 1.0)
         if regime_mult != 1.0:
             self._emit({"rule": "regime_unit_risk", "strategy_id": strategy_id,
                         "approved": True, "size_multiplier": regime_mult})
             result.size_multiplier *= regime_mult
             rule_context["current_size_multiplier"] = result.size_multiplier
 
-        direction_mult = self._directional_unit_risk_mult(direction)
+        direction_mult = static_effects.get("regime_directional_unit_risk", 1.0)
         if direction_mult != 1.0:
             self._emit({"rule": "regime_directional_unit_risk", "strategy_id": strategy_id,
                         "direction": direction, "approved": True,
@@ -596,17 +854,10 @@ class PortfolioRuleChecker:
 
     @staticmethod
     def _adjusted_qty(new_qty: int, size_multiplier: float) -> int:
-        if new_qty <= 0 or size_multiplier <= 0:
-            return 0
-        return max(1, int(new_qty * size_multiplier))
+        return adjusted_entry_quantity(new_qty, size_multiplier)
 
     def _directional_unit_risk_mult(self, direction: str) -> float:
-        direction_u = (direction or "").upper()
-        if direction_u == "LONG":
-            return self._cfg.regime_unit_risk_long_mult
-        if direction_u == "SHORT":
-            return self._cfg.regime_unit_risk_short_mult
-        return 1.0
+        return _directional_unit_risk_multiplier(self._cfg, direction)
 
     async def _dynamic_allocation_mult(self, strategy_id: str) -> float:
         if not self._cfg.dynamic_allocation_enabled or self._get_recent_r is None:
@@ -738,12 +989,7 @@ class PortfolioRuleChecker:
         return max(0, int(risk_dollars // risk_per_contract))
 
     def _direction_cap_for(self, direction: str) -> float:
-        direction_u = (direction or "").upper()
-        if direction_u == "LONG" and self._cfg.directional_cap_long_R > 0:
-            return self._cfg.directional_cap_long_R
-        if direction_u == "SHORT" and self._cfg.directional_cap_short_R > 0:
-            return self._cfg.directional_cap_short_R
-        return self._cfg.directional_cap_R
+        return _direction_cap_for_config(self._cfg, direction)
 
     async def _check_direction_filter(self, strategy_id: str, direction: str) -> float:
         """NQDTC direction filter — affects Vdubus sizing."""
@@ -768,87 +1014,38 @@ class PortfolioRuleChecker:
             return self._cfg.nqdtc_oppose_size_mult
 
     async def _check_directional_cap(
-        self, strategy_id: str, direction: str, new_risk_R: float,
+        self,
+        strategy_id: str,
+        direction: str,
+        new_risk_R: float,
         new_risk_dollars: float = 0.0,
     ) -> Optional[str]:
-        """Max same-direction risk, with optional priority-based reservation.
+        """Build the provider snapshot, then call the shared pure authority."""
 
-        When ``reference_unit_risk_dollars > 0`` and a dollar callback is wired,
-        the cap is checked in dollar space to avoid mixing R units from
-        strategies with different URDs.
-        """
-        # Resolve per-direction cap (asymmetric overrides symmetric fallback)
-        cap_R = self._cfg.directional_cap_R
-        if direction == "LONG" and self._cfg.directional_cap_long_R > 0:
-            cap_R = self._cfg.directional_cap_long_R
-        elif direction == "SHORT" and self._cfg.directional_cap_short_R > 0:
-            cap_R = self._cfg.directional_cap_short_R
-        if cap_R <= 0:
+        if self._direction_cap_for(direction) <= 0:
             return None
-
-        ref_urd = self._reference_unit_risk_dollars()
-        use_dollars = ref_urd > 0 and self._get_dir_risk_dollars is not None
-
-        if use_dollars:
-            # Dollar-based path: avoids mixed R units across strategies
-            current_dollars = await self._get_dir_risk_dollars(direction)
-            cap_dollars = cap_R * ref_urd
-            total_dollars = current_dollars + new_risk_dollars
-
-            if total_dollars > cap_dollars:
-                return (
-                    f"directional_cap: {direction} risk ${current_dollars:.0f} + "
-                    f"new ${new_risk_dollars:.0f} = ${total_dollars:.0f} > "
-                    f"cap {cap_R}R * ${ref_urd:.0f} = ${cap_dollars:.0f}"
-                )
-
-            # Soft reservation in dollar space
-            headroom_R = self._cfg.priority_headroom_R
-            if headroom_R > 0 and self._cfg.strategy_priorities:
-                remaining_dollars = cap_dollars - current_dollars
-                headroom_dollars = headroom_R * ref_urd
-                priority_map = dict(self._cfg.strategy_priorities)
-                my_priority = priority_map.get(strategy_id, 99)
-
-                if remaining_dollars <= headroom_dollars and my_priority > self._cfg.priority_reserve_threshold:
-                    return (
-                        f"directional_cap_reserved: {direction} remaining "
-                        f"${remaining_dollars:.0f} <= headroom ${headroom_dollars:.0f}, "
-                        f"strategy {strategy_id} priority {my_priority} "
-                        f"> threshold {self._cfg.priority_reserve_threshold}"
-                    )
-
-            return None
-
-        # R-based path (original): safe when all strategies share the same URD
-        current_dir_risk = await self._get_dir_risk(direction)
-        total = current_dir_risk + new_risk_R
-
-        # Hard cap: no strategy can exceed the absolute cap
-        if total > cap_R:
-            return (
-                f"directional_cap: {direction} risk {current_dir_risk:.2f}R + "
-                f"new {new_risk_R:.2f}R = {total:.2f}R > cap {cap_R}R"
-            )
-
-        # Soft reservation: when headroom is tight, reserve for higher-priority strategies
-        headroom_R = self._cfg.priority_headroom_R
-        if headroom_R <= 0 or not self._cfg.strategy_priorities:
-            return None
-
-        remaining = cap_R - current_dir_risk
-        priority_map = dict(self._cfg.strategy_priorities)
-        my_priority = priority_map.get(strategy_id, 99)
-
-        if remaining <= headroom_R and my_priority > self._cfg.priority_reserve_threshold:
-            return (
-                f"directional_cap_reserved: {direction} remaining "
-                f"{remaining:.2f}R <= headroom {headroom_R:.1f}R, "
-                f"strategy {strategy_id} priority {my_priority} "
-                f"> threshold {self._cfg.priority_reserve_threshold}"
-            )
-
-        return None
+        reference_unit_risk_dollars = self._reference_unit_risk_dollars()
+        current_risk_dollars: float | None = None
+        if (
+            reference_unit_risk_dollars > 0
+            and self._get_dir_risk_dollars is not None
+        ):
+            current_risk_dollars = await self._get_dir_risk_dollars(direction)
+            current_risk_R = 0.0
+        else:
+            current_risk_R = await self._get_dir_risk(direction)
+        return evaluate_directional_cap(
+            self._cfg,
+            DirectionalRiskSnapshot(
+                current_risk_R=current_risk_R,
+                current_risk_dollars=current_risk_dollars,
+                reference_unit_risk_dollars=reference_unit_risk_dollars,
+            ),
+            strategy_id=strategy_id,
+            direction=direction,
+            new_risk_R=new_risk_R,
+            new_risk_dollars=new_risk_dollars,
+        )
 
     async def _check_symbol_collision(
         self, strategy_id: str, symbol: Optional[str],

@@ -13,15 +13,22 @@ from backtests.momentum.config_regime import NqRegimeBacktestConfig
 from backtests.momentum.data.cache import bar_path, load_bars
 from backtests.momentum.data.preprocessing import NumpyBars, build_numpy_arrays, filter_rth, normalize_timezone
 from backtests.momentum.engine.sim_broker import FillStatus, OrderSide, OrderType, SimBroker, SimOrder
+from libs.oms.risk.portfolio_rules import (
+    PortfolioRulesConfig,
+    adjusted_entry_quantity,
+    evaluate_static_portfolio_entry,
+    require_static_portfolio_config,
+)
 from strategies.core.actions import CancelAction, FlattenPosition, ReplaceProtectiveStop, SubmitEntry, SubmitProfitTarget, SubmitProtectiveStop
 from strategies.core.events import DecisionEvent
 from strategies.momentum.nq_regime import config as nq_config
 from strategies.momentum.nq_regime.core.data_policy import CompletedBarPolicy
 from strategies.momentum.nq_regime.core.levels import KeyLevels
 from strategies.momentum.nq_regime.core.logic import on_bar as core_on_bar
+from strategies.momentum.nq_regime.core.logic import on_authorization as core_on_authorization
 from strategies.momentum.nq_regime.core.logic import on_fill as core_on_fill
 from strategies.momentum.nq_regime.core.logic import on_order_update as core_on_order_update
-from strategies.momentum.nq_regime.core.state import BarData, FillEvent, OrderUpdateEvent, RegimeCoreState
+from strategies.momentum.nq_regime.core.state import AuthorizationEvent, BarData, FillEvent, OrderUpdateEvent, RegimeCoreState
 from strategies.momentum.nq_regime.modules import liquidity_reversion, second_wind, structural_expansion
 from strategies.scalp._shared.nq_contract import spec_for
 from strategies.scalp._shared.time_utils import session_date, to_et
@@ -131,6 +138,10 @@ def _run_nq_regime_backtest(data: NqRegimeData, config: NqRegimeBacktestConfig) 
     equity = config.initial_equity
     equity_curve: list[float] = []
     timestamps: list[datetime] = []
+    portfolio_rules = config.portfolio_rules
+    if config.causal_authorization:
+        portfolio_rules = portfolio_rules or _r1a_all_entries_approved_rules(config.initial_equity)
+        require_static_portfolio_config(portfolio_rules)
 
     for idx in range(len(bars)):
         ts = _dt(bars.times[idx])
@@ -206,13 +217,52 @@ def _run_nq_regime_backtest(data: NqRegimeData, config: NqRegimeBacktestConfig) 
         ]
         day_context = data.daily_context.get(session_date(ts).isoformat())
         event = policy.build_event(bar_5m=bar, recent_5m=recent, daily_context=day_context)
-        state, actions, bar_events = core_on_bar(state, event, settings=settings)
+        state, actions, bar_events = core_on_bar(
+            state,
+            event,
+            settings=settings,
+            authorization_required=config.causal_authorization,
+        )
         events.extend(bar_events)
         for action in actions:
             if isinstance(action, SubmitEntry) and config.fixed_qty:
                 action = replace(action, qty=config.fixed_qty)
-            state, update_events = _submit_action_and_updates(broker, state, action, ts)
-            events.extend(update_events)
+            submissions = [action]
+            if config.causal_authorization and isinstance(action, SubmitEntry):
+                assert portfolio_rules is not None
+                decision = evaluate_static_portfolio_entry(
+                    portfolio_rules,
+                    strategy_id=nq_config.STRATEGY_ID,
+                    direction="LONG" if action.side == "BUY" else "SHORT",
+                    current_equity=equity,
+                )
+                approved_qty = (
+                    adjusted_entry_quantity(action.qty, decision.size_multiplier)
+                    if decision.approved
+                    else 0
+                )
+                state, submissions, authorization_events = core_on_authorization(
+                    state,
+                    AuthorizationEvent(
+                        client_order_id=action.client_order_id,
+                        approved=decision.approved,
+                        approved_qty=approved_qty,
+                        requested_qty=action.qty,
+                        timestamp=ts,
+                        symbol=action.symbol,
+                        denial_reason=decision.denial_reason or "",
+                    ),
+                    settings=settings,
+                )
+                events.extend(authorization_events)
+            for submission in submissions:
+                state, update_events = _submit_action_and_updates(
+                    broker,
+                    state,
+                    submission,
+                    ts,
+                )
+                events.extend(update_events)
 
         ledger.mark_bar(ts, bar.high, bar.low)
         mark = equity + _open_pnl(state, bar.close, spec_for(config.trade_symbol).point_value)
@@ -230,6 +280,17 @@ def _run_nq_regime_backtest(data: NqRegimeData, config: NqRegimeBacktestConfig) 
     result.decision_stream = _decision_stream(events, trades)
     result.trade_outcomes = _trade_outcomes(trades)
     return result
+
+
+def _r1a_all_entries_approved_rules(initial_equity: float) -> PortfolioRulesConfig:
+    """Compatibility profile for the opt-in one-child causal path."""
+
+    return PortfolioRulesConfig(
+        initial_equity=initial_equity,
+        nqdtc_direction_filter_enabled=False,
+        directional_cap_R=0.0,
+        dd_tiers=((1.0, 1.0),),
+    )
 
 
 def _replay_5m_frame(raw_df: pd.DataFrame, *, timestamp_mode: str) -> pd.DataFrame:

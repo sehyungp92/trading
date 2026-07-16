@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from dataclasses import replace
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
 from backtests.momentum.engine import nqdtc_engine as nqdtc_backtest_engine
@@ -18,15 +20,23 @@ from backtests.momentum.engine.sim_broker import (
 from backtests.shared.parity.decision_capture import normalize_decision_stream
 from backtests.shared.parity.replay_driver import ReplayStep, run_replay
 from libs.oms.models.events import OMSEventType
-from strategies.core.actions import CancelAction, FlattenPosition, ReplaceProtectiveStop, SubmitEntry, SubmitExit
+from strategies.core.actions import (
+    CancelAction,
+    FlattenPosition,
+    ReplaceProtectiveStop,
+    SubmitEntry,
+    SubmitProtectiveStop,
+)
 from strategies.momentum.nqdtc import config as nqdtc_config
+from strategies.momentum.nqdtc.core import entry_decision as nqdtc_entry_decision
 from strategies.momentum.nqdtc.engine import NQDTCEngine
 from strategies.momentum.nqdtc import signals as nqdtc_signals
 from strategies.momentum.nqdtc import stops as nqdtc_stops
-from strategies.momentum.nqdtc.core.logic import on_bar, on_fill, on_order_update
+from strategies.momentum.nqdtc.core.logic import on_authorization, on_bar, on_fill, on_order_update
 from strategies.momentum.nqdtc.core.serializers import restore_state, snapshot_state
 from strategies.momentum.nqdtc.core.state import (
     NQDTCCoreState,
+    NQDTCAuthorization,
     NQDTCEntryFillContext,
     NQDTCEntryRequest,
     NQDTCFill,
@@ -34,6 +44,7 @@ from strategies.momentum.nqdtc.core.state import (
     NQDTCSimpleRequest,
 )
 from strategies.momentum.nqdtc.models import (
+    CompositeRegime,
     Direction,
     EntrySubtype,
     ExitTier,
@@ -275,7 +286,22 @@ def test_nqdtc_b_sweep_backtest_submits_ioc_intent(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_live_nqdtc_entry_a_applies_drawdown_throttle(monkeypatch) -> None:
+@pytest.mark.parametrize(
+    ("requested", "expected"),
+    [
+        (
+            EntrySubtype.A_RETEST,
+            [EntrySubtype.A_RETEST, EntrySubtype.A_LATCH],
+        ),
+        (EntrySubtype.B_SWEEP, [EntrySubtype.B_SWEEP]),
+        (EntrySubtype.C_STANDARD, [EntrySubtype.C_STANDARD]),
+    ],
+)
+async def test_live_nqdtc_shared_entry_core_preserves_drawdown_throttle_products(
+    monkeypatch,
+    requested: EntrySubtype,
+    expected: list[EntrySubtype],
+) -> None:
     engine = _live_nqdtc_engine_with_half_dd()
     session = _live_nqdtc_session()
     captured: list[dict] = []
@@ -286,105 +312,93 @@ async def test_live_nqdtc_entry_a_applies_drawdown_throttle(monkeypatch) -> None
 
     monkeypatch.setattr(engine, "_submit_order", _capture_submit)
     monkeypatch.setattr(
-        "strategies.momentum.nqdtc.engine.sig.entry_a_trigger",
+        nqdtc_entry_decision.signals,
+        "classify_daily_support",
+        lambda *_args, **_kwargs: (False, False),
+    )
+    monkeypatch.setattr(
+        nqdtc_entry_decision.signals,
+        "compute_composite_regime",
+        lambda *_args, **_kwargs: CompositeRegime.NEUTRAL,
+    )
+    monkeypatch.setattr(
+        nqdtc_entry_decision.signals,
+        "regime_hard_block",
+        lambda *_args, **_kwargs: False,
+    )
+    monkeypatch.setattr(
+        nqdtc_entry_decision.signals,
+        "a_entry_context_allowed",
+        lambda **_kwargs: (True, ""),
+    )
+    monkeypatch.setattr(
+        nqdtc_entry_decision.signals,
+        "entry_a_trigger",
         lambda *_args, **_kwargs: (100.0, 101.0),
     )
     monkeypatch.setattr(
-        "strategies.momentum.nqdtc.engine.stops.compute_initial_stop",
+        nqdtc_entry_decision.signals,
+        "b_entry_regime_allowed",
+        lambda *_args, **_kwargs: True,
+    )
+    monkeypatch.setattr(
+        nqdtc_entry_decision.signals,
+        "entry_b_trigger",
+        lambda *_args, **_kwargs: requested is EntrySubtype.B_SWEEP,
+    )
+    monkeypatch.setattr(
+        nqdtc_entry_decision.signals,
+        "entry_c_hold_check",
+        lambda *_args, **_kwargs: (
+            requested is EntrySubtype.C_STANDARD,
+            100.0,
+        ),
+    )
+    monkeypatch.setattr(
+        nqdtc_entry_decision.stops,
+        "compute_initial_stop",
         lambda _subtype, _direction, price, *_args, **_kwargs: price - 10.0,
     )
     monkeypatch.setattr(
-        "strategies.momentum.nqdtc.engine.sizing.compute_contracts",
+        nqdtc_entry_decision.sizing,
+        "compute_contracts",
         lambda *_args, **_kwargs: 5,
     )
-    monkeypatch.setattr(nqdtc_config, "A_ENTRY_RETEST_ENABLED", True)
-    monkeypatch.setattr(nqdtc_config, "A_ENTRY_LATCH_ENABLED", True)
+    monkeypatch.setattr(
+        nqdtc_entry_decision.sizing,
+        "friction_ok",
+        lambda *_args, **_kwargs: True,
+    )
+    monkeypatch.setattr(
+        nqdtc_entry_decision.sizing,
+        "tp1_viable",
+        lambda *_args, **_kwargs: True,
+    )
+    monkeypatch.setattr(nqdtc_config, "A_ENTRY_RETEST_ENABLED", requested is EntrySubtype.A_RETEST)
+    monkeypatch.setattr(nqdtc_config, "A_ENTRY_LATCH_ENABLED", requested is EntrySubtype.A_RETEST)
+    monkeypatch.setattr(nqdtc_config, "C_HOLD_BARS", 3)
 
-    await engine._place_entry_a(
+    engine._bars_5m = {
+        "close": np.array([99.0, 100.0, 100.0]),
+        "high": np.array([101.0, 101.0, 101.0]),
+        "low": np.array([98.0, 99.0, 99.0]),
+    }
+    engine._bars_15m = {"close": np.array([])}
+    engine._bars_daily = {"ema50": np.array([]), "atr14": np.array([])}
+    session.disp_hist.data = [1.0] * 12
+    session.last_disp_metric = 2.0
+    session.last_disp_threshold = 1.0
+
+    await engine._evaluate_entries(
         session,
-        Direction.LONG,
-        vwap_session=100.0,
-        quality_mult=1.0,
-        exit_tier=ExitTier.ALIGNED,
-        final_risk_pct=0.01,
-        now=datetime(2026, 4, 27, 14, 0, tzinfo=UTC),
+        Session.RTH,
+        datetime(2026, 4, 27, 14, 0, tzinfo=UTC),
     )
 
-    assert [order["subtype"] for order in captured] == [EntrySubtype.A_RETEST, EntrySubtype.A_LATCH]
-    assert [order["qty"] for order in captured] == [2, 2]
-
-
-@pytest.mark.asyncio
-async def test_live_nqdtc_entry_b_applies_drawdown_throttle(monkeypatch) -> None:
-    engine = _live_nqdtc_engine_with_half_dd()
-    session = _live_nqdtc_session()
-    captured: list[dict] = []
-
-    async def _capture_submit(**kwargs):
-        captured.append(kwargs)
-        return SimpleNamespace(oms_order_id="OMS-B")
-
-    monkeypatch.setattr(engine, "_submit_order", _capture_submit)
-    monkeypatch.setattr(
-        "strategies.momentum.nqdtc.engine.stops.compute_initial_stop",
-        lambda *_args, **_kwargs: 95.0,
-    )
-    monkeypatch.setattr(
-        "strategies.momentum.nqdtc.engine.sizing.compute_contracts",
-        lambda *_args, **_kwargs: 5,
-    )
-
-    await engine._place_entry_b(
-        session,
-        Direction.LONG,
-        close_5m=100.0,
-        quality_mult=1.0,
-        exit_tier=ExitTier.ALIGNED,
-        final_risk_pct=0.01,
-        now=datetime(2026, 4, 27, 14, 0, tzinfo=UTC),
-        oca_group="OCA",
-    )
-
-    assert captured[0]["subtype"] is EntrySubtype.B_SWEEP
-    assert captured[0]["qty"] == 2
-    assert captured[0]["tif"] == "IOC"
-
-
-@pytest.mark.asyncio
-async def test_live_nqdtc_entry_c_applies_drawdown_throttle(monkeypatch) -> None:
-    engine = _live_nqdtc_engine_with_half_dd()
-    session = _live_nqdtc_session()
-    captured: list[dict] = []
-
-    async def _capture_submit(**kwargs):
-        captured.append(kwargs)
-        return SimpleNamespace(oms_order_id="OMS-C")
-
-    monkeypatch.setattr(engine, "_submit_order", _capture_submit)
-    monkeypatch.setattr(
-        "strategies.momentum.nqdtc.engine.stops.compute_initial_stop",
-        lambda *_args, **_kwargs: 95.0,
-    )
-    monkeypatch.setattr(
-        "strategies.momentum.nqdtc.engine.sizing.compute_contracts",
-        lambda *_args, **_kwargs: 5,
-    )
-
-    await engine._place_entry_c(
-        session,
-        Direction.LONG,
-        hold_ref=100.0,
-        vwap_session=100.0,
-        subtype=EntrySubtype.C_STANDARD,
-        quality_mult=1.0,
-        exit_tier=ExitTier.ALIGNED,
-        final_risk_pct=0.01,
-        now=datetime(2026, 4, 27, 14, 0, tzinfo=UTC),
-        oca_group="OCA",
-    )
-
-    assert captured[0]["subtype"] is EntrySubtype.C_STANDARD
-    assert captured[0]["qty"] == 2
+    assert [order["subtype"] for order in captured] == expected
+    assert [order["qty"] for order in captured] == [2] * len(expected)
+    if requested is EntrySubtype.B_SWEEP:
+        assert captured[0]["tif"] == "IOC"
 
 
 def _entry_request() -> NQDTCEntryRequest:
@@ -426,7 +440,103 @@ def _live_nqdtc_session() -> SessionEngineState:
     session.box.box_mid = 100.0
     session.breakout.breakout_bar_high = 112.0
     session.breakout.breakout_bar_low = 88.0
+    session.breakout.active = True
+    session.breakout.direction = Direction.LONG
     return session
+
+
+def test_nqdtc_degenerate_authorization_matches_compatibility_proposal() -> None:
+    request = _entry_request()
+    event_time = datetime(2026, 4, 25, 11, 0, tzinfo=UTC)
+    compatibility_state, compatibility_actions, compatibility_events = on_bar(
+        NQDTCCoreState(symbol="NQ"),
+        bar_count_5m=15,
+        bar_ts=event_time,
+        entry_request=request,
+    )
+    causal_state, causal_actions, causal_events = on_bar(
+        NQDTCCoreState(symbol="NQ"),
+        bar_count_5m=15,
+        bar_ts=event_time,
+        entry_request=request,
+        authorization_required=True,
+    )
+
+    assert causal_actions == compatibility_actions
+    assert causal_events == compatibility_events
+    assert compatibility_state.pending_entries == {}
+    assert causal_state.pending_entries == {request.client_order_id: request}
+
+    causal_state, authorized_actions, events = on_authorization(
+        causal_state,
+        NQDTCAuthorization(
+            client_order_id=request.client_order_id,
+            approved=True,
+            approved_qty=request.qty,
+            requested_qty=request.qty,
+            timestamp=event_time,
+            symbol=request.symbol,
+        ),
+    )
+
+    assert authorized_actions == compatibility_actions
+    assert events[-1].code == "ENTRY_AUTHORIZED"
+    assert causal_state.working_orders == compatibility_state.working_orders == []
+
+
+@pytest.mark.parametrize("approved", [True, False], ids=["approved", "denied"])
+def test_nqdtc_authorization_feedback_precedes_working_order_state(approved: bool) -> None:
+    request = _entry_request()
+    event_time = datetime(2026, 4, 25, 11, 0, tzinfo=UTC)
+    state, proposals, events = on_bar(
+        NQDTCCoreState(symbol="NQ"),
+        bar_count_5m=15,
+        bar_ts=event_time,
+        entry_request=request,
+        authorization_required=True,
+    )
+
+    assert [event.code for event in events] == ["ENTRY_REQUESTED"]
+    assert proposals[0].qty == request.qty
+    assert state.working_orders == []
+    assert state.pending_entries[request.client_order_id] == request
+
+    state, submissions, events = on_authorization(
+        state,
+        NQDTCAuthorization(
+            client_order_id=request.client_order_id,
+            approved=approved,
+            approved_qty=1 if approved else 0,
+            requested_qty=request.qty,
+            timestamp=event_time,
+            symbol="NQ",
+            denial_reason="fixture_denial" if not approved else "",
+            portfolio_decision_ref="portfolio-1",
+        ),
+    )
+
+    if not approved:
+        assert submissions == []
+        assert state.pending_entries == {}
+        assert state.working_orders == []
+        assert [event.code for event in events] == ["ENTRY_DENIED"]
+        return
+
+    assert submissions[0].qty == 1
+    assert state.pending_entries[request.client_order_id].qty == 1
+    state, _, events = on_order_update(
+        state,
+        NQDTCOrderUpdate(
+            oms_order_id="OMS-1",
+            status="accepted",
+            timestamp=event_time,
+            order_role="entry",
+            accepted_entry=replace(request, qty=1),
+        ),
+    )
+    assert state.pending_entries == {}
+    assert state.working_orders[0].qty == 1
+    assert [event.code for event in events] == ["ENTRY_SUBMITTED"]
 
 
 def test_nqdtc_core_entry_and_exit_roundtrip() -> None:
@@ -476,7 +586,7 @@ def test_nqdtc_core_entry_and_exit_roundtrip() -> None:
         ),
     )
     assert state.position.open is True
-    assert isinstance(actions[0], SubmitExit)
+    assert isinstance(actions[0], SubmitProtectiveStop)
     assert actions[0].side == "SELL"
     assert events[-1].code == "ENTRY_FILLED"
 
@@ -841,7 +951,14 @@ async def test_nqdtc_live_wrapper_entry_fill_matches_replay_core_state(tmp_path,
     engine._bar_count_5m = 15
     engine._bars_daily = {"ema50": [], "atr14": []}
 
-    async def _fake_place_stop(_stop_price: float, _qty: int, _direction) -> None:
+    async def _fake_place_stop(
+        _stop_price: float,
+        _qty: int,
+        _direction,
+        *,
+        client_order_id: str = "",
+        event_time: datetime | None = None,
+    ) -> None:
         return None
 
     async def _fake_cancel_order(_oms_order_id: str) -> None:

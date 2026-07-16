@@ -20,6 +20,7 @@ class NQDTCCoreState:
     symbol: str = ""
     position: PositionState = field(default_factory=PositionState)
     working_orders: list[WorkingOrder] = field(default_factory=list)
+    pending_entries: dict[str, NQDTCEntryRequest] = field(default_factory=dict)
     bar_count_5m: int = 0
     last_decision_code: str = "IDLE"
     last_decision_details: dict = field(default_factory=dict)
@@ -44,6 +45,18 @@ class NQDTCEntryRequest:
     quality_mult: float = 1.0
     submitted_bar_idx: int = 0
     ttl_bars: int = 6
+
+
+@dataclass(frozen=True, slots=True)
+class NQDTCAuthorization:
+    client_order_id: str
+    approved: bool
+    approved_qty: int
+    requested_qty: int
+    timestamp: datetime
+    symbol: str = ""
+    denial_reason: str = ""
+    portfolio_decision_ref: str = ""
 
 
 @dataclass(slots=True)

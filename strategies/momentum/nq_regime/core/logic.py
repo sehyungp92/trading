@@ -21,7 +21,14 @@ from strategies.momentum.nq_regime.core.levels import KeyLevels, build_ib_levels
 from strategies.momentum.nq_regime.core.regime import Regime, classify_regime, module_for_regime, route_candidates
 from strategies.momentum.nq_regime.core.session import SessionPhase, entries_allowed, get_session_phase, should_hard_flatten
 from strategies.momentum.nq_regime.core.sizing import compute_position_size
-from strategies.momentum.nq_regime.core.state import BarEvent, FillEvent, OrderUpdateEvent, RegimeCoreState, clone_core_state
+from strategies.momentum.nq_regime.core.state import (
+    AuthorizationEvent,
+    BarEvent,
+    FillEvent,
+    OrderUpdateEvent,
+    RegimeCoreState,
+    clone_core_state,
+)
 from strategies.momentum.nq_regime.modules import liquidity_reversion, second_wind, structural_expansion
 from strategies.momentum.nq_regime.modules.base import NewsEvent, RoutingDecisionEvent, SetupCandidate
 from strategies.scalp._shared.nq_contract import round_to_tick
@@ -37,6 +44,7 @@ def on_bar(
     *,
     scheduled_news: list[NewsEvent] | None = None,
     settings: StrategyRuntimeSettings | None = None,
+    authorization_required: bool = False,
 ) -> tuple[RegimeCoreState, list, list[DecisionEvent]]:
     settings = settings or StrategyRuntimeSettings()
     next_state = clone_core_state(state)
@@ -203,15 +211,86 @@ def on_bar(
     selected.details["regime_margin"] = regime_result.margin
     selected.details["active_module"] = next_state.active_module.value
     action = _entry_action(selected, qty, settings.trade_symbol)
-    next_state.working_entry_order_id = action.client_order_id
-    next_state.order_to_role[action.client_order_id] = "entry"
     next_state.order_to_candidate[action.client_order_id] = selected.candidate_id
     next_state.pending_candidates[selected.candidate_id] = selected
     next_state.last_submitted_signal_id = selected.candidate_id
+    if not authorization_required:
+        next_state.working_entry_order_id = action.client_order_id
+        next_state.order_to_role[action.client_order_id] = "entry"
     actions.append(action)
     events.append(_event("ENTRY_REQUESTED", event.ts, settings.trade_symbol, {"candidate": selected.candidate_id, "module": selected.module.value, "qty": qty, "score": selected.score, "grade": selected.grade.value}))
     _update_last_decision(next_state, events)
     return next_state, actions, events
+
+
+def on_authorization(
+    state: RegimeCoreState,
+    authorization: AuthorizationEvent,
+    *,
+    settings: StrategyRuntimeSettings | None = None,
+) -> tuple[RegimeCoreState, list, list[DecisionEvent]]:
+    """Apply portfolio feedback before replay submits an entry.
+
+    Live OMS performs authorization and routing atomically, so the live shell
+    applies this feedback from the returned receipt and ignores the returned
+    action.  Replay applies the same transition first and submits the returned
+    action to ``SimBroker``.  A denied proposal never becomes a working order.
+    """
+
+    settings = settings or StrategyRuntimeSettings()
+    next_state = clone_core_state(state)
+    client_order_id = authorization.client_order_id
+    candidate_id = next_state.order_to_candidate.get(client_order_id, "")
+    candidate = next_state.pending_candidates.get(candidate_id) if candidate_id else None
+    symbol = authorization.symbol or settings.trade_symbol
+
+    if candidate is None:
+        return next_state, [], []
+
+    approved_qty = min(max(int(authorization.approved_qty), 0), max(int(authorization.requested_qty), 0))
+    if not authorization.approved or approved_qty <= 0:
+        next_state.order_to_candidate.pop(client_order_id, None)
+        next_state.pending_candidates.pop(candidate_id, None)
+        if next_state.last_submitted_signal_id == candidate_id:
+            next_state.last_submitted_signal_id = None
+        events = [
+            _event(
+                "ENTRY_DENIED",
+                authorization.timestamp,
+                symbol,
+                {
+                    "candidate": candidate_id,
+                    "requested_qty": authorization.requested_qty,
+                    "reason": authorization.denial_reason,
+                    "portfolio_decision_ref": authorization.portfolio_decision_ref,
+                },
+            )
+        ]
+        _update_last_decision(next_state, events)
+        return next_state, [], events
+
+    action = _entry_action(candidate, approved_qty, symbol)
+    if action.client_order_id != client_order_id:
+        raise ValueError(
+            "authorization client_order_id does not match the pending NQ_REGIME proposal"
+        )
+    next_state.working_entry_order_id = client_order_id
+    next_state.order_to_role[client_order_id] = "entry"
+    events = [
+        _event(
+            "ENTRY_AUTHORIZED",
+            authorization.timestamp,
+            symbol,
+            {
+                "candidate": candidate_id,
+                "requested_qty": authorization.requested_qty,
+                "approved_qty": approved_qty,
+                "portfolio_decision_ref": authorization.portfolio_decision_ref,
+            },
+        )
+    ]
+    _update_last_decision(next_state, events)
+    return next_state, [action], events
 
 
 def on_fill(

@@ -24,7 +24,13 @@ class ReplayDecisionTimeline:
     def __post_init__(self) -> None:
         self._index_initial_repository_orders()
 
-    def record_actions(self, strategy_id: str, actions: list[Any]) -> None:
+    def record_actions(
+        self,
+        strategy_id: str,
+        actions: list[Any],
+        *,
+        decision: Mapping[str, Any] | None = None,
+    ) -> None:
         family = family_resolver(self.fixture)(strategy_id)
         for action in actions:
             row = action_order_row(action, strategy_id, family)
@@ -50,7 +56,25 @@ class ReplayDecisionTimeline:
                     "_action": action,
                 }
             )
-            self.timeline.append({"type": "action", "strategy_id": strategy_id, "action": action})
+            marker = {"type": "action", "strategy_id": strategy_id, "action": action}
+            if decision:
+                marker["decision"] = dict(decision)
+            self.timeline.append(marker)
+
+    def record_family_rejection(
+        self,
+        strategy_id: str,
+        action: Any,
+        decision: Mapping[str, Any],
+    ) -> None:
+        self.timeline.append(
+            {
+                "type": "family_reject",
+                "strategy_id": strategy_id,
+                "action": action,
+                "decision": dict(decision),
+            }
+        )
 
     def apply_broker_script(self) -> None:
         for event in self.fixture.get("broker_event_script", []):

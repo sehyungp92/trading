@@ -110,7 +110,7 @@ async def test_nq_regime_on_bar_persists_after_successful_mutation(monkeypatch, 
     monkeypatch.setattr(
         engine_mod,
         "core_on_bar",
-        lambda state, event, scheduled_news, settings: (state, [], []),
+        lambda state, event, scheduled_news, settings, authorization_required: (state, [], []),
     )
 
     await engine.on_bar(
@@ -155,7 +155,7 @@ async def test_nq_regime_on_bar_routes_core_entry_action_to_oms(monkeypatch, tmp
     monkeypatch.setattr(
         engine_mod,
         "core_on_bar",
-        lambda state, event, scheduled_news, settings: (state, [action], []),
+        lambda state, event, scheduled_news, settings, authorization_required: (state, [action], []),
     )
 
     await engine.on_bar(
@@ -199,7 +199,7 @@ async def test_nq_regime_forces_flatten_during_roll_blackout(monkeypatch, tmp_pa
     monkeypatch.setattr(
         engine_mod,
         "core_on_bar",
-        lambda state, event, scheduled_news, settings: (state, [], []),
+        lambda state, event, scheduled_news, settings, authorization_required: (state, [], []),
     )
     monkeypatch.setattr(
         engine_mod,

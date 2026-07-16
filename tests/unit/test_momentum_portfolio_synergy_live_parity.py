@@ -3,11 +3,161 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
+from libs.oms.risk.portfolio_rules import (
+    PortfolioRuleChecker,
+    PortfolioRulesConfig,
+    evaluate_static_portfolio_entry,
+)
+
 
 ACTIVE_PORTFOLIO_ROUND = 2
+
+
+def _r1a_static_rules(**overrides: Any) -> PortfolioRulesConfig:
+    values = {
+        "initial_equity": 100_000.0,
+        "nqdtc_direction_filter_enabled": False,
+        "directional_cap_R": 0.0,
+        "strategy_size_multipliers": (("NQ_REGIME", 0.75),),
+        "dd_tiers": ((0.10, 1.0), (0.15, 0.60), (0.20, 0.30), (1.0, 0.0)),
+    }
+    values.update(overrides)
+    return PortfolioRulesConfig(**values)
+
+
+def _legacy_static_decision(
+    config: PortfolioRulesConfig,
+    *,
+    strategy_id: str,
+    direction: str,
+    equity: float,
+) -> tuple[bool, str | None, float]:
+    if strategy_id in config.disabled_strategies:
+        return False, f"regime_disabled: {strategy_id} blocked in current regime", 1.0
+    multiplier = dict(config.strategy_size_multipliers).get(strategy_id, 1.0)
+    drawdown = 0.0 if config.initial_equity <= 0 or equity >= config.initial_equity else (
+        config.initial_equity - equity
+    ) / config.initial_equity
+    drawdown_multiplier = next(
+        (size for threshold, size in config.dd_tiers if drawdown < threshold),
+        0.0,
+    )
+    if drawdown_multiplier == 0.0:
+        return False, "drawdown_halt: equity drawdown exceeds maximum tier", 1.0
+    multiplier *= drawdown_multiplier * config.regime_unit_risk_mult
+    if direction == "LONG":
+        multiplier *= config.regime_unit_risk_long_mult
+    elif direction == "SHORT":
+        multiplier *= config.regime_unit_risk_short_mult
+    return True, None, multiplier
+
+
+@pytest.mark.parametrize(
+    ("equity", "direction", "disabled"),
+    [
+        (100_000.0, "LONG", False),
+        (88_000.0, "SHORT", False),
+        (79_000.0, "LONG", False),
+        (100_000.0, "LONG", True),
+    ],
+)
+def test_r1a_static_portfolio_extraction_is_exact(
+    equity: float,
+    direction: str,
+    disabled: bool,
+) -> None:
+    config = _r1a_static_rules(
+        disabled_strategies=frozenset({"NQ_REGIME"}) if disabled else frozenset(),
+        regime_unit_risk_mult=0.9,
+        regime_unit_risk_long_mult=0.8,
+        regime_unit_risk_short_mult=0.7,
+    )
+    extracted = evaluate_static_portfolio_entry(
+        config,
+        strategy_id="NQ_REGIME",
+        direction=direction,
+        current_equity=equity,
+    )
+
+    assert (extracted.approved, extracted.denial_reason, extracted.size_multiplier) == (
+        _legacy_static_decision(
+            config,
+            strategy_id="NQ_REGIME",
+            direction=direction,
+            equity=equity,
+        )
+    )
+
+
+def test_r1a_static_extraction_preserves_no_drawdown_full_size() -> None:
+    config = _r1a_static_rules(
+        strategy_size_multipliers=(),
+        dd_tiers=((0.04, 0.90), (0.07, 0.70), (1.0, 0.0)),
+    )
+
+    decision = evaluate_static_portfolio_entry(
+        config,
+        strategy_id="NQ_REGIME",
+        direction="LONG",
+        current_equity=config.initial_equity,
+    )
+
+    assert decision.approved is True
+    assert decision.size_multiplier == 1.0
+    assert decision.effects == ()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("equity", "expected_approved", "expected_multiplier"),
+    [
+        (100_000.0, True, 0.75),
+        (88_000.0, True, 0.45),
+        (79_000.0, False, 1.0),
+    ],
+)
+async def test_r1a_live_checker_uses_static_portfolio_decision(
+    equity: float,
+    expected_approved: bool,
+    expected_multiplier: float,
+) -> None:
+    config = _r1a_static_rules()
+    checker = PortfolioRuleChecker(
+        config,
+        get_strategy_signal=AsyncMock(return_value=None),
+        get_directional_risk_R=AsyncMock(return_value=0.0),
+        get_current_equity=lambda: equity,
+        on_rule_event=lambda _event: None,
+    )
+    expected = evaluate_static_portfolio_entry(
+        config,
+        strategy_id="NQ_REGIME",
+        direction="LONG",
+        current_equity=equity,
+    )
+
+    actual = await checker.check_entry(
+        "NQ_REGIME",
+        "LONG",
+        new_risk_R=1.0,
+        symbol="MNQ",
+        new_qty=4,
+        new_risk_dollars=1_000.0,
+    )
+
+    assert actual.approved is expected.approved is expected_approved
+    assert actual.denial_reason == expected.denial_reason
+    assert actual.size_multiplier == pytest.approx(expected.size_multiplier)
+    assert actual.size_multiplier == pytest.approx(expected_multiplier)
+    assert actual.applied_rules == (
+        ("strategy_size_multiplier", "drawdown_tier")
+        if equity < 90_000.0
+        else ("strategy_size_multiplier",)
+    )
 
 
 def _optimized_config() -> dict[str, Any]:

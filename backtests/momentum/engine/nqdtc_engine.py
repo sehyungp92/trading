@@ -21,8 +21,8 @@ import numpy as np
 import pandas as pd
 
 from backtests.momentum.analysis.nqdtc_shadow_tracker import NQDTCShadowTracker
-from backtests.momentum.config import SlippageConfig, round_to_tick
-from backtests.momentum.config_nqdtc import NQDTCAblationFlags, NQDTCBacktestConfig
+from backtests.momentum.config import round_to_tick
+from backtests.momentum.config_nqdtc import NQDTCBacktestConfig
 from backtests.momentum.data.preprocessing import NumpyBars
 from backtests.momentum.engine.sim_broker import (
     FillResult,
@@ -41,6 +41,10 @@ import copy as _copy
 
 from strategies.core.actions import SubmitEntry
 from strategies.momentum.nqdtc.core import logic as nqdtc_core_logic
+from strategies.momentum.nqdtc.core.entry_decision import (
+    NQDTCEntryDecisionSnapshot,
+    evaluate_entry_decision,
+)
 from strategies.momentum.nqdtc.core.state import (
     NQDTCCoreState,
     NQDTCEntryFillContext,
@@ -64,15 +68,11 @@ from strategies.momentum.nqdtc.models import (
     DailyRiskState,
     Direction,
     EntrySubtype,
-    ExitTier,
     PositionState,
     RegimeState,
     Regime4H,
-    RollingBuffer,
     Session,
     SessionEngineState,
-    TPLevel,
-    VWAPAccumulator,
     WorkingOrder,
 )
 
@@ -1338,7 +1338,6 @@ class NQDTCEngine:
 
         # Daily support + composite regime (already computed at gate entry, step 0)
         daily_supports = self.regime.daily_supports
-        daily_opposes = self.regime.daily_opposes
         composite = self.regime.composite
 
         score = sig.compute_score(
@@ -1408,16 +1407,6 @@ class NQDTCEngine:
             return
 
         # 10. Friction gate — moved to _evaluate_5m_entry (matches live engine timing)
-
-        # 11. Micro-guard
-        disp_norm = sizing.compute_disp_norm(
-            disp_metric,
-            disp_threshold,
-            disp_threshold * 1.3 if disp_threshold > 0 else 1.0,
-        )
-        es_opp = self._es_opposes_direction(direction)
-        quality_mult = sizing.compute_quality_mult(composite, sess.mode, disp_norm, es_opposing=es_opp)
-        exit_tier = stops.determine_exit_tier(composite.value, quality_mult)
 
         # 12. Re-entry check (matches live engine's _evaluate_reentry)
         if not sess.reentry_allowed and not sess.reentry_used:
@@ -1505,393 +1494,108 @@ class NQDTCEngine:
     def _evaluate_5m_entry(
         self,
         bar_time: datetime,
-        O: float, H: float, L: float, Cl: float,
+        O: float,
+        H: float,
+        L: float,
+        Cl: float,
         sess: SessionEngineState,
     ) -> None:
-        """Evaluate 5m bar for entry triggers within an active breakout.
-
-        All entry types (A, B, C) are evaluated independently each bar.
-        A shared OCA group ensures the first fill cancels all other pending
-        entry orders for this breakout.
-        """
-        if not sess.breakout.active:
-            return
-        if self._active and self._active.pos.open:
+        """Evaluate a raw 5m bar through the shared NQDTC decision core."""
+        if not sess.breakout.active or (self._active and self._active.pos.open):
             return
 
-        # Consecutive-loss cooldown: block entries (decrement moved to _step_5m)
-        if self.flags.loss_streak_cooldown and self._cooldown_bars > 0:
-            return
-
-        # Prereq 1: inter-trade cooldown timer
-        gap_min = getattr(C, 'MIN_INTER_TRADE_GAP_MINUTES', 0)
-        if gap_min > 0 and self._last_fill_time is not None:
-            elapsed = (bar_time - self._last_fill_time).total_seconds() / 60
-            if elapsed < gap_min:
-                return
-
-        # Block entries during 05:00 ET hour
-        if self.flags.block_05_et and _to_ny(bar_time).hour == 5 and _to_ny(bar_time).minute < 30:
-            return
-
-        if self.flags.block_04_et and _to_ny(bar_time).hour == 4:
-            return
-
-        if self.flags.block_06_et and _to_ny(bar_time).hour == 6:
-            return
-
-        if self.flags.block_09_et and _to_ny(bar_time).hour == 9:
-            return
-
-        if self.flags.block_12_et and _to_ny(bar_time).hour == 12:
-            return
-
-        # Block entries on Thursday (DOW=3)
-        if self.flags.block_thursday and _to_ny(bar_time).weekday() == 3:
-            return
-
-        # Prereq 2: block ETH shorts (session-direction filter)
-        if self.flags.block_eth_shorts and sess.session == Session.ETH and sess.breakout.direction == Direction.SHORT:
-            return
-
-        # Block DEGRADED-mode entries during RTH
-        if C.BLOCK_RTH_DEGRADED and sess.session == Session.RTH and sess.mode == ChopMode.DEGRADED:
-            return
-
-        direction = sess.breakout.direction
-        es_opp = self._es_opposes_direction(direction)
         self._5m_bar_count_since_breakout += 1
-        vwap_val = sess.vwap_session.value
-        tick = self.tick
-
-        # Re-check regime hard block at entry time (matches live engine)
-        if len(self._ema50_d) > 3 and len(self._atr14_d) > 0:
-            _, daily_opposes = sig.classify_daily_support(
-                self._ema50_d, self._atr14_d, direction,
+        existing_oca = next(
+            (order.oca_group for order in self._working.values() if order.oca_group),
+            "",
+        )
+        entry_oca_group = existing_oca or f"ENTRY_{uuid.uuid4().hex[:8]}"
+        decision = evaluate_entry_decision(
+            NQDTCEntryDecisionSnapshot(
+                now=bar_time,
+                symbol=self.symbol,
+                equity=self.equity,
+                engine=sess,
+                regime=self.regime,
+                bars_5m={
+                    "close": np.asarray(self._5m_closes, dtype=float),
+                    "high": np.asarray(self._5m_highs, dtype=float),
+                    "low": np.asarray(self._5m_lows, dtype=float),
+                },
+                bars_15m={
+                    "close": np.asarray(self._closes_15m or (), dtype=float),
+                },
+                bars_daily={
+                    "ema50": self._ema50_d,
+                    "atr14": self._atr14_d,
+                },
+                working_orders=tuple(self._working.values()),
+                position_open=bool(self._active and self._active.pos.open),
+                cooldown_bars=(
+                    self._cooldown_bars
+                    if self.flags.loss_streak_cooldown
+                    else 0
+                ),
+                last_fill_time=self._last_fill_time,
+                a_fallback_eligible=self._a_fallback_eligible,
+                drawdown_size_multiplier=(
+                    self._throttle.dd_size_mult
+                    if self.flags.drawdown_throttle
+                    else 1.0
+                ),
+                fixed_quantity=self.cfg.fixed_qty,
+                entry_oca_group=entry_oca_group,
+                a_oca_group=entry_oca_group,
+                entry_a_retest=self.flags.entry_a_retest,
+                entry_a_latch=self.flags.entry_a_latch,
+                entry_b_sweep=self.flags.entry_b_sweep,
+                entry_c_standard=self.flags.entry_c_standard,
+                entry_c_continuation=self.flags.entry_c_continuation,
+                continuation_mode=self.flags.continuation_mode,
+                friction_gate=self.flags.friction_gate,
+                tp1_viability_gate=False,
+                block_04_et=self.flags.block_04_et,
+                block_05_et=self.flags.block_05_et,
+                block_06_et=self.flags.block_06_et,
+                block_09_et=self.flags.block_09_et,
+                block_12_et=self.flags.block_12_et,
+                block_thursday=self.flags.block_thursday,
+                recompute_composite=False,
+                daily_gate_requires_history=True,
+                es_opposing=self._es_opposes_direction(sess.breakout.direction),
+                apply_continuation_size_multiplier=False,
+                apply_eth_short_size_multiplier=True,
+                c_stop_reference="bar_close",
+                c_ttl_bars=C.A_TTL_5M_BARS,
+                fallback_order_type="MARKET",
+                fallback_tif="DAY",
             )
-            if sig.regime_hard_block(
-                self.regime.regime_4h.value, self.regime.trend_dir_4h, direction, daily_opposes,
-            ):
-                return
-
-        # Re-check composite regime block at entry time
-        if C.BLOCK_NEUTRAL_REGIME or C.BLOCK_ALIGNED_REGIME or C.BLOCK_CAUTION_REGIME:
-            _comp = self.regime.composite
-            if (C.BLOCK_NEUTRAL_REGIME and _comp == CompositeRegime.NEUTRAL) or \
-               (C.BLOCK_ALIGNED_REGIME and _comp == CompositeRegime.ALIGNED) or \
-               (C.BLOCK_CAUTION_REGIME and _comp == CompositeRegime.CAUTION):
-                return
-
-        # Friction gate (moved from _try_breakout to match live engine timing)
-        if self.flags.friction_gate:
-            r_dollars = self.equity * C.RISK_PCT
-            if not sizing.friction_ok(self.symbol, r_dollars):
-                return
-
-        # Check if we already have A orders working (to avoid duplicate A submissions)
-        has_a_working = any(
-            w.subtype in (EntrySubtype.A_RETEST, EntrySubtype.A_LATCH)
-            for w in self._working.values()
         )
 
-        # Shared OCA group: reuse existing group if A orders are pending,
-        # otherwise create a new one so first fill cancels all siblings.
-        existing_oca = ""
-        for w in self._working.values():
-            if w.oca_group:
-                existing_oca = w.oca_group
-                break
-        oca_group = existing_oca or f"ENTRY_{uuid.uuid4().hex[:8]}"
-
-        # Phase 1.1: slope filter — compute once, apply to each entry's final_risk_pct
-        slope_mult = 1.0
-        if C.SLOPE_FILTER_ENABLED and self._closes_15m is not None and len(self._closes_15m) >= C.MACD_SLOW + C.MACD_SIGNAL + C.SLOPE_LOOKBACK:
-            is_continuation = sig.slope_supports_breakout(np.array(self._closes_15m), direction)
-            slope_mult = C.CONT_SIZE_MULT if is_continuation else C.REVERSAL_SIZE_MULT
-
-        # Prereq 2: ETH short size reduction
-        eth_short_mult = 1.0
-        _eth_sm = getattr(C, 'ETH_SHORT_SIZE_MULT', 1.0)
-        if _eth_sm < 1.0 and sess.session == Session.ETH and direction == Direction.SHORT:
-            eth_short_mult = _eth_sm
-
-        # --- Entry A: limit (A1 retest) + stop_limit (A2 latch) ---
-        # Phase 1.2: gated by A_ENTRY_ENABLED
-        if (
-            C.A_ENTRY_ENABLED
-            and not has_a_working
-            and (self.flags.entry_a_retest or self.flags.entry_a_latch)
-            and sig.a_entry_context_allowed(score=sess.last_score, box_width=sess.box.box_width)[0]
-        ):
-            a1_price, a2_price = sig.entry_a_trigger(
-                Cl, L, H, vwap_val,
-                sess.breakout.breakout_bar_high, sess.breakout.breakout_bar_low,
-                sess.box.box_high, sess.atr14_30m, direction,
+        for plan in decision.plans:
+            ioc_bar = (O, H, L, Cl) if plan.subtype is EntrySubtype.B_SWEEP else None
+            self._submit_entry(
+                direction=plan.direction,
+                qty=plan.qty,
+                order_type=OrderType[plan.order_type],
+                subtype=plan.subtype,
+                stop_for_risk=plan.stop_for_risk,
+                quality_mult=plan.quality_mult,
+                disp_norm=plan.disp_norm,
+                limit_price=float(plan.price or 0.0),
+                stop_price=float(plan.stop_price or 0.0),
+                ttl_bars=plan.ttl_bars,
+                oca_group=plan.oca_group,
+                bar_time=bar_time,
+                sess=sess,
+                ioc_bar=ioc_bar,
             )
-            a1_price = round_to_tick(a1_price, tick)
-            a2_price = round_to_tick(a2_price, tick)
+            if plan.subtype is EntrySubtype.B_SWEEP:
+                return
 
-            # Compute separate stops for A1 and A2 (matches live engine)
-            stop_a1 = stops.compute_initial_stop(
-                EntrySubtype.A_RETEST, direction,
-                a1_price, sess.box.box_high, sess.box.box_low,
-                sess.box.box_mid, sess.atr14_30m,
-                tick_size=tick,
-            )
-            stop_a2 = stops.compute_initial_stop(
-                EntrySubtype.A_LATCH, direction,
-                a2_price, sess.box.box_high, sess.box.box_low,
-                sess.box.box_mid, sess.atr14_30m,
-                tick_size=tick,
-            )
+        if decision.consume_fallback:
+            self._a_fallback_eligible = False
 
-            # Quality + sizing
-            disp_norm = sizing.compute_disp_norm(
-                sess.last_disp_metric, sess.last_disp_threshold,
-                sess.last_disp_threshold * 1.3 if sess.last_disp_threshold > 0 else 1.0,
-            )
-            quality_mult = sizing.compute_quality_mult(self.regime.composite, sess.mode, disp_norm, es_opposing=es_opp)
-            final_risk_pct, _ = sizing.compute_final_risk_pct(quality_mult)
-            final_risk_pct *= slope_mult
-
-            qty_a1 = sizing.compute_contracts(
-                self.symbol, a1_price, stop_a1, self.equity, final_risk_pct,
-            )
-            qty_a2 = sizing.compute_contracts(
-                self.symbol, a2_price, stop_a2, self.equity, final_risk_pct,
-            )
-            if self.cfg.fixed_qty is not None:
-                qty_a1 = self.cfg.fixed_qty
-                qty_a2 = self.cfg.fixed_qty
-            qty_a1 = self._apply_dd_throttle(qty_a1) if qty_a1 >= 1 else qty_a1
-            qty_a2 = self._apply_dd_throttle(qty_a2) if qty_a2 >= 1 else qty_a2
-            if (qty_a1 is not None and qty_a1 >= 1) or (qty_a2 is not None and qty_a2 >= 1):
-                exit_tier = stops.determine_exit_tier(self.regime.composite.value, quality_mult)
-
-                # A1 — LIMIT order (retest)
-                if self.flags.entry_a_retest and qty_a1 is not None and qty_a1 >= 1:
-                    self._submit_entry(
-                        direction=direction, qty=qty_a1,
-                        order_type=OrderType.LIMIT, limit_price=a1_price,
-                        subtype=EntrySubtype.A_RETEST,
-                        stop_for_risk=stop_a1,
-                        quality_mult=quality_mult,
-                        disp_norm=disp_norm,
-                        ttl_bars=C.A_TTL_5M_BARS,
-                        oca_group=oca_group,
-                        bar_time=bar_time, sess=sess,
-                    )
-
-                # A2 — STOP_LIMIT order (latch)
-                if self.flags.entry_a_latch and qty_a2 is not None and qty_a2 >= 1:
-                    if direction == Direction.LONG:
-                        a2_stop = a2_price
-                        a2_limit = a2_price + C.A2_BUFFER_TICKS * tick
-                    else:
-                        a2_stop = a2_price
-                        a2_limit = a2_price - C.A2_BUFFER_TICKS * tick
-                    a2_limit = round_to_tick(a2_limit, tick)
-
-                    self._submit_entry(
-                        direction=direction, qty=qty_a2,
-                        order_type=OrderType.STOP_LIMIT,
-                        stop_price=a2_stop, limit_price=a2_limit,
-                        subtype=EntrySubtype.A_LATCH,
-                        stop_for_risk=stop_a2,
-                        quality_mult=quality_mult,
-                        disp_norm=disp_norm,
-                        ttl_bars=C.A_TTL_5M_BARS,
-                        oca_group=oca_group,
-                        bar_time=bar_time, sess=sess,
-                    )
-
-        # --- Entry B: sweep + reclaim as live-style marketable IOC LIMIT ---
-        # Permission gates are shared config, plus high displacement and no continuation.
-        if self.flags.entry_b_sweep and sess.atr14_30m > 0:
-            b_permitted = (
-                sig.b_entry_regime_allowed(self.regime.composite)
-                and not sess.breakout.continuation_mode
-                and len(sess.disp_hist.data) > 10
-                and sess.last_disp_metric >= ind.rolling_quantile_past_only(sess.disp_hist.data, C.B_MIN_DISP_Q)
-            )
-            b_triggered = b_permitted and sig.entry_b_trigger(
-                L, H, Cl, vwap_val, sess.atr14_30m, direction,
-            )
-            if b_triggered:
-                stop_price = stops.compute_initial_stop(
-                    EntrySubtype.B_SWEEP, direction,
-                    Cl, sess.box.box_high, sess.box.box_low,
-                    sess.box.box_mid, sess.atr14_30m,
-                    tick_size=tick,
-                )
-                disp_norm = sizing.compute_disp_norm(
-                    sess.last_disp_metric, sess.last_disp_threshold,
-                    sess.last_disp_threshold * 1.3 if sess.last_disp_threshold > 0 else 1.0,
-                )
-                quality_mult = sizing.compute_quality_mult(self.regime.composite, sess.mode, disp_norm, es_opposing=es_opp)
-                final_risk_pct, _ = sizing.compute_final_risk_pct(quality_mult)
-                final_risk_pct *= slope_mult * eth_short_mult
-                qty = sizing.compute_contracts(self.symbol, Cl, stop_price, self.equity, final_risk_pct)
-                if self.cfg.fixed_qty is not None:
-                    qty = self.cfg.fixed_qty
-                qty = self._apply_dd_throttle(qty) if qty >= 1 else qty
-                if qty is not None and qty >= 1:
-                    slip_cap = C.RESCUE_MAX_SLIP_ATR * sess.atr14_30m
-                    if direction == Direction.LONG:
-                        limit_price = round_to_tick(Cl + slip_cap, tick, "up")
-                    else:
-                        limit_price = round_to_tick(Cl - slip_cap, tick, "down")
-                    self._submit_entry(
-                        direction=direction, qty=qty,
-                        order_type=OrderType.LIMIT,
-                        limit_price=limit_price,
-                        subtype=EntrySubtype.B_SWEEP,
-                        stop_for_risk=stop_price,
-                        quality_mult=quality_mult,
-                        disp_norm=disp_norm,
-                        oca_group=oca_group,
-                        bar_time=bar_time, sess=sess,
-                        ioc_bar=(O, H, L, Cl),
-                    )
-                    return  # B is IOC/immediate, skip C eval
-
-        # --- Entry C: hold check ---
-        if (self.flags.entry_c_standard or self.flags.entry_c_continuation) and len(self._5m_closes) >= C.C_HOLD_BARS:
-            arr_c = np.array(self._5m_closes[-10:], dtype=np.float64)
-            arr_l = np.array(self._5m_lows[-10:], dtype=np.float64)
-            arr_h = np.array(self._5m_highs[-10:], dtype=np.float64)
-
-            c_triggered, hold_ref = sig.entry_c_hold_check(
-                arr_c, arr_l, arr_h, vwap_val, direction,
-                atr14_30m=sess.atr14_30m,
-            )
-            if c_triggered:
-                is_cont = sess.breakout.continuation_mode and self.flags.continuation_mode
-                c_cont_enabled = self.flags.entry_c_continuation and C.C_CONT_ENTRY_ENABLED
-                subtype = EntrySubtype.C_CONTINUATION if (is_cont and c_cont_enabled) else EntrySubtype.C_STANDARD
-                if (subtype == EntrySubtype.C_STANDARD and not self.flags.entry_c_standard):
-                    pass
-                elif (subtype == EntrySubtype.C_CONTINUATION and not c_cont_enabled):
-                    pass
-                elif is_cont and not c_cont_enabled:
-                    pass  # block continuation entries even when reclassified as C_STANDARD
-                else:
-                    # Phase 4: regime x subtype blocks
-                    disp_norm = sizing.compute_disp_norm(
-                        sess.last_disp_metric, sess.last_disp_threshold,
-                        sess.last_disp_threshold * 1.3 if sess.last_disp_threshold > 0 else 1.0,
-                    )
-                    blocked = False
-                    # Cap at 1 continuation per breakout
-                    if (subtype == EntrySubtype.C_CONTINUATION
-                            and sess.breakout.continuation_fills >= 1):
-                        blocked = True
-                    # MFE gate: require prior trade to have proven the breakout
-                    elif (subtype == EntrySubtype.C_CONTINUATION
-                            and sess.breakout.last_trade_peak_r < C.C_CONT_MFE_GATE_R):
-                        blocked = True
-                    elif (C.BLOCK_CONT_ALIGNED
-                            and subtype == EntrySubtype.C_CONTINUATION
-                            and self.regime.composite == CompositeRegime.ALIGNED):
-                        blocked = True
-                    elif (C.BLOCK_STD_NEUTRAL_LOW_DISP
-                            and subtype == EntrySubtype.C_STANDARD
-                            and self.regime.composite == CompositeRegime.NEUTRAL
-                            and disp_norm < 0.5):
-                        blocked = True
-
-                    if not blocked:
-                        stop_price = stops.compute_initial_stop(
-                            subtype, direction,
-                            Cl, sess.box.box_high, sess.box.box_low,
-                            sess.box.box_mid, sess.atr14_30m,
-                            hold_ref=hold_ref, tick_size=tick,
-                        )
-                        quality_mult = sizing.compute_quality_mult(self.regime.composite, sess.mode, disp_norm, es_opposing=es_opp)
-                        final_risk_pct, _ = sizing.compute_final_risk_pct(quality_mult)
-                        final_risk_pct *= slope_mult * eth_short_mult
-
-                        # C entry price: limit at hold reference + offset (differentiated by subtype)
-                        if subtype == EntrySubtype.C_STANDARD:
-                            c_offset = C.C_ENTRY_OFFSET_ATR_STANDARD * sess.atr14_30m if sess.atr14_30m > 0 else tick
-                        elif subtype == EntrySubtype.C_CONTINUATION:
-                            c_offset = C.C_ENTRY_OFFSET_ATR_CONTINUATION * sess.atr14_30m if sess.atr14_30m > 0 else tick
-                        else:
-                            c_offset = C.C_ENTRY_OFFSET_ATR * sess.atr14_30m if sess.atr14_30m > 0 else tick
-                        if direction == Direction.LONG:
-                            c_price = round_to_tick(hold_ref + c_offset, tick)
-                        else:
-                            c_price = round_to_tick(hold_ref - c_offset, tick)
-
-                        qty = sizing.compute_contracts(self.symbol, c_price, stop_price, self.equity, final_risk_pct)
-                        if self.cfg.fixed_qty is not None:
-                            qty = self.cfg.fixed_qty
-                        qty = self._apply_dd_throttle(qty) if qty >= 1 else qty
-                        if qty is not None and qty >= 1:
-                            self._submit_entry(
-                                direction=direction, qty=qty,
-                                order_type=OrderType.LIMIT, limit_price=c_price,
-                                subtype=subtype,
-                                stop_for_risk=stop_price,
-                                quality_mult=quality_mult,
-                                disp_norm=disp_norm,
-                                ttl_bars=C.A_TTL_5M_BARS,
-                                oca_group=oca_group,
-                                bar_time=bar_time, sess=sess,
-                            )
-
-        # --- Market fallback after A orders expire (Phase 1.2: gated by A_ENTRY_ENABLED) ---
-        if C.A_ENTRY_ENABLED and self._a_fallback_eligible and not self._working:
-            on_breakout_side = (
-                (direction == Direction.LONG and Cl > sess.box.box_high) or
-                (direction == Direction.SHORT and Cl < sess.box.box_low)
-            )
-            if on_breakout_side:
-                stop_price = stops.compute_initial_stop(
-                    EntrySubtype.MARKET_FALLBACK, direction,
-                    Cl, sess.box.box_high, sess.box.box_low,
-                    sess.box.box_mid, sess.atr14_30m,
-                    tick_size=tick,
-                )
-                disp_norm = sizing.compute_disp_norm(
-                    sess.last_disp_metric, sess.last_disp_threshold,
-                    sess.last_disp_threshold * 1.3 if sess.last_disp_threshold > 0 else 1.0,
-                )
-                quality_mult = sizing.compute_quality_mult(self.regime.composite, sess.mode, disp_norm, es_opposing=es_opp)
-                final_risk_pct, _ = sizing.compute_final_risk_pct(quality_mult)
-                final_risk_pct *= slope_mult * eth_short_mult
-                qty = sizing.compute_contracts(self.symbol, Cl, stop_price, self.equity, final_risk_pct)
-                if self.cfg.fixed_qty is not None:
-                    qty = self.cfg.fixed_qty
-                qty = self._apply_dd_throttle(qty) if qty >= 1 else qty
-                if qty is not None and qty >= 1:
-                    self._submit_entry(
-                        direction=direction, qty=qty,
-                        order_type=OrderType.MARKET,
-                        subtype=EntrySubtype.MARKET_FALLBACK,
-                        stop_for_risk=stop_price,
-                        quality_mult=quality_mult,
-                        disp_norm=disp_norm,
-                        bar_time=bar_time, sess=sess,
-                    )
-                self._a_fallback_eligible = False
-
-
-    # ------------------------------------------------------------------
-    # Drawdown throttle helper
-    # ------------------------------------------------------------------
-
-    def _apply_dd_throttle(self, qty: int) -> int | None:
-        """Apply drawdown sizing multiplier. Returns None if entry blocked."""
-        if not self.flags.drawdown_throttle:
-            return qty
-        dd_mult = self._throttle.dd_size_mult
-        if dd_mult <= 0.0:
-            self._throttle.entries_blocked_dd += 1
-            return None
-        if dd_mult < 1.0:
-            return max(1, int(qty * dd_mult))
-        return qty
 
     # ------------------------------------------------------------------
     # Order submission
@@ -1914,7 +1618,6 @@ class NQDTCEngine:
         ioc_bar: tuple[float, float, float, float] | None = None,
     ) -> None:
         """Submit entry order via SimBroker."""
-        side = OrderSide.BUY if direction == Direction.LONG else OrderSide.SELL
         order_id = self.broker.next_order_id()
 
         # Convert ttl_bars to minutes (5m bars)

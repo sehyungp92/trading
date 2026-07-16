@@ -5,7 +5,7 @@ from typing import Any, Mapping
 
 from strategies.momentum.nqdtc.models import Direction, EntrySubtype, ExitTier, PositionState, Session, TPLevel, WorkingOrder
 
-from .state import NQDTCCoreState
+from .state import NQDTCCoreState, NQDTCEntryRequest
 
 
 def snapshot_state(state: NQDTCCoreState) -> dict[str, Any]:
@@ -17,6 +17,10 @@ def snapshot_state(state: NQDTCCoreState) -> dict[str, Any]:
         "last_bar_ts": state.last_bar_ts.isoformat() if state.last_bar_ts else None,
         "position": _snapshot_position(state.position),
         "working_orders": [_snapshot_working_order(order) for order in state.working_orders],
+        "pending_entries": {
+            client_order_id: _snapshot_entry_request(request)
+            for client_order_id, request in sorted(state.pending_entries.items())
+        },
     }
 
 
@@ -25,6 +29,10 @@ def restore_state(snapshot: Mapping[str, Any]) -> NQDTCCoreState:
         symbol=str(snapshot.get("symbol", "")),
         position=_restore_position(snapshot.get("position", {})),
         working_orders=[_restore_working_order(order) for order in snapshot.get("working_orders", [])],
+        pending_entries={
+            str(client_order_id): _restore_entry_request(request)
+            for client_order_id, request in (snapshot.get("pending_entries", {}) or {}).items()
+        },
         bar_count_5m=int(snapshot.get("bar_count_5m", 0)),
         last_decision_code=str(snapshot.get("last_decision_code", "IDLE")),
         last_decision_details=dict(snapshot.get("last_decision_details", {})),
@@ -175,6 +183,48 @@ def _restore_working_order(data: Mapping[str, Any]) -> WorkingOrder:
         stop_for_risk=float(data.get("stop_for_risk", 0.0)),
         expected_fill_price=float(data.get("expected_fill_price", 0.0)),
         disp_norm=float(data.get("disp_norm", 0.0)),
+    )
+
+
+def _snapshot_entry_request(request: NQDTCEntryRequest) -> dict[str, Any]:
+    return {
+        "client_order_id": request.client_order_id,
+        "symbol": request.symbol,
+        "subtype": request.subtype.value,
+        "direction": request.direction.value,
+        "qty": request.qty,
+        "stop_for_risk": request.stop_for_risk,
+        "tif": request.tif,
+        "order_type": request.order_type,
+        "price": request.price,
+        "limit_price": request.limit_price,
+        "stop_price": request.stop_price,
+        "oca_group": request.oca_group,
+        "is_limit": request.is_limit,
+        "quality_mult": request.quality_mult,
+        "submitted_bar_idx": request.submitted_bar_idx,
+        "ttl_bars": request.ttl_bars,
+    }
+
+
+def _restore_entry_request(data: Mapping[str, Any]) -> NQDTCEntryRequest:
+    return NQDTCEntryRequest(
+        client_order_id=str(data.get("client_order_id", "")),
+        symbol=str(data.get("symbol", "")),
+        subtype=EntrySubtype(data.get("subtype", EntrySubtype.A_RETEST.value)),
+        direction=Direction(data.get("direction", 0)),
+        qty=int(data.get("qty", 0)),
+        stop_for_risk=float(data.get("stop_for_risk", 0.0)),
+        tif=str(data.get("tif", "DAY")),
+        order_type=str(data.get("order_type", "STOP_LIMIT")),
+        price=data.get("price"),
+        limit_price=data.get("limit_price"),
+        stop_price=data.get("stop_price"),
+        oca_group=str(data.get("oca_group", "")),
+        is_limit=bool(data.get("is_limit", False)),
+        quality_mult=float(data.get("quality_mult", 1.0)),
+        submitted_bar_idx=int(data.get("submitted_bar_idx", 0)),
+        ttl_bars=int(data.get("ttl_bars", 6)),
     )
 
 

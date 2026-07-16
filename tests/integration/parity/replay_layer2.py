@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from typing import Any
+
+import numpy as np
 
 from backtests.shared.parity.replay_driver import ReplayStep, run_replay
 from tests.integration.parity.replay_candidates import (
@@ -16,6 +19,7 @@ from tests.integration.parity.source_inputs import (
     nq_bar_data,
     nq_daily_context,
     nq_live_context,
+    nqdtc_r1b_market_input,
     parse_time,
     source_bars,
     tpc_bar_input,
@@ -47,12 +51,27 @@ def _replay_tpc(fixture: Mapping[str, Any], out: ReplayDecisionTimeline) -> None
     }
 
 
-def _replay_nq_regime(fixture: Mapping[str, Any], out: ReplayDecisionTimeline) -> None:
+def _replay_nq_regime(
+    fixture: Mapping[str, Any],
+    out: ReplayDecisionTimeline,
+    *,
+    causal_authorization: bool = False,
+    portfolio_authorizer=None,
+    market_rows: Sequence[Mapping[str, Any]] | None = None,
+) -> None:
+    from libs.oms.risk.portfolio_rules import (
+        PortfolioRulesConfig,
+        adjusted_entry_quantity,
+        evaluate_static_portfolio_entry,
+        require_static_portfolio_config,
+    )
+    from strategies.core.actions import SubmitEntry
     from strategies.momentum.nq_regime.config import StrategyRuntimeSettings
     from strategies.momentum.nq_regime.core.data_policy import CompletedBarPolicy
-    from strategies.momentum.nq_regime.core.logic import on_bar, on_fill
+    from strategies.momentum.nq_regime.core.logic import on_authorization, on_bar, on_fill
     from strategies.momentum.nq_regime.core.serializers import hydrate_state, snapshot_state
-    from strategies.momentum.nq_regime.core.state import FillEvent
+    from strategies.momentum.nq_regime.core.state import AuthorizationEvent, FillEvent
+    from tests.integration.parity.portfolio_rules import portfolio_rules_config_from_fixture
 
     settings = StrategyRuntimeSettings(
         initial_equity=float((fixture.get("account_state", {}) or {}).get("equity", 100_000.0)),
@@ -62,7 +81,30 @@ def _replay_nq_regime(fixture: Mapping[str, Any], out: ReplayDecisionTimeline) -
     )
     state = hydrate_state((fixture.get("initial_strategy_state", {}) or {}).get("NQ_REGIME", {}))
     policy = CompletedBarPolicy()
-    for row in source_bars(fixture, "NQ", "5m") or source_bars(fixture, "MNQ", "5m"):
+    portfolio_rules = None
+    if causal_authorization:
+        family_strategies = (fixture.get("family_config", {}) or {}).get("strategies", []) or []
+        portfolio_rules = (
+            portfolio_rules_config_from_fixture(fixture)
+            if family_strategies
+            else PortfolioRulesConfig(
+                initial_equity=float((fixture.get("account_state", {}) or {}).get("equity", 100_000.0)),
+                nqdtc_direction_filter_enabled=False,
+                directional_cap_R=0.0,
+                dd_tiers=((1.0, 1.0),),
+            )
+        )
+        if portfolio_rules is None:
+            raise AssertionError("NQ_REGIME R1A fixture must materialize portfolio rules")
+        if portfolio_authorizer is None:
+            require_static_portfolio_config(portfolio_rules)
+    current_equity = float((fixture.get("account_state", {}) or {}).get("equity", 100_000.0))
+    entry_sequence = 0
+    rows = market_rows or (
+        source_bars(fixture, "NQ", "5m")
+        or source_bars(fixture, "MNQ", "5m")
+    )
+    for row in rows:
         bar = nq_bar_data(row)
         step = ReplayStep(
             bar_input=policy.build_event(
@@ -75,12 +117,104 @@ def _replay_nq_regime(fixture: Mapping[str, Any], out: ReplayDecisionTimeline) -
         replay = run_replay(
             state,
             steps=[step],
-            on_bar=lambda current, event: on_bar(current, event, scheduled_news=[], settings=settings),
+            on_bar=lambda current, event: on_bar(
+                current,
+                event,
+                scheduled_news=[],
+                settings=settings,
+                authorization_required=causal_authorization,
+            ),
             on_order_update=lambda current, update: (current, [], []),
             on_fill=lambda current, fill: on_fill(current, fill, settings=settings),
         )
         state = replay.state
-        out.record_actions("NQ_REGIME", replay.actions)
+        if not causal_authorization:
+            out.record_actions("NQ_REGIME", replay.actions)
+            continue
+        for action in replay.actions:
+            if not isinstance(action, SubmitEntry):
+                out.record_actions("NQ_REGIME", [action])
+                continue
+            entry_sequence += 1
+            assert portfolio_rules is not None
+            if portfolio_authorizer is not None:
+                authorization = portfolio_authorizer(
+                    "NQ_REGIME",
+                    action,
+                    timestamp=bar.ts,
+                )
+                approved = bool(authorization["approved"])
+                approved_qty = int(authorization["approved_qty"])
+                denial_reason = str(authorization.get("denial_reason", ""))
+                portfolio_decision_ref = str(
+                    authorization.get("portfolio_decision_ref", "")
+                )
+                family_surface = str(authorization.get("family_surface", ""))
+            else:
+                portfolio_decision = evaluate_static_portfolio_entry(
+                    portfolio_rules,
+                    strategy_id="NQ_REGIME",
+                    direction="LONG" if action.side == "BUY" else "SHORT",
+                    current_equity=current_equity,
+                )
+                approved = portfolio_decision.approved
+                approved_qty = (
+                    adjusted_entry_quantity(action.qty, portfolio_decision.size_multiplier)
+                    if approved
+                    else 0
+                )
+                denial_reason = portfolio_decision.denial_reason or ""
+                portfolio_decision_ref = ""
+                family_surface = "nq_regime_r1a_static_portfolio"
+            state, submissions, _authorization_events = on_authorization(
+                state,
+                AuthorizationEvent(
+                    client_order_id=action.client_order_id,
+                    approved=approved,
+                    approved_qty=approved_qty,
+                    requested_qty=action.qty,
+                    timestamp=bar.ts,
+                    symbol=action.symbol,
+                    denial_reason=denial_reason,
+                    portfolio_decision_ref=portfolio_decision_ref,
+                ),
+                settings=settings,
+            )
+            status = (
+                "rejected"
+                if approved_qty <= 0
+                else "accepted"
+                if approved_qty == action.qty
+                else "reduced"
+            )
+            decision = {
+                "strategy_id": "NQ_REGIME",
+                "symbol": action.symbol,
+                "side": action.side,
+                "role": "ENTRY",
+                "status": status,
+                "reason": (
+                    f"Portfolio rule: {denial_reason}"
+                    if denial_reason
+                    else ""
+                ),
+                "family_surface": family_surface,
+                "candidate_key": f"NQ_REGIME|{action.symbol}|ENTRY|{action.side}|{entry_sequence}",
+                "sequence": entry_sequence,
+                "original_qty": action.qty,
+                "approved_qty": approved_qty,
+                "order_match": {
+                    "strategy_id": "NQ_REGIME",
+                    "symbol": action.symbol,
+                    "role": "ENTRY",
+                    "side": action.side,
+                    "sequence": entry_sequence,
+                },
+            }
+            if submissions:
+                out.record_actions("NQ_REGIME", submissions, decision=decision)
+            else:
+                out.record_family_rejection("NQ_REGIME", action, decision)
     for event in fixture.get("broker_event_script", []):
         if str((event.get("order_match", {}) or {}).get("strategy_id")) != "NQ_REGIME":
             continue
@@ -111,6 +245,292 @@ def _replay_nq_regime(fixture: Mapping[str, Any], out: ReplayDecisionTimeline) -
         "qty_open": snap.get("qty_open", 0),
         "daily_trades": snap.get("daily_trades", 0),
         "last_decision_code": snap.get("last_decision_code", ""),
+    }
+
+
+def _replay_nqdtc_r1b(
+    fixture: Mapping[str, Any],
+    out: ReplayDecisionTimeline,
+    *,
+    portfolio_authorizer,
+) -> None:
+    """Replay the bounded raw NQDTC decision and lifecycle on the R1B timeline."""
+
+    from strategies.core.actions import SubmitEntry
+    from strategies.momentum.nqdtc.core.entry_decision import (
+        NQDTCEntryDecisionSnapshot,
+        evaluate_entry_decision,
+    )
+    from strategies.momentum.nqdtc.core.logic import (
+        on_authorization,
+        on_bar,
+        on_fill,
+        on_order_update,
+    )
+    from strategies.momentum.nqdtc.core.serializers import restore_state, snapshot_state
+    from strategies.momentum.nqdtc.core.state import (
+        NQDTCAuthorization,
+        NQDTCEntryFillContext,
+        NQDTCEntryRequest,
+        NQDTCFill,
+        NQDTCOrderUpdate,
+    )
+    from strategies.momentum.nqdtc.models import (
+        Direction,
+        ExitTier,
+        Regime4H,
+        RegimeState,
+        Session,
+        SessionEngineState,
+    )
+
+    market_input = nqdtc_r1b_market_input(fixture)
+    rows = market_input["bars"]
+    state_input = market_input["decision_state"]
+    session = Session[str(state_input.get("session", "RTH")).upper()]
+    direction = Direction[str(state_input.get("direction", "LONG")).upper()]
+    session_state = SessionEngineState(session=session)
+    session_state.breakout.active = True
+    session_state.breakout.direction = direction
+    session_state.breakout.breakout_bar_high = float(
+        state_input.get("breakout_bar_high", rows[-1]["high"])
+    )
+    session_state.breakout.breakout_bar_low = float(
+        state_input.get("breakout_bar_low", rows[-1]["low"])
+    )
+    session_state.box.box_high = float(state_input.get("box_high", rows[-1]["high"]))
+    session_state.box.box_low = float(state_input.get("box_low", rows[-1]["low"]))
+    session_state.box.box_mid = float(
+        state_input.get(
+            "box_mid",
+            (session_state.box.box_high + session_state.box.box_low) / 2.0,
+        )
+    )
+    session_state.box.box_width = session_state.box.box_high - session_state.box.box_low
+    session_state.atr14_30m = float(state_input.get("atr14_30m", 20.0))
+    session_state.last_score = float(state_input.get("score", 3.0))
+    session_state.last_disp_metric = float(state_input.get("disp_metric", 2.0))
+    session_state.last_disp_threshold = float(state_input.get("disp_threshold", 1.0))
+    session_state.disp_hist.data = [
+        float(value) for value in state_input.get("disp_history", [1.0] * 12)
+    ]
+    vwap = float(state_input.get("vwap", rows[-1]["close"]))
+    session_state.vwap_session.cum_tpv = vwap
+    session_state.vwap_session.cum_vol = 1.0
+    regime = RegimeState(
+        regime_4h=Regime4H[str(state_input.get("regime_4h", "TRANSITIONAL")).upper()],
+        trend_dir_4h=Direction[str(state_input.get("trend_dir_4h", "FLAT")).upper()],
+    )
+    bars_5m = {
+        key: np.asarray([float(row[key]) for row in rows], dtype=float)
+        for key in ("open", "high", "low", "close", "volume")
+    }
+    bars_15m_rows = market_input.get("bars_15m") or rows
+    bars_15m = {
+        "close": np.asarray(
+            [float(row["close"]) for row in bars_15m_rows],
+            dtype=float,
+        )
+    }
+    decision = evaluate_entry_decision(
+        NQDTCEntryDecisionSnapshot(
+            now=market_input["timestamp"],
+            symbol=market_input["symbol"],
+            equity=float((fixture.get("account_state", {}) or {}).get("equity", 100_000.0)),
+            engine=session_state,
+            regime=regime,
+            bars_5m=bars_5m,
+            bars_15m=bars_15m,
+            bars_daily={"ema50": np.array([]), "atr14": np.array([])},
+            entry_oca_group="R1B_ENTRY",
+            a_oca_group="R1B_A_OCO",
+            entry_a_retest=True,
+            entry_a_latch=False,
+            entry_b_sweep=True,
+            entry_c_standard=True,
+            entry_c_continuation=False,
+            continuation_mode=True,
+            friction_gate=True,
+            tp1_viability_gate=True,
+            recompute_composite=True,
+            c_stop_reference="entry_price",
+            fallback_order_type="LIMIT",
+            fallback_tif="IOC",
+        )
+    )
+    core_state = restore_state(
+        ((fixture.get("initial_strategy_state", {}) or {}).get("NQDTC_v2.1", {}) or {}).get(
+            "core",
+            {},
+        )
+    )
+    core_state.bar_count_5m += len(rows)
+    accepted_requests: dict[str, NQDTCEntryRequest] = {}
+    entry_sequence = 0
+
+    for plan in decision.plans:
+        entry_sequence += 1
+        request = NQDTCEntryRequest(
+            client_order_id=(
+                f"NQDTC_v2.1:{plan.subtype.value}:"
+                f"{core_state.bar_count_5m}:{len(core_state.working_orders)}"
+            ),
+            symbol=market_input["symbol"],
+            subtype=plan.subtype,
+            direction=plan.direction,
+            qty=plan.qty,
+            stop_for_risk=plan.stop_for_risk,
+            tif=plan.tif,
+            order_type=plan.order_type,
+            price=plan.price,
+            limit_price=plan.price,
+            stop_price=plan.stop_price,
+            oca_group=plan.oca_group,
+            is_limit=plan.is_limit,
+            quality_mult=plan.quality_mult,
+            submitted_bar_idx=core_state.bar_count_5m,
+            ttl_bars=plan.ttl_bars,
+        )
+        core_state, proposals, _events = on_bar(
+            core_state,
+            bar_count_5m=core_state.bar_count_5m,
+            bar_ts=market_input["timestamp"],
+            entry_request=request,
+            authorization_required=True,
+        )
+        proposal = next(action for action in proposals if isinstance(action, SubmitEntry))
+        authorization = portfolio_authorizer(
+            "NQDTC_v2.1",
+            proposal,
+            timestamp=market_input["timestamp"],
+        )
+        denial_reason = str(authorization.get("denial_reason", ""))
+        strategy_denial_reason = (
+            f"Portfolio rule: {denial_reason}" if denial_reason else ""
+        )
+        core_state, submissions, _events = on_authorization(
+            core_state,
+            NQDTCAuthorization(
+                client_order_id=request.client_order_id,
+                approved=bool(authorization["approved"]),
+                approved_qty=int(authorization["approved_qty"]),
+                requested_qty=request.qty,
+                timestamp=market_input["timestamp"],
+                symbol=request.symbol,
+                denial_reason=strategy_denial_reason,
+                portfolio_decision_ref=str(
+                    authorization.get("portfolio_decision_ref", "")
+                ),
+            ),
+        )
+        approved_qty = int(authorization["approved_qty"])
+        status = (
+            "rejected"
+            if approved_qty <= 0
+            else "accepted"
+            if approved_qty == request.qty
+            else "reduced"
+        )
+        family_decision = {
+            "strategy_id": "NQDTC_v2.1",
+            "symbol": proposal.symbol,
+            "side": proposal.side,
+            "role": "ENTRY",
+            "status": status,
+            "reason": (
+                strategy_denial_reason
+            ),
+            "family_surface": str(authorization.get("family_surface", "")),
+            "candidate_key": (
+                f"NQDTC_v2.1|{proposal.symbol}|ENTRY|{proposal.side}|{entry_sequence}"
+            ),
+            "sequence": entry_sequence,
+            "original_qty": request.qty,
+            "approved_qty": approved_qty,
+            "order_match": {
+                "strategy_id": "NQDTC_v2.1",
+                "symbol": proposal.symbol,
+                "role": "ENTRY",
+                "side": proposal.side,
+                "sequence": entry_sequence,
+            },
+        }
+        if submissions:
+            approved_request = replace(request, qty=approved_qty)
+            accepted_requests[request.client_order_id] = approved_request
+            core_state, _, _events = on_order_update(
+                core_state,
+                NQDTCOrderUpdate(
+                    oms_order_id=request.client_order_id,
+                    status="accepted",
+                    timestamp=market_input["timestamp"],
+                    order_role="entry",
+                    accepted_entry=approved_request,
+                ),
+            )
+            out.record_actions("NQDTC_v2.1", submissions, decision=family_decision)
+        else:
+            out.record_family_rejection("NQDTC_v2.1", proposal, family_decision)
+
+    for event in fixture.get("broker_event_script", []) or []:
+        match = event.get("order_match", {}) or {}
+        if str(match.get("strategy_id")) != "NQDTC_v2.1":
+            continue
+        key = _broker_event_key(event)
+        order = out._match_order(match)
+        if order is None:
+            continue
+        out.note_broker_event(order, event)
+        out._applied.add(key)
+        request = accepted_requests[str(order["client_tag"])]
+        core_state, actions, _events = on_fill(
+            core_state,
+            NQDTCFill(
+                oms_order_id=str(order["client_tag"]),
+                fill_price=float(event.get("price", order.get("limit_price") or 0.0)),
+                fill_qty=int(float(event.get("qty", order["qty"]))),
+                fill_time=parse_time(event.get("timestamp")),
+                entry_context=NQDTCEntryFillContext(
+                    exit_tier=ExitTier.NEUTRAL,
+                    tp_levels=[],
+                    mm_level=session_state.breakout.mm_level,
+                    mm_reached=session_state.breakout.mm_reached,
+                    box_high_at_entry=session_state.box.box_high,
+                    box_low_at_entry=session_state.box.box_low,
+                    box_mid_at_entry=session_state.box.box_mid,
+                    entry_session=session,
+                    tp1_only_cap=False,
+                    r_dollars=(
+                        abs(
+                            float(request.price or request.stop_price or 0.0)
+                            - request.stop_for_risk
+                        )
+                        * request.qty
+                    ),
+                ),
+            ),
+        )
+        out.record_actions("NQDTC_v2.1", actions)
+        if actions:
+            core_state, _, _events = on_order_update(
+                core_state,
+                NQDTCOrderUpdate(
+                    oms_order_id=f"{order['client_tag']}:protective_stop",
+                    status="accepted",
+                    timestamp=parse_time(event.get("timestamp")),
+                    order_role="stop",
+                ),
+            )
+
+    snapshot = snapshot_state(core_state)
+    out.strategy_state["NQDTC_v2.1"] = {
+        "strategy_id": "NQDTC_v2.1",
+        "last_bar_ts": snapshot.get("last_bar_ts"),
+        "last_decision_code": snapshot.get("last_decision_code", "IDLE"),
+        "last_decision_details": snapshot.get("last_decision_details", {}),
+        "bar_count_5m": int(snapshot.get("bar_count_5m", 0) or 0),
+        "working_order_count": len(snapshot.get("working_orders", []) or []),
+        "position_open": bool((snapshot.get("position", {}) or {}).get("open", False)),
     }
 
 
@@ -246,4 +666,5 @@ def _compact_iaric_state(state: Any) -> dict[str, Any]:
 
 replay_tpc = _replay_tpc
 replay_nq_regime = _replay_nq_regime
+replay_nqdtc_r1b = _replay_nqdtc_r1b
 replay_iaric = _replay_iaric

@@ -13,6 +13,8 @@ from tests.integration.parity.live_shadow_contract import FamilyShadowContract, 
 from tests.integration.parity.replay_runners import (
     run_layer2_replay_trace,
     run_layer3_family_replay_trace,
+    run_nq_regime_r1a_replay_trace,
+    run_momentum_r1b_nqdtc_replay_trace,
 )
 
 
@@ -41,6 +43,26 @@ async def run_layer3_family_contract(family: str, fixture_path: Path) -> FamilyS
         children=children,
         live_family_state=_family_state(live),
         replay_family_state=_family_state(replay),
+    )
+
+
+async def run_nq_regime_r1a_contract(fixture: dict[str, Any]) -> LiveShadowContract:
+    """Compare the real family live wrapper with the causal NQ replay wrapper."""
+
+    live = await run_layer3_family_live_trace(fixture)
+    replay = await asyncio.to_thread(run_nq_regime_r1a_replay_trace, fixture)
+    return LiveShadowContract(surface="momentum:NQ_REGIME:R1A", live=live, replay=replay)
+
+
+async def run_momentum_r1b_nqdtc_contract(fixture: dict[str, Any]) -> LiveShadowContract:
+    """Compare the bounded two-child live wrapper and causal replay."""
+
+    live = await run_layer3_family_live_trace(fixture)
+    replay = await asyncio.to_thread(run_momentum_r1b_nqdtc_replay_trace, fixture)
+    return LiveShadowContract(
+        surface="momentum:NQDTC+NQ_REGIME:R1B",
+        live=live,
+        replay=replay,
     )
 
 

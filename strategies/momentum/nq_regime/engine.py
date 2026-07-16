@@ -11,7 +11,7 @@ from typing import Any
 from libs.market_data.futures_roll import roll_blackout_reason, roll_force_flatten_reason
 from libs.market_data.live_futures import req_panama_adjusted_historical_data
 from libs.oms.models.events import OMSEventType
-from libs.oms.models.intent import Intent, IntentType
+from libs.oms.models.intent import Intent, IntentResult, IntentType
 from libs.oms.models.order import OMSOrder, OrderRole, OrderSide, OrderType, RiskContext
 from libs.oms.instrumentation.runtime_refs import fill_runtime_refs
 from strategies.core.actions import (
@@ -28,10 +28,11 @@ from .config import TradeSide
 from .core.data_policy import CompletedBarPolicy
 from .core.levels import KeyLevels
 from .core.logic import on_bar as core_on_bar
+from .core.logic import on_authorization as core_on_authorization
 from .core.logic import on_fill as core_on_fill
 from .core.logic import on_order_update as core_on_order_update
 from .core.serializers import hydrate_state, snapshot_state
-from .core.state import BarData, FillEvent, OrderUpdateEvent, RegimeCoreState
+from .core.state import AuthorizationEvent, BarData, FillEvent, OrderUpdateEvent, RegimeCoreState
 from .modules.base import NewsEvent, SetupCandidate
 from strategies.scalp._shared.time_utils import session_date
 
@@ -218,6 +219,7 @@ class NQRegimeEngine:
             event,
             scheduled_news=news,
             settings=self._settings,
+            authorization_required=True,
         )
         self._record_events(events)
         self._bars_processed += 1
@@ -595,20 +597,22 @@ class NQRegimeEngine:
         if self._oms is None:
             return
         if isinstance(action, SubmitEntry):
-            now = datetime.now(timezone.utc)
+            now = self._clock()
             instrument = self._instrument(action.symbol)
             denial = roll_blackout_reason(instrument, as_of=now)
             if denial:
-                self._state, _, events = core_on_order_update(
+                self._state, _, events = core_on_authorization(
                     self._state,
-                    OrderUpdateEvent(
-                        oms_order_id=action.client_order_id,
-                        status="rejected",
+                    AuthorizationEvent(
+                        client_order_id=action.client_order_id,
+                        approved=False,
+                        approved_qty=0,
+                        requested_qty=action.qty,
                         timestamp=now,
                         symbol=action.symbol,
-                        order_role="entry",
-                        reason=denial,
+                        denial_reason=denial,
                     ),
+                    settings=self._settings,
                 )
                 self._record_events(events)
                 self._record_decision(
@@ -620,10 +624,34 @@ class NQRegimeEngine:
                 self._persist_state()
                 logger.warning("NQ_REGIME entry blocked by roll blackout: %s", denial)
                 return
+            order = self._order_from_entry(action)
             receipt = await self._oms.submit_intent(
-                Intent(intent_type=IntentType.NEW_ORDER, strategy_id=config.STRATEGY_ID, order=self._order_from_entry(action))
+                Intent(intent_type=IntentType.NEW_ORDER, strategy_id=config.STRATEGY_ID, order=order)
             )
-            self._promote_order_id(action.client_order_id, getattr(receipt, "oms_order_id", None))
+            result = getattr(receipt, "result", None)
+            approved = result == IntentResult.ACCEPTED or (
+                result is None and bool(getattr(receipt, "oms_order_id", None))
+            )
+            portfolio_decision_ref = str(
+                getattr(getattr(order, "risk_context", None), "portfolio_decision_ref", "") or ""
+            )
+            self._state, _, authorization_events = core_on_authorization(
+                self._state,
+                AuthorizationEvent(
+                    client_order_id=action.client_order_id,
+                    approved=approved,
+                    approved_qty=order.qty if approved else 0,
+                    requested_qty=action.qty,
+                    timestamp=now,
+                    symbol=action.symbol,
+                    denial_reason=str(getattr(receipt, "denial_reason", "") or ""),
+                    portfolio_decision_ref=portfolio_decision_ref,
+                ),
+                settings=self._settings,
+            )
+            self._record_events(authorization_events)
+            if approved:
+                self._promote_order_id(action.client_order_id, getattr(receipt, "oms_order_id", None))
         elif isinstance(action, SubmitProtectiveStop):
             receipt = await self._oms.submit_intent(
                 Intent(intent_type=IntentType.NEW_ORDER, strategy_id=config.STRATEGY_ID, order=self._order_from_stop(action))

@@ -4,13 +4,17 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from libs.oms.models.instrument import Instrument
 from tests.integration.parity.live_oms import settle_callbacks as _settle_callbacks
 from tests.integration.parity.source_inputs import (
+    bar_objects,
     iaric_artifact,
     iaric_minute_bars,
     iaric_quote,
     iaric_state_snapshot,
+    momentum_r1b_raw_timeline,
     nq_bar_data,
     nq_daily_context,
     nq_live_context,
@@ -291,8 +295,89 @@ async def drive_layer2_live_inputs(fixture: Mapping[str, Any], engines: Mapping[
                 await _settle_callbacks()
 
 
+async def drive_momentum_r1b_raw_timeline(
+    fixture: Mapping[str, Any],
+    engines: Mapping[str, Any],
+) -> None:
+    """Drive NQDTC and NQ_REGIME on one timestamp/priority-ordered raw timeline."""
+
+    for event in momentum_r1b_raw_timeline(fixture):
+        strategy_id = str(event["strategy_id"])
+        payload = event["payload"]
+        if strategy_id == "NQDTC_v2.1":
+            await _drive_nqdtc_r1b_raw_event(engines[strategy_id], payload)
+        else:
+            await engines[strategy_id].on_bar(
+                nq_bar_data(payload),
+                daily_context=nq_daily_context(fixture),
+                live_context=nq_live_context(fixture),
+                scheduled_news=[],
+            )
+        await _settle_callbacks()
+
+
+async def _drive_nqdtc_r1b_raw_event(engine: Any, market_input: Mapping[str, Any]) -> None:
+    from strategies.momentum.nqdtc.models import Direction, Regime4H, Session
+
+    raw_bars = bar_objects(market_input.get("bars", []))
+    bars_15m = bar_objects(market_input.get("bars_15m", []))
+    bars_daily = bar_objects(market_input.get("bars_daily", []))
+    state_input = market_input.get("decision_state", {}) or {}
+    session = Session[str(state_input.get("session", "RTH")).upper()]
+    session_state = engine._engines[session]
+
+    engine._symbol = str(market_input.get("symbol", engine._symbol))
+    engine._bars_5m = engine._bars_to_arrays(raw_bars)
+    engine._bars_15m = engine._bars_to_arrays(bars_15m or raw_bars)
+    if bars_daily:
+        engine._bars_daily = engine._bars_to_arrays(bars_daily)
+    else:
+        engine._bars_daily = {"ema50": np.array([]), "atr14": np.array([])}
+    engine._last_bar_ts = market_input["timestamp"]
+    engine._bar_count_5m += len(raw_bars)
+
+    session_state.breakout.active = True
+    session_state.breakout.direction = Direction[
+        str(state_input.get("direction", "LONG")).upper()
+    ]
+    session_state.breakout.breakout_bar_high = float(
+        state_input.get("breakout_bar_high", raw_bars[-1].high)
+    )
+    session_state.breakout.breakout_bar_low = float(
+        state_input.get("breakout_bar_low", raw_bars[-1].low)
+    )
+    session_state.box.box_high = float(state_input.get("box_high", raw_bars[-1].high))
+    session_state.box.box_low = float(state_input.get("box_low", raw_bars[-1].low))
+    session_state.box.box_mid = float(
+        state_input.get(
+            "box_mid",
+            (session_state.box.box_high + session_state.box.box_low) / 2.0,
+        )
+    )
+    session_state.box.box_width = session_state.box.box_high - session_state.box.box_low
+    session_state.atr14_30m = float(state_input.get("atr14_30m", 20.0))
+    session_state.last_score = float(state_input.get("score", 3.0))
+    session_state.last_disp_metric = float(state_input.get("disp_metric", 2.0))
+    session_state.last_disp_threshold = float(state_input.get("disp_threshold", 1.0))
+    session_state.disp_hist.data = [
+        float(value) for value in state_input.get("disp_history", [1.0] * 12)
+    ]
+    vwap = float(state_input.get("vwap", raw_bars[-1].close))
+    session_state.vwap_session.cum_tpv = vwap
+    session_state.vwap_session.cum_vol = 1.0
+    engine._regime.regime_4h = Regime4H[
+        str(state_input.get("regime_4h", "TRANSITIONAL")).upper()
+    ]
+    engine._regime.trend_dir_4h = Direction[
+        str(state_input.get("trend_dir_4h", "FLAT")).upper()
+    ]
+
+    await engine._evaluate_entries(session_state, session, market_input["timestamp"])
+
+
 instantiate_live_engines = _instantiate_live_engines
 start_engines = _start_engines
 hydrate_live_state = _hydrate_live_state
 compact_engine_state = _compact_engine_state
 compact_overlay_state = _compact_overlay_state
+drive_momentum_r1b_timeline = drive_momentum_r1b_raw_timeline

@@ -15,6 +15,7 @@ from tests.integration.parity.live_family import (
 from tests.integration.parity.live_idle import drive_idle_market_children
 from tests.integration.parity.live_layer2 import (
     drive_layer2_live_inputs,
+    drive_momentum_r1b_timeline,
     hydrate_live_state as _hydrate_live_state,
     instantiate_live_engines as _instantiate_live_engines,
     start_engines as _start_engines,
@@ -90,8 +91,15 @@ async def _run_live_trace(
                 await _start_engines(engines)
                 await _hydrate_repositories(fixture, repos, instruments)
             await _hydrate_live_state(fixture, engines)
-            await drive_layer2_live_inputs(fixture, engines)
-            await drive_idle_market_children(fixture, engines)
+            if (
+                ((fixture.get("artifacts", {}) or {}).get("nqdtc", {}) or {}).get(
+                    "r1b_market_input"
+                )
+            ):
+                await drive_momentum_r1b_timeline(fixture, engines)
+            else:
+                await drive_layer2_live_inputs(fixture, engines)
+                await drive_idle_market_children(fixture, engines)
             await drive_overlay_rebalance(fixture, coordinator)
             await _settle_callbacks()
 

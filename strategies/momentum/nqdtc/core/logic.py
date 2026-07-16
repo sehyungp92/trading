@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from copy import deepcopy
+from dataclasses import replace
 from datetime import datetime, timezone
 
 from strategies.core.actions import (
@@ -10,6 +11,7 @@ from strategies.core.actions import (
     ReplaceProtectiveStop,
     SubmitEntry,
     SubmitExit,
+    SubmitProtectiveStop,
 )
 from strategies.core.events import DecisionEvent
 from strategies.core.idle_market import idle_market_details
@@ -17,6 +19,7 @@ from strategies.momentum.nqdtc.models import PositionState, WorkingOrder
 
 from .state import (
     NQDTCCoreState,
+    NQDTCAuthorization,
     NQDTCEntryRequest,
     NQDTCFill,
     NQDTCOrderUpdate,
@@ -47,6 +50,7 @@ def on_bar(
     idle_market_bars: Sequence[object] | None = None,
     idle_market_symbol: str = "",
     idle_market_timeframe: str = "5m",
+    authorization_required: bool = False,
 ) -> tuple[
     NQDTCCoreState,
     list[SubmitEntry | ReplaceProtectiveStop | CancelAction | FlattenPosition],
@@ -64,26 +68,9 @@ def on_bar(
 
     if entry_request is not None:
         next_state.symbol = entry_request.symbol or next_state.symbol
-        actions.append(
-            SubmitEntry(
-                client_order_id=entry_request.client_order_id,
-                symbol=entry_request.symbol,
-                side="BUY" if entry_request.direction.value > 0 else "SELL",
-                qty=entry_request.qty,
-                order_type=entry_request.order_type,
-                tif=entry_request.tif,
-                price=entry_request.price,
-                limit_price=entry_request.limit_price,
-                stop_price=entry_request.stop_price,
-                metadata={
-                    "role": "entry",
-                    "subtype": entry_request.subtype.value,
-                    "oca_group": entry_request.oca_group,
-                    "quality_mult": entry_request.quality_mult,
-                    "stop_for_risk": entry_request.stop_for_risk,
-                },
-            )
-        )
+        if authorization_required:
+            next_state.pending_entries[entry_request.client_order_id] = entry_request
+        actions.append(_entry_action(entry_request))
         events.append(
             DecisionEvent(
                 code="ENTRY_REQUESTED",
@@ -201,6 +188,59 @@ def on_bar(
     return next_state, actions, events
 
 
+def on_authorization(
+    state: NQDTCCoreState,
+    authorization: NQDTCAuthorization,
+) -> tuple[NQDTCCoreState, list[SubmitEntry], list[DecisionEvent]]:
+    """Apply family portfolio feedback before an entry becomes working."""
+
+    next_state = deepcopy(state)
+    request = next_state.pending_entries.get(authorization.client_order_id)
+    if request is None:
+        return next_state, [], []
+
+    symbol = authorization.symbol or request.symbol or next_state.symbol
+    approved_qty = min(
+        max(int(authorization.approved_qty), 0),
+        max(int(authorization.requested_qty), 0),
+    )
+    if not authorization.approved or approved_qty <= 0:
+        next_state.pending_entries.pop(authorization.client_order_id, None)
+        events = [
+            DecisionEvent(
+                code="ENTRY_DENIED",
+                ts=authorization.timestamp,
+                symbol=symbol,
+                timeframe="5m",
+                details={
+                    "client_order_id": authorization.client_order_id,
+                    "requested_qty": authorization.requested_qty,
+                    "reason": authorization.denial_reason,
+                },
+            )
+        ]
+        _update_last_decision(next_state, events)
+        return next_state, [], events
+
+    authorized_request = replace(request, qty=approved_qty)
+    next_state.pending_entries[authorization.client_order_id] = authorized_request
+    events = [
+        DecisionEvent(
+            code="ENTRY_AUTHORIZED",
+            ts=authorization.timestamp,
+            symbol=symbol,
+            timeframe="5m",
+            details={
+                "client_order_id": authorization.client_order_id,
+                "requested_qty": authorization.requested_qty,
+                "approved_qty": approved_qty,
+            },
+        )
+    ]
+    _update_last_decision(next_state, events)
+    return next_state, [_entry_action(authorized_request)], events
+
+
 def on_order_update(
     state: NQDTCCoreState,
     update: NQDTCOrderUpdate,
@@ -213,6 +253,7 @@ def on_order_update(
 
     if update.accepted_entry is not None and status in _ACK_STATUSES:
         accepted = update.accepted_entry
+        next_state.pending_entries.pop(accepted.client_order_id, None)
         next_state.symbol = accepted.symbol or next_state.symbol
         next_state.working_orders.append(
             WorkingOrder(
@@ -247,7 +288,7 @@ def on_order_update(
                 ts=event_ts,
                 symbol=next_state.position.symbol,
                 timeframe="5m",
-                details={"stop_oms_order_id": update.oms_order_id},
+                details={"role": "protective_stop"},
             )
         )
     elif status in _TERMINAL_STATUSES:
@@ -273,9 +314,13 @@ def on_order_update(
 def on_fill(
     state: NQDTCCoreState,
     fill: NQDTCFill,
-) -> tuple[NQDTCCoreState, list[SubmitExit], list[DecisionEvent]]:
+) -> tuple[
+    NQDTCCoreState,
+    list[SubmitExit | SubmitProtectiveStop],
+    list[DecisionEvent],
+]:
     next_state = deepcopy(state)
-    actions: list[SubmitExit] = []
+    actions: list[SubmitExit | SubmitProtectiveStop] = []
     events: list[DecisionEvent] = []
     event_ts = fill.fill_time or datetime.now(timezone.utc)
 
@@ -315,13 +360,14 @@ def on_fill(
             tp1_only_cap=fill.entry_context.tp1_only_cap,
         )
         actions.append(
-            SubmitExit(
-                client_order_id=f"{fill.oms_order_id}:protective_stop",
+            SubmitProtectiveStop(
+                client_order_id=(
+                    f"{next_state.position.symbol}:{matched_order.subtype.value}:"
+                    f"{matched_order.submitted_bar_idx}:protective_stop"
+                ),
                 symbol=next_state.position.symbol,
                 side="SELL" if matched_order.direction.value > 0 else "BUY",
                 qty=qty,
-                order_type="STOP",
-                tif="GTC",
                 stop_price=matched_order.stop_for_risk,
                 metadata={"role": "protective_stop", "entry_oms_order_id": fill.oms_order_id},
             )
@@ -361,3 +407,34 @@ def _update_last_decision(state: NQDTCCoreState, events: list[DecisionEvent]) ->
     state.last_decision_code = latest.code
     state.last_decision_details = dict(latest.details)
     state.last_bar_ts = latest.ts
+
+
+def _entry_action(entry_request: NQDTCEntryRequest) -> SubmitEntry:
+    planned_entry_price = (
+        entry_request.price
+        or entry_request.limit_price
+        or entry_request.stop_price
+        or 0.0
+    )
+    return SubmitEntry(
+        client_order_id=entry_request.client_order_id,
+        symbol=entry_request.symbol,
+        side="BUY" if entry_request.direction.value > 0 else "SELL",
+        qty=entry_request.qty,
+        order_type=entry_request.order_type,
+        tif=entry_request.tif,
+        price=entry_request.price,
+        limit_price=entry_request.limit_price,
+        stop_price=entry_request.stop_price,
+        risk_context={
+            "planned_entry_price": planned_entry_price,
+            "stop_for_risk": entry_request.stop_for_risk,
+        },
+        metadata={
+            "role": "entry",
+            "subtype": entry_request.subtype.value,
+            "oca_group": entry_request.oca_group,
+            "quality_mult": entry_request.quality_mult,
+            "stop_for_risk": entry_request.stop_for_risk,
+        },
+    )

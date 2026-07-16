@@ -3,8 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from backtests.momentum.config import SlippageConfig
+
+if TYPE_CHECKING:
+    from libs.oms.risk.portfolio_rules import PortfolioRulesConfig
 
 
 @dataclass
@@ -33,6 +37,8 @@ class NqRegimeBacktestConfig:
     bar_timestamp_mode: str = "start"
     track_decisions: bool = True
     track_trades: bool = True
+    causal_authorization: bool = False
+    portfolio_rules: "PortfolioRulesConfig | None" = None
 
     def __post_init__(self) -> None:
         self.analysis_symbol = self.analysis_symbol.upper()

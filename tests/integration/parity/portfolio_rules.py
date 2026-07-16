@@ -101,6 +101,10 @@ def _momentum_rules(
         fit_to_remaining_directional_cap=bool(payload.get("fit_to_remaining_directional_cap", True)),
         fit_to_remaining_family_cap=bool(payload.get("fit_to_remaining_family_cap", True)),
         dd_tiers=_tuple_tuple_float(payload.get("dd_tiers", ((0.10, 1.00), (0.15, 0.60), (0.20, 0.30), (1.00, 0.00)))),
+        regime_unit_risk_mult=float(payload.get("regime_unit_risk_mult", 1.0)),
+        regime_unit_risk_long_mult=float(payload.get("regime_unit_risk_long_mult", 1.0)),
+        regime_unit_risk_short_mult=float(payload.get("regime_unit_risk_short_mult", 1.0)),
+        disabled_strategies=frozenset(str(item) for item in payload.get("disabled_strategies", ())),
     )
 
 

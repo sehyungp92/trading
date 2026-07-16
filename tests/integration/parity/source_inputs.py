@@ -70,6 +70,67 @@ def idle_market_input(fixture: Mapping[str, Any], strategy_id: str) -> dict[str,
     }
 
 
+def nqdtc_r1b_market_input(fixture: Mapping[str, Any]) -> dict[str, Any]:
+    """Materialize the bounded NQDTC raw-bar decision input for R1B."""
+
+    raw = ((fixture.get("artifacts", {}) or {}).get("nqdtc", {}) or {}).get(
+        "r1b_market_input",
+        {},
+    )
+    if not isinstance(raw, Mapping) or not raw:
+        raise AssertionError("R1B NQDTC fixture is missing artifacts.nqdtc.r1b_market_input")
+    bars = _sort_bar_rows(raw.get("bars", []) or [])
+    if not bars:
+        raise AssertionError("R1B NQDTC market input must include raw 5m bars")
+    return {
+        "symbol": str(raw.get("symbol", "NQ")),
+        "timestamp": parse_time(raw.get("timestamp") or bars[-1].get("timestamp")),
+        "bars": bars,
+        "bars_15m": _sort_bar_rows(raw.get("bars_15m", []) or []),
+        "bars_daily": _sort_bar_rows(raw.get("bars_daily", []) or []),
+        "decision_state": dict(raw.get("decision_state", {}) or {}),
+    }
+
+
+def momentum_r1b_raw_timeline(fixture: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Materialize the bounded two-child timestamp/priority input once."""
+
+    priorities = {
+        str(item.get("id")): int(item.get("priority", 99))
+        for item in (fixture.get("family_config", {}) or {}).get("strategies", [])
+    }
+    nqdtc_input = nqdtc_r1b_market_input(fixture)
+    events = [
+        {
+            "timestamp": nqdtc_input["timestamp"],
+            "priority": priorities.get("NQDTC_v2.1", 99),
+            "strategy_id": "NQDTC_v2.1",
+            "payload": nqdtc_input,
+        }
+    ]
+    for row in source_bars(fixture, "NQ", "5m") or source_bars(
+        fixture,
+        "MNQ",
+        "5m",
+    ):
+        events.append(
+            {
+                "timestamp": parse_time(row.get("timestamp") or row.get("time")),
+                "priority": priorities.get("NQ_REGIME", 99),
+                "strategy_id": "NQ_REGIME",
+                "payload": row,
+            }
+        )
+    return sorted(
+        events,
+        key=lambda event: (
+            event["timestamp"],
+            event["priority"],
+            event["strategy_id"],
+        ),
+    )
+
+
 def _idle_bars_by_timeframe(
     fixture: Mapping[str, Any],
     raw: Mapping[str, Any],

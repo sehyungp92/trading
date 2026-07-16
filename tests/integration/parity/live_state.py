@@ -71,7 +71,9 @@ async def _state_from_repos(
             strategy_risk[sid] = _plain_dataclass(state)
         prs = getattr(service, "_portfolio_risk_state", None)
         if prs is not None:
-            portfolio_risk.append(_plain_dataclass(prs))
+            plain = _plain_dataclass(prs)
+            if plain not in portfolio_risk:
+                portfolio_risk.append(plain)
     strategy_state = {
         strategy_id: compact_engine_state(engine, strategy_id)
         for strategy_id, engine in sorted(engines.items())
@@ -80,12 +82,16 @@ async def _state_from_repos(
     overlay_state = compact_overlay_state(engines.get("OVERLAY"))
     coordinator_class = type(coordinator).__name__ if coordinator is not None else ""
     blocked_reasons = blocked_reasons_from_repo_events(repos, orders)
+    portfolio_rules = []
+    for rule_state in portfolio_rules_state(oms_services):
+        if rule_state not in portfolio_rules:
+            portfolio_rules.append(rule_state)
     return {
         "orders": orders,
         "positions": positions,
         "strategy_risk": strategy_risk,
         "portfolio_risk": portfolio_risk,
-        "portfolio_rules": portfolio_rules_state(oms_services),
+        "portfolio_rules": portfolio_rules,
         "blocked_reasons": blocked_reasons,
         "strategy_state": strategy_state,
         "family_state": build_family_state(
@@ -95,7 +101,7 @@ async def _state_from_repos(
             positions=positions,
             strategy_risk=strategy_risk,
             portfolio_risk=portfolio_risk,
-            portfolio_rules=portfolio_rules_state(oms_services),
+            portfolio_rules=portfolio_rules,
             strategy_state=strategy_state,
             overlay_state=overlay_state,
             surface_adapter=family_surface_adapter_name(fixture),
