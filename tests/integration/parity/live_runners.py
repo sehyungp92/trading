@@ -96,14 +96,53 @@ async def _run_live_trace(
                     "r1b_market_input"
                 )
             ):
-                await drive_momentum_r1b_timeline(fixture, engines)
+                phased_events = [
+                    event
+                    for event in fixture.get("broker_event_script", [])
+                    if event.get("apply_after")
+                ]
+                applied_phases: set[str] = set()
+
+                async def _apply_r1b_feedback(event: Mapping[str, Any]) -> None:
+                    timeline_id = str(event.get("timeline_id", ""))
+                    if not timeline_id or timeline_id in applied_phases:
+                        return
+                    matching = [
+                        spec
+                        for spec in phased_events
+                        if str(spec.get("apply_after", "")) == timeline_id
+                    ]
+                    for spec in matching:
+                        await _apply_broker_script_to_repos(
+                            fixture,
+                            adapters,
+                            repos,
+                            event_specs=[spec],
+                        )
+                        await _settle_callbacks()
+                    applied_phases.add(timeline_id)
+
+                await drive_momentum_r1b_timeline(
+                    fixture,
+                    engines,
+                    after_event=_apply_r1b_feedback,
+                )
             else:
                 await drive_layer2_live_inputs(fixture, engines)
                 await drive_idle_market_children(fixture, engines)
             await drive_overlay_rebalance(fixture, coordinator)
             await _settle_callbacks()
 
-            await _apply_broker_script_to_repos(fixture, adapters, repos)
+            await _apply_broker_script_to_repos(
+                fixture,
+                adapters,
+                repos,
+                event_specs=[
+                    event
+                    for event in fixture.get("broker_event_script", [])
+                    if not event.get("apply_after")
+                ],
+            )
             await _settle_callbacks()
 
             raw_events = [event for queue in event_queues for event in _drain_queue(queue)]

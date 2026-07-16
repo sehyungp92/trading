@@ -29,6 +29,11 @@ from tests.integration.parity.source_inputs import (
 )
 
 
+def _event_in_timeline_phase(event: Mapping[str, Any], timeline_id: str) -> bool:
+    phase = str(event.get("apply_after", ""))
+    return not phase or phase == timeline_id
+
+
 def _replay_tpc(fixture: Mapping[str, Any], out: ReplayDecisionTimeline) -> None:
     from strategies.swing.tpc.core import logic
     from strategies.swing.tpc.core.serializers import restore_state, snapshot_state
@@ -60,6 +65,7 @@ def _replay_nq_regime(
     causal_authorization: bool = False,
     portfolio_authorizer=None,
     market_rows: Sequence[Mapping[str, Any]] | None = None,
+    timeline_id: str = "",
 ) -> None:
     from libs.oms.risk.portfolio_rules import (
         PortfolioRulesConfig,
@@ -220,12 +226,16 @@ def _replay_nq_regime(
     for event in fixture.get("broker_event_script", []):
         if str((event.get("order_match", {}) or {}).get("strategy_id")) != "NQ_REGIME":
             continue
+        if not _event_in_timeline_phase(event, timeline_id):
+            continue
         key = _broker_event_key(event)
         if key in out._applied:
             continue
         order = out._match_order(event.get("order_match", {}))
         if order is None:
             continue
+        if hasattr(portfolio_authorizer, "apply_broker_event"):
+            portfolio_authorizer.apply_broker_event(out, event)
         out.note_broker_event(order, event)
         out._applied.add(key)
         fill = FillEvent(
@@ -235,7 +245,10 @@ def _replay_nq_regime(
             fill_time=parse_time(event.get("timestamp")),
             symbol=str(order["symbol"]),
             commission=float(event.get("commission", 0.0)),
-            order_role="entry",
+            order_role=str(
+                getattr(order.get("_action"), "role", "")
+                or order.get("role", "entry")
+            ).lower(),
         )
         state, actions, _events = on_fill(state, fill, settings=settings)
         out.record_actions("NQ_REGIME", actions)
@@ -482,6 +495,8 @@ def _replay_nqdtc_r1b(
         order = out._match_order(match)
         if order is None:
             continue
+        if hasattr(portfolio_authorizer, "apply_broker_event"):
+            portfolio_authorizer.apply_broker_event(out, event)
         out.note_broker_event(order, event)
         out._applied.add(key)
         request = accepted_requests[str(order["client_tag"])]
@@ -728,6 +743,8 @@ def _replay_vdub_r1b(
         if order is None:
             continue
         key = _broker_event_key(event)
+        if hasattr(portfolio_authorizer, "apply_broker_event"):
+            portfolio_authorizer.apply_broker_event(out, event)
         out.note_broker_event(order, event)
         out._applied.add(key)
         working = core_state.working_entries[str(order["client_tag"])]
@@ -762,10 +779,13 @@ def _replay_downturn_r1b(
     out: ReplayDecisionTimeline,
     *,
     portfolio_authorizer,
-) -> None:
+    market_input: Mapping[str, Any] | None = None,
+    core_state=None,
+    timeline_id: str = "",
+):
     """Replay raw Downturn input through its strategy-owned causal core."""
 
-    from strategies.core.actions import SubmitEntry
+    from strategies.core.actions import SubmitEntry, SubmitExit, SubmitProtectiveStop
     from strategies.momentum.downturn import config as C
     from strategies.momentum.downturn.core.entry_decision import (
         DownturnProposalPolicy,
@@ -777,11 +797,13 @@ def _replay_downturn_r1b(
     from strategies.momentum.downturn.core.logic import (
         on_authorization,
         on_bar,
+        on_fill,
         on_order_update,
     )
     from strategies.momentum.downturn.core.serializers import restore_state, snapshot_state
     from strategies.momentum.downturn.core.state import (
         DownturnAuthorization,
+        DownturnFill,
         DownturnOrderUpdate,
     )
     from strategies.momentum.downturn.models import (
@@ -790,10 +812,24 @@ def _replay_downturn_r1b(
         VolState,
     )
 
-    market_input = downturn_r1b_market_input(fixture)
+    market_input = dict(market_input or downturn_r1b_market_input(fixture))
     state_input = market_input["decision_state"]
     rows_5m = market_input["bars_5m"]
     rows_15m = market_input["bars_15m"]
+    if core_state is None:
+        initial = (fixture.get("initial_strategy_state", {}) or {}).get(
+            "DownturnDominator_v1", {}
+        ) or {}
+        core_state = restore_state(initial.get("core", initial))
+    elapsed_bars = max(
+        1,
+        int(state_input.get("elapsed_5m_bars", len(rows_5m)) or len(rows_5m)),
+    )
+    core_state.bar_count_5m += elapsed_bars
+    if "bars_since_last_entry" in state_input:
+        core_state.bars_since_last_entry = int(state_input["bars_since_last_entry"])
+    else:
+        core_state.bars_since_last_entry += elapsed_bars
     closes_15m = np.asarray([float(row["close"]) for row in rows_15m])
     highs_15m = np.asarray([float(row["high"]) for row in rows_15m])
     fade_state = FadeState(vwap_used=float(state_input.get("vwap", 0.0)))
@@ -812,20 +848,30 @@ def _replay_downturn_r1b(
         atr_15m=float(state_input.get("atr_15m", 0.0)),
         session_type=str(state_input.get("session_type", "core")),
         ema_fast_15m=float(state_input.get("ema_fast_15m", closes_15m[-1])),
-        bars_since_last_entry=int(state_input.get("bars_since_last_entry", 999)),
+        bars_since_last_entry=core_state.bars_since_last_entry,
         flags=C.R7C_FLAGS,
         param_overrides=C.R7C_PARAM_OVERRIDES,
         evaluate_fade=C.R7C_FLAGS.fade_engine,
         evaluate_momentum=C.R7C_FLAGS.momentum_signal,
     )
     if selection is None:
+        if state_input.get("allow_no_signal"):
+            _store_downturn_r1b_state(
+                out,
+                core_state,
+                snapshot_state,
+                last_bar_ts=market_input["timestamp"],
+            )
+            return core_state
         raise AssertionError("bounded Downturn raw input did not reach a shared signal")
     spec = C.NQ_SPECS.get(market_input["symbol"], C.NQ_SPECS["MNQ"])
     bar_ts = market_input["timestamp"]
-    bar_idx = len(rows_5m)
+    bar_idx = core_state.bar_count_5m
     proposal, reason = build_entry_proposal(
         selection=selection,
-        client_order_id=f"{C.STRATEGY_ID}:fade:{bar_idx}:0",
+        client_order_id=(
+            f"{C.STRATEGY_ID}:fade:{bar_idx}:{len(core_state.working_entries)}"
+        ),
         symbol=market_input["symbol"],
         bar_idx=bar_idx,
         bar_ts=bar_ts,
@@ -855,11 +901,6 @@ def _replay_downturn_r1b(
     if proposal is None:
         raise AssertionError(f"bounded Downturn proposal was rejected: {reason}")
 
-    initial = (fixture.get("initial_strategy_state", {}) or {}).get(
-        "DownturnDominator_v1", {}
-    ) or {}
-    core_state = restore_state(initial.get("core", initial))
-    core_state.bar_count_5m += len(rows_5m)
     core_state, proposal_actions, _events = on_bar(
         core_state,
         bar_count_5m=core_state.bar_count_5m,
@@ -867,6 +908,12 @@ def _replay_downturn_r1b(
         entry_proposal=proposal,
     )
     action = next(item for item in proposal_actions if isinstance(item, SubmitEntry))
+    entry_sequence = 1 + sum(
+        1
+        for order in out.orders
+        if str(order.get("strategy_id")) == "DownturnDominator_v1"
+        and str(order.get("role", "")).upper() == "ENTRY"
+    )
     authorization = portfolio_authorizer(
         "DownturnDominator_v1", action, timestamp=bar_ts
     )
@@ -899,8 +946,11 @@ def _replay_downturn_r1b(
         "status": status,
         "reason": strategy_reason,
         "family_surface": str(authorization.get("family_surface", "")),
-        "candidate_key": f"DownturnDominator_v1|{action.symbol}|ENTRY|{action.side}|1",
-        "sequence": 1,
+        "candidate_key": (
+            f"DownturnDominator_v1|{action.symbol}|ENTRY|"
+            f"{action.side}|{entry_sequence}"
+        ),
+        "sequence": entry_sequence,
         "original_qty": proposal.qty,
         "approved_qty": approved_qty,
         "order_match": {
@@ -908,7 +958,7 @@ def _replay_downturn_r1b(
             "symbol": action.symbol,
             "role": "ENTRY",
             "side": action.side,
-            "sequence": 1,
+            "sequence": entry_sequence,
         },
     }
     if submissions:
@@ -931,10 +981,102 @@ def _replay_downturn_r1b(
             "DownturnDominator_v1", action, family_decision
         )
 
+    for event in fixture.get("broker_event_script", []) or []:
+        match = event.get("order_match", {}) or {}
+        if str(match.get("strategy_id")) != "DownturnDominator_v1":
+            continue
+        if not _event_in_timeline_phase(event, timeline_id):
+            continue
+        key = _broker_event_key(event)
+        if key in out._applied:
+            continue
+        order = out._match_order(match)
+        if order is None:
+            continue
+        if hasattr(portfolio_authorizer, "apply_broker_event"):
+            portfolio_authorizer.apply_broker_event(out, event)
+        out.note_broker_event(order, event)
+        out._applied.add(key)
+        event_type = str(event.get("event", "fill")).lower()
+        role = str(order.get("role", "")).upper()
+        event_ts = parse_time(event.get("timestamp"))
+        if event_type == "fill":
+            core_state, fill_actions, _events = on_fill(
+                core_state,
+                DownturnFill(
+                    oms_order_id=str(order["client_tag"]),
+                    fill_price=float(
+                        event.get(
+                            "price",
+                            order.get("limit_price") or order.get("stop_price") or 0.0,
+                        )
+                    ),
+                    fill_qty=int(float(event.get("qty", order["qty"]))),
+                    commission=float(event.get("commission", 0.0)),
+                    fill_time=event_ts,
+                    exit_type=(role.lower() if role != "ENTRY" else None),
+                ),
+            )
+            if role == "ENTRY":
+                protective_actions = [
+                    SubmitProtectiveStop(
+                        client_order_id="",
+                        symbol=item.symbol,
+                        side=item.side,
+                        qty=item.qty,
+                        stop_price=float(item.stop_price or 0.0),
+                        tif=item.tif,
+                    )
+                    for item in fill_actions
+                    if isinstance(item, SubmitExit)
+                ]
+                out.record_actions("DownturnDominator_v1", protective_actions)
+                if protective_actions:
+                    core_state, _, _events = on_order_update(
+                        core_state,
+                        DownturnOrderUpdate(
+                            oms_order_id="",
+                            status="accepted",
+                            timestamp=event_ts,
+                            order_role="stop",
+                        ),
+                    )
+        elif event_type in {"reject", "status"}:
+            terminal_status = (
+                "rejected"
+                if event_type == "reject"
+                else str(event.get("status", ""))
+            )
+            core_state, _, _events = on_order_update(
+                core_state,
+                DownturnOrderUpdate(
+                    oms_order_id=str(order["client_tag"]),
+                    status=terminal_status,
+                    timestamp=event_ts,
+                    order_role="entry" if role == "ENTRY" else "unknown",
+                ),
+            )
+
+    _store_downturn_r1b_state(
+        out,
+        core_state,
+        snapshot_state,
+        last_bar_ts=market_input["timestamp"],
+    )
+    return core_state
+
+
+def _store_downturn_r1b_state(
+    out,
+    core_state,
+    snapshot_state,
+    *,
+    last_bar_ts=None,
+) -> None:
     snapshot = snapshot_state(core_state)
     out.strategy_state["DownturnDominator_v1"] = {
         "strategy_id": "DownturnDominator_v1",
-        "last_bar_ts": snapshot.get("last_bar_ts"),
+        "last_bar_ts": last_bar_ts or snapshot.get("last_bar_ts"),
         "last_decision_code": snapshot.get("last_decision_code", "IDLE"),
         "last_decision_details": snapshot.get("last_decision_details", {}),
         "bar_count_5m": int(snapshot.get("bar_count_5m", 0) or 0),

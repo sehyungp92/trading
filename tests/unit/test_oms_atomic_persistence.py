@@ -1363,6 +1363,7 @@ async def test_fill_processor_accepts_status_first_terminal_state_without_warnin
 
 @pytest.mark.asyncio
 async def test_single_oms_callbacks_serialize_status_ack_then_fill(caplog) -> None:
+    callback_time = datetime(2026, 5, 20, 14, 15, tzinfo=timezone.utc)
     repo = _DelayedWorkingSaveRepository()
     order = _entry_order("QQQ")
     order.status = OrderStatus.ROUTED
@@ -1385,6 +1386,7 @@ async def test_single_oms_callbacks_serialize_status_ack_then_fill(caplog) -> No
         portfolio_risk_state=PortfolioRiskState(trade_date=date.today()),
         unit_risk_dollars=100.0,
         open_positions={},
+        event_clock=lambda: callback_time,
     )
 
     adapter.on_status(order.oms_order_id, "Submitted", order.qty)
@@ -1404,7 +1406,7 @@ async def test_single_oms_callbacks_serialize_status_ack_then_fill(caplog) -> No
 
     assert updated.filled_qty == order.qty
     assert updated.remaining_qty == 0
-    assert updated.acked_at is not None
+    assert updated.acked_at == callback_time
     assert updated.broker_order_ref is not None
     assert repo.saved_statuses[0] == OrderStatus.WORKING
     assert repo.saved_statuses[-1] == OrderStatus.FILLED
@@ -1414,6 +1416,7 @@ async def test_single_oms_callbacks_serialize_status_ack_then_fill(caplog) -> No
 
 @pytest.mark.asyncio
 async def test_multi_oms_callbacks_serialize_status_ack_then_fill(caplog) -> None:
+    callback_time = datetime(2026, 5, 20, 14, 15, tzinfo=timezone.utc)
     repo = _DelayedWorkingSaveRepository()
     order = _entry_order("GLD")
     order.status = OrderStatus.ROUTED
@@ -1439,6 +1442,7 @@ async def test_multi_oms_callbacks_serialize_status_ack_then_fill(caplog) -> Non
         open_positions={},
         coordinator=coordinator,
         portfolio_urd=100.0,
+        event_clock=lambda: callback_time,
     )
 
     adapter.on_status(order.oms_order_id, "Submitted", order.qty)
@@ -1458,7 +1462,7 @@ async def test_multi_oms_callbacks_serialize_status_ack_then_fill(caplog) -> Non
 
     assert updated.filled_qty == order.qty
     assert updated.remaining_qty == 0
-    assert updated.acked_at is not None
+    assert updated.acked_at == callback_time
     assert updated.broker_order_ref is not None
     assert repo.saved_statuses[0] == OrderStatus.WORKING
     assert repo.saved_statuses[-1] == OrderStatus.FILLED

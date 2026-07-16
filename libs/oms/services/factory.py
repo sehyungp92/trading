@@ -716,6 +716,8 @@ async def build_oms_service(
 
     # Event bus
     bus = EventBus(clock=event_clock)
+    def current_trade_date() -> date:
+        return _trade_date_for(event_clock() if event_clock is not None else None)
 
     # Repository: use PostgreSQL if pool provided, otherwise in-memory
     if repository is not None:
@@ -806,7 +808,7 @@ async def build_oms_service(
 
     # Risk state providers
     strategy_risk_states: dict[str, StrategyRiskState] = {}
-    portfolio_risk_state = PortfolioRiskState(trade_date=_trade_date_for())
+    portfolio_risk_state = PortfolioRiskState(trade_date=current_trade_date())
     pg_store = PgStore(db_pool) if db_pool is not None else None
     # Track open positions per (strategy, symbol) for exit P&L computation.
     open_positions: dict[tuple[str, str], dict] = {}
@@ -952,7 +954,7 @@ async def build_oms_service(
 
     async def _halt_trading(reason: str) -> None:
         halt_ts = datetime.now(timezone.utc)
-        trade_day = _trade_date_for()
+        trade_day = current_trade_date()
         portfolio_risk_state.trade_date = trade_day
         portfolio_risk_state.halted = True
         portfolio_risk_state.halt_reason = reason
@@ -971,7 +973,7 @@ async def build_oms_service(
 
     async def get_strategy_risk(sid: str) -> StrategyRiskState:
         # L1 fix: reset risk state at date boundary
-        today = _trade_date_for()
+        today = current_trade_date()
         if sid in strategy_risk_states:
             existing = strategy_risk_states[sid]
             if existing.trade_date != today:
@@ -992,7 +994,7 @@ async def build_oms_service(
 
     async def get_portfolio_risk() -> PortfolioRiskState:
         # L1 fix: reset portfolio risk state at date boundary
-        today = _trade_date_for()
+        today = current_trade_date()
         if portfolio_risk_state.trade_date != today:
             logger.info("Date boundary detected: resetting portfolio daily risk state")
             # Weekly reset on Monday (weekday 0)
@@ -1261,6 +1263,7 @@ async def build_oms_service(
         portfolio_id=getattr(oms_lineage, "portfolio_id", ""),
         allocation_targets=_allocation_targets,
         account_state_provider=account_state_provider,
+        event_clock=event_clock,
         on_position_update=_make_fill_lifecycle_writer(
             instrumentation_data_dir, _current_oms_lineage,
         ),
@@ -1296,7 +1299,7 @@ async def build_oms_service(
     if pg_store is not None or repository is not None:
         seed_state = strategy_risk_states.setdefault(
             strategy_id,
-            StrategyRiskState(strategy_id=strategy_id, trade_date=_trade_date_for()),
+            StrategyRiskState(strategy_id=strategy_id, trade_date=current_trade_date()),
         )
         await _sync_strategy_risk_from_repo(seed_state)
         seed_ts = datetime.now(timezone.utc)
@@ -1377,6 +1380,8 @@ async def build_multi_strategy_oms(
 
     # Event bus (shared)
     bus = EventBus(clock=event_clock)
+    def current_trade_date() -> date:
+        return _trade_date_for(event_clock() if event_clock is not None else None)
 
     # Repository (shared)
     if repository is not None:
@@ -1430,7 +1435,7 @@ async def build_multi_strategy_oms(
 
     # Risk state providers (shared across strategies)
     strategy_risk_states: dict[str, StrategyRiskState] = {}
-    portfolio_risk_state = PortfolioRiskState(trade_date=_trade_date_for())
+    portfolio_risk_state = PortfolioRiskState(trade_date=current_trade_date())
     # Track positions by (strategy_id, symbol) for correct multi-strategy P&L
     open_positions: dict[tuple[str, str], dict] = {}
 
@@ -1542,7 +1547,7 @@ async def build_multi_strategy_oms(
 
     async def _internal_halt_trading(reason: str) -> None:
         halt_ts = datetime.now(timezone.utc)
-        trade_day = _trade_date_for()
+        trade_day = current_trade_date()
         portfolio_risk_state.trade_date = trade_day
         portfolio_risk_state.halted = True
         portfolio_risk_state.halt_reason = reason
@@ -1559,7 +1564,7 @@ async def build_multi_strategy_oms(
     # -- Risk state accessors (DB-backed) -----------------------------------
 
     async def get_strategy_risk(sid: str) -> StrategyRiskState:
-        today = _trade_date_for()
+        today = current_trade_date()
         if sid in strategy_risk_states:
             existing = strategy_risk_states[sid]
             if existing.trade_date != today:
@@ -1579,7 +1584,7 @@ async def build_multi_strategy_oms(
         return state
 
     async def get_portfolio_risk() -> PortfolioRiskState:
-        today = _trade_date_for()
+        today = current_trade_date()
         if portfolio_risk_state.trade_date != today:
             logger.info("Date boundary detected: resetting portfolio daily risk state")
             # Monday weekly reset
@@ -1935,6 +1940,7 @@ async def build_multi_strategy_oms(
         portfolio_id=getattr(oms_lineage, "portfolio_id", ""),
         allocation_targets=_allocation_targets,
         account_state_provider=account_state_provider,
+        event_clock=event_clock,
         on_position_update=_make_fill_lifecycle_writer(
             instrumentation_data_dir, _current_oms_lineage,
         ),
@@ -1976,7 +1982,7 @@ async def build_multi_strategy_oms(
         for s in strategies:
             sid = s["id"]
             seed_state = strategy_risk_states.setdefault(
-                sid, StrategyRiskState(strategy_id=sid, trade_date=_trade_date_for()),
+                sid, StrategyRiskState(strategy_id=sid, trade_date=current_trade_date()),
             )
             await _sync_strategy_risk_from_repo(seed_state)
             if pg_store is None:
@@ -1985,7 +1991,7 @@ async def build_multi_strategy_oms(
             await _persist_strategy_risk_state(seed_state, seed_ts)
         await _sync_portfolio_open_risk_from_repo()
         if pg_store is not None:
-            await _load_portfolio_risk_from_store(_trade_date_for())
+            await _load_portfolio_risk_from_store(current_trade_date())
             await _persist_portfolio_risk_state(seed_ts)
 
     strategy_ids = [s["id"] for s in strategies]
@@ -2205,6 +2211,7 @@ def _wire_adapter_callbacks(
     portfolio_id: str = "",
     allocation_targets: Optional[dict] = None,
     account_state_provider: Optional[Callable[[], dict]] = None,
+    event_clock: Optional[Callable[[], datetime]] = None,
     on_position_update=None,
 ) -> None:
     """Wire IBKRExecutionAdapter callbacks to OMS event bus.
@@ -2214,7 +2221,9 @@ def _wire_adapter_callbacks(
     Also wires FillProcessor for OMS order state and updates risk state.
     """
     import asyncio
-    from datetime import datetime, date, timezone
+    from datetime import datetime, timezone
+
+    event_now = event_clock or (lambda: datetime.now(timezone.utc))
 
     try:
         portfolio_urd_value = float(portfolio_urd)
@@ -2316,7 +2325,7 @@ def _wire_adapter_callbacks(
         async def _emit_ack():
             order = await repo.get_order(oms_order_id)
             if order:
-                acked_at = datetime.now(timezone.utc)
+                acked_at = event_now()
                 outcome = _apply_ack_update(order, broker_ref, as_of=acked_at)
                 if outcome == "emit":
                     await repo.save_order(order)
@@ -2365,7 +2374,7 @@ def _wire_adapter_callbacks(
                                 f"failed from {order.status}"
                             )
                         else:
-                            order.last_update_at = datetime.now(timezone.utc)
+                            order.last_update_at = event_now()
                             await repo.save_order(order)
                             await router.route(order)
                             return
@@ -2375,7 +2384,7 @@ def _wire_adapter_callbacks(
             # Terminal rejection
             if transition(order, OrderStatus.REJECTED):
                 order.reject_reason = reason
-                order.last_update_at = datetime.now(timezone.utc)
+                order.last_update_at = event_now()
                 await repo.save_order(order)
                 bus.emit_order_event(order)
                 logger.warning(f"Adapter reject emitted: {oms_order_id} for {order.strategy_id} - {reason}")
@@ -2408,7 +2417,7 @@ def _wire_adapter_callbacks(
                 return False
 
             # 1. Update OMS order state (filled_qty, status, avg_fill_price)
-            fill_ts = timestamp if isinstance(timestamp, datetime) else datetime.now(timezone.utc)
+            fill_ts = timestamp if isinstance(timestamp, datetime) else event_now()
             inserted = await fill_proc.process_fill(oms_order_id, exec_id, price, qty, fill_ts, commission)
 
             # OMS-2: All downstream side effects (risk/equity/position updates,
@@ -2652,7 +2661,7 @@ def _wire_adapter_callbacks(
                     order,
                     status=status,
                     remaining=remaining,
-                    as_of=datetime.now(timezone.utc),
+                    as_of=event_now(),
                 )
                 if outcome == "emit":
                     await repo.save_order(order)
@@ -2694,6 +2703,7 @@ def _wire_adapter_callbacks_multi(
     portfolio_id: str = "",
     allocation_targets: Optional[dict] = None,
     account_state_provider: Optional[Callable[[], dict]] = None,
+    event_clock: Optional[Callable[[], datetime]] = None,
     on_position_update=None,
 ) -> None:
     """Wire IBKRExecutionAdapter callbacks for multi-strategy OMS.
@@ -2705,6 +2715,8 @@ def _wire_adapter_callbacks_multi(
     """
     import asyncio
     from datetime import datetime, timezone
+
+    event_now = event_clock or (lambda: datetime.now(timezone.utc))
 
     dispatch_order_callback = _make_order_callback_dispatcher(bus)
 
@@ -2795,7 +2807,7 @@ def _wire_adapter_callbacks_multi(
                 outcome = _apply_ack_update(
                     order,
                     broker_ref,
-                    as_of=datetime.now(timezone.utc),
+                    as_of=event_now(),
                 )
                 if outcome == "emit":
                     await repo.save_order(order)
@@ -2837,7 +2849,7 @@ def _wire_adapter_callbacks_multi(
                                 f"failed from {order.status}"
                             )
                         else:
-                            order.last_update_at = datetime.now(timezone.utc)
+                            order.last_update_at = event_now()
                             await repo.save_order(order)
                             await router.route(order)
                             return
@@ -2846,7 +2858,7 @@ def _wire_adapter_callbacks_multi(
 
             if transition(order, OrderStatus.REJECTED):
                 order.reject_reason = reason
-                order.last_update_at = datetime.now(timezone.utc)
+                order.last_update_at = event_now()
                 await repo.save_order(order)
                 bus.emit_order_event(order)
 
@@ -2870,7 +2882,7 @@ def _wire_adapter_callbacks_multi(
                 logger.warning(f"Adapter fill for unknown order: {oms_order_id}")
                 return False
 
-            fill_ts = timestamp if isinstance(timestamp, datetime) else datetime.now(timezone.utc)
+            fill_ts = timestamp if isinstance(timestamp, datetime) else event_now()
             inserted = await fill_proc.process_fill(oms_order_id, exec_id, price, qty, fill_ts, commission)
 
             # OMS-2: Same dedupe gate as the single-strategy callback above.
@@ -3105,7 +3117,7 @@ def _wire_adapter_callbacks_multi(
                     order,
                     status=status,
                     remaining=remaining,
-                    as_of=datetime.now(timezone.utc),
+                    as_of=event_now(),
                 )
                 if outcome == "emit":
                     await repo.save_order(order)

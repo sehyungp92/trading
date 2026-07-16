@@ -178,6 +178,7 @@ async def _build_family_oms(
 ) -> Any:
     family_cfg = fixture.get("family_config", {}) or {}
     account = fixture.get("account_state", {}) or {}
+    equity_ref = [float(account.get("equity", 100_000.0))]
     portfolio_rules = portfolio_rules_config_from_fixture(fixture)
     oms, _coordinator = await build_multi_strategy_oms(
         adapter=adapter,
@@ -203,7 +204,8 @@ async def _build_family_oms(
         db_pool=None,
         repository=repository,
         family_id=str(family_cfg.get("family", fixture.get("family", "unknown"))),
-        get_current_equity=lambda: float(account.get("equity", 100_000.0)),
+        get_current_equity=lambda: equity_ref[0],
+        live_equity=equity_ref,
         recon_interval_s=3600.0,
         instrumentation_data_dir=instrumentation_dir,
         event_clock=event_clock,
@@ -267,12 +269,20 @@ async def _submit_action(
 
 
 async def _submit_control_action(oms: Any, strategy_id: str, action: Any) -> None:
+    target_order_id = str(getattr(action, "target_order_id", "") or "")
+    if target_order_id:
+        repo = oms._handler._repo
+        promoted = await repo.get_order_id_by_client_order_id(
+            strategy_id,
+            target_order_id,
+        )
+        target_order_id = str(promoted or target_order_id)
     if isinstance(action, CancelAction) and action.target_order_id:
         await oms.submit_intent(
             Intent(
                 intent_type=IntentType.CANCEL_ORDER,
                 strategy_id=strategy_id,
-                target_oms_order_id=action.target_order_id,
+                target_oms_order_id=target_order_id,
             )
         )
     elif isinstance(action, ReplaceProtectiveStop) and action.target_order_id:
@@ -280,7 +290,7 @@ async def _submit_control_action(oms: Any, strategy_id: str, action: Any) -> Non
             Intent(
                 intent_type=IntentType.REPLACE_ORDER,
                 strategy_id=strategy_id,
-                target_oms_order_id=action.target_order_id,
+                target_oms_order_id=target_order_id,
                 new_qty=int(action.qty) if getattr(action, "qty", 0) else None,
                 new_stop_price=float(action.stop_price),
             )

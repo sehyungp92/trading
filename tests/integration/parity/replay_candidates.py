@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from strategies.core.actions import CancelAction, FlattenPosition
 from tests.integration.parity.broker_matching import (
     broker_event_key as _broker_event_key,
     candidate_key as _candidate_key,
@@ -33,6 +34,11 @@ class ReplayDecisionTimeline:
     ) -> None:
         family = family_resolver(self.fixture)(strategy_id)
         for action in actions:
+            if isinstance(action, (CancelAction, FlattenPosition)):
+                self.timeline.append(
+                    {"type": "action", "strategy_id": strategy_id, "action": action}
+                )
+                continue
             row = action_order_row(action, strategy_id, family)
             if not row["symbol"] or not row["qty"]:
                 continue
@@ -90,12 +96,19 @@ class ReplayDecisionTimeline:
             self._applied.add(key)
 
     def note_broker_event(self, order: dict[str, Any], event: Mapping[str, Any]) -> None:
-        if str(event.get("event", "fill")).lower() == "fill":
+        event_type = str(event.get("event", "fill")).lower()
+        if event_type == "fill":
             fill_qty = float(event.get("qty", order["qty"]))
-            order["status"] = "FILLED"
+            order["status"] = (
+                "FILLED" if fill_qty >= float(order["qty"]) else "PARTIALLY_FILLED"
+            )
             order["filled_qty"] = fill_qty
             order["remaining_qty"] = max(0.0, float(order["qty"]) - fill_qty)
             order["avg_fill_price"] = float(event.get("price", order.get("limit_price") or order.get("stop_price") or 0.0))
+        elif event_type == "reject":
+            order["status"] = "REJECTED"
+        elif event_type == "status":
+            order["status"] = str(event.get("status", order.get("status", ""))).upper()
         self.timeline.append({"type": "broker_event", "event": event})
 
     def _index_initial_repository_orders(self) -> None:

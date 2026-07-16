@@ -116,10 +116,30 @@ def vdub_r1b_market_input(fixture: Mapping[str, Any]) -> dict[str, Any]:
 def downturn_r1b_market_input(fixture: Mapping[str, Any]) -> dict[str, Any]:
     """Materialize the bounded raw Downturn entry input for R1B."""
 
-    raw = ((fixture.get("artifacts", {}) or {}).get("downturn", {}) or {}).get(
-        "r1b_market_input",
-        {},
-    )
+    return _downturn_r1b_market_inputs(fixture)[0]
+
+
+def _downturn_r1b_market_inputs(
+    fixture: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    artifact = ((fixture.get("artifacts", {}) or {}).get("downturn", {}) or {})
+    raw_inputs = artifact.get("r1b_market_inputs")
+    if raw_inputs is None:
+        raw_inputs = [artifact.get("r1b_market_input", {})]
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise AssertionError("R1B Downturn market inputs must be a sequence")
+
+    materialized: list[dict[str, Any]] = []
+    for index, raw in enumerate(raw_inputs, start=1):
+        materialized.append(_downturn_r1b_market_input(raw, index=index))
+    return materialized
+
+
+def _downturn_r1b_market_input(
+    raw: Any,
+    *,
+    index: int,
+) -> dict[str, Any]:
     if not isinstance(raw, Mapping) or not raw:
         raise AssertionError(
             "R1B Downturn fixture is missing artifacts.downturn.r1b_market_input"
@@ -131,6 +151,7 @@ def downturn_r1b_market_input(fixture: Mapping[str, Any]) -> dict[str, Any]:
             "R1B Downturn market input must include raw 5m and 15m bars"
         )
     return {
+        "timeline_id": str(raw.get("timeline_id", f"downturn_{index}")),
         "symbol": str(raw.get("symbol", "MNQ")),
         "timestamp": parse_time(raw.get("timestamp") or bars_5m[-1].get("timestamp")),
         "bars_5m": bars_5m,
@@ -149,6 +170,7 @@ def momentum_r1b_raw_timeline(fixture: Mapping[str, Any]) -> list[dict[str, Any]
     nqdtc_input = nqdtc_r1b_market_input(fixture)
     events = [
         {
+            "timeline_id": "nqdtc_1",
             "timestamp": nqdtc_input["timestamp"],
             "priority": priorities.get("NQDTC_v2.1", 99),
             "strategy_id": "NQDTC_v2.1",
@@ -159,6 +181,7 @@ def momentum_r1b_raw_timeline(fixture: Mapping[str, Any]) -> list[dict[str, Any]
         vdub_input = vdub_r1b_market_input(fixture)
         events.append(
             {
+                "timeline_id": "vdub_1",
                 "timestamp": vdub_input["timestamp"],
                 "priority": priorities.get("VdubusNQ_v4", 99),
                 "strategy_id": "VdubusNQ_v4",
@@ -166,22 +189,24 @@ def momentum_r1b_raw_timeline(fixture: Mapping[str, Any]) -> list[dict[str, Any]
             }
         )
     if "DownturnDominator_v1" in priorities:
-        downturn_input = downturn_r1b_market_input(fixture)
-        events.append(
-            {
-                "timestamp": downturn_input["timestamp"],
-                "priority": priorities.get("DownturnDominator_v1", 99),
-                "strategy_id": "DownturnDominator_v1",
-                "payload": downturn_input,
-            }
-        )
-    for row in source_bars(fixture, "NQ", "5m") or source_bars(
+        for downturn_input in _downturn_r1b_market_inputs(fixture):
+            events.append(
+                {
+                    "timeline_id": downturn_input["timeline_id"],
+                    "timestamp": downturn_input["timestamp"],
+                    "priority": priorities.get("DownturnDominator_v1", 99),
+                    "strategy_id": "DownturnDominator_v1",
+                    "payload": downturn_input,
+                }
+            )
+    for index, row in enumerate(source_bars(fixture, "NQ", "5m") or source_bars(
         fixture,
         "MNQ",
         "5m",
-    ):
+    ), start=1):
         events.append(
             {
+                "timeline_id": f"nq_regime_{index}",
                 "timestamp": parse_time(row.get("timestamp") or row.get("time")),
                 "priority": priorities.get("NQ_REGIME", 99),
                 "strategy_id": "NQ_REGIME",

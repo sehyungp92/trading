@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
-from itertools import groupby
 from typing import Any
 
 from tests.integration.parity.family_decisions import FAMILY_DECISION_STATUSES
@@ -68,6 +67,11 @@ class _MomentumR1BPortfolio:
         if self.config is None:
             raise AssertionError("R1B fixture must materialize portfolio rules")
         self.current_directional_risk_dollars = {"LONG": 0.0, "SHORT": 0.0}
+        self.current_equity = float(
+            (fixture.get("account_state", {}) or {}).get("equity", 100_000.0)
+        )
+        self._reservations: dict[str, dict[str, Any]] = {}
+        self._positions: dict[tuple[str, str], dict[str, Any]] = {}
         self.sequence = 0
 
     def __call__(self, strategy_id: str, action: Any, *, timestamp: Any) -> dict[str, Any]:
@@ -80,12 +84,11 @@ class _MomentumR1BPortfolio:
 
         self.sequence += 1
         direction = "LONG" if action.side == "BUY" else "SHORT"
-        equity = float((self.fixture.get("account_state", {}) or {}).get("equity", 100_000.0))
         static = evaluate_static_portfolio_entry(
             self.config,
             strategy_id=strategy_id,
             direction=direction,
-            current_equity=equity,
+            current_equity=self.current_equity,
         )
         approved_qty = (
             adjusted_entry_quantity(action.qty, static.size_multiplier)
@@ -134,6 +137,15 @@ class _MomentumR1BPortfolio:
         approved = static.approved and not denial_reason and approved_qty > 0
         if approved:
             self.current_directional_risk_dollars[direction] += risk_dollars
+            self._reservations[str(action.client_order_id)] = {
+                "strategy_id": strategy_id,
+                "symbol": str(action.symbol),
+                "direction": direction,
+                "risk_dollars": risk_dollars,
+                "qty": approved_qty,
+                "entry_price": planned_entry,
+                "point_value": point_value(self.fixture, action.symbol),
+            }
         else:
             approved_qty = 0
         return {
@@ -145,6 +157,110 @@ class _MomentumR1BPortfolio:
             "timestamp": timestamp,
             "risk_dollars": risk_dollars if approved else 0.0,
         }
+
+    def apply_broker_event(
+        self,
+        out: ReplayDecisionTimeline,
+        event: Mapping[str, Any],
+    ) -> None:
+        """Apply one real order lifecycle result to the next decision snapshot."""
+
+        order = out._match_order(event.get("order_match", {}))
+        if order is None:
+            return
+        event_type = str(event.get("event", "fill")).lower()
+        role = str(order.get("role", "")).upper()
+        client_order_id = str(order.get("client_tag", ""))
+        if role == "ENTRY":
+            reservation = self._reservations.get(client_order_id)
+            if reservation is None:
+                return
+            terminal_status = str(event.get("status", "")).lower()
+            if event_type == "reject" or (
+                event_type == "status"
+                and terminal_status
+                in {"cancelled", "canceled", "rejected", "expired", "inactive"}
+            ):
+                self._release_reservation(client_order_id)
+                return
+            if event_type == "fill":
+                self._positions[
+                    (str(order.get("strategy_id", "")), str(order.get("symbol", "")))
+                ] = {
+                    **reservation,
+                    "reservation_id": client_order_id,
+                    "qty": int(float(event.get("qty", order.get("qty", 0))) or 0),
+                    "entry_price": float(
+                        event.get(
+                            "price",
+                            order.get("limit_price") or order.get("stop_price") or 0.0,
+                        )
+                    ),
+                }
+            return
+
+        if event_type != "fill":
+            return
+        position_key = (
+            str(order.get("strategy_id", "")),
+            str(order.get("symbol", "")),
+        )
+        position = self._positions.get(position_key)
+        if position is None:
+            return
+        exit_qty = min(
+            int(float(event.get("qty", order.get("qty", 0))) or 0),
+            int(position.get("qty", 0)),
+        )
+        if exit_qty <= 0:
+            return
+        reservation_id = str(position["reservation_id"])
+        reservation = self._reservations.get(reservation_id)
+        if reservation is not None:
+            original_qty = max(int(reservation.get("qty", 0)), 1)
+            released = min(
+                float(reservation.get("risk_dollars", 0.0)),
+                float(reservation.get("risk_dollars", 0.0)) * exit_qty / original_qty,
+            )
+            direction = str(reservation["direction"])
+            self.current_directional_risk_dollars[direction] = max(
+                0.0,
+                self.current_directional_risk_dollars[direction] - released,
+            )
+            reservation["risk_dollars"] = max(
+                0.0,
+                float(reservation["risk_dollars"]) - released,
+            )
+            reservation["qty"] = max(0, int(reservation["qty"]) - exit_qty)
+            if reservation["qty"] <= 0:
+                self._reservations.pop(reservation_id, None)
+
+        exit_price = float(event.get("price", 0.0))
+        entry_price = float(position.get("entry_price", 0.0))
+        point_value_value = float(position.get("point_value", 0.0))
+        direction_mult = 1.0 if position.get("direction") == "LONG" else -1.0
+        pnl = (
+            (exit_price - entry_price)
+            * direction_mult
+            * exit_qty
+            * point_value_value
+            - float(event.get("commission", 0.0) or 0.0)
+        )
+        self.current_equity += pnl
+        position["qty"] = max(0, int(position["qty"]) - exit_qty)
+        if position["qty"] <= 0:
+            self._positions.pop(position_key, None)
+
+    def _release_reservation(self, client_order_id: str) -> None:
+        reservation = self._reservations.pop(client_order_id, None)
+        if reservation is None:
+            return
+        direction = str(reservation["direction"])
+        self.current_directional_risk_dollars[direction] = max(
+            0.0,
+            self.current_directional_risk_dollars[direction]
+            - float(reservation.get("risk_dollars", 0.0)),
+        )
 
 
 def run_layer2_replay_trace(fixture: Mapping[str, Any]) -> ParityTrace:
@@ -299,44 +415,48 @@ async def _run_momentum_r1b_nqdtc_replay_trace(
     portfolio = _MomentumR1BPortfolio(fixture)
 
     raw_timeline = momentum_r1b_raw_timeline(fixture)
-    grouped = [
-        (strategy_id, list(events))
-        for strategy_id, events in groupby(
-            raw_timeline,
-            key=lambda event: str(event["strategy_id"]),
-        )
-    ]
-    grouped_ids = [strategy_id for strategy_id, _events in grouped]
     expected_ids = ["NQDTC_v2.1"]
     if "VdubusNQ_v4" in strategy_ids(fixture):
         expected_ids.append("VdubusNQ_v4")
     if "DownturnDominator_v1" in strategy_ids(fixture):
         expected_ids.append("DownturnDominator_v1")
     expected_ids.append("NQ_REGIME")
-    if grouped_ids != expected_ids:
+    initial_ids = [str(event["strategy_id"]) for event in raw_timeline[: len(expected_ids)]]
+    if initial_ids != expected_ids:
         raise AssertionError(
-            f"R1B bounded timeline groups must match {expected_ids}, got {grouped_ids}"
+            f"R1B bounded timeline prefix must match {expected_ids}, got {initial_ids}"
         )
-    for strategy_id, events in grouped:
+    if any(
+        str(event["strategy_id"]) != "DownturnDominator_v1"
+        for event in raw_timeline[len(expected_ids) :]
+    ):
+        raise AssertionError("R1B feedback closure only permits later Downturn raw events")
+
+    downturn_state = None
+    for event in raw_timeline:
+        strategy_id = str(event["strategy_id"])
+        timeline_id = str(event.get("timeline_id", ""))
         if strategy_id == "NQDTC_v2.1":
-            if len(events) != 1:
-                raise AssertionError("R1B bounded timeline expects one NQDTC raw event")
             _replay_nqdtc_r1b(fixture, out, portfolio_authorizer=portfolio)
         elif strategy_id == "VdubusNQ_v4":
-            if len(events) != 1:
-                raise AssertionError("R1B bounded timeline expects one Vdub raw event")
             _replay_vdub_r1b(fixture, out, portfolio_authorizer=portfolio)
         elif strategy_id == "DownturnDominator_v1":
-            if len(events) != 1:
-                raise AssertionError("R1B bounded timeline expects one Downturn raw event")
-            _replay_downturn_r1b(fixture, out, portfolio_authorizer=portfolio)
+            downturn_state = _replay_downturn_r1b(
+                fixture,
+                out,
+                portfolio_authorizer=portfolio,
+                market_input=event["payload"],
+                core_state=downturn_state,
+                timeline_id=timeline_id,
+            )
         else:
             _replay_nq_regime(
                 fixture,
                 out,
                 causal_authorization=True,
                 portfolio_authorizer=portfolio,
-                market_rows=[event["payload"] for event in events],
+                market_rows=[event["payload"]],
+                timeline_id=timeline_id,
             )
     out.apply_broker_script()
     sink = await run_replay_oms_sink(

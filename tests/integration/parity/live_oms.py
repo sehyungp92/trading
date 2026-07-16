@@ -53,8 +53,14 @@ async def _apply_broker_script_to_repos(
     fixture: Mapping[str, Any],
     adapters: list[FakeIBKRExecutionAdapter],
     repos: list[Any],
+    *,
+    event_specs: list[Mapping[str, Any]] | None = None,
 ) -> None:
-    for event_spec in fixture.get("broker_event_script", []):
+    for event_spec in (
+        fixture.get("broker_event_script", [])
+        if event_specs is None
+        else event_specs
+    ):
         candidates: list[tuple[FakeIBKRExecutionAdapter, Any, Mapping[str, Any]]] = []
         for adapter in adapters:
             for repo in repos:

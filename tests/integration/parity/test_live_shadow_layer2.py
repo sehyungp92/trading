@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -213,6 +214,151 @@ def test_momentum_r1b_downturn_fixture_identities_are_scenario_specific() -> Non
     }
 
     assert len(fingerprints) == 3
+
+
+@pytest.mark.parity_nightly
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("scenario", "terminal_status"),
+    [("release_cancel", "CANCELLED"), ("release_reject", "REJECTED")],
+)
+async def test_momentum_r1b_releases_working_risk_before_later_child(
+    scenario: str,
+    terminal_status: str,
+) -> None:
+    fixture = _momentum_r1b_downturn_fixture(scenario=scenario)
+
+    contract = await run_momentum_r1b_downturn_contract(fixture)
+
+    assert_shadow_contract(contract)
+    state = contract.live.state_snapshot or {}
+    orders = state.get("orders", []) or []
+    downturn_entries = [
+        row
+        for row in orders
+        if row.get("strategy_id") == "DownturnDominator_v1"
+        and row.get("role") == "ENTRY"
+    ]
+    submitted = [row["strategy_id"] for row in contract.live.order_intents]
+    downturn = (state.get("strategy_state", {}) or {}).get(
+        "DownturnDominator_v1", {}
+    )
+
+    assert downturn_entries[0]["status"] == terminal_status
+    assert downturn.get("working_entry_count") == 0
+    assert "NQ_REGIME" in submitted
+    assert "portfolio_rule:directional_cap" not in (
+        (state.get("blocked_reasons", {}) or {}).get("NQ_REGIME", [])
+    )
+
+
+@pytest.mark.parity_nightly
+@pytest.mark.asyncio
+async def test_momentum_r1b_nq_partial_exit_updates_family_exposure() -> None:
+    fixture = _momentum_r1b_downturn_fixture(scenario="nq_partial_exit")
+
+    contract = await run_momentum_r1b_downturn_contract(fixture)
+
+    assert_shadow_contract(contract)
+    state = contract.live.state_snapshot or {}
+    nq_state = (state.get("strategy_state", {}) or {}).get("NQ_REGIME", {})
+    nq_position = next(
+        row
+        for row in state.get("positions", []) or []
+        if row.get("strategy_id") == "NQ_REGIME"
+    )
+    portfolio = (state.get("portfolio_risk", []) or [])[0]
+
+    assert nq_state.get("qty_open") == 3
+    assert nq_position["net_qty"] == 3
+    assert nq_position["open_risk_dollars"] == pytest.approx(168.0)
+    assert nq_position["realized_pnl"] == pytest.approx(56.0)
+    assert portfolio["open_risk_dollars"] == pytest.approx(876.0)
+
+
+@pytest.mark.parity_nightly
+@pytest.mark.asyncio
+async def test_momentum_r1b_realized_loss_resizes_later_downturn_quantity() -> None:
+    fixture = _momentum_r1b_downturn_fixture(scenario="realized_loss_resize")
+
+    contract = await run_momentum_r1b_downturn_contract(fixture)
+
+    assert_shadow_contract(contract)
+    downturn_entries = [
+        row
+        for row in contract.live.order_intents
+        if row.get("strategy_id") == "DownturnDominator_v1"
+        and row.get("order_role") == "ENTRY"
+    ]
+    state = contract.live.state_snapshot or {}
+    portfolio = (state.get("portfolio_risk", []) or [])[0]
+
+    assert [row["qty"] for row in downturn_entries] == [42, 21]
+    assert portfolio["daily_realized_pnl"] == pytest.approx(-6000.0)
+    assert any(
+        row.get("strategy_id") == "NQ_REGIME"
+        and row.get("realized_pnl") == pytest.approx(-6000.0)
+        for row in state.get("positions", [])
+    )
+    assert any(
+        row.get("strategy_id") == "NQ_REGIME"
+        and row.get("entry_price") == pytest.approx(19436.0)
+        and row.get("qty") == 5
+        for row in contract.live.trade_ledger
+    )
+
+
+@pytest.mark.parity_nightly
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("scenario", "expected_entries", "expected_cooldown", "expected_decision"),
+    [
+        ("downturn_cooldown_blocked", 1, 1, "EXIT_FILLED"),
+        ("downturn_cooldown_reentry", 2, 24, "ENTRY_SUBMITTED"),
+    ],
+)
+async def test_momentum_r1b_downturn_fill_drives_cooldown_and_reentry(
+    scenario: str,
+    expected_entries: int,
+    expected_cooldown: int,
+    expected_decision: str,
+) -> None:
+    fixture = _momentum_r1b_downturn_fixture(scenario=scenario)
+
+    contract = await run_momentum_r1b_downturn_contract(fixture)
+
+    assert_shadow_contract(contract)
+    entries = [
+        row
+        for row in contract.live.order_intents
+        if row.get("strategy_id") == "DownturnDominator_v1"
+        and row.get("order_role") == "ENTRY"
+    ]
+    downturn = (
+        (contract.live.state_snapshot or {}).get("strategy_state", {}) or {}
+    ).get("DownturnDominator_v1", {})
+
+    assert len(entries) == expected_entries
+    assert downturn.get("bars_since_last_entry") == expected_cooldown
+    assert downturn.get("last_decision_code") == expected_decision
+    assert downturn.get("position_open") is False
+
+
+def test_momentum_r1b_feedback_fixture_identities_are_scenario_specific() -> None:
+    scenarios = (
+        "release_cancel",
+        "release_reject",
+        "nq_partial_exit",
+        "realized_loss_resize",
+        "downturn_cooldown_blocked",
+        "downturn_cooldown_reentry",
+    )
+    fingerprints = {
+        runtime_source_fingerprint(_momentum_r1b_downturn_fixture(scenario=scenario))
+        for scenario in scenarios
+    }
+
+    assert len(fingerprints) == len(scenarios)
 
 
 def _nq_regime_r1a_fixture(*, disabled: bool) -> dict[str, Any]:
@@ -547,6 +693,7 @@ def _momentum_r1b_downturn_fixture(*, scenario: str) -> dict[str, Any]:
     fixture["initial_strategy_state"]["DownturnDominator_v1"] = {}
     fixture.setdefault("artifacts", {})["downturn"] = {
         "r1b_market_input": {
+            "timeline_id": "downturn_1",
             "symbol": "MNQ",
             "timestamp": "2026-05-20T14:15:00+00:00",
             "bars_5m": [
@@ -624,45 +771,11 @@ def _momentum_r1b_downturn_fixture(*, scenario: str) -> dict[str, Any]:
     rules["disabled_strategies"] = (
         ["DownturnDominator_v1"] if scenario == "denied" else []
     )
-    if scenario == "contention":
+    if scenario in {"contention", "release_cancel", "release_reject"}:
         rules["directional_cap_R"] = 20.0
         rules["directional_cap_long_R"] = 20.0
         rules["directional_cap_short_R"] = 2.5
-        fixture["bars"] = [
-            {
-                "symbol": "NQ",
-                "timeframe": "5m",
-                "timestamp": "2026-05-20T14:15:00+00:00",
-                "open": 19894.0,
-                "high": 19898.0,
-                "low": 19880.0,
-                "close": 19884.0,
-                "volume": 3000.0,
-            }
-        ]
-        fixture["initial_strategy_state"]["NQ_REGIME"]["bars_5m"] = [
-            {
-                "ts": "2026-05-20T10:05:00-04:00",
-                "open": 19898.0,
-                "high": 19899.0,
-                "low": 19892.0,
-                "close": 19895.0,
-                "volume": 1000.0,
-                "vwap": None,
-            },
-            {
-                "ts": "2026-05-20T10:10:00-04:00",
-                "open": 19895.0,
-                "high": 19897.0,
-                "low": 19890.0,
-                "close": 19893.0,
-                "volume": 1000.0,
-                "vwap": None,
-            },
-        ]
-        fixture["artifacts"]["nq_regime"]["daily_context"].update(
-            {"pdl": 19600.0, "pdm": 19800.0, "weekly_low": 19000.0}
-        )
+        _set_nq_regime_short_breakout(fixture)
     else:
         rules["directional_cap_R"] = 20.0
         rules["directional_cap_long_R"] = 20.0
@@ -674,5 +787,252 @@ def _momentum_r1b_downturn_fixture(*, scenario: str) -> dict[str, Any]:
         if event["order_match"]["strategy_id"] != "NQ_REGIME"
         or scenario != "contention"
     ]
+    if scenario in {"release_cancel", "release_reject"}:
+        broker_script = [
+            event
+            for event in broker_script
+            if event["order_match"]["strategy_id"] != "NQ_REGIME"
+        ]
+        event_type = "status" if scenario == "release_cancel" else "reject"
+        release_event = {
+            "order_match": {
+                "strategy_id": "DownturnDominator_v1",
+                "symbol": "MNQ",
+                "role": "ENTRY",
+                "side": "SELL",
+                "sequence": 1,
+            },
+            "event": event_type,
+            "timestamp": "2026-05-20T14:15:30+00:00",
+            "apply_after": "downturn_1",
+        }
+        if event_type == "status":
+            release_event.update({"status": "Cancelled", "remaining": 42.0})
+        else:
+            release_event.update(
+                {"reason": "fixture_reject", "error_code": 201, "retryable": False}
+            )
+        broker_script.append(release_event)
+    elif scenario == "nq_partial_exit":
+        _phase_nq_entry_fill(broker_script)
+        broker_script.append(
+            {
+                "order_match": {
+                    "strategy_id": "NQ_REGIME",
+                    "symbol": "MNQ",
+                    "role": "TP",
+                    "side": "SELL",
+                    "sequence": 1,
+                },
+                "event": "fill",
+                "exec_id": "NQREG-R1B-PARTIAL",
+                "price": 20050.0,
+                "qty": 2,
+                "commission": 0.0,
+                "timestamp": "2026-05-20T14:17:30+00:00",
+                "apply_after": "nq_regime_1",
+            }
+        )
+    elif scenario == "realized_loss_resize":
+        rules["dd_tiers"] = [[0.05, 1.0], [0.10, 0.50], [1.0, 0.25]]
+        broker_script.append(_downturn_cancel_event())
+        _phase_nq_entry_fill(broker_script)
+        broker_script.append(
+            {
+                "order_match": {
+                    "strategy_id": "NQ_REGIME",
+                    "symbol": "MNQ",
+                    "role": "STOP",
+                    "side": "SELL",
+                    "sequence": 1,
+                },
+                "event": "fill",
+                "exec_id": "NQREG-R1B-LOSS",
+                "price": 19436.0,
+                "qty": 5,
+                "commission": 0.0,
+                "timestamp": "2026-05-20T14:18:00+00:00",
+                "apply_after": "nq_regime_1",
+            }
+        )
+        _add_downturn_followup(fixture, cooldown_bars=None, allow_no_signal=False)
+    elif scenario in {"downturn_cooldown_blocked", "downturn_cooldown_reentry"}:
+        broker_script.extend(_downturn_round_trip_events())
+        _add_downturn_followup(
+            fixture,
+            cooldown_bars=(
+                1 if scenario == "downturn_cooldown_blocked" else 24
+            ),
+            allow_no_signal=scenario == "downturn_cooldown_blocked",
+        )
     fixture["broker_event_script"] = broker_script
     return fixture
+
+
+def _set_nq_regime_short_breakout(fixture: dict[str, Any]) -> None:
+    fixture["bars"] = [
+        {
+            "symbol": "NQ",
+            "timeframe": "5m",
+            "timestamp": "2026-05-20T14:15:00+00:00",
+            "open": 19894.0,
+            "high": 19898.0,
+            "low": 19880.0,
+            "close": 19884.0,
+            "volume": 3000.0,
+        }
+    ]
+    fixture["initial_strategy_state"]["NQ_REGIME"]["bars_5m"] = [
+        {
+            "ts": "2026-05-20T10:05:00-04:00",
+            "open": 19898.0,
+            "high": 19899.0,
+            "low": 19892.0,
+            "close": 19895.0,
+            "volume": 1000.0,
+            "vwap": None,
+        },
+        {
+            "ts": "2026-05-20T10:10:00-04:00",
+            "open": 19895.0,
+            "high": 19897.0,
+            "low": 19890.0,
+            "close": 19893.0,
+            "volume": 1000.0,
+            "vwap": None,
+        },
+    ]
+    fixture["artifacts"]["nq_regime"]["daily_context"].update(
+        {"pdl": 19600.0, "pdm": 19800.0, "weekly_low": 19000.0}
+    )
+
+
+def _phase_nq_entry_fill(broker_script: list[dict[str, Any]]) -> None:
+    for event in broker_script:
+        match = event.get("order_match", {}) or {}
+        if match.get("strategy_id") == "NQ_REGIME" and match.get("role") == "ENTRY":
+            event["apply_after"] = "nq_regime_1"
+
+
+def _downturn_cancel_event() -> dict[str, Any]:
+    return {
+        "order_match": {
+            "strategy_id": "DownturnDominator_v1",
+            "symbol": "MNQ",
+            "role": "ENTRY",
+            "side": "SELL",
+            "sequence": 1,
+        },
+        "event": "status",
+        "status": "Cancelled",
+        "remaining": 42.0,
+        "timestamp": "2026-05-20T14:15:30+00:00",
+        "apply_after": "downturn_1",
+    }
+
+
+def _downturn_round_trip_events() -> list[dict[str, Any]]:
+    return [
+        {
+            "order_match": {
+                "strategy_id": "DownturnDominator_v1",
+                "symbol": "MNQ",
+                "role": "ENTRY",
+                "side": "SELL",
+                "sequence": 1,
+            },
+            "event": "fill",
+            "exec_id": "DOWNTURN-R1B-ENTRY",
+            "price": 19996.5,
+            "qty": 42,
+            "commission": 0.0,
+            "timestamp": "2026-05-20T14:15:30+00:00",
+            "apply_after": "downturn_1",
+        },
+        {
+            "order_match": {
+                "strategy_id": "DownturnDominator_v1",
+                "symbol": "MNQ",
+                "role": "STOP",
+                "side": "BUY",
+                "sequence": 1,
+            },
+            "event": "fill",
+            "exec_id": "DOWNTURN-R1B-STOP",
+            "price": 19996.5,
+            "qty": 42,
+            "commission": 0.0,
+            "timestamp": "2026-05-20T14:16:00+00:00",
+            "apply_after": "downturn_1",
+        },
+    ]
+
+
+def _add_downturn_followup(
+    fixture: dict[str, Any],
+    *,
+    cooldown_bars: int | None,
+    allow_no_signal: bool,
+) -> None:
+    primary = fixture["artifacts"]["downturn"]["r1b_market_input"]
+    followup = deepcopy(primary)
+    followup["timeline_id"] = "downturn_2"
+    followup["timestamp"] = "2026-05-20T14:20:00+00:00"
+    if cooldown_bars is None:
+        followup["bars_5m"] = [
+            {
+                **dict(primary["bars_5m"][-1]),
+                "timestamp": "2026-05-20T14:20:00+00:00",
+            }
+        ]
+        followup["bars_15m"] = [
+            {**row, "timestamp": "2026-05-20T14:20:00+00:00"}
+            if index == len(primary["bars_15m"]) - 1
+            else dict(row)
+            for index, row in enumerate(primary["bars_15m"])
+        ]
+        followup["decision_state"].pop("bars_since_last_entry", None)
+    else:
+        followup["bars_5m"] = [
+            {
+                "symbol": "MNQ",
+                "timeframe": "5m",
+                "timestamp": "2026-05-20T14:20:00+00:00",
+                "open": 19820.0,
+                "high": 19824.0,
+                "low": 19796.0,
+                "close": 19800.0,
+                "volume": 1600.0,
+            }
+        ]
+        closes = [20020.0, 20010.0, 20000.0, 19980.0, 19960.0, 19800.0]
+        followup["bars_15m"] = [
+            {
+                "symbol": "MNQ",
+                "timeframe": "15m",
+                "timestamp": f"2026-05-20T{hour:02d}:{minute:02d}:00+00:00",
+                "open": close + 4.0,
+                "high": close + 8.0,
+                "low": close - 8.0,
+                "close": close,
+                "volume": 1300.0,
+            }
+            for close, (hour, minute) in zip(
+                closes,
+                [(13, 5), (13, 20), (13, 35), (13, 50), (14, 5), (14, 20)],
+                strict=True,
+            )
+        ]
+        followup["decision_state"].update(
+            {
+                "vwap": 19000.0,
+                "ema_fast_15m": 20050.0,
+                "elapsed_5m_bars": cooldown_bars,
+                "allow_no_signal": allow_no_signal,
+            }
+        )
+        followup["decision_state"].pop("bars_since_last_entry", None)
+    fixture["artifacts"]["downturn"]["r1b_market_inputs"] = [
+        primary,
+        followup,
+    ]

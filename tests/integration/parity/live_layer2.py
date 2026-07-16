@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -298,6 +298,8 @@ async def drive_layer2_live_inputs(fixture: Mapping[str, Any], engines: Mapping[
 async def drive_momentum_r1b_raw_timeline(
     fixture: Mapping[str, Any],
     engines: Mapping[str, Any],
+    *,
+    after_event: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None,
 ) -> None:
     """Drive bounded momentum children on one ordered raw-event timeline."""
 
@@ -318,6 +320,8 @@ async def drive_momentum_r1b_raw_timeline(
                 scheduled_news=[],
             )
         await _settle_callbacks()
+        if after_event is not None:
+            await after_event(event)
 
 
 async def _drive_downturn_r1b_raw_event(
@@ -335,15 +339,22 @@ async def _drive_downturn_r1b_raw_event(
     engine._bars_5m = engine._bars_to_arrays(bars_5m)
     engine._bars_15m = engine._bars_to_arrays(bars_15m)
     engine._last_bar_ts = market_input["timestamp"]
-    engine._bar_count_5m += len(bars_5m)
-    engine._bars_since_last_entry = int(
-        state_input.get("bars_since_last_entry", 999)
+    elapsed_bars = max(
+        1,
+        int(state_input.get("elapsed_5m_bars", len(bars_5m)) or len(bars_5m)),
     )
+    engine._bar_count_5m += elapsed_bars
+    if "bars_since_last_entry" in state_input:
+        engine._bars_since_last_entry = int(state_input["bars_since_last_entry"])
+    else:
+        engine._bars_since_last_entry += elapsed_bars
     engine._reversal.disabled = True
     engine._fade.vwap_used = float(state_input.get("vwap", 0.0))
     engine._atr_15m = float(state_input.get("atr_15m", 0.0))
     engine._atr_1h = float(state_input.get("atr_1h", 0.0))
     engine._atr_30m = float(state_input.get("atr_30m", 0.0))
+    if "ema_fast_15m" in state_input:
+        engine._inc_ema_15m_fast.value = float(state_input["ema_fast_15m"])
     engine._mom15_slope_ok = bool(state_input.get("mom_slope_ok", True))
     engine._regime.composite_regime = CompositeRegime(
         str(state_input.get("composite_regime", CompositeRegime.EMERGING_BEAR.value))
@@ -359,6 +370,8 @@ async def _drive_downturn_r1b_raw_event(
     engine._in_correction_now = bool(state_input.get("in_correction", False))
     selection = engine._evaluate_signals()
     if selection is None:
+        if state_input.get("allow_no_signal"):
+            return
         raise AssertionError("bounded Downturn raw input did not reach a shared signal")
     signal, tag = selection
     await engine._submit_entry(signal, tag)
