@@ -36,6 +36,7 @@ from tests.integration.parity.replay_layer2 import (
     replay_nq_regime as _replay_nq_regime,
     replay_nqdtc_r1b as _replay_nqdtc_r1b,
     replay_tpc as _replay_tpc,
+    replay_vdub_r1b as _replay_vdub_r1b,
 )
 from tests.integration.parity.replay_oms import run_replay_oms_sink
 from tests.integration.parity.runtime_source import runtime_source_fingerprint
@@ -107,7 +108,13 @@ class _MomentumR1BPortfolio:
             abs(planned_entry - stop_for_risk)
             * point_value(self.fixture, action.symbol)
         )
-        risk_dollars = risk_per_contract * approved_qty
+        explicit_risk_dollars = risk_context.get("risk_dollars")
+        if explicit_risk_dollars not in (None, "") and action.qty > 0:
+            risk_dollars = (
+                float(explicit_risk_dollars) * approved_qty / action.qty
+            )
+        else:
+            risk_dollars = risk_per_contract * approved_qty
         ref_urd = float(self.config.reference_unit_risk_dollars or 0.0)
         risk_R = risk_dollars / ref_urd if ref_urd > 0 else 0.0
         denial_reason = static.denial_reason or ""
@@ -155,6 +162,12 @@ def run_nq_regime_r1a_replay_trace(fixture: Mapping[str, Any]) -> ParityTrace:
 
 def run_momentum_r1b_nqdtc_replay_trace(fixture: Mapping[str, Any]) -> ParityTrace:
     """Run the bounded NQDTC + NQ_REGIME causal subincrement."""
+
+    return _run_coro_blocking(_run_momentum_r1b_nqdtc_replay_trace(fixture))
+
+
+def run_momentum_r1b_vdub_replay_trace(fixture: Mapping[str, Any]) -> ParityTrace:
+    """Run the bounded NQDTC + Vdub + NQ_REGIME causal subincrement."""
 
     return _run_coro_blocking(_run_momentum_r1b_nqdtc_replay_trace(fixture))
 
@@ -287,16 +300,23 @@ async def _run_momentum_r1b_nqdtc_replay_trace(
         )
     ]
     grouped_ids = [strategy_id for strategy_id, _events in grouped]
-    if grouped_ids != ["NQDTC_v2.1", "NQ_REGIME"]:
+    expected_ids = ["NQDTC_v2.1"]
+    if "VdubusNQ_v4" in strategy_ids(fixture):
+        expected_ids.append("VdubusNQ_v4")
+    expected_ids.append("NQ_REGIME")
+    if grouped_ids != expected_ids:
         raise AssertionError(
-            "R1B bounded timeline must contain one contiguous NQDTC group "
-            "before one NQ_REGIME group"
+            f"R1B bounded timeline groups must match {expected_ids}, got {grouped_ids}"
         )
     for strategy_id, events in grouped:
         if strategy_id == "NQDTC_v2.1":
             if len(events) != 1:
                 raise AssertionError("R1B bounded timeline expects one NQDTC raw event")
             _replay_nqdtc_r1b(fixture, out, portfolio_authorizer=portfolio)
+        elif strategy_id == "VdubusNQ_v4":
+            if len(events) != 1:
+                raise AssertionError("R1B bounded timeline expects one Vdub raw event")
+            _replay_vdub_r1b(fixture, out, portfolio_authorizer=portfolio)
         else:
             _replay_nq_regime(
                 fixture,
@@ -328,7 +348,11 @@ async def _run_momentum_r1b_nqdtc_replay_trace(
         surface_adapter=_family_surface_adapter_name(fixture),
     )
     return ParityTrace(
-        producer="momentum_r1b_nqdtc_causal_replay",
+        producer=(
+            "momentum_r1b_vdub_causal_replay"
+            if "VdubusNQ_v4" in strategy_ids(fixture)
+            else "momentum_r1b_nqdtc_causal_replay"
+        ),
         source_fingerprint=source_hash,
         order_intents=normalize_order_intents(
             sink.submitted_orders,

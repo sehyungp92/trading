@@ -24,6 +24,7 @@ from tests.integration.parity.source_inputs import (
     source_bars,
     tpc_bar_input,
     tpc_symbol_config,
+    vdub_r1b_market_input,
 )
 
 
@@ -534,6 +535,227 @@ def _replay_nqdtc_r1b(
     }
 
 
+def _replay_vdub_r1b(
+    fixture: Mapping[str, Any],
+    out: ReplayDecisionTimeline,
+    *,
+    portfolio_authorizer,
+) -> None:
+    """Replay Vdub raw input through its strategy-owned causal core."""
+
+    from strategies.core.actions import SubmitEntry
+    from strategies.momentum.vdub import config as C
+    from strategies.momentum.vdub.core.entry_decision import (
+        build_entry_proposal,
+        evaluate_proposal_gates,
+        select_entry_signal,
+    )
+    from strategies.momentum.vdub.core.logic import (
+        on_authorization,
+        on_bar,
+        on_fill,
+    )
+    from strategies.momentum.vdub.core.serializers import restore_state, snapshot_state
+    from strategies.momentum.vdub.core.state import (
+        VdubAuthorization,
+        VdubEntryFillContext,
+        VdubFill,
+    )
+    from strategies.momentum.vdub.models import (
+        DayCounters,
+        Direction,
+        RegimeState,
+        SessionWindow,
+        SubWindow,
+        VolState,
+    )
+
+    market_input = vdub_r1b_market_input(fixture)
+    state_input = market_input["decision_state"]
+    point_value = float(
+        state_input.get("point_value", C.NQ_SPECS["MNQ"]["point_value"])
+    )
+    C.NQ_SPEC["point_value"] = point_value
+    C.NQ_SPEC["tick_value"] = C.NQ_SPEC["tick"] * point_value
+    rows = market_input["bars_15m"]
+    rows_1h = market_input.get("bars_1h", [])
+    closes = np.asarray([float(row["close"]) for row in rows], dtype=float)
+    lows = np.asarray([float(row["low"]) for row in rows], dtype=float)
+    highs = np.asarray([float(row["high"]) for row in rows], dtype=float)
+    direction = Direction[str(state_input.get("direction", "LONG")).upper()]
+    session = SessionWindow[str(state_input.get("session", "RTH")).upper()]
+    sub_window = SubWindow[str(state_input.get("sub_window", "OPEN")).upper()]
+    regime = RegimeState(
+        daily_trend=int(state_input.get("daily_trend", 1)),
+        trend_1h=int(state_input.get("trend_1h", 1)),
+        choppiness=float(state_input.get("choppiness", 10.0)),
+        vol_state=VolState(str(state_input.get("vol_state", VolState.NORMAL.value))),
+    )
+    counters = DayCounters()
+    atr15_values = np.asarray(state_input.get("atr15", []), dtype=float)
+    atr1h_values = np.asarray(state_input.get("atr1h", []), dtype=float)
+    selection = select_entry_signal(
+        closes_15m=closes,
+        lows_15m=lows,
+        highs_15m=highs,
+        svwap=np.asarray(state_input.get("svwap", []), dtype=float),
+        vwap_a=np.asarray(state_input.get("vwap_a", []), dtype=float),
+        pivots_1h=[],
+        n_1h_bars=len(rows_1h),
+        atr15=float(atr15_values[-1]),
+        direction=direction,
+        sub_window=sub_window,
+        trend_1h=regime.trend_1h,
+        type_a_enabled=True,
+        type_b_enabled=True,
+        type_c_enabled=False,
+    )
+    if selection is None:
+        raise AssertionError("bounded Vdub raw input did not reach a shared signal")
+    class_mult = float(state_input.get("class_mult", C.CLASS_MULT_NOPRED))
+    proposal, reason = build_entry_proposal(
+        selection=selection,
+        symbol=market_input["symbol"],
+        direction=direction,
+        session=session,
+        sub_window=sub_window,
+        now=market_input["timestamp"],
+        bar_idx=len(rows),
+        bar_high=float(highs[-1]),
+        bar_low=float(lows[-1]),
+        close_price=float(closes[-1]),
+        atr15=float(atr15_values[-1]),
+        atr1h=float(atr1h_values[-1]),
+        pivots_1h=[],
+        regime=regime,
+        counters=counters,
+        positions=[],
+        equity=float((fixture.get("account_state", {}) or {}).get("equity", 100_000.0)),
+        is_flip=False,
+        class_mult=class_mult,
+        session_mult=C.SESSION_MULT["RTH" if session == SessionWindow.RTH else "EVENING"],
+        hourly_mult=C.HOURLY_ALIGNED_MULT,
+        point_value=point_value,
+        tick_size=C.NQ_SPEC["tick"],
+        signal_id=f"{selection.entry_type.value}_{direction.name}_{len(rows)}",
+        bar_id=f"{market_input['symbol']}:15m:{market_input['timestamp'].isoformat()}",
+    )
+    if proposal is None:
+        raise AssertionError(f"bounded Vdub proposal was rejected: {reason}")
+    approved, reason = evaluate_proposal_gates(
+        proposal,
+        counters=counters,
+        open_risk=0.0,
+    )
+    if not approved:
+        raise AssertionError(f"bounded Vdub strategy gate rejected proposal: {reason}")
+
+    initial = (fixture.get("initial_strategy_state", {}) or {}).get(
+        "VdubusNQ_v4",
+        {},
+    ) or {}
+    core_state = restore_state(initial.get("core", initial))
+    core_state.bar_idx += len(rows)
+    core_state.regime = regime
+    core_state.counters = counters
+    core_state, proposal_actions, _events = on_bar(
+        core_state,
+        bar_ts=market_input["timestamp"],
+        entry_proposal=proposal,
+    )
+    action = next(item for item in proposal_actions if isinstance(item, SubmitEntry))
+    authorization = portfolio_authorizer(
+        "VdubusNQ_v4",
+        action,
+        timestamp=market_input["timestamp"],
+    )
+    denial_reason = str(authorization.get("denial_reason", ""))
+    strategy_reason = f"Portfolio rule: {denial_reason}" if denial_reason else ""
+    approved_qty = int(authorization["approved_qty"])
+    core_state, submissions, _events = on_authorization(
+        core_state,
+        VdubAuthorization(
+            client_order_id=proposal.client_order_id,
+            approved=bool(authorization["approved"]),
+            approved_qty=approved_qty,
+            requested_qty=proposal.qty,
+            timestamp=market_input["timestamp"],
+            oms_order_id=proposal.client_order_id,
+            denial_reason=strategy_reason,
+            portfolio_decision_ref=str(
+                authorization.get("portfolio_decision_ref", "")
+            ),
+        ),
+    )
+    status = (
+        "rejected"
+        if approved_qty <= 0
+        else "accepted"
+        if approved_qty == proposal.qty
+        else "reduced"
+    )
+    family_decision = {
+        "strategy_id": "VdubusNQ_v4",
+        "symbol": action.symbol,
+        "side": action.side,
+        "role": "ENTRY",
+        "status": status,
+        "reason": strategy_reason,
+        "family_surface": str(authorization.get("family_surface", "")),
+        "candidate_key": f"VdubusNQ_v4|{action.symbol}|ENTRY|{action.side}|1",
+        "sequence": 1,
+        "original_qty": proposal.qty,
+        "approved_qty": approved_qty,
+        "order_match": {
+            "strategy_id": "VdubusNQ_v4",
+            "symbol": action.symbol,
+            "role": "ENTRY",
+            "side": action.side,
+            "sequence": 1,
+        },
+    }
+    if submissions:
+        out.record_actions("VdubusNQ_v4", submissions, decision=family_decision)
+    else:
+        out.record_family_rejection("VdubusNQ_v4", action, family_decision)
+
+    for event in fixture.get("broker_event_script", []) or []:
+        match = event.get("order_match", {}) or {}
+        if str(match.get("strategy_id")) != "VdubusNQ_v4":
+            continue
+        order = out._match_order(match)
+        if order is None:
+            continue
+        key = _broker_event_key(event)
+        out.note_broker_event(order, event)
+        out._applied.add(key)
+        working = core_state.working_entries[str(order["client_tag"])]
+        core_state, actions, _events = on_fill(
+            core_state,
+            VdubFill(
+                oms_order_id=str(order["client_tag"]),
+                fill_price=float(event.get("price", order.get("stop_price") or 0.0)),
+                fill_qty=int(float(event.get("qty", order["qty"]))),
+                fill_time=parse_time(event.get("timestamp")),
+                point_value=point_value,
+                commission=float(event.get("commission", 0.0)),
+                entry_context=VdubEntryFillContext(working_entry=working),
+            ),
+        )
+        out.record_actions("VdubusNQ_v4", actions)
+
+    snapshot = snapshot_state(core_state)
+    out.strategy_state["VdubusNQ_v4"] = {
+        "strategy_id": "VdubusNQ_v4",
+        "last_bar_ts": snapshot.get("last_bar_ts"),
+        "last_decision_code": snapshot.get("last_decision_code", "IDLE"),
+        "last_decision_details": snapshot.get("last_decision_details", {}),
+        "bar_idx": int(snapshot.get("bar_idx", 0) or 0),
+        "position_count": len(snapshot.get("positions", []) or []),
+        "working_entry_count": len(snapshot.get("working_entries", {}) or {}),
+    }
+
+
 def _replay_iaric(fixture: Mapping[str, Any], out: ReplayDecisionTimeline) -> None:
     from strategies.stock.iaric.config import StrategySettings
     from strategies.stock.iaric.core import logic as iaric_logic
@@ -667,4 +889,5 @@ def _compact_iaric_state(state: Any) -> dict[str, Any]:
 replay_tpc = _replay_tpc
 replay_nq_regime = _replay_nq_regime
 replay_nqdtc_r1b = _replay_nqdtc_r1b
+replay_vdub_r1b = _replay_vdub_r1b
 replay_iaric = _replay_iaric

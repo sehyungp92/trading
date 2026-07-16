@@ -15,13 +15,12 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 import numpy as np
 
 from backtests.momentum.analysis.vdubus_shadow_tracker import VdubusShadowTracker
-from backtests.momentum.config import SlippageConfig, round_to_tick
-from backtests.momentum.config_vdubus import VdubusAblationFlags, VdubusBacktestConfig
+from backtests.momentum.config import round_to_tick
+from backtests.momentum.config_vdubus import VdubusBacktestConfig
 from backtests.momentum.data.preprocessing import NumpyBars
 from backtests.shared.parity.decision_capture import normalize_decision_stream
 from backtests.shared.parity.replay_driver import ReplayStep, run_replay
@@ -57,10 +56,18 @@ from strategies.momentum.vdub.models import (
 )
 from strategies.core.events import DecisionEvent
 from strategies.momentum.vdub.core import logic as vdub_core_logic
+from strategies.momentum.vdub.core.entry_decision import (
+    VdubEntryProposal,
+    build_entry_proposal,
+    evaluate_proposal_gates,
+    explicit_entry_proposal,
+    select_entry_signal,
+    with_entry_prices,
+)
 from strategies.momentum.vdub.core.state import (
+    VdubAuthorization,
     VdubCoreState,
     VdubEntryFillContext,
-    VdubEntrySubmitted,
     VdubFill,
     VdubFlattenRequest,
     VdubOrderUpdate,
@@ -1476,51 +1483,29 @@ class VdubusEngine:
         svwap = self._svwap if len(self._svwap) > 0 else np.full(t + 1, np.nan)
         vwap_a = self._vwap_a_arr if len(self._vwap_a_arr) > 0 else np.full(t + 1, np.nan)
 
-        signal = None
-        signal_type = EntryType.TYPE_A
-        vwap_used = 0.0
-
-        if self.flags.type_a_enabled:
-            signal = sig.type_a_check(
-                closes_15m, lows_15m, highs_15m,
-                svwap, vwap_a,
-                atr15_val, direction, sub_window,
-            )
-            if signal:
-                signal_type = EntryType.TYPE_A
-                vwap_used = signal.get("vwap_used", 0.0) or 0.0
-
-        if signal is None and C.USE_TYPE_B and self.flags.type_b_enabled and sub_window.value in C.TYPE_B_ALLOWED_WINDOWS:
-            # Type B: require 1H alignment if configured
-            type_b_ok = True
-            if C.TYPE_B_REQUIRE_1H_ALIGN:
-                aligned_1h = (direction == Direction.LONG and self.regime.trend_1h == 1) or \
-                             (direction == Direction.SHORT and self.regime.trend_1h == -1)
-                if not aligned_1h:
-                    type_b_ok = False
-            if type_b_ok:
-                signal = sig.type_b_check(
-                    closes_15m, lows_15m, highs_15m,
-                    self._pivots_1h, len(hourly.closes[:h_idx + 1]) if h_idx >= 0 else 0,
-                    atr15_val, direction,
-                )
-                if signal:
-                    signal_type = EntryType.TYPE_B
-
-        if signal is None and C.USE_TYPE_C and self.flags.type_c_enabled:
-            signal = sig.type_c_continuation_check(
-                closes_15m, lows_15m, highs_15m,
-                svwap, vwap_a, atr15_val, direction, sub_window,
-            )
-            if signal:
-                signal_type = EntryType.TYPE_C
-                vwap_used = signal.get("vwap_used", 0.0) or 0.0
-
-        if signal is None:
+        selection = select_entry_signal(
+            closes_15m=closes_15m,
+            lows_15m=lows_15m,
+            highs_15m=highs_15m,
+            svwap=svwap,
+            vwap_a=vwap_a,
+            pivots_1h=self._pivots_1h,
+            n_1h_bars=(len(hourly.closes[:h_idx + 1]) if h_idx >= 0 else 0),
+            atr15=atr15_val,
+            direction=direction,
+            sub_window=sub_window,
+            trend_1h=self.regime.trend_1h,
+            type_a_enabled=self.flags.type_a_enabled,
+            type_b_enabled=self.flags.type_b_enabled,
+            type_c_enabled=self.flags.type_c_enabled,
+        )
+        if selection is None:
             evt.signal_pass = False
             evt.first_block_reason = "no_signal"
             self._record_signal_event(evt)
             return
+        signal = selection.signal
+        signal_type = selection.entry_type
 
         self._signals_found += 1
 
@@ -1632,82 +1617,68 @@ class VdubusEngine:
         session_key = "RTH" if session == SessionWindow.RTH else "EVENING"
         session_mult = C.SESSION_MULT[session_key]
 
-        # Check pyramiding
-        is_pyramid = False
-        if self._active and self._active.pos.qty_open > 0:
-            close_price = float(closes_15m[-1])
-            if risk.pyramid_eligible(self._active.pos, direction, close_price, self.counters):
-                is_pyramid = True
-            else:
-                return  # Already have position, can't pyramid
-
-        # --- Compute entry/stop prices (Section 15) ---
-        atr15_ticks = atr15_val / self.tick
-        stop_entry, limit_entry = risk.compute_entry_prices(
-            float(highs_15m[-1]), float(lows_15m[-1]),
-            atr15_ticks, direction,
-        )
-        entry_est = stop_entry
-
-        # Initial stop (Section 13)
-        initial_stop = risk.compute_initial_stop(
-            entry_est, direction, self._pivots_1h, atr1h_val, atr15_val)
-        r_points = abs(entry_est - initial_stop)
-        if r_points == 0:
-            return
-
-        # --- Gate 7: Sizing + viability (Section 12, 14) ---
-        unit_risk = risk.compute_unit_risk(self.equity, self.regime.vol_state)
-        eff_risk = risk.compute_effective_risk(unit_risk, class_mult, session_mult * hourly_mult)
-        if is_pyramid:
-            eff_risk = risk.compute_addon_risk(eff_risk)
-
-        if self.cfg.fixed_qty is not None:
-            qty = max(1, int(self.cfg.fixed_qty * hourly_mult * entry_size_mult))
-        else:
-            qty = risk.compute_qty(eff_risk * entry_size_mult, r_points)
-
         # v4.1: Day-of-week sizing reduction
+        dow_mult = 1.0
         if self.flags.dow_sizing and C.DOW_SIZE_MULT:
             from strategies.momentum.vdub.config import DOW_SIZE_MULT
             weekday = _to_et(bar_time).weekday()
             dow_mult = DOW_SIZE_MULT.get(weekday, DOW_SIZE_MULT.get(str(weekday), 1.0))
-            if dow_mult < 1.0:
-                qty = max(1, int(qty * dow_mult))
-
-        # Drawdown throttle: reduce sizing during drawdowns (matches live engine strategy_3/engine.py:606-608)
         dd_mult = max(0.75, self._throttle.dd_size_mult)
-        if dd_mult < 1.0:
-            qty = max(1, int(qty * dd_mult))
-
-        if qty < 1:
+        proposal, _proposal_reason = build_entry_proposal(
+            selection=selection,
+            symbol=self.symbol,
+            direction=direction,
+            session=session,
+            sub_window=sub_window,
+            now=bar_time,
+            bar_idx=self._bar_idx,
+            bar_high=float(highs_15m[-1]),
+            bar_low=float(lows_15m[-1]),
+            close_price=float(closes_15m[-1]),
+            atr15=atr15_val,
+            atr1h=atr1h_val,
+            pivots_1h=self._pivots_1h,
+            regime=self.regime,
+            counters=self.counters,
+            positions=([self._active.pos] if self._active is not None else []),
+            equity=self.equity,
+            is_flip=is_flip,
+            class_mult=class_mult,
+            session_mult=session_mult,
+            hourly_mult=hourly_mult,
+            point_value=self.pv,
+            tick_size=self.tick,
+            entry_size_mult=entry_size_mult,
+            fixed_qty=self.cfg.fixed_qty,
+            post_size_multipliers=(dow_mult, dd_mult),
+            signal_id=f"{signal_type.value}_{direction.name}_{self._bar_idx}",
+            bar_id=f"{self.symbol}:15m:{bar_time.isoformat()}",
+        )
+        if proposal is None:
             return
 
-        if self.flags.viability_filter:
-            ok, reason = risk.pass_viability(qty, r_points, sub_window)
-            if not ok:
+        ok, reason = evaluate_proposal_gates(
+            proposal,
+            counters=self.counters,
+            open_risk=self._compute_open_risk(),
+            viability_enabled=self.flags.viability_filter,
+            risk_gates_enabled=self.flags.heat_cap,
+        )
+        if not ok:
+            if reason.startswith("viability_"):
                 evt.viability_pass = False
-                evt.first_block_reason = f"viability_{reason}"
-                self._record_signal_event(evt)
-                return
-
-        # --- Gate 8: Risk gates (heat cap, breaker, direction caps) ---
-        if self.flags.heat_cap:
-            open_risk = self._compute_open_risk()
-            new_risk = r_points * self.pv * qty
-            ok, reason = risk.pass_risk_gates(
-                self.counters, direction, open_risk, new_risk, unit_risk)
-            if not ok:
+                evt.first_block_reason = reason
+            else:
                 evt.risk_gate_pass = False
-                evt.first_block_reason = f"risk_{reason}"
-                self._record_signal_event(evt)
-                return
+                evt.first_block_reason = reason.replace("risk_gate_", "risk_", 1)
+            self._record_signal_event(evt)
+            return
 
         # --- ALL GATES PASSED ---
         evt.passed_all = True
         evt.entry_type = signal_type.value
-        evt.would_be_entry = entry_est
-        evt.would_be_stop = initial_stop
+        evt.would_be_entry = proposal.stop_entry
+        evt.would_be_stop = proposal.initial_stop
         self._record_signal_event(evt)
 
         # --- Optional 5m micro-trigger ---
@@ -1718,18 +1689,14 @@ class VdubusEngine:
                 direction, atr15_val, sub_window,
             )
             if micro_result is not None:
-                stop_entry, limit_entry = micro_result
+                proposal = with_entry_prices(
+                    proposal,
+                    stop_entry=micro_result[0],
+                    limit_entry=micro_result[1],
+                )
 
         # Submit entry order
-        self._submit_entry(
-            direction=direction, qty=qty,
-            stop_entry=stop_entry, limit_entry=limit_entry,
-            initial_stop=initial_stop,
-            signal_type=signal_type, is_flip=is_flip, is_pyramid=is_pyramid,
-            class_mult=class_mult, vwap_used=vwap_used,
-            session=session, sub_window=sub_window,
-            bar_time=bar_time,
-        )
+        self._submit_entry_proposal(proposal)
 
     # ------------------------------------------------------------------
     # 5m micro-trigger
@@ -1790,54 +1757,81 @@ class VdubusEngine:
         session: SessionWindow, sub_window: SubWindow,
         bar_time: datetime,
     ) -> None:
+        signal_id = f"{signal_type.value}_{direction.name}_{self._bar_idx}"
+        proposal = explicit_entry_proposal(
+            symbol=self.symbol,
+            direction=direction,
+            qty=qty,
+            stop_entry=stop_entry,
+            limit_entry=limit_entry,
+            initial_stop=initial_stop,
+            entry_type=signal_type,
+            is_flip=is_flip,
+            is_pyramid=is_pyramid,
+            class_mult=class_mult,
+            vwap_used=vwap_used,
+            session=session,
+            sub_window=sub_window,
+            bar_idx=self._bar_idx,
+            now=bar_time,
+            signal_id=signal_id,
+            bar_id=f"{self.symbol}:15m:{bar_time.isoformat()}",
+            point_value=self.pv,
+        )
+        self._submit_entry_proposal(proposal)
+
+    def _submit_entry_proposal(self, proposal: VdubEntryProposal) -> None:
         """Submit stop-limit entry order via SimBroker."""
         # Don't submit if we already have working orders
         if self._working:
             return
 
-        side = OrderSide.BUY if direction == Direction.LONG else OrderSide.SELL
+        side = (
+            OrderSide.BUY
+            if proposal.direction == Direction.LONG
+            else OrderSide.SELL
+        )
         order_id = self.broker.next_order_id()
 
         ttl_minutes = C.TTL_BARS * 15  # 15m bars
 
         order = SimOrder(
             order_id=order_id, symbol=self.symbol, side=side,
-            order_type=OrderType.STOP_LIMIT, qty=qty,
-            stop_price=stop_entry, limit_price=limit_entry,
-            tick_size=self.tick, submit_time=bar_time,
+            order_type=OrderType.STOP_LIMIT, qty=proposal.qty,
+            stop_price=proposal.stop_entry, limit_price=proposal.limit_entry,
+            tick_size=self.tick, submit_time=proposal.exchange_timestamp,
             ttl_minutes=ttl_minutes,
-            tag=signal_type.value,
+            tag=proposal.entry_type.value,
         )
+        self._core_state, _proposals, events = vdub_core_logic.on_bar(
+            self._core_state,
+            bar_ts=proposal.exchange_timestamp,
+            entry_proposal=proposal,
+        )
+        self._decision_events.extend(events)
+        self._core_state, _submissions, events = vdub_core_logic.on_authorization(
+            self._core_state,
+            VdubAuthorization(
+                client_order_id=proposal.client_order_id,
+                approved=True,
+                approved_qty=proposal.qty,
+                requested_qty=proposal.qty,
+                timestamp=proposal.exchange_timestamp,
+                oms_order_id=order_id,
+            ),
+        )
+        self._decision_events.extend(events)
         self.broker.submit_order(order)
-
-        we = WorkingEntry(
-            oms_order_id=order_id,
-            entry_type=signal_type, direction=direction,
-            stop_entry=stop_entry, limit_entry=limit_entry,
-            qty=qty, submitted_bar_idx=self._bar_idx,
-            ttl_bars=C.TTL_BARS,
-            initial_stop=initial_stop, vwap_used=vwap_used,
-            class_mult=class_mult,
-            session=session,
-            is_flip=is_flip, is_addon=is_pyramid,
-        )
-        self._working[order_id] = we
+        self._working[order_id] = self._core_state.working_entries[order_id]
         self._entries_placed += 1
 
-        self._replay_core_step(bar_input=dict(
-            bar_ts=bar_time,
-            entry_submitted=VdubEntrySubmitted(
-                working_entry=we, oms_order_id=order_id, bar_idx=self._bar_idx,
-            ),
-        ))
-
-        if is_flip:
-            if direction == Direction.LONG:
+        if proposal.is_flip:
+            if proposal.direction == Direction.LONG:
                 self.counters.flip_entry_used_long = True
             else:
                 self.counters.flip_entry_used_short = True
-        if is_pyramid:
-            if direction == Direction.LONG:
+        if proposal.is_pyramid:
+            if proposal.direction == Direction.LONG:
                 self.counters.addon_used_long = True
             else:
                 self.counters.addon_used_short = True

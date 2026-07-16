@@ -9,6 +9,7 @@ from tests.integration.parity.fixtures import load_parity_fixture
 from tests.integration.parity.harness import (
     run_layer2_contract,
     run_momentum_r1b_nqdtc_contract,
+    run_momentum_r1b_vdub_contract,
     run_nq_regime_r1a_contract,
 )
 from tests.integration.parity.live_shadow_contract import assert_shadow_contract
@@ -110,6 +111,56 @@ async def test_momentum_r1b_nqdtc_shared_raw_timeline(scenario: str) -> None:
             "NQDTC_v2.1",
             "NQ_REGIME",
         }
+
+
+@pytest.mark.parity_nightly
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scenario", ["approved", "denied", "contention"])
+async def test_momentum_r1b_vdub_shared_raw_timeline(scenario: str) -> None:
+    fixture = _momentum_r1b_vdub_fixture(scenario=scenario)
+
+    contract = await run_momentum_r1b_vdub_contract(fixture)
+
+    assert_shadow_contract(contract)
+    assert contract.live.source_fingerprint == runtime_source_fingerprint(fixture)
+    state = contract.live.state_snapshot or {}
+    strategy_state = state.get("strategy_state", {}) or {}
+    vdub = strategy_state.get("VdubusNQ_v4", {}) or {}
+    nq_regime = strategy_state.get("NQ_REGIME", {}) or {}
+    blocked_reasons = state.get("blocked_reasons", {}) or {}
+    submitted = [row["strategy_id"] for row in contract.live.order_intents]
+
+    if scenario == "denied":
+        assert "VdubusNQ_v4" not in submitted
+        assert vdub.get("last_decision_code") == "ENTRY_DENIED"
+        assert vdub.get("position_count") == 0
+        assert nq_regime.get("position_side") == "long"
+        assert "portfolio_rule:regime_disabled" in blocked_reasons.get(
+            "VdubusNQ_v4",
+            [],
+        )
+    elif scenario == "contention":
+        assert "VdubusNQ_v4" in submitted
+        assert vdub.get("position_count") == 1
+        assert "NQ_REGIME" not in submitted
+        assert nq_regime.get("last_decision_code") == "ENTRY_DENIED"
+        assert "portfolio_rule:directional_cap" in blocked_reasons.get(
+            "NQ_REGIME",
+            [],
+        )
+    else:
+        assert {"NQDTC_v2.1", "VdubusNQ_v4", "NQ_REGIME"}.issubset(submitted)
+        assert vdub.get("position_count") == 1
+        assert nq_regime.get("position_side") == "long"
+
+
+def test_momentum_r1b_vdub_fixture_identities_are_scenario_specific() -> None:
+    fingerprints = {
+        runtime_source_fingerprint(_momentum_r1b_vdub_fixture(scenario=scenario))
+        for scenario in ("approved", "denied", "contention")
+    }
+
+    assert len(fingerprints) == 3
 
 
 def _nq_regime_r1a_fixture(*, disabled: bool) -> dict[str, Any]:
@@ -309,6 +360,130 @@ def _momentum_r1b_nqdtc_fixture(*, scenario: str) -> dict[str, Any]:
                 "price": 20036.0,
                 "commission": 0.0,
                 "timestamp": "2026-05-20T14:17:00+00:00",
+            }
+        )
+    fixture["broker_event_script"] = broker_script
+    return fixture
+
+
+def _momentum_r1b_vdub_fixture(*, scenario: str) -> dict[str, Any]:
+    fixture = _momentum_r1b_nqdtc_fixture(scenario="approved")
+    fixture["initial_strategy_state"]["VdubusNQ_v4"] = {}
+    fixture.setdefault("artifacts", {})["vdub"] = {
+        "r1b_market_input": {
+            "symbol": "NQ",
+            "timestamp": "2026-05-20T14:15:00+00:00",
+            "bars_15m": [
+                {
+                    "symbol": "NQ",
+                    "timeframe": "15m",
+                    "timestamp": f"2026-05-20T{hour:02d}:{minute:02d}:00+00:00",
+                    "open": 19999.0 + index,
+                    "high": 20005.0 + index * 3.0,
+                    "low": 19998.0,
+                    "close": 20001.0 + index * 3.0,
+                    "volume": 1000.0 + index * 100.0,
+                }
+                for index, (hour, minute) in enumerate(
+                    [(13, 30), (13, 45), (14, 0), (14, 15)]
+                )
+            ],
+            "bars_1h": [
+                {
+                    "symbol": "NQ",
+                    "timeframe": "1h",
+                    "timestamp": "2026-05-20T13:00:00+00:00",
+                    "open": 19990.0,
+                    "high": 20008.0,
+                    "low": 19980.0,
+                    "close": 20002.0,
+                    "volume": 4000.0,
+                },
+                {
+                    "symbol": "NQ",
+                    "timeframe": "1h",
+                    "timestamp": "2026-05-20T14:00:00+00:00",
+                    "open": 20002.0,
+                    "high": 20020.0,
+                    "low": 19995.0,
+                    "close": 20010.0,
+                    "volume": 4500.0,
+                },
+            ],
+            "decision_state": {
+                "direction": "LONG",
+                "session": "RTH",
+                "sub_window": "OPEN",
+                "daily_trend": 1,
+                "trend_1h": 1,
+                "choppiness": 10.0,
+                "vol_state": "Normal",
+                "class_mult": 0.7,
+                "point_value": 2.0,
+                "momentum": [float(value) for value in range(60)],
+                "atr15": [20.0, 20.0, 20.0, 20.0],
+                "atr1h": [30.0, 30.0],
+                "svwap": [20000.0, 20000.0, 20000.0, 20000.0],
+                "vwap_a": [20000.0, 20000.0, 20000.0, 20000.0],
+            },
+        }
+    }
+    strategies = fixture["family_config"]["strategies"]
+    strategies.insert(
+        1,
+        {
+            "id": "VdubusNQ_v4",
+            "family": "momentum",
+            "unit_risk_dollars": 650.0,
+            "daily_stop_R": 20.0,
+            "priority": 1,
+            "max_heat_R": 20.0,
+            "max_working_orders": 4,
+        },
+    )
+    strategies[2]["priority"] = 2
+    rules = fixture["family_config"]["portfolio_rules"]
+    rules["family_strategy_ids"] = [
+        "NQDTC_v2.1",
+        "VdubusNQ_v4",
+        "NQ_REGIME",
+    ]
+    rules["strategy_priorities"] = [
+        ["NQDTC_v2.1", 0],
+        ["VdubusNQ_v4", 1],
+        ["NQ_REGIME", 2],
+    ]
+    rules["strategy_size_multipliers"].insert(1, ["VdubusNQ_v4", 1.0])
+    rules["disabled_strategies"] = (
+        ["VdubusNQ_v4"] if scenario == "denied" else []
+    )
+    directional_cap = 2.0 if scenario == "contention" else 20.0
+    rules["directional_cap_R"] = directional_cap
+    rules["directional_cap_long_R"] = directional_cap
+    rules["directional_cap_short_R"] = directional_cap
+
+    broker_script = list(fixture["broker_event_script"])
+    if scenario == "contention":
+        broker_script = [
+            event
+            for event in broker_script
+            if event["order_match"]["strategy_id"] != "NQ_REGIME"
+        ]
+    if scenario != "denied":
+        broker_script.append(
+            {
+                "order_match": {
+                    "strategy_id": "VdubusNQ_v4",
+                    "symbol": "NQ",
+                    "role": "ENTRY",
+                    "side": "BUY",
+                    "sequence": 1,
+                },
+                "event": "fill",
+                "exec_id": f"VDUB-R1B-{scenario}",
+                "price": 20015.25,
+                "commission": 0.0,
+                "timestamp": "2026-05-20T14:16:30+00:00",
             }
         )
     fixture["broker_event_script"] = broker_script

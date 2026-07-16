@@ -299,13 +299,15 @@ async def drive_momentum_r1b_raw_timeline(
     fixture: Mapping[str, Any],
     engines: Mapping[str, Any],
 ) -> None:
-    """Drive NQDTC and NQ_REGIME on one timestamp/priority-ordered raw timeline."""
+    """Drive bounded momentum children on one ordered raw-event timeline."""
 
     for event in momentum_r1b_raw_timeline(fixture):
         strategy_id = str(event["strategy_id"])
         payload = event["payload"]
         if strategy_id == "NQDTC_v2.1":
             await _drive_nqdtc_r1b_raw_event(engines[strategy_id], payload)
+        elif strategy_id == "VdubusNQ_v4":
+            await _drive_vdub_r1b_raw_event(engines[strategy_id], payload)
         else:
             await engines[strategy_id].on_bar(
                 nq_bar_data(payload),
@@ -314,6 +316,52 @@ async def drive_momentum_r1b_raw_timeline(
                 scheduled_news=[],
             )
         await _settle_callbacks()
+
+
+async def _drive_vdub_r1b_raw_event(
+    engine: Any,
+    market_input: Mapping[str, Any],
+) -> None:
+    from strategies.momentum.vdub.models import (
+        Direction,
+        SessionWindow,
+        SubWindow,
+        VolState,
+    )
+
+    bars_15m = bar_objects(market_input.get("bars_15m", []))
+    bars_1h = bar_objects(market_input.get("bars_1h", []))
+    state_input = market_input.get("decision_state", {}) or {}
+    engine._symbol = str(market_input.get("symbol", engine._symbol))
+    engine._c15 = np.asarray([bar.close for bar in bars_15m], dtype=float)
+    engine._h15 = np.asarray([bar.high for bar in bars_15m], dtype=float)
+    engine._l15 = np.asarray([bar.low for bar in bars_15m], dtype=float)
+    engine._v15 = np.asarray([bar.volume for bar in bars_15m], dtype=float)
+    engine._t15 = [bar.date for bar in bars_15m]
+    engine._c1h = np.asarray([bar.close for bar in bars_1h], dtype=float)
+    engine._h1h = np.asarray([bar.high for bar in bars_1h], dtype=float)
+    engine._l1h = np.asarray([bar.low for bar in bars_1h], dtype=float)
+    engine._v1h = np.asarray([bar.volume for bar in bars_1h], dtype=float)
+    engine._t1h = [bar.date for bar in bars_1h]
+    engine._mom15 = np.asarray(state_input.get("momentum", []), dtype=float)
+    engine._atr15 = np.asarray(state_input.get("atr15", []), dtype=float)
+    engine._atr1h = np.asarray(state_input.get("atr1h", []), dtype=float)
+    engine._svwap = np.asarray(state_input.get("svwap", []), dtype=float)
+    engine._vwap_a_arr = np.asarray(state_input.get("vwap_a", []), dtype=float)
+    engine.regime.daily_trend = int(state_input.get("daily_trend", 1))
+    engine.regime.trend_1h = int(state_input.get("trend_1h", 1))
+    engine.regime.choppiness = float(state_input.get("choppiness", 10.0))
+    engine.regime.vol_state = VolState(
+        str(state_input.get("vol_state", VolState.NORMAL.value))
+    )
+    engine._last_bar_ts = market_input["timestamp"]
+    engine._bar_idx += len(bars_15m)
+    await engine._evaluate_direction(
+        Direction[str(state_input.get("direction", "LONG")).upper()],
+        SessionWindow[str(state_input.get("session", "RTH")).upper()],
+        SubWindow[str(state_input.get("sub_window", "OPEN")).upper()],
+        market_input["timestamp"],
+    )
 
 
 async def _drive_nqdtc_r1b_raw_event(engine: Any, market_input: Mapping[str, Any]) -> None:

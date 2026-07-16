@@ -6,15 +6,13 @@ from typing import Any, Literal
 
 from strategies.momentum.vdub.models import (
     DayCounters,
-    Direction,
-    EntryType,
     EventBlockState,
     PositionState,
-    PositionStage,
     RegimeState,
-    SessionWindow,
     WorkingEntry,
 )
+
+from .entry_decision import VdubEntryProposal
 
 
 @dataclass(slots=True)
@@ -23,6 +21,7 @@ class VdubCoreState:
     counters: DayCounters = field(default_factory=DayCounters)
     positions: list[PositionState] = field(default_factory=list)
     working_entries: dict[str, WorkingEntry] = field(default_factory=dict)
+    pending_entries: dict[str, VdubEntryProposal] = field(default_factory=dict)
     event_state: EventBlockState = field(default_factory=EventBlockState)
     bar_idx: int = 0
     last_reset_date: str = ""
@@ -42,6 +41,21 @@ class VdubEntrySubmitted:
     working_entry: WorkingEntry
     oms_order_id: str
     bar_idx: int = 0
+
+
+@dataclass(slots=True)
+class VdubAuthorization:
+    """Portfolio authorization feedback for a pending entry proposal."""
+
+    client_order_id: str
+    approved: bool
+    approved_qty: int
+    requested_qty: int
+    timestamp: datetime
+    oms_order_id: str = ""
+    denial_reason: str = ""
+    portfolio_decision_ref: str = ""
+    filter_decisions: list[dict] | None = None
 
 
 @dataclass(slots=True)

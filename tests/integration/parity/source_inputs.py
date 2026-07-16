@@ -92,8 +92,29 @@ def nqdtc_r1b_market_input(fixture: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def vdub_r1b_market_input(fixture: Mapping[str, Any]) -> dict[str, Any]:
+    """Materialize the bounded raw Vdub decision input for R1B."""
+
+    raw = ((fixture.get("artifacts", {}) or {}).get("vdub", {}) or {}).get(
+        "r1b_market_input",
+        {},
+    )
+    if not isinstance(raw, Mapping) or not raw:
+        raise AssertionError("R1B Vdub fixture is missing artifacts.vdub.r1b_market_input")
+    bars = _sort_bar_rows(raw.get("bars_15m", []) or [])
+    if not bars:
+        raise AssertionError("R1B Vdub market input must include raw 15m bars")
+    return {
+        "symbol": str(raw.get("symbol", "NQ")),
+        "timestamp": parse_time(raw.get("timestamp") or bars[-1].get("timestamp")),
+        "bars_15m": bars,
+        "bars_1h": _sort_bar_rows(raw.get("bars_1h", []) or []),
+        "decision_state": dict(raw.get("decision_state", {}) or {}),
+    }
+
+
 def momentum_r1b_raw_timeline(fixture: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Materialize the bounded two-child timestamp/priority input once."""
+    """Materialize the bounded momentum timestamp/priority input once."""
 
     priorities = {
         str(item.get("id")): int(item.get("priority", 99))
@@ -108,6 +129,16 @@ def momentum_r1b_raw_timeline(fixture: Mapping[str, Any]) -> list[dict[str, Any]
             "payload": nqdtc_input,
         }
     ]
+    if "VdubusNQ_v4" in priorities:
+        vdub_input = vdub_r1b_market_input(fixture)
+        events.append(
+            {
+                "timestamp": vdub_input["timestamp"],
+                "priority": priorities.get("VdubusNQ_v4", 99),
+                "strategy_id": "VdubusNQ_v4",
+                "payload": vdub_input,
+            }
+        )
     for row in source_bars(fixture, "NQ", "5m") or source_bars(
         fixture,
         "MNQ",

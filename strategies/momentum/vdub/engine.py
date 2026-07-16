@@ -16,7 +16,7 @@ from libs.broker_ibkr.risk_support.tick_rules import round_to_tick
 from libs.market_data.futures_roll import roll_blackout_reason, roll_force_flatten_reason
 from libs.market_data.live_futures import req_panama_adjusted_historical_data
 from libs.oms.models.events import OMSEventType
-from libs.oms.models.intent import Intent, IntentType
+from libs.oms.models.intent import Intent, IntentResult, IntentType
 from libs.oms.models.order import (
     EntryPolicy, OMSOrder, OrderRole, OrderSide, OrderType, RiskContext,
 )
@@ -37,15 +37,26 @@ from .core.logic import build_core_state as build_core_runtime_state
 from .core.serializers import restore_state as restore_core_state
 from .core.serializers import snapshot_state as snapshot_core_state
 from .core.state import (
+    VdubAuthorization,
     VdubEntryFillContext,
-    VdubEntrySubmitted,
     VdubFill,
     VdubFlattenRequest,
     VdubOrderUpdate,
-    VdubPartialExitDone,
     VdubStopUpdateRequest,
 )
-from strategies.core.actions import FlattenPosition, ReplaceProtectiveStop, SubmitExit
+from .core.entry_decision import (
+    VdubEntryProposal,
+    build_entry_proposal,
+    evaluate_proposal_gates,
+    explicit_entry_proposal,
+    select_entry_signal,
+)
+from strategies.core.actions import (
+    FlattenPosition,
+    ReplaceProtectiveStop,
+    SubmitEntry,
+    SubmitProtectiveStop,
+)
 from . import indicators as ind
 from . import signals as sig
 from . import exits
@@ -199,6 +210,7 @@ class VdubNQv4Engine:
         self.counters = DayCounters()
         self.positions: list[PositionState] = []
         self.working_entries: dict[str, WorkingEntry] = {}
+        self.pending_entries: dict[str, VdubEntryProposal] = {}
         self.event_state = EventBlockState()
         self._bar_idx = 0
         self._last_reset_date = ""
@@ -892,33 +904,27 @@ class VdubNQv4Engine:
             )
             return
 
-        # Signal: Type A priority, then Type B (Section 9.3)
-        signal = sig.type_a_check(
-            self._c15, self._l15, self._h15, self._svwap,
-            self._vwap_a_arr,
-            atr15_val, direction, sub_window,
+        selection = select_entry_signal(
+            closes_15m=self._c15,
+            lows_15m=self._l15,
+            highs_15m=self._h15,
+            svwap=self._svwap,
+            vwap_a=self._vwap_a_arr,
+            pivots_1h=self._pivots_1h,
+            n_1h_bars=len(self._c1h),
+            atr15=atr15_val,
+            direction=direction,
+            sub_window=sub_window,
+            trend_1h=self.regime.trend_1h,
+            type_a_enabled=True,
+            type_b_enabled=True,
+            type_c_enabled=False,
         )
-        signal_type = EntryType.TYPE_A
-        vwap_used = signal["vwap_used"] if signal else 0.0
-
-        if signal is None and C.USE_TYPE_B and sub_window.value in C.TYPE_B_ALLOWED_WINDOWS:
-            # Type B: require 1H alignment if configured
-            type_b_ok = True
-            if C.TYPE_B_REQUIRE_1H_ALIGN:
-                aligned_1h = (direction == Direction.LONG and self.regime.trend_1h == 1) or \
-                             (direction == Direction.SHORT and self.regime.trend_1h == -1)
-                if not aligned_1h:
-                    type_b_ok = False
-            if type_b_ok:
-                signal = sig.type_b_check(
-                    self._c15, self._l15, self._h15,
-                    self._pivots_1h, len(self._c1h),
-                    atr15_val, direction,
-                )
-                signal_type = EntryType.TYPE_B
-        if signal is None:
+        if selection is None:
             self._bar_route_decision("NO_SIGNAL", {"direction": direction.name, "session": session.value})
             return
+        signal = selection.signal
+        signal_type = selection.entry_type
 
         _sig_id = f"{signal_type.value}_{direction.name}_{self._bar_idx}"
 
@@ -953,85 +959,77 @@ class VdubNQv4Engine:
         session_key = "RTH" if session == SessionWindow.RTH else "EVENING"
         session_mult = C.SESSION_MULT[session_key]
 
-        # Block entry if any position is open in opposite direction (single-position model)
-        any_open = [p for p in self.positions if p.qty_open > 0]
-        if any_open:
-            opposite = [p for p in any_open if p.direction != direction]
-            if opposite:
-                self._log_missed(direction, signal_type, _sig_id, "OPPOSITE_POSITION", "position open in opposite direction")
-                return  # Cannot enter opposite direction while position is open
-
-        # Check pyramiding
-        is_pyramid = False
-        existing = self._get_position(direction)
-        if existing:
-            close_price = float(self._c15[-1])
-            if risk.pyramid_eligible(existing, direction, close_price, self.counters):
-                is_pyramid = True
-            else:
-                self._log_missed(direction, signal_type, _sig_id, "PYRAMID_NOT_ELIGIBLE", "pyramid conditions not met")
-                return
-
-        # Compute entry/stop prices (Section 15)
-        atr15_ticks = atr15_val / C.NQ_SPEC["tick"]
-        stop_entry, limit_entry = risk.compute_entry_prices(
-            float(self._h15[-1]), float(self._l15[-1]),
-            atr15_ticks, direction,
+        signal_context = self._entry_signal_context(
+            signal_type=signal_type,
+            direction=direction,
+            signal_id=_sig_id,
+            bar_ts=now,
         )
-        entry_est = stop_entry
-
-        # Initial stop (Section 13)
-        initial_stop = risk.compute_initial_stop(
-            entry_est, direction, self._pivots_1h, atr1h_val, atr15_val)
-        r_points = abs(entry_est - initial_stop)
-        if r_points == 0:
-            return
-
-        # Sizing (Section 12)
-        unit_risk = risk.compute_unit_risk(self._equity, self.regime.vol_state)
-        eff_risk = risk.compute_effective_risk(unit_risk, class_mult, session_mult * hourly_mult)
-        if is_pyramid:
-            eff_risk = risk.compute_addon_risk(eff_risk)
-        qty = risk.compute_qty(eff_risk, r_points)
-
-        # Drawdown throttle: reduce sizing during drawdowns (floor at 0.75x)
         dd_mult = max(0.75, self._throttle.dd_size_mult)
-        if dd_mult < 1.0:
-            qty = max(1, int(qty * dd_mult))
-
-        if qty < 1:
+        proposal, proposal_reason = build_entry_proposal(
+            selection=selection,
+            symbol=self._symbol,
+            direction=direction,
+            session=session,
+            sub_window=sub_window,
+            now=now,
+            bar_idx=self._bar_idx,
+            bar_high=float(self._h15[-1]),
+            bar_low=float(self._l15[-1]),
+            close_price=float(self._c15[-1]),
+            atr15=atr15_val,
+            atr1h=atr1h_val,
+            pivots_1h=self._pivots_1h,
+            regime=self.regime,
+            counters=self.counters,
+            positions=self.positions,
+            equity=self._equity,
+            is_flip=is_flip,
+            class_mult=class_mult,
+            session_mult=session_mult,
+            hourly_mult=hourly_mult,
+            point_value=C.NQ_SPEC["point_value"],
+            tick_size=C.NQ_SPEC["tick"],
+            post_size_multipliers=(dd_mult,),
+            signal_id=signal_context["signal_id"],
+            bar_id=signal_context["bar_id"],
+        )
+        if proposal is None:
+            if proposal_reason in {"opposite_position", "pyramid_not_eligible"}:
+                self._log_missed(
+                    direction,
+                    signal_type,
+                    _sig_id,
+                    proposal_reason.upper(),
+                    proposal_reason.replace("_", " "),
+                )
             return
 
         # Build filter decisions for instrumentation
-        gate_fds = self._build_gate_filter_decisions(direction, qty, r_points, unit_risk, sub_window)
-
-        # Viability (Section 14)
-        ok, reason = risk.pass_viability(qty, r_points, sub_window)
-        if not ok:
-            self._log_missed(direction, signal_type, _sig_id, f"viability_{reason}", reason,
-                             filter_decisions=gate_fds)
-            return
-
-        # Risk gates: heat cap, breaker, direction caps (Section 12.5-12.7)
-        open_risk = self._compute_open_risk()
-        new_risk = r_points * C.NQ_SPEC["point_value"] * qty
-        ok, reason = risk.pass_risk_gates(
-            self.counters, direction, open_risk, new_risk, unit_risk)
-        if not ok:
-            self._log_missed(direction, signal_type, _sig_id, f"risk_gate_{reason}", reason,
-                             filter_decisions=gate_fds)
-            return
-
-        # Submit entry order
-        self._bar_route_decision("ENTRY_SUBMITTED", {
-            "direction": direction.name, "signal_type": signal_type.value,
-            "qty": qty, "is_pyramid": is_pyramid,
-        })
-        await self._submit_entry(
-            direction, qty, stop_entry, limit_entry, initial_stop,
-            signal_type, is_flip, is_pyramid, class_mult, vwap_used,
-            session, filter_decisions=gate_fds, signal_id=_sig_id,
+        gate_fds = self._build_gate_filter_decisions(
+            direction,
+            proposal.qty,
+            proposal.r_points,
+            proposal.unit_risk,
+            sub_window,
         )
+        ok, reason = evaluate_proposal_gates(
+            proposal,
+            counters=self.counters,
+            open_risk=self._compute_open_risk(),
+        )
+        if not ok:
+            self._log_missed(
+                direction,
+                signal_type,
+                _sig_id,
+                reason,
+                reason,
+                filter_decisions=gate_fds,
+            )
+            return
+
+        await self._submit_entry_proposal(proposal, filter_decisions=gate_fds)
 
     # ------------------------------------------------------------------
     # Working entry management (Section 15)
@@ -1360,30 +1358,80 @@ class VdubNQv4Engine:
         filter_decisions: list[dict] | None = None,
         signal_id: str = "",
     ) -> None:
-        # Don't submit if we already have working orders
-        if self.working_entries:
-            self._log_missed(direction, signal_type, f"{signal_type.value}_{direction.name}_{self._bar_idx}", "WORKING_ORDER_EXISTS", "working entry already pending")
-            return
-        inst = self._instruments.get(self._symbol)
-        if inst is None:
-            return
-        side = OrderSide.BUY if direction == Direction.LONG else OrderSide.SELL
         signal_context = self._entry_signal_context(
             signal_type=signal_type,
             direction=direction,
             signal_id=signal_id,
         )
+        proposal = explicit_entry_proposal(
+            symbol=self._symbol,
+            direction=direction,
+            qty=qty,
+            stop_entry=stop_entry,
+            limit_entry=limit_entry,
+            initial_stop=initial_stop,
+            entry_type=signal_type,
+            is_flip=is_flip,
+            is_pyramid=is_pyramid,
+            class_mult=class_mult,
+            vwap_used=vwap_used,
+            session=session,
+            sub_window=SubWindow.CORE,
+            bar_idx=self._bar_idx,
+            now=signal_context["exchange_timestamp"],
+            signal_id=signal_context["signal_id"],
+            bar_id=signal_context["bar_id"],
+            point_value=C.NQ_SPEC["point_value"],
+        )
+        await self._submit_entry_proposal(
+            proposal,
+            filter_decisions=filter_decisions,
+        )
+
+    async def _submit_entry_proposal(
+        self,
+        proposal: VdubEntryProposal,
+        *,
+        filter_decisions: list[dict] | None = None,
+    ) -> None:
+        # Don't submit if we already have working orders
+        if self.working_entries:
+            self._log_missed(
+                proposal.direction,
+                proposal.entry_type,
+                proposal.signal_id,
+                "WORKING_ORDER_EXISTS",
+                "working entry already pending",
+            )
+            return
+        inst = self._instruments.get(self._symbol)
+        if inst is None:
+            return
+        core_state = build_core_runtime_state(self)
+        core_state, proposal_actions, _events = vdub_core_logic.on_bar(
+            core_state,
+            bar_ts=proposal.exchange_timestamp,
+            entry_proposal=proposal,
+        )
+        apply_core_runtime_state(self, core_state)
+        action = next(
+            item for item in proposal_actions if isinstance(item, SubmitEntry)
+        )
+        side = OrderSide.BUY if action.side == "BUY" else OrderSide.SELL
+        signal_context = action.risk_context
         risk_ctx = RiskContext(
-            stop_for_risk=initial_stop,
-            planned_entry_price=stop_entry,
-            risk_dollars=RiskCalculator.compute_order_risk_dollars(
-                stop_entry, initial_stop, qty, C.NQ_SPEC["point_value"]),
-            **signal_context,
+            stop_for_risk=float(signal_context["stop_for_risk"]),
+            planned_entry_price=float(signal_context["planned_entry_price"]),
+            risk_dollars=float(signal_context["risk_dollars"]),
+            signal_id=str(signal_context["signal_id"]),
+            bar_id=str(signal_context["bar_id"]),
+            exchange_timestamp=signal_context["exchange_timestamp"],
         )
         order = OMSOrder(
-            strategy_id=C.STRATEGY_ID, instrument=inst, side=side, qty=qty,
+            client_order_id=action.client_order_id,
+            strategy_id=C.STRATEGY_ID, instrument=inst, side=side, qty=action.qty,
             order_type=OrderType.STOP_LIMIT,
-            stop_price=stop_entry, limit_price=limit_entry,
+            stop_price=action.stop_price, limit_price=action.limit_price,
             tif="GTC", role=OrderRole.ENTRY,
             entry_policy=EntryPolicy(
                 ttl_bars=C.TTL_BARS, teleport_ticks=C.TELEPORT_TICKS),
@@ -1394,43 +1442,51 @@ class VdubNQv4Engine:
             strategy_id=C.STRATEGY_ID, order=order,
         )
         receipt = await self._oms.submit_intent(intent)
-        if not receipt.oms_order_id:
+        result = getattr(receipt, "result", None)
+        approved = result == IntentResult.ACCEPTED or (
+            result is None and bool(getattr(receipt, "oms_order_id", None))
+        )
+        approved_qty = int(order.qty) if approved else 0
+        core_state = build_core_runtime_state(self)
+        core_state, _submissions, _events = vdub_core_logic.on_authorization(
+            core_state,
+            VdubAuthorization(
+                client_order_id=proposal.client_order_id,
+                approved=approved,
+                approved_qty=approved_qty,
+                requested_qty=proposal.qty,
+                timestamp=proposal.exchange_timestamp,
+                oms_order_id=str(getattr(receipt, "oms_order_id", "") or ""),
+                denial_reason=str(getattr(receipt, "denial_reason", "") or ""),
+                portfolio_decision_ref=str(
+                    getattr(receipt, "intent_id", "") or ""
+                ),
+                filter_decisions=filter_decisions,
+            ),
+        )
+        apply_core_runtime_state(self, core_state)
+        if not approved or not getattr(receipt, "oms_order_id", None):
             return
 
-        we = WorkingEntry(
-            oms_order_id=receipt.oms_order_id,
-            entry_type=signal_type, direction=direction,
-            stop_entry=stop_entry, limit_entry=limit_entry,
-            qty=qty, submitted_bar_idx=self._bar_idx,
-            ttl_bars=C.TTL_BARS,
-            initial_stop=initial_stop, vwap_used=vwap_used,
-            class_mult=class_mult,
-            session=session,
-            is_flip=is_flip, is_addon=is_pyramid,
-            filter_decisions=filter_decisions,
-            signal_id=signal_context["signal_id"],
-            bar_id=signal_context["bar_id"],
-            exchange_timestamp=signal_context["exchange_timestamp"],
-        )
-        self.working_entries[receipt.oms_order_id] = we
-
-        if is_flip:
-            if direction == Direction.LONG:
+        if proposal.is_flip:
+            if proposal.direction == Direction.LONG:
                 self.counters.flip_entry_used_long = True
             else:
                 self.counters.flip_entry_used_short = True
-        if is_pyramid:
-            if direction == Direction.LONG:
+        if proposal.is_pyramid:
+            if proposal.direction == Direction.LONG:
                 self.counters.addon_used_long = True
             else:
                 self.counters.addon_used_short = True
 
         logger.info(
             "Entry: %s %s %s qty=%d stop=%.2f lim=%.2f R=%.1f -> %s",
-            signal_type.value, direction.name,
-            "FLIP" if is_flip else ("ADD" if is_pyramid else "NEW"),
-            qty, stop_entry, limit_entry,
-            abs(stop_entry - initial_stop), receipt.oms_order_id,
+            proposal.entry_type.value, proposal.direction.name,
+            "FLIP" if proposal.is_flip else (
+                "ADD" if proposal.is_pyramid else "NEW"
+            ),
+            approved_qty, proposal.stop_entry, proposal.limit_entry,
+            proposal.r_points, receipt.oms_order_id,
         )
 
     async def _submit_fallback_market(self, we: WorkingEntry) -> None:
@@ -1514,12 +1570,18 @@ class VdubNQv4Engine:
         )
         await self._oms.submit_intent(intent)
 
-    async def _place_stop(self, pos: PositionState) -> None:
+    async def _place_stop(
+        self,
+        pos: PositionState,
+        *,
+        client_order_id: str = "",
+    ) -> None:
         inst = self._instruments.get(self._symbol)
         if inst is None:
             return
         side = OrderSide.SELL if pos.direction == Direction.LONG else OrderSide.BUY
         order = OMSOrder(
+            client_order_id=client_order_id,
             strategy_id=C.STRATEGY_ID, instrument=inst, side=side,
             qty=pos.qty_open, order_type=OrderType.STOP,
             stop_price=pos.stop_price, tif="GTC", role=OrderRole.STOP,
@@ -1651,7 +1713,17 @@ class VdubNQv4Engine:
 
         fill_price = payload.get("price", 0.0)
         fill_qty = int(payload.get("qty", 0))
-        fill_time = datetime.now(timezone.utc)
+        fill_timestamp = payload.get("timestamp")
+        if isinstance(fill_timestamp, datetime):
+            fill_time = fill_timestamp
+        elif fill_timestamp:
+            fill_time = datetime.fromisoformat(
+                str(fill_timestamp).replace("Z", "+00:00")
+            )
+        else:
+            fill_time = datetime.now(timezone.utc)
+        if fill_time.tzinfo is None:
+            fill_time = fill_time.replace(tzinfo=timezone.utc)
 
         if self._last_flatten_oms_id and oms_id == self._last_flatten_oms_id:
             pending = self._pending_flatten_instrumentation.pop(oms_id, {})
@@ -1733,14 +1805,17 @@ class VdubNQv4Engine:
 
         # Dispatch actions
         for action in actions:
-            if isinstance(action, SubmitExit):
+            if isinstance(action, SubmitProtectiveStop):
                 pos = next(
                     (p for p in self.positions
                      if p.trade_id == action.metadata.get("pos_id")),
                     None,
                 )
                 if pos:
-                    await self._place_stop(pos)
+                    await self._place_stop(
+                        pos,
+                        client_order_id=action.client_order_id,
+                    )
             elif isinstance(action, FlattenPosition):
                 reason = action.reason
                 logger.warning("Core requested flatten: %s", reason)

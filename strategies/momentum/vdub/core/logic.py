@@ -14,11 +14,11 @@ from strategies.core.actions import (
     FlattenPosition,
     NeutralAction,
     ReplaceProtectiveStop,
-    SubmitExit,
+    SubmitProtectiveStop,
 )
 from strategies.core.events import DecisionEvent
 from strategies.core.idle_market import idle_market_details
-from strategies.momentum.vdub.config import STRATEGY_ID
+from strategies.momentum.vdub.config import DEFAULT_SYMBOL, STRATEGY_ID
 from strategies.momentum.vdub.models import (
     Direction,
     PositionStage,
@@ -26,6 +26,7 @@ from strategies.momentum.vdub.models import (
 )
 
 from .state import (
+    VdubAuthorization,
     VdubCoreState,
     VdubEntrySubmitted,
     VdubFill,
@@ -33,6 +34,11 @@ from .state import (
     VdubOrderUpdate,
     VdubPartialExitDone,
     VdubStopUpdateRequest,
+)
+from .entry_decision import (
+    VdubEntryProposal,
+    entry_action,
+    working_entry_from_proposal,
 )
 
 
@@ -45,6 +51,7 @@ def build_core_state(engine) -> VdubCoreState:
         counters=deepcopy(engine.counters),
         positions=deepcopy(engine.positions),
         working_entries=deepcopy(engine.working_entries),
+        pending_entries=deepcopy(getattr(engine, "pending_entries", {})),
         event_state=deepcopy(engine.event_state),
         bar_idx=engine._bar_idx,
         last_reset_date=engine._last_reset_date,
@@ -61,6 +68,7 @@ def apply_core_state(engine, state: VdubCoreState) -> None:
     engine.counters = deepcopy(state.counters)
     engine.positions = deepcopy(state.positions)
     engine.working_entries = deepcopy(state.working_entries)
+    engine.pending_entries = deepcopy(state.pending_entries)
     engine.event_state = deepcopy(state.event_state)
     engine._bar_idx = state.bar_idx
     engine._last_reset_date = state.last_reset_date
@@ -78,6 +86,7 @@ def on_bar(
     state: VdubCoreState,
     *,
     bar_ts: datetime | None = None,
+    entry_proposal: VdubEntryProposal | None = None,
     entry_submitted: VdubEntrySubmitted | None = None,
     stop_updates: list[VdubStopUpdateRequest] | None = None,
     flatten_requests: list[VdubFlattenRequest] | None = None,
@@ -95,6 +104,26 @@ def on_bar(
 
     if bar_ts is not None:
         next_state.last_bar_ts = bar_ts
+
+    if entry_proposal is not None:
+        next_state.pending_entries[entry_proposal.client_order_id] = deepcopy(
+            entry_proposal
+        )
+        actions.append(entry_action(entry_proposal))
+        next_state.last_decision_code = "ENTRY_PROPOSED"
+        next_state.last_decision_details = {
+            "client_order_id": entry_proposal.client_order_id,
+            "direction": entry_proposal.direction.name,
+            "qty": entry_proposal.qty,
+            "risk_dollars": entry_proposal.risk_dollars,
+        }
+        events.append(DecisionEvent(
+            code="ENTRY_PROPOSED",
+            ts=bar_ts or entry_proposal.exchange_timestamp,
+            symbol=STRATEGY_ID,
+            timeframe="15m",
+            details=dict(next_state.last_decision_details),
+        ))
 
     # Register entry submission in working_entries
     if entry_submitted is not None:
@@ -208,6 +237,83 @@ def on_bar(
     return next_state, actions, events
 
 
+def on_authorization(
+    state: VdubCoreState,
+    authorization: VdubAuthorization,
+) -> tuple[VdubCoreState, list[NeutralAction], list[DecisionEvent]]:
+    """Apply family authorization before an entry becomes a submission."""
+
+    next_state = deepcopy(state)
+    proposal = next_state.pending_entries.pop(
+        authorization.client_order_id,
+        None,
+    )
+    if proposal is None:
+        return next_state, [], []
+
+    approved_qty = min(
+        max(int(authorization.approved_qty), 0),
+        max(int(authorization.requested_qty), 0),
+    )
+    approved = bool(authorization.approved and approved_qty > 0)
+    if not approved:
+        next_state.last_decision_code = "ENTRY_DENIED"
+        next_state.last_decision_details = {
+            "client_order_id": authorization.client_order_id,
+            "requested_qty": authorization.requested_qty,
+            "reason": authorization.denial_reason,
+        }
+        event = DecisionEvent(
+            code="ENTRY_DENIED",
+            ts=authorization.timestamp,
+            symbol=STRATEGY_ID,
+            timeframe="15m",
+            details=dict(next_state.last_decision_details),
+        )
+        return next_state, [], [event]
+
+    oms_order_id = authorization.oms_order_id or authorization.client_order_id
+    working_entry = working_entry_from_proposal(
+        proposal,
+        oms_order_id=oms_order_id,
+        qty=approved_qty,
+        filter_decisions=authorization.filter_decisions,
+    )
+    next_state.working_entries[oms_order_id] = working_entry
+    next_state.last_decision_code = "ENTRY_SUBMITTED"
+    next_state.last_decision_details = {
+        "client_order_id": authorization.client_order_id,
+        "oms_order_id": oms_order_id,
+        "direction": proposal.direction.name,
+        "requested_qty": authorization.requested_qty,
+        "approved_qty": approved_qty,
+    }
+    action = entry_action(proposal)
+    if approved_qty != action.qty:
+        from dataclasses import replace
+
+        action = replace(
+            action,
+            qty=approved_qty,
+            risk_context={
+                **action.risk_context,
+                "risk_dollars": (
+                    proposal.risk_dollars * approved_qty / proposal.qty
+                    if proposal.qty > 0
+                    else 0.0
+                ),
+            },
+        )
+    event = DecisionEvent(
+        code="ENTRY_SUBMITTED",
+        ts=authorization.timestamp,
+        symbol=STRATEGY_ID,
+        timeframe="15m",
+        details=dict(next_state.last_decision_details),
+    )
+    return next_state, [action], [event]
+
+
 # ── on_fill ──────────────────────────────────────────────────────
 
 
@@ -257,7 +363,7 @@ def _process_entry_fill(
     # Create position
     r_points = abs(fill.fill_price - we.initial_stop)
     pos = PositionState(
-        trade_id=we.oms_order_id,
+        trade_id=f"{STRATEGY_ID}:{we.signal_id}" if we.signal_id else we.oms_order_id,
         direction=we.direction,
         entry_price=fill.fill_price,
         stop_price=we.initial_stop,
@@ -288,13 +394,13 @@ def _process_entry_fill(
 
     # Request protective stop placement
     side: str = "SELL" if we.direction == Direction.LONG else "BUY"
-    actions.append(SubmitExit(
-        client_order_id=f"{pos.trade_id}-stop",
-        symbol=STRATEGY_ID,
+    actions.append(SubmitProtectiveStop(
+        client_order_id=f"{STRATEGY_ID}:{we.signal_id}:stop",
+        symbol=DEFAULT_SYMBOL,
         side=side,
         qty=fill.fill_qty,
-        order_type="STOP",
         stop_price=we.initial_stop,
+        tif="GTC",
         metadata={"pos_id": pos.trade_id, "role": "protective_stop",
                   "stop_price": we.initial_stop},
     ))

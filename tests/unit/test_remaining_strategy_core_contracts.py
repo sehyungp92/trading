@@ -5,16 +5,24 @@ from datetime import date, datetime, timezone
 import pytest
 
 from backtests.shared.parity.decision_capture import normalize_decision_stream
-from strategies.core.actions import SubmitEntry, SubmitExit, SubmitProtectiveStop
+from strategies.core.actions import SubmitEntry, SubmitProtectiveStop
 from strategies.momentum.vdub.core import logic as vdub_logic
+from strategies.momentum.vdub.core.entry_decision import VdubEntryProposal
 from strategies.momentum.vdub.core.state import (
+    VdubAuthorization,
     VdubCoreState,
     VdubEntryFillContext,
     VdubEntrySubmitted,
     VdubFill,
     VdubOrderUpdate,
 )
-from strategies.momentum.vdub.models import Direction, EntryType, SessionWindow, WorkingEntry
+from strategies.momentum.vdub.models import (
+    Direction,
+    EntryType,
+    SessionWindow,
+    SubWindow,
+    WorkingEntry,
+)
 from strategies.stock.iaric.core import logic as iaric_logic
 from strategies.stock.iaric.core.state import IARICBarInput, IARICFill, IARICOrderUpdate
 from strategies.stock.iaric.models import IntradayStateSnapshot
@@ -288,6 +296,33 @@ def _make_working_entry(**overrides) -> WorkingEntry:
     return WorkingEntry(**defaults)
 
 
+def _make_vdub_proposal() -> VdubEntryProposal:
+    now = datetime(2026, 4, 25, 14, 0, tzinfo=UTC)
+    return VdubEntryProposal(
+        client_order_id="VdubusNQ_v4:A_LONG_42",
+        symbol="NQ",
+        direction=Direction.LONG,
+        qty=2,
+        stop_entry=20010.0,
+        limit_entry=20011.0,
+        initial_stop=19980.0,
+        entry_type=EntryType.TYPE_A,
+        is_flip=False,
+        is_pyramid=False,
+        class_mult=0.7,
+        vwap_used=20000.0,
+        session=SessionWindow.RTH,
+        sub_window=SubWindow.OPEN,
+        submitted_bar_idx=42,
+        signal_id="A_LONG_42",
+        bar_id="NQ:15m:2026-04-25T14:00:00+00:00",
+        exchange_timestamp=now,
+        unit_risk=650.0,
+        r_points=30.0,
+        risk_dollars=120.0,
+    )
+
+
 def test_vdub_on_bar_entry_submitted_registers_working_entry():
     """Entry submitted via on_bar registers in working_entries."""
     state = VdubCoreState()
@@ -307,6 +342,44 @@ def test_vdub_on_bar_entry_submitted_registers_working_entry():
     assert len(events) == 1
     assert events[0].code == "ENTRY_SUBMITTED"
     assert next_state.last_bar_ts == bar_ts
+
+
+@pytest.mark.parametrize("approved", [True, False], ids=["approved", "denied"])
+def test_vdub_authorization_feedback_precedes_working_entry(approved: bool) -> None:
+    proposal = _make_vdub_proposal()
+    proposed, actions, events = vdub_logic.on_bar(
+        VdubCoreState(),
+        bar_ts=proposal.exchange_timestamp,
+        entry_proposal=proposal,
+    )
+
+    assert isinstance(actions[0], SubmitEntry)
+    assert proposal.client_order_id in proposed.pending_entries
+    assert proposed.working_entries == {}
+    assert events[-1].code == "ENTRY_PROPOSED"
+
+    authorized, submissions, events = vdub_logic.on_authorization(
+        proposed,
+        VdubAuthorization(
+            client_order_id=proposal.client_order_id,
+            approved=approved,
+            approved_qty=proposal.qty if approved else 0,
+            requested_qty=proposal.qty,
+            timestamp=proposal.exchange_timestamp,
+            oms_order_id="OMS-V1" if approved else "",
+            denial_reason="Portfolio rule: regime_disabled" if not approved else "",
+        ),
+    )
+
+    assert authorized.pending_entries == {}
+    if approved:
+        assert isinstance(submissions[0], SubmitEntry)
+        assert authorized.working_entries["OMS-V1"].qty == proposal.qty
+        assert authorized.last_decision_code == events[-1].code == "ENTRY_SUBMITTED"
+    else:
+        assert submissions == []
+        assert authorized.working_entries == {}
+        assert authorized.last_decision_code == events[-1].code == "ENTRY_DENIED"
 
 
 def test_vdub_on_fill_entry_creates_position_and_emits_stop():
@@ -332,10 +405,10 @@ def test_vdub_on_fill_entry_creates_position_and_emits_stop():
     assert next_state.positions[0].entry_price == 20010.0
     # Working entry consumed
     assert "OMS-V1" not in next_state.working_entries
-    # SubmitExit for protective stop
+    # Protective stop action remains on the existing OMS lifecycle.
     assert len(actions) == 1
-    assert isinstance(actions[0], SubmitExit)
-    assert actions[0].order_type == "STOP"
+    assert isinstance(actions[0], SubmitProtectiveStop)
+    assert actions[0].stop_price == 19980.0
     # Event
     assert events[0].code == "ENTRY_FILLED"
 
