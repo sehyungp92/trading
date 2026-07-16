@@ -9,9 +9,8 @@ from libs.oms.models.instrument import Instrument
 from libs.oms.models.intent import IntentResult
 from libs.oms.models.order import OrderType
 from strategies.core.actions import SubmitAddOnEntry, SubmitEntry
-from strategies.momentum.downturn import engine as downturn_engine_module
 from strategies.momentum.downturn.engine import DownturnEngine
-from strategies.momentum.downturn.models import EngineTag
+from strategies.momentum.downturn.models import EngineTag, FadeSignal
 from strategies.momentum.nqdtc import engine as nqdtc_engine_module
 from strategies.momentum.nqdtc.engine import NQDTCEngine
 from strategies.momentum.nqdtc.models import Direction as NQDTCDirection
@@ -275,7 +274,7 @@ async def test_nqdtc_runtime_submit_carries_source_signal_and_bar_context(monkey
 
 
 @pytest.mark.asyncio
-async def test_downturn_runtime_submit_carries_source_signal_and_bar_context(monkeypatch, tmp_path) -> None:
+async def test_downturn_runtime_submit_carries_source_signal_and_bar_context(tmp_path) -> None:
     ts = datetime(2026, 6, 4, 14, 35, tzinfo=UTC)
     oms = _CaptureOMS()
     engine = DownturnEngine(
@@ -289,39 +288,13 @@ async def test_downturn_runtime_submit_carries_source_signal_and_bar_context(mon
     engine._bar_count_5m = 43
     engine._bars_5m = {"close": [20_000.0]}
 
-    monkeypatch.setattr(
-        downturn_engine_module,
-        "compute_entry_subtype_stop",
-        lambda *_args, **_kwargs: (20_000.0, 20_020.0, "stop_market"),
-    )
-    monkeypatch.setattr(
-        downturn_engine_module,
-        "compute_tiered_tp_schedule",
-        lambda *_args, **_kwargs: [],
-    )
-
-    def fake_on_bar(state, **kwargs):
-        request = kwargs["entry_request"]
-        return state, [
-            SubmitEntry(
-                client_order_id=request.client_order_id,
-                symbol=request.symbol,
-                side="SELL",
-                qty=request.qty,
-                order_type="STOP",
-                stop_price=request.stop_price,
-            )
-        ], []
-
-    monkeypatch.setattr(downturn_engine_module.downturn_core_logic, "on_bar", fake_on_bar)
-    monkeypatch.setattr(
-        downturn_engine_module.downturn_core_logic,
-        "on_order_update",
-        lambda state, _update: (state, [], []),
-    )
-
     await engine._submit_entry(
-        SimpleNamespace(timestamp=ts),
+        FadeSignal(
+            vwap_used=20_000.0,
+            rejection_close=19_995.0,
+            class_mult=0.7,
+            predator_present=False,
+        ),
         EngineTag.FADE,
     )
 

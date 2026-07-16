@@ -21,12 +21,11 @@ import numpy as np
 from libs.market_data.futures_roll import roll_blackout_reason, roll_force_flatten_reason
 from libs.market_data.live_futures import req_panama_adjusted_historical_data
 from libs.oms.models.events import OMSEventType
-from libs.oms.models.intent import Intent, IntentType
+from libs.oms.models.intent import Intent, IntentResult, IntentType
 from libs.oms.models.order import (
     OMSOrder, OrderRole, OrderSide, OrderType, RiskContext,
 )
 from libs.oms.instrumentation.runtime_refs import fill_runtime_refs
-from libs.oms.risk.calculator import RiskCalculator
 from strategies.core.actions import CancelAction, SubmitEntry, SubmitExit
 from strategies.core.idle_market import (
     maybe_record_idle_market_observation,
@@ -65,9 +64,6 @@ from .regime import (
     regime_sizing_mult,
 )
 from .signals import (
-    compute_entry_subtype_stop,
-    detect_fade_short,
-    detect_momentum_impulse,
     detect_reversal_short,
     update_box_state,
 )
@@ -81,7 +77,6 @@ from .stops import (
     compute_chandelier_regime_mult,
     compute_multi_tier_profit_floor,
     compute_profit_floor_stop,
-    compute_tiered_tp_schedule,
     update_chandelier_trail,
 )
 from .bt_models import BreakdownBoxState
@@ -94,7 +89,6 @@ from .models import (
     DownturnRegimeCtx,
     EngineCounters,
     EngineTag,
-    FadeSignal,
     FadeState,
     ReversalState,
     VolState,
@@ -104,10 +98,21 @@ from .core import logic as downturn_core_logic
 from .core.serializers import restore_state as restore_core_state
 from .core.serializers import snapshot_state as snapshot_core_state
 from .core.state import (
+    DownturnAuthorization,
     DownturnCoreState,
-    DownturnEntryRequest,
     DownturnFill,
     DownturnOrderUpdate,
+)
+from .core.entry_decision import (
+    DownturnEntryGateInput,
+    DownturnEntryProposal,
+    DownturnProposalPolicy,
+    build_entry_proposal,
+    entry_request as proposal_entry_request,
+    evaluate_entry_gate,
+    select_fade_signal,
+    selection_from_signal,
+    with_quantity,
 )
 
 logger = logging.getLogger(__name__)
@@ -243,6 +248,7 @@ class DownturnEngine:
         # ── Position & order tracking ─────────────────────────────────
         self._position: Optional[ActivePosition] = None
         self._working_entries: list[WorkingEntry] = []
+        self._pending_entries: dict[str, DownturnEntryProposal] = {}
         self._bars_since_last_entry: int = 999
         self._roll_flatten_pending: bool = False
         self._roll_flatten_oms_id: str = ""
@@ -371,6 +377,7 @@ class DownturnEngine:
             symbol=self._symbol,
             position=deepcopy(self._position),
             working_entries=deepcopy(self._working_entries),
+            pending_entries=deepcopy(self._pending_entries),
             bar_count_5m=self._bar_count_5m,
             bars_since_last_entry=self._bars_since_last_entry,
             last_decision_code=self._last_decision_code,
@@ -383,6 +390,7 @@ class DownturnEngine:
             self._symbol = state.symbol
         self._position = deepcopy(state.position)
         self._working_entries = deepcopy(state.working_entries)
+        self._pending_entries = deepcopy(state.pending_entries)
         self._bar_count_5m = state.bar_count_5m
         self._bars_since_last_entry = state.bars_since_last_entry
         self._last_decision_code = state.last_decision_code
@@ -1221,36 +1229,37 @@ class DownturnEngine:
         """Check entry gates, returning rejection reason string or None if allowed."""
         flags = self._flags
         po = self._po
-
-        if flags.daily_circuit_breaker and self._circuit_breaker_tripped:
-            return "circuit_breaker"
-        if flags.use_shock_block and self._regime.vol_state == VolState.SHOCK:
-            return "vol_shock"
-
         now_ny = datetime.now(ET)
-        now_et = now_ny.time()
-        mins = now_et.hour * 60 + now_et.minute
-
-        if flags.use_dead_zones and (565 <= mins < 575 or 950 <= mins < 960):
-            return "dead_zone"
-        if flags.use_entry_windows:
-            can_enter = (575 <= mins < 950) or (240 <= mins < 565) or (1080 <= mins < 1200)
-            if not can_enter:
-                return "session_window"
-        if flags.directional_entry_caps:
-            max_daily = int(po.get("max_daily_entries", 3))
-            if self._daily_trades >= max_daily:
-                return "daily_cap"
-        if flags.use_news_blackout and (570 <= mins < 575 or 955 <= mins < 960):
-            return "news_blackout"
-        if flags.friction_gate and self._atr_d > 0:
-            if self._atr_d_pctl < po.get("friction_min_atr_pctl", 0.10):
-                return "friction_gate"
-        if flags.block_counter_regime:
-            if self._regime.composite_regime == CompositeRegime.COUNTER:
-                if not (flags.allow_reversal_in_correction and self._in_correction_now):
-                    return "counter_regime"
-        return None
+        mins = now_ny.hour * 60 + now_ny.minute
+        return evaluate_entry_gate(DownturnEntryGateInput(
+            circuit_breaker_enabled=flags.daily_circuit_breaker,
+            circuit_breaker_tripped=self._circuit_breaker_tripped,
+            shock_block_enabled=flags.use_shock_block,
+            vol_state=self._regime.vol_state,
+            entry_windows_enabled=flags.use_entry_windows,
+            session_allowed=(
+                (575 <= mins < 950)
+                or (240 <= mins < 565)
+                or (1080 <= mins < 1200)
+            ),
+            dead_zones_enabled=flags.use_dead_zones,
+            minute_et=mins,
+            directional_entry_caps=flags.directional_entry_caps,
+            daily_trades=self._daily_trades,
+            max_daily_entries=int(po.get("max_daily_entries", 3)),
+            news_blackout_enabled=flags.use_news_blackout,
+            friction_gate_enabled=flags.friction_gate,
+            atr_daily=self._atr_d,
+            atr_daily_percentile=self._atr_d_pctl,
+            friction_min_percentile=float(po.get("friction_min_atr_pctl", 0.10)),
+            vol_percentile_gate=0.0,
+            bear_conviction=self._bear_conviction,
+            regime_confidence_gate=0.0,
+            block_counter_regime=flags.block_counter_regime,
+            composite_regime=self._regime.composite_regime,
+            allow_reversal_in_correction=flags.allow_reversal_in_correction,
+            in_correction=self._in_correction_now,
+        ))
 
     def _entry_gate_decisions(self) -> list[dict]:
         """Snapshot all entry gate states for filter_decisions."""
@@ -1367,7 +1376,7 @@ class DownturnEngine:
                 return sig, EngineTag.REVERSAL
 
         # ── 2. Fade (15m VWAP rejection) ──────────────────────────────
-        if flags.fade_engine and self._bars_15m and len(self._bars_15m["close"]) > 0:
+        if self._bars_15m and len(self._bars_15m["close"]) > 0:
             bars_15m = self._bars_15m
             n15 = len(bars_15m["close"])
             close_15m = bars_15m["close"][-1]
@@ -1377,48 +1386,35 @@ class DownturnEngine:
 
             session_type = self._classify_session()
 
-            sig = detect_fade_short(
-                self._fade,
-                close_15m,
-                high_recent,
-                effective_regime,
-                self._mom15_slope_ok,
-                self._regime.extension_short,
-                self._atr_15m,
-                session_type,
-                flags,
-                po,
+            selection = select_fade_signal(
+                fade_state=self._fade,
+                close_15m=float(close_15m),
+                high_15m_recent=np.asarray(high_recent, dtype=float),
+                closes_15m=bars_15m["close"],
+                effective_regime=effective_regime,
+                mom_slope_ok=self._mom15_slope_ok,
+                extension_short=self._regime.extension_short,
+                atr_15m=self._atr_15m,
+                session_type=session_type,
+                ema_fast_15m=self._inc_ema_15m_fast.value,
+                bars_since_last_entry=self._bars_since_last_entry,
+                flags=flags,
+                param_overrides=po,
+                evaluate_fade=flags.fade_engine,
+                evaluate_momentum=flags.momentum_signal,
             )
-            if sig is not None:
+            if selection is not None:
                 self._fade_ctr.signals_detected += 1
-                self._momentum_impulse_pending = False
-                self._emit_indicator_snapshot(effective_regime, "fade", "enter", sig.class_mult)
-                return sig, EngineTag.FADE
+                self._momentum_impulse_pending = selection.signal_class == "momentum_impulse"
+                self._emit_indicator_snapshot(
+                    effective_regime,
+                    "momentum_impulse" if self._momentum_impulse_pending else "fade",
+                    "enter",
+                    getattr(selection.signal, "class_mult", 0.5),
+                )
+                return selection.signal, selection.engine_tag
 
         # ── 3. Momentum impulse (alternative fade entry) ──────────────
-        if flags.momentum_signal and self._bars_15m and len(self._bars_15m["close"]) > 5:
-            cooldown = int(po.get("momentum_cooldown_bars", 36))
-            if self._bars_since_last_entry >= cooldown:
-                bars_15m = self._bars_15m
-                close_15m = bars_15m["close"][-1]
-                close_5ago = bars_15m["close"][-6]
-                roc_5bar = (close_15m - close_5ago) / close_5ago if close_5ago > 0 else 0.0
-                ema_fast_15m = self._inc_ema_15m_fast.value
-
-                if detect_momentum_impulse(
-                    close_15m, ema_fast_15m, roc_5bar, effective_regime, po,
-                ):
-                    sig = FadeSignal(
-                        vwap_used=self._fade.vwap_used,
-                        rejection_close=close_15m,
-                        class_mult=0.70,
-                        predator_present=False,
-                    )
-                    self._momentum_impulse_pending = True
-                    self._fade_ctr.signals_detected += 1
-                    self._emit_indicator_snapshot(effective_regime, "momentum_impulse", "enter", 0.5)
-                    return sig, EngineTag.FADE
-
         self._emit_indicator_snapshot(effective_regime)
         return None
 
@@ -1433,97 +1429,57 @@ class DownturnEngine:
 
         po = self._po
         close = float(self._bars_5m["close"][-1]) if self._bars_5m else 0.0
-        if close <= 0:
-            return
-
-        # Determine signal class (matches backtest naming)
-        if self._momentum_impulse_pending:
-            sig_class = "momentum_impulse"
-        elif tag == EngineTag.REVERSAL:
-            sig_class = "classic_divergence"
-        else:
-            sig_class = "vwap_rejection"
-
-        # Entry price, initial stop, entry type
-        atr = self._atr_1h if tag != EngineTag.BREAKDOWN else self._atr_30m
-        low_recent = close - 2 * self._tick_size
-        entry_price, stop0, entry_type = compute_entry_subtype_stop(
-            tag, signal, close, atr, low_recent, self._tick_size, po,
+        selection = selection_from_signal(
+            signal,
+            momentum_impulse=self._momentum_impulse_pending,
         )
-        if entry_price <= 0 or stop0 <= 0:
-            return
-
-        # Position sizing
-        risk_per_unit = abs(stop0 - entry_price) * self._point_value
-        if risk_per_unit <= 0:
-            return
-
-        base_risk_pct = po.get("base_risk_pct", 0.01)
-        r_mult = regime_sizing_mult(self._regime.composite_regime, po)
-        vol_factor = self._regime.vol_factor if self._flags.use_volatility_states else 1.0
-        strong_bonus = (
-            1.25 if self._regime.strong_bear and self._flags.use_strong_bear_bonus else 1.0
-        )
-
-        risk_dollars = self._equity * base_risk_pct * r_mult * vol_factor * strong_bonus
-
-        # Correction sizing bonus
-        if self._in_correction_now and self._flags.correction_sizing_bonus:
-            corr_mult = po.get("correction_sizing_mult", 1.30)
-            risk_dollars *= corr_mult
-
-        qty = max(1, int(risk_dollars / risk_per_unit))
-
-        # Leverage cap (configurable, default was 20x)
-        max_leverage = C.MAX_LEVERAGE_MULT
-        notional_per = entry_price * self._point_value
-        if notional_per > 0:
-            max_qty = max(1, int(self._equity * max_leverage / notional_per))
-            qty = min(qty, max_qty)
-
-        # TP schedule
-        tp_sched = compute_tiered_tp_schedule(tag, self._regime.composite_regime, po)
-
-        if entry_type == "stop_market":
-            neutral_order_type = "STOP"
-            oms_order_type = OrderType.STOP
-            limit_price = None
-        else:
-            neutral_order_type = "STOP_LIMIT"
-            oms_order_type = OrderType.STOP_LIMIT
-            limit_price = entry_price - 4 * self._tick_size
         signal_context = self._entry_signal_context(
             tag=tag,
-            signal_class=sig_class,
+            signal_class=selection.signal_class,
             signal=signal,
         )
-
-        entry_request = DownturnEntryRequest(
-            client_order_id=f"{C.STRATEGY_ID}:{tag.value}:{self._bar_count_5m}:{len(self._working_entries)}",
+        proposal, reason = build_entry_proposal(
+            selection=selection,
+            client_order_id=(
+                f"{C.STRATEGY_ID}:{tag.value}:"
+                f"{self._bar_count_5m}:{len(self._working_entries)}"
+            ),
             symbol=self._symbol,
-            engine_tag=tag,
-            signal_class=sig_class,
-            qty=qty,
-            entry_price=entry_price,
-            stop0=stop0,
-            order_type=neutral_order_type,
-            price=entry_price if neutral_order_type == "STOP_LIMIT" else None,
-            limit_price=limit_price,
-            stop_price=entry_price,
-            submitted_bar_idx=self._bar_count_5m,
-            ttl_bars=72,
+            bar_idx=self._bar_count_5m,
+            bar_ts=self._last_bar_ts or datetime.now(timezone.utc),
+            close=close,
+            atr_1h=self._atr_1h,
+            atr_30m=self._atr_30m,
+            equity=self._equity,
+            notional_equity=self._equity,
+            tick_size=self._tick_size,
+            point_value=self._point_value,
             composite_regime=self._regime.composite_regime,
             vol_state=self._regime.vol_state,
+            vol_factor=self._regime.vol_factor,
+            strong_bear=self._regime.strong_bear,
             in_correction=self._in_correction_now,
-            predator=getattr(signal, "predator_present", False),
-            tp_schedule=tp_sched,
-            signal_strength=getattr(signal, "class_mult", 0.5),
+            flags=self._flags,
+            param_overrides=po,
+            policy=DownturnProposalPolicy(
+                trigger_low_buffer_ticks=2.0,
+                entry_limit_offset_ticks=4.0,
+                entry_ttl_bars=72,
+                max_contracts=0,
+                max_notional_leverage=C.MAX_LEVERAGE_MULT,
+                non_correction_penalty_enabled=False,
+            ),
+            signal_id=str(signal_context["signal_id"]),
+            bar_id=str(signal_context["bar_id"]),
         )
+        if proposal is None:
+            logger.debug("Downturn entry proposal rejected: %s", reason)
+            return
         core_state, actions, events = downturn_core_logic.on_bar(
             self._build_core_state(),
             bar_count_5m=self._bar_count_5m,
             bar_ts=self._last_bar_ts or datetime.now(timezone.utc),
-            entry_request=entry_request,
+            entry_proposal=proposal,
         )
         self._apply_core_state(core_state)
         self._apply_core_events(events)
@@ -1532,15 +1488,18 @@ class DownturnEngine:
             return
 
         risk_ctx = RiskContext(
-            stop_for_risk=stop0,
-            planned_entry_price=entry_price,
-            risk_dollars=RiskCalculator.compute_order_risk_dollars(
-                entry_price, stop0, qty, self._point_value,
-            ),
+            stop_for_risk=proposal.stop0,
+            planned_entry_price=proposal.entry_price,
+            risk_dollars=proposal.risk_dollars,
             **signal_context,
         )
 
+        oms_order_type = (
+            OrderType.STOP if submit_action.order_type == "STOP" else OrderType.STOP_LIMIT
+        )
+
         order = OMSOrder(
+            client_order_id=submit_action.client_order_id,
             strategy_id=C.STRATEGY_ID,
             instrument=inst,
             side=OrderSide.SELL,
@@ -1559,22 +1518,54 @@ class DownturnEngine:
             order=order,
         ))
 
-        if receipt and receipt.oms_order_id:
+        approved = bool(
+            receipt
+            and receipt.result == IntentResult.ACCEPTED
+            and receipt.oms_order_id
+        )
+        approved_qty = int(order.qty) if approved else 0
+        core_state, submissions, events = downturn_core_logic.on_authorization(
+            self._build_core_state(),
+            DownturnAuthorization(
+                client_order_id=proposal.client_order_id,
+                approved=approved,
+                approved_qty=approved_qty,
+                requested_qty=proposal.qty,
+                timestamp=proposal.exchange_timestamp,
+                symbol=proposal.symbol,
+                denial_reason=(
+                    (getattr(receipt, "denial_reason", None) or "")
+                    if receipt
+                    else "no_receipt"
+                ),
+            ),
+        )
+        self._apply_core_state(core_state)
+        self._apply_core_events(events)
+
+        if approved and submissions:
+            accepted_entry = proposal_entry_request(
+                with_quantity(proposal, approved_qty)
+            )
             core_state, _, events = downturn_core_logic.on_order_update(
                 self._build_core_state(),
                 DownturnOrderUpdate(
                     oms_order_id=receipt.oms_order_id,
                     status="accepted",
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=proposal.exchange_timestamp,
                     order_role="entry",
-                    accepted_entry=entry_request,
+                    accepted_entry=accepted_entry,
                 ),
             )
             self._apply_core_state(core_state)
             self._apply_core_events(events)
             logger.info(
                 "Entry submitted: %s/%s @ %.2f stop=%.2f qty=%d",
-                tag.value, sig_class, entry_price, stop0, qty,
+                tag.value,
+                proposal.signal_class,
+                proposal.entry_price,
+                proposal.stop0,
+                approved_qty,
             )
 
     # ── Order Helpers ─────────────────────────────────────────────────

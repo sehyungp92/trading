@@ -16,6 +16,7 @@ from tests.integration.parity.replay_runners import (
     run_nq_regime_r1a_replay_trace,
     run_momentum_r1b_nqdtc_replay_trace,
     run_momentum_r1b_vdub_replay_trace,
+    run_momentum_r1b_downturn_replay_trace,
 )
 
 
@@ -74,6 +75,20 @@ async def run_momentum_r1b_vdub_contract(fixture: dict[str, Any]) -> LiveShadowC
     replay = await asyncio.to_thread(run_momentum_r1b_vdub_replay_trace, fixture)
     return LiveShadowContract(
         surface="momentum:NQDTC+Vdub+NQ_REGIME:R1B",
+        live=live,
+        replay=replay,
+    )
+
+
+async def run_momentum_r1b_downturn_contract(
+    fixture: dict[str, Any],
+) -> LiveShadowContract:
+    """Compare the bounded four-child Downturn live wrapper and replay."""
+
+    live = await run_layer3_family_live_trace(fixture)
+    replay = await asyncio.to_thread(run_momentum_r1b_downturn_replay_trace, fixture)
+    return LiveShadowContract(
+        surface="momentum:NQDTC+Vdub+Downturn+NQ_REGIME:R1B",
         live=live,
         replay=replay,
     )

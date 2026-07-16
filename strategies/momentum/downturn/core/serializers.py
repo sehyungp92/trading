@@ -6,6 +6,7 @@ from typing import Any, Mapping
 from strategies.momentum.downturn.models import ActivePosition, CompositeRegime, EngineTag, VolState, WorkingEntry
 
 from .state import DownturnCoreState
+from .entry_decision import DownturnEntryProposal
 
 
 def snapshot_state(state: DownturnCoreState) -> dict[str, Any]:
@@ -18,6 +19,10 @@ def snapshot_state(state: DownturnCoreState) -> dict[str, Any]:
         "last_bar_ts": state.last_bar_ts.isoformat() if state.last_bar_ts else None,
         "position": _snapshot_position(state.position),
         "working_entries": [_snapshot_working_entry(entry) for entry in state.working_entries],
+        "pending_entries": {
+            key: _snapshot_entry_proposal(proposal)
+            for key, proposal in state.pending_entries.items()
+        },
     }
 
 
@@ -26,6 +31,10 @@ def restore_state(snapshot: Mapping[str, Any]) -> DownturnCoreState:
         symbol=str(snapshot.get("symbol", "")),
         position=_restore_position(snapshot.get("position")),
         working_entries=[_restore_working_entry(entry) for entry in snapshot.get("working_entries", [])],
+        pending_entries={
+            str(key): _restore_entry_proposal(value)
+            for key, value in (snapshot.get("pending_entries", {}) or {}).items()
+        },
         bar_count_5m=int(snapshot.get("bar_count_5m", 0)),
         bars_since_last_entry=int(snapshot.get("bars_since_last_entry", 999)),
         last_decision_code=str(snapshot.get("last_decision_code", "IDLE")),
@@ -148,3 +157,65 @@ def _restore_datetime(value: Any) -> datetime | None:
     if isinstance(value, datetime):
         return value
     return datetime.fromisoformat(str(value))
+
+
+def _snapshot_entry_proposal(proposal: DownturnEntryProposal) -> dict[str, Any]:
+    return {
+        "client_order_id": proposal.client_order_id,
+        "symbol": proposal.symbol,
+        "engine_tag": proposal.engine_tag.value,
+        "signal_class": proposal.signal_class,
+        "qty": proposal.qty,
+        "entry_price": proposal.entry_price,
+        "stop0": proposal.stop0,
+        "order_type": proposal.order_type,
+        "price": proposal.price,
+        "limit_price": proposal.limit_price,
+        "stop_price": proposal.stop_price,
+        "submitted_bar_idx": proposal.submitted_bar_idx,
+        "ttl_bars": proposal.ttl_bars,
+        "composite_regime": proposal.composite_regime.value,
+        "vol_state": proposal.vol_state.value,
+        "in_correction": proposal.in_correction,
+        "predator": proposal.predator,
+        "tp_schedule": [list(level) for level in proposal.tp_schedule],
+        "signal_strength": proposal.signal_strength,
+        "risk_dollars": proposal.risk_dollars,
+        "signal_id": proposal.signal_id,
+        "bar_id": proposal.bar_id,
+        "exchange_timestamp": proposal.exchange_timestamp.isoformat(),
+        "tif": proposal.tif,
+        "side": proposal.side,
+    }
+
+
+def _restore_entry_proposal(data: Mapping[str, Any]) -> DownturnEntryProposal:
+    return DownturnEntryProposal(
+        client_order_id=str(data.get("client_order_id", "")),
+        symbol=str(data.get("symbol", "")),
+        engine_tag=EngineTag(data.get("engine_tag", "fade")),
+        signal_class=str(data.get("signal_class", "")),
+        qty=int(data.get("qty", 0)),
+        entry_price=float(data.get("entry_price", 0.0)),
+        stop0=float(data.get("stop0", 0.0)),
+        order_type=str(data.get("order_type", "STOP_LIMIT")),
+        price=float(data["price"]) if data.get("price") is not None else None,
+        limit_price=(
+            float(data["limit_price"]) if data.get("limit_price") is not None else None
+        ),
+        stop_price=float(data.get("stop_price", 0.0)),
+        submitted_bar_idx=int(data.get("submitted_bar_idx", 0)),
+        ttl_bars=int(data.get("ttl_bars", 72)),
+        composite_regime=CompositeRegime(data.get("composite_regime", "neutral")),
+        vol_state=VolState(data.get("vol_state", "normal")),
+        in_correction=bool(data.get("in_correction", False)),
+        predator=bool(data.get("predator", False)),
+        tp_schedule=tuple(tuple(level) for level in data.get("tp_schedule", [])),
+        signal_strength=float(data.get("signal_strength", 0.5)),
+        risk_dollars=float(data.get("risk_dollars", 0.0)),
+        signal_id=str(data.get("signal_id", "")),
+        bar_id=str(data.get("bar_id", "")),
+        exchange_timestamp=_restore_datetime(data.get("exchange_timestamp")) or datetime.min,
+        tif=str(data.get("tif", "DAY")),
+        side=str(data.get("side", "SELL")),
+    )

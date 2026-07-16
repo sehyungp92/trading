@@ -113,6 +113,32 @@ def vdub_r1b_market_input(fixture: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def downturn_r1b_market_input(fixture: Mapping[str, Any]) -> dict[str, Any]:
+    """Materialize the bounded raw Downturn entry input for R1B."""
+
+    raw = ((fixture.get("artifacts", {}) or {}).get("downturn", {}) or {}).get(
+        "r1b_market_input",
+        {},
+    )
+    if not isinstance(raw, Mapping) or not raw:
+        raise AssertionError(
+            "R1B Downturn fixture is missing artifacts.downturn.r1b_market_input"
+        )
+    bars_5m = _sort_bar_rows(raw.get("bars_5m", []) or [])
+    bars_15m = _sort_bar_rows(raw.get("bars_15m", []) or [])
+    if not bars_5m or not bars_15m:
+        raise AssertionError(
+            "R1B Downturn market input must include raw 5m and 15m bars"
+        )
+    return {
+        "symbol": str(raw.get("symbol", "MNQ")),
+        "timestamp": parse_time(raw.get("timestamp") or bars_5m[-1].get("timestamp")),
+        "bars_5m": bars_5m,
+        "bars_15m": bars_15m,
+        "decision_state": dict(raw.get("decision_state", {}) or {}),
+    }
+
+
 def momentum_r1b_raw_timeline(fixture: Mapping[str, Any]) -> list[dict[str, Any]]:
     """Materialize the bounded momentum timestamp/priority input once."""
 
@@ -137,6 +163,16 @@ def momentum_r1b_raw_timeline(fixture: Mapping[str, Any]) -> list[dict[str, Any]
                 "priority": priorities.get("VdubusNQ_v4", 99),
                 "strategy_id": "VdubusNQ_v4",
                 "payload": vdub_input,
+            }
+        )
+    if "DownturnDominator_v1" in priorities:
+        downturn_input = downturn_r1b_market_input(fixture)
+        events.append(
+            {
+                "timestamp": downturn_input["timestamp"],
+                "priority": priorities.get("DownturnDominator_v1", 99),
+                "strategy_id": "DownturnDominator_v1",
+                "payload": downturn_input,
             }
         )
     for row in source_bars(fixture, "NQ", "5m") or source_bars(

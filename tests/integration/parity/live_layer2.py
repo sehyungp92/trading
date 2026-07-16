@@ -221,7 +221,7 @@ def _compact_engine_state(engine: Any, strategy_id_hint: str = "") -> dict[str, 
             state["bar_count_5m"] = int(getattr(engine, "_bar_count_5m", 0) or 0)
             state["bars_since_last_entry"] = int(getattr(engine, "_bars_since_last_entry", 0) or 0)
             state["working_entry_count"] = len(getattr(engine, "_working_entries", []) or [])
-            state["position_open"] = bool(getattr(engine, "_position_open", False))
+            state["position_open"] = getattr(engine, "_position", None) is not None
         return state
     if strategy_id == "IARIC_v1" or type(engine).__name__.startswith("IARIC"):
         symbols = {}
@@ -308,6 +308,8 @@ async def drive_momentum_r1b_raw_timeline(
             await _drive_nqdtc_r1b_raw_event(engines[strategy_id], payload)
         elif strategy_id == "VdubusNQ_v4":
             await _drive_vdub_r1b_raw_event(engines[strategy_id], payload)
+        elif strategy_id == "DownturnDominator_v1":
+            await _drive_downturn_r1b_raw_event(engines[strategy_id], payload)
         else:
             await engines[strategy_id].on_bar(
                 nq_bar_data(payload),
@@ -316,6 +318,50 @@ async def drive_momentum_r1b_raw_timeline(
                 scheduled_news=[],
             )
         await _settle_callbacks()
+
+
+async def _drive_downturn_r1b_raw_event(
+    engine: Any,
+    market_input: Mapping[str, Any],
+) -> None:
+    """Drive the real Downturn wrapper from raw bars into its shared proposal."""
+
+    from strategies.momentum.downturn.models import CompositeRegime, VolState
+
+    bars_5m = bar_objects(market_input.get("bars_5m", []))
+    bars_15m = bar_objects(market_input.get("bars_15m", []))
+    state_input = market_input.get("decision_state", {}) or {}
+    engine._symbol = str(market_input.get("symbol", engine._symbol))
+    engine._bars_5m = engine._bars_to_arrays(bars_5m)
+    engine._bars_15m = engine._bars_to_arrays(bars_15m)
+    engine._last_bar_ts = market_input["timestamp"]
+    engine._bar_count_5m += len(bars_5m)
+    engine._bars_since_last_entry = int(
+        state_input.get("bars_since_last_entry", 999)
+    )
+    engine._reversal.disabled = True
+    engine._fade.vwap_used = float(state_input.get("vwap", 0.0))
+    engine._atr_15m = float(state_input.get("atr_15m", 0.0))
+    engine._atr_1h = float(state_input.get("atr_1h", 0.0))
+    engine._atr_30m = float(state_input.get("atr_30m", 0.0))
+    engine._mom15_slope_ok = bool(state_input.get("mom_slope_ok", True))
+    engine._regime.composite_regime = CompositeRegime(
+        str(state_input.get("composite_regime", CompositeRegime.EMERGING_BEAR.value))
+    )
+    engine._regime.vol_state = VolState(
+        str(state_input.get("vol_state", VolState.NORMAL.value))
+    )
+    engine._regime.vol_factor = float(state_input.get("vol_factor", 1.0))
+    engine._regime.strong_bear = bool(state_input.get("strong_bear", False))
+    engine._regime.extension_short = bool(
+        state_input.get("extension_short", False)
+    )
+    engine._in_correction_now = bool(state_input.get("in_correction", False))
+    selection = engine._evaluate_signals()
+    if selection is None:
+        raise AssertionError("bounded Downturn raw input did not reach a shared signal")
+    signal, tag = selection
+    await engine._submit_entry(signal, tag)
 
 
 async def _drive_vdub_r1b_raw_event(

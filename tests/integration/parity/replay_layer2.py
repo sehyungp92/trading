@@ -20,6 +20,7 @@ from tests.integration.parity.source_inputs import (
     nq_daily_context,
     nq_live_context,
     nqdtc_r1b_market_input,
+    downturn_r1b_market_input,
     parse_time,
     source_bars,
     tpc_bar_input,
@@ -756,6 +757,193 @@ def _replay_vdub_r1b(
     }
 
 
+def _replay_downturn_r1b(
+    fixture: Mapping[str, Any],
+    out: ReplayDecisionTimeline,
+    *,
+    portfolio_authorizer,
+) -> None:
+    """Replay raw Downturn input through its strategy-owned causal core."""
+
+    from strategies.core.actions import SubmitEntry
+    from strategies.momentum.downturn import config as C
+    from strategies.momentum.downturn.core.entry_decision import (
+        DownturnProposalPolicy,
+        build_entry_proposal,
+        entry_request,
+        select_fade_signal,
+        with_quantity,
+    )
+    from strategies.momentum.downturn.core.logic import (
+        on_authorization,
+        on_bar,
+        on_order_update,
+    )
+    from strategies.momentum.downturn.core.serializers import restore_state, snapshot_state
+    from strategies.momentum.downturn.core.state import (
+        DownturnAuthorization,
+        DownturnOrderUpdate,
+    )
+    from strategies.momentum.downturn.models import (
+        CompositeRegime,
+        FadeState,
+        VolState,
+    )
+
+    market_input = downturn_r1b_market_input(fixture)
+    state_input = market_input["decision_state"]
+    rows_5m = market_input["bars_5m"]
+    rows_15m = market_input["bars_15m"]
+    closes_15m = np.asarray([float(row["close"]) for row in rows_15m])
+    highs_15m = np.asarray([float(row["high"]) for row in rows_15m])
+    fade_state = FadeState(vwap_used=float(state_input.get("vwap", 0.0)))
+    regime = CompositeRegime(
+        str(state_input.get("composite_regime", CompositeRegime.EMERGING_BEAR.value))
+    )
+    vol_state = VolState(str(state_input.get("vol_state", VolState.NORMAL.value)))
+    selection = select_fade_signal(
+        fade_state=fade_state,
+        close_15m=float(closes_15m[-1]),
+        high_15m_recent=highs_15m,
+        closes_15m=closes_15m,
+        effective_regime=regime,
+        mom_slope_ok=bool(state_input.get("mom_slope_ok", True)),
+        extension_short=bool(state_input.get("extension_short", False)),
+        atr_15m=float(state_input.get("atr_15m", 0.0)),
+        session_type=str(state_input.get("session_type", "core")),
+        ema_fast_15m=float(state_input.get("ema_fast_15m", closes_15m[-1])),
+        bars_since_last_entry=int(state_input.get("bars_since_last_entry", 999)),
+        flags=C.R7C_FLAGS,
+        param_overrides=C.R7C_PARAM_OVERRIDES,
+        evaluate_fade=C.R7C_FLAGS.fade_engine,
+        evaluate_momentum=C.R7C_FLAGS.momentum_signal,
+    )
+    if selection is None:
+        raise AssertionError("bounded Downturn raw input did not reach a shared signal")
+    spec = C.NQ_SPECS.get(market_input["symbol"], C.NQ_SPECS["MNQ"])
+    bar_ts = market_input["timestamp"]
+    bar_idx = len(rows_5m)
+    proposal, reason = build_entry_proposal(
+        selection=selection,
+        client_order_id=f"{C.STRATEGY_ID}:fade:{bar_idx}:0",
+        symbol=market_input["symbol"],
+        bar_idx=bar_idx,
+        bar_ts=bar_ts,
+        close=float(rows_5m[-1]["close"]),
+        atr_1h=float(state_input.get("atr_1h", 0.0)),
+        atr_30m=float(state_input.get("atr_30m", 0.0)),
+        equity=float((fixture.get("account_state", {}) or {}).get("equity", 100_000.0)),
+        notional_equity=float((fixture.get("account_state", {}) or {}).get("equity", 100_000.0)),
+        tick_size=float(spec["tick_value"]),
+        point_value=float(spec["point_value"]),
+        composite_regime=regime,
+        vol_state=vol_state,
+        vol_factor=float(state_input.get("vol_factor", 1.0)),
+        strong_bear=bool(state_input.get("strong_bear", False)),
+        in_correction=bool(state_input.get("in_correction", False)),
+        flags=C.R7C_FLAGS,
+        param_overrides=C.R7C_PARAM_OVERRIDES,
+        policy=DownturnProposalPolicy(
+            trigger_low_buffer_ticks=2.0,
+            entry_limit_offset_ticks=4.0,
+            entry_ttl_bars=72,
+            max_notional_leverage=C.MAX_LEVERAGE_MULT,
+        ),
+        signal_id=f"{market_input['symbol']}:fade:vwap_rejection:{bar_ts.isoformat()}",
+        bar_id=f"{market_input['symbol']}:5m:{bar_ts.isoformat()}",
+    )
+    if proposal is None:
+        raise AssertionError(f"bounded Downturn proposal was rejected: {reason}")
+
+    initial = (fixture.get("initial_strategy_state", {}) or {}).get(
+        "DownturnDominator_v1", {}
+    ) or {}
+    core_state = restore_state(initial.get("core", initial))
+    core_state.bar_count_5m += len(rows_5m)
+    core_state, proposal_actions, _events = on_bar(
+        core_state,
+        bar_count_5m=core_state.bar_count_5m,
+        bar_ts=bar_ts,
+        entry_proposal=proposal,
+    )
+    action = next(item for item in proposal_actions if isinstance(item, SubmitEntry))
+    authorization = portfolio_authorizer(
+        "DownturnDominator_v1", action, timestamp=bar_ts
+    )
+    denial_reason = str(authorization.get("denial_reason", ""))
+    strategy_reason = f"Portfolio rule: {denial_reason}" if denial_reason else ""
+    approved_qty = int(authorization["approved_qty"])
+    core_state, submissions, _events = on_authorization(
+        core_state,
+        DownturnAuthorization(
+            client_order_id=proposal.client_order_id,
+            approved=bool(authorization["approved"]),
+            approved_qty=approved_qty,
+            requested_qty=proposal.qty,
+            timestamp=bar_ts,
+            symbol=proposal.symbol,
+            denial_reason=strategy_reason,
+            portfolio_decision_ref=str(authorization.get("portfolio_decision_ref", "")),
+        ),
+    )
+    status = (
+        "rejected" if approved_qty <= 0
+        else "accepted" if approved_qty == proposal.qty
+        else "reduced"
+    )
+    family_decision = {
+        "strategy_id": "DownturnDominator_v1",
+        "symbol": action.symbol,
+        "side": action.side,
+        "role": "ENTRY",
+        "status": status,
+        "reason": strategy_reason,
+        "family_surface": str(authorization.get("family_surface", "")),
+        "candidate_key": f"DownturnDominator_v1|{action.symbol}|ENTRY|{action.side}|1",
+        "sequence": 1,
+        "original_qty": proposal.qty,
+        "approved_qty": approved_qty,
+        "order_match": {
+            "strategy_id": "DownturnDominator_v1",
+            "symbol": action.symbol,
+            "role": "ENTRY",
+            "side": action.side,
+            "sequence": 1,
+        },
+    }
+    if submissions:
+        approved_proposal = with_quantity(proposal, approved_qty)
+        core_state, _, _events = on_order_update(
+            core_state,
+            DownturnOrderUpdate(
+                oms_order_id=proposal.client_order_id,
+                status="accepted",
+                timestamp=bar_ts,
+                order_role="entry",
+                accepted_entry=entry_request(approved_proposal),
+            ),
+        )
+        out.record_actions(
+            "DownturnDominator_v1", submissions, decision=family_decision
+        )
+    else:
+        out.record_family_rejection(
+            "DownturnDominator_v1", action, family_decision
+        )
+
+    snapshot = snapshot_state(core_state)
+    out.strategy_state["DownturnDominator_v1"] = {
+        "strategy_id": "DownturnDominator_v1",
+        "last_bar_ts": snapshot.get("last_bar_ts"),
+        "last_decision_code": snapshot.get("last_decision_code", "IDLE"),
+        "last_decision_details": snapshot.get("last_decision_details", {}),
+        "bar_count_5m": int(snapshot.get("bar_count_5m", 0) or 0),
+        "bars_since_last_entry": int(snapshot.get("bars_since_last_entry", 0) or 0),
+        "working_entry_count": len(snapshot.get("working_entries", []) or []),
+        "position_open": bool(snapshot.get("position")),
+    }
+
+
 def _replay_iaric(fixture: Mapping[str, Any], out: ReplayDecisionTimeline) -> None:
     from strategies.stock.iaric.config import StrategySettings
     from strategies.stock.iaric.core import logic as iaric_logic
@@ -890,4 +1078,5 @@ replay_tpc = _replay_tpc
 replay_nq_regime = _replay_nq_regime
 replay_nqdtc_r1b = _replay_nqdtc_r1b
 replay_vdub_r1b = _replay_vdub_r1b
+replay_downturn_r1b = _replay_downturn_r1b
 replay_iaric = _replay_iaric

@@ -33,6 +33,7 @@ from tests.integration.parity.replay_idle import (
 )
 from tests.integration.parity.replay_layer2 import (
     replay_iaric as _replay_iaric,
+    replay_downturn_r1b as _replay_downturn_r1b,
     replay_nq_regime as _replay_nq_regime,
     replay_nqdtc_r1b as _replay_nqdtc_r1b,
     replay_tpc as _replay_tpc,
@@ -172,6 +173,12 @@ def run_momentum_r1b_vdub_replay_trace(fixture: Mapping[str, Any]) -> ParityTrac
     return _run_coro_blocking(_run_momentum_r1b_nqdtc_replay_trace(fixture))
 
 
+def run_momentum_r1b_downturn_replay_trace(fixture: Mapping[str, Any]) -> ParityTrace:
+    """Run the bounded four-child Downturn entry/proposal subincrement."""
+
+    return _run_coro_blocking(_run_momentum_r1b_nqdtc_replay_trace(fixture))
+
+
 async def _run_replay_trace(fixture: Mapping[str, Any]) -> ParityTrace:
     ticks = instrument_ticks(fixture)
     family_for_strategy = family_resolver(fixture)
@@ -303,6 +310,8 @@ async def _run_momentum_r1b_nqdtc_replay_trace(
     expected_ids = ["NQDTC_v2.1"]
     if "VdubusNQ_v4" in strategy_ids(fixture):
         expected_ids.append("VdubusNQ_v4")
+    if "DownturnDominator_v1" in strategy_ids(fixture):
+        expected_ids.append("DownturnDominator_v1")
     expected_ids.append("NQ_REGIME")
     if grouped_ids != expected_ids:
         raise AssertionError(
@@ -317,6 +326,10 @@ async def _run_momentum_r1b_nqdtc_replay_trace(
             if len(events) != 1:
                 raise AssertionError("R1B bounded timeline expects one Vdub raw event")
             _replay_vdub_r1b(fixture, out, portfolio_authorizer=portfolio)
+        elif strategy_id == "DownturnDominator_v1":
+            if len(events) != 1:
+                raise AssertionError("R1B bounded timeline expects one Downturn raw event")
+            _replay_downturn_r1b(fixture, out, portfolio_authorizer=portfolio)
         else:
             _replay_nq_regime(
                 fixture,
@@ -349,7 +362,9 @@ async def _run_momentum_r1b_nqdtc_replay_trace(
     )
     return ParityTrace(
         producer=(
-            "momentum_r1b_vdub_causal_replay"
+            "momentum_r1b_downturn_causal_replay"
+            if "DownturnDominator_v1" in strategy_ids(fixture)
+            else "momentum_r1b_vdub_causal_replay"
             if "VdubusNQ_v4" in strategy_ids(fixture)
             else "momentum_r1b_nqdtc_causal_replay"
         ),

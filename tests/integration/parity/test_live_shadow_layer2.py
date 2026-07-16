@@ -10,6 +10,7 @@ from tests.integration.parity.harness import (
     run_layer2_contract,
     run_momentum_r1b_nqdtc_contract,
     run_momentum_r1b_vdub_contract,
+    run_momentum_r1b_downturn_contract,
     run_nq_regime_r1a_contract,
 )
 from tests.integration.parity.live_shadow_contract import assert_shadow_contract
@@ -157,6 +158,57 @@ async def test_momentum_r1b_vdub_shared_raw_timeline(scenario: str) -> None:
 def test_momentum_r1b_vdub_fixture_identities_are_scenario_specific() -> None:
     fingerprints = {
         runtime_source_fingerprint(_momentum_r1b_vdub_fixture(scenario=scenario))
+        for scenario in ("approved", "denied", "contention")
+    }
+
+    assert len(fingerprints) == 3
+
+
+@pytest.mark.parity_nightly
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scenario", ["approved", "denied", "contention"])
+async def test_momentum_r1b_downturn_shared_raw_timeline(scenario: str) -> None:
+    fixture = _momentum_r1b_downturn_fixture(scenario=scenario)
+
+    contract = await run_momentum_r1b_downturn_contract(fixture)
+
+    assert_shadow_contract(contract)
+    assert contract.live.source_fingerprint == runtime_source_fingerprint(fixture)
+    state = contract.live.state_snapshot or {}
+    strategy_state = state.get("strategy_state", {}) or {}
+    downturn = strategy_state.get("DownturnDominator_v1", {}) or {}
+    nq_regime = strategy_state.get("NQ_REGIME", {}) or {}
+    blocked_reasons = state.get("blocked_reasons", {}) or {}
+    submitted = [row["strategy_id"] for row in contract.live.order_intents]
+
+    if scenario == "denied":
+        assert "DownturnDominator_v1" not in submitted
+        assert downturn.get("last_decision_code") == "ENTRY_DENIED"
+        assert downturn.get("position_open") is False
+        assert "portfolio_rule:regime_disabled" in blocked_reasons.get(
+            "DownturnDominator_v1", []
+        )
+    elif scenario == "contention":
+        assert "DownturnDominator_v1" in submitted
+        assert downturn.get("working_entry_count") == 1
+        assert "NQ_REGIME" not in submitted
+        assert nq_regime.get("last_decision_code") == "ENTRY_DENIED"
+        assert "portfolio_rule:directional_cap" in blocked_reasons.get(
+            "NQ_REGIME", []
+        )
+    else:
+        assert {
+            "NQDTC_v2.1",
+            "VdubusNQ_v4",
+            "DownturnDominator_v1",
+            "NQ_REGIME",
+        }.issubset(submitted)
+        assert downturn.get("working_entry_count") == 1
+
+
+def test_momentum_r1b_downturn_fixture_identities_are_scenario_specific() -> None:
+    fingerprints = {
+        runtime_source_fingerprint(_momentum_r1b_downturn_fixture(scenario=scenario))
         for scenario in ("approved", "denied", "contention")
     }
 
@@ -486,5 +538,141 @@ def _momentum_r1b_vdub_fixture(*, scenario: str) -> dict[str, Any]:
                 "timestamp": "2026-05-20T14:16:30+00:00",
             }
         )
+    fixture["broker_event_script"] = broker_script
+    return fixture
+
+
+def _momentum_r1b_downturn_fixture(*, scenario: str) -> dict[str, Any]:
+    fixture = _momentum_r1b_vdub_fixture(scenario="approved")
+    fixture["initial_strategy_state"]["DownturnDominator_v1"] = {}
+    fixture.setdefault("artifacts", {})["downturn"] = {
+        "r1b_market_input": {
+            "symbol": "MNQ",
+            "timestamp": "2026-05-20T14:15:00+00:00",
+            "bars_5m": [
+                {
+                    "symbol": "MNQ",
+                    "timeframe": "5m",
+                    "timestamp": "2026-05-20T14:15:00+00:00",
+                    "open": 20001.0,
+                    "high": 20002.0,
+                    "low": 19996.0,
+                    "close": 19998.0,
+                    "volume": 1400.0,
+                }
+            ],
+            "bars_15m": [
+                {
+                    "symbol": "MNQ",
+                    "timeframe": "15m",
+                    "timestamp": f"2026-05-20T{hour:02d}:{minute:02d}:00+00:00",
+                    "open": 20002.0,
+                    "high": 20003.0,
+                    "low": 19996.0,
+                    "close": 19998.0,
+                    "volume": 1200.0,
+                }
+                for hour, minute in [(13, 0), (13, 15), (13, 30), (13, 45), (14, 0), (14, 15)]
+            ],
+            "decision_state": {
+                "vwap": 20000.0,
+                "atr_15m": 20.0,
+                "atr_1h": 20.0,
+                "atr_30m": 16.0,
+                "mom_slope_ok": True,
+                "session_type": "core",
+                "composite_regime": "emerging_bear",
+                "vol_state": "normal",
+                "vol_factor": 1.0,
+                "strong_bear": False,
+                "extension_short": False,
+                "in_correction": False,
+                "bars_since_last_entry": 999,
+            },
+        }
+    }
+    strategies = fixture["family_config"]["strategies"]
+    strategies.insert(
+        2,
+        {
+            "id": "DownturnDominator_v1",
+            "family": "momentum",
+            "unit_risk_dollars": 400.0,
+            "daily_stop_R": 20.0,
+            "priority": 2,
+            "max_heat_R": 20.0,
+            "max_working_orders": 4,
+        },
+    )
+    strategies[3]["priority"] = 3
+    rules = fixture["family_config"]["portfolio_rules"]
+    rules["family_strategy_ids"] = [
+        "NQDTC_v2.1",
+        "VdubusNQ_v4",
+        "DownturnDominator_v1",
+        "NQ_REGIME",
+    ]
+    rules["strategy_priorities"] = [
+        ["NQDTC_v2.1", 0],
+        ["VdubusNQ_v4", 1],
+        ["DownturnDominator_v1", 2],
+        ["NQ_REGIME", 3],
+    ]
+    rules["strategy_size_multipliers"].insert(
+        2, ["DownturnDominator_v1", 1.0]
+    )
+    rules["disabled_strategies"] = (
+        ["DownturnDominator_v1"] if scenario == "denied" else []
+    )
+    if scenario == "contention":
+        rules["directional_cap_R"] = 20.0
+        rules["directional_cap_long_R"] = 20.0
+        rules["directional_cap_short_R"] = 2.5
+        fixture["bars"] = [
+            {
+                "symbol": "NQ",
+                "timeframe": "5m",
+                "timestamp": "2026-05-20T14:15:00+00:00",
+                "open": 19894.0,
+                "high": 19898.0,
+                "low": 19880.0,
+                "close": 19884.0,
+                "volume": 3000.0,
+            }
+        ]
+        fixture["initial_strategy_state"]["NQ_REGIME"]["bars_5m"] = [
+            {
+                "ts": "2026-05-20T10:05:00-04:00",
+                "open": 19898.0,
+                "high": 19899.0,
+                "low": 19892.0,
+                "close": 19895.0,
+                "volume": 1000.0,
+                "vwap": None,
+            },
+            {
+                "ts": "2026-05-20T10:10:00-04:00",
+                "open": 19895.0,
+                "high": 19897.0,
+                "low": 19890.0,
+                "close": 19893.0,
+                "volume": 1000.0,
+                "vwap": None,
+            },
+        ]
+        fixture["artifacts"]["nq_regime"]["daily_context"].update(
+            {"pdl": 19600.0, "pdm": 19800.0, "weekly_low": 19000.0}
+        )
+    else:
+        rules["directional_cap_R"] = 20.0
+        rules["directional_cap_long_R"] = 20.0
+        rules["directional_cap_short_R"] = 20.0
+
+    broker_script = [
+        event
+        for event in fixture["broker_event_script"]
+        if event["order_match"]["strategy_id"] != "NQ_REGIME"
+        or scenario != "contention"
+    ]
     fixture["broker_event_script"] = broker_script
     return fixture

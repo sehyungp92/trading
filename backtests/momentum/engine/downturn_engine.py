@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import math
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 from zoneinfo import ZoneInfo
@@ -72,13 +73,9 @@ from strategies.momentum.downturn.regime import (
     compute_strong_bear,
     compute_vol_factor,
     compute_vol_state,
-    regime_sizing_mult,
 )
 from strategies.momentum.downturn.signals import (
-    compute_entry_subtype_stop,
     detect_breakdown_short,
-    detect_fade_short,
-    detect_momentum_impulse,
     detect_reversal_short,
     update_box_state,
 )
@@ -92,16 +89,23 @@ from strategies.momentum.downturn.stops import (
     compute_chandelier_regime_mult,
     compute_multi_tier_profit_floor,
     compute_profit_floor_stop,
-    compute_tiered_tp_schedule,
     update_chandelier_trail,
 )
 from strategies.momentum.downturn.core import logic as downturn_core_logic
 from strategies.momentum.downturn.core.state import (
     DownturnCoreState,
-    DownturnEntryRequest,
     DownturnFill,
     DownturnOrderUpdate,
     DownturnStopUpdateRequest,
+)
+from strategies.momentum.downturn.core.entry_decision import (
+    DownturnEntryGateInput,
+    DownturnProposalPolicy,
+    build_entry_proposal,
+    entry_request as proposal_entry_request,
+    evaluate_entry_gate,
+    select_fade_signal,
+    selection_from_signal,
 )
 from backtests.momentum.engine.sim_broker import (
     FillResult,
@@ -844,61 +848,43 @@ class DownturnEngine:
 
     def _can_enter(self, bar_time: datetime) -> bool:
         """Check common entry gates."""
-        # Circuit breaker
-        if self.flags.daily_circuit_breaker and self._circuit_breaker_tripped:
-            return False
-
-        # Vol shock block
-        if self.flags.use_shock_block and self._regime.vol_state == VolState.SHOCK:
-            return False
-
-        # Session window
-        if self.flags.use_entry_windows:
-            can, _ = self._classify_session(bar_time)
-            if not can:
-                return False
-
-        # Directional entry cap (max N short entries per day)
-        if self.flags.directional_entry_caps:
-            max_daily = int(self.po.get("max_daily_entries", 3))
-            if self._daily_trades >= max_daily:
-                return False
-
-        # News blackout (simplified: skip first/last 5 min of RTH)
-        if self.flags.use_news_blackout:
-            try:
-                et = bar_time.astimezone(ET)
-                mins = et.hour * 60 + et.minute
-                # Skip 09:30-09:35 and 15:55-16:00 ET (high-impact windows)
-                if 570 <= mins < 575 or 955 <= mins < 960:
-                    return False
-            except Exception:
-                pass
-
-        # Friction gate: require minimum ATR for tradeable conditions
-        if self.flags.friction_gate and self._atr_d > 0:
-            min_atr_pctl = self.po.get("friction_min_atr_pctl", 0.10)
-            if self._atr_d_pctl < min_atr_pctl:
-                return False
-
-        vol_gate = float(getattr(self.flags, "vol_percentile_gate", 0.0) or 0.0)
-        if vol_gate > 0 and self._atr_d_pctl * 100.0 < vol_gate:
-            return False
-
-        conviction_gate = float(getattr(self.flags, "regime_confidence_gate", 0.0) or 0.0)
-        if conviction_gate > 0 and self._bear_conviction < conviction_gate:
-            return False
-
-        # Block counter-regime entries (consistently lose money)
-        if self.flags.block_counter_regime:
-            if self._regime.composite_regime == CompositeRegime.COUNTER:
-                # Allow through if reversal-in-correction exemption applies
-                # (actual per-signal filtering happens in _evaluate_signals)
-                if not (self.flags.allow_reversal_in_correction
-                        and self._in_correction(bar_time, self._correction_windows)):
-                    return False
-
-        return True
+        try:
+            et = bar_time.astimezone(ET)
+            minute_et = et.hour * 60 + et.minute
+        except Exception:
+            minute_et = -1
+        session_allowed, _ = self._classify_session(bar_time)
+        in_correction = self._in_correction(bar_time, self._correction_windows)
+        return evaluate_entry_gate(DownturnEntryGateInput(
+            circuit_breaker_enabled=self.flags.daily_circuit_breaker,
+            circuit_breaker_tripped=self._circuit_breaker_tripped,
+            shock_block_enabled=self.flags.use_shock_block,
+            vol_state=self._regime.vol_state,
+            entry_windows_enabled=self.flags.use_entry_windows,
+            session_allowed=session_allowed,
+            # Source session classification already owns its dead-zone policy.
+            dead_zones_enabled=False,
+            minute_et=minute_et,
+            directional_entry_caps=self.flags.directional_entry_caps,
+            daily_trades=self._daily_trades,
+            max_daily_entries=int(self.po.get("max_daily_entries", 3)),
+            news_blackout_enabled=self.flags.use_news_blackout,
+            friction_gate_enabled=self.flags.friction_gate,
+            atr_daily=self._atr_d,
+            atr_daily_percentile=self._atr_d_pctl,
+            friction_min_percentile=float(self.po.get("friction_min_atr_pctl", 0.10)),
+            vol_percentile_gate=float(
+                getattr(self.flags, "vol_percentile_gate", 0.0) or 0.0
+            ),
+            bear_conviction=self._bear_conviction,
+            regime_confidence_gate=float(
+                getattr(self.flags, "regime_confidence_gate", 0.0) or 0.0
+            ),
+            block_counter_regime=self.flags.block_counter_regime,
+            composite_regime=self._regime.composite_regime,
+            allow_reversal_in_correction=self.flags.allow_reversal_in_correction,
+            in_correction=in_correction,
+        )) is None
 
     def _evaluate_signals(
         self, t: int, bar_time: datetime, close: float, high: float, low: float,
@@ -1022,45 +1008,40 @@ class DownturnEngine:
             _, session_mult = self._classify_session(bar_time)
             session_type = "core" if session_mult >= 1.0 else "extended"
 
-            sig = detect_fade_short(
-                self._fade, close_15m, high_recent,
-                effective_regime, mom_ok,
-                self._regime.extension_short, atr_15m, session_type,
-                self.flags, self.po,
+            selection = select_fade_signal(
+                fade_state=self._fade,
+                close_15m=float(close_15m),
+                high_15m_recent=np.asarray(high_recent, dtype=float),
+                closes_15m=fifteen_min.closes[:m15_idx + 1],
+                effective_regime=effective_regime,
+                mom_slope_ok=mom_ok,
+                extension_short=self._regime.extension_short,
+                atr_15m=atr_15m,
+                session_type=session_type,
+                ema_fast_15m=self._inc_ema_15m_fast.value,
+                bars_since_last_entry=self._bars_since_last_entry,
+                flags=self.flags,
+                param_overrides=self.po,
+                evaluate_fade=True,
+                evaluate_momentum=self.flags.momentum_signal,
+                momentum_reference_close=float(
+                    fifteen_min.closes[m15_idx - 5]
+                    if m15_idx >= 5
+                    else fifteen_min.closes[0]
+                ),
             )
-            if sig is not None:
+            if selection is not None and selection.signal_class == "vwap_rejection":
                 self._fade_ctr.signals_detected += 1
                 self._record_signal(EngineTag.FADE, "vwap_rejection", bar_time, True)
-                return sig
+                return selection.signal
 
             # R6: Momentum impulse — alternative fade trigger (no VWAP rejection needed)
             # R6 Rev2: cooldown gate — only fire if no entry in last N bars
-            momentum_cooldown = int(self.po.get("momentum_cooldown_bars", 36))
-            if (self.flags.momentum_signal and sig is None
-                    and self._bars_since_last_entry >= momentum_cooldown):
-                close_5ago = (
-                    fifteen_min.closes[m15_idx - 5]
-                    if m15_idx >= 5 else fifteen_min.closes[0]
-                )
-                roc_5bar = (
-                    (close_15m - close_5ago) / close_5ago if close_5ago > 0 else 0.0
-                )
-                ema_fast_15m = self._inc_ema_15m_fast.value
-                if detect_momentum_impulse(
-                    close_15m, ema_fast_15m, roc_5bar,
-                    effective_regime, self.po,
-                ):
-                    # Build a FadeSignal with momentum_impulse class
-                    sig = FadeSignal(
-                        vwap_used=self._fade.vwap_used,
-                        rejection_close=close_15m,
-                        class_mult=0.70,
-                        predator_present=False,
-                    )
-                    self._fade_ctr.signals_detected += 1
-                    self._record_signal(EngineTag.FADE, "momentum_impulse", bar_time, True)
-                    self._momentum_impulse_pending = True
-                    return sig
+            if selection is not None:
+                self._fade_ctr.signals_detected += 1
+                self._record_signal(EngineTag.FADE, "momentum_impulse", bar_time, True)
+                self._momentum_impulse_pending = True
+                return selection.signal
 
         return None
 
@@ -1075,89 +1056,51 @@ class DownturnEngine:
         """Submit entry order via broker."""
         cfg = self.config
         po = self.po
-
-        if isinstance(signal, BreakdownSignal):
-            tag = EngineTag.BREAKDOWN
-            sig_class = "box_breakdown"
-        elif isinstance(signal, ReversalSignal):
-            tag = EngineTag.REVERSAL
-            sig_class = "classic_divergence"
-        else:
-            tag = EngineTag.FADE
-            sig_class = "momentum_impulse" if self._momentum_impulse_pending else "vwap_rejection"
-
-        # Compute entry/stop
-        atr = self._atr_30m if tag == EngineTag.BREAKDOWN else self._atr_1h
-        trigger_buffer_ticks = max(0.0, float(po.get("trigger_low_buffer_ticks", 2.0)))
-        low_recent = close - trigger_buffer_ticks * cfg.tick_size
-        entry_price, stop0, entry_type = compute_entry_subtype_stop(
-            tag, signal, close, atr, low_recent, cfg.tick_size, po,
-        )
-
-        # Position sizing
-        risk_per_unit = abs(stop0 - entry_price) * cfg.point_value
-        if risk_per_unit <= 0:
-            return
-
-        base_risk = po.get("base_risk_pct", 0.01)
-        regime_mult = regime_sizing_mult(self._regime.composite_regime, po)
-        vol_factor = self._regime.vol_factor if self.flags.use_volatility_states else 1.0
-        strong_bonus = 1.25 if self._regime.strong_bear and self.flags.use_strong_bear_bonus else 1.0
-
-        risk_dollars = equity * base_risk * regime_mult * vol_factor * strong_bonus
-
-        # Determine if in correction window (needed for sizing adjustments)
         in_correction = self._in_correction(bar_time, correction_windows)
-
-        # Correction-window sizing adjustments
-        if in_correction and self.flags.correction_sizing_bonus:
-            corr_bonus = po.get("correction_sizing_mult", 1.30)
-            risk_dollars *= corr_bonus
-        if not in_correction and self.flags.non_correction_penalty:
-            non_corr_mult = po.get("non_correction_sizing_mult", 0.60)
-            risk_dollars *= non_corr_mult
-
-        qty = max(1, int(risk_dollars / risk_per_unit))
-        if self.config.max_contracts > 0:
-            qty = min(qty, self.config.max_contracts)
-        if self.config.max_notional_leverage > 0:
-            notional_per = entry_price * self.config.point_value
-            max_qty = max(1, int(self._current_equity * self.config.max_notional_leverage / notional_per))
-            qty = min(qty, max_qty)
-
-        # TP schedule
-        tp_sched = compute_tiered_tp_schedule(tag, self._regime.composite_regime, po)
-
-        # Build pending position info (will activate on fill)
-        predator = getattr(signal, "predator_present", False)
-
-        # Submit order
-        oid = self.broker.next_order_id()
-        limit_offset_ticks = max(0.0, float(po.get("entry_limit_offset_ticks", 4.0)))
-        limit_offset = limit_offset_ticks * cfg.tick_size
-        ttl_bars = max(1, int(po.get("entry_ttl_bars", 72)))
-        entry_request = DownturnEntryRequest(
-            client_order_id=oid,
+        selection = selection_from_signal(
+            signal,
+            momentum_impulse=self._momentum_impulse_pending,
+        )
+        proposal, _reason = build_entry_proposal(
+            selection=selection,
+            client_order_id="",
             symbol=self.symbol,
-            engine_tag=tag,
-            signal_class=sig_class,
-            qty=qty,
-            entry_price=entry_price,
-            stop0=stop0,
-            tif="DAY",
-            order_type="STOP" if entry_type == "stop_market" else "STOP_LIMIT",
-            price=entry_price if entry_type != "stop_market" else None,
-            limit_price=entry_price - limit_offset if entry_type != "stop_market" else None,
-            stop_price=entry_price,
-            submitted_bar_idx=t,
-            ttl_bars=ttl_bars,
+            bar_idx=t,
+            bar_ts=bar_time,
+            close=close,
+            atr_1h=self._atr_1h,
+            atr_30m=self._atr_30m,
+            equity=equity,
+            notional_equity=self._current_equity,
+            tick_size=cfg.tick_size,
+            point_value=cfg.point_value,
             composite_regime=self._regime.composite_regime,
             vol_state=self._regime.vol_state,
+            vol_factor=self._regime.vol_factor,
+            strong_bear=self._regime.strong_bear,
             in_correction=in_correction,
-            predator=predator,
-            tp_schedule=tp_sched,
-            signal_strength=getattr(signal, "class_mult", 0.5),
+            flags=self.flags,
+            param_overrides=po,
+            policy=DownturnProposalPolicy(
+                trigger_low_buffer_ticks=max(
+                    0.0,
+                    float(po.get("trigger_low_buffer_ticks", 2.0)),
+                ),
+                entry_limit_offset_ticks=max(
+                    0.0,
+                    float(po.get("entry_limit_offset_ticks", 4.0)),
+                ),
+                entry_ttl_bars=max(1, int(po.get("entry_ttl_bars", 72))),
+                max_contracts=cfg.max_contracts,
+                max_notional_leverage=cfg.max_notional_leverage,
+                non_correction_penalty_enabled=True,
+            ),
         )
+        if proposal is None:
+            return
+        oid = self.broker.next_order_id()
+        proposal = replace(proposal, client_order_id=oid)
+        entry_request = proposal_entry_request(proposal)
         replay = self._replay_core_step(
             bar_input={
                 "bar_count_5m": t,
@@ -1191,17 +1134,17 @@ class DownturnEngine:
 
         # Store pending position data on order for fill handler
         order._pending_data = {
-            "engine_tag": tag,
-            "signal_class": sig_class,
-            "stop0": stop0,
-            "composite_regime": self._regime.composite_regime,
-            "vol_state": self._regime.vol_state,
-            "in_correction": in_correction,
-            "predator": predator,
-            "tp_schedule": tp_sched,
+            "engine_tag": proposal.engine_tag,
+            "signal_class": proposal.signal_class,
+            "stop0": proposal.stop0,
+            "composite_regime": proposal.composite_regime,
+            "vol_state": proposal.vol_state,
+            "in_correction": proposal.in_correction,
+            "predator": proposal.predator,
+            "tp_schedule": list(proposal.tp_schedule),
         }
 
-        ctr = self._get_counter(tag)
+        ctr = self._get_counter(proposal.engine_tag)
         ctr.entries_placed += 1
 
     # -------------------------------------------------------------------

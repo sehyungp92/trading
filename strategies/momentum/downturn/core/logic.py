@@ -16,11 +16,17 @@ from strategies.core.idle_market import idle_market_details
 from strategies.momentum.downturn.models import ActivePosition, WorkingEntry
 
 from .state import (
+    DownturnAuthorization,
     DownturnCoreState,
     DownturnEntryRequest,
     DownturnFill,
     DownturnOrderUpdate,
     DownturnStopUpdateRequest,
+)
+from .entry_decision import (
+    DownturnEntryProposal,
+    entry_action,
+    with_quantity,
 )
 
 _TERMINAL_STATUSES = {
@@ -40,6 +46,7 @@ def on_bar(
     bar_count_5m: int | None = None,
     bar_ts: datetime | None = None,
     entry_request: DownturnEntryRequest | None = None,
+    entry_proposal: DownturnEntryProposal | None = None,
     stop_update: DownturnStopUpdateRequest | None = None,
     flatten_reason: str | None = None,
     expire_entries: bool = False,
@@ -93,6 +100,27 @@ def on_bar(
                     "qty": entry_request.qty,
                     "entry_price": entry_request.entry_price,
                     "stop0": entry_request.stop0,
+                },
+            )
+        )
+
+    if entry_proposal is not None:
+        next_state.symbol = entry_proposal.symbol or next_state.symbol
+        next_state.pending_entries[entry_proposal.client_order_id] = entry_proposal
+        actions.append(entry_action(entry_proposal))
+        events.append(
+            DecisionEvent(
+                code="ENTRY_PROPOSED",
+                ts=event_ts,
+                symbol=entry_proposal.symbol,
+                timeframe="5m",
+                details={
+                    "engine_tag": entry_proposal.engine_tag.value,
+                    "signal_class": entry_proposal.signal_class,
+                    "qty": entry_proposal.qty,
+                    "entry_price": entry_proposal.entry_price,
+                    "stop0": entry_proposal.stop0,
+                    "risk_dollars": entry_proposal.risk_dollars,
                 },
             )
         )
@@ -181,6 +209,57 @@ def on_bar(
 
     _update_last_decision(next_state, events)
     return next_state, actions, events
+
+
+def on_authorization(
+    state: DownturnCoreState,
+    authorization: DownturnAuthorization,
+) -> tuple[DownturnCoreState, list[SubmitEntry], list[DecisionEvent]]:
+    """Apply family portfolio feedback before an entry is submitted."""
+
+    next_state = deepcopy(state)
+    proposal = next_state.pending_entries.pop(authorization.client_order_id, None)
+    if proposal is None:
+        return next_state, [], []
+    approved_qty = min(
+        max(int(authorization.approved_qty), 0),
+        max(int(authorization.requested_qty), 0),
+    )
+    approved = bool(authorization.approved and approved_qty > 0)
+    if not approved:
+        events = [
+            DecisionEvent(
+                code="ENTRY_DENIED",
+                ts=authorization.timestamp,
+                symbol=authorization.symbol or proposal.symbol,
+                timeframe="5m",
+                details={
+                    "client_order_id": authorization.client_order_id,
+                    "requested_qty": authorization.requested_qty,
+                    "reason": authorization.denial_reason,
+                },
+            )
+        ]
+        _update_last_decision(next_state, events)
+        return next_state, [], events
+
+    approved_proposal = with_quantity(proposal, approved_qty)
+    events = [
+        DecisionEvent(
+            code="ENTRY_AUTHORIZED",
+            ts=authorization.timestamp,
+            symbol=authorization.symbol or proposal.symbol,
+            timeframe="5m",
+            details={
+                "client_order_id": authorization.client_order_id,
+                "requested_qty": authorization.requested_qty,
+                "approved_qty": approved_qty,
+                "portfolio_decision_ref": authorization.portfolio_decision_ref,
+            },
+        )
+    ]
+    _update_last_decision(next_state, events)
+    return next_state, [entry_action(approved_proposal)], events
 
 
 def on_order_update(

@@ -12,12 +12,15 @@ from strategies.momentum.downturn.models import (
     WorkingEntry,
 )
 
+from .entry_decision import DownturnEntryProposal
+
 
 @dataclass(slots=True)
 class DownturnCoreState:
     symbol: str = ""
     position: ActivePosition | None = None
     working_entries: list[WorkingEntry] = field(default_factory=list)
+    pending_entries: dict[str, DownturnEntryProposal] = field(default_factory=dict)
     bar_count_5m: int = 0
     bars_since_last_entry: int = 999
     last_decision_code: str = "IDLE"
@@ -48,6 +51,18 @@ class DownturnEntryRequest:
     predator: bool = False
     tp_schedule: list[tuple[float, float]] = field(default_factory=list)
     signal_strength: float = 0.5
+
+
+@dataclass(frozen=True, slots=True)
+class DownturnAuthorization:
+    client_order_id: str
+    approved: bool
+    approved_qty: int
+    requested_qty: int
+    timestamp: datetime
+    symbol: str = ""
+    denial_reason: str = ""
+    portfolio_decision_ref: str = ""
 
 
 @dataclass(slots=True)
