@@ -1,6 +1,6 @@
 # Family Causal Replay and Thin-Backtest Implementation Plan
 
-**Status:** active scope-reduced plan; Momentum R1 complete and R2 fast-path feasibility in progress
+**Status:** active scope-reduced plan; Momentum R1 complete and R2A fast-path feasibility in progress
 **Date:** 2026-07-17
 **Revision:** surgical clarification of R2 feasibility sequencing, identity versus semantic digests, and safe per-candidate derived state views
 **Supersedes:** the 2026-07-15 G0-G8 platform-first plan and its 64-item completion checklist
@@ -38,8 +38,8 @@ Success is earned independently per family. Momentum may cut over when Momentum 
 
 - Momentum R0 and R1 are complete and frozen at commit `6428d859c0d20d7c15831c51b78beaf5eb2aade0`.
 - The simultaneous historical oracle passes P00, P01, P10, and P11 with all four real children, shared causal state, and exact normalized live/replay products.
-- The R2A profile records a 232.297-second warm single-candidate median and 267.62 MiB peak RSS against the later 28-candidate, one-worker budget of 120 seconds target, 180 seconds hard ceiling, and 288 MiB peak RSS.
-- Optimizer integration, workers, the candidate cohort, and cutover remain deferred until the replay-only fast path passes the single-candidate feasibility gate below.
+- R2A-1 prepared stateless features and monotonic cursors reached its review boundary with exact semantic products, a 90.380-second warm median, and 242.78 MiB peak RSS, improving the frozen 232.297-second baseline by 61.1% but remaining above the 6.43-second hard-feasibility threshold.
+- R2A-2 mutation-versioned per-candidate repository risk views are next. Aggregate mode, optimizer integration, workers, the candidate cohort, and cutover remain deferred until their ordered gates below pass.
 
 ## 2. The two questions and the intended assurance
 
