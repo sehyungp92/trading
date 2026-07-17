@@ -46,6 +46,7 @@ From this point forward, admit a change only when it closes a measured causal/pa
 - R2A-F is frozen at commit `31c9ecf`; the non-overlapping theoretical local-optimization projection is 26.198 seconds, so safe local cleanup cannot meet the 6.43-second gate. Every-candidate causal R2B remains unauthorized, and a direct shared-core feasibility specification requires deliberate approval before implementation.
 - The documentation-only direct shared-core feasibility assessment concluded that R2A cannot meet its current budget using the existing shared seams within the permitted reconstruction scope.
 - The adopted policy compromise is causal promotion gating: legacy screening may rank exploratory mutations, but every phase-advancing, incumbent, finalist, and officially selected Momentum candidate must pass the R2A-3 causal replay path. Direct shared-core reconstruction remains rejected unless deliberately reapproved under a new scope.
+- Screening proxy quality is not assumed. Before R2B integration, the representative 28-candidate cohort must be evaluated by both screening and causal replay to measure rank correlation, top-K recall, causal regret, and promotion agreement; first divergences must be classified and accidental or safely reducible mismatches corrected.
 
 ## 2. The two questions and the intended assurance
 
@@ -254,6 +255,8 @@ The existing fast legacy evaluator may rank broad exploratory mutations as a scr
 
 Screening and causal scores remain separate fields. If they disagree, the disagreement is approximation error to measure and respond to, not a reason to blend rankings.
 
+Screening is acceptable only when a pre-budgeted shortlist reliably retains the causal winner or a candidate within the approved causal-regret tolerance. Correct implementation of a completed-trade screen does not prove this: authorization, resize, fill, working-order, PnL, cooldown, and shared-capital feedback can change later child decisions. Calibrate the proxy empirically, fix data/configuration/feature/cost/accounting/rule mismatches, and leave inherently state-dependent differences to the causal promotion evaluator rather than reproducing another causal engine inside screening.
+
 ### 6.2 Diagnostic replay - failures and sampled candidates
 
 Uses exactly the same state transitions as causal promotion mode but retains normalized decisions, orders, events, ledger rows, and state digests. A candidate may be rerun in this mode to locate the first divergence.
@@ -421,6 +424,8 @@ Momentum R2A is closed as infeasible for every-candidate causal evaluation. The 
 
 If these corrections do not reach feasibility, stop at a new profile checkpoint and locate the remaining leaf-level bottleneck before considering a synchronous orchestration extraction. This is a review gate, not authorization to reconstruct the runtime: any proposal must identify the reused existing authorities, a bounded allowlist and growth budget, and why adapting the current seams cannot meet the gate. Any approved extraction must still call the same strategy decision functions, pure portfolio evaluator, OMS state/fill reducers, and deterministic execution policy; it may not become a second trading engine.
 
+The Gate R2A result below remains the recorded failure of optimizer-wide causal replay; it does not block the adopted policy's bounded R2B-0 paired calibration. R2B promotion integration remains blocked until Gate R2B-0 establishes that the screening proxy is reliable within its causal shortlist budget.
+
 **Gate R2A:**
 
 - repeated fast runs and diagnostic replay are exact in metrics, final state, and semantic-product digest;
@@ -428,6 +433,23 @@ If these corrections do not reach feasibility, stop at a new profile checkpoint 
 - every cache or prepared product is dependency-keyed and contains no mutable strategy, family, order, position, PnL, cooldown, decision, intent, or fill state;
 - one prepared candidate is at or below 6.43 seconds, with 4.29 seconds retained as the target, and peak RSS has credible headroom below 288 MiB;
 - no per-candidate external I/O, live coordinator startup, verbose trace retention, or process startup occurs.
+
+#### R2B-0 - Paired screening/causal proxy calibration
+
+- materialize the existing representative 28-candidate Momentum cohort once and evaluate every unchanged candidate with both the screening evaluator and frozen R2A-3 causal replay;
+- use identical data/window, initial state, feature policy, configuration, costs, execution assumptions, objective, and constraints, and preserve each candidate hash across both routes;
+- measure rank correlation, screening-winner causal rank, causal-winner screening rank, top-K recall, incumbent-promotion agreement, and causal regret for the shortlist sizes permitted by the causal time budget;
+- locate the first material divergence for mismatched candidates and classify it as data/configuration, feature, cost/accounting, rule/sizing, execution, implementation defect, or inherent causal-feedback difference;
+- fix unexplained defects and only those proxy mismatches reducible by reusing existing shared calculations; do not add copied rules, fixed counterfactual intents, or state simulation that turns screening into a second causal engine;
+- rerun the paired comparison after each accepted correction and derive the operational shortlist size from measured proxy quality rather than choosing it in advance.
+
+**Gate R2B-0:**
+
+- maximum shortlist size, maximum causal regret, required top-K recall, promotion-agreement rule, and causal-gate time budget are declared before accepting the calibration result;
+- paired candidates have exact materialized configuration identity and no unexplained input, objective, accounting, or rule mismatch;
+- the approved shortlist retains the causal winner or satisfies the approved regret tolerance without consuming most of the cohort;
+- remaining screening/causal differences are explicitly classified as inherent causal feedback and are handled by causal reranking or adaptive widening;
+- if the proxy cannot pass within the bounded shortlist budget, R2B stops and the evidence policy is reconsidered rather than weakening the gate after observing results.
 
 #### R2B - Bounded causal promotion integration
 
@@ -583,8 +605,8 @@ Existing result artifacts remain valid for their original portfolio-only or mixe
 - [x] 7. Remove completed trades and fixed intents from official Momentum causal input.
 - [x] 8. Prove degenerate equality plus denial, resize, working-order, fill, PnL, and cooldown feedback at the expected first divergence.
 - [x] 9. Pass the selected simultaneous Momentum oracle slice with matching fixture identities.
-- [ ] 10. Integrate bounded Momentum causal promotion gating with explicit screening-only evidence labels.
-- [ ] 11. Prove Momentum causal promotion determinism, candidate isolation, and screening/causal score separation.
+- [ ] 10. Calibrate the representative Momentum screening cohort against causal replay, classify and correct reducible discrepancies, and approve a bounded shortlist from measured recall and regret.
+- [ ] 11. Integrate bounded Momentum causal promotion gating with explicit evidence labels and prove determinism, candidate isolation, and screening/causal score separation.
 - [ ] 12. Replay promotion candidates, classify differences, and cut over Momentum official selection.
 
 ### Remaining families
