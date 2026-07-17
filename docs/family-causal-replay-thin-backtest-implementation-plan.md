@@ -38,8 +38,9 @@ Success is earned independently per family. Momentum may cut over when Momentum 
 
 - Momentum R0 and R1 are complete and frozen at commit `6428d859c0d20d7c15831c51b78beaf5eb2aade0`.
 - The simultaneous historical oracle passes P00, P01, P10, and P11 with all four real children, shared causal state, and exact normalized live/replay products.
-- R2A-1 prepared stateless features and monotonic cursors reached its review boundary with exact semantic products, a 90.380-second warm median, and 242.78 MiB peak RSS, improving the frozen 232.297-second baseline by 61.1% but remaining above the 6.43-second hard-feasibility threshold.
-- R2A-2 mutation-versioned per-candidate repository risk views are next. Aggregate mode, optimizer integration, workers, the candidate cohort, and cutover remain deferred until their ordered gates below pass.
+- R2A-1 prepared stateless features and monotonic cursors are frozen at commit `bf719233316281d1adfc876a55cf1cb425aeee4e`; its exact semantic products, 90.380-second warm median, and 242.78 MiB peak RSS improved the frozen R1 baseline but did not meet the 6.43-second hard-feasibility threshold.
+- R2A-2 mutation-versioned per-candidate repository risk views reached its review boundary with exact scan-versus-view and historical products. The targeted repository risk stack fell from approximately 42.6 seconds cumulative to 4.24 seconds, while the 110.87-second warm median was host-inconclusive and does not establish total-wall improvement or R2A feasibility.
+- R2A-3 primitive aggregate retention, versioned rolling semantic-product digest, and explicit offline callback-file-instrumentation suppression are next. Optimizer integration, workers, the candidate cohort, and cutover remain deferred until their ordered gates below pass.
 
 ## 2. The two questions and the intended assurance
 
