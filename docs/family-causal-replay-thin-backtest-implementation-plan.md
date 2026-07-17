@@ -1,8 +1,8 @@
 # Family Causal Replay and Thin-Backtest Implementation Plan
 
-**Status:** active scope-reduced plan; Momentum R1 complete and R2 stopped after failed proxy and scaling gates; Stock IARIC causal vertical in progress
+**Status:** active scope-reduced plan; Momentum R1 complete and R2 stopped; Stock ALCB proposal extraction complete and decision-policy alignment next
 **Date:** 2026-07-17
-**Revision:** close Momentum R2 under the current scope and advance the bounded Stock IARIC-to-ALCB causal vertical
+**Revision:** require ALCB materialized decision-policy alignment before Stock family causal promotion
 **Supersedes:** the 2026-07-15 G0-G8 platform-first plan and its 64-item completion checklist
 **Applies to:** Momentum, Stock, and Swing family replay, phased auto-optimization, portfolio authorization, deterministic execution, and live/replay parity
 **Governing intent:** `docs/strategy-implementation-lessons.md` and `docs/live_backtest_parity_plan.md`, with broker calibration treated as a separate production-confidence track
@@ -51,6 +51,7 @@ From this point forward, admit a change only when it closes a measured causal/pa
 - The one permitted Momentum scaling probe also failed the 180-second cohort gate: exact products, rankings, and A/B/A isolation passed, but two workers required approximately 729 seconds and four required approximately 447 seconds. Momentum R2 is stopped; no further Momentum optimization, promotion integration, proxy expansion, or reconstruction is authorized without an explicit new policy and scope decision.
 - Stock data authority is frozen at commit `e4464a4413d4bd5361b5461c4fa82a524bea9d04`. Official Stock evaluation remains correctly blocked until authoritative direct-RTH acquisition can produce a verified frozen bundle; projection data remains diagnostic only, and no further data-framework expansion is authorized by this plan.
 - The IARIC completed-five-minute shared bar transition is frozen at commit `61b1706`, and the first Stock causal increment is frozen at `eaf8fb9`: approved fill, portfolio denial, rules/input identity, and live/replay normalized products pass for IARIC alone. ALCB is intentionally characterized as idle until its existing live/backtest entry calculation is exposed through one shared raw proposal seam. Paper/shadow telemetry remains an operational follow-up, not a prerequisite for bounded offline parity work.
+- ALCB's provider-free proposal extraction is frozen at commit `fbecc5c` with exact pre/post standalone fingerprints. The shared function deliberately preserved the existing `live` and `optimized_backtest` decision modes for compatibility; because those branches affect signal gates and sizing rather than transport alone, their same-input delta must now be measured and the materialized candidate policy aligned before a Stock causal fixture can count as thin-backtest parity.
 
 ## 2. The two questions and the intended assurance
 
@@ -509,10 +510,11 @@ Repeat R1 and R2 separately for Stock and Swing. Choose the next family based on
 
 Immediate Stock order:
 
-1. Extract the behavior-preserving ALCB entry proposal seam before adding more parity scaffold. The shared function must perform no async work, OMS submission, persistence, logging, UUID generation, wall-clock lookup, or family authorization, and live plus optimized-backtest wrappers must retain transport and execution-policy responsibilities.
-2. Replace the idle-only ALCB characterization with a real one-child causal path covering approved fill, portfolio denial before submission, and broker rejection or cancellation, all through the existing family authorization and OMS lifecycle.
-3. Prove the first real simultaneous IARIC/ALCB ordered-timestamp trace with both-approved, contention, release, and same-symbol `half_size` cases. Ordering must be explicit as `(timestamp, family priority, stable sequence)`.
-4. Only after simultaneous-child parity passes, add the bounded feedback closure for partial fills, working-risk release, realized loss, open-position/working-order limits, cooldown or re-entry where already implemented, and same-timestamp deterministic ordering.
+1. Freeze the behavior-preserving ALCB entry proposal seam before adding more parity scaffold. The shared function must perform no async work, OMS submission, persistence, logging, UUID generation, wall-clock lookup, or family authorization, and live plus optimized-backtest wrappers must retain transport and execution-policy responsibilities. Completed at `fbecc5c`.
+2. Evaluate the frozen representative ALCB inputs through both proposal modes with identical materialized configuration and strategy state. Classify every first divergence. Transport and next-bar fill policy may remain in wrappers; signal, gate, sizing, and proposal differences may not. Express any legitimate optional rule through the same materialized policy input used by both callers, then prove same-input proposal equality or explicitly approve corrective live drift before continuing.
+3. Replace the idle-only ALCB characterization with a real one-child causal path covering approved fill, portfolio denial before submission, and broker rejection or cancellation, all through the existing family authorization and OMS lifecycle.
+4. Prove the first real simultaneous IARIC/ALCB ordered-timestamp trace with both-approved, contention, release, and same-symbol `half_size` cases. Ordering must be explicit as `(timestamp, family priority, stable sequence)`.
+5. Only after simultaneous-child parity passes, add the bounded feedback closure for partial fills, working-risk release, realized loss, open-position/working-order limits, cooldown or re-entry where already implemented, and same-timestamp deterministic ordering.
 
 Official Stock optimization evidence requires the verified direct-RTH frozen bundle. Bounded compatibility extraction and parity fixtures may proceed against explicitly identified non-official inputs, but they must not be promoted as official May-IS/June-OOS evidence and must not trigger more data-authority infrastructure while acquisition is externally unavailable.
 
