@@ -1,8 +1,8 @@
 # Family Causal Replay and Thin-Backtest Implementation Plan
 
-**Status:** rewritten, scope-reduced implementation plan
-**Date:** 2026-07-16
-**Revision:** surgical clarification of reuse starting points, extraction drift, oracle identity, degenerate equivalence, and inherited OMS coverage
+**Status:** active scope-reduced plan; Momentum R1 complete and R2 fast-path feasibility in progress
+**Date:** 2026-07-17
+**Revision:** surgical clarification of R2 feasibility sequencing, identity versus semantic digests, and safe per-candidate derived state views
 **Supersedes:** the 2026-07-15 G0-G8 platform-first plan and its 64-item completion checklist
 **Applies to:** Momentum, Stock, and Swing family replay, phased auto-optimization, portfolio authorization, deterministic execution, and live/replay parity
 **Governing intent:** `docs/strategy-implementation-lessons.md` and `docs/live_backtest_parity_plan.md`, with broker calibration treated as a separate production-confidence track
@@ -33,6 +33,13 @@ The optimizer must not connect to IBKR, start the live coordinator stack, sleep,
 An `await` is not itself the performance problem; network I/O, timers, queues, persistence, subprocesses, and repeated runtime startup are. The shared decision boundary should nevertheless remain synchronous and deterministic, with async confined to the live shell.
 
 Success is earned independently per family. Momentum may cut over when Momentum passes; it does not wait for Stock, Swing, broker calibration, or a repository-wide abstraction programme.
+
+### 1.1 Current implementation status
+
+- Momentum R0 and R1 are complete and frozen at commit `6428d859c0d20d7c15831c51b78beaf5eb2aade0`.
+- The simultaneous historical oracle passes P00, P01, P10, and P11 with all four real children, shared causal state, and exact normalized live/replay products.
+- The R2A profile records a 232.297-second warm single-candidate median and 267.62 MiB peak RSS against the later 28-candidate, one-worker budget of 120 seconds target, 180 seconds hard ceiling, and 288 MiB peak RSS.
+- Optimizer integration, workers, the candidate cohort, and cutover remain deferred until the replay-only fast path passes the single-candidate feasibility gate below.
 
 ## 2. The two questions and the intended assurance
 
@@ -233,6 +240,8 @@ Both live oracle and replay construct strategy cores through the same configurat
 - primitive decisions, orders, fills, trades, portfolio observations, aggregate metrics, and a rolling semantic digest without retaining a verbose object trace;
 - no JSON serialization, database access, logging, process startup, sleeps, or full traces inside the hot loop.
 
+P00 run identity and the semantic-product digest are separate products. Run identity covers data, configuration, initial state, ordering, execution, cost, feature policy, and behavior-relevant code. The semantic-product digest covers normalized causal products in order. An implementation change may therefore change P00 as intended while still proving exact semantic-product equivalence through a diagnostic comparison.
+
 ### 6.2 Diagnostic replay - failures and sampled candidates
 
 Uses exactly the same state transitions as fast mode but retains normalized decisions, orders, events, ledger rows, and state digests. A candidate may be rerun in this mode to locate the first divergence.
@@ -261,7 +270,7 @@ Recent broker evidence may tune or validate the deterministic execution model. F
 8. Duplicate broker events have one economic effect.
 9. Every strategy in the family observes one ordered timeline and shared portfolio state.
 10. Candidate state, identifiers, and caches do not leak between runs.
-11. Fast and diagnostic modes produce identical metrics and final digests.
+11. Fast and diagnostic modes produce identical metrics, final state, and semantic-product digests under the same P00 identity.
 12. Performance work may remove I/O and repeated computation, never causal transitions.
 13. A parity comparison is invalid unless the seed, normalized market input, materialized configuration, initial state, ordering policy, execution/cost profile, and broker event script identities match.
 
@@ -291,6 +300,8 @@ Candidate-dependent warm-up may be cached only when its key includes every relev
 
 Pre-authorization opportunities may be cached only if a proof and test show that later opportunity generation cannot depend on admission, fill, position, working orders, cooldown, realized PnL, capital, or exposure. The current families should be assumed not to meet that condition.
 
+A derived risk or order index inside one candidate's in-memory state is allowed when every economic mutation invalidates or updates it and scan-versus-index tests are exact. It must not be shared between candidates or become a second repository or OMS authority.
+
 ### 8.3 Prohibited official caches
 
 - completed trades;
@@ -309,6 +320,8 @@ Before a family optimizer cuts over:
 - report startup/data preparation separately from candidate transition time;
 - verify candidate results across supported worker counts;
 - profile before adding new cache or parallel infrastructure.
+
+Derive a single-candidate feasibility threshold from the frozen cohort budget after shared preparation. If one prepared candidate exceeds that threshold, profile and optimize the replay-only path before optimizer integration, cohort execution, or process parallelism. For Momentum, the 28-candidate budget implies 4.29 seconds per candidate for the target and 6.43 seconds per candidate for the hard ceiling.
 
 The semantically narrower completed-trade evaluator is a historical reference, not a like-for-like performance requirement. Approval is based on the operational phase budget and preserved optimization throughput, not on pretending the two evaluators perform the same work.
 
@@ -376,29 +389,61 @@ No generic abstraction may expand at this checkpoint unless the vertical path us
 - every intentional result change has one first-divergence explanation;
 - no third Momentum strategy implementation remains.
 
-### Phase R2 - Momentum optimizer cutover and performance
+### Phase R2 - Momentum fast-path feasibility, optimizer integration, and cutover
 
-**Objective:** prove the causal path is practical in phased auto-optimization.
+**Objective:** prove the causal path is practical in phased auto-optimization before making it an official candidate evaluator.
 
-**Work:**
+#### R2A - Replay-only fast-path feasibility
 
-- integrate the R1 driver directly into candidate evaluation;
+- profile one already-prepared replay candidate without the live-wrapper oracle, repeated determinism runs, or optimizer startup;
+- precompute or incrementally maintain only dependency-keyed stateless completed-bar features, session classifications, timeframe availability, and futures-calendar lookups;
+- replace growing-history reconstruction with prepared arrays and monotonic cursors;
+- maintain exact per-candidate derived risk views inside the existing in-memory repository or reducer state instead of repeatedly scanning unchanged state;
+- make aggregate mode retain only primitive metrics, final state, and a versioned rolling semantic-product digest;
+- disable callback-side file instrumentation through an explicit offline policy while preserving lifecycle events and economic state;
+- re-profile after each bounded change and retain diagnostic equality with the frozen R1 products;
+- do not add workers or integrate the optimizer while one prepared candidate exceeds 6.43 seconds or peak RSS lacks credible headroom below 288 MiB.
+
+If these corrections do not reach feasibility, locate the remaining call-level bottleneck before considering a synchronous orchestration extraction. Any extraction must still call the same strategy decision functions, pure portfolio evaluator, OMS state/fill reducers, and deterministic execution policy; it may not become a second trading engine.
+
+**Gate R2A:**
+
+- repeated fast runs and diagnostic replay are exact in metrics, final state, and semantic-product digest;
+- a diagnostic migration run shows no order, event, ledger, or state drift from accepted R1 semantics;
+- every cache or prepared product is dependency-keyed and contains no mutable strategy, family, order, position, PnL, cooldown, decision, intent, or fill state;
+- one prepared candidate is at or below 6.43 seconds, with 4.29 seconds retained as the target, and peak RSS has credible headroom below 288 MiB;
+- no per-candidate external I/O, live coordinator startup, verbose trace retention, or process startup occurs.
+
+#### R2B - Optimizer integration and cohort proof
+
+- integrate the proven R2A evaluator directly into the existing Momentum candidate-evaluation surface;
 - preload data and configuration-independent features once per window or worker;
-- keep candidate state in memory and isolated;
-- retain only aggregate metrics and rolling digests by default;
-- rerun failed or sampled candidates with full trace;
-- add bounded process-level parallelism only if profiling shows it improves the phase;
-- run the representative candidate cohort and meet the recorded runtime/memory budget;
-- rerun the affected Momentum optimization phases and regenerate only required winning evidence.
+- create fresh, isolated strategy, family, OMS, position, and ledger state for each candidate;
+- retain aggregate metrics and semantic-product digests by default, rerunning only failed or sampled candidates diagnostically;
+- prove A-B-A candidate isolation, cold-versus-warm equality, and supported worker-count determinism;
+- run the representative 28-candidate cohort and meet the 120-second target, 180-second hard ceiling, and 288 MiB peak-RSS ceiling;
+- add bounded process-level parallelism only if profiling demonstrates benefit within the memory budget.
+
+**Gate R2B:**
+
+- cold/warm, A-B-A, and worker-count results and rankings are deterministic;
+- the operational cohort time and memory budgets pass;
+- official candidate evaluation contains no I/O, verbose instrumentation, live-wrapper oracle, or completed-trade input.
+
+#### R2C - Shadow, result migration, and cutover
+
+- replay the latest materialized configuration and classify its first difference from the scoped legacy result;
+- shadow the latest configuration and a small candidate cohort without mixing legacy and causal scores in one ranking;
+- rerun only affected Momentum optimization phases and regenerate only required winning evidence;
+- make causal replay the only official Momentum selection path after the evidence is accepted;
+- retain completed-trade replay only as a test/reference path or remove it.
 
 **Gate R2 - Momentum cutover:**
 
-- cold/warm and worker-count results are deterministic;
-- the operational time and memory budgets pass;
-- no I/O or verbose instrumentation occurs per candidate;
-- official Momentum selection cannot call completed-trade replay;
+- R2A and R2B pass;
 - the latest configuration delta is classified;
 - required summaries identify configuration, data, code, feature, and execution profile;
+- official Momentum selection cannot call completed-trade replay;
 - the old evaluator remains test/reference-only or is removed.
 
 Momentum becomes independently complete at R2.
@@ -508,19 +553,19 @@ Existing result artifacts remain valid for their original portfolio-only or mixe
 
 ### Scope and reuse
 
-- [ ] 1. Record the G1-G4M keep/simplify/defer/drop disposition.
-- [ ] 2. Confirm the verified family starting-point map and name the reused strategy, portfolio, OMS, execution, repository, and parity seams for the first vertical.
-- [ ] 3. Freeze one representative slice and operational performance budget.
+- [x] 1. Record the G1-G4M keep/simplify/defer/drop disposition.
+- [x] 2. Confirm the verified family starting-point map and name the reused strategy, portfolio, OMS, execution, repository, and parity seams for the first vertical.
+- [x] 3. Freeze one representative slice and operational performance budget.
 
 ### Momentum vertical and cutover
 
-- [ ] 4. Complete the one-child raw-event vertical proof with exact compatibility extraction before causal correction.
-- [ ] 5. Connect its live and replay wrappers to the same decision functions.
-- [ ] 6. Drive all enabled Momentum children on one ordered timeline.
-- [ ] 7. Remove completed trades and fixed intents from official Momentum causal input.
-- [ ] 8. Prove degenerate equality plus denial, resize, working-order, fill, PnL, and cooldown feedback at the expected first divergence.
-- [ ] 9. Pass the selected simultaneous Momentum oracle slice with matching fixture identities.
-- [ ] 10. Integrate causal Momentum candidate evaluation.
+- [x] 4. Complete the one-child raw-event vertical proof with exact compatibility extraction before causal correction.
+- [x] 5. Connect its live and replay wrappers to the same decision functions.
+- [x] 6. Drive all enabled Momentum children on one ordered timeline.
+- [x] 7. Remove completed trades and fixed intents from official Momentum causal input.
+- [x] 8. Prove degenerate equality plus denial, resize, working-order, fill, PnL, and cooldown feedback at the expected first divergence.
+- [x] 9. Pass the selected simultaneous Momentum oracle slice with matching fixture identities.
+- [ ] 10. Meet the single-candidate fast-path feasibility gate, then integrate causal Momentum candidate evaluation.
 - [ ] 11. Meet Momentum runtime, memory, determinism, and cache-isolation budgets.
 - [ ] 12. Replay the latest config, classify differences, and cut over Momentum.
 
