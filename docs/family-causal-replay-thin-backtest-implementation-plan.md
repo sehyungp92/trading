@@ -1,8 +1,8 @@
 # Family Causal Replay and Thin-Backtest Implementation Plan
 
-**Status:** active scope-reduced plan; Momentum R1 complete, Momentum R2 blocked at the failed screening-proxy gate, and Stock compatibility extraction in review
+**Status:** active scope-reduced plan; Momentum R1 complete and R2 stopped after failed proxy and scaling gates; Stock IARIC causal vertical in progress
 **Date:** 2026-07-17
-**Revision:** record failed Momentum promotion-proxy calibration, allow one bounded causal scaling probe, and preserve the separate Stock compatibility/data-authority boundaries
+**Revision:** close Momentum R2 under the current scope and advance the bounded Stock IARIC-to-ALCB causal vertical
 **Supersedes:** the 2026-07-15 G0-G8 platform-first plan and its 64-item completion checklist
 **Applies to:** Momentum, Stock, and Swing family replay, phased auto-optimization, portfolio authorization, deterministic execution, and live/replay parity
 **Governing intent:** `docs/strategy-implementation-lessons.md` and `docs/live_backtest_parity_plan.md`, with broker calibration treated as a separate production-confidence track
@@ -48,8 +48,9 @@ From this point forward, admit a change only when it closes a measured causal/pa
 - The adopted policy compromise is causal promotion gating: legacy screening may rank exploratory mutations, but every phase-advancing, incumbent, finalist, and officially selected Momentum candidate must pass the R2A-3 causal replay path. Direct shared-core reconstruction remains rejected unless deliberately reapproved under a new scope.
 - Screening proxy quality is not assumed. Before R2B integration, the representative 28-candidate cohort must be evaluated by both screening and causal replay to measure rank correlation, top-K recall, causal regret, and promotion agreement; first divergences must be classified and accidental or safely reducible mismatches corrected.
 - R2B-0 reached its review boundary and failed that predeclared proxy gate: the causal winner `weekly_6_0` ranked 10th in screening, the smallest passing shortlist was K=10 rather than the K=2 target or K=3 hard maximum, promotion agreement was false, and the classified first divergences were inherent causal feedback dominated by entry denial under working-order and shared-exposure pressure. R2B promotion integration is therefore blocked under the current policy and budget.
+- The one permitted Momentum scaling probe also failed the 180-second cohort gate: exact products, rankings, and A/B/A isolation passed, but two workers required approximately 729 seconds and four required approximately 447 seconds. Momentum R2 is stopped; no further Momentum optimization, promotion integration, proxy expansion, or reconstruction is authorized without an explicit new policy and scope decision.
 - Stock data authority is frozen at commit `e4464a4413d4bd5361b5461c4fa82a524bea9d04`. Official Stock evaluation remains correctly blocked until authoritative direct-RTH acquisition can produce a verified frozen bundle; projection data remains diagnostic only, and no further data-framework expansion is authorized by this plan.
-- The IARIC completed-five-minute shared bar transition has reached an unstaged compatibility-extraction review boundary with exact old/new optimized replay products. It must be reviewed and frozen separately before it is reused as the first Stock causal child seam; paper/shadow telemetry remains an operational follow-up, not a prerequisite for bounded offline parity work.
+- The IARIC completed-five-minute shared bar transition is frozen at commit `61b1706`, and the first Stock causal increment is frozen at `eaf8fb9`: approved fill, portfolio denial, rules/input identity, and live/replay normalized products pass for IARIC alone. ALCB is intentionally characterized as idle until its existing live/backtest entry calculation is exposed through one shared raw proposal seam. Paper/shadow telemetry remains an operational follow-up, not a prerequisite for bounded offline parity work.
 
 ## 2. The two questions and the intended assurance
 
@@ -454,7 +455,7 @@ The Gate R2A result below remains the recorded failure of optimizer-wide causal 
 - remaining screening/causal differences are explicitly classified as inherent causal feedback and are handled by causal reranking or adaptive widening;
 - if the proxy cannot pass within the bounded shortlist budget, R2B stops and the evidence policy is reconsidered rather than weakening the gate after observing results.
 
-**Recorded disposition:** R2B-0 failed. Do not implement R2B, increase K after observing the result, or copy causal state into screening. After the calibration increment is reviewed and frozen, the only permitted Momentum feasibility work without a new architecture decision is one bounded warm-worker scaling probe of the existing frozen causal evaluator and 28-candidate cohort. It must add no optimizer framework or trading implementation, preserve exact per-candidate products, report total wall time, CPU, and aggregate peak RSS for 1/2/4 workers, and stop early when target-hardware or resource limits make the 180-second cohort budget impossible. At most one additional supported worker count may be run when the 1/2/4 measurements predict that it can pass with credible CPU and aggregate-memory headroom. If that probe cannot establish a credible budgeted route, Momentum R2 remains blocked pending an explicit choice to revise the optimization budget/evidence policy or authorize the already-rejected reconstruction scope.
+**Recorded disposition:** R2B-0 and the bounded scaling probe both failed. Do not implement R2B, increase K after observing the result, copy causal state into screening, add more workers, or continue Momentum micro-optimization under this plan. Momentum R2 remains stopped pending an explicit choice to revise the optimization budget/evidence policy or authorize the already-rejected reconstruction scope.
 
 #### R2B - Bounded causal promotion integration
 
@@ -500,10 +501,18 @@ Repeat R1 and R2 separately for Stock and Swing. Choose the next family based on
 #### Stock-specific minimum
 
 - freeze and reuse the existing IARIC completed-five-minute transition; do not create another bar policy or synthetic one-minute expansion;
+- expose ALCB's existing completed-bar signal, gate, sizing, and `ALCBEntryRequest` construction through one provider-free proposal function used by both the live engine and optimized backtest, with exact legacy compatibility before causal correction;
 - drive ALCB and IARIC together from raw data;
 - remove complete trade bundles from official selection;
 - feed admission, fill quantity, positions, PnL, capital, and cooldown back to both strategies;
 - preserve only safe data/features across candidates.
+
+Immediate Stock order:
+
+1. Extract the behavior-preserving ALCB entry proposal seam before adding more parity scaffold. The shared function must perform no async work, OMS submission, persistence, logging, UUID generation, wall-clock lookup, or family authorization, and live plus optimized-backtest wrappers must retain transport and execution-policy responsibilities.
+2. Replace the idle-only ALCB characterization with a real one-child causal path covering approved fill, portfolio denial before submission, and broker rejection or cancellation, all through the existing family authorization and OMS lifecycle.
+3. Prove the first real simultaneous IARIC/ALCB ordered-timestamp trace with both-approved, contention, release, and same-symbol `half_size` cases. Ordering must be explicit as `(timestamp, family priority, stable sequence)`.
+4. Only after simultaneous-child parity passes, add the bounded feedback closure for partial fills, working-risk release, realized loss, open-position/working-order limits, cooldown or re-entry where already implemented, and same-timestamp deterministic ordering.
 
 Official Stock optimization evidence requires the verified direct-RTH frozen bundle. Bounded compatibility extraction and parity fixtures may proceed against explicitly identified non-official inputs, but they must not be promoted as official May-IS/June-OOS evidence and must not trigger more data-authority infrastructure while acquisition is externally unavailable.
 
@@ -614,8 +623,8 @@ Existing result artifacts remain valid for their original portfolio-only or mixe
 - [x] 8. Prove degenerate equality plus denial, resize, working-order, fill, PnL, and cooldown feedback at the expected first divergence.
 - [x] 9. Pass the selected simultaneous Momentum oracle slice with matching fixture identities.
 - [x] 10. Calibrate the representative Momentum screening cohort against causal replay and classify discrepancies; the bounded-shortlist gate failed because the causal winner ranked 10th and the remaining differences were inherent causal feedback.
-- [ ] 11. Run only the bounded causal cohort scaling probe described by the recorded R2B-0 disposition; proceed to promotion integration only if a newly approved gate is met.
-- [ ] 12. Replay promotion candidates, classify differences, and cut over Momentum official selection.
+- [x] 11. Run the bounded causal cohort scaling probe; exactness passed but two- and four-worker wall times failed the 180-second gate.
+- [ ] 12. Keep Momentum official selection withheld unless a new policy and scope are explicitly approved; no further Momentum implementation is authorized by this plan.
 
 ### Remaining families
 
