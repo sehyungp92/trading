@@ -42,7 +42,8 @@ From this point forward, admit a change only when it closes a measured causal/pa
 - The simultaneous historical oracle passes P00, P01, P10, and P11 with all four real children, shared causal state, and exact normalized live/replay products.
 - R2A-1 prepared stateless features and monotonic cursors are frozen at commit `bf719233316281d1adfc876a55cf1cb425aeee4e`; its exact semantic products, 90.380-second warm median, and 242.78 MiB peak RSS improved the frozen R1 baseline but did not meet the 6.43-second hard-feasibility threshold.
 - R2A-2 mutation-versioned per-candidate repository risk views reached its review boundary with exact scan-versus-view and historical products. The targeted repository risk stack fell from approximately 42.6 seconds cumulative to 4.24 seconds, while the 110.87-second warm median was host-inconclusive and does not establish total-wall improvement or R2A feasibility.
-- R2A-3 is frozen at commit `c723ca20852e9a3a36729b1835223d4bd4874c4a`; exactness and memory passed, with a 56.863-second warm aggregate median. The 6.43-second gate failed by 8.84×, so R2B remains unauthorized; the next boundary is a bounded aggregate-only feasibility decision.
+- R2A-3 is frozen at commit `c723ca20852e9a3a36729b1835223d4bd4874c4a`; exactness and memory passed, with a 56.863-second warm aggregate median. The 6.43-second gate failed by 8.84x.
+- R2A-F is frozen at commit `31c9ecf`; the non-overlapping theoretical local-optimization projection is 26.198 seconds, so safe local cleanup cannot meet the 6.43-second gate. R2B remains unauthorized, and a direct shared-core feasibility specification requires deliberate approval before implementation.
 
 ## 2. The two questions and the intended assurance
 
