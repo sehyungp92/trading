@@ -16,7 +16,9 @@ from __future__ import annotations
 import argparse
 import asyncio
 import io
+import json
 import logging
+import os
 import subprocess
 import sys
 import time
@@ -43,24 +45,35 @@ def _setup_logging(verbose: bool = False) -> None:
 
 def cmd_download(args: argparse.Namespace) -> None:
     """Download historical bar data."""
-    from backtests.stock.data.downloader import download_stock_universe
+    from datetime import datetime, timedelta, timezone
+
+    from backtests.stock.data.update_intraday import update_stock_data
 
     timeframes = args.timeframes.split(",") if args.timeframes else ["1d"]
-    output_dir = Path(args.data_dir)
+    start = datetime.fromisoformat(args.start).replace(tzinfo=timezone.utc)
+    end = (
+        datetime.fromisoformat(args.end).replace(tzinfo=timezone.utc)
+        + timedelta(days=1)
+        - timedelta(microseconds=1)
+        if args.end
+        else None
+    )
 
     async def _run():
-        return await download_stock_universe(
-            timeframes=timeframes,
-            duration=args.duration,
-            output_dir=output_dir,
+        return await update_stock_data(
+            timeframes,
             host=args.host,
             port=args.port,
-            skip_existing=not args.force,
+            client_id=args.client_id,
+            session=args.session,
+            start=start,
+            end=end,
+            latest_only=args.latest,
+            repo_root=Path("."),
+            authority_root=Path(args.data_dir),
         )
 
-    result = asyncio.run(_run())
-    for tf, symbols in result.items():
-        print(f"  {tf}: {len(symbols)} symbols downloaded")
+    asyncio.run(_run())
 
 
 def cmd_run(args: argparse.Namespace) -> None:
@@ -68,7 +81,11 @@ def cmd_run(args: argparse.Namespace) -> None:
     from backtests.stock.engine.research_replay import ResearchReplayEngine
 
     data_dir = Path(args.data_dir)
-    replay = ResearchReplayEngine(data_dir=data_dir)
+    replay = ResearchReplayEngine(
+        data_dir=data_dir,
+        bundle_path=args.bundle,
+        require_bundle=not args.allow_legacy_data,
+    )
     print("Loading bar data...")
     replay.load_all_data()
 
@@ -240,7 +257,11 @@ def cmd_portfolio(args: argparse.Namespace) -> None:
     from backtests.stock.engine.research_replay import ResearchReplayEngine
 
     data_dir = Path(args.data_dir)
-    replay = ResearchReplayEngine(data_dir=data_dir)
+    replay = ResearchReplayEngine(
+        data_dir=data_dir,
+        bundle_path=args.bundle,
+        require_bundle=not args.allow_legacy_data,
+    )
     print("Loading bar data...")
     replay.load_all_data()
 
@@ -320,7 +341,11 @@ def cmd_greedy(args: argparse.Namespace) -> None:
     from backtests.stock.engine.research_replay import ResearchReplayEngine
 
     data_dir = Path(args.data_dir)
-    replay = ResearchReplayEngine(data_dir=data_dir)
+    replay = ResearchReplayEngine(
+        data_dir=data_dir,
+        bundle_path=args.bundle,
+        require_bundle=not args.allow_legacy_data,
+    )
     print("Loading bar data...")
     replay.load_all_data()
 
@@ -622,14 +647,29 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose logging")
     sub = parser.add_subparsers(dest="command", required=True)
 
+    def add_data_authority_args(command: argparse.ArgumentParser) -> None:
+        command.add_argument(
+            "--bundle",
+            default=None,
+            help="Verified frozen stock-data bundle (required unless --allow-legacy-data)",
+        )
+        command.add_argument(
+            "--allow-legacy-data",
+            action="store_true",
+            help="Explicitly allow diagnostic-only legacy filename caches",
+        )
+
     # download
     dl = sub.add_parser("download", help="Download historical bar data")
     dl.add_argument("--timeframes", default="1d", help="Comma-separated timeframes (default: 1d)")
-    dl.add_argument("--duration", default="5 Y", help="IBKR duration string")
-    dl.add_argument("--data-dir", default="backtests/stock/data/raw")
+    dl.add_argument("--data-dir", default="backtests/stock/data/authority", help="Authority object root")
     dl.add_argument("--host", default="127.0.0.1")
-    dl.add_argument("--port", type=int, default=7496)
-    dl.add_argument("--force", action="store_true", help="Re-download existing files")
+    dl.add_argument("--port", type=int, default=4002)
+    dl.add_argument("--client-id", type=int, default=114)
+    dl.add_argument("--session", choices=["rth", "extended", "both"], default="rth")
+    dl.add_argument("--start", default="2025-03-21")
+    dl.add_argument("--end", default=None)
+    dl.add_argument("--latest", action="store_true", help="Increment an accepted immutable parent")
 
     # run
     run = sub.add_parser("run", help="Run a backtest")
@@ -639,6 +679,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--end", default="2026-03-01", help="End date (YYYY-MM-DD)")
     run.add_argument("--equity", type=float, default=10_000.0)
     run.add_argument("--data-dir", default="backtests/stock/data/raw")
+    add_data_authority_args(run)
     run.add_argument("--save-charts", action="store_true", help="Save chart PNGs")
     run.add_argument("--output-dir", default="backtests/stock/output")
     run.add_argument("--diagnostics", action="store_true",
@@ -657,6 +698,7 @@ def build_parser() -> argparse.ArgumentParser:
     pf.add_argument("--end", default="2026-03-01")
     pf.add_argument("--equity", type=float, default=10_000.0)
     pf.add_argument("--data-dir", default="backtests/stock/data/raw")
+    add_data_authority_args(pf)
 
     # auto
     auto = sub.add_parser("auto", help="Run automated experiment harness")
@@ -670,12 +712,14 @@ def build_parser() -> argparse.ArgumentParser:
     auto.add_argument("--end", default="2026-03-01")
     auto.add_argument("--equity", type=float, default=10_000.0)
     auto.add_argument("--data-dir", default="backtests/stock/data/raw")
+    add_data_authority_args(auto)
 
     # greedy
     gr = sub.add_parser("greedy", help="Greedy forward selection for optimal config")
     gr.add_argument("--strategy", choices=["alcb", "iaric"], required=True)
     gr.add_argument("--tier", type=int, default=3, choices=[2, 3])
     gr.add_argument("--data-dir", default="backtests/stock/data/raw")
+    add_data_authority_args(gr)
     gr.add_argument("--output-dir", default="backtests/stock/auto/output")
     gr.add_argument("--start", default="2024-01-01")
     gr.add_argument("--end", default="2026-03-01")
@@ -683,6 +727,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     def add_phase_common(command: argparse.ArgumentParser) -> None:
         command.add_argument("--data-dir", default="backtests/stock/data/raw")
+        add_data_authority_args(command)
         command.add_argument("--output-dir", default="backtests/stock/auto/iaric/output")
         command.add_argument("--start", default="2024-01-01")
         command.add_argument("--end", default="2026-03-01")
@@ -705,6 +750,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     phase_auto_dual = sub.add_parser("phase-auto-dual", help="Run mainline and aggressive pullback branches")
     phase_auto_dual.add_argument("--data-dir", default="backtests/stock/data/raw")
+    add_data_authority_args(phase_auto_dual)
     phase_auto_dual.add_argument("--output-dir", default="backtests/stock/auto/iaric/output_dual")
     phase_auto_dual.add_argument("--start", default="2024-01-01")
     phase_auto_dual.add_argument("--end", default="2026-03-01")
@@ -729,6 +775,13 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
     _setup_logging(args.verbose)
+    if hasattr(args, "bundle"):
+        if args.bundle:
+            os.environ["TRADING_STOCK_DATA_BUNDLE"] = str(Path(args.bundle).resolve())
+        if not getattr(args, "allow_legacy_data", False):
+            os.environ["TRADING_REQUIRE_FROZEN_DATA"] = "1"
+        if args.command not in {"download", "phase-diagnostics"}:
+            _write_cli_data_context(args)
 
     if args.command == "download":
         cmd_download(args)
@@ -752,6 +805,28 @@ def main() -> None:
         cmd_phase_diagnostics(args)
     else:
         parser.print_help()
+
+
+def _write_cli_data_context(args: argparse.Namespace) -> None:
+    """Verify and persist the exact bundle context before a CLI run starts."""
+    from backtests.stock.engine.research_replay import ResearchReplayEngine
+
+    replay = ResearchReplayEngine(
+        data_dir=Path(getattr(args, "data_dir", "backtests/stock/data/raw")),
+        bundle_path=getattr(args, "bundle", None),
+        require_bundle=not getattr(args, "allow_legacy_data", False),
+    )
+    context = {
+        "schema_version": "stock_run_data_context_v1",
+        "command": args.command,
+        **replay.data_bundle_context(),
+    }
+    output_dir = Path(getattr(args, "output_dir", "backtests/stock/output"))
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / f"{args.command}_data_context.json"
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(context, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.replace(path)
 
 
 if __name__ == "__main__":

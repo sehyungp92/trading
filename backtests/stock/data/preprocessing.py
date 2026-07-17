@@ -17,18 +17,10 @@ import pandas as pd
 
 
 def filter_rth(df: pd.DataFrame) -> pd.DataFrame:
-    """Filter DataFrame to Regular Trading Hours only (09:30-16:00 ET).
+    """Filter to 09:30 through the versioned exchange close, including early closes."""
+    from backtests.stock.data.authority import normalize_bar_frame, project_rth
 
-    Bars at 09:00 ET are included for indicator context.
-    """
-    from zoneinfo import ZoneInfo
-
-    et = ZoneInfo("America/New_York")
-    idx_et = df.index.tz_convert(et)
-    minutes = idx_et.hour * 60 + idx_et.minute
-    # Keep bars from 09:00 (540) through 15:59 (959) on weekdays
-    mask = (minutes >= 540) & (minutes < 960) & (idx_et.weekday < 5)
-    return df.loc[mask]
+    return project_rth(normalize_bar_frame(df))
 
 
 def normalize_timezone(df: pd.DataFrame, tz: str = "UTC") -> pd.DataFrame:

@@ -266,6 +266,8 @@ async def download_historical_bars(
 
     pacer = pacer or RequestPacer()
     logger.debug("download %s %s: %d windows planned", request.symbol, request.timeframe, len(windows))
+    contract: Any | None = None
+    request_trace: list[dict[str, Any]] = []
     if request.sec_type.upper() == "FUT":
         downloaded = await download_contfuture_diagnostic(
             ib,
@@ -278,6 +280,11 @@ async def download_historical_bars(
         contract = await build_generic_contract(ib, request)
         chunks: list[pd.DataFrame] = []
         for window in windows:
+            trace_window = {
+                "requested_start_utc": window.start.isoformat(),
+                "requested_end_utc": window.end.isoformat(),
+            }
+            request_trace.append(trace_window)
             bars = await request_bars_with_retry(
                 ib,
                 contract,
@@ -287,6 +294,7 @@ async def download_historical_bars(
                 what_to_show=request.what_to_show,
                 use_rth=request.use_rth,
                 pacer=pacer,
+                trace_window=trace_window,
             )
             if bars:
                 chunks.append(bars_to_frame(bars))
@@ -304,7 +312,15 @@ async def download_historical_bars(
                 start=_frame_start(merged),
                 end=_frame_end(merged),
             )
-            write_manifest(_manifest_path_for(output_path), metadata)
+        else:
+            metadata = _generic_stock_metadata(
+                request,
+                output_path=output_path,
+                frame=merged,
+                contract=contract,
+                request_trace=request_trace,
+            )
+        write_manifest(_manifest_path_for(output_path), metadata)
         return DownloadResult(
             symbol=request.symbol,
             timeframe=request.timeframe,
@@ -322,6 +338,15 @@ async def download_historical_bars(
             rows=len(merged),
             start=_frame_start(merged),
             end=_frame_end(merged),
+        )
+        write_manifest(_manifest_path_for(target_path), metadata)
+    elif not merged.empty:
+        metadata = _generic_stock_metadata(
+            request,
+            output_path=target_path,
+            frame=merged,
+            contract=contract,
+            request_trace=request_trace,
         )
         write_manifest(_manifest_path_for(target_path), metadata)
     return merged
@@ -562,6 +587,7 @@ async def request_bars_with_retry(
     use_rth: bool,
     pacer: RequestPacer | None = None,
     timeout: int = 120,
+    trace_window: dict[str, Any] | None = None,
 ) -> list[Any]:
     bar_size = timeframe_to_ibkr(timeframe)
     end_str = _format_ib_end(end_dt)
@@ -575,11 +601,24 @@ async def request_bars_with_retry(
         what_to_show,
         use_rth,
     )
+    if trace_window is not None:
+        trace_window.update(
+            {
+                "end_date_time": end_str,
+                "duration": duration,
+                "bar_size_setting": bar_size,
+                "what_to_show": what_to_show,
+                "use_rth": use_rth,
+                "format_date": 2,
+                "status": "pending",
+                "attempts": [],
+            }
+        )
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             if pacer is not None:
                 await pacer.wait(signature, weight=request_weight(what_to_show))
-            return await asyncio.wait_for(
+            bars = await asyncio.wait_for(
                 ib.reqHistoricalDataAsync(
                     contract,
                     endDateTime=end_str,
@@ -592,18 +631,51 @@ async def request_bars_with_retry(
                 ),
                 timeout=timeout,
             ) or []
+            if trace_window is not None:
+                trace_window["attempts"].append({"attempt": attempt, "status": "success", "error": ""})
+                trace_window["status"] = "success" if bars else "empty"
+                trace_window["row_count"] = len(bars)
+            return bars
         except Exception as exc:
             message = str(exc).lower()
-            if "pacing" in message or "162" in message:
-                logger.warning("IBKR pacing violation on %s %s; sleeping %ss", getattr(contract, "symbol", "?"), timeframe, PACING_VIOLATION_SLEEP_SECONDS)
-                await asyncio.sleep(PACING_VIOLATION_SLEEP_SECONDS)
-            elif "no data" in message or "HMDS query returned no data".lower() in message:
+            status = "failed"
+            delay = 0
+            if "no data" in message or "hmds query returned no data" in message:
+                if trace_window is not None:
+                    trace_window["attempts"].append(
+                        {"attempt": attempt, "status": "no_data", "error": str(exc), "retry_delay_seconds": 0}
+                    )
+                    trace_window["status"] = "no_data"
+                    trace_window["row_count"] = 0
                 return []
+            if "pacing" in message or "162" in message:
+                status = "pacing"
+                delay = PACING_VIOLATION_SLEEP_SECONDS
+                logger.warning("IBKR pacing violation on %s %s; sleeping %ss", getattr(contract, "symbol", "?"), timeframe, PACING_VIOLATION_SLEEP_SECONDS)
+                if trace_window is not None:
+                    trace_window["attempts"].append(
+                        {"attempt": attempt, "status": status, "error": str(exc), "retry_delay_seconds": delay}
+                    )
+                await asyncio.sleep(PACING_VIOLATION_SLEEP_SECONDS)
             elif attempt >= MAX_RETRIES:
                 logger.warning("IBKR request failed after %d attempts: %s", MAX_RETRIES, exc)
+                if trace_window is not None:
+                    trace_window["attempts"].append(
+                        {"attempt": attempt, "status": status, "error": str(exc), "retry_delay_seconds": 0}
+                    )
+                    trace_window["status"] = "failed"
+                    trace_window["row_count"] = 0
                 return []
             else:
-                await asyncio.sleep(5 * attempt)
+                delay = 5 * attempt
+                if trace_window is not None:
+                    trace_window["attempts"].append(
+                        {"attempt": attempt, "status": status, "error": str(exc), "retry_delay_seconds": delay}
+                    )
+                await asyncio.sleep(delay)
+    if trace_window is not None:
+        trace_window["status"] = "failed"
+        trace_window["row_count"] = 0
     return []
 
 
@@ -829,6 +901,62 @@ def _contfuture_legacy_metadata(
         "policy_note": (
             "IBKR ContFuture is opaque and diagnostic-only; use physical futures "
             "contract downloads plus Panama stitching for authority."
+        ),
+    }
+
+
+def _generic_stock_metadata(
+    request: BarDownloadRequest,
+    *,
+    output_path: Path,
+    frame: pd.DataFrame,
+    contract: Any | None,
+    request_trace: list[dict[str, Any]],
+) -> dict[str, object]:
+    """Compatibility receipt for legacy callers; never authoritative."""
+    from backtests.stock.data.authority import (
+        normalize_bar_frame,
+        normalized_content_sha256,
+        normalized_schema,
+        sha256_file,
+    )
+    from backtests.stock.data.calendar import EXTENDED_SESSION_POLICY, RTH_SESSION_POLICY
+
+    normalized = normalize_bar_frame(frame)
+    return {
+        "schema_version": "legacy_stock_download_sidecar_v1",
+        "source_kind": "ibkr_generic_stock_legacy_path",
+        "usable_for_authoritative_validation": False,
+        "family": request.family,
+        "provider": request.provider,
+        "market": request.market,
+        "symbol": request.symbol,
+        "con_id": str(getattr(contract, "conId", "") or "unknown"),
+        "local_symbol": str(getattr(contract, "localSymbol", "") or request.symbol),
+        "primary_exchange": str(
+            getattr(contract, "primaryExchange", "") or request.primary_exchange or request.exchange
+        ),
+        "timeframe": request.timeframe,
+        "sec_type": request.sec_type,
+        "exchange": request.exchange,
+        "what_to_show": request.what_to_show,
+        "use_rth": request.use_rth,
+        "session_policy": RTH_SESSION_POLICY if request.use_rth else EXTENDED_SESSION_POLICY,
+        "adjustment_policy": request.adjustment_policy,
+        "calendar_version": request.calendar_version,
+        "duration": request.duration,
+        "format_date": request.format_date,
+        "chunk_windows": request_trace,
+        "rows": len(normalized),
+        "start": _isoformat(_frame_start(normalized)),
+        "end": _isoformat(_frame_end(normalized)),
+        "output_path": str(output_path),
+        "physical_sha256": sha256_file(output_path) if output_path.exists() else "",
+        "normalized_content_sha256": normalized_content_sha256(normalized),
+        "normalized_schema": normalized_schema(normalized),
+        "policy_note": (
+            "Retrospective mutable compatibility sidecar only. Use "
+            "backtests.stock.data.authoritative_downloader for accepted acquisitions."
         ),
     }
 

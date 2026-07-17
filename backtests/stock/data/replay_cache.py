@@ -13,11 +13,26 @@ if TYPE_CHECKING:
 _REPLAY_CACHE: dict[str, ReplayBundle[ResearchReplayEngine]] = {}
 
 
-def load_research_replay_bundle(data_dir: Path) -> ReplayBundle[ResearchReplayEngine]:
+def load_research_replay_bundle(
+    data_dir: Path,
+    *,
+    bundle_path: Path | None = None,
+    require_bundle: bool | None = None,
+) -> ReplayBundle[ResearchReplayEngine]:
     from backtests.stock.engine.research_replay import ResearchReplayEngine
 
     base_dir = Path(data_dir)
-    source_fingerprint = fingerprint_tree(base_dir, patterns=("*.parquet",))
+    replay_kwargs: dict[str, object] = {"data_dir": base_dir}
+    if bundle_path is not None:
+        replay_kwargs["bundle_path"] = bundle_path
+    if require_bundle is not None:
+        replay_kwargs["require_bundle"] = require_bundle
+    replay = ResearchReplayEngine(**replay_kwargs)
+    source_fingerprint = (
+        replay.data_fingerprint()
+        if hasattr(replay, "data_fingerprint")
+        else fingerprint_tree(base_dir, patterns=("*.parquet",))
+    )
     cache_key = build_cache_key(
         "stock.research_replay_bundle",
         source_fingerprint=source_fingerprint,
@@ -27,7 +42,6 @@ def load_research_replay_bundle(data_dir: Path) -> ReplayBundle[ResearchReplayEn
     if cached is not None:
         return cached
 
-    replay = ResearchReplayEngine(data_dir=base_dir)
     replay.load_all_data()
     bundle = ReplayBundle(
         data=replay,

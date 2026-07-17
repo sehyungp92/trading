@@ -12,9 +12,10 @@ from __future__ import annotations
 
 import bisect
 import logging
+import os
 from collections import defaultdict
 from dataclasses import asdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta
 from pathlib import Path
 from statistics import fmean
 
@@ -24,6 +25,9 @@ import pandas as pd
 from backtests.shared.auto.cache_keys import fingerprint_tree, stable_signature
 from backtests.stock.config import UniverseConfig
 from backtests.stock.data.cache import bar_path, load_bars
+from backtests.stock.data.calendar import session_dates
+from backtests.stock.data.bundle import FrozenBundleResolver
+from backtests.stock.data.calendar import RTH_SESSION_POLICY
 from backtests.stock.data.downloader import REFERENCE_SYMBOLS, SECTOR_ETFS
 
 from strategies.stock.alcb.universe_constituents import KNOWN_ETFS, SP500_CONSTITUENTS
@@ -44,7 +48,11 @@ logger = logging.getLogger(__name__)
 # Fast date-index helpers
 # ---------------------------------------------------------------------------
 
-def _build_date_index(df: pd.DataFrame) -> tuple[list[date], list[int]]:
+def _build_date_index(
+    df: pd.DataFrame,
+    *,
+    daily_labels: bool = False,
+) -> tuple[list[date], list[int]]:
     """Build sorted parallel lists of (dates, last_iloc) for O(1) date lookup.
 
     Returns (sorted_dates, last_row_ilocs) where last_row_ilocs[i] is the
@@ -55,8 +63,10 @@ def _build_date_index(df: pd.DataFrame) -> tuple[list[date], list[int]]:
     """
     if df.empty:
         return [], []
-    # Truncate to day precision in numpy (vectorized C, no Python loop)
-    days_ns = df.index.values.astype("datetime64[D]")
+    # Intraday bars belong to their exchange-local session date. Daily bars in
+    # this cache are already provider session labels at midnight UTC.
+    local_dates = session_dates(pd.DatetimeIndex(df.index), daily_labels=daily_labels)
+    days_ns = np.asarray(local_dates, dtype="datetime64[D]")
     n = len(days_ns)
     if n == 0:
         return [], []
@@ -120,10 +130,13 @@ def _precompute_arrays(df: pd.DataFrame) -> dict[str, np.ndarray]:
 
 def _flow_proxy_array(arrs: dict[str, np.ndarray]) -> np.ndarray:
     """Vectorized Chaikin flow proxy: volume * (2*CPR - 1)."""
-    h, l, c, v = arrs["high"], arrs["low"], arrs["close"], arrs["volume"]
-    width = np.maximum(h - l, 1e-9)
-    cpr = (c - l) / width
-    return v * (2.0 * cpr - 1.0)
+    high_values = arrs["high"]
+    low_values = arrs["low"]
+    close_values = arrs["close"]
+    volume_values = arrs["volume"]
+    width = np.maximum(high_values - low_values, 1e-9)
+    cpr = (close_values - low_values) / width
+    return volume_values * (2.0 * cpr - 1.0)
 
 
 # ---------------------------------------------------------------------------
@@ -302,6 +315,10 @@ class ResearchReplayEngine:
         self,
         data_dir: str | Path = "backtests/stock/data/raw",
         universe_config: UniverseConfig | None = None,
+        *,
+        bundle_path: str | Path | None = None,
+        require_bundle: bool | None = None,
+        require_clean_bundle: bool = True,
     ):
         self._data_dir = Path(data_dir)
         self._universe_config = universe_config or UniverseConfig()
@@ -318,6 +335,44 @@ class ResearchReplayEngine:
             ]
         else:
             self._universe = list(SP500_CONSTITUENTS)
+        repo_root = Path(__file__).resolve().parents[3]
+        configured_bundle = bundle_path or os.environ.get("TRADING_STOCK_DATA_BUNDLE")
+        default_bundle = repo_root / "backtests" / "stock" / "data" / "authority" / "bundles" / "accepted.json"
+        if configured_bundle is None and default_bundle.exists():
+            configured_bundle = default_bundle
+        if require_bundle is None:
+            explicit_requirement = os.environ.get("TRADING_REQUIRE_FROZEN_DATA", "").strip().lower()
+            require_bundle = explicit_requirement in {"1", "true", "yes"}
+            if not explicit_requirement:
+                default_legacy_root = repo_root / "backtests" / "stock" / "data" / "raw"
+                require_bundle = self._data_dir.resolve() == default_legacy_root.resolve()
+        self._bundle_resolver: FrozenBundleResolver | None = None
+        if configured_bundle is not None:
+            candidate = Path(configured_bundle)
+            if not candidate.is_absolute():
+                candidate = repo_root / candidate
+            expected_policies = {
+                "1d": RTH_SESSION_POLICY,
+                "30m": RTH_SESSION_POLICY,
+                "5m": RTH_SESSION_POLICY,
+            }
+            self._bundle_resolver = FrozenBundleResolver.load(
+                candidate,
+                repo_root=repo_root,
+                require_clean=require_clean_bundle,
+                expected_universe=list(BACKTESTED_INTRADAY_STOCK_SYMBOLS),
+                expected_session_policy_by_timeframe=expected_policies,
+            )
+        elif require_bundle:
+            raise ValueError(
+                "authoritative stock replay requires --bundle or TRADING_STOCK_DATA_BUNDLE; "
+                "legacy filename caches are diagnostic-only"
+            )
+        else:
+            logger.warning(
+                "Loading diagnostic-only legacy stock cache without a frozen data bundle: %s",
+                self._data_dir,
+            )
         self._sector_map: dict[str, str] = {sym: sector for sym, sector, _ in self._universe}
         self._exchange_map: dict[str, str] = {sym: exch for sym, _, exch in self._universe}
 
@@ -400,11 +455,11 @@ class ResearchReplayEngine:
 
         # Daily bars for universe
         for sym in all_symbols:
-            path = bar_path(self._data_dir, sym, "1d")
+            path = self._bar_path(sym, "1d")
             if path.exists():
                 df = load_bars(path)
                 self._daily_cache[sym] = df
-                self._daily_didx[sym] = _build_date_index(df)
+                self._daily_didx[sym] = _build_date_index(df, daily_labels=True)
                 arrs = _precompute_arrays(df)
                 self._daily_arrs[sym] = arrs
                 self._daily_flow[sym] = _flow_proxy_array(arrs)
@@ -414,11 +469,11 @@ class ResearchReplayEngine:
 
         # Reference symbols (SPY, VIX, HYG, sector ETFs)
         for sym in ref_symbols:
-            path = bar_path(self._data_dir, sym, "1d")
+            path = self._bar_path(sym, "1d")
             if path.exists():
                 df = load_bars(path)
                 self._ref_cache[sym] = df
-                self._ref_didx[sym] = _build_date_index(df)
+                self._ref_didx[sym] = _build_date_index(df, daily_labels=True)
                 arrs = _precompute_arrays(df)
                 self._ref_arrs[sym] = arrs
                 self._ref_flow[sym] = _flow_proxy_array(arrs)
@@ -431,12 +486,12 @@ class ResearchReplayEngine:
 
         # Intraday bars (optional — only needed for Tier 2)
         for sym in all_symbols:
-            path_30m = bar_path(self._data_dir, sym, "30m")
+            path_30m = self._bar_path(sym, "30m")
             if path_30m.exists():
                 df = load_bars(path_30m)
                 self._intraday_30m_cache[sym] = df
                 self._30m_didx[sym] = _build_date_index(df)
-            path_5m = bar_path(self._data_dir, sym, "5m")
+            path_5m = self._bar_path(sym, "5m")
             if path_5m.exists():
                 self._5m_paths[sym] = path_5m  # defer loading to first access
 
@@ -480,9 +535,27 @@ class ResearchReplayEngine:
                 while di < len(last_ilocs) - 1 and last_ilocs[di] < i:
                     di += 1
                 d = sorted_dates[di]
-                o, h, l, c, v = float(opens[i]), float(highs[i]), float(lows[i]), float(closes[i]), float(volumes[i])
-                bars_a[i] = alcb_models.ResearchDailyBar(trade_date=d, open=o, high=h, low=l, close=c, volume=v)
-                bars_i[i] = iaric_models.ResearchDailyBar(trade_date=d, open=o, high=h, low=l, close=c, volume=v)
+                open_value = float(opens[i])
+                high_value = float(highs[i])
+                low_value = float(lows[i])
+                close_value = float(closes[i])
+                volume_value = float(volumes[i])
+                bars_a[i] = alcb_models.ResearchDailyBar(
+                    trade_date=d,
+                    open=open_value,
+                    high=high_value,
+                    low=low_value,
+                    close=close_value,
+                    volume=volume_value,
+                )
+                bars_i[i] = iaric_models.ResearchDailyBar(
+                    trade_date=d,
+                    open=open_value,
+                    high=high_value,
+                    low=low_value,
+                    close=close_value,
+                    volume=volume_value,
+                )
             self._alcb_daily_bars[sym] = bars_a
             self._iaric_daily_bars[sym] = bars_i
 
@@ -527,9 +600,55 @@ class ResearchReplayEngine:
         return self._trading_dates
 
     def data_fingerprint(self) -> str:
+        if self._bundle_resolver is not None:
+            return self._bundle_resolver.bundle_checksum
         if self._data_fingerprint is None:
             self._data_fingerprint = fingerprint_tree(self._data_dir, patterns=("*.parquet",))
         return self._data_fingerprint
+
+    @property
+    def bundle_checksum(self) -> str:
+        return self._bundle_resolver.bundle_checksum if self._bundle_resolver is not None else ""
+
+    @property
+    def authoritative_data(self) -> bool:
+        return self._bundle_resolver is not None
+
+    def data_bundle_context(self) -> dict[str, object]:
+        if self._bundle_resolver is None:
+            return {
+                "authoritative": False,
+                "data_dir": str(self._data_dir),
+                "data_fingerprint": self.data_fingerprint(),
+                "policy_note": "diagnostic-only legacy filename cache",
+            }
+        bundle = self._bundle_resolver.bundle
+        return {
+            "authoritative": True,
+            "bundle_path": str(self._bundle_resolver.bundle_path),
+            "bundle_id": bundle["bundle_id"],
+            "bundle_checksum": bundle["bundle_checksum"],
+            "repository_revision": bundle["repository_revision"],
+            "code_config_sha256": bundle["code_config_sha256"],
+            "universe": bundle["universe"],
+            "datasets": [
+                {
+                    "symbol": entry["symbol"],
+                    "timeframe": entry["timeframe"],
+                    "dataset_identity_sha256": entry["dataset_identity_sha256"],
+                    "session_policy": entry["dataset_identity"]["session_policy"],
+                    "physical_sha256": entry["physical_sha256"],
+                    "normalized_content_sha256": entry["normalized_content_sha256"],
+                    "receipt_id": entry["receipt_id"],
+                }
+                for entry in bundle["entries"]
+            ],
+        }
+
+    def _bar_path(self, symbol: str, timeframe: str) -> Path:
+        if self._bundle_resolver is not None:
+            return self._bundle_resolver.bar_path(symbol, timeframe)
+        return bar_path(self._data_dir, symbol, timeframe)
 
     def _alcb_settings_signature(
         self,

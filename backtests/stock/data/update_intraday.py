@@ -1,25 +1,33 @@
-"""Incremental update of stock data (1d/5m/30m) using shared bars.py infrastructure.
+"""Acquire immutable, session-qualified stock bars from IBKR.
 
-Only downloads the gap between existing data end and now. Much faster than re-downloading
-full 2Y history via download_top100.py --force.
+The default is a fresh direct-RTH acquisition for 1d, 30m, and 5m. ``--latest``
+increments only a previously accepted immutable parent. Extended-hours data, when
+requested, is written under a separate dataset identity and can never alias RTH.
 
 Usage:
-    python -m backtests.stock.data.update_intraday                  # all: 1d, 30m, 5m
+    python -m backtests.stock.data.update_intraday                  # all, direct RTH
     python -m backtests.stock.data.update_intraday --timeframe 1d   # daily only
     python -m backtests.stock.data.update_intraday --timeframe 30m
     python -m backtests.stock.data.update_intraday --timeframe 5m
+    python -m backtests.stock.data.update_intraday --session extended --timeframe 5m
 """
 from __future__ import annotations
 
 import asyncio
+import argparse
 import logging
-import sys
-from datetime import datetime, timezone
+from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
-from backtests.shared.data.ibkr.bars import connect_ib, download_historical_bars
+from backtests.shared.data.ibkr.bars import connect_ib
 from backtests.shared.data.ibkr.models import BarDownloadRequest, ConnectionSettings
 from backtests.shared.data.ibkr.pacing import RequestPacer
+from backtests.stock.data.authoritative_downloader import download_authoritative_stock_bars
+from backtests.stock.data.authority import DEFAULT_AUTHORITY_ROOT
+from backtests.stock.data.calendar import is_trading_day
+from strategies.stock.alcb.universe_constituents import SP500_CONSTITUENTS
+from strategies.stock.live_universe import BACKTESTED_INTRADAY_STOCK_SYMBOLS
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,27 +36,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# The 98 backtested symbols from strategies/stock/live_universe.py
-BACKTESTED_SYMBOLS = [
-    "A", "AAPL", "ABBV", "ABT", "ACN", "ADBE", "ADI", "AMAT", "AMD", "AMGN",
-    "AMZN", "AVGO", "BAC", "BDX", "BIO", "BLK", "BSX", "CAT", "CDNS", "CDW",
-    "CI", "COR", "CRM", "CRWD", "CSCO", "DHR", "DXCM", "ELV", "EPAM", "EW",
-    "FSLR", "FTNT", "GEN", "GILD", "GOOG", "GOOGL", "GS", "HCA", "HD", "HPE",
-    "HPQ", "HSIC", "IBM", "IDXX", "INTU", "IQV", "ISRG", "IT", "JNJ", "JPM",
-    "KEYS", "KLAC", "LH", "LLY", "LRCX", "MA", "MCHP", "MCK", "MDT", "META",
-    "MPWR", "MRK", "MSFT", "MSI", "MTD", "MU", "NFLX", "NOW", "NTAP", "NVDA",
-    "NXPI", "ON", "ORCL", "PANW", "PFE", "PTC", "QCOM", "QRVO", "REGN", "RMD",
-    "ROP", "SNPS", "SWKS", "SYK", "TDY", "TECH", "TER", "TMO", "TRMB", "TSLA",
-    "TXN", "UNH", "V", "VRTX", "WMT", "ZBRA", "ZTS",
-]
+# One canonical universe; callers copy it before adding daily reference symbols.
+BACKTESTED_SYMBOLS = list(BACKTESTED_INTRADAY_STOCK_SYMBOLS)
 
-OUTPUT_DIR = Path("backtests/stock/data/raw")
+AUTHORITY_ROOT = DEFAULT_AUTHORITY_ROOT
 
 # Reference symbols needed for regime/sector computation in stock backtests
 REFERENCE_SYMBOLS = [
-    "SPY", "HYG",
+    "SPY", "VIX", "HYG",
     "XLK", "XLV", "XLF", "XLY", "XLP", "XLE", "XLB", "XLI", "XLU", "XLRE", "XLC",
 ]
+
+PRIMARY_EXCHANGE_BY_SYMBOL = {symbol: exchange for symbol, _sector, exchange in SP500_CONSTITUENTS}
 
 
 async def update_stock_data(
@@ -56,11 +55,29 @@ async def update_stock_data(
     host: str = "127.0.0.1",
     port: int = 4002,
     client_id: int = 113,
+    timeout_seconds: int = 60,
+    *,
+    session: str = "rth",
+    start: datetime | None = None,
+    end: datetime | None = None,
+    latest_only: bool = False,
+    repo_root: Path = Path("."),
+    authority_root: Path = AUTHORITY_ROOT,
 ) -> None:
-    """Incrementally update stock data for all backtested symbols."""
-    settings = ConnectionSettings(host=host, port=port, client_id=client_id)
+    """Acquire session-qualified immutable data for the canonical stock universe."""
+    if session not in {"rth", "extended", "both"}:
+        raise ValueError("session must be rth, extended, or both")
+    start = start or datetime(2025, 3, 21, tzinfo=timezone.utc)
+    end = end or _last_completed_session_end()
+    settings = ConnectionSettings(
+        host=host,
+        port=port,
+        client_id=client_id,
+        timeout=timeout_seconds,
+    )
     pacer = RequestPacer()
     ib = await connect_ib(settings)
+    failures: list[str] = []
 
     try:
         for tf in timeframes:
@@ -75,63 +92,115 @@ async def update_stock_data(
             else:
                 symbols = list(BACKTESTED_SYMBOLS)
 
-            # 1d uses RTH; intraday uses ETH
-            use_rth = tf == "1d"
-
-            logger.info("[stock %s] %d symbols to update (rth=%s)", tf, len(symbols), use_rth)
-
-            for i, sym in enumerate(symbols, 1):
-                output_path = OUTPUT_DIR / f"{sym}_{tf}.parquet"
-                request = BarDownloadRequest(
-                    symbol=sym,
-                    timeframe=tf,
-                    sec_type="STK",
-                    exchange="SMART",
-                    what_to_show="TRADES",
-                    use_rth=use_rth,
-                    duration="2 Y",
-                    end=datetime.now(timezone.utc),
-                    output_dir=OUTPUT_DIR,
-                    family="stock",
+            sessions = ["rth"] if tf == "1d" else (["rth", "extended"] if session == "both" else [session])
+            for requested_session in sessions:
+                use_rth = requested_session == "rth"
+                logger.info(
+                    "[stock %s/%s] %d symbols [%s .. %s]",
+                    tf,
+                    requested_session,
+                    len(symbols),
+                    start.isoformat(),
+                    end.isoformat(),
                 )
-                logger.info("[stock %s] (%d/%d) %s", tf, i, len(symbols), sym)
-                try:
-                    result = await download_historical_bars(
-                        ib,
-                        request,
-                        output_path=output_path,
-                        pacer=pacer,
-                        dry_run=False,
-                        latest_only=True,
+                for i, sym in enumerate(symbols, 1):
+                    is_vix = sym == "VIX"
+                    request = BarDownloadRequest(
+                        symbol=sym,
+                        timeframe=tf,
+                        sec_type="IND" if is_vix else "STK",
+                        exchange="CBOE" if is_vix else "SMART",
+                        primary_exchange="CBOE" if is_vix else PRIMARY_EXCHANGE_BY_SYMBOL.get(sym, ""),
+                        what_to_show="TRADES",
+                        use_rth=use_rth,
+                        duration="2 Y",
+                        start=start,
+                        end=end,
+                        output_dir=authority_root,
+                        family="stock",
                     )
-                    if result and result.rows:
-                        logger.info("  -> %s %s: %d rows [%s .. %s]",
-                                    result.symbol, result.timeframe,
-                                    result.rows, result.start, result.end)
-                    elif result:
-                        logger.info("  -> %s %s: already up to date", sym, tf)
-                except Exception as e:
-                    logger.error("  -> %s %s FAILED: %s", sym, tf, e)
-                    continue
+                    logger.info("[stock %s/%s] (%d/%d) %s", tf, requested_session, i, len(symbols), sym)
+                    try:
+                        result = await download_authoritative_stock_bars(
+                            ib,
+                            request,
+                            repo_root=repo_root,
+                            authority_root=authority_root,
+                            pacer=pacer,
+                            dry_run=False,
+                            latest_only=latest_only,
+                        )
+                        accepted = bool(result.metadata.get("accepted"))
+                        logger.info(
+                            "  -> %s %s/%s: %d rows [%s .. %s] accepted=%s receipt=%s",
+                            result.symbol,
+                            result.timeframe,
+                            requested_session,
+                            result.rows,
+                            result.start,
+                            result.end,
+                            accepted,
+                            result.metadata.get("receipt_id", ""),
+                        )
+                        if not accepted:
+                            failures.append(f"{sym} {tf} {requested_session}: validation blocked")
+                    except Exception as exc:
+                        logger.error("  -> %s %s/%s FAILED: %s", sym, tf, requested_session, exc)
+                        failures.append(f"{sym} {tf} {requested_session}: {exc}")
     finally:
         ib.disconnect()
+    if failures:
+        raise RuntimeError(
+            f"authoritative acquisition blocked for {len(failures)} datasets; first failures: "
+            + "; ".join(failures[:10])
+        )
 
 
 def main() -> None:
-    timeframes = ["1d", "30m", "5m"]
-    client_id = 114
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--timeframe", action="append", choices=["1d", "30m", "5m"])
+    parser.add_argument("--session", choices=["rth", "extended", "both"], default="rth")
+    parser.add_argument("--start", default="2025-03-21")
+    parser.add_argument("--end", default=None)
+    parser.add_argument("--latest", action="store_true")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=4002)
+    parser.add_argument("--client-id", type=int, default=114)
+    parser.add_argument("--timeout", type=int, default=60)
+    parser.add_argument("--authority-root", default=str(AUTHORITY_ROOT))
+    args = parser.parse_args()
+    start = datetime.fromisoformat(args.start).replace(tzinfo=timezone.utc)
+    end = (
+        datetime.fromisoformat(args.end).replace(tzinfo=timezone.utc) + timedelta(days=1) - timedelta(microseconds=1)
+        if args.end
+        else None
+    )
+    asyncio.run(
+        update_stock_data(
+            args.timeframe or ["1d", "30m", "5m"],
+            host=args.host,
+            port=args.port,
+            client_id=args.client_id,
+            timeout_seconds=args.timeout,
+            session=args.session,
+            start=start,
+            end=end,
+            latest_only=args.latest,
+            repo_root=Path("."),
+            authority_root=Path(args.authority_root),
+        )
+    )
 
-    if "--timeframe" in sys.argv:
-        idx = sys.argv.index("--timeframe")
-        if idx + 1 < len(sys.argv):
-            timeframes = [sys.argv[idx + 1]]
 
-    if "--client-id" in sys.argv:
-        idx = sys.argv.index("--client-id")
-        if idx + 1 < len(sys.argv):
-            client_id = int(sys.argv[idx + 1])
-
-    asyncio.run(update_stock_data(timeframes, client_id=client_id))
+def _last_completed_session_end() -> datetime:
+    now_et = datetime.now(timezone.utc).astimezone(ZoneInfo("America/New_York"))
+    day = now_et.date()
+    # Use the previous trading date unless the complete extended session has closed.
+    if not is_trading_day(day) or now_et.time() < time(20, 0):
+        day -= timedelta(days=1)
+        while not is_trading_day(day):
+            day -= timedelta(days=1)
+    return datetime.combine(day, time(23, 59, 59), tzinfo=timezone.utc)
 
 
 if __name__ == "__main__":

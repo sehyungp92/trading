@@ -82,6 +82,10 @@ overlay_state.json
 # Market data (large binary files — download via scripts)
 **/backtest/data/raw/**/*.parquet
 **/backtests/**/data/raw/**/*.parquet
+backtests/stock/data/authority/.staging/
+# Diagnostic ETH->RTH projections are reproducible from the committed legacy
+# snapshot and manifest; direct accepted authority objects remain trackable.
+backtests/stock/data/authority/derived/**/bars.parquet
 !backtests/stock/data/raw/**
 !backtests/regime/data/raw/*.parquet
 !backtests/momentum/data/raw/NQ_5m.parquet
