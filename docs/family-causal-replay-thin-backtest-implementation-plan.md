@@ -34,13 +34,15 @@ An `await` is not itself the performance problem; network I/O, timers, queues, p
 
 Success is earned independently per family. Momentum may cut over when Momentum passes; it does not wait for Stock, Swing, broker calibration, or a repository-wide abstraction programme.
 
+From this point forward, admit a change only when it closes a measured causal/parity gap, removes a measured per-candidate hot-path cost while preserving exact semantic products, or supplies evidence required by the current family's next gate. Speculative generalization, pre-building for later families, unrelated cleanup, and replacing an adaptable existing seam remain out of scope.
+
 ### 1.1 Current implementation status
 
 - Momentum R0 and R1 are complete and frozen at commit `6428d859c0d20d7c15831c51b78beaf5eb2aade0`.
 - The simultaneous historical oracle passes P00, P01, P10, and P11 with all four real children, shared causal state, and exact normalized live/replay products.
 - R2A-1 prepared stateless features and monotonic cursors are frozen at commit `bf719233316281d1adfc876a55cf1cb425aeee4e`; its exact semantic products, 90.380-second warm median, and 242.78 MiB peak RSS improved the frozen R1 baseline but did not meet the 6.43-second hard-feasibility threshold.
 - R2A-2 mutation-versioned per-candidate repository risk views reached its review boundary with exact scan-versus-view and historical products. The targeted repository risk stack fell from approximately 42.6 seconds cumulative to 4.24 seconds, while the 110.87-second warm median was host-inconclusive and does not establish total-wall improvement or R2A feasibility.
-- R2A-3 primitive aggregate retention, versioned rolling semantic-product digest, and explicit offline callback-file-instrumentation suppression are next. Optimizer integration, workers, the candidate cohort, and cutover remain deferred until their ordered gates below pass.
+- R2A-3 is frozen at commit `c723ca20852e9a3a36729b1835223d4bd4874c4a`; exactness and memory passed, with a 56.863-second warm aggregate median. The 6.43-second gate failed by 8.84×, so R2B remains unauthorized; the next boundary is a bounded aggregate-only feasibility decision.
 
 ## 2. The two questions and the intended assurance
 
@@ -402,10 +404,11 @@ No generic abstraction may expand at this checkpoint unless the vertical path us
 - maintain exact per-candidate derived risk views inside the existing in-memory repository or reducer state instead of repeatedly scanning unchanged state;
 - make aggregate mode retain only primitive metrics, final state, and a versioned rolling semantic-product digest;
 - disable callback-side file instrumentation through an explicit offline policy while preserving lifecycle events and economic state;
+- implement those output-path changes at the existing historical runner, normalizer, and OMS callback-injection seams; do not introduce a general event/digest platform, alternate OMS, or second candidate evaluator;
 - re-profile after each bounded change and retain diagnostic equality with the frozen R1 products;
 - do not add workers or integrate the optimizer while one prepared candidate exceeds 6.43 seconds or peak RSS lacks credible headroom below 288 MiB.
 
-If these corrections do not reach feasibility, locate the remaining call-level bottleneck before considering a synchronous orchestration extraction. Any extraction must still call the same strategy decision functions, pure portfolio evaluator, OMS state/fill reducers, and deterministic execution policy; it may not become a second trading engine.
+If these corrections do not reach feasibility, stop at a new profile checkpoint and locate the remaining leaf-level bottleneck before considering a synchronous orchestration extraction. This is a review gate, not authorization to reconstruct the runtime: any proposal must identify the reused existing authorities, a bounded allowlist and growth budget, and why adapting the current seams cannot meet the gate. Any approved extraction must still call the same strategy decision functions, pure portfolio evaluator, OMS state/fill reducers, and deterministic execution policy; it may not become a second trading engine.
 
 **Gate R2A:**
 
