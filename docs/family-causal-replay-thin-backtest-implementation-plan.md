@@ -1,8 +1,8 @@
 # Family Causal Replay and Thin-Backtest Implementation Plan
 
-**Status:** active scope-reduced plan; Momentum R1 complete and Momentum R2 revised to causal promotion gating
+**Status:** active scope-reduced plan; Momentum R1 complete, Momentum R2 blocked at the failed screening-proxy gate, and Stock compatibility extraction in review
 **Date:** 2026-07-17
-**Revision:** explicit Momentum evidence-policy revision after R2A infeasibility; causal promotion gating replaces every-exploratory-candidate causal replay
+**Revision:** record failed Momentum promotion-proxy calibration, allow one bounded causal scaling probe, and preserve the separate Stock compatibility/data-authority boundaries
 **Supersedes:** the 2026-07-15 G0-G8 platform-first plan and its 64-item completion checklist
 **Applies to:** Momentum, Stock, and Swing family replay, phased auto-optimization, portfolio authorization, deterministic execution, and live/replay parity
 **Governing intent:** `docs/strategy-implementation-lessons.md` and `docs/live_backtest_parity_plan.md`, with broker calibration treated as a separate production-confidence track
@@ -47,6 +47,9 @@ From this point forward, admit a change only when it closes a measured causal/pa
 - The documentation-only direct shared-core feasibility assessment concluded that R2A cannot meet its current budget using the existing shared seams within the permitted reconstruction scope.
 - The adopted policy compromise is causal promotion gating: legacy screening may rank exploratory mutations, but every phase-advancing, incumbent, finalist, and officially selected Momentum candidate must pass the R2A-3 causal replay path. Direct shared-core reconstruction remains rejected unless deliberately reapproved under a new scope.
 - Screening proxy quality is not assumed. Before R2B integration, the representative 28-candidate cohort must be evaluated by both screening and causal replay to measure rank correlation, top-K recall, causal regret, and promotion agreement; first divergences must be classified and accidental or safely reducible mismatches corrected.
+- R2B-0 reached its review boundary and failed that predeclared proxy gate: the causal winner `weekly_6_0` ranked 10th in screening, the smallest passing shortlist was K=10 rather than the K=2 target or K=3 hard maximum, promotion agreement was false, and the classified first divergences were inherent causal feedback dominated by entry denial under working-order and shared-exposure pressure. R2B promotion integration is therefore blocked under the current policy and budget.
+- Stock data authority is frozen at commit `e4464a4413d4bd5361b5461c4fa82a524bea9d04`. Official Stock evaluation remains correctly blocked until authoritative direct-RTH acquisition can produce a verified frozen bundle; projection data remains diagnostic only, and no further data-framework expansion is authorized by this plan.
+- The IARIC completed-five-minute shared bar transition has reached an unstaged compatibility-extraction review boundary with exact old/new optimized replay products. It must be reviewed and frozen separately before it is reused as the first Stock causal child seam; paper/shadow telemetry remains an operational follow-up, not a prerequisite for bounded offline parity work.
 
 ## 2. The two questions and the intended assurance
 
@@ -451,6 +454,8 @@ The Gate R2A result below remains the recorded failure of optimizer-wide causal 
 - remaining screening/causal differences are explicitly classified as inherent causal feedback and are handled by causal reranking or adaptive widening;
 - if the proxy cannot pass within the bounded shortlist budget, R2B stops and the evidence policy is reconsidered rather than weakening the gate after observing results.
 
+**Recorded disposition:** R2B-0 failed. Do not implement R2B, increase K after observing the result, or copy causal state into screening. After the calibration increment is reviewed and frozen, the only permitted Momentum feasibility work without a new architecture decision is one bounded warm-worker scaling probe of the existing frozen causal evaluator and 28-candidate cohort. It must add no optimizer framework or trading implementation, preserve exact per-candidate products, report total wall time, CPU, and aggregate peak RSS for 1/2/4 workers, and stop early when target-hardware or resource limits make the 180-second cohort budget impossible. At most one additional supported worker count may be run when the 1/2/4 measurements predict that it can pass with credible CPU and aggregate-memory headroom. If that probe cannot establish a credible budgeted route, Momentum R2 remains blocked pending an explicit choice to revise the optimization budget/evidence policy or authorize the already-rejected reconstruction scope.
+
 #### R2B - Bounded causal promotion integration
 
 - keep the existing fast evaluator as a screening-only approximation with explicit evidence labels;
@@ -494,10 +499,13 @@ Repeat R1 and R2 separately for Stock and Swing. Choose the next family based on
 
 #### Stock-specific minimum
 
+- freeze and reuse the existing IARIC completed-five-minute transition; do not create another bar policy or synthetic one-minute expansion;
 - drive ALCB and IARIC together from raw data;
 - remove complete trade bundles from official selection;
 - feed admission, fill quantity, positions, PnL, capital, and cooldown back to both strategies;
 - preserve only safe data/features across candidates.
+
+Official Stock optimization evidence requires the verified direct-RTH frozen bundle. Bounded compatibility extraction and parity fixtures may proceed against explicitly identified non-official inputs, but they must not be promoted as official May-IS/June-OOS evidence and must not trigger more data-authority infrastructure while acquisition is externally unavailable.
 
 #### Swing-specific minimum
 
@@ -605,8 +613,8 @@ Existing result artifacts remain valid for their original portfolio-only or mixe
 - [x] 7. Remove completed trades and fixed intents from official Momentum causal input.
 - [x] 8. Prove degenerate equality plus denial, resize, working-order, fill, PnL, and cooldown feedback at the expected first divergence.
 - [x] 9. Pass the selected simultaneous Momentum oracle slice with matching fixture identities.
-- [ ] 10. Calibrate the representative Momentum screening cohort against causal replay, classify and correct reducible discrepancies, and approve a bounded shortlist from measured recall and regret.
-- [ ] 11. Integrate bounded Momentum causal promotion gating with explicit evidence labels and prove determinism, candidate isolation, and screening/causal score separation.
+- [x] 10. Calibrate the representative Momentum screening cohort against causal replay and classify discrepancies; the bounded-shortlist gate failed because the causal winner ranked 10th and the remaining differences were inherent causal feedback.
+- [ ] 11. Run only the bounded causal cohort scaling probe described by the recorded R2B-0 disposition; proceed to promotion integration only if a newly approved gate is met.
 - [ ] 12. Replay promotion candidates, classify differences, and cut over Momentum official selection.
 
 ### Remaining families
@@ -631,7 +639,7 @@ A family is complete when:
 - the backtest contains data driving, deterministic execution, in-memory state, analytics, and diagnostics, but no independent trading decisions;
 - behavior-preserving extraction is exact and every causal correction has an expected first-divergence test;
 - selected bounded live-wrapper fixtures and a simultaneous historical slice use matching fixture identities and agree after narrow normalization;
-- causal promotion gating preserves the family's operational optimization budget while preventing screening-only candidates from advancing;
+- the approved causal evaluation policy preserves the family's operational optimization budget while preventing screening-only candidates from advancing;
 - the latest configuration has been replayed, differences classified, and affected optimization results regenerated;
 - no completed-trade, prefilled-entry, third-engine, or screening-only path can produce an official selection.
 
