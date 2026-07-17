@@ -1,6 +1,6 @@
 # Family Causal Replay and Thin-Backtest Implementation Plan
 
-**Status:** active scope-reduced plan; Momentum R1 complete and R2A fast-path feasibility in progress
+**Status:** active scope-reduced plan; Momentum R1 complete and Momentum R2 blocked pending policy decision
 **Date:** 2026-07-17
 **Revision:** surgical clarification of R2 feasibility sequencing, identity versus semantic digests, and safe per-candidate derived state views
 **Supersedes:** the 2026-07-15 G0-G8 platform-first plan and its 64-item completion checklist
@@ -44,6 +44,7 @@ From this point forward, admit a change only when it closes a measured causal/pa
 - R2A-2 mutation-versioned per-candidate repository risk views reached its review boundary with exact scan-versus-view and historical products. The targeted repository risk stack fell from approximately 42.6 seconds cumulative to 4.24 seconds, while the 110.87-second warm median was host-inconclusive and does not establish total-wall improvement or R2A feasibility.
 - R2A-3 is frozen at commit `c723ca20852e9a3a36729b1835223d4bd4874c4a`; exactness and memory passed, with a 56.863-second warm aggregate median. The 6.43-second gate failed by 8.84x.
 - R2A-F is frozen at commit `31c9ecf`; the non-overlapping theoretical local-optimization projection is 26.198 seconds, so safe local cleanup cannot meet the 6.43-second gate. R2B remains unauthorized, and a direct shared-core feasibility specification requires deliberate approval before implementation.
+- The documentation-only direct shared-core feasibility assessment concluded that R2A cannot meet its current budget using the existing shared seams within the permitted reconstruction scope. R2B and causal optimizer cutover remain blocked; R1 and R2A-3 remain valid bounded and historical parity evidence, and a policy decision is required between a revised performance budget and a finalist-only causal evidence model.
 
 ## 2. The two questions and the intended assurance
 
