@@ -1,8 +1,8 @@
 # Family Causal Replay and Thin-Backtest Implementation Plan
 
-**Status:** active scope-reduced plan; Momentum R1 complete and R2 stopped; Stock S3B complete and S3C1 next
+**Status:** active scope-reduced plan; Momentum R1 complete and R2 stopped; Stock S3C1 complete and S3C2 next
 **Date:** 2026-07-17
-**Revision:** record Stock collision/release parity and set partial-fill feedback as the next bounded increment
+**Revision:** record Stock partial-fill feedback and select the existing active-position limit for S3C2
 **Supersedes:** the 2026-07-15 G0-G8 platform-first plan and its 64-item completion checklist
 **Applies to:** Momentum, Stock, and Swing family replay, phased auto-optimization, portfolio authorization, deterministic execution, and live/replay parity
 **Governing intent:** `docs/strategy-implementation-lessons.md` and `docs/live_backtest_parity_plan.md`, with broker calibration treated as a separate production-confidence track
@@ -55,6 +55,7 @@ From this point forward, admit a change only when it closes a measured causal/pa
 - Stock S2 is frozen at `2348589`: real raw one-minute ALCB input traverses `CanonicalBarBuilder`, the shared proposal, family authorization, OMS lifecycle, and shared ALCB reducers with exact live/replay products for approved fill, pre-submit portfolio denial, and broker-rejection working-risk release. The unrelated missing `strategies.scalp._shared.nq_contract` import affects Momentum-only broad-suite cases and must not be repaired inside a Stock increment.
 - Stock S3A is frozen at `9a2d00a`: two real children were ordered by `(timestamp, family priority, stable sequence)`, replay used the shared OMS as causal authority, and both-approved plus working-risk contention matched exactly. S3A introduced no new production runtime or optimizer path, but its `+1,509/-9` expansion exceeded the review expectation; therefore S3B must extend the frozen surface and may not introduce another contract, driver, fixture copy, or generic runtime.
 - Stock S3B is frozen at `8c99d81`: same-symbol `half_size` reduced ALCB from 240 to 120 only after an earlier IARIC position existed, and IARIC rejection released working risk before the later ALCB proposal, changing denial to approval. Live/replay normalized products and final states matched; S3B added no production, fixture, optimizer, data-authority, contract, driver, or framework expansion, and remains manual/nightly.
+- Stock S3C1 is frozen at `70a4868`: IARIC requested 3, filled 1, and retained 2 working; open risk `$2.01` plus remaining working risk `$4.02` exactly conserved the original `$6.03` risk, and protective stop quantity was 1. The new position changed ALCB from 240 to 120 through the existing `symbol_collision` rule, live/replay products and final state matched, and the first divergence was the invalid omission of `ACKED -> PARTIALLY_FILLED`, corrected with one shared OMS transition plus a regression test. S3C1 added no strategy, optimizer, data-authority, fixture, contract, or framework expansion.
 
 ## 2. The two questions and the intended assurance
 
@@ -518,8 +519,9 @@ Immediate Stock order:
 3. Replace the idle-only ALCB characterization with a real one-child causal path covering approved fill, portfolio denial before submission, and broker rejection or cancellation, all through the existing family authorization and OMS lifecycle. Completed at `2348589`.
 4. S3A: prove the first real simultaneous IARIC/ALCB ordered-timestamp trace with a degenerate both-approved case and one IARIC-working-risk-driven ALCB resize or denial. Ordering must be explicit as `(timestamp, family priority, stable sequence)`. Completed at `9a2d00a`.
 5. S3B: extend the frozen S3A causal path with (a) an actual earlier sibling position causing the existing materialized `half_size` collision rule to reduce a later raw child order, and (b) an earlier working entry whose scripted rejection or cancellation releases shared risk before a later raw child proposal. Use the existing phased broker-event mechanism and OMS; do not add another replay surface. Completed at `8c99d81`.
-6. S3C1: after S3A/S3B parity passes, add only the bounded case where a partial fill changes shared exposure and a later sibling decision.
-7. S3C2: after S3C1 passes, add one existing realized-loss, limit, or cooldown/re-entry dependency. Do not combine S3C1 and S3C2 into one large increment.
+6. S3C1: after S3A/S3B parity passes, add only the bounded case where a partial fill changes shared exposure and a later sibling decision. Completed at `70a4868`.
+7. S3C2: after S3C1 passes, add only the existing `max_total_active_positions` dependency. Do not combine S3C2 with realized-loss sizing or cooldown/re-entry.
+8. S3D: once S3C2 passes, stop extending bounded fixtures and run one simultaneous two-child historical Stock slice through the causal path using one immutable materialized configuration. Prove P10/P11 semantics and measure throughput/RSS. Explicitly identified non-official frozen inputs may be used for this bounded semantic/performance proof, but cannot become official Stock optimization evidence.
 
 Official Stock optimization evidence requires the verified direct-RTH frozen bundle. Bounded compatibility extraction and parity fixtures may proceed against explicitly identified non-official inputs, but they must not be promoted as official May-IS/June-OOS evidence and must not trigger more data-authority infrastructure while acquisition is externally unavailable.
 
