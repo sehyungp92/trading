@@ -1,8 +1,8 @@
 # Family Causal Replay and Thin-Backtest Implementation Plan
 
 **Status:** active scope-reduced plan; Momentum R1 complete and R2 stopped; Stock S3D-A complete and historical S3D active
-**Date:** 2026-07-17
-**Revision:** record Stock active-position-limit parity and move from bounded fixtures to one historical simultaneous-family slice
+**Date:** 2026-07-18
+**Revision:** record Stock S3D first-divergence status and require closure through distinct historical live-wrapper and replay routes
 **Supersedes:** the 2026-07-15 G0-G8 platform-first plan and its 64-item completion checklist
 **Applies to:** Momentum, Stock, and Swing family replay, phased auto-optimization, portfolio authorization, deterministic execution, and live/replay parity
 **Governing intent:** `docs/strategy-implementation-lessons.md` and `docs/live_backtest_parity_plan.md`, with broker calibration treated as a separate production-confidence track
@@ -58,6 +58,7 @@ From this point forward, admit a change only when it closes a measured causal/pa
 - Stock S3C1 is frozen at `70a4868`: IARIC requested 3, filled 1, and retained 2 working; open risk `$2.01` plus remaining working risk `$4.02` exactly conserved the original `$6.03` risk, and protective stop quantity was 1. The new position changed ALCB from 240 to 120 through the existing `symbol_collision` rule, live/replay products and final state matched, and the first divergence was the invalid omission of `ACKED -> PARTIALLY_FILLED`, corrected with one shared OMS transition plus a regression test. S3C1 added no strategy, optimizer, data-authority, fixture, contract, or framework expansion.
 - Stock S3C2 is frozen at `b34f4a7`: a real IARIC fill created one open position; with `max_total_active_positions=1`, the later raw ALCB request for 240 was denied, while the no-fill control approved the same request for 240 and the cap-2 filled control was approved. The discovered provider defect counted working entries as open positions; both in-memory and PostgreSQL providers now count non-zero positions only, while working entries remain included by the separate active-risk and working-order methods. S3C2 added no new fixture, causal contract, framework, strategy logic, optimizer, or data-authority work.
 - Stock S3D-A is frozen at `ab17346`: IARIC research replay now distinguishes artifact execution date from research as-of date, so the `2026-01-30` execution artifact can be generated from inputs ending `2026-01-29` while omitted `as_of_date` calls preserve existing optimized-backtest behavior exactly. Cache identity now includes both execution and research dates, and no artifact persistence, data writes, strategy changes, optimizer changes, or new trading implementation were introduced.
+- Stock S3D is active and stopped at its first historical execution-lifecycle divergence. The initial ten-symbol slice produced both-child activity but no sibling-state discriminator; the bounded ten-session/39-symbol expansion produced real family-rule activity, including an IARIC JPM `portfolio_heat_cap` denial, but must still prove that removing the sibling changes a later decision. Historical exactness is currently blocked because the deterministic bridge can present protective or exit fills after the authoritative position has closed. P10/P11, replay performance, optimizer integration, and official Stock evidence remain unaccepted.
 
 ## 2. The two questions and the intended assurance
 
@@ -525,6 +526,8 @@ Immediate Stock order:
 7. S3C2: after S3C1 passes, add only the existing `max_total_active_positions` dependency. Completed at `b34f4a7`.
 8. S3D: once S3C2 passes, stop extending bounded fixtures and run one simultaneous two-child historical Stock slice through the causal path using one immutable materialized configuration. Prove P10/P11 semantics and measure throughput/RSS. Explicitly identified non-official frozen inputs may be used for this bounded semantic/performance proof, but cannot become official Stock optimization evidence. The observation session must be reached by causally replaying the declared warm-up interval from raw events. Daily artifacts must separately identify execution date and research-as-of date. Completed trades, cached intents, legacy portfolio outcomes, and post-hoc state snapshots may locate a suitable interval but may not seed the accepted historical run. If both children and a shared-state effect do not emerge from causal preparation, stop or select another interval rather than fabricate activity.
 
+   S3D is now a closure increment, not authorization for further fixture or framework expansion. Complete only: (a) the reusable ALCB completed-five-minute boundary with exact compatibility, (b) the recorded protective/exit lifecycle divergence at the seam that owns it, (c) one frozen expanded historical identity with a counterfactual proving cross-child state dependence, and (d) genuinely distinct live-wrapper and replay routes that pass P10/P11. Changing a producer label while executing the same coordinator path is not parity evidence. The baseline bridge may invalidate a precomputed broker result only after an earlier authoritative callback has made that order terminal; it may not suppress a still-eligible fill because the position is absent or normalize away an OMS risk halt. Add no generic execution platform or production module for this proof, and stop for reuse/scope review before more than 300 additional net implementation/test lines are added to the current S3D candidate.
+
 Official Stock optimization evidence requires the verified direct-RTH frozen bundle. Bounded compatibility extraction and parity fixtures may proceed against explicitly identified non-official inputs, but they must not be promoted as official May-IS/June-OOS evidence and must not trigger more data-authority infrastructure while acquisition is externally unavailable.
 
 #### Swing-specific minimum
@@ -658,6 +661,7 @@ A family is complete when:
 - live and replay call the same deterministic strategy, portfolio, order, fill, and lifecycle authorities for the migrated path;
 - the backtest contains data driving, deterministic execution, in-memory state, analytics, and diagnostics, but no independent trading decisions;
 - behavior-preserving extraction is exact and every causal correction has an expected first-divergence test;
+- the bounded live-wrapper oracle and historical replay are distinct shells over the same domain authorities; relabeling one execution route cannot satisfy parity;
 - selected bounded live-wrapper fixtures and a simultaneous historical slice use matching fixture identities and agree after narrow normalization;
 - the approved causal evaluation policy preserves the family's operational optimization budget while preventing screening-only candidates from advancing;
 - the latest configuration has been replayed, differences classified, and affected optimization results regenerated;
