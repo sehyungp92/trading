@@ -1,8 +1,8 @@
 # Family Causal Replay and Thin-Backtest Implementation Plan
 
-**Status:** active scope-reduced plan; Momentum R1 complete and R2 stopped; Stock ALCB policy alignment complete and one-child causal S2 next
+**Status:** active scope-reduced plan; Momentum R1 complete and R2 stopped; Stock ALCB one-child S2 complete and simultaneous-child S3A next
 **Date:** 2026-07-17
-**Revision:** record exact ALCB materialized-policy alignment and authorize bounded Stock S2
+**Revision:** record Stock S2 causal parity and split simultaneous-child proof into bounded S3A/S3B increments
 **Supersedes:** the 2026-07-15 G0-G8 platform-first plan and its 64-item completion checklist
 **Applies to:** Momentum, Stock, and Swing family replay, phased auto-optimization, portfolio authorization, deterministic execution, and live/replay parity
 **Governing intent:** `docs/strategy-implementation-lessons.md` and `docs/live_backtest_parity_plan.md`, with broker calibration treated as a separate production-confidence track
@@ -52,6 +52,7 @@ From this point forward, admit a change only when it closes a measured causal/pa
 - Stock data authority is frozen at commit `e4464a4413d4bd5361b5461c4fa82a524bea9d04`. Official Stock evaluation remains correctly blocked until authoritative direct-RTH acquisition can produce a verified frozen bundle; projection data remains diagnostic only, and no further data-framework expansion is authorized by this plan.
 - The IARIC completed-five-minute shared bar transition is frozen at commit `61b1706`, and the first Stock causal increment is frozen at `eaf8fb9`: approved fill, portfolio denial, rules/input identity, and live/replay normalized products pass for IARIC alone. ALCB is intentionally characterized as idle until its existing live/backtest entry calculation is exposed through one shared raw proposal seam. Paper/shadow telemetry remains an operational follow-up, not a prerequisite for bounded offline parity work.
 - ALCB's provider-free proposal extraction is frozen at `fbecc5c`, and materialized-policy alignment is frozen at `bd066cc`. The pre-alignment comparison found 4 acceptance and 6,314 exact-result disagreements across 34,433 paired contexts; the aligned live/default and optimized/materialized policies now match exactly on all 34,433. Stock S2 may therefore replace the idle ALCB characterization with a real one-child causal path.
+- Stock S2 is frozen at `2348589`: real raw one-minute ALCB input traverses `CanonicalBarBuilder`, the shared proposal, family authorization, OMS lifecycle, and shared ALCB reducers with exact live/replay products for approved fill, pre-submit portfolio denial, and broker-rejection working-risk release. The unrelated missing `strategies.scalp._shared.nq_contract` import affects Momentum-only broad-suite cases and must not be repaired inside a Stock increment.
 
 ## 2. The two questions and the intended assurance
 
@@ -512,9 +513,10 @@ Immediate Stock order:
 
 1. Freeze the behavior-preserving ALCB entry proposal seam before adding more parity scaffold. The shared function must perform no async work, OMS submission, persistence, logging, UUID generation, wall-clock lookup, or family authorization, and live plus optimized-backtest wrappers must retain transport and execution-policy responsibilities. Completed at `fbecc5c`.
 2. Evaluate the frozen representative ALCB inputs through both proposal modes with identical materialized configuration and strategy state, then align all signal, gate, sizing, and proposal semantics. Completed at `bd066cc` with 34,433/34,433 exact paired results.
-3. Replace the idle-only ALCB characterization with a real one-child causal path covering approved fill, portfolio denial before submission, and broker rejection or cancellation, all through the existing family authorization and OMS lifecycle.
-4. Prove the first real simultaneous IARIC/ALCB ordered-timestamp trace with both-approved, contention, release, and same-symbol `half_size` cases. Ordering must be explicit as `(timestamp, family priority, stable sequence)`.
-5. Only after simultaneous-child parity passes, add the bounded feedback closure for partial fills, working-risk release, realized loss, open-position/working-order limits, cooldown or re-entry where already implemented, and same-timestamp deterministic ordering.
+3. Replace the idle-only ALCB characterization with a real one-child causal path covering approved fill, portfolio denial before submission, and broker rejection or cancellation, all through the existing family authorization and OMS lifecycle. Completed at `2348589`.
+4. S3A: prove the first real simultaneous IARIC/ALCB ordered-timestamp trace with a degenerate both-approved case and one IARIC-working-risk-driven ALCB resize or denial. Ordering must be explicit as `(timestamp, family priority, stable sequence)`.
+5. S3B: on the frozen S3A path, add the existing same-symbol `half_size` policy and rejection/cancellation release before a later raw child proposal.
+6. Only after S3A/S3B parity passes, add the bounded feedback closure for partial fills, realized loss, open-position/working-order limits, cooldown or re-entry where already implemented, and same-timestamp deterministic ordering.
 
 Official Stock optimization evidence requires the verified direct-RTH frozen bundle. Bounded compatibility extraction and parity fixtures may proceed against explicitly identified non-official inputs, but they must not be promoted as official May-IS/June-OOS evidence and must not trigger more data-authority infrastructure while acquisition is externally unavailable.
 
