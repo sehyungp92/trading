@@ -1,8 +1,8 @@
 # Family Causal Replay and Thin-Backtest Implementation Plan
 
-**Status:** active scope-reduced plan; Momentum R1 complete and R2 stopped; Stock S3D complete and replay-only Stock R2A-0 profiling next
-**Date:** 2026-07-18
-**Revision:** record Stock S3D historical live/replay parity and move to replay-only Stock R2A-0 feasibility profiling
+**Status:** active completion-focused plan; Momentum R1 complete and R2 stopped; Stock causal authority, optimizer cutover, and worker determinism implemented; Stock full-horizon acceptance/cleanup and the Swing causal vertical remain
+**Date:** 2026-07-20
+**Revision:** compress remaining delivery around family-wide causal parity and remove mandatory intermediate proof machinery
 **Supersedes:** the 2026-07-15 G0-G8 platform-first plan and its 64-item completion checklist
 **Applies to:** Momentum, Stock, and Swing family replay, phased auto-optimization, portfolio authorization, deterministic execution, and live/replay parity
 **Governing intent:** `docs/strategy-implementation-lessons.md` and `docs/live_backtest_parity_plan.md`, with broker calibration treated as a separate production-confidence track
@@ -28,7 +28,13 @@ The two shells remain deliberately different:
 - Live normalizes `ib_async` callbacks, calls the shared domain logic, submits through the live OMS, and persists operational state.
 - Replay supplies historical events in virtual time, calls the same domain logic, executes through an in-memory deterministic model, and collects metrics.
 
-The causal promotion evaluator must not connect to IBKR, start the live coordinator stack, sleep, write databases, emit verbose instrumentation, or construct a fake live service for every promotion candidate. It must rerun every causally relevant state transition as fast as the CPU permits.
+The causal evaluator must not connect to IBKR, start the live coordinator stack, sleep, write databases, emit verbose instrumentation, or construct a fake live service for every candidate. It must rerun every causally relevant state transition as fast as the CPU permits.
+
+Full-causal evaluation of every candidate is the default optimization policy. Phases, experiment families, candidate counts, and their order are designed from the latest full diagnostics; no fixed phase shape is an implementation contract. Within a greedy phase, every currently eligible candidate in one wave may run concurrently against the same frozen incumbent. A barrier is required whenever an accepted winner changes that incumbent and before the next phase, after which the remaining candidates are rematerialized and rerun as the greedy design requires. Screening plus causal promotion is an optional fallback only after a bounded wave-parallel pilot shows that the complete all-causal phased process remains outside the accepted wall-clock or memory budget after safe preparation reuse. A serial per-candidate budget quotient alone cannot establish that fallback.
+
+Optimizer feasibility is a gate, not the end goal and not alpha evidence. Once a family has shown that its causal evaluator is operationally workable, do not run further diagnostic candidate rounds merely to obtain an accepted mutation. Return to the primary parity objective: replay the latest materialized source-strategy and family configurations against their identified saved results, classify every first divergence, and cut the accepted causal authority into the normal backtest/optimizer route.
+
+Execute the remaining work as family closure increments, not as a chain of seam-by-seam programmes. A closure increment may group all directly related production edits, focused regressions, historical proof, optimizer cutover, and cleanup needed to reach the next family outcome. Stop and checkpoint only when an outcome gate passes, a first divergence requires a real design decision, an external dependency blocks execution, or the change would exceed the explicitly bounded family scope. Routine internal substeps, read-only audits, profiling observations, and docs-only status changes do not require their own named phase, checkpoint report, plan amendment, worktree, or broad acceptance rerun.
 
 An `await` is not itself the performance problem; network I/O, timers, queues, persistence, subprocesses, and repeated runtime startup are. The shared decision boundary should nevertheless remain synchronous and deterministic, with async confined to the live shell.
 
@@ -37,6 +43,8 @@ Success is earned independently per family. Momentum may cut over when Momentum 
 From this point forward, admit a change only when it closes a measured causal/parity gap, removes a measured per-candidate hot-path cost while preserving exact semantic products, or supplies evidence required by the current family's next gate. Speculative generalization, pre-building for later families, unrelated cleanup, and replacing an adaptable existing seam remain out of scope.
 
 ### 1.1 Current implementation status
+
+The completed milestones below are historical context, not an instruction to reproduce their checkpoint sequence for another family. The active work is the final Stock closure described in the last Stock bullet, followed by the compressed Swing minimum in section 9.
 
 - Momentum R0 and R1 are complete and frozen at commit `6428d859c0d20d7c15831c51b78beaf5eb2aade0`.
 - The simultaneous historical oracle passes P00, P01, P10, and P11 with all four real children, shared causal state, and exact normalized live/replay products.
@@ -58,7 +66,14 @@ From this point forward, admit a change only when it closes a measured causal/pa
 - Stock S3C1 is frozen at `70a4868`: IARIC requested 3, filled 1, and retained 2 working; open risk `$2.01` plus remaining working risk `$4.02` exactly conserved the original `$6.03` risk, and protective stop quantity was 1. The new position changed ALCB from 240 to 120 through the existing `symbol_collision` rule, live/replay products and final state matched, and the first divergence was the invalid omission of `ACKED -> PARTIALLY_FILLED`, corrected with one shared OMS transition plus a regression test. S3C1 added no strategy, optimizer, data-authority, fixture, contract, or framework expansion.
 - Stock S3C2 is frozen at `b34f4a7`: a real IARIC fill created one open position; with `max_total_active_positions=1`, the later raw ALCB request for 240 was denied, while the no-fill control approved the same request for 240 and the cap-2 filled control was approved. The discovered provider defect counted working entries as open positions; both in-memory and PostgreSQL providers now count non-zero positions only, while working entries remain included by the separate active-risk and working-order methods. S3C2 added no new fixture, causal contract, framework, strategy logic, optimizer, or data-authority work.
 - Stock S3D-A is frozen at `ab17346`: IARIC research replay now distinguishes artifact execution date from research as-of date, so the `2026-01-30` execution artifact can be generated from inputs ending `2026-01-29` while omitted `as_of_date` calls preserve existing optimized-backtest behavior exactly. Cache identity now includes both execution and research dates, and no artifact persistence, data writes, strategy changes, optimizer changes, or new trading implementation were introduced.
-- Stock S3D is frozen at `63b67e8`: the ten-session/39-symbol diagnostic historical slice produced exact P10 live-wrapper/replay equality and exact P11 replay diagnostic/aggregate equality with P00 `c98fe577b02c759432aed23ff407313d575182dcd6bd70246822b1f52088b161` and semantic digest `67f662081fdc2eed0bf5c0eb1507a10d1495950ead677c6b8fedb8987df58ea4`. The clean cross-child discriminator is IARIC AMZN quantity changing from `3/1/2` to `7/3/4` when ALCB is disabled. The proof remains manual/nightly and diagnostic/non-official; Stock optimizer-wide causal replay, candidate promotion, workers, caches, and proxy policy remain unauthorized until replay-only Stock R2A-0 profiling establishes feasibility.
+- Stock S3D is frozen at `63b67e8` with integrated digest correction at `1beb4f0`: the ten-session/39-symbol diagnostic historical slice produced exact P10 live-wrapper/replay equality and exact P11 replay diagnostic/aggregate equality with P00 `c98fe577b02c759432aed23ff407313d575182dcd6bd70246822b1f52088b161` and resolved semantic digest `78807ec5970192eb89de02af665053b49366c33976d14036c3f87ba4f444a57f`. The integration audit found the original `67f662081fdc2eed0bf5c0eb1507a10d1495950ead677c6b8fedb8987df58ea4` digest was not reproducible on the frozen Stock branch because wall-clock OMS background reconciliation/timeout behavior could enter the virtual-time historical route; product counts remain `152/158/103` on the repaired integrated route. The clean cross-child discriminator is IARIC AMZN quantity changing from `3/1/2` to `7/3/4` when ALCB is disabled. The proof remains manual/nightly and diagnostic/non-official. At that checkpoint, Stock optimizer-wide causal replay, candidate promotion, workers, caches, and proxy policy remained unauthorized pending R2A-0 feasibility evidence.
+- Stock R2A-0 profiling on the integrated semantic base produced cold `154.84 s`, warm median `131.39 s`, warm range `124.07-157.62 s`, final warm `162.35 s`, peak RSS `1295.3 MiB`, exact P00/semantic/final-state products, and exact `152/158/103` products. The derived serial per-candidate ceiling `35.98 s` failed and four sequential promotion evaluations fit their recorded hard budget, but phase-local parallel all-causal execution was not tested; R2A-0 therefore does not establish that Stock is promotion-only.
+- Stock R2B-0A readiness inspected the existing 34-candidate, seven-phase portfolio-synergy calibration fixture: 46 configuration keys were inspected, 40 raw readiness issues were found, but only 23 keys actually vary across that fixture. The current S3D route consumes only a narrow subset of those candidate settings, and counterfactual score components prevent a valid causal comparison under the legacy objective. No full paired cohort was run. This frozen fixture is useful for compatibility and materialization coverage only; it does not prescribe the diagnostics-driven phase count, candidate count, structural experiments, or greedy subrounds of a future phased-auto round.
+- Stock R2B-0A1/A2 are frozen on the integrated branch at `50cd803`: the capability-based materializer uses existing live/shared authorities, unsupported screening-only behavior fails before replay, causal score `stock_portfolio_synergy_causal_promotion_score.v1` excludes counterfactual completed-trade outcomes, and the no-op seed preserves the frozen S3D semantic/final-state products. The compatibility fixture has 31 eligible and three fail-closed candidate definitions; it remains coverage evidence rather than a future round design.
+- Stock R2B-0A3 is frozen at `7f7c2f0`: one diagnostics-driven representative wave produced exact products and rankings with one, two, and four workers, A/B/A isolation passed, and the projected greedy round was operationally workable. Two workers were the fastest accepted mode; no further worker matrix is required unless the production cutover materially regresses.
+- Stock R2B-1 is frozen at `aef5ad5`: the complete two-worker causal greedy round finished in `1290.623 s` with `2620.8 MiB` peak process-tree RSS. It corrected causal realized-economics scoring and proved the workflow operational; it was not alpha evidence and no further diagnostic candidate round is authorized.
+- Stock R2B-2C is frozen at `94366c5`: the current 667-trade ALCB and 1,447-trade IARIC behavior is the supported migration baseline; older ALCB behavior is reproducible at `43c510b`, while saved IARIC provenance is archival/non-reproducible. Data-content identity is no longer a cutover blocker, and further code archaeology is not authorized.
+- Stock R2B-3 implementation is frozen through `48816af`: `c76a2b2` established the direct optimizer-facing replay request/API boundary, `40a5f7b` made the normal optimizer causal by default and `legacy_reference` non-promotable, and `48816af` made direct production serial and spawned-worker products and canonical final state exact. Acceptance now requires only one quiet-host full-horizon normal-entry-point proof, current legacy-to-causal migration classification with a bounded live-wrapper bridge, removal of temporary R2B scaffolding, and integration.
 
 ## 2. The two questions and the intended assurance
 
@@ -129,6 +144,17 @@ These remain valuable tests. They are invoked when the affected shared reducer c
 - removing every legacy comparison path before the replacement for that family passes.
 
 Deferred work must not be silently reintroduced as a prerequisite for a family cutover.
+
+### 3.4 Completion and evidence economy
+
+- Use one active implementation worktree per family plus the clean integration worktree. Create another only for a genuinely independent, conflicting change; remove it after integration.
+- Perform one reuse/readiness audit at the start of a family closure increment. Do not repeat the audit after every internal edit unless new evidence invalidates it.
+- Capture a characterization baseline before behavior-preserving extraction, but do not require a separate commit or checkpoint before making the causal correction in the same bounded increment.
+- Add the minimum proof surface: normally one focused regression per newly shared seam, one simultaneous-family feedback fixture, one historical slice, and one normal optimizer workflow proof. Extend it only for a defect actually discovered or a causal dependency not covered by those proofs.
+- Run touched unit tests during implementation, the focused family parity suite at the family gate, and the broader integrated suite once before merge. Documentation-only and read-only work requires no acceptance rerun.
+- Update this plan only when policy, delivery order, scope, or family-level status changes. Record routine commands, timings, hashes, and first-divergence detail in one concise family cutover summary, not in successive checkpoint documents.
+- A saved-result provenance search is bounded to the available artifact metadata and one targeted Git-history/content pass. If the implementation still cannot be reconstructed, classify it as archival/non-reproducible and continue with current-code legacy-versus-causal migration.
+- Once a realistic causal greedy workflow is exact and operationally workable, stop performance proving. Do not run additional worker matrices, proxy cohorts, diagnostic optimization rounds, or cache experiments without a measured production regression that threatens workability.
 
 ## 4. Reuse-first rule
 
@@ -303,12 +329,12 @@ Recent broker evidence may tune or validate the deterministic execution model. F
 
 ### 7.1 Migration drift policy
 
-Each migrated decision or lifecycle seam has two checkpoints:
+Each migrated decision or lifecycle seam needs two kinds of evidence, not two mandatory implementation phases or commits:
 
-1. **Compatibility extraction:** under the old inputs and execution assumptions, the available pre- and post-extraction normalized decisions, orders, fills, trades, accounting, and final digest remain exact. Products the legacy path never emitted are not invented for compatibility evidence. Any difference in comparable products is extraction drift and must be fixed.
-2. **Causal correction:** completed-trade replay, post-fill authorization, or missing feedback is then removed as an explicitly named behavior change. Equality with the legacy result is not required, but the first divergence must be expected and tested.
+1. **Compatibility extraction:** under the old inputs and execution assumptions, comparable pre- and post-extraction decisions, orders, fills, trades, accounting, and final state remain exact. Products the legacy path never emitted are not invented. Any difference in comparable products is extraction drift and must be fixed.
+2. **Causal correction:** completed-trade replay, post-fill authorization, or missing feedback is removed as an explicitly named behavior change. Equality with the legacy result is not required, but the first divergence must be expected and tested.
 
-Use existing baselines and compact trace digests for the compatibility checkpoint; do not create another archived result tree. Legacy and causal paths must still agree in degenerate fixtures where every entry is approved, fills are immediate and complete, there is no shared-state contention, timing and costs match, and no later decision depends on altered state. Purpose-built denial, resize, partial-fill, working-order, cooldown, or shared-capital fixtures must diverge first at the expected causal event.
+Capture the compatibility characterization before editing, then implement and verify both parts in the same closure increment when the boundary is understood. Split them only when the characterization fails, the causal correction requires a user decision, or rollback safety genuinely requires separate integration. Use existing baselines and compact trace digests; do not create another archived result tree or checkpoint document. Degenerate cases where causal feedback cannot matter must match, while one purpose-built denial, resize, partial-fill, working-order, cooldown, or shared-capital fixture must first diverge at the intended event.
 
 ## 8. Caching and performance contract
 
@@ -341,18 +367,20 @@ A derived risk or order index inside one candidate's in-memory state is allowed 
 
 Before a family optimizer cuts over:
 
-- record one representative frozen window, candidate cohort, hardware description, and worker count;
-- record the maximum acceptable phase wall-clock and peak-memory budget in one compact summary;
-- measure causal promotion mode cold and warm at least three times;
+- record one representative frozen window or full horizon, the diagnostics-derived workflow, hardware description, and intended worker limit;
+- freeze its materialized configuration, score/gates, greedy acceptance policy, and maximum acceptable complete-workflow wall-clock and peak memory;
+- measure one cold run and one warm repeat; add repetitions only when results drift, timing is materially variable, or the result is close to the operational limit;
 - report startup/data preparation separately from candidate transition time;
-- verify candidate results across supported worker counts;
+- compare serial with the intended bounded worker mode using one representative wave and A/B/A isolation; do not exhaustively test every possible worker count;
 - profile before adding new cache or parallel infrastructure.
 
-Derive a single-candidate feasibility threshold from the frozen cohort budget after shared preparation. If one prepared candidate exceeds that threshold, profile and optimize the replay-only path before optimizer integration, cohort execution, or process parallelism. For Momentum, the 28-candidate budget implies 4.29 seconds per candidate for the target and 6.43 seconds per candidate for the hard ceiling.
+Judge feasibility primarily by the complete diagnostics-driven greedy process: shared preparation plus every greedy candidate wave, incumbent-change and phase barriers, ranking, validation, and persistence. Historical outputs demonstrate that phase shape and work are variable: an accepted candidate can cause the remaining experiments to be rerun against a new incumbent, so initial candidate count is not total evaluation count. Per-candidate time remains diagnostic, but dividing a serial phase budget by an assumed candidate count is not a cutover gate when bounded concurrency is available. Start with persistent workers and existing immutable preparation; add shared-memory or new cache machinery only if profiling shows startup, repeated preparation, or memory duplication is the limiting cost. The earlier Momentum 4.29/6.43-second thresholds remain recorded historical gates, not a general rule for later families.
 
-The semantically narrower completed-trade evaluator is a historical reference, not a like-for-like performance requirement. Approval is based on the operational phase budget and preserved optimization throughput, not on pretending the two evaluators perform the same work.
+The semantically narrower completed-trade evaluator is a historical reference, not a like-for-like performance requirement. Approval is based on whether a realistic complete phased process remains workable without significantly deteriorating optimization throughput. Once that gate passes, stop optimizing intermediate machinery and return to family parity, migration, cutover, and cleanup.
 
 ## 9. Delivery sequence
+
+R0-R2 and Stock items 1-13 are closed implementation history, retained only to explain accepted semantics and constraints. They are not a template to repeat for Swing and do not authorize additional checkpoints, profiling passes, proxy cohorts, or diagnostic rounds. The active critical path is Stock items 14-16, then the compressed Swing minimum, then R4 consolidation.
 
 ### Phase R0 - Reset scope and salvage
 
@@ -515,7 +543,7 @@ Repeat R1 and R2 separately for Stock and Swing. Choose the next family based on
 - feed admission, fill quantity, positions, PnL, capital, and cooldown back to both strategies;
 - preserve only safe data/features across candidates.
 
-Immediate Stock order:
+Closed Stock implementation history below is retained only as context; do not reopen its numbered subincrements or require new evidence for their completed gates. The operative remaining Stock closure path follows items 14-16.
 
 1. Freeze the behavior-preserving ALCB entry proposal seam before adding more parity scaffold. The shared function must perform no async work, OMS submission, persistence, logging, UUID generation, wall-clock lookup, or family authorization, and live plus optimized-backtest wrappers must retain transport and execution-policy responsibilities. Completed at `fbecc5c`.
 2. Evaluate the frozen representative ALCB inputs through both proposal modes with identical materialized configuration and strategy state, then align all signal, gate, sizing, and proposal semantics. Completed at `bd066cc` with 34,433/34,433 exact paired results.
@@ -527,16 +555,26 @@ Immediate Stock order:
 8. S3D: once S3C2 passes, stop extending bounded fixtures and run one simultaneous two-child historical Stock slice through the causal path using one immutable materialized configuration. Prove P10/P11 semantics and measure throughput/RSS. Explicitly identified non-official frozen inputs may be used for this bounded semantic/performance proof, but cannot become official Stock optimization evidence. The observation session must be reached by causally replaying the declared warm-up interval from raw events. Daily artifacts must separately identify execution date and research-as-of date. Completed trades, cached intents, legacy portfolio outcomes, and post-hoc state snapshots may locate a suitable interval but may not seed the accepted historical run. If both children and a shared-state effect do not emerge from causal preparation, stop or select another interval rather than fabricate activity. Completed at `63b67e8`.
 
    S3D is now a closure increment, not authorization for further fixture or framework expansion. Complete only: (a) the reusable ALCB completed-five-minute boundary with exact compatibility, (b) the recorded protective/exit lifecycle divergence at the seam that owns it, (c) one frozen expanded historical identity with a counterfactual proving cross-child state dependence, and (d) genuinely distinct live-wrapper and replay routes that pass P10/P11. Changing a producer label while executing the same coordinator path is not parity evidence. The baseline bridge may invalidate a precomputed broker result only after an earlier authoritative callback has made that order terminal; it may not suppress a still-eligible fill because the position is absent or normalize away an OMS risk halt. Add no generic execution platform or production module for this proof, and stop for reuse/scope review before more than 300 additional net implementation/test lines are added to the current S3D candidate.
-9. Stock R2A-0: profile one immutable materialized Stock candidate through replay aggregate mode only. Measure preparation time, candidate replay time, transition throughput, and RSS before adding caches, workers, optimizer hooks, or screening/promotion policy. Do not authorize optimizer-wide causal replay until feasibility is demonstrated, and calibrate any completed-trade screening proxy before relying on promotion gating.
+9. Stock R2A-0: profile one immutable materialized Stock candidate through replay aggregate mode only. Measure preparation time, candidate replay time, transition throughput, and RSS before adding caches, workers, optimizer hooks, or screening/promotion policy. Completed with exact products; the serial per-candidate quotient failed, but phase-parallel all-causal feasibility remains untested.
+10. Stock R2B-0A1: freeze the causal candidate and objective contract. Classify varied keys in the compatibility fixture, but define support by existing live/shared semantics rather than by that fixture's 23 values. Future diagnostics-driven incremental or structural experiments must either materialize through the same shared authority or fail closed before evaluation. Define a causal-observable scoring scope that excludes counterfactual denied-trade outcomes from official ranking; the score may be redesigned between rounds but its scaling, weights, and gates are immutable within a frozen round. Completed at `50cd803`.
+11. Stock R2B-0A2: implement the smallest candidate materializer and pass bounded discrimination checks. The seed must remain semantically exact, supported varied keys must change materialized identity, unsupported varied or structural experiments must fail before replay, and the diagnostic slice must discriminate representative supported mutations. Do not add a generic configuration framework or a second trading implementation. Treat the existing 34-candidate set as a compatibility fixture, not the future optimizer's fixed search space. Completed at `50cd803`.
+12. Stock R2B-0A3: after R2B-0A1/A2 pass and after one representative round has been designed from the latest full diagnostics, freeze its actual round manifest and select its largest planned initial or greedy-rerun candidate wave for the worker probe. Measure one, two, four, and then additional persistent workers only up to the minimum of physical-core, wave-size, and credible RSS limits. Prepare immutable inputs once per worker or shared read-only where already supported; require exact candidate products, scores, hashes, and wave ranking across worker counts; and report total wall time, worker startup, CPU utilization, and aggregate RSS. Do not add completed-trade, intent, order, fill, position, cooldown, PnL, or other causal-state caches. Completed at `7f7c2f0`.
+13. Stock causal workflow feasibility is complete at `aef5ad5`; no more diagnostic optimization rounds or worker matrices are authorized.
+14. Stock current-code migration characterization is complete at `94366c5`. Do not resume saved-code or data archaeology. The remaining migration proof is one full-horizon run of the current materialized configuration through the production causal authority, a current legacy-versus-causal first-divergence/delta report, and one bounded live-wrapper comparison around a material divergence.
+15. Stock production extraction, optimizer cutover, and worker determinism are complete through `48816af`. On a quiet host, run one cold full-horizon normal-entry-point evaluation and one warm exact repeat, adding only the intended bounded worker/A-B-A check if not already covered at that horizon. If exact and operationally workable, remove the inventoried temporary R2B-0A3/R2B-1 scaffold, run the focused family and integrated gates once, merge to the integration branch, and remove the Stock worktree. If unworkable, permit one profile-guided optimization pass against the largest measured cost; do not create another proxy, driver, cache framework, or diagnostic round.
+16. Screening fallback remains unauthorized. Reconsider it only after a measured production regression makes the realistic all-causal phased workflow genuinely unworkable and an explicit policy decision approves a bounded calibration.
 
 Official Stock optimization evidence requires the verified direct-RTH frozen bundle. Bounded compatibility extraction and parity fixtures may proceed against explicitly identified non-official inputs, but they must not be promoted as official May-IS/June-OOS evidence and must not trigger more data-authority infrastructure while acquisition is externally unavailable.
 
 #### Swing-specific minimum
 
-- retain ATRSS candidate-before-submit behavior;
-- split Helix candidate generation from position creation;
-- remove TPC `entry_already_filled` behavior from official causal entry;
-- ensure all three children use submitted/fill quantities and one shared family state.
+- Begin with one bounded reuse/characterization pass. Retain ATRSS candidate-before-submit behavior unless that pass finds a real divergence; do not migrate ATRSS merely for architectural uniformity.
+- In one production vertical, route TPC's existing shared-core proposal through family authorization, OMS, execution, and fill feedback instead of `entry_already_filled`, and split Helix candidate generation from position creation so authorization precedes submission/fill. Move authority rather than creating a Swing-only parallel strategy or OMS.
+- Prove the result with no more than one focused fixture per missing TPC/Helix seam, one three-child simultaneous feedback fixture, and one materialized-config historical slice that reaches a real shared-state discriminator. Use the existing live-wrapper oracle and normal Swing optimizer/backtest entry points from the start.
+- Measure one realistic causal candidate and one bounded worker wave early. If the complete phased workflow is workable, cut over immediately; do not reproduce Stock's profiling, worker-probe, proxy-calibration, round-runner, or checkpoint sequence.
+- Finish with current legacy-versus-causal migration, one bounded live-wrapper bridge at the first material divergence, removal of completed-trade/prefilled official selection paths, cleanup, and integration.
+
+Swing should normally close in two implementation increments: (1) the combined TPC/Helix causal production vertical with focused parity, and (2) the three-child historical/optimizer migration and cutover. Split further only for a discovered correctness defect or an explicit design decision, not for routine review convenience.
 
 **Gate R3 per family:**
 
@@ -563,6 +601,8 @@ The R1 causal and R2 performance/cutover criteria pass for that family. One fami
 
 ## 10. Minimal parity matrix
 
+This matrix routes evidence; it is not a requirement to create a new family fixture for every row. Reuse shared OMS/reducer coverage. A remaining family normally needs P00/P01, one fixture proving its material shared-state dependency, P10/P11, and P12/P14 when its optimizer path changes. Add another family-level case only when that scenario can alter a later strategy decision and is not already exercised by the selected historical/live bridge.
+
 | ID | Scenario | Compared products | Required tier |
 |---|---|---|---|
 | P00 | Fixture identity | Same fixture materializes identical seed/config/data/state/ordering/execution/script identities; a behavior-relevant mutation changes the applicable identity | Fast path and oracle precondition |
@@ -587,17 +627,25 @@ Normalization may remove only transport volatility such as broker-assigned ident
 
 ## 11. Result migration
 
+This is the primary assurance step after optimizer feasibility. It covers the latest accepted source-strategy results and the latest family portfolio result; a newly designed candidate round is not a substitute.
+
 For each family:
 
-1. Run the latest materialized configuration on causal replay.
-2. Locate the first difference from the scoped legacy result.
-3. Classify it as extraction drift, intentional causal correction, execution-model difference, or data/config mismatch.
-4. Fix extraction drift and unexplained differences.
-5. Approve intentional causal corrections through tests, not through relabeling old evidence.
-6. Rerun only optimization phases affected by the changed causal semantics.
-7. Persist the selected configuration and concise winning evidence.
+1. Freeze the latest accepted source-strategy and family result identities: materialized configuration, data, feature policy, code, execution policy, historical horizon, and saved product/metric hashes.
+2. Reproduce the scoped saved result and run the same materialized configuration, input identity, and horizon on causal replay. If identical raw input cannot be reconstructed, stop and classify the data boundary rather than substitute another dataset and call it parity.
+3. Compare primitive proposals/decisions, family authorization, orders, lifecycle events, fills, ledger, trades, final strategy/family state, and metrics.
+4. For selected matching identities, require the bounded live-wrapper shell and replay shell to emit exact normalized products. This establishes code-path parity; it does not claim that unknowable real broker fills will equal a historical execution model.
+5. Locate the first scoped legacy-versus-causal difference and classify it as extraction drift, intentional causal correction, execution-model difference, accounting/metric defect, or data/config mismatch.
+6. Require exact equality for behavior-preserving extraction. Fix extraction, accounting, and unexplained differences; approve intentional causal corrections through expected-first-divergence tests rather than by relabeling old evidence.
+7. Report the downstream trade, PnL, drawdown, frequency, and selection effect of each accepted causal correction. Old completed-trade or mixed metrics are characterization baselines, not values that causal replay must preserve.
+8. Rerun only optimization phases affected by changed causal semantics, and only after the family causal evaluator has cut over and authoritative evaluation inputs are available.
+9. Persist the selected materialized configuration and one concise migration/cutover evidence summary.
+
+Result migration is not authorization for new exploratory experiments. Momentum's R2 stop does not prohibit one read-only/latest-configuration migration replay, but it continues to prohibit Momentum optimizer, proxy, reconstruction, and candidate-cohort work without a new policy decision.
 
 Existing result artifacts remain valid for their original portfolio-only or mixed evidence scope. Git history and existing output locations are sufficient preservation; do not duplicate full result trees into `docs/audit`.
+
+If the recorded implementation cannot be reconstructed after the bounded provenance pass in section 3.4, freeze the saved artifact as archival/non-reproducible characterization. This prevents a claim of exact historical metric continuity but does not block current-code legacy-versus-causal comparison, bounded live-wrapper parity, or causal cutover.
 
 ## 12. Repository-growth controls
 
@@ -606,17 +654,19 @@ Existing result artifacts remain valid for their original portfolio-only or mixe
 3. Strategy extraction must move authority; it may not leave live, source backtest, and causal copies.
 4. Existing OMS, execution, repository, and parity components are adapted before replacements are considered.
 5. Gate checks use normal unit/integration tests. Add a dedicated verifier script only when it will remain a reusable CI or release tool.
-6. Commit at most one concise evidence summary per family cutover; keep raw benchmark and trace output outside version control unless it is small and indispensable.
+6. Commit at most one concise evidence summary per family cutover; intermediate subincrements do not receive separate checkpoint documents. Keep raw benchmark and trace output outside version control unless it is small and indispensable.
 7. Full traces are generated on demand, not stored for every candidate.
 8. Temporary migration adapters are deleted after the family cutover.
-9. Every phase reports product/test/evidence diff statistics and identifies copied or deleted decision logic.
+9. Report product/test/evidence diff statistics and copied or deleted decision logic once at the family cutover, not after every internal edit.
 10. A phase is not approved if it leaves a third trading engine or grows a generic framework without advancing a real family path.
+11. Do not rerun a full repository suite for documentation-only, read-only, or external-evidence work. Use touched tests during development, the focused family suite at closure, and the integrated suite before merge.
 
 ## 13. Rollout and rollback
 
 - Cut over one family at a time behind an explicit evaluator selection.
 - Do not mix legacy portfolio-only scores and causal scores in one ranking.
-- Shadow the latest configuration and a small candidate cohort before official cutover.
+- Shadow the latest materialized configuration before official cutover. Use a small candidate cohort only when it is necessary to test a selection boundary not already covered by the family's accepted worker/round gate; do not run candidates merely to obtain a favorable mutation.
+- A completed causal optimizer feasibility round is operational evidence, not alpha evidence or a substitute for latest-result migration.
 - After a family passes its causal promotion gates, make causal replay mandatory for phase advancement, incumbent replacement, finalist status, and official selection.
 - If a defect appears, roll back that family to its last approved evaluator while retaining the failing causal trace.
 - Once corrected causal results have been approved and re-optimization completed, rollback targets the last approved causal version, not completed-trade replay.
@@ -639,19 +689,20 @@ Existing result artifacts remain valid for their original portfolio-only or mixe
 - [x] 9. Pass the selected simultaneous Momentum oracle slice with matching fixture identities.
 - [x] 10. Calibrate the representative Momentum screening cohort against causal replay and classify discrepancies; the bounded-shortlist gate failed because the causal winner ranked 10th and the remaining differences were inherent causal feedback.
 - [x] 11. Run the bounded causal cohort scaling probe; exactness passed but two- and four-worker wall times failed the 180-second gate.
-- [ ] 12. Keep Momentum official selection withheld unless a new policy and scope are explicitly approved; no further Momentum implementation is authorized by this plan.
+- [ ] 12. Keep Momentum official selection withheld unless a new policy and scope are explicitly approved. One read-only latest-result migration replay is permitted; no further Momentum optimization, proxy, candidate-cohort, or reconstruction work is authorized.
 
 ### Remaining families
 
-- [ ] 13. Complete and cut over Stock using the same per-family criteria.
-- [ ] 14. Complete and cut over Swing using the same per-family criteria.
+- [x] 13. Implement Stock's shared causal authority, simultaneous historical path, candidate materialization, normal optimizer cutover, and serial/worker determinism.
+- [ ] 14. Close Stock with the quiet-host full-horizon exactness/performance run, current legacy-to-causal migration plus bounded live bridge, scaffold removal, and integration.
+- [ ] 15. Complete Swing through the combined TPC/Helix causal vertical and one three-child historical/optimizer migration and cutover.
 
 ### Consolidation and evidence
 
-- [ ] 15. Consolidate only abstractions proven common by real verticals.
-- [ ] 16. Remove temporary scaffold and duplicate decision implementations.
-- [ ] 17. Retain compact winning evidence and preserve old results in their original scope.
-- [ ] 18. Keep broker calibration and operational lifecycle expansion in the separate promotion track.
+- [ ] 16. Consolidate only abstractions proven common by real verticals.
+- [ ] 17. Remove temporary scaffold and duplicate decision implementations.
+- [ ] 18. Retain one compact family-cutover summary and preserve old results in their original scope.
+- [ ] 19. Keep broker calibration and operational lifecycle expansion in the separate promotion track.
 
 ## 15. Definition of done
 
@@ -664,10 +715,12 @@ A family is complete when:
 - behavior-preserving extraction is exact and every causal correction has an expected first-divergence test;
 - the bounded live-wrapper oracle and historical replay are distinct shells over the same domain authorities; relabeling one execution route cannot satisfy parity;
 - selected bounded live-wrapper fixtures and a simultaneous historical slice use matching fixture identities and agree after narrow normalization;
-- the approved causal evaluation policy preserves the family's operational optimization budget while preventing screening-only candidates from advancing;
-- the latest configuration has been replayed, differences classified, and affected optimization results regenerated;
+- the full-causal phased evaluator preserves the family's operational optimization budget; if an explicitly approved screening fallback is required, screening-only candidates cannot advance without causal evaluation;
+- the latest accepted source-strategy and family portfolio configurations have been replayed against identified saved results, differences classified, and affected optimization results regenerated where authoritative inputs permit;
 - no completed-trade, prefilled-entry, third-engine, or screening-only path can produce an official selection.
 
 The programme is complete when Momentum, Stock, and Swing independently meet that definition and any shared consolidation preserves their parity and performance.
 
 Broker calibration may still qualify execution-model confidence. The remaining unavoidable gap is then real broker and market uncertainty, not completed-trade replay, post-fill authorization, duplicated strategy decisions, or a slow reproduction of the live asynchronous shell.
+
+Accordingly, strict parity means identical causal products when live and replay receive the same normalized market events, seeded state, materialized configuration, and broker-event sequence. It cannot mean that a historical simulator predicts every fill and realized PnL of a future live session whose latency, queue position, market microstructure, and broker callbacks are different.
