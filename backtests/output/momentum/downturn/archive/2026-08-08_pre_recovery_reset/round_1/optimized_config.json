@@ -1,0 +1,15 @@
+{
+  "flags.drawdown_regime_override": true,
+  "param_overrides.drawdown_lookback": 10,
+  "param_overrides.adx_range_threshold": 20,
+  "param_overrides.divergence_mag_threshold": 0.05,
+  "param_overrides.adx_trending_threshold": 18,
+  "param_overrides.ema_fast_period": 15,
+  "param_overrides.base_risk_pct": 0.008,
+  "param_overrides.regime_mult_counter": 0.2,
+  "flags.chandelier_trailing": true,
+  "param_overrides.chandelier_lookback": 8,
+  "param_overrides.profit_floor_r_threshold": 1.5,
+  "flags.vol_percentile_gate": 40.0,
+  "param_overrides.be_trigger_r": 0.8
+}

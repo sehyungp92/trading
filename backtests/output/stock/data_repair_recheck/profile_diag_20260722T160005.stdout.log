@@ -1,0 +1,28 @@
+[2026-07-22T16:00:51] profile window 2024-03-25->2024-04-30
+[2026-07-22T16:00:51] start replay/construct
+[2026-07-22T16:00:51] done replay/construct: 0.018s
+[2026-07-22T16:00:51] start replay/fingerprint
+[2026-07-22T16:00:55] done replay/fingerprint: 3.983s
+[2026-07-22T16:00:55] start replay/load_all_data
+[2026-07-22T16:03:07] done replay/load_all_data: 131.393s
+[2026-07-22T16:03:07] start iaric/engine_collect_0
+[2026-07-22T16:06:18] done iaric/engine_collect_0: 190.857s
+[2026-07-22T16:06:18] start iaric/metrics_collect_0
+[2026-07-22T16:06:18] done iaric/metrics_collect_0: 0.097s
+[2026-07-22T16:06:18] start iaric/engine_collect_1
+[2026-07-22T16:06:44] done iaric/engine_collect_1: 25.755s
+[2026-07-22T16:06:44] start iaric/metrics_collect_1
+[2026-07-22T16:06:44] done iaric/metrics_collect_1: 0.053s
+[2026-07-22T16:06:44] start iaric/full_diagnostic_render
+[2026-07-22T16:06:50] done iaric/full_diagnostic_render: 6.064s
+[2026-07-22T16:06:50] start alcb/engine_collect_0
+[2026-07-22T16:07:58] done alcb/engine_collect_0: 68.177s
+[2026-07-22T16:07:58] start alcb/metrics_collect_0
+[2026-07-22T16:07:58] done alcb/metrics_collect_0: 0.027s
+[2026-07-22T16:07:58] start alcb/engine_collect_1
+[2026-07-22T16:08:17] done alcb/engine_collect_1: 18.903s
+[2026-07-22T16:08:17] start alcb/metrics_collect_1
+[2026-07-22T16:08:17] done alcb/metrics_collect_1: 0.047s
+[2026-07-22T16:08:17] start alcb/full_diagnostic_render
+[2026-07-22T16:08:17] done alcb/full_diagnostic_render: 0.204s
+[2026-07-22T16:08:17] wrote C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\stock\data_repair_recheck\profile_diagnostics_20260722T150051Z\profile_summary.json

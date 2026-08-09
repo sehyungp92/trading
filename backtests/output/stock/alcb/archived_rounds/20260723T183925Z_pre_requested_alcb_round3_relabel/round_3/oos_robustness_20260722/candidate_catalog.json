@@ -1,0 +1,2156 @@
+[
+  {
+    "atomic_key": "ablation.use_adaptive_trail",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__use_adaptive_trail",
+    "patch": {
+      "ablation.use_adaptive_trail": false
+    },
+    "stage": "ablation",
+    "thesis": "Revert only ablation.use_adaptive_trail to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "ablation.use_combined_quality_gate",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__use_combined_quality_gate",
+    "patch": {
+      "ablation.use_combined_quality_gate": false
+    },
+    "stage": "ablation",
+    "thesis": "Revert only ablation.use_combined_quality_gate to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "ablation.use_mfe_conviction_exit",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__use_mfe_conviction_exit",
+    "patch": {
+      "ablation.use_mfe_conviction_exit": false
+    },
+    "stage": "ablation",
+    "thesis": "Revert only ablation.use_mfe_conviction_exit to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "ablation.use_or_width_min",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__use_or_width_min",
+    "patch": {
+      "ablation.use_or_width_min": false
+    },
+    "stage": "ablation",
+    "thesis": "Revert only ablation.use_or_width_min to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "ablation.use_partial_takes",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__use_partial_takes",
+    "patch": {
+      "ablation.use_partial_takes": true
+    },
+    "stage": "ablation",
+    "thesis": "Revert only ablation.use_partial_takes to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_late_activate_r",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__adaptive_trail_late_activate_r",
+    "patch": {
+      "param_overrides.adaptive_trail_late_activate_r": 0.25
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.adaptive_trail_late_activate_r to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_late_distance_r",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__adaptive_trail_late_distance_r",
+    "patch": {
+      "param_overrides.adaptive_trail_late_distance_r": 0.2
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.adaptive_trail_late_distance_r to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_start_bars",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__adaptive_trail_start_bars",
+    "patch": {
+      "param_overrides.adaptive_trail_start_bars": 0
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.adaptive_trail_start_bars to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_tighten_bars",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__adaptive_trail_tighten_bars",
+    "patch": {
+      "param_overrides.adaptive_trail_tighten_bars": 999
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.adaptive_trail_tighten_bars to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.block_combined_regime_b",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__block_combined_regime_b",
+    "patch": {
+      "param_overrides.block_combined_regime_b": false
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.block_combined_regime_b to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.carry_min_cpr",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__carry_min_cpr",
+    "patch": {
+      "param_overrides.carry_min_cpr": 0.4
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.carry_min_cpr to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.carry_min_r",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__carry_min_r",
+    "patch": {
+      "param_overrides.carry_min_r": 0.0
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.carry_min_r to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.combined_avwap_cap_pct",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__combined_avwap_cap_pct",
+    "patch": {
+      "param_overrides.combined_avwap_cap_pct": 0.0
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.combined_avwap_cap_pct to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.combined_breakout_min_rvol",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__combined_breakout_min_rvol",
+    "patch": {
+      "param_overrides.combined_breakout_min_rvol": 0.0
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.combined_breakout_min_rvol to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.combined_breakout_score_min",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__combined_breakout_score_min",
+    "patch": {
+      "param_overrides.combined_breakout_score_min": 0
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.combined_breakout_score_min to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.entry_window_end",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__entry_window_end",
+    "patch": {
+      "param_overrides.entry_window_end": "12:00:00"
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.entry_window_end to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.flow_reversal_min_hold_bars",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__flow_reversal_min_hold_bars",
+    "patch": {
+      "param_overrides.flow_reversal_min_hold_bars": 0
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.flow_reversal_min_hold_bars to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.fr_cpr_threshold",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__fr_cpr_threshold",
+    "patch": {
+      "param_overrides.fr_cpr_threshold": 0.0
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.fr_cpr_threshold to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.fr_mfe_grace_r",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__fr_mfe_grace_r",
+    "patch": {
+      "param_overrides.fr_mfe_grace_r": 0.15
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.fr_mfe_grace_r to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.fr_trailing_activate_r",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__fr_trailing_activate_r",
+    "patch": {
+      "param_overrides.fr_trailing_activate_r": 0.3
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.fr_trailing_activate_r to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.mfe_conviction_check_bars",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__mfe_conviction_check_bars",
+    "patch": {
+      "param_overrides.mfe_conviction_check_bars": 12
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.mfe_conviction_check_bars to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.mfe_conviction_floor_r",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__mfe_conviction_floor_r",
+    "patch": {
+      "param_overrides.mfe_conviction_floor_r": 0.0
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.mfe_conviction_floor_r to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.mfe_conviction_min_r",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__mfe_conviction_min_r",
+    "patch": {
+      "param_overrides.mfe_conviction_min_r": 0.15
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.mfe_conviction_min_r to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.opening_range_bars",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__opening_range_bars",
+    "patch": {
+      "param_overrides.opening_range_bars": 12
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.opening_range_bars to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.or_width_min_pct",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__or_width_min_pct",
+    "patch": {
+      "param_overrides.or_width_min_pct": 0.0
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.or_width_min_pct to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.pdh_avwap_cap_pct",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__pdh_avwap_cap_pct",
+    "patch": {
+      "param_overrides.pdh_avwap_cap_pct": 0.0
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.pdh_avwap_cap_pct to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.pdh_size_mult",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__pdh_size_mult",
+    "patch": {
+      "param_overrides.pdh_size_mult": 1.0
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.pdh_size_mult to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.regime_mult_b",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__regime_mult_b",
+    "patch": {
+      "param_overrides.regime_mult_b": 0.5
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.regime_mult_b to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.rvol_threshold",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__rvol_threshold",
+    "patch": {
+      "param_overrides.rvol_threshold": 1.5
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.rvol_threshold to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_bars",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__failure_stop_bars",
+    "patch": {
+      "param_overrides.failure_stop_bars": 0
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.failure_stop_bars to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_mfe_max_r",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__failure_stop_mfe_max_r",
+    "patch": {
+      "param_overrides.failure_stop_mfe_max_r": 0.0
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.failure_stop_mfe_max_r to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_current_r_max",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__failure_stop_current_r_max",
+    "patch": {
+      "param_overrides.failure_stop_current_r_max": -999.0
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.failure_stop_current_r_max to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_to_r",
+    "category": "atomic_counterfactual",
+    "lineage": "all cumulative rounds",
+    "name": "ablate__failure_stop_to_r",
+    "patch": {
+      "param_overrides.failure_stop_to_r": -1.0
+    },
+    "stage": "ablation",
+    "thesis": "Revert only param_overrides.failure_stop_to_r to its pre-acceptance or feature-neutral control."
+  },
+  {
+    "atomic_key": "param_overrides.entry_score_size_mults[COMBINED_BREAKOUT:7]",
+    "category": "nested_atomic_counterfactual",
+    "lineage": "round 1/2 nested map",
+    "name": "ablate__entry_score_size__combined_breakout_7",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "OR_BREAKOUT:5": 0.75,
+        "PDH_BREAKOUT:6": 0.5
+      }
+    },
+    "stage": "ablation",
+    "thesis": "Remove only nested score-sizing rule COMBINED_BREAKOUT:7=1.15."
+  },
+  {
+    "atomic_key": "param_overrides.entry_score_size_mults[OR_BREAKOUT:5]",
+    "category": "nested_atomic_counterfactual",
+    "lineage": "round 1/2 nested map",
+    "name": "ablate__entry_score_size__or_breakout_5",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.15,
+        "PDH_BREAKOUT:6": 0.5
+      }
+    },
+    "stage": "ablation",
+    "thesis": "Remove only nested score-sizing rule OR_BREAKOUT:5=0.75."
+  },
+  {
+    "atomic_key": "param_overrides.entry_score_size_mults[PDH_BREAKOUT:6]",
+    "category": "nested_atomic_counterfactual",
+    "lineage": "round 1/2 nested map",
+    "name": "ablate__entry_score_size__pdh_breakout_6",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.15,
+        "OR_BREAKOUT:5": 0.75
+      }
+    },
+    "stage": "ablation",
+    "thesis": "Remove only nested score-sizing rule PDH_BREAKOUT:6=0.5."
+  },
+  {
+    "atomic_key": "param_overrides.entry_detail_size_mults[OR_BREAKOUT:5:!bar_vol_surge]",
+    "category": "nested_atomic_counterfactual",
+    "lineage": "round 2 nested map",
+    "name": "ablate__entry_detail_size__or_breakout_5_not_bar_vol_surge",
+    "patch": {
+      "param_overrides.entry_detail_size_mults": {}
+    },
+    "stage": "ablation",
+    "thesis": "Remove only nested detail-sizing rule OR_BREAKOUT:5:!bar_vol_surge=0.55."
+  },
+  {
+    "atomic_key": "",
+    "category": "supplemental_bundle",
+    "lineage": "round 1 accepted bundle",
+    "name": "ablate__failure_stop_bundle",
+    "patch": {
+      "param_overrides.failure_stop_bars": 0
+    },
+    "stage": "ablation",
+    "thesis": "Disable the accepted failure-stop behavior as a bundle cross-check; atomic controls are tested separately."
+  },
+  {
+    "atomic_key": "",
+    "category": "round2_bundle_crosscheck",
+    "lineage": "round 2 exact delta",
+    "name": "restore__round1_exact_delta",
+    "patch": {
+      "param_overrides.adaptive_trail_late_activate_r": 0.25,
+      "param_overrides.adaptive_trail_late_distance_r": 0.2,
+      "param_overrides.entry_detail_size_mults": {
+        "*:5:!adx_trending": 0.85,
+        "OR_BREAKOUT:5:!bar_vol_surge": 0.65
+      },
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.15,
+        "OR_BREAKOUT:5": 0.7,
+        "PDH_BREAKOUT:6": 0.65
+      }
+    },
+    "stage": "ablation",
+    "thesis": "Restore every granular Round-2-vs-Round-1 difference together."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_late_activate_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__adaptive_trail_late_activate_r__0p15",
+    "patch": {
+      "param_overrides.adaptive_trail_late_activate_r": 0.15
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.adaptive_trail_late_activate_r from 0.22 to 0.15."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_late_activate_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__adaptive_trail_late_activate_r__0p18",
+    "patch": {
+      "param_overrides.adaptive_trail_late_activate_r": 0.18
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.adaptive_trail_late_activate_r from 0.22 to 0.18."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_late_activate_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__adaptive_trail_late_activate_r__0p25",
+    "patch": {
+      "param_overrides.adaptive_trail_late_activate_r": 0.25
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.adaptive_trail_late_activate_r from 0.22 to 0.25."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_late_activate_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__adaptive_trail_late_activate_r__0p3",
+    "patch": {
+      "param_overrides.adaptive_trail_late_activate_r": 0.3
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.adaptive_trail_late_activate_r from 0.22 to 0.3."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_late_distance_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__adaptive_trail_late_distance_r__0p08",
+    "patch": {
+      "param_overrides.adaptive_trail_late_distance_r": 0.08
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.adaptive_trail_late_distance_r from 0.12 to 0.08."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_late_distance_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__adaptive_trail_late_distance_r__0p1",
+    "patch": {
+      "param_overrides.adaptive_trail_late_distance_r": 0.1
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.adaptive_trail_late_distance_r from 0.12 to 0.1."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_late_distance_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__adaptive_trail_late_distance_r__0p15",
+    "patch": {
+      "param_overrides.adaptive_trail_late_distance_r": 0.15
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.adaptive_trail_late_distance_r from 0.12 to 0.15."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_late_distance_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__adaptive_trail_late_distance_r__0p18",
+    "patch": {
+      "param_overrides.adaptive_trail_late_distance_r": 0.18
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.adaptive_trail_late_distance_r from 0.12 to 0.18."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_late_distance_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__adaptive_trail_late_distance_r__0p2",
+    "patch": {
+      "param_overrides.adaptive_trail_late_distance_r": 0.2
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.adaptive_trail_late_distance_r from 0.12 to 0.2."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_start_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__adaptive_trail_start_bars__20",
+    "patch": {
+      "param_overrides.adaptive_trail_start_bars": 20
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.adaptive_trail_start_bars from 25 to 20."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_start_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__adaptive_trail_start_bars__22",
+    "patch": {
+      "param_overrides.adaptive_trail_start_bars": 22
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.adaptive_trail_start_bars from 25 to 22."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_start_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__adaptive_trail_start_bars__28",
+    "patch": {
+      "param_overrides.adaptive_trail_start_bars": 28
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.adaptive_trail_start_bars from 25 to 28."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_start_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__adaptive_trail_start_bars__30",
+    "patch": {
+      "param_overrides.adaptive_trail_start_bars": 30
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.adaptive_trail_start_bars from 25 to 30."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_tighten_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__adaptive_trail_tighten_bars__22",
+    "patch": {
+      "param_overrides.adaptive_trail_tighten_bars": 22
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.adaptive_trail_tighten_bars from 25 to 22."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_tighten_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__adaptive_trail_tighten_bars__28",
+    "patch": {
+      "param_overrides.adaptive_trail_tighten_bars": 28
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.adaptive_trail_tighten_bars from 25 to 28."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_tighten_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__adaptive_trail_tighten_bars__30",
+    "patch": {
+      "param_overrides.adaptive_trail_tighten_bars": 30
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.adaptive_trail_tighten_bars from 25 to 30."
+  },
+  {
+    "atomic_key": "param_overrides.adaptive_trail_tighten_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__adaptive_trail_tighten_bars__35",
+    "patch": {
+      "param_overrides.adaptive_trail_tighten_bars": 35
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.adaptive_trail_tighten_bars from 25 to 35."
+  },
+  {
+    "atomic_key": "param_overrides.combined_avwap_cap_pct",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__combined_avwap_cap_pct__0p002",
+    "patch": {
+      "param_overrides.combined_avwap_cap_pct": 0.002
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.combined_avwap_cap_pct from 0.003 to 0.002."
+  },
+  {
+    "atomic_key": "param_overrides.combined_avwap_cap_pct",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__combined_avwap_cap_pct__0p0025",
+    "patch": {
+      "param_overrides.combined_avwap_cap_pct": 0.0025
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.combined_avwap_cap_pct from 0.003 to 0.0025."
+  },
+  {
+    "atomic_key": "param_overrides.combined_avwap_cap_pct",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__combined_avwap_cap_pct__0p004",
+    "patch": {
+      "param_overrides.combined_avwap_cap_pct": 0.004
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.combined_avwap_cap_pct from 0.003 to 0.004."
+  },
+  {
+    "atomic_key": "param_overrides.combined_avwap_cap_pct",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__combined_avwap_cap_pct__0p005",
+    "patch": {
+      "param_overrides.combined_avwap_cap_pct": 0.005
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.combined_avwap_cap_pct from 0.003 to 0.005."
+  },
+  {
+    "atomic_key": "param_overrides.combined_breakout_min_rvol",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__combined_breakout_min_rvol__2p2",
+    "patch": {
+      "param_overrides.combined_breakout_min_rvol": 2.2
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.combined_breakout_min_rvol from 2.5 to 2.2."
+  },
+  {
+    "atomic_key": "param_overrides.combined_breakout_min_rvol",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__combined_breakout_min_rvol__2p3",
+    "patch": {
+      "param_overrides.combined_breakout_min_rvol": 2.3
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.combined_breakout_min_rvol from 2.5 to 2.3."
+  },
+  {
+    "atomic_key": "param_overrides.combined_breakout_min_rvol",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__combined_breakout_min_rvol__2p7",
+    "patch": {
+      "param_overrides.combined_breakout_min_rvol": 2.7
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.combined_breakout_min_rvol from 2.5 to 2.7."
+  },
+  {
+    "atomic_key": "param_overrides.combined_breakout_min_rvol",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__combined_breakout_min_rvol__3p0",
+    "patch": {
+      "param_overrides.combined_breakout_min_rvol": 3.0
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.combined_breakout_min_rvol from 2.5 to 3.0."
+  },
+  {
+    "atomic_key": "param_overrides.combined_breakout_score_min",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__combined_breakout_score_min__4",
+    "patch": {
+      "param_overrides.combined_breakout_score_min": 4
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.combined_breakout_score_min from 5 to 4."
+  },
+  {
+    "atomic_key": "param_overrides.combined_breakout_score_min",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__combined_breakout_score_min__6",
+    "patch": {
+      "param_overrides.combined_breakout_score_min": 6
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.combined_breakout_score_min from 5 to 6."
+  },
+  {
+    "atomic_key": "param_overrides.flow_reversal_min_hold_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__flow_reversal_min_hold_bars__8",
+    "patch": {
+      "param_overrides.flow_reversal_min_hold_bars": 8
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.flow_reversal_min_hold_bars from 12 to 8."
+  },
+  {
+    "atomic_key": "param_overrides.flow_reversal_min_hold_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__flow_reversal_min_hold_bars__10",
+    "patch": {
+      "param_overrides.flow_reversal_min_hold_bars": 10
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.flow_reversal_min_hold_bars from 12 to 10."
+  },
+  {
+    "atomic_key": "param_overrides.flow_reversal_min_hold_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__flow_reversal_min_hold_bars__14",
+    "patch": {
+      "param_overrides.flow_reversal_min_hold_bars": 14
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.flow_reversal_min_hold_bars from 12 to 14."
+  },
+  {
+    "atomic_key": "param_overrides.flow_reversal_min_hold_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__flow_reversal_min_hold_bars__16",
+    "patch": {
+      "param_overrides.flow_reversal_min_hold_bars": 16
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.flow_reversal_min_hold_bars from 12 to 16."
+  },
+  {
+    "atomic_key": "param_overrides.fr_cpr_threshold",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__fr_cpr_threshold__0p2",
+    "patch": {
+      "param_overrides.fr_cpr_threshold": 0.2
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.fr_cpr_threshold from 0.3 to 0.2."
+  },
+  {
+    "atomic_key": "param_overrides.fr_cpr_threshold",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__fr_cpr_threshold__0p25",
+    "patch": {
+      "param_overrides.fr_cpr_threshold": 0.25
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.fr_cpr_threshold from 0.3 to 0.25."
+  },
+  {
+    "atomic_key": "param_overrides.fr_cpr_threshold",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__fr_cpr_threshold__0p35",
+    "patch": {
+      "param_overrides.fr_cpr_threshold": 0.35
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.fr_cpr_threshold from 0.3 to 0.35."
+  },
+  {
+    "atomic_key": "param_overrides.fr_cpr_threshold",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__fr_cpr_threshold__0p4",
+    "patch": {
+      "param_overrides.fr_cpr_threshold": 0.4
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.fr_cpr_threshold from 0.3 to 0.4."
+  },
+  {
+    "atomic_key": "param_overrides.fr_mfe_grace_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__fr_mfe_grace_r__0p1",
+    "patch": {
+      "param_overrides.fr_mfe_grace_r": 0.1
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.fr_mfe_grace_r from 0.2 to 0.1."
+  },
+  {
+    "atomic_key": "param_overrides.fr_mfe_grace_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__fr_mfe_grace_r__0p15",
+    "patch": {
+      "param_overrides.fr_mfe_grace_r": 0.15
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.fr_mfe_grace_r from 0.2 to 0.15."
+  },
+  {
+    "atomic_key": "param_overrides.fr_mfe_grace_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__fr_mfe_grace_r__0p25",
+    "patch": {
+      "param_overrides.fr_mfe_grace_r": 0.25
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.fr_mfe_grace_r from 0.2 to 0.25."
+  },
+  {
+    "atomic_key": "param_overrides.fr_mfe_grace_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__fr_mfe_grace_r__0p3",
+    "patch": {
+      "param_overrides.fr_mfe_grace_r": 0.3
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.fr_mfe_grace_r from 0.2 to 0.3."
+  },
+  {
+    "atomic_key": "param_overrides.mfe_conviction_check_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__mfe_conviction_check_bars__12",
+    "patch": {
+      "param_overrides.mfe_conviction_check_bars": 12
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.mfe_conviction_check_bars from 16 to 12."
+  },
+  {
+    "atomic_key": "param_overrides.mfe_conviction_check_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__mfe_conviction_check_bars__14",
+    "patch": {
+      "param_overrides.mfe_conviction_check_bars": 14
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.mfe_conviction_check_bars from 16 to 14."
+  },
+  {
+    "atomic_key": "param_overrides.mfe_conviction_check_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__mfe_conviction_check_bars__18",
+    "patch": {
+      "param_overrides.mfe_conviction_check_bars": 18
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.mfe_conviction_check_bars from 16 to 18."
+  },
+  {
+    "atomic_key": "param_overrides.mfe_conviction_check_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__mfe_conviction_check_bars__20",
+    "patch": {
+      "param_overrides.mfe_conviction_check_bars": 20
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.mfe_conviction_check_bars from 16 to 20."
+  },
+  {
+    "atomic_key": "param_overrides.mfe_conviction_floor_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__mfe_conviction_floor_r__m0p25",
+    "patch": {
+      "param_overrides.mfe_conviction_floor_r": -0.25
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.mfe_conviction_floor_r from -0.15 to -0.25."
+  },
+  {
+    "atomic_key": "param_overrides.mfe_conviction_floor_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__mfe_conviction_floor_r__m0p1",
+    "patch": {
+      "param_overrides.mfe_conviction_floor_r": -0.1
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.mfe_conviction_floor_r from -0.15 to -0.1."
+  },
+  {
+    "atomic_key": "param_overrides.mfe_conviction_floor_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__mfe_conviction_floor_r__m0p05",
+    "patch": {
+      "param_overrides.mfe_conviction_floor_r": -0.05
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.mfe_conviction_floor_r from -0.15 to -0.05."
+  },
+  {
+    "atomic_key": "param_overrides.mfe_conviction_floor_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__mfe_conviction_floor_r__0p0",
+    "patch": {
+      "param_overrides.mfe_conviction_floor_r": 0.0
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.mfe_conviction_floor_r from -0.15 to 0.0."
+  },
+  {
+    "atomic_key": "param_overrides.mfe_conviction_min_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__mfe_conviction_min_r__0p1",
+    "patch": {
+      "param_overrides.mfe_conviction_min_r": 0.1
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.mfe_conviction_min_r from 0.2 to 0.1."
+  },
+  {
+    "atomic_key": "param_overrides.mfe_conviction_min_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__mfe_conviction_min_r__0p15",
+    "patch": {
+      "param_overrides.mfe_conviction_min_r": 0.15
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.mfe_conviction_min_r from 0.2 to 0.15."
+  },
+  {
+    "atomic_key": "param_overrides.mfe_conviction_min_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__mfe_conviction_min_r__0p25",
+    "patch": {
+      "param_overrides.mfe_conviction_min_r": 0.25
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.mfe_conviction_min_r from 0.2 to 0.25."
+  },
+  {
+    "atomic_key": "param_overrides.mfe_conviction_min_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__mfe_conviction_min_r__0p3",
+    "patch": {
+      "param_overrides.mfe_conviction_min_r": 0.3
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.mfe_conviction_min_r from 0.2 to 0.3."
+  },
+  {
+    "atomic_key": "param_overrides.opening_range_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__opening_range_bars__5",
+    "patch": {
+      "param_overrides.opening_range_bars": 5
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.opening_range_bars from 6 to 5."
+  },
+  {
+    "atomic_key": "param_overrides.opening_range_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__opening_range_bars__7",
+    "patch": {
+      "param_overrides.opening_range_bars": 7
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.opening_range_bars from 6 to 7."
+  },
+  {
+    "atomic_key": "param_overrides.opening_range_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__opening_range_bars__8",
+    "patch": {
+      "param_overrides.opening_range_bars": 8
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.opening_range_bars from 6 to 8."
+  },
+  {
+    "atomic_key": "param_overrides.opening_range_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__opening_range_bars__9",
+    "patch": {
+      "param_overrides.opening_range_bars": 9
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.opening_range_bars from 6 to 9."
+  },
+  {
+    "atomic_key": "param_overrides.or_width_min_pct",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__or_width_min_pct__0p001",
+    "patch": {
+      "param_overrides.or_width_min_pct": 0.001
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.or_width_min_pct from 0.0015 to 0.001."
+  },
+  {
+    "atomic_key": "param_overrides.or_width_min_pct",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__or_width_min_pct__0p002",
+    "patch": {
+      "param_overrides.or_width_min_pct": 0.002
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.or_width_min_pct from 0.0015 to 0.002."
+  },
+  {
+    "atomic_key": "param_overrides.or_width_min_pct",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__or_width_min_pct__0p0025",
+    "patch": {
+      "param_overrides.or_width_min_pct": 0.0025
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.or_width_min_pct from 0.0015 to 0.0025."
+  },
+  {
+    "atomic_key": "param_overrides.or_width_min_pct",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__or_width_min_pct__0p003",
+    "patch": {
+      "param_overrides.or_width_min_pct": 0.003
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.or_width_min_pct from 0.0015 to 0.003."
+  },
+  {
+    "atomic_key": "param_overrides.pdh_avwap_cap_pct",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__pdh_avwap_cap_pct__0p003",
+    "patch": {
+      "param_overrides.pdh_avwap_cap_pct": 0.003
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.pdh_avwap_cap_pct from 0.005 to 0.003."
+  },
+  {
+    "atomic_key": "param_overrides.pdh_avwap_cap_pct",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__pdh_avwap_cap_pct__0p004",
+    "patch": {
+      "param_overrides.pdh_avwap_cap_pct": 0.004
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.pdh_avwap_cap_pct from 0.005 to 0.004."
+  },
+  {
+    "atomic_key": "param_overrides.pdh_avwap_cap_pct",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__pdh_avwap_cap_pct__0p006",
+    "patch": {
+      "param_overrides.pdh_avwap_cap_pct": 0.006
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.pdh_avwap_cap_pct from 0.005 to 0.006."
+  },
+  {
+    "atomic_key": "param_overrides.pdh_avwap_cap_pct",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__pdh_avwap_cap_pct__0p008",
+    "patch": {
+      "param_overrides.pdh_avwap_cap_pct": 0.008
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.pdh_avwap_cap_pct from 0.005 to 0.008."
+  },
+  {
+    "atomic_key": "param_overrides.pdh_size_mult",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__pdh_size_mult__0p35",
+    "patch": {
+      "param_overrides.pdh_size_mult": 0.35
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.pdh_size_mult from 0.75 to 0.35."
+  },
+  {
+    "atomic_key": "param_overrides.pdh_size_mult",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__pdh_size_mult__0p5",
+    "patch": {
+      "param_overrides.pdh_size_mult": 0.5
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.pdh_size_mult from 0.75 to 0.5."
+  },
+  {
+    "atomic_key": "param_overrides.pdh_size_mult",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__pdh_size_mult__0p65",
+    "patch": {
+      "param_overrides.pdh_size_mult": 0.65
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.pdh_size_mult from 0.75 to 0.65."
+  },
+  {
+    "atomic_key": "param_overrides.pdh_size_mult",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__pdh_size_mult__0p9",
+    "patch": {
+      "param_overrides.pdh_size_mult": 0.9
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.pdh_size_mult from 0.75 to 0.9."
+  },
+  {
+    "atomic_key": "param_overrides.pdh_size_mult",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__pdh_size_mult__1p0",
+    "patch": {
+      "param_overrides.pdh_size_mult": 1.0
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.pdh_size_mult from 0.75 to 1.0."
+  },
+  {
+    "atomic_key": "param_overrides.regime_mult_b",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__regime_mult_b__0p5",
+    "patch": {
+      "param_overrides.regime_mult_b": 0.5
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.regime_mult_b from 0.7 to 0.5."
+  },
+  {
+    "atomic_key": "param_overrides.regime_mult_b",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__regime_mult_b__0p6",
+    "patch": {
+      "param_overrides.regime_mult_b": 0.6
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.regime_mult_b from 0.7 to 0.6."
+  },
+  {
+    "atomic_key": "param_overrides.regime_mult_b",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__regime_mult_b__0p8",
+    "patch": {
+      "param_overrides.regime_mult_b": 0.8
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.regime_mult_b from 0.7 to 0.8."
+  },
+  {
+    "atomic_key": "param_overrides.regime_mult_b",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__regime_mult_b__0p9",
+    "patch": {
+      "param_overrides.regime_mult_b": 0.9
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.regime_mult_b from 0.7 to 0.9."
+  },
+  {
+    "atomic_key": "param_overrides.regime_mult_b",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__regime_mult_b__1p0",
+    "patch": {
+      "param_overrides.regime_mult_b": 1.0
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.regime_mult_b from 0.7 to 1.0."
+  },
+  {
+    "atomic_key": "param_overrides.rvol_threshold",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__rvol_threshold__1p8",
+    "patch": {
+      "param_overrides.rvol_threshold": 1.8
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.rvol_threshold from 2.0 to 1.8."
+  },
+  {
+    "atomic_key": "param_overrides.rvol_threshold",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__rvol_threshold__1p9",
+    "patch": {
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.rvol_threshold from 2.0 to 1.9."
+  },
+  {
+    "atomic_key": "param_overrides.rvol_threshold",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__rvol_threshold__2p1",
+    "patch": {
+      "param_overrides.rvol_threshold": 2.1
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.rvol_threshold from 2.0 to 2.1."
+  },
+  {
+    "atomic_key": "param_overrides.rvol_threshold",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__rvol_threshold__2p2",
+    "patch": {
+      "param_overrides.rvol_threshold": 2.2
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.rvol_threshold from 2.0 to 2.2."
+  },
+  {
+    "atomic_key": "param_overrides.rvol_threshold",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__rvol_threshold__2p3",
+    "patch": {
+      "param_overrides.rvol_threshold": 2.3
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.rvol_threshold from 2.0 to 2.3."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_bars__6",
+    "patch": {
+      "param_overrides.failure_stop_bars": 6
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_bars from 10 to 6."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_bars__8",
+    "patch": {
+      "param_overrides.failure_stop_bars": 8
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_bars from 10 to 8."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_bars__12",
+    "patch": {
+      "param_overrides.failure_stop_bars": 12
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_bars from 10 to 12."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_bars__14",
+    "patch": {
+      "param_overrides.failure_stop_bars": 14
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_bars from 10 to 14."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_bars",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_bars__16",
+    "patch": {
+      "param_overrides.failure_stop_bars": 16
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_bars from 10 to 16."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_mfe_max_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_mfe_max_r__0p1",
+    "patch": {
+      "param_overrides.failure_stop_mfe_max_r": 0.1
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_mfe_max_r from 0.2 to 0.1."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_mfe_max_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_mfe_max_r__0p15",
+    "patch": {
+      "param_overrides.failure_stop_mfe_max_r": 0.15
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_mfe_max_r from 0.2 to 0.15."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_mfe_max_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_mfe_max_r__0p25",
+    "patch": {
+      "param_overrides.failure_stop_mfe_max_r": 0.25
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_mfe_max_r from 0.2 to 0.25."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_mfe_max_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_mfe_max_r__0p3",
+    "patch": {
+      "param_overrides.failure_stop_mfe_max_r": 0.3
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_mfe_max_r from 0.2 to 0.3."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_current_r_max",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_current_r_max__m0p2",
+    "patch": {
+      "param_overrides.failure_stop_current_r_max": -0.2
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_current_r_max from 0.0 to -0.2."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_current_r_max",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_current_r_max__m0p1",
+    "patch": {
+      "param_overrides.failure_stop_current_r_max": -0.1
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_current_r_max from 0.0 to -0.1."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_current_r_max",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_current_r_max__0p1",
+    "patch": {
+      "param_overrides.failure_stop_current_r_max": 0.1
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_current_r_max from 0.0 to 0.1."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_current_r_max",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_current_r_max__0p2",
+    "patch": {
+      "param_overrides.failure_stop_current_r_max": 0.2
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_current_r_max from 0.0 to 0.2."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_to_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_to_r__m0p5",
+    "patch": {
+      "param_overrides.failure_stop_to_r": -0.5
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_to_r from -0.25 to -0.5."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_to_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_to_r__m0p4",
+    "patch": {
+      "param_overrides.failure_stop_to_r": -0.4
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_to_r from -0.25 to -0.4."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_to_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_to_r__m0p3",
+    "patch": {
+      "param_overrides.failure_stop_to_r": -0.3
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_to_r from -0.25 to -0.3."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_to_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_to_r__m0p2",
+    "patch": {
+      "param_overrides.failure_stop_to_r": -0.2
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_to_r from -0.25 to -0.2."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_to_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_to_r__m0p1",
+    "patch": {
+      "param_overrides.failure_stop_to_r": -0.1
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_to_r from -0.25 to -0.1."
+  },
+  {
+    "atomic_key": "param_overrides.failure_stop_to_r",
+    "category": "atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__failure_stop_to_r__0p0",
+    "patch": {
+      "param_overrides.failure_stop_to_r": 0.0
+    },
+    "stage": "perturbation",
+    "thesis": "One-dimensional perturbation of param_overrides.failure_stop_to_r from -0.25 to 0.0."
+  },
+  {
+    "atomic_key": "param_overrides.entry_window_end",
+    "category": "atomic_time_grid",
+    "lineage": "",
+    "name": "perturb__entry_window_end__1130",
+    "patch": {
+      "param_overrides.entry_window_end": "11:30:00"
+    },
+    "stage": "perturbation",
+    "thesis": "Move only the entry cutoff to test frequency/late-entry quality stability."
+  },
+  {
+    "atomic_key": "param_overrides.entry_window_end",
+    "category": "atomic_time_grid",
+    "lineage": "",
+    "name": "perturb__entry_window_end__1200",
+    "patch": {
+      "param_overrides.entry_window_end": "12:00:00"
+    },
+    "stage": "perturbation",
+    "thesis": "Move only the entry cutoff to test frequency/late-entry quality stability."
+  },
+  {
+    "atomic_key": "param_overrides.entry_window_end",
+    "category": "atomic_time_grid",
+    "lineage": "",
+    "name": "perturb__entry_window_end__1300",
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00"
+    },
+    "stage": "perturbation",
+    "thesis": "Move only the entry cutoff to test frequency/late-entry quality stability."
+  },
+  {
+    "atomic_key": "param_overrides.entry_window_end",
+    "category": "atomic_time_grid",
+    "lineage": "",
+    "name": "perturb__entry_window_end__1330",
+    "patch": {
+      "param_overrides.entry_window_end": "13:30:00"
+    },
+    "stage": "perturbation",
+    "thesis": "Move only the entry cutoff to test frequency/late-entry quality stability."
+  },
+  {
+    "atomic_key": "param_overrides.entry_score_size_mults[OR_BREAKOUT:5]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__score_size__or_breakout_5__0p55",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.15,
+        "OR_BREAKOUT:5": 0.55,
+        "PDH_BREAKOUT:6": 0.5
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the nested OR_BREAKOUT:5 sizing multiplier."
+  },
+  {
+    "atomic_key": "param_overrides.entry_score_size_mults[OR_BREAKOUT:5]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__score_size__or_breakout_5__0p65",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.15,
+        "OR_BREAKOUT:5": 0.65,
+        "PDH_BREAKOUT:6": 0.5
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the nested OR_BREAKOUT:5 sizing multiplier."
+  },
+  {
+    "atomic_key": "param_overrides.entry_score_size_mults[OR_BREAKOUT:5]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__score_size__or_breakout_5__0p7",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.15,
+        "OR_BREAKOUT:5": 0.7,
+        "PDH_BREAKOUT:6": 0.5
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the nested OR_BREAKOUT:5 sizing multiplier."
+  },
+  {
+    "atomic_key": "param_overrides.entry_score_size_mults[OR_BREAKOUT:5]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__score_size__or_breakout_5__0p85",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.15,
+        "OR_BREAKOUT:5": 0.85,
+        "PDH_BREAKOUT:6": 0.5
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the nested OR_BREAKOUT:5 sizing multiplier."
+  },
+  {
+    "atomic_key": "param_overrides.entry_score_size_mults[OR_BREAKOUT:5]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__score_size__or_breakout_5__1p0",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.15,
+        "OR_BREAKOUT:5": 1.0,
+        "PDH_BREAKOUT:6": 0.5
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the nested OR_BREAKOUT:5 sizing multiplier."
+  },
+  {
+    "atomic_key": "param_overrides.entry_score_size_mults[COMBINED_BREAKOUT:7]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__score_size__combined_breakout_7__0p9",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 0.9,
+        "OR_BREAKOUT:5": 0.75,
+        "PDH_BREAKOUT:6": 0.5
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the nested COMBINED_BREAKOUT:7 sizing multiplier."
+  },
+  {
+    "atomic_key": "param_overrides.entry_score_size_mults[COMBINED_BREAKOUT:7]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__score_size__combined_breakout_7__1p0",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.0,
+        "OR_BREAKOUT:5": 0.75,
+        "PDH_BREAKOUT:6": 0.5
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the nested COMBINED_BREAKOUT:7 sizing multiplier."
+  },
+  {
+    "atomic_key": "param_overrides.entry_score_size_mults[COMBINED_BREAKOUT:7]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__score_size__combined_breakout_7__1p1",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.1,
+        "OR_BREAKOUT:5": 0.75,
+        "PDH_BREAKOUT:6": 0.5
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the nested COMBINED_BREAKOUT:7 sizing multiplier."
+  },
+  {
+    "atomic_key": "param_overrides.entry_score_size_mults[COMBINED_BREAKOUT:7]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__score_size__combined_breakout_7__1p2",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.2,
+        "OR_BREAKOUT:5": 0.75,
+        "PDH_BREAKOUT:6": 0.5
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the nested COMBINED_BREAKOUT:7 sizing multiplier."
+  },
+  {
+    "atomic_key": "param_overrides.entry_score_size_mults[COMBINED_BREAKOUT:7]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__score_size__combined_breakout_7__1p25",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.25,
+        "OR_BREAKOUT:5": 0.75,
+        "PDH_BREAKOUT:6": 0.5
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the nested COMBINED_BREAKOUT:7 sizing multiplier."
+  },
+  {
+    "atomic_key": "param_overrides.entry_score_size_mults[PDH_BREAKOUT:6]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__score_size__pdh_breakout_6__0p35",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.15,
+        "OR_BREAKOUT:5": 0.75,
+        "PDH_BREAKOUT:6": 0.35
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the nested PDH_BREAKOUT:6 sizing multiplier."
+  },
+  {
+    "atomic_key": "param_overrides.entry_score_size_mults[PDH_BREAKOUT:6]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__score_size__pdh_breakout_6__0p65",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.15,
+        "OR_BREAKOUT:5": 0.75,
+        "PDH_BREAKOUT:6": 0.65
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the nested PDH_BREAKOUT:6 sizing multiplier."
+  },
+  {
+    "atomic_key": "param_overrides.entry_score_size_mults[PDH_BREAKOUT:6]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__score_size__pdh_breakout_6__0p75",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.15,
+        "OR_BREAKOUT:5": 0.75,
+        "PDH_BREAKOUT:6": 0.75
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the nested PDH_BREAKOUT:6 sizing multiplier."
+  },
+  {
+    "atomic_key": "param_overrides.entry_score_size_mults[PDH_BREAKOUT:6]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__score_size__pdh_breakout_6__0p9",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.15,
+        "OR_BREAKOUT:5": 0.75,
+        "PDH_BREAKOUT:6": 0.9
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the nested PDH_BREAKOUT:6 sizing multiplier."
+  },
+  {
+    "atomic_key": "param_overrides.entry_score_size_mults[PDH_BREAKOUT:6]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__score_size__pdh_breakout_6__1p0",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.15,
+        "OR_BREAKOUT:5": 0.75,
+        "PDH_BREAKOUT:6": 1.0
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the nested PDH_BREAKOUT:6 sizing multiplier."
+  },
+  {
+    "atomic_key": "param_overrides.entry_detail_size_mults[OR_BREAKOUT:5:!bar_vol_surge]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__or5_no_surge_size__0p35",
+    "patch": {
+      "param_overrides.entry_detail_size_mults": {
+        "OR_BREAKOUT:5:!bar_vol_surge": 0.35
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the OR score-5/no-volume-surge sizing penalty."
+  },
+  {
+    "atomic_key": "param_overrides.entry_detail_size_mults[OR_BREAKOUT:5:!bar_vol_surge]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__or5_no_surge_size__0p45",
+    "patch": {
+      "param_overrides.entry_detail_size_mults": {
+        "OR_BREAKOUT:5:!bar_vol_surge": 0.45
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the OR score-5/no-volume-surge sizing penalty."
+  },
+  {
+    "atomic_key": "param_overrides.entry_detail_size_mults[OR_BREAKOUT:5:!bar_vol_surge]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__or5_no_surge_size__0p65",
+    "patch": {
+      "param_overrides.entry_detail_size_mults": {
+        "OR_BREAKOUT:5:!bar_vol_surge": 0.65
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the OR score-5/no-volume-surge sizing penalty."
+  },
+  {
+    "atomic_key": "param_overrides.entry_detail_size_mults[OR_BREAKOUT:5:!bar_vol_surge]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__or5_no_surge_size__0p75",
+    "patch": {
+      "param_overrides.entry_detail_size_mults": {
+        "OR_BREAKOUT:5:!bar_vol_surge": 0.75
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the OR score-5/no-volume-surge sizing penalty."
+  },
+  {
+    "atomic_key": "param_overrides.entry_detail_size_mults[OR_BREAKOUT:5:!bar_vol_surge]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__or5_no_surge_size__0p9",
+    "patch": {
+      "param_overrides.entry_detail_size_mults": {
+        "OR_BREAKOUT:5:!bar_vol_surge": 0.9
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the OR score-5/no-volume-surge sizing penalty."
+  },
+  {
+    "atomic_key": "param_overrides.entry_detail_size_mults[OR_BREAKOUT:5:!bar_vol_surge]",
+    "category": "nested_atomic_parameter_grid",
+    "lineage": "",
+    "name": "perturb__or5_no_surge_size__1p0",
+    "patch": {
+      "param_overrides.entry_detail_size_mults": {
+        "OR_BREAKOUT:5:!bar_vol_surge": 1.0
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Perturb only the OR score-5/no-volume-surge sizing penalty."
+  },
+  {
+    "atomic_key": "",
+    "category": "round2_removed_nested_rule",
+    "lineage": "rule removed by Round 2",
+    "name": "perturb__restore_no_adx_size__0p55",
+    "patch": {
+      "param_overrides.entry_detail_size_mults": {
+        "*:5:!adx_trending": 0.55,
+        "OR_BREAKOUT:5:!bar_vol_surge": 0.55
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Restore the Round-1 no-ADX score-5 sizing rule at one coefficient."
+  },
+  {
+    "atomic_key": "",
+    "category": "round2_removed_nested_rule",
+    "lineage": "rule removed by Round 2",
+    "name": "perturb__restore_no_adx_size__0p7",
+    "patch": {
+      "param_overrides.entry_detail_size_mults": {
+        "*:5:!adx_trending": 0.7,
+        "OR_BREAKOUT:5:!bar_vol_surge": 0.55
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Restore the Round-1 no-ADX score-5 sizing rule at one coefficient."
+  },
+  {
+    "atomic_key": "",
+    "category": "round2_removed_nested_rule",
+    "lineage": "rule removed by Round 2",
+    "name": "perturb__restore_no_adx_size__0p85",
+    "patch": {
+      "param_overrides.entry_detail_size_mults": {
+        "*:5:!adx_trending": 0.85,
+        "OR_BREAKOUT:5:!bar_vol_surge": 0.55
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Restore the Round-1 no-ADX score-5 sizing rule at one coefficient."
+  },
+  {
+    "atomic_key": "",
+    "category": "round2_removed_nested_rule",
+    "lineage": "rule removed by Round 2",
+    "name": "perturb__restore_no_adx_size__1p0",
+    "patch": {
+      "param_overrides.entry_detail_size_mults": {
+        "*:5:!adx_trending": 1.0,
+        "OR_BREAKOUT:5:!bar_vol_surge": 0.55
+      }
+    },
+    "stage": "perturbation",
+    "thesis": "Restore the Round-1 no-ADX score-5 sizing rule at one coefficient."
+  },
+  {
+    "atomic_key": "",
+    "category": "weakness_targeted",
+    "lineage": "post-OOS diagnostic",
+    "name": "target__rvol190_pdh065",
+    "patch": {
+      "param_overrides.pdh_size_mult": 0.65,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "targeted",
+    "thesis": "Recover frequency via RVOL 1.9 while cautiously increasing the positive-PDH sleeve."
+  },
+  {
+    "atomic_key": "",
+    "category": "weakness_targeted",
+    "lineage": "post-OOS diagnostic",
+    "name": "target__rvol190_pdh090",
+    "patch": {
+      "param_overrides.pdh_size_mult": 0.9,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "targeted",
+    "thesis": "Frequency recovery plus stronger PDH monetization."
+  },
+  {
+    "atomic_key": "",
+    "category": "weakness_targeted",
+    "lineage": "post-OOS diagnostic",
+    "name": "target__rvol190_score_gradient",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.2,
+        "OR_BREAKOUT:4": 0.9,
+        "OR_BREAKOUT:5": 0.85,
+        "OR_BREAKOUT:6": 1.05,
+        "PDH_BREAKOUT:6": 0.65
+      },
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "targeted",
+    "thesis": "Align sizing with the monotonic OOS score gradient while retaining frequency recovery."
+  },
+  {
+    "atomic_key": "",
+    "category": "weakness_targeted",
+    "lineage": "post-OOS diagnostic",
+    "name": "target__rvol190_failstop8",
+    "patch": {
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "targeted",
+    "thesis": "Add frequency but accelerate protection of the entirely negative short-hold cohort."
+  },
+  {
+    "atomic_key": "",
+    "category": "weakness_targeted",
+    "lineage": "post-OOS diagnostic",
+    "name": "target__rvol190_failstop12",
+    "patch": {
+      "param_overrides.failure_stop_bars": 12,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "targeted",
+    "thesis": "Test whether slower failure classification preserves recovered entries."
+  },
+  {
+    "atomic_key": "",
+    "category": "weakness_targeted",
+    "lineage": "post-OOS diagnostic",
+    "name": "target__failure8_mfe015_to_m020",
+    "patch": {
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.failure_stop_mfe_max_r": 0.15,
+      "param_overrides.failure_stop_to_r": -0.2
+    },
+    "stage": "targeted",
+    "thesis": "Earlier but more selective/tighter protection for the negative 0-24 bar cohort."
+  },
+  {
+    "atomic_key": "",
+    "category": "weakness_targeted",
+    "lineage": "post-OOS diagnostic",
+    "name": "target__failure12_mfe025_to_m020",
+    "patch": {
+      "param_overrides.failure_stop_bars": 12,
+      "param_overrides.failure_stop_mfe_max_r": 0.25,
+      "param_overrides.failure_stop_to_r": -0.2
+    },
+    "stage": "targeted",
+    "thesis": "Give trades longer to mature, then retain more capital on failed paths."
+  },
+  {
+    "atomic_key": "",
+    "category": "weakness_targeted",
+    "lineage": "post-OOS diagnostic",
+    "name": "target__adaptive_activate018_distance010",
+    "patch": {
+      "param_overrides.adaptive_trail_late_activate_r": 0.18,
+      "param_overrides.adaptive_trail_late_distance_r": 0.1
+    },
+    "stage": "targeted",
+    "thesis": "Protect the large profitable 25+ bar cohort earlier and more tightly."
+  },
+  {
+    "atomic_key": "",
+    "category": "weakness_targeted",
+    "lineage": "post-OOS diagnostic",
+    "name": "target__adaptive_activate025_distance015",
+    "patch": {
+      "param_overrides.adaptive_trail_late_activate_r": 0.25,
+      "param_overrides.adaptive_trail_late_distance_r": 0.15
+    },
+    "stage": "targeted",
+    "thesis": "Relax Round-2 trail tightness to check for truncation overfit."
+  },
+  {
+    "atomic_key": "",
+    "category": "weakness_targeted",
+    "lineage": "post-OOS diagnostic",
+    "name": "target__pdh_cap006_size075",
+    "patch": {
+      "param_overrides.pdh_avwap_cap_pct": 0.006,
+      "param_overrides.pdh_size_mult": 0.75
+    },
+    "stage": "targeted",
+    "thesis": "Slightly broaden and monetize PDH entries without changing other entry families."
+  },
+  {
+    "atomic_key": "",
+    "category": "weakness_targeted",
+    "lineage": "post-OOS diagnostic",
+    "name": "target__pdh_cap008_size065",
+    "patch": {
+      "param_overrides.pdh_avwap_cap_pct": 0.008,
+      "param_overrides.pdh_size_mult": 0.65
+    },
+    "stage": "targeted",
+    "thesis": "Broaden PDH frequency with moderate sizing."
+  },
+  {
+    "atomic_key": "",
+    "category": "weakness_targeted",
+    "lineage": "post-OOS diagnostic",
+    "name": "target__combined_rvol23_cap004_score5",
+    "patch": {
+      "param_overrides.combined_avwap_cap_pct": 0.004,
+      "param_overrides.combined_breakout_min_rvol": 2.3,
+      "param_overrides.combined_breakout_score_min": 5
+    },
+    "stage": "targeted",
+    "thesis": "Recover combined-breakout frequency while retaining a score floor."
+  },
+  {
+    "atomic_key": "",
+    "category": "weakness_targeted",
+    "lineage": "post-OOS diagnostic",
+    "name": "target__combined_rvol22_cap005_score5",
+    "patch": {
+      "param_overrides.combined_avwap_cap_pct": 0.005,
+      "param_overrides.combined_breakout_min_rvol": 2.2,
+      "param_overrides.combined_breakout_score_min": 5
+    },
+    "stage": "targeted",
+    "thesis": "Broader combined-breakout frequency recovery stress test."
+  },
+  {
+    "atomic_key": "",
+    "category": "weakness_targeted",
+    "lineage": "post-OOS diagnostic",
+    "name": "target__entry1300_rvol21",
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.rvol_threshold": 2.1
+    },
+    "stage": "targeted",
+    "thesis": "Trade a longer window but offset it with a higher RVOL floor."
+  },
+  {
+    "atomic_key": "",
+    "category": "weakness_targeted",
+    "lineage": "post-OOS diagnostic",
+    "name": "target__entry1300_rvol19",
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "targeted",
+    "thesis": "Aggressive frequency recovery, included as a boundary/overfit check."
+  },
+  {
+    "atomic_key": "",
+    "category": "weakness_targeted",
+    "lineage": "post-OOS diagnostic",
+    "name": "target__orb_quality_size60",
+    "patch": {
+      "ablation.use_orb_quality_gate": true,
+      "param_overrides.orb_quality_score_min": 60.0,
+      "param_overrides.orb_quality_size_floor": 0.6,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 85.0
+    },
+    "stage": "targeted",
+    "thesis": "Continuously downsize the weak 60-70 quality bucket without a hard frequency cut."
+  },
+  {
+    "atomic_key": "",
+    "category": "weakness_targeted",
+    "lineage": "post-OOS diagnostic",
+    "name": "target__orb_quality_size70",
+    "patch": {
+      "ablation.use_orb_quality_gate": true,
+      "param_overrides.orb_quality_score_min": 60.0,
+      "param_overrides.orb_quality_size_floor": 0.7,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 85.0
+    },
+    "stage": "targeted",
+    "thesis": "Milder continuous quality sizing."
+  },
+  {
+    "atomic_key": "",
+    "category": "weakness_targeted",
+    "lineage": "post-OOS diagnostic",
+    "name": "target__rvol190_quality_size70",
+    "patch": {
+      "ablation.use_orb_quality_gate": true,
+      "param_overrides.orb_quality_score_min": 60.0,
+      "param_overrides.orb_quality_size_floor": 0.7,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 85.0,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "targeted",
+    "thesis": "Pair frequency recovery with continuous quality-based risk control."
+  }
+]

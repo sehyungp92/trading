@@ -1,0 +1,11 @@
+======================================================================
+ALCB P16 TARGETED ENTRY REPAIR PHASE 2 SNAPSHOT
+======================================================================
+Focus: Bar-9 and late-entry repair
+Score 0.3999 -> 0.3999 with 0 accepted mutations.
+
+Core: trades=578, net_profit=+8518.01, expectancy_dollar=+14.74, expected_total_r=+103.56, pf=1.685, dd=3.8%, trades/month=22.33
+Entry shape: extended_avwap_inverse=0.319, bar9_inverse=0.165, late_entry_quality=0.737, pdh_avg_r=+0.124, or_avg_r=+0.191, score_monotonicity=0.489
+Management: profit_protection=0.772, mfe_capture_eff=0.766, inv_dd=0.686
+Focus metric deltas: expected_total_r=+103.561->+103.561, net_profit=+8518.010->+8518.010, profit_factor=+1.685->+1.685, trades_per_month=+22.326->+22.326, bar9_inverse=+0.165->+0.165, late_entry_quality=+0.737->+0.737
+Hard floors: max_dd_pct=4.76%, min_expectancy_dollar=14.0002, min_expected_total_r=101.4894, min_net_profit=8177.2896, min_pf=1.6346, min_trades_per_month=20.7632

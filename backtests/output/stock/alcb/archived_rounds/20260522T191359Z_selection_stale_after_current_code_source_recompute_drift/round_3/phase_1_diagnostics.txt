@@ -1,0 +1,11 @@
+======================================================================
+ALCB ROUND-3 RESIDUAL ALPHA PHASE 1 SNAPSHOT
+======================================================================
+Focus: Completed-bar score component discrimination
+Score 0.3532 -> 0.3580 with 1 accepted mutations.
+
+Core: trades=510, net_profit=+10254.88, expectancy_dollar=+20.11, expected_total_r=+132.53, pf=2.102, dd=2.8%, trades/month=19.70
+Quality: signal_quality=0.595, timing_quality=0.672, extended_avwap_inverse=0.155, bar9_inverse=0.860, late_entry_quality=1.000, score_monotonicity=0.421
+Management: profit_protection=0.690, short24_inv=0.422, flow_mfe_inv=0.844, mfe_capture_eff=0.804, sizing_alignment=1.000, long_hold_capture=0.988, inv_dd=0.769
+Focus metric deltas: expected_total_r=+130.069->+132.528, trades_per_month=+19.699->+19.699, expectancy_dollar=+20.104->+20.108, profit_factor=+2.100->+2.102, signal_quality=+0.607->+0.595, score_monotonicity=+0.438->+0.421, sizing_alignment=+1.000->+1.000
+Hard floors: max_dd_pct=4.70%, min_expectancy_dollar=18.0933, min_expected_total_r=122.2648, min_net_profit=9535.1598, min_pf=1.9740, min_score_monotonicity=0.4200, min_signal_quality=0.5581, min_sizing_alignment=0.9000, min_trades_per_month=19.4000

@@ -1,0 +1,184 @@
+{
+  "phases": {
+    "1": {
+      "status": "completed",
+      "updated_at": "2026-04-30T04:51:59.259041+00:00",
+      "completed_phases": [
+        1
+      ],
+      "current_phase": 1,
+      "total_mutations": 40,
+      "base_score": 0.35316177703908086,
+      "final_score": 0.35800024809736675,
+      "kept_features": [
+        "r3_score5_or_no_volume_size55"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Completed-bar score component discrimination",
+      "candidate_count": 5
+    },
+    "2": {
+      "status": "completed",
+      "updated_at": "2026-04-30T05:15:03.410751+00:00",
+      "completed_phases": [
+        1,
+        2
+      ],
+      "current_phase": 2,
+      "total_mutations": 44,
+      "base_score": 0.37154112915267584,
+      "final_score": 0.40501081647850856,
+      "kept_features": [
+        "r3_failstop10_mfe020_cur000_to_m025"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Early-failure protective stop tightening",
+      "candidate_count": 5
+    },
+    "3": {
+      "status": "completed",
+      "updated_at": "2026-04-30T05:42:53.439593+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3
+      ],
+      "current_phase": 3,
+      "total_mutations": 44,
+      "base_score": 0.542680484473313,
+      "final_score": 0.646875207084721,
+      "kept_features": [
+        "r3_adaptive_late012"
+      ],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Exit management and profit retention",
+      "candidate_count": 5
+    },
+    "4": {
+      "status": "completed",
+      "updated_at": "2026-04-30T05:55:23.421832+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "current_phase": 4,
+      "total_mutations": 44,
+      "base_score": 0.5060355461231997,
+      "final_score": 0.5060355461231997,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Quality-preserved frequency recovery",
+      "candidate_count": 5
+    },
+    "5": {
+      "status": "completed",
+      "updated_at": "2026-04-30T06:11:52.142731+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "current_phase": 5,
+      "total_mutations": 44,
+      "base_score": 0.5309621317225502,
+      "final_score": 0.5309621317225502,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Entry geometry retest and extension control",
+      "candidate_count": 4
+    },
+    "6": {
+      "status": "completed",
+      "updated_at": "2026-04-30T06:24:00.784717+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "current_phase": 6,
+      "total_mutations": 44,
+      "base_score": 0.5291746607821028,
+      "final_score": 0.5291746607821028,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Round-3 structural synthesis",
+      "candidate_count": 4
+    },
+    "7": {
+      "status": "completed",
+      "updated_at": "2026-04-30T12:01:31.121151+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "current_phase": 7,
+      "total_mutations": 44,
+      "base_score": 0.5052748596679854,
+      "final_score": 0.5052748596679854,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Causal early trade-maturation protection",
+      "candidate_count": 5
+    },
+    "8": {
+      "status": "completed",
+      "updated_at": "2026-04-30T12:40:15.761312+00:00",
+      "completed_phases": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "current_phase": 8,
+      "total_mutations": 44,
+      "base_score": 0.5191151994847192,
+      "final_score": 0.5191151994847192,
+      "kept_features": [],
+      "gate_passed": true,
+      "failure_category": null,
+      "scoring_retries": 0,
+      "diagnostic_retries": 0,
+      "focus": "Delayed entry confirmation and maturation synthesis",
+      "candidate_count": 4
+    }
+  },
+  "last_updated": "2026-04-30T12:40:15.783414+00:00",
+  "current_phase": 8
+}

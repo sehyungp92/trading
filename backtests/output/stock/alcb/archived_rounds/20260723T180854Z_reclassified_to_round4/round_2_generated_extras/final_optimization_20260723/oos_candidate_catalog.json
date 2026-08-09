@@ -1,0 +1,580 @@
+[
+  {
+    "atomic_key": "",
+    "category": "control",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "control__balanced",
+    "patch": {
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Previously selected balanced RVOL/OR/trail control."
+  },
+  {
+    "atomic_key": "",
+    "category": "control",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "control__previous_balanced_candidate",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.25,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Balanced drawdown candidate from the preceding phase."
+  },
+  {
+    "atomic_key": "",
+    "category": "daily_stop",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "daily__cap125_sel30_flow8__stop2p35",
+    "patch": {
+      "ablation.use_daily_stop": true,
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.daily_stop_r": 2.35,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.25,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Block only subsequent entries after causally realized daily losses reach the threshold."
+  },
+  {
+    "atomic_key": "",
+    "category": "daily_stop",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "daily__cap085_sel30_flow8__stop2p35",
+    "patch": {
+      "ablation.use_daily_stop": true,
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.daily_stop_r": 2.35,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.85,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Block only subsequent entries after causally realized daily losses reach the threshold."
+  },
+  {
+    "atomic_key": "",
+    "category": "daily_stop",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "daily__cap090_sel30__stop2p35",
+    "patch": {
+      "ablation.use_daily_stop": true,
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.daily_stop_r": 2.35,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.9,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Block only subsequent entries after causally realized daily losses reach the threshold."
+  },
+  {
+    "atomic_key": "",
+    "category": "daily_stop",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "daily__cap075_sel20_flow8__stop2p35",
+    "patch": {
+      "ablation.use_daily_stop": true,
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.daily_stop_r": 2.35,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.75,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 20
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Block only subsequent entries after causally realized daily losses reach the threshold."
+  },
+  {
+    "atomic_key": "",
+    "category": "daily_stop",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "daily__cap090_sel30__stop3p0",
+    "patch": {
+      "ablation.use_daily_stop": true,
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.daily_stop_r": 3.0,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.9,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Block only subsequent entries after causally realized daily losses reach the threshold."
+  },
+  {
+    "atomic_key": "",
+    "category": "daily_stop",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "daily__cap090_sel30__stop2p75",
+    "patch": {
+      "ablation.use_daily_stop": true,
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.daily_stop_r": 2.75,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.9,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Block only subsequent entries after causally realized daily losses reach the threshold."
+  },
+  {
+    "atomic_key": "",
+    "category": "daily_stop",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "daily__cap085_sel30__stop2p35",
+    "patch": {
+      "ablation.use_daily_stop": true,
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.daily_stop_r": 2.35,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.85,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Block only subsequent entries after causally realized daily losses reach the threshold."
+  },
+  {
+    "atomic_key": "",
+    "category": "daily_stop",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "daily__cap100_sel30_flow8__stop2p35",
+    "patch": {
+      "ablation.use_daily_stop": true,
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.daily_stop_r": 2.35,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.0,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Block only subsequent entries after causally realized daily losses reach the threshold."
+  },
+  {
+    "atomic_key": "",
+    "category": "hard_geometry_flow",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "hard__cap0p75__sel20__flow8",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.75,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 20
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Combine range discrimination with the locally stable eight-bar flow grace."
+  },
+  {
+    "atomic_key": "",
+    "category": "hard_geometry_flow",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "hard__cap0p75__sel30__flow8",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.75,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Combine range discrimination with the locally stable eight-bar flow grace."
+  },
+  {
+    "atomic_key": "",
+    "category": "hard_geometry_flow",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "hard__cap0p9__sel30__flow8",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.9,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Combine range discrimination with the locally stable eight-bar flow grace."
+  },
+  {
+    "atomic_key": "",
+    "category": "hard_geometry",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "hard__cap0p75__sel30",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.75,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Map the smooth risk/alpha response of completed signal-bar range geometry."
+  },
+  {
+    "atomic_key": "",
+    "category": "hard_geometry_flow",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "hard__cap0p85__sel30__flow8",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.85,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Combine range discrimination with the locally stable eight-bar flow grace."
+  },
+  {
+    "atomic_key": "",
+    "category": "failure_density",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "density__cap100_sel30__l20__t0p58__m0p7",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.failure_density_lookback_trades": 20,
+      "param_overrides.failure_density_mfe_threshold_r": 0.2,
+      "param_overrides.failure_density_min_observations": 8,
+      "param_overrides.failure_density_size_mult": 0.7,
+      "param_overrides.failure_density_trigger_pct": 0.58,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.0,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Reduce risk after a causal rolling cluster of losing low-MFE breakouts."
+  },
+  {
+    "atomic_key": "",
+    "category": "hard_geometry",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "hard__cap0p9__sel30",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.9,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Map the smooth risk/alpha response of completed signal-bar range geometry."
+  },
+  {
+    "atomic_key": "",
+    "category": "hard_geometry",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "hard__cap0p75__sel20",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.75,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 20
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Map the smooth risk/alpha response of completed signal-bar range geometry."
+  },
+  {
+    "atomic_key": "",
+    "category": "hard_geometry_flow",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "hard__cap1p0__sel30__flow8",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.0,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Combine range discrimination with the locally stable eight-bar flow grace."
+  },
+  {
+    "atomic_key": "",
+    "category": "quality_geometry",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "quality__cap0p9__floor0p7__sel30",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.9,
+      "param_overrides.orb_quality_score_min": 55.0,
+      "param_overrides.orb_quality_size_floor": 0.7,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 82.5,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Use geometry for rejection and the existing composite only for continuous sizing."
+  },
+  {
+    "atomic_key": "",
+    "category": "daily_stop",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "daily__cap090_sel30__stop2p0",
+    "patch": {
+      "ablation.use_daily_stop": true,
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.daily_stop_r": 2.0,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.9,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Block only subsequent entries after causally realized daily losses reach the threshold."
+  },
+  {
+    "atomic_key": "",
+    "category": "hard_geometry",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "hard__cap0p85__sel30",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.85,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Map the smooth risk/alpha response of completed signal-bar range geometry."
+  },
+  {
+    "atomic_key": "",
+    "category": "hard_geometry_flow",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "hard__cap0p95__sel30__flow8",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.95,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Combine range discrimination with the locally stable eight-bar flow grace."
+  },
+  {
+    "atomic_key": "",
+    "category": "hard_geometry_flow",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "hard__cap0p85__sel20__flow8",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.85,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 20
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Combine range discrimination with the locally stable eight-bar flow grace."
+  },
+  {
+    "atomic_key": "",
+    "category": "hard_geometry",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "hard__cap0p9__sel20",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.9,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 20
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Map the smooth risk/alpha response of completed signal-bar range geometry."
+  },
+  {
+    "atomic_key": "",
+    "category": "hard_geometry_flow",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "hard__cap0p9__sel20__flow8",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.9,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 20
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Combine range discrimination with the locally stable eight-bar flow grace."
+  },
+  {
+    "atomic_key": "",
+    "category": "hard_geometry",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "hard__cap0p85__sel20",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.85,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 20
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Map the smooth risk/alpha response of completed signal-bar range geometry."
+  },
+  {
+    "atomic_key": "",
+    "category": "quality_geometry",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "quality__cap0p9__floor0p6__sel30",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.9,
+      "param_overrides.orb_quality_score_min": 55.0,
+      "param_overrides.orb_quality_size_floor": 0.6,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 82.5,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Use geometry for rejection and the existing composite only for continuous sizing."
+  },
+  {
+    "atomic_key": "",
+    "category": "daily_stop",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "daily__cap125_sel30__stop2p35",
+    "patch": {
+      "ablation.use_daily_stop": true,
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.daily_stop_r": 2.35,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.25,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Block only subsequent entries after causally realized daily losses reach the threshold."
+  },
+  {
+    "atomic_key": "",
+    "category": "daily_stop",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "daily__cap100_sel30__stop2p35",
+    "patch": {
+      "ablation.use_daily_stop": true,
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.daily_stop_r": 2.35,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.0,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Block only subsequent entries after causally realized daily losses reach the threshold."
+  },
+  {
+    "atomic_key": "",
+    "category": "hard_geometry",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "hard__cap1p0__sel30",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.0,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Map the smooth risk/alpha response of completed signal-bar range geometry."
+  },
+  {
+    "atomic_key": "",
+    "category": "failure_density",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "density__cap100_sel30__l12__t0p5__m0p5",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.failure_density_lookback_trades": 12,
+      "param_overrides.failure_density_mfe_threshold_r": 0.2,
+      "param_overrides.failure_density_min_observations": 8,
+      "param_overrides.failure_density_size_mult": 0.5,
+      "param_overrides.failure_density_trigger_pct": 0.5,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.0,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Reduce risk after a causal rolling cluster of losing low-MFE breakouts."
+  },
+  {
+    "atomic_key": "",
+    "category": "hard_geometry",
+    "lineage": "full accepted Round-2 configuration + balanced control + targeted causal change",
+    "name": "hard__cap0p95__sel30",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 0.95,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "round2_final_optimization",
+    "thesis": "Map the smooth risk/alpha response of completed signal-bar range geometry."
+  }
+]

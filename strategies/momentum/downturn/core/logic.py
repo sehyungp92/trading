@@ -68,7 +68,7 @@ def on_bar(
     if bar_ts is not None:
         next_state.last_bar_ts = bar_ts
 
-    if entry_request is not None:
+    if entry_request is not None and not _owns_entry_or_position(next_state):
         next_state.symbol = entry_request.symbol or next_state.symbol
         actions.append(
             SubmitEntry(
@@ -104,7 +104,18 @@ def on_bar(
             )
         )
 
-    if entry_proposal is not None:
+    elif entry_request is not None:
+        events.append(
+            DecisionEvent(
+                code="ENTRY_BLOCKED_OWNED_ORDER",
+                ts=event_ts,
+                symbol=entry_request.symbol or next_state.symbol,
+                timeframe="5m",
+                details={"client_order_id": entry_request.client_order_id},
+            )
+        )
+
+    if entry_proposal is not None and not _owns_entry_or_position(next_state):
         next_state.symbol = entry_proposal.symbol or next_state.symbol
         next_state.pending_entries[entry_proposal.client_order_id] = entry_proposal
         actions.append(entry_action(entry_proposal))
@@ -122,6 +133,16 @@ def on_bar(
                     "stop0": entry_proposal.stop0,
                     "risk_dollars": entry_proposal.risk_dollars,
                 },
+            )
+        )
+    elif entry_proposal is not None:
+        events.append(
+            DecisionEvent(
+                code="ENTRY_BLOCKED_OWNED_ORDER",
+                ts=event_ts,
+                symbol=entry_proposal.symbol or next_state.symbol,
+                timeframe="5m",
+                details={"client_order_id": entry_proposal.client_order_id},
             )
         )
 
@@ -218,7 +239,7 @@ def on_authorization(
     """Apply family portfolio feedback before an entry is submitted."""
 
     next_state = deepcopy(state)
-    proposal = next_state.pending_entries.pop(authorization.client_order_id, None)
+    proposal = next_state.pending_entries.get(authorization.client_order_id)
     if proposal is None:
         return next_state, [], []
     approved_qty = min(
@@ -227,6 +248,7 @@ def on_authorization(
     )
     approved = bool(authorization.approved and approved_qty > 0)
     if not approved:
+        next_state.pending_entries.pop(authorization.client_order_id, None)
         events = [
             DecisionEvent(
                 code="ENTRY_DENIED",
@@ -274,25 +296,35 @@ def on_order_update(
 
     if update.accepted_entry is not None and status in _ACK_STATUSES:
         accepted = update.accepted_entry
+        next_state.pending_entries.pop(accepted.client_order_id, None)
         next_state.symbol = accepted.symbol or next_state.symbol
-        next_state.working_entries.append(
-            WorkingEntry(
-                oms_order_id=update.oms_order_id,
-                engine_tag=accepted.engine_tag,
-                signal_class=accepted.signal_class,
-                entry_price=accepted.entry_price,
-                stop0=accepted.stop0,
-                qty=accepted.qty,
-                submitted_bar_idx=accepted.submitted_bar_idx,
-                ttl_bars=accepted.ttl_bars,
-                composite_regime=accepted.composite_regime,
-                vol_state=accepted.vol_state,
-                in_correction=accepted.in_correction,
-                predator=accepted.predator,
-                tp_schedule=list(accepted.tp_schedule),
-                signal_strength=accepted.signal_strength,
-            )
+        existing = next(
+            (
+                entry
+                for entry in next_state.working_entries
+                if entry.oms_order_id == update.oms_order_id
+            ),
+            None,
         )
+        if existing is None and next_state.position is None and not next_state.working_entries:
+            next_state.working_entries.append(
+                WorkingEntry(
+                    oms_order_id=update.oms_order_id,
+                    engine_tag=accepted.engine_tag,
+                    signal_class=accepted.signal_class,
+                    entry_price=accepted.entry_price,
+                    stop0=accepted.stop0,
+                    qty=accepted.qty,
+                    submitted_bar_idx=accepted.submitted_bar_idx,
+                    ttl_bars=accepted.ttl_bars,
+                    composite_regime=accepted.composite_regime,
+                    vol_state=accepted.vol_state,
+                    in_correction=accepted.in_correction,
+                    predator=accepted.predator,
+                    tp_schedule=list(accepted.tp_schedule),
+                    signal_strength=accepted.signal_strength,
+                )
+            )
         events.append(
             DecisionEvent(
                 code="ENTRY_SUBMITTED",
@@ -403,10 +435,20 @@ def on_fill(
         fill.oms_order_id == next_state.position.stop_oms_order_id or fill.exit_type
     ):
         trade_id = next_state.position.trade_id
-        next_state.position = None
+        close_qty = min(
+            max(int(fill.fill_qty or next_state.position.remaining_qty), 0),
+            next_state.position.remaining_qty,
+        )
+        if 0 < close_qty < next_state.position.remaining_qty:
+            next_state.position.remaining_qty -= close_qty
+            next_state.position.commission += fill.commission
+            code = "PARTIAL_EXIT_FILLED"
+        else:
+            next_state.position = None
+            code = "EXIT_FILLED"
         events.append(
             DecisionEvent(
-                code="EXIT_FILLED",
+                code=code,
                 ts=event_ts,
                 symbol=next_state.symbol or trade_id,
                 timeframe="5m",
@@ -416,6 +458,12 @@ def on_fill(
 
     _update_last_decision(next_state, events)
     return next_state, actions, events
+
+
+def _owns_entry_or_position(state: DownturnCoreState) -> bool:
+    """Return whether another entry would violate single-position ownership."""
+
+    return bool(state.position or state.working_entries or state.pending_entries)
 
 
 def _update_last_decision(state: DownturnCoreState, events: list[DecisionEvent]) -> None:

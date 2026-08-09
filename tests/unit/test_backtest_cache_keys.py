@@ -344,15 +344,20 @@ def test_load_stock_research_replay_bundle_does_not_alias_identical_roots(monkey
     assert first.data.data_dir != second.data.data_dir
 
 
-def test_research_replay_data_fingerprint_tracks_source_files(tmp_path) -> None:
-    first = tmp_path / "AAA_1d.parquet"
-    first.write_text("one", encoding="utf-8")
+def test_research_replay_data_fingerprint_tracks_only_replay_source_files(tmp_path) -> None:
+    source = tmp_path / "AAPL_1d.parquet"
+    source.write_text("one", encoding="utf-8")
 
     replay = ResearchReplayEngine(data_dir=tmp_path)
     initial = replay.data_fingerprint()
 
+    # Files outside the configured replay universe must not invalidate a cache.
     second = tmp_path / "BBB_5m.parquet"
     second.write_text("two", encoding="utf-8")
     replay._data_fingerprint = None
+    assert replay.data_fingerprint() == initial
 
+    # A file that the replay can consume must still invalidate the fingerprint.
+    source.write_text("updated", encoding="utf-8")
+    replay._data_fingerprint = None
     assert replay.data_fingerprint() != initial

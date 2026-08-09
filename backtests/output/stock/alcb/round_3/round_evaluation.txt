@@ -1,0 +1,45 @@
+======================================================================
+ALCB END-OF-ROUND EVALUATION
+======================================================================
+
+Saved corrected data-repair recheck result as ALCB round_3.
+Promoted at UTC: 2026-07-23T18:40:39.729688+00:00
+Source recheck: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\stock\data_repair_recheck\latest_configs_20260722T152328Z
+Source latest config/phase lineage: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\stock\alcb\round_2
+Previous round_3 archived at: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\stock\alcb\archived_rounds\20260723T183925Z_pre_requested_alcb_round3_relabel\round_3
+
+Execution Window:
+  start_date: 2024-03-25
+  end_date:   2026-03-01
+  first_trade_entry: 2024-03-25T14:15:00+00:00
+  last_trade_exit:   2026-02-27T16:40:00+00:00
+
+Promoted Core Metrics:
+  trades: 1050
+  net_profit: +19640.70
+  expectancy_dollar: +18.71
+  expected_total_r: +183.758
+  win_rate: 57.52%
+  profit_factor: 1.764
+  max_drawdown_pct: 12.28%
+  trades_per_month: 45.397
+  sharpe: 3.783
+  calmar: 6.167
+
+Delta vs Source round_2:
+  trades: 589 -> 1050
+  net_profit: +13848.07 -> +19640.70
+  expected_total_r: +160.828 -> +183.758
+  win_rate: 62.82% -> 57.52%
+  profit_factor: 2.207 -> 1.764
+  max_drawdown_pct: 2.92% -> 12.28%
+  sharpe: 3.995 -> 3.783
+  calmar: 16.970 -> 6.167
+
+Hard-Floor Status From Promoted Diagnostics:
+  The promoted result is the full corrected-window diagnostic result, but it breaches the saved optimizer floors for max_dd_pct, min_expectancy_dollar, min_pf, and profit_protection.
+
+Artifacts:
+  round_final_diagnostics.txt: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\stock\alcb\round_3\round_final_diagnostics.txt
+  run_summary.json: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\stock\alcb\round_3\run_summary.json
+  final_trades.json: C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\stock\alcb\round_3\final_trades.json

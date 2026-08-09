@@ -1,0 +1,375 @@
+[
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_pdh090__plus__target__rvol190_failstop8",
+    "patch": {
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.pdh_size_mult": 0.9,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_pdh090 + target__rvol190_failstop8."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_pdh090__plus__perturb__rvol_threshold__1p9",
+    "patch": {
+      "param_overrides.pdh_size_mult": 0.9,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_pdh090 + perturb__rvol_threshold__1p9."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_pdh090__plus__target__rvol190_score_gradient",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.2,
+        "OR_BREAKOUT:4": 0.9,
+        "OR_BREAKOUT:5": 0.85,
+        "OR_BREAKOUT:6": 1.05,
+        "PDH_BREAKOUT:6": 0.65
+      },
+      "param_overrides.pdh_size_mult": 0.9,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_pdh090 + target__rvol190_score_gradient."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_pdh090__plus__target__rvol190_failstop12",
+    "patch": {
+      "param_overrides.failure_stop_bars": 12,
+      "param_overrides.pdh_size_mult": 0.9,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_pdh090 + target__rvol190_failstop12."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_pdh090__plus__target__entry1300_rvol19",
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.pdh_size_mult": 0.9,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_pdh090 + target__entry1300_rvol19."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_pdh090__plus__perturb__opening_range_bars__9",
+    "patch": {
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.pdh_size_mult": 0.9,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_pdh090 + perturb__opening_range_bars__9."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_failstop8__plus__perturb__rvol_threshold__1p9",
+    "patch": {
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_failstop8 + perturb__rvol_threshold__1p9."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_failstop8__plus__target__rvol190_score_gradient",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.2,
+        "OR_BREAKOUT:4": 0.9,
+        "OR_BREAKOUT:5": 0.85,
+        "OR_BREAKOUT:6": 1.05,
+        "PDH_BREAKOUT:6": 0.65
+      },
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_failstop8 + target__rvol190_score_gradient."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_failstop8__plus__target__rvol190_pdh065",
+    "patch": {
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.pdh_size_mult": 0.65,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_failstop8 + target__rvol190_pdh065."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_failstop8__plus__target__entry1300_rvol19",
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_failstop8 + target__entry1300_rvol19."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_failstop8__plus__perturb__opening_range_bars__9",
+    "patch": {
+      "param_overrides.failure_stop_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_failstop8 + perturb__opening_range_bars__9."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__rvol_threshold__1p9__plus__target__rvol190_score_gradient",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.2,
+        "OR_BREAKOUT:4": 0.9,
+        "OR_BREAKOUT:5": 0.85,
+        "OR_BREAKOUT:6": 1.05,
+        "PDH_BREAKOUT:6": 0.65
+      },
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__rvol_threshold__1p9 + target__rvol190_score_gradient."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__rvol_threshold__1p9__plus__target__rvol190_failstop12",
+    "patch": {
+      "param_overrides.failure_stop_bars": 12,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__rvol_threshold__1p9 + target__rvol190_failstop12."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__rvol_threshold__1p9__plus__target__rvol190_pdh065",
+    "patch": {
+      "param_overrides.pdh_size_mult": 0.65,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__rvol_threshold__1p9 + target__rvol190_pdh065."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__rvol_threshold__1p9__plus__target__entry1300_rvol19",
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__rvol_threshold__1p9 + target__entry1300_rvol19."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__perturb__rvol_threshold__1p9__plus__perturb__opening_range_bars__9",
+    "patch": {
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: perturb__rvol_threshold__1p9 + perturb__opening_range_bars__9."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_score_gradient__plus__target__rvol190_failstop12",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.2,
+        "OR_BREAKOUT:4": 0.9,
+        "OR_BREAKOUT:5": 0.85,
+        "OR_BREAKOUT:6": 1.05,
+        "PDH_BREAKOUT:6": 0.65
+      },
+      "param_overrides.failure_stop_bars": 12,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_score_gradient + target__rvol190_failstop12."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_score_gradient__plus__target__rvol190_pdh065",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.2,
+        "OR_BREAKOUT:4": 0.9,
+        "OR_BREAKOUT:5": 0.85,
+        "OR_BREAKOUT:6": 1.05,
+        "PDH_BREAKOUT:6": 0.65
+      },
+      "param_overrides.pdh_size_mult": 0.65,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_score_gradient + target__rvol190_pdh065."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_score_gradient__plus__target__entry1300_rvol19",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.2,
+        "OR_BREAKOUT:4": 0.9,
+        "OR_BREAKOUT:5": 0.85,
+        "OR_BREAKOUT:6": 1.05,
+        "PDH_BREAKOUT:6": 0.65
+      },
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_score_gradient + target__entry1300_rvol19."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_score_gradient__plus__perturb__opening_range_bars__9",
+    "patch": {
+      "param_overrides.entry_score_size_mults": {
+        "COMBINED_BREAKOUT:7": 1.2,
+        "OR_BREAKOUT:4": 0.9,
+        "OR_BREAKOUT:5": 0.85,
+        "OR_BREAKOUT:6": 1.05,
+        "PDH_BREAKOUT:6": 0.65
+      },
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_score_gradient + perturb__opening_range_bars__9."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_failstop12__plus__target__rvol190_pdh065",
+    "patch": {
+      "param_overrides.failure_stop_bars": 12,
+      "param_overrides.pdh_size_mult": 0.65,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_failstop12 + target__rvol190_pdh065."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_failstop12__plus__target__entry1300_rvol19",
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.failure_stop_bars": 12,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_failstop12 + target__entry1300_rvol19."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_failstop12__plus__perturb__opening_range_bars__9",
+    "patch": {
+      "param_overrides.failure_stop_bars": 12,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_failstop12 + perturb__opening_range_bars__9."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_pdh065__plus__target__entry1300_rvol19",
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.pdh_size_mult": 0.65,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_pdh065 + target__entry1300_rvol19."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__rvol190_pdh065__plus__perturb__opening_range_bars__9",
+    "patch": {
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.pdh_size_mult": 0.65,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__rvol190_pdh065 + perturb__opening_range_bars__9."
+  },
+  {
+    "atomic_key": "",
+    "category": "pairwise_robust_singles",
+    "lineage": "exploratory pairwise synthesis",
+    "name": "combo__target__entry1300_rvol19__plus__perturb__opening_range_bars__9",
+    "patch": {
+      "param_overrides.entry_window_end": "13:00:00",
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.rvol_threshold": 1.9
+    },
+    "stage": "combination",
+    "thesis": "Pair two OOS-uplifting singles that independently pass IS guardrails: target__entry1300_rvol19 + perturb__opening_range_bars__9."
+  }
+]

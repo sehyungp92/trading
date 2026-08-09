@@ -1,0 +1,131 @@
+{
+  "adjustment_roll_policy": "quarterly CME roll policy plus deterministic backward Panama stitching",
+  "calendar_session_policy": "request.use_rth controls IBKR RTH/ETH; sparse ETH bars are valid trades-only bars",
+  "contracts": [
+    {
+      "exchange": "CME",
+      "expiry": "2025-03-21",
+      "local_symbol": "ESH5",
+      "raw_path": "",
+      "roll_date": "2025-03-17",
+      "trading_class": "ES",
+      "yyyymm": "202503"
+    },
+    {
+      "exchange": "CME",
+      "expiry": "2025-06-20",
+      "local_symbol": "ESM5",
+      "raw_path": "backtests\\momentum\\data\\raw\\_physical_contracts\\ES\\202506\\1d_trades.parquet",
+      "roll_date": "2025-06-16",
+      "trading_class": "ES",
+      "yyyymm": "202506"
+    },
+    {
+      "exchange": "CME",
+      "expiry": "2025-09-19",
+      "local_symbol": "ESU5",
+      "raw_path": "backtests\\momentum\\data\\raw\\_physical_contracts\\ES\\202509\\1d_trades.parquet",
+      "roll_date": "2025-09-15",
+      "trading_class": "ES",
+      "yyyymm": "202509"
+    },
+    {
+      "exchange": "CME",
+      "expiry": "2025-12-19",
+      "local_symbol": "ESZ5",
+      "raw_path": "backtests\\momentum\\data\\raw\\_physical_contracts\\ES\\202512\\1d_trades.parquet",
+      "roll_date": "2025-12-15",
+      "trading_class": "ES",
+      "yyyymm": "202512"
+    },
+    {
+      "exchange": "CME",
+      "expiry": "2026-03-20",
+      "local_symbol": "ESH6",
+      "raw_path": "backtests\\momentum\\data\\raw\\_physical_contracts\\ES\\202603\\1d_trades.parquet",
+      "roll_date": "2026-03-16",
+      "trading_class": "ES",
+      "yyyymm": "202603"
+    },
+    {
+      "exchange": "CME",
+      "expiry": "2026-06-19",
+      "local_symbol": "ESM6",
+      "raw_path": "backtests\\momentum\\data\\raw\\_physical_contracts\\ES\\202606\\1d_trades.parquet",
+      "roll_date": "2026-06-15",
+      "trading_class": "ES",
+      "yyyymm": "202606"
+    },
+    {
+      "exchange": "CME",
+      "expiry": "2026-09-18",
+      "local_symbol": "ESU6",
+      "raw_path": "backtests\\momentum\\data\\raw\\_physical_contracts\\ES\\202609\\1d_trades.parquet",
+      "roll_date": "2026-09-14",
+      "trading_class": "ES",
+      "yyyymm": "202609"
+    },
+    {
+      "exchange": "CME",
+      "expiry": "2026-12-18",
+      "local_symbol": "ESZ6",
+      "raw_path": "",
+      "roll_date": "2026-12-14",
+      "trading_class": "ES",
+      "yyyymm": "202612"
+    }
+  ],
+  "duration": "2 Y",
+  "end": "2026-07-10T00:00:00+00:00",
+  "exchange": "CME",
+  "family": "momentum",
+  "output_path": "backtests\\momentum\\data\\raw\\ES_1d.parquet",
+  "rolls": [
+    {
+      "new_month": "202506",
+      "old_month": "202503",
+      "roll_date": "2025-03-17"
+    },
+    {
+      "new_month": "202509",
+      "old_month": "202506",
+      "roll_date": "2025-06-16"
+    },
+    {
+      "new_month": "202512",
+      "old_month": "202509",
+      "roll_date": "2025-09-15"
+    },
+    {
+      "new_month": "202603",
+      "old_month": "202512",
+      "roll_date": "2025-12-15"
+    },
+    {
+      "new_month": "202606",
+      "old_month": "202603",
+      "roll_date": "2026-03-16"
+    },
+    {
+      "new_month": "202609",
+      "old_month": "202606",
+      "roll_date": "2026-06-15"
+    },
+    {
+      "new_month": "202612",
+      "old_month": "202609",
+      "roll_date": "2026-09-14"
+    }
+  ],
+  "rows": 1138,
+  "sec_type": "FUT",
+  "source_kind": "ibkr_physical_futures_panama",
+  "start": "2021-12-21T00:00:00+00:00",
+  "symbol": "ES",
+  "timeframe": "1d",
+  "trading_class": "ES",
+  "updated_at": "2026-07-12T18:08:05.475022+00:00",
+  "usable_for_authoritative_validation": true,
+  "use_rth": true,
+  "what_to_show": "TRADES"
+}

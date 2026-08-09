@@ -1,0 +1,9 @@
+======================================================================
+IARIC T3 LIVE_ALIGNED_ABLATION_PERTURBATION PHASE 1 SNAPSHOT
+======================================================================
+Focus: Protected Widening + MFE Protection
+Score 0.8367 -> 0.8367 with 0 accepted mutations.
+
+Core: trades=1564, avg_r=+0.148, exp_total_r=+230.96, pf=2.18, sharpe=6.30, dd=2.2%
+Edges: rsi_depth=-0.020, trend_band=+0.004, late_rank=+0.013
+Exit capture: managed=98.3%, carry=6.6%, carry_avg_r=-0.213, eod=1.7%, stop_cost=+223.39R

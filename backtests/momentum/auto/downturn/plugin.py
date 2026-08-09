@@ -192,6 +192,12 @@ class DownturnPlugin:
                     repo_root / "backtests/momentum/config_downturn.py",
                     repo_root / "backtests/momentum/auto/config_mutator.py",
                     repo_root / "backtests/momentum/data/replay_cache.py",
+                    repo_root / "strategies/momentum/downturn/engine.py",
+                    repo_root / "strategies/momentum/downturn/config.py",
+                    repo_root / "strategies/momentum/downturn/core/logic.py",
+                    repo_root / "strategies/momentum/downturn/core/state.py",
+                    repo_root / "strategies/momentum/downturn/core/entry_decision.py",
+                    repo_root / "strategies/momentum/downturn/core/serializers.py",
                 ),
                 data_dir=self.data_dir,
                 selection_context={
@@ -389,16 +395,25 @@ class DownturnPlugin:
     def run_phase_diagnostics(self, phase: int, state: PhaseState, metrics: dict[str, float], greedy_result) -> str:
         from .phase_diagnostics import generate_phase_diagnostics
 
+        config = self._last_context.get("config")
+        param_overrides = getattr(config, "param_overrides", {})
+
         return generate_phase_diagnostics(
             phase,
             _metrics_from_dict(metrics),
             greedy_result_to_dict(greedy_result),
             asdict(state),
             self._last_context.get("trades"),
+            initial_equity=self.initial_equity,
+            point_value=float(getattr(config, "point_value", 2.0)),
+            base_risk_pct=float(param_overrides.get("base_risk_pct", 0.01)),
         )
 
     def run_enhanced_diagnostics(self, phase: int, state: PhaseState, metrics: dict[str, float], greedy_result) -> str:
         from .phase_diagnostics import generate_phase_diagnostics
+
+        config = self._last_context.get("config")
+        param_overrides = getattr(config, "param_overrides", {})
 
         return generate_phase_diagnostics(
             phase,
@@ -407,6 +422,9 @@ class DownturnPlugin:
             asdict(state),
             self._last_context.get("trades"),
             force_all_modules=True,
+            initial_equity=self.initial_equity,
+            point_value=float(getattr(config, "point_value", 2.0)),
+            base_risk_pct=float(param_overrides.get("base_risk_pct", 0.01)),
         )
 
     def build_end_of_round_artifacts(self, state: PhaseState) -> EndOfRoundArtifacts:

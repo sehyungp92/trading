@@ -1,0 +1,11 @@
+======================================================================
+ALCB ROUND-3 RESIDUAL ALPHA PHASE 8 SNAPSHOT
+======================================================================
+Focus: Delayed entry confirmation and maturation synthesis
+Score 0.0000 -> 0.0000 with 0 accepted mutations.
+
+Core: trades=589, net_profit=+13848.07, expectancy_dollar=+23.51, expected_total_r=+160.83, pf=2.207, dd=2.9%, trades/month=22.75
+Quality: signal_quality=0.523, timing_quality=0.962, extended_avwap_inverse=1.000, bar9_inverse=0.885, late_entry_quality=1.000, score_monotonicity=0.318
+Management: profit_protection=0.667, short24_inv=0.310, flow_mfe_inv=0.983, mfe_capture_eff=0.825, sizing_alignment=1.000, long_hold_capture=0.993, inv_dd=0.756
+Focus metric deltas: expected_total_r=+160.828->+160.828, trades_per_month=+22.751->+22.751, net_profit=+13848.070->+13848.070, expectancy_dollar=+23.511->+23.511, profit_factor=+2.207->+2.207, signal_quality=+0.523->+0.523, timing_quality=+0.962->+0.962, profit_protection=+0.667->+0.667
+Hard floors: max_dd_pct=4.50%, min_expectancy_dollar=21.6303, min_expected_total_r=156.0031, min_extended_avwap_inverse=0.9000, min_mfe_capture_efficiency=0.7200, min_net_profit=13155.6665, min_pf=2.0963, min_short_hold_24_drag_inverse=0.3000, min_signal_quality=0.5500, min_timing_quality=0.8461, min_trades_per_month=22.2959

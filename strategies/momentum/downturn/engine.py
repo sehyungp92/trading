@@ -584,12 +584,28 @@ class DownturnEngine:
             await self._manage_position()
 
         # Evaluate new entries
-        if self._position is None and not self._working_entries:
+        has_working_entry = bool(self._working_entries)
+        can_refresh_entry = bool(self._flags.cancel_replace_entry)
+        if self._position is None and (not has_working_entry or can_refresh_entry):
             gate_block = self._check_entry_gates()
             if gate_block is None:
                 result = self._evaluate_signals()
                 if result is not None:
                     signal, tag = result
+                    if has_working_entry:
+                        for working_entry in list(self._working_entries):
+                            await self._cancel_order(working_entry.oms_order_id)
+                            core_state, _, events = downturn_core_logic.on_order_update(
+                                self._build_core_state(),
+                                DownturnOrderUpdate(
+                                    oms_order_id=working_entry.oms_order_id,
+                                    status="cancelled",
+                                    timestamp=self._last_bar_ts or datetime.now(timezone.utc),
+                                    order_role="entry",
+                                ),
+                            )
+                            self._apply_core_state(core_state)
+                            self._apply_core_events(events)
                     self._record_decision("ENTRY_SUBMITTED", {"tag": tag.value if hasattr(tag, 'value') else str(tag)})
                     await self._submit_entry(signal, tag)
                 else:
@@ -1462,9 +1478,13 @@ class DownturnEngine:
             flags=self._flags,
             param_overrides=po,
             policy=DownturnProposalPolicy(
-                trigger_low_buffer_ticks=2.0,
-                entry_limit_offset_ticks=4.0,
-                entry_ttl_bars=72,
+                trigger_low_buffer_ticks=max(
+                    0.0, float(po.get("trigger_low_buffer_ticks", 2.0))
+                ),
+                entry_limit_offset_ticks=max(
+                    0.0, float(po.get("entry_limit_offset_ticks", 4.0))
+                ),
+                entry_ttl_bars=max(1, int(po.get("entry_ttl_bars", 72))),
                 max_contracts=0,
                 max_notional_leverage=C.MAX_LEVERAGE_MULT,
                 non_correction_penalty_enabled=False,

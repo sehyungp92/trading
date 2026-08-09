@@ -1,0 +1,69 @@
+20:19:30 INFO  backtests.stock.engine.research_replay: ResearchReplayEngine loaded: 401 daily, 13 ref, 97 30m, 98 5m (lazy), 1256 trading dates
+20:19:30 WARNING backtests.stock.engine.research_replay: Missing daily data for 14 symbols
+20:23:19 INFO  backtests.stock.auto.alcb.plugin: Parent baseline evaluated in 239.9s
+20:23:19 INFO  backtests.stock.auto.alcb.plugin: Using Windows thread evaluator for alcb phase 2 with max_workers=2.
+20:25:51 INFO  backtests.stock.auto.alcb.plugin: alcb phase 2 still running after 146s (0/2 completed, 2/2 worker thread(s) active).
+20:28:22 INFO  backtests.stock.auto.alcb.plugin: alcb phase 2 still running after 297s (0/2 completed, 2/2 worker thread(s) active).
+20:30:53 INFO  backtests.stock.auto.alcb.plugin: alcb phase 2 still running after 449s (0/2 completed, 2/2 worker thread(s) active).
+20:31:32 INFO  backtests.stock.auto.alcb.plugin: alcb phase 2 progress: 2/2 completed (100%, 491s elapsed).
+20:34:03 INFO  backtests.stock.auto.alcb.plugin: alcb phase 2 still running after 146s (0/2 completed, 2/2 worker thread(s) active).
+20:36:35 INFO  backtests.stock.auto.alcb.plugin: alcb phase 2 still running after 297s (0/2 completed, 2/2 worker thread(s) active).
+20:39:07 INFO  backtests.stock.auto.alcb.plugin: alcb phase 2 still running after 449s (0/2 completed, 2/2 worker thread(s) active).
+20:40:16 INFO  backtests.stock.auto.alcb.plugin: alcb phase 2 progress: 2/2 completed (100%, 523s elapsed).
+20:42:47 INFO  backtests.stock.auto.alcb.plugin: alcb phase 2 still running after 146s (0/2 completed, 2/2 worker thread(s) active).
+20:45:18 INFO  backtests.stock.auto.alcb.plugin: alcb phase 2 still running after 298s (0/2 completed, 2/2 worker thread(s) active).
+20:47:50 INFO  backtests.stock.auto.alcb.plugin: alcb phase 2 still running after 449s (0/2 completed, 2/2 worker thread(s) active).
+20:50:21 INFO  backtests.stock.auto.alcb.plugin: alcb phase 2 still running after 601s (0/2 completed, 2/2 worker thread(s) active).
+20:52:53 INFO  backtests.stock.auto.alcb.plugin: alcb phase 2 still running after 752s (0/2 completed, 2/2 worker thread(s) active).
+20:52:54 INFO  backtests.stock.auto.alcb.plugin: alcb phase 2 progress: 2/2 completed (100%, 758s elapsed).
+20:59:55 INFO  backtests.stock.auto.alcb.plugin: Parent baseline evaluated in 0.5s
+20:59:55 INFO  backtests.stock.auto.alcb.plugin: Using Windows thread evaluator for alcb phase 3 with max_workers=2.
+21:02:28 INFO  backtests.stock.auto.alcb.plugin: alcb phase 3 still running after 148s (0/2 completed, 2/2 worker thread(s) active).
+21:05:00 INFO  backtests.stock.auto.alcb.plugin: alcb phase 3 still running after 299s (0/2 completed, 2/2 worker thread(s) active).
+21:07:31 INFO  backtests.stock.auto.alcb.plugin: alcb phase 3 still running after 450s (0/2 completed, 2/2 worker thread(s) active).
+21:10:03 INFO  backtests.stock.auto.alcb.plugin: alcb phase 3 still running after 602s (0/2 completed, 2/2 worker thread(s) active).
+21:12:34 INFO  backtests.stock.auto.alcb.plugin: alcb phase 3 still running after 753s (0/2 completed, 2/2 worker thread(s) active).
+21:14:37 INFO  backtests.stock.auto.alcb.plugin: alcb phase 3 progress: 2/2 completed (100%, 880s elapsed).
+21:14:42 INFO  backtests.stock.auto.alcb.plugin: alcb phase 3 progress: 2/2 completed (100%, 5s elapsed).
+21:14:48 INFO  backtests.stock.auto.alcb.plugin: alcb phase 3 progress: 2/2 completed (100%, 6s elapsed).
+21:14:53 INFO  backtests.stock.auto.alcb.plugin: alcb phase 3 progress: 2/2 completed (100%, 6s elapsed).
+21:14:55 INFO  backtests.stock.auto.alcb.plugin: Parent baseline evaluated in 0.6s
+21:14:55 INFO  backtests.stock.auto.alcb.plugin: Using Windows thread evaluator for alcb phase 4 with max_workers=2.
+21:17:27 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 146s (0/2 completed, 2/2 worker thread(s) active).
+21:19:58 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 298s (0/2 completed, 2/2 worker thread(s) active).
+21:22:30 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 449s (0/2 completed, 2/2 worker thread(s) active).
+21:25:01 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 600s (0/2 completed, 2/2 worker thread(s) active).
+21:27:36 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 755s (0/2 completed, 2/2 worker thread(s) active).
+21:30:07 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 906s (0/2 completed, 2/2 worker thread(s) active).
+21:31:16 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 progress: 2/2 completed (100%, 976s elapsed).
+21:33:48 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 147s (0/2 completed, 2/2 worker thread(s) active).
+21:36:19 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 298s (0/2 completed, 2/2 worker thread(s) active).
+21:38:52 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 451s (0/2 completed, 2/2 worker thread(s) active).
+21:41:23 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 603s (0/2 completed, 2/2 worker thread(s) active).
+21:43:55 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 755s (0/2 completed, 2/2 worker thread(s) active).
+21:44:08 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 progress: 2/2 completed (100%, 772s elapsed).
+21:46:40 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 146s (0/2 completed, 2/2 worker thread(s) active).
+21:49:12 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 298s (0/2 completed, 2/2 worker thread(s) active).
+21:51:43 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 450s (0/2 completed, 2/2 worker thread(s) active).
+21:54:15 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 601s (0/2 completed, 2/2 worker thread(s) active).
+21:56:46 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 753s (0/2 completed, 2/2 worker thread(s) active).
+21:58:35 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 progress: 2/2 completed (100%, 864s elapsed).
+22:01:07 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 147s (0/2 completed, 2/2 worker thread(s) active).
+22:03:38 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 298s (0/2 completed, 2/2 worker thread(s) active).
+22:06:10 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 449s (0/2 completed, 2/2 worker thread(s) active).
+22:08:41 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 still running after 601s (0/2 completed, 2/2 worker thread(s) active).
+22:09:33 INFO  backtests.stock.auto.alcb.plugin: alcb phase 4 progress: 2/2 completed (100%, 658s elapsed).
+22:09:35 INFO  backtests.stock.auto.alcb.plugin: Parent baseline evaluated in 0.5s
+22:09:35 INFO  backtests.stock.auto.alcb.plugin: Using Windows thread evaluator for alcb phase 5 with max_workers=2.
+22:12:06 INFO  backtests.stock.auto.alcb.plugin: alcb phase 5 still running after 146s (0/2 completed, 2/2 worker thread(s) active).
+22:14:37 INFO  backtests.stock.auto.alcb.plugin: alcb phase 5 still running after 297s (0/2 completed, 2/2 worker thread(s) active).
+22:17:08 INFO  backtests.stock.auto.alcb.plugin: alcb phase 5 still running after 448s (0/2 completed, 2/2 worker thread(s) active).
+22:18:44 INFO  backtests.stock.auto.alcb.plugin: alcb phase 5 progress: 2/2 completed (100%, 549s elapsed).
+22:21:16 INFO  backtests.stock.auto.alcb.plugin: alcb phase 5 still running after 146s (0/2 completed, 2/2 worker thread(s) active).
+22:23:47 INFO  backtests.stock.auto.alcb.plugin: alcb phase 5 still running after 298s (0/2 completed, 2/2 worker thread(s) active).
+22:26:19 INFO  backtests.stock.auto.alcb.plugin: alcb phase 5 still running after 449s (0/2 completed, 2/2 worker thread(s) active).
+22:27:57 INFO  backtests.stock.auto.alcb.plugin: alcb phase 5 progress: 2/2 completed (100%, 551s elapsed).
+22:30:28 INFO  backtests.stock.auto.alcb.plugin: alcb phase 5 still running after 146s (0/2 completed, 2/2 worker thread(s) active).
+22:33:00 INFO  backtests.stock.auto.alcb.plugin: alcb phase 5 still running after 298s (0/2 completed, 2/2 worker thread(s) active).
+22:35:31 INFO  backtests.stock.auto.alcb.plugin: alcb phase 5 still running after 449s (0/2 completed, 2/2 worker thread(s) active).
+22:36:53 INFO  backtests.stock.auto.alcb.plugin: alcb phase 5 progress: 2/2 completed (100%, 534s elapsed).

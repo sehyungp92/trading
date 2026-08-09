@@ -1,0 +1,24 @@
+{
+  "candidate_count": 102,
+  "data_authority": "diagnostic-only repaired legacy filename cache",
+  "generated_at_utc": "2026-07-23T02:02:36.731025+00:00",
+  "promotion_authorized": false,
+  "windows": {
+    "early_is": [
+      "2024-03-25",
+      "2025-03-24"
+    ],
+    "is": [
+      "2024-03-25",
+      "2026-03-01"
+    ],
+    "late_is": [
+      "2025-03-25",
+      "2026-03-01"
+    ],
+    "oos": [
+      "2026-03-02",
+      "2026-05-01"
+    ]
+  }
+}

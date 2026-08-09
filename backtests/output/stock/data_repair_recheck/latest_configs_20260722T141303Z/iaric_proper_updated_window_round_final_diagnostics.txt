@@ -1,0 +1,680 @@
+======================================================================
+IARIC T3 LIVE_ALIGNED_ABLATION_PERTURBATION PHASE 1 SNAPSHOT
+======================================================================
+Focus: Protected Widening + MFE Protection
+Score 0.8367 -> 0.8367 with 0 accepted mutations.
+
+Core: trades=1778, avg_r=+0.154, exp_total_r=+273.40, pf=2.42, sharpe=7.12, dd=2.1%
+Edges: rsi_depth=-0.023, trend_band=+0.014, late_rank=+0.004
+Exit capture: managed=98.4%, carry=6.4%, carry_avg_r=-0.238, eod=1.6%, stop_cost=+270.39R
+
+
+======================================================================
+  Executive Verdicts
+======================================================================
+  Signal extraction: GOOD (accepted avg_r +0.154 vs rejected shadow -0.042).
+  Discrimination: GOOD (crowded-day entered avg_r +0.134 vs skipped shadow -0.036).
+  Entry mechanism: REVIEW (best timing variant Delay 60m @ -0.040R).
+  Exit mechanism: GOOD (best frontier variant Actual @ +0.154R).
+  Trade management: GOOD.
+  Primary bottleneck: route score calibration.
+
+======================================================================
+  1. Overview
+======================================================================
+  Trades: 1778
+  Win Rate: 79.8%
+  Mean R: +0.154  |  Median R: +0.373
+  Total R: +273.40  |  Total PnL: $31,799.44
+  Profit Factor: 2.26  |  Sharpe (backtest): 7.12
+  Max Drawdown: 2.1%
+
+======================================================================
+  2. Exit Reason Decomposition
+======================================================================
+  Reason                  Count     WR     AvgR     TotR
+  --------------------------------------------------------
+  STOP_HIT                 1380 83.0%  +0.196 +270.39
+  EMA_REVERSION             270 98.1%  +0.176  +47.56
+  GAP_STOP                   90  0.0%  -0.351  -31.56
+  EOD_FLATTEN                28  0.0%  -0.507  -14.21
+  FLOW_REVERSAL              10 80.0%  +0.122   +1.22
+
+======================================================================
+  3. Signal Funnel & Gate Attribution
+======================================================================
+  Universe seen: 47138
+  Triggered: 11631
+  Candidate pool: 554
+  Entered: 1778 (mixed cohorts; headline accept rate omitted, see 3C for cohort splits)
+
+  Gate                       Count   AvgShadowR   FP Rate  Verdict
+  --------------------------------------------------------------------
+  daily_signal_floor_reject    9353      -0.044    41.7%     KEEP
+  no_intraday_setup            467      +0.012    45.0%     KEEP
+  entry_window_expired          17      -0.175    23.5%     KEEP
+  sector_cap_reject              8      +0.047    50.0%     KEEP
+  slot_cap_reject                7      -0.002    57.1%     KEEP
+  buying_power_reject            1      +0.007   100.0%     KEEP
+
+======================================================================
+  3B. Intraday Hybrid Funnel
+======================================================================
+  Funnel: watchlist=2278, flush=0, reclaim=0, ready=151, entered=1778, partial=1147, trailed=0, carried=114
+  Coverage: 5m-ready=2278, missing_5m=0, missing_5m share=0.0%
+  Live 5m cohort: entered=1778/2278, accepted avg_r=+0.154, rejected shadow=+0.006, delta=+0.148
+
+  Trigger              n     WR     AvgR
+  ----------------------------------------
+  OPEN_SCORED_ENTRY  1663 79.6%  +0.153
+  DELAYED_CONFIRM    115 82.6%  +0.165
+
+  Entry time-of-day expectancy:
+    13:00: n=1153, avg_r=+0.160
+    14:00: n=591, avg_r=+0.140
+    15:00: n=15, avg_r=+0.145
+    16:00: n=9, avg_r=+0.249
+    17:00: n=3, avg_r=+0.246
+    18:00: n=4, avg_r=-0.006
+    19:00: n=3, avg_r=+0.153
+
+  Most common FSM transitions:
+    WATCHING->READY: 173
+    READY->ENTRY_QUEUED: 131
+    ENTRY_QUEUED->IN_POSITION: 115
+    INVALIDATED->WATCHING: 25
+    READY->INVALIDATED: 25
+    ENTRY_QUEUED->INVALIDATED: 16
+
+======================================================================
+  3C. Selector Frontier & Filter Attribution
+======================================================================
+  Cohort                  Count     AvgR   ShadowR
+  ----------------------------------------------------
+  open-scored missing 5m      0  +0.000   +0.000
+  open-scored live         1663  +0.153   +0.000
+  routed 5m accepted        115  +0.165   +0.000
+  live 5m rejected          500  +0.000   +0.006
+
+  Gate                      Count   ShWR   ShAvgR   MissedR   AvoidedR  Verdict
+  --------------------------------------------------------------------------------------
+  daily_signal_floor_reject   9353 41.7%  -0.044 +2146.03  +2558.23     KEEP
+  no_intraday_setup           467 45.0%  +0.012  +138.44   +132.80   REVIEW
+  entry_window_expired         17 23.5%  -0.175    +2.40     +5.37     KEEP
+  sector_cap_reject             8 50.0%  +0.047    +1.66     +1.29   REVIEW
+  slot_cap_reject               7 57.1%  -0.002    +1.70     +1.71     KEEP
+  buying_power_reject           1 100.0%  +0.007    +0.01     +0.00   REVIEW
+
+  Signal model attribution:
+    core_signal: n=4972, entered=513, avg_effective_r=-0.010
+    flow_rescue_lane: n=4555, entered=1265, avg_effective_r=+0.002
+    flow_soft_penalty: n=2104, entered=0, avg_effective_r=-0.046
+
+  Daily signal score monotonicity:
+    Q1 [21.04, 44.04): n=2313, WR=42.6%, avg_r=-0.036
+    Q2 [44.04, 53.04): n=2302, WR=41.4%, avg_r=-0.039
+    Q3 [53.04, 58.05): n=2359, WR=41.2%, avg_r=-0.047
+    Q4 [58.05, 65.05): n=2280, WR=41.6%, avg_r=-0.056
+    Q5 [65.05, 92.06]: n=2377, WR=70.9%, avg_r=+0.116
+
+  Threshold sweep: pb_entry_score_min
+    Value      Acc   AccAvgR    RejShR   TotAccR    Delta
+     40.00       0   +0.000   +0.000    +0.00  +0.000
+     45.00       0   +0.000   +0.000    +0.00  +0.000
+    *50.00       0   +0.000   +0.000    +0.00  +0.000
+     55.00       0   +0.000   +0.000    +0.00  +0.000
+     60.00       0   +0.000   +0.000    +0.00  +0.000
+
+  Threshold sweep: pb_delayed_confirm_score_min
+    Value      Acc   AccAvgR    RejShR   TotAccR    Delta
+     42.00     119   +0.170   -0.209   +20.18  +0.379
+     47.00     118   +0.180   -0.234   +21.20  +0.414
+    *52.00      98   +0.154   -0.030   +15.05  +0.183
+     57.00      69   +0.170   +0.021   +11.74  +0.149
+     62.00      61   +0.181   +0.027   +11.05  +0.154
+
+  Threshold sweep: pb_daily_signal_min_score
+    Value      Acc   AccAvgR    RejShR   TotAccR    Delta
+     44.00    4744   -0.013   -0.036   -62.65  +0.023
+     49.00    3405   -0.008   -0.033   -27.57  +0.024
+    *54.00    2243   +0.019   -0.039   +42.87  +0.058
+     59.00    1333   +0.039   -0.035   +52.18  +0.074
+     64.00     631   +0.120   -0.035   +75.57  +0.154
+
+  Threshold sweep: pb_open_scored_min_score
+    Value      Acc   AccAvgR    RejShR   TotAccR    Delta
+     35.00    1663   +0.153   +0.000  +254.40  +0.153
+     40.00    1663   +0.153   +0.000  +254.40  +0.153
+    *45.00    1663   +0.153   +0.000  +254.40  +0.153
+     50.00    1663   +0.153   +0.000  +254.40  +0.153
+     55.00    1663   +0.153   +0.000  +254.40  +0.153
+
+  Threshold sweep: pb_open_scored_rank_pct_max
+    Value      Acc   AccAvgR    RejShR   TotAccR    Delta
+     90.00     318   +0.129   +0.159   +41.18  -0.029
+     95.00     318   +0.129   +0.159   +41.18  -0.029
+    *100.00   1663   +0.153   +0.000  +254.40  +0.153
+    *100.00   1663   +0.153   +0.000  +254.40  +0.153
+    *100.00   1663   +0.153   +0.000  +254.40  +0.153
+
+  Threshold sweep: pb_daily_rescue_min_score
+    Value      Acc   AccAvgR    RejShR   TotAccR    Delta
+     42.00    1265   +0.157   -0.057  +198.84  +0.214
+     47.00    1265   +0.157   -0.057  +198.84  +0.214
+    *52.00    1265   +0.157   -0.057  +198.84  +0.214
+     57.00    1265   +0.157   -0.057  +198.84  +0.214
+     62.00    1265   +0.157   -0.057  +198.84  +0.214
+
+  Threshold sweep: pb_ready_min_cpr
+    Value      Acc   AccAvgR    RejShR   TotAccR    Delta
+     0.35     1785   +0.153   +0.006  +273.61  +0.148
+     0.45     1783   +0.153   +0.006  +273.67  +0.148
+    *0.50     1782   +0.154   +0.006  +273.62  +0.148
+     0.55     1779   +0.154   +0.007  +273.09  +0.147
+     0.65     1770   +0.154   +0.008  +272.38  +0.146
+
+  Threshold sweep: pb_ready_min_volume_ratio
+    Value      Acc   AccAvgR    RejShR   TotAccR    Delta
+     0.20     1785   +0.153   +0.006  +273.61  +0.148
+     0.45     1785   +0.153   +0.006  +273.61  +0.148
+    *0.70     1781   +0.154   +0.005  +273.74  +0.148
+     0.95     1773   +0.153   +0.009  +271.70  +0.144
+     1.20     1769   +0.154   +0.008  +272.55  +0.146
+
+  Threshold sweep: pb_delayed_confirm_after_bar
+    Value      Acc   AccAvgR    RejShR   TotAccR    Delta
+     3.00      122   +0.157   -0.197   +19.21  +0.355
+    *5.00      122   +0.157   -0.197   +19.21  +0.355
+     7.00      119   +0.167   -0.199   +19.86  +0.366
+     9.00      117   +0.158   -0.146   +18.44  +0.303
+
+  Invalidated but worked later:
+    daily_signal_floor_reject: n=9353, worked=3901 (41.7%), avg_shadow=-0.044, positive_avg=+0.550
+    flow_reject: n=0, worked=0 (0.0%), avg_shadow=+0.000, positive_avg=+0.000
+    flush_stale: n=0, worked=0 (0.0%), avg_shadow=+0.000, positive_avg=+0.000
+    never_ready: n=0, worked=0 (0.0%), avg_shadow=+0.000, positive_avg=+0.000
+    no_intraday_setup: n=467, worked=210 (45.0%), avg_shadow=+0.012, positive_avg=+0.659
+    entry_window_expired: n=17, worked=4 (23.5%), avg_shadow=-0.175, positive_avg=+0.599
+    intraday_priority_reserve: n=0, worked=0 (0.0%), avg_shadow=+0.000, positive_avg=+0.000
+
+======================================================================
+  3D. Capacity & Replacement Analysis
+======================================================================
+  Reason                    Count  BlockedShR  OccupAvgR  Verdict
+  ----------------------------------------------------------------------
+  open_route_cap              248     -0.097    +0.203     KEEP
+  sector_cap                    8     +0.047    +0.197     KEEP
+  buying_power                  1     +0.007    +0.347     KEEP
+
+  Exit                 n  Windows  ReplN   ReplShR  ReuseN   ReuseR  ExitAvgR    Delta
+  ------------------------------------------------------------------------------------------
+  QUICK_EXIT           0        0      0   +0.000       0  +0.000   +0.000  +0.000
+  STALE_EXIT           0        0      0   +0.000       0  +0.000   +0.000  +0.000
+  VWAP_FAIL            0        0      0   +0.000       0  +0.000   +0.000  +0.000
+  FLOW_REVERSAL        0        0      0   +0.000       0  +0.000   +0.000  +0.000
+  Verdict: No replacement-ready candidates appeared after early exits.
+
+======================================================================
+  4. Rejected Candidate Shadow Analysis
+======================================================================
+  Accepted trades: n=1778, WR=79.8%, AvgR=+0.154, PF=2.26, TotalR=+273.40
+  Rejected shadows: n=9853, WR=41.9%, AvgR=-0.042, PF=0.85, TotalR=-409.16
+  Delta: avg_r +0.195, WR +38.0% (positive means the filters are helping).
+
+======================================================================
+  5. Chosen vs Skipped Same-Day Attribution
+======================================================================
+  Crowded days: 479
+  Entered avg_r on crowded days: +0.134
+  Skipped shadow avg_r on crowded days: -0.036
+  Days with skipped shadow alpha > entered alpha: 157
+  2024-04-05: entered +0.317, skipped +0.476, best skipped FSLR +1.845, skipped beating worst entered=45
+  2025-08-01: entered -0.015, skipped +0.260, best skipped IDXX +11.755, skipped beating worst entered=36
+  2024-04-11: entered -0.107, skipped -0.405, best skipped V +0.443, skipped beating worst entered=36
+  2024-12-31: entered -0.376, skipped -0.302, best skipped BRK B +0.093, skipped beating worst entered=36
+  2024-07-26: entered +0.001, skipped +0.143, best skipped MSI +1.745, skipped beating worst entered=35
+
+======================================================================
+  6. Feature Monotonicity Tables
+======================================================================
+
+  entry_rsi:
+    Bin                        n     WR     AvgR            CI10-90
+    Q1 [0.37, 4.08)          356 77.0%  +0.142 [+0.109, +0.171]
+    Q2 [4.08, 7.11)          353 80.7%  +0.159 [+0.133, +0.186]
+    Q3 [7.11, 9.83)          357 78.7%  +0.144 [+0.118, +0.171]
+    Q4 [9.83, 13.31)         356 80.1%  +0.174 [+0.143, +0.197]
+    Q5 [13.31, 80.74]        356 82.6%  +0.150 [+0.122, +0.179]
+
+  entry_rank:
+    Bin                        n     WR     AvgR            CI10-90
+    Q1 [1.00, 1.00)          421 77.9%  +0.133 [+0.105, +0.158]
+    Q2 [1.00, 2.00)          421 77.9%  +0.133 [+0.105, +0.158]
+    Q3 [2.00, 4.00)          639 81.5%  +0.165 [+0.144, +0.186]
+    Q4 [4.00, 5.00)          226 81.9%  +0.198 [+0.160, +0.233]
+    Q5 [5.00, 20.00]         492 78.3%  +0.137 [+0.113, +0.160]
+
+  entry_rank_pct:
+    Bin                        n     WR     AvgR            CI10-90
+    Q1 [5.88, 70.00)         355 77.5%  +0.127 [+0.097, +0.158]
+    Q2 [70.00, 100.00)        38 86.8%  +0.229 [+0.153, +0.287]
+    Q3 [100.00, 100.00)     1385 80.2%  +0.159 [+0.145, +0.173]
+    Q4 [100.00, 100.00)     1385 80.2%  +0.159 [+0.145, +0.173]
+    Q5 [100.00, 100.00]     1385 80.2%  +0.159 [+0.145, +0.173]
+
+  daily_signal_score:
+    Bin                        n     WR     AvgR            CI10-90
+    Q1 [66.03, 69.04)        343 79.0%  +0.153 [+0.121, +0.181]
+    Q2 [69.04, 72.05)        365 79.2%  +0.132 [+0.107, +0.163]
+    Q3 [72.05, 75.29)        355 75.8%  +0.135 [+0.105, +0.169]
+    Q4 [75.29, 80.04)        354 84.5%  +0.195 [+0.165, +0.222]
+    Q5 [80.04, 92.06]        361 80.6%  +0.155 [+0.129, +0.184]
+
+  daily_signal_rank_pct:
+    Bin                        n     WR     AvgR            CI10-90
+    Q1 [5.88, 70.00)         355 77.5%  +0.127 [+0.097, +0.158]
+    Q2 [70.00, 100.00)        38 86.8%  +0.229 [+0.153, +0.287]
+    Q3 [100.00, 100.00)     1385 80.2%  +0.159 [+0.145, +0.173]
+    Q4 [100.00, 100.00)     1385 80.2%  +0.159 [+0.145, +0.173]
+    Q5 [100.00, 100.00]     1385 80.2%  +0.159 [+0.145, +0.173]
+
+  intraday_score:
+    Bin                        n     WR     AvgR            CI10-90
+    Q1 [50.06, 68.05)        335 80.3%  +0.156 [+0.129, +0.186]
+    Q2 [68.05, 72.04)        365 78.6%  +0.140 [+0.111, +0.169]
+    Q3 [72.04, 75.06)        362 76.2%  +0.133 [+0.108, +0.165]
+    Q4 [75.06, 80.04)        356 83.4%  +0.186 [+0.162, +0.217]
+    Q5 [80.04, 92.06]        360 80.6%  +0.154 [+0.126, +0.185]
+
+  entry_sma_dist_pct:
+    Bin                        n     WR     AvgR            CI10-90
+    Q1 [-9.41, 0.86)         356 78.1%  +0.143 [+0.108, +0.172]
+    Q2 [0.86, 2.66)          355 79.4%  +0.167 [+0.139, +0.195]
+    Q3 [2.66, 4.71)          356 77.2%  +0.130 [+0.101, +0.162]
+    Q4 [4.71, 7.54)          355 83.7%  +0.192 [+0.160, +0.223]
+    Q5 [7.54, 24.67]         356 80.6%  +0.139 [+0.113, +0.166]
+
+  entry_cdd:
+    Bin                        n     WR     AvgR            CI10-90
+    Q1 [0.00, 1.00)           68 83.8%  +0.223 [+0.153, +0.300]
+    Q2 [1.00, 2.00)          309 78.0%  +0.120 [+0.090, +0.159]
+    Q3 [2.00, 3.00)          485 77.5%  +0.127 [+0.101, +0.151]
+    Q4 [3.00, 4.00)          471 82.0%  +0.178 [+0.156, +0.203]
+    Q5 [4.00, 6.00]          445 80.7%  +0.170 [+0.148, +0.192]
+
+  entry_gap_pct:
+    Bin                        n     WR     AvgR            CI10-90
+    Q1 [-10.49, -0.58)       356 83.7%  +0.224 [+0.195, +0.252]
+    Q2 [-0.58, -0.10)        355 80.0%  +0.170 [+0.141, +0.198]
+    Q3 [-0.10, 0.18)         353 77.3%  +0.135 [+0.103, +0.164]
+    Q4 [0.18, 0.54)          358 77.1%  +0.105 [+0.078, +0.131]
+    Q5 [0.54, 1.99]          356 80.9%  +0.135 [+0.109, +0.161]
+
+  close_pct:
+    Bin                        n     WR     AvgR            CI10-90
+    Q1 [0.00, 0.20)          356 32.6%  -0.344 [-0.387, -0.311]
+    Q2 [0.20, 0.51)          355 81.1%  +0.207 [+0.185, +0.233]
+    Q3 [0.51, 0.75)          356 94.9%  +0.333 [+0.319, +0.343]
+    Q4 [0.75, 0.91)          355 94.9%  +0.298 [+0.280, +0.316]
+    Q5 [0.91, 1.00]          356 95.5%  +0.276 [+0.261, +0.293]
+
+  mfe_r:
+    Bin                        n     WR     AvgR            CI10-90
+    Q1 [0.00, 0.10)          356 16.9%  -0.547 [-0.572, -0.522]
+    Q2 [0.10, 0.14)          355 99.4%  +0.336 [+0.328, +0.344]
+    Q3 [0.14, 0.19)          356 97.8%  +0.337 [+0.327, +0.349]
+    Q4 [0.19, 0.28)          355 97.2%  +0.326 [+0.316, +0.335]
+    Q5 [0.28, 2.73]          356 87.9%  +0.318 [+0.299, +0.338]
+
+======================================================================
+  7. Interaction Tables
+======================================================================
+
+  rank_pct_x_sma_dist:
+    n=593,R=+0.14 | n=479,R=+0.17 | n=479,R=+0.17
+    n=592,R=+0.16 | n=464,R=+0.14 | n=464,R=+0.14
+    n=593,R=+0.16 | n=442,R=+0.17 | n=442,R=+0.17
+
+  cdd_x_rsi:
+    n=150,R=+0.05 | n=242,R=+0.15 | n=443,R=+0.18
+    n=280,R=+0.13 | n=372,R=+0.16 | n=312,R=+0.18
+    n=432,R=+0.17 | n=342,R=+0.15 | n=161,R=+0.15
+
+  gap_x_close_pct:
+    n=244,R=+0.03 | n=190,R=-0.25 | n=164,R=-0.22
+    n=213,R=+0.33 | n=207,R=+0.33 | n=176,R=+0.25
+    n=140,R=+0.33 | n=200,R=+0.31 | n=255,R=+0.25
+
+  close_pct_x_mfe_r:
+    n=347,R=-0.45 | n=131,R=+0.21 | n=117,R=+0.13
+    n=148,R=+0.36 | n=257,R=+0.34 | n=188,R=+0.30
+    n=100,R=+0.26 | n=206,R=+0.33 | n=289,R=+0.34
+
+======================================================================
+  8. MFE Capture by Exit Path
+======================================================================
+  Reason                  Count     AvgR   Capture   Giveback
+  ----------------------------------------------------------------
+  STOP_HIT                 1380  +0.196  -456.9%    -0.047
+  EMA_REVERSION             270  +0.176    59.2%    +0.089
+  GAP_STOP                   90  -0.351  -553.5%    +0.613
+  EOD_FLATTEN                28  -0.507 -1773.6%    +0.588
+  FLOW_REVERSAL              10  +0.122    20.6%    +0.451
+
+  Top lost-alpha EOD flatten trades:
+    2026-05-18 TER: actual -0.700 vs MFE +0.083 (lost +0.782R)
+    2026-06-01 TXN: actual -0.687 vs MFE +0.092 (lost +0.779R)
+    2025-06-17 EW: actual -0.624 vs MFE +0.096 (lost +0.721R)
+    2025-07-18 AMAT: actual -0.612 vs MFE +0.077 (lost +0.689R)
+    2024-10-18 META: actual -0.587 vs MFE +0.087 (lost +0.674R)
+
+======================================================================
+  9. Economic Exit Frontier
+======================================================================
+  Variant                                n     WR     AvgR     PF
+  -------------------------------------------------------------------
+  Actual                              1778 79.8%  +0.154   2.26
+  Carry 1d r>=0.00                    1778 36.2%  -0.026   0.91
+  Carry 2d r>=0.00                    1778 34.7%  -0.003   0.99
+  Carry 3d r>=0.10                    1778 37.5%  -0.001   1.00
+  Carry 5d r>=0.10                    1778 37.3%  -0.003   0.99
+  Carry 5d r>=0.25                    1778 41.1%  -0.024   0.92
+  Carry 3d + close>=0.65              1778 40.1%  -0.012   0.96
+  Carry 3d + close>=0.65 + mfe>=0.25  1778 40.3%  -0.017   0.94
+  Carry 3d + flowrev 2                1778 35.1%  -0.023   0.93
+  Carry 3d + flowrev 3                1778 34.9%  -0.020   0.94
+  Carry 3d + close stop               1778 38.4%  -3.825   0.08
+
+======================================================================
+  10. Carry Eligibility Funnel
+======================================================================
+  EOD flatten trades: 28
+  Profitable at close: 0
+  Close-in-range >= 0.65: 0
+  MFE >= 0.25R: 0
+  No immediate flow reversal: 0
+  Route carry gates:
+    OPEN_SCORED_ENTRY: eod=21, profitable=0, binary_ok=0, score_ok=0
+    DELAYED_CONFIRM: eod=7, profitable=0, binary_ok=0, score_ok=0
+
+======================================================================
+  11. Entry Timing Counterfactuals
+======================================================================
+  Variant                      n     WR     AvgR     PF   EntryLoc
+  ------------------------------------------------------------------
+  Open                      1778 45.3%  -0.061   0.80     52.4%
+  Delay 30m                 1778 46.0%  -0.050   0.83     52.0%
+  Delay 60m                 1778 47.4%  -0.040   0.86     51.3%
+  First reversal close      1778 46.0%  -0.057   0.81     53.0%
+  EntryLoc is the average entry position within the day's range; lower is better for pullback buys.
+
+======================================================================
+  11B. Entry Quality Deep Dive
+======================================================================
+
+  OPEN_SCORED_ENTRY:
+    Variant                    n     WR     AvgR     PF
+    Actual                  1663 79.6%  +0.153   2.22
+    Best feasible close     1663 96.5%  +0.553    inf
+    Delay 30m               1663 45.6%  -0.061   0.79
+    Delay 60m               1663 47.1%  -0.048   0.82
+    First reversal close    1663 45.8%  -0.064   0.78
+    Open                    1663 44.9%  -0.073   0.76
+
+  DELAYED_CONFIRM:
+    Variant                    n     WR     AvgR     PF
+    Actual                   115 82.6%  +0.165   2.90
+    Best feasible close      115 98.3%  +0.946    inf
+    Delay 30m                115 52.2%  +0.113   1.31
+    Delay 60m                115 50.4%  +0.090   1.26
+    First reversal close     115 48.7%  +0.036   1.10
+    Open                     115 50.4%  +0.112   1.28
+
+  Entry tax vs best feasible close:
+    OPEN_SCORED_ENTRY: n=1663, avg_price_tax=+4.265, avg_r_tax=+0.404
+    DELAYED_CONFIRM: n=115, avg_price_tax=+3.563, avg_r_tax=+0.795
+
+  Entry timing buckets:
+    OPEN_SCORED_ENTRY @ 13:30: n=1112, avg_r=+0.161
+    OPEN_SCORED_ENTRY @ 14:30: n=551, avg_r=+0.137
+    DELAYED_CONFIRM @ 13:30: n=41, avg_r=+0.143
+    DELAYED_CONFIRM @ 14:00: n=25, avg_r=+0.272
+    DELAYED_CONFIRM @ 14:30: n=15, avg_r=+0.051
+    DELAYED_CONFIRM @ 15:00: n=11, avg_r=+0.167
+    DELAYED_CONFIRM @ 15:30: n=4, avg_r=+0.083
+    DELAYED_CONFIRM @ 16:00: n=5, avg_r=+0.298
+    DELAYED_CONFIRM @ 16:30: n=4, avg_r=+0.189
+    DELAYED_CONFIRM @ 17:00: n=2, avg_r=+0.196
+    DELAYED_CONFIRM @ 17:30: n=1, avg_r=+0.347
+    DELAYED_CONFIRM @ 18:00: n=3, avg_r=+0.254
+    DELAYED_CONFIRM @ 18:30: n=1, avg_r=-0.785
+    DELAYED_CONFIRM @ 19:00: n=3, avg_r=+0.153
+
+  Short-hold loser audit:
+    0-2 bars KLAC OPEN_SCORED_ENTRY @ 13:30: score=82.0, reclaim=0, micro=N/A, mfe=+0.164, r=-1.189
+    0-2 bars KLAC OPEN_SCORED_ENTRY @ 13:30: score=75.0, reclaim=0, micro=N/A, mfe=+0.000, r=-1.177
+    0-2 bars KLAC OPEN_SCORED_ENTRY @ 13:30: score=72.0, reclaim=0, micro=N/A, mfe=+0.809, r=-1.172
+    0-2 bars KLAC OPEN_SCORED_ENTRY @ 14:30: score=67.1, reclaim=0, micro=N/A, mfe=+0.000, r=-1.157
+    0-2 bars KLAC OPEN_SCORED_ENTRY @ 14:30: score=76.0, reclaim=0, micro=N/A, mfe=+0.256, r=-1.142
+    0-2 bars KLAC OPEN_SCORED_ENTRY @ 14:30: score=87.0, reclaim=0, micro=N/A, mfe=+0.000, r=-1.134
+    0-2 bars KLAC OPEN_SCORED_ENTRY @ 14:30: score=75.1, reclaim=0, micro=N/A, mfe=+2.732, r=-1.096
+    0-2 bars CRWD OPEN_SCORED_ENTRY @ 13:30: score=66.0, reclaim=0, micro=N/A, mfe=+0.000, r=-1.064
+    0-2 bars CRWD OPEN_SCORED_ENTRY @ 13:30: score=68.0, reclaim=0, micro=N/A, mfe=+0.000, r=-1.060
+    0-2 bars CRWD OPEN_SCORED_ENTRY @ 14:30: score=70.1, reclaim=0, micro=N/A, mfe=+0.203, r=-1.059
+
+  Intraday score buckets:
+    Q1 [50.06, 68.05): n=335, WR=80.3%, avg_r=+0.156
+    Q2 [68.05, 72.04): n=365, WR=78.6%, avg_r=+0.140
+    Q3 [72.04, 75.06): n=362, WR=76.2%, avg_r=+0.133
+    Q4 [75.06, 80.04): n=356, WR=83.4%, avg_r=+0.186
+    Q5 [80.04, 92.06]: n=360, WR=80.6%, avg_r=+0.154
+
+  Route x score bucket:
+    OPEN_SCORED_ENTRY x Q1 [66.03, 70.04): n=404, avg_r=+0.156
+    OPEN_SCORED_ENTRY x Q2 [70.04, 74.05): n=410, avg_r=+0.127
+    OPEN_SCORED_ENTRY x Q3 [74.05, 79.05): n=417, avg_r=+0.168
+    OPEN_SCORED_ENTRY x Q4 [79.05, 92.06]: n=432, avg_r=+0.159
+    DELAYED_CONFIRM x Q1 [50.06, 52.73): n=29, avg_r=+0.252
+    DELAYED_CONFIRM x Q2 [52.73, 55.94): n=28, avg_r=+0.199
+    DELAYED_CONFIRM x Q3 [55.94, 58.55): n=29, avg_r=+0.147
+    DELAYED_CONFIRM x Q4 [58.55, 70.63]: n=29, avg_r=+0.064
+
+  Route score monotonicity:
+    OPEN_SCORED_ENTRY: buckets=4, monotonic=33.3%, best=+0.168, worst=+0.127
+    DELAYED_CONFIRM: buckets=4, monotonic=0.0%, best=+0.252, worst=+0.064
+
+  Score component attribution (winners vs losers):
+    daily_signal: win=+38.10, loss=+37.84, delta=+0.25
+    reclaim: win=+2.67, loss=+2.62, delta=+0.05
+    volume: win=+11.59, loss=+12.00, delta=-0.41
+    vwap_hold: win=+2.97, loss=+3.10, delta=-0.13
+    cpr: win=+2.06, loss=+2.11, delta=-0.05
+    speed: win=+1.87, loss=+1.55, delta=+0.32
+    context_adjust: win=+0.65, loss=+1.34, delta=-0.69
+    micro_penalty: win=-2.41, loss=-2.00, delta=-0.41
+    weak_vwap_penalty: win=-0.11, loss=+0.00, delta=-0.11
+    rescue_penalty: win=+0.00, loss=+0.00, delta=+0.00
+
+======================================================================
+  12. Stop Calibration
+======================================================================
+  Stop hits: 1380/1778 (77.6%)
+  Stop-hit profile: n=1380, WR=83.0%, AvgR=+0.196, PF=2.57, TotalR=+270.39
+  MAE exceedance: >0.5R 23%, >0.75R 10%, >1.0R 3%
+
+======================================================================
+  12B. Trade Management Deep Dive
+======================================================================
+  Hold duration distribution:
+    0-2 bars: n=761, avg_r=+0.311, avg_hours=0.15
+    3-6 bars: n=445, avg_r=+0.251, avg_hours=0.33
+    7-12 bars: n=166, avg_r=+0.044, avg_hours=0.75
+    13-24 bars: n=106, avg_r=-0.162, avg_hours=1.44
+    >24 bars / overnight: n=300, avg_r=-0.217, avg_hours=20.68
+
+  Short losers: n=109, avg_mfe_before_negative_exit=+0.060, >0.1R=5.5%, >0.25R=2.8%, >0.5R=1.8%
+
+  Feature      Bucket  Count     WR     AvgR   MeanMFE  Giveback
+  --------------------------------------------------------------------------
+  partial      yes    1147 99.9%  +0.386   +0.219   +0.012
+  partial      no      631 43.3%  -0.268   +0.186   +0.454
+  trail        no     1778 79.8%  +0.154   +0.207   +0.169
+  breakeven    yes       7 100.0%  +0.368   +0.753   +0.385
+  breakeven    no     1771 79.7%  +0.153   +0.205   +0.168
+
+  Giveback decomposition:
+    STOP_HIT / OPEN_SCORED_ENTRY: n=1298, avg_giveback=+0.148
+    EMA_REVERSION / OPEN_SCORED_ENTRY: n=244, avg_giveback=+0.091
+    GAP_STOP / OPEN_SCORED_ENTRY: n=90, avg_giveback=+0.598
+    STOP_HIT / DELAYED_CONFIRM: n=82, avg_giveback=+0.127
+    EMA_REVERSION / DELAYED_CONFIRM: n=26, avg_giveback=+0.069
+    EOD_FLATTEN / OPEN_SCORED_ENTRY: n=21, avg_giveback=+0.631
+    FLOW_REVERSAL / OPEN_SCORED_ENTRY: n=10, avg_giveback=+0.451
+    EOD_FLATTEN / DELAYED_CONFIRM: n=7, avg_giveback=+0.344
+  Could-be-saved with protection: n=48 (2.7%), avg_loser_r=-0.257
+
+======================================================================
+  12C. Exit Replacement & Carry Audit
+======================================================================
+  Route-level exit frontier:
+    DELAYED_CONFIRM: n=115, actual=+0.165, best=Carry 5d @ +0.448
+    OPEN_SCORED_ENTRY: n=1663, actual=+0.153, best=Actual @ +0.153
+
+  Reason               n   Actual      C1d      C3d      C5d   CloseG    CStop    Flow2
+  ----------------------------------------------------------------------------------------
+  EMA_REVERSION      270  +0.176  +0.046  +0.088  +0.088  +0.090 -14.415  +0.094
+  EOD_FLATTEN         28  -0.507  -0.437  -0.455  -0.455  -0.455  -0.455  -0.455
+  FLOW_REVERSAL       10  +0.122  -0.280  -0.280  -0.280  -0.278  -0.280  -0.280
+  GAP_STOP            90  -0.351  -0.282  -0.277  -0.277  -0.277  -0.277  -0.277
+  STOP_HIT          1380  +0.196  -0.013  +0.011  +0.008  -0.004  -2.078  -0.019
+
+  Carry decision audit: binary=114, score_fallback=0, carried=114, should_have_carried_but_flattened=0, carried_underperformed_flatten=62
+
+  Flow reversal timing:
+    early: n=10, avg_r=+0.122, total_r=+1.22, routes=OPEN_SCORED_ENTRY
+
+  Intraday alpha curve:
+    intraday-only: n=1664, avg_r=+0.181, total_r=+300.57
+    overnight: n=114, avg_r=-0.238, total_r=-27.17
+    route:DELAYED_CONFIRM: n=115, avg_r=+0.165, total_r=+19.00
+    route:OPEN_SCORED_ENTRY: n=1663, avg_r=+0.153, total_r=+254.40
+
+======================================================================
+  13. Regime / Sector / Weekday Concentration
+======================================================================
+  Top sectors by participation:
+    Technology: n=754, avg_r=+0.188
+    Healthcare: n=601, avg_r=+0.124
+    Financials: n=166, avg_r=+0.115
+    Communication Services: n=119, avg_r=+0.156
+    Consumer Discretionary: n=66, avg_r=+0.155
+  Weekday mix:
+    Mon: n=306, avg_r=+0.179
+    Tue: n=364, avg_r=+0.167
+    Wed: n=372, avg_r=+0.131
+    Thu: n=362, avg_r=+0.152
+    Fri: n=374, avg_r=+0.144
+
+======================================================================
+  13B. Positive Contribution / Alpha Source
+======================================================================
+  Entry routes:
+    OPEN_SCORED_ENTRY: n=1663, avg_r=+0.153, total_r=+254.40
+    DELAYED_CONFIRM: n=115, avg_r=+0.165, total_r=+19.00
+  Sectors:
+    Technology: n=754, avg_r=+0.188, total_r=+141.84
+    Healthcare: n=601, avg_r=+0.124, total_r=+74.28
+    Financials: n=166, avg_r=+0.115, total_r=+19.03
+    Communication Services: n=119, avg_r=+0.156, total_r=+18.58
+    Consumer Discretionary: n=66, avg_r=+0.155, total_r=+10.21
+    Consumer Staples: n=41, avg_r=+0.137, total_r=+5.62
+  Weekdays:
+    Tue: n=364, avg_r=+0.167, total_r=+60.65
+    Thu: n=362, avg_r=+0.152, total_r=+55.14
+    Mon: n=306, avg_r=+0.179, total_r=+54.91
+    Fri: n=374, avg_r=+0.144, total_r=+53.98
+    Wed: n=372, avg_r=+0.131, total_r=+48.73
+  Entry hours:
+    13:30: n=1153, avg_r=+0.160, total_r=+184.81
+    14:30: n=566, avg_r=+0.135, total_r=+76.20
+    14:00: n=25, avg_r=+0.272, total_r=+6.81
+    15:00: n=11, avg_r=+0.167, total_r=+1.84
+    16:00: n=5, avg_r=+0.298, total_r=+1.49
+    18:00: n=3, avg_r=+0.254, total_r=+0.76
+  Feature buckets:
+    entry_gap_pct: -1% to 0% +99.46R, 0% to 1% +95.07R, <-1% +58.19R
+    entry_cdd: 2-3 +145.29R, 4-5 +74.58R, 0-1 +52.33R
+    entry_rank_pct: >50% +231.87R, 35-50% +29.14R, 20-35% +7.88R
+    daily_signal_score: 70+ +205.85R, 60-70 +67.55R
+    daily_signal_rank_pct: >50% +231.87R, 35-50% +29.14R, 20-35% +7.88R
+    close_pct: 0.80+ +177.27R, 0.40-0.65 +100.53R, 0.65-0.80 +79.65R
+    mfe_r: <0.25R +132.05R, 0.25-0.50R +110.24R, 0.50-1.00R +17.95R
+  Best keepers (gates):
+    daily_signal_floor_reject: avoided=+2558.23R, missed=+2146.03R
+    entry_window_expired: avoided=+5.37R, missed=+2.40R
+    slot_cap_reject: avoided=+1.71R, missed=+1.70R
+  Best keepers (routes):
+    OPEN_SCORED_ENTRY: avg_r=+0.153, total_r=+254.40
+    DELAYED_CONFIRM: avg_r=+0.165, total_r=+19.00
+
+======================================================================
+  14. No-Trade / Low-Trade Day Forensics
+======================================================================
+  2024-04-25: candidates=44, entered=0, skipped_avg=+0.804, best_skipped=+6.431, gates=daily_signal_floor_reject:44
+  2025-01-21: candidates=7, entered=0, skipped_avg=+0.837, best_skipped=+4.979, gates=daily_signal_floor_reject:7
+  2025-11-12: candidates=21, entered=0, skipped_avg=+0.044, best_skipped=+3.834, gates=daily_signal_floor_reject:21
+  2025-11-24: candidates=22, entered=0, skipped_avg=+0.663, best_skipped=+3.829, gates=daily_signal_floor_reject:22
+  2026-05-05: candidates=14, entered=1, skipped_avg=+0.168, best_skipped=+3.185, gates=daily_signal_floor_reject:13
+
+======================================================================
+  15. Monthly PnL
+======================================================================
+     Month Trades     WR     NetR     CumR
+  --------------------------------------------
+   2024-03     21 85.7%   +4.21   +4.21
+   2024-04     49 79.6%   +6.43  +10.64
+   2024-05     60 70.0%   +2.44  +13.08
+   2024-06     84 86.9%  +18.89  +31.97
+   2024-07     89 77.5%  +11.62  +43.59
+   2024-08     27 85.2%   +5.61  +49.21
+   2024-09     67 76.1%   +8.14  +57.34
+   2024-10     54 74.1%   +6.62  +63.96
+   2024-11     57 80.7%   +7.00  +70.96
+   2024-12     80 70.0%   +4.15  +75.10
+   2025-01     65 72.3%   +5.42  +80.52
+   2025-02     80 85.0%  +16.43  +96.96
+   2025-03      7 71.4%   +0.21  +97.16
+   2025-05     52 98.1%  +16.17 +113.33
+   2025-06     78 87.2%  +19.04 +132.38
+   2025-07    102 73.5%   +7.73 +140.11
+   2025-08    109 78.9%  +15.68 +155.79
+   2025-09    113 75.2%  +13.19 +168.99
+   2025-10     91 80.2%  +14.90 +183.88
+   2025-11     39 76.9%   +8.30 +192.18
+   2025-12    102 76.5%   +9.27 +201.46
+   2026-01     78 83.3%  +14.64 +216.10
+   2026-02     55 81.8%   +8.74 +224.84
+   2026-03     21 85.7%   +5.30 +230.14
+   2026-04     31 74.2%   +4.27 +234.41
+   2026-05     58 87.9%  +12.70 +247.10
+   2026-06     82 86.6%  +20.30 +267.40
+   2026-07     27 85.2%   +6.00 +273.40
+
+======================================================================
+  16. Rolling Expectancy
+======================================================================
+  Start: +0.187R  |  End: +0.233R
+  Min: -0.242R  |  Max: +0.451R
+  Positive windows: 90%
+
+======================================================================
+  17. Drawdown Episodes
+======================================================================
+  Max drawdown: -5.41R
+  Worst point: trade #277
+
+======================================================================
+  Appendix
+======================================================================
+  RSI-only same-day exit threshold sweeps are intentionally downgraded because they mainly relabel close exits.
+  Nontrivial carry trades: 114.

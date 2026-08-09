@@ -121,8 +121,8 @@ def test_round2_candidates_exclude_small_sample_sector_and_weekday_fits():
     assert "r2_tuesday075_fin025" not in {name for name, _ in all_candidates}
 
 
-def test_round2_optimized_param_overrides_match_live_defaults():
-    optimized_path = Path("backtests/output/stock/alcb/round_2/optimized_config.json")
+def test_latest_optimized_param_overrides_match_live_defaults():
+    optimized_path = Path("backtests/output/stock/alcb/round_4/optimized_config.json")
     optimized = json.loads(optimized_path.read_text(encoding="utf-8"))
     backtest_config = mutate_alcb_config(ALCBBacktestConfig(), hydrate_time_mutations(optimized))
     backtest_settings = StrategySettings(**backtest_config.param_overrides)
@@ -247,6 +247,50 @@ def test_entry_confirmation_uses_completed_confirmation_bar_not_fill_bar():
     }
 
     assert engine._entry_confirmation_passed(pending, session_bars, settings)
+
+
+def test_orb_entry_geometry_taper_is_continuous_and_default_disabled():
+    disabled = StrategySettings()
+    tapered = StrategySettings(
+        orb_entry_range_taper_start_r=0.75,
+        orb_entry_range_taper_end_r=1.25,
+        orb_entry_range_taper_floor=0.60,
+    )
+
+    assert ALCBIntradayEngine._orb_entry_geometry_size_mult(2.0, disabled) == 1.0
+    assert ALCBIntradayEngine._orb_entry_geometry_size_mult(0.75, tapered) == 1.0
+    assert ALCBIntradayEngine._orb_entry_geometry_size_mult(1.00, tapered) == pytest.approx(0.80)
+    assert ALCBIntradayEngine._orb_entry_geometry_size_mult(1.25, tapered) == 0.60
+
+
+def test_failure_density_throttle_uses_only_closed_trade_history():
+    engine = object.__new__(ALCBIntradayEngine)
+    engine._failure_history = [True, False, True, True]
+    settings = StrategySettings(
+        failure_density_lookback_trades=4,
+        failure_density_min_observations=4,
+        failure_density_trigger_pct=0.75,
+        failure_density_size_mult=0.65,
+    )
+
+    assert engine._failure_density_size_mult(settings) == 0.65
+    engine._failure_history = [True, False, True]
+    assert engine._failure_density_size_mult(settings) == 1.0
+
+
+def test_daily_stop_requires_ablation_and_realized_threshold():
+    engine = object.__new__(ALCBIntradayEngine)
+    engine._daily_realized_r = -2.40
+    settings = StrategySettings(daily_stop_r=2.35)
+
+    assert not engine._daily_stop_active(
+        settings,
+        SimpleNamespace(use_daily_stop=False),
+    )
+    assert engine._daily_stop_active(
+        settings,
+        SimpleNamespace(use_daily_stop=True),
+    )
 
 
 def test_maturation_stop_requires_configured_failed_check_count():

@@ -1,0 +1,227 @@
+{
+  "strategy": "iaric",
+  "label": "saved_window",
+  "requested_start": "2024-01-01",
+  "requested_end": "2026-03-01",
+  "phase_state": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\iaric\\round_1\\phase_state.json",
+  "completed_phases": [
+    1
+  ],
+  "round_name": "live_aligned_ablation_perturbation",
+  "mutation_count": 52,
+  "cache_source_fingerprint": "18e0d58080357e5b6f3bae974f3e63f4a48e68f1652e68bdcedce91a446b2ebe",
+  "metrics_cache_key": null,
+  "elapsed_seconds": 704.4379999999946,
+  "full_diagnostics": false,
+  "first_trade_entry": "2024-03-20T13:35:00+00:00",
+  "last_trade_exit": "2026-02-28T01:00:00+00:00",
+  "trade_entry_date_count": 362,
+  "metrics": {
+    "total_trades": 1564,
+    "winning_trades": 1240,
+    "losing_trades": 324,
+    "win_rate": 0.7928388746803069,
+    "gross_profit": 39009.00000000001,
+    "gross_loss": -17925.230000000003,
+    "net_profit": 21083.770000000008,
+    "profit_factor": 2.176206386194208,
+    "expectancy": 0.147673560366423,
+    "expectancy_dollar": 13.480671355498727,
+    "avg_r": 0.147673560366423,
+    "expected_total_r": 230.96144841308558,
+    "cagr": 0.6927271083175237,
+    "sharpe": 6.299316931669716,
+    "sortino": 5.613933366672219,
+    "calmar": 32.01665415423019,
+    "max_drawdown_pct": 0.021636461604655134,
+    "max_drawdown_dollar": 446.3100000000013,
+    "avg_hold_hours": 3.911445012787724,
+    "trades_per_month": 60.48824650571792,
+    "total_commissions": 482.85,
+    "tail_loss_r": -0.8806130333978188
+  },
+  "headline_metrics": {
+    "total_trades": 1564,
+    "win_rate": 79.28388746803068,
+    "profit_factor": 2.176206386194208,
+    "max_drawdown_pct": 2.1636461604655133,
+    "net_return_pct": null,
+    "sharpe_ratio": 6.299316931669716,
+    "calmar_ratio": 32.01665415423019
+  },
+  "baseline_headline_metrics": {
+    "total_trades": 1446,
+    "win_rate": 79.73720608575381,
+    "profit_factor": 2.3130200056599257,
+    "max_drawdown_pct": 1.9851291013273222,
+    "net_return_pct": null,
+    "sharpe_ratio": 6.570245562344438,
+    "calmar_ratio": 34.930061359408505
+  },
+  "baseline_final_metrics_subset": {
+    "total_trades": 1446,
+    "winning_trades": 1153,
+    "losing_trades": 293,
+    "win_rate": 0.7973720608575381,
+    "gross_profit": 37188.619999999995,
+    "gross_loss": -16077.949999999997,
+    "net_profit": 21110.669999999995,
+    "profit_factor": 2.3130200056599257,
+    "expectancy": 0.1511026318222904,
+    "expectancy_dollar": 14.599356846473025,
+    "avg_r": 0.1511026318222904,
+    "expected_total_r": 218.4944056150319,
+    "cagr": 0.6934068131571083,
+    "sharpe": 6.570245562344438,
+    "sortino": 5.870807600705324,
+    "calmar": 34.930061359408505,
+    "max_drawdown_pct": 0.019851291013273223,
+    "max_drawdown_dollar": 427.3299999999981,
+    "avg_hold_hours": 3.757607192254495,
+    "trades_per_month": 55.92455527318933,
+    "total_commissions": 447.88,
+    "tail_loss_r": -0.8110937906372128
+  },
+  "diff_vs_baseline_final_metrics": {
+    "total_trades": {
+      "baseline": 1446,
+      "new": 1564,
+      "delta": 118.0,
+      "delta_pct": 0.08160442600276625
+    },
+    "winning_trades": {
+      "baseline": 1153,
+      "new": 1240,
+      "delta": 87.0,
+      "delta_pct": 0.07545533391153512
+    },
+    "losing_trades": {
+      "baseline": 293,
+      "new": 324,
+      "delta": 31.0,
+      "delta_pct": 0.10580204778156997
+    },
+    "win_rate": {
+      "baseline": 0.7973720608575381,
+      "new": 0.7928388746803069,
+      "delta": -0.0045331861772311965,
+      "delta_pct": -0.0056851580331971465
+    },
+    "gross_profit": {
+      "baseline": 37188.619999999995,
+      "new": 39009.00000000001,
+      "delta": 1820.380000000012,
+      "delta_pct": 0.04894992070154827
+    },
+    "gross_loss": {
+      "baseline": -16077.949999999997,
+      "new": -17925.230000000003,
+      "delta": -1847.280000000006,
+      "delta_pct": 0.11489524472958346
+    },
+    "net_profit": {
+      "baseline": 21110.669999999995,
+      "new": 21083.770000000008,
+      "delta": -26.899999999986903,
+      "delta_pct": -0.0012742371511651174
+    },
+    "profit_factor": {
+      "baseline": 2.3130200056599257,
+      "new": 2.176206386194208,
+      "delta": -0.1368136194657179,
+      "delta_pct": -0.059149345501092514
+    },
+    "expectancy": {
+      "baseline": 0.1511026318222904,
+      "new": 0.147673560366423,
+      "delta": -0.0034290714558673774,
+      "delta_pct": -0.022693658042305036
+    },
+    "expectancy_dollar": {
+      "baseline": 14.599356846473025,
+      "new": 13.480671355498727,
+      "delta": -1.1186854909742987,
+      "delta_pct": -0.07662566938656311
+    },
+    "avg_r": {
+      "baseline": 0.1511026318222904,
+      "new": 0.147673560366423,
+      "delta": -0.0034290714558673774,
+      "delta_pct": -0.022693658042305036
+    },
+    "expected_total_r": {
+      "baseline": 218.4944056150319,
+      "new": 230.96144841308558,
+      "delta": 12.467042798053683,
+      "delta_pct": 0.057058865022015834
+    },
+    "cagr": {
+      "baseline": 0.6934068131571083,
+      "new": 0.6927271083175237,
+      "delta": -0.0006797048395845717,
+      "delta_pct": -0.0009802396323304772
+    },
+    "sharpe": {
+      "baseline": 6.570245562344438,
+      "new": 6.299316931669716,
+      "delta": -0.27092863067472184,
+      "delta_pct": -0.04123569326350222
+    },
+    "sortino": {
+      "baseline": 5.870807600705324,
+      "new": 5.613933366672219,
+      "delta": -0.2568742340331047,
+      "delta_pct": -0.04375449708183992
+    },
+    "calmar": {
+      "baseline": 34.930061359408505,
+      "new": 32.01665415423019,
+      "delta": -2.9134072051783164,
+      "delta_pct": -0.08340687338625537
+    },
+    "max_drawdown_pct": {
+      "baseline": 0.019851291013273223,
+      "new": 0.021636461604655134,
+      "delta": 0.0017851705913819113,
+      "delta_pct": 0.08992717854915773
+    },
+    "max_drawdown_dollar": {
+      "baseline": 427.3299999999981,
+      "new": 446.3100000000013,
+      "delta": 18.9800000000032,
+      "delta_pct": 0.04441532305244959
+    },
+    "avg_hold_hours": {
+      "baseline": 3.757607192254495,
+      "new": 3.911445012787724,
+      "delta": 0.1538378205332287,
+      "delta_pct": 0.04094036780915592
+    },
+    "trades_per_month": {
+      "baseline": 55.92455527318933,
+      "new": 60.48824650571792,
+      "delta": 4.5636912325285905,
+      "delta_pct": 0.08160442600276627
+    },
+    "total_commissions": {
+      "baseline": 447.88,
+      "new": 482.85,
+      "delta": 34.97000000000003,
+      "delta_pct": 0.07807894971867471
+    },
+    "tail_loss_r": {
+      "baseline": -0.8110937906372128,
+      "new": -0.8806130333978188,
+      "delta": -0.06951924276060606,
+      "delta_pct": 0.08571048572075769
+    }
+  },
+  "artifacts": {
+    "diagnostics": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\data_repair_recheck\\latest_configs_20260722T141303Z\\iaric_saved_window_round_final_diagnostics.txt",
+    "metrics": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\data_repair_recheck\\latest_configs_20260722T141303Z\\iaric_saved_window_metrics.json",
+    "trades": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\data_repair_recheck\\latest_configs_20260722T141303Z\\iaric_saved_window_trades.json",
+    "monthly": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\data_repair_recheck\\latest_configs_20260722T141303Z\\iaric_saved_window_monthly.json",
+    "symbols": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\data_repair_recheck\\latest_configs_20260722T141303Z\\iaric_saved_window_symbols.json",
+    "exits": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\data_repair_recheck\\latest_configs_20260722T141303Z\\iaric_saved_window_exits.json"
+  }
+}

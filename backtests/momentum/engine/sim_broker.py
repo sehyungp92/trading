@@ -50,6 +50,8 @@ class SimOrder:
     oca_group: str = ""        # OCA group ID; fill cancels siblings
     invalidation_price: float = 0.0  # Cancel if price breaches this level
     triggered_ts: datetime | None = None  # When stop-limit stop triggered but limit rejected
+    submitted_bar_idx: int | None = None
+    activation_delay_bars: int = 0
 
     @property
     def direction(self) -> int:
@@ -116,6 +118,19 @@ class SimBroker:
     def cancel_all(self, symbol: str) -> list[SimOrder]:
         """Cancel all pending orders for a symbol."""
         return self.cancel_orders(symbol)
+
+    def cancel_order(self, order_id: str) -> SimOrder | None:
+        """Cancel one exact owned order without widening cancellation scope."""
+
+        cancelled: SimOrder | None = None
+        remaining: list[SimOrder] = []
+        for order in self.pending_orders:
+            if cancelled is None and order.order_id == order_id:
+                cancelled = order
+            else:
+                remaining.append(order)
+        self.pending_orders = remaining
+        return cancelled
 
     def cancel_oca_group(self, oca_group: str) -> list[SimOrder]:
         """Cancel all pending orders in an OCA group."""
@@ -193,6 +208,7 @@ class SimBroker:
         L: float,
         C: float,
         tick_size: float,
+        bar_index: int | None = None,
     ) -> list[FillResult]:
         """Check all pending orders against the current bar.
 
@@ -233,6 +249,14 @@ class SimBroker:
                 results.append(FillResult(
                     order=order, status=FillStatus.CANCELLED, fill_time=bar_time,
                 ))
+                continue
+
+            if (
+                bar_index is not None
+                and order.submitted_bar_idx is not None
+                and bar_index <= order.submitted_bar_idx + order.activation_delay_bars
+            ):
+                still_pending.append(order)
                 continue
 
             # Check expiry (minute-level takes precedence over hour-level)

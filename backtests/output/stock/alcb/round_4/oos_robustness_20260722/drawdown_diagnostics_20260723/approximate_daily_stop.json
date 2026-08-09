@@ -1,0 +1,42 @@
+[
+  {
+    "approx_max_drawdown_pct": 0.10856028269738079,
+    "kept_net_pnl": 30460.30000000001,
+    "kept_total_r": 252.78739502691855,
+    "kept_trades": 1213,
+    "skipped_net_pnl": 571.5099999999879,
+    "skipped_total_r": 12.441256702875533,
+    "skipped_trades": 79,
+    "threshold_r": 2.0
+  },
+  {
+    "approx_max_drawdown_pct": 0.11626072197788256,
+    "kept_net_pnl": 31947.760000000002,
+    "kept_total_r": 272.6355345772731,
+    "kept_trades": 1252,
+    "skipped_net_pnl": -915.9500000000041,
+    "skipped_total_r": -7.4068828474790065,
+    "skipped_trades": 40,
+    "threshold_r": 2.35
+  },
+  {
+    "approx_max_drawdown_pct": 0.11543996595847808,
+    "kept_net_pnl": 31483.95,
+    "kept_total_r": 269.39331324807216,
+    "kept_trades": 1272,
+    "skipped_net_pnl": -452.1400000000032,
+    "skipped_total_r": -4.164661518278064,
+    "skipped_trades": 20,
+    "threshold_r": 3.0
+  },
+  {
+    "approx_max_drawdown_pct": 0.11928876167587615,
+    "kept_net_pnl": 31109.309999999998,
+    "kept_total_r": 267.0452461853706,
+    "kept_trades": 1289,
+    "skipped_net_pnl": -77.49999999999815,
+    "skipped_total_r": -1.8165944555765425,
+    "skipped_trades": 3,
+    "threshold_r": 3.5
+  }
+]

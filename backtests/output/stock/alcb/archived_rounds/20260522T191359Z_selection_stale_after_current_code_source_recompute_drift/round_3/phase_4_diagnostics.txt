@@ -1,0 +1,11 @@
+======================================================================
+ALCB ROUND-3 RESIDUAL ALPHA PHASE 4 SNAPSHOT
+======================================================================
+Focus: Quality-preserved frequency recovery
+Score 0.5060 -> 0.5060 with 0 accepted mutations.
+
+Core: trades=511, net_profit=+10971.02, expectancy_dollar=+21.47, expected_total_r=+138.43, pf=2.195, dd=2.3%, trades/month=19.74
+Quality: signal_quality=0.619, timing_quality=0.681, extended_avwap_inverse=0.318, bar9_inverse=0.725, late_entry_quality=1.000, score_monotonicity=0.456
+Management: profit_protection=0.735, short24_inv=0.410, flow_mfe_inv=0.991, mfe_capture_eff=0.829, sizing_alignment=1.000, long_hold_capture=0.995, inv_dd=0.804
+Focus metric deltas: trades_per_month=+19.738->+19.738, expected_total_r=+138.427->+138.427, net_profit=+10971.020->+10971.020, profit_factor=+2.195->+2.195, late_entry_quality=+1.000->+1.000, timing_quality=+0.681->+0.681, signal_quality=+0.619->+0.619
+Hard floors: max_dd_pct=4.50%, min_expectancy_dollar=18.8933, min_expected_total_r=131.5053, min_late_entry_quality=0.8000, min_net_profit=10312.7588, min_pf=2.0189, min_signal_quality=0.5446, min_trades_per_month=19.4000

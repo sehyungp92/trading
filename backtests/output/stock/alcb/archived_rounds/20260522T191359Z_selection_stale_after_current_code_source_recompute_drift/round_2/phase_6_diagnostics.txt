@@ -1,0 +1,11 @@
+======================================================================
+ALCB ROUND-2 STRUCTURAL ALPHA PHASE 6 SNAPSHOT
+======================================================================
+Focus: Structural synthesis
+Score 0.7098 -> 0.8048 with 1 accepted mutations.
+
+Core: trades=510, net_profit=+10252.86, expectancy_dollar=+20.10, expected_total_r=+130.07, pf=2.100, dd=2.8%, trades/month=19.70
+Quality: signal_quality=0.607, timing_quality=0.641, extended_avwap_inverse=0.183, bar9_inverse=0.741, late_entry_quality=1.000, score_monotonicity=0.438
+Management: profit_protection=0.688, short24_inv=0.418, flow_mfe_inv=0.843, mfe_capture_eff=0.804, sizing_alignment=1.000, long_hold_capture=0.988, inv_dd=0.768
+Focus metric deltas: expected_total_r=+119.928->+130.069, trades_per_month=+19.584->+19.699, net_profit=+9990.070->+10252.860, profit_factor=+1.948->+2.100, expectancy_dollar=+19.704->+20.104, signal_quality=+0.574->+0.607, timing_quality=+0.727->+0.641, sizing_alignment=+1.000->+1.000, profit_protection=+0.680->+0.688
+Hard floors: max_dd_pct=4.70%, min_expectancy_dollar=18.1279, min_expected_total_r=116.3299, min_flow_mfe_exit_inverse=0.7125, min_mfe_capture_efficiency=0.7212, min_net_profit=9490.5665, min_pf=1.8506, min_profit_protection=0.5780, min_short_hold_24_drag_inverse=0.3310, min_signal_quality=0.5278, min_sizing_alignment=0.9000, min_trades_per_month=19.5000

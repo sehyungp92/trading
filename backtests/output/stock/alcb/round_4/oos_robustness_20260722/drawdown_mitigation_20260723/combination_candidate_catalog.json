@@ -1,0 +1,517 @@
+[
+  {
+    "atomic_key": "",
+    "category": "orthogonal_combination",
+    "lineage": "geometry__entry_range_cap_1p15 + quality__size_floor_0p7",
+    "name": "combo__signal_geometry__signal_quality_sizing",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.15,
+      "param_overrides.orb_quality_score_min": 55.0,
+      "param_overrides.orb_quality_size_floor": 0.7,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 82.5,
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "drawdown_mitigation_combination",
+    "thesis": "Combine geometry__entry_range_cap_1p15 with quality__size_floor_0p7."
+  },
+  {
+    "atomic_key": "",
+    "category": "orthogonal_combination",
+    "lineage": "geometry__entry_range_cap_1p15 + quality__size_floor_0p7__risk_0p00723",
+    "name": "combo__signal_geometry__quality_risk_restore",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.base_risk_fraction": 0.00723,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.15,
+      "param_overrides.orb_quality_score_min": 55.0,
+      "param_overrides.orb_quality_size_floor": 0.7,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 82.5,
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "drawdown_mitigation_combination",
+    "thesis": "Combine geometry__entry_range_cap_1p15 with quality__size_floor_0p7__risk_0p00723."
+  },
+  {
+    "atomic_key": "",
+    "category": "orthogonal_combination",
+    "lineage": "geometry__entry_range_cap_1p15 + exit__flow_hold_8",
+    "name": "combo__signal_geometry__exit_logic",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.15,
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "drawdown_mitigation_combination",
+    "thesis": "Combine geometry__entry_range_cap_1p15 with exit__flow_hold_8."
+  },
+  {
+    "atomic_key": "",
+    "category": "orthogonal_combination",
+    "lineage": "geometry__entry_range_cap_1p15 + score__adx_threshold_15",
+    "name": "combo__signal_geometry__score_discrimination",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.adx_threshold": 15.0,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.15,
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "drawdown_mitigation_combination",
+    "thesis": "Combine geometry__entry_range_cap_1p15 with score__adx_threshold_15."
+  },
+  {
+    "atomic_key": "",
+    "category": "orthogonal_combination",
+    "lineage": "geometry__entry_range_cap_1p15 + selection__long_count_30",
+    "name": "combo__signal_geometry__selection_expansion",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.15,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "drawdown_mitigation_combination",
+    "thesis": "Combine geometry__entry_range_cap_1p15 with selection__long_count_30."
+  },
+  {
+    "atomic_key": "",
+    "category": "orthogonal_combination",
+    "lineage": "reclaim__or_pdh_avwap__default + quality__size_floor_0p7",
+    "name": "combo__entry_expansion__signal_quality_sizing",
+    "patch": {
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_quality_score_min": 55.0,
+      "param_overrides.orb_quality_size_floor": 0.7,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 82.5,
+      "param_overrides.reclaim_entry_mode": "or_pdh_avwap",
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "drawdown_mitigation_combination",
+    "thesis": "Combine reclaim__or_pdh_avwap__default with quality__size_floor_0p7."
+  },
+  {
+    "atomic_key": "",
+    "category": "orthogonal_combination",
+    "lineage": "reclaim__or_pdh_avwap__default + geometry__entry_range_cap_1p15",
+    "name": "combo__entry_expansion__signal_geometry",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.15,
+      "param_overrides.reclaim_entry_mode": "or_pdh_avwap",
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "drawdown_mitigation_combination",
+    "thesis": "Combine reclaim__or_pdh_avwap__default with geometry__entry_range_cap_1p15."
+  },
+  {
+    "atomic_key": "",
+    "category": "orthogonal_combination",
+    "lineage": "reclaim__or_pdh_avwap__default + exit__flow_hold_8",
+    "name": "combo__entry_expansion__exit_logic",
+    "patch": {
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.reclaim_entry_mode": "or_pdh_avwap",
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "drawdown_mitigation_combination",
+    "thesis": "Combine reclaim__or_pdh_avwap__default with exit__flow_hold_8."
+  },
+  {
+    "atomic_key": "",
+    "category": "orthogonal_combination",
+    "lineage": "reclaim__or_pdh_avwap__default + capacity__leverage_3p0",
+    "name": "combo__entry_expansion__capacity",
+    "patch": {
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.intraday_leverage": 3.0,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.reclaim_entry_mode": "or_pdh_avwap",
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "drawdown_mitigation_combination",
+    "thesis": "Combine reclaim__or_pdh_avwap__default with capacity__leverage_3p0."
+  },
+  {
+    "atomic_key": "",
+    "category": "orthogonal_combination",
+    "lineage": "selection__long_count_30 + quality__size_floor_0p7",
+    "name": "combo__selection_expansion__signal_quality_sizing",
+    "patch": {
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_quality_score_min": 55.0,
+      "param_overrides.orb_quality_size_floor": 0.7,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 82.5,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "drawdown_mitigation_combination",
+    "thesis": "Combine selection__long_count_30 with quality__size_floor_0p7."
+  },
+  {
+    "atomic_key": "",
+    "category": "orthogonal_combination",
+    "lineage": "capacity__leverage_3p0 + quality__size_floor_0p7",
+    "name": "combo__capacity__signal_quality_sizing",
+    "patch": {
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.intraday_leverage": 3.0,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_quality_score_min": 55.0,
+      "param_overrides.orb_quality_size_floor": 0.7,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 82.5,
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "drawdown_mitigation_combination",
+    "thesis": "Combine capacity__leverage_3p0 with quality__size_floor_0p7."
+  },
+  {
+    "atomic_key": "",
+    "category": "orthogonal_combination",
+    "lineage": "quality__size_floor_0p7 + exit__flow_hold_8",
+    "name": "combo__signal_quality_sizing__exit_logic",
+    "patch": {
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_quality_score_min": 55.0,
+      "param_overrides.orb_quality_size_floor": 0.7,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 82.5,
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "drawdown_mitigation_combination",
+    "thesis": "Combine quality__size_floor_0p7 with exit__flow_hold_8."
+  },
+  {
+    "atomic_key": "",
+    "category": "orthogonal_combination",
+    "lineage": "geometry__entry_range_cap_1p15 + quality__size_floor_0p7 + exit__flow_hold_8",
+    "name": "combo__signal_geometry__signal_quality_sizing__exit_logic",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.15,
+      "param_overrides.orb_quality_score_min": 55.0,
+      "param_overrides.orb_quality_size_floor": 0.7,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 82.5,
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "drawdown_mitigation_combination",
+    "thesis": "Combine geometry__entry_range_cap_1p15 + quality__size_floor_0p7 + exit__flow_hold_8."
+  },
+  {
+    "atomic_key": "",
+    "category": "orthogonal_combination",
+    "lineage": "geometry__entry_range_cap_1p15 + quality__size_floor_0p7__risk_0p00723 + exit__flow_hold_8",
+    "name": "combo__signal_geometry__quality_risk_restore__exit_logic",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.base_risk_fraction": 0.00723,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.15,
+      "param_overrides.orb_quality_score_min": 55.0,
+      "param_overrides.orb_quality_size_floor": 0.7,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 82.5,
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "drawdown_mitigation_combination",
+    "thesis": "Combine geometry__entry_range_cap_1p15 + quality__size_floor_0p7__risk_0p00723 + exit__flow_hold_8."
+  },
+  {
+    "atomic_key": "",
+    "category": "orthogonal_combination",
+    "lineage": "geometry__entry_range_cap_1p15 + quality__size_floor_0p7 + score__adx_threshold_15",
+    "name": "combo__signal_geometry__signal_quality_sizing__score_discrimination",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.adx_threshold": 15.0,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.15,
+      "param_overrides.orb_quality_score_min": 55.0,
+      "param_overrides.orb_quality_size_floor": 0.7,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 82.5,
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "drawdown_mitigation_combination",
+    "thesis": "Combine geometry__entry_range_cap_1p15 + quality__size_floor_0p7 + score__adx_threshold_15."
+  },
+  {
+    "atomic_key": "",
+    "category": "orthogonal_combination",
+    "lineage": "geometry__entry_range_cap_1p15 + quality__size_floor_0p7 + reclaim__or_pdh_avwap__default",
+    "name": "combo__signal_geometry__signal_quality_sizing__entry_expansion",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.15,
+      "param_overrides.orb_quality_score_min": 55.0,
+      "param_overrides.orb_quality_size_floor": 0.7,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 82.5,
+      "param_overrides.reclaim_entry_mode": "or_pdh_avwap",
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "drawdown_mitigation_combination",
+    "thesis": "Combine geometry__entry_range_cap_1p15 + quality__size_floor_0p7 + reclaim__or_pdh_avwap__default."
+  },
+  {
+    "atomic_key": "",
+    "category": "orthogonal_combination",
+    "lineage": "geometry__entry_range_cap_1p15 + quality__size_floor_0p7 + selection__long_count_30",
+    "name": "combo__signal_geometry__signal_quality_sizing__selection_expansion",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.15,
+      "param_overrides.orb_quality_score_min": 55.0,
+      "param_overrides.orb_quality_size_floor": 0.7,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 82.5,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "drawdown_mitigation_combination",
+    "thesis": "Combine geometry__entry_range_cap_1p15 + quality__size_floor_0p7 + selection__long_count_30."
+  },
+  {
+    "atomic_key": "",
+    "category": "balanced_geometry_combination",
+    "lineage": "geometry__entry_range_cap_1p25 + quality__size_floor_0p7",
+    "name": "combo_balanced__geom125__quality070",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.25,
+      "param_overrides.orb_quality_score_min": 55.0,
+      "param_overrides.orb_quality_size_floor": 0.7,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 82.5,
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "drawdown_mitigation_balanced_combination",
+    "thesis": "Combine the stable 1.25R geometry anchor with validated orthogonal mechanisms."
+  },
+  {
+    "atomic_key": "",
+    "category": "balanced_geometry_combination",
+    "lineage": "geometry__entry_range_cap_1p25 + score__adx_threshold_15",
+    "name": "combo_balanced__geom125__adx15",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.adx_threshold": 15.0,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.25,
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "drawdown_mitigation_balanced_combination",
+    "thesis": "Combine the stable 1.25R geometry anchor with validated orthogonal mechanisms."
+  },
+  {
+    "atomic_key": "",
+    "category": "balanced_geometry_combination",
+    "lineage": "geometry__entry_range_cap_1p25 + exit__flow_hold_8",
+    "name": "combo_balanced__geom125__flow8",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.25,
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "drawdown_mitigation_balanced_combination",
+    "thesis": "Combine the stable 1.25R geometry anchor with validated orthogonal mechanisms."
+  },
+  {
+    "atomic_key": "",
+    "category": "balanced_geometry_combination",
+    "lineage": "geometry__entry_range_cap_1p25 + selection__long_count_30",
+    "name": "combo_balanced__geom125__selection30",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.25,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "drawdown_mitigation_balanced_combination",
+    "thesis": "Combine the stable 1.25R geometry anchor with validated orthogonal mechanisms."
+  },
+  {
+    "atomic_key": "",
+    "category": "balanced_geometry_combination",
+    "lineage": "geometry__entry_range_cap_1p25 + quality__size_floor_0p7 + selection__long_count_30",
+    "name": "combo_balanced__geom125__quality070__selection30",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.25,
+      "param_overrides.orb_quality_score_min": 55.0,
+      "param_overrides.orb_quality_size_floor": 0.7,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 82.5,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "drawdown_mitigation_balanced_combination",
+    "thesis": "Combine the stable 1.25R geometry anchor with validated orthogonal mechanisms."
+  },
+  {
+    "atomic_key": "",
+    "category": "balanced_geometry_combination",
+    "lineage": "geometry__entry_range_cap_1p25 + quality__size_floor_0p7 + exit__flow_hold_8",
+    "name": "combo_balanced__geom125__quality070__flow8",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.25,
+      "param_overrides.orb_quality_score_min": 55.0,
+      "param_overrides.orb_quality_size_floor": 0.7,
+      "param_overrides.orb_quality_top_mult": 1.1,
+      "param_overrides.orb_quality_top_score": 82.5,
+      "param_overrides.rvol_threshold": 1.7
+    },
+    "stage": "drawdown_mitigation_balanced_combination",
+    "thesis": "Combine the stable 1.25R geometry anchor with validated orthogonal mechanisms."
+  },
+  {
+    "atomic_key": "",
+    "category": "balanced_geometry_combination",
+    "lineage": "geometry__entry_range_cap_1p25 + selection__long_count_30 + exit__flow_hold_8",
+    "name": "combo_balanced__geom125__selection30__flow8",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.25,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "drawdown_mitigation_balanced_combination",
+    "thesis": "Combine the stable 1.25R geometry anchor with validated orthogonal mechanisms."
+  },
+  {
+    "atomic_key": "",
+    "category": "balanced_geometry_combination",
+    "lineage": "geometry__entry_range_cap_1p15 + selection__long_count_30 + exit__flow_hold_8",
+    "name": "combo_balanced__geom115__selection30__flow8",
+    "patch": {
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.15,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "drawdown_mitigation_balanced_combination",
+    "thesis": "Combine the stable 1.25R geometry anchor with validated orthogonal mechanisms."
+  },
+  {
+    "atomic_key": "",
+    "category": "balanced_geometry_combination",
+    "lineage": "selection__long_count_30 + exit__flow_hold_8",
+    "name": "combo_balanced__selection30__flow8",
+    "patch": {
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "drawdown_mitigation_balanced_combination",
+    "thesis": "Combine the stable 1.25R geometry anchor with validated orthogonal mechanisms."
+  },
+  {
+    "atomic_key": "",
+    "category": "balanced_geometry_combination",
+    "lineage": "geometry__entry_range_cap_1p25 + selection__long_count_30 + exit__mfe_conviction_off",
+    "name": "combo_balanced__geom125__selection30__mfeoff",
+    "patch": {
+      "ablation.use_mfe_conviction_exit": false,
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.25,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "drawdown_mitigation_balanced_combination",
+    "thesis": "Combine the stable 1.25R geometry anchor with validated orthogonal mechanisms."
+  },
+  {
+    "atomic_key": "",
+    "category": "balanced_geometry_combination",
+    "lineage": "geometry__entry_range_cap_1p25 + selection__long_count_30 + exit__flow_hold_8 + exit__mfe_conviction_off",
+    "name": "combo_balanced__geom125__selection30__flow8__mfeoff",
+    "patch": {
+      "ablation.use_mfe_conviction_exit": false,
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.25,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "drawdown_mitigation_balanced_combination",
+    "thesis": "Combine the stable 1.25R geometry anchor with validated orthogonal mechanisms."
+  },
+  {
+    "atomic_key": "",
+    "category": "balanced_geometry_combination",
+    "lineage": "geometry__entry_range_cap_1p15 + selection__long_count_30 + exit__flow_hold_8 + exit__mfe_conviction_off",
+    "name": "combo_balanced__geom115__selection30__flow8__mfeoff",
+    "patch": {
+      "ablation.use_mfe_conviction_exit": false,
+      "ablation.use_orb_entry_range_gate": true,
+      "param_overrides.adaptive_trail_late_distance_r": 0.04,
+      "param_overrides.flow_reversal_min_hold_bars": 8,
+      "param_overrides.opening_range_bars": 9,
+      "param_overrides.orb_entry_range_cap_r": 1.15,
+      "param_overrides.rvol_threshold": 1.7,
+      "param_overrides.selection_long_count": 30
+    },
+    "stage": "drawdown_mitigation_balanced_combination",
+    "thesis": "Combine the stable 1.25R geometry anchor with validated orthogonal mechanisms."
+  }
+]

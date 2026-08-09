@@ -53,6 +53,9 @@ class ALCBAblationFlags:
     use_orb_entry_range_gate: bool = False
     use_orb_retracement_trail: bool = False
 
+    # Portfolio-level causal risk controls (default-disabled for replay parity).
+    use_daily_stop: bool = False
+
 
 @dataclass
 class ALCBBacktestConfig:

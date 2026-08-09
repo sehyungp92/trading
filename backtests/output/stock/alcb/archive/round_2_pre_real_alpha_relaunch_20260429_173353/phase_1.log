@@ -1,0 +1,2 @@
+2026-04-29 16:18:08,012 INFO research.backtests.shared.auto.phase.08f6f983986e.1: Starting phase 1 with 5 candidates
+2026-04-29 16:43:25,991 INFO research.backtests.shared.auto.phase.08f6f983986e.1: Round 1 produced no valid candidates; stopping.

@@ -1,0 +1,3174 @@
+{
+  "backup_dir": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230",
+  "calendar_version": "us_equities_xnys_xnas_rules_2024_2026_v2",
+  "daily_research_backfill_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+  "final_coverage_audit": "backtests\\output\\data_audits\\stock_98_coverage_2024-03-25_to_2026-07-10.final_audit.json",
+  "focused_download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\focused_download_report.json",
+  "generated_at": "2026-07-22T13:30:58.376064+00:00",
+  "late_start_5m_download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\late_start_5m\\late_start_5m_download_report.json",
+  "notes": [
+    "All no-gap assertions in the final audit are for the versioned regular trading-hours session.",
+    "Extended-hours raw bars remain provider-sparse where no trades were returned.",
+    "30m repairs preserve existing direct 30m bars on overlapping timestamps and use 5m-derived bars only for absent timestamps.",
+    "Twelve isolated 5m opening placeholders across four symbols were inserted only after focused IBKR one-day checks confirmed the provider did not return those opening timestamps.",
+    "Daily research backfill replaced short daily files with direct six-year IBKR daily histories ending 2026-07-10."
+  ],
+  "operation_count": 119,
+  "operations": [
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "3c9ef0a5073d2954189043c2eb49e4965032878b5e62e66f53ebaebed441895e",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\A_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "43ac6e551683c6be6f4fcafe9c02089aa78a004f56407cd6c9ae7897a9c653a5",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\A_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "A",
+      "target_path": "backtests\\stock\\data\\raw\\A_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "c00865b0f86ae7781a7f0fb33aa82be92959e3a268c74f14209be698ce82896d",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\AAPL_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "65275d96dc46c3dbe0baa8728bdd10efd49476f9be3c988fbbf07205025542b0",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\AAPL_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "AAPL",
+      "target_path": "backtests\\stock\\data\\raw\\AAPL_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 7926,
+      "added_rows_total": 8022,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 18459,
+        "sha256": "573efe23f65939de2c9321a72e176288989eabc52a39b3c90467ac34e5651e76",
+        "start": "2024-03-20T08:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\AAPL_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10437,
+        "sha256": "e7132b3a29d7f1b361ebb7f76433810b4b2002a57cb9aaef4a001834c748d6ba",
+        "start": "2025-03-21T08:00:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T08:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\AAPL_5m.parquet",
+      "source_5m_sha256": "f6f857e92f662ee26f8ac0340988d930751acccdffacab5590df456aca411ec5",
+      "symbol": "AAPL",
+      "target_path": "backtests\\stock\\data\\raw\\AAPL_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "de698ab42ccda9835c361372966b2fefda1a0e54d07039c536ef2531e3adc2fb",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\ABBV_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "f0264ccbac840bb023e917d8ff8a4ea642094d65a0b16f2e3101f7d2c5e8cd7b",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\ABBV_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "ABBV",
+      "target_path": "backtests\\stock\\data\\raw\\ABBV_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "17e85146ce10ee23532583c64e6a3f7ac58dec72a116d4757a224f677a6c2fb8",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\ABT_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "64f8bb19b301c32ebefc3154d00aadb491c0411ec2a29f31dd57061dc3a44a00",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\ABT_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "ABT",
+      "target_path": "backtests\\stock\\data\\raw\\ABT_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "a508e946822824eb7160905ecb847da1879472813b44793441262a4ba5d675bd",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\ACN_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "056bb35e210f47dfcbd4706e7071a720500b65e0ab90291a88d31c30cfb94a9b",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\ACN_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "ACN",
+      "target_path": "backtests\\stock\\data\\raw\\ACN_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 6196,
+      "added_rows_total": 6254,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 15289,
+        "sha256": "9fc673a2adf421fd1b419ccea1c5f66d041f929838d210d347183ec271dc54b5",
+        "start": "2024-03-21T08:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\ACN_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 9035,
+        "sha256": "aad7e023fbf0a98d2376fef318833be13b4f175bd846406cd4e6b8ca6acb8567",
+        "start": "2025-03-21T08:30:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T10:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\ACN_5m.parquet",
+      "source_5m_sha256": "26f2716eed14b8cd2a305a40ac04e6750e4d26258cfa4225bb3e7a1d6ad612b0",
+      "symbol": "ACN",
+      "target_path": "backtests\\stock\\data\\raw\\ACN_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "c9caf7cbe4dadc8d56f5246b3b84abb045809e4077e28ed6b1ec06b07efc6521",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\ADBE_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "b739558d2c2b9e50eb2a483ec18089e8676c4b3f59c475bcbacfbbfffa81ec1e",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\ADBE_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "ADBE",
+      "target_path": "backtests\\stock\\data\\raw\\ADBE_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 7044,
+      "added_rows_total": 7124,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 17249,
+        "sha256": "3d65746c330c7432d916bdf1232f90e4910afd826fc1e01aa0977f657b535420",
+        "start": "2024-03-20T12:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\ADBE_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10125,
+        "sha256": "5f64ff9ba01b7298c6c6923dfedb5f26d28fcb5f8fe1775e76671e83fa2ac045",
+        "start": "2025-03-21T08:30:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T08:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\ADBE_5m.parquet",
+      "source_5m_sha256": "a4886a352a81efb629d725ef45067fcbce7885251d07f4176b7d981d474f1171",
+      "symbol": "ADBE",
+      "target_path": "backtests\\stock\\data\\raw\\ADBE_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "f62f119e69ab9d789782a48688c033ed3a6f563b868e1b81266cf8ad7835dad6",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\ADI_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "a1c51c7a5ce613996d623e9110cb656fc9a0084386cf5f4121a12c78aa2b61d8",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\ADI_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "ADI",
+      "target_path": "backtests\\stock\\data\\raw\\ADI_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "9ed8a067ab34858c00b9d39ffeaa6c9362fdf778942fb8437e57fcb03e69ab61",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\AMAT_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "6640e320f27664d4b4fec3e8f4a9fcb7ba6c0a2f690d3fb2428c320c5e774b53",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\AMAT_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "AMAT",
+      "target_path": "backtests\\stock\\data\\raw\\AMAT_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "9cf89a112cab2baa55273144f63d3ad81232c166960c83203ea9cd5630bd323b",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\AMD_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "c2a8cefb95c24d5ae2dfaa2f1b7674695d0a811611e867bbd7a52d4bb1197920",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\AMD_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "AMD",
+      "target_path": "backtests\\stock\\data\\raw\\AMD_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 7926,
+      "added_rows_total": 8022,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 18460,
+        "sha256": "0bca7b52817fe3a4d997ec0bfa76dfce49845cd5f788a6053467ac2075ac4514",
+        "start": "2024-03-20T08:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\AMD_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10438,
+        "sha256": "f24007e0f333e243f45140d77ab2833300e80aa19c12c45ccb62419e4175b10e",
+        "start": "2025-03-21T08:00:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T08:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\AMD_5m.parquet",
+      "source_5m_sha256": "29cc9d6a3ba2023774d254544178b37d076bb8b14ec1e6fa9f9e0c1142b9d607",
+      "symbol": "AMD",
+      "target_path": "backtests\\stock\\data\\raw\\AMD_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "b392f4f2ae1fc13388fda31de31bfa9ad7567b1253e814c2b91a404012b7ea34",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\AMGN_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "613e41b906523778fbdd0a0c52b042ed95e566b1d12d2c619baeabc384035370",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\AMGN_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "AMGN",
+      "target_path": "backtests\\stock\\data\\raw\\AMGN_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 7926,
+      "added_rows_total": 7990,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 18428,
+        "sha256": "aa2cded7f10c46d968bc907b90d67788444f4b6d84c6eeded59d20b51df25c15",
+        "start": "2024-03-21T08:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\AMZN_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10438,
+        "sha256": "856714a7a1095d7ea3cbb952ac4b9c2b7daac97664e00cfd647afad9c6f56e6a",
+        "start": "2025-03-21T08:00:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T08:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\AMZN_5m.parquet",
+      "source_5m_sha256": "7b4f3a45af11e011e40b3a87a9c02e7302b9a550d642ca6fcd87aeda0db2e59d",
+      "symbol": "AMZN",
+      "target_path": "backtests\\stock\\data\\raw\\AMZN_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "627dc5cf04d4ce42a38385b89b2d75565e79316436057c42ca5aad30940b210b",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\AVGO_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "2a3622bd1dab1c51680e33608ee6f3dda41ae1e72d69c213fec7acd3e3c42055",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\AVGO_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "AVGO",
+      "target_path": "backtests\\stock\\data\\raw\\AVGO_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 7625,
+      "added_rows_total": 7657,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 18095,
+        "sha256": "4b834b782114856db2b67971034f6d101f021dec106047073ddcd3d43ae4457d",
+        "start": "2024-03-22T08:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\AVGO_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10438,
+        "sha256": "654ca937807589e3d90652946b22e47a06e28bbbbd233cdbdcb7a96b5917975a",
+        "start": "2025-03-21T08:00:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T11:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\AVGO_5m.parquet",
+      "source_5m_sha256": "1ee343daba3f1734cfd8e6640e34d2480fbec26c65caa9271d977f8c83db3eb3",
+      "symbol": "AVGO",
+      "target_path": "backtests\\stock\\data\\raw\\AVGO_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "6b29da949c6af50cd68c4ac1345e1e1d73bd948a15a9659a800b28a3130080ff",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\BAC_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "dce8a64bd52dd3a265457d3d51e098af0dfe1d2dc1be0b11be634d011020058a",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\BAC_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "BAC",
+      "target_path": "backtests\\stock\\data\\raw\\BAC_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "1cc2554c03375f51b4f7af2ace61e68746889253a2aaf257fc95a5e08dff8f81",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\BDX_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "b4f523e8d1bff2f4a3c4e64bce1999f2a0d25b2b47538134503456961d2fbd39",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\BDX_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "BDX",
+      "target_path": "backtests\\stock\\data\\raw\\BDX_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "dd652ac9ea0a94b865a3e291da437e76d70a717531c3c6277b5f1161fc0ccbcc",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\BIO_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "404143ac3ed3f12dc852a27013863a22aa0ee92056d4b380e9a8d003c07603d9",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\BIO_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "BIO",
+      "target_path": "backtests\\stock\\data\\raw\\BIO_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T23:55:00+00:00",
+        "rows": 77484,
+        "sha256": "25169cea058d483af0958ae5f9a9b6a92de06d93aa67b3aceab97fcf4d9a4d6c",
+        "start": "2024-03-20T13:30:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\BIO_5m.parquet",
+      "before": {
+        "end": "2026-07-10T23:55:00+00:00",
+        "rows": 77483,
+        "sha256": "37652b8db19f19b4e76e6d4f6640018ae86f3ffd0883116132d4c07a8b5ddcd6",
+        "start": "2024-03-20T13:30:00+00:00"
+      },
+      "inserted_rows": [
+        {
+          "close": 325.77,
+          "high": 325.77,
+          "low": 325.77,
+          "method": "provider_empty_open_placeholder_after_focused_ibkr_check",
+          "open": 325.77,
+          "timestamp": "2024-08-05T13:30:00+00:00",
+          "volume": 0.0
+        }
+      ],
+      "missing_rth_after": 0,
+      "missing_rth_before": 1,
+      "operation": "insert_provider_empty_opening_5m_placeholders",
+      "symbol": "BIO",
+      "target_path": "backtests\\stock\\data\\raw\\BIO_5m.parquet",
+      "timeframe": "5m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "5e8a6ceb522e800865ffc2e3d739cbdca9a775f08a9d5980a2e9871843f9be40",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\BRK B_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "c7d1b2e7d7c6dc47e4389d7bfc1de70f0570d0b4376f8571211eb78daab700da",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\BRK B_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "BRK B",
+      "target_path": "backtests\\stock\\data\\raw\\BRK B_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "8e1998c728be51541fd2c4b17666cb20b339ead1bc62e50092b36fcbbc82813a",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\BSX_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "bcf8a177667d3b2eba128e982752d4603cf4ed35a09c0ba6ffcc159ad59ff27c",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\BSX_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "BSX",
+      "target_path": "backtests\\stock\\data\\raw\\BSX_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "6e9df997df5bd698ab3593aaa0b45a8bc13c9d2e681150500a4dbbd1917bc426",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\CDNS_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "f73b01773eb1b5cb42caf890de3f3babe42237892989c104673f914d3896a7ab",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\CDNS_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "CDNS",
+      "target_path": "backtests\\stock\\data\\raw\\CDNS_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "145e59a0df74568a22715789507e1c636e136c97961b8613bb29453e084ed8ab",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\CDW_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "30aacd27dd78ab5a29f5b866193c48b4dc6ec9ee7b223face20559e881c273bd",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\CDW_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "CDW",
+      "target_path": "backtests\\stock\\data\\raw\\CDW_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "a6c1db20cd3c18a898da3af1b3c5afa65baf86bd56088e17afb2e61ac7374890",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\CI_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "350b1e9a126341af8b48433552615e9e9ccdb46a5ff1cb2342dae4725c0095e6",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\CI_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "CI",
+      "target_path": "backtests\\stock\\data\\raw\\CI_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "67d5332321b44d1b007676414a860fa7aa40bd2c63c85e543a1b72fe35d084fe",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\COR_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "f4a22edbbd8c42fcb6586713748c0df1d3b92cc7116ffc9905b12c5d180d7138",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\COR_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "COR",
+      "target_path": "backtests\\stock\\data\\raw\\COR_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "e6255ee83f958f3d1016b33afc3ee16818c06c2b0956fbbca5c20b18ff6f727d",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\CRM_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "682c8b83c59c8483339ab7b58e931aacb47744c281ed00c2ada52035fd36f146",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\CRM_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "CRM",
+      "target_path": "backtests\\stock\\data\\raw\\CRM_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 7284,
+      "added_rows_total": 7348,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 17581,
+        "sha256": "6b343fe731bc3c09305d25740af4fab302fc28a41168f27ad80e171e04bb84a5",
+        "start": "2024-03-21T08:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\CRM_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10233,
+        "sha256": "16a51c65397e45c5ce2728b1a7ff7abcbba80cda232ebe647a3890035e258302",
+        "start": "2025-03-21T12:30:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T11:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\CRM_5m.parquet",
+      "source_5m_sha256": "15766db02df13909218ec01cc4898bbd4cebf8f9cdefa467c161665b325d6ea6",
+      "symbol": "CRM",
+      "target_path": "backtests\\stock\\data\\raw\\CRM_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "0383ba2f15e755870b9f457d00fbd6ae0a6a04d615999db81d1e22e19efaf85f",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\CRWD_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "5cd813f1dfb780c8d9786933b831c865b7bf360bdfa8ad947e04d5d70dbd1bfa",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\CRWD_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "CRWD",
+      "target_path": "backtests\\stock\\data\\raw\\CRWD_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "b2282142adc35ee33a0d20177d8402639e1535abf324102b487a80485bde7cdc",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\CSCO_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "61296033d4411200fadc590778a7ed78e88242d3070b30fc9f483ad2d48a8af4",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\CSCO_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "CSCO",
+      "target_path": "backtests\\stock\\data\\raw\\CSCO_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 7665,
+      "added_rows_total": 7753,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 18028,
+        "sha256": "1b63d0c3936df927f400dd370638ad00a0db890b719a83e3ec8af982e9bdc2a8",
+        "start": "2024-03-20T10:30:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\CSCO_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10275,
+        "sha256": "906bd0745f9256ea9cf99d9530052b67e3de01095207bdf9462236fabd796cd9",
+        "start": "2025-03-21T08:00:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T09:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\CSCO_5m.parquet",
+      "source_5m_sha256": "4d31fd631a8f271b923b6728ea2c1a10d2d83dbe299ec11d78b9c95155eb9d74",
+      "symbol": "CSCO",
+      "target_path": "backtests\\stock\\data\\raw\\CSCO_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "7bda15f32223ce762471f9a5ceb788c9ae006a9a2c9438f6bafccf63deb95a94",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\DHR_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "7d43ae67d80ac39d0a70d7e5058b0a9930eedec89d188c1b5b04a53fd338ef35",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\DHR_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "DHR",
+      "target_path": "backtests\\stock\\data\\raw\\DHR_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "eab2f714f926b204d2b24694a5662abc2eb6b8641f52203335a641a93c3b825d",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\DXCM_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "d34dea9cc66673588bbc9593d288c30e7aeae66e6d9130bd64ff21ed24344345",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\DXCM_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "DXCM",
+      "target_path": "backtests\\stock\\data\\raw\\DXCM_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "b9a85b9bb0111b2d29b62950d7b3e5b2ca64f2d8778ee9a4ae7c9c3cb1f40080",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\ELV_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "48d1bed8898a0949a49dcb099d0c081db084872bf6af6b4bbe7653d72e8682ab",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\ELV_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "ELV",
+      "target_path": "backtests\\stock\\data\\raw\\ELV_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "6ea6c45510f2dc590f745febf3f565089fc2d4656e0cb3f7da524a51bdb6df49",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\EPAM_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "a77c6020d2279591760ac7839cf9a348695895f13e88eb8b91d1c5e4a0fa2993",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\EPAM_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "EPAM",
+      "target_path": "backtests\\stock\\data\\raw\\EPAM_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T23:55:00+00:00",
+        "rows": 81475,
+        "sha256": "8108da384cc1972b1e40bfde683614cb993ea898947691d5d1f24ff8a70bed26",
+        "start": "2024-03-22T11:50:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\EPAM_5m.parquet",
+      "before": {
+        "end": "2026-07-10T23:55:00+00:00",
+        "rows": 81474,
+        "sha256": "b37058177d283606d3103507d27efbf297f74b9d86b1f92c654131e2194efa99",
+        "start": "2024-03-22T11:50:00+00:00"
+      },
+      "inserted_rows": [
+        {
+          "close": 242.72,
+          "high": 242.72,
+          "low": 242.72,
+          "method": "provider_empty_open_placeholder_after_focused_ibkr_check",
+          "open": 242.72,
+          "timestamp": "2024-05-03T13:30:00+00:00",
+          "volume": 0.0
+        }
+      ],
+      "missing_rth_after": 0,
+      "missing_rth_before": 1,
+      "operation": "insert_provider_empty_opening_5m_placeholders",
+      "symbol": "EPAM",
+      "target_path": "backtests\\stock\\data\\raw\\EPAM_5m.parquet",
+      "timeframe": "5m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "a16e0ec31ce9a2589e152cd79c514e4c64094e2585260b5a54b5def48625d557",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\EW_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "a06ce872a84f7b8b7626a054a55611c9f42e4221ad2c80c8b97c98185eb0613a",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\EW_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "EW",
+      "target_path": "backtests\\stock\\data\\raw\\EW_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "41b53e4ab496f3d5b5a2aa26712be1ee89191c48f204c0afbc59071f10d3a2bc",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\FSLR_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "555118a82e8a2859b12c0334302f212019f1701cdfb1f67e80c6aa6c78b1d4e5",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\FSLR_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "FSLR",
+      "target_path": "backtests\\stock\\data\\raw\\FSLR_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "6ad669634b1ededc592452a06b01f06564467379a3c320037bd75f80f6e2ebae",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\FTNT_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "cbc500d8637cc908f8e85204ff69775e92b6d87404801c3f45ff678a63943fc3",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\FTNT_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "FTNT",
+      "target_path": "backtests\\stock\\data\\raw\\FTNT_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "92018d3f996f26b17f13fa21231a8a0729bbaf11d3c9e5e6509e73338281ec73",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\GEN_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "084d9b4778aa240a7f7e0e1aabde345e49b7653d7e7e05531209d519209d1be4",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\GEN_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "GEN",
+      "target_path": "backtests\\stock\\data\\raw\\GEN_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "8ef7f8c8a57cb4b48a59778373e0a35c92135d63f2333784c5c9e5df4c399529",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\GILD_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "b41e3b2be37c62aa8d707e150e5637d6cb4bdc7ca70a2cc409cdab5425cf9240",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\GILD_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "GILD",
+      "target_path": "backtests\\stock\\data\\raw\\GILD_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 7919,
+      "added_rows_total": 7951,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 18390,
+        "sha256": "69e3f7f596e525c70df9c3431a86c15d9842a235d79c5bde228394fb5a97d622",
+        "start": "2024-03-22T08:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\GOOG_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10439,
+        "sha256": "bf41bcec6858d5781de36cf67bccc3420e698c3ce5cbd5d67d21d4c1bf340975",
+        "start": "2025-03-21T08:00:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T08:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\GOOG_5m.parquet",
+      "source_5m_sha256": "28664d4b0a637e7708e7b37e392b5e57242a1d622477c413cfca5a375bce8f40",
+      "symbol": "GOOG",
+      "target_path": "backtests\\stock\\data\\raw\\GOOG_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "added_rows_in_target_window": 7925,
+      "added_rows_total": 8053,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 18492,
+        "sha256": "2dd6d72dec457e2e7ad1c5e5c34e919735d2c287722574658e327fb7128a5ff1",
+        "start": "2024-03-19T08:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\GOOGL_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10439,
+        "sha256": "d8f0008d6284b761c74671f7e05a2984d35f6c8e488cb0662680bb84f5796536",
+        "start": "2025-03-21T08:00:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T08:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\GOOGL_5m.parquet",
+      "source_5m_sha256": "0678c660456134ba7452b44bf32923c8a41531a747396089fd7ba9730962e26e",
+      "symbol": "GOOGL",
+      "target_path": "backtests\\stock\\data\\raw\\GOOGL_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "691b626113e0afcf2c34adff93b74568728af23e5e96b81cadfd8ac8da4c9581",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\HCA_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "a26a7976750830730a3b1f8f0d218a301d20553c384265158c1874bc83b27219",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\HCA_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "HCA",
+      "target_path": "backtests\\stock\\data\\raw\\HCA_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "62ecc678d8e8f600e612db8276063a644c568df5048a06ebfc93eef948d7e7db",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\HPE_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "10ffab46a1a1764c17d47517498f6348a4af8c875af00e7fb31d6c662ed66a8f",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\HPE_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "HPE",
+      "target_path": "backtests\\stock\\data\\raw\\HPE_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "2b5bcd497bc65b6f8d6987e85a1a5ae40167bb8c6a4f25555b85cf682a004fb7",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\HPQ_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "d3aee3ca5ca8559c158cc0e4dd558826ba516fe4be3c4c2969177d290c4cf13e",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\HPQ_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "HPQ",
+      "target_path": "backtests\\stock\\data\\raw\\HPQ_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "32ce264ab212064f6a3ddef70f3a1c695ce4b99eb222c82f7dbcbc219300a8ec",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\HSIC_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "4a18897a17652f741935ac0504c44ea4bb82a3f6d2c7f62337219822f14af4d6",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\HSIC_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "HSIC",
+      "target_path": "backtests\\stock\\data\\raw\\HSIC_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "aa4d9725dac8d13a908e901164788c401cbc19867addf455beb0948223260bc1",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\IBM_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "3a9b7201782896ac8f8bd141efb832fb1a5ca0ac738fe3eae604f7aab4adaf84",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\IBM_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "IBM",
+      "target_path": "backtests\\stock\\data\\raw\\IBM_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 7027,
+      "added_rows_total": 7108,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 17118,
+        "sha256": "9ca606a6eb54fffeea65504b0e0689d2397ad7a10828c82d01848db2d858d7c6",
+        "start": "2024-03-20T12:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\IBM_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10010,
+        "sha256": "44965d5ed870e155063e50475380a0d1295d5cca62f8126aed30596f0a87eb7e",
+        "start": "2025-03-21T08:00:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T10:30:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\IBM_5m.parquet",
+      "source_5m_sha256": "80bee89bb8be20a8c910b2127d34fab38c58db1f47b6fc11f520b7880ef42941",
+      "symbol": "IBM",
+      "target_path": "backtests\\stock\\data\\raw\\IBM_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "2b6ce8648f4a634846ff00d53bf7bdd07eb063317d20b9b14b328b49d1fd562b",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\IDXX_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "94d0bb3fbf0ea29269794b12f74c5d806f0e4fa6d83a0bc0bec2bad3831c22dc",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\IDXX_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "IDXX",
+      "target_path": "backtests\\stock\\data\\raw\\IDXX_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "5880856ccc9a32fa51479f97706148cecbc75c7c886ed693f9ecc0c1fac4496a",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\INTU_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "480bb5fdcfbe72e5d2ff1068dcd2006f1cd154e1852bd6f426473951830aca54",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\INTU_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "INTU",
+      "target_path": "backtests\\stock\\data\\raw\\INTU_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 5862,
+      "added_rows_total": 5930,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 14810,
+        "sha256": "1d8927e9892fa80d56f3e170b4bec80eaee7499c71a34eedfb9b75dd1045948b",
+        "start": "2024-03-20T13:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\INTU_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 8880,
+        "sha256": "4aaf5f3abbd5c83bac53b230170ace91badd3980257f0b4bcf3b46f2bba142b8",
+        "start": "2025-03-21T08:00:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T13:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\INTU_5m.parquet",
+      "source_5m_sha256": "b76f9dac12d1b320b886c6dbac7bc396b8150a5b648dd8d34de542d37576f27f",
+      "symbol": "INTU",
+      "target_path": "backtests\\stock\\data\\raw\\INTU_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "d7f9ec7b8e1f496b53c9497a514d28d6ff5c31c507a0bc74fc9fe10996ae6405",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\IQV_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "295093e9e3ea0e0126789544ce4964ef0c87ee1946513f1067f1d834e0e5a53e",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\IQV_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "IQV",
+      "target_path": "backtests\\stock\\data\\raw\\IQV_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "7852e40ac424010318d257ac0d655a901811706d177247fb462de6e6080fc4ed",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\ISRG_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "44b60bede43bf24536feacbcd7563d44f8d5cd43108e9daeb09e50ec259381b9",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\ISRG_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "ISRG",
+      "target_path": "backtests\\stock\\data\\raw\\ISRG_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "312213326f86bcce04242346c402bcedc5b84c5b6d7b2f7f065e821a5cb1acb9",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\IT_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "acfd4cf5aec385571350fb8111081d10bd2571fc5e441478e7b772a5875a8379",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\IT_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "IT",
+      "target_path": "backtests\\stock\\data\\raw\\IT_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T23:55:00+00:00",
+        "rows": 81358,
+        "sha256": "62c3e5c5479f5c2fb26334392e7fa978d4e4f181d1d791e7d68651dfd91311c1",
+        "start": "2024-03-20T13:25:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\IT_5m.parquet",
+      "before": {
+        "end": "2026-07-10T23:55:00+00:00",
+        "rows": 81350,
+        "sha256": "b2a01705cef534f9811a9c5d8d13925c0e45b359fe697f139689770f9080e446",
+        "start": "2024-03-20T13:25:00+00:00"
+      },
+      "inserted_rows": [
+        {
+          "close": 458.06,
+          "high": 458.06,
+          "low": 458.06,
+          "method": "provider_empty_open_placeholder_after_focused_ibkr_check",
+          "open": 458.06,
+          "timestamp": "2024-04-30T13:30:00+00:00",
+          "volume": 0.0
+        },
+        {
+          "close": 425.06,
+          "high": 425.06,
+          "low": 425.06,
+          "method": "provider_empty_open_placeholder_after_focused_ibkr_check",
+          "open": 425.06,
+          "timestamp": "2024-05-03T13:30:00+00:00",
+          "volume": 0.0
+        },
+        {
+          "close": 479.78,
+          "high": 479.78,
+          "low": 479.78,
+          "method": "provider_empty_open_placeholder_after_focused_ibkr_check",
+          "open": 479.78,
+          "timestamp": "2024-08-12T13:30:00+00:00",
+          "volume": 0.0
+        },
+        {
+          "close": 487.34,
+          "high": 487.34,
+          "low": 487.34,
+          "method": "provider_empty_open_placeholder_after_focused_ibkr_check",
+          "open": 487.34,
+          "timestamp": "2024-12-19T14:30:00+00:00",
+          "volume": 0.0
+        },
+        {
+          "close": 507.23,
+          "high": 507.23,
+          "low": 507.23,
+          "method": "provider_empty_open_placeholder_after_focused_ibkr_check",
+          "open": 507.23,
+          "timestamp": "2025-01-15T14:30:00+00:00",
+          "volume": 0.0
+        },
+        {
+          "close": 475.69,
+          "high": 475.69,
+          "low": 475.69,
+          "method": "provider_empty_open_placeholder_after_focused_ibkr_check",
+          "open": 475.69,
+          "timestamp": "2025-03-10T13:30:00+00:00",
+          "volume": 0.0
+        },
+        {
+          "close": 443.06,
+          "high": 443.06,
+          "low": 443.06,
+          "method": "provider_empty_open_placeholder_after_focused_ibkr_check",
+          "open": 443.06,
+          "timestamp": "2025-05-12T13:30:00+00:00",
+          "volume": 0.0
+        },
+        {
+          "close": 439.13,
+          "high": 439.13,
+          "low": 439.13,
+          "method": "provider_empty_open_placeholder_after_focused_ibkr_check",
+          "open": 439.13,
+          "timestamp": "2025-05-23T13:30:00+00:00",
+          "volume": 0.0
+        }
+      ],
+      "missing_rth_after": 0,
+      "missing_rth_before": 8,
+      "operation": "insert_provider_empty_opening_5m_placeholders",
+      "symbol": "IT",
+      "target_path": "backtests\\stock\\data\\raw\\IT_5m.parquet",
+      "timeframe": "5m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "2574f65643d88a051375187d07c708d2ad7d0e3b32eb01931739ab2082e1174d",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\JNJ_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "84a84d00daefc75bdac65344c9dc17454f65bf6a6f773d10195706e620d34a27",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\JNJ_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "JNJ",
+      "target_path": "backtests\\stock\\data\\raw\\JNJ_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "d55c0b233fcd6be37cb0beb1c2c6d9e9af88b15ef81065ce18afea931f64460e",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\JPM_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "75412443bed557e5f11f07283ae7694246d494138e9adafe9a07a5966393885f",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\JPM_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "JPM",
+      "target_path": "backtests\\stock\\data\\raw\\JPM_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 7257,
+      "added_rows_total": 7342,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 17390,
+        "sha256": "863f0f6db27f3d1a94020378e0f8dc68b725a0375c0fa33e720f1702f0e4dd01",
+        "start": "2024-03-20T08:30:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\JPM_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10048,
+        "sha256": "6541d452808096d601d4664e5efed7450950b813e738a26f92aeb6e6f5ccdb1a",
+        "start": "2025-03-21T08:30:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T08:30:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\JPM_5m.parquet",
+      "source_5m_sha256": "a9a643de877f20bedd31cf807a4dd4a70ff2b19fbaa5ad1424c85038e58c3c10",
+      "symbol": "JPM",
+      "target_path": "backtests\\stock\\data\\raw\\JPM_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "added_rows_in_target_window": 43111,
+      "added_rows_total": 43615,
+      "after": {
+        "end": "2026-07-10T23:55:00+00:00",
+        "rows": 103926,
+        "sha256": "a9a643de877f20bedd31cf807a4dd4a70ff2b19fbaa5ad1424c85038e58c3c10",
+        "start": "2024-03-20T08:40:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\JPM_5m.parquet",
+      "before": {
+        "end": "2026-07-10T23:55:00+00:00",
+        "rows": 60311,
+        "sha256": "d46ece0d4d6793c1f169736b27771e039aa3695e05ac2eb9aecdce99911c7ff9",
+        "start": "2025-03-21T08:30:00+00:00"
+      },
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\late_start_5m\\late_start_5m_download_report.json",
+      "first_added_in_target_window": "2024-03-25T08:50:00+00:00",
+      "last_added_in_target_window": "2025-03-20T23:55:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 19236,
+      "operation": "merge_ibkr_direct_5m_backfill_chunks",
+      "symbol": "JPM",
+      "target_path": "backtests\\stock\\data\\raw\\JPM_5m.parquet",
+      "timeframe": "5m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "f7f4b0d0a985dc1a1b69610e90988a2321c14f0a7e7f3c4294453eff45ff7772",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\KEYS_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "3b83faf90095420e4f4a97ad757087522c4f41cf44930fcf6c7a61bbc549001c",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\KEYS_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "KEYS",
+      "target_path": "backtests\\stock\\data\\raw\\KEYS_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "0c348dca2c25c250046be12e3ea6fc85f6d522a6a265470282ca0df9c4a40f20",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\KLAC_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "513067db4ec0697fe29dc24bb55d178755c434ffadcbd65b404499e967dd0e7a",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\KLAC_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "KLAC",
+      "target_path": "backtests\\stock\\data\\raw\\KLAC_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "b2d43e008043a66931b46e9b8788f8d7ab8a71ab5e9c546ac126c95920ac2936",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\LH_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 576,
+        "sha256": "fab4ac5b4f538166d9daf43df851c64581a86785b981e63296b51507af0c7153",
+        "start": "2024-03-22T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\LH_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "LH",
+      "target_path": "backtests\\stock\\data\\raw\\LH_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "a830803c5e11117066bbab9dd1f15393e2630baa073804ea978cc050cef6e858",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\LLY_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "081d28c88d64eddb4395ca811519005d320d73058397bc228d46d192605bd158",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\LLY_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "LLY",
+      "target_path": "backtests\\stock\\data\\raw\\LLY_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 418,
+      "added_rows_total": 445,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 17092,
+        "sha256": "077ee52f1c19386d7f5fcb8ce6ccad03eff3f79ac56eabadd1ca29605d54210a",
+        "start": "2024-03-22T10:30:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\LLY_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 16647,
+        "sha256": "6aeaae2db92cfb03b3ec4cb8c53173393890d325b64398c18e0d97c7e55e3279",
+        "start": "2024-04-15T12:00:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T11:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 182,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\LLY_5m.parquet",
+      "source_5m_sha256": "33f2eb78b7ce171941e3f1497a04ecd4ac073e487f6aad613425a31209524163",
+      "symbol": "LLY",
+      "target_path": "backtests\\stock\\data\\raw\\LLY_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "1508d1071cdb1f5e13f1a7a04807078a6be93e0693592a7b8b6c5676f50c72eb",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\LRCX_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 576,
+        "sha256": "84a4b4f1d6cf375979d1282b362c94b65cb5203db81b6877b1d93ada348ffe61",
+        "start": "2024-03-22T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\LRCX_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "LRCX",
+      "target_path": "backtests\\stock\\data\\raw\\LRCX_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "845f9b2a9bc9e24690eb385cbaa4bcc5384017dacf04e977df52f97c677bc797",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\MA_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "41b2edef80b53cce0ac734386a70df52bc130683c5c9ff9694f9c9027caafd0f",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\MA_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "MA",
+      "target_path": "backtests\\stock\\data\\raw\\MA_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "f7fe557b846b4a7fa37144ec66d865fb181042a5d485d0a9f236cab7408e85f8",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\MCHP_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "dc141e57445bc7179480c9676fbaf794ebb56f6d2420e402c385adf083a7e3ea",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\MCHP_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "MCHP",
+      "target_path": "backtests\\stock\\data\\raw\\MCHP_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "df0f4c523d22c4928d2197357c381b3d3d5dffc95a1a220ca3feea037ab48fa3",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\MCK_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "bf55287ceac432057ee216b313801bda5646f6bc0b33f1e209445fbc0d73e1be",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\MCK_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "MCK",
+      "target_path": "backtests\\stock\\data\\raw\\MCK_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "1571cbdc8d2f24a82ef35ba5911835f86e5de876675c21f6951691ffdf51fc79",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\MDT_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "681b6f88b083912ca557d7a88b51a6995ee54030f47209a2c147504a009bbd4e",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\MDT_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "MDT",
+      "target_path": "backtests\\stock\\data\\raw\\MDT_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 7913,
+      "added_rows_total": 7975,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 18412,
+        "sha256": "0f9455fd54e32bb7bc7fcab46257f6fac5d782a6d4ae2838b96915cd72a3ee2a",
+        "start": "2024-03-21T08:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\META_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10437,
+        "sha256": "3b06e188b41a08309994d7133ea336ca175792b3f0e3f7df9ad70c73f94fa59e",
+        "start": "2025-03-21T08:00:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T08:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\META_5m.parquet",
+      "source_5m_sha256": "cf6631c9a3360f86734a4cf27121ec3b0162f77a956a9bb81a44de9968122260",
+      "symbol": "META",
+      "target_path": "backtests\\stock\\data\\raw\\META_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "937780409df06d90b9ca23aaa8b6a324e1944fef81cb89944b0b9099ba94dc08",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\MPWR_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "ffcd11c7d2d7991288e5016498fc0a100253a96b8b807ab29f74aa20dc3aab39",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\MPWR_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "MPWR",
+      "target_path": "backtests\\stock\\data\\raw\\MPWR_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "82b963f27c930e4d196dac26c5b691d6d3387e22415a77ce22ade058c88f84c4",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\MRK_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "c79efc6edd168a1cd192c78e45a9e1e8231055fc2c33ccbf3adfdf8655040810",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\MRK_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "MRK",
+      "target_path": "backtests\\stock\\data\\raw\\MRK_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "84e3c4d98fa1e4fd97dc05bb97d479ba3617e2572bb26defd668a1b161590586",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\MSFT_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "ee7d3fdbe96bf877b703568e856abd9d88161f71801698ce2395102b7c878fc8",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\MSFT_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "MSFT",
+      "target_path": "backtests\\stock\\data\\raw\\MSFT_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 7924,
+      "added_rows_total": 8020,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 18458,
+        "sha256": "20cdc5d04b7d3c1830f21952a9e22f6440a96d8a62e9a70bcf47e78e61fef3ca",
+        "start": "2024-03-20T08:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\MSFT_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10438,
+        "sha256": "fd65280911569d5dde9238f2a3e3178da2d17342c5fdf37783b0621bcb958a01",
+        "start": "2025-03-21T08:00:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T08:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\MSFT_5m.parquet",
+      "source_5m_sha256": "7416519e99b760e3bcabe56de367c3ab4b72ed427020f91c73ae81a311231a0d",
+      "symbol": "MSFT",
+      "target_path": "backtests\\stock\\data\\raw\\MSFT_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "added_rows_in_target_window": 47476,
+      "added_rows_total": 48052,
+      "after": {
+        "end": "2026-07-10T23:55:00+00:00",
+        "rows": 110722,
+        "sha256": "7416519e99b760e3bcabe56de367c3ab4b72ed427020f91c73ae81a311231a0d",
+        "start": "2024-03-20T08:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\MSFT_5m.parquet",
+      "before": {
+        "end": "2026-07-10T23:55:00+00:00",
+        "rows": 62670,
+        "sha256": "6bfd5145e33572e29f291171fd926bb0fe1007427523e6f2fb289bef081503f3",
+        "start": "2025-03-21T08:00:00+00:00"
+      },
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\late_start_5m\\late_start_5m_download_report.json",
+      "first_added_in_target_window": "2024-03-25T08:00:00+00:00",
+      "last_added_in_target_window": "2025-03-20T23:55:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 19236,
+      "operation": "merge_ibkr_direct_5m_backfill_chunks",
+      "symbol": "MSFT",
+      "target_path": "backtests\\stock\\data\\raw\\MSFT_5m.parquet",
+      "timeframe": "5m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "151242858b4e88ec4404c8f0e448eaec36f83da57712dcc3aea5c8508a74274b",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\MSI_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "03c0eeb03b37a894aecf6f1cd2cb46e943052337cf410dce4f96a3e2161fd7ce",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\MSI_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "MSI",
+      "target_path": "backtests\\stock\\data\\raw\\MSI_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "569bd684184992dbe0d526500ad67fc741389777254fa7dcbb3d3cef1c191366",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\MTD_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "6aa12ef4bee192ba3ead86ce64db548c05fb6e33fa176528ac9d49348a56173c",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\MTD_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "MTD",
+      "target_path": "backtests\\stock\\data\\raw\\MTD_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "2ed33d1f392f37bf347ce4d91fc6ed448d903d0c325dac05ab9ab9ebcb0b290c",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\MU_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "69c5d5ff4d5bd809fd0354d488ba23bfd2f6a979d4ff01085c863828c11d7c1e",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\MU_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "MU",
+      "target_path": "backtests\\stock\\data\\raw\\MU_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 7924,
+      "added_rows_total": 7956,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 18395,
+        "sha256": "723445352f81dac29138823edf45fffc3465e816392d2d819b280920905e38b4",
+        "start": "2024-03-22T08:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\MU_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10439,
+        "sha256": "cb6dac843c280268cb6e1005c654031ff13a34fada0284e7fd424841223b1c34",
+        "start": "2025-03-21T08:00:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T08:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\MU_5m.parquet",
+      "source_5m_sha256": "4fb39c8cafe0b79163832fc709d283b85726c0cb390441ce61fcda6d9ad2339e",
+      "symbol": "MU",
+      "target_path": "backtests\\stock\\data\\raw\\MU_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "added_rows_in_target_window": 7295,
+      "added_rows_total": 7383,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 17505,
+        "sha256": "8545997d9de1cc6e9998ce9f512ac969f8732222e6cda6ceef9d03b546fbd856",
+        "start": "2024-03-20T08:30:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\NFLX_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10122,
+        "sha256": "1e6d56e503f56345ef6a5fb928ca3f2f991b5440b08c38b7ed1e2d9c8369b76e",
+        "start": "2025-03-21T08:30:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T08:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\NFLX_5m.parquet",
+      "source_5m_sha256": "453bd6a85472314bb060347f15a8884decf7b4c7fb5681e8d6f5153551ba5e36",
+      "symbol": "NFLX",
+      "target_path": "backtests\\stock\\data\\raw\\NFLX_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "6b99ee2f1a92f08badbe7e728ff851398b8191ba645dc29d042f6163c7407d3a",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\NOW_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "59e560441f8ebb745a32945355ef248bb115576345fb0c663b26f9fb618ea0a7",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\NOW_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "NOW",
+      "target_path": "backtests\\stock\\data\\raw\\NOW_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "7c46125dcff91374c22e09c425734cc07a7bc608beb522038133abaa0eb54ec2",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\NTAP_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "aeba5ced27348b8924adcb0605dc63b0a7317b07f216bfe0981631796b10da05",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\NTAP_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "NTAP",
+      "target_path": "backtests\\stock\\data\\raw\\NTAP_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "81aa15e28161d766a4394398804f05ccc3d286fed8255acbf66e1a6fbbcb3f99",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\NVDA_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "9839059dc7fc18648271997c00d1bec2891b59114eb1930328afe414113d696f",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\NVDA_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "NVDA",
+      "target_path": "backtests\\stock\\data\\raw\\NVDA_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 7925,
+      "added_rows_total": 8021,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 18460,
+        "sha256": "96b232bf8a774ab7fd329f324f5754b0355db292244f6dcc444f29e4508a751e",
+        "start": "2024-03-20T08:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\NVDA_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10439,
+        "sha256": "423ecd79ad4990e5c18c617a0eadda4200096ab8cb79852fc7ad6e8347b2decc",
+        "start": "2025-03-21T08:00:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T08:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\NVDA_5m.parquet",
+      "source_5m_sha256": "a548421174fe6cea74e4a23acda4f4d74c97e200c7d68fd53ef5543ad523808e",
+      "symbol": "NVDA",
+      "target_path": "backtests\\stock\\data\\raw\\NVDA_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "added_rows_in_target_window": 47508,
+      "added_rows_total": 48084,
+      "after": {
+        "end": "2026-07-10T23:55:00+00:00",
+        "rows": 110760,
+        "sha256": "a548421174fe6cea74e4a23acda4f4d74c97e200c7d68fd53ef5543ad523808e",
+        "start": "2024-03-20T08:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\NVDA_5m.parquet",
+      "before": {
+        "end": "2026-07-10T23:55:00+00:00",
+        "rows": 62676,
+        "sha256": "cbb2ae49efd5f612d4cc71a87c981de26eb18c9dd8cf19f6c2bc4de2d83ac7d2",
+        "start": "2025-03-21T08:00:00+00:00"
+      },
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\late_start_5m\\late_start_5m_download_report.json",
+      "first_added_in_target_window": "2024-03-25T08:00:00+00:00",
+      "last_added_in_target_window": "2025-03-20T23:55:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 19236,
+      "operation": "merge_ibkr_direct_5m_backfill_chunks",
+      "symbol": "NVDA",
+      "target_path": "backtests\\stock\\data\\raw\\NVDA_5m.parquet",
+      "timeframe": "5m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "1a8d8a2fda50049dbf4ef7d45b3d9fc6d013323d896e9b9921417b8cd3deb875",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\NXPI_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "c7d44f9730dc6a6fcfde035739cd0a80da900cf3b36d3a9bbef46dfdaab23a81",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\NXPI_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "NXPI",
+      "target_path": "backtests\\stock\\data\\raw\\NXPI_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "2fcce166765e1f09faf6d879b5c8d1a9b4ade4a663f7441eaab6d4b79b134353",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\ON_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "1b6831a7634ae083a44b749d4e3872ea2da9052ac05b2aa862b169304469872f",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\ON_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "ON",
+      "target_path": "backtests\\stock\\data\\raw\\ON_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "705099c41503725103fc2356d36b28b78720ab9a471ff0223264350b2ad1f949",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\ORCL_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "55211daa4a05d80591a649b395b28877600d9b2c422c15a65a39dae299347537",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\ORCL_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "ORCL",
+      "target_path": "backtests\\stock\\data\\raw\\ORCL_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 7601,
+      "added_rows_total": 7659,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 18063,
+        "sha256": "09b361673748e87ce3f842e9ca5c9f92f3c36929ed81333a9be8470941359a2f",
+        "start": "2024-03-21T08:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\ORCL_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10404,
+        "sha256": "2ae9d8d56190e7efcd0f1ebebde121380acacc146d57097e4c349bcc5e75a1e3",
+        "start": "2025-03-21T08:00:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T08:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\ORCL_5m.parquet",
+      "source_5m_sha256": "7bb91fd85a1449bc4293bd083dc60495d1415e0bb96b985e79875f4e4abec400",
+      "symbol": "ORCL",
+      "target_path": "backtests\\stock\\data\\raw\\ORCL_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "0540a61321b2fc3a3cc4bb307205736e4089295ef584f2094cdf8138a1743acc",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\PANW_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "ab5c206b4787976a0dcc7d43a8e85bfdd2d32fc99409d0fbd5b089904a3d20cc",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\PANW_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "PANW",
+      "target_path": "backtests\\stock\\data\\raw\\PANW_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "943d5a0c74139ca9d07eb06daaf27479922b461eb1aba477976e6c7fee5fc097",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\PFE_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "6b2acfff594efab01ca43d5bd2e6a0d1a9fe84abfa6b7ce28769f1e969dc60ec",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\PFE_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "PFE",
+      "target_path": "backtests\\stock\\data\\raw\\PFE_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "85c4fbca4529066a208c8edc840a5e8c24337796765237686655dc64295af3f6",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\PTC_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "a690c4e23a5b90f47e1695e3990f30ede4801515b21dac29214b2134169ff77a",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\PTC_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "PTC",
+      "target_path": "backtests\\stock\\data\\raw\\PTC_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "2177101c281da50f55b1f8a5fd9dfab6f48830d5f2bf9ec98f9cb8a15025ee0d",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\QCOM_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "16a570f74d636433e6865c403921c226a712f92ec373b648f9dc913aa70ed2f7",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\QCOM_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "QCOM",
+      "target_path": "backtests\\stock\\data\\raw\\QCOM_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "7cd4ebf999cacae65afa1392287b8fd497f779b12ca07f1aff35345361fa9298",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\QRVO_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "e994dde78de4dd7b67899e4e73f9bf9b43dfc34072adee49148c3bfeeb58757d",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\QRVO_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "QRVO",
+      "target_path": "backtests\\stock\\data\\raw\\QRVO_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "1e0de30888c26385e1ce332825c3648ba156c84779c63203c312daa4c39fb014",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\REGN_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "72c3034a2e4bfbe9aa9068eb9947cf003e860b0b99b6dc406a195379e1fc914d",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\REGN_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "REGN",
+      "target_path": "backtests\\stock\\data\\raw\\REGN_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "f0624bfc88da1ebb888c616da2ce38ee2d2b55dc4ba22541a2e3743203d5272a",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\RMD_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "dfde1fc42881e49b15444fcb47765b406ae81cd1fae5c82b9792b3bd90ae6e37",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\RMD_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "RMD",
+      "target_path": "backtests\\stock\\data\\raw\\RMD_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "bcc2293f9c2ec7c178f3cbfe8ac6d484d701ac8b1af12c97a537c374a7355c32",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\ROP_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "794692077ecf7872a62e5867df9f7c5bc2491f07f2a34752a4a41d3071bd3697",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\ROP_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "ROP",
+      "target_path": "backtests\\stock\\data\\raw\\ROP_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "f2d3f7ec61d407b94a2eba6d40d00f9ce73a4254779370da806e70322bd0a571",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\SNPS_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "0006b25623a8c58e92d69f4f7773735e88e3105a386a980878a1749651079e4f",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\SNPS_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "SNPS",
+      "target_path": "backtests\\stock\\data\\raw\\SNPS_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "23fb62806512e04b9012a98e434c745040fb414951e11244d548d979e82bf387",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\SWKS_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "9c9f1d2beae0161c8ee1e0e18efc1ae56f50956f2a058efd271c589ea26a867b",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\SWKS_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "SWKS",
+      "target_path": "backtests\\stock\\data\\raw\\SWKS_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "5d59b023bfcb8078dde0de09ca571d984c1acbf0340ebcdb213098995882f788",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\SYK_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "b352e81ceab4ac1f39c2ebf5a13c181ab8440126f951f54eb5d71bed9e30feec",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\SYK_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "SYK",
+      "target_path": "backtests\\stock\\data\\raw\\SYK_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "b1d43f6338e9a206fb92f385b47b1fbc6489a2b7089aa0133659fb6e135cecd1",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\TDY_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "8b3d1479ba5533fef7ff280e3802f5553da646e3c85c22fa3a297c06451b4ba4",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\TDY_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "TDY",
+      "target_path": "backtests\\stock\\data\\raw\\TDY_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T23:55:00+00:00",
+        "rows": 79075,
+        "sha256": "36768a5ecb0a3795d1a74d66cbd6dd61b7239e015909c24799d7a93ba93946be",
+        "start": "2024-03-22T13:30:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\TDY_5m.parquet",
+      "before": {
+        "end": "2026-07-10T23:55:00+00:00",
+        "rows": 79073,
+        "sha256": "921fefc1c6b666ffbe97a28331cc1861761c0a20fa55fb4ffee1ee50e1342466",
+        "start": "2024-03-22T13:30:00+00:00"
+      },
+      "inserted_rows": [
+        {
+          "close": 411.33,
+          "high": 411.33,
+          "low": 411.33,
+          "method": "provider_empty_open_placeholder_after_focused_ibkr_check",
+          "open": 411.33,
+          "timestamp": "2024-04-10T13:30:00+00:00",
+          "volume": 0.0
+        },
+        {
+          "close": 404.04,
+          "high": 404.04,
+          "low": 404.04,
+          "method": "provider_empty_open_placeholder_after_focused_ibkr_check",
+          "open": 404.04,
+          "timestamp": "2024-08-05T13:30:00+00:00",
+          "volume": 0.0
+        }
+      ],
+      "missing_rth_after": 0,
+      "missing_rth_before": 2,
+      "operation": "insert_provider_empty_opening_5m_placeholders",
+      "symbol": "TDY",
+      "target_path": "backtests\\stock\\data\\raw\\TDY_5m.parquet",
+      "timeframe": "5m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "f9869368f5629bf18517c470da7ba085dbae92dfcb373579e784ed1585dd3108",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\TECH_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "cc20562653608f0a2cf974c2a9f0a0f004c7a2f00a515d4a823dc724d145a40f",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\TECH_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "TECH",
+      "target_path": "backtests\\stock\\data\\raw\\TECH_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "28e87d658d926535a20cbce8756b37ee7b62948dc12b5982bc6c0d7f565b8573",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\TER_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "51d17ef9d319c68731ef7677aae018bb8738ce8da4402ad482cef4fbe9277693",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\TER_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "TER",
+      "target_path": "backtests\\stock\\data\\raw\\TER_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "318bd0a6dc59bca0c310c4ddfe1a1bf08c07013ba1076da3fcb2dc35ee3c9838",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\TMO_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "d0bcf864107894d36ba395d5c95a68d6d48a880eabb6d628dda394d546a21132",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\TMO_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "TMO",
+      "target_path": "backtests\\stock\\data\\raw\\TMO_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "34df8328d757a2585f1ab0c743dafff49c87709aa906b413d12305ddd34a6320",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\TRMB_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "e3065b2985ffc0b88fe80509ea0d9ddf7bf45f3b38158f0f34dca888a6fc85df",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\TRMB_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "TRMB",
+      "target_path": "backtests\\stock\\data\\raw\\TRMB_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 7924,
+      "added_rows_total": 8020,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 18460,
+        "sha256": "803c3091479b7aee4894c4ca8025b0647252290330b8a763d599a9be7307cccc",
+        "start": "2024-03-20T08:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\TSLA_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10440,
+        "sha256": "694811ee28ba7aeda05a711c21af7ef5fdfd60a847009b85097f323f25ffff68",
+        "start": "2025-03-21T08:00:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T08:00:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\TSLA_5m.parquet",
+      "source_5m_sha256": "70c7d9fb42bae9e2386525888ce5c57a7644864ceb9f93f663db07f159145772",
+      "symbol": "TSLA",
+      "target_path": "backtests\\stock\\data\\raw\\TSLA_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "added_rows_in_target_window": 47508,
+      "added_rows_total": 48084,
+      "after": {
+        "end": "2026-07-10T23:55:00+00:00",
+        "rows": 110760,
+        "sha256": "70c7d9fb42bae9e2386525888ce5c57a7644864ceb9f93f663db07f159145772",
+        "start": "2024-03-20T08:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\TSLA_5m.parquet",
+      "before": {
+        "end": "2026-07-10T23:55:00+00:00",
+        "rows": 62676,
+        "sha256": "03952faff9c6a4798ed01461375c7526999f7ba042b7254eb938584bb27c4909",
+        "start": "2025-03-21T08:00:00+00:00"
+      },
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\late_start_5m\\late_start_5m_download_report.json",
+      "first_added_in_target_window": "2024-03-25T08:00:00+00:00",
+      "last_added_in_target_window": "2025-03-20T23:55:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 19236,
+      "operation": "merge_ibkr_direct_5m_backfill_chunks",
+      "symbol": "TSLA",
+      "target_path": "backtests\\stock\\data\\raw\\TSLA_5m.parquet",
+      "timeframe": "5m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "c98ee187df792827d949965364e2628e0952a62cacea74838cd98da838ac24aa",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\TXN_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "4d6ff08bd74f2bf75ba4ab00cd8553fd73be59968366f9ef3f83ed61f4eb08f5",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\TXN_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "TXN",
+      "target_path": "backtests\\stock\\data\\raw\\TXN_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 6804,
+      "added_rows_total": 6836,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 16581,
+        "sha256": "b427fdb9c286cd20d2d17fb45306218ea0f9cfa2fb913f7105a508818f32f8e1",
+        "start": "2024-03-22T08:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\TXN_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 9745,
+        "sha256": "5dca33956e0ba60c6bcf01d76ebafeebd456e7b30d5a30e7da4390edb3585389",
+        "start": "2025-03-21T13:00:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T08:30:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\TXN_5m.parquet",
+      "source_5m_sha256": "7123b9704da094987f945595941ea25536e58dcae0367ea6bc42d20491dab0a7",
+      "symbol": "TXN",
+      "target_path": "backtests\\stock\\data\\raw\\TXN_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "dda351baa9d589f8b1e25b5bb90a586f199ffae324e20e4c5ad7f3f3f40320ac",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\UNH_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "364e21e119ac75e5cc7f2d1fbf2c910a562ee9b18de60ff8243501f24f659824",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\UNH_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "UNH",
+      "target_path": "backtests\\stock\\data\\raw\\UNH_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "added_rows_in_target_window": 6382,
+      "added_rows_total": 6437,
+      "after": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 16789,
+        "sha256": "0854b1e677f0cefab286fe3622daf6ad17bc2c3b2745e0b6aa34479c6ae3cdc7",
+        "start": "2024-03-21T12:30:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\UNH_30m.parquet",
+      "before": {
+        "end": "2026-07-10T23:30:00+00:00",
+        "rows": 10352,
+        "sha256": "bb1c3d2a2bdfc02786919d47f6088da43b0eb3a6e5fc3e26629cc602a2c4e652",
+        "start": "2025-03-21T12:00:00+00:00"
+      },
+      "duplicate_timestamp_policy": "existing_direct_30m_wins",
+      "first_added_in_target_window": "2024-03-25T09:30:00+00:00",
+      "last_added_in_target_window": "2026-05-13T23:30:00+00:00",
+      "missing_rth_after": 0,
+      "missing_rth_before": 3206,
+      "operation": "merge_5m_derived_30m_where_direct_missing",
+      "source_5m_path": "backtests\\stock\\data\\raw\\UNH_5m.parquet",
+      "source_5m_sha256": "49e9f55373ca0ba10f3d96671524ef8db2e6eef90590db98a1f51f0e8cb2d31d",
+      "symbol": "UNH",
+      "target_path": "backtests\\stock\\data\\raw\\UNH_30m.parquet",
+      "timeframe": "30m"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "d88ddcc469ab62c180f6923fc938d5d0340a26448d28b0cefa6726915024ccb1",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\V_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "61c791cac9b1e6d57387dbc5108027c79dd8e6d86314b359171f80358e272fcb",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\V_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "V",
+      "target_path": "backtests\\stock\\data\\raw\\V_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "403083efe77dfc69fc8909ed5eee02b9c66591e2f6d67cda21e17bce583b1bca",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\VIX_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 547,
+        "sha256": "bed21a4d68ff1511c9101d1bc3f8534273eb6e145ff19b95d940a19a5d90fc72",
+        "start": "2024-05-03T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\VIX_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 28,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "VIX",
+      "target_path": "backtests\\stock\\data\\raw\\VIX_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "49d2e32e0aa00431b2eaf6c987fca8db1900d349a37806009565052f6ef56417",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\VRTX_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "8678b654ad0bacd568185869f5792860364d27a042d0ed8164640a0166740e94",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\VRTX_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "VRTX",
+      "target_path": "backtests\\stock\\data\\raw\\VRTX_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "cc29323ae27a4925c2a13c05850f0c53926499d566f060c99beed5b19a6d6f04",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\ZBRA_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "394e9d5afb0d4e502efc532539fe98e7599e3fabaf6760474906da701e8c2f70",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\ZBRA_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "ZBRA",
+      "target_path": "backtests\\stock\\data\\raw\\ZBRA_1d.parquet",
+      "timeframe": "1d"
+    },
+    {
+      "after": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 1506,
+        "sha256": "0b3cabfe372a6f097ee56226a8eb8e71a676ff8ae806a0c100e21d7dae9f1336",
+        "start": "2020-07-13T00:00:00+00:00"
+      },
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\ZTS_1d.parquet",
+      "before": {
+        "end": "2026-07-10T00:00:00+00:00",
+        "rows": 577,
+        "sha256": "1db1fc1b306577f0e8bdd7fb3fbd6d1c0c3444afcf0c7417f3d74c176223c1fe",
+        "start": "2024-03-21T00:00:00+00:00"
+      },
+      "candidate_path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\ZTS_1d_6y.parquet",
+      "download_report": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\daily_research_backfill\\daily_research_backfill_report.json",
+      "meets_research_warmup_after": true,
+      "meets_research_warmup_before": false,
+      "missing_rth_after": 0,
+      "missing_rth_before": 0,
+      "operation": "replace_with_ibkr_direct_6y_daily_research_backfill",
+      "symbol": "ZTS",
+      "target_path": "backtests\\stock\\data\\raw\\ZTS_1d.parquet",
+      "timeframe": "1d"
+    }
+  ],
+  "research_daily_warmup_cutoff": "2023-03-24T00:00:00+00:00",
+  "schema_version": "stock_raw_repair_manifest_v1",
+  "session_policy_checked": "us_equity_rth_0930_exchange_close_v1",
+  "target_window": {
+    "end": "2026-07-10T23:59:59+00:00",
+    "start": "2024-03-25T00:00:00+00:00"
+  }
+}

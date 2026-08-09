@@ -1,0 +1,54 @@
+{
+  "all_repair_unique_configurations": 1276,
+  "candidate_counts": {
+    "extended_interactions": 185,
+    "extended_mechanisms": 182,
+    "extended_singles": 329,
+    "extended_verify": 110
+  },
+  "code": [
+    {
+      "path": "backtests\\momentum\\auto\\downturn\\round1_oos_repair_extension.py",
+      "sha256": "77dcc395df6c9af5721b98663ceeb7ce32ed7b7bcbadc54c21ab61fd6c678921"
+    },
+    {
+      "path": "backtests\\momentum\\engine\\downturn_engine.py",
+      "sha256": "110521d147ef96f21eff73a401b9b9b507b352bf15e7225e18505b57da7c5e78"
+    },
+    {
+      "path": "strategies\\momentum\\downturn\\config.py",
+      "sha256": "e5a12fe0fd2bfc2820551039c2efae3b980f11a6bf49a1dc7b65366c8d807030"
+    }
+  ],
+  "data": [
+    {
+      "path": "backtests\\momentum\\data\\raw\\NQ_5m.parquet",
+      "sha256": "9cc2ccd3cbb1b50c72e459c4fce0701c31f1252b0f79ea82e42c2ca46e49bb33"
+    },
+    {
+      "path": "backtests\\momentum\\data\\raw\\ES_1d.parquet",
+      "sha256": "b545889a650009b7c60908e488b6e45758f3e1daa1d9240d6a0acb029a10f097"
+    },
+    {
+      "path": "backtests\\momentum\\data\\raw\\NQ_5m.manifest.json",
+      "sha256": "0f628d175472f0d7e985ed3cbf70061aeb2df0284f59da0cca7b71e5da33808e"
+    },
+    {
+      "path": "backtests\\momentum\\data\\raw\\ES_1d.manifest.json",
+      "sha256": "d413ca5edd6ce65c503c83b2aab093262689d1db3b083f0314add3796c8b6dea"
+    }
+  ],
+  "disposition": "SHADOW_RESEARCH_ONLY",
+  "extension_unique_configurations": 751,
+  "generated_at": "2026-08-08T23:59:21.545372+00:00",
+  "initial_equity": 10000.0,
+  "purpose": "Candidate-centred Round-1 corrected-split extension",
+  "selected_signature": "e4bb3351c373a75f051e22e40eb0fc32359735fbaafd42664fef9cf80d2233b7",
+  "split": {
+    "evaluation_end_exclusive": "2026-05-02T00:00:00+00:00",
+    "is_end_inclusive": "2026-03-20",
+    "is_start": "2024-01-01T00:00:00+00:00",
+    "oos_end_inclusive": "2026-05-01",
+    "oos_start": "2026-03-21T00:00:00+00:00"
+  }
+}

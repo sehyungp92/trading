@@ -1,0 +1,4 @@
+2026-04-30 04:40:30,430 INFO research.backtests.shared.auto.phase.08f6f983986e.6: Starting phase 6 with 4 candidates
+2026-04-30 04:54:51,928 INFO research.backtests.shared.auto.phase.08f6f983986e.6:   Pruned 1 persistently-rejected candidates (1+ consecutive).
+2026-04-30 04:58:17,304 INFO research.backtests.shared.auto.phase.08f6f983986e.6: Round 2 best candidate r2_tierb060_bar9block did not clear min_delta 0.10%; stopping.
+2026-04-30 05:01:03,143 INFO research.backtests.shared.auto.phase.08f6f983986e.6: Phase 6 complete: 0.7098 -> 0.8048 (1 accepted)

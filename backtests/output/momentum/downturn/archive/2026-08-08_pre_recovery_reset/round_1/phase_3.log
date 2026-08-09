@@ -1,0 +1,8 @@
+2026-04-28 03:16:19,201 INFO research.backtests.shared.auto.phase.0ad4cbd53734.3: Starting phase 3 with 10 candidates
+2026-04-28 03:24:53,874 INFO research.backtests.shared.auto.phase.0ad4cbd53734.3:   Pruned 1 persistently-rejected candidates (1+ consecutive).
+2026-04-28 03:29:33,251 INFO research.backtests.shared.auto.phase.0ad4cbd53734.3: Round 2 best candidate r8c_correction_only_mode did not clear min_delta 0.10%; stopping.
+2026-04-28 03:38:49,101 INFO research.backtests.shared.auto.phase.0ad4cbd53734.3:   Pruned 1 persistently-rejected candidates (1+ consecutive).
+2026-04-28 03:43:55,684 INFO research.backtests.shared.auto.phase.0ad4cbd53734.3: Round 2 best candidate r8c_correction_only_mode did not clear min_delta 0.10%; stopping.
+2026-04-28 03:54:09,903 INFO research.backtests.shared.auto.phase.0ad4cbd53734.3:   Pruned 1 persistently-rejected candidates (1+ consecutive).
+2026-04-28 03:59:49,563 INFO research.backtests.shared.auto.phase.0ad4cbd53734.3: Round 2 best candidate r8c_correction_only_mode did not clear min_delta 0.10%; stopping.
+2026-04-28 03:59:49,678 INFO research.backtests.shared.auto.phase.0ad4cbd53734.3: Phase 3 complete: 0.3049 -> 0.3228 (1 accepted)

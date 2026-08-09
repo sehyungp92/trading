@@ -1,0 +1,75 @@
+{
+  "adjustment_roll_policy": "quarterly CME roll policy plus deterministic backward Panama stitching",
+  "calendar_session_policy": "request.use_rth controls IBKR RTH/ETH; sparse ETH bars are valid trades-only bars",
+  "contracts": [
+    {
+      "exchange": "CME",
+      "expiry": "2026-03-20",
+      "local_symbol": "NQH6",
+      "raw_path": "",
+      "roll_date": "2026-03-16",
+      "trading_class": "NQ",
+      "yyyymm": "202603"
+    },
+    {
+      "exchange": "CME",
+      "expiry": "2026-06-19",
+      "local_symbol": "NQM6",
+      "raw_path": "backtests\\momentum\\data\\raw\\_physical_contracts\\NQ\\202606\\5m_trades.parquet",
+      "roll_date": "2026-06-15",
+      "trading_class": "NQ",
+      "yyyymm": "202606"
+    },
+    {
+      "exchange": "CME",
+      "expiry": "2026-09-18",
+      "local_symbol": "NQU6",
+      "raw_path": "backtests\\momentum\\data\\raw\\_physical_contracts\\NQ\\202609\\5m_trades.parquet",
+      "roll_date": "2026-09-14",
+      "trading_class": "NQ",
+      "yyyymm": "202609"
+    },
+    {
+      "exchange": "CME",
+      "expiry": "2026-12-18",
+      "local_symbol": "NQZ6",
+      "raw_path": "",
+      "roll_date": "2026-12-14",
+      "trading_class": "NQ",
+      "yyyymm": "202612"
+    }
+  ],
+  "duration": "2 Y",
+  "end": "2026-07-10T20:55:00+00:00",
+  "exchange": "CME",
+  "family": "momentum",
+  "output_path": "backtests\\momentum\\data\\raw\\NQ_5m.parquet",
+  "rolls": [
+    {
+      "new_month": "202606",
+      "old_month": "202603",
+      "roll_date": "2026-03-16"
+    },
+    {
+      "new_month": "202609",
+      "old_month": "202606",
+      "roll_date": "2026-06-15"
+    },
+    {
+      "new_month": "202612",
+      "old_month": "202609",
+      "roll_date": "2026-09-14"
+    }
+  ],
+  "rows": 193085,
+  "sec_type": "FUT",
+  "source_kind": "ibkr_physical_futures_panama",
+  "start": "2023-07-05T14:15:00+00:00",
+  "symbol": "NQ",
+  "timeframe": "5m",
+  "trading_class": "NQ",
+  "updated_at": "2026-07-13T11:04:32.689746+00:00",
+  "usable_for_authoritative_validation": true,
+  "use_rth": false,
+  "what_to_show": "TRADES"
+}

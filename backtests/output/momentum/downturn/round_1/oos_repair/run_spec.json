@@ -1,0 +1,45 @@
+{
+  "baseline_signature": "8a9e901be17e7bfcfc6a42e380b5025bf6f9a6a5ff28fc9793d91943583537c3",
+  "candidate_counts_by_stage": {
+    "historical_ablation": 61,
+    "perturbation": 264,
+    "targeted": 119,
+    "verification": 106
+  },
+  "data": [
+    {
+      "path": "backtests\\momentum\\data\\raw\\NQ_5m.parquet",
+      "sha256": "9cc2ccd3cbb1b50c72e459c4fce0701c31f1252b0f79ea82e42c2ca46e49bb33"
+    },
+    {
+      "path": "backtests\\momentum\\data\\raw\\ES_1d.parquet",
+      "sha256": "b545889a650009b7c60908e488b6e45758f3e1daa1d9240d6a0acb029a10f097"
+    },
+    {
+      "path": "backtests\\momentum\\data\\raw\\NQ_5m.manifest.json",
+      "sha256": "0f628d175472f0d7e985ed3cbf70061aeb2df0284f59da0cca7b71e5da33808e"
+    },
+    {
+      "path": "backtests\\momentum\\data\\raw\\ES_1d.manifest.json",
+      "sha256": "d413ca5edd6ce65c503c83b2aab093262689d1db3b083f0314add3796c8b6dea"
+    }
+  ],
+  "disposition": "SHADOW_RESEARCH_ONLY",
+  "evaluated_unique_configurations": 525,
+  "generated_at": "2026-08-08T21:34:28.104945+00:00",
+  "initial_equity": 10000.0,
+  "max_workers": 3,
+  "purpose": "Round 1 corrected-split OOS ablation and robustness repair",
+  "script": {
+    "path": "backtests\\momentum\\auto\\downturn\\round1_oos_repair.py",
+    "sha256": "5b2459ee9d8ffbce1667673b1c8ff12952fec5417d7cb2f6904755b37edf8ed1"
+  },
+  "selected_signature": "f9ca9f9b5d4728a50e12650f97d2f88a136adcc09c17d7893bdc0ec0bb745dd9",
+  "split": {
+    "evaluation_end_exclusive": "2026-05-02T00:00:00+00:00",
+    "is_end_inclusive": "2026-03-20",
+    "is_start": "2024-01-01T00:00:00+00:00",
+    "oos_end_inclusive": "2026-05-01",
+    "oos_start": "2026-03-21T00:00:00+00:00"
+  }
+}

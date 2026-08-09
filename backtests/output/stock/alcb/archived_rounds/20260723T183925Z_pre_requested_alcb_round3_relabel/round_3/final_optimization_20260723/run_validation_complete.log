@@ -1,0 +1,30 @@
+resume: is_results.json already has all 42 result(s)
+resume: oos_results.json already has all 33 result(s)
+evaluate early_is_results: 1-1 of 1 pending
+checkpointed 31 result(s) in 314.4s
+evaluate late_is_results: 1-4 of 19 pending
+checkpointed 16 result(s) in 518.7s
+evaluate late_is_results: 5-8 of 19 pending
+checkpointed 20 result(s) in 272.3s
+evaluate late_is_results: 9-12 of 19 pending
+checkpointed 24 result(s) in 212.2s
+evaluate late_is_results: 13-16 of 19 pending
+checkpointed 28 result(s) in 234.9s
+evaluate late_is_results: 17-19 of 19 pending
+checkpointed 31 result(s) in 219.6s
+evaluate stress_results: 1-4 of 31 pending
+checkpointed 4 result(s) in 113.2s
+evaluate stress_results: 5-8 of 31 pending
+checkpointed 8 result(s) in 30.9s
+evaluate stress_results: 9-12 of 31 pending
+checkpointed 12 result(s) in 27.4s
+evaluate stress_results: 13-16 of 31 pending
+checkpointed 16 result(s) in 30.9s
+evaluate stress_results: 17-20 of 31 pending
+checkpointed 20 result(s) in 27.4s
+evaluate stress_results: 21-24 of 31 pending
+checkpointed 24 result(s) in 25.4s
+evaluate stress_results: 25-28 of 31 pending
+checkpointed 28 result(s) in 18.5s
+evaluate stress_results: 29-31 of 31 pending
+checkpointed 31 result(s) in 29.4s

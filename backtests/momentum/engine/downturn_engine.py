@@ -20,7 +20,7 @@ from backtests.shared.parity.decision_capture import normalize_decision_stream
 from backtests.shared.parity.execution_adapters import ParitySimOrder, neutral_action_to_sim_order
 from backtests.shared.parity.replay_driver import ReplayStep, run_replay
 from backtests.shared.parity.trade_outcomes import normalize_trade_outcome_stream
-from strategies.core.actions import SubmitEntry
+from strategies.core.actions import CancelAction, SubmitEntry
 from strategies.momentum.downturn.indicators import (
     IncrementalATR,
     IncrementalEMA,
@@ -154,7 +154,9 @@ class _ActivePosition:
         "composite_regime", "vol_state", "in_correction", "predator",
         "tp_schedule", "tp_idx", "chandelier_stop", "be_triggered",
         "hold_bars_5m", "hold_bars_1h", "hold_bars_30m", "hold_bars_4h",
-        "mfe_price", "mae_price", "commission",
+        "mfe_price", "mae_price", "commission", "entry_commission",
+        "realized_partial_pnl", "realized_partial_commission",
+        "exit_value", "exit_qty",
         "consecutive_above_vwap", "r_at_peak", "scaled_out",
         "exit_trigger",
     )
@@ -198,6 +200,11 @@ class _ActivePosition:
         self.mfe_price = entry_price
         self.mae_price = entry_price
         self.commission = 0.0
+        self.entry_commission = 0.0
+        self.realized_partial_pnl = 0.0
+        self.realized_partial_commission = 0.0
+        self.exit_value = 0.0
+        self.exit_qty = 0
         self.consecutive_above_vwap = 0
         self.r_at_peak = 0.0
         self.scaled_out = False
@@ -311,6 +318,8 @@ class DownturnEngine:
         self._trades: list[DownturnTradeRecord] = []
         self._signals: list[DownturnSignalEvent] = []
         self._total_commission: float = 0.0
+        self._realized_pnl: float = 0.0
+        self._current_equity: float = config.initial_equity
 
     # -------------------------------------------------------------------
     # Main loop
@@ -378,9 +387,13 @@ class DownturnEngine:
             new_30m = m30_idx != last_m30_idx
             new_15m = m15_idx != last_m15_idx
 
+            # Expire entries by observed 5m bars before they can fill on the
+            # expiry bar. Clock time is intentionally irrelevant here.
+            self._expire_working_entries(t, bar_time)
+
             # Process fills
             fills = self.broker.process_bar(
-                self.symbol, bar_time, O, H, L, Cl, cfg.tick_size,
+                self.symbol, bar_time, O, H, L, Cl, cfg.tick_size, bar_index=t,
             )
             for fill in fills:
                 self._handle_fill(fill, bar_time, Cl, equity, correction_windows)
@@ -414,7 +427,13 @@ class DownturnEngine:
             self._bars_since_last_entry += 1
 
             # Signal detection + entry
-            if self._position is None and self._can_enter(bar_time):
+            has_working_entry = self._has_working_entry()
+            can_refresh_entry = bool(self.flags.cancel_replace_entry)
+            if (
+                self._position is None
+                and (not has_working_entry or can_refresh_entry)
+                and self._can_enter(bar_time)
+            ):
                 signal = self._evaluate_signals(
                     t, bar_time, Cl, H, L,
                     fifteen_min, m15_idx,
@@ -423,6 +442,8 @@ class DownturnEngine:
                     daily, d_idx,
                 )
                 if signal is not None:
+                    if has_working_entry:
+                        self._cancel_working_entries("signal_refresh", bar_time)
                     self._submit_entry(signal, t, bar_time, Cl, equity, correction_windows)
 
             # Update equity (O(1) via running total)
@@ -446,6 +467,7 @@ class DownturnEngine:
         # Close any remaining position at last close
         if self._position is not None:
             self._force_close(five_min.closes[-1], n - 1, correction_windows)
+        self._cancel_working_entries("end_of_replay", bar_time)
 
         return DownturnResult(
             symbol=self.symbol,
@@ -886,6 +908,46 @@ class DownturnEngine:
             in_correction=in_correction,
         )) is None
 
+    def _has_working_entry(self) -> bool:
+        return bool(
+            self._core_state.working_entries
+            or any(order.tag == "entry" for order in self.broker.pending_orders)
+        )
+
+    def _expire_working_entries(self, bar_idx: int, bar_time: datetime) -> None:
+        replay = self._replay_core_step(
+            bar_input={
+                "bar_count_5m": bar_idx,
+                "bar_ts": bar_time,
+                "expire_entries": True,
+            }
+        )
+        for action in replay.actions:
+            if isinstance(action, CancelAction) and action.reason == "ttl_expiry":
+                self.broker.cancel_order(action.target_order_id)
+
+    def _cancel_working_entries(self, reason: str, bar_time: datetime) -> None:
+        order_ids = {
+            entry.oms_order_id for entry in self._core_state.working_entries
+        }
+        order_ids.update(
+            order.order_id
+            for order in self.broker.pending_orders
+            if order.tag == "entry"
+        )
+        for order_id in sorted(order_ids):
+            self.broker.cancel_order(order_id)
+            self._replay_core_step(
+                order_updates=[
+                    DownturnOrderUpdate(
+                        oms_order_id=order_id,
+                        status="cancelled",
+                        timestamp=bar_time,
+                        order_role="entry",
+                    )
+                ]
+            )
+
     def _evaluate_signals(
         self, t: int, bar_time: datetime, close: float, high: float, low: float,
         fifteen_min: NumpyBars, m15_idx: int,
@@ -1119,6 +1181,8 @@ class DownturnEngine:
             )
         )
         order.tag = "entry"
+        order.submitted_bar_idx = t
+        order.activation_delay_bars = max(0, int(cfg.entry_latency_bars))
         self.broker.submit_order(order)
         self._replay_core_step(
             order_updates=[
@@ -1185,20 +1249,48 @@ class DownturnEngine:
                 )
                 self._on_exit_fill(fill, bar_time, "stop")
             elif fill.order.tag.startswith("tp") and self._position is not None:
-                if self._position.remaining_qty <= fill.order.qty:
-                    self._replay_core_step(
-                        fills=[
-                            DownturnFill(
-                                oms_order_id=fill.order.order_id,
-                                fill_price=fill.fill_price,
-                                fill_qty=fill.order.qty,
-                                commission=fill.commission,
-                                fill_time=bar_time,
-                                exit_type=fill.order.tag,
-                            )
-                        ]
-                    )
+                self._replay_core_step(
+                    fills=[
+                        DownturnFill(
+                            oms_order_id=fill.order.order_id,
+                            fill_price=fill.fill_price,
+                            fill_qty=fill.order.qty,
+                            commission=fill.commission,
+                            fill_time=bar_time,
+                            exit_type=fill.order.tag,
+                        )
+                    ]
+                )
                 self._on_tp_fill(fill, bar_time)
+            elif fill.order.tag == "scale_out" and self._position is not None:
+                self._replay_core_step(
+                    fills=[
+                        DownturnFill(
+                            oms_order_id=fill.order.order_id,
+                            fill_price=fill.fill_price,
+                            fill_qty=fill.order.qty,
+                            commission=fill.commission,
+                            fill_time=bar_time,
+                            exit_type=fill.order.tag,
+                        )
+                    ]
+                )
+                self._on_partial_exit_fill(fill, bar_time)
+            elif fill.order.order_type == OrderType.MARKET and self._position is not None:
+                exit_type = fill.order.tag or "market_exit"
+                self._replay_core_step(
+                    fills=[
+                        DownturnFill(
+                            oms_order_id=fill.order.order_id,
+                            fill_price=fill.fill_price,
+                            fill_qty=fill.order.qty,
+                            commission=fill.commission,
+                            fill_time=bar_time,
+                            exit_type=exit_type,
+                        )
+                    ]
+                )
+                self._on_exit_fill(fill, bar_time, exit_type)
         elif fill.status in (FillStatus.EXPIRED, FillStatus.CANCELLED, FillStatus.REJECTED):
             self._replay_core_step(
                 order_updates=[
@@ -1236,6 +1328,7 @@ class DownturnEngine:
             tp_schedule=data["tp_schedule"],
         )
         self._position.commission += fill.commission
+        self._position.entry_commission = fill.commission
         self._total_commission += fill.commission
 
         # Submit protective stop
@@ -1257,18 +1350,30 @@ class DownturnEngine:
         pos.commission += fill.commission
         self._total_commission += fill.commission
 
-        # Use original qty (not remaining_qty which may be 0 after TP partial decrement)
-        close_qty = pos.qty
-        pnl = (pos.entry_price - fill.fill_price) * close_qty * self.config.point_value
-        pnl -= pos.commission
-        r_mult = pos.r_state(fill.fill_price)
-        self._realized_pnl += pnl
+        close_qty = min(max(fill.order.qty, 0), pos.remaining_qty) or pos.remaining_qty
+        final_gross = (
+            (pos.entry_price - fill.fill_price)
+            * close_qty
+            * self.config.point_value
+        )
+        # Partial-exit commissions were realized with their fills; entry and
+        # final-exit commissions are realized here exactly once.
+        final_increment = final_gross - fill.commission - pos.entry_commission
+        pnl = pos.realized_partial_pnl + final_increment
+        self._realized_pnl += final_increment
+        total_exit_qty = pos.exit_qty + close_qty
+        exit_price = (
+            (pos.exit_value + fill.fill_price * close_qty) / total_exit_qty
+            if total_exit_qty > 0
+            else fill.fill_price
+        )
+        r_mult = pos.r_state(exit_price)
 
         self._trades.append(DownturnTradeRecord(
             symbol=self.symbol,
             direction=Direction.SHORT,
             entry_price=pos.entry_price,
-            exit_price=fill.fill_price,
+            exit_price=exit_price,
             entry_time=pos.entry_time,
             exit_time=bar_time,
             qty=pos.qty,
@@ -1291,7 +1396,7 @@ class DownturnEngine:
         ))
 
         # Daily risk tracking
-        self._daily_loss += min(0, pnl)
+        self._daily_loss += min(0, final_increment)
         self._daily_trades += 1
         if self.flags.daily_circuit_breaker:
             cb_threshold = self.po.get("circuit_breaker_threshold", -3000.0)
@@ -1308,13 +1413,39 @@ class DownturnEngine:
         if pos is None:
             return
 
-        pos.commission += fill.commission
-        self._total_commission += fill.commission
-        pos.remaining_qty -= fill.order.qty
-        if pos.remaining_qty <= 0:
+        if fill.order.qty >= pos.remaining_qty:
             self._on_exit_fill(fill, bar_time, f"tp{pos.tp_idx + 1}")
             return
+        self._on_partial_exit_fill(fill, bar_time)
         pos.tp_idx += 1
+
+    def _on_partial_exit_fill(self, fill: FillResult, bar_time: datetime) -> None:
+        pos = self._position
+        if pos is None:
+            return
+        close_qty = min(max(fill.order.qty, 0), pos.remaining_qty)
+        if close_qty <= 0 or close_qty >= pos.remaining_qty:
+            return
+        gross = (
+            (pos.entry_price - fill.fill_price)
+            * close_qty
+            * self.config.point_value
+        )
+        net = gross - fill.commission
+        pos.commission += fill.commission
+        pos.realized_partial_commission += fill.commission
+        pos.realized_partial_pnl += net
+        pos.exit_value += fill.fill_price * close_qty
+        pos.exit_qty += close_qty
+        pos.remaining_qty -= close_qty
+        self._total_commission += fill.commission
+        self._realized_pnl += net
+        self._daily_loss += min(0, net)
+        self._update_protective_stop(
+            pos.chandelier_stop or pos.stop0,
+            pos.remaining_qty,
+            bar_time,
+        )
 
     # -------------------------------------------------------------------
     # Position management
@@ -1340,12 +1471,18 @@ class DownturnEngine:
 
         # R6: Min hold period — skip all exits except catastrophic for first N bars
         # Uses 5m bar count: default 6 bars = 30 minutes
+        in_min_hold = False
         if self.flags.min_hold_period:
             min_bars = int(self.po.get("min_hold_bars", 6))
             if pos.hold_bars_5m < min_bars:
                 if check_catastrophic_exit(r):
                     self._submit_market_exit(pos.remaining_qty, bar_time, "catastrophic")
-                return
+                    return
+                if not self.flags.min_hold_profit_protection:
+                    return
+                # Keep the time filter for signal exits, TPs, and chandelier,
+                # while allowing already-earned PF/BE protection to ratchet.
+                in_min_hold = True
 
         # Profit floor: multi-tier replaces single-tier when enabled
         if self.flags.multi_tier_profit_floor and pos.risk_per_unit > 0:
@@ -1384,6 +1521,9 @@ class DownturnEngine:
                 pos.chandelier_stop = be_stop
                 self._update_protective_stop(pos.chandelier_stop, pos.remaining_qty, bar_time)
             pos.be_triggered = True
+
+        if in_min_hold:
+            return
 
         # Chandelier trail (1H basis)
         if self.flags.chandelier_trailing and self._atr_1h > 0 and h_idx > 14:
@@ -1505,6 +1645,13 @@ class DownturnEngine:
         self._submit_protective_stop(new_stop, qty, bar_time)
 
     def _submit_market_exit(self, qty: int, bar_time: datetime, tag: str) -> None:
+        if any(
+            order.symbol == self.symbol
+            and order.side == OrderSide.BUY
+            and order.order_type == OrderType.MARKET
+            for order in self.broker.pending_orders
+        ):
+            return
         self._replay_core_step(
             bar_input={
                 "bar_count_5m": self._core_state.bar_count_5m,
@@ -1531,18 +1678,29 @@ class DownturnEngine:
                 DownturnFill(
                     oms_order_id="force_close",
                     fill_price=close,
-                    fill_qty=pos.qty,
+                    fill_qty=pos.remaining_qty,
                     fill_time=None,
                     exit_type="eob",
                 )
             ]
         )
-        pnl = (pos.entry_price - close) * pos.qty * self.config.point_value - pos.commission
-        self._realized_pnl += pnl
-        r_mult = pos.r_state(close)
+        close_qty = pos.remaining_qty
+        final_increment = (
+            (pos.entry_price - close) * close_qty * self.config.point_value
+            - pos.entry_commission
+        )
+        pnl = pos.realized_partial_pnl + final_increment
+        self._realized_pnl += final_increment
+        total_exit_qty = pos.exit_qty + close_qty
+        exit_price = (
+            (pos.exit_value + close * close_qty) / total_exit_qty
+            if total_exit_qty > 0
+            else close
+        )
+        r_mult = pos.r_state(exit_price)
         self._trades.append(DownturnTradeRecord(
             symbol=self.symbol, direction=Direction.SHORT,
-            entry_price=pos.entry_price, exit_price=close,
+            entry_price=pos.entry_price, exit_price=exit_price,
             entry_time=pos.entry_time, exit_time=None,
             qty=pos.qty, pnl=pnl, r_multiple=r_mult,
             stop0=pos.stop0, commission=pos.commission,

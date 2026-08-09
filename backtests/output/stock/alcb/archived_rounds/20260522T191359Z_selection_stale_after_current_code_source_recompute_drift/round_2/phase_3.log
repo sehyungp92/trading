@@ -1,0 +1,3 @@
+2026-04-30 01:19:39,829 INFO research.backtests.shared.auto.phase.08f6f983986e.3: Starting phase 3 with 7 candidates
+2026-04-30 01:48:46,168 INFO research.backtests.shared.auto.phase.08f6f983986e.3: Round 1 produced no valid candidates; stopping.
+2026-04-30 01:48:46,677 INFO research.backtests.shared.auto.phase.08f6f983986e.3: Phase 3 complete: 0.5014 -> 0.5014 (0 accepted)

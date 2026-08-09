@@ -1,0 +1,48 @@
+         8852741 function calls (8740758 primitive calls) in 67.629 seconds
+
+   Ordered by: cumulative time
+   List reduced from 672 to 40 due to restriction <40>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.004    0.004   68.140   68.140 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\stock\data_repair_recheck\profile_diagnostics_timing.py:150(_run)
+        1    2.418    2.418   68.041   68.041 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\alcb_engine.py:230(run)
+      530    1.763    0.003   41.015    0.077 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\research_replay.py:1473(get_5m_bar_objects_for_date)
+      530    0.002    0.000   38.216    0.072 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\research_replay.py:1450(_ensure_5m_arrays)
+       13    0.062    0.005   38.182    2.937 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\research_replay.py:1441(_ensure_5m_data_loaded)
+       13    0.136    0.010   35.869    2.759 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\research_replay.py:51(_build_date_index)
+       91   18.295    0.201   18.295    0.201 {built-in method numpy.asarray}
+       27    0.001    0.000   17.761    0.658 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\research_replay.py:1203(alcb_selection_for_date)
+       13    5.080    0.391   17.424    1.340 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\data\calendar.py:201(session_dates)
+       27    0.004    0.000   15.838    0.587 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\research_replay.py:1175(run_alcb_selection)
+       27    0.013    0.000   15.834    0.586 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\alcb\research.py:299(daily_selection_from_snapshot)
+       21    0.076    0.004   15.461    0.736 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\alcb\research.py:273(_prepare_selection_features)
+  1360421   12.208    0.000   12.214    0.000 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\arrays\datetimes.py:647(__iter__)
+      532    2.433    0.005   11.556    0.022 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\alcb\data.py:237(aggregate_bars)
+    16616    2.002    0.000    6.007    0.000 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\alcb\data.py:242(emit_session)
+   603460    3.086    0.000    3.086    0.000 {method 'astimezone' of 'datetime.datetime' objects}
+    83176    0.935    0.000    2.405    0.000 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\alcb_engine.py:1496(_try_entry)
+       13    0.001    0.000    2.251    0.173 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\data\cache.py:17(load_bars)
+      532    0.020    0.000    1.790    0.003 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\alcb\signals.py:268(detect_compression_box)
+     4254    0.053    0.000    1.752    0.000 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\alcb\signals.py:85(atr_from_bars)
+   304890    1.092    0.000    1.675    0.000 {built-in method builtins.max}
+     4254    1.059    0.000    1.654    0.000 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\alcb\signals.py:72(_true_ranges)
+       27    0.024    0.001    1.594    0.059 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\research_replay.py:1089(build_alcb_snapshot)
+75348/1291    0.728    0.000    1.553    0.001 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\copy.py:118(deepcopy)
+       13    0.001    0.000    1.513    0.116 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\io\parquet.py:500(read_parquet)
+       13    0.002    0.000    1.503    0.116 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\io\parquet.py:240(read)
+3665/1250    0.130    0.000    1.483    0.001 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\copy.py:247(_reconstruct)
+      671    0.574    0.001    1.426    0.002 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\research_replay.py:880(_build_alcb_research_symbol)
+      123    0.003    0.000    1.408    0.011 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\alcb_engine.py:214(_replay_core_step)
+      123    0.006    0.000    1.405    0.011 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\shared\parity\replay_driver.py:28(run_replay)
+  1268482    1.396    0.000    1.396    0.000 {method 'append' of 'list' objects}
+      532    0.049    0.000    1.386    0.003 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\alcb\signals.py:235(choose_box_length)
+     2116    0.863    0.000    1.304    0.001 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\alcb\signals.py:41(ema)
+ 6899/328    0.078    0.000    1.291    0.004 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\copy.py:200(_deepcopy_tuple)
+ 3792/328    0.131    0.000    1.274    0.004 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\copy.py:217(_deepcopy_dict)
+    67503    0.634    0.000    1.274    0.000 {built-in method builtins.sum}
+    98268    0.763    0.000    1.274    0.000 {built-in method builtins.min}
+      532    0.011    0.000    1.247    0.002 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\alcb\signals.py:399(daily_trend_sign)
+    83176    0.815    0.000    1.183    0.000 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\alcb_engine.py:940(_update_rearm_state)
+    87083    0.167    0.000    1.021    0.000 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\alcb_engine.py:1260(_fill_pending_entry)
+
+

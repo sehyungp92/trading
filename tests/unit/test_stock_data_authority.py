@@ -110,6 +110,16 @@ def test_expected_rth_slots_honor_early_close() -> None:
     assert values[-1] == pd.Timestamp("2024-11-29T17:30:00Z")
 
 
+def test_expected_rth_slots_honor_2025_national_day_of_mourning() -> None:
+    values = expected_bar_opens(
+        datetime(2025, 1, 9, tzinfo=timezone.utc),
+        datetime(2025, 1, 9, 23, 59, tzinfo=timezone.utc),
+        "5m",
+        RTH_SESSION_POLICY,
+    )
+    assert len(values) == 0
+
+
 def test_legacy_inventory_is_explicitly_not_an_acquisition_receipt(tmp_path: Path) -> None:
     data_dir = tmp_path / "raw"
     data_dir.mkdir()

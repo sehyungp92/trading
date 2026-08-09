@@ -1,0 +1,48 @@
+         14022959 function calls (12757279 primitive calls) in 190.570 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1004 to 40 due to restriction <40>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000  190.819  190.819 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\stock\data_repair_recheck\profile_diagnostics_timing.py:98(<lambda>)
+        1    0.000    0.000  190.700  190.700 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\iaric_pullback_engine.py:2437(run)
+        1    0.740    0.740  186.203  186.203 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\iaric_pullback_intraday_hybrid_engine.py:1655(run)
+      110    0.308    0.003  151.181    1.374 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\research_replay.py:1473(get_5m_bar_objects_for_date)
+      110    0.003    0.000  150.693    1.370 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\research_replay.py:1450(_ensure_5m_arrays)
+       52    0.274    0.005  150.577    2.896 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\research_replay.py:1441(_ensure_5m_data_loaded)
+       52    0.550    0.011  139.992    2.692 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\research_replay.py:51(_build_date_index)
+       52   20.541    0.395   70.817    1.362 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\data\calendar.py:201(session_dates)
+      859   68.566    0.080   68.566    0.080 {built-in method numpy.asarray}
+  4873591   49.850    0.000   49.864    0.000 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\arrays\datetimes.py:647(__iter__)
+      254    0.023    0.000   20.574    0.081 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\iaric_pullback_engine.py:1142(_replay_core_step)
+      254    0.050    0.000   20.548    0.081 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\shared\parity\replay_driver.py:28(run_replay)
+1116492/1134    9.342    0.000   20.468    0.018 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\copy.py:118(deepcopy)
+13715/1064    1.195    0.000   20.411    0.019 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\copy.py:247(_reconstruct)
+ 9516/368    0.266    0.000   20.238    0.055 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\copy.py:200(_deepcopy_tuple)
+27071/368    2.681    0.000   20.213    0.055 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\copy.py:217(_deepcopy_dict)
+ 8412/368    0.103    0.000   19.795    0.054 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\copy.py:191(_deepcopy_list)
+       52    0.006    0.000   10.311    0.198 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\data\cache.py:17(load_bars)
+      184    0.003    0.000   10.306    0.056 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\iaric_pullback_engine.py:1146(<lambda>)
+      184    0.038    0.000   10.303    0.056 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\iaric\core\logic.py:910(on_bar)
+      184    0.067    0.000   10.191    0.055 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\iaric\core\logic.py:1209(on_fill)
+       26    0.001    0.000    9.814    0.377 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\research_replay.py:1252(iaric_selection_for_date)
+       26    0.000    0.000    8.846    0.340 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\research_replay.py:1187(run_iaric_selection)
+       26    0.005    0.000    8.845    0.340 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\iaric\research.py:626(daily_selection_from_snapshot)
+       20    0.006    0.000    8.677    0.434 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\iaric\research.py:360(_pullback_daily_selection)
+      299    0.181    0.001    8.514    0.028 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\iaric\signals.py:30(compute_indicator_cache)
+       70    0.008    0.000    8.126    0.116 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\iaric_pullback_intraday_hybrid_engine.py:556(_close_position)
+       52    0.006    0.000    7.581    0.146 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\io\parquet.py:500(read_parquet)
+       52    0.008    0.000    7.538    0.145 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\io\parquet.py:240(read)
+     4563    0.057    0.000    5.347    0.001 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\window\rolling.py:562(_apply)
+     4563    0.077    0.000    5.205    0.001 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\window\rolling.py:460(_apply_columnwise)
+     4563    0.272    0.000    5.006    0.001 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\window\rolling.py:440(_apply_series)
+     8937    0.668    0.000    4.990    0.001 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\series.py:392(__init__)
+      897    0.523    0.001    4.241    0.005 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\iaric\indicators.py:64(rsi)
+        1    0.000    0.000    4.086    4.086 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\iaric_pullback_engine.py:1095(__init__)
+        1    0.065    0.065    4.084    4.084 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\iaric_pullback_engine.py:889(_shared_pullback_state)
+     3372    0.130    0.000    3.818    0.001 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\window\ewm.py:505(mean)
+       52    0.005    0.000    3.389    0.065 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pyarrow\parquet\core.py:1846(read_table)
+       52    0.032    0.001    3.303    0.064 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\io\_util.py:62(arrow_table_to_pandas)
+       52    0.870    0.017    3.180    0.061 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\site-packages\pyarrow\pandas_compat.py:794(table_to_dataframe)
+
+

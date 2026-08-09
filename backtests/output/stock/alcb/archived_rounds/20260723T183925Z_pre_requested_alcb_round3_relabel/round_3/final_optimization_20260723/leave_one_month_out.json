@@ -1,0 +1,225 @@
+{
+  "all_net_uplifts_positive": true,
+  "all_r_uplifts_positive": true,
+  "group": "month",
+  "min_delta_net": 2103.0300000000025,
+  "min_delta_r": 1.34262932499405,
+  "rows": [
+    {
+      "balanced_net": 30901.17,
+      "balanced_r": 263.14750427622033,
+      "candidate_net": 34069.30000000001,
+      "candidate_r": 271.6112590229588,
+      "delta_net": 3168.130000000012,
+      "delta_r": 8.46375474673846,
+      "omitted_month": "2024-03"
+    },
+    {
+      "balanced_net": 30974.079999999998,
+      "balanced_r": 262.8857516445463,
+      "candidate_net": 34204.560000000005,
+      "candidate_r": 272.1356612735692,
+      "delta_net": 3230.480000000007,
+      "delta_r": 9.249909629022909,
+      "omitted_month": "2024-04"
+    },
+    {
+      "balanced_net": 30594.43,
+      "balanced_r": 251.7474617957635,
+      "candidate_net": 33678.90000000001,
+      "candidate_r": 269.0100676861711,
+      "delta_net": 3084.4700000000084,
+      "delta_r": 17.2626058904076,
+      "omitted_month": "2024-05"
+    },
+    {
+      "balanced_net": 30332.619999999995,
+      "balanced_r": 260.12600937171703,
+      "candidate_net": 33447.740000000005,
+      "candidate_r": 266.4826309181731,
+      "delta_net": 3115.12000000001,
+      "delta_r": 6.35662154645604,
+      "omitted_month": "2024-06"
+    },
+    {
+      "balanced_net": 30155.879999999997,
+      "balanced_r": 253.83345778208195,
+      "candidate_net": 33304.530000000006,
+      "candidate_r": 259.95193739557277,
+      "delta_net": 3148.6500000000087,
+      "delta_r": 6.11847961349082,
+      "omitted_month": "2024-07"
+    },
+    {
+      "balanced_net": 31397.95,
+      "balanced_r": 265.91366998410615,
+      "candidate_net": 34290.48000000001,
+      "candidate_r": 272.4143861636814,
+      "delta_net": 2892.5300000000097,
+      "delta_r": 6.5007161795752495,
+      "omitted_month": "2024-08"
+    },
+    {
+      "balanced_net": 31828.58,
+      "balanced_r": 277.18351227402064,
+      "candidate_net": 34972.19,
+      "candidate_r": 285.11899509139073,
+      "delta_net": 3143.6100000000006,
+      "delta_r": 7.935482817370087,
+      "omitted_month": "2024-09"
+    },
+    {
+      "balanced_net": 30413.92,
+      "balanced_r": 253.1539653330084,
+      "candidate_net": 33488.420000000006,
+      "candidate_r": 256.24362369886916,
+      "delta_net": 3074.5000000000073,
+      "delta_r": 3.089658365860771,
+      "omitted_month": "2024-10"
+    },
+    {
+      "balanced_net": 30203.659999999996,
+      "balanced_r": 256.3174639506851,
+      "candidate_net": 33328.130000000005,
+      "candidate_r": 264.7851923357255,
+      "delta_net": 3124.4700000000084,
+      "delta_r": 8.467728385040402,
+      "omitted_month": "2024-11"
+    },
+    {
+      "balanced_net": 29657.509999999995,
+      "balanced_r": 245.80011565984034,
+      "candidate_net": 32818.97,
+      "candidate_r": 256.01384534606893,
+      "delta_net": 3161.4600000000064,
+      "delta_r": 10.21372968622859,
+      "omitted_month": "2024-12"
+    },
+    {
+      "balanced_net": 30849.040000000008,
+      "balanced_r": 265.2843698422365,
+      "candidate_net": 33728.900000000016,
+      "candidate_r": 268.9102101504944,
+      "delta_net": 2879.860000000008,
+      "delta_r": 3.625840308257864,
+      "omitted_month": "2025-01"
+    },
+    {
+      "balanced_net": 30360.16,
+      "balanced_r": 258.99929251676036,
+      "candidate_net": 33346.09000000001,
+      "candidate_r": 265.2329583576178,
+      "delta_net": 2985.930000000011,
+      "delta_r": 6.233665840857441,
+      "omitted_month": "2025-02"
+    },
+    {
+      "balanced_net": 31123.73,
+      "balanced_r": 267.21819545254044,
+      "candidate_net": 34254.29000000001,
+      "candidate_r": 275.60151060210364,
+      "delta_net": 3130.5600000000086,
+      "delta_r": 8.383315149563202,
+      "omitted_month": "2025-03"
+    },
+    {
+      "balanced_net": 31105.34,
+      "balanced_r": 266.59139294794574,
+      "candidate_net": 34279.94,
+      "candidate_r": 275.0551476946842,
+      "delta_net": 3174.600000000002,
+      "delta_r": 8.46375474673846,
+      "omitted_month": "2025-04"
+    },
+    {
+      "balanced_net": 28956.53,
+      "balanced_r": 232.1024128639757,
+      "candidate_net": 32275.7,
+      "candidate_r": 245.71704569404173,
+      "delta_net": 3319.170000000002,
+      "delta_r": 13.614632830066029,
+      "omitted_month": "2025-05"
+    },
+    {
+      "balanced_net": 28425.559999999994,
+      "balanced_r": 239.4338846821766,
+      "candidate_net": 31403.560000000005,
+      "candidate_r": 250.08029223101266,
+      "delta_net": 2978.000000000011,
+      "delta_r": 10.646407548836066,
+      "omitted_month": "2025-06"
+    },
+    {
+      "balanced_net": 28375.68,
+      "balanced_r": 236.71909444859435,
+      "candidate_net": 31160.47000000001,
+      "candidate_r": 238.63177640103567,
+      "delta_net": 2784.790000000008,
+      "delta_r": 1.912681952441318,
+      "omitted_month": "2025-07"
+    },
+    {
+      "balanced_net": 28309.38,
+      "balanced_r": 237.8831350169266,
+      "candidate_net": 31349.100000000006,
+      "candidate_r": 252.72716178258048,
+      "delta_net": 3039.720000000005,
+      "delta_r": 14.844026765653894,
+      "omitted_month": "2025-08"
+    },
+    {
+      "balanced_net": 26957.99,
+      "balanced_r": 238.33069411763523,
+      "candidate_net": 29685.740000000005,
+      "candidate_r": 251.0323290956526,
+      "delta_net": 2727.7500000000036,
+      "delta_r": 12.701634978017381,
+      "omitted_month": "2025-09"
+    },
+    {
+      "balanced_net": 28837.069999999992,
+      "balanced_r": 250.8670087098738,
+      "candidate_net": 31559.099999999995,
+      "candidate_r": 261.53039970020166,
+      "delta_net": 2722.0300000000025,
+      "delta_r": 10.663390990327855,
+      "omitted_month": "2025-10"
+    },
+    {
+      "balanced_net": 28209.36999999999,
+      "balanced_r": 251.11207150266327,
+      "candidate_net": 30312.399999999994,
+      "candidate_r": 253.81142828814208,
+      "delta_net": 2103.0300000000025,
+      "delta_r": 2.6993567854788125,
+      "omitted_month": "2025-11"
+    },
+    {
+      "balanced_net": 28913.469999999998,
+      "balanced_r": 260.5633921135018,
+      "candidate_net": 31985.62000000001,
+      "candidate_r": 261.9060214384958,
+      "delta_net": 3072.1500000000124,
+      "delta_r": 1.34262932499405,
+      "omitted_month": "2025-12"
+    },
+    {
+      "balanced_net": 27676.77,
+      "balanced_r": 248.93361368053732,
+      "candidate_net": 30279.370000000003,
+      "candidate_r": 251.06892251867,
+      "delta_net": 2602.600000000002,
+      "delta_r": 2.135308838132687,
+      "omitted_month": "2026-01"
+    },
+    {
+      "balanced_net": 29171.74,
+      "balanced_r": 256.1115198179065,
+      "candidate_net": 33375.12000000001,
+      "candidate_r": 269.8525460733348,
+      "delta_net": 4203.380000000008,
+      "delta_r": 13.741026255428267,
+      "omitted_month": "2026-02"
+    }
+  ]
+}

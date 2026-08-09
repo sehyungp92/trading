@@ -1,0 +1,11 @@
+======================================================================
+ALCB ROUND-3 RESIDUAL ALPHA PHASE 3 SNAPSHOT
+======================================================================
+Focus: Exit management and profit retention
+Score 0.5427 -> 0.6469 with 1 accepted mutations.
+
+Core: trades=511, net_profit=+10971.02, expectancy_dollar=+21.47, expected_total_r=+138.43, pf=2.195, dd=2.3%, trades/month=19.74
+Quality: signal_quality=0.619, timing_quality=0.681, extended_avwap_inverse=0.318, bar9_inverse=0.725, late_entry_quality=1.000, score_monotonicity=0.456
+Management: profit_protection=0.735, short24_inv=0.410, flow_mfe_inv=0.991, mfe_capture_eff=0.829, sizing_alignment=1.000, long_hold_capture=0.995, inv_dd=0.804
+Focus metric deltas: expected_total_r=+130.371->+138.427, net_profit=+10361.350->+10971.020, profit_factor=+2.128->+2.195, profit_protection=+0.736->+0.735, flow_mfe_exit_inverse=+0.990->+0.991, mfe_capture_efficiency=+0.808->+0.829, long_hold_capture=+0.990->+0.995
+Hard floors: max_dd_pct=4.60%, min_expectancy_dollar=17.5409, min_expected_total_r=122.5492, min_flow_mfe_exit_inverse=0.8414, min_long_hold_capture=0.8416, min_mfe_capture_efficiency=0.7400, min_net_profit=9532.4420, min_pf=1.9574, min_profit_protection=0.6255, min_short_hold_24_drag_inverse=0.3321, min_trades_per_month=19.4000

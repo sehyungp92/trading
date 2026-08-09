@@ -22,12 +22,11 @@ from statistics import fmean
 import numpy as np
 import pandas as pd
 
-from backtests.shared.auto.cache_keys import fingerprint_tree, stable_signature
+from backtests.shared.auto.cache_keys import fingerprint_paths, stable_signature
 from backtests.stock.config import UniverseConfig
 from backtests.stock.data.cache import bar_path, load_bars
-from backtests.stock.data.calendar import session_dates
 from backtests.stock.data.bundle import FrozenBundleResolver
-from backtests.stock.data.calendar import RTH_SESSION_POLICY
+from backtests.stock.data.calendar import EXCHANGE_TIMEZONE, RTH_SESSION_POLICY
 from backtests.stock.data.downloader import REFERENCE_SYMBOLS, SECTOR_ETFS
 
 from strategies.stock.alcb.universe_constituents import KNOWN_ETFS, SP500_CONSTITUENTS
@@ -64,9 +63,15 @@ def _build_date_index(
     if df.empty:
         return [], []
     # Intraday bars belong to their exchange-local session date. Daily bars in
-    # this cache are already provider session labels at midnight UTC.
-    local_dates = session_dates(pd.DatetimeIndex(df.index), daily_labels=daily_labels)
-    days_ns = np.asarray(local_dates, dtype="datetime64[D]")
+    # this cache are already provider session labels at midnight UTC. Keep this
+    # vectorized: converting full 5m indexes to Python dates dominates cold
+    # replay startup.
+    utc_index = pd.DatetimeIndex(pd.to_datetime(df.index, utc=True))
+    if daily_labels:
+        naive_index = utc_index.tz_convert(None)
+    else:
+        naive_index = utc_index.tz_convert(EXCHANGE_TIMEZONE).tz_localize(None)
+    days_ns = naive_index.to_numpy(dtype="datetime64[ns]").astype("datetime64[D]")
     n = len(days_ns)
     if n == 0:
         return [], []
@@ -76,7 +81,7 @@ def _build_date_index(
     last_ilocs_arr = np.append(changes, n - 1)
     # Convert only unique dates (~500) to Python date objects, not all rows (~78K)
     unique_days = days_ns[last_ilocs_arr]
-    sorted_dates = [pd.Timestamp(d).date() for d in unique_days]
+    sorted_dates = list(unique_days.astype(object))
     return sorted_dates, last_ilocs_arr.tolist()
 
 
@@ -603,8 +608,19 @@ class ResearchReplayEngine:
         if self._bundle_resolver is not None:
             return self._bundle_resolver.bundle_checksum
         if self._data_fingerprint is None:
-            self._data_fingerprint = fingerprint_tree(self._data_dir, patterns=("*.parquet",))
+            self._data_fingerprint = fingerprint_paths(self._legacy_replay_source_paths(), root=self._data_dir)
         return self._data_fingerprint
+
+    def _legacy_replay_source_paths(self) -> list[Path]:
+        """Return the legacy raw-cache files that this replay can actually read."""
+        symbols = [sym for sym, _, _ in self._universe]
+        paths: list[Path] = []
+        for sym in dict.fromkeys([*symbols, *REFERENCE_SYMBOLS]):
+            paths.append(self._bar_path(sym, "1d"))
+        for timeframe in ("30m", "5m"):
+            for sym in symbols:
+                paths.append(self._bar_path(sym, timeframe))
+        return paths
 
     @property
     def bundle_checksum(self) -> str:

@@ -1,0 +1,199 @@
+{
+  "family": "stock",
+  "strategy": "alcb",
+  "strategy_name": "alcb",
+  "round": 3,
+  "description": "Final causal drawdown and profit-factor optimization",
+  "generated_at_utc": "2026-07-23T18:33:41.372315+00:00",
+  "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_3\\final_optimization_20260723\\base_round2_snapshot.json",
+  "baseline_mutation_count": 35,
+  "baseline_mutations": {
+    "ablation.use_adaptive_trail": true,
+    "ablation.use_combined_quality_gate": true,
+    "ablation.use_mfe_conviction_exit": true,
+    "ablation.use_or_width_min": true,
+    "ablation.use_partial_takes": false,
+    "param_overrides.adaptive_trail_late_activate_r": 0.22,
+    "param_overrides.adaptive_trail_late_distance_r": 0.04,
+    "param_overrides.adaptive_trail_start_bars": 25,
+    "param_overrides.adaptive_trail_tighten_bars": 25,
+    "param_overrides.block_combined_regime_b": true,
+    "param_overrides.carry_min_cpr": 0.6,
+    "param_overrides.carry_min_r": 0.5,
+    "param_overrides.combined_avwap_cap_pct": 0.003,
+    "param_overrides.combined_breakout_min_rvol": 2.5,
+    "param_overrides.combined_breakout_score_min": 5,
+    "param_overrides.entry_detail_size_mults": {
+      "OR_BREAKOUT:5:!bar_vol_surge": 0.55
+    },
+    "param_overrides.entry_score_size_mults": {
+      "COMBINED_BREAKOUT:7": 1.15,
+      "OR_BREAKOUT:5": 0.75,
+      "PDH_BREAKOUT:6": 0.5
+    },
+    "param_overrides.entry_window_end": "12:30:00",
+    "param_overrides.failure_stop_bars": 10,
+    "param_overrides.failure_stop_current_r_max": 0.0,
+    "param_overrides.failure_stop_mfe_max_r": 0.2,
+    "param_overrides.failure_stop_to_r": -0.25,
+    "param_overrides.flow_reversal_min_hold_bars": 12,
+    "param_overrides.fr_cpr_threshold": 0.3,
+    "param_overrides.fr_mfe_grace_r": 0.2,
+    "param_overrides.fr_trailing_activate_r": 0.0,
+    "param_overrides.mfe_conviction_check_bars": 16,
+    "param_overrides.mfe_conviction_floor_r": -0.15,
+    "param_overrides.mfe_conviction_min_r": 0.2,
+    "param_overrides.opening_range_bars": 9,
+    "param_overrides.or_width_min_pct": 0.0015,
+    "param_overrides.pdh_avwap_cap_pct": 0.005,
+    "param_overrides.pdh_size_mult": 0.75,
+    "param_overrides.regime_mult_b": 0.7,
+    "param_overrides.rvol_threshold": 1.7
+  },
+  "scoring_weights": {
+    "is_return_and_net": 0.49,
+    "is_pf_and_drawdown": 0.41,
+    "is_frequency": 0.1,
+    "oos_confirmation": "consumed development comparison only"
+  },
+  "execution_context": {
+    "data_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\stock\\data\\raw",
+    "initial_equity": 10000.0,
+    "start_date": "2024-03-25",
+    "end_date": "2026-03-01",
+    "oos_start": "2026-03-02",
+    "oos_end": "2026-05-01",
+    "research_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_3\\final_optimization_20260723"
+  },
+  "provenance": {
+    "schema_version": 1,
+    "selection_fingerprint": "a9c6316148d0921b07fc68236d3bf197867fd9daf15676086981fa222ec7d3d3",
+    "diagnostics_fingerprint": "a9c6316148d0921b07fc68236d3bf197867fd9daf15676086981fa222ec7d3d3",
+    "items": [
+      {
+        "name": "data_dir",
+        "kind": "tree_contents",
+        "fingerprint": "a21bdf0a056398a873e4f921bb8ed6c6fa43ab66a5435969622aa8e2d2b0d97b",
+        "paths": [
+          "backtests/stock/data/raw"
+        ],
+        "scope": "data",
+        "notes": "Content fingerprint for selection-relevant replay data files."
+      },
+      {
+        "name": "code:backtests/stock/auto/config_mutator.py",
+        "kind": "file_contents",
+        "fingerprint": "aeda4efdc185062e2a1531df4254fbc58d5564cb798e12e57fd8465118da39c2",
+        "paths": [
+          "backtests/stock/auto/config_mutator.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/stock/config_alcb.py",
+        "kind": "file_contents",
+        "fingerprint": "b5c0b368d8fa9acbf377829853485def52cda4fddae934c120d05e5fa31c14e3",
+        "paths": [
+          "backtests/stock/config_alcb.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/stock/data/replay_cache.py",
+        "kind": "file_contents",
+        "fingerprint": "77976ba9326e27ad3dba03309865cacaed1f64179e03cc7e2e158b3d4e726f36",
+        "paths": [
+          "backtests/stock/data/replay_cache.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/stock/engine/alcb_engine.py",
+        "kind": "file_contents",
+        "fingerprint": "78e549623850a8d1480fccdc7fceadb94fc5d6bef58eddee38621836501ef34e",
+        "paths": [
+          "backtests/stock/engine/alcb_engine.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:strategies/stock/alcb/artifact_store.py",
+        "kind": "file_contents",
+        "fingerprint": "97cbde7c3fd4a687ad517ccc85340aa5346d3fd662d03ff1773af32d6830982d",
+        "paths": [
+          "strategies/stock/alcb/artifact_store.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:strategies/stock/alcb/core/logic.py",
+        "kind": "file_contents",
+        "fingerprint": "17ed09f67c2baf96931d2d91c6a071e9cb061612833f323d230952d07e5a5dc3",
+        "paths": [
+          "strategies/stock/alcb/core/logic.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "plugin",
+        "kind": "plugin_identity",
+        "fingerprint": "4f08ee9bf7412b26340bb23d9e1d74ffdeb578ae432f14f615e1a7574d201d84",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "selection_context",
+        "kind": "stable_json",
+        "fingerprint": "a56277133b5f261061ecdecd4410b28e16e74b330e9fef6e6cecf7f800a9c874",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:backtests/stock/auto/alcb",
+        "kind": "tree_contents",
+        "fingerprint": "205bef7d54a504b931e29f9ea60a208644a06ee1d500cc25f91af4a388c0469b",
+        "paths": [
+          "backtests/stock/auto/alcb"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code_tree:strategies/stock/alcb",
+        "kind": "tree_contents",
+        "fingerprint": "998fe9a4b91262d7d04af241aa336eb919732104ef886906eb6c9d340c711535",
+        "paths": [
+          "strategies/stock/alcb"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "shared_auto_package",
+        "kind": "tree_contents",
+        "fingerprint": "b58cff0ef3381b09a3e6abcacca3dbbcc093afc7c8583a6e34c39a8886dd6f3c",
+        "paths": [
+          "backtests/shared/auto"
+        ],
+        "scope": "selection",
+        "notes": ""
+      }
+    ]
+  },
+  "provenance_status": "promoted_recomputed_legacy_cache_consumed_oos",
+  "saved_as_round_3": {
+    "saved_at_utc": "2026-07-23T18:33:41.372315+00:00",
+    "source_round": 2,
+    "source_round_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_2",
+    "target_round_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_3",
+    "note": "Copied current ALCB round_2 run spec into round_3 with paths retargeted to round_3."
+  }
+}

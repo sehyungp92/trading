@@ -1,0 +1,23 @@
+{
+  "total_trades": 1057,
+  "winning_trades": 607,
+  "losing_trades": 450,
+  "win_rate": 0.5742667928098392,
+  "gross_profit": 46316.13999999998,
+  "gross_loss": -26092.760000000002,
+  "net_profit": 20223.379999999972,
+  "profit_factor": 1.7750571422877448,
+  "expectancy": 0.1739390895240204,
+  "expectancy_dollar": 19.13280983916743,
+  "expected_total_r": 183.85361762688956,
+  "cagr": 0.6697302299652685,
+  "sharpe": 3.628632589712107,
+  "sortino": 3.7778547517753807,
+  "calmar": 5.462517770180991,
+  "max_drawdown_pct": 0.12260467757582749,
+  "max_drawdown_dollar": 1450.8400000000038,
+  "avg_hold_hours": 1.588615578681804,
+  "trades_per_month": 40.82796637055838,
+  "total_commissions": 451.6,
+  "tail_loss_r": -1.2128737309648856
+}

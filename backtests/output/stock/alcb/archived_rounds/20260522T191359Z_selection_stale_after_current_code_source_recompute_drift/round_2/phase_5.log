@@ -1,0 +1,4 @@
+2026-04-30 03:14:30,893 INFO research.backtests.shared.auto.phase.08f6f983986e.5: Starting phase 5 with 8 candidates
+2026-04-30 04:02:15,981 INFO research.backtests.shared.auto.phase.08f6f983986e.5:   Pruned 2 persistently-rejected candidates (1+ consecutive).
+2026-04-30 04:19:33,822 INFO research.backtests.shared.auto.phase.08f6f983986e.5: Round 3 best candidate r2_retrace25_060_045_070 did not clear min_delta 0.10%; stopping.
+2026-04-30 04:22:45,417 INFO research.backtests.shared.auto.phase.08f6f983986e.5: Phase 5 complete: 0.5669 -> 0.6827 (2 accepted)

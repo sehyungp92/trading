@@ -7,7 +7,7 @@
   "canonical_intraday_universe_count": 98,
   "canonical_intraday_universe_sha256": "7b9be6953acd8a50ed8a6d2dfad41e513bd14fb8246802d1c1b3b096c427d024",
   "frozen_bundle_available": false,
-  "generated_at": "2026-07-17T19:21:38.737497+00:00",
+  "generated_at": "2026-07-22T11:54:08.316951+00:00",
   "ibkr_endpoint": {
     "host": "127.0.0.1",
     "listening": false,

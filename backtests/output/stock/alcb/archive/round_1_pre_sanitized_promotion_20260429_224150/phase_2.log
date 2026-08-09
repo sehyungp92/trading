@@ -1,0 +1,3 @@
+2026-04-23 23:24:21,239 INFO research.backtests.shared.auto.phase.61aca6257571.2: Starting phase 2 with 8 candidates
+2026-04-23 23:34:48,675 INFO research.backtests.shared.auto.phase.61aca6257571.2: Round 1 best candidate p16_bar9_score6 did not clear min_delta 0.10%; stopping.
+2026-04-23 23:34:48,843 INFO research.backtests.shared.auto.phase.61aca6257571.2: Phase 2 complete: 0.3999 -> 0.3999 (0 accepted)

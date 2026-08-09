@@ -1,0 +1,5 @@
+2026-04-28 21:38:33,619 INFO research.backtests.shared.auto.phase.93e0c232114e.3: Starting phase 3 with 100 candidates
+2026-04-29 02:50:34,399 INFO research.backtests.shared.auto.phase.93e0c232114e.3: Round 9 best candidate finetune_param_overrides_drawdown_lookback_m20 did not clear min_delta 0.10%; stopping.
+2026-04-29 02:59:06,832 INFO research.backtests.shared.auto.phase.93e0c232114e.3: Round 9 best candidate finetune_param_overrides_drawdown_lookback_m20 did not clear min_delta 0.10%; stopping.
+2026-04-29 02:59:06,979 INFO research.backtests.shared.auto.phase.93e0c232114e.3: Round 9 best candidate finetune_param_overrides_drawdown_lookback_m20 did not clear min_delta 0.10%; stopping.
+2026-04-29 02:59:07,090 INFO research.backtests.shared.auto.phase.93e0c232114e.3: Phase 3 complete: 0.7134 -> 0.7844 (8 accepted)

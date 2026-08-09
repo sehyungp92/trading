@@ -1,0 +1,34 @@
+{
+  "atomic_candidate_count": 118,
+  "balanced_patch": {
+    "param_overrides.adaptive_trail_late_distance_r": 0.04,
+    "param_overrides.opening_range_bars": 9,
+    "param_overrides.rvol_threshold": 1.7
+  },
+  "base_config": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_2\\optimized_config.json",
+  "data_authority": "diagnostic-only repaired legacy filename cache",
+  "generated_at_utc": "2026-07-23T12:35:41.698837+00:00",
+  "promotion_authorized": false,
+  "windows": {
+    "early_is": [
+      "2024-03-25",
+      "2025-03-24"
+    ],
+    "is": [
+      "2024-03-25",
+      "2026-03-01"
+    ],
+    "late_is": [
+      "2025-03-25",
+      "2026-03-01"
+    ],
+    "max_drawdown_descent": [
+      "2024-07-19",
+      "2024-09-30"
+    ],
+    "oos": [
+      "2026-03-02",
+      "2026-05-01"
+    ]
+  }
+}

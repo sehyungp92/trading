@@ -13,7 +13,7 @@ import pandas as pd
 
 
 EXCHANGE_TIMEZONE = "America/New_York"
-CALENDAR_VERSION = "us_equities_xnys_xnas_rules_2024_2026_v1"
+CALENDAR_VERSION = "us_equities_xnys_xnas_rules_2024_2026_v2"
 RTH_SESSION_POLICY = "us_equity_rth_0930_exchange_close_v1"
 EXTENDED_SESSION_POLICY = "us_equity_extended_0400_2000_v1"
 
@@ -34,6 +34,10 @@ _EARLY_CLOSE_DATES = {
     date(2025, 12, 24),
     date(2026, 11, 27),
     date(2026, 12, 24),
+}
+
+_AD_HOC_CLOSURE_DATES = {
+    date(2025, 1, 9),  # National day of mourning for President Jimmy Carter.
 }
 
 
@@ -99,7 +103,11 @@ def exchange_holidays(year: int) -> set[date]:
 
 
 def is_trading_day(day: date) -> bool:
-    return day.weekday() < 5 and day not in exchange_holidays(day.year)
+    return (
+        day.weekday() < 5
+        and day not in exchange_holidays(day.year)
+        and day not in _AD_HOC_CLOSURE_DATES
+    )
 
 
 def session_close(day: date) -> time:

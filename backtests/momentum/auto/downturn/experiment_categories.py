@@ -940,6 +940,7 @@ def _r3_alpha_experiments() -> list[tuple[str, dict]]:
 def _r3_entry_experiments() -> list[tuple[str, dict]]:
     """Entry quality and execution experiments routed through neutral orders."""
     return [
+        ("r3_cancel_replace_entry", {"flags.cancel_replace_entry": True}),
         ("r3_entry_ttl_12", {"param_overrides.entry_ttl_bars": 12}),
         ("r3_entry_ttl_24", {"param_overrides.entry_ttl_bars": 24}),
         ("r3_entry_ttl_48", {"param_overrides.entry_ttl_bars": 48}),

@@ -1,26 +1,243 @@
 {
+  "artifacts": [
+    {
+      "path": "backtests/output/momentum/downturn/round_2/optimized_config.json",
+      "sha256": "0b7145164b2c503acdc9234729f68b1bbda8a3bfbb502b71fb5e8355f2055df8",
+      "size_bytes": 1387
+    },
+    {
+      "path": "backtests/output/momentum/downturn/round_2/final_qualification.json",
+      "sha256": "91aa979d01f47969e5c2893ce6bfe1cee96a4dfa3b60cb87a3feff9166173085",
+      "size_bytes": 135200
+    },
+    {
+      "path": "backtests/output/momentum/downturn/round_2/round_final_diagnostics.txt",
+      "sha256": "e357e11a80298e25ef18710aef1dd4099e7f3f4c4b6a2b594102f07a46901b44",
+      "size_bytes": 12439
+    },
+    {
+      "path": "backtests/output/momentum/downturn/round_2/trade_attribution.json",
+      "sha256": "45b88c243c1b5dd69ba9e22031bea392add0d62cfc6aa1ac9a3148b0b0ca1306",
+      "size_bytes": 44517
+    },
+    {
+      "path": "backtests/output/momentum/downturn/round_2/research_summary.json",
+      "sha256": "b47d6a63a461ad3c2b896fc816a596587c6342f7445aded3225234e89b5620ab",
+      "size_bytes": 79253
+    },
+    {
+      "path": "backtests/output/momentum/downturn/round_2/research/index.json",
+      "sha256": "7acc87eb2b620f66847bc5392d926345cf3a7adf3434f24c9d114e087f1395ba",
+      "size_bytes": 6756
+    }
+  ],
+  "disposition": "SHADOW_ONLY",
   "family": "momentum",
-  "strategy": "downturn",
-  "strategy_name": "downturn",
-  "round": 2,
-  "description": "Round 2",
-  "generated_at_utc": "2026-04-28T15:15:33.621919+00:00",
-  "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\momentum\\downturn\\round_1\\optimized_config.json",
-  "baseline_mutation_count": 13,
-  "baseline_mutations": {
-    "flags.drawdown_regime_override": true,
-    "param_overrides.drawdown_lookback": 10,
-    "param_overrides.adx_range_threshold": 20,
-    "param_overrides.divergence_mag_threshold": 0.05,
-    "param_overrides.adx_trending_threshold": 18,
-    "param_overrides.ema_fast_period": 15,
-    "param_overrides.base_risk_pct": 0.008,
-    "param_overrides.regime_mult_counter": 0.2,
-    "flags.chandelier_trailing": true,
-    "param_overrides.chandelier_lookback": 8,
-    "param_overrides.profit_floor_r_threshold": 1.5,
-    "flags.vol_percentile_gate": 40.0,
-    "param_overrides.be_trigger_r": 0.8
+  "generated_at": "2026-08-09T00:21:52.901508+00:00",
+  "initial_equity": 10000.0,
+  "mutation_count": 32,
+  "production_activation_authorized": false,
+  "promotion_code": {
+    "path": "backtests/momentum/auto/downturn/promote_oos_repair_round2.py",
+    "sha256": "349a2c3264e709943226a52d63796af2d061399fa39f8ab1b47a1f0bf1c7abde"
   },
-  "scoring_weights": {}
+  "provenance_status": "complete",
+  "purpose": "Promote the latest corrected-split OOS-repair recommendation as a fully diagnosed shadow round.",
+  "research_archive": {
+    "description": "Complete corrected-split Round 1 OOS-repair research archive supporting Round 2.",
+    "files": [
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/baseline_attribution.json",
+        "sha256": "ce7a62787a7edc3db33b0efe4f1bcca0bbca5e032c3015942545de780bbf5a58",
+        "size_bytes": 39563,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/baseline_attribution.json"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/candidate_cache_20240101_20260321_20260502.json",
+        "sha256": "1493630d9e53202a1f28eb90d08084b05a5f545c9ede1750c658769f2a5c7107",
+        "size_bytes": 9882580,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/candidate_cache_20240101_20260321_20260502.json"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/extended_interactions.json",
+        "sha256": "2d6d87710b521bfac1b6ffb8e8a984980374b8150d6c9d2a4f6c4a548c512571",
+        "size_bytes": 1525922,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/extended_interactions.json"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/extended_mechanisms.json",
+        "sha256": "62e2bea2f484732a7d2cad8a201b7880722d788142f56ae6c45f44368dbf02a3",
+        "size_bytes": 1504546,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/extended_mechanisms.json"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/extended_singles.json",
+        "sha256": "7e9f74c4be69023c8b2536fda30cf31f477d6dd615ddb4f43aff22ff891bfe76",
+        "size_bytes": 2703667,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/extended_singles.json"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/extended_verify.json",
+        "sha256": "57610b3525e16a62bd395c4ef8da6d698943e0355ac003f4102a8580e5112970",
+        "size_bytes": 914088,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/extended_verify.json"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/extension_report.md",
+        "sha256": "462c818412aa39631b582147ed19a8bdc67336a60142e3021262ddb23a3ae624",
+        "size_bytes": 1965,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/extension_report.md"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/extension_run_spec.json",
+        "sha256": "be3c08aa86af5e09d726c4104f5b2a49bb8e93fc78890862eadf2c86edb59a75",
+        "size_bytes": 1999,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/extension_run_spec.json"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/extension_summary.json",
+        "sha256": "811ae1a5bea176cfd8a6d2d93d440e867d40efa46616cb9985153ff3fed3616c",
+        "size_bytes": 79251,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/extension_summary.json"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/historical_ablation.json",
+        "sha256": "99f679fea32b7b81701ac55f0b7906116b1e214ba57c35507dcf8366ec997470",
+        "size_bytes": 501570,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/historical_ablation.json"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/perturbation.json",
+        "sha256": "a4408c7fefa59dc1fc370399f7c774b6ab80411f6be56c0a9ab85daf504db17d",
+        "size_bytes": 2149449,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/perturbation.json"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/recommended_config.json",
+        "sha256": "fcf13daa63351428804bddf360e08746832a07ee082a7a09b5764f7e5ace3328",
+        "size_bytes": 1297,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/recommended_config.json"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/recommended_config_extension.json",
+        "sha256": "28c9ef40ab2cc5de3bf1e2ef94e959ad820ac582d6f5a06c5435abd75c701ccd",
+        "size_bytes": 1385,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/recommended_config_extension.json"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/recommended_trade_attribution.json",
+        "sha256": "c88f8a18ff3876e321d1c9889e20ff10b065f7716cb6ee822eb35fa96e8d4d2a",
+        "size_bytes": 43647,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/recommended_trade_attribution.json"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/recommended_trade_attribution_extension.json",
+        "sha256": "03f6f844334ed68f292bda20b715a47f93a226befc029227f940326b163d60b2",
+        "size_bytes": 44515,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/recommended_trade_attribution_extension.json"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/report.md",
+        "sha256": "333e7995668b50c279aa6b646e54a3b717357a2fdd2bb713ab38720c20ef83c9",
+        "size_bytes": 3703,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/report.md"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/run_spec.json",
+        "sha256": "43929326540ed5c12443a74698a06085dc77ed645ae48d2502d487118196342f",
+        "size_bytes": 1713,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/run_spec.json"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/summary.json",
+        "sha256": "8ee7b64f753453907136a7b830e794fd725a7362f394458eb70e285dac899283",
+        "size_bytes": 198227,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/summary.json"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/targeted.json",
+        "sha256": "37b5a5e14e086539dbe5ea5b0d864279101643ad9a87e582720cc85f9fe52fb9",
+        "size_bytes": 981065,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/targeted.json"
+      },
+      {
+        "path": "backtests/output/momentum/downturn/round_2/research/verification.json",
+        "sha256": "1ea756b742e346711b324329d7845a2bd3bd801c8480af3f6520b46f77d272b5",
+        "size_bytes": 868216,
+        "source_path": "backtests/output/momentum/downturn/round_1/oos_repair/verification.json"
+      }
+    ],
+    "generated_at": "2026-08-09T00:21:52.901508+00:00",
+    "schema_version": 1,
+    "total_bytes": 21448368,
+    "total_files": 20
+  },
+  "round": 2,
+  "schema_version": 2,
+  "selected_name": "extension:daily4+ttl18+be050+min_hold_protection_floor150",
+  "selected_signature": "e4bb3351c373a75f051e22e40eb0fc32359735fbaafd42664fef9cf80d2233b7",
+  "source_research_spec": {
+    "all_repair_unique_configurations": 1276,
+    "candidate_counts": {
+      "extended_interactions": 185,
+      "extended_mechanisms": 182,
+      "extended_singles": 329,
+      "extended_verify": 110
+    },
+    "code": [
+      {
+        "path": "backtests\\momentum\\auto\\downturn\\round1_oos_repair_extension.py",
+        "sha256": "77dcc395df6c9af5721b98663ceeb7ce32ed7b7bcbadc54c21ab61fd6c678921"
+      },
+      {
+        "path": "backtests\\momentum\\engine\\downturn_engine.py",
+        "sha256": "110521d147ef96f21eff73a401b9b9b507b352bf15e7225e18505b57da7c5e78"
+      },
+      {
+        "path": "strategies\\momentum\\downturn\\config.py",
+        "sha256": "e5a12fe0fd2bfc2820551039c2efae3b980f11a6bf49a1dc7b65366c8d807030"
+      }
+    ],
+    "data": [
+      {
+        "path": "backtests\\momentum\\data\\raw\\NQ_5m.parquet",
+        "sha256": "9cc2ccd3cbb1b50c72e459c4fce0701c31f1252b0f79ea82e42c2ca46e49bb33"
+      },
+      {
+        "path": "backtests\\momentum\\data\\raw\\ES_1d.parquet",
+        "sha256": "b545889a650009b7c60908e488b6e45758f3e1daa1d9240d6a0acb029a10f097"
+      },
+      {
+        "path": "backtests\\momentum\\data\\raw\\NQ_5m.manifest.json",
+        "sha256": "0f628d175472f0d7e985ed3cbf70061aeb2df0284f59da0cca7b71e5da33808e"
+      },
+      {
+        "path": "backtests\\momentum\\data\\raw\\ES_1d.manifest.json",
+        "sha256": "d413ca5edd6ce65c503c83b2aab093262689d1db3b083f0314add3796c8b6dea"
+      }
+    ],
+    "disposition": "SHADOW_RESEARCH_ONLY",
+    "extension_unique_configurations": 751,
+    "generated_at": "2026-08-08T23:59:21.545372+00:00",
+    "initial_equity": 10000.0,
+    "purpose": "Candidate-centred Round-1 corrected-split extension",
+    "selected_signature": "e4bb3351c373a75f051e22e40eb0fc32359735fbaafd42664fef9cf80d2233b7",
+    "split": {
+      "evaluation_end_exclusive": "2026-05-02T00:00:00+00:00",
+      "is_end_inclusive": "2026-03-20",
+      "is_start": "2024-01-01T00:00:00+00:00",
+      "oos_end_inclusive": "2026-05-01",
+      "oos_start": "2026-03-21T00:00:00+00:00"
+    }
+  },
+  "source_round": "round_1/oos_repair",
+  "split": {
+    "evaluation_end_exclusive": "2026-05-02T00:00:00+00:00",
+    "is_end_inclusive": "2026-03-20",
+    "is_start": "2024-01-01T00:00:00+00:00",
+    "oos_end_inclusive": "2026-05-01",
+    "oos_start": "2026-03-21T00:00:00+00:00",
+    "oos_status": "retrospective_observed_validation_not_untouched"
+  },
+  "strategy": "downturn"
 }

@@ -118,6 +118,7 @@ class _Position:
     orb_quality_score: float = 0.0
     gap_size_mult: float = 1.0
     time_size_mult: float = 1.0
+    entry_geometry_size_mult: float = 1.0
     entry_expected_volume_5m: float = 0.0
     entry_signal_rvol: float = 0.0
 
@@ -153,6 +154,7 @@ class _PendingEntry:
     regime_tier: str
     opened_date: date
     reentry_sequence: int
+    entry_geometry_size_mult: float = 1.0
 
 
 @dataclass
@@ -202,6 +204,9 @@ class ALCBIntradayEngine:
         self._core_state = ALCBCoreState()
         self._decision_events: list = []
         self._order_counter: int = 0
+        self._active_replay_date: date | None = None
+        self._daily_realized_r: float = 0.0
+        self._failure_history: list[bool] = []
 
     @property
     def shadow_tracker(self) -> ALCBShadowTracker | None:
@@ -249,6 +254,9 @@ class ALCBIntradayEngine:
             if current.weekday() >= 5:
                 current += timedelta(days=1)
                 continue
+
+            self._active_replay_date = current
+            self._daily_realized_r = 0.0
 
             # ----------------------------------------------------------
             # Phase 1: Daily Setup
@@ -990,6 +998,43 @@ class ALCBIntradayEngine:
         steps = self._minutes_after(settings.orb_time_decay_start, signal_time) / 30.0
         return max(settings.orb_late_size_floor, 1.0 - decay * steps)
 
+    @staticmethod
+    def _orb_entry_geometry_size_mult(
+        signal_range_r: float,
+        settings: StrategySettings,
+    ) -> float:
+        start = max(0.0, float(settings.orb_entry_range_taper_start_r))
+        end = max(0.0, float(settings.orb_entry_range_taper_end_r))
+        floor = min(1.0, max(0.0, float(settings.orb_entry_range_taper_floor)))
+        if start <= 0.0 or end <= start:
+            return 1.0
+        if signal_range_r <= start:
+            return 1.0
+        if signal_range_r >= end:
+            return floor
+        blend = (signal_range_r - start) / (end - start)
+        return 1.0 - blend * (1.0 - floor)
+
+    def _failure_density_size_mult(self, settings: StrategySettings) -> float:
+        lookback = max(0, int(settings.failure_density_lookback_trades))
+        minimum = max(1, int(settings.failure_density_min_observations))
+        if lookback <= 0 or len(self._failure_history) < minimum:
+            return 1.0
+        window = self._failure_history[-lookback:]
+        if len(window) < minimum:
+            return 1.0
+        density = sum(1 for failed in window if failed) / len(window)
+        if density < float(settings.failure_density_trigger_pct):
+            return 1.0
+        return min(1.0, max(0.0, float(settings.failure_density_size_mult)))
+
+    def _daily_stop_active(self, settings: StrategySettings, ablation) -> bool:
+        return bool(
+            ablation.use_daily_stop
+            and settings.daily_stop_r > 0
+            and self._daily_realized_r <= -float(settings.daily_stop_r)
+        )
+
     def _orb_required_rvol(self, base_rvol: float, signal_time: time, settings: StrategySettings) -> float:
         add = max(0.0, settings.orb_late_rvol_add_per_30m)
         if add <= 0:
@@ -1278,6 +1323,11 @@ class ALCBIntradayEngine:
         if sym in positions:
             pending_entries.pop(sym, None)
             return
+        if self._daily_stop_active(settings, ablation):
+            pending_entries.pop(sym, None)
+            if shadow:
+                shadow.record_funnel("daily_stop")
+            return
 
         confirm_bars = max(0, int(settings.entry_confirmation_bars))
         if confirm_bars > 0:
@@ -1350,6 +1400,8 @@ class ALCBIntradayEngine:
             * sector_mult
             * pending.gap_size_mult
             * pending.time_size_mult
+            * pending.entry_geometry_size_mult
+            * self._failure_density_size_mult(settings)
             * (max(0.0, settings.entry_confirmation_size_mult) if confirm_bars > 0 else 1.0)
             * self._targeted_entry_size_mult(
                 pending.entry_type,
@@ -1418,6 +1470,7 @@ class ALCBIntradayEngine:
             orb_quality_score=pending.orb_quality_score,
             gap_size_mult=pending.gap_size_mult,
             time_size_mult=pending.time_size_mult,
+            entry_geometry_size_mult=pending.entry_geometry_size_mult,
             entry_expected_volume_5m=pending.expected_volume_5m,
             entry_signal_rvol=pending.signal_rvol,
         )
@@ -1632,6 +1685,10 @@ class ALCBIntradayEngine:
                     entry_type=entry_type_str,
                 ))
 
+        if self._daily_stop_active(settings, ablation):
+            _reject("daily_stop")
+            return
+
         session_open = sb[0].open if sb else bar.open
         gap_pct = ((session_open - pdc) / pdc) if pdc > 0 else 0.0
         orb_quality_score = self._orb_quality_score(
@@ -1668,12 +1725,21 @@ class ALCBIntradayEngine:
 
         time_size_mult = self._orb_time_size_mult(bar_time_et, settings)
 
+        signal_range_r = (
+            (bar.high - bar.low) / risk_per_share
+            if risk_per_share > 0
+            else 0.0
+        )
+        entry_geometry_size_mult = self._orb_entry_geometry_size_mult(
+            signal_range_r,
+            settings,
+        )
+
         if (
             ablation.use_orb_entry_range_gate
             and settings.orb_entry_range_cap_r > 0
             and risk_per_share > 0
         ):
-            signal_range_r = (bar.high - bar.low) / risk_per_share
             if signal_range_r > settings.orb_entry_range_cap_r:
                 _reject("orb_entry_range_cap")
                 return
@@ -1882,6 +1948,8 @@ class ALCBIntradayEngine:
             * sector_mult
             * gap_size_mult
             * time_size_mult
+            * entry_geometry_size_mult
+            * self._failure_density_size_mult(settings)
             * (max(0.0, settings.entry_confirmation_size_mult) if settings.entry_confirmation_bars > 0 else 1.0)
             * self._targeted_entry_size_mult(
                 entry_type_str,
@@ -1963,6 +2031,7 @@ class ALCBIntradayEngine:
             orb_quality_score=orb_quality_score,
             gap_size_mult=gap_size_mult,
             time_size_mult=time_size_mult,
+            entry_geometry_size_mult=entry_geometry_size_mult,
             setup=setup,
             regime_tier=regime_tier,
             opened_date=current,
@@ -2033,6 +2102,7 @@ class ALCBIntradayEngine:
             "orb_quality_score": round(pos.orb_quality_score, 3),
             "gap_size_mult": round(pos.gap_size_mult, 4),
             "time_size_mult": round(pos.time_size_mult, 4),
+            "entry_geometry_size_mult": round(pos.entry_geometry_size_mult, 4),
             "entry_signal_rvol": round(pos.entry_signal_rvol, 4),
             "entry_expected_volume_5m": round(pos.entry_expected_volume_5m, 4),
         }
@@ -2069,7 +2139,7 @@ class ALCBIntradayEngine:
 
         bt_dir = BTDirection.LONG if pos.direction == Direction.LONG else BTDirection.SHORT
 
-        return TradeRecord(
+        record = TradeRecord(
             strategy="alcb",
             symbol=pos.symbol,
             direction=bt_dir,
@@ -2097,3 +2167,8 @@ class ALCBIntradayEngine:
             fill_bar_index=pos.fill_bar_index,
             reentry_sequence=pos.reentry_sequence,
         )
+        if self._active_replay_date == exit_time.date():
+            self._daily_realized_r += float(r_mult)
+        failure_threshold = max(0.0, float(settings.failure_density_mfe_threshold_r))
+        self._failure_history.append(bool(r_mult < 0.0 and mfe_r < failure_threshold))
+        return record

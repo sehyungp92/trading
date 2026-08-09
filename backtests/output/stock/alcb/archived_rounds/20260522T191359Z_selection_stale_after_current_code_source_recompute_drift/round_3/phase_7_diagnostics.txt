@@ -1,0 +1,11 @@
+======================================================================
+ALCB ROUND-3 RESIDUAL ALPHA PHASE 7 SNAPSHOT
+======================================================================
+Focus: Causal early trade-maturation protection
+Score 0.5053 -> 0.5053 with 0 accepted mutations.
+
+Core: trades=511, net_profit=+10971.02, expectancy_dollar=+21.47, expected_total_r=+138.43, pf=2.195, dd=2.3%, trades/month=19.74
+Quality: signal_quality=0.619, timing_quality=0.681, extended_avwap_inverse=0.318, bar9_inverse=0.725, late_entry_quality=1.000, score_monotonicity=0.456
+Management: profit_protection=0.735, short24_inv=0.410, flow_mfe_inv=0.991, mfe_capture_eff=0.829, sizing_alignment=1.000, long_hold_capture=0.995, inv_dd=0.804
+Focus metric deltas: expected_total_r=+138.427->+138.427, net_profit=+10971.020->+10971.020, profit_factor=+2.195->+2.195, profit_protection=+0.735->+0.735, short_hold_24_drag_inverse=+0.410->+0.410, mfe_capture_efficiency=+0.829->+0.829, trades_per_month=+19.738->+19.738
+Hard floors: max_dd_pct=4.50%, min_expectancy_dollar=19.7521, min_expected_total_r=134.2739, min_extended_avwap_inverse=0.3000, min_flow_mfe_exit_inverse=0.8426, min_mfe_capture_efficiency=0.7460, min_net_profit=10422.4690, min_pf=2.0848, min_profit_protection=0.6245, min_short_hold_24_drag_inverse=0.3282, min_timing_quality=0.5993, min_trades_per_month=19.4000

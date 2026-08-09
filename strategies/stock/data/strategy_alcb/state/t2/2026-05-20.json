@@ -1,25 +1,9 @@
 {
   "entry_meta": {},
   "exit_reasons": {},
-  "last_bar_ts": "2026-05-20T14:30:00+00:00",
-  "last_decision_code": "IDLE_MARKET_OBSERVED",
-  "last_decision_details": {
-    "bar_count": 1,
-    "close_delta": 3.05,
-    "first_bar_ts": "2026-05-20T14:30:00+00:00",
-    "last_bar_ts": "2026-05-20T14:30:00+00:00",
-    "last_ohlcv": {
-      "close": 413.25,
-      "high": 412.4,
-      "low": 410.1,
-      "open": 410.2,
-      "volume": 900000
-    },
-    "range_sum": 2.3,
-    "symbol": "MSFT",
-    "timeframe": "5m",
-    "volume_sum": 900000
-  },
+  "last_bar_ts": null,
+  "last_decision_code": "IDLE",
+  "last_decision_details": {},
   "or_built": {
     "MSFT": false
   },
@@ -29,6 +13,6 @@
   "pending_exits": {},
   "pending_plans": {},
   "positions": {},
-  "saved_at": "2026-06-04T00:18:38.024705+00:00",
+  "saved_at": "2026-07-17T17:33:13.611545+00:00",
   "trade_date": "2026-05-20"
 }

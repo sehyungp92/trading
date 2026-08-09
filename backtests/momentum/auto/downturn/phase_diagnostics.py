@@ -1,4 +1,4 @@
-"""Downturn 8 diagnostic modules (D1-D8).
+"""Downturn full-round diagnostic modules (D1-D9).
 
 D1: Regime accuracy during correction windows (always)
 D2: Signal quality per-engine (always)
@@ -8,6 +8,7 @@ D5: Hold time & conviction (Phase 2+)
 D6: Phase delta (always)
 D7: Correction-window detail (Phase 3+)
 D8: Per-engine exit & MFE analysis (Phase 2+)
+D9: Dynamic-risk sizing effectiveness (Phase 2+)
 """
 from __future__ import annotations
 
@@ -16,11 +17,7 @@ from io import StringIO
 
 from backtests.momentum.analysis.downturn_diagnostics import DownturnMetrics
 from backtests.momentum.auto.downturn.phase_gates import check_phase_gate
-from strategies.momentum.downturn.bt_models import (
-    CompositeRegime,
-    DownturnTradeRecord,
-    EngineTag,
-)
+from strategies.momentum.downturn.bt_models import DownturnTradeRecord, EngineTag
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +29,10 @@ def generate_phase_diagnostics(
     state_dict: dict | None,
     all_trades: list[DownturnTradeRecord] | None = None,
     force_all_modules: bool = False,
+    *,
+    initial_equity: float = 10_000.0,
+    point_value: float = 2.0,
+    base_risk_pct: float = 0.01,
 ) -> str:
     """Generate full diagnostic report for a downturn phase."""
     buf = StringIO()
@@ -58,6 +59,15 @@ def generate_phase_diagnostics(
 
     if phase >= 2 or force_all_modules:
         _write_d8_engine_exit_mfe(buf, all_trades)
+
+    if phase >= 2 or force_all_modules:
+        _write_d9_dynamic_risk_sizing(
+            buf,
+            all_trades,
+            initial_equity=initial_equity,
+            point_value=point_value,
+            base_risk_pct=base_risk_pct,
+        )
 
     _write_gate_assessment(buf, phase, metrics, greedy_result)
 
@@ -357,7 +367,6 @@ def _write_d8_engine_exit_mfe(
             continue
 
         wins = [t for t in eng if t.pnl > 0]
-        losses = [t for t in eng if t.pnl <= 0]
         total_pnl = sum(t.pnl for t in eng)
         rs = [t.r_multiple for t in eng]
         holds = [t.hold_bars for t in eng]
@@ -376,7 +385,7 @@ def _write_d8_engine_exit_mfe(
             mfe_arr = np.array(mfes)
             pcts = [25, 50, 75, 90, 95]
             quantiles = np.percentile(mfe_arr, pcts)
-            buf.write(f"    MFE distribution (R):  ")
+            buf.write("    MFE distribution (R):  ")
             buf.write("  ".join(f"p{p}={q:.2f}" for p, q in zip(pcts, quantiles)))
             buf.write(f"\n    MFE: avg={float(np.mean(mfe_arr)):.2f}  "
                       f"max={float(np.max(mfe_arr)):.2f}\n")
@@ -388,7 +397,7 @@ def _write_d8_engine_exit_mfe(
                 if pct > 0:
                     buf.write(f"    Reached {r_level:>4.1f}R: {reached:3d}/{len(mfes)} ({pct:.0f}%)\n")
         else:
-            buf.write(f"    MFE: no data\n")
+            buf.write("    MFE: no data\n")
 
         # MAE distribution — shows risk characteristics
         maes = [t.mae for t in eng if t.mae < 0]
@@ -409,6 +418,100 @@ def _write_d8_engine_exit_mfe(
 
 
 # ---------------------------------------------------------------------------
+# D9: Dynamic-risk sizing effectiveness
+# ---------------------------------------------------------------------------
+
+def _write_d9_dynamic_risk_sizing(
+    buf: StringIO,
+    trades: list[DownturnTradeRecord] | None,
+    *,
+    initial_equity: float,
+    point_value: float,
+    base_risk_pct: float,
+) -> None:
+    """Show whether nominal risk controls produce meaningful whole-contract sizing."""
+    import numpy as np
+
+    buf.write("--- D9: Dynamic Risk Sizing Effectiveness ---\n")
+    buf.write(f"  Individual-strategy equity basis: ${initial_equity:,.0f}\n")
+    buf.write(
+        f"  Base-risk reference: {base_risk_pct:.2%} "
+        f"(${initial_equity * base_risk_pct:,.2f} at inception)\n"
+    )
+    if not trades:
+        buf.write("  No trades.\n\n")
+        return
+
+    ordered = sorted(
+        trades,
+        key=lambda trade: trade.entry_time or trade.exit_time,
+    )
+    equity = float(initial_equity)
+    risks: list[float] = []
+    risk_pcts: list[float] = []
+    base_refs: list[float] = []
+    quantities: dict[int, int] = {}
+    floor_overrides = 0
+    for trade in ordered:
+        qty = max(0, int(trade.qty))
+        actual_risk = abs(float(trade.stop0) - float(trade.entry_price)) * point_value * qty
+        base_reference = max(equity, 0.0) * base_risk_pct
+        risks.append(actual_risk)
+        risk_pcts.append(actual_risk / equity if equity > 0 else 0.0)
+        base_refs.append(base_reference)
+        quantities[qty] = quantities.get(qty, 0) + 1
+        if qty == 1 and actual_risk > base_reference:
+            floor_overrides += 1
+        equity += float(trade.pnl)
+
+    risk_array = np.asarray(risks, dtype=float)
+    pct_array = np.asarray(risk_pcts, dtype=float)
+    reference_array = np.asarray(base_refs, dtype=float)
+    qty_text = ", ".join(f"{qty}x={count}" for qty, count in sorted(quantities.items()))
+    multi_contract = sum(count for qty, count in quantities.items() if qty > 1)
+    reference_excess = int(np.sum(risk_array > reference_array))
+    pcts = np.percentile(pct_array, [25, 50, 75, 90, 95, 100]) * 100.0
+
+    buf.write(f"  Filled quantity distribution: {qty_text}\n")
+    buf.write(
+        f"  Multi-contract trades: {multi_contract}/{len(ordered)} "
+        f"({multi_contract / len(ordered):.1%})\n"
+    )
+    buf.write(
+        "  Actual initial stop risk: "
+        f"median=${float(np.median(risk_array)):,.2f}, "
+        f"mean=${float(np.mean(risk_array)):,.2f}, "
+        f"max=${float(np.max(risk_array)):,.2f}\n"
+    )
+    buf.write(
+        "  Actual risk as contemporaneous equity: "
+        f"p25={pcts[0]:.2f}%  p50={pcts[1]:.2f}%  p75={pcts[2]:.2f}%  "
+        f"p90={pcts[3]:.2f}%  p95={pcts[4]:.2f}%  max={pcts[5]:.2f}%\n"
+    )
+    buf.write(
+        f"  Trades above base-risk reference: {reference_excess}/{len(ordered)} "
+        f"({reference_excess / len(ordered):.1%})\n"
+    )
+    buf.write(
+        f"  One-contract floor overrides: {floor_overrides}/{len(ordered)} "
+        f"({floor_overrides / len(ordered):.1%})\n"
+    )
+    if multi_contract == 0:
+        buf.write(
+            "  Sizing verdict: INEFFECTIVE -- all fills are one contract, so dynamic "
+            "risk multipliers do not change exposure.\n"
+        )
+    elif floor_overrides / len(ordered) >= 0.50:
+        buf.write(
+            "  Sizing verdict: FLOOR-DOMINATED -- the one-contract minimum overrides "
+            "the base-risk reference on most trades.\n"
+        )
+    else:
+        buf.write("  Sizing verdict: ACTIVE -- quantity varies and is not floor-dominated.\n")
+    buf.write("\n")
+
+
+# ---------------------------------------------------------------------------
 # Gate assessment
 # ---------------------------------------------------------------------------
 
@@ -416,7 +519,7 @@ def _write_gate_assessment(
     buf: StringIO, phase: int, metrics: DownturnMetrics,
     greedy_result: dict | None,
 ) -> None:
-    buf.write("--- Gate Assessment ---\n")
+    buf.write("--- Gate Assessment (development phase; not activation) ---\n")
     gate = check_phase_gate(phase, metrics, greedy_result)
     buf.write(f"  Gate passed: {gate.passed}\n")
     for c in gate.criteria:

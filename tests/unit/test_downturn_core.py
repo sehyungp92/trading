@@ -20,6 +20,7 @@ from strategies.momentum.downturn.core.logic import (
 from strategies.momentum.downturn.core.entry_decision import (
     DownturnProposalPolicy,
     build_entry_proposal,
+    entry_request as proposal_entry_request,
     select_fade_signal,
 )
 from strategies.momentum.downturn.core.serializers import restore_state, snapshot_state
@@ -210,12 +211,26 @@ def test_downturn_core_applies_approval_and_denial_before_submission() -> None:
             timestamp=proposal.exchange_timestamp,
         ),
     )
-    assert approved.pending_entries == {}
+    assert proposal.client_order_id in approved.pending_entries
     assert submissions[0].qty == 2
     assert submissions[0].risk_context["risk_dollars"] == pytest.approx(
         proposal.risk_dollars * 2 / proposal.qty
     )
     assert events[-1].code == approved.last_decision_code == "ENTRY_AUTHORIZED"
+
+    accepted, _, events = on_order_update(
+        approved,
+        DownturnOrderUpdate(
+            oms_order_id="OMS-APPROVED",
+            status="accepted",
+            timestamp=proposal.exchange_timestamp,
+            order_role="entry",
+            accepted_entry=proposal_entry_request(proposal),
+        ),
+    )
+    assert accepted.pending_entries == {}
+    assert len(accepted.working_entries) == 1
+    assert events[-1].code == "ENTRY_SUBMITTED"
 
 
 def test_downturn_core_entry_lifecycle_and_snapshot_roundtrip() -> None:

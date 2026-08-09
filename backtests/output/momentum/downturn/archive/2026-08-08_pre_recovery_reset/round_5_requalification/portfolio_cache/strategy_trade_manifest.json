@@ -1,0 +1,527 @@
+{
+  "downturn": {
+    "mtime": 1777929243.4969475,
+    "path": "backtests\\output\\momentum\\downturn\\round_4\\optimized_config.json",
+    "round": 4,
+    "selection_method": "active_manifest_latest",
+    "sha256": "4fd3a3a7e07da910b95124c232c29f051329f66d101431409b863f992b4ff48a",
+    "size": 1349,
+    "source_provenance": {
+      "contract": "momentum_source_artifact_provenance.v1",
+      "optimized_config": {
+        "exists": true,
+        "path": "backtests\\output\\momentum\\downturn\\round_4\\optimized_config.json",
+        "sha256": "4fd3a3a7e07da910b95124c232c29f051329f66d101431409b863f992b4ff48a"
+      },
+      "round_final_diagnostics": {
+        "exists": true,
+        "path": "backtests\\output\\momentum\\downturn\\round_4\\round_final_diagnostics.txt",
+        "sha256": "202700e6b0855d6d52bf176967ea3e38b1d280f76aeea2c4d933311c5daec933"
+      },
+      "run_summary": {
+        "exists": true,
+        "path": "backtests\\output\\momentum\\downturn\\round_4\\run_summary.json",
+        "sha256": "fcb55465cb87f85e50e64325d71459adb9b576fe2af06a93f30c36689a03b0ba"
+      },
+      "runner": {
+        "exists": true,
+        "path": "backtests\\momentum\\auto\\downturn\\plugin.py",
+        "sha256": "27358d84ec57d799ea94efef3b15a60c8d5691955a78aea82af0d24658dac862"
+      },
+      "saved_provenance": {
+        "diagnostics_fingerprint": "1fbeca396f943327dbbabc74b88e59ab30eb3721a0e9120fad02e4d2206f0cba",
+        "items": [
+          {
+            "fingerprint": "cced7806698e11c2896637a43a7235da1e077b221cea3568356afb6a06711419",
+            "kind": "tree_contents",
+            "name": "data_dir",
+            "notes": "Content fingerprint for selection-relevant replay data files.",
+            "paths": [
+              "backtests/momentum/data/raw"
+            ],
+            "scope": "data"
+          },
+          {
+            "fingerprint": "5ddc4e4ec20135fc734d667b53aefed0d77fb52534ff1cb1aff2206b7e0563dd",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/auto/config_mutator.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/auto/config_mutator.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "c1c4889d6fcf4832ac785d69201415bd6ad20c829bef4a8309a770c241efd5ac",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/config_downturn.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/config_downturn.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "52f01bbd08103c238d77eabeeddd2fc690974b6dfe8b6a23bc8d26f60c607808",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/data/replay_cache.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/data/replay_cache.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "2405664416d9fb06644a4143e12fbe6834f6cdc0e8e68d91c70bb6c126e05940",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/engine/downturn_engine.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/engine/downturn_engine.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "9b411d5185842fa2c1d88f8836f87643b872bdff0bd632fee1ca6185208537db",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/engine/sim_broker.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/engine/sim_broker.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "9d6b683d453043067d62ca690bfb2ced13e0631bd50112d22058e4574af55ac7",
+            "kind": "plugin_identity",
+            "name": "plugin",
+            "notes": "",
+            "paths": [],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "a74ef35b4c4c0f6055b3ff1f4687d5607a80b1b233a05734758949d1cdfea65a",
+            "kind": "stable_json",
+            "name": "selection_context",
+            "notes": "",
+            "paths": [],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "6fd3d5e3b44375d5ed66c294ff6552db29596052fc14489937ee18a437314275",
+            "kind": "tree_contents",
+            "name": "code_tree:backtests/momentum/auto/downturn",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/auto/downturn"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "d9d2fccedd37282a0908da4eacb176f90033de491d7babdfc8d654ce376d5f37",
+            "kind": "tree_contents",
+            "name": "shared_auto_package",
+            "notes": "",
+            "paths": [
+              "backtests/shared/auto"
+            ],
+            "scope": "selection"
+          }
+        ],
+        "schema_version": 1,
+        "selection_fingerprint": "1fbeca396f943327dbbabc74b88e59ab30eb3721a0e9120fad02e4d2206f0cba"
+      },
+      "saved_provenance_status": "complete",
+      "strategy": "downturn"
+    }
+  },
+  "nq_regime": {
+    "mtime": 1777940591.4233613,
+    "path": "backtests\\output\\momentum\\nq_regime\\round_6\\optimized_config.json",
+    "round": 6,
+    "selection_method": "active_manifest_latest",
+    "sha256": "91dacd67b09a05b019ab72038ae604764426b83e011dcfbd35a9e79abdc35c72",
+    "size": 5249,
+    "source_provenance": {
+      "contract": "momentum_source_artifact_provenance.v1",
+      "optimized_config": {
+        "exists": true,
+        "path": "backtests\\output\\momentum\\nq_regime\\round_6\\optimized_config.json",
+        "sha256": "91dacd67b09a05b019ab72038ae604764426b83e011dcfbd35a9e79abdc35c72"
+      },
+      "round_final_diagnostics": {
+        "exists": true,
+        "path": "backtests\\output\\momentum\\nq_regime\\round_6\\round_final_diagnostics.txt",
+        "sha256": "b502aa664a537a9858df205b7689694467d5ec26c3c552c18c30474696b8edff"
+      },
+      "run_summary": {
+        "exists": true,
+        "path": "backtests\\output\\momentum\\nq_regime\\round_6\\run_summary.json",
+        "sha256": "018d9cd071835b7fd20ceb11fef15c81487d9c1adfe0b6d5eaf01b1ebbde3eb2"
+      },
+      "runner": {
+        "exists": true,
+        "path": "backtests\\momentum\\auto\\nq_regime\\current_oos_frequency_repair.py",
+        "sha256": "38ea881fe2ec054cf8a30377deb4070d65fc3f8ce722f1220244e4bff7cef45b"
+      },
+      "runner_role": "actual_is_oos_split_repair_runner",
+      "saved_provenance": {
+        "diagnostics_fingerprint": "fa1334613d4930b248c262d5ebc0aaab0daa9e62b37d3ad9535ac3cf0bbe4611",
+        "items": [
+          {
+            "fingerprint": "cced7806698e11c2896637a43a7235da1e077b221cea3568356afb6a06711419",
+            "kind": "tree_contents",
+            "name": "data_dir",
+            "notes": "Content fingerprint for selection-relevant replay data files.",
+            "paths": [
+              "backtests/momentum/data/raw"
+            ],
+            "scope": "data"
+          },
+          {
+            "fingerprint": "5ddc4e4ec20135fc734d667b53aefed0d77fb52534ff1cb1aff2206b7e0563dd",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/auto/config_mutator.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/auto/config_mutator.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "648630ccb5049cd8e3fac5f8e421fd1be11a948a7f966fb294bb82eff061571a",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/auto/nq_regime/current_oos_frequency_repair.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/auto/nq_regime/current_oos_frequency_repair.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "e09df0617b81553f7f2aed55ef822b3aee0a59ac188547cf7d5be1dd46c01d4d",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/config_regime.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/config_regime.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "374d22382b86d4a71284c11afa11b8abfce99c776ce781cedfd7707e40528ffd",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/engine/regime_engine.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/engine/regime_engine.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "bfb850391fbbd479ac5ef1d55c8a7e1e7d54507a4ada8cadbba541d20d633698",
+            "kind": "plugin_identity",
+            "name": "plugin",
+            "notes": "",
+            "paths": [],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "7ac8945406a4eadf6dd0ae95a679cf8478f926e60cb5998b0bd2153f565cf8e5",
+            "kind": "stable_json",
+            "name": "selection_context",
+            "notes": "",
+            "paths": [],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "416ef76bf4240fb801a0e1280346faf4e10c7e4f049398fe3ffb33913ebc2c2c",
+            "kind": "tree_contents",
+            "name": "code_tree:backtests/momentum/auto/nq_regime",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/auto/nq_regime"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "d9d2fccedd37282a0908da4eacb176f90033de491d7babdfc8d654ce376d5f37",
+            "kind": "tree_contents",
+            "name": "shared_auto_package",
+            "notes": "",
+            "paths": [
+              "backtests/shared/auto"
+            ],
+            "scope": "selection"
+          }
+        ],
+        "schema_version": 1,
+        "selection_fingerprint": "fa1334613d4930b248c262d5ebc0aaab0daa9e62b37d3ad9535ac3cf0bbe4611"
+      },
+      "saved_provenance_status": "complete",
+      "strategy": "nq_regime"
+    }
+  },
+  "nqdtc": {
+    "mtime": 1779707528.3112116,
+    "path": "backtests\\output\\momentum\\nqdtc\\round_5\\optimized_config.json",
+    "round": 5,
+    "selection_method": "active_manifest_latest",
+    "sha256": "1baec4d83ebc9d4438c68bf1c7692d06e9864faf5eb7de6a91385b648792ae85",
+    "size": 982,
+    "source_provenance": {
+      "contract": "momentum_source_artifact_provenance.v1",
+      "optimized_config": {
+        "exists": true,
+        "path": "backtests\\output\\momentum\\nqdtc\\round_5\\optimized_config.json",
+        "sha256": "1baec4d83ebc9d4438c68bf1c7692d06e9864faf5eb7de6a91385b648792ae85"
+      },
+      "round_final_diagnostics": {
+        "exists": true,
+        "path": "backtests\\output\\momentum\\nqdtc\\round_5\\round_final_diagnostics.txt",
+        "sha256": "8fa1c6ad316c7dc3c84d26197cc2a737b0273c037ddfcb1589159685de8bc790"
+      },
+      "run_summary": {
+        "exists": true,
+        "path": "backtests\\output\\momentum\\nqdtc\\round_5\\run_summary.json",
+        "sha256": "b351324f89638586022642d489d8d1fbb7bef57fb0c53d09307fa729d834bb6e"
+      },
+      "saved_provenance": {
+        "diagnostics_fingerprint": "51990078c3e3405a1f219ebd2ea8b06bde0246ee8cad7620b12f3e56d1fd820f",
+        "items": [
+          {
+            "fingerprint": "cced7806698e11c2896637a43a7235da1e077b221cea3568356afb6a06711419",
+            "kind": "tree_contents",
+            "name": "data_dir",
+            "notes": "Content fingerprint for selection-relevant replay data files.",
+            "paths": [
+              "backtests/momentum/data/raw"
+            ],
+            "scope": "data"
+          },
+          {
+            "fingerprint": "5ddc4e4ec20135fc734d667b53aefed0d77fb52534ff1cb1aff2206b7e0563dd",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/auto/config_mutator.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/auto/config_mutator.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "c75a8750e5204a6d705964a3c860a6f695e7f060023b2cea914a51cde7e23651",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/config_nqdtc.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/config_nqdtc.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "52f01bbd08103c238d77eabeeddd2fc690974b6dfe8b6a23bc8d26f60c607808",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/data/replay_cache.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/data/replay_cache.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "69fcaccf70930144304c12b9debb34576691cf778fb748897a4b0647a7ba2791",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/engine/nqdtc_engine.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/engine/nqdtc_engine.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "9b411d5185842fa2c1d88f8836f87643b872bdff0bd632fee1ca6185208537db",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/engine/sim_broker.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/engine/sim_broker.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "e782cae55f8e77f557ff004538960b4638ff0871d42e1355bc5a39ae01ceeed9",
+            "kind": "plugin_identity",
+            "name": "plugin",
+            "notes": "",
+            "paths": [],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "6bee1dde2931f1de5b0c976a1efaf7a7a5209648091f32ab6f27709c506756ec",
+            "kind": "stable_json",
+            "name": "selection_context",
+            "notes": "",
+            "paths": [],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "27d1435cf4ffb228a5514621cbf4d40ebcf86d2a4d744c7c4c808b5b2c47c2db",
+            "kind": "tree_contents",
+            "name": "code_tree:backtests/momentum/auto/nqdtc",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/auto/nqdtc"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "b58cff0ef3381b09a3e6abcacca3dbbcc093afc7c8583a6e34c39a8886dd6f3c",
+            "kind": "tree_contents",
+            "name": "shared_auto_package",
+            "notes": "",
+            "paths": [
+              "backtests/shared/auto"
+            ],
+            "scope": "selection"
+          }
+        ],
+        "schema_version": 1,
+        "selection_fingerprint": "51990078c3e3405a1f219ebd2ea8b06bde0246ee8cad7620b12f3e56d1fd820f"
+      },
+      "saved_provenance_status": "complete",
+      "strategy": "nqdtc"
+    }
+  },
+  "vdubus": {
+    "mtime": 1779556388.542642,
+    "path": "backtests\\output\\momentum\\vdubus\\round_3\\optimized_config.json",
+    "round": 3,
+    "selection_method": "active_manifest_latest",
+    "sha256": "556ff21a697a8e80f5a49033e1aa9dc490ab9631d63f1b626d414b8be3111d26",
+    "size": 1391,
+    "source_provenance": {
+      "contract": "momentum_source_artifact_provenance.v1",
+      "optimized_config": {
+        "exists": true,
+        "path": "backtests\\output\\momentum\\vdubus\\round_3\\optimized_config.json",
+        "sha256": "556ff21a697a8e80f5a49033e1aa9dc490ab9631d63f1b626d414b8be3111d26"
+      },
+      "round_final_diagnostics": {
+        "exists": true,
+        "path": "backtests\\output\\momentum\\vdubus\\round_3\\round_final_diagnostics.txt",
+        "sha256": "666d0c734bfa576821d1b5359d98d3a84d55d812816b3f7480f3d9653a7ab817"
+      },
+      "run_summary": {
+        "exists": true,
+        "path": "backtests\\output\\momentum\\vdubus\\round_3\\run_summary.json",
+        "sha256": "a08a8ad9517dab918f7daf2d94de62fe79b7303df5b0e07afeac87678780c456"
+      },
+      "saved_provenance": {
+        "diagnostics_fingerprint": "474c585b5cfbe31cba76924645b066324a8de075ba2a98c97e43367a36ccb8a5",
+        "items": [
+          {
+            "fingerprint": "cced7806698e11c2896637a43a7235da1e077b221cea3568356afb6a06711419",
+            "kind": "tree_contents",
+            "name": "data_dir",
+            "notes": "Content fingerprint for selection-relevant replay data files.",
+            "paths": [
+              "backtests/momentum/data/raw"
+            ],
+            "scope": "data"
+          },
+          {
+            "fingerprint": "5ddc4e4ec20135fc734d667b53aefed0d77fb52534ff1cb1aff2206b7e0563dd",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/auto/config_mutator.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/auto/config_mutator.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "5e9e4f92de971f31221316cdda5202763844059e7d704da56261c9834ed8a52f",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/config_vdubus.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/config_vdubus.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "52f01bbd08103c238d77eabeeddd2fc690974b6dfe8b6a23bc8d26f60c607808",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/data/replay_cache.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/data/replay_cache.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "9b411d5185842fa2c1d88f8836f87643b872bdff0bd632fee1ca6185208537db",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/engine/sim_broker.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/engine/sim_broker.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "cc9060bb67fb208b663019e6d2086ca87315f2bddf73006d6fd90a73fcccf98c",
+            "kind": "file_contents",
+            "name": "code:backtests/momentum/engine/vdubus_engine.py",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/engine/vdubus_engine.py"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "abbaa46ca51fc51a731828c6f8245369f57b9596321e8fc8b05494606a7c8bb3",
+            "kind": "plugin_identity",
+            "name": "plugin",
+            "notes": "",
+            "paths": [],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "5d68842a9fa4453a86036cd57a6c74545584c281bd0f70615d366e9b6adf2b18",
+            "kind": "stable_json",
+            "name": "selection_context",
+            "notes": "",
+            "paths": [],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "3ad7ef261a72b568002bc75ff694803a9ff2887f06cac39f2cdca03b2d9d6cfd",
+            "kind": "tree_contents",
+            "name": "code_tree:backtests/momentum/auto/vdubus",
+            "notes": "",
+            "paths": [
+              "backtests/momentum/auto/vdubus"
+            ],
+            "scope": "selection"
+          },
+          {
+            "fingerprint": "547c7e20216abcb5ba28b3132da31f4a14be527d969a126803263c687638e0fa",
+            "kind": "tree_contents",
+            "name": "shared_auto_package",
+            "notes": "",
+            "paths": [
+              "backtests/shared/auto"
+            ],
+            "scope": "selection"
+          }
+        ],
+        "schema_version": 1,
+        "selection_fingerprint": "474c585b5cfbe31cba76924645b066324a8de075ba2a98c97e43367a36ccb8a5"
+      },
+      "saved_provenance_status": "selection_drift_accepted",
+      "strategy": "vdubus"
+    }
+  }
+}

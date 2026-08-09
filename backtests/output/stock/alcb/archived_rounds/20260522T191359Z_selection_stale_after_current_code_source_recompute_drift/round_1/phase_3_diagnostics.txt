@@ -1,0 +1,11 @@
+======================================================================
+ALCB ROUND-2 STRUCTURAL ALPHA PHASE 3 SNAPSHOT
+======================================================================
+Focus: Selective late-window frequency recovery
+Score 0.0000 -> 0.0000 with 0 accepted mutations.
+
+Core: trades=570, net_profit=+7344.63, expectancy_dollar=+12.89, expected_total_r=+109.22, pf=1.660, dd=4.3%, trades/month=22.02
+Quality: signal_quality=0.651, timing_quality=0.488, extended_avwap_inverse=0.430, bar9_inverse=0.337, late_entry_quality=0.697, score_monotonicity=0.602
+Management: profit_protection=0.595, short24_inv=0.293, flow_mfe_inv=0.781, mfe_capture_eff=0.768, sizing_alignment=1.000, long_hold_capture=0.982, inv_dd=0.643
+Focus metric deltas: expected_total_r=+109.222->+109.222, trades_per_month=+22.017->+22.017, profit_factor=+1.660->+1.660, late_entry_quality=+0.697->+0.697, timing_quality=+0.488->+0.488, inv_dd=+0.643->+0.643
+Hard floors: max_dd_pct=5.28%, min_expectancy_dollar=12.5000, min_expected_total_r=106.0000, min_late_entry_quality=0.8200, min_net_profit=7000.0000, min_pf=1.5932, min_timing_quality=0.5500, min_trades_per_month=22.0170

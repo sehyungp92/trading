@@ -157,10 +157,10 @@ class StrategySettings:
     dirty_reset_days: int = 5
 
     # --- Momentum continuation (T1) ---
-    opening_range_bars: int = 6             # 6 x 5m = 30 min
+    opening_range_bars: int = 9             # 9 x 5m = 45 min
     entry_window_start: time = time(10, 0)
     entry_window_end: time = time(12, 30)
-    rvol_threshold: float = 2.0
+    rvol_threshold: float = 1.7
     cpr_threshold: float = 0.6
     momentum_score_min: int = 2
     momentum_size_mult_score_3: float = 1.00
@@ -185,7 +185,7 @@ class StrategySettings:
     regime_mult_c: float = 0.6
     block_combined_regime_b: bool = True           # Block COMBINED_BREAKOUT in Tier B
     # Flow reversal tuning
-    flow_reversal_min_hold_bars: int = 12      # grace period before checking
+    flow_reversal_min_hold_bars: int = 8       # grace period before checking
     flow_reversal_require_below_entry: bool = False  # also require close < entry
 
     # --- Diagnostic-driven experiment params (Phase 6) ---
@@ -259,7 +259,7 @@ class StrategySettings:
     adaptive_trail_mid_activate_r: float = 0.20  # MFE activation for mid phase
     adaptive_trail_mid_distance_r: float = 0.40  # Trail distance in mid phase (wider)
     adaptive_trail_late_activate_r: float = 0.22
-    adaptive_trail_late_distance_r: float = 0.12
+    adaptive_trail_late_distance_r: float = 0.04
 
     # --- Phase 10: COMBINED-Specific Entry Filters ---
     combined_avwap_cap_pct: float = 0.003     # Max AVWAP distance for COMBINED entries (0=disabled)
@@ -333,7 +333,10 @@ class StrategySettings:
     orb_gap_tight_pct: float = 0.05           # Mild gap threshold
     orb_gap_caution_mult: float = 0.65        # Size multiplier for caution gaps
     orb_gap_tight_mult: float = 0.80          # Size multiplier for mild gaps
-    orb_entry_range_cap_r: float = 1.1
+    orb_entry_range_cap_r: float = 1.25
+    orb_entry_range_taper_start_r: float = 0.0 # Start continuous range-based sizing (0=disabled)
+    orb_entry_range_taper_end_r: float = 0.0   # Reach floor at this completed signal-bar range
+    orb_entry_range_taper_floor: float = 1.0   # Minimum size multiplier at/above taper end
     orb_time_decay_start: time = time(10, 30) # Start late-entry RVOL/size decay
     orb_late_rvol_add_per_30m: float = 0.0    # Additive RVOL floor per 30m after start
     orb_late_size_decay_per_30m: float = 0.0  # Multiplicative size decay per 30m after start
@@ -352,9 +355,16 @@ class StrategySettings:
     # --- Position Sizing: Buying Power ---
     intraday_leverage: float = 2.0             # Max leverage (2.0 = Reg T, 4.0 = PDT intraday)
 
-    selection_long_count: int = 20
+    selection_long_count: int = 30
     selection_short_count: int = 20
     universe_cap: int = 650
+
+    # Causal portfolio risk throttle based only on previously closed trades.
+    failure_density_lookback_trades: int = 0   # Rolling closed-trade lookback (0=disabled)
+    failure_density_min_observations: int = 8
+    failure_density_mfe_threshold_r: float = 0.20
+    failure_density_trigger_pct: float = 0.60
+    failure_density_size_mult: float = 1.0
 
     diagnostics_dir: Path = field(
         default_factory=lambda: Path(__file__).resolve().parents[1] / "data" / "strategy_alcb" / "diagnostics"

@@ -1,0 +1,16 @@
+{
+  "base_config": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_2\\optimized_config.json",
+  "candidate_patch": {
+    "param_overrides.adaptive_trail_late_distance_r": 0.04,
+    "param_overrides.opening_range_bars": 9,
+    "param_overrides.rvol_threshold": 1.7
+  },
+  "data_authority": "diagnostic-only repaired legacy filename cache",
+  "effective_mutation_count": 35,
+  "generated_at_utc": "2026-07-23T04:16:03.618446+00:00",
+  "promotion_authorized": false,
+  "window": {
+    "end": "2026-03-01",
+    "start": "2024-03-25"
+  }
+}

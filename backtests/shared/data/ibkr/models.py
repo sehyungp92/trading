@@ -35,7 +35,7 @@ class BarDownloadRequest:
     provider: str = "ibkr"
     market: str = "us_equity"
     adjustment_policy: str = "ibkr_trades_raw_unadjusted_v1"
-    calendar_version: str = "us_equities_xnys_xnas_rules_2024_2026_v1"
+    calendar_version: str = "us_equities_xnys_xnas_rules_2024_2026_v2"
     format_date: int = 2
 
     @property

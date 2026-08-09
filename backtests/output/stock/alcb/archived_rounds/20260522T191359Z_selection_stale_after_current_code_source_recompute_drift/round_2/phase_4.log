@@ -1,0 +1,4 @@
+2026-04-30 01:48:46,694 INFO research.backtests.shared.auto.phase.08f6f983986e.4: Starting phase 4 with 6 candidates
+2026-04-30 02:37:54,461 INFO research.backtests.shared.auto.phase.08f6f983986e.4:   Pruned 3 persistently-rejected candidates (1+ consecutive).
+2026-04-30 03:07:23,232 INFO research.backtests.shared.auto.phase.08f6f983986e.4: Round 3 best candidate r2_structure_stop_reclaim_060 did not clear min_delta 0.10%; stopping.
+2026-04-30 03:14:30,853 INFO research.backtests.shared.auto.phase.08f6f983986e.4: Phase 4 complete: 0.4913 -> 0.6362 (2 accepted)

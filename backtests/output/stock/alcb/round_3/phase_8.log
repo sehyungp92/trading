@@ -1,0 +1,3 @@
+2026-05-23 22:31:40,039 INFO research.backtests.shared.auto.phase.08f6f983986e.8: Starting phase 8 with 0 candidates
+2026-05-23 22:31:45,732 WARNING research.backtests.shared.auto.phase.08f6f983986e.8: Baseline rejected by hard rejects: phase8_signal_quality (0.5226 < 0.5500). Candidates must still beat this score AND pass hard rejects to be accepted.
+2026-05-23 22:31:48,098 INFO research.backtests.shared.auto.phase.08f6f983986e.8: Phase 8 complete: 0.0000 -> 0.0000 (0 accepted)

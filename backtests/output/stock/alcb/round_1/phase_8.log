@@ -1,0 +1,4 @@
+2026-05-22 22:16:11,005 INFO research.backtests.shared.auto.phase.dcb603798cb2.8: Starting phase 8 with 4 candidates
+2026-05-22 22:16:11,627 WARNING research.backtests.shared.auto.phase.dcb603798cb2.8: Baseline rejected by hard rejects: phase8_signal_quality (0.5333 < 0.5500). Candidates must still beat this score AND pass hard rejects to be accepted.
+2026-05-22 22:28:21,044 INFO research.backtests.shared.auto.phase.dcb603798cb2.8: Round 1 produced no valid candidates; stopping.
+2026-05-22 22:28:21,319 INFO research.backtests.shared.auto.phase.dcb603798cb2.8: Phase 8 complete: 0.0000 -> 0.0000 (0 accepted)

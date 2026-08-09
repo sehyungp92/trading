@@ -1,0 +1,5 @@
+2026-04-28 04:27:47,505 INFO research.backtests.shared.auto.phase.0ad4cbd53734.5: Starting phase 5 with 34 candidates
+2026-04-28 04:43:39,955 INFO research.backtests.shared.auto.phase.0ad4cbd53734.5: Round 1 produced no valid candidates; stopping.
+2026-04-28 04:43:40,000 INFO research.backtests.shared.auto.phase.0ad4cbd53734.5: Round 1 produced no valid candidates; stopping.
+2026-04-28 04:43:40,037 INFO research.backtests.shared.auto.phase.0ad4cbd53734.5: Round 1 produced no valid candidates; stopping.
+2026-04-28 04:43:40,107 INFO research.backtests.shared.auto.phase.0ad4cbd53734.5: Phase 5 complete: 0.0000 -> 0.0000 (0 accepted)

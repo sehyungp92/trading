@@ -1,0 +1,6 @@
+16:18:21 INFO  backtests.stock.engine.research_replay: ResearchReplayEngine loaded: 401 daily, 13 ref, 97 30m, 98 5m (lazy), 1256 trading dates
+16:18:21 WARNING backtests.stock.engine.research_replay: Missing daily data for 14 symbols
+16:22:11 INFO  backtests.stock.auto.alcb.plugin: Parent baseline evaluated in 243.7s
+16:22:11 INFO  backtests.stock.auto.alcb.plugin: Using sequential evaluator for alcb phase 1 on Windows (GIL-bound).
+16:47:55 INFO  backtests.stock.auto.alcb.plugin: Parent baseline evaluated in 0.9s
+16:47:56 INFO  backtests.stock.auto.alcb.plugin: Using sequential evaluator for alcb phase 1 on Windows (GIL-bound).

@@ -1,0 +1,11 @@
+======================================================================
+ALCB ROUND-2 STRUCTURAL ALPHA PHASE 5 SNAPSHOT
+======================================================================
+Focus: Early failure and profit retention
+Score 0.5669 -> 0.6827 with 2 accepted mutations.
+
+Core: trades=507, net_profit=+9990.07, expectancy_dollar=+19.70, expected_total_r=+119.93, pf=1.948, dd=2.7%, trades/month=19.58
+Quality: signal_quality=0.574, timing_quality=0.727, extended_avwap_inverse=0.351, bar9_inverse=0.829, late_entry_quality=1.000, score_monotonicity=0.391
+Management: profit_protection=0.680, short24_inv=0.414, flow_mfe_inv=0.838, mfe_capture_eff=0.801, sizing_alignment=1.000, long_hold_capture=0.988, inv_dd=0.775
+Focus metric deltas: expected_total_r=+111.843->+119.928, trades_per_month=+19.545->+19.584, profit_protection=+0.662->+0.680, short_hold_24_drag_inverse=+0.411->+0.414, flow_mfe_exit_inverse=+0.779->+0.838, mfe_capture_efficiency=+0.766->+0.801, long_hold_capture=+0.985->+0.988
+Hard floors: max_dd_pct=4.50%, min_expectancy_dollar=15.6970, min_expected_total_r=105.1325, min_flow_mfe_exit_inverse=0.6620, min_long_hold_capture=0.8377, min_mfe_capture_efficiency=0.7000, min_net_profit=8496.8348, min_pf=1.7485, min_profit_protection=0.5625, min_short_hold_24_drag_inverse=0.3285, min_trades_per_month=19.5000

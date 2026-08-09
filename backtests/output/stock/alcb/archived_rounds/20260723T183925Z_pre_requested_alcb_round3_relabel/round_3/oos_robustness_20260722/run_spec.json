@@ -1,0 +1,33 @@
+{
+  "authoritative_bundle_available": false,
+  "base_config": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_3\\optimized_config.json",
+  "batch_size": 4,
+  "candidate_count": 183,
+  "candidate_counts_by_stage": {
+    "ablation": 39,
+    "perturbation": 126,
+    "targeted": 18
+  },
+  "data_authority": "diagnostic-only repaired legacy filename cache",
+  "evaluator": "process",
+  "generated_at_utc": "2026-07-23T18:33:41.372315+00:00",
+  "max_workers": 4,
+  "windows": {
+    "is": {
+      "end": "2026-03-01",
+      "start": "2024-03-25"
+    },
+    "oos": {
+      "end": "2026-05-01",
+      "start": "2026-03-02"
+    }
+  },
+  "round": 3,
+  "saved_as_round_3": {
+    "saved_at_utc": "2026-07-23T18:33:41.372315+00:00",
+    "source_round": 2,
+    "source_round_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_2",
+    "target_round_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_3",
+    "note": "Copied current ALCB round_2 run spec into round_3 with paths retargeted to round_3."
+  }
+}

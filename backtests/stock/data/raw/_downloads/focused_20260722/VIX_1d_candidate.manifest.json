@@ -1,0 +1,127 @@
+{
+  "adjustment_policy": "ibkr_trades_raw_unadjusted_v1",
+  "calendar_version": "us_equities_xnys_xnas_rules_2024_2026_v2",
+  "chunk_windows": [
+    {
+      "attempts": [
+        {
+          "attempt": 1,
+          "error": "",
+          "status": "success"
+        }
+      ],
+      "bar_size_setting": "1 day",
+      "duration": "1 Y",
+      "end_date_time": "20260710 23:59:59 UTC",
+      "format_date": 2,
+      "requested_end_utc": "2026-07-10T23:59:59+00:00",
+      "requested_start_utc": "2025-07-10T23:59:59+00:00",
+      "row_count": 251,
+      "status": "success",
+      "use_rth": true,
+      "what_to_show": "TRADES"
+    },
+    {
+      "attempts": [
+        {
+          "attempt": 1,
+          "error": "",
+          "status": "success"
+        }
+      ],
+      "bar_size_setting": "1 day",
+      "duration": "1 Y",
+      "end_date_time": "20250710 23:59:58 UTC",
+      "format_date": 2,
+      "requested_end_utc": "2025-07-10T23:59:58+00:00",
+      "requested_start_utc": "2024-07-10T23:59:58+00:00",
+      "row_count": 250,
+      "status": "success",
+      "use_rth": true,
+      "what_to_show": "TRADES"
+    },
+    {
+      "attempts": [
+        {
+          "attempt": 1,
+          "error": "",
+          "status": "success"
+        }
+      ],
+      "bar_size_setting": "1 day",
+      "duration": "1 Y",
+      "end_date_time": "20240710 23:59:57 UTC",
+      "format_date": 2,
+      "requested_end_utc": "2024-07-10T23:59:57+00:00",
+      "requested_start_utc": "2024-03-25T00:00:00+00:00",
+      "row_count": 251,
+      "status": "success",
+      "use_rth": true,
+      "what_to_show": "TRADES"
+    }
+  ],
+  "con_id": "13455763",
+  "duration": "2 Y",
+  "end": "2026-07-10T00:00:00+00:00",
+  "exchange": "CBOE",
+  "family": "stock",
+  "format_date": 2,
+  "local_symbol": "VIX",
+  "market": "us_equity",
+  "normalized_content_sha256": "43ee498ab760c7b57310a254ae8ceb2ac452bb33550ba2b72a8abd716635ab54",
+  "normalized_schema": {
+    "columns": [
+      {
+        "dtype": "float64",
+        "name": "open"
+      },
+      {
+        "dtype": "float64",
+        "name": "high"
+      },
+      {
+        "dtype": "float64",
+        "name": "low"
+      },
+      {
+        "dtype": "float64",
+        "name": "close"
+      },
+      {
+        "dtype": "int64",
+        "name": "volume"
+      },
+      {
+        "dtype": "int64",
+        "name": "bar_count"
+      },
+      {
+        "dtype": "float64",
+        "name": "wap"
+      }
+    ],
+    "index": {
+      "dtype": "datetime64[ns, UTC]",
+      "name": "time",
+      "timezone": "UTC"
+    },
+    "schema_version": "normalized_bar_content_v1"
+  },
+  "output_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\VIX_1d_candidate.parquet",
+  "physical_sha256": "67b1f81318d58780ca3d317e41b507f1873990bb53d8c966fc82f5713f3b7823",
+  "policy_note": "Retrospective mutable compatibility sidecar only. Use backtests.stock.data.authoritative_downloader for accepted acquisitions.",
+  "primary_exchange": "CBOE",
+  "provider": "ibkr",
+  "rows": 752,
+  "schema_version": "legacy_stock_download_sidecar_v1",
+  "sec_type": "IND",
+  "session_policy": "us_equity_rth_0930_exchange_close_v1",
+  "source_kind": "ibkr_generic_stock_legacy_path",
+  "start": "2023-07-12T00:00:00+00:00",
+  "symbol": "VIX",
+  "timeframe": "1d",
+  "updated_at": "2026-07-22T12:30:28.917223+00:00",
+  "usable_for_authoritative_validation": false,
+  "use_rth": true,
+  "what_to_show": "TRADES"
+}

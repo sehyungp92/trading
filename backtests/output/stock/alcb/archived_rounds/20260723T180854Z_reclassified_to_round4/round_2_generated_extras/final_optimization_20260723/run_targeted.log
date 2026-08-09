@@ -1,0 +1,43 @@
+evaluate is_results: 1-4 of 22 pending
+checkpointed 16 result(s) in 684.9s
+evaluate is_results: 5-8 of 22 pending
+checkpointed 20 result(s) in 428.5s
+evaluate is_results: 9-12 of 22 pending
+checkpointed 24 result(s) in 564.1s
+evaluate is_results: 13-16 of 22 pending
+checkpointed 28 result(s) in 510.9s
+evaluate is_results: 17-20 of 22 pending
+checkpointed 32 result(s) in 774.5s
+evaluate is_results: 21-22 of 22 pending
+checkpointed 34 result(s) in 524.3s
+evaluate oos_results: 1-4 of 25 pending
+checkpointed 4 result(s) in 125.7s
+evaluate oos_results: 5-8 of 25 pending
+checkpointed 8 result(s) in 23.7s
+evaluate oos_results: 9-12 of 25 pending
+checkpointed 12 result(s) in 24.2s
+evaluate oos_results: 13-16 of 25 pending
+checkpointed 16 result(s) in 22.5s
+evaluate oos_results: 17-20 of 25 pending
+checkpointed 20 result(s) in 22.8s
+evaluate oos_results: 21-24 of 25 pending
+checkpointed 24 result(s) in 35.1s
+evaluate oos_results: 25-25 of 25 pending
+checkpointed 25 result(s) in 23.1s
+evaluate early_is_results: 1-4 of 20 pending
+checkpointed 4 result(s) in 216.9s
+evaluate early_is_results: 5-8 of 20 pending
+checkpointed 8 result(s) in 147.4s
+evaluate early_is_results: 9-12 of 20 pending
+checkpointed 12 result(s) in 158.4s
+evaluate early_is_results: 13-16 of 20 pending
+checkpointed 16 result(s) in 152.9s
+evaluate early_is_results: 17-20 of 20 pending
+checkpointed 20 result(s) in 140.7s
+evaluate late_is_results: 1-4 of 20 pending
+checkpointed 4 result(s) in 362.9s
+evaluate late_is_results: 5-8 of 20 pending
+checkpointed 8 result(s) in 366.0s
+evaluate late_is_results: 9-12 of 20 pending
+checkpointed 12 result(s) in 251.9s
+evaluate late_is_results: 13-16 of 20 pending

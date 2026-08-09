@@ -59,6 +59,7 @@ class DownturnAblationFlags:
     use_entry_windows: bool = True
     use_dead_zones: bool = True
     use_news_blackout: bool = True
+    cancel_replace_entry: bool = False  # Atomically refresh a working entry on a newer signal
 
     # Exit / Position management
     tiered_exits: bool = True
@@ -113,6 +114,7 @@ class DownturnAblationFlags:
 
     # R6 -- Hold period
     min_hold_period: bool = False  # Skip exits for first N bars after entry (except catastrophic)
+    min_hold_profit_protection: bool = False  # Permit only PF/BE protection during min hold
 
     # R8 -- Intraday regime proxy (Category A)
     four_hour_only_regime: bool = False       # Regime from 4H ADX + 4H EMA only (drop daily)

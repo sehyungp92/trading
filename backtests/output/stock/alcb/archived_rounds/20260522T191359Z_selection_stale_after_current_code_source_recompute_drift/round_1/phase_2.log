@@ -1,0 +1,4 @@
+2026-04-29 20:19:19,748 INFO research.backtests.shared.auto.phase.08f6f983986e.2: Starting phase 2 with 6 candidates
+2026-04-29 20:23:19,994 WARNING research.backtests.shared.auto.phase.08f6f983986e.2: Baseline rejected by hard rejects: phase2_bar9_inverse (0.3375 < 0.4400). Candidates must still beat this score AND pass hard rejects to be accepted.
+2026-04-29 20:52:54,402 INFO research.backtests.shared.auto.phase.08f6f983986e.2: Round 1 produced no valid candidates; stopping.
+2026-04-29 20:59:54,754 INFO research.backtests.shared.auto.phase.08f6f983986e.2: Phase 2 complete: 0.0000 -> 0.0000 (0 accepted)

@@ -1,0 +1,272 @@
+{
+  "family": "stock",
+  "strategy": "alcb",
+  "round": 2,
+  "generated_at_utc": "2026-07-22T15:55:43.816485+00:00",
+  "completed_phases": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "mutation_count": 35,
+  "cumulative_mutations": {
+    "ablation.use_adaptive_trail": true,
+    "ablation.use_combined_quality_gate": true,
+    "ablation.use_mfe_conviction_exit": true,
+    "ablation.use_or_width_min": true,
+    "ablation.use_partial_takes": false,
+    "param_overrides.adaptive_trail_late_activate_r": 0.22,
+    "param_overrides.adaptive_trail_late_distance_r": 0.12,
+    "param_overrides.adaptive_trail_start_bars": 25,
+    "param_overrides.adaptive_trail_tighten_bars": 25,
+    "param_overrides.block_combined_regime_b": true,
+    "param_overrides.carry_min_cpr": 0.6,
+    "param_overrides.carry_min_r": 0.5,
+    "param_overrides.combined_avwap_cap_pct": 0.003,
+    "param_overrides.combined_breakout_min_rvol": 2.5,
+    "param_overrides.combined_breakout_score_min": 5,
+    "param_overrides.entry_window_end": "12:30:00",
+    "param_overrides.flow_reversal_min_hold_bars": 12,
+    "param_overrides.fr_cpr_threshold": 0.3,
+    "param_overrides.fr_mfe_grace_r": 0.2,
+    "param_overrides.fr_trailing_activate_r": 0.0,
+    "param_overrides.mfe_conviction_check_bars": 16,
+    "param_overrides.mfe_conviction_floor_r": -0.15,
+    "param_overrides.mfe_conviction_min_r": 0.2,
+    "param_overrides.opening_range_bars": 6,
+    "param_overrides.or_width_min_pct": 0.0015,
+    "param_overrides.pdh_avwap_cap_pct": 0.005,
+    "param_overrides.pdh_size_mult": 0.75,
+    "param_overrides.regime_mult_b": 0.7,
+    "param_overrides.rvol_threshold": 2.0,
+    "param_overrides.entry_detail_size_mults": {
+      "OR_BREAKOUT:5:!bar_vol_surge": 0.55
+    },
+    "param_overrides.entry_score_size_mults": {
+      "OR_BREAKOUT:5": 0.75,
+      "COMBINED_BREAKOUT:7": 1.15,
+      "PDH_BREAKOUT:6": 0.5
+    },
+    "param_overrides.failure_stop_bars": 10,
+    "param_overrides.failure_stop_mfe_max_r": 0.2,
+    "param_overrides.failure_stop_current_r_max": 0.0,
+    "param_overrides.failure_stop_to_r": -0.25
+  },
+  "headline_metrics": {
+    "total_trades": 1050,
+    "win_rate": 57.52380952380952,
+    "profit_factor": 1.7640009662478413,
+    "max_drawdown_pct": 12.278670047174103,
+    "net_return_pct": null,
+    "sharpe_ratio": 3.782960065395894,
+    "calmar_ratio": 6.166938514400365
+  },
+  "final_metrics": {
+    "total_trades": 1050,
+    "winning_trades": 604,
+    "losing_trades": 446,
+    "win_rate": 0.5752380952380952,
+    "gross_profit": 45348.38999999997,
+    "gross_loss": -25707.690000000002,
+    "net_profit": 19640.69999999997,
+    "profit_factor": 1.7640009662478413,
+    "expectancy": 0.17500762155327745,
+    "expectancy_dollar": 18.705428571428545,
+    "expected_total_r": 183.75800263094132,
+    "cagr": 0.7572180321953212,
+    "sharpe": 3.782960065395894,
+    "sortino": 4.156153509385224,
+    "calmar": 6.166938514400365,
+    "max_drawdown_pct": 0.12278670047174103,
+    "max_drawdown_dollar": 1428.180000000004,
+    "avg_hold_hours": 1.5864285714285715,
+    "trades_per_month": 45.39683948863636,
+    "total_commissions": 442.68,
+    "tail_loss_r": -1.2128737309648856
+  },
+  "source_diagnostics": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_2\\round_final_diagnostics.txt",
+  "source_phase_state": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_2\\phase_state.json",
+  "provenance": {
+    "schema_version": 1,
+    "selection_fingerprint": "44e37d2a8caed6817876bcac4301ca40aaf2a692f597a3b83d573128f59a3e7f",
+    "diagnostics_fingerprint": "44e37d2a8caed6817876bcac4301ca40aaf2a692f597a3b83d573128f59a3e7f",
+    "items": [
+      {
+        "name": "data_repair_recheck_source",
+        "kind": "promoted_recheck_artifact",
+        "fingerprint": "44e37d2a8caed6817876bcac4301ca40aaf2a692f597a3b83d573128f59a3e7f",
+        "paths": [
+          "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\data_repair_recheck\\latest_configs_20260722T152328Z"
+        ],
+        "scope": "selection_and_diagnostics",
+        "notes": "Corrected legacy raw-cache recheck; see promoted_recheck for source artifacts and archived previous active round."
+      }
+    ]
+  },
+  "provenance_status": "promoted_recomputed_legacy_cache",
+  "provenance_validation": {
+    "valid": true,
+    "status": "promoted_recheck",
+    "previous_active_archive": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\archived_rounds\\20260722T155314Z_pre_data_repair_round2_promotion\\round_2",
+    "source_output_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\data_repair_recheck\\latest_configs_20260722T152328Z",
+    "message": "Active round_2 metrics/diagnostics were promoted from the corrected data-repair recheck window 2024-03-25 to 2026-03-01."
+  },
+  "promoted_recheck": {
+    "promoted_at_utc": "2026-07-22T15:55:43.816485+00:00",
+    "source_output_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\data_repair_recheck\\latest_configs_20260722T152328Z",
+    "source_summary": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\data_repair_recheck\\latest_configs_20260722T152328Z\\alcb_common_start_saved_end_summary.json",
+    "archived_previous_round": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\archived_rounds\\20260722T155314Z_pre_data_repair_round2_promotion\\round_2",
+    "requested_start": "2024-03-25",
+    "requested_end": "2026-03-01",
+    "first_trade_entry": "2024-03-25T14:15:00+00:00",
+    "last_trade_exit": "2026-02-27T16:40:00+00:00",
+    "trade_entry_date_count": 359,
+    "elapsed_seconds": 462.0469999999914,
+    "full_diagnostics": true,
+    "cache_source_fingerprint": "44e37d2a8caed6817876bcac4301ca40aaf2a692f597a3b83d573128f59a3e7f",
+    "comparison_vs_previous_active_final_metrics": {
+      "total_trades": {
+        "baseline": 589,
+        "new": 1050,
+        "delta": 461.0,
+        "delta_pct": 0.7826825127334465
+      },
+      "winning_trades": {
+        "baseline": 370,
+        "new": 604,
+        "delta": 234.0,
+        "delta_pct": 0.6324324324324324
+      },
+      "losing_trades": {
+        "baseline": 219,
+        "new": 446,
+        "delta": 227.0,
+        "delta_pct": 1.0365296803652968
+      },
+      "win_rate": {
+        "baseline": 0.6281833616298812,
+        "new": 0.5752380952380952,
+        "delta": -0.05294526639178598,
+        "delta_pct": -0.08428314028314038
+      },
+      "gross_profit": {
+        "baseline": 25324.769999999986,
+        "new": 45348.38999999997,
+        "delta": 20023.619999999984,
+        "delta_pct": 0.7906733210212766
+      },
+      "gross_loss": {
+        "baseline": -11476.700000000008,
+        "new": -25707.690000000002,
+        "delta": -14230.989999999994,
+        "delta_pct": 1.2399897182988127
+      },
+      "net_profit": {
+        "baseline": 13848.069999999976,
+        "new": 19640.69999999997,
+        "delta": 5792.629999999996,
+        "delta_pct": 0.4182987232155821
+      },
+      "profit_factor": {
+        "baseline": 2.2066247266200185,
+        "new": 1.7640009662478413,
+        "delta": -0.4426237603721772,
+        "delta_pct": -0.20058859806676912
+      },
+      "expectancy": {
+        "baseline": 0.27305252968007704,
+        "new": 0.17500762155327745,
+        "delta": -0.09804490812679958,
+        "delta_pct": -0.3590697666916847
+      },
+      "expectancy_dollar": {
+        "baseline": 23.51115449915106,
+        "new": 18.705428571428545,
+        "delta": -4.805725927722516,
+        "delta_pct": -0.2044019543104972
+      },
+      "expected_total_r": {
+        "baseline": 160.82793998156538,
+        "new": 183.75800263094132,
+        "delta": 22.93006264937594,
+        "delta_pct": 0.1425751188009015
+      },
+      "cagr": {
+        "baseline": 0.4960817448956809,
+        "new": 0.7572180321953212,
+        "delta": 0.26113628729964034,
+        "delta_pct": 0.5263976955139796
+      },
+      "sharpe": {
+        "baseline": 3.9948433433040345,
+        "new": 3.782960065395894,
+        "delta": -0.21188327790814032,
+        "delta_pct": -0.0530391957079591
+      },
+      "sortino": {
+        "baseline": 4.132031104558323,
+        "new": 4.156153509385224,
+        "delta": 0.02412240482690109,
+        "delta_pct": 0.005837904947107012
+      },
+      "calmar": {
+        "baseline": 16.969738702244644,
+        "new": 6.166938514400365,
+        "delta": -10.80280018784428,
+        "delta_pct": -0.6365920169657862
+      },
+      "max_drawdown_pct": {
+        "baseline": 0.02923331664677091,
+        "new": 0.12278670047174103,
+        "delta": 0.09355338382497012,
+        "delta_pct": 3.2002316040764387
+      },
+      "max_drawdown_dollar": {
+        "baseline": 569.3699999999953,
+        "new": 1428.180000000004,
+        "delta": 858.8100000000086,
+        "delta_pct": 1.5083513356868392
+      },
+      "avg_hold_hours": {
+        "baseline": 1.7013299377475948,
+        "new": 1.5864285714285715,
+        "delta": -0.11490136631902326,
+        "delta_pct": -0.06753620433620428
+      },
+      "trades_per_month": {
+        "baseline": 22.75087246192894,
+        "new": 45.39683948863636,
+        "delta": 22.64596702670742,
+        "delta_pct": 0.9953889489118685
+      },
+      "total_commissions": {
+        "baseline": 231.3,
+        "new": 442.68,
+        "delta": 211.38,
+        "delta_pct": 0.9138780804150454
+      },
+      "tail_loss_r": {
+        "baseline": -1.2091332960546703,
+        "new": -1.2128737309648856,
+        "delta": -0.003740434910215251,
+        "delta_pct": 0.0030934843349530333
+      }
+    },
+    "note": "Promoted corrected data-repair recheck using latest ALCB round_2 mutations with common start and saved IS end date."
+  },
+  "artifacts": {
+    "round_final_diagnostics": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_2\\round_final_diagnostics.txt",
+    "final_metrics": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_2\\final_metrics.json",
+    "final_trades": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_2\\final_trades.json",
+    "final_monthly": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_2\\final_monthly.json",
+    "final_symbols": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_2\\final_symbols.json",
+    "final_exits": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_2\\final_exits.json",
+    "data_repair_recheck_summary": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_2\\data_repair_recheck_summary.json",
+    "data_repair_change_analysis": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_2\\data_repair_change_analysis.json"
+  }
+}

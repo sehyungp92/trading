@@ -1,0 +1,120 @@
+{
+  "phase": 5,
+  "goal_progress": {
+    "expectancy_dollar": {
+      "target": 15.5,
+      "actual": 15.567918149466177,
+      "pct_of_target": 100.4381816094592
+    },
+    "expected_total_r": {
+      "target": 110.0,
+      "actual": 108.09854304969139,
+      "pct_of_target": 98.27140277244672
+    },
+    "trades_per_month": {
+      "target": 24.0,
+      "actual": 21.707963197969548,
+      "pct_of_target": 90.44984665820644
+    },
+    "profit_factor": {
+      "target": 1.8,
+      "actual": 1.748581837596232,
+      "pct_of_target": 97.14343542201289
+    },
+    "extended_avwap_inverse": {
+      "target": 0.68,
+      "actual": 0.45870305488672614,
+      "pct_of_target": 67.45633160098913
+    },
+    "bar9_inverse": {
+      "target": 0.65,
+      "actual": 0.44880180188952123,
+      "pct_of_target": 69.04643105992633
+    },
+    "late_entry_quality": {
+      "target": 0.66,
+      "actual": 0.6369541680134873,
+      "pct_of_target": 96.5082072747708
+    },
+    "pdh_avg_r": {
+      "target": 0.16,
+      "actual": 0.22425690744485374,
+      "pct_of_target": 140.16056715303358
+    },
+    "score_monotonicity": {
+      "target": 0.7,
+      "actual": 0.6098113236251254,
+      "pct_of_target": 87.11590337501791
+    },
+    "inv_dd": {
+      "target": 0.72,
+      "actual": 0.7107212821849833,
+      "pct_of_target": 101.30553538322238
+    }
+  },
+  "strengths": [
+    "expectancy_dollar: 15.5679 (100% of 15.5000)",
+    "expected_total_r: 108.0985 (98% of 110.0000)",
+    "trades_per_month: 21.7080 (90% of 24.0000)",
+    "profit_factor: 1.7486 (97% of 1.8000)",
+    "late_entry_quality: 0.6370 (97% of 0.6600)",
+    "pdh_avg_r: 0.2243 (140% of 0.1600)",
+    "score_monotonicity: 0.6098 (87% of 0.7000)",
+    "inv_dd: 0.7107 (101% of 0.7200)"
+  ],
+  "weaknesses": [],
+  "scoring_assessment": "EFFECTIVE",
+  "diagnostic_gaps": [],
+  "suggested_experiments": [],
+  "recommendation": "advance",
+  "recommendation_reason": "Gate passed.",
+  "report": "======================================================================\nPHASE 5 ANALYSIS\n======================================================================\n\nRecommendation: advance\nReason: Gate passed.\nScoring assessment: EFFECTIVE\n\nStrengths:\n  + expectancy_dollar: 15.5679 (100% of 15.5000)\n  + expected_total_r: 108.0985 (98% of 110.0000)\n  + trades_per_month: 21.7080 (90% of 24.0000)\n  + profit_factor: 1.7486 (97% of 1.8000)\n  + late_entry_quality: 0.6370 (97% of 0.6600)\n  + pdh_avg_r: 0.2243 (140% of 0.1600)\n  + score_monotonicity: 0.6098 (87% of 0.7000)\n  + inv_dd: 0.7107 (101% of 0.7200)\n\nExtra Analysis:\n  Focus deltas: expected_total_r=108.099->108.099 (+0.000), net_profit=8749.170->8749.170 (+0.000), profit_factor=1.749->1.749 (+0.000), expectancy_dollar=15.568->15.568 (+0.000), trades_per_month=21.708->21.708 (+0.000), inv_dd=0.711->0.711 (+0.000)\n  Core: net_profit=+8749.17, expectancy_dollar=+15.57, expected_total_r=+108.10, trades_per_month=21.71, profit_factor=1.749, max_drawdown_pct=3.47%, extended_avwap_inverse=0.459, bar9_inverse=0.449, late_entry_quality=0.637, pdh_avg_r=+0.224, score_monotonicity=0.610\n\nGoal Progress:\n  expectancy_dollar: 15.5679 / 15.5000 (100%)\n  expected_total_r: 108.0985 / 110.0000 (98%)\n  trades_per_month: 21.7080 / 24.0000 (90%)\n  profit_factor: 1.7486 / 1.8000 (97%)\n  extended_avwap_inverse: 0.4587 / 0.6800 (67%)\n  bar9_inverse: 0.4488 / 0.6500 (69%)\n  late_entry_quality: 0.6370 / 0.6600 (97%)\n  pdh_avg_r: 0.2243 / 0.1600 (140%)\n  score_monotonicity: 0.6098 / 0.7000 (87%)\n  inv_dd: 0.7107 / 0.7200 (101%)",
+  "scoring_weight_overrides": null,
+  "extra": {
+    "focus_deltas": {
+      "expected_total_r": {
+        "base": 108.09854304969139,
+        "final": 108.09854304969139,
+        "delta": 0.0
+      },
+      "net_profit": {
+        "base": 8749.169999999991,
+        "final": 8749.169999999991,
+        "delta": 0.0
+      },
+      "profit_factor": {
+        "base": 1.748581837596232,
+        "final": 1.748581837596232,
+        "delta": 0.0
+      },
+      "expectancy_dollar": {
+        "base": 15.567918149466177,
+        "final": 15.567918149466177,
+        "delta": 0.0
+      },
+      "trades_per_month": {
+        "base": 21.707963197969548,
+        "final": 21.707963197969548,
+        "delta": 0.0
+      },
+      "inv_dd": {
+        "base": 0.7107212821849833,
+        "final": 0.7107212821849833,
+        "delta": 0.0
+      }
+    },
+    "core": {
+      "net_profit": 8749.169999999991,
+      "expectancy_dollar": 15.567918149466177,
+      "expected_total_r": 108.09854304969139,
+      "trades_per_month": 21.707963197969548,
+      "profit_factor": 1.748581837596232,
+      "max_drawdown_pct": 0.03471344613780201,
+      "extended_avwap_inverse": 0.45870305488672614,
+      "bar9_inverse": 0.44880180188952123,
+      "late_entry_quality": 0.6369541680134873,
+      "pdh_avg_r": 0.22425690744485374,
+      "score_monotonicity": 0.6098113236251254
+    }
+  }
+}

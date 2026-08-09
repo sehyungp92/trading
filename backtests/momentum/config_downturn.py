@@ -37,3 +37,4 @@ class DownturnBacktestConfig:
     max_contracts: int = 0  # 0 = unlimited; >0 = hard cap on position qty
     max_notional_leverage: float = 20.0  # cap qty to equity * leverage / notional (20x = realistic MNQ)
     max_dd_abort: float = 0.0  # >0 enables early termination when portfolio DD exceeds threshold
+    entry_latency_bars: int = 0  # stress-only additional observed bars before entry eligibility

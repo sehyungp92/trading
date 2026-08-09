@@ -1,0 +1,4 @@
+2026-04-29 17:34:39,844 INFO research.backtests.shared.auto.phase.08f6f983986e.1: Starting phase 1 with 5 candidates
+2026-04-29 17:38:42,220 WARNING research.backtests.shared.auto.phase.08f6f983986e.1: Baseline rejected by hard rejects: phase1_extended_avwap_inverse (0.4296 < 0.4339). Candidates must still beat this score AND pass hard rejects to be accepted.
+2026-04-29 18:00:03,327 INFO research.backtests.shared.auto.phase.08f6f983986e.1: Round 1 produced no valid candidates; stopping.
+2026-04-29 18:04:39,068 INFO research.backtests.shared.auto.phase.08f6f983986e.1: Phase 1 complete: 0.0000 -> 0.0000 (0 accepted)

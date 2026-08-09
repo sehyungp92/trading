@@ -1,0 +1,125 @@
+{
+  "window": {
+    "start": "2024-03-25",
+    "end": "2024-04-30"
+  },
+  "timings": [
+    {
+      "label": "replay/construct",
+      "elapsed_seconds": 0.018
+    },
+    {
+      "label": "replay/fingerprint",
+      "elapsed_seconds": 3.983
+    },
+    {
+      "label": "replay/load_all_data",
+      "elapsed_seconds": 131.393
+    },
+    {
+      "label": "iaric/engine_collect_0",
+      "elapsed_seconds": 190.857
+    },
+    {
+      "label": "iaric/metrics_collect_0",
+      "elapsed_seconds": 0.097
+    },
+    {
+      "label": "iaric/engine_collect_1",
+      "elapsed_seconds": 25.755
+    },
+    {
+      "label": "iaric/metrics_collect_1",
+      "elapsed_seconds": 0.053
+    },
+    {
+      "label": "iaric/full_diagnostic_render",
+      "elapsed_seconds": 6.064
+    },
+    {
+      "label": "alcb/engine_collect_0",
+      "elapsed_seconds": 68.177
+    },
+    {
+      "label": "alcb/metrics_collect_0",
+      "elapsed_seconds": 0.027
+    },
+    {
+      "label": "alcb/engine_collect_1",
+      "elapsed_seconds": 18.903
+    },
+    {
+      "label": "alcb/metrics_collect_1",
+      "elapsed_seconds": 0.047
+    },
+    {
+      "label": "alcb/full_diagnostic_render",
+      "elapsed_seconds": 0.204
+    }
+  ],
+  "summaries": [
+    {
+      "strategy": "replay",
+      "fingerprint": "18e0d58080357e5b6f3bae974f3e63f4a48e68f1652e68bdcedce91a446b2ebe",
+      "daily_symbols": 98,
+      "thirty_min_symbols": 98,
+      "trading_dates": 1332
+    },
+    {
+      "strategy": "iaric",
+      "collect_diagnostics": false,
+      "trades": 70,
+      "diagnostic_text_chars": 0,
+      "metrics": {
+        "total_trades": 70,
+        "net_profit": 665.4,
+        "profit_factor": 3.0877914091180063,
+        "max_drawdown_pct": 0.007135599306303554,
+        "sharpe": 8.55456851217824,
+        "expected_total_r": 10.633882217103041
+      }
+    },
+    {
+      "strategy": "iaric",
+      "collect_diagnostics": true,
+      "trades": 70,
+      "diagnostic_text_chars": 28158,
+      "metrics": {
+        "total_trades": 70,
+        "net_profit": 679.7299999999999,
+        "profit_factor": 3.0344497321241493,
+        "max_drawdown_pct": 0.00713108425502018,
+        "sharpe": 8.614078532733503,
+        "expected_total_r": 10.644534212140577
+      }
+    },
+    {
+      "strategy": "alcb",
+      "collect_diagnostics": false,
+      "trades": 41,
+      "diagnostic_text_chars": 0,
+      "metrics": {
+        "total_trades": 41,
+        "net_profit": 384.5800000000004,
+        "profit_factor": 1.7075858769847865,
+        "max_drawdown_pct": 0.014417514751117461,
+        "sharpe": 3.6981043592416767,
+        "expected_total_r": 5.890133602982081
+      }
+    },
+    {
+      "strategy": "alcb",
+      "collect_diagnostics": true,
+      "trades": 41,
+      "diagnostic_text_chars": 16928,
+      "metrics": {
+        "total_trades": 41,
+        "net_profit": 384.5800000000004,
+        "profit_factor": 1.7075858769847865,
+        "max_drawdown_pct": 0.014417514751117461,
+        "sharpe": 3.6981043592416767,
+        "expected_total_r": 5.890133602982081
+      }
+    }
+  ]
+}

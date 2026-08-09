@@ -1,0 +1,48 @@
+         7546649 function calls (6323572 primitive calls) in 25.495 seconds
+
+   Ordered by: cumulative time
+   List reduced from 329 to 40 due to restriction <40>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000   25.751   25.751 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\output\stock\data_repair_recheck\profile_diagnostics_timing.py:98(<lambda>)
+        1    0.000    0.000   25.660   25.660 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\iaric_pullback_engine.py:2437(run)
+        1    0.885    0.885   25.656   25.656 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\iaric_pullback_intraday_hybrid_engine.py:1655(run)
+      254    0.026    0.000   19.847    0.078 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\iaric_pullback_engine.py:1142(_replay_core_step)
+      254    0.010    0.000   19.820    0.078 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\shared\parity\replay_driver.py:28(run_replay)
+1116492/1134    8.736    0.000   19.786    0.017 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\copy.py:118(deepcopy)
+13715/1064    1.206    0.000   19.722    0.019 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\copy.py:247(_reconstruct)
+ 9516/368    0.270    0.000   19.587    0.053 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\copy.py:200(_deepcopy_tuple)
+27071/368    2.552    0.000   19.563    0.053 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\copy.py:217(_deepcopy_dict)
+ 8412/368    0.145    0.000   19.206    0.052 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\copy.py:191(_deepcopy_list)
+      184    0.034    0.000   10.017    0.054 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\iaric\core\logic.py:1209(on_fill)
+      184    0.002    0.000    9.793    0.053 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\iaric_pullback_engine.py:1146(<lambda>)
+      184    0.040    0.000    9.791    0.053 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\iaric\core\logic.py:910(on_bar)
+       70    0.010    0.000    7.689    0.110 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\iaric_pullback_intraday_hybrid_engine.py:556(_close_position)
+  2367289    2.909    0.000    2.909    0.000 {method 'get' of 'dict' objects}
+       20    0.522    0.026    1.466    0.073 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\iaric_pullback_intraday_hybrid_engine.py:736(_build_watchlists)
+  1234336    1.280    0.000    1.280    0.000 {built-in method builtins.id}
+    16656    0.496    0.000    0.979    0.000 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\iaric\bar_policy.py:124(apply_completed_5m_bar)
+  1056237    0.781    0.000    0.781    0.000 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\copy.py:172(_deepcopy_atomic)
+   527380    0.643    0.000    0.643    0.000 {built-in method builtins.setattr}
+    11336    0.514    0.000    0.555    0.000 {method '__reduce_ex__' of 'object' objects}
+      717    0.018    0.000    0.495    0.001 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\iaric_pullback_engine.py:1182(_record_rejection)
+      717    0.028    0.000    0.467    0.001 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\iaric_pullback_engine.py:1164(_record_shadow_outcome)
+32535/28647    0.116    0.000    0.447    0.000 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\copy.py:252(<genexpr>)
+      717    0.179    0.000    0.428    0.001 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\iaric_pullback_engine.py:1230(_simulate_shadow_trade)
+        1    0.000    0.000    0.417    0.417 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\shared\parity\legacy_result_outputs.py:128(trade_outcomes_from_records)
+        1    0.001    0.001    0.417    0.417 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\shared\parity\trade_outcomes.py:70(normalize_trade_outcome_stream)
+    58066    0.261    0.000    0.417    0.000 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\copy.py:231(_keep_alive)
+       70    0.001    0.000    0.416    0.006 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\shared\parity\trade_outcomes.py:74(normalize_trade_outcome_dict)
+      110    0.235    0.002    0.399    0.004 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\research_replay.py:1473(get_5m_bar_objects_for_date)
+      166    0.001    0.000    0.311    0.002 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\dataclasses.py:1308(asdict)
+31072/166    0.100    0.000    0.309    0.002 C:\Users\sehyu\AppData\Local\Programs\Python\Python312\Lib\dataclasses.py:1332(_asdict_inner)
+       26    0.001    0.000    0.247    0.009 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\iaric_pullback_intraday_hybrid_engine.py:625(_process_overnight_carries)
+       26    0.000    0.000    0.239    0.009 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\research_replay.py:1252(iaric_selection_for_date)
+       26    0.001    0.000    0.239    0.009 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\research_replay.py:660(_iaric_settings_signature)
+    10759    0.045    0.000    0.238    0.000 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\stock\engine\iaric_pullback_intraday_hybrid_engine.py:392(_route_setting)
+    26646    0.232    0.000    0.232    0.000 {built-in method builtins.round}
+     2759    0.090    0.000    0.232    0.000 C:\Users\sehyu\Documents\Other\Projects\trading\strategies\stock\iaric\bar_policy.py:104(aggregate_completed_30m_bars)
+    69349    0.149    0.000    0.221    0.000 {built-in method builtins.max}
+11236/140    0.093    0.000    0.218    0.002 C:\Users\sehyu\Documents\Other\Projects\trading\backtests\shared\parity\trade_outcomes.py:192(_normalize_value)
+
+

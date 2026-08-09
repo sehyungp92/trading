@@ -1,0 +1,7 @@
+[2026-07-22T15:13:03] running iaric/saved_window 2024-01-01->2026-03-01
+[2026-07-22T15:24:49] done iaric/saved_window: trades=1564 net=+21083.77 PF=2.176 DD=2.16% elapsed=704.4s
+[2026-07-22T15:24:49] running iaric/proper_updated_window 2024-03-25->2026-07-10
+[2026-07-22T15:32:48] done iaric/proper_updated_window: trades=1778 net=+31799.44 PF=2.417 DD=2.10% elapsed=477.4s
+[2026-07-22T15:32:50] running alcb/saved_window 2024-01-01->2026-03-01
+[2026-07-22T15:40:38] done alcb/saved_window: trades=1057 net=+20223.38 PF=1.775 DD=12.26% elapsed=467.4s
+[2026-07-22T15:40:41] running alcb/proper_updated_window 2024-03-25->2026-07-10

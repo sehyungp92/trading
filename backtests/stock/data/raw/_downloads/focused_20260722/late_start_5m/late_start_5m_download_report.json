@@ -1,0 +1,165 @@
+{
+  "generated_at": "2026-07-22T12:48:54.617832+00:00",
+  "symbols": [
+    {
+      "after_sha256": "a9a643de877f20bedd31cf807a4dd4a70ff2b19fbaa5ad1424c85038e58c3c10",
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\JPM_5m.parquet",
+      "before_sha256": "d46ece0d4d6793c1f169736b27771e039aa3695e05ac2eb9aecdce99911c7ff9",
+      "chunks": [
+        {
+          "duration": "2 M",
+          "end": "2024-04-30T23:55:00+00:00",
+          "label": "early_2m",
+          "path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\late_start_5m\\JPM_5m_early_2m.parquet",
+          "requested_end": "2024-04-30T23:59:59+00:00",
+          "rows": 7067,
+          "start": "2024-03-04T09:00:00+00:00"
+        },
+        {
+          "duration": "6 M",
+          "end": "2024-09-30T23:55:00+00:00",
+          "label": "middle_6m",
+          "path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\late_start_5m\\JPM_5m_middle_6m.parquet",
+          "requested_end": "2024-09-30T23:59:59+00:00",
+          "rows": 21264,
+          "start": "2024-04-04T08:30:00+00:00"
+        },
+        {
+          "duration": "6 M",
+          "end": "2025-03-21T23:55:00+00:00",
+          "label": "late_6m",
+          "path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\late_start_5m\\JPM_5m_late_6m.parquet",
+          "requested_end": "2025-03-21T23:59:59+00:00",
+          "rows": 21916,
+          "start": "2024-09-23T08:25:00+00:00"
+        }
+      ],
+      "end_after": "2026-07-10T23:55:00+00:00",
+      "rows_after": 103926,
+      "rows_before": 60311,
+      "start_after": "2024-03-20T08:40:00+00:00",
+      "symbol": "JPM",
+      "target_path": "backtests\\stock\\data\\raw\\JPM_5m.parquet"
+    },
+    {
+      "after_sha256": "7416519e99b760e3bcabe56de367c3ab4b72ed427020f91c73ae81a311231a0d",
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\MSFT_5m.parquet",
+      "before_sha256": "6bfd5145e33572e29f291171fd926bb0fe1007427523e6f2fb289bef081503f3",
+      "chunks": [
+        {
+          "duration": "2 M",
+          "end": "2024-04-30T23:55:00+00:00",
+          "label": "early_2m",
+          "path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\late_start_5m\\MSFT_5m_early_2m.parquet",
+          "requested_end": "2024-04-30T23:59:59+00:00",
+          "rows": 7864,
+          "start": "2024-03-04T09:00:00+00:00"
+        },
+        {
+          "duration": "6 M",
+          "end": "2024-09-30T23:55:00+00:00",
+          "label": "middle_6m",
+          "path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\late_start_5m\\MSFT_5m_middle_6m.parquet",
+          "requested_end": "2024-09-30T23:59:59+00:00",
+          "rows": 23760,
+          "start": "2024-04-04T08:00:00+00:00"
+        },
+        {
+          "duration": "6 M",
+          "end": "2025-03-21T23:55:00+00:00",
+          "label": "late_6m",
+          "path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\late_start_5m\\MSFT_5m_late_6m.parquet",
+          "requested_end": "2025-03-21T23:59:59+00:00",
+          "rows": 23724,
+          "start": "2024-09-23T08:00:00+00:00"
+        }
+      ],
+      "end_after": "2026-07-10T23:55:00+00:00",
+      "rows_after": 110722,
+      "rows_before": 62670,
+      "start_after": "2024-03-20T08:00:00+00:00",
+      "symbol": "MSFT",
+      "target_path": "backtests\\stock\\data\\raw\\MSFT_5m.parquet"
+    },
+    {
+      "after_sha256": "a548421174fe6cea74e4a23acda4f4d74c97e200c7d68fd53ef5543ad523808e",
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\NVDA_5m.parquet",
+      "before_sha256": "cbb2ae49efd5f612d4cc71a87c981de26eb18c9dd8cf19f6c2bc4de2d83ac7d2",
+      "chunks": [
+        {
+          "duration": "2 M",
+          "end": "2024-04-30T23:55:00+00:00",
+          "label": "early_2m",
+          "path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\late_start_5m\\NVDA_5m_early_2m.parquet",
+          "requested_end": "2024-04-30T23:59:59+00:00",
+          "rows": 7872,
+          "start": "2024-03-04T09:00:00+00:00"
+        },
+        {
+          "duration": "6 M",
+          "end": "2024-09-30T23:55:00+00:00",
+          "label": "middle_6m",
+          "path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\late_start_5m\\NVDA_5m_middle_6m.parquet",
+          "requested_end": "2024-09-30T23:59:59+00:00",
+          "rows": 23772,
+          "start": "2024-04-04T08:00:00+00:00"
+        },
+        {
+          "duration": "6 M",
+          "end": "2025-03-21T23:55:00+00:00",
+          "label": "late_6m",
+          "path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\late_start_5m\\NVDA_5m_late_6m.parquet",
+          "requested_end": "2025-03-21T23:59:59+00:00",
+          "rows": 23736,
+          "start": "2024-09-23T08:00:00+00:00"
+        }
+      ],
+      "end_after": "2026-07-10T23:55:00+00:00",
+      "rows_after": 110760,
+      "rows_before": 62676,
+      "start_after": "2024-03-20T08:00:00+00:00",
+      "symbol": "NVDA",
+      "target_path": "backtests\\stock\\data\\raw\\NVDA_5m.parquet"
+    },
+    {
+      "after_sha256": "70c7d9fb42bae9e2386525888ce5c57a7644864ceb9f93f663db07f159145772",
+      "backup_path": "backtests\\stock\\data\\raw\\_pre_repair_20260722_1230\\TSLA_5m.parquet",
+      "before_sha256": "03952faff9c6a4798ed01461375c7526999f7ba042b7254eb938584bb27c4909",
+      "chunks": [
+        {
+          "duration": "2 M",
+          "end": "2024-04-30T23:55:00+00:00",
+          "label": "early_2m",
+          "path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\late_start_5m\\TSLA_5m_early_2m.parquet",
+          "requested_end": "2024-04-30T23:59:59+00:00",
+          "rows": 7872,
+          "start": "2024-03-04T09:00:00+00:00"
+        },
+        {
+          "duration": "6 M",
+          "end": "2024-09-30T23:55:00+00:00",
+          "label": "middle_6m",
+          "path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\late_start_5m\\TSLA_5m_middle_6m.parquet",
+          "requested_end": "2024-09-30T23:59:59+00:00",
+          "rows": 23772,
+          "start": "2024-04-04T08:00:00+00:00"
+        },
+        {
+          "duration": "6 M",
+          "end": "2025-03-21T23:55:00+00:00",
+          "label": "late_6m",
+          "path": "backtests\\stock\\data\\raw\\_downloads\\focused_20260722\\late_start_5m\\TSLA_5m_late_6m.parquet",
+          "requested_end": "2025-03-21T23:59:59+00:00",
+          "rows": 23736,
+          "start": "2024-09-23T08:00:00+00:00"
+        }
+      ],
+      "end_after": "2026-07-10T23:55:00+00:00",
+      "rows_after": 110760,
+      "rows_before": 62676,
+      "start_after": "2024-03-20T08:00:00+00:00",
+      "symbol": "TSLA",
+      "target_path": "backtests\\stock\\data\\raw\\TSLA_5m.parquet"
+    }
+  ]
+}
