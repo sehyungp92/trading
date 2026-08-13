@@ -24,7 +24,7 @@ from backtests.shared.data.ibkr.models import BarDownloadRequest, DownloadResult
 from backtests.shared.data.ibkr.pacing import RequestPacer, request_weight
 from backtests.shared.data.ibkr.stitch import stitch_panama
 from backtests.shared.data.ibkr.store import write_compatibility_bars, write_parquet_atomic
-from backtests.shared.data.ibkr.sync import sync_families
+from backtests.shared.data.ibkr.sync import sync_families, sync_swing_futures_context
 from backtests.shared.data.ibkr.ticks import ticks_to_frame
 
 
@@ -393,6 +393,16 @@ async def test_momentum_sync_dry_run_uses_physical_futures_authority() -> None:
 
     assert SOURCE_KIND_IBKR_PHYSICAL_FUTURES_PANAMA in source_kinds
     assert SOURCE_KIND_IBKR_CONT_FUTURE_LEGACY not in source_kinds
+
+
+@pytest.mark.asyncio
+async def test_swing_context_sync_is_physical_and_does_not_touch_etf_requirements() -> None:
+    results = await sync_swing_futures_context(years=3, dry_run=True)
+
+    downloaded = [result for result in results if result.timeframe == "5m"]
+    assert {result.symbol for result in downloaded} == {"NQ", "GC"}
+    assert all(result.metadata.get("source_kind") == SOURCE_KIND_IBKR_PHYSICAL_FUTURES_PANAMA for result in downloaded)
+    assert not ({"QQQ", "GLD"} & {result.symbol for result in results})
 
 
 def test_alignment_checker_passes_when_target_is_derived_from_base(tmp_path: Path) -> None:

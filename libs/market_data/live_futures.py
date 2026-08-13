@@ -1,4 +1,4 @@
-"""Live historical-data helpers for quarterly futures analysis streams."""
+"""Live historical-data helpers for root-calendar futures analysis streams."""
 from __future__ import annotations
 
 import logging
@@ -12,7 +12,7 @@ import pandas as pd
 
 from .futures_roll import (
     active_contract_spec,
-    generate_quarterly_contracts,
+    generate_futures_contracts,
     is_supported_quarterly_future,
     normalize_root,
     roll_schedule,
@@ -58,7 +58,7 @@ async def req_panama_adjusted_historical_data(
 ) -> list[Any]:
     """Fetch physical futures contracts and return a Panama-adjusted series.
 
-    If the requested root is not a supported quarterly index future, the call is
+    If the requested root has no registered physical-contract calendar, the call is
     passed through untouched. For supported roots, a missing old/new side of a
     roll inside the requested window returns an empty list so signal generation
     fails closed instead of mixing unadjusted contract gaps into indicators.
@@ -100,7 +100,7 @@ async def req_panama_adjusted_historical_data(
     if cached and cache_ttl_s > 0 and (time.monotonic() - cached[0]) < cache_ttl_s:
         return list(cached[1])
 
-    contracts = generate_quarterly_contracts(
+    contracts = generate_futures_contracts(
         root,
         start=start,
         end=end,

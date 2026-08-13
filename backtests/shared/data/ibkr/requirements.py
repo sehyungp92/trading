@@ -44,7 +44,7 @@ def family_bar_requirements(family: str, *, years: int = 2) -> list[BarRequireme
     if family == "swing":
         output = Path("backtests/swing/data/raw")
         primary = {"QQQ": "NASDAQ", "GLD": "ARCA"}
-        return [
+        etf_requirements = [
             BarRequirement(
                 "swing",
                 symbol,
@@ -61,6 +61,23 @@ def family_bar_requirements(family: str, *, years: int = 2) -> list[BarRequireme
             for symbol in ("QQQ", "GLD")
             for timeframe in ("15m", "1h", "1d")
         ]
+        futures_duration = f"{max(3, years)} Y"
+        futures_context = [
+            BarRequirement(
+                "swing",
+                symbol,
+                "5m",
+                "FUT",
+                exchange,
+                symbol,
+                "TRADES",
+                False,
+                output,
+                futures_duration,
+            )
+            for symbol, exchange in (("NQ", "CME"), ("GC", "COMEX"))
+        ]
+        return etf_requirements + futures_context
     if family == "stock":
         output = Path("backtests/stock/data/raw")
         symbols = [(symbol, primary) for symbol, primary in _stock_symbols_with_primary() if symbol != "VIX"]

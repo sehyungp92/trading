@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
 from datetime import date, datetime, time as datetime_time, timedelta, timezone
 from pathlib import Path
@@ -10,7 +12,7 @@ from typing import Any
 
 import pandas as pd
 
-from .contracts import FuturesContractSpec, generate_quarterly_contracts, roll_schedule, root_spec
+from .contracts import FuturesContractSpec, generate_futures_contracts, roll_schedule, root_spec
 from .models import BarDownloadRequest, ConnectionSettings, DownloadResult, DownloadWindow
 from .pacing import RequestPacer, request_weight
 from .stitch import stitch_panama
@@ -124,7 +126,7 @@ async def download_contract_bars(
 ) -> DownloadResult:
     start = _ensure_utc_dt(start)
     end = _ensure_utc_dt(end)
-    existing = read_parquet_if_exists(output_path)
+    existing = read_parquet_if_exists(output_path) if latest_only else pd.DataFrame()
     effective_start = start
     if latest_only and not existing.empty:
         overlap = duration_to_timedelta(CHUNK_DURATIONS.get(timeframe, "1 D"))
@@ -180,6 +182,11 @@ async def download_contract_bars(
         if bars:
             frame = bars_to_frame(bars)
             if not frame.empty:
+                frame["source_contract_yyyymm"] = contract_spec.yyyymm
+                frame["source_contract_local_symbol"] = str(
+                    getattr(contract, "localSymbol", "") or contract_spec.local_symbol
+                )
+                frame["source_contract_con_id"] = str(getattr(contract, "conId", "") or "unknown")
                 earliest = frame.index[0].to_pydatetime()
                 if previous_earliest is not None and earliest >= previous_earliest:
                     logger.info("%s %s stale progress at %s", contract_spec.local_symbol, timeframe, earliest)
@@ -373,14 +380,14 @@ async def download_physical_futures_panama_bars(
         overlap = duration_to_timedelta(CHUNK_DURATIONS.get(request.timeframe, "1 D"))
         effective_start = max(start, existing.index[-1].to_pydatetime() - overlap)
 
-    contracts = generate_quarterly_contracts(
+    contracts = generate_futures_contracts(
         request.symbol,
         start=effective_start,
         end=end,
         include_buffer_contracts=True,
     )
     if not contracts:
-        raise ValueError(f"No quarterly futures contracts generated for {request.symbol}")
+        raise ValueError(f"No authoritative physical futures contracts generated for {request.symbol}")
 
     metadata = _physical_futures_metadata(
         request,
@@ -416,7 +423,7 @@ async def download_physical_futures_panama_bars(
         if req_start >= req_end:
             continue
         contract_path = _physical_contract_bar_path(output_path, contract, request.timeframe, request.what_to_show)
-        contract_paths[contract.yyyymm] = str(contract_path)
+        contract_paths[contract.yyyymm] = _portable_contract_path(output_path, contract_path)
         await download_contract_bars(
             ib,
             contract,
@@ -468,7 +475,10 @@ async def download_physical_futures_panama_bars(
         start=_frame_start(merged),
         end=_frame_end(merged),
         contract_paths=contract_paths,
+        contract_frames=contract_frames,
     )
+    if latest_only:
+        metadata = _merge_physical_manifest_history(output_path, metadata)
     write_manifest(_manifest_path_for(output_path), metadata)
     return DownloadResult(
         symbol=request.symbol,
@@ -970,8 +980,12 @@ def _physical_futures_metadata(
     start: datetime | None,
     end: datetime | None,
     contract_paths: dict[str, str] | None = None,
+    contract_frames: dict[str, pd.DataFrame] | None = None,
 ) -> dict[str, object]:
+    root = root_spec(request.symbol)
+    frames = contract_frames or {}
     return {
+        "schema_version": "physical_futures_panama_source_v2",
         "source_kind": SOURCE_KIND_IBKR_PHYSICAL_FUTURES_PANAMA,
         "usable_for_authoritative_validation": True,
         "family": request.family,
@@ -987,8 +1001,11 @@ def _physical_futures_metadata(
         "start": _isoformat(start),
         "end": _isoformat(end),
         "output_path": str(output_path),
+        "physical_sha256": _sha256_file(output_path),
         "calendar_session_policy": "request.use_rth controls IBKR RTH/ETH; sparse ETH bars are valid trades-only bars",
-        "adjustment_roll_policy": "quarterly CME roll policy plus deterministic backward Panama stitching",
+        "contract_calendar_policy": root.calendar_policy,
+        "roll_policy": root.roll_policy,
+        "adjustment_policy": "deterministic_backward_panama_v1",
         "contracts": [
             {
                 "yyyymm": contract.yyyymm,
@@ -998,6 +1015,10 @@ def _physical_futures_metadata(
                 "exchange": contract.exchange,
                 "trading_class": contract.ib_trading_class,
                 "raw_path": (contract_paths or {}).get(contract.yyyymm, ""),
+                "raw_sha256": _sha256_file(
+                    _resolve_contract_receipt_path(output_path, (contract_paths or {}).get(contract.yyyymm, ""))
+                ),
+                "con_id": _contract_frame_value(frames.get(contract.yyyymm), "source_contract_con_id"),
             }
             for contract in contracts
         ],
@@ -1010,6 +1031,72 @@ def _physical_futures_metadata(
             for roll_date, old_month, new_month in roll_schedule(contracts)
         ],
     }
+
+
+def _contract_frame_value(frame: pd.DataFrame | None, column: str) -> str:
+    if frame is None or frame.empty or column not in frame.columns:
+        return ""
+    values = frame[column].dropna().astype(str).unique().tolist()
+    return values[0] if len(values) == 1 else ""
+
+
+def _sha256_file(path: Path) -> str:
+    if not path or not path.is_file():
+        return ""
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _portable_contract_path(output_path: Path, contract_path: Path) -> str:
+    try:
+        return str(contract_path.resolve().relative_to(output_path.parent.resolve()))
+    except ValueError:
+        return str(contract_path.resolve())
+
+
+def _resolve_contract_receipt_path(output_path: Path, value: str) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else output_path.parent / path
+
+
+def _merge_physical_manifest_history(output_path: Path, current: dict[str, object]) -> dict[str, object]:
+    """Keep the complete physical-contract ledger during incremental refreshes."""
+    manifest_path = _manifest_path_for(output_path)
+    if not manifest_path.exists():
+        return current
+    try:
+        previous = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return current
+
+    merged = dict(current)
+    previous_contracts = {
+        str(item.get("yyyymm", "")): item
+        for item in previous.get("contracts", [])
+        if isinstance(item, dict) and item.get("yyyymm")
+    }
+    for item in current.get("contracts", []):
+        if isinstance(item, dict) and item.get("yyyymm"):
+            month = str(item["yyyymm"])
+            old = previous_contracts.get(month, {})
+            previous_contracts[month] = {
+                **old,
+                **{key: value for key, value in item.items() if value not in (None, "")},
+            }
+    merged["contracts"] = sorted(previous_contracts.values(), key=lambda item: str(item.get("yyyymm", "")))
+
+    roll_map: dict[tuple[str, str, str], dict[str, object]] = {}
+    for item in [*previous.get("rolls", []), *current.get("rolls", [])]:
+        if not isinstance(item, dict):
+            continue
+        key = (str(item.get("roll_date", "")), str(item.get("old_month", "")), str(item.get("new_month", "")))
+        if all(key):
+            roll_map[key] = item
+    merged["rolls"] = [roll_map[key] for key in sorted(roll_map)]
+    return merged
 
 
 def _date_start(value: date) -> datetime:

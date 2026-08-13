@@ -52,6 +52,7 @@ async def sync_families(
         return results
 
     derive_momentum = "momentum" in normalized
+    derive_swing_context = "swing" in normalized
     settings = ConnectionSettings(host=host, port=port, client_id=client_id)
     pacer = RequestPacer()
     ib = None
@@ -116,6 +117,60 @@ async def sync_families(
             ib.disconnect()
     if derive_momentum:
         results.extend(_derive_momentum_compatibility_files(dry_run=dry_run))
+    if derive_swing_context:
+        results.extend(_derive_swing_futures_context_files(dry_run=dry_run))
+    return results
+
+
+async def sync_swing_futures_context(
+    *,
+    years: int = 3,
+    latest: bool = False,
+    dry_run: bool = False,
+    host: str = "127.0.0.1",
+    port: int = 4002,
+    client_id: int = 117,
+) -> list[DownloadResult]:
+    """Refresh only NQ/GC context authority without touching QQQ/GLD files."""
+    requirements = [
+        requirement
+        for requirement in family_bar_requirements("swing", years=max(3, years))
+        if requirement.sec_type.upper() == "FUT"
+    ]
+    settings = ConnectionSettings(host=host, port=port, client_id=client_id)
+    pacer = RequestPacer()
+    ib = None if dry_run else await connect_ib(settings)
+    results: list[DownloadResult] = []
+    try:
+        for requirement in requirements:
+            request = BarDownloadRequest(
+                symbol=requirement.symbol,
+                timeframe=requirement.timeframe,
+                sec_type=requirement.sec_type,
+                exchange=requirement.exchange,
+                trading_class=requirement.trading_class,
+                what_to_show=requirement.what_to_show,
+                use_rth=requirement.use_rth,
+                duration=requirement.duration,
+                end=datetime.now(timezone.utc),
+                output_dir=requirement.output_dir,
+                family=requirement.family,
+            )
+            output_path = requirement.output_dir / f"{requirement.symbol}_{requirement.timeframe}.parquet"
+            results.append(
+                await _download_requirement(
+                    ib,
+                    request,
+                    output_path=output_path,
+                    pacer=pacer,
+                    dry_run=dry_run,
+                    latest_only=latest,
+                )
+            )
+    finally:
+        if ib is not None:
+            ib.disconnect()
+    results.extend(_derive_swing_futures_context_files(dry_run=dry_run))
     return results
 
 
@@ -128,7 +183,7 @@ async def _download_requirement(
     dry_run: bool,
     latest_only: bool,
 ) -> DownloadResult:
-    if request.family == "momentum" and request.sec_type.upper() == "FUT":
+    if request.sec_type.upper() == "FUT":
         return await download_physical_futures_panama_bars(
             ib,
             request,
@@ -192,6 +247,42 @@ def _derive_momentum_compatibility_files(*, dry_run: bool) -> list[DownloadResul
     return results
 
 
+def _derive_swing_futures_context_files(*, dry_run: bool) -> list[DownloadResult]:
+    output_dir = Path("backtests/swing/data/raw")
+    symbols = ("NQ", "GC")
+    targets = ("1h", "1d")
+    if dry_run:
+        return [
+            DownloadResult(
+                symbol=symbol,
+                timeframe="derived",
+                dry_run=True,
+                paths=[output_dir / f"{symbol}_{target}.parquet" for target in targets],
+                messages=[
+                    f"{symbol} Swing context: stage, validate, and promote {','.join(targets)} from certified 5m"
+                ],
+            )
+            for symbol in symbols
+        ]
+
+    from backtests.swing.data.futures_context_authority import promote_derived_swing_futures_context
+
+    report = promote_derived_swing_futures_context(output_dir, symbols=symbols)
+    return [
+        DownloadResult(
+            symbol=symbol,
+            timeframe="derived",
+            paths=[output_dir / f"{symbol}_{target}.parquet" for target in targets],
+            messages=[
+                f"{symbol} Swing context certified: "
+                f"{report.artifacts.get(symbol, {}).get('1h_rows', 0)} 1h rows, "
+                f"{report.artifacts.get(symbol, {}).get('1d_rows', 0)} 1d rows"
+            ],
+        )
+        for symbol in symbols
+    ]
+
+
 def _split_cli_list(value: str) -> list[str]:
     return [item.strip() for item in value.replace(",", " ").split() if item.strip()]
 
@@ -237,6 +328,31 @@ def build_parser() -> argparse.ArgumentParser:
     repair_parser.add_argument("--targets", default="15m,30m,1h,4h,1d")
     repair_parser.add_argument("--write", action="store_true", help="Write derived files; default only prints the plan")
     repair_parser.add_argument("--no-backup", action="store_true", help="Do not preserve existing files as *_direct.parquet")
+    swing_check = subparsers.add_parser(
+        "check-swing-futures-context",
+        help="Strictly validate NQ/GC physical lineage and 5m-derived Swing 1h/1d files",
+    )
+    swing_check.add_argument("--data-dir", type=Path, default=Path("backtests/swing/data/raw"))
+    swing_check.add_argument("--symbols", default="NQ,GC")
+    swing_check.add_argument("--quick", action="store_true", help="Skip exact child re-derivation checks")
+    swing_repair = subparsers.add_parser(
+        "repair-swing-futures-context",
+        help="Stage and certify Swing 1h/1d files from authoritative physical 5m parents",
+    )
+    swing_repair.add_argument("--data-dir", type=Path, default=Path("backtests/swing/data/raw"))
+    swing_repair.add_argument("--symbols", default="NQ,GC")
+    swing_repair.add_argument("--write", action="store_true", help="Promote only after all authority checks pass")
+    swing_repair.add_argument("--no-backup", action="store_true")
+    swing_sync = subparsers.add_parser(
+        "sync-swing-futures-context",
+        help="Acquire only NQ/GC physical 5m parents, then certify Swing 1h/1d children",
+    )
+    swing_sync.add_argument("--years", type=int, default=3)
+    swing_sync.add_argument("--latest", action="store_true")
+    swing_sync.add_argument("--dry-run", action="store_true")
+    swing_sync.add_argument("--host", default="127.0.0.1")
+    swing_sync.add_argument("--port", type=int, default=4002)
+    swing_sync.add_argument("--client-id", type=int, default=117)
     return parser
 
 
@@ -284,6 +400,56 @@ async def async_main(argv: list[str] | None = None) -> int:
                 backup_existing=not args.no_backup,
             )
             print(f"OK {symbol} momentum: derived {','.join(paths)} from 5m")
+        return 0
+    if args.command == "check-swing-futures-context":
+        from backtests.swing.data.futures_context_authority import validate_swing_futures_context
+
+        symbols = [item.upper() for item in _split_cli_list(args.symbols)]
+        report = validate_swing_futures_context(
+            args.data_dir,
+            symbols=symbols,
+            verify_derivation=not args.quick,
+        )
+        print("OK Swing futures context authority" if report.ok else "ERROR Swing futures context authority")
+        for error in report.errors:
+            print(f"ERROR {error}")
+        for symbol, artifact in report.artifacts.items():
+            print(f"{symbol}: {artifact}")
+        return 0 if report.ok else 1
+    if args.command == "repair-swing-futures-context":
+        from backtests.swing.data.futures_context_authority import (
+            promote_derived_swing_futures_context,
+            validate_swing_futures_context,
+        )
+
+        symbols = [item.upper() for item in _split_cli_list(args.symbols)]
+        if not args.write:
+            report = validate_swing_futures_context(args.data_dir, symbols=symbols)
+            print("DRY-RUN: would stage and promote 1h,1d from certified 5m parents")
+            for error in report.errors:
+                print(f"CURRENT {error}")
+            return 0
+        report = promote_derived_swing_futures_context(
+            args.data_dir,
+            symbols=symbols,
+            backup_existing=not args.no_backup,
+        )
+        print(f"OK Swing futures context authority: {report.artifacts}")
+        return 0
+    if args.command == "sync-swing-futures-context":
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+        results = await sync_swing_futures_context(
+            years=args.years,
+            latest=args.latest,
+            dry_run=args.dry_run,
+            host=args.host,
+            port=args.port,
+            client_id=args.client_id,
+        )
+        for result in results:
+            prefix = "DRY-RUN" if result.dry_run else "OK"
+            detail = "; ".join(result.messages) if result.messages else f"{result.rows} rows"
+            print(f"{prefix} {detail}")
         return 0
     if args.command != "sync":
         parser.print_help()

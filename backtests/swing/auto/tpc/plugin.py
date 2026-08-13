@@ -130,6 +130,9 @@ class TPCPlugin(ETFPhasePlugin):
 
     def build_provenance(self) -> AutoRunProvenance:
         if self._provenance is None:
+            from backtests.swing.data.futures_context_authority import require_tpc_futures_context_authority
+
+            require_tpc_futures_context_authority(self.data_dir)
             repo_root = Path(__file__).resolve().parents[4]
             self._provenance = build_phase_auto_provenance(
                 self.name,
@@ -389,6 +392,7 @@ class TPCPlugin(ETFPhasePlugin):
             initial_equity=self.initial_equity,
             start_date=self.start_date,
             end_date=self.end_date,
+            require_context_authority=True,
             title="TPC FINAL OPTIMISED CONFIG FULL DIAGNOSTICS",
         )
         return EndOfRoundArtifacts(
@@ -440,6 +444,7 @@ class TPCPlugin(ETFPhasePlugin):
             self.data_dir,
             start_date=self.start_date,
             end_date=None,
+            require_context_authority=True,
         )
 
     def _infer_holdout_warmup_15m(self) -> int:

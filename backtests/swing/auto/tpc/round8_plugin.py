@@ -144,6 +144,9 @@ class Round8TPCPlugin(TPCPlugin):
 
     def build_provenance(self) -> AutoRunProvenance:
         if self._provenance is None:
+            from backtests.swing.data.futures_context_authority import require_tpc_futures_context_authority
+
+            require_tpc_futures_context_authority(self.data_dir)
             repo_root = Path(__file__).resolve().parents[4]
             self._provenance = build_phase_auto_provenance(
                 self.name,
@@ -374,6 +377,7 @@ class Round8TPCPlugin(TPCPlugin):
             self.data_dir,
             start_date=self.start_date,
             end_date=self.end_date,
+            require_context_authority=True,
         )
         if self._cache_source_fingerprint != bundle.cache_source_fingerprint:
             self._metrics_cache.clear()
@@ -389,6 +393,7 @@ class Round8TPCPlugin(TPCPlugin):
             self.data_dir,
             start_date=self.start_date,
             end_date=None,
+            require_context_authority=True,
         )
 
     @staticmethod

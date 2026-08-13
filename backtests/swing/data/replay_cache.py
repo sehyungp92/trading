@@ -135,6 +135,7 @@ def load_tpc_replay_bundle(
     symbols: tuple[str, ...] = ("QQQ", "GLD"),
     start_date: str | pd.Timestamp | None = None,
     end_date: str | pd.Timestamp | None = None,
+    require_context_authority: bool = False,
 ) -> ReplayBundle[Any]:
     return _load_etf_15m_bundle(
         "swing.tpc.replay_bundle",
@@ -143,6 +144,7 @@ def load_tpc_replay_bundle(
         start_date,
         end_date,
         pullback_timeframe="1h",
+        require_context_authority=require_context_authority,
     )
 
 
@@ -152,6 +154,7 @@ def load_tpc_pb30_replay_bundle(
     symbols: tuple[str, ...] = ("QQQ", "GLD"),
     start_date: str | pd.Timestamp | None = None,
     end_date: str | pd.Timestamp | None = None,
+    require_context_authority: bool = False,
 ) -> ReplayBundle[Any]:
     """Load TPC data with the pullback window backed by completed 30m bars.
 
@@ -168,6 +171,7 @@ def load_tpc_pb30_replay_bundle(
         start_date,
         end_date,
         pullback_timeframe="30m",
+        require_context_authority=require_context_authority,
     )
 
 
@@ -179,6 +183,7 @@ def _load_etf_15m_bundle(
     end_date: str | pd.Timestamp | None,
     *,
     pullback_timeframe: str = "1h",
+    require_context_authority: bool = False,
 ) -> ReplayBundle[Any]:
     from backtests.swing.data.cache import load_bars
     from backtests.swing.data.multitimeframe import (
@@ -198,11 +203,27 @@ def _load_etf_15m_bundle(
         for timeframe in ("15m", "1h", "1d")
     ]
     if namespace.startswith("swing.tpc."):
+        context_symbols = sorted({_TPC_CONTEXT_SYMBOLS.get(symbol, "") for symbol in symbols} - {""})
         source_paths += [
             base_dir / f"{context_symbol}_{timeframe}.parquet"
-            for context_symbol in sorted({_TPC_CONTEXT_SYMBOLS.get(symbol, "") for symbol in symbols} - {""})
+            for context_symbol in context_symbols
             for timeframe in ("1h", "1d")
         ]
+        if require_context_authority:
+            from backtests.swing.data.futures_context_authority import require_tpc_futures_context_authority
+
+            require_tpc_futures_context_authority(base_dir, symbols=context_symbols)
+            source_paths += [
+                base_dir / f"{context_symbol}_{suffix}"
+                for context_symbol in context_symbols
+                for suffix in (
+                    "5m.parquet",
+                    "5m.manifest.json",
+                    "1h.manifest.json",
+                    "1d.manifest.json",
+                    "futures_context.manifest.json",
+                )
+            ]
     start_ts = _coerce_utc_timestamp(start_date)
     end_ts = _coerce_utc_timestamp(end_date, end_of_day=True)
 
@@ -267,6 +288,7 @@ def _load_etf_15m_bundle(
             "start_date": start_ts.isoformat() if start_ts is not None else None,
             "end_date": end_ts.isoformat() if end_ts is not None else None,
             "pullback_timeframe": pullback_timeframe,
+            "require_context_authority": require_context_authority,
         },
         loader=_load,
     )

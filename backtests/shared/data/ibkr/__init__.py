@@ -4,6 +4,7 @@ from .contracts import (
     FutureRootSpec,
     FuturesContractSpec,
     active_contract,
+    generate_futures_contracts,
     generate_quarterly_contracts,
     roll_schedule,
 )
@@ -17,7 +18,7 @@ __all__ = [
     "FuturesContractSpec",
     "TickDownloadRequest",
     "active_contract",
+    "generate_futures_contracts",
     "generate_quarterly_contracts",
     "roll_schedule",
 ]
-
