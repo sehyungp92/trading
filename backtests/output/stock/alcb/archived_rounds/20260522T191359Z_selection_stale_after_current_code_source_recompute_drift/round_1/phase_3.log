@@ -1,4 +1,0 @@
-2026-04-29 20:59:54,770 INFO research.backtests.shared.auto.phase.08f6f983986e.3: Starting phase 3 with 8 candidates
-2026-04-29 20:59:56,058 WARNING research.backtests.shared.auto.phase.08f6f983986e.3: Baseline rejected by hard rejects: phase3_timing_quality (0.4879 < 0.5500). Candidates must still beat this score AND pass hard rejects to be accepted.
-2026-04-29 21:14:53,872 INFO research.backtests.shared.auto.phase.08f6f983986e.3: Round 1 produced no valid candidates; stopping.
-2026-04-29 21:14:54,934 INFO research.backtests.shared.auto.phase.08f6f983986e.3: Phase 3 complete: 0.0000 -> 0.0000 (0 accepted)

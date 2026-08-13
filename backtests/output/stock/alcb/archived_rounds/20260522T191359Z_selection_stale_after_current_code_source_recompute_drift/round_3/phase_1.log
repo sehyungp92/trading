@@ -1,4 +1,0 @@
-2026-04-30 05:25:19,673 INFO research.backtests.shared.auto.phase.effa22e4129a.1: Starting phase 1 with 5 candidates
-2026-04-30 05:48:54,060 INFO research.backtests.shared.auto.phase.effa22e4129a.1:   Pruned 1 persistently-rejected candidates (1+ consecutive).
-2026-04-30 05:48:54,115 INFO research.backtests.shared.auto.phase.effa22e4129a.1: Round 2 best candidate r3_score5_no_cpr_size65 did not clear min_delta 0.10%; stopping.
-2026-04-30 05:51:59,273 INFO research.backtests.shared.auto.phase.effa22e4129a.1: Phase 1 complete: 0.3532 -> 0.3580 (1 accepted)

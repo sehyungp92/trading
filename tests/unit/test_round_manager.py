@@ -1,10 +1,18 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+
+import pytest
 
 from backtests.shared.auto.phase_state import PhaseState, save_phase_state
 from backtests.shared.auto.provenance import build_auto_run_provenance, build_json_item
-from backtests.shared.auto.round_manager import RoundManager, canonicalize_metrics
+from backtests.shared.auto.round_manager import (
+    ARCHIVE_DIRNAME,
+    ARCHIVE_ENTRY_NAME_MAX,
+    RoundManager,
+    canonicalize_metrics,
+)
 
 
 def _provenance(selection_value: str, diagnostics_value: str = "diag"):
@@ -252,12 +260,34 @@ def test_archive_rounds_marks_manifest_and_moves_canonical_dirs(tmp_path) -> Non
     round_dir = manager.get_round_dir(1)
     (round_dir / "optimized_config.json").write_text('{"flags.enabled": true}', encoding="utf-8")
     manager.append_to_manifest(1, {"flags.enabled": True}, {"total_trades": 8})
+    reason = "selection_stale_after_long_current_code_source_recompute_drift"
 
-    archive_dir = manager.archive_rounds([1], reason="selection_stale_after_test")
+    archive_dir = manager.archive_rounds([1], reason=reason)
 
     assert not round_dir.exists()
+    assert archive_dir.parent == manager.strategy_dir / "archive"
+    assert len(archive_dir.name) <= ARCHIVE_ENTRY_NAME_MAX
     assert (archive_dir / "round_1" / "optimized_config.json").exists()
     assert manager.get_latest_round() == 0
     entry = manager.load_manifest()["rounds"][0]
     assert entry["archived"] is True
-    assert entry["archive_reason"] == "selection_stale_after_test"
+    assert entry["archive_reason"] == reason
+
+
+def test_archive_rounds_rejects_noncanonical_archive_root(tmp_path) -> None:
+    manager = RoundManager("momentum", "sample", base_dir=tmp_path / "output")
+
+    with pytest.raises(ValueError, match="canonical strategy archive directory"):
+        manager.archive_rounds(
+            [],
+            reason="test",
+            archive_root=manager.strategy_dir / "archived_rounds",
+        )
+
+
+def test_canonical_output_archive_is_gitignored() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    gitignore = (repo_root / ".gitignore").read_text(encoding="utf-8")
+
+    assert ARCHIVE_DIRNAME == "archive"
+    assert "backtests/output/**/archive/" in gitignore.splitlines()

@@ -1,8 +1,0 @@
-{
-  "atomic_candidate_count": 118,
-  "combination_candidate_count": 29,
-  "completed_at_utc": "2026-07-23T13:02:41.768428+00:00",
-  "promotion_authorized": false,
-  "promotion_blocker": "OOS was reused for targeted research and authoritative frozen data is unavailable.",
-  "validation_candidate_count": 41
-}

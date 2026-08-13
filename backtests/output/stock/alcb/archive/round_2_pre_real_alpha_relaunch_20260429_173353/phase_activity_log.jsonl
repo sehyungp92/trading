@@ -1,9 +1,0 @@
-{"timestamp": "2026-04-29T15:18:08.007498+00:00", "phase": 1, "action": "phase_reset", "discarded_phases": [1], "resuming_from_phase": 1}
-{"timestamp": "2026-04-29T15:18:08.012653+00:00", "phase": 1, "action": "phase_start", "focus": "Breakout quality and extension discipline", "candidate_count": 5}
-{"timestamp": "2026-04-29T15:18:08.029819+00:00", "phase": 1, "action": "greedy_start", "candidate_count": 5, "scoring_retry": 0, "diagnostic_retry": 0}
-{"timestamp": "2026-04-29T15:47:54.205830+00:00", "phase": 1, "action": "greedy_complete", "base_score": 0.3051349214781505, "final_score": 0.3051349214781505, "accepted_count": 0}
-{"timestamp": "2026-04-29T15:47:54.222811+00:00", "phase": 1, "action": "gate_check", "passed": false, "failure_category": "candidates_exhausted"}
-{"timestamp": "2026-04-29T15:47:54.248808+00:00", "phase": 1, "action": "diagnostics_run", "enhanced": false}
-{"timestamp": "2026-04-29T15:47:54.281811+00:00", "phase": 1, "action": "analysis_complete", "recommendation": "improve_scoring", "reason": "Greedy score is not aligned strongly enough with phase goals."}
-{"timestamp": "2026-04-29T15:47:54.307808+00:00", "phase": 1, "action": "decision_improve_scoring", "retry": 1, "weight_overrides": {"expected_total_r": 0.23012552301255232, "trades_per_month": 0.10460251046025104, "profit_factor": 0.08368200836820083, "signal_quality": 0.18828451882845185, "extended_avwap_inverse": 0.13389121338912133, "timing_quality": 0.12552301255230125, "inv_dd": 0.08368200836820083, "profit_protection": 0.050209205020920494}, "candidate_count": 5}
-{"timestamp": "2026-04-29T15:47:54.327811+00:00", "phase": 1, "action": "greedy_start", "candidate_count": 5, "scoring_retry": 1, "diagnostic_retry": 0}

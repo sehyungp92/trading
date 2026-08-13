@@ -1,4 +1,0 @@
-2026-04-29 04:00:11,462 INFO research.backtests.shared.auto.phase.08f6f983986e.1: Starting phase 1 with 8 candidates
-2026-04-29 06:00:58,230 INFO research.backtests.shared.auto.phase.08f6f983986e.1:   Pruned 6 persistently-rejected candidates (1+ consecutive).
-2026-04-29 06:06:35,957 INFO research.backtests.shared.auto.phase.08f6f983986e.1: Round 2 produced no valid candidates; stopping.
-2026-04-29 06:11:00,403 INFO research.backtests.shared.auto.phase.08f6f983986e.1: Phase 1 complete: 0.3568 -> 0.3682 (1 accepted)

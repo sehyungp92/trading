@@ -5,7 +5,7 @@
   "round": 1,
   "description": "Round 1 Helix cumulative rebuild/optimization (IS through 2026-03-20, equity $25,000)",
   "generated_at_utc": "2026-05-07T21:35:37.510494+00:00",
-  "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\archive\\pre_cumulative_rebuild_20260507_184215\\cumulative_mutation_seed_active_rounds_1_to_2_25k.json",
+  "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\helix\\archive\\260507_pre_cum_rebuild\\cumulative_mutation_seed_active_rounds_1_to_2_25k.json",
   "baseline_mutation_count": 17,
   "baseline_mutations": {
     "param_overrides.ADX_UPPER_GATE": 55.0,

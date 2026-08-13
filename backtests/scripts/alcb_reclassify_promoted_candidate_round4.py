@@ -20,8 +20,8 @@ ROUND4_DIR = STRATEGY_DIR / "round_4"
 MANIFEST_PATH = STRATEGY_DIR / "rounds_manifest.json"
 RECLASSIFICATION_ARCHIVE = (
     STRATEGY_DIR
-    / "archived_rounds"
-    / "20260723T180854Z_reclassified_to_round4"
+    / "archive"
+    / "260723_reclass_r4"
 )
 RESTORED_ROUND2_COMMIT = "6ce8cea8a96490640b9d30d64d40e4f1a58cd1a2"
 

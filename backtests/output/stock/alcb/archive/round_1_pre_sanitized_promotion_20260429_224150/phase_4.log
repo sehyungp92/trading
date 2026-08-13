@@ -1,3 +1,0 @@
-2026-04-24 00:07:10,288 INFO research.backtests.shared.auto.phase.61aca6257571.4: Starting phase 4 with 6 candidates
-2026-04-24 00:23:59,770 INFO research.backtests.shared.auto.phase.61aca6257571.4: Round 2 best candidate p16_score_shape_reward4 did not clear min_delta 0.10%; stopping.
-2026-04-24 00:23:59,825 INFO research.backtests.shared.auto.phase.61aca6257571.4: Phase 4 complete: 0.4842 -> 0.6352 (1 accepted)

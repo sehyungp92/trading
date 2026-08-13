@@ -1,3 +1,0 @@
-2026-04-23 23:34:48,851 INFO research.backtests.shared.auto.phase.61aca6257571.3: Starting phase 3 with 8 candidates
-2026-04-24 00:07:10,198 INFO research.backtests.shared.auto.phase.61aca6257571.3:   Pruned 6 persistently-rejected candidates (2+ consecutive).
-2026-04-24 00:07:10,276 INFO research.backtests.shared.auto.phase.61aca6257571.3: Phase 3 complete: 0.4248 -> 0.5567 (2 accepted)

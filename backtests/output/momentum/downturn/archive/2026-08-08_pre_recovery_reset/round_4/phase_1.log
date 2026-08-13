@@ -1,3 +1,0 @@
-2026-05-01 22:01:24,637 INFO research.backtests.shared.auto.phase.0ad0aa4c3ed4.1: Starting phase 1 with 18 candidates
-2026-05-01 22:09:23,459 INFO research.backtests.shared.auto.phase.0ad0aa4c3ed4.1: Round 2 best candidate r3_corr_bonus_125 did not clear min_delta 0.10%; stopping.
-2026-05-01 22:09:44,165 INFO research.backtests.shared.auto.phase.0ad0aa4c3ed4.1: Phase 1 complete: 0.8703 -> 0.8729 (1 accepted)

@@ -1,3 +1,0 @@
-2026-04-30 13:14:49,056 INFO research.backtests.shared.auto.phase.6b8ebb8daf1b.1: Starting phase 1 with 18 candidates
-2026-04-30 13:33:13,595 INFO research.backtests.shared.auto.phase.6b8ebb8daf1b.1: Round 4 best candidate r3_dd_slower_3pct_lb15 did not clear min_delta 0.10%; stopping.
-2026-04-30 13:33:51,149 INFO research.backtests.shared.auto.phase.6b8ebb8daf1b.1: Phase 1 complete: 0.6808 -> 0.8460 (3 accepted)

@@ -1,9 +1,0 @@
-{
-  "candidate_count": 183,
-  "completed_at_utc": "2026-07-22T20:58:40.770777+00:00",
-  "is_result_count": 76,
-  "oos_result_count": 209,
-  "promotion_authorized": false,
-  "promotion_blocker": "No accepted frozen direct-RTH bundle and OOS was consumed by targeted search.",
-  "recommended_name": "target__rvol190_pdh090"
-}

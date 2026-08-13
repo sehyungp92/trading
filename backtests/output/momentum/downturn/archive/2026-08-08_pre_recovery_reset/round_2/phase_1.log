@@ -1,4 +1,0 @@
-2026-04-28 16:15:33,631 INFO research.backtests.shared.auto.phase.93e0c232114e.1: Starting phase 1 with 106 candidates
-2026-04-28 17:17:51,604 INFO research.backtests.shared.auto.phase.93e0c232114e.1:   Pruned 4 persistently-rejected candidates (1+ consecutive).
-2026-04-28 18:20:32,941 INFO research.backtests.shared.auto.phase.93e0c232114e.1: Round 5 best candidate r2_counter_mult_0 did not clear min_delta 0.10%; stopping.
-2026-04-28 18:21:01,380 INFO research.backtests.shared.auto.phase.93e0c232114e.1: Phase 1 complete: 0.4570 -> 0.6103 (4 accepted)

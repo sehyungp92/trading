@@ -1,3 +1,0 @@
-2026-04-23 22:59:13,680 INFO research.backtests.shared.auto.phase.61aca6257571.1: Starting phase 1 with 8 candidates
-2026-04-23 23:21:26,434 INFO research.backtests.shared.auto.phase.61aca6257571.1: Round 1 best candidate p16_avwap_cap_0045 did not clear min_delta 0.10%; stopping.
-2026-04-23 23:24:21,232 INFO research.backtests.shared.auto.phase.61aca6257571.1: Phase 1 complete: 0.3730 -> 0.3730 (0 accepted)

@@ -1,4 +1,0 @@
-2026-04-29 21:14:54,951 INFO research.backtests.shared.auto.phase.08f6f983986e.4: Starting phase 4 with 8 candidates
-2026-04-29 21:14:56,152 WARNING research.backtests.shared.auto.phase.08f6f983986e.4: Baseline rejected by hard rejects: phase4_profit_protection (0.5954 < 0.6000). Candidates must still beat this score AND pass hard rejects to be accepted.
-2026-04-29 22:09:33,512 INFO research.backtests.shared.auto.phase.08f6f983986e.4: Round 1 produced no valid candidates; stopping.
-2026-04-29 22:09:34,603 INFO research.backtests.shared.auto.phase.08f6f983986e.4: Phase 4 complete: 0.0000 -> 0.0000 (0 accepted)

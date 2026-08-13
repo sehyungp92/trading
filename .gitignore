@@ -160,8 +160,7 @@ backtests/output/*/*/**
 !backtests/output/swing/tpc/round_8/**
 
 # Backtest output archives
-backtests/output/**/archive/**
-backtests/output/**/archived_rounds/**
+backtests/output/**/archive/
 
 # Local references & scratch
 _references/

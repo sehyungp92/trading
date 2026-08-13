@@ -1,3 +1,0 @@
-2026-04-28 02:05:23,229 INFO research.backtests.shared.auto.phase.0ad4cbd53734.2: Starting phase 2 with 29 candidates
-2026-04-28 03:15:37,382 INFO research.backtests.shared.auto.phase.0ad4cbd53734.2: Round 4 best candidate circuit_breaker_tighter did not clear min_delta 0.10%; stopping.
-2026-04-28 03:16:19,188 INFO research.backtests.shared.auto.phase.0ad4cbd53734.2: Phase 2 complete: 0.3763 -> 0.4337 (3 accepted)

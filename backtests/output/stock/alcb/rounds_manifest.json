@@ -121,7 +121,7 @@
       "win_rate": 62.81833616298812
     },
     {
-      "archived_previous_round_3": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\archived_rounds\\20260723T183925Z_pre_requested_alcb_round3_relabel\\round_3",
+      "archived_previous_round_3": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\archive\\20260723_1839_pre_r3_relabel\\round_3",
       "calmar_ratio": 6.166938514400365,
       "diagnostics_fingerprint": "44e37d2a8caed6817876bcac4301ca40aaf2a692f597a3b83d573128f59a3e7f",
       "max_drawdown_pct": 12.278670047174103,
@@ -321,7 +321,7 @@
       "profit_factor": 1.9852349890399614,
       "provenance_schema_version": 1,
       "provenance_status": "promoted_recomputed_legacy_cache_consumed_oos",
-      "reclassification_archive": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\archived_rounds\\20260723T180854Z_reclassified_to_round4",
+      "reclassification_archive": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\archive\\260723_reclass_r4",
       "reclassified_at_utc": "2026-07-23 18:39:27.975497+00:00",
       "reclassified_from_round": 2,
       "research_report": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\stock\\alcb\\round_4\\final_optimization_20260723\\report.md",

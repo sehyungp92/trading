@@ -1,4 +1,0 @@
-2026-04-30 06:15:03,434 INFO research.backtests.shared.auto.phase.effa22e4129a.3: Starting phase 3 with 5 candidates
-2026-04-30 06:35:42,621 INFO research.backtests.shared.auto.phase.effa22e4129a.3:   Pruned 2 persistently-rejected candidates (1+ consecutive).
-2026-04-30 06:39:37,717 INFO research.backtests.shared.auto.phase.effa22e4129a.3: Round 2 best candidate r3_mfe14_min025_floor_m010 did not clear min_delta 0.10%; stopping.
-2026-04-30 06:42:53,455 INFO research.backtests.shared.auto.phase.effa22e4129a.3: Phase 3 complete: 0.5427 -> 0.6469 (1 accepted)

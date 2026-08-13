@@ -1,4 +1,0 @@
-2026-04-30 14:39:04,245 INFO research.backtests.shared.auto.phase.6b8ebb8daf1b.3: Starting phase 3 with 41 candidates
-2026-04-30 14:47:34,481 INFO research.backtests.shared.auto.phase.6b8ebb8daf1b.3:   Pruned 1 persistently-rejected candidates (1+ consecutive).
-2026-04-30 15:15:55,245 INFO research.backtests.shared.auto.phase.6b8ebb8daf1b.3: Round 4 best candidate finetune_param_overrides_min_hold_bars_p10 did not clear min_delta 0.10%; stopping.
-2026-04-30 15:16:21,355 INFO research.backtests.shared.auto.phase.6b8ebb8daf1b.3: Phase 3 complete: 0.8609 -> 0.8798 (3 accepted)

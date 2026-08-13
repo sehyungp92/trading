@@ -45,6 +45,9 @@ ROUND_EVALUATION_FILENAME = "round_evaluation.txt"
 PHASE_STATE_FILENAME = "phase_state.json"
 DIAGNOSTICS_SUMMARY_FILENAME = "diagnostics_summary.json"
 MANIFEST_FILENAME = "rounds_manifest.json"
+ARCHIVE_DIRNAME = "archive"
+ARCHIVE_ENTRY_NAME_MAX = 40
+ARCHIVE_TIMESTAMP_FORMAT = "%Y%m%d_%H%M%S"
 
 
 def _coerce_number(value: Any) -> Any:
@@ -374,10 +377,21 @@ class RoundManager:
         reason: str,
         archive_root: Path | None = None,
     ) -> Path:
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        archive_base = Path(archive_root) if archive_root is not None else self.strategy_dir / "archived_rounds"
-        archive_dir = archive_base / f"{timestamp}_{_slug(reason)}"
-        archive_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now(timezone.utc).strftime(ARCHIVE_TIMESTAMP_FORMAT)
+        archive_base = self.strategy_dir / ARCHIVE_DIRNAME
+        if archive_root is not None and Path(archive_root).resolve() != archive_base.resolve():
+            raise ValueError(
+                f"archive_root must be the canonical strategy archive directory: {archive_base}"
+            )
+        reason_length = ARCHIVE_ENTRY_NAME_MAX - len(timestamp) - 1
+        base_name = f"{timestamp}_{_slug(reason, max_length=reason_length)}"
+        archive_dir = archive_base / base_name
+        suffix = 1
+        while archive_dir.exists():
+            suffix_text = f"_{suffix}"
+            archive_dir = archive_base / f"{base_name[: ARCHIVE_ENTRY_NAME_MAX - len(suffix_text)]}{suffix_text}"
+            suffix += 1
+        archive_dir.mkdir(parents=True, exist_ok=False)
 
         manifest = self.load_manifest()
         requested = {int(round_num) for round_num in round_nums}
@@ -705,6 +719,6 @@ def _provenance_payload(provenance: AutoRunProvenance | dict[str, Any] | None) -
     return current.to_dict() if current is not None else None
 
 
-def _slug(value: str) -> str:
+def _slug(value: str, *, max_length: int = 80) -> str:
     slug = re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip()).strip("_")
-    return slug[:80] or "archived"
+    return slug[:max_length] or "archived"[:max_length]

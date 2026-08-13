@@ -1,3 +1,0 @@
-2026-04-30 06:42:53,466 INFO research.backtests.shared.auto.phase.effa22e4129a.4: Starting phase 4 with 5 candidates
-2026-04-30 06:55:23,142 INFO research.backtests.shared.auto.phase.effa22e4129a.4: Round 1 produced no valid candidates; stopping.
-2026-04-30 06:55:23,436 INFO research.backtests.shared.auto.phase.effa22e4129a.4: Phase 4 complete: 0.5060 -> 0.5060 (0 accepted)

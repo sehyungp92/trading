@@ -1,4 +1,0 @@
-2026-04-30 05:51:59,281 INFO research.backtests.shared.auto.phase.effa22e4129a.2: Starting phase 2 with 5 candidates
-2026-04-30 06:11:51,102 INFO research.backtests.shared.auto.phase.effa22e4129a.2:   Pruned 1 persistently-rejected candidates (1+ consecutive).
-2026-04-30 06:11:51,183 INFO research.backtests.shared.auto.phase.effa22e4129a.2: Round 2 best candidate r3_failstop12_mfe020_cur010_to_m020 did not clear min_delta 0.10%; stopping.
-2026-04-30 06:15:03,424 INFO research.backtests.shared.auto.phase.effa22e4129a.2: Phase 2 complete: 0.3715 -> 0.4050 (1 accepted)

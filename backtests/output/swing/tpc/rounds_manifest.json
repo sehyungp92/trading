@@ -675,7 +675,7 @@
       "archived": true,
       "invalidated": true,
       "archive_reason": "invalidated: accepted GLD.min_stop_atr_mult=0.06 inflated R-multiple score by shrinking the stop denominator while lowering dollar returns",
-      "archive_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\archive\\round_7_invalid_denominator_gaming_20260506_183631",
+      "archive_path": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\archive\\20260506_1836_r7_invalid_denominator",
       "archived_at_utc": "2026-05-06T18:36:31.807267+00:00"
     },
     {
@@ -908,7 +908,7 @@
       "sharpe_ratio": 0.3535565719651593,
       "calmar_ratio": null,
       "archived": true,
-      "archive_path": "archive/round_8_promoted_to_round_6_20260506_180243",
+      "archive_path": "archive/260506_r8_promoted_r6",
       "archive_reason": "Superseded by promoted round_6 optimized config."
     },
     {
