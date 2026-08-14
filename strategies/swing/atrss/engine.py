@@ -15,6 +15,8 @@ from typing import Any
 
 import numpy as np
 
+from libs.market_data.live_futures import req_panama_adjusted_historical_data
+
 from libs.broker_ibkr.risk_support.tick_rules import round_to_tick
 from libs.oms.models.events import OMSEventType
 from libs.oms.models.intent import Intent, IntentType
@@ -2322,8 +2324,10 @@ class ATRSSEngine:
             if contract is None:
                 return None, None, None, None
 
-            bars = await self._ib.req_historical_data(
+            bars = await req_panama_adjusted_historical_data(
+                self._ib,
                 contract,
+                symbol=sym,
                 endDateTime="",
                 durationStr="200 D",
                 barSizeSetting="1 day",
@@ -2355,8 +2359,10 @@ class ATRSSEngine:
             if contract is None:
                 return None, None, None, None
 
-            bars = await self._ib.req_historical_data(
+            bars = await req_panama_adjusted_historical_data(
+                self._ib,
                 contract,
+                symbol=sym,
                 endDateTime="",
                 durationStr="10 D",
                 barSizeSetting="1 hour",

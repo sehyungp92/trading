@@ -15,9 +15,11 @@ from backtests.shared.data.ibkr.alignment import check_symbol_alignment, compare
 from backtests.shared.data.ibkr.bars import (
     SOURCE_KIND_IBKR_CONT_FUTURE_LEGACY,
     SOURCE_KIND_IBKR_PHYSICAL_FUTURES_PANAMA,
+    build_future_contract,
     download_contract_bars,
     download_historical_bars,
     download_physical_futures_panama_bars,
+    plan_bar_windows,
 )
 from backtests.shared.data.ibkr.contracts import generate_quarterly_contracts, roll_schedule
 from backtests.shared.data.ibkr.models import BarDownloadRequest, DownloadResult
@@ -26,6 +28,37 @@ from backtests.shared.data.ibkr.stitch import stitch_panama
 from backtests.shared.data.ibkr.store import write_compatibility_bars, write_parquet_atomic
 from backtests.shared.data.ibkr.sync import sync_families, sync_swing_futures_context
 from backtests.shared.data.ibkr.ticks import ticks_to_frame
+
+
+def test_physical_intraday_windows_can_overlap_without_losing_progress() -> None:
+    windows = plan_bar_windows(
+        datetime(2025, 9, 14, tzinfo=timezone.utc),
+        datetime(2025, 12, 1, tzinfo=timezone.utc),
+        "5m",
+        overlap=pd.Timedelta(days=1).to_pytimedelta(),
+    )
+
+    assert len(windows) > 2
+    for newer, older in zip(windows, windows[1:]):
+        assert older.end == newer.start + pd.Timedelta(days=1)
+        assert older.start < newer.start
+
+
+@pytest.mark.asyncio
+async def test_future_qualification_rejects_ib_none_sentinel() -> None:
+    class MissingExpiredContractIB:
+        async def qualifyContractsAsync(self, contract):
+            return [None]
+
+    contract = generate_quarterly_contracts(
+        "NQ",
+        start=date(2023, 8, 1),
+        end=date(2023, 10, 1),
+        as_of=date(2026, 8, 14),
+    )[0]
+
+    with pytest.raises(ValueError, match=f"Could not qualify {contract.local_symbol}"):
+        await build_future_contract(MissingExpiredContractIB(), contract)
 
 
 def test_quarterly_contract_generation_covers_two_year_window() -> None:
@@ -73,8 +106,8 @@ def test_panama_stitch_adjusts_older_contracts_to_newer_price_level() -> None:
         tick_size=0.25,
     )
 
-    assert list(stitched["close"]) == [90.0, 110.5]
-    assert list(stitched["open"]) == [90.0, 110.0]
+    assert list(stitched["close"]) == [110.0, 110.5]
+    assert list(stitched["open"]) == [110.0, 110.0]
 
 
 def test_panama_stitch_keeps_isolated_contract_when_middle_contract_missing() -> None:
@@ -264,6 +297,63 @@ async def test_latest_dry_run_includes_existing_interior_gap(tmp_path: Path) -> 
     assert result.dry_run
     assert "IBKR bar requests" in result.messages[0]
     assert int(result.messages[0].split(": ")[1].split()[0]) > 1
+
+
+@pytest.mark.asyncio
+async def test_incremental_physical_refresh_preserves_rows_before_narrow_window(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from backtests.shared.data.ibkr import bars as bars_module
+
+    contract = generate_quarterly_contracts(
+        "NQ",
+        start=date(2026, 1, 1),
+        end=date(2026, 3, 20),
+        as_of=date(2026, 3, 1),
+    )[1]
+    output_path = tmp_path / "5m_trades.parquet"
+    old_index = pd.DatetimeIndex(
+        [pd.Timestamp("2026-01-02T00:00:00Z"), pd.Timestamp("2026-01-10T00:00:00Z")]
+    )
+    existing = pd.DataFrame(
+        {"open": [1.0, 2.0], "high": [1.0, 2.0], "low": [1.0, 2.0], "close": [1.0, 2.0], "volume": [1, 1]},
+        index=old_index,
+    )
+    write_parquet_atomic(existing, output_path)
+
+    async def fake_build(*args, **kwargs):
+        return SimpleNamespace(localSymbol=contract.local_symbol, conId=123)
+
+    async def fake_request(*args, **kwargs):
+        return [
+            SimpleNamespace(
+                date=datetime(2026, 1, 11, tzinfo=timezone.utc),
+                open=3.0,
+                high=3.0,
+                low=3.0,
+                close=3.0,
+                volume=1,
+                barCount=1,
+                average=3.0,
+            )
+        ]
+
+    monkeypatch.setattr(bars_module, "build_future_contract", fake_build)
+    monkeypatch.setattr(bars_module, "request_bars_with_retry", fake_request)
+    await download_contract_bars(
+        object(),
+        contract,
+        timeframe="5m",
+        start=datetime(2026, 1, 9, tzinfo=timezone.utc),
+        end=datetime(2026, 1, 11, tzinfo=timezone.utc),
+        output_path=output_path,
+        latest_only=True,
+    )
+
+    refreshed = pd.read_parquet(output_path)
+    assert pd.Timestamp("2026-01-02T00:00:00Z") in refreshed.index
+    assert pd.Timestamp("2026-01-11T00:00:00Z") in refreshed.index
 
 
 @pytest.mark.asyncio

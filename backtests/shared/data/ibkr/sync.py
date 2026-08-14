@@ -125,6 +125,10 @@ async def sync_families(
 async def sync_swing_futures_context(
     *,
     years: int = 3,
+    start: datetime | None = None,
+    end: datetime | None = None,
+    data_dir: Path = Path("backtests/swing/data/raw"),
+    symbols: tuple[str, ...] = ("NQ", "GC"),
     latest: bool = False,
     dry_run: bool = False,
     host: str = "127.0.0.1",
@@ -132,10 +136,11 @@ async def sync_swing_futures_context(
     client_id: int = 117,
 ) -> list[DownloadResult]:
     """Refresh only NQ/GC context authority without touching QQQ/GLD files."""
+    normalized_symbols = tuple(dict.fromkeys(symbol.upper() for symbol in symbols))
     requirements = [
         requirement
         for requirement in family_bar_requirements("swing", years=max(3, years))
-        if requirement.sec_type.upper() == "FUT"
+        if requirement.sec_type.upper() == "FUT" and requirement.symbol.upper() in normalized_symbols
     ]
     settings = ConnectionSettings(host=host, port=port, client_id=client_id)
     pacer = RequestPacer()
@@ -152,11 +157,12 @@ async def sync_swing_futures_context(
                 what_to_show=requirement.what_to_show,
                 use_rth=requirement.use_rth,
                 duration=requirement.duration,
-                end=datetime.now(timezone.utc),
-                output_dir=requirement.output_dir,
+                start=start,
+                end=end or datetime.now(timezone.utc),
+                output_dir=data_dir,
                 family=requirement.family,
             )
-            output_path = requirement.output_dir / f"{requirement.symbol}_{requirement.timeframe}.parquet"
+            output_path = data_dir / f"{requirement.symbol}_{requirement.timeframe}.parquet"
             results.append(
                 await _download_requirement(
                     ib,
@@ -170,7 +176,13 @@ async def sync_swing_futures_context(
     finally:
         if ib is not None:
             ib.disconnect()
-    results.extend(_derive_swing_futures_context_files(dry_run=dry_run))
+    results.extend(
+        _derive_swing_futures_context_files(
+            output_dir=data_dir,
+            symbols=normalized_symbols,
+            dry_run=dry_run,
+        )
+    )
     return results
 
 
@@ -247,9 +259,12 @@ def _derive_momentum_compatibility_files(*, dry_run: bool) -> list[DownloadResul
     return results
 
 
-def _derive_swing_futures_context_files(*, dry_run: bool) -> list[DownloadResult]:
-    output_dir = Path("backtests/swing/data/raw")
-    symbols = ("NQ", "GC")
+def _derive_swing_futures_context_files(
+    *,
+    dry_run: bool,
+    output_dir: Path = Path("backtests/swing/data/raw"),
+    symbols: tuple[str, ...] = ("NQ", "GC"),
+) -> list[DownloadResult]:
     targets = ("1h", "1d")
     if dry_run:
         return [
@@ -285,6 +300,13 @@ def _derive_swing_futures_context_files(*, dry_run: bool) -> list[DownloadResult
 
 def _split_cli_list(value: str) -> list[str]:
     return [item.strip() for item in value.replace(",", " ").split() if item.strip()]
+
+
+def _parse_utc_datetime(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _split_timeframes(value: str) -> tuple[str, ...]:
@@ -335,6 +357,12 @@ def build_parser() -> argparse.ArgumentParser:
     swing_check.add_argument("--data-dir", type=Path, default=Path("backtests/swing/data/raw"))
     swing_check.add_argument("--symbols", default="NQ,GC")
     swing_check.add_argument("--quick", action="store_true", help="Skip exact child re-derivation checks")
+    swing_child_check = subparsers.add_parser(
+        "check-swing-futures-children",
+        help="Validate portable certified NQ/GC 1h/1d children without local 5m parents",
+    )
+    swing_child_check.add_argument("--data-dir", type=Path, default=Path("backtests/swing/data/raw"))
+    swing_child_check.add_argument("--symbols", default="NQ,GC")
     swing_repair = subparsers.add_parser(
         "repair-swing-futures-context",
         help="Stage and certify Swing 1h/1d files from authoritative physical 5m parents",
@@ -348,6 +376,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Acquire only NQ/GC physical 5m parents, then certify Swing 1h/1d children",
     )
     swing_sync.add_argument("--years", type=int, default=3)
+    swing_sync.add_argument("--start", type=_parse_utc_datetime)
+    swing_sync.add_argument("--end", type=_parse_utc_datetime)
+    swing_sync.add_argument("--data-dir", type=Path, default=Path("backtests/swing/data/raw"))
+    swing_sync.add_argument("--symbols", default="NQ,GC")
     swing_sync.add_argument("--latest", action="store_true")
     swing_sync.add_argument("--dry-run", action="store_true")
     swing_sync.add_argument("--host", default="127.0.0.1")
@@ -416,6 +448,17 @@ async def async_main(argv: list[str] | None = None) -> int:
         for symbol, artifact in report.artifacts.items():
             print(f"{symbol}: {artifact}")
         return 0 if report.ok else 1
+    if args.command == "check-swing-futures-children":
+        from backtests.swing.data.futures_context_authority import validate_swing_futures_context_children
+
+        symbols = [item.upper() for item in _split_cli_list(args.symbols)]
+        report = validate_swing_futures_context_children(args.data_dir, symbols=symbols)
+        print("OK Swing certified context children" if report.ok else "ERROR Swing certified context children")
+        for error in report.errors:
+            print(f"ERROR {error}")
+        for symbol, artifact in report.artifacts.items():
+            print(f"{symbol}: {artifact}")
+        return 0 if report.ok else 1
     if args.command == "repair-swing-futures-context":
         from backtests.swing.data.futures_context_authority import (
             promote_derived_swing_futures_context,
@@ -438,8 +481,13 @@ async def async_main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "sync-swing-futures-context":
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+        logging.getLogger("ib_async").setLevel(logging.WARNING)
         results = await sync_swing_futures_context(
             years=args.years,
+            start=args.start,
+            end=args.end,
+            data_dir=args.data_dir,
+            symbols=tuple(item.upper() for item in _split_cli_list(args.symbols)),
             latest=args.latest,
             dry_run=args.dry_run,
             host=args.host,

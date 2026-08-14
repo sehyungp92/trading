@@ -3,7 +3,7 @@
   "strategy": "tpc",
   "strategy_name": "tpc",
   "round": 8,
-  "description": "Round 8 train-only optimisation: round-7 baseline plus additive 4h trend, completed 30m scaled pullback, 15m confirmation, and EMA20 value-touch entry research.",
+  "description": "Round 8 train-only phased optimisation plus promoted post-round certified-context QQQ daily-opposition recovery.",
   "generated_at_utc": "2026-05-06T22:26:57.592028+00:00",
   "baseline_source": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_7\\optimized_config.json",
   "baseline_mutation_count": 89,
@@ -128,25 +128,95 @@
   },
   "provenance": {
     "schema_version": 1,
-    "selection_fingerprint": "51e21f62082e2bf6c05124febd1e5d17238a5ca2a92f4c8772a5c479d72df7e1",
-    "diagnostics_fingerprint": "51e21f62082e2bf6c05124febd1e5d17238a5ca2a92f4c8772a5c479d72df7e1",
+    "selection_fingerprint": "c28c0421bcdc8bd31b6d5e8c7c6253865ef3ec1520a086bb6be5ab113afa7302",
+    "diagnostics_fingerprint": "05a30718028a96925bcca204b593221766922db2b4f0be3a777e3b81145c46d2",
     "items": [
+      {
+        "name": "certified_context_authority",
+        "kind": "tree_contents",
+        "fingerprint": "c364c504ae93b706a91acf9c11bea35d641b7bd4176a859c82444fc53cdb7e73",
+        "paths": [
+          "backtests/swing/data/authority/oos_20260502"
+        ],
+        "scope": "data",
+        "notes": "Certified NQ/GC parent/child authority used for post-round OOS recovery."
+      },
       {
         "name": "data_dir",
         "kind": "tree_contents",
-        "fingerprint": "c87d92af3db4f9b38ef15ff383a4a8ba442c108398cfd228fe5df1e7ab7ef36a",
+        "fingerprint": "16c496423510236c28022380a783400fe0d29d6160a09b73dbda96df0fdc1f2a",
         "paths": [
           "backtests/swing/data/raw"
         ],
         "scope": "data",
-        "notes": "Content fingerprint for selection-relevant replay data files."
+        "notes": "Root-level replay inputs consumed by the full historical IS run."
       },
       {
-        "name": "code:backtests/swing/auto/tpc/round8_plugin.py",
+        "name": "diagnostics:full_is",
         "kind": "file_contents",
-        "fingerprint": "a71140ea0efac4c08aaf003b282bffc13477cc83fad611742020692a6a47cd6c",
+        "fingerprint": "308453eea5d363082d60edafa6f1f57c1d85cf0e2e187b94665207aba7d457da",
         "paths": [
-          "backtests/swing/auto/tpc/round8_plugin.py"
+          "backtests/output/swing/tpc/round_8/full_diagnostics_in_sample.txt"
+        ],
+        "scope": "diagnostics",
+        "notes": ""
+      },
+      {
+        "name": "diagnostics:full_oos",
+        "kind": "file_contents",
+        "fingerprint": "9dd40dcee3fee15aca58aa374e9e32109151d62b3cd40511e5624f162c5946d8",
+        "paths": [
+          "backtests/output/swing/tpc/round_8/full_diagnostics_out_of_sample.txt"
+        ],
+        "scope": "diagnostics",
+        "notes": ""
+      },
+      {
+        "name": "diagnostics:round_evaluation",
+        "kind": "file_contents",
+        "fingerprint": "ddaf32588c54ae16cc56d8aaec6978451dbe5f41cf2fcb1f1ae35424f02d1eb2",
+        "paths": [
+          "backtests/output/swing/tpc/round_8/round_evaluation.txt"
+        ],
+        "scope": "diagnostics",
+        "notes": ""
+      },
+      {
+        "name": "diagnostics:round_final",
+        "kind": "file_contents",
+        "fingerprint": "49abf41c652a7a20f4aa2b79b4869b2fef1ba3e486a06850d241a17f1feeaf9b",
+        "paths": [
+          "backtests/output/swing/tpc/round_8/round_final_diagnostics.txt"
+        ],
+        "scope": "diagnostics",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/swing/analysis/etf_baseline.py",
+        "kind": "file_contents",
+        "fingerprint": "746279539eaf38ccb9e8cf2c10b214a184c70e8373d43caf91430570a232a885",
+        "paths": [
+          "backtests/swing/analysis/etf_baseline.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/swing/auto/tpc/plugin.py",
+        "kind": "file_contents",
+        "fingerprint": "aff8943b21d23841e80aa73e1e35568f1a4774954f4da97fc02876e76c44a14b",
+        "paths": [
+          "backtests/swing/auto/tpc/plugin.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/swing/auto/tpc/promote_round8_context_recovery.py",
+        "kind": "file_contents",
+        "fingerprint": "ec47a5b598a5346f65aebc7769a7a98f05b768d30cab633928d8a719e4a85bfe",
+        "paths": [
+          "backtests/swing/auto/tpc/promote_round8_context_recovery.py"
         ],
         "scope": "selection",
         "notes": ""
@@ -162,9 +232,19 @@
         "notes": ""
       },
       {
+        "name": "code:backtests/swing/data/futures_context_authority.py",
+        "kind": "file_contents",
+        "fingerprint": "71cd7c6881e6e2c12a945a5bab1b17b62ff9f370e228fb4d7d777f1c80e93f0f",
+        "paths": [
+          "backtests/swing/data/futures_context_authority.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
         "name": "code:backtests/swing/data/replay_cache.py",
         "kind": "file_contents",
-        "fingerprint": "fcc15800317e45287feefe3fada8527ebb002ec29be8c5c764fa18ff6767c6de",
+        "fingerprint": "5b5c02b496e1704ee384ebe4da1d470e7ed464381d9d6e5ff67229051f2feebf",
         "paths": [
           "backtests/swing/data/replay_cache.py"
         ],
@@ -182,9 +262,29 @@
         "notes": ""
       },
       {
+        "name": "code:strategies/swing/tpc/config.py",
+        "kind": "file_contents",
+        "fingerprint": "98dd4e84024b513f3db6eddfbe4e2f35bed686bb93f3cdf0e8209b69a6e61ad9",
+        "paths": [
+          "strategies/swing/tpc/config.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:strategies/swing/tpc/core/logic.py",
+        "kind": "file_contents",
+        "fingerprint": "8e1cd26febc7395222f7383aac39414b72976ad4324a93c0dea7f289602794a2",
+        "paths": [
+          "strategies/swing/tpc/core/logic.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
         "name": "plugin",
         "kind": "plugin_identity",
-        "fingerprint": "16cd1f16a47287fba49d0cc473fb32e513efd072c2132e7e7069db7cd4e1151e",
+        "fingerprint": "1f3eeeec2b5d0500cb2a05a25247ad345f0787fd3be63637de65db0a6a566f7f",
         "paths": [],
         "scope": "selection",
         "notes": ""
@@ -192,49 +292,71 @@
       {
         "name": "selection_context",
         "kind": "stable_json",
-        "fingerprint": "b2b218dd0f7cfd20536d3bbbafadee3cf520f758c07441854142724be40e1f8a",
+        "fingerprint": "8505a6f96be41024c6eb4f084c333d9015e64c2e7bedfd394627585de3e9d6d2",
         "paths": [],
-        "scope": "selection",
-        "notes": ""
-      },
-      {
-        "name": "code_tree:backtests/swing/auto/tpc",
-        "kind": "tree_contents",
-        "fingerprint": "aadf356a6b2b9654ce475ba6046a137c0626fc8c4d5be3d552fcd7caafa4e10a",
-        "paths": [
-          "backtests/swing/auto/tpc"
-        ],
-        "scope": "selection",
-        "notes": ""
-      },
-      {
-        "name": "code_tree:strategies/swing/tpc",
-        "kind": "tree_contents",
-        "fingerprint": "e5d7c1ba373037b1dab2dca58ad4722794e7e576681c06d783ae5aa6c37a04b3",
-        "paths": [
-          "strategies/swing/tpc"
-        ],
         "scope": "selection",
         "notes": ""
       },
       {
         "name": "shared_auto_package",
         "kind": "tree_contents",
-        "fingerprint": "d9d2fccedd37282a0908da4eacb176f90033de491d7babdfc8d654ce376d5f37",
+        "fingerprint": "18839ec45ea47ffafb0a2329d0346e3a387332fbc5ac5daeb00af7e271e9e7ad",
         "paths": [
           "backtests/shared/auto"
         ],
         "scope": "selection",
         "notes": ""
+      },
+      {
+        "name": "source_artifact:context_requalification",
+        "kind": "source_artifact_contents",
+        "fingerprint": "6758040e6b6e349e777ae7ba1240db54931029f7eab3facc334af9862920bb5e",
+        "paths": [
+          "backtests/output/swing/tpc/round_8/nq_gc_context_requalification.md"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:optimized_config",
+        "kind": "source_artifact_contents",
+        "fingerprint": "47dbadf95c389eca9c51031dcff47c6d04b963ef68fa27b3e0802171e385cce8",
+        "paths": [
+          "backtests/output/swing/tpc/round_8/optimized_config.json"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
       }
     ]
   },
-  "provenance_status": "complete",
+  "provenance_status": "post_oos_recovery_promoted_consumed_oos",
   "selection_status": "current_code_replayed_without_material_drift",
   "diagnostics_refresh": {
     "status": "current_code_replayed_without_material_drift",
     "updated_saved_metrics": true,
     "deltas": {},
     "basis": "current-code optimized-config replay"
+  },
+  "canonicalized_at_utc": "2026-08-14T11:24:09.660534+00:00",
+  "canonical_mutation_count": 97,
+  "canonical_config_status": "post_oos_recovery_promoted_consumed_oos",
+  "execution_context": {
+    "post_optimization_recovery": {
+      "status": "post_oos_recovery_promoted_consumed_oos",
+      "mutation": {
+        "QQQ.asset_context_block_opposed_daily": true
+      },
+      "canonical_mutation_count": 97,
+      "phase_state_role": "original four-phase search evidence; intentionally not rewritten",
+      "full_is_context_basis": "legacy_raw_full_history",
+      "certified_context_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\swing\\data\\authority\\oos_20260502",
+      "certified_window": [
+        "2025-08-01",
+        "2026-05-02"
+      ],
+      "official_is_end": "2025-11-01",
+      "oos_status": "consumed_development_evidence",
+      "next_untouched_period_starts_after": "2026-05-02"
+    }
   }
 }

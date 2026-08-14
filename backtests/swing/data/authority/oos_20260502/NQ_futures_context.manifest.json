@@ -1,0 +1,58 @@
+{
+  "base": {
+    "path": "backtests\\swing\\data\\authority\\oos_20260502\\NQ_5m.parquet",
+    "sha256": "89429ff1ca910d5a20af402d9173049eb3f962ea911b037a0da8fc943d55003e",
+    "size": 1614681
+  },
+  "base_manifest": {
+    "path": "backtests\\swing\\data\\authority\\oos_20260502\\NQ_5m.manifest.json",
+    "sha256": "34b0afeef2b44a0d0452fcb754a6eb050732742a63787f81a3ce5ae1c0186ac6",
+    "size": 3675
+  },
+  "certified_at_utc": "2026-08-14T05:05:03.758737+00:00",
+  "children": {
+    "1d": {
+      "data": {
+        "path": "backtests\\swing\\data\\authority\\oos_20260502\\NQ_1d.parquet",
+        "sha256": "83e84a07322767fad3e3678d959ab25271ca1d206deffd117429cb83f02da7b7",
+        "size": 13695
+      },
+      "manifest": {
+        "path": "backtests\\swing\\data\\authority\\oos_20260502\\NQ_1d.manifest.json",
+        "sha256": "934f6dd67894dfb736a452db466b7c61f6a333271a1f21b4f04cc02800adc93a",
+        "size": 1318
+      }
+    },
+    "1h": {
+      "data": {
+        "path": "backtests\\swing\\data\\authority\\oos_20260502\\NQ_1h.parquet",
+        "sha256": "746132c373c5274551e21acba80b6284313e7a89883b0585389e2f7e131bee6b",
+        "size": 161000
+      },
+      "manifest": {
+        "path": "backtests\\swing\\data\\authority\\oos_20260502\\NQ_1h.manifest.json",
+        "sha256": "d854f4ccd6959bdff63cc4f670616b9ca65f14464e0e66a8e7466356854ab138",
+        "size": 1249
+      }
+    }
+  },
+  "quality_gate": {
+    "children_exactly_derived": true,
+    "duplicate_rows": 0,
+    "end": "2026-05-01T20:55:00+00:00",
+    "gap_policy": "globex_calendar_aware_gaps_over_30m_v1",
+    "invalid_ohlc_rows": 0,
+    "missing_value_rows": 0,
+    "off_grid_rows": 0,
+    "parent_chain_verified": true,
+    "passed": true,
+    "rows": 53145,
+    "start": "2025-08-01T00:00:00+00:00",
+    "structural_checks": "ohlcv_bounds_unique_monotonic_5m_grid_v1",
+    "unexplained_gap_count": 0
+  },
+  "schema_version": "swing_futures_context_authority_v3",
+  "symbol": "NQ",
+  "updated_at": "2026-08-14T05:05:03.842815+00:00",
+  "usable_for_authoritative_validation": true
+}

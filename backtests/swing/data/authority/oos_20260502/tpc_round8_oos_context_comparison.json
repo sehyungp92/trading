@@ -1,0 +1,257 @@
+{
+  "basis": "TPC round 8, warmup from 2025-08-01, OOS trades entering on/after 2025-11-01 through 2026-05-02",
+  "certified": {
+    "lane": "certified_physical_panama_context",
+    "oos_avg_r": 0.1925802840983384,
+    "oos_cutoff": "2025-11-01T00:00:00+00:00",
+    "oos_net_pnl": 461.93999999986545,
+    "oos_profit_factor": 1.0313551671474537,
+    "oos_symbol_counts": {
+      "GLD": 9,
+      "QQQ": 5
+    },
+    "oos_trades": 14,
+    "oos_win_rate": 0.5,
+    "source_fingerprint": "ab021917d192c3cd68a65bec7972a30979a21783593444a41b95e5a0db4e6f9d",
+    "trades": [
+      {
+        "entry_time": "2025-12-31T19:30:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-01-02T09:00:00+00:00",
+        "net_pnl": 302.1500000000217,
+        "r_multiple": 0.16864727442135924,
+        "symbol": "QQQ"
+      },
+      {
+        "entry_time": "2026-02-18T16:00:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-02-18T18:30:00+00:00",
+        "net_pnl": -2521.259999999994,
+        "r_multiple": -1.0327047543148968,
+        "symbol": "QQQ"
+      },
+      {
+        "entry_time": "2026-03-10T15:00:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-03-10T18:00:00+00:00",
+        "net_pnl": -2567.7299999999996,
+        "r_multiple": -1.0208945240006444,
+        "symbol": "QQQ"
+      },
+      {
+        "entry_time": "2026-04-01T16:45:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-04-01T18:00:00+00:00",
+        "net_pnl": -2482.480000000081,
+        "r_multiple": -1.027090474719138,
+        "symbol": "QQQ"
+      },
+      {
+        "entry_time": "2026-04-06T14:00:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-04-06T14:30:00+00:00",
+        "net_pnl": -2486.8500000000463,
+        "r_multiple": -1.014295586242729,
+        "symbol": "QQQ"
+      },
+      {
+        "entry_time": "2025-11-20T14:15:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2025-11-20T14:30:00+00:00",
+        "net_pnl": -1284.6600000000478,
+        "r_multiple": -1.056388769808585,
+        "symbol": "GLD"
+      },
+      {
+        "entry_time": "2025-11-20T14:45:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2025-11-20T15:00:00+00:00",
+        "net_pnl": -1472.5399999999763,
+        "r_multiple": -1.0480649538330753,
+        "symbol": "GLD"
+      },
+      {
+        "entry_time": "2025-11-20T15:15:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2025-11-20T19:15:00+00:00",
+        "net_pnl": 3611.4500000000085,
+        "r_multiple": 2.2722606145848325,
+        "symbol": "GLD"
+      },
+      {
+        "entry_time": "2026-02-17T19:15:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-02-18T00:30:00+00:00",
+        "net_pnl": 1620.080000000012,
+        "r_multiple": 1.0004430921010357,
+        "symbol": "GLD"
+      },
+      {
+        "entry_time": "2026-03-11T14:15:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-03-11T16:30:00+00:00",
+        "net_pnl": 2524.189999999977,
+        "r_multiple": 1.931076527061695,
+        "symbol": "GLD"
+      },
+      {
+        "entry_time": "2026-04-01T12:15:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-04-01T12:45:00+00:00",
+        "net_pnl": -1916.9799999999852,
+        "r_multiple": -1.031247035800739,
+        "symbol": "GLD"
+      },
+      {
+        "entry_time": "2026-04-01T13:30:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-04-01T18:00:00+00:00",
+        "net_pnl": 2537.509999999981,
+        "r_multiple": 1.555425608282086,
+        "symbol": "GLD"
+      },
+      {
+        "entry_time": "2026-04-21T18:00:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-04-21T18:45:00+00:00",
+        "net_pnl": 1091.7400000000234,
+        "r_multiple": 0.7092429385628275,
+        "symbol": "GLD"
+      },
+      {
+        "entry_time": "2026-04-21T19:00:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-04-21T20:15:00+00:00",
+        "net_pnl": 3507.319999999972,
+        "r_multiple": 2.2897140210827094,
+        "symbol": "GLD"
+      }
+    ]
+  },
+  "delta": {
+    "oos_avg_r": -0.198315242679818,
+    "oos_net_pnl": -5794.520000000024,
+    "oos_trades": 1,
+    "oos_win_rate": -0.11538461538461542
+  },
+  "legacy": {
+    "lane": "legacy_independent_context",
+    "oos_avg_r": 0.3908955267781564,
+    "oos_cutoff": "2025-11-01T00:00:00+00:00",
+    "oos_net_pnl": 6256.45999999989,
+    "oos_profit_factor": 1.6225934244399511,
+    "oos_symbol_counts": {
+      "GLD": 9,
+      "QQQ": 4
+    },
+    "oos_trades": 13,
+    "oos_win_rate": 0.6153846153846154,
+    "source_fingerprint": "31e4abc88c942ade3b2e0912d0be4b4a61d5584f26b4e1942df70bf34742bfbc",
+    "trades": [
+      {
+        "entry_time": "2025-12-31T19:30:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-01-02T09:00:00+00:00",
+        "net_pnl": 302.1500000000217,
+        "r_multiple": 0.16864727442135924,
+        "symbol": "QQQ"
+      },
+      {
+        "entry_time": "2026-03-10T14:30:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-03-10T17:30:00+00:00",
+        "net_pnl": 545.1000000000388,
+        "r_multiple": 0.33154317935042527,
+        "symbol": "QQQ"
+      },
+      {
+        "entry_time": "2026-04-01T16:45:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-04-01T18:00:00+00:00",
+        "net_pnl": -2628.080000000085,
+        "r_multiple": -1.0270904747191378,
+        "symbol": "QQQ"
+      },
+      {
+        "entry_time": "2026-04-06T14:00:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-04-06T14:30:00+00:00",
+        "net_pnl": -2634.350000000049,
+        "r_multiple": -1.0142955862427288,
+        "symbol": "QQQ"
+      },
+      {
+        "entry_time": "2025-11-20T14:15:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2025-11-20T14:30:00+00:00",
+        "net_pnl": -1284.6600000000478,
+        "r_multiple": -1.056388769808585,
+        "symbol": "GLD"
+      },
+      {
+        "entry_time": "2025-11-20T14:45:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2025-11-20T15:00:00+00:00",
+        "net_pnl": -1472.5399999999763,
+        "r_multiple": -1.0480649538330753,
+        "symbol": "GLD"
+      },
+      {
+        "entry_time": "2025-11-20T15:15:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2025-11-20T19:15:00+00:00",
+        "net_pnl": 3611.4500000000085,
+        "r_multiple": 2.2722606145848325,
+        "symbol": "GLD"
+      },
+      {
+        "entry_time": "2026-02-17T19:15:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-02-18T00:30:00+00:00",
+        "net_pnl": 1620.080000000012,
+        "r_multiple": 1.0004430921010357,
+        "symbol": "GLD"
+      },
+      {
+        "entry_time": "2026-03-11T14:15:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-03-11T16:30:00+00:00",
+        "net_pnl": 2672.7099999999755,
+        "r_multiple": 1.931303092417864,
+        "symbol": "GLD"
+      },
+      {
+        "entry_time": "2026-04-01T12:15:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-04-01T12:45:00+00:00",
+        "net_pnl": -2029.3999999999842,
+        "r_multiple": -1.031247035800739,
+        "symbol": "GLD"
+      },
+      {
+        "entry_time": "2026-04-01T13:30:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-04-01T18:00:00+00:00",
+        "net_pnl": 2685.71999999998,
+        "r_multiple": 1.5554357967499377,
+        "symbol": "GLD"
+      },
+      {
+        "entry_time": "2026-04-21T18:00:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-04-21T18:45:00+00:00",
+        "net_pnl": 1155.9600000000248,
+        "r_multiple": 0.7092429385628275,
+        "symbol": "GLD"
+      },
+      {
+        "entry_time": "2026-04-21T19:00:00+00:00",
+        "exit_reason": "STOP",
+        "exit_time": "2026-04-21T20:15:00+00:00",
+        "net_pnl": 3712.319999999971,
+        "r_multiple": 2.2898526803320176,
+        "symbol": "GLD"
+      }
+    ]
+  }
+}

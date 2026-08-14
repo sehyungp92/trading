@@ -1,0 +1,573 @@
+{
+  "family": "swing",
+  "strategy": "tpc",
+  "round": 8,
+  "generated_at_utc": "2026-08-14T11:24:09.660534+00:00",
+  "status": "post_oos_recovery_promoted_consumed_oos",
+  "canonical_mutation_count": 97,
+  "recovery_mutation": {
+    "QQQ.asset_context_block_opposed_daily": true
+  },
+  "headline_metrics": {
+    "total_trades": 123,
+    "win_rate": 59.34959349593496,
+    "profit_factor": 2.443745387452162,
+    "max_drawdown_pct": 13.846465000000082,
+    "net_return_pct": 152.8052849999986,
+    "sharpe_ratio": 0.9687163332475864,
+    "calmar_ratio": null
+  },
+  "final_metrics": {
+    "total_trades": 123.0,
+    "net_return_pct": 152.8052849999986,
+    "net_return_per_month": 2.7643965822173264,
+    "total_pnl_dollars": 152805.28499999834,
+    "pnl_per_trade": 1242.319390243889,
+    "profit_factor": 2.443745387452162,
+    "dollar_profit_factor": 2.266821048233265,
+    "avg_r": 0.7406934927968488,
+    "total_r": 91.10529961401241,
+    "r_per_month": 1.6481836925657625,
+    "win_rate": 0.5934959349593496,
+    "max_dd_pct": 13.846465000000082,
+    "sharpe": 0.9687163332475864,
+    "trades_per_month": 2.2251899180891175,
+    "expectancy_frequency": 1.1048977038700651,
+    "mfe_capture": 0.3085138508724333,
+    "avg_mfe_r": 3.170253955359904,
+    "avg_mae_r": 0.9038973740185441,
+    "excellent_trades": 69.0,
+    "excellent_trades_per_month": 1.2482772711231633,
+    "excellent_rate": 0.5609756097560976,
+    "two_r_plus_rate": 0.3902439024390244,
+    "never_worked_rate": 0.22764227642276422,
+    "false_positive_never_worked_rate": 0.22764227642276422,
+    "low_mfe_loss_rate": 0.3252032520325203,
+    "false_positive_low_mfe_loss_rate": 0.3252032520325203,
+    "half_to_one_r_loss_rate": 0.0975609756097561,
+    "right_then_lost_rate": 0.08130081300813008,
+    "top5_winner_share": 0.33745600568793677,
+    "dollar_top5_winner_share": 0.23908011640502702,
+    "max_symbol_trade_share": 0.7723577235772358,
+    "dominant_symbol_trade_share": 0.7723577235772358,
+    "gld_trade_count": 95.0,
+    "qqq_trade_count": 28.0,
+    "gld_excellent_trades": 47.0,
+    "qqq_excellent_trades": 22.0,
+    "gld_excellent_rate": 0.49473684210526314,
+    "qqq_excellent_rate": 0.7857142857142857,
+    "gld_trade_share": 0.7723577235772358,
+    "max_gld_trade_share": 0.7723577235772358,
+    "qqq_trade_share": 0.22764227642276422,
+    "entry_requests": 127.0,
+    "request_fill_rate": 0.968503937007874,
+    "order_terminal_rate": 0.031496062992125984,
+    "additive_trade_count": 9.0,
+    "additive_avg_r": 0.8045107168071005,
+    "additive_total_r": 7.2405964512639045,
+    "additive_pnl_pct": 15.902969999999888,
+    "additive_low_mfe_loss_rate": 0.2222222222222222,
+    "pb30_trade_count": 9.0,
+    "pb30_avg_r": 0.8045107168071005,
+    "pb30_total_r": 7.2405964512639045,
+    "pb30_plain_trade_count": 9.0,
+    "pb30_plain_avg_r": 0.8045107168071005,
+    "pb30_plain_total_r": 7.2405964512639045,
+    "pb30_plain_low_mfe_loss_rate": 0.2222222222222222,
+    "pb30_ema20_trade_count": 0.0,
+    "pb30_ema20_avg_r": 0.0,
+    "pb30_ema20_total_r": 0.0,
+    "pb30_ema20_low_mfe_loss_rate": 0.0,
+    "ema20_touch_trade_count": 0.0,
+    "ema20_touch_avg_r": 0.0,
+    "ema20_touch_total_r": 0.0,
+    "ema20_touch_low_mfe_loss_rate": 0.0,
+    "worst_symbol_avg_r": 0.7269145235985208,
+    "worst_year_avg_r": -0.3244501363662073,
+    "worst_symbol_pnl": 70431.47500000065,
+    "worst_symbol_pnl_pct": 70.43147500000065,
+    "worst_year_pnl": -4124.050000000331,
+    "worst_year_pnl_pct": -4.124050000000331
+  },
+  "full_is_delta": {
+    "total_trades": -3.0,
+    "net_return_pct": -7.785889999999426,
+    "total_pnl_dollars": -7785.890000000014,
+    "profit_factor": 0.003198360898511776,
+    "dollar_profit_factor": -0.012791029514349184,
+    "avg_r": 0.007685275192709784,
+    "total_r": -1.2537358041091125,
+    "win_rate": -0.0017421602787456303,
+    "max_dd_pct": 0.0,
+    "sharpe": -0.017064638932038467,
+    "trades_per_month": -0.05427292483144175,
+    "qqq_trade_count": -3.0,
+    "gld_trade_count": 0.0
+  },
+  "certified_context": {
+    "basis": "single strict certified-authority replay across 2025-08-01..2026-05-02; trades partitioned at 2025-11-01 to retain warmup and equity path",
+    "authority_dir": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\swing\\data\\authority\\oos_20260502",
+    "replay_source_fingerprint": "982e77946ce0ba1d02c2e15b6ad322561c08c8ddff39d0c2392ed41223d338c1",
+    "certified_is_overlap": {
+      "baseline": {
+        "total_trades": 3,
+        "total_pnl_dollars": -1200.5000000000873,
+        "dollar_profit_factor": 0.6666083474271329,
+        "avg_r": -0.1701849289768617,
+        "total_r": -0.5105547869305851,
+        "win_rate": 0.3333333333333333,
+        "trade_path_max_dd_dollars": 3600.870000000082,
+        "trade_path_max_dd_r": 2.061013074623858,
+        "qqq_trade_count": 0,
+        "gld_trade_count": 3
+      },
+      "recovered": {
+        "total_trades": 3,
+        "total_pnl_dollars": -1200.5000000000873,
+        "dollar_profit_factor": 0.6666083474271329,
+        "avg_r": -0.1701849289768617,
+        "total_r": -0.5105547869305851,
+        "win_rate": 0.3333333333333333,
+        "trade_path_max_dd_dollars": 3600.870000000082,
+        "trade_path_max_dd_r": 2.061013074623858,
+        "qqq_trade_count": 0,
+        "gld_trade_count": 3
+      }
+    },
+    "oos": {
+      "baseline": {
+        "total_trades": 14,
+        "total_pnl_dollars": 461.93999999986545,
+        "dollar_profit_factor": 1.0313551671474537,
+        "avg_r": 0.1925802840983384,
+        "total_r": 2.696123977376738,
+        "win_rate": 0.5,
+        "trade_path_max_dd_dollars": 6913.600000000148,
+        "trade_path_max_dd_r": 2.1044537236416603,
+        "qqq_trade_count": 5,
+        "gld_trade_count": 9
+      },
+      "recovered": {
+        "total_trades": 11,
+        "total_pnl_dollars": 8330.019999999986,
+        "dollar_profit_factor": 2.132286955895283,
+        "avg_r": 0.5246203954233276,
+        "total_r": 5.770824349656603,
+        "win_rate": 0.6363636363636364,
+        "trade_path_max_dd_dollars": 2757.2000000000244,
+        "trade_path_max_dd_r": 2.1044537236416603,
+        "qqq_trade_count": 2,
+        "gld_trade_count": 9
+      },
+      "delta": {
+        "total_trades": -3.0,
+        "total_pnl_dollars": 7868.08000000012,
+        "dollar_profit_factor": 1.1009317887478294,
+        "avg_r": 0.33204011132498923,
+        "total_r": 3.0747003722798656,
+        "win_rate": 0.13636363636363635,
+        "trade_path_max_dd_dollars": -4156.400000000123,
+        "trade_path_max_dd_r": 0.0,
+        "qqq_trade_count": -3.0,
+        "gld_trade_count": 0.0
+      },
+      "suppressed_baseline_trades": [
+        {
+          "symbol": "QQQ",
+          "entry_time": "2026-02-18T16:00:00+00:00",
+          "exit_time": "2026-02-18T18:30:00+00:00",
+          "direction": 1,
+          "pnl_dollars": -2521.259999999994,
+          "r_multiple": -1.0327047543148968,
+          "mfe_r": 0.35516301074320694,
+          "mae_r": 1.2020901902078442,
+          "exit_reason": "STOP",
+          "campaign_id": "TPC-QQQ-1771429500"
+        },
+        {
+          "symbol": "QQQ",
+          "entry_time": "2026-04-01T16:45:00+00:00",
+          "exit_time": "2026-04-01T18:00:00+00:00",
+          "direction": 1,
+          "pnl_dollars": -2482.480000000081,
+          "r_multiple": -1.027090474719138,
+          "mfe_r": 0.24266423303800197,
+          "mae_r": 1.580139191875584,
+          "exit_reason": "STOP",
+          "campaign_id": "TPC-QQQ-1775056500"
+        },
+        {
+          "symbol": "QQQ",
+          "entry_time": "2026-04-06T14:00:00+00:00",
+          "exit_time": "2026-04-06T14:30:00+00:00",
+          "direction": 1,
+          "pnl_dollars": -2486.8500000000463,
+          "r_multiple": -1.014295586242729,
+          "mfe_r": 0.0,
+          "mae_r": 1.0452401973484464,
+          "exit_reason": "STOP",
+          "campaign_id": "TPC-QQQ-1775479500"
+        }
+      ],
+      "recovered_trades": [
+        {
+          "symbol": "QQQ",
+          "entry_time": "2025-12-31T19:30:00+00:00",
+          "exit_time": "2026-01-02T09:00:00+00:00",
+          "direction": -1,
+          "pnl_dollars": 302.1500000000217,
+          "r_multiple": 0.16864727442135924,
+          "mfe_r": 1.9269325565366606,
+          "mae_r": 3.5579691025191034,
+          "exit_reason": "STOP",
+          "campaign_id": "TPC-QQQ-1767195900"
+        },
+        {
+          "symbol": "QQQ",
+          "entry_time": "2026-03-10T15:00:00+00:00",
+          "exit_time": "2026-03-10T18:00:00+00:00",
+          "direction": 1,
+          "pnl_dollars": -2632.99,
+          "r_multiple": -1.0208945240006444,
+          "mfe_r": 0.638567491107947,
+          "mae_r": 1.1469810986780353,
+          "exit_reason": "STOP",
+          "campaign_id": "TPC-QQQ-1773153900"
+        },
+        {
+          "symbol": "GLD",
+          "entry_time": "2025-11-20T14:15:00+00:00",
+          "exit_time": "2025-11-20T14:30:00+00:00",
+          "direction": -1,
+          "pnl_dollars": -1284.6600000000478,
+          "r_multiple": -1.056388769808585,
+          "mfe_r": 1.09102446717931,
+          "mae_r": 1.6798313224823904,
+          "exit_reason": "STOP",
+          "campaign_id": "TPC-GLD-1763647200"
+        },
+        {
+          "symbol": "GLD",
+          "entry_time": "2025-11-20T14:45:00+00:00",
+          "exit_time": "2025-11-20T15:00:00+00:00",
+          "direction": -1,
+          "pnl_dollars": -1472.5399999999763,
+          "r_multiple": -1.0480649538330753,
+          "mfe_r": 0.7971198240421002,
+          "mae_r": 1.151395301394061,
+          "exit_reason": "STOP",
+          "campaign_id": "TPC-GLD-1763649000"
+        },
+        {
+          "symbol": "GLD",
+          "entry_time": "2025-11-20T15:15:00+00:00",
+          "exit_time": "2025-11-20T19:15:00+00:00",
+          "direction": -1,
+          "pnl_dollars": 3611.4500000000085,
+          "r_multiple": 2.2722606145848325,
+          "mfe_r": 5.0142687751273805,
+          "mae_r": 0.4122843215104786,
+          "exit_reason": "STOP",
+          "campaign_id": "TPC-GLD-1763650800"
+        },
+        {
+          "symbol": "GLD",
+          "entry_time": "2026-02-17T19:15:00+00:00",
+          "exit_time": "2026-02-18T00:30:00+00:00",
+          "direction": -1,
+          "pnl_dollars": 1620.080000000012,
+          "r_multiple": 1.0004430921010357,
+          "mfe_r": 2.4166547419583457,
+          "mae_r": 0.0,
+          "exit_reason": "STOP",
+          "campaign_id": "TPC-GLD-1771354800"
+        },
+        {
+          "symbol": "GLD",
+          "entry_time": "2026-03-11T14:15:00+00:00",
+          "exit_time": "2026-03-11T16:30:00+00:00",
+          "direction": -1,
+          "pnl_dollars": 2588.6699999999764,
+          "r_multiple": 1.9314624305261194,
+          "mfe_r": 2.946001185913228,
+          "mae_r": 0.730311218356611,
+          "exit_reason": "STOP",
+          "campaign_id": "TPC-GLD-1773237600"
+        },
+        {
+          "symbol": "GLD",
+          "entry_time": "2026-04-01T12:15:00+00:00",
+          "exit_time": "2026-04-01T12:45:00+00:00",
+          "direction": 1,
+          "pnl_dollars": -1966.6199999999844,
+          "r_multiple": -1.031247035800739,
+          "mfe_r": 0.5297501896236715,
+          "mae_r": 1.4267938440530756,
+          "exit_reason": "STOP",
+          "campaign_id": "TPC-GLD-1775041200"
+        },
+        {
+          "symbol": "GLD",
+          "entry_time": "2026-04-01T13:30:00+00:00",
+          "exit_time": "2026-04-01T18:00:00+00:00",
+          "direction": 1,
+          "pnl_dollars": 2601.50999999998,
+          "r_multiple": 1.55552323272444,
+          "mfe_r": 3.5203540882253446,
+          "mae_r": 0.8664437387686728,
+          "exit_reason": "STOP",
+          "campaign_id": "TPC-GLD-1775045700"
+        },
+        {
+          "symbol": "GLD",
+          "entry_time": "2026-04-21T18:00:00+00:00",
+          "exit_time": "2026-04-21T18:45:00+00:00",
+          "direction": -1,
+          "pnl_dollars": 1179.1900000000253,
+          "r_multiple": 0.7094926349166725,
+          "mfe_r": 1.4436660997965165,
+          "mae_r": 0.20144178136691251,
+          "exit_reason": "STOP",
+          "campaign_id": "TPC-GLD-1776789900"
+        },
+        {
+          "symbol": "GLD",
+          "entry_time": "2026-04-21T19:00:00+00:00",
+          "exit_time": "2026-04-21T20:15:00+00:00",
+          "direction": -1,
+          "pnl_dollars": 3783.77999999997,
+          "r_multiple": 2.289590353825188,
+          "mfe_r": 3.920491888623842,
+          "mae_r": 0.6096207226278163,
+          "exit_reason": "STOP",
+          "campaign_id": "TPC-GLD-1776793500"
+        }
+      ]
+    }
+  },
+  "phase_search_evidence": {
+    "role": "original four-phase search evidence; intentionally not rewritten",
+    "completed_phases": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "mutation_count": 96,
+    "recovery_present": false
+  },
+  "provenance": {
+    "schema_version": 1,
+    "selection_fingerprint": "c28c0421bcdc8bd31b6d5e8c7c6253865ef3ec1520a086bb6be5ab113afa7302",
+    "diagnostics_fingerprint": "05a30718028a96925bcca204b593221766922db2b4f0be3a777e3b81145c46d2",
+    "items": [
+      {
+        "name": "certified_context_authority",
+        "kind": "tree_contents",
+        "fingerprint": "c364c504ae93b706a91acf9c11bea35d641b7bd4176a859c82444fc53cdb7e73",
+        "paths": [
+          "backtests/swing/data/authority/oos_20260502"
+        ],
+        "scope": "data",
+        "notes": "Certified NQ/GC parent/child authority used for post-round OOS recovery."
+      },
+      {
+        "name": "data_dir",
+        "kind": "tree_contents",
+        "fingerprint": "16c496423510236c28022380a783400fe0d29d6160a09b73dbda96df0fdc1f2a",
+        "paths": [
+          "backtests/swing/data/raw"
+        ],
+        "scope": "data",
+        "notes": "Root-level replay inputs consumed by the full historical IS run."
+      },
+      {
+        "name": "diagnostics:full_is",
+        "kind": "file_contents",
+        "fingerprint": "308453eea5d363082d60edafa6f1f57c1d85cf0e2e187b94665207aba7d457da",
+        "paths": [
+          "backtests/output/swing/tpc/round_8/full_diagnostics_in_sample.txt"
+        ],
+        "scope": "diagnostics",
+        "notes": ""
+      },
+      {
+        "name": "diagnostics:full_oos",
+        "kind": "file_contents",
+        "fingerprint": "9dd40dcee3fee15aca58aa374e9e32109151d62b3cd40511e5624f162c5946d8",
+        "paths": [
+          "backtests/output/swing/tpc/round_8/full_diagnostics_out_of_sample.txt"
+        ],
+        "scope": "diagnostics",
+        "notes": ""
+      },
+      {
+        "name": "diagnostics:round_evaluation",
+        "kind": "file_contents",
+        "fingerprint": "ddaf32588c54ae16cc56d8aaec6978451dbe5f41cf2fcb1f1ae35424f02d1eb2",
+        "paths": [
+          "backtests/output/swing/tpc/round_8/round_evaluation.txt"
+        ],
+        "scope": "diagnostics",
+        "notes": ""
+      },
+      {
+        "name": "diagnostics:round_final",
+        "kind": "file_contents",
+        "fingerprint": "49abf41c652a7a20f4aa2b79b4869b2fef1ba3e486a06850d241a17f1feeaf9b",
+        "paths": [
+          "backtests/output/swing/tpc/round_8/round_final_diagnostics.txt"
+        ],
+        "scope": "diagnostics",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/swing/analysis/etf_baseline.py",
+        "kind": "file_contents",
+        "fingerprint": "746279539eaf38ccb9e8cf2c10b214a184c70e8373d43caf91430570a232a885",
+        "paths": [
+          "backtests/swing/analysis/etf_baseline.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/swing/auto/tpc/plugin.py",
+        "kind": "file_contents",
+        "fingerprint": "aff8943b21d23841e80aa73e1e35568f1a4774954f4da97fc02876e76c44a14b",
+        "paths": [
+          "backtests/swing/auto/tpc/plugin.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/swing/auto/tpc/promote_round8_context_recovery.py",
+        "kind": "file_contents",
+        "fingerprint": "ec47a5b598a5346f65aebc7769a7a98f05b768d30cab633928d8a719e4a85bfe",
+        "paths": [
+          "backtests/swing/auto/tpc/promote_round8_context_recovery.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/swing/config_tpc.py",
+        "kind": "file_contents",
+        "fingerprint": "1d16c46fc52418c57e6fcbf8159f3390b432e418975a58fdb537f62f78817d65",
+        "paths": [
+          "backtests/swing/config_tpc.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/swing/data/futures_context_authority.py",
+        "kind": "file_contents",
+        "fingerprint": "71cd7c6881e6e2c12a945a5bab1b17b62ff9f370e228fb4d7d777f1c80e93f0f",
+        "paths": [
+          "backtests/swing/data/futures_context_authority.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/swing/data/replay_cache.py",
+        "kind": "file_contents",
+        "fingerprint": "5b5c02b496e1704ee384ebe4da1d470e7ed464381d9d6e5ff67229051f2feebf",
+        "paths": [
+          "backtests/swing/data/replay_cache.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:backtests/swing/engine/tpc_engine.py",
+        "kind": "file_contents",
+        "fingerprint": "292babf4da067d23152fe38634a5363f204c0ecc80611e7a34269fe6bcec21cc",
+        "paths": [
+          "backtests/swing/engine/tpc_engine.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:strategies/swing/tpc/config.py",
+        "kind": "file_contents",
+        "fingerprint": "98dd4e84024b513f3db6eddfbe4e2f35bed686bb93f3cdf0e8209b69a6e61ad9",
+        "paths": [
+          "strategies/swing/tpc/config.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "code:strategies/swing/tpc/core/logic.py",
+        "kind": "file_contents",
+        "fingerprint": "8e1cd26febc7395222f7383aac39414b72976ad4324a93c0dea7f289602794a2",
+        "paths": [
+          "strategies/swing/tpc/core/logic.py"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "plugin",
+        "kind": "plugin_identity",
+        "fingerprint": "1f3eeeec2b5d0500cb2a05a25247ad345f0787fd3be63637de65db0a6a566f7f",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "selection_context",
+        "kind": "stable_json",
+        "fingerprint": "8505a6f96be41024c6eb4f084c333d9015e64c2e7bedfd394627585de3e9d6d2",
+        "paths": [],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "shared_auto_package",
+        "kind": "tree_contents",
+        "fingerprint": "18839ec45ea47ffafb0a2329d0346e3a387332fbc5ac5daeb00af7e271e9e7ad",
+        "paths": [
+          "backtests/shared/auto"
+        ],
+        "scope": "selection",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:context_requalification",
+        "kind": "source_artifact_contents",
+        "fingerprint": "6758040e6b6e349e777ae7ba1240db54931029f7eab3facc334af9862920bb5e",
+        "paths": [
+          "backtests/output/swing/tpc/round_8/nq_gc_context_requalification.md"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      },
+      {
+        "name": "source_artifact:optimized_config",
+        "kind": "source_artifact_contents",
+        "fingerprint": "47dbadf95c389eca9c51031dcff47c6d04b963ef68fa27b3e0802171e385cce8",
+        "paths": [
+          "backtests/output/swing/tpc/round_8/optimized_config.json"
+        ],
+        "scope": "source_artifact",
+        "notes": ""
+      }
+    ]
+  },
+  "provenance_status": "post_oos_recovery_promoted_consumed_oos",
+  "artifacts": {
+    "optimized_config": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_8\\optimized_config.json",
+    "round_final_diagnostics": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_8\\round_final_diagnostics.txt",
+    "full_diagnostics_in_sample": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_8\\full_diagnostics_in_sample.txt",
+    "full_diagnostics_out_of_sample": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_8\\full_diagnostics_out_of_sample.txt",
+    "diagnostics_summary": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_8\\diagnostics_summary.json",
+    "recovery_promotion": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_8\\recovery_promotion.json",
+    "context_requalification": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_8\\nq_gc_context_requalification.md",
+    "round_evaluation": "C:\\Users\\sehyu\\Documents\\Other\\Projects\\trading\\backtests\\output\\swing\\tpc\\round_8\\round_evaluation.txt"
+  }
+}

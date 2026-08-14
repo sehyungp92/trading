@@ -27,10 +27,17 @@ def build_summary(
     initial_equity: float,
     start_date: str | None = None,
     end_date: str | None = None,
+    context_data_dir: Path | None = None,
 ) -> dict[str, Any]:
     mutations = json.loads(config_path.read_text(encoding="utf-8"))
     cfg = TPCBacktestConfig(initial_equity=initial_equity, data_dir=data_dir).with_overrides(mutations)
-    bundle = load_tpc_replay_bundle(data_dir, start_date=start_date, end_date=end_date)
+    bundle = load_tpc_replay_bundle(
+        data_dir,
+        start_date=start_date,
+        end_date=end_date,
+        require_context_authority=context_data_dir is not None,
+        context_data_dir=context_data_dir,
+    )
     result = run_tpc_independent(bundle.data, cfg, indicator_cache={})
     metrics = _extract_tpc_metrics(result, initial_equity)
     trades = list(result.trades)
@@ -59,6 +66,7 @@ def build_summary(
         "replay_loader": "load_tpc_replay_bundle",
         "config_path": str(config_path.as_posix()),
         "data_dir": str(data_dir.as_posix()),
+        "context_data_dir": str(context_data_dir.as_posix()) if context_data_dir is not None else None,
         "initial_equity": float(initial_equity),
         "start_date": start_date,
         "end_date": end_date,
@@ -111,6 +119,7 @@ def main() -> None:
     parser.add_argument("--equity", type=float, default=100_000.0)
     parser.add_argument("--start-date", default=None)
     parser.add_argument("--end-date", default=None)
+    parser.add_argument("--context-data-dir", default=None)
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
 
@@ -122,6 +131,7 @@ def main() -> None:
         initial_equity=args.equity,
         start_date=args.start_date,
         end_date=args.end_date,
+        context_data_dir=Path(args.context_data_dir) if args.context_data_dir else None,
     )
     output.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"Wrote {output}")

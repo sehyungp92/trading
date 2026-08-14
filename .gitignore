@@ -83,6 +83,15 @@ overlay_state.json
 **/backtest/data/raw/**/*.parquet
 **/backtests/**/data/raw/**/*.parquet
 backtests/stock/data/authority/.staging/
+# Swing futures-context consumers retain only certified 1h/1d children and
+# authority receipts in Git. The 5m parent, physical contract downloads,
+# atomic staging trees, and pre-promotion backups are publisher-local caches;
+# none is consumed by strict TPC replay or promotion.
+backtests/swing/data/authority/**/*_5m.parquet
+backtests/swing/data/authority/**/*_5m.manifest.json
+backtests/swing/data/authority/**/_physical_contracts/
+backtests/swing/data/authority/**/_staging/
+backtests/swing/data/authority/**/_uncertified_backup/
 # Diagnostic ETH->RTH projections are reproducible from the committed legacy
 # snapshot and manifest; direct accepted authority objects remain trackable.
 backtests/stock/data/authority/derived/**/bars.parquet

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock
@@ -108,6 +108,56 @@ def _position(symbol: str = "QQQ") -> ETFPosition:
         bars_held_15m=8,
         meta={"setup_lane": "primary"},
     )
+
+
+def _bars(count: int, step: timedelta) -> list[SimpleNamespace]:
+    start = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    return [
+        SimpleNamespace(
+            date=start + i * step,
+            open=100.0 + i * 0.1,
+            high=100.5 + i * 0.1,
+            low=99.5 + i * 0.1,
+            close=100.25 + i * 0.1,
+            volume=100 + i,
+        )
+        for i in range(count)
+    ]
+
+
+@pytest.mark.asyncio
+async def test_live_bar_input_hydrates_panama_futures_context_and_indicators() -> None:
+    raw_ib = SimpleNamespace(
+        isConnected=lambda: True,
+        qualifyContractsAsync=AsyncMock(side_effect=lambda contract: [contract]),
+    )
+    session = SimpleNamespace(ib=raw_ib)
+    engine = TPCEngine(
+        ib_session=session,
+        oms_service=object(),
+        instruments={"QQQ": _instrument("QQQ")},
+        config={"QQQ": SYMBOL_CONFIGS["QQQ"]},
+        disable_scheduler=True,
+    )
+    by_size = {
+        "15 mins": _bars(160, timedelta(minutes=15)),
+        "30 mins": _bars(120, timedelta(minutes=30)),
+        "1 hour": _bars(140, timedelta(hours=1)),
+        "4 hours": _bars(120, timedelta(hours=4)),
+        "1 day": _bars(120, timedelta(days=1)),
+    }
+    engine._req_bars = AsyncMock(side_effect=lambda _contract, _duration, size, **_kw: by_size[size])
+    engine._req_context_bars = AsyncMock(
+        side_effect=lambda _symbol, _duration, size, **_kw: by_size[size]
+    )
+
+    bar_input = await engine._build_bar_input("QQQ", "test")
+
+    assert bar_input is not None
+    assert bar_input.indicators["ema20_15m"] > 0
+    assert bar_input.indicators["context_sma50_1h"] > 0
+    assert bar_input.indicators["context_sma50_daily"] > 0
+    assert [call.args[0] for call in engine._req_context_bars.await_args_list] == ["NQ", "NQ"]
 
 
 def test_entry_filled_routes_to_log_entry():

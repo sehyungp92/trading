@@ -53,9 +53,12 @@ class FutureRootSpec:
     currency: str = "USD"
     tick_size: float = 0.25
     point_value: float = 1.0
+    panama_min_gap_guard_points: float = 250.0
     contract_months: tuple[int, ...] = tuple(month for month, _code in QUARTER_MONTHS)
     calendar_policy: str = NQ_CALENDAR_POLICY
     roll_policy: str = NQ_ROLL_POLICY
+    rth_start_minute_et: int = 9 * 60 + 30
+    rth_end_minute_et: int = 16 * 60
 
     @property
     def ib_trading_class(self) -> str:
@@ -63,8 +66,14 @@ class FutureRootSpec:
 
 
 FUTURE_ROOTS: dict[str, FutureRootSpec] = {
-    "NQ": FutureRootSpec("NQ", exchange="CME", trading_class="NQ", tick_size=0.25, point_value=20.0),
-    "MNQ": FutureRootSpec("MNQ", exchange="CME", trading_class="MNQ", tick_size=0.25, point_value=2.0),
+    "NQ": FutureRootSpec(
+        "NQ", exchange="CME", trading_class="NQ", tick_size=0.25, point_value=20.0,
+        panama_min_gap_guard_points=500.0,
+    ),
+    "MNQ": FutureRootSpec(
+        "MNQ", exchange="CME", trading_class="MNQ", tick_size=0.25, point_value=2.0,
+        panama_min_gap_guard_points=500.0,
+    ),
     "ES": FutureRootSpec("ES", exchange="CME", trading_class="ES", tick_size=0.25, point_value=50.0),
     "GC": FutureRootSpec(
         "GC",
@@ -72,9 +81,12 @@ FUTURE_ROOTS: dict[str, FutureRootSpec] = {
         trading_class="GC",
         tick_size=0.10,
         point_value=100.0,
+        panama_min_gap_guard_points=150.0,
         contract_months=GC_DELIVERY_MONTHS,
         calendar_policy=GC_CALENDAR_POLICY,
         roll_policy=GC_ROLL_POLICY,
+        rth_start_minute_et=8 * 60 + 20,
+        rth_end_minute_et=13 * 60 + 30,
     ),
 }
 

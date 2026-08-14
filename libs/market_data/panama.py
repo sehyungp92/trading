@@ -133,7 +133,12 @@ def stitch_panama(
             segment = segment.copy()
             for column in ("open", "high", "low", "close"):
                 if column in segment.columns:
-                    segment[column] = segment[column] - adjustment
+                    # ``gap`` is new-open minus old-close.  Backward Panama
+                    # therefore adds that cumulative difference to older
+                    # history so the old seam lands on the newer contract's
+                    # executable price scale.  Subtracting it doubles the
+                    # discontinuity (for example 100 -> 110 became 90 -> 110).
+                    segment[column] = segment[column] + adjustment
         adjusted.append(segment)
 
     return merge_frames(*adjusted)

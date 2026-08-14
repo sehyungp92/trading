@@ -1048,8 +1048,8 @@
     },
     {
       "round": 8,
-      "timestamp": "2026-05-23T00:05:26.198218+00:00",
-      "mutations_count": 96,
+      "timestamp": "2026-08-14T11:24:09.722812+00:00",
+      "mutations_count": 97,
       "mutations": {
         "all.trail_after_t1_30m_bars": 8,
         "all.trail_use_vwap_after_t1": true,
@@ -1155,6 +1155,7 @@
         "QQQ.t1_stop_r": 0.35,
         "QQQ.asset_context_enabled": true,
         "QQQ.asset_context_min_score": -0.1,
+        "QQQ.asset_context_block_opposed_daily": true,
         "QQQ.shorts_require_a_plus": true,
         "GLD.asset_context_enabled": true,
         "GLD.min_ma50_slope_atr_4h": 0.04,
@@ -1168,17 +1169,17 @@
         "all.pb30_entry_order_model": "",
         "all.pb30_pullback_orderly_required": true
       },
-      "total_trades": 126,
-      "win_rate": 59.523809523809526,
-      "profit_factor": 2.4405470265536504,
+      "total_trades": 123,
+      "win_rate": 59.34959349593496,
+      "profit_factor": 2.443745387452162,
       "max_drawdown_pct": 13.846465000000082,
-      "net_return_pct": 160.59117499999803,
-      "sharpe_ratio": 0.9857809721796249,
+      "net_return_pct": 152.8052849999986,
+      "sharpe_ratio": 0.9687163332475864,
       "calmar_ratio": null,
-      "selection_fingerprint": "51e21f62082e2bf6c05124febd1e5d17238a5ca2a92f4c8772a5c479d72df7e1",
-      "diagnostics_fingerprint": "51e21f62082e2bf6c05124febd1e5d17238a5ca2a92f4c8772a5c479d72df7e1",
+      "selection_fingerprint": "c28c0421bcdc8bd31b6d5e8c7c6253865ef3ec1520a086bb6be5ab113afa7302",
+      "diagnostics_fingerprint": "05a30718028a96925bcca204b593221766922db2b4f0be3a777e3b81145c46d2",
       "provenance_schema_version": 1,
-      "provenance_status": "complete"
+      "provenance_status": "post_oos_recovery_promoted_consumed_oos"
     }
   ]
 }

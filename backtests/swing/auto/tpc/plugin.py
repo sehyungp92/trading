@@ -25,7 +25,7 @@ from backtests.shared.auto.plugin_utils import (
 from backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion
 from backtests.swing.auto.etf_common import ETFPhasePlugin
 from backtests.swing.config_tpc import TPCBacktestConfig
-from backtests.swing.data.replay_cache import load_tpc_replay_bundle
+from backtests.swing.data.replay_cache import load_tpc_replay_bundle, tpc_replay_source_artifacts
 from backtests.swing.engine.tpc_engine import run_tpc_independent
 
 from .phase_candidates import get_phase_candidates
@@ -130,9 +130,9 @@ class TPCPlugin(ETFPhasePlugin):
 
     def build_provenance(self) -> AutoRunProvenance:
         if self._provenance is None:
-            from backtests.swing.data.futures_context_authority import require_tpc_futures_context_authority
+            from backtests.swing.data.futures_context_authority import require_tpc_futures_context_children
 
-            require_tpc_futures_context_authority(self.data_dir)
+            require_tpc_futures_context_children(self.data_dir)
             repo_root = Path(__file__).resolve().parents[4]
             self._provenance = build_phase_auto_provenance(
                 self.name,
@@ -146,7 +146,7 @@ class TPCPlugin(ETFPhasePlugin):
                     repo_root / "backtests/swing/config_tpc.py",
                     repo_root / "backtests/swing/data/replay_cache.py",
                 ),
-                data_dir=self.data_dir,
+                source_artifacts=tpc_replay_source_artifacts(self.data_dir),
                 selection_context={
                     "start_date": self.start_date,
                     "end_date": self.end_date,

@@ -16,6 +16,31 @@ _TPC_CONTEXT_SYMBOLS = {
 }
 
 
+def tpc_replay_source_artifacts(
+    data_dir: Path,
+    *,
+    symbols: tuple[str, ...] = ("QQQ", "GLD"),
+    require_context_authority: bool = True,
+    context_data_dir: Path | None = None,
+) -> dict[str, Path]:
+    """Return only selection-relevant TPC inputs, excluding 5m parents."""
+    base_dir = Path(data_dir)
+    context_dir = Path(context_data_dir) if context_data_dir is not None else base_dir
+    artifacts = {
+        f"{symbol}_{timeframe}": base_dir / f"{symbol}_{timeframe}.parquet"
+        for symbol in symbols
+        for timeframe in ("15m", "1h", "1d")
+    }
+    context_symbols = sorted({_TPC_CONTEXT_SYMBOLS.get(symbol, "") for symbol in symbols} - {""})
+    for context_symbol in context_symbols:
+        for timeframe in ("1h", "1d"):
+            artifacts[f"{context_symbol}_{timeframe}"] = context_dir / f"{context_symbol}_{timeframe}.parquet"
+        if require_context_authority:
+            for suffix in ("1h.manifest.json", "1d.manifest.json", "futures_context.manifest.json"):
+                artifacts[f"{context_symbol}_{suffix}"] = context_dir / f"{context_symbol}_{suffix}"
+    return artifacts
+
+
 def load_atrss_replay_bundle(
     data_dir: Path,
     *,
@@ -136,6 +161,7 @@ def load_tpc_replay_bundle(
     start_date: str | pd.Timestamp | None = None,
     end_date: str | pd.Timestamp | None = None,
     require_context_authority: bool = False,
+    context_data_dir: Path | None = None,
 ) -> ReplayBundle[Any]:
     return _load_etf_15m_bundle(
         "swing.tpc.replay_bundle",
@@ -145,6 +171,7 @@ def load_tpc_replay_bundle(
         end_date,
         pullback_timeframe="1h",
         require_context_authority=require_context_authority,
+        context_data_dir=context_data_dir,
     )
 
 
@@ -155,6 +182,7 @@ def load_tpc_pb30_replay_bundle(
     start_date: str | pd.Timestamp | None = None,
     end_date: str | pd.Timestamp | None = None,
     require_context_authority: bool = False,
+    context_data_dir: Path | None = None,
 ) -> ReplayBundle[Any]:
     """Load TPC data with the pullback window backed by completed 30m bars.
 
@@ -172,6 +200,7 @@ def load_tpc_pb30_replay_bundle(
         end_date,
         pullback_timeframe="30m",
         require_context_authority=require_context_authority,
+        context_data_dir=context_data_dir,
     )
 
 
@@ -184,6 +213,7 @@ def _load_etf_15m_bundle(
     *,
     pullback_timeframe: str = "1h",
     require_context_authority: bool = False,
+    context_data_dir: Path | None = None,
 ) -> ReplayBundle[Any]:
     from backtests.swing.data.cache import load_bars
     from backtests.swing.data.multitimeframe import (
@@ -197,6 +227,7 @@ def _load_etf_15m_bundle(
     from backtests.swing.data.preprocessing import build_numpy_arrays, normalize_timezone
 
     base_dir = Path(data_dir)
+    context_dir = Path(context_data_dir) if context_data_dir is not None else base_dir
     source_paths = [
         base_dir / f"{symbol}_{timeframe}.parquet"
         for symbol in symbols
@@ -205,20 +236,18 @@ def _load_etf_15m_bundle(
     if namespace.startswith("swing.tpc."):
         context_symbols = sorted({_TPC_CONTEXT_SYMBOLS.get(symbol, "") for symbol in symbols} - {""})
         source_paths += [
-            base_dir / f"{context_symbol}_{timeframe}.parquet"
+            context_dir / f"{context_symbol}_{timeframe}.parquet"
             for context_symbol in context_symbols
             for timeframe in ("1h", "1d")
         ]
         if require_context_authority:
-            from backtests.swing.data.futures_context_authority import require_tpc_futures_context_authority
+            from backtests.swing.data.futures_context_authority import require_tpc_futures_context_children
 
-            require_tpc_futures_context_authority(base_dir, symbols=context_symbols)
+            require_tpc_futures_context_children(context_dir, symbols=context_symbols)
             source_paths += [
-                base_dir / f"{context_symbol}_{suffix}"
+                context_dir / f"{context_symbol}_{suffix}"
                 for context_symbol in context_symbols
                 for suffix in (
-                    "5m.parquet",
-                    "5m.manifest.json",
                     "1h.manifest.json",
                     "1d.manifest.json",
                     "futures_context.manifest.json",
@@ -249,13 +278,33 @@ def _load_etf_15m_bundle(
             context_symbol = _TPC_CONTEXT_SYMBOLS.get(symbol, "")
             context_indicators = {}
             if context_symbol:
-                path_1h = base_dir / f"{context_symbol}_1h.parquet"
-                path_1d = base_dir / f"{context_symbol}_1d.parquet"
+                path_1h = context_dir / f"{context_symbol}_1h.parquet"
+                path_1d = context_dir / f"{context_symbol}_1d.parquet"
                 if path_1h.exists() and path_1d.exists():
                     context_1h = normalize_timezone(load_bars(path_1h))
                     context_daily = normalize_timezone(load_bars(path_1d))
                     context_1h = _slice_timestamp_index(context_1h, start_ts, end_ts)
                     context_daily = _slice_timestamp_index(context_daily, start_ts, end_ts)
+                    if require_context_authority and not df15.empty:
+                        from backtests.swing.data.futures_context_authority import (
+                            FuturesContextAuthorityError,
+                        )
+
+                        if (
+                            context_1h.empty
+                            or context_1h.index.min() > df15.index.min()
+                            # A Friday ETF post-market tail can extend a few
+                            # hours beyond the futures Friday close.  Reusing
+                            # the last completed context bar is valid within
+                            # that bounded stale horizon, but not across a
+                            # partially covered research period.
+                            or context_1h.index.max() + pd.Timedelta(hours=6)
+                            < df15.index.max() + pd.Timedelta(minutes=15)
+                        ):
+                            raise FuturesContextAuthorityError(
+                                f"{context_symbol} certified 1h context does not cover the requested "
+                                f"{symbol} replay range {df15.index.min()}..{df15.index.max()}"
+                            )
                     context_indicators = _build_context_indicator_arrays(
                         df15,
                         context_1h,
@@ -289,6 +338,7 @@ def _load_etf_15m_bundle(
             "end_date": end_ts.isoformat() if end_ts is not None else None,
             "pullback_timeframe": pullback_timeframe,
             "require_context_authority": require_context_authority,
+            "context_data_dir": str(context_dir.resolve()),
         },
         loader=_load,
     )
@@ -369,6 +419,21 @@ def load_unified_portfolio_replay_bundle(config) -> ReplayBundle[Any]:
             set(getattr(config, "tpc_symbols", ()))
         )
     ]
+    context_dir = Path(getattr(config, "tpc_context_data_dir", None) or base_dir)
+    context_symbols = sorted(
+        {_TPC_CONTEXT_SYMBOLS.get(symbol, "") for symbol in getattr(config, "tpc_symbols", ())} - {""}
+    )
+    source_paths += [
+        context_dir / f"{symbol}_{timeframe}.parquet"
+        for symbol in context_symbols
+        for timeframe in ("1h", "1d")
+    ]
+    if bool(getattr(config, "tpc_require_context_authority", False)):
+        source_paths += [
+            context_dir / f"{symbol}_{suffix}"
+            for symbol in context_symbols
+            for suffix in ("1h.manifest.json", "1d.manifest.json", "futures_context.manifest.json")
+        ]
     return _build_bundle(
         "swing.unified.replay_bundle",
         source_paths=source_paths,
@@ -378,6 +443,10 @@ def load_unified_portfolio_replay_bundle(config) -> ReplayBundle[Any]:
             "helix_symbols": tuple(config.helix_symbols),
             "overlay_symbols": overlay_symbols,
             "overlay_enabled": bool(config.overlay_enabled),
+            "tpc_context_data_dir": str(context_dir.resolve()),
+            "tpc_require_context_authority": bool(
+                getattr(config, "tpc_require_context_authority", False)
+            ),
         },
         loader=lambda: load_unified_data(config),
     )

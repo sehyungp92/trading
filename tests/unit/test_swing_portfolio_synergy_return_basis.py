@@ -26,8 +26,17 @@ from backtests.swing.engine.unified_portfolio_engine import (
     _normalised_trade_pnl,
     _normalised_trade_r,
     _scaled_tpc_trade,
+    _tpc_cache_key,
     _tpc_open_mtm_pnl,
 )
+
+
+def test_tpc_source_trade_cache_key_includes_context_authority_fingerprint() -> None:
+    config = UnifiedBacktestConfig(initial_equity=50_000.0)
+    legacy = UnifiedPortfolioData(tpc_source_fingerprint="legacy-context")
+    certified = UnifiedPortfolioData(tpc_source_fingerprint="certified-context")
+
+    assert _tpc_cache_key(legacy, config) != _tpc_cache_key(certified, config)
 
 
 def test_static_initial_risk_return_uses_strategy_slot_units() -> None:

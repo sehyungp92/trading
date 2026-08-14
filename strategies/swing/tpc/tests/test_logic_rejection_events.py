@@ -215,6 +215,78 @@ def test_setup_snapshot_meta_contains_new_keys_when_setup_succeeds():
     assert setup.meta["orderly_pullback"] is True
 
 
+def test_opposed_daily_asset_context_can_hard_veto_setup():
+    from strategies.swing.tpc.models import PullbackType
+
+    bar_input = _BarInput(bar_15m=_Bar(timestamp=_now()), indicators={"atr_4h": 1.0})
+    cfg = TPCSymbolConfig(
+        symbol="QQQ",
+        asset_context_enabled=True,
+        asset_context_min_score=-1.0,
+        asset_context_block_opposed_daily=True,
+    )
+    state = ETFCoreState()
+    rejections: list[dict] = []
+    pullback = SimpleNamespace(
+        pullback_type=PullbackType.TYPE_A,
+        depth=0.4,
+        low=99.0,
+        high=100.5,
+        value_hits=2,
+        orderly=True,
+    )
+
+    with patch("strategies.swing.tpc.core.logic.gates.session_filter", return_value=True), \
+         patch("strategies.swing.tpc.core.logic.gates.news_filter", return_value=True), \
+         patch("strategies.swing.tpc.core.logic.gates.regime_direction",
+               return_value=(Direction.LONG, RegimeGrade.A_PLUS, "ok")), \
+         patch("strategies.swing.tpc.core.logic.gates.daily_room_filter", return_value=True), \
+         patch("strategies.swing.tpc.core.logic.signals.detect_pullback", return_value=pullback), \
+         patch("strategies.swing.tpc.core.logic.signals.check_confirmation",
+               return_value=(True, ["vwap", "higher_low"])), \
+         patch("strategies.swing.tpc.core.logic._confirmation_combo_allowed", return_value=True), \
+         patch("strategies.swing.tpc.core.logic._entry_plan",
+               return_value=(100.0, "MARKET", 0.0, 0.0, "market_next_bar")), \
+         patch("strategies.swing.tpc.core.logic._initial_stop", return_value=99.0), \
+         patch("strategies.swing.tpc.core.logic.stops.validate_stop", return_value=True), \
+         patch("strategies.swing.tpc.core.logic.context.score_asset_context",
+               return_value=(0.2, {"votes": {"context_daily": -0.35}})), \
+         patch("strategies.swing.tpc.core.logic._daily_levels", return_value=[101.0, 99.0]):
+        setup = logic._evaluate_setup(
+            state,
+            bar_input,
+            cfg,
+            rejection_collector=rejections,
+        )
+
+    assert setup is None
+    opposed = [item for item in rejections if item["blocked_by"] == "asset_context_daily_opposed"]
+    assert opposed
+    assert opposed[0]["details"]["asset_context_daily_vote"] == pytest.approx(-0.35)
+
+
+def test_trend_alignment_is_invariant_to_panama_translation():
+    from strategies.swing.tpc.context import _trend_alignment
+
+    previous_close = 24_950.0
+    translated_previous_close = previous_close - 500.0
+    original = _trend_alignment(
+        Direction.LONG,
+        close=25_200.0,
+        fast=25_100.0,
+        slow=25_000.0,
+        ret=25_200.0 / previous_close - 1.0,
+    )
+    translated = _trend_alignment(
+        Direction.LONG,
+        close=24_700.0,
+        fast=24_600.0,
+        slow=24_500.0,
+        ret=24_700.0 / translated_previous_close - 1.0,
+    )
+    assert original == translated == 1.0
+
+
 def test_on_bar_common_wraps_rejections_into_events():
     """on_bar_common should append SETUP_REJECTED events when collector accumulates."""
     from strategies.swing._shared import etf_core

@@ -398,6 +398,8 @@ def build_tpc_optimized_full_diagnostics(
     mutations: dict[str, Any],
     *,
     data_dir: Path,
+    context_data_dir: Path | None = None,
+    require_context_authority: bool = False,
     initial_equity: float = 100_000.0,
     start_date: str | pd.Timestamp | None = None,
     end_date: str | pd.Timestamp | None = None,
@@ -412,7 +414,13 @@ def build_tpc_optimized_full_diagnostics(
     t0 = time.time()
     alignment = verify_etf_data_alignment(data_dir)
     cfg = TPCBacktestConfig(initial_equity=initial_equity, data_dir=data_dir).with_overrides(mutations)
-    bundle = load_tpc_replay_bundle(data_dir, start_date=start, end_date=end)
+    bundle = load_tpc_replay_bundle(
+        data_dir,
+        start_date=start,
+        end_date=end,
+        context_data_dir=context_data_dir,
+        require_context_authority=require_context_authority,
+    )
     result = run_tpc_independent(bundle.data, cfg, indicator_cache={})
     metrics = summarize_strategy("TPC", result, initial_equity, start, end, time.time() - t0)
     report = build_strategy_full_diagnostics(

@@ -86,19 +86,33 @@ def duration_to_days(duration: str) -> int:
     return max(1, duration_to_timedelta(duration).days)
 
 
-def plan_bar_windows(start: datetime, end: datetime, timeframe: str) -> list[DownloadWindow]:
+def plan_bar_windows(
+    start: datetime,
+    end: datetime,
+    timeframe: str,
+    *,
+    overlap: timedelta = timedelta(0),
+) -> list[DownloadWindow]:
     start = _ensure_utc_dt(start)
     end = _ensure_utc_dt(end)
     if end <= start:
         return []
     duration = CHUNK_DURATIONS.get(timeframe, "1 W")
     step = duration_to_timedelta(duration)
+    if overlap < timedelta(0) or overlap >= step:
+        raise ValueError("bar-window overlap must be non-negative and shorter than the request duration")
     windows: list[DownloadWindow] = []
     cursor = end
     while cursor > start:
         window_start = max(start, cursor - step)
         windows.append(DownloadWindow(start=window_start, end=cursor, duration=duration))
-        cursor = window_start - timedelta(seconds=1)
+        if window_start == start:
+            break
+        # IBKR treats the left edge of duration-based intraday requests as an
+        # approximate session boundary.  Physical futures therefore use an
+        # overlap so a whole session cannot disappear between adjacent weekly
+        # requests.  De-duplication happens when frames are merged.
+        cursor = window_start + overlap if overlap else window_start - timedelta(seconds=1)
     return windows
 
 
@@ -139,6 +153,7 @@ async def download_contract_bars(
         timeframe=timeframe,
         include_existing_gaps=latest_only,
         hard_start=start,
+        window_overlap=_physical_window_overlap(timeframe),
     )
     if dry_run:
         return DownloadResult(
@@ -201,7 +216,12 @@ async def download_contract_bars(
 
     merged = merge_frames(existing, *chunks)
     if not merged.empty:
-        merged = merged[(merged.index >= pd.Timestamp(start)) & (merged.index <= pd.Timestamp(end))]
+        # A parent futures refresh can intentionally narrow the active request
+        # window.  Existing physical evidence outside that window must survive
+        # an incremental update; otherwise a tail refresh silently amputates
+        # the older side of the next Panama seam.
+        if not latest_only:
+            merged = merged[(merged.index >= pd.Timestamp(start)) & (merged.index <= pd.Timestamp(end))]
         write_parquet_atomic(merged, output_path)
 
     return DownloadResult(
@@ -423,20 +443,30 @@ async def download_physical_futures_panama_bars(
         if req_start >= req_end:
             continue
         contract_path = _physical_contract_bar_path(output_path, contract, request.timeframe, request.what_to_show)
+        try:
+            await download_contract_bars(
+                ib,
+                contract,
+                timeframe=request.timeframe,
+                start=req_start,
+                end=req_end,
+                output_path=contract_path,
+                what_to_show=request.what_to_show,
+                use_rth=request.use_rth,
+                pacer=pacer,
+                dry_run=False,
+                latest_only=latest_only,
+            )
+        except ValueError as exc:
+            if "Could not qualify" not in str(exc):
+                raise
+            logger.warning(
+                "Skipping unavailable physical %s buffer contract %s; critical roll coverage is checked after download",
+                request.symbol,
+                contract.local_symbol,
+            )
+            continue
         contract_paths[contract.yyyymm] = _portable_contract_path(output_path, contract_path)
-        await download_contract_bars(
-            ib,
-            contract,
-            timeframe=request.timeframe,
-            start=req_start,
-            end=req_end,
-            output_path=contract_path,
-            what_to_show=request.what_to_show,
-            use_rth=request.use_rth,
-            pacer=pacer,
-            dry_run=False,
-            latest_only=latest_only,
-        )
         frame = read_parquet_if_exists(contract_path)
         if not frame.empty:
             contract_frames[contract.yyyymm] = frame
@@ -454,10 +484,12 @@ async def download_physical_futures_panama_bars(
             "Supply archived physical-contract evidence or use a retention-covered lane."
         )
 
+    root = root_spec(request.symbol)
     stitched = stitch_panama(
         contract_frames,
         roll_schedule(contracts),
-        tick_size=root_spec(request.symbol).tick_size,
+        tick_size=root.tick_size,
+        min_gap_points=root.panama_min_gap_guard_points,
     )
     if not stitched.empty:
         stitched = stitched[
@@ -700,7 +732,7 @@ async def build_future_contract(ib: Any, spec: FuturesContractSpec):
         includeExpired=True,
     )
     qualified = await ib.qualifyContractsAsync(contract)
-    if not qualified:
+    if not qualified or qualified[0] is None:
         raise ValueError(f"Could not qualify {spec.local_symbol}")
     contract = qualified[0]
     contract.includeExpired = True
@@ -785,17 +817,26 @@ def _plan_windows_with_existing_gaps(
     timeframe: str,
     include_existing_gaps: bool,
     hard_start: datetime,
+    window_overlap: timedelta = timedelta(0),
 ) -> list[DownloadWindow]:
-    windows = plan_bar_windows(start, end, timeframe)
+    windows = plan_bar_windows(start, end, timeframe, overlap=window_overlap)
     if include_existing_gaps and not existing.empty:
         overlap = duration_to_timedelta(CHUNK_DURATIONS.get(timeframe, "1 D"))
         gap_windows: list[DownloadWindow] = []
         for gap in detect_large_gaps(existing, timeframe):
             gap_start = max(hard_start, gap.start - overlap)
             gap_end = min(end, gap.end + overlap)
-            gap_windows.extend(plan_bar_windows(gap_start, gap_end, timeframe))
+            gap_windows.extend(plan_bar_windows(gap_start, gap_end, timeframe, overlap=window_overlap))
         windows = gap_windows + windows
     return _dedupe_windows(windows)
+
+
+def _physical_window_overlap(timeframe: str) -> timedelta:
+    if timeframe == "1m":
+        return timedelta(hours=2)
+    if timeframe in {"5m", "15m", "30m"}:
+        return timedelta(days=1)
+    return timedelta(0)
 
 
 def _dedupe_windows(windows: list[DownloadWindow]) -> list[DownloadWindow]:
@@ -985,7 +1026,7 @@ def _physical_futures_metadata(
     root = root_spec(request.symbol)
     frames = contract_frames or {}
     return {
-        "schema_version": "physical_futures_panama_source_v2",
+        "schema_version": "physical_futures_panama_source_v3",
         "source_kind": SOURCE_KIND_IBKR_PHYSICAL_FUTURES_PANAMA,
         "usable_for_authoritative_validation": True,
         "family": request.family,
@@ -1005,7 +1046,7 @@ def _physical_futures_metadata(
         "calendar_session_policy": "request.use_rth controls IBKR RTH/ETH; sparse ETH bars are valid trades-only bars",
         "contract_calendar_policy": root.calendar_policy,
         "roll_policy": root.roll_policy,
-        "adjustment_policy": "deterministic_backward_panama_v1",
+        "adjustment_policy": "deterministic_backward_panama_v2",
         "contracts": [
             {
                 "yyyymm": contract.yyyymm,

@@ -1,0 +1,27 @@
+{
+  "adjustment_policy": "deterministic_backward_panama_v2",
+  "contract_calendar_policy": "comex_gold_bimonthly_delivery_calendar_v1",
+  "derivation_policy": "root_specific_rth_calendar_day_from_5m_ohlcv_v2",
+  "end": "2026-05-01T00:00:00+00:00",
+  "parent_manifest_path": "backtests\\swing\\data\\authority\\oos_20260502\\GC_5m.manifest.json",
+  "parent_manifest_sha256": "88f1908e7e5a79b257c02f5eda6135add854c43006ba1988d0f8f69d2bff6a05",
+  "parent_path": "backtests\\swing\\data\\authority\\oos_20260502\\GC_5m.parquet",
+  "parent_physical_sha256": "ef09afcfb2b9890c98b262961e5bfe66d77aadb8862662d4d243de239376b150",
+  "parent_rows": 53057,
+  "parent_timeframe": "5m",
+  "physical_sha256": "3fdc193224d81faa2eb388529ecb050a3b9a0af9c2e8128e907155f4d6d92f21",
+  "roll_policy": "comex_gold_roll_five_cme_trading_days_before_delivery_month_v1",
+  "rows": 193,
+  "rth_session_et": {
+    "end_minute_et": 810,
+    "start_minute_et": 500
+  },
+  "schema_version": "swing_futures_context_derived_v3",
+  "source_kind": "derived_from_certified_physical_futures_panama",
+  "start": "2025-08-01T00:00:00+00:00",
+  "symbol": "GC",
+  "timeframe": "1d",
+  "timestamp_convention": "session_date_utc",
+  "updated_at": "2026-08-14T05:05:03.696199+00:00",
+  "usable_for_authoritative_validation": true
+}

@@ -17,6 +17,7 @@ from backtests.shared.data.ibkr.contracts import (
     active_contract,
     generate_quarterly_contracts,
     roll_schedule,
+    root_spec,
 )
 from backtests.shared.data.ibkr.models import ConnectionSettings, DownloadResult
 from backtests.shared.data.ibkr.pacing import RequestPacer
@@ -242,7 +243,13 @@ async def _download_symbol_timeframe(
 
     emit_flat_compatibility = timeframe in {"1m", "1d", "daily"}
     if what_to_show.upper() == "TRADES":
-        continuous = stitch_panama(contract_frames, roll_schedule(ordered), tick_size=ordered[0].tick_size if ordered else 0.25)
+        root_policy = root_spec(symbol)
+        continuous = stitch_panama(
+            contract_frames,
+            roll_schedule(ordered),
+            tick_size=root_policy.tick_size,
+            min_gap_points=root_policy.panama_min_gap_guard_points,
+        )
         if not continuous.empty:
             continuous = add_rth_flag(continuous)
             paths: list[Path] = []

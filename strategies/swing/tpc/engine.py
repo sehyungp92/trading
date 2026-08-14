@@ -29,10 +29,12 @@ from collections.abc import Awaitable, Callable
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
 
+from libs.market_data.live_futures import req_panama_adjusted_historical_data
 from libs.oms.models.intent import Intent, IntentType
 from libs.oms.models.order import OMSOrder, OrderRole, OrderSide, OrderType, RiskContext
 from strategies.core.actions import (
@@ -56,6 +58,7 @@ from strategies.swing._shared.etf_core import (
 )
 from strategies.swing._shared.etf_live_engine import ETFCoreLiveEngine
 from strategies.swing.tpc import STRATEGY_ID
+from strategies.swing.tpc import indicators as tpc_indicators
 from strategies.swing.tpc import instrumentation_adapter as _adapter
 from strategies.swing.tpc.config import TPCSymbolConfig
 from strategies.swing.tpc.core import logic, serializers
@@ -343,6 +346,46 @@ class TPCEngine(ETFCoreLiveEngine):
             )
             return None
 
+    async def _req_context_bars(
+        self,
+        symbol: str,
+        duration: str,
+        bar_size: str,
+        *,
+        request_kind: str,
+        use_rth: bool,
+    ) -> list | None:
+        """Fetch a physical-contract, backward-Panama context history.
+
+        The returned series is for signal analysis only.  Orders continue to
+        route through OMS to the unadjusted active physical contract.
+        """
+        try:
+            bars = await req_panama_adjusted_historical_data(
+                self._ib,
+                SimpleNamespace(symbol=symbol),
+                symbol=symbol,
+                endDateTime="",
+                durationStr=duration,
+                barSizeSetting=bar_size,
+                whatToShow="TRADES",
+                useRTH=use_rth,
+                formatDate=1,
+                request_kind=request_kind,
+                completed_only=True,
+                as_of=self._clock(),
+            )
+            return bars or None
+        except Exception:
+            logger.warning(
+                "TPC futures context fetch failed (%s %s %s)",
+                symbol,
+                duration,
+                bar_size,
+                exc_info=True,
+            )
+            return None
+
     @staticmethod
     def _bars_to_window(bars: list | None) -> BarWindow | None:
         if not bars:
@@ -393,9 +436,9 @@ class TPCEngine(ETFCoreLiveEngine):
         except Exception:
             logger.debug("TPC contract qualification failed for %s", symbol, exc_info=True)
 
-        # Fetch the timeframes the TPC core logic consumes. Daily/4h/1h
-        # windows are hydrated on best-effort; missing windows are tolerated
-        # by the core (None checks throughout logic.py).
+        # Fetch every timeframe consumed by the TPC core.  Live evaluation
+        # fails closed if any required self or cross-asset window is missing;
+        # silently dropping one would not match certified replay behavior.
         bars_15 = await self._req_bars(contract, "10 D", "15 mins", request_kind=request_kind)
         bars_30 = await self._req_bars(contract, "10 D", "30 mins", request_kind=request_kind)
         bars_1h = await self._req_bars(contract, "30 D", "1 hour", request_kind=request_kind)
@@ -411,8 +454,45 @@ class TPCEngine(ETFCoreLiveEngine):
         wind = self._bars_to_window(bars_d)
 
         last_15: BarData | None = win15.last if win15 else None
-        if last_15 is None:
+        if last_15 is None or win30 is None or win1h is None or win4h is None or wind is None:
             return None
+
+        cfg = self._config[symbol]
+        arrays = tpc_indicators.compute_indicators(win15, win30, win1h, win4h, cfg)
+        indicator_values = tpc_indicators.snapshot(
+            arrays,
+            len(win15) - 1,
+            len(win30) - 1,
+            len(win1h) - 1,
+            len(win4h) - 1,
+        )
+
+        if cfg.asset_context_enabled and cfg.asset_context_symbol:
+            context_1h_bars = await self._req_context_bars(
+                cfg.asset_context_symbol,
+                "90 D",
+                "1 hour",
+                request_kind=request_kind,
+                use_rth=False,
+            )
+            context_daily_bars = await self._req_context_bars(
+                cfg.asset_context_symbol,
+                "300 D",
+                "1 day",
+                request_kind=request_kind,
+                use_rth=True,
+            )
+            context_1h = self._bars_to_window(context_1h_bars)
+            context_daily = self._bars_to_window(context_daily_bars)
+            context_values = self._context_indicator_values(context_1h, context_daily)
+            if not context_values:
+                logger.warning(
+                    "TPC skipping %s: required %s futures context is unavailable",
+                    symbol,
+                    cfg.asset_context_symbol,
+                )
+                return None
+            indicator_values.update(context_values)
 
         equity_for_input = max(
             0.0, (self._equity + self._equity_offset) * self._equity_alloc_pct,
@@ -425,10 +505,33 @@ class TPCEngine(ETFCoreLiveEngine):
             bars_1h=win1h,
             bars_4h=win4h,
             bars_daily=wind,
-            indicators={},
+            indicators=indicator_values,
             equity=equity_for_input,
             timestamp=last_15.timestamp,
         )
+
+    @staticmethod
+    def _context_indicator_values(
+        hourly: BarWindow | None,
+        daily: BarWindow | None,
+    ) -> dict[str, float]:
+        if hourly is None or daily is None or len(hourly) < 50 or len(daily) < 50:
+            return {}
+        hourly_close = np.asarray(hourly.closes, dtype=float)
+        daily_close = np.asarray(daily.closes, dtype=float)
+        if len(hourly_close) < 50 or len(daily_close) < 50:
+            return {}
+        return {
+            "context_close_1h": float(hourly_close[-1]),
+            "context_sma20_1h": float(np.mean(hourly_close[-20:])),
+            "context_sma50_1h": float(np.mean(hourly_close[-50:])),
+            "context_ret12_1h": float(hourly_close[-1] / hourly_close[-13] - 1.0),
+            "context_ret24_1h": float(hourly_close[-1] / hourly_close[-25] - 1.0),
+            "context_close_daily": float(daily_close[-1]),
+            "context_sma20_daily": float(np.mean(daily_close[-20:])),
+            "context_sma50_daily": float(np.mean(daily_close[-50:])),
+            "context_ret20_daily": float(daily_close[-1] / daily_close[-21] - 1.0),
+        }
 
     # Action dispatch --------------------------------------------------
 

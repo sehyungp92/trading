@@ -28,7 +28,7 @@ from backtests.shared.auto.plugin_utils import (
 )
 from backtests.shared.auto.types import EndOfRoundArtifacts, Experiment, GateCriterion, ScoredCandidate
 from backtests.swing.analysis.tpc_rejected_bar_forward import build_pb30_rejected_forward_report
-from backtests.swing.data.replay_cache import load_tpc_replay_bundle
+from backtests.swing.data.replay_cache import load_tpc_replay_bundle, tpc_replay_source_artifacts
 
 from .plugin import TPCPlugin, TPCScore
 from .round8_candidates import get_round8_phase_candidates
@@ -144,9 +144,9 @@ class Round8TPCPlugin(TPCPlugin):
 
     def build_provenance(self) -> AutoRunProvenance:
         if self._provenance is None:
-            from backtests.swing.data.futures_context_authority import require_tpc_futures_context_authority
+            from backtests.swing.data.futures_context_authority import require_tpc_futures_context_children
 
-            require_tpc_futures_context_authority(self.data_dir)
+            require_tpc_futures_context_children(self.data_dir)
             repo_root = Path(__file__).resolve().parents[4]
             self._provenance = build_phase_auto_provenance(
                 self.name,
@@ -161,7 +161,7 @@ class Round8TPCPlugin(TPCPlugin):
                     repo_root / "backtests/swing/config_tpc.py",
                     repo_root / "backtests/swing/data/replay_cache.py",
                 ),
-                data_dir=self.data_dir,
+                source_artifacts=tpc_replay_source_artifacts(self.data_dir),
                 selection_context={
                     "start_date": self.start_date,
                     "end_date": self.end_date,

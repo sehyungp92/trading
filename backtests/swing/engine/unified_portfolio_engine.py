@@ -85,6 +85,9 @@ class UnifiedPortfolioData:
     etf_4h_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
     etf_daily_idx_maps: dict[str, np.ndarray] = field(default_factory=dict)
     tpc_replay: dict[str, dict] = field(default_factory=dict)
+    # Fingerprint of ETF bars plus the selected NQ/GC context authority. This
+    # prevents source-trade cache reuse across equally shaped data revisions.
+    tpc_source_fingerprint: str = ""
 
 
 def _coerce_index_bound(
@@ -205,8 +208,11 @@ def load_unified_data(config: UnifiedBacktestConfig) -> UnifiedPortfolioData:
             symbols=tuple(etf_syms),
             start_date=config.start_date,
             end_date=config.end_date,
+            context_data_dir=config.tpc_context_data_dir,
+            require_context_authority=config.tpc_require_context_authority,
         )
         portfolio.tpc_replay = dict(tpc_bundle.data)
+        portfolio.tpc_source_fingerprint = tpc_bundle.cache_source_fingerprint
         for sym, payload in portfolio.tpc_replay.items():
             portfolio.etf_15m[sym] = payload["bars_15m"]
             portfolio.etf_30m[sym] = payload.get("bars_30m")
@@ -858,6 +864,7 @@ def _tpc_cache_key(data: UnifiedPortfolioData, config: UnifiedBacktestConfig) ->
         "symbols": list(config.tpc_symbols),
         "warmup_15m": config.warmup_15m,
         "overrides": config.tpc_param_overrides,
+        "source_fingerprint": data.tpc_source_fingerprint,
         "spans": spans,
     }
     return json.dumps(payload, sort_keys=True, default=str)

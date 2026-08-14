@@ -261,6 +261,21 @@ def _evaluate_setup_lane(
                 direction=direction, grade=grade, daily_room_min_r=cfg.daily_room_min_r)
         return None
     asset_context_score, asset_context_details = context.score_asset_context(bar_input, direction, cfg)
+    context_votes = asset_context_details.get("votes", {})
+    daily_context_vote = context_votes.get("context_daily")
+    if cfg.asset_context_block_opposed_daily and daily_context_vote is not None and daily_context_vote < 0.0:
+        _reject(
+            rejection_collector,
+            symbol=symbol,
+            lane=lane_name,
+            blocked_by="asset_context_daily_opposed",
+            block_reason="completed daily asset context opposes the trade direction",
+            direction=direction,
+            grade=grade,
+            asset_context_score=float(asset_context_score),
+            asset_context_daily_vote=float(daily_context_vote),
+        )
+        return None
     if asset_context_score < cfg.asset_context_min_score:
         _reject(rejection_collector, symbol=symbol, lane=lane_name, blocked_by="asset_context_score_low",
                 block_reason=f"asset_context_score={asset_context_score:.3f} < min={cfg.asset_context_min_score}",

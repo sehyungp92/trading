@@ -145,7 +145,13 @@ async def req_panama_adjusted_historical_data(
     rolls = roll_schedule(contracts)
     if _missing_critical_roll_data(contract_frames, rolls, start.date(), end.date()):
         return []
-    stitched = stitch_panama(contract_frames, rolls, tick_size=root_spec(root).tick_size)
+    root_policy = root_spec(root)
+    stitched = stitch_panama(
+        contract_frames,
+        rolls,
+        tick_size=root_policy.tick_size,
+        min_gap_points=root_policy.panama_min_gap_guard_points,
+    )
     if stitched.empty:
         return []
 

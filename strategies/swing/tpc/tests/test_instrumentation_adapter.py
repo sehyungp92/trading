@@ -302,6 +302,7 @@ _BLOCK_REASONS: tuple[str, ...] = (
     "entry_plan_invalid",
     "stop_validation_failed",
     "daily_room_insufficient",
+    "asset_context_daily_opposed",
     "asset_context_score_low",
     "type_c_requires_a_plus",
     "min_short_score",

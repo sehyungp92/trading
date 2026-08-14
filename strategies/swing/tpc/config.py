@@ -159,6 +159,10 @@ class TPCSymbolConfig:
 
     asset_context_enabled: bool = False
     asset_context_min_score: float = -1.0
+    # A negative completed daily context vote is qualitatively different from
+    # a neutral vote. Strategies may opt into a hard veto instead of allowing
+    # an opposing daily trend to be cancelled out by shorter-timeframe votes.
+    asset_context_block_opposed_daily: bool = False
     asset_context_symbol: str = ""
 
     primary_windows_et: tuple[tuple[int, int, int, int], ...] = ()
@@ -195,6 +199,7 @@ SYMBOL_CONFIGS: dict[str, TPCSymbolConfig] = {
         addon_min_score=12,
         asset_context_enabled=True,
         asset_context_min_score=-0.1,
+        asset_context_block_opposed_daily=True,
         shorts_require_a_plus=True,
         asset_context_symbol="NQ",
         primary_exchange="NASDAQ",

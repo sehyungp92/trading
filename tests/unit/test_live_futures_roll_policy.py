@@ -227,7 +227,7 @@ async def test_live_historical_helper_fetches_physical_contracts_and_panama_stit
 
     assert [request[0] for request in session.requests] == ["202603", "202606"]
     assert len(bars) == 3
-    assert bars[0].close == 90.0
+    assert bars[0].close == 110.0
     assert bars[1].close == 110.5
 
 
